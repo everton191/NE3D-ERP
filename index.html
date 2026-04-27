@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>ERP 3D</title>
+
+<meta name="theme-color" content="#00a86b">
+<meta name="application-name" content="ERP 3D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ERP 3D">
+
+<link rel="stylesheet" href="style.css?v=users4">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+</head>
+
+<body>
+
+<header>
+  <h1 id="appTitle">ERP 3D</h1>
+</header>
+
+<div id="app"></div>
+
+<button class="floating-menu-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+
+<nav class="menu" aria-label="Navegação principal">
+  <button class="menu-button" data-tela="dashboard" onclick="trocarTela('dashboard')" title="Início">
+    <span>📊</span><small>Início</small>
+  </button>
+  <button class="menu-button" data-tela="pedido" onclick="trocarTela('pedido')" title="Novo pedido">
+    <span>➕</span><small>Pedido</small>
+  </button>
+  <button class="menu-button" data-tela="estoque" onclick="trocarTela('estoque')" title="Estoque">
+    <span>📦</span><small>Estoque</small>
+  </button>
+  <button class="menu-button" data-tela="pedidos" onclick="trocarTela('pedidos')" title="Pedidos">
+    <span>📋</span><small>Lista</small>
+  </button>
+  <button class="menu-button" data-tela="caixa" onclick="trocarTela('caixa')" title="Caixa">
+    <span>💰</span><small>Caixa</small>
+  </button>
+  <button class="menu-button" data-tela="config" onclick="trocarTela('config')" title="Configurações">
+    <span>⚙️</span><small>Config</small>
+  </button>
+  <button class="menu-button" data-tela="personalizacao" onclick="trocarTela('personalizacao')" title="Personalizar">
+    <span>🎨</span><small>Tema</small>
+  </button>
+  <button class="menu-button" data-tela="assinatura" onclick="trocarTela('assinatura')" title="Plano">
+    <span>💳</span><small>Plano</small>
+  </button>
+  <button class="menu-button" data-tela="admin" onclick="trocarTela('admin')" title="Admin">
+    <span>🔐</span><small>Admin</small>
+  </button>
+</nav>
+
+<div id="popup"></div>
+
+<script src="app.js?v=users4"></script>
+<script>
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
+
+</body>
+</html>
