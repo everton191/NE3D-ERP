@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.27-users4";
+const APP_VERSION = "2026.04.27-users14";
 
 const telas = {
   dashboard: "Início",
@@ -13,7 +13,8 @@ const telas = {
   config: "Configurações",
   personalizacao: "Personalizar",
   assinatura: "Plano",
-  admin: "Admin"
+  admin: "Admin",
+  feedback: "Bugs e sugestões"
 };
 
 let telaAtual = "dashboard";
@@ -23,15 +24,20 @@ let itensPedido = [];
 let clientePedido = "";
 let pedidoEditando = null;
 let modoMobileAtual = window.innerWidth < 768;
+let resizeTimer = null;
 let adminLogado = sessionStorage.getItem("adminLogado") === "sim";
 let usuarioAtualEmail = sessionStorage.getItem("usuarioAtualEmail") || "";
 let twoFactorPending = null;
 let updateTimer = null;
+let dashboardWindowAction = null;
+let calcWidgetAction = null;
 
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
 let pedidos = carregarLista("pedidos");
 let historico = carregarLista("historico");
+let diagnostics = carregarLista("diagnostics");
+let sugestoes = carregarLista("sugestoes");
 let syncConfig = carregarObjeto("syncConfig", {
   cloudUrl: "",
   token: "",
@@ -52,6 +58,12 @@ let appConfig = carregarObjeto("appConfig", {
   businessName: "Minha empresa 3D",
   whatsappNumber: "",
   documentFooter: "Obrigado pela preferência.",
+  pixKey: "",
+  pixReceiverName: "",
+  pixCity: "",
+  pixDescription: "Pedido ERP 3D",
+  brandLogoDataUrl: "",
+  brandWatermarkEnabled: true,
   theme: "dark",
   accentColor: "#00a86b",
   compactMode: false,
@@ -63,6 +75,7 @@ let appConfig = carregarObjeto("appConfig", {
   uiScale: 100,
   desktopCardMinWidth: 320,
   desktopMaxWidth: 1480,
+  sidebarCollapsed: false,
   twoFactorEnabled: false,
   twoFactorWhatsapp: "",
   twoFactorScope: "admin",
@@ -71,7 +84,16 @@ let appConfig = carregarObjeto("appConfig", {
   updateCheckInterval: 30,
   updateLastCheck: "",
   updateStatus: "Aguardando",
+  telemetryEnabled: true,
+  calculatorWidget: {
+    open: false,
+    x: null,
+    y: null,
+    w: 430,
+    h: 620
+  },
   dashboardLayout: {
+    mode: "tiles",
     order: ["dashboard", "pedido", "estoque", "pedidos", "caixa"],
     sizes: {
       dashboard: "m",
@@ -79,7 +101,8 @@ let appConfig = carregarObjeto("appConfig", {
       estoque: "m",
       pedidos: "m",
       caixa: "m"
-    }
+    },
+    windows: {}
   }
 });
 let billingConfig = carregarObjeto("billingConfig", {
@@ -135,6 +158,21 @@ const dashboardDefaultSizes = {
   estoque: "m",
   pedidos: "m",
   caixa: "m"
+};
+
+const dashboardSizeConfig = {
+  s: { span: 3, minHeight: 260 },
+  m: { span: 4, minHeight: 320 },
+  l: { span: 6, minHeight: 390 },
+  xl: { span: 12, minHeight: 500 }
+};
+
+const dashboardDefaultWindows = {
+  dashboard: { x: 0, y: 0, w: 380, h: 365, z: 1 },
+  pedido: { x: 400, y: 0, w: 430, h: 430, z: 2 },
+  estoque: { x: 850, y: 0, w: 390, h: 300, z: 3 },
+  pedidos: { x: 0, y: 395, w: 400, h: 260, z: 4 },
+  caixa: { x: 420, y: 455, w: 430, h: 455, z: 5 }
 };
 
 function carregarLista(chave) {
@@ -211,6 +249,8 @@ function salvarDados() {
   localStorage.setItem("caixa", JSON.stringify(caixa));
   localStorage.setItem("pedidos", JSON.stringify(pedidos));
   localStorage.setItem("historico", JSON.stringify(historico));
+  localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
+  localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
   localStorage.setItem("usuarios", JSON.stringify(usuarios));
   localStorage.setItem("syncConfig", JSON.stringify(syncConfig));
   localStorage.setItem("appConfig", JSON.stringify(appConfig));
@@ -228,6 +268,61 @@ function registrarHistorico(acao, detalhes = "") {
 
   historico = historico.slice(0, 250);
   localStorage.setItem("historico", JSON.stringify(historico));
+}
+
+function registrarDiagnostico(tipo, mensagem, detalhes = "") {
+  if (appConfig.telemetryEnabled === false) return;
+
+  diagnostics.unshift({
+    id: Date.now(),
+    tipo: String(tipo || "info"),
+    mensagem: String(mensagem || "").slice(0, 220),
+    detalhes: String(detalhes || "").slice(0, 900),
+    tela: telaAtual,
+    versao: APP_VERSION,
+    data: new Date().toISOString(),
+    dispositivo: syncConfig.deviceName || deviceId
+  });
+
+  diagnostics = diagnostics.slice(0, 150);
+  localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
+}
+
+function normalizarTextoSugestao(texto) {
+  return String(texto || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function registrarSugestaoLocal(texto, origem = "cliente") {
+  const titulo = String(texto || "").trim();
+  const chave = normalizarTextoSugestao(titulo);
+  if (chave.length < 4) return false;
+
+  const existente = sugestoes.find((item) => item.chave === chave);
+  if (existente) {
+    existente.votos = (Number(existente.votos) || 1) + 1;
+    existente.atualizadoEm = new Date().toISOString();
+    existente.origem = origem;
+  } else {
+    sugestoes.unshift({
+      id: Date.now(),
+      titulo,
+      chave,
+      votos: 1,
+      origem,
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString()
+    });
+  }
+
+  sugestoes.sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Date.parse(b.atualizadoEm || 0) - Date.parse(a.atualizadoEm || 0));
+  sugestoes = sugestoes.slice(0, 100);
+  localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
+  return true;
 }
 
 function normalizarEmail(email) {
@@ -555,14 +650,14 @@ function detectarPerfilTela() {
 
 function calcularEscalaInterface() {
   if (appConfig.screenFit === "manual") {
-    return Math.min(1.25, Math.max(0.85, (Number(appConfig.uiScale) || 100) / 100));
+    return Math.min(1.4, Math.max(0.7, (Number(appConfig.uiScale) || 100) / 100));
   }
 
   const largura = window.innerWidth || 1024;
-  if (largura < 360) return 0.88;
-  if (largura < 420) return 0.93;
+  if (largura < 360) return 0.82;
+  if (largura < 420) return 0.88;
   if (largura < 768) return 1;
-  if (largura < 1100) return 0.96;
+  if (largura < 1100) return 0.92;
   if (largura > 1700) return 1.05;
   return 1;
 }
@@ -574,8 +669,18 @@ function aplicarPersonalizacao() {
   const usarClaro = temaClaro || temaAuto;
   const cor = appConfig.accentColor || "#00a86b";
   const escala = calcularEscalaInterface();
-  const cardMin = Math.min(520, Math.max(260, Number(appConfig.desktopCardMinWidth) || 320));
-  const maxWidth = Math.min(2200, Math.max(980, Number(appConfig.desktopMaxWidth) || 1480));
+  const largura = window.innerWidth || 1024;
+  const cardMinManual = Math.min(560, Math.max(220, Number(appConfig.desktopCardMinWidth) || 320));
+  const cardMinAuto = largura < 900 ? 260 : largura < 1200 ? 280 : largura < 1500 ? 300 : 320;
+  const cardMin = appConfig.screenFit === "manual" ? cardMinManual : cardMinAuto;
+  const maxWidthManual = Math.min(3200, Math.max(900, Number(appConfig.desktopMaxWidth) || 1480));
+  const maxWidthAuto = largura >= 1600
+    ? Math.min(3200, Math.round(largura * 0.98))
+    : largura >= 1200
+      ? Math.round(largura * 0.96)
+      : Math.max(900, largura - 24);
+  const maxWidth = appConfig.screenFit === "manual" ? maxWidthManual : maxWidthAuto;
+  const controlHeight = Math.max(30, Math.round(40 * escala));
 
   root.style.setProperty("--primary", cor);
   root.style.setProperty("--primary-2", cor);
@@ -586,11 +691,30 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--line", usarClaro ? "#d8dee6" : "#2d333b");
   root.style.setProperty("--text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--muted", usarClaro ? "#5f6b7a" : "#a9b1bd");
-  root.style.setProperty("--base-font-size", `${Math.round(15 * escala)}px`);
-  root.style.setProperty("--control-height", `${Math.round(40 * escala)}px`);
-  root.style.setProperty("--card-padding", `${Math.max(9, Math.round(12 * escala))}px`);
-  root.style.setProperty("--gap", `${Math.max(8, Math.round(12 * escala))}px`);
-  root.style.setProperty("--radius", `${Math.max(8, Math.round(10 * escala))}px`);
+  root.style.setProperty("--input-bg", usarClaro ? "#ffffff" : "#111419");
+  root.style.setProperty("--input-text", usarClaro ? "#111827" : "#f5f7fb");
+  root.style.setProperty("--input-placeholder", usarClaro ? "#7a8797" : "#8f98a6");
+  root.style.setProperty("--result-bg", usarClaro ? "#ffffff" : "#111419");
+  root.style.setProperty("--ui-scale", escala.toFixed(2));
+  root.style.setProperty("--base-font-size", `${Math.max(11, Math.round(15 * escala))}px`);
+  root.style.setProperty("--font-xs", `${Math.max(8, Math.round(12 * escala))}px`);
+  root.style.setProperty("--font-sm", `${Math.max(9, Math.round(13 * escala))}px`);
+  root.style.setProperty("--font-md", `${Math.max(10, Math.round(15 * escala))}px`);
+  root.style.setProperty("--font-lg", `${Math.max(11, Math.round(16 * escala))}px`);
+  root.style.setProperty("--font-xl", `${Math.max(14, Math.round(20 * escala))}px`);
+  root.style.setProperty("--control-height", `${controlHeight}px`);
+  root.style.setProperty("--icon-button-size", `${controlHeight}px`);
+  root.style.setProperty("--floating-button-size", `${Math.max(36, Math.round(48 * escala))}px`);
+  root.style.setProperty("--menu-button-height", `${Math.max(42, Math.round(56 * escala))}px`);
+  root.style.setProperty("--mobile-header-height", `${Math.max(46, Math.round(58 * escala))}px`);
+  root.style.setProperty("--metric-min-height", `${Math.max(48, Math.round(68 * escala))}px`);
+  root.style.setProperty("--summary-metric-min-height", `${Math.max(46, Math.round(64 * escala))}px`);
+  root.style.setProperty("--quick-action-min-height", `${Math.max(52, Math.round(74 * escala))}px`);
+  root.style.setProperty("--popup-nav-min-height", `${Math.max(52, Math.round(72 * escala))}px`);
+  root.style.setProperty("--toolbar-button-size", `${Math.max(24, Math.round(30 * escala))}px`);
+  root.style.setProperty("--card-padding", `${Math.max(7, Math.round(12 * escala))}px`);
+  root.style.setProperty("--gap", `${Math.max(6, Math.round(12 * escala))}px`);
+  root.style.setProperty("--radius", `${Math.max(6, Math.round(10 * escala))}px`);
   root.style.setProperty("--desktop-card-min", `${cardMin}px`);
   root.style.setProperty("--desktop-max-width", `${maxWidth}px`);
   root.style.setProperty("--desktop-sidebar-width", `${Math.round(230 * Math.min(1.05, Math.max(0.92, escala)))}px`);
@@ -653,11 +777,14 @@ function renderApp() {
   document.body.classList.toggle("mobile-mode", mobile);
   app.innerHTML = mobile ? renderMobile() : renderDesktop();
   atualizarMenu();
+  ajustarJanelasDashboardAoWorkspace(false);
+  renderCalculadoraFlutuante();
 }
 
 function renderDesktop() {
+  const classeMenu = appConfig.sidebarCollapsed ? " sidebar-collapsed" : "";
   return `
-    <div class="desktop-shell">
+    <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
       <main class="desktop-main">
         ${renderDesktopConteudo()}
@@ -696,7 +823,35 @@ function getDashboardLayout() {
     if (!["s", "m", "l", "xl"].includes(sizes[id])) sizes[id] = dashboardDefaultSizes[id] || "m";
   });
 
-  return { order, sizes };
+  const windows = { ...dashboardDefaultWindows, ...(layout.windows || {}) };
+  ids.forEach((id) => {
+    windows[id] = normalizarJanelaDashboard(windows[id] || dashboardDefaultWindows[id]);
+  });
+
+  return {
+    mode: layout.mode === "free" ? "free" : "tiles",
+    order,
+    sizes,
+    windows
+  };
+}
+
+function normalizarTamanhoDashboard(tamanho) {
+  return dashboardSizeConfig[tamanho] ? tamanho : "m";
+}
+
+function normalizarJanelaDashboard(janela = {}) {
+  return {
+    x: Math.max(0, Number(janela.x) || 0),
+    y: Math.max(0, Number(janela.y) || 0),
+    w: Math.min(2400, Math.max(280, Number(janela.w) || 380)),
+    h: Math.min(1600, Math.max(230, Number(janela.h) || 320)),
+    z: Math.max(1, Number(janela.z) || 1)
+  };
+}
+
+function getMaiorZDashboard(layout = getDashboardLayout()) {
+  return Object.values(layout.windows || {}).reduce((maior, janela) => Math.max(maior, Number(janela.z) || 1), 1);
 }
 
 function salvarDashboardLayout(layout) {
@@ -706,10 +861,51 @@ function salvarDashboardLayout(layout) {
 
 function renderDashboardOrganizavel() {
   const layout = getDashboardLayout();
+  if (layout.mode === "tiles") {
+    return renderDashboardJanelas(layout);
+  }
+
   return `
     <div class="desktop-grid dashboard-grid">
       ${layout.order.map((id) => renderDashboardWidget(id, layout.sizes[id])).join("")}
     </div>
+  `;
+}
+
+function renderDashboardJanelas(layout = getDashboardLayout()) {
+  const workspaceHeight = Math.max(420, Math.round((window.innerHeight || 900) - 105));
+
+  return `
+    <div class="window-workspace tile-workspace" style="min-height:${workspaceHeight}px">
+      ${layout.order.map((id) => renderDashboardJanela(id, layout.windows[id], layout.sizes[id])).join("")}
+    </div>
+  `;
+}
+
+function renderDashboardJanela(id, janela, tamanho = "m") {
+  const item = dashboardWidgets.find((widget) => widget.id === id);
+  const pos = normalizarJanelaDashboard(janela || dashboardDefaultWindows[id]);
+  const tamanhoNormalizado = normalizarTamanhoDashboard(tamanho);
+  const altura = Math.max(dashboardSizeConfig[tamanhoNormalizado].minHeight, pos.h || 320);
+  if (!item) return "";
+
+  return `
+    <section class="dashboard-window window-size-${tamanhoNormalizado}" data-widget="${id}" ondragover="permitirSoltarWidget(event)" ondragleave="sairSoltarWidget(event)" ondrop="soltarWidget(event, '${id}')" style="--window-min-height:${altura}px">
+      <div class="window-titlebar" draggable="true" ondragstart="iniciarArrasteWidget(event, '${id}')" title="Arrastar para reorganizar">
+        <div class="window-title">
+          <span>${item.icone}</span>
+          <strong>${item.titulo}</strong>
+        </div>
+        <div class="window-actions">
+          <button class="icon-button" onclick="alterarTamanhoWidget('${id}', -1)" title="Diminuir janela">−</button>
+          <button class="icon-button" onclick="alterarTamanhoWidget('${id}', 1)" title="Aumentar janela">+</button>
+        </div>
+      </div>
+      <div class="window-content">
+        ${renderDashboardWidgetConteudo(id)}
+      </div>
+      <div class="window-resize-handle" onpointerdown="iniciarRedimensionarJanelaDashboard(event, '${id}')" title="Redimensionar"></div>
+    </section>
   `;
 }
 
@@ -743,6 +939,217 @@ function renderDashboardWidgetConteudo(id) {
     default:
       return renderDashboard();
   }
+}
+
+function getWorkspaceDashboard() {
+  return document.querySelector(".window-workspace");
+}
+
+function ajustarJanelasDashboardAoWorkspace(salvar = false) {
+  const workspace = getWorkspaceDashboard();
+  if (!workspace) return;
+  if (workspace.classList.contains("tile-workspace")) return;
+
+  const larguraWorkspace = Math.max(300, workspace.clientWidth || workspace.getBoundingClientRect().width || 0);
+  const layout = getDashboardLayout();
+  let alterou = false;
+
+  layout.order.forEach((id) => {
+    const atual = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+    const larguraMaxima = Math.max(280, larguraWorkspace - 8);
+    const largura = Math.min(atual.w, larguraMaxima);
+    const xMaximo = Math.max(0, larguraWorkspace - largura - 8);
+    const x = Math.min(Math.max(0, atual.x), xMaximo);
+    const proxima = { ...atual, x, w: largura };
+
+    if (proxima.x !== atual.x || proxima.w !== atual.w) {
+      alterou = true;
+      layout.windows[id] = proxima;
+      const el = document.querySelector(`.dashboard-window[data-widget="${id}"]`);
+      if (el) {
+        el.style.left = `${proxima.x}px`;
+        el.style.width = `${proxima.w}px`;
+      }
+    }
+  });
+
+  if (!alterou) return;
+  appConfig.dashboardLayout = layout;
+  if (salvar) salvarDados();
+}
+
+function atualizarJanelaDashboard(id, valores) {
+  const layout = getDashboardLayout();
+  const atual = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+  const proxima = normalizarJanelaDashboard({ ...atual, ...valores });
+  layout.windows[id] = proxima;
+  appConfig.dashboardLayout = layout;
+
+  const el = document.querySelector(`.dashboard-window[data-widget="${id}"]`);
+  if (el) {
+    el.style.left = `${proxima.x}px`;
+    el.style.top = `${proxima.y}px`;
+    el.style.width = `${proxima.w}px`;
+    el.style.height = `${proxima.h}px`;
+    el.style.zIndex = proxima.z;
+  }
+}
+
+function atualizarJanelaDashboardEncaixada(id, tamanho, altura) {
+  const layout = getDashboardLayout();
+  const tamanhoNormalizado = normalizarTamanhoDashboard(tamanho);
+  const atual = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+  const alturaMinima = dashboardSizeConfig[tamanhoNormalizado].minHeight;
+  const proxima = normalizarJanelaDashboard({
+    ...atual,
+    h: Math.min(1200, Math.max(alturaMinima, altura || atual.h))
+  });
+
+  layout.sizes[id] = tamanhoNormalizado;
+  layout.windows[id] = proxima;
+  appConfig.dashboardLayout = layout;
+
+  const el = document.querySelector(`.dashboard-window[data-widget="${id}"]`);
+  if (el) {
+    Object.keys(dashboardSizeConfig).forEach((classe) => el.classList.remove(`window-size-${classe}`));
+    el.classList.add(`window-size-${tamanhoNormalizado}`);
+    el.style.setProperty("--window-min-height", `${Math.max(alturaMinima, proxima.h)}px`);
+  }
+}
+
+function trazerJanelaFrente(id) {
+  const layout = getDashboardLayout();
+  const janela = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+  janela.z = getMaiorZDashboard(layout) + 1;
+  salvarDashboardLayout({
+    ...layout,
+    windows: {
+      ...layout.windows,
+      [id]: janela
+    }
+  });
+  renderApp();
+}
+
+function iniciarMoverJanelaDashboard(event, id) {
+  if (event.target.closest("button, input, select, textarea, a")) return;
+  const workspace = getWorkspaceDashboard();
+  const janelaEl = document.querySelector(`.dashboard-window[data-widget="${id}"]`);
+  if (!workspace || !janelaEl) return;
+  if (workspace.classList.contains("tile-workspace")) return;
+
+  const layout = getDashboardLayout();
+  const janela = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+  janela.z = getMaiorZDashboard(layout) + 1;
+  layout.windows[id] = janela;
+  appConfig.dashboardLayout = layout;
+
+  dashboardWindowAction = {
+    tipo: "move",
+    id,
+    startX: event.clientX,
+    startY: event.clientY,
+    original: janela,
+    workspaceRect: workspace.getBoundingClientRect()
+  };
+
+  janelaEl.setPointerCapture?.(event.pointerId);
+  janelaEl.classList.add("is-moving");
+  event.preventDefault();
+}
+
+function iniciarRedimensionarJanelaDashboard(event, id) {
+  const workspace = getWorkspaceDashboard();
+  const janelaEl = document.querySelector(`.dashboard-window[data-widget="${id}"]`);
+  if (!workspace || !janelaEl) return;
+
+  const layout = getDashboardLayout();
+  const janela = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+  janela.z = getMaiorZDashboard(layout) + 1;
+  layout.windows[id] = janela;
+  appConfig.dashboardLayout = layout;
+  const modoEncaixado = workspace.classList.contains("tile-workspace");
+
+  dashboardWindowAction = {
+    tipo: modoEncaixado ? "tileResize" : "resize",
+    id,
+    startX: event.clientX,
+    startY: event.clientY,
+    startSize: normalizarTamanhoDashboard(layout.sizes[id]),
+    original: janela,
+    workspaceRect: workspace.getBoundingClientRect()
+  };
+
+  janelaEl.setPointerCapture?.(event.pointerId);
+  janelaEl.classList.add("is-resizing");
+  event.preventDefault();
+}
+
+function moverJanelaDashboard(event) {
+  if (!dashboardWindowAction) return;
+
+  const { tipo, id, startX, startY, startSize, original, workspaceRect } = dashboardWindowAction;
+  const dx = event.clientX - startX;
+  const dy = event.clientY - startY;
+  const maxX = Math.max(0, workspaceRect.width - original.w - 8);
+
+  if (tipo === "tileResize") {
+    const ciclo = ["s", "m", "l", "xl"];
+    const indiceAtual = Math.max(0, ciclo.indexOf(startSize || "m"));
+    const passos = Math.round(dx / 150);
+    const indiceNovo = Math.min(ciclo.length - 1, Math.max(0, indiceAtual + passos));
+    atualizarJanelaDashboardEncaixada(id, ciclo[indiceNovo], original.h + dy);
+    event.preventDefault();
+    return;
+  }
+
+  if (tipo === "move") {
+    atualizarJanelaDashboard(id, {
+      x: Math.min(maxX, Math.max(0, original.x + dx)),
+      y: Math.max(0, original.y + dy),
+      z: original.z
+    });
+    event.preventDefault();
+    return;
+  }
+
+  const maxW = Math.max(300, workspaceRect.width - original.x - 8);
+  atualizarJanelaDashboard(id, {
+    w: Math.min(maxW, Math.max(280, original.w + dx)),
+    h: Math.min(1600, Math.max(230, original.h + dy)),
+    z: original.z
+  });
+  event.preventDefault();
+}
+
+function finalizarJanelaDashboard() {
+  if (!dashboardWindowAction) return;
+
+  document.querySelectorAll(".dashboard-window.is-moving, .dashboard-window.is-resizing").forEach((el) => {
+    el.classList.remove("is-moving", "is-resizing");
+  });
+  salvarDados();
+  dashboardWindowAction = null;
+}
+
+function centralizarJanelaDashboard(id) {
+  const workspace = getWorkspaceDashboard();
+  const layout = getDashboardLayout();
+  const janela = normalizarJanelaDashboard(layout.windows[id] || dashboardDefaultWindows[id]);
+  const largura = workspace?.clientWidth || window.innerWidth || 1200;
+  const x = Math.max(0, Math.round((largura - janela.w) / 2));
+  const y = Math.max(0, Math.round((window.scrollY || 0) - (workspace?.getBoundingClientRect().top || 0) + 30));
+  janela.x = x;
+  janela.y = y;
+  janela.z = getMaiorZDashboard(layout) + 1;
+  salvarDashboardLayout({
+    ...layout,
+    windows: {
+      ...layout.windows,
+      [id]: janela
+    }
+  });
+  renderApp();
 }
 
 function iniciarArrasteWidget(event, id) {
@@ -785,11 +1192,13 @@ function moverWidget(id, direcao) {
   renderApp();
 }
 
-function alterarTamanhoWidget(id) {
+function alterarTamanhoWidget(id, direcao = 1) {
   const layout = getDashboardLayout();
   const ciclo = ["s", "m", "l", "xl"];
   const atual = layout.sizes[id] || "m";
-  const proximo = ciclo[(ciclo.indexOf(atual) + 1) % ciclo.length] || "m";
+  const indiceAtual = Math.max(0, ciclo.indexOf(atual));
+  const proximoIndice = Math.min(ciclo.length - 1, Math.max(0, indiceAtual + direcao));
+  const proximo = ciclo[proximoIndice] || "m";
   salvarDashboardLayout({
     ...layout,
     sizes: {
@@ -802,8 +1211,10 @@ function alterarTamanhoWidget(id) {
 
 function restaurarLayoutDashboard() {
   appConfig.dashboardLayout = {
+    mode: "tiles",
     order: dashboardWidgets.map((item) => item.id),
-    sizes: { ...dashboardDefaultSizes }
+    sizes: { ...dashboardDefaultSizes },
+    windows: JSON.parse(JSON.stringify(dashboardDefaultWindows))
   };
   salvarDados();
   fecharPopup();
@@ -811,6 +1222,7 @@ function restaurarLayoutDashboard() {
 }
 
 function renderMenuLateral() {
+  const recolhido = !!appConfig.sidebarCollapsed;
   const principais = [
     { tela: "dashboard", icone: "📊", texto: "Resumo" },
     { tela: "pedido", icone: "➕", texto: "Novo pedido" },
@@ -823,14 +1235,18 @@ function renderMenuLateral() {
     { tela: "config", icone: "☁️", texto: "Backup" },
     { tela: "personalizacao", icone: "🎨", texto: "Personalizar" },
     { tela: "assinatura", icone: "💳", texto: "Planos" },
+    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões" },
     { tela: "admin", icone: "🔐", texto: "Admin" }
   ];
 
   return `
-    <aside class="side-menu" aria-label="Menu lateral">
+    <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
       <div class="side-brand">
-        <strong>${escaparHtml(appConfig.appName || "ERP 3D")}</strong>
-        <span>${escaparHtml(getPlanoAtual().nome)}</span>
+        <button class="icon-button side-menu-toggle" onclick="alternarMenuLateral()" title="${recolhido ? "Mostrar menu" : "Esconder menu"}">☰</button>
+        <div class="side-brand-text">
+          <strong>${escaparHtml(appConfig.appName || "ERP 3D")}</strong>
+          <span>${escaparHtml(getPlanoAtual().nome)}</span>
+        </div>
       </div>
       <div class="side-section">
         <span>Principal</span>
@@ -846,11 +1262,23 @@ function renderMenuLateral() {
 
 function renderBotaoLateral(item) {
   return `
-    <button class="side-nav-button" data-tela="${item.tela}" onclick="trocarTela('${item.tela}')">
+    <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
       <span>${item.icone}</span>
       <strong>${item.texto}</strong>
     </button>
   `;
+}
+
+function alternarMenuLateral() {
+  appConfig.sidebarCollapsed = !appConfig.sidebarCollapsed;
+  salvarDados();
+  fecharPopup();
+  renderApp();
+}
+
+function abrirTelaMenuLateral(tela) {
+  fecharPopup();
+  trocarTela(tela);
 }
 
 function getItensMenuPopup() {
@@ -863,41 +1291,42 @@ function getItensMenuPopup() {
     { tela: "config", icone: "☁️", texto: "Backup", grupo: "Configurações" },
     { tela: "personalizacao", icone: "🎨", texto: "Personalizar", grupo: "Configurações" },
     { tela: "assinatura", icone: "💳", texto: "Planos", grupo: "Configurações" },
+    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões", grupo: "Configurações" },
     { tela: "admin", icone: "🔐", texto: "Admin", grupo: "Configurações" }
   ];
 }
 
 function abrirMenuPopup() {
+  if (!isMobile()) {
+    alternarMenuLateral();
+    return;
+  }
+
   const popup = document.getElementById("popup");
   if (!popup) return;
 
   const itens = getItensMenuPopup();
   const grupos = ["Principal", "Configurações"];
   popup.innerHTML = `
-    <div class="popup" role="dialog" aria-modal="true" aria-label="Menu do aplicativo">
-      <div class="popup-box menu-popup-box">
-        <div class="modal-header">
-          <h2>☰ Menu</h2>
-          <button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button>
+    <div class="side-drawer-backdrop" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" onclick="fecharPopup()">
+      <aside class="side-menu side-drawer" onclick="event.stopPropagation()">
+        <div class="side-brand">
+          <button class="icon-button side-menu-toggle" onclick="fecharPopup()" title="Fechar">✕</button>
+          <div class="side-brand-text">
+            <strong>${escaparHtml(appConfig.appName || "ERP 3D")}</strong>
+            <span>${escaparHtml(getPlanoAtual().nome)}</span>
+          </div>
         </div>
         ${grupos.map((grupo) => `
-          <div class="menu-popup-section">
+          <div class="side-section">
             <span>${grupo}</span>
-            <div class="menu-popup-grid">
-              ${itens.filter((item) => item.grupo === grupo).map((item) => `
-                <button class="popup-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuPopup('${item.tela}')" title="${escaparAttr(item.texto)}">
-                  <span>${item.icone}</span>
-                  <strong>${item.texto}</strong>
-                </button>
-              `).join("")}
-            </div>
+            ${itens.filter((item) => item.grupo === grupo).map(renderBotaoLateral).join("")}
           </div>
         `).join("")}
-        <div class="actions">
+        <div class="actions single">
           <button class="btn secondary" onclick="abrirCalculadora()">🧮 Calculadora</button>
-          <button class="btn ghost" onclick="restaurarLayoutDashboard()">↺ Restaurar blocos</button>
         </div>
-      </div>
+      </aside>
     </div>
   `;
   atualizarMenu();
@@ -951,6 +1380,8 @@ function renderTela(tela) {
       return renderPersonalizacao();
     case "assinatura":
       return renderAssinatura();
+    case "feedback":
+      return renderFeedback();
     case "admin":
       return renderAdmin();
     default:
@@ -1626,6 +2057,7 @@ function renderUsuariosAdmin() {
 function renderPersonalizacao() {
   const corAtual = appConfig.accentColor || "#00a86b";
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
+  const acessoMarca = temAcessoCompleto();
   return `
     <section class="card">
       <div class="card-header">
@@ -1649,6 +2081,44 @@ function renderPersonalizacao() {
         <span>Rodapé do PDF</span>
         <input id="documentFooterConfig" value="${escaparAttr(appConfig.documentFooter)}" placeholder="Obrigado pela preferência.">
       </label>
+
+      <div class="danger-zone">
+        <h2 class="section-title">PDF, Pix e marca</h2>
+        <p class="muted">Esses dados aparecem no PDF do pedido. A marca d'água e o logotipo ficam liberados no plano completo.</p>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Chave Pix</span>
+            <input id="pixKeyConfig" value="${escaparAttr(appConfig.pixKey || "")}" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória">
+          </label>
+          <label class="field">
+            <span>Nome do recebedor Pix</span>
+            <input id="pixReceiverNameConfig" maxlength="25" value="${escaparAttr(appConfig.pixReceiverName || "")}" placeholder="Nome ou empresa">
+          </label>
+          <label class="field">
+            <span>Cidade do Pix</span>
+            <input id="pixCityConfig" maxlength="15" value="${escaparAttr(appConfig.pixCity || "")}" placeholder="Cidade">
+          </label>
+          <label class="field">
+            <span>Descrição Pix</span>
+            <input id="pixDescriptionConfig" maxlength="40" value="${escaparAttr(appConfig.pixDescription || "Pedido ERP 3D")}">
+          </label>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Logo da marca</span>
+            <input id="brandLogoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+          </label>
+          <div class="metric">
+            <span>Marca no PDF</span>
+            <strong>${acessoMarca ? (appConfig.brandLogoDataUrl ? "Logo salva" : "Plano completo") : "Bloqueado"}</strong>
+          </div>
+        </div>
+        <label class="checkbox-row">
+          <input id="brandWatermarkEnabledConfig" type="checkbox" ${appConfig.brandWatermarkEnabled !== false ? "checked" : ""} ${acessoMarca ? "" : "disabled"}>
+          <span>Usar logo como marca d'água no PDF</span>
+        </label>
+        ${appConfig.brandLogoDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerLogoMarca()">Remover logo salva</button>` : ""}
+      </div>
 
       <div class="sync-grid">
         <label class="field">
@@ -1703,16 +2173,19 @@ function renderPersonalizacao() {
           </div>
           <label class="field">
             <span>Escala manual (%)</span>
-            <input id="uiScaleConfig" type="number" min="85" max="125" step="5" value="${Number(appConfig.uiScale) || 100}">
+            <input id="uiScaleConfig" type="number" min="70" max="140" step="5" value="${Number(appConfig.uiScale) || 100}">
           </label>
           <label class="field">
             <span>Largura mínima dos blocos</span>
-            <input id="desktopCardMinWidthConfig" type="number" min="260" max="520" step="10" value="${Number(appConfig.desktopCardMinWidth) || 320}">
+            <input id="desktopCardMinWidthConfig" type="number" min="220" max="560" step="10" value="${Number(appConfig.desktopCardMinWidth) || 320}">
           </label>
           <label class="field">
             <span>Largura máxima no desktop</span>
-            <input id="desktopMaxWidthConfig" type="number" min="980" max="2200" step="20" value="${Number(appConfig.desktopMaxWidth) || 1480}">
+            <input id="desktopMaxWidthConfig" type="number" min="900" max="3200" step="20" value="${Number(appConfig.desktopMaxWidth) || 1480}">
           </label>
+        </div>
+        <div class="actions single">
+          <button class="btn ghost" onclick="restaurarLayoutDashboard()">Restaurar janelas da tela principal</button>
         </div>
       </div>
 
@@ -1799,6 +2272,104 @@ function renderAssinatura() {
   `;
 }
 
+function renderFeedback() {
+  const sugestoesOrdenadas = [...sugestoes].sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Date.parse(b.atualizadoEm || 0) - Date.parse(a.atualizadoEm || 0));
+  const listaSugestoes = sugestoesOrdenadas.slice(0, 20).map((item, indice) => `
+    <div class="suggestion-item">
+      <div>
+        <strong>${indice + 1}. ${escaparHtml(item.titulo)}</strong>
+        <span class="muted">${Number(item.votos) || 1} ocorrência(s) • ${new Date(item.atualizadoEm || item.criadoEm).toLocaleString("pt-BR")}</span>
+      </div>
+      <button class="icon-button" onclick="votarSugestao('${escaparAttr(item.id)}')" title="Repetir sugestão">+</button>
+    </div>
+  `).join("") || `<p class="empty">Nenhuma sugestão registrada ainda.</p>`;
+
+  const listaErros = diagnostics.slice(0, 25).map((item) => `
+    <div class="history-item">
+      <strong>${escaparHtml(item.tipo)} • ${escaparHtml(item.mensagem)}</strong>
+      <span class="muted">${new Date(item.data).toLocaleString("pt-BR")} • Tela: ${escaparHtml(item.tela || "-")} • ${escaparHtml(item.versao || "")}</span>
+      ${item.detalhes ? `<span class="muted">${escaparHtml(item.detalhes)}</span>` : ""}
+    </div>
+  `).join("") || `<p class="empty">Nenhum erro local registrado.</p>`;
+
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>💡 Bugs e sugestões</h2>
+        <span class="status-badge">${appConfig.telemetryEnabled === false ? "Pausado" : "Local"}</span>
+      </div>
+      <p class="muted">Registros ficam salvos neste aparelho e entram no backup. Nada é enviado para internet automaticamente.</p>
+
+      <label class="checkbox-row">
+        <input id="telemetryEnabledConfig" type="checkbox" ${appConfig.telemetryEnabled !== false ? "checked" : ""}>
+        <span>Registrar erros locais do funcionamento</span>
+      </label>
+      <button class="btn ghost" onclick="salvarFeedbackConfig()">Salvar configuração</button>
+
+      <div class="danger-zone">
+        <h2 class="section-title">Nova sugestão</h2>
+        <label class="field">
+          <span>Descreva a melhoria</span>
+          <input id="novaSugestaoTexto" placeholder="Ex.: adicionar relatório mensal de vendas">
+        </label>
+        <button class="btn secondary" onclick="adicionarSugestao()">Adicionar sugestão</button>
+      </div>
+
+      <h2 class="section-title">Sugestões mais pedidas</h2>
+      <div class="history-list">
+        ${listaSugestoes}
+      </div>
+
+      <div class="danger-zone">
+        <h2 class="section-title">Erros recentes</h2>
+        <div class="actions">
+          <button class="btn ghost" onclick="registrarDiagnosticoManual()">Registrar teste</button>
+          <button class="btn danger" onclick="limparDiagnosticos()">Limpar erros</button>
+        </div>
+        <div class="history-list">
+          ${listaErros}
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function salvarFeedbackConfig() {
+  appConfig.telemetryEnabled = !!document.getElementById("telemetryEnabledConfig")?.checked;
+  salvarDados();
+  registrarHistorico("Diagnóstico", appConfig.telemetryEnabled ? "Registro local ativado" : "Registro local pausado");
+  renderApp();
+}
+
+function adicionarSugestao() {
+  const texto = document.getElementById("novaSugestaoTexto")?.value || "";
+  if (!registrarSugestaoLocal(texto, "manual")) {
+    alert("Digite uma sugestão com pelo menos 4 caracteres.");
+    return;
+  }
+  registrarHistorico("Sugestão", texto.trim());
+  renderApp();
+}
+
+function votarSugestao(id) {
+  const item = sugestoes.find((sugestao) => String(sugestao.id) === String(id));
+  if (!item) return;
+  registrarSugestaoLocal(item.titulo, "repetida");
+  renderApp();
+}
+
+function limparDiagnosticos() {
+  if (!confirm("Limpar os registros locais de erros?")) return;
+  diagnostics = [];
+  salvarDados();
+  renderApp();
+}
+
+function registrarDiagnosticoManual() {
+  registrarDiagnostico("teste", "Registro manual criado", "Usado para confirmar se o painel está salvando os dados.");
+  renderApp();
+}
+
 function iniciarTesteGratis() {
   if (billingConfig.ownerMode) {
     alert("Modo dono já tem acesso completo.");
@@ -1852,6 +2423,11 @@ function lerPersonalizacaoCampos() {
     businessName: (document.getElementById("businessNameConfig")?.value || "Minha empresa 3D").trim(),
     whatsappNumber: (document.getElementById("whatsappNumberConfig")?.value || "").replace(/\D/g, ""),
     documentFooter: (document.getElementById("documentFooterConfig")?.value || "").trim(),
+    pixKey: (document.getElementById("pixKeyConfig")?.value || "").trim(),
+    pixReceiverName: (document.getElementById("pixReceiverNameConfig")?.value || "").trim(),
+    pixCity: (document.getElementById("pixCityConfig")?.value || "").trim(),
+    pixDescription: (document.getElementById("pixDescriptionConfig")?.value || "Pedido ERP 3D").trim(),
+    brandWatermarkEnabled: document.getElementById("brandWatermarkEnabledConfig") ? !!document.getElementById("brandWatermarkEnabledConfig")?.checked : appConfig.brandWatermarkEnabled !== false,
     theme: document.getElementById("themeConfig")?.value || "dark",
     accentColor: document.getElementById("accentColorConfig")?.value || "#00a86b",
     compactMode: !!document.getElementById("compactModeConfig")?.checked,
@@ -1860,19 +2436,59 @@ function lerPersonalizacaoCampos() {
     defaultEnergy: Math.max(0, parseFloat(document.getElementById("defaultEnergyConfig")?.value) || 0.85),
     defaultFilamentCost: Math.max(0, parseFloat(document.getElementById("defaultFilamentCostConfig")?.value) || 150),
     screenFit: document.getElementById("screenFitConfig")?.value === "manual" ? "manual" : "auto",
-    uiScale: Math.min(125, Math.max(85, parseFloat(document.getElementById("uiScaleConfig")?.value) || 100)),
-    desktopCardMinWidth: Math.min(520, Math.max(260, parseFloat(document.getElementById("desktopCardMinWidthConfig")?.value) || 320)),
-    desktopMaxWidth: Math.min(2200, Math.max(980, parseFloat(document.getElementById("desktopMaxWidthConfig")?.value) || 1480))
+    uiScale: Math.min(140, Math.max(70, parseFloat(document.getElementById("uiScaleConfig")?.value) || 100)),
+    desktopCardMinWidth: Math.min(560, Math.max(220, parseFloat(document.getElementById("desktopCardMinWidthConfig")?.value) || 320)),
+    desktopMaxWidth: Math.min(3200, Math.max(900, parseFloat(document.getElementById("desktopMaxWidthConfig")?.value) || 1480))
   };
 }
 
-function salvarPersonalizacao() {
+function lerLogoMarcaSelecionada() {
+  const arquivo = document.getElementById("brandLogoFileConfig")?.files?.[0];
+  if (!arquivo || !temAcessoCompleto()) return Promise.resolve(appConfig.brandLogoDataUrl || "");
+
+  if (!arquivo.type.startsWith("image/")) {
+    alert("Escolha uma imagem válida para a logo.");
+    return Promise.resolve(appConfig.brandLogoDataUrl || "");
+  }
+
+  if (!["image/png", "image/jpeg"].includes(arquivo.type)) {
+    alert("Use uma logo em PNG ou JPG para garantir compatibilidade com o PDF.");
+    return Promise.resolve(appConfig.brandLogoDataUrl || "");
+  }
+
+  if (arquivo.size > 700 * 1024) {
+    alert("Use uma logo menor que 700 KB para não pesar o backup.");
+    return Promise.resolve(appConfig.brandLogoDataUrl || "");
+  }
+
+  return new Promise((resolve) => {
+    const leitor = new FileReader();
+    leitor.onload = () => resolve(String(leitor.result || ""));
+    leitor.onerror = () => {
+      alert("Não foi possível carregar a logo.");
+      resolve(appConfig.brandLogoDataUrl || "");
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+}
+
+async function salvarPersonalizacao() {
+  const logo = await lerLogoMarcaSelecionada();
   appConfig = {
     ...appConfig,
-    ...lerPersonalizacaoCampos()
+    ...lerPersonalizacaoCampos(),
+    brandLogoDataUrl: logo
   };
   salvarDados();
   registrarHistorico("Personalização", "Preferências do app atualizadas");
+  renderApp();
+}
+
+function removerLogoMarca() {
+  if (!confirm("Remover a logo salva do PDF?")) return;
+  appConfig.brandLogoDataUrl = "";
+  salvarDados();
+  registrarHistorico("Personalização", "Logo removida do PDF");
   renderApp();
 }
 
@@ -1883,6 +2499,12 @@ function restaurarPersonalizacaoPadrao() {
     businessName: "Minha empresa 3D",
     whatsappNumber: "",
     documentFooter: "Obrigado pela preferência.",
+    pixKey: "",
+    pixReceiverName: "",
+    pixCity: "",
+    pixDescription: "Pedido ERP 3D",
+    brandLogoDataUrl: "",
+    brandWatermarkEnabled: true,
     theme: "dark",
     accentColor: "#00a86b",
     compactMode: false,
@@ -1894,6 +2516,7 @@ function restaurarPersonalizacaoPadrao() {
     uiScale: 100,
     desktopCardMinWidth: 320,
     desktopMaxWidth: 1480,
+    sidebarCollapsed: false,
     twoFactorEnabled: appConfig.twoFactorEnabled,
     twoFactorWhatsapp: appConfig.twoFactorWhatsapp || "",
     twoFactorScope: appConfig.twoFactorScope || "admin",
@@ -1902,9 +2525,16 @@ function restaurarPersonalizacaoPadrao() {
     updateCheckInterval: Number(appConfig.updateCheckInterval) || 30,
     updateLastCheck: appConfig.updateLastCheck || "",
     updateStatus: appConfig.updateStatus || "Aguardando",
+    telemetryEnabled: appConfig.telemetryEnabled !== false,
+    calculatorWidget: normalizarCalculadoraWidget({
+      ...(appConfig.calculatorWidget || {}),
+      open: false
+    }),
     dashboardLayout: appConfig.dashboardLayout || {
+      mode: "tiles",
       order: dashboardWidgets.map((item) => item.id),
-      sizes: { ...dashboardDefaultSizes }
+      sizes: { ...dashboardDefaultSizes },
+      windows: JSON.parse(JSON.stringify(dashboardDefaultWindows))
     }
   };
   salvarDados();
@@ -2218,6 +2848,8 @@ function criarSnapshotBackup() {
       caixa,
       pedidos,
       historico,
+      diagnostics,
+      sugestoes,
       usuarios: normalizarUsuarios(usuarios),
       appConfig,
       billingConfig,
@@ -2246,6 +2878,8 @@ function normalizarBackup(dados) {
     caixa: Array.isArray(origem.caixa) ? origem.caixa : [],
     pedidos: Array.isArray(origem.pedidos) ? origem.pedidos : [],
     historico: Array.isArray(origem.historico) ? origem.historico : [],
+    diagnostics: Array.isArray(origem.diagnostics) ? origem.diagnostics : [],
+    sugestoes: Array.isArray(origem.sugestoes) ? origem.sugestoes : [],
     usuarios: normalizarUsuarios(origem.usuarios),
     appConfig: origem.appConfig && typeof origem.appConfig === "object" ? origem.appConfig : {},
     billingConfig: origem.billingConfig && typeof origem.billingConfig === "object" ? origem.billingConfig : {},
@@ -2261,12 +2895,16 @@ function aplicarBackup(dados, modo = "substituir") {
     caixa = mesclarListas(caixa, backup.caixa);
     pedidos = mesclarListas(pedidos, backup.pedidos);
     historico = mesclarListas(historico, backup.historico).slice(0, 250);
+    diagnostics = mesclarListas(diagnostics, backup.diagnostics).slice(0, 150);
+    sugestoes = mesclarListas(sugestoes, backup.sugestoes).slice(0, 100);
     usuarios = mesclarUsuarios(usuarios, backup.usuarios);
   } else {
     estoque = backup.estoque;
     caixa = backup.caixa;
     pedidos = backup.pedidos;
     historico = backup.historico.slice(0, 250);
+    diagnostics = backup.diagnostics.slice(0, 150);
+    sugestoes = backup.sugestoes.slice(0, 100);
     usuarios = backup.usuarios.length ? normalizarUsuarios(backup.usuarios) : normalizarUsuarios(usuarios);
   }
 
@@ -2998,75 +3636,233 @@ function removerMovimentoCaixa(i) {
   renderApp();
 }
 
-function abrirCalculadora() {
-  ultimoCalculo = null;
-  const popup = document.getElementById("popup");
+function normalizarCalculadoraWidget(widget = {}) {
+  const larguraTela = window.innerWidth || 1024;
+  const alturaTela = window.innerHeight || 768;
+  const margem = isMobile() ? 8 : 16;
+  const recuoInferior = isMobile() ? 92 : 18;
+  const larguraMaxima = Math.max(280, larguraTela - margem * 2);
+  const alturaMaxima = Math.max(320, alturaTela - margem * 2);
+  const larguraMinima = Math.min(320, larguraMaxima);
+  const alturaMinima = Math.min(360, alturaMaxima);
+  const larguraPadrao = isMobile() ? Math.min(420, larguraMaxima) : 430;
+  const alturaPadrao = isMobile() ? Math.min(620, alturaMaxima) : 620;
+  const w = Math.min(larguraMaxima, Math.max(larguraMinima, Number(widget.w) || larguraPadrao));
+  const h = Math.min(alturaMaxima, Math.max(alturaMinima, Number(widget.h) || alturaPadrao));
+  const temX = widget.x !== undefined && widget.x !== null && widget.x !== "";
+  const temY = widget.y !== undefined && widget.y !== null && widget.y !== "";
+  const xBase = temX ? Number(widget.x) || 0 : larguraTela - w - margem;
+  const yBase = temY ? Number(widget.y) || 0 : alturaTela - h - recuoInferior;
+  const xMaximo = Math.max(margem, larguraTela - w - margem);
+  const yMaximo = Math.max(margem, alturaTela - h - margem);
 
-  popup.innerHTML = `
-    <div class="popup" role="dialog" aria-modal="true" aria-label="Calculadora de impressão">
-      <div class="popup-box">
-        <div class="modal-header">
-          <h2>🧮 Calculadora</h2>
-          <button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button>
+  return {
+    open: widget.open === true,
+    x: Math.min(xMaximo, Math.max(margem, xBase)),
+    y: Math.min(yMaximo, Math.max(margem, yBase)),
+    w,
+    h
+  };
+}
+
+function salvarCalculadoraWidget(valores = {}, salvar = false) {
+  const atual = normalizarCalculadoraWidget(appConfig.calculatorWidget || {});
+  const proxima = normalizarCalculadoraWidget({ ...atual, ...valores });
+  appConfig.calculatorWidget = proxima;
+
+  const janela = document.querySelector(".calc-widget-window");
+  if (janela) {
+    janela.style.left = `${proxima.x}px`;
+    janela.style.top = `${proxima.y}px`;
+    janela.style.width = `${proxima.w}px`;
+    janela.style.height = `${proxima.h}px`;
+  }
+
+  if (salvar) salvarDados();
+  return proxima;
+}
+
+function renderCalculadoraConteudo() {
+  return `
+    <label class="field">
+      <span>Impressora</span>
+      <select id="printer"></select>
+    </label>
+
+    <div class="calc-grid">
+      <label class="field">
+        <span>Peso em gramas</span>
+        <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80">
+      </label>
+      <label class="field">
+        <span>Filamento R$/kg</span>
+        <input id="filamento" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
+      </label>
+      <label class="field">
+        <span>Tempo em horas</span>
+        <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5">
+      </label>
+      <label class="field">
+        <span>Quantidade</span>
+        <input id="quantidade" type="number" min="1" step="1" value="1">
+      </label>
+      <label class="field">
+        <span>Energia R$/kWh</span>
+        <input id="energia" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}">
+      </label>
+      <label class="field">
+        <span>Consumo W</span>
+        <input id="consumo" type="number" min="0" step="1">
+      </label>
+      <label class="field">
+        <span>Custo hora</span>
+        <input id="custoHora" type="number" min="0" step="0.01">
+      </label>
+      <label class="field">
+        <span>Margem %</span>
+        <input id="margem" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}">
+      </label>
+    </div>
+
+    <label class="field">
+      <span>Nome do item</span>
+      <input id="nomeItem" placeholder="Ex.: suporte personalizado">
+    </label>
+
+    <button class="btn secondary" onclick="calcular()">Calcular</button>
+    <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
+
+    <div class="actions">
+      <button class="btn" onclick="adicionarItem()">Adicionar ao pedido</button>
+      <button class="btn ghost" onclick="minimizarCalculadora()">Minimizar</button>
+    </div>
+  `;
+}
+
+function renderCalculadoraFlutuante() {
+  const root = document.getElementById("floatingCalculator");
+  if (!root) return;
+
+  const widget = normalizarCalculadoraWidget(appConfig.calculatorWidget || {});
+  appConfig.calculatorWidget = widget;
+
+  if (!widget.open) {
+    root.innerHTML = `
+      <button class="calc-float-ball" onclick="abrirCalculadora()" title="Abrir calculadora">
+        <span>🧮</span>
+      </button>
+    `;
+    return;
+  }
+
+  root.innerHTML = `
+    <section class="calc-widget-window" style="left:${widget.x}px;top:${widget.y}px;width:${widget.w}px;height:${widget.h}px" role="dialog" aria-label="Calculadora flutuante">
+      <div class="calc-widget-titlebar" onpointerdown="iniciarMoverCalculadora(event)">
+        <div class="window-title">
+          <span>🧮</span>
+          <strong>Calculadora</strong>
         </div>
-
-        <label class="field">
-          <span>Impressora</span>
-          <select id="printer"></select>
-        </label>
-
-        <div class="calc-grid">
-          <label class="field">
-            <span>Peso em gramas</span>
-            <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80">
-          </label>
-          <label class="field">
-            <span>Filamento R$/kg</span>
-            <input id="filamento" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
-          </label>
-          <label class="field">
-            <span>Tempo em horas</span>
-            <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5">
-          </label>
-          <label class="field">
-            <span>Quantidade</span>
-            <input id="quantidade" type="number" min="1" step="1" value="1">
-          </label>
-          <label class="field">
-            <span>Energia R$/kWh</span>
-            <input id="energia" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}">
-          </label>
-          <label class="field">
-            <span>Consumo W</span>
-            <input id="consumo" type="number" min="0" step="1">
-          </label>
-          <label class="field">
-            <span>Custo hora</span>
-            <input id="custoHora" type="number" min="0" step="0.01">
-          </label>
-          <label class="field">
-            <span>Margem %</span>
-            <input id="margem" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}">
-          </label>
-        </div>
-
-        <label class="field">
-          <span>Nome do item</span>
-          <input id="nomeItem" placeholder="Ex.: suporte personalizado">
-        </label>
-
-        <button class="btn secondary" onclick="calcular()">Calcular</button>
-        <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
-
-        <div class="actions">
-          <button class="btn" onclick="adicionarItem()">Adicionar ao pedido</button>
-          <button class="btn ghost" onclick="fecharPopup()">Fechar</button>
+        <div class="window-actions">
+          <button class="icon-button" onclick="minimizarCalculadora()" title="Minimizar">−</button>
+          <button class="icon-button" onclick="minimizarCalculadora()" title="Voltar para bolinha">✕</button>
         </div>
       </div>
-    </div>
+      <div class="calc-widget-content">
+        ${renderCalculadoraConteudo()}
+      </div>
+      <div class="calc-widget-resize" onpointerdown="iniciarRedimensionarCalculadora(event)" title="Redimensionar"></div>
+    </section>
   `;
 
   preencherImpressoras();
+}
+
+function abrirCalculadora() {
+  ultimoCalculo = null;
+  fecharPopup();
+  salvarCalculadoraWidget({ open: true }, true);
+  renderCalculadoraFlutuante();
+}
+
+function minimizarCalculadora() {
+  salvarCalculadoraWidget({ open: false }, true);
+  renderCalculadoraFlutuante();
+}
+
+function iniciarMoverCalculadora(event) {
+  if (event.target.closest("button, input, select, textarea, a")) return;
+  const janela = document.querySelector(".calc-widget-window");
+  if (!janela) return;
+
+  calcWidgetAction = {
+    tipo: "move",
+    startX: event.clientX,
+    startY: event.clientY,
+    original: normalizarCalculadoraWidget(appConfig.calculatorWidget || {})
+  };
+
+  janela.setPointerCapture?.(event.pointerId);
+  janela.classList.add("is-moving");
+  event.preventDefault();
+}
+
+function iniciarRedimensionarCalculadora(event) {
+  const janela = document.querySelector(".calc-widget-window");
+  if (!janela) return;
+
+  calcWidgetAction = {
+    tipo: "resize",
+    startX: event.clientX,
+    startY: event.clientY,
+    original: normalizarCalculadoraWidget(appConfig.calculatorWidget || {})
+  };
+
+  janela.setPointerCapture?.(event.pointerId);
+  janela.classList.add("is-resizing");
+  event.preventDefault();
+}
+
+function moverCalculadora(event) {
+  if (!calcWidgetAction) return;
+
+  const { tipo, startX, startY, original } = calcWidgetAction;
+  const dx = event.clientX - startX;
+  const dy = event.clientY - startY;
+
+  if (tipo === "move") {
+    salvarCalculadoraWidget({
+      x: original.x + dx,
+      y: original.y + dy,
+      w: original.w,
+      h: original.h,
+      open: true
+    });
+  } else {
+    salvarCalculadoraWidget({
+      x: original.x,
+      y: original.y,
+      w: original.w + dx,
+      h: original.h + dy,
+      open: true
+    });
+  }
+
+  event.preventDefault();
+}
+
+function finalizarCalculadora() {
+  if (!calcWidgetAction) return;
+
+  document.querySelectorAll(".calc-widget-window.is-moving, .calc-widget-window.is-resizing").forEach((el) => {
+    el.classList.remove("is-moving", "is-resizing");
+  });
+  salvarDados();
+  calcWidgetAction = null;
+}
+
+function manterCalculadoraVisivel(salvar = false) {
+  if (!appConfig.calculatorWidget) return;
+  salvarCalculadoraWidget({}, salvar);
 }
 
 function preencherImpressoras() {
@@ -3137,7 +3933,7 @@ function adicionarItem() {
     total: ultimoCalculo.preco * qtd
   });
 
-  fecharPopup();
+  minimizarCalculadora();
   trocarTela("pedido");
 }
 
@@ -3152,6 +3948,108 @@ function dadosPedidoAtual() {
   const cliente = (document.getElementById("clienteNome")?.value || clientePedido || "Sem cliente").trim();
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
   return { cliente, total };
+}
+
+function removerAcentos(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizarCampoPix(valor, limite) {
+  return removerAcentos(valor)
+    .replace(/[^\w\s.@+\-]/g, "")
+    .trim()
+    .toUpperCase()
+    .slice(0, limite);
+}
+
+function campoEmv(id, valor) {
+  const texto = String(valor ?? "");
+  return String(id).padStart(2, "0") + String(texto.length).padStart(2, "0") + texto;
+}
+
+function crc16Pix(payload) {
+  let crc = 0xffff;
+  for (let i = 0; i < payload.length; i++) {
+    crc ^= payload.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+      crc &= 0xffff;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+}
+
+function gerarPayloadPix(valor, cliente = "") {
+  const chave = String(appConfig.pixKey || "").trim();
+  if (!chave) return "";
+
+  const recebedor = normalizarCampoPix(appConfig.pixReceiverName || appConfig.businessName || appConfig.appName || "ERP 3D", 25) || "ERP 3D";
+  const cidade = normalizarCampoPix(appConfig.pixCity || "FORTALEZA", 15) || "FORTALEZA";
+  const descricao = normalizarCampoPix(appConfig.pixDescription || cliente || "PEDIDO ERP 3D", 40);
+  const txid = normalizarCampoPix(("PED" + Date.now().toString(36)).toUpperCase(), 25);
+  const merchantAccount = campoEmv("00", "br.gov.bcb.pix") + campoEmv("01", chave) + (descricao ? campoEmv("02", descricao) : "");
+  const adicionais = campoEmv("05", txid);
+  const base = [
+    campoEmv("00", "01"),
+    campoEmv("26", merchantAccount),
+    campoEmv("52", "0000"),
+    campoEmv("53", "986"),
+    campoEmv("54", (Number(valor) || 0).toFixed(2)),
+    campoEmv("58", "BR"),
+    campoEmv("59", recebedor),
+    campoEmv("60", cidade),
+    campoEmv("62", adicionais)
+  ].join("") + "6304";
+  return base + crc16Pix(base);
+}
+
+function gerarQrPixDataUrl(payload) {
+  try {
+    if (!payload || typeof qrcode !== "function") return "";
+    const qr = qrcode(0, "M");
+    qr.addData(payload);
+    qr.make();
+    return qr.createDataURL(4, 2);
+  } catch (erro) {
+    registrarDiagnostico("pdf", "QR Pix não gerado", erro.message);
+    return "";
+  }
+}
+
+function tipoImagemDataUrl(dataUrl) {
+  if (String(dataUrl || "").includes("image/jpeg")) return "JPEG";
+  return "PNG";
+}
+
+function hexParaRgb(hex) {
+  const limpo = String(hex || "").replace("#", "");
+  const valor = limpo.length === 3
+    ? limpo.split("").map((letra) => letra + letra).join("")
+    : limpo.padEnd(6, "0").slice(0, 6);
+  return [
+    parseInt(valor.slice(0, 2), 16) || 0,
+    parseInt(valor.slice(2, 4), 16) || 168,
+    parseInt(valor.slice(4, 6), 16) || 107
+  ];
+}
+
+function adicionarMarcaPdf(doc, largura, altura) {
+  if (!temAcessoCompleto() || !appConfig.brandLogoDataUrl) return;
+
+  try {
+    const tipo = tipoImagemDataUrl(appConfig.brandLogoDataUrl);
+    if (appConfig.brandWatermarkEnabled !== false && doc.GState && doc.setGState) {
+      doc.setGState(new doc.GState({ opacity: 0.08 }));
+      doc.addImage(appConfig.brandLogoDataUrl, tipo, largura / 2 - 36, altura / 2 - 36, 72, 72);
+      doc.setGState(new doc.GState({ opacity: 1 }));
+    }
+  } catch (erro) {
+    try {
+      doc.addImage(appConfig.brandLogoDataUrl, tipoImagemDataUrl(appConfig.brandLogoDataUrl), largura / 2 - 28, altura / 2 - 28, 56, 56);
+    } catch (_) {}
+  }
 }
 
 function gerarPDF() {
@@ -3170,26 +4068,114 @@ function gerarPDF() {
   const { cliente, total } = dadosPedidoAtual();
   const doc = new jsPDF();
   const empresa = appConfig.businessName || appConfig.appName || "ERP 3D";
+  const largura = doc.internal.pageSize.getWidth();
+  const altura = doc.internal.pageSize.getHeight();
+  const margem = 14;
+  const cor = appConfig.accentColor || "#00a86b";
+  const corRgb = hexParaRgb(cor);
+  const data = new Date().toLocaleDateString("pt-BR");
+  const pedidoId = pedidoEditando?.id || Date.now();
 
+  adicionarMarcaPdf(doc, largura, altura);
+
+  doc.setFillColor(corRgb[0], corRgb[1], corRgb[2]);
+  doc.rect(0, 0, largura, 32, "F");
+  doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
-  doc.text(empresa + " - Pedido", 14, 18);
-  doc.setFontSize(12);
-  doc.text("Cliente: " + cliente, 14, 30);
+  doc.text(empresa, margem, 14);
+  doc.setFontSize(10);
+  doc.text("Pedido #" + pedidoId, margem, 23);
+  doc.text(data, largura - margem, 23, { align: "right" });
 
-  let y = 44;
+  if (temAcessoCompleto() && appConfig.brandLogoDataUrl) {
+    try {
+      doc.addImage(appConfig.brandLogoDataUrl, tipoImagemDataUrl(appConfig.brandLogoDataUrl), largura - 32, 6, 18, 18);
+    } catch (erro) {
+      registrarDiagnostico("pdf", "Logo não aplicada no cabeçalho", erro.message);
+    }
+  }
+
+  doc.setTextColor(17, 24, 39);
+  doc.setFillColor(245, 247, 251);
+  doc.roundedRect(margem, 40, largura - margem * 2, 26, 3, 3, "F");
+  doc.setFontSize(11);
+  doc.text("Cliente", margem + 4, 50);
+  doc.setFontSize(13);
+  doc.text(cliente || "Sem cliente", margem + 4, 60);
+  doc.setFontSize(10);
+  doc.text("Emitido por " + empresa, largura - margem - 4, 50, { align: "right" });
+  doc.text(appConfig.whatsappNumber ? "WhatsApp: " + appConfig.whatsappNumber : "Documento comercial", largura - margem - 4, 60, { align: "right" });
+
+  let y = 78;
+  doc.setFillColor(31, 41, 55);
+  doc.roundedRect(margem, y - 7, largura - margem * 2, 10, 2, 2, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.text("Item", margem + 4, y);
+  doc.text("Qtd", 118, y, { align: "right" });
+  doc.text("Unit.", 145, y, { align: "right" });
+  doc.text("Total", largura - margem - 4, y, { align: "right" });
+  y += 10;
+
+  doc.setTextColor(17, 24, 39);
   itensPedido.forEach((item, i) => {
-    doc.text(`${i + 1}. ${item.nome}`, 14, y);
-    doc.text(`Qtd: ${item.qtd}`, 118, y);
-    doc.text(`Total: ${formatarMoeda(item.total)}`, 150, y);
-    y += 9;
+    if (y > 250) {
+      doc.addPage();
+      adicionarMarcaPdf(doc, largura, altura);
+      y = 24;
+    }
+
+    const nomeLinhas = doc.splitTextToSize(`${i + 1}. ${item.nome}`, 86);
+    const linhaAltura = Math.max(12, nomeLinhas.length * 5 + 5);
+    doc.setDrawColor(220, 226, 235);
+    doc.line(margem, y + linhaAltura - 4, largura - margem, y + linhaAltura - 4);
+    doc.setFontSize(10);
+    doc.text(nomeLinhas, margem + 4, y);
+    doc.text(String(item.qtd), 118, y, { align: "right" });
+    doc.text(formatarMoeda(item.valor || 0), 145, y, { align: "right" });
+    doc.text(formatarMoeda(item.total || 0), largura - margem - 4, y, { align: "right" });
+    y += linhaAltura;
   });
 
-  doc.setFontSize(14);
-  doc.text("Total: " + formatarMoeda(total), 14, y + 8);
-  if (appConfig.documentFooter) {
-    doc.setFontSize(10);
-    doc.text(appConfig.documentFooter, 14, y + 18);
+  y += 4;
+  doc.setFillColor(245, 247, 251);
+  doc.roundedRect(largura - 78, y, 64, 18, 3, 3, "F");
+  doc.setFontSize(10);
+  doc.text("Total do pedido", largura - 46, y + 7, { align: "center" });
+  doc.setFontSize(15);
+  doc.text(formatarMoeda(total), largura - 46, y + 15, { align: "center" });
+  y += 28;
+
+  const payloadPix = gerarPayloadPix(total, cliente);
+  if (payloadPix) {
+    if (y > 218) {
+      doc.addPage();
+      adicionarMarcaPdf(doc, largura, altura);
+      y = 24;
+    }
+
+    const qrData = gerarQrPixDataUrl(payloadPix);
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margem, y, largura - margem * 2, qrData ? 48 : 34, 3, 3, "F");
+    doc.setTextColor(17, 24, 39);
+    doc.setFontSize(12);
+    doc.text("Pagamento via Pix", margem + 5, y + 9);
+    doc.setFontSize(8);
+    const linhasPix = doc.splitTextToSize(payloadPix, qrData ? largura - 76 : largura - margem * 2 - 10);
+    doc.text(linhasPix.slice(0, 5), margem + 5, y + 18);
+    if (qrData) {
+      doc.addImage(qrData, "PNG", largura - margem - 38, y + 5, 32, 32);
+    }
+    y += qrData ? 56 : 42;
   }
+
+  if (appConfig.documentFooter) {
+    doc.setTextColor(95, 107, 122);
+    doc.setFontSize(10);
+    doc.text(doc.splitTextToSize(appConfig.documentFooter, largura - margem * 2), margem, Math.min(y + 6, altura - 18));
+  }
+
+  registrarHistorico("PDF", "PDF gerado para " + cliente);
   doc.save(`pedido-${cliente.replace(/\s+/g, "-").toLowerCase()}.pdf`);
 }
 
@@ -3369,15 +4355,38 @@ function iniciarMonitorAtualizacao() {
 }
 
 window.addEventListener("resize", () => {
-  const novoModoMobile = isMobile();
-  if (novoModoMobile !== modoMobileAtual) {
-    modoMobileAtual = novoModoMobile;
-    renderApp();
-  }
+  aplicarPersonalizacao();
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const novoModoMobile = isMobile();
+    if (novoModoMobile !== modoMobileAtual) {
+      modoMobileAtual = novoModoMobile;
+      renderApp();
+      return;
+    }
+
+    ajustarJanelasDashboardAoWorkspace(false);
+    manterCalculadoraVisivel(false);
+  }, 120);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
   renderApp();
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
+  document.addEventListener("pointermove", moverJanelaDashboard);
+  document.addEventListener("pointermove", moverCalculadora);
+  document.addEventListener("pointerup", finalizarJanelaDashboard);
+  document.addEventListener("pointerup", finalizarCalculadora);
+  document.addEventListener("pointercancel", finalizarJanelaDashboard);
+  document.addEventListener("pointercancel", finalizarCalculadora);
+});
+
+window.addEventListener("error", (event) => {
+  registrarDiagnostico("erro", event.message || "Erro de execução", `${event.filename || ""}:${event.lineno || ""}:${event.colno || ""}`);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const motivo = event.reason?.message || String(event.reason || "Promessa rejeitada");
+  registrarDiagnostico("promessa", motivo, event.reason?.stack || "");
 });

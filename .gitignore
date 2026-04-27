@@ -1,0 +1,7 @@
+.idea/
+.vscode/
+modules/
+*.jpg
+*.jpeg
+*.png
+*.webp
