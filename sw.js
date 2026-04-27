@@ -1,9 +1,10 @@
-const CACHE_NAME = "erp-3d-v21";
+const CACHE_NAME = "erp-3d-v22";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./assets/project-cover.jpg",
   "./manifest.webmanifest",
   "./icon.svg"
 ];

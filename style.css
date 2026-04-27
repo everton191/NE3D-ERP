@@ -67,6 +67,29 @@ header h1{
   margin:0;
   font-size:var(--font-xl);
   letter-spacing:0;
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  overflow:hidden;
+}
+
+.app-logo{
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:var(--panel-2);
+  flex:0 0 auto;
+}
+
+#appTitleText{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 .header-menu-button{
@@ -146,13 +169,22 @@ header h1{
 
 .side-brand{
   display:grid;
-  grid-template-columns:auto minmax(0, 1fr);
+  grid-template-columns:auto 38px minmax(0, 1fr);
   align-items:center;
   gap:8px;
   padding:10px;
   border-radius:var(--radius);
   background:var(--panel-2);
   border:1px solid var(--line);
+}
+
+.side-brand-logo{
+  width:38px;
+  height:38px;
+  border-radius:8px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:var(--panel);
 }
 
 .side-menu-toggle{
@@ -197,6 +229,7 @@ header h1{
 }
 
 .side-menu.is-collapsed .side-brand-text,
+.side-menu.is-collapsed .side-brand-logo,
 .side-menu.is-collapsed .side-section > span,
 .side-menu.is-collapsed .side-nav-button strong{
   display:none;
@@ -560,6 +593,54 @@ button:disabled{
 .suggestion-item span{
   display:block;
   overflow-wrap:anywhere;
+}
+
+.brand-preview,
+.project-cover{
+  display:grid;
+  grid-template-columns:72px minmax(0, 1fr);
+  align-items:center;
+  gap:12px;
+  padding:10px;
+  border-radius:var(--radius);
+  border:1px solid var(--line);
+  background:var(--panel-2);
+}
+
+.brand-preview img,
+.project-cover-image{
+  width:72px;
+  height:72px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:var(--panel);
+}
+
+.project-cover{
+  margin-bottom:10px;
+  grid-template-columns:88px minmax(0, 1fr);
+  background:
+    linear-gradient(135deg, rgba(0,168,107,.18), transparent 48%),
+    var(--panel-2);
+}
+
+.project-cover-image{
+  width:88px;
+  height:88px;
+}
+
+.brand-preview strong,
+.project-cover-text strong,
+.project-cover-text span{
+  display:block;
+  overflow-wrap:anywhere;
+}
+
+.brand-preview span,
+.project-cover-text span{
+  color:var(--muted);
+  font-size:var(--font-sm);
 }
 
 .status-badge{
@@ -1269,6 +1350,24 @@ button:disabled{
   .dashboard-widget.widget-size-l,
   .dashboard-widget.widget-size-xl{
     grid-column:1 / -1;
+  }
+
+  .brand-preview{
+    grid-template-columns:56px minmax(0, 1fr);
+  }
+
+  .brand-preview img{
+    width:56px;
+    height:56px;
+  }
+
+  .project-cover{
+    grid-template-columns:64px minmax(0, 1fr);
+  }
+
+  .project-cover-image{
+    width:64px;
+    height:64px;
   }
 }
 

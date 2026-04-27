@@ -2,7 +2,8 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.27-users14";
+const APP_VERSION = "2026.04.27-users15";
+const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 
 const telas = {
   dashboard: "Início",
@@ -550,6 +551,15 @@ function escaparAttr(valor) {
     .replace(/'/g, "&#39;");
 }
 
+function getMarcaProjetoSrc() {
+  return appConfig.brandLogoDataUrl || PROJECT_COVER_IMAGE;
+}
+
+function renderMarcaProjeto(classe = "brand-logo", alt = "Marca do projeto") {
+  const src = getMarcaProjetoSrc();
+  return src ? `<img class="${escaparAttr(classe)}" src="${escaparAttr(src)}" alt="${escaparAttr(alt)}">` : "";
+}
+
 function totalPedido(pedido) {
   return Number(pedido?.total ?? pedido?.valor ?? 0) || 0;
 }
@@ -725,9 +735,15 @@ function aplicarPersonalizacao() {
 
   const nome = appConfig.appName || "ERP 3D";
   document.title = nome;
-  const titulo = document.getElementById("appTitle");
+  const titulo = document.getElementById("appTitleText") || document.getElementById("appTitle");
   if (titulo) {
     titulo.textContent = appConfig.showBrandInHeader ? nome : "ERP";
+  }
+
+  const logo = document.getElementById("appLogo");
+  if (logo) {
+    logo.src = getMarcaProjetoSrc();
+    logo.hidden = !appConfig.showBrandInHeader;
   }
 
   const themeMeta = document.querySelector("meta[name='theme-color']");
@@ -1243,6 +1259,7 @@ function renderMenuLateral() {
     <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
       <div class="side-brand">
         <button class="icon-button side-menu-toggle" onclick="alternarMenuLateral()" title="${recolhido ? "Mostrar menu" : "Esconder menu"}">☰</button>
+        ${renderMarcaProjeto("side-brand-logo", "Capa do projeto")}
         <div class="side-brand-text">
           <strong>${escaparHtml(appConfig.appName || "ERP 3D")}</strong>
           <span>${escaparHtml(getPlanoAtual().nome)}</span>
@@ -1312,6 +1329,7 @@ function abrirMenuPopup() {
       <aside class="side-menu side-drawer" onclick="event.stopPropagation()">
         <div class="side-brand">
           <button class="icon-button side-menu-toggle" onclick="fecharPopup()" title="Fechar">✕</button>
+          ${renderMarcaProjeto("side-brand-logo", "Capa do projeto")}
           <div class="side-brand-text">
             <strong>${escaparHtml(appConfig.appName || "ERP 3D")}</strong>
             <span>${escaparHtml(getPlanoAtual().nome)}</span>
@@ -1421,6 +1439,13 @@ function renderDashboard() {
 
   return `
     <section class="card summary-card">
+      <div class="project-cover">
+        ${renderMarcaProjeto("project-cover-image", "Capa do projeto")}
+        <div class="project-cover-text">
+          <strong>${escaparHtml(appConfig.businessName || appConfig.appName || "ERP 3D")}</strong>
+          <span>${escaparHtml(plano.descricao || "Sistema de gestão 3D")}</span>
+        </div>
+      </div>
       <div class="card-header">
         <h2>📊 Resumo</h2>
         <button class="icon-button" onclick="trocarTela('assinatura')" title="Plano">💳</button>
@@ -2058,6 +2083,7 @@ function renderPersonalizacao() {
   const corAtual = appConfig.accentColor || "#00a86b";
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   const acessoMarca = temAcessoCompleto();
+  const marcaAtual = getMarcaProjetoSrc();
   return `
     <section class="card">
       <div class="card-header">
@@ -2085,6 +2111,13 @@ function renderPersonalizacao() {
       <div class="danger-zone">
         <h2 class="section-title">PDF, Pix e marca</h2>
         <p class="muted">Esses dados aparecem no PDF do pedido. A marca d'água e o logotipo ficam liberados no plano completo.</p>
+        <div class="brand-preview">
+          <img src="${escaparAttr(marcaAtual)}" alt="Prévia da marca no PDF">
+          <div>
+            <strong>${appConfig.brandLogoDataUrl ? "Marca personalizada" : "Capa padrão do projeto"}</strong>
+            <span class="muted">Essa imagem aparece no app e no PDF. Clientes pagos podem trocar pela própria marca.</span>
+          </div>
+        </div>
         <div class="sync-grid">
           <label class="field">
             <span>Chave Pix</span>
@@ -2110,7 +2143,7 @@ function renderPersonalizacao() {
           </label>
           <div class="metric">
             <span>Marca no PDF</span>
-            <strong>${acessoMarca ? (appConfig.brandLogoDataUrl ? "Logo salva" : "Plano completo") : "Bloqueado"}</strong>
+            <strong>${acessoMarca ? (appConfig.brandLogoDataUrl ? "Logo salva" : "Capa padrão") : "Bloqueado"}</strong>
           </div>
         </div>
         <label class="checkbox-row">
@@ -4018,6 +4051,44 @@ function gerarQrPixDataUrl(payload) {
   }
 }
 
+function carregarImagemDataUrl(src) {
+  if (!src) return Promise.resolve("");
+  if (String(src).startsWith("data:image/")) return Promise.resolve(src);
+
+  return new Promise((resolve) => {
+    if (typeof Image === "undefined" || typeof document === "undefined") {
+      resolve("");
+      return;
+    }
+
+    const imagem = new Image();
+    if (/^https?:\/\//i.test(src)) imagem.crossOrigin = "anonymous";
+    imagem.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = imagem.naturalWidth || imagem.width;
+        canvas.height = imagem.naturalHeight || imagem.height;
+        const contexto = canvas.getContext("2d");
+        contexto.drawImage(imagem, 0, 0);
+        resolve(canvas.toDataURL("image/jpeg", 0.92));
+      } catch (erro) {
+        registrarDiagnostico("pdf", "Marca padrão não convertida", erro.message);
+        resolve("");
+      }
+    };
+    imagem.onerror = () => {
+      registrarDiagnostico("pdf", "Marca padrão não carregou", src);
+      resolve("");
+    };
+    imagem.src = src;
+  });
+}
+
+async function obterMarcaPdfDataUrl() {
+  if (!temAcessoCompleto()) return "";
+  return carregarImagemDataUrl(getMarcaProjetoSrc());
+}
+
 function tipoImagemDataUrl(dataUrl) {
   if (String(dataUrl || "").includes("image/jpeg")) return "JPEG";
   return "PNG";
@@ -4035,24 +4106,24 @@ function hexParaRgb(hex) {
   ];
 }
 
-function adicionarMarcaPdf(doc, largura, altura) {
-  if (!temAcessoCompleto() || !appConfig.brandLogoDataUrl) return;
+function adicionarMarcaPdf(doc, largura, altura, marcaDataUrl = "") {
+  if (!temAcessoCompleto() || !marcaDataUrl) return;
 
   try {
-    const tipo = tipoImagemDataUrl(appConfig.brandLogoDataUrl);
+    const tipo = tipoImagemDataUrl(marcaDataUrl);
     if (appConfig.brandWatermarkEnabled !== false && doc.GState && doc.setGState) {
       doc.setGState(new doc.GState({ opacity: 0.08 }));
-      doc.addImage(appConfig.brandLogoDataUrl, tipo, largura / 2 - 36, altura / 2 - 36, 72, 72);
+      doc.addImage(marcaDataUrl, tipo, largura / 2 - 36, altura / 2 - 36, 72, 72);
       doc.setGState(new doc.GState({ opacity: 1 }));
     }
   } catch (erro) {
     try {
-      doc.addImage(appConfig.brandLogoDataUrl, tipoImagemDataUrl(appConfig.brandLogoDataUrl), largura / 2 - 28, altura / 2 - 28, 56, 56);
+      doc.addImage(marcaDataUrl, tipoImagemDataUrl(marcaDataUrl), largura / 2 - 28, altura / 2 - 28, 56, 56);
     } catch (_) {}
   }
 }
 
-function gerarPDF() {
+async function gerarPDF() {
   if (!exigirPlanoCompleto()) return;
   if (itensPedido.length === 0) {
     alert("Adicione itens ao pedido antes de gerar o PDF");
@@ -4075,8 +4146,9 @@ function gerarPDF() {
   const corRgb = hexParaRgb(cor);
   const data = new Date().toLocaleDateString("pt-BR");
   const pedidoId = pedidoEditando?.id || Date.now();
+  const marcaPdf = await obterMarcaPdfDataUrl();
 
-  adicionarMarcaPdf(doc, largura, altura);
+  adicionarMarcaPdf(doc, largura, altura, marcaPdf);
 
   doc.setFillColor(corRgb[0], corRgb[1], corRgb[2]);
   doc.rect(0, 0, largura, 32, "F");
@@ -4087,9 +4159,9 @@ function gerarPDF() {
   doc.text("Pedido #" + pedidoId, margem, 23);
   doc.text(data, largura - margem, 23, { align: "right" });
 
-  if (temAcessoCompleto() && appConfig.brandLogoDataUrl) {
+  if (temAcessoCompleto() && marcaPdf) {
     try {
-      doc.addImage(appConfig.brandLogoDataUrl, tipoImagemDataUrl(appConfig.brandLogoDataUrl), largura - 32, 6, 18, 18);
+      doc.addImage(marcaPdf, tipoImagemDataUrl(marcaPdf), largura - 32, 6, 18, 18);
     } catch (erro) {
       registrarDiagnostico("pdf", "Logo não aplicada no cabeçalho", erro.message);
     }
@@ -4121,7 +4193,7 @@ function gerarPDF() {
   itensPedido.forEach((item, i) => {
     if (y > 250) {
       doc.addPage();
-      adicionarMarcaPdf(doc, largura, altura);
+      adicionarMarcaPdf(doc, largura, altura, marcaPdf);
       y = 24;
     }
 
@@ -4150,7 +4222,7 @@ function gerarPDF() {
   if (payloadPix) {
     if (y > 218) {
       doc.addPage();
-      adicionarMarcaPdf(doc, largura, altura);
+      adicionarMarcaPdf(doc, largura, altura, marcaPdf);
       y = 24;
     }
 
