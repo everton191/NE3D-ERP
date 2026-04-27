@@ -2,8 +2,9 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.27-users15";
+const APP_VERSION = "2026.04.27-users16";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
+const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/releases";
 
 const telas = {
   dashboard: "Início",
@@ -107,19 +108,26 @@ let appConfig = carregarObjeto("appConfig", {
   }
 });
 let billingConfig = carregarObjeto("billingConfig", {
-  ownerMode: true,
+  ownerMode: false,
   ownerName: "",
   ownerEmail: "",
   licenseStatus: "free",
   trialStartedAt: "",
   trialDays: 7,
-  monthlyPrice: 10,
+  monthlyPrice: 19.9,
   mercadoPagoLink: "",
   licenseEmail: "",
   paidUntil: "",
   androidDownloadUrl: "",
   windowsDownloadUrl: "",
-  supportUrl: ""
+  windowsWebUrl: "",
+  supportUrl: "",
+  deviceLimits: {
+    mobile: 1,
+    desktop: 1
+  },
+  registeredDevices: [],
+  cloudSyncPaidOnly: true
 });
 let usuarios = carregarLista("usuarios");
 let deviceId = localStorage.getItem("deviceId") || criarDeviceId();
@@ -534,6 +542,132 @@ function isMobile() {
   return window.innerWidth < 768;
 }
 
+function detectarTipoDispositivo() {
+  const agente = navigator.userAgent || "";
+  if (/Android|iPhone|iPad|iPod|Mobile/i.test(agente) || isMobile()) return "mobile";
+  return "desktop";
+}
+
+function nomeTipoDispositivo(tipo) {
+  return tipo === "mobile" ? "celular Android" : "Windows/navegador";
+}
+
+function getLimitesDispositivos() {
+  const limites = billingConfig.deviceLimits && typeof billingConfig.deviceLimits === "object" ? billingConfig.deviceLimits : {};
+  return {
+    mobile: Math.max(1, Number(limites.mobile) || 1),
+    desktop: Math.max(1, Number(limites.desktop) || 1)
+  };
+}
+
+function normalizarDispositivosLicenca(lista = billingConfig.registeredDevices) {
+  const vistos = new Set();
+  return (Array.isArray(lista) ? lista : []).map((item) => {
+    const email = normalizarEmail(item?.email);
+    const id = String(item?.id || "").trim();
+    const tipo = item?.tipo === "desktop" ? "desktop" : "mobile";
+    if (!email || !id) return null;
+    const chave = `${email}:${tipo}:${id}`;
+    if (vistos.has(chave)) return null;
+    vistos.add(chave);
+    return {
+      id,
+      email,
+      tipo,
+      nome: String(item?.nome || nomeTipoDispositivo(tipo)).trim(),
+      ultimoAcesso: item?.ultimoAcesso || new Date().toISOString()
+    };
+  }).filter(Boolean);
+}
+
+function getEmailLicencaAtual() {
+  const usuario = getUsuarioAtual();
+  return normalizarEmail(usuario?.email || billingConfig.licenseEmail || billingConfig.ownerEmail || "");
+}
+
+function usuarioEhDonoDaLicenca(email) {
+  const alvo = normalizarEmail(email);
+  const usuario = normalizarUsuarios(usuarios).find((item) => item.email === alvo);
+  return usuario?.papel === "dono" || (billingConfig.ownerEmail && alvo === normalizarEmail(billingConfig.ownerEmail));
+}
+
+function dispositivoDentroDoLimite(email = getEmailLicencaAtual()) {
+  const emailLicenca = normalizarEmail(email);
+  if (!emailLicenca || billingConfig.ownerMode || usuarioEhDonoDaLicenca(emailLicenca)) return true;
+
+  const tipo = detectarTipoDispositivo();
+  const limites = getLimitesDispositivos();
+  const lista = normalizarDispositivosLicenca();
+  if (lista.some((item) => item.email === emailLicenca && item.tipo === tipo && item.id === deviceId)) return true;
+  return lista.filter((item) => item.email === emailLicenca && item.tipo === tipo).length < limites[tipo];
+}
+
+function registrarDispositivoLicenca(email = getEmailLicencaAtual(), silencioso = false) {
+  const emailLicenca = normalizarEmail(email);
+  if (!emailLicenca) {
+    if (!silencioso) alert("Informe o e-mail da conta/licença antes de vincular este aparelho.");
+    return false;
+  }
+
+  if (billingConfig.ownerMode || usuarioEhDonoDaLicenca(emailLicenca)) return true;
+
+  const tipo = detectarTipoDispositivo();
+  const limites = getLimitesDispositivos();
+  const lista = normalizarDispositivosLicenca();
+  const atual = lista.find((item) => item.email === emailLicenca && item.tipo === tipo && item.id === deviceId);
+
+  if (!atual && lista.filter((item) => item.email === emailLicenca && item.tipo === tipo).length >= limites[tipo]) {
+    if (!silencioso) {
+      alert(`Limite da licença atingido: ${limites.mobile} celular e ${limites.desktop} Windows/navegador por e-mail.`);
+    }
+    return false;
+  }
+
+  const agora = new Date().toISOString();
+  const nome = syncConfig.deviceName || nomeTipoDispositivo(tipo);
+  const proximaLista = lista.filter((item) => !(item.email === emailLicenca && item.tipo === tipo && item.id === deviceId));
+  proximaLista.unshift({
+    id: deviceId,
+    email: emailLicenca,
+    tipo,
+    nome,
+    ultimoAcesso: agora
+  });
+
+  billingConfig.registeredDevices = proximaLista.slice(0, 30);
+  salvarDados();
+  return true;
+}
+
+function renderDispositivosLicenca() {
+  const email = getEmailLicencaAtual();
+  const limites = getLimitesDispositivos();
+  const lista = normalizarDispositivosLicenca().filter((item) => item.email === email);
+  const linhas = lista.map((item) => `
+    <div class="device-row">
+      <div>
+        <strong>${escaparHtml(nomeTipoDispositivo(item.tipo))}</strong>
+        <span class="muted">${escaparHtml(item.nome)} • ${new Date(item.ultimoAcesso).toLocaleDateString("pt-BR")}</span>
+      </div>
+      <span class="status-badge">${item.id === deviceId ? "Atual" : "Vinculado"}</span>
+    </div>
+  `).join("") || `<p class="empty">Nenhum aparelho vinculado ainda.</p>`;
+
+  return `
+    <div class="device-list">
+      <div class="row-title">
+        <strong>Aparelhos da licença</strong>
+        <span class="muted">${limites.mobile} celular + ${limites.desktop} Windows/navegador</span>
+      </div>
+      ${linhas}
+    </div>
+  `;
+}
+
+function podeGerenciarComercial() {
+  return isDono() || (adminLogado && !getUsuarioAtual());
+}
+
 function formatarMoeda(valor) {
   return moeda.format(Number(valor) || 0);
 }
@@ -615,7 +749,7 @@ function getPlanoAtual() {
     return {
       nome: ativo ? "Completo" : "Expirado",
       completo: ativo,
-      descricao: ativo ? "Assinatura ativa" : "Pagamento vencido"
+      descricao: ativo ? "Assinatura ativa com nuvem e 2 aparelhos" : "Pagamento vencido"
     };
   }
 
@@ -634,17 +768,35 @@ function getPlanoAtual() {
   return {
     nome: "Grátis",
     completo: false,
-    descricao: "Calculadora liberada"
+    descricao: "Calculadora liberada, sem sincronização na nuvem"
   };
 }
 
 function temAcessoCompleto() {
-  return getPlanoAtual().completo;
+  const plano = getPlanoAtual();
+  if (!plano.completo) return false;
+  return dispositivoDentroDoLimite();
 }
 
 function exigirPlanoCompleto() {
-  if (temAcessoCompleto()) return true;
-  alert("Recurso disponível no plano completo. A calculadora continua liberada no grátis.");
+  const plano = getPlanoAtual();
+  if (plano.completo && dispositivoDentroDoLimite()) return true;
+  if (plano.completo) {
+    alert("Este e-mail já atingiu o limite de aparelhos da licença.");
+  } else {
+    alert("Recurso disponível no plano completo. A calculadora continua liberada no grátis.");
+  }
+  trocarTela("assinatura");
+  return false;
+}
+
+function temAcessoNuvem() {
+  return billingConfig.cloudSyncPaidOnly === false || temAcessoCompleto();
+}
+
+function exigirAcessoNuvem() {
+  if (temAcessoNuvem()) return true;
+  alert("Backup e sincronização na nuvem fazem parte do plano completo.");
   trocarTela("assinatura");
   return false;
 }
@@ -1239,6 +1391,7 @@ function restaurarLayoutDashboard() {
 
 function renderMenuLateral() {
   const recolhido = !!appConfig.sidebarCollapsed;
+  const mostrarAdmin = podeGerenciarUsuarios();
   const principais = [
     { tela: "dashboard", icone: "📊", texto: "Resumo" },
     { tela: "pedido", icone: "➕", texto: "Novo pedido" },
@@ -1251,9 +1404,9 @@ function renderMenuLateral() {
     { tela: "config", icone: "☁️", texto: "Backup" },
     { tela: "personalizacao", icone: "🎨", texto: "Personalizar" },
     { tela: "assinatura", icone: "💳", texto: "Planos" },
-    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões" },
-    { tela: "admin", icone: "🔐", texto: "Admin" }
+    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões" }
   ];
+  if (mostrarAdmin) configs.push({ tela: "admin", icone: "🔐", texto: "Admin" });
 
   return `
     <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
@@ -1299,7 +1452,7 @@ function abrirTelaMenuLateral(tela) {
 }
 
 function getItensMenuPopup() {
-  return [
+  const itens = [
     { tela: "dashboard", icone: "📊", texto: "Resumo", grupo: "Principal" },
     { tela: "pedido", icone: "➕", texto: "Novo pedido", grupo: "Principal" },
     { tela: "estoque", icone: "📦", texto: "Estoque", grupo: "Principal" },
@@ -1308,9 +1461,10 @@ function getItensMenuPopup() {
     { tela: "config", icone: "☁️", texto: "Backup", grupo: "Configurações" },
     { tela: "personalizacao", icone: "🎨", texto: "Personalizar", grupo: "Configurações" },
     { tela: "assinatura", icone: "💳", texto: "Planos", grupo: "Configurações" },
-    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões", grupo: "Configurações" },
-    { tela: "admin", icone: "🔐", texto: "Admin", grupo: "Configurações" }
+    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões", grupo: "Configurações" }
   ];
+  if (podeGerenciarUsuarios()) itens.push({ tela: "admin", icone: "🔐", texto: "Admin", grupo: "Configurações" });
+  return itens;
 }
 
 function abrirMenuPopup() {
@@ -1415,9 +1569,9 @@ function renderAcoesRapidas() {
     { tela: "caixa", icone: "💰", texto: "Caixa" },
     { tela: "config", icone: "☁️", texto: "Nuvem" },
     { tela: "personalizacao", icone: "🎨", texto: "Tema" },
-    { tela: "assinatura", icone: "💳", texto: "Plano" },
-    { tela: "admin", icone: "🔐", texto: "Admin" }
+    { tela: "assinatura", icone: "💳", texto: "Plano" }
   ];
+  if (podeGerenciarUsuarios()) acoes.push({ tela: "admin", icone: "🔐", texto: "Admin" });
 
   return `
     <div class="quick-actions">
@@ -1473,7 +1627,7 @@ function renderDashboard() {
         </div>
         <div class="metric">
           <span>Nuvem</span>
-          <strong>${syncConfig.ultimaSync ? "Ativa" : "Pendente"}</strong>
+          <strong>${temAcessoNuvem() ? (syncConfig.ultimaSync ? "Ativa" : "Pendente") : "Plano pago"}</strong>
         </div>
         <div class="metric">
           <span>Plano</span>
@@ -1698,6 +1852,33 @@ function renderBloqueioPlano(recurso) {
 }
 
 function renderConfig() {
+  if (!temAcessoNuvem()) {
+    return `
+      <section class="card">
+        <div class="card-header">
+          <h2>☁️ Backup e sincronização</h2>
+          <span class="status-badge">Plano completo</span>
+        </div>
+        <p class="muted">A sincronização entre Android e Windows/navegador fica disponível no plano completo. No grátis, a calculadora continua liberada e o backup local manual ainda pode ser exportado.</p>
+        <div class="admin-grid">
+          <div class="metric">
+            <span>Grátis</span>
+            <strong>Calculadora</strong>
+          </div>
+          <div class="metric">
+            <span>Completo</span>
+            <strong>Nuvem + PDF</strong>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="trocarTela('assinatura')">Ver plano completo</button>
+          <button class="btn secondary" onclick="exportarBackup()">Exportar backup local</button>
+          <button class="btn ghost" onclick="voltarTela()">Voltar</button>
+        </div>
+      </section>
+    `;
+  }
+
   return `
     <section class="card">
       <div class="card-header">
@@ -1924,6 +2105,7 @@ function renderAdmin() {
   `).join("") || `<p class="empty">Nenhum histórico registrado ainda.</p>`;
   const perfilAtual = usuarioAtual ? `${usuarioAtual.nome} (${usuarioAtual.papel})` : "Admin local";
   const podeCriarDono = isDono() || (adminLogado && !usuarioAtual);
+  const podeComercial = podeGerenciarComercial();
 
   return `
     <section class="card">
@@ -1931,7 +2113,7 @@ function renderAdmin() {
         <h2>🔐 Admin</h2>
         <button class="icon-button" onclick="logoutAdmin()" title="Sair">↩</button>
       </div>
-      <p class="muted">Logado como ${escaparHtml(perfilAtual)}. Dono tem acesso completo sem assinatura; admins gerenciam configurações e usuários do cliente.</p>
+      <p class="muted">Logado como ${escaparHtml(perfilAtual)}. Dono gerencia comercial e licença; admin do cliente gerencia usuários e operação sem alterar preço ou modo dono.</p>
 
       <div class="admin-grid">
         <div class="metric">
@@ -1961,26 +2143,30 @@ function renderAdmin() {
       </div>
 
       <div class="danger-zone">
-        <h2 class="section-title">Dono e usuários</h2>
-        <p class="muted">Salve seu e-mail como dono para liberar todas as funções no seu aparelho. Para cliente, crie um admin e operadores separados.</p>
-        <div class="sync-grid">
+        <h2 class="section-title">Usuários</h2>
+        ${podeComercial ? `
+          <p class="muted">Salve seu e-mail como dono para liberar todas as funções para você. Para cliente, deixe o modo dono desligado e crie um admin com o e-mail dele.</p>
+          <div class="sync-grid">
+            <label class="field">
+              <span>Nome do dono</span>
+              <input id="ownerNameAdmin" value="${escaparAttr(billingConfig.ownerName || "")}" placeholder="Seu nome ou empresa">
+            </label>
+            <label class="field">
+              <span>E-mail do dono</span>
+              <input id="ownerEmailAdmin" type="email" value="${escaparAttr(billingConfig.ownerEmail || "")}" placeholder="seu@email.com">
+            </label>
+          </div>
           <label class="field">
-            <span>Nome do dono</span>
-            <input id="ownerNameAdmin" value="${escaparAttr(billingConfig.ownerName || "")}" placeholder="Seu nome ou empresa">
+            <span>Senha do dono</span>
+            <input id="ownerPasswordAdmin" type="password" placeholder="Deixe vazio para manter a senha atual">
           </label>
-          <label class="field">
-            <span>E-mail do dono</span>
-            <input id="ownerEmailAdmin" type="email" value="${escaparAttr(billingConfig.ownerEmail || "")}" placeholder="seu@email.com">
-          </label>
-        </div>
-        <label class="field">
-          <span>Senha do dono</span>
-          <input id="ownerPasswordAdmin" type="password" placeholder="Deixe vazio para manter a senha atual">
-        </label>
-        <div class="actions">
-          <button class="btn" onclick="salvarDonoSistema()">Salvar dono</button>
-          <button class="btn ghost" onclick="loginComoDono()">Entrar como dono</button>
-        </div>
+          <div class="actions">
+            <button class="btn" onclick="salvarDonoSistema()">Salvar dono</button>
+            <button class="btn ghost" onclick="loginComoDono()">Entrar como dono</button>
+          </div>
+        ` : `
+          <p class="muted">Você está como admin do cliente. Pode adicionar operadores e organizar o uso do app sem alterar configurações comerciais.</p>
+        `}
 
         <h2 class="section-title">Adicionar usuário</h2>
         <div class="sync-grid">
@@ -2009,7 +2195,7 @@ function renderAdmin() {
         ${renderUsuariosAdmin()}
       </div>
 
-      <div class="danger-zone">
+      ${podeComercial ? `<div class="danger-zone">
         <h2 class="section-title">Comercial</h2>
         <label class="checkbox-row">
           <input id="ownerModeAdmin" type="checkbox" ${billingConfig.ownerMode ? "checked" : ""}>
@@ -2022,7 +2208,15 @@ function renderAdmin() {
           </label>
           <label class="field">
             <span>Preço mensal</span>
-            <input id="monthlyPriceAdmin" type="number" min="0" step="0.01" value="${Number(billingConfig.monthlyPrice) || 10}">
+            <input id="monthlyPriceAdmin" type="number" min="0" step="0.01" value="${Number(billingConfig.monthlyPrice) || 19.9}">
+          </label>
+          <label class="field">
+            <span>Celulares por licença</span>
+            <input id="mobileLimitAdmin" type="number" min="1" step="1" value="${getLimitesDispositivos().mobile}">
+          </label>
+          <label class="field">
+            <span>Windows/navegador por licença</span>
+            <input id="desktopLimitAdmin" type="number" min="1" step="1" value="${getLimitesDispositivos().desktop}">
           </label>
         </div>
         <label class="field">
@@ -2034,15 +2228,15 @@ function renderAdmin() {
           <input id="androidDownloadUrlAdmin" value="${escaparAttr(billingConfig.androidDownloadUrl)}" placeholder="https://.../erp3d.apk">
         </label>
         <label class="field">
-          <span>Link Windows .exe</span>
-          <input id="windowsDownloadUrlAdmin" value="${escaparAttr(billingConfig.windowsDownloadUrl)}" placeholder="https://.../ERP3D-Setup.exe">
+          <span>Link Windows/navegador</span>
+          <input id="windowsWebUrlAdmin" value="${escaparAttr(billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || "")}" placeholder="https://seu-app.vercel.app">
         </label>
         <div class="actions">
           <button class="btn" onclick="salvarConfigComercial()">Salvar comercial</button>
           <button class="btn secondary" onclick="ativarLicencaLocal()">Ativar completo local</button>
           <button class="btn ghost" onclick="voltarParaGratis()">Voltar para grátis</button>
         </div>
-      </div>
+      </div>` : ""}
 
       <div class="danger-zone">
         <button class="btn danger" onclick="zerarDadosAdmin()">Zerar dados locais</button>
@@ -2241,11 +2435,12 @@ function renderPersonalizacao() {
 
 function renderAssinatura() {
   const plano = getPlanoAtual();
-  const preco = Number(billingConfig.monthlyPrice) || 10;
+  const preco = Number(billingConfig.monthlyPrice) || 19.9;
   const diasTeste = Number(billingConfig.trialDays) || 7;
   const temLinkPagamento = !!billingConfig.mercadoPagoLink;
-  const downloadAndroid = billingConfig.androidDownloadUrl;
-  const downloadWindows = billingConfig.windowsDownloadUrl;
+  const downloadAndroid = billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
+  const downloadWindows = billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || location.origin;
+  const limites = getLimitesDispositivos();
 
   return `
     <section class="card">
@@ -2253,7 +2448,7 @@ function renderAssinatura() {
         <h2>💳 Planos</h2>
         <span class="status-badge">${escaparHtml(plano.nome)}</span>
       </div>
-      <p class="muted">${escaparHtml(plano.descricao)}. O modo grátis mantém a calculadora liberada; o plano completo libera pedidos, estoque, caixa, PDF, WhatsApp, backup e admin.</p>
+      <p class="muted">${escaparHtml(plano.descricao)}. O modo grátis mantém a calculadora liberada; o completo libera pedidos, estoque, caixa, PDF com Pix, WhatsApp, marca no PDF e sincronização entre Android e Windows/navegador.</p>
 
       <div class="admin-grid">
         <div class="plan-card">
@@ -2261,7 +2456,7 @@ function renderAssinatura() {
             <strong>Grátis</strong>
             <span class="muted">R$ 0</span>
           </div>
-          <p class="muted">Calculadora de impressão 3D liberada para testar preço de peças.</p>
+          <p class="muted">Calculadora de impressão 3D liberada. Sem backup automático, sem nuvem e sem emissão completa.</p>
           <button class="btn secondary" onclick="abrirCalculadora()">Usar calculadora</button>
         </div>
         <div class="plan-card featured">
@@ -2269,7 +2464,7 @@ function renderAssinatura() {
             <strong>Completo</strong>
             <span class="muted">${formatarMoeda(preco)}/mês</span>
           </div>
-          <p class="muted">${diasTeste} dias grátis, depois assinatura mensal. Libera o ERP inteiro.</p>
+          <p class="muted">${diasTeste} dias grátis, depois assinatura mensal. Inclui ${limites.mobile} celular Android e ${limites.desktop} Windows/navegador por e-mail.</p>
           <div class="actions single">
             <button class="btn" onclick="iniciarTesteGratis()">Começar ${diasTeste} dias grátis</button>
             <button class="btn ghost" onclick="abrirLinkMercadoPago()" ${temLinkPagamento ? "" : "disabled"}>Assinar no Mercado Pago</button>
@@ -2289,16 +2484,25 @@ function renderAssinatura() {
       </div>
 
       <label class="field">
-        <span>E-mail do assinante</span>
+        <span>E-mail da conta/licença</span>
         <input id="licenseEmailInput" value="${escaparAttr(billingConfig.licenseEmail)}" placeholder="cliente@email.com">
       </label>
-      <button class="btn ghost" onclick="salvarEmailLicenca()">Salvar e-mail</button>
+      <label class="field">
+        <span>Senha da conta</span>
+        <input id="licensePasswordInput" type="password" placeholder="Opcional para criar/atualizar conta">
+      </label>
+      <div class="actions">
+        <button class="btn ghost" onclick="salvarEmailLicenca()">Salvar e vincular este aparelho</button>
+        <button class="btn secondary" onclick="criarContaLicenca()">Criar/entrar conta</button>
+      </div>
+
+      ${renderDispositivosLicenca()}
 
       <div class="danger-zone">
         <h2 class="section-title">Baixar aplicativo</h2>
         <div class="actions">
           <button class="btn ghost" onclick="abrirDownload('android')" ${downloadAndroid ? "" : "disabled"}>Android APK</button>
-          <button class="btn ghost" onclick="abrirDownload('windows')" ${downloadWindows ? "" : "disabled"}>Windows .exe</button>
+          <button class="btn ghost" onclick="abrirDownload('windows')" ${downloadWindows ? "" : "disabled"}>Abrir no Windows/navegador</button>
         </div>
       </div>
     </section>
@@ -2409,9 +2613,17 @@ function iniciarTesteGratis() {
     return;
   }
 
+  const email = normalizarEmail(document.getElementById("licenseEmailInput")?.value || billingConfig.licenseEmail || usuarioAtualEmail || "");
+  if (!email) {
+    alert("Informe o e-mail da conta antes de iniciar o teste grátis.");
+    return;
+  }
+
   if (!billingConfig.trialStartedAt) {
+    billingConfig.licenseEmail = email;
     billingConfig.trialStartedAt = new Date().toISOString();
     billingConfig.licenseStatus = "trial";
+    if (!registrarDispositivoLicenca(email)) return;
     salvarDados();
     registrarHistorico("Assinatura", "Teste grátis iniciado");
   }
@@ -2428,14 +2640,58 @@ function abrirLinkMercadoPago() {
 }
 
 function salvarEmailLicenca() {
-  billingConfig.licenseEmail = (document.getElementById("licenseEmailInput")?.value || "").trim();
+  const email = normalizarEmail(document.getElementById("licenseEmailInput")?.value || "");
+  if (!email) {
+    alert("Informe um e-mail válido para vincular a licença.");
+    return;
+  }
+
+  billingConfig.licenseEmail = email;
+  if (!registrarDispositivoLicenca(email)) return;
   salvarDados();
-  registrarHistorico("Assinatura", "E-mail de licença atualizado");
+  registrarHistorico("Assinatura", "E-mail de licença vinculado");
+  renderApp();
+}
+
+function criarContaLicenca() {
+  const email = normalizarEmail(document.getElementById("licenseEmailInput")?.value || billingConfig.licenseEmail || "");
+  const senha = document.getElementById("licensePasswordInput")?.value || "";
+  if (!email) {
+    alert("Informe o e-mail para criar ou entrar na conta.");
+    return;
+  }
+
+  usuarios = normalizarUsuarios(usuarios);
+  let usuario = usuarios.find((item) => item.email === email);
+  if (!usuario) {
+    usuario = {
+      id: criarIdUsuario(),
+      nome: email.split("@")[0],
+      email,
+      senha: senha || "123",
+      papel: "admin",
+      ativo: true,
+      criadoEm: new Date().toISOString()
+    };
+    usuarios.push(usuario);
+  } else if (senha) {
+    usuario.senha = senha;
+  }
+
+  billingConfig.licenseEmail = email;
+  if (!registrarDispositivoLicenca(email)) return;
+  usuarioAtualEmail = email;
+  sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+  adminLogado = false;
+  sessionStorage.removeItem("adminLogado");
+  salvarDados();
+  registrarHistorico("Conta", "Conta vinculada: " + email);
+  sincronizarAposLogin();
   renderApp();
 }
 
 function abrirDownload(tipo) {
-  const url = tipo === "android" ? billingConfig.androidDownloadUrl : billingConfig.windowsDownloadUrl;
+  const url = tipo === "android" ? (billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL) : (billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || location.origin);
   if (!url) {
     alert("Link de download não configurado.");
     return;
@@ -2627,12 +2883,25 @@ function loginUsuario() {
 }
 
 function concluirLoginUsuario(usuario) {
+  if (usuario.papel !== "dono" && !registrarDispositivoLicenca(usuario.email)) return;
   usuarioAtualEmail = usuario.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
   registrarHistorico("Usuário", `Login de ${usuario.nome}`);
+  sincronizarAposLogin();
   renderApp();
+}
+
+function sincronizarAposLogin() {
+  if (!temAcessoNuvem()) return;
+  if (syncConfig.autoBackupTarget === "url" && syncConfig.cloudUrl) {
+    sincronizarUrlSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync pós-login falhou", erro.message));
+    return;
+  }
+  if (driveFolderHandle) {
+    sincronizarGoogleDriveSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Drive pós-login falhou", erro.message));
+  }
 }
 
 function logoutUsuario() {
@@ -2644,8 +2913,8 @@ function logoutUsuario() {
 }
 
 function salvarDonoSistema() {
-  if (!podeGerenciarUsuarios()) {
-    alert("Entre como dono ou admin para salvar o dono.");
+  if (!podeGerenciarComercial()) {
+    alert("Entre como dono ou admin local para salvar o dono do produto.");
     return;
   }
 
@@ -2671,8 +2940,8 @@ function salvarDonoSistema() {
 }
 
 function loginComoDono() {
-  if (!podeGerenciarUsuarios()) {
-    alert("Entre como admin para usar esta ação.");
+  if (!podeGerenciarComercial()) {
+    alert("Entre como dono ou admin local para usar esta ação.");
     return;
   }
 
@@ -2773,19 +3042,28 @@ function removerUsuario(id) {
 }
 
 function salvarConfigComercial() {
-  if (!podeGerenciarUsuarios()) {
-    alert("Entre como admin para alterar o comercial.");
+  if (!podeGerenciarComercial()) {
+    alert("Entre como dono ou admin local para alterar o comercial.");
     return;
   }
+
+  const mobileLimit = Math.max(1, parseFloat(document.getElementById("mobileLimitAdmin")?.value) || 1);
+  const desktopLimit = Math.max(1, parseFloat(document.getElementById("desktopLimitAdmin")?.value) || 1);
 
   billingConfig = {
     ...billingConfig,
     ownerMode: !!document.getElementById("ownerModeAdmin")?.checked,
     trialDays: Math.max(1, parseFloat(document.getElementById("trialDaysAdmin")?.value) || 7),
-    monthlyPrice: Math.max(0, parseFloat(document.getElementById("monthlyPriceAdmin")?.value) || 10),
+    monthlyPrice: Math.max(0, parseFloat(document.getElementById("monthlyPriceAdmin")?.value) || 19.9),
     mercadoPagoLink: (document.getElementById("mercadoPagoLinkAdmin")?.value || "").trim(),
     androidDownloadUrl: (document.getElementById("androidDownloadUrlAdmin")?.value || "").trim(),
-    windowsDownloadUrl: (document.getElementById("windowsDownloadUrlAdmin")?.value || "").trim()
+    windowsWebUrl: (document.getElementById("windowsWebUrlAdmin")?.value || "").trim(),
+    windowsDownloadUrl: "",
+    deviceLimits: {
+      mobile: mobileLimit,
+      desktop: desktopLimit
+    },
+    cloudSyncPaidOnly: true
   };
 
   salvarDados();
@@ -2794,8 +3072,8 @@ function salvarConfigComercial() {
 }
 
 function ativarLicencaLocal() {
-  if (!podeGerenciarUsuarios()) {
-    alert("Entre como admin para ativar licença local.");
+  if (!podeGerenciarComercial()) {
+    alert("Entre como dono ou admin local para ativar licença local.");
     return;
   }
 
@@ -2809,8 +3087,8 @@ function ativarLicencaLocal() {
 }
 
 function voltarParaGratis() {
-  if (!podeGerenciarUsuarios()) {
-    alert("Entre como admin para alterar licença.");
+  if (!podeGerenciarComercial()) {
+    alert("Entre como dono ou admin local para alterar licença.");
     return;
   }
 
@@ -2852,6 +3130,8 @@ function lerConfigAppCampos() {
 }
 
 function salvarConfigSync() {
+  if (!exigirAcessoNuvem()) return;
+
   syncConfig = {
     ...syncConfig,
     ...lerConfigSyncCampos()
@@ -2870,6 +3150,17 @@ function salvarConfigSync() {
   renderApp();
 }
 
+function criarBillingConfigBackup() {
+  return {
+    ...billingConfig,
+    ownerMode: false,
+    windowsDownloadUrl: "",
+    registeredDevices: normalizarDispositivosLicenca(),
+    deviceLimits: getLimitesDispositivos(),
+    cloudSyncPaidOnly: true
+  };
+}
+
 function criarSnapshotBackup() {
   return {
     versao: 3,
@@ -2885,7 +3176,7 @@ function criarSnapshotBackup() {
       sugestoes,
       usuarios: normalizarUsuarios(usuarios),
       appConfig,
-      billingConfig,
+      billingConfig: criarBillingConfigBackup(),
       configuracoes: {
         cloudUrl: syncConfig.cloudUrl,
         deviceName: syncConfig.deviceName,
@@ -2946,9 +3237,14 @@ function aplicarBackup(dados, modo = "substituir") {
     ...backup.appConfig
   };
 
+  const ownerModeLocal = !!billingConfig.ownerMode;
   billingConfig = {
     ...billingConfig,
-    ...backup.billingConfig
+    ...backup.billingConfig,
+    ownerMode: ownerModeLocal,
+    registeredDevices: normalizarDispositivosLicenca(backup.billingConfig.registeredDevices || billingConfig.registeredDevices),
+    deviceLimits: backup.billingConfig.deviceLimits || billingConfig.deviceLimits || { mobile: 1, desktop: 1 },
+    cloudSyncPaidOnly: true
   };
 
   syncConfig = {
@@ -3015,6 +3311,8 @@ function cabecalhosSync() {
 }
 
 function validarUrlNuvem() {
+  if (!exigirAcessoNuvem()) return false;
+
   syncConfig = {
     ...syncConfig,
     ...lerConfigSyncCampos()
@@ -3033,6 +3331,8 @@ function navegadorSuportaPastaDrive() {
 }
 
 function atualizarConfigDriveCampos() {
+  if (!temAcessoNuvem()) return;
+
   syncConfig = {
     ...syncConfig,
     ...lerConfigSyncCampos()
@@ -3041,6 +3341,8 @@ function atualizarConfigDriveCampos() {
 }
 
 async function escolherPastaDrive() {
+  if (!exigirAcessoNuvem()) return;
+
   if (!navegadorSuportaPastaDrive()) {
     alert("Este navegador não permite escolher uma pasta local. No Windows, abra pelo Chrome ou Edge em http://localhost:5173.");
     return;
@@ -3113,6 +3415,8 @@ async function lerBackupDrive(handle) {
 }
 
 async function enviarBackupGoogleDrive() {
+  if (!exigirAcessoNuvem()) return;
+
   const handle = await garantirPastaDrive();
   if (!handle) return;
 
@@ -3132,6 +3436,8 @@ async function enviarBackupGoogleDrive() {
 }
 
 async function restaurarBackupGoogleDrive() {
+  if (!exigirAcessoNuvem()) return;
+
   const handle = await garantirPastaDrive();
   if (!handle) return;
 
@@ -3156,6 +3462,8 @@ async function restaurarBackupGoogleDrive() {
 }
 
 async function sincronizarGoogleDrive() {
+  if (!exigirAcessoNuvem()) return;
+
   const handle = await garantirPastaDrive();
   if (!handle) return;
 
@@ -3181,6 +3489,12 @@ async function sincronizarGoogleDrive() {
 }
 
 async function sincronizarGoogleDriveSilencioso() {
+  if (!temAcessoNuvem()) {
+    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    salvarDados();
+    return false;
+  }
+
   const handle = await garantirPastaDriveSilenciosa();
   if (!handle) return false;
 
@@ -3222,6 +3536,12 @@ async function garantirPastaDriveSilenciosa() {
 }
 
 async function sincronizarUrlSilencioso() {
+  if (!temAcessoNuvem()) {
+    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    salvarDados();
+    return false;
+  }
+
   if (!syncConfig.cloudUrl) {
     syncConfig.autoBackupStatus = "Configure a URL da nuvem";
     salvarDados();
@@ -3269,6 +3589,12 @@ function iniciarAutoBackup() {
     autoBackupTimer = null;
   }
 
+  if (!temAcessoNuvem()) {
+    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    salvarDados();
+    return;
+  }
+
   if (!syncConfig.autoBackupEnabled) {
     syncConfig.autoBackupStatus = "Desativado";
     salvarDados();
@@ -3307,6 +3633,8 @@ async function executarAutoBackup(forcar = false) {
 }
 
 async function executarAutoBackupManual() {
+  if (!exigirAcessoNuvem()) return;
+
   syncConfig = {
     ...syncConfig,
     ...lerConfigSyncCampos()
