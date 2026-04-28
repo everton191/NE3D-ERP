@@ -19,7 +19,8 @@ const legacyApk = path.join(downloadsDir, "NE3D-ERP-android-users17-debug.apk");
 const updateManifest = path.join(downloadsDir, "update.json");
 const appJs = path.join(rootDir, "app.js");
 const buildGradle = path.join(rootDir, "android", "app", "build.gradle");
-const defaultApkUrl = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP.apk";
+const publicRepo = "everton191/NE3D-ERP.apk";
+const defaultApkUrl = `https://github.com/${publicRepo}/raw/main/NE3D-ERP.apk`;
 
 if (!fs.existsSync(sourceApk)) {
   console.error(`APK nao encontrado: ${sourceApk}`);
@@ -42,7 +43,8 @@ fs.writeFileSync(
       version,
       versionCode,
       apkUrl: defaultApkUrl,
-      apkFile: "downloads/NE3D-ERP.apk",
+      apkFile: "NE3D-ERP.apk",
+      publicRepo,
       generatedAt: new Date().toISOString()
     },
     null,

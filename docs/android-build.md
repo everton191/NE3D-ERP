@@ -38,7 +38,7 @@ Antes de publicar uma nova versao, atualize:
 - `APP_VERSION` em `app.js`
 - `versionCode` e `versionName` em `android/app/build.gradle`
 
-Depois rode `npm run android:apk`, faça commit e push. Quando o `update.json` novo estiver no GitHub, os apps Android com atualizacao automatica ligada passam a avisar e abrir o APK novo.
+Depois rode `npm run android:apk`, faca commit e push. Quando o `update.json` novo estiver no GitHub, os apps Android com atualizacao automatica ligada passam a avisar e abrir o APK novo.
 
 ## Requisitos para compilar
 
@@ -50,10 +50,10 @@ No Windows, se `npm run android:apk` mostrar erro de `JAVA_HOME`, abra o Android
 
 ## Distribuicao
 
-Quando o APK estiver pronto, envie o arquivo para GitHub Releases:
+Quando o APK estiver pronto, envie `NE3D-ERP.apk` e `update.json` para o repositorio publico de atualizacao:
 
 ```text
-https://github.com/everton191/NE3D-ERP/releases
+https://github.com/everton191/NE3D-ERP.apk
 ```
 
-O app ja aponta o botao Android para essa pagina de releases quando nenhum link especifico estiver salvo no Admin.
+O app consulta `https://raw.githubusercontent.com/everton191/NE3D-ERP.apk/main/update.json` e baixa o APK em `https://github.com/everton191/NE3D-ERP.apk/raw/main/NE3D-ERP.apk`.
