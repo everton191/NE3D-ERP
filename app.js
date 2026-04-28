@@ -2,10 +2,16 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-supabase-online";
+const APP_VERSION = "2026.04.28-security-assistant";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
+const SUPERADMIN_BOOTSTRAP_EMAIL = "paessilvae@gmail.com";
+const SUPERADMIN_BOOTSTRAP_HASH = "pbkdf2$120000$7IdXWxbOcEGHYrhsgKxbwQ==$zi+SJZy2LcZmhy0NiWxjIZ43/A9GJZiW0B5/hDSIwJg=";
+const SECURITY_SESSION_TIMEOUT_MS = 30 * 60 * 1000;
+const SECURITY_SESSION_WARNING_MS = 2 * 60 * 1000;
+const LOGIN_LOCK_MS = 5 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 5;
 const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP-APK";
 const ANDROID_RELEASES_URL = `https://github.com/${ANDROID_PUBLIC_REPO}/raw/main/NE3D-ERP.apk`;
 const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/update.json`;
@@ -30,10 +36,12 @@ const telas = {
   personalizacao: "Personalizar",
   assinatura: "Plano",
   usuarios: "Usuários",
+  seguranca: "Segurança",
   planos: "Planos",
   admin: "Admin",
   superadmin: "Super Admin",
-  feedback: "Bugs e sugestões"
+  feedback: "Bugs e sugestões",
+  acessoNegado: "Acesso negado"
 };
 
 let telaAtual = "dashboard";
@@ -51,6 +59,11 @@ let twoFactorPending = null;
 let updateTimer = null;
 let dashboardWindowAction = null;
 let calcWidgetAction = null;
+let sessionTimer = null;
+let sessionWarned = false;
+let assistantOpen = false;
+let assistantMinimized = false;
+let assistantMessages = [];
 
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
@@ -59,6 +72,9 @@ let orcamentos = carregarLista("orcamentos");
 let historico = carregarLista("historico");
 let diagnostics = carregarLista("diagnostics");
 let sugestoes = carregarLista("sugestoes");
+let securityLogs = carregarLista("securityLogs");
+let passwordResetTokens = carregarLista("passwordResetTokens");
+let loginAttempts = carregarObjeto("loginAttempts", {});
 let syncConfig = carregarObjeto("syncConfig", {
   cloudUrl: "",
   token: "",
@@ -144,6 +160,21 @@ let appConfig = carregarObjeto("appConfig", {
     windows: {}
   }
 });
+
+const assistantResponses = [
+  { keywords: ["pedido", "pedidos", "venda", "vendas"], answer: "Para criar um pedido, vá em Pedidos ou Novo pedido, adicione um ou mais produtos e finalize. Ao clicar em um pedido da lista você pode visualizar, editar, excluir e acompanhar o status. Ao editar, o sistema recalcula o estoque pela diferença para evitar baixa duplicada." },
+  { keywords: ["estoque", "material", "filamento", "resina"], answer: "No Estoque você cadastra materiais por tipo e cor, como PLA Preto ou Resina Transparente. Quando um pedido usa material vinculado por ID, o sistema verifica saldo, baixa automaticamente ao salvar e devolve ao excluir/cancelar." },
+  { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
+  { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode exportar um JSON local, restaurar um JSON, sincronizar por Supabase ou usar pasta do Google Drive Desktop. O backup local é o caminho mais seguro para cópia manual; Supabase sincroniza por usuário quando estiver conectado." },
+  { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Trial ativo, plano pago e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
+  { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Trial libera recursos premium por 7 dias. Plano pago libera tudo até o vencimento. Plano vencido bloqueia recursos premium. Bloqueado impede acesso mesmo com dias restantes. Superadmin sempre tem acesso total." },
+  { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
+  { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão expira após inatividade por segurança. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
+  { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha; com Supabase configurado, o reset usa o fluxo de autenticação online." },
+  { keywords: ["usuario", "usuário", "usuarios", "usuários", "permissao", "permissão", "perfil"], answer: "Admin e superadmin podem criar usuários. Os perfis são superadmin, admin, operador e visualizador. Operador trabalha na operação; visualizador consulta; admin gerencia usuários e dados; superadmin acessa tudo." },
+  { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Os pedidos finalizados entram como movimentação financeira. Relatórios mostram visão resumida para acompanhar faturamento, saldo e operação." },
+  { keywords: ["producao", "produção", "impressao", "impressão"], answer: "A tela Produção acompanha pedidos em aberto ou em andamento. Atualize o status para organizar o fluxo de impressão, entrega e finalização." }
+];
 let billingConfig = carregarObjeto("billingConfig", {
   ownerMode: false,
   ownerName: "",
@@ -172,6 +203,8 @@ let deviceId = localStorage.getItem("deviceId") || criarDeviceId();
 let driveFolderHandle = null;
 let autoBackupTimer = null;
 let autoBackupRodando = false;
+
+carregarSessaoSensivelSupabase();
 
 const printers = {
   "Ender 3": { tipo: "FDM", consumo: 120, custo: 1 },
@@ -307,10 +340,55 @@ function salvarDados() {
   localStorage.setItem("historico", JSON.stringify(historico));
   localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
   localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
+  localStorage.setItem("securityLogs", JSON.stringify(securityLogs));
+  localStorage.setItem("passwordResetTokens", JSON.stringify(passwordResetTokens));
+  localStorage.setItem("loginAttempts", JSON.stringify(loginAttempts));
   localStorage.setItem("usuarios", JSON.stringify(usuarios));
-  localStorage.setItem("syncConfig", JSON.stringify(syncConfig));
+  localStorage.setItem("syncConfig", JSON.stringify(criarSyncConfigPersistente()));
   localStorage.setItem("appConfig", JSON.stringify(appConfig));
   localStorage.setItem("billingConfig", JSON.stringify(billingConfig));
+}
+
+function criarSyncConfigPersistente() {
+  const {
+    supabaseAccessToken,
+    supabaseRefreshToken,
+    supabaseTokenExpiresAt,
+    ...persistente
+  } = syncConfig || {};
+  return persistente;
+}
+
+function salvarSessaoSensivelSupabase() {
+  const sessao = {
+    supabaseAccessToken: syncConfig.supabaseAccessToken || "",
+    supabaseRefreshToken: syncConfig.supabaseRefreshToken || "",
+    supabaseTokenExpiresAt: Number(syncConfig.supabaseTokenExpiresAt) || 0,
+    supabaseUserId: syncConfig.supabaseUserId || "",
+    supabaseEmail: syncConfig.supabaseEmail || ""
+  };
+  sessionStorage.setItem("supabaseSession", JSON.stringify(sessao));
+}
+
+function carregarSessaoSensivelSupabase() {
+  try {
+    const sessao = JSON.parse(sessionStorage.getItem("supabaseSession") || "{}");
+    syncConfig = {
+      ...syncConfig,
+      supabaseAccessToken: sessao.supabaseAccessToken || syncConfig.supabaseAccessToken || "",
+      supabaseRefreshToken: sessao.supabaseRefreshToken || syncConfig.supabaseRefreshToken || "",
+      supabaseTokenExpiresAt: Number(sessao.supabaseTokenExpiresAt) || Number(syncConfig.supabaseTokenExpiresAt) || 0,
+      supabaseUserId: sessao.supabaseUserId || syncConfig.supabaseUserId || "",
+      supabaseEmail: sessao.supabaseEmail || syncConfig.supabaseEmail || ""
+    };
+  } catch (_) {}
+}
+
+function limparSessaoSensivelSupabase() {
+  syncConfig.supabaseAccessToken = "";
+  syncConfig.supabaseRefreshToken = "";
+  syncConfig.supabaseTokenExpiresAt = 0;
+  sessionStorage.removeItem("supabaseSession");
 }
 
 function registrarHistorico(acao, detalhes = "") {
@@ -324,6 +402,24 @@ function registrarHistorico(acao, detalhes = "") {
 
   historico = historico.slice(0, 250);
   localStorage.setItem("historico", JSON.stringify(historico));
+}
+
+function registrarSeguranca(acao, resultado = "sucesso", detalhes = "", usuarioEmail = usuarioAtualEmail) {
+  const usuario = normalizarEmail(usuarioEmail || getUsuarioAtual()?.email || "");
+  const registro = {
+    id: Date.now() + Math.random(),
+    data: new Date().toISOString(),
+    usuario: usuario || "visitante",
+    acao: String(acao || "Evento"),
+    resultado: String(resultado || "sucesso"),
+    detalhes: String(detalhes || "").slice(0, 280),
+    dispositivo: syncConfig.deviceName || deviceId,
+    userAgent: (navigator.userAgent || "").slice(0, 160)
+  };
+  securityLogs.unshift(registro);
+  securityLogs = securityLogs.slice(0, 300);
+  localStorage.setItem("securityLogs", JSON.stringify(securityLogs));
+  registrarSecurityLogSupabaseSilencioso(registro);
 }
 
 function registrarDiagnostico(tipo, mensagem, detalhes = "") {
@@ -386,7 +482,9 @@ function normalizarEmail(email) {
 }
 
 function normalizarPapel(papel) {
-  return ["superadmin", "dono", "admin", "operador"].includes(papel) ? papel : "operador";
+  const alvo = String(papel || "").toLowerCase();
+  if (alvo === "user" || alvo === "usuario") return "operador";
+  return ["superadmin", "dono", "admin", "operador", "visualizador"].includes(alvo) ? alvo : "operador";
 }
 
 function normalizarUsuario(usuario) {
@@ -397,7 +495,11 @@ function normalizarUsuario(usuario) {
     id: usuario?.id || criarIdUsuario(),
     nome: String(usuario?.nome || email.split("@")[0] || "Usuário").trim(),
     email,
-    senha: String(usuario?.senha || "123"),
+    senha: String(usuario?.senha || ""),
+    passwordHash: usuario?.passwordHash || usuario?.senhaHash || "",
+    mustChangePassword: usuario?.mustChangePassword === true || usuario?.senhaTemporaria === true,
+    senhaTemporaria: usuario?.senhaTemporaria === true || usuario?.mustChangePassword === true,
+    phone: String(usuario?.phone || usuario?.telefone || "").trim(),
     papel: normalizarPapel(usuario?.papel),
     ativo: usuario?.ativo !== false,
     bloqueado: usuario?.bloqueado === true,
@@ -405,7 +507,11 @@ function normalizarUsuario(usuario) {
     planExpiresAt: usuario?.planExpiresAt || "",
     trialStartedAt: usuario?.trialStartedAt || "",
     trialDays: Math.max(1, Number(usuario?.trialDays) || Number(billingConfig.trialDays) || 7),
-    criadoEm: usuario?.criadoEm || new Date().toISOString()
+    criadoEm: usuario?.criadoEm || new Date().toISOString(),
+    atualizadoEm: usuario?.atualizadoEm || usuario?.criadoEm || new Date().toISOString(),
+    lastLoginAt: usuario?.lastLoginAt || "",
+    passwordUpdatedAt: usuario?.passwordUpdatedAt || "",
+    failedLoginCount: Math.max(0, Number(usuario?.failedLoginCount) || 0)
   };
 }
 
@@ -424,6 +530,209 @@ function criarIdUsuario() {
   return "user-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 7);
 }
 
+function bytesParaBase64(bytes) {
+  let binario = "";
+  new Uint8Array(bytes).forEach((byte) => {
+    binario += String.fromCharCode(byte);
+  });
+  return btoa(binario);
+}
+
+function base64ParaBytes(base64) {
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i += 1) {
+    bytes[i] = binario.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function cryptoDisponivel() {
+  return !!(window.crypto?.subtle && window.crypto?.getRandomValues);
+}
+
+function gerarSaltSenha() {
+  const bytes = new Uint8Array(16);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return bytesParaBase64(bytes);
+}
+
+async function gerarHashSenha(senha, salt = gerarSaltSenha(), iterations = 120000) {
+  if (!cryptoDisponivel()) {
+    return "local$" + salt + "$" + btoa(unescape(encodeURIComponent(salt + ":" + senha)));
+  }
+
+  const encoder = new TextEncoder();
+  const chave = await crypto.subtle.importKey("raw", encoder.encode(senha), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({
+    name: "PBKDF2",
+    salt: base64ParaBytes(salt),
+    iterations,
+    hash: "SHA-256"
+  }, chave, 256);
+  return `pbkdf2$${iterations}$${salt}$${bytesParaBase64(bits)}`;
+}
+
+async function verificarHashSenha(senha, hash) {
+  if (!hash) return false;
+  if (hash.startsWith("local$")) {
+    const partesLocal = hash.split("$");
+    return hash === "local$" + partesLocal[1] + "$" + btoa(unescape(encodeURIComponent(partesLocal[1] + ":" + senha)));
+  }
+  const partes = String(hash).split("$");
+  if (partes.length !== 4 || partes[0] !== "pbkdf2") return false;
+  const esperado = await gerarHashSenha(senha, partes[2], Number(partes[1]) || 120000);
+  return esperado === hash;
+}
+
+function senhaEhObvia(senha) {
+  const alvo = removerAcentos(String(senha || "").toLowerCase()).replace(/\s+/g, "");
+  return ["123456", "12345678", "senha123", "admin123", "admin", "password", "qwerty123", "ne3d123"].includes(alvo);
+}
+
+function avaliarForcaSenha(senha) {
+  const texto = String(senha || "");
+  const regras = {
+    tamanho: texto.length >= 8,
+    maiuscula: /[A-Z]/.test(texto),
+    minuscula: /[a-z]/.test(texto),
+    numero: /\d/.test(texto),
+    especial: /[^A-Za-z0-9]/.test(texto),
+    naoObvia: !senhaEhObvia(texto)
+  };
+  const pontos = Object.values(regras).filter(Boolean).length;
+  return {
+    regras,
+    pontos,
+    nivel: pontos >= 6 ? "forte" : pontos >= 4 ? "media" : "fraca",
+    valida: pontos >= 6
+  };
+}
+
+function mensagemValidacaoSenha(senha) {
+  const forca = avaliarForcaSenha(senha);
+  if (forca.valida) return "";
+  const faltando = [];
+  if (!forca.regras.tamanho) faltando.push("8 caracteres");
+  if (!forca.regras.maiuscula) faltando.push("letra maiúscula");
+  if (!forca.regras.minuscula) faltando.push("letra minúscula");
+  if (!forca.regras.numero) faltando.push("número");
+  if (!forca.regras.especial) faltando.push("caractere especial");
+  if (!forca.regras.naoObvia) faltando.push("não ser uma senha óbvia");
+  return "A senha precisa ter " + faltando.join(", ") + ".";
+}
+
+function renderIndicadorForcaSenha(inputId = "novoUsuarioSenha") {
+  const valor = document.getElementById(inputId)?.value || "";
+  const alvo = document.querySelector(`[data-strength-for="${inputId}"]`);
+  if (!alvo) return;
+  const forca = avaliarForcaSenha(valor);
+  alvo.className = `password-strength strength-${forca.nivel}`;
+  alvo.textContent = valor ? `Senha ${forca.nivel === "media" ? "média" : forca.nivel}` : "Digite uma senha forte";
+}
+
+function chaveTentativaLogin(email) {
+  return normalizarEmail(email || "admin-local") || "visitante";
+}
+
+function getTentativaLogin(email) {
+  const chave = chaveTentativaLogin(email);
+  const atual = loginAttempts[chave] || { count: 0, lockedUntil: 0 };
+  if ((Number(atual.lockedUntil) || 0) < Date.now()) {
+    atual.lockedUntil = 0;
+    if ((Number(atual.count) || 0) >= LOGIN_MAX_ATTEMPTS) atual.count = 0;
+  }
+  loginAttempts[chave] = atual;
+  return atual;
+}
+
+function loginEstaBloqueado(email) {
+  const tentativa = getTentativaLogin(email);
+  const ate = Number(tentativa.lockedUntil) || 0;
+  if (ate > Date.now()) {
+    const minutos = Math.ceil((ate - Date.now()) / 60000);
+    alert(`Muitas tentativas incorretas. Tente novamente em ${minutos} minuto(s).`);
+    return true;
+  }
+  return false;
+}
+
+function registrarFalhaLogin(email, motivo = "Usuário ou senha inválidos") {
+  const chave = chaveTentativaLogin(email);
+  const tentativa = getTentativaLogin(chave);
+  tentativa.count = (Number(tentativa.count) || 0) + 1;
+  tentativa.lastFailureAt = new Date().toISOString();
+  if (tentativa.count >= LOGIN_MAX_ATTEMPTS) {
+    tentativa.lockedUntil = Date.now() + LOGIN_LOCK_MS;
+  }
+  loginAttempts[chave] = tentativa;
+  salvarDados();
+  registrarSeguranca("Falha de login", "erro", motivo, email);
+}
+
+function limparFalhasLogin(email) {
+  delete loginAttempts[chaveTentativaLogin(email)];
+  salvarDados();
+}
+
+async function definirSenhaUsuario(usuario, senha, temporaria = false) {
+  usuario.passwordHash = await gerarHashSenha(senha);
+  usuario.senha = "";
+  usuario.mustChangePassword = !!temporaria;
+  usuario.senhaTemporaria = !!temporaria;
+  usuario.passwordUpdatedAt = temporaria ? "" : new Date().toISOString();
+  usuario.atualizadoEm = new Date().toISOString();
+}
+
+async function verificarSenhaUsuario(usuario, senha) {
+  if (!usuario) return false;
+  if (usuario.passwordHash && await verificarHashSenha(senha, usuario.passwordHash)) return true;
+  if (usuario.senha && usuario.senha === senha) {
+    await definirSenhaUsuario(usuario, senha, usuario.senhaTemporaria || usuario.mustChangePassword);
+    salvarDados();
+    return true;
+  }
+  return false;
+}
+
+function garantirSuperadminPrincipalLocal() {
+  usuarios = normalizarUsuarios(usuarios);
+  let usuario = usuarios.find((item) => item.email === SUPERADMIN_BOOTSTRAP_EMAIL);
+  const agora = new Date().toISOString();
+  if (!usuario) {
+    usuario = normalizarUsuario({
+      nome: "Everton PAESS",
+      email: SUPERADMIN_BOOTSTRAP_EMAIL,
+      papel: "superadmin",
+      ativo: true,
+      passwordHash: SUPERADMIN_BOOTSTRAP_HASH,
+      mustChangePassword: true,
+      senhaTemporaria: true,
+      criadoEm: agora
+    });
+    usuarios.unshift(usuario);
+  }
+
+  usuario.nome = usuario.nome || "Everton PAESS";
+  usuario.papel = "superadmin";
+  usuario.ativo = true;
+  usuario.bloqueado = false;
+  if (!usuario.passwordHash && !usuario.passwordUpdatedAt) {
+    usuario.passwordHash = SUPERADMIN_BOOTSTRAP_HASH;
+    usuario.senha = "";
+    usuario.mustChangePassword = true;
+    usuario.senhaTemporaria = true;
+  }
+
+  billingConfig.ownerEmail = billingConfig.ownerEmail || SUPERADMIN_BOOTSTRAP_EMAIL;
+  billingConfig.ownerName = billingConfig.ownerName || usuario.nome;
+  return usuario;
+}
+
 function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConfig.ownerEmail, senha = "") {
   const emailDono = normalizarEmail(email);
   if (!emailDono) return null;
@@ -432,7 +741,7 @@ function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConf
   const existente = usuarios.find((usuario) => normalizarEmail(usuario.email) === emailDono);
   if (existente) {
     existente.nome = String(nome || existente.nome || "Dono").trim();
-    existente.senha = senha || existente.senha || "123";
+    if (senha) existente.senha = senha;
     if (existente.papel !== "superadmin") existente.papel = "dono";
     existente.ativo = true;
     return existente;
@@ -442,7 +751,7 @@ function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConf
     id: criarIdUsuario(),
     nome: String(nome || "Dono").trim(),
     email: emailDono,
-    senha: senha || "123",
+    senha,
     papel: "dono",
     ativo: true,
     criadoEm: new Date().toISOString()
@@ -450,6 +759,9 @@ function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConf
   usuarios.unshift(novo);
   return novo;
 }
+
+garantirSuperadminPrincipalLocal();
+salvarDados();
 
 function getUsuarioAtual() {
   const emailAtual = normalizarEmail(usuarioAtualEmail);
@@ -1170,6 +1482,11 @@ function trocarTela(tela) {
     tela = "dashboard";
   }
 
+  if (!canAccessScreen(tela)) {
+    registrarSeguranca("Acesso negado", "erro", "Tela: " + tela);
+    tela = "acessoNegado";
+  }
+
   if (telaAtual !== tela) {
     telaAnterior = telaAtual;
   }
@@ -1208,7 +1525,7 @@ function renderApp() {
   aplicarPersonalizacao();
   const mobile = isMobile();
   document.body.classList.toggle("mobile-mode", mobile);
-  app.innerHTML = mobile ? renderMobile() : renderDesktop();
+  app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + renderAssistenteVirtual();
   atualizarMenu();
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
@@ -1230,7 +1547,15 @@ function renderDesktop() {
 }
 
 function renderDesktopConteudo() {
-  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "assinatura", "planos", "admin", "usuarios", "superadmin"];
+  if (!canAccessScreen(telaAtual)) {
+    return `<div class="desktop-focus">${renderAcessoNegado()}</div>`;
+  }
+
+  if (getUsuarioAtual()?.mustChangePassword && telaAtual !== "seguranca") {
+    return `<div class="desktop-focus">${renderTrocaSenhaObrigatoria()}</div>`;
+  }
+
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "assinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "acessoNegado"];
 
   if (configuracoes.includes(telaAtual)) {
     return `<div class="desktop-focus">${renderTela(telaAtual)}</div>`;
@@ -1286,6 +1611,127 @@ function buscarGlobal(event, valor) {
   }
 
   alert("Nada encontrado para: " + valor);
+}
+
+function isTelaPublica(tela) {
+  return ["calculadora", "admin", "assinatura", "planos", "acessoNegado"].includes(tela);
+}
+
+function canAccessScreen(tela, usuario = getUsuarioAtual()) {
+  if (isTelaPublica(tela)) return true;
+  if (adminLogado && !usuario) return tela !== "superadmin";
+  if (!usuario) return false;
+  if (isSuperAdmin(usuario) || usuario.papel === "dono") return true;
+
+  const permissoes = {
+    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "usuarios", "seguranca", "feedback"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback"],
+    visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback"]
+  };
+
+  return (permissoes[usuario.papel] || []).includes(tela);
+}
+
+function renderAcessoNegado() {
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>🔒 Acesso negado</h2>
+        <span class="status-badge badge-danger">Restrito</span>
+      </div>
+      <p class="muted">Você precisa entrar com uma conta autorizada ou seu perfil não tem permissão para esta área.</p>
+      <div class="actions">
+        <button class="btn" onclick="trocarTela('admin')">Entrar</button>
+        <button class="btn secondary" onclick="trocarTela('calculadora')">Abrir calculadora grátis</button>
+        <button class="btn ghost" onclick="voltarTela()">Voltar</button>
+      </div>
+    </section>
+  `;
+}
+
+function abrirAssistente() {
+  assistantOpen = true;
+  assistantMinimized = false;
+  if (!assistantMessages.length) {
+    assistantMessages.push({
+      role: "assistant",
+      text: "Olá! Sou o assistente local do NE3D ERP. Posso ajudar com pedido, estoque, calculadora, backup, PDF, plano, login e Supabase."
+    });
+  }
+  renderApp();
+}
+
+function fecharAssistente() {
+  assistantOpen = false;
+  assistantMinimized = false;
+  renderApp();
+}
+
+function minimizarAssistente() {
+  assistantMinimized = true;
+  renderApp();
+}
+
+function normalizarTextoAssistente(texto) {
+  return removerAcentos(String(texto || "").toLowerCase());
+}
+
+function obterRespostaAssistente(texto) {
+  const pergunta = normalizarTextoAssistente(texto);
+  const resposta = assistantResponses.find((item) => item.keywords.some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
+  return resposta?.answer || "Ainda não sei responder isso. Procure o suporte ou tente usar palavras como pedido, estoque, backup, PDF ou plano.";
+}
+
+function enviarMensagemAssistente(event) {
+  event?.preventDefault?.();
+  const input = document.getElementById("assistantInput");
+  const texto = (input?.value || "").trim();
+  if (!texto) return;
+  assistantMessages.push({ role: "user", text: texto });
+  assistantMessages.push({ role: "assistant", text: obterRespostaAssistente(texto) });
+  assistantMessages = assistantMessages.slice(-20);
+  renderApp();
+  setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
+}
+
+function renderAssistenteVirtual() {
+  if (!assistantOpen) {
+    return `<button class="assistant-fab" onclick="abrirAssistente()" title="Assistente local">💬</button>`;
+  }
+
+  if (assistantMinimized) {
+    return `
+      <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente()" title="Abrir assistente">
+        💬
+      </button>
+    `;
+  }
+
+  const mensagens = assistantMessages.map((msg) => `
+    <div class="assistant-message ${msg.role === "user" ? "assistant-user" : "assistant-bot"}">
+      ${escaparHtml(msg.text)}
+    </div>
+  `).join("");
+
+  return `
+    <section class="assistant-panel" aria-label="Assistente virtual local">
+      <div class="assistant-header">
+        <div>
+          <strong>Assistente NE3D</strong>
+          <span>Local/offline</span>
+        </div>
+        <div class="row-actions">
+          <button class="icon-button" onclick="minimizarAssistente()" title="Minimizar">−</button>
+          <button class="icon-button danger" onclick="fecharAssistente()" title="Fechar">×</button>
+        </div>
+      </div>
+      <div class="assistant-body">${mensagens}</div>
+      <form class="assistant-form" onsubmit="enviarMensagemAssistente(event)">
+        <input id="assistantInput" placeholder="Pergunte sobre pedido, estoque, PDF..." autocomplete="off">
+        <button class="btn" type="submit">Enviar</button>
+      </form>
+    </section>
+  `;
 }
 
 function getDashboardLayout() {
@@ -1759,6 +2205,7 @@ function getMenuGroups() {
         { tela: "empresa", icone: "🏢", texto: "Empresa" },
         { tela: "backup", icone: "☁️", texto: "Backup" },
         { tela: "preferencias", icone: "⚙️", texto: "Preferências" },
+        { tela: "seguranca", icone: "🔒", texto: "Segurança" },
         { tela: "feedback", icone: "💡", texto: "Feedback" }
       ]
     }
@@ -1784,7 +2231,10 @@ function getMenuGroups() {
     });
   }
 
-  return grupos;
+  return grupos.map((grupo) => ({
+    ...grupo,
+    itens: grupo.itens.filter((item) => canAccessScreen(item.tela))
+  })).filter((grupo) => grupo.itens.length);
 }
 
 function renderBotaoLateral(item) {
@@ -1856,10 +2306,11 @@ function abrirTelaMenuPopup(tela) {
 
 function renderMobile() {
   const painelAberto = telaAtual !== "dashboard";
+  const home = canAccessScreen("dashboard") ? renderDashboard(true) : renderAcessoNegado();
 
   return `
     <div class="mobile-home">
-      ${renderDashboard(true)}
+      ${getUsuarioAtual()?.mustChangePassword ? renderTrocaSenhaObrigatoria() : home}
       ${renderAcoesRapidas()}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
@@ -1882,6 +2333,10 @@ function renderPainelMobile(tela) {
 }
 
 function renderTela(tela) {
+  if (!canAccessScreen(tela)) return renderAcessoNegado();
+  if (getUsuarioAtual()?.mustChangePassword && tela !== "seguranca" && tela !== "admin") {
+    return renderTrocaSenhaObrigatoria();
+  }
   switch (tela) {
     case "calculadora":
       return renderCalculadoraTela();
@@ -1911,6 +2366,10 @@ function renderTela(tela) {
       return renderAssinatura();
     case "feedback":
       return renderFeedback();
+    case "seguranca":
+      return renderSeguranca();
+    case "acessoNegado":
+      return renderAcessoNegado();
     case "usuarios":
     case "admin":
       return renderAdmin();
@@ -1933,11 +2392,12 @@ function renderAcoesRapidas() {
     { tela: "planos", icone: "💳", texto: "Plano" }
   ];
   if (!getUsuarioAtual() || podeGerenciarUsuarios()) acoes.push({ tela: "usuarios", icone: "🔐", texto: "Admin" });
+  if (getUsuarioAtual()) acoes.push({ tela: "seguranca", icone: "🔒", texto: "Segurança" });
   if (isSuperAdmin()) acoes.push({ tela: "superadmin", icone: "🛡️", texto: "Super" });
 
   return `
     <div class="quick-actions">
-      ${acoes.map((acao) => `
+      ${acoes.filter((acao) => canAccessScreen(acao.tela)).map((acao) => `
         <button class="quick-action" onclick="trocarTela('${acao.tela}')">
           <span>${acao.icone}</span>
           <strong>${acao.texto}</strong>
@@ -2718,26 +3178,33 @@ function renderAdmin() {
         <div class="sync-grid">
           <label class="field">
             <span>E-mail do usuário</span>
-            <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail)}" placeholder="seu@email.com">
+            <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || SUPERADMIN_BOOTSTRAP_EMAIL)}" placeholder="seu@email.com" autocomplete="username">
           </label>
           <label class="field">
             <span>Senha do usuário</span>
-            <input id="usuarioLoginSenha" type="password" placeholder="Senha cadastrada">
+            <div class="password-row">
+              <input id="usuarioLoginSenha" type="password" placeholder="Senha cadastrada" autocomplete="current-password" onkeydown="if(event.key==='Enter') loginUsuario()">
+              <button class="icon-button" type="button" onclick="alternarSenhaVisivel('usuarioLoginSenha')" title="Mostrar/ocultar senha">👁</button>
+            </div>
           </label>
         </div>
         <div class="actions">
-          <button class="btn" onclick="loginUsuario()">Entrar por e-mail</button>
+          <button id="loginUsuarioBtn" class="btn" onclick="loginUsuario()">Entrar por e-mail</button>
+          <button class="btn ghost" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
           ${usuarioAtual ? `<button class="btn ghost" onclick="logoutUsuario()">Sair do usuário</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Ver plano</button>`}
         </div>
 
         <div class="danger-zone">
           <h2 class="section-title">Acesso local</h2>
-          <p class="muted">Use para configurar o dono no seu aparelho ou fazer manutenção rápida.</p>
+          <p class="muted">Disponível apenas em ambiente local para manutenção. Em produção, use usuário/senha ou Supabase.</p>
           <label class="field">
             <span>Senha do admin local</span>
-            <input id="adminSenha" type="password" placeholder="Digite a senha">
+            <div class="password-row">
+              <input id="adminSenha" type="password" placeholder="Digite a senha">
+              <button class="icon-button" type="button" onclick="alternarSenhaVisivel('adminSenha')" title="Mostrar/ocultar senha">👁</button>
+            </div>
           </label>
-          <button class="btn secondary" onclick="loginAdmin()">Entrar com senha 123</button>
+          <button id="loginAdminBtn" class="btn secondary" onclick="loginAdmin()">Entrar manutenção local</button>
         </div>
       </section>
     `;
@@ -2826,8 +3293,16 @@ function renderAdmin() {
             <input id="novoUsuarioEmail" type="email" placeholder="usuario@email.com">
           </label>
           <label class="field">
-            <span>Senha</span>
-            <input id="novoUsuarioSenha" type="password" placeholder="Senha de acesso">
+            <span>Telefone opcional</span>
+            <input id="novoUsuarioTelefone" inputmode="tel" placeholder="5585999999999">
+          </label>
+          <label class="field">
+            <span>Senha inicial</span>
+            <div class="password-row">
+              <input id="novoUsuarioSenha" type="password" placeholder="Senha temporária" oninput="renderIndicadorForcaSenha('novoUsuarioSenha')">
+              <button class="icon-button" type="button" onclick="alternarSenhaVisivel('novoUsuarioSenha')" title="Mostrar/ocultar senha">👁</button>
+            </div>
+            <small class="password-strength" data-strength-for="novoUsuarioSenha">Digite uma senha forte</small>
           </label>
           <label class="field">
             <span>Função</span>
@@ -2836,6 +3311,14 @@ function renderAdmin() {
               ${podeCriarDono ? `<option value="dono">Dono</option>` : ""}
               <option value="admin">Admin</option>
               <option value="operador" selected>Operador</option>
+              <option value="visualizador">Visualizador</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="novoUsuarioStatus">
+              <option value="ativo" selected>Ativo</option>
+              <option value="inativo">Inativo</option>
             </select>
           </label>
         </div>
@@ -2911,13 +3394,124 @@ function renderUsuariosAdmin() {
         <div class="user-row">
           <div>
             <strong>${escaparHtml(usuario.nome)}</strong>
-            <span class="muted">${escaparHtml(usuario.email)}</span>
+            <span class="muted">${escaparHtml(usuario.email)}${usuario.phone ? " • " + escaparHtml(usuario.phone) : ""}</span>
           </div>
-          <span class="status-badge">${escaparHtml(usuario.papel)}</span>
-          <button class="icon-button danger" onclick="removerUsuario('${escaparAttr(usuario.id)}')" title="Remover">×</button>
+          <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${escaparHtml(usuario.papel)} • ${usuario.ativo === false ? "inativo" : "ativo"}</span>
+          <div class="row-actions">
+            <button class="btn ghost" onclick="redefinirSenhaUsuario('${escaparAttr(usuario.id)}')">Redefinir senha</button>
+            <button class="btn warning" onclick="alternarStatusUsuario('${escaparAttr(usuario.id)}')">${usuario.ativo === false ? "Reativar" : "Desativar"}</button>
+            <button class="icon-button danger" onclick="removerUsuario('${escaparAttr(usuario.id)}')" title="Remover">×</button>
+          </div>
         </div>
       `).join("")}
     </div>
+  `;
+}
+
+function alternarSenhaVisivel(id) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  input.type = input.type === "password" ? "text" : "password";
+}
+
+function renderTrocaSenhaObrigatoria() {
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>🔐 Troca de senha obrigatória</h2>
+        <span class="status-badge badge-alerta">Primeiro acesso</span>
+      </div>
+      <p class="muted">Por segurança, troque a senha temporária antes de continuar usando o sistema.</p>
+      ${renderFormularioAlterarSenha(true)}
+    </section>
+  `;
+}
+
+function renderFormularioAlterarSenha(obrigatoria = false) {
+  return `
+    <div class="sync-grid">
+      <label class="field">
+        <span>Senha atual</span>
+        <div class="password-row">
+          <input id="senhaAtualUsuario" type="password" autocomplete="current-password">
+          <button class="icon-button" type="button" onclick="alternarSenhaVisivel('senhaAtualUsuario')" title="Mostrar/ocultar senha">👁</button>
+        </div>
+      </label>
+      <label class="field">
+        <span>Nova senha</span>
+        <div class="password-row">
+          <input id="novaSenhaUsuario" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('novaSenhaUsuario')">
+          <button class="icon-button" type="button" onclick="alternarSenhaVisivel('novaSenhaUsuario')" title="Mostrar/ocultar senha">👁</button>
+        </div>
+        <small class="password-strength" data-strength-for="novaSenhaUsuario">Digite uma senha forte</small>
+      </label>
+      <label class="field">
+        <span>Confirmar nova senha</span>
+        <div class="password-row">
+          <input id="confirmarNovaSenhaUsuario" type="password" autocomplete="new-password">
+          <button class="icon-button" type="button" onclick="alternarSenhaVisivel('confirmarNovaSenhaUsuario')" title="Mostrar/ocultar senha">👁</button>
+        </div>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="alterarSenhaBtn" class="btn" onclick="alterarSenhaAtual(${obrigatoria ? "true" : "false"})">Salvar nova senha</button>
+      ${obrigatoria ? "" : `<button class="btn ghost" onclick="voltarTela()">Cancelar</button>`}
+    </div>
+  `;
+}
+
+function renderSeguranca() {
+  const usuario = getUsuarioAtual();
+  if (!usuario) return renderAcessoNegado();
+  const logs = securityLogs.slice(0, 18).map((log) => `
+    <div class="history-item">
+      <strong>${escaparHtml(log.acao)} • ${escaparHtml(log.resultado)}</strong>
+      <span class="muted">${new Date(log.data).toLocaleString("pt-BR")} • ${escaparHtml(log.usuario)} • ${escaparHtml(log.detalhes || log.dispositivo || "")}</span>
+    </div>
+  `).join("") || `<p class="empty">Nenhum log de segurança registrado.</p>`;
+
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>🔒 Segurança</h2>
+        <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${usuario.ativo === false ? "Inativo" : "Ativo"}</span>
+      </div>
+      <div class="admin-grid">
+        <div class="metric">
+          <span>Conta</span>
+          <strong>${escaparHtml(usuario.email)}</strong>
+        </div>
+        <div class="metric">
+          <span>Perfil</span>
+          <strong>${escaparHtml(usuario.papel)}</strong>
+        </div>
+        <div class="metric">
+          <span>Último acesso</span>
+          <strong>${usuario.lastLoginAt ? new Date(usuario.lastLoginAt).toLocaleString("pt-BR") : "Não registrado"}</strong>
+        </div>
+        <div class="metric">
+          <span>Sessão</span>
+          <strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong>
+        </div>
+      </div>
+
+      <div class="danger-zone">
+        <h2 class="section-title">Alterar senha</h2>
+        ${renderFormularioAlterarSenha(false)}
+      </div>
+
+      <div class="danger-zone">
+        <h2 class="section-title">Sessão</h2>
+        <p class="muted">Ao sair, tokens temporários e dados sensíveis da sessão são limpos deste aparelho.</p>
+        <div class="actions">
+          <button class="btn warning" onclick="logoutUsuario()">Sair com segurança</button>
+          <button class="btn ghost" onclick="sairSupabase()">Encerrar Supabase</button>
+        </div>
+      </div>
+
+      <h2 class="section-title">Logs de segurança</h2>
+      <div class="history-list">${logs}</div>
+    </section>
   `;
 }
 
@@ -3648,19 +4242,49 @@ function restaurarPersonalizacaoPadrao() {
   renderApp();
 }
 
-function loginAdmin() {
+function isAmbienteLocal() {
+  const host = location.hostname || "";
+  return ["localhost", "127.0.0.1", ""].includes(host) || location.protocol === "file:";
+}
+
+function setBotaoLoading(id, carregando, textoCarregando = "Entrando...") {
+  const botao = document.getElementById(id);
+  if (!botao) return;
+  if (carregando) {
+    botao.dataset.textoOriginal = botao.textContent;
+    botao.textContent = textoCarregando;
+    botao.disabled = true;
+  } else {
+    botao.textContent = botao.dataset.textoOriginal || botao.textContent;
+    botao.disabled = false;
+  }
+}
+
+async function loginAdmin() {
   const senha = document.getElementById("adminSenha")?.value || "";
+  if (!isAmbienteLocal()) {
+    alert("Acesso de manutenção local indisponível neste ambiente.");
+    registrarSeguranca("Acesso admin local negado", "erro", "Ambiente não local", "admin-local");
+    return;
+  }
+  if (loginEstaBloqueado("admin-local")) return;
+  setBotaoLoading("loginAdminBtn", true);
   if (senha !== "123") {
-    alert("Senha incorreta");
+    registrarFalhaLogin("admin-local", "Senha local incorreta");
+    alert("Usuário ou senha inválidos");
+    setBotaoLoading("loginAdminBtn", false);
     return;
   }
 
   if (precisa2FA()) {
     iniciarVerificacao2FA("admin");
+    setBotaoLoading("loginAdminBtn", false);
     return;
   }
 
+  limparFalhasLogin("admin-local");
   concluirLoginAdmin();
+  setBotaoLoading("loginAdminBtn", false);
 }
 
 function concluirLoginAdmin() {
@@ -3669,6 +4293,8 @@ function concluirLoginAdmin() {
   sessionStorage.setItem("adminLogado", "sim");
   sessionStorage.removeItem("usuarioAtualEmail");
   registrarHistorico("Admin", "Login realizado");
+  registrarSeguranca("Login admin local", "sucesso", "Manutenção local", "admin-local");
+  registrarAtividadeSessao();
   renderApp();
 }
 
@@ -3677,26 +4303,50 @@ function logoutAdmin() {
   usuarioAtualEmail = "";
   sessionStorage.removeItem("adminLogado");
   sessionStorage.removeItem("usuarioAtualEmail");
+  registrarSeguranca("Logout admin local", "sucesso", "", "admin-local");
   renderApp();
 }
 
-function loginUsuario() {
+async function loginUsuario() {
   const email = normalizarEmail(document.getElementById("usuarioLoginEmail")?.value || "");
   const senha = document.getElementById("usuarioLoginSenha")?.value || "";
   usuarios = normalizarUsuarios(usuarios);
 
-  const usuario = usuarios.find((item) => item.email === email && item.ativo);
-  if (!usuario || usuario.senha !== senha) {
-    alert("E-mail ou senha incorretos.");
+  if (!email || !senha) {
+    alert("Campo obrigatório");
+    registrarSeguranca("Falha de login", "erro", "Campo obrigatório", email);
+    return;
+  }
+  if (loginEstaBloqueado(email)) return;
+
+  setBotaoLoading("loginUsuarioBtn", true);
+  let usuario = usuarios.find((item) => item.email === email);
+  let senhaValida = usuario && !usuarioEstaBloqueado(usuario) && await verificarSenhaUsuario(usuario, senha);
+  if (!senhaValida) {
+    try {
+      usuario = await loginUsuarioSupabase(email, senha);
+      senhaValida = !!usuario && !usuarioEstaBloqueado(usuario);
+    } catch (erro) {
+      registrarDiagnostico("Supabase", "Login online falhou", erro.message);
+    }
+  }
+
+  if (!usuario || !senhaValida) {
+    registrarFalhaLogin(email, !usuario ? "Usuário inexistente" : "Senha inválida ou usuário inativo");
+    alert("Usuário ou senha inválidos");
+    setBotaoLoading("loginUsuarioBtn", false);
     return;
   }
 
   if (precisa2FA(usuario)) {
     iniciarVerificacao2FA("usuario", usuario);
+    setBotaoLoading("loginUsuarioBtn", false);
     return;
   }
 
+  limparFalhasLogin(email);
   concluirLoginUsuario(usuario);
+  setBotaoLoading("loginUsuarioBtn", false);
 }
 
 function concluirLoginUsuario(usuario) {
@@ -3709,7 +4359,11 @@ function concluirLoginUsuario(usuario) {
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
+  usuario.lastLoginAt = new Date().toISOString();
+  salvarDados();
   registrarHistorico("Usuário", `Login de ${usuario.nome}`);
+  registrarSeguranca("Login realizado", "sucesso", usuario.papel, usuario.email);
+  registrarAtividadeSessao();
   sincronizarAposLogin();
   renderApp();
 }
@@ -3730,14 +4384,47 @@ function sincronizarAposLogin() {
 }
 
 function logoutUsuario() {
+  const email = usuarioAtualEmail;
   usuarioAtualEmail = "";
   adminLogado = false;
   sessionStorage.removeItem("usuarioAtualEmail");
   sessionStorage.removeItem("adminLogado");
+  sessionStorage.removeItem("sessionLastActivity");
+  limparSessaoSensivelSupabase();
+  registrarSeguranca("Logout", "sucesso", "", email);
+  salvarDados();
   renderApp();
 }
 
-function salvarDonoSistema() {
+function registrarAtividadeSessao() {
+  if (!usuarioAtualEmail && !adminLogado) return;
+  sessionStorage.setItem("sessionLastActivity", String(Date.now()));
+  sessionWarned = false;
+}
+
+function monitorarSessao() {
+  if (sessionTimer) clearInterval(sessionTimer);
+  ["click", "keydown", "pointerdown", "touchstart"].forEach((evento) => {
+    document.addEventListener(evento, registrarAtividadeSessao, { passive: true });
+  });
+  sessionTimer = setInterval(() => {
+    if (!usuarioAtualEmail && !adminLogado) return;
+    const ultimo = Number(sessionStorage.getItem("sessionLastActivity") || Date.now());
+    const inativo = Date.now() - ultimo;
+    if (inativo >= SECURITY_SESSION_TIMEOUT_MS) {
+      registrarSeguranca("Sessão expirada", "erro", "Inatividade");
+      alert("Sessão expirada");
+      logoutUsuario();
+      return;
+    }
+    if (!sessionWarned && inativo >= SECURITY_SESSION_TIMEOUT_MS - SECURITY_SESSION_WARNING_MS) {
+      sessionWarned = true;
+      alert("Sua sessão está prestes a expirar.");
+    }
+  }, 30000);
+}
+
+async function salvarDonoSistema() {
   if (!podeGerenciarComercial()) {
     alert("Entre como dono ou admin local para salvar o dono do produto.");
     return;
@@ -3756,6 +4443,14 @@ function salvarDonoSistema() {
   billingConfig.ownerEmail = email;
   const usuarioDono = garantirUsuarioDono(nome, email, senha);
   usuarioDono.papel = "superadmin";
+  if (senha) {
+    const erroSenha = mensagemValidacaoSenha(senha);
+    if (erroSenha) {
+      alert(erroSenha);
+      return;
+    }
+    await definirSenhaUsuario(usuarioDono, senha, true);
+  }
   usuarioAtualEmail = usuarioDono.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   adminLogado = false;
@@ -3787,7 +4482,7 @@ function loginComoDono() {
   renderApp();
 }
 
-function adicionarUsuario() {
+async function adicionarUsuario() {
   if (!podeGerenciarUsuarios()) {
     alert("Entre como dono ou admin para adicionar usuários.");
     return;
@@ -3795,12 +4490,20 @@ function adicionarUsuario() {
 
   const nome = (document.getElementById("novoUsuarioNome")?.value || "").trim();
   const email = normalizarEmail(document.getElementById("novoUsuarioEmail")?.value || "");
+  const phone = (document.getElementById("novoUsuarioTelefone")?.value || "").replace(/[^\d+]/g, "");
   const senha = document.getElementById("novoUsuarioSenha")?.value || "";
   const papel = normalizarPapel(document.getElementById("novoUsuarioPapel")?.value || "operador");
+  const ativo = (document.getElementById("novoUsuarioStatus")?.value || "ativo") === "ativo";
   const podeCriarDono = isDono() || (adminLogado && !getUsuarioAtual());
 
-  if (!email || !senha) {
-    alert("Informe e-mail e senha do usuário.");
+  if (!nome || !email || !senha) {
+    alert("Campo obrigatório");
+    return;
+  }
+
+  const erroSenha = mensagemValidacaoSenha(senha);
+  if (erroSenha) {
+    alert(erroSenha);
     return;
   }
 
@@ -3822,23 +4525,29 @@ function adicionarUsuario() {
       return;
     }
     existente.nome = nome || existente.nome;
-    existente.senha = senha;
+    existente.phone = phone;
+    await definirSenhaUsuario(existente, senha, true);
     existente.papel = papel;
-    existente.ativo = true;
+    existente.ativo = ativo;
+    existente.bloqueado = !ativo;
   } else {
-    usuarios.push({
+    const novo = normalizarUsuario({
       id: criarIdUsuario(),
       nome: nome || email.split("@")[0],
       email,
-      senha,
+      phone,
       papel,
-      ativo: true,
+      ativo,
+      bloqueado: !ativo,
       criadoEm: new Date().toISOString()
     });
+    await definirSenhaUsuario(novo, senha, true);
+    usuarios.push(novo);
   }
 
   salvarDados();
   registrarHistorico("Usuários", `Usuário ${email} salvo como ${papel}`);
+  registrarSeguranca("Usuário salvo", "sucesso", `${email} como ${papel}`);
   renderApp();
 }
 
@@ -3883,7 +4592,96 @@ function removerUsuario(id) {
 
   salvarDados();
   registrarHistorico("Usuários", `Usuário removido: ${usuario.email}`);
+  registrarSeguranca("Usuário removido", "sucesso", usuario.email);
   renderApp();
+}
+
+async function redefinirSenhaUsuario(id) {
+  if (!podeGerenciarUsuarios()) {
+    alert("Acesso negado");
+    return;
+  }
+  usuarios = normalizarUsuarios(usuarios);
+  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  if (!usuario || isSuperAdminPrincipal(usuario) && !isSuperAdmin()) {
+    alert("Acesso negado");
+    return;
+  }
+  const senha = prompt("Digite a nova senha temporária para " + usuario.email);
+  if (senha === null) return;
+  const erroSenha = mensagemValidacaoSenha(senha);
+  if (erroSenha) {
+    alert(erroSenha);
+    return;
+  }
+  await definirSenhaUsuario(usuario, senha, true);
+  salvarDados();
+  registrarHistorico("Usuários", `Senha temporária redefinida: ${usuario.email}`);
+  registrarSeguranca("Redefinição de senha", "sucesso", usuario.email);
+  alert("Senha redefinida. O usuário deverá trocar no próximo acesso.");
+  renderApp();
+}
+
+function alternarStatusUsuario(id) {
+  if (!podeGerenciarUsuarios()) {
+    alert("Acesso negado");
+    return;
+  }
+  usuarios = normalizarUsuarios(usuarios);
+  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  if (!usuario || isSuperAdminPrincipal(usuario)) {
+    alert("O superadmin principal não pode ser desativado.");
+    return;
+  }
+  usuario.ativo = usuario.ativo === false;
+  usuario.bloqueado = !usuario.ativo;
+  usuario.atualizadoEm = new Date().toISOString();
+  salvarDados();
+  registrarHistorico("Usuários", `${usuario.ativo ? "Reativado" : "Desativado"}: ${usuario.email}`);
+  registrarSeguranca(usuario.ativo ? "Usuário reativado" : "Usuário desativado", "sucesso", usuario.email);
+  alert(usuario.ativo ? "Usuário reativado" : "Usuário desativado");
+  renderApp();
+}
+
+async function alterarSenhaAtual(obrigatoria = false) {
+  const usuario = getUsuarioAtual();
+  if (!usuario) {
+    alert("Sessão expirada");
+    trocarTela("admin");
+    return;
+  }
+  const atual = document.getElementById("senhaAtualUsuario")?.value || "";
+  const nova = document.getElementById("novaSenhaUsuario")?.value || "";
+  const confirmar = document.getElementById("confirmarNovaSenhaUsuario")?.value || "";
+  if (!atual || !nova || !confirmar) {
+    alert("Campo obrigatório");
+    return;
+  }
+  if (nova !== confirmar) {
+    alert("As senhas não conferem.");
+    return;
+  }
+  const erroSenha = mensagemValidacaoSenha(nova);
+  if (erroSenha) {
+    alert(erroSenha);
+    return;
+  }
+  setBotaoLoading("alterarSenhaBtn", true, "Salvando...");
+  if (!await verificarSenhaUsuario(usuario, atual)) {
+    registrarSeguranca("Troca de senha", "erro", "Senha atual inválida", usuario.email);
+    alert("Usuário ou senha inválidos");
+    setBotaoLoading("alterarSenhaBtn", false);
+    return;
+  }
+  await definirSenhaUsuario(usuario, nova, false);
+  await alterarSenhaSupabaseSeConectado(nova);
+  salvarDados();
+  registrarHistorico("Segurança", "Senha alterada");
+  registrarSeguranca("Troca de senha", "sucesso", "", usuario.email);
+  alert("Senha alterada com sucesso");
+  setBotaoLoading("alterarSenhaBtn", false);
+  if (obrigatoria) trocarTela("dashboard");
+  else renderApp();
 }
 
 function salvarConfigComercial() {
@@ -4023,6 +4821,7 @@ function criarSnapshotBackup() {
       pedidos,
       orcamentos,
       historico,
+      securityLogs,
       diagnostics,
       sugestoes,
       usuarios: normalizarUsuarios(usuarios),
@@ -4060,6 +4859,7 @@ function normalizarBackup(dados) {
     pedidos: Array.isArray(origem.pedidos) ? origem.pedidos : [],
     orcamentos: Array.isArray(origem.orcamentos) ? origem.orcamentos : [],
     historico: Array.isArray(origem.historico) ? origem.historico : [],
+    securityLogs: Array.isArray(origem.securityLogs) ? origem.securityLogs : [],
     diagnostics: Array.isArray(origem.diagnostics) ? origem.diagnostics : [],
     sugestoes: Array.isArray(origem.sugestoes) ? origem.sugestoes : [],
     usuarios: normalizarUsuarios(origem.usuarios),
@@ -4078,6 +4878,7 @@ function aplicarBackup(dados, modo = "substituir") {
     pedidos = mesclarListas(pedidos, backup.pedidos);
     orcamentos = mesclarListas(orcamentos, backup.orcamentos).slice(0, 100);
     historico = mesclarListas(historico, backup.historico).slice(0, 250);
+    securityLogs = mesclarListas(securityLogs, backup.securityLogs).slice(0, 300);
     diagnostics = mesclarListas(diagnostics, backup.diagnostics).slice(0, 150);
     sugestoes = mesclarListas(sugestoes, backup.sugestoes).slice(0, 100);
     usuarios = mesclarUsuarios(usuarios, backup.usuarios);
@@ -4087,6 +4888,7 @@ function aplicarBackup(dados, modo = "substituir") {
     pedidos = backup.pedidos;
     orcamentos = backup.orcamentos.slice(0, 100);
     historico = backup.historico.slice(0, 250);
+    securityLogs = backup.securityLogs.slice(0, 300);
     diagnostics = backup.diagnostics.slice(0, 150);
     sugestoes = backup.sugestoes.slice(0, 100);
     usuarios = backup.usuarios.length ? normalizarUsuarios(backup.usuarios) : normalizarUsuarios(usuarios);
@@ -4247,6 +5049,78 @@ async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
   return dados;
 }
 
+async function registrarSecurityLogSupabaseSilencioso(log) {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseUrl) return;
+  try {
+    await requisicaoSupabase("/rest/v1/security_logs", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        user_id: syncConfig.supabaseUserId,
+        actor_email: log.usuario,
+        action: log.acao,
+        result: log.resultado,
+        details: log.detalhes,
+        device_id: log.dispositivo,
+        user_agent: log.userAgent
+      })
+    });
+  } catch (_) {}
+}
+
+async function alterarSenhaSupabaseSeConectado(novaSenha) {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
+  try {
+    await requisicaoSupabase("/auth/v1/user", {
+      method: "PUT",
+      body: JSON.stringify({ password: novaSenha })
+    });
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Senha local alterada, Supabase não atualizado", erro.message);
+    return false;
+  }
+}
+
+async function solicitarRecuperacaoSenha() {
+  const email = normalizarEmail(prompt("Informe o e-mail para recuperação de senha") || "");
+  if (!email) {
+    alert("Se este e-mail existir, enviaremos instruções de recuperação.");
+    return;
+  }
+
+  const token = "reset-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  passwordResetTokens = passwordResetTokens.filter((item) => Date.parse(item.expiresAt || 0) > Date.now() && item.email !== email);
+  if (usuarios.some((usuario) => usuario.email === email)) {
+    passwordResetTokens.push({
+      email,
+      token,
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      usado: false
+    });
+  }
+
+  try {
+    atualizarConfigSupabaseCampos();
+    if (syncConfig.supabaseUrl && syncConfig.supabaseAnonKey) {
+      await requisicaoSupabase("/auth/v1/recover", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({
+          email,
+          redirect_to: location.origin + location.pathname
+        })
+      });
+    }
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Recuperação online não enviada", erro.message);
+  }
+
+  salvarDados();
+  registrarSeguranca("Recuperação de senha solicitada", "sucesso", "Mensagem genérica", email);
+  alert("Se este e-mail existir, enviaremos instruções de recuperação.");
+}
+
 function salvarSessaoSupabase(dados, email) {
   const sessao = dados?.session || dados || {};
   const usuario = dados?.user || sessao.user || {};
@@ -4259,6 +5133,7 @@ function salvarSessaoSupabase(dados, email) {
   syncConfig.supabaseEmail = normalizarEmail(usuario.email || email || syncConfig.supabaseEmail);
   syncConfig.supabaseEnabled = true;
   syncConfig.supabaseLastLogin = new Date().toISOString();
+  salvarSessaoSensivelSupabase();
   salvarDados();
   return true;
 }
@@ -4310,6 +5185,53 @@ async function autenticarSupabase(criarConta = false) {
   }
 }
 
+async function loginUsuarioSupabase(email, senha) {
+  syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
+  syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
+  const dados = await requisicaoSupabase("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ email, password: senha })
+  });
+  if (!salvarSessaoSupabase(dados, email)) return null;
+
+  let perfil = null;
+  try {
+    const linhas = await requisicaoSupabase(`/rest/v1/erp_profiles?select=*&id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, {
+      method: "GET"
+    });
+    perfil = Array.isArray(linhas) ? linhas[0] : null;
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Perfil online não carregado", erro.message);
+  }
+
+  usuarios = normalizarUsuarios(usuarios);
+  let usuario = usuarios.find((item) => item.email === email);
+  if (!usuario) {
+    usuario = normalizarUsuario({
+      nome: perfil?.display_name || email.split("@")[0],
+      email,
+      phone: perfil?.phone || "",
+      papel: normalizarPapel(perfil?.role || "operador"),
+      ativo: perfil?.status !== "blocked" && perfil?.status !== "inactive",
+      bloqueado: perfil?.status === "blocked" || perfil?.status === "inactive",
+      mustChangePassword: !!perfil?.must_change_password
+    });
+    usuarios.push(usuario);
+  } else {
+    usuario.nome = perfil?.display_name || usuario.nome;
+    usuario.phone = perfil?.phone || usuario.phone || "";
+    usuario.papel = normalizarPapel(perfil?.role || usuario.papel);
+    usuario.ativo = perfil?.status ? perfil.status === "active" : usuario.ativo;
+    usuario.bloqueado = perfil?.status ? perfil.status !== "active" : usuario.bloqueado;
+    usuario.mustChangePassword = !!perfil?.must_change_password || usuario.mustChangePassword;
+  }
+
+  await definirSenhaUsuario(usuario, senha, !!usuario.mustChangePassword);
+  salvarDados();
+  return usuario;
+}
+
 function entrarSupabase() {
   autenticarSupabase(false);
 }
@@ -4319,9 +5241,7 @@ function criarContaSupabase() {
 }
 
 function sairSupabase() {
-  syncConfig.supabaseAccessToken = "";
-  syncConfig.supabaseRefreshToken = "";
-  syncConfig.supabaseTokenExpiresAt = 0;
+  limparSessaoSensivelSupabase();
   syncConfig.supabaseUserId = "";
   salvarDados();
   registrarHistorico("Supabase", "Sessão encerrada");
@@ -4337,7 +5257,10 @@ async function salvarPerfilSupabase() {
       body: JSON.stringify({
         id: syncConfig.supabaseUserId,
         email: syncConfig.supabaseEmail,
-        display_name: getUsuarioAtual()?.nome || syncConfig.supabaseEmail.split("@")[0]
+        display_name: getUsuarioAtual()?.nome || syncConfig.supabaseEmail.split("@")[0],
+        phone: getUsuarioAtual()?.phone || "",
+        status: "active",
+        last_login_at: new Date().toISOString()
       })
     });
     return true;
@@ -6308,6 +7231,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderApp();
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
+  monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);
   document.addEventListener("pointermove", moverCalculadora);
   document.addEventListener("pointerup", finalizarJanelaDashboard);
