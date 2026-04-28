@@ -22,6 +22,13 @@ O APK debug, quando o Android Studio/JDK estiver instalado, sai em:
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+O comando tambem copia o APK para nomes prontos para compartilhar:
+
+```text
+downloads/NE3D-ERP.apk
+downloads/NE3D-ERP-android-users17-debug.apk
+```
+
 ## Requisitos para compilar
 
 - Android Studio instalado.
