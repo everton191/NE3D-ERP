@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-manual-download";
+const APP_VERSION = "2026.04.28-login-clean";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
@@ -730,9 +730,19 @@ function garantirSuperadminPrincipalLocal() {
     usuario.senhaTemporaria = true;
   }
 
-  billingConfig.ownerEmail = billingConfig.ownerEmail || SUPERADMIN_BOOTSTRAP_EMAIL;
-  billingConfig.ownerName = billingConfig.ownerName || usuario.nome;
   return usuario;
+}
+
+function limparDadosComerciaisBootstrapCliente() {
+  if (!billingConfig.ownerMode && normalizarEmail(billingConfig.ownerEmail) === SUPERADMIN_BOOTSTRAP_EMAIL) {
+    billingConfig.ownerEmail = "";
+    if (String(billingConfig.ownerName || "").trim() === "Everton PAESS") {
+      billingConfig.ownerName = "";
+    }
+  }
+  if (normalizarEmail(billingConfig.licenseEmail) === SUPERADMIN_BOOTSTRAP_EMAIL) {
+    billingConfig.licenseEmail = "";
+  }
 }
 
 function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConfig.ownerEmail, senha = "") {
@@ -763,6 +773,7 @@ function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConf
 }
 
 garantirSuperadminPrincipalLocal();
+limparDadosComerciaisBootstrapCliente();
 salvarDados();
 
 function getUsuarioAtual() {
@@ -3212,7 +3223,7 @@ function renderAdmin() {
         <div class="sync-grid">
           <label class="field">
             <span>E-mail do usuário</span>
-            <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || SUPERADMIN_BOOTSTRAP_EMAIL)}" placeholder="seu@email.com" autocomplete="username">
+            <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || "")}" placeholder="seu@email.com" autocomplete="username">
           </label>
           <label class="field">
             <span>Senha do usuário</span>
