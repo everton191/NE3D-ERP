@@ -2,21 +2,31 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-users18";
+const APP_VERSION = "2026.04.28-redesign-profissional";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP.apk";
 const ANDROID_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json";
 
 const telas = {
   dashboard: "Início",
+  calculadora: "Calculadora 3D",
   pedido: "Novo pedido",
+  producao: "Produção",
   estoque: "Estoque",
   pedidos: "Pedidos",
+  clientes: "Clientes",
   caixa: "Caixa",
+  relatorios: "Relatórios",
   config: "Configurações",
+  empresa: "Empresa",
+  backup: "Backup",
+  preferencias: "Preferências",
   personalizacao: "Personalizar",
   assinatura: "Plano",
+  usuarios: "Usuários",
+  planos: "Planos",
   admin: "Admin",
+  superadmin: "Super Admin",
   feedback: "Bugs e sugestões"
 };
 
@@ -26,6 +36,7 @@ let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
 let pedidoEditando = null;
+let pedidoVisualizandoId = null;
 let modoMobileAtual = window.innerWidth < 768;
 let resizeTimer = null;
 let adminLogado = sessionStorage.getItem("adminLogado") === "sim";
@@ -38,6 +49,7 @@ let calcWidgetAction = null;
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
 let pedidos = carregarLista("pedidos");
+let orcamentos = carregarLista("orcamentos");
 let historico = carregarLista("historico");
 let diagnostics = carregarLista("diagnostics");
 let sugestoes = carregarLista("sugestoes");
@@ -74,6 +86,9 @@ let appConfig = carregarObjeto("appConfig", {
   defaultMargin: 100,
   defaultEnergy: 0.85,
   defaultFilamentCost: 150,
+  defaultPrinterType: "FDM",
+  defaultPrinterModel: "Ender 3",
+  defaultResinCost: 180,
   screenFit: "auto",
   uiScale: 100,
   desktopCardMinWidth: 320,
@@ -119,6 +134,7 @@ let billingConfig = carregarObjeto("billingConfig", {
   licenseStatus: "free",
   trialStartedAt: "",
   trialDays: 7,
+  blocked: false,
   monthlyPrice: 19.9,
   mercadoPagoLink: "",
   licenseEmail: "",
@@ -141,17 +157,25 @@ let autoBackupTimer = null;
 let autoBackupRodando = false;
 
 const printers = {
-  "Ender 3": { consumo: 120, custo: 1 },
-  "Ender 3 V2": { consumo: 130, custo: 1.2 },
-  "Anycubic Kobra": { consumo: 140, custo: 1.3 },
-  "Creality K1": { consumo: 220, custo: 2.2 },
-  "Prusa MK3S+": { consumo: 150, custo: 1.8 },
-  "Elegoo Neptune 4": { consumo: 180, custo: 1.9 },
-  "Bambu A1": { consumo: 220, custo: 2.2 },
-  "Bambu P1P": { consumo: 250, custo: 2.5 },
-  "Bambu X1": { consumo: 300, custo: 3 },
-  "Bambu X1 Carbon": { consumo: 320, custo: 3.2 }
+  "Ender 3": { tipo: "FDM", consumo: 120, custo: 1 },
+  "Ender 3 V2": { tipo: "FDM", consumo: 130, custo: 1.2 },
+  "Ender 5": { tipo: "FDM", consumo: 140, custo: 1.4 },
+  "Bambu Lab": { tipo: "FDM", consumo: 250, custo: 2.5 },
+  "Bambu A1": { tipo: "FDM", consumo: 220, custo: 2.2 },
+  "Bambu P1P": { tipo: "FDM", consumo: 250, custo: 2.5 },
+  "Bambu X1": { tipo: "FDM", consumo: 300, custo: 3 },
+  "Bambu X1 Carbon": { tipo: "FDM", consumo: 320, custo: 3.2 },
+  "Anycubic Photon": { tipo: "RESINA", consumo: 55, custo: 1.5 },
+  "Elegoo Mars": { tipo: "RESINA", consumo: 48, custo: 1.4 },
+  "Elegoo Saturn": { tipo: "RESINA", consumo: 80, custo: 2 },
+  "Anycubic Kobra": { tipo: "FDM", consumo: 140, custo: 1.3 },
+  "Creality K1": { tipo: "FDM", consumo: 220, custo: 2.2 },
+  "Prusa MK3S+": { tipo: "FDM", consumo: 150, custo: 1.8 },
+  "Elegoo Neptune 4": { tipo: "FDM", consumo: 180, custo: 1.9 }
 };
+
+const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
+const estoqueMinimoKg = 0.1;
 
 const moeda = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -262,6 +286,7 @@ function salvarDados() {
   localStorage.setItem("estoque", JSON.stringify(estoque));
   localStorage.setItem("caixa", JSON.stringify(caixa));
   localStorage.setItem("pedidos", JSON.stringify(pedidos));
+  localStorage.setItem("orcamentos", JSON.stringify(orcamentos));
   localStorage.setItem("historico", JSON.stringify(historico));
   localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
   localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
@@ -344,7 +369,7 @@ function normalizarEmail(email) {
 }
 
 function normalizarPapel(papel) {
-  return ["dono", "admin", "operador"].includes(papel) ? papel : "operador";
+  return ["superadmin", "dono", "admin", "operador"].includes(papel) ? papel : "operador";
 }
 
 function normalizarUsuario(usuario) {
@@ -358,6 +383,11 @@ function normalizarUsuario(usuario) {
     senha: String(usuario?.senha || "123"),
     papel: normalizarPapel(usuario?.papel),
     ativo: usuario?.ativo !== false,
+    bloqueado: usuario?.bloqueado === true,
+    planStatus: usuario?.planStatus || "",
+    planExpiresAt: usuario?.planExpiresAt || "",
+    trialStartedAt: usuario?.trialStartedAt || "",
+    trialDays: Math.max(1, Number(usuario?.trialDays) || Number(billingConfig.trialDays) || 7),
     criadoEm: usuario?.criadoEm || new Date().toISOString()
   };
 }
@@ -386,7 +416,7 @@ function garantirUsuarioDono(nome = billingConfig.ownerName, email = billingConf
   if (existente) {
     existente.nome = String(nome || existente.nome || "Dono").trim();
     existente.senha = senha || existente.senha || "123";
-    existente.papel = "dono";
+    if (existente.papel !== "superadmin") existente.papel = "dono";
     existente.ativo = true;
     return existente;
   }
@@ -415,12 +445,29 @@ function isDono() {
   const emailAtual = normalizarEmail(usuarioAtualEmail);
   const emailDono = normalizarEmail(billingConfig.ownerEmail);
   const usuario = getUsuarioAtual();
-  return (emailDono && emailAtual === emailDono) || usuario?.papel === "dono";
+  return (emailDono && emailAtual === emailDono) || usuario?.papel === "dono" || usuario?.papel === "superadmin";
+}
+
+function isSuperAdmin(usuario = getUsuarioAtual()) {
+  return usuario?.papel === "superadmin";
+}
+
+function getSuperAdminPrincipal() {
+  usuarios = normalizarUsuarios(usuarios);
+  const emailDono = normalizarEmail(billingConfig.ownerEmail);
+  return usuarios.find((usuario) => usuario.papel === "superadmin" && emailDono && usuario.email === emailDono)
+    || usuarios.find((usuario) => usuario.papel === "superadmin")
+    || null;
+}
+
+function isSuperAdminPrincipal(usuario) {
+  const principal = getSuperAdminPrincipal();
+  return !!usuario && !!principal && String(usuario.id) === String(principal.id);
 }
 
 function isAdminCliente() {
   const usuario = getUsuarioAtual();
-  return usuario?.papel === "admin" || usuario?.papel === "dono";
+  return usuario?.papel === "admin" || usuario?.papel === "dono" || usuario?.papel === "superadmin";
 }
 
 function podeGerenciarUsuarios() {
@@ -440,7 +487,7 @@ function precisa2FA(usuario = null) {
   if (!appConfig.twoFactorEnabled || doisFatoresValido()) return false;
   if (!obterWhatsapp2FA()) return false;
   if (appConfig.twoFactorScope === "todos") return true;
-  return !usuario || ["dono", "admin"].includes(usuario.papel);
+  return !usuario || ["superadmin", "dono", "admin"].includes(usuario.papel);
 }
 
 function gerarCodigo2FA() {
@@ -590,10 +637,23 @@ function getEmailLicencaAtual() {
   return normalizarEmail(usuario?.email || billingConfig.licenseEmail || billingConfig.ownerEmail || "");
 }
 
+function getDataOwnerId() {
+  const usuario = getUsuarioAtual();
+  return isSuperAdmin(usuario) ? "superadmin" : normalizarEmail(usuario?.email || billingConfig.licenseEmail || deviceId);
+}
+
+function prepararRegistroOnline(registro = {}) {
+  // Preparação para Supabase: todo dado novo recebe owner_id sem remover o localStorage atual.
+  return {
+    ...registro,
+    owner_id: registro.owner_id || getDataOwnerId()
+  };
+}
+
 function usuarioEhDonoDaLicenca(email) {
   const alvo = normalizarEmail(email);
   const usuario = normalizarUsuarios(usuarios).find((item) => item.email === alvo);
-  return usuario?.papel === "dono" || (billingConfig.ownerEmail && alvo === normalizarEmail(billingConfig.ownerEmail));
+  return ["superadmin", "dono"].includes(usuario?.papel) || (billingConfig.ownerEmail && alvo === normalizarEmail(billingConfig.ownerEmail));
 }
 
 function dispositivoDentroDoLimite(email = getEmailLicencaAtual()) {
@@ -707,6 +767,97 @@ function clienteDoPedido(pedido) {
   return pedido?.cliente || pedido?.nome || "Sem cliente";
 }
 
+function inferirTipoMaterial(nome = "") {
+  const texto = removerAcentos(nome).toUpperCase();
+  if (texto.includes("RESINA")) return "RESINA";
+  if (texto.includes("PETG")) return "PETG";
+  if (texto.includes("TPU")) return "TPU";
+  return "PLA";
+}
+
+function normalizarMaterialEstoque(material = {}) {
+  const tipo = material.tipo || inferirTipoMaterial(material.nome);
+  const cor = String(material.cor || "").trim();
+  const nomeBase = String(material.nome || [tipo, cor].filter(Boolean).join(" ") || tipo).trim();
+  return {
+    ...material,
+    id: material.id || "mat-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+    nome: nomeBase,
+    tipo,
+    cor,
+    qtd: Math.max(0, Number(material.qtd) || 0),
+    unidade: material.unidade || "kg"
+  };
+}
+
+function normalizarEstoque() {
+  let mudou = false;
+  estoque = (Array.isArray(estoque) ? estoque : []).map((material) => {
+    const normalizado = normalizarMaterialEstoque(material);
+    if (!material.id || !material.tipo || material.qtd !== normalizado.qtd) mudou = true;
+    return normalizado;
+  });
+  if (mudou) salvarDados();
+  return estoque;
+}
+
+function getMaterialEstoque(materialId) {
+  return normalizarEstoque().find((material) => String(material.id) === String(materialId)) || null;
+}
+
+function getMateriaisItem(item = {}) {
+  if (Array.isArray(item.materiais) && item.materiais.length) {
+    return item.materiais
+      .map((material) => ({
+        materialId: material.materialId || material.id || "",
+        nome: material.nome || getMaterialEstoque(material.materialId || material.id)?.nome || "",
+        gramas: Math.max(0, Number(material.gramas) || 0)
+      }))
+      .filter((material) => material.materialId && material.gramas > 0);
+  }
+
+  const materialId = item.materialId || "";
+  const gramas = Math.max(0, Number(item.materialGramsTotal ?? item.materialGrams) || 0);
+  return materialId && gramas > 0 ? [{ materialId, nome: getMaterialEstoque(materialId)?.nome || "", gramas }] : [];
+}
+
+function normalizarItemPedido(item = {}) {
+  const qtd = Math.max(1, Number(item.qtd) || 1);
+  const valor = Math.max(0, Number(item.valor ?? item.precoVenda) || 0);
+  const materiais = getMateriaisItem(item);
+  return {
+    ...item,
+    id: item.id || "item-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+    nome: String(item.nome || "Produto 3D").trim(),
+    tipoImpressao: item.tipoImpressao === "RESINA" ? "RESINA" : "FDM",
+    material: item.material || "",
+    materiais,
+    qtd,
+    tempoHoras: Math.max(0, Number(item.tempoHoras ?? item.tempo) || 0),
+    valor,
+    total: Math.max(0, Number(item.total) || valor * qtd),
+    custoMaterial: Math.max(0, Number(item.custoMaterial) || 0),
+    custoEnergia: Math.max(0, Number(item.custoEnergia) || 0),
+    custoTotal: Math.max(0, Number(item.custoTotal ?? item.custo) || 0)
+  };
+}
+
+function normalizarItensPedido(pedidoOuItens = itensPedido) {
+  const itens = Array.isArray(pedidoOuItens) ? pedidoOuItens : Array.isArray(pedidoOuItens?.itens) ? pedidoOuItens.itens : [];
+  return itens.map(normalizarItemPedido);
+}
+
+function calcularConsumoMateriais(itens = []) {
+  const consumo = new Map();
+  normalizarItensPedido(itens).forEach((item) => {
+    getMateriaisItem(item).forEach((material) => {
+      const kg = material.gramas / 1000;
+      consumo.set(material.materialId, (consumo.get(material.materialId) || 0) + kg);
+    });
+  });
+  return consumo;
+}
+
 function descricaoCaixa(movimento) {
   return movimento?.descricao || movimento?.desc || "Movimento";
 }
@@ -731,77 +882,165 @@ function calcularTotaisCaixa() {
   }, { entradas: 0, saidas: 0, saldo: 0 });
 }
 
-function getPlanoAtual() {
-  if (isDono()) {
+// Regra central de planos/permissões: trial ativo, plano pago, dono e superadmin liberam premium.
+function getRemainingDays(expiresAt) {
+  const fim = Date.parse(expiresAt || 0) || 0;
+  if (!fim) return 0;
+  return Math.max(0, Math.ceil((fim - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
+function calcularFimTrial(inicio, dias = billingConfig.trialDays) {
+  const dataInicio = Date.parse(inicio || 0) || 0;
+  if (!dataInicio) return "";
+  return new Date(dataInicio + Math.max(1, Number(dias) || 7) * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function usuarioEstaBloqueado(user = getUsuarioAtual()) {
+  const status = String(user?.planStatus || "").toLowerCase();
+  return !!user?.bloqueado || user?.ativo === false || status === "blocked" || status === "bloqueado";
+}
+
+function planoGlobalBloqueado() {
+  return billingConfig.licenseStatus === "blocked" || billingConfig.blocked;
+}
+
+function isTrialActive(user = getUsuarioAtual()) {
+  if (usuarioEstaBloqueado(user)) return false;
+  const inicioUsuario = user?.trialStartedAt || "";
+  if (inicioUsuario) {
+    return getRemainingDays(calcularFimTrial(inicioUsuario, user.trialDays)) > 0;
+  }
+  if (planoGlobalBloqueado()) return false;
+  if (!billingConfig.trialStartedAt) return false;
+  return getRemainingDays(calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays)) > 0;
+}
+
+function hasActivePlan(user = getUsuarioAtual()) {
+  if (isSuperAdmin(user)) return true;
+  if (usuarioEstaBloqueado(user) || planoGlobalBloqueado()) return false;
+  if (billingConfig.ownerMode || isDono()) return true;
+  if (isTrialActive(user)) return true;
+
+  if (user?.planStatus === "paid" || user?.planStatus === "active") {
+    return !user.planExpiresAt || getRemainingDays(user.planExpiresAt) > 0;
+  }
+
+  if (billingConfig.licenseStatus === "active" || billingConfig.licenseStatus === "paid") {
+    return !billingConfig.paidUntil || getRemainingDays(billingConfig.paidUntil) > 0;
+  }
+
+  return false;
+}
+
+function canUsePremiumFeatures(user = getUsuarioAtual()) {
+  if (!hasActivePlan(user)) return false;
+  if (isSuperAdmin(user) || isDono() || billingConfig.ownerMode) return true;
+  return dispositivoDentroDoLimite(user?.email || getEmailLicencaAtual());
+}
+
+function getPlanoAtual(user = getUsuarioAtual()) {
+  if (isSuperAdmin(user)) {
     return {
-      nome: "Dono",
+      nome: "Super Admin",
+      status: "superadmin",
       completo: true,
-      descricao: "Seu e-mail de dono libera o aplicativo inteiro"
+      diasRestantes: 9999,
+      descricao: "Acesso total de superadmin"
     };
   }
 
-  if (billingConfig.ownerMode) {
+  if (usuarioEstaBloqueado(user) || planoGlobalBloqueado()) {
+    return {
+      nome: "Bloqueado",
+      status: "bloqueado",
+      completo: false,
+      diasRestantes: 0,
+      descricao: "Acesso bloqueado pelo administrador"
+    };
+  }
+
+  if (billingConfig.ownerMode || isDono()) {
     return {
       nome: "Dono",
+      status: "dono",
       completo: true,
+      diasRestantes: 9999,
       descricao: "Acesso completo do proprietário"
     };
   }
 
-  if (billingConfig.licenseStatus === "active") {
-    const vence = Date.parse(billingConfig.paidUntil || 0) || 0;
-    const ativo = !vence || vence >= Date.now();
+  const trialFim = user?.trialStartedAt
+    ? calcularFimTrial(user.trialStartedAt, user.trialDays)
+    : calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays);
+  const diasTrial = getRemainingDays(trialFim);
+  if (diasTrial > 0) {
     return {
-      nome: ativo ? "Completo" : "Expirado",
-      completo: ativo,
-      descricao: ativo ? "Assinatura ativa com nuvem e 2 aparelhos" : "Pagamento vencido"
+      nome: "Trial",
+      status: "trial",
+      completo: true,
+      diasRestantes: diasTrial,
+      descricao: `${diasTrial} dia(s) grátis restantes com acesso completo`
     };
   }
 
-  if (billingConfig.trialStartedAt) {
-    const inicio = Date.parse(billingConfig.trialStartedAt);
-    const dias = Math.max(1, Number(billingConfig.trialDays) || 7);
-    const fim = inicio + dias * 24 * 60 * 60 * 1000;
-    const restante = Math.ceil((fim - Date.now()) / (24 * 60 * 60 * 1000));
+  const vencimento = user?.planExpiresAt || billingConfig.paidUntil || "";
+  const diasPlano = getRemainingDays(vencimento);
+  if (hasActivePlan(user)) {
     return {
-      nome: restante > 0 ? "Teste" : "Grátis",
-      completo: restante > 0,
-      descricao: restante > 0 ? `${restante} dia(s) grátis restantes` : "Teste encerrado"
+      nome: "Pago",
+      status: "pago",
+      completo: true,
+      diasRestantes: diasPlano || 9999,
+      descricao: diasPlano ? `${diasPlano} dia(s) restantes no plano pago` : "Assinatura paga ativa"
+    };
+  }
+
+  if (billingConfig.trialStartedAt || user?.trialStartedAt || billingConfig.paidUntil || user?.planExpiresAt) {
+    return {
+      nome: "Expirado",
+      status: "expirado",
+      completo: false,
+      diasRestantes: 0,
+      descricao: "Plano vencido. Renove para liberar recursos premium."
     };
   }
 
   return {
     nome: "Grátis",
+    status: "gratis",
     completo: false,
-    descricao: "Calculadora liberada, sem sincronização na nuvem"
+    diasRestantes: 0,
+    descricao: "Calculadora liberada, sem recursos premium"
   };
 }
 
 function temAcessoCompleto() {
-  const plano = getPlanoAtual();
-  if (!plano.completo) return false;
-  return dispositivoDentroDoLimite();
+  return canUsePremiumFeatures();
 }
 
 function exigirPlanoCompleto() {
   const plano = getPlanoAtual();
-  if (plano.completo && dispositivoDentroDoLimite()) return true;
-  if (plano.completo) {
+  if (canUsePremiumFeatures()) return true;
+  if (plano.status === "bloqueado") {
+    alert("Este acesso está bloqueado. Fale com o administrador.");
+  } else if (plano.status === "expirado") {
+    alert("Seu plano expirou. Renove para voltar a usar os recursos premium.");
+  } else if (plano.completo) {
     alert("Este e-mail já atingiu o limite de aparelhos da licença.");
   } else {
-    alert("Recurso disponível no plano completo. A calculadora continua liberada no grátis.");
+    alert("Recurso premium. O trial ativo e o plano pago liberam esta função.");
   }
   trocarTela("assinatura");
   return false;
 }
 
 function temAcessoNuvem() {
-  return billingConfig.cloudSyncPaidOnly === false || temAcessoCompleto();
+  return billingConfig.cloudSyncPaidOnly === false || canUsePremiumFeatures();
 }
 
 function exigirAcessoNuvem() {
   if (temAcessoNuvem()) return true;
-  alert("Backup e sincronização na nuvem fazem parte do plano completo.");
+  alert("Backup em nuvem faz parte do plano completo ou do trial ativo. O backup JSON manual continua disponível.");
   trocarTela("assinatura");
   return false;
 }
@@ -919,6 +1158,10 @@ function trocarTela(tela) {
   }
 
   telaAtual = tela;
+  if (tela === "calculadora" && appConfig.calculatorWidget?.open) {
+    appConfig.calculatorWidget.open = false;
+    salvarDados();
+  }
   renderApp();
 }
 
@@ -952,6 +1195,8 @@ function renderApp() {
   atualizarMenu();
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
+  preencherImpressoras();
+  preencherMateriaisCalculadora();
 }
 
 function renderDesktop() {
@@ -960,6 +1205,7 @@ function renderDesktop() {
     <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
       <main class="desktop-main">
+        ${renderTopbar()}
         ${renderDesktopConteudo()}
       </main>
     </div>
@@ -967,7 +1213,7 @@ function renderDesktop() {
 }
 
 function renderDesktopConteudo() {
-  const configuracoes = ["config", "personalizacao", "assinatura", "admin"];
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "assinatura", "planos", "admin", "usuarios", "superadmin"];
 
   if (configuracoes.includes(telaAtual)) {
     return `<div class="desktop-focus">${renderTela(telaAtual)}</div>`;
@@ -980,7 +1226,49 @@ function renderDesktopConteudo() {
     `;
   }
 
-  return renderDashboardOrganizavel();
+  return renderDashboard();
+}
+
+function renderTopbar() {
+  const usuario = getUsuarioAtual();
+  const plano = getPlanoAtual(usuario);
+  const nomeUsuario = usuario?.nome || (adminLogado ? "Admin local" : "Visitante");
+  return `
+    <section class="topbar">
+      <div>
+        <strong>${escaparHtml(appConfig.appName || "NE 3D ERP")}</strong>
+        <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
+      </div>
+      <label class="topbar-search">
+        <span>🔎</span>
+        <input placeholder="Buscar pedido, cliente ou material" onkeydown="buscarGlobal(event, this.value)">
+      </label>
+      <div class="topbar-user">
+        <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
+        <strong>${escaparHtml(nomeUsuario)}</strong>
+      </div>
+    </section>
+  `;
+}
+
+function buscarGlobal(event, valor) {
+  if (event.key !== "Enter") return;
+  const termo = String(valor || "").trim().toLowerCase();
+  if (!termo) return;
+
+  const pedido = pedidos.find((item) => clienteDoPedido(item).toLowerCase().includes(termo) || String(item.id).includes(termo));
+  if (pedido) {
+    visualizarPedido(pedido.id);
+    return;
+  }
+
+  const material = normalizarEstoque().find((item) => item.nome.toLowerCase().includes(termo));
+  if (material) {
+    trocarTela("estoque");
+    return;
+  }
+
+  alert("Nada encontrado para: " + valor);
 }
 
 function getDashboardLayout() {
@@ -1396,22 +1684,7 @@ function restaurarLayoutDashboard() {
 
 function renderMenuLateral() {
   const recolhido = !!appConfig.sidebarCollapsed;
-  const mostrarAdmin = podeGerenciarUsuarios();
-  const principais = [
-    { tela: "dashboard", icone: "📊", texto: "Resumo" },
-    { tela: "pedido", icone: "➕", texto: "Novo pedido" },
-    { tela: "estoque", icone: "📦", texto: "Estoque" },
-    { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-    { tela: "caixa", icone: "💰", texto: "Caixa" }
-  ];
-
-  const configs = [
-    { tela: "config", icone: "☁️", texto: "Backup" },
-    { tela: "personalizacao", icone: "🎨", texto: "Personalizar" },
-    { tela: "assinatura", icone: "💳", texto: "Planos" },
-    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões" }
-  ];
-  if (mostrarAdmin) configs.push({ tela: "admin", icone: "🔐", texto: "Admin" });
+  const grupos = getMenuGroups();
 
   return `
     <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
@@ -1423,16 +1696,78 @@ function renderMenuLateral() {
           <span>${escaparHtml(getPlanoAtual().nome)}</span>
         </div>
       </div>
-      <div class="side-section">
-        <span>Principal</span>
-        ${principais.map(renderBotaoLateral).join("")}
-      </div>
-      <div class="side-section">
-        <span>Configurações</span>
-        ${configs.map(renderBotaoLateral).join("")}
-      </div>
+      ${grupos.map((grupo) => `
+        <div class="side-section">
+          <span>${escaparHtml(grupo.titulo)}</span>
+          ${grupo.itens.map(renderBotaoLateral).join("")}
+        </div>
+      `).join("")}
     </aside>
   `;
+}
+
+function getMenuGroups() {
+  const grupos = [
+    {
+      titulo: "Dashboard",
+      itens: [
+        { tela: "dashboard", icone: "📊", texto: "Dashboard" },
+        { tela: "calculadora", icone: "🧮", texto: "Calculadora 3D" }
+      ]
+    },
+    {
+      titulo: "Operação",
+      itens: [
+        { tela: "pedidos", icone: "📋", texto: "Pedidos" },
+        { tela: "producao", icone: "🖨️", texto: "Produção" },
+        { tela: "estoque", icone: "📦", texto: "Estoque" }
+      ]
+    },
+    {
+      titulo: "Clientes",
+      itens: [
+        { tela: "clientes", icone: "👥", texto: "Clientes" }
+      ]
+    },
+    {
+      titulo: "Financeiro",
+      itens: [
+        { tela: "caixa", icone: "💰", texto: "Caixa" },
+        { tela: "relatorios", icone: "📈", texto: "Relatórios" }
+      ]
+    },
+    {
+      titulo: "Configurações",
+      itens: [
+        { tela: "empresa", icone: "🏢", texto: "Empresa" },
+        { tela: "backup", icone: "☁️", texto: "Backup" },
+        { tela: "preferencias", icone: "⚙️", texto: "Preferências" },
+        { tela: "feedback", icone: "💡", texto: "Feedback" }
+      ]
+    }
+  ];
+
+  const usuarioMenu = getUsuarioAtual();
+  if (!usuarioMenu || podeGerenciarUsuarios()) {
+    grupos.push({
+      titulo: "Admin",
+      itens: [
+        { tela: "usuarios", icone: "🔐", texto: "Usuários" },
+        { tela: "planos", icone: "💳", texto: "Planos" }
+      ]
+    });
+  }
+
+  if (isSuperAdmin()) {
+    grupos.push({
+      titulo: "Super Admin",
+      itens: [
+        { tela: "superadmin", icone: "🛡️", texto: "Super Admin" }
+      ]
+    });
+  }
+
+  return grupos;
 }
 
 function renderBotaoLateral(item) {
@@ -1457,19 +1792,7 @@ function abrirTelaMenuLateral(tela) {
 }
 
 function getItensMenuPopup() {
-  const itens = [
-    { tela: "dashboard", icone: "📊", texto: "Resumo", grupo: "Principal" },
-    { tela: "pedido", icone: "➕", texto: "Novo pedido", grupo: "Principal" },
-    { tela: "estoque", icone: "📦", texto: "Estoque", grupo: "Principal" },
-    { tela: "pedidos", icone: "📋", texto: "Pedidos", grupo: "Principal" },
-    { tela: "caixa", icone: "💰", texto: "Caixa", grupo: "Principal" },
-    { tela: "config", icone: "☁️", texto: "Backup", grupo: "Configurações" },
-    { tela: "personalizacao", icone: "🎨", texto: "Personalizar", grupo: "Configurações" },
-    { tela: "assinatura", icone: "💳", texto: "Planos", grupo: "Configurações" },
-    { tela: "feedback", icone: "💡", texto: "Bugs e sugestões", grupo: "Configurações" }
-  ];
-  if (podeGerenciarUsuarios()) itens.push({ tela: "admin", icone: "🔐", texto: "Admin", grupo: "Configurações" });
-  return itens;
+  return getMenuGroups().flatMap((grupo) => grupo.itens.map((item) => ({ ...item, grupo: grupo.titulo })));
 }
 
 function abrirMenuPopup() {
@@ -1482,7 +1805,7 @@ function abrirMenuPopup() {
   if (!popup) return;
 
   const itens = getItensMenuPopup();
-  const grupos = ["Principal", "Configurações"];
+  const grupos = getMenuGroups().map((grupo) => grupo.titulo);
   popup.innerHTML = `
     <div class="side-drawer-backdrop" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" onclick="fecharPopup()">
       <aside class="side-menu side-drawer" onclick="event.stopPropagation()">
@@ -1543,24 +1866,39 @@ function renderPainelMobile(tela) {
 
 function renderTela(tela) {
   switch (tela) {
+    case "calculadora":
+      return renderCalculadoraTela();
     case "pedido":
       return renderPedido();
+    case "producao":
+      return renderProducao();
     case "estoque":
       return renderEstoque();
     case "pedidos":
       return renderListaPedidos();
+    case "clientes":
+      return renderClientes();
     case "caixa":
       return renderCaixa();
+    case "relatorios":
+      return renderRelatorios();
+    case "backup":
     case "config":
       return renderConfig();
+    case "empresa":
+    case "preferencias":
     case "personalizacao":
       return renderPersonalizacao();
+    case "planos":
     case "assinatura":
       return renderAssinatura();
     case "feedback":
       return renderFeedback();
+    case "usuarios":
     case "admin":
       return renderAdmin();
+    case "superadmin":
+      return renderSuperAdmin();
     default:
       return renderDashboard();
   }
@@ -1568,15 +1906,17 @@ function renderTela(tela) {
 
 function renderAcoesRapidas() {
   const acoes = [
-    { tela: "pedido", icone: "➕", texto: "Novo pedido" },
-    { tela: "estoque", icone: "📦", texto: "Estoque" },
+    { tela: "calculadora", icone: "🧮", texto: "Calc 3D" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
+    { tela: "producao", icone: "🖨️", texto: "Produção" },
+    { tela: "estoque", icone: "📦", texto: "Estoque" },
     { tela: "caixa", icone: "💰", texto: "Caixa" },
-    { tela: "config", icone: "☁️", texto: "Nuvem" },
-    { tela: "personalizacao", icone: "🎨", texto: "Tema" },
-    { tela: "assinatura", icone: "💳", texto: "Plano" }
+    { tela: "clientes", icone: "👥", texto: "Clientes" },
+    { tela: "backup", icone: "☁️", texto: "Backup" },
+    { tela: "planos", icone: "💳", texto: "Plano" }
   ];
-  if (podeGerenciarUsuarios()) acoes.push({ tela: "admin", icone: "🔐", texto: "Admin" });
+  if (!getUsuarioAtual() || podeGerenciarUsuarios()) acoes.push({ tela: "usuarios", icone: "🔐", texto: "Admin" });
+  if (isSuperAdmin()) acoes.push({ tela: "superadmin", icone: "🛡️", texto: "Super" });
 
   return `
     <div class="quick-actions">
@@ -1590,62 +1930,106 @@ function renderAcoesRapidas() {
   `;
 }
 
+function classeStatusPlano(status) {
+  return `badge-${removerAcentos(status || "gratis").replace(/[^a-z0-9_-]/gi, "").toLowerCase()}`;
+}
+
+function hojeIsoData() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function dataPedidoIso(pedido) {
+  if (pedido?.criadoEm) return String(pedido.criadoEm).slice(0, 10);
+  const data = String(pedido?.data || "");
+  const partes = data.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (partes) return `${partes[3]}-${partes[2]}-${partes[1]}`;
+  return "";
+}
+
+function getDashboardStats() {
+  const hoje = hojeIsoData();
+  const pedidosHoje = pedidos.filter((pedido) => dataPedidoIso(pedido) === hoje);
+  const faturamentoDia = pedidosHoje.reduce((total, pedido) => total + totalPedido(pedido), 0);
+  const pedidosAbertos = pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"))).length;
+  const producoesAtivas = pedidos.filter((pedido) => String(pedido.status || "") === "producao").length;
+  const estoqueBaixo = normalizarEstoque().filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg).length;
+  const lucroEstimado = pedidos.reduce((total, pedido) => {
+    const itens = normalizarItensPedido(pedido);
+    const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
+    return total + Math.max(0, totalPedido(pedido) - custo);
+  }, 0);
+  return { faturamentoDia, pedidosHoje: pedidosHoje.length, pedidosAbertos, producoesAtivas, estoqueBaixo, lucroEstimado };
+}
+
 function renderDashboard() {
   const totaisCaixa = calcularTotaisCaixa();
-  const valorPedidos = pedidos.reduce((total, pedido) => total + totalPedido(pedido), 0);
-  const estoqueKg = estoque.reduce((total, material) => total + (Number(material.qtd) || 0), 0);
+  const stats = getDashboardStats();
   const plano = getPlanoAtual();
 
+  const cards = [
+    { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje" },
+    { icone: "📋", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação" },
+    { icone: "🕒", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK" },
+    { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção" },
+    { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK" },
+    { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem" },
+    { icone: "💳", titulo: "Status do plano", valor: plano.nome, badge: plano.status },
+    { icone: "⏳", titulo: "Dias restantes", valor: plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes, badge: "Plano" }
+  ];
+
   return `
-    <section class="card summary-card">
-      <div class="project-cover">
-        ${renderMarcaProjeto("project-cover-image", "Capa do projeto")}
-        <div class="project-cover-text">
-          <strong>${escaparHtml(appConfig.businessName || appConfig.appName || "ERP 3D")}</strong>
-          <span>${escaparHtml(plano.descricao || "Sistema de gestão 3D")}</span>
+    <section class="dashboard-pro">
+      <div class="dashboard-hero card">
+        <div class="project-cover">
+          ${renderMarcaProjeto("project-cover-image", "Capa do projeto")}
+          <div class="project-cover-text">
+            <strong>${escaparHtml(appConfig.businessName || appConfig.appName || "ERP 3D")}</strong>
+            <span>${escaparHtml(plano.descricao || "Dashboard profissional de impressão 3D")}</span>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="trocarTela('calculadora')">🧮 Calculadora 3D</button>
+          <button class="btn secondary" onclick="trocarTela('pedidos')">📋 Pedidos</button>
+          <button class="btn ghost" onclick="trocarTela('planos')">Ver plano</button>
         </div>
       </div>
-      <div class="card-header">
-        <h2>📊 Resumo</h2>
-        <button class="icon-button" onclick="trocarTela('assinatura')" title="Plano">💳</button>
+
+      <div class="dashboard-kpis">
+        ${cards.map((card) => `
+          <article class="kpi-card">
+            <span class="kpi-icon">${card.icone}</span>
+            <div>
+              <span>${escaparHtml(card.titulo)}</span>
+              <strong>${escaparHtml(card.valor)}</strong>
+            </div>
+            <em class="status-badge ${classeStatusPlano(String(card.badge).toLowerCase())}">${escaparHtml(card.badge)}</em>
+          </article>
+        `).join("")}
       </div>
-      <div class="metrics">
-        <div class="metric">
-          <span>Saldo</span>
-          <strong>${formatarMoeda(totaisCaixa.saldo)}</strong>
-        </div>
-        <div class="metric">
-          <span>Pedidos</span>
-          <strong>${pedidos.length}</strong>
-        </div>
-        <div class="metric">
-          <span>Vendas</span>
-          <strong>${formatarMoeda(valorPedidos)}</strong>
-        </div>
-        <div class="metric">
-          <span>Estoque</span>
-          <strong>${estoqueKg.toFixed(2)} kg</strong>
-        </div>
-        <div class="metric">
-          <span>Gastos</span>
-          <strong>${formatarMoeda(totaisCaixa.saidas)}</strong>
-        </div>
-        <div class="metric">
-          <span>Nuvem</span>
-          <strong>${temAcessoNuvem() ? (syncConfig.ultimaSync ? "Ativa" : "Pendente") : "Plano pago"}</strong>
-        </div>
-        <div class="metric">
-          <span>Plano</span>
-          <strong>${escaparHtml(plano.nome)}</strong>
-        </div>
-        <div class="metric">
-          <span>Acesso</span>
-          <strong>${plano.completo ? "Completo" : "Grátis"}</strong>
-        </div>
-      </div>
-      <div class="actions">
-        <button class="btn secondary" onclick="abrirCalculadora()">🧮 Calculadora grátis</button>
-        <button class="btn ghost" onclick="trocarTela('assinatura')">Ver planos</button>
+
+      <div class="dashboard-split">
+        <section class="card">
+          <div class="card-header">
+            <h2>💰 Resumo financeiro</h2>
+            <span class="status-badge">Caixa</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><span>Saldo</span><strong>${formatarMoeda(totaisCaixa.saldo)}</strong></div>
+            <div class="metric"><span>Entradas</span><strong>${formatarMoeda(totaisCaixa.entradas)}</strong></div>
+            <div class="metric"><span>Saídas</span><strong>${formatarMoeda(totaisCaixa.saidas)}</strong></div>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header">
+            <h2>☁️ Continuidade</h2>
+            <span class="status-badge">${temAcessoNuvem() ? "Liberado" : "Premium"}</span>
+          </div>
+          <p class="muted">Backup JSON permanece disponível. Nuvem e Google Drive ficam claros no painel para não simular uma integração que ainda não foi configurada.</p>
+          <div class="actions">
+            <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
+            <button class="btn ghost" onclick="trocarTela('backup')">Configurar backup</button>
+          </div>
+        </section>
       </div>
     </section>
   `;
@@ -1655,23 +2039,44 @@ function renderPedido() {
   if (!temAcessoCompleto()) return renderBloqueioPlano("Novo pedido");
   const titulo = pedidoEditando ? "✏️ Editando pedido" : "📦 Novo pedido";
   const botao = pedidoEditando ? "Atualizar pedido" : "Fechar pedido";
+  itensPedido = normalizarItensPedido(itensPedido);
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+  const statusAtual = pedidoEditando?.status || "aberto";
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
-        <div class="order-item">
+        <div class="order-item product-item">
           <label class="field">
-            <span>Item</span>
+            <span>Produto</span>
             <input value="${escaparAttr(item.nome)}" oninput="editarNome(${i}, this.value)">
+          </label>
+          <label class="field">
+            <span>Tipo impressão</span>
+            <select onchange="editarTipoImpressaoItem(${i}, this.value)">
+              <option value="FDM" ${item.tipoImpressao !== "RESINA" ? "selected" : ""}>FDM</option>
+              <option value="RESINA" ${item.tipoImpressao === "RESINA" ? "selected" : ""}>RESINA</option>
+            </select>
           </label>
           <label class="field">
             <span>Qtd</span>
             <input type="number" min="1" step="1" value="${Number(item.qtd) || 1}" onchange="editarQtd(${i}, this.value)">
           </label>
           <label class="field">
+            <span>Tempo (h)</span>
+            <input type="number" min="0" step="0.01" value="${Number(item.tempoHoras) || 0}" onchange="editarTempoItem(${i}, this.value)">
+          </label>
+          <label class="field">
             <span>Valor</span>
             <input type="number" min="0" step="0.01" value="${(Number(item.valor) || 0).toFixed(2)}" onchange="editarPreco(${i}, this.value)">
           </label>
+          <div class="material-editor">
+            <div class="row-title">
+              <strong>Materiais usados</strong>
+              <span class="muted">${getMateriaisItem(item).length > 1 ? "Multifilamento" : "Material único"}</span>
+            </div>
+            ${renderMateriaisItemPedido(item, i)}
+            <button class="btn ghost" onclick="adicionarMaterialProduto(${i})">Adicionar material</button>
+          </div>
           <button class="icon-button danger" onclick="removerItem(${i})" title="Remover item">✕</button>
         </div>
       `).join("")
@@ -1687,6 +2092,12 @@ function renderPedido() {
         <span>Cliente</span>
         <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)">
       </label>
+      <label class="field">
+        <span>Status</span>
+        <select id="pedidoStatus">
+          ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${status}</option>`).join("")}
+        </select>
+      </label>
 
       ${itensHtml}
 
@@ -1697,6 +2108,7 @@ function renderPedido() {
 
       <div class="actions">
         <button class="btn secondary" onclick="abrirCalculadora()">🧮 Calcular item</button>
+        <button class="btn ghost" onclick="adicionarProdutoManual()">Adicionar produto manual</button>
         <button class="btn ghost" onclick="gerarPDF()">📄 PDF</button>
         <button class="btn ghost" onclick="enviarWhats()">📲 WhatsApp</button>
         <button class="btn" onclick="fecharPedido()">✅ ${botao}</button>
@@ -1705,15 +2117,47 @@ function renderPedido() {
   `;
 }
 
+function renderMaterialOptions(selectedId = "") {
+  const materiais = normalizarEstoque();
+  if (!materiais.length) return `<option value="">Cadastre estoque primeiro</option>`;
+  return materiais.map((material) => `
+    <option value="${escaparAttr(material.id)}" ${String(material.id) === String(selectedId) ? "selected" : ""}>
+      ${escaparHtml(material.nome)} (${Number(material.qtd).toFixed(3)} kg)
+    </option>
+  `).join("");
+}
+
+function renderMateriaisItemPedido(item, itemIndex) {
+  const materiais = getMateriaisItem(item);
+  const linhas = materiais.length ? materiais : [{ materialId: "", gramas: 0 }];
+  return linhas.map((material, materialIndex) => `
+    <div class="material-line">
+      <label class="field compact-field">
+        <span>Material</span>
+        <select onchange="editarMaterialItem(${itemIndex}, ${materialIndex}, this.value)">
+          ${renderMaterialOptions(material.materialId)}
+        </select>
+      </label>
+      <label class="field compact-field">
+        <span>Gramas</span>
+        <input type="number" min="0" step="0.1" value="${Number(material.gramas) || 0}" onchange="editarGramasItem(${itemIndex}, ${materialIndex}, this.value)">
+      </label>
+      <button class="icon-button danger" onclick="removerMaterialProduto(${itemIndex}, ${materialIndex})" title="Remover material">×</button>
+    </div>
+  `).join("");
+}
+
 function renderEstoque() {
   if (!temAcessoCompleto()) return renderBloqueioPlano("Estoque");
+  normalizarEstoque();
   const linhas = estoque.length
     ? estoque.map((material, i) => `
         <div class="stock-row">
           <div class="row-title">
             <strong>${escaparHtml(material.nome)}</strong>
-            <span class="muted">${(Number(material.qtd) || 0).toFixed(2)} kg</span>
+            <span class="muted">${escaparHtml(material.tipo || inferirTipoMaterial(material.nome))}${material.cor ? " • " + escaparHtml(material.cor) : ""} • ${(Number(material.qtd) || 0).toFixed(3)} kg</span>
           </div>
+          ${(Number(material.qtd) || 0) <= estoqueMinimoKg ? `<span class="status-badge badge-alerta">Estoque baixo</span>` : `<span class="status-badge badge-ativo">OK</span>`}
           <div class="row-actions">
             <button class="btn ghost" onclick="editarMaterial(${i})">✏️ Editar</button>
             <button class="btn danger" onclick="removerMaterial(${i})">Remover</button>
@@ -1728,13 +2172,14 @@ function renderEstoque() {
         <h2>📦 Estoque</h2>
       </div>
       <label class="field">
-        <span>Material</span>
+        <span>Tipo de material</span>
         <select id="matTipo">
-          <option>PLA</option>
-          <option>PETG</option>
-          <option>ABS</option>
-          <option>TPU</option>
+          ${tiposMaterial.map((tipo) => `<option value="${tipo}">${tipo}</option>`).join("")}
         </select>
+      </label>
+      <label class="field">
+        <span>Cor do material</span>
+        <input id="matCor" placeholder="Ex.: Preto, Branco, Transparente">
       </label>
       <label class="field">
         <span>Quantidade em kg</span>
@@ -1749,20 +2194,25 @@ function renderEstoque() {
 function renderListaPedidos() {
   if (!temAcessoCompleto()) return renderBloqueioPlano("Pedidos");
   const lista = [...pedidos].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+  const pedidoSelecionado = pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId));
+  const detalhe = pedidoSelecionado ? renderDetalhePedido(pedidoSelecionado) : "";
   const linhas = lista.length
     ? lista.map((pedido) => {
         const id = Number(pedido.id);
         const itens = Array.isArray(pedido.itens) ? pedido.itens.length : 1;
+        const status = pedido.status || "aberto";
         return `
-          <div class="list-row">
+          <div class="list-row clickable-row" onclick="visualizarPedido(${id})">
             <div class="row-title">
               <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
               <span class="muted">${escaparHtml(pedido.data || "")}</span>
             </div>
+            <span class="status-badge ${classeStatusPlano(status)}">${escaparHtml(status)}</span>
             <div class="muted">${itens} item(ns) • ${formatarMoeda(totalPedido(pedido))}</div>
             <div class="row-actions">
-              <button class="btn ghost" onclick="editarPedido(${id})">✏️ Editar</button>
-              <button class="btn danger" onclick="removerPedido(${id})">Remover</button>
+              <button class="btn ghost" onclick="event.stopPropagation(); visualizarPedido(${id})">Ver</button>
+              <button class="btn ghost" onclick="event.stopPropagation(); editarPedido(${id})">✏️ Editar</button>
+              <button class="btn danger" onclick="event.stopPropagation(); removerPedido(${id})">Remover</button>
             </div>
           </div>
         `;
@@ -1775,7 +2225,123 @@ function renderListaPedidos() {
         <h2>📋 Pedidos</h2>
         <button class="icon-button" onclick="trocarTela('pedido')" title="Novo pedido">➕</button>
       </div>
+      ${detalhe}
       ${linhas}
+    </section>
+  `;
+}
+
+function renderDetalhePedido(pedido) {
+  const itens = normalizarItensPedido(pedido);
+  const total = totalPedido(pedido);
+  return `
+    <div class="detail-panel">
+      <div class="card-header">
+        <h2>Pedido #${escaparHtml(pedido.id)}</h2>
+        <span class="status-badge ${classeStatusPlano(pedido.status || "aberto")}">${escaparHtml(pedido.status || "aberto")}</span>
+      </div>
+      <p class="muted">Cliente: ${escaparHtml(clienteDoPedido(pedido))} • Total: ${formatarMoeda(total)}</p>
+      <div class="history-list">
+        ${itens.map((item) => `
+          <div class="history-item">
+            <strong>${escaparHtml(item.nome)} • ${escaparHtml(item.tipoImpressao)}</strong>
+            <span class="muted">Qtd ${item.qtd} • Tempo ${Number(item.tempoHoras || 0).toFixed(2)}h • ${formatarMoeda(item.total)}</span>
+            ${getMateriaisItem(item).map((material) => `<span class="muted">${escaparHtml(material.nome || getMaterialEstoque(material.materialId)?.nome || "Material")} - ${Number(material.gramas).toFixed(1)}g</span>`).join("")}
+          </div>
+        `).join("")}
+      </div>
+      <div class="actions">
+        <button class="btn secondary" onclick="editarPedido(${Number(pedido.id)})">Editar pedido</button>
+        <button class="btn danger" onclick="removerPedido(${Number(pedido.id)})">Excluir pedido</button>
+        <button class="btn ghost" onclick="pedidoVisualizandoId=null; renderApp()">Fechar detalhe</button>
+      </div>
+    </div>
+  `;
+}
+
+function visualizarPedido(id) {
+  pedidoVisualizandoId = id;
+  trocarTela("pedidos");
+}
+
+function renderProducao() {
+  if (!temAcessoCompleto()) return renderBloqueioPlano("Produção");
+  const producoes = pedidos.filter((pedido) => ["aberto", "producao", "pausado"].includes(String(pedido.status || "aberto")));
+  const linhas = producoes.length ? producoes.map((pedido) => `
+    <div class="list-row">
+      <div class="row-title">
+        <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
+        <span class="muted">${normalizarItensPedido(pedido).length} produto(s) • ${formatarMoeda(totalPedido(pedido))}</span>
+      </div>
+      <label class="field compact-field">
+        <span>Status</span>
+        <select onchange="alterarStatusPedido(${Number(pedido.id)}, this.value)">
+          ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${String(pedido.status || "aberto") === status ? "selected" : ""}>${status}</option>`).join("")}
+        </select>
+      </label>
+      <button class="btn ghost" onclick="visualizarPedido(${Number(pedido.id)})">Ver pedido</button>
+    </div>
+  `).join("") : `<p class="empty">Nenhuma produção ativa.</p>`;
+
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>🖨️ Produção</h2>
+        <span class="status-badge">${producoes.length} ativa(s)</span>
+      </div>
+      ${linhas}
+    </section>
+  `;
+}
+
+function renderClientes() {
+  const mapa = new Map();
+  pedidos.forEach((pedido) => {
+    const nome = clienteDoPedido(pedido);
+    const atual = mapa.get(nome) || { nome, pedidos: 0, total: 0 };
+    atual.pedidos += 1;
+    atual.total += totalPedido(pedido);
+    mapa.set(nome, atual);
+  });
+  const clientes = Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+  const linhas = clientes.length ? clientes.map((cliente) => `
+    <div class="list-row">
+      <div class="row-title">
+        <strong>${escaparHtml(cliente.nome)}</strong>
+        <span class="muted">${cliente.pedidos} pedido(s)</span>
+      </div>
+      <strong>${formatarMoeda(cliente.total)}</strong>
+    </div>
+  `).join("") : `<p class="empty">Clientes aparecem automaticamente a partir dos pedidos.</p>`;
+
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>👥 Clientes</h2>
+        <span class="status-badge">${clientes.length}</span>
+      </div>
+      ${linhas}
+    </section>
+  `;
+}
+
+function renderRelatorios() {
+  if (!temAcessoCompleto()) return renderBloqueioPlano("Relatórios");
+  const totais = calcularTotaisCaixa();
+  const stats = getDashboardStats();
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>📈 Relatórios</h2>
+        <span class="status-badge">Local</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span>Faturamento hoje</span><strong>${formatarMoeda(stats.faturamentoDia)}</strong></div>
+        <div class="metric"><span>Lucro estimado</span><strong>${formatarMoeda(stats.lucroEstimado)}</strong></div>
+        <div class="metric"><span>Saldo em caixa</span><strong>${formatarMoeda(totais.saldo)}</strong></div>
+        <div class="metric"><span>Pedidos totais</span><strong>${pedidos.length}</strong></div>
+      </div>
+      <p class="muted">Relatórios avançados por período ficam preparados para a futura camada online/Supabase, mantendo o localStorage atual funcionando.</p>
     </section>
   `;
 }
@@ -1845,9 +2411,9 @@ function renderBloqueioPlano(recurso) {
     <section class="card">
       <div class="card-header">
         <h2>🔒 ${escaparHtml(recurso)}</h2>
-        <span class="status-badge">${escaparHtml(plano.nome)}</span>
+        <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
       </div>
-      <p class="muted">Este recurso faz parte do plano completo. No plano grátis, a calculadora continua disponível.</p>
+      <p class="muted">${escaparHtml(plano.descricao)}. Trial ativo, plano pago e superadmin liberam recursos premium.</p>
       <div class="actions">
         <button class="btn secondary" onclick="abrirCalculadora()">🧮 Abrir calculadora</button>
         <button class="btn" onclick="trocarTela('assinatura')">Ver plano completo</button>
@@ -1880,6 +2446,10 @@ function renderConfig() {
           <button class="btn secondary" onclick="exportarBackup()">Exportar backup local</button>
           <button class="btn ghost" onclick="voltarTela()">Voltar</button>
         </div>
+        <label class="field">
+          <span>Restaurar backup JSON local</span>
+          <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
+        </label>
       </section>
     `;
   }
@@ -1967,7 +2537,7 @@ function renderConfig() {
 
       <div class="danger-zone">
         <h2 class="section-title">Google Drive Desktop</h2>
-        <p class="muted">Use uma pasta dentro do Google Drive instalado no Windows. O navegador grava o arquivo abaixo nessa pasta e o Google Drive sincroniza com a nuvem.</p>
+        <p class="muted">Backup no Google Drive ainda não está configurado como integração online oficial. Por enquanto, use uma pasta do Google Drive Desktop; o backup JSON manual continua sendo o caminho garantido.</p>
         <label class="field">
           <span>Arquivo do backup</span>
           <input id="driveFileName" value="${escaparAttr(syncConfig.driveFileName || "erp3d-backup.json")}" placeholder="erp3d-backup.json">
@@ -2114,7 +2684,7 @@ function renderAdmin() {
     </div>
   `).join("") || `<p class="empty">Nenhum histórico registrado ainda.</p>`;
   const perfilAtual = usuarioAtual ? `${usuarioAtual.nome} (${usuarioAtual.papel})` : "Admin local";
-  const podeCriarDono = isDono() || (adminLogado && !usuarioAtual);
+  const podeCriarDono = isDono() || isSuperAdmin(usuarioAtual) || (adminLogado && !usuarioAtual);
   const podeComercial = podeGerenciarComercial();
 
   return `
@@ -2195,6 +2765,7 @@ function renderAdmin() {
           <label class="field">
             <span>Função</span>
             <select id="novoUsuarioPapel">
+              ${isSuperAdmin(usuarioAtual) ? `<option value="superadmin">Super Admin</option>` : ""}
               ${podeCriarDono ? `<option value="dono">Dono</option>` : ""}
               <option value="admin">Admin</option>
               <option value="operador" selected>Operador</option>
@@ -2281,6 +2852,168 @@ function renderUsuariosAdmin() {
       `).join("")}
     </div>
   `;
+}
+
+function statusUsuarioPlano(usuario) {
+  if (usuarioEstaBloqueado(usuario)) return "bloqueado";
+  if (usuario.papel === "superadmin") return "superadmin";
+  if (isTrialActive(usuario)) return "trial";
+  if ((usuario.planStatus === "paid" || usuario.planStatus === "active") && (!usuario.planExpiresAt || getRemainingDays(usuario.planExpiresAt) > 0)) return "pago";
+  if (usuario.planExpiresAt || usuario.trialStartedAt) return "vencido";
+  return "gratis";
+}
+
+function renderSuperAdmin() {
+  if (!isSuperAdmin()) {
+    return renderBloqueioPlano("Super Admin");
+  }
+
+  usuarios = normalizarUsuarios(usuarios);
+  const termo = String(window.__superAdminBusca || "").toLowerCase();
+  const lista = usuarios.filter((usuario) => !termo || usuario.email.includes(termo) || usuario.nome.toLowerCase().includes(termo));
+
+  return `
+    <section class="card">
+      <div class="card-header">
+        <h2>🛡️ Super Admin</h2>
+        <span class="status-badge badge-superadmin">Acesso total</span>
+      </div>
+      <p class="muted">Painel local preparado para a futura camada online/Supabase. Superadmin vê todos os usuários locais e pode ajustar plano, vencimento e bloqueio.</p>
+
+      <div class="sync-grid">
+        <label class="field">
+          <span>Buscar por e-mail</span>
+          <input value="${escaparAttr(window.__superAdminBusca || "")}" oninput="filtrarSuperAdmin(this.value)" placeholder="cliente@email.com">
+        </label>
+        <label class="field">
+          <span>E-mail para acesso manual</span>
+          <input id="superEmail" type="email" placeholder="cliente@email.com">
+        </label>
+        <label class="field">
+          <span>Tipo de plano</span>
+          <select id="superPlanoTipo">
+            <option value="trial">Trial</option>
+            <option value="paid">Pago</option>
+            <option value="free">Grátis</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Dias</span>
+          <input id="superPlanoDias" type="number" min="1" step="1" value="7">
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="salvarAcessoSuperAdmin()">Criar acesso manual</button>
+        <button class="btn ghost" onclick="exportarBackup()">Exportar backup geral</button>
+      </div>
+
+      <div class="history-list users-list">
+        ${lista.map((usuario) => {
+          const status = statusUsuarioPlano(usuario);
+          const principal = isSuperAdminPrincipal(usuario);
+          return `
+            <div class="user-row superadmin-row">
+              <div>
+                <strong>${escaparHtml(usuario.nome)}</strong>
+                <span class="muted">${escaparHtml(usuario.email)} • ${escaparHtml(usuario.papel)}${principal ? " • principal" : ""}</span>
+                <span class="muted">Vence: ${usuario.planExpiresAt ? new Date(usuario.planExpiresAt).toLocaleDateString("pt-BR") : "sem data"}</span>
+              </div>
+              <span class="status-badge ${classeStatusPlano(status)}">${escaparHtml(status)}</span>
+              <div class="row-actions">
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 7)">+7</button>
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 30)">+30</button>
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 90)">+90</button>
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 365)">+365</button>
+                <button class="btn warning" onclick="alternarBloqueioUsuario('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>${usuario.bloqueado ? "Desbloquear" : "Bloquear"}</button>
+                <button class="btn danger" onclick="excluirUsuarioSuperAdmin('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>Excluir</button>
+              </div>
+            </div>
+          `;
+        }).join("") || `<p class="empty">Nenhum usuário encontrado.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function filtrarSuperAdmin(valor) {
+  window.__superAdminBusca = valor || "";
+  renderApp();
+}
+
+function salvarAcessoSuperAdmin() {
+  if (!isSuperAdmin()) return;
+  const email = normalizarEmail(document.getElementById("superEmail")?.value || "");
+  const tipo = document.getElementById("superPlanoTipo")?.value || "trial";
+  const dias = Math.max(1, parseFloat(document.getElementById("superPlanoDias")?.value || 7) || 7);
+  if (!email) {
+    alert("Informe o e-mail.");
+    return;
+  }
+
+  usuarios = normalizarUsuarios(usuarios);
+  let usuario = usuarios.find((item) => item.email === email);
+  if (!usuario) {
+    usuario = normalizarUsuario({ nome: email.split("@")[0], email, senha: "123", papel: "admin" });
+    usuarios.push(usuario);
+  }
+
+  usuario.ativo = true;
+  usuario.bloqueado = false;
+  if (tipo === "trial") {
+    usuario.trialStartedAt = new Date().toISOString();
+    usuario.trialDays = dias;
+    usuario.planStatus = "trial";
+    usuario.planExpiresAt = "";
+  } else if (tipo === "paid") {
+    usuario.planStatus = "paid";
+    usuario.trialStartedAt = usuario.trialStartedAt || "";
+    usuario.planExpiresAt = new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString();
+  } else {
+    usuario.planStatus = "free";
+    usuario.planExpiresAt = "";
+  }
+
+  salvarDados();
+  registrarHistorico("Super Admin", `Acesso ${tipo} salvo para ${email}`);
+  renderApp();
+}
+
+function ajustarDiasUsuario(id, dias) {
+  if (!isSuperAdmin()) return;
+  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  if (!usuario) return;
+  const base = Math.max(Date.now(), Date.parse(usuario.planExpiresAt || 0) || 0);
+  usuario.planStatus = "paid";
+  usuario.planExpiresAt = new Date(base + dias * 24 * 60 * 60 * 1000).toISOString();
+  usuario.bloqueado = false;
+  salvarDados();
+  registrarHistorico("Super Admin", `+${dias} dias para ${usuario.email}`);
+  renderApp();
+}
+
+function alternarBloqueioUsuario(id) {
+  if (!isSuperAdmin()) return;
+  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  if (!usuario || isSuperAdminPrincipal(usuario)) return;
+  usuario.bloqueado = !usuario.bloqueado;
+  usuario.ativo = !usuario.bloqueado;
+  salvarDados();
+  registrarHistorico("Super Admin", `${usuario.bloqueado ? "Bloqueado" : "Desbloqueado"}: ${usuario.email}`);
+  renderApp();
+}
+
+function excluirUsuarioSuperAdmin(id) {
+  if (!isSuperAdmin()) return;
+  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  if (!usuario || isSuperAdminPrincipal(usuario)) {
+    alert("O superadmin principal não pode ser excluído.");
+    return;
+  }
+  if (!confirm(`Excluir ${usuario.email}?`)) return;
+  usuarios = usuarios.filter((item) => String(item.id) !== String(id));
+  salvarDados();
+  registrarHistorico("Super Admin", `Usuário excluído: ${usuario.email}`);
+  renderApp();
 }
 
 function renderPersonalizacao() {
@@ -2456,7 +3189,7 @@ function renderAssinatura() {
     <section class="card">
       <div class="card-header">
         <h2>💳 Planos</h2>
-        <span class="status-badge">${escaparHtml(plano.nome)}</span>
+        <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
       </div>
       <p class="muted">${escaparHtml(plano.descricao)}. O modo grátis mantém a calculadora liberada; o completo libera pedidos, estoque, caixa, PDF com Pix, WhatsApp, marca no PDF e sincronização entre Android e Windows/navegador.</p>
 
@@ -2486,6 +3219,10 @@ function renderAssinatura() {
         <div class="metric">
           <span>Status</span>
           <strong>${escaparHtml(plano.nome)}</strong>
+        </div>
+        <div class="metric">
+          <span>Dias restantes</span>
+          <strong>${plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes}</strong>
         </div>
         <div class="metric">
           <span>E-mail</span>
@@ -2811,6 +3548,9 @@ function restaurarPersonalizacaoPadrao() {
     defaultMargin: 100,
     defaultEnergy: 0.85,
     defaultFilamentCost: 150,
+    defaultPrinterType: appConfig.defaultPrinterType || "FDM",
+    defaultPrinterModel: appConfig.defaultPrinterModel || "Ender 3",
+    defaultResinCost: Number(appConfig.defaultResinCost) || 180,
     screenFit: "auto",
     uiScale: 100,
     desktopCardMinWidth: 320,
@@ -2893,7 +3633,11 @@ function loginUsuario() {
 }
 
 function concluirLoginUsuario(usuario) {
-  if (usuario.papel !== "dono" && !registrarDispositivoLicenca(usuario.email)) return;
+  if (usuarioEstaBloqueado(usuario)) {
+    alert("Este usuário está bloqueado. Fale com o administrador.");
+    return;
+  }
+  if (!["superadmin", "dono"].includes(usuario.papel) && !registrarDispositivoLicenca(usuario.email)) return;
   usuarioAtualEmail = usuario.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   adminLogado = false;
@@ -2940,6 +3684,7 @@ function salvarDonoSistema() {
   billingConfig.ownerName = nome;
   billingConfig.ownerEmail = email;
   const usuarioDono = garantirUsuarioDono(nome, email, senha);
+  usuarioDono.papel = "superadmin";
   usuarioAtualEmail = usuarioDono.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   adminLogado = false;
@@ -2988,6 +3733,11 @@ function adicionarUsuario() {
     return;
   }
 
+  if (papel === "superadmin" && !isSuperAdmin()) {
+    alert("Somente um superadmin pode criar outro superadmin.");
+    return;
+  }
+
   if (papel === "dono" && !podeCriarDono) {
     alert("Somente o dono ou o admin local pode criar outro dono.");
     return;
@@ -2996,6 +3746,10 @@ function adicionarUsuario() {
   usuarios = normalizarUsuarios(usuarios);
   const existente = usuarios.find((usuario) => usuario.email === email);
   if (existente) {
+    if (existente.papel === "superadmin" && (!isSuperAdmin() || isSuperAdminPrincipal(existente))) {
+      alert("O superadmin principal não pode ser rebaixado ou alterado por este painel.");
+      return;
+    }
     existente.nome = nome || existente.nome;
     existente.senha = senha;
     existente.papel = papel;
@@ -3030,6 +3784,16 @@ function removerUsuario(id) {
   const donos = usuarios.filter((item) => item.papel === "dono");
   if (usuario.papel === "dono" && donos.length <= 1) {
     alert("Mantenha pelo menos um usuário dono cadastrado.");
+    return;
+  }
+
+  if (isSuperAdminPrincipal(usuario)) {
+    alert("O superadmin principal não pode ser removido.");
+    return;
+  }
+
+  if (usuario.papel === "superadmin" && !isSuperAdmin()) {
+    alert("Somente superadmin pode remover outro superadmin.");
     return;
   }
 
@@ -3181,6 +3945,7 @@ function criarSnapshotBackup() {
       estoque,
       caixa,
       pedidos,
+      orcamentos,
       historico,
       diagnostics,
       sugestoes,
@@ -3211,6 +3976,7 @@ function normalizarBackup(dados) {
     estoque: Array.isArray(origem.estoque) ? origem.estoque : [],
     caixa: Array.isArray(origem.caixa) ? origem.caixa : [],
     pedidos: Array.isArray(origem.pedidos) ? origem.pedidos : [],
+    orcamentos: Array.isArray(origem.orcamentos) ? origem.orcamentos : [],
     historico: Array.isArray(origem.historico) ? origem.historico : [],
     diagnostics: Array.isArray(origem.diagnostics) ? origem.diagnostics : [],
     sugestoes: Array.isArray(origem.sugestoes) ? origem.sugestoes : [],
@@ -3228,6 +3994,7 @@ function aplicarBackup(dados, modo = "substituir") {
     estoque = mesclarListas(estoque, backup.estoque);
     caixa = mesclarListas(caixa, backup.caixa);
     pedidos = mesclarListas(pedidos, backup.pedidos);
+    orcamentos = mesclarListas(orcamentos, backup.orcamentos).slice(0, 100);
     historico = mesclarListas(historico, backup.historico).slice(0, 250);
     diagnostics = mesclarListas(diagnostics, backup.diagnostics).slice(0, 150);
     sugestoes = mesclarListas(sugestoes, backup.sugestoes).slice(0, 100);
@@ -3236,6 +4003,7 @@ function aplicarBackup(dados, modo = "substituir") {
     estoque = backup.estoque;
     caixa = backup.caixa;
     pedidos = backup.pedidos;
+    orcamentos = backup.orcamentos.slice(0, 100);
     historico = backup.historico.slice(0, 250);
     diagnostics = backup.diagnostics.slice(0, 150);
     sugestoes = backup.sugestoes.slice(0, 100);
@@ -3801,6 +4569,17 @@ function editarQtd(i, qtd) {
   renderApp();
 }
 
+function editarTipoImpressaoItem(i, tipo) {
+  if (!itensPedido[i]) return;
+  itensPedido[i].tipoImpressao = tipo === "RESINA" ? "RESINA" : "FDM";
+  renderApp();
+}
+
+function editarTempoItem(i, tempo) {
+  if (!itensPedido[i]) return;
+  itensPedido[i].tempoHoras = Math.max(0, parseFloat(tempo) || 0);
+}
+
 function editarPreco(i, preco) {
   if (!itensPedido[i]) return;
   const valor = Math.max(parseFloat(preco) || 0, 0);
@@ -3811,6 +4590,57 @@ function editarPreco(i, preco) {
 
 function removerItem(i) {
   itensPedido.splice(i, 1);
+  renderApp();
+}
+
+function garantirMateriaisItem(i) {
+  if (!itensPedido[i]) return [];
+  itensPedido[i] = normalizarItemPedido(itensPedido[i]);
+  if (!Array.isArray(itensPedido[i].materiais)) itensPedido[i].materiais = [];
+  return itensPedido[i].materiais;
+}
+
+function editarMaterialItem(itemIndex, materialIndex, materialId) {
+  const materiais = garantirMateriaisItem(itemIndex);
+  const material = getMaterialEstoque(materialId);
+  materiais[materialIndex] = {
+    ...(materiais[materialIndex] || {}),
+    materialId,
+    nome: material?.nome || "",
+    gramas: Number(materiais[materialIndex]?.gramas) || 0
+  };
+  renderApp();
+}
+
+function editarGramasItem(itemIndex, materialIndex, gramas) {
+  const materiais = garantirMateriaisItem(itemIndex);
+  materiais[materialIndex] = {
+    ...(materiais[materialIndex] || {}),
+    gramas: Math.max(0, parseFloat(gramas) || 0)
+  };
+}
+
+function adicionarMaterialProduto(itemIndex) {
+  const materiais = garantirMateriaisItem(itemIndex);
+  materiais.push({ materialId: normalizarEstoque()[0]?.id || "", gramas: 0 });
+  renderApp();
+}
+
+function removerMaterialProduto(itemIndex, materialIndex) {
+  const materiais = garantirMateriaisItem(itemIndex);
+  materiais.splice(materialIndex, 1);
+  renderApp();
+}
+
+function adicionarProdutoManual() {
+  itensPedido.push(normalizarItemPedido({
+    nome: "Produto 3D",
+    tipoImpressao: "FDM",
+    qtd: 1,
+    valor: 0,
+    total: 0,
+    materiais: []
+  }));
   renderApp();
 }
 
@@ -3849,6 +4679,7 @@ function removerPedido(id) {
 
   const total = totalPedido(pedido);
   const cliente = clienteDoPedido(pedido);
+  devolverEstoquePedido(pedido, "cancelamento");
   pedidos = pedidos.filter((item) => Number(item.id) !== Number(id));
   caixa = caixa.filter((movimento) => {
     if (Number(movimento.pedidoId) === Number(id)) return false;
@@ -3862,6 +4693,57 @@ function removerPedido(id) {
   salvarDados();
   registrarHistorico("Pedido", "Pedido removido: " + cliente);
   renderApp();
+}
+
+// Baixa de estoque por diferença: evita descontar duas vezes ao editar e devolve no cancelamento.
+function diffConsumoPedido(pedidoNovo, pedidoAntigo = null) {
+  const novo = calcularConsumoMateriais(pedidoNovo?.itens || []);
+  const antigo = calcularConsumoMateriais(pedidoAntigo?.itens || []);
+  const ids = new Set([...novo.keys(), ...antigo.keys()]);
+  return Array.from(ids).map((materialId) => ({
+    materialId,
+    kg: (novo.get(materialId) || 0) - (antigo.get(materialId) || 0)
+  })).filter((item) => Math.abs(item.kg) > 0.000001);
+}
+
+function validarSaldoEstoque(diff) {
+  const faltas = [];
+  diff.forEach((item) => {
+    if (item.kg <= 0) return;
+    const material = getMaterialEstoque(item.materialId);
+    const saldo = Number(material?.qtd) || 0;
+    if (!material || saldo + 0.000001 < item.kg) {
+      faltas.push(`${material?.nome || "Material"}: precisa ${item.kg.toFixed(3)} kg, saldo ${saldo.toFixed(3)} kg`);
+    }
+  });
+  return faltas;
+}
+
+function aplicarDiffEstoque(diff, motivo = "pedido") {
+  normalizarEstoque();
+  diff.forEach((item) => {
+    const material = getMaterialEstoque(item.materialId);
+    if (!material) return;
+    material.qtd = Math.max(0, (Number(material.qtd) || 0) - item.kg);
+    const tipoMovimento = item.kg >= 0 ? "saída" : "entrada";
+    registrarHistorico("Estoque", `${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(item.kg).toFixed(3)} kg)`);
+  });
+}
+
+function aplicarEstoquePedido(pedidoNovo, pedidoAntigo = null) {
+  const diff = diffConsumoPedido(pedidoNovo, pedidoAntigo);
+  const faltas = validarSaldoEstoque(diff);
+  if (faltas.length) {
+    alert("Estoque insuficiente:\n" + faltas.join("\n"));
+    return false;
+  }
+  aplicarDiffEstoque(diff, pedidoAntigo ? "edição de pedido" : "pedido");
+  return true;
+}
+
+function devolverEstoquePedido(pedido, motivo = "cancelamento") {
+  const diff = diffConsumoPedido({ itens: [] }, pedido);
+  aplicarDiffEstoque(diff, motivo);
 }
 
 function fecharPedido() {
@@ -3880,13 +4762,18 @@ function fecharPedido() {
   }
 
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  const pedido = {
+  const pedido = prepararRegistroOnline({
     id: pedidoEditando?.id || Date.now(),
     cliente,
-    itens: JSON.parse(JSON.stringify(itensPedido)),
+    itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
     total,
-    data: new Date().toLocaleDateString("pt-BR")
-  };
+    status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto",
+    data: pedidoEditando?.data || new Date().toLocaleDateString("pt-BR"),
+    criadoEm: pedidoEditando?.criadoEm || new Date().toISOString(),
+    atualizadoEm: new Date().toISOString()
+  });
+
+  if (!aplicarEstoquePedido(pedido, pedidoEditando)) return;
 
   if (pedidoEditando) {
     const idAntigo = Number(pedidoEditando.id);
@@ -3895,14 +4782,14 @@ function fecharPedido() {
   }
 
   pedidos.push(pedido);
-  caixa.push({
+  caixa.push(prepararRegistroOnline({
     id: Date.now() + 1,
     tipo: "entrada",
     valor: total,
     descricao: "Pedido - " + cliente,
     pedidoId: pedido.id,
     data: new Date().toISOString()
-  });
+  }));
 
   salvarDados();
   registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
@@ -3913,9 +4800,22 @@ function fecharPedido() {
   renderApp();
 }
 
+function alterarStatusPedido(id, status) {
+  if (!exigirPlanoCompleto()) return;
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return;
+  pedido.status = status || "aberto";
+  pedido.atualizadoEm = new Date().toISOString();
+  salvarDados();
+  registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
+  renderApp();
+}
+
 function addMaterial() {
   if (!exigirPlanoCompleto()) return;
-  const nome = document.getElementById("matTipo")?.value;
+  const tipo = document.getElementById("matTipo")?.value || "PLA";
+  const cor = (document.getElementById("matCor")?.value || "").trim();
+  const nome = [tipo, cor].filter(Boolean).join(" ");
   const qtd = parseFloat(document.getElementById("matQtd")?.value) || 0;
 
   if (!nome || qtd <= 0) {
@@ -3923,11 +4823,12 @@ function addMaterial() {
     return;
   }
 
-  const existente = estoque.find((material) => material.nome === nome);
+  normalizarEstoque();
+  const existente = estoque.find((material) => material.tipo === tipo && String(material.cor || "").toLowerCase() === cor.toLowerCase());
   if (existente) {
     existente.qtd = (Number(existente.qtd) || 0) + qtd;
   } else {
-    estoque.push({ id: Date.now(), nome, qtd });
+    estoque.push(prepararRegistroOnline(normalizarMaterialEstoque({ id: Date.now(), nome, tipo, cor, qtd })));
   }
 
   salvarDados();
@@ -3937,18 +4838,26 @@ function addMaterial() {
 
 function editarMaterial(i) {
   if (!exigirPlanoCompleto()) return;
+  normalizarEstoque();
   const material = estoque[i];
   if (!material) return;
 
   const nome = prompt("Nome do material:", material.nome);
   const qtd = prompt("Quantidade em kg:", material.qtd);
+  const cor = prompt("Cor do material:", material.cor || "");
 
   if (nome !== null && nome.trim()) {
     material.nome = nome.trim();
+    material.tipo = inferirTipoMaterial(material.nome);
   }
 
   if (qtd !== null) {
     material.qtd = parseFloat(qtd) || 0;
+  }
+
+  if (cor !== null) {
+    material.cor = cor.trim();
+    material.nome = [material.tipo || inferirTipoMaterial(material.nome), material.cor].filter(Boolean).join(" ");
   }
 
   salvarDados();
@@ -3983,13 +4892,13 @@ function adicionarMovimentoCaixa() {
     return;
   }
 
-  caixa.push({
+  caixa.push(prepararRegistroOnline({
     id: Date.now(),
     tipo,
     valor,
     descricao: descricao || "Movimento manual",
     data: new Date().toISOString()
-  });
+  }));
 
   salvarDados();
   registrarHistorico("Caixa", (tipo === "saida" ? "Saída: " : "Entrada: ") + formatarMoeda(valor) + " - " + (descricao || "Movimento manual"));
@@ -4055,9 +4964,23 @@ function salvarCalculadoraWidget(valores = {}, salvar = false) {
 
 function renderCalculadoraConteudo() {
   return `
+    <div class="calc-grid">
+      <label class="field">
+        <span>Tipo de impressora</span>
+        <select id="printerType" onchange="preencherImpressoras()">
+          <option value="FDM" ${appConfig.defaultPrinterType !== "RESINA" ? "selected" : ""}>FDM</option>
+          <option value="RESINA" ${appConfig.defaultPrinterType === "RESINA" ? "selected" : ""}>RESINA</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Impressora</span>
+        <select id="printer"></select>
+      </label>
+    </div>
+
     <label class="field">
-      <span>Impressora</span>
-      <select id="printer"></select>
+      <span>Material do estoque</span>
+      <select id="calcMaterial"></select>
     </label>
 
     <div class="calc-grid">
@@ -4066,7 +4989,7 @@ function renderCalculadoraConteudo() {
         <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80">
       </label>
       <label class="field">
-        <span>Filamento R$/kg</span>
+        <span>Material R$/kg</span>
         <input id="filamento" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
       </label>
       <label class="field">
@@ -4093,6 +5016,10 @@ function renderCalculadoraConteudo() {
         <span>Margem %</span>
         <input id="margem" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}">
       </label>
+      <label class="field">
+        <span>Taxa extra</span>
+        <input id="taxaExtra" type="number" min="0" step="0.01" value="0">
+      </label>
     </div>
 
     <label class="field">
@@ -4104,9 +5031,23 @@ function renderCalculadoraConteudo() {
     <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
 
     <div class="actions">
-      <button class="btn" onclick="adicionarItem()">Adicionar ao pedido</button>
+      <button class="btn" onclick="adicionarItem()">Adicionar como pedido</button>
+      <button class="btn secondary" onclick="salvarOrcamento()">Salvar orçamento</button>
+      <button class="btn ghost" onclick="gerarPdfCalculadora()">Gerar PDF</button>
       <button class="btn ghost" onclick="minimizarCalculadora()">Minimizar</button>
     </div>
+  `;
+}
+
+function renderCalculadoraTela() {
+  return `
+    <section class="card calc-main-card">
+      <div class="card-header">
+        <h2>🧮 Calculadora 3D</h2>
+        <span class="status-badge">Principal</span>
+      </div>
+      ${renderCalculadoraConteudo()}
+    </section>
   `;
 }
 
@@ -4239,22 +5180,34 @@ function manterCalculadoraVisivel(salvar = false) {
 function preencherImpressoras() {
   const select = document.getElementById("printer");
   if (!select) return;
+  const tipoSelect = document.getElementById("printerType");
+  const tipo = tipoSelect?.value || appConfig.defaultPrinterType || "FDM";
 
   select.innerHTML = "";
-  Object.keys(printers).forEach((nome) => {
+  Object.entries(printers).filter(([, impressora]) => impressora.tipo === tipo).forEach(([nome]) => {
     const opt = document.createElement("option");
     opt.value = nome;
     opt.textContent = nome;
+    if (nome === appConfig.defaultPrinterModel) opt.selected = true;
     select.appendChild(opt);
   });
 
   select.onchange = function () {
     const impressora = printers[this.value];
+    appConfig.defaultPrinterType = impressora?.tipo || tipo;
+    appConfig.defaultPrinterModel = this.value;
     document.getElementById("consumo").value = impressora.consumo;
     document.getElementById("custoHora").value = impressora.custo;
+    salvarDados();
   };
 
   select.dispatchEvent(new Event("change"));
+}
+
+function preencherMateriaisCalculadora() {
+  const select = document.getElementById("calcMaterial");
+  if (!select) return;
+  select.innerHTML = `<option value="">Sem vínculo com estoque</option>` + renderMaterialOptions(select.value);
 }
 
 function calcular() {
@@ -4266,21 +5219,43 @@ function calcular() {
   const consumo = parseFloat(document.getElementById("consumo")?.value) || 0;
   const custoHora = parseFloat(document.getElementById("custoHora")?.value) || 0;
   const margem = parseFloat(document.getElementById("margem")?.value) || 0;
+  const taxaExtra = parseFloat(document.getElementById("taxaExtra")?.value) || 0;
+  const printer = document.getElementById("printer")?.value || appConfig.defaultPrinterModel || "";
+  const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
+  const materialId = document.getElementById("calcMaterial")?.value || "";
+  const materialEstoque = getMaterialEstoque(materialId);
 
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempo * energia;
   const maquina = tempo * custoHora;
-  const custo = material + energiaC + maquina;
+  const custo = material + energiaC + maquina + taxaExtra;
   const preco = custo * (1 + margem / 100);
 
   ultimoCalculo = {
     preco: preco / qtd,
-    custo: custo / qtd
+    custo: custo / qtd,
+    custoMaterial: material,
+    custoEnergia: energiaC,
+    custoMaquina: maquina,
+    taxaExtra,
+    custoTotal: custo,
+    precoTotal: preco,
+    qtd,
+    peso,
+    tempo,
+    printer,
+    tipoImpressao,
+    materialId,
+    materialNome: materialEstoque?.nome || ""
   };
 
   document.getElementById("res").innerHTML = `
-    Custo mínimo: <strong>${formatarMoeda(custo / qtd)}</strong><br>
-    Preço sugerido: <strong>${formatarMoeda(preco / qtd)}</strong>
+    <div class="result-grid">
+      <span>Custo do material</span><strong>${formatarMoeda(material)}</strong>
+      <span>Custo de energia</span><strong>${formatarMoeda(energiaC)}</strong>
+      <span>Custo total</span><strong>${formatarMoeda(custo)}</strong>
+      <span>Preço sugerido de venda</span><strong>${formatarMoeda(preco)}</strong>
+    </div>
   `;
 }
 
@@ -4298,14 +5273,48 @@ function adicionarItem() {
   const qtd = Math.max(parseFloat(document.getElementById("quantidade")?.value) || 1, 1);
 
   itensPedido.push({
+    id: "item-" + Date.now().toString(36),
     nome,
+    tipoImpressao: ultimoCalculo.tipoImpressao,
+    impressora: ultimoCalculo.printer,
+    tempoHoras: ultimoCalculo.tempo,
+    materialId: ultimoCalculo.materialId,
+    material: ultimoCalculo.materialNome,
+    materialGramsTotal: ultimoCalculo.peso,
+    materiais: ultimoCalculo.materialId ? [{ materialId: ultimoCalculo.materialId, nome: ultimoCalculo.materialNome, gramas: ultimoCalculo.peso }] : [],
+    custoMaterial: ultimoCalculo.custoMaterial,
+    custoEnergia: ultimoCalculo.custoEnergia,
+    custoTotal: ultimoCalculo.custoTotal,
     qtd,
     valor: ultimoCalculo.preco,
     total: ultimoCalculo.preco * qtd
   });
 
-  minimizarCalculadora();
+  if (telaAtual !== "calculadora") minimizarCalculadora();
   trocarTela("pedido");
+}
+
+function salvarOrcamento() {
+  if (!ultimoCalculo) calcular();
+  if (!ultimoCalculo || ultimoCalculo.preco <= 0) return;
+  const nome = document.getElementById("nomeItem")?.value.trim() || "Orçamento 3D";
+  orcamentos.unshift({
+    id: Date.now(),
+    nome,
+    calculo: { ...ultimoCalculo },
+    criadoEm: new Date().toISOString()
+  });
+  orcamentos = orcamentos.slice(0, 100);
+  salvarDados();
+  registrarHistorico("Orçamento", "Orçamento salvo: " + nome);
+  alert("Orçamento salvo com sucesso.");
+}
+
+function gerarPdfCalculadora() {
+  if (!exigirPlanoCompleto()) return;
+  if (!ultimoCalculo) calcular();
+  adicionarItem();
+  setTimeout(() => gerarPDF(), 50);
 }
 
 function fecharPopup() {
@@ -4586,7 +5595,18 @@ async function gerarPDF() {
   }
 
   registrarHistorico("PDF", "PDF gerado para " + cliente);
-  doc.save(`pedido-${cliente.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+  try {
+    doc.save(`pedido-${cliente.replace(/\s+/g, "-").toLowerCase()}.pdf`);
+  } catch (erro) {
+    try {
+      const url = URL.createObjectURL(doc.output("blob"));
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (erroAlternativo) {
+      registrarDiagnostico("pdf", "Download do PDF falhou", erroAlternativo.message || erro.message);
+      alert("Não foi possível baixar o PDF neste dispositivo. Tente abrir pelo navegador ou exportar novamente.");
+    }
+  }
 }
 
 function enviarWhats() {
