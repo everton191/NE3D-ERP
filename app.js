@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-update-repo";
+const APP_VERSION = "2026.04.28-password-fix";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
@@ -626,9 +626,11 @@ function mensagemValidacaoSenha(senha) {
   return "A senha precisa ter " + faltando.join(", ") + ".";
 }
 
-function renderIndicadorForcaSenha(inputId = "novoUsuarioSenha") {
-  const valor = document.getElementById(inputId)?.value || "";
-  const alvo = document.querySelector(`[data-strength-for="${inputId}"]`);
+function renderIndicadorForcaSenha(inputId = "novoUsuarioSenha", inputEl = null) {
+  const input = inputEl || document.getElementById(inputId);
+  const valor = input?.value || "";
+  const formulario = input?.closest?.(".password-change-form");
+  const alvo = formulario?.querySelector(`[data-strength-for="${inputId}"]`) || document.querySelector(`[data-strength-for="${inputId}"]`);
   if (!alvo) return;
   const forca = avaliarForcaSenha(valor);
   alvo.className = `password-strength strength-${forca.nivel}`;
@@ -2305,12 +2307,20 @@ function abrirTelaMenuPopup(tela) {
 }
 
 function renderMobile() {
+  if (getUsuarioAtual()?.mustChangePassword) {
+    return `
+      <div class="mobile-home password-required-mobile">
+        ${renderTrocaSenhaObrigatoria()}
+      </div>
+    `;
+  }
+
   const painelAberto = telaAtual !== "dashboard";
   const home = canAccessScreen("dashboard") ? renderDashboard(true) : renderAcessoNegado();
 
   return `
     <div class="mobile-home">
-      ${getUsuarioAtual()?.mustChangePassword ? renderTrocaSenhaObrigatoria() : home}
+      ${home}
       ${renderAcoesRapidas()}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
@@ -3408,10 +3418,13 @@ function renderUsuariosAdmin() {
   `;
 }
 
-function alternarSenhaVisivel(id) {
-  const input = document.getElementById(id);
+function alternarSenhaVisivel(idOuBotao) {
+  const input = typeof idOuBotao === "string"
+    ? document.getElementById(idOuBotao)
+    : idOuBotao?.closest?.(".password-row")?.querySelector("input");
   if (!input) return;
   input.type = input.type === "password" ? "text" : "password";
+  input.focus();
 }
 
 function renderTrocaSenhaObrigatoria() {
@@ -3429,33 +3442,35 @@ function renderTrocaSenhaObrigatoria() {
 
 function renderFormularioAlterarSenha(obrigatoria = false) {
   return `
-    <div class="sync-grid">
-      <label class="field">
-        <span>Senha atual</span>
-        <div class="password-row">
-          <input id="senhaAtualUsuario" type="password" autocomplete="current-password">
-          <button class="icon-button" type="button" onclick="alternarSenhaVisivel('senhaAtualUsuario')" title="Mostrar/ocultar senha">👁</button>
-        </div>
-      </label>
-      <label class="field">
-        <span>Nova senha</span>
-        <div class="password-row">
-          <input id="novaSenhaUsuario" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('novaSenhaUsuario')">
-          <button class="icon-button" type="button" onclick="alternarSenhaVisivel('novaSenhaUsuario')" title="Mostrar/ocultar senha">👁</button>
-        </div>
-        <small class="password-strength" data-strength-for="novaSenhaUsuario">Digite uma senha forte</small>
-      </label>
-      <label class="field">
-        <span>Confirmar nova senha</span>
-        <div class="password-row">
-          <input id="confirmarNovaSenhaUsuario" type="password" autocomplete="new-password">
-          <button class="icon-button" type="button" onclick="alternarSenhaVisivel('confirmarNovaSenhaUsuario')" title="Mostrar/ocultar senha">👁</button>
-        </div>
-      </label>
-    </div>
-    <div class="actions">
-      <button id="alterarSenhaBtn" class="btn" onclick="alterarSenhaAtual(${obrigatoria ? "true" : "false"})">Salvar nova senha</button>
-      ${obrigatoria ? "" : `<button class="btn ghost" onclick="voltarTela()">Cancelar</button>`}
+    <div class="password-change-form">
+      <div class="sync-grid">
+        <label class="field">
+          <span>Senha atual</span>
+          <div class="password-row">
+            <input id="senhaAtualUsuario" data-password-field="atual" type="password" autocomplete="current-password">
+            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          </div>
+        </label>
+        <label class="field">
+          <span>Nova senha</span>
+          <div class="password-row">
+            <input id="novaSenhaUsuario" data-password-field="nova" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('novaSenhaUsuario', this)">
+            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          </div>
+          <small class="password-strength" data-strength-for="novaSenhaUsuario">Digite uma senha forte</small>
+        </label>
+        <label class="field">
+          <span>Confirmar nova senha</span>
+          <div class="password-row">
+            <input id="confirmarNovaSenhaUsuario" data-password-field="confirmar" type="password" autocomplete="new-password">
+            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          </div>
+        </label>
+      </div>
+      <div class="actions">
+        <button id="alterarSenhaBtn" class="btn" onclick="alterarSenhaAtual(${obrigatoria ? "true" : "false"}, this)">Salvar nova senha</button>
+        ${obrigatoria ? "" : `<button class="btn ghost" onclick="voltarTela()">Cancelar</button>`}
+      </div>
     </div>
   `;
 }
@@ -4247,8 +4262,8 @@ function isAmbienteLocal() {
   return ["localhost", "127.0.0.1", ""].includes(host) || location.protocol === "file:";
 }
 
-function setBotaoLoading(id, carregando, textoCarregando = "Entrando...") {
-  const botao = document.getElementById(id);
+function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...") {
+  const botao = typeof idOuBotao === "string" ? document.getElementById(idOuBotao) : idOuBotao;
   if (!botao) return;
   if (carregando) {
     botao.dataset.textoOriginal = botao.textContent;
@@ -4643,16 +4658,21 @@ function alternarStatusUsuario(id) {
   renderApp();
 }
 
-async function alterarSenhaAtual(obrigatoria = false) {
+function getCampoSenhaFormulario(formulario, campo, fallbackId) {
+  return formulario?.querySelector(`[data-password-field="${campo}"]`)?.value || document.getElementById(fallbackId)?.value || "";
+}
+
+async function alterarSenhaAtual(obrigatoria = false, botao = null) {
   const usuario = getUsuarioAtual();
   if (!usuario) {
     alert("Sessão expirada");
     trocarTela("admin");
     return;
   }
-  const atual = document.getElementById("senhaAtualUsuario")?.value || "";
-  const nova = document.getElementById("novaSenhaUsuario")?.value || "";
-  const confirmar = document.getElementById("confirmarNovaSenhaUsuario")?.value || "";
+  const formulario = botao?.closest?.(".password-change-form") || document.querySelector(".password-change-form");
+  const atual = getCampoSenhaFormulario(formulario, "atual", "senhaAtualUsuario");
+  const nova = getCampoSenhaFormulario(formulario, "nova", "novaSenhaUsuario");
+  const confirmar = getCampoSenhaFormulario(formulario, "confirmar", "confirmarNovaSenhaUsuario");
   if (!atual || !nova || !confirmar) {
     alert("Campo obrigatório");
     return;
@@ -4666,11 +4686,11 @@ async function alterarSenhaAtual(obrigatoria = false) {
     alert(erroSenha);
     return;
   }
-  setBotaoLoading("alterarSenhaBtn", true, "Salvando...");
+  setBotaoLoading(botao || "alterarSenhaBtn", true, "Salvando...");
   if (!await verificarSenhaUsuario(usuario, atual)) {
     registrarSeguranca("Troca de senha", "erro", "Senha atual inválida", usuario.email);
     alert("Usuário ou senha inválidos");
-    setBotaoLoading("alterarSenhaBtn", false);
+    setBotaoLoading(botao || "alterarSenhaBtn", false);
     return;
   }
   await definirSenhaUsuario(usuario, nova, false);
@@ -4679,7 +4699,7 @@ async function alterarSenhaAtual(obrigatoria = false) {
   registrarHistorico("Segurança", "Senha alterada");
   registrarSeguranca("Troca de senha", "sucesso", "", usuario.email);
   alert("Senha alterada com sucesso");
-  setBotaoLoading("alterarSenhaBtn", false);
+  setBotaoLoading(botao || "alterarSenhaBtn", false);
   if (obrigatoria) trocarTela("dashboard");
   else renderApp();
 }
