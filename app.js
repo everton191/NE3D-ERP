@@ -2,9 +2,10 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.27-users17";
+const APP_VERSION = "2026.04.28-users18";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
-const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP-android-users17-debug.apk";
+const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP.apk";
+const ANDROID_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json";
 
 const telas = {
   dashboard: "Início",
@@ -86,6 +87,10 @@ let appConfig = carregarObjeto("appConfig", {
   updateCheckInterval: 30,
   updateLastCheck: "",
   updateStatus: "Aguardando",
+  updateAvailableVersion: "",
+  updateDownloadUrl: "",
+  updatePromptedVersion: "",
+  updatePromptedAt: "",
   telemetryEnabled: true,
   calculatorWidget: {
     open: false,
@@ -1940,6 +1945,10 @@ function renderConfig() {
             <span>Status</span>
             <strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong>
           </div>
+          <div class="metric">
+            <span>Versão disponível</span>
+            <strong>${escaparHtml(appConfig.updateAvailableVersion || "Nenhuma")}</strong>
+          </div>
           <label class="field">
             <span>Checar a cada minutos</span>
             <input id="updateCheckInterval" type="number" min="5" step="1" value="${Number(appConfig.updateCheckInterval) || 30}">
@@ -1952,6 +1961,7 @@ function renderConfig() {
         <div class="actions">
           <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
           <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
+          <button class="btn ghost" onclick="baixarAtualizacaoAndroid()">Baixar APK</button>
         </div>
       </div>
 
@@ -4634,6 +4644,100 @@ function exportarBackup() {
   registrarHistorico("Backup", "Backup local exportado");
 }
 
+function isAndroid() {
+  return /Android/i.test(navigator.userAgent || "");
+}
+
+function getAndroidDownloadUrl(manifest = {}) {
+  return manifest.apkUrl || manifest.downloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
+}
+
+function abrirDownloadAtualizacaoAndroid(url) {
+  const destino = url || appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
+  if (!destino) {
+    alert("Link do APK não configurado.");
+    return;
+  }
+
+  const janela = window.open(destino, "_blank");
+  if (!janela) {
+    window.location.href = destino;
+  }
+}
+
+async function buscarManifestAtualizacaoAndroid() {
+  const separador = ANDROID_UPDATE_MANIFEST_URL.includes("?") ? "&" : "?";
+  const resposta = await fetch(`${ANDROID_UPDATE_MANIFEST_URL}${separador}t=${Date.now()}`, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!resposta.ok) {
+    throw new Error("HTTP " + resposta.status);
+  }
+
+  const manifest = await resposta.json();
+  const versao = String(manifest.version || manifest.versionName || "").trim();
+  return {
+    ...manifest,
+    version: versao,
+    apkUrl: getAndroidDownloadUrl(manifest)
+  };
+}
+
+function existeAtualizacaoAndroid(manifest) {
+  return !!manifest?.version && manifest.version !== APP_VERSION;
+}
+
+function avisarAtualizacaoAndroid(manifest, forcarAviso = false) {
+  const versao = manifest.version || "nova";
+  const url = getAndroidDownloadUrl(manifest);
+  const jaAvisado = appConfig.updatePromptedVersion === versao;
+
+  if (!forcarAviso && jaAvisado) return;
+
+  appConfig.updatePromptedVersion = versao;
+  appConfig.updatePromptedAt = new Date().toISOString();
+  salvarDados();
+
+  alert(`Nova versão ${versao} disponível. O download do APK vai abrir agora.`);
+  abrirDownloadAtualizacaoAndroid(url);
+}
+
+async function verificarAtualizacaoAndroid(forcarAviso = false) {
+  if (!isAndroid()) return false;
+
+  try {
+    const manifest = await buscarManifestAtualizacaoAndroid();
+    appConfig.updateDownloadUrl = getAndroidDownloadUrl(manifest);
+
+    if (existeAtualizacaoAndroid(manifest)) {
+      appConfig.updateAvailableVersion = manifest.version;
+      salvarStatusAtualizacao(`APK ${manifest.version} disponível`);
+
+      if (appConfig.autoUpdateEnabled !== false || forcarAviso) {
+        avisarAtualizacaoAndroid(manifest, forcarAviso);
+      }
+      return true;
+    }
+
+    appConfig.updateAvailableVersion = "";
+    salvarStatusAtualizacao("Sistema atualizado");
+    if (forcarAviso) alert("Nenhuma atualização nova encontrada.");
+    return true;
+  } catch (erro) {
+    salvarStatusAtualizacao("Erro ao checar APK no GitHub");
+    if (forcarAviso) alert("Não foi possível checar o APK no GitHub: " + erro.message);
+    return true;
+  }
+}
+
+function baixarAtualizacaoAndroid() {
+  abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL);
+}
+
 function intervaloAtualizacaoMs() {
   return Math.max(5, Number(appConfig.updateCheckInterval) || 30) * 60 * 1000;
 }
@@ -4666,6 +4770,12 @@ function monitorarRegistroAtualizacao(registro) {
 }
 
 async function verificarAtualizacao(forcarAviso = false) {
+  const atualizacaoAndroidTratada = await verificarAtualizacaoAndroid(forcarAviso);
+  if (atualizacaoAndroidTratada) {
+    if (forcarAviso || telaAtual === "config") renderApp();
+    return;
+  }
+
   if (!("serviceWorker" in navigator) || location.protocol === "file:") {
     salvarStatusAtualizacao("Atualização disponível só em http/https");
     if (forcarAviso) alert("Atualização automática funciona quando o app está em http/https ou instalado como PWA.");

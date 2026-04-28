@@ -26,8 +26,19 @@ O comando tambem copia o APK para nomes prontos para compartilhar:
 
 ```text
 downloads/NE3D-ERP.apk
-downloads/NE3D-ERP-android-users17-debug.apk
+downloads/update.json
 ```
+
+O arquivo `downloads/NE3D-ERP-android-users17-debug.apk` ainda e atualizado como compatibilidade para links antigos, mas o link principal agora e `downloads/NE3D-ERP.apk`.
+
+O app Android consulta `downloads/update.json` no GitHub. Quando a versao publicada for diferente da `APP_VERSION` instalada, ele avisa o usuario e abre o download de `downloads/NE3D-ERP.apk`.
+
+Antes de publicar uma nova versao, atualize:
+
+- `APP_VERSION` em `app.js`
+- `versionCode` e `versionName` em `android/app/build.gradle`
+
+Depois rode `npm run android:apk`, faça commit e push. Quando o `update.json` novo estiver no GitHub, os apps Android com atualizacao automatica ligada passam a avisar e abrir o APK novo.
 
 ## Requisitos para compilar
 
