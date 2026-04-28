@@ -1,8 +1,8 @@
 {
-  "version": "2026.04.28-redesign-public-apk",
-  "versionCode": 4,
+  "version": "2026.04.28-supabase-online",
+  "versionCode": 5,
   "apkUrl": "https://github.com/everton191/NE3D-ERP-APK/raw/main/NE3D-ERP.apk",
   "apkFile": "NE3D-ERP.apk",
   "publicRepo": "everton191/NE3D-ERP-APK",
-  "generatedAt": "2026-04-28T13:26:39.225Z"
+  "generatedAt": "2026-04-28T13:40:32.120Z"
 }

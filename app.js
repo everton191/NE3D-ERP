@@ -2,8 +2,10 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-redesign-public-apk";
+const APP_VERSION = "2026.04.28-supabase-online";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
+const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
+const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
 const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP-APK";
 const ANDROID_RELEASES_URL = `https://github.com/${ANDROID_PUBLIC_REPO}/raw/main/NE3D-ERP.apk`;
 const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/update.json`;
@@ -70,7 +72,17 @@ let syncConfig = carregarObjeto("syncConfig", {
   autoBackupLastRun: "",
   autoBackupStatus: "Aguardando",
   ultimoBackup: "",
-  ultimaSync: ""
+  ultimaSync: "",
+  supabaseEnabled: false,
+  supabaseUrl: SUPABASE_DEFAULT_URL,
+  supabaseAnonKey: SUPABASE_DEFAULT_ANON_KEY,
+  supabaseEmail: "",
+  supabaseUserId: "",
+  supabaseAccessToken: "",
+  supabaseRefreshToken: "",
+  supabaseTokenExpiresAt: 0,
+  supabaseLastLogin: "",
+  supabaseLastSync: ""
 });
 let appConfig = carregarObjeto("appConfig", {
   appName: "ERP 3D",
@@ -2481,6 +2493,55 @@ function renderConfig() {
       </label>
 
       <div class="danger-zone">
+        <h2 class="section-title">Supabase online</h2>
+        <p class="muted">Sincronização real usando Supabase Auth e RLS. O localStorage continua funcionando; o Supabase entra como backup online por usuário.</p>
+        <label class="checkbox-row">
+          <input id="supabaseEnabled" type="checkbox" ${syncConfig.supabaseEnabled ? "checked" : ""}>
+          <span>Ativar Supabase neste aparelho</span>
+        </label>
+        <div class="sync-grid">
+          <label class="field">
+            <span>URL do Supabase</span>
+            <input id="supabaseUrl" value="${escaparAttr(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL)}" placeholder="https://projeto.supabase.co">
+          </label>
+          <label class="field">
+            <span>Chave pública</span>
+            <input id="supabaseAnonKey" value="${escaparAttr(syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY)}" placeholder="sb_publishable_...">
+          </label>
+          <label class="field">
+            <span>E-mail Supabase</span>
+            <input id="supabaseEmail" type="email" value="${escaparAttr(syncConfig.supabaseEmail || getEmailLicencaAtual())}" placeholder="cliente@email.com">
+          </label>
+          <label class="field">
+            <span>Senha Supabase</span>
+            <input id="supabasePassword" type="password" placeholder="Não fica salva no backup">
+          </label>
+        </div>
+        <div class="sync-grid">
+          <div class="metric">
+            <span>Status Supabase</span>
+            <strong>${syncConfig.supabaseAccessToken ? "Conectado" : "Desconectado"}</strong>
+          </div>
+          <div class="metric">
+            <span>Usuário online</span>
+            <strong>${escaparHtml(syncConfig.supabaseEmail || "Nenhum")}</strong>
+          </div>
+          <div class="metric">
+            <span>Último Supabase</span>
+            <strong>${syncConfig.supabaseLastSync ? new Date(syncConfig.supabaseLastSync).toLocaleString("pt-BR") : "Nunca"}</strong>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="entrarSupabase()">Entrar</button>
+          <button class="btn secondary" onclick="criarContaSupabase()">Criar conta</button>
+          <button class="btn secondary" onclick="sincronizarSupabase()">Sincronizar Supabase</button>
+          <button class="btn ghost" onclick="enviarBackupSupabase()">Enviar Supabase</button>
+          <button class="btn ghost" onclick="restaurarBackupSupabase()">Restaurar Supabase</button>
+          <button class="btn ghost" onclick="sairSupabase()">Sair</button>
+        </div>
+      </div>
+
+      <div class="danger-zone">
         <h2 class="section-title">Segurança</h2>
         <label class="checkbox-row">
           <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled ? "checked" : ""}>
@@ -2581,6 +2642,7 @@ function renderConfig() {
             <select id="autoBackupTarget">
               <option value="drive" ${syncConfig.autoBackupTarget === "drive" ? "selected" : ""}>Google Drive</option>
               <option value="url" ${syncConfig.autoBackupTarget === "url" ? "selected" : ""}>URL da nuvem</option>
+              <option value="supabase" ${syncConfig.autoBackupTarget === "supabase" ? "selected" : ""}>Supabase</option>
             </select>
           </label>
         </div>
@@ -3654,6 +3716,10 @@ function concluirLoginUsuario(usuario) {
 
 function sincronizarAposLogin() {
   if (!temAcessoNuvem()) return;
+  if (syncConfig.autoBackupTarget === "supabase" && syncConfig.supabaseEnabled) {
+    sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
+    return;
+  }
   if (syncConfig.autoBackupTarget === "url" && syncConfig.cloudUrl) {
     sincronizarUrlSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync pós-login falhou", erro.message));
     return;
@@ -3883,6 +3949,7 @@ function lerConfigSyncCampos() {
   const arquivoDrive = (document.getElementById("driveFileName")?.value || syncConfig.driveFileName || "erp3d-backup.json").trim();
   const autoBackupEnabledEl = document.getElementById("autoBackupEnabled");
   const autoBackupInterval = Math.max(1, parseFloat(document.getElementById("autoBackupInterval")?.value || syncConfig.autoBackupInterval || 5) || 5);
+  const supabaseEnabledEl = document.getElementById("supabaseEnabled");
   return {
     cloudUrl: (document.getElementById("syncCloudUrl")?.value || syncConfig.cloudUrl || "").trim(),
     token: (document.getElementById("syncToken")?.value || syncConfig.token || "").trim(),
@@ -3890,7 +3957,11 @@ function lerConfigSyncCampos() {
     driveFileName: arquivoDrive.endsWith(".json") ? arquivoDrive : arquivoDrive + ".json",
     autoBackupEnabled: autoBackupEnabledEl ? autoBackupEnabledEl.checked : !!syncConfig.autoBackupEnabled,
     autoBackupInterval,
-    autoBackupTarget: document.getElementById("autoBackupTarget")?.value || syncConfig.autoBackupTarget || "drive"
+    autoBackupTarget: document.getElementById("autoBackupTarget")?.value || syncConfig.autoBackupTarget || "drive",
+    supabaseEnabled: supabaseEnabledEl ? supabaseEnabledEl.checked : !!syncConfig.supabaseEnabled,
+    supabaseUrl: (document.getElementById("supabaseUrl")?.value || syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL).trim().replace(/\/+$/, ""),
+    supabaseAnonKey: (document.getElementById("supabaseAnonKey")?.value || syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY).trim(),
+    supabaseEmail: normalizarEmail(document.getElementById("supabaseEmail")?.value || syncConfig.supabaseEmail || "")
   };
 }
 
@@ -3968,6 +4039,12 @@ function criarSnapshotBackup() {
         autoBackupTarget: syncConfig.autoBackupTarget,
         autoBackupLastRun: syncConfig.autoBackupLastRun,
         autoBackupStatus: syncConfig.autoBackupStatus,
+        supabaseEnabled: syncConfig.supabaseEnabled,
+        supabaseUrl: syncConfig.supabaseUrl,
+        supabaseEmail: syncConfig.supabaseEmail,
+        supabaseUserId: syncConfig.supabaseUserId,
+        supabaseLastLogin: syncConfig.supabaseLastLogin,
+        supabaseLastSync: syncConfig.supabaseLastSync,
         ultimoBackup: syncConfig.ultimoBackup,
         ultimaSync: syncConfig.ultimaSync
       }
@@ -4042,6 +4119,12 @@ function aplicarBackup(dados, modo = "substituir") {
     autoBackupTarget: backup.configuracoes.autoBackupTarget || syncConfig.autoBackupTarget || "drive",
     autoBackupLastRun: backup.configuracoes.autoBackupLastRun || syncConfig.autoBackupLastRun,
     autoBackupStatus: backup.configuracoes.autoBackupStatus || syncConfig.autoBackupStatus,
+    supabaseEnabled: typeof backup.configuracoes.supabaseEnabled === "boolean" ? backup.configuracoes.supabaseEnabled : syncConfig.supabaseEnabled,
+    supabaseUrl: backup.configuracoes.supabaseUrl || syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL,
+    supabaseEmail: backup.configuracoes.supabaseEmail || syncConfig.supabaseEmail,
+    supabaseUserId: syncConfig.supabaseUserId || backup.configuracoes.supabaseUserId || "",
+    supabaseLastLogin: syncConfig.supabaseLastLogin || backup.configuracoes.supabaseLastLogin || "",
+    supabaseLastSync: backup.configuracoes.supabaseLastSync || syncConfig.supabaseLastSync,
     ultimoBackup: backup.configuracoes.ultimoBackup || syncConfig.ultimoBackup,
     ultimaSync: backup.configuracoes.ultimaSync || syncConfig.ultimaSync
   };
@@ -4091,6 +4174,302 @@ function cabecalhosSync() {
     headers.Authorization = "Bearer " + syncConfig.token;
   }
   return headers;
+}
+
+function normalizarUrlSupabase(url = syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL) {
+  return String(url || "").trim().replace(/\/+$/, "");
+}
+
+function atualizarConfigSupabaseCampos() {
+  syncConfig = {
+    ...syncConfig,
+    ...lerConfigSyncCampos(),
+    supabaseUrl: normalizarUrlSupabase(document.getElementById("supabaseUrl")?.value || syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL),
+    supabaseAnonKey: (document.getElementById("supabaseAnonKey")?.value || syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY).trim(),
+    supabaseEmail: normalizarEmail(document.getElementById("supabaseEmail")?.value || syncConfig.supabaseEmail || getEmailLicencaAtual())
+  };
+  salvarDados();
+}
+
+function validarSupabase(requerSessao = false) {
+  if (!exigirAcessoNuvem()) return false;
+  atualizarConfigSupabaseCampos();
+
+  if (!syncConfig.supabaseUrl || !syncConfig.supabaseAnonKey) {
+    alert("Configure a URL e a chave pública do Supabase.");
+    return false;
+  }
+
+  if (requerSessao && (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId)) {
+    alert("Entre no Supabase antes de sincronizar.");
+    return false;
+  }
+
+  return true;
+}
+
+function cabecalhosSupabase(autenticado = true, extras = {}) {
+  const token = autenticado ? syncConfig.supabaseAccessToken : "";
+  return {
+    apikey: syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY,
+    Authorization: "Bearer " + (token || syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY),
+    "Content-Type": "application/json",
+    ...extras
+  };
+}
+
+async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
+  const base = normalizarUrlSupabase();
+  const autenticado = opcoes.auth !== false;
+  const resposta = await fetch(base + caminho, {
+    ...opcoes,
+    headers: cabecalhosSupabase(autenticado, opcoes.headers || {})
+  });
+
+  if (resposta.status === 401 && autenticado && tentarRenovar && await renovarSessaoSupabase()) {
+    return requisicaoSupabase(caminho, opcoes, false);
+  }
+
+  const texto = await resposta.text();
+  let dados = null;
+  if (texto) {
+    try {
+      dados = JSON.parse(texto);
+    } catch (_) {
+      dados = { message: texto };
+    }
+  }
+  if (!resposta.ok) {
+    const detalhe = dados?.message || dados?.error_description || dados?.error || texto || ("HTTP " + resposta.status);
+    throw new Error(detalhe);
+  }
+
+  return dados;
+}
+
+function salvarSessaoSupabase(dados, email) {
+  const sessao = dados?.session || dados || {};
+  const usuario = dados?.user || sessao.user || {};
+  if (!sessao.access_token || !usuario.id) return false;
+
+  syncConfig.supabaseAccessToken = sessao.access_token;
+  syncConfig.supabaseRefreshToken = sessao.refresh_token || syncConfig.supabaseRefreshToken || "";
+  syncConfig.supabaseTokenExpiresAt = sessao.expires_at ? sessao.expires_at * 1000 : Date.now() + (Number(sessao.expires_in) || 3600) * 1000;
+  syncConfig.supabaseUserId = usuario.id;
+  syncConfig.supabaseEmail = normalizarEmail(usuario.email || email || syncConfig.supabaseEmail);
+  syncConfig.supabaseEnabled = true;
+  syncConfig.supabaseLastLogin = new Date().toISOString();
+  salvarDados();
+  return true;
+}
+
+async function renovarSessaoSupabase() {
+  if (!syncConfig.supabaseRefreshToken) return false;
+  try {
+    const dados = await requisicaoSupabase("/auth/v1/token?grant_type=refresh_token", {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({ refresh_token: syncConfig.supabaseRefreshToken })
+    }, false);
+    return salvarSessaoSupabase(dados, syncConfig.supabaseEmail);
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Sessão expirada", erro.message);
+    return false;
+  }
+}
+
+async function autenticarSupabase(criarConta = false) {
+  if (!validarSupabase(false)) return;
+
+  const email = normalizarEmail(document.getElementById("supabaseEmail")?.value || syncConfig.supabaseEmail || getEmailLicencaAtual());
+  const senha = document.getElementById("supabasePassword")?.value || "";
+  if (!email || !senha) {
+    alert("Informe e-mail e senha do Supabase.");
+    return;
+  }
+
+  try {
+    const caminho = criarConta ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+    const dados = await requisicaoSupabase(caminho, {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({ email, password: senha })
+    });
+
+    if (!salvarSessaoSupabase(dados, email)) {
+      alert("Conta criada. Se o Supabase pedir confirmação de e-mail, confirme antes de entrar.");
+      return;
+    }
+
+    await salvarPerfilSupabase();
+    registrarHistorico("Supabase", criarConta ? "Conta criada/conectada" : "Login realizado");
+    alert("Supabase conectado");
+    renderApp();
+  } catch (erro) {
+    alert("Não foi possível autenticar no Supabase: " + erro.message);
+  }
+}
+
+function entrarSupabase() {
+  autenticarSupabase(false);
+}
+
+function criarContaSupabase() {
+  autenticarSupabase(true);
+}
+
+function sairSupabase() {
+  syncConfig.supabaseAccessToken = "";
+  syncConfig.supabaseRefreshToken = "";
+  syncConfig.supabaseTokenExpiresAt = 0;
+  syncConfig.supabaseUserId = "";
+  salvarDados();
+  registrarHistorico("Supabase", "Sessão encerrada");
+  renderApp();
+}
+
+async function salvarPerfilSupabase() {
+  if (!syncConfig.supabaseUserId || !syncConfig.supabaseEmail) return false;
+  try {
+    await requisicaoSupabase("/rest/v1/erp_profiles?on_conflict=id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        id: syncConfig.supabaseUserId,
+        email: syncConfig.supabaseEmail,
+        display_name: getUsuarioAtual()?.nome || syncConfig.supabaseEmail.split("@")[0]
+      })
+    });
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Perfil não sincronizado", erro.message);
+    return false;
+  }
+}
+
+function tratarErroSupabase(erro) {
+  if (/relation .*erp_backups|Could not find the table|schema cache/i.test(erro.message)) {
+    return "Tabelas Supabase ainda não criadas. Rode: npx supabase link --project-ref qsufnnivlgdidmjuaprb && npx supabase db push";
+  }
+  return erro.message;
+}
+
+async function obterBackupSupabase() {
+  const userId = encodeURIComponent(syncConfig.supabaseUserId);
+  const linhas = await requisicaoSupabase(`/rest/v1/erp_backups?select=payload,updated_at&user_id=eq.${userId}&limit=1`, {
+    method: "GET"
+  });
+  return Array.isArray(linhas) && linhas[0] ? linhas[0].payload : null;
+}
+
+async function salvarBackupSupabase() {
+  const payload = criarSnapshotBackup();
+  await requisicaoSupabase("/rest/v1/erp_backups?on_conflict=user_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: JSON.stringify({
+      user_id: syncConfig.supabaseUserId,
+      owner_id: getDataOwnerId(),
+      device_id: deviceId,
+      payload
+    })
+  });
+}
+
+async function enviarBackupSupabase() {
+  if (!validarSupabase(true)) return;
+  if (!confirm("Enviar um backup completo para o Supabase?")) return;
+
+  try {
+    await salvarPerfilSupabase();
+    await salvarBackupSupabase();
+    const agora = new Date().toISOString();
+    syncConfig.supabaseLastSync = agora;
+    syncConfig.ultimoBackup = agora;
+    syncConfig.ultimaSync = agora;
+    salvarDados();
+    registrarHistorico("Supabase", "Backup enviado");
+    alert("Backup enviado para o Supabase");
+    renderApp();
+  } catch (erro) {
+    alert("Não foi possível enviar para o Supabase: " + tratarErroSupabase(erro));
+  }
+}
+
+async function restaurarBackupSupabase() {
+  if (!validarSupabase(true)) return;
+  if (!confirm("Restaurar do Supabase vai substituir os dados locais deste aparelho. Continuar?")) return;
+
+  try {
+    const remoto = await obterBackupSupabase();
+    if (!remoto) {
+      alert("Nenhum backup Supabase encontrado para esta conta.");
+      return;
+    }
+    aplicarBackup(remoto, "substituir");
+    const agora = new Date().toISOString();
+    syncConfig.supabaseLastSync = agora;
+    syncConfig.ultimaSync = agora;
+    salvarDados();
+    registrarHistorico("Supabase", "Backup restaurado");
+    alert("Backup restaurado do Supabase");
+    renderApp();
+  } catch (erro) {
+    alert("Não foi possível restaurar do Supabase: " + tratarErroSupabase(erro));
+  }
+}
+
+async function sincronizarSupabase() {
+  if (!validarSupabase(true)) return;
+
+  try {
+    await salvarPerfilSupabase();
+    const remoto = await obterBackupSupabase();
+    if (remoto) {
+      aplicarBackup(remoto, "mesclar");
+    }
+    await salvarBackupSupabase();
+    const agora = new Date().toISOString();
+    syncConfig.supabaseLastSync = agora;
+    syncConfig.ultimoBackup = agora;
+    syncConfig.ultimaSync = agora;
+    salvarDados();
+    registrarHistorico("Supabase", remoto ? "Dados mesclados e enviados" : "Backup inicial criado");
+    alert(remoto ? "Sincronização Supabase concluída" : "Backup inicial criado no Supabase");
+    renderApp();
+  } catch (erro) {
+    alert("Não foi possível sincronizar com o Supabase: " + tratarErroSupabase(erro));
+  }
+}
+
+async function sincronizarSupabaseSilencioso() {
+  if (!temAcessoNuvem()) {
+    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    salvarDados();
+    return false;
+  }
+
+  if (!syncConfig.supabaseEnabled || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) {
+    syncConfig.autoBackupStatus = "Entre no Supabase";
+    salvarDados();
+    return false;
+  }
+
+  const remoto = await obterBackupSupabase();
+  if (remoto) {
+    aplicarBackup(remoto, "mesclar");
+  }
+  await salvarBackupSupabase();
+
+  const agora = new Date().toISOString();
+  syncConfig.supabaseLastSync = agora;
+  syncConfig.ultimoBackup = agora;
+  syncConfig.ultimaSync = agora;
+  syncConfig.autoBackupLastRun = agora;
+  syncConfig.autoBackupStatus = remoto ? "Supabase sincronizado" : "Backup criado no Supabase";
+  salvarDados();
+  registrarHistorico("Auto-backup", syncConfig.autoBackupStatus);
+  return true;
 }
 
 function validarUrlNuvem() {
@@ -4398,7 +4777,9 @@ async function executarAutoBackup(forcar = false) {
 
   autoBackupRodando = true;
   try {
-    if (syncConfig.autoBackupTarget === "url") {
+    if (syncConfig.autoBackupTarget === "supabase") {
+      await sincronizarSupabaseSilencioso();
+    } else if (syncConfig.autoBackupTarget === "url") {
       await sincronizarUrlSilencioso();
     } else {
       await sincronizarGoogleDriveSilencioso();
