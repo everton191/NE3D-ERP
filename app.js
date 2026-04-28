@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-security-assistant";
+const APP_VERSION = "2026.04.28-update-repo";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
@@ -12,7 +12,7 @@ const SECURITY_SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SECURITY_SESSION_WARNING_MS = 2 * 60 * 1000;
 const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
-const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP-APK";
+const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP.apk";
 const ANDROID_RELEASES_URL = `https://github.com/${ANDROID_PUBLIC_REPO}/raw/main/NE3D-ERP.apk`;
 const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/update.json`;
 const ANDROID_UPDATE_MANIFEST_FALLBACK_URLS = [
