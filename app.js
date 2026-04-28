@@ -2,10 +2,14 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-redesign-profissional";
+const APP_VERSION = "2026.04.28-redesign-public-apk";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
-const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP.apk";
-const ANDROID_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json";
+const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP-APK";
+const ANDROID_RELEASES_URL = `https://github.com/${ANDROID_PUBLIC_REPO}/raw/main/NE3D-ERP.apk`;
+const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/update.json`;
+const ANDROID_UPDATE_MANIFEST_FALLBACK_URLS = [
+  "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json"
+];
 
 const telas = {
   dashboard: "Início",
@@ -104,6 +108,7 @@ let appConfig = carregarObjeto("appConfig", {
   updateStatus: "Aguardando",
   updateAvailableVersion: "",
   updateDownloadUrl: "",
+  updateManifestUrl: "",
   updatePromptedVersion: "",
   updatePromptedAt: "",
   telemetryEnabled: true,
@@ -5672,6 +5677,14 @@ function getAndroidDownloadUrl(manifest = {}) {
   return manifest.apkUrl || manifest.downloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
 }
 
+function getAndroidManifestUrls() {
+  return [
+    appConfig.updateManifestUrl,
+    ANDROID_UPDATE_MANIFEST_URL,
+    ...ANDROID_UPDATE_MANIFEST_FALLBACK_URLS
+  ].filter(Boolean).filter((url, index, lista) => lista.indexOf(url) === index);
+}
+
 function abrirDownloadAtualizacaoAndroid(url) {
   const destino = url || appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
   if (!destino) {
@@ -5686,25 +5699,35 @@ function abrirDownloadAtualizacaoAndroid(url) {
 }
 
 async function buscarManifestAtualizacaoAndroid() {
-  const separador = ANDROID_UPDATE_MANIFEST_URL.includes("?") ? "&" : "?";
-  const resposta = await fetch(`${ANDROID_UPDATE_MANIFEST_URL}${separador}t=${Date.now()}`, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json"
-    }
-  });
+  const erros = [];
+  for (const manifestUrl of getAndroidManifestUrls()) {
+    try {
+      const separador = manifestUrl.includes("?") ? "&" : "?";
+      const resposta = await fetch(`${manifestUrl}${separador}t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json"
+        }
+      });
 
-  if (!resposta.ok) {
-    throw new Error("HTTP " + resposta.status);
+      if (!resposta.ok) {
+        throw new Error("HTTP " + resposta.status);
+      }
+
+      const manifest = await resposta.json();
+      const versao = String(manifest.version || manifest.versionName || "").trim();
+      return {
+        ...manifest,
+        sourceUrl: manifestUrl,
+        version: versao,
+        apkUrl: getAndroidDownloadUrl(manifest)
+      };
+    } catch (erro) {
+      erros.push(`${manifestUrl}: ${erro.message}`);
+    }
   }
 
-  const manifest = await resposta.json();
-  const versao = String(manifest.version || manifest.versionName || "").trim();
-  return {
-    ...manifest,
-    version: versao,
-    apkUrl: getAndroidDownloadUrl(manifest)
-  };
+  throw new Error(erros.join(" | ") || "Manifesto não configurado");
 }
 
 function existeAtualizacaoAndroid(manifest) {

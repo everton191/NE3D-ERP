@@ -1,7 +1,8 @@
 {
-  "version": "2026.04.28-redesign-profissional",
-  "versionCode": 3,
-  "apkUrl": "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP.apk",
-  "apkFile": "downloads/NE3D-ERP.apk",
-  "generatedAt": "2026-04-28T13:18:18.299Z"
+  "version": "2026.04.28-redesign-public-apk",
+  "versionCode": 4,
+  "apkUrl": "https://github.com/everton191/NE3D-ERP-APK/raw/main/NE3D-ERP.apk",
+  "apkFile": "NE3D-ERP.apk",
+  "publicRepo": "everton191/NE3D-ERP-APK",
+  "generatedAt": "2026-04-28T13:26:39.225Z"
 }
