@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-password-fix";
+const APP_VERSION = "2026.04.28-auto-update";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
@@ -2401,14 +2401,15 @@ function renderAcoesRapidas() {
     { tela: "backup", icone: "☁️", texto: "Backup" },
     { tela: "planos", icone: "💳", texto: "Plano" }
   ];
+  if (isAndroid()) acoes.unshift({ acao: "verificarAtualizacaoManual()", icone: "⬇️", texto: "Atualizar APK" });
   if (!getUsuarioAtual() || podeGerenciarUsuarios()) acoes.push({ tela: "usuarios", icone: "🔐", texto: "Admin" });
   if (getUsuarioAtual()) acoes.push({ tela: "seguranca", icone: "🔒", texto: "Segurança" });
   if (isSuperAdmin()) acoes.push({ tela: "superadmin", icone: "🛡️", texto: "Super" });
 
   return `
     <div class="quick-actions">
-      ${acoes.filter((acao) => canAccessScreen(acao.tela)).map((acao) => `
-        <button class="quick-action" onclick="trocarTela('${acao.tela}')">
+      ${acoes.filter((acao) => acao.acao || canAccessScreen(acao.tela)).map((acao) => `
+        <button class="quick-action" onclick="${acao.acao || `trocarTela('${acao.tela}')`}">
           <span>${acao.icone}</span>
           <strong>${acao.texto}</strong>
         </button>
@@ -3067,7 +3068,7 @@ function renderConfig() {
         <div class="actions">
           <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
           <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
-          <button class="btn ghost" onclick="baixarAtualizacaoAndroid()">Baixar APK</button>
+          <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
         </div>
       </div>
 
@@ -7101,7 +7102,21 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
   }
 }
 
-function baixarAtualizacaoAndroid() {
+async function baixarAtualizacaoAndroid(forcarBusca = false) {
+  if (isAndroid() || forcarBusca) {
+    try {
+      const manifest = await buscarManifestAtualizacaoAndroid();
+      appConfig.updateDownloadUrl = getAndroidDownloadUrl(manifest);
+      appConfig.updateAvailableVersion = existeAtualizacaoAndroid(manifest) ? manifest.version : "";
+      salvarStatusAtualizacao(existeAtualizacaoAndroid(manifest) ? `APK ${manifest.version} disponível` : "Sistema atualizado");
+      abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl);
+      return;
+    } catch (erro) {
+      salvarStatusAtualizacao("Erro ao buscar APK");
+      alert("Não foi possível buscar o APK mais recente no GitHub: " + erro.message);
+    }
+  }
+
   abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL);
 }
 
@@ -7204,7 +7219,16 @@ function iniciarMonitorAtualizacao() {
     updateTimer = null;
   }
 
-  if (!("serviceWorker" in navigator) || location.protocol === "file:") return;
+  if (appConfig.autoUpdateEnabled === false) {
+    appConfig.updateStatus = appConfig.updateStatus || "Atualização automática desligada";
+    salvarDados();
+    return;
+  }
+
+  updateTimer = setInterval(() => verificarAtualizacao(false), intervaloAtualizacaoMs());
+  setTimeout(() => verificarAtualizacao(false), 2500);
+
+  if (isAndroid() || !("serviceWorker" in navigator) || location.protocol === "file:") return;
 
   navigator.serviceWorker.getRegistration().then((registro) => {
     if (registro) monitorarRegistroAtualizacao(registro);
@@ -7221,14 +7245,6 @@ function iniciarMonitorAtualizacao() {
     });
   }
 
-  if (appConfig.autoUpdateEnabled === false) {
-    appConfig.updateStatus = appConfig.updateStatus || "Atualização automática desligada";
-    salvarDados();
-    return;
-  }
-
-  updateTimer = setInterval(() => verificarAtualizacao(false), intervaloAtualizacaoMs());
-  setTimeout(() => verificarAtualizacao(false), 2500);
 }
 
 window.addEventListener("resize", () => {
