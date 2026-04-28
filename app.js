@@ -2,9 +2,9 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.27-users16";
+const APP_VERSION = "2026.04.27-users17";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
-const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/releases";
+const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP-android-users17-debug.apk";
 
 const telas = {
   dashboard: "Início",
