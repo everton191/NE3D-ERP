@@ -20,7 +20,7 @@ const updateManifest = path.join(downloadsDir, "update.json");
 const appJs = path.join(rootDir, "app.js");
 const buildGradle = path.join(rootDir, "android", "app", "build.gradle");
 const publicRepo = "everton191/NE3D-ERP.apk";
-const defaultApkUrl = `https://github.com/${publicRepo}/raw/main/NE3D-ERP.apk`;
+const defaultApkUrl = `https://raw.githubusercontent.com/${publicRepo}/main/NE3D-ERP.apk`;
 
 if (!fs.existsSync(sourceApk)) {
   console.error(`APK nao encontrado: ${sourceApk}`);
@@ -42,7 +42,7 @@ fs.writeFileSync(
     {
       version,
       versionCode,
-      apkUrl: defaultApkUrl,
+      apkUrl: `${defaultApkUrl}?v=${versionCode}`,
       apkFile: "NE3D-ERP.apk",
       publicRepo,
       generatedAt: new Date().toISOString()
