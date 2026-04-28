@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.28-auto-update";
+const APP_VERSION = "2026.04.28-manual-download";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
@@ -1558,19 +1558,20 @@ function renderDesktopConteudo() {
   }
 
   const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "assinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "acessoNegado"];
+  const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
-    return `<div class="desktop-focus">${renderTela(telaAtual)}</div>`;
+    return `<div class="desktop-focus">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
   }
 
   if (telaAtual !== "dashboard") {
     return `
-      <div class="desktop-focus">${renderTela(telaAtual)}</div>
+      <div class="desktop-focus">${atualizacaoAndroid}${renderTela(telaAtual)}</div>
       <div class="desktop-side-preview">${renderDashboard()}</div>
     `;
   }
 
-  return renderDashboard();
+  return `${atualizacaoAndroid}${renderDashboard()}`;
 }
 
 function renderTopbar() {
@@ -2320,6 +2321,7 @@ function renderMobile() {
 
   return `
     <div class="mobile-home">
+      ${renderAtualizacaoAndroidDownload()}
       ${home}
       ${renderAcoesRapidas()}
     </div>
@@ -2415,6 +2417,27 @@ function renderAcoesRapidas() {
         </button>
       `).join("")}
     </div>
+  `;
+}
+
+function renderAtualizacaoAndroidDownload() {
+  if (!isAndroid()) return "";
+  const versao = appConfig.updateAvailableVersion || "mais recente";
+  const status = appConfig.updateStatus || "Checagem automática ativa";
+  const destaque = appConfig.updateAvailableVersion ? " update-available" : "";
+
+  return `
+    <section class="update-download-card${destaque}">
+      <div>
+        <span>Atualização do APK</span>
+        <strong>${appConfig.updateAvailableVersion ? `Versão ${escaparHtml(versao)} disponível` : "Baixar versão mais recente"}</strong>
+        <small>${escaparHtml(status)}</small>
+      </div>
+      <div class="update-download-actions">
+        <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar</button>
+        <button class="btn" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
+      </div>
+    </section>
   `;
 }
 
