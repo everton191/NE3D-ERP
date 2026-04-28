@@ -1,4 +1,4 @@
-const CACHE_NAME = "erp-3d-v30";
+const CACHE_NAME = "erp-3d-v31";
 const APP_FILES = [
   "./",
   "./index.html",
