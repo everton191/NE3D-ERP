@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.29-pdf-whatsapp-sync";
+const APP_VERSION = "2026.04.29-pdf-android-biometria";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-cover.svg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
@@ -4350,6 +4350,7 @@ function renderAdmin() {
         <div class="actions">
           <button id="loginUsuarioBtn" class="btn" onclick="loginUsuario()">Entrar por e-mail</button>
           <button class="btn secondary" onclick="loginGoogleSupabase()">Login com Google</button>
+          <button class="btn ghost" onclick="entrarComCredencialSalva()">Senha salva/digital</button>
           <button class="btn ghost" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
           ${usuarioAtual ? `<button class="btn ghost" onclick="logoutUsuario()">Sair do usuário</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Ver plano</button>`}
         </div>
@@ -4639,6 +4640,61 @@ async function oferecerSalvarCredencialNavegador(email, senha) {
     }
   } catch (erro) {
     registrarDiagnostico("login", "Navegador não ofereceu salvar senha", erro.message || erro);
+  }
+}
+
+async function confirmarBiometriaSeDisponivel(mensagem = "Use digital, rosto ou padrão para continuar.") {
+  const plugin = window.Capacitor?.Plugins?.SimplificaBiometric;
+  if (!isAndroid() || !plugin?.authenticate) return { disponivel: false, ok: true };
+
+  try {
+    const resultado = await plugin.authenticate({
+      title: "Simplifica 3D",
+      subtitle: mensagem
+    });
+
+    if (resultado?.available === false) {
+      return { disponivel: false, ok: true, codigo: resultado.code || "" };
+    }
+
+    return { disponivel: true, ok: resultado?.ok === true, codigo: resultado?.code || "" };
+  } catch (erro) {
+    registrarDiagnostico("login", "Biometria nativa falhou", erro.message || erro);
+    return { disponivel: true, ok: false, codigo: "erro" };
+  }
+}
+
+async function entrarComCredencialSalva() {
+  if (!navigator.credentials?.get) {
+    alert("Este dispositivo não liberou login por senha salva, digital ou padrão para este app.");
+    return;
+  }
+
+  try {
+    const biometria = await confirmarBiometriaSeDisponivel("Use digital, rosto ou padrão para liberar a senha salva.");
+    if (biometria.disponivel && !biometria.ok) {
+      alert("Confirmação cancelada ou não autorizada.");
+      return;
+    }
+
+    const credencial = await navigator.credentials.get({
+      password: true,
+      mediation: "optional"
+    });
+
+    if (!credencial?.id || !credencial?.password) {
+      alert("Nenhuma senha salva encontrada. Entre uma vez com e-mail e senha e marque a opção de salvar.");
+      return;
+    }
+
+    const emailInput = document.getElementById("usuarioLoginEmail");
+    const senhaInput = document.getElementById("usuarioLoginSenha");
+    if (emailInput) emailInput.value = credencial.id;
+    if (senhaInput) senhaInput.value = credencial.password;
+    await loginUsuario();
+  } catch (erro) {
+    registrarDiagnostico("login", "Login por credencial salva falhou", erro.message || erro);
+    alert("Não foi possível usar a senha salva neste dispositivo.");
   }
 }
 
@@ -9284,6 +9340,10 @@ async function salvarOuCompartilharPdf(doc, nomeArquivo, titulo = "Pedido Simpli
     .toLowerCase();
   const blob = doc.output("blob");
 
+  if (isAndroid() && await salvarPdfAndroidNativo(doc, nomeSeguro)) {
+    return true;
+  }
+
   if (isAndroid() && typeof File !== "undefined" && navigator.canShare && navigator.share) {
     try {
       const arquivo = new File([blob], nomeSeguro, { type: "application/pdf" });
@@ -9318,6 +9378,36 @@ async function salvarOuCompartilharPdf(doc, nomeArquivo, titulo = "Pedido Simpli
       return false;
     }
   }
+}
+
+function arrayBufferParaBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binario = "";
+  const tamanhoBloco = 0x8000;
+  for (let i = 0; i < bytes.length; i += tamanhoBloco) {
+    binario += String.fromCharCode.apply(null, bytes.subarray(i, i + tamanhoBloco));
+  }
+  return btoa(binario);
+}
+
+async function salvarPdfAndroidNativo(doc, nomeArquivo) {
+  const plugin = window.Capacitor?.Plugins?.SimplificaFiles;
+  if (!plugin?.savePdf) return false;
+
+  try {
+    const base64 = arrayBufferParaBase64(doc.output("arraybuffer"));
+    const resultado = await plugin.savePdf({ fileName: nomeArquivo, base64 });
+    if (resultado?.ok) {
+      alert("PDF salvo em Downloads/Simplifica3D.");
+      registrarHistorico("PDF", "PDF salvo no Android: " + nomeArquivo);
+      return true;
+    }
+  } catch (erro) {
+    registrarDiagnostico("pdf", "Salvamento Android falhou", erro.message || erro);
+    alert("Não foi possível salvar em Downloads. Verifique a permissão de arquivos e tente baixar novamente.");
+  }
+
+  return false;
 }
 
 async function gerarPDF() {
