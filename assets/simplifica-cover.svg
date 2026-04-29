@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">Simplifica 3D</title>
+  <desc id="desc">Capa do aplicativo Simplifica 3D com caixas, fluxo de pedidos e marca.</desc>
+  <defs>
+    <linearGradient id="teal" x1="146" y1="70" x2="573" y2="611" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0b5268"/>
+      <stop offset="1" stop-color="#052f3c"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="175" y1="196" x2="471" y2="446" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a16"/>
+      <stop offset="1" stop-color="#ff9d24"/>
+    </linearGradient>
+    <filter id="shadow" x="-18%" y="-18%" width="136%" height="136%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#092f3b" flood-opacity=".14"/>
+    </filter>
+  </defs>
+
+  <rect width="720" height="720" fill="#fbfbfa"/>
+  <rect x="164" y="54" width="392" height="52" rx="26" fill="url(#teal)" filter="url(#shadow)"/>
+  <text x="360" y="88" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="800" fill="#ffffff">PARA CAPA E INTERFACE</text>
+
+  <g transform="translate(0 14)" filter="url(#shadow)">
+    <path d="M213 336v-90c0-54 82-54 82 0v101c0 94 125 94 125 0v-61" fill="none" stroke="url(#orange)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M376 349V160" fill="none" stroke="url(#teal)" stroke-width="30" stroke-linecap="round"/>
+    <path d="m345 186 31-48 31 48" fill="none" stroke="url(#teal)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <g transform="translate(101 300)">
+      <path d="m0 48 66-38 66 38-66 38z" fill="#f8fbfc" stroke="#073b4b" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M0 48v75l66 38V86z" fill="#ff941c" stroke="#073b4b" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M132 48v75l-66 38V86z" fill="#fbfbfa" stroke="#073b4b" stroke-width="10" stroke-linejoin="round"/>
+    </g>
+
+    <g transform="translate(452 210)">
+      <path d="m0 48 66-38 66 38-66 38z" fill="#fbfbfa" stroke="#073b4b" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M0 48v75l66 38V86z" fill="#ff941c" stroke="#073b4b" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M132 48v75l-66 38V86z" fill="#fbfbfa" stroke="#073b4b" stroke-width="10" stroke-linejoin="round"/>
+    </g>
+
+    <path d="m512 289 43 42 79-88" fill="none" stroke="url(#teal)" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="82" y="557" font-family="Segoe UI, Arial, sans-serif" font-size="56" font-weight="900" fill="#073b4b">SIMPLIFICA</text>
+  <text x="434" y="557" font-family="Segoe UI, Arial, sans-serif" font-size="56" font-weight="900" fill="#ff941c">3D</text>
+  <text x="82" y="606" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500" fill="#17293a">Organize seus pedidos sem complicação</text>
+</svg>

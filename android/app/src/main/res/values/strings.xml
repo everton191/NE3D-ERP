@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">NE3D ERP</string>
-    <string name="title_activity_main">NE3D ERP</string>
+    <string name="app_name">Simplifica 3D</string>
+    <string name="title_activity_main">Simplifica 3D</string>
     <string name="package_name">br.com.ne3d.erp</string>
     <string name="custom_url_scheme">br.com.ne3d.erp</string>
 </resources>

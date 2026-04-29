@@ -1,10 +1,10 @@
-const CACHE_NAME = "erp-3d-v33";
+const CACHE_NAME = "simplifica-3d-v36-saas-mp";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
-  "./assets/project-cover.jpg",
+  "./assets/simplifica-cover.svg",
   "./manifest.webmanifest",
   "./icon.svg"
 ];

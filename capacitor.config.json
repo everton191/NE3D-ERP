@@ -1,6 +1,6 @@
 {
   "appId": "br.com.ne3d.erp",
-  "appName": "NE3D ERP",
+  "appName": "Simplifica 3D",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
