@@ -3,6 +3,10 @@
 modules/
 node_modules/
 dist/
+supabase/functions/.env
+supabase/functions/.env.*
+supabase/.env
+supabase/.env.*
 /*.jpg
 /*.jpeg
 /*.png
