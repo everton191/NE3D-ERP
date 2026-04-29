@@ -1,9 +1,11 @@
-const CACHE_NAME = "simplifica-3d-v36-saas-mp";
+const CACHE_NAME = "simplifica-3d-v37-pdf-whatsapp-sync";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./assets/vendor/jspdf.umd.min.js",
+  "./assets/vendor/qrcode.min.js",
   "./assets/simplifica-cover.svg",
   "./manifest.webmanifest",
   "./icon.svg"

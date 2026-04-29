@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.29-mercadopago-saas-vercel";
+const APP_VERSION = "2026.04.29-pdf-whatsapp-sync";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-cover.svg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
@@ -62,6 +62,7 @@ let telaAnterior = "dashboard";
 let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
+let clienteTelefonePedido = "";
 let pedidoEditando = null;
 let pedidoVisualizandoId = null;
 let modoMobileAtual = window.innerWidth < 768;
@@ -160,6 +161,7 @@ let appConfig = carregarObjeto("appConfig", {
   updateManifestUrl: "",
   updatePromptedVersion: "",
   updatePromptedAt: "",
+  browserPasswordSaveOffer: true,
   telemetryEnabled: true,
   calculatorWidget: {
     open: false,
@@ -1643,6 +1645,35 @@ function totalPedido(pedido) {
 
 function clienteDoPedido(pedido) {
   return pedido?.cliente || pedido?.nome || "Sem cliente";
+}
+
+function telefoneDoPedido(pedido) {
+  return String(pedido?.clienteTelefone || pedido?.telefoneCliente || pedido?.whatsappCliente || pedido?.phone || "").trim();
+}
+
+function normalizarTelefoneWhatsapp(numero = "") {
+  let limpo = String(numero || "").replace(/\D/g, "");
+  if (!limpo) return "";
+  if (limpo.startsWith("00")) limpo = limpo.slice(2);
+  if ((limpo.length === 10 || limpo.length === 11) && !limpo.startsWith("55")) {
+    limpo = "55" + limpo;
+  }
+  return limpo;
+}
+
+function obterTelefoneWhatsappPedido(pedido = null) {
+  const campo = document.getElementById("clienteTelefone");
+  const atual = campo?.value || clienteTelefonePedido || telefoneDoPedido(pedido);
+  let numero = normalizarTelefoneWhatsapp(atual);
+  if (!numero) {
+    const digitado = prompt("WhatsApp do cliente com DDD ou DDI:", "");
+    numero = normalizarTelefoneWhatsapp(digitado);
+  }
+  if (numero && campo) {
+    campo.value = numero;
+    clienteTelefonePedido = numero;
+  }
+  return numero;
 }
 
 function inferirTipoMaterial(nome = "") {
@@ -3256,20 +3287,27 @@ function getDashboardStats() {
   return { faturamentoDia, pedidosHoje: pedidosHoje.length, pedidosAbertos, producoesAtivas, estoqueBaixo, lucroEstimado };
 }
 
+function abrirBlocoDashboard(tela, filtro = "") {
+  if (tela === "pedidos") {
+    window.__pedidosFiltroDashboard = filtro || "";
+  }
+  trocarTela(tela || "dashboard");
+}
+
 function renderDashboard() {
   const totaisCaixa = calcularTotaisCaixa();
   const stats = getDashboardStats();
   const plano = getPlanoAtual();
 
   const cards = [
-    { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje" },
-    { icone: "📋", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação" },
-    { icone: "🕒", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK" },
-    { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção" },
-    { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK" },
-    { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem" },
-    { icone: "💳", titulo: "Status do plano", valor: plano.nome, badge: plano.status },
-    { icone: "⏳", titulo: "Dias restantes", valor: plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes, badge: "Plano" }
+    { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa" },
+    { icone: "📋", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje" },
+    { icone: "🕒", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK", tela: "pedidos", filtro: "abertos" },
+    { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao" },
+    { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque" },
+    { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios" },
+    { icone: "💳", titulo: "Status do plano", valor: plano.nome, badge: plano.status, tela: "minhaAssinatura" },
+    { icone: "⏳", titulo: "Dias restantes", valor: plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes, badge: "Plano", tela: "minhaAssinatura" }
   ];
 
   return `
@@ -3291,14 +3329,14 @@ function renderDashboard() {
 
       <div class="dashboard-kpis">
         ${cards.map((card) => `
-          <article class="kpi-card">
+          <button class="kpi-card kpi-card-button" onclick="abrirBlocoDashboard('${card.tela}', '${card.filtro || ""}')">
             <span class="kpi-icon">${card.icone}</span>
             <div>
               <span>${escaparHtml(card.titulo)}</span>
               <strong>${escaparHtml(card.valor)}</strong>
             </div>
             <em class="status-badge ${classeStatusPlano(String(card.badge).toLowerCase())}">${escaparHtml(card.badge)}</em>
-          </article>
+          </button>
         `).join("")}
       </div>
 
@@ -3403,6 +3441,10 @@ function renderPedido() {
         <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)">
       </label>
       <label class="field">
+        <span>WhatsApp do cliente</span>
+        <input id="clienteTelefone" inputmode="tel" placeholder="Ex.: 5585999999999" value="${escaparAttr(clienteTelefonePedido)}" oninput="atualizarTelefoneClientePedido(this.value)">
+      </label>
+      <label class="field">
         <span>Status</span>
         <select id="pedidoStatus">
           ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${status}</option>`).join("")}
@@ -3505,7 +3547,13 @@ function renderEstoque() {
 
 function renderListaPedidos() {
   const podeOperar = temAcessoCompleto();
-  const lista = [...pedidos].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+  const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
+  const listaBase = filtroDashboard === "abertos"
+    ? pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto")))
+    : filtroDashboard === "hoje"
+      ? pedidos.filter((pedido) => dataPedidoIso(pedido) === hojeIsoData())
+      : pedidos;
+  const lista = [...listaBase].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
   const pedidoSelecionado = pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId));
   const detalhe = pedidoSelecionado ? renderDetalhePedido(pedidoSelecionado) : "";
   const linhas = lista.length
@@ -3537,6 +3585,7 @@ function renderListaPedidos() {
         <h2>📋 Pedidos</h2>
         ${podeOperar ? `<button class="icon-button" onclick="trocarTela('pedido')" title="Novo pedido">➕</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
       </div>
+      ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
       ${detalhe}
       ${linhas}
@@ -3553,7 +3602,7 @@ function renderDetalhePedido(pedido) {
         <h2>Pedido #${escaparHtml(pedido.id)}</h2>
         <span class="status-badge ${classeStatusPlano(pedido.status || "aberto")}">${escaparHtml(pedido.status || "aberto")}</span>
       </div>
-      <p class="muted">Cliente: ${escaparHtml(clienteDoPedido(pedido))} • Total: ${formatarMoeda(total)}</p>
+      <p class="muted">Cliente: ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • WhatsApp: " + escaparHtml(telefoneDoPedido(pedido)) : ""} • Total: ${formatarMoeda(total)}</p>
       <div class="history-list">
         ${itens.map((item) => `
           <div class="history-item">
@@ -3564,6 +3613,8 @@ function renderDetalhePedido(pedido) {
         `).join("")}
       </div>
       <div class="actions">
+        <button class="btn" onclick="baixarPdfPedidoSalvo(${Number(pedido.id)})">Baixar PDF</button>
+        <button class="btn ghost" onclick="enviarWhatsPedidoSalvo(${Number(pedido.id)})">WhatsApp</button>
         <button class="btn secondary" onclick="editarPedido(${Number(pedido.id)})">Editar pedido</button>
         <button class="btn danger" onclick="removerPedido(${Number(pedido.id)})">Excluir pedido</button>
         <button class="btn ghost" onclick="pedidoVisualizandoId=null; renderApp()">Fechar detalhe</button>
@@ -4302,6 +4353,10 @@ function renderAdmin() {
           <button class="btn ghost" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
           ${usuarioAtual ? `<button class="btn ghost" onclick="logoutUsuario()">Sair do usuário</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Ver plano</button>`}
         </div>
+        <label class="checkbox-row">
+          <input id="lembrarSenhaNavegador" type="checkbox" ${appConfig.browserPasswordSaveOffer !== false ? "checked" : ""}>
+          <span>Oferecer salvar login neste navegador</span>
+        </label>
 
         <div class="danger-zone">
           <h2 class="section-title">Criar conta</h2>
@@ -4525,10 +4580,6 @@ function renderAdmin() {
         </div>
       </div>` : ""}
 
-      <div class="danger-zone">
-        <button class="btn danger" onclick="zerarDadosAdmin()">Zerar dados locais</button>
-      </div>
-
       <h2 class="section-title">Histórico</h2>
       <div class="history-list">
         ${ultimosEventos}
@@ -4571,6 +4622,24 @@ function alternarSenhaVisivel(idOuBotao) {
   if (!input) return;
   input.type = input.type === "password" ? "text" : "password";
   input.focus();
+}
+
+async function oferecerSalvarCredencialNavegador(email, senha) {
+  appConfig.browserPasswordSaveOffer = document.getElementById("lembrarSenhaNavegador") ? !!document.getElementById("lembrarSenhaNavegador")?.checked : appConfig.browserPasswordSaveOffer !== false;
+  salvarDados();
+  if (appConfig.browserPasswordSaveOffer === false || !email || !senha) return;
+  try {
+    if ("PasswordCredential" in window && navigator.credentials?.store) {
+      const credencial = new PasswordCredential({
+        id: email,
+        name: email,
+        password: senha
+      });
+      await navigator.credentials.store(credencial);
+    }
+  } catch (erro) {
+    registrarDiagnostico("login", "Navegador não ofereceu salvar senha", erro.message || erro);
+  }
 }
 
 function renderTrocaSenhaObrigatoria() {
@@ -5509,6 +5578,7 @@ function renderMinhaAssinatura() {
 }
 
 function renderFeedback() {
+  const podeVerDiagnosticos = isSuperAdmin() || (adminLogado && !getUsuarioAtual());
   const sugestoesOrdenadas = [...sugestoes].sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Date.parse(b.atualizadoEm || 0) - Date.parse(a.atualizadoEm || 0));
   const listaSugestoes = sugestoesOrdenadas.slice(0, 20).map((item, indice) => `
     <div class="suggestion-item">
@@ -5532,15 +5602,15 @@ function renderFeedback() {
     <section class="card">
       <div class="card-header">
         <h2>💡 Bugs e sugestões</h2>
-        <span class="status-badge">${appConfig.telemetryEnabled === false ? "Pausado" : "Local"}</span>
+      <span class="status-badge">${podeVerDiagnosticos ? (appConfig.telemetryEnabled === false ? "Pausado" : "Local") : "Sugestões"}</span>
       </div>
-      <p class="muted">Registros ficam salvos neste aparelho e entram no backup. Nada é enviado para internet automaticamente.</p>
+      <p class="muted">Sugestões ficam salvas neste aparelho. Registros técnicos são reservados para suporte.</p>
 
-      <label class="checkbox-row">
+      ${podeVerDiagnosticos ? `<label class="checkbox-row">
         <input id="telemetryEnabledConfig" type="checkbox" ${appConfig.telemetryEnabled !== false ? "checked" : ""}>
         <span>Registrar erros locais do funcionamento</span>
       </label>
-      <button class="btn ghost" onclick="salvarFeedbackConfig()">Salvar configuração</button>
+      <button class="btn ghost" onclick="salvarFeedbackConfig()">Salvar configuração</button>` : ""}
 
       <div class="danger-zone">
         <h2 class="section-title">Nova sugestão</h2>
@@ -5556,7 +5626,7 @@ function renderFeedback() {
         ${listaSugestoes}
       </div>
 
-      <div class="danger-zone">
+      ${podeVerDiagnosticos ? `<div class="danger-zone">
         <h2 class="section-title">Erros recentes</h2>
         <div class="actions">
           <button class="btn ghost" onclick="registrarDiagnosticoManual()">Registrar teste</button>
@@ -5565,7 +5635,7 @@ function renderFeedback() {
         <div class="history-list">
           ${listaErros}
         </div>
-      </div>
+      </div>` : ""}
     </section>
   `;
 }
@@ -6124,6 +6194,7 @@ function restaurarPersonalizacaoPadrao() {
     updateCheckInterval: Number(appConfig.updateCheckInterval) || 30,
     updateLastCheck: appConfig.updateLastCheck || "",
     updateStatus: appConfig.updateStatus || "Aguardando",
+    browserPasswordSaveOffer: appConfig.browserPasswordSaveOffer !== false,
     telemetryEnabled: appConfig.telemetryEnabled !== false,
     calculatorWidget: normalizarCalculadoraWidget({
       ...(appConfig.calculatorWidget || {}),
@@ -6341,6 +6412,7 @@ async function loginUsuario() {
   }
 
   limparFalhasLogin(email);
+  oferecerSalvarCredencialNavegador(email, senha);
   concluirLoginUsuario(usuario);
   setBotaoLoading("loginUsuarioBtn", false);
 }
@@ -6383,6 +6455,13 @@ function concluirLoginUsuario(usuario) {
 
 function sincronizarAposLogin() {
   if (!temAcessoNuvem()) return;
+  const plano = getPlanoAtual();
+  if (plano.slug === "premium" || plano.slug === "premium_trial") {
+    syncConfig.supabaseEnabled = true;
+    syncConfig.autoBackupTarget = "supabase";
+    sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Premium pós-login falhou", erro.message));
+    return;
+  }
   if (syncConfig.autoBackupTarget === "supabase" && syncConfig.supabaseEnabled) {
     sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
     return;
@@ -7282,6 +7361,16 @@ async function alterarSenhaSupabaseSeConectado(novaSenha) {
       method: "PUT",
       body: JSON.stringify({ password: novaSenha })
     });
+    await requisicaoSupabase("/rest/v1/erp_profiles?on_conflict=id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        id: syncConfig.supabaseUserId,
+        email: syncConfig.supabaseEmail || getUsuarioAtual()?.email || null,
+        must_change_password: false,
+        updated_at: new Date().toISOString()
+      })
+    }).catch((erro) => registrarDiagnostico("Supabase", "Flag de troca de senha não atualizada", erro.message));
     return true;
   } catch (erro) {
     registrarDiagnostico("Supabase", "Senha local alterada, Supabase não atualizado", erro.message);
@@ -7419,7 +7508,7 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.papel = normalizarPapel(perfil.role || usuario.papel);
     usuario.ativo = perfil.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil.status ? perfil.status !== "active" : usuario.bloqueado;
-    usuario.mustChangePassword = !!perfil.must_change_password || usuario.mustChangePassword;
+    usuario.mustChangePassword = perfil.must_change_password === true && !usuario.passwordUpdatedAt;
     usuario.clientId = perfil.client_id || perfil.company_id || usuario.clientId || billingConfig.clientId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
   }
@@ -7509,7 +7598,7 @@ async function loginUsuarioSupabase(email, senha) {
     usuario.papel = normalizarPapel(perfil?.role || usuario.papel);
     usuario.ativo = perfil?.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil?.status ? perfil.status !== "active" : usuario.bloqueado;
-    usuario.mustChangePassword = !!perfil?.must_change_password || usuario.mustChangePassword;
+    usuario.mustChangePassword = perfil && "must_change_password" in perfil ? perfil.must_change_password === true && !usuario.passwordUpdatedAt : usuario.mustChangePassword;
     usuario.clientId = perfil?.client_id || perfil?.company_id || usuario.clientId || "";
     usuario.acceptedTermsAt = perfil?.accepted_terms_at || usuario.acceptedTermsAt || "";
   }
@@ -8202,6 +8291,7 @@ function zerarDadosAdmin() {
   historico = [];
   itensPedido = [];
   clientePedido = "";
+  clienteTelefonePedido = "";
   pedidoEditando = null;
   registrarHistorico("Admin", "Dados locais zerados");
   salvarDados();
@@ -8210,6 +8300,10 @@ function zerarDadosAdmin() {
 
 function atualizarClientePedido(valor) {
   clientePedido = valor;
+}
+
+function atualizarTelefoneClientePedido(valor) {
+  clienteTelefonePedido = valor;
 }
 
 function editarNome(i, nome) {
@@ -8300,8 +8394,49 @@ function adicionarProdutoManual() {
   renderApp();
 }
 
-function editarPedido(id) {
+function usuarioPodeEditarPedidoSemSenha(usuario = getUsuarioAtual()) {
+  if (adminLogado && !usuario) return true;
+  return !!usuario && ["superadmin", "dono", "admin"].includes(usuario.papel);
+}
+
+async function autorizarEdicaoPedido() {
+  const usuario = getUsuarioAtual();
+  if (usuarioPodeEditarPedidoSemSenha(usuario)) return true;
+
+  const senha = prompt("Para editar este pedido, informe a senha de um admin ou dono.");
+  if (senha === null) return false;
+  if (!senha) {
+    alert("Senha obrigatória para editar pedido.");
+    return false;
+  }
+
+  if (isAmbienteLocal() && senha === "123") {
+    registrarSeguranca("Autorização edição pedido", "sucesso", "Admin local");
+    return true;
+  }
+
+  const clientId = usuario?.clientId || getClientIdAtual();
+  const autorizadores = normalizarUsuarios(usuarios).filter((item) => {
+    if (!["superadmin", "dono", "admin"].includes(item.papel)) return false;
+    if (usuarioEstaBloqueado(item)) return false;
+    return !clientId || !item.clientId || item.clientId === clientId || item.papel === "superadmin";
+  });
+
+  for (const autorizador of autorizadores) {
+    if (await verificarSenhaUsuario(autorizador, senha)) {
+      registrarSeguranca("Autorização edição pedido", "sucesso", autorizador.email, usuario?.email || "");
+      return true;
+    }
+  }
+
+  registrarSeguranca("Autorização edição pedido", "erro", "Senha inválida", usuario?.email || "");
+  alert("Senha de autorização inválida.");
+  return false;
+}
+
+async function editarPedido(id) {
   if (!exigirPlanoCompleto()) return;
+  if (!await autorizarEdicaoPedido()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
 
@@ -8316,6 +8451,7 @@ function editarPedido(id) {
 
   itensPedido = JSON.parse(JSON.stringify(itens));
   clientePedido = clienteDoPedido(pedido);
+  clienteTelefonePedido = telefoneDoPedido(pedido);
   pedidoEditando = pedido;
   trocarTela("pedido");
 }
@@ -8324,6 +8460,7 @@ function cancelarEdicaoPedido() {
   pedidoEditando = null;
   itensPedido = [];
   clientePedido = "";
+  clienteTelefonePedido = "";
   renderApp();
 }
 
@@ -8407,6 +8544,7 @@ function fecharPedido() {
   if (!pedidoEditando && !verificarLimitePedidosAntesCriar()) return;
   const campoCliente = document.getElementById("clienteNome");
   const cliente = (campoCliente?.value || clientePedido).trim();
+  const telefoneCliente = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
 
   if (!cliente) {
     alert("Digite o nome do cliente");
@@ -8424,6 +8562,7 @@ function fecharPedido() {
   const pedido = prepararRegistroOnline({
     id: pedidoEditando?.id || Date.now(),
     cliente,
+    clienteTelefone: telefoneCliente,
     itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
     total,
     status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto",
@@ -8455,6 +8594,7 @@ function fecharPedido() {
   pedidoEditando = null;
   itensPedido = [];
   clientePedido = "";
+  clienteTelefonePedido = "";
   telaAtual = isMobile() ? "pedidos" : telaAtual;
   renderApp();
 }
@@ -8992,8 +9132,9 @@ function fecharPopup() {
 
 function dadosPedidoAtual() {
   const cliente = (document.getElementById("clienteNome")?.value || clientePedido || "Sem cliente").trim();
+  const telefone = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  return { cliente, total };
+  return { cliente, telefone, total };
 }
 
 function removerAcentos(valor) {
@@ -9136,6 +9277,49 @@ function adicionarMarcaPdf(doc, largura, altura, marcaDataUrl = "") {
   }
 }
 
+async function salvarOuCompartilharPdf(doc, nomeArquivo, titulo = "Pedido Simplifica 3D") {
+  const nomeSeguro = String(nomeArquivo || "pedido-simplifica-3d.pdf")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+  const blob = doc.output("blob");
+
+  if (isAndroid() && typeof File !== "undefined" && navigator.canShare && navigator.share) {
+    try {
+      const arquivo = new File([blob], nomeSeguro, { type: "application/pdf" });
+      if (navigator.canShare({ files: [arquivo] })) {
+        await navigator.share({ files: [arquivo], title: titulo, text: "PDF do pedido" });
+        return true;
+      }
+    } catch (erro) {
+      if (erro?.name === "AbortError") return true;
+      registrarDiagnostico("pdf", "Compartilhamento Android falhou", erro.message || erro);
+    }
+  }
+
+  try {
+    doc.save(nomeSeguro);
+    return true;
+  } catch (erro) {
+    try {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = nomeSeguro;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return true;
+    } catch (erroAlternativo) {
+      registrarDiagnostico("pdf", "Download do PDF falhou", erroAlternativo.message || erro.message);
+      alert("Não foi possível baixar o PDF neste dispositivo. Tente abrir pelo navegador ou baixar novamente pelo pedido.");
+      return false;
+    }
+  }
+}
+
 async function gerarPDF() {
   if (!exigirPlanoCompleto()) return;
   if (itensPedido.length === 0) {
@@ -9261,18 +9445,7 @@ async function gerarPDF() {
   }
 
   registrarHistorico("PDF", "PDF gerado para " + cliente);
-  try {
-    doc.save(`pedido-${cliente.replace(/\s+/g, "-").toLowerCase()}.pdf`);
-  } catch (erro) {
-    try {
-      const url = URL.createObjectURL(doc.output("blob"));
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (erroAlternativo) {
-      registrarDiagnostico("pdf", "Download do PDF falhou", erroAlternativo.message || erro.message);
-      alert("Não foi possível baixar o PDF neste dispositivo. Tente abrir pelo navegador ou exportar novamente.");
-    }
-  }
+  await salvarOuCompartilharPdf(doc, `pedido-${pedidoId}-${cliente}.pdf`, "Pedido " + cliente);
 }
 
 function enviarWhats() {
@@ -9297,8 +9470,58 @@ function enviarWhats() {
     appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
   ].join("\n");
 
-  const numero = appConfig.whatsappNumber ? appConfig.whatsappNumber.replace(/\D/g, "") : "";
-  const destino = numero ? "https://wa.me/" + numero + "?text=" : "https://wa.me/?text=";
+  const numero = obterTelefoneWhatsappPedido();
+  const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
+  window.open(destino + encodeURIComponent(mensagem), "_blank");
+}
+
+async function baixarPdfPedidoSalvo(id) {
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return;
+  const estadoAnterior = {
+    itensPedido,
+    clientePedido,
+    clienteTelefonePedido,
+    pedidoEditando
+  };
+
+  try {
+    itensPedido = normalizarItensPedido(pedido);
+    clientePedido = clienteDoPedido(pedido);
+    clienteTelefonePedido = telefoneDoPedido(pedido);
+    pedidoEditando = pedido;
+    await gerarPDF();
+  } finally {
+    itensPedido = estadoAnterior.itensPedido;
+    clientePedido = estadoAnterior.clientePedido;
+    clienteTelefonePedido = estadoAnterior.clienteTelefonePedido;
+    pedidoEditando = estadoAnterior.pedidoEditando;
+  }
+}
+
+function enviarWhatsPedidoSalvo(id) {
+  if (!exigirPlanoCompleto()) return;
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return;
+  const itens = normalizarItensPedido(pedido);
+  const linhas = itens.map((item) => `- ${item.nome} | Qtd: ${item.qtd} | Total: ${formatarMoeda(item.total)}`);
+  const cliente = clienteDoPedido(pedido);
+  const mensagem = [
+    "Pedido " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
+    "Cliente: " + cliente,
+    "",
+    ...linhas,
+    "",
+    "Total: " + formatarMoeda(totalPedido(pedido)),
+    appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
+  ].join("\n");
+  const numero = obterTelefoneWhatsappPedido(pedido);
+  if (numero && !pedido.clienteTelefone) {
+    pedido.clienteTelefone = numero;
+    pedido.atualizadoEm = new Date().toISOString();
+    salvarDados();
+  }
+  const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
   window.open(destino + encodeURIComponent(mensagem), "_blank");
 }
 
@@ -9603,6 +9826,27 @@ function iniciarMonitorPlanoSaas() {
   }, 24 * 60 * 60 * 1000);
 }
 
+async function verificarBancosDadosAoEntrar() {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
+  try {
+    await Promise.allSettled([
+      consultarLicencaSupabaseSilencioso(),
+      carregarSaasSupabaseSilencioso()
+    ]);
+    const plano = getPlanoAtual();
+    if ((plano.slug === "premium" || plano.slug === "premium_trial") && temAcessoNuvem()) {
+      syncConfig.supabaseEnabled = true;
+      syncConfig.autoBackupTarget = "supabase";
+      await sincronizarSupabaseSilencioso();
+    }
+    syncConfig.autoBackupStatus = syncConfig.autoBackupStatus || "Banco verificado";
+    salvarDados();
+    if (["dashboard", "backup", "config", "minhaAssinatura"].includes(telaAtual)) renderApp();
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Verificação inicial do banco falhou", erro.message);
+  }
+}
+
 window.addEventListener("resize", () => {
   aplicarPersonalizacao();
   clearTimeout(resizeTimer);
@@ -9634,6 +9878,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
   iniciarMonitorPlanoSaas();
+  setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);
   document.addEventListener("pointermove", moverCalculadora);

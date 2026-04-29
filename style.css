@@ -365,6 +365,21 @@ header h1{
   box-shadow:var(--shadow);
 }
 
+.kpi-card-button{
+  width:100%;
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+  border-color:var(--line);
+}
+
+.kpi-card-button:hover,
+.kpi-card-button:focus-visible{
+  transform:translateY(-1px);
+  border-color:rgba(255,139,31,.52);
+  outline:none;
+}
+
 .kpi-icon{
   width:42px;
   height:42px;
@@ -401,6 +416,14 @@ header h1{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   gap:var(--gap);
+}
+
+.filter-chip-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  margin-bottom:var(--gap);
 }
 
 .card-header,
