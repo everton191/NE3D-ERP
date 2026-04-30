@@ -31,6 +31,35 @@ import java.io.OutputStream;
 public class SimplificaFilesPlugin extends Plugin {
 
     @PluginMethod
+    public void requestStoragePermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            JSObject result = new JSObject();
+            result.put("granted", true);
+            result.put("scoped", true);
+            call.resolve(result);
+            return;
+        }
+
+        if (getPermissionState("storage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("storage", call, "storageCheckPermsCallback");
+            return;
+        }
+
+        JSObject result = new JSObject();
+        result.put("granted", true);
+        result.put("scoped", false);
+        call.resolve(result);
+    }
+
+    @PermissionCallback
+    private void storageCheckPermsCallback(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("granted", getPermissionState("storage") == PermissionState.GRANTED);
+        result.put("scoped", false);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void savePdf(PluginCall call) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && getPermissionState("storage") != PermissionState.GRANTED) {
             requestPermissionForAlias("storage", call, "storagePermsCallback");

@@ -2,7 +2,7 @@
 // ERP 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.04.29-pdf-android-biometria";
+const APP_VERSION = "2026.04.30-seguranca-sync-planos";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-cover.svg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
@@ -14,14 +14,18 @@ const SECURITY_SESSION_WARNING_MS = 2 * 60 * 1000;
 const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const DEFAULT_SAAS_PLANS = [
-  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: 10, maxClients: 10, maxCalculatorUses: 30, active: true, recommended: false, allowPdf: false, allowReports: false, allowPermissions: false, kind: "free" },
-  { id: "pro", slug: "pro", name: "Pro", price: 29.9, maxUsers: 2, maxOrders: null, maxClients: null, maxCalculatorUses: null, active: true, recommended: true, allowPdf: true, allowReports: false, allowPermissions: false, kind: "paid" },
-  { id: "premium", slug: "premium", name: "Premium", price: 54.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid" },
-  { id: "pro_token", slug: "pro_token", name: "Pro Token", price: 0, maxUsers: 2, maxOrders: null, maxClients: null, maxCalculatorUses: null, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "token", durationDays: 3 },
-  { id: "premium_trial", slug: "premium_trial", name: "Premium Trial", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7 }
+  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: 10, maxClients: 10, maxCalculatorUses: 30, maxStorageMb: 25, active: true, recommended: false, allowPdf: false, allowReports: false, allowPermissions: false, kind: "free" },
+  { id: "pro", slug: "pro", name: "Pro", price: 29.9, maxUsers: 2, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: 250, active: true, recommended: true, allowPdf: true, allowReports: false, allowPermissions: false, kind: "paid" },
+  { id: "premium", slug: "premium", name: "Premium", price: 54.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid" },
+  { id: "pro_token", slug: "pro_token", name: "Pro Token", price: 0, maxUsers: 2, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: 250, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "token", durationDays: 3 },
+  { id: "premium_trial", slug: "premium_trial", name: "Premium Trial", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7 }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
 const TOKEN_PRO_DAYS = 3;
+const TOKEN_CAMPAIGN_END_ISO = "2026-06-30T23:59:59-03:00";
+const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
+const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
+const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
 const CLIENT_CODE_PREFIX = "S3D";
 const INACTIVE_CLIENT_DAYS = 90;
 const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP.apk";
@@ -105,7 +109,7 @@ let syncConfig = carregarObjeto("syncConfig", {
   driveFileName: "erp3d-backup.json",
   driveLastSync: "",
   autoBackupEnabled: true,
-  autoBackupInterval: 5,
+  autoBackupInterval: 30,
   autoBackupTarget: "drive",
   autoBackupLastRun: "",
   autoBackupStatus: "Aguardando",
@@ -162,6 +166,10 @@ let appConfig = carregarObjeto("appConfig", {
   updatePromptedVersion: "",
   updatePromptedAt: "",
   browserPasswordSaveOffer: true,
+  keepSessionCache: true,
+  biometricEnabled: false,
+  biometricOfferDismissed: false,
+  backupReminderLastAt: "",
   telemetryEnabled: true,
   calculatorWidget: {
     open: false,
@@ -211,7 +219,7 @@ let billingConfig = carregarObjeto("billingConfig", {
   trialDays: DEFAULT_TRIAL_DAYS,
   campanhaTokensAtiva: true,
   campanhaInicio: "",
-  campanhaFim: "",
+  campanhaFim: TOKEN_CAMPAIGN_END_ISO,
   lastDailyPlanCheck: "",
   blocked: false,
   monthlyPrice: 29.9,
@@ -227,7 +235,7 @@ let billingConfig = carregarObjeto("billingConfig", {
     desktop: 1
   },
   registeredDevices: [],
-  cloudSyncPaidOnly: true
+  cloudSyncPaidOnly: false
 });
 let usuarios = carregarLista("usuarios");
 let deviceId = localStorage.getItem("deviceId") || criarDeviceId();
@@ -407,11 +415,19 @@ function salvarSessaoSensivelSupabase() {
     supabaseEmail: syncConfig.supabaseEmail || ""
   };
   sessionStorage.setItem("supabaseSession", JSON.stringify(sessao));
+  salvarCacheSessaoLocal();
 }
 
 function carregarSessaoSensivelSupabase() {
   try {
-    const sessao = JSON.parse(sessionStorage.getItem("supabaseSession") || "{}");
+    const sessaoSessao = JSON.parse(sessionStorage.getItem("supabaseSession") || "{}");
+    const cacheLocal = appConfig.keepSessionCache !== false
+      ? JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}")
+      : {};
+    const sessao = {
+      ...(cacheLocal.supabase || {}),
+      ...sessaoSessao
+    };
     syncConfig = {
       ...syncConfig,
       supabaseAccessToken: sessao.supabaseAccessToken || syncConfig.supabaseAccessToken || "",
@@ -428,6 +444,53 @@ function limparSessaoSensivelSupabase() {
   syncConfig.supabaseRefreshToken = "";
   syncConfig.supabaseTokenExpiresAt = 0;
   sessionStorage.removeItem("supabaseSession");
+  localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+}
+
+function salvarCacheSessaoLocal() {
+  if (appConfig.keepSessionCache === false) {
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+    return;
+  }
+
+  const usuario = normalizarEmail(usuarioAtualEmail);
+  const cache = {
+    usuarioAtualEmail: usuario,
+    salvoEm: new Date().toISOString(),
+    supabase: {
+      supabaseAccessToken: syncConfig.supabaseAccessToken || "",
+      supabaseRefreshToken: syncConfig.supabaseRefreshToken || "",
+      supabaseTokenExpiresAt: Number(syncConfig.supabaseTokenExpiresAt) || 0,
+      supabaseUserId: syncConfig.supabaseUserId || "",
+      supabaseEmail: syncConfig.supabaseEmail || ""
+    }
+  };
+  localStorage.setItem(LOCAL_SESSION_CACHE_KEY, JSON.stringify(cache));
+}
+
+async function restaurarCacheSessaoLocal() {
+  if (usuarioAtualEmail || appConfig.keepSessionCache === false) return false;
+  try {
+    const cache = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+    const email = normalizarEmail(cache.usuarioAtualEmail || cache.supabase?.supabaseEmail || "");
+    if (!email || !normalizarUsuarios(usuarios).some((usuario) => usuario.email === email && usuario.ativo)) return false;
+
+    carregarSessaoSensivelSupabase();
+    if (!appConfig.biometricEnabled) return false;
+
+    if (isAndroid()) {
+      const biometria = await confirmarBiometriaSeDisponivel("Confirme sua identidade para abrir seus dados.");
+      if (biometria.disponivel && !biometria.ok) return false;
+    }
+
+    usuarioAtualEmail = email;
+    sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+    registrarAtividadeSessao();
+    return true;
+  } catch (_) {
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+    return false;
+  }
 }
 
 function registrarHistorico(acao, detalhes = "") {
@@ -492,6 +555,7 @@ function registrarDiagnostico(tipo, mensagem, detalhes = "") {
 
   diagnostics = diagnostics.slice(0, 150);
   localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
+  mostrarToast(String(mensagem || "Erro registrado").slice(0, 120), "erro");
 }
 
 function normalizarTextoSugestao(texto) {
@@ -613,6 +677,7 @@ function normalizarPlanoSaas(plano = {}) {
     maxOrders: planoPadrao ? padrao.maxOrders : (plano.maxOrders === null || plano.max_orders === null ? null : Math.max(1, Number(plano.maxOrders ?? plano.max_orders ?? padrao.maxOrders ?? 50))),
     maxClients: planoPadrao ? padrao.maxClients : (plano.maxClients === null || plano.max_clients === null ? null : Math.max(1, Number(plano.maxClients ?? plano.max_clients ?? padrao.maxClients ?? 10))),
     maxCalculatorUses: planoPadrao ? padrao.maxCalculatorUses : (plano.maxCalculatorUses === null || plano.max_calculator_uses === null ? null : Math.max(1, Number(plano.maxCalculatorUses ?? plano.max_calculator_uses ?? padrao.maxCalculatorUses ?? 30))),
+    maxStorageMb: planoPadrao ? padrao.maxStorageMb : (plano.maxStorageMb === null || plano.max_storage_mb === null ? null : Math.max(1, Number(plano.maxStorageMb ?? plano.max_storage_mb ?? padrao.maxStorageMb ?? 25))),
     allowPdf: Boolean(planoPadrao ? padrao.allowPdf : (plano.allowPdf ?? plano.allow_pdf ?? padrao.allowPdf)),
     allowReports: Boolean(planoPadrao ? padrao.allowReports : (plano.allowReports ?? plano.allow_reports ?? padrao.allowReports)),
     allowPermissions: Boolean(planoPadrao ? padrao.allowPermissions : (plano.allowPermissions ?? plano.allow_permissions ?? padrao.allowPermissions)),
@@ -792,7 +857,11 @@ function garantirEstruturaSaasLocal() {
 
   billingConfig.planSlug = normalizarSlugPlano(billingConfig.planSlug || "free");
   if (!billingConfig.campanhaInicio) billingConfig.campanhaInicio = new Date().toISOString();
-  if (!billingConfig.campanhaFim) billingConfig.campanhaFim = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  billingConfig.campanhaFim = billingConfig.campanhaFim || TOKEN_CAMPAIGN_END_ISO;
+  if (Date.parse(billingConfig.campanhaFim) > Date.parse(TOKEN_CAMPAIGN_END_ISO)) {
+    billingConfig.campanhaFim = TOKEN_CAMPAIGN_END_ISO;
+  }
+  billingConfig.cloudSyncPaidOnly = false;
 
   const planoAtual = getPlanoSaas(billingConfig.planSlug || "free");
   billingConfig.planSlug = planoAtual.slug;
@@ -2004,7 +2073,7 @@ function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano
 
 function getDocumentoLegal(tipo = "termos") {
   const nomeApp = appConfig.appName || SYSTEM_NAME;
-  const data = "28/04/2026";
+  const data = "30/04/2026";
   if (tipo === "privacidade") {
     return {
       titulo: "Política de Privacidade",
@@ -2045,7 +2114,8 @@ function getDocumentoLegal(tipo = "termos") {
         {
           titulo: "Segurança",
           itens: [
-            "Senhas são tratadas pelo Supabase Auth e não são salvas em localStorage.",
+            "Senhas são tratadas pelo Supabase Auth, pelo hash local do usuário ou pelo gerenciador de senhas do navegador quando o próprio usuário aceitar.",
+            "Tokens de sessão podem ser mantidos em cache local para preservar o login entre aberturas do app, sem gravar a senha em texto puro.",
             "O usuário deve manter seu e-mail, senha e aparelho protegidos.",
             "Logs de acesso, login, pagamento, bloqueio e alterações importantes podem ser registrados para segurança."
           ]
@@ -2078,8 +2148,10 @@ function getDocumentoLegal(tipo = "termos") {
       {
         titulo: "Planos e pagamentos",
         itens: [
-          "O Plano Básico permite 1 usuário e até 50 pedidos.",
-          "O Plano Pro permite até 3 usuários e pedidos ilimitados.",
+          "O Plano Free permite 1 usuário, até 10 clientes, até 10 pedidos por mês, 30 usos da calculadora e backup online limitado.",
+          "O Plano Pro custa R$ 29,90/mês, permite 2 usuários, pedidos ilimitados e exportação em PDF.",
+          "O Plano Premium custa R$ 54,90/mês, permite 5 usuários, relatórios, permissões e backup com maior capacidade.",
+          "O Premium Trial libera recursos por 7 dias para novas contas. Tokens promocionais Pro liberam 3 dias e a campanha para novos clientes termina em 30 de junho de 2026.",
           "Pagamentos pendentes, vencidos ou não confirmados podem limitar criação de novos dados, mantendo acesso para visualização e regularização."
         ]
       },
@@ -2178,13 +2250,13 @@ function verificarLimiteClientesAntesPedido(clienteNome = "") {
 }
 
 function temAcessoNuvem() {
-  return billingConfig.cloudSyncPaidOnly === false || canUsePremiumFeatures();
+  return !!(getUsuarioAtual() || syncConfig.supabaseAccessToken || billingConfig.licenseEmail || billingConfig.clientId);
 }
 
 function exigirAcessoNuvem() {
   if (temAcessoNuvem()) return true;
-  alert("Backup em nuvem faz parte do plano completo ou do trial ativo. O backup JSON manual continua disponível.");
-  trocarTela("assinatura");
+  alert("Entre ou crie uma conta para sincronizar seus dados com segurança.");
+  trocarTela("admin");
   return false;
 }
 
@@ -3713,6 +3785,7 @@ function getClientesSaasFiltrados() {
   const plano = String(filtros.plano || "");
   const status = String(filtros.status || "");
   return saasClients.filter((cliente) => {
+    if (normalizarEmail(cliente.email) === SUPERADMIN_BOOTSTRAP_EMAIL) return false;
     const assinatura = getAssinaturaSaas(cliente.id);
     const planoCliente = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
     if (termoNome && !cliente.name.toLowerCase().includes(termoNome)) return false;
@@ -3726,10 +3799,11 @@ function getClientesSaasFiltrados() {
 function renderClientesSaas() {
   garantirEstruturaSaasLocal();
   const lista = getClientesSaasFiltrados();
-  const total = saasClients.length;
-  const ativos = saasClients.filter((cliente) => cliente.status === "active").length;
-  const atrasados = saasClients.filter((cliente) => cliente.status === "overdue").length;
-  const inativos = saasClients.filter((cliente) => cliente.status === "inactive").length;
+  const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL);
+  const total = clientesVisiveis.length;
+  const ativos = clientesVisiveis.filter((cliente) => cliente.status === "active").length;
+  const atrasados = clientesVisiveis.filter((cliente) => cliente.status === "overdue").length;
+  const inativos = clientesVisiveis.filter((cliente) => cliente.status === "inactive").length;
   const filtros = window.__clientesSaasFiltros || {};
 
   const linhas = lista.map((cliente) => {
@@ -4064,21 +4138,21 @@ function renderConfig() {
       <section class="card">
         <div class="card-header">
           <h2>☁️ Backup e sincronização</h2>
-          <span class="status-badge">Plano completo</span>
+          <span class="status-badge">Conta necessária</span>
         </div>
-        <p class="muted">A sincronização entre Android e Windows/navegador fica disponível no plano completo. No grátis, a calculadora continua liberada e o backup local manual ainda pode ser exportado.</p>
+        <p class="muted">Entre ou crie uma conta para sincronizar dados entre Android, Windows e navegador. O plano Free também sincroniza, respeitando o limite de armazenamento.</p>
         <div class="admin-grid">
           <div class="metric">
-            <span>Grátis</span>
-            <strong>Calculadora</strong>
+            <span>Free</span>
+            <strong>Sync limitada</strong>
           </div>
           <div class="metric">
-            <span>Completo</span>
-            <strong>Nuvem + PDF</strong>
+            <span>Premium</span>
+            <strong>Sync ampliada</strong>
           </div>
         </div>
         <div class="actions">
-          <button class="btn" onclick="trocarTela('assinatura')">Ver plano completo</button>
+          <button class="btn" onclick="trocarTela('admin')">Entrar ou criar conta</button>
           <button class="btn secondary" onclick="exportarBackup()">Exportar backup local</button>
           <button class="btn ghost" onclick="voltarTela()">Voltar</button>
         </div>
@@ -4254,7 +4328,7 @@ function renderConfig() {
         <div class="sync-grid">
           <label class="field">
             <span>Intervalo em minutos</span>
-            <input id="autoBackupInterval" type="number" min="1" step="1" value="${Number(syncConfig.autoBackupInterval) || 5}">
+            <input id="autoBackupInterval" type="number" min="30" step="30" value="${Number(syncConfig.autoBackupInterval) || 30}">
           </label>
           <label class="field">
             <span>Destino automático</span>
@@ -4337,7 +4411,7 @@ function renderAdmin() {
         <div class="sync-grid">
           <label class="field">
             <span>E-mail do usuário</span>
-            <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || "")}" placeholder="seu@email.com" autocomplete="username">
+            <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || "")}" placeholder="seu@email.com" autocomplete="username">
           </label>
           <label class="field">
             <span>Senha do usuário</span>
@@ -4402,6 +4476,7 @@ function renderAdmin() {
           </div>
           <div class="actions">
             <button id="signupBtn" class="btn" onclick="cadastrarClienteSaas()">Criar conta</button>
+            <button class="btn secondary" onclick="loginGoogleSupabase()">Criar/entrar com Google</button>
             <button class="btn ghost" onclick="trocarTela('assinatura')">Ver planos</button>
           </div>
         </div>
@@ -4591,7 +4666,9 @@ function renderAdmin() {
 
 function renderUsuariosAdmin() {
   usuarios = normalizarUsuarios(usuarios);
-  const lista = usuarios;
+  const lista = isSuperAdmin()
+    ? usuarios
+    : getUsuariosDoCliente().filter((usuario) => usuario.papel !== "superadmin");
   if (!lista.length) {
     return `<p class="empty">Nenhum usuário cadastrado ainda.</p>`;
   }
@@ -4664,6 +4741,43 @@ async function confirmarBiometriaSeDisponivel(mensagem = "Use digital, rosto ou 
   }
 }
 
+async function alternarBiometriaSeguranca(ativar = null) {
+  const desejaAtivar = ativar === null ? !!document.getElementById("biometricEnabledConfig")?.checked : !!ativar;
+  if (desejaAtivar) {
+    const biometria = await confirmarBiometriaSeDisponivel("Confirme para ativar a entrada por digital, rosto ou padrão.");
+    if (biometria.disponivel && !biometria.ok) {
+      alert("Não foi possível confirmar a biometria agora.");
+      appConfig.biometricEnabled = false;
+      salvarDados();
+      renderApp();
+      return;
+    }
+    if (!biometria.disponivel && isAndroid()) {
+      alert("Este aparelho não informou biometria, rosto ou padrão disponível para o app.");
+    }
+  }
+
+  appConfig.biometricEnabled = desejaAtivar;
+  appConfig.biometricOfferDismissed = true;
+  salvarDados();
+  mostrarToast(desejaAtivar ? "Biometria ativada para este aparelho." : "Biometria desativada neste aparelho.", "sucesso");
+  renderApp();
+}
+
+function oferecerAtivarBiometriaAposLogin() {
+  if (!isAndroid() || appConfig.biometricEnabled || appConfig.biometricOfferDismissed) return;
+  setTimeout(() => {
+    if (!getUsuarioAtual()) return;
+    const aceitar = confirm("Deseja ativar digital, rosto ou padrão para proteger a abertura do Simplifica 3D neste aparelho?");
+    appConfig.biometricOfferDismissed = true;
+    salvarDados();
+    if (aceitar) {
+      trocarTela("seguranca");
+      setTimeout(() => alternarBiometriaSeguranca(true), 300);
+    }
+  }, 800);
+}
+
 async function entrarComCredencialSalva() {
   if (!navigator.credentials?.get) {
     alert("Este dispositivo não liberou login por senha salva, digital ou padrão para este app.");
@@ -4671,10 +4785,12 @@ async function entrarComCredencialSalva() {
   }
 
   try {
-    const biometria = await confirmarBiometriaSeDisponivel("Use digital, rosto ou padrão para liberar a senha salva.");
-    if (biometria.disponivel && !biometria.ok) {
-      alert("Confirmação cancelada ou não autorizada.");
-      return;
+    if (appConfig.biometricEnabled) {
+      const biometria = await confirmarBiometriaSeDisponivel("Use digital, rosto ou padrão para liberar a senha salva.");
+      if (biometria.disponivel && !biometria.ok) {
+        alert("Confirmação cancelada ou não autorizada.");
+        return;
+      }
     }
 
     const credencial = await navigator.credentials.get({
@@ -4788,17 +4904,74 @@ function renderSeguranca() {
 
       <div class="danger-zone">
         <h2 class="section-title">Sessão</h2>
-        <p class="muted">Ao sair, tokens temporários e dados sensíveis da sessão são limpos deste aparelho.</p>
+        <p class="muted">Ao sair, tokens temporários e dados sensíveis da sessão são limpos deste aparelho. Se a opção de manter sessão estiver ativa, o app preserva o login sem salvar a senha.</p>
+        <label class="checkbox-row">
+          <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
+          <span>Manter login neste aparelho</span>
+        </label>
         <div class="actions">
           <button class="btn warning" onclick="logoutUsuario()">Sair com segurança</button>
           <button class="btn ghost" onclick="sairSupabase()">Encerrar Supabase</button>
         </div>
       </div>
 
+      <div class="danger-zone">
+        <h2 class="section-title">Biometria e permissões</h2>
+        <label class="checkbox-row">
+          <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
+          <span>Usar digital, rosto ou padrão para abrir dados neste aparelho</span>
+        </label>
+        <div class="actions">
+          <button class="btn ghost" onclick="verificarPermissoesDispositivo()">Verificar permissões do aparelho</button>
+          <button class="btn ghost" onclick="entrarComCredencialSalva()">Testar senha salva/digital</button>
+        </div>
+        <p class="muted">O Android não permite que o app leia o MAC real do aparelho. Para controle de uso, o Simplifica 3D usa um ID de dispositivo local, tipo de acesso e sessão vinculada ao e-mail do plano.</p>
+      </div>
+
       <h2 class="section-title">Logs de segurança</h2>
       <div class="history-list">${logs}</div>
     </section>
   `;
+}
+
+function salvarPreferenciasSeguranca() {
+  appConfig.keepSessionCache = !!document.getElementById("keepSessionCacheConfig")?.checked;
+  if (!appConfig.keepSessionCache) {
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+  } else {
+    salvarCacheSessaoLocal();
+  }
+  salvarDados();
+  mostrarToast("Preferências de segurança salvas.", "sucesso");
+}
+
+async function verificarPermissoesDispositivo() {
+  const resultados = [];
+  try {
+    const files = window.Capacitor?.Plugins?.SimplificaFiles;
+    if (files?.requestStoragePermission) {
+      const permissao = await files.requestStoragePermission();
+      resultados.push(permissao?.granted === false ? "Arquivos: permissão pendente" : "Arquivos: pronto");
+    } else {
+      resultados.push(isAndroid() ? "Arquivos: Android moderno usa Downloads/Simplifica3D sem permissão manual" : "Arquivos: navegador");
+    }
+  } catch (erro) {
+    resultados.push("Arquivos: " + (erro.message || "não verificado"));
+  }
+
+  try {
+    const biometric = window.Capacitor?.Plugins?.SimplificaBiometric;
+    if (biometric?.isAvailable) {
+      const status = await biometric.isAvailable();
+      resultados.push(status?.available ? "Biometria: disponível" : "Biometria: configure digital, rosto ou padrão no aparelho");
+    } else {
+      resultados.push("Biometria: indisponível neste ambiente");
+    }
+  } catch (erro) {
+    resultados.push("Biometria: " + (erro.message || "não verificada"));
+  }
+
+  alert(resultados.join("\n"));
 }
 
 function statusUsuarioPlano(usuario) {
@@ -4995,13 +5168,16 @@ function renderSuperAdminPlanos() {
 
 function renderSuperAdminTokens() {
   const tokens = promotionalTokens.slice().sort((a, b) => (Date.parse(b.criadoEm || 0) || 0) - (Date.parse(a.criadoEm || 0) || 0));
+  const fimCampanha = new Date(Math.min(Date.parse(billingConfig.campanhaFim || TOKEN_CAMPAIGN_END_ISO), Date.parse(TOKEN_CAMPAIGN_END_ISO))).toISOString().slice(0, 10);
   return `
     <div class="sync-grid">
       <label class="field"><span>Quantidade</span><input id="tokenQtdInput" type="number" min="1" max="100" value="10"></label>
-      <label class="field"><span>Expira em</span><input id="tokenExpiraInput" type="date" value="${new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)}"></label>
+      <label class="field"><span>Expira em</span><input id="tokenExpiraInput" type="date" max="2026-06-30" value="${fimCampanha}"></label>
+      <label class="field"><span>Campanha até</span><input id="campanhaFimInput" type="date" max="2026-06-30" value="${fimCampanha}"></label>
       <label class="checkbox-row"><input id="campanhaTokensAtivaInput" type="checkbox" ${billingConfig.campanhaTokensAtiva ? "checked" : ""}><span>Campanha ativa</span></label>
       <button class="btn" onclick="gerarTokensPromocionaisSuperAdmin()">Gerar token</button>
     </div>
+    <p class="muted">Novos tokens para clientes ficam limitados até 30/06/2026. Depois disso, o sistema não gera nem aceita novos tokens promocionais locais.</p>
     <div class="payment-table admin-table">
       ${tokens.map((token) => `
         <div class="payment-row">
@@ -5191,8 +5367,19 @@ function gerarCodigoTokenPromocional() {
 function gerarTokensPromocionaisSuperAdmin() {
   if (!isSuperAdmin()) return;
   const quantidade = Math.min(100, Math.max(1, Number(document.getElementById("tokenQtdInput")?.value || 1) || 1));
-  const expira = document.getElementById("tokenExpiraInput")?.value || "";
+  const limiteCampanha = Date.parse(TOKEN_CAMPAIGN_END_ISO);
+  const expiraInput = document.getElementById("tokenExpiraInput")?.value || "";
+  const campanhaInput = document.getElementById("campanhaFimInput")?.value || "2026-06-30";
+  const expiraMs = Math.min(Date.parse((expiraInput || "2026-06-30") + "T23:59:59"), limiteCampanha);
+  const campanhaMs = Math.min(Date.parse((campanhaInput || "2026-06-30") + "T23:59:59"), limiteCampanha);
   billingConfig.campanhaTokensAtiva = !!document.getElementById("campanhaTokensAtivaInput")?.checked;
+  billingConfig.campanhaFim = new Date(campanhaMs).toISOString();
+  if (!billingConfig.campanhaTokensAtiva || Date.now() > limiteCampanha) {
+    alert("Campanha de tokens encerrada.");
+    salvarDados();
+    renderApp();
+    return;
+  }
   const novos = [];
   for (let i = 0; i < quantidade; i += 1) {
     let codigo = gerarCodigoTokenPromocional();
@@ -5202,7 +5389,7 @@ function gerarTokensPromocionaisSuperAdmin() {
     novos.push(normalizarTokenPromocional({
       codigo,
       plano: "pro_token",
-      expiraEm: expira ? new Date(expira + "T23:59:59").toISOString() : "",
+      expiraEm: new Date(expiraMs).toISOString(),
       criadoEm: new Date().toISOString()
     }));
   }
@@ -5539,6 +5726,7 @@ function renderPlanoSaasCard(plano, planoAtualSlug, diasTeste) {
     plano.maxOrders ? `${plano.maxOrders} pedidos/mês` : "pedidos ilimitados",
     plano.maxClients ? `${plano.maxClients} clientes` : "clientes ilimitados",
     plano.maxCalculatorUses ? `${plano.maxCalculatorUses} usos da calculadora` : "calculadora ilimitada",
+    plano.maxStorageMb ? `${plano.maxStorageMb} MB de backup` : "backup ampliado",
     plano.allowPdf ? "PDF liberado" : "sem PDF",
     plano.allowReports ? "relatórios" : "",
     plano.allowPermissions ? "permissões" : ""
@@ -5635,6 +5823,12 @@ function renderMinhaAssinatura() {
 
 function renderFeedback() {
   const podeVerDiagnosticos = isSuperAdmin() || (adminLogado && !getUsuarioAtual());
+  const eventosRecentes = historico.slice(0, 20).map((item) => `
+    <div class="history-item">
+      <strong>${escaparHtml(item.acao)}</strong>
+      <span class="muted">${new Date(item.data || Date.now()).toLocaleString("pt-BR")} • ${escaparHtml(item.detalhes || "")}</span>
+    </div>
+  `).join("") || `<p class="empty">Nenhuma mensagem recente.</p>`;
   const sugestoesOrdenadas = [...sugestoes].sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Date.parse(b.atualizadoEm || 0) - Date.parse(a.atualizadoEm || 0));
   const listaSugestoes = sugestoesOrdenadas.slice(0, 20).map((item, indice) => `
     <div class="suggestion-item">
@@ -5680,6 +5874,11 @@ function renderFeedback() {
       <h2 class="section-title">Sugestões mais pedidas</h2>
       <div class="history-list">
         ${listaSugestoes}
+      </div>
+
+      <h2 class="section-title">Mensagens recentes</h2>
+      <div class="history-list">
+        ${eventosRecentes}
       </div>
 
       ${podeVerDiagnosticos ? `<div class="danger-zone">
@@ -5963,7 +6162,8 @@ async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "
 function tokenCampanhaAtiva() {
   if (!billingConfig.campanhaTokensAtiva) return false;
   const inicio = Date.parse(billingConfig.campanhaInicio || 0) || 0;
-  const fim = Date.parse(billingConfig.campanhaFim || 0) || 0;
+  const fimConfigurado = Date.parse(billingConfig.campanhaFim || TOKEN_CAMPAIGN_END_ISO) || 0;
+  const fim = Math.min(fimConfigurado || Date.parse(TOKEN_CAMPAIGN_END_ISO), Date.parse(TOKEN_CAMPAIGN_END_ISO));
   const agora = Date.now();
   if (inicio && agora < inicio) return false;
   if (fim && agora > fim) return false;
@@ -6251,6 +6451,10 @@ function restaurarPersonalizacaoPadrao() {
     updateLastCheck: appConfig.updateLastCheck || "",
     updateStatus: appConfig.updateStatus || "Aguardando",
     browserPasswordSaveOffer: appConfig.browserPasswordSaveOffer !== false,
+    keepSessionCache: appConfig.keepSessionCache !== false,
+    biometricEnabled: !!appConfig.biometricEnabled,
+    biometricOfferDismissed: !!appConfig.biometricOfferDismissed,
+    backupReminderLastAt: appConfig.backupReminderLastAt || "",
     telemetryEnabled: appConfig.telemetryEnabled !== false,
     calculatorWidget: normalizarCalculadoraWidget({
       ...(appConfig.calculatorWidget || {}),
@@ -6284,6 +6488,32 @@ function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...")
     botao.textContent = botao.dataset.textoOriginal || botao.textContent;
     botao.disabled = false;
   }
+}
+
+function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
+  if (typeof document === "undefined" || !document.body || !mensagem) return;
+  let area = document.getElementById("toastArea");
+  if (!area) {
+    area = document.createElement("div");
+    area.id = "toastArea";
+    area.className = "toast-area";
+    document.body.appendChild(area);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = "app-toast toast-" + (tipo || "info");
+  const icone = tipo === "erro" ? "×" : tipo === "sucesso" ? "✓" : tipo === "loading" ? "•••" : "!";
+  toast.innerHTML = `<span class="toast-icon">${icone}</span><strong>${escaparHtml(mensagem)}</strong>`;
+  area.appendChild(toast);
+
+  if (tipo !== "loading") {
+    setTimeout(() => {
+      toast.classList.add("leaving");
+      setTimeout(() => toast.remove(), 240);
+    }, duracao);
+  }
+
+  return toast;
 }
 
 async function loginAdmin() {
@@ -6422,6 +6652,7 @@ async function cadastrarClienteSaas() {
     registrarHistorico("Conta", "Conta SaaS criada: " + email);
     registrarSeguranca("Criação usuário", "sucesso", "Cadastro inicial", email);
     registrarAuditoria("criação usuário", { email, negocio, plano: "premium_trial" }, local.usuario.clientId);
+    mostrarToast("Conta criada. Trial Premium liberado por 7 dias.", "sucesso");
     concluirLoginUsuario(local.usuario);
   } catch (erro) {
     alert(erro.message || "Não foi possível criar a conta.");
@@ -6483,6 +6714,7 @@ function concluirLoginUsuario(usuario) {
   if (!registrarSessaoSaasLocal(usuario)) return;
   usuarioAtualEmail = usuario.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+  salvarCacheSessaoLocal();
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
   usuario.lastLoginAt = new Date().toISOString();
@@ -6500,18 +6732,26 @@ function concluirLoginUsuario(usuario) {
   registrarHistorico("Usuário", `Login de ${usuario.nome}`);
   registrarSeguranca("Login realizado", "sucesso", usuario.papel, usuario.email);
   registrarAuditoria("login", { papel: usuario.papel }, usuario.clientId || billingConfig.clientId);
+  garantirCadastroSaasOnlineAposLogin(usuario);
   tocarAcessoClienteSupabaseSilencioso();
   consultarLicencaSupabaseSilencioso();
   carregarSaasSupabaseSilencioso();
   registrarSessaoSaasOnlineSilencioso(usuario);
   registrarAtividadeSessao();
   sincronizarAposLogin();
+  oferecerAtivarBiometriaAposLogin();
   renderApp();
 }
 
 function sincronizarAposLogin() {
   if (!temAcessoNuvem()) return;
   const plano = getPlanoAtual();
+  if (syncConfig.supabaseAccessToken && syncConfig.supabaseUserId) {
+    syncConfig.supabaseEnabled = true;
+    syncConfig.autoBackupTarget = "supabase";
+    sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
+    return;
+  }
   if (plano.slug === "premium" || plano.slug === "premium_trial") {
     syncConfig.supabaseEnabled = true;
     syncConfig.autoBackupTarget = "supabase";
@@ -6539,6 +6779,7 @@ function logoutUsuario() {
   sessionStorage.removeItem("adminLogado");
   sessionStorage.removeItem("sessionLastActivity");
   limparSessaoSensivelSupabase();
+  localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
   registrarSeguranca("Logout", "sucesso", "", email);
   salvarDados();
   renderApp();
@@ -6873,7 +7114,7 @@ function salvarConfigComercial() {
       mobile: mobileLimit,
       desktop: desktopLimit
     },
-    cloudSyncPaidOnly: true
+    cloudSyncPaidOnly: false
   };
 
   salvarDados();
@@ -6913,7 +7154,7 @@ function voltarParaGratis() {
 function lerConfigSyncCampos() {
   const arquivoDrive = (document.getElementById("driveFileName")?.value || syncConfig.driveFileName || "erp3d-backup.json").trim();
   const autoBackupEnabledEl = document.getElementById("autoBackupEnabled");
-  const autoBackupInterval = Math.max(1, parseFloat(document.getElementById("autoBackupInterval")?.value || syncConfig.autoBackupInterval || 5) || 5);
+  const autoBackupInterval = Math.max(30, parseFloat(document.getElementById("autoBackupInterval")?.value || syncConfig.autoBackupInterval || 30) || 30);
   const supabaseEnabledEl = document.getElementById("supabaseEnabled");
   return {
     cloudUrl: (document.getElementById("syncCloudUrl")?.value || syncConfig.cloudUrl || "").trim(),
@@ -6972,7 +7213,7 @@ function criarBillingConfigBackup() {
     windowsDownloadUrl: "",
     registeredDevices: normalizarDispositivosLicenca(),
     deviceLimits: getLimitesDispositivos(),
-    cloudSyncPaidOnly: true
+    cloudSyncPaidOnly: false
   };
 }
 
@@ -7024,6 +7265,34 @@ function criarSnapshotBackup() {
       }
     }
   };
+}
+
+function tamanhoBackupMb(payload = criarSnapshotBackup()) {
+  try {
+    const texto = JSON.stringify(payload);
+    if (typeof Blob !== "undefined") return new Blob([texto]).size / (1024 * 1024);
+    return texto.length / (1024 * 1024);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function limiteBackupPlanoMb() {
+  const plano = getPlanoSaasAtual();
+  if (plano.maxStorageMb === null || plano.maxStorageMb === undefined) return null;
+  return Math.max(1, Number(plano.maxStorageMb) || 25);
+}
+
+function verificarLimiteBackupPlano(payload = criarSnapshotBackup(), avisar = true) {
+  const limite = limiteBackupPlanoMb();
+  if (!limite) return true;
+  const tamanho = tamanhoBackupMb(payload);
+  if (tamanho <= limite) return true;
+  if (avisar) {
+    alert(`Seu backup está com ${tamanho.toFixed(1)} MB e o limite do plano atual é ${limite} MB. Seus dados continuam no aparelho; para sincronizar tudo na nuvem, reduza arquivos pesados ou altere o plano.`);
+  }
+  registrarAuditoria("limite armazenamento", { tamanhoMb: Number(tamanho.toFixed(2)), limiteMb: limite });
+  return false;
 }
 
 function normalizarBackup(dados) {
@@ -7105,7 +7374,7 @@ function aplicarBackup(dados, modo = "substituir") {
     ownerMode: ownerModeLocal,
     registeredDevices: normalizarDispositivosLicenca(backup.billingConfig.registeredDevices || billingConfig.registeredDevices),
     deviceLimits: backup.billingConfig.deviceLimits || billingConfig.deviceLimits || { mobile: 1, desktop: 1 },
-    cloudSyncPaidOnly: true
+    cloudSyncPaidOnly: false
   };
 
   syncConfig = {
@@ -7116,7 +7385,7 @@ function aplicarBackup(dados, modo = "substituir") {
     driveFileName: syncConfig.driveFileName || backup.configuracoes.driveFileName || "erp3d-backup.json",
     driveLastSync: backup.configuracoes.driveLastSync || syncConfig.driveLastSync,
     autoBackupEnabled: typeof backup.configuracoes.autoBackupEnabled === "boolean" ? backup.configuracoes.autoBackupEnabled : syncConfig.autoBackupEnabled,
-    autoBackupInterval: backup.configuracoes.autoBackupInterval || syncConfig.autoBackupInterval || 5,
+    autoBackupInterval: backup.configuracoes.autoBackupInterval || syncConfig.autoBackupInterval || 30,
     autoBackupTarget: backup.configuracoes.autoBackupTarget || syncConfig.autoBackupTarget || "drive",
     autoBackupLastRun: backup.configuracoes.autoBackupLastRun || syncConfig.autoBackupLastRun,
     autoBackupStatus: backup.configuracoes.autoBackupStatus || syncConfig.autoBackupStatus,
@@ -7340,6 +7609,43 @@ async function registrarClienteSaasSupabase({ nome, email, negocio, telefone, pl
       p_trial_days: DEFAULT_TRIAL_DAYS
     })
   });
+}
+
+async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) {
+  if (!usuario || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return null;
+  try {
+    const licenca = await consultarLicencaSupabaseSilencioso();
+    if (licenca?.client_id) {
+      await salvarPerfilSupabase();
+      return licenca;
+    }
+
+    const email = normalizarEmail(usuario.email || syncConfig.supabaseEmail || "");
+    const clienteLocal = saasClients.find((cliente) => normalizarEmail(cliente.email) === email);
+    const resultado = await registrarClienteSaasSupabase({
+      nome: usuario.nome || clienteLocal?.responsibleName || email.split("@")[0],
+      email,
+      negocio: clienteLocal?.name || appConfig.businessName || "Minha empresa 3D",
+      telefone: usuario.phone || clienteLocal?.phone || "",
+      planSlug: "premium_trial"
+    });
+
+    if (resultado?.client_id) {
+      const clientIdOnline = String(resultado.client_id);
+      usuario.clientId = clientIdOnline;
+      billingConfig.clientId = clientIdOnline;
+      billingConfig.licenseEmail = email;
+      if (clienteLocal) clienteLocal.id = clientIdOnline;
+      if (resultado.client_code && clienteLocal) clienteLocal.clientCode = String(resultado.client_code);
+      await salvarPerfilSupabase();
+      salvarDados();
+      registrarAuditoria("cadastro online sincronizado", { email }, clientIdOnline);
+    }
+    return resultado;
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Cadastro SaaS online não sincronizado após login", erro.message);
+    return null;
+  }
 }
 
 async function consultarLicencaSupabaseSilencioso() {
@@ -7711,15 +8017,30 @@ async function processarRetornoOAuthSupabase() {
     usuarios = normalizarUsuarios(usuarios);
     let usuario = usuarios.find((item) => item.email === email);
     if (!usuario) {
-      usuario = normalizarUsuario({
-        nome: user.user_metadata?.name || user.user_metadata?.full_name || email.split("@")[0],
-        email,
-        papel: "admin",
-        ativo: true
-      });
-      usuarios.push(usuario);
+      const nomeGoogle = user.user_metadata?.name || user.user_metadata?.full_name || email.split("@")[0];
+      try {
+        const local = criarClienteSaasLocal({
+          nome: nomeGoogle,
+          email,
+          senha: "",
+          negocio: appConfig.businessName || `Empresa de ${nomeGoogle}`,
+          telefone: "",
+          planSlug: "premium_trial",
+          trial: true
+        });
+        usuario = local.usuario;
+      } catch (_) {
+        usuario = normalizarUsuario({
+          nome: nomeGoogle,
+          email,
+          papel: "admin",
+          ativo: true
+        });
+        usuarios.push(usuario);
+      }
     }
     await carregarPerfilSaasSupabase(usuario);
+    await garantirCadastroSaasOnlineAposLogin(usuario);
     window.history.replaceState(null, document.title, location.pathname + location.search);
     concluirLoginUsuario(usuario);
     return true;
@@ -7779,6 +8100,7 @@ async function obterBackupSupabase() {
 
 async function salvarBackupSupabase() {
   const payload = criarSnapshotBackup();
+  if (!verificarLimiteBackupPlano(payload, true)) return false;
   await requisicaoSupabase("/rest/v1/erp_backups?on_conflict=user_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
@@ -7789,6 +8111,7 @@ async function salvarBackupSupabase() {
       payload
     })
   });
+  return true;
 }
 
 async function enviarBackupSupabase() {
@@ -7797,7 +8120,7 @@ async function enviarBackupSupabase() {
 
   try {
     await salvarPerfilSupabase();
-    await salvarBackupSupabase();
+    if (!await salvarBackupSupabase()) return;
     const agora = new Date().toISOString();
     syncConfig.supabaseLastSync = agora;
     syncConfig.ultimoBackup = agora;
@@ -7843,7 +8166,7 @@ async function sincronizarSupabase() {
     if (remoto) {
       aplicarBackup(remoto, "mesclar");
     }
-    await salvarBackupSupabase();
+    if (!await salvarBackupSupabase()) return;
     const agora = new Date().toISOString();
     syncConfig.supabaseLastSync = agora;
     syncConfig.ultimoBackup = agora;
@@ -7859,7 +8182,7 @@ async function sincronizarSupabase() {
 
 async function sincronizarSupabaseSilencioso() {
   if (!temAcessoNuvem()) {
-    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    syncConfig.autoBackupStatus = "Entre para sincronizar";
     salvarDados();
     return false;
   }
@@ -7874,7 +8197,7 @@ async function sincronizarSupabaseSilencioso() {
   if (remoto) {
     aplicarBackup(remoto, "mesclar");
   }
-  await salvarBackupSupabase();
+  if (!await salvarBackupSupabase()) return false;
 
   const agora = new Date().toISOString();
   syncConfig.supabaseLastSync = agora;
@@ -8067,7 +8390,7 @@ async function sincronizarGoogleDrive() {
 
 async function sincronizarGoogleDriveSilencioso() {
   if (!temAcessoNuvem()) {
-    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    syncConfig.autoBackupStatus = "Entre para sincronizar";
     salvarDados();
     return false;
   }
@@ -8114,7 +8437,7 @@ async function garantirPastaDriveSilenciosa() {
 
 async function sincronizarUrlSilencioso() {
   if (!temAcessoNuvem()) {
-    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    syncConfig.autoBackupStatus = "Entre para sincronizar";
     salvarDados();
     return false;
   }
@@ -8157,7 +8480,7 @@ async function sincronizarUrlSilencioso() {
 }
 
 function obterIntervaloAutoBackupMs() {
-  return Math.max(1, Number(syncConfig.autoBackupInterval) || 5) * 60 * 1000;
+  return Math.max(30, Number(syncConfig.autoBackupInterval) || 30) * 60 * 1000;
 }
 
 function iniciarAutoBackup() {
@@ -8167,7 +8490,7 @@ function iniciarAutoBackup() {
   }
 
   if (!temAcessoNuvem()) {
-    syncConfig.autoBackupStatus = "Nuvem só no plano completo";
+    syncConfig.autoBackupStatus = "Entre para sincronizar";
     salvarDados();
     return;
   }
@@ -9433,6 +9756,8 @@ async function gerarPDF() {
   const corRgb = hexParaRgb(cor);
   const data = new Date().toLocaleDateString("pt-BR");
   const pedidoId = pedidoEditando?.id || Date.now();
+  const cidade = appConfig.pixCity || "Não informada";
+  const telefoneCliente = obterTelefoneWhatsappPedido(pedidoEditando);
   const marcaPdf = await obterMarcaPdfDataUrl();
 
   adicionarMarcaPdf(doc, largura, altura, marcaPdf);
@@ -9456,16 +9781,18 @@ async function gerarPDF() {
 
   doc.setTextColor(17, 24, 39);
   doc.setFillColor(245, 247, 251);
-  doc.roundedRect(margem, 40, largura - margem * 2, 26, 3, 3, "F");
+  doc.roundedRect(margem, 40, largura - margem * 2, 38, 3, 3, "F");
   doc.setFontSize(11);
-  doc.text("Cliente", margem + 4, 50);
+  doc.text("Cliente", margem + 4, 49);
   doc.setFontSize(13);
-  doc.text(cliente || "Sem cliente", margem + 4, 60);
+  doc.text(cliente || "Sem cliente", margem + 4, 58);
   doc.setFontSize(10);
-  doc.text("Emitido por " + empresa, largura - margem - 4, 50, { align: "right" });
-  doc.text(appConfig.whatsappNumber ? "WhatsApp: " + appConfig.whatsappNumber : "Documento comercial", largura - margem - 4, 60, { align: "right" });
+  doc.text("Empresa: " + empresa, largura - margem - 4, 49, { align: "right" });
+  doc.text("Pedido: #" + pedidoId, largura - margem - 4, 56, { align: "right" });
+  doc.text("Cidade: " + cidade, margem + 4, 68);
+  doc.text(telefoneCliente ? "Telefone cliente: " + telefoneCliente : "Telefone cliente: não informado", largura - margem - 4, 68, { align: "right" });
 
-  let y = 78;
+  let y = 90;
   doc.setFillColor(31, 41, 55);
   doc.roundedRect(margem, y - 7, largura - margem * 2, 10, 2, 2, "F");
   doc.setTextColor(255, 255, 255);
@@ -9916,6 +10243,28 @@ function iniciarMonitorPlanoSaas() {
   }, 24 * 60 * 60 * 1000);
 }
 
+function verificarLembreteBackupPlanoFree() {
+  const usuario = getUsuarioAtual();
+  if (!usuario) return;
+  const plano = getPlanoSaasAtual();
+  if (plano.slug !== "free") return;
+
+  const agora = new Date();
+  const minutos = agora.getHours() * 60 + agora.getMinutes();
+  if (minutos < BACKUP_REMINDER_START_MIN || minutos > BACKUP_REMINDER_END_MIN) return;
+
+  const hoje = agora.toISOString().slice(0, 10);
+  if (appConfig.backupReminderLastAt === hoje) return;
+  appConfig.backupReminderLastAt = hoje;
+  salvarDados();
+  mostrarToast("Lembrete: mantenha seu backup em dia. A sincronização ajuda a proteger seus dados entre aparelhos.", "info", 8000);
+}
+
+function iniciarLembreteBackupPlanoFree() {
+  setTimeout(verificarLembreteBackupPlanoFree, 4000);
+  setInterval(verificarLembreteBackupPlanoFree, 15 * 60 * 1000);
+}
+
 async function verificarBancosDadosAoEntrar() {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
   try {
@@ -9953,10 +10302,28 @@ window.addEventListener("resize", () => {
   }, 120);
 });
 
+window.addEventListener("pagehide", () => {
+  salvarCacheSessaoLocal();
+  salvarDados();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    salvarCacheSessaoLocal();
+    salvarDados();
+  }
+});
+
 document.addEventListener("DOMContentLoaded", () => {
   processarParametrosAssinaturaUrl();
-  processarRetornoOAuthSupabase().then((processou) => {
-    if (!processou) renderApp();
+  processarRetornoOAuthSupabase().then(async (processou) => {
+    if (!processou) {
+      await restaurarCacheSessaoLocal();
+      if (!getUsuarioAtual() && !adminLogado && telaAtual === "dashboard") {
+        telaAtual = "admin";
+      }
+      renderApp();
+    }
     const tokenPendente = sessionStorage.getItem("tokenPromocionalPendente");
     if (tokenPendente) {
       setTimeout(() => {
@@ -9968,6 +10335,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
   iniciarMonitorPlanoSaas();
+  iniciarLembreteBackupPlanoFree();
   setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);

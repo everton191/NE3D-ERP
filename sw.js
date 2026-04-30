@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v39-pdf-android-biometria";
+const CACHE_NAME = "simplifica-3d-v40-seguranca-sync-planos";
 const APP_FILES = [
   "./",
   "./index.html",
