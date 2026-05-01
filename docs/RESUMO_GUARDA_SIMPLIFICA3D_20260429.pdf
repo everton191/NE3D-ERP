@@ -1,0 +1,186 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 4577 >>
+stream
+BT
+/F2 18 Tf 1 0 0 1 54.00 788.00 Tm (Simplifica 3D - Resumo de Guarda) Tj
+/F1 10.5 Tf 1 0 0 1 54.00 766.00 Tm (Informacoes importantes do projeto, integra??es e operacao) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 748.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 740.00 Tm (CONFIDENCIAL) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 723.00 Tm (- Resumo de guarda do sistema Simplifica 3D.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 710.00 Tm (- Gerado em: 29/04/2026 14:44.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 697.00 Tm (- Guarde este PDF e o arquivo de secrets em local seguro. Nao envie para clientes.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 684.00 Tm (- Por seguranca, tokens/senhas completas nao ficam escritos neste PDF; o caminho local do) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 671.00 Tm (  arquivo de secrets esta listado abaixo.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 658.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 650.00 Tm (Identidade do sistema) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 633.00 Tm (- Nome: Simplifica 3D.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 620.00 Tm (- Slogan: Organize seus pedidos sem complicacao.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 607.00 Tm (- App Android/Capacitor: br.com.ne3d.erp.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 594.00 Tm (- Estilo visual: azul petroleo, laranja, fundo escuro, moderno e minimalista.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 581.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 573.00 Tm (Pastas importantes) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 556.00 Tm (- Projeto local: C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 543.00 Tm (- Backup atual mantido:) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 530.00 Tm (  C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d-backup-antes-mercadopago-saas-20260429-082128) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 517.00 Tm (- APK local atual: C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d\\downloads\\NE3D-ERP.apk) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 504.00 Tm (- Manifesto local: C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d\\downloads\\update.json) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 491.00 Tm (- Relatorio de bugs:) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 478.00 Tm (  C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d\\docs\\RELATORIO_BUGS_SIMPLIFICA3D.md) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 465.00 Tm (- C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d\\supabase\\.env.mercadopago.local) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 452.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 444.00 Tm (GitHub e branches) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 427.00 Tm (- Repositorio principal: https://github.com/everton191/NE3D-ERP) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 414.00 Tm (- Repositorio publico do APK: https://github.com/everton191/NE3D-ERP.apk) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 401.00 Tm (- Branch publicada do site: main.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 388.00 Tm (- Branch de trabalho/backup de desenvolvimento: redesign-profissional-planos.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 375.00 Tm (- Branch de backup da interface antiga: backup-interface-antiga.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 362.00 Tm (- Commit principal atual no site: fc45d03 Publica SaaS Mercado Pago no site.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 349.00 Tm (- Commit da implementacao SaaS: 05df980 Implementa SaaS Mercado Pago no Simplifica 3D.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 336.00 Tm (- Commit do APK publico: 94bac89 Publica APK Simplifica 3D v15.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 323.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 315.00 Tm (APK atual) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 298.00 Tm (- Versao: 2026.04.29-mercadopago-saas-vercel.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 285.00 Tm (- VersionCode: 15.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 272.00 Tm (- APK publico:) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 259.00 Tm (  https://raw.githubusercontent.com/everton191/NE3D-ERP.apk/main/NE3D-ERP.apk?v=15) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 246.00 Tm (- Manifesto publico:) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 233.00 Tm (  https://raw.githubusercontent.com/everton191/NE3D-ERP.apk/main/update.json) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 220.00 Tm (- O parametro ?v=15 evita cache antigo no download.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 207.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 199.00 Tm (Supabase) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 182.00 Tm (- Projeto: everton191's Project.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 169.00 Tm (- Project Ref: qsufnnivlgdidmjuaprb.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 156.00 Tm (- URL: https://qsufnnivlgdidmjuaprb.supabase.co) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 143.00 Tm (- Dashboard: https://supabase.com/dashboard/project/qsufnnivlgdidmjuaprb) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 130.00 Tm (- Funcoes: https://supabase.com/dashboard/project/qsufnnivlgdidmjuaprb/functions) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 117.00 Tm (- Superadmin cadastrado: paessilvae@gmail.com.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 104.00 Tm (- Perfil superadmin: active.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 91.00 Tm () Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 4746 >>
+stream
+BT
+/F2 12 Tf 1 0 0 1 54.00 788.00 Tm (Mercado Pago) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 771.00 Tm (- Webhook URL configurado:) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 758.00 Tm (- https://qsufnnivlgdidmjuaprb.supabase.co/functions/v1/mercadopago-webhook) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 745.00 Tm (- Eventos importantes: payment.updated, payment.created/preapproval quando usar assinatura) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 732.00 Tm (  recorrente.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 719.00 Tm (- O teste do Mercado Pago passou depois de atualizar a assinatura secreta correta.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 706.00 Tm (- O app nunca libera plano pela URL de sucesso; somente pelo webhook validado.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 693.00 Tm (- Token e assinatura secreta ficam no arquivo local de secrets listado neste PDF e nos) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 680.00 Tm (  Supabase Secrets.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 667.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 659.00 Tm (Secrets e senhas) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 642.00 Tm (- NAO colocar em GitHub, Vercel frontend, APK, app.js, localStorage ou print para cliente.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 629.00 Tm (- Arquivo local com secrets completos:) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 616.00 Tm (- C:\\Users\\PAESS\\OneDrive\\Desktop\\erpNE3d\\supabase\\.env.mercadopago.local) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 603.00 Tm (- Secrets usados no Supabase: MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET,) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 590.00 Tm (  MERCADOPAGO_WEBHOOK_URL.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 577.00 Tm (- Tambem existem secrets internos do Supabase como SUPABASE_SERVICE_ROLE_KEY, usados) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 564.00 Tm (  apenas no backend/funcoes.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 551.00 Tm (- Se algum token aparecer em conversa, print ou commit, revogar e gerar novo no painel) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 538.00 Tm (  correspondente.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 525.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 517.00 Tm (Edge Functions publicadas) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 500.00 Tm (- mercadopago-create-payment: cria link de pagamento e salva pendente antes do) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 487.00 Tm (  redirecionamento.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 474.00 Tm (- mercadopago-create-subscription: cria assinatura recorrente mensal.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 461.00 Tm (- mercadopago-cancel-subscription: cancela assinatura pelo backend.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 448.00 Tm (- mercadopago-webhook: valida assinatura e atualiza pagamentos/planos.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 435.00 Tm (- Todas estavam ACTIVE no Supabase em 29/04/2026.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 422.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 414.00 Tm (Planos) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 397.00 Tm (- FREE: 10 clientes, 10 pedidos/mes, 30 usos da calculadora, 1 usuario.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 384.00 Tm (- PRO: R$ 29,90, ilimitado, 2 usuarios, exportar PDF.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 371.00 Tm (- PREMIUM: R$ 54,90, tudo liberado, 5 usuarios, relatorios e permissoes.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 358.00 Tm (- PRO_TOKEN: 3 dias de PRO via token promocional.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 345.00 Tm (- PREMIUM_TRIAL: 7 dias gratis ao criar conta.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 332.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 324.00 Tm (Banco e logs) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 307.00 Tm (- Tabelas principais: clients, profiles, plans, subscriptions, payments, erp_payments,) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 294.00 Tm (  promotional_tokens, saas_sessions, audit_logs, erp_webhook_events.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 281.00 Tm (- Logs obrigatorios: login, erro login, cadastro, pagamento criado, webhook recebido,) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 268.00 Tm (  pagamento aprovado/recusado, alteracao de plano, uso de token, bloqueio/exclusao.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 255.00 Tm (- Eventos de webhook ficam em erp_webhook_events.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 242.00 Tm (- Pagamentos tecnicos ficam em erp_payments/payments.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 229.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 221.00 Tm (Testes ja confirmados) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 204.00 Tm (- Supabase CLI autenticou no projeto correto.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 191.00 Tm (- Migrations SaaS aplicadas no banco remoto.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 178.00 Tm (- REST de plans retornou Free, Pro Token, Premium Trial, Pro e Premium.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 165.00 Tm (- Token do Mercado Pago validado via API oficial com status 200.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 152.00 Tm (- Webhook com assinatura antiga retornava invalid_signature; corrigido com a assinatura do) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 139.00 Tm (  Mercado Pago.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 126.00 Tm (- Webhook com payment.updated e data.id=123456 respondeu 200 apos corrigir o segredo.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 113.00 Tm () Tj
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 10 0 R >>
+endobj
+10 0 obj
+<< /Length 1468 >>
+stream
+BT
+/F2 12 Tf 1 0 0 1 54.00 788.00 Tm (Comandos uteis) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 771.00 Tm (- Gerar web: npm run build:web) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 758.00 Tm (- Sincronizar Android: npm run android:sync) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 745.00 Tm (- Gerar APK: npm run android:apk) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 732.00 Tm (- Deploy Mercado Pago/Supabase: powershell -ExecutionPolicy Bypass -File) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 719.00 Tm (  .\\scripts\\deploy-mercadopago-supabase.ps1) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 706.00 Tm (- Ver status Git: git status --short --branch) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 693.00 Tm (- Publicar alteracoes: git add . ; git commit -m "mensagem" ; git push) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 680.00 Tm () Tj
+/F2 12 Tf 1 0 0 1 54.00 672.00 Tm (Cuidados finais) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 655.00 Tm (- Antes de alteracoes grandes, criar backup da pasta do projeto.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 642.00 Tm (- Manter apenas o backup mais recente quando estiver tudo validado.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 629.00 Tm (- Nunca apagar dados de clientes automaticamente; inativos devem ser marcados e tratados) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 616.00 Tm (  manualmente.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 603.00 Tm (- Pagamentos pendentes/atrasados devem mostrar mensagem simples no app, sem debug tecnico.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 590.00 Tm (- Para problema futuro, atualizar o relatorio de bugs antes de mexer no codigo.) Tj
+/F1 9.5 Tf 1 0 0 1 54.00 577.00 Tm () Tj
+ET
+endstream
+endobj
+xref
+0 11
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000133 00000 n 
+0000000230 00000 n 
+0000000332 00000 n 
+0000000468 00000 n 
+0000005097 00000 n 
+0000005233 00000 n 
+0000010031 00000 n 
+0000010168 00000 n 
+trailer
+<< /Size 11 /Root 1 0 R >>
+startxref
+11689
+%%EOF
