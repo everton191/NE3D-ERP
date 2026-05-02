@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v40-seguranca-sync-planos";
+const CACHE_NAME = "simplifica-3d-v41-republica-seguranca-planos";
 const APP_FILES = [
   "./",
   "./index.html",
