@@ -2,11 +2,14 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.03-web-intro-contain";
+const APP_VERSION = "2026.05.03-intro-ratio-lock";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
 const INTRO_VIDEO_SRC = "assets/intro.mp4";
+const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
+const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
+const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "paessilvae@gmail.com";
@@ -2398,7 +2401,9 @@ function iniciarIntroAbertura() {
   overlay.className = "intro-overlay";
   overlay.setAttribute("role", "presentation");
   overlay.innerHTML = `
-    <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" poster="${escaparAttr(PROJECT_COVER_IMAGE)}" autoplay muted playsinline webkit-playsinline preload="auto" style="width:100%;height:100%;max-width:100vw;max-height:100dvh;object-fit:contain;object-position:center;background:#051c26;"></video>
+    <div class="intro-video-frame" style="aspect-ratio:${escaparAttr(INTRO_VIDEO_ASPECT_RATIO)};width:${escaparAttr(INTRO_VIDEO_FRAME_WIDTH)};height:${escaparAttr(INTRO_VIDEO_FRAME_HEIGHT)};">
+      <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" poster="${escaparAttr(PROJECT_COVER_IMAGE)}" autoplay muted playsinline webkit-playsinline preload="auto" style="width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center;background:#051c26;"></video>
+    </div>
     <button class="intro-play" type="button" aria-label="Reproduzir abertura">Reproduzir</button>
     <button class="intro-skip" type="button" aria-label="Pular abertura">Pular</button>
   `;
@@ -2412,8 +2417,8 @@ function iniciarIntroAbertura() {
     Object.assign(video.style, {
       width: "100%",
       height: "100%",
-      maxWidth: "100vw",
-      maxHeight: "100dvh",
+      maxWidth: "100%",
+      maxHeight: "100%",
       objectFit: "contain",
       objectPosition: "center",
       background: "#051c26"
