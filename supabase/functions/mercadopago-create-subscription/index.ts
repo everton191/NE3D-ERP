@@ -17,9 +17,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-const PLANOS: Record<string, { name: string; amount: number }> = {
-  pro: { name: "Pro", amount: 29.9 },
-  premium: { name: "Premium", amount: 54.9 },
+const BILLING_VARIANTS: Record<string, { name: string; amount: number }> = {
+  premium_first_month: { name: "Premium Promo", amount: 19.9 },
+  premium_monthly: { name: "Premium", amount: 29.9 },
 };
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -78,6 +78,28 @@ async function getCurrentContext(req: Request, requestedClientId?: string) {
   return { userId, client };
 }
 
+function normalizePlanSlug(value: unknown) {
+  const slug = String(value || "premium").toLowerCase().replace(/-/g, "_").trim();
+  if (slug !== "premium") throw new Error("Plano inválido");
+  return "premium";
+}
+
+function normalizeBillingVariant(value: unknown) {
+  const variant = String(value || "premium_first_month").toLowerCase().replace(/-/g, "_").trim();
+  return variant === "premium_monthly" ? "premium_monthly" : "premium_first_month";
+}
+
+async function resolveBillingVariant(clientId: string, requested: unknown) {
+  const { data: current } = await supabase
+    .from("subscriptions")
+    .select("promo_used")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (current?.promo_used === true) return "premium_monthly";
+  return normalizeBillingVariant(requested);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ ok: false }, 405);
@@ -88,13 +110,13 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const planSlug = String(body.plano || body.plan || body.planSlug || "pro").toLowerCase();
-    const plano = PLANOS[planSlug];
-    if (!plano) throw new Error("Plano inválido");
+    const planSlug = normalizePlanSlug(body.plan_id || body.plano || body.plan || body.planSlug);
 
     const { userId, client } = await getCurrentContext(req, body.clienteId || body.clientId);
+    const billingVariant = await resolveBillingVariant(client.id, body.billing_variant || body.billingVariant);
+    const plano = BILLING_VARIANTS[billingVariant];
     const { data: planRow } = await supabase.from("plans").select("id").eq("slug", planSlug).maybeSingle();
-    const externalReference = `${client.client_code || client.id}|${planSlug}|subscription`;
+    const externalReference = `${client.id}|${planSlug}|subscription|${billingVariant}`;
 
     const preapprovalPayload = {
       reason: `Assinatura Simplifica 3D ${plano.name}`,
@@ -109,6 +131,14 @@ serve(async (req) => {
       back_url: backUrl(req),
       notification_url: webhookUrl(),
       status: "pending",
+      metadata: {
+        user_id: userId,
+        client_id: client.id,
+        client_code: client.client_code,
+        plan_id: "premium",
+        plan_slug: planSlug,
+        billing_variant: billingVariant,
+      },
     };
 
     const mpResponse = await fetch("https://api.mercadopago.com/preapproval", {
@@ -135,18 +165,22 @@ serve(async (req) => {
       await supabase.from("subscriptions").update({
         plan_id: planRow?.id || null,
         status: "pending",
-        status_assinatura: "pendente",
+        status_assinatura: "pending",
+        user_id: userId,
+        billing_variant: billingVariant,
         mercado_pago_subscription_id: mpData.id || null,
-        metadata: { preapproval: mpData },
+        metadata: { preapproval: mpData, user_id: userId, plan_id: "premium", billing_variant: billingVariant },
       }).eq("id", existing.id);
     } else {
       await supabase.from("subscriptions").insert({
         client_id: client.id,
+        user_id: userId,
         plan_id: planRow?.id || null,
         status: "pending",
-        status_assinatura: "pendente",
+        status_assinatura: "pending",
+        billing_variant: billingVariant,
         mercado_pago_subscription_id: mpData.id || null,
-        metadata: { preapproval: mpData },
+        metadata: { preapproval: mpData, user_id: userId, plan_id: "premium", billing_variant: billingVariant },
       });
     }
 
@@ -161,6 +195,9 @@ serve(async (req) => {
       ok: true,
       init_point: mpData.init_point,
       subscriptionId: mpData.id,
+      amount: plano.amount,
+      plan_id: "premium",
+      billing_variant: billingVariant,
       external_reference: externalReference,
       status: mpData.status || "pending",
     });

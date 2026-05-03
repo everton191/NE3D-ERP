@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.03-prelaunch-audit";
+const APP_VERSION = "2026.05.03-planos-simplificados";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-cover.svg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
@@ -15,14 +15,16 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 const DEFAULT_SAAS_PLANS = [
   { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: 10, maxClients: 10, maxCalculatorUses: 30, maxStorageMb: 25, active: true, recommended: false, allowPdf: false, allowReports: false, allowPermissions: false, kind: "free" },
-  { id: "pro", slug: "pro", name: "Pro", price: 29.9, maxUsers: 2, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: 250, active: true, recommended: true, allowPdf: true, allowReports: false, allowPermissions: false, kind: "paid" },
-  { id: "premium", slug: "premium", name: "Premium", price: 54.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid" },
-  { id: "pro_token", slug: "pro_token", name: "Pro Token", price: 0, maxUsers: 2, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: 250, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "token", durationDays: 3 },
-  { id: "premium_trial", slug: "premium_trial", name: "Premium Trial", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7 }
+  { id: "premium_trial", slug: "premium_trial", name: "Premium Trial", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7 },
+  { id: "premium", slug: "premium", name: "Premium", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid" }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
-const TOKEN_PRO_DAYS = 3;
-const TOKEN_CAMPAIGN_END_ISO = "2026-06-30T23:59:59-03:00";
+const PREMIUM_FIRST_MONTH_PRICE = 19.9;
+const PREMIUM_MONTHLY_PRICE = 29.9;
+const BILLING_VARIANTS = {
+  premium_first_month: { id: "premium_first_month", planId: "premium", amount: PREMIUM_FIRST_MONTH_PRICE },
+  premium_monthly: { id: "premium_monthly", planId: "premium", amount: PREMIUM_MONTHLY_PRICE }
+};
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
@@ -98,7 +100,6 @@ let saasClients = carregarLista("saasClients");
 let saasPlans = carregarLista("saasPlans");
 let saasSubscriptions = carregarLista("saasSubscriptions");
 let saasPayments = carregarLista("saasPayments");
-let promotionalTokens = carregarLista("promotionalTokens");
 let saasSessions = carregarLista("saasSessions");
 let usageCounters = carregarObjeto("usageCounters", {});
 let loginAttempts = carregarObjeto("loginAttempts", {});
@@ -200,7 +201,7 @@ const assistantResponses = [
   { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
   { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode exportar um JSON local, restaurar um JSON, sincronizar por Supabase ou usar pasta do Google Drive Desktop. O backup local é o caminho mais seguro para cópia manual; Supabase sincroniza por usuário quando estiver conectado." },
   { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Trial ativo, plano pago e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
-  { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Premium Trial libera recursos por 7 dias. Free mantém limites básicos. Pro e Premium são planos mensais; token promocional libera Pro por 3 dias. Superadmin sempre tem acesso total." },
+  { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Premium Trial libera recursos por 7 dias. Free mantém limites básicos. Premium libera recursos completos. O primeiro pagamento usa a condição promocional e os seguintes usam o mensal normal. Superadmin sempre tem acesso total." },
   { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
   { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão expira após inatividade por segurança. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
   { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha; com Supabase configurado, o reset usa o fluxo de autenticação online." },
@@ -219,12 +220,9 @@ let billingConfig = carregarObjeto("billingConfig", {
   licenseStatus: "free",
   trialStartedAt: "",
   trialDays: DEFAULT_TRIAL_DAYS,
-  campanhaTokensAtiva: true,
-  campanhaInicio: "",
-  campanhaFim: TOKEN_CAMPAIGN_END_ISO,
   lastDailyPlanCheck: "",
   blocked: false,
-  monthlyPrice: 29.9,
+  monthlyPrice: PREMIUM_MONTHLY_PRICE,
   mercadoPagoLink: "",
   licenseEmail: "",
   paidUntil: "",
@@ -275,7 +273,6 @@ const StateStore = {
       saasPlans,
       saasSubscriptions,
       saasPayments,
-      promotionalTokens,
       saasSessions,
       usageCounters,
       loginAttempts,
@@ -304,7 +301,6 @@ const StateStore = {
       case "saasPlans": saasPlans = Array.isArray(valor) ? valor : []; break;
       case "saasSubscriptions": saasSubscriptions = Array.isArray(valor) ? valor : []; break;
       case "saasPayments": saasPayments = Array.isArray(valor) ? valor : []; break;
-      case "promotionalTokens": promotionalTokens = Array.isArray(valor) ? valor : []; break;
       case "saasSessions": saasSessions = Array.isArray(valor) ? valor : []; break;
       case "usageCounters": usageCounters = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
       case "loginAttempts": loginAttempts = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
@@ -911,7 +907,6 @@ function salvarDados() {
   localStorage.setItem("saasPlans", JSON.stringify(saasPlans));
   localStorage.setItem("saasSubscriptions", JSON.stringify(saasSubscriptions));
   localStorage.setItem("saasPayments", JSON.stringify(saasPayments));
-  localStorage.setItem("promotionalTokens", JSON.stringify(promotionalTokens));
   localStorage.setItem("saasSessions", JSON.stringify(saasSessions));
   localStorage.setItem("usageCounters", JSON.stringify(usageCounters));
   localStorage.setItem("loginAttempts", JSON.stringify(loginAttempts));
@@ -1253,11 +1248,46 @@ function criarIdLocal(prefixo = "id") {
 }
 
 function normalizarSlugPlano(slug = "free") {
-  const valor = String(slug || "free").toLowerCase().trim();
-  if (["basic", "basico", "básico", "gratis", "grátis"].includes(valor)) return "free";
-  if (["trial", "premium-trial"].includes(valor)) return "premium_trial";
-  if (["token", "pro-token"].includes(valor)) return "pro_token";
-  return valor || "free";
+  const valor = String(slug || "free").toLowerCase().trim().replace(/-/g, "_");
+  if (["basic", "basico", "básico", "gratis", "grátis", "free"].includes(valor)) return "free";
+  if (["trial", "premium_trial"].includes(valor)) return "premium_trial";
+  if (["pro", "premium", "premium_normal", "premium_monthly"].includes(valor)) return "premium";
+  return "free";
+}
+
+function normalizarStatusPlano(status = "pending") {
+  const valor = String(status || "pending").toLowerCase().trim();
+  const mapa = {
+    ativo: "active",
+    ativa: "active",
+    pago: "active",
+    paid: "active",
+    trial: "trialing",
+    pendente: "pending",
+    atrasado: "past_due",
+    overdue: "past_due",
+    blocked: "past_due",
+    bloqueado: "past_due",
+    cancelado: "cancelled",
+    canceled: "cancelled",
+    vencido: "expired",
+    expirado: "expired"
+  };
+  const normalizado = mapa[valor] || valor;
+  return ["active", "trialing", "pending", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "pending";
+}
+
+function normalizarBillingVariant(valor = "") {
+  const variant = String(valor || "").toLowerCase().trim().replace(/-/g, "_");
+  return variant === "premium_monthly" ? "premium_monthly" : "premium_first_month";
+}
+
+function getBillingVariantAssinatura(assinatura = getAssinaturaSaas()) {
+  return assinatura?.promoUsed ? "premium_monthly" : "premium_first_month";
+}
+
+function getPrecoBillingVariant(variant = "premium_first_month") {
+  return BILLING_VARIANTS[normalizarBillingVariant(variant)]?.amount || PREMIUM_FIRST_MONTH_PRICE;
 }
 
 function proximoClienteIdS3D() {
@@ -1286,7 +1316,7 @@ function normalizarPlanoSaas(plano = {}) {
     kind: String(planoPadrao ? padrao.kind : (plano.kind || padrao.kind || "paid")),
     durationDays: Number(planoPadrao ? padrao.durationDays : (plano.durationDays ?? plano.duration_days ?? padrao.durationDays ?? 0)) || 0,
     active: plano.active !== false && plano.ativo !== false,
-    recommended: planoPadrao ? !!padrao.recommended : (plano.recommended === true || plano.recomendado === true || slug === "pro"),
+    recommended: planoPadrao ? !!padrao.recommended : (plano.recommended === true || plano.recomendado === true || slug === "premium"),
     sortOrder: Number(planoPadrao ? padrao.sortOrder : (plano.sortOrder ?? plano.sort_order ?? padrao.sortOrder ?? 100)) || 100
   };
 }
@@ -1313,51 +1343,52 @@ function normalizarClienteSaas(cliente = {}) {
 }
 
 function normalizarAssinaturaSaas(assinatura = {}) {
+  const planoRelacional = assinatura.plans?.slug || assinatura.plan?.slug || "";
+  const planSlug = normalizarSlugPlano(assinatura.planSlug || assinatura.plan_slug || planoRelacional || assinatura.planId || assinatura.plan_id || "free");
+  const status = normalizarStatusPlano(assinatura.status || assinatura.statusAssinatura || assinatura.status_assinatura || "pending");
+  const currentPeriodStart = assinatura.currentPeriodStart || assinatura.current_period_start || assinatura.startedAt || assinatura.started_at || assinatura.createdAt || assinatura.created_at || new Date().toISOString();
+  const currentPeriodEnd = assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || "";
   return {
     id: assinatura.id || criarIdLocal("sub"),
     clientId: assinatura.clientId || assinatura.client_id || "",
-    planId: assinatura.planId || assinatura.plan_id || assinatura.planSlug || assinatura.plan_slug || "free",
-    planSlug: normalizarSlugPlano(assinatura.planSlug || assinatura.plan_slug || assinatura.planId || assinatura.plan_id || "free"),
-    status: ["trialing", "active", "pending", "overdue", "blocked", "cancelled", "expired"].includes(String(assinatura.status || "")) ? assinatura.status : "pending",
-    statusAssinatura: assinatura.statusAssinatura || assinatura.status_assinatura || assinatura.status || "pending",
+    userId: assinatura.userId || assinatura.user_id || "",
+    planId: planSlug,
+    planSlug,
+    status,
+    statusAssinatura: normalizarStatusPlano(assinatura.statusAssinatura || assinatura.status_assinatura || status),
+    promoUsed: assinatura.promoUsed === true || assinatura.promo_used === true,
+    billingVariant: normalizarBillingVariant(assinatura.billingVariant || assinatura.billing_variant || (assinatura.promoUsed || assinatura.promo_used ? "premium_monthly" : "premium_first_month")),
+    currentPeriodStart,
+    currentPeriodEnd,
     mercadoPagoSubscriptionId: assinatura.mercadoPagoSubscriptionId || assinatura.mercado_pago_subscription_id || assinatura.subscriptionIdMercadoPago || "",
-    startedAt: assinatura.startedAt || assinatura.started_at || new Date().toISOString(),
-    expiresAt: assinatura.expiresAt || assinatura.expires_at || "",
-    nextBillingAt: assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || "",
+    startedAt: assinatura.startedAt || assinatura.started_at || currentPeriodStart,
+    expiresAt: assinatura.expiresAt || assinatura.expires_at || currentPeriodEnd,
+    nextBillingAt: assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || currentPeriodEnd,
     lastPaymentAt: assinatura.lastPaymentAt || assinatura.ultimoPagamento || assinatura.ultimo_pagamento || "",
     overdueSince: assinatura.overdueSince || assinatura.overdue_since || ""
   };
 }
 
 function normalizarPagamentoSaas(pagamento = {}) {
+  const planSlug = normalizarSlugPlano(pagamento.planSlug || pagamento.plan_slug || pagamento.planId || pagamento.plan_id || pagamento.plano || "free");
+  const billingVariant = normalizarBillingVariant(pagamento.billingVariant || pagamento.billing_variant || pagamento.metadata?.billing_variant || "");
   return {
     id: pagamento.id || criarIdLocal("pay"),
     clientId: pagamento.clientId || pagamento.client_id || "",
+    userId: pagamento.userId || pagamento.user_id || "",
     subscriptionId: pagamento.subscriptionId || pagamento.subscription_id || "",
     mercadoPagoPaymentId: pagamento.mercadoPagoPaymentId || pagamento.mercado_pago_payment_id || pagamento.paymentId || pagamento.payment_id || "",
     mercadoPagoSubscriptionId: pagamento.mercadoPagoSubscriptionId || pagamento.mercado_pago_subscription_id || "",
     preferenceId: pagamento.preferenceId || pagamento.preference_id || "",
     externalReference: pagamento.externalReference || pagamento.external_reference || "",
-    planSlug: normalizarSlugPlano(pagamento.planSlug || pagamento.plan_slug || pagamento.plano || "free"),
+    planId: planSlug,
+    planSlug,
+    billingVariant,
     amount: Math.max(0, Number(pagamento.amount ?? pagamento.valor ?? 0)),
     status: pagamento.status || "pending",
     paymentMethod: pagamento.paymentMethod || pagamento.payment_method || pagamento.metodoPagamento || pagamento.metodo_pagamento || "",
     createdAt: pagamento.createdAt || pagamento.created_at || pagamento.criadoEm || pagamento.criado_em || new Date().toISOString(),
     updatedAt: pagamento.updatedAt || pagamento.updated_at || pagamento.atualizadoEm || pagamento.atualizado_em || ""
-  };
-}
-
-function normalizarTokenPromocional(token = {}) {
-  const codigo = String(token.codigo || token.code || "").trim().toUpperCase();
-  return {
-    id: token.id || criarIdLocal("token"),
-    codigo,
-    plano: normalizarSlugPlano(token.plano || token.planSlug || "pro_token"),
-    usado: !!token.usado,
-    usadoPor: token.usadoPor || token.usado_por || "",
-    usadoEm: token.usadoEm || token.usado_em || "",
-    expiraEm: token.expiraEm || token.expira_em || "",
-    criadoEm: token.criadoEm || token.criado_em || new Date().toISOString()
   };
 }
 
@@ -1379,6 +1410,8 @@ function garantirPlanosSaas() {
   const mapa = new Map();
   DEFAULT_SAAS_PLANS.forEach((plano) => mapa.set(plano.slug, normalizarPlanoSaas(plano)));
   (Array.isArray(saasPlans) ? saasPlans : []).forEach((plano) => {
+    const slugOriginal = String(plano.slug || plano.id || "").toLowerCase().trim().replace(/-/g, "_");
+    if (!["free", "premium_trial", "premium"].includes(slugOriginal)) return;
     const normalizado = normalizarPlanoSaas(plano);
     mapa.set(normalizado.slug, { ...mapa.get(normalizado.slug), ...normalizado });
   });
@@ -1406,15 +1439,18 @@ function getAssinaturaSaas(clientId = getClientIdAtual()) {
 
 function calcularStatusAssinatura(assinatura = getAssinaturaSaas()) {
   if (!assinatura) return { status: "pending", blockLevel: "partial", diasAtraso: 0 };
-  if (["blocked", "cancelled"].includes(assinatura.status)) return { status: assinatura.status, blockLevel: "total", diasAtraso: 0 };
-  const vencimento = Date.parse(assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
-  if ((assinatura.status === "active" || assinatura.status === "trialing") && (!vencimento || vencimento >= Date.now())) {
-    return { status: assinatura.status, blockLevel: "none", diasAtraso: 0 };
+  const status = normalizarStatusPlano(assinatura.status || assinatura.statusAssinatura);
+  if (["cancelled", "expired"].includes(status)) return { status, blockLevel: "total", diasAtraso: 0 };
+  if (status === "past_due") return { status, blockLevel: "total", diasAtraso: 1 };
+  const vencimento = Date.parse(assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
+  if ((status === "active" || status === "trialing") && vencimento && vencimento >= Date.now()) {
+    return { status, blockLevel: "none", diasAtraso: 0 };
+  }
+  if (assinatura.planSlug === "free" && status === "active") {
+    return { status, blockLevel: "none", diasAtraso: 0 };
   }
   const diasAtraso = vencimento ? Math.max(0, Math.floor((Date.now() - vencimento) / (24 * 60 * 60 * 1000))) : 0;
-  if (diasAtraso <= 3) return { status: "overdue", blockLevel: "warning", diasAtraso };
-  if (diasAtraso <= 7) return { status: "overdue", blockLevel: "partial", diasAtraso };
-  return { status: "blocked", blockLevel: "total", diasAtraso };
+  return { status: status === "trialing" ? "expired" : "past_due", blockLevel: "total", diasAtraso };
 }
 
 function getUsuariosDoCliente(clientId = getClientIdAtual()) {
@@ -1440,7 +1476,7 @@ function limitePedidosAtingido() {
   if (isSuperAdmin() || isDono() || billingConfig.ownerMode) return false;
   const plano = getPlanoSaasAtual();
   if (!plano.maxOrders) return false;
-  return getPedidosMesAtual() >= plano.maxOrders;
+  return getPedidosAtivosPlanoFree() >= plano.maxOrders;
 }
 
 function garantirEstruturaSaasLocal() {
@@ -1452,17 +1488,11 @@ function garantirEstruturaSaasLocal() {
   saasClients = (Array.isArray(saasClients) ? saasClients : []).map(normalizarClienteSaas);
   saasSubscriptions = (Array.isArray(saasSubscriptions) ? saasSubscriptions : []).map(normalizarAssinaturaSaas);
   saasPayments = (Array.isArray(saasPayments) ? saasPayments : []).map(normalizarPagamentoSaas);
-  promotionalTokens = (Array.isArray(promotionalTokens) ? promotionalTokens : []).map(normalizarTokenPromocional).filter((token) => token.codigo);
   saasSessions = (Array.isArray(saasSessions) ? saasSessions : []).map(normalizarSessaoSaas);
   usageCounters = usageCounters && typeof usageCounters === "object" ? usageCounters : {};
   auditLogs = Array.isArray(auditLogs) ? auditLogs : [];
 
   billingConfig.planSlug = normalizarSlugPlano(billingConfig.planSlug || "free");
-  if (!billingConfig.campanhaInicio) billingConfig.campanhaInicio = new Date().toISOString();
-  billingConfig.campanhaFim = billingConfig.campanhaFim || TOKEN_CAMPAIGN_END_ISO;
-  if (Date.parse(billingConfig.campanhaFim) > Date.parse(TOKEN_CAMPAIGN_END_ISO)) {
-    billingConfig.campanhaFim = TOKEN_CAMPAIGN_END_ISO;
-  }
   billingConfig.cloudSyncPaidOnly = false;
 
   const planoAtual = getPlanoSaas(billingConfig.planSlug || "free");
@@ -1512,21 +1542,24 @@ function verificarVencimentoPlanoLocal(salvar = true) {
 
   saasSubscriptions.forEach((assinatura) => {
     const plano = getPlanoSaas(assinatura.planSlug);
-    const vencimento = Date.parse(assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
+    const vencimento = Date.parse(assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
     if (!vencimento || vencimento >= Date.now()) return;
-    if (["free", "cancelled"].includes(assinatura.planSlug) || assinatura.status === "cancelled") return;
+    if (assinatura.planSlug === "free" || ["cancelled", "expired"].includes(assinatura.status)) return;
 
     const diasAtraso = Math.max(0, Math.floor((Date.now() - vencimento) / (24 * 60 * 60 * 1000)));
-    if (plano.kind === "trial" || plano.kind === "token" || diasAtraso > 7) {
+    if (plano.kind === "trial") {
       assinatura.planSlug = "free";
       assinatura.planId = "free";
-      assinatura.status = "cancelled";
-      assinatura.statusAssinatura = plano.kind === "trial" || plano.kind === "token" ? "vencido" : "atrasado";
+      assinatura.status = "active";
+      assinatura.statusAssinatura = "active";
+      assinatura.currentPeriodEnd = "";
+      assinatura.expiresAt = "";
+      assinatura.nextBillingAt = "";
       assinatura.overdueSince = assinatura.overdueSince || new Date(vencimento).toISOString();
       const cliente = getClienteSaasPorId(assinatura.clientId);
       if (cliente) {
         cliente.planoAtual = "free";
-        cliente.statusAssinatura = assinatura.statusAssinatura;
+        cliente.statusAssinatura = "active";
         cliente.updatedAt = new Date().toISOString();
       }
       if (billingConfig.clientId === assinatura.clientId) {
@@ -1536,9 +1569,9 @@ function verificarVencimentoPlanoLocal(salvar = true) {
       }
       registrarAuditoria("alteração plano", { motivo: "vencimento", planoAnterior: plano.slug }, assinatura.clientId);
       alterou = true;
-    } else if (diasAtraso >= 1) {
-      assinatura.status = diasAtraso <= 3 ? "pending" : "overdue";
-      assinatura.statusAssinatura = diasAtraso <= 3 ? "pendente" : "atrasado";
+    } else if (diasAtraso >= 0) {
+      assinatura.status = "past_due";
+      assinatura.statusAssinatura = "past_due";
       assinatura.overdueSince = assinatura.overdueSince || new Date(vencimento).toISOString();
       alterou = true;
     }
@@ -1551,6 +1584,10 @@ function verificarVencimentoPlanoLocal(salvar = true) {
 function getPedidosMesAtual() {
   const prefixo = hojeIsoData().slice(0, 7);
   return pedidos.filter((pedido) => String(pedido.criadoEm || dataPedidoIso(pedido) || "").slice(0, 7) === prefixo).length;
+}
+
+function getPedidosAtivosPlanoFree() {
+  return pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"))).length;
 }
 
 function getClientesPedidoUnicos() {
@@ -1579,6 +1616,7 @@ function incrementarUsoMensal(tipo) {
 
 function planoPermiteRecurso(recurso) {
   if (isSuperAdmin() || isDono() || billingConfig.ownerMode) return true;
+  if (!canUsePremiumFeatures()) return false;
   const plano = getPlanoSaasAtual();
   if (recurso === "pdf") return !!plano.allowPdf;
   if (recurso === "reports") return !!plano.allowReports;
@@ -1589,7 +1627,6 @@ function planoPermiteRecurso(recurso) {
 function getSessionLimitPlano() {
   const slug = getPlanoSaasAtual().slug;
   if (["premium", "premium_trial"].includes(slug)) return 5;
-  if (["pro", "pro_token"].includes(slug)) return 2;
   return 1;
 }
 
@@ -1624,6 +1661,10 @@ function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug
     planSlug: plano.slug,
     planId: plano.slug,
     status: trial ? "trialing" : "pending",
+    promoUsed: false,
+    billingVariant: "premium_first_month",
+    currentPeriodStart: agora,
+    currentPeriodEnd: expiresAt,
     startedAt: agora,
     expiresAt,
     nextBillingAt: expiresAt || agora
@@ -2500,6 +2541,18 @@ function isTrialActive(user = getUsuarioAtual()) {
   return getRemainingDays(calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays)) > 0;
 }
 
+function hasPremiumAccess(subscription = getAssinaturaSaas()) {
+  if (!subscription) return false;
+  const assinatura = normalizarAssinaturaSaas(subscription);
+  const planId = normalizarSlugPlano(assinatura.planId || assinatura.planSlug);
+  const status = normalizarStatusPlano(assinatura.status);
+  const fim = Date.parse(assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
+  if (!fim || fim < Date.now()) return false;
+  if (planId === "premium_trial") return status === "trialing";
+  if (planId === "premium") return status === "active";
+  return false;
+}
+
 function hasActivePlan(user = getUsuarioAtual()) {
   if (isSuperAdmin(user)) return true;
   if (usuarioEstaBloqueado(user) || planoGlobalBloqueado()) return false;
@@ -2507,10 +2560,7 @@ function hasActivePlan(user = getUsuarioAtual()) {
 
   const assinatura = getAssinaturaSaas(user?.clientId || billingConfig.clientId || "");
   if (assinatura) {
-    const licenca = calcularStatusAssinatura(assinatura);
-    const plano = getPlanoSaas(assinatura.planSlug);
-    if (plano.kind === "free" || plano.slug === "free") return false;
-    return licenca.blockLevel === "none" || licenca.blockLevel === "warning";
+    return hasPremiumAccess(assinatura);
   }
 
   if (isTrialActive(user)) return true;
@@ -2567,20 +2617,20 @@ function getPlanoAtual(user = getUsuarioAtual()) {
   if (assinaturaSaas) {
     const planoSaas = getPlanoSaas(assinaturaSaas.planSlug);
     const licenca = calcularStatusAssinatura(assinaturaSaas);
-    const diasPlano = getRemainingDays(assinaturaSaas.expiresAt || assinaturaSaas.nextBillingAt);
-    const completo = planoSaas.kind !== "free" && (licenca.blockLevel === "none" || licenca.blockLevel === "warning");
+    const diasPlano = getRemainingDays(assinaturaSaas.currentPeriodEnd || assinaturaSaas.expiresAt || assinaturaSaas.nextBillingAt);
+    const completo = hasPremiumAccess(assinaturaSaas);
     const nomeStatus = licenca.status === "trialing" ? "Trial" : planoSaas.name;
     const mensagens = {
       trialing: `${diasPlano || DEFAULT_TRIAL_DAYS} dia(s) restantes no teste grátis`,
       active: "Plano ativo",
       pending: "Pagamento pendente",
-      overdue: licenca.blockLevel === "warning" ? "Pagamento pendente" : "Plano vencido",
-      blocked: "Seu plano está inativo. Regularize para continuar.",
+      past_due: "Plano vencido",
+      expired: "Plano vencido",
       cancelled: "Plano cancelado"
     };
     return {
       nome: nomeStatus,
-      status: licenca.status === "active" ? "pago" : licenca.status === "trialing" ? "trial" : licenca.status === "overdue" ? "atrasado" : licenca.status === "pending" ? "pendente" : "bloqueado",
+      status: licenca.status === "active" && planoSaas.slug !== "free" ? "pago" : licenca.status === "trialing" ? "trial" : licenca.status === "past_due" ? "atrasado" : licenca.status === "pending" ? "pendente" : licenca.status === "active" ? "gratis" : "bloqueado",
       completo,
       blockLevel: licenca.blockLevel,
       diasRestantes: diasPlano,
@@ -2760,10 +2810,9 @@ function getDocumentoLegal(tipo = "termos") {
       {
         titulo: "Planos e pagamentos",
         itens: [
-          "O Plano Free permite 1 usuário, até 10 clientes, até 10 pedidos por mês, 30 usos da calculadora e backup online limitado.",
-          "O Plano Pro custa R$ 29,90/mês, permite 2 usuários, pedidos ilimitados e exportação em PDF.",
-          "O Plano Premium custa R$ 54,90/mês, permite 5 usuários, relatórios, permissões e backup com maior capacidade.",
-          "O Premium Trial libera recursos por 7 dias para novas contas. Tokens promocionais Pro liberam 3 dias e a campanha para novos clientes termina em 30 de junho de 2026.",
+          "O Plano Free permite 1 usuário, até 10 pedidos ativos, 30 usos da calculadora e backup online limitado.",
+          "O Premium Trial libera recursos completos por 7 dias para novas contas.",
+          "O Premium usa primeiro pagamento de R$ 19,90 quando a condição inicial ainda não foi usada e mensalidade de R$ 29,90 nos pagamentos seguintes.",
           "Pagamentos pendentes, vencidos ou não confirmados podem limitar criação de novos dados, mantendo acesso para visualização e regularização."
         ]
       },
@@ -2843,7 +2892,7 @@ function verificarLimitePedidosAntesCriar() {
     return false;
   }
   if (!limitePedidosAtingido()) return true;
-  mostrarModalLimitePlano("Você atingiu o limite do seu plano. Faça upgrade para continuar.");
+  mostrarModalLimitePlano("Limite atingido. Assine o Premium para continuar.");
   return false;
 }
 
@@ -4424,12 +4473,16 @@ function renderClientesSaas() {
   const linhas = lista.map((cliente) => {
     const assinatura = getAssinaturaSaas(cliente.id);
     const plano = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
+    const usuarioPrincipal = getUsuariosDoCliente(cliente.id)[0];
     return `
       <div class="client-admin-row">
         <div>
           <strong>${escaparHtml(cliente.name)}</strong>
           <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)}</span>
           <span class="muted">${escaparHtml(cliente.email)}${cliente.phone ? " • " + escaparHtml(cliente.phone) : ""}</span>
+          <span class="muted">user_id: ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")}</span>
+          <span class="muted">plan_id: ${escaparHtml(assinatura?.planSlug || cliente.planoAtual || "free")} • status: ${escaparHtml(normalizarStatusPlano(assinatura?.status || cliente.statusAssinatura || "active"))}</span>
+          <span class="muted">promo_used: ${assinatura?.promoUsed ? "true" : "false"} • expira: ${assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"}</span>
         </div>
         <span class="status-badge">${escaparHtml(plano.name)}</span>
         <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
@@ -4550,14 +4603,14 @@ async function alterarPlanoClienteSaas(id) {
   const planoAtual = getPlanoSaas(getAssinaturaSaas(id)?.planSlug || cliente.planoAtual || "free");
   const respostaPlano = await solicitarEntradaTexto({
     titulo: "Alterar plano",
-    mensagem: "Use: free, pro, premium, pro_token ou premium_trial.",
+    mensagem: "Use: free, premium_trial ou premium.",
     valor: planoAtual.slug,
     obrigatorio: true
   });
   if (respostaPlano === null) return;
   const novoPlano = normalizarSlugPlano(respostaPlano || "");
   const plano = getPlanoSaas(novoPlano);
-  if (!["free", "pro", "premium", "pro_token", "premium_trial"].includes(novoPlano)) {
+  if (!["free", "premium_trial", "premium"].includes(novoPlano)) {
     alert("Plano inválido.");
     return;
   }
@@ -4566,11 +4619,23 @@ async function alterarPlanoClienteSaas(id) {
     assinatura = normalizarAssinaturaSaas({ clientId: id, planSlug: plano.slug, status: "pending" });
     saasSubscriptions.push(assinatura);
   }
+  const agora = new Date();
+  const fim = new Date(agora);
+  if (plano.slug === "premium_trial") fim.setDate(fim.getDate() + DEFAULT_TRIAL_DAYS);
+  if (plano.slug === "premium") fim.setDate(fim.getDate() + 30);
+  const statusPlano = plano.slug === "premium_trial" ? "trialing" : "active";
   assinatura.planSlug = plano.slug;
   assinatura.planId = plano.slug;
-  assinatura.status = assinatura.status === "cancelled" ? "pending" : assinatura.status;
+  assinatura.status = statusPlano;
+  assinatura.statusAssinatura = statusPlano;
+  assinatura.promoUsed = plano.slug === "premium";
+  assinatura.billingVariant = assinatura.promoUsed ? "premium_monthly" : "premium_first_month";
+  assinatura.currentPeriodStart = plano.slug === "free" ? "" : agora.toISOString();
+  assinatura.currentPeriodEnd = plano.slug === "free" ? "" : fim.toISOString();
+  assinatura.expiresAt = assinatura.currentPeriodEnd;
+  assinatura.nextBillingAt = assinatura.currentPeriodEnd;
   cliente.planoAtual = plano.slug;
-  cliente.statusAssinatura = assinatura.status;
+  cliente.statusAssinatura = statusPlano;
   cliente.updatedAt = new Date().toISOString();
   salvarDados();
   registrarAuditoria("alteração plano", { email: cliente.email, plano: plano.slug }, cliente.id);
@@ -5635,19 +5700,17 @@ function statusUsuarioPlano(usuario) {
 
 function getSuperAdminMetricas() {
   garantirEstruturaSaasLocal();
-  const porPlano = { free: 0, pro: 0, premium: 0, trial: 0, token: 0 };
+  const porPlano = { free: 0, premium: 0, trial: 0 };
   saasClients.forEach((cliente) => {
     const plano = getPlanoSaas(getAssinaturaSaas(cliente.id)?.planSlug || cliente.planoAtual || "free");
     if (plano.kind === "trial") porPlano.trial += 1;
-    else if (plano.kind === "token") porPlano.token += 1;
     else if (plano.slug === "premium") porPlano.premium += 1;
-    else if (plano.slug === "pro") porPlano.pro += 1;
     else porPlano.free += 1;
   });
   return {
     total: saasClients.length,
     ativos: saasClients.filter((cliente) => cliente.status === "active").length,
-    vencidos: saasSubscriptions.filter((assinatura) => ["overdue", "blocked", "cancelled", "expired"].includes(assinatura.status)).length,
+    vencidos: saasSubscriptions.filter((assinatura) => ["past_due", "cancelled", "expired"].includes(normalizarStatusPlano(assinatura.status))).length,
     pendentes: saasPayments.filter((pagamento) => pagamento.status === "pending").length,
     receita: saasPayments.filter((pagamento) => pagamento.status === "approved").reduce((total, pagamento) => total + Number(pagamento.amount || 0), 0),
     porPlano
@@ -5742,10 +5805,9 @@ function renderSuperAdminDashboard() {
   const cards = [
     ["Total clientes", metricas.total, "clientes", ""],
     ["Free", metricas.porPlano.free, "clientes", "free"],
-    ["Pro", metricas.porPlano.pro, "clientes", "pro"],
     ["Premium", metricas.porPlano.premium, "clientes", "premium"],
-    ["Trial / Token", metricas.porPlano.trial + metricas.porPlano.token, "clientes", "premium_trial"],
-    ["Vencidos", metricas.vencidos, "clientesStatus", "overdue"],
+    ["Trial", metricas.porPlano.trial, "clientes", "premium_trial"],
+    ["Vencidos", metricas.vencidos, "clientesStatus", "past_due"],
     ["Pagamentos pendentes", metricas.pendentes, "pagamentos", "pending"],
     ["Receita", formatarMoeda(metricas.receita), "pagamentos", "approved"]
   ];
@@ -5763,10 +5825,8 @@ function renderSuperAdminDashboard() {
       ${renderGraficoBarras("Receita", getSeriesMensais("receita"))}
       ${renderGraficoPizza("Planos", [
         { label: "Free", valor: metricas.porPlano.free },
-        { label: "Pro", valor: metricas.porPlano.pro },
         { label: "Premium", valor: metricas.porPlano.premium },
-        { label: "Trial", valor: metricas.porPlano.trial },
-        { label: "Token", valor: metricas.porPlano.token }
+        { label: "Trial", valor: metricas.porPlano.trial }
       ])}
       ${renderGraficoBarras("Pagamentos", ["approved", "pending", "rejected", "cancelled"].map((status) => ({
         label: status,
@@ -5805,7 +5865,7 @@ function renderSuperAdminPagamentos() {
 function renderSuperAdminPlanos() {
   return `
     <div class="comparison-grid">
-      ${garantirPlanosSaas().map((plano) => `
+      ${garantirPlanosSaas().filter((plano) => ["free", "premium_trial", "premium"].includes(plano.slug)).map((plano) => `
         <div class="plan-card ${plano.recommended ? "featured" : ""}">
           <div class="row-title"><strong>${escaparHtml(plano.name)}</strong><span>${formatarMoeda(plano.price)}</span></div>
           <p class="muted">${plano.maxUsers} usuário(s) • ${plano.maxOrders || "pedidos ilimitados"} • ${plano.maxCalculatorUses || "calculadora ilimitada"}</p>
@@ -5816,35 +5876,8 @@ function renderSuperAdminPlanos() {
   `;
 }
 
-function renderSuperAdminTokens() {
-  const tokens = promotionalTokens.slice().sort((a, b) => (Date.parse(b.criadoEm || 0) || 0) - (Date.parse(a.criadoEm || 0) || 0));
-  const fimCampanha = new Date(Math.min(Date.parse(billingConfig.campanhaFim || TOKEN_CAMPAIGN_END_ISO), Date.parse(TOKEN_CAMPAIGN_END_ISO))).toISOString().slice(0, 10);
-  return `
-    <div class="sync-grid">
-      <label class="field"><span>Quantidade</span><input id="tokenQtdInput" type="number" min="1" max="100" value="10"></label>
-      <label class="field"><span>Expira em</span><input id="tokenExpiraInput" type="date" max="2026-06-30" value="${fimCampanha}"></label>
-      <label class="field"><span>Campanha até</span><input id="campanhaFimInput" type="date" max="2026-06-30" value="${fimCampanha}"></label>
-      <label class="checkbox-row"><input id="campanhaTokensAtivaInput" type="checkbox" ${billingConfig.campanhaTokensAtiva ? "checked" : ""}><span>Campanha ativa</span></label>
-      <button class="btn" onclick="gerarTokensPromocionaisSuperAdmin()">Gerar token</button>
-    </div>
-    <p class="muted">Novos tokens para clientes ficam limitados até 30/06/2026. Depois disso, o sistema não gera nem aceita novos tokens promocionais locais.</p>
-    <div class="payment-table admin-table">
-      ${tokens.map((token) => `
-        <div class="payment-row">
-          <strong>${escaparHtml(token.codigo)}</strong>
-          <span>${escaparHtml(getPlanoSaas(token.plano).name)}</span>
-          <span class="status-badge ${token.usado ? "badge-danger" : "badge-ativo"}">${token.usado ? "usado" : "livre"}</span>
-          <span>${token.expiraEm ? new Date(token.expiraEm).toLocaleDateString("pt-BR") : "-"}</span>
-          <span>${escaparHtml(token.usadoPor || "-")}</span>
-          <button class="btn ghost" onclick="copiarTokenPromocional('${escaparAttr(token.codigo)}')">Copiar</button>
-        </div>
-      `).join("") || `<p class="empty">Nenhum token gerado.</p>`}
-    </div>
-  `;
-}
-
 function renderSuperAdminTrial() {
-  const trials = saasSubscriptions.filter((assinatura) => ["premium_trial", "pro_token"].includes(assinatura.planSlug));
+  const trials = saasSubscriptions.filter((assinatura) => assinatura.planSlug === "premium_trial");
   return `
     <div class="payment-table admin-table">
       ${trials.map((assinatura) => {
@@ -5858,7 +5891,7 @@ function renderSuperAdminTrial() {
             <span>${assinatura.expiresAt ? new Date(assinatura.expiresAt).toLocaleDateString("pt-BR") : "-"}</span>
           </div>
         `;
-      }).join("") || `<p class="empty">Nenhum trial/token ativo.</p>`}
+      }).join("") || `<p class="empty">Nenhum trial ativo.</p>`}
     </div>
   `;
 }
@@ -5904,7 +5937,7 @@ function renderSuperAdminConfiguracoes() {
     <div class="sync-grid">
       <label class="field"><span>Buscar por e-mail</span><input value="${escaparAttr(window.__superAdminBusca || "")}" oninput="filtrarSuperAdmin(this.value)" placeholder="cliente@email.com"></label>
       <label class="field"><span>E-mail para acesso manual</span><input id="superEmail" type="email" placeholder="cliente@email.com"></label>
-      <label class="field"><span>Tipo de plano</span><select id="superPlanoTipo"><option value="trial">Trial</option><option value="paid">Pago</option><option value="free">Free</option></select></label>
+      <label class="field"><span>Tipo de plano</span><select id="superPlanoTipo"><option value="trial">Trial</option><option value="paid">Premium</option><option value="free">Free</option></select></label>
       <label class="field"><span>Dias</span><input id="superPlanoDias" type="number" min="1" step="1" value="7"></label>
     </div>
     <div class="actions">
@@ -5943,7 +5976,6 @@ function renderSuperAdminConteudo(tab) {
     clientes: renderClientesSaas,
     pagamentos: renderSuperAdminPagamentos,
     planos: renderSuperAdminPlanos,
-    tokens: renderSuperAdminTokens,
     trial: renderSuperAdminTrial,
     logs: renderSuperAdminLogs,
     suporte: renderSuperAdminSuporte,
@@ -5963,7 +5995,6 @@ function renderSuperAdmin() {
     ["clientes", "Clientes"],
     ["pagamentos", "Pagamentos"],
     ["planos", "Planos"],
-    ["tokens", "Tokens"],
     ["trial", "Trial"],
     ["logs", "Logs"],
     ["suporte", "Suporte"],
@@ -5976,7 +6007,7 @@ function renderSuperAdmin() {
         <h2>🛡️ Superadmin Simplifica 3D</h2>
         <span class="status-badge badge-superadmin">Acesso total</span>
       </div>
-      <p class="muted">Painel SaaS com métricas, planos, pagamentos, tokens e controle de clientes.</p>
+      <p class="muted">Painel SaaS com métricas, planos, pagamentos e controle de clientes.</p>
       <div class="superadmin-tabs">
         ${abas.map(([id, label]) => `<button class="tab-button ${tab === id ? "active" : ""}" onclick="trocarAbaSuperAdmin('${id}')">${label}</button>`).join("")}
       </div>
@@ -6007,58 +6038,6 @@ function abrirSuperAdminFiltro(tab, filtro) {
 function filtrarPagamentosSuperAdmin(status) {
   window.__superAdminPagamentoFiltro = status || "";
   renderApp();
-}
-
-function gerarCodigoTokenPromocional() {
-  const parte = Math.random().toString(36).slice(2, 6).toUpperCase();
-  const parte2 = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `S3D-PRO-${parte}-${parte2}`;
-}
-
-function gerarTokensPromocionaisSuperAdmin() {
-  if (!isSuperAdmin()) return;
-  const quantidade = Math.min(100, Math.max(1, Number(document.getElementById("tokenQtdInput")?.value || 1) || 1));
-  const limiteCampanha = Date.parse(TOKEN_CAMPAIGN_END_ISO);
-  const expiraInput = document.getElementById("tokenExpiraInput")?.value || "";
-  const campanhaInput = document.getElementById("campanhaFimInput")?.value || "2026-06-30";
-  const expiraMs = Math.min(Date.parse((expiraInput || "2026-06-30") + "T23:59:59"), limiteCampanha);
-  const campanhaMs = Math.min(Date.parse((campanhaInput || "2026-06-30") + "T23:59:59"), limiteCampanha);
-  billingConfig.campanhaTokensAtiva = !!document.getElementById("campanhaTokensAtivaInput")?.checked;
-  billingConfig.campanhaFim = new Date(campanhaMs).toISOString();
-  if (!billingConfig.campanhaTokensAtiva || Date.now() > limiteCampanha) {
-    alert("Campanha de tokens encerrada.");
-    salvarDados();
-    renderApp();
-    return;
-  }
-  const novos = [];
-  for (let i = 0; i < quantidade; i += 1) {
-    let codigo = gerarCodigoTokenPromocional();
-    while (promotionalTokens.some((token) => token.codigo === codigo) || novos.some((token) => token.codigo === codigo)) {
-      codigo = gerarCodigoTokenPromocional();
-    }
-    novos.push(normalizarTokenPromocional({
-      codigo,
-      plano: "pro_token",
-      expiraEm: new Date(expiraMs).toISOString(),
-      criadoEm: new Date().toISOString()
-    }));
-  }
-  promotionalTokens.unshift(...novos);
-  salvarDados();
-  registrarAuditoria("token gerado", { quantidade });
-  renderApp();
-}
-
-function copiarTokenPromocional(codigo) {
-  const link = `${location.origin}${location.pathname}?token=${encodeURIComponent(codigo)}`;
-  navigator.clipboard?.writeText(link).then(() => alert("Link do token copiado.")).catch(() => {
-    solicitarEntradaTexto({
-      titulo: "Copie o link do token",
-      mensagem: "Selecione o conteúdo abaixo para compartilhar.",
-      valor: link
-    });
-  });
 }
 
 function filtrarSuperAdmin(valor) {
@@ -6319,7 +6298,7 @@ function renderAssinatura() {
   const downloadAndroid = billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
   const downloadWindows = billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || location.origin;
   const planoSaas = getPlanoSaasAtual();
-  const planos = garantirPlanosSaas().filter((item) => ["free", "pro", "premium"].includes(item.slug));
+  const planos = garantirPlanosSaas().filter((item) => ["free", "premium"].includes(item.slug));
 
   return `
     <section class="card">
@@ -6339,7 +6318,7 @@ function renderAssinatura() {
           <div class="metric"><span>Plano atual</span><strong>${escaparHtml(planoSaas.name)}</strong></div>
           <div class="metric"><span>Usuários</span><strong>${planoSaas.maxUsers}</strong></div>
           <div class="metric"><span>Pedidos</span><strong>${planoSaas.maxOrders ? planoSaas.maxOrders + "/mês" : "Ilimitados"}</strong></div>
-          <div class="metric"><span>Recomendado</span><strong>Pro R$ 29,90</strong></div>
+          <div class="metric"><span>Recomendado</span><strong>Premium R$ 29,90</strong></div>
         </div>
       </div>
 
@@ -6465,7 +6444,7 @@ function renderMinhaAssinatura() {
           <div class="metric"><span>Subscription ID</span><strong>${escaparHtml(assinatura?.mercadoPagoSubscriptionId || "-")}</strong></div>
         </div>
         <div class="actions">
-          <button class="btn" type="button" data-action="plan-renew" data-slug="${escaparAttr(plano.slug === "free" ? "pro" : plano.slug)}">Renovar plano</button>
+          <button class="btn" type="button" data-action="plan-renew" data-slug="${escaparAttr(plano.slug === "free" ? "premium" : plano.slug)}">Renovar plano</button>
           <button class="btn secondary" type="button" data-action="open-screen" data-screen="assinatura">Alterar plano</button>
           <button class="btn ghost" type="button" data-action="plan-cancel">Cancelar assinatura</button>
           <button class="btn ghost" type="button" data-action="plan-support">Falar com suporte</button>
@@ -6474,15 +6453,6 @@ function renderMinhaAssinatura() {
 
       <h2 class="section-title">Histórico de pagamentos</h2>
       <div class="payment-table">${linhas}</div>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Token promocional</h2>
-        <label class="field">
-          <span>Código do token</span>
-          <input id="tokenPromocionalInput" placeholder="S3D-PRO-XXXX">
-        </label>
-        <button class="btn secondary" type="button" data-action="token-use">Ativar token</button>
-      </div>
     </section>
   `;
 }
@@ -6623,6 +6593,10 @@ function registrarDiagnosticoManual() {
 
 function escolherPlanoSaas(slug = "free") {
   const plano = getPlanoSaas(slug);
+  if (!["free", "premium"].includes(plano.slug)) {
+    alert("Plano indisponível.");
+    return;
+  }
   const clientId = getClientIdAtual() || billingConfig.clientId || criarIdLocal("client");
   if (!billingConfig.clientId) billingConfig.clientId = clientId;
   let assinatura = getAssinaturaSaas(clientId);
@@ -6674,10 +6648,16 @@ function iniciarTesteGratis(slug = "premium_trial") {
       saasSubscriptions.push(assinatura);
     }
     assinatura.planSlug = plano.slug;
+    assinatura.planId = plano.slug;
     assinatura.status = "trialing";
+    assinatura.statusAssinatura = "trialing";
+    assinatura.promoUsed = false;
+    assinatura.billingVariant = "premium_first_month";
     assinatura.startedAt = billingConfig.trialStartedAt;
-    assinatura.expiresAt = calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays);
-    assinatura.nextBillingAt = assinatura.expiresAt;
+    assinatura.currentPeriodStart = billingConfig.trialStartedAt;
+    assinatura.currentPeriodEnd = calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays);
+    assinatura.expiresAt = assinatura.currentPeriodEnd;
+    assinatura.nextBillingAt = assinatura.currentPeriodEnd;
     billingConfig.subscriptionId = assinatura.id;
     billingConfig.paidUntil = assinatura.expiresAt;
     if (!registrarDispositivoLicenca(email)) return;
@@ -6713,8 +6693,12 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
   const expiresAt = dias > 0 ? new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString() : "";
   assinatura.planSlug = plano.slug;
   assinatura.planId = plano.slug;
-  assinatura.status = status;
-  assinatura.statusAssinatura = status === "active" ? "ativo" : status === "trialing" ? "trial" : status;
+  assinatura.status = normalizarStatusPlano(status);
+  assinatura.statusAssinatura = assinatura.status;
+  assinatura.promoUsed = detalhes.promoUsed === true || assinatura.promoUsed === true;
+  assinatura.billingVariant = normalizarBillingVariant(detalhes.billingVariant || getBillingVariantAssinatura(assinatura));
+  assinatura.currentPeriodStart = agora;
+  assinatura.currentPeriodEnd = expiresAt;
   assinatura.startedAt = assinatura.startedAt || agora;
   assinatura.expiresAt = expiresAt;
   assinatura.nextBillingAt = expiresAt;
@@ -6767,6 +6751,7 @@ async function chamarFuncaoSaas(nome, corpo = {}) {
 function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription") {
   const clientId = getClientIdAtual() || billingConfig.clientId;
   const assinatura = garantirAssinaturaClienteLocal(clientId);
+  const billingVariant = normalizarBillingVariant(dados.billing_variant || dados.billingVariant || getBillingVariantAssinatura(assinatura));
   const pagamento = normalizarPagamentoSaas({
     clientId,
     subscriptionId: assinatura.id,
@@ -6774,7 +6759,8 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
     preferenceId: dados.preference_id || dados.preferenceId || "",
     externalReference: dados.external_reference || "",
     planSlug: plano.slug,
-    amount: plano.price,
+    billingVariant,
+    amount: Number(dados.amount || dados.valor || getPrecoBillingVariant(billingVariant)),
     status: "pending",
     paymentMethod: "mercado_pago",
     createdAt: new Date().toISOString()
@@ -6786,9 +6772,9 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
   registrarAuditoria("pagamento criado", { tipo, plano: plano.slug, preferenceId: pagamento.preferenceId, subscriptionId: pagamento.mercadoPagoSubscriptionId }, clientId);
 }
 
-async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "pro") {
+async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") {
   const plano = getPlanoSaas(slug);
-  if (!["pro", "premium"].includes(plano.slug)) {
+  if (plano.slug !== "premium") {
     trocarTela("assinatura");
     return;
   }
@@ -6802,16 +6788,21 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "pro") {
 
   registrarAuditoria("tentativa", { tipo: "assinatura", plano: plano.slug }, clientId);
   try {
-    const dados = await chamarFuncaoSaas("mercadopago-create-subscription", {
+    const assinatura = garantirAssinaturaClienteLocal(clientId);
+    const billingVariant = getBillingVariantAssinatura(assinatura);
+    const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
       clienteId: clientId,
-      plano: plano.slug,
+      plan_id: plano.slug,
+      billing_variant: billingVariant,
+      plan: plano.slug,
+      planSlug: plano.slug,
       email: getEmailLicencaAtual()
     });
-    if (!dados?.init_point) throw new Error("Link de assinatura não retornado.");
-    registrarPagamentoLocalPendente(plano, dados, "subscription");
+    if (!dados?.init_point) throw new Error("Link de pagamento não retornado.");
+    registrarPagamentoLocalPendente(plano, dados, "payment");
     window.open(dados.init_point, "_blank");
   } catch (erro) {
-    registrarDiagnostico("Mercado Pago", "Assinatura não criada", erro.message);
+    registrarDiagnostico("Mercado Pago", "Pagamento não criado", erro.message);
     if (billingConfig.mercadoPagoLink) {
       window.open(billingConfig.mercadoPagoLink, "_blank");
       return;
@@ -6820,10 +6811,10 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "pro") {
   }
 }
 
-async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "pro") {
+async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "premium") {
   const plano = getPlanoSaas(slug);
-  if (!["pro", "premium"].includes(plano.slug)) {
-    alert("Pagamento avulso disponível para Pro e Premium.");
+  if (plano.slug !== "premium") {
+    alert("Pagamento disponível para o plano Premium.");
     return;
   }
 
@@ -6835,9 +6826,14 @@ async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "
   }
 
   try {
+    const assinatura = garantirAssinaturaClienteLocal(clientId);
+    const billingVariant = getBillingVariantAssinatura(assinatura);
     const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
       clienteId: clientId,
-      plano: plano.slug,
+      plan_id: plano.slug,
+      billing_variant: billingVariant,
+      plan: plano.slug,
+      planSlug: plano.slug,
       email: getEmailLicencaAtual()
     });
     if (!dados?.init_point) throw new Error("Link de pagamento não retornado.");
@@ -6847,73 +6843,6 @@ async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "
     registrarDiagnostico("Mercado Pago", "Pagamento não criado", erro.message);
     alert(erro.message || "Não foi possível iniciar o pagamento agora.");
   }
-}
-
-function tokenCampanhaAtiva() {
-  if (!billingConfig.campanhaTokensAtiva) return false;
-  const inicio = Date.parse(billingConfig.campanhaInicio || 0) || 0;
-  const fimConfigurado = Date.parse(billingConfig.campanhaFim || TOKEN_CAMPAIGN_END_ISO) || 0;
-  const fim = Math.min(fimConfigurado || Date.parse(TOKEN_CAMPAIGN_END_ISO), Date.parse(TOKEN_CAMPAIGN_END_ISO));
-  const agora = Date.now();
-  if (inicio && agora < inicio) return false;
-  if (fim && agora > fim) return false;
-  return true;
-}
-
-async function usarTokenPromocional() {
-  const codigo = String(document.getElementById("tokenPromocionalInput")?.value || "").trim().toUpperCase();
-  if (!codigo) {
-    alert("Informe o código do token.");
-    return;
-  }
-
-  const clientId = getClientIdAtual() || billingConfig.clientId;
-  const email = getEmailLicencaAtual();
-  if (!clientId && !email) {
-    alert("Entre na conta antes de ativar um token.");
-    return;
-  }
-
-  if (syncConfig.supabaseAccessToken) {
-    try {
-      const resultado = await requisicaoSupabase("/rest/v1/rpc/redeem_promotional_token", {
-        method: "POST",
-        body: JSON.stringify({ p_codigo: codigo })
-      });
-      if (!resultado?.ok) throw new Error(resultado?.message || "Token inválido.");
-      ativarPlanoClienteLocal(clientId || billingConfig.clientId, "pro_token", "active", TOKEN_PRO_DAYS, { token: codigo, origem: "supabase" });
-      await consultarLicencaSupabaseSilencioso();
-      alert("Token ativado. Pro liberado por 3 dias.");
-      renderApp();
-      return;
-    } catch (erro) {
-      registrarDiagnostico("Token", "Token online não ativado", erro.message);
-      alert(erro.message || "Token inválido ou já usado.");
-      return;
-    }
-  }
-
-  if (!tokenCampanhaAtiva()) {
-    alert("Campanha de tokens encerrada.");
-    return;
-  }
-  const usadoAntes = promotionalTokens.some((token) => token.usado && [clientId, email].includes(token.usadoPor));
-  if (usadoAntes) {
-    alert("Este usuário já usou um token promocional.");
-    return;
-  }
-  const token = promotionalTokens.find((item) => item.codigo === codigo);
-  if (!token || token.usado || (token.expiraEm && Date.parse(token.expiraEm) < Date.now())) {
-    alert("Token inválido ou já usado.");
-    return;
-  }
-  token.usado = true;
-  token.usadoPor = clientId || email;
-  token.usadoEm = new Date().toISOString();
-  ativarPlanoClienteLocal(clientId || billingConfig.clientId, "pro_token", "active", TOKEN_PRO_DAYS, { token: codigo, origem: "local" });
-  registrarAuditoria("uso de token", { codigo }, clientId);
-  alert("Token ativado. Pro liberado por 3 dias.");
-  renderApp();
 }
 
 async function cancelarAssinaturaCliente() {
@@ -7916,7 +7845,6 @@ function criarSnapshotBackup() {
       saasPlans: garantirPlanosSaas(),
       saasSubscriptions,
       saasPayments,
-      promotionalTokens,
       saasSessions,
       usageCounters,
       usuarios: normalizarUsuarios(usuarios),
@@ -7990,7 +7918,6 @@ function normalizarBackup(dados) {
     saasPlans: Array.isArray(origem.saasPlans) ? origem.saasPlans : [],
     saasSubscriptions: Array.isArray(origem.saasSubscriptions) ? origem.saasSubscriptions : [],
     saasPayments: Array.isArray(origem.saasPayments) ? origem.saasPayments : [],
-    promotionalTokens: Array.isArray(origem.promotionalTokens) ? origem.promotionalTokens : [],
     saasSessions: Array.isArray(origem.saasSessions) ? origem.saasSessions : [],
     usageCounters: origem.usageCounters && typeof origem.usageCounters === "object" ? origem.usageCounters : {},
     usuarios: normalizarUsuarios(origem.usuarios),
@@ -8017,7 +7944,6 @@ function aplicarBackup(dados, modo = "substituir") {
     saasPlans = mesclarListas(saasPlans, backup.saasPlans).map(normalizarPlanoSaas);
     saasSubscriptions = mesclarListas(saasSubscriptions, backup.saasSubscriptions).map(normalizarAssinaturaSaas);
     saasPayments = mesclarListas(saasPayments, backup.saasPayments).map(normalizarPagamentoSaas);
-    promotionalTokens = mesclarListas(promotionalTokens, backup.promotionalTokens).map(normalizarTokenPromocional);
     saasSessions = mesclarListas(saasSessions, backup.saasSessions).map(normalizarSessaoSaas);
     usageCounters = { ...backup.usageCounters, ...usageCounters };
     usuarios = mesclarUsuarios(usuarios, backup.usuarios);
@@ -8035,7 +7961,6 @@ function aplicarBackup(dados, modo = "substituir") {
     saasPlans = backup.saasPlans.map(normalizarPlanoSaas);
     saasSubscriptions = backup.saasSubscriptions.map(normalizarAssinaturaSaas);
     saasPayments = backup.saasPayments.map(normalizarPagamentoSaas);
-    promotionalTokens = backup.promotionalTokens.map(normalizarTokenPromocional);
     saasSessions = backup.saasSessions.map(normalizarSessaoSaas);
     usageCounters = backup.usageCounters || {};
     usuarios = backup.usuarios.length ? normalizarUsuarios(backup.usuarios) : normalizarUsuarios(usuarios);
@@ -8273,7 +8198,7 @@ async function carregarSaasSupabaseSilencioso() {
     });
     const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline, perfisOnline, perfisErpOnline] = await Promise.all([
       requisicaoSupabase("/rest/v1/clients?select=*&order=created_at.desc&limit=1000"),
-      requisicaoSupabase("/rest/v1/subscriptions?select=*&order=created_at.desc&limit=1000"),
+      requisicaoSupabase("/rest/v1/subscriptions?select=*,plans(*)&order=created_at.desc&limit=1000"),
       requisicaoSupabase("/rest/v1/payments?select=*&order=created_at.desc&limit=1000"),
       requisicaoSupabase("/rest/v1/plans?select=*&order=price.asc"),
       carregarPerfis("/rest/v1/profiles?select=*&order=created_at.desc&limit=1000", "profiles"),
@@ -8371,9 +8296,9 @@ function aplicarLicencaSaasOnline(licenca = {}) {
   if (licenca.client_id) billingConfig.clientId = String(licenca.client_id);
   if (licenca.subscription_id) billingConfig.subscriptionId = String(licenca.subscription_id);
   if (licenca.plan_slug) billingConfig.planSlug = normalizarSlugPlano(licenca.plan_slug);
-  billingConfig.licenseStatus = String(licenca.status || billingConfig.licenseStatus || "pending");
+  billingConfig.licenseStatus = normalizarStatusPlano(licenca.status || billingConfig.licenseStatus || "pending");
   billingConfig.licenseBlockLevel = String(licenca.block_level || "none");
-  if (licenca.expires_at) billingConfig.paidUntil = String(licenca.expires_at);
+  if (licenca.current_period_end || licenca.expires_at) billingConfig.paidUntil = String(licenca.current_period_end || licenca.expires_at);
 
   let cliente = getClienteSaasPorId(billingConfig.clientId);
   if (!cliente && billingConfig.clientId) {
@@ -8391,8 +8316,8 @@ function aplicarLicencaSaasOnline(licenca = {}) {
   if (cliente) {
     if (licenca.client_code) cliente.clientCode = String(licenca.client_code);
     cliente.planoAtual = normalizarSlugPlano(licenca.plan_slug || cliente.planoAtual);
-    cliente.statusAssinatura = String(licenca.status || cliente.statusAssinatura);
-    cliente.status = licenca.block_level === "total" ? "blocked" : licenca.status === "overdue" ? "overdue" : "active";
+    cliente.statusAssinatura = normalizarStatusPlano(licenca.status || cliente.statusAssinatura);
+    cliente.status = licenca.block_level === "total" ? "blocked" : licenca.status === "past_due" ? "overdue" : "active";
     cliente.updatedAt = new Date().toISOString();
   }
 
@@ -8402,15 +8327,25 @@ function aplicarLicencaSaasOnline(licenca = {}) {
     assinatura.statusAssinatura = String(licenca.status_assinatura || licenca.status || assinatura.statusAssinatura);
     assinatura.planSlug = normalizarSlugPlano(licenca.plan_slug || assinatura.planSlug);
     assinatura.planId = assinatura.planSlug;
-    assinatura.expiresAt = licenca.expires_at || assinatura.expiresAt;
-    assinatura.nextBillingAt = licenca.next_billing_at || assinatura.nextBillingAt;
+    assinatura.userId = licenca.user_id || assinatura.userId;
+    assinatura.promoUsed = licenca.promo_used === true || assinatura.promoUsed === true;
+    assinatura.billingVariant = normalizarBillingVariant(licenca.billing_variant || assinatura.billingVariant);
+    assinatura.currentPeriodStart = licenca.current_period_start || assinatura.currentPeriodStart;
+    assinatura.currentPeriodEnd = licenca.current_period_end || licenca.expires_at || assinatura.currentPeriodEnd;
+    assinatura.expiresAt = assinatura.currentPeriodEnd || assinatura.expiresAt;
+    assinatura.nextBillingAt = licenca.next_billing_at || assinatura.currentPeriodEnd || assinatura.nextBillingAt;
     assinatura.mercadoPagoSubscriptionId = licenca.mercado_pago_subscription_id || assinatura.mercadoPagoSubscriptionId;
   } else if (billingConfig.clientId) {
     saasSubscriptions.push(normalizarAssinaturaSaas({
       id: billingConfig.subscriptionId || "",
       clientId: billingConfig.clientId,
+      userId: licenca.user_id || syncConfig.supabaseUserId || "",
       planSlug: licenca.plan_slug || "free",
       status: licenca.status || "pending",
+      promoUsed: licenca.promo_used === true,
+      billingVariant: licenca.billing_variant || "",
+      currentPeriodStart: licenca.current_period_start || "",
+      currentPeriodEnd: licenca.current_period_end || licenca.expires_at || "",
       expiresAt: licenca.expires_at || "",
       nextBillingAt: licenca.next_billing_at || "",
       mercadoPagoSubscriptionId: licenca.mercado_pago_subscription_id || ""
@@ -10528,7 +10463,7 @@ function configurarEventListenersArquitetura() {
 
     if (acao === "open-payment") {
       event.preventDefault();
-      abrirLinkMercadoPago(elemento.dataset.slug || billingConfig.planSlug || "pro");
+      abrirLinkMercadoPago(elemento.dataset.slug || billingConfig.planSlug || "premium");
       return;
     }
 
@@ -10546,13 +10481,13 @@ function configurarEventListenersArquitetura() {
 
     if (acao === "plan-payment") {
       event.preventDefault();
-      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "pro");
+      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "premium");
       return;
     }
 
     if (acao === "plan-renew") {
       event.preventDefault();
-      abrirLinkMercadoPago(elemento.dataset.slug || "pro");
+      abrirLinkMercadoPago(elemento.dataset.slug || "premium");
       return;
     }
 
@@ -10565,12 +10500,6 @@ function configurarEventListenersArquitetura() {
     if (acao === "plan-support") {
       event.preventDefault();
       falarComSuporteAssinatura();
-      return;
-    }
-
-    if (acao === "token-use") {
-      event.preventDefault();
-      usarTokenPromocional();
       return;
     }
 
@@ -11322,11 +11251,6 @@ function iniciarMonitorAtualizacao() {
 
 function processarParametrosAssinaturaUrl() {
   const params = new URLSearchParams(location.search || "");
-  const token = String(params.get("token") || "").trim().toUpperCase();
-  if (token) {
-    sessionStorage.setItem("tokenPromocionalPendente", token);
-    telaAtual = "minhaAssinatura";
-  }
   if (params.get("pagamento") || params.get("assinatura")) {
     telaAtual = "minhaAssinatura";
     setTimeout(() => alert("Pagamento recebido pelo Mercado Pago. O plano será liberado após confirmação do webhook."), 400);
@@ -11421,13 +11345,6 @@ document.addEventListener("DOMContentLoaded", () => {
         telaAtual = "admin";
       }
       renderApp();
-    }
-    const tokenPendente = sessionStorage.getItem("tokenPromocionalPendente");
-    if (tokenPendente) {
-      setTimeout(() => {
-        const input = document.getElementById("tokenPromocionalInput");
-        if (input) input.value = tokenPendente;
-      }, 100);
     }
   });
   iniciarAutoBackup();

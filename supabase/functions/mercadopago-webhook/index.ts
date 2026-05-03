@@ -81,8 +81,27 @@ function addDays(date = new Date(), days = 30) {
 }
 
 function splitExternalReference(value: unknown) {
-  const [clientCodeOrId = "", planSlug = "", kind = ""] = String(value || "").split("|");
-  return { clientCodeOrId, planSlug, kind };
+  const [clientCodeOrId = "", planSlug = "", kind = "", billingVariant = ""] = String(value || "").split("|");
+  return { clientCodeOrId, planSlug, kind, billingVariant };
+}
+
+function normalizePlanSlug(value: unknown) {
+  const slug = String(value || "premium").toLowerCase().replace(/-/g, "_").trim();
+  if (slug !== "premium") throw new Error("Plano inválido no webhook");
+  return "premium";
+}
+
+function normalizeBillingVariant(value: unknown) {
+  const variant = String(value || "premium_first_month").toLowerCase().replace(/-/g, "_").trim();
+  return variant === "premium_monthly" ? "premium_monthly" : "premium_first_month";
+}
+
+function subscriptionStatusFromPayment(status: string) {
+  if (status === "approved") return "active";
+  if (status === "pending") return "pending";
+  if (status === "cancelled") return "cancelled";
+  if (["refunded", "charged_back", "rejected"].includes(status)) return "past_due";
+  return "pending";
 }
 
 function uuidOrNull(value: unknown) {
@@ -127,12 +146,12 @@ async function findClient(metadata: Record<string, unknown>, externalReference: 
 
 async function getPlanId(planSlug: string) {
   if (!supabase) return null;
-  const slug = planSlug === "basic" ? "free" : planSlug;
+  const slug = normalizePlanSlug(planSlug);
   const { data } = await supabase.from("plans").select("id").eq("slug", slug || "free").maybeSingle();
   return data?.id || null;
 }
 
-async function getSubscriptionId(clientId: string, planSlug: string, mpSubscriptionId?: string) {
+async function getSubscriptionId(clientId: string, planSlug: string, userId?: string | null, mpSubscriptionId?: string) {
   if (!supabase) throw new Error("Supabase não configurado");
   const { data: current } = await supabase.from("subscriptions").select("id").eq("client_id", clientId).maybeSingle();
   if (current?.id) return current.id;
@@ -141,9 +160,10 @@ async function getSubscriptionId(clientId: string, planSlug: string, mpSubscript
   const { data: created, error } = await supabase.from("subscriptions")
     .insert({
       client_id: clientId,
+      user_id: userId || null,
       plan_id: planId,
       status: "pending",
-      status_assinatura: "pendente",
+      status_assinatura: "pending",
       mercado_pago_subscription_id: mpSubscriptionId || null,
     })
     .select("id")
@@ -181,18 +201,24 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
   const client = await findClient(metadata, payment.external_reference);
   const clientId = client?.id || null;
   const clientCode = client?.client_code || metadata.client_code || parsed.clientCodeOrId;
-  const planSlug = String(metadata.plan_slug || parsed.planSlug || "pro").toLowerCase();
+  const userId = uuidOrNull(metadata.user_id);
+  if (!userId) throw new Error("Webhook sem user_id válido");
+  const planSlug = normalizePlanSlug(metadata.plan_id || metadata.plan_slug || parsed.planSlug);
+  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant);
   const status = normalizePaymentStatus(String(payment.status || ""));
   const amount = Number(payment.transaction_amount || payment.total_paid_amount || 0) || 0;
   const paymentId = String(payment.id || "");
   const method = String(payment.payment_method_id || payment.payment_type_id || "");
   const mpSubscriptionId = String(payment.preapproval_id || payment.subscription_id || metadata.mercado_pago_subscription_id || "");
-  const subscriptionUuid = clientId ? await getSubscriptionId(clientId, planSlug, mpSubscriptionId || undefined) : null;
+  const subscriptionUuid = clientId ? await getSubscriptionId(clientId, planSlug, userId, mpSubscriptionId || undefined) : null;
+  const planId = await getPlanId(planSlug);
 
   if (clientId) {
     await supabase.from("payments").upsert({
       client_id: clientId,
+      user_id: userId,
       subscription_id: subscriptionUuid,
+      plan_id: planId,
       mercado_pago_payment_id: paymentId,
       mercado_pago_subscription_id: mpSubscriptionId || null,
       preference_id: String(payment.preference_id || metadata.preference_id || "") || null,
@@ -202,10 +228,11 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
       metodo_pagamento: method || null,
       external_reference: String(payment.external_reference || ""),
       plan_slug: planSlug,
+      billing_variant: billingVariant,
       paid_at: status === "approved" ? new Date().toISOString() : null,
       criado_em: String(payment.date_created || "") || new Date().toISOString(),
       atualizado_em: new Date().toISOString(),
-      metadata: payment,
+      metadata: { ...payment, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
     }, { onConflict: "mercado_pago_payment_id" });
 
     await supabase.from("erp_payments").upsert({
@@ -216,6 +243,7 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
       cliente_id: clientId,
       cliente_codigo: String(clientCode || ""),
       plano: planSlug,
+      billing_variant: billingVariant,
       valor: amount,
       status,
       metodo_pagamento: method || null,
@@ -224,13 +252,18 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
     }, { onConflict: "payment_id" });
 
     if (status === "approved") {
-      const nextBilling = addDays(new Date(String(payment.date_approved || "") || Date.now()), 30);
-      const planId = await getPlanId(planSlug);
+      const periodStart = new Date(String(payment.date_approved || "") || Date.now()).toISOString();
+      const nextBilling = addDays(new Date(periodStart), 30);
       await supabase.from("subscriptions")
         .update({
+          user_id: userId,
           plan_id: planId,
           status: "active",
-          status_assinatura: "ativo",
+          status_assinatura: "active",
+          promo_used: true,
+          billing_variant: "premium_monthly",
+          current_period_start: periodStart,
+          current_period_end: nextBilling,
           mercado_pago_subscription_id: mpSubscriptionId || null,
           expires_at: nextBilling,
           next_billing_at: nextBilling,
@@ -241,7 +274,7 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
         .eq("client_id", clientId);
 
       await supabase.from("clients")
-        .update({ status: "active", plano_atual: planSlug, status_assinatura: "ativo" })
+        .update({ status: "active", plano_atual: planSlug, status_assinatura: "active" })
         .eq("id", clientId);
 
       await supabase.from("audit_logs").insert({
@@ -250,17 +283,17 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
         details: { provider: "mercado_pago", status, payment_id: paymentId, amount, plan: planSlug },
       });
     } else {
-      const overdueStatus = status === "pending" ? "pending" : "overdue";
+      const subscriptionStatus = subscriptionStatusFromPayment(status);
       await supabase.from("subscriptions")
         .update({
-          status: overdueStatus,
-          status_assinatura: status === "pending" ? "pendente" : "atrasado",
-          overdue_since: new Date().toISOString(),
+          status: subscriptionStatus,
+          status_assinatura: subscriptionStatus,
+          overdue_since: subscriptionStatus === "pending" ? null : new Date().toISOString(),
         })
         .eq("client_id", clientId);
 
       await supabase.from("clients")
-        .update({ status: "overdue", status_assinatura: status === "pending" ? "pendente" : "atrasado" })
+        .update({ status: subscriptionStatus === "pending" ? "active" : "overdue", status_assinatura: subscriptionStatus })
         .eq("id", clientId);
 
       await supabase.from("audit_logs").insert({
@@ -283,42 +316,48 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
 
 async function applySubscription(preapproval: Record<string, unknown>, rawEvent: Record<string, unknown>) {
   if (!supabase) throw new Error("Supabase não configurado");
+  const metadata = (preapproval.metadata || {}) as Record<string, unknown>;
   const parsed = splitExternalReference(preapproval.external_reference);
-  const client = await findClient({}, preapproval.external_reference);
+  const client = await findClient(metadata, preapproval.external_reference);
   const clientId = client?.id || null;
-  const planSlug = String(parsed.planSlug || "pro").toLowerCase();
+  const userId = uuidOrNull(metadata.user_id);
+  if (!userId) throw new Error("Webhook de assinatura sem user_id válido");
+  const planSlug = normalizePlanSlug(metadata.plan_id || metadata.plan_slug || parsed.planSlug);
+  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant);
   const status = normalizeSubscriptionStatus(String(preapproval.status || ""));
   const mpSubscriptionId = String(preapproval.id || "");
 
   if (clientId) {
     const planId = await getPlanId(planSlug);
-    await getSubscriptionId(clientId, planSlug, mpSubscriptionId);
+    await getSubscriptionId(clientId, planSlug, userId, mpSubscriptionId);
 
     if (status === "cancelled") {
-      const freePlanId = await getPlanId("free");
       await supabase.from("subscriptions")
         .update({
-          plan_id: freePlanId,
+          user_id: userId,
+          plan_id: planId,
           status: "cancelled",
-          status_assinatura: "cancelado",
+          status_assinatura: "cancelled",
           mercado_pago_subscription_id: mpSubscriptionId,
           cancelled_at: new Date().toISOString(),
-          metadata: { preapproval },
+          metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
         })
         .eq("client_id", clientId);
 
       await supabase.from("clients")
-        .update({ plano_atual: "free", status_assinatura: "cancelado", status: "active" })
+        .update({ plano_atual: planSlug, status_assinatura: "cancelled", status: "overdue" })
         .eq("id", clientId);
     } else {
       await supabase.from("subscriptions")
         .update({
+          user_id: userId,
           plan_id: planId,
           status: "pending",
-          status_assinatura: "pendente",
+          status_assinatura: "pending",
+          billing_variant: billingVariant,
           mercado_pago_subscription_id: mpSubscriptionId,
           proximo_vencimento: String(preapproval.next_payment_date || "") || null,
-          metadata: { preapproval },
+          metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
         })
         .eq("client_id", clientId);
     }

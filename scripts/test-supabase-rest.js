@@ -109,14 +109,14 @@ async function main() {
       name: "Function create-payment requires JWT",
       url: `${url}/functions/v1/mercadopago-create-payment`,
       method: "POST",
-      body: JSON.stringify({ planSlug: "pro" }),
+      body: JSON.stringify({ plan_id: "premium", billing_variant: "premium_first_month" }),
       expect: [401, 403]
     },
     {
       name: "Function create-subscription requires JWT",
       url: `${url}/functions/v1/mercadopago-create-subscription`,
       method: "POST",
-      body: JSON.stringify({ planSlug: "pro" }),
+      body: JSON.stringify({ plan_id: "premium", billing_variant: "premium_monthly" }),
       expect: [401, 403]
     },
     {

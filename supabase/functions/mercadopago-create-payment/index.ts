@@ -17,9 +17,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false },
 });
 
-const PLANOS: Record<string, { name: string; amount: number }> = {
-  pro: { name: "Pro", amount: 29.9 },
-  premium: { name: "Premium", amount: 54.9 },
+const BILLING_VARIANTS: Record<string, { name: string; amount: number }> = {
+  premium_first_month: { name: "Premium Promo", amount: 19.9 },
+  premium_monthly: { name: "Premium", amount: 29.9 },
 };
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
@@ -82,7 +82,29 @@ async function getCurrentContext(req: Request, requestedClientId?: string) {
   return { userId, client, isSuperadmin };
 }
 
-async function ensureSubscription(clientId: string, planSlug: string) {
+function normalizePlanSlug(value: unknown) {
+  const slug = String(value || "premium").toLowerCase().replace(/-/g, "_").trim();
+  if (slug !== "premium") throw new Error("Plano inválido");
+  return "premium";
+}
+
+function normalizeBillingVariant(value: unknown) {
+  const variant = String(value || "premium_first_month").toLowerCase().replace(/-/g, "_").trim();
+  return variant === "premium_monthly" ? "premium_monthly" : "premium_first_month";
+}
+
+async function resolveBillingVariant(clientId: string, requested: unknown) {
+  const { data: current } = await supabase
+    .from("subscriptions")
+    .select("promo_used")
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (current?.promo_used === true) return "premium_monthly";
+  return normalizeBillingVariant(requested);
+}
+
+async function ensureSubscription(clientId: string, userId: string, planSlug: string, billingVariant: string) {
   const { data: plan } = await supabase
     .from("plans")
     .select("id")
@@ -98,19 +120,32 @@ async function ensureSubscription(clientId: string, planSlug: string) {
   if (current?.id) {
     await supabase
       .from("subscriptions")
-      .update({ plan_id: plan?.id || null, status: "pending", status_assinatura: "pendente" })
+      .update({
+        user_id: userId,
+        plan_id: plan?.id || null,
+        status: "pending",
+        status_assinatura: "pending",
+        billing_variant: billingVariant,
+      })
       .eq("id", current.id);
-    return current.id;
+    return { subscriptionId: current.id, planUuid: plan?.id || null };
   }
 
   const { data: created, error } = await supabase
     .from("subscriptions")
-    .insert({ client_id: clientId, plan_id: plan?.id || null, status: "pending", status_assinatura: "pendente" })
+    .insert({
+      client_id: clientId,
+      user_id: userId,
+      plan_id: plan?.id || null,
+      status: "pending",
+      status_assinatura: "pending",
+      billing_variant: billingVariant,
+    })
     .select("id")
     .single();
 
   if (error) throw error;
-  return created.id;
+  return { subscriptionId: created.id, planUuid: plan?.id || null };
 }
 
 serve(async (req) => {
@@ -123,18 +158,18 @@ serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const planSlug = String(body.plano || body.plan || body.planSlug || "pro").toLowerCase();
-    const plano = PLANOS[planSlug];
-    if (!plano) throw new Error("Plano inválido");
+    const planSlug = normalizePlanSlug(body.plan_id || body.plano || body.plan || body.planSlug);
 
     const { userId, client } = await getCurrentContext(req, body.clienteId || body.clientId);
-    const subscriptionId = await ensureSubscription(client.id, planSlug);
-    const externalReference = `${client.client_code || client.id}|${planSlug}|payment`;
+    const billingVariant = await resolveBillingVariant(client.id, body.billing_variant || body.billingVariant);
+    const plano = BILLING_VARIANTS[billingVariant];
+    const { subscriptionId, planUuid } = await ensureSubscription(client.id, userId, planSlug, billingVariant);
+    const externalReference = `${client.id}|${planSlug}|payment|${billingVariant}`;
 
     const preferencePayload = {
       items: [
         {
-          id: `simplifica-3d-${planSlug}`,
+          id: `simplifica-3d-${billingVariant}`,
           title: `Simplifica 3D ${plano.name}`,
           description: "Assinatura Simplifica 3D",
           quantity: 1,
@@ -147,9 +182,12 @@ serve(async (req) => {
       back_urls: backUrls(req),
       notification_url: webhookUrl(),
       metadata: {
+        user_id: userId,
         client_id: client.id,
         client_code: client.client_code,
+        plan_id: "premium",
         plan_slug: planSlug,
+        billing_variant: billingVariant,
         subscription_id: subscriptionId,
         kind: "checkout_preference",
       },
@@ -171,13 +209,16 @@ serve(async (req) => {
 
     await supabase.from("payments").insert({
       client_id: client.id,
+      user_id: userId,
       subscription_id: subscriptionId,
+      plan_id: planUuid,
       preference_id: mpData.id || null,
       amount: plano.amount,
       status: "pending",
       external_reference: externalReference,
       plan_slug: planSlug,
-      metadata: { preference: mpData },
+      billing_variant: billingVariant,
+      metadata: { preference: mpData, user_id: userId, plan_id: "premium", billing_variant: billingVariant },
     });
 
     await supabase.from("audit_logs").insert({
@@ -192,6 +233,9 @@ serve(async (req) => {
       init_point: mpData.init_point || mpData.sandbox_init_point,
       sandbox_init_point: mpData.sandbox_init_point,
       preference_id: mpData.id,
+      amount: plano.amount,
+      plan_id: "premium",
+      billing_variant: billingVariant,
       external_reference: externalReference,
     });
   } catch (error) {

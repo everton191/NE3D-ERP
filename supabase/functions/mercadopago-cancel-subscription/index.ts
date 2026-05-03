@@ -94,13 +94,13 @@ serve(async (req) => {
     await supabase.from("subscriptions").update({
       plan_id: freePlan?.id || null,
       status: "cancelled",
-      status_assinatura: "cancelado",
+      status_assinatura: "cancelled",
       cancelled_at: new Date().toISOString(),
       metadata: { cancel: mpData },
     }).eq("id", subscription.id);
 
     await supabase.from("clients")
-      .update({ plano_atual: "free", status_assinatura: "cancelado", status: "active" })
+      .update({ plano_atual: "free", status_assinatura: "cancelled", status: "active" })
       .eq("id", clientId);
 
     await supabase.from("audit_logs").insert({
