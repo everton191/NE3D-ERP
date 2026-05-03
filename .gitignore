@@ -3,6 +3,7 @@
 modules/
 node_modules/
 dist/
+.tmp-edge-preview*/
 supabase/functions/.env
 supabase/functions/.env.*
 supabase/.env

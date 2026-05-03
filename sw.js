@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v42-login-supabase";
+const CACHE_NAME = "simplifica-3d-v43-visual-cards";
 const APP_FILES = [
   "./",
   "./index.html",
