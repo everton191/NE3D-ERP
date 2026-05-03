@@ -1,4 +1,4 @@
-# Android do NE3D ERP
+# Android do Simplifica 3D
 
 O projeto Android fica na pasta `android/` e foi criado com Capacitor.
 
@@ -31,7 +31,7 @@ downloads/update.json
 
 O arquivo `downloads/NE3D-ERP-android-users17-debug.apk` ainda e atualizado como compatibilidade para links antigos, mas o link principal agora e `downloads/NE3D-ERP.apk`.
 
-O app Android consulta `downloads/update.json` no GitHub. Quando a versao publicada for diferente da `APP_VERSION` instalada, ele avisa o usuario e abre o download de `downloads/NE3D-ERP.apk`.
+O app Android do Simplifica 3D consulta `downloads/update.json` no GitHub. Quando a versao publicada for diferente da `APP_VERSION` instalada, ele avisa o usuario e abre o download de `downloads/NE3D-ERP.apk`.
 
 Antes de publicar uma nova versao, atualize:
 

@@ -1,0 +1,35 @@
+const fs = require("fs");
+const path = require("path");
+
+const migrationsDir = path.join("supabase", "migrations");
+const sql = fs.readdirSync(migrationsDir)
+  .filter((file) => file.endsWith(".sql"))
+  .sort()
+  .map((file) => fs.readFileSync(path.join(migrationsDir, file), "utf8"))
+  .join("\n");
+
+const checks = [
+  ["RLS clients", /alter table public\.clients enable row level security/i],
+  ["RLS profiles", /alter table public\.profiles enable row level security/i],
+  ["RLS erp_profiles", /alter table public\.erp_profiles enable row level security/i],
+  ["RLS subscriptions", /alter table public\.subscriptions enable row level security/i],
+  ["profiles SELECT policy", /create policy "profiles_select_same_client_or_superadmin"[\s\S]*on public\.profiles for select/i],
+  ["profiles INSERT policy", /create policy "profiles_insert_self"[\s\S]*on public\.profiles for insert/i],
+  ["profiles UPDATE policy", /create policy "profiles_update_self_or_admin"[\s\S]*on public\.profiles for update/i],
+  ["clients SELECT policy", /create policy "clients_select_own_or_superadmin"[\s\S]*on public\.clients for select/i],
+  ["clients UPDATE policy", /create policy "clients_update_admin_or_superadmin"[\s\S]*on public\.clients for update/i],
+  ["subscriptions SELECT policy", /create policy "subscriptions_select_same_client_or_superadmin"[\s\S]*on public\.subscriptions for select/i],
+  ["register_saas_client function", /create or replace function public\.register_saas_client/i],
+  ["get_saas_license function", /create or replace function public\.get_saas_license/i]
+];
+
+const results = checks.map(([check, pattern]) => ({
+  check,
+  ok: pattern.test(sql)
+}));
+
+console.table(results);
+
+if (results.some((result) => !result.ok)) {
+  process.exitCode = 1;
+}

@@ -37,7 +37,40 @@ Copie o bloco abaixo para cada novo problema:
 
 Nenhum bug aberto nesta versao.
 
+## Historico de bugs corrigidos
+
+### BUG-20260502-01 - Cadastro local nao sincronizava com Supabase apos confirmacao
+
+- Data: 2026-05-02
+- Versao do app: 2026.05.02-login-supabase
+- Ambiente: Web / APK Android / Supabase Auth
+- Tela: Login e Criar conta
+- O que aconteceu: quando o Supabase exigia confirmacao de e-mail, o app criava o trial local, mas no login seguinte validava apenas a senha local e nao tentava autenticar novamente no Supabase.
+- O que deveria acontecer: apos confirmar o e-mail e entrar com e-mail/senha, o app deve autenticar no Supabase e criar/sincronizar `clients`, `profiles` e `subscriptions`.
+- Status: corrigido
+- Correcao aplicada: usuario local agora guarda estado `supabasePending`; no login local o app tenta conectar/criar a conta online e sincroniza o cadastro SaaS quando recebe sessao Supabase.
+
+### BUG-20260502-02 - Erro Google OAuth sem mensagem amigavel
+
+- Data: 2026-05-02
+- Versao do app: 2026.05.02-login-supabase
+- Ambiente: Web / Supabase Auth Google
+- Tela: Login com Google
+- O que aconteceu: quando o provedor Google nao estava habilitado no Supabase, o usuario podia cair em erro tecnico do OAuth.
+- O que deveria acontecer: o app deve registrar diagnostico e mostrar mensagem simples.
+- Status: parcialmente corrigido
+- Correcao aplicada: retorno OAuth com erro agora e tratado, a URL e limpa e o usuario recebe mensagem amigavel. A ativacao real do Google ainda depende do Client ID/Secret no painel Supabase/Google.
+
 ## Historico de validacao
+
+### 2026-05-02 - Login Supabase e OAuth Google
+
+- Backup limpo criado antes da alteracao.
+- Sintaxe validada com `node --check app.js`.
+- Diff validado com `git diff --check`.
+- App local carregado em `http://127.0.0.1:4173/` sem erros de console.
+- Erro OAuth simulado com `Unsupported provider` tratado no app sem erro de console.
+- Endpoint publico de planos Supabase respondeu com sucesso.
 
 ### 2026-04-29 - SaaS Mercado Pago
 

@@ -1,4 +1,4 @@
--- NE3D ERP security layer: profiles, permissions and audit logs.
+-- Simplifica 3D security layer: profiles, permissions and audit logs.
 
 alter table public.erp_profiles
   add column if not exists phone text,

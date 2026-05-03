@@ -1,4 +1,4 @@
--- NE3D ERP online sync.
+-- Simplifica 3D online sync.
 -- Run with: npx supabase link --project-ref qsufnnivlgdidmjuaprb && npx supabase db push
 
 create extension if not exists pgcrypto;

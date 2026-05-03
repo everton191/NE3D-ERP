@@ -1,8 +1,8 @@
 // ==========================================================
-// ERP 3D - layout mobile/desktop corrigido
+// Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.02-republica-seguranca-planos";
+const APP_VERSION = "2026.05.03-superadmin-usuarios";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-cover.svg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
@@ -244,6 +244,521 @@ let autoBackupTimer = null;
 let autoBackupRodando = false;
 
 carregarSessaoSensivelSupabase();
+
+class AppError extends Error {
+  constructor(message, { code = "APP_ERROR", userMessage = "", details = {}, cause = null } = {}) {
+    super(message || userMessage || "Erro inesperado");
+    this.name = "AppError";
+    this.code = code;
+    this.userMessage = userMessage || message || "Não foi possível concluir a operação.";
+    this.details = details;
+    this.cause = cause;
+  }
+}
+
+const StateStore = {
+  get(chave) {
+    const mapa = {
+      estoque,
+      caixa,
+      pedidos,
+      orcamentos,
+      historico,
+      diagnostics,
+      sugestoes,
+      securityLogs,
+      auditLogs,
+      passwordResetTokens,
+      saasClients,
+      saasPlans,
+      saasSubscriptions,
+      saasPayments,
+      promotionalTokens,
+      saasSessions,
+      usageCounters,
+      loginAttempts,
+      usuarios,
+      syncConfig,
+      appConfig,
+      billingConfig,
+      usuarioAtualEmail,
+      adminLogado
+    };
+    return mapa[chave];
+  },
+  set(chave, valor, opcoes = {}) {
+    switch (chave) {
+      case "estoque": estoque = Array.isArray(valor) ? valor : []; break;
+      case "caixa": caixa = Array.isArray(valor) ? valor : []; break;
+      case "pedidos": pedidos = Array.isArray(valor) ? valor : []; break;
+      case "orcamentos": orcamentos = Array.isArray(valor) ? valor : []; break;
+      case "historico": historico = Array.isArray(valor) ? valor : []; break;
+      case "diagnostics": diagnostics = Array.isArray(valor) ? valor : []; break;
+      case "sugestoes": sugestoes = Array.isArray(valor) ? valor : []; break;
+      case "securityLogs": securityLogs = Array.isArray(valor) ? valor : []; break;
+      case "auditLogs": auditLogs = Array.isArray(valor) ? valor : []; break;
+      case "passwordResetTokens": passwordResetTokens = Array.isArray(valor) ? valor : []; break;
+      case "saasClients": saasClients = Array.isArray(valor) ? valor : []; break;
+      case "saasPlans": saasPlans = Array.isArray(valor) ? valor : []; break;
+      case "saasSubscriptions": saasSubscriptions = Array.isArray(valor) ? valor : []; break;
+      case "saasPayments": saasPayments = Array.isArray(valor) ? valor : []; break;
+      case "promotionalTokens": promotionalTokens = Array.isArray(valor) ? valor : []; break;
+      case "saasSessions": saasSessions = Array.isArray(valor) ? valor : []; break;
+      case "usageCounters": usageCounters = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
+      case "loginAttempts": loginAttempts = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
+      case "usuarios": usuarios = normalizarUsuarios(valor); break;
+      case "syncConfig": syncConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...syncConfig, ...valor } : syncConfig; break;
+      case "appConfig": appConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...appConfig, ...valor } : appConfig; break;
+      case "billingConfig": billingConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...billingConfig, ...valor } : billingConfig; break;
+      case "usuarioAtualEmail":
+        usuarioAtualEmail = normalizarEmail(valor || "");
+        if (usuarioAtualEmail) sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+        else sessionStorage.removeItem("usuarioAtualEmail");
+        break;
+      case "adminLogado":
+        adminLogado = valor === true;
+        if (adminLogado) sessionStorage.setItem("adminLogado", "sim");
+        else sessionStorage.removeItem("adminLogado");
+        break;
+      default:
+        throw new AppError(`Estado desconhecido: ${chave}`, {
+          code: "STATE_UNKNOWN_KEY",
+          userMessage: "O estado interno solicitado não existe."
+        });
+    }
+    if (opcoes.persistir) salvarDados();
+    return this.get(chave);
+  },
+  update(chave, produtor, opcoes = {}) {
+    const atual = this.get(chave);
+    const base = Array.isArray(atual)
+      ? [...atual]
+      : atual && typeof atual === "object"
+        ? { ...atual }
+        : atual;
+    return this.set(chave, produtor(base), opcoes);
+  },
+  hydrateAuthenticatedUser(usuario) {
+    if (!usuario?.email) return null;
+    const email = normalizarEmail(usuario.email);
+    const lista = normalizarUsuarios(usuarios);
+    const proximaLista = lista.some((item) => item.email === email)
+      ? lista.map((item) => item.email === email ? normalizarUsuario({ ...item, ...usuario }) : item)
+      : [...lista, normalizarUsuario(usuario)];
+    this.set("usuarios", proximaLista);
+    if (usuario.clientId) this.set("billingConfig", { clientId: usuario.clientId });
+    salvarDados();
+    return usuarios.find((item) => item.email === email) || null;
+  },
+  snapshot() {
+    return {
+      usuarioAtual: getUsuarioAtual(),
+      estoque: [...normalizarEstoque()],
+      planoAtual: getPlanoAtual(),
+      syncConfig: criarSyncConfigPersistente(),
+      billingConfig: { ...billingConfig }
+    };
+  }
+};
+
+const ErrorService = {
+  toAppError(erro, contexto = {}) {
+    if (erro instanceof AppError) return erro;
+    const mensagem = String(erro?.message || erro || "Erro inesperado");
+    let userMessage = contexto.userMessage || "Não foi possível concluir a operação.";
+    let code = contexto.code || "APP_ERROR";
+    if (/email_not_confirmed|email not confirmed|email não confirmado|email nao confirmado/i.test(mensagem)) {
+      code = "AUTH_EMAIL_NOT_CONFIRMED";
+      userMessage = "Confirme seu e-mail para ativar a sincronização online.";
+    } else if (/invalid login credentials|invalid credentials|invalid_grant|senha|credenciais/i.test(mensagem)) {
+      code = "AUTH_INVALID_CREDENTIALS";
+      userMessage = "Usuário ou senha inválidos.";
+    } else if (/failed to fetch|network|load failed|internet|timeout/i.test(mensagem)) {
+      code = "NETWORK_ERROR";
+      userMessage = "Não foi possível conectar agora. Verifique a internet e tente novamente.";
+    } else if (/row-level security|violates row-level security|permission denied|not authorized|PGRST/i.test(mensagem)) {
+      code = "SUPABASE_RLS_BLOCKED";
+      userMessage = "O acesso online foi bloqueado por regra de segurança. O suporte precisa revisar as políticas Supabase.";
+    } else if (/valor inválido|valor invalido|invalid number/i.test(mensagem)) {
+      code = "VALIDATION_INVALID_NUMBER";
+      userMessage = "Informe um valor numérico válido.";
+    } else if (/já está cadastrado|already|registered|exists/i.test(mensagem)) {
+      code = "AUTH_ALREADY_REGISTERED";
+      userMessage = "Este e-mail já está cadastrado.";
+    }
+    return new AppError(mensagem, {
+      code,
+      userMessage,
+      details: contexto,
+      cause: erro
+    });
+  },
+  capture(erro, contexto = {}) {
+    const appError = this.toAppError(erro, contexto);
+    try {
+      registrarDiagnostico(
+        contexto.area || "Erro",
+        contexto.action || appError.code,
+        `${appError.message}${contexto.detail ? " | " + contexto.detail : ""}`
+      );
+    } catch (_) {}
+    return appError;
+  },
+  notify(erro, contexto = {}) {
+    const appError = this.capture(erro, contexto);
+    if (!contexto.silent) {
+      if (typeof mostrarToast === "function") mostrarToast(appError.userMessage, "erro", 6500);
+      else alert(appError.userMessage);
+    }
+    return appError;
+  }
+};
+
+const PlanService = {
+  exigirPlanoCompleto(usuario = getUsuarioAtual()) {
+    const plano = getPlanoAtual(usuario);
+    if (canUsePremiumFeatures(usuario)) {
+      return { status: "ALLOWED", allowed: true, reason: "ACTIVE", plano };
+    }
+    if (plano.status === "bloqueado") {
+      return { status: "BLOCKED", allowed: false, reason: "BLOCKED", plano, message: "Este acesso está bloqueado. Fale com o administrador." };
+    }
+    if (plano.status === "expirado") {
+      return { status: "BLOCKED", allowed: false, reason: "EXPIRED", plano, message: "Seu plano expirou. Renove para voltar a usar os recursos premium." };
+    }
+    if (plano.completo) {
+      return { status: "BLOCKED", allowed: false, reason: "DEVICE_LIMIT", plano, message: "Este e-mail já atingiu o limite de aparelhos da licença." };
+    }
+    return { status: "BLOCKED", allowed: false, reason: "PREMIUM_REQUIRED", plano, message: "Recurso premium. O trial ativo e o plano pago liberam esta função." };
+  }
+};
+
+const InventoryService = {
+  parseNumberStrict(valor, campo = "valor", { min = null, allowZero = true } = {}) {
+    if (valor === null || valor === undefined || String(valor).trim() === "") {
+      throw new AppError("Valor Inválido", {
+        code: "VALIDATION_INVALID_NUMBER",
+        userMessage: `Informe ${campo}.`
+      });
+    }
+    const numero = Number(String(valor).replace(",", "."));
+    if (!Number.isFinite(numero) || Number.isNaN(numero)) {
+      throw new AppError("Valor Inválido", {
+        code: "VALIDATION_INVALID_NUMBER",
+        userMessage: `${campo} precisa ser um número válido.`
+      });
+    }
+    if (!allowZero && numero === 0) {
+      throw new AppError("Valor Inválido", {
+        code: "VALIDATION_INVALID_NUMBER",
+        userMessage: `${campo} precisa ser maior que zero.`
+      });
+    }
+    if (min !== null && numero < min) {
+      throw new AppError("Valor Inválido", {
+        code: "VALIDATION_INVALID_NUMBER",
+        userMessage: `${campo} precisa ser maior ou igual a ${min}.`
+      });
+    }
+    return numero;
+  },
+  getMateriais() {
+    return normalizarEstoque();
+  },
+  addMaterial({ tipo, cor, qtd }) {
+    const tipoNormalizado = String(tipo || "PLA").trim() || "PLA";
+    const corNormalizada = String(cor || "").trim();
+    const nome = [tipoNormalizado, corNormalizada].filter(Boolean).join(" ");
+    const quantidade = this.parseNumberStrict(qtd, "quantidade em kg", { min: 0, allowZero: false });
+    const atual = normalizarEstoque();
+    const indice = atual.findIndex((material) => material.tipo === tipoNormalizado && String(material.cor || "").toLowerCase() === corNormalizada.toLowerCase());
+    const proximo = indice >= 0
+      ? atual.map((material, i) => i === indice
+        ? prepararRegistroOnline({ ...material, qtd: this.parseNumberStrict(material.qtd, "saldo atual", { min: 0 }) + quantidade })
+        : material)
+      : [...atual, prepararRegistroOnline(normalizarMaterialEstoque({ id: Date.now(), nome, tipo: tipoNormalizado, cor: corNormalizada, qtd: quantidade }))];
+    StateStore.set("estoque", proximo, { persistir: true });
+    registrarHistorico("Estoque", "Material adicionado: " + nome + " (" + quantidade + " kg)");
+    return proximo;
+  },
+  updateMaterial(indice, dados = {}) {
+    const atual = normalizarEstoque();
+    const material = atual[Number(indice)];
+    if (!material) {
+      throw new AppError("Material não encontrado", {
+        code: "INVENTORY_NOT_FOUND",
+        userMessage: "Material não encontrado no estoque."
+      });
+    }
+    const nomeInformado = String(dados.nome ?? material.nome ?? "").trim();
+    const tipo = inferirTipoMaterial(nomeInformado || material.nome);
+    const cor = String(dados.cor ?? material.cor ?? "").trim();
+    const qtd = this.parseNumberStrict(dados.qtd ?? material.qtd, "quantidade em kg", { min: 0 });
+    const nome = nomeInformado || [tipo, cor].filter(Boolean).join(" ");
+    const atualizado = prepararRegistroOnline(normalizarMaterialEstoque({
+      ...material,
+      nome,
+      tipo,
+      cor,
+      qtd,
+      atualizadoEm: new Date().toISOString()
+    }));
+    const proximo = atual.map((item, i) => i === Number(indice) ? atualizado : item);
+    StateStore.set("estoque", proximo, { persistir: true });
+    registrarHistorico("Estoque", "Material editado: " + atualizado.nome);
+    return atualizado;
+  },
+  removeMaterial(indice) {
+    const atual = normalizarEstoque();
+    if (!atual[Number(indice)]) return atual;
+    const proximo = atual.filter((_, i) => i !== Number(indice));
+    StateStore.set("estoque", proximo, { persistir: true });
+    registrarHistorico("Estoque", "Material removido");
+    return proximo;
+  },
+  validateStockDiff(diff = []) {
+    const faltas = [];
+    const materiais = normalizarEstoque();
+    diff.forEach((item) => {
+      const consumo = this.parseNumberStrict(item.kg, "consumo de material", { min: null });
+      if (consumo <= 0) return;
+      const material = materiais.find((entrada) => String(entrada.id) === String(item.materialId));
+      const saldo = material ? this.parseNumberStrict(material.qtd, "saldo do material", { min: 0 }) : 0;
+      if (!material || saldo + 0.000001 < consumo) {
+        faltas.push(`${material?.nome || "Material"}: precisa ${consumo.toFixed(3)} kg, saldo ${saldo.toFixed(3)} kg`);
+      }
+    });
+    return faltas;
+  },
+  applyDiff(diff = [], motivo = "pedido") {
+    const atual = normalizarEstoque();
+    const movimentos = [];
+    const proximo = atual.map((material) => {
+      const item = diff.find((entrada) => String(entrada.materialId) === String(material.id));
+      if (!item) return material;
+      const consumo = this.parseNumberStrict(item.kg, "consumo de material", { min: null });
+      const saldoAtual = this.parseNumberStrict(material.qtd, "saldo do material", { min: 0 });
+      const saldoNovo = Math.max(0, saldoAtual - consumo);
+      const tipoMovimento = consumo >= 0 ? "saída" : "entrada";
+      movimentos.push(`${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(consumo).toFixed(3)} kg)`);
+      return prepararRegistroOnline({ ...material, qtd: saldoNovo, atualizadoEm: new Date().toISOString() });
+    });
+    StateStore.set("estoque", proximo, { persistir: true });
+    movimentos.forEach((movimento) => registrarHistorico("Estoque", movimento));
+    return proximo;
+  }
+};
+
+const AuthService = {
+  async login(emailEntrada, senha) {
+    const email = normalizarEmail(emailEntrada || "");
+    if (!email || !senha) {
+      throw new AppError("Campo obrigatório", {
+        code: "AUTH_REQUIRED_FIELDS",
+        userMessage: "Informe e-mail e senha."
+      });
+    }
+    try {
+      StateStore.set("usuarios", normalizarUsuarios(usuarios));
+      let usuario = usuarios.find((item) => item.email === email);
+      let senhaValida = false;
+      let erroLoginOnline = null;
+      let source = "local";
+
+      if (usuario && !usuarioEstaBloqueado(usuario)) {
+        senhaValida = await verificarSenhaUsuario(usuario, senha);
+      }
+
+      if (!senhaValida) {
+        try {
+          usuario = await this.loginWithSupabase(email, senha);
+          senhaValida = !!usuario && !usuarioEstaBloqueado(usuario);
+          source = "supabase";
+        } catch (erro) {
+          erroLoginOnline = erro;
+          ErrorService.capture(erro, { area: "Supabase", action: "Login online falhou", silent: true });
+        }
+      } else if (deveConectarSupabaseNoLogin(usuario, email)) {
+        try {
+          const usuarioOnline = await this.loginWithSupabase(email, senha);
+          if (usuarioOnline) {
+            usuario = usuarioOnline;
+            senhaValida = !usuarioEstaBloqueado(usuario);
+            source = "supabase";
+          }
+        } catch (erro) {
+          erroLoginOnline = erro;
+          usuario = await this.recoverOnlineAccount(usuario, senha, erro);
+          senhaValida = !!usuario && !usuarioEstaBloqueado(usuario);
+          source = usuario?.supabasePending ? "local-pending" : "supabase";
+        }
+      }
+
+      if (!usuario || !senhaValida) {
+        const motivo = !usuario ? "Usuário inexistente" : "Senha inválida ou usuário inativo";
+        registrarFalhaLogin(email, motivo);
+        throw ErrorService.toAppError(erroLoginOnline || new Error(motivo), {
+          code: "AUTH_INVALID_CREDENTIALS",
+          userMessage: erroSupabaseEmailNaoConfirmado(erroLoginOnline)
+            ? "Confirme seu e-mail antes de entrar pelo Supabase."
+            : "Usuário ou senha inválidos."
+        });
+      }
+
+      const hidratado = await this.hydrateAuthenticatedUser(usuario, { source });
+      return { usuario: hidratado || usuario, source };
+    } catch (erro) {
+      throw ErrorService.capture(erro, { area: "Autenticação", action: "Login" });
+    }
+  },
+  async loginWithSupabase(email, senha) {
+    try {
+      const usuario = await loginUsuarioSupabase(email, senha);
+      if (!usuario) {
+        throw new AppError("Sessão Supabase não retornou usuário", {
+          code: "AUTH_EMPTY_SUPABASE_USER",
+          userMessage: "Não foi possível carregar seu perfil online."
+        });
+      }
+      return usuario;
+    } catch (erro) {
+      throw ErrorService.capture(erro, { area: "Supabase", action: "Login com senha", silent: true });
+    }
+  },
+  async recoverOnlineAccount(usuario, senha, erroOriginal) {
+    if (erroSupabaseCredenciaisInvalidas(erroOriginal)) {
+      try {
+        const usuarioCriadoOnline = await criarContaSupabaseParaUsuarioLocal(usuario, senha);
+        if (usuarioCriadoOnline) return usuarioCriadoOnline;
+        mostrarToast("Confirme seu e-mail para ativar a sincronização online.", "info", 6500);
+        return usuario;
+      } catch (erroCadastro) {
+        marcarUsuarioSupabasePendente(usuario, erroCadastro.message);
+        salvarDados();
+        throw ErrorService.capture(erroCadastro, { area: "Supabase", action: "Criação online pós-login", silent: true });
+      }
+    }
+    if (erroSupabaseEmailNaoConfirmado(erroOriginal)) {
+      marcarUsuarioSupabasePendente(usuario, erroOriginal.message);
+      salvarDados();
+      mostrarToast("Confirme seu e-mail para ativar a sincronização online.", "info", 6500);
+      return usuario;
+    }
+    ErrorService.capture(erroOriginal, { area: "Supabase", action: "Login local sem sincronização online", silent: true });
+    return usuario;
+  },
+  async hydrateAuthenticatedUser(usuario, contexto = {}) {
+    try {
+      let hidratado = usuario;
+      if (syncConfig.supabaseAccessToken && syncConfig.supabaseUserId) {
+        hidratado = await carregarPerfilSaasSupabase(usuario);
+        marcarUsuarioSupabaseSincronizado(hidratado);
+        await garantirCadastroSaasOnlineAposLogin(hidratado);
+        await this.verifyRlsHealth();
+      }
+      return StateStore.hydrateAuthenticatedUser(hidratado);
+    } catch (erro) {
+      throw ErrorService.capture(erro, { area: "Autenticação", action: "Carregar perfil pós-login", detail: contexto.source || "" });
+    }
+  },
+  async verifyRlsHealth() {
+    if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseUrl) {
+      return { ok: true, skipped: true };
+    }
+    const checks = [
+      {
+        name: "erp_profiles.select",
+        run: () => requisicaoSupabase(`/rest/v1/erp_profiles?select=id,email,client_id&id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, { method: "GET" })
+      },
+      {
+        name: "profiles.select",
+        run: () => requisicaoSupabase(`/rest/v1/profiles?select=id,user_id,client_id&user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, { method: "GET" })
+      },
+      {
+        name: "get_saas_license.rpc",
+        run: () => requisicaoSupabase("/rest/v1/rpc/get_saas_license", { method: "POST", body: JSON.stringify({}) })
+      }
+    ];
+    const falhas = [];
+    for (const check of checks) {
+      try {
+        await check.run();
+      } catch (erro) {
+        falhas.push(`${check.name}: ${erro.message}`);
+      }
+    }
+    if (falhas.length) {
+      registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", falhas.join(" | "));
+      return { ok: false, falhas };
+    }
+    registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", "OK");
+    return { ok: true, falhas: [] };
+  },
+  async signupSaas({ nome, email, senha, negocio, telefone }) {
+    let cadastroOnline = null;
+    let cadastroAguardandoConfirmacao = false;
+    try {
+      syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
+      syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
+      const dados = await requisicaoSupabase("/auth/v1/signup", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({
+          email,
+          password: senha,
+          data: {
+            name: nome,
+            business_name: negocio,
+            phone: telefone,
+            accepted_terms: true
+          }
+        })
+      });
+
+      if (salvarSessaoSupabase(dados, email)) {
+        cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "premium_trial" });
+      } else if (dados?.user?.id) {
+        cadastroAguardandoConfirmacao = true;
+        syncConfig.supabaseEmail = email;
+        salvarDados();
+      }
+    } catch (erro) {
+      const appError = ErrorService.capture(erro, { area: "Supabase", action: "Cadastro online", silent: true });
+      if (appError.code === "AUTH_ALREADY_REGISTERED") throw appError;
+    }
+
+    const local = criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug: "premium_trial", trial: true });
+    if (cadastroOnline?.client_id) {
+      const clientIdOnline = String(cadastroOnline.client_id);
+      local.cliente.id = clientIdOnline;
+      local.assinatura.clientId = clientIdOnline;
+      local.usuario.clientId = clientIdOnline;
+      billingConfig.clientId = clientIdOnline;
+    }
+    if (cadastroOnline?.client_code) {
+      local.cliente.clientCode = String(cadastroOnline.client_code);
+    }
+    if (cadastroOnline?.subscription_id) {
+      local.assinatura.id = String(cadastroOnline.subscription_id);
+      billingConfig.subscriptionId = local.assinatura.id;
+    }
+    local.usuario.supabasePending = !cadastroOnline?.client_id;
+    local.usuario.supabaseUserId = syncConfig.supabaseUserId || local.usuario.supabaseUserId || "";
+    local.usuario.supabaseLastSyncAt = cadastroOnline?.client_id ? new Date().toISOString() : "";
+    await definirSenhaUsuario(local.usuario, senha, false);
+    salvarDados();
+    return { ...local, cadastroOnline, cadastroAguardandoConfirmacao };
+  }
+};
+
+if (typeof window !== "undefined") {
+  window.AppError = AppError;
+  window.StateStore = StateStore;
+  window.ErrorService = ErrorService;
+  window.AuthService = AuthService;
+  window.InventoryService = InventoryService;
+  window.PlanService = PlanService;
+}
 
 const printers = {
   "Ender 3": { tipo: "FDM", consumo: 120, custo: 1 },
@@ -608,27 +1123,31 @@ function normalizarPapel(papel) {
 function normalizarUsuario(usuario) {
   const email = normalizarEmail(usuario?.email);
   if (!email) return null;
+  const status = String(usuario?.status || "").toLowerCase();
 
   return {
     id: usuario?.id || criarIdUsuario(),
     clientId: usuario?.clientId || usuario?.client_id || billingConfig.clientId || "",
-    nome: String(usuario?.nome || email.split("@")[0] || "Usuário").trim(),
+    nome: String(usuario?.nome || usuario?.name || usuario?.display_name || email.split("@")[0] || "Usuário").trim(),
     email,
     senha: String(usuario?.senha || ""),
     passwordHash: usuario?.passwordHash || usuario?.senhaHash || "",
-    mustChangePassword: usuario?.mustChangePassword === true || usuario?.senhaTemporaria === true,
-    senhaTemporaria: usuario?.senhaTemporaria === true || usuario?.mustChangePassword === true,
+    mustChangePassword: usuario?.mustChangePassword === true || usuario?.senhaTemporaria === true || usuario?.must_change_password === true,
+    senhaTemporaria: usuario?.senhaTemporaria === true || usuario?.mustChangePassword === true || usuario?.must_change_password === true,
     phone: String(usuario?.phone || usuario?.telefone || "").trim(),
-    papel: normalizarPapel(usuario?.papel),
-    ativo: usuario?.ativo !== false,
-    bloqueado: usuario?.bloqueado === true,
+    papel: normalizarPapel(usuario?.papel || usuario?.role),
+    ativo: status ? status === "active" : usuario?.ativo !== false,
+    bloqueado: usuario?.bloqueado === true || status === "blocked",
     planStatus: usuario?.planStatus || "",
     planExpiresAt: usuario?.planExpiresAt || "",
     trialStartedAt: usuario?.trialStartedAt || "",
     trialDays: Math.max(1, Number(usuario?.trialDays) || Number(billingConfig.trialDays) || 7),
     acceptedTermsAt: usuario?.acceptedTermsAt || usuario?.accepted_terms_at || "",
-    criadoEm: usuario?.criadoEm || new Date().toISOString(),
-    atualizadoEm: usuario?.atualizadoEm || usuario?.criadoEm || new Date().toISOString(),
+    supabaseUserId: usuario?.supabaseUserId || usuario?.supabase_user_id || usuario?.user_id || "",
+    supabasePending: usuario?.supabasePending === true || usuario?.onlineRegistrationPending === true,
+    supabaseLastSyncAt: usuario?.supabaseLastSyncAt || usuario?.updated_at || "",
+    criadoEm: usuario?.criadoEm || usuario?.created_at || new Date().toISOString(),
+    atualizadoEm: usuario?.atualizadoEm || usuario?.updated_at || usuario?.criadoEm || new Date().toISOString(),
     lastLoginAt: usuario?.lastLoginAt || "",
     passwordUpdatedAt: usuario?.passwordUpdatedAt || "",
     failedLoginCount: Math.max(0, Number(usuario?.failedLoginCount) || 0)
@@ -643,6 +1162,62 @@ function normalizarUsuarios(lista = []) {
     const atual = mapa.get(usuario.email);
     mapa.set(usuario.email, atual ? { ...atual, ...usuario } : usuario);
   });
+  return Array.from(mapa.values());
+}
+
+function normalizarUsuarioPerfilSupabase(perfil) {
+  const email = normalizarEmail(perfil?.email);
+  if (!email) return null;
+  const userId = perfil?.user_id || perfil?.supabaseUserId || perfil?.id || "";
+  const status = String(perfil?.status || "active").toLowerCase();
+
+  return normalizarUsuario({
+    id: perfil?.id || userId || criarIdUsuario(),
+    clientId: perfil?.client_id || perfil?.clientId || "",
+    nome: perfil?.name || perfil?.display_name || perfil?.nome || email.split("@")[0],
+    email,
+    phone: perfil?.phone || perfil?.telefone || "",
+    papel: perfil?.role || perfil?.papel || "operador",
+    ativo: status === "active",
+    bloqueado: status === "blocked",
+    mustChangePassword: perfil?.must_change_password === true || perfil?.mustChangePassword === true,
+    acceptedTermsAt: perfil?.accepted_terms_at || perfil?.acceptedTermsAt || "",
+    supabaseUserId: userId,
+    supabasePending: false,
+    supabaseLastSyncAt: perfil?.updated_at || new Date().toISOString(),
+    criadoEm: perfil?.created_at || perfil?.criadoEm || new Date().toISOString(),
+    atualizadoEm: perfil?.updated_at || perfil?.atualizadoEm || new Date().toISOString()
+  });
+}
+
+function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
+  const mapa = new Map();
+  normalizarUsuarios(usuariosAtuais).forEach((usuario) => mapa.set(usuario.email, usuario));
+
+  (Array.isArray(perfis) ? perfis : []).forEach((perfil) => {
+    const remoto = normalizarUsuarioPerfilSupabase(perfil);
+    if (!remoto) return;
+    const local = mapa.get(remoto.email);
+    const papel = local?.papel === "superadmin" || remoto.papel === "superadmin" ? "superadmin" : remoto.papel;
+    const usuario = normalizarUsuario({
+      ...local,
+      ...remoto,
+      papel,
+      senha: local?.senha || "",
+      passwordHash: local?.passwordHash || "",
+      passwordUpdatedAt: local?.passwordUpdatedAt || "",
+      failedLoginCount: local?.failedLoginCount || 0,
+      lastLoginAt: local?.lastLoginAt || remoto.lastLoginAt || "",
+      planStatus: local?.planStatus || remoto.planStatus || "",
+      planExpiresAt: local?.planExpiresAt || remoto.planExpiresAt || "",
+      trialStartedAt: local?.trialStartedAt || remoto.trialStartedAt || "",
+      trialDays: local?.trialDays || remoto.trialDays,
+      ativo: local ? local.ativo !== false && remoto.ativo !== false : remoto.ativo !== false,
+      bloqueado: local?.bloqueado === true || remoto.bloqueado === true
+    });
+    if (usuario) mapa.set(usuario.email, usuario);
+  });
+
   return Array.from(mapa.values());
 }
 
@@ -1730,12 +2305,17 @@ function normalizarTelefoneWhatsapp(numero = "") {
   return limpo;
 }
 
-function obterTelefoneWhatsappPedido(pedido = null) {
+async function obterTelefoneWhatsappPedido(pedido = null) {
   const campo = document.getElementById("clienteTelefone");
   const atual = campo?.value || clienteTelefonePedido || telefoneDoPedido(pedido);
   let numero = normalizarTelefoneWhatsapp(atual);
   if (!numero) {
-    const digitado = prompt("WhatsApp do cliente com DDD ou DDI:", "");
+    const digitado = await solicitarEntradaTexto({
+      titulo: "WhatsApp do cliente",
+      mensagem: "Informe o número com DDD ou DDI.",
+      valor: "",
+      tipo: "tel"
+    });
     numero = normalizarTelefoneWhatsapp(digitado);
   }
   if (numero && campo) {
@@ -2032,19 +2612,24 @@ function temAcessoCompleto() {
 }
 
 function exigirPlanoCompleto() {
-  const plano = getPlanoAtual();
-  if (canUsePremiumFeatures()) return true;
-  if (plano.status === "bloqueado") {
-    alert("Este acesso está bloqueado. Fale com o administrador.");
-  } else if (plano.status === "expirado") {
-    alert("Seu plano expirou. Renove para voltar a usar os recursos premium.");
-  } else if (plano.completo) {
-    alert("Este e-mail já atingiu o limite de aparelhos da licença.");
+  return PlanService.exigirPlanoCompleto();
+}
+
+function permitirAcaoPlanoCompleto() {
+  const resultado = exigirPlanoCompleto();
+  if (resultado.allowed) return true;
+  mostrarBloqueioPlano(resultado);
+  return false;
+}
+
+function mostrarBloqueioPlano(resultado) {
+  const mensagem = resultado?.message || "Recurso premium. O trial ativo e o plano pago liberam esta função.";
+  if (resultado?.reason === "DEVICE_LIMIT") {
+    alert(mensagem);
   } else {
-    alert("Recurso premium. O trial ativo e o plano pago liberam esta função.");
+    mostrarModalLimitePlano(mensagem);
   }
   trocarTela("assinatura");
-  return false;
 }
 
 function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano. Faça upgrade para continuar.") {
@@ -2054,16 +2639,16 @@ function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano
     return;
   }
   popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
-      <div class="modal-card limit-modal" onclick="event.stopPropagation()">
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="plan-modal-close">
+      <div class="modal-card limit-modal">
         <div class="modal-header">
           <h2>Você atingiu o limite do seu plano</h2>
-          <button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button>
+          <button class="icon-button" type="button" data-action="plan-modal-close" title="Fechar">✕</button>
         </div>
         <p class="muted">${escaparHtml(mensagem)}</p>
         <div class="actions">
-          <button class="btn secondary" onclick="fecharPopup(); trocarTela('assinatura')">Ver planos</button>
-          <button class="btn" onclick="fecharPopup(); trocarTela('assinatura')">Fazer upgrade</button>
+          <button class="btn secondary" type="button" data-action="plan-upgrade">Ver planos</button>
+          <button class="btn" type="button" data-action="plan-upgrade">Fazer upgrade</button>
         </div>
       </div>
     </div>
@@ -3583,8 +4168,8 @@ function renderEstoque() {
           </div>
           ${(Number(material.qtd) || 0) <= estoqueMinimoKg ? `<span class="status-badge badge-alerta">Estoque baixo</span>` : `<span class="status-badge badge-ativo">OK</span>`}
           ${podeOperar ? `<div class="row-actions">
-            <button class="btn ghost" onclick="editarMaterial(${i})">✏️ Editar</button>
-            <button class="btn danger" onclick="removerMaterial(${i})">Remover</button>
+            <button class="btn ghost" type="button" data-action="stock-edit" data-index="${i}">✏️ Editar</button>
+            <button class="btn danger" type="button" data-action="stock-remove" data-index="${i}">Remover</button>
           </div>` : ""}
         </div>
       `).join("")
@@ -3611,7 +4196,7 @@ function renderEstoque() {
         <span>Quantidade em kg</span>
         <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
       </label>
-      <button class="btn" onclick="addMaterial()">Adicionar material</button>` : `<div class="actions"><button class="btn" onclick="abrirLinkMercadoPago()">Pagar agora</button></div>`}
+      <button class="btn" type="button" data-action="stock-add">Adicionar material</button>` : `<div class="actions"><button class="btn" onclick="abrirLinkMercadoPago()">Pagar agora</button></div>`}
       ${linhas}
     </section>
   `;
@@ -3891,13 +4476,23 @@ function getClienteSaasPorId(id) {
   return saasClients.find((cliente) => String(cliente.id) === String(id));
 }
 
-function editarClienteSaas(id) {
+async function editarClienteSaas(id) {
   if (!isSuperAdmin()) return;
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
-  const nome = prompt("Nome da empresa:", cliente.name);
+  const nome = await solicitarEntradaTexto({
+    titulo: "Editar cliente",
+    mensagem: "Nome da empresa",
+    valor: cliente.name,
+    obrigatorio: true
+  });
   if (nome === null) return;
-  const telefone = prompt("Telefone:", cliente.phone || "");
+  const telefone = await solicitarEntradaTexto({
+    titulo: "Editar cliente",
+    mensagem: "Telefone",
+    valor: cliente.phone || "",
+    tipo: "tel"
+  });
   cliente.name = nome.trim() || cliente.name;
   cliente.phone = telefone === null ? cliente.phone : telefone.trim();
   cliente.updatedAt = new Date().toISOString();
@@ -3918,12 +4513,19 @@ function alterarStatusClienteSaas(id, status) {
   renderApp();
 }
 
-function alterarPlanoClienteSaas(id) {
+async function alterarPlanoClienteSaas(id) {
   if (!isSuperAdmin()) return;
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
   const planoAtual = getPlanoSaas(getAssinaturaSaas(id)?.planSlug || cliente.planoAtual || "free");
-  const novoPlano = normalizarSlugPlano(prompt("Plano (free, pro, premium, pro_token ou premium_trial):", planoAtual.slug) || "");
+  const respostaPlano = await solicitarEntradaTexto({
+    titulo: "Alterar plano",
+    mensagem: "Use: free, pro, premium, pro_token ou premium_trial.",
+    valor: planoAtual.slug,
+    obrigatorio: true
+  });
+  if (respostaPlano === null) return;
+  const novoPlano = normalizarSlugPlano(respostaPlano || "");
   const plano = getPlanoSaas(novoPlano);
   if (!["free", "pro", "premium", "pro_token", "premium_trial"].includes(novoPlano)) {
     alert("Plano inválido.");
@@ -5259,6 +5861,7 @@ function renderSuperAdminConfiguracoes() {
     </div>
     <div class="actions">
       <button class="btn" onclick="salvarAcessoSuperAdmin()">Criar acesso manual</button>
+      <button class="btn secondary" type="button" data-action="superadmin-refresh-users">Atualizar usuários Supabase</button>
       <button class="btn ghost" onclick="exportarBackup()">Exportar backup geral</button>
     </div>
     <div class="history-list users-list">
@@ -5402,12 +6005,27 @@ function gerarTokensPromocionaisSuperAdmin() {
 function copiarTokenPromocional(codigo) {
   const link = `${location.origin}${location.pathname}?token=${encodeURIComponent(codigo)}`;
   navigator.clipboard?.writeText(link).then(() => alert("Link do token copiado.")).catch(() => {
-    prompt("Copie o link do token:", link);
+    solicitarEntradaTexto({
+      titulo: "Copie o link do token",
+      mensagem: "Selecione o conteúdo abaixo para compartilhar.",
+      valor: link
+    });
   });
 }
 
 function filtrarSuperAdmin(valor) {
   window.__superAdminBusca = valor || "";
+  renderApp();
+}
+
+async function atualizarUsuariosSuperAdminSupabase() {
+  if (!isSuperAdmin()) return;
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    mostrarToast("Entre com uma sessão Supabase para carregar usuários online.", "erro");
+    return;
+  }
+  await carregarSaasSupabaseSilencioso();
+  mostrarToast("Usuários do Supabase atualizados no Superadmin.", "sucesso");
   renderApp();
 }
 
@@ -6598,64 +7216,22 @@ async function cadastrarClienteSaas() {
   }
 
   setBotaoLoading("signupBtn", true, "Criando...");
-  let cadastroOnline = null;
-
   try {
-    syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
-    syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
-    const dados = await requisicaoSupabase("/auth/v1/signup", {
-      method: "POST",
-      auth: false,
-      body: JSON.stringify({
-        email,
-        password: senha,
-        data: {
-          name: nome,
-          business_name: negocio,
-          phone: telefone,
-          accepted_terms: true
-        }
-      })
-    });
-
-    if (salvarSessaoSupabase(dados, email)) {
-      cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "premium_trial" });
-    }
-  } catch (erro) {
-    const mensagem = String(erro.message || "");
-    registrarDiagnostico("Supabase", "Cadastro online não concluído", mensagem);
-    if (/already|registered|exists|cadastrado/i.test(mensagem)) {
-      alert("Este e-mail já está cadastrado.");
-      setBotaoLoading("signupBtn", false);
-      return;
-    }
-  }
-
-  try {
-    const local = criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug: "premium_trial", trial: true });
-    if (cadastroOnline?.client_id) {
-      const clientIdOnline = String(cadastroOnline.client_id);
-      local.cliente.id = clientIdOnline;
-      local.assinatura.clientId = clientIdOnline;
-      local.usuario.clientId = clientIdOnline;
-      billingConfig.clientId = clientIdOnline;
-    }
-    if (cadastroOnline?.client_code) {
-      local.cliente.clientCode = String(cadastroOnline.client_code);
-    }
-    if (cadastroOnline?.subscription_id) {
-      local.assinatura.id = String(cadastroOnline.subscription_id);
-      billingConfig.subscriptionId = local.assinatura.id;
-    }
-    await definirSenhaUsuario(local.usuario, senha, false);
+    const local = await AuthService.signupSaas({ nome, email, senha, negocio, telefone });
     salvarDados();
     registrarHistorico("Conta", "Conta SaaS criada: " + email);
     registrarSeguranca("Criação usuário", "sucesso", "Cadastro inicial", email);
     registrarAuditoria("criação usuário", { email, negocio, plano: "premium_trial" }, local.usuario.clientId);
-    mostrarToast("Conta criada. Trial Premium liberado por 7 dias.", "sucesso");
+    mostrarToast(
+      local.cadastroAguardandoConfirmacao && !local.cadastroOnline?.client_id
+        ? "Conta criada. Confirme o e-mail para ativar a sincronização online."
+        : "Conta criada. Trial Premium liberado por 7 dias.",
+      "sucesso",
+      6500
+    );
     concluirLoginUsuario(local.usuario);
   } catch (erro) {
-    alert(erro.message || "Não foi possível criar a conta.");
+    ErrorService.notify(erro, { area: "Autenticação", action: "Cadastro SaaS", userMessage: "Não foi possível criar a conta." });
   } finally {
     setBotaoLoading("signupBtn", false);
   }
@@ -6674,34 +7250,23 @@ async function loginUsuario() {
   if (loginEstaBloqueado(email)) return;
 
   setBotaoLoading("loginUsuarioBtn", true);
-  let usuario = usuarios.find((item) => item.email === email);
-  let senhaValida = usuario && !usuarioEstaBloqueado(usuario) && await verificarSenhaUsuario(usuario, senha);
-  if (!senhaValida) {
-    try {
-      usuario = await loginUsuarioSupabase(email, senha);
-      senhaValida = !!usuario && !usuarioEstaBloqueado(usuario);
-    } catch (erro) {
-      registrarDiagnostico("Supabase", "Login online falhou", erro.message);
+  try {
+    const { usuario, source } = await AuthService.login(email, senha);
+    if (source === "supabase") mostrarToast("Login conectado ao Supabase.", "sucesso");
+
+    if (precisa2FA(usuario)) {
+      iniciarVerificacao2FA("usuario", usuario);
+      return;
     }
-  }
 
-  if (!usuario || !senhaValida) {
-    registrarFalhaLogin(email, !usuario ? "Usuário inexistente" : "Senha inválida ou usuário inativo");
-    alert("Usuário ou senha inválidos");
+    limparFalhasLogin(email);
+    oferecerSalvarCredencialNavegador(email, senha);
+    concluirLoginUsuario(usuario);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Autenticação", action: "Login", userMessage: "Usuário ou senha inválidos." });
+  } finally {
     setBotaoLoading("loginUsuarioBtn", false);
-    return;
   }
-
-  if (precisa2FA(usuario)) {
-    iniciarVerificacao2FA("usuario", usuario);
-    setBotaoLoading("loginUsuarioBtn", false);
-    return;
-  }
-
-  limparFalhasLogin(email);
-  oferecerSalvarCredencialNavegador(email, senha);
-  concluirLoginUsuario(usuario);
-  setBotaoLoading("loginUsuarioBtn", false);
 }
 
 function concluirLoginUsuario(usuario) {
@@ -6732,15 +7297,26 @@ function concluirLoginUsuario(usuario) {
   registrarHistorico("Usuário", `Login de ${usuario.nome}`);
   registrarSeguranca("Login realizado", "sucesso", usuario.papel, usuario.email);
   registrarAuditoria("login", { papel: usuario.papel }, usuario.clientId || billingConfig.clientId);
-  garantirCadastroSaasOnlineAposLogin(usuario);
-  tocarAcessoClienteSupabaseSilencioso();
-  consultarLicencaSupabaseSilencioso();
-  carregarSaasSupabaseSilencioso();
-  registrarSessaoSaasOnlineSilencioso(usuario);
+  executarPosLoginAssincrono(usuario);
   registrarAtividadeSessao();
   sincronizarAposLogin();
   oferecerAtivarBiometriaAposLogin();
   renderApp();
+}
+
+function executarPosLoginAssincrono(usuario) {
+  const tarefas = [
+    ["Cadastro SaaS pós-login", () => garantirCadastroSaasOnlineAposLogin(usuario)],
+    ["Toque de acesso Supabase", () => tocarAcessoClienteSupabaseSilencioso()],
+    ["Licença Supabase", () => consultarLicencaSupabaseSilencioso()],
+    ["Carga SaaS Supabase", () => carregarSaasSupabaseSilencioso()],
+    ["Sessão SaaS Supabase", () => registrarSessaoSaasOnlineSilencioso(usuario)]
+  ];
+  tarefas.forEach(([nome, tarefa]) => {
+    Promise.resolve()
+      .then(tarefa)
+      .catch((erro) => ErrorService.capture(erro, { area: "Pós-login", action: nome, silent: true }));
+  });
 }
 
 function sincronizarAposLogin() {
@@ -7010,7 +7586,12 @@ async function redefinirSenhaUsuario(id) {
     alert("Acesso negado");
     return;
   }
-  const senha = prompt("Digite a nova senha temporária para " + usuario.email);
+  const senha = await solicitarEntradaTexto({
+    titulo: "Nova senha temporária",
+    mensagem: "Digite a nova senha temporária para " + usuario.email,
+    tipo: "password",
+    obrigatorio: true
+  });
   if (senha === null) return;
   const erroSenha = mensagemValidacaoSenha(senha);
   if (erroSenha) {
@@ -7489,32 +8070,40 @@ function cabecalhosSupabase(autenticado = true, extras = {}) {
 }
 
 async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
-  const base = normalizarUrlSupabase();
-  const autenticado = opcoes.auth !== false;
-  const resposta = await fetch(base + caminho, {
-    ...opcoes,
-    headers: cabecalhosSupabase(autenticado, opcoes.headers || {})
-  });
+  try {
+    const base = normalizarUrlSupabase();
+    const autenticado = opcoes.auth !== false;
+    const resposta = await fetch(base + caminho, {
+      ...opcoes,
+      headers: cabecalhosSupabase(autenticado, opcoes.headers || {})
+    });
 
-  if (resposta.status === 401 && autenticado && tentarRenovar && await renovarSessaoSupabase()) {
-    return requisicaoSupabase(caminho, opcoes, false);
-  }
-
-  const texto = await resposta.text();
-  let dados = null;
-  if (texto) {
-    try {
-      dados = JSON.parse(texto);
-    } catch (_) {
-      dados = { message: texto };
+    if (resposta.status === 401 && autenticado && tentarRenovar && await renovarSessaoSupabase()) {
+      return requisicaoSupabase(caminho, opcoes, false);
     }
-  }
-  if (!resposta.ok) {
-    const detalhe = dados?.message || dados?.error_description || dados?.error || texto || ("HTTP " + resposta.status);
-    throw new Error(detalhe);
-  }
 
-  return dados;
+    const texto = await resposta.text();
+    let dados = null;
+    if (texto) {
+      try {
+        dados = JSON.parse(texto);
+      } catch (_) {
+        dados = { message: texto };
+      }
+    }
+    if (!resposta.ok) {
+      const detalhe = dados?.message || dados?.error_description || dados?.error || texto || ("HTTP " + resposta.status);
+      throw new AppError(detalhe, {
+        code: "SUPABASE_REQUEST_FAILED",
+        userMessage: ErrorService.toAppError(new Error(detalhe)).userMessage,
+        details: { caminho, status: resposta.status }
+      });
+    }
+
+    return dados;
+  } catch (erro) {
+    throw ErrorService.capture(erro, { area: "Supabase", action: caminho, silent: true });
+  }
 }
 
 async function registrarSecurityLogSupabaseSilencioso(log) {
@@ -7580,16 +8169,24 @@ function mesclarListaPorId(atual, novos, normalizador) {
 async function carregarSaasSupabaseSilencioso() {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
   try {
-    const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline] = await Promise.all([
+    const carregarPerfis = (rota, nome) => requisicaoSupabase(rota).catch((erro) => {
+      registrarDiagnostico("Supabase/RLS", `${nome} não carregados`, erro.message);
+      return [];
+    });
+    const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline, perfisOnline, perfisErpOnline] = await Promise.all([
       requisicaoSupabase("/rest/v1/clients?select=*&order=created_at.desc&limit=1000"),
       requisicaoSupabase("/rest/v1/subscriptions?select=*&order=created_at.desc&limit=1000"),
       requisicaoSupabase("/rest/v1/payments?select=*&order=created_at.desc&limit=1000"),
-      requisicaoSupabase("/rest/v1/plans?select=*&order=price.asc")
+      requisicaoSupabase("/rest/v1/plans?select=*&order=price.asc"),
+      carregarPerfis("/rest/v1/profiles?select=*&order=created_at.desc&limit=1000", "profiles"),
+      carregarPerfis("/rest/v1/erp_profiles?select=*&order=created_at.desc&limit=1000", "erp_profiles")
     ]);
     saasClients = mesclarListaPorId(saasClients, clientesOnline, normalizarClienteSaas);
     saasSubscriptions = mesclarListaPorId(saasSubscriptions, assinaturasOnline, normalizarAssinaturaSaas);
     saasPayments = mesclarListaPorId(saasPayments, pagamentosOnline, normalizarPagamentoSaas);
     saasPlans = mesclarListaPorId(saasPlans, planosOnline, normalizarPlanoSaas);
+    usuarios = mesclarUsuariosSupabase(usuarios, [...perfisOnline, ...perfisErpOnline]);
+    StateStore.set("usuarios", usuarios);
     salvarDados();
   } catch (erro) {
     registrarDiagnostico("Supabase", "Dados SaaS online não carregados", erro.message);
@@ -7616,7 +8213,12 @@ async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) 
   try {
     const licenca = await consultarLicencaSupabaseSilencioso();
     if (licenca?.client_id) {
+      usuario.clientId = String(licenca.client_id);
+      billingConfig.clientId = usuario.clientId;
+      billingConfig.licenseEmail = normalizarEmail(usuario.email || syncConfig.supabaseEmail || billingConfig.licenseEmail);
+      marcarUsuarioSupabaseSincronizado(usuario);
       await salvarPerfilSupabase();
+      salvarDados();
       return licenca;
     }
 
@@ -7637,12 +8239,15 @@ async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) 
       billingConfig.licenseEmail = email;
       if (clienteLocal) clienteLocal.id = clientIdOnline;
       if (resultado.client_code && clienteLocal) clienteLocal.clientCode = String(resultado.client_code);
+      marcarUsuarioSupabaseSincronizado(usuario);
       await salvarPerfilSupabase();
       salvarDados();
       registrarAuditoria("cadastro online sincronizado", { email }, clientIdOnline);
     }
     return resultado;
   } catch (erro) {
+    marcarUsuarioSupabasePendente(usuario, erro.message);
+    salvarDados();
     registrarDiagnostico("Supabase", "Cadastro SaaS online não sincronizado após login", erro.message);
     return null;
   }
@@ -7741,7 +8346,12 @@ async function alterarSenhaSupabaseSeConectado(novaSenha) {
 }
 
 async function solicitarRecuperacaoSenha() {
-  const email = normalizarEmail(prompt("Informe o e-mail para recuperação de senha") || "");
+  const emailInformado = await solicitarEntradaTexto({
+    titulo: "Recuperar senha",
+    mensagem: "Informe o e-mail para recuperação de senha.",
+    tipo: "email"
+  });
+  const email = normalizarEmail(emailInformado || "");
   if (!email) {
     alert("Se este e-mail existir, enviaremos instruções de recuperação.");
     return;
@@ -7796,6 +8406,57 @@ function salvarSessaoSupabase(dados, email) {
   return true;
 }
 
+function erroSupabaseEmailNaoConfirmado(erro) {
+  const mensagem = String(erro?.message || erro || "").toLowerCase();
+  return mensagem.includes("email_not_confirmed")
+    || mensagem.includes("email not confirmed")
+    || mensagem.includes("email não confirmado")
+    || mensagem.includes("email nao confirmado")
+    || (mensagem.includes("confirm") && mensagem.includes("email"));
+}
+
+function erroSupabaseCredenciaisInvalidas(erro) {
+  const mensagem = String(erro?.message || erro || "").toLowerCase();
+  return mensagem.includes("invalid login credentials")
+    || mensagem.includes("invalid credentials")
+    || mensagem.includes("credenciais")
+    || mensagem.includes("invalid_grant");
+}
+
+function sessaoSupabaseValidaParaEmail(email) {
+  const emailNormalizado = normalizarEmail(email);
+  if (!emailNormalizado || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
+  if (normalizarEmail(syncConfig.supabaseEmail) !== emailNormalizado) return false;
+  const expiraEm = Number(syncConfig.supabaseTokenExpiresAt) || 0;
+  return !expiraEm || expiraEm > Date.now() + 60000;
+}
+
+function deveConectarSupabaseNoLogin(usuario, email) {
+  if (!usuario || !email || normalizarEmail(email) === SUPERADMIN_BOOTSTRAP_EMAIL) return false;
+  if (!syncConfig.supabaseUrl || !syncConfig.supabaseAnonKey) return false;
+  if (sessaoSupabaseValidaParaEmail(email)) return false;
+  const clientId = String(usuario.clientId || "");
+  return usuario.supabasePending === true
+    || !usuario.supabaseUserId
+    || !clientId
+    || clientId.startsWith("client-");
+}
+
+function marcarUsuarioSupabasePendente(usuario, motivo = "") {
+  if (!usuario) return;
+  usuario.supabasePending = true;
+  usuario.atualizadoEm = new Date().toISOString();
+  if (motivo) registrarDiagnostico("Supabase", "Cadastro online pendente", motivo);
+}
+
+function marcarUsuarioSupabaseSincronizado(usuario) {
+  if (!usuario) return;
+  usuario.supabasePending = false;
+  usuario.supabaseUserId = syncConfig.supabaseUserId || usuario.supabaseUserId || "";
+  usuario.supabaseLastSyncAt = new Date().toISOString();
+  usuario.atualizadoEm = usuario.supabaseLastSyncAt;
+}
+
 async function renovarSessaoSupabase() {
   if (!syncConfig.supabaseRefreshToken) return false;
   try {
@@ -7830,6 +8491,8 @@ async function autenticarSupabase(criarConta = false) {
     });
 
     if (!salvarSessaoSupabase(dados, email)) {
+      syncConfig.supabaseEmail = email;
+      salvarDados();
       alert("Conta criada. Se o Supabase pedir confirmação de e-mail, confirme antes de entrar.");
       return;
     }
@@ -7966,8 +8629,68 @@ async function loginUsuarioSupabase(email, senha) {
   }
 
   await carregarPerfilSaasSupabase(usuario);
+  marcarUsuarioSupabaseSincronizado(usuario);
   await definirSenhaUsuario(usuario, senha, !!usuario.mustChangePassword);
   salvarDados();
+  return usuario;
+}
+
+async function criarContaSupabaseParaUsuarioLocal(usuario, senha) {
+  if (!usuario || !senha || normalizarEmail(usuario.email) === SUPERADMIN_BOOTSTRAP_EMAIL) return null;
+  syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
+  syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
+
+  const email = normalizarEmail(usuario.email);
+  const clienteLocal = saasClients.find((cliente) => String(cliente.id) === String(usuario.clientId))
+    || saasClients.find((cliente) => normalizarEmail(cliente.email) === email);
+  const nome = usuario.nome || clienteLocal?.responsibleName || email.split("@")[0];
+  const negocio = clienteLocal?.name || appConfig.businessName || "Minha empresa 3D";
+  const telefone = usuario.phone || clienteLocal?.phone || "";
+  const dados = await requisicaoSupabase("/auth/v1/signup", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({
+      email,
+      password: senha,
+      data: {
+        name: nome,
+        business_name: negocio,
+        phone: telefone,
+        accepted_terms: true
+      }
+    })
+  });
+
+  if (!salvarSessaoSupabase(dados, email)) {
+    syncConfig.supabaseEmail = email;
+    marcarUsuarioSupabasePendente(usuario, "Aguardando confirmação de e-mail");
+    salvarDados();
+    return null;
+  }
+
+  const cadastroOnline = await registrarClienteSaasSupabase({
+    nome,
+    email,
+    negocio,
+    telefone,
+    planSlug: normalizarSlugPlano(clienteLocal?.planoAtual || billingConfig.planSlug || "premium_trial")
+  });
+
+  if (cadastroOnline?.client_id) {
+    const clientIdOnline = String(cadastroOnline.client_id);
+    usuario.clientId = clientIdOnline;
+    billingConfig.clientId = clientIdOnline;
+    billingConfig.licenseEmail = email;
+    if (clienteLocal) {
+      clienteLocal.id = clientIdOnline;
+      if (cadastroOnline.client_code) clienteLocal.clientCode = String(cadastroOnline.client_code);
+    }
+    if (cadastroOnline.subscription_id) billingConfig.subscriptionId = String(cadastroOnline.subscription_id);
+    marcarUsuarioSupabaseSincronizado(usuario);
+    await salvarPerfilSupabase();
+    salvarDados();
+  }
+
   return usuario;
 }
 
@@ -7979,16 +8702,57 @@ function criarContaSupabase() {
   autenticarSupabase(true);
 }
 
+function montarRedirectSupabaseOAuth() {
+  return location.origin + location.pathname;
+}
+
+function limparParametrosOAuthSupabase() {
+  if (typeof window === "undefined" || !window.history) return;
+  const url = new URL(location.href);
+  ["error", "error_code", "error_description", "msg"].forEach((parametro) => url.searchParams.delete(parametro));
+  url.hash = "";
+  window.history.replaceState(null, document.title, url.pathname + (url.search ? url.search : ""));
+}
+
+function obterErroOAuthSupabase() {
+  const search = new URLSearchParams(String(location.search || "").replace(/^\?/, ""));
+  const hash = new URLSearchParams(String(location.hash || "").replace(/^#/, ""));
+  const erro = search.get("error") || hash.get("error") || search.get("error_code") || hash.get("error_code");
+  const descricao = search.get("error_description") || hash.get("error_description") || search.get("msg") || hash.get("msg") || "";
+  if (!erro && !descricao) return null;
+  return {
+    erro: String(erro || "oauth_error"),
+    descricao: String(descricao || "Login Google não concluído.")
+  };
+}
+
 function loginGoogleSupabase() {
   syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
   syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
-  const redirectTo = location.origin + location.pathname;
+  const redirectTo = montarRedirectSupabaseOAuth();
   const url = `${syncConfig.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  sessionStorage.setItem("supabaseOAuthProvider", "google");
+  sessionStorage.setItem("supabaseOAuthRedirectTo", redirectTo);
   registrarAuditoria("login", { provider: "google_redirect" });
-  window.location.href = url;
+  mostrarToast("Abrindo login com Google...", "info", 2500);
+  window.location.assign(url);
 }
 
 async function processarRetornoOAuthSupabase() {
+  const erroOAuth = obterErroOAuthSupabase();
+  if (erroOAuth) {
+    registrarDiagnostico("Supabase", "Login Google recusado", `${erroOAuth.erro}: ${erroOAuth.descricao}`);
+    mostrarToast(
+      erroOAuth.descricao.includes("Unsupported provider")
+        ? "Login Google ainda não está ativado no Supabase."
+        : "Login Google não concluído.",
+      "erro",
+      7000
+    );
+    limparParametrosOAuthSupabase();
+    return false;
+  }
+
   const hash = new URLSearchParams(String(location.hash || "").replace(/^#/, ""));
   const accessToken = hash.get("access_token");
   if (!accessToken) return false;
@@ -8041,12 +8805,14 @@ async function processarRetornoOAuthSupabase() {
     }
     await carregarPerfilSaasSupabase(usuario);
     await garantirCadastroSaasOnlineAposLogin(usuario);
-    window.history.replaceState(null, document.title, location.pathname + location.search);
+    sessionStorage.removeItem("supabaseOAuthProvider");
+    sessionStorage.removeItem("supabaseOAuthRedirectTo");
+    limparParametrosOAuthSupabase();
     concluirLoginUsuario(usuario);
     return true;
   } catch (erro) {
     registrarDiagnostico("Supabase", "Login Google não concluído", erro.message);
-    window.history.replaceState(null, document.title, location.pathname + location.search);
+    limparParametrosOAuthSupabase();
     return false;
   }
 }
@@ -8743,10 +9509,14 @@ function editarMaterialItem(itemIndex, materialIndex, materialId) {
 
 function editarGramasItem(itemIndex, materialIndex, gramas) {
   const materiais = garantirMateriaisItem(itemIndex);
-  materiais[materialIndex] = {
-    ...(materiais[materialIndex] || {}),
-    gramas: Math.max(0, parseFloat(gramas) || 0)
-  };
+  try {
+    materiais[materialIndex] = {
+      ...(materiais[materialIndex] || {}),
+      gramas: InventoryService.parseNumberStrict(gramas, "gramas", { min: 0 })
+    };
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Editar gramas" });
+  }
 }
 
 function adicionarMaterialProduto(itemIndex) {
@@ -8782,7 +9552,12 @@ async function autorizarEdicaoPedido() {
   const usuario = getUsuarioAtual();
   if (usuarioPodeEditarPedidoSemSenha(usuario)) return true;
 
-  const senha = prompt("Para editar este pedido, informe a senha de um admin ou dono.");
+  const senha = await solicitarEntradaTexto({
+    titulo: "Autorizar edição",
+    mensagem: "Para editar este pedido, informe a senha de um admin ou dono.",
+    tipo: "password",
+    obrigatorio: true
+  });
   if (senha === null) return false;
   if (!senha) {
     alert("Senha obrigatória para editar pedido.");
@@ -8814,7 +9589,7 @@ async function autorizarEdicaoPedido() {
 }
 
 async function editarPedido(id) {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   if (!await autorizarEdicaoPedido()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
@@ -8844,7 +9619,7 @@ function cancelarEdicaoPedido() {
 }
 
 function removerPedido(id) {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
   if (!confirm("Remover este pedido?")) return;
@@ -8879,27 +9654,22 @@ function diffConsumoPedido(pedidoNovo, pedidoAntigo = null) {
 }
 
 function validarSaldoEstoque(diff) {
-  const faltas = [];
-  diff.forEach((item) => {
-    if (item.kg <= 0) return;
-    const material = getMaterialEstoque(item.materialId);
-    const saldo = Number(material?.qtd) || 0;
-    if (!material || saldo + 0.000001 < item.kg) {
-      faltas.push(`${material?.nome || "Material"}: precisa ${item.kg.toFixed(3)} kg, saldo ${saldo.toFixed(3)} kg`);
-    }
-  });
-  return faltas;
+  try {
+    return InventoryService.validateStockDiff(diff);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Validar saldo" });
+    return [ErrorService.toAppError(erro).userMessage];
+  }
 }
 
 function aplicarDiffEstoque(diff, motivo = "pedido") {
-  normalizarEstoque();
-  diff.forEach((item) => {
-    const material = getMaterialEstoque(item.materialId);
-    if (!material) return;
-    material.qtd = Math.max(0, (Number(material.qtd) || 0) - item.kg);
-    const tipoMovimento = item.kg >= 0 ? "saída" : "entrada";
-    registrarHistorico("Estoque", `${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(item.kg).toFixed(3)} kg)`);
-  });
+  try {
+    InventoryService.applyDiff(diff, motivo);
+    return true;
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Aplicar baixa automática" });
+    return false;
+  }
 }
 
 function aplicarEstoquePedido(pedidoNovo, pedidoAntigo = null) {
@@ -8909,8 +9679,7 @@ function aplicarEstoquePedido(pedidoNovo, pedidoAntigo = null) {
     alert("Estoque insuficiente:\n" + faltas.join("\n"));
     return false;
   }
-  aplicarDiffEstoque(diff, pedidoAntigo ? "edição de pedido" : "pedido");
-  return true;
+  return aplicarDiffEstoque(diff, pedidoAntigo ? "edição de pedido" : "pedido");
 }
 
 function devolverEstoquePedido(pedido, motivo = "cancelamento") {
@@ -8919,7 +9688,7 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
 }
 
 function fecharPedido() {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   if (!pedidoEditando && !verificarLimitePedidosAntesCriar()) return;
   const campoCliente = document.getElementById("clienteNome");
   const cliente = (campoCliente?.value || clientePedido).trim();
@@ -8979,7 +9748,7 @@ function fecharPedido() {
 }
 
 function alterarStatusPedido(id, status) {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
   pedido.status = status || "aberto";
@@ -8990,72 +9759,88 @@ function alterarStatusPedido(id, status) {
 }
 
 function addMaterial() {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   const tipo = document.getElementById("matTipo")?.value || "PLA";
   const cor = (document.getElementById("matCor")?.value || "").trim();
-  const nome = [tipo, cor].filter(Boolean).join(" ");
-  const qtd = parseFloat(document.getElementById("matQtd")?.value) || 0;
+  const qtd = document.getElementById("matQtd")?.value;
 
-  if (!nome || qtd <= 0) {
-    alert("Quantidade inválida");
-    return;
+  try {
+    InventoryService.addMaterial({ tipo, cor, qtd });
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Adicionar material" });
   }
-
-  normalizarEstoque();
-  const existente = estoque.find((material) => material.tipo === tipo && String(material.cor || "").toLowerCase() === cor.toLowerCase());
-  if (existente) {
-    existente.qtd = (Number(existente.qtd) || 0) + qtd;
-  } else {
-    estoque.push(prepararRegistroOnline(normalizarMaterialEstoque({ id: Date.now(), nome, tipo, cor, qtd })));
-  }
-
-  salvarDados();
-  registrarHistorico("Estoque", "Material adicionado: " + nome + " (" + qtd + " kg)");
-  renderApp();
 }
 
 function editarMaterial(i) {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   normalizarEstoque();
   const material = estoque[i];
   if (!material) return;
+  mostrarModalEdicaoMaterial(i, material);
+}
 
-  const nome = prompt("Nome do material:", material.nome);
-  const qtd = prompt("Quantidade em kg:", material.qtd);
-  const cor = prompt("Cor do material:", material.cor || "");
+function mostrarModalEdicaoMaterial(indice, material) {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-edit-cancel">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Editar material</h2>
+          <button class="icon-button" type="button" data-action="stock-edit-cancel" title="Fechar">✕</button>
+        </div>
+        <label class="field">
+          <span>Nome</span>
+          <input id="stockEditName" value="${escaparAttr(material.nome)}">
+        </label>
+        <label class="field">
+          <span>Quantidade em kg</span>
+          <input id="stockEditQty" type="number" min="0" step="0.001" value="${escaparAttr(material.qtd)}">
+        </label>
+        <label class="field">
+          <span>Cor</span>
+          <input id="stockEditColor" value="${escaparAttr(material.cor || "")}">
+        </label>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="stock-edit-cancel">Cancelar</button>
+          <button class="btn" type="button" data-action="stock-edit-save" data-index="${Number(indice)}">Salvar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  setTimeout(() => document.getElementById("stockEditName")?.focus(), 50);
+}
 
-  if (nome !== null && nome.trim()) {
-    material.nome = nome.trim();
-    material.tipo = inferirTipoMaterial(material.nome);
+function salvarEdicaoMaterialEstoque(indice) {
+  try {
+    InventoryService.updateMaterial(indice, {
+      nome: document.getElementById("stockEditName")?.value || "",
+      qtd: document.getElementById("stockEditQty")?.value,
+      cor: document.getElementById("stockEditColor")?.value || ""
+    });
+    fecharPopup();
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Editar material" });
   }
-
-  if (qtd !== null) {
-    material.qtd = parseFloat(qtd) || 0;
-  }
-
-  if (cor !== null) {
-    material.cor = cor.trim();
-    material.nome = [material.tipo || inferirTipoMaterial(material.nome), material.cor].filter(Boolean).join(" ");
-  }
-
-  salvarDados();
-  registrarHistorico("Estoque", "Material editado: " + material.nome);
-  renderApp();
 }
 
 function removerMaterial(i) {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   if (!estoque[i]) return;
   if (!confirm("Remover este material?")) return;
 
-  estoque.splice(i, 1);
-  salvarDados();
-  registrarHistorico("Estoque", "Material removido");
-  renderApp();
+  try {
+    InventoryService.removeMaterial(i);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Remover material" });
+  }
 }
 
 function adicionarMovimentoCaixa() {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   const tipo = document.getElementById("caixaTipo")?.value || "entrada";
   const valor = parseFloat(document.getElementById("caixaValor")?.value) || 0;
   const descricao = document.getElementById("caixaDescricao")?.value.trim() || "";
@@ -9084,7 +9869,7 @@ function adicionarMovimentoCaixa() {
 }
 
 function removerMovimentoCaixa(i) {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   if (!caixa[i]) return;
   if (!confirm("Remover este movimento do caixa?")) return;
 
@@ -9496,7 +10281,7 @@ function salvarOrcamento() {
 }
 
 function gerarPdfCalculadora() {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   if (!ultimoCalculo) calcular();
   adicionarItem();
   setTimeout(() => gerarPDF(), 50);
@@ -9507,6 +10292,109 @@ function fecharPopup() {
   if (popup) {
     popup.innerHTML = "";
   }
+}
+
+function solicitarEntradaTexto({ titulo = "Informe os dados", mensagem = "", valor = "", tipo = "text", obrigatorio = false } = {}) {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      resolve(valor || "");
+      return;
+    }
+
+    const idInput = "controlledPromptInput";
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <form class="modal-card" id="controlledPromptForm">
+          <div class="modal-header">
+            <h2>${escaparHtml(titulo)}</h2>
+            <button class="icon-button" type="button" id="controlledPromptCancelTop" title="Fechar">✕</button>
+          </div>
+          ${mensagem ? `<p class="muted">${escaparHtml(mensagem)}</p>` : ""}
+          <label class="field">
+            <span>Valor</span>
+            <input id="${idInput}" type="${escaparAttr(tipo)}" value="${escaparAttr(valor)}" ${obrigatorio ? "required" : ""}>
+          </label>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="controlledPromptCancel">Cancelar</button>
+            <button class="btn" type="submit">Confirmar</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    const form = document.getElementById("controlledPromptForm");
+    const input = document.getElementById(idInput);
+    const cancelar = () => {
+      fecharPopup();
+      resolve(null);
+    };
+    form?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      fecharPopup();
+      resolve(input?.value ?? "");
+    }, { once: true });
+    document.getElementById("controlledPromptCancel")?.addEventListener("click", cancelar, { once: true });
+    document.getElementById("controlledPromptCancelTop")?.addEventListener("click", cancelar, { once: true });
+    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) cancelar();
+    });
+    setTimeout(() => input?.focus(), 50);
+  });
+}
+
+function configurarEventListenersArquitetura() {
+  if (window.__simplificaArchitectureListeners) return;
+  window.__simplificaArchitectureListeners = true;
+  document.addEventListener("click", (event) => {
+    const elemento = event.target.closest("[data-action]");
+    if (!elemento) return;
+    const acao = elemento.dataset.action;
+
+    if (["plan-modal-close", "stock-edit-cancel"].includes(acao)) {
+      if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
+      event.preventDefault();
+      fecharPopup();
+      return;
+    }
+
+    if (acao === "plan-upgrade") {
+      event.preventDefault();
+      fecharPopup();
+      trocarTela("assinatura");
+      return;
+    }
+
+    if (acao === "stock-edit-save") {
+      event.preventDefault();
+      salvarEdicaoMaterialEstoque(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "stock-add") {
+      event.preventDefault();
+      addMaterial();
+      return;
+    }
+
+    if (acao === "stock-edit") {
+      event.preventDefault();
+      editarMaterial(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "stock-remove") {
+      event.preventDefault();
+      removerMaterial(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "superadmin-refresh-users") {
+      event.preventDefault();
+      atualizarUsuariosSuperAdminSupabase();
+      return;
+    }
+  });
 }
 
 function dadosPedidoAtual() {
@@ -9734,7 +10622,7 @@ async function salvarPdfAndroidNativo(doc, nomeArquivo) {
 }
 
 async function gerarPDF() {
-  if (!exigirPlanoCompleto()) return;
+  if (!permitirAcaoPlanoCompleto()) return;
   if (itensPedido.length === 0) {
     alert("Adicione itens ao pedido antes de gerar o PDF");
     return;
@@ -9757,7 +10645,7 @@ async function gerarPDF() {
   const data = new Date().toLocaleDateString("pt-BR");
   const pedidoId = pedidoEditando?.id || Date.now();
   const cidade = appConfig.pixCity || "Não informada";
-  const telefoneCliente = obterTelefoneWhatsappPedido(pedidoEditando);
+  const telefoneCliente = await obterTelefoneWhatsappPedido(pedidoEditando);
   const marcaPdf = await obterMarcaPdfDataUrl();
 
   adicionarMarcaPdf(doc, largura, altura, marcaPdf);
@@ -9865,8 +10753,8 @@ async function gerarPDF() {
   await salvarOuCompartilharPdf(doc, `pedido-${pedidoId}-${cliente}.pdf`, "Pedido " + cliente);
 }
 
-function enviarWhats() {
-  if (!exigirPlanoCompleto()) return;
+async function enviarWhats() {
+  if (!permitirAcaoPlanoCompleto()) return;
   if (itensPedido.length === 0) {
     alert("Adicione itens ao pedido antes de enviar");
     return;
@@ -9887,7 +10775,7 @@ function enviarWhats() {
     appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
   ].join("\n");
 
-  const numero = obterTelefoneWhatsappPedido();
+  const numero = await obterTelefoneWhatsappPedido();
   const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
   window.open(destino + encodeURIComponent(mensagem), "_blank");
 }
@@ -9916,8 +10804,8 @@ async function baixarPdfPedidoSalvo(id) {
   }
 }
 
-function enviarWhatsPedidoSalvo(id) {
-  if (!exigirPlanoCompleto()) return;
+async function enviarWhatsPedidoSalvo(id) {
+  if (!permitirAcaoPlanoCompleto()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
   const itens = normalizarItensPedido(pedido);
@@ -9932,7 +10820,7 @@ function enviarWhatsPedidoSalvo(id) {
     "Total: " + formatarMoeda(totalPedido(pedido)),
     appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
   ].join("\n");
-  const numero = obterTelefoneWhatsappPedido(pedido);
+  const numero = await obterTelefoneWhatsappPedido(pedido);
   if (numero && !pedido.clienteTelefone) {
     pedido.clienteTelefone = numero;
     pedido.atualizadoEm = new Date().toISOString();
@@ -10315,6 +11203,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  configurarEventListenersArquitetura();
   processarParametrosAssinaturaUrl();
   processarRetornoOAuthSupabase().then(async (processou) => {
     if (!processou) {

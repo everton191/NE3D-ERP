@@ -1,5 +1,5 @@
 // ==========================================================
-// 🚀 ERP 3D COMPLETO FINAL (EDITÁVEL)
+// 🚀 SIMPLIFICA 3D COMPLETO FINAL (EDITÁVEL)
 // ==========================================================
 let telaAtual = "pedido";
 

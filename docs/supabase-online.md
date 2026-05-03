@@ -10,8 +10,8 @@ Projeto usado:
 No terminal normal, depois de autenticar:
 
 ```powershell
-npx supabase login
-npx supabase link --project-ref qsufnnivlgdidmjuaprb
+npm run supabase:login
+npm run supabase:link
 npx supabase db push
 ```
 
@@ -47,3 +47,30 @@ Fluxo recomendado:
 2. Enviar backup Supabase no computador principal.
 3. Entrar com a mesma conta no Android.
 4. Sincronizar Supabase no Android para mesclar os dados.
+
+## Testes e diagnostico
+
+Testes que nao precisam de token privado:
+
+```powershell
+npm run supabase:test:rest
+npm run supabase:test:migrations
+```
+
+Testes que precisam da CLI autenticada com uma conta Supabase:
+
+```powershell
+npm run supabase:login
+npm run supabase:link
+npm run supabase:migrations
+npm run supabase:advisors
+npm run supabase:lint
+```
+
+Para testes locais com `supabase start`, `supabase test db` ou `supabase migration list --local`, o Windows precisa ter Docker Desktop instalado e em execucao.
+
+## Bloqueios conhecidos
+
+- `supabase db advisors --linked`, `db lint --linked` e `test db --linked` exigem login na CLI ou `SUPABASE_ACCESS_TOKEN`.
+- O projeto remoto atualmente responde `external_google_enabled=false` em `/auth/v1/settings`; portanto, login Google precisa ser ativado no painel Supabase antes de funcionar.
+- `register_saas_client` deve retornar `Usuário não autenticado` para chamadas anonimas. Esse bloqueio e esperado e protege o cadastro SaaS.
