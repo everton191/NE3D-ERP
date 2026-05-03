@@ -101,6 +101,12 @@ let saasPlans = carregarLista("saasPlans");
 let saasSubscriptions = carregarLista("saasSubscriptions");
 let saasPayments = carregarLista("saasPayments");
 let saasSessions = carregarLista("saasSessions");
+let saasClientsRemoteState = {
+  status: "idle",
+  message: "",
+  detail: "",
+  updatedAt: ""
+};
 let usageCounters = carregarObjeto("usageCounters", {});
 let loginAttempts = carregarObjeto("loginAttempts", {});
 let syncConfig = carregarObjeto("syncConfig", {
@@ -4460,6 +4466,83 @@ function getClientesSaasFiltrados() {
   });
 }
 
+function definirEstadoClientesSaasRemoto(estado = {}) {
+  saasClientsRemoteState = {
+    status: estado.status || "idle",
+    message: estado.message || "",
+    detail: estado.detail || "",
+    updatedAt: estado.updatedAt || new Date().toISOString()
+  };
+}
+
+function logSuperadminSupabaseDebug(evento, detalhes = {}) {
+  try {
+    console.warn("[Superadmin/Supabase]", evento, {
+      code: detalhes.code || "",
+      status: detalhes.status || "",
+      route: detalhes.route || "",
+      message: detalhes.message || ""
+    });
+  } catch (_) {}
+}
+
+function classificarFalhaClientesSaasRemoto(erro) {
+  const mensagem = String(erro?.message || erro || "");
+  const status = erro?.details?.status || erro?.cause?.details?.status || "";
+  const route = erro?.details?.caminho || erro?.cause?.details?.caminho || "";
+  if (status === 401 || /jwt|token|unauthorized|session/i.test(mensagem)) {
+    return {
+      status: "auth-error",
+      message: "Sessão Supabase expirada. Faça login novamente para carregar clientes remotos.",
+      detail: "AUTH",
+      log: { code: "AUTH", status, route, message: mensagem.slice(0, 160) }
+    };
+  }
+  if (status === 403 || /row-level security|violates row-level security|permission denied|not authorized|PGRST/i.test(mensagem)) {
+    return {
+      status: "permission-error",
+      message: "A busca foi bloqueada por permissão/RLS no Supabase.",
+      detail: "RLS",
+      log: { code: "RLS", status, route, message: mensagem.slice(0, 160) }
+    };
+  }
+  return {
+    status: "connection-error",
+    message: "Não foi possível conectar ao Supabase para carregar clientes.",
+    detail: "NETWORK",
+    log: { code: "NETWORK", status, route, message: mensagem.slice(0, 160) }
+  };
+}
+
+function renderEstadoClientesSaasRemoto(totalClientes, totalFiltrado) {
+  const estado = saasClientsRemoteState || {};
+  if (estado.status === "loading") {
+    return `<div class="saas-sync-state info">Carregando clientes do Supabase...</div>`;
+  }
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    return `<div class="saas-sync-state warning">Entre com a conta Supabase do superadmin para carregar clientes remotos.</div>`;
+  }
+  if (estado.status === "auth-error") {
+    return `<div class="saas-sync-state warning">${escaparHtml(estado.message)}</div>`;
+  }
+  if (estado.status === "permission-error" || estado.status === "permission-warning") {
+    return `<div class="saas-sync-state warning">${escaparHtml(estado.message)}</div>`;
+  }
+  if (estado.status === "connection-error") {
+    return `<div class="saas-sync-state error">${escaparHtml(estado.message)}</div>`;
+  }
+  if (totalClientes === 0) {
+    return `<p class="empty">Nenhum cliente cadastrado.</p>`;
+  }
+  if (totalFiltrado === 0) {
+    return `<p class="empty">Nenhum cliente corresponde aos filtros atuais.</p>`;
+  }
+  if (estado.status === "success" && estado.updatedAt) {
+    return `<div class="saas-sync-state success">Clientes remotos atualizados.</div>`;
+  }
+  return "";
+}
+
 function renderClientesSaas() {
   garantirEstruturaSaasLocal();
   const lista = getClientesSaasFiltrados();
@@ -4470,7 +4553,7 @@ function renderClientesSaas() {
   const inativos = clientesVisiveis.filter((cliente) => cliente.status === "inactive").length;
   const filtros = window.__clientesSaasFiltros || {};
 
-  const linhas = lista.map((cliente) => {
+  const linhasClientes = lista.map((cliente) => {
     const assinatura = getAssinaturaSaas(cliente.id);
     const plano = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
     const usuarioPrincipal = getUsuariosDoCliente(cliente.id)[0];
@@ -4500,7 +4583,9 @@ function renderClientesSaas() {
         </div>
       </div>
     `;
-  }).join("") || `<p class="empty">Nenhum cliente SaaS encontrado.</p>`;
+  }).join("");
+  const estadoRemoto = renderEstadoClientesSaasRemoto(total, lista.length);
+  const linhas = `${estadoRemoto}${linhasClientes}`;
 
   return `
     <section class="card">
@@ -4539,6 +4624,7 @@ function renderClientesSaas() {
         </label>
       </div>
       <div class="actions">
+        <button class="btn secondary" onclick="atualizarClientesSaasRemoto()">Atualizar Supabase</button>
         <button class="btn secondary" onclick="marcarClientesInativosAcao()">Marcar inativos &gt;90 dias</button>
         <button class="btn ghost" onclick="exportarClientesSaas()">Exportar dados</button>
       </div>
@@ -8189,11 +8275,33 @@ function mesclarListaPorId(atual, novos, normalizador) {
   return Array.from(mapa.values());
 }
 
-async function carregarSaasSupabaseSilencioso() {
-  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
+async function carregarSaasSupabaseSilencioso(opcoes = {}) {
+  const renderizar = !!opcoes.renderizar;
+  const feedback = !!opcoes.feedback;
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    definirEstadoClientesSaasRemoto({
+      status: "missing-token",
+      message: "Entre com a conta Supabase do superadmin para carregar clientes remotos.",
+      detail: "NO_ACCESS_TOKEN"
+    });
+    logSuperadminSupabaseDebug("clientes não carregados", { code: "NO_ACCESS_TOKEN" });
+    if (feedback) mostrarToast("Entre com a conta Supabase do superadmin para carregar clientes remotos.", "info", 6500);
+    if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
+    return { ok: false, code: "NO_ACCESS_TOKEN" };
+  }
+  definirEstadoClientesSaasRemoto({
+    status: "loading",
+    message: "Carregando clientes do Supabase...",
+    detail: ""
+  });
+  if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
   try {
+    const avisosPermissao = [];
     const carregarPerfis = (rota, nome) => requisicaoSupabase(rota).catch((erro) => {
       registrarDiagnostico("Supabase/RLS", `${nome} não carregados`, erro.message);
+      const classificado = classificarFalhaClientesSaasRemoto(erro);
+      avisosPermissao.push({ nome, status: classificado.status, detail: classificado.detail });
+      logSuperadminSupabaseDebug(`${nome} não carregados`, classificado.log);
       return [];
     });
     const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline, perfisOnline, perfisErpOnline] = await Promise.all([
@@ -8211,9 +8319,40 @@ async function carregarSaasSupabaseSilencioso() {
     usuarios = mesclarUsuariosSupabase(usuarios, [...perfisOnline, ...perfisErpOnline]);
     StateStore.set("usuarios", usuarios);
     salvarDados();
+    if (avisosPermissao.some((aviso) => aviso.status === "permission-error")) {
+      definirEstadoClientesSaasRemoto({
+        status: "permission-warning",
+        message: "Clientes carregados, mas parte dos perfis foi bloqueada por permissão/RLS.",
+        detail: "PARTIAL_RLS"
+      });
+    } else {
+      definirEstadoClientesSaasRemoto({
+        status: "success",
+        message: "Clientes remotos atualizados.",
+        detail: ""
+      });
+    }
+    if (feedback) mostrarToast("Clientes Supabase atualizados.", "sucesso", 4000);
+    if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
+    return { ok: true, clientes: Array.isArray(clientesOnline) ? clientesOnline.length : 0 };
   } catch (erro) {
+    const classificado = classificarFalhaClientesSaasRemoto(erro);
+    definirEstadoClientesSaasRemoto({
+      status: classificado.status,
+      message: classificado.message,
+      detail: classificado.detail
+    });
+    logSuperadminSupabaseDebug("clientes não carregados", classificado.log);
     registrarDiagnostico("Supabase", "Dados SaaS online não carregados", erro.message);
+    if (feedback) mostrarToast(classificado.message, "erro", 6500);
+    if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
+    return { ok: false, code: classificado.detail };
   }
+}
+
+async function atualizarClientesSaasRemoto() {
+  if (!isSuperAdmin()) return;
+  await carregarSaasSupabaseSilencioso({ renderizar: true, feedback: true });
 }
 
 async function registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug = "premium_trial" }) {

@@ -1702,6 +1702,36 @@ button:disabled{
   line-height:1.4;
 }
 
+.saas-sync-state{
+  margin:8px 0 0;
+  padding:10px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  color:var(--text);
+  background:rgba(255,255,255,.04);
+  line-height:1.4;
+}
+
+.saas-sync-state.info{
+  border-color:rgba(255,255,255,.18);
+  color:var(--muted);
+}
+
+.saas-sync-state.success{
+  border-color:rgba(56,189,149,.35);
+  color:#9ff3d5;
+}
+
+.saas-sync-state.warning{
+  border-color:rgba(255,176,32,.42);
+  color:#ffd28a;
+}
+
+.saas-sync-state.error{
+  border-color:rgba(255,92,92,.42);
+  color:#ffb4b4;
+}
+
 .menu{
   position:fixed;
   left:0;
