@@ -21,7 +21,9 @@ const checks = [
   ["subscriptions SELECT policy", /create policy "subscriptions_select_same_client_or_superadmin"[\s\S]*on public\.subscriptions for select/i],
   ["register_saas_client function", /create or replace function public\.register_saas_client/i],
   ["get_saas_license function", /create or replace function public\.get_saas_license/i],
-  ["RPC anon execute hardening", /revoke execute on function public\.get_saas_license\(\) from public, anon, authenticated/i]
+  ["RPC anon execute hardening", /revoke execute on function public\.get_saas_license\(\) from public, anon, authenticated/i],
+  ["Auth signup handler", /create or replace function public\.handle_new_saas_auth_user/i],
+  ["Auth signup profile trigger", /create trigger on_auth_user_created_saas_profile[\s\S]*after insert on auth\.users/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({

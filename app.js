@@ -723,10 +723,12 @@ const AuthService = {
         })
       });
 
+      const usuarioAuth = obterUsuarioAuthResposta(dados);
       if (salvarSessaoSupabase(dados, email)) {
         cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "premium_trial" });
-      } else if (dados?.user?.id) {
+      } else if (usuarioAuth?.id) {
         cadastroAguardandoConfirmacao = true;
+        syncConfig.supabaseUserId = usuarioAuth.id;
         syncConfig.supabaseEmail = email;
         salvarDados();
       }
@@ -7303,6 +7305,8 @@ async function cadastrarClienteSaas() {
     mostrarToast(
       local.cadastroAguardandoConfirmacao && !local.cadastroOnline?.client_id
         ? "Conta criada. Confirme o e-mail para ativar a sincronização online."
+        : local.usuario.supabasePending
+          ? "Conta local criada, mas o cadastro online não foi confirmado. Veja Diagnósticos/Supabase."
         : "Conta criada. Trial Premium liberado por 7 dias.",
       "sucesso",
       6500
@@ -8485,7 +8489,7 @@ async function solicitarRecuperacaoSenha() {
 
 function salvarSessaoSupabase(dados, email) {
   const sessao = dados?.session || dados || {};
-  const usuario = dados?.user || sessao.user || {};
+  const usuario = obterUsuarioAuthResposta(dados) || {};
   if (!sessao.access_token || !usuario.id) return false;
 
   syncConfig.supabaseAccessToken = sessao.access_token;
@@ -8498,6 +8502,14 @@ function salvarSessaoSupabase(dados, email) {
   salvarSessaoSensivelSupabase();
   salvarDados();
   return true;
+}
+
+function obterUsuarioAuthResposta(dados) {
+  if (!dados || typeof dados !== "object") return null;
+  if (dados.user?.id) return dados.user;
+  if (dados.session?.user?.id) return dados.session.user;
+  if (dados.id && dados.email) return dados;
+  return null;
 }
 
 function erroSupabaseEmailNaoConfirmado(erro) {
