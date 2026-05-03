@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.03-intro-fit";
+const APP_VERSION = "2026.05.03-web-intro-contain";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -2398,7 +2398,7 @@ function iniciarIntroAbertura() {
   overlay.className = "intro-overlay";
   overlay.setAttribute("role", "presentation");
   overlay.innerHTML = `
-    <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" poster="${escaparAttr(PROJECT_COVER_IMAGE)}" autoplay muted playsinline webkit-playsinline preload="auto"></video>
+    <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" poster="${escaparAttr(PROJECT_COVER_IMAGE)}" autoplay muted playsinline webkit-playsinline preload="auto" style="width:100%;height:100%;max-width:100vw;max-height:100dvh;object-fit:contain;object-position:center;background:#051c26;"></video>
     <button class="intro-play" type="button" aria-label="Reproduzir abertura">Reproduzir</button>
     <button class="intro-skip" type="button" aria-label="Pular abertura">Pular</button>
   `;
@@ -2407,6 +2407,18 @@ function iniciarIntroAbertura() {
   const play = overlay.querySelector(".intro-play");
   const skip = overlay.querySelector(".intro-skip");
   const concluir = () => finalizarIntroAbertura(overlay);
+
+  if (video) {
+    Object.assign(video.style, {
+      width: "100%",
+      height: "100%",
+      maxWidth: "100vw",
+      maxHeight: "100dvh",
+      objectFit: "contain",
+      objectPosition: "center",
+      background: "#051c26"
+    });
+  }
 
   video?.addEventListener("ended", concluir, { once: true });
   video?.addEventListener("error", (erro) => {

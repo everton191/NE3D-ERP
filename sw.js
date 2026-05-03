@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v46-intro-fit";
+const CACHE_NAME = "simplifica-3d-v47-web-intro-contain";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -41,8 +41,18 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
+  const url = new URL(event.request.url);
+  const deveIgnorarCache = [
+    "/",
+    "/index.html",
+    "/app.js",
+    "/style.css",
+    "/sw.js",
+    "/assets/intro.mp4"
+  ].includes(url.pathname);
+
   event.respondWith(
-    fetch(event.request).then((response) => {
+    fetch(event.request, deveIgnorarCache ? { cache: "no-store" } : undefined).then((response) => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
       return response;
