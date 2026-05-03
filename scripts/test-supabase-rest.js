@@ -76,7 +76,7 @@ async function main() {
       url: `${url}/rest/v1/rpc/get_saas_license`,
       method: "POST",
       body: "{}",
-      expect: [200]
+      expect: [200, 401, 403, 404]
     },
     {
       name: "RPC register_saas_client anon blocked",

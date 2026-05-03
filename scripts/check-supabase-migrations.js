@@ -20,7 +20,8 @@ const checks = [
   ["clients UPDATE policy", /create policy "clients_update_admin_or_superadmin"[\s\S]*on public\.clients for update/i],
   ["subscriptions SELECT policy", /create policy "subscriptions_select_same_client_or_superadmin"[\s\S]*on public\.subscriptions for select/i],
   ["register_saas_client function", /create or replace function public\.register_saas_client/i],
-  ["get_saas_license function", /create or replace function public\.get_saas_license/i]
+  ["get_saas_license function", /create or replace function public\.get_saas_license/i],
+  ["RPC anon execute hardening", /revoke execute on function public\.get_saas_license\(\) from public, anon, authenticated/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({

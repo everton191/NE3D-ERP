@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.03-visual-cards";
+const APP_VERSION = "2026.05.03-prelaunch-audit";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-cover.svg";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
@@ -58,6 +58,7 @@ const telas = {
   admin: "Admin",
   superadmin: "Super Admin",
   feedback: "Bugs e sugestões",
+  sobre: "Sobre",
   acessoNegado: "Acesso negado"
 };
 
@@ -124,7 +125,8 @@ let syncConfig = carregarObjeto("syncConfig", {
   supabaseRefreshToken: "",
   supabaseTokenExpiresAt: 0,
   supabaseLastLogin: "",
-  supabaseLastSync: ""
+  supabaseLastSync: "",
+  supabaseGoogleOAuthEnabled: false
 });
 let appConfig = carregarObjeto("appConfig", {
   appName: SYSTEM_NAME,
@@ -552,10 +554,10 @@ const InventoryService = {
 const AuthService = {
   async login(emailEntrada, senha) {
     const email = normalizarEmail(emailEntrada || "");
-    if (!email || !senha) {
+    if (!email || !senha || !emailValido(email)) {
       throw new AppError("Campo obrigatório", {
-        code: "AUTH_REQUIRED_FIELDS",
-        userMessage: "Informe e-mail e senha."
+        code: email && !emailValido(email) ? "AUTH_INVALID_EMAIL" : "AUTH_REQUIRED_FIELDS",
+        userMessage: email && !emailValido(email) ? "Informe um e-mail válido." : "Informe e-mail e senha."
       });
     }
     try {
@@ -697,6 +699,12 @@ const AuthService = {
   async signupSaas({ nome, email, senha, negocio, telefone }) {
     let cadastroOnline = null;
     let cadastroAguardandoConfirmacao = false;
+    if (!emailValido(email)) {
+      throw new AppError("E-mail inválido", {
+        code: "AUTH_INVALID_EMAIL",
+        userMessage: "Informe um e-mail válido."
+      });
+    }
     try {
       syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
       syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
@@ -936,22 +944,37 @@ function salvarSessaoSensivelSupabase() {
 function carregarSessaoSensivelSupabase() {
   try {
     const sessaoSessao = JSON.parse(sessionStorage.getItem("supabaseSession") || "{}");
-    const cacheLocal = appConfig.keepSessionCache !== false
-      ? JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}")
-      : {};
-    const sessao = {
-      ...(cacheLocal.supabase || {}),
-      ...sessaoSessao
-    };
+    sanitizarCacheSessaoLocalLegado();
     syncConfig = {
       ...syncConfig,
-      supabaseAccessToken: sessao.supabaseAccessToken || syncConfig.supabaseAccessToken || "",
-      supabaseRefreshToken: sessao.supabaseRefreshToken || syncConfig.supabaseRefreshToken || "",
-      supabaseTokenExpiresAt: Number(sessao.supabaseTokenExpiresAt) || Number(syncConfig.supabaseTokenExpiresAt) || 0,
-      supabaseUserId: sessao.supabaseUserId || syncConfig.supabaseUserId || "",
-      supabaseEmail: sessao.supabaseEmail || syncConfig.supabaseEmail || ""
+      supabaseAccessToken: sessaoSessao.supabaseAccessToken || syncConfig.supabaseAccessToken || "",
+      supabaseRefreshToken: sessaoSessao.supabaseRefreshToken || syncConfig.supabaseRefreshToken || "",
+      supabaseTokenExpiresAt: Number(sessaoSessao.supabaseTokenExpiresAt) || Number(syncConfig.supabaseTokenExpiresAt) || 0,
+      supabaseUserId: sessaoSessao.supabaseUserId || syncConfig.supabaseUserId || "",
+      supabaseEmail: sessaoSessao.supabaseEmail || syncConfig.supabaseEmail || ""
     };
   } catch (_) {}
+}
+
+function sanitizarCacheSessaoLocalLegado() {
+  if (appConfig.keepSessionCache === false) return;
+  try {
+    const cache = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+    if (!cache?.supabase) return;
+    if (!cache.supabase.supabaseAccessToken && !cache.supabase.supabaseRefreshToken) return;
+    const seguro = {
+      usuarioAtualEmail: normalizarEmail(cache.usuarioAtualEmail || cache.supabase.supabaseEmail || ""),
+      salvoEm: cache.salvoEm || new Date().toISOString(),
+      supabase: {
+        supabaseUserId: cache.supabase.supabaseUserId || "",
+        supabaseEmail: normalizarEmail(cache.supabase.supabaseEmail || ""),
+        supabaseTokenExpiresAt: Number(cache.supabase.supabaseTokenExpiresAt) || 0
+      }
+    };
+    localStorage.setItem(LOCAL_SESSION_CACHE_KEY, JSON.stringify(seguro));
+  } catch (_) {
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+  }
 }
 
 function limparSessaoSensivelSupabase() {
@@ -973,11 +996,9 @@ function salvarCacheSessaoLocal() {
     usuarioAtualEmail: usuario,
     salvoEm: new Date().toISOString(),
     supabase: {
-      supabaseAccessToken: syncConfig.supabaseAccessToken || "",
-      supabaseRefreshToken: syncConfig.supabaseRefreshToken || "",
-      supabaseTokenExpiresAt: Number(syncConfig.supabaseTokenExpiresAt) || 0,
       supabaseUserId: syncConfig.supabaseUserId || "",
-      supabaseEmail: syncConfig.supabaseEmail || ""
+      supabaseEmail: normalizarEmail(syncConfig.supabaseEmail || ""),
+      supabaseTokenExpiresAt: Number(syncConfig.supabaseTokenExpiresAt) || 0
     }
   };
   localStorage.setItem(LOCAL_SESSION_CACHE_KEY, JSON.stringify(cache));
@@ -1112,6 +1133,10 @@ function registrarSugestaoLocal(texto, origem = "cliente") {
 
 function normalizarEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function emailValido(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizarEmail(email));
 }
 
 function normalizarPapel(papel) {
@@ -3086,7 +3111,7 @@ function buscarGlobal(event, valor) {
 }
 
 function isTelaPublica(tela) {
-  return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "acessoNegado"].includes(tela);
+  return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "sobre", "acessoNegado"].includes(tela);
 }
 
 function canAccessScreen(tela, usuario = getUsuarioAtual()) {
@@ -3679,7 +3704,8 @@ function getMenuGroups() {
         { tela: "backup", icone: "☁️", texto: "Backup" },
         { tela: "preferencias", icone: "⚙️", texto: "Preferências" },
         { tela: "seguranca", icone: "🔒", texto: "Segurança" },
-        { tela: "feedback", icone: "💡", texto: "Feedback" }
+        { tela: "feedback", icone: "💡", texto: "Feedback" },
+        { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
       ]
     }
   ];
@@ -3850,6 +3876,8 @@ function renderTela(tela) {
       return renderMinhaAssinatura();
     case "feedback":
       return renderFeedback();
+    case "sobre":
+      return renderSobre();
     case "seguranca":
       return renderSeguranca();
     case "acessoNegado":
@@ -4196,7 +4224,7 @@ function renderEstoque() {
         <span>Quantidade em kg</span>
         <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
       </label>
-      <button class="btn" type="button" data-action="stock-add">Adicionar material</button>` : `<div class="actions"><button class="btn" onclick="abrirLinkMercadoPago()">Pagar agora</button></div>`}
+      <button class="btn" type="button" data-action="stock-add">Adicionar material</button>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
       ${linhas}
     </section>
   `;
@@ -4651,7 +4679,7 @@ function renderRelatorios() {
         <div class="metric"><span>Pedidos totais</span><strong>${pedidos.length}</strong></div>
       </div>
       <p class="muted">${podeOperar ? "Relatórios avançados por período ficam preparados para a futura camada online/Supabase, mantendo o localStorage atual funcionando." : "Seu plano está inativo. Visualização liberada; recursos avançados voltam após regularização."}</p>
-      ${podeOperar ? "" : `<div class="actions"><button class="btn" onclick="abrirLinkMercadoPago()">Pagar agora</button></div>`}
+      ${podeOperar ? "" : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
     </section>
   `;
 }
@@ -4710,7 +4738,7 @@ function renderCaixa() {
         <span>Descrição</span>
         <input id="caixaDescricao" placeholder="Ex.: 2 reais caneta">
       </label>
-      <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu plano está inativo. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" onclick="abrirLinkMercadoPago()">Pagar agora</button></div>`}
+      <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu plano está inativo. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
       ${linhas}
     </section>
   `;
@@ -4728,7 +4756,7 @@ function renderBloqueioPlano(recurso) {
       <div class="actions">
         <button class="btn secondary" onclick="abrirCalculadora()">🧮 Abrir calculadora</button>
         <button class="btn ghost" onclick="trocarTela('assinatura')">Ver planos</button>
-        <button class="btn" onclick="abrirLinkMercadoPago()">Pagar agora</button>
+        <button class="btn" type="button" data-action="open-payment">Pagar agora</button>
       </div>
     </section>
   `;
@@ -4793,6 +4821,10 @@ function renderConfig() {
         <label class="checkbox-row">
           <input id="supabaseEnabled" type="checkbox" ${syncConfig.supabaseEnabled ? "checked" : ""}>
           <span>Ativar Supabase neste aparelho</span>
+        </label>
+        <label class="checkbox-row">
+          <input id="supabaseGoogleOAuthEnabled" type="checkbox" ${syncConfig.supabaseGoogleOAuthEnabled ? "checked" : ""}>
+          <span>Login Google habilitado no projeto Supabase</span>
         </label>
         <div class="sync-grid">
           <label class="field">
@@ -5004,6 +5036,13 @@ function renderAdmin() {
           <h2>🔐 Admin</h2>
           ${usuarioAtual ? `<button class="icon-button" onclick="logoutUsuario()" title="Sair">↩</button>` : ""}
         </div>
+        <div class="login-brand-panel">
+          ${renderMarcaProjeto("login-brand-logo", "Logo Simplifica 3D")}
+          <div>
+            <strong>Simplifica 3D</strong>
+            <span class="muted">Acesso seguro ao sistema</span>
+          </div>
+        </div>
         ${usuarioAtual ? `
           <p class="muted">Você está logado como ${escaparHtml(usuarioAtual.nome)} (${escaparHtml(usuarioAtual.papel)}), mas este usuário não gerencia o sistema.</p>
         ` : `
@@ -5025,7 +5064,7 @@ function renderAdmin() {
         </div>
         <div class="actions">
           <button id="loginUsuarioBtn" class="btn" onclick="loginUsuario()">Entrar por e-mail</button>
-          <button class="btn secondary" onclick="loginGoogleSupabase()">Login com Google</button>
+          ${renderGoogleAuthButton("Login com Google")}
           <button class="btn ghost" onclick="entrarComCredencialSalva()">Senha salva/digital</button>
           <button class="btn ghost" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
           ${usuarioAtual ? `<button class="btn ghost" onclick="logoutUsuario()">Sair do usuário</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Ver plano</button>`}
@@ -5078,7 +5117,7 @@ function renderAdmin() {
           </div>
           <div class="actions">
             <button id="signupBtn" class="btn" onclick="cadastrarClienteSaas()">Criar conta</button>
-            <button class="btn secondary" onclick="loginGoogleSupabase()">Criar/entrar com Google</button>
+            ${renderGoogleAuthButton("Criar/entrar com Google")}
             <button class="btn ghost" onclick="trocarTela('assinatura')">Ver planos</button>
           </div>
         </div>
@@ -5293,6 +5332,13 @@ function renderUsuariosAdmin() {
       `).join("")}
     </div>
   `;
+}
+
+function renderGoogleAuthButton(rotulo = "Login com Google") {
+  if (!syncConfig.supabaseGoogleOAuthEnabled) {
+    return `<button class="btn secondary" type="button" disabled title="Ative o provedor Google no Supabase e marque a opção em Backup e sincronização">${escaparHtml(rotulo)} indisponível</button>`;
+  }
+  return `<button class="btn secondary" type="button" data-action="login-google">${escaparHtml(rotulo)}</button>`;
 }
 
 function alternarSenhaVisivel(idOuBotao) {
@@ -6357,8 +6403,8 @@ function renderPlanoSaasCard(plano, planoAtualSlug, diasTeste) {
       </div>
       <p class="muted">${linhas.join(" • ")}</p>
       <div class="actions single">
-        <button class="btn ${selecionado ? "secondary" : ""}" onclick="escolherPlanoSaas('${escaparAttr(plano.slug)}')">${selecionado ? "Plano atual" : plano.price > 0 ? "Assinar" : "Usar Free"}</button>
-        ${plano.slug === "free" ? `<button class="btn ghost" onclick="iniciarTesteGratis('premium_trial')">Trial ${diasTeste} dias</button>` : `<button class="btn ghost" onclick="criarPagamentoUnicoMercadoPago('${escaparAttr(plano.slug)}')">Pagamento avulso</button>`}
+        <button class="btn ${selecionado ? "secondary" : ""}" type="button" data-action="plan-select" data-slug="${escaparAttr(plano.slug)}">${selecionado ? "Plano atual" : plano.price > 0 ? "Assinar" : "Usar Free"}</button>
+        ${plano.slug === "free" ? `<button class="btn ghost" type="button" data-action="plan-trial" data-slug="premium_trial">Trial ${diasTeste} dias</button>` : `<button class="btn ghost" type="button" data-action="plan-payment" data-slug="${escaparAttr(plano.slug)}">Pagamento avulso</button>`}
       </div>
     </div>
   `;
@@ -6417,10 +6463,10 @@ function renderMinhaAssinatura() {
           <div class="metric"><span>Subscription ID</span><strong>${escaparHtml(assinatura?.mercadoPagoSubscriptionId || "-")}</strong></div>
         </div>
         <div class="actions">
-          <button class="btn" onclick="abrirLinkMercadoPago('${escaparAttr(plano.slug === "free" ? "pro" : plano.slug)}')">Renovar plano</button>
-          <button class="btn secondary" onclick="trocarTela('assinatura')">Alterar plano</button>
-          <button class="btn ghost" onclick="cancelarAssinaturaCliente()">Cancelar assinatura</button>
-          <button class="btn ghost" onclick="falarComSuporteAssinatura()">Falar com suporte</button>
+          <button class="btn" type="button" data-action="plan-renew" data-slug="${escaparAttr(plano.slug === "free" ? "pro" : plano.slug)}">Renovar plano</button>
+          <button class="btn secondary" type="button" data-action="open-screen" data-screen="assinatura">Alterar plano</button>
+          <button class="btn ghost" type="button" data-action="plan-cancel">Cancelar assinatura</button>
+          <button class="btn ghost" type="button" data-action="plan-support">Falar com suporte</button>
         </div>
       </div>
 
@@ -6433,8 +6479,32 @@ function renderMinhaAssinatura() {
           <span>Código do token</span>
           <input id="tokenPromocionalInput" placeholder="S3D-PRO-XXXX">
         </label>
-        <button class="btn secondary" onclick="usarTokenPromocional()">Ativar token</button>
+        <button class="btn secondary" type="button" data-action="token-use">Ativar token</button>
       </div>
+    </section>
+  `;
+}
+
+function renderSobre() {
+  return `
+    <section class="card about-card">
+      <div class="card-header">
+        <h2>Sobre</h2>
+        <span class="status-badge">v1.0-beta</span>
+      </div>
+      <div class="about-brand">
+        ${renderMarcaProjeto("about-logo", "Logo Simplifica 3D")}
+        <div>
+          <strong>Simplifica 3D</strong>
+          <span class="muted">Sistema SaaS para gestão de impressão 3D</span>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span>Versão do sistema</span><strong>${escaparHtml(APP_VERSION)}</strong></div>
+        <div class="metric"><span>Aplicativo</span><strong>Simplifica 3D</strong></div>
+        <div class="metric"><span>Plataformas</span><strong>PWA + APK</strong></div>
+      </div>
+      <p class="muted legal-copy">© 2026 Simplifica 3D - Todos os direitos reservados</p>
     </section>
   `;
 }
@@ -7095,6 +7165,10 @@ function isAmbienteLocal() {
   return ["localhost", "127.0.0.1", ""].includes(host) || location.protocol === "file:";
 }
 
+function podeUsarAdminLocalManutencao() {
+  return isAmbienteLocal() && !isAndroid();
+}
+
 function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...") {
   const botao = typeof idOuBotao === "string" ? document.getElementById(idOuBotao) : idOuBotao;
   if (!botao) return;
@@ -7136,9 +7210,9 @@ function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
 
 async function loginAdmin() {
   const senha = document.getElementById("adminSenha")?.value || "";
-  if (!isAmbienteLocal()) {
-    alert("Acesso de manutenção local indisponível neste ambiente.");
-    registrarSeguranca("Acesso admin local negado", "erro", "Ambiente não local", "admin-local");
+  if (!podeUsarAdminLocalManutencao()) {
+    alert("Acesso de manutenção local indisponível neste ambiente. Use e-mail e senha do usuário.");
+    registrarSeguranca("Acesso admin local negado", "erro", "Ambiente sem manutenção local", "admin-local");
     return;
   }
   if (loginEstaBloqueado("admin-local")) return;
@@ -7194,6 +7268,10 @@ async function cadastrarClienteSaas() {
     alert("Campo obrigatório");
     return;
   }
+  if (!emailValido(email)) {
+    alert("Informe um e-mail válido.");
+    return;
+  }
   if (!aceitou) {
     alert("Para criar a conta, aceite os Termos de Uso e a Política de Privacidade.");
     return;
@@ -7245,6 +7323,11 @@ async function loginUsuario() {
   if (!email || !senha) {
     alert("Campo obrigatório");
     registrarSeguranca("Falha de login", "erro", "Campo obrigatório", email);
+    return;
+  }
+  if (!emailValido(email)) {
+    alert("Informe um e-mail válido.");
+    registrarSeguranca("Falha de login", "erro", "E-mail inválido", email);
     return;
   }
   if (loginEstaBloqueado(email)) return;
@@ -7403,6 +7486,10 @@ async function salvarDonoSistema() {
     alert("Informe o e-mail do dono.");
     return;
   }
+  if (!emailValido(email)) {
+    alert("Informe um e-mail válido para o dono.");
+    return;
+  }
 
   billingConfig.ownerName = nome;
   billingConfig.ownerEmail = email;
@@ -7463,6 +7550,10 @@ async function adicionarUsuario() {
 
   if (!nome || !email || !senha) {
     alert("Campo obrigatório");
+    return;
+  }
+  if (!emailValido(email)) {
+    alert("Informe um e-mail válido.");
     return;
   }
 
@@ -7746,6 +7837,9 @@ function lerConfigSyncCampos() {
     autoBackupInterval,
     autoBackupTarget: document.getElementById("autoBackupTarget")?.value || syncConfig.autoBackupTarget || "drive",
     supabaseEnabled: supabaseEnabledEl ? supabaseEnabledEl.checked : !!syncConfig.supabaseEnabled,
+    supabaseGoogleOAuthEnabled: document.getElementById("supabaseGoogleOAuthEnabled")
+      ? !!document.getElementById("supabaseGoogleOAuthEnabled")?.checked
+      : !!syncConfig.supabaseGoogleOAuthEnabled,
     supabaseUrl: (document.getElementById("supabaseUrl")?.value || syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL).trim().replace(/\/+$/, ""),
     supabaseAnonKey: (document.getElementById("supabaseAnonKey")?.value || syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY).trim(),
     supabaseEmail: normalizarEmail(document.getElementById("supabaseEmail")?.value || syncConfig.supabaseEmail || "")
@@ -8352,7 +8446,7 @@ async function solicitarRecuperacaoSenha() {
     tipo: "email"
   });
   const email = normalizarEmail(emailInformado || "");
-  if (!email) {
+  if (!email || !emailValido(email)) {
     alert("Se este e-mail existir, enviaremos instruções de recuperação.");
     return;
   }
@@ -8729,6 +8823,11 @@ function obterErroOAuthSupabase() {
 function loginGoogleSupabase() {
   syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
   syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
+  if (!syncConfig.supabaseGoogleOAuthEnabled) {
+    mostrarToast("Login Google desativado até o provedor ser habilitado no Supabase.", "erro", 7000);
+    registrarDiagnostico("Supabase", "Login Google bloqueado localmente", "Provider desativado na configuração do app");
+    return;
+  }
   const redirectTo = montarRedirectSupabaseOAuth();
   const url = `${syncConfig.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
   sessionStorage.setItem("supabaseOAuthProvider", "google");
@@ -9458,7 +9557,13 @@ function editarNome(i, nome) {
 
 function editarQtd(i, qtd) {
   if (!itensPedido[i]) return;
-  const quantidade = Math.max(parseFloat(qtd) || 1, 1);
+  let quantidade = 1;
+  try {
+    quantidade = InventoryService.parseNumberStrict(qtd, "quantidade", { min: 1 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedido", action: "Editar quantidade" });
+    return;
+  }
   itensPedido[i].qtd = quantidade;
   itensPedido[i].total = quantidade * (Number(itensPedido[i].valor) || 0);
   renderApp();
@@ -9472,12 +9577,22 @@ function editarTipoImpressaoItem(i, tipo) {
 
 function editarTempoItem(i, tempo) {
   if (!itensPedido[i]) return;
-  itensPedido[i].tempoHoras = Math.max(0, parseFloat(tempo) || 0);
+  try {
+    itensPedido[i].tempoHoras = InventoryService.parseNumberStrict(tempo, "tempo", { min: 0 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedido", action: "Editar tempo" });
+  }
 }
 
 function editarPreco(i, preco) {
   if (!itensPedido[i]) return;
-  const valor = Math.max(parseFloat(preco) || 0, 0);
+  let valor = 0;
+  try {
+    valor = InventoryService.parseNumberStrict(preco, "valor", { min: 0 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedido", action: "Editar valor" });
+    return;
+  }
   itensPedido[i].valor = valor;
   itensPedido[i].total = valor * (Number(itensPedido[i].qtd) || 1);
   renderApp();
@@ -9565,8 +9680,9 @@ async function autorizarEdicaoPedido() {
   }
 
   if (isAmbienteLocal() && senha === "123") {
-    registrarSeguranca("Autorização edição pedido", "sucesso", "Admin local");
-    return true;
+    registrarSeguranca("Autorização edição pedido", "bloqueado", "Senha padrão local desativada");
+    alert("A senha padrão local foi desativada. Use a senha real de um admin ou dono.");
+    return false;
   }
 
   const clientId = usuario?.clientId || getClientIdAtual();
@@ -9842,13 +9958,14 @@ function removerMaterial(i) {
 function adicionarMovimentoCaixa() {
   if (!permitirAcaoPlanoCompleto()) return;
   const tipo = document.getElementById("caixaTipo")?.value || "entrada";
-  const valor = parseFloat(document.getElementById("caixaValor")?.value) || 0;
-  const descricao = document.getElementById("caixaDescricao")?.value.trim() || "";
-
-  if (valor <= 0) {
-    alert("Valor inválido");
+  let valor = 0;
+  try {
+    valor = InventoryService.parseNumberStrict(document.getElementById("caixaValor")?.value, "valor do caixa", { min: 0, allowZero: false });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Caixa", action: "Lançar movimento" });
     return;
   }
+  const descricao = document.getElementById("caixaDescricao")?.value.trim() || "";
 
   if (tipo === "saida" && !descricao) {
     alert("Para lançar uma saída, informe a descrição. Ex.: 2 reais caneta");
@@ -10180,15 +10297,29 @@ function calcular() {
     return;
   }
 
-  const peso = parseFloat(document.getElementById("peso")?.value) || 0;
-  const filamento = parseFloat(document.getElementById("filamento")?.value) || 0;
-  const tempo = parseFloat(document.getElementById("tempo")?.value) || 0;
-  const qtd = Math.max(parseFloat(document.getElementById("quantidade")?.value) || 1, 1);
-  const energia = parseFloat(document.getElementById("energia")?.value) || 0;
-  const consumo = parseFloat(document.getElementById("consumo")?.value) || 0;
-  const custoHora = parseFloat(document.getElementById("custoHora")?.value) || 0;
-  const margem = parseFloat(document.getElementById("margem")?.value) || 0;
-  const taxaExtra = parseFloat(document.getElementById("taxaExtra")?.value) || 0;
+  let peso;
+  let filamento;
+  let tempo;
+  let qtd;
+  let energia;
+  let consumo;
+  let custoHora;
+  let margem;
+  let taxaExtra;
+  try {
+    peso = InventoryService.parseNumberStrict(document.getElementById("peso")?.value, "peso em gramas", { min: 0 });
+    filamento = InventoryService.parseNumberStrict(document.getElementById("filamento")?.value, "custo do material", { min: 0 });
+    tempo = InventoryService.parseNumberStrict(document.getElementById("tempo")?.value, "tempo de impressão", { min: 0 });
+    qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
+    energia = InventoryService.parseNumberStrict(document.getElementById("energia")?.value, "custo de energia", { min: 0 });
+    consumo = InventoryService.parseNumberStrict(document.getElementById("consumo")?.value, "consumo elétrico", { min: 0 });
+    custoHora = InventoryService.parseNumberStrict(document.getElementById("custoHora")?.value, "custo por hora", { min: 0 });
+    margem = InventoryService.parseNumberStrict(document.getElementById("margem")?.value, "margem", { min: 0 });
+    taxaExtra = InventoryService.parseNumberStrict(document.getElementById("taxaExtra")?.value, "taxa extra", { min: 0 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço" });
+    return;
+  }
   const printer = document.getElementById("printer")?.value || appConfig.defaultPrinterModel || "";
   const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
   const materialId = document.getElementById("calcMaterial")?.value || "";
@@ -10240,7 +10371,13 @@ function adicionarItem() {
   }
 
   const nome = document.getElementById("nomeItem")?.value.trim() || "Item calculado";
-  const qtd = Math.max(parseFloat(document.getElementById("quantidade")?.value) || 1, 1);
+  let qtd = 1;
+  try {
+    qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Calculadora", action: "Adicionar item" });
+    return;
+  }
 
   itensPedido.push({
     id: "item-" + Date.now().toString(36),
@@ -10362,6 +10499,66 @@ function configurarEventListenersArquitetura() {
       event.preventDefault();
       fecharPopup();
       trocarTela("assinatura");
+      return;
+    }
+
+    if (acao === "open-screen") {
+      event.preventDefault();
+      trocarTela(elemento.dataset.screen || "dashboard");
+      return;
+    }
+
+    if (acao === "login-google") {
+      event.preventDefault();
+      loginGoogleSupabase();
+      return;
+    }
+
+    if (acao === "open-payment") {
+      event.preventDefault();
+      abrirLinkMercadoPago(elemento.dataset.slug || billingConfig.planSlug || "pro");
+      return;
+    }
+
+    if (acao === "plan-select") {
+      event.preventDefault();
+      escolherPlanoSaas(elemento.dataset.slug || "free");
+      return;
+    }
+
+    if (acao === "plan-trial") {
+      event.preventDefault();
+      iniciarTesteGratis(elemento.dataset.slug || "premium_trial");
+      return;
+    }
+
+    if (acao === "plan-payment") {
+      event.preventDefault();
+      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "pro");
+      return;
+    }
+
+    if (acao === "plan-renew") {
+      event.preventDefault();
+      abrirLinkMercadoPago(elemento.dataset.slug || "pro");
+      return;
+    }
+
+    if (acao === "plan-cancel") {
+      event.preventDefault();
+      cancelarAssinaturaCliente();
+      return;
+    }
+
+    if (acao === "plan-support") {
+      event.preventDefault();
+      falarComSuporteAssinatura();
+      return;
+    }
+
+    if (acao === "token-use") {
+      event.preventDefault();
+      usarTokenPromocional();
       return;
     }
 

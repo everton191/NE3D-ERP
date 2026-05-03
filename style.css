@@ -1245,6 +1245,38 @@ button:disabled{
   font-size:var(--font-sm);
 }
 
+.login-brand-panel,
+.about-brand{
+  display:grid;
+  grid-template-columns:76px minmax(0, 1fr);
+  align-items:center;
+  gap:12px;
+  padding:12px;
+  margin-bottom:12px;
+  border-radius:var(--radius);
+  border:1px solid var(--card-border);
+  background:linear-gradient(135deg, rgba(255,148,28,.13), rgba(7,59,75,.22));
+}
+
+.login-brand-logo,
+.about-logo{
+  width:76px;
+  height:76px;
+  border-radius:10px;
+  object-fit:cover;
+  border:1px solid var(--line);
+  background:var(--panel);
+}
+
+.login-brand-panel strong,
+.login-brand-panel span,
+.about-brand strong,
+.about-brand span,
+.legal-copy{
+  display:block;
+  overflow-wrap:anywhere;
+}
+
 .status-badge{
   display:inline-flex;
   align-items:center;
