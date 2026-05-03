@@ -11,10 +11,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simplifica 3D">
 
-<link rel="stylesheet" href="style.css?v=prelaunch-audit-20260503">
-<meta property="og:image" content="assets/simplifica-cover.svg">
+<link rel="stylesheet" href="style.css?v=assets-intro-20260503">
+<meta property="og:image" content="assets/simplifica-brand-cover.jpg">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 
 <script src="assets/vendor/jspdf.umd.min.js"></script>
 <script src="assets/vendor/qrcode.min.js"></script>
@@ -25,7 +26,7 @@
 
 <header>
   <button class="header-menu-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
-  <h1 id="appTitle"><img id="appLogo" class="app-logo" src="assets/simplifica-cover.svg" alt=""><span id="appTitleText">Simplifica 3D</span></h1>
+  <h1 id="appTitle"><img id="appLogo" class="app-logo" src="assets/icon-512.png" alt=""><span id="appTitleText">Simplifica 3D</span></h1>
   <span class="header-spacer" aria-hidden="true"></span>
 </header>
 
@@ -34,7 +35,7 @@
 <div id="floatingCalculator"></div>
 <div id="popup"></div>
 
-<script src="app.js?v=prelaunch-audit-20260503"></script>
+<script src="app.js?v=assets-intro-20260503"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});

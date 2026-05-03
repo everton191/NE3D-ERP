@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v44-prelaunch-audit";
+const CACHE_NAME = "simplifica-3d-v45-assets-intro";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -7,6 +7,11 @@ const APP_FILES = [
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",
   "./assets/simplifica-cover.svg",
+  "./assets/simplifica-brand-cover.jpg",
+  "./assets/icon-192.png",
+  "./assets/icon-512.png",
+  "./assets/apple-touch-icon.png",
+  "./assets/intro.mp4",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
