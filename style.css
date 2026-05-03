@@ -76,14 +76,14 @@ body{
 .intro-video{
   width:100%;
   height:100%;
-  object-fit:cover;
+  object-fit:contain;
+  object-position:center;
   background:#051c26;
 }
 
+.intro-play,
 .intro-skip{
   position:absolute;
-  right:16px;
-  bottom:16px;
   min-width:72px;
   height:40px;
   padding:0 14px;
@@ -96,15 +96,28 @@ body{
   backdrop-filter:blur(10px);
 }
 
+.intro-play{
+  left:50%;
+  top:50%;
+  display:none;
+  transform:translate(-50%, -50%);
+}
+
+.intro-overlay.needs-action .intro-play{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.intro-skip{
+  right:16px;
+  bottom:16px;
+}
+
+.intro-play:focus-visible,
 .intro-skip:focus-visible{
   outline:2px solid var(--primary-2);
   outline-offset:2px;
-}
-
-@media (prefers-reduced-motion: reduce){
-  .intro-overlay{
-    display:none;
-  }
 }
 
 header{

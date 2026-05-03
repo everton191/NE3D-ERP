@@ -2,12 +2,11 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.03-assets-intro";
+const APP_VERSION = "2026.05.03-intro-fit";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
 const INTRO_VIDEO_SRC = "assets/intro.mp4";
-const INTRO_SESSION_KEY = "simplifica3dIntroSeen";
 const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
 const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "paessilvae@gmail.com";
@@ -2365,60 +2364,63 @@ function renderMarcaProjeto(classe = "brand-logo", alt = "Marca do projeto", tip
 function finalizarIntroAbertura(overlay) {
   if (!overlay || overlay.dataset.done === "true") return;
   overlay.dataset.done = "true";
-  try {
-    sessionStorage.setItem(INTRO_SESSION_KEY, APP_VERSION);
-  } catch (erro) {
-    console.debug("Intro: nao foi possivel salvar sessao local.", erro);
-  }
   overlay.classList.add("is-hidden");
   setTimeout(() => overlay.remove(), 420);
 }
 
+function tentarReproduzirIntro(video, overlay) {
+  if (!video || !overlay) return;
+  video.muted = true;
+  video.defaultMuted = true;
+  video.setAttribute("muted", "");
+  video.setAttribute("playsinline", "");
+  video.setAttribute("webkit-playsinline", "");
+
+  const playPromise = video.play?.();
+  if (playPromise?.then) {
+    playPromise.then(() => {
+      overlay.classList.remove("needs-action");
+      video.controls = false;
+    }).catch((erro) => {
+      console.debug("Intro: autoplay bloqueado, aguardando toque do usuario.", erro);
+      overlay.classList.add("needs-action");
+      video.controls = true;
+    });
+  }
+}
+
 function iniciarIntroAbertura() {
   if (!INTRO_VIDEO_SRC || !document.body) return;
-
-  try {
-    if (sessionStorage.getItem(INTRO_SESSION_KEY) === APP_VERSION) return;
-  } catch (erro) {
-    console.debug("Intro: sessionStorage indisponivel.", erro);
-  }
-
-  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-    try {
-      sessionStorage.setItem(INTRO_SESSION_KEY, APP_VERSION);
-    } catch (erro) {
-      console.debug("Intro: nao foi possivel marcar abertura reduzida.", erro);
-    }
-    return;
-  }
+  if (document.getElementById("introOverlay")) return;
 
   const overlay = document.createElement("div");
   overlay.id = "introOverlay";
   overlay.className = "intro-overlay";
   overlay.setAttribute("role", "presentation");
   overlay.innerHTML = `
-    <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" autoplay muted playsinline preload="auto"></video>
+    <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" poster="${escaparAttr(PROJECT_COVER_IMAGE)}" autoplay muted playsinline webkit-playsinline preload="auto"></video>
+    <button class="intro-play" type="button" aria-label="Reproduzir abertura">Reproduzir</button>
     <button class="intro-skip" type="button" aria-label="Pular abertura">Pular</button>
   `;
 
   const video = overlay.querySelector(".intro-video");
+  const play = overlay.querySelector(".intro-play");
   const skip = overlay.querySelector(".intro-skip");
   const concluir = () => finalizarIntroAbertura(overlay);
 
   video?.addEventListener("ended", concluir, { once: true });
-  video?.addEventListener("error", concluir, { once: true });
+  video?.addEventListener("error", (erro) => {
+    console.debug("Intro: video indisponivel, seguindo para o app.", erro);
+    setTimeout(concluir, 1200);
+  }, { once: true });
+  video?.addEventListener("loadeddata", () => tentarReproduzirIntro(video, overlay), { once: true });
+  play?.addEventListener("click", () => tentarReproduzirIntro(video, overlay));
   skip?.addEventListener("click", concluir);
   document.body.appendChild(overlay);
 
-  const playPromise = video?.play?.();
-  if (playPromise?.catch) {
-    playPromise.catch((erro) => {
-      console.debug("Intro: autoplay bloqueado, seguindo para o app.", erro);
-      setTimeout(concluir, 900);
-    });
-  }
+  requestAnimationFrame(() => tentarReproduzirIntro(video, overlay));
 
-  setTimeout(concluir, 12000);
+  setTimeout(concluir, 14000);
 }
 
 function totalPedido(pedido) {
