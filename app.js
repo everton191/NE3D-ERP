@@ -8370,16 +8370,70 @@ async function registrarClienteSaasSupabase({ nome, email, negocio, telefone, pl
   });
 }
 
+function logFalhaSyncSaas(tabela, erro) {
+  try {
+    console.warn("[Supabase pós-login]", tabela, {
+      mensagem: String(erro?.message || erro || "").slice(0, 180),
+      status: erro?.details?.status || erro?.cause?.details?.status || "",
+      rota: erro?.details?.caminho || erro?.cause?.details?.caminho || ""
+    });
+  } catch (_) {}
+}
+
+async function sincronizarUsuarioSaasAposLoginSupabase(usuario = getUsuarioAtual()) {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl || !syncConfig.supabaseUserId) return null;
+  const email = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || "");
+  const nome = usuario?.nome || email.split("@")[0] || "Usuario";
+  const negocio = appConfig.businessName || saasClients.find((cliente) => normalizarEmail(cliente.email) === email)?.name || "Minha empresa 3D";
+  const telefone = usuario?.phone || "";
+  try {
+    const resultado = await requisicaoSupabase("/rest/v1/rpc/sync_saas_user_after_login", {
+      method: "POST",
+      body: JSON.stringify({
+        p_name: nome,
+        p_business_name: negocio,
+        p_phone: telefone
+      })
+    });
+    if (resultado?.client_id) {
+      const clientId = String(resultado.client_id);
+      if (usuario) usuario.clientId = clientId;
+      billingConfig.clientId = clientId;
+      billingConfig.licenseEmail = email || billingConfig.licenseEmail;
+      if (resultado.subscription_id) billingConfig.subscriptionId = String(resultado.subscription_id);
+      if (resultado.plan_slug) billingConfig.planSlug = String(resultado.plan_slug);
+      if (resultado.status) billingConfig.licenseStatus = String(resultado.status);
+      marcarUsuarioSupabaseSincronizado(usuario);
+      salvarDados();
+    }
+    console.info("[Supabase pós-login] sync_saas_user_after_login OK", {
+      clientId: resultado?.client_id || "",
+      subscriptionId: resultado?.subscription_id || "",
+      plan: resultado?.plan_slug || ""
+    });
+    return resultado;
+  } catch (erro) {
+    logFalhaSyncSaas("sync_saas_user_after_login", erro);
+    registrarDiagnostico("Supabase", "Sincronização pós-login falhou", erro.message);
+    throw erro;
+  }
+}
+
 async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) {
   if (!usuario || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return null;
   try {
+    const sincronizado = await sincronizarUsuarioSaasAposLoginSupabase(usuario);
+    if (sincronizado?.client_id) {
+      const licencaSincronizada = await consultarLicencaSupabaseSilencioso();
+      return licencaSincronizada?.client_id ? licencaSincronizada : sincronizado;
+    }
+
     const licenca = await consultarLicencaSupabaseSilencioso();
     if (licenca?.client_id) {
       usuario.clientId = String(licenca.client_id);
       billingConfig.clientId = usuario.clientId;
       billingConfig.licenseEmail = normalizarEmail(usuario.email || syncConfig.supabaseEmail || billingConfig.licenseEmail);
       marcarUsuarioSupabaseSincronizado(usuario);
-      await salvarPerfilSupabase();
       salvarDados();
       return licenca;
     }
@@ -8402,7 +8456,6 @@ async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) 
       if (clienteLocal) clienteLocal.id = clientIdOnline;
       if (resultado.client_code && clienteLocal) clienteLocal.clientCode = String(resultado.client_code);
       marcarUsuarioSupabaseSincronizado(usuario);
-      await salvarPerfilSupabase();
       salvarDados();
       registrarAuditoria("cadastro online sincronizado", { email }, clientIdOnline);
     }
@@ -8772,6 +8825,15 @@ async function loginUsuarioSupabase(email, senha) {
   });
   if (!salvarSessaoSupabase(dados, email)) return null;
 
+  try {
+    await sincronizarUsuarioSaasAposLoginSupabase({
+      nome: email.split("@")[0],
+      email
+    });
+  } catch (erro) {
+    logFalhaSyncSaas("loginUsuarioSupabase", erro);
+  }
+
   let perfil = null;
   try {
     const linhas = await requisicaoSupabase(`/rest/v1/erp_profiles?select=*&id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, {
@@ -9013,22 +9075,13 @@ function sairSupabase() {
 async function salvarPerfilSupabase() {
   if (!syncConfig.supabaseUserId || !syncConfig.supabaseEmail) return false;
   try {
-    await requisicaoSupabase("/rest/v1/erp_profiles?on_conflict=id", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({
-        id: syncConfig.supabaseUserId,
-        email: syncConfig.supabaseEmail,
-        display_name: getUsuarioAtual()?.nome || syncConfig.supabaseEmail.split("@")[0],
-        phone: getUsuarioAtual()?.phone || "",
-        client_id: getClientIdAtual() || null,
-        accepted_terms_at: getUsuarioAtual()?.acceptedTermsAt || null,
-        status: "active",
-        last_login_at: new Date().toISOString()
-      })
+    const resultado = await sincronizarUsuarioSaasAposLoginSupabase(getUsuarioAtual() || {
+      nome: syncConfig.supabaseEmail.split("@")[0],
+      email: syncConfig.supabaseEmail
     });
-    return true;
+    return !!resultado?.client_id;
   } catch (erro) {
+    logFalhaSyncSaas("salvarPerfilSupabase", erro);
     registrarDiagnostico("Supabase", "Perfil não sincronizado", erro.message);
     return false;
   }

@@ -29,7 +29,9 @@ const checks = [
   ["promotional token disabled", /Tokens promocionais foram desativados/i],
   ["RPC anon execute hardening", /revoke execute on function public\.get_saas_license\(\) from public, anon, authenticated/i],
   ["Auth signup handler", /create or replace function public\.handle_new_saas_auth_user/i],
-  ["Auth signup profile trigger", /create trigger on_auth_user_created_saas_profile[\s\S]*after insert on auth\.users/i]
+  ["Auth signup profile trigger", /create trigger on_auth_user_created_saas_profile[\s\S]*after insert on auth\.users/i],
+  ["Post-login SaaS sync RPC", /create or replace function public\.sync_saas_user_after_login/i],
+  ["erp_profiles self update admin role", /profiles_update_own_user[\s\S]*role in \('user', 'admin', 'operador', 'visualizador'\)/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({
