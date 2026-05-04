@@ -508,3 +508,48 @@ Pendencia observada:
 - Uma tentativa posterior de `db push --dry-run --linked` falhou por `ECIRCUITBREAKER` no pooler. Como as migrations ja estavam aplicadas e os testes REST/RPC passaram, a falha foi classificada como conexao temporaria do pooler, nao erro de schema.
 - Superadmin autenticado ainda precisa validacao visual com login manual/credencial autorizada na sessao.
 - APK ficou para depois, conforme orientacao atual.
+
+## Etapa - AdMob preparado com IDs de teste
+
+Backup de arquivos criado:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-admob-files-20260504-152115`
+
+Implementado:
+
+- Servico `src/services/adMobService.js`.
+- Servico `src/services/monetizationLimits.js`.
+- AdMob real desligado por `ADS_PRODUCTION_ENABLED = false`.
+- IDs reais mantidos como placeholders:
+  - `COLOCAR_APP_ID_REAL_DEPOIS`;
+  - `COLOCAR_REWARDED_ID_REAL_DEPOIS`;
+  - `COLOCAR_INTERSTITIAL_ID_REAL_DEPOIS`.
+- IDs de teste configurados:
+  - rewarded `ca-app-pub-3940256099942544/5224354917`;
+  - interstitial `ca-app-pub-3940256099942544/1033173712`;
+  - Android app id de teste `ca-app-pub-3940256099942544~3347511713`.
+- Sem banner fixo.
+- Sem anuncio na abertura.
+- Interstitial preparado, mas bloqueado enquanto `ADS_PRODUCTION_ENABLED` for `false`.
+- Regras de interstitial:
+  - 20 minutos;
+  - 2 acoes completas;
+  - 50% de chance;
+  - bloqueio em contexto critico.
+- Recompensado opcional com modal antes de tentar carregar.
+- Limites free:
+  - 5 pedidos ativos;
+  - 1 PDF diario;
+  - desbloqueio por anuncio por 30 minutos.
+- Usuarios premium/assinantes usam `canUsePremiumFeatures()` e nao entram em fluxo de anuncios.
+- Plugin Android instalado: `@capacitor-community/admob@8.0.0`.
+- Google Mobile Ads Android SDK definido em `android/variables.gradle`: `playServicesAdsVersion = '25.2.0'`.
+- APK gerado:
+  - `downloads/NE3D-ERP.apk`;
+  - `downloads/update.json`;
+  - versao `2026.05.04-admob-test`;
+  - versionCode `31`.
+
+Observacao:
+
+- Foi usado `JAVA_HOME` temporario apontando para `C:\Users\PAESS\.jdks\temurin-24.0.2` apenas durante o build.

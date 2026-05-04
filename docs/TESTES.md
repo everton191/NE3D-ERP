@@ -426,3 +426,45 @@ Nao validado completamente:
 - TESTE 4, offline real no navegador com envio ao Supabase: fila local validada com stub, pendente com banco real no navegador.
 - TESTE 6, superadmin listando relatorios reais: pendente de login superadmin autorizado/manual nesta sessao.
 - APK/mobile real: adiado conforme orientacao atual.
+
+## AdMob e monetizacao
+
+Comandos executados:
+
+- `node --check app.js` - OK.
+- `node --check src\services\adMobService.js` - OK.
+- `node --check src\services\monetizationLimits.js` - OK.
+- `node --check scripts\test-monetization.js` - OK.
+- `npm run test:monetization` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npm run supabase:test:telemetry` - OK.
+- `npm run android:sync` - OK, plugin AdMob reconhecido.
+- `npm run android:apk` - OK usando `JAVA_HOME` temporario.
+
+Casos cobertos pelo teste automatizado:
+
+- Usuario premium nao ve anuncios.
+- Usuario gratuito dentro do limite cria pedido.
+- Usuario gratuito no limite bloqueia pedido.
+- Rewarded simulado libera pedidos temporariamente.
+- Primeiro PDF diario gratuito libera.
+- Segundo PDF diario bloqueia.
+- Rewarded simulado libera PDF extra.
+- Reset diario de PDF funciona.
+- Falha simulada do SDK nao concede recompensa.
+- Interstitial so aparece apos 20 minutos e 2 acoes completas.
+- Interstitial nao aparece em tela critica.
+- Persistencia local de desbloqueio funciona.
+
+Smoke web:
+
+- `http://127.0.0.1:5180/` carregou com titulo `Simplifica 3D`.
+- Console do navegador sem erros no carregamento.
+- Tela inicial/login renderizou.
+
+APK:
+
+- `downloads/NE3D-ERP.apk` gerado com sucesso.
+- `downloads/update.json` gerado com versao `2026.05.04-admob-test` e `versionCode=31`.

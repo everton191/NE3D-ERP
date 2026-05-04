@@ -1,9 +1,12 @@
-const CACHE_NAME = "simplifica-3d-v48-intro-ratio-lock";
+const CACHE_NAME = "simplifica-3d-v49-admob-test";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./src/services/errorTelemetry.js",
+  "./src/services/adMobService.js",
+  "./src/services/monetizationLimits.js",
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",
   "./assets/simplifica-cover.svg",

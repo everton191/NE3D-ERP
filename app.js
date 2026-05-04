@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.03-intro-ratio-lock";
+const APP_VERSION = "2026.05.04-admob-test";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -534,6 +534,128 @@ function flushPendingErrorLogs() {
   } catch (_) {
     return Promise.resolve(false);
   }
+}
+
+function getUsuarioMonetizacao() {
+  const usuario = getUsuarioAtual() || {};
+  const assinatura = getAssinaturaSaas(usuario.clientId || billingConfig.clientId || "") || {};
+  const plano = getPlanoAtual(usuario);
+  return {
+    ...usuario,
+    isPremium: canUsePremiumFeatures(usuario),
+    completo: plano.completo === true,
+    planId: assinatura.planId || assinatura.planSlug || billingConfig.planSlug || "free",
+    planSlug: assinatura.planSlug || billingConfig.planSlug || "free",
+    status: assinatura.status || assinatura.statusAssinatura || billingConfig.licenseStatus || "active",
+    currentPeriodEnd: assinatura.currentPeriodEnd || assinatura.expiresAt || billingConfig.paidUntil || "",
+    orderCount: getPedidosAtivosPlanoFree(),
+    email: usuario.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || ""
+  };
+}
+
+function configurarMonetizacaoAds() {
+  try {
+    window.AdMobService?.configure?.({
+      isPremiumResolver: () => canUsePremiumFeatures(),
+      telemetry: (errorKey, metadata = {}) => registrarErroAplicacaoSilencioso(errorKey, new Error(errorKey), "AdMob", metadata),
+      toast: mostrarToast
+    });
+    window.MonetizationLimits?.configure?.({
+      isPremiumResolver: () => canUsePremiumFeatures(),
+      getOrderCount: () => getPedidosAtivosPlanoFree()
+    });
+  } catch (erro) {
+    registrarDiagnostico("AdMob", "Configuração de monetização falhou", erro.message || erro);
+  }
+}
+
+function contextoInterstitialSeguro(actionName = "") {
+  return {
+    actionName,
+    screenName: telaAtual,
+    isEditingOrder: !!pedidoEditando,
+    isCalculating: telaAtual === "calculadora" || !!document.querySelector(".floating-calculator.open"),
+    isExportingPdf: !!window.__simplificaExportandoPdf,
+    isModalOpen: !!document.getElementById("popup")?.innerHTML
+  };
+}
+
+function registrarAcaoCompletaMonetizacao(actionName = "completed_action") {
+  try {
+    window.AdMobService?.maybeShowInterstitialAfterCompletedAction?.(getUsuarioMonetizacao(), contextoInterstitialSeguro(actionName));
+  } catch (erro) {
+    registrarErroAplicacaoSilencioso("ADMOB_INTERSTITIAL_FAILED", erro, "Interstitial pós-ação", { actionName });
+  }
+}
+
+function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = "" } = {}) {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      alert(texto || "Assine o Premium para continuar.");
+      resolve(false);
+      return;
+    }
+
+    const rewardType = tipo === "pdf" ? "pdf" : "orders";
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <div class="modal-card limit-modal reward-modal">
+          <div class="modal-header">
+            <h2>${escaparHtml(titulo)}</h2>
+            <button class="icon-button" type="button" id="rewardAdCancelTop" title="Fechar">✕</button>
+          </div>
+          <p class="muted">${escaparHtml(texto)}</p>
+          <div class="actions">
+            <button class="btn secondary" type="button" id="rewardAdWatch">Assistir anúncio</button>
+            <button class="btn" type="button" id="rewardAdPlan">Assinar plano</button>
+            <button class="btn ghost" type="button" id="rewardAdCancel">Agora não</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const finalizar = (valor) => {
+      fecharPopup();
+      resolve(valor);
+    };
+    const assistir = async () => {
+      const botao = document.getElementById("rewardAdWatch");
+      setBotaoLoading(botao, true, "Carregando...");
+      try {
+        const resultado = await window.AdMobService?.showRewardedAd?.({
+          rewardType,
+          onReward: () => {
+            if (rewardType === "pdf") window.MonetizationLimits?.unlockPdfByAd?.(getUsuarioMonetizacao());
+            else window.MonetizationLimits?.unlockOrdersByAd?.(getUsuarioMonetizacao());
+          },
+          onError: (erro) => registrarErroAplicacaoSilencioso("ADMOB_REWARDED_LOAD_FAILED", erro, "Rewarded Ad", { rewardType })
+        });
+        if (resultado?.rewarded) {
+          mostrarToast(rewardType === "pdf" ? "Exportação extra liberada." : "Novos pedidos liberados por 30 minutos.", "sucesso", 4500);
+          finalizar(true);
+          return;
+        }
+        mostrarToast("Anúncio cancelado. Nenhuma recompensa foi aplicada.", "info", 4500);
+        setBotaoLoading(botao, false);
+      } catch (erro) {
+        registrarErroAplicacaoSilencioso("ADMOB_REWARDED_LOAD_FAILED", erro, "Rewarded Ad", { rewardType });
+        mostrarToast("Não foi possível carregar o anúncio agora. Tente novamente em alguns instantes.", "erro", 5000);
+        setBotaoLoading(botao, false);
+      }
+    };
+
+    document.getElementById("rewardAdWatch")?.addEventListener("click", assistir);
+    document.getElementById("rewardAdPlan")?.addEventListener("click", () => {
+      finalizar(false);
+      trocarTela("assinatura");
+    }, { once: true });
+    document.getElementById("rewardAdCancel")?.addEventListener("click", () => finalizar(false), { once: true });
+    document.getElementById("rewardAdCancelTop")?.addEventListener("click", () => finalizar(false), { once: true });
+    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) finalizar(false);
+    });
+  });
 }
 
 const InventoryService = {
@@ -3104,14 +3226,45 @@ function aceitarTermosCadastro() {
   fecharPopup();
 }
 
-function verificarLimitePedidosAntesCriar() {
+async function verificarLimitePedidosAntesCriar() {
   if (getPlanoAtual().blockLevel === "partial") {
     mostrarModalLimitePlano("Seu pagamento está pendente. Regularize para evitar bloqueio.");
     return false;
   }
-  if (!limitePedidosAtingido()) return true;
-  mostrarModalLimitePlano("Limite atingido. Assine o Premium para continuar.");
-  return false;
+  if (!window.MonetizationLimits) {
+    if (!limitePedidosAtingido()) return true;
+    mostrarModalLimitePlano("Limite atingido. Assine o Premium para continuar.");
+    return false;
+  }
+  const usuario = getUsuarioMonetizacao();
+  if (window.MonetizationLimits.canCreateOrder(usuario)) return true;
+  registrarErroAplicacaoSilencioso("FREE_ORDER_LIMIT_BLOCKED", new Error("FREE_ORDER_LIMIT_BLOCKED"), "Limite de pedidos gratuito", {
+    remaining: window.MonetizationLimits.getRemainingFreeOrders(usuario)
+  });
+  return mostrarModalDesbloqueioAnuncio({
+    tipo: "orders",
+    titulo: "Limite da versão gratuita",
+    texto: "Você atingiu o limite de pedidos gratuitos. Assista a um anúncio para liberar novos pedidos por 30 minutos ou assine o plano para uso ilimitado."
+  });
+}
+
+async function verificarPermissaoPdfAntesGerar() {
+  const plano = getPlanoAtual();
+  if (plano.blockLevel === "total" || plano.status === "bloqueado") {
+    mostrarBloqueioPlano({ message: "Seu acesso está bloqueado. Regularize o plano para gerar PDF." });
+    return false;
+  }
+  if (!window.MonetizationLimits) return permitirAcaoPlanoCompleto();
+  const usuario = getUsuarioMonetizacao();
+  if (window.MonetizationLimits.canExportPDF(usuario)) return true;
+  registrarErroAplicacaoSilencioso("FREE_PDF_LIMIT_BLOCKED", new Error("FREE_PDF_LIMIT_BLOCKED"), "Limite de PDF gratuito", {
+    remaining: window.MonetizationLimits.getRemainingFreePdfExports(usuario)
+  });
+  return mostrarModalDesbloqueioAnuncio({
+    tipo: "pdf",
+    titulo: "Exportação em PDF",
+    texto: "Você já usou sua exportação gratuita de hoje. Assista a um anúncio para liberar uma exportação extra ou assine o plano para exportações ilimitadas."
+  });
 }
 
 function verificarLimiteClientesAntesPedido(clienteNome = "") {
@@ -11055,10 +11208,14 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
   aplicarDiffEstoque(diff, motivo);
 }
 
-function fecharPedido() {
+async function fecharPedido() {
   try {
-    if (!permitirAcaoPlanoCompleto()) return;
-    if (!pedidoEditando && !verificarLimitePedidosAntesCriar()) return;
+    const planoAtual = getPlanoAtual();
+    if (planoAtual.blockLevel === "total" || planoAtual.status === "bloqueado") {
+      mostrarBloqueioPlano({ message: "Seu acesso está bloqueado. Regularize o plano para salvar pedidos." });
+      return;
+    }
+    if (!pedidoEditando && !(await verificarLimitePedidosAntesCriar())) return;
     const campoCliente = document.getElementById("clienteNome");
     const cliente = (campoCliente?.value || clientePedido).trim();
     const telefoneCliente = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
@@ -11108,6 +11265,7 @@ function fecharPedido() {
 
     salvarDados();
     registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
+    registrarAcaoCompletaMonetizacao(pedidoEditando ? "order_updated" : "order_created");
     pedidoEditando = null;
     itensPedido = [];
     clientePedido = "";
@@ -11682,7 +11840,6 @@ function salvarOrcamento() {
 }
 
 function gerarPdfCalculadora() {
-  if (!permitirAcaoPlanoCompleto()) return;
   if (!ultimoCalculo) calcular();
   adicionarItem();
   setTimeout(() => gerarPDF(), 50);
@@ -12168,7 +12325,7 @@ async function salvarPdfAndroidNativo(doc, nomeArquivo) {
 }
 
 async function gerarPDF() {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!(await verificarPermissaoPdfAntesGerar())) return;
   if (itensPedido.length === 0) {
     alert("Adicione itens ao pedido antes de gerar o PDF");
     return;
@@ -12191,6 +12348,8 @@ async function gerarPDF() {
   const data = new Date().toLocaleDateString("pt-BR");
   const pedidoId = pedidoEditando?.id || Date.now();
   const cidade = appConfig.pixCity || "Não informada";
+  window.__simplificaExportandoPdf = true;
+  try {
   const telefoneCliente = await obterTelefoneWhatsappPedido(pedidoEditando);
   const marcaPdf = await obterMarcaPdfDataUrl();
 
@@ -12296,7 +12455,13 @@ async function gerarPDF() {
   }
 
   registrarHistorico("PDF", "PDF gerado para " + cliente);
-  await salvarOuCompartilharPdf(doc, `pedido-${pedidoId}-${cliente}.pdf`, "Pedido " + cliente);
+  const salvou = await salvarOuCompartilharPdf(doc, `pedido-${pedidoId}-${cliente}.pdf`, "Pedido " + cliente);
+  if (salvou) {
+    window.MonetizationLimits?.registerPdfExport?.(getUsuarioMonetizacao());
+  }
+  } finally {
+    window.__simplificaExportandoPdf = false;
+  }
 }
 
 async function enviarWhats() {
@@ -12746,6 +12911,7 @@ document.addEventListener("visibilitychange", () => {
 
 document.addEventListener("DOMContentLoaded", () => {
   configurarTelemetriaErros();
+  configurarMonetizacaoAds();
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
   processarParametrosAssinaturaUrl();
