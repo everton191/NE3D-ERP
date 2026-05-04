@@ -30,6 +30,7 @@ const BILLING_VARIANTS = {
   premium_first_month: { id: "premium_first_month", planId: "premium", amount: PREMIUM_FIRST_MONTH_PRICE },
   premium_monthly: { id: "premium_monthly", planId: "premium", amount: PREMIUM_MONTHLY_PRICE }
 };
+const ENABLE_GOOGLE_DRIVE_BACKUP = false;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
@@ -123,7 +124,7 @@ let syncConfig = carregarObjeto("syncConfig", {
   driveLastSync: "",
   autoBackupEnabled: true,
   autoBackupInterval: 30,
-  autoBackupTarget: "drive",
+  autoBackupTarget: "supabase",
   autoBackupLastRun: "",
   autoBackupStatus: "Aguardando",
   ultimoBackup: "",
@@ -140,6 +141,9 @@ let syncConfig = carregarObjeto("syncConfig", {
   supabaseLastSync: "",
   supabaseGoogleOAuthEnabled: false
 });
+if (!ENABLE_GOOGLE_DRIVE_BACKUP && syncConfig.autoBackupTarget === "drive") {
+  syncConfig.autoBackupTarget = "supabase";
+}
 let appConfig = carregarObjeto("appConfig", {
   appName: SYSTEM_NAME,
   businessName: "Minha empresa 3D",
@@ -210,11 +214,11 @@ const assistantResponses = [
   { keywords: ["pedido", "pedidos", "venda", "vendas"], answer: "Para criar um pedido, vá em Pedidos ou Novo pedido, adicione um ou mais produtos e finalize. Ao clicar em um pedido da lista você pode visualizar, editar, excluir e acompanhar o status. Ao editar, o sistema recalcula o estoque pela diferença para evitar baixa duplicada." },
   { keywords: ["estoque", "material", "filamento", "resina"], answer: "No Estoque você cadastra materiais por tipo e cor, como PLA Preto ou Resina Transparente. Quando um pedido usa material vinculado por ID, o sistema verifica saldo, baixa automaticamente ao salvar e devolve ao excluir/cancelar." },
   { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
-  { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode exportar um JSON local, restaurar um JSON, sincronizar por Supabase ou usar pasta do Google Drive Desktop. O backup local é o caminho mais seguro para cópia manual; Supabase sincroniza por usuário quando estiver conectado." },
+  { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode sincronizar pelo Supabase, exportar um JSON local ou importar um JSON seguro. A sincronização fica vinculada à conta logada; Google Drive está oculto enquanto não estiver validado." },
   { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Trial ativo, plano pago e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
   { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Premium Trial libera recursos por 7 dias. Free mantém limites básicos. Premium libera recursos completos. O primeiro pagamento usa a condição promocional e os seguintes usam o mensal normal. Superadmin sempre tem acesso total." },
   { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
-  { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão expira após inatividade por segurança. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
+  { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão fica salva até o logout manual enquanto o Supabase conseguir renovar o token. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
   { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha; com Supabase configurado, o reset usa o fluxo de autenticação online." },
   { keywords: ["usuario", "usuário", "usuarios", "usuários", "permissao", "permissão", "perfil"], answer: "Admin e superadmin podem criar usuários. Os perfis são superadmin, admin, operador e visualizador. Operador trabalha na operação; visualizador consulta; admin gerencia usuários e dados; superadmin acessa tudo." },
   { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Os pedidos finalizados entram como movimentação financeira. Relatórios mostram visão resumida para acompanhar faturamento, saldo e operação." },
@@ -4218,10 +4222,10 @@ function renderDashboard() {
             <h2>☁️ Continuidade</h2>
             <span class="status-badge">${temAcessoNuvem() ? "Liberado" : "Premium"}</span>
           </div>
-          <p class="muted">Backup JSON permanece disponível. Nuvem e Google Drive ficam claros no painel para não simular uma integração que ainda não foi configurada.</p>
+          <p class="muted">Backup JSON permanece disponível. A sincronização principal usa Supabase vinculado à conta logada, sem configuração técnica manual.</p>
           <div class="actions">
             <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
-            <button class="btn ghost" onclick="trocarTela('backup')">Configurar backup</button>
+            <button class="btn ghost" onclick="trocarTela('backup')">Dados e Backup</button>
           </div>
         </section>
       </div>
@@ -5196,6 +5200,21 @@ function renderBloqueioPlano(recurso) {
 }
 
 function renderConfig() {
+  const usuario = getUsuarioAtual();
+  const emailConta = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || "");
+  const ultimaSync = syncConfig.supabaseLastSync || syncConfig.ultimaSync || "";
+  const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
+  const conectado = !!(syncConfig.supabaseAccessToken && syncConfig.supabaseUserId);
+  const status = !online
+    ? "Offline"
+    : syncConfig.autoBackupStatus && /erro/i.test(syncConfig.autoBackupStatus)
+      ? "Erro ao sincronizar"
+      : conectado && ultimaSync
+        ? "Sincronizado"
+        : conectado
+          ? "Conectado"
+          : "Conta necessária";
+
   if (!temAcessoNuvem()) {
     return `
       <section class="card">
@@ -5216,7 +5235,7 @@ function renderConfig() {
         </div>
         <div class="actions">
           <button class="btn" onclick="trocarTela('admin')">Entrar ou criar conta</button>
-          <button class="btn secondary" onclick="exportarBackup()">Exportar backup local</button>
+          <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
           <button class="btn ghost" onclick="voltarTela()">Voltar</button>
         </div>
         <label class="field">
@@ -5230,229 +5249,103 @@ function renderConfig() {
   return `
     <section class="card">
       <div class="card-header">
-        <h2>☁️ Backup e sincronização</h2>
-        <span class="status-badge">${syncConfig.ultimaSync ? "Sincronizado" : "Local"}</span>
+        <h2>☁️ Dados e Backup</h2>
+        <span class="status-badge">${escaparHtml(status)}</span>
       </div>
-      <p class="muted">Para Android e Windows sincronizarem, configure aqui uma URL de nuvem que aceite GET e PUT com JSON. O app envia pedidos, estoque, caixa, histórico e configurações sem salvar o token dentro do backup.</p>
-
-      <label class="field">
-        <span>Nome deste aparelho</span>
-        <input id="syncDeviceName" value="${escaparAttr(syncConfig.deviceName)}" placeholder="Ex.: celular oficina">
-      </label>
-      <label class="field">
-        <span>URL da nuvem</span>
-        <input id="syncCloudUrl" value="${escaparAttr(syncConfig.cloudUrl)}" placeholder="https://seu-servidor.com/erp3d.json">
-      </label>
-      <label class="field">
-        <span>Token da nuvem</span>
-        <input id="syncToken" type="password" value="${escaparAttr(syncConfig.token)}" placeholder="Opcional">
-      </label>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Supabase online</h2>
-        <p class="muted">Sincronização real usando Supabase Auth e RLS. O localStorage continua funcionando; o Supabase entra como backup online por usuário.</p>
-        <label class="checkbox-row">
-          <input id="supabaseEnabled" type="checkbox" ${syncConfig.supabaseEnabled ? "checked" : ""}>
-          <span>Ativar Supabase neste aparelho</span>
-        </label>
-        <label class="checkbox-row">
-          <input id="supabaseGoogleOAuthEnabled" type="checkbox" ${syncConfig.supabaseGoogleOAuthEnabled ? "checked" : ""}>
-          <span>Login Google habilitado no projeto Supabase</span>
-        </label>
-        <div class="sync-grid">
-          <label class="field">
-            <span>URL do Supabase</span>
-            <input id="supabaseUrl" value="${escaparAttr(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL)}" placeholder="https://projeto.supabase.co">
-          </label>
-          <label class="field">
-            <span>Chave pública</span>
-            <input id="supabaseAnonKey" value="${escaparAttr(syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY)}" placeholder="sb_publishable_...">
-          </label>
-          <label class="field">
-            <span>E-mail Supabase</span>
-            <input id="supabaseEmail" type="email" value="${escaparAttr(syncConfig.supabaseEmail || getEmailLicencaAtual())}" placeholder="cliente@email.com">
-          </label>
-          <label class="field">
-            <span>Senha Supabase</span>
-            <input id="supabasePassword" type="password" placeholder="Não fica salva no backup">
-          </label>
+      <div class="sync-grid">
+        <div class="metric">
+          <span>Conta</span>
+          <strong>${escaparHtml(emailConta || "Não conectada")}</strong>
         </div>
-        <div class="sync-grid">
-          <div class="metric">
-            <span>Status Supabase</span>
-            <strong>${syncConfig.supabaseAccessToken ? "Conectado" : "Desconectado"}</strong>
-          </div>
-          <div class="metric">
-            <span>Usuário online</span>
-            <strong>${escaparHtml(syncConfig.supabaseEmail || "Nenhum")}</strong>
-          </div>
-          <div class="metric">
-            <span>Último Supabase</span>
-            <strong>${syncConfig.supabaseLastSync ? new Date(syncConfig.supabaseLastSync).toLocaleString("pt-BR") : "Nunca"}</strong>
-          </div>
+        <div class="metric">
+          <span>Status</span>
+          <strong>${escaparHtml(status)}</strong>
         </div>
-        <div class="actions">
-          <button class="btn" onclick="entrarSupabase()">Entrar</button>
-          <button class="btn secondary" onclick="criarContaSupabase()">Criar conta</button>
-          <button class="btn secondary" onclick="sincronizarSupabase()">Sincronizar Supabase</button>
-          <button class="btn ghost" onclick="enviarBackupSupabase()">Enviar Supabase</button>
-          <button class="btn ghost" onclick="restaurarBackupSupabase()">Restaurar Supabase</button>
-          <button class="btn ghost" onclick="sairSupabase()">Sair</button>
+        <div class="metric">
+          <span>Última sincronização</span>
+          <strong>${ultimaSync ? new Date(ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong>
         </div>
-      </div>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Segurança</h2>
-        <label class="checkbox-row">
-          <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled ? "checked" : ""}>
-          <span>Ativar verificação em duas etapas pelo WhatsApp</span>
-        </label>
-        <div class="sync-grid">
-          <label class="field">
-            <span>WhatsApp da verificação</span>
-            <input id="twoFactorWhatsapp" value="${escaparAttr(appConfig.twoFactorWhatsapp || appConfig.whatsappNumber || "")}" placeholder="Ex.: 5585999999999">
-          </label>
-          <label class="field">
-            <span>Proteger</span>
-            <select id="twoFactorScope">
-              <option value="admin" ${appConfig.twoFactorScope !== "todos" ? "selected" : ""}>Dono e admins</option>
-              <option value="todos" ${appConfig.twoFactorScope === "todos" ? "selected" : ""}>Todos os usuários</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Lembrar neste aparelho por minutos</span>
-            <input id="twoFactorRememberMinutes" type="number" min="1" step="1" value="${Number(appConfig.twoFactorRememberMinutes) || 60}">
-          </label>
-        </div>
-      </div>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Atualizações</h2>
-        <label class="checkbox-row">
-          <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
-          <span>Atualizar automaticamente quando houver versão nova</span>
-        </label>
-        <div class="sync-grid">
-          <div class="metric">
-            <span>Versão instalada</span>
-            <strong>${escaparHtml(APP_VERSION)}</strong>
-          </div>
-          <div class="metric">
-            <span>Status</span>
-            <strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong>
-          </div>
-          <div class="metric">
-            <span>Versão disponível</span>
-            <strong>${escaparHtml(appConfig.updateAvailableVersion || "Nenhuma")}</strong>
-          </div>
-          <label class="field">
-            <span>Checar a cada minutos</span>
-            <input id="updateCheckInterval" type="number" min="5" step="1" value="${Number(appConfig.updateCheckInterval) || 30}">
-          </label>
-          <div class="metric">
-            <span>Última checagem</span>
-            <strong>${appConfig.updateLastCheck ? new Date(appConfig.updateLastCheck).toLocaleString("pt-BR") : "Nunca"}</strong>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
-          <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
-          <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
-        </div>
-      </div>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Google Drive Desktop</h2>
-        <p class="muted">Backup no Google Drive ainda não está configurado como integração online oficial. Por enquanto, use uma pasta do Google Drive Desktop; o backup JSON manual continua sendo o caminho garantido.</p>
-        <label class="field">
-          <span>Arquivo do backup</span>
-          <input id="driveFileName" value="${escaparAttr(syncConfig.driveFileName || "erp3d-backup.json")}" placeholder="erp3d-backup.json">
-        </label>
-        <div class="sync-grid">
-          <div class="metric">
-            <span>Pasta selecionada</span>
-            <strong>${syncConfig.driveFolderName ? escaparHtml(syncConfig.driveFolderName) : "Nenhuma"}</strong>
-          </div>
-          <div class="metric">
-            <span>Último Drive</span>
-            <strong>${syncConfig.driveLastSync ? new Date(syncConfig.driveLastSync).toLocaleString("pt-BR") : "Nunca"}</strong>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="escolherPastaDrive()">Escolher pasta Drive</button>
-          <button class="btn secondary" onclick="sincronizarGoogleDrive()">Sync Drive</button>
-          <button class="btn ghost" onclick="enviarBackupGoogleDrive()">Backup no Drive</button>
-          <button class="btn ghost" onclick="restaurarBackupGoogleDrive()">Restaurar Drive</button>
-        </div>
-      </div>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Backup automático</h2>
-        <label class="checkbox-row">
-          <input id="autoBackupEnabled" type="checkbox" ${syncConfig.autoBackupEnabled ? "checked" : ""}>
-          <span>Ativar backup automático</span>
-        </label>
-        <div class="sync-grid">
-          <label class="field">
-            <span>Intervalo em minutos</span>
-            <input id="autoBackupInterval" type="number" min="30" step="30" value="${Number(syncConfig.autoBackupInterval) || 30}">
-          </label>
-          <label class="field">
-            <span>Destino automático</span>
-            <select id="autoBackupTarget">
-              <option value="drive" ${syncConfig.autoBackupTarget === "drive" ? "selected" : ""}>Google Drive</option>
-              <option value="url" ${syncConfig.autoBackupTarget === "url" ? "selected" : ""}>URL da nuvem</option>
-              <option value="supabase" ${syncConfig.autoBackupTarget === "supabase" ? "selected" : ""}>Supabase</option>
-            </select>
-          </label>
-        </div>
-        <div class="sync-grid">
-          <div class="metric">
-            <span>Último automático</span>
-            <strong>${syncConfig.autoBackupLastRun ? new Date(syncConfig.autoBackupLastRun).toLocaleString("pt-BR") : "Nunca"}</strong>
-          </div>
-          <div class="metric">
-            <span>Status automático</span>
-            <strong>${escaparHtml(syncConfig.autoBackupStatus || "Aguardando")}</strong>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="salvarConfigSync()">Salvar auto-backup</button>
-          <button class="btn secondary" onclick="executarAutoBackupManual()">Executar agora</button>
+        <div class="metric">
+          <span>Dispositivo</span>
+          <strong>${escaparHtml(syncConfig.deviceName || deviceId.slice(0, 10))}</strong>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" onclick="salvarConfigSync()">Salvar config</button>
-        <button class="btn secondary" onclick="sincronizarNuvem()">Sincronizar agora</button>
-        <button class="btn ghost" onclick="enviarBackupNuvem()">Enviar backup</button>
-        <button class="btn ghost" onclick="restaurarBackupNuvem()">Restaurar nuvem</button>
-      </div>
-
-      <div class="sync-grid">
-        <div class="metric">
-          <span>Último backup</span>
-          <strong>${syncConfig.ultimoBackup ? new Date(syncConfig.ultimoBackup).toLocaleString("pt-BR") : "Nunca"}</strong>
-        </div>
-        <div class="metric">
-          <span>Última sync</span>
-          <strong>${syncConfig.ultimaSync ? new Date(syncConfig.ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong>
-        </div>
-      </div>
-
-      <div class="danger-zone">
-        <label class="field">
-          <span>Importar backup local</span>
+        <button class="btn" onclick="sincronizarSupabase()">Sincronizar agora</button>
+        <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
+        <label class="btn ghost file-label">
+          <span>Importar backup</span>
           <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
         </label>
       </div>
 
+      ${telaAtual === "config" ? `
+        <div class="danger-zone">
+          <h2 class="section-title">Segurança</h2>
+          <label class="checkbox-row">
+            <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled ? "checked" : ""}>
+            <span>Ativar verificação em duas etapas pelo WhatsApp</span>
+          </label>
+          <div class="sync-grid">
+            <label class="field">
+              <span>WhatsApp da verificação</span>
+              <input id="twoFactorWhatsapp" value="${escaparAttr(appConfig.twoFactorWhatsapp || appConfig.whatsappNumber || "")}" placeholder="Ex.: 5585999999999">
+            </label>
+            <label class="field">
+              <span>Proteger</span>
+              <select id="twoFactorScope">
+                <option value="admin" ${appConfig.twoFactorScope !== "todos" ? "selected" : ""}>Dono e admins</option>
+                <option value="todos" ${appConfig.twoFactorScope === "todos" ? "selected" : ""}>Todos os usuários</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Lembrar neste aparelho por minutos</span>
+              <input id="twoFactorRememberMinutes" type="number" min="1" step="1" value="${Number(appConfig.twoFactorRememberMinutes) || 60}">
+            </label>
+          </div>
+        </div>
+
+        <div class="danger-zone">
+          <h2 class="section-title">Atualizações</h2>
+          <label class="checkbox-row">
+            <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
+            <span>Atualizar automaticamente quando houver versão nova</span>
+          </label>
+          <div class="sync-grid">
+            <div class="metric">
+              <span>Versão instalada</span>
+              <strong>${escaparHtml(APP_VERSION)}</strong>
+            </div>
+            <div class="metric">
+              <span>Status</span>
+              <strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong>
+            </div>
+            <div class="metric">
+              <span>Versão disponível</span>
+              <strong>${escaparHtml(appConfig.updateAvailableVersion || "Nenhuma")}</strong>
+            </div>
+            <label class="field">
+              <span>Checar a cada minutos</span>
+              <input id="updateCheckInterval" type="number" min="5" step="1" value="${Number(appConfig.updateCheckInterval) || 30}">
+            </label>
+            <div class="metric">
+              <span>Última checagem</span>
+              <strong>${appConfig.updateLastCheck ? new Date(appConfig.updateLastCheck).toLocaleString("pt-BR") : "Nunca"}</strong>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn" onclick="salvarConfigSync()">Salvar configurações</button>
+            <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
+            <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
+            <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
+          </div>
+        </div>
+      ` : ""}
+
       <div class="actions single">
         <button class="btn ghost" onclick="voltarTela()">← Voltar para a tela anterior</button>
         <button class="btn ghost" onclick="voltarInicio()">Ir para o início</button>
-        <button class="btn warning" onclick="limparPedidoAtual()">Limpar pedido atual</button>
-        <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
-        <button class="btn ghost" onclick="trocarTela('admin')">Área admin</button>
       </div>
     </section>
   `;
@@ -7725,7 +7618,7 @@ function sincronizarAposLogin() {
     sincronizarUrlSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync pós-login falhou", erro.message));
     return;
   }
-  if (driveFolderHandle) {
+  if (ENABLE_GOOGLE_DRIVE_BACKUP && driveFolderHandle) {
     sincronizarGoogleDriveSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Drive pós-login falhou", erro.message));
   }
 }
@@ -8129,6 +8022,7 @@ function lerConfigSyncCampos() {
   const autoBackupEnabledEl = document.getElementById("autoBackupEnabled");
   const autoBackupInterval = Math.max(30, parseFloat(document.getElementById("autoBackupInterval")?.value || syncConfig.autoBackupInterval || 30) || 30);
   const supabaseEnabledEl = document.getElementById("supabaseEnabled");
+  const alvoSelecionado = document.getElementById("autoBackupTarget")?.value || syncConfig.autoBackupTarget || "supabase";
   return {
     cloudUrl: (document.getElementById("syncCloudUrl")?.value || syncConfig.cloudUrl || "").trim(),
     token: (document.getElementById("syncToken")?.value || syncConfig.token || "").trim(),
@@ -8136,8 +8030,8 @@ function lerConfigSyncCampos() {
     driveFileName: arquivoDrive.endsWith(".json") ? arquivoDrive : arquivoDrive + ".json",
     autoBackupEnabled: autoBackupEnabledEl ? autoBackupEnabledEl.checked : !!syncConfig.autoBackupEnabled,
     autoBackupInterval,
-    autoBackupTarget: document.getElementById("autoBackupTarget")?.value || syncConfig.autoBackupTarget || "drive",
-    supabaseEnabled: supabaseEnabledEl ? supabaseEnabledEl.checked : !!syncConfig.supabaseEnabled,
+    autoBackupTarget: ENABLE_GOOGLE_DRIVE_BACKUP ? alvoSelecionado : "supabase",
+    supabaseEnabled: supabaseEnabledEl ? supabaseEnabledEl.checked : true,
     supabaseGoogleOAuthEnabled: document.getElementById("supabaseGoogleOAuthEnabled")
       ? !!document.getElementById("supabaseGoogleOAuthEnabled")?.checked
       : !!syncConfig.supabaseGoogleOAuthEnabled,
@@ -8240,6 +8134,125 @@ function criarSnapshotBackup() {
       }
     }
   };
+}
+
+function obterEscopoBackupAtual() {
+  const usuario = getUsuarioAtual();
+  const email = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || billingConfig.ownerEmail || "");
+  return {
+    superadmin: isSuperAdmin(usuario),
+    email,
+    ownerId: getDataOwnerId(),
+    userId: syncConfig.supabaseUserId || usuario?.supabaseUserId || usuario?.id || "",
+    clientId: getClientIdAtual(usuario),
+    companyId: usuario?.companyId || usuario?.company_id || billingConfig.companyId || ""
+  };
+}
+
+function valorEscopoNormalizado(valor) {
+  return String(valor || "").trim().toLowerCase();
+}
+
+function registroPertenceAoEscopoBackup(registro, escopo, permitirLegado = true) {
+  if (escopo.superadmin) return true;
+  if (!registro || typeof registro !== "object") return permitirLegado;
+
+  const alvos = [
+    escopo.ownerId,
+    escopo.email,
+    escopo.userId,
+    escopo.clientId,
+    escopo.companyId
+  ].map(valorEscopoNormalizado).filter(Boolean);
+  if (!alvos.length) return permitirLegado;
+
+  const campos = [
+    "id",
+    "owner_id",
+    "ownerId",
+    "owner_user_id",
+    "ownerUserId",
+    "ownerEmail",
+    "licenseEmail",
+    "email",
+    "user_id",
+    "userId",
+    "auth_user_id",
+    "authUserId",
+    "supabaseUserId",
+    "client_id",
+    "clientId",
+    "company_id",
+    "companyId"
+  ];
+  let possuiVinculo = false;
+
+  for (const campo of campos) {
+    const valor = valorEscopoNormalizado(registro[campo]);
+    if (!valor) continue;
+    possuiVinculo = true;
+    if (alvos.includes(valor)) return true;
+    if (campo.toLowerCase().includes("email") && escopo.email && normalizarEmail(registro[campo]) === escopo.email) return true;
+  }
+
+  return possuiVinculo ? false : permitirLegado;
+}
+
+function filtrarListaEscopoBackup(lista, escopo, permitirLegado = true) {
+  return Array.isArray(lista)
+    ? lista.filter((item) => registroPertenceAoEscopoBackup(item, escopo, permitirLegado))
+    : [];
+}
+
+function filtrarUsageCountersEscopoBackup(contadores, escopo) {
+  if (escopo.superadmin || !contadores || typeof contadores !== "object") return contadores || {};
+  const alvos = [escopo.clientId, escopo.email, escopo.ownerId, escopo.userId, escopo.companyId]
+    .map(valorEscopoNormalizado)
+    .filter(Boolean);
+  if (!alvos.length) return {};
+  return Object.fromEntries(Object.entries(contadores).filter(([chave]) => {
+    const chaveNormalizada = valorEscopoNormalizado(chave);
+    return alvos.some((alvo) => chaveNormalizada.includes(alvo));
+  }));
+}
+
+function criarSnapshotBackupUsuarioAtual() {
+  const snapshot = criarSnapshotBackup();
+  const escopo = obterEscopoBackupAtual();
+  if (escopo.superadmin) return snapshot;
+
+  snapshot.escopo = {
+    email: escopo.email,
+    userId: escopo.userId,
+    clientId: escopo.clientId,
+    companyId: escopo.companyId
+  };
+  snapshot.data = {
+    ...snapshot.data,
+    estoque: filtrarListaEscopoBackup(snapshot.data.estoque, escopo, true),
+    caixa: filtrarListaEscopoBackup(snapshot.data.caixa, escopo, true),
+    pedidos: filtrarListaEscopoBackup(snapshot.data.pedidos, escopo, true),
+    orcamentos: filtrarListaEscopoBackup(snapshot.data.orcamentos, escopo, true),
+    historico: filtrarListaEscopoBackup(snapshot.data.historico, escopo, true),
+    securityLogs: filtrarListaEscopoBackup(snapshot.data.securityLogs, escopo, true),
+    auditLogs: filtrarListaEscopoBackup(snapshot.data.auditLogs, escopo, true),
+    diagnostics: filtrarListaEscopoBackup(snapshot.data.diagnostics, escopo, true),
+    sugestoes: filtrarListaEscopoBackup(snapshot.data.sugestoes, escopo, true),
+    saasClients: filtrarListaEscopoBackup(snapshot.data.saasClients, escopo, false),
+    saasSubscriptions: filtrarListaEscopoBackup(snapshot.data.saasSubscriptions, escopo, false),
+    saasPayments: filtrarListaEscopoBackup(snapshot.data.saasPayments, escopo, false),
+    saasSessions: filtrarListaEscopoBackup(snapshot.data.saasSessions, escopo, false),
+    usuarios: filtrarListaEscopoBackup(snapshot.data.usuarios, escopo, false),
+    usageCounters: filtrarUsageCountersEscopoBackup(snapshot.data.usageCounters, escopo)
+  };
+  return snapshot;
+}
+
+function nomeArquivoBackupUsuario() {
+  const escopo = obterEscopoBackupAtual();
+  const email = (escopo.email || "conta").replace(/[^a-z0-9@._-]/gi, "_");
+  const data = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  return `backup-simplifica3d-${email}-${data}.json`;
 }
 
 function tamanhoBackupMb(payload = criarSnapshotBackup()) {
@@ -8358,7 +8371,9 @@ function aplicarBackup(dados, modo = "substituir") {
     driveLastSync: backup.configuracoes.driveLastSync || syncConfig.driveLastSync,
     autoBackupEnabled: typeof backup.configuracoes.autoBackupEnabled === "boolean" ? backup.configuracoes.autoBackupEnabled : syncConfig.autoBackupEnabled,
     autoBackupInterval: backup.configuracoes.autoBackupInterval || syncConfig.autoBackupInterval || 30,
-    autoBackupTarget: backup.configuracoes.autoBackupTarget || syncConfig.autoBackupTarget || "drive",
+    autoBackupTarget: ENABLE_GOOGLE_DRIVE_BACKUP
+      ? backup.configuracoes.autoBackupTarget || syncConfig.autoBackupTarget || "supabase"
+      : "supabase",
     autoBackupLastRun: backup.configuracoes.autoBackupLastRun || syncConfig.autoBackupLastRun,
     autoBackupStatus: backup.configuracoes.autoBackupStatus || syncConfig.autoBackupStatus,
     supabaseEnabled: typeof backup.configuracoes.supabaseEnabled === "boolean" ? backup.configuracoes.supabaseEnabled : syncConfig.supabaseEnabled,
@@ -9399,7 +9414,7 @@ async function obterBackupSupabase() {
 }
 
 async function salvarBackupSupabase() {
-  const payload = criarSnapshotBackup();
+  const payload = criarSnapshotBackupUsuarioAtual();
   if (!verificarLimiteBackupPlano(payload, true)) return false;
   await requisicaoSupabase("/rest/v1/erp_backups?on_conflict=user_id", {
     method: "POST",
@@ -9459,8 +9474,18 @@ async function restaurarBackupSupabase() {
 
 async function sincronizarSupabase() {
   if (!validarSupabase(true)) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    syncConfig.autoBackupStatus = "Offline";
+    salvarDados();
+    alert("Você está offline. Os dados locais continuam salvos e podem ser sincronizados quando a conexão voltar.");
+    renderApp();
+    return;
+  }
 
   try {
+    syncConfig.autoBackupStatus = "Salvando...";
+    salvarDados();
+    renderApp();
     await salvarPerfilSupabase();
     const remoto = await obterBackupSupabase();
     if (remoto) {
@@ -9471,16 +9496,26 @@ async function sincronizarSupabase() {
     syncConfig.supabaseLastSync = agora;
     syncConfig.ultimoBackup = agora;
     syncConfig.ultimaSync = agora;
+    syncConfig.autoBackupStatus = "Sincronizado";
     salvarDados();
     registrarHistorico("Supabase", remoto ? "Dados mesclados e enviados" : "Backup inicial criado");
-    alert(remoto ? "Sincronização Supabase concluída" : "Backup inicial criado no Supabase");
+    alert("Sincronização concluída.");
     renderApp();
   } catch (erro) {
-    alert("Não foi possível sincronizar com o Supabase: " + tratarErroSupabase(erro));
+    syncConfig.autoBackupStatus = "Erro ao sincronizar";
+    salvarDados();
+    console.warn("[Sync/Supabase] Falha ao sincronizar", erro);
+    alert("Erro ao sincronizar.");
+    renderApp();
   }
 }
 
 async function sincronizarSupabaseSilencioso() {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    syncConfig.autoBackupStatus = "Offline";
+    salvarDados();
+    return false;
+  }
   if (!temAcessoNuvem()) {
     syncConfig.autoBackupStatus = "Entre para sincronizar";
     salvarDados();
@@ -9541,6 +9576,10 @@ function atualizarConfigDriveCampos() {
 }
 
 async function escolherPastaDrive() {
+  if (!ENABLE_GOOGLE_DRIVE_BACKUP) {
+    alert("Google Drive está desativado nesta versão. Use a sincronização pelo Supabase ou exporte um backup local.");
+    return;
+  }
   if (!exigirAcessoNuvem()) return;
 
   if (!navegadorSuportaPastaDrive()) {
@@ -9615,6 +9654,10 @@ async function lerBackupDrive(handle) {
 }
 
 async function enviarBackupGoogleDrive() {
+  if (!ENABLE_GOOGLE_DRIVE_BACKUP) {
+    alert("Google Drive está desativado nesta versão. Use a sincronização pelo Supabase ou exporte um backup local.");
+    return;
+  }
   if (!exigirAcessoNuvem()) return;
 
   const handle = await garantirPastaDrive();
@@ -9623,7 +9666,7 @@ async function enviarBackupGoogleDrive() {
   if (!confirm("Salvar um backup dentro da pasta escolhida do Google Drive? O Google Drive Desktop poderá enviar esse arquivo para a nuvem.")) return;
 
   try {
-    await escreverBackupDrive(handle, criarSnapshotBackup());
+    await escreverBackupDrive(handle, criarSnapshotBackupUsuarioAtual());
     syncConfig.driveLastSync = new Date().toISOString();
     syncConfig.ultimoBackup = syncConfig.driveLastSync;
     salvarDados();
@@ -9636,6 +9679,10 @@ async function enviarBackupGoogleDrive() {
 }
 
 async function restaurarBackupGoogleDrive() {
+  if (!ENABLE_GOOGLE_DRIVE_BACKUP) {
+    alert("Google Drive está desativado nesta versão. Use a sincronização pelo Supabase ou importe um backup JSON.");
+    return;
+  }
   if (!exigirAcessoNuvem()) return;
 
   const handle = await garantirPastaDrive();
@@ -9662,6 +9709,10 @@ async function restaurarBackupGoogleDrive() {
 }
 
 async function sincronizarGoogleDrive() {
+  if (!ENABLE_GOOGLE_DRIVE_BACKUP) {
+    alert("Google Drive está desativado nesta versão. Use a sincronização pelo Supabase.");
+    return;
+  }
   if (!exigirAcessoNuvem()) return;
 
   const handle = await garantirPastaDrive();
@@ -9675,7 +9726,7 @@ async function sincronizarGoogleDrive() {
       aplicarBackup(dadosRemotos, "mesclar");
     }
 
-    await escreverBackupDrive(handle, criarSnapshotBackup());
+    await escreverBackupDrive(handle, criarSnapshotBackupUsuarioAtual());
     syncConfig.driveLastSync = new Date().toISOString();
     syncConfig.ultimoBackup = syncConfig.driveLastSync;
     syncConfig.ultimaSync = syncConfig.driveLastSync;
@@ -9689,6 +9740,7 @@ async function sincronizarGoogleDrive() {
 }
 
 async function sincronizarGoogleDriveSilencioso() {
+  if (!ENABLE_GOOGLE_DRIVE_BACKUP) return false;
   if (!temAcessoNuvem()) {
     syncConfig.autoBackupStatus = "Entre para sincronizar";
     salvarDados();
@@ -9703,7 +9755,7 @@ async function sincronizarGoogleDriveSilencioso() {
     aplicarBackup(dadosRemotos, "mesclar");
   }
 
-  await escreverBackupDrive(handle, criarSnapshotBackup());
+  await escreverBackupDrive(handle, criarSnapshotBackupUsuarioAtual());
   const agora = new Date().toISOString();
   syncConfig.driveLastSync = agora;
   syncConfig.ultimoBackup = agora;
@@ -9819,8 +9871,11 @@ async function executarAutoBackup(forcar = false) {
       await sincronizarSupabaseSilencioso();
     } else if (syncConfig.autoBackupTarget === "url") {
       await sincronizarUrlSilencioso();
-    } else {
+    } else if (ENABLE_GOOGLE_DRIVE_BACKUP) {
       await sincronizarGoogleDriveSilencioso();
+    } else {
+      syncConfig.autoBackupTarget = "supabase";
+      await sincronizarSupabaseSilencioso();
     }
   } catch (erro) {
     syncConfig.autoBackupStatus = "Erro: " + erro.message;
@@ -11563,16 +11618,17 @@ function limparPedidoAtual() {
 }
 
 function exportarBackup() {
-  const dados = criarSnapshotBackup();
+  const dados = criarSnapshotBackupUsuarioAtual();
 
   const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "backup-erp-3d.json";
+  link.download = nomeArquivoBackupUsuario();
   link.click();
   URL.revokeObjectURL(url);
   registrarHistorico("Backup", "Backup local exportado");
+  alert("Backup exportado com sucesso.");
 }
 
 function isAndroid() {

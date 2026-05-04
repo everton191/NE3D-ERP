@@ -153,6 +153,10 @@ Arquivos alterados nesta etapa:
 Validado localmente:
 
 - `node --check app.js`
+- `npm run build:web`
+- `npm run supabase:test:migrations`
+- varredura frontend por segredos Supabase sensiveis
+- `git diff --check`
 - `npm run supabase:test:migrations`
 - `npm run build:web`
 
@@ -231,3 +235,34 @@ Ainda nao validado nesta etapa:
 - Teste visual no navegador/mobile real.
 - PATCH remoto real em `clients`, `profiles`, `erp_profiles` e `subscriptions`.
 - Exclusao real de usuario no Supabase Auth. Isso ainda precisa de Edge Function/RPC backend com `service_role` fora do frontend.
+
+## Etapa 7 - Backup e sincronizacao simplificados
+
+Concluido localmente:
+
+- Tela `Backup` virou `Dados e Backup`, com e-mail da conta, status, ultima sincronizacao e dispositivo.
+- Removidos da experiencia do cliente os campos tecnicos de URL, token, URL/chave Supabase, senha Supabase, destino automatico e Google Drive.
+- Google Drive ficou mantido no codigo antigo, mas desativado por `ENABLE_GOOGLE_DRIVE_BACKUP = false`.
+- Sincronizacao automatica agora assume Supabase como destino padrao.
+- Usuarios antigos com `autoBackupTarget = "drive"` sao migrados em memoria para `supabase`.
+- Exportacao local passou a usar nome `backup-simplifica3d-EMAIL-DATA.json`.
+- Backup enviado ao Supabase e exportacao local passam a usar snapshot com escopo da conta atual quando o usuario nao e superadmin.
+- Sincronizacao manual mostra estado `Salvando...`, `Sincronizado`, `Offline` ou `Erro ao sincronizar`.
+- A engrenagem `Config` continua mostrando Seguranca e Atualizacoes, sem recolocar configuracao tecnica de backup.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/BUGS.md`
+- `docs/TESTES.md`
+
+Validado localmente:
+
+- `node --check app.js`
+
+Ainda nao validado nesta etapa:
+
+- Sincronizacao real contra Supabase staging/remoto.
+- Exportacao/importacao visual em navegador e APK.
+- Estado offline/online em navegador real.

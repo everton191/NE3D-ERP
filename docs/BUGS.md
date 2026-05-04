@@ -30,6 +30,7 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 5. Backup/sincronizacao ainda pede configuracao tecnica.
    - Campos de URL, token, URL/chave Supabase, senha Supabase e Google Drive aparecem para usuario final.
    - Impacto: experiencia confusa e risco de suporte/erro operacional.
+   - Status: Etapa 7 ocultou esses campos da experiencia do cliente e deixou Supabase como destino padrao. Falta teste visual/web/APK.
 
 ## Importantes
 
@@ -53,9 +54,11 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 5. Exportacao local usa nome antigo.
    - Nome atual: `backup-erp-3d.json`.
    - Nome desejado: `backup-simplifica3d-email-data.json`.
+   - Status: Etapa 7 alterou a exportacao para `backup-simplifica3d-EMAIL-DATA.json`.
 
 6. Google Drive aparece mesmo nao estando pronto como integracao final.
    - Deve ser ocultado/desativado por feature flag.
+   - Status: Etapa 7 adicionou `ENABLE_GOOGLE_DRIVE_BACKUP = false` e removeu a UI do usuario final.
 
 7. Flag de troca de senha precisa revisao.
    - Ha uso de `must_change_password` e condicoes locais.

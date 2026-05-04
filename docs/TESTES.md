@@ -124,6 +124,31 @@ Backup/sincronizacao:
 - Offline mostra estado "Offline" e sincroniza depois.
 - Google Drive nao aparece para usuario final enquanto desativado.
 
+## Etapa 7 - Backup e sincronizacao simplificados
+
+Executado localmente:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- varredura frontend por `service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret` - OK.
+- `git diff --check` - OK, apenas avisos esperados de LF/CRLF no Windows.
+
+Verificacoes por codigo:
+
+- `autoBackupTarget` padrao alterado para `supabase`.
+- `ENABLE_GOOGLE_DRIVE_BACKUP = false` bloqueia as funcoes antigas de Drive.
+- Tela `Backup` nao renderiza URL/token/chave/senha nem configuracao manual de Drive.
+- Exportacao local usa `backup-simplifica3d-EMAIL-DATA.json`.
+- `salvarBackupSupabase()` usa snapshot com escopo da conta atual.
+
+Nao executado ainda:
+
+- Teste real de upload/download do backup no Supabase staging/remoto.
+- Teste visual do botao "Sincronizar agora" no navegador e APK.
+- Teste offline/online real.
+- Teste de importacao/exportacao com usuario comum e superadmin.
+
 Onboarding:
 
 - Conta nova abre onboarding.
