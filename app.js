@@ -37,6 +37,10 @@ const ONBOARDING_PRINT_TYPES = [
   { id: "ambos", label: "Ambos" }
 ];
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
+const ASSISTANT_MAX_MESSAGES = 20;
+const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
+const LIST_PAGE_SIZE = 50;
+const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
@@ -3568,9 +3572,52 @@ function normalizarTextoAssistente(texto) {
   return removerAcentos(String(texto || "").toLowerCase());
 }
 
-function obterRespostaAssistente(texto) {
+function montarContextoAssistenteEnxuto(tarefa = "") {
+  const pedidoAtual = pedidoEditando || (pedidoVisualizandoId ? pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId)) : null);
+  const materiaisBaixos = normalizarEstoque()
+    .filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg)
+    .slice(0, ASSISTANT_MAX_CONTEXT_RESULTS)
+    .map((material) => ({ nome: material.nome, qtd: material.qtd, tipo: material.tipo }));
+  return {
+    tarefa: String(tarefa || "").slice(0, 300),
+    tela: telaAtual,
+    empresa: appConfig.businessName || SYSTEM_NAME,
+    plano: getPlanoAtual().status,
+    pedidoAtual: pedidoAtual ? {
+      id: pedidoAtual.id,
+      cliente: clienteDoPedido(pedidoAtual),
+      total: totalPedido(pedidoAtual),
+      status: pedidoAtual.status || "aberto",
+      itens: normalizarItensPedido(pedidoAtual).slice(0, ASSISTANT_MAX_CONTEXT_RESULTS)
+    } : null,
+    materiaisBaixos,
+    mensagensRecentes: assistantMessages.slice(-ASSISTANT_MAX_MESSAGES),
+    limites: {
+      mensagens: ASSISTANT_MAX_MESSAGES,
+      resultados: ASSISTANT_MAX_CONTEXT_RESULTS
+    }
+  };
+}
+
+function estimarTokensTexto(texto = "") {
+  return Math.ceil(String(texto || "").length / 4);
+}
+
+function limitarMensagensAssistente() {
+  assistantMessages = assistantMessages.slice(-ASSISTANT_MAX_MESSAGES);
+}
+
+function limparConversaAssistente() {
+  assistantMessages = [];
+  abrirAssistente();
+}
+
+function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxuto(texto)) {
   const pergunta = normalizarTextoAssistente(texto);
   const resposta = assistantResponses.find((item) => item.keywords.some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
+  const estimado = estimarTokensTexto(JSON.stringify(contexto));
+  window.__assistantLastTokenEstimate = estimado;
+  console.debug("[Assistente] Contexto enxuto estimado", { tokens: estimado, tela: contexto.tela });
   return resposta?.answer || "Ainda não sei responder isso. Procure o suporte ou tente usar palavras como pedido, estoque, backup, PDF ou plano.";
 }
 
@@ -3579,9 +3626,10 @@ function enviarMensagemAssistente(event) {
   const input = document.getElementById("assistantInput");
   const texto = (input?.value || "").trim();
   if (!texto) return;
+  const contexto = montarContextoAssistenteEnxuto(texto);
   assistantMessages.push({ role: "user", text: texto });
-  assistantMessages.push({ role: "assistant", text: obterRespostaAssistente(texto) });
-  assistantMessages = assistantMessages.slice(-20);
+  assistantMessages.push({ role: "assistant", text: obterRespostaAssistente(texto, contexto) });
+  limitarMensagensAssistente();
   renderApp();
   setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
 }
@@ -3613,6 +3661,7 @@ function renderAssistenteVirtual() {
           <span>Local/offline</span>
         </div>
         <div class="row-actions">
+          <button class="icon-button" onclick="limparConversaAssistente()" title="Limpar conversa">🧹</button>
           <button class="icon-button" onclick="minimizarAssistente()" title="Minimizar">−</button>
           <button class="icon-button danger" onclick="fecharAssistente()" title="Fechar">×</button>
         </div>
@@ -4636,10 +4685,12 @@ function renderListaPedidos() {
       ? pedidos.filter((pedido) => dataPedidoIso(pedido) === hojeIsoData())
       : pedidos;
   const lista = [...listaBase].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+  const limitePedidos = Math.max(LIST_PAGE_SIZE, Number(window.__pedidosLimite) || LIST_PAGE_SIZE);
+  const listaPaginada = lista.slice(0, limitePedidos);
   const pedidoSelecionado = pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId));
   const detalhe = pedidoSelecionado ? renderDetalhePedido(pedidoSelecionado) : "";
   const linhas = lista.length
-    ? lista.map((pedido) => {
+    ? listaPaginada.map((pedido) => {
         const id = Number(pedido.id);
         const itens = Array.isArray(pedido.itens) ? pedido.itens.length : 1;
         const status = pedido.status || "aberto";
@@ -4660,6 +4711,9 @@ function renderListaPedidos() {
         `;
       }).join("")
     : `<p class="empty">Nenhum pedido fechado ainda.</p>`;
+  const paginacao = lista.length > listaPaginada.length
+    ? `<div class="actions pagination-actions"><span class="muted">Mostrando ${listaPaginada.length} de ${lista.length}</span><button class="btn ghost" onclick="carregarMaisPedidos()">Carregar mais</button></div>`
+    : "";
 
   return `
     <section class="card">
@@ -4671,6 +4725,7 @@ function renderListaPedidos() {
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
       ${detalhe}
       ${linhas}
+      ${paginacao}
     </section>
   `;
 }
@@ -4708,6 +4763,11 @@ function renderDetalhePedido(pedido) {
 function visualizarPedido(id) {
   pedidoVisualizandoId = id;
   trocarTela("pedidos");
+}
+
+function carregarMaisPedidos() {
+  window.__pedidosLimite = Math.max(LIST_PAGE_SIZE, Number(window.__pedidosLimite) || LIST_PAGE_SIZE) + LIST_PAGE_SIZE;
+  renderApp();
 }
 
 function renderProducao() {
@@ -4813,6 +4873,12 @@ function clientePassaFiltrosSaas(cliente, filtros = window.__clientesSaasFiltros
 }
 
 function aplicarFiltroClientesSaasNaTela() {
+  const container = document.getElementById("clientesSaasLista");
+  if (container) {
+    const total = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL).length;
+    container.innerHTML = renderListaClientesSaasConteudo(total);
+    return;
+  }
   const filtros = window.__clientesSaasFiltros || {};
   const linhas = Array.from(document.querySelectorAll("[data-client-row='saas']"));
   let visiveis = 0;
@@ -4900,51 +4966,92 @@ function renderEstadoClientesSaasRemoto(totalClientes, totalFiltrado) {
   return "";
 }
 
+function getPaginaClientesSaas() {
+  return Math.max(1, Number(window.__clientesSaasPagina) || 1);
+}
+
+function setPaginaClientesSaas(pagina) {
+  window.__clientesSaasPagina = Math.max(1, Number(pagina) || 1);
+  renderApp();
+}
+
+function getClientesSaasPagina(lista = getClientesSaasFiltrados()) {
+  const total = lista.length;
+  const totalPaginas = Math.max(1, Math.ceil(total / SUPERADMIN_PAGE_SIZE));
+  const pagina = Math.min(getPaginaClientesSaas(), totalPaginas);
+  window.__clientesSaasPagina = pagina;
+  const inicio = (pagina - 1) * SUPERADMIN_PAGE_SIZE;
+  return {
+    pagina,
+    total,
+    totalPaginas,
+    inicio,
+    fim: Math.min(inicio + SUPERADMIN_PAGE_SIZE, total),
+    itens: lista.slice(inicio, inicio + SUPERADMIN_PAGE_SIZE)
+  };
+}
+
+function renderLinhaClienteSaas(cliente) {
+  const assinatura = getAssinaturaSaas(cliente.id);
+  const plano = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
+  const usuarioPrincipal = getUsuariosDoCliente(cliente.id)[0];
+  return `
+    <div class="client-admin-row" data-client-row="saas" data-client-id="${escaparAttr(cliente.id)}">
+      <div>
+        <strong>${escaparHtml(cliente.name)}</strong>
+        <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)}</span>
+        <span class="muted">${escaparHtml(cliente.email)}${cliente.phone ? " • " + escaparHtml(cliente.phone) : ""}</span>
+        <span class="muted">user_id: ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")}</span>
+        <span class="muted">plan_id: ${escaparHtml(assinatura?.planSlug || cliente.planoAtual || "free")} • status: ${escaparHtml(normalizarStatusPlano(assinatura?.status || cliente.statusAssinatura || "active"))}</span>
+        <span class="muted">promo_used: ${assinatura?.promoUsed ? "true" : "false"} • expira: ${assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"}</span>
+      </div>
+      <span class="status-badge">${escaparHtml(plano.name)}</span>
+      <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
+      <div class="client-meta">
+        <span>${cliente.lastAccessAt ? new Date(cliente.lastAccessAt).toLocaleDateString("pt-BR") : "sem acesso"}</span>
+        <span>${new Date(cliente.createdAt).toLocaleDateString("pt-BR")}</span>
+      </div>
+      <div class="row-actions">
+        <button class="btn ghost" onclick="editarClienteSaas('${escaparAttr(cliente.id)}')">Editar</button>
+        <button class="btn warning" onclick="alterarStatusClienteSaas('${escaparAttr(cliente.id)}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
+        <button class="btn ghost" onclick="alterarPlanoClienteSaas('${escaparAttr(cliente.id)}')">Alterar plano</button>
+        <button class="btn ghost" onclick="exportarClienteSaas('${escaparAttr(cliente.id)}')">Exportar</button>
+        <button class="btn danger" onclick="anonimizarClienteSaas('${escaparAttr(cliente.id)}')">Anonimizar</button>
+        <button class="btn danger" onclick="excluirClienteSaasManual('${escaparAttr(cliente.id)}')">Excluir</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderPaginacaoClientesSaas(paginaInfo) {
+  if (paginaInfo.total <= SUPERADMIN_PAGE_SIZE) return "";
+  return `
+    <div class="actions pagination-actions">
+      <button class="btn ghost" onclick="setPaginaClientesSaas(${paginaInfo.pagina - 1})" ${paginaInfo.pagina <= 1 ? "disabled" : ""}>Anterior</button>
+      <span class="muted">Mostrando ${paginaInfo.inicio + 1}-${paginaInfo.fim} de ${paginaInfo.total}</span>
+      <button class="btn ghost" onclick="setPaginaClientesSaas(${paginaInfo.pagina + 1})" ${paginaInfo.pagina >= paginaInfo.totalPaginas ? "disabled" : ""}>Próxima</button>
+    </div>
+  `;
+}
+
+function renderListaClientesSaasConteudo(totalClientes) {
+  const listaFiltrada = getClientesSaasFiltrados();
+  const paginaInfo = getClientesSaasPagina(listaFiltrada);
+  const estadoRemoto = renderEstadoClientesSaasRemoto(totalClientes, listaFiltrada.length);
+  const vazioFiltro = `<p id="clientesSaasFiltroVazio" class="empty" ${listaFiltrada.length === 0 && totalClientes > 0 ? "" : "hidden"}>Nenhum cliente corresponde aos filtros atuais.</p>`;
+  const linhas = paginaInfo.itens.map(renderLinhaClienteSaas).join("");
+  return `${estadoRemoto}${linhas}${vazioFiltro}${renderPaginacaoClientesSaas(paginaInfo)}`;
+}
+
 function renderClientesSaas() {
   garantirEstruturaSaasLocal();
   const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL);
-  const listaFiltrada = getClientesSaasFiltrados();
   const total = clientesVisiveis.length;
   const ativos = clientesVisiveis.filter((cliente) => cliente.status === "active").length;
   const atrasados = clientesVisiveis.filter((cliente) => cliente.status === "overdue").length;
   const inativos = clientesVisiveis.filter((cliente) => cliente.status === "inactive").length;
   const filtros = window.__clientesSaasFiltros || {};
-
-  const linhasClientes = clientesVisiveis.map((cliente) => {
-    const assinatura = getAssinaturaSaas(cliente.id);
-    const plano = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
-    const usuarioPrincipal = getUsuariosDoCliente(cliente.id)[0];
-    const visivel = clientePassaFiltrosSaas(cliente, filtros);
-    return `
-      <div class="client-admin-row" data-client-row="saas" data-client-id="${escaparAttr(cliente.id)}" ${visivel ? "" : "hidden"}>
-        <div>
-          <strong>${escaparHtml(cliente.name)}</strong>
-          <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)}</span>
-          <span class="muted">${escaparHtml(cliente.email)}${cliente.phone ? " • " + escaparHtml(cliente.phone) : ""}</span>
-          <span class="muted">user_id: ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")}</span>
-          <span class="muted">plan_id: ${escaparHtml(assinatura?.planSlug || cliente.planoAtual || "free")} • status: ${escaparHtml(normalizarStatusPlano(assinatura?.status || cliente.statusAssinatura || "active"))}</span>
-          <span class="muted">promo_used: ${assinatura?.promoUsed ? "true" : "false"} • expira: ${assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"}</span>
-        </div>
-        <span class="status-badge">${escaparHtml(plano.name)}</span>
-        <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
-        <div class="client-meta">
-          <span>${cliente.lastAccessAt ? new Date(cliente.lastAccessAt).toLocaleDateString("pt-BR") : "sem acesso"}</span>
-          <span>${new Date(cliente.createdAt).toLocaleDateString("pt-BR")}</span>
-        </div>
-        <div class="row-actions">
-          <button class="btn ghost" onclick="editarClienteSaas('${escaparAttr(cliente.id)}')">Editar</button>
-          <button class="btn warning" onclick="alterarStatusClienteSaas('${escaparAttr(cliente.id)}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
-          <button class="btn ghost" onclick="alterarPlanoClienteSaas('${escaparAttr(cliente.id)}')">Alterar plano</button>
-          <button class="btn ghost" onclick="exportarClienteSaas('${escaparAttr(cliente.id)}')">Exportar</button>
-          <button class="btn danger" onclick="anonimizarClienteSaas('${escaparAttr(cliente.id)}')">Anonimizar</button>
-          <button class="btn danger" onclick="excluirClienteSaasManual('${escaparAttr(cliente.id)}')">Excluir</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-  const estadoRemoto = renderEstadoClientesSaasRemoto(total, listaFiltrada.length);
-  const vazioFiltro = `<p id="clientesSaasFiltroVazio" class="empty" ${listaFiltrada.length === 0 && total > 0 ? "" : "hidden"}>Nenhum cliente corresponde aos filtros atuais.</p>`;
-  const linhas = `${estadoRemoto}${linhasClientes}${vazioFiltro}`;
+  const linhas = renderListaClientesSaasConteudo(total);
 
   return `
     <section class="card">
@@ -4987,7 +5094,7 @@ function renderClientesSaas() {
         <button class="btn secondary" onclick="marcarClientesInativosAcao()">Marcar inativos &gt;90 dias</button>
         <button class="btn ghost" onclick="exportarClientesSaas()">Exportar dados</button>
       </div>
-      <div class="history-list users-list">${linhas}</div>
+      <div id="clientesSaasLista" class="history-list users-list">${linhas}</div>
     </section>
   `;
 }
@@ -4997,6 +5104,7 @@ function filtrarClientesSaas(campo, valor) {
     ...(window.__clientesSaasFiltros || {}),
     [campo]: valor
   };
+  window.__clientesSaasPagina = 1;
   clearTimeout(window.__clientesSaasFiltroTimer);
   window.__clientesSaasFiltroTimer = setTimeout(aplicarFiltroClientesSaasNaTela, 300);
 }
@@ -8847,12 +8955,12 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
       return [];
     });
     const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline, perfisOnline, perfisErpOnline] = await Promise.all([
-      requisicaoSupabase("/rest/v1/clients?select=*&order=created_at.desc&limit=1000"),
-      requisicaoSupabase("/rest/v1/subscriptions?select=*,plans(*)&order=created_at.desc&limit=1000"),
-      requisicaoSupabase("/rest/v1/payments?select=*&order=created_at.desc&limit=1000"),
+      requisicaoSupabase(`/rest/v1/clients?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`),
+      requisicaoSupabase(`/rest/v1/subscriptions?select=*,plans(*)&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`),
+      requisicaoSupabase(`/rest/v1/payments?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`),
       requisicaoSupabase("/rest/v1/plans?select=*&order=price.asc"),
-      carregarPerfis("/rest/v1/profiles?select=*&order=created_at.desc&limit=1000", "profiles"),
-      carregarPerfis("/rest/v1/erp_profiles?select=*&order=created_at.desc&limit=1000", "erp_profiles")
+      carregarPerfis(`/rest/v1/profiles?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`, "profiles"),
+      carregarPerfis(`/rest/v1/erp_profiles?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`, "erp_profiles")
     ]);
     saasClients = mesclarListaPorId(saasClients, clientesOnline, normalizarClienteSaas);
     saasSubscriptions = mesclarListaPorId(saasSubscriptions, assinaturasOnline, normalizarAssinaturaSaas);

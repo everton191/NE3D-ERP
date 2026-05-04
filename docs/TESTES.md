@@ -133,6 +133,9 @@ Executado localmente:
 - `npm run supabase:test:migrations` - OK.
 - varredura frontend por `service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret` - OK.
 - `git diff --check` - OK, apenas avisos esperados de LF/CRLF no Windows.
+- `npm run supabase:test:migrations` - OK.
+- varredura frontend por `service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret` - OK.
+- `git diff --check` - OK, apenas avisos esperados de LF/CRLF no Windows.
 
 Verificacoes por codigo:
 
@@ -196,6 +199,28 @@ Validacao tecnica:
 - `supabase migration list`
 - `supabase db push --dry-run`
 - `supabase db lint`
+
+## Etapa 9 - Otimizacao de contexto e listas
+
+Executado localmente:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+
+Verificacoes por codigo:
+
+- Assistente limita mensagens a 20.
+- Contexto do assistente nao carrega banco inteiro.
+- Contexto do assistente limita resultados relevantes a 10.
+- Superadmin renderiza pagina de 50 clientes.
+- Supabase remoto usa `limit=50` para cargas administrativas principais.
+- Pedidos renderizam 50 por vez.
+
+Nao executado ainda:
+
+- Teste visual no navegador/mobile.
+- Teste com massa grande real de clientes e pedidos.
+- Teste de teclado mobile na busca do superadmin apos paginação.
 
 ## Criterio de conclusao
 

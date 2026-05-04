@@ -305,8 +305,45 @@ Validado localmente ate agora:
 - `npm run supabase:test:migrations`
 - varredura frontend por segredos Supabase sensiveis
 - `git diff --check`
+- `npm run supabase:test:migrations`
+- varredura frontend por segredos Supabase sensiveis
+- `git diff --check`
 
 Ainda nao validado nesta etapa:
 
 - Fluxo visual completo em navegador/mobile/APK.
 - Sincronizacao real dos campos de onboarding no Supabase staging/remoto.
+
+## Etapa 9 - Otimizacao de contexto e listas
+
+Concluido localmente:
+
+- Adicionados limites centrais:
+  - `ASSISTANT_MAX_MESSAGES = 20`;
+  - `ASSISTANT_MAX_CONTEXT_RESULTS = 10`;
+  - `LIST_PAGE_SIZE = 50`;
+  - `SUPERADMIN_PAGE_SIZE = 50`.
+- Assistente local agora monta contexto enxuto com tela atual, plano, pedido atual e ate 10 materiais baixos.
+- Assistente limita mensagens recentes a 20 e registra estimativa local de tokens no console.
+- Adicionado botao de limpar conversa do assistente.
+- Superadmin renderiza clientes em paginas de 50.
+- Busca do superadmin atualiza apenas o container de resultados, preservando foco/teclado dos inputs.
+- Carga remota do superadmin usa `limit=50` em clientes, assinaturas, pagamentos e perfis.
+- Lista de pedidos mostra 50 por vez com botao `Carregar mais`.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+
+Validado localmente ate agora:
+
+- `node --check app.js`
+- `npm run build:web`
+
+Ainda nao validado nesta etapa:
+
+- Teste visual de busca no superadmin em mobile.
+- Teste com mais de 50 clientes/pedidos reais.
+- Teste do assistente em navegador real.
