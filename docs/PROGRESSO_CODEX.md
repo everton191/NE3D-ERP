@@ -553,3 +553,23 @@ Implementado:
 Observacao:
 
 - Foi usado `JAVA_HOME` temporario apontando para `C:\Users\PAESS\.jdks\temurin-24.0.2` apenas durante o build.
+
+## Etapa - Politica, termos e planos sem credenciais
+
+Backup de arquivos criado:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-legal-planos-20260504-195821`
+
+Implementado:
+
+- Politica de Privacidade atualizada para o texto vigente do Simplifica 3D, incluindo coleta, uso, anuncios Google AdMob, compartilhamento, seguranca, direitos LGPD, retencao e contato.
+- Termos de Uso atualizados com responsabilidade de uso, limitacao de responsabilidade, conta do usuario, plano pago, anuncios, suspensao e contato.
+- Guia de planos deixou de exibir campos de e-mail e senha.
+- Acoes de conta na guia de planos agora direcionam para a area de login/cadastro existente.
+- Inicio do teste gratis agora exige conta autenticada ou e-mail ja associado, sem pedir credencial dentro da guia de planos.
+- Versao atualizada para `2026.05.04-legal-ads`.
+- APK gerado:
+  - `downloads/NE3D-ERP.apk`;
+  - `downloads/update.json`;
+  - versao `2026.05.04-legal-ads`;
+  - versionCode `32`.

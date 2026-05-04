@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.04-admob-test";
+const APP_VERSION = "2026.05.04-legal-ads";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -3075,51 +3075,77 @@ function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano
 
 function getDocumentoLegal(tipo = "termos") {
   const nomeApp = appConfig.appName || SYSTEM_NAME;
-  const data = "30/04/2026";
+  const data = "04/05/2026";
   if (tipo === "privacidade") {
     return {
       titulo: "Política de Privacidade",
-      subtitulo: `Como o ${nomeApp} trata dados da conta e da operação.`,
+      subtitulo: `${nomeApp} respeita a privacidade dos usuários e se compromete a proteger seus dados pessoais.`,
       secoes: [
         {
-          titulo: "Dados usados",
+          titulo: "1. Informações gerais",
           itens: [
-            "Nome, e-mail, telefone opcional e nome do negócio.",
-            "Dados operacionais cadastrados pelo usuário, como pedidos, produção, estoque, caixa, clientes e relatórios.",
-            "Dados de assinatura, pagamentos, status de plano, logs de segurança e registros de auditoria."
+            "Esta Política explica como coletamos, usamos e protegemos suas informações ao utilizar o aplicativo.",
+            "O uso do aplicativo indica ciência desta Política e das práticas de tratamento de dados aqui descritas."
           ]
         },
         {
-          titulo: "Finalidade",
+          titulo: "2. Informações coletadas",
           itens: [
-            "Criar e manter a conta, liberar recursos contratados e validar limites do plano.",
-            "Sincronizar dados com Supabase quando configurado e manter o funcionamento do app.",
-            "Gerar relatórios, backups, comprovantes, histórico de ações e suporte ao cliente."
+            "Dados fornecidos pelo usuário: nome, e-mail e informações inseridas no app, como pedidos, cálculos e dados operacionais.",
+            "Dados coletados automaticamente: informações do dispositivo, identificadores do dispositivo ou publicidade, dados de uso do app e endereço IP aproximado."
           ]
         },
         {
-          titulo: "Compartilhamento",
+          titulo: "3. Uso das informações",
           itens: [
-            "Dados podem ser processados por serviços necessários ao funcionamento, como Supabase Auth, banco Supabase e provedor de pagamento.",
-            "O sistema não vende dados dos clientes.",
-            "Chaves secretas e tokens privados de pagamento não ficam salvos no aplicativo."
+            "Utilizamos os dados para funcionamento do aplicativo, melhoria da experiência, suporte ao usuário, personalização de funcionalidades e exibição de anúncios."
           ]
         },
         {
-          titulo: "Controle do cliente",
+          titulo: "4. Anúncios",
           itens: [
-            "O cliente pode exportar seus dados pelo próprio sistema.",
-            "Pedidos de correção, anonimização ou exclusão manual podem ser solicitados ao responsável pelo serviço.",
-            "Clientes com pagamento recente ou conta ativa não são excluídos automaticamente."
+            "O app utiliza o serviço Google AdMob, que pode coletar dados para exibir anúncios relevantes.",
+            "Esses dados podem incluir identificadores do dispositivo, comportamento de uso e localização aproximada.",
+            "O Google pode utilizar cookies e tecnologias similares.",
+            "Para mais informações, acesse: https://policies.google.com/technologies/ads"
           ]
         },
         {
-          titulo: "Segurança",
+          titulo: "5. Compartilhamento de dados",
           itens: [
-            "Senhas são tratadas pelo Supabase Auth, pelo hash local do usuário ou pelo gerenciador de senhas do navegador quando o próprio usuário aceitar.",
-            "Tokens de sessão podem ser mantidos em cache local para preservar o login entre aberturas do app, sem gravar a senha em texto puro.",
-            "O usuário deve manter seu e-mail, senha e aparelho protegidos.",
-            "Logs de acesso, login, pagamento, bloqueio e alterações importantes podem ser registrados para segurança."
+            "Seus dados podem ser compartilhados com serviços de terceiros, como Google AdMob, e provedores de infraestrutura, como hospedagem e banco de dados.",
+            "Não vendemos seus dados pessoais."
+          ]
+        },
+        {
+          titulo: "6. Armazenamento e segurança",
+          itens: [
+            "Adotamos medidas para proteger seus dados, mas nenhum sistema é 100% seguro.",
+            "O usuário também deve manter seus dados de acesso e seus dispositivos protegidos."
+          ]
+        },
+        {
+          titulo: "7. Direitos do usuário (LGPD)",
+          itens: [
+            "Você pode solicitar acesso aos seus dados, corrigir informações, solicitar exclusão e revogar consentimento, quando aplicável."
+          ]
+        },
+        {
+          titulo: "8. Retenção de dados",
+          itens: [
+            "Mantemos os dados apenas pelo tempo necessário para funcionamento do serviço, segurança, suporte e cumprimento de obrigações aplicáveis."
+          ]
+        },
+        {
+          titulo: "9. Alterações",
+          itens: [
+            "Esta política pode ser atualizada a qualquer momento."
+          ]
+        },
+        {
+          titulo: "10. Contato",
+          itens: [
+            "Para dúvidas: paessilvae@gmail.com"
           ]
         }
       ],
@@ -3129,47 +3155,71 @@ function getDocumentoLegal(tipo = "termos") {
 
   return {
     titulo: "Termos de Uso",
-    subtitulo: `Regras básicas para uso do ${nomeApp}.`,
+    subtitulo: `Ao utilizar o ${nomeApp}, você concorda com estes Termos.`,
     secoes: [
       {
-        titulo: "Uso do sistema",
+        titulo: "1. Aceitação",
         itens: [
-          `${nomeApp} é um sistema SaaS para controle de pedidos, produção 3D, estoque, caixa e relatórios.`,
-          "O usuário é responsável por conferir os dados lançados, preços, prazos, arquivos, materiais e informações comerciais.",
-          "O sistema pode exibir limites conforme o plano contratado."
+          "Ao utilizar o aplicativo, você concorda com estes Termos."
         ]
       },
       {
-        titulo: "Conta e acesso",
+        titulo: "2. Uso do aplicativo",
         itens: [
-          "O cadastro exige nome, e-mail, senha, nome do negócio e aceite destes termos.",
-          "A conta criada para o negócio recebe perfil de administrador inicial.",
-          "O acesso pode ser bloqueado em caso de inadimplência, cancelamento, uso indevido ou violação de segurança."
+          `${nomeApp} é uma ferramenta de apoio para cálculo e gestão de pedidos.`,
+          "O usuário é responsável pelas decisões tomadas com base nas informações fornecidas pelo app."
         ]
       },
       {
-        titulo: "Planos e pagamentos",
+        titulo: "3. Responsabilidade",
         itens: [
-          "O Plano Free permite 1 usuário, até 10 pedidos ativos, 30 usos da calculadora e backup online limitado.",
-          "O Premium Trial libera recursos completos por 7 dias para novas contas.",
-          "O Premium usa primeiro pagamento de R$ 19,90 quando a condição inicial ainda não foi usada e mensalidade de R$ 29,90 nos pagamentos seguintes.",
-          "Pagamentos pendentes, vencidos ou não confirmados podem limitar criação de novos dados, mantendo acesso para visualização e regularização."
+          "O aplicativo não garante precisão absoluta dos cálculos, ausência de erros ou resultados financeiros específicos.",
+          "Recomendamos que o usuário revise cálculos, preços, prazos e documentos antes de tomar decisões comerciais."
         ]
       },
       {
-        titulo: "Responsabilidades",
+        titulo: "4. Conta do usuário",
         itens: [
-          "O usuário deve manter backups quando necessário e revisar documentos antes de enviar a clientes.",
-          "O sistema não substitui conferência técnica, contábil, fiscal ou jurídica do negócio.",
-          "É proibido usar o serviço para fraude, acesso não autorizado ou violação de direitos de terceiros."
+          "O usuário é responsável por manter seus dados seguros e por não compartilhar acesso indevidamente."
         ]
       },
       {
-        titulo: "Dados e encerramento",
+        titulo: "5. Plano pago",
         itens: [
-          "Clientes inativos podem ser marcados para revisão sem exclusão automática por padrão.",
-          "Exportação, anonimização e exclusão manual podem ser feitas conforme as regras do sistema.",
-          "Dados necessários para auditoria, segurança ou obrigações legais podem permanecer registrados pelo período necessário."
+          "O app pode oferecer funcionalidades pagas.",
+          "Pagamentos seguem as regras da plataforma aplicável, como Google, App Store ou provedor de pagamento usado no aplicativo.",
+          "Benefícios podem ser alterados."
+        ]
+      },
+      {
+        titulo: "6. Anúncios",
+        itens: [
+          "Usuários da versão gratuita podem visualizar anúncios.",
+          "Usuários premium não terão anúncios."
+        ]
+      },
+      {
+        titulo: "7. Limitação de responsabilidade",
+        itens: [
+          `${nomeApp} não se responsabiliza por prejuízos financeiros, decisões comerciais ou uso incorreto do app.`
+        ]
+      },
+      {
+        titulo: "8. Suspensão",
+        itens: [
+          "Podemos suspender contas em caso de uso indevido."
+        ]
+      },
+      {
+        titulo: "9. Alterações",
+        itens: [
+          "Os termos podem ser atualizados a qualquer momento."
+        ]
+      },
+      {
+        titulo: "10. Contato",
+        itens: [
+          "paessilvae@gmail.com"
         ]
       }
     ],
@@ -7387,24 +7437,11 @@ function renderAssinatura() {
           <span>Dias restantes</span>
           <strong>${plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes}</strong>
         </div>
-        <div class="metric">
-          <span>E-mail</span>
-          <strong>${billingConfig.licenseEmail ? escaparHtml(billingConfig.licenseEmail) : "Não informado"}</strong>
-        </div>
       </div>
 
-      <label class="field">
-        <span>E-mail da conta/licença</span>
-        <input id="licenseEmailInput" value="${escaparAttr(billingConfig.licenseEmail)}" placeholder="cliente@email.com">
-      </label>
-      <label class="field">
-        <span>Senha da conta</span>
-        <input id="licensePasswordInput" type="password" placeholder="Opcional para criar/atualizar conta">
-      </label>
       <div class="actions">
-        <button class="btn ghost" onclick="salvarEmailLicenca()">Salvar e vincular este aparelho</button>
-        <button class="btn secondary" onclick="criarContaLicenca()">Criar/entrar conta</button>
         <button class="btn" onclick="trocarTela('minhaAssinatura')">Minha assinatura</button>
+        <button class="btn secondary" onclick="trocarTela('admin')">Entrar ou criar conta</button>
       </div>
 
       ${renderDispositivosLicenca()}
@@ -7774,9 +7811,11 @@ function iniciarTesteGratis(slug = "premium_trial") {
   }
 
   const plano = getPlanoSaas(slug);
-  const email = normalizarEmail(document.getElementById("licenseEmailInput")?.value || billingConfig.licenseEmail || usuarioAtualEmail || "");
+  const usuario = getUsuarioAtual();
+  const email = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || usuarioAtualEmail || "");
   if (!email) {
-    alert("Informe o e-mail da conta antes de iniciar o teste grátis.");
+    alert("Entre ou crie uma conta antes de iniciar o teste grátis.");
+    trocarTela("admin");
     return;
   }
 
@@ -8031,63 +8070,6 @@ function falarComSuporteAssinatura() {
     return;
   }
   window.open(`mailto:${SUPERADMIN_BOOTSTRAP_EMAIL}?subject=Suporte Simplifica 3D&body=${encodeURIComponent(texto)}`, "_blank");
-}
-
-function salvarEmailLicenca() {
-  const email = normalizarEmail(document.getElementById("licenseEmailInput")?.value || "");
-  if (!email) {
-    alert("Informe um e-mail válido para vincular a licença.");
-    return;
-  }
-
-  billingConfig.licenseEmail = email;
-  if (!registrarDispositivoLicenca(email)) return;
-  salvarDados();
-  registrarHistorico("Assinatura", "E-mail de licença vinculado");
-  renderApp();
-}
-
-async function criarContaLicenca() {
-  const email = normalizarEmail(document.getElementById("licenseEmailInput")?.value || billingConfig.licenseEmail || "");
-  const senha = document.getElementById("licensePasswordInput")?.value || "";
-  if (!email) {
-    alert("Informe o e-mail para criar ou entrar na conta.");
-    return;
-  }
-
-  usuarios = normalizarUsuarios(usuarios);
-  let usuario = usuarios.find((item) => item.email === email);
-  if (!usuario) {
-    usuario = normalizarUsuario({
-      id: criarIdUsuario(),
-      clientId: billingConfig.clientId || getClientIdAtual(),
-      nome: email.split("@")[0],
-      email,
-      papel: "admin",
-      ativo: true,
-      criadoEm: new Date().toISOString()
-    });
-    usuarios.push(usuario);
-  }
-  if (senha) {
-    const erroSenha = mensagemValidacaoSenha(senha);
-    if (erroSenha) {
-      alert(erroSenha);
-      return;
-    }
-    await definirSenhaUsuario(usuario, senha, false);
-  }
-
-  billingConfig.licenseEmail = email;
-  if (!registrarDispositivoLicenca(email)) return;
-  usuarioAtualEmail = email;
-  sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
-  adminLogado = false;
-  sessionStorage.removeItem("adminLogado");
-  salvarDados();
-  registrarHistorico("Conta", "Conta vinculada: " + email);
-  sincronizarAposLogin();
-  renderApp();
 }
 
 function abrirDownload(tipo) {

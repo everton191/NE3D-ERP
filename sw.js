@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v49-admob-test";
+const CACHE_NAME = "simplifica-3d-v50-legal-ads";
 const APP_FILES = [
   "./",
   "./index.html",

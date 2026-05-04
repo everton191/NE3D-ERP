@@ -468,3 +468,29 @@ APK:
 
 - `downloads/NE3D-ERP.apk` gerado com sucesso.
 - `downloads/update.json` gerado com versao `2026.05.04-admob-test` e `versionCode=31`.
+
+## Politica, termos, planos e APK
+
+Comandos executados:
+
+- `node --check app.js` - OK.
+- `node --check sw.js` - OK.
+- `node --check src\services\adMobService.js` - OK.
+- `node --check src\services\monetizationLimits.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npm run supabase:test:telemetry` - OK.
+- `npm run test:monetization` - OK.
+- `npm run android:apk` - OK usando `JAVA_HOME` temporario.
+
+Smoke web:
+
+- `http://127.0.0.1:5180/` carregou com titulo `Simplifica 3D`.
+- Console do navegador sem erros no carregamento.
+- Tela inicial/login renderizou.
+
+APK:
+
+- `downloads/NE3D-ERP.apk` gerado com sucesso.
+- `downloads/update.json` gerado com versao `2026.05.04-legal-ads` e `versionCode=32`.
