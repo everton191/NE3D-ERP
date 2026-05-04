@@ -32,6 +32,18 @@ Branch: `fix/stability-auth-superadmin-onboarding`
    - Impacto: experiencia confusa e risco de suporte/erro operacional.
    - Status: Etapa 7 ocultou esses campos da experiencia do cliente e deixou Supabase como destino padrao. Falta teste visual/web/APK.
 
+6. Migrations novas ainda nao estao aplicadas no Supabase remoto.
+   - `supabase migration list --linked` mostrou pendentes:
+     - `20260504111204_account_companies_members_sync.sql`;
+     - `20260504120234_onboarding_initial_flow.sql`.
+   - Impacto: o remoto ainda nao tem o modelo novo de empresas/membros/sync/onboarding.
+   - Status: `db push --dry-run` nao concluiu por timeout e depois por `ECIRCUITBREAKER` no pooler remoto. Nao foi aplicado schema em producao.
+
+7. Supabase local nao esta disponivel neste ambiente.
+   - `supabase status` falhou porque o Docker local nao esta rodando/acessivel.
+   - Impacto: testes locais com banco Supabase completo ainda nao foram executados.
+   - Status: validacoes estaticas e REST remoto passaram, mas falta staging/local real.
+
 ## Importantes
 
 1. Busca no superadmin chama `renderApp()` a cada tecla.
@@ -64,6 +76,11 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 7. Flag de troca de senha precisa revisao.
    - Ha uso de `must_change_password` e condicoes locais.
    - Risco: pedir troca de senha repetidamente se a flag nao for limpa no banco.
+
+8. Avisos antigos no lint remoto.
+   - `register_saas_client` ainda tem variavel/parametro de trial nao usados.
+   - `redeem_promotional_token` ainda tem parametro `p_codigo` nao usado.
+   - Risco: baixo para execucao atual, mas indica codigo legado que deve ser limpo com cuidado em rodada propria.
 
 ## Ja existente e aproveitavel
 

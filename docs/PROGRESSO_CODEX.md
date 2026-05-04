@@ -347,3 +347,53 @@ Ainda nao validado nesta etapa:
 - Teste visual de busca no superadmin em mobile.
 - Teste com mais de 50 clientes/pedidos reais.
 - Teste do assistente em navegador real.
+
+## Etapa 10 - Validacao tecnica e staging
+
+Concluido localmente:
+
+- Criado `.env.test` local com placeholders para Supabase de teste/staging.
+- `.gitignore` atualizado para ignorar `.env` e `.env.*`, preservando exemplos versionaveis.
+- Dependencias conferidas com `npm install`.
+- Scripts disponiveis conferidos em `package.json`.
+- Nao existem scripts `lint`, `typecheck` ou `test` neste projeto neste momento.
+- Supabase CLI validado em `2.98.0`.
+- Ajuda do CLI consultada antes dos comandos remotos:
+  - `npx.cmd supabase migration list --help`;
+  - `npx.cmd supabase db push --help`;
+  - `npx.cmd supabase db lint --help`;
+  - `npx.cmd supabase status --help`.
+
+Validacoes executadas:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- Varredura frontend por `service_role`, `supabase_service`, `SERVICE_ROLE` e `sb_secret` - OK.
+- `git diff --check` - OK, com avisos esperados de LF/CRLF no Windows.
+
+Supabase remoto:
+
+- `npx.cmd supabase migration list --linked` executou e mostrou que o remoto ainda nao recebeu:
+  - `20260504111204_account_companies_members_sync.sql`;
+  - `20260504120234_onboarding_initial_flow.sql`.
+- `npx.cmd supabase db lint --linked` executou e retornou somente avisos antigos:
+  - `register_saas_client`: variavel/parametro de trial nao usados;
+  - `redeem_promotional_token`: parametro `p_codigo` nao usado.
+- `npx.cmd supabase db push --dry-run --linked` ficou em timeout na primeira tentativa.
+- A segunda tentativa com `--debug` falhou por `ECIRCUITBREAKER` no pooler remoto, com mensagem para configurar `SUPABASE_DB_PASSWORD`.
+- `npx.cmd supabase status` falhou porque o Docker local nao esta acessivel/rodando; isso afeta apenas o stack local.
+
+Ainda nao validado completamente:
+
+- Supabase local/staging real, porque `.env.test` ainda esta sem credenciais de teste.
+- Criacao real de usuarios ficticios em ambiente separado.
+- Fluxo visual completo em navegador desktop, mobile/PWA e APK.
+- Acoes administrativas reais em banco remoto, porque as migrations novas ainda nao foram aplicadas.
+
+Decisao tecnica:
+
+- Nao foi aplicado `db push` real.
+- Nao foi feito merge para branch principal.
+- Nao foi gerado APK final nesta etapa, pois ainda faltam validacoes reais de staging.

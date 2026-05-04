@@ -233,3 +233,70 @@ So considerar pronto quando:
 - RLS isola dados por empresa;
 - nenhum `service_role` fica exposto no frontend;
 - build e testes obrigatorios passam.
+
+## Etapa 10 - Validacao tecnica executada
+
+Preparacao:
+
+- `.env.test` criado localmente com placeholders, sem credenciais reais.
+- `.gitignore` passou a ignorar `.env` e `.env.*`.
+- `npm install` executado: dependencias atualizadas, 0 vulnerabilidades.
+- `npx.cmd supabase --version`: `2.98.0`.
+
+Scripts do projeto:
+
+- Existe `build:web`.
+- Existem scripts Supabase de teste/validacao.
+- Nao existem `lint`, `typecheck` ou `test` neste `package.json`.
+
+Comandos que passaram:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- Varredura frontend por segredos Supabase sensiveis - OK.
+- `git diff --check` - OK, apenas avisos LF/CRLF do Windows.
+
+Detalhe do `npm run supabase:test:rest`:
+
+- `plans` anonimo respondeu 200 com 3 linhas.
+- `profiles` anonimo respondeu 200 com 0 linhas.
+- `clients` anonimo respondeu 200 com 0 linhas.
+- `get_saas_license` anonimo bloqueado com 401, esperado.
+- `register_saas_client` anonimo bloqueado com 401, esperado.
+- Configuracoes de Auth responderam 200.
+- Senha invalida bloqueada com 400.
+- Funcoes de pagamento/assinatura exigiram JWT com 401, esperado.
+
+Supabase CLI remoto:
+
+- `npx.cmd supabase migration list --linked` - OK.
+- Migrations pendentes no remoto:
+  - `20260504111204`;
+  - `20260504120234`.
+- `npx.cmd supabase db lint --linked` - OK, com avisos nao bloqueantes de parametros antigos nao usados.
+- `npx.cmd supabase db push --dry-run --linked` - nao validado por timeout/pooler.
+- Retentativa com `--debug` falhou por `ECIRCUITBREAKER` no pooler remoto.
+- `npx.cmd supabase status` - falhou porque Docker local nao esta rodando/acessivel.
+
+Testes ainda pendentes para considerar pronto:
+
+- Preencher `.env.test` com um Supabase de staging.
+- Criar usuarios ficticios em staging:
+  - superadmin;
+  - dono;
+  - funcionario;
+  - bloqueado;
+  - trial.
+- Aplicar migrations novas em staging.
+- Validar cadastro real criando `auth.users`, `clients`, `profiles`, `erp_profiles`, `companies`, `company_members`, `subscriptions` e `sync_settings`.
+- Validar login persistente fechando e abrindo navegador/PWA/APK.
+- Validar superadmin com dados reais:
+  - busca;
+  - alteracao de plano;
+  - bloqueio/desbloqueio;
+  - confirmacoes;
+  - feedback visual.
+- Validar onboarding em navegador/mobile/APK.
+- Validar backup/exportacao/sincronizacao por usuario.
