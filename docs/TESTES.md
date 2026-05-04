@@ -276,9 +276,10 @@ Supabase CLI remoto:
   - `20260504111204`;
   - `20260504120234`.
 - `npx.cmd supabase db lint --linked` - OK, com avisos nao bloqueantes de parametros antigos nao usados.
-- `npx.cmd supabase db push --dry-run --linked` - nao validado por timeout/pooler.
-- Retentativa com `--debug` falhou por `ECIRCUITBREAKER` no pooler remoto.
+- `npx.cmd supabase db push --dry-run --linked` - OK na ultima tentativa; confirmou somente as duas migrations pendentes.
+- Tentativa anterior com `--debug` falhou por `ECIRCUITBREAKER` no pooler remoto.
 - `npx.cmd supabase status` - falhou porque Docker local nao esta rodando/acessivel.
+- Docker/Docker Desktop nao foi encontrado neste computador, entao Supabase local nao foi iniciado.
 
 Testes ainda pendentes para considerar pronto:
 
@@ -300,3 +301,14 @@ Testes ainda pendentes para considerar pronto:
   - feedback visual.
 - Validar onboarding em navegador/mobile/APK.
 - Validar backup/exportacao/sincronizacao por usuario.
+
+Ultima bateria repetida:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npx.cmd supabase db push --dry-run --linked` - OK.
+- `npx.cmd supabase db lint --linked` - OK com avisos nao bloqueantes.
+- Varredura frontend por segredos Supabase sensiveis - OK.
+- `git diff --check` - OK.

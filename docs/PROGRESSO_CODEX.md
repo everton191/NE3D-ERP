@@ -383,7 +383,11 @@ Supabase remoto:
   - `redeem_promotional_token`: parametro `p_codigo` nao usado.
 - `npx.cmd supabase db push --dry-run --linked` ficou em timeout na primeira tentativa.
 - A segunda tentativa com `--debug` falhou por `ECIRCUITBREAKER` no pooler remoto, com mensagem para configurar `SUPABASE_DB_PASSWORD`.
+- Nova tentativa posterior de `npx.cmd supabase db push --dry-run --linked` passou e confirmou que seriam enviadas somente:
+  - `20260504111204_account_companies_members_sync.sql`;
+  - `20260504120234_onboarding_initial_flow.sql`.
 - `npx.cmd supabase status` falhou porque o Docker local nao esta acessivel/rodando; isso afeta apenas o stack local.
+- Docker/Docker Desktop nao foi encontrado neste computador, entao nao foi possivel subir Supabase local.
 
 Ainda nao validado completamente:
 
@@ -397,3 +401,14 @@ Decisao tecnica:
 - Nao foi aplicado `db push` real.
 - Nao foi feito merge para branch principal.
 - Nao foi gerado APK final nesta etapa, pois ainda faltam validacoes reais de staging.
+
+Ultima bateria executada:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npx.cmd supabase db push --dry-run --linked` - OK.
+- `npx.cmd supabase db lint --linked` - OK com avisos nao bloqueantes.
+- Varredura frontend por segredos sensiveis - OK.
+- `git diff --check` - OK.

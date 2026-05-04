@@ -37,10 +37,11 @@ Branch: `fix/stability-auth-superadmin-onboarding`
      - `20260504111204_account_companies_members_sync.sql`;
      - `20260504120234_onboarding_initial_flow.sql`.
    - Impacto: o remoto ainda nao tem o modelo novo de empresas/membros/sync/onboarding.
-   - Status: `db push --dry-run` nao concluiu por timeout e depois por `ECIRCUITBREAKER` no pooler remoto. Nao foi aplicado schema em producao.
+   - Status: a ultima tentativa de `db push --dry-run` passou e confirmou somente essas duas migrations. Nao foi aplicado schema em producao/staging.
 
 7. Supabase local nao esta disponivel neste ambiente.
    - `supabase status` falhou porque o Docker local nao esta rodando/acessivel.
+   - Docker/Docker Desktop nao foi encontrado neste computador.
    - Impacto: testes locais com banco Supabase completo ainda nao foram executados.
    - Status: validacoes estaticas e REST remoto passaram, mas falta staging/local real.
 
