@@ -1,0 +1,126 @@
+# Plano de testes - Auth, Superadmin e Sincronizacao
+
+Data: 2026-05-04
+Branch: `fix/stability-auth-superadmin-onboarding`
+
+## Estado atual
+
+Nenhum teste funcional foi marcado como aprovado nesta etapa, porque a Etapa 1 foi somente diagnostico e documentacao. Producao nao foi alterada.
+
+Comandos executados na preparacao/diagnostico:
+
+- `git status -sb`
+- `git branch --show-current`
+- backup completo via PowerShell
+- retencao dos 2 ultimos backups
+- `Get-ChildItem` para mapear arquivos
+- `Select-String` para mapear auth, superadmin, sync e migrations
+
+Observacao: `rg` falhou com "Acesso negado" nesta instalacao do Windows, entao o diagnostico usou fallback PowerShell.
+
+## Ambiente de teste necessario
+
+Antes de validar as correcoes:
+
+- criar `.env.test` com dados de Supabase de teste/staging;
+- confirmar que nenhuma chave `service_role` entra em arquivo frontend;
+- rodar Supabase local/staging antes de mexer em dados reais;
+- criar usuarios ficticios.
+
+Usuarios ficticios:
+
+- superadmin teste;
+- dono de empresa teste;
+- funcionario teste;
+- cliente bloqueado teste;
+- cliente trial teste;
+- usuario de teste para exclusao.
+
+## Testes obrigatorios por etapa
+
+Auth/cadastro:
+
+- Criar conta nova pelo app/site.
+- Confirmar usuario em `auth.users`.
+- Confirmar `clients`.
+- Confirmar `profiles`.
+- Confirmar `erp_profiles`.
+- Confirmar `subscriptions`.
+- Confirmar empresa em `companies` quando a migration nova existir.
+- Confirmar vinculo de dono em `company_members` quando a migration nova existir.
+- Confirmar que registros existentes nao duplicam.
+
+Sessao:
+
+- Fazer login.
+- Atualizar pagina.
+- Fechar e abrir navegador/PWA/APK.
+- Confirmar que permanece logado.
+- Fazer logout.
+- Confirmar que so sai quando clica em logout.
+- Confirmar que superadmin tambem permanece logado.
+
+Superadmin:
+
+- Listar clientes sem cadastro manual no Supabase.
+- Distinguir falta de token, erro de rede, erro RLS e lista vazia real.
+- Pesquisar cliente sem perder foco.
+- Testar pesquisa no mobile sem fechar teclado.
+- Alterar plano/status com confirmacao.
+- Bloquear cliente com confirmacao.
+- Desbloquear cliente com confirmacao.
+- Excluir/anonimizar usuario de teste com confirmacao.
+- Preservar scroll, aba e filtro apos acao.
+
+Seguranca:
+
+- Cliente comum nao acessa superadmin.
+- Dono da conta nao vira superadmin global.
+- Funcionario nao acessa dados de outra empresa.
+- Cliente bloqueado nao usa o sistema.
+- Superadmin consegue executar acoes administrativas.
+- Confirmar RLS para dados com `company_id`.
+
+Backup/sincronizacao:
+
+- Login carrega dados associados a `user_id`/e-mail.
+- Alteracao importante dispara sincronizacao ou marca pendente.
+- Botao "Sincronizar agora" funciona.
+- Exportar backup gera JSON apenas do usuario/empresa atual.
+- Nome do arquivo segue `backup-simplifica3d-email-data.json`.
+- Offline mostra estado "Offline" e sincroniza depois.
+- Google Drive nao aparece para usuario final enquanto desativado.
+
+Onboarding:
+
+- Conta nova abre onboarding.
+- Concluir onboarding grava `onboarding_completed`.
+- Fechar no meio volta para etapa correta.
+- Pular vai para painel.
+- Refazer introducao pelas configuracoes.
+- Superadmin interno nao recebe onboarding.
+- Funcionario criado pelo dono nao passa pelo onboarding da empresa.
+
+Validacao tecnica:
+
+- `node --check app.js`
+- `npm run build:web`
+- `npm run supabase:test:migrations`
+- `npm run supabase:test:rest`
+- `npm run lint`, se existir
+- `npm test`, se existir
+- `supabase migration list`
+- `supabase db push --dry-run`
+- `supabase db lint`
+
+## Criterio de conclusao
+
+So considerar pronto quando:
+
+- usuario novo cria estrutura completa automaticamente;
+- login persiste ate logout manual;
+- superadmin lista clientes e salva acoes no Supabase;
+- backup/sync nao pede configuracao tecnica ao cliente;
+- RLS isola dados por empresa;
+- nenhum `service_role` fica exposto no frontend;
+- build e testes obrigatorios passam.

@@ -1,0 +1,128 @@
+# Progresso Codex - Auth, Superadmin e Sincronizacao
+
+Data: 2026-05-04
+Branch de trabalho: `fix/stability-auth-superadmin-onboarding`
+Backup criado: `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-stability-auth-superadmin-20260504-080352`
+
+## Escopo consolidado
+
+O pedido foi consolidado para trabalhar em etapas curtas, sem alterar producao diretamente e sem refazer a parte de planos, que ja foi simplificada antes. A parte de planos so sera tocada quando for dependencia direta de auth, superadmin ou permissoes.
+
+Objetivo pratico desta rodada:
+
+- Conta criada pelo app/site deve criar automaticamente os registros SaaS no Supabase.
+- Login deve permanecer salvo ate logout manual.
+- Dados devem ficar vinculados a `user_id`, e-mail e futuramente `company_id`.
+- Superadmin deve listar clientes sem pedir configuracao manual de Supabase para o usuario final.
+- Superadmin deve bloquear, desbloquear, alterar assinatura e remover teste com confirmacao e feedback.
+- Backup/sincronizacao deve ser simples: usuario logou, o app sabe onde salvar.
+- Google Drive e campos tecnicos de backup devem ficar ocultos/desativados enquanto nao estiverem completos.
+- Dono da conta nao deve ser chamado de superadmin.
+- Onboarding deve aparecer apenas uma vez para cliente novo.
+- Assistente/listas devem limitar contexto para evitar excesso de dados.
+
+## Etapa 0 - Preparacao
+
+Concluido:
+
+- Backup completo confirmado.
+- Apenas os 2 backups mais recentes foram preservados.
+- Branch separada criada/confirmada: `fix/stability-auth-superadmin-onboarding`.
+- Projeto principal nao foi alterado em producao.
+- `node_modules`, `dist`, `build`, `.git`, `.env` e diretorios gerados foram tratados como fora do diagnostico funcional.
+
+Observacao: `rg` falhou no Windows com "Acesso negado"; foi usado fallback com `Get-ChildItem` e `Select-String`.
+
+## Etapa 1 - Diagnostico
+
+Arquivos principais identificados:
+
+- `app.js`: auth, cadastro, superadmin, sync, backup, onboarding futuro e assistente local.
+- `style.css`: estados visuais, login, superadmin, backup e futuro onboarding.
+- `index.html`, `manifest.webmanifest`, `sw.js`: entrada web/PWA.
+- `package.json`: scripts de build, Supabase e APK.
+- `supabase/migrations/*.sql`: tabelas, RLS, triggers, RPCs e backfill.
+- `supabase/functions/mercadopago-*`: funcoes Edge ja existentes para cobranca.
+- `scripts/check-supabase-migrations.js` e `scripts/test-supabase-rest.js`: validacoes existentes.
+
+Tabelas/migrations ja encontradas:
+
+- `public.erp_profiles`
+- `public.erp_backups`
+- `public.clients`
+- `public.profiles`
+- `public.subscriptions`
+- `public.plans`
+- `public.payments`
+- logs/auditoria em migrations existentes
+
+Nao foram encontradas tabelas dedicadas para:
+
+- `companies`
+- `company_members`
+- `sync_settings`
+
+Fluxo atual de auth/cadastro:
+
+- Cadastro usa `/auth/v1/signup`.
+- Metadados enviados hoje: nome, empresa, telefone e aceite.
+- Se o Supabase retorna sessao, o app chama `register_saas_client`.
+- Se o Supabase exige confirmacao de e-mail e nao retorna sessao, o app marca pendente e depende do trigger `handle_new_saas_auth_user`.
+- Apos login, o app chama `sync_saas_user_after_login` e depois verifica RLS em `erp_profiles`, `profiles` e `get_saas_license`.
+
+Fluxo atual de sessao:
+
+- `usuarioAtualEmail` e `adminLogado` usam `sessionStorage`.
+- Tokens Supabase sensiveis sao guardados em `sessionStorage`.
+- O cache em `localStorage` guarda apenas e-mail/user_id/expiracao, sem refresh token.
+- Isso melhora seguranca, mas impede persistencia real apos fechar navegador/app se a sessao sensivel sumir.
+
+Fluxo atual do superadmin:
+
+- `renderClientesSaas()` lista clientes locais mesclados com clientes remotos.
+- `carregarSaasSupabaseSilencioso()` busca `clients`, `subscriptions`, `payments`, `plans`, `profiles` e `erp_profiles`.
+- A listagem remota exige `syncConfig.supabaseAccessToken`; quando nao existe, mostra pedido para entrar com conta Supabase.
+- Busca chama `renderApp()` a cada digito, o que pode fechar teclado no mobile e resetar scroll.
+- Bloquear, desbloquear, alterar plano, anonimizar e excluir atuam principalmente no estado local.
+
+Fluxo atual de backup/sincronizacao:
+
+- Tela atual mostra URL de nuvem, token, URL/chave Supabase, email/senha Supabase e Google Drive.
+- Supabase usa `erp_backups` com `user_id`.
+- Exportacao local existe, mas o nome atual e `backup-erp-3d.json`.
+- Google Drive ainda aparece na interface mesmo estando incompleto para uso final simples.
+
+Fluxo atual de permissoes/tenant:
+
+- Existem papeis antigos em `profiles` e `erp_profiles`: `superadmin`, `admin`, `operador`, `visualizador` e similares.
+- Nao existe modelo formal de empresa/conta com `companies` e `company_members`.
+- Cliente comum hoje tende a virar `admin` do cliente, mas isso nao equivale ao novo papel "dono da conta".
+
+Onboarding:
+
+- Nao foi encontrado fluxo persistente com `onboarding_completed`, `onboarding_step` ou `setup_completed`.
+
+Otimizacao de contexto:
+
+- Assistente local ja limita mensagens para os ultimos 20 itens.
+- Superadmin ainda usa `limit=1000` nas consultas remotas; deve passar para paginacao/filtro com limite menor.
+
+## Arquivos previstos para alteracao nas proximas etapas
+
+- `app.js`
+- `style.css`
+- `supabase/migrations/*.sql`
+- possivel nova Edge Function/RPC administrativa em `supabase/functions/*`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/BUGS.md`
+- `docs/TESTES.md`
+
+## Proxima etapa
+
+Etapa 2: corrigir auth e criacao automatica, preservando o que ja funciona:
+
+- criar/garantir `companies` e `company_members`;
+- vincular usuario novo como dono da propria empresa;
+- completar `clients`, `profiles`, `erp_profiles`, `subscriptions` sem duplicar;
+- manter superadmin separado;
+- preparar migracao idempotente e testavel.
