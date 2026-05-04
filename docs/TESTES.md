@@ -374,6 +374,13 @@ Supabase remoto:
 - `npx.cmd supabase db lint --linked` - OK com avisos antigos nao bloqueantes.
 - `npx.cmd supabase db push --dry-run --linked` - falhou nesta rodada por `password authentication failed` e `ECIRCUITBREAKER` no pooler.
 
+APK:
+
+- `npm run android:apk` executou `android:sync` com sucesso.
+- O arquivo `src/services/errorTelemetry.js` foi copiado para `android/app/src/main/assets/public/src/services/errorTelemetry.js`.
+- A etapa `gradlew.bat assembleDebug` falhou porque `JAVA_HOME` nao esta configurado e nao existe `java` no PATH.
+- Nenhum APK novo foi gerado nesta rodada.
+
 Nao validado completamente:
 
 - TESTE 1, erro manual criando registro em `app_error_logs`: pendente ate aplicar migration.

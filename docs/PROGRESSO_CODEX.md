@@ -480,3 +480,4 @@ Observacao:
 - A migration ainda nao foi aplicada no Supabase remoto.
 - `db push --dry-run --linked` falhou por autenticacao/pooler (`password authentication failed` e depois `ECIRCUITBREAKER`).
 - Testes reais de RPC/tabelas dependem de aplicar a migration em staging/remoto.
+- `npm run android:apk` sincronizou os assets Android, mas nao gerou APK porque `JAVA_HOME` nao esta configurado neste ambiente.
