@@ -312,3 +312,35 @@ Ultima bateria repetida:
 - `npx.cmd supabase db lint --linked` - OK com avisos nao bloqueantes.
 - Varredura frontend por segredos Supabase sensiveis - OK.
 - `git diff --check` - OK.
+
+## Smoke test web local
+
+Ambiente:
+
+- Build testado a partir de `dist/`.
+- Servidor local temporario: `http://127.0.0.1:5180/`.
+- Navegador: in-app browser do Codex.
+
+Passou:
+
+- App carregou com titulo `Simplifica 3D`.
+- Tela inicial/login renderizou sem erro de console.
+- Validação nativa do cadastro impediu envio vazio.
+- Tela `Sobre` abriu e mostrou identidade/versao.
+- Tela `Planos` abriu sem erro de console.
+- Tela `Dados e Backup` negou acesso para visitante, esperado sem login.
+- Tela `Calculadora 3D` abriu.
+- Calculo com peso `100g`, tempo `2h`, material `R$150/kg`, quantidade `1` retornou:
+  - custo do material `R$ 15,00`;
+  - custo de energia `R$ 0,20`;
+  - custo total `R$ 17,20`;
+  - preco sugerido `R$ 34,41`.
+
+Nao executado neste smoke:
+
+- Criacao de conta real.
+- Login real.
+- Persistencia de sessao autenticada.
+- Onboarding autenticado.
+- Superadmin autenticado.
+- Teste APK/mobile real.

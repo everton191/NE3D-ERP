@@ -412,3 +412,24 @@ Ultima bateria executada:
 - `npx.cmd supabase db lint --linked` - OK com avisos nao bloqueantes.
 - Varredura frontend por segredos sensiveis - OK.
 - `git diff --check` - OK.
+
+Smoke test web local:
+
+- Servidor estatico temporario aberto em `http://127.0.0.1:5180/`.
+- Tela inicial carregou sem tela branca.
+- Console do navegador sem erros/warnings no carregamento inicial.
+- Tela `Sobre` abriu e mostrou logo, versao e informacoes do app.
+- Tela `Planos` abriu sem erro de console.
+- Tela `Dados e Backup` bloqueou visitante com mensagem de acesso negado, como esperado para usuario sem login.
+- `Calculadora 3D` abriu, aceitou valores e calculou orçamento:
+  - material: `R$ 15,00`;
+  - energia: `R$ 0,20`;
+  - custo total: `R$ 17,20`;
+  - venda sugerida: `R$ 34,41`.
+
+Nao validado no smoke test web:
+
+- Cadastro real, para nao criar usuario no Supabase remoto/producao.
+- Login real, pois ainda falta Supabase de staging/teste.
+- Onboarding autenticado.
+- Superadmin autenticado.

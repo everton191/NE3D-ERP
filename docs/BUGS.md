@@ -83,6 +83,11 @@ Branch: `fix/stability-auth-superadmin-onboarding`
    - `redeem_promotional_token` ainda tem parametro `p_codigo` nao usado.
    - Risco: baixo para execucao atual, mas indica codigo legado que deve ser limpo com cuidado em rodada propria.
 
+9. Tela de Planos ainda mostra campos manuais de conta/licenca.
+   - Smoke test web mostrou `E-mail da conta/licença` e `Senha da conta` na tela `Planos`.
+   - Impacto: pode conflitar com o objetivo de reduzir configuracao manual para o usuario final.
+   - Status: nao alterado nesta rodada porque a instrucao atual pediu para ignorar a parte de planos ja reestruturada, salvo dependencia direta.
+
 ## Ja existente e aproveitavel
 
 - Trigger `handle_new_saas_auth_user` cria registros SaaS quando Auth cria usuario.
