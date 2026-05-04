@@ -191,3 +191,43 @@ Ainda nao validado nesta etapa:
 - Fechar/reabrir navegador real com usuario Supabase autenticado.
 - Fechar/reabrir APK/PWA com refresh token salvo.
 - Refresh token expirado/revogado contra Supabase real.
+
+## Etapa 5 - Superadmin estabilidade
+
+Concluido localmente:
+
+- Busca de clientes no superadmin deixou de chamar `renderApp()` a cada tecla.
+- Filtros de nome/e-mail/plano/status agora aplicam direto nas linhas renderizadas, com debounce de 300ms.
+- A lista permanece renderizada durante a pesquisa, reduzindo perda de foco/teclado no mobile.
+- Ações sensiveis ganharam confirmacao modal:
+  - bloquear cliente;
+  - desbloquear cliente;
+  - alterar plano;
+  - anonimizar cliente;
+  - excluir cliente local/de teste;
+  - marcar inativos.
+- Alterar plano usa dropdown com os planos permitidos.
+- Bloquear/desbloquear tenta salvar no Supabase via RLS com JWT do superadmin, sem `service_role` no frontend.
+- Alterar plano tenta atualizar `clients` e `subscriptions` no Supabase via RLS com JWT do superadmin.
+- Quando nao ha sessao Supabase de superadmin, a alteracao fica local e o app mostra aviso claro.
+- Feedback visual incluido: "Salvando...", sucesso, erro e aviso de sessao remota ausente.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+- `docs/BUGS.md`
+
+Validado localmente:
+
+- `node --check app.js`
+- `npm run build:web`
+- `npm run supabase:test:migrations`
+- busca local por segredos no frontend.
+
+Ainda nao validado nesta etapa:
+
+- Teste visual no navegador/mobile real.
+- PATCH remoto real em `clients`, `profiles`, `erp_profiles` e `subscriptions`.
+- Exclusao real de usuario no Supabase Auth. Isso ainda precisa de Edge Function/RPC backend com `service_role` fora do frontend.

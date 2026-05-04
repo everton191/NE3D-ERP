@@ -36,6 +36,7 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 1. Busca no superadmin chama `renderApp()` a cada tecla.
    - Impacto: no mobile pode fechar teclado, perder foco e voltar ao topo.
    - Correção prevista: debounce e renderizacao/preservacao de foco/scroll.
+   - Status: Etapa 5 trocou para filtro direto nas linhas, com debounce. Falta teste visual em mobile/APK.
 
 2. Listagem remota do superadmin usa `limit=1000`.
    - Impacto: nao escala e vai contra a otimizacao de contexto/paginacao pedida.

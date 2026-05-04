@@ -29,6 +29,7 @@ Passaram:
 - `npm run supabase:test:migrations`
 - `npm run build:web`
 - busca de segredos no frontend (`service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret`)
+- validacao local da Etapa 5 apos ajustes de superadmin
 
 Cobertura nova do teste de migrations:
 
@@ -47,6 +48,8 @@ Nao executado ainda:
 - `supabase db lint`
 - teste real de cadastro/login contra Supabase staging/remoto
 - teste real de fechar/reabrir navegador e APK mantendo login
+- teste visual de busca no superadmin em mobile sem fechar teclado
+- teste real de bloquear/desbloquear/alterar plano salvando no Supabase remoto
 
 ## Ambiente de teste necessario
 

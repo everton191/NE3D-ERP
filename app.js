@@ -4555,20 +4555,40 @@ function rotuloStatusCliente(status) {
 function getClientesSaasFiltrados() {
   marcarClientesInativosLocal();
   const filtros = window.__clientesSaasFiltros || {};
+  return saasClients.filter((cliente) => clientePassaFiltrosSaas(cliente, filtros));
+}
+
+function normalizarTextoBusca(valor = "") {
+  return removerAcentos(String(valor || "").toLowerCase().trim());
+}
+
+function clientePassaFiltrosSaas(cliente, filtros = window.__clientesSaasFiltros || {}) {
+  if (normalizarEmail(cliente.email) === SUPERADMIN_BOOTSTRAP_EMAIL) return false;
   const termoNome = String(filtros.nome || "").toLowerCase();
   const termoEmail = String(filtros.email || "").toLowerCase();
   const plano = String(filtros.plano || "");
   const status = String(filtros.status || "");
-  return saasClients.filter((cliente) => {
-    if (normalizarEmail(cliente.email) === SUPERADMIN_BOOTSTRAP_EMAIL) return false;
-    const assinatura = getAssinaturaSaas(cliente.id);
-    const planoCliente = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
-    if (termoNome && !cliente.name.toLowerCase().includes(termoNome)) return false;
-    if (termoEmail && !cliente.email.toLowerCase().includes(termoEmail)) return false;
-    if (plano && planoCliente.slug !== plano) return false;
-    if (status && cliente.status !== status) return false;
-    return true;
+  const assinatura = getAssinaturaSaas(cliente.id);
+  const planoCliente = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
+  if (termoNome && !normalizarTextoBusca(cliente.name).includes(normalizarTextoBusca(termoNome))) return false;
+  if (termoEmail && !normalizarTextoBusca(cliente.email).includes(normalizarTextoBusca(termoEmail))) return false;
+  if (plano && planoCliente.slug !== plano) return false;
+  if (status && cliente.status !== status) return false;
+  return true;
+}
+
+function aplicarFiltroClientesSaasNaTela() {
+  const filtros = window.__clientesSaasFiltros || {};
+  const linhas = Array.from(document.querySelectorAll("[data-client-row='saas']"));
+  let visiveis = 0;
+  linhas.forEach((linha) => {
+    const cliente = getClienteSaasPorId(linha.dataset.clientId || "");
+    const mostrar = cliente ? clientePassaFiltrosSaas(cliente, filtros) : false;
+    linha.hidden = !mostrar;
+    if (mostrar) visiveis += 1;
   });
+  const vazio = document.getElementById("clientesSaasFiltroVazio");
+  if (vazio) vazio.hidden = visiveis !== 0;
 }
 
 function definirEstadoClientesSaasRemoto(estado = {}) {
@@ -4639,9 +4659,6 @@ function renderEstadoClientesSaasRemoto(totalClientes, totalFiltrado) {
   if (totalClientes === 0) {
     return `<p class="empty">Nenhum cliente cadastrado.</p>`;
   }
-  if (totalFiltrado === 0) {
-    return `<p class="empty">Nenhum cliente corresponde aos filtros atuais.</p>`;
-  }
   if (estado.status === "success" && estado.updatedAt) {
     return `<div class="saas-sync-state success">Clientes remotos atualizados.</div>`;
   }
@@ -4650,20 +4667,21 @@ function renderEstadoClientesSaasRemoto(totalClientes, totalFiltrado) {
 
 function renderClientesSaas() {
   garantirEstruturaSaasLocal();
-  const lista = getClientesSaasFiltrados();
   const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL);
+  const listaFiltrada = getClientesSaasFiltrados();
   const total = clientesVisiveis.length;
   const ativos = clientesVisiveis.filter((cliente) => cliente.status === "active").length;
   const atrasados = clientesVisiveis.filter((cliente) => cliente.status === "overdue").length;
   const inativos = clientesVisiveis.filter((cliente) => cliente.status === "inactive").length;
   const filtros = window.__clientesSaasFiltros || {};
 
-  const linhasClientes = lista.map((cliente) => {
+  const linhasClientes = clientesVisiveis.map((cliente) => {
     const assinatura = getAssinaturaSaas(cliente.id);
     const plano = getPlanoSaas(assinatura?.planSlug || cliente.planoAtual || "free");
     const usuarioPrincipal = getUsuariosDoCliente(cliente.id)[0];
+    const visivel = clientePassaFiltrosSaas(cliente, filtros);
     return `
-      <div class="client-admin-row">
+      <div class="client-admin-row" data-client-row="saas" data-client-id="${escaparAttr(cliente.id)}" ${visivel ? "" : "hidden"}>
         <div>
           <strong>${escaparHtml(cliente.name)}</strong>
           <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)}</span>
@@ -4689,8 +4707,9 @@ function renderClientesSaas() {
       </div>
     `;
   }).join("");
-  const estadoRemoto = renderEstadoClientesSaasRemoto(total, lista.length);
-  const linhas = `${estadoRemoto}${linhasClientes}`;
+  const estadoRemoto = renderEstadoClientesSaasRemoto(total, listaFiltrada.length);
+  const vazioFiltro = `<p id="clientesSaasFiltroVazio" class="empty" ${listaFiltrada.length === 0 && total > 0 ? "" : "hidden"}>Nenhum cliente corresponde aos filtros atuais.</p>`;
+  const linhas = `${estadoRemoto}${linhasClientes}${vazioFiltro}`;
 
   return `
     <section class="card">
@@ -4707,11 +4726,11 @@ function renderClientesSaas() {
       <div class="sync-grid">
         <label class="field">
           <span>Nome</span>
-          <input value="${escaparAttr(filtros.nome || "")}" oninput="filtrarClientesSaas('nome', this.value)" placeholder="empresa">
+          <input id="clientesSaasFiltroNome" value="${escaparAttr(filtros.nome || "")}" oninput="filtrarClientesSaas('nome', this.value)" placeholder="empresa" autocomplete="off">
         </label>
         <label class="field">
           <span>E-mail</span>
-          <input value="${escaparAttr(filtros.email || "")}" oninput="filtrarClientesSaas('email', this.value)" placeholder="cliente@email.com">
+          <input id="clientesSaasFiltroEmail" value="${escaparAttr(filtros.email || "")}" oninput="filtrarClientesSaas('email', this.value)" placeholder="cliente@email.com" autocomplete="off">
         </label>
         <label class="field">
           <span>Plano</span>
@@ -4743,7 +4762,8 @@ function filtrarClientesSaas(campo, valor) {
     ...(window.__clientesSaasFiltros || {}),
     [campo]: valor
   };
-  renderApp();
+  clearTimeout(window.__clientesSaasFiltroTimer);
+  window.__clientesSaasFiltroTimer = setTimeout(aplicarFiltroClientesSaasNaTela, 300);
 }
 
 function getClienteSaasPorId(id) {
@@ -4775,16 +4795,125 @@ async function editarClienteSaas(id) {
   renderApp();
 }
 
-function alterarStatusClienteSaas(id, status) {
+function pareceUuid(valor = "") {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(valor || ""));
+}
+
+function podeSalvarAdminSupabaseRemoto() {
+  return isSuperAdmin() && !!syncConfig.supabaseAccessToken && !!syncConfig.supabaseUrl;
+}
+
+async function atualizarClienteSaasSupabaseParcial(id, payload = {}) {
+  if (!podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
+  await requisicaoSupabase(`/rest/v1/clients?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() })
+  });
+  return { ok: true };
+}
+
+async function atualizarStatusPerfisClienteSupabase(id, status) {
+  if (!podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
+  const statusPerfil = status === "blocked" ? "blocked" : "active";
+  await Promise.all([
+    requisicaoSupabase(`/rest/v1/profiles?client_id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: statusPerfil, updated_at: new Date().toISOString() })
+    }).catch((erro) => registrarDiagnostico("Supabase", "Status profiles não atualizado", erro.message)),
+    requisicaoSupabase(`/rest/v1/erp_profiles?client_id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: statusPerfil, updated_at: new Date().toISOString() })
+    }).catch((erro) => registrarDiagnostico("Supabase", "Status erp_profiles não atualizado", erro.message))
+  ]);
+  return { ok: true };
+}
+
+async function obterPlanIdSupabase(slug) {
+  const plano = getPlanoSaas(slug);
+  if (pareceUuid(plano.id)) return plano.id;
+  if (!podeSalvarAdminSupabaseRemoto()) return "";
+  const linhas = await requisicaoSupabase(`/rest/v1/plans?select=id,slug&slug=eq.${encodeURIComponent(slug)}&limit=1`, {
+    method: "GET"
+  });
+  const remoto = Array.isArray(linhas) ? linhas[0] : null;
+  if (remoto?.id) {
+    saasPlans = mesclarListaPorId(saasPlans, [remoto], normalizarPlanoSaas);
+    salvarDados();
+    return String(remoto.id);
+  }
+  return "";
+}
+
+async function atualizarAssinaturaClienteSaasSupabase(id, assinatura = {}) {
+  if (!podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
+  const planId = await obterPlanIdSupabase(assinatura.planSlug || "free");
+  const payload = {
+    status: normalizarStatusPlano(assinatura.status),
+    status_assinatura: normalizarStatusPlano(assinatura.statusAssinatura || assinatura.status),
+    promo_used: assinatura.promoUsed === true,
+    billing_variant: normalizarBillingVariant(assinatura.billingVariant),
+    current_period_start: assinatura.currentPeriodStart || null,
+    current_period_end: assinatura.currentPeriodEnd || null,
+    expires_at: assinatura.expiresAt || assinatura.currentPeriodEnd || null,
+    next_billing_at: assinatura.nextBillingAt || assinatura.currentPeriodEnd || null,
+    proximo_vencimento: assinatura.nextBillingAt || assinatura.currentPeriodEnd || null,
+    updated_at: new Date().toISOString()
+  };
+  if (planId) payload.plan_id = planId;
+  await requisicaoSupabase(`/rest/v1/subscriptions?client_id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(payload)
+  });
+  return { ok: true };
+}
+
+async function alterarStatusClienteSaas(id, status) {
   if (!isSuperAdmin()) return;
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
-  cliente.status = status;
-  cliente.updatedAt = new Date().toISOString();
-  if (status === "active") cliente.lastAccessAt = cliente.lastAccessAt || new Date().toISOString();
-  salvarDados();
-  registrarAuditoria(status === "active" ? "reativado" : "bloqueio", { email: cliente.email, status }, cliente.id);
-  renderApp();
+  const bloquear = status === "blocked";
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: bloquear ? "Bloquear cliente" : "Desbloquear cliente",
+    mensagem: bloquear
+      ? `Bloquear ${cliente.email}? O cliente perde acesso, mas os dados ficam preservados.`
+      : `Desbloquear ${cliente.email}? O acesso será restaurado conforme o plano ativo.`,
+    confirmar: bloquear ? "Bloquear" : "Desbloquear",
+    perigo: bloquear
+  });
+  if (!confirmado) return;
+
+  const toast = mostrarToast("Salvando...", "loading");
+  try {
+    cliente.status = status;
+    cliente.updatedAt = new Date().toISOString();
+    if (status === "active") cliente.lastAccessAt = cliente.lastAccessAt || new Date().toISOString();
+    usuarios.filter((usuario) => usuario.clientId === id).forEach((usuario) => {
+      usuario.bloqueado = bloquear;
+      usuario.ativo = !bloquear;
+      usuario.atualizadoEm = cliente.updatedAt;
+    });
+    salvarDados();
+    const remoto = await atualizarClienteSaasSupabaseParcial(id, { status });
+    await atualizarStatusPerfisClienteSupabase(id, status);
+    registrarAuditoria(status === "active" ? "reativado" : "bloqueio", { email: cliente.email, status, remoto: remoto.ok === true }, cliente.id);
+    mostrarToast(
+      remoto.skipped
+        ? "Alteração salva localmente. Entre como superadmin Supabase para salvar remoto."
+        : status === "active" ? "Cliente desbloqueado com sucesso." : "Cliente bloqueado com sucesso.",
+      remoto.skipped ? "info" : "sucesso",
+      remoto.skipped ? 7000 : 4200
+    );
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Erro ao alterar status do cliente", erro.message);
+    mostrarToast("Erro ao salvar alteração.", "erro", 6500);
+  } finally {
+    toast?.remove?.();
+    renderApp();
+  }
 }
 
 async function alterarPlanoClienteSaas(id) {
@@ -4792,12 +4921,7 @@ async function alterarPlanoClienteSaas(id) {
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
   const planoAtual = getPlanoSaas(getAssinaturaSaas(id)?.planSlug || cliente.planoAtual || "free");
-  const respostaPlano = await solicitarEntradaTexto({
-    titulo: "Alterar plano",
-    mensagem: "Use: free, premium_trial ou premium.",
-    valor: planoAtual.slug,
-    obrigatorio: true
-  });
+  const respostaPlano = await solicitarPlanoSuperadmin(planoAtual.slug);
   if (respostaPlano === null) return;
   const novoPlano = normalizarSlugPlano(respostaPlano || "");
   const plano = getPlanoSaas(novoPlano);
@@ -4805,6 +4929,13 @@ async function alterarPlanoClienteSaas(id) {
     alert("Plano inválido.");
     return;
   }
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Alterar plano",
+    mensagem: `Alterar ${cliente.email} para ${plano.name}?`,
+    confirmar: "Alterar plano"
+  });
+  if (!confirmado) return;
+  const toast = mostrarToast("Salvando...", "loading");
   let assinatura = getAssinaturaSaas(id);
   if (!assinatura) {
     assinatura = normalizarAssinaturaSaas({ clientId: id, planSlug: plano.slug, status: "pending" });
@@ -4828,9 +4959,29 @@ async function alterarPlanoClienteSaas(id) {
   cliente.planoAtual = plano.slug;
   cliente.statusAssinatura = statusPlano;
   cliente.updatedAt = new Date().toISOString();
-  salvarDados();
-  registrarAuditoria("alteração plano", { email: cliente.email, plano: plano.slug }, cliente.id);
-  renderApp();
+  try {
+    salvarDados();
+    const remotoCliente = await atualizarClienteSaasSupabaseParcial(id, {
+      plano_atual: plano.slug,
+      status_assinatura: statusPlano,
+      status: cliente.status
+    });
+    const remotoAssinatura = await atualizarAssinaturaClienteSaasSupabase(id, assinatura);
+    registrarAuditoria("alteração plano", { email: cliente.email, plano: plano.slug, remotoCliente: remotoCliente.ok === true, remotoAssinatura: remotoAssinatura.ok === true }, cliente.id);
+    mostrarToast(
+      remotoCliente.skipped || remotoAssinatura.skipped
+        ? "Plano salvo localmente. Entre como superadmin Supabase para salvar remoto."
+        : "Plano alterado com sucesso.",
+      remotoCliente.skipped || remotoAssinatura.skipped ? "info" : "sucesso",
+      remotoCliente.skipped || remotoAssinatura.skipped ? 7000 : 4200
+    );
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Erro ao alterar plano", erro.message);
+    mostrarToast("Erro ao salvar alteração.", "erro", 6500);
+  } finally {
+    toast?.remove?.();
+    renderApp();
+  }
 }
 
 function exportarClienteSaas(id) {
@@ -4865,11 +5016,18 @@ function exportarClientesSaas() {
   registrarAuditoria("exportar dados", { escopo: "clientes_saas" });
 }
 
-function anonimizarClienteSaas(id) {
+async function anonimizarClienteSaas(id) {
   if (!isSuperAdmin()) return;
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
-  if (!confirm("Anonimizar dados pessoais deste cliente?")) return;
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Anonimizar cliente",
+    mensagem: `Anonimizar dados pessoais de ${cliente.email}? Esta ação preserva vínculos operacionais, mas remove dados pessoais locais.`,
+    confirmar: "Anonimizar",
+    perigo: true
+  });
+  if (!confirmado) return;
+  const toast = mostrarToast("Salvando...", "loading");
   cliente.name = "Cliente anonimizado";
   cliente.responsibleName = "";
   cliente.email = `anon-${Date.now()}@anon.local`;
@@ -4885,10 +5043,12 @@ function anonimizarClienteSaas(id) {
   });
   salvarDados();
   registrarAuditoria("anonimizado", {}, id);
+  toast?.remove?.();
+  mostrarToast("Cliente anonimizado com sucesso.", "sucesso");
   renderApp();
 }
 
-function excluirClienteSaasManual(id) {
+async function excluirClienteSaasManual(id) {
   if (!isSuperAdmin()) return;
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
@@ -4898,7 +5058,14 @@ function excluirClienteSaasManual(id) {
     alert("Este cliente tem acesso ou pagamento recente. Exporte os dados e bloqueie antes de excluir.");
     return;
   }
-  if (!confirm("Excluir manualmente este cliente?")) return;
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Excluir cliente de teste",
+    mensagem: `Excluir ${cliente.email} do painel local? Para remover do Supabase Auth será usada uma função administrativa segura em uma etapa posterior.`,
+    confirmar: "Excluir",
+    perigo: true
+  });
+  if (!confirmado) return;
+  const toast = mostrarToast("Salvando...", "loading");
   exportarClienteSaas(id);
   saasClients = saasClients.filter((clienteItem) => clienteItem.id !== id);
   saasSubscriptions = saasSubscriptions.filter((assinatura) => assinatura.clientId !== id);
@@ -4906,16 +5073,24 @@ function excluirClienteSaasManual(id) {
   usuarios = usuarios.filter((usuario) => usuario.clientId !== id);
   salvarDados();
   registrarAuditoria("excluído", { email: cliente.email }, id);
+  toast?.remove?.();
+  mostrarToast("Usuário excluído com sucesso.", "sucesso");
   renderApp();
 }
 
-function marcarClientesInativosAcao() {
+async function marcarClientesInativosAcao() {
   if (!isSuperAdmin()) return;
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Marcar inativos",
+    mensagem: "Marcar automaticamente clientes sem acesso há mais de 90 dias?",
+    confirmar: "Marcar inativos"
+  });
+  if (!confirmado) return;
   const antes = saasClients.filter((cliente) => cliente.status === "inactive").length;
   marcarClientesInativosLocal();
   salvarDados();
   const depois = saasClients.filter((cliente) => cliente.status === "inactive").length;
-  alert(`${Math.max(0, depois - antes)} cliente(s) marcado(s) como inativo >90 dias.`);
+  mostrarToast(`${Math.max(0, depois - antes)} cliente(s) marcado(s) como inativo >90 dias.`, "sucesso");
   renderApp();
 }
 
@@ -10689,6 +10864,97 @@ function fecharPopup() {
   if (popup) {
     popup.innerHTML = "";
   }
+}
+
+function solicitarConfirmacaoAcao({
+  titulo = "Confirmar ação",
+  mensagem = "Deseja continuar?",
+  confirmar = "Confirmar",
+  cancelar = "Cancelar",
+  perigo = false
+} = {}) {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      resolve(window.confirm(mensagem));
+      return;
+    }
+
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h2>${escaparHtml(titulo)}</h2>
+            <button class="icon-button" type="button" id="confirmActionCancelTop" title="Fechar">✕</button>
+          </div>
+          <p class="muted">${escaparHtml(mensagem)}</p>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="confirmActionCancel">${escaparHtml(cancelar)}</button>
+            <button class="btn ${perigo ? "danger" : ""}" type="button" id="confirmActionOk">${escaparHtml(confirmar)}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const finalizar = (valor) => {
+      fecharPopup();
+      resolve(valor);
+    };
+    document.getElementById("confirmActionOk")?.addEventListener("click", () => finalizar(true), { once: true });
+    document.getElementById("confirmActionCancel")?.addEventListener("click", () => finalizar(false), { once: true });
+    document.getElementById("confirmActionCancelTop")?.addEventListener("click", () => finalizar(false), { once: true });
+    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) finalizar(false);
+    });
+  });
+}
+
+function solicitarPlanoSuperadmin(planoAtual = "free") {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      resolve(null);
+      return;
+    }
+    const planos = garantirPlanosSaas().filter((plano) => ["free", "premium_trial", "premium"].includes(plano.slug));
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <form class="modal-card" id="adminPlanForm">
+          <div class="modal-header">
+            <h2>Alterar plano</h2>
+            <button class="icon-button" type="button" id="adminPlanCancelTop" title="Fechar">✕</button>
+          </div>
+          <label class="field">
+            <span>Plano</span>
+            <select id="adminPlanSelect">
+              ${planos.map((plano) => `<option value="${escaparAttr(plano.slug)}" ${plano.slug === planoAtual ? "selected" : ""}>${escaparHtml(plano.name)}</option>`).join("")}
+            </select>
+          </label>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="adminPlanCancel">Cancelar</button>
+            <button class="btn" type="submit">Continuar</button>
+          </div>
+        </form>
+      </div>
+    `;
+    const select = document.getElementById("adminPlanSelect");
+    const cancelar = () => {
+      fecharPopup();
+      resolve(null);
+    };
+    document.getElementById("adminPlanForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const valor = select?.value || "";
+      fecharPopup();
+      resolve(valor);
+    }, { once: true });
+    document.getElementById("adminPlanCancel")?.addEventListener("click", cancelar, { once: true });
+    document.getElementById("adminPlanCancelTop")?.addEventListener("click", cancelar, { once: true });
+    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) cancelar();
+    });
+    setTimeout(() => select?.focus(), 50);
+  });
 }
 
 function solicitarEntradaTexto({ titulo = "Informe os dados", mensagem = "", valor = "", tipo = "text", obrigatorio = false } = {}) {
