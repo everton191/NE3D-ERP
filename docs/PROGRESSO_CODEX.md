@@ -126,3 +126,39 @@ Etapa 2: corrigir auth e criacao automatica, preservando o que ja funciona:
 - completar `clients`, `profiles`, `erp_profiles`, `subscriptions` sem duplicar;
 - manter superadmin separado;
 - preparar migracao idempotente e testavel.
+
+## Etapa 2 - Auth e criacao automatica
+
+Concluido localmente:
+
+- Criada migration `supabase/migrations/20260504111204_account_companies_members_sync.sql`.
+- Adicionadas tabelas `companies`, `company_members` e `sync_settings`.
+- Adicionados vinculos `company_id` em `clients`, `profiles`, `erp_profiles` e `subscriptions`.
+- Atualizado o trigger `handle_new_saas_auth_user` para criar empresa, membro dono, perfil, cliente, assinatura e configuracao de sync.
+- Atualizada a RPC `sync_saas_user_after_login` para completar registros faltantes e retornar `company_id`.
+- Incluido backfill idempotente para clientes/usuarios existentes.
+- Mantido o papel global `superadmin` separado do papel `owner` da empresa.
+- Frontend passou a enviar `owner_name` e `company_name` no signup.
+- Frontend passou a guardar `companyId` separado de `clientId`.
+- Teste local de migrations foi ampliado para cobrir `companies`, `company_members` e `sync_settings`.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `scripts/check-supabase-migrations.js`
+- `supabase/migrations/20260504111204_account_companies_members_sync.sql`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+
+Validado localmente:
+
+- `node --check app.js`
+- `npm run supabase:test:migrations`
+- `npm run build:web`
+
+Ainda nao validado nesta etapa:
+
+- Aplicacao da migration em Supabase staging/remoto.
+- Criacao real de usuario em `auth.users`.
+- Teste real de RLS com usuario comum, dono e superadmin.
+- Listagem do superadmin apos aplicar a migration no banco.

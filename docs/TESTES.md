@@ -5,7 +5,7 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 
 ## Estado atual
 
-Nenhum teste funcional foi marcado como aprovado nesta etapa, porque a Etapa 1 foi somente diagnostico e documentacao. Producao nao foi alterada.
+Etapa 1 foi somente diagnostico e documentacao. Na Etapa 2 foram executadas validacoes locais de sintaxe, build e migrations. Producao nao foi alterada.
 
 Comandos executados na preparacao/diagnostico:
 
@@ -15,8 +15,36 @@ Comandos executados na preparacao/diagnostico:
 - retencao dos 2 ultimos backups
 - `Get-ChildItem` para mapear arquivos
 - `Select-String` para mapear auth, superadmin, sync e migrations
+- `node --check app.js`
+- `npm run supabase:test:migrations`
+- `npm run build:web`
 
 Observacao: `rg` falhou com "Acesso negado" nesta instalacao do Windows, entao o diagnostico usou fallback PowerShell.
+
+## Resultados locais da Etapa 2
+
+Passaram:
+
+- `node --check app.js`
+- `npm run supabase:test:migrations`
+- `npm run build:web`
+
+Cobertura nova do teste de migrations:
+
+- RLS de `companies`
+- RLS de `company_members`
+- RLS de `sync_settings`
+- trigger de signup criando membro dono
+- RPC pos-login retornando `company_id`
+- tabela `sync_settings`
+
+Nao executado ainda:
+
+- `npm run supabase:test:rest`
+- `supabase migration list`
+- `supabase db push --dry-run`
+- `supabase db lint`
+- teste real de cadastro/login contra Supabase staging/remoto
 
 ## Ambiente de teste necessario
 

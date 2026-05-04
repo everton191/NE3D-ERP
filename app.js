@@ -222,6 +222,7 @@ const assistantResponses = [
 ];
 let billingConfig = carregarObjeto("billingConfig", {
   clientId: "",
+  companyId: "",
   subscriptionId: "",
   planSlug: "free",
   licenseBlockLevel: "none",
@@ -355,7 +356,10 @@ const StateStore = {
       ? lista.map((item) => item.email === email ? normalizarUsuario({ ...item, ...usuario }) : item)
       : [...lista, normalizarUsuario(usuario)];
     this.set("usuarios", proximaLista);
-    if (usuario.clientId) this.set("billingConfig", { clientId: usuario.clientId });
+    if (usuario.clientId || usuario.companyId) this.set("billingConfig", {
+      ...(usuario.clientId ? { clientId: usuario.clientId } : {}),
+      ...(usuario.companyId ? { companyId: usuario.companyId } : {})
+    });
     salvarDados();
     return usuarios.find((item) => item.email === email) || null;
   },
@@ -703,7 +707,7 @@ const AuthService = {
     registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", "OK");
     return { ok: true, falhas: [] };
   },
-  async signupSaas({ nome, email, senha, negocio, telefone }) {
+  async signupSaas({ nome, email, senha, negocio, telefone, cnpj = "" }) {
     let cadastroOnline = null;
     let cadastroAguardandoConfirmacao = false;
     if (!emailValido(email)) {
@@ -722,9 +726,12 @@ const AuthService = {
           email,
           password: senha,
           data: {
+            owner_name: nome,
             name: nome,
+            company_name: negocio,
             business_name: negocio,
             phone: telefone,
+            cnpj,
             accepted_terms: true
           }
         })
@@ -1161,6 +1168,7 @@ function normalizarUsuario(usuario) {
   return {
     id: usuario?.id || criarIdUsuario(),
     clientId: usuario?.clientId || usuario?.client_id || billingConfig.clientId || "",
+    companyId: usuario?.companyId || usuario?.company_id || billingConfig.companyId || "",
     nome: String(usuario?.nome || usuario?.name || usuario?.display_name || email.split("@")[0] || "Usuário").trim(),
     email,
     senha: String(usuario?.senha || ""),
@@ -1207,6 +1215,7 @@ function normalizarUsuarioPerfilSupabase(perfil) {
   return normalizarUsuario({
     id: perfil?.id || userId || criarIdUsuario(),
     clientId: perfil?.client_id || perfil?.clientId || "",
+    companyId: perfil?.company_id || perfil?.companyId || "",
     nome: perfil?.name || perfil?.display_name || perfil?.nome || email.split("@")[0],
     email,
     phone: perfil?.phone || perfil?.telefone || "",
@@ -1337,10 +1346,12 @@ function normalizarClienteSaas(cliente = {}) {
   return {
     id: cliente.id || criarIdLocal("client"),
     clientCode: cliente.clientCode || cliente.client_code || cliente.clienteId || proximoClienteIdS3D(),
+    companyId: cliente.companyId || cliente.company_id || "",
     name: String(cliente.name || cliente.nome || cliente.businessName || appConfig.businessName || "Empresa 3D").trim(),
     responsibleName: String(cliente.responsibleName || cliente.responsible_name || cliente.responsavel || cliente.name || "").trim(),
     email,
     phone: String(cliente.phone || cliente.telefone || "").trim(),
+    cnpj: String(cliente.cnpj || "").replace(/\D/g, ""),
     status: ["active", "overdue", "blocked", "inactive", "cancelled"].includes(String(cliente.status || "")) ? cliente.status : "active",
     planoAtual: normalizarSlugPlano(cliente.planoAtual || cliente.plano_atual || "free"),
     statusAssinatura: String(cliente.statusAssinatura || cliente.status_assinatura || cliente.status || "active"),
@@ -1362,6 +1373,7 @@ function normalizarAssinaturaSaas(assinatura = {}) {
   return {
     id: assinatura.id || criarIdLocal("sub"),
     clientId: assinatura.clientId || assinatura.client_id || "",
+    companyId: assinatura.companyId || assinatura.company_id || "",
     userId: assinatura.userId || assinatura.user_id || "",
     planId: planSlug,
     planSlug,
@@ -8480,8 +8492,11 @@ async function sincronizarUsuarioSaasAposLoginSupabase(usuario = getUsuarioAtual
     });
     if (resultado?.client_id) {
       const clientId = String(resultado.client_id);
+      const companyId = resultado.company_id ? String(resultado.company_id) : "";
       if (usuario) usuario.clientId = clientId;
+      if (usuario && companyId) usuario.companyId = companyId;
       billingConfig.clientId = clientId;
+      if (companyId) billingConfig.companyId = companyId;
       billingConfig.licenseEmail = email || billingConfig.licenseEmail;
       if (resultado.subscription_id) billingConfig.subscriptionId = String(resultado.subscription_id);
       if (resultado.plan_slug) billingConfig.planSlug = String(resultado.plan_slug);
@@ -8491,6 +8506,7 @@ async function sincronizarUsuarioSaasAposLoginSupabase(usuario = getUsuarioAtual
     }
     console.info("[Supabase pós-login] sync_saas_user_after_login OK", {
       clientId: resultado?.client_id || "",
+      companyId: resultado?.company_id || "",
       subscriptionId: resultado?.subscription_id || "",
       plan: resultado?.plan_slug || ""
     });
@@ -8569,6 +8585,7 @@ async function consultarLicencaSupabaseSilencioso() {
 function aplicarLicencaSaasOnline(licenca = {}) {
   if (!licenca || typeof licenca !== "object") return;
   if (licenca.client_id) billingConfig.clientId = String(licenca.client_id);
+  if (licenca.company_id) billingConfig.companyId = String(licenca.company_id);
   if (licenca.subscription_id) billingConfig.subscriptionId = String(licenca.subscription_id);
   if (licenca.plan_slug) billingConfig.planSlug = normalizarSlugPlano(licenca.plan_slug);
   billingConfig.licenseStatus = normalizarStatusPlano(licenca.status || billingConfig.licenseStatus || "pending");
@@ -8579,6 +8596,7 @@ function aplicarLicencaSaasOnline(licenca = {}) {
   if (!cliente && billingConfig.clientId) {
     cliente = normalizarClienteSaas({
       id: billingConfig.clientId,
+      companyId: billingConfig.companyId || licenca.company_id || "",
       clientCode: licenca.client_code || "",
       name: appConfig.businessName || "Empresa 3D",
       email: billingConfig.licenseEmail || syncConfig.supabaseEmail || "",
@@ -8614,6 +8632,7 @@ function aplicarLicencaSaasOnline(licenca = {}) {
     saasSubscriptions.push(normalizarAssinaturaSaas({
       id: billingConfig.subscriptionId || "",
       clientId: billingConfig.clientId,
+      companyId: billingConfig.companyId || licenca.company_id || "",
       userId: licenca.user_id || syncConfig.supabaseUserId || "",
       planSlug: licenca.plan_slug || "free",
       status: licenca.status || "pending",
@@ -8850,12 +8869,14 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.ativo = perfil.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil.status ? perfil.status !== "active" : usuario.bloqueado;
     usuario.mustChangePassword = perfil.must_change_password === true && !usuario.passwordUpdatedAt;
-    usuario.clientId = perfil.client_id || perfil.company_id || usuario.clientId || billingConfig.clientId || "";
+    usuario.clientId = perfil.client_id || usuario.clientId || billingConfig.clientId || "";
+    usuario.companyId = perfil.company_id || usuario.companyId || billingConfig.companyId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
   }
 
   if (usuario.clientId) {
     billingConfig.clientId = usuario.clientId;
+    if (usuario.companyId) billingConfig.companyId = usuario.companyId;
     try {
       const clientesOnline = await requisicaoSupabase(`/rest/v1/clients?select=*&id=eq.${encodeURIComponent(usuario.clientId)}&limit=1`, {
         method: "GET"
@@ -8933,7 +8954,8 @@ async function loginUsuarioSupabase(email, senha) {
     usuario = normalizarUsuario({
       nome: perfil?.display_name || email.split("@")[0],
       email,
-      clientId: perfil?.client_id || perfil?.company_id || "",
+      clientId: perfil?.client_id || "",
+      companyId: perfil?.company_id || "",
       phone: perfil?.phone || "",
       papel: normalizarPapel(perfil?.role || "operador"),
       ativo: perfil?.status !== "blocked" && perfil?.status !== "inactive",
@@ -8949,7 +8971,8 @@ async function loginUsuarioSupabase(email, senha) {
     usuario.ativo = perfil?.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil?.status ? perfil.status !== "active" : usuario.bloqueado;
     usuario.mustChangePassword = perfil && "must_change_password" in perfil ? perfil.must_change_password === true && !usuario.passwordUpdatedAt : usuario.mustChangePassword;
-    usuario.clientId = perfil?.client_id || perfil?.company_id || usuario.clientId || "";
+    usuario.clientId = perfil?.client_id || usuario.clientId || "";
+    usuario.companyId = perfil?.company_id || usuario.companyId || "";
     usuario.acceptedTermsAt = perfil?.accepted_terms_at || usuario.acceptedTermsAt || "";
   }
 
@@ -8978,9 +9001,12 @@ async function criarContaSupabaseParaUsuarioLocal(usuario, senha) {
       email,
       password: senha,
       data: {
+        owner_name: nome,
         name: nome,
+        company_name: negocio,
         business_name: negocio,
         phone: telefone,
+        cnpj: clienteLocal?.cnpj || "",
         accepted_terms: true
       }
     })

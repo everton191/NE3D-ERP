@@ -24,6 +24,7 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 4. Modelo de empresa/conta ainda nao existe.
    - Nao ha `companies` nem `company_members`.
    - Impacto: faltam isolamento por empresa, dono da conta e funcionarios com papeis.
+   - Status: migration local criada na Etapa 2. Falta aplicar e validar em staging/remoto.
 
 5. Backup/sincronizacao ainda pede configuracao tecnica.
    - Campos de URL, token, URL/chave Supabase, senha Supabase e Google Drive aparecem para usuario final.
