@@ -475,9 +475,36 @@ Implementado:
 - `scripts/prepare-web.js` copia `src/` para `dist/`.
 - `scripts/check-supabase-migrations.js` valida a estrutura nova.
 
-Observacao:
+Ativacao remota em 2026-05-04:
 
-- A migration ainda nao foi aplicada no Supabase remoto.
-- `db push --dry-run --linked` falhou por autenticacao/pooler (`password authentication failed` e depois `ECIRCUITBREAKER`).
-- Testes reais de RPC/tabelas dependem de aplicar a migration em staging/remoto.
-- `npm run android:apk` sincronizou os assets Android, mas nao gerou APK porque `JAVA_HOME` nao esta configurado neste ambiente.
+- Projeto Supabase linkado: `everton191's Project` (`qsufnnivlgdidmjuaprb`, `us-west-2`).
+- Migrations aplicadas no remoto:
+  - `20260504111204_account_companies_members_sync.sql`;
+  - `20260504120234_onboarding_initial_flow.sql`;
+  - `20260504172615_app_telemetry_feedback.sql`;
+  - `20260504180540_fix_telemetry_severity_volatility.sql`.
+- Backfill remoto reportado pela migration:
+  - `auth.users=8`;
+  - `clients=8`;
+  - `companies=8`;
+  - `company_members=8`;
+  - `profiles=8`;
+  - `erp_profiles=8`;
+  - `subscriptions=8`;
+  - `sync_settings=8`.
+- Teste real da RPC `register_app_error` passou:
+  - 4 envios do mesmo erro agregaram em um unico `app_error_logs`;
+  - `occurrence_count=4`;
+  - `affected_user_count=2`;
+  - `severity=medium`.
+- Feedback manual via REST passou com `HTTP 201`.
+- Leitura anonima de logs globais retornou `0` linhas, preservando RLS.
+- Ajustado o envio de feedback para `Prefer: return=minimal`, evitando erro RLS ao tentar retornar linha sem policy de SELECT anonima.
+- Novo script repetivel: `npm run supabase:test:telemetry`.
+- `npx.cmd supabase db lint --linked` nao aponta mais aviso novo da telemetria; restam avisos antigos nao bloqueantes em `register_saas_client` e `redeem_promotional_token`.
+
+Pendencia observada:
+
+- Uma tentativa posterior de `db push --dry-run --linked` falhou por `ECIRCUITBREAKER` no pooler. Como as migrations ja estavam aplicadas e os testes REST/RPC passaram, a falha foi classificada como conexao temporaria do pooler, nao erro de schema.
+- Superadmin autenticado ainda precisa validacao visual com login manual/credencial autorizada na sessao.
+- APK ficou para depois, conforme orientacao atual.

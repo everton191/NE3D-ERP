@@ -13,6 +13,7 @@
     "supabase:migrations": "supabase migration list --linked",
     "supabase:test:db": "supabase test db --linked",
     "supabase:test:rest": "node scripts/test-supabase-rest.js",
+    "supabase:test:telemetry": "node scripts/test-telemetry-rest.js",
     "supabase:test:migrations": "node scripts/check-supabase-migrations.js",
     "android:add": "npm run build:web && cap add android",
     "android:sync": "npm run build:web && cap sync android",

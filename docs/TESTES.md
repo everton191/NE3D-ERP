@@ -381,12 +381,48 @@ APK:
 - A etapa `gradlew.bat assembleDebug` falhou porque `JAVA_HOME` nao esta configurado e nao existe `java` no PATH.
 - Nenhum APK novo foi gerado nesta rodada.
 
+## Telemetria remota - Supabase real
+
+Ambiente:
+
+- Projeto Supabase linkado: `everton191's Project`.
+- Project ref: `qsufnnivlgdidmjuaprb`.
+- Migrations remotas alinhadas ate `20260504180540`.
+
+Comandos executados:
+
+- `npx.cmd supabase migration list --linked` - OK, local/remoto alinhados.
+- `npx.cmd supabase db push --dry-run --linked` - OK antes da ultima migration de ajuste; depois voltou a falhar por `ECIRCUITBREAKER` no pooler.
+- `npx.cmd supabase db push --linked --yes` - OK, aplicou as migrations pendentes.
+- `npx.cmd supabase db lint --linked` - OK com avisos antigos nao bloqueantes.
+- `node --check app.js` - OK.
+- `node --check src\services\errorTelemetry.js` - OK.
+- `node --check scripts\test-telemetry-rest.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npm run supabase:test:telemetry` - OK.
+
+Resultado do teste real `npm run supabase:test:telemetry`:
+
+- `register_app_error` criou log remoto.
+- Repeticao do mesmo erro 3x agregou no mesmo registro.
+- Segundo usuario simulado aumentou usuarios afetados.
+- Ultimo registro de teste:
+  - `logId=abe9ec38-9997-4dbe-8bde-1549463a181e`;
+  - `occurrenceCount=4`;
+  - `affectedUserCount=2`;
+  - `severity=medium`.
+- Feedback manual inserido em `app_feedback_reports` com `HTTP 201`.
+- Leitura anonima de `app_error_logs` retornou `0` linhas visiveis.
+
+Correcao feita durante o teste:
+
+- `salvarFeedbackManualSupabase()` passou de `Prefer: return=representation` para `Prefer: return=minimal`.
+- Motivo: com RLS ativo, inserir feedback e tentar retornar a linha exige policy de SELECT. O envio nao precisa retornar o registro, entao `return=minimal` preserva seguranca e evita erro `new row violates row-level security policy`.
+
 Nao validado completamente:
 
-- TESTE 1, erro manual criando registro em `app_error_logs`: pendente ate aplicar migration.
-- TESTE 2, repeticao incrementando `occurrence_count`: logica validada por SQL estatico, pendente em banco real.
-- TESTE 3, multiusuario incrementando `affected_user_count`: pendente em banco real.
-- TESTE 4, offline real no navegador com envio ao Supabase: fila local validada com stub, pendente com banco real.
-- TESTE 5, feedback salvo em `app_feedback_reports`: pendente ate aplicar migration.
-- TESTE 6, superadmin listando relatorios reais: pendente ate aplicar migration e login superadmin.
-- TESTE 7, seguranca de dados sensiveis: sanitizacao local validada.
+- TESTE 4, offline real no navegador com envio ao Supabase: fila local validada com stub, pendente com banco real no navegador.
+- TESTE 6, superadmin listando relatorios reais: pendente de login superadmin autorizado/manual nesta sessao.
+- APK/mobile real: adiado conforme orientacao atual.

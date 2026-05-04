@@ -7529,7 +7529,7 @@ function montarPayloadFeedbackManual(form) {
 async function salvarFeedbackManualSupabase(form) {
   return requisicaoSupabase("/rest/v1/app_feedback_reports", {
     method: "POST",
-    headers: { Prefer: "return=representation" },
+    headers: { Prefer: "return=minimal" },
     body: JSON.stringify(montarPayloadFeedbackManual(form))
   });
 }

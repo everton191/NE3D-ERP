@@ -88,11 +88,12 @@ Branch: `fix/stability-auth-superadmin-onboarding`
    - Impacto: pode conflitar com o objetivo de reduzir configuracao manual para o usuario final.
    - Status: nao alterado nesta rodada porque a instrucao atual pediu para ignorar a parte de planos ja reestruturada, salvo dependencia direta.
 
-10. Telemetria nova depende de migration ainda nao aplicada.
-   - A migration `20260504172615_app_telemetry_feedback.sql` esta criada localmente.
-   - `db push --dry-run --linked` falhou por autenticacao/pooler do Supabase CLI.
-   - Impacto: ate aplicar a migration, os envios reais para `register_app_error` e `app_feedback_reports` podem cair na fila/local/fallback.
-   - Status: codigo, build e testes locais passaram; falta aplicar em staging/remoto.
+10. Telemetria remota foi aplicada, mas o pooler ainda oscila.
+   - Migrations aplicadas no remoto ate `20260504180540_fix_telemetry_severity_volatility.sql`.
+   - `register_app_error` foi testada no Supabase real com deduplicacao, ocorrencias e usuarios afetados.
+   - `app_feedback_reports` recebeu feedback real via REST.
+   - Uma tentativa posterior de `db push --dry-run --linked` falhou por `ECIRCUITBREAKER`.
+   - Status: schema e REST/RPC OK; pendente apenas estabilizar/verificar conexao CLI/pooler quando precisar novo push.
 
 ## Ja existente e aproveitavel
 
