@@ -266,3 +266,47 @@ Ainda nao validado nesta etapa:
 - Sincronizacao real contra Supabase staging/remoto.
 - Exportacao/importacao visual em navegador e APK.
 - Estado offline/online em navegador real.
+
+## Etapa 8 - Onboarding inicial
+
+Concluido localmente:
+
+- Criada migration `supabase/migrations/20260504120234_onboarding_initial_flow.sql`.
+- Migration garante campos `onboarding_completed` e `onboarding_step` em `profiles` e `erp_profiles`.
+- Migration garante `setup_completed`, `print_type` e `default_material` em `companies`.
+- Usuario criado localmente pelo cadastro passa a ser `dono` da conta, nao superadmin.
+- Roles remotas `owner`, `attendant`, `production`, `finance` e `read_only` sao mapeadas para perfis locais equivalentes.
+- Onboarding com 5 etapas:
+  - boas-vindas;
+  - tipo de impressao;
+  - material padrao;
+  - primeiro pedido;
+  - finalizacao.
+- Onboarding aparece somente para `dono` da conta que ainda nao concluiu.
+- Superadmin nao recebe onboarding.
+- Progresso e conclusao sao salvos localmente e tentam sincronizar em `profiles`, `erp_profiles` e `companies`.
+- Botao `Refazer introducao` adicionado na tela de configuracoes.
+- Ao iniciar primeiro pedido pelo onboarding, o fluxo abre `Novo pedido`; ao salvar o pedido, a introducao e concluida.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `style.css`
+- `scripts/check-supabase-migrations.js`
+- `supabase/migrations/20260504120234_onboarding_initial_flow.sql`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+- `docs/BUGS.md`
+
+Validado localmente ate agora:
+
+- `node --check app.js`
+- `npm run build:web`
+- `npm run supabase:test:migrations`
+- varredura frontend por segredos Supabase sensiveis
+- `git diff --check`
+
+Ainda nao validado nesta etapa:
+
+- Fluxo visual completo em navegador/mobile/APK.
+- Sincronizacao real dos campos de onboarding no Supabase staging/remoto.

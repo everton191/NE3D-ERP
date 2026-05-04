@@ -1141,6 +1141,24 @@ button:disabled{
   grid-template-columns:repeat(3, minmax(0, 1fr));
 }
 
+.progress-steps{
+  display:flex;
+  gap:8px;
+  margin:8px 0 4px;
+}
+
+.progress-steps span{
+  display:block;
+  height:6px;
+  flex:1;
+  border-radius:999px;
+  background:rgba(148,163,184,.22);
+}
+
+.progress-steps span.active{
+  background:var(--accent);
+}
+
 .badge-pendente,
 .badge-atrasado,
 .badge-overdue{

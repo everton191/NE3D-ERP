@@ -50,6 +50,7 @@ Branch: `fix/stability-auth-superadmin-onboarding`
 4. Onboarding inicial nao existe.
    - Faltam `onboarding_completed`, `onboarding_step` e `setup_completed`.
    - Impacto: cliente novo nao e guiado ate o primeiro pedido.
+   - Status: Etapa 8 implementou migration e fluxo local. Falta validar visualmente e aplicar em staging/remoto.
 
 5. Exportacao local usa nome antigo.
    - Nome atual: `backup-erp-3d.json`.

@@ -31,6 +31,12 @@ const BILLING_VARIANTS = {
   premium_monthly: { id: "premium_monthly", planId: "premium", amount: PREMIUM_MONTHLY_PRICE }
 };
 const ENABLE_GOOGLE_DRIVE_BACKUP = false;
+const ONBOARDING_PRINT_TYPES = [
+  { id: "fdm", label: "FDM / Filamento" },
+  { id: "resina", label: "Resina" },
+  { id: "ambos", label: "Ambos" }
+];
+const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
@@ -65,6 +71,7 @@ const telas = {
   planos: "Planos",
   admin: "Admin",
   superadmin: "Super Admin",
+  onboarding: "Introdução",
   feedback: "Bugs e sugestões",
   sobre: "Sobre",
   acessoNegado: "Acesso negado"
@@ -163,6 +170,9 @@ let appConfig = carregarObjeto("appConfig", {
   defaultEnergy: 0.85,
   defaultFilamentCost: 150,
   defaultPrinterType: "FDM",
+  defaultPrintType: "",
+  defaultMaterial: "",
+  companySetupCompleted: false,
   defaultPrinterModel: "Ender 3",
   defaultResinCost: 180,
   screenFit: "auto",
@@ -357,7 +367,14 @@ const StateStore = {
     const email = normalizarEmail(usuario.email);
     const lista = normalizarUsuarios(usuarios);
     const proximaLista = lista.some((item) => item.email === email)
-      ? lista.map((item) => item.email === email ? normalizarUsuario({ ...item, ...usuario }) : item)
+      ? lista.map((item) => {
+        if (item.email !== email) return item;
+        const combinado = { ...item, ...usuario };
+        if (item.papel === "dono" && usuario.papel !== "superadmin") combinado.papel = "dono";
+        combinado.onboardingCompleted = item.onboardingCompleted === true || usuario.onboardingCompleted === true;
+        combinado.onboardingStep = combinado.onboardingCompleted ? 4 : Math.max(Number(item.onboardingStep) || 0, Number(usuario.onboardingStep) || 0);
+        return normalizarUsuario(combinado);
+      })
       : [...lista, normalizarUsuario(usuario)];
     this.set("usuarios", proximaLista);
     if (usuario.clientId || usuario.companyId) this.set("billingConfig", {
@@ -762,6 +779,13 @@ const AuthService = {
       local.assinatura.clientId = clientIdOnline;
       local.usuario.clientId = clientIdOnline;
       billingConfig.clientId = clientIdOnline;
+    }
+    if (cadastroOnline?.company_id) {
+      const companyIdOnline = String(cadastroOnline.company_id);
+      local.cliente.companyId = companyIdOnline;
+      local.assinatura.companyId = companyIdOnline;
+      local.usuario.companyId = companyIdOnline;
+      billingConfig.companyId = companyIdOnline;
     }
     if (cadastroOnline?.client_code) {
       local.cliente.clientCode = String(cadastroOnline.client_code);
@@ -1170,6 +1194,11 @@ function emailValido(email) {
 
 function normalizarPapel(papel) {
   const alvo = String(papel || "").toLowerCase();
+  if (alvo === "owner") return "dono";
+  if (alvo === "attendant") return "operador";
+  if (alvo === "production") return "operador";
+  if (alvo === "finance") return "admin";
+  if (alvo === "read_only") return "visualizador";
   if (alvo === "user" || alvo === "usuario") return "operador";
   return ["superadmin", "dono", "admin", "operador", "visualizador"].includes(alvo) ? alvo : "operador";
 }
@@ -1198,6 +1227,8 @@ function normalizarUsuario(usuario) {
     trialStartedAt: usuario?.trialStartedAt || "",
     trialDays: Math.max(1, Number(usuario?.trialDays) || Number(billingConfig.trialDays) || 7),
     acceptedTermsAt: usuario?.acceptedTermsAt || usuario?.accepted_terms_at || "",
+    onboardingCompleted: usuario?.onboardingCompleted === true || usuario?.onboarding_completed === true,
+    onboardingStep: Math.max(0, Math.min(4, Number(usuario?.onboardingStep ?? usuario?.onboarding_step ?? 0) || 0)),
     supabaseUserId: usuario?.supabaseUserId || usuario?.supabase_user_id || usuario?.user_id || "",
     supabasePending: usuario?.supabasePending === true || usuario?.onlineRegistrationPending === true,
     supabaseLastSyncAt: usuario?.supabaseLastSyncAt || usuario?.updated_at || "",
@@ -1237,6 +1268,8 @@ function normalizarUsuarioPerfilSupabase(perfil) {
     ativo: status === "active",
     bloqueado: status === "blocked",
     mustChangePassword: perfil?.must_change_password === true || perfil?.mustChangePassword === true,
+    onboardingCompleted: perfil?.onboarding_completed === true || perfil?.onboardingCompleted === true,
+    onboardingStep: perfil?.onboarding_step ?? perfil?.onboardingStep ?? 0,
     acceptedTermsAt: perfil?.accepted_terms_at || perfil?.acceptedTermsAt || "",
     supabaseUserId: userId,
     supabasePending: false,
@@ -1712,7 +1745,7 @@ function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug
     nome,
     email: emailNormalizado,
     phone: telefone,
-    papel: "admin",
+    papel: "dono",
     ativo: true,
     planStatus: assinatura.status,
     trialStartedAt: trial ? agora : "",
@@ -3183,6 +3216,9 @@ function atualizarMenu() {
 function renderApp() {
   const app = document.getElementById("app");
   if (!app) return;
+  if (telaAtual === "dashboard" && deveMostrarOnboarding()) {
+    telaAtual = "onboarding";
+  }
 
   aplicarPersonalizacao();
   const mobile = isMobile();
@@ -3284,12 +3320,13 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (isTelaPublica(tela)) return true;
   if (adminLogado && !usuario) return tela !== "superadmin";
   if (!usuario) return false;
+  if (tela === "onboarding") return !isSuperAdmin(usuario);
   if (isSuperAdmin(usuario) || usuario.papel === "dono") return true;
 
   const permissoes = {
-    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "usuarios", "seguranca", "feedback"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback"],
-    visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback"]
+    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "usuarios", "seguranca", "feedback", "onboarding"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback", "onboarding"],
+    visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback", "onboarding"]
   };
 
   return (permissoes[usuario.papel] || []).includes(tela);
@@ -3308,6 +3345,198 @@ function renderAcessoNegado() {
         <button class="btn secondary" onclick="trocarTela('calculadora')">Abrir calculadora grátis</button>
         <button class="btn ghost" onclick="voltarTela()">Voltar</button>
       </div>
+    </section>
+  `;
+}
+
+function deveMostrarOnboarding(usuario = getUsuarioAtual()) {
+  if (!usuario || isSuperAdmin(usuario)) return false;
+  if (usuario.papel !== "dono") return false;
+  return usuario.onboardingCompleted !== true;
+}
+
+function etapaOnboardingAtual(usuario = getUsuarioAtual()) {
+  return Math.max(0, Math.min(4, Number(usuario?.onboardingStep) || 0));
+}
+
+function salvarOnboardingLocal(step, completed = false) {
+  const usuario = getUsuarioAtual();
+  if (!usuario) return;
+  usuario.onboardingStep = Math.max(0, Math.min(4, Number(step) || 0));
+  usuario.onboardingCompleted = completed === true;
+  appConfig.companySetupCompleted = completed === true || appConfig.companySetupCompleted === true;
+  appConfig.onboardingLastUpdatedAt = new Date().toISOString();
+  salvarDados();
+  persistirOnboardingSupabaseSilencioso(usuario).catch((erro) => {
+    registrarDiagnostico("Onboarding", "Onboarding não sincronizado no Supabase", erro.message || erro);
+  });
+}
+
+async function persistirOnboardingSupabaseSilencioso(usuario = getUsuarioAtual()) {
+  if (!usuario || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseUrl) return false;
+  const agora = new Date().toISOString();
+  const userId = encodeURIComponent(syncConfig.supabaseUserId);
+  const perfil = {
+    onboarding_completed: usuario.onboardingCompleted === true,
+    onboarding_step: etapaOnboardingAtual(usuario),
+    updated_at: agora
+  };
+  const resultados = await Promise.allSettled([
+    requisicaoSupabase(`/rest/v1/profiles?user_id=eq.${userId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(perfil)
+    }),
+    requisicaoSupabase(`/rest/v1/erp_profiles?id=eq.${userId}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(perfil)
+    })
+  ]);
+  resultados.forEach((resultado, indice) => {
+    if (resultado.status === "rejected") {
+      registrarDiagnostico("Onboarding", indice === 0 ? "profiles onboarding não sincronizado" : "erp_profiles onboarding não sincronizado", resultado.reason?.message || resultado.reason);
+    }
+  });
+
+  const companyId = usuario.companyId || billingConfig.companyId || "";
+  if (companyId) {
+    await requisicaoSupabase(`/rest/v1/companies?id=eq.${encodeURIComponent(companyId)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        setup_completed: usuario.onboardingCompleted === true || appConfig.companySetupCompleted === true,
+        print_type: appConfig.defaultPrintType || null,
+        default_material: appConfig.defaultMaterial || null,
+        updated_at: agora
+      })
+    }).catch((erro) => registrarDiagnostico("Onboarding", "Empresa não atualizada no Supabase", erro.message || erro));
+  }
+  return true;
+}
+
+function avancarOnboarding(step) {
+  salvarOnboardingLocal(step, false);
+  renderApp();
+}
+
+function selecionarTipoImpressaoOnboarding(tipo) {
+  const permitido = ONBOARDING_PRINT_TYPES.some((item) => item.id === tipo) ? tipo : "fdm";
+  appConfig.defaultPrintType = permitido;
+  appConfig.defaultPrinterType = permitido === "resina" ? "Resina" : "FDM";
+  salvarOnboardingLocal(2, false);
+  renderApp();
+}
+
+function selecionarMaterialOnboarding(material) {
+  appConfig.defaultMaterial = String(material || "").trim();
+  salvarOnboardingLocal(3, false);
+  renderApp();
+}
+
+function pularMaterialOnboarding() {
+  salvarOnboardingLocal(3, false);
+  renderApp();
+}
+
+function abrirPrimeiroPedidoOnboarding() {
+  appConfig.onboardingFirstOrderPending = true;
+  salvarOnboardingLocal(4, false);
+  trocarTela("pedido");
+}
+
+function finalizarOnboarding(abrirPedido = false) {
+  appConfig.onboardingFirstOrderPending = false;
+  salvarOnboardingLocal(4, true);
+  mostrarToast("Pronto! Seu sistema está configurado.", "sucesso");
+  trocarTela(abrirPedido ? "pedido" : "dashboard");
+}
+
+function reiniciarOnboarding() {
+  const usuario = getUsuarioAtual();
+  if (!usuario || isSuperAdmin(usuario)) {
+    alert("Onboarding disponível apenas para contas de cliente.");
+    return;
+  }
+  usuario.onboardingCompleted = false;
+  usuario.onboardingStep = 0;
+  appConfig.companySetupCompleted = false;
+  salvarDados();
+  persistirOnboardingSupabaseSilencioso(usuario).catch((erro) => registrarDiagnostico("Onboarding", "Reset não sincronizado", erro.message || erro));
+  trocarTela("onboarding");
+}
+
+function renderIndicadorOnboarding(step) {
+  return `
+    <div class="progress-steps" aria-label="Progresso da introdução">
+      ${[0, 1, 2, 3, 4].map((item) => `<span class="${item <= step ? "active" : ""}"></span>`).join("")}
+    </div>
+    <p class="muted">Etapa ${step + 1} de 5</p>
+  `;
+}
+
+function renderOnboarding() {
+  const usuario = getUsuarioAtual();
+  if (!usuario || isSuperAdmin(usuario)) return renderAcessoNegado();
+  const step = etapaOnboardingAtual(usuario);
+  const tipoAtual = appConfig.defaultPrintType || "";
+  const materialAtual = appConfig.defaultMaterial || "";
+  const botoesPular = `<button class="btn ghost" onclick="finalizarOnboarding(false)">Pular e ir para o painel</button>`;
+
+  const telasOnboarding = [
+    `
+      <h2>Bem-vindo ao Simplifica 3D</h2>
+      <p class="muted">Vamos configurar o básico para você começar em poucos minutos.</p>
+      <div class="actions">
+        <button class="btn" onclick="avancarOnboarding(1)">Começar</button>
+        ${botoesPular}
+      </div>
+    `,
+    `
+      <h2>Tipo de uso</h2>
+      <p class="muted">Você trabalha principalmente com qual tipo de impressão?</p>
+      <div class="actions">
+        ${ONBOARDING_PRINT_TYPES.map((tipo) => `<button class="btn ${tipoAtual === tipo.id ? "" : "secondary"}" onclick="selecionarTipoImpressaoOnboarding('${tipo.id}')">${escaparHtml(tipo.label)}</button>`).join("")}
+      </div>
+      <div class="actions">${botoesPular}</div>
+    `,
+    `
+      <h2>Material padrão</h2>
+      <p class="muted">Qual material você mais usa?</p>
+      <div class="actions">
+        ${ONBOARDING_MATERIALS.map((material) => `<button class="btn ${materialAtual === material ? "" : "secondary"}" onclick="selecionarMaterialOnboarding('${escaparAttr(material)}')">${escaparHtml(material)}</button>`).join("")}
+      </div>
+      <div class="actions">
+        <button class="btn ghost" onclick="pularMaterialOnboarding()">Pular por agora</button>
+        ${botoesPular}
+      </div>
+    `,
+    `
+      <h2>Primeiro pedido</h2>
+      <p class="muted">Agora vamos criar seu primeiro pedido para você entender como o sistema funciona.</p>
+      <div class="actions">
+        <button class="btn" onclick="abrirPrimeiroPedidoOnboarding()">Criar primeiro pedido</button>
+        <button class="btn secondary" onclick="avancarOnboarding(4)">Pular e ir para a finalização</button>
+      </div>
+    `,
+    `
+      <h2>Pronto! Seu sistema está configurado.</h2>
+      <p class="muted">Você pode ir para o painel ou criar um novo pedido quando quiser.</p>
+      <div class="actions">
+        <button class="btn" onclick="finalizarOnboarding(false)">Ir para o painel</button>
+        <button class="btn secondary" onclick="finalizarOnboarding(true)">Criar novo pedido</button>
+      </div>
+    `
+  ];
+
+  return `
+    <section class="card onboarding-card">
+      <div class="card-header">
+        <h2>Introdução</h2>
+        <span class="status-badge">Simplifica 3D</span>
+      </div>
+      ${renderIndicadorOnboarding(step)}
+      ${telasOnboarding[step] || telasOnboarding[0]}
     </section>
   `;
 }
@@ -4046,6 +4275,8 @@ function renderTela(tela) {
       return renderSobre();
     case "seguranca":
       return renderSeguranca();
+    case "onboarding":
+      return renderOnboarding();
     case "acessoNegado":
       return renderAcessoNegado();
     case "usuarios":
@@ -5339,6 +5570,14 @@ function renderConfig() {
             <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
             <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
             <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
+          </div>
+        </div>
+
+        <div class="danger-zone">
+          <h2 class="section-title">Introdução</h2>
+          <p class="muted">Refaça o guia inicial quando quiser revisar o fluxo básico do sistema.</p>
+          <div class="actions">
+            <button class="btn secondary" onclick="reiniciarOnboarding()">Refazer introdução</button>
           </div>
         </div>
       ` : ""}
@@ -7577,6 +7816,12 @@ function concluirLoginUsuario(usuario) {
   registrarAtividadeSessao();
   sincronizarAposLogin();
   oferecerAtivarBiometriaAposLogin();
+  if (deveMostrarOnboarding(usuario)) {
+    telaAnterior = "dashboard";
+    telaAtual = "onboarding";
+  } else if (telaAtual === "onboarding") {
+    telaAtual = "dashboard";
+  }
   renderApp();
 }
 
@@ -10349,6 +10594,10 @@ function fecharPedido() {
   itensPedido = [];
   clientePedido = "";
   clienteTelefonePedido = "";
+  if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
+    finalizarOnboarding(false);
+    return;
+  }
   telaAtual = isMobile() ? "pedidos" : telaAtual;
   renderApp();
 }

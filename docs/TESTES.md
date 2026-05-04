@@ -159,6 +159,32 @@ Onboarding:
 - Superadmin interno nao recebe onboarding.
 - Funcionario criado pelo dono nao passa pelo onboarding da empresa.
 
+## Etapa 8 - Onboarding inicial
+
+Executado localmente:
+
+- `node --check app.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- varredura frontend por `service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret` - OK.
+- `git diff --check` - OK, apenas avisos esperados de LF/CRLF no Windows.
+
+Verificacoes por codigo:
+
+- `profiles` e `erp_profiles` recebem `onboarding_completed` e `onboarding_step`.
+- `companies` recebe `setup_completed`, `print_type` e `default_material`.
+- Onboarding e bloqueado para superadmin.
+- Onboarding e exibido apenas para usuario com papel `dono` e `onboardingCompleted=false`.
+- Progresso local e salvo antes de mudar de etapa.
+- Botao `Refazer introducao` reseta o progresso.
+
+Nao executado ainda:
+
+- Criar conta nova e percorrer onboarding no navegador.
+- Fechar app no meio e voltar na etapa correta.
+- Criar primeiro pedido pelo onboarding e confirmar conclusao automatica.
+- Validar PATCH real em `profiles`, `erp_profiles` e `companies` no Supabase.
+
 Validacao tecnica:
 
 - `node --check app.js`

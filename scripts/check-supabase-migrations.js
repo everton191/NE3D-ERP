@@ -39,7 +39,10 @@ const checks = [
   ["company_members owner role", /create table if not exists public\.company_members[\s\S]*role in \('owner', 'admin', 'attendant', 'production', 'finance', 'read_only'\)/i],
   ["signup creates company member", /handle_new_saas_auth_user[\s\S]*insert into public\.company_members[\s\S]*'owner'/i],
   ["post-login returns company_id", /sync_saas_user_after_login[\s\S]*'company_id'/i],
-  ["sync settings table", /create table if not exists public\.sync_settings/i]
+  ["sync settings table", /create table if not exists public\.sync_settings/i],
+  ["profiles onboarding fields", /alter table (if exists )?public\.profiles[\s\S]*onboarding_completed[\s\S]*onboarding_step/i],
+  ["erp_profiles onboarding fields", /alter table (if exists )?public\.erp_profiles[\s\S]*onboarding_completed[\s\S]*onboarding_step/i],
+  ["companies setup fields", /alter table (if exists )?public\.companies[\s\S]*setup_completed[\s\S]*print_type[\s\S]*default_material/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({
