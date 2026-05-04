@@ -28,6 +28,7 @@ Passaram:
 - `node --check app.js`
 - `npm run supabase:test:migrations`
 - `npm run build:web`
+- busca de segredos no frontend (`service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret`)
 
 Cobertura nova do teste de migrations:
 
@@ -45,6 +46,7 @@ Nao executado ainda:
 - `supabase db push --dry-run`
 - `supabase db lint`
 - teste real de cadastro/login contra Supabase staging/remoto
+- teste real de fechar/reabrir navegador e APK mantendo login
 
 ## Ambiente de teste necessario
 

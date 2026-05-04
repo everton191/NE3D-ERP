@@ -162,3 +162,32 @@ Ainda nao validado nesta etapa:
 - Criacao real de usuario em `auth.users`.
 - Teste real de RLS com usuario comum, dono e superadmin.
 - Listagem do superadmin apos aplicar a migration no banco.
+
+## Etapa 3 - Sessao persistente
+
+Concluido localmente:
+
+- Cache local de sessao passou a guardar `supabaseRefreshToken`, mas continua sem persistir `supabaseAccessToken`.
+- Ao abrir o app, `restaurarCacheSessaoLocal()` tenta renovar a sessao Supabase com refresh token antes de restaurar o usuario.
+- Se o refresh falhar, o app mostra "Sua sessao expirou. Faca login novamente.".
+- Login nao e mais encerrado automaticamente por inatividade; a sessao fica ate logout manual.
+- `companyId` tambem e preservado no `billingConfig` ao concluir login.
+- Nenhuma chave `service_role` foi encontrada no frontend.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+
+Validado localmente:
+
+- `node --check app.js`
+- `npm run build:web`
+- busca local por `service_role`, `supabase_service`, `SERVICE_ROLE` e `sb_secret` em frontend.
+
+Ainda nao validado nesta etapa:
+
+- Fechar/reabrir navegador real com usuario Supabase autenticado.
+- Fechar/reabrir APK/PWA com refresh token salvo.
+- Refresh token expirado/revogado contra Supabase real.

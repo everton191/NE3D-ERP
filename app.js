@@ -958,15 +958,17 @@ function salvarSessaoSensivelSupabase() {
 
 function carregarSessaoSensivelSupabase() {
   try {
-    const sessaoSessao = JSON.parse(sessionStorage.getItem("supabaseSession") || "{}");
     sanitizarCacheSessaoLocalLegado();
+    const sessaoSessao = JSON.parse(sessionStorage.getItem("supabaseSession") || "{}");
+    const cacheLocal = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+    const supabaseLocal = cacheLocal.supabase || {};
     syncConfig = {
       ...syncConfig,
       supabaseAccessToken: sessaoSessao.supabaseAccessToken || syncConfig.supabaseAccessToken || "",
-      supabaseRefreshToken: sessaoSessao.supabaseRefreshToken || syncConfig.supabaseRefreshToken || "",
-      supabaseTokenExpiresAt: Number(sessaoSessao.supabaseTokenExpiresAt) || Number(syncConfig.supabaseTokenExpiresAt) || 0,
-      supabaseUserId: sessaoSessao.supabaseUserId || syncConfig.supabaseUserId || "",
-      supabaseEmail: sessaoSessao.supabaseEmail || syncConfig.supabaseEmail || ""
+      supabaseRefreshToken: sessaoSessao.supabaseRefreshToken || supabaseLocal.supabaseRefreshToken || syncConfig.supabaseRefreshToken || "",
+      supabaseTokenExpiresAt: Number(sessaoSessao.supabaseTokenExpiresAt) || Number(supabaseLocal.supabaseTokenExpiresAt) || Number(syncConfig.supabaseTokenExpiresAt) || 0,
+      supabaseUserId: sessaoSessao.supabaseUserId || supabaseLocal.supabaseUserId || syncConfig.supabaseUserId || "",
+      supabaseEmail: sessaoSessao.supabaseEmail || supabaseLocal.supabaseEmail || syncConfig.supabaseEmail || ""
     };
   } catch (_) {}
 }
@@ -983,6 +985,7 @@ function sanitizarCacheSessaoLocalLegado() {
       supabase: {
         supabaseUserId: cache.supabase.supabaseUserId || "",
         supabaseEmail: normalizarEmail(cache.supabase.supabaseEmail || ""),
+        supabaseRefreshToken: cache.supabase.supabaseRefreshToken || "",
         supabaseTokenExpiresAt: Number(cache.supabase.supabaseTokenExpiresAt) || 0
       }
     };
@@ -1013,6 +1016,7 @@ function salvarCacheSessaoLocal() {
     supabase: {
       supabaseUserId: syncConfig.supabaseUserId || "",
       supabaseEmail: normalizarEmail(syncConfig.supabaseEmail || ""),
+      supabaseRefreshToken: syncConfig.supabaseRefreshToken || "",
       supabaseTokenExpiresAt: Number(syncConfig.supabaseTokenExpiresAt) || 0
     }
   };
@@ -1027,11 +1031,17 @@ async function restaurarCacheSessaoLocal() {
     if (!email || !normalizarUsuarios(usuarios).some((usuario) => usuario.email === email && usuario.ativo)) return false;
 
     carregarSessaoSensivelSupabase();
-    if (!appConfig.biometricEnabled) return false;
-
-    if (isAndroid()) {
+    if (appConfig.biometricEnabled && isAndroid()) {
       const biometria = await confirmarBiometriaSeDisponivel("Confirme sua identidade para abrir seus dados.");
       if (biometria.disponivel && !biometria.ok) return false;
+    }
+
+    if (syncConfig.supabaseRefreshToken && !sessaoSupabaseValidaParaEmail(email)) {
+      const renovada = await renovarSessaoSupabase();
+      if (!renovada) {
+        mostrarToast("Sua sessão expirou. Faça login novamente.", "erro", 7000);
+        return false;
+      }
     }
 
     usuarioAtualEmail = email;
@@ -7472,6 +7482,7 @@ function concluirLoginUsuario(usuario) {
     return;
   }
   if (usuario.clientId) billingConfig.clientId = usuario.clientId;
+  if (usuario.companyId) billingConfig.companyId = usuario.companyId;
   if (!["superadmin", "dono"].includes(usuario.papel) && !registrarDispositivoLicenca(usuario.email)) return;
   if (!registrarSessaoSaasLocal(usuario)) return;
   usuarioAtualEmail = usuario.email;
@@ -7574,14 +7585,15 @@ function monitorarSessao() {
     const ultimo = Number(sessionStorage.getItem("sessionLastActivity") || Date.now());
     const inativo = Date.now() - ultimo;
     if (inativo >= SECURITY_SESSION_TIMEOUT_MS) {
-      registrarSeguranca("Sessão expirada", "erro", "Inatividade");
-      alert("Sessão expirada");
-      logoutUsuario();
+      if (!sessionWarned) {
+        sessionWarned = true;
+        registrarSeguranca("Sessão mantida", "sucesso", "Inatividade sem logout automático");
+      }
       return;
     }
     if (!sessionWarned && inativo >= SECURITY_SESSION_TIMEOUT_MS - SECURITY_SESSION_WARNING_MS) {
       sessionWarned = true;
-      alert("Sua sessão está prestes a expirar.");
+      registrarSeguranca("Sessão inativa", "sucesso", "Login mantido ate logout manual");
     }
   }, 30000);
 }

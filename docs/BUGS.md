@@ -15,6 +15,7 @@ Branch: `fix/stability-auth-superadmin-onboarding`
    - Cache em `localStorage` nao guarda refresh token.
    - `adminLogado` tambem usa `sessionStorage`.
    - Impacto: app/superadmin podem sair ao fechar/reabrir, ou perder acesso remoto.
+   - Status: Etapa 3 adicionou refresh token no cache local e removeu logout automatico por inatividade. Falta validar em navegador/APK real.
 
 3. Acoes administrativas sao principalmente locais.
    - Bloquear/desbloquear, alterar plano e excluir cliente alteram arrays locais.
