@@ -110,6 +110,8 @@ let orcamentos = carregarLista("orcamentos");
 let historico = carregarLista("historico");
 let diagnostics = carregarLista("diagnostics");
 let sugestoes = carregarLista("sugestoes");
+let appErrorLogsRemotos = [];
+let appFeedbackReportsRemotos = [];
 let securityLogs = carregarLista("securityLogs");
 let auditLogs = carregarLista("auditLogs");
 let passwordResetTokens = carregarLista("passwordResetTokens");
@@ -440,6 +442,20 @@ const ErrorService = {
         `${appError.message}${contexto.detail ? " | " + contexto.detail : ""}`
       );
     } catch (_) {}
+    try {
+      if (contexto.telemetry !== false && !String(contexto.action || "").includes("register_app_error")) {
+        registrarErroAplicacaoSilencioso(
+          contexto.errorKey || appError.code || "APP_ERROR",
+          appError,
+          contexto.action || contexto.area || appError.code,
+          {
+            area: contexto.area || "",
+            detail: contexto.detail || "",
+            code: appError.code || ""
+          }
+        );
+      }
+    } catch (_) {}
     return appError;
   },
   notify(erro, contexto = {}) {
@@ -470,6 +486,55 @@ const PlanService = {
     return { status: "BLOCKED", allowed: false, reason: "PREMIUM_REQUIRED", plano, message: "Recurso premium. O trial ativo e o plano pago liberam esta função." };
   }
 };
+
+function configurarTelemetriaErros() {
+  try {
+    if (!window.ErrorTelemetry?.configure) return;
+    window.appConfig = appConfig;
+    window.ErrorTelemetry.configure({
+      getContext: () => {
+        const usuario = getUsuarioAtual();
+        return {
+          userEmail: normalizarEmail(syncConfig.supabaseEmail || usuario?.email || billingConfig.licenseEmail || ""),
+          appVersion: APP_VERSION,
+          screenName: telaAtual || "",
+          deviceModel: syncConfig.deviceName || deviceId || navigator.platform || "",
+          osVersion: navigator.userAgent || "",
+          platform: window.Capacitor?.getPlatform?.() || (navigator.userAgentData?.mobile ? "mobile-web" : "web")
+        };
+      },
+      send: (payload) => requisicaoSupabase("/rest/v1/rpc/register_app_error", {
+        method: "POST",
+        telemetry: false,
+        body: JSON.stringify(payload)
+      })
+    });
+  } catch (_) {}
+}
+
+function registrarErroAplicacaoSilencioso(errorKey, erro, actionName = "", metadata = {}, screenName = telaAtual) {
+  try {
+    if (!window.ErrorTelemetry?.logAppError) return false;
+    window.ErrorTelemetry.logAppError({
+      errorKey,
+      error: erro,
+      screenName,
+      actionName,
+      metadata
+    }).catch(() => {});
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function flushPendingErrorLogs() {
+  try {
+    return window.ErrorTelemetry?.flushPendingErrorLogs?.() || Promise.resolve(false);
+  } catch (_) {
+    return Promise.resolve(false);
+  }
+}
 
 const InventoryService = {
   parseNumberStrict(valor, campo = "valor", { min = null, allowZero = true } = {}) {
@@ -614,7 +679,7 @@ const AuthService = {
           source = "supabase";
         } catch (erro) {
           erroLoginOnline = erro;
-          ErrorService.capture(erro, { area: "Supabase", action: "Login online falhou", silent: true });
+          ErrorService.capture(erro, { area: "Supabase", action: "Login online falhou", errorKey: "LOGIN_FAILED", silent: true });
         }
       } else if (deveConectarSupabaseNoLogin(usuario, email)) {
         try {
@@ -646,7 +711,7 @@ const AuthService = {
       const hidratado = await this.hydrateAuthenticatedUser(usuario, { source });
       return { usuario: hidratado || usuario, source };
     } catch (erro) {
-      throw ErrorService.capture(erro, { area: "Autenticação", action: "Login" });
+      throw ErrorService.capture(erro, { area: "Autenticação", action: "Login", errorKey: "LOGIN_FAILED" });
     }
   },
   async loginWithSupabase(email, senha) {
@@ -660,7 +725,7 @@ const AuthService = {
       }
       return usuario;
     } catch (erro) {
-      throw ErrorService.capture(erro, { area: "Supabase", action: "Login com senha", silent: true });
+      throw ErrorService.capture(erro, { area: "Supabase", action: "Login com senha", errorKey: "LOGIN_FAILED", silent: true });
     }
   },
   async recoverOnlineAccount(usuario, senha, erroOriginal) {
@@ -696,7 +761,7 @@ const AuthService = {
       }
       return StateStore.hydrateAuthenticatedUser(hidratado);
     } catch (erro) {
-      throw ErrorService.capture(erro, { area: "Autenticação", action: "Carregar perfil pós-login", detail: contexto.source || "" });
+      throw ErrorService.capture(erro, { area: "Autenticação", action: "Carregar perfil pós-login", errorKey: "LOAD_PROFILE_FAILED", detail: contexto.source || "" });
     }
   },
   async verifyRlsHealth() {
@@ -727,6 +792,7 @@ const AuthService = {
     }
     if (falhas.length) {
       registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", falhas.join(" | "));
+      registrarErroAplicacaoSilencioso("SUPABASE_RLS_DENIED", new Error(falhas.join(" | ")), "Verificação RLS pós-login", { falhas });
       return { ok: false, falhas };
     }
     registrarDiagnostico("Supabase/RLS", "Verificação RLS pós-login", "OK");
@@ -772,7 +838,7 @@ const AuthService = {
         salvarDados();
       }
     } catch (erro) {
-      const appError = ErrorService.capture(erro, { area: "Supabase", action: "Cadastro online", silent: true });
+      const appError = ErrorService.capture(erro, { area: "Supabase", action: "Cadastro online", errorKey: "SIGNUP_FAILED", silent: true });
       if (appError.code === "AUTH_ALREADY_REGISTERED") throw appError;
     }
 
@@ -6535,6 +6601,233 @@ function renderSuperAdminSuporte() {
   `;
 }
 
+function getEstadoTelemetriaSuperadmin() {
+  if (!window.__superAdminTelemetryState) {
+    window.__superAdminTelemetryState = {
+      erros: "idle",
+      feedback: "idle",
+      errosMessage: "",
+      feedbackMessage: ""
+    };
+  }
+  return window.__superAdminTelemetryState;
+}
+
+function getFiltrosTelemetriaSuperadmin() {
+  if (!window.__superAdminTelemetryFilters) {
+    window.__superAdminTelemetryFilters = {
+      severity: "",
+      status: "",
+      version: "",
+      device: "",
+      feedbackStatus: "",
+      feedbackType: ""
+    };
+  }
+  return window.__superAdminTelemetryFilters;
+}
+
+function atualizarFiltroTelemetriaSuperadmin(campo, valor) {
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  filtros[campo] = String(valor || "");
+  renderApp();
+}
+
+async function carregarRelatoriosAutomaticosSupabase(opcoes = {}) {
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (!isSuperAdmin()) return;
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    estado.erros = "missing-token";
+    estado.errosMessage = "Entre com a conta Supabase do superadmin para carregar relatórios automáticos.";
+    if (opcoes.renderizar) renderApp();
+    return;
+  }
+  estado.erros = "loading";
+  estado.errosMessage = "Carregando relatórios automáticos...";
+  if (opcoes.renderizar) renderApp();
+  try {
+    const linhas = await requisicaoSupabase("/rest/v1/app_error_logs?select=*&order=last_seen_at.desc&limit=120", { method: "GET" });
+    appErrorLogsRemotos = Array.isArray(linhas) ? linhas : [];
+    estado.erros = "loaded";
+    estado.errosMessage = "";
+  } catch (erro) {
+    appErrorLogsRemotos = [];
+    estado.erros = "error";
+    estado.errosMessage = ErrorService.toAppError(erro).userMessage || "Não foi possível carregar relatórios automáticos.";
+    registrarErroAplicacaoSilencioso("LOAD_ERROR_REPORTS_FAILED", erro, "Carregar relatórios automáticos");
+  }
+  if (opcoes.renderizar) renderApp();
+}
+
+async function carregarFeedbackReportsSupabase(opcoes = {}) {
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (!isSuperAdmin()) return;
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    estado.feedback = "missing-token";
+    estado.feedbackMessage = "Entre com a conta Supabase do superadmin para carregar feedbacks.";
+    if (opcoes.renderizar) renderApp();
+    return;
+  }
+  estado.feedback = "loading";
+  estado.feedbackMessage = "Carregando feedbacks...";
+  if (opcoes.renderizar) renderApp();
+  try {
+    const linhas = await requisicaoSupabase("/rest/v1/app_feedback_reports?select=*&order=created_at.desc&limit=120", { method: "GET" });
+    appFeedbackReportsRemotos = Array.isArray(linhas) ? linhas : [];
+    estado.feedback = "loaded";
+    estado.feedbackMessage = "";
+  } catch (erro) {
+    appFeedbackReportsRemotos = [];
+    estado.feedback = "error";
+    estado.feedbackMessage = ErrorService.toAppError(erro).userMessage || "Não foi possível carregar feedbacks.";
+    registrarErroAplicacaoSilencioso("LOAD_FEEDBACK_REPORTS_FAILED", erro, "Carregar feedbacks superadmin");
+  }
+  if (opcoes.renderizar) renderApp();
+}
+
+async function atualizarStatusRelatorioAutomatico(id, status) {
+  if (!isSuperAdmin() || !id) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_error_logs?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status })
+    });
+    appErrorLogsRemotos = appErrorLogsRemotos.map((item) => String(item.id) === String(id) ? { ...item, status } : item);
+    mostrarToast("Status do relatório atualizado.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar status relatório", errorKey: "UPDATE_ERROR_REPORT_STATUS_FAILED" });
+  }
+}
+
+async function atualizarStatusFeedbackReport(id, status) {
+  if (!isSuperAdmin() || !id) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_feedback_reports?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status })
+    });
+    appFeedbackReportsRemotos = appFeedbackReportsRemotos.map((item) => String(item.id) === String(id) ? { ...item, status } : item);
+    mostrarToast("Status do feedback atualizado.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar status feedback", errorKey: "UPDATE_FEEDBACK_STATUS_FAILED" });
+  }
+}
+
+function filtrarRelatoriosAutomaticos(lista) {
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  return lista.filter((item) => {
+    if (filtros.severity && item.severity !== filtros.severity) return false;
+    if (filtros.status && item.status !== filtros.status) return false;
+    if (filtros.version && !String(item.app_version || "").toLowerCase().includes(filtros.version.toLowerCase())) return false;
+    if (filtros.device && !String(item.device_model || "").toLowerCase().includes(filtros.device.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function filtrarFeedbackReports(lista) {
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  return lista.filter((item) => {
+    if (filtros.feedbackStatus && item.status !== filtros.feedbackStatus) return false;
+    if (filtros.feedbackType && item.type !== filtros.feedbackType) return false;
+    return true;
+  });
+}
+
+function renderSuperAdminRelatoriosAutomaticos() {
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (estado.erros === "idle") {
+    estado.erros = "loading";
+    setTimeout(() => carregarRelatoriosAutomaticosSupabase({ renderizar: true }), 0);
+  }
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  const lista = filtrarRelatoriosAutomaticos(appErrorLogsRemotos);
+  return `
+    <div class="sync-grid">
+      <label class="field"><span>Severidade</span><select onchange="atualizarFiltroTelemetriaSuperadmin('severity', this.value)">
+        <option value="">Todas</option>
+        ${["critical", "high", "medium", "low"].map((valor) => `<option value="${valor}" ${filtros.severity === valor ? "selected" : ""}>${valor}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Status</span><select onchange="atualizarFiltroTelemetriaSuperadmin('status', this.value)">
+        <option value="">Todos</option>
+        ${["new", "reviewing", "fixed", "ignored"].map((valor) => `<option value="${valor}" ${filtros.status === valor ? "selected" : ""}>${valor}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Versão</span><input value="${escaparAttr(filtros.version)}" oninput="atualizarFiltroTelemetriaSuperadmin('version', this.value)" placeholder="2026..."></label>
+      <label class="field"><span>Dispositivo</span><input value="${escaparAttr(filtros.device)}" oninput="atualizarFiltroTelemetriaSuperadmin('device', this.value)" placeholder="Android, web..."></label>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" onclick="carregarRelatoriosAutomaticosSupabase({ renderizar: true })">Atualizar</button>
+    </div>
+    ${estado.errosMessage ? `<div class="saas-sync-state ${estado.erros === "error" ? "warning" : "info"}">${escaparHtml(estado.errosMessage)}</div>` : ""}
+    <div class="payment-table admin-table telemetry-table">
+      <div class="payment-row table-head">
+        <span>Erro</span><span>Ocorrências</span><span>Usuários</span><span>Severidade</span><span>Versão</span><span>Dispositivo</span><span>Último</span><span>Status</span><span>Ações</span>
+      </div>
+      ${lista.map((item) => `
+        <div class="payment-row">
+          <span><strong>${escaparHtml(item.error_key || "-")}</strong><small>${escaparHtml(item.action_name || item.screen_name || "")}</small></span>
+          <span>${Number(item.occurrence_count) || 0}</span>
+          <span>${Number(item.affected_user_count) || 0}</span>
+          <span>${escaparHtml(item.severity || "low")}</span>
+          <span>${escaparHtml(item.app_version || "-")}</span>
+          <span>${escaparHtml(item.device_model || item.platform || "-")}</span>
+          <span>${item.last_seen_at ? new Date(item.last_seen_at).toLocaleString("pt-BR") : "-"}</span>
+          <span>${escaparHtml(item.status || "new")}</span>
+          <span class="row-actions">
+            <button class="btn ghost" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'reviewing')">Analisar</button>
+            <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Corrigido</button>
+            <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
+          </span>
+        </div>
+      `).join("") || `<p class="empty">Nenhum relatório automático encontrado.</p>`}
+    </div>
+  `;
+}
+
+function renderSuperAdminFeedbackReports() {
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (estado.feedback === "idle") {
+    estado.feedback = "loading";
+    setTimeout(() => carregarFeedbackReportsSupabase({ renderizar: true }), 0);
+  }
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  const lista = filtrarFeedbackReports(appFeedbackReportsRemotos);
+  return `
+    <div class="sync-grid">
+      <label class="field"><span>Status</span><select onchange="atualizarFiltroTelemetriaSuperadmin('feedbackStatus', this.value)">
+        <option value="">Todos</option>
+        ${["new", "reviewing", "fixed", "ignored", "closed"].map((valor) => `<option value="${valor}" ${filtros.feedbackStatus === valor ? "selected" : ""}>${valor}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Tipo</span><select onchange="atualizarFiltroTelemetriaSuperadmin('feedbackType', this.value)">
+        <option value="">Todos</option>
+        ${["bug", "sugestao", "duvida", "melhoria", "reclamacao"].map((valor) => `<option value="${valor}" ${filtros.feedbackType === valor ? "selected" : ""}>${valor}</option>`).join("")}
+      </select></label>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" onclick="carregarFeedbackReportsSupabase({ renderizar: true })">Atualizar</button>
+    </div>
+    ${estado.feedbackMessage ? `<div class="saas-sync-state ${estado.feedback === "error" ? "warning" : "info"}">${escaparHtml(estado.feedbackMessage)}</div>` : ""}
+    <div class="history-list">
+      ${lista.map((item) => `
+        <div class="history-item">
+          <strong>${escaparHtml(item.title || "Feedback")}</strong>
+          <span class="muted">${escaparHtml(item.type || "-")} • ${escaparHtml(item.status || "new")} • ${escaparHtml(item.user_email || "-")} • ${item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-"}</span>
+          <span>${escaparHtml(item.description || "")}</span>
+          <div class="row-actions">
+            <button class="btn ghost" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'reviewing')">Analisar</button>
+            <button class="btn secondary" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'fixed')">Corrigido</button>
+            <button class="btn warning" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
+            <button class="btn ghost" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'closed')">Fechar</button>
+          </div>
+        </div>
+      `).join("") || `<p class="empty">Nenhum feedback encontrado.</p>`}
+    </div>
+  `;
+}
+
 function renderSuperAdminConfiguracoes() {
   usuarios = normalizarUsuarios(usuarios);
   const termo = String(window.__superAdminBusca || "").toLowerCase();
@@ -6585,6 +6878,8 @@ function renderSuperAdminConteudo(tab) {
     trial: renderSuperAdminTrial,
     logs: renderSuperAdminLogs,
     suporte: renderSuperAdminSuporte,
+    relatorios: renderSuperAdminRelatoriosAutomaticos,
+    feedbacks: renderSuperAdminFeedbackReports,
     configuracoes: renderSuperAdminConfiguracoes
   };
   return (mapa[tab] || mapa.dashboard)();
@@ -6604,6 +6899,8 @@ function renderSuperAdmin() {
     ["trial", "Trial"],
     ["logs", "Logs"],
     ["suporte", "Suporte"],
+    ["relatorios", "Relatórios automáticos"],
+    ["feedbacks", "Sugestões e Feedback"],
     ["configuracoes", "Configurações"]
   ];
 
@@ -7089,6 +7386,7 @@ function renderSobre() {
 
 function renderFeedback() {
   const podeVerDiagnosticos = isSuperAdmin() || (adminLogado && !getUsuarioAtual());
+  const feedbackStatus = window.__feedbackManualStatus || {};
   const eventosRecentes = historico.slice(0, 20).map((item) => `
     <div class="history-item">
       <strong>${escaparHtml(item.acao)}</strong>
@@ -7129,12 +7427,31 @@ function renderFeedback() {
       <button class="btn ghost" onclick="salvarFeedbackConfig()">Salvar configuração</button>` : ""}
 
       <div class="danger-zone">
-        <h2 class="section-title">Nova sugestão</h2>
+        <h2 class="section-title">Ajuda e Feedback</h2>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Tipo</span>
+            <select id="feedbackTipo">
+              <option value="bug">Bug</option>
+              <option value="sugestao" selected>Sugestão</option>
+              <option value="duvida">Dúvida</option>
+              <option value="melhoria">Melhoria</option>
+              <option value="reclamacao">Reclamação</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Título</span>
+            <input id="feedbackTitulo" maxlength="120" placeholder="Ex.: melhorar relatório mensal">
+          </label>
+        </div>
         <label class="field">
-          <span>Descreva a melhoria</span>
-          <input id="novaSugestaoTexto" placeholder="Ex.: adicionar relatório mensal de vendas">
+          <span>Descrição</span>
+          <textarea id="feedbackDescricao" rows="4" maxlength="1200" placeholder="Conte o que aconteceu ou o que você gostaria de melhorar"></textarea>
         </label>
-        <button class="btn secondary" onclick="adicionarSugestao()">Adicionar sugestão</button>
+        <div class="actions">
+          <button class="btn secondary" onclick="enviarFeedbackManual()" ${feedbackStatus.status === "sending" ? "disabled" : ""}>${feedbackStatus.status === "sending" ? "Enviando..." : "Enviar feedback"}</button>
+        </div>
+        ${feedbackStatus.message ? `<p class="muted feedback-status ${escaparAttr(feedbackStatus.status || "")}">${escaparHtml(feedbackStatus.message)}</p>` : ""}
       </div>
 
       <h2 class="section-title">Sugestões mais pedidas</h2>
@@ -7175,6 +7492,76 @@ function adicionarSugestao() {
     return;
   }
   registrarHistorico("Sugestão", texto.trim());
+  renderApp();
+}
+
+function lerFormularioFeedbackManual() {
+  return {
+    type: document.getElementById("feedbackTipo")?.value || "sugestao",
+    title: String(document.getElementById("feedbackTitulo")?.value || "").trim(),
+    description: String(document.getElementById("feedbackDescricao")?.value || "").trim()
+  };
+}
+
+function montarPayloadFeedbackManual(form) {
+  const usuario = getUsuarioAtual();
+  const email = normalizarEmail(syncConfig.supabaseEmail || usuario?.email || billingConfig.licenseEmail || "");
+  return {
+    user_id: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    user_email: email || null,
+    user_name: usuario?.nome || null,
+    type: form.type,
+    title: form.title.slice(0, 120),
+    description: form.description.slice(0, 1200),
+    app_version: APP_VERSION,
+    device_model: syncConfig.deviceName || deviceId || navigator.platform || "",
+    os_version: navigator.userAgent || "",
+    platform: window.Capacitor?.getPlatform?.() || (navigator.userAgentData?.mobile ? "mobile-web" : "web"),
+    screen_name: telaAtual || "",
+    metadata: {
+      device_id: deviceId,
+      company_id: billingConfig.companyId || "",
+      client_id: billingConfig.clientId || ""
+    }
+  };
+}
+
+async function salvarFeedbackManualSupabase(form) {
+  return requisicaoSupabase("/rest/v1/app_feedback_reports", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(montarPayloadFeedbackManual(form))
+  });
+}
+
+async function enviarFeedbackManual() {
+  const form = lerFormularioFeedbackManual();
+  if (!form.title || form.title.length < 4) {
+    window.__feedbackManualStatus = { status: "error", message: "Informe um título com pelo menos 4 caracteres." };
+    renderApp();
+    return;
+  }
+  if (!form.description || form.description.length < 8) {
+    window.__feedbackManualStatus = { status: "error", message: "Descreva o feedback com um pouco mais de detalhe." };
+    renderApp();
+    return;
+  }
+
+  window.__feedbackManualStatus = { status: "sending", message: "Enviando feedback..." };
+  renderApp();
+
+  try {
+    await salvarFeedbackManualSupabase(form);
+    registrarSugestaoLocal(`${form.title}: ${form.description}`, "feedback");
+    registrarHistorico("Feedback", `${form.type}: ${form.title}`);
+    window.__feedbackManualStatus = { status: "success", message: "Feedback enviado com sucesso." };
+    mostrarToast("Feedback enviado com sucesso.", "sucesso", 4000);
+  } catch (erro) {
+    registrarSugestaoLocal(`${form.title}: ${form.description}`, "feedback-local");
+    registrarErroAplicacaoSilencioso("FEEDBACK_SUBMIT_FAILED", erro, "Enviar feedback manual", { type: form.type });
+    window.__feedbackManualStatus = { status: "error", message: "Não foi possível enviar agora. O feedback ficou salvo neste aparelho." };
+    mostrarToast("Erro ao enviar feedback. Ficou salvo localmente.", "erro", 5000);
+  }
   renderApp();
 }
 
@@ -7409,6 +7796,7 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") 
     window.open(dados.init_point, "_blank");
   } catch (erro) {
     registrarDiagnostico("Mercado Pago", "Pagamento não criado", erro.message);
+    registrarErroAplicacaoSilencioso("PAYMENT_STATUS_FAILED", erro, "Criar pagamento Mercado Pago", { plano: plano.slug });
     if (billingConfig.mercadoPagoLink) {
       window.open(billingConfig.mercadoPagoLink, "_blank");
       return;
@@ -7447,6 +7835,7 @@ async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "
     window.open(dados.init_point, "_blank");
   } catch (erro) {
     registrarDiagnostico("Mercado Pago", "Pagamento não criado", erro.message);
+    registrarErroAplicacaoSilencioso("PAYMENT_STATUS_FAILED", erro, "Criar pagamento avulso Mercado Pago", { plano: plano.slug });
     alert(erro.message || "Não foi possível iniciar o pagamento agora.");
   }
 }
@@ -8861,7 +9250,13 @@ async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
 
     return dados;
   } catch (erro) {
-    throw ErrorService.capture(erro, { area: "Supabase", action: caminho, silent: true });
+    throw ErrorService.capture(erro, {
+      area: "Supabase",
+      action: caminho,
+      errorKey: /rls|row-level security|permission|PGRST/i.test(String(erro?.message || erro)) ? "SUPABASE_RLS_DENIED" : "SUPABASE_SYNC_FAILED",
+      telemetry: opcoes.telemetry !== false && !String(caminho || "").includes("register_app_error"),
+      silent: true
+    });
   }
 }
 
@@ -8949,6 +9344,7 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
     const avisosPermissao = [];
     const carregarPerfis = (rota, nome) => requisicaoSupabase(rota).catch((erro) => {
       registrarDiagnostico("Supabase/RLS", `${nome} não carregados`, erro.message);
+      registrarErroAplicacaoSilencioso("SUPABASE_RLS_DENIED", erro, `${nome} não carregados`, { rota });
       const classificado = classificarFalhaClientesSaasRemoto(erro);
       avisosPermissao.push({ nome, status: classificado.status, detail: classificado.detail });
       logSuperadminSupabaseDebug(`${nome} não carregados`, classificado.log);
@@ -8994,6 +9390,7 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
     });
     logSuperadminSupabaseDebug("clientes não carregados", classificado.log);
     registrarDiagnostico("Supabase", "Dados SaaS online não carregados", erro.message);
+    registrarErroAplicacaoSilencioso("LOAD_CLIENTS_FAILED", erro, "Carregar clientes Supabase", { status: classificado.status, detail: classificado.detail });
     if (feedback) mostrarToast(classificado.message, "erro", 6500);
     if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
     return { ok: false, code: classificado.detail };
@@ -9133,6 +9530,7 @@ async function consultarLicencaSupabaseSilencioso() {
     return licenca;
   } catch (erro) {
     registrarDiagnostico("Supabase", "Licença online não carregada", erro.message);
+    registrarErroAplicacaoSilencioso("LOAD_SUBSCRIPTION_FAILED", erro, "Carregar licença SaaS");
     return null;
   }
 }
@@ -9799,6 +10197,7 @@ async function enviarBackupSupabase() {
     renderApp();
   } catch (erro) {
     alert("Não foi possível enviar para o Supabase: " + tratarErroSupabase(erro));
+    registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Enviar backup Supabase");
   }
 }
 
@@ -9822,6 +10221,7 @@ async function restaurarBackupSupabase() {
     renderApp();
   } catch (erro) {
     alert("Não foi possível restaurar do Supabase: " + tratarErroSupabase(erro));
+    registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Restaurar backup Supabase");
   }
 }
 
@@ -9858,6 +10258,7 @@ async function sincronizarSupabase() {
     syncConfig.autoBackupStatus = "Erro ao sincronizar";
     salvarDados();
     console.warn("[Sync/Supabase] Falha ao sincronizar", erro);
+    registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Sincronizar Supabase");
     alert("Erro ao sincronizar.");
     renderApp();
   }
@@ -10548,25 +10949,29 @@ async function autorizarEdicaoPedido() {
 }
 
 async function editarPedido(id) {
-  if (!permitirAcaoPlanoCompleto()) return;
-  if (!await autorizarEdicaoPedido()) return;
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
-  if (!pedido) return;
+  try {
+    if (!permitirAcaoPlanoCompleto()) return;
+    if (!await autorizarEdicaoPedido()) return;
+    const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+    if (!pedido) return;
 
-  const itens = Array.isArray(pedido.itens) && pedido.itens.length
-    ? pedido.itens
-    : [{
-        nome: pedido.nome || "Item",
-        qtd: 1,
-        valor: totalPedido(pedido),
-        total: totalPedido(pedido)
-      }];
+    const itens = Array.isArray(pedido.itens) && pedido.itens.length
+      ? pedido.itens
+      : [{
+          nome: pedido.nome || "Item",
+          qtd: 1,
+          valor: totalPedido(pedido),
+          total: totalPedido(pedido)
+        }];
 
-  itensPedido = JSON.parse(JSON.stringify(itens));
-  clientePedido = clienteDoPedido(pedido);
-  clienteTelefonePedido = telefoneDoPedido(pedido);
-  pedidoEditando = pedido;
-  trocarTela("pedido");
+    itensPedido = JSON.parse(JSON.stringify(itens));
+    clientePedido = clienteDoPedido(pedido);
+    clienteTelefonePedido = telefoneDoPedido(pedido);
+    pedidoEditando = pedido;
+    trocarTela("pedido");
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedidos", action: "Abrir pedido para edição", errorKey: "OPEN_ORDER_FAILED" });
+  }
 }
 
 function cancelarEdicaoPedido() {
@@ -10578,27 +10983,31 @@ function cancelarEdicaoPedido() {
 }
 
 function removerPedido(id) {
-  if (!permitirAcaoPlanoCompleto()) return;
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
-  if (!pedido) return;
-  if (!confirm("Remover este pedido?")) return;
+  try {
+    if (!permitirAcaoPlanoCompleto()) return;
+    const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+    if (!pedido) return;
+    if (!confirm("Remover este pedido?")) return;
 
-  const total = totalPedido(pedido);
-  const cliente = clienteDoPedido(pedido);
-  devolverEstoquePedido(pedido, "cancelamento");
-  pedidos = pedidos.filter((item) => Number(item.id) !== Number(id));
-  caixa = caixa.filter((movimento) => {
-    if (Number(movimento.pedidoId) === Number(id)) return false;
-    return !(Number(movimento.valor) === total && descricaoCaixa(movimento) === "Pedido - " + cliente);
-  });
+    const total = totalPedido(pedido);
+    const cliente = clienteDoPedido(pedido);
+    devolverEstoquePedido(pedido, "cancelamento");
+    pedidos = pedidos.filter((item) => Number(item.id) !== Number(id));
+    caixa = caixa.filter((movimento) => {
+      if (Number(movimento.pedidoId) === Number(id)) return false;
+      return !(Number(movimento.valor) === total && descricaoCaixa(movimento) === "Pedido - " + cliente);
+    });
 
-  if (pedidoEditando && Number(pedidoEditando.id) === Number(id)) {
-    cancelarEdicaoPedido();
+    if (pedidoEditando && Number(pedidoEditando.id) === Number(id)) {
+      cancelarEdicaoPedido();
+    }
+
+    salvarDados();
+    registrarHistorico("Pedido", "Pedido removido: " + cliente);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedidos", action: "Remover pedido", errorKey: "DELETE_ORDER_FAILED" });
   }
-
-  salvarDados();
-  registrarHistorico("Pedido", "Pedido removido: " + cliente);
-  renderApp();
 }
 
 // Baixa de estoque por diferença: evita descontar duas vezes ao editar e devolve no cancelamento.
@@ -10647,67 +11056,75 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
 }
 
 function fecharPedido() {
-  if (!permitirAcaoPlanoCompleto()) return;
-  if (!pedidoEditando && !verificarLimitePedidosAntesCriar()) return;
-  const campoCliente = document.getElementById("clienteNome");
-  const cliente = (campoCliente?.value || clientePedido).trim();
-  const telefoneCliente = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
+  try {
+    if (!permitirAcaoPlanoCompleto()) return;
+    if (!pedidoEditando && !verificarLimitePedidosAntesCriar()) return;
+    const campoCliente = document.getElementById("clienteNome");
+    const cliente = (campoCliente?.value || clientePedido).trim();
+    const telefoneCliente = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
 
-  if (!cliente) {
-    alert("Digite o nome do cliente");
-    return;
+    if (!cliente) {
+      alert("Digite o nome do cliente");
+      return;
+    }
+
+    if (!pedidoEditando && !verificarLimiteClientesAntesPedido(cliente)) return;
+
+    if (itensPedido.length === 0) {
+      alert("Nenhum item no pedido");
+      return;
+    }
+
+    const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+    const pedido = prepararRegistroOnline({
+      id: pedidoEditando?.id || Date.now(),
+      cliente,
+      clienteTelefone: telefoneCliente,
+      itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
+      total,
+      status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto",
+      data: pedidoEditando?.data || new Date().toLocaleDateString("pt-BR"),
+      criadoEm: pedidoEditando?.criadoEm || new Date().toISOString(),
+      atualizadoEm: new Date().toISOString()
+    });
+
+    if (!aplicarEstoquePedido(pedido, pedidoEditando)) return;
+
+    if (pedidoEditando) {
+      const idAntigo = Number(pedidoEditando.id);
+      pedidos = pedidos.filter((item) => Number(item.id) !== idAntigo);
+      caixa = caixa.filter((movimento) => Number(movimento.pedidoId) !== idAntigo);
+    }
+
+    pedidos.push(pedido);
+    caixa.push(prepararRegistroOnline({
+      id: Date.now() + 1,
+      tipo: "entrada",
+      valor: total,
+      descricao: "Pedido - " + cliente,
+      pedidoId: pedido.id,
+      data: new Date().toISOString()
+    }));
+
+    salvarDados();
+    registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
+    pedidoEditando = null;
+    itensPedido = [];
+    clientePedido = "";
+    clienteTelefonePedido = "";
+    if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
+      finalizarOnboarding(false);
+      return;
+    }
+    telaAtual = isMobile() ? "pedidos" : telaAtual;
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, {
+      area: "Pedidos",
+      action: pedidoEditando ? "Atualizar pedido" : "Salvar pedido",
+      errorKey: pedidoEditando ? "UPDATE_ORDER_FAILED" : "SAVE_ORDER_FAILED"
+    });
   }
-
-  if (!pedidoEditando && !verificarLimiteClientesAntesPedido(cliente)) return;
-
-  if (itensPedido.length === 0) {
-    alert("Nenhum item no pedido");
-    return;
-  }
-
-  const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  const pedido = prepararRegistroOnline({
-    id: pedidoEditando?.id || Date.now(),
-    cliente,
-    clienteTelefone: telefoneCliente,
-    itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
-    total,
-    status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto",
-    data: pedidoEditando?.data || new Date().toLocaleDateString("pt-BR"),
-    criadoEm: pedidoEditando?.criadoEm || new Date().toISOString(),
-    atualizadoEm: new Date().toISOString()
-  });
-
-  if (!aplicarEstoquePedido(pedido, pedidoEditando)) return;
-
-  if (pedidoEditando) {
-    const idAntigo = Number(pedidoEditando.id);
-    pedidos = pedidos.filter((item) => Number(item.id) !== idAntigo);
-    caixa = caixa.filter((movimento) => Number(movimento.pedidoId) !== idAntigo);
-  }
-
-  pedidos.push(pedido);
-  caixa.push(prepararRegistroOnline({
-    id: Date.now() + 1,
-    tipo: "entrada",
-    valor: total,
-    descricao: "Pedido - " + cliente,
-    pedidoId: pedido.id,
-    data: new Date().toISOString()
-  }));
-
-  salvarDados();
-  registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
-  pedidoEditando = null;
-  itensPedido = [];
-  clientePedido = "";
-  clienteTelefonePedido = "";
-  if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
-    finalizarOnboarding(false);
-    return;
-  }
-  telaAtual = isMobile() ? "pedidos" : telaAtual;
-  renderApp();
 }
 
 function alterarStatusPedido(id, status) {
@@ -11164,7 +11581,7 @@ function calcular() {
     margem = InventoryService.parseNumberStrict(document.getElementById("margem")?.value, "margem", { min: 0 });
     taxaExtra = InventoryService.parseNumberStrict(document.getElementById("taxaExtra")?.value, "taxa extra", { min: 0 });
   } catch (erro) {
-    ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço" });
+    ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço", errorKey: "CALCULATE_QUOTE_FAILED" });
     return;
   }
   const printer = document.getElementById("printer")?.value || appConfig.defaultPrinterModel || "";
@@ -12328,6 +12745,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  configurarTelemetriaErros();
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
   processarParametrosAssinaturaUrl();

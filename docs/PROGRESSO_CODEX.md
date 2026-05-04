@@ -433,3 +433,50 @@ Nao validado no smoke test web:
 - Login real, pois ainda falta Supabase de staging/teste.
 - Onboarding autenticado.
 - Superadmin autenticado.
+
+## Etapa - Telemetria de erros e feedback
+
+Backup de arquivos criado:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-telemetry-files-20260504-142607`
+
+Implementado:
+
+- Migration `supabase/migrations/20260504172615_app_telemetry_feedback.sql`.
+- Tabelas novas:
+  - `app_error_logs`;
+  - `app_error_log_users`;
+  - `app_feedback_reports`.
+- RPC publica `register_app_error`, chamando implementacao privilegiada em schema `private`.
+- Deduplicacao por `error_key`, `screen_name`, `action_name`, `app_version` e janela de 6 horas.
+- Contagem de ocorrencias e usuarios afetados.
+- Severidade automatica: `critical`, `high`, `medium`, `low`.
+- RLS para impedir usuarios comuns de lerem logs globais.
+- Servico web `src/services/errorTelemetry.js`.
+- Throttle local de 30s por erro/usuario.
+- Fila offline simples em `localStorage`.
+- Sanitizacao de `senha`, `password`, `token`, `authorization`, `apikey`, `secret`, `card` e similares.
+- Integracao com `ErrorService`, reaproveitando `registrarDiagnostico`.
+- Logs nos fluxos principais:
+  - login;
+  - cadastro;
+  - carregamento de perfil;
+  - RLS;
+  - clientes superadmin;
+  - pedidos abrir/salvar/atualizar/excluir;
+  - calculadora;
+  - sync Supabase;
+  - assinatura/pagamento.
+- Tela `Feedback` complementada com formulario estruturado.
+- Superadmin recebeu abas:
+  - `Relatorios automaticos`;
+  - `Sugestoes e Feedback`.
+- `index.html` carrega o servico de telemetria.
+- `scripts/prepare-web.js` copia `src/` para `dist/`.
+- `scripts/check-supabase-migrations.js` valida a estrutura nova.
+
+Observacao:
+
+- A migration ainda nao foi aplicada no Supabase remoto.
+- `db push --dry-run --linked` falhou por autenticacao/pooler (`password authentication failed` e depois `ECIRCUITBREAKER`).
+- Testes reais de RPC/tabelas dependem de aplicar a migration em staging/remoto.

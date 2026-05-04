@@ -344,3 +344,42 @@ Nao executado neste smoke:
 - Onboarding autenticado.
 - Superadmin autenticado.
 - Teste APK/mobile real.
+
+## Telemetria e feedback
+
+Comandos executados:
+
+- `node --check app.js` - OK.
+- `node --check src\services\errorTelemetry.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK, incluindo checks de telemetria.
+- `npm run supabase:test:rest` - OK nos testes existentes.
+- Varredura frontend por `service_role`, `supabase_service`, `SERVICE_ROLE`, `sb_secret` - OK.
+- `git diff --check` - OK, com avisos LF/CRLF do Windows.
+
+Teste automatizado local do servico:
+
+- Sanitizacao removeu `password` e `token`.
+- Throttle impediu envio duplicado do mesmo erro em 30s.
+- Fila offline salvou 1 erro quando `navigator.onLine=false`.
+- `flushPendingErrorLogs()` enviou a fila quando voltou online.
+
+Smoke web:
+
+- App carregou em `http://127.0.0.1:5180/` sem erro de console.
+- Calculadora continuou funcionando apos a telemetria.
+
+Supabase remoto:
+
+- `npx.cmd supabase db lint --linked` - OK com avisos antigos nao bloqueantes.
+- `npx.cmd supabase db push --dry-run --linked` - falhou nesta rodada por `password authentication failed` e `ECIRCUITBREAKER` no pooler.
+
+Nao validado completamente:
+
+- TESTE 1, erro manual criando registro em `app_error_logs`: pendente ate aplicar migration.
+- TESTE 2, repeticao incrementando `occurrence_count`: logica validada por SQL estatico, pendente em banco real.
+- TESTE 3, multiusuario incrementando `affected_user_count`: pendente em banco real.
+- TESTE 4, offline real no navegador com envio ao Supabase: fila local validada com stub, pendente com banco real.
+- TESTE 5, feedback salvo em `app_feedback_reports`: pendente ate aplicar migration.
+- TESTE 6, superadmin listando relatorios reais: pendente ate aplicar migration e login superadmin.
+- TESTE 7, seguranca de dados sensiveis: sanitizacao local validada.

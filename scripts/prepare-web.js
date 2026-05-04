@@ -28,4 +28,8 @@ if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
 }
 
+if (fs.existsSync(path.join(root, "src"))) {
+  fs.cpSync(path.join(root, "src"), path.join(dist, "src"), { recursive: true });
+}
+
 console.log("Arquivos web preparados em dist/");

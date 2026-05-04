@@ -42,7 +42,15 @@ const checks = [
   ["sync settings table", /create table if not exists public\.sync_settings/i],
   ["profiles onboarding fields", /alter table (if exists )?public\.profiles[\s\S]*onboarding_completed[\s\S]*onboarding_step/i],
   ["erp_profiles onboarding fields", /alter table (if exists )?public\.erp_profiles[\s\S]*onboarding_completed[\s\S]*onboarding_step/i],
-  ["companies setup fields", /alter table (if exists )?public\.companies[\s\S]*setup_completed[\s\S]*print_type[\s\S]*default_material/i]
+  ["companies setup fields", /alter table (if exists )?public\.companies[\s\S]*setup_completed[\s\S]*print_type[\s\S]*default_material/i],
+  ["app error logs table", /create table if not exists public\.app_error_logs/i],
+  ["app error log users table", /create table if not exists public\.app_error_log_users/i],
+  ["app feedback reports table", /create table if not exists public\.app_feedback_reports/i],
+  ["register app error RPC", /create or replace function public\.register_app_error/i],
+  ["error logs RLS", /alter table public\.app_error_logs enable row level security/i],
+  ["feedback RLS", /alter table public\.app_feedback_reports enable row level security/i],
+  ["error dedupe 6 hours", /last_seen_at >= now\(\) - interval '6 hours'/i],
+  ["error affected users count", /affected_user_count[\s\S]*app_error_log_users/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({

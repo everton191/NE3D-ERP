@@ -88,6 +88,12 @@ Branch: `fix/stability-auth-superadmin-onboarding`
    - Impacto: pode conflitar com o objetivo de reduzir configuracao manual para o usuario final.
    - Status: nao alterado nesta rodada porque a instrucao atual pediu para ignorar a parte de planos ja reestruturada, salvo dependencia direta.
 
+10. Telemetria nova depende de migration ainda nao aplicada.
+   - A migration `20260504172615_app_telemetry_feedback.sql` esta criada localmente.
+   - `db push --dry-run --linked` falhou por autenticacao/pooler do Supabase CLI.
+   - Impacto: ate aplicar a migration, os envios reais para `register_app_error` e `app_feedback_reports` podem cair na fila/local/fallback.
+   - Status: codigo, build e testes locais passaram; falta aplicar em staging/remoto.
+
 ## Ja existente e aproveitavel
 
 - Trigger `handle_new_saas_auth_user` cria registros SaaS quando Auth cria usuario.

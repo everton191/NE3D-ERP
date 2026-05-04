@@ -644,7 +644,8 @@ header h1{
 }
 
 input,
-select{
+select,
+textarea{
   width:100%;
   min-height:var(--control-height);
   padding:9px 10px;
@@ -662,7 +663,8 @@ input::placeholder{
 }
 
 input:focus,
-select:focus{
+select:focus,
+textarea:focus{
   border-color:rgba(255,148,28,.62);
   box-shadow:0 0 0 3px rgba(255,148,28,.10), inset 0 1px 0 rgba(255,255,255,.03);
 }
@@ -1033,6 +1035,17 @@ button:disabled{
 
 .admin-table .payment-row{
   grid-template-columns:minmax(110px, 1fr) minmax(90px, .7fr) minmax(90px, .8fr) minmax(90px, .7fr) minmax(120px, 1fr) auto;
+}
+
+.telemetry-table .payment-row{
+  grid-template-columns:minmax(150px, 1.4fr) minmax(70px, .5fr) minmax(70px, .5fr) minmax(90px, .7fr) minmax(110px, .8fr) minmax(120px, 1fr) minmax(120px, .9fr) minmax(80px, .6fr) minmax(170px, 1fr);
+}
+
+.telemetry-table small{
+  display:block;
+  color:var(--muted);
+  font-size:var(--font-xs);
+  margin-top:4px;
 }
 
 .comparison-grid{
@@ -1702,6 +1715,20 @@ button:disabled{
 .row-actions .btn{
   width:auto;
   flex:1 1 118px;
+}
+
+.field textarea{
+  width:100%;
+  min-height:112px;
+  resize:vertical;
+}
+
+.feedback-status.success{
+  color:var(--success);
+}
+
+.feedback-status.error{
+  color:var(--danger);
 }
 
 .assistant-fab{
