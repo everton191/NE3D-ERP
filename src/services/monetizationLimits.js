@@ -49,11 +49,11 @@
     try {
       if (typeof config.isPremiumResolver === "function") return !!config.isPremiumResolver(user);
     } catch (_) {}
-    if (global.AdMobService?.isPremiumUser) return global.AdMobService.isPremiumUser(user);
+    if (global.AdMobService?.isPremiumUser?.(user)) return true;
     if (user?.isPremium === true || user?.premium === true || user?.completo === true) return true;
-    const planId = normalize(user?.planId || user?.plan_id || user?.planSlug || user?.plan_slug || user?.plano || user?.planoAtual);
-    const status = normalize(user?.status || user?.planStatus || user?.statusAssinatura || user?.subscriptionStatus);
-    const expiresAt = Date.parse(user?.currentPeriodEnd || user?.current_period_end || user?.expiresAt || user?.expires_at || 0) || 0;
+    const planId = normalize(user?.activePlan || user?.active_plan || user?.planId || user?.plan_id || user?.planSlug || user?.plan_slug || user?.plano || user?.planoAtual);
+    const status = normalize(user?.subscriptionStatus || user?.subscription_status || user?.status || user?.planStatus || user?.statusAssinatura);
+    const expiresAt = Date.parse(user?.trialExpiresAt || user?.trial_expires_at || user?.planExpiresAt || user?.plan_expires_at || user?.currentPeriodEnd || user?.current_period_end || user?.expiresAt || user?.expires_at || 0) || 0;
     if (planId === "premium_trial") return status === "trialing" && expiresAt > config.now();
     if (planId === "premium") return status === "active" && (!expiresAt || expiresAt > config.now());
     return false;

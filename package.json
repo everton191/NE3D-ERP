@@ -15,6 +15,8 @@
     "supabase:test:rest": "node scripts/test-supabase-rest.js",
     "supabase:test:telemetry": "node scripts/test-telemetry-rest.js",
     "supabase:test:migrations": "node scripts/check-supabase-migrations.js",
+    "test:auth-hotfix": "node scripts/test-auth-hotfix.js",
+    "test:auth-ui": "node scripts/test-auth-ui.js",
     "test:monetization": "node scripts/test-monetization.js",
     "android:add": "npm run build:web && cap add android",
     "android:sync": "npm run build:web && cap sync android",

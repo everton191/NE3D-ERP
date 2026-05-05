@@ -494,3 +494,189 @@ APK:
 
 - `downloads/NE3D-ERP.apk` gerado com sucesso.
 - `downloads/update.json` gerado com versao `2026.05.04-legal-ads` e `versionCode=32`.
+
+## Superadmin busca e usuários de teste
+
+Comandos executados:
+
+- `node --check app.js` - OK.
+- `node --check sw.js` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npm run supabase:test:telemetry` - OK.
+- `git diff --check` - OK, apenas avisos de LF/CRLF do Windows.
+- `npx.cmd supabase migration list --linked` - OK, migration nova aparece pendente no remoto.
+- `npx.cmd supabase db push --dry-run --linked` - timeout/pooler após conectar ao banco remoto.
+
+Smoke web:
+
+- `http://127.0.0.1:5180/` carregou com titulo `Simplifica 3D`.
+- Console do navegador sem erros no carregamento.
+- Sessão atual estava na tela de entrada, então o clique real em cliente no Superadmin precisa ser validado com superadmin logado.
+
+Não aplicado no remoto:
+
+- A migration `20260504232433_superadmin_test_user_cleanup.sql` está pronta, mas ainda não foi enviada ao Supabase remoto porque altera permissões/funções administrativas e o dry-run ficou travado no pooler.
+
+## Planos, anúncios, roles e sugestões
+
+Comandos executados em 2026-05-05:
+
+- `node --check app.js` - OK.
+- `node --check src\services\adMobService.js` - OK.
+- `node --check src\services\monetizationLimits.js` - OK.
+- `node --check scripts\test-monetization.js` - OK.
+- `npm run test:monetization` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npm run supabase:test:telemetry` - OK.
+- `npx.cmd supabase migration list --linked` - OK; migrations `20260504232433` e `20260505125834` aparecem pendentes no remoto.
+- `git diff --check` - OK, apenas avisos LF/CRLF do Windows.
+
+Casos cobertos por teste automatizado:
+
+- Premium não vê anúncios.
+- Trial ativo libera limites premium.
+- Free no limite continua bloqueado.
+- `pending` não libera limites premium.
+- `pending` não desliga anúncios do Free.
+- Trial não vê anúncios.
+- Pago não vê anúncios.
+- Login não mostra interstitial.
+- Interstitial só aparece após intervalo/ações completas.
+- Rewarded continua liberando pedidos/PDF temporariamente.
+
+Verificações por código:
+
+- Cadastro local usa papel `user` por padrão.
+- `owner/dono` legado normaliza para `user`.
+- Superadmin por bootstrap de e-mail foi removido do frontend.
+- Superadmin altera `active_plan`, limpa `pending_plan` e trava `plan_price` para plano pago.
+- `app_suggestions` tem tabela, RLS e listagem no Superadmin.
+- Limpeza de pending >24h está na migration.
+- `get_saas_license` retorna `active_plan`, `pending_plan`, `payment_status`, `subscription_status`, preço e flags de trial/anúncios.
+
+Ainda pendente:
+
+- `npx.cmd supabase db push --dry-run --linked` com senha válida do banco.
+- Aplicar migrations no Supabase remoto.
+- Teste real com superadmin logado: pesquisar cliente, abrir edição, alterar plano/status, marcar teste, excluir teste.
+- Teste real de sugestão/NF-e salvando no Supabase remoto.
+- Gerar APK atualizado.
+
+Bloqueio:
+
+- `npx.cmd supabase db push --dry-run --linked` falhou com autenticação inválida do banco (`SUPABASE_DB_PASSWORD`) e bloqueio temporário do pooler (`ECIRCUITBREAKER`).
+- Nenhuma migration foi aplicada no remoto nesta tentativa.
+
+## Hotfix Superadmin e 2FA WhatsApp
+
+Comandos executados em 2026-05-05:
+
+- `node --check app.js` - OK.
+- `node --check scripts\test-auth-hotfix.js` - OK.
+- `npm run test:auth-hotfix` - OK.
+- `npm run test:monetization` - OK.
+- `npm run supabase:test:migrations` - OK.
+- `npm run build:web` - OK.
+- `npm run supabase:test:rest` - OK.
+- `npm run supabase:test:telemetry` - OK.
+- `git diff --check` - OK, apenas avisos LF/CRLF do Windows.
+
+Casos cobertos por `test:auth-hotfix`:
+
+- `normalizePhoneBR()` normaliza telefones BR para E.164.
+- Links WhatsApp usam número sem `+`.
+- 2FA WhatsApp fica desligado sem backend real.
+- `precisa2FA()` não bloqueia login sem backend.
+- `abrirWhats2FA()` não abre `wa.me` de 2FA sem backend.
+- Superadmin valida RPC `erp_is_superadmin()` e perfis pelo próprio `user_id`.
+- Login Supabase não usa fallback `operador/admin`.
+- OAuth não cria admin por fallback.
+- Superadmin redireciona para o painel `superadmin`.
+- Configuração pública não reativa 2FA sem backend.
+
+Verificações remotas no Supabase:
+
+- `public.erp_is_superadmin()` existe.
+- `public.superadmins` ainda não existe no remoto.
+- `paessilvae@gmail.com` está com e-mail confirmado.
+- `erp_profiles.role = superadmin`.
+- `erp_profiles.status = active`.
+- Cliente vinculado existe e está ativo.
+- Assinatura vinculada existe (`trialing`).
+- Simulação da claim JWT do `user_id` retornou `is_superadmin = true`.
+
+Não executado:
+
+- Login real com senha no app, porque a senha de autenticação do usuário não foi informada nesta sessão.
+- APK, conforme pedido.
+
+## Tela pública de autenticação
+
+Comandos executados em 2026-05-05:
+
+- `npm run test:auth-hotfix` - OK antes de alterar a UI.
+- `npm run supabase:test:rest` - OK antes de alterar a UI.
+- Consulta remota Supabase: superadmin `paessilvae@gmail.com` confirmado em `erp_profiles` como `superadmin/active`.
+- `node --check app.js` - OK.
+- `node --check scripts\test-auth-ui.js` - OK.
+- `npm run test:auth-ui` - OK.
+- `npm run test:monetization` - OK.
+- `npm run build:web` - OK.
+
+Casos cobertos por `test:auth-ui`:
+
+- Tela pública contém marca, abas `Entrar`/`Criar conta` e frase curta.
+- Aba Entrar contém e-mail, senha, manter conectado, recuperar senha e link discreto de planos.
+- Aba Criar conta contém todos os campos obrigatórios e aceite legal.
+- DOM público não contém Google, acesso local, manutenção local, senha salva/digital, `adminSenha` ou `loginAdminBtn`.
+- Assistente e calculadora flutuante dependem de usuário autenticado.
+- Header some na tela pública de auth.
+
+Verificação visual/DOM:
+
+- Edge headless abriu `http://127.0.0.1:5181/`.
+- DOM deslogado confirmou `Entrar` e `Criar conta`.
+- DOM deslogado confirmou ausência de `Acesso local`, `Google`, `Senha salva/digital`, `.assistant-fab`, `.calc-float-ball` e `#introOverlay`.
+- CDP mobile 390x844 confirmou aba Entrar sem scroll relevante e sem flutuantes.
+- CDP mobile 390x844 confirmou aba Criar conta com scroll leve e sem flutuantes.
+
+Não executado:
+
+- Login real com senha e criação real de conta, porque credenciais/dados reais de teste não foram informados nesta sessão.
+- APK, conforme pedido anterior.
+
+## Publicação site/APK - validação real
+
+Comandos executados em 2026-05-05:
+
+- `npx supabase db push --linked --dry-run` - OK.
+- `npx supabase db push --linked --yes` - OK para migrations pendentes.
+- `npm run supabase:migrations` - OK, local e remoto alinhados até `20260505230616`.
+- `npm run supabase:test:rest` - OK após correção das policies.
+- `npm run supabase:test:migrations` - OK.
+- `npm run test:auth-hotfix` - OK.
+- `npm run test:auth-ui` - OK.
+- `npm run test:monetization` - OK.
+
+Teste manual no navegador local:
+
+- `http://127.0.0.1:5181/` carregou a build de `dist`.
+- Login real do Superadmin concluído e abriu painel sem 2FA WhatsApp.
+- Superadmin carregou dashboard e clientes remotos.
+- Busca por e-mail filtrou a lista.
+- Clique na linha inteira do cliente abriu edição.
+- `Alterar plano` abriu o fluxo e foi cancelado sem alteração.
+- `Sugestões e Feedback` carregou sem erro e exibiu contadores/feedbacks.
+- Logout retornou para a tela `Entrar`.
+- Assistente e calculadora flutuante ficaram ocultos após logout.
+
+Correção adicional validada:
+
+- `REST plans active`: `200`.
+- `REST profiles RLS anon`: `200`, `rows=0`.
+- `REST clients RLS anon`: `200`, `rows=0`.
+- RPCs e Edge Functions protegidas continuaram retornando `401` para chamadas anônimas quando esperado.

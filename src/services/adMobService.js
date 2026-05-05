@@ -29,6 +29,7 @@
     getPlugin: () => global.Capacitor?.Plugins?.AdMob || global.AdMob || null,
     getStorage: () => global.localStorage || null,
     isPremiumResolver: null,
+    shouldShowAdsResolver: null,
     telemetry: null,
     toast: null
   };
@@ -86,17 +87,24 @@
     if (!user) return false;
     if (user.isPremium === true || user.premium === true || user.completo === true) return true;
     if (user.role === "superadmin" || user.papel === "superadmin") return true;
-    const planId = normalizePlan(user.planId || user.plan_id || user.planSlug || user.plan_slug || user.plano || user.planoAtual);
-    const status = normalizePlan(user.status || user.planStatus || user.statusAssinatura || user.subscriptionStatus);
-    const expiresAt = Date.parse(user.currentPeriodEnd || user.current_period_end || user.expiresAt || user.expires_at || user.planExpiresAt || 0) || 0;
+    const planId = normalizePlan(user.activePlan || user.active_plan || user.planId || user.plan_id || user.planSlug || user.plan_slug || user.plano || user.planoAtual);
+    const status = normalizePlan(user.subscriptionStatus || user.subscription_status || user.status || user.planStatus || user.statusAssinatura);
+    const expiresAt = Date.parse(user.trialExpiresAt || user.trial_expires_at || user.planExpiresAt || user.plan_expires_at || user.currentPeriodEnd || user.current_period_end || user.expiresAt || user.expires_at || 0) || 0;
     if (planId === "premium_trial") return status === "trialing" && expiresAt > config.now();
     if (planId === "premium") return ["active", "paid", "pago"].includes(status) && (!expiresAt || expiresAt > config.now());
     return false;
   }
 
   function isAdsAllowed(user = {}) {
+    try {
+      if (typeof config.shouldShowAdsResolver === "function") {
+        return !!config.shouldShowAdsResolver(user, {});
+      }
+    } catch (_) {}
     if (isPremiumUser(user)) return false;
     if (user?.bloqueado || user?.blocked || user?.ativo === false) return false;
+    const planId = normalizePlan(user.planId || user.plan_id || user.planSlug || user.plan_slug || user.activePlan || user.active_plan || user.plano || user.planoAtual);
+    if (planId && planId !== "free") return false;
     return true;
   }
 
@@ -204,6 +212,11 @@
 
   function canShowInterstitial(user = {}, context = {}) {
     if (!isProductionEnabled()) return { allowed: false, reason: "PRODUCTION_DISABLED" };
+    try {
+      if (typeof config.shouldShowAdsResolver === "function" && !config.shouldShowAdsResolver(user, context)) {
+        return { allowed: false, reason: "ADS_NOT_ALLOWED" };
+      }
+    } catch (_) {}
     if (!isAdsAllowed(user)) return { allowed: false, reason: "ADS_NOT_ALLOWED" };
     if (isCriticalContext(context)) return { allowed: false, reason: "CRITICAL_CONTEXT" };
 
@@ -285,6 +298,7 @@
     configure,
     isPremiumUser,
     isAdsAllowed,
+    shouldShowAds: isAdsAllowed,
     canShowRewarded,
     showRewardedAd,
     canShowInterstitial,

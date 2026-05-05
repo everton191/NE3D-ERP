@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v50-legal-ads";
+const CACHE_NAME = "simplifica-3d-v51-superadmin-search-test";
 const APP_FILES = [
   "./",
   "./index.html",

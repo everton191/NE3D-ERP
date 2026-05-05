@@ -573,3 +573,264 @@ Implementado:
   - `downloads/update.json`;
   - versao `2026.05.04-legal-ads`;
   - versionCode `32`.
+
+## Etapa - Superadmin busca e usuários de teste
+
+Backup de arquivos criado:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-superadmin-busca-teste-20260504-202055`
+
+Implementado:
+
+- Resultado de busca de clientes SaaS agora é selecionável pela linha inteira.
+- Adicionado suporte a `click`, `pointerdown`, `touchstart` e teclado (`Enter`/espaço) para abrir edição do cliente.
+- Ao tocar no resultado no mobile, o campo ativo perde foco para fechar o teclado antes de abrir a edição.
+- Linha selecionada fica destacada visualmente.
+- Adicionada flag local/remota `is_test_user`.
+- Superadmin pode marcar/desmarcar cliente como “Usuário de teste”.
+- Clientes marcados recebem badge “Teste”.
+- Ação “Excluir usuário de teste” aparece apenas quando `is_test_user = true`.
+- Exclusão exige digitar `EXCLUIR TESTE`.
+- Usuários reais deixam de ter exclusão direta; fluxo mantém exportação/anonimização.
+- Anonimização passa a marcar o cliente como `anonymized` e remover dados pessoais.
+
+Migration criada:
+
+- `supabase/migrations/20260504232433_superadmin_test_user_cleanup.sql`
+
+Essa migration adiciona:
+
+- `clients.is_test_user`;
+- `clients.anonymized_at`;
+- `profiles.is_test_user`;
+- `erp_profiles.is_test_user`;
+- status `anonymized` em `clients`;
+- tabela `deleted_test_user_audit`;
+- RPC pública `delete_test_user_client`;
+- implementação privada `private.delete_test_user_client_impl`.
+
+Observação:
+
+- A migration ainda não foi aplicada no Supabase remoto. `supabase migration list --linked` mostra a migration local pendente e o `db push --dry-run --linked` ficou em timeout/pooler.
+
+## Etapa - Planos, anúncios, roles e sugestões
+
+Data: 2026-05-05
+
+Backup de arquivos criado antes das alterações:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-planos-ads-sugestoes-20260505-095211`
+
+Etapa 3 concluída - Migration local:
+
+- Criada migration `supabase/migrations/20260505125834_plans_ads_roles_suggestions.sql`.
+- Adicionados campos definitivos de plano: `active_plan`, `pending_plan`, `payment_status`, `subscription_status`, `plan_expires_at`, `plan_price`, `price_locked`.
+- Adicionados campos de trial: `trial_started_at`, `trial_expires_at`, `is_trial_active`.
+- Adicionado controle de anúncios: `last_ad_shown_at`.
+- Criada tabela `app_suggestions` para sugestões, bugs e features.
+- Criada tabela `superadmins` para superadmin por `user_id`.
+- Criado preço progressivo: R$19,90 até 100 clientes, R$24,90 de 101 a 200, R$29,90 acima de 200.
+- Adicionado trigger de pagamentos: `pending` só avisa, `approved` ativa, `rejected/cancelled` limpa pendência.
+- Adicionada limpeza automática de `pending` com mais de 24h.
+- Backfill corrige `pending` travado, trials expirados e admins indevidos.
+
+Etapa 4 concluída - App:
+
+- `activePlan` passou a ser a referência única para liberar acesso.
+- `pendingPlan/paymentStatus=pending` não ativa plano, não bloqueia usuário e não muda anúncios.
+- Novas contas locais entram como `user` com trial de 7 dias.
+- Papel `owner/dono` foi neutralizado para `user`; `admin` só é criado sob demanda.
+- Superadmin local por e-mail foi desativado no frontend; acesso global depende do banco por `user_id`.
+- Criada função central `shouldShowAds(user)`.
+- Anúncios ficam apenas no Free, com intervalo mínimo de 20 minutos e fora de login, pagamento, edição, digitação, modal e erro.
+- Superadmin ao alterar plano grava `active_plan`, limpa `pending_plan` e trava `plan_price` quando pago.
+
+Etapa 5 concluída - Sugestões:
+
+- Adicionado botão rápido “Quero emissão de NF-e”.
+- Adicionado envio “Sugerir melhoria”.
+- Sugestões são salvas localmente e enviadas para `app_suggestions` quando Supabase estiver disponível.
+- Superadmin lista sugestões, filtra por status/categoria e destaca quantidade de pedidos de NF-e.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `src/services/adMobService.js`
+- `src/services/monetizationLimits.js`
+- `scripts/test-monetization.js`
+- `scripts/check-supabase-migrations.js`
+- `supabase/migrations/20260505125834_plans_ads_roles_suggestions.sql`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+
+Validado localmente até aqui:
+
+- `node --check app.js`
+- `node --check src\services\adMobService.js`
+- `node --check src\services\monetizationLimits.js`
+- `node --check scripts\test-monetization.js`
+- `npm run test:monetization`
+- `npm run supabase:test:migrations`
+- `npm run build:web`
+- `npm run supabase:test:rest`
+- `npm run supabase:test:telemetry`
+- `git diff --check` sem erros, apenas avisos LF/CRLF do Windows.
+- `npx.cmd supabase migration list --linked`
+
+Ainda não executado nesta etapa:
+
+- Aplicar migrations no Supabase remoto.
+- Validar fluxo real com superadmin logado.
+- Gerar APK atualizado.
+
+Bloqueio remoto:
+
+- `npx.cmd supabase db push --dry-run --linked` falhou antes de aplicar qualquer SQL.
+- Erro retornado: senha do banco inválida em `SUPABASE_DB_PASSWORD` para o usuário temporário `cli_login_postgres`.
+- O pooler entrou em bloqueio temporário por muitas falhas de autenticação (`ECIRCUITBREAKER`).
+- Migrations pendentes no remoto:
+  - `20260504232433_superadmin_test_user_cleanup`
+  - `20260505125834_plans_ads_roles_suggestions`
+
+## Etapa - Hotfix Superadmin e 2FA WhatsApp
+
+Data: 2026-05-05
+
+Backup criado antes das alterações:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-hotfix-superadmin-auth-20260505-145723`
+
+Etapa 1 concluída - Login e permissão:
+
+- Auditado fluxo de login por e-mail/senha, hidratação de perfil Supabase, role e redirecionamento.
+- Superadmin agora é redirecionado diretamente para `superadmin` após login válido.
+- Usuário comum/admin sai da tela de login e volta para `dashboard`.
+- Login Supabase não cria mais usuário local com fallback `operador`; o padrão fica `user`.
+- Fallback OAuth também não cria `admin`; usa `user`.
+- Checagem de superadmin consulta a RPC `erp_is_superadmin()` e, se necessário, os perfis do próprio `user_id` em `erp_profiles` e `profiles`.
+
+Etapa 2 concluída - 2FA WhatsApp:
+
+- Confirmado que não existe Edge Function/backend de 2FA WhatsApp no projeto.
+- Funções existentes do Supabase são apenas Mercado Pago.
+- 2FA WhatsApp foi desativado temporariamente com `WHATSAPP_2FA_BACKEND_ENABLED = false`.
+- `precisa2FA()` não bloqueia login quando não houver backend real.
+- `abrirWhats2FA()` não abre `wa.me` para autenticação sem backend.
+- Configuração pública não reativa 2FA enquanto o backend real não existir.
+- Aviso interno registrado: `2FA WhatsApp desativado temporariamente`.
+
+Etapa 3 concluída - Telefone:
+
+- Criada função única `normalizePhoneBR(phone)`.
+- Telefones aceitos: `85999999999`, `5585999999999`, `+5585999999999`, `(85) 99999-9999`.
+- Normalização de cadastro/configuração/perfis para E.164 (`+55DDDNÚMERO`).
+- Links WhatsApp continuam usando número sem `+`.
+
+Etapa 4 concluída - Verificação remota e testes:
+
+- Banco remoto consultado via Supabase linkado.
+- `paessilvae@gmail.com` possui `auth.users` confirmado, `erp_profiles.role = superadmin`, `erp_profiles.status = active`, cliente ativo e assinatura existente.
+- RPC `erp_is_superadmin()` retornou `true` para o `user_id` do superadmin quando simulada com a claim JWT.
+- Tabela `public.superadmins` ainda não existe no remoto porque a migration de planos/roles continua pendente; acesso atual depende de `erp_profiles.role = superadmin`.
+- Nenhuma migration foi aplicada e nenhum APK foi gerado nesta etapa.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `package.json`
+- `scripts/test-auth-hotfix.js`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+
+Validado localmente:
+
+- `node --check app.js`
+- `node --check scripts\test-auth-hotfix.js`
+- `npm run test:auth-hotfix`
+- `npm run test:monetization`
+- `npm run supabase:test:migrations`
+- `npm run build:web`
+- `npm run supabase:test:rest`
+- `npm run supabase:test:telemetry`
+- `git diff --check` sem erros, apenas avisos LF/CRLF do Windows.
+
+## Etapa - Tela pública de autenticação
+
+Data: 2026-05-05
+
+Backup criado antes das alterações:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-auth-ui-20260505-152339`
+
+Confirmado antes de alterar:
+
+- `npm run test:auth-hotfix` passou.
+- `npm run supabase:test:rest` passou.
+- Consulta remota confirmou `paessilvae@gmail.com` com e-mail confirmado, `erp_profiles.role = superadmin` e `erp_profiles.status = active`.
+
+Implementado:
+
+- Tela pública centralizada com marca Simplifica 3D e frase “Organize seus pedidos sem complicação”.
+- Fluxos separados por abas: `Entrar` e `Criar conta`.
+- Aba Entrar padrão com e-mail, senha, botão de mostrar/ocultar, “Manter-me conectado”, recuperar senha e link discreto de planos.
+- Aba Criar conta com nome, e-mail, senha, confirmação, negócio, telefone opcional e aceite legal obrigatório.
+- Removidos do DOM público: Google, acesso/manutenção local, senha salva/digital e botões duplicados/sem função.
+- Assistente e calculadora flutuante agora só aparecem com usuário autenticado e fora de telas públicas.
+- Intro de abertura não cobre mais a tela deslogada.
+- Adicionado teste `scripts/test-auth-ui.js`.
+
+Arquivos alterados nesta etapa:
+
+- `app.js`
+- `style.css`
+- `package.json`
+- `scripts/test-auth-ui.js`
+- `docs/PROGRESSO_CODEX.md`
+- `docs/TESTES.md`
+
+Validado:
+
+- `node --check app.js`
+- `node --check scripts\test-auth-ui.js`
+- `npm run test:auth-ui`
+- `npm run test:auth-hotfix`
+- `npm run test:monetization`
+- `npm run build:web`
+- Verificação DOM com Edge headless: sem `Acesso local`, Google, senha salva/digital, assistente, calculadora flutuante ou intro na tela deslogada.
+- Verificação visual por CDP mobile 390x844 nas abas Entrar e Criar conta.
+
+## Etapa - Publicação site/APK e validação real
+
+Data: 2026-05-05
+
+Backup criado antes das alterações geradas/publicação:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-prepublish-site-apk-20260505-195903`
+
+Banco remoto:
+
+- Aplicadas no Supabase remoto as migrations:
+  - `20260504232433_superadmin_test_user_cleanup.sql`
+  - `20260505125834_plans_ads_roles_suggestions.sql`
+  - `20260505230205_restore_public_rest_grants.sql`
+  - `20260505230616_split_anon_auth_rest_policies.sql`
+- Criadas duas migrations de estabilização REST/RLS para corrigir `401` em `plans` e `clients` sem liberar dados de clientes para `anon`.
+- `plans` agora permite leitura pública apenas de planos ativos.
+- `clients` permite consulta anônima com RLS retornando zero linhas, mantendo dados protegidos.
+
+Validação real com Superadmin:
+
+- Login real com o superadmin informado entrou sem bloqueio de 2FA WhatsApp.
+- Painel Superadmin abriu corretamente.
+- Lista remota de clientes carregou.
+- Filtro por e-mail funcionou após debounce.
+- Clique na linha inteira do cliente abriu o modal de edição.
+- Ação `Alterar plano` abriu o fluxo e foi cancelada sem alterar dados.
+- Aba `Sugestões e Feedback` carregou contadores, pedidos NF-e e feedbacks.
+- Logout com segurança voltou para a tela pública e ocultou assistente/calculadora flutuante.
+
+Versão:
+
+- `APP_VERSION`: `2026.05.05-superadmin-auth-plans`
+- Android `versionCode`: `33`
+- Android `versionName`: `2026.05.05-superadmin-auth-plans`

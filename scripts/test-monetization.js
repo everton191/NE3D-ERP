@@ -39,7 +39,7 @@ const mockPlugin = {
   }
 };
 
-function configure({ premium = false, orders = 0, production = false, random = 0.1 } = {}) {
+function configure({ premium = false, orders = 0, production = false, random = 0.1, shouldShowAdsResolver = null } = {}) {
   global.localStorage.clear();
   AdMobService.configure({
     now: () => now,
@@ -47,6 +47,7 @@ function configure({ premium = false, orders = 0, production = false, random = 0
     productionEnabledOverride: production,
     getPlugin: () => mockPlugin,
     isPremiumResolver: () => premium,
+    shouldShowAdsResolver,
     telemetry: () => {},
     toast: () => {}
   });
@@ -67,6 +68,37 @@ async function run() {
   assert.equal(AdMobService.isAdsAllowed({}), false, "premium nao deve ver anuncios");
   assert.equal(MonetizationLimits.canCreateOrder({}), true, "premium cria pedido direto");
   assert.equal(MonetizationLimits.canExportPDF({}), true, "premium exporta PDF direto");
+
+  const shouldShowAds = (user = {}, context = {}) => {
+    const screen = String(context.screenName || context.screen || "").toLowerCase();
+    if (["login", "pagamento", "assinatura", "admin"].includes(screen) || context.isTyping || context.hasError || context.isEditingOrder) return false;
+    const plan = String(user.activePlan || user.active_plan || "free").toLowerCase();
+    return plan === "free";
+  };
+
+  configure({ premium: false, shouldShowAdsResolver: shouldShowAds });
+  assert.equal(AdMobService.isAdsAllowed({ activePlan: "free", paymentStatus: "pending" }), true, "pending nao desliga anuncios do free");
+  assert.equal(AdMobService.isAdsAllowed({ activePlan: "premium_trial", subscriptionStatus: "trialing" }), false, "trial nao deve ver anuncios");
+  assert.equal(AdMobService.isAdsAllowed({ activePlan: "premium", subscriptionStatus: "active" }), false, "pago nao deve ver anuncios");
+  assert.equal(AdMobService.canShowInterstitial({ activePlan: "free" }, { screenName: "login" }).allowed, false, "login nunca mostra anuncio");
+
+  MonetizationLimits.configure({
+    now: () => now,
+    getOrderCount: () => 999,
+    isPremiumResolver: null
+  });
+  assert.equal(MonetizationLimits.canCreateOrder({
+    activePlan: "premium_trial",
+    subscriptionStatus: "trialing",
+    trialExpiresAt: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString()
+  }), true, "trial ativo libera limites");
+  assert.equal(MonetizationLimits.canCreateOrder({
+    activePlan: "free",
+    pendingPlan: "premium",
+    paymentStatus: "pending",
+    subscriptionStatus: "free",
+    orderCount: 999
+  }), false, "pending nao libera limites premium");
 
   configure({ premium: false, orders: 4 });
   assert.equal(MonetizationLimits.canCreateOrder({ email: "free@example.com" }), true, "free dentro do limite cria pedido");
