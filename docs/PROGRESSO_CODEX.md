@@ -834,3 +834,30 @@ Versão:
 - `APP_VERSION`: `2026.05.05-superadmin-auth-plans`
 - Android `versionCode`: `33`
 - Android `versionName`: `2026.05.05-superadmin-auth-plans`
+
+## Etapa - Hotfix rolagem da lista de clientes
+
+Data: 2026-05-05
+
+Backup criado antes das alterações:
+
+- `C:\Users\PAESS\OneDrive\Desktop\erpNE3d-backup-fix-client-scroll-edit-20260505-203958`
+
+Problema corrigido:
+
+- Ao arrastar/rolar a lista de clientes no Superadmin pelo celular, a linha era aberta para edição porque `touchstart/pointerdown` disparava seleção imediatamente.
+
+Implementado:
+
+- `touchstart/pointerdown` agora apenas registra o ponto inicial do toque.
+- `touchmove/pointermove` marca o gesto como arrasto quando passa do limite de movimento.
+- `click` ignora o gesto quando ele veio de rolagem.
+- Tap/click curto na linha continua abrindo a edição.
+- Botões internos da linha continuam independentes.
+- `.client-admin-row` agora usa `touch-action: pan-y` para preservar rolagem vertical.
+
+Versão:
+
+- `APP_VERSION`: `2026.05.05-client-scroll-hotfix`
+- Android `versionCode`: `34`
+- Android `versionName`: `2026.05.05-client-scroll-hotfix`

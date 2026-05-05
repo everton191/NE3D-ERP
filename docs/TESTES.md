@@ -680,3 +680,20 @@ Correção adicional validada:
 - `REST profiles RLS anon`: `200`, `rows=0`.
 - `REST clients RLS anon`: `200`, `rows=0`.
 - RPCs e Edge Functions protegidas continuaram retornando `401` para chamadas anônimas quando esperado.
+
+## Hotfix rolagem da lista de clientes
+
+Comandos executados em 2026-05-05:
+
+- `node --check app.js` - OK.
+- `node --check scripts\test-auth-hotfix.js` - OK.
+- `npm run test:auth-hotfix` - OK.
+- `npm run test:auth-ui` - OK.
+- `npm run test:monetization` - OK.
+- `npm run build:web` - OK.
+
+Caso coberto por teste automatizado:
+
+- Simulação de toque + movimento vertical na linha de cliente não chama seleção/edição.
+- Simulação de tap curto na linha continua chamando seleção/edição.
+- Linha de cliente usa handlers de movimento/cancelamento e `touch-action: pan-y`.

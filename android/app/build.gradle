@@ -7,8 +7,8 @@ android {
         applicationId "br.com.ne3d.erp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 33
-        versionName "2026.05.05-superadmin-auth-plans"
+        versionCode 34
+        versionName "2026.05.05-client-scroll-hotfix"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

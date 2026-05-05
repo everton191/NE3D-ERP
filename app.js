@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.05-superadmin-auth-plans";
+const APP_VERSION = "2026.05.05-client-scroll-hotfix";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -5671,7 +5671,7 @@ function renderLinhaClienteSaas(cliente) {
   const selecionado = String(window.__clienteSaasSelecionadoId || "") === String(cliente.id);
   const badgeTeste = cliente.isTestUser ? `<span class="status-badge badge-teste">Teste</span>` : "";
   return `
-    <div class="client-admin-row ${selecionado ? "selected" : ""}" data-client-row="saas" data-client-id="${clienteIdAttr}" role="button" tabindex="0" aria-selected="${selecionado ? "true" : "false"}" onpointerdown="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchstart="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" onclick="selecionarResultadoClienteSaas(event, '${clienteIdAttr}')" onkeydown="acionarClienteSaasPorTeclado(event, '${clienteIdAttr}')">
+    <div class="client-admin-row ${selecionado ? "selected" : ""}" data-client-row="saas" data-client-id="${clienteIdAttr}" role="button" tabindex="0" aria-selected="${selecionado ? "true" : "false"}" onpointerdown="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" onpointermove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" onpointercancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchstart="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchmove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" ontouchcancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" onclick="selecionarResultadoClienteSaas(event, '${clienteIdAttr}')" onkeydown="acionarClienteSaasPorTeclado(event, '${clienteIdAttr}')">
       <div>
         <strong>${escaparHtml(cliente.name)}</strong>
         <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)}</span>
@@ -5799,14 +5799,61 @@ function fecharTecladoBuscaClientesSaas() {
 
 function prepararSelecaoClienteSaas(event, id) {
   if (alvoInterativoClienteSaas(event)) return;
-  if (event.type === "touchstart" || event.pointerType === "touch" || event.pointerType === "pen") {
-    event.preventDefault();
-    selecionarClienteSaasResultado(id);
+  const ponto = getPontoInteracaoClienteSaas(event);
+  if (!ponto) return;
+  window.__clienteSaasToque = {
+    id: String(id),
+    startX: ponto.x,
+    startY: ponto.y,
+    moved: false,
+    cancelled: false,
+    startedAt: Date.now()
+  };
+}
+
+function getPontoInteracaoClienteSaas(event) {
+  const toque = event?.changedTouches?.[0] || event?.touches?.[0] || null;
+  const x = Number(toque?.clientX ?? event?.clientX);
+  const y = Number(toque?.clientY ?? event?.clientY);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function atualizarMovimentoClienteSaas(event, id) {
+  const estado = window.__clienteSaasToque;
+  if (!estado || String(estado.id) !== String(id)) return;
+  const ponto = getPontoInteracaoClienteSaas(event);
+  if (!ponto) return;
+  const dx = Math.abs(ponto.x - estado.startX);
+  const dy = Math.abs(ponto.y - estado.startY);
+  if (dx > 10 || dy > 10) {
+    estado.moved = true;
   }
+}
+
+function cancelarSelecaoClienteSaas(event, id) {
+  const estado = window.__clienteSaasToque;
+  if (!estado || String(estado.id) !== String(id)) return;
+  estado.cancelled = true;
+  estado.moved = true;
+}
+
+function selecaoClienteSaasFoiArrasto(event, id) {
+  const estado = window.__clienteSaasToque;
+  if (!estado || String(estado.id) !== String(id)) return false;
+  atualizarMovimentoClienteSaas(event, id);
+  const foiArrasto = estado.moved === true || estado.cancelled === true;
+  window.__clienteSaasToque = null;
+  return foiArrasto;
 }
 
 function selecionarResultadoClienteSaas(event, id) {
   if (alvoInterativoClienteSaas(event)) return;
+  if (selecaoClienteSaasFoiArrasto(event, id)) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   event.preventDefault();
   selecionarClienteSaasResultado(id);
 }

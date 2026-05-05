@@ -1064,7 +1064,7 @@ button:disabled{
   position:relative;
   overflow:hidden;
   cursor:pointer;
-  touch-action:manipulation;
+  touch-action:pan-y;
   background:var(--card-gradient);
   border:1px solid var(--card-border);
   border-radius:var(--radius);

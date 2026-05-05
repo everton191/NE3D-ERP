@@ -5,6 +5,8 @@ const vm = require("node:vm");
 
 const appPath = path.join(__dirname, "..", "app.js");
 const source = fs.readFileSync(appPath, "utf8");
+const stylePath = path.join(__dirname, "..", "style.css");
+const styleSource = fs.readFileSync(stylePath, "utf8");
 
 function extractFunction(name) {
   const start = source.indexOf(`function ${name}`);
@@ -61,5 +63,54 @@ assert.doesNotMatch(bodyOf("processarRetornoOAuthSupabase"), /papel:\s*"admin"/,
 assert.match(bodyOf("concluirLoginUsuario"), /telaAtual = "superadmin"/, "superadmin deve ir para painel superadmin");
 assert.match(bodyOf("concluirLoginUsuario"), /"admin"/, "login comum/admin deve sair da tela de login");
 assert.match(bodyOf("lerConfigAppCampos"), /twoFactorEnabled:\s*whatsapp2FABackendDisponivel\(\) &&/, "config publica nao deve reativar 2FA sem backend");
+assert.doesNotMatch(bodyOf("prepararSelecaoClienteSaas"), /selecionarClienteSaasResultado/, "touchstart/pointerdown nao deve abrir edicao durante rolagem");
+assert.match(bodyOf("selecionarResultadoClienteSaas"), /selecaoClienteSaasFoiArrasto/, "click da linha deve ignorar gesto de rolagem");
+assert.match(source, /onpointermove="atualizarMovimentoClienteSaas/, "linha de cliente deve rastrear movimento pointer");
+assert.match(source, /ontouchmove="atualizarMovimentoClienteSaas/, "linha de cliente deve rastrear movimento touch");
+assert.match(styleSource, /\.client-admin-row\{[\s\S]*touch-action:pan-y;/, "linha de cliente deve permitir rolagem vertical no mobile");
+
+const gestureSandbox = {
+  window: {},
+  selecionados: []
+};
+vm.runInNewContext(
+  [
+    "function selecionarClienteSaasResultado(id) { selecionados.push(id); }",
+    extractFunction("alvoInterativoClienteSaas"),
+    extractFunction("prepararSelecaoClienteSaas"),
+    extractFunction("getPontoInteracaoClienteSaas"),
+    extractFunction("atualizarMovimentoClienteSaas"),
+    extractFunction("cancelarSelecaoClienteSaas"),
+    extractFunction("selecaoClienteSaasFoiArrasto"),
+    extractFunction("selecionarResultadoClienteSaas")
+  ].join("\n"),
+  gestureSandbox
+);
+
+const alvoLinha = { closest: () => null };
+let preventidos = 0;
+let propagacoesParadas = 0;
+gestureSandbox.prepararSelecaoClienteSaas({ target: alvoLinha, clientX: 10, clientY: 10 }, "cliente-1");
+gestureSandbox.atualizarMovimentoClienteSaas({ target: alvoLinha, clientX: 10, clientY: 48 }, "cliente-1");
+gestureSandbox.selecionarResultadoClienteSaas({
+  target: alvoLinha,
+  clientX: 10,
+  clientY: 48,
+  preventDefault: () => { preventidos += 1; },
+  stopPropagation: () => { propagacoesParadas += 1; }
+}, "cliente-1");
+assert.deepEqual(gestureSandbox.selecionados, [], "arrastar a lista nao deve abrir edicao do cliente");
+assert.equal(preventidos, 1, "click sintetico apos arrasto deve ser cancelado");
+assert.equal(propagacoesParadas, 1, "click sintetico apos arrasto nao deve propagar");
+
+gestureSandbox.prepararSelecaoClienteSaas({ target: alvoLinha, clientX: 20, clientY: 20 }, "cliente-2");
+gestureSandbox.selecionarResultadoClienteSaas({
+  target: alvoLinha,
+  clientX: 21,
+  clientY: 22,
+  preventDefault: () => {},
+  stopPropagation: () => {}
+}, "cliente-2");
+assert.deepEqual(gestureSandbox.selecionados, ["cliente-2"], "tap sem arrasto deve abrir edicao do cliente");
 
 console.log("Auth hotfix checks passed");
