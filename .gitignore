@@ -18,3 +18,4 @@ supabase/.env.*
 /*.webp
 !assets/
 !assets/project-cover.jpg
+.vercel
