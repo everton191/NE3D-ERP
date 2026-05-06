@@ -2,6 +2,7 @@
   "use strict";
 
   const ADS_PRODUCTION_ENABLED = true;
+  const REWARDED_PRODUCTION_ENABLED = false;
   const ADMOB_REAL_APP_ID = "ca-app-pub-1056970757696623~2135021978";
   const ADMOB_REAL_BANNER_ID = "ca-app-pub-1056970757696623/1101141905";
   const ADMOB_REAL_INTERSTITIAL_ID = "ca-app-pub-1056970757696623/7662680829";
@@ -228,6 +229,7 @@
     const eligibility = canUseNativeAds(user);
     if (!eligibility.allowed) return { ok: false, reason: eligibility.reason };
     if (!isAdsAllowed(user, { rewardType })) return { ok: false, reason: "ADS_NOT_ALLOWED" };
+    if (isProductionEnabled() && !REWARDED_PRODUCTION_ENABLED) return { ok: false, reason: "REWARDED_DISABLED_IN_PRODUCTION" };
     if (isProductionEnabled() && !ADMOB_REAL_REWARDED_ID) return { ok: false, reason: "REWARDED_REAL_ID_MISSING" };
     const plugin = eligibility.plugin;
     const type = normalizeRewardType(rewardType);
@@ -253,6 +255,9 @@
     const type = normalizeRewardType(rewardType);
     if (isPremiumUser(user)) return { ok: false, rewarded: false, reason: "PREMIUM_USER" };
     if (!isAdsAllowed(user, { rewardType: type })) return { ok: false, rewarded: false, reason: "ADS_NOT_ALLOWED" };
+    if (isProductionEnabled() && !REWARDED_PRODUCTION_ENABLED) {
+      return { ok: false, rewarded: false, reason: "REWARDED_DISABLED_IN_PRODUCTION" };
+    }
     if (isProductionEnabled() && !ADMOB_REAL_REWARDED_ID) {
       const error = new Error("Rewarded real do AdMob nao configurado.");
       logEvent("ADMOB_REWARDED_LOAD_FAILED", { rewardType: type, reason: "REWARDED_REAL_ID_MISSING" });
@@ -476,6 +481,7 @@
 
   const api = {
     ADS_PRODUCTION_ENABLED,
+    REWARDED_PRODUCTION_ENABLED,
     ADMOB_REAL_APP_ID,
     ADMOB_REAL_BANNER_ID,
     ADMOB_REAL_REWARDED_ID,

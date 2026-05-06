@@ -1,13 +1,28 @@
 const fs = require("fs");
+const path = require("path");
 
 function getSupabaseConfig() {
-  const app = fs.readFileSync("app.js", "utf8");
-  const url = app.match(/const SUPABASE_DEFAULT_URL = "([^"]+)"/)?.[1];
-  const key = app.match(/const SUPABASE_DEFAULT_ANON_KEY = "([^"]+)"/)?.[1];
-  if (!url || !key) {
-    throw new Error("Configuração Supabase não encontrada em app.js.");
+  const envUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const envKey =
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (envUrl && envKey) {
+    return { url: envUrl.replace(/\/+$/, ""), key: envKey };
   }
-  return { url, key };
+
+  const appPath = path.join(__dirname, "..", "app.js");
+  const app = fs.readFileSync(appPath, "utf8");
+  const url =
+    app.match(/const\s+SUPABASE_DEFAULT_URL\s*=\s*["']([^"']+)["']/)?.[1] ||
+    app.match(/SUPABASE_DEFAULT_URL["']?\s*:\s*["']([^"']+)["']/)?.[1];
+  const key =
+    app.match(/const\s+SUPABASE_DEFAULT_ANON_KEY\s*=\s*["']([^"']+)["']/)?.[1] ||
+    app.match(/SUPABASE_DEFAULT_ANON_KEY["']?\s*:\s*["']([^"']+)["']/)?.[1];
+  if (!url || !key) {
+    throw new Error("Configuracao Supabase nao encontrada. Defina SUPABASE_URL/SUPABASE_ANON_KEY ou confira app.js.");
+  }
+  return { url: url.replace(/\/+$/, ""), key };
 }
 
 async function requestJson(test, headers) {

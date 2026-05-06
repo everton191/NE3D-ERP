@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v53-admob-prod";
+const CACHE_NAME = "simplifica-3d-v54-planos-ui";
 const APP_FILES = [
   "./",
   "./index.html",

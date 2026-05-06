@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.06-admob-prod";
+const APP_VERSION = "2026.05.06-planos-ui";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -10,8 +10,8 @@ const INTRO_VIDEO_SRC = "assets/intro.mp4";
 const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
-const SUPABASE_DEFAULT_URL = "https://qsufnnivlgdidmjuaprb.supabase.co";
-const SUPABASE_DEFAULT_ANON_KEY = "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-";
+const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
+const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
 const SUPPORT_EMAIL = "paessilvae@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
 const SUPERADMIN_BOOTSTRAP_HASH = "pbkdf2$120000$7IdXWxbOcEGHYrhsgKxbwQ==$zi+SJZy2LcZmhy0NiWxjIZ43/A9GJZiW0B5/hDSIwJg=";
@@ -8667,20 +8667,30 @@ function renderPersonalizacao() {
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
   const plano = getPlanoAtual();
-  const diasTeste = Number(billingConfig.trialDays) || 7;
   const estadoPlano = resolverEstadoPlano(getUsuarioAtual(), { source: "plans-screen" });
-  const planoSaas = getPlanoSaas(estadoPlano.hasPremium ? estadoPlano.activePlan : "free");
   const precoVigente = getPrecoPagoVigenteLocal();
   const superadmin = isSuperAdmin();
-  const planos = garantirPlanosSaas().filter((item) => ["free", "premium"].includes(item.slug));
+  const isTrial = estadoPlano.state === PLAN_ACCESS_STATES.TRIAL && estadoPlano.isTrialActive;
+  const isPremiumAtivo = superadmin || estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE;
+  const diasTrial = Math.max(0, Number(estadoPlano.trialRemainingDays || 0));
+  const diasPlano = Math.max(0, Number(estadoPlano.planRemainingDays || plano.diasRestantes || 0));
+  const cardsPlanos = isPremiumAtivo
+    ? renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin, diasPlano)
+    : `${isTrial ? renderTrialPremiumAtivoCard(diasTrial) : ""}
+       ${renderPlanoSaasCard(getPlanoSaas("premium"), { destaque: true, isTrial, preco: precoVigente })}
+       ${renderPlanoSaasCard(getPlanoSaas("free"), { secundario: true, isTrial })}`;
 
   return `
-    <section class="card plans-screen">
+    <section class="card plans-screen ${isTrial ? "plans-screen-trial" : isPremiumAtivo ? "plans-screen-premium" : "plans-screen-free"}">
       <div class="card-header">
         <h2>Planos</h2>
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
       </div>
-      <p class="muted">${escaparHtml(plano.descricao)}.</p>
+      <p class="muted">${isTrial
+        ? "Você está usando os benefícios Premium gratuitamente durante o teste."
+        : isPremiumAtivo
+          ? "Seu Premium está ativo e os recursos completos estão liberados."
+          : "Escolha o Premium para remover anúncios e liberar o app completo."}</p>
 
       <div class="plan-state-panel">
         <div class="metric">
@@ -8688,70 +8698,134 @@ function renderAssinatura() {
           <strong>${escaparHtml(plano.nome)}</strong>
         </div>
         <div class="metric">
-          <span>Trial</span>
-          <strong>${superadmin ? "Acesso interno" : estadoPlano.isTrialActive ? "Ativo" : estadoPlano.trialExpiresAt ? "Encerrado" : "Disponível"}</strong>
+          <span>Status</span>
+          <strong>${superadmin ? "Acesso interno" : isTrial ? "Teste ativo" : isPremiumAtivo ? "Premium ativo" : estadoPlano.pending ? "Pagamento pendente" : "Gratuito"}</strong>
         </div>
         <div class="metric">
           <span>Dias restantes</span>
-          <strong>${plano.diasRestantes >= 9999 ? "Ativo" : Math.max(0, plano.diasRestantes || 0)}</strong>
+          <strong>${superadmin || plano.diasRestantes >= 9999 ? "Ativo" : isTrial ? diasTrial : isPremiumAtivo ? diasPlano : "-"}</strong>
         </div>
         <div class="metric">
-          <span>Preço vigente</span>
+          <span>Preço Premium</span>
           <strong>${formatarMoeda(precoVigente)}/mês</strong>
         </div>
       </div>
 
-      <div class="admin-grid">
-        ${planos.map((item) => renderPlanoSaasCard(item, planoSaas.slug, diasTeste)).join("")}
+      ${estadoPlano.pending ? `
+        <div class="plan-note plan-note-warning">
+          <strong>Pagamento pendente</strong>
+          <span>O plano atual continua funcionando normalmente até a confirmação do pagamento.</span>
+        </div>
+      ` : ""}
+
+      <div class="plans-grid">
+        ${cardsPlanos}
       </div>
 
-      <div class="danger-zone">
+      <div class="plan-benefits-panel">
         <h2 class="section-title">Benefícios Premium</h2>
         <div class="comparison-grid">
-          <div class="metric"><span>Anúncios</span><strong>${estadoPlano.hasPremium ? "Desativados" : "Ativos no Free"}</strong></div>
-          <div class="metric"><span>Usuários</span><strong>Até 5</strong></div>
-          <div class="metric"><span>Pedidos</span><strong>Ilimitados</strong></div>
-          <div class="metric"><span>PDF e relatórios</span><strong>Liberados</strong></div>
+          <div class="metric"><span>Anúncios</span><strong>${estadoPlano.hasPremium ? "Sem anúncios" : "Ativos no Free"}</strong></div>
+          <div class="metric"><span>Pedidos</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "Limitados"}</strong></div>
+          <div class="metric"><span>PDFs</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "1 por dia"}</strong></div>
+          <div class="metric"><span>Relatórios</span><strong>${estadoPlano.hasPremium ? "Avançados" : "Básicos"}</strong></div>
         </div>
       </div>
 
       <div class="actions">
         ${superadmin
           ? `<button class="btn secondary" type="button" onclick="trocarTela('superadmin')">Gerenciar clientes</button>`
-          : `<button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar Premium</button>
-             <button class="btn secondary" type="button" onclick="sincronizarSupabase()">Restaurar compra</button>
-             ${estadoPlano.trialStartedAt ? "" : `<button class="btn ghost" type="button" data-action="plan-trial" data-slug="premium_trial">Iniciar trial ${diasTeste} dias</button>`}`}
+          : `<button class="btn secondary" type="button" onclick="sincronizarSupabase()">Restaurar compra</button>
+             <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>`}
       </div>
     </section>
   `;
 }
 
-function renderPlanoSaasCard(plano, planoAtualSlug, diasTeste) {
-  const selecionado = plano.slug === planoAtualSlug;
-  const superadmin = isSuperAdmin();
-  const preco = plano.slug === "premium" ? getPrecoPagoVigenteLocal() : plano.price;
-  const linhas = [
-    `${plano.maxUsers} usuário(s)`,
-    plano.maxOrders ? `${plano.maxOrders} pedidos/mês` : "pedidos ilimitados",
-    plano.maxClients ? `${plano.maxClients} clientes` : "clientes ilimitados",
-    plano.maxCalculatorUses ? `${plano.maxCalculatorUses} usos da calculadora` : "calculadora ilimitada",
-    plano.maxStorageMb ? `${plano.maxStorageMb} MB de backup` : "backup ampliado",
-    plano.allowPdf ? "PDF liberado" : "sem PDF",
-    plano.allowReports ? "relatórios" : "",
-    plano.allowPermissions ? "permissões" : ""
-  ].filter(Boolean);
+function renderTrialPremiumAtivoCard(diasTrial = 0) {
+  const textoDias = diasTrial === 1 ? "1 dia restante" : `${diasTrial} dias restantes`;
   return `
-    <div class="plan-card ${plano.recommended ? "featured" : ""}">
-      <div class="row-title">
-        <strong>${escaparHtml(plano.name)}${plano.recommended ? " • recomendado" : ""}</strong>
-        <span class="muted">${formatarMoeda(preco)}/mês</span>
+    <div class="plan-status-card trial" aria-label="Teste Premium Ativo">
+      <div class="plan-card-top">
+        <span class="plan-badge plan-badge-trial">Teste Premium Ativo</span>
+        <strong class="plan-days">${textoDias}</strong>
       </div>
-      <p class="muted">${linhas.join(" • ")}</p>
+      <h3>Você está testando o Premium gratuitamente</h3>
+      <p>Ao final do período, sua conta volta para o plano gratuito caso você não assine.</p>
+      <div class="actions">
+        <button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar Premium</button>
+        <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin = false, diasPlano = 0) {
+  const validade = superadmin
+    ? "Acesso interno liberado"
+    : diasPlano > 0 && diasPlano < 9999
+      ? `${diasPlano} dia(s) restantes`
+      : "Assinatura ativa";
+  return `
+    <div class="plan-card featured plan-card-premium plan-card-active">
+      <div class="plan-card-top">
+        <span class="plan-badge">Premium Ativo</span>
+        <span class="status-badge badge-pago">${escaparHtml(validade)}</span>
+      </div>
+      <h3>Premium</h3>
+      <div class="plan-price">${formatarMoeda(precoVigente)}<small>/mês</small></div>
+      ${renderPlanBenefitList([
+        "Pedidos ilimitados",
+        "PDFs ilimitados",
+        "Sem anúncios",
+        "Relatórios avançados",
+        "Backup e sincronização",
+        "Suporte prioritário"
+      ])}
+      <div class="actions">
+        <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
+        ${superadmin
+          ? `<button class="btn secondary" type="button" onclick="trocarTela('superadmin')">Gerenciar clientes</button>`
+          : `<button class="btn secondary" type="button" onclick="sincronizarSupabase()">Restaurar compra</button>`}
+      </div>
+    </div>
+  `;
+}
+
+function renderPlanBenefitList(beneficios = []) {
+  return `
+    <ul class="plan-benefit-list">
+      ${beneficios.map((item) => `<li>${escaparHtml(item)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function renderPlanoSaasCard(plano, options = {}) {
+  const superadmin = isSuperAdmin();
+  const isPremium = plano.slug === "premium";
+  const preco = isPremium ? Number(options.preco || getPrecoPagoVigenteLocal()) : 0;
+  const beneficios = isPremium
+    ? ["Pedidos ilimitados", "PDFs ilimitados", "Sem anúncios", "Relatórios avançados", "Backup e sincronização", "Suporte prioritário"]
+    : ["Pedidos limitados", "1 PDF grátis por dia", "Anúncios leves", "Recursos básicos"];
+
+  return `
+    <div class="plan-card ${isPremium ? "featured plan-card-premium" : "plan-card-free"}">
+      <div class="plan-card-top">
+        <span class="plan-badge ${isPremium ? "" : "plan-badge-free"}">${isPremium ? "Recomendado" : "Gratuito"}</span>
+        ${isPremium ? `<span class="muted">Mais completo</span>` : ""}
+      </div>
+      <h3>${isPremium ? "Premium" : "Free"}</h3>
+      ${isPremium
+        ? `<div class="plan-price">${formatarMoeda(preco)}<small>/mês</small></div>`
+        : `<p class="plan-free-copy">Para continuar sem custo, com anúncios leves e recursos básicos.</p>`}
+      ${renderPlanBenefitList(beneficios)}
+      ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora não cancela o teste atual; o acesso Premium continua normalmente enquanto o pagamento é confirmado.</p>` : ""}
       <div class="actions single">
         ${superadmin
-          ? `<button class="btn ${selecionado ? "secondary" : "ghost"}" type="button" disabled>${selecionado ? "Plano atual" : "Não aplicável"}</button>`
-          : `<button class="btn ${selecionado ? "secondary" : ""}" type="button" data-action="plan-select" data-slug="${escaparAttr(plano.slug)}">${selecionado ? "Plano atual" : plano.price > 0 ? "Assinar" : "Usar Free"}</button>
-             ${plano.slug === "free" ? `<button class="btn ghost" type="button" data-action="plan-trial" data-slug="premium_trial">Trial ${diasTeste} dias</button>` : `<button class="btn ghost" type="button" data-action="plan-payment" data-slug="${escaparAttr(plano.slug)}">Pagamento avulso</button>`}`}
+          ? `<button class="btn ghost" type="button" disabled>Não aplicável</button>`
+          : isPremium
+            ? `<button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar Premium</button>`
+            : `<button class="btn ghost plan-free-button" type="button" data-action="open-screen" data-screen="dashboard">Continuar no plano gratuito</button>`}
       </div>
     </div>
   `;
@@ -9188,6 +9262,11 @@ function escolherPlanoSaas(slug = "free") {
   const plano = getPlanoSaas(slug);
   if (!["free", "premium"].includes(plano.slug)) {
     alert("Plano indisponível.");
+    return;
+  }
+  if (plano.slug === "free") {
+    mostrarToast("Você continua no plano gratuito.", "info");
+    trocarTela("dashboard");
     return;
   }
   const clientId = getClientIdAtual() || billingConfig.clientId || criarIdLocal("client");

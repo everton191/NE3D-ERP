@@ -15,6 +15,18 @@
     flushing: false
   };
 
+  function getStorageSafe() {
+    try {
+      if (typeof localStorage === "undefined") return null;
+      const testKey = `${QUEUE_KEY}:probe`;
+      localStorage.setItem(testKey, "1");
+      localStorage.removeItem(testKey);
+      return localStorage;
+    } catch (_) {
+      return null;
+    }
+  }
+
   function safeJsonParse(value, fallback) {
     try {
       return JSON.parse(value);
@@ -24,12 +36,16 @@
   }
 
   function getQueue() {
-    return safeJsonParse(localStorage.getItem(QUEUE_KEY) || "[]", []);
+    const storage = getStorageSafe();
+    if (!storage) return [];
+    return safeJsonParse(storage.getItem(QUEUE_KEY) || "[]", []);
   }
 
   function setQueue(queue) {
+    const storage = getStorageSafe();
+    if (!storage) return;
     try {
-      localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE)));
+      storage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-MAX_QUEUE)));
     } catch (_) {}
   }
 
