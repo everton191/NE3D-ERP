@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.05-client-scroll-hotfix";
+const APP_VERSION = "2026.05.06-admob-prod";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -27,6 +27,15 @@ const DEFAULT_SAAS_PLANS = [
   { id: "premium", slug: "premium", name: "Pago", price: 19.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid", showsAds: false }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
+const PLAN_ACCESS_STATES = Object.freeze({
+  FREE: "FREE",
+  TRIAL: "TRIAL",
+  ACTIVE: "ACTIVE",
+  PENDING: "PENDING",
+  EXPIRED: "EXPIRED",
+  BLOCKED: "BLOCKED"
+});
+const PLAN_DEBUG_ENABLED = true;
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
   { limit: 200, price: 24.9 },
@@ -77,6 +86,8 @@ const telas = {
   backup: "Backup",
   preferencias: "Preferências",
   personalizacao: "Personalizar",
+  mais: "Mais",
+  conta: "Conta",
   assinatura: "Plano",
   minhaAssinatura: "Minha Assinatura",
   usuarios: "Usuários",
@@ -87,6 +98,8 @@ const telas = {
   onboarding: "Introdução",
   feedback: "Bugs e sugestões",
   sobre: "Sobre",
+  privacy: "Política de Privacidade",
+  terms: "Termos de Uso",
   acessoNegado: "Acesso negado"
 };
 
@@ -262,6 +275,7 @@ let billingConfig = carregarObjeto("billingConfig", {
   licenseStatus: "free",
   activePlan: "free",
   pendingPlan: "",
+  pendingStartedAt: "",
   paymentStatus: "none",
   subscriptionStatus: "free",
   trialStartedAt: "",
@@ -559,10 +573,17 @@ function getUsuarioMonetizacao() {
   const usuario = getUsuarioAtual() || {};
   const assinatura = getAssinaturaSaas(usuario.clientId || billingConfig.clientId || "") || {};
   const plano = getPlanoAtual(usuario);
+  const estadoPlano = resolverEstadoPlano(usuario, { subscription: assinatura || undefined, source: "monetization-user" });
   return {
     ...usuario,
     isPremium: canUsePremiumFeatures(usuario),
     completo: plano.completo === true,
+    planState: estadoPlano.state,
+    planStatus: plano.status,
+    isTrialActive: estadoPlano.isTrialActive,
+    trialStartedAt: estadoPlano.trialStartedAt,
+    trialExpiresAt: estadoPlano.trialExpiresAt,
+    trialRemainingDays: estadoPlano.trialRemainingDays,
     planId: assinatura.planId || assinatura.planSlug || billingConfig.planSlug || "free",
     planSlug: assinatura.activePlan || assinatura.planSlug || billingConfig.activePlan || billingConfig.planSlug || "free",
     activePlan: assinatura.activePlan || billingConfig.activePlan || assinatura.planSlug || billingConfig.planSlug || "free",
@@ -610,21 +631,14 @@ function contextoInterstitialSeguro(actionName = "") {
 
 function shouldShowAds(user = getUsuarioMonetizacao(), context = contextoInterstitialSeguro()) {
   if (isSuperAdmin() || adminLogado) return false;
-  const activePlan = normalizarSlugPlano(user?.activePlan || user?.planSlug || billingConfig.activePlan || billingConfig.planSlug || "free");
-  const paymentStatus = normalizarStatusPagamento(user?.paymentStatus || billingConfig.paymentStatus || "none");
-  const trialFim = user?.trialExpiresAt || billingConfig.trialExpiresAt || "";
-  const trialAtivo = activePlan === "premium_trial" && trialFim && getRemainingDays(trialFim) > 0;
-  const pagoAtivo = activePlan === "premium" && canUsePremiumFeatures(getUsuarioAtual());
-  if (trialAtivo || pagoAtivo) return false;
-  if (paymentStatus === "pending") {
-    // Pending nao muda o plano ativo nem a regra de anuncios.
-  }
+  const estadoPlano = resolverEstadoPlano(user || getUsuarioAtual(), { source: "shouldShowAds" });
+  if (estadoPlano.hasPremium) return false;
   const tela = String(context?.screenName || telaAtual || "").toLowerCase();
-  if (["admin", "assinatura", "minhaassinatura", "planos", "acessonegado"].includes(tela)) return false;
+  if (["admin", "assinatura", "minhaassinatura", "planos", "conta", "seguranca", "superadmin", "onboarding", "acessonegado", "privacy", "terms"].includes(tela)) return false;
   if (context?.isEditingOrder || context?.isCalculating || context?.isExportingPdf || context?.isModalOpen || context?.isTyping || context?.hasError) return false;
   const ultimo = Date.parse(user?.lastAdShownAt || billingConfig.lastAdShownAt || 0) || 0;
   if (ultimo && Date.now() - ultimo < AD_MIN_INTERVAL_MS) return false;
-  return activePlan === "free";
+  return estadoPlano.adsAllowed;
 }
 
 function registrarAnuncioExibido() {
@@ -644,6 +658,16 @@ function registrarAcaoCompletaMonetizacao(actionName = "completed_action") {
     });
   } catch (erro) {
     registrarErroAplicacaoSilencioso("ADMOB_INTERSTITIAL_FAILED", erro, "Interstitial pós-ação", { actionName });
+  }
+}
+
+function sincronizarBannerAdMob() {
+  try {
+    const contexto = contextoInterstitialSeguro("screen_view");
+    const resultado = window.AdMobService?.syncBannerForScreen?.(getUsuarioMonetizacao(), contexto);
+    if (resultado?.catch) resultado.catch(() => {});
+  } catch (erro) {
+    registrarErroAplicacaoSilencioso("ADMOB_BANNER_SYNC_FAILED", erro, "Banner AdMob", { tela: telaAtual });
   }
 }
 
@@ -683,6 +707,7 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
       setBotaoLoading(botao, true, "Carregando...");
       try {
         const resultado = await window.AdMobService?.showRewardedAd?.({
+          user: getUsuarioMonetizacao(),
           rewardType,
           onReward: () => {
             if (rewardType === "pdf") window.MonetizationLimits?.unlockPdfByAd?.(getUsuarioMonetizacao());
@@ -1720,13 +1745,14 @@ function normalizarClienteSaas(cliente = {}) {
     statusAssinatura: String(cliente.statusAssinatura || cliente.status_assinatura || cliente.status || "active"),
     activePlan: normalizarSlugPlano(cliente.activePlan || cliente.active_plan || cliente.planoAtual || cliente.plano_atual || "free"),
     pendingPlan: cliente.pendingPlan || cliente.pending_plan ? normalizarSlugPlano(cliente.pendingPlan || cliente.pending_plan) : "",
+    pendingStartedAt: cliente.pendingStartedAt || cliente.pending_started_at || "",
     paymentStatus: normalizarStatusPagamento(cliente.paymentStatus || cliente.payment_status || "none"),
     subscriptionStatus: normalizarStatusAssinaturaDefinitivo(cliente.subscriptionStatus || cliente.subscription_status || "free"),
     planExpiresAt: cliente.planExpiresAt || cliente.plan_expires_at || "",
     planPrice: Math.max(0, Number(cliente.planPrice ?? cliente.plan_price ?? 0) || 0),
     priceLocked: cliente.priceLocked === true || cliente.price_locked === true,
-    trialStartedAt: cliente.trialStartedAt || cliente.trial_started_at || "",
-    trialExpiresAt: cliente.trialExpiresAt || cliente.trial_expires_at || "",
+    trialStartedAt: cliente.trialStartedAt || cliente.trial_started_at || cliente.trialStartAt || cliente.trial_start_at || "",
+    trialExpiresAt: cliente.trialExpiresAt || cliente.trial_expires_at || cliente.trialEndAt || cliente.trial_end_at || "",
     isTrialActive: cliente.isTrialActive === true || cliente.is_trial_active === true,
     lastAdShownAt: cliente.lastAdShownAt || cliente.last_ad_shown_at || "",
     isTestUser: cliente.isTestUser === true || cliente.is_test_user === true || cliente.testUser === true || cliente.test_user === true,
@@ -1749,10 +1775,10 @@ function normalizarAssinaturaSaas(assinatura = {}) {
   const pendingPlan = assinatura.pendingPlan || assinatura.pending_plan ? normalizarSlugPlano(assinatura.pendingPlan || assinatura.pending_plan) : "";
   const paymentStatus = normalizarStatusPagamento(assinatura.paymentStatus || assinatura.payment_status || (status === "pending" ? "pending" : "none"));
   const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(assinatura.subscriptionStatus || assinatura.subscription_status || (activePlan === "premium_trial" ? "trialing" : activePlan === "premium" ? "active" : "free"));
-  const currentPeriodStart = assinatura.currentPeriodStart || assinatura.current_period_start || assinatura.startedAt || assinatura.started_at || assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.createdAt || assinatura.created_at || new Date().toISOString();
-  const currentPeriodEnd = assinatura.planExpiresAt || assinatura.plan_expires_at || assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || "";
-  const trialStartedAt = assinatura.trialStartedAt || assinatura.trial_started_at || (activePlan === "premium_trial" ? currentPeriodStart : "");
-  const trialExpiresAt = assinatura.trialExpiresAt || assinatura.trial_expires_at || (activePlan === "premium_trial" ? currentPeriodEnd : "");
+  const currentPeriodStart = assinatura.currentPeriodStart || assinatura.current_period_start || assinatura.startedAt || assinatura.started_at || assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || assinatura.createdAt || assinatura.created_at || new Date().toISOString();
+  const currentPeriodEnd = assinatura.planExpiresAt || assinatura.plan_expires_at || assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || assinatura.trialEndAt || assinatura.trial_end_at || "";
+  const trialStartedAt = assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || (activePlan === "premium_trial" ? currentPeriodStart : "");
+  const trialExpiresAt = assinatura.trialExpiresAt || assinatura.trial_expires_at || assinatura.trialEndAt || assinatura.trial_end_at || (activePlan === "premium_trial" ? currentPeriodEnd : "");
   const isTrialActive = (assinatura.isTrialActive === true || assinatura.is_trial_active === true || activePlan === "premium_trial") && !!trialExpiresAt && getRemainingDays(trialExpiresAt) > 0;
   const planPrice = Math.max(0, Number(assinatura.planPrice ?? assinatura.plan_price ?? assinatura.price_locked_amount ?? 0) || 0);
   return {
@@ -1890,8 +1916,8 @@ function getUsuariosDoCliente(clientId = getClientIdAtual()) {
 }
 
 function getPlanoSaasAtual() {
-  const assinatura = getAssinaturaSaas();
-  return getPlanoSaas(assinatura?.activePlan || billingConfig.activePlan || assinatura?.planSlug || billingConfig.planSlug || "free");
+  const estado = resolverEstadoPlano(getUsuarioAtual(), { source: "getPlanoSaasAtual" });
+  return getPlanoSaas(estado.hasPremium ? estado.activePlan : "free");
 }
 
 function limiteUsuariosAtingido() {
@@ -1976,18 +2002,32 @@ function marcarClientesInativosLocal() {
 
 function verificarVencimentoPlanoLocal(salvar = true) {
   const hoje = hojeIsoData();
-  if (billingConfig.lastDailyPlanCheck === hoje && salvar) return;
   let alterou = false;
+
+  if (billingConfig.paymentStatus === "pending") {
+    const inicioPendenteGlobal = getTimestampPlano(billingConfig.pendingStartedAt || billingConfig.updatedAt || 0);
+    if (inicioPendenteGlobal && Date.now() - inicioPendenteGlobal > 24 * 60 * 60 * 1000) {
+      billingConfig.pendingPlan = "";
+      billingConfig.paymentStatus = "none";
+      billingConfig.pendingStartedAt = "";
+      alterou = true;
+    }
+  }
 
   saasSubscriptions.forEach((assinatura) => {
     const plano = getPlanoSaas(assinatura.activePlan || assinatura.planSlug);
-    const vencimento = Date.parse(assinatura.planExpiresAt || assinatura.trialExpiresAt || assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
+    const vencimento = getTimestampPlano(assinatura.planExpiresAt || assinatura.trialExpiresAt || assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0);
     if (assinatura.paymentStatus === "pending") {
-      const inicioPendente = Date.parse(assinatura.pendingStartedAt || assinatura.updatedAt || assinatura.createdAt || 0) || 0;
+      const inicioPendente = getTimestampPlano(assinatura.pendingStartedAt || assinatura.updatedAt || assinatura.createdAt || 0);
       if (inicioPendente && Date.now() - inicioPendente > 24 * 60 * 60 * 1000) {
         assinatura.pendingPlan = "";
         assinatura.paymentStatus = "none";
         assinatura.pendingStartedAt = "";
+        if (billingConfig.clientId === assinatura.clientId) {
+          billingConfig.pendingPlan = "";
+          billingConfig.paymentStatus = "none";
+          billingConfig.pendingStartedAt = "";
+        }
         alterou = true;
       }
     }
@@ -2006,7 +2046,6 @@ function verificarVencimentoPlanoLocal(salvar = true) {
       assinatura.expiresAt = "";
       assinatura.nextBillingAt = "";
       assinatura.planExpiresAt = "";
-      assinatura.trialExpiresAt = "";
       assinatura.isTrialActive = false;
       assinatura.overdueSince = assinatura.overdueSince || new Date(vencimento).toISOString();
       const cliente = getClienteSaasPorId(assinatura.clientId);
@@ -3233,16 +3272,251 @@ function calcularTotaisCaixa() {
 }
 
 // Regra central de planos/permissões: somente active_plan libera acesso; pending nunca ativa plano.
-function getRemainingDays(expiresAt) {
-  const fim = Date.parse(expiresAt || 0) || 0;
+function getTimestampPlano(valor) {
+  const timestamp = Date.parse(valor || 0);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getRemainingDays(expiresAt, now = Date.now()) {
+  const fim = getTimestampPlano(expiresAt);
   if (!fim) return 0;
-  return Math.max(0, Math.ceil((fim - Date.now()) / (24 * 60 * 60 * 1000)));
+  return Math.max(0, Math.ceil((fim - now) / (24 * 60 * 60 * 1000)));
 }
 
 function calcularFimTrial(inicio, dias = billingConfig.trialDays) {
-  const dataInicio = Date.parse(inicio || 0) || 0;
+  const dataInicio = getTimestampPlano(inicio);
   if (!dataInicio) return "";
   return new Date(dataInicio + Math.max(1, Number(dias) || 7) * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function primeiroValorPlano(...valores) {
+  for (const valor of valores) {
+    if (valor === null || valor === undefined) continue;
+    const texto = String(valor).trim();
+    if (texto) return valor;
+  }
+  return "";
+}
+
+function getTrialSnapshotPlano(source = {}, now = Date.now()) {
+  const startedAt = primeiroValorPlano(source.trialStartedAt, source.trial_started_at, source.trialStartAt, source.trial_start_at);
+  const expiresAt = primeiroValorPlano(
+    source.trialExpiresAt,
+    source.trial_expires_at,
+    source.trialEndAt,
+    source.trial_end_at,
+    startedAt ? calcularFimTrial(startedAt, source.trialDays || source.trial_days || billingConfig.trialDays || DEFAULT_TRIAL_DAYS) : ""
+  );
+  const expiresMs = getTimestampPlano(expiresAt);
+  return {
+    startedAt: startedAt || "",
+    expiresAt: expiresAt || "",
+    expiresMs,
+    remainingDays: expiresMs ? getRemainingDays(expiresAt, now) : 0,
+    active: !!expiresMs && expiresMs > now
+  };
+}
+
+function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
+  const now = Number(options.now || Date.now());
+  const assinatura = options.subscription === undefined
+    ? getAssinaturaSaas(user?.clientId || billingConfig.clientId || "")
+    : options.subscription;
+  const cliente = options.client === undefined ? getClienteSaasAtual() : options.client;
+  const source = options.source || (assinatura ? "supabase/local-subscription" : "local-cache");
+
+  if (isSuperAdmin(user)) {
+    const snapshotSuper = {
+      state: PLAN_ACCESS_STATES.ACTIVE,
+      source,
+      activePlan: "premium",
+      pendingPlan: "",
+      paymentStatus: "none",
+      subscriptionStatus: "active",
+      statusPlano: "active",
+      pending: false,
+      pendingExpired: false,
+      trialStartedAt: "",
+      trialExpiresAt: "",
+      trialRemainingDays: 0,
+      planExpiresAt: "",
+      planRemainingDays: 9999,
+      hasPremium: true,
+      isTrialActive: false,
+      isPaidActive: true,
+      adsAllowed: false,
+      blockLevel: "none"
+    };
+    logEstadoPlanoDebug(snapshotSuper);
+    return snapshotSuper;
+  }
+
+  const activePlan = normalizarSlugPlano(primeiroValorPlano(
+    assinatura?.activePlan,
+    assinatura?.active_plan,
+    cliente?.activePlan,
+    cliente?.active_plan,
+    billingConfig.activePlan,
+    user?.activePlan,
+    user?.active_plan,
+    assinatura?.planSlug,
+    assinatura?.plan_slug,
+    assinatura?.planId,
+    assinatura?.plan_id,
+    cliente?.planoAtual,
+    cliente?.plano_atual,
+    billingConfig.planSlug,
+    user?.planSlug,
+    user?.plan_slug,
+    user?.planoAtual,
+    "free"
+  ));
+  const pendingPlan = normalizarSlugPlano(primeiroValorPlano(
+    assinatura?.pendingPlan,
+    assinatura?.pending_plan,
+    cliente?.pendingPlan,
+    cliente?.pending_plan,
+    billingConfig.pendingPlan,
+    user?.pendingPlan,
+    user?.pending_plan,
+    ""
+  ));
+  const paymentStatus = normalizarStatusPagamento(primeiroValorPlano(
+    assinatura?.paymentStatus,
+    assinatura?.payment_status,
+    cliente?.paymentStatus,
+    cliente?.payment_status,
+    billingConfig.paymentStatus,
+    user?.paymentStatus,
+    user?.payment_status,
+    "none"
+  ));
+  const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(primeiroValorPlano(
+    assinatura?.subscriptionStatus,
+    assinatura?.subscription_status,
+    cliente?.subscriptionStatus,
+    cliente?.subscription_status,
+    billingConfig.subscriptionStatus,
+    user?.subscriptionStatus,
+    user?.subscription_status,
+    activePlan === "premium_trial" ? "trialing" : activePlan === "premium" ? "active" : "free"
+  ));
+  const statusPlanoBruto = primeiroValorPlano(
+    assinatura?.status,
+    assinatura?.statusAssinatura,
+    assinatura?.status_assinatura,
+    cliente?.statusAssinatura,
+    cliente?.status_assinatura,
+    billingConfig.licenseStatus,
+    user?.planStatus,
+    activePlan === "premium_trial" ? "trialing" : activePlan === "premium" ? "active" : "active"
+  );
+  const statusPlano = ["free", "gratis", "grátis"].includes(String(statusPlanoBruto || "").toLowerCase().trim())
+    ? "active"
+    : normalizarStatusPlano(statusPlanoBruto);
+  const trial = getTrialSnapshotPlano({
+    trialStartedAt: primeiroValorPlano(assinatura?.trialStartedAt, assinatura?.trial_started_at, cliente?.trialStartedAt, cliente?.trial_started_at, billingConfig.trialStartedAt, user?.trialStartedAt, user?.trial_started_at),
+    trialExpiresAt: primeiroValorPlano(assinatura?.trialExpiresAt, assinatura?.trial_expires_at, cliente?.trialExpiresAt, cliente?.trial_expires_at, billingConfig.trialExpiresAt, user?.trialExpiresAt, user?.trial_expires_at),
+    trialDays: primeiroValorPlano(assinatura?.trialDays, assinatura?.trial_days, cliente?.trialDays, cliente?.trial_days, billingConfig.trialDays, user?.trialDays, user?.trial_days, DEFAULT_TRIAL_DAYS)
+  }, now);
+  const planExpiresAt = primeiroValorPlano(
+    assinatura?.planExpiresAt,
+    assinatura?.plan_expires_at,
+    assinatura?.currentPeriodEnd,
+    assinatura?.current_period_end,
+    assinatura?.expiresAt,
+    assinatura?.expires_at,
+    assinatura?.nextBillingAt,
+    assinatura?.next_billing_at,
+    cliente?.planExpiresAt,
+    cliente?.plan_expires_at,
+    billingConfig.planExpiresAt,
+    billingConfig.paidUntil,
+    user?.planExpiresAt,
+    user?.plan_expires_at
+  );
+  const planExpiresMs = getTimestampPlano(planExpiresAt);
+  const planExpired = !!planExpiresMs && planExpiresMs <= now;
+  const pendingStartedAt = primeiroValorPlano(assinatura?.pendingStartedAt, assinatura?.pending_started_at, billingConfig.pendingStartedAt, cliente?.pendingStartedAt, cliente?.pending_started_at);
+  const pendingExpired = paymentStatus === "pending" && pendingStartedAt && (now - getTimestampPlano(pendingStartedAt) > 24 * 60 * 60 * 1000);
+  const pending = !pendingExpired && (paymentStatus === "pending" || (!!pendingPlan && pendingPlan !== "free") || statusPlano === "pending");
+  const blocked = usuarioEstaBloqueado(user) || (paymentStatus !== "pending" && (billingConfig.licenseStatus === "blocked" || billingConfig.licenseBlockLevel === "total" || billingConfig.blocked));
+  const paidActive = activePlan === "premium"
+    && !planExpired
+    && (subscriptionStatus === "active" || statusPlano === "active" || paymentStatus === "approved");
+  const trialActive = activePlan === "premium_trial" && trial.active;
+
+  let state = PLAN_ACCESS_STATES.FREE;
+  if (blocked) {
+    state = PLAN_ACCESS_STATES.BLOCKED;
+  } else if (paidActive) {
+    state = PLAN_ACCESS_STATES.ACTIVE;
+  } else if (trialActive) {
+    state = PLAN_ACCESS_STATES.TRIAL;
+  } else if (pending) {
+    state = PLAN_ACCESS_STATES.PENDING;
+  } else if (
+    ["past_due", "cancelled", "expired"].includes(subscriptionStatus)
+    || ["past_due", "cancelled", "expired"].includes(statusPlano)
+    || (activePlan === "premium_trial" && !!trial.expiresMs && !trial.active)
+    || (activePlan === "premium" && planExpired)
+  ) {
+    state = PLAN_ACCESS_STATES.EXPIRED;
+  }
+
+  const snapshot = {
+    state,
+    source,
+    activePlan,
+    pendingPlan: pendingPlan === "free" ? "" : pendingPlan,
+    paymentStatus,
+    subscriptionStatus,
+    statusPlano,
+    pending,
+    pendingExpired: !!pendingExpired,
+    trialStartedAt: trial.startedAt,
+    trialExpiresAt: trial.expiresAt,
+    trialRemainingDays: trial.remainingDays,
+    planExpiresAt: planExpiresAt || "",
+    planRemainingDays: planExpiresAt ? getRemainingDays(planExpiresAt, now) : 0,
+    hasPremium: [PLAN_ACCESS_STATES.TRIAL, PLAN_ACCESS_STATES.ACTIVE].includes(state),
+    isTrialActive: state === PLAN_ACCESS_STATES.TRIAL,
+    isPaidActive: state === PLAN_ACCESS_STATES.ACTIVE,
+    adsAllowed: [PLAN_ACCESS_STATES.FREE, PLAN_ACCESS_STATES.PENDING].includes(state) && activePlan === "free",
+    blockLevel: state === PLAN_ACCESS_STATES.BLOCKED ? "total" : "none"
+  };
+  logEstadoPlanoDebug(snapshot);
+  return snapshot;
+}
+
+function logEstadoPlanoDebug(snapshot = {}) {
+  if (!PLAN_DEBUG_ENABLED || typeof console === "undefined") return;
+  const holder = typeof window !== "undefined" ? window : globalThis;
+  const chave = [
+    snapshot.state,
+    snapshot.activePlan,
+    snapshot.pendingPlan,
+    snapshot.paymentStatus,
+    snapshot.subscriptionStatus,
+    snapshot.trialExpiresAt,
+    snapshot.planExpiresAt,
+    snapshot.source
+  ].join("|");
+  if (holder.__simplificaLastPlanDebug === chave) return;
+  holder.__simplificaLastPlanDebug = chave;
+  console.info("[Simplifica3D][PlanState]", {
+    state: snapshot.state,
+    source: snapshot.source,
+    active_plan: snapshot.activePlan,
+    pending_plan: snapshot.pendingPlan || "",
+    payment_status: snapshot.paymentStatus,
+    subscription_status: snapshot.subscriptionStatus,
+    trial_start_at: snapshot.trialStartedAt || "",
+    trial_end_at: snapshot.trialExpiresAt || "",
+    remaining_days: snapshot.trialRemainingDays || snapshot.planRemainingDays || 0,
+    pending: snapshot.pending === true,
+    active: snapshot.hasPremium === true
+  });
 }
 
 function usuarioEstaBloqueado(user = getUsuarioAtual()) {
@@ -3257,48 +3531,17 @@ function planoGlobalBloqueado() {
 }
 
 function isTrialActive(user = getUsuarioAtual()) {
-  if (usuarioEstaBloqueado(user)) return false;
-  const inicioUsuario = user?.trialStartedAt || "";
-  if (inicioUsuario) {
-    return getRemainingDays(calcularFimTrial(inicioUsuario, user.trialDays)) > 0;
-  }
-  if (planoGlobalBloqueado()) return false;
-  if (billingConfig.isTrialActive === true && billingConfig.trialExpiresAt) return getRemainingDays(billingConfig.trialExpiresAt) > 0;
-  if (!billingConfig.trialStartedAt) return false;
-  return getRemainingDays(billingConfig.trialExpiresAt || calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays)) > 0;
+  return resolverEstadoPlano(user, { source: "isTrialActive" }).isTrialActive;
 }
 
 function hasPremiumAccess(subscription = getAssinaturaSaas()) {
   if (!subscription) return false;
-  const assinatura = normalizarAssinaturaSaas(subscription);
-  const planId = normalizarSlugPlano(assinatura.activePlan || assinatura.planId || assinatura.planSlug);
-  const status = normalizarStatusPlano(assinatura.status);
-  const fim = Date.parse(assinatura.planExpiresAt || assinatura.trialExpiresAt || assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
-  if (planId === "premium_trial") return status === "trialing" && fim > Date.now();
-  if (planId === "premium") return assinatura.subscriptionStatus === "active" || status === "active";
-  return false;
+  return resolverEstadoPlano(getUsuarioAtual(), { subscription, source: "hasPremiumAccess" }).hasPremium;
 }
 
 function hasActivePlan(user = getUsuarioAtual()) {
   if (isSuperAdmin(user)) return true;
-  if (usuarioEstaBloqueado(user) || planoGlobalBloqueado()) return false;
-
-  const assinatura = getAssinaturaSaas(user?.clientId || billingConfig.clientId || "");
-  if (assinatura) {
-    return hasPremiumAccess(assinatura);
-  }
-
-  if (isTrialActive(user)) return true;
-
-  if (user?.planStatus === "paid" || user?.planStatus === "active") {
-    return !user.planExpiresAt || getRemainingDays(user.planExpiresAt) > 0;
-  }
-
-  if (billingConfig.licenseStatus === "active" || billingConfig.licenseStatus === "paid") {
-    return !billingConfig.paidUntil || getRemainingDays(billingConfig.paidUntil) > 0;
-  }
-
-  return false;
+  return resolverEstadoPlano(user, { source: "hasActivePlan" }).hasPremium;
 }
 
 function canUsePremiumFeatures(user = getUsuarioAtual()) {
@@ -3312,100 +3555,63 @@ function getPlanoAtual(user = getUsuarioAtual()) {
     return {
       nome: "Super Admin",
       status: "superadmin",
+      slug: "premium",
       completo: true,
       diasRestantes: 9999,
       descricao: "Acesso total de superadmin"
     };
   }
 
-  if (usuarioEstaBloqueado(user) || planoGlobalBloqueado()) {
+  const estadoPlano = resolverEstadoPlano(user, { source: "getPlanoAtual" });
+  if (estadoPlano.state === PLAN_ACCESS_STATES.BLOCKED) {
     return {
       nome: "Bloqueado",
       status: "bloqueado",
+      slug: estadoPlano.activePlan || "free",
       completo: false,
       diasRestantes: 0,
       descricao: "Acesso bloqueado pelo administrador"
     };
   }
 
-  const assinaturaSaas = getAssinaturaSaas(user?.clientId || billingConfig.clientId || "");
-  if (assinaturaSaas) {
-    const planoSaas = getPlanoSaas(assinaturaSaas.activePlan || assinaturaSaas.planSlug);
-    const licenca = calcularStatusAssinatura(assinaturaSaas);
-    const diasPlano = getRemainingDays(assinaturaSaas.planExpiresAt || assinaturaSaas.trialExpiresAt || assinaturaSaas.currentPeriodEnd || assinaturaSaas.expiresAt || assinaturaSaas.nextBillingAt);
-    const completo = hasPremiumAccess(assinaturaSaas);
-    const nomeStatus = licenca.status === "trialing" ? "Trial" : planoSaas.name;
-    const mensagens = {
-      trialing: `${diasPlano || DEFAULT_TRIAL_DAYS} dia(s) restantes no teste grátis`,
-      active: "Plano ativo",
-      pending: "Pagamento pendente. Seu plano atual continua ativo.",
-      free: "Plano Free com anúncios",
-      past_due: "Plano vencido",
-      expired: "Plano vencido",
-      cancelled: "Plano cancelado"
-    };
-    return {
-      nome: nomeStatus,
-      status: planoSaas.slug === "free" ? "gratis" : licenca.status === "active" && planoSaas.slug !== "free" ? "pago" : licenca.status === "trialing" ? "trial" : licenca.status === "past_due" ? "atrasado" : licenca.status === "pending" ? "pendente" : licenca.status === "active" ? "gratis" : "bloqueado",
-      completo,
-      blockLevel: licenca.blockLevel,
-      diasRestantes: diasPlano,
-      descricao: mensagens[licenca.status] || "Não foi possível confirmar o pagamento",
-      plano: planoSaas
-    };
-  }
-
-  const trialFim = user?.trialStartedAt
-    ? calcularFimTrial(user.trialStartedAt, user.trialDays)
-    : calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays);
-  const diasTrial = getRemainingDays(trialFim);
-  if (diasTrial > 0) {
-    return {
-      nome: "Trial",
-      status: "trial",
-      completo: true,
-      diasRestantes: diasTrial,
-      descricao: `${diasTrial} dia(s) grátis restantes com acesso completo`
-    };
-  }
-
-  const vencimento = user?.planExpiresAt || billingConfig.paidUntil || "";
-  const diasPlano = getRemainingDays(vencimento);
-  if (hasActivePlan(user)) {
-    return {
-      nome: "Pago",
-      status: "pago",
-      completo: true,
-      diasRestantes: diasPlano || 9999,
-      descricao: diasPlano ? `${diasPlano} dia(s) restantes no plano pago` : "Assinatura paga ativa"
-    };
-  }
-
-  if (billingConfig.trialStartedAt || user?.trialStartedAt || billingConfig.paidUntil || user?.planExpiresAt) {
-    if (billingConfig.activePlan === "free" || billingConfig.paymentStatus === "pending") {
-      return {
-        nome: "Free",
-        status: "gratis",
-        completo: false,
-        diasRestantes: 0,
-        descricao: billingConfig.paymentStatus === "pending" ? "Pagamento pendente. O Free continua liberado com anúncios." : "Plano Free com anúncios"
-      };
-    }
-    return {
-      nome: "Expirado",
-      status: "expirado",
-      completo: false,
-      diasRestantes: 0,
-      descricao: "Plano vencido. Renove para liberar recursos premium."
-    };
-  }
-
+  const planoSaas = getPlanoSaas(estadoPlano.activePlan || "free");
+  const descricoes = {
+    [PLAN_ACCESS_STATES.TRIAL]: `${estadoPlano.trialRemainingDays || DEFAULT_TRIAL_DAYS} dia(s) restantes no teste grátis`,
+    [PLAN_ACCESS_STATES.ACTIVE]: estadoPlano.planRemainingDays ? `${estadoPlano.planRemainingDays} dia(s) restantes no plano pago` : "Assinatura paga ativa",
+    [PLAN_ACCESS_STATES.PENDING]: "Pagamento pendente. Seu plano atual continua funcionando e o pending não bloqueia o app.",
+    [PLAN_ACCESS_STATES.EXPIRED]: "Plano vencido. O app voltou para o Free com anúncios.",
+    [PLAN_ACCESS_STATES.FREE]: "Plano Free com anúncios"
+  };
+  const nomes = {
+    [PLAN_ACCESS_STATES.TRIAL]: "Trial",
+    [PLAN_ACCESS_STATES.ACTIVE]: "Pago",
+    [PLAN_ACCESS_STATES.PENDING]: "Pendente",
+    [PLAN_ACCESS_STATES.EXPIRED]: "Expirado",
+    [PLAN_ACCESS_STATES.FREE]: "Free"
+  };
+  const statusUi = {
+    [PLAN_ACCESS_STATES.TRIAL]: "trial",
+    [PLAN_ACCESS_STATES.ACTIVE]: "pago",
+    [PLAN_ACCESS_STATES.PENDING]: "pendente",
+    [PLAN_ACCESS_STATES.EXPIRED]: "expirado",
+    [PLAN_ACCESS_STATES.FREE]: "gratis"
+  };
   return {
-    nome: "Grátis",
-    status: "gratis",
-    completo: false,
-    diasRestantes: 0,
-    descricao: "Calculadora liberada, sem recursos premium"
+    nome: nomes[estadoPlano.state] || "Free",
+    status: statusUi[estadoPlano.state] || "gratis",
+    slug: planoSaas.slug,
+    completo: estadoPlano.hasPremium,
+    blockLevel: estadoPlano.blockLevel,
+    diasRestantes: estadoPlano.state === PLAN_ACCESS_STATES.TRIAL
+      ? estadoPlano.trialRemainingDays
+      : estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE
+        ? (estadoPlano.planRemainingDays || 9999)
+        : 0,
+    descricao: descricoes[estadoPlano.state] || "Plano Free com anúncios",
+    plano: planoSaas,
+    state: estadoPlano.state,
+    pending: estadoPlano.pending,
+    source: estadoPlano.source
   };
 }
 
@@ -3889,6 +4095,7 @@ function renderApp() {
   atualizarMenu();
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
+  sincronizarBannerAdMob();
   preencherImpressoras();
   preencherMateriaisCalculadora();
 }
@@ -3922,7 +4129,7 @@ function renderDesktopConteudo() {
     return `<div class="desktop-focus">${renderTrocaSenhaObrigatoria()}</div>`;
   }
 
-  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "acessoNegado"];
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
@@ -3982,7 +4189,7 @@ function buscarGlobal(event, valor) {
 }
 
 function isTelaPublica(tela) {
-  return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "sobre", "acessoNegado"].includes(tela);
+  return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "sobre", "privacy", "terms", "acessoNegado"].includes(tela);
 }
 
 function canAccessScreen(tela, usuario = getUsuarioAtual()) {
@@ -3993,10 +4200,10 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (isSuperAdmin(usuario)) return true;
 
   const permissoes = {
-    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "usuarios", "seguranca", "feedback", "onboarding"],
-    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback", "onboarding"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback", "onboarding"],
-    visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "seguranca", "feedback", "onboarding"]
+    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding"],
+    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
   };
 
   return (permissoes[usuario.papel] || []).includes(tela);
@@ -4805,7 +5012,7 @@ function getMenuGroups() {
       itens: [
         { tela: "caixa", icone: "💰", texto: "Caixa" },
         { tela: "relatorios", icone: "📈", texto: "Relatórios" },
-        { tela: "minhaAssinatura", icone: "💳", texto: "Minha Assinatura" }
+        { tela: "assinatura", icone: "💳", texto: "Planos" }
       ]
     },
     {
@@ -4814,6 +5021,7 @@ function getMenuGroups() {
         { tela: "empresa", icone: "🏢", texto: "Empresa" },
         { tela: "backup", icone: "☁️", texto: "Backup" },
         { tela: "preferencias", icone: "⚙️", texto: "Preferências" },
+        { tela: "conta", icone: "👤", texto: "Conta" },
         { tela: "seguranca", icone: "🔒", texto: "Segurança" },
         { tela: "feedback", icone: "💡", texto: "Feedback" },
         { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
@@ -4937,6 +5145,38 @@ function renderMobile() {
       ${renderAcoesRapidas()}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
+    ${renderMobileBottomNav()}
+  `;
+}
+
+function getMobileBottomNavItems() {
+  return [
+    { tela: "dashboard", icone: "📊", texto: "Dashboard" },
+    { tela: "pedidos", icone: "📋", texto: "Pedidos" },
+    { tela: "calculadora", icone: "🧮", texto: "Calculadora" },
+    { tela: "estoque", icone: "📦", texto: "Estoque" },
+    { tela: "mais", icone: "☰", texto: "Mais" }
+  ].filter((item) => canAccessScreen(item.tela));
+}
+
+function getMobileBottomNavActive() {
+  const principais = new Set(["dashboard", "pedidos", "calculadora", "estoque"]);
+  return principais.has(telaAtual) ? telaAtual : "mais";
+}
+
+function renderMobileBottomNav() {
+  const ativo = getMobileBottomNavActive();
+  const itens = getMobileBottomNavItems();
+  if (!itens.length || !getUsuarioAtual()) return "";
+  return `
+    <nav class="mobile-bottom-nav" aria-label="Navegação principal">
+      ${itens.map((item) => `
+        <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" type="button" onclick="trocarTela('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
+          <span>${item.icone}</span>
+          <small>${escaparHtml(item.texto)}</small>
+        </button>
+      `).join("")}
+    </nav>
   `;
 }
 
@@ -4961,6 +5201,10 @@ function renderTela(tela) {
     return renderTrocaSenhaObrigatoria();
   }
   switch (tela) {
+    case "mais":
+      return renderMais();
+    case "conta":
+      return renderConta();
     case "calculadora":
       return renderCalculadoraTela();
     case "pedido":
@@ -4993,6 +5237,10 @@ function renderTela(tela) {
       return renderFeedback();
     case "sobre":
       return renderSobre();
+    case "privacy":
+      return renderDocumentoLegalPage("privacidade");
+    case "terms":
+      return renderDocumentoLegalPage("termos");
     case "seguranca":
       return renderSeguranca();
     case "onboarding":
@@ -5018,11 +5266,11 @@ function renderAcoesRapidas() {
     { tela: "caixa", icone: "💰", texto: "Caixa" },
     { tela: "clientes", icone: "👥", texto: "Clientes" },
     { tela: "backup", icone: "☁️", texto: "Backup" },
-    { tela: "minhaAssinatura", icone: "💳", texto: "Assinatura" }
+    { tela: "assinatura", icone: "💳", texto: "Planos" }
   ];
   if (isAndroid()) acoes.unshift({ acao: "verificarAtualizacaoManual()", icone: "⬇️", texto: "Atualizar APK" });
   if (!getUsuarioAtual() || podeGerenciarUsuarios()) acoes.push({ tela: "usuarios", icone: "🔐", texto: "Admin" });
-  if (getUsuarioAtual()) acoes.push({ tela: "seguranca", icone: "🔒", texto: "Segurança" });
+  if (getUsuarioAtual()) acoes.push({ tela: "conta", icone: "👤", texto: "Conta" });
   if (isSuperAdmin()) acoes.push({ tela: "superadmin", icone: "🛡️", texto: "Super" });
 
   return `
@@ -5034,6 +5282,102 @@ function renderAcoesRapidas() {
         </button>
       `).join("")}
     </div>
+  `;
+}
+
+function renderMais() {
+  const grupos = [
+    {
+      titulo: "Operação",
+      itens: [
+        { tela: "clientes", icone: "👥", texto: "Clientes" },
+        { tela: "relatorios", icone: "📈", texto: "Relatórios" },
+        { tela: "backup", icone: "☁️", texto: "Backup" },
+        { tela: "producao", icone: "🖨️", texto: "Produção" }
+      ]
+    },
+    {
+      titulo: "Conta",
+      itens: [
+        { tela: "conta", icone: "👤", texto: "Conta" },
+        { tela: "assinatura", icone: "💳", texto: "Planos" },
+        { tela: "config", icone: "⚙️", texto: "Configurações" },
+        { tela: "feedback", icone: "💡", texto: "Ajuda" }
+      ]
+    },
+    {
+      titulo: "Admin",
+      itens: [
+        { tela: "usuarios", icone: "🔐", texto: "Admin" },
+        { tela: "superadmin", icone: "🛡️", texto: "Superadmin" }
+      ]
+    }
+  ].map((grupo) => ({
+    ...grupo,
+    itens: grupo.itens.filter((item) => canAccessScreen(item.tela))
+  })).filter((grupo) => grupo.itens.length);
+
+  return `
+    <section class="card more-screen">
+      <div class="card-header">
+        <h2>Mais</h2>
+        <span class="status-badge">${escaparHtml(getPlanoAtual().nome)}</span>
+      </div>
+      ${grupos.map((grupo) => `
+        <div class="more-group">
+          <h3>${escaparHtml(grupo.titulo)}</h3>
+          <div class="more-grid">
+            ${grupo.itens.map((item) => `
+              <button class="more-item" type="button" onclick="trocarTela('${item.tela}')">
+                <span>${item.icone}</span>
+                <strong>${escaparHtml(item.texto)}</strong>
+              </button>
+            `).join("")}
+          </div>
+        </div>
+      `).join("")}
+    </section>
+  `;
+}
+
+function renderConta() {
+  const usuario = getUsuarioAtual();
+  if (!usuario) return renderAcessoNegado();
+  const inicial = String(usuario.nome || usuario.email || "S").trim().slice(0, 1).toUpperCase();
+  const syncStatus = syncConfig.supabaseAccessToken ? "Online" : "Local";
+  return `
+    <section class="card account-screen">
+      <div class="account-profile">
+        <div class="account-avatar">${escaparHtml(inicial)}</div>
+        <div>
+          <h2>Conta</h2>
+          <strong>${escaparHtml(usuario.nome || usuario.email)}</strong>
+          <span class="muted">${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</span>
+        </div>
+        <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${usuario.ativo === false ? "Inativa" : "Ativa"}</span>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><span>Perfil</span><strong>${escaparHtml(usuario.papel || "user")}</strong></div>
+        <div class="metric"><span>Sessão</span><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong></div>
+        <div class="metric"><span>Sincronização</span><strong>${escaparHtml(syncStatus)}</strong></div>
+        <div class="metric"><span>Último acesso</span><strong>${usuario.lastLoginAt ? new Date(usuario.lastLoginAt).toLocaleString("pt-BR") : "Não registrado"}</strong></div>
+      </div>
+
+      <div class="actions">
+        <button class="btn secondary" type="button" onclick="sincronizarSupabase()">Sincronizar</button>
+        <button class="btn secondary" type="button" onclick="trocarTela('backup')">Backup</button>
+        <button class="btn ghost" type="button" onclick="trocarTela('seguranca')">Segurança</button>
+        <button class="btn warning" type="button" onclick="logoutUsuario()">Sair</button>
+      </div>
+
+      <div class="danger-zone">
+        <h2 class="section-title">Alterar senha</h2>
+        ${renderFormularioAlterarSenha(false)}
+      </div>
+
+      ${renderDispositivosLicenca()}
+    </section>
   `;
 }
 
@@ -5108,8 +5452,8 @@ function renderDashboard() {
     { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao" },
     { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque" },
     { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios" },
-    { icone: "💳", titulo: "Status do plano", valor: plano.nome, badge: plano.status, tela: "minhaAssinatura" },
-    { icone: "⏳", titulo: "Dias restantes", valor: plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes, badge: "Plano", tela: "minhaAssinatura" }
+    { icone: "💳", titulo: "Status do plano", valor: plano.nome, badge: plano.status, tela: "assinatura" },
+    { icone: "⏳", titulo: "Dias restantes", valor: plano.diasRestantes >= 9999 ? "Ativo" : plano.diasRestantes, badge: "Plano", tela: "assinatura" }
   ];
 
   return `
@@ -6129,6 +6473,7 @@ async function alterarPlanoClienteSaas(id) {
   assinatura.planId = plano.slug;
   assinatura.activePlan = plano.slug;
   assinatura.pendingPlan = "";
+  assinatura.pendingStartedAt = "";
   assinatura.paymentStatus = "none";
   assinatura.subscriptionStatus = subscriptionStatus;
   assinatura.status = statusPlano;
@@ -6148,6 +6493,7 @@ async function alterarPlanoClienteSaas(id) {
   cliente.planoAtual = plano.slug;
   cliente.activePlan = plano.slug;
   cliente.pendingPlan = "";
+  cliente.pendingStartedAt = "";
   cliente.paymentStatus = "none";
   cliente.subscriptionStatus = subscriptionStatus;
   cliente.statusAssinatura = statusPlano;
@@ -6730,6 +7076,15 @@ function renderConfig() {
           <p class="muted">Refaça o guia inicial quando quiser revisar o fluxo básico do sistema.</p>
           <div class="actions">
             <button class="btn secondary" onclick="reiniciarOnboarding()">Refazer introdução</button>
+          </div>
+        </div>
+
+        <div class="danger-zone">
+          <h2 class="section-title">Legal e versão</h2>
+          <div class="actions">
+            <button class="btn ghost" onclick="trocarTela('privacy')">Política de Privacidade</button>
+            <button class="btn ghost" onclick="trocarTela('terms')">Termos de Uso</button>
+            <button class="btn ghost" onclick="trocarTela('sobre')">Sobre e licenças</button>
           </div>
         </div>
       ` : ""}
@@ -8310,59 +8665,62 @@ function renderPersonalizacao() {
 }
 
 function renderAssinatura() {
+  verificarVencimentoPlanoLocal(false);
   const plano = getPlanoAtual();
   const diasTeste = Number(billingConfig.trialDays) || 7;
-  const downloadAndroid = billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
-  const downloadWindows = billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || location.origin;
-  const planoSaas = getPlanoSaasAtual();
+  const estadoPlano = resolverEstadoPlano(getUsuarioAtual(), { source: "plans-screen" });
+  const planoSaas = getPlanoSaas(estadoPlano.hasPremium ? estadoPlano.activePlan : "free");
+  const precoVigente = getPrecoPagoVigenteLocal();
+  const superadmin = isSuperAdmin();
   const planos = garantirPlanosSaas().filter((item) => ["free", "premium"].includes(item.slug));
 
   return `
-    <section class="card">
+    <section class="card plans-screen">
       <div class="card-header">
-        <h2>💳 Planos</h2>
+        <h2>Planos</h2>
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
       </div>
       <p class="muted">${escaparHtml(plano.descricao)}.</p>
+
+      <div class="plan-state-panel">
+        <div class="metric">
+          <span>Plano atual</span>
+          <strong>${escaparHtml(plano.nome)}</strong>
+        </div>
+        <div class="metric">
+          <span>Trial</span>
+          <strong>${superadmin ? "Acesso interno" : estadoPlano.isTrialActive ? "Ativo" : estadoPlano.trialExpiresAt ? "Encerrado" : "Disponível"}</strong>
+        </div>
+        <div class="metric">
+          <span>Dias restantes</span>
+          <strong>${plano.diasRestantes >= 9999 ? "Ativo" : Math.max(0, plano.diasRestantes || 0)}</strong>
+        </div>
+        <div class="metric">
+          <span>Preço vigente</span>
+          <strong>${formatarMoeda(precoVigente)}/mês</strong>
+        </div>
+      </div>
 
       <div class="admin-grid">
         ${planos.map((item) => renderPlanoSaasCard(item, planoSaas.slug, diasTeste)).join("")}
       </div>
 
       <div class="danger-zone">
-        <h2 class="section-title">Upgrade</h2>
+        <h2 class="section-title">Benefícios Premium</h2>
         <div class="comparison-grid">
-          <div class="metric"><span>Plano atual</span><strong>${escaparHtml(planoSaas.name)}</strong></div>
-          <div class="metric"><span>Usuários</span><strong>${planoSaas.maxUsers}</strong></div>
-          <div class="metric"><span>Pedidos</span><strong>${planoSaas.maxOrders ? planoSaas.maxOrders + "/mês" : "Ilimitados"}</strong></div>
-          <div class="metric"><span>Recomendado</span><strong>Premium R$ 29,90</strong></div>
-        </div>
-      </div>
-
-      <div class="sync-grid">
-        <div class="metric">
-          <span>Status</span>
-          <strong>${escaparHtml(plano.nome)}</strong>
-        </div>
-        <div class="metric">
-          <span>Dias restantes</span>
-          <strong>${plano.diasRestantes >= 9999 ? "Livre" : plano.diasRestantes}</strong>
+          <div class="metric"><span>Anúncios</span><strong>${estadoPlano.hasPremium ? "Desativados" : "Ativos no Free"}</strong></div>
+          <div class="metric"><span>Usuários</span><strong>Até 5</strong></div>
+          <div class="metric"><span>Pedidos</span><strong>Ilimitados</strong></div>
+          <div class="metric"><span>PDF e relatórios</span><strong>Liberados</strong></div>
         </div>
       </div>
 
       <div class="actions">
-        <button class="btn" onclick="trocarTela('minhaAssinatura')">Minha assinatura</button>
-        <button class="btn secondary" onclick="trocarTela('admin')">Entrar ou criar conta</button>
-      </div>
-
-      ${renderDispositivosLicenca()}
-
-      <div class="danger-zone">
-        <h2 class="section-title">Baixar aplicativo</h2>
-        <div class="actions">
-          <button class="btn ghost" onclick="abrirDownload('android')" ${downloadAndroid ? "" : "disabled"}>Android APK</button>
-          <button class="btn ghost" onclick="abrirDownload('windows')" ${downloadWindows ? "" : "disabled"}>Abrir no Windows/navegador</button>
-        </div>
+        ${superadmin
+          ? `<button class="btn secondary" type="button" onclick="trocarTela('superadmin')">Gerenciar clientes</button>`
+          : `<button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar Premium</button>
+             <button class="btn secondary" type="button" onclick="sincronizarSupabase()">Restaurar compra</button>
+             ${estadoPlano.trialStartedAt ? "" : `<button class="btn ghost" type="button" data-action="plan-trial" data-slug="premium_trial">Iniciar trial ${diasTeste} dias</button>`}`}
       </div>
     </section>
   `;
@@ -8370,6 +8728,8 @@ function renderAssinatura() {
 
 function renderPlanoSaasCard(plano, planoAtualSlug, diasTeste) {
   const selecionado = plano.slug === planoAtualSlug;
+  const superadmin = isSuperAdmin();
+  const preco = plano.slug === "premium" ? getPrecoPagoVigenteLocal() : plano.price;
   const linhas = [
     `${plano.maxUsers} usuário(s)`,
     plano.maxOrders ? `${plano.maxOrders} pedidos/mês` : "pedidos ilimitados",
@@ -8384,12 +8744,14 @@ function renderPlanoSaasCard(plano, planoAtualSlug, diasTeste) {
     <div class="plan-card ${plano.recommended ? "featured" : ""}">
       <div class="row-title">
         <strong>${escaparHtml(plano.name)}${plano.recommended ? " • recomendado" : ""}</strong>
-        <span class="muted">${formatarMoeda(plano.price)}/mês</span>
+        <span class="muted">${formatarMoeda(preco)}/mês</span>
       </div>
       <p class="muted">${linhas.join(" • ")}</p>
       <div class="actions single">
-        <button class="btn ${selecionado ? "secondary" : ""}" type="button" data-action="plan-select" data-slug="${escaparAttr(plano.slug)}">${selecionado ? "Plano atual" : plano.price > 0 ? "Assinar" : "Usar Free"}</button>
-        ${plano.slug === "free" ? `<button class="btn ghost" type="button" data-action="plan-trial" data-slug="premium_trial">Trial ${diasTeste} dias</button>` : `<button class="btn ghost" type="button" data-action="plan-payment" data-slug="${escaparAttr(plano.slug)}">Pagamento avulso</button>`}
+        ${superadmin
+          ? `<button class="btn ${selecionado ? "secondary" : "ghost"}" type="button" disabled>${selecionado ? "Plano atual" : "Não aplicável"}</button>`
+          : `<button class="btn ${selecionado ? "secondary" : ""}" type="button" data-action="plan-select" data-slug="${escaparAttr(plano.slug)}">${selecionado ? "Plano atual" : plano.price > 0 ? "Assinar" : "Usar Free"}</button>
+             ${plano.slug === "free" ? `<button class="btn ghost" type="button" data-action="plan-trial" data-slug="premium_trial">Trial ${diasTeste} dias</button>` : `<button class="btn ghost" type="button" data-action="plan-payment" data-slug="${escaparAttr(plano.slug)}">Pagamento avulso</button>`}`}
       </div>
     </div>
   `;
@@ -8481,6 +8843,30 @@ function renderSobre() {
         <div class="metric"><span>Plataformas</span><strong>PWA + APK</strong></div>
       </div>
       <p class="muted legal-copy">© 2026 Simplifica 3D - Todos os direitos reservados</p>
+    </section>
+  `;
+}
+
+function renderDocumentoLegalPage(tipo = "termos") {
+  const documento = getDocumentoLegal(tipo);
+  return `
+    <section class="card legal-page">
+      <div class="card-header">
+        <h2>${escaparHtml(documento.titulo)}</h2>
+        <span class="status-badge">Legal</span>
+      </div>
+      <p class="muted">${escaparHtml(documento.subtitulo)}</p>
+      <div class="legal-content legal-page-content">
+        ${documento.secoes.map((secao) => `
+          <section class="legal-section">
+            <h3>${escaparHtml(secao.titulo)}</h3>
+            <ul>
+              ${secao.itens.map((item) => `<li>${escaparHtml(item)}</li>`).join("")}
+            </ul>
+          </section>
+        `).join("")}
+        <p class="muted">${escaparHtml(documento.rodape)}</p>
+      </div>
     </section>
   `;
 }
@@ -8817,11 +9203,13 @@ function escolherPlanoSaas(slug = "free") {
     billingConfig.pendingPlan = "";
     billingConfig.paymentStatus = "none";
   } else {
+    const agoraPendente = new Date().toISOString();
     assinatura.pendingPlan = plano.slug;
     assinatura.paymentStatus = "pending";
-    assinatura.pendingStartedAt = new Date().toISOString();
+    assinatura.pendingStartedAt = agoraPendente;
     billingConfig.pendingPlan = plano.slug;
     billingConfig.paymentStatus = "pending";
+    billingConfig.pendingStartedAt = agoraPendente;
   }
   billingConfig.planSlug = assinatura.activePlan || assinatura.planSlug || "free";
   billingConfig.activePlan = assinatura.activePlan || assinatura.planSlug || "free";
@@ -8927,6 +9315,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
   assinatura.planId = plano.slug;
   assinatura.activePlan = plano.slug;
   assinatura.pendingPlan = "";
+  assinatura.pendingStartedAt = "";
   assinatura.paymentStatus = status === "pending" ? "pending" : "none";
   assinatura.subscriptionStatus = plano.slug === "premium_trial" ? "trialing" : plano.slug === "premium" ? "active" : "free";
   assinatura.status = normalizarStatusPlano(status);
@@ -8951,6 +9340,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     cliente.planoAtual = plano.slug;
     cliente.activePlan = plano.slug;
     cliente.pendingPlan = "";
+    cliente.pendingStartedAt = "";
     cliente.paymentStatus = assinatura.paymentStatus;
     cliente.subscriptionStatus = assinatura.subscriptionStatus;
     cliente.statusAssinatura = assinatura.statusAssinatura;
@@ -8978,6 +9368,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     billingConfig.planSlug = plano.slug;
     billingConfig.activePlan = plano.slug;
     billingConfig.pendingPlan = "";
+    billingConfig.pendingStartedAt = "";
     billingConfig.paymentStatus = assinatura.paymentStatus;
     billingConfig.subscriptionStatus = assinatura.subscriptionStatus;
     billingConfig.licenseStatus = status;
@@ -9038,6 +9429,7 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
   assinatura.planPrice = assinatura.planPrice || planPrice;
   billingConfig.pendingPlan = plano.slug;
   billingConfig.paymentStatus = "pending";
+  billingConfig.pendingStartedAt = pagamento.createdAt;
   billingConfig.monthlyPrice = planPrice;
   salvarDados();
   registrarAuditoria("pagamento criado", { tipo, plano: plano.slug, preferenceId: pagamento.preferenceId, subscriptionId: pagamento.mercadoPagoSubscriptionId }, clientId);
@@ -13933,6 +14325,16 @@ function processarParametrosAssinaturaUrl() {
   }
 }
 
+function processarRotaPublicaLegal() {
+  const rota = String(location.pathname || "").replace(/\/+$/, "").toLowerCase();
+  if (rota === "/privacy" || rota === "/privacidade") {
+    telaAtual = "privacy";
+  }
+  if (rota === "/terms" || rota === "/termos") {
+    telaAtual = "terms";
+  }
+}
+
 function iniciarMonitorPlanoSaas() {
   verificarVencimentoPlanoLocal(true);
   setInterval(() => {
@@ -14016,6 +14418,7 @@ document.addEventListener("DOMContentLoaded", () => {
   configurarMonetizacaoAds();
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
+  processarRotaPublicaLegal();
   processarParametrosAssinaturaUrl();
   processarRetornoOAuthSupabase().then(async (processou) => {
     if (!processou) {

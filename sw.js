@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v51-superadmin-search-test";
+const CACHE_NAME = "simplifica-3d-v53-admob-prod";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -56,6 +56,9 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     fetch(event.request, deveIgnorarCache ? { cache: "no-store" } : undefined).then((response) => {
+      if (response.status === 404 && event.request.mode === "navigate") {
+        return caches.match("./index.html").then((cached) => cached || fetch("./index.html", { cache: "no-store" }));
+      }
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
       return response;

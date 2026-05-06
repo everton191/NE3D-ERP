@@ -19,6 +19,8 @@ const MonetizationLimits = require("../src/services/monetizationLimits.js");
 let now = Date.parse("2026-05-04T12:00:00.000Z");
 let interstitialShows = 0;
 let rewardedShows = 0;
+let bannerShows = 0;
+let bannerHides = 0;
 let failRewarded = false;
 
 const mockPlugin = {
@@ -36,15 +38,24 @@ const mockPlugin = {
   showInterstitial: async () => {
     interstitialShows += 1;
     return { ok: true };
+  },
+  showBanner: async () => {
+    bannerShows += 1;
+    return { ok: true };
+  },
+  hideBanner: async () => {
+    bannerHides += 1;
+    return { ok: true };
   }
 };
 
-function configure({ premium = false, orders = 0, production = false, random = 0.1, shouldShowAdsResolver = null } = {}) {
+function configure({ premium = false, orders = 0, production = false, random = 0.1, shouldShowAdsResolver = null, platform = "android" } = {}) {
   global.localStorage.clear();
   AdMobService.configure({
     now: () => now,
     random: () => random,
     productionEnabledOverride: production,
+    nativePlatformOverride: platform,
     getPlugin: () => mockPlugin,
     isPremiumResolver: () => premium,
     shouldShowAdsResolver,
@@ -60,12 +71,15 @@ function configure({ premium = false, orders = 0, production = false, random = 0
   MonetizationLimits.resetForTests();
   interstitialShows = 0;
   rewardedShows = 0;
+  bannerShows = 0;
+  bannerHides = 0;
   failRewarded = false;
 }
 
 async function run() {
   configure({ premium: true, orders: 999 });
   assert.equal(AdMobService.isAdsAllowed({}), false, "premium nao deve ver anuncios");
+  assert.equal((await AdMobService.preloadRewardedAd({ user: {} })).ok, false, "premium nao faz preload do SDK");
   assert.equal(MonetizationLimits.canCreateOrder({}), true, "premium cria pedido direto");
   assert.equal(MonetizationLimits.canExportPDF({}), true, "premium exporta PDF direto");
 
@@ -81,6 +95,8 @@ async function run() {
   assert.equal(AdMobService.isAdsAllowed({ activePlan: "premium_trial", subscriptionStatus: "trialing" }), false, "trial nao deve ver anuncios");
   assert.equal(AdMobService.isAdsAllowed({ activePlan: "premium", subscriptionStatus: "active" }), false, "pago nao deve ver anuncios");
   assert.equal(AdMobService.canShowInterstitial({ activePlan: "free" }, { screenName: "login" }).allowed, false, "login nunca mostra anuncio");
+  assert.equal(AdMobService.canShowBanner({ activePlan: "free" }, { screenName: "dashboard" }).allowed, true, "banner pode aparecer no dashboard free");
+  assert.equal(AdMobService.canShowBanner({ activePlan: "free" }, { screenName: "pedido" }).allowed, false, "banner nao aparece em edicao/pedido");
 
   MonetizationLimits.configure({
     now: () => now,
@@ -149,6 +165,16 @@ async function run() {
   const critical = await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "login", actionName: "order_saved" });
   assert.equal(critical.shown, false, "interstitial nao aparece em tela critica");
   assert.equal(interstitialShows, 0, "tela critica nao chama SDK");
+
+  configure({ premium: false, orders: 0, production: false, platform: "web" });
+  const webBanner = await AdMobService.showBanner({ user: { activePlan: "free" }, context: { screenName: "dashboard" } });
+  assert.equal(webBanner.shown, false, "web nao carrega banner AdMob");
+  assert.equal(bannerShows, 0, "web nao chama SDK de banner");
+
+  configure({ premium: false, orders: 0, production: false, platform: "android" });
+  const shownBanner = await AdMobService.showBanner({ user: { activePlan: "free" }, context: { screenName: "dashboard" } });
+  assert.equal(shownBanner.shown, true, "android free pode exibir banner leve");
+  assert.equal(bannerShows, 1, "banner chamou SDK uma vez");
 
   configure({ premium: false, orders: 5 });
   MonetizationLimits.unlockOrdersByAd({ email: "persist@example.com" });

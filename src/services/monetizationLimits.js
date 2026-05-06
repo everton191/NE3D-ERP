@@ -51,6 +51,9 @@
     } catch (_) {}
     if (global.AdMobService?.isPremiumUser?.(user)) return true;
     if (user?.isPremium === true || user?.premium === true || user?.completo === true) return true;
+    const planState = normalize(user?.planState || user?.plan_state || "");
+    if (["trial", "active", "pago"].includes(planState)) return true;
+    if (["pending", "pendente", "free", "gratis", "expired", "blocked"].includes(planState)) return false;
     const planId = normalize(user?.activePlan || user?.active_plan || user?.planId || user?.plan_id || user?.planSlug || user?.plan_slug || user?.plano || user?.planoAtual);
     const status = normalize(user?.subscriptionStatus || user?.subscription_status || user?.status || user?.planStatus || user?.statusAssinatura);
     const expiresAt = Date.parse(user?.trialExpiresAt || user?.trial_expires_at || user?.planExpiresAt || user?.plan_expires_at || user?.currentPeriodEnd || user?.current_period_end || user?.expiresAt || user?.expires_at || 0) || 0;
