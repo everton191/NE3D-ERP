@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.07-saas-fase1";
+const APP_VERSION = "2026.05.07-delete-test-fix";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -6907,20 +6907,24 @@ async function excluirUsuarioTesteSaas(id) {
       body: JSON.stringify({ p_client_id: id, p_confirmation: "EXCLUIR TESTE" })
     });
     if (remoto?.ok !== true) throw new Error("RPC não confirmou a exclusão remota.");
+    const authConfirmado = remoto?.auth_verified_absent === true || remoto?.auth_deleted === true;
+    if (!authConfirmado) {
+      throw new Error(remoto?.auth_delete_error || "Auth não confirmou a remoção do usuário. Exclusão local cancelada.");
+    }
+    const residuos = remoto?.remaining && typeof remoto.remaining === "object" ? remoto.remaining : {};
+    const totalResiduos = Object.values(residuos).reduce((total, valor) => total + (Number(valor) || 0), 0);
+    if (totalResiduos > 0) {
+      throw new Error("Exclusão remota deixou resíduos. Exclusão local cancelada.");
+    }
     const resumoLocal = removerDadosLocaisUsuarioTesteSaas(id);
     registrarAuditoria("exclusão usuário teste", {
       email: cliente.email,
       resumo: resumoLocal,
       remoto: remoto?.ok === true,
-      authDeleted: remoto?.auth_deleted === true
+      authDeleted: remoto?.auth_deleted === true,
+      authVerifiedAbsent: remoto?.auth_verified_absent === true
     }, id);
-    mostrarToast(
-      remoto?.auth_deleted === false
-          ? "Usuário de teste excluído. Auth precisa conferência administrativa."
-          : "Usuário excluído com sucesso.",
-      remoto?.auth_deleted === false ? "info" : "sucesso",
-      remoto?.auth_deleted === false ? 7500 : 4200
-    );
+    mostrarToast("Usuário de teste excluído com segurança.", "sucesso", 4200);
     renderApp();
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao excluir usuário de teste", erro.message);
