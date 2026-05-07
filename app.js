@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.06-planos-ui";
+const APP_VERSION = "2026.05.07-saas-fase1";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -984,8 +984,8 @@ const AuthService = {
         run: () => requisicaoSupabase(`/rest/v1/profiles?select=id,user_id,client_id&user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, { method: "GET" })
       },
       {
-        name: "get_saas_license.rpc",
-        run: () => requisicaoSupabase("/rest/v1/rpc/get_saas_license", { method: "POST", body: JSON.stringify({}) })
+        name: "get_effective_license.rpc",
+        run: () => requisicaoSupabase("/rest/v1/rpc/get_effective_license", { method: "POST", body: JSON.stringify({}) })
       }
     ];
     const falhas = [];
@@ -1328,7 +1328,24 @@ function salvarCacheSessaoLocal() {
 }
 
 async function restaurarCacheSessaoLocal() {
-  if (usuarioAtualEmail || appConfig.keepSessionCache === false) return false;
+  if (appConfig.keepSessionCache === false) return false;
+  if (usuarioAtualEmail) {
+    try {
+      const emailSessaoAtual = normalizarEmail(usuarioAtualEmail);
+      carregarSessaoSensivelSupabase();
+      if (emailSessaoAtual && syncConfig.supabaseRefreshToken && !sessaoSupabaseValidaParaEmail(emailSessaoAtual)) {
+        const renovada = await renovarSessaoSupabase();
+        if (!renovada) {
+          mostrarToast("Sua sessão expirou. Faça login novamente.", "erro", 7000);
+          return false;
+        }
+      }
+      await sincronizarLicencaEfetivaSePossivel("restoreSession-active");
+    } catch (erro) {
+      registrarDiagnostico("Supabase", "Licença da sessão ativa não sincronizada", erro.message);
+    }
+    return false;
+  }
   try {
     const cache = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
     const email = normalizarEmail(cache.usuarioAtualEmail || cache.supabase?.supabaseEmail || "");
@@ -1351,6 +1368,7 @@ async function restaurarCacheSessaoLocal() {
     usuarioAtualEmail = email;
     sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
     registrarAtividadeSessao();
+    await sincronizarLicencaEfetivaSePossivel("restoreSession");
     return true;
   } catch (_) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
@@ -1753,6 +1771,7 @@ function normalizarClienteSaas(cliente = {}) {
     priceLocked: cliente.priceLocked === true || cliente.price_locked === true,
     trialStartedAt: cliente.trialStartedAt || cliente.trial_started_at || cliente.trialStartAt || cliente.trial_start_at || "",
     trialExpiresAt: cliente.trialExpiresAt || cliente.trial_expires_at || cliente.trialEndAt || cliente.trial_end_at || "",
+    trialConsumedAt: cliente.trialConsumedAt || cliente.trial_consumed_at || cliente.trialUsedAt || cliente.trial_used_at || "",
     isTrialActive: cliente.isTrialActive === true || cliente.is_trial_active === true,
     lastAdShownAt: cliente.lastAdShownAt || cliente.last_ad_shown_at || "",
     isTestUser: cliente.isTestUser === true || cliente.is_test_user === true || cliente.testUser === true || cliente.test_user === true,
@@ -1761,6 +1780,9 @@ function normalizarClienteSaas(cliente = {}) {
     lastAccessAt: cliente.lastAccessAt || cliente.last_access_at || "",
     updatedAt: cliente.updatedAt || cliente.updated_at || new Date().toISOString(),
     inactiveMarkedAt: cliente.inactiveMarkedAt || "",
+    blockedAt: cliente.blockedAt || cliente.blocked_at || "",
+    blockedReason: cliente.blockedReason || cliente.blocked_reason || "",
+    archivedAt: cliente.archivedAt || cliente.archived_at || "",
     anonymizedAt: cliente.anonymizedAt || cliente.anonymized_at || "",
     deletionPolicy: cliente.deletionPolicy || cliente.deletion_policy || "mark_only"
   };
@@ -1803,8 +1825,17 @@ function normalizarAssinaturaSaas(assinatura = {}) {
     planExpiresAt: currentPeriodEnd,
     trialStartedAt,
     trialExpiresAt,
+    trialConsumedAt: assinatura.trialConsumedAt || assinatura.trial_consumed_at || assinatura.trialUsedAt || assinatura.trial_used_at || "",
     isTrialActive,
     pendingStartedAt: assinatura.pendingStartedAt || assinatura.pending_started_at || "",
+    planCode: String(assinatura.planCode || assinatura.plan_code || "").toUpperCase(),
+    effectiveStatus: assinatura.effectiveStatus || assinatura.effective_status || "",
+    manualOverride: assinatura.manualOverride === true || assinatura.manual_override === true,
+    manualOverrideReason: assinatura.manualOverrideReason || assinatura.manual_override_reason || "",
+    blockedAt: assinatura.blockedAt || assinatura.blocked_at || "",
+    blockedReason: assinatura.blockedReason || assinatura.blocked_reason || "",
+    archivedAt: assinatura.archivedAt || assinatura.archived_at || "",
+    anonymizedAt: assinatura.anonymizedAt || assinatura.anonymized_at || "",
     mercadoPagoSubscriptionId: assinatura.mercadoPagoSubscriptionId || assinatura.mercado_pago_subscription_id || assinatura.subscriptionIdMercadoPago || "",
     startedAt: assinatura.startedAt || assinatura.started_at || currentPeriodStart,
     expiresAt: assinatura.expiresAt || assinatura.expires_at || currentPeriodEnd,
@@ -2001,6 +2032,10 @@ function marcarClientesInativosLocal() {
 }
 
 function verificarVencimentoPlanoLocal(salvar = true) {
+  if (licencaEfetivaRemotaFresca()) {
+    return;
+  }
+
   const hoje = hojeIsoData();
   let alterou = false;
 
@@ -2188,6 +2223,7 @@ function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug
     planExpiresAt: expiresAt,
     trialStartedAt: trial ? agora : "",
     trialExpiresAt: trial ? expiresAt : "",
+    trialConsumedAt: trial ? agora : "",
     isTrialActive: trial
   });
   const usuario = normalizarUsuario({
@@ -2200,6 +2236,7 @@ function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug
     ativo: true,
     planStatus: assinatura.status,
     trialStartedAt: trial ? agora : "",
+    trialConsumedAt: trial ? agora : "",
     trialDays: DEFAULT_TRIAL_DAYS,
     planExpiresAt: expiresAt,
     acceptedTermsAt: agora,
@@ -2220,6 +2257,7 @@ function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug
   billingConfig.licenseStatus = assinatura.status;
   billingConfig.trialStartedAt = trial ? agora : "";
   billingConfig.trialExpiresAt = trial ? expiresAt : "";
+  billingConfig.trialConsumedAt = trial ? agora : "";
   billingConfig.isTrialActive = trial;
   billingConfig.paidUntil = expiresAt;
   billingConfig.planExpiresAt = expiresAt;
@@ -3289,6 +3327,108 @@ function calcularFimTrial(inicio, dias = billingConfig.trialDays) {
   return new Date(dataInicio + Math.max(1, Number(dias) || 7) * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function normalizarStatusLicencaEfetiva(status = "FREE") {
+  const valor = String(status || "FREE").toUpperCase().trim();
+  const mapa = {
+    ACTIVE: PLAN_ACCESS_STATES.ACTIVE,
+    ATIVO: PLAN_ACCESS_STATES.ACTIVE,
+    PAID: PLAN_ACCESS_STATES.ACTIVE,
+    PAGO: PLAN_ACCESS_STATES.ACTIVE,
+    TRIAL: PLAN_ACCESS_STATES.TRIAL,
+    TESTE: PLAN_ACCESS_STATES.TRIAL,
+    PENDING: PLAN_ACCESS_STATES.PENDING,
+    PENDENTE: PLAN_ACCESS_STATES.PENDING,
+    EXPIRED: PLAN_ACCESS_STATES.EXPIRED,
+    VENCIDO: PLAN_ACCESS_STATES.EXPIRED,
+    BLOCKED: PLAN_ACCESS_STATES.BLOCKED,
+    BLOQUEADO: PLAN_ACCESS_STATES.BLOCKED,
+    FREE: PLAN_ACCESS_STATES.FREE,
+    GRATIS: PLAN_ACCESS_STATES.FREE,
+    GRATUITO: PLAN_ACCESS_STATES.FREE
+  };
+  return mapa[valor] || PLAN_ACCESS_STATES.FREE;
+}
+
+function slugPlanoPorLicencaEfetiva(licenca = {}) {
+  const status = normalizarStatusLicencaEfetiva(licenca.effective_status || licenca.effectiveStatus);
+  const planCode = String(licenca.plan_code || licenca.planCode || "").toUpperCase().trim();
+  if (status === PLAN_ACCESS_STATES.TRIAL) return "premium_trial";
+  if (status === PLAN_ACCESS_STATES.ACTIVE || planCode === "PREMIUM") return status === PLAN_ACCESS_STATES.FREE ? "free" : "premium";
+  return "free";
+}
+
+function statusLegadoPorLicencaEfetiva(status) {
+  const normalizado = normalizarStatusLicencaEfetiva(status);
+  if (normalizado === PLAN_ACCESS_STATES.TRIAL) return "trialing";
+  if (normalizado === PLAN_ACCESS_STATES.ACTIVE) return "active";
+  if (normalizado === PLAN_ACCESS_STATES.PENDING) return "pending";
+  if (normalizado === PLAN_ACCESS_STATES.BLOCKED) return "blocked";
+  if (normalizado === PLAN_ACCESS_STATES.EXPIRED) return "expired";
+  return "active";
+}
+
+function getLicencaEfetivaSnapshotLocal() {
+  const status = billingConfig.effectiveStatus || billingConfig.effective_status || "";
+  if (!status) return null;
+  const updatedAt = billingConfig.effectiveLicenseUpdatedAt || billingConfig.effectiveUpdatedAt || "";
+  const stale = billingConfig.effectiveLicenseStale === true;
+  return {
+    userId: billingConfig.effectiveUserId || syncConfig.supabaseUserId || "",
+    clientId: billingConfig.clientId || "",
+    planCode: billingConfig.effectivePlanCode || "",
+    effectiveStatus: normalizarStatusLicencaEfetiva(status),
+    isPremium: billingConfig.effectiveIsPremium === true,
+    isTrial: billingConfig.effectiveIsTrial === true,
+    isPending: billingConfig.effectiveIsPending === true,
+    isBlocked: billingConfig.effectiveIsBlocked === true,
+    remainingTrialDays: Math.max(0, Number(billingConfig.effectiveRemainingTrialDays || 0) || 0),
+    trialStartAt: billingConfig.trialStartedAt || "",
+    trialEndAt: billingConfig.trialExpiresAt || "",
+    trialConsumedAt: billingConfig.trialConsumedAt || "",
+    premiumUntil: billingConfig.premiumUntil || billingConfig.planExpiresAt || "",
+    blockedAt: billingConfig.blockedAt || "",
+    blockedReason: billingConfig.blockedReason || "",
+    source: stale ? "backend-rpc-cache-stale" : (billingConfig.effectiveLicenseSource || "backend-rpc"),
+    updatedAt,
+    stale
+  };
+}
+
+function licencaEfetivaRemotaFresca() {
+  const snapshot = getLicencaEfetivaSnapshotLocal();
+  return !!snapshot && snapshot.stale !== true && ["backend-rpc", "backend-rpc-legacy", "subscriptions", "superadmin"].includes(String(snapshot.source || ""));
+}
+
+function montarSnapshotPlanoDeLicencaEfetiva(licenca = getLicencaEfetivaSnapshotLocal(), source = "backend-rpc") {
+  if (!licenca) return null;
+  const state = normalizarStatusLicencaEfetiva(licenca.effectiveStatus || licenca.effective_status);
+  const activePlan = state === PLAN_ACCESS_STATES.TRIAL ? "premium_trial" : state === PLAN_ACCESS_STATES.ACTIVE ? "premium" : "free";
+  const trialRemainingDays = Math.max(0, Number(licenca.remainingTrialDays || licenca.remaining_trial_days || 0) || 0);
+  const planExpiresAt = licenca.premiumUntil || licenca.premium_until || licenca.expires_at || "";
+  return {
+    state,
+    source: source || licenca.source || "backend-rpc",
+    activePlan,
+    pendingPlan: licenca.isPending || licenca.is_pending ? (activePlan === "free" ? "premium" : "") : "",
+    paymentStatus: licenca.isPending || licenca.is_pending ? "pending" : "none",
+    subscriptionStatus: state === PLAN_ACCESS_STATES.TRIAL ? "trialing" : state === PLAN_ACCESS_STATES.ACTIVE ? "active" : "free",
+    statusPlano: statusLegadoPorLicencaEfetiva(state),
+    pending: state === PLAN_ACCESS_STATES.PENDING || licenca.isPending === true || licenca.is_pending === true,
+    pendingExpired: false,
+    trialStartedAt: licenca.trialStartAt || licenca.trial_start_at || licenca.trial_started_at || "",
+    trialExpiresAt: licenca.trialEndAt || licenca.trial_end_at || licenca.trial_expires_at || "",
+    trialRemainingDays,
+    planExpiresAt,
+    planRemainingDays: planExpiresAt ? getRemainingDays(planExpiresAt) : 0,
+    hasPremium: state === PLAN_ACCESS_STATES.TRIAL || state === PLAN_ACCESS_STATES.ACTIVE,
+    isTrialActive: state === PLAN_ACCESS_STATES.TRIAL,
+    isPaidActive: state === PLAN_ACCESS_STATES.ACTIVE,
+    adsAllowed: state === PLAN_ACCESS_STATES.FREE || state === PLAN_ACCESS_STATES.PENDING,
+    blockLevel: state === PLAN_ACCESS_STATES.BLOCKED ? "total" : "none",
+    stale: licenca.stale === true
+  };
+}
+
 function primeiroValorPlano(...valores) {
   for (const valor of valores) {
     if (valor === null || valor === undefined) continue;
@@ -3349,6 +3489,19 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     };
     logEstadoPlanoDebug(snapshotSuper);
     return snapshotSuper;
+  }
+
+  if (options.ignoreEffectiveLicense !== true) {
+    const licencaEfetiva = getLicencaEfetivaSnapshotLocal();
+    const clientIdUsuario = String(user?.clientId || billingConfig.clientId || "");
+    const clientIdLicenca = String(licencaEfetiva?.clientId || "");
+    if (licencaEfetiva && (!clientIdUsuario || !clientIdLicenca || clientIdUsuario === clientIdLicenca)) {
+      const snapshotEfetivo = montarSnapshotPlanoDeLicencaEfetiva(licencaEfetiva, licencaEfetiva.source || source);
+      if (snapshotEfetivo) {
+        logEstadoPlanoDebug(snapshotEfetivo);
+        return snapshotEfetivo;
+      }
+    }
   }
 
   const activePlan = normalizarSlugPlano(primeiroValorPlano(
@@ -5875,6 +6028,7 @@ function normalizarTextoBusca(valor = "") {
 
 function clientePassaFiltrosSaas(cliente, filtros = window.__clientesSaasFiltros || {}) {
   if (normalizarEmail(cliente.email) === SUPERADMIN_BOOTSTRAP_EMAIL) return false;
+  if (cliente.archivedAt) return false;
   const termoNome = String(filtros.nome || "").toLowerCase();
   const termoEmail = String(filtros.email || "").toLowerCase();
   const plano = String(filtros.plano || "");
@@ -5891,7 +6045,7 @@ function clientePassaFiltrosSaas(cliente, filtros = window.__clientesSaasFiltros
 function aplicarFiltroClientesSaasNaTela() {
   const container = document.getElementById("clientesSaasLista");
   if (container) {
-    const total = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL).length;
+    const total = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt).length;
     container.innerHTML = renderListaClientesSaasConteudo(total);
     return;
   }
@@ -6037,6 +6191,7 @@ function renderLinhaClienteSaas(cliente) {
         <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Alterar plano</button>
         <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Remover teste" : "Marcar teste"}</button>
         <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar</button>
+        <button class="btn ghost" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar</button>
         <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar</button>
         ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
       </div>
@@ -6066,7 +6221,7 @@ function renderListaClientesSaasConteudo(totalClientes) {
 
 function renderClientesSaas() {
   garantirEstruturaSaasLocal();
-  const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL);
+  const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt);
   const total = clientesVisiveis.length;
   const ativos = clientesVisiveis.filter((cliente) => cliente.status === "active").length;
   const atrasados = clientesVisiveis.filter((cliente) => cliente.status === "overdue").length;
@@ -6257,6 +6412,96 @@ function podeSalvarAdminSupabaseRemoto() {
   return isSuperAdmin() && !!syncConfig.supabaseAccessToken && !!syncConfig.supabaseUrl;
 }
 
+function getAlvoRpcClienteSaas(id) {
+  const referencias = getReferenciasClienteSaas(id);
+  const assinatura = getAssinaturaSaas(id);
+  const candidatos = [
+    assinatura?.userId,
+    assinatura?.user_id,
+    ...referencias.usuariosCliente.map((usuario) => usuario.userId || usuario.user_id || usuario.id),
+    id
+  ];
+  return String(candidatos.find((valor) => pareceUuid(valor)) || id);
+}
+
+function aplicarLicencaEfetivaClienteSaas(id, licenca = {}) {
+  if (!licenca || typeof licenca !== "object") return;
+  const statusEfetivo = normalizarStatusLicencaEfetiva(licenca.effective_status || licenca.effectiveStatus || licenca.status);
+  const activePlan = slugPlanoPorLicencaEfetiva(licenca);
+  const cliente = getClienteSaasPorId(id || licenca.client_id);
+  let assinatura = getAssinaturaSaas(id || licenca.client_id);
+  if (!assinatura && (id || licenca.client_id)) {
+    assinatura = normalizarAssinaturaSaas({ clientId: id || licenca.client_id, planSlug: activePlan, activePlan });
+    saasSubscriptions.push(assinatura);
+  }
+  if (assinatura) {
+    assinatura.userId = licenca.user_id || assinatura.userId || "";
+    assinatura.planCode = String(licenca.plan_code || "").toUpperCase();
+    assinatura.effectiveStatus = statusEfetivo;
+    assinatura.planSlug = activePlan;
+    assinatura.activePlan = activePlan;
+    assinatura.pendingPlan = licenca.pending_plan || "";
+    assinatura.paymentStatus = licenca.payment_status || (statusEfetivo === PLAN_ACCESS_STATES.PENDING ? "pending" : "none");
+    assinatura.subscriptionStatus = licenca.subscription_status || (statusEfetivo === PLAN_ACCESS_STATES.TRIAL ? "trialing" : statusEfetivo === PLAN_ACCESS_STATES.ACTIVE ? "active" : "free");
+    assinatura.status = statusLegadoPorLicencaEfetiva(statusEfetivo);
+    assinatura.statusAssinatura = assinatura.status;
+    assinatura.planExpiresAt = licenca.premium_until || licenca.expires_at || "";
+    assinatura.currentPeriodEnd = licenca.current_period_end || assinatura.planExpiresAt;
+    assinatura.expiresAt = assinatura.planExpiresAt;
+    assinatura.trialStartedAt = licenca.trial_start_at || licenca.trial_started_at || "";
+    assinatura.trialExpiresAt = licenca.trial_end_at || licenca.trial_expires_at || "";
+    assinatura.trialConsumedAt = licenca.trial_consumed_at || assinatura.trialConsumedAt || "";
+    assinatura.isTrialActive = statusEfetivo === PLAN_ACCESS_STATES.TRIAL;
+    assinatura.manualOverride = licenca.manual_override === true;
+    assinatura.manualOverrideReason = licenca.manual_override_reason || "";
+    assinatura.blockedAt = licenca.blocked_at || "";
+    assinatura.blockedReason = licenca.blocked_reason || "";
+    assinatura.archivedAt = licenca.archived_at || "";
+    assinatura.anonymizedAt = licenca.anonymized_at || "";
+  }
+  if (cliente) {
+    cliente.activePlan = activePlan;
+    cliente.planoAtual = activePlan;
+    cliente.pendingPlan = licenca.pending_plan || "";
+    cliente.paymentStatus = licenca.payment_status || (statusEfetivo === PLAN_ACCESS_STATES.PENDING ? "pending" : "none");
+    cliente.subscriptionStatus = licenca.subscription_status || (statusEfetivo === PLAN_ACCESS_STATES.TRIAL ? "trialing" : statusEfetivo === PLAN_ACCESS_STATES.ACTIVE ? "active" : "free");
+    cliente.statusAssinatura = statusLegadoPorLicencaEfetiva(statusEfetivo);
+    cliente.planExpiresAt = licenca.premium_until || licenca.expires_at || "";
+    cliente.trialStartedAt = licenca.trial_start_at || licenca.trial_started_at || "";
+    cliente.trialExpiresAt = licenca.trial_end_at || licenca.trial_expires_at || "";
+    cliente.trialConsumedAt = licenca.trial_consumed_at || cliente.trialConsumedAt || "";
+    cliente.isTrialActive = statusEfetivo === PLAN_ACCESS_STATES.TRIAL;
+    cliente.blockedAt = licenca.blocked_at || "";
+    cliente.blockedReason = licenca.blocked_reason || "";
+    cliente.archivedAt = licenca.archived_at || cliente.archivedAt || "";
+    cliente.anonymizedAt = licenca.anonymized_at || cliente.anonymizedAt || "";
+    if (statusEfetivo === PLAN_ACCESS_STATES.BLOCKED) cliente.status = "blocked";
+    else if (cliente.anonymizedAt) cliente.status = "anonymized";
+    else if (cliente.status !== "inactive") cliente.status = "active";
+    cliente.updatedAt = licenca.updated_at || new Date().toISOString();
+  }
+  salvarDados();
+}
+
+async function chamarSuperadminUpdateSubscription(id, action, options = {}) {
+  if (!podeSalvarAdminSupabaseRemoto()) {
+    throw new Error("Entre como superadmin Supabase para salvar no banco.");
+  }
+  const alvo = options.targetUserId || getAlvoRpcClienteSaas(id);
+  const licenca = await requisicaoSupabase("/rest/v1/rpc/superadmin_update_subscription", {
+    method: "POST",
+    body: JSON.stringify({
+      target_user_id: String(alvo),
+      action,
+      plan_code: options.planCode || null,
+      premium_until: options.premiumUntil || null,
+      reason: options.reason || null
+    })
+  });
+  aplicarLicencaEfetivaClienteSaas(id || licenca?.client_id, licenca);
+  return licenca;
+}
+
 async function atualizarClienteSaasSupabaseParcial(id, payload = {}) {
   if (!podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
   await requisicaoSupabase(`/rest/v1/clients?id=eq.${encodeURIComponent(id)}`, {
@@ -6406,28 +6651,21 @@ async function alterarStatusClienteSaas(id, status) {
 
   const toast = mostrarToast("Salvando...", "loading");
   try {
-    cliente.status = status;
-    cliente.updatedAt = new Date().toISOString();
-    if (status === "active") cliente.lastAccessAt = cliente.lastAccessAt || new Date().toISOString();
+    const licenca = await chamarSuperadminUpdateSubscription(id, bloquear ? "BLOCK" : "UNBLOCK", {
+      planCode: "FREE",
+      reason: bloquear ? "Bloqueio manual pelo Superadmin" : "Desbloqueio manual pelo Superadmin"
+    });
     usuarios.filter((usuario) => usuario.clientId === id).forEach((usuario) => {
       usuario.bloqueado = bloquear;
       usuario.ativo = !bloquear;
-      usuario.atualizadoEm = cliente.updatedAt;
+      usuario.atualizadoEm = licenca?.updated_at || new Date().toISOString();
     });
     salvarDados();
-    const remoto = await atualizarClienteSaasSupabaseParcial(id, { status });
-    await atualizarStatusPerfisClienteSupabase(id, status);
-    registrarAuditoria(status === "active" ? "reativado" : "bloqueio", { email: cliente.email, status, remoto: remoto.ok === true }, cliente.id);
-    mostrarToast(
-      remoto.skipped
-        ? "Alteração salva localmente. Entre como superadmin Supabase para salvar remoto."
-        : status === "active" ? "Cliente desbloqueado com sucesso." : "Cliente bloqueado com sucesso.",
-      remoto.skipped ? "info" : "sucesso",
-      remoto.skipped ? 7000 : 4200
-    );
+    registrarAuditoria(status === "active" ? "reativado" : "bloqueio", { email: cliente.email, status, source: licenca?.source || "rpc" }, cliente.id);
+    mostrarToast(status === "active" ? "Cliente desbloqueado" : "Cliente bloqueado", "sucesso", 4200);
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao alterar status do cliente", erro.message);
-    mostrarToast("Erro ao salvar alteração.", "erro", 6500);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
   } finally {
     toast?.remove?.();
     renderApp();
@@ -6447,92 +6685,40 @@ async function alterarPlanoClienteSaas(id) {
     alert("Plano inválido.");
     return;
   }
+  if (novoPlano === "premium_trial") {
+    alert("Teste grátis não pode ser reativado manualmente. Use Premium manual ou Free.");
+    return;
+  }
   const confirmado = await solicitarConfirmacaoAcao({
     titulo: "Alterar plano",
     mensagem: `Alterar ${cliente.email} para ${plano.name}?`,
     confirmar: "Alterar plano"
   });
   if (!confirmado) return;
-  const toast = mostrarToast("Salvando...", "loading");
-  let assinatura = getAssinaturaSaas(id);
-  if (!assinatura) {
-    assinatura = normalizarAssinaturaSaas({ clientId: id, planSlug: "free", activePlan: "free", status: "active" });
-    saasSubscriptions.push(assinatura);
-  }
-  const agora = new Date();
-  const fim = new Date(agora);
-  if (plano.slug === "premium_trial") fim.setDate(fim.getDate() + DEFAULT_TRIAL_DAYS);
-  if (plano.slug === "premium") fim.setDate(fim.getDate() + 30);
-  const subscriptionStatus = plano.slug === "premium_trial" ? "trialing" : plano.slug === "premium" ? "active" : "free";
-  const statusPlano = subscriptionStatus === "free" ? "active" : subscriptionStatus;
-  const venceEm = plano.slug === "free" ? "" : fim.toISOString();
-  const planPrice = plano.slug === "premium"
-    ? Math.max(0, Number(assinatura.planPrice || cliente.planPrice || getPrecoPagoVigenteLocal()) || getPrecoPagoVigenteLocal())
-    : 0;
-  assinatura.planSlug = plano.slug;
-  assinatura.planId = plano.slug;
-  assinatura.activePlan = plano.slug;
-  assinatura.pendingPlan = "";
-  assinatura.pendingStartedAt = "";
-  assinatura.paymentStatus = "none";
-  assinatura.subscriptionStatus = subscriptionStatus;
-  assinatura.status = statusPlano;
-  assinatura.statusAssinatura = statusPlano;
-  assinatura.promoUsed = plano.slug === "premium";
-  assinatura.billingVariant = assinatura.promoUsed ? "premium_monthly" : "premium_first_month";
-  assinatura.currentPeriodStart = plano.slug === "free" ? "" : agora.toISOString();
-  assinatura.currentPeriodEnd = venceEm;
-  assinatura.expiresAt = assinatura.currentPeriodEnd;
-  assinatura.nextBillingAt = assinatura.currentPeriodEnd;
-  assinatura.planExpiresAt = venceEm;
-  assinatura.planPrice = planPrice;
-  assinatura.priceLocked = plano.slug === "premium";
-  assinatura.trialStartedAt = plano.slug === "premium_trial" ? agora.toISOString() : "";
-  assinatura.trialExpiresAt = plano.slug === "premium_trial" ? venceEm : "";
-  assinatura.isTrialActive = plano.slug === "premium_trial";
-  cliente.planoAtual = plano.slug;
-  cliente.activePlan = plano.slug;
-  cliente.pendingPlan = "";
-  cliente.pendingStartedAt = "";
-  cliente.paymentStatus = "none";
-  cliente.subscriptionStatus = subscriptionStatus;
-  cliente.statusAssinatura = statusPlano;
-  cliente.planPrice = planPrice;
-  cliente.priceLocked = plano.slug === "premium";
-  cliente.planExpiresAt = venceEm;
-  cliente.trialStartedAt = assinatura.trialStartedAt;
-  cliente.trialExpiresAt = assinatura.trialExpiresAt;
-  cliente.isTrialActive = assinatura.isTrialActive;
-  cliente.updatedAt = new Date().toISOString();
-  try {
-    salvarDados();
-    const remotoCliente = await atualizarClienteSaasSupabaseParcial(id, {
-      plano_atual: plano.slug,
-      active_plan: plano.slug,
-      pending_plan: null,
-      payment_status: "none",
-      subscription_status: subscriptionStatus,
-      plan_expires_at: venceEm || null,
-      plan_price: planPrice || null,
-      price_locked: plano.slug === "premium",
-      trial_started_at: assinatura.trialStartedAt || null,
-      trial_expires_at: assinatura.trialExpiresAt || null,
-      is_trial_active: assinatura.isTrialActive === true,
-      status_assinatura: statusPlano,
-      status: cliente.status
+  const assinaturaAtual = getAssinaturaSaas(id);
+  const trialValido = (assinaturaAtual?.activePlan === "premium_trial" || cliente.activePlan === "premium_trial")
+    && getTimestampPlano(assinaturaAtual?.trialExpiresAt || cliente.trialExpiresAt || 0) > Date.now();
+  if (novoPlano === "free" && trialValido) {
+    const confirmarTrial = await solicitarConfirmacaoAcao({
+      titulo: "Encerrar teste ativo",
+      mensagem: "Este cliente ainda tem trial válido. Confirmar Free encerra o acesso Premium temporário.",
+      confirmar: "Confirmar Free",
+      perigo: true
     });
-    const remotoAssinatura = await atualizarAssinaturaClienteSaasSupabase(id, assinatura);
-    registrarAuditoria("alteração plano", { email: cliente.email, plano: plano.slug, remotoCliente: remotoCliente.ok === true, remotoAssinatura: remotoAssinatura.ok === true }, cliente.id);
-    mostrarToast(
-      remotoCliente.skipped || remotoAssinatura.skipped
-        ? "Plano salvo localmente. Entre como superadmin Supabase para salvar remoto."
-        : "Plano alterado com sucesso.",
-      remotoCliente.skipped || remotoAssinatura.skipped ? "info" : "sucesso",
-      remotoCliente.skipped || remotoAssinatura.skipped ? 7000 : 4200
-    );
+    if (!confirmarTrial) return;
+  }
+  const toast = mostrarToast("Salvando...", "loading");
+  try {
+    const licenca = await chamarSuperadminUpdateSubscription(id, novoPlano === "premium" ? "ACTIVATE_PREMIUM_MANUAL" : "SET_FREE", {
+      planCode: novoPlano === "premium" ? "PREMIUM" : "FREE",
+      premiumUntil: null,
+      reason: `Alteração manual para ${plano.name}`
+    });
+    registrarAuditoria("alteração plano", { email: cliente.email, plano: plano.slug, source: licenca?.source || "rpc" }, cliente.id);
+    mostrarToast("Plano atualizado com sucesso", "sucesso", 4200);
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao alterar plano", erro.message);
-    mostrarToast("Erro ao salvar alteração.", "erro", 6500);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
   } finally {
     toast?.remove?.();
     renderApp();
@@ -6587,24 +6773,18 @@ async function alternarUsuarioTesteSaas(id) {
   if (!confirmado) return;
 
   const toast = mostrarToast("Salvando...", "loading");
-  cliente.isTestUser = proximoValor;
-  cliente.deletionPolicy = proximoValor ? "test_delete_allowed" : "mark_only";
-  cliente.updatedAt = new Date().toISOString();
-  salvarDados();
-
   try {
     const remoto = await atualizarFlagTesteClienteSaasSupabase(id, proximoValor);
+    if (remoto.skipped) throw new Error("Sessão Supabase de superadmin indisponível.");
+    cliente.isTestUser = proximoValor;
+    cliente.deletionPolicy = proximoValor ? "test_delete_allowed" : "mark_only";
+    cliente.updatedAt = new Date().toISOString();
+    salvarDados();
     registrarAuditoria(proximoValor ? "marcado teste" : "desmarcado teste", { email: cliente.email, remoto: remoto.ok === true }, id);
-    mostrarToast(
-      remoto.skipped
-        ? "Marcação salva localmente. Entre como superadmin Supabase para salvar remoto."
-        : proximoValor ? "Usuário marcado como teste." : "Usuário deixou de ser teste.",
-      remoto.skipped ? "info" : "sucesso",
-      remoto.skipped ? 7000 : 4200
-    );
+    mostrarToast(proximoValor ? "Usuário marcado como teste." : "Usuário deixou de ser teste.", "sucesso", 4200);
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Flag de usuário teste não sincronizada", erro.message);
-    mostrarToast("Marcação salva localmente, mas não foi possível sincronizar no Supabase.", "info", 7000);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 7000);
   } finally {
     toast?.remove?.();
     renderApp();
@@ -6719,13 +6899,14 @@ async function excluirUsuarioTesteSaas(id) {
 
   const toast = mostrarToast("Salvando...", "loading");
   try {
-    let remoto = { skipped: true };
-    if (podeSalvarAdminSupabaseRemoto()) {
-      remoto = await requisicaoSupabase("/rest/v1/rpc/delete_test_user_client", {
-        method: "POST",
-        body: JSON.stringify({ p_client_id: id, p_confirmation: "EXCLUIR TESTE" })
-      });
+    if (!podeSalvarAdminSupabaseRemoto()) {
+      throw new Error("Sessão Supabase de superadmin indisponível.");
     }
+    const remoto = await requisicaoSupabase("/rest/v1/rpc/delete_test_user_client", {
+      method: "POST",
+      body: JSON.stringify({ p_client_id: id, p_confirmation: "EXCLUIR TESTE" })
+    });
+    if (remoto?.ok !== true) throw new Error("RPC não confirmou a exclusão remota.");
     const resumoLocal = removerDadosLocaisUsuarioTesteSaas(id);
     registrarAuditoria("exclusão usuário teste", {
       email: cliente.email,
@@ -6734,18 +6915,16 @@ async function excluirUsuarioTesteSaas(id) {
       authDeleted: remoto?.auth_deleted === true
     }, id);
     mostrarToast(
-      remoto?.skipped
-        ? "Usuário de teste excluído localmente. Conta Auth exige Supabase remoto."
-        : remoto?.auth_deleted === false
+      remoto?.auth_deleted === false
           ? "Usuário de teste excluído. Auth precisa conferência administrativa."
           : "Usuário excluído com sucesso.",
-      remoto?.skipped || remoto?.auth_deleted === false ? "info" : "sucesso",
-      remoto?.skipped || remoto?.auth_deleted === false ? 7500 : 4200
+      remoto?.auth_deleted === false ? "info" : "sucesso",
+      remoto?.auth_deleted === false ? 7500 : 4200
     );
     renderApp();
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao excluir usuário de teste", erro.message);
-    mostrarToast("Erro ao excluir usuário de teste.", "erro", 6500);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
   } finally {
     toast?.remove?.();
   }
@@ -6764,36 +6943,33 @@ async function anonimizarClienteSaas(id) {
   if (!confirmado) return;
   const toast = mostrarToast("Salvando...", "loading");
   const emailOriginal = cliente.email;
-  const emailAnonimo = `anon-${String(id).replace(/[^a-z0-9]/gi, "").slice(0, 18) || Date.now()}@anon.local`;
-  cliente.name = "Cliente anonimizado";
-  cliente.responsibleName = "";
-  cliente.email = emailAnonimo;
-  cliente.phone = "";
-  cliente.status = "anonymized";
-  cliente.anonymizedAt = new Date().toISOString();
-  cliente.deletionPolicy = "anonymized";
-  cliente.updatedAt = new Date().toISOString();
-  usuarios.filter((usuario) => usuario.clientId === id).forEach((usuario) => {
-    usuario.nome = "Usuário anonimizado";
-    usuario.email = `anon-${usuario.id}@anon.local`;
-    usuario.phone = "";
-    usuario.ativo = false;
-    usuario.bloqueado = true;
-  });
   try {
+    const licenca = await chamarSuperadminUpdateSubscription(id, "ANONYMIZE", {
+      planCode: "FREE",
+      reason: "Anonimização manual pelo Superadmin"
+    });
+    const emailAnonimo = `anon-${String(id).replace(/[^a-z0-9]/gi, "").slice(0, 18) || Date.now()}@anon.local`;
+    cliente.name = "Cliente anonimizado";
+    cliente.responsibleName = "";
+    cliente.email = emailAnonimo;
+    cliente.phone = "";
+    cliente.status = "anonymized";
+    cliente.anonymizedAt = licenca?.anonymized_at || new Date().toISOString();
+    cliente.deletionPolicy = "anonymized";
+    cliente.updatedAt = new Date().toISOString();
+    usuarios.filter((usuario) => usuario.clientId === id).forEach((usuario) => {
+      usuario.nome = "Usuario anonimizado";
+      usuario.email = `anon-${usuario.id}@anon.local`;
+      usuario.phone = "";
+      usuario.ativo = false;
+      usuario.bloqueado = true;
+    });
     salvarDados();
-    const remoto = await atualizarAnonimizacaoClienteSaasSupabase(id, emailAnonimo);
-    registrarAuditoria("anonimizado", { emailOriginal, remoto: remoto.ok === true }, id);
-    mostrarToast(
-      remoto.skipped
-        ? "Cliente anonimizado localmente. Entre como superadmin Supabase para salvar remoto."
-        : "Cliente anonimizado com sucesso.",
-      remoto.skipped ? "info" : "sucesso",
-      remoto.skipped ? 7000 : 4200
-    );
+    registrarAuditoria("anonimizado", { emailOriginal, source: licenca?.source || "rpc" }, id);
+    mostrarToast("Usuário anonimizado", "sucesso", 4200);
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao anonimizar cliente", erro.message);
-    mostrarToast("Erro ao salvar alteração.", "erro", 6500);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
   } finally {
     toast?.remove?.();
     renderApp();
@@ -6809,6 +6985,35 @@ async function excluirClienteSaasManual(id) {
     return;
   }
   alert("Usuários reais não podem ser excluídos diretamente. Exporte os dados ou use Anonimizar para remover dados pessoais preservando vínculos.");
+}
+
+async function arquivarClienteSaas(id) {
+  if (!isSuperAdmin()) return;
+  const cliente = getClienteSaasPorId(id);
+  if (!cliente) return;
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Arquivar usuário",
+    mensagem: `Arquivar ${cliente.email}? Ele será ocultado da lista principal, sem apagar dados.`,
+    confirmar: "Arquivar"
+  });
+  if (!confirmado) return;
+  const toast = mostrarToast("Salvando...", "loading");
+  try {
+    const licenca = await chamarSuperadminUpdateSubscription(id, "ARCHIVE", {
+      reason: "Arquivamento manual pelo Superadmin"
+    });
+    cliente.archivedAt = licenca?.archived_at || new Date().toISOString();
+    cliente.updatedAt = licenca?.updated_at || new Date().toISOString();
+    salvarDados();
+    registrarAuditoria("arquivado", { email: cliente.email, source: licenca?.source || "rpc" }, id);
+    mostrarToast("Usuário arquivado", "sucesso", 4200);
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Erro ao arquivar cliente", erro.message);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
+  } finally {
+    toast?.remove?.();
+    renderApp();
+  }
 }
 
 async function marcarClientesInativosAcao() {
@@ -9315,6 +9520,12 @@ function iniciarTesteGratis(slug = "premium_trial") {
     return;
   }
 
+  if (billingConfig.trialConsumedAt || getAssinaturaSaas(getClientIdAtual() || billingConfig.clientId)?.trialConsumedAt) {
+    mostrarToast("O teste grátis já foi usado nesta conta.", "info", 6500);
+    trocarTela("assinatura");
+    return;
+  }
+
   if (!billingConfig.trialStartedAt) {
     billingConfig.licenseEmail = email;
     billingConfig.planSlug = plano.slug;
@@ -9325,6 +9536,7 @@ function iniciarTesteGratis(slug = "premium_trial") {
     billingConfig.monthlyPrice = plano.price;
     billingConfig.trialStartedAt = new Date().toISOString();
     billingConfig.trialExpiresAt = calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays);
+    billingConfig.trialConsumedAt = billingConfig.trialStartedAt;
     billingConfig.isTrialActive = true;
     billingConfig.licenseStatus = "trial";
     const clientId = getClientIdAtual() || billingConfig.clientId || criarIdLocal("client");
@@ -9352,6 +9564,7 @@ function iniciarTesteGratis(slug = "premium_trial") {
     assinatura.planExpiresAt = assinatura.currentPeriodEnd;
     assinatura.trialStartedAt = billingConfig.trialStartedAt;
     assinatura.trialExpiresAt = billingConfig.trialExpiresAt;
+    assinatura.trialConsumedAt = billingConfig.trialConsumedAt;
     assinatura.isTrialActive = true;
     billingConfig.subscriptionId = assinatura.id;
     billingConfig.paidUntil = assinatura.expiresAt;
@@ -9411,6 +9624,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
   assinatura.planExpiresAt = expiresAt;
   assinatura.trialStartedAt = plano.slug === "premium_trial" ? agora : "";
   assinatura.trialExpiresAt = plano.slug === "premium_trial" ? expiresAt : "";
+  assinatura.trialConsumedAt = plano.slug === "premium_trial" ? (assinatura.trialConsumedAt || agora) : assinatura.trialConsumedAt || "";
   assinatura.isTrialActive = plano.slug === "premium_trial" && !!expiresAt;
   assinatura.overdueSince = "";
 
@@ -9429,6 +9643,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     cliente.planExpiresAt = expiresAt;
     cliente.trialStartedAt = assinatura.trialStartedAt;
     cliente.trialExpiresAt = assinatura.trialExpiresAt;
+    cliente.trialConsumedAt = assinatura.trialConsumedAt || cliente.trialConsumedAt || "";
     cliente.isTrialActive = assinatura.isTrialActive;
     cliente.updatedAt = agora;
   }
@@ -9459,6 +9674,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     billingConfig.priceLocked = plano.slug === "premium";
     billingConfig.trialStartedAt = assinatura.trialStartedAt;
     billingConfig.trialExpiresAt = assinatura.trialExpiresAt;
+    billingConfig.trialConsumedAt = assinatura.trialConsumedAt || billingConfig.trialConsumedAt || "";
     billingConfig.isTrialActive = assinatura.isTrialActive;
     billingConfig.subscriptionId = assinatura.id;
   }
@@ -11102,6 +11318,14 @@ async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) 
   try {
     const sincronizado = await sincronizarUsuarioSaasAposLoginSupabase(usuario);
     if (sincronizado?.client_id) {
+      usuario.clientId = String(sincronizado.client_id);
+      if (sincronizado.company_id) usuario.companyId = String(sincronizado.company_id);
+      billingConfig.clientId = usuario.clientId;
+      if (usuario.companyId) billingConfig.companyId = usuario.companyId;
+      if (sincronizado.subscription_id) billingConfig.subscriptionId = String(sincronizado.subscription_id);
+      billingConfig.licenseEmail = normalizarEmail(usuario.email || syncConfig.supabaseEmail || billingConfig.licenseEmail);
+      marcarUsuarioSupabaseSincronizado(usuario);
+      salvarDados();
       const licencaSincronizada = await consultarLicencaSupabaseSilencioso();
       return licencaSincronizada?.client_id ? licencaSincronizada : sincronizado;
     }
@@ -11146,45 +11370,114 @@ async function garantirCadastroSaasOnlineAposLogin(usuario = getUsuarioAtual()) 
   }
 }
 
-async function consultarLicencaSupabaseSilencioso() {
+async function consultarLicencaSupabaseSilencioso(options = {}) {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return null;
+  const targetUserId = String(options.targetUserId || options.userId || "").trim();
+  const body = targetUserId ? { p_user_id: targetUserId } : {};
   try {
-    const licenca = await requisicaoSupabase("/rest/v1/rpc/get_saas_license", {
+    const licenca = await requisicaoSupabase("/rest/v1/rpc/get_effective_license", {
       method: "POST",
-      body: JSON.stringify({})
+      body: JSON.stringify(body)
     });
-    aplicarLicencaSaasOnline(licenca);
+    if (options.aplicar !== false) aplicarLicencaSaasOnline(licenca, { stale: false, source: "backend-rpc" });
     return licenca;
-  } catch (erro) {
-    registrarDiagnostico("Supabase", "Licença online não carregada", erro.message);
-    registrarErroAplicacaoSilencioso("LOAD_SUBSCRIPTION_FAILED", erro, "Carregar licença SaaS");
-    return null;
+  } catch (erroNovo) {
+    try {
+      const licencaLegada = await requisicaoSupabase("/rest/v1/rpc/get_saas_license", {
+        method: "POST",
+        body: JSON.stringify({})
+      });
+      if (options.aplicar !== false) aplicarLicencaSaasOnline(licencaLegada, { stale: false, source: "backend-rpc-legacy" });
+      return licencaLegada;
+    } catch (erro) {
+      registrarDiagnostico("Supabase", "Licença online não carregada", erro.message);
+      registrarErroAplicacaoSilencioso("LOAD_SUBSCRIPTION_FAILED", erro, "Carregar licença SaaS", { newRpcError: erroNovo.message || String(erroNovo) });
+      const cache = getLicencaEfetivaSnapshotLocal();
+      if (cache && options.aplicar !== false) {
+        billingConfig.effectiveLicenseStale = true;
+        billingConfig.effectiveLicenseSource = "backend-rpc-cache-stale";
+        salvarDados();
+        return cache;
+      }
+      return null;
+    }
   }
 }
 
-function aplicarLicencaSaasOnline(licenca = {}) {
+async function sincronizarLicencaEfetivaSePossivel(motivo = "manual") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl || !syncConfig.supabaseUserId) return null;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    if (getLicencaEfetivaSnapshotLocal()) {
+      billingConfig.effectiveLicenseStale = true;
+      billingConfig.effectiveLicenseSource = "backend-rpc-cache-stale";
+      salvarDados();
+    }
+    return null;
+  }
+  const agora = Date.now();
+  const ultimo = Number(window.__simplificaEffectiveLicenseSyncAt || 0);
+  if (agora - ultimo < 5000) return getLicencaEfetivaSnapshotLocal();
+  window.__simplificaEffectiveLicenseSyncAt = agora;
+  const licenca = await consultarLicencaSupabaseSilencioso({ motivo });
+  if (licenca && ["assinatura", "minhaAssinatura", "admin", "dashboard"].includes(telaAtual)) renderApp();
+  return licenca;
+}
+
+function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   if (!licenca || typeof licenca !== "object") return;
+  const statusEfetivo = normalizarStatusLicencaEfetiva(licenca.effective_status || licenca.effectiveStatus || licenca.status);
+  const isLicencaEfetiva = !!(licenca.effective_status || licenca.effectiveStatus || licenca.plan_code || licenca.planCode);
+  const activePlanEfetivo = isLicencaEfetiva ? slugPlanoPorLicencaEfetiva(licenca) : "";
   if (licenca.client_id) billingConfig.clientId = String(licenca.client_id);
   if (licenca.company_id) billingConfig.companyId = String(licenca.company_id);
   if (licenca.subscription_id) billingConfig.subscriptionId = String(licenca.subscription_id);
-  if (licenca.active_plan || licenca.plan_slug) {
+  const licencaUserId = String(licenca.user_id || licenca.userId || "");
+  const licencaEhDoUsuarioAtual = !licencaUserId || !syncConfig.supabaseUserId || licencaUserId === String(syncConfig.supabaseUserId);
+  const usuarioAtualLicenca = licencaEhDoUsuarioAtual ? getUsuarioAtual() : null;
+  if (usuarioAtualLicenca && licenca.client_id) {
+    usuarioAtualLicenca.clientId = String(licenca.client_id);
+    if (licenca.company_id) usuarioAtualLicenca.companyId = String(licenca.company_id);
+    usuarioAtualLicenca.planStatus = statusLegadoPorLicencaEfetiva(statusEfetivo);
+    usuarioAtualLicenca.planExpiresAt = licenca.premium_until || licenca.current_period_end || licenca.expires_at || usuarioAtualLicenca.planExpiresAt || "";
+    marcarUsuarioSupabaseSincronizado(usuarioAtualLicenca);
+  }
+  if (isLicencaEfetiva) {
+    billingConfig.effectiveUserId = String(licenca.user_id || syncConfig.supabaseUserId || "");
+    billingConfig.effectivePlanCode = String(licenca.plan_code || licenca.planCode || "").toUpperCase();
+    billingConfig.effectiveStatus = statusEfetivo;
+    billingConfig.effectiveIsPremium = licenca.is_premium === true || licenca.has_full_access === true || [PLAN_ACCESS_STATES.TRIAL, PLAN_ACCESS_STATES.ACTIVE].includes(statusEfetivo);
+    billingConfig.effectiveIsTrial = licenca.is_trial === true || licenca.is_trial_active === true || statusEfetivo === PLAN_ACCESS_STATES.TRIAL;
+    billingConfig.effectiveIsPending = licenca.is_pending === true || statusEfetivo === PLAN_ACCESS_STATES.PENDING;
+    billingConfig.effectiveIsBlocked = licenca.is_blocked === true || statusEfetivo === PLAN_ACCESS_STATES.BLOCKED;
+    billingConfig.effectiveRemainingTrialDays = Math.max(0, Number(licenca.remaining_trial_days || licenca.remainingTrialDays || 0) || 0);
+    billingConfig.effectiveLicenseSource = options.source || licenca.source || "backend-rpc";
+    billingConfig.effectiveLicenseUpdatedAt = String(licenca.updated_at || new Date().toISOString());
+    billingConfig.effectiveLicenseStale = options.stale === true;
+    billingConfig.activePlan = activePlanEfetivo;
+    billingConfig.planSlug = activePlanEfetivo;
+    billingConfig.licenseStatus = statusLegadoPorLicencaEfetiva(statusEfetivo);
+  } else if (licenca.active_plan || licenca.plan_slug) {
     billingConfig.activePlan = normalizarSlugPlano(licenca.active_plan || licenca.plan_slug);
     billingConfig.planSlug = billingConfig.activePlan;
   }
   billingConfig.pendingPlan = licenca.pending_plan ? normalizarSlugPlano(licenca.pending_plan) : "";
-  billingConfig.paymentStatus = normalizarStatusPagamento(licenca.payment_status || "none");
+  billingConfig.paymentStatus = normalizarStatusPagamento(licenca.payment_status || (statusEfetivo === PLAN_ACCESS_STATES.PENDING ? "pending" : "none"));
   billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(licenca.subscription_status || (billingConfig.activePlan === "premium_trial" ? "trialing" : billingConfig.activePlan === "premium" ? "active" : "free"));
-  billingConfig.licenseStatus = normalizarStatusPlano(licenca.status || billingConfig.licenseStatus || "pending");
-  billingConfig.licenseBlockLevel = String(licenca.block_level || "none");
+  if (!isLicencaEfetiva) billingConfig.licenseStatus = normalizarStatusPlano(licenca.status || billingConfig.licenseStatus || "pending");
+  billingConfig.licenseBlockLevel = String(licenca.block_level || (statusEfetivo === PLAN_ACCESS_STATES.BLOCKED ? "total" : "none"));
   billingConfig.planPrice = Math.max(0, Number(licenca.plan_price ?? billingConfig.planPrice ?? 0) || 0);
   billingConfig.priceLocked = licenca.price_locked === true || billingConfig.priceLocked === true;
-  if (licenca.trial_started_at) billingConfig.trialStartedAt = String(licenca.trial_started_at);
-  if (licenca.trial_expires_at) billingConfig.trialExpiresAt = String(licenca.trial_expires_at);
-  billingConfig.isTrialActive = licenca.is_trial_active === true;
-  if (licenca.current_period_end || licenca.expires_at) {
-    billingConfig.paidUntil = String(licenca.current_period_end || licenca.expires_at);
+  if (licenca.trial_start_at || licenca.trial_started_at) billingConfig.trialStartedAt = String(licenca.trial_start_at || licenca.trial_started_at);
+  if (licenca.trial_end_at || licenca.trial_expires_at) billingConfig.trialExpiresAt = String(licenca.trial_end_at || licenca.trial_expires_at);
+  if (licenca.trial_consumed_at) billingConfig.trialConsumedAt = String(licenca.trial_consumed_at);
+  billingConfig.isTrialActive = licenca.is_trial_active === true || licenca.is_trial === true || statusEfetivo === PLAN_ACCESS_STATES.TRIAL;
+  if (licenca.premium_until || licenca.current_period_end || licenca.expires_at) {
+    billingConfig.paidUntil = String(licenca.premium_until || licenca.current_period_end || licenca.expires_at);
     billingConfig.planExpiresAt = billingConfig.paidUntil;
+    billingConfig.premiumUntil = billingConfig.paidUntil;
   }
+  billingConfig.blockedAt = licenca.blocked_at || "";
+  billingConfig.blockedReason = licenca.blocked_reason || "";
   if (licenca.current_paid_price) billingConfig.monthlyPrice = Number(licenca.current_paid_price) || billingConfig.monthlyPrice;
 
   let cliente = getClienteSaasPorId(billingConfig.clientId);
@@ -11213,9 +11506,14 @@ function aplicarLicencaSaasOnline(licenca = {}) {
     cliente.planExpiresAt = billingConfig.planExpiresAt;
     cliente.trialStartedAt = billingConfig.trialStartedAt;
     cliente.trialExpiresAt = billingConfig.trialExpiresAt;
+    cliente.trialConsumedAt = billingConfig.trialConsumedAt || cliente.trialConsumedAt || "";
     cliente.isTrialActive = billingConfig.isTrialActive;
     cliente.statusAssinatura = normalizarStatusPlano(licenca.status || cliente.statusAssinatura);
-    cliente.status = licenca.block_level === "total" ? "blocked" : licenca.status === "past_due" ? "overdue" : "active";
+    cliente.blockedAt = licenca.blocked_at || "";
+    cliente.blockedReason = licenca.blocked_reason || "";
+    cliente.archivedAt = licenca.archived_at || cliente.archivedAt || "";
+    cliente.anonymizedAt = licenca.anonymized_at || cliente.anonymizedAt || "";
+    cliente.status = statusEfetivo === PLAN_ACCESS_STATES.BLOCKED || licenca.block_level === "total" ? "blocked" : licenca.status === "past_due" ? "overdue" : cliente.status === "anonymized" ? "anonymized" : "active";
     cliente.updatedAt = new Date().toISOString();
   }
 
@@ -11238,11 +11536,20 @@ function aplicarLicencaSaasOnline(licenca = {}) {
     assinatura.currentPeriodEnd = licenca.current_period_end || licenca.expires_at || assinatura.currentPeriodEnd;
     assinatura.expiresAt = assinatura.currentPeriodEnd || assinatura.expiresAt;
     assinatura.planExpiresAt = assinatura.currentPeriodEnd || assinatura.planExpiresAt;
-    assinatura.trialStartedAt = licenca.trial_started_at || assinatura.trialStartedAt;
-    assinatura.trialExpiresAt = licenca.trial_expires_at || assinatura.trialExpiresAt;
-    assinatura.isTrialActive = licenca.is_trial_active === true;
+    assinatura.trialStartedAt = licenca.trial_start_at || licenca.trial_started_at || assinatura.trialStartedAt;
+    assinatura.trialExpiresAt = licenca.trial_end_at || licenca.trial_expires_at || assinatura.trialExpiresAt;
+    assinatura.trialConsumedAt = licenca.trial_consumed_at || assinatura.trialConsumedAt || "";
+    assinatura.isTrialActive = licenca.is_trial_active === true || licenca.is_trial === true || statusEfetivo === PLAN_ACCESS_STATES.TRIAL;
     assinatura.nextBillingAt = licenca.next_billing_at || assinatura.currentPeriodEnd || assinatura.nextBillingAt;
     assinatura.mercadoPagoSubscriptionId = licenca.mercado_pago_subscription_id || assinatura.mercadoPagoSubscriptionId;
+    assinatura.effectiveStatus = statusEfetivo;
+    assinatura.planCode = billingConfig.effectivePlanCode || assinatura.planCode || "";
+    assinatura.manualOverride = licenca.manual_override === true || assinatura.manualOverride === true;
+    assinatura.manualOverrideReason = licenca.manual_override_reason || assinatura.manualOverrideReason || "";
+    assinatura.blockedAt = licenca.blocked_at || "";
+    assinatura.blockedReason = licenca.blocked_reason || "";
+    assinatura.archivedAt = licenca.archived_at || assinatura.archivedAt || "";
+    assinatura.anonymizedAt = licenca.anonymized_at || assinatura.anonymizedAt || "";
   } else if (billingConfig.clientId) {
     saasSubscriptions.push(normalizarAssinaturaSaas({
       id: billingConfig.subscriptionId || "",
@@ -11262,12 +11569,21 @@ function aplicarLicencaSaasOnline(licenca = {}) {
       currentPeriodStart: licenca.current_period_start || "",
       currentPeriodEnd: licenca.current_period_end || licenca.expires_at || "",
       planExpiresAt: licenca.current_period_end || licenca.expires_at || "",
-      trialStartedAt: licenca.trial_started_at || "",
-      trialExpiresAt: licenca.trial_expires_at || "",
-      isTrialActive: licenca.is_trial_active === true,
+      trialStartedAt: licenca.trial_start_at || licenca.trial_started_at || "",
+      trialExpiresAt: licenca.trial_end_at || licenca.trial_expires_at || "",
+      trialConsumedAt: licenca.trial_consumed_at || "",
+      isTrialActive: licenca.is_trial_active === true || licenca.is_trial === true || statusEfetivo === PLAN_ACCESS_STATES.TRIAL,
       expiresAt: licenca.expires_at || "",
       nextBillingAt: licenca.next_billing_at || "",
-      mercadoPagoSubscriptionId: licenca.mercado_pago_subscription_id || ""
+      mercadoPagoSubscriptionId: licenca.mercado_pago_subscription_id || "",
+      effectiveStatus: statusEfetivo,
+      planCode: billingConfig.effectivePlanCode || "",
+      manualOverride: licenca.manual_override === true,
+      manualOverrideReason: licenca.manual_override_reason || "",
+      blockedAt: licenca.blocked_at || "",
+      blockedReason: licenca.blocked_reason || "",
+      archivedAt: licenca.archived_at || "",
+      anonymizedAt: licenca.anonymized_at || ""
     }));
   }
   salvarDados();
@@ -11546,6 +11862,9 @@ async function carregarPerfilSaasSupabase(usuario) {
     } catch (_) {}
   }
 
+  await consultarLicencaSupabaseSilencioso().catch((erro) => {
+    registrarDiagnostico("Supabase", "Licença efetiva não carregada após perfil", erro.message || erro);
+  });
   salvarDados();
   return usuario;
 }
@@ -14489,7 +14808,13 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     salvarCacheSessaoLocal();
     salvarDados();
+  } else if (document.visibilityState === "visible") {
+    sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
   }
+});
+
+window.addEventListener("online", () => {
+  sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
 });
 
 document.addEventListener("DOMContentLoaded", () => {
