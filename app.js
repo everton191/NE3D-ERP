@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.10.41";
+const APP_VERSION = "2026.05.10.42";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -4662,7 +4662,6 @@ function renderDesktop() {
     <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
       <main class="desktop-main">
-        ${renderTopbar()}
         ${renderDesktopConteudo()}
       </main>
     </div>
@@ -5521,9 +5520,10 @@ function renderMenuLateral() {
         ${renderMarcaProjeto("side-brand-logo", "Capa do projeto")}
         <div class="side-brand-text">
           <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
-          <span>${escaparHtml(getPlanoAtual().nome)}</span>
+          <span>${escaparHtml(appConfig.businessName || "Gestão 3D")}</span>
         </div>
       </div>
+      ${renderPerfilMenuLateral()}
       ${grupos.map((grupo) => `
         <div class="side-section">
           <span>${escaparHtml(grupo.titulo)}</span>
@@ -5531,6 +5531,25 @@ function renderMenuLateral() {
         </div>
       `).join("")}
     </aside>
+  `;
+}
+
+function renderPerfilMenuLateral() {
+  const usuario = getUsuarioAtual();
+  const plano = getPlanoAtual(usuario);
+  const nome = usuario?.nome || usuario?.email || appConfig.businessName || "Perfil";
+  const email = usuario?.email || syncConfig.supabaseEmail || "Conta ativa";
+  const status = licencaEfetivaBloqueada(usuario) ? "Bloqueado" : plano.nome || "Free";
+
+  return `
+    <button class="side-profile-card" type="button" onclick="trocarTela('conta')" title="Abrir conta">
+      ${renderUsuarioAvatar(usuario, "side-profile-avatar")}
+      <span class="side-profile-meta">
+        <strong>${escaparHtml(nome)}</strong>
+        <small>${escaparHtml(email)}</small>
+      </span>
+      <em class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(status)}</em>
+    </button>
   `;
 }
 
@@ -5649,18 +5668,16 @@ function abrirMenuPopup() {
           ${renderMarcaProjeto("side-brand-logo", "Capa do projeto")}
           <div class="side-brand-text">
             <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
-            <span>${escaparHtml(getPlanoAtual().nome)}</span>
+            <span>${escaparHtml(appConfig.businessName || "Gestão 3D")}</span>
           </div>
         </div>
+        ${renderPerfilMenuLateral()}
         ${grupos.map((grupo) => `
           <div class="side-section">
             <span>${grupo}</span>
             ${itens.filter((item) => item.grupo === grupo).map(renderBotaoLateral).join("")}
           </div>
         `).join("")}
-        <div class="actions single">
-          <button class="btn secondary" onclick="abrirCalculadora()">🧮 Calculadora</button>
-        </div>
       </aside>
     </div>
   `;
@@ -6011,13 +6028,17 @@ function getUserInitials(nome = "") {
   return partes.slice(0, 2).map((parte) => parte.charAt(0).toUpperCase()).join("");
 }
 
-function renderDashboardAvatar(usuario) {
+function renderUsuarioAvatar(usuario, classe = "home-avatar") {
   const nome = usuario?.nome || usuario?.email || appConfig.businessName || "Simplifica 3D";
   const avatarUrl = usuario?.avatarUrl || usuario?.avatar_url || "";
   if (avatarUrl) {
-    return `<img class="home-avatar" src="${escaparAttr(avatarUrl)}" alt="Avatar do usuário">`;
+    return `<img class="${escaparAttr(classe)}" src="${escaparAttr(avatarUrl)}" alt="Avatar do usuário">`;
   }
-  return `<div class="home-avatar" aria-label="Avatar do usuário">${escaparHtml(getUserInitials(nome))}</div>`;
+  return `<div class="${escaparAttr(classe)}" aria-label="Avatar do usuário">${escaparHtml(getUserInitials(nome))}</div>`;
+}
+
+function renderDashboardAvatar(usuario) {
+  return renderUsuarioAvatar(usuario, "home-avatar");
 }
 
 function renderDashboardPremiumHeader(plano) {
@@ -6161,7 +6182,6 @@ function renderDashboard() {
 
   return `
     <section class="dashboard-pro premium-dashboard">
-      ${renderDashboardPremiumHeader(plano)}
       ${renderDashboardSearch()}
       ${renderDashboardTechnicalPanel(stats, totaisCaixa)}
 
