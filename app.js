@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.10-online-authoritative";
+const APP_VERSION = "2026.05.10.41";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -5701,16 +5701,16 @@ function renderMobile() {
 
 function getMobileBottomNavItems() {
   return [
-    { tela: "dashboard", icone: "📊", texto: "Dashboard" },
+    { tela: "dashboard", icone: "⌂", texto: "Home" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-    { tela: "calculadora", icone: "🧮", texto: "Calculadora" },
+    { tela: "producao", icone: "🖨️", texto: "Produção" },
     { tela: "estoque", icone: "📦", texto: "Estoque" },
     { tela: "mais", icone: "☰", texto: "Mais" }
   ].filter((item) => canAccessScreen(item.tela));
 }
 
 function getMobileBottomNavActive() {
-  const principais = new Set(["dashboard", "pedidos", "calculadora", "estoque"]);
+  const principais = new Set(["dashboard", "pedidos", "producao", "estoque"]);
   return principais.has(telaAtual) ? telaAtual : "mais";
 }
 
@@ -5809,19 +5809,16 @@ function renderTela(tela) {
 
 function renderAcoesRapidas() {
   const acoes = [
-    { tela: "calculadora", icone: "🧮", texto: "Calc 3D" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "producao", icone: "🖨️", texto: "Produção" },
     { tela: "estoque", icone: "📦", texto: "Estoque" },
     { tela: "caixa", icone: "💰", texto: "Caixa" },
     { tela: "clientes", icone: "👥", texto: "Clientes" },
+    { tela: "relatorios", icone: "📈", texto: "Relatórios" },
     { tela: "backup", icone: "☁️", texto: "Backup" },
     { tela: "assinatura", icone: "💳", texto: "Planos" }
   ];
-  if (isAndroid()) acoes.unshift({ acao: "verificarAtualizacaoManual()", icone: "⬇️", texto: "Atualizar APK" });
-  if (!getUsuarioAtual() || podeGerenciarUsuarios()) acoes.push({ tela: "usuarios", icone: "🔐", texto: "Admin" });
   if (getUsuarioAtual()) acoes.push({ tela: "conta", icone: "👤", texto: "Conta" });
-  if (isSuperAdmin()) acoes.push({ tela: "superadmin", icone: "🛡️", texto: "Super" });
 
   return `
     <div class="quick-actions">
@@ -5932,7 +5929,7 @@ function renderConta() {
 }
 
 function renderAtualizacaoAndroidDownload() {
-  if (!isAndroid()) return "";
+  if (!isAndroid() || !appConfig.updateAvailableVersion) return "";
   const versao = appConfig.updateAvailableVersion || "mais recente";
   const status = appConfig.updateStatus || "Checagem automática ativa";
   const destaque = appConfig.updateAvailableVersion ? " update-available" : "";
@@ -5974,13 +5971,31 @@ function getDashboardStats() {
   const faturamentoDia = pedidosHoje.reduce((total, pedido) => total + totalPedido(pedido), 0);
   const pedidosAbertos = pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"))).length;
   const producoesAtivas = pedidos.filter((pedido) => String(pedido.status || "") === "producao").length;
-  const estoqueBaixo = normalizarEstoque().filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg).length;
+  const materiaisEstoque = normalizarEstoque();
+  const estoqueBaixo = materiaisEstoque.filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg).length;
+  const pedidosConcluidos = pedidosHoje.filter((pedido) => ["entregue", "finalizado"].includes(String(pedido.status || ""))).length;
+  const clientesAtivos = new Set(pedidos.map((pedido) => clienteDoPedido(pedido)).filter(Boolean)).size;
+  const consumoHojeKg = pedidosHoje.reduce((total, pedido) => {
+    const consumo = calcularConsumoMateriais(normalizarItensPedido(pedido));
+    return total + Array.from(consumo.values()).reduce((soma, kg) => soma + kg, 0);
+  }, 0);
   const lucroEstimado = pedidos.reduce((total, pedido) => {
     const itens = normalizarItensPedido(pedido);
     const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
     return total + Math.max(0, totalPedido(pedido) - custo);
   }, 0);
-  return { faturamentoDia, pedidosHoje: pedidosHoje.length, pedidosAbertos, producoesAtivas, estoqueBaixo, lucroEstimado };
+  return {
+    faturamentoDia,
+    pedidosHoje: pedidosHoje.length,
+    pedidosAbertos,
+    producoesAtivas,
+    estoqueBaixo,
+    lucroEstimado,
+    pedidosConcluidos,
+    clientesAtivos,
+    consumoHojeKg,
+    totalMateriais: materiaisEstoque.length
+  };
 }
 
 function abrirBlocoDashboard(tela, filtro = "") {
@@ -5990,50 +6005,168 @@ function abrirBlocoDashboard(tela, filtro = "") {
   trocarTela(tela || "dashboard");
 }
 
+function getUserInitials(nome = "") {
+  const partes = String(nome || "").trim().split(/\s+/).filter(Boolean);
+  if (!partes.length) return "S3";
+  return partes.slice(0, 2).map((parte) => parte.charAt(0).toUpperCase()).join("");
+}
+
+function renderDashboardAvatar(usuario) {
+  const nome = usuario?.nome || usuario?.email || appConfig.businessName || "Simplifica 3D";
+  const avatarUrl = usuario?.avatarUrl || usuario?.avatar_url || "";
+  if (avatarUrl) {
+    return `<img class="home-avatar" src="${escaparAttr(avatarUrl)}" alt="Avatar do usuário">`;
+  }
+  return `<div class="home-avatar" aria-label="Avatar do usuário">${escaparHtml(getUserInitials(nome))}</div>`;
+}
+
+function renderDashboardPremiumHeader(plano) {
+  const usuario = getUsuarioAtual();
+  const nomeUsuario = usuario?.nome || usuario?.email || "Operação";
+  const nomeEmpresa = appConfig.businessName || appConfig.appName || SYSTEM_NAME;
+  const statusAssinatura = licencaEfetivaBloqueada(usuario) ? "Bloqueado" : plano.descricao || plano.nome || "Plano ativo";
+
+  return `
+    <section class="home-premium-header">
+      <div class="home-brand-lockup">
+        ${renderMarcaProjeto("home-brand-logo", "Simplifica 3D", "icon")}
+        <div>
+          <span class="eyebrow">Painel operacional</span>
+          <h1>${escaparHtml(nomeEmpresa)}</h1>
+          <p>${escaparHtml(nomeUsuario)}</p>
+        </div>
+      </div>
+      <div class="home-account-strip">
+        <div>
+          <span>Plano</span>
+          <strong>${escaparHtml(plano.nome || "Free")}</strong>
+        </div>
+        <div>
+          <span>Status</span>
+          <strong>${escaparHtml(statusAssinatura)}</strong>
+        </div>
+        ${renderDashboardAvatar(usuario)}
+        <button class="icon-button home-menu-button" type="button" onclick="trocarTela('mais')" title="Menu">☰</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardSearch() {
+  return `
+    <label class="dashboard-search">
+      <span>🔎</span>
+      <input placeholder="Buscar pedidos, clientes, materiais..." onkeydown="buscarGlobal(event, this.value)">
+    </label>
+  `;
+}
+
+function renderDashboardBars(stats, totaisCaixa) {
+  const baseFinanceira = Math.max(stats.faturamentoDia, stats.lucroEstimado, totaisCaixa.entradas, 1);
+  const barras = [
+    { label: "Faturamento", value: stats.faturamentoDia, percent: Math.round((stats.faturamentoDia / baseFinanceira) * 100), state: "teal" },
+    { label: "Lucro", value: stats.lucroEstimado, percent: Math.round((stats.lucroEstimado / baseFinanceira) * 100), state: "green" },
+    { label: "Entradas", value: totaisCaixa.entradas, percent: Math.round((totaisCaixa.entradas / baseFinanceira) * 100), state: "orange" }
+  ];
+
+  return `
+    <div class="depth-bar-chart" aria-label="Indicadores financeiros">
+      ${barras.map((barra) => `
+        <div class="depth-bar-row ${barra.state}">
+          <span>${escaparHtml(barra.label)}</span>
+          <div class="depth-bar-track"><i style="--bar:${Math.min(100, Math.max(4, barra.percent))}%"></i></div>
+          <strong>${formatarMoeda(barra.value)}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderDashboardTrend(stats) {
+  const valores = [stats.pedidosConcluidos, stats.producoesAtivas, stats.estoqueBaixo, stats.pedidosAbertos, stats.pedidosHoje].map((valor) => Math.max(0, Number(valor) || 0));
+  const maximo = Math.max(...valores, 1);
+  return `
+    <div class="mini-trend" aria-label="Pulso operacional">
+      ${valores.map((valor) => `<span style="--h:${Math.max(16, Math.round((valor / maximo) * 100))}%"></span>`).join("")}
+    </div>
+  `;
+}
+
+function renderDashboardDonut(stats) {
+  const totalOperacao = Math.max(stats.pedidosAbertos + stats.pedidosConcluidos, 1);
+  const progresso = Math.round((stats.pedidosConcluidos / totalOperacao) * 100);
+  return `
+    <div class="production-donut" style="--value:${progresso}%">
+      <strong>${progresso}%</strong>
+      <span>concluído</span>
+    </div>
+  `;
+}
+
+function renderDashboardTechnicalPanel(stats, totaisCaixa) {
+  return `
+    <section class="technical-glass-panel">
+      <div class="technical-panel-main">
+        <div>
+          <span class="eyebrow">Visão de hoje</span>
+          <h2>${formatarMoeda(stats.faturamentoDia)}</h2>
+          <p>Faturamento do dia com leitura rápida de produção, caixa e estoque.</p>
+        </div>
+        ${renderDashboardDonut(stats)}
+      </div>
+      <div class="technical-metrics">
+        <div><span>Lucro estimado</span><strong>${formatarMoeda(stats.lucroEstimado)}</strong></div>
+        <div><span>Pedidos ativos</span><strong>${stats.pedidosAbertos}</strong></div>
+        <div><span>Produção ativa</span><strong>${stats.producoesAtivas}</strong></div>
+        <div><span>Estoque baixo</span><strong>${stats.estoqueBaixo}</strong></div>
+        <div><span>Consumo material</span><strong>${stats.consumoHojeKg.toFixed(3)} kg</strong></div>
+        <div><span>Concluídos hoje</span><strong>${stats.pedidosConcluidos}</strong></div>
+      </div>
+      <div class="technical-visuals">
+        ${renderDashboardBars(stats, totaisCaixa)}
+        ${renderDashboardTrend(stats)}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardKpiCard(card) {
+  return `
+    <button class="kpi-card kpi-card-button ${card.state ? `kpi-${card.state}` : ""}" onclick="abrirBlocoDashboard('${card.tela}', '${card.filtro || ""}')">
+      <span class="kpi-icon">${card.icone}</span>
+      <div>
+        <span>${escaparHtml(card.titulo)}</span>
+        <strong>${escaparHtml(card.valor)}</strong>
+      </div>
+      <em class="status-badge ${classeStatusPlano(String(card.badge).toLowerCase())}">${escaparHtml(card.badge)}</em>
+    </button>
+  `;
+}
+
 function renderDashboard() {
   const totaisCaixa = calcularTotaisCaixa();
   const stats = getDashboardStats();
   const plano = getPlanoAtual();
 
   const cards = [
-    { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa" },
-    { icone: "📋", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje" },
-    { icone: "🕒", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK", tela: "pedidos", filtro: "abertos" },
-    { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao" },
-    { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque" },
-    { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios" },
-    { icone: "💳", titulo: "Status do plano", valor: plano.nome, badge: plano.status, tela: "assinatura" },
-    { icone: "⏳", titulo: "Dias restantes", valor: plano.diasRestantes >= 9999 ? "Ativo" : plano.diasRestantes, badge: "Plano", tela: "assinatura" }
+    { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa", state: "teal" },
+    { icone: "📋", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje", state: "neutral" },
+    { icone: "🕒", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK", tela: "pedidos", filtro: "abertos", state: stats.pedidosAbertos ? "orange" : "green" },
+    { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao", state: "teal" },
+    { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque", state: stats.estoqueBaixo ? "orange" : "green" },
+    { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios", state: "green" },
+    { icone: "👥", titulo: "Clientes", valor: stats.clientesAtivos, badge: "Carteira", tela: "clientes", state: "neutral" },
+    { icone: "💳", titulo: "Caixa / financeiro", valor: formatarMoeda(totaisCaixa.saldo), badge: "Saldo", tela: "caixa", state: totaisCaixa.saldo < 0 ? "red" : "teal" }
   ];
 
   return `
-    <section class="dashboard-pro">
-      <div class="dashboard-hero card">
-        <div class="project-cover">
-          ${renderMarcaProjeto("project-cover-image", "Capa do projeto")}
-          <div class="project-cover-text">
-            <strong>${escaparHtml(appConfig.businessName || appConfig.appName || SYSTEM_NAME)}</strong>
-            <span>${escaparHtml(plano.descricao || "Dashboard profissional de impressão 3D")}</span>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="trocarTela('calculadora')">🧮 Calculadora 3D</button>
-          <button class="btn secondary" onclick="trocarTela('pedidos')">📋 Pedidos</button>
-          <button class="btn ghost" onclick="trocarTela('planos')">Ver plano</button>
-        </div>
-      </div>
+    <section class="dashboard-pro premium-dashboard">
+      ${renderDashboardPremiumHeader(plano)}
+      ${renderDashboardSearch()}
+      ${renderDashboardTechnicalPanel(stats, totaisCaixa)}
 
       <div class="dashboard-kpis">
-        ${cards.map((card) => `
-          <button class="kpi-card kpi-card-button" onclick="abrirBlocoDashboard('${card.tela}', '${card.filtro || ""}')">
-            <span class="kpi-icon">${card.icone}</span>
-            <div>
-              <span>${escaparHtml(card.titulo)}</span>
-              <strong>${escaparHtml(card.valor)}</strong>
-            </div>
-            <em class="status-badge ${classeStatusPlano(String(card.badge).toLowerCase())}">${escaparHtml(card.badge)}</em>
-          </button>
-        `).join("")}
+        ${cards.map(renderDashboardKpiCard).join("")}
       </div>
 
       ${pedidos.length === 0 && temAcessoCompleto() ? `

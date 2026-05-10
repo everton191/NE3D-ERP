@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v57-online-authoritative-20260510";
+const CACHE_NAME = "simplifica-3d-v58-ui-premium-20260510";
 const APP_FILES = [
   "./",
   "./index.html",
