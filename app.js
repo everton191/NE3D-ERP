@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.10.42";
+const APP_VERSION = "2026.05.10.43";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -6125,27 +6125,61 @@ function renderDashboardDonut(stats) {
 }
 
 function renderDashboardTechnicalPanel(stats, totaisCaixa) {
+  const totalFluxo = Math.max(stats.pedidosHoje + stats.pedidosAbertos + stats.pedidosConcluidos, 1);
+  const andamento = Math.min(100, Math.max(12, Math.round(((stats.producoesAtivas + stats.pedidosConcluidos) / totalFluxo) * 100)));
+  const saldoState = totaisCaixa.saldo < 0 ? "red" : "teal";
+  const etapas = [
+    { label: "Pedidos", value: stats.pedidosHoje, detail: "hoje", icon: "📋", state: "teal" },
+    { label: "Produção", value: stats.producoesAtivas, detail: "ativa", icon: "🖨️", state: "orange" },
+    { label: "Concluídos", value: stats.pedidosConcluidos, detail: "entregas", icon: "✓", state: "green" },
+    { label: "Caixa", value: formatarMoeda(totaisCaixa.saldo), detail: "saldo", icon: "💳", state: saldoState }
+  ];
+
   return `
-    <section class="technical-glass-panel">
-      <div class="technical-panel-main">
+    <section class="technical-glass-panel infographic-panel" aria-label="Infográfico operacional da tela inicial">
+      <div class="infographic-hero">
         <div>
-          <span class="eyebrow">Visão de hoje</span>
+          <span class="eyebrow">Infográfico do dia</span>
           <h2>${formatarMoeda(stats.faturamentoDia)}</h2>
-          <p>Faturamento do dia com leitura rápida de produção, caixa e estoque.</p>
+          <p>Da entrada do pedido até o caixa, com alertas de produção e material em uma leitura rápida.</p>
         </div>
-        ${renderDashboardDonut(stats)}
+        <div class="infographic-ring" style="--value:${andamento}%">
+          <strong>${andamento}%</strong>
+          <span>fluxo ativo</span>
+        </div>
       </div>
-      <div class="technical-metrics">
-        <div><span>Lucro estimado</span><strong>${formatarMoeda(stats.lucroEstimado)}</strong></div>
-        <div><span>Pedidos ativos</span><strong>${stats.pedidosAbertos}</strong></div>
-        <div><span>Produção ativa</span><strong>${stats.producoesAtivas}</strong></div>
-        <div><span>Estoque baixo</span><strong>${stats.estoqueBaixo}</strong></div>
-        <div><span>Consumo material</span><strong>${stats.consumoHojeKg.toFixed(3)} kg</strong></div>
-        <div><span>Concluídos hoje</span><strong>${stats.pedidosConcluidos}</strong></div>
+
+      <div class="infographic-flow" style="--flow:${andamento}%">
+        ${etapas.map((etapa, index) => `
+          <button class="infographic-node node-${etapa.state}" type="button" onclick="abrirBlocoDashboard('${index === 3 ? "caixa" : index === 1 ? "producao" : "pedidos"}', '${index === 0 ? "hoje" : index === 2 ? "hoje" : ""}')">
+            <span class="node-icon">${etapa.icon}</span>
+            <strong>${escaparHtml(etapa.value)}</strong>
+            <small>${escaparHtml(etapa.label)} · ${escaparHtml(etapa.detail)}</small>
+          </button>
+        `).join("")}
       </div>
-      <div class="technical-visuals">
-        ${renderDashboardBars(stats, totaisCaixa)}
-        ${renderDashboardTrend(stats)}
+
+      <div class="infographic-insights">
+        <div class="insight-card">
+          <span>Lucro estimado</span>
+          <strong>${formatarMoeda(stats.lucroEstimado)}</strong>
+          <i style="--w:${Math.min(100, Math.max(8, Math.round((stats.lucroEstimado / Math.max(stats.faturamentoDia, stats.lucroEstimado, 1)) * 100)))}%"></i>
+        </div>
+        <div class="insight-card ${stats.estoqueBaixo ? "warning" : ""}">
+          <span>Estoque baixo</span>
+          <strong>${stats.estoqueBaixo}</strong>
+          <small>${stats.totalMateriais || 0} materiais cadastrados</small>
+        </div>
+        <div class="insight-card">
+          <span>Consumo material</span>
+          <strong>${stats.consumoHojeKg.toFixed(3)} kg</strong>
+          <small>baseado nos pedidos de hoje</small>
+        </div>
+        <div class="insight-card">
+          <span>Pedidos ativos</span>
+          <strong>${stats.pedidosAbertos}</strong>
+          <small>${stats.producoesAtivas} em produção</small>
+        </div>
       </div>
     </section>
   `;
