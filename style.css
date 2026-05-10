@@ -750,6 +750,8 @@ header h1{
   gap:14px;
   padding:16px;
   overflow:hidden;
+  min-width:0;
+  max-width:100%;
   border:1px solid rgba(134,240,255,.20);
   border-radius:var(--radius-lg);
   background:
@@ -758,6 +760,11 @@ header h1{
     linear-gradient(145deg, rgba(16,31,43,.82), rgba(7,11,17,.92));
   box-shadow:var(--shadow);
   backdrop-filter:blur(var(--glass-blur));
+}
+
+.infographic-panel,
+.infographic-panel *{
+  min-width:0;
 }
 
 .infographic-hero{
@@ -811,6 +818,7 @@ header h1{
   border:1px solid rgba(255,255,255,.08);
   border-radius:20px;
   background:rgba(0,0,0,.16);
+  max-width:100%;
 }
 
 .infographic-flow::before,
@@ -870,7 +878,8 @@ header h1{
 }
 
 .infographic-node strong{
-  font-size:22px;
+  max-width:100%;
+  font-size:clamp(17px, 4.5vw, 22px);
   line-height:1;
   overflow-wrap:anywhere;
 }
@@ -896,6 +905,7 @@ header h1{
   display:grid;
   grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:8px;
+  max-width:100%;
 }
 
 .insight-card{
@@ -1377,9 +1387,40 @@ button:disabled{
     grid-template-columns:repeat(2, minmax(0, 1fr));
   }
 
+  .infographic-flow{
+    gap:8px;
+    padding:10px;
+  }
+
+  .infographic-node{
+    min-height:96px;
+    padding:10px 6px;
+  }
+
+  .infographic-node .node-icon{
+    width:32px;
+    height:32px;
+    border-radius:12px;
+  }
+
   .infographic-flow::before,
   .infographic-flow::after{
     display:none;
+  }
+}
+
+@media (max-width: 380px){
+  .infographic-hero{
+    grid-template-columns:1fr;
+  }
+
+  .infographic-ring{
+    justify-self:start;
+  }
+
+  .infographic-flow,
+  .infographic-insights{
+    grid-template-columns:1fr;
   }
 }
 

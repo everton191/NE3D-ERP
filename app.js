@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.10.43";
+const APP_VERSION = "2026.05.10.44";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -3473,7 +3473,6 @@ function tentarReproduzirIntro(video, overlay) {
 
 function iniciarIntroAbertura() {
   if (!INTRO_VIDEO_SRC || !document.body) return;
-  if (!getUsuarioAtual() && !adminLogado) return;
   if (document.getElementById("introOverlay")) return;
 
   const overlay = document.createElement("div");
@@ -3503,6 +3502,7 @@ function iniciarIntroAbertura() {
       objectPosition: "center",
       background: "#051c26"
     });
+    video.load?.();
   }
 
   video?.addEventListener("ended", concluir, { once: true });

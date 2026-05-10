@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v60-home-infografico-20260510";
+const CACHE_NAME = "simplifica-3d-v61-intro-infografico-20260510";
 const APP_FILES = [
   "./",
   "./index.html",
