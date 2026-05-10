@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.10.44";
+const APP_VERSION = "2026.05.10.45";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -5515,14 +5515,7 @@ function renderMenuLateral() {
 
   return `
     <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
-      <div class="side-brand">
-        <button class="icon-button side-menu-toggle" onclick="alternarMenuLateral()" title="${recolhido ? "Mostrar menu" : "Esconder menu"}">☰</button>
-        ${renderMarcaProjeto("side-brand-logo", "Capa do projeto")}
-        <div class="side-brand-text">
-          <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
-          <span>${escaparHtml(appConfig.businessName || "Gestão 3D")}</span>
-        </div>
-      </div>
+      ${renderCabecalhoMenuLateral({ recolhido })}
       ${renderPerfilMenuLateral()}
       ${grupos.map((grupo) => `
         <div class="side-section">
@@ -5534,6 +5527,25 @@ function renderMenuLateral() {
   `;
 }
 
+function renderCabecalhoMenuLateral({ recolhido = false, drawer = false } = {}) {
+  const plano = getPlanoAtual();
+  const tituloBotao = drawer ? "Fechar menu" : (recolhido ? "Mostrar menu" : "Esconder menu");
+  const acaoBotao = drawer ? "fecharPopup()" : "alternarMenuLateral()";
+  const iconeBotao = drawer ? "✕" : "☰";
+
+  return `
+    <div class="side-brand">
+      <button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}">${iconeBotao}</button>
+      ${renderMarcaProjeto("side-brand-logo", "Simplifica 3D", "icon")}
+      <div class="side-brand-text">
+        <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
+        <span>${escaparHtml(appConfig.businessName || "Gestão 3D")}</span>
+      </div>
+      <span class="side-plan-pill ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome || "Free")}</span>
+    </div>
+  `;
+}
+
 function renderPerfilMenuLateral() {
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
@@ -5542,7 +5554,7 @@ function renderPerfilMenuLateral() {
   const status = licencaEfetivaBloqueada(usuario) ? "Bloqueado" : plano.nome || "Free";
 
   return `
-    <button class="side-profile-card" type="button" onclick="trocarTela('conta')" title="Abrir conta">
+    <button class="side-profile-card" type="button" onclick="abrirTelaMenuLateral('conta')" title="Abrir conta">
       ${renderUsuarioAvatar(usuario, "side-profile-avatar")}
       <span class="side-profile-meta">
         <strong>${escaparHtml(nome)}</strong>
@@ -5588,11 +5600,12 @@ function getMenuGroups() {
       titulo: "Configurações",
       itens: [
         { tela: "empresa", icone: "🏢", texto: "Empresa" },
+        { tela: "config", icone: "⚙️", texto: "Configurações" },
         { tela: "backup", icone: "☁️", texto: "Backup" },
-        { tela: "preferencias", icone: "⚙️", texto: "Preferências" },
+        { tela: "preferencias", icone: "🎛️", texto: "Preferências" },
         { tela: "conta", icone: "👤", texto: "Conta" },
         { tela: "seguranca", icone: "🔒", texto: "Segurança" },
-        { tela: "feedback", icone: "💡", texto: "Feedback" },
+        { tela: "feedback", icone: "💡", texto: "Ajuda" },
         { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
       ]
     }
@@ -5663,14 +5676,7 @@ function abrirMenuPopup() {
   popup.innerHTML = `
     <div class="side-drawer-backdrop" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" onclick="fecharPopup()">
       <aside class="side-menu side-drawer" onclick="event.stopPropagation()">
-        <div class="side-brand">
-          <button class="icon-button side-menu-toggle" onclick="fecharPopup()" title="Fechar">✕</button>
-          ${renderMarcaProjeto("side-brand-logo", "Capa do projeto")}
-          <div class="side-brand-text">
-            <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
-            <span>${escaparHtml(appConfig.businessName || "Gestão 3D")}</span>
-          </div>
-        </div>
+        ${renderCabecalhoMenuLateral({ drawer: true })}
         ${renderPerfilMenuLateral()}
         ${grupos.map((grupo) => `
           <div class="side-section">
@@ -5712,7 +5718,6 @@ function renderMobile() {
       ${renderAcoesRapidas()}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
-    ${renderMobileBottomNav()}
   `;
 }
 
@@ -5753,7 +5758,7 @@ function renderPainelMobile(tela) {
       <div class="mobile-panel-bar">
         <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
-        <button class="icon-button" onclick="trocarTela('config')" title="Configurações">⚙️</button>
+        <button class="icon-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       </div>
       <div class="mobile-panel-content">
         ${renderTela(tela)}
@@ -6067,7 +6072,7 @@ function renderDashboardPremiumHeader(plano) {
           <strong>${escaparHtml(statusAssinatura)}</strong>
         </div>
         ${renderDashboardAvatar(usuario)}
-        <button class="icon-button home-menu-button" type="button" onclick="trocarTela('mais')" title="Menu">☰</button>
+        <button class="icon-button home-menu-button" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       </div>
     </section>
   `;
@@ -6075,10 +6080,13 @@ function renderDashboardPremiumHeader(plano) {
 
 function renderDashboardSearch() {
   return `
-    <label class="dashboard-search">
-      <span>🔎</span>
-      <input placeholder="Buscar pedidos, clientes, materiais..." onkeydown="buscarGlobal(event, this.value)">
-    </label>
+    <div class="dashboard-search-row">
+      <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+      <label class="dashboard-search">
+        <span>🔎</span>
+        <input placeholder="Buscar pedidos, clientes, materiais..." onkeydown="buscarGlobal(event, this.value)">
+      </label>
+    </div>
   `;
 }
 
