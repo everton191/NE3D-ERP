@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.07-delete-test-fix";
+const APP_VERSION = "2026.05.10-online-authoritative";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -60,6 +60,12 @@ const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
 const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
+const PENDING_SYNC_QUEUE_KEY = "pending_sync";
+const LOCAL_UNLOCK_KEY = "simplifica3dLastLocalUnlockAt";
+const LOCAL_UNLOCK_MAX_MS = 12 * 60 * 60 * 1000;
+const OFFLINE_LICENSE_STALE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
+const LICENSE_MONITOR_INTERVAL_MS = 60 * 1000;
+const SYNCABLE_COLLECTIONS = Object.freeze(["pedidos", "estoque", "caixa", "clientes"]);
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
 const CLIENT_CODE_PREFIX = "S3D";
@@ -124,6 +130,8 @@ let sessionWarned = false;
 let assistantOpen = false;
 let assistantMinimized = false;
 let assistantMessages = [];
+let localLockModalOpen = false;
+let licenseMonitorTimer = null;
 
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
@@ -143,6 +151,7 @@ let saasPlans = carregarLista("saasPlans");
 let saasSubscriptions = carregarLista("saasSubscriptions");
 let saasPayments = carregarLista("saasPayments");
 let saasSessions = carregarLista("saasSessions");
+let pendingSync = carregarLista(PENDING_SYNC_QUEUE_KEY);
 let saasClientsRemoteState = {
   status: "idle",
   message: "",
@@ -340,6 +349,7 @@ const StateStore = {
       saasSubscriptions,
       saasPayments,
       saasSessions,
+      pendingSync,
       usageCounters,
       loginAttempts,
       usuarios,
@@ -368,6 +378,7 @@ const StateStore = {
       case "saasSubscriptions": saasSubscriptions = Array.isArray(valor) ? valor : []; break;
       case "saasPayments": saasPayments = Array.isArray(valor) ? valor : []; break;
       case "saasSessions": saasSessions = Array.isArray(valor) ? valor : []; break;
+      case "pendingSync": pendingSync = Array.isArray(valor) ? valor : []; break;
       case "usageCounters": usageCounters = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
       case "loginAttempts": loginAttempts = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
       case "usuarios": usuarios = normalizarUsuarios(valor); break;
@@ -868,55 +879,28 @@ const AuthService = {
       });
     }
     try {
-      StateStore.set("usuarios", normalizarUsuarios(usuarios));
-      let usuario = usuarios.find((item) => item.email === email);
-      let senhaValida = false;
-      let erroLoginOnline = null;
-      let source = "local";
-
-      if (usuario && !usuarioEstaBloqueado(usuario)) {
-        senhaValida = await verificarSenhaUsuario(usuario, senha);
-      }
-
-      if (!senhaValida) {
-        try {
-          usuario = await this.loginWithSupabase(email, senha);
-          senhaValida = !!usuario && !usuarioEstaBloqueado(usuario);
-          source = "supabase";
-        } catch (erro) {
-          erroLoginOnline = erro;
-          ErrorService.capture(erro, { area: "Supabase", action: "Login online falhou", errorKey: "LOGIN_FAILED", silent: true });
-        }
-      } else if (deveConectarSupabaseNoLogin(usuario, email)) {
-        try {
-          const usuarioOnline = await this.loginWithSupabase(email, senha);
-          if (usuarioOnline) {
-            usuario = usuarioOnline;
-            senhaValida = !usuarioEstaBloqueado(usuario);
-            source = "supabase";
-          }
-        } catch (erro) {
-          erroLoginOnline = erro;
-          usuario = await this.recoverOnlineAccount(usuario, senha, erro);
-          senhaValida = !!usuario && !usuarioEstaBloqueado(usuario);
-          source = usuario?.supabasePending ? "local-pending" : "supabase";
-        }
-      }
-
-      if (!usuario || !senhaValida) {
-        const motivo = !usuario ? "Usuário inexistente" : "Senha inválida ou usuário inativo";
-        registrarFalhaLogin(email, motivo);
-        throw ErrorService.toAppError(erroLoginOnline || new Error(motivo), {
-          code: "AUTH_INVALID_CREDENTIALS",
-          userMessage: erroSupabaseEmailNaoConfirmado(erroLoginOnline)
-            ? "Confirme seu e-mail antes de entrar pelo Supabase."
-            : "Usuário ou senha inválidos."
+      if (!estaOnline()) {
+        throw new AppError("Conexão necessária para entrar.", {
+          code: "AUTH_ONLINE_REQUIRED",
+          userMessage: "Conexão necessária para entrar."
         });
       }
 
-      const hidratado = await this.hydrateAuthenticatedUser(usuario, { source });
-      return { usuario: hidratado || usuario, source };
+      StateStore.set("usuarios", normalizarUsuarios(usuarios));
+      const usuario = await this.loginWithSupabase(email, senha);
+      if (!usuario || !syncConfig.supabaseUserId) {
+        registrarFalhaLogin(email, "Sessão Supabase sem auth.uid");
+        throw new AppError("Sessão Supabase inválida", {
+          code: "AUTH_UID_REQUIRED",
+          userMessage: "Não foi possível validar sua sessão online."
+        });
+      }
+      console.info("[Auth][login]", { email, auth_uid: syncConfig.supabaseUserId, source: "supabase" });
+      const hidratado = await this.hydrateAuthenticatedUser(usuario, { source: "supabase" });
+      await sincronizarFilaOfflinePendente("login").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-login falhou", erro.message));
+      return { usuario: hidratado || usuario, source: "supabase" };
     } catch (erro) {
+      registrarFalhaLogin(email, erro?.message || "Falha online");
       throw ErrorService.capture(erro, { area: "Autenticação", action: "Login", errorKey: "LOGIN_FAILED" });
     }
   },
@@ -1005,14 +989,23 @@ const AuthService = {
     return { ok: true, falhas: [] };
   },
   async signupSaas({ nome, email, senha, negocio, telefone, cnpj = "" }) {
-    let cadastroOnline = null;
-    let cadastroAguardandoConfirmacao = false;
     if (!emailValido(email)) {
       throw new AppError("E-mail inválido", {
         code: "AUTH_INVALID_EMAIL",
         userMessage: "Informe um e-mail válido."
       });
     }
+    if (!estaOnline()) {
+      throw new AppError("Conexão necessária para criar sua conta.", {
+        code: "AUTH_ONLINE_REQUIRED",
+        userMessage: "Conexão necessária para criar sua conta."
+      });
+    }
+
+    let cadastroOnline = null;
+    const emailNormalizado = normalizarEmail(email);
+    limparResiduosCadastroLocal(emailNormalizado, { onlyPending: true });
+
     try {
       syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
       syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
@@ -1038,14 +1031,28 @@ const AuthService = {
       if (salvarSessaoSupabase(dados, email)) {
         cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "premium_trial" });
       } else if (usuarioAuth?.id) {
-        cadastroAguardandoConfirmacao = true;
-        syncConfig.supabaseUserId = usuarioAuth.id;
+        syncConfig.supabaseUserId = "";
+        syncConfig.supabaseAccessToken = "";
+        syncConfig.supabaseRefreshToken = "";
+        syncConfig.supabaseTokenExpiresAt = 0;
         syncConfig.supabaseEmail = email;
         salvarDados();
+        throw new AppError("Conta criada no Supabase aguardando confirmação de e-mail", {
+          code: "AUTH_EMAIL_CONFIRMATION_REQUIRED",
+          userMessage: "Conta criada. Confirme o e-mail antes de entrar."
+        });
+      }
+
+      if (!cadastroOnline?.client_id) {
+        throw new AppError("Cadastro SaaS remoto não retornou cliente", {
+          code: "AUTH_REMOTE_PROFILE_FAILED",
+          userMessage: "Não foi possível concluir o cadastro online. Tente novamente."
+        });
       }
     } catch (erro) {
       const appError = ErrorService.capture(erro, { area: "Supabase", action: "Cadastro online", errorKey: "SIGNUP_FAILED", silent: true });
-      if (appError.code === "AUTH_ALREADY_REGISTERED") throw appError;
+      if (appError.code !== "AUTH_ALREADY_REGISTERED") limparResiduosCadastroLocal(emailNormalizado, { onlyPending: true });
+      throw appError;
     }
 
     const local = criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug: "premium_trial", trial: true });
@@ -1073,9 +1080,15 @@ const AuthService = {
     local.usuario.supabasePending = !cadastroOnline?.client_id;
     local.usuario.supabaseUserId = syncConfig.supabaseUserId || local.usuario.supabaseUserId || "";
     local.usuario.supabaseLastSyncAt = cadastroOnline?.client_id ? new Date().toISOString() : "";
+    local.cliente.sync_status = "synced";
+    local.assinatura.sync_status = "synced";
+    local.usuario.sync_status = "synced";
     await definirSenhaUsuario(local.usuario, senha, false);
+    await consultarLicencaSupabaseSilencioso().catch((erro) => registrarDiagnostico("Supabase", "Licença pós-cadastro não carregada", erro.message));
+    await sincronizarFilaOfflinePendente("signup").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-cadastro falhou", erro.message));
     salvarDados();
-    return { ...local, cadastroOnline, cadastroAguardandoConfirmacao };
+    console.info("[Auth][signup]", { email, auth_uid: syncConfig.supabaseUserId, client_id: cadastroOnline?.client_id || "", sync_status: "synced" });
+    return { ...local, cadastroOnline, cadastroAguardandoConfirmacao: false };
   }
 };
 
@@ -1165,6 +1178,46 @@ function carregarObjeto(chave, fallback = {}) {
   }
 }
 
+function estaOnline() {
+  return typeof navigator === "undefined" || navigator.onLine !== false;
+}
+
+function limparResiduosCadastroLocal(email, { onlyPending = true } = {}) {
+  const alvo = normalizarEmail(email || "");
+  if (!alvo) return false;
+
+  const usuariosAntes = normalizarUsuarios(usuarios);
+  const removiveis = usuariosAntes.filter((usuario) => {
+    if (normalizarEmail(usuario.email) !== alvo) return false;
+    if (!onlyPending) return true;
+    const clientId = String(usuario.clientId || "");
+    return usuario.supabasePending === true && !usuario.supabaseUserId && (!clientId || clientId.startsWith("client-"));
+  });
+  if (!removiveis.length) return false;
+
+  const clientIds = new Set(removiveis.map((usuario) => String(usuario.clientId || "")).filter(Boolean));
+  usuarios = usuariosAntes.filter((usuario) => !removiveis.some((item) => item.email === usuario.email && String(item.clientId || "") === String(usuario.clientId || "")));
+  saasClients = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== alvo && !clientIds.has(String(cliente.id || "")));
+  saasSubscriptions = saasSubscriptions.filter((assinatura) => !clientIds.has(String(assinatura.clientId || assinatura.client_id || "")));
+  saasSessions = saasSessions.filter((sessao) => !clientIds.has(String(sessao.clientId || sessao.client_id || "")));
+
+  if (normalizarEmail(billingConfig.licenseEmail) === alvo && clientIds.has(String(billingConfig.clientId || ""))) {
+    billingConfig.clientId = "";
+    billingConfig.companyId = "";
+    billingConfig.subscriptionId = "";
+    billingConfig.licenseEmail = "";
+    billingConfig.activePlan = "free";
+    billingConfig.planSlug = "free";
+    billingConfig.licenseStatus = "free";
+    billingConfig.subscriptionStatus = "free";
+    billingConfig.isTrialActive = false;
+  }
+
+  registrarDiagnostico("Auth", "Resíduo local de cadastro pendente removido", alvo);
+  salvarDados();
+  return true;
+}
+
 function criarDeviceId() {
   const id = "erp-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   localStorage.setItem("deviceId", id);
@@ -1230,6 +1283,7 @@ function salvarDados() {
   localStorage.setItem("saasSubscriptions", JSON.stringify(saasSubscriptions));
   localStorage.setItem("saasPayments", JSON.stringify(saasPayments));
   localStorage.setItem("saasSessions", JSON.stringify(saasSessions));
+  localStorage.setItem(PENDING_SYNC_QUEUE_KEY, JSON.stringify(pendingSync));
   localStorage.setItem("usageCounters", JSON.stringify(usageCounters));
   localStorage.setItem("loginAttempts", JSON.stringify(loginAttempts));
   localStorage.setItem("usuarios", JSON.stringify(usuarios));
@@ -1327,13 +1381,117 @@ function salvarCacheSessaoLocal() {
   localStorage.setItem(LOCAL_SESSION_CACHE_KEY, JSON.stringify(cache));
 }
 
+function registrarDesbloqueioLocal(motivo = "manual") {
+  const agora = new Date().toISOString();
+  localStorage.setItem(LOCAL_UNLOCK_KEY, agora);
+  console.info("[Auth][local-unlock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", at: agora });
+}
+
+function getUltimoDesbloqueioLocalMs() {
+  return Date.parse(localStorage.getItem(LOCAL_UNLOCK_KEY) || "") || 0;
+}
+
+function precisaDesbloqueioLocal() {
+  if (!usuarioAtualEmail || !syncConfig.supabaseUserId) return false;
+  const ultimo = getUltimoDesbloqueioLocalMs();
+  return !ultimo || Date.now() - ultimo > LOCAL_UNLOCK_MAX_MS;
+}
+
+function licencaLocalAindaConfiavel() {
+  const ultimo = Date.parse(billingConfig.lastOnlineLicenseValidationAt || billingConfig.effectiveLicenseUpdatedAt || "") || 0;
+  return !!ultimo && Date.now() - ultimo <= OFFLINE_LICENSE_STALE_MAX_MS;
+}
+
+function ativarTravaLocal(motivo = "stale") {
+  window.__simplificaLocalLockActive = true;
+  window.__simplificaLocalLockReason = motivo;
+}
+
+function desativarTravaLocal(motivo = "unlock") {
+  window.__simplificaLocalLockActive = false;
+  window.__simplificaLocalLockReason = "";
+  localLockModalOpen = false;
+  registrarDesbloqueioLocal(motivo);
+}
+
+function renderTravaLocal() {
+  return `
+    <main class="auth-desktop-main">
+      <section class="card auth-card">
+        <div class="brand-lockup">
+          <img class="auth-logo" src="${escaparAttr(getMarcaProjetoSrc("icon"))}" alt="Simplifica 3D">
+          <h1>Simplifica 3D</h1>
+          <p>Confirme sua senha para continuar usando este dispositivo.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="abrirModalDesbloqueioLocal()">Desbloquear</button>
+          <button class="btn ghost" onclick="logoutUsuario()">Sair</button>
+        </div>
+      </section>
+    </main>
+  `;
+}
+
+async function abrirModalDesbloqueioLocal() {
+  if (localLockModalOpen || !window.__simplificaLocalLockActive) return;
+  localLockModalOpen = true;
+  const usuario = getUsuarioAtual();
+  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+  const senha = await solicitarEntradaTexto({
+    titulo: "Desbloquear dispositivo",
+    mensagem: "Por segurança, confirme a senha da sua conta. Isso não encerra sua sessão do Supabase.",
+    tipo: "password",
+    obrigatorio: true
+  });
+  localLockModalOpen = false;
+  if (!senha) return;
+  if (!estaOnline()) {
+    mostrarToast("Conexão necessária para desbloquear após 12 horas.", "erro", 7000);
+    return;
+  }
+  try {
+    await loginUsuarioSupabase(email, senha);
+    await consultarLicencaSupabaseSilencioso();
+    desativarTravaLocal("password");
+    await sincronizarFilaOfflinePendente("unlock").catch((erro) => registrarDiagnostico("sync", "Fila offline após desbloqueio falhou", erro.message));
+    mostrarToast("Dispositivo desbloqueado.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.capture(erro, { area: "Autenticação", action: "Desbloqueio local", errorKey: "LOCAL_UNLOCK_FAILED", silent: true });
+    mostrarToast("Senha não validada. Tente novamente.", "erro", 6500);
+  }
+}
+
+async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
+  if (!precisaDesbloqueioLocal()) return true;
+  ativarTravaLocal(motivo);
+  console.info("[Auth][local-lock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", last_unlock_at: localStorage.getItem(LOCAL_UNLOCK_KEY) || "" });
+  return false;
+}
+
 async function restaurarCacheSessaoLocal() {
   if (appConfig.keepSessionCache === false) return false;
   if (usuarioAtualEmail) {
     try {
       const emailSessaoAtual = normalizarEmail(usuarioAtualEmail);
       carregarSessaoSensivelSupabase();
-      if (emailSessaoAtual && syncConfig.supabaseRefreshToken && !sessaoSupabaseValidaParaEmail(emailSessaoAtual)) {
+      if (!syncConfig.supabaseUserId || !syncConfig.supabaseRefreshToken) {
+        usuarioAtualEmail = "";
+        sessionStorage.removeItem("usuarioAtualEmail");
+        return false;
+      }
+      if (!estaOnline()) {
+        if (!licencaLocalAindaConfiavel()) {
+          ativarTravaLocal("offline-stale-license");
+          mostrarToast("Conexão necessária para validar sua sessão.", "erro", 7000);
+          return true;
+        }
+        billingConfig.effectiveLicenseStale = true;
+        billingConfig.effectiveLicenseSource = "backend-rpc-cache-stale";
+        await exigirDesbloqueioLocalSeNecessario("restore-offline");
+        return true;
+      }
+      if (emailSessaoAtual && !sessaoSupabaseValidaParaEmail(emailSessaoAtual)) {
         const renovada = await renovarSessaoSupabase();
         if (!renovada) {
           mostrarToast("Sua sessão expirou. Faça login novamente.", "erro", 7000);
@@ -1341,6 +1499,8 @@ async function restaurarCacheSessaoLocal() {
         }
       }
       await sincronizarLicencaEfetivaSePossivel("restoreSession-active");
+      await sincronizarFilaOfflinePendente("restoreSession-active").catch((erro) => registrarDiagnostico("sync", "Fila offline ao restaurar sessão ativa falhou", erro.message));
+      await exigirDesbloqueioLocalSeNecessario("restore-active");
     } catch (erro) {
       registrarDiagnostico("Supabase", "Licença da sessão ativa não sincronizada", erro.message);
     }
@@ -1352,12 +1512,34 @@ async function restaurarCacheSessaoLocal() {
     if (!email || !normalizarUsuarios(usuarios).some((usuario) => usuario.email === email && usuario.ativo)) return false;
 
     carregarSessaoSensivelSupabase();
+    if (!syncConfig.supabaseUserId || !syncConfig.supabaseRefreshToken) {
+      localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+      return false;
+    }
     if (appConfig.biometricEnabled && isAndroid()) {
       const biometria = await confirmarBiometriaSeDisponivel("Confirme sua identidade para abrir seus dados.");
       if (biometria.disponivel && !biometria.ok) return false;
     }
 
-    if (syncConfig.supabaseRefreshToken && !sessaoSupabaseValidaParaEmail(email)) {
+    if (!estaOnline()) {
+      if (!licencaLocalAindaConfiavel()) {
+        ativarTravaLocal("offline-stale-license");
+        mostrarToast("Conexão necessária para validar sua sessão.", "erro", 7000);
+        usuarioAtualEmail = email;
+        sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+        return true;
+      }
+      usuarioAtualEmail = email;
+      sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+      registrarAtividadeSessao();
+      billingConfig.effectiveLicenseStale = true;
+      billingConfig.effectiveLicenseSource = "backend-rpc-cache-stale";
+      salvarDados();
+      await exigirDesbloqueioLocalSeNecessario("restore-offline");
+      return true;
+    }
+
+    if (!sessaoSupabaseValidaParaEmail(email)) {
       const renovada = await renovarSessaoSupabase();
       if (!renovada) {
         mostrarToast("Sua sessão expirou. Faça login novamente.", "erro", 7000);
@@ -1369,6 +1551,8 @@ async function restaurarCacheSessaoLocal() {
     sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
     registrarAtividadeSessao();
     await sincronizarLicencaEfetivaSePossivel("restoreSession");
+    await sincronizarFilaOfflinePendente("restoreSession").catch((erro) => registrarDiagnostico("sync", "Fila offline ao restaurar sessão falhou", erro.message));
+    await exigirDesbloqueioLocalSeNecessario("restore");
     return true;
   } catch (_) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
@@ -2874,11 +3058,205 @@ function getDataOwnerId() {
 }
 
 function prepararRegistroOnline(registro = {}) {
-  // Preparação para Supabase: todo dado novo recebe owner_id sem remover o localStorage atual.
+  const atualizadoEm = registro.updated_at || registro.updatedAt || registro.atualizadoEm || new Date().toISOString();
   return {
     ...registro,
-    owner_id: registro.owner_id || getDataOwnerId()
+    owner_id: registro.owner_id || getDataOwnerId(),
+    sync_status: registro.sync_status || registro.syncStatus || "pending",
+    updated_at: atualizadoEm,
+    updatedAt: registro.updatedAt || atualizadoEm
   };
+}
+
+function getRegistroSyncId(colecao, registro = {}) {
+  const id = registro.remote_id || registro.remoteId || registro.id || registro.local_id || registro.localId;
+  if (id !== undefined && id !== null && String(id).trim()) return String(id);
+  const base = [
+    colecao,
+    registro.cliente || registro.nome || registro.descricao || registro.tipo || "registro",
+    registro.data || registro.criadoEm || registro.createdAt || registro.updated_at || Date.now()
+  ].join("|");
+  return base.toLowerCase().replace(/[^a-z0-9_-]+/gi, "-").slice(0, 90);
+}
+
+function normalizarPayloadSync(colecao, registro = {}) {
+  const atualizadoEm = registro.updated_at || registro.updatedAt || registro.atualizadoEm || registro.criadoEm || registro.createdAt || new Date().toISOString();
+  return {
+    ...registro,
+    owner_id: registro.owner_id || getDataOwnerId(),
+    sync_status: registro.sync_status || registro.syncStatus || "pending",
+    updated_at: atualizadoEm,
+    updatedAt: registro.updatedAt || atualizadoEm,
+    local_collection: colecao
+  };
+}
+
+function coletarClientesOperacionaisParaSync() {
+  const mapa = new Map();
+  pedidos.forEach((pedido) => {
+    const nome = String(clienteDoPedido(pedido) || "").trim();
+    if (!nome || nome === "Sem cliente") return;
+    const telefone = telefoneDoPedido(pedido);
+    const chave = normalizarTextoBusca(`${nome}|${telefone || ""}`);
+    const atual = mapa.get(chave) || {
+      id: `cliente-${chave.slice(0, 72)}`,
+      nome,
+      telefone,
+      pedidos: 0,
+      total: 0,
+      owner_id: pedido.owner_id || getDataOwnerId(),
+      sync_status: pedido.sync_status || "pending",
+      updated_at: pedido.updated_at || pedido.updatedAt || pedido.criadoEm || new Date().toISOString()
+    };
+    atual.pedidos += 1;
+    atual.total += totalPedido(pedido);
+    const pedidoAtualizado = Date.parse(pedido.updated_at || pedido.updatedAt || pedido.criadoEm || 0) || 0;
+    const atualAtualizado = Date.parse(atual.updated_at || 0) || 0;
+    if (pedidoAtualizado > atualAtualizado) atual.updated_at = pedido.updated_at || pedido.updatedAt || pedido.criadoEm;
+    if ((pedido.sync_status || "pending") !== "synced") atual.sync_status = "pending";
+    mapa.set(chave, atual);
+  });
+  return Array.from(mapa.values());
+}
+
+function getColecaoLocalSync(colecao) {
+  if (colecao === "pedidos") return pedidos;
+  if (colecao === "estoque") return estoque;
+  if (colecao === "caixa") return caixa;
+  if (colecao === "clientes") return coletarClientesOperacionaisParaSync();
+  return [];
+}
+
+function coletarRegistrosPendentesLocais() {
+  const itens = [];
+  SYNCABLE_COLLECTIONS.forEach((colecao) => {
+    getColecaoLocalSync(colecao).forEach((registro) => {
+      const status = String(registro.sync_status || registro.syncStatus || "pending").toLowerCase();
+      if (!["pending", "error"].includes(status)) return;
+      const payload = normalizarPayloadSync(colecao, registro);
+      itens.push({
+        id: `${colecao}:${getRegistroSyncId(colecao, payload)}`,
+        collection: colecao,
+        recordId: getRegistroSyncId(colecao, payload),
+        data: payload,
+        operation: payload.deleted_at ? "delete" : "upsert",
+        status: "pending",
+        attempts: 0,
+        updatedAt: payload.updated_at || new Date().toISOString()
+      });
+    });
+  });
+  return itens;
+}
+
+function salvarFilaSyncLocal() {
+  localStorage.setItem(PENDING_SYNC_QUEUE_KEY, JSON.stringify(pendingSync));
+}
+
+function recomporFilaSyncPendente() {
+  const mapa = new Map();
+  (Array.isArray(pendingSync) ? pendingSync : []).forEach((item) => {
+    if (!item?.collection || !item?.recordId) return;
+    mapa.set(`${item.collection}:${item.recordId}`, item);
+  });
+  coletarRegistrosPendentesLocais().forEach((item) => {
+    const existente = mapa.get(item.id) || {};
+    mapa.set(item.id, { ...existente, ...item, attempts: existente.attempts || 0 });
+  });
+  pendingSync = Array.from(mapa.values()).filter((item) => item.status !== "synced");
+  salvarFilaSyncLocal();
+  return pendingSync;
+}
+
+function atualizarStatusRegistroLocalSync(colecao, recordId, status, extra = {}) {
+  const atualizar = (registro) => {
+    if (getRegistroSyncId(colecao, registro) !== String(recordId)) return registro;
+    return {
+      ...registro,
+      ...extra,
+      sync_status: status,
+      syncStatus: status,
+      remote_id: extra.remote_id || extra.remoteId || registro.remote_id || registro.remoteId || String(recordId),
+      synced_at: status === "synced" ? new Date().toISOString() : registro.synced_at || "",
+      sync_error: status === "error" ? String(extra.sync_error || extra.syncError || registro.sync_error || "").slice(0, 240) : ""
+    };
+  };
+  if (colecao === "pedidos") pedidos = pedidos.map(atualizar);
+  if (colecao === "estoque") estoque = estoque.map(atualizar);
+  if (colecao === "caixa") caixa = caixa.map(atualizar);
+}
+
+async function enviarRegistroSyncSupabase(item) {
+  const payload = normalizarPayloadSync(item.collection, item.data || {});
+  console.info("[SyncQueue][send]", {
+    auth_uid: syncConfig.supabaseUserId || "",
+    collection: item.collection,
+    record_id: item.recordId,
+    sync_status: payload.sync_status || "pending"
+  });
+  return requisicaoSupabase("/rest/v1/rpc/upsert_erp_record_if_newer", {
+    method: "POST",
+    body: JSON.stringify({
+      p_collection: item.collection,
+      p_record_id: String(item.recordId),
+      p_data: payload,
+      p_deleted_at: payload.deleted_at || null
+    })
+  });
+}
+
+async function sincronizarFilaOfflinePendente(motivo = "manual") {
+  if (!estaOnline()) {
+    recomporFilaSyncPendente();
+    syncConfig.autoBackupStatus = "Offline - fila pendente";
+    salvarDados();
+    return { ok: false, offline: true, pending: pendingSync.length };
+  }
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) {
+    recomporFilaSyncPendente();
+    return { ok: false, auth: false, pending: pendingSync.length };
+  }
+
+  recomporFilaSyncPendente();
+  if (!pendingSync.length) return { ok: true, sent: 0, pending: 0 };
+
+  let enviados = 0;
+  const restantes = [];
+  for (const item of pendingSync) {
+    try {
+      const resultado = await enviarRegistroSyncSupabase(item);
+      const action = String(resultado?.action || resultado?.status || "synced");
+      atualizarStatusRegistroLocalSync(item.collection, item.recordId, "synced", {
+        remote_id: resultado?.remote_id || item.recordId,
+        sync_result: action
+      });
+      enviados += 1;
+      console.info("[SyncQueue][ok]", {
+        motivo,
+        collection: item.collection,
+        record_id: item.recordId,
+        action,
+        sync_status: "synced"
+      });
+    } catch (erro) {
+      const falha = {
+        ...item,
+        status: "error",
+        attempts: Number(item.attempts || 0) + 1,
+        lastError: String(erro.message || erro).slice(0, 240),
+        updatedAt: new Date().toISOString()
+      };
+      atualizarStatusRegistroLocalSync(item.collection, item.recordId, "error", { sync_error: falha.lastError });
+      restantes.push(falha);
+      registrarDiagnostico("sync", `Falha ao sincronizar ${item.collection}/${item.recordId}`, falha.lastError);
+      break;
+    }
+  }
+  pendingSync = restantes.concat(pendingSync.slice(enviados + restantes.length).filter((item) => item.status !== "synced"));
+  syncConfig.autoBackupStatus = restantes.length ? "Fila com erro" : "Fila sincronizada";
+  syncConfig.ultimaSync = new Date().toISOString();
+  salvarDados();
+  return { ok: restantes.length === 0, sent: enviados, pending: pendingSync.length };
 }
 
 function usuarioEhDonoDaLicenca(email) {
@@ -3677,6 +4055,16 @@ function usuarioEstaBloqueado(user = getUsuarioAtual()) {
   return !!user?.bloqueado || user?.ativo === false || status === "blocked" || status === "bloqueado";
 }
 
+function licencaEfetivaBloqueada(user = getUsuarioAtual()) {
+  if (isSuperAdmin(user)) return false;
+  return usuarioEstaBloqueado(user)
+    || billingConfig.effectiveIsBlocked === true
+    || billingConfig.effectiveStatus === PLAN_ACCESS_STATES.BLOCKED
+    || billingConfig.licenseStatus === "blocked"
+    || billingConfig.licenseBlockLevel === "total"
+    || billingConfig.blocked === true;
+}
+
 function planoGlobalBloqueado() {
   if (billingConfig.paymentStatus === "pending") return false;
   if (normalizarSlugPlano(billingConfig.activePlan || billingConfig.planSlug) === "free") return false;
@@ -4233,6 +4621,14 @@ function atualizarMenu() {
 function renderApp() {
   const app = document.getElementById("app");
   if (!app) return;
+  if (window.__simplificaLocalLockActive && getUsuarioAtual()) {
+    aplicarPersonalizacao();
+    app.innerHTML = renderTravaLocal();
+    renderCalculadoraFlutuante();
+    sincronizarBannerAdMob();
+    setTimeout(() => abrirModalDesbloqueioLocal(), 80);
+    return;
+  }
   if (!getUsuarioAtual() && !adminLogado && !isTelaPublica(telaAtual)) {
     telaAtual = "admin";
   }
@@ -4254,7 +4650,7 @@ function renderApp() {
 }
 
 function podeMostrarControlesFlutuantes() {
-  return !!getUsuarioAtual() && !isTelaPublica(telaAtual) && telaAtual !== "onboarding";
+  return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding";
 }
 
 function renderDesktop() {
@@ -4351,6 +4747,7 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (!usuario) return false;
   if (tela === "onboarding") return !isSuperAdmin(usuario);
   if (isSuperAdmin(usuario)) return true;
+  if (licencaEfetivaBloqueada(usuario)) return false;
 
   const permissoes = {
     admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding"],
@@ -10132,6 +10529,7 @@ async function cadastrarClienteSaas() {
 
   usuarios = normalizarUsuarios(usuarios);
   garantirEstruturaSaasLocal();
+  limparResiduosCadastroLocal(email, { onlyPending: true });
   if (usuarios.some((usuario) => usuario.email === email) || saasClients.some((cliente) => normalizarEmail(cliente.email) === email)) {
     alert("Este e-mail já está cadastrado.");
     return;
@@ -10199,6 +10597,11 @@ async function loginUsuario() {
 }
 
 function concluirLoginUsuario(usuario) {
+  if (!syncConfig.supabaseUserId) {
+    alert("Não foi possível validar o auth.uid no Supabase. Faça login online novamente.");
+    registrarSeguranca("Login bloqueado", "erro", "Sem auth.uid Supabase", usuario?.email || "");
+    return;
+  }
   if (usuarioEstaBloqueado(usuario)) {
     alert("Este usuário está bloqueado. Fale com o administrador.");
     return;
@@ -10210,6 +10613,7 @@ function concluirLoginUsuario(usuario) {
   usuarioAtualEmail = usuario.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   salvarCacheSessaoLocal();
+  desativarTravaLocal("login");
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
   usuario.lastLoginAt = new Date().toISOString();
@@ -10291,6 +10695,8 @@ function logoutUsuario() {
   const email = usuarioAtualEmail;
   usuarioAtualEmail = "";
   adminLogado = false;
+  window.__simplificaLocalLockActive = false;
+  localLockModalOpen = false;
   sessionStorage.removeItem("usuarioAtualEmail");
   sessionStorage.removeItem("adminLogado");
   sessionStorage.removeItem("sessionLastActivity");
@@ -11457,6 +11863,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     billingConfig.effectiveLicenseSource = options.source || licenca.source || "backend-rpc";
     billingConfig.effectiveLicenseUpdatedAt = String(licenca.updated_at || new Date().toISOString());
     billingConfig.effectiveLicenseStale = options.stale === true;
+    if (options.stale !== true) billingConfig.lastOnlineLicenseValidationAt = new Date().toISOString();
     billingConfig.activePlan = activePlanEfetivo;
     billingConfig.planSlug = activePlanEfetivo;
     billingConfig.licenseStatus = statusLegadoPorLicencaEfetiva(statusEfetivo);
@@ -11483,6 +11890,13 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   billingConfig.blockedAt = licenca.blocked_at || "";
   billingConfig.blockedReason = licenca.blocked_reason || "";
   if (licenca.current_paid_price) billingConfig.monthlyPrice = Number(licenca.current_paid_price) || billingConfig.monthlyPrice;
+  console.info("[Auth][license]", {
+    auth_uid: syncConfig.supabaseUserId || "",
+    effective_status: statusEfetivo,
+    plan_code: billingConfig.effectivePlanCode || "",
+    source: billingConfig.effectiveLicenseSource || options.source || "",
+    stale: billingConfig.effectiveLicenseStale === true
+  });
 
   let cliente = getClienteSaasPorId(billingConfig.clientId);
   if (!cliente && billingConfig.clientId) {
@@ -11591,6 +12005,16 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     }));
   }
   salvarDados();
+  if (statusEfetivo === PLAN_ACCESS_STATES.BLOCKED && getUsuarioAtual() && !isSuperAdmin()) {
+    if (window.__simplificaLastBlockedToast !== billingConfig.blockedAt) {
+      window.__simplificaLastBlockedToast = billingConfig.blockedAt || new Date().toISOString();
+      mostrarToast("Acesso bloqueado pelo Superadmin.", "erro", 7000);
+    }
+    if (!isTelaPublica(telaAtual)) {
+      telaAtual = "acessoNegado";
+      setTimeout(renderApp, 0);
+    }
+  }
 }
 
 async function alterarSenhaSupabaseSeConectado(novaSenha) {
@@ -12136,29 +12560,20 @@ async function processarRetornoOAuthSupabase() {
     let usuario = usuarios.find((item) => item.email === email);
     if (!usuario) {
       const nomeGoogle = user.user_metadata?.name || user.user_metadata?.full_name || email.split("@")[0];
-      try {
-        const local = criarClienteSaasLocal({
-          nome: nomeGoogle,
-          email,
-          senha: "",
-          negocio: appConfig.businessName || `Empresa de ${nomeGoogle}`,
-          telefone: "",
-          planSlug: "premium_trial",
-          trial: true
-        });
-        usuario = local.usuario;
-      } catch (_) {
-        usuario = normalizarUsuario({
-          nome: nomeGoogle,
-          email,
-          papel: "user",
-          ativo: true
-        });
-        usuarios.push(usuario);
-      }
+      usuario = normalizarUsuario({
+        id: syncConfig.supabaseUserId || criarIdUsuario(),
+        nome: nomeGoogle,
+        email,
+        papel: "user",
+        ativo: true,
+        supabaseUserId: syncConfig.supabaseUserId || "",
+        supabasePending: false
+      });
+      usuarios.push(usuario);
     }
-    await carregarPerfilSaasSupabase(usuario);
     await garantirCadastroSaasOnlineAposLogin(usuario);
+    await carregarPerfilSaasSupabase(usuario);
+    await sincronizarFilaOfflinePendente("oauth").catch((erro) => registrarDiagnostico("sync", "Fila offline OAuth falhou", erro.message));
     sessionStorage.removeItem("supabaseOAuthProvider");
     sessionStorage.removeItem("supabaseOAuthRedirectTo");
     limparParametrosOAuthSupabase();
@@ -12285,6 +12700,7 @@ async function sincronizarSupabase() {
     salvarDados();
     renderApp();
     await salvarPerfilSupabase();
+    await sincronizarFilaOfflinePendente("sync-manual");
     const remoto = await obterBackupSupabase();
     if (remoto) {
       aplicarBackup(remoto, "mesclar");
@@ -12327,6 +12743,7 @@ async function sincronizarSupabaseSilencioso() {
     return false;
   }
 
+  await sincronizarFilaOfflinePendente("sync-silencioso");
   const remoto = await obterBackupSupabase();
   if (remoto) {
     aplicarBackup(remoto, "mesclar");
@@ -14744,6 +15161,16 @@ function iniciarMonitorPlanoSaas() {
   }, 24 * 60 * 60 * 1000);
 }
 
+function iniciarMonitorLicencaOnline() {
+  if (licenseMonitorTimer) clearInterval(licenseMonitorTimer);
+  licenseMonitorTimer = setInterval(() => {
+    if (!getUsuarioAtual() || !syncConfig.supabaseAccessToken || !estaOnline()) return;
+    sincronizarLicencaEfetivaSePossivel("license-monitor")
+      .then(() => sincronizarFilaOfflinePendente("license-monitor"))
+      .catch((erro) => registrarDiagnostico("Supabase", "Monitor de licença falhou", erro.message));
+  }, LICENSE_MONITOR_INTERVAL_MS);
+}
+
 function verificarLembreteBackupPlanoFree() {
   const usuario = getUsuarioAtual();
   if (!usuario) return;
@@ -14773,6 +15200,7 @@ async function verificarBancosDadosAoEntrar() {
       consultarLicencaSupabaseSilencioso(),
       carregarSaasSupabaseSilencioso()
     ]);
+    await sincronizarFilaOfflinePendente("startup-health");
     const plano = getPlanoAtual();
     if ((plano.slug === "premium" || plano.slug === "premium_trial") && temAcessoNuvem()) {
       syncConfig.supabaseEnabled = true;
@@ -14814,11 +15242,13 @@ document.addEventListener("visibilitychange", () => {
     salvarDados();
   } else if (document.visibilityState === "visible") {
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
+    sincronizarFilaOfflinePendente("visible").catch((erro) => registrarDiagnostico("sync", "Fila offline ao voltar para o app falhou", erro.message));
   }
 });
 
 window.addEventListener("online", () => {
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
+  sincronizarFilaOfflinePendente("online").catch((erro) => registrarDiagnostico("sync", "Fila offline ao voltar internet falhou", erro.message));
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -14840,6 +15270,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
   iniciarMonitorPlanoSaas();
+  iniciarMonitorLicencaOnline();
   iniciarLembreteBackupPlanoFree();
   setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();

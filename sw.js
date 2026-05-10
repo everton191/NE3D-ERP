@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v56-delete-test-fix-20260507";
+const CACHE_NAME = "simplifica-3d-v57-online-authoritative-20260510";
 const APP_FILES = [
   "./",
   "./index.html",
