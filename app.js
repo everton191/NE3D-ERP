@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.11.49";
+const APP_VERSION = "2026.05.11.50";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -24,7 +24,7 @@ const WHATSAPP_2FA_BACKEND_ENABLED = false;
 const DEFAULT_SAAS_PLANS = [
   { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: 25, active: true, recommended: false, allowPdf: false, allowReports: false, allowPermissions: false, kind: "free", showsAds: true },
   { id: "premium_trial", slug: "premium_trial", name: "Teste gratis", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7, showsAds: false },
-  { id: "premium", slug: "premium", name: "Pago", price: 19.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid", showsAds: false }
+  { id: "premium", slug: "premium", name: "PRO", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid", showsAds: false }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
 const PLAN_ACCESS_STATES = Object.freeze({
@@ -35,14 +35,14 @@ const PLAN_ACCESS_STATES = Object.freeze({
   EXPIRED: "EXPIRED",
   BLOCKED: "BLOCKED"
 });
-const PLAN_DEBUG_ENABLED = true;
+const PLAN_DEBUG_ENABLED = false;
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
   { limit: 200, price: 24.9 },
   { limit: Infinity, price: 29.9 }
 ];
 const PREMIUM_FIRST_MONTH_PRICE = PAID_PRICE_TIERS[0].price;
-const PREMIUM_MONTHLY_PRICE = PAID_PRICE_TIERS[0].price;
+const PREMIUM_MONTHLY_PRICE = 29.9;
 const AD_MIN_INTERVAL_MS = 20 * 60 * 1000;
 const BILLING_VARIANTS = {
   premium_first_month: { id: "premium_first_month", planId: "premium", amount: PREMIUM_FIRST_MONTH_PRICE },
@@ -115,6 +115,10 @@ const LICENSE_MONITOR_INTERVAL_MS = 60 * 1000;
 const REALTIME_SYNC_HEARTBEAT_MS = 25 * 1000;
 const REALTIME_SYNC_RECONNECT_MS = 5 * 1000;
 const REALTIME_SYNC_DEBOUNCE_MS = 1200;
+const REALTIME_FALLBACK_FOREGROUND_MS = 15 * 1000;
+const REALTIME_FALLBACK_BACKGROUND_MS = 60 * 1000;
+const DASHBOARD_RECENT_ACTIVITY_MS = 2 * 60 * 1000;
+const TOAST_DEBOUNCE_MS = 4500;
 const SYNCABLE_COLLECTIONS = Object.freeze(["pedidos", "estoque", "caixa", "clientes"]);
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
@@ -196,9 +200,11 @@ let realtimeSyncState = {
   heartbeatTimer: null,
   reconnectTimer: null,
   debounceTimer: null,
+  pollTimer: null,
   applying: false,
   lastEventKey: "",
   lastEventAt: 0,
+  lastPollAt: 0,
   lastToastAt: 0,
   reconnectAttempts: 0
 };
@@ -269,9 +275,21 @@ let appConfig = carregarObjeto("appConfig", {
   pixCity: "",
   pixDescription: "Pedido Simplifica 3D",
   brandLogoDataUrl: "",
+  pdfBackgroundDataUrl: "",
+  pdfStyle: "clean",
+  pdfHeaderText: "",
   brandWatermarkEnabled: true,
   theme: "dark",
   accentColor: "#073b4b",
+  appearanceSettings: {
+    primary_color: "#073b4b",
+    secondary_color: "#ff941c",
+    pdf_background: "",
+    logo_url: "",
+    theme_mode: "dark",
+    glass_effect: true,
+    custom_pdf_enabled: false
+  },
   compactMode: false,
   showBrandInHeader: true,
   defaultMargin: 100,
@@ -2194,16 +2212,7 @@ function getPrecoBillingVariant(variant = "premium_first_month") {
 }
 
 function getPrecoPagoVigenteLocal() {
-  const clientesPagos = new Set();
-  saasSubscriptions.forEach((assinatura) => {
-    const normalizada = normalizarAssinaturaSaas(assinatura);
-    if (normalizada.activePlan === "premium" || (normalizada.priceLocked && normalizada.planPrice > 0)) {
-      clientesPagos.add(String(normalizada.clientId || normalizada.id));
-    }
-  });
-  const total = clientesPagos.size;
-  const tier = PAID_PRICE_TIERS.find((item) => total < item.limit) || PAID_PRICE_TIERS[PAID_PRICE_TIERS.length - 1];
-  return tier.price;
+  return PREMIUM_MONTHLY_PRICE;
 }
 
 function proximoClienteIdS3D() {
@@ -3673,9 +3682,11 @@ function limparTimersRealtime() {
   if (realtimeSyncState.heartbeatTimer) clearInterval(realtimeSyncState.heartbeatTimer);
   if (realtimeSyncState.reconnectTimer) clearTimeout(realtimeSyncState.reconnectTimer);
   if (realtimeSyncState.debounceTimer) clearTimeout(realtimeSyncState.debounceTimer);
+  if (realtimeSyncState.pollTimer) clearInterval(realtimeSyncState.pollTimer);
   realtimeSyncState.heartbeatTimer = null;
   realtimeSyncState.reconnectTimer = null;
   realtimeSyncState.debounceTimer = null;
+  realtimeSyncState.pollTimer = null;
 }
 
 function pararRealtimeSyncUsuario(motivo = "logout") {
@@ -3702,9 +3713,11 @@ function pararRealtimeSyncUsuario(motivo = "logout") {
     heartbeatTimer: null,
     reconnectTimer: null,
     debounceTimer: null,
+    pollTimer: null,
     applying: false,
     lastEventKey: "",
     lastEventAt: 0,
+    lastPollAt: 0,
     lastToastAt: realtimeSyncState.lastToastAt || 0,
     reconnectAttempts: 0
   };
@@ -3736,6 +3749,7 @@ async function iniciarRealtimeSyncUsuario(motivo = "manual") {
     && realtimeSyncState.accessToken === token
     && [WebSocket.CONNECTING, WebSocket.OPEN].includes(socketAtual.readyState)
   ) {
+    agendarPollingSyncTempoReal(`realtime-already:${motivo}`);
     return true;
   }
 
@@ -3756,6 +3770,7 @@ async function iniciarRealtimeSyncUsuario(motivo = "manual") {
       access_token: token
     }, { joinRef: null });
     iniciarHeartbeatRealtime();
+    agendarPollingSyncTempoReal(`realtime:${motivo}`);
     console.info("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records", "subscriptions", "payments"] });
   };
 
@@ -3775,6 +3790,7 @@ async function iniciarRealtimeSyncUsuario(motivo = "manual") {
     realtimeSyncState.joined = false;
     realtimeSyncState.heartbeatTimer = null;
     realtimeSyncState.debounceTimer = null;
+    agendarPollingSyncTempoReal("realtime-close");
     agendarReconnectRealtime("close");
   };
 
@@ -3975,7 +3991,7 @@ function avisarRealtimeDadosAtualizados() {
   const agora = Date.now();
   if (agora - Number(realtimeSyncState.lastToastAt || 0) < 3500) return;
   realtimeSyncState.lastToastAt = agora;
-  if (typeof mostrarToast === "function") mostrarToast("Dados atualizados", "info", 2200);
+  if (typeof mostrarToast === "function") mostrarToast("Atualizado", "info", 2200);
 }
 
 function avisarRealtimePlanoAtualizado() {
@@ -4028,10 +4044,8 @@ async function processarMudancaRealtimeSupabase(evento) {
     }
 
     if (alterou) {
-      const agoraIso = new Date().toISOString();
-      syncConfig.supabaseLastSync = agoraIso;
-      syncConfig.ultimaSync = agoraIso;
-      syncConfig.autoBackupStatus = "Atualizado em tempo real";
+      marcarSincronizacaoVisual("realtime");
+      syncConfig.autoBackupStatus = "Atualizado";
       salvarCacheDadosUsuario();
       salvarDados();
       if (document.visibilityState !== "hidden") renderApp();
@@ -4041,6 +4055,62 @@ async function processarMudancaRealtimeSupabase(evento) {
   } finally {
     realtimeSyncState.applying = false;
   }
+}
+
+async function baixarAtualizacoesSupabaseSilencioso(motivo = "polling") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  if (realtimeSyncState.applying) return false;
+  realtimeSyncState.applying = true;
+  try {
+    let alterou = false;
+    const registros = await obterRegistrosErpSupabase();
+    alterou = aplicarRegistrosErpSupabase(registros) || alterou;
+    const remoto = await obterBackupSupabase();
+    if (remoto) alterou = aplicarBackup(remoto, "mesclar") || alterou;
+    if (alterou) {
+      marcarSincronizacaoVisual(motivo);
+      syncConfig.autoBackupStatus = "Atualizado";
+      salvarCacheDadosUsuario();
+      salvarDados();
+      if (document.visibilityState !== "hidden") renderApp();
+      avisarRealtimeDadosAtualizados();
+    }
+    return alterou;
+  } catch (erro) {
+    registrarDiagnostico("sync", "Polling de sincronização falhou", erro.message || erro);
+    return false;
+  } finally {
+    realtimeSyncState.applying = false;
+  }
+}
+
+async function executarPollingSyncTempoReal(motivo = "polling") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  const agora = Date.now();
+  const intervaloMinimo = document.visibilityState === "hidden" ? REALTIME_FALLBACK_BACKGROUND_MS : REALTIME_FALLBACK_FOREGROUND_MS;
+  if (agora - Number(realtimeSyncState.lastPollAt || 0) < Math.max(8000, intervaloMinimo - 1000)) return false;
+  realtimeSyncState.lastPollAt = agora;
+  const pendentes = recomporFilaSyncPendente();
+  if (pendentes.length) {
+    return !!await sincronizarSupabaseSilencioso().catch((erro) => {
+      registrarDiagnostico("sync", "Polling não enviou fila pendente", erro.message || erro);
+      return false;
+    });
+  }
+  return baixarAtualizacoesSupabaseSilencioso(motivo);
+}
+
+function agendarPollingSyncTempoReal(motivo = "session") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
+  if (realtimeSyncState.pollTimer) clearInterval(realtimeSyncState.pollTimer);
+  const intervalo = document.visibilityState === "hidden" ? REALTIME_FALLBACK_BACKGROUND_MS : REALTIME_FALLBACK_FOREGROUND_MS;
+  realtimeSyncState.pollTimer = setInterval(() => {
+    executarPollingSyncTempoReal("fallback-polling").catch((erro) => registrarDiagnostico("sync", "Fallback polling falhou", erro.message || erro));
+  }, intervalo);
+  if (document.visibilityState !== "hidden") {
+    setTimeout(() => executarPollingSyncTempoReal(`fallback-start:${motivo}`).catch(() => {}), 1500);
+  }
+  return true;
 }
 
 function usuarioEhDonoDaLicenca(email) {
@@ -4760,7 +4830,12 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
   const paidActive = activePlan === "premium"
     && !planExpired
     && (subscriptionStatus === "active" || statusPlano === "active" || paymentStatus === "approved");
-  const trialActive = activePlan === "premium_trial" && trial.active;
+  const trialActive = trial.active && (
+    activePlan === "premium_trial"
+    || billingConfig.isTrialActive === true
+    || assinatura?.isTrialActive === true
+    || cliente?.isTrialActive === true
+  );
 
   let state = PLAN_ACCESS_STATES.FREE;
   if (blocked) {
@@ -4780,10 +4855,15 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     state = PLAN_ACCESS_STATES.EXPIRED;
   }
 
+  const planoEfetivoUnico = state === PLAN_ACCESS_STATES.TRIAL
+    ? "premium_trial"
+    : state === PLAN_ACCESS_STATES.ACTIVE
+      ? "premium"
+      : "free";
   const snapshot = {
     state,
     source,
-    activePlan,
+    activePlan: planoEfetivoUnico,
     pendingPlan: pendingPlan === "free" ? "" : pendingPlan,
     paymentStatus,
     subscriptionStatus,
@@ -4884,7 +4964,7 @@ function getPlanoAtual(user = getUsuarioAtual()) {
       slug: "premium",
       completo: true,
       diasRestantes: 9999,
-      descricao: "Acesso total de superadmin"
+      descricao: "PRO interno"
     };
   }
 
@@ -4909,8 +4989,8 @@ function getPlanoAtual(user = getUsuarioAtual()) {
     [PLAN_ACCESS_STATES.FREE]: "Plano Free com anúncios"
   };
   const nomes = {
-    [PLAN_ACCESS_STATES.TRIAL]: "Trial",
-    [PLAN_ACCESS_STATES.ACTIVE]: "Pago",
+    [PLAN_ACCESS_STATES.TRIAL]: "Teste PRO",
+    [PLAN_ACCESS_STATES.ACTIVE]: "PRO",
     [PLAN_ACCESS_STATES.PENDING]: "Pendente",
     [PLAN_ACCESS_STATES.EXPIRED]: "Expirado",
     [PLAN_ACCESS_STATES.FREE]: "Free"
@@ -6716,7 +6796,7 @@ function renderConta() {
         <div class="metric"><span>Perfil</span><strong>${escaparHtml(usuario.papel || "user")}</strong></div>
         <div class="metric"><span>Sessão</span><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong></div>
         <div class="metric"><span>Sincronização</span><strong>${escaparHtml(syncStatus)}</strong></div>
-        <div class="metric"><span>Último acesso</span><strong>${usuario.lastLoginAt ? new Date(usuario.lastLoginAt).toLocaleString("pt-BR") : "Não registrado"}</strong></div>
+        <div class="metric"><span>Último acesso</span><strong>${escaparHtml(formatarUltimoAcessoConta())}</strong></div>
       </div>
 
       <div class="actions">
@@ -6771,6 +6851,85 @@ function dataPedidoIso(pedido) {
   const partes = data.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (partes) return `${partes[3]}-${partes[2]}-${partes[1]}`;
   return "";
+}
+
+function getUltimaAtividadeAplicativo() {
+  const usuario = getUsuarioAtual();
+  const candidatos = [
+    syncConfig.ultimaSync,
+    syncConfig.supabaseLastSync,
+    syncConfig.autoBackupLastRun,
+    syncConfig.lastActivityAt,
+    syncConfig.supabaseLastLogin,
+    usuario?.lastActivityAt,
+    usuario?.lastLoginAt,
+    billingConfig.lastOnlineLicenseValidationAt,
+    billingConfig.effectiveLicenseUpdatedAt
+  ];
+  return candidatos
+    .map((valor) => Date.parse(valor || 0) || 0)
+    .filter(Boolean)
+    .sort((a, b) => b - a)[0] || 0;
+}
+
+function formatarTempoRelativo(timestamp) {
+  const valor = typeof timestamp === "number" ? timestamp : (Date.parse(timestamp || 0) || 0);
+  if (!valor) return "Não registrado";
+  const diff = Math.max(0, Date.now() - valor);
+  if (diff < 60 * 1000) return "Atualizado agora";
+  const minutos = Math.floor(diff / (60 * 1000));
+  if (minutos < 60) return `Atualizado há ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `Atualizado há ${horas} h`;
+  return new Date(valor).toLocaleString("pt-BR");
+}
+
+function formatarUltimoAcessoConta() {
+  return formatarTempoRelativo(getUltimaAtividadeAplicativo());
+}
+
+function registrarAtividadeUsuarioAtual(motivo = "atividade", salvar = false) {
+  const agora = new Date().toISOString();
+  syncConfig.lastActivityAt = agora;
+  const usuario = getUsuarioAtual();
+  if (usuario) {
+    usuario.lastActivityAt = agora;
+    usuario.lastLoginAt = usuario.lastLoginAt || syncConfig.supabaseLastLogin || agora;
+  }
+  if (motivo === "login") syncConfig.supabaseLastLogin = agora;
+  if (salvar) salvarDados();
+  return agora;
+}
+
+function marcarSincronizacaoVisual(motivo = "sync") {
+  const agora = new Date().toISOString();
+  syncConfig.supabaseLastSync = agora;
+  syncConfig.ultimoBackup = agora;
+  syncConfig.ultimaSync = agora;
+  syncConfig.autoBackupLastRun = agora;
+  syncConfig.lastActivityAt = agora;
+  const usuario = getUsuarioAtual();
+  if (usuario) usuario.lastActivityAt = agora;
+  return agora;
+}
+
+function calcularFluxoAtivoDashboard(stats, totaisCaixa) {
+  const sinais = [
+    stats.pedidosHoje,
+    stats.pedidosAbertos,
+    stats.producoesAtivas,
+    stats.pedidosConcluidos,
+    stats.estoqueBaixo,
+    totaisCaixa.entradas > 0 ? 1 : 0,
+    totaisCaixa.saidas > 0 ? 1 : 0,
+    getUltimaAtividadeAplicativo() && Date.now() - getUltimaAtividadeAplicativo() < DASHBOARD_RECENT_ACTIVITY_MS ? 1 : 0
+  ].reduce((total, valor) => total + Math.max(0, Number(valor) || 0), 0);
+  if (!sinais) {
+    return { percent: 0, label: "Sem atividade suficiente", hasData: false };
+  }
+  const base = Math.max(4, stats.pedidosHoje + stats.pedidosAbertos + stats.pedidosConcluidos + stats.producoesAtivas + 2);
+  const percent = Math.min(100, Math.max(1, Math.round((sinais / base) * 100)));
+  return { percent, label: "fluxo ativo", hasData: true };
 }
 
 function getDashboardStats() {
@@ -6919,9 +7078,10 @@ function renderDashboardDonut(stats) {
 }
 
 function renderDashboardTechnicalPanel(stats, totaisCaixa) {
-  const totalFluxo = Math.max(stats.pedidosHoje + stats.pedidosAbertos + stats.pedidosConcluidos, 1);
-  const andamento = Math.min(100, Math.max(12, Math.round(((stats.producoesAtivas + stats.pedidosConcluidos) / totalFluxo) * 100)));
+  const fluxo = calcularFluxoAtivoDashboard(stats, totaisCaixa);
+  const andamento = fluxo.percent;
   const saldoState = totaisCaixa.saldo < 0 ? "red" : "teal";
+  const ultimaAtualizacao = formatarUltimoAcessoConta();
   const etapas = [
     { label: "Pedidos", value: stats.pedidosHoje, detail: "hoje", icon: "📋", state: "teal" },
     { label: "Produção", value: stats.producoesAtivas, detail: "ativa", icon: "🖨️", state: "orange" },
@@ -6937,9 +7097,9 @@ function renderDashboardTechnicalPanel(stats, totaisCaixa) {
           <h2>${formatarMoeda(stats.faturamentoDia)}</h2>
           <p>Da entrada do pedido até o caixa, com alertas de produção e material em uma leitura rápida.</p>
         </div>
-        <div class="infographic-ring" style="--value:${andamento}%">
-          <strong>${andamento}%</strong>
-          <span>fluxo ativo</span>
+        <div class="infographic-ring ${fluxo.hasData ? "" : "is-empty"}" style="--value:${andamento}%">
+          <strong>${fluxo.hasData ? `${andamento}%` : "—"}</strong>
+          <span>${escaparHtml(fluxo.label)}</span>
         </div>
       </div>
 
@@ -6973,6 +7133,11 @@ function renderDashboardTechnicalPanel(stats, totaisCaixa) {
           <span>Pedidos ativos</span>
           <strong>${stats.pedidosAbertos}</strong>
           <small>${stats.producoesAtivas} em produção</small>
+        </div>
+        <div class="insight-card">
+          <span>Atualização</span>
+          <strong>${escaparHtml(ultimaAtualizacao)}</strong>
+          <small>${escaparHtml(syncConfig.autoBackupStatus || "Sincronização automática")}</small>
         </div>
       </div>
     </section>
@@ -10171,16 +10336,29 @@ function excluirUsuarioSuperAdmin(id) {
   renderApp();
 }
 
+function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
+  return {
+    primary_color: origem.primary_color || appConfig.accentColor || "#073b4b",
+    secondary_color: origem.secondary_color || "#ff941c",
+    pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
+    logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
+    theme_mode: origem.theme_mode || appConfig.theme || "dark",
+    glass_effect: origem.glass_effect !== false,
+    custom_pdf_enabled: origem.custom_pdf_enabled !== false
+  };
+}
+
 function renderPersonalizacao() {
   const corAtual = appConfig.accentColor || "#073b4b";
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   const acessoMarca = temAcessoCompleto();
   const marcaAtual = getMarcaProjetoSrc();
+  const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
   return `
     <section class="card">
       <div class="card-header">
         <h2>🎨 Personalização</h2>
-        <span class="status-badge">${escaparHtml(appConfig.theme === "light" ? "Claro" : appConfig.theme === "auto" ? "Automático" : "Escuro")}</span>
+        <span class="status-badge">${acessoMarca ? "Recurso PRO" : "PRO"}</span>
       </div>
 
       <label class="field">
@@ -10233,22 +10411,44 @@ function renderPersonalizacao() {
             <span>Logo da marca</span>
             <input id="brandLogoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
           </label>
+          <label class="field">
+            <span>Fundo do PDF</span>
+            <input id="pdfBackgroundFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+          </label>
           <div class="metric">
             <span>Marca no PDF</span>
             <strong>${acessoMarca ? (appConfig.brandLogoDataUrl ? "Logo salva" : "Capa padrão") : "Bloqueado"}</strong>
           </div>
+          <div class="metric">
+            <span>Fundo personalizado</span>
+            <strong>${acessoMarca ? (pdfBgAtual ? "Fundo salvo" : "Padrão") : "Bloqueado"}</strong>
+          </div>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Estilo do PDF</span>
+            <select id="pdfStyleConfig" ${acessoMarca ? "" : "disabled"}>
+              <option value="clean" ${appConfig.pdfStyle !== "brand" ? "selected" : ""}>Limpo</option>
+              <option value="brand" ${appConfig.pdfStyle === "brand" ? "selected" : ""}>Marca destacada</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Cabeçalho personalizado</span>
+            <input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Qualidade em impressão 3D" ${acessoMarca ? "" : "disabled"}>
+          </label>
         </div>
         <label class="checkbox-row">
           <input id="brandWatermarkEnabledConfig" type="checkbox" ${appConfig.brandWatermarkEnabled !== false ? "checked" : ""} ${acessoMarca ? "" : "disabled"}>
           <span>Usar logo como marca d'água no PDF</span>
         </label>
         ${appConfig.brandLogoDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerLogoMarca()">Remover logo salva</button>` : ""}
+        ${appConfig.pdfBackgroundDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
       </div>
 
       <div class="sync-grid">
         <label class="field">
           <span>Tema</span>
-          <select id="themeConfig">
+          <select id="themeConfig" ${acessoMarca ? "" : "disabled"}>
             <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
             <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
             <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
@@ -10256,13 +10456,13 @@ function renderPersonalizacao() {
         </label>
         <label class="field">
           <span>Cor principal</span>
-          <input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}">
+          <input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}" ${acessoMarca ? "" : "disabled"}>
         </label>
       </div>
 
       <div class="color-swatches">
         ${["#073b4b", "#ff941c", "#2f6fed", "#e11d48", "#f59e0b", "#0f766e"].map((cor) => `
-          <button class="color-swatch" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}"></button>
+          <button class="color-swatch" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}" ${acessoMarca ? "" : "disabled"}></button>
         `).join("")}
       </div>
 
@@ -10335,6 +10535,75 @@ function renderPersonalizacao() {
   `;
 }
 
+function getResumoPlanoUnico(estadoPlano, precoVigente, superadmin = false) {
+  if (superadmin) {
+    return {
+      classe: "pro",
+      titulo: "PRO ativo",
+      detalhe: "Acesso interno liberado",
+      status: "Ativo",
+      dias: "Ativo",
+      preco: `${formatarMoeda(precoVigente)}/mês`
+    };
+  }
+  if (estadoPlano.state === PLAN_ACCESS_STATES.TRIAL && estadoPlano.isTrialActive) {
+    const dias = Math.max(0, Number(estadoPlano.trialRemainingDays || 0));
+    return {
+      classe: "trial",
+      titulo: "Teste PRO ativo",
+      detalhe: "Você está usando o PRO gratuitamente. Ao final do teste, sua conta volta para o Free se não assinar.",
+      status: "Teste ativo",
+      dias: dias === 1 ? "1 dia restante" : `${dias} dias restantes`,
+      preco: `Depois ${formatarMoeda(precoVigente)}/mês`
+    };
+  }
+  if (estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE) {
+    const dias = Math.max(0, Number(estadoPlano.planRemainingDays || 0));
+    const dataRenovacao = estadoPlano.planExpiresAt ? new Date(estadoPlano.planExpiresAt).toLocaleDateString("pt-BR") : "";
+    return {
+      classe: "pro",
+      titulo: "PRO ativo",
+      detalhe: dataRenovacao ? `Renovação em ${dataRenovacao}.` : "Recursos completos liberados.",
+      status: "Ativo",
+      dias: dias > 0 && dias < 9999 ? `${dias} dias restantes` : "Ativo",
+      preco: `${formatarMoeda(precoVigente)}/mês`
+    };
+  }
+  if (estadoPlano.pending) {
+    return {
+      classe: "pending",
+      titulo: "Plano atual: FREE",
+      detalhe: "Existe um pagamento pendente. Ele não libera PRO e não bloqueia sua conta atual.",
+      status: "Pagamento pendente",
+      dias: "-",
+      preco: `${formatarMoeda(precoVigente)}/mês`
+    };
+  }
+  return {
+    classe: "free",
+    titulo: "Plano atual: FREE",
+    detalhe: "Recursos básicos com anúncios leves. Faça upgrade para liberar o PRO.",
+    status: "Gratuito",
+    dias: "-",
+    preco: `${formatarMoeda(precoVigente)}/mês`
+  };
+}
+
+function renderStatusPlanoUnico(resumo) {
+  return `
+    <div class="plan-current-card plan-current-${escaparAttr(resumo.classe)}">
+      <span class="plan-badge">${escaparHtml(resumo.status)}</span>
+      <h3>${escaparHtml(resumo.titulo)}</h3>
+      <p>${escaparHtml(resumo.detalhe)}</p>
+      <div class="comparison-grid">
+        <div class="metric"><span>Status</span><strong>${escaparHtml(resumo.status)}</strong></div>
+        <div class="metric"><span>Período</span><strong>${escaparHtml(resumo.dias)}</strong></div>
+        <div class="metric"><span>PRO</span><strong>${escaparHtml(resumo.preco)}</strong></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
   const plano = getPlanoAtual();
@@ -10345,6 +10614,7 @@ function renderAssinatura() {
   const isPremiumAtivo = superadmin || estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE;
   const diasTrial = Math.max(0, Number(estadoPlano.trialRemainingDays || 0));
   const diasPlano = Math.max(0, Number(estadoPlano.planRemainingDays || plano.diasRestantes || 0));
+  const resumoPlano = getResumoPlanoUnico(estadoPlano, precoVigente, superadmin);
   const cardsPlanos = isPremiumAtivo
     ? renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin, diasPlano)
     : `${isTrial ? renderTrialPremiumAtivoCard(diasTrial) : ""}
@@ -10363,24 +10633,7 @@ function renderAssinatura() {
           ? "Seu Premium está ativo e os recursos completos estão liberados."
           : "Escolha o Premium para remover anúncios e liberar o app completo."}</p>
 
-      <div class="plan-state-panel">
-        <div class="metric">
-          <span>Plano atual</span>
-          <strong>${escaparHtml(plano.nome)}</strong>
-        </div>
-        <div class="metric">
-          <span>Status</span>
-          <strong>${superadmin ? "Acesso interno" : isTrial ? "Teste ativo" : isPremiumAtivo ? "Premium ativo" : estadoPlano.pending ? "Pagamento pendente" : "Gratuito"}</strong>
-        </div>
-        <div class="metric">
-          <span>Dias restantes</span>
-          <strong>${superadmin || plano.diasRestantes >= 9999 ? "Ativo" : isTrial ? diasTrial : isPremiumAtivo ? diasPlano : "-"}</strong>
-        </div>
-        <div class="metric">
-          <span>Preço Premium</span>
-          <strong>${formatarMoeda(precoVigente)}/mês</strong>
-        </div>
-      </div>
+      ${renderStatusPlanoUnico(resumoPlano)}
 
       ${estadoPlano.pending ? `
         <div class="plan-note plan-note-warning">
@@ -10416,15 +10669,15 @@ function renderAssinatura() {
 function renderTrialPremiumAtivoCard(diasTrial = 0) {
   const textoDias = diasTrial === 1 ? "1 dia restante" : `${diasTrial} dias restantes`;
   return `
-    <div class="plan-status-card trial" aria-label="Teste Premium Ativo">
+    <div class="plan-status-card trial" aria-label="Teste PRO ativo">
       <div class="plan-card-top">
-        <span class="plan-badge plan-badge-trial">Teste Premium Ativo</span>
+        <span class="plan-badge plan-badge-trial">Teste PRO ativo</span>
         <strong class="plan-days">${textoDias}</strong>
       </div>
-      <h3>Você está testando o Premium gratuitamente</h3>
+      <h3>Você está testando o PRO gratuitamente</h3>
       <p>Ao final do período, sua conta volta para o plano gratuito caso você não assine.</p>
       <div class="actions">
-        <button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar Premium</button>
+        <button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>
         <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
       </div>
     </div>
@@ -10440,10 +10693,10 @@ function renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin = fal
   return `
     <div class="plan-card featured plan-card-premium plan-card-active">
       <div class="plan-card-top">
-        <span class="plan-badge">Premium Ativo</span>
+        <span class="plan-badge">PRO ativo</span>
         <span class="status-badge badge-pago">${escaparHtml(validade)}</span>
       </div>
-      <h3>Premium</h3>
+      <h3>PRO</h3>
       <div class="plan-price">${formatarMoeda(precoVigente)}<small>/mês</small></div>
       ${renderPlanBenefitList([
         "Pedidos ilimitados",
@@ -10485,17 +10738,18 @@ function renderPlanoSaasCard(plano, options = {}) {
         <span class="plan-badge ${isPremium ? "" : "plan-badge-free"}">${isPremium ? "Recomendado" : "Gratuito"}</span>
         ${isPremium ? `<span class="muted">Mais completo</span>` : ""}
       </div>
-      <h3>${isPremium ? "Premium" : "Free"}</h3>
+      <h3>${isPremium ? "PRO" : "Free"}</h3>
       ${isPremium
-        ? `<div class="plan-price">${formatarMoeda(preco)}<small>/mês</small></div>`
+        ? `<div class="plan-price">${formatarMoeda(preco)}<small>/mês</small></div>
+           <p class="muted plan-card-note">Primeiro mês por ${formatarMoeda(PREMIUM_FIRST_MONTH_PRICE)}.</p>`
         : `<p class="plan-free-copy">Para continuar sem custo, com anúncios leves e recursos básicos.</p>`}
       ${renderPlanBenefitList(beneficios)}
-      ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora não cancela o teste atual; o acesso Premium continua normalmente enquanto o pagamento é confirmado.</p>` : ""}
+      ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora não cancela o teste atual; o acesso PRO continua normalmente enquanto o pagamento é confirmado.</p>` : ""}
       <div class="actions single">
         ${superadmin
           ? `<button class="btn ghost" type="button" disabled>Não aplicável</button>`
           : isPremium
-            ? `<button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar Premium</button>`
+            ? `<button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>`
             : `<button class="btn ghost plan-free-button" type="button" data-action="open-screen" data-screen="dashboard">Continuar no plano gratuito</button>`}
       </div>
     </div>
@@ -11166,7 +11420,8 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
   const clientId = getClientIdAtual() || billingConfig.clientId;
   const assinatura = garantirAssinaturaClienteLocal(clientId);
   const billingVariant = normalizarBillingVariant(dados.billing_variant || dados.billingVariant || getBillingVariantAssinatura(assinatura));
-  const planPrice = Math.max(0, Number(dados.plan_price ?? dados.planPrice ?? dados.amount ?? dados.valor ?? getPrecoPagoVigenteLocal()) || getPrecoPagoVigenteLocal());
+  const precoPadrao = getPrecoBillingVariant(billingVariant);
+  const planPrice = Math.max(0, Number(dados.plan_price ?? dados.planPrice ?? dados.amount ?? dados.valor ?? precoPadrao) || precoPadrao);
   const pagamento = normalizarPagamentoSaas({
     clientId,
     subscriptionId: assinatura.id,
@@ -11214,7 +11469,7 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") 
   try {
     const assinatura = garantirAssinaturaClienteLocal(clientId);
     const billingVariant = getBillingVariantAssinatura(assinatura);
-    const planPrice = getPrecoPagoVigenteLocal();
+    const planPrice = getPrecoBillingVariant(billingVariant);
     const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
       clienteId: clientId,
       plan_id: plano.slug,
@@ -11256,7 +11511,7 @@ async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "
   try {
     const assinatura = garantirAssinaturaClienteLocal(clientId);
     const billingVariant = getBillingVariantAssinatura(assinatura);
-    const planPrice = getPrecoPagoVigenteLocal();
+    const planPrice = getPrecoBillingVariant(billingVariant);
     const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
       clienteId: clientId,
       plan_id: plano.slug,
@@ -11327,6 +11582,10 @@ function abrirDownload(tipo) {
 }
 
 function selecionarCor(cor) {
+  if (!temAcessoCompleto()) {
+    mostrarToast("Recurso PRO", "warning", 3500);
+    return;
+  }
   const input = document.getElementById("accentColorConfig");
   if (input) {
     input.value = cor;
@@ -11334,6 +11593,22 @@ function selecionarCor(cor) {
 }
 
 function lerPersonalizacaoCampos() {
+  const acessoMarca = temAcessoCompleto();
+  const accentColor = acessoMarca
+    ? (document.getElementById("accentColorConfig")?.value || appConfig.accentColor || "#073b4b")
+    : (appConfig.accentColor || "#073b4b");
+  const theme = acessoMarca
+    ? (document.getElementById("themeConfig")?.value || appConfig.theme || "dark")
+    : (appConfig.theme || "dark");
+  const pdfStyle = acessoMarca
+    ? (document.getElementById("pdfStyleConfig")?.value || appConfig.pdfStyle || "clean")
+    : (appConfig.pdfStyle || "clean");
+  const pdfHeaderText = acessoMarca
+    ? (document.getElementById("pdfHeaderTextConfig")?.value || "").trim()
+    : (appConfig.pdfHeaderText || "");
+  const brandWatermarkEnabled = acessoMarca
+    ? (document.getElementById("brandWatermarkEnabledConfig") ? !!document.getElementById("brandWatermarkEnabledConfig")?.checked : appConfig.brandWatermarkEnabled !== false)
+    : appConfig.brandWatermarkEnabled !== false;
   return {
     appName: (document.getElementById("appNameConfig")?.value || SYSTEM_NAME).trim(),
     businessName: (document.getElementById("businessNameConfig")?.value || "Minha empresa 3D").trim(),
@@ -11343,9 +11618,19 @@ function lerPersonalizacaoCampos() {
     pixReceiverName: (document.getElementById("pixReceiverNameConfig")?.value || "").trim(),
     pixCity: (document.getElementById("pixCityConfig")?.value || "").trim(),
     pixDescription: (document.getElementById("pixDescriptionConfig")?.value || "Pedido Simplifica 3D").trim(),
-    brandWatermarkEnabled: document.getElementById("brandWatermarkEnabledConfig") ? !!document.getElementById("brandWatermarkEnabledConfig")?.checked : appConfig.brandWatermarkEnabled !== false,
-    theme: document.getElementById("themeConfig")?.value || "dark",
-    accentColor: document.getElementById("accentColorConfig")?.value || "#073b4b",
+    brandWatermarkEnabled,
+    theme,
+    accentColor,
+    pdfStyle,
+    pdfHeaderText,
+    appearanceSettings: normalizarAppearanceSettings({
+      ...(appConfig.appearanceSettings || {}),
+      primary_color: accentColor,
+      pdf_background: appConfig.pdfBackgroundDataUrl || "",
+      logo_url: appConfig.brandLogoDataUrl || "",
+      theme_mode: theme,
+      custom_pdf_enabled: acessoMarca
+    }),
     compactMode: !!document.getElementById("compactModeConfig")?.checked,
     showBrandInHeader: !!document.getElementById("showBrandInHeaderConfig")?.checked,
     defaultMargin: Math.max(0, parseFloat(document.getElementById("defaultMarginConfig")?.value) || 100),
@@ -11359,45 +11644,68 @@ function lerPersonalizacaoCampos() {
   };
 }
 
-function lerLogoMarcaSelecionada() {
-  const arquivo = document.getElementById("brandLogoFileConfig")?.files?.[0];
-  if (!arquivo || !temAcessoCompleto()) return Promise.resolve(appConfig.brandLogoDataUrl || "");
+function lerImagemConfiguracao(idInput, valorAtual = "", rotulo = "imagem", limiteKb = 700) {
+  const arquivo = document.getElementById(idInput)?.files?.[0];
+  if (!arquivo) return Promise.resolve(valorAtual || "");
+  if (!temAcessoCompleto()) {
+    mostrarToast("Recurso PRO", "warning", 4200);
+    return Promise.resolve(valorAtual || "");
+  }
 
   if (!arquivo.type.startsWith("image/")) {
-    alert("Escolha uma imagem válida para a logo.");
-    return Promise.resolve(appConfig.brandLogoDataUrl || "");
+    alert(`Escolha uma imagem válida para ${rotulo}.`);
+    return Promise.resolve(valorAtual || "");
   }
 
   if (!["image/png", "image/jpeg"].includes(arquivo.type)) {
-    alert("Use uma logo em PNG ou JPG para garantir compatibilidade com o PDF.");
-    return Promise.resolve(appConfig.brandLogoDataUrl || "");
+    alert(`Use ${rotulo} em PNG ou JPG para garantir compatibilidade com o PDF.`);
+    return Promise.resolve(valorAtual || "");
   }
 
-  if (arquivo.size > 700 * 1024) {
-    alert("Use uma logo menor que 700 KB para não pesar o backup.");
-    return Promise.resolve(appConfig.brandLogoDataUrl || "");
+  if (arquivo.size > limiteKb * 1024) {
+    alert(`Use ${rotulo} menor que ${limiteKb} KB para não pesar o backup.`);
+    return Promise.resolve(valorAtual || "");
   }
 
   return new Promise((resolve) => {
     const leitor = new FileReader();
     leitor.onload = () => resolve(String(leitor.result || ""));
     leitor.onerror = () => {
-      alert("Não foi possível carregar a logo.");
-      resolve(appConfig.brandLogoDataUrl || "");
+      alert(`Não foi possível carregar ${rotulo}.`);
+      resolve(valorAtual || "");
     };
     leitor.readAsDataURL(arquivo);
   });
 }
 
+function lerLogoMarcaSelecionada() {
+  return lerImagemConfiguracao("brandLogoFileConfig", appConfig.brandLogoDataUrl || "", "a logo", 700);
+}
+
+function lerFundoPdfSelecionado() {
+  return lerImagemConfiguracao("pdfBackgroundFileConfig", appConfig.pdfBackgroundDataUrl || "", "o fundo do PDF", 900);
+}
+
 async function salvarPersonalizacao() {
-  const logo = await lerLogoMarcaSelecionada();
+  const [logo, fundoPdf] = await Promise.all([
+    lerLogoMarcaSelecionada(),
+    lerFundoPdfSelecionado()
+  ]);
+  const campos = lerPersonalizacaoCampos();
   appConfig = {
     ...appConfig,
-    ...lerPersonalizacaoCampos(),
-    brandLogoDataUrl: logo
+    ...campos,
+    brandLogoDataUrl: logo,
+    pdfBackgroundDataUrl: fundoPdf,
+    appearanceSettings: normalizarAppearanceSettings({
+      ...(campos.appearanceSettings || {}),
+      logo_url: logo,
+      pdf_background: fundoPdf
+    })
   };
   salvarDados();
   registrarHistorico("Personalização", "Preferências do app atualizadas");
+  mostrarToast(temAcessoCompleto() ? "Personalização salva" : "Dados básicos salvos", "sucesso", 2800);
   renderApp();
 }
 
@@ -11406,6 +11714,18 @@ function removerLogoMarca() {
   appConfig.brandLogoDataUrl = "";
   salvarDados();
   registrarHistorico("Personalização", "Logo removida do PDF");
+  renderApp();
+}
+
+function removerFundoPdf() {
+  if (!confirm("Remover o fundo salvo do PDF?")) return;
+  appConfig.pdfBackgroundDataUrl = "";
+  appConfig.appearanceSettings = normalizarAppearanceSettings({
+    ...(appConfig.appearanceSettings || {}),
+    pdf_background: ""
+  });
+  salvarDados();
+  registrarHistorico("Personalização", "Fundo do PDF removido");
   renderApp();
 }
 
@@ -11421,9 +11741,21 @@ function restaurarPersonalizacaoPadrao() {
     pixCity: "",
     pixDescription: "Pedido Simplifica 3D",
     brandLogoDataUrl: "",
+    pdfBackgroundDataUrl: "",
+    pdfStyle: "clean",
+    pdfHeaderText: "",
     brandWatermarkEnabled: true,
     theme: "dark",
     accentColor: "#073b4b",
+    appearanceSettings: normalizarAppearanceSettings({
+      primary_color: "#073b4b",
+      secondary_color: "#ff941c",
+      pdf_background: "",
+      logo_url: "",
+      theme_mode: "dark",
+      glass_effect: true,
+      custom_pdf_enabled: false
+    }),
     compactMode: false,
     showBrandInHeader: true,
     defaultMargin: 100,
@@ -11489,8 +11821,50 @@ function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...")
   }
 }
 
+function normalizarTipoToast(tipo = "info") {
+  const valor = String(tipo || "info").toLowerCase();
+  const mapa = {
+    success: "sucesso",
+    sucesso: "sucesso",
+    warning: "warning",
+    aviso: "warning",
+    error: "erro",
+    erro: "erro",
+    danger: "erro",
+    loading: "loading",
+    info: "info",
+    silent: "silencioso",
+    silencioso: "silencioso"
+  };
+  return mapa[valor] || "info";
+}
+
+function mensagemToastTecnica(mensagem = "") {
+  return /\b(webhook|billing|telemetry|stack|trace|rpc|rls|payload|postgres|service_role|token|jwt|subscription ativa|evento de billing|evento remoto|canal fechado|sync silencioso|supabase\/rls)\b/i.test(String(mensagem || ""));
+}
+
 function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
   if (typeof document === "undefined" || !document.body || !mensagem) return;
+  const tipoNormalizado = normalizarTipoToast(tipo);
+  const texto = String(mensagem || "").trim();
+  if (!texto) return;
+  if (tipoNormalizado === "silencioso") {
+    registrarDiagnostico("Toast", "Mensagem silenciosa", texto);
+    return null;
+  }
+  if (!isSuperAdmin() && mensagemToastTecnica(texto)) {
+    registrarDiagnostico("Toast", "Mensagem técnica ocultada", texto);
+    return null;
+  }
+
+  const agora = Date.now();
+  const holder = window.__simplificaToastState || { last: new Map() };
+  window.__simplificaToastState = holder;
+  const chave = `${tipoNormalizado}:${texto.toLowerCase()}`;
+  const ultimo = Number(holder.last.get(chave) || 0);
+  if (agora - ultimo < TOAST_DEBOUNCE_MS) return null;
+  holder.last.set(chave, agora);
+
   let area = document.getElementById("toastArea");
   if (!area) {
     area = document.createElement("div");
@@ -11499,13 +11873,18 @@ function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
     document.body.appendChild(area);
   }
 
+  const existentes = Array.from(area.querySelectorAll(".app-toast:not(.toast-loading)"));
+  while (existentes.length >= 3) {
+    existentes.shift()?.remove();
+  }
+
   const toast = document.createElement("div");
-  toast.className = "app-toast toast-" + (tipo || "info");
-  const icone = tipo === "erro" ? "×" : tipo === "sucesso" ? "✓" : tipo === "loading" ? "•••" : "!";
-  toast.innerHTML = `<span class="toast-icon">${icone}</span><strong>${escaparHtml(mensagem)}</strong>`;
+  toast.className = "app-toast toast-" + tipoNormalizado;
+  const icone = tipoNormalizado === "erro" ? "×" : tipoNormalizado === "sucesso" ? "✓" : tipoNormalizado === "loading" ? "•••" : tipoNormalizado === "warning" ? "!" : "i";
+  toast.innerHTML = `<span class="toast-icon">${icone}</span><strong>${escaparHtml(texto)}</strong>`;
   area.appendChild(toast);
 
-  if (tipo !== "loading") {
+  if (tipoNormalizado !== "loading") {
     setTimeout(() => {
       toast.classList.add("leaving");
       setTimeout(() => toast.remove(), 240);
@@ -11683,6 +12062,7 @@ function concluirLoginUsuario(usuario) {
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
   usuario.lastLoginAt = new Date().toISOString();
+  registrarAtividadeUsuarioAtual("login", false);
   if (usuario.clientId) {
     billingConfig.clientId = usuario.clientId;
     const cliente = saasClients.find((item) => item.id === usuario.clientId);
@@ -11736,6 +12116,7 @@ function sincronizarAposLogin() {
     syncConfig.supabaseEnabled = true;
     syncConfig.autoBackupTarget = "supabase";
     iniciarRealtimeSyncUsuario("login").catch((erro) => registrarDiagnostico("Realtime", "Inicio apos login falhou", erro.message || erro));
+    agendarPollingSyncTempoReal("login");
     sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
     return;
   }
@@ -11786,6 +12167,10 @@ function logoutUsuario() {
 function registrarAtividadeSessao() {
   if (!usuarioAtualEmail && !adminLogado) return;
   sessionStorage.setItem("sessionLastActivity", String(Date.now()));
+  const ultimo = Date.parse(syncConfig.lastActivityAt || 0) || 0;
+  if (Date.now() - ultimo > 60 * 1000) {
+    registrarAtividadeUsuarioAtual("session-activity", true);
+  }
   sessionWarned = false;
 }
 
@@ -12201,6 +12586,7 @@ function criarSnapshotBackup() {
         supabaseUserId: syncConfig.supabaseUserId,
         supabaseLastLogin: syncConfig.supabaseLastLogin,
         supabaseLastSync: syncConfig.supabaseLastSync,
+        lastActivityAt: syncConfig.lastActivityAt,
         ultimoBackup: syncConfig.ultimoBackup,
         ultimaSync: syncConfig.ultimaSync
       }
@@ -12444,6 +12830,7 @@ function aplicarBackup(dados, modo = "substituir") {
     ...appConfig,
     ...backup.appConfig
   };
+  appConfig.appearanceSettings = normalizarAppearanceSettings(appConfig.appearanceSettings || {});
 
   billingConfig = {
     ...billingConfig,
@@ -12475,6 +12862,7 @@ function aplicarBackup(dados, modo = "substituir") {
     supabaseUserId: syncConfig.supabaseUserId || backup.configuracoes.supabaseUserId || "",
     supabaseLastLogin: syncConfig.supabaseLastLogin || backup.configuracoes.supabaseLastLogin || "",
     supabaseLastSync: backup.configuracoes.supabaseLastSync || syncConfig.supabaseLastSync,
+    lastActivityAt: backup.configuracoes.lastActivityAt || syncConfig.lastActivityAt,
     ultimoBackup: backup.configuracoes.ultimoBackup || syncConfig.ultimoBackup,
     ultimaSync: backup.configuracoes.ultimaSync || syncConfig.ultimaSync
   };
@@ -13198,10 +13586,12 @@ function salvarSessaoSupabase(dados, email) {
   syncConfig.supabaseEmail = normalizarEmail(usuario.email || email || syncConfig.supabaseEmail);
   syncConfig.supabaseEnabled = true;
   syncConfig.supabaseLastLogin = new Date().toISOString();
+  registrarAtividadeUsuarioAtual("login", false);
   ativarEscopoDadosUsuarioAtual("supabase-session", { persistir: false });
   salvarSessaoSensivelSupabase();
   salvarDados();
   iniciarRealtimeSyncUsuario("supabase-session").catch((erro) => registrarDiagnostico("Realtime", "Inicio apos sessao Supabase falhou", erro.message || erro));
+  agendarPollingSyncTempoReal("supabase-session");
   return true;
 }
 
@@ -13849,15 +14239,16 @@ async function sincronizarSupabase() {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     syncConfig.autoBackupStatus = "Offline";
     salvarDados();
-    alert("Você está offline. Os dados locais continuam salvos e podem ser sincronizados quando a conexão voltar.");
+    mostrarToast("Erro de conexão", "erro", 5000);
     renderApp();
     return;
   }
 
   try {
-    syncConfig.autoBackupStatus = "Salvando...";
+    syncConfig.autoBackupStatus = "Sincronizando...";
     salvarDados();
     renderApp();
+    mostrarToast("Sincronizando...", "info", 1800);
     await salvarPerfilSupabase();
     const preDownload = await aplicarBackupRemotoAntesDeUploadSeNecessario("sync-manual");
     await sincronizarFilaOfflinePendente("sync-manual");
@@ -13868,21 +14259,18 @@ async function sincronizarSupabase() {
     }
     await sincronizarFilaOfflinePendente("sync-manual-pos-merge");
     if (!await salvarBackupSupabase()) return;
-    const agora = new Date().toISOString();
-    syncConfig.supabaseLastSync = agora;
-    syncConfig.ultimoBackup = agora;
-    syncConfig.ultimaSync = agora;
+    marcarSincronizacaoVisual("sync-manual");
     syncConfig.autoBackupStatus = "Sincronizado";
     salvarDados();
     registrarHistorico("Supabase", remoto ? "Dados mesclados e enviados" : "Backup inicial criado");
-    alert("Sincronização concluída.");
+    mostrarToast("Dados sincronizados", "sucesso", 2800);
     renderApp();
   } catch (erro) {
     syncConfig.autoBackupStatus = "Erro ao sincronizar";
     salvarDados();
     console.warn("[Sync/Supabase] Falha ao sincronizar", erro);
     registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Sincronizar Supabase");
-    alert("Erro ao sincronizar.");
+    mostrarToast("Erro de conexão", "erro", 5000);
     renderApp();
   }
 }
@@ -13915,11 +14303,7 @@ async function sincronizarSupabaseSilencioso() {
   await sincronizarFilaOfflinePendente("sync-silencioso-pos-merge");
   if (!await salvarBackupSupabase()) return false;
 
-  const agora = new Date().toISOString();
-  syncConfig.supabaseLastSync = agora;
-  syncConfig.ultimoBackup = agora;
-  syncConfig.ultimaSync = agora;
-  syncConfig.autoBackupLastRun = agora;
+  marcarSincronizacaoVisual("sync-silencioso");
   syncConfig.autoBackupStatus = remoto ? "Supabase sincronizado" : "Backup criado no Supabase";
   salvarDados();
   registrarHistorico("Auto-backup", syncConfig.autoBackupStatus);
@@ -15972,6 +16356,11 @@ async function obterMarcaPdfDataUrl() {
   return carregarImagemDataUrl(getMarcaProjetoSrc());
 }
 
+async function obterFundoPdfDataUrl() {
+  if (!temAcessoCompleto() || !appConfig.pdfBackgroundDataUrl) return "";
+  return carregarImagemDataUrl(appConfig.pdfBackgroundDataUrl);
+}
+
 function tipoImagemDataUrl(dataUrl) {
   if (String(dataUrl || "").includes("image/jpeg")) return "JPEG";
   return "PNG";
@@ -16003,6 +16392,18 @@ function adicionarMarcaPdf(doc, largura, altura, marcaDataUrl = "") {
     try {
       doc.addImage(marcaDataUrl, tipoImagemDataUrl(marcaDataUrl), largura / 2 - 28, altura / 2 - 28, 56, 56);
     } catch (_) {}
+  }
+}
+
+function adicionarFundoPdf(doc, largura, altura, fundoDataUrl = "") {
+  if (!temAcessoCompleto() || !fundoDataUrl) return;
+  try {
+    const tipo = tipoImagemDataUrl(fundoDataUrl);
+    if (doc.GState && doc.setGState) doc.setGState(new doc.GState({ opacity: 0.12 }));
+    doc.addImage(fundoDataUrl, tipo, 0, 0, largura, altura);
+    if (doc.GState && doc.setGState) doc.setGState(new doc.GState({ opacity: 1 }));
+  } catch (erro) {
+    registrarDiagnostico("pdf", "Fundo personalizado não aplicado", erro.message);
   }
 }
 
@@ -16111,7 +16512,9 @@ async function gerarPDF() {
   try {
   const telefoneCliente = await obterTelefoneWhatsappPedido(pedidoEditando);
   const marcaPdf = await obterMarcaPdfDataUrl();
+  const fundoPdf = await obterFundoPdfDataUrl();
 
+  adicionarFundoPdf(doc, largura, altura, fundoPdf);
   adicionarMarcaPdf(doc, largura, altura, marcaPdf);
 
   doc.setFillColor(corRgb[0], corRgb[1], corRgb[2]);
@@ -16121,6 +16524,7 @@ async function gerarPDF() {
   doc.text(empresa, margem, 14);
   doc.setFontSize(10);
   doc.text("Pedido #" + pedidoId, margem, 23);
+  if (appConfig.pdfHeaderText && temAcessoCompleto()) doc.text(String(appConfig.pdfHeaderText).slice(0, 60), margem, 29);
   doc.text(data, largura - margem, 23, { align: "right" });
 
   if (temAcessoCompleto() && marcaPdf) {
@@ -16159,6 +16563,7 @@ async function gerarPDF() {
   itensPedido.forEach((item, i) => {
     if (y > 250) {
       doc.addPage();
+      adicionarFundoPdf(doc, largura, altura, fundoPdf);
       adicionarMarcaPdf(doc, largura, altura, marcaPdf);
       y = 24;
     }
@@ -16188,6 +16593,7 @@ async function gerarPDF() {
   if (payloadPix) {
     if (y > 218) {
       doc.addPage();
+      adicionarFundoPdf(doc, largura, altura, fundoPdf);
       adicionarMarcaPdf(doc, largura, altura, marcaPdf);
       y = 24;
     }
@@ -16646,6 +17052,7 @@ async function verificarBancosDadosAoEntrar() {
       consultarLicencaSupabaseSilencioso(),
       carregarSaasSupabaseSilencioso()
     ]);
+    await baixarAtualizacoesSupabaseSilencioso("startup-health").catch(() => false);
     await sincronizarFilaOfflinePendente("startup-health");
     const plano = getPlanoAtual();
     if ((plano.slug === "premium" || plano.slug === "premium_trial") && temAcessoNuvem()) {
@@ -16688,17 +17095,17 @@ document.addEventListener("visibilitychange", () => {
     salvarDados();
   } else if (document.visibilityState === "visible") {
     iniciarRealtimeSyncUsuario("visible").catch((erro) => registrarDiagnostico("Realtime", "Inicio ao voltar para o app falhou", erro.message || erro));
+    agendarPollingSyncTempoReal("visible");
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
-    sincronizarFilaOfflinePendente("visible").catch((erro) => registrarDiagnostico("sync", "Fila offline ao voltar para o app falhou", erro.message));
-    sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
+    executarPollingSyncTempoReal("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
   }
 });
 
 window.addEventListener("online", () => {
   iniciarRealtimeSyncUsuario("online").catch((erro) => registrarDiagnostico("Realtime", "Inicio ao voltar internet falhou", erro.message || erro));
+  agendarPollingSyncTempoReal("online");
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
-  sincronizarFilaOfflinePendente("online").catch((erro) => registrarDiagnostico("sync", "Fila offline ao voltar internet falhou", erro.message));
-  sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
+  executarPollingSyncTempoReal("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -16724,6 +17131,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarLembreteBackupPlanoFree();
   setTimeout(() => {
     iniciarRealtimeSyncUsuario("startup").catch((erro) => registrarDiagnostico("Realtime", "Inicio no bootstrap falhou", erro.message || erro));
+    agendarPollingSyncTempoReal("startup");
   }, 1800);
   setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();

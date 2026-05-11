@@ -856,6 +856,16 @@ header h1{
   font-size:var(--font-xs);
 }
 
+.infographic-ring.is-empty{
+  background:
+    radial-gradient(circle at center, #101722 55%, transparent 57%),
+    conic-gradient(rgba(255,255,255,.16) 0 100%);
+}
+
+.infographic-ring.is-empty strong{
+  color:var(--muted);
+}
+
 .infographic-flow{
   position:relative;
   display:grid;
@@ -1750,6 +1760,38 @@ button:disabled{
 
 .plan-state-panel{
   grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.plan-current-card{
+  display:grid;
+  gap:10px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid rgba(134,240,255,.18);
+  background:linear-gradient(145deg, rgba(11,76,92,.28), rgba(255,255,255,.045));
+}
+
+.plan-current-card h3{
+  margin:0;
+  font-size:var(--font-xl);
+}
+
+.plan-current-card p{
+  margin:0;
+  color:var(--muted);
+}
+
+.plan-current-trial{
+  border-color:rgba(255,148,28,.30);
+  background:linear-gradient(145deg, rgba(255,148,28,.12), rgba(11,76,92,.18));
+}
+
+.plan-current-pro{
+  border-color:rgba(69,224,143,.24);
+}
+
+.plan-current-pending{
+  border-color:rgba(255,148,28,.26);
 }
 
 .mobile-mode .plans-grid{
@@ -2719,6 +2761,11 @@ body.auth-screen-active #app{
 .toast-erro .toast-icon{
   background:rgba(239,68,68,.18);
   color:#f87171;
+}
+
+.toast-warning .toast-icon{
+  background:rgba(255,148,28,.18);
+  color:#ffb15f;
 }
 
 .toast-loading .toast-icon{
