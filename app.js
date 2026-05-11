@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.11.47";
+const APP_VERSION = "2026.05.11.48";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -3610,7 +3610,11 @@ function montarConfigRealtimeUsuario(userId) {
       { event: "INSERT", schema: "public", table: "erp_backups", filter: filtroUsuario },
       { event: "UPDATE", schema: "public", table: "erp_backups", filter: filtroUsuario },
       { event: "INSERT", schema: "public", table: "erp_records", filter: filtroUsuario },
-      { event: "UPDATE", schema: "public", table: "erp_records", filter: filtroUsuario }
+      { event: "UPDATE", schema: "public", table: "erp_records", filter: filtroUsuario },
+      { event: "INSERT", schema: "public", table: "subscriptions", filter: filtroUsuario },
+      { event: "UPDATE", schema: "public", table: "subscriptions", filter: filtroUsuario },
+      { event: "INSERT", schema: "public", table: "payments", filter: filtroUsuario },
+      { event: "UPDATE", schema: "public", table: "payments", filter: filtroUsuario }
     ],
     private: false
   };
@@ -3729,7 +3733,7 @@ async function iniciarRealtimeSyncUsuario(motivo = "manual") {
       access_token: token
     }, { joinRef: null });
     iniciarHeartbeatRealtime();
-    console.info("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records"] });
+    console.info("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records", "subscriptions", "payments"] });
   };
 
   socket.onmessage = (event) => {
@@ -3790,11 +3794,12 @@ function normalizarEventoPostgresRealtime(payload = {}) {
 function eventoRealtimePertenceAoUsuario(evento) {
   const userId = String(syncConfig.supabaseUserId || "").trim();
   if (!userId) return false;
+  const clientId = String(billingConfig.clientId || getUsuarioAtual()?.clientId || "").trim();
   const record = evento.record || {};
   const oldRecord = evento.old_record || {};
   const data = record.data && typeof record.data === "object" ? record.data : {};
   const oldData = oldRecord.data && typeof oldRecord.data === "object" ? oldRecord.data : {};
-  const candidatos = [
+  const candidatosUsuario = [
     record.user_id,
     record.owner_id,
     oldRecord.user_id,
@@ -3804,10 +3809,20 @@ function eventoRealtimePertenceAoUsuario(evento) {
     oldData.user_id,
     oldData.owner_id
   ].filter((valor) => valor !== undefined && valor !== null).map((valor) => String(valor));
-  return candidatos.includes(userId);
+  if (candidatosUsuario.includes(userId)) return true;
+  const candidatosCliente = [
+    record.client_id,
+    oldRecord.client_id,
+    data.client_id,
+    data.clientId,
+    oldData.client_id,
+    oldData.clientId
+  ].filter((valor) => valor !== undefined && valor !== null).map((valor) => String(valor));
+  return !!clientId && candidatosCliente.includes(clientId);
 }
 
 function eventoRealtimeEhDesteDispositivo(evento) {
+  if (!["erp_backups", "erp_records"].includes(evento.table)) return false;
   const record = evento.record || {};
   if (evento.table === "erp_backups" && String(record.device_id || "") === deviceId) return true;
   const data = record.data && typeof record.data === "object" ? record.data : {};
@@ -3853,7 +3868,7 @@ function tratarMensagemRealtimeSupabase(raw) {
 }
 
 function tratarEventoRealtimeSupabase(evento) {
-  if (!["erp_backups", "erp_records"].includes(evento.table)) return;
+  if (!["erp_backups", "erp_records", "subscriptions", "payments"].includes(evento.table)) return;
   if (!eventoRealtimePertenceAoUsuario(evento)) return;
   if (eventoRealtimeEhDesteDispositivo(evento)) return;
 
@@ -3940,10 +3955,36 @@ function avisarRealtimeDadosAtualizados() {
   if (typeof mostrarToast === "function") mostrarToast("Dados atualizados", "info", 2200);
 }
 
+function avisarRealtimePlanoAtualizado() {
+  const agora = Date.now();
+  if (agora - Number(realtimeSyncState.lastToastAt || 0) < 3500) return;
+  realtimeSyncState.lastToastAt = agora;
+  if (typeof mostrarToast === "function") mostrarToast("Plano atualizado", "info", 2400);
+}
+
+async function processarMudancaBillingRealtimeSupabase(evento) {
+  registrarDiagnostico("Realtime", "Evento de billing recebido", `${evento.table}:${evento.type || ""}`);
+  const licenca = await consultarLicencaSupabaseSilencioso({ motivo: `realtime-${evento.table}` });
+  if (isSuperAdmin() && ["clientes", "superadmin", "admin"].includes(telaAtual)) {
+    await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false }).catch((erro) => {
+      registrarDiagnostico("Realtime", "Clientes SaaS não atualizados via billing", erro.message || erro);
+    });
+  }
+  if (licenca && document.visibilityState !== "hidden") {
+    if (["assinatura", "minhaAssinatura", "planos", "admin", "clientes", "dashboard"].includes(telaAtual)) renderApp();
+    avisarRealtimePlanoAtualizado();
+  }
+  return !!licenca;
+}
+
 async function processarMudancaRealtimeSupabase(evento) {
   if (realtimeSyncState.applying || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
   realtimeSyncState.applying = true;
   try {
+    if (["subscriptions", "payments"].includes(evento.table)) {
+      return await processarMudancaBillingRealtimeSupabase(evento);
+    }
+
     const pendentes = recomporFilaSyncPendente();
     if (pendentes.length) {
       registrarDiagnostico("Realtime", "Evento remoto aguardou fila local", `${pendentes.length} item(ns) pendente(s)`);
@@ -7503,6 +7544,7 @@ function renderLinhaClienteSaas(cliente) {
         <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar</button>
         <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
         <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Alterar plano</button>
+        <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">Liberar dias</button>
         <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Remover teste" : "Marcar teste"}</button>
         <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar</button>
         <button class="btn ghost" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar</button>
@@ -8032,6 +8074,85 @@ async function alterarPlanoClienteSaas(id) {
     mostrarToast("Plano atualizado com sucesso", "sucesso", 4200);
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao alterar plano", erro.message);
+    mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
+  } finally {
+    toast?.remove?.();
+    renderApp();
+  }
+}
+
+async function liberarDiasManualClienteSaas(id) {
+  if (!isSuperAdmin()) return;
+  const cliente = getClienteSaasPorId(id);
+  if (!cliente) return;
+
+  const diasTexto = await solicitarEntradaTexto({
+    titulo: "Liberar dias manualmente",
+    mensagem: "Informe quantos dias serão adicionados ao Premium deste cliente.",
+    valor: "30",
+    tipo: "number",
+    obrigatorio: true
+  });
+  const dias = Math.max(0, Math.floor(Number(String(diasTexto || "").replace(",", ".")) || 0));
+  if (!dias) {
+    alert("Informe uma quantidade de dias válida.");
+    return;
+  }
+
+  const motivo = await solicitarEntradaTexto({
+    titulo: "Motivo da liberação",
+    mensagem: "Use algo como PIX manual, suporte, cortesia ou recuperação webhook.",
+    valor: "PIX manual",
+    obrigatorio: true
+  });
+  if (!String(motivo || "").trim()) return;
+
+  const targetUserId = getAlvoRpcClienteSaas(id);
+  let licencaRemota = null;
+  try {
+    licencaRemota = await consultarLicencaSupabaseSilencioso({ targetUserId, aplicar: false });
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Licença remota não consultada para liberação manual", erro.message || erro);
+  }
+
+  const assinatura = getAssinaturaSaas(id);
+  const validadeAtual = getTimestampPlano(
+    licencaRemota?.premium_until
+    || licencaRemota?.plan_expires_at
+    || licencaRemota?.current_period_end
+    || licencaRemota?.expires_at
+    || assinatura?.premiumUntil
+    || assinatura?.planExpiresAt
+    || assinatura?.currentPeriodEnd
+    || cliente.planExpiresAt
+    || 0
+  );
+  const base = Math.max(Date.now(), validadeAtual || 0);
+  const premiumUntil = new Date(base + dias * 24 * 60 * 60 * 1000).toISOString();
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Confirmar liberação manual",
+    mensagem: `Liberar ${dias} dia(s) de Premium para ${cliente.email}? Validade até ${new Date(premiumUntil).toLocaleDateString("pt-BR")}.`,
+    confirmar: "Liberar Premium"
+  });
+  if (!confirmado) return;
+
+  const toast = mostrarToast("Salvando...", "loading");
+  try {
+    const licenca = await chamarSuperadminUpdateSubscription(id, "ACTIVATE_PREMIUM_MANUAL", {
+      planCode: "PREMIUM",
+      premiumUntil,
+      reason: `${String(motivo).trim()} (${dias} dia(s))`
+    });
+    registrarAuditoria("liberação manual premium", {
+      email: cliente.email,
+      dias,
+      motivo,
+      premiumUntil,
+      source: licenca?.source || "rpc"
+    }, cliente.id);
+    mostrarToast("Plano atualizado com sucesso", "sucesso", 4200);
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Erro ao liberar dias manualmente", erro.message);
     mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
   } finally {
     toast?.remove?.();

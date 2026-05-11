@@ -6,6 +6,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || "";
 const MERCADOPAGO_WEBHOOK_URL = Deno.env.get("MERCADOPAGO_WEBHOOK_URL") || "";
 const APP_PUBLIC_URL = Deno.env.get("APP_PUBLIC_URL") || "";
+const DEFAULT_APP_PUBLIC_URL = "https://erpne3d.vercel.app";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -38,8 +39,15 @@ function webhookUrl() {
   return MERCADOPAGO_WEBHOOK_URL || `${SUPABASE_URL.replace(/\/+$/, "")}/functions/v1/mercadopago-webhook`;
 }
 
+function getPublicOrigin(req: Request) {
+  const candidates = [APP_PUBLIC_URL, req.headers.get("origin"), DEFAULT_APP_PUBLIC_URL]
+    .map((value) => String(value || "").trim().replace(/\/+$/, ""));
+  const origin = candidates.find((value) => /^https?:\/\//i.test(value));
+  return origin || DEFAULT_APP_PUBLIC_URL;
+}
+
 function backUrls(req: Request) {
-  const origin = APP_PUBLIC_URL || req.headers.get("origin") || "https://simplifica3d.app";
+  const origin = getPublicOrigin(req);
   return {
     success: `${origin}/?pagamento=sucesso`,
     pending: `${origin}/?pagamento=pendente`,
@@ -180,7 +188,12 @@ serve(async (req) => {
       payer: { email: client.email },
       external_reference: externalReference,
       back_urls: backUrls(req),
+      auto_return: "approved",
       notification_url: webhookUrl(),
+      statement_descriptor: "SIMPLIFICA3D",
+      payment_methods: {
+        installments: 12,
+      },
       metadata: {
         user_id: userId,
         client_id: client.id,
@@ -214,6 +227,7 @@ serve(async (req) => {
       plan_id: planUuid,
       preference_id: mpData.id || null,
       amount: plano.amount,
+      plan_price: plano.amount,
       status: "pending",
       external_reference: externalReference,
       plan_slug: planSlug,

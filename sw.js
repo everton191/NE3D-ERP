@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v66-realtime-calc-20260511";
+const CACHE_NAME = "simplifica-3d-v67-mercadopago-sync-20260511";
 const APP_FILES = [
   "./",
   "./index.html",

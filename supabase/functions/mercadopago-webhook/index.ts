@@ -172,6 +172,45 @@ async function getSubscriptionId(clientId: string, planSlug: string, userId?: st
   return created.id;
 }
 
+async function syncClientFromSubscription(clientId: string) {
+  if (!supabase) return null;
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("active_plan, plan_code, plan_status, payment_status, subscription_status, status, status_assinatura, plan_price, price_locked, plan_expires_at, premium_until, current_period_end, pending_plan, blocked_at, blocked_reason")
+    .eq("client_id", clientId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!subscription) return null;
+
+  const effectivePlan = String(subscription.active_plan || "").toLowerCase() || (subscription.plan_code === "PREMIUM" ? "premium" : "free");
+  const effectiveStatus = String(subscription.plan_status || "").toUpperCase();
+  const supportStatus = effectiveStatus === "BLOCKED" ? "blocked" : "active";
+  const subscriptionStatus = subscription.subscription_status || subscription.status_assinatura || subscription.status || "free";
+  const expiresAt = subscription.premium_until || subscription.plan_expires_at || subscription.current_period_end || null;
+
+  await supabase.from("clients")
+    .update({
+      status: supportStatus,
+      active_plan: effectivePlan,
+      plano_atual: effectivePlan,
+      pending_plan: subscription.pending_plan || null,
+      payment_status: subscription.payment_status || "none",
+      subscription_status: subscriptionStatus,
+      status_assinatura: subscriptionStatus,
+      plan_price: subscription.plan_price || null,
+      price_locked: subscription.price_locked === true,
+      plan_expires_at: expiresAt,
+      blocked_at: subscription.blocked_at || null,
+      blocked_reason: subscription.blocked_reason || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", clientId);
+
+  return subscription;
+}
+
 async function logWebhookEvent(data: {
   eventId?: string;
   eventType?: string;
@@ -223,13 +262,14 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
       mercado_pago_subscription_id: mpSubscriptionId || null,
       preference_id: String(payment.preference_id || metadata.preference_id || "") || null,
       amount,
+      plan_price: amount,
       status,
       payment_method: method || null,
       metodo_pagamento: method || null,
       external_reference: String(payment.external_reference || ""),
       plan_slug: planSlug,
       billing_variant: billingVariant,
-      paid_at: status === "approved" ? new Date().toISOString() : null,
+      paid_at: status === "approved" ? String(payment.date_approved || "") || new Date().toISOString() : null,
       criado_em: String(payment.date_created || "") || new Date().toISOString(),
       atualizado_em: new Date().toISOString(),
       metadata: { ...payment, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
@@ -251,57 +291,20 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
       atualizado_em: new Date().toISOString(),
     }, { onConflict: "payment_id" });
 
-    if (status === "approved") {
-      const periodStart = new Date(String(payment.date_approved || "") || Date.now()).toISOString();
-      const nextBilling = addDays(new Date(periodStart), 30);
-      await supabase.from("subscriptions")
-        .update({
-          user_id: userId,
-          plan_id: planId,
-          status: "active",
-          status_assinatura: "active",
-          promo_used: true,
-          billing_variant: "premium_monthly",
-          current_period_start: periodStart,
-          current_period_end: nextBilling,
-          mercado_pago_subscription_id: mpSubscriptionId || null,
-          expires_at: nextBilling,
-          next_billing_at: nextBilling,
-          proximo_vencimento: nextBilling,
-          ultimo_pagamento: new Date().toISOString(),
-          overdue_since: null,
-        })
-        .eq("client_id", clientId);
-
-      await supabase.from("clients")
-        .update({ status: "active", plano_atual: planSlug, status_assinatura: "active" })
-        .eq("id", clientId);
-
-      await supabase.from("audit_logs").insert({
-        client_id: clientId,
-        action: "pagamento aprovado",
-        details: { provider: "mercado_pago", status, payment_id: paymentId, amount, plan: planSlug },
-      });
-    } else {
-      const subscriptionStatus = subscriptionStatusFromPayment(status);
-      await supabase.from("subscriptions")
-        .update({
-          status: subscriptionStatus,
-          status_assinatura: subscriptionStatus,
-          overdue_since: subscriptionStatus === "pending" ? null : new Date().toISOString(),
-        })
-        .eq("client_id", clientId);
-
-      await supabase.from("clients")
-        .update({ status: subscriptionStatus === "pending" ? "active" : "overdue", status_assinatura: subscriptionStatus })
-        .eq("id", clientId);
-
-      await supabase.from("audit_logs").insert({
-        client_id: clientId,
-        action: status === "pending" ? "pagamento pendente" : "pagamento recusado",
-        details: { provider: "mercado_pago", status, payment_id: paymentId, amount, plan: planSlug },
-      });
-    }
+    const subscription = await syncClientFromSubscription(clientId);
+    await supabase.from("audit_logs").insert({
+      client_id: clientId,
+      action: status === "approved" ? "pagamento aprovado" : status === "pending" ? "pagamento pendente" : "pagamento recusado",
+      details: {
+        provider: "mercado_pago",
+        status,
+        payment_id: paymentId,
+        amount,
+        plan: planSlug,
+        effective_status: subscription?.plan_status || null,
+        premium_until: subscription?.premium_until || subscription?.plan_expires_at || null,
+      },
+    });
   }
 
   await logWebhookEvent({
