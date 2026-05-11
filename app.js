@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.11.48";
+const APP_VERSION = "2026.05.11.49";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -1362,6 +1362,24 @@ function limparCacheTemporarioContaAnterior() {
   window.__clienteSaasSelecionadoId = "";
 }
 
+function listaTemDadosOperacionais(lista) {
+  return Array.isArray(lista) && lista.length > 0;
+}
+
+function possuiDadosOperacionaisLocais() {
+  return [estoque, pedidos, caixa, orcamentos].some(listaTemDadosOperacionais);
+}
+
+function cacheTemDadosOperacionais(cache) {
+  const data = cache?.data && typeof cache.data === "object" ? cache.data : {};
+  return [data.estoque, data.pedidos, data.caixa, data.orcamentos].some(listaTemDadosOperacionais);
+}
+
+function backupTemDadosOperacionais(dados) {
+  const backup = normalizarBackup(dados);
+  return [backup.estoque, backup.pedidos, backup.caixa, backup.orcamentos].some(listaTemDadosOperacionais);
+}
+
 function atribuirDonoRemotoLista(lista, escopo = getEscopoDadosAtual()) {
   if (!escopo) return Array.isArray(lista) ? lista : [];
   return (Array.isArray(lista) ? lista : []).map((item) => {
@@ -1439,6 +1457,11 @@ function ativarEscopoDadosUsuarioAtual(motivo = "session", opcoes = {}) {
   scopedDataCacheReady = true;
   const anterior = localStorage.getItem(ACTIVE_DATA_SCOPE_KEY) || "";
   if (anterior === escopo) {
+    const cache = lerCacheDadosUsuario(escopo);
+    if (!possuiDadosOperacionaisLocais() && cacheTemDadosOperacionais(cache)) {
+      aplicarCacheDadosUsuario(cache);
+      console.info("[SyncScope][hydrate]", { motivo, auth_uid: escopo, restored_cache: true });
+    }
     atribuirDonoRemotoDadosLocais(escopo);
     pendingSync = carregarLista(getChaveFilaSyncUsuario(escopo));
     return false;
@@ -3963,7 +3986,7 @@ function avisarRealtimePlanoAtualizado() {
 }
 
 async function processarMudancaBillingRealtimeSupabase(evento) {
-  registrarDiagnostico("Realtime", "Evento de billing recebido", `${evento.table}:${evento.type || ""}`);
+  registrarDiagnostico("Realtime", isSuperAdmin() ? "Evento de billing recebido" : "Plano atualizado em tempo real", `${evento.table}:${evento.type || ""}`);
   const licenca = await consultarLicencaSupabaseSilencioso({ motivo: `realtime-${evento.table}` });
   if (isSuperAdmin() && ["clientes", "superadmin", "admin"].includes(telaAtual)) {
     await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false }).catch((erro) => {
@@ -7228,7 +7251,7 @@ function renderListaPedidos() {
             <div class="row-actions">
               <button class="btn ghost" onclick="event.stopPropagation(); visualizarPedido(${id})">Ver</button>
               ${podeOperar ? `<button class="btn ghost" onclick="event.stopPropagation(); editarPedido(${id})">✏️ Editar</button>
-              <button class="btn danger" onclick="event.stopPropagation(); removerPedido(${id})">Remover</button>` : ""}
+              <button class="btn danger" onclick="event.stopPropagation(); removerPedido(${id})">Excluir</button>` : ""}
             </div>
           </div>
         `;
@@ -13712,6 +13735,54 @@ async function obterBackupSupabase() {
   return Array.isArray(linhas) && linhas[0] ? linhas[0].payload : null;
 }
 
+async function obterRegistrosErpSupabase() {
+  const userId = encodeURIComponent(syncConfig.supabaseUserId);
+  const linhas = await requisicaoSupabase(`/rest/v1/erp_records?select=collection,record_id,user_id,owner_id,data,created_at,updated_at,deleted_at&user_id=eq.${userId}&deleted_at=is.null&limit=1000`, {
+    method: "GET"
+  });
+  return Array.isArray(linhas) ? linhas : [];
+}
+
+function aplicarRegistrosErpSupabase(registros = []) {
+  let alterou = false;
+  (Array.isArray(registros) ? registros : []).forEach((registro) => {
+    if (!registro || registro.deleted_at) return;
+    alterou = aplicarRegistroRemotoRealtime(registro) || alterou;
+  });
+  if (alterou) {
+    atribuirDonoRemotoDadosLocais();
+    salvarDados();
+  }
+  return alterou;
+}
+
+async function aplicarBackupRemotoAntesDeUploadSeNecessario(motivo = "sync") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) {
+    return { remoto: null, aplicado: false };
+  }
+
+  const localTemDados = possuiDadosOperacionaisLocais();
+  const pendentes = recomporFilaSyncPendente();
+  if (localTemDados || pendentes.length) {
+    return { remoto: null, aplicado: false };
+  }
+
+  const remoto = await obterBackupSupabase();
+  if (backupTemDadosOperacionais(remoto)) {
+    aplicarBackup(remoto, "substituir");
+    registrarDiagnostico("Supabase", "Backup remoto aplicado antes do upload", motivo);
+    return { remoto, aplicado: true };
+  }
+
+  const registros = await obterRegistrosErpSupabase();
+  if (aplicarRegistrosErpSupabase(registros)) {
+    registrarDiagnostico("Supabase", "Registros remotos aplicados antes do upload", motivo);
+    return { remoto: null, aplicado: true };
+  }
+
+  return { remoto, aplicado: false };
+}
+
 async function salvarBackupSupabase() {
   const payload = criarSnapshotBackupUsuarioAtual();
   if (!verificarLimiteBackupPlano(payload, true)) return false;
@@ -13788,9 +13859,10 @@ async function sincronizarSupabase() {
     salvarDados();
     renderApp();
     await salvarPerfilSupabase();
+    const preDownload = await aplicarBackupRemotoAntesDeUploadSeNecessario("sync-manual");
     await sincronizarFilaOfflinePendente("sync-manual");
     if (!await salvarBackupSupabase()) return;
-    const remoto = await obterBackupSupabase();
+    const remoto = preDownload.remoto || await obterBackupSupabase();
     if (remoto) {
       aplicarBackup(remoto, "mesclar");
     }
@@ -13833,9 +13905,10 @@ async function sincronizarSupabaseSilencioso() {
     return false;
   }
 
+  const preDownload = await aplicarBackupRemotoAntesDeUploadSeNecessario("sync-silencioso");
   await sincronizarFilaOfflinePendente("sync-silencioso");
   if (!await salvarBackupSupabase()) return false;
-  const remoto = await obterBackupSupabase();
+  const remoto = preDownload.remoto || await obterBackupSupabase();
   if (remoto) {
     aplicarBackup(remoto, "mesclar");
   }
@@ -14456,59 +14529,133 @@ function adicionarProdutoManual() {
   renderApp();
 }
 
-function usuarioPodeEditarPedidoSemSenha(usuario = getUsuarioAtual()) {
-  if (adminLogado && !usuario) return true;
-  return !!usuario && ["superadmin", "admin"].includes(usuario.papel);
+async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar") {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      resolve(null);
+      return;
+    }
+
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <form class="modal-card" id="adminPasswordConfirmForm">
+          <div class="modal-header">
+            <h2>Confirmar autorização</h2>
+            <button class="icon-button" type="button" id="adminPasswordCancelTop" title="Fechar">✕</button>
+          </div>
+          <p class="muted">Para ${escaparHtml(actionLabel)}, confirme sua senha de administrador.</p>
+          <label class="field">
+            <span>Senha</span>
+            <input id="adminPasswordConfirmInput" type="password" autocomplete="current-password" required>
+          </label>
+          <div class="actions">
+            <button class="btn ghost" type="button" id="adminPasswordCancel">Cancelar</button>
+            <button class="btn" type="submit">Confirmar</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    const finalizar = (valor) => {
+      fecharPopup();
+      resolve(valor);
+    };
+    document.getElementById("adminPasswordConfirmForm")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      finalizar(document.getElementById("adminPasswordConfirmInput")?.value || "");
+    }, { once: true });
+    document.getElementById("adminPasswordCancel")?.addEventListener("click", () => finalizar(null), { once: true });
+    document.getElementById("adminPasswordCancelTop")?.addEventListener("click", () => finalizar(null), { once: true });
+    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) finalizar(null);
+    });
+    setTimeout(() => document.getElementById("adminPasswordConfirmInput")?.focus(), 80);
+  });
 }
 
-async function autorizarEdicaoPedido() {
+async function validarSenhaSupabaseUsuarioAtual(senha) {
+  if (!senha) return false;
   const usuario = getUsuarioAtual();
-  if (usuarioPodeEditarPedidoSemSenha(usuario)) return true;
+  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+  if (!email || !syncConfig.supabaseUrl || !syncConfig.supabaseAnonKey || !syncConfig.supabaseUserId) {
+    // TODO: manter esta rotina conectada ao Supabase Auth em produção. Sem auth.uid, não autorizar ações destrutivas.
+    return false;
+  }
 
-  const senha = await solicitarEntradaTexto({
-    titulo: "Autorizar edição",
-    mensagem: "Para editar este pedido, informe a senha de um admin.",
-    tipo: "password",
-    obrigatorio: true
-  });
+  const dados = await requisicaoSupabase("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    auth: false,
+    telemetry: false,
+    body: JSON.stringify({ email, password: senha })
+  }, false);
+  const authUser = obterUsuarioAuthResposta(dados);
+  return String(authUser?.id || "") === String(syncConfig.supabaseUserId || "");
+}
+
+async function confirmAdminPassword(actionLabel = "continuar") {
+  const senha = await solicitarSenhaConfirmacaoAdmin(actionLabel);
   if (senha === null) return false;
   if (!senha) {
-    alert("Senha obrigatória para editar pedido.");
+    mostrarToast("Senha incorreta. Alteração não autorizada.", "erro", 5500);
+    registrarAuditoria("senha_admin_falhou", { action: actionLabel, motivo: "senha_vazia" });
+    registrarSeguranca("senha_admin_falhou", "erro", actionLabel);
     return false;
   }
 
-  if (isAmbienteLocal() && senha === "123") {
-    registrarSeguranca("Autorização edição pedido", "bloqueado", "Senha padrão local desativada");
-    alert("A senha padrão local foi desativada. Use a senha real de um admin.");
-    return false;
-  }
-
-  const clientId = usuario?.clientId || getClientIdAtual();
-  const autorizadores = normalizarUsuarios(usuarios).filter((item) => {
-    if (!["superadmin", "admin"].includes(item.papel)) return false;
-    if (usuarioEstaBloqueado(item)) return false;
-    return !clientId || !item.clientId || item.clientId === clientId || item.papel === "superadmin";
-  });
-
-  for (const autorizador of autorizadores) {
-    if (await verificarSenhaUsuario(autorizador, senha)) {
-      registrarSeguranca("Autorização edição pedido", "sucesso", autorizador.email, usuario?.email || "");
+  try {
+    const ok = await validarSenhaSupabaseUsuarioAtual(senha);
+    if (ok) {
+      registrarAuditoria("senha_admin_validada", { action: actionLabel });
+      registrarSeguranca("senha_admin_validada", "sucesso", actionLabel);
       return true;
     }
+  } catch (erro) {
+    registrarDiagnostico("Auth", "Senha administrativa não validada", erro.message);
   }
 
-  registrarSeguranca("Autorização edição pedido", "erro", "Senha inválida", usuario?.email || "");
-  alert("Senha de autorização inválida.");
+  registrarAuditoria("senha_admin_falhou", { action: actionLabel });
+  registrarSeguranca("senha_admin_falhou", "erro", actionLabel);
+  mostrarToast(actionLabel.includes("excluir")
+    ? "Senha incorreta. Exclusão não autorizada."
+    : "Senha incorreta. Alteração não autorizada.", "erro", 6000);
   return false;
 }
 
-async function editarPedido(id) {
+async function requireAdminPassword(actionName) {
+  return confirmAdminPassword(actionName);
+}
+
+function registrarAuditoriaPedido(acao, pedido, detalhes = {}) {
+  registrarAuditoria(acao, {
+    pedidoId: pedido?.id || "",
+    cliente: clienteDoPedido(pedido || {}),
+    status: pedido?.status || "",
+    total: totalPedido(pedido || {}),
+    ...detalhes
+  });
+}
+
+async function requestOrderEdit(orderId) {
   try {
     if (!permitirAcaoPlanoCompleto()) return;
-    if (!await autorizarEdicaoPedido()) return;
+    const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
+    if (!pedido) return;
+    if (!await confirmAdminPassword("editar este pedido")) return;
+    abrirPedidoParaEdicaoAutorizada(orderId);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedidos", action: "Solicitar edição de pedido", errorKey: "REQUEST_ORDER_EDIT_FAILED" });
+  }
+}
+
+async function editarPedido(id) {
+  return requestOrderEdit(id);
+}
+
+function abrirPedidoParaEdicaoAutorizada(id) {
+  try {
     const pedido = pedidos.find((item) => Number(item.id) === Number(id));
     if (!pedido) return;
-
     const itens = Array.isArray(pedido.itens) && pedido.itens.length
       ? pedido.itens
       : [{
@@ -14522,6 +14669,7 @@ async function editarPedido(id) {
     clientePedido = clienteDoPedido(pedido);
     clienteTelefonePedido = telefoneDoPedido(pedido);
     pedidoEditando = pedido;
+    registrarAuditoriaPedido("pedido_edicao_solicitada", pedido);
     trocarTela("pedido");
   } catch (erro) {
     ErrorService.notify(erro, { area: "Pedidos", action: "Abrir pedido para edição", errorKey: "OPEN_ORDER_FAILED" });
@@ -14536,32 +14684,144 @@ function cancelarEdicaoPedido() {
   renderApp();
 }
 
-function removerPedido(id) {
+function pedidoPossuiConsumoEstoque(pedido) {
+  return calcularConsumoMateriais(pedido?.itens || []).size > 0;
+}
+
+function movimentoCaixaPertenceAoPedido(movimento, pedido) {
+  if (!movimento || !pedido) return false;
+  const id = Number(pedido.id);
+  if (Number(movimento.pedidoId) === id) return true;
+  const total = totalPedido(pedido);
+  const cliente = clienteDoPedido(pedido);
+  return Number(movimento.valor) === total && descricaoCaixa(movimento) === "Pedido - " + cliente;
+}
+
+function movimentosCaixaPedido(pedido) {
+  return caixa.filter((movimento) => movimentoCaixaPertenceAoPedido(movimento, pedido));
+}
+
+function pedidoJaCancelado(pedido) {
+  return !!(pedido?.deleted_at || pedido?.deletedAt || String(pedido?.status || "").toLowerCase() === "cancelado");
+}
+
+function criarLancamentoReversoCaixaPedido(pedido, movimentos, agora) {
+  if (!movimentos.length) return null;
+  const jaTemReversao = caixa.some((movimento) => String(movimento.cancelamentoPedidoId || movimento.estornoPedidoId || "") === String(pedido.id));
+  if (jaTemReversao) return null;
+
+  const saldo = movimentos.reduce((soma, movimento) => {
+    const valor = Number(movimento.valor) || 0;
+    return soma + (String(movimento.tipo || "").toLowerCase() === "saida" ? -valor : valor);
+  }, 0);
+  if (Math.abs(saldo) < 0.01) return null;
+
+  return prepararRegistroOnline({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    tipo: saldo > 0 ? "saida" : "entrada",
+    valor: Math.abs(saldo),
+    descricao: "Estorno pedido #" + pedido.id + " - " + clienteDoPedido(pedido),
+    pedidoId: pedido.id,
+    cancelamentoPedidoId: pedido.id,
+    categoria: "estorno",
+    data: agora,
+    criadoEm: agora,
+    atualizadoEm: agora
+  });
+}
+
+async function cancelOrderSafely(orderId, options = {}) {
   try {
     if (!permitirAcaoPlanoCompleto()) return;
-    const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+    const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
-    if (!confirm("Remover este pedido?")) return;
+    if (pedidoJaCancelado(pedido)) {
+      mostrarToast("Este pedido já está cancelado.", "info", 4200);
+      return;
+    }
 
-    const total = totalPedido(pedido);
-    const cliente = clienteDoPedido(pedido);
-    devolverEstoquePedido(pedido, "cancelamento");
-    pedidos = pedidos.filter((item) => Number(item.id) !== Number(id));
-    caixa = caixa.filter((movimento) => {
-      if (Number(movimento.pedidoId) === Number(id)) return false;
-      return !(Number(movimento.valor) === total && descricaoCaixa(movimento) === "Pedido - " + cliente);
+    const agora = new Date().toISOString();
+    const movimentos = movimentosCaixaPedido(pedido);
+    const devolverEstoque = options.returnStock === true && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm;
+    if (devolverEstoque) devolverEstoquePedido(pedido, "cancelamento seguro");
+
+    const reverso = criarLancamentoReversoCaixaPedido(pedido, movimentos, agora);
+    if (reverso) caixa.push(reverso);
+
+    const cancelado = marcarRegistroAlteradoParaSync(pedido, {
+      status: "cancelado",
+      deleted_at: agora,
+      deletedAt: agora,
+      cancelled_by: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "",
+      cancelledBy: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "",
+      cancel_reason: options.reason || "Cancelamento manual",
+      cancelReason: options.reason || "Cancelamento manual",
+      stock_returned_at: devolverEstoque ? agora : pedido.stock_returned_at || "",
+      estoqueDevolvidoEm: devolverEstoque ? agora : pedido.estoqueDevolvidoEm || "",
+      financial_reversed_at: reverso ? agora : pedido.financial_reversed_at || ""
     });
+    pedidos = pedidos.map((item) => Number(item.id) === Number(orderId) ? cancelado : item);
 
-    if (pedidoEditando && Number(pedidoEditando.id) === Number(id)) {
+    if (pedidoEditando && Number(pedidoEditando.id) === Number(orderId)) {
       cancelarEdicaoPedido();
     }
 
     salvarDados();
-    registrarHistorico("Pedido", "Pedido removido: " + cliente);
+    agendarSyncSilenciosoDados("pedido-cancelado");
+    registrarAuditoriaPedido("pedido_cancelado", cancelado, {
+      devolveuEstoque: devolverEstoque,
+      movimentosCaixa: movimentos.length,
+      reversaoCaixa: !!reverso
+    });
+    registrarAuditoriaPedido("pedido_excluido", cancelado, { modo: "cancelamento_logico" });
+    registrarHistorico("Pedido", "Pedido cancelado: " + clienteDoPedido(cancelado));
+    mostrarToast("Pedido cancelado com sucesso.", "sucesso", 4200);
     renderApp();
   } catch (erro) {
-    ErrorService.notify(erro, { area: "Pedidos", action: "Remover pedido", errorKey: "DELETE_ORDER_FAILED" });
+    ErrorService.notify(erro, { area: "Pedidos", action: "Cancelar pedido com segurança", errorKey: "CANCEL_ORDER_FAILED" });
   }
+}
+
+async function requestOrderDelete(orderId) {
+  try {
+    if (!permitirAcaoPlanoCompleto()) return;
+    const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
+    if (!pedido) return;
+    registrarAuditoriaPedido("pedido_exclusao_solicitada", pedido);
+
+    const continuar = await solicitarConfirmacaoAcao({
+      titulo: "Excluir pedido",
+      mensagem: "Tem certeza que deseja excluir este pedido? Esta ação pode afetar histórico, caixa e estoque.",
+      cancelar: "Cancelar",
+      confirmar: "Continuar",
+      perigo: true
+    });
+    if (!continuar) return;
+
+    if (!await confirmAdminPassword("excluir este pedido")) return;
+
+    let devolverEstoque = false;
+    if (pedidoPossuiConsumoEstoque(pedido) && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm) {
+      devolverEstoque = await solicitarConfirmacaoAcao({
+        titulo: "Devolver estoque",
+        mensagem: "Deseja devolver os materiais deste pedido ao estoque?",
+        cancelar: "Não devolver",
+        confirmar: "Devolver materiais",
+        perigo: false
+      });
+    }
+
+    await cancelOrderSafely(orderId, {
+      returnStock: devolverEstoque,
+      reason: "Cancelamento solicitado pelo usuário"
+    });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedidos", action: "Solicitar exclusão de pedido", errorKey: "REQUEST_ORDER_DELETE_FAILED" });
+  }
+}
+
+function removerPedido(id) {
+  return requestOrderDelete(id);
 }
 
 // Baixa de estoque por diferença: evita descontar duas vezes ao editar e devolve no cancelamento.
@@ -14667,7 +14927,9 @@ async function fecharPedido() {
 
     salvarDados();
     agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
+    if (pedidoEditando) registrarAuditoriaPedido("pedido_editado", pedido);
     registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
+    mostrarToast(pedidoEditando ? "Pedido atualizado com sucesso." : "Pedido salvo com sucesso.", "sucesso", 3500);
     registrarAcaoCompletaMonetizacao(pedidoEditando ? "order_updated" : "order_created");
     pedidoEditando = null;
     itensPedido = [];
