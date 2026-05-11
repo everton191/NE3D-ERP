@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.11.50";
+const APP_VERSION = "2026.05.11.51";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -44,6 +44,9 @@ const PAID_PRICE_TIERS = [
 const PREMIUM_FIRST_MONTH_PRICE = PAID_PRICE_TIERS[0].price;
 const PREMIUM_MONTHLY_PRICE = 29.9;
 const AD_MIN_INTERVAL_MS = 20 * 60 * 1000;
+const ADSENSE_WEB_DEFAULT_ENABLED = false;
+const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "");
+const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "");
 const BILLING_VARIANTS = {
   premium_first_month: { id: "premium_first_month", planId: "premium", amount: PREMIUM_FIRST_MONTH_PRICE },
   premium_monthly: { id: "premium_monthly", planId: "premium", amount: PREMIUM_MONTHLY_PRICE }
@@ -327,6 +330,9 @@ let appConfig = carregarObjeto("appConfig", {
   biometricOfferDismissed: false,
   backupReminderLastAt: "",
   telemetryEnabled: true,
+  adsenseWebEnabled: ADSENSE_WEB_DEFAULT_ENABLED,
+  adsensePublisherId: ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
+  adsenseBannerSlot: ADSENSE_WEB_DEFAULT_BANNER_SLOT,
   calculatorWidget: {
     open: false,
     x: null,
@@ -712,8 +718,16 @@ function configurarMonetizacaoAds() {
       isPremiumResolver: () => canUsePremiumFeatures(),
       getOrderCount: () => getPedidosAtivosPlanoFree()
     });
+    window.AdSenseService?.configure?.({
+      enabled: appConfig.adsenseWebEnabled === true,
+      publisherId: appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
+      bannerSlot: appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT,
+      isPremiumResolver: () => canUsePremiumFeatures(),
+      shouldShowAdsResolver: (user, context) => shouldShowAds(user, context),
+      telemetry: (errorKey, metadata = {}) => registrarErroAplicacaoSilencioso(errorKey, new Error(errorKey), "AdSense", metadata)
+    });
   } catch (erro) {
-    registrarDiagnostico("AdMob", "Configuração de monetização falhou", erro.message || erro);
+    registrarDiagnostico("Monetização", "Configuração de monetização falhou", erro.message || erro);
   }
 }
 
@@ -1266,6 +1280,25 @@ function carregarObjeto(chave, fallback = {}) {
   } catch (erro) {
     console.warn("Não foi possível carregar", chave, erro);
     return { ...fallback };
+  }
+}
+
+function sincronizarBannerAdSense() {
+  try {
+    window.AdSenseService?.configure?.({
+      enabled: appConfig.adsenseWebEnabled === true,
+      publisherId: appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
+      bannerSlot: appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT
+    });
+    const contexto = {
+      ...contextoInterstitialSeguro("screen_view"),
+      isAuthScreen: window.__simplificaLocalLockActive || document.body?.classList.contains("auth-screen-active") || !getUsuarioAtual() || isTelaPublica(telaAtual),
+      isModalOpen: !!document.getElementById("popup")?.innerHTML
+    };
+    const resultado = window.AdSenseService?.syncBannerForScreen?.(getUsuarioMonetizacao(), contexto);
+    if (resultado?.catch) resultado.catch(() => {});
+  } catch (erro) {
+    registrarErroAplicacaoSilencioso("ADSENSE_BANNER_SYNC_FAILED", erro, "Banner AdSense", { tela: telaAtual });
   }
 }
 
@@ -2020,6 +2053,7 @@ function normalizarUsuario(usuario) {
   const email = normalizarEmail(usuario?.email);
   if (!email) return null;
   const status = String(usuario?.status || "").toLowerCase();
+  const onboardingCompleted = usuario?.onboardingCompleted === true || usuario?.onboarding_completed === true;
 
   return {
     id: usuario?.id || criarIdUsuario(),
@@ -2040,8 +2074,8 @@ function normalizarUsuario(usuario) {
     trialStartedAt: usuario?.trialStartedAt || "",
     trialDays: Math.max(1, Number(usuario?.trialDays) || Number(billingConfig.trialDays) || 7),
     acceptedTermsAt: usuario?.acceptedTermsAt || usuario?.accepted_terms_at || "",
-    onboardingCompleted: usuario?.onboardingCompleted === true || usuario?.onboarding_completed === true,
-    onboardingStep: Math.max(0, Math.min(4, Number(usuario?.onboardingStep ?? usuario?.onboarding_step ?? 0) || 0)),
+    onboardingCompleted,
+    onboardingStep: onboardingCompleted ? 4 : Math.max(0, Math.min(4, Number(usuario?.onboardingStep ?? usuario?.onboarding_step ?? 0) || 0)),
     supabaseUserId: usuario?.supabaseUserId || usuario?.supabase_user_id || usuario?.user_id || "",
     supabasePending: usuario?.supabasePending === true || usuario?.onlineRegistrationPending === true,
     supabaseLastSyncAt: usuario?.supabaseLastSyncAt || usuario?.updated_at || "",
@@ -2101,10 +2135,13 @@ function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
     if (!remoto) return;
     const local = mapa.get(remoto.email);
     const papel = local?.papel === "superadmin" || remoto.papel === "superadmin" ? "superadmin" : remoto.papel;
+    const onboardingCompleted = local?.onboardingCompleted === true || remoto.onboardingCompleted === true;
     const usuario = normalizarUsuario({
       ...local,
       ...remoto,
       papel,
+      onboardingCompleted,
+      onboardingStep: onboardingCompleted ? 4 : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
       senha: local?.senha || "",
       passwordHash: local?.passwordHash || "",
       passwordUpdatedAt: local?.passwordUpdatedAt || "",
@@ -5491,6 +5528,7 @@ function renderApp() {
     app.innerHTML = renderTravaLocal();
     renderCalculadoraFlutuante();
     sincronizarBannerAdMob();
+    sincronizarBannerAdSense();
     setTimeout(() => abrirModalDesbloqueioLocal(), 80);
     return;
   }
@@ -5510,6 +5548,7 @@ function renderApp() {
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
   sincronizarBannerAdMob();
+  sincronizarBannerAdSense();
   preencherImpressoras();
   preencherMateriaisCalculadora();
 }
@@ -5640,9 +5679,43 @@ function renderAcessoNegado() {
   `;
 }
 
+function getChaveOnboardingConcluido(usuario = getUsuarioAtual()) {
+  const id = String(usuario?.supabaseUserId || syncConfig.supabaseUserId || usuario?.email || "").trim();
+  return id ? `simplifica3d:onboarding_done:${id}` : "";
+}
+
+function onboardingConcluidoLocalmente(usuario = getUsuarioAtual()) {
+  const chave = getChaveOnboardingConcluido(usuario);
+  return !!chave && localStorage.getItem(chave) === "true";
+}
+
+function registrarOnboardingConcluidoLocalmente(usuario = getUsuarioAtual(), concluido = true) {
+  const chave = getChaveOnboardingConcluido(usuario);
+  if (!chave) return;
+  if (concluido) localStorage.setItem(chave, "true");
+  else localStorage.removeItem(chave);
+}
+
+function onboardingEstaConcluido(usuario = getUsuarioAtual()) {
+  if (!usuario || isSuperAdmin(usuario)) return false;
+  if (usuario.onboardingCompleted === true || onboardingConcluidoLocalmente(usuario)) return true;
+  return appConfig.companySetupCompleted === true && etapaOnboardingAtual(usuario) >= 4;
+}
+
+function reconciliarOnboardingConcluido(usuario = getUsuarioAtual()) {
+  if (!usuario || isSuperAdmin(usuario) || !onboardingEstaConcluido(usuario)) return false;
+  usuario.onboardingCompleted = true;
+  usuario.onboardingStep = 4;
+  appConfig.companySetupCompleted = true;
+  appConfig.onboardingFirstOrderPending = false;
+  registrarOnboardingConcluidoLocalmente(usuario, true);
+  return true;
+}
+
 function deveMostrarOnboarding(usuario = getUsuarioAtual()) {
   if (!usuario || isSuperAdmin(usuario)) return false;
-  return usuario.onboardingCompleted !== true;
+  if (reconciliarOnboardingConcluido(usuario)) return false;
+  return true;
 }
 
 function etapaOnboardingAtual(usuario = getUsuarioAtual()) {
@@ -5656,6 +5729,7 @@ function salvarOnboardingLocal(step, completed = false) {
   usuario.onboardingCompleted = completed === true;
   appConfig.companySetupCompleted = completed === true || appConfig.companySetupCompleted === true;
   appConfig.onboardingLastUpdatedAt = new Date().toISOString();
+  if (completed === true) registrarOnboardingConcluidoLocalmente(usuario, true);
   salvarDados();
   persistirOnboardingSupabaseSilencioso(usuario).catch((erro) => {
     registrarDiagnostico("Onboarding", "Onboarding não sincronizado no Supabase", erro.message || erro);
@@ -5751,6 +5825,7 @@ function reiniciarOnboarding() {
   usuario.onboardingCompleted = false;
   usuario.onboardingStep = 0;
   appConfig.companySetupCompleted = false;
+  registrarOnboardingConcluidoLocalmente(usuario, false);
   salvarDados();
   persistirOnboardingSupabaseSilencioso(usuario).catch((erro) => registrarDiagnostico("Onboarding", "Reset não sincronizado", erro.message || erro));
   trocarTela("onboarding");
@@ -8903,6 +8978,28 @@ function renderConfig() {
           </div>
         </div>
 
+        ${isSuperAdmin() || isAmbienteLocal() ? `
+          <div class="danger-zone">
+            <h2 class="section-title">Anúncios web</h2>
+            <p class="muted">Configuração reservada para PWA/navegador. O APK continua usando AdMob e esta camada nunca carrega em Android nativo.</p>
+            <label class="checkbox-row">
+              <input id="adsenseWebEnabled" type="checkbox" ${appConfig.adsenseWebEnabled === true ? "checked" : ""}>
+              <span>Ativar AdSense na versão web</span>
+            </label>
+            <div class="sync-grid">
+              <label class="field">
+                <span>Publisher ID</span>
+                <input id="adsensePublisherId" value="${escaparAttr(appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID)}" placeholder="ca-pub-0000000000000000">
+              </label>
+              <label class="field">
+                <span>Slot do banner</span>
+                <input id="adsenseBannerSlot" value="${escaparAttr(appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT)}" placeholder="0000000000">
+              </label>
+            </div>
+            <p class="muted">Sem esses dados válidos o app não carrega script externo nem exibe espaço de anúncio.</p>
+          </div>
+        ` : ""}
+
         <div class="danger-zone">
           <h2 class="section-title">Introdução</h2>
           <p class="muted">Refaça o guia inicial quando quiser revisar o fluxo básico do sistema.</p>
@@ -11783,6 +11880,9 @@ function restaurarPersonalizacaoPadrao() {
     biometricOfferDismissed: !!appConfig.biometricOfferDismissed,
     backupReminderLastAt: appConfig.backupReminderLastAt || "",
     telemetryEnabled: appConfig.telemetryEnabled !== false,
+    adsenseWebEnabled: appConfig.adsenseWebEnabled === true,
+    adsensePublisherId: appConfig.adsensePublisherId || "",
+    adsenseBannerSlot: appConfig.adsenseBannerSlot || "",
     calculatorWidget: normalizarCalculadoraWidget({
       ...(appConfig.calculatorWidget || {}),
       open: false
@@ -12081,6 +12181,7 @@ function concluirLoginUsuario(usuario) {
   registrarAtividadeSessao();
   sincronizarAposLogin();
   oferecerAtivarBiometriaAposLogin();
+  reconciliarOnboardingConcluido(usuario);
   if (isSuperAdmin(usuario)) {
     telaAnterior = telaAtual;
     telaAtual = "superadmin";
@@ -12508,7 +12609,10 @@ function lerConfigAppCampos() {
     twoFactorScope: document.getElementById("twoFactorScope")?.value === "todos" ? "todos" : "admin",
     twoFactorRememberMinutes: Math.max(1, parseFloat(document.getElementById("twoFactorRememberMinutes")?.value || appConfig.twoFactorRememberMinutes || 60) || 60),
     autoUpdateEnabled: autoUpdateEnabledEl ? autoUpdateEnabledEl.checked : appConfig.autoUpdateEnabled !== false,
-    updateCheckInterval: Math.max(5, parseFloat(document.getElementById("updateCheckInterval")?.value || appConfig.updateCheckInterval || 30) || 30)
+    updateCheckInterval: Math.max(5, parseFloat(document.getElementById("updateCheckInterval")?.value || appConfig.updateCheckInterval || 30) || 30),
+    adsenseWebEnabled: document.getElementById("adsenseWebEnabled") ? !!document.getElementById("adsenseWebEnabled")?.checked : appConfig.adsenseWebEnabled === true,
+    adsensePublisherId: (document.getElementById("adsensePublisherId")?.value || appConfig.adsensePublisherId || "").trim(),
+    adsenseBannerSlot: (document.getElementById("adsenseBannerSlot")?.value || appConfig.adsenseBannerSlot || "").trim()
   };
 }
 
@@ -12529,6 +12633,7 @@ function salvarConfigSync() {
   registrarHistorico("Configuração", "Sincronização atualizada");
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
+  configurarMonetizacaoAds();
   alert("Configurações salvas");
   renderApp();
 }
@@ -12769,6 +12874,7 @@ function normalizarBackup(dados) {
 
 function aplicarBackup(dados, modo = "substituir") {
   const licencaBackendAntesBackup = capturarLicencaBackendFresca();
+  const companySetupCompletedAntesBackup = appConfig.companySetupCompleted === true;
   const backup = normalizarBackup(dados);
   const escopoAtual = obterEscopoBackupAtual();
   const escopoBackup = dados?.escopo && typeof dados.escopo === "object" ? dados.escopo : {};
@@ -12830,6 +12936,7 @@ function aplicarBackup(dados, modo = "substituir") {
     ...appConfig,
     ...backup.appConfig
   };
+  appConfig.companySetupCompleted = companySetupCompletedAntesBackup || appConfig.companySetupCompleted === true;
   appConfig.appearanceSettings = normalizarAppearanceSettings(appConfig.appearanceSettings || {});
 
   billingConfig = {
@@ -12868,6 +12975,7 @@ function aplicarBackup(dados, modo = "substituir") {
   };
 
   atribuirDonoRemotoDadosLocais();
+  reconciliarOnboardingConcluido();
   dataScopeChangedOnCurrentSession = false;
   salvarDados();
   return true;
@@ -12904,7 +13012,11 @@ function mesclarUsuarios(local, remoto) {
     const atual = mapa.get(usuario.email);
     const dataAtual = Date.parse(atual?.criadoEm || 0) || 0;
     const dataNova = Date.parse(usuario?.criadoEm || 0) || 0;
-    mapa.set(usuario.email, dataNova >= dataAtual ? { ...atual, ...usuario } : atual);
+    const mesclado = dataNova >= dataAtual ? { ...atual, ...usuario } : { ...usuario, ...atual };
+    const onboardingCompleted = atual?.onboardingCompleted === true || usuario?.onboardingCompleted === true;
+    mesclado.onboardingCompleted = onboardingCompleted;
+    mesclado.onboardingStep = onboardingCompleted ? 4 : Math.max(Number(atual?.onboardingStep) || 0, Number(usuario?.onboardingStep) || 0);
+    mapa.set(usuario.email, mesclado);
   });
   return Array.from(mapa.values());
 }
@@ -13734,6 +13846,15 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.clientId = perfil.client_id || usuario.clientId || billingConfig.clientId || "";
     usuario.companyId = perfil.company_id || usuario.companyId || billingConfig.companyId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
+    const onboardingRemotoConcluido = perfil.onboarding_completed === true || perfil.onboardingCompleted === true;
+    usuario.onboardingCompleted = usuario.onboardingCompleted === true || onboardingRemotoConcluido || onboardingConcluidoLocalmente(usuario);
+    usuario.onboardingStep = usuario.onboardingCompleted
+      ? 4
+      : Math.max(Number(usuario.onboardingStep) || 0, Number(perfil.onboarding_step ?? perfil.onboardingStep) || 0);
+    if (usuario.onboardingCompleted) {
+      appConfig.companySetupCompleted = true;
+      registrarOnboardingConcluidoLocalmente(usuario, true);
+    }
   }
 
   if (await verificarSuperadminSupabaseSilencioso()) {

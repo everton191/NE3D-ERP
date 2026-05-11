@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v69-dashboard-sync-planos-20260511";
+const CACHE_NAME = "simplifica-3d-v70-adsense-onboarding-20260511";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_FILES = [
   "./app.js",
   "./src/services/errorTelemetry.js",
   "./src/services/adMobService.js",
+  "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",

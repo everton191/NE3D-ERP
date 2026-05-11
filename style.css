@@ -3933,6 +3933,51 @@ body.auth-screen-active #app{
   }
 }
 
+.web-adsense-slot{
+  display:none;
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  width:min(728px, calc(100vw - 32px));
+  min-height:72px;
+  max-height:96px;
+  transform:translateX(-50%);
+  padding:6px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:18px;
+  background:rgba(5,22,29,.72);
+  box-shadow:0 16px 36px rgba(0,0,0,.28);
+  backdrop-filter:blur(14px);
+  z-index:55;
+  overflow:hidden;
+}
+
+.web-adsense-slot.visible{
+  display:block;
+}
+
+.web-adsense-slot ins{
+  width:100%;
+  min-height:60px;
+}
+
+body.auth-screen-active .web-adsense-slot,
+body[data-screen-fit="locked"] .web-adsense-slot{
+  display:none !important;
+}
+
+@media(max-width:767px){
+  .web-adsense-slot{
+    left:12px;
+    right:12px;
+    bottom:calc(86px + env(safe-area-inset-bottom));
+    width:auto;
+    min-height:64px;
+    transform:none;
+    border-radius:16px;
+  }
+}
+
 @media(max-width:380px){
   .menu-button span{
     font-size:var(--font-md);
