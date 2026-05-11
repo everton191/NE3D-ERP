@@ -3333,6 +3333,7 @@ body.auth-screen-active #app{
   flex:1;
   overflow:auto;
   padding:var(--gap);
+  padding-bottom:calc(96px + env(safe-area-inset-bottom));
 }
 
 .popup{
@@ -3793,19 +3794,23 @@ body.auth-screen-active #app{
 
   .assistant-fab{
     right:14px;
-    bottom:calc(18px + env(safe-area-inset-bottom));
+    bottom:calc(96px + env(safe-area-inset-bottom));
   }
 
   .assistant-panel{
     right:8px;
-    bottom:calc(72px + env(safe-area-inset-bottom));
+    bottom:calc(150px + env(safe-area-inset-bottom));
     width:calc(100vw - 16px);
-    max-height:calc(100dvh - 96px);
+    max-height:calc(100dvh - 174px);
   }
 
   .calc-float-ball{
     right:14px;
-    bottom:calc(80px + env(safe-area-inset-bottom));
+    bottom:calc(158px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-nav{
+    display:grid;
   }
 
   .material-line .icon-button,

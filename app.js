@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.10.45";
+const APP_VERSION = "2026.05.11.46";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -61,6 +61,23 @@ const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
 const PENDING_SYNC_QUEUE_KEY = "pending_sync";
+const USER_DATA_CACHE_PREFIX = "erp_data_";
+const ACTIVE_DATA_SCOPE_KEY = "erp_data_active_scope";
+const USER_SCOPED_LIST_KEYS = Object.freeze([
+  "estoque",
+  "caixa",
+  "pedidos",
+  "orcamentos",
+  "historico",
+  "diagnostics",
+  "sugestoes",
+  "securityLogs",
+  "auditLogs",
+  "saasClients",
+  "saasSubscriptions",
+  "saasPayments",
+  "saasSessions"
+]);
 const LOCAL_UNLOCK_KEY = "simplifica3dLastLocalUnlockAt";
 const LOCAL_UNLOCK_MAX_MS = 12 * 60 * 60 * 1000;
 const OFFLINE_LICENSE_STALE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
@@ -132,6 +149,8 @@ let assistantMinimized = false;
 let assistantMessages = [];
 let localLockModalOpen = false;
 let licenseMonitorTimer = null;
+let dataScopeChangedOnCurrentSession = false;
+let scopedDataCacheReady = false;
 
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
@@ -1178,6 +1197,166 @@ function carregarObjeto(chave, fallback = {}) {
   }
 }
 
+function getEscopoDadosAtual() {
+  return pareceUuid(syncConfig.supabaseUserId) ? String(syncConfig.supabaseUserId) : "";
+}
+
+function getChaveCacheDadosUsuario(escopo = getEscopoDadosAtual()) {
+  return escopo ? `${USER_DATA_CACHE_PREFIX}${escopo}` : "";
+}
+
+function getChaveFilaSyncUsuario(escopo = getEscopoDadosAtual()) {
+  return escopo ? `${PENDING_SYNC_QUEUE_KEY}_${escopo}` : PENDING_SYNC_QUEUE_KEY;
+}
+
+function lerCacheDadosUsuario(escopo = getEscopoDadosAtual()) {
+  const chave = getChaveCacheDadosUsuario(escopo);
+  if (!chave) return null;
+  try {
+    const cache = JSON.parse(localStorage.getItem(chave) || "null");
+    return cache && typeof cache === "object" && !Array.isArray(cache) ? cache : null;
+  } catch (erro) {
+    console.warn("Não foi possível carregar cache de dados", escopo, erro);
+    return null;
+  }
+}
+
+function criarSnapshotDadosUsuario(escopo = getEscopoDadosAtual()) {
+  return {
+    version: 1,
+    scopeId: escopo || "",
+    savedAt: new Date().toISOString(),
+    data: {
+      estoque,
+      caixa,
+      pedidos,
+      orcamentos,
+      historico,
+      diagnostics,
+      sugestoes,
+      securityLogs,
+      auditLogs,
+      saasClients,
+      saasSubscriptions,
+      saasPayments,
+      saasSessions,
+      appConfig,
+      billingConfig,
+      usageCounters
+    }
+  };
+}
+
+function salvarCacheDadosUsuario(escopo = getEscopoDadosAtual()) {
+  const chave = getChaveCacheDadosUsuario(escopo);
+  if (!chave) return false;
+  localStorage.setItem(chave, JSON.stringify(criarSnapshotDadosUsuario(escopo)));
+  return true;
+}
+
+function aplicarCacheDadosUsuario(cache) {
+  const data = cache?.data && typeof cache.data === "object" ? cache.data : {};
+  estoque = Array.isArray(data.estoque) ? data.estoque : [];
+  caixa = Array.isArray(data.caixa) ? data.caixa : [];
+  pedidos = Array.isArray(data.pedidos) ? data.pedidos : [];
+  orcamentos = Array.isArray(data.orcamentos) ? data.orcamentos : [];
+  historico = Array.isArray(data.historico) ? data.historico : [];
+  diagnostics = Array.isArray(data.diagnostics) ? data.diagnostics : [];
+  sugestoes = Array.isArray(data.sugestoes) ? data.sugestoes : [];
+  securityLogs = Array.isArray(data.securityLogs) ? data.securityLogs : [];
+  auditLogs = Array.isArray(data.auditLogs) ? data.auditLogs : [];
+  saasClients = Array.isArray(data.saasClients) ? data.saasClients : [];
+  saasSubscriptions = Array.isArray(data.saasSubscriptions) ? data.saasSubscriptions : [];
+  saasPayments = Array.isArray(data.saasPayments) ? data.saasPayments : [];
+  saasSessions = Array.isArray(data.saasSessions) ? data.saasSessions : [];
+  appConfig = data.appConfig && typeof data.appConfig === "object" ? { ...appConfig, ...data.appConfig } : appConfig;
+  billingConfig = data.billingConfig && typeof data.billingConfig === "object" ? { ...billingConfig, ...data.billingConfig } : billingConfig;
+  usageCounters = data.usageCounters && typeof data.usageCounters === "object" ? data.usageCounters : {};
+}
+
+function limparDadosOperacionaisLocais() {
+  estoque = [];
+  caixa = [];
+  pedidos = [];
+  orcamentos = [];
+  historico = [];
+  diagnostics = [];
+  sugestoes = [];
+  securityLogs = [];
+  auditLogs = [];
+  saasClients = [];
+  saasSubscriptions = [];
+  saasPayments = [];
+  saasSessions = [];
+  pendingSync = [];
+  pedidoEditando = null;
+  pedidoVisualizandoId = null;
+  itensPedido = [];
+  clientePedido = "";
+  clienteTelefonePedido = "";
+}
+
+function removerCachesOperacionaisGlobais() {
+  USER_SCOPED_LIST_KEYS.forEach((chave) => localStorage.removeItem(chave));
+  localStorage.removeItem(PENDING_SYNC_QUEUE_KEY);
+}
+
+function limparCacheTemporarioContaAnterior() {
+  removerCachesOperacionaisGlobais();
+  window.__pedidosFiltroDashboard = "";
+  window.__pedidosLimite = LIST_PAGE_SIZE;
+  window.__clienteSaasSelecionadoId = "";
+}
+
+function atribuirDonoRemotoLista(lista, escopo = getEscopoDadosAtual()) {
+  if (!escopo) return Array.isArray(lista) ? lista : [];
+  return (Array.isArray(lista) ? lista : []).map((item) => {
+    if (!item || typeof item !== "object") return item;
+    const atualizadoEm = item.updated_at || item.updatedAt || item.atualizadoEm || new Date().toISOString();
+    return {
+      ...item,
+      user_id: escopo,
+      owner_id: escopo,
+      sync_status: item.sync_status || item.syncStatus || "pending",
+      updated_at: atualizadoEm,
+      updatedAt: item.updatedAt || atualizadoEm
+    };
+  });
+}
+
+function atribuirDonoRemotoDadosLocais(escopo = getEscopoDadosAtual()) {
+  if (!escopo) return;
+  estoque = atribuirDonoRemotoLista(estoque, escopo);
+  caixa = atribuirDonoRemotoLista(caixa, escopo);
+  pedidos = atribuirDonoRemotoLista(pedidos, escopo);
+  orcamentos = atribuirDonoRemotoLista(orcamentos, escopo);
+}
+
+function ativarEscopoDadosUsuarioAtual(motivo = "session", opcoes = {}) {
+  const escopo = getEscopoDadosAtual();
+  if (!escopo) return false;
+  scopedDataCacheReady = true;
+  const anterior = localStorage.getItem(ACTIVE_DATA_SCOPE_KEY) || "";
+  if (anterior === escopo) {
+    atribuirDonoRemotoDadosLocais(escopo);
+    pendingSync = carregarLista(getChaveFilaSyncUsuario(escopo));
+    return false;
+  }
+
+  if (anterior) salvarCacheDadosUsuario(anterior);
+  limparDadosOperacionaisLocais();
+  localStorage.setItem(ACTIVE_DATA_SCOPE_KEY, escopo);
+  const cache = lerCacheDadosUsuario(escopo);
+  if (cache) aplicarCacheDadosUsuario(cache);
+  pendingSync = carregarLista(getChaveFilaSyncUsuario(escopo));
+  atribuirDonoRemotoDadosLocais(escopo);
+  limparCacheTemporarioContaAnterior();
+  dataScopeChangedOnCurrentSession = true;
+  console.info("[SyncScope][switch]", { motivo, previous_scope: anterior || "", auth_uid: escopo, restored_cache: !!cache });
+  if (opcoes.persistir !== false) salvarDados();
+  return true;
+}
+
 function estaOnline() {
   return typeof navigator === "undefined" || navigator.onLine !== false;
 }
@@ -1268,22 +1447,25 @@ async function carregarDriveHandle() {
 }
 
 function salvarDados() {
-  localStorage.setItem("estoque", JSON.stringify(estoque));
-  localStorage.setItem("caixa", JSON.stringify(caixa));
-  localStorage.setItem("pedidos", JSON.stringify(pedidos));
-  localStorage.setItem("orcamentos", JSON.stringify(orcamentos));
-  localStorage.setItem("historico", JSON.stringify(historico));
-  localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
-  localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
-  localStorage.setItem("securityLogs", JSON.stringify(securityLogs));
-  localStorage.setItem("auditLogs", JSON.stringify(auditLogs));
+  const escopo = scopedDataCacheReady ? getEscopoDadosAtual() : "";
+  if (escopo) {
+    atribuirDonoRemotoDadosLocais(escopo);
+    salvarCacheDadosUsuario(escopo);
+    removerCachesOperacionaisGlobais();
+  } else {
+    localStorage.setItem("estoque", JSON.stringify(estoque));
+    localStorage.setItem("caixa", JSON.stringify(caixa));
+    localStorage.setItem("pedidos", JSON.stringify(pedidos));
+    localStorage.setItem("orcamentos", JSON.stringify(orcamentos));
+    localStorage.setItem("historico", JSON.stringify(historico));
+    localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
+    localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
+    localStorage.setItem("securityLogs", JSON.stringify(securityLogs));
+    localStorage.setItem("auditLogs", JSON.stringify(auditLogs));
+    localStorage.setItem(PENDING_SYNC_QUEUE_KEY, JSON.stringify(pendingSync));
+  }
   localStorage.setItem("passwordResetTokens", JSON.stringify(passwordResetTokens));
-  localStorage.setItem("saasClients", JSON.stringify(saasClients));
   localStorage.setItem("saasPlans", JSON.stringify(saasPlans));
-  localStorage.setItem("saasSubscriptions", JSON.stringify(saasSubscriptions));
-  localStorage.setItem("saasPayments", JSON.stringify(saasPayments));
-  localStorage.setItem("saasSessions", JSON.stringify(saasSessions));
-  localStorage.setItem(PENDING_SYNC_QUEUE_KEY, JSON.stringify(pendingSync));
   localStorage.setItem("usageCounters", JSON.stringify(usageCounters));
   localStorage.setItem("loginAttempts", JSON.stringify(loginAttempts));
   localStorage.setItem("usuarios", JSON.stringify(usuarios));
@@ -1328,6 +1510,7 @@ function carregarSessaoSensivelSupabase() {
       supabaseUserId: sessaoSessao.supabaseUserId || supabaseLocal.supabaseUserId || syncConfig.supabaseUserId || "",
       supabaseEmail: sessaoSessao.supabaseEmail || supabaseLocal.supabaseEmail || syncConfig.supabaseEmail || ""
     };
+    ativarEscopoDadosUsuarioAtual("load-sensitive-session", { persistir: false });
   } catch (_) {}
 }
 
@@ -3053,15 +3236,19 @@ function getEmailLicencaAtual() {
 }
 
 function getDataOwnerId() {
+  const remoto = getEscopoDadosAtual();
+  if (remoto) return remoto;
   const usuario = getUsuarioAtual();
   return isSuperAdmin(usuario) ? "superadmin" : normalizarEmail(usuario?.email || billingConfig.licenseEmail || deviceId);
 }
 
 function prepararRegistroOnline(registro = {}) {
   const atualizadoEm = registro.updated_at || registro.updatedAt || registro.atualizadoEm || new Date().toISOString();
+  const ownerId = getDataOwnerId();
   return {
     ...registro,
-    owner_id: registro.owner_id || getDataOwnerId(),
+    user_id: pareceUuid(ownerId) ? ownerId : registro.user_id || registro.userId || null,
+    owner_id: ownerId,
     sync_status: registro.sync_status || registro.syncStatus || "pending",
     updated_at: atualizadoEm,
     updatedAt: registro.updatedAt || atualizadoEm
@@ -3081,9 +3268,11 @@ function getRegistroSyncId(colecao, registro = {}) {
 
 function normalizarPayloadSync(colecao, registro = {}) {
   const atualizadoEm = registro.updated_at || registro.updatedAt || registro.atualizadoEm || registro.criadoEm || registro.createdAt || new Date().toISOString();
+  const ownerId = getDataOwnerId();
   return {
     ...registro,
-    owner_id: registro.owner_id || getDataOwnerId(),
+    user_id: pareceUuid(ownerId) ? ownerId : registro.user_id || registro.userId || null,
+    owner_id: ownerId,
     sync_status: registro.sync_status || registro.syncStatus || "pending",
     updated_at: atualizadoEm,
     updatedAt: registro.updatedAt || atualizadoEm,
@@ -3136,6 +3325,7 @@ function coletarRegistrosPendentesLocais() {
       const payload = normalizarPayloadSync(colecao, registro);
       itens.push({
         id: `${colecao}:${getRegistroSyncId(colecao, payload)}`,
+        scopeId: getEscopoDadosAtual(),
         collection: colecao,
         recordId: getRegistroSyncId(colecao, payload),
         data: payload,
@@ -3150,20 +3340,31 @@ function coletarRegistrosPendentesLocais() {
 }
 
 function salvarFilaSyncLocal() {
-  localStorage.setItem(PENDING_SYNC_QUEUE_KEY, JSON.stringify(pendingSync));
+  const escopo = getEscopoDadosAtual();
+  const fila = escopo
+    ? (Array.isArray(pendingSync) ? pendingSync : []).filter((item) => !item.scopeId || item.scopeId === escopo).map((item) => ({ ...item, scopeId: escopo }))
+    : (Array.isArray(pendingSync) ? pendingSync : []);
+  pendingSync = fila;
+  localStorage.setItem(getChaveFilaSyncUsuario(escopo), JSON.stringify(fila));
+  if (escopo) localStorage.removeItem(PENDING_SYNC_QUEUE_KEY);
 }
 
 function recomporFilaSyncPendente() {
+  const escopo = getEscopoDadosAtual();
   const mapa = new Map();
   (Array.isArray(pendingSync) ? pendingSync : []).forEach((item) => {
     if (!item?.collection || !item?.recordId) return;
-    mapa.set(`${item.collection}:${item.recordId}`, item);
+    if (escopo && item.scopeId && item.scopeId !== escopo) return;
+    const normalizado = escopo ? { ...item, scopeId: escopo } : item;
+    mapa.set(`${normalizado.scopeId || "local"}:${normalizado.collection}:${normalizado.recordId}`, normalizado);
   });
   coletarRegistrosPendentesLocais().forEach((item) => {
-    const existente = mapa.get(item.id) || {};
-    mapa.set(item.id, { ...existente, ...item, attempts: existente.attempts || 0 });
+    if (escopo && item.scopeId !== escopo) return;
+    const chave = `${item.scopeId || "local"}:${item.collection}:${item.recordId}`;
+    const existente = mapa.get(chave) || {};
+    mapa.set(chave, { ...existente, ...item, attempts: existente.attempts || 0, scopeId: item.scopeId || escopo || "" });
   });
-  pendingSync = Array.from(mapa.values()).filter((item) => item.status !== "synced");
+  pendingSync = Array.from(mapa.values()).filter((item) => item.status !== "synced" && (!escopo || item.scopeId === escopo));
   salvarFilaSyncLocal();
   return pendingSync;
 }
@@ -3187,9 +3388,14 @@ function atualizarStatusRegistroLocalSync(colecao, recordId, status, extra = {})
 }
 
 async function enviarRegistroSyncSupabase(item) {
+  const escopo = getEscopoDadosAtual();
+  if (escopo && item.scopeId && item.scopeId !== escopo) {
+    throw new Error("Fila offline pertence a outra conta.");
+  }
   const payload = normalizarPayloadSync(item.collection, item.data || {});
   console.info("[SyncQueue][send]", {
     auth_uid: syncConfig.supabaseUserId || "",
+    scope_id: item.scopeId || escopo || "",
     collection: item.collection,
     record_id: item.recordId,
     sync_status: payload.sync_status || "pending"
@@ -4613,7 +4819,7 @@ function voltarInicio() {
 }
 
 function atualizarMenu() {
-  document.querySelectorAll(".menu-button, .side-nav-button, .popup-nav-button").forEach((botao) => {
+  document.querySelectorAll(".menu-button, .side-nav-button, .popup-nav-button, .mobile-bottom-nav-button").forEach((botao) => {
     botao.classList.toggle("active", botao.dataset.tela === telaAtual);
   });
 }
@@ -5718,6 +5924,7 @@ function renderMobile() {
       ${renderAcoesRapidas()}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
+    ${renderMobileBottomNav()}
   `;
 }
 
@@ -5727,13 +5934,13 @@ function getMobileBottomNavItems() {
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "producao", icone: "🖨️", texto: "Produção" },
     { tela: "estoque", icone: "📦", texto: "Estoque" },
-    { tela: "mais", icone: "☰", texto: "Mais" }
+    { tela: "caixa", icone: "💰", texto: "Caixa" }
   ].filter((item) => canAccessScreen(item.tela));
 }
 
 function getMobileBottomNavActive() {
-  const principais = new Set(["dashboard", "pedidos", "producao", "estoque"]);
-  return principais.has(telaAtual) ? telaAtual : "mais";
+  const principais = new Set(getMobileBottomNavItems().map((item) => item.tela));
+  return principais.has(telaAtual) ? telaAtual : "";
 }
 
 function renderMobileBottomNav() {
@@ -5741,9 +5948,9 @@ function renderMobileBottomNav() {
   const itens = getMobileBottomNavItems();
   if (!itens.length || !getUsuarioAtual()) return "";
   return `
-    <nav class="mobile-bottom-nav" aria-label="Navegação principal">
+    <nav class="mobile-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
-        <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" type="button" onclick="trocarTela('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
+        <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="trocarTela('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
           <span>${item.icone}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
@@ -10888,6 +11095,8 @@ function sincronizarAposLogin() {
 
 function logoutUsuario() {
   const email = usuarioAtualEmail;
+  const escopoAtual = getEscopoDadosAtual();
+  if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);
   usuarioAtualEmail = "";
   adminLogado = false;
   window.__simplificaLocalLockActive = false;
@@ -10896,7 +11105,13 @@ function logoutUsuario() {
   sessionStorage.removeItem("adminLogado");
   sessionStorage.removeItem("sessionLastActivity");
   limparSessaoSensivelSupabase();
+  syncConfig.supabaseUserId = "";
+  syncConfig.supabaseEmail = "";
+  scopedDataCacheReady = false;
   localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+  localStorage.removeItem(ACTIVE_DATA_SCOPE_KEY);
+  limparDadosOperacionaisLocais();
+  limparCacheTemporarioContaAnterior();
   registrarSeguranca("Logout", "sucesso", "", email);
   salvarDados();
   renderApp();
@@ -11408,6 +11623,7 @@ function filtrarUsageCountersEscopoBackup(contadores, escopo) {
 }
 
 function criarSnapshotBackupUsuarioAtual() {
+  atribuirDonoRemotoDadosLocais();
   const snapshot = criarSnapshotBackup();
   const escopo = obterEscopoBackupAtual();
   if (escopo.superadmin) return snapshot;
@@ -11501,6 +11717,25 @@ function normalizarBackup(dados) {
 
 function aplicarBackup(dados, modo = "substituir") {
   const backup = normalizarBackup(dados);
+  const escopoAtual = obterEscopoBackupAtual();
+  const escopoBackup = dados?.escopo && typeof dados.escopo === "object" ? dados.escopo : {};
+  const userIdBackup = String(escopoBackup.userId || backup.configuracoes.supabaseUserId || "").trim();
+  if (userIdBackup && escopoAtual.userId && userIdBackup !== escopoAtual.userId) {
+    registrarDiagnostico("Backup", "Backup de outra conta ignorado", `backup=${userIdBackup} atual=${escopoAtual.userId}`);
+    return false;
+  }
+
+  if (modo === "mesclar" && dataScopeChangedOnCurrentSession) {
+    modo = "substituir";
+    registrarDiagnostico("Backup", "Troca de conta detectada", "Backup remoto aplicado como autoridade, sem mesclar cache local anterior.");
+  }
+
+  if (!escopoAtual.superadmin && escopoAtual.userId) {
+    backup.estoque = filtrarListaEscopoBackup(backup.estoque, escopoAtual, true);
+    backup.caixa = filtrarListaEscopoBackup(backup.caixa, escopoAtual, true);
+    backup.pedidos = filtrarListaEscopoBackup(backup.pedidos, escopoAtual, true);
+    backup.orcamentos = filtrarListaEscopoBackup(backup.orcamentos, escopoAtual, true);
+  }
 
   if (modo === "mesclar") {
     estoque = mesclarListas(estoque, backup.estoque);
@@ -11576,7 +11811,10 @@ function aplicarBackup(dados, modo = "substituir") {
     ultimaSync: backup.configuracoes.ultimaSync || syncConfig.ultimaSync
   };
 
+  atribuirDonoRemotoDadosLocais();
+  dataScopeChangedOnCurrentSession = false;
   salvarDados();
+  return true;
 }
 
 function mesclarListas(local, remoto) {
@@ -12292,6 +12530,7 @@ function salvarSessaoSupabase(dados, email) {
   syncConfig.supabaseEmail = normalizarEmail(usuario.email || email || syncConfig.supabaseEmail);
   syncConfig.supabaseEnabled = true;
   syncConfig.supabaseLastLogin = new Date().toISOString();
+  ativarEscopoDadosUsuarioAtual("supabase-session", { persistir: false });
   salvarSessaoSensivelSupabase();
   salvarDados();
   return true;
@@ -12782,8 +13021,15 @@ async function processarRetornoOAuthSupabase() {
 }
 
 function sairSupabase() {
+  const escopoAtual = getEscopoDadosAtual();
+  if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);
   limparSessaoSensivelSupabase();
   syncConfig.supabaseUserId = "";
+  syncConfig.supabaseEmail = "";
+  scopedDataCacheReady = false;
+  localStorage.removeItem(ACTIVE_DATA_SCOPE_KEY);
+  limparDadosOperacionaisLocais();
+  limparCacheTemporarioContaAnterior();
   salvarDados();
   registrarHistorico("Supabase", "Sessão encerrada");
   renderApp();

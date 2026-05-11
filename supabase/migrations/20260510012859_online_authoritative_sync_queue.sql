@@ -18,7 +18,7 @@ declare
   v_user_id uuid := auth.uid();
   v_collection text := lower(trim(coalesce(p_collection, '')));
   v_record_id text := trim(coalesce(p_record_id, ''));
-  v_data jsonb := coalesce(p_data, '{}'::jsonb);
+  v_data jsonb;
   v_owner_id text;
   v_local_updated_at timestamptz := now();
   v_remote public.erp_records%rowtype;
@@ -36,7 +36,9 @@ begin
     raise exception 'RECORD_ID_REQUIRED' using errcode = '22023';
   end if;
 
-  v_owner_id := coalesce(nullif(v_data->>'owner_id', ''), v_user_id::text);
+  v_owner_id := v_user_id::text;
+  v_data := (coalesce(p_data, '{}'::jsonb) - 'owner_id' - 'ownerId' - 'user_id' - 'userId')
+    || jsonb_build_object('owner_id', v_owner_id, 'user_id', v_owner_id);
 
   begin
     v_local_updated_at := coalesce(
@@ -109,7 +111,7 @@ begin
   returning * into v_remote;
 
   update public.erp_records
-     set data = data || jsonb_build_object('remote_id', v_remote.id)
+     set data = data || jsonb_build_object('remote_id', v_remote.id, 'owner_id', v_owner_id, 'user_id', v_owner_id)
    where id = v_remote.id
    returning * into v_remote;
 
@@ -126,3 +128,17 @@ $$;
 
 revoke execute on function public.upsert_erp_record_if_newer(text, text, jsonb, timestamptz) from public, anon;
 grant execute on function public.upsert_erp_record_if_newer(text, text, jsonb, timestamptz) to authenticated, service_role;
+
+update public.erp_records
+   set owner_id = user_id::text,
+       data = (coalesce(data, '{}'::jsonb) - 'owner_id' - 'ownerId' - 'user_id' - 'userId')
+         || jsonb_build_object(
+           'owner_id', user_id::text,
+           'user_id', user_id::text,
+           'sync_status', coalesce(nullif(data->>'sync_status', ''), 'synced'),
+           'remote_id', coalesce(nullif(data->>'remote_id', ''), id::text)
+         ),
+       updated_at = now()
+ where owner_id is distinct from user_id::text
+    or data->>'owner_id' is distinct from user_id::text
+    or data->>'user_id' is distinct from user_id::text;
