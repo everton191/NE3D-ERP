@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.11.46";
+const APP_VERSION = "2026.05.11.47";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -78,10 +78,43 @@ const USER_SCOPED_LIST_KEYS = Object.freeze([
   "saasPayments",
   "saasSessions"
 ]);
+const BACKEND_LICENSE_CACHE_KEYS = Object.freeze([
+  "activePlan",
+  "planSlug",
+  "pendingPlan",
+  "paymentStatus",
+  "subscriptionStatus",
+  "licenseStatus",
+  "licenseBlockLevel",
+  "effectiveUserId",
+  "effectivePlanCode",
+  "effectiveStatus",
+  "effectiveIsPremium",
+  "effectiveIsTrial",
+  "effectiveIsPending",
+  "effectiveIsBlocked",
+  "effectiveRemainingTrialDays",
+  "effectiveLicenseSource",
+  "effectiveLicenseUpdatedAt",
+  "effectiveLicenseStale",
+  "lastOnlineLicenseValidationAt",
+  "trialStartedAt",
+  "trialExpiresAt",
+  "trialConsumedAt",
+  "isTrialActive",
+  "paidUntil",
+  "planExpiresAt",
+  "premiumUntil",
+  "blockedAt",
+  "blockedReason"
+]);
 const LOCAL_UNLOCK_KEY = "simplifica3dLastLocalUnlockAt";
 const LOCAL_UNLOCK_MAX_MS = 12 * 60 * 60 * 1000;
 const OFFLINE_LICENSE_STALE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
 const LICENSE_MONITOR_INTERVAL_MS = 60 * 1000;
+const REALTIME_SYNC_HEARTBEAT_MS = 25 * 1000;
+const REALTIME_SYNC_RECONNECT_MS = 5 * 1000;
+const REALTIME_SYNC_DEBOUNCE_MS = 1200;
 const SYNCABLE_COLLECTIONS = Object.freeze(["pedidos", "estoque", "caixa", "clientes"]);
 const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
@@ -151,6 +184,24 @@ let localLockModalOpen = false;
 let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
 let scopedDataCacheReady = false;
+let dataSyncDebounceTimer = null;
+let realtimeSyncState = {
+  socket: null,
+  topic: "",
+  userId: "",
+  accessToken: "",
+  ref: 0,
+  joinRef: "",
+  joined: false,
+  heartbeatTimer: null,
+  reconnectTimer: null,
+  debounceTimer: null,
+  applying: false,
+  lastEventKey: "",
+  lastEventAt: 0,
+  lastToastAt: 0,
+  reconnectAttempts: 0
+};
 
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
@@ -226,12 +277,14 @@ let appConfig = carregarObjeto("appConfig", {
   defaultMargin: 100,
   defaultEnergy: 0.85,
   defaultFilamentCost: 150,
+  defaultExtraFee: 0,
   defaultPrinterType: "FDM",
   defaultPrintType: "",
   defaultMaterial: "",
   companySetupCompleted: false,
   defaultPrinterModel: "Ender 3",
   defaultResinCost: 180,
+  calculatorDefaults: {},
   screenFit: "auto",
   uiScale: 100,
   desktopCardMinWidth: 320,
@@ -966,6 +1019,7 @@ const AuthService = {
         hidratado = await carregarPerfilSaasSupabase(usuario);
         marcarUsuarioSupabaseSincronizado(hidratado);
         await garantirCadastroSaasOnlineAposLogin(hidratado);
+        await consultarLicencaSupabaseSilencioso({ motivo: "login-hydrate" });
         await this.verifyRlsHealth();
       }
       return StateStore.hydrateAuthenticatedUser(hidratado);
@@ -1317,6 +1371,8 @@ function atribuirDonoRemotoLista(lista, escopo = getEscopoDadosAtual()) {
       ...item,
       user_id: escopo,
       owner_id: escopo,
+      source_device_id: item.source_device_id || item.sourceDeviceId || deviceId,
+      sourceDeviceId: item.sourceDeviceId || item.source_device_id || deviceId,
       sync_status: item.sync_status || item.syncStatus || "pending",
       updated_at: atualizadoEm,
       updatedAt: item.updatedAt || atualizadoEm
@@ -1330,6 +1386,51 @@ function atribuirDonoRemotoDadosLocais(escopo = getEscopoDadosAtual()) {
   caixa = atribuirDonoRemotoLista(caixa, escopo);
   pedidos = atribuirDonoRemotoLista(pedidos, escopo);
   orcamentos = atribuirDonoRemotoLista(orcamentos, escopo);
+}
+
+function marcarRegistroAlteradoParaSync(registro = {}, campos = {}) {
+  const agora = new Date().toISOString();
+  return prepararRegistroOnline({
+    ...registro,
+    ...campos,
+    atualizadoEm: agora,
+    updated_at: agora,
+    updatedAt: agora,
+    sync_status: "pending",
+    syncStatus: "pending",
+    synced_at: "",
+    sync_error: ""
+  });
+}
+
+function marcarRegistroLocalAlteradoParaSync(registro, campos = {}) {
+  if (!registro || typeof registro !== "object") return registro;
+  Object.assign(registro, marcarRegistroAlteradoParaSync(registro, campos));
+  return registro;
+}
+
+function agendarSyncSilenciosoDados(motivo = "data-change", atrasoMs = 1200) {
+  if (typeof window === "undefined" || typeof setTimeout !== "function") return;
+  if (!estaOnline() || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseEnabled) return;
+  if (dataSyncDebounceTimer) clearTimeout(dataSyncDebounceTimer);
+  dataSyncDebounceTimer = setTimeout(() => {
+    dataSyncDebounceTimer = null;
+    sincronizarSupabaseSilencioso()
+      .catch((erro) => registrarDiagnostico("sync", `Sync silencioso após ${motivo} falhou`, erro.message));
+  }, atrasoMs);
+}
+
+function capturarLicencaBackendFresca() {
+  if (!licencaEfetivaRemotaFresca()) return null;
+  return BACKEND_LICENSE_CACHE_KEYS.reduce((snapshot, chave) => {
+    if (Object.prototype.hasOwnProperty.call(billingConfig, chave)) snapshot[chave] = billingConfig[chave];
+    return snapshot;
+  }, {});
+}
+
+function restaurarLicencaBackendFresca(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return;
+  Object.assign(billingConfig, snapshot);
 }
 
 function ativarEscopoDadosUsuarioAtual(motivo = "session", opcoes = {}) {
@@ -2237,6 +2338,7 @@ function normalizarPagamentoSaas(pagamento = {}) {
 }
 
 function normalizarSessaoSaas(sessao = {}) {
+  const lastSeenAt = sessao.lastSeenAt || sessao.last_seen_at || new Date().toISOString();
   return {
     id: sessao.id || criarIdLocal("session"),
     clientId: sessao.clientId || sessao.client_id || "",
@@ -2245,7 +2347,9 @@ function normalizarSessaoSaas(sessao = {}) {
     ip: sessao.ip || "",
     userAgent: sessao.userAgent || sessao.user_agent || navigator.userAgent || "",
     startedAt: sessao.startedAt || sessao.started_at || new Date().toISOString(),
-    lastSeenAt: sessao.lastSeenAt || sessao.last_seen_at || new Date().toISOString(),
+    lastSeenAt,
+    atualizadoEm: sessao.atualizadoEm || sessao.updatedAt || sessao.updated_at || lastSeenAt,
+    updatedAt: sessao.updatedAt || sessao.updated_at || sessao.atualizadoEm || lastSeenAt,
     active: sessao.active !== false && !sessao.endedAt && !sessao.ended_at
   };
 }
@@ -3249,6 +3353,8 @@ function prepararRegistroOnline(registro = {}) {
     ...registro,
     user_id: pareceUuid(ownerId) ? ownerId : registro.user_id || registro.userId || null,
     owner_id: ownerId,
+    source_device_id: registro.source_device_id || registro.sourceDeviceId || deviceId,
+    sourceDeviceId: registro.sourceDeviceId || registro.source_device_id || deviceId,
     sync_status: registro.sync_status || registro.syncStatus || "pending",
     updated_at: atualizadoEm,
     updatedAt: registro.updatedAt || atualizadoEm
@@ -3273,11 +3379,27 @@ function normalizarPayloadSync(colecao, registro = {}) {
     ...registro,
     user_id: pareceUuid(ownerId) ? ownerId : registro.user_id || registro.userId || null,
     owner_id: ownerId,
+    source_device_id: registro.source_device_id || registro.sourceDeviceId || deviceId,
+    sourceDeviceId: registro.sourceDeviceId || registro.source_device_id || deviceId,
     sync_status: registro.sync_status || registro.syncStatus || "pending",
     updated_at: atualizadoEm,
     updatedAt: registro.updatedAt || atualizadoEm,
     local_collection: colecao
   };
+}
+
+function getTimestampAlteracaoRegistro(item = {}) {
+  return Date.parse(
+    item?.updated_at
+    || item?.updatedAt
+    || item?.atualizadoEm
+    || item?.lastSeenAt
+    || item?.last_seen_at
+    || item?.data
+    || item?.createdAt
+    || item?.criadoEm
+    || 0
+  ) || 0;
 }
 
 function coletarClientesOperacionaisParaSync() {
@@ -3465,6 +3587,398 @@ async function sincronizarFilaOfflinePendente(motivo = "manual") {
   return { ok: restantes.length === 0, sent: enviados, pending: pendingSync.length };
 }
 
+function realtimeSyncDisponivel() {
+  return typeof WebSocket !== "undefined"
+    && !!syncConfig.supabaseAccessToken
+    && !!syncConfig.supabaseUserId
+    && !!syncConfig.supabaseUrl
+    && estaOnline();
+}
+
+function montarUrlRealtimeSupabase() {
+  const base = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL).replace(/^http/i, "ws");
+  const anonKey = encodeURIComponent(syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY);
+  return `${base}/realtime/v1/websocket?apikey=${anonKey}&vsn=2.0.0`;
+}
+
+function montarConfigRealtimeUsuario(userId) {
+  const filtroUsuario = `user_id=eq.${userId}`;
+  return {
+    broadcast: { ack: false, self: false },
+    presence: { enabled: false },
+    postgres_changes: [
+      { event: "INSERT", schema: "public", table: "erp_backups", filter: filtroUsuario },
+      { event: "UPDATE", schema: "public", table: "erp_backups", filter: filtroUsuario },
+      { event: "INSERT", schema: "public", table: "erp_records", filter: filtroUsuario },
+      { event: "UPDATE", schema: "public", table: "erp_records", filter: filtroUsuario }
+    ],
+    private: false
+  };
+}
+
+function proximoRefRealtime() {
+  realtimeSyncState.ref += 1;
+  return String(realtimeSyncState.ref);
+}
+
+function enviarMensagemRealtime(evento, payload = {}, opcoes = {}) {
+  const socket = realtimeSyncState.socket;
+  if (!socket || socket.readyState !== WebSocket.OPEN) return "";
+  const ref = proximoRefRealtime();
+  const topic = opcoes.topic || realtimeSyncState.topic;
+  let joinRef = Object.prototype.hasOwnProperty.call(opcoes, "joinRef") ? opcoes.joinRef : (realtimeSyncState.joinRef || null);
+  if (evento === "phx_join") {
+    joinRef = ref;
+    realtimeSyncState.joinRef = joinRef;
+  }
+  socket.send(JSON.stringify([joinRef, ref, topic, evento, payload]));
+  return ref;
+}
+
+function iniciarHeartbeatRealtime() {
+  if (realtimeSyncState.heartbeatTimer) clearInterval(realtimeSyncState.heartbeatTimer);
+  realtimeSyncState.heartbeatTimer = setInterval(() => {
+    enviarMensagemRealtime("heartbeat", {}, { topic: "phoenix", joinRef: null });
+  }, REALTIME_SYNC_HEARTBEAT_MS);
+}
+
+function limparTimersRealtime() {
+  if (realtimeSyncState.heartbeatTimer) clearInterval(realtimeSyncState.heartbeatTimer);
+  if (realtimeSyncState.reconnectTimer) clearTimeout(realtimeSyncState.reconnectTimer);
+  if (realtimeSyncState.debounceTimer) clearTimeout(realtimeSyncState.debounceTimer);
+  realtimeSyncState.heartbeatTimer = null;
+  realtimeSyncState.reconnectTimer = null;
+  realtimeSyncState.debounceTimer = null;
+}
+
+function pararRealtimeSyncUsuario(motivo = "logout") {
+  const socket = realtimeSyncState.socket;
+  limparTimersRealtime();
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    try {
+      enviarMensagemRealtime("phx_leave", {}, { joinRef: realtimeSyncState.joinRef || null });
+    } catch (_) {}
+  }
+  if (socket && [WebSocket.CONNECTING, WebSocket.OPEN].includes(socket.readyState)) {
+    try {
+      socket.close(1000, motivo);
+    } catch (_) {}
+  }
+  realtimeSyncState = {
+    socket: null,
+    topic: "",
+    userId: "",
+    accessToken: "",
+    ref: 0,
+    joinRef: "",
+    joined: false,
+    heartbeatTimer: null,
+    reconnectTimer: null,
+    debounceTimer: null,
+    applying: false,
+    lastEventKey: "",
+    lastEventAt: 0,
+    lastToastAt: realtimeSyncState.lastToastAt || 0,
+    reconnectAttempts: 0
+  };
+  registrarDiagnostico("Realtime", "Subscription encerrada", motivo);
+}
+
+function agendarReconnectRealtime(motivo = "socket-close") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return;
+  if (realtimeSyncState.reconnectTimer) clearTimeout(realtimeSyncState.reconnectTimer);
+  const tentativas = Math.min(6, Number(realtimeSyncState.reconnectAttempts || 0) + 1);
+  realtimeSyncState.reconnectAttempts = tentativas;
+  const atraso = REALTIME_SYNC_RECONNECT_MS * tentativas;
+  realtimeSyncState.reconnectTimer = setTimeout(() => {
+    realtimeSyncState.reconnectTimer = null;
+    iniciarRealtimeSyncUsuario(`reconnect:${motivo}`).catch((erro) => {
+      registrarDiagnostico("Realtime", "Reconnect falhou", erro.message || erro);
+    });
+  }, atraso);
+}
+
+async function iniciarRealtimeSyncUsuario(motivo = "manual") {
+  if (!realtimeSyncDisponivel()) return false;
+  const userId = String(syncConfig.supabaseUserId || "").trim();
+  const token = String(syncConfig.supabaseAccessToken || "").trim();
+  const socketAtual = realtimeSyncState.socket;
+  if (
+    socketAtual
+    && realtimeSyncState.userId === userId
+    && realtimeSyncState.accessToken === token
+    && [WebSocket.CONNECTING, WebSocket.OPEN].includes(socketAtual.readyState)
+  ) {
+    return true;
+  }
+
+  if (socketAtual) pararRealtimeSyncUsuario("troca-de-sessao");
+
+  const topic = `realtime:simplifica-sync-${userId}`;
+  const socket = new WebSocket(montarUrlRealtimeSupabase());
+  realtimeSyncState.socket = socket;
+  realtimeSyncState.topic = topic;
+  realtimeSyncState.userId = userId;
+  realtimeSyncState.accessToken = token;
+  realtimeSyncState.joined = false;
+
+  socket.onopen = () => {
+    realtimeSyncState.reconnectAttempts = 0;
+    enviarMensagemRealtime("phx_join", {
+      config: montarConfigRealtimeUsuario(userId),
+      access_token: token
+    }, { joinRef: null });
+    iniciarHeartbeatRealtime();
+    console.info("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records"] });
+  };
+
+  socket.onmessage = (event) => {
+    tratarMensagemRealtimeSupabase(event.data);
+  };
+
+  socket.onerror = () => {
+    registrarDiagnostico("Realtime", "Erro no WebSocket", motivo);
+  };
+
+  socket.onclose = () => {
+    if (realtimeSyncState.socket !== socket) return;
+    if (realtimeSyncState.heartbeatTimer) clearInterval(realtimeSyncState.heartbeatTimer);
+    if (realtimeSyncState.debounceTimer) clearTimeout(realtimeSyncState.debounceTimer);
+    realtimeSyncState.socket = null;
+    realtimeSyncState.joined = false;
+    realtimeSyncState.heartbeatTimer = null;
+    realtimeSyncState.debounceTimer = null;
+    agendarReconnectRealtime("close");
+  };
+
+  return true;
+}
+
+function extrairMensagemRealtime(raw) {
+  try {
+    const mensagem = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(mensagem)) {
+      return {
+        joinRef: mensagem[0],
+        ref: mensagem[1],
+        topic: mensagem[2],
+        event: mensagem[3],
+        payload: mensagem[4] || {}
+      };
+    }
+    return mensagem && typeof mensagem === "object" ? mensagem : null;
+  } catch (erro) {
+    registrarDiagnostico("Realtime", "Mensagem invalida", erro.message);
+    return null;
+  }
+}
+
+function normalizarEventoPostgresRealtime(payload = {}) {
+  const data = payload.data && typeof payload.data === "object" ? payload.data : payload;
+  return {
+    ids: payload.ids || data.ids || [],
+    schema: data.schema || "public",
+    table: data.table || "",
+    type: data.type || payload.type || "",
+    commit_timestamp: data.commit_timestamp || payload.commit_timestamp || "",
+    record: data.record && typeof data.record === "object" ? data.record : {},
+    old_record: data.old_record && typeof data.old_record === "object" ? data.old_record : {},
+    errors: data.errors || payload.errors || null
+  };
+}
+
+function eventoRealtimePertenceAoUsuario(evento) {
+  const userId = String(syncConfig.supabaseUserId || "").trim();
+  if (!userId) return false;
+  const record = evento.record || {};
+  const oldRecord = evento.old_record || {};
+  const data = record.data && typeof record.data === "object" ? record.data : {};
+  const oldData = oldRecord.data && typeof oldRecord.data === "object" ? oldRecord.data : {};
+  const candidatos = [
+    record.user_id,
+    record.owner_id,
+    oldRecord.user_id,
+    oldRecord.owner_id,
+    data.user_id,
+    data.owner_id,
+    oldData.user_id,
+    oldData.owner_id
+  ].filter((valor) => valor !== undefined && valor !== null).map((valor) => String(valor));
+  return candidatos.includes(userId);
+}
+
+function eventoRealtimeEhDesteDispositivo(evento) {
+  const record = evento.record || {};
+  if (evento.table === "erp_backups" && String(record.device_id || "") === deviceId) return true;
+  const data = record.data && typeof record.data === "object" ? record.data : {};
+  return [
+    data.source_device_id,
+    data.sourceDeviceId,
+    data.device_id,
+    data.deviceId,
+    data.sync_device_id
+  ].filter(Boolean).some((valor) => String(valor) === deviceId);
+}
+
+function tratarMensagemRealtimeSupabase(raw) {
+  const mensagem = extrairMensagemRealtime(raw);
+  if (!mensagem) return;
+
+  if (mensagem.event === "phx_reply") {
+    const respostaJoin = mensagem.topic === realtimeSyncState.topic && mensagem.ref === realtimeSyncState.joinRef;
+    if (mensagem.payload?.status === "ok" && respostaJoin) {
+      realtimeSyncState.joined = true;
+      registrarDiagnostico("Realtime", "Subscription ativa", realtimeSyncState.topic);
+    } else if (mensagem.payload?.status === "error" && respostaJoin) {
+      registrarDiagnostico("Realtime", "Falha ao assinar canal", JSON.stringify(mensagem.payload.response || {}));
+    }
+    return;
+  }
+
+  if (mensagem.event === "system") {
+    if (mensagem.payload?.status === "error" || mensagem.payload?.status === "timeout") {
+      registrarDiagnostico("Realtime", "Sistema reportou falha", mensagem.payload.message || mensagem.payload.status);
+    }
+    return;
+  }
+
+  if (mensagem.event === "postgres_changes") {
+    tratarEventoRealtimeSupabase(normalizarEventoPostgresRealtime(mensagem.payload));
+    return;
+  }
+
+  if (mensagem.event === "phx_close" || mensagem.event === "phx_error") {
+    registrarDiagnostico("Realtime", "Canal fechado pelo servidor", mensagem.event);
+  }
+}
+
+function tratarEventoRealtimeSupabase(evento) {
+  if (!["erp_backups", "erp_records"].includes(evento.table)) return;
+  if (!eventoRealtimePertenceAoUsuario(evento)) return;
+  if (eventoRealtimeEhDesteDispositivo(evento)) return;
+
+  const recordId = evento.record?.id || evento.record?.record_id || evento.old_record?.id || evento.old_record?.record_id || "";
+  const eventKey = [evento.table, evento.type, evento.commit_timestamp, recordId].join(":");
+  if (eventKey === realtimeSyncState.lastEventKey && Date.now() - realtimeSyncState.lastEventAt < 2500) return;
+  realtimeSyncState.lastEventKey = eventKey;
+  realtimeSyncState.lastEventAt = Date.now();
+
+  if (realtimeSyncState.debounceTimer) clearTimeout(realtimeSyncState.debounceTimer);
+  realtimeSyncState.debounceTimer = setTimeout(() => {
+    realtimeSyncState.debounceTimer = null;
+    processarMudancaRealtimeSupabase(evento).catch((erro) => {
+      registrarDiagnostico("Realtime", "Falha ao aplicar evento remoto", erro.message || erro);
+    });
+  }, REALTIME_SYNC_DEBOUNCE_MS);
+}
+
+function getListaColecaoOperacional(colecao) {
+  if (colecao === "pedidos") return pedidos;
+  if (colecao === "estoque") return estoque;
+  if (colecao === "caixa") return caixa;
+  if (colecao === "orcamentos") return orcamentos;
+  return null;
+}
+
+function setListaColecaoOperacional(colecao, lista) {
+  if (!Array.isArray(lista)) return false;
+  if (colecao === "pedidos") pedidos = lista;
+  else if (colecao === "estoque") estoque = lista;
+  else if (colecao === "caixa") caixa = lista;
+  else if (colecao === "orcamentos") orcamentos = lista;
+  else return false;
+  return true;
+}
+
+function aplicarRegistroRemotoRealtime(record = {}) {
+  const colecao = String(record.collection || "").trim();
+  const lista = getListaColecaoOperacional(colecao);
+  if (!lista) return false;
+  if (String(record.user_id || record.owner_id || "") !== String(syncConfig.supabaseUserId || "")) return false;
+
+  const data = record.data && typeof record.data === "object" ? record.data : {};
+  const recordId = String(record.record_id || data.remote_id || data.remoteId || data.id || "").trim();
+  if (!recordId) return false;
+  const indice = lista.findIndex((item) => getRegistroSyncId(colecao, item) === recordId || String(item?.id || "") === recordId);
+  const local = indice >= 0 ? lista[indice] : null;
+  const statusLocal = String(local?.sync_status || local?.syncStatus || "synced").toLowerCase();
+  const localPendente = ["pending", "error"].includes(statusLocal);
+  const tsLocal = getTimestampAlteracaoRegistro(local || {});
+  const tsRemoto = getTimestampAlteracaoRegistro(data) || Date.parse(record.updated_at || record.created_at || 0) || 0;
+  if (localPendente && tsLocal >= tsRemoto) return false;
+
+  let novaLista;
+  if (record.deleted_at || data.deleted_at) {
+    novaLista = lista.filter((item) => getRegistroSyncId(colecao, item) !== recordId && String(item?.id || "") !== recordId);
+  } else {
+    const atualizadoEm = data.updated_at || data.updatedAt || record.updated_at || record.created_at || new Date().toISOString();
+    const itemRemoto = {
+      ...data,
+      id: data.id || recordId,
+      user_id: syncConfig.supabaseUserId,
+      owner_id: syncConfig.supabaseUserId,
+      remote_id: recordId,
+      sync_status: "synced",
+      syncStatus: "synced",
+      updated_at: atualizadoEm,
+      updatedAt: data.updatedAt || atualizadoEm,
+      synced_at: new Date().toISOString(),
+      sync_error: ""
+    };
+    novaLista = indice >= 0
+      ? lista.map((item, idx) => (idx === indice ? itemRemoto : item))
+      : lista.concat(itemRemoto);
+  }
+
+  return setListaColecaoOperacional(colecao, novaLista);
+}
+
+function avisarRealtimeDadosAtualizados() {
+  const agora = Date.now();
+  if (agora - Number(realtimeSyncState.lastToastAt || 0) < 3500) return;
+  realtimeSyncState.lastToastAt = agora;
+  if (typeof mostrarToast === "function") mostrarToast("Dados atualizados", "info", 2200);
+}
+
+async function processarMudancaRealtimeSupabase(evento) {
+  if (realtimeSyncState.applying || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  realtimeSyncState.applying = true;
+  try {
+    const pendentes = recomporFilaSyncPendente();
+    if (pendentes.length) {
+      registrarDiagnostico("Realtime", "Evento remoto aguardou fila local", `${pendentes.length} item(ns) pendente(s)`);
+      const sincronizado = await sincronizarSupabaseSilencioso();
+      if (sincronizado) avisarRealtimeDadosAtualizados();
+      return !!sincronizado;
+    }
+
+    let alterou = false;
+    if (evento.table === "erp_records") {
+      alterou = aplicarRegistroRemotoRealtime(evento.record) || alterou;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    const remoto = await obterBackupSupabase();
+    if (remoto) {
+      alterou = aplicarBackup(remoto, "mesclar") || alterou;
+    }
+
+    if (alterou) {
+      const agoraIso = new Date().toISOString();
+      syncConfig.supabaseLastSync = agoraIso;
+      syncConfig.ultimaSync = agoraIso;
+      syncConfig.autoBackupStatus = "Atualizado em tempo real";
+      salvarCacheDadosUsuario();
+      salvarDados();
+      if (document.visibilityState !== "hidden") renderApp();
+      avisarRealtimeDadosAtualizados();
+    }
+    return alterou;
+  } finally {
+    realtimeSyncState.applying = false;
+  }
+}
+
 function usuarioEhDonoDaLicenca(email) {
   const alvo = normalizarEmail(email);
   const usuario = normalizarUsuarios(usuarios).find((item) => item.email === alvo);
@@ -3489,14 +4003,13 @@ function registrarDispositivoLicenca(email = getEmailLicencaAtual(), silencioso 
     return false;
   }
 
-  if (usuarioEhDonoDaLicenca(emailLicenca)) return true;
-
   const tipo = detectarTipoDispositivo();
   const limites = getLimitesDispositivos();
   const lista = normalizarDispositivosLicenca();
   const atual = lista.find((item) => item.email === emailLicenca && item.tipo === tipo && item.id === deviceId);
+  const usuarioDono = usuarioEhDonoDaLicenca(emailLicenca);
 
-  if (!atual && lista.filter((item) => item.email === emailLicenca).length >= limites.total) {
+  if (!usuarioDono && !atual && lista.filter((item) => item.email === emailLicenca).length >= limites.total) {
     if (!silencioso) {
       alert("Detectamos múltiplos acessos. Para mais usuários, faça upgrade.");
     }
@@ -3549,6 +4062,8 @@ function registrarSessaoSaasLocal(usuario = getUsuarioAtual()) {
   } else {
     atual.userId = usuario.id;
     atual.lastSeenAt = agora;
+    atual.atualizadoEm = agora;
+    atual.updatedAt = agora;
     atual.userAgent = navigator.userAgent || atual.userAgent;
     atual.active = true;
   }
@@ -9621,6 +10136,10 @@ function renderPersonalizacao() {
         <span>Filamento padrão R$/kg</span>
         <input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
       </label>
+      <label class="field">
+        <span>Taxa extra padrão (R$)</span>
+        <input id="defaultExtraFeeConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}">
+      </label>
 
       <div class="danger-zone">
         <h2 class="section-title">Tela e resolução</h2>
@@ -10688,6 +11207,7 @@ function lerPersonalizacaoCampos() {
     defaultMargin: Math.max(0, parseFloat(document.getElementById("defaultMarginConfig")?.value) || 100),
     defaultEnergy: Math.max(0, parseFloat(document.getElementById("defaultEnergyConfig")?.value) || 0.85),
     defaultFilamentCost: Math.max(0, parseFloat(document.getElementById("defaultFilamentCostConfig")?.value) || 150),
+    defaultExtraFee: Math.max(0, parseFloat(document.getElementById("defaultExtraFeeConfig")?.value) || 0),
     screenFit: document.getElementById("screenFitConfig")?.value === "manual" ? "manual" : "auto",
     uiScale: Math.min(140, Math.max(70, parseFloat(document.getElementById("uiScaleConfig")?.value) || 100)),
     desktopCardMinWidth: Math.min(560, Math.max(220, parseFloat(document.getElementById("desktopCardMinWidthConfig")?.value) || 320)),
@@ -11071,6 +11591,7 @@ function sincronizarAposLogin() {
   if (syncConfig.supabaseAccessToken && syncConfig.supabaseUserId) {
     syncConfig.supabaseEnabled = true;
     syncConfig.autoBackupTarget = "supabase";
+    iniciarRealtimeSyncUsuario("login").catch((erro) => registrarDiagnostico("Realtime", "Inicio apos login falhou", erro.message || erro));
     sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
     return;
   }
@@ -11097,6 +11618,7 @@ function logoutUsuario() {
   const email = usuarioAtualEmail;
   const escopoAtual = getEscopoDadosAtual();
   if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);
+  pararRealtimeSyncUsuario("logout");
   usuarioAtualEmail = "";
   adminLogado = false;
   window.__simplificaLocalLockActive = false;
@@ -11716,6 +12238,7 @@ function normalizarBackup(dados) {
 }
 
 function aplicarBackup(dados, modo = "substituir") {
+  const licencaBackendAntesBackup = capturarLicencaBackendFresca();
   const backup = normalizarBackup(dados);
   const escopoAtual = obterEscopoBackupAtual();
   const escopoBackup = dados?.escopo && typeof dados.escopo === "object" ? dados.escopo : {};
@@ -11786,6 +12309,7 @@ function aplicarBackup(dados, modo = "substituir") {
     deviceLimits: backup.billingConfig.deviceLimits || billingConfig.deviceLimits || { mobile: 1, desktop: 1 },
     cloudSyncPaidOnly: false
   };
+  restaurarLicencaBackendFresca(licencaBackendAntesBackup);
 
   syncConfig = {
     ...syncConfig,
@@ -11827,8 +12351,8 @@ function mesclarListas(local, remoto) {
     }
 
     const atual = mapa.get(id);
-    const dataAtual = Date.parse(atual?.atualizadoEm || atual?.data || atual?.createdAt || 0) || 0;
-    const dataNova = Date.parse(item?.atualizadoEm || item?.data || item?.createdAt || 0) || 0;
+    const dataAtual = getTimestampAlteracaoRegistro(atual);
+    const dataNova = getTimestampAlteracaoRegistro(item);
     if (dataNova > dataAtual) {
       mapa.set(id, item);
     }
@@ -12533,6 +13057,7 @@ function salvarSessaoSupabase(dados, email) {
   ativarEscopoDadosUsuarioAtual("supabase-session", { persistir: false });
   salvarSessaoSensivelSupabase();
   salvarDados();
+  iniciarRealtimeSyncUsuario("supabase-session").catch((erro) => registrarDiagnostico("Realtime", "Inicio apos sessao Supabase falhou", erro.message || erro));
   return true;
 }
 
@@ -13023,6 +13548,7 @@ async function processarRetornoOAuthSupabase() {
 function sairSupabase() {
   const escopoAtual = getEscopoDadosAtual();
   if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);
+  pararRealtimeSyncUsuario("sair-supabase");
   limparSessaoSensivelSupabase();
   syncConfig.supabaseUserId = "";
   syncConfig.supabaseEmail = "";
@@ -13142,10 +13668,12 @@ async function sincronizarSupabase() {
     renderApp();
     await salvarPerfilSupabase();
     await sincronizarFilaOfflinePendente("sync-manual");
+    if (!await salvarBackupSupabase()) return;
     const remoto = await obterBackupSupabase();
     if (remoto) {
       aplicarBackup(remoto, "mesclar");
     }
+    await sincronizarFilaOfflinePendente("sync-manual-pos-merge");
     if (!await salvarBackupSupabase()) return;
     const agora = new Date().toISOString();
     syncConfig.supabaseLastSync = agora;
@@ -13185,10 +13713,12 @@ async function sincronizarSupabaseSilencioso() {
   }
 
   await sincronizarFilaOfflinePendente("sync-silencioso");
+  if (!await salvarBackupSupabase()) return false;
   const remoto = await obterBackupSupabase();
   if (remoto) {
     aplicarBackup(remoto, "mesclar");
   }
+  await sincronizarFilaOfflinePendente("sync-silencioso-pos-merge");
   if (!await salvarBackupSupabase()) return false;
 
   const agora = new Date().toISOString();
@@ -14010,10 +14540,12 @@ async function fecharPedido() {
       valor: total,
       descricao: "Pedido - " + cliente,
       pedidoId: pedido.id,
-      data: new Date().toISOString()
+      data: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString()
     }));
 
     salvarDados();
+    agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
     registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
     registrarAcaoCompletaMonetizacao(pedidoEditando ? "order_updated" : "order_created");
     pedidoEditando = null;
@@ -14039,9 +14571,9 @@ function alterarStatusPedido(id, status) {
   if (!permitirAcaoPlanoCompleto()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
-  pedido.status = status || "aberto";
-  pedido.atualizadoEm = new Date().toISOString();
+  marcarRegistroLocalAlteradoParaSync(pedido, { status: status || "aberto" });
   salvarDados();
+  agendarSyncSilenciosoDados("status-pedido");
   registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
   renderApp();
 }
@@ -14214,14 +14746,87 @@ function salvarCalculadoraWidget(valores = {}, salvar = false) {
   return proxima;
 }
 
+function normalizarTipoImpressoraCalculadora(tipo = "FDM") {
+  return String(tipo || "FDM").trim().toUpperCase() === "RESINA" ? "RESINA" : "FDM";
+}
+
+function numeroCalculadora(valor, fallback = 0, minimo = 0) {
+  if (valor === "" || valor === null || valor === undefined) return fallback;
+  const numero = Number(String(valor).replace(",", "."));
+  return Number.isFinite(numero) ? Math.max(minimo, numero) : fallback;
+}
+
+function valorCampoCalculadora(id, fallback = "") {
+  const campo = document.getElementById(id);
+  if (!campo) return fallback;
+  return campo.value === undefined || campo.value === null ? fallback : String(campo.value);
+}
+
+function getConfiguracaoCalculadora() {
+  const salvo = appConfig.calculatorDefaults && typeof appConfig.calculatorDefaults === "object" ? appConfig.calculatorDefaults : {};
+  const tipo = normalizarTipoImpressoraCalculadora(salvo.printerType || appConfig.defaultPrinterType || "FDM");
+  const modeloSalvo = salvo.printerModel || appConfig.defaultPrinterModel || "Ender 3";
+  const modeloValido = printers[modeloSalvo]?.tipo === tipo
+    ? modeloSalvo
+    : Object.keys(printers).find((nome) => printers[nome].tipo === tipo) || "Ender 3";
+  const impressora = printers[modeloValido] || printers["Ender 3"];
+  return {
+    printerType: tipo,
+    printerModel: modeloValido,
+    materialId: salvo.materialId || appConfig.defaultMaterial || "",
+    peso: salvo.peso ?? "",
+    filamento: salvo.filamento ?? appConfig.defaultFilamentCost ?? 150,
+    tempo: salvo.tempo ?? "",
+    quantidade: salvo.quantidade ?? 1,
+    energia: salvo.energia ?? appConfig.defaultEnergy ?? 0.85,
+    consumo: salvo.consumo ?? impressora.consumo ?? "",
+    custoHora: salvo.custoHora ?? impressora.custo ?? "",
+    margem: salvo.margem ?? appConfig.defaultMargin ?? 100,
+    taxaExtra: salvo.taxaExtra ?? appConfig.defaultExtraFee ?? 0,
+    nomeItem: salvo.nomeItem || ""
+  };
+}
+
+function salvarConfiguracaoCalculadora(persistir = true) {
+  const atual = getConfiguracaoCalculadora();
+  const printer = document.getElementById("printer")?.value || atual.printerModel;
+  const tipo = normalizarTipoImpressoraCalculadora(document.getElementById("printerType")?.value || printers[printer]?.tipo || atual.printerType);
+  const proxima = {
+    printerType: tipo,
+    printerModel: printer,
+    materialId: document.getElementById("calcMaterial")?.value || "",
+    peso: valorCampoCalculadora("peso", atual.peso),
+    filamento: numeroCalculadora(valorCampoCalculadora("filamento", atual.filamento), atual.filamento),
+    tempo: valorCampoCalculadora("tempo", atual.tempo),
+    quantidade: numeroCalculadora(valorCampoCalculadora("quantidade", atual.quantidade), atual.quantidade, 1),
+    energia: numeroCalculadora(valorCampoCalculadora("energia", atual.energia), atual.energia),
+    consumo: numeroCalculadora(valorCampoCalculadora("consumo", atual.consumo), atual.consumo),
+    custoHora: numeroCalculadora(valorCampoCalculadora("custoHora", atual.custoHora), atual.custoHora),
+    margem: numeroCalculadora(valorCampoCalculadora("margem", atual.margem), atual.margem),
+    taxaExtra: numeroCalculadora(valorCampoCalculadora("taxaExtra", atual.taxaExtra), atual.taxaExtra),
+    nomeItem: valorCampoCalculadora("nomeItem", atual.nomeItem).trim()
+  };
+  appConfig.calculatorDefaults = proxima;
+  appConfig.defaultPrinterType = proxima.printerType;
+  appConfig.defaultPrinterModel = proxima.printerModel;
+  appConfig.defaultMaterial = proxima.materialId;
+  appConfig.defaultFilamentCost = proxima.filamento;
+  appConfig.defaultEnergy = proxima.energia;
+  appConfig.defaultMargin = proxima.margem;
+  appConfig.defaultExtraFee = proxima.taxaExtra;
+  if (persistir) salvarDados();
+  return proxima;
+}
+
 function renderCalculadoraConteudo() {
+  const config = getConfiguracaoCalculadora();
   return `
     <div class="calc-grid">
       <label class="field">
         <span>Tipo de impressora</span>
-        <select id="printerType" onchange="preencherImpressoras()">
-          <option value="FDM" ${appConfig.defaultPrinterType !== "RESINA" ? "selected" : ""}>FDM</option>
-          <option value="RESINA" ${appConfig.defaultPrinterType === "RESINA" ? "selected" : ""}>RESINA</option>
+        <select id="printerType" onchange="preencherImpressoras(true)">
+          <option value="FDM" ${config.printerType !== "RESINA" ? "selected" : ""}>FDM</option>
+          <option value="RESINA" ${config.printerType === "RESINA" ? "selected" : ""}>RESINA</option>
         </select>
       </label>
       <label class="field">
@@ -14230,53 +14835,53 @@ function renderCalculadoraConteudo() {
       </label>
     </div>
 
-    <label class="field">
-      <span>Material do estoque</span>
-      <select id="calcMaterial"></select>
+      <label class="field">
+        <span>Material do estoque</span>
+      <select id="calcMaterial" onchange="salvarConfiguracaoCalculadora()"></select>
     </label>
 
     <div class="calc-grid">
       <label class="field">
         <span>Peso em gramas</span>
-        <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80">
+        <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80" value="${escaparAttr(config.peso)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Material R$/kg</span>
-        <input id="filamento" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
+        <input id="filamento" type="number" min="0" step="0.01" value="${escaparAttr(config.filamento)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Tempo em horas</span>
-        <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5">
+        <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5" value="${escaparAttr(config.tempo)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Quantidade</span>
-        <input id="quantidade" type="number" min="1" step="1" value="1">
+        <input id="quantidade" type="number" min="1" step="1" value="${escaparAttr(config.quantidade)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Energia R$/kWh</span>
-        <input id="energia" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}">
+        <input id="energia" type="number" min="0" step="0.01" value="${escaparAttr(config.energia)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Consumo W</span>
-        <input id="consumo" type="number" min="0" step="1">
+        <input id="consumo" type="number" min="0" step="1" value="${escaparAttr(config.consumo)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Custo hora</span>
-        <input id="custoHora" type="number" min="0" step="0.01">
+        <input id="custoHora" type="number" min="0" step="0.01" value="${escaparAttr(config.custoHora)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
         <span>Margem %</span>
-        <input id="margem" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}">
+        <input id="margem" type="number" min="0" step="1" value="${escaparAttr(config.margem)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
       <label class="field">
-        <span>Taxa extra</span>
-        <input id="taxaExtra" type="number" min="0" step="0.01" value="0">
+        <span>Taxa extra (R$)</span>
+        <input id="taxaExtra" type="number" min="0" step="0.01" value="${escaparAttr(config.taxaExtra)}" oninput="salvarConfiguracaoCalculadora()">
       </label>
     </div>
 
     <label class="field">
       <span>Nome do item</span>
-      <input id="nomeItem" placeholder="Ex.: suporte personalizado">
+      <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" oninput="salvarConfiguracaoCalculadora()">
     </label>
 
     <button class="btn secondary" onclick="calcular()">Calcular</button>
@@ -14433,37 +15038,49 @@ function manterCalculadoraVisivel(salvar = false) {
   salvarCalculadoraWidget({}, salvar);
 }
 
-function preencherImpressoras() {
+function preencherImpressoras(persistir = false) {
   const select = document.getElementById("printer");
   if (!select) return;
+  const config = getConfiguracaoCalculadora();
   const tipoSelect = document.getElementById("printerType");
-  const tipo = tipoSelect?.value || appConfig.defaultPrinterType || "FDM";
+  const tipo = normalizarTipoImpressoraCalculadora(tipoSelect?.value || config.printerType || "FDM");
 
   select.innerHTML = "";
+  let primeiroModelo = "";
   Object.entries(printers).filter(([, impressora]) => impressora.tipo === tipo).forEach(([nome]) => {
     const opt = document.createElement("option");
     opt.value = nome;
     opt.textContent = nome;
-    if (nome === appConfig.defaultPrinterModel) opt.selected = true;
+    if (!primeiroModelo) primeiroModelo = nome;
+    if (nome === config.printerModel) opt.selected = true;
     select.appendChild(opt);
   });
+  if (!select.value && primeiroModelo) select.value = primeiroModelo;
 
   select.onchange = function () {
     const impressora = printers[this.value];
+    const inicializando = this.dataset.initializing === "1";
     appConfig.defaultPrinterType = impressora?.tipo || tipo;
     appConfig.defaultPrinterModel = this.value;
-    document.getElementById("consumo").value = impressora.consumo;
-    document.getElementById("custoHora").value = impressora.custo;
-    salvarDados();
+    const consumo = document.getElementById("consumo");
+    const custoHora = document.getElementById("custoHora");
+    if (consumo && (!inicializando || !String(consumo.value || "").trim())) consumo.value = impressora?.consumo ?? "";
+    if (custoHora && (!inicializando || !String(custoHora.value || "").trim())) custoHora.value = impressora?.custo ?? "";
+    if (!inicializando) salvarConfiguracaoCalculadora();
   };
 
+  select.dataset.initializing = "1";
   select.dispatchEvent(new Event("change"));
+  delete select.dataset.initializing;
+  if (persistir) salvarConfiguracaoCalculadora();
 }
 
 function preencherMateriaisCalculadora() {
   const select = document.getElementById("calcMaterial");
   if (!select) return;
-  select.innerHTML = `<option value="">Sem vínculo com estoque</option>` + renderMaterialOptions(select.value);
+  const materialSelecionado = getConfiguracaoCalculadora().materialId || select.value || "";
+  select.innerHTML = `<option value="">Sem vínculo com estoque</option>` + renderMaterialOptions(materialSelecionado);
+  select.value = materialSelecionado;
 }
 
 function calcular() {
@@ -14504,8 +15121,10 @@ function calcular() {
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempo * energia;
   const maquina = tempo * custoHora;
-  const custo = material + energiaC + maquina + taxaExtra;
-  const preco = custo * (1 + margem / 100);
+  const custo = material + energiaC + maquina;
+  const precoSemTaxa = custo * (1 + margem / 100);
+  const preco = precoSemTaxa + taxaExtra;
+  salvarConfiguracaoCalculadora(true);
 
   ultimoCalculo = {
     preco: preco / qtd,
@@ -14514,6 +15133,7 @@ function calcular() {
     custoEnergia: energiaC,
     custoMaquina: maquina,
     taxaExtra,
+    precoSemTaxa,
     custoTotal: custo,
     precoTotal: preco,
     qtd,
@@ -14529,7 +15149,9 @@ function calcular() {
     <div class="result-grid">
       <span>Custo do material</span><strong>${formatarMoeda(material)}</strong>
       <span>Custo de energia</span><strong>${formatarMoeda(energiaC)}</strong>
-      <span>Custo total</span><strong>${formatarMoeda(custo)}</strong>
+      <span>Custo base</span><strong>${formatarMoeda(custo)}</strong>
+      <span>Preço antes da taxa</span><strong>${formatarMoeda(precoSemTaxa)}</strong>
+      <span>Taxa extra (R$)</span><strong>${formatarMoeda(taxaExtra)}</strong>
       <span>Preço sugerido de venda</span><strong>${formatarMoeda(preco)}</strong>
     </div>
   `;
@@ -15682,14 +16304,18 @@ document.addEventListener("visibilitychange", () => {
     salvarCacheSessaoLocal();
     salvarDados();
   } else if (document.visibilityState === "visible") {
+    iniciarRealtimeSyncUsuario("visible").catch((erro) => registrarDiagnostico("Realtime", "Inicio ao voltar para o app falhou", erro.message || erro));
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
     sincronizarFilaOfflinePendente("visible").catch((erro) => registrarDiagnostico("sync", "Fila offline ao voltar para o app falhou", erro.message));
+    sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
   }
 });
 
 window.addEventListener("online", () => {
+  iniciarRealtimeSyncUsuario("online").catch((erro) => registrarDiagnostico("Realtime", "Inicio ao voltar internet falhou", erro.message || erro));
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
   sincronizarFilaOfflinePendente("online").catch((erro) => registrarDiagnostico("sync", "Fila offline ao voltar internet falhou", erro.message));
+  sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -15713,6 +16339,9 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarMonitorPlanoSaas();
   iniciarMonitorLicencaOnline();
   iniciarLembreteBackupPlanoFree();
+  setTimeout(() => {
+    iniciarRealtimeSyncUsuario("startup").catch((erro) => registrarDiagnostico("Realtime", "Inicio no bootstrap falhou", erro.message || erro));
+  }, 1800);
   setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);

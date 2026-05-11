@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v65-sync-scope-20260511";
+const CACHE_NAME = "simplifica-3d-v66-realtime-calc-20260511";
 const APP_FILES = [
   "./",
   "./index.html",
