@@ -2,7 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.2";
+const APP_VERSION = "51.0.3";
+const APP_VERSION_CODE = 54;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -120,6 +121,8 @@ const REALTIME_SYNC_RECONNECT_MS = 5 * 1000;
 const REALTIME_SYNC_DEBOUNCE_MS = 1200;
 const REALTIME_FALLBACK_FOREGROUND_MS = 15 * 1000;
 const REALTIME_FALLBACK_BACKGROUND_MS = 60 * 1000;
+const REALTIME_SYNC_ENABLED = false;
+const DRAWER_EDGE_SWIPE_ENABLED = false;
 const DASHBOARD_RECENT_ACTIVITY_MS = 2 * 60 * 1000;
 const TOAST_DEBOUNCE_MS = 4500;
 const SYNCABLE_COLLECTIONS = Object.freeze(["pedidos", "estoque", "caixa", "clientes"]);
@@ -200,6 +203,7 @@ let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
 let scopedDataCacheReady = false;
 let dataSyncDebounceTimer = null;
+let syncIndicatorTimer = null;
 let realtimeSyncState = {
   socket: null,
   topic: "",
@@ -333,10 +337,13 @@ let appConfig = carregarObjeto("appConfig", {
   updateLastCheck: "",
   updateStatus: "Aguardando",
   updateAvailableVersion: "",
+  updateAvailableCode: 0,
   updateDownloadUrl: "",
   updateManifestUrl: "",
   updatePromptedVersion: "",
   updatePromptedAt: "",
+  updateDismissedVersion: "",
+  updateDismissedCode: 0,
   browserPasswordSaveOffer: true,
   keepSessionCache: true,
   biometricEnabled: false,
@@ -1491,14 +1498,70 @@ function marcarRegistroLocalAlteradoParaSync(registro, campos = {}) {
   return registro;
 }
 
+function atualizarIndicadorSincronizacao(status = "idle", texto = "") {
+  if (typeof document === "undefined" || !document.body) return;
+  let indicador = document.getElementById("syncIndicator");
+  if (syncIndicatorTimer) {
+    clearTimeout(syncIndicatorTimer);
+    syncIndicatorTimer = null;
+  }
+  if (status === "idle") {
+    indicador?.classList.add("is-hidden");
+    syncIndicatorTimer = setTimeout(() => indicador?.remove(), 220);
+    return;
+  }
+  if (!indicador) {
+    indicador = document.createElement("div");
+    indicador.id = "syncIndicator";
+    indicador.className = "sync-indicator";
+    indicador.innerHTML = `<span class="sync-spinner" aria-hidden="true"></span><strong></strong>`;
+    document.body.appendChild(indicador);
+  }
+  indicador.className = `sync-indicator sync-${status}`;
+  indicador.querySelector("strong").textContent = texto || (status === "pending" ? "Na fila" : status === "success" ? "Salvo" : status === "error" ? "Offline" : "Salvando");
+  if (["success", "error"].includes(status)) {
+    syncIndicatorTimer = setTimeout(() => atualizarIndicadorSincronizacao("idle"), status === "success" ? 1200 : 2200);
+  }
+}
+
+function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseEnabled) return Promise.resolve(false);
+  recomporFilaSyncPendente();
+  if (!pendingSync.length && motivo !== "login" && motivo !== "online") return Promise.resolve(false);
+  if (!estaOnline()) {
+    syncConfig.autoBackupStatus = "Offline - fila pendente";
+    salvarDados();
+    atualizarIndicadorSincronizacao("pending", "Na fila");
+    return Promise.resolve(false);
+  }
+  atualizarIndicadorSincronizacao("syncing", "Salvando");
+  return sincronizarSupabaseSilencioso()
+    .then((ok) => {
+      atualizarIndicadorSincronizacao(ok ? "success" : "pending", ok ? "Salvo" : "Na fila");
+      return ok;
+    })
+    .catch((erro) => {
+      registrarDiagnostico("sync", `Sync silencioso após ${motivo} falhou`, erro.message);
+      atualizarIndicadorSincronizacao("error", "Offline");
+      return false;
+    });
+}
+
 function agendarSyncSilenciosoDados(motivo = "data-change", atrasoMs = 1200) {
   if (typeof window === "undefined" || typeof setTimeout !== "function") return;
-  if (!estaOnline() || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseEnabled) return;
+  recomporFilaSyncPendente();
+  if (!estaOnline()) {
+    syncConfig.autoBackupStatus = "Offline - fila pendente";
+    salvarDados();
+    atualizarIndicadorSincronizacao("pending", "Na fila");
+    return;
+  }
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !syncConfig.supabaseEnabled) return;
+  atualizarIndicadorSincronizacao("syncing", "Salvando");
   if (dataSyncDebounceTimer) clearTimeout(dataSyncDebounceTimer);
   dataSyncDebounceTimer = setTimeout(() => {
     dataSyncDebounceTimer = null;
-    sincronizarSupabaseSilencioso()
-      .catch((erro) => registrarDiagnostico("sync", `Sync silencioso após ${motivo} falhou`, erro.message));
+    sincronizarAlteracoesLocaisSilencioso(motivo);
   }, atrasoMs);
 }
 
@@ -3674,7 +3737,8 @@ async function sincronizarFilaOfflinePendente(motivo = "manual") {
 }
 
 function realtimeSyncDisponivel() {
-  return typeof WebSocket !== "undefined"
+  return REALTIME_SYNC_ENABLED
+    && typeof WebSocket !== "undefined"
     && !!syncConfig.supabaseAccessToken
     && !!syncConfig.supabaseUserId
     && !!syncConfig.supabaseUrl
@@ -3779,6 +3843,7 @@ function pararRealtimeSyncUsuario(motivo = "logout") {
 }
 
 function agendarReconnectRealtime(motivo = "socket-close") {
+  if (!REALTIME_SYNC_ENABLED) return;
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return;
   if (realtimeSyncState.reconnectTimer) clearTimeout(realtimeSyncState.reconnectTimer);
   const tentativas = Math.min(6, Number(realtimeSyncState.reconnectAttempts || 0) + 1);
@@ -3793,6 +3858,7 @@ function agendarReconnectRealtime(motivo = "socket-close") {
 }
 
 async function iniciarRealtimeSyncUsuario(motivo = "manual") {
+  if (!REALTIME_SYNC_ENABLED) return false;
   if (!realtimeSyncDisponivel()) return false;
   const userId = String(syncConfig.supabaseUserId || "").trim();
   const token = String(syncConfig.supabaseAccessToken || "").trim();
@@ -4155,6 +4221,7 @@ async function executarPollingSyncTempoReal(motivo = "polling") {
 }
 
 function agendarPollingSyncTempoReal(motivo = "session") {
+  if (!REALTIME_SYNC_ENABLED) return false;
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
   if (realtimeSyncState.pollTimer) clearInterval(realtimeSyncState.pollTimer);
   const intervalo = document.visibilityState === "hidden" ? REALTIME_FALLBACK_BACKGROUND_MS : REALTIME_FALLBACK_FOREGROUND_MS;
@@ -6954,6 +7021,7 @@ function atualizarProgressoDrawer(progresso) {
 }
 
 function iniciarGestoDrawerLateral(event) {
+  if (!DRAWER_EDGE_SWIPE_ENABLED) return;
   if (!getUsuarioAtual() || event.pointerType === "mouse" && event.button !== 0) return;
   if (isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return;
   const drawerAberto = !!document.querySelector(".side-drawer");
@@ -7006,6 +7074,7 @@ function finalizarGestoDrawerLateral(event) {
 }
 
 function configurarGestosDrawerLateral() {
+  if (!DRAWER_EDGE_SWIPE_ENABLED) return;
   if (window.__drawerGestureConfigured) return;
   window.__drawerGestureConfigured = true;
   document.addEventListener("pointerdown", iniciarGestoDrawerLateral, { passive: true });
@@ -7046,6 +7115,7 @@ function renderMobile() {
 }
 
 function renderDrawerGestureRail() {
+  if (!DRAWER_EDGE_SWIPE_ENABLED) return "";
   if (!getUsuarioAtual() || isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return "";
   return `<div class="drawer-gesture-rail" aria-hidden="true"></div>`;
 }
@@ -7281,6 +7351,16 @@ function renderConta() {
 
 function renderAtualizacaoAndroidDownload() {
   if (!isAndroid() || !appConfig.updateAvailableVersion) return "";
+  const manifestLocal = {
+    version: appConfig.updateAvailableVersion,
+    versionCode: Number(appConfig.updateAvailableCode || 0) || 0
+  };
+  if (!existeAtualizacaoAndroid(manifestLocal) || atualizacaoAndroidFoiOcultada(manifestLocal)) {
+    appConfig.updateAvailableVersion = "";
+    appConfig.updateAvailableCode = 0;
+    salvarDados();
+    return "";
+  }
   const versao = appConfig.updateAvailableVersion || "mais recente";
   const status = appConfig.updateStatus || "Checagem automática ativa";
   const destaque = appConfig.updateAvailableVersion ? " update-available" : "";
@@ -8331,7 +8411,7 @@ function renderPedido() {
 
 function renderMaterialOptions(selectedId = "") {
   const materiais = normalizarEstoque();
-  if (!materiais.length) return `<option value="">Cadastre estoque primeiro</option>`;
+  if (!materiais.length) return `<option value="" disabled>Cadastre estoque primeiro</option>`;
   return materiais.map((material) => `
     <option value="${escaparAttr(material.id)}" ${String(material.id) === String(selectedId) ? "selected" : ""}>
       ${escaparHtml(material.nome)} (${Number(material.qtd).toFixed(3)} kg)
@@ -13445,9 +13525,7 @@ function sincronizarAposLogin() {
   if (syncConfig.supabaseAccessToken && syncConfig.supabaseUserId) {
     syncConfig.supabaseEnabled = true;
     syncConfig.autoBackupTarget = "supabase";
-    iniciarRealtimeSyncUsuario("login").catch((erro) => registrarDiagnostico("Realtime", "Inicio apos login falhou", erro.message || erro));
-    agendarPollingSyncTempoReal("login");
-    sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
+    sincronizarAlteracoesLocaisSilencioso("login").catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
     return;
   }
   if (plano.slug === "premium" || plano.slug === "premium_trial") {
@@ -14931,8 +15009,6 @@ function salvarSessaoSupabase(dados, email) {
   ativarEscopoDadosUsuarioAtual("supabase-session", { persistir: false });
   salvarSessaoSensivelSupabase();
   salvarDados();
-  iniciarRealtimeSyncUsuario("supabase-session").catch((erro) => registrarDiagnostico("Realtime", "Inicio apos sessao Supabase falhou", erro.message || erro));
-  agendarPollingSyncTempoReal("supabase-session");
   return true;
 }
 
@@ -15589,15 +15665,17 @@ async function sincronizarSupabase() {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     syncConfig.autoBackupStatus = "Offline";
     salvarDados();
+    atualizarIndicadorSincronizacao("pending", "Na fila");
     mostrarToast("Erro de conexão", "erro", 5000);
-    renderApp();
+    renderizarPreservandoScroll();
     return;
   }
 
   try {
     syncConfig.autoBackupStatus = "Sincronizando...";
     salvarDados();
-    renderApp();
+    atualizarIndicadorSincronizacao("syncing", "Salvando");
+    renderizarPreservandoScroll();
     mostrarToast("Sincronizando...", "info", 1800);
     await salvarPerfilSupabase();
     const preDownload = await aplicarBackupRemotoAntesDeUploadSeNecessario("sync-manual");
@@ -15613,15 +15691,17 @@ async function sincronizarSupabase() {
     syncConfig.autoBackupStatus = "Sincronizado";
     salvarDados();
     registrarHistorico("Supabase", remoto ? "Dados mesclados e enviados" : "Backup inicial criado");
+    atualizarIndicadorSincronizacao("success", "Salvo");
     mostrarToast("Dados sincronizados", "sucesso", 2800);
-    renderApp();
+    renderizarPreservandoScroll();
   } catch (erro) {
     syncConfig.autoBackupStatus = "Erro ao sincronizar";
     salvarDados();
     console.warn("[Sync/Supabase] Falha ao sincronizar", erro);
     registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Sincronizar Supabase");
+    atualizarIndicadorSincronizacao("error", "Offline");
     mostrarToast("Erro de conexão", "erro", 5000);
-    renderApp();
+    renderizarPreservandoScroll();
   }
 }
 
@@ -16415,7 +16495,7 @@ function cancelarEdicaoPedido() {
   itensPedido = [];
   clientePedido = "";
   clienteTelefonePedido = "";
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function pedidoPossuiConsumoEstoque(pedido) {
@@ -16510,7 +16590,7 @@ async function cancelOrderSafely(orderId, options = {}) {
     registrarAuditoriaPedido("pedido_excluido", cancelado, { modo: "cancelamento_logico" });
     registrarHistorico("Pedido", "Pedido cancelado: " + clienteDoPedido(cancelado));
     mostrarToast("Pedido cancelado com sucesso.", "sucesso", 4200);
-    renderApp();
+    renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Pedidos", action: "Cancelar pedido com segurança", errorKey: "CANCEL_ORDER_FAILED" });
   }
@@ -16673,8 +16753,7 @@ async function fecharPedido() {
       finalizarOnboarding(false);
       return;
     }
-    telaAtual = isMobile() ? "pedidos" : telaAtual;
-    renderApp();
+    renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, {
       area: "Pedidos",
@@ -16692,7 +16771,7 @@ function alterarStatusPedido(id, status) {
   salvarDados();
   agendarSyncSilenciosoDados("status-pedido");
   registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function addMaterial() {
@@ -16703,7 +16782,8 @@ function addMaterial() {
 
   try {
     InventoryService.addMaterial({ tipo, cor, qtd });
-    renderApp();
+    agendarSyncSilenciosoDados("estoque-adicionado");
+    renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Adicionar material" });
   }
@@ -16757,7 +16837,8 @@ function salvarEdicaoMaterialEstoque(indice) {
       cor: document.getElementById("stockEditColor")?.value || ""
     });
     fecharPopup();
-    renderApp();
+    agendarSyncSilenciosoDados("estoque-editado");
+    renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Editar material" });
   }
@@ -16770,7 +16851,8 @@ function removerMaterial(i) {
 
   try {
     InventoryService.removeMaterial(i);
-    renderApp();
+    agendarSyncSilenciosoDados("estoque-removido");
+    renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Remover material" });
   }
@@ -16887,10 +16969,12 @@ function getConfiguracaoCalculadora() {
     ? modeloSalvo
     : Object.keys(printers).find((nome) => printers[nome].tipo === tipo) || "Ender 3";
   const impressora = printers[modeloValido] || printers["Ender 3"];
+  const materialSalvo = salvo.materialId || appConfig.defaultMaterial || "";
+  const materialIdValido = materialSalvo && getMaterialEstoque(materialSalvo) ? materialSalvo : "";
   return {
     printerType: tipo,
     printerModel: modeloValido,
-    materialId: salvo.materialId || appConfig.defaultMaterial || "",
+    materialId: materialIdValido,
     peso: salvo.peso ?? "",
     filamento: salvo.filamento ?? appConfig.defaultFilamentCost ?? 150,
     tempo: salvo.tempo ?? "",
@@ -17195,7 +17279,8 @@ function preencherImpressoras(persistir = false) {
 function preencherMateriaisCalculadora() {
   const select = document.getElementById("calcMaterial");
   if (!select) return;
-  const materialSelecionado = getConfiguracaoCalculadora().materialId || select.value || "";
+  const configuracao = getConfiguracaoCalculadora();
+  const materialSelecionado = getMaterialEstoque(configuracao.materialId || select.value || "") ? (configuracao.materialId || select.value || "") : "";
   select.innerHTML = `<option value="">Sem vínculo com estoque</option>` + renderMaterialOptions(materialSelecionado);
   select.value = materialSelecionado;
 }
@@ -18139,6 +18224,7 @@ async function buscarManifestAtualizacaoAndroid() {
         ...manifest,
         sourceUrl: manifestUrl,
         version: versao,
+        versionCode: Number(manifest.versionCode || manifest.version_code || manifest.androidVersionCode || manifest.code || 0) || 0,
         apkUrl: getAndroidDownloadUrl(manifest)
       };
     } catch (erro) {
@@ -18149,23 +18235,58 @@ async function buscarManifestAtualizacaoAndroid() {
   throw new Error(erros.join(" | ") || "Manifesto não configurado");
 }
 
+function normalizarVersaoApp(valor = "") {
+  return String(valor || "").trim().replace(/^v/i, "");
+}
+
+function compararVersoesApp(a = "", b = "") {
+  const esquerda = normalizarVersaoApp(a).split(".").map((parte) => Number(parte) || 0);
+  const direita = normalizarVersaoApp(b).split(".").map((parte) => Number(parte) || 0);
+  const tamanho = Math.max(esquerda.length, direita.length, 3);
+  for (let i = 0; i < tamanho; i += 1) {
+    const diff = (esquerda[i] || 0) - (direita[i] || 0);
+    if (diff !== 0) return diff > 0 ? 1 : -1;
+  }
+  return 0;
+}
+
+function getManifestAndroidVersionCode(manifest = {}) {
+  return Number(manifest.versionCode || manifest.version_code || manifest.androidVersionCode || manifest.code || 0) || 0;
+}
+
+function getManifestAndroidVersionName(manifest = {}) {
+  return normalizarVersaoApp(manifest.version || manifest.versionName || "");
+}
+
 function existeAtualizacaoAndroid(manifest) {
-  return !!manifest?.version && manifest.version !== APP_VERSION;
+  const versionCodeRemoto = getManifestAndroidVersionCode(manifest);
+  const versionNameRemoto = getManifestAndroidVersionName(manifest);
+  if (versionCodeRemoto && APP_VERSION_CODE) return versionCodeRemoto > APP_VERSION_CODE;
+  return !!versionNameRemoto && compararVersoesApp(versionNameRemoto, APP_VERSION) > 0;
+}
+
+function atualizacaoAndroidFoiOcultada(manifest = {}) {
+  const versao = getManifestAndroidVersionName(manifest);
+  const codigo = getManifestAndroidVersionCode(manifest);
+  if (!versao) return false;
+  if (codigo) return appConfig.updateDismissedVersion === versao && Number(appConfig.updateDismissedCode || 0) === codigo;
+  return appConfig.updateDismissedVersion === versao;
 }
 
 function avisarAtualizacaoAndroid(manifest, forcarAviso = false) {
-  const versao = manifest.version || "nova";
-  const url = getAndroidDownloadUrl(manifest);
-  const jaAvisado = appConfig.updatePromptedVersion === versao;
+  const versao = getManifestAndroidVersionName(manifest) || "nova";
+  const codigo = getManifestAndroidVersionCode(manifest);
+  const jaAvisado = appConfig.updatePromptedVersion === versao && Number(appConfig.updateAvailableCode || 0) === codigo;
 
-  if (!forcarAviso && jaAvisado) return;
+  if (!forcarAviso && (jaAvisado || atualizacaoAndroidFoiOcultada(manifest))) return;
 
   appConfig.updatePromptedVersion = versao;
   appConfig.updatePromptedAt = new Date().toISOString();
+  appConfig.updateAvailableVersion = versao;
+  appConfig.updateAvailableCode = codigo;
+  appConfig.updateDownloadUrl = getAndroidDownloadUrl(manifest);
   salvarDados();
-
-  alert(`Nova versão ${versao} disponível. O download do APK vai abrir agora.`);
-  abrirDownloadAtualizacaoAndroid(url);
+  mostrarToast(`Nova versão ${versao} disponível.`, "info", 3600);
 }
 
 async function verificarAtualizacaoAndroid(forcarAviso = false) {
@@ -18175,19 +18296,21 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
     const manifest = await buscarManifestAtualizacaoAndroid();
     appConfig.updateDownloadUrl = getAndroidDownloadUrl(manifest);
 
-    if (existeAtualizacaoAndroid(manifest)) {
-      appConfig.updateAvailableVersion = manifest.version;
-      salvarStatusAtualizacao(`APK ${manifest.version} disponível`);
+    if (existeAtualizacaoAndroid(manifest) && !atualizacaoAndroidFoiOcultada(manifest)) {
+      appConfig.updateAvailableVersion = getManifestAndroidVersionName(manifest);
+      appConfig.updateAvailableCode = getManifestAndroidVersionCode(manifest);
+      salvarStatusAtualizacao(`APK ${appConfig.updateAvailableVersion} disponível`);
 
-      if (appConfig.autoUpdateEnabled !== false || forcarAviso) {
+      if (forcarAviso) {
         avisarAtualizacaoAndroid(manifest, forcarAviso);
       }
       return true;
     }
 
     appConfig.updateAvailableVersion = "";
+    appConfig.updateAvailableCode = 0;
     salvarStatusAtualizacao("Sistema atualizado");
-    if (forcarAviso) alert("Nenhuma atualização nova encontrada.");
+    if (forcarAviso) mostrarToast("Nenhuma atualização nova encontrada.", "info", 3200);
     return true;
   } catch (erro) {
     salvarStatusAtualizacao("Erro ao checar APK no GitHub");
@@ -18201,9 +18324,23 @@ async function baixarAtualizacaoAndroid(forcarBusca = false) {
     try {
       const manifest = await buscarManifestAtualizacaoAndroid();
       appConfig.updateDownloadUrl = getAndroidDownloadUrl(manifest);
-      appConfig.updateAvailableVersion = existeAtualizacaoAndroid(manifest) ? manifest.version : "";
-      salvarStatusAtualizacao(existeAtualizacaoAndroid(manifest) ? `APK ${manifest.version} disponível` : "Sistema atualizado");
+      if (existeAtualizacaoAndroid(manifest)) {
+        appConfig.updateAvailableVersion = getManifestAndroidVersionName(manifest);
+        appConfig.updateAvailableCode = getManifestAndroidVersionCode(manifest);
+        salvarStatusAtualizacao(`APK ${appConfig.updateAvailableVersion} disponível`);
+      } else {
+        appConfig.updateAvailableVersion = "";
+        appConfig.updateAvailableCode = 0;
+        salvarStatusAtualizacao("Sistema atualizado");
+      }
       abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl);
+      if (appConfig.updateAvailableVersion) {
+        appConfig.updateDismissedVersion = appConfig.updateAvailableVersion;
+        appConfig.updateDismissedCode = appConfig.updateAvailableCode || 0;
+        appConfig.updateAvailableVersion = "";
+        appConfig.updateAvailableCode = 0;
+        salvarDados();
+      }
       return;
     } catch (erro) {
       salvarStatusAtualizacao("Erro ao buscar APK");
@@ -18238,7 +18375,7 @@ function monitorarRegistroAtualizacao(registro) {
         if (appConfig.autoUpdateEnabled !== false) {
           aplicarAtualizacaoAgora();
         } else {
-          renderApp();
+          renderizarPreservandoScroll();
         }
       }
     });
@@ -18248,14 +18385,14 @@ function monitorarRegistroAtualizacao(registro) {
 async function verificarAtualizacao(forcarAviso = false) {
   const atualizacaoAndroidTratada = await verificarAtualizacaoAndroid(forcarAviso);
   if (atualizacaoAndroidTratada) {
-    if (forcarAviso || telaAtual === "config") renderApp();
+    if (forcarAviso || telaAtual === "config") renderizarPreservandoScroll();
     return;
   }
 
   if (!("serviceWorker" in navigator) || location.protocol === "file:") {
     salvarStatusAtualizacao("Atualização disponível só em http/https");
     if (forcarAviso) alert("Atualização automática funciona quando o app está em http/https ou instalado como PWA.");
-    if (forcarAviso || telaAtual === "config") renderApp();
+    if (forcarAviso || telaAtual === "config") renderizarPreservandoScroll();
     return;
   }
 
@@ -18280,7 +18417,7 @@ async function verificarAtualizacao(forcarAviso = false) {
     if (forcarAviso) alert("Não foi possível checar atualização: " + erro.message);
   }
 
-  if (forcarAviso || telaAtual === "config") renderApp();
+  if (forcarAviso || telaAtual === "config") renderizarPreservandoScroll();
 }
 
 function verificarAtualizacaoManual() {
@@ -18451,18 +18588,14 @@ document.addEventListener("visibilitychange", () => {
     salvarCacheSessaoLocal();
     salvarDados();
   } else if (document.visibilityState === "visible") {
-    iniciarRealtimeSyncUsuario("visible").catch((erro) => registrarDiagnostico("Realtime", "Inicio ao voltar para o app falhou", erro.message || erro));
-    agendarPollingSyncTempoReal("visible");
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
-    executarPollingSyncTempoReal("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
+    sincronizarAlteracoesLocaisSilencioso("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
   }
 });
 
 window.addEventListener("online", () => {
-  iniciarRealtimeSyncUsuario("online").catch((erro) => registrarDiagnostico("Realtime", "Inicio ao voltar internet falhou", erro.message || erro));
-  agendarPollingSyncTempoReal("online");
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
-  executarPollingSyncTempoReal("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
+  sincronizarAlteracoesLocaisSilencioso("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -18487,10 +18620,6 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarMonitorPlanoSaas();
   iniciarMonitorLicencaOnline();
   iniciarLembreteBackupPlanoFree();
-  setTimeout(() => {
-    iniciarRealtimeSyncUsuario("startup").catch((erro) => registrarDiagnostico("Realtime", "Inicio no bootstrap falhou", erro.message || erro));
-    agendarPollingSyncTempoReal("startup");
-  }, 1800);
   setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);
