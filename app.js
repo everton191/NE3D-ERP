@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.5";
-const APP_VERSION_CODE = 56;
+const APP_VERSION = "51.0.6";
+const APP_VERSION_CODE = 57;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -23,7 +23,7 @@ const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
 const DEFAULT_SAAS_PLANS = [
-  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: 25, active: true, recommended: false, allowPdf: false, allowReports: false, allowPermissions: false, kind: "free", showsAds: true },
+  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: null, maxClients: null, maxCalculatorUses: 30, maxStorageMb: 25, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "free", showsAds: true },
   { id: "premium_trial", slug: "premium_trial", name: "Teste gratis", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7, showsAds: false },
   { id: "premium", slug: "premium", name: "PRO", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid", showsAds: false }
 ];
@@ -44,7 +44,7 @@ const PAID_PRICE_TIERS = [
 ];
 const PREMIUM_FIRST_MONTH_PRICE = PAID_PRICE_TIERS[0].price;
 const PREMIUM_MONTHLY_PRICE = 29.9;
-const AD_MIN_INTERVAL_MS = 20 * 60 * 1000;
+const AD_MIN_INTERVAL_MS = 45 * 60 * 1000;
 const ADSENSE_WEB_DEFAULT_ENABLED = true;
 const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "ca-pub-1056970757696623");
 const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "3186212257");
@@ -746,7 +746,6 @@ function configurarMonetizacaoAds() {
       shouldShowAdsResolver: (user, context) => shouldShowAds(user, context),
       telemetry: (errorKey, metadata = {}) => registrarErroAplicacaoSilencioso(errorKey, new Error(errorKey), "AdSense", metadata)
     });
-    agendarPreloadRewardedAds("config");
   } catch (erro) {
     registrarDiagnostico("Monetização", "Configuração de monetização falhou", erro.message || erro);
   }
@@ -761,12 +760,14 @@ function contextoInterstitialSeguro(actionName = "") {
     isExportingPdf: !!window.__simplificaExportandoPdf,
     isModalOpen: !!document.getElementById("popup")?.innerHTML,
     isTyping: !!document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName),
-    hasError: !!document.querySelector(".feedback-status.error, .saas-sync-state.error, .toast-erro")
+    hasError: !!document.querySelector(".feedback-status.error, .saas-sync-state.error, .toast-erro"),
+    isSyncing: window.__simplificaSyncing === true
   };
 }
 
 function shouldShowAds(user = getUsuarioMonetizacao(), context = contextoInterstitialSeguro()) {
   if (isSuperAdmin() || adminLogado) return false;
+  if (window.AdMobService?.hasTemporaryUnlock?.("ad_free") || window.MonetizationLimits?.hasUnlock?.("ad_free", user || getUsuarioAtual())) return false;
   const estadoPlano = resolverEstadoPlano(user || getUsuarioAtual(), { source: "shouldShowAds" });
   if (estadoPlano.hasPremium) return false;
   const tela = String(context?.screenName || telaAtual || "").toLowerCase();
@@ -862,23 +863,9 @@ async function atualizarBotaoRewardedModal(botao, rewardType) {
     botao.dataset.rewardReason = status.reason || "";
     return;
   }
-  botao.disabled = true;
-  botao.textContent = "Carregando anúncio...";
-  const preload = await service.preloadRewardedAd({ user: getUsuarioMonetizacao(), rewardType });
-  status = service.getRewardedStatus(getUsuarioMonetizacao(), rewardType);
-  if (preload?.reason === "LOAD_IN_PROGRESS") {
-    botao.disabled = true;
-    botao.textContent = "Carregando anúncio...";
-    window.setTimeout(() => atualizarBotaoRewardedModal(botao, rewardType).catch(() => {}), 900);
-  } else if (preload?.ok || status.loaded) {
-    botao.disabled = false;
-    botao.textContent = "Assistir anúncio";
-    botao.dataset.textoOriginal = "Assistir anúncio";
-  } else {
-    botao.disabled = true;
-    botao.textContent = "Anúncio indisponível";
-    botao.dataset.rewardReason = preload?.reason || status.reason || "";
-  }
+  botao.disabled = false;
+  botao.textContent = "Assistir anúncio";
+  botao.dataset.textoOriginal = "Assistir anúncio";
 }
 
 function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = "" } = {}) {
@@ -890,7 +877,8 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
       return;
     }
 
-    const rewardType = tipo === "pdf" ? "pdf" : "orders";
+    const rewardTypeMap = { pdf: "pdf", calculator: "calculator", calculadora: "calculator", reports: "reports", relatorios: "reports", ads: "ad_free", ad_free: "ad_free", orders: "orders" };
+    const rewardType = rewardTypeMap[tipo] || "orders";
     popup.innerHTML = `
       <div class="modal-backdrop" role="dialog" aria-modal="true">
         <div class="modal-card limit-modal reward-modal">
@@ -900,7 +888,7 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
           </div>
           <p class="muted">${escaparHtml(texto)}</p>
           <div class="actions">
-            <button class="btn secondary" type="button" id="rewardAdWatch" disabled>Carregando anúncio...</button>
+            <button class="btn secondary" type="button" id="rewardAdWatch">Assistir anúncio</button>
             <button class="btn" type="button" id="rewardAdPlan">Assinar plano</button>
             <button class="btn ghost" type="button" id="rewardAdCancel">Agora não</button>
           </div>
@@ -930,13 +918,24 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
           user: getUsuarioMonetizacao(),
           rewardType,
           onReward: () => {
+            if (rewardType !== "ad_free") window.MonetizationLimits?.unlockAdsByAd?.(getUsuarioMonetizacao());
             if (rewardType === "pdf") window.MonetizationLimits?.unlockPdfByAd?.(getUsuarioMonetizacao());
+            else if (rewardType === "calculator") window.MonetizationLimits?.unlockCalculationsByAd?.(getUsuarioMonetizacao());
+            else if (rewardType === "reports") window.MonetizationLimits?.unlockReportsByAd?.(getUsuarioMonetizacao());
+            else if (rewardType === "ad_free") window.MonetizationLimits?.unlockAdsByAd?.(getUsuarioMonetizacao());
             else window.MonetizationLimits?.unlockOrdersByAd?.(getUsuarioMonetizacao());
           },
           onError: (erro) => registrarErroAplicacaoSilencioso("ADMOB_REWARDED_LOAD_FAILED", erro, "Rewarded Ad", { rewardType })
         });
         if (resultado?.rewarded) {
-          mostrarToast(rewardType === "pdf" ? "Exportação extra liberada." : "Novos pedidos liberados por 30 minutos.", "sucesso", 4500);
+          const mensagens = {
+            pdf: "PDF premium liberado temporariamente.",
+            calculator: "+20 cálculos liberados.",
+            reports: "Relatório avançado liberado temporariamente.",
+            ad_free: "Anúncios pausados por 10 minutos.",
+            orders: "Recursos liberados temporariamente."
+          };
+          mostrarToast(mensagens[rewardType] || "Recompensa aplicada.", "sucesso", 4500);
           finalizar(true);
           return;
         }
@@ -1603,6 +1602,7 @@ function marcarRegistroLocalAlteradoParaSync(registro, campos = {}) {
 
 function atualizarIndicadorSincronizacao(status = "idle", texto = "") {
   if (typeof document === "undefined" || !document.body) return;
+  window.__simplificaSyncing = status === "syncing";
   let indicador = document.getElementById("syncIndicator");
   if (syncIndicatorTimer) {
     clearTimeout(syncIndicatorTimer);
@@ -2888,10 +2888,10 @@ function incrementarUsoMensal(tipo) {
 
 function planoPermiteRecurso(recurso) {
   if (isSuperAdmin()) return true;
-  if (!canUsePremiumFeatures()) return false;
   const plano = getPlanoSaasAtual();
-  if (recurso === "pdf") return !!plano.allowPdf;
-  if (recurso === "reports") return !!plano.allowReports;
+  if (recurso === "pdf") return canUsePremiumFeatures() && !!plano.allowPdf;
+  if (recurso === "reports") return !!plano.allowReports || window.AdMobService?.hasTemporaryUnlock?.("reports") || window.MonetizationLimits?.hasUnlock?.("reports", getUsuarioMonetizacao());
+  if (!canUsePremiumFeatures()) return false;
   if (recurso === "permissions") return !!plano.allowPermissions;
   return canUsePremiumFeatures();
 }
@@ -5269,6 +5269,20 @@ function permitirAcaoPlanoCompleto() {
   return false;
 }
 
+function permitirAcaoBasicaFree(mensagem = "Seu acesso está bloqueado. Regularize o plano para continuar.") {
+  const plano = getPlanoAtual();
+  if (plano.blockLevel === "total" || plano.status === "bloqueado") {
+    mostrarBloqueioPlano({ message: mensagem });
+    return false;
+  }
+  return true;
+}
+
+function permitirVisualizacaoOperacionalBasica() {
+  const plano = getPlanoAtual();
+  return !(plano.blockLevel === "total" || plano.status === "bloqueado");
+}
+
 function mostrarBloqueioPlano(resultado) {
   const mensagem = resultado?.message || "Recurso premium. O trial ativo e o plano pago liberam esta função.";
   if (resultado?.reason === "DEVICE_LIMIT") {
@@ -5511,11 +5525,7 @@ async function verificarLimitePedidosAntesCriar() {
     mostrarModalLimitePlano("Seu pagamento está pendente. Regularize para evitar bloqueio.");
     return false;
   }
-  if (!window.MonetizationLimits) {
-    if (!limitePedidosAtingido()) return true;
-    mostrarModalLimitePlano("Limite atingido. Assine o Premium para continuar.");
-    return false;
-  }
+  if (!window.MonetizationLimits) return true;
   const usuario = getUsuarioMonetizacao();
   if (window.MonetizationLimits.canCreateOrder(usuario)) return true;
   registrarErroAplicacaoSilencioso("FREE_ORDER_LIMIT_BLOCKED", new Error("FREE_ORDER_LIMIT_BLOCKED"), "Limite de pedidos gratuito", {
@@ -5747,6 +5757,10 @@ function agendarRenderizacaoPreservandoScroll(atraso = 120) {
     window.__simplificaRenderPreserveTimer = null;
     renderizarPreservandoScroll();
   }, Math.max(0, Number(atraso) || 0));
+}
+
+function renderizarStatusSyncSeVisivel() {
+  if (["backup", "config", "conta"].includes(telaAtual)) renderizarPreservandoScroll();
 }
 
 function trocarTela(tela) {
@@ -8593,7 +8607,7 @@ function renderMateriaisItemPedido(item, itemIndex) {
 }
 
 function renderEstoque() {
-  const podeOperar = temAcessoCompleto();
+  const podeOperar = permitirVisualizacaoOperacionalBasica();
   normalizarEstoque();
   const linhas = estoque.length
     ? estoque.map((material, i) => `
@@ -8616,7 +8630,7 @@ function renderEstoque() {
       <div class="card-header">
         <h2>📦 Estoque</h2>
       </div>
-      ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Visualização liberada; alterações voltam após regularização.</p>`}
+      ${podeOperar ? "" : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; alterações voltam após regularização.</p>`}
       ${podeOperar ? `
       <label class="field">
         <span>Tipo de material</span>
@@ -8640,7 +8654,7 @@ function renderEstoque() {
 }
 
 function renderListaPedidos() {
-  const podeOperar = temAcessoCompleto();
+  const podeOperar = permitirVisualizacaoOperacionalBasica();
   const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
   const listaBase = filtroDashboard === "abertos"
     ? pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto")))
@@ -9912,7 +9926,21 @@ async function marcarClientesInativosAcao() {
 }
 
 function renderRelatorios() {
-  if (!planoPermiteRecurso("reports")) return renderBloqueioPlano("Relatórios");
+  if (!planoPermiteRecurso("reports")) {
+    return `
+      <section class="card">
+        <div class="card-header">
+          <h2>📈 Relatórios avançados</h2>
+          <span class="status-badge">PRO</span>
+        </div>
+        <p class="muted">O Free mantém dashboard e dados básicos. Relatórios avançados ficam disponíveis no PRO ou temporariamente ao assistir um anúncio recompensado.</p>
+        <div class="actions">
+          <button class="btn secondary" type="button" onclick="desbloquearRelatoriosComAnuncio()">Assistir anúncio</button>
+          <button class="btn ghost" type="button" onclick="trocarTela('assinatura')">Ver planos</button>
+        </div>
+      </section>
+    `;
+  }
   const podeOperar = temAcessoCompleto();
   const totais = calcularTotaisCaixa();
   const stats = getDashboardStats();
@@ -9935,7 +9963,7 @@ function renderRelatorios() {
 }
 
 function renderCaixa() {
-  const podeOperar = temAcessoCompleto();
+  const podeOperar = permitirVisualizacaoOperacionalBasica();
   const totais = calcularTotaisCaixa();
   const linhas = caixa.length
     ? [...caixa].reverse().map((movimento, posicaoInvertida) => {
@@ -9988,7 +10016,7 @@ function renderCaixa() {
         <span>Descrição</span>
         <input id="caixaDescricao" placeholder="Ex.: 2 reais caneta">
       </label>
-      <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu plano está inativo. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
+      <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
       ${linhas}
     </section>
   `;
@@ -11608,6 +11636,16 @@ function excluirUsuarioSuperAdmin(id) {
   salvarDados();
   registrarHistorico("Super Admin", `Usuário excluído: ${usuario.email}`);
   renderApp();
+}
+
+function desbloquearRelatoriosComAnuncio() {
+  mostrarModalDesbloqueioAnuncio({
+    tipo: "reports",
+    titulo: "Relatórios avançados",
+    texto: "Assista a um anúncio para liberar relatórios avançados temporariamente ou assine o PRO para acesso permanente."
+  }).then((liberado) => {
+    if (liberado) renderizarPreservandoScroll();
+  });
 }
 
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
@@ -15056,7 +15094,7 @@ async function sincronizarLicencaEfetivaSePossivel(motivo = "manual") {
   if (agora - ultimo < 5000) return getLicencaEfetivaSnapshotLocal();
   window.__simplificaEffectiveLicenseSyncAt = agora;
   const licenca = await consultarLicencaSupabaseSilencioso({ motivo });
-  if (licenca && ["assinatura", "minhaAssinatura", "admin", "dashboard"].includes(telaAtual)) renderApp();
+  if (licenca && ["assinatura", "minhaAssinatura", "admin"].includes(telaAtual)) renderizarPreservandoScroll();
   return licenca;
 }
 
@@ -15986,7 +16024,7 @@ async function sincronizarSupabase() {
     salvarDados();
     atualizarIndicadorSincronizacao("pending", "Na fila");
     mostrarToast("Erro de conexão", "erro", 5000);
-    renderizarPreservandoScroll();
+    renderizarStatusSyncSeVisivel();
     return;
   }
 
@@ -15994,7 +16032,7 @@ async function sincronizarSupabase() {
     syncConfig.autoBackupStatus = "Sincronizando...";
     salvarDados();
     atualizarIndicadorSincronizacao("syncing", "Salvando");
-    renderizarPreservandoScroll();
+    renderizarStatusSyncSeVisivel();
     mostrarToast("Sincronizando...", "info", 1800);
     await salvarPerfilSupabase();
     const preDownload = await aplicarBackupRemotoAntesDeUploadSeNecessario("sync-manual");
@@ -16012,7 +16050,7 @@ async function sincronizarSupabase() {
     registrarHistorico("Supabase", remoto ? "Dados mesclados e enviados" : "Backup inicial criado");
     atualizarIndicadorSincronizacao("success", "Salvo");
     mostrarToast("Dados sincronizados", "sucesso", 2800);
-    renderizarPreservandoScroll();
+    renderizarStatusSyncSeVisivel();
   } catch (erro) {
     syncConfig.autoBackupStatus = "Erro ao sincronizar";
     salvarDados();
@@ -16020,7 +16058,7 @@ async function sincronizarSupabase() {
     registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Sincronizar Supabase");
     atualizarIndicadorSincronizacao("error", "Offline");
     mostrarToast("Erro de conexão", "erro", 5000);
-    renderizarPreservandoScroll();
+    renderizarStatusSyncSeVisivel();
   }
 }
 
@@ -16771,7 +16809,7 @@ function registrarAuditoriaPedido(acao, pedido, detalhes = {}) {
 
 async function requestOrderEdit(orderId) {
   try {
-    if (!permitirAcaoPlanoCompleto()) return;
+    if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para editar pedidos.")) return;
     const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
     if (!await confirmAdminPassword("editar este pedido")) return;
@@ -16865,7 +16903,7 @@ function criarLancamentoReversoCaixaPedido(pedido, movimentos, agora) {
 
 async function cancelOrderSafely(orderId, options = {}) {
   try {
-    if (!permitirAcaoPlanoCompleto()) return;
+    if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para cancelar pedidos.")) return;
     const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
     if (pedidoJaCancelado(pedido)) {
@@ -16917,7 +16955,7 @@ async function cancelOrderSafely(orderId, options = {}) {
 
 async function requestOrderDelete(orderId) {
   try {
-    if (!permitirAcaoPlanoCompleto()) return;
+    if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para excluir pedidos.")) return;
     const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
     registrarAuditoriaPedido("pedido_exclusao_solicitada", pedido);
@@ -17083,7 +17121,7 @@ async function fecharPedido() {
 }
 
 function alterarStatusPedido(id, status) {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar pedidos.")) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
   marcarRegistroLocalAlteradoParaSync(pedido, { status: status || "aberto" });
@@ -17094,7 +17132,7 @@ function alterarStatusPedido(id, status) {
 }
 
 function addMaterial() {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   const tipo = document.getElementById("matTipo")?.value || "PLA";
   const cor = (document.getElementById("matCor")?.value || "").trim();
   const qtd = document.getElementById("matQtd")?.value;
@@ -17109,7 +17147,7 @@ function addMaterial() {
 }
 
 function editarMaterial(i) {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   normalizarEstoque();
   const material = estoque[i];
   if (!material) return;
@@ -17165,7 +17203,7 @@ function salvarEdicaoMaterialEstoque(indice) {
 }
 
 function removerMaterial(i) {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   if (!estoque[i]) return;
   if (!confirm("Remover este material?")) return;
 
@@ -17179,7 +17217,7 @@ function removerMaterial(i) {
 }
 
 function adicionarMovimentoCaixa() {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para lançar no caixa.")) return;
   const tipo = document.getElementById("caixaTipo")?.value || "entrada";
   let valor = 0;
   try {
@@ -17209,7 +17247,7 @@ function adicionarMovimentoCaixa() {
 }
 
 function removerMovimentoCaixa(i) {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar o caixa.")) return;
   if (!caixa[i]) return;
   if (!confirm("Remover este movimento do caixa?")) return;
 
@@ -17626,7 +17664,7 @@ function alterarMaterialCalculadora(materialId = "") {
 }
 
 function abrirCadastroMaterialCalculadora() {
-  if (!permitirAcaoPlanoCompleto()) return;
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para cadastrar materiais.")) return;
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
@@ -17698,10 +17736,16 @@ function salvarMaterialCalculadoraRapido() {
 }
 
 function calcular() {
-  const plano = getPlanoSaasAtual();
-  if (plano.maxCalculatorUses && getUsoMensal("calculadora") >= plano.maxCalculatorUses) {
-    mostrarModalLimitePlano("Você atingiu o limite de usos da calculadora do seu plano. Faça upgrade para continuar.");
-    return;
+  const usuarioMonetizacao = getUsuarioMonetizacao();
+  if (window.MonetizationLimits && !window.MonetizationLimits.canUseCalculator(usuarioMonetizacao)) {
+    mostrarModalDesbloqueioAnuncio({
+      tipo: "calculator",
+      titulo: "Limite diário da calculadora",
+      texto: "Você usou os 30 cálculos gratuitos de hoje. Assista a um anúncio para liberar +20 cálculos ou assine o PRO para uso ilimitado."
+    }).then((liberado) => {
+      if (liberado) calcular();
+    });
+    return false;
   }
 
   let peso;
@@ -17725,7 +17769,7 @@ function calcular() {
     taxaExtra = InventoryService.parseNumberStrict(document.getElementById("taxaExtra")?.value, "taxa extra", { min: 0 });
   } catch (erro) {
     ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço", errorKey: "CALCULATE_QUOTE_FAILED" });
-    return;
+    return false;
   }
   const printer = document.getElementById("printer")?.value || appConfig.defaultPrinterModel || "";
   const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
@@ -17769,12 +17813,15 @@ function calcular() {
       <span>Preço sugerido de venda</span><strong>${formatarMoeda(preco)}</strong>
     </div>
   `;
-  incrementarUsoMensal("calculadora");
+  if (window.MonetizationLimits?.registerCalculation) window.MonetizationLimits.registerCalculation(usuarioMonetizacao);
+  else incrementarUsoMensal("calculadora");
+  return true;
 }
 
 function adicionarItem() {
   if (!ultimoCalculo) {
-    calcular();
+    const calculou = calcular();
+    if (!calculou) return;
   }
 
   if (!ultimoCalculo || ultimoCalculo.preco <= 0) {
@@ -18202,13 +18249,17 @@ function carregarImagemDataUrl(src) {
 }
 
 async function obterMarcaPdfDataUrl() {
-  if (!temAcessoCompleto()) return "";
+  if (!temAcessoPdfProfissional()) return "";
   return carregarImagemDataUrl(getMarcaProjetoSrc());
 }
 
 async function obterFundoPdfDataUrl() {
-  if (!temAcessoCompleto() || !appConfig.pdfBackgroundDataUrl) return "";
+  if (!temAcessoPdfProfissional() || !appConfig.pdfBackgroundDataUrl) return "";
   return carregarImagemDataUrl(appConfig.pdfBackgroundDataUrl);
+}
+
+function temAcessoPdfProfissional() {
+  return temAcessoCompleto() || window.AdMobService?.hasTemporaryUnlock?.("pdf") || window.MonetizationLimits?.hasUnlock?.("pdf", getUsuarioMonetizacao());
 }
 
 function tipoImagemDataUrl(dataUrl) {
@@ -18229,7 +18280,7 @@ function hexParaRgb(hex) {
 }
 
 function adicionarMarcaPdf(doc, largura, altura, marcaDataUrl = "") {
-  if (!temAcessoCompleto() || !marcaDataUrl) return;
+  if (!temAcessoPdfProfissional() || !marcaDataUrl) return;
 
   try {
     const tipo = tipoImagemDataUrl(marcaDataUrl);
@@ -18246,7 +18297,7 @@ function adicionarMarcaPdf(doc, largura, altura, marcaDataUrl = "") {
 }
 
 function adicionarFundoPdf(doc, largura, altura, fundoDataUrl = "") {
-  if (!temAcessoCompleto() || !fundoDataUrl) return;
+  if (!temAcessoPdfProfissional() || !fundoDataUrl) return;
   try {
     const tipo = tipoImagemDataUrl(fundoDataUrl);
     if (doc.GState && doc.setGState) doc.setGState(new doc.GState({ opacity: 0.12 }));
@@ -18254,6 +18305,21 @@ function adicionarFundoPdf(doc, largura, altura, fundoDataUrl = "") {
     if (doc.GState && doc.setGState) doc.setGState(new doc.GState({ opacity: 1 }));
   } catch (erro) {
     registrarDiagnostico("pdf", "Fundo personalizado não aplicado", erro.message);
+  }
+}
+
+function adicionarMarcaDaguaFreePdf(doc, largura, altura) {
+  if (temAcessoPdfProfissional()) return;
+  try {
+    doc.setTextColor(180, 190, 205);
+    doc.setFontSize(13);
+    if (doc.GState && doc.setGState) doc.setGState(new doc.GState({ opacity: 0.18 }));
+    doc.text("Simplifica 3D - Plano Free", largura / 2, altura / 2, { align: "center", angle: 35 });
+    if (doc.GState && doc.setGState) doc.setGState(new doc.GState({ opacity: 1 }));
+  } catch (_) {
+    doc.setTextColor(180, 190, 205);
+    doc.setFontSize(10);
+    doc.text("Simplifica 3D - Plano Free", largura / 2, altura - 10, { align: "center" });
   }
 }
 
@@ -18367,6 +18433,7 @@ async function gerarPDF() {
 
   adicionarFundoPdf(doc, largura, altura, fundoPdf);
   adicionarMarcaPdf(doc, largura, altura, marcaPdf);
+  adicionarMarcaDaguaFreePdf(doc, largura, altura);
 
   doc.setFillColor(corRgb[0], corRgb[1], corRgb[2]);
   doc.rect(0, 0, largura, 32, "F");
@@ -18375,10 +18442,10 @@ async function gerarPDF() {
   doc.text(empresa, margem, 14);
   doc.setFontSize(10);
   doc.text("Pedido #" + pedidoId, margem, 23);
-  if (appConfig.pdfHeaderText && temAcessoCompleto()) doc.text(String(appConfig.pdfHeaderText).slice(0, 60), margem, 29);
+  if (appConfig.pdfHeaderText && temAcessoPdfProfissional()) doc.text(String(appConfig.pdfHeaderText).slice(0, 60), margem, 29);
   doc.text(data, largura - margem, 23, { align: "right" });
 
-  if (temAcessoCompleto() && marcaPdf) {
+  if (temAcessoPdfProfissional() && marcaPdf) {
     try {
       doc.addImage(marcaPdf, tipoImagemDataUrl(marcaPdf), largura - 32, 6, 18, 18);
     } catch (erro) {
@@ -18416,6 +18483,7 @@ async function gerarPDF() {
       doc.addPage();
       adicionarFundoPdf(doc, largura, altura, fundoPdf);
       adicionarMarcaPdf(doc, largura, altura, marcaPdf);
+      adicionarMarcaDaguaFreePdf(doc, largura, altura);
       y = 24;
     }
 
@@ -18446,6 +18514,7 @@ async function gerarPDF() {
       doc.addPage();
       adicionarFundoPdf(doc, largura, altura, fundoPdf);
       adicionarMarcaPdf(doc, largura, altura, marcaPdf);
+      adicionarMarcaDaguaFreePdf(doc, largura, altura);
       y = 24;
     }
 
@@ -18750,6 +18819,13 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
       appConfig.updateAvailableVersion = getManifestAndroidVersionName(manifest);
       appConfig.updateAvailableCode = getManifestAndroidVersionCode(manifest);
       salvarStatusAtualizacao(`APK ${appConfig.updateAvailableVersion} disponível`);
+      const autoDownloadKey = `${appConfig.updateAvailableVersion}:${appConfig.updateAvailableCode || 0}`;
+      if (!forcarAviso && appConfig.autoUpdateEnabled !== false && appConfig.updateAutoDownloadedKey !== autoDownloadKey) {
+        appConfig.updateAutoDownloadedKey = autoDownloadKey;
+        salvarDados();
+        mostrarToast(`Baixando atualização ${appConfig.updateAvailableVersion}...`, "info", 3600);
+        setTimeout(() => abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl), 500);
+      }
 
       if (forcarAviso) {
         avisarAtualizacaoAndroid(manifest, forcarAviso);
@@ -18759,6 +18835,7 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
 
     appConfig.updateAvailableVersion = "";
     appConfig.updateAvailableCode = 0;
+    appConfig.updateAutoDownloadedKey = "";
     salvarStatusAtualizacao("Sistema atualizado");
     if (forcarAviso) mostrarToast("Nenhuma atualização nova encontrada.", "info", 3200);
     return true;

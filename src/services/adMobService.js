@@ -20,10 +20,11 @@
     Showed: "onRewardedVideoAdShowed"
   };
 
-  const INTERSTITIAL_MIN_INTERVAL_MINUTES = 20;
+  const INTERSTITIAL_MIN_INTERVAL_MINUTES = 60;
   const INTERSTITIAL_MIN_COMPLETED_ACTIONS = 2;
   const INTERSTITIAL_SHOW_PROBABILITY = 0.5;
   const AD_UNLOCK_DURATION_MINUTES = 30;
+  const AD_SESSION_WARMUP_MINUTES = 10;
   const STORAGE_KEY = "simplifica3d:admob-state:v2";
   const BANNER_ALLOWED_SCREENS = new Set(["dashboard", "relatorios", "estoque"]);
 
@@ -55,6 +56,7 @@
   let rewardedPrepared = false;
   let interstitialPrepared = false;
   let bannerShowing = false;
+  let sessionStartedAt = Date.now();
   let rewardedState = {
     loaded: false,
     loading: false,
@@ -117,7 +119,7 @@
   function log(eventKey, metadata = {}) {
     try {
       if (typeof config.logger === "function") config.logger(eventKey, metadata);
-      else if (typeof console !== "undefined") console.info("[Simplifica3D][AdMob]", eventKey, metadata);
+      else if (typeof console !== "undefined") console.info("[ADS]", eventKey, metadata);
     } catch (_) {}
   }
 
@@ -173,6 +175,7 @@
       }
     } catch (_) {}
     if (isPremiumUser(user)) return false;
+    if (hasTemporaryUnlock("ad_free")) return false;
     if (user?.bloqueado || user?.blocked || user?.ativo === false) return false;
     const planState = normalizePlan(user.planState || user.plan_state || "");
     if (["trial", "active", "pago", "blocked", "bloqueado"].includes(planState)) return false;
@@ -286,6 +289,9 @@
     const value = normalizePlan(rewardType);
     if (["order", "orders", "pedido", "pedidos"].includes(value)) return "orders";
     if (["pdf", "pdf_export", "export_pdf"].includes(value)) return "pdf";
+    if (["calc", "calculation", "calculations", "calculator", "calculadora"].includes(value)) return "calculator";
+    if (["report", "reports", "relatorio", "relatorios"].includes(value)) return "reports";
+    if (["ads", "ad_free", "sem_anuncios", "sem_ads"].includes(value)) return "ad_free";
     return value || "generic";
   }
 
@@ -407,16 +413,14 @@
       if (!isRewardCompleted(result)) {
         setRewardedState({ opened: false, rewardEarned: false, loaded: false, lastReason: "CLOSED_WITHOUT_REWARD", rewardType: type });
         logEvent("ADMOB_REWARDED_CLOSED_WITHOUT_REWARD", { rewardType: type });
-        preloadRewardedAd({ user, rewardType: type }).catch(() => {});
         return { ok: true, rewarded: false, cancelled: true, opened: true, reason: "NOT_COMPLETED" };
       }
 
       registerAdShown("rewarded");
       const unlock = grantTemporaryUnlock(type);
       setRewardedState({ opened: false, rewardEarned: true, loaded: false, lastReason: "REWARD_GRANTED", rewardType: type });
-      logEvent("ADMOB_REWARD_GRANTED", { rewardType: type });
+      logEvent("ADMOB_REWARD_GRANTED", { rewardType: type, label: "[ADS] rewarded_earned" });
       if (typeof onReward === "function") await onReward({ rewardType: type, unlock, adResult: result });
-      preloadRewardedAd({ user, rewardType: type }).catch(() => {});
       return { ok: true, rewarded: true, unlock };
     } catch (error) {
       rewardedPrepared = false;
@@ -433,14 +437,13 @@
       try {
         if (typeof onError === "function") onError(error);
       } catch (_) {}
-      preloadRewardedAd({ user, rewardType: type }).catch(() => {});
       return { ok: false, rewarded: false, opened, error, reason: opened ? "SHOW_FAILED_AFTER_OPEN" : "SHOW_FAILED" };
     }
   }
 
   function isCriticalContext(context = {}) {
     const screen = normalizePlan(context.screenName || context.screen || "");
-    if (context.isEditingOrder || context.isCalculating || context.isExportingPdf || context.isModalOpen || context.isTyping || context.hasError) return true;
+    if (context.isEditingOrder || context.isCalculating || context.isExportingPdf || context.isModalOpen || context.isTyping || context.hasError || context.isSyncing) return true;
     return ["login", "cadastro", "signup", "admin", "superadmin", "pagamento", "payment", "assinatura", "onboarding", "popup", "modal"].includes(screen);
   }
 
@@ -456,6 +459,7 @@
     if (isCriticalContext(context)) return { allowed: false, reason: "CRITICAL_CONTEXT" };
 
     const state = getState();
+    if (config.now() - sessionStartedAt < AD_SESSION_WARMUP_MINUTES * 60 * 1000) return { allowed: false, reason: "SESSION_WARMUP" };
     const elapsed = config.now() - Number(state.lastInterstitialAt || 0);
     if (elapsed < INTERSTITIAL_MIN_INTERVAL_MINUTES * 60 * 1000) return { allowed: false, reason: "MIN_INTERVAL" };
     if (Number(state.completedActionsSinceInterstitial || 0) < INTERSTITIAL_MIN_COMPLETED_ACTIONS) {
@@ -521,7 +525,6 @@
       else if (plugin.showInterstitialAd) await plugin.showInterstitialAd();
       registerAdShown("interstitial");
       logEvent("ADMOB_INTERSTITIAL_SHOWN", { actionName: context.actionName || "", production: isProductionEnabled() });
-      preloadInterstitial({ user, context }).catch(() => {});
       return { shown: true };
     } catch (error) {
       interstitialPrepared = false;
@@ -603,6 +606,7 @@
     rewardedPrepared = false;
     interstitialPrepared = false;
     bannerShowing = false;
+    sessionStartedAt = config.now();
     rewardedState = {
       loaded: false,
       loading: false,
@@ -630,6 +634,7 @@
     INTERSTITIAL_MIN_COMPLETED_ACTIONS,
     INTERSTITIAL_SHOW_PROBABILITY,
     AD_UNLOCK_DURATION_MINUTES,
+    AD_SESSION_WARMUP_MINUTES,
     configure,
     isProductionEnabled,
     isNativeAndroid,

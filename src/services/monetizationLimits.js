@@ -1,9 +1,12 @@
 (function (global) {
   "use strict";
 
-  const FREE_ORDER_LIMIT = 5;
+  const FREE_ORDER_LIMIT = null;
+  const FREE_DAILY_CALCULATION_LIMIT = 30;
+  const REWARDED_CALCULATION_BONUS = 20;
   const FREE_DAILY_PDF_LIMIT = 1;
   const AD_UNLOCK_DURATION_MINUTES = 30;
+  const AD_FREE_UNLOCK_DURATION_MINUTES = 10;
   const STORAGE_KEY = "simplifica3d:monetization-limits:v1";
 
   const config = {
@@ -23,14 +26,14 @@
 
   function getState() {
     const storage = config.getStorage();
-    if (!storage) return { pdfUsage: {}, unlocks: {} };
-    return { pdfUsage: {}, unlocks: {}, ...safeJsonParse(storage.getItem(STORAGE_KEY), {}) };
+    if (!storage) return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, unlocks: {} };
+    return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, unlocks: {}, ...safeJsonParse(storage.getItem(STORAGE_KEY), {}) };
   }
 
   function saveState(state) {
     const storage = config.getStorage();
     if (!storage) return;
-    storage.setItem(STORAGE_KEY, JSON.stringify({ pdfUsage: {}, unlocks: {}, ...state }));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, unlocks: {}, ...state }));
   }
 
   function normalize(value = "") {
@@ -80,14 +83,11 @@
   }
 
   function canCreateOrder(user = {}) {
-    if (isPremium(user)) return true;
-    if (hasUnlock("orders", user)) return true;
-    return getOrderCount(user) < FREE_ORDER_LIMIT;
+    return true;
   }
 
   function getRemainingFreeOrders(user = {}) {
-    if (isPremium(user) || hasUnlock("orders", user)) return Number.POSITIVE_INFINITY;
-    return Math.max(0, FREE_ORDER_LIMIT - getOrderCount(user));
+    return Number.POSITIVE_INFINITY;
   }
 
   function resetDailyPdfLimitIfNeeded(user = {}) {
@@ -104,6 +104,59 @@
 
   function getPdfUsage(user = {}) {
     return resetDailyPdfLimitIfNeeded(user);
+  }
+
+  function resetDailyCalculationLimitIfNeeded(user = {}) {
+    const state = getState();
+    const key = getUserKey(user);
+    const today = todayKey();
+    const current = state.calculationUsage?.[key];
+    if (!current || current.date !== today) {
+      state.calculationUsage = { ...(state.calculationUsage || {}), [key]: { date: today, count: 0 } };
+      state.calculationBonus = { ...(state.calculationBonus || {}), [key]: { date: today, count: 0 } };
+      saveState(state);
+    }
+    return {
+      usage: state.calculationUsage[key] || { date: today, count: 0 },
+      bonus: state.calculationBonus?.[key] || { date: today, count: 0 }
+    };
+  }
+
+  function getCalculationUsage(user = {}) {
+    return resetDailyCalculationLimitIfNeeded(user).usage;
+  }
+
+  function getCalculationBonus(user = {}) {
+    return resetDailyCalculationLimitIfNeeded(user).bonus;
+  }
+
+  function getDailyCalculationLimit(user = {}) {
+    if (isPremium(user)) return Number.POSITIVE_INFINITY;
+    const bonus = getCalculationBonus(user);
+    return FREE_DAILY_CALCULATION_LIMIT + Math.max(0, Number(bonus.count || 0) || 0);
+  }
+
+  function canUseCalculator(user = {}) {
+    if (isPremium(user)) return true;
+    if (hasUnlock("calculator_unlimited", user)) return true;
+    const usage = getCalculationUsage(user);
+    return Number(usage.count || 0) < getDailyCalculationLimit(user);
+  }
+
+  function getRemainingFreeCalculations(user = {}) {
+    if (isPremium(user) || hasUnlock("calculator_unlimited", user)) return Number.POSITIVE_INFINITY;
+    const usage = getCalculationUsage(user);
+    return Math.max(0, getDailyCalculationLimit(user) - Number(usage.count || 0));
+  }
+
+  function registerCalculation(user = {}) {
+    if (isPremium(user) || hasUnlock("calculator_unlimited", user)) return getCalculationUsage(user);
+    const state = getState();
+    const key = getUserKey(user);
+    const usage = resetDailyCalculationLimitIfNeeded(user).usage;
+    state.calculationUsage = { ...(state.calculationUsage || {}), [key]: { date: usage.date, count: Number(usage.count || 0) + 1 } };
+    saveState(state);
+    return state.calculationUsage[key];
   }
 
   function canExportPDF(user = {}) {
@@ -127,12 +180,12 @@
     return state.pdfUsage[key];
   }
 
-  function unlockByAd(type, user = {}) {
+  function unlockByAd(type, user = {}, minutes = AD_UNLOCK_DURATION_MINUTES) {
     if (global.AdMobService?.grantTemporaryUnlock) {
-      return global.AdMobService.grantTemporaryUnlock(type, AD_UNLOCK_DURATION_MINUTES);
+      return global.AdMobService.grantTemporaryUnlock(type, minutes);
     }
     const state = getState();
-    const until = config.now() + AD_UNLOCK_DURATION_MINUTES * 60 * 1000;
+    const until = config.now() + Math.max(1, Number(minutes) || AD_UNLOCK_DURATION_MINUTES) * 60 * 1000;
     state.unlocks = { ...(state.unlocks || {}), [`${getUserKey(user)}:${type}`]: until };
     saveState(state);
     return { type, until };
@@ -146,6 +199,26 @@
     return unlockByAd("pdf", user);
   }
 
+  function unlockAdsByAd(user = {}) {
+    return unlockByAd("ad_free", user, AD_FREE_UNLOCK_DURATION_MINUTES);
+  }
+
+  function unlockReportsByAd(user = {}) {
+    return unlockByAd("reports", user);
+  }
+
+  function unlockCalculationsByAd(user = {}) {
+    const state = getState();
+    const key = getUserKey(user);
+    const { bonus } = resetDailyCalculationLimitIfNeeded(user);
+    state.calculationBonus = {
+      ...(state.calculationBonus || {}),
+      [key]: { date: todayKey(), count: Number(bonus.count || 0) + REWARDED_CALCULATION_BONUS }
+    };
+    saveState(state);
+    return { type: "calculator", bonus: REWARDED_CALCULATION_BONUS, totalBonus: state.calculationBonus[key].count };
+  }
+
   function configure(options = {}) {
     Object.assign(config, options || {});
   }
@@ -157,17 +230,28 @@
 
   const api = {
     FREE_ORDER_LIMIT,
+    FREE_DAILY_CALCULATION_LIMIT,
+    REWARDED_CALCULATION_BONUS,
     FREE_DAILY_PDF_LIMIT,
     AD_UNLOCK_DURATION_MINUTES,
+    AD_FREE_UNLOCK_DURATION_MINUTES,
     configure,
     canCreateOrder,
+    canUseCalculator,
     canExportPDF,
     unlockOrdersByAd,
     unlockPdfByAd,
+    unlockAdsByAd,
+    unlockReportsByAd,
+    unlockCalculationsByAd,
+    resetDailyCalculationLimitIfNeeded,
     resetDailyPdfLimitIfNeeded,
     getRemainingFreeOrders,
+    getRemainingFreeCalculations,
     getRemainingFreePdfExports,
+    registerCalculation,
     registerPdfExport,
+    hasUnlock,
     getState,
     resetForTests
   };

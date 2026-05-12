@@ -114,20 +114,32 @@ async function run() {
     paymentStatus: "pending",
     subscriptionStatus: "free",
     orderCount: 999
-  }), false, "pending nao libera limites premium");
+  }), true, "pending nao bloqueia pedidos basicos do free");
+  assert.equal(MonetizationLimits.canUseCalculator({
+    activePlan: "premium",
+    paymentStatus: "pending",
+    subscriptionStatus: "pending",
+    orderCount: 999
+  }), true, "pending nao derruba calculadora basica do free");
 
   configure({ premium: false, orders: 4 });
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "free@example.com" }), true, "free dentro do limite cria pedido");
-  assert.equal(MonetizationLimits.getRemainingFreeOrders({ email: "free@example.com" }), 1, "resta um pedido gratuito");
+  assert.equal(MonetizationLimits.canCreateOrder({ email: "free@example.com" }), true, "free cria pedidos basicos");
+  assert.equal(MonetizationLimits.getRemainingFreeOrders({ email: "free@example.com" }), Number.POSITIVE_INFINITY, "free nao tem limite de pedidos basicos");
 
   configure({ premium: false, orders: 5 });
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "limit@example.com" }), false, "free no limite bloqueia pedido");
+  assert.equal(MonetizationLimits.canCreateOrder({ email: "limit@example.com" }), true, "free nao bloqueia pedidos basicos");
+  for (let i = 0; i < MonetizationLimits.FREE_DAILY_CALCULATION_LIMIT; i += 1) {
+    assert.equal(MonetizationLimits.canUseCalculator({ email: "limit@example.com" }), true, "free calcula ate limite diario");
+    MonetizationLimits.registerCalculation({ email: "limit@example.com" });
+  }
+  assert.equal(MonetizationLimits.canUseCalculator({ email: "limit@example.com" }), false, "free bloqueia calculadora apos limite diario");
   await AdMobService.showRewardedAd({
-    rewardType: "orders",
-    onReward: () => MonetizationLimits.unlockOrdersByAd({ email: "limit@example.com" })
+    rewardType: "calculator",
+    onReward: () => MonetizationLimits.unlockCalculationsByAd({ email: "limit@example.com" })
   });
   assert.equal(rewardedShows, 1, "rewarded simulado exibido");
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "limit@example.com" }), true, "rewarded libera pedidos temporariamente");
+  assert.equal(MonetizationLimits.canUseCalculator({ email: "limit@example.com" }), true, "rewarded libera calculos extras");
+  assert.equal(MonetizationLimits.getRemainingFreeCalculations({ email: "limit@example.com" }), MonetizationLimits.REWARDED_CALCULATION_BONUS, "rewarded adiciona vinte calculos");
 
   configure({ premium: false, orders: 0 });
   const pdfUser = { email: "pdf@example.com" };
@@ -146,20 +158,23 @@ async function run() {
 
   configure({ premium: false, orders: 5 });
   failRewarded = true;
-  const failedReward = await AdMobService.showRewardedAd({ rewardType: "orders" });
+  const failedReward = await AdMobService.showRewardedAd({ rewardType: "calculator" });
   assert.equal(failedReward.rewarded, false, "falha no SDK nao concede recompensa");
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "fail@example.com" }), false, "falha no SDK mantem bloqueio");
+  for (let i = 0; i < MonetizationLimits.FREE_DAILY_CALCULATION_LIMIT; i += 1) {
+    MonetizationLimits.registerCalculation({ email: "fail@example.com" });
+  }
+  assert.equal(MonetizationLimits.canUseCalculator({ email: "fail@example.com" }), false, "falha no SDK mantem limite de calculadora");
 
   now = Date.parse("2026-05-04T12:00:00.000Z");
   configure({ premium: false, orders: 0, production: true, random: 0.1 });
   await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "pedidos", actionName: "order_saved" });
   assert.equal(interstitialShows, 0, "interstitial nao aparece com menos de duas acoes");
-  now += 21 * 60 * 1000;
+  now += 61 * 60 * 1000;
   await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "pedidos", actionName: "order_saved" });
-  assert.equal(interstitialShows, 1, "interstitial aparece depois de 20min e 2 acoes");
+  assert.equal(interstitialShows, 1, "interstitial aparece depois de 60min e 2 acoes");
 
   configure({ premium: false, orders: 0, production: true, random: 0.1 });
-  now += 21 * 60 * 1000;
+  now += 61 * 60 * 1000;
   AdMobService.registerCompletedAction();
   AdMobService.registerCompletedAction();
   const critical = await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "login", actionName: "order_saved" });
