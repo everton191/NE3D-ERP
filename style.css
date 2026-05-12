@@ -258,7 +258,7 @@ header h1{
 .topbar{
   min-height:64px;
   display:grid;
-  grid-template-columns:minmax(180px, 1fr) minmax(260px, 420px) auto;
+  grid-template-columns:minmax(180px, 1fr) auto auto;
   align-items:center;
   gap:var(--gap);
   padding:12px;
@@ -294,6 +294,39 @@ header h1{
   outline:0;
   color:var(--text);
   background:transparent;
+}
+
+.search-compact{
+  width:44px;
+  max-width:44px;
+  justify-self:end;
+  cursor:pointer;
+  overflow:hidden;
+  transition:width .22s ease, max-width .22s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.search-compact input{
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .16s ease;
+}
+
+.search-compact.is-expanded,
+.search-compact:focus-within{
+  width:min(520px, 100%);
+  max-width:min(520px, 100%);
+}
+
+.search-compact.is-expanded input,
+.search-compact:focus-within input{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.topbar-search.search-compact.is-expanded,
+.topbar-search.search-compact:focus-within{
+  width:min(420px, 42vw);
+  max-width:min(420px, 42vw);
 }
 
 .topbar-user{
@@ -748,6 +781,7 @@ header h1{
 }
 
 .dashboard-search{
+  width:100%;
   min-height:48px;
   display:flex;
   align-items:center;
@@ -761,8 +795,20 @@ header h1{
   transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
 }
 
+.dashboard-search.search-compact{
+  width:48px;
+  max-width:48px;
+  min-width:48px;
+}
+
+.dashboard-search.search-compact.is-expanded,
+.dashboard-search.search-compact:focus-within{
+  width:min(620px, calc(100vw - 88px));
+  max-width:min(620px, calc(100vw - 88px));
+}
+
 .mobile-mode .dashboard-search-row{
-  grid-template-columns:44px minmax(0, 1fr);
+  grid-template-columns:44px minmax(48px, 1fr);
 }
 
 .mobile-mode .dashboard-menu-trigger{
@@ -3555,6 +3601,23 @@ body.auth-screen-active #app{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:8px;
+}
+
+.calc-material-row{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:8px;
+  align-items:end;
+}
+
+.calc-material-row .btn{
+  min-height:44px;
+  white-space:nowrap;
+}
+
+.calc-stock-hint{
+  margin-top:-4px;
+  font-size:var(--font-xs);
 }
 
 .result-box{

@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v73-sync-stability-5103-20260512";
+const CACHE_NAME = "simplifica-3d-v74-image-ads-backup-5104-20260512";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -17,7 +17,8 @@ const APP_FILES = [
   "./assets/apple-touch-icon.png",
   "./assets/intro.mp4",
   "./manifest.webmanifest",
-  "./icon.svg"
+  "./icon.svg",
+  "./ads.txt"
 ];
 
 self.addEventListener("install", (event) => {

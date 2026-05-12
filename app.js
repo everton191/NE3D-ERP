@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.3";
-const APP_VERSION_CODE = 54;
+const APP_VERSION = "51.0.4";
+const APP_VERSION_CODE = 55;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -45,9 +45,9 @@ const PAID_PRICE_TIERS = [
 const PREMIUM_FIRST_MONTH_PRICE = PAID_PRICE_TIERS[0].price;
 const PREMIUM_MONTHLY_PRICE = 29.9;
 const AD_MIN_INTERVAL_MS = 20 * 60 * 1000;
-const ADSENSE_WEB_DEFAULT_ENABLED = false;
-const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "");
-const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "");
+const ADSENSE_WEB_DEFAULT_ENABLED = true;
+const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "ca-pub-1056970757696623");
+const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "3186212257");
 const BILLING_VARIANTS = {
   premium_first_month: { id: "premium_first_month", planId: "premium", amount: PREMIUM_FIRST_MONTH_PRICE },
   premium_monthly: { id: "premium_monthly", planId: "premium", amount: PREMIUM_MONTHLY_PRICE }
@@ -771,9 +771,10 @@ function shouldShowAds(user = getUsuarioMonetizacao(), context = contextoInterst
   const tela = String(context?.screenName || telaAtual || "").toLowerCase();
   if (["admin", "assinatura", "minhaassinatura", "planos", "conta", "seguranca", "superadmin", "onboarding", "acessonegado", "privacy", "terms"].includes(tela)) return false;
   if (context?.isEditingOrder || context?.isCalculating || context?.isExportingPdf || context?.isModalOpen || context?.isTyping || context?.hasError) return false;
+  const isBannerView = String(context?.actionName || "").toLowerCase() === "screen_view" || String(context?.adType || "").toLowerCase() === "banner";
   const ultimo = Date.parse(user?.lastAdShownAt || billingConfig.lastAdShownAt || 0) || 0;
-  if (ultimo && Date.now() - ultimo < AD_MIN_INTERVAL_MS) return false;
-  return estadoPlano.adsAllowed;
+  if (!isBannerView && ultimo && Date.now() - ultimo < AD_MIN_INTERVAL_MS) return false;
+  return estadoPlano.adsAllowed || [PLAN_ACCESS_STATES.FREE, PLAN_ACCESS_STATES.PENDING, PLAN_ACCESS_STATES.EXPIRED].includes(estadoPlano.state);
 }
 
 function registrarAnuncioExibido() {
@@ -798,7 +799,7 @@ function registrarAcaoCompletaMonetizacao(actionName = "completed_action") {
 
 function sincronizarBannerAdMob() {
   try {
-    const contexto = contextoInterstitialSeguro("screen_view");
+    const contexto = { ...contextoInterstitialSeguro("screen_view"), adType: "banner" };
     const resultado = window.AdMobService?.syncBannerForScreen?.(getUsuarioMonetizacao(), contexto);
     if (resultado?.catch) resultado.catch(() => {});
   } catch (erro) {
@@ -5775,9 +5776,9 @@ function renderTopbar() {
         <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
         <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
       </div>
-      <label class="topbar-search">
+      <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
         <span>🔎</span>
-        <input placeholder="Buscar pedido, cliente ou material" onkeydown="buscarGlobal(event, this.value)">
+        <input placeholder="Buscar pedido, cliente ou material" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
@@ -5805,6 +5806,22 @@ function buscarGlobal(event, valor) {
   }
 
   alert("Nada encontrado para: " + valor);
+}
+
+function expandirBuscaGlobal(elemento) {
+  const label = elemento?.closest?.(".search-compact") || elemento;
+  if (!label) return;
+  label.classList.add("is-expanded");
+  setTimeout(() => label.querySelector?.("input")?.focus(), 30);
+}
+
+function recolherBuscaGlobal(input) {
+  const label = input?.closest?.(".search-compact");
+  if (!label) return;
+  setTimeout(() => {
+    if (document.activeElement === input || String(input.value || "").trim()) return;
+    label.classList.remove("is-expanded");
+  }, 140);
 }
 
 function isTelaPublica(tela) {
@@ -7918,9 +7935,9 @@ function renderDashboardSearch() {
   return `
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
-      <label class="dashboard-search">
+      <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
         <span>🔎</span>
-        <input placeholder="Buscar pedidos, clientes, materiais..." onkeydown="buscarGlobal(event, this.value)">
+        <input placeholder="Buscar pedidos, clientes, materiais..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
   `;
@@ -8409,10 +8426,13 @@ function renderPedido() {
   `;
 }
 
-function renderMaterialOptions(selectedId = "") {
+function renderMaterialOptions(selectedId = "", opcoes = {}) {
   const materiais = normalizarEstoque();
-  if (!materiais.length) return `<option value="" disabled>Cadastre estoque primeiro</option>`;
-  return materiais.map((material) => `
+  const incluirSemVinculo = opcoes.includeEmpty !== false;
+  const labelSemVinculo = opcoes.emptyLabel || "Sem vínculo com estoque";
+  const vazio = incluirSemVinculo ? `<option value="" ${!selectedId ? "selected" : ""}>${escaparHtml(labelSemVinculo)}</option>` : "";
+  if (!materiais.length) return vazio + `<option value="" disabled>Nenhum material cadastrado</option>`;
+  return vazio + materiais.map((material) => `
     <option value="${escaparAttr(material.id)}" ${String(material.id) === String(selectedId) ? "selected" : ""}>
       ${escaparHtml(material.nome)} (${Number(material.qtd).toFixed(3)} kg)
     </option>
@@ -11508,9 +11528,9 @@ function renderPersonalizacao() {
         <h2 class="section-title">Perfil premium</h2>
         <p class="muted">Separe a foto do usuário, a logo da empresa e a identidade usada no PDF. Recursos avançados ficam disponíveis no PRO.</p>
         <div class="profile-preview-row">
-          <div class="profile-preview-avatar">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
+          <div class="profile-preview-avatar" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
           <div class="brand-preview compact">
-            <img src="${escaparAttr(logoEmpresaAtual || marcaAtual)}" alt="Logo da empresa">
+            <img id="companyLogoPreview" src="${escaparAttr(logoEmpresaAtual || marcaAtual)}" alt="Logo da empresa">
             <div>
               <strong>${escaparHtml(appConfig.businessName || "Minha empresa 3D")}</strong>
               <span class="muted">${escaparHtml(getPlanoAtual().nome)} · ${escaparHtml(getPlanoAtual().descricao || "Plano ativo")}</span>
@@ -11520,15 +11540,15 @@ function renderPersonalizacao() {
         <div class="sync-grid">
           <label class="field">
             <span>Foto do usuário</span>
-            <input id="profilePhotoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+            <input id="profilePhotoFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'profile-photo')" ${acessoMarca ? "" : "disabled"}>
           </label>
           <label class="field">
             <span>Logo da empresa</span>
-            <input id="companyLogoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+            <input id="companyLogoFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'company-logo')" ${acessoMarca ? "" : "disabled"}>
           </label>
           <label class="field">
             <span>Imagem de fundo do login</span>
-            <input id="loginBackgroundFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+            <input id="loginBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'login-background')" ${acessoMarca ? "" : "disabled"}>
           </label>
           <label class="field">
             <span>Mensagem da empresa no login</span>
@@ -11554,7 +11574,7 @@ function renderPersonalizacao() {
         <h2 class="section-title">PDF, Pix e marca</h2>
         <p class="muted">Esses dados aparecem no PDF do pedido. A marca d'água e o logotipo ficam liberados no plano completo.</p>
         <div class="brand-preview">
-          <img src="${escaparAttr(marcaAtual)}" alt="Prévia da marca no PDF">
+          <img id="brandLogoPreview" src="${escaparAttr(marcaAtual)}" alt="Prévia da marca no PDF">
           <div>
             <strong>${appConfig.brandLogoDataUrl ? "Marca personalizada" : "Capa padrão do projeto"}</strong>
             <span class="muted">Essa imagem aparece no app e no PDF. Clientes pagos podem trocar pela própria marca.</span>
@@ -11581,11 +11601,11 @@ function renderPersonalizacao() {
         <div class="sync-grid">
           <label class="field">
             <span>Logo da marca</span>
-            <input id="brandLogoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+            <input id="brandLogoFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'brand-logo')" ${acessoMarca ? "" : "disabled"}>
           </label>
           <label class="field">
             <span>Fundo do PDF</span>
-            <input id="pdfBackgroundFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+            <input id="pdfBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'pdf-background')" ${acessoMarca ? "" : "disabled"}>
           </label>
           <div class="metric">
             <span>Marca no PDF</span>
@@ -11703,6 +11723,7 @@ function renderPersonalizacao() {
         <button class="btn" onclick="salvarPersonalizacao()">Salvar personalização</button>
         <button class="btn ghost" onclick="restaurarPersonalizacaoPadrao()">Restaurar padrão</button>
       </div>
+      <p id="personalizationImageHint" class="muted" hidden>Imagem ajustada automaticamente para o melhor tamanho.</p>
     </section>
   `;
 }
@@ -12824,85 +12845,184 @@ function lerPersonalizacaoCampos() {
   };
 }
 
-function compactarImagemDataUrl(dataUrl, maxSide = 1200, qualidade = 0.84) {
-  if (!dataUrl || typeof Image === "undefined" || typeof document === "undefined") return Promise.resolve(dataUrl || "");
-  return new Promise((resolve) => {
+const IMAGE_PERSONALIZATION_PRESETS = Object.freeze({
+  "profile-photo": { label: "a foto do usuário", mode: "cover", width: 512, height: 512, quality: 0.84, preserveAlpha: false, circularPreview: true },
+  "company-logo": { label: "a logo da empresa", mode: "contain", width: 800, height: 400, quality: 0.85, preserveAlpha: true },
+  "brand-logo": { label: "a logo da marca", mode: "contain", width: 800, height: 400, quality: 0.85, preserveAlpha: true },
+  "login-background": { label: "o fundo do login", mode: "cover", width: 1280, height: 720, quality: 0.8, preserveAlpha: false },
+  "pdf-background": { label: "a marca d'água do PDF", mode: "contain", width: 1000, height: 1000, quality: 0.85, preserveAlpha: true }
+});
+
+function canvasSuportaMime(mime = "image/webp") {
+  try {
+    const canvas = document.createElement("canvas");
+    return canvas.toDataURL(mime).startsWith(`data:${mime}`);
+  } catch (_) {
+    return false;
+  }
+}
+
+function tamanhoDataUrlBytes(dataUrl = "") {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  return Math.round(base64.length * 0.75);
+}
+
+function gerarDataUrlOtimizado(canvas, mime, qualidade = 0.82, maxBytes = 500 * 1024) {
+  let atualCanvas = canvas;
+  let atual = "";
+  for (let tentativa = 0; tentativa < 8; tentativa += 1) {
+    const q = Math.max(0.55, qualidade - tentativa * 0.05);
+    atual = atualCanvas.toDataURL(mime, q);
+    if (mime === "image/png" || tamanhoDataUrlBytes(atual) <= maxBytes) break;
+    if (tentativa >= 4) {
+      const menor = document.createElement("canvas");
+      menor.width = Math.max(1, Math.round(atualCanvas.width * 0.86));
+      menor.height = Math.max(1, Math.round(atualCanvas.height * 0.86));
+      menor.getContext("2d")?.drawImage(atualCanvas, 0, 0, menor.width, menor.height);
+      atualCanvas = menor;
+    }
+  }
+  return atual;
+}
+
+function carregarImagemArquivo(arquivo) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(arquivo);
     const imagem = new Image();
     imagem.onload = () => {
-      const maior = Math.max(imagem.width || 0, imagem.height || 0);
-      if (!maior || maior <= maxSide) {
-        resolve(dataUrl);
-        return;
-      }
-      const escala = maxSide / maior;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(imagem.width * escala));
-      canvas.height = Math.max(1, Math.round(imagem.height * escala));
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        resolve(dataUrl);
-        return;
-      }
-      ctx.drawImage(imagem, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/jpeg", qualidade));
+      URL.revokeObjectURL(url);
+      resolve(imagem);
     };
-    imagem.onerror = () => resolve(dataUrl);
-    imagem.src = dataUrl;
+    imagem.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Imagem inválida"));
+    };
+    imagem.src = url;
   });
 }
 
-function lerImagemConfiguracao(idInput, valorAtual = "", rotulo = "imagem", limiteKb = 700, maxSide = 1200) {
-  const arquivo = document.getElementById(idInput)?.files?.[0];
-  if (!arquivo) return Promise.resolve(valorAtual || "");
+async function otimizarImagemPersonalizacao(arquivo, tipo = "brand-logo") {
+  const preset = IMAGE_PERSONALIZATION_PRESETS[tipo] || IMAGE_PERSONALIZATION_PRESETS["brand-logo"];
+  if (!arquivo || !String(arquivo.type || "").startsWith("image/")) {
+    throw new Error("Escolha uma imagem válida.");
+  }
+  const imagem = await carregarImagemArquivo(arquivo);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Não foi possível preparar a imagem neste aparelho.");
+
+  if (preset.mode === "contain") {
+    const escala = Math.min(preset.width / imagem.naturalWidth, preset.height / imagem.naturalHeight, 1);
+    canvas.width = Math.max(1, Math.round(imagem.naturalWidth * escala));
+    canvas.height = Math.max(1, Math.round(imagem.naturalHeight * escala));
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(imagem, 0, 0, canvas.width, canvas.height);
+  } else {
+    canvas.width = preset.width;
+    canvas.height = preset.height;
+    const escala = Math.max(canvas.width / imagem.naturalWidth, canvas.height / imagem.naturalHeight);
+    const sw = canvas.width / escala;
+    const sh = canvas.height / escala;
+    const sx = Math.max(0, (imagem.naturalWidth - sw) / 2);
+    const sy = Math.max(0, (imagem.naturalHeight - sh) / 2);
+    ctx.drawImage(imagem, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  }
+
+  const originalPng = String(arquivo.type || "").toLowerCase().includes("png");
+  const webpOk = canvasSuportaMime("image/webp");
+  const mime = webpOk ? "image/webp" : (preset.preserveAlpha && originalPng ? "image/png" : "image/jpeg");
+  const dataUrl = gerarDataUrlOtimizado(canvas, mime, preset.quality);
+  return {
+    dataUrl,
+    mime,
+    width: canvas.width,
+    height: canvas.height,
+    sizeKb: Math.max(1, Math.round(tamanhoDataUrlBytes(dataUrl) / 1024)),
+    label: preset.label
+  };
+}
+
+async function prepararPreviewImagemPersonalizacao(input, tipo = "brand-logo") {
+  const arquivo = input?.files?.[0];
+  if (!arquivo) return;
   if (!temAcessoCompleto()) {
     mostrarToast("Recurso PRO", "warning", 4200);
-    return Promise.resolve(valorAtual || "");
+    input.value = "";
+    return;
   }
-
-  if (!arquivo.type.startsWith("image/")) {
-    alert(`Escolha uma imagem válida para ${rotulo}.`);
-    return Promise.resolve(valorAtual || "");
+  try {
+    input.dataset.optimizing = "1";
+    const otimizada = await otimizarImagemPersonalizacao(arquivo, tipo);
+    window.__personalizationImageCache = window.__personalizationImageCache || {};
+    window.__personalizationImageCache[input.id] = { fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
+    const dica = document.getElementById("personalizationImageHint");
+    if (dica) {
+      dica.hidden = false;
+      dica.textContent = `Imagem ajustada automaticamente para o melhor tamanho (${otimizada.width}x${otimizada.height}, ${otimizada.sizeKb} KB).`;
+    }
+    if (tipo === "profile-photo") {
+      const preview = document.getElementById("profilePhotoPreview");
+      if (preview) preview.innerHTML = `<img src="${escaparAttr(otimizada.dataUrl)}" alt="Foto do usuário">`;
+    }
+    if (tipo === "company-logo") {
+      const preview = document.getElementById("companyLogoPreview");
+      if (preview) preview.src = otimizada.dataUrl;
+    }
+    if (tipo === "brand-logo") {
+      const preview = document.getElementById("brandLogoPreview");
+      if (preview) preview.src = otimizada.dataUrl;
+    }
+    mostrarToast("Imagem ajustada automaticamente para o melhor tamanho.", "sucesso", 2600);
+  } catch (erro) {
+    console.warn("[Personalização] Falha ao otimizar imagem", erro);
+    mostrarToast("Não foi possível usar esta imagem. Escolha outra foto ou arquivo.", "erro", 5200);
+    input.value = "";
+  } finally {
+    delete input.dataset.optimizing;
   }
+}
 
-  if (!["image/png", "image/jpeg"].includes(arquivo.type)) {
-    alert(`Use ${rotulo} em PNG ou JPG para garantir compatibilidade com o PDF.`);
-    return Promise.resolve(valorAtual || "");
+async function lerImagemConfiguracao(idInput, valorAtual = "", tipo = "brand-logo") {
+  const input = document.getElementById(idInput);
+  const arquivo = input?.files?.[0];
+  if (!arquivo) return valorAtual || "";
+  if (!temAcessoCompleto()) {
+    mostrarToast("Recurso PRO", "warning", 4200);
+    return valorAtual || "";
   }
-
-  if (arquivo.size > limiteKb * 1024) {
-    alert(`Use ${rotulo} menor que ${limiteKb} KB para não pesar o backup.`);
-    return Promise.resolve(valorAtual || "");
+  const cache = window.__personalizationImageCache?.[idInput];
+  if (cache && cache.fileName === arquivo.name && Number(cache.lastModified || 0) === Number(arquivo.lastModified || 0)) {
+    return cache.dataUrl || valorAtual || "";
   }
-
-  return new Promise((resolve) => {
-    const leitor = new FileReader();
-    leitor.onload = async () => resolve(await compactarImagemDataUrl(String(leitor.result || ""), maxSide));
-    leitor.onerror = () => {
-      alert(`Não foi possível carregar ${rotulo}.`);
-      resolve(valorAtual || "");
-    };
-    leitor.readAsDataURL(arquivo);
-  });
+  try {
+    const otimizada = await otimizarImagemPersonalizacao(arquivo, tipo);
+    window.__personalizationImageCache = window.__personalizationImageCache || {};
+    window.__personalizationImageCache[idInput] = { fileName: arquivo.name, lastModified: arquivo.lastModified, tipo, ...otimizada };
+    return otimizada.dataUrl || valorAtual || "";
+  } catch (erro) {
+    mostrarToast("Não foi possível usar esta imagem. Escolha outra foto ou arquivo.", "erro", 5200);
+    return valorAtual || "";
+  }
 }
 
 function lerLogoMarcaSelecionada() {
-  return lerImagemConfiguracao("brandLogoFileConfig", appConfig.brandLogoDataUrl || "", "a logo", 700);
+  return lerImagemConfiguracao("brandLogoFileConfig", appConfig.brandLogoDataUrl || "", "brand-logo");
 }
 
 function lerFundoPdfSelecionado() {
-  return lerImagemConfiguracao("pdfBackgroundFileConfig", appConfig.pdfBackgroundDataUrl || "", "o fundo do PDF", 900, 1400);
+  return lerImagemConfiguracao("pdfBackgroundFileConfig", appConfig.pdfBackgroundDataUrl || "", "pdf-background");
 }
 
 function lerFotoPerfilSelecionada() {
-  return lerImagemConfiguracao("profilePhotoFileConfig", appConfig.profilePhotoDataUrl || "", "a foto do usuário", 600, 900);
+  return lerImagemConfiguracao("profilePhotoFileConfig", appConfig.profilePhotoDataUrl || "", "profile-photo");
 }
 
 function lerLogoEmpresaSelecionada() {
-  return lerImagemConfiguracao("companyLogoFileConfig", appConfig.companyLogoDataUrl || "", "a logo da empresa", 700, 1000);
+  return lerImagemConfiguracao("companyLogoFileConfig", appConfig.companyLogoDataUrl || "", "company-logo");
 }
 
 function lerFundoLoginSelecionado() {
-  return lerImagemConfiguracao("loginBackgroundFileConfig", appConfig.loginBackgroundDataUrl || "", "o fundo do login", 900, 1400);
+  return lerImagemConfiguracao("loginBackgroundFileConfig", appConfig.loginBackgroundDataUrl || "", "login-background");
 }
 
 function dataUrlParaBlob(dataUrl = "") {
@@ -12914,11 +13034,34 @@ function dataUrlParaBlob(dataUrl = "") {
   return new Blob([array], { type: partes[1] });
 }
 
+function extensaoImagemBlob(mime = "") {
+  const tipo = String(mime || "").toLowerCase();
+  if (tipo.includes("webp")) return "webp";
+  if (tipo.includes("png")) return "png";
+  if (tipo.includes("jpeg") || tipo.includes("jpg")) return "jpg";
+  return "webp";
+}
+
+function segmentoStorageSeguro(valor = "", fallback = "asset") {
+  const texto = String(valor || fallback)
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+  return texto || fallback;
+}
+
 async function salvarAssetSupabaseSilencioso(dataUrl, tipo) {
   if (!dataUrl || !String(dataUrl).startsWith("data:") || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return dataUrl || "";
   const blob = dataUrlParaBlob(dataUrl);
   if (!blob) return dataUrl;
-  const nome = `${syncConfig.supabaseUserId}/${tipo}-${Date.now()}.jpg`;
+  const companyId = billingConfig.companyId || getUsuarioAtual()?.companyId || getUsuarioAtual()?.company_id || syncConfig.supabaseUserId;
+  const nome = [
+    segmentoStorageSeguro(companyId, "empresa"),
+    segmentoStorageSeguro(syncConfig.supabaseUserId, "usuario"),
+    segmentoStorageSeguro(tipo, "imagem"),
+    `${Date.now()}.${extensaoImagemBlob(blob.type)}`
+  ].join("/");
   try {
     const base = normalizarUrlSupabase();
     const resposta = await fetch(`${base}/storage/v1/object/simplifica-assets/${nome}`, {
@@ -13957,15 +14100,36 @@ function criarBillingConfigBackup() {
 }
 
 function criarSnapshotBackup() {
+  const exportadoEm = new Date();
+  const escopo = obterEscopoBackupAtual();
+  const clientesOperacionais = coletarClientesOperacionaisParaSync();
   return {
-    versao: 3,
+    versao: 4,
     app: SYSTEM_NAME,
-    exportadoEm: new Date().toISOString(),
+    exportadoEm: exportadoEm.toISOString(),
+    exportadoEmLocal: exportadoEm.toLocaleString("pt-BR"),
     deviceId,
+    escopo: {
+      email: escopo.email,
+      userId: escopo.userId,
+      clientId: escopo.clientId,
+      companyId: escopo.companyId
+    },
+    resumo: {
+      geradoEm: exportadoEm.toLocaleString("pt-BR"),
+      usuario: escopo.email || "",
+      empresa: appConfig.businessName || appConfig.appName || SYSTEM_NAME,
+      pedidos: Array.isArray(pedidos) ? pedidos.length : 0,
+      estoque: Array.isArray(estoque) ? estoque.length : 0,
+      caixa: Array.isArray(caixa) ? caixa.length : 0,
+      clientes: clientesOperacionais.length,
+      configuracoesIncluidas: true
+    },
     data: {
       estoque,
       caixa,
       pedidos,
+      clientesOperacionais,
       orcamentos,
       historico,
       securityLogs,
@@ -14103,6 +14267,7 @@ function criarSnapshotBackupUsuarioAtual() {
     estoque: filtrarListaEscopoBackup(snapshot.data.estoque, escopo, true),
     caixa: filtrarListaEscopoBackup(snapshot.data.caixa, escopo, true),
     pedidos: filtrarListaEscopoBackup(snapshot.data.pedidos, escopo, true),
+    clientesOperacionais: filtrarListaEscopoBackup(snapshot.data.clientesOperacionais, escopo, true),
     orcamentos: filtrarListaEscopoBackup(snapshot.data.orcamentos, escopo, true),
     historico: filtrarListaEscopoBackup(snapshot.data.historico, escopo, true),
     securityLogs: filtrarListaEscopoBackup(snapshot.data.securityLogs, escopo, true),
@@ -14122,8 +14287,26 @@ function criarSnapshotBackupUsuarioAtual() {
 function nomeArquivoBackupUsuario() {
   const escopo = obterEscopoBackupAtual();
   const email = (escopo.email || "conta").replace(/[^a-z0-9@._-]/gi, "_");
-  const data = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const data = dataHoraArquivo(new Date());
   return `backup-simplifica3d-${email}-${data}.json`;
+}
+
+function dataHoraArquivo(data = new Date()) {
+  const pad = (valor) => String(valor).padStart(2, "0");
+  return [
+    data.getFullYear(),
+    pad(data.getMonth() + 1),
+    pad(data.getDate())
+  ].join("") + "-" + [pad(data.getHours()), pad(data.getMinutes()), pad(data.getSeconds())].join("");
+}
+
+function textoArquivoSeguro(valor = "arquivo", fallback = "arquivo") {
+  const texto = removerAcentos(String(valor || fallback))
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  return texto || fallback;
 }
 
 function tamanhoBackupMb(payload = criarSnapshotBackup()) {
@@ -14160,6 +14343,7 @@ function normalizarBackup(dados) {
     estoque: Array.isArray(origem.estoque) ? origem.estoque : [],
     caixa: Array.isArray(origem.caixa) ? origem.caixa : [],
     pedidos: Array.isArray(origem.pedidos) ? origem.pedidos : [],
+    clientesOperacionais: Array.isArray(origem.clientesOperacionais) ? origem.clientesOperacionais : [],
     orcamentos: Array.isArray(origem.orcamentos) ? origem.orcamentos : [],
     historico: Array.isArray(origem.historico) ? origem.historico : [],
     securityLogs: Array.isArray(origem.securityLogs) ? origem.securityLogs : [],
@@ -17036,10 +17220,14 @@ function renderCalculadoraConteudo() {
       </label>
     </div>
 
+    <div class="calc-material-row">
       <label class="field">
         <span>Material do estoque</span>
-      <select id="calcMaterial" onchange="salvarConfiguracaoCalculadora()"></select>
-    </label>
+        <select id="calcMaterial" onchange="alterarMaterialCalculadora(this.value)"></select>
+      </label>
+      <button class="btn ghost" type="button" onclick="abrirCadastroMaterialCalculadora()">+ Material</button>
+    </div>
+    <p class="muted calc-stock-hint">Você pode calcular sem vínculo com estoque ou cadastrar um material rápido sem sair da calculadora.</p>
 
     <div class="calc-grid">
       <label class="field">
@@ -17149,6 +17337,7 @@ function renderCalculadoraFlutuante() {
   `;
 
   preencherImpressoras();
+  preencherMateriaisCalculadora();
 }
 
 function abrirCalculadora() {
@@ -17280,9 +17469,90 @@ function preencherMateriaisCalculadora() {
   const select = document.getElementById("calcMaterial");
   if (!select) return;
   const configuracao = getConfiguracaoCalculadora();
-  const materialSelecionado = getMaterialEstoque(configuracao.materialId || select.value || "") ? (configuracao.materialId || select.value || "") : "";
-  select.innerHTML = `<option value="">Sem vínculo com estoque</option>` + renderMaterialOptions(materialSelecionado);
+  const valorAtual = select.value || configuracao.materialId || "";
+  const materialSelecionado = getMaterialEstoque(valorAtual) ? valorAtual : "";
+  select.innerHTML = renderMaterialOptions(materialSelecionado, { emptyLabel: "Sem vínculo com estoque" });
   select.value = materialSelecionado;
+}
+
+function alterarMaterialCalculadora(materialId = "") {
+  const material = getMaterialEstoque(materialId);
+  if (materialId && !material) {
+    document.getElementById("calcMaterial") && (document.getElementById("calcMaterial").value = "");
+  }
+  ultimoCalculo = null;
+  salvarConfiguracaoCalculadora(true);
+}
+
+function abrirCadastroMaterialCalculadora() {
+  if (!permitirAcaoPlanoCompleto()) return;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="calc-material-cancel">
+      <form class="modal-card" id="calcMaterialQuickForm">
+        <div class="modal-header">
+          <h2>Cadastrar material</h2>
+          <button class="icon-button" type="button" data-action="calc-material-cancel" title="Fechar">✕</button>
+        </div>
+        <p class="muted">Adicione um material ao estoque e continue o cálculo sem sair da tela.</p>
+        <label class="field">
+          <span>Tipo</span>
+          <select id="calcQuickMatTipo">
+            ${tiposMaterial.map((tipo) => `<option value="${escaparAttr(tipo)}">${escaparHtml(tipo)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field">
+          <span>Cor ou descrição</span>
+          <input id="calcQuickMatCor" placeholder="Ex.: Preto, Branco, Transparente">
+        </label>
+        <label class="field">
+          <span>Quantidade em kg</span>
+          <input id="calcQuickMatQtd" type="number" min="0.001" step="0.001" placeholder="Ex.: 1.000" required>
+        </label>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="calc-material-cancel">Cancelar</button>
+          <button class="btn" type="submit">Adicionar e selecionar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById("calcMaterialQuickForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    salvarMaterialCalculadoraRapido();
+  });
+  setTimeout(() => document.getElementById("calcQuickMatCor")?.focus(), 80);
+}
+
+function salvarMaterialCalculadoraRapido() {
+  try {
+    const tipo = document.getElementById("calcQuickMatTipo")?.value || "PLA";
+    const cor = (document.getElementById("calcQuickMatCor")?.value || "").trim();
+    const qtd = document.getElementById("calcQuickMatQtd")?.value;
+    const lista = InventoryService.addMaterial({ tipo, cor, qtd });
+    const nomeEsperado = [String(tipo || "PLA").trim(), cor].filter(Boolean).join(" ");
+    const material = [...lista].reverse().find((item) => String(item.nome || "").toLowerCase() === nomeEsperado.toLowerCase())
+      || lista[lista.length - 1]
+      || null;
+    if (material?.id) {
+      appConfig.defaultMaterial = material.id;
+      appConfig.calculatorDefaults = {
+        ...(appConfig.calculatorDefaults || {}),
+        materialId: material.id
+      };
+    }
+    fecharPopup();
+    preencherMateriaisCalculadora();
+    if (material?.id) {
+      const select = document.getElementById("calcMaterial");
+      if (select) select.value = material.id;
+      salvarConfiguracaoCalculadora(true);
+    }
+    agendarSyncSilenciosoDados("estoque-calculadora");
+    mostrarToast("Material adicionado ao estoque.", "sucesso", 3200);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Calculadora", action: "Adicionar material do estoque" });
+  }
 }
 
 function calcular() {
@@ -17581,7 +17851,7 @@ function configurarEventListenersArquitetura() {
     if (!elemento) return;
     const acao = elemento.dataset.action;
 
-    if (["plan-modal-close", "stock-edit-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-edit-cancel", "calc-material-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -17943,7 +18213,8 @@ async function gerarPDF() {
   const margem = 14;
   const cor = appConfig.accentColor || "#073b4b";
   const corRgb = hexParaRgb(cor);
-  const data = new Date().toLocaleDateString("pt-BR");
+  const agoraPdf = new Date();
+  const data = agoraPdf.toLocaleDateString("pt-BR");
   const pedidoId = pedidoEditando?.id || Date.now();
   const cidade = appConfig.pixCity || "Não informada";
   window.__simplificaExportandoPdf = true;
@@ -18058,7 +18329,7 @@ async function gerarPDF() {
   }
 
   registrarHistorico("PDF", "PDF gerado para " + cliente);
-  const salvou = await salvarOuCompartilharPdf(doc, `pedido-${pedidoId}-${cliente}.pdf`, "Pedido " + cliente);
+  const salvou = await salvarOuCompartilharPdf(doc, nomeArquivoPdfPedido(pedidoId, cliente, agoraPdf), "Pedido " + cliente);
   if (salvou) {
     window.MonetizationLimits?.registerPdfExport?.(getUsuarioMonetizacao());
   }
@@ -18159,18 +18430,55 @@ function limparPedidoAtual() {
   renderApp();
 }
 
-function exportarBackup() {
-  const dados = criarSnapshotBackupUsuarioAtual();
+function textoParaBase64Utf8(texto = "") {
+  if (typeof TextEncoder !== "undefined") {
+    return arrayBufferParaBase64(new TextEncoder().encode(String(texto)).buffer);
+  }
+  return btoa(unescape(encodeURIComponent(String(texto))));
+}
 
-  const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
+async function salvarBackupAndroidNativo(conteudo, nomeArquivo) {
+  const plugin = window.Capacitor?.Plugins?.SimplificaFiles;
+  if (!isAndroid() || !plugin?.saveFile) return false;
+  try {
+    const resultado = await plugin.saveFile({
+      fileName: nomeArquivo,
+      mimeType: "application/json",
+      base64: textoParaBase64Utf8(conteudo)
+    });
+    if (resultado?.ok) {
+      registrarHistorico("Backup", "Backup salvo no Android: " + nomeArquivo);
+      alert(`Backup salvo em Downloads/Simplifica3D.\nArquivo: ${nomeArquivo}`);
+      return true;
+    }
+  } catch (erro) {
+    registrarDiagnostico("Backup", "Salvamento Android falhou", erro.message || erro);
+  }
+  return false;
+}
+
+async function exportarBackup() {
+  const agora = new Date().toISOString();
+  syncConfig.ultimoBackup = agora;
+  syncConfig.lastActivityAt = agora;
+  salvarDados();
+  const dados = criarSnapshotBackupUsuarioAtual();
+  const nomeArquivo = nomeArquivoBackupUsuario();
+  const conteudo = JSON.stringify(dados, null, 2);
+  if (await salvarBackupAndroidNativo(conteudo, nomeArquivo)) return;
+
+  const blob = new Blob([conteudo], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = nomeArquivoBackupUsuario();
+  link.download = nomeArquivo;
+  link.rel = "noopener";
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
-  registrarHistorico("Backup", "Backup local exportado");
-  alert("Backup exportado com sucesso.");
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  registrarHistorico("Backup", "Backup local exportado: " + nomeArquivo);
+  alert(`Backup exportado com sucesso.\nArquivo: ${nomeArquivo}\nGerado em: ${new Date(agora).toLocaleString("pt-BR")}`);
 }
 
 function isAndroid() {
@@ -18560,6 +18868,12 @@ async function verificarBancosDadosAoEntrar() {
   } catch (erro) {
     registrarDiagnostico("Supabase", "Verificação inicial do banco falhou", erro.message);
   }
+}
+
+function nomeArquivoPdfPedido(pedidoId, cliente = "", data = new Date()) {
+  const clienteSeguro = textoArquivoSeguro(cliente || "sem-cliente", "sem-cliente").toLowerCase();
+  const idSeguro = textoArquivoSeguro(pedidoId || "novo", "novo").toLowerCase();
+  return `pedido-${clienteSeguro}-${dataHoraArquivo(data)}-${idSeguro}.pdf`;
 }
 
 window.addEventListener("resize", () => {

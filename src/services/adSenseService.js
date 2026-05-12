@@ -38,7 +38,8 @@
 
   function sanitizePublisherId(value) {
     const text = String(value || "").trim();
-    return /^ca-pub-\d{10,}$/.test(text) ? text : "";
+    const normalized = text.startsWith("pub-") ? `ca-${text}` : text;
+    return /^ca-pub-\d{10,}$/.test(normalized) ? normalized : "";
   }
 
   function sanitizeSlot(value) {

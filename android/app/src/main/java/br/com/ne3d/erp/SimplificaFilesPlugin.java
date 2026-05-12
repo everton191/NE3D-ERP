@@ -69,21 +69,45 @@ public class SimplificaFilesPlugin extends Plugin {
         writePdf(call);
     }
 
+    @PluginMethod
+    public void saveFile(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && getPermissionState("storage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("storage", call, "storagePermsCallback");
+            return;
+        }
+
+        writeFile(call);
+    }
+
     @PermissionCallback
     private void storagePermsCallback(PluginCall call) {
         if (getPermissionState("storage") == PermissionState.GRANTED) {
-            writePdf(call);
+            String fileName = call.getString("fileName", "");
+            if (fileName.toLowerCase().endsWith(".pdf")) {
+                writePdf(call);
+            } else {
+                writeFile(call);
+            }
         } else {
             call.reject("Permissão de armazenamento negada.");
         }
     }
 
     private void writePdf(PluginCall call) {
+        writeBase64ToDownloads(call, "application/pdf", sanitizePdfFileName(call.getString("fileName", "pedido-simplifica-3d.pdf")), "PDF");
+    }
+
+    private void writeFile(PluginCall call) {
+        String mimeType = call.getString("mimeType", "application/octet-stream");
+        String fileName = sanitizeGenericFileName(call.getString("fileName", "arquivo-simplifica-3d.json"));
+        writeBase64ToDownloads(call, mimeType, fileName, "arquivo");
+    }
+
+    private void writeBase64ToDownloads(PluginCall call, String mimeType, String fileName, String label) {
         String base64 = call.getString("base64", "");
-        String fileName = sanitizeFileName(call.getString("fileName", "pedido-simplifica-3d.pdf"));
 
         if (base64 == null || base64.trim().isEmpty()) {
-            call.reject("PDF vazio.");
+            call.reject(label + " vazio.");
             return;
         }
 
@@ -95,7 +119,7 @@ public class SimplificaFilesPlugin extends Plugin {
                 ContentResolver resolver = getContext().getContentResolver();
                 ContentValues values = new ContentValues();
                 values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Downloads.MIME_TYPE, "application/pdf");
+                values.put(MediaStore.Downloads.MIME_TYPE, mimeType);
                 values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/Simplifica3D");
                 values.put(MediaStore.Downloads.IS_PENDING, 1);
 
@@ -136,15 +160,23 @@ public class SimplificaFilesPlugin extends Plugin {
             result.put("uri", uri.toString());
             call.resolve(result);
         } catch (Exception error) {
-            call.reject("Falha ao salvar PDF: " + error.getMessage(), error);
+            call.reject("Falha ao salvar " + label + ": " + error.getMessage(), error);
         }
     }
 
-    private String sanitizeFileName(String value) {
+    private String sanitizePdfFileName(String value) {
         String name = value == null ? "" : value.trim();
         if (name.isEmpty()) name = "pedido-simplifica-3d.pdf";
         name = name.replaceAll("[\\\\/:*?\"<>|]+", "-").replaceAll("\\s+", "-").toLowerCase();
         if (!name.endsWith(".pdf")) name += ".pdf";
+        return name;
+    }
+
+    private String sanitizeGenericFileName(String value) {
+        String name = value == null ? "" : value.trim();
+        if (name.isEmpty()) name = "arquivo-simplifica-3d.json";
+        name = name.replaceAll("[\\\\/:*?\"<>|]+", "-").replaceAll("\\s+", "-").toLowerCase();
+        if (!name.contains(".")) name += ".json";
         return name;
     }
 }

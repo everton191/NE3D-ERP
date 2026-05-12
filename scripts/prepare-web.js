@@ -9,7 +9,8 @@ const files = [
   "app.js",
   "sw.js",
   "manifest.webmanifest",
-  "icon.svg"
+  "icon.svg",
+  "ads.txt"
 ];
 
 function copyFile(relativePath) {
