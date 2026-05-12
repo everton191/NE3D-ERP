@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.1";
+const APP_VERSION = "51.0.2";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -1862,6 +1862,7 @@ async function restaurarCacheSessaoLocal() {
         billingConfig.effectiveLicenseStale = true;
         billingConfig.effectiveLicenseSource = "backend-rpc-cache-stale";
         await exigirDesbloqueioLocalSeNecessario("restore-offline");
+        registrarAtividadeSessao();
         return true;
       }
       if (emailSessaoAtual && !sessaoSupabaseValidaParaEmail(emailSessaoAtual)) {
@@ -1874,6 +1875,7 @@ async function restaurarCacheSessaoLocal() {
       await sincronizarLicencaEfetivaSePossivel("restoreSession-active");
       await sincronizarFilaOfflinePendente("restoreSession-active").catch((erro) => registrarDiagnostico("sync", "Fila offline ao restaurar sessão ativa falhou", erro.message));
       await exigirDesbloqueioLocalSeNecessario("restore-active");
+      registrarAtividadeSessao();
     } catch (erro) {
       registrarDiagnostico("Supabase", "Licença da sessão ativa não sincronizada", erro.message);
     }
@@ -4062,7 +4064,7 @@ async function processarMudancaBillingRealtimeSupabase(evento) {
     });
   }
   if (licenca && document.visibilityState !== "hidden") {
-    if (["assinatura", "minhaAssinatura", "planos", "admin", "clientes", "dashboard"].includes(telaAtual)) renderApp();
+    if (["assinatura", "minhaAssinatura", "planos", "admin", "clientes", "dashboard"].includes(telaAtual)) agendarRenderizacaoPreservandoScroll(120);
     avisarRealtimePlanoAtualizado();
   }
   return !!licenca;
@@ -4100,7 +4102,7 @@ async function processarMudancaRealtimeSupabase(evento) {
       syncConfig.autoBackupStatus = "Atualizado";
       salvarCacheDadosUsuario();
       salvarDados();
-      if (document.visibilityState !== "hidden") renderApp();
+      if (document.visibilityState !== "hidden") agendarRenderizacaoPreservandoScroll(120);
       avisarRealtimeDadosAtualizados();
     }
     return alterou;
@@ -4124,7 +4126,7 @@ async function baixarAtualizacoesSupabaseSilencioso(motivo = "polling") {
       syncConfig.autoBackupStatus = "Atualizado";
       salvarCacheDadosUsuario();
       salvarDados();
-      if (document.visibilityState !== "hidden") renderApp();
+      if (document.visibilityState !== "hidden") agendarRenderizacaoPreservandoScroll(120);
       avisarRealtimeDadosAtualizados();
     }
     return alterou;
@@ -5512,6 +5514,71 @@ function aplicarPersonalizacao() {
   }
 }
 
+function capturarScrollInterface() {
+  if (typeof document === "undefined") return [];
+  const snapshot = [];
+  const registrar = (elemento, chave) => {
+    if (!elemento) return;
+    snapshot.push({
+      chave,
+      top: Number(elemento.scrollTop) || 0,
+      left: Number(elemento.scrollLeft) || 0
+    });
+  };
+
+  registrar(document.scrollingElement || document.documentElement, "__page");
+  [
+    ".mobile-home",
+    ".mobile-panel-content",
+    ".desktop-main",
+    ".side-drawer",
+    ".profile-premium-panel",
+    ".popup-box",
+    ".modal-card"
+  ].forEach((seletor) => {
+    document.querySelectorAll(seletor).forEach((elemento, index) => registrar(elemento, `${seletor}:${index}`));
+  });
+
+  return snapshot;
+}
+
+function restaurarScrollInterface(snapshot = []) {
+  if (!Array.isArray(snapshot) || !snapshot.length || typeof document === "undefined") return;
+  const obterElemento = (chave) => {
+    if (chave === "__page") return document.scrollingElement || document.documentElement;
+    const separador = chave.lastIndexOf(":");
+    const seletor = chave.slice(0, separador);
+    const index = Number(chave.slice(separador + 1)) || 0;
+    return document.querySelectorAll(seletor)[index] || null;
+  };
+  const aplicar = () => {
+    snapshot.forEach((item) => {
+      const elemento = obterElemento(item.chave);
+      if (!elemento) return;
+      elemento.scrollTop = item.top;
+      elemento.scrollLeft = item.left;
+    });
+  };
+  requestAnimationFrame(() => {
+    aplicar();
+    requestAnimationFrame(aplicar);
+  });
+}
+
+function renderizarPreservandoScroll() {
+  const snapshot = capturarScrollInterface();
+  renderApp();
+  restaurarScrollInterface(snapshot);
+}
+
+function agendarRenderizacaoPreservandoScroll(atraso = 120) {
+  if (window.__simplificaRenderPreserveTimer) clearTimeout(window.__simplificaRenderPreserveTimer);
+  window.__simplificaRenderPreserveTimer = setTimeout(() => {
+    window.__simplificaRenderPreserveTimer = null;
+    renderizarPreservandoScroll();
+  }, Math.max(0, Number(atraso) || 0));
+}
+
 function trocarTela(tela) {
   if (!telas[tela]) {
     tela = "dashboard";
@@ -6508,7 +6575,11 @@ function renderCabecalhoMenuLateral({ recolhido = false, drawer = false } = {}) 
   return `
     <div class="side-brand side-brand-official ${drawer ? "drawer-brand" : ""}">
       <button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}">${iconeBotao}</button>
-      ${renderMarcaOficialProjeto("side-brand-cover", "Simplifica 3D - Organize seus pedidos sem complicação", "cover")}
+      ${renderMarcaOficialProjeto("side-brand-mark", "Simplifica 3D", "icon")}
+      <span class="side-brand-copy">
+        <strong>SIMPLIFICA 3D</strong>
+        <small>Organize seus pedidos sem complicação</small>
+      </span>
     </div>
   `;
 }
@@ -6537,6 +6608,7 @@ function renderPerfilMenuLateral() {
       <span class="side-profile-meta">
         <strong>${escaparHtml(nome)}</strong>
         <small>${escaparHtml(usuario?.nome || email)}</small>
+        <small class="side-profile-status">${escaparHtml(plano.descricao || "Assinatura ativa")}</small>
       </span>
       <button class="status-badge profile-plan-link ${classeStatusPlano(plano.status)}" type="button" onclick="event.stopPropagation(); abrirTelaPlanosPerfil()">
         ${escaparHtml(status)}
@@ -6885,8 +6957,11 @@ function iniciarGestoDrawerLateral(event) {
   if (!getUsuarioAtual() || event.pointerType === "mouse" && event.button !== 0) return;
   if (isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return;
   const drawerAberto = !!document.querySelector(".side-drawer");
-  const edge = event.clientX <= 26;
-  if (!drawerAberto && (!edge || alvoInterativoDrawer(event))) return;
+  const rail = !!event.target?.closest?.(".drawer-gesture-rail");
+  const largura = window.innerWidth || 360;
+  // A zona começa alguns pixels depois da borda real para não disputar com o gesto nativo "voltar" do Android.
+  const zonaSegura = event.clientX >= 18 && event.clientX <= Math.min(86, Math.max(42, largura * 0.22));
+  if (!drawerAberto && ((!rail && !zonaSegura) || alvoInterativoDrawer(event))) return;
 
   sideDrawerGesture = {
     pointerId: event.pointerId,
@@ -6894,6 +6969,7 @@ function iniciarGestoDrawerLateral(event) {
     startY: event.clientY,
     mode: drawerAberto ? "close" : "open",
     active: false,
+    rail,
     width: Math.min(340, Math.max(280, window.innerWidth - 20)),
     progress: drawerAberto ? 1 : 0
   };
@@ -6904,8 +6980,14 @@ function moverGestoDrawerLateral(event) {
   const dx = event.clientX - sideDrawerGesture.startX;
   const dy = event.clientY - sideDrawerGesture.startY;
   if (!sideDrawerGesture.active) {
-    if (Math.abs(dx) < 9 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    const aberturaValida = sideDrawerGesture.mode === "open" ? dx > 0 : dx < 0;
+    if (!aberturaValida || Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.45) return;
     sideDrawerGesture.active = true;
+    try {
+      event.target?.setPointerCapture?.(event.pointerId);
+    } catch (erro) {
+      // Alguns WebViews não permitem captura aqui; o gesto continua funcionando sem ela.
+    }
   }
   event.preventDefault?.();
   const base = sideDrawerGesture.mode === "close" ? 1 : 0;
@@ -6952,6 +7034,7 @@ function renderMobile() {
   const home = canAccessScreen("dashboard") ? renderDashboard(true) : renderAcessoNegado();
 
   return `
+    ${renderDrawerGestureRail()}
     <div class="mobile-home">
       ${renderAtualizacaoAndroidDownload()}
       ${home}
@@ -6960,6 +7043,11 @@ function renderMobile() {
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
     ${renderMobileBottomNav()}
   `;
+}
+
+function renderDrawerGestureRail() {
+  if (!getUsuarioAtual() || isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return "";
+  return `<div class="drawer-gesture-rail" aria-hidden="true"></div>`;
 }
 
 function getMobileBottomNavItems() {
@@ -7552,7 +7640,7 @@ function calcularComparacaoAnalytics(valorAtual, valorAnterior, sufixo = "") {
   const texto = sufixo === "money"
     ? `${seta} ${formatarMoeda(Math.abs(diferenca))}`
     : `${seta} ${Math.abs(percent)}%`;
-  return { direcao, percent, texto };
+  return { atual, anterior, diferenca, direcao, percent, texto };
 }
 
 function gerarInsightsAnalytics(analytics) {
@@ -7613,7 +7701,7 @@ function getDashboardAnalyticsLocal(periodo = dashboardPeriod) {
 function selecionarPeriodoDashboard(periodo) {
   dashboardPeriod = normalizarPeriodoDashboard(periodo);
   salvarDados();
-  renderApp();
+  renderizarPreservandoScroll();
   carregarAnalyticsBackendSilencioso(dashboardPeriod);
 }
 
@@ -7676,7 +7764,7 @@ async function carregarAnalyticsBackendSilencioso(periodo = dashboardPeriod) {
         ...dados
       };
       salvarDados();
-      if (telaAtual === "dashboard") renderApp();
+      if (telaAtual === "dashboard") agendarRenderizacaoPreservandoScroll(180);
     }
     return dados;
   }).catch((erro) => {
@@ -7893,17 +7981,31 @@ function renderDashboardPeriodTabs() {
   `;
 }
 
-function renderComparacaoDashboard(comparacao, label) {
+function renderComparacaoDashboard(comparacao, label, vazio = "Sem movimentação") {
   const direcao = comparacao?.direcao || "flat";
-  return `<span class="analytics-comparison ${direcao}">${escaparHtml(comparacao?.texto || "• 0%")} ${escaparHtml(label || "")}</span>`;
+  const atual = Number(comparacao?.atual) || 0;
+  const anterior = Number(comparacao?.anterior) || 0;
+  const diferenca = Number(comparacao?.diferenca) || 0;
+  let texto = comparacao?.texto || "Sem variação";
+  let complemento = label || "";
+  if (atual === 0 && anterior === 0) {
+    texto = vazio;
+    complemento = "";
+  } else if (atual > 0 && anterior === 0) {
+    texto = "Primeira movimentação do período";
+    complemento = "";
+  } else if (diferenca === 0) {
+    texto = "Sem variação";
+  }
+  return `<span class="analytics-comparison ${direcao}">${escaparHtml(texto)} ${escaparHtml(complemento)}</span>`;
 }
 
-function renderDashboardAnalyticsKpi({ titulo, valor, comparacao, label, estado = "neutral" }) {
+function renderDashboardAnalyticsKpi({ titulo, valor, comparacao, label, estado = "neutral", vazio }) {
   return `
     <div class="analytics-kpi analytics-${estado} card-enter">
       <span>${escaparHtml(titulo)}</span>
       <strong>${escaparHtml(valor)}</strong>
-      ${renderComparacaoDashboard(comparacao, label)}
+      ${renderComparacaoDashboard(comparacao, label, vazio)}
     </div>
   `;
 }
@@ -7931,7 +8033,8 @@ function renderDashboardAnalyticsHero(analytics) {
         valor: String(analytics.total_orders || 0),
         comparacao: analytics.comparisons?.orders,
         label,
-        estado: "neutral"
+        estado: "neutral",
+        vazio: "Nenhum pedido no período"
       })}
       ${renderDashboardAnalyticsKpi({
         titulo: "Gasto material",
@@ -12760,7 +12863,7 @@ async function salvarPersonalizacaoRemotaSilencioso() {
   const companyId = billingConfig.companyId || getUsuarioAtual()?.companyId || userId;
   const settings = normalizarAppearanceSettings();
   try {
-    await Promise.allSettled([
+    const resultados = await Promise.allSettled([
       requisicaoSupabase("/rest/v1/user_profiles?on_conflict=user_id", {
         method: "POST",
         telemetry: false,
@@ -12805,11 +12908,82 @@ async function salvarPersonalizacaoRemotaSilencioso() {
         })
       })
     ]);
+    const falhas = resultados.filter((resultado) => resultado.status === "rejected");
+    if (falhas.length) {
+      throw new Error(falhas.map((falha) => falha.reason?.message || String(falha.reason || "falha")).join(" | "));
+    }
+    appConfig.customizationSyncPending = false;
     return true;
   } catch (erro) {
     registrarDiagnostico("Personalização", "Persistência remota indisponível", erro.message);
     return false;
   }
+}
+
+function aplicarLinhaPersonalizacaoRemota(linha = {}) {
+  if (!linha || typeof linha !== "object") return false;
+  const settings = linha.settings && typeof linha.settings === "object" ? linha.settings : {};
+  const usarTexto = (valor) => (typeof valor === "string" && valor.trim() ? valor.trim() : "");
+  const proximo = {
+    accentColor: usarTexto(linha.theme_color) || usarTexto(settings.primary_color) || appConfig.accentColor,
+    pdfBackgroundDataUrl: usarTexto(linha.background_image) || usarTexto(settings.pdf_background) || appConfig.pdfBackgroundDataUrl,
+    loginBackgroundDataUrl: usarTexto(linha.login_background) || usarTexto(settings.login_background) || appConfig.loginBackgroundDataUrl,
+    brandLogoDataUrl: usarTexto(linha.pdf_watermark) || usarTexto(settings.logo_url) || appConfig.brandLogoDataUrl,
+    companyLogoDataUrl: usarTexto(linha.company_logo) || usarTexto(settings.company_logo) || appConfig.companyLogoDataUrl,
+    profilePhotoDataUrl: usarTexto(linha.profile_photo) || usarTexto(settings.profile_photo) || appConfig.profilePhotoDataUrl,
+    customLoginMessage: usarTexto(linha.custom_message) || appConfig.customLoginMessage
+  };
+  const appearanceSettings = normalizarAppearanceSettings({
+    ...(appConfig.appearanceSettings || {}),
+    ...settings,
+    primary_color: proximo.accentColor,
+    secondary_color: usarTexto(linha.secondary_color) || usarTexto(settings.secondary_color) || settings.secondary_color,
+    pdf_background: proximo.pdfBackgroundDataUrl,
+    logo_url: proximo.brandLogoDataUrl,
+    profile_photo: proximo.profilePhotoDataUrl,
+    company_logo: proximo.companyLogoDataUrl,
+    login_background: proximo.loginBackgroundDataUrl
+  });
+  const mudou = Object.entries(proximo).some(([chave, valor]) => String(appConfig[chave] || "") !== String(valor || ""))
+    || JSON.stringify(appConfig.appearanceSettings || {}) !== JSON.stringify(appearanceSettings || {});
+  if (!mudou) return false;
+  appConfig = {
+    ...appConfig,
+    ...proximo,
+    appearanceSettings,
+    customizationSyncPending: false
+  };
+  aplicarPersonalizacao();
+  salvarDados();
+  return true;
+}
+
+async function carregarPersonalizacaoRemotaSilencioso() {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  try {
+    const userId = encodeURIComponent(syncConfig.supabaseUserId);
+    const linhas = await requisicaoSupabase(`/rest/v1/app_customizations?select=*&user_id=eq.${userId}&order=updated_at.desc&limit=1`, {
+      method: "GET",
+      telemetry: false
+    });
+    const linha = Array.isArray(linhas) ? linhas[0] : null;
+    return aplicarLinhaPersonalizacaoRemota(linha);
+  } catch (erro) {
+    registrarDiagnostico("Personalização", "Leitura remota indisponível", erro.message);
+    return false;
+  }
+}
+
+async function sincronizarPersonalizacaoInicialSilencioso() {
+  if (appConfig.customizationSyncPending) {
+    const sincronizado = await salvarPersonalizacaoRemotaSilencioso();
+    if (sincronizado) {
+      appConfig.customizationSyncPending = false;
+      salvarDados();
+    }
+    return false;
+  }
+  return carregarPersonalizacaoRemotaSilencioso();
 }
 
 async function salvarPersonalizacao() {
@@ -12845,11 +13019,12 @@ async function salvarPersonalizacao() {
       login_background: fundoLogin
     })
   };
-  await salvarPersonalizacaoRemotaSilencioso();
+  const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+  appConfig.customizationSyncPending = !remotoOk;
   salvarDados();
   registrarHistorico("Personalização", "Preferências do app atualizadas");
   mostrarToast(temAcessoCompleto() ? "Personalização salva" : "Dados básicos salvos", "sucesso", 2800);
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function removerLogoMarca() {
@@ -12857,7 +13032,7 @@ function removerLogoMarca() {
   appConfig.brandLogoDataUrl = "";
   salvarDados();
   registrarHistorico("Personalização", "Logo removida do PDF");
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function removerFundoPdf() {
@@ -12869,7 +13044,7 @@ function removerFundoPdf() {
   });
   salvarDados();
   registrarHistorico("Personalização", "Fundo do PDF removido");
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function restaurarPersonalizacaoPadrao() {
@@ -12950,7 +13125,7 @@ function restaurarPersonalizacaoPadrao() {
   };
   salvarDados();
   registrarHistorico("Personalização", "Preferências restauradas");
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function isAmbienteLocal() {
@@ -15824,7 +15999,7 @@ async function executarAutoBackup(forcar = false) {
   } finally {
     autoBackupRodando = false;
     if (telaAtual === "config" || telaAtual === "dashboard") {
-      renderApp();
+      agendarRenderizacaoPreservandoScroll(120);
     }
   }
 }
@@ -18226,10 +18401,12 @@ function iniciarLembreteBackupPlanoFree() {
 async function verificarBancosDadosAoEntrar() {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
   try {
-    await Promise.allSettled([
+    const verificacoes = await Promise.allSettled([
       consultarLicencaSupabaseSilencioso(),
-      carregarSaasSupabaseSilencioso()
+      carregarSaasSupabaseSilencioso(),
+      sincronizarPersonalizacaoInicialSilencioso()
     ]);
+    const personalizacaoAtualizada = verificacoes[2]?.status === "fulfilled" && verificacoes[2].value === true;
     await baixarAtualizacoesSupabaseSilencioso("startup-health").catch(() => false);
     await sincronizarFilaOfflinePendente("startup-health");
     const plano = getPlanoAtual();
@@ -18240,7 +18417,9 @@ async function verificarBancosDadosAoEntrar() {
     }
     syncConfig.autoBackupStatus = syncConfig.autoBackupStatus || "Banco verificado";
     salvarDados();
-    if (["dashboard", "backup", "config", "minhaAssinatura"].includes(telaAtual)) renderApp();
+    if (personalizacaoAtualizada || ["dashboard", "backup", "config", "minhaAssinatura"].includes(telaAtual)) {
+      agendarRenderizacaoPreservandoScroll(160);
+    }
   } catch (erro) {
     registrarDiagnostico("Supabase", "Verificação inicial do banco falhou", erro.message);
   }
