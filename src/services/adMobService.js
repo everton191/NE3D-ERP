@@ -2,16 +2,23 @@
   "use strict";
 
   const ADS_PRODUCTION_ENABLED = true;
-  const REWARDED_PRODUCTION_ENABLED = false;
+  const REWARDED_PRODUCTION_ENABLED = true;
   const ADMOB_REAL_APP_ID = "ca-app-pub-1056970757696623~2135021978";
   const ADMOB_REAL_BANNER_ID = "ca-app-pub-1056970757696623/1101141905";
   const ADMOB_REAL_INTERSTITIAL_ID = "ca-app-pub-1056970757696623/7662680829";
-  // TODO: preencher o Rewarded real no AdMob antes de ativar anuncios reais em producao.
-  const ADMOB_REAL_REWARDED_ID = "";
+  const ADMOB_REAL_REWARDED_ID = "ca-app-pub-1056970757696623/8900022712";
   const ADMOB_TEST_APP_ID = "ca-app-pub-3940256099942544~3347511713";
   const ADMOB_TEST_BANNER_ID = "ca-app-pub-3940256099942544/6300978111";
   const ADMOB_TEST_REWARDED_ID = "ca-app-pub-3940256099942544/5224354917";
   const ADMOB_TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712";
+  const REWARDED_EVENTS = {
+    Loaded: "onRewardedVideoAdLoaded",
+    FailedToLoad: "onRewardedVideoAdFailedToLoad",
+    Rewarded: "onRewardedVideoAdReward",
+    Dismissed: "onRewardedVideoAdDismissed",
+    FailedToShow: "onRewardedVideoAdFailedToShow",
+    Showed: "onRewardedVideoAdShowed"
+  };
 
   const INTERSTITIAL_MIN_INTERVAL_MINUTES = 20;
   const INTERSTITIAL_MIN_COMPLETED_ACTIONS = 2;
@@ -48,6 +55,16 @@
   let rewardedPrepared = false;
   let interstitialPrepared = false;
   let bannerShowing = false;
+  let rewardedState = {
+    loaded: false,
+    loading: false,
+    opened: false,
+    rewardEarned: false,
+    lastReason: "IDLE",
+    lastError: "",
+    adId: "",
+    rewardType: ""
+  };
 
   function safeJsonParse(value, fallback) {
     try {
@@ -176,6 +193,11 @@
     return isProductionEnabled() ? ADMOB_REAL_REWARDED_ID : ADMOB_TEST_REWARDED_ID;
   }
 
+  function setRewardedState(patch = {}) {
+    rewardedState = { ...rewardedState, ...patch };
+    return { ...rewardedState };
+  }
+
   function getInterstitialUnitId() {
     return isProductionEnabled() ? ADMOB_REAL_INTERSTITIAL_ID : ADMOB_TEST_INTERSTITIAL_ID;
   }
@@ -200,7 +222,64 @@
   function isRewardCompleted(result) {
     if (result?.cancelled === true || result?.dismissed === true) return false;
     if (result?.rewarded === false || result?.completed === false) return false;
-    return true;
+    if (result?.rewarded === true || result?.completed === true || result?.userEarnedReward === true) return true;
+    if (result?.reward?.amount !== undefined || result?.amount !== undefined || result?.rewardItem) return true;
+    return false;
+  }
+
+  async function removeListener(handle) {
+    try {
+      if (handle?.remove) await handle.remove();
+    } catch (_) {}
+  }
+
+  async function showRewardedWithLifecycle(plugin, adId, type) {
+    const show = () => plugin.showRewardVideoAd
+      ? plugin.showRewardVideoAd()
+      : plugin.showRewardedAd
+        ? plugin.showRewardedAd()
+        : plugin.showRewarded({ adId });
+
+    if (!plugin?.addListener) return show();
+
+    const handles = [];
+    let settled = false;
+    let resolveLifecycle;
+    let rejectLifecycle;
+    const lifecycle = new Promise((resolve, reject) => {
+      resolveLifecycle = resolve;
+      rejectLifecycle = reject;
+    });
+
+    const settle = (resolver, value) => {
+      if (settled) return;
+      settled = true;
+      resolver(value);
+    };
+
+    try {
+      handles.push(await plugin.addListener(REWARDED_EVENTS.Showed, () => {
+        logEvent("ADMOB_REWARDED_OPENED", { rewardType: type });
+      }));
+      handles.push(await plugin.addListener(REWARDED_EVENTS.Rewarded, (reward) => {
+        logEvent("ADMOB_REWARDED_CALLBACK_REWARD", { rewardType: type, amount: reward?.amount, type: reward?.type });
+        settle(resolveLifecycle, { rewarded: true, userEarnedReward: true, ...(reward || {}) });
+      }));
+      handles.push(await plugin.addListener(REWARDED_EVENTS.Dismissed, () => {
+        global.setTimeout?.(() => {
+          settle(resolveLifecycle, { rewarded: false, cancelled: true, dismissed: true });
+        }, 120);
+      }));
+      handles.push(await plugin.addListener(REWARDED_EVENTS.FailedToShow, (error) => {
+        const message = error?.message || error?.errorMessage || "Falha ao exibir Rewarded.";
+        settle(rejectLifecycle, new Error(message));
+      }));
+
+      const showPromise = Promise.resolve().then(show);
+      return await Promise.race([showPromise, lifecycle]);
+    } finally {
+      await Promise.all(handles.map(removeListener));
+    }
   }
 
   function normalizeRewardType(rewardType = "") {
@@ -225,27 +304,74 @@
     return Number(state.unlocks?.[type] || 0) > config.now();
   }
 
-  async function preloadRewardedAd({ user = {}, rewardType = "generic" } = {}) {
-    const eligibility = canUseNativeAds(user);
-    if (!eligibility.allowed) return { ok: false, reason: eligibility.reason };
-    if (!isAdsAllowed(user, { rewardType })) return { ok: false, reason: "ADS_NOT_ALLOWED" };
-    if (isProductionEnabled() && !REWARDED_PRODUCTION_ENABLED) return { ok: false, reason: "REWARDED_DISABLED_IN_PRODUCTION" };
-    if (isProductionEnabled() && !ADMOB_REAL_REWARDED_ID) return { ok: false, reason: "REWARDED_REAL_ID_MISSING" };
-    const plugin = eligibility.plugin;
+  function getRewardedStatus(user = {}, rewardType = "generic") {
     const type = normalizeRewardType(rewardType);
+    if (isPremiumUser(user)) {
+      return { available: false, loaded: false, loading: rewardedState.loading, canRequestLoad: false, reason: "PREMIUM_USER", rewardType: type };
+    }
+    if (!isAdsAllowed(user, { rewardType: type })) {
+      return { available: false, loaded: false, loading: rewardedState.loading, canRequestLoad: false, reason: "ADS_NOT_ALLOWED", rewardType: type };
+    }
+    const eligibility = canUseNativeAds(user);
+    if (!eligibility.allowed) {
+      return { available: false, loaded: false, loading: rewardedState.loading, canRequestLoad: false, reason: eligibility.reason, rewardType: type };
+    }
+    if (isProductionEnabled() && !REWARDED_PRODUCTION_ENABLED) {
+      return { available: false, loaded: false, loading: rewardedState.loading, canRequestLoad: false, reason: "REWARDED_DISABLED_IN_PRODUCTION", rewardType: type };
+    }
+    if (isProductionEnabled() && !ADMOB_REAL_REWARDED_ID) {
+      return { available: false, loaded: false, loading: rewardedState.loading, canRequestLoad: false, reason: "REWARDED_REAL_ID_MISSING", rewardType: type };
+    }
+    return {
+      available: true,
+      loaded: rewardedPrepared && rewardedState.loaded === true,
+      loading: rewardedState.loading === true,
+      canRequestLoad: true,
+      reason: rewardedPrepared && rewardedState.loaded === true ? "READY" : "NOT_LOADED",
+      adId: getRewardedUnitId(),
+      rewardType: type,
+      production: isProductionEnabled()
+    };
+  }
+
+  async function preloadRewardedAd({ user = {}, rewardType = "generic" } = {}) {
+    const type = normalizeRewardType(rewardType);
+    const status = getRewardedStatus(user, type);
+    if (status.loaded) return { ok: true, adId: status.adId, alreadyLoaded: true };
+    if (!status.canRequestLoad) {
+      rewardedPrepared = false;
+      setRewardedState({ loaded: false, loading: false, lastReason: status.reason, rewardType: type });
+      logEvent("ADMOB_REWARDED_LOAD_SKIPPED", { rewardType: type, reason: status.reason, production: isProductionEnabled() });
+      return { ok: false, reason: status.reason };
+    }
+    if (status.loading) return { ok: false, reason: "LOAD_IN_PROGRESS" };
+    const eligibility = canUseNativeAds(user);
+    const plugin = eligibility.plugin;
     try {
+      setRewardedState({ loaded: false, loading: true, opened: false, rewardEarned: false, lastReason: "LOADING", lastError: "", rewardType: type });
       await ensureInitialized(plugin, user);
       const adId = getRewardedUnitId();
+      logEvent("ADMOB_REWARDED_LOAD_STARTED", { rewardType: type, production: isProductionEnabled(), adId });
       if (plugin.prepareRewardVideoAd) {
         await plugin.prepareRewardVideoAd({ adId, isTesting: !isProductionEnabled() });
       } else if (plugin.prepareRewardedAd) {
         await plugin.prepareRewardedAd({ adId, isTesting: !isProductionEnabled() });
+      } else {
+        throw new Error("Metodo de preparo Rewarded indisponivel no SDK.");
       }
       rewardedPrepared = true;
-      logEvent("ADMOB_REWARDED_PRELOADED", { rewardType: type, production: isProductionEnabled() });
+      setRewardedState({ loaded: true, loading: false, adId, lastReason: "READY", rewardType: type });
+      logEvent("ADMOB_REWARDED_PRELOADED", { rewardType: type, production: isProductionEnabled(), adId });
       return { ok: true, adId };
     } catch (error) {
       rewardedPrepared = false;
+      setRewardedState({
+        loaded: false,
+        loading: false,
+        lastReason: "LOAD_FAILED",
+        lastError: String(error?.message || error || "").slice(0, 160),
+        rewardType: type
+      });
       logEvent("ADMOB_REWARDED_LOAD_FAILED", { rewardType: type, message: String(error?.message || error || "").slice(0, 160) });
       return { ok: false, reason: "LOAD_FAILED", error };
     }
@@ -253,62 +379,62 @@
 
   async function showRewardedAd({ user = {}, rewardType = "generic", onReward, onError } = {}) {
     const type = normalizeRewardType(rewardType);
-    if (isPremiumUser(user)) return { ok: false, rewarded: false, reason: "PREMIUM_USER" };
-    if (!isAdsAllowed(user, { rewardType: type })) return { ok: false, rewarded: false, reason: "ADS_NOT_ALLOWED" };
-    if (isProductionEnabled() && !REWARDED_PRODUCTION_ENABLED) {
-      return { ok: false, rewarded: false, reason: "REWARDED_DISABLED_IN_PRODUCTION" };
-    }
-    if (isProductionEnabled() && !ADMOB_REAL_REWARDED_ID) {
-      const error = new Error("Rewarded real do AdMob nao configurado.");
-      logEvent("ADMOB_REWARDED_LOAD_FAILED", { rewardType: type, reason: "REWARDED_REAL_ID_MISSING" });
-      notify("Anúncio de recompensa indisponível no momento.");
-      return { ok: false, rewarded: false, error, reason: "REWARDED_REAL_ID_MISSING" };
+    const status = getRewardedStatus(user, type);
+    if (!status.loaded && !status.canRequestLoad) {
+      logEvent("ADMOB_REWARDED_SHOW_SKIPPED", { rewardType: type, reason: status.reason, production: isProductionEnabled() });
+      return { ok: false, rewarded: false, opened: false, reason: status.reason };
     }
 
     const eligibility = canUseNativeAds(user);
-    if (!eligibility.allowed) {
-      const error = new Error("AdMob SDK indisponivel.");
-      logEvent("ADMOB_REWARDED_LOAD_FAILED", { rewardType: type, reason: eligibility.reason });
-      try {
-        if (typeof onError === "function") onError(error);
-      } catch (_) {}
-      if (eligibility.reason !== "WEB_OR_ELECTRON") notify("Não foi possível carregar o anúncio agora. Tente novamente em alguns instantes.");
-      return { ok: false, rewarded: false, error, reason: eligibility.reason };
-    }
-
     const plugin = eligibility.plugin;
+    let opened = false;
     try {
       if (!rewardedPrepared) {
         const preloaded = await preloadRewardedAd({ user, rewardType: type });
-        if (!preloaded.ok) throw preloaded.error || new Error(preloaded.reason || "Rewarded nao preparado.");
+        if (!preloaded.ok) {
+          logEvent("ADMOB_REWARDED_SHOW_SKIPPED", { rewardType: type, reason: preloaded.reason || "NOT_LOADED" });
+          return { ok: false, rewarded: false, opened: false, reason: preloaded.reason || "NOT_LOADED", error: preloaded.error };
+        }
       }
 
       const adId = getRewardedUnitId();
-      const result = plugin.showRewardVideoAd
-        ? await plugin.showRewardVideoAd()
-        : plugin.showRewardedAd
-          ? await plugin.showRewardedAd()
-          : await plugin.showRewarded({ adId });
+      setRewardedState({ opened: true, rewardEarned: false, loaded: false, loading: false, lastReason: "OPENING", rewardType: type });
+      logEvent("ADMOB_REWARDED_OPENING", { rewardType: type, production: isProductionEnabled(), adId });
+      opened = true;
+      const result = await showRewardedWithLifecycle(plugin, adId, type);
 
       rewardedPrepared = false;
       if (!isRewardCompleted(result)) {
-        return { ok: true, rewarded: false, cancelled: true };
+        setRewardedState({ opened: false, rewardEarned: false, loaded: false, lastReason: "CLOSED_WITHOUT_REWARD", rewardType: type });
+        logEvent("ADMOB_REWARDED_CLOSED_WITHOUT_REWARD", { rewardType: type });
+        preloadRewardedAd({ user, rewardType: type }).catch(() => {});
+        return { ok: true, rewarded: false, cancelled: true, opened: true, reason: "NOT_COMPLETED" };
       }
 
       registerAdShown("rewarded");
       const unlock = grantTemporaryUnlock(type);
+      setRewardedState({ opened: false, rewardEarned: true, loaded: false, lastReason: "REWARD_GRANTED", rewardType: type });
       logEvent("ADMOB_REWARD_GRANTED", { rewardType: type });
       if (typeof onReward === "function") await onReward({ rewardType: type, unlock, adResult: result });
       preloadRewardedAd({ user, rewardType: type }).catch(() => {});
       return { ok: true, rewarded: true, unlock };
     } catch (error) {
       rewardedPrepared = false;
+      setRewardedState({
+        opened: false,
+        rewardEarned: false,
+        loaded: false,
+        loading: false,
+        lastReason: opened ? "SHOW_FAILED_AFTER_OPEN" : "SHOW_FAILED",
+        lastError: String(error?.message || error || "").slice(0, 160),
+        rewardType: type
+      });
       logEvent("ADMOB_REWARDED_LOAD_FAILED", { rewardType: type, message: String(error?.message || error || "").slice(0, 160) });
       try {
         if (typeof onError === "function") onError(error);
       } catch (_) {}
-      notify("Não foi possível carregar o anúncio agora. Tente novamente em alguns instantes.");
-      return { ok: false, rewarded: false, error };
+      preloadRewardedAd({ user, rewardType: type }).catch(() => {});
+      return { ok: false, rewarded: false, opened, error, reason: opened ? "SHOW_FAILED_AFTER_OPEN" : "SHOW_FAILED" };
     }
   }
 
@@ -477,6 +603,16 @@
     rewardedPrepared = false;
     interstitialPrepared = false;
     bannerShowing = false;
+    rewardedState = {
+      loaded: false,
+      loading: false,
+      opened: false,
+      rewardEarned: false,
+      lastReason: "IDLE",
+      lastError: "",
+      adId: "",
+      rewardType: ""
+    };
   }
 
   const api = {
@@ -500,7 +636,8 @@
     isPremiumUser,
     isAdsAllowed,
     shouldShowAds: isAdsAllowed,
-    canShowRewarded: (user = {}) => isAdsAllowed(user) && !isPremiumUser(user),
+    canShowRewarded: (user = {}, rewardType = "generic") => getRewardedStatus(user, rewardType).canRequestLoad,
+    getRewardedStatus,
     preloadRewardedAd,
     showRewardedAd,
     canShowInterstitial,

@@ -3605,19 +3605,51 @@ body.auth-screen-active #app{
 
 .calc-material-row{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) auto;
+  grid-template-columns:minmax(0, 1fr);
   gap:8px;
-  align-items:end;
-}
-
-.calc-material-row .btn{
-  min-height:44px;
-  white-space:nowrap;
 }
 
 .calc-stock-hint{
   margin-top:-4px;
   font-size:var(--font-xs);
+}
+
+.material-color-palette{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-top:8px;
+}
+
+.material-color-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:34px;
+  padding:6px 9px;
+  border-radius:999px;
+  border:1px solid var(--line);
+  background:rgba(255,255,255,.045);
+  color:var(--text);
+  font-size:var(--font-xs);
+  cursor:pointer;
+  transition:transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.material-color-chip:hover,
+.material-color-chip.active{
+  transform:translateY(-1px);
+  border-color:rgba(255,148,28,.55);
+  background:rgba(255,148,28,.12);
+}
+
+.material-color-dot{
+  width:15px;
+  height:15px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.55);
+  box-shadow:0 0 0 1px rgba(0,0,0,.12);
+  flex:0 0 auto;
 }
 
 .result-box{

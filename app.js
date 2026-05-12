@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.4";
-const APP_VERSION_CODE = 55;
+const APP_VERSION = "51.0.5";
+const APP_VERSION_CODE = 56;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -746,6 +746,7 @@ function configurarMonetizacaoAds() {
       shouldShowAdsResolver: (user, context) => shouldShowAds(user, context),
       telemetry: (errorKey, metadata = {}) => registrarErroAplicacaoSilencioso(errorKey, new Error(errorKey), "AdSense", metadata)
     });
+    agendarPreloadRewardedAds("config");
   } catch (erro) {
     registrarDiagnostico("Monetização", "Configuração de monetização falhou", erro.message || erro);
   }
@@ -807,6 +808,79 @@ function sincronizarBannerAdMob() {
   }
 }
 
+function agendarPreloadRewardedAds(origem = "app") {
+  try {
+    if (!window.AdMobService?.preloadRewardedAd) return;
+    window.clearTimeout?.(window.__rewardedPreloadTimer);
+    window.__rewardedPreloadTimer = window.setTimeout(() => {
+      window.AdMobService.preloadRewardedAd({
+        user: getUsuarioMonetizacao(),
+        rewardType: "orders"
+      }).then((resultado) => {
+        if (resultado?.ok) registrarDiagnostico("AdMob", "Rewarded preparado", { origem });
+      }).catch((erro) => {
+        registrarErroAplicacaoSilencioso("ADMOB_REWARDED_PRELOAD_FAILED", erro, "Rewarded preload", { origem });
+      });
+    }, 700);
+  } catch (erro) {
+    registrarErroAplicacaoSilencioso("ADMOB_REWARDED_PRELOAD_SCHEDULE_FAILED", erro, "Rewarded preload", { origem });
+  }
+}
+
+function mensagemRewardedPorResultado(resultado = {}) {
+  const motivo = String(resultado?.reason || "").toUpperCase();
+  if (motivo === "WEB_OR_ELECTRON") return "Anúncio recompensado disponível no APK Android.";
+  if (motivo === "PREMIUM_USER" || motivo === "ADS_NOT_ALLOWED") return "Sua conta não precisa assistir anúncio para este recurso.";
+  if (motivo === "NOT_COMPLETED") return "Anúncio não concluído.";
+  return "Anúncio indisponível no momento.";
+}
+
+async function atualizarBotaoRewardedModal(botao, rewardType) {
+  if (!botao) return;
+  const service = window.AdMobService;
+  if (!service?.getRewardedStatus) {
+    botao.disabled = true;
+    botao.textContent = "Anúncio indisponível";
+    return;
+  }
+  let status = service.getRewardedStatus(getUsuarioMonetizacao(), rewardType);
+  if (status.loaded) {
+    botao.disabled = false;
+    botao.textContent = "Assistir anúncio";
+    botao.dataset.textoOriginal = "Assistir anúncio";
+    return;
+  }
+  if (status.loading) {
+    botao.disabled = true;
+    botao.textContent = "Carregando anúncio...";
+    window.setTimeout(() => atualizarBotaoRewardedModal(botao, rewardType).catch(() => {}), 900);
+    return;
+  }
+  if (!status.canRequestLoad) {
+    botao.disabled = true;
+    botao.textContent = "Anúncio indisponível";
+    botao.dataset.rewardReason = status.reason || "";
+    return;
+  }
+  botao.disabled = true;
+  botao.textContent = "Carregando anúncio...";
+  const preload = await service.preloadRewardedAd({ user: getUsuarioMonetizacao(), rewardType });
+  status = service.getRewardedStatus(getUsuarioMonetizacao(), rewardType);
+  if (preload?.reason === "LOAD_IN_PROGRESS") {
+    botao.disabled = true;
+    botao.textContent = "Carregando anúncio...";
+    window.setTimeout(() => atualizarBotaoRewardedModal(botao, rewardType).catch(() => {}), 900);
+  } else if (preload?.ok || status.loaded) {
+    botao.disabled = false;
+    botao.textContent = "Assistir anúncio";
+    botao.dataset.textoOriginal = "Assistir anúncio";
+  } else {
+    botao.disabled = true;
+    botao.textContent = "Anúncio indisponível";
+    botao.dataset.rewardReason = preload?.reason || status.reason || "";
+  }
+}
+
 function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = "" } = {}) {
   return new Promise((resolve) => {
     const popup = document.getElementById("popup");
@@ -826,7 +900,7 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
           </div>
           <p class="muted">${escaparHtml(texto)}</p>
           <div class="actions">
-            <button class="btn secondary" type="button" id="rewardAdWatch">Assistir anúncio</button>
+            <button class="btn secondary" type="button" id="rewardAdWatch" disabled>Carregando anúncio...</button>
             <button class="btn" type="button" id="rewardAdPlan">Assinar plano</button>
             <button class="btn ghost" type="button" id="rewardAdCancel">Agora não</button>
           </div>
@@ -842,6 +916,16 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
       const botao = document.getElementById("rewardAdWatch");
       setBotaoLoading(botao, true, "Carregando...");
       try {
+        const status = window.AdMobService?.getRewardedStatus?.(getUsuarioMonetizacao(), rewardType);
+        if (status && !status.loaded) {
+          const preload = await window.AdMobService?.preloadRewardedAd?.({ user: getUsuarioMonetizacao(), rewardType });
+          if (!preload?.ok) {
+            mostrarToast(mensagemRewardedPorResultado(preload || status), "warning", 4500);
+            setBotaoLoading(botao, false);
+            await atualizarBotaoRewardedModal(botao, rewardType);
+            return;
+          }
+        }
         const resultado = await window.AdMobService?.showRewardedAd?.({
           user: getUsuarioMonetizacao(),
           rewardType,
@@ -856,16 +940,19 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
           finalizar(true);
           return;
         }
-        mostrarToast("Anúncio cancelado. Nenhuma recompensa foi aplicada.", "info", 4500);
+        mostrarToast(mensagemRewardedPorResultado(resultado), resultado?.cancelled ? "info" : "warning", 4500);
         setBotaoLoading(botao, false);
+        await atualizarBotaoRewardedModal(botao, rewardType);
       } catch (erro) {
         registrarErroAplicacaoSilencioso("ADMOB_REWARDED_LOAD_FAILED", erro, "Rewarded Ad", { rewardType });
-        mostrarToast("Não foi possível carregar o anúncio agora. Tente novamente em alguns instantes.", "erro", 5000);
+        mostrarToast("Anúncio indisponível no momento.", "erro", 5000);
         setBotaoLoading(botao, false);
+        await atualizarBotaoRewardedModal(botao, rewardType);
       }
     };
 
     document.getElementById("rewardAdWatch")?.addEventListener("click", assistir);
+    atualizarBotaoRewardedModal(document.getElementById("rewardAdWatch"), rewardType).catch(() => {});
     document.getElementById("rewardAdPlan")?.addEventListener("click", () => {
       finalizar(false);
       trocarTela("assinatura");
@@ -1246,6 +1333,21 @@ const printers = {
 };
 
 const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
+const MATERIAL_ADD_OPTION = "__add_material__";
+const MATERIAL_COLOR_PALETTE = [
+  { nome: "Preto", cor: "#111827" },
+  { nome: "Branco", cor: "#f8fafc" },
+  { nome: "Cinza", cor: "#94a3b8" },
+  { nome: "Prata", cor: "#cbd5e1" },
+  { nome: "Vermelho", cor: "#ef4444" },
+  { nome: "Azul", cor: "#2563eb" },
+  { nome: "Verde", cor: "#22c55e" },
+  { nome: "Amarelo", cor: "#facc15" },
+  { nome: "Laranja", cor: "#f97316" },
+  { nome: "Roxo", cor: "#8b5cf6" },
+  { nome: "Transparente", cor: "linear-gradient(135deg, rgba(255,255,255,.9), rgba(125,211,252,.55))" },
+  { nome: "Natural", cor: "#f5deb3" }
+];
 const estoqueMinimoKg = 0.1;
 
 const moeda = new Intl.NumberFormat("pt-BR", {
@@ -8426,13 +8528,44 @@ function renderPedido() {
   `;
 }
 
+function renderPaletaCoresMaterial(inputId, selected = "") {
+  const valor = String(selected || "").trim().toLowerCase();
+  return `
+    <div class="material-color-palette" role="group" aria-label="Escolher cor do material">
+      ${MATERIAL_COLOR_PALETTE.map((item) => {
+        const ativo = valor && item.nome.toLowerCase() === valor;
+        const estilo = String(item.cor || "").includes("gradient") ? `background:${item.cor}` : `background-color:${item.cor}`;
+        return `
+          <button class="material-color-chip ${ativo ? "active" : ""}" type="button" data-target="${escaparAttr(inputId)}" data-color="${escaparAttr(item.nome)}" onclick="selecionarCorMaterial('${escaparAttr(inputId)}', '${escaparAttr(item.nome)}')" title="${escaparAttr(item.nome)}">
+            <span class="material-color-dot" style="${escaparAttr(estilo)}"></span>
+            <span>${escaparHtml(item.nome)}</span>
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function selecionarCorMaterial(inputId, cor) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.value = cor || "";
+  const alvo = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(inputId) : String(inputId).replace(/"/g, '\\"');
+  document.querySelectorAll(`.material-color-chip[data-target="${alvo}"]`).forEach((botao) => {
+    botao.classList.toggle("active", String(botao.dataset.color || "") === String(cor || ""));
+  });
+}
+
 function renderMaterialOptions(selectedId = "", opcoes = {}) {
   const materiais = normalizarEstoque();
   const incluirSemVinculo = opcoes.includeEmpty !== false;
   const labelSemVinculo = opcoes.emptyLabel || "Sem vínculo com estoque";
+  const adicionar = opcoes.includeAdd
+    ? `<option value="${MATERIAL_ADD_OPTION}">+ Adicionar material ao estoque</option>`
+    : "";
   const vazio = incluirSemVinculo ? `<option value="" ${!selectedId ? "selected" : ""}>${escaparHtml(labelSemVinculo)}</option>` : "";
-  if (!materiais.length) return vazio + `<option value="" disabled>Nenhum material cadastrado</option>`;
-  return vazio + materiais.map((material) => `
+  if (!materiais.length) return adicionar + vazio + `<option value="" disabled>Nenhum material cadastrado</option>`;
+  return adicionar + vazio + materiais.map((material) => `
     <option value="${escaparAttr(material.id)}" ${String(material.id) === String(selectedId) ? "selected" : ""}>
       ${escaparHtml(material.nome)} (${Number(material.qtd).toFixed(3)} kg)
     </option>
@@ -8493,7 +8626,8 @@ function renderEstoque() {
       </label>
       <label class="field">
         <span>Cor do material</span>
-        <input id="matCor" placeholder="Ex.: Preto, Branco, Transparente">
+        <input id="matCor" placeholder="Escolha na paleta" readonly>
+        ${renderPaletaCoresMaterial("matCor")}
       </label>
       <label class="field">
         <span>Quantidade em kg</span>
@@ -12032,6 +12166,7 @@ function renderSobre() {
       <div class="metrics">
         <div class="metric"><span>Versão do sistema</span><strong>${escaparHtml(APP_VERSION)}</strong></div>
         <div class="metric"><span>Aplicativo</span><strong>Simplifica 3D</strong></div>
+        <div class="metric"><span>Suporte</span><strong><a href="mailto:simplifica3d.app@gmail.com">simplifica3d.app@gmail.com</a></strong></div>
         <div class="metric"><span>Plataformas</span><strong>PWA + APK</strong></div>
       </div>
       <p class="muted legal-copy">© 2026 Simplifica 3D - Todos os direitos reservados</p>
@@ -17001,7 +17136,8 @@ function mostrarModalEdicaoMaterial(indice, material) {
         </label>
         <label class="field">
           <span>Cor</span>
-          <input id="stockEditColor" value="${escaparAttr(material.cor || "")}">
+          <input id="stockEditColor" value="${escaparAttr(material.cor || "")}" readonly>
+          ${renderPaletaCoresMaterial("stockEditColor", material.cor || "")}
         </label>
         <div class="actions">
           <button class="btn ghost" type="button" data-action="stock-edit-cancel">Cancelar</button>
@@ -17225,9 +17361,8 @@ function renderCalculadoraConteudo() {
         <span>Material do estoque</span>
         <select id="calcMaterial" onchange="alterarMaterialCalculadora(this.value)"></select>
       </label>
-      <button class="btn ghost" type="button" onclick="abrirCadastroMaterialCalculadora()">+ Material</button>
     </div>
-    <p class="muted calc-stock-hint">Você pode calcular sem vínculo com estoque ou cadastrar um material rápido sem sair da calculadora.</p>
+    <p class="muted calc-stock-hint">Use sem vínculo, selecione um material do estoque ou cadastre um material direto pela lista.</p>
 
     <div class="calc-grid">
       <label class="field">
@@ -17471,11 +17606,17 @@ function preencherMateriaisCalculadora() {
   const configuracao = getConfiguracaoCalculadora();
   const valorAtual = select.value || configuracao.materialId || "";
   const materialSelecionado = getMaterialEstoque(valorAtual) ? valorAtual : "";
-  select.innerHTML = renderMaterialOptions(materialSelecionado, { emptyLabel: "Sem vínculo com estoque" });
+  select.innerHTML = renderMaterialOptions(materialSelecionado, { emptyLabel: "Sem vínculo com estoque", includeAdd: true });
   select.value = materialSelecionado;
 }
 
 function alterarMaterialCalculadora(materialId = "") {
+  if (materialId === MATERIAL_ADD_OPTION) {
+    const select = document.getElementById("calcMaterial");
+    if (select) select.value = getConfiguracaoCalculadora().materialId || "";
+    abrirCadastroMaterialCalculadora();
+    return;
+  }
   const material = getMaterialEstoque(materialId);
   if (materialId && !material) {
     document.getElementById("calcMaterial") && (document.getElementById("calcMaterial").value = "");
@@ -17503,8 +17644,9 @@ function abrirCadastroMaterialCalculadora() {
           </select>
         </label>
         <label class="field">
-          <span>Cor ou descrição</span>
-          <input id="calcQuickMatCor" placeholder="Ex.: Preto, Branco, Transparente">
+          <span>Cor do material</span>
+          <input id="calcQuickMatCor" placeholder="Escolha na paleta" readonly>
+          ${renderPaletaCoresMaterial("calcQuickMatCor")}
         </label>
         <label class="field">
           <span>Quantidade em kg</span>
@@ -17521,7 +17663,7 @@ function abrirCadastroMaterialCalculadora() {
     event.preventDefault();
     salvarMaterialCalculadoraRapido();
   });
-  setTimeout(() => document.getElementById("calcQuickMatCor")?.focus(), 80);
+  setTimeout(() => document.getElementById("calcQuickMatQtd")?.focus(), 80);
 }
 
 function salvarMaterialCalculadoraRapido() {
