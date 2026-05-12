@@ -7,8 +7,8 @@ android {
         applicationId "br.com.ne3d.erp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 51
-        versionName "2026.05.11.51"
+        versionCode 52
+        versionName "51.0.1"
         manifestPlaceholders = [admobAppId: "ca-app-pub-1056970757696623~2135021978"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

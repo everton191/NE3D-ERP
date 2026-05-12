@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v70-adsense-onboarding-20260511";
+const CACHE_NAME = "simplifica-3d-v71-premium-analytics-5101-20260512";
 const APP_FILES = [
   "./",
   "./index.html",

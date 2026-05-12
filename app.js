@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "2026.05.11.51";
+const APP_VERSION = "51.0.1";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -181,6 +181,14 @@ let usuarioAtualEmail = sessionStorage.getItem("usuarioAtualEmail") || "";
 let twoFactorPending = null;
 let updateTimer = null;
 let dashboardWindowAction = null;
+let dashboardPeriod = localStorage.getItem("dashboardPeriod") || "day";
+let dashboardAnalyticsCache = carregarObjeto("dashboardAnalyticsCache", {});
+let dashboardAnalyticsRequest = null;
+let dashboardAnalyticsLastUploadAt = 0;
+let sideDrawerGesture = null;
+let sideDrawerOpen = false;
+let sideDrawerProgress = 0;
+let profileLongPressState = null;
 let calcWidgetAction = null;
 let sessionTimer = null;
 let sessionWarned = false;
@@ -278,6 +286,10 @@ let appConfig = carregarObjeto("appConfig", {
   pixCity: "",
   pixDescription: "Pedido Simplifica 3D",
   brandLogoDataUrl: "",
+  profilePhotoDataUrl: "",
+  companyLogoDataUrl: "",
+  loginBackgroundDataUrl: "",
+  customLoginMessage: "",
   pdfBackgroundDataUrl: "",
   pdfStyle: "clean",
   pdfHeaderText: "",
@@ -294,6 +306,7 @@ let appConfig = carregarObjeto("appConfig", {
     custom_pdf_enabled: false
   },
   compactMode: false,
+  motionLevel: "medium",
   showBrandInHeader: true,
   defaultMargin: 100,
   defaultEnergy: 0.85,
@@ -1647,6 +1660,8 @@ function salvarDados() {
   localStorage.setItem("syncConfig", JSON.stringify(criarSyncConfigPersistente()));
   localStorage.setItem("appConfig", JSON.stringify(appConfig));
   localStorage.setItem("billingConfig", JSON.stringify(billingConfig));
+  localStorage.setItem("dashboardPeriod", dashboardPeriod);
+  localStorage.setItem("dashboardAnalyticsCache", JSON.stringify(dashboardAnalyticsCache));
 }
 
 function criarSyncConfigPersistente() {
@@ -4329,9 +4344,18 @@ function getMarcaProjetoSrc(tipo = "cover") {
   return tipo === "icon" ? PROJECT_ICON_IMAGE : PROJECT_COVER_IMAGE;
 }
 
+function getMarcaOficialProjetoSrc(tipo = "cover") {
+  return tipo === "icon" ? PROJECT_ICON_IMAGE : PROJECT_COVER_IMAGE;
+}
+
 function renderMarcaProjeto(classe = "brand-logo", alt = "Marca do projeto", tipo = "") {
   const variant = tipo || (classe.includes("side-brand-logo") ? "icon" : "cover");
   const src = getMarcaProjetoSrc(variant);
+  return src ? `<img class="${escaparAttr(classe)}" src="${escaparAttr(src)}" alt="${escaparAttr(alt)}">` : "";
+}
+
+function renderMarcaOficialProjeto(classe = "brand-logo", alt = "Simplifica 3D", tipo = "cover") {
+  const src = getMarcaOficialProjetoSrc(tipo);
   return src ? `<img class="${escaparAttr(classe)}" src="${escaparAttr(src)}" alt="${escaparAttr(alt)}">` : "";
 }
 
@@ -5399,6 +5423,13 @@ function calcularEscalaInterface() {
   return 1;
 }
 
+function detectarNivelMovimento() {
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return "low";
+  const escolhido = String(appConfig.motionLevel || "medium").toLowerCase();
+  if (["low", "medium", "high"].includes(escolhido)) return escolhido;
+  return isMobile() ? "medium" : "high";
+}
+
 function aplicarPersonalizacao() {
   const root = document.documentElement;
   const temaClaro = appConfig.theme === "light";
@@ -5455,10 +5486,12 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--desktop-card-min", `${cardMin}px`);
   root.style.setProperty("--desktop-max-width", `${maxWidth}px`);
   root.style.setProperty("--desktop-sidebar-width", `${Math.round(230 * Math.min(1.05, Math.max(0.92, escala)))}px`);
+  root.style.setProperty("--login-background-image", appConfig.loginBackgroundDataUrl ? `url("${String(appConfig.loginBackgroundDataUrl).replace(/"/g, "%22")}")` : "none");
 
   document.body.classList.toggle("compact-mode", !!appConfig.compactMode);
   document.body.dataset.screenFit = appConfig.screenFit || "auto";
   document.body.dataset.screenProfile = detectarPerfilTela();
+  document.body.dataset.motion = detectarNivelMovimento();
 
   const nome = appConfig.appName || SYSTEM_NAME;
   document.title = nome;
@@ -6468,20 +6501,14 @@ function renderMenuLateral() {
 }
 
 function renderCabecalhoMenuLateral({ recolhido = false, drawer = false } = {}) {
-  const plano = getPlanoAtual();
   const tituloBotao = drawer ? "Fechar menu" : (recolhido ? "Mostrar menu" : "Esconder menu");
-  const acaoBotao = drawer ? "fecharPopup()" : "alternarMenuLateral()";
+  const acaoBotao = drawer ? "fecharDrawerLateral()" : "alternarMenuLateral()";
   const iconeBotao = drawer ? "✕" : "☰";
 
   return `
-    <div class="side-brand">
+    <div class="side-brand side-brand-official ${drawer ? "drawer-brand" : ""}">
       <button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}">${iconeBotao}</button>
-      ${renderMarcaProjeto("side-brand-logo", "Simplifica 3D", "icon")}
-      <div class="side-brand-text">
-        <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
-        <span>${escaparHtml(appConfig.businessName || "Gestão 3D")}</span>
-      </div>
-      <span class="side-plan-pill ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome || "Free")}</span>
+      ${renderMarcaOficialProjeto("side-brand-cover", "Simplifica 3D - Organize seus pedidos sem complicação", "cover")}
     </div>
   `;
 }
@@ -6489,20 +6516,203 @@ function renderCabecalhoMenuLateral({ recolhido = false, drawer = false } = {}) 
 function renderPerfilMenuLateral() {
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
-  const nome = usuario?.nome || usuario?.email || appConfig.businessName || "Perfil";
+  const nome = appConfig.businessName || usuario?.nome || usuario?.email || "Perfil";
   const email = usuario?.email || syncConfig.supabaseEmail || "Conta ativa";
   const status = licencaEfetivaBloqueada(usuario) ? "Bloqueado" : plano.nome || "Free";
+  const empresaLogo = appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || "";
 
   return `
-    <button class="side-profile-card" type="button" onclick="abrirTelaMenuLateral('conta')" title="Abrir conta">
-      ${renderUsuarioAvatar(usuario, "side-profile-avatar")}
+    <div class="side-profile-card premium-profile-trigger" role="button" tabindex="0"
+      onclick="abrirPerfilPremiumPainel(event)"
+      onkeydown="if(event.key === 'Enter' || event.key === ' '){abrirPerfilPremiumPainel(event)}"
+      onpointerdown="iniciarPressPerfil(event)"
+      onpointermove="moverPressPerfil(event)"
+      onpointerup="finalizarPressPerfil(event)"
+      onpointercancel="cancelarPressPerfil()"
+      title="Abrir perfil e personalização">
+      <div class="side-profile-photo-stack">
+        ${renderUsuarioAvatar(usuario, "side-profile-avatar")}
+        ${empresaLogo ? `<img class="side-company-logo" src="${escaparAttr(empresaLogo)}" alt="Logo da empresa">` : ""}
+      </div>
       <span class="side-profile-meta">
         <strong>${escaparHtml(nome)}</strong>
-        <small>${escaparHtml(email)}</small>
+        <small>${escaparHtml(usuario?.nome || email)}</small>
       </span>
-      <em class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(status)}</em>
-    </button>
+      <button class="status-badge profile-plan-link ${classeStatusPlano(plano.status)}" type="button" onclick="event.stopPropagation(); abrirTelaPlanosPerfil()">
+        ${escaparHtml(status)}
+      </button>
+    </div>
   `;
+}
+
+function abrirTelaPlanosPerfil() {
+  fecharPopup();
+  trocarTela("assinatura");
+}
+
+function getUsuariosContaAtiva() {
+  const atual = getUsuarioAtual();
+  const clientId = atual?.clientId || billingConfig.clientId || "";
+  const companyId = atual?.companyId || billingConfig.companyId || "";
+  return normalizarUsuarios(usuarios)
+    .filter((usuario) => usuario.ativo !== false && !usuario.bloqueado)
+    .filter((usuario) => {
+      if (clientId) return String(usuario.clientId || "") === String(clientId);
+      if (companyId) return String(usuario.companyId || "") === String(companyId);
+      return usuario.email === atual?.email;
+    });
+}
+
+function iniciarPressPerfil(event) {
+  profileLongPressState = {
+    x: event.clientX,
+    y: event.clientY,
+    moved: false,
+    triggered: false,
+    timer: setTimeout(() => {
+      const perfis = getUsuariosContaAtiva();
+      if (perfis.length <= 1) return;
+      profileLongPressState.triggered = true;
+      window.__profileLongPressLock = Date.now();
+      abrirSeletorUsuariosPerfil(perfis);
+    }, 520)
+  };
+  event.currentTarget?.classList.add("is-pressing");
+}
+
+function moverPressPerfil(event) {
+  if (!profileLongPressState) return;
+  const dx = Math.abs(event.clientX - profileLongPressState.x);
+  const dy = Math.abs(event.clientY - profileLongPressState.y);
+  if (dx > 10 || dy > 10) {
+    profileLongPressState.moved = true;
+    cancelarPressPerfil();
+  }
+}
+
+function finalizarPressPerfil(event) {
+  const estado = profileLongPressState;
+  cancelarPressPerfil(event?.currentTarget);
+  if (estado?.triggered) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+  }
+}
+
+function cancelarPressPerfil(elemento = document.querySelector(".premium-profile-trigger")) {
+  if (profileLongPressState?.timer) clearTimeout(profileLongPressState.timer);
+  profileLongPressState = null;
+  elemento?.classList?.remove("is-pressing");
+}
+
+function abrirPerfilPremiumPainel(event) {
+  event?.preventDefault?.();
+  if (Date.now() - Number(window.__profileLongPressLock || 0) < 700) return;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const usuario = getUsuarioAtual();
+  const plano = getPlanoAtual(usuario);
+  const pro = temAcessoCompleto();
+  const empresaLogo = appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || "";
+  popup.innerHTML = `
+    <div class="modal-backdrop profile-panel-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card profile-premium-panel modal-enter" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Perfil e personalização</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="profile-hero-card">
+          <div class="profile-photo-large">
+            ${renderUsuarioAvatar(usuario, "profile-photo-large-img")}
+          </div>
+          <div>
+            <span class="eyebrow">${escaparHtml(appConfig.businessName || "Simplifica 3D")}</span>
+            <h3>${escaparHtml(usuario?.nome || usuario?.email || "Usuário")}</h3>
+            <button class="profile-plan-inline ${classeStatusPlano(plano.status)}" type="button" onclick="abrirTelaPlanosPerfil()">${escaparHtml(plano.nome || "Free")}</button>
+            <p>${escaparHtml(plano.descricao || "Plano ativo")}</p>
+          </div>
+          ${empresaLogo ? `<img class="profile-company-large" src="${escaparAttr(empresaLogo)}" alt="Logo da empresa">` : ""}
+        </div>
+        <div class="profile-info-grid">
+          <div class="metric"><span>E-mail</span><strong>${escaparHtml(usuario?.email || syncConfig.supabaseEmail || "-")}</strong></div>
+          <div class="metric"><span>Empresa</span><strong>${escaparHtml(appConfig.businessName || "-")}</strong></div>
+          <div class="metric"><span>Usuários</span><strong>${getUsuariosContaAtiva().length || 1}</strong></div>
+          <div class="metric"><span>Status</span><strong>${escaparHtml(plano.descricao || plano.nome || "Free")}</strong></div>
+        </div>
+        <div class="profile-customization-grid">
+          <button class="profile-option" type="button" onclick="abrirPersonalizacaoDoPerfil('avatar')">
+            <strong>Foto e logo</strong><span>Usuário e empresa</span>
+          </button>
+          <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('pdf')">
+            <strong>Personalizar PDF</strong><span>${pro ? "Logo, fundo e marca d'água" : "Disponível no PRO"}</span>
+          </button>
+          <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('theme')">
+            <strong>Cores do app</strong><span>${pro ? "Tema e transparência" : "Disponível no PRO"}</span>
+          </button>
+          <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('login')">
+            <strong>Tela de login</strong><span>${pro ? "Fundo e mensagem" : "Disponível no PRO"}</span>
+          </button>
+        </div>
+        <div class="actions">
+          <button class="btn secondary" type="button" onclick="abrirTelaPlanosPerfil()">Ver planos</button>
+          <button class="btn" type="button" onclick="abrirPersonalizacaoDoPerfil('all')">Personalizar</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function abrirPersonalizacaoDoPerfil(tipo = "all") {
+  if (!temAcessoCompleto() && ["pdf", "theme", "login", "all"].includes(tipo)) {
+    fecharPopup();
+    trocarTela("assinatura");
+    mostrarToast("Personalização avançada disponível no PRO.", "info", 3200);
+    return;
+  }
+  fecharPopup();
+  trocarTela("personalizacao");
+}
+
+function abrirSeletorUsuariosPerfil(perfis = getUsuariosContaAtiva()) {
+  if (!Array.isArray(perfis) || perfis.length <= 1) return;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const atual = getUsuarioAtual();
+  popup.innerHTML = `
+    <div class="modal-backdrop profile-switch-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card profile-switch-panel glass-pop" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Trocar usuário</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="profile-carousel-3d">
+          ${perfis.map((usuario, index) => `
+            <button class="profile-carousel-card ${usuario.email === atual?.email ? "active" : ""}" type="button" style="--i:${index - 1}" onclick="selecionarUsuarioPerfil('${escaparAttr(usuario.id)}')">
+              ${renderUsuarioAvatar(usuario, "profile-carousel-avatar")}
+              <strong>${escaparHtml(usuario.nome || usuario.email)}</strong>
+              <span>${escaparHtml(usuario.papel || "user")}</span>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function selecionarUsuarioPerfil(id) {
+  const usuario = normalizarUsuarios(usuarios).find((item) => String(item.id) === String(id));
+  if (!usuario) return;
+  const mesmoAuth = !usuario.supabaseUserId || !syncConfig.supabaseUserId || String(usuario.supabaseUserId) === String(syncConfig.supabaseUserId);
+  if (!mesmoAuth) {
+    fecharPopup();
+    mostrarToast("Para trocar de conta com segurança, saia e entre com o outro usuário.", "info", 4500);
+    return;
+  }
+  usuarioAtualEmail = usuario.email;
+  sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+  registrarAtividadeUsuarioAtual("profile-switch", true);
+  fecharPopup();
+  renderApp();
 }
 
 function getMenuGroups() {
@@ -6602,20 +6812,13 @@ function getItensMenuPopup() {
   return getMenuGroups().flatMap((grupo) => grupo.itens.map((item) => ({ ...item, grupo: grupo.titulo })));
 }
 
-function abrirMenuPopup() {
-  if (!isMobile()) {
-    alternarMenuLateral();
-    return;
-  }
-
-  const popup = document.getElementById("popup");
-  if (!popup) return;
-
+function renderDrawerLateral({ progress = 1, dragging = false } = {}) {
   const itens = getItensMenuPopup();
   const grupos = getMenuGroups().map((grupo) => grupo.titulo);
-  popup.innerHTML = `
-    <div class="side-drawer-backdrop" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" onclick="fecharPopup()">
-      <aside class="side-menu side-drawer" onclick="event.stopPropagation()">
+  const progresso = Math.min(1, Math.max(0, Number(progress) || 0));
+  return `
+    <div class="side-drawer-backdrop ${dragging ? "is-dragging" : ""}" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" onclick="fecharDrawerLateral()" style="--drawer-progress:${progresso}">
+      <aside class="side-menu side-drawer" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
         ${renderCabecalhoMenuLateral({ drawer: true })}
         ${renderPerfilMenuLateral()}
         ${grupos.map((grupo) => `
@@ -6627,12 +6830,109 @@ function abrirMenuPopup() {
       </aside>
     </div>
   `;
+}
+
+function abrirDrawerLateral(origem = "menu", progress = 1, dragging = false) {
+  const popup = document.getElementById("popup");
+  if (!popup || !getUsuarioAtual()) return;
+  sideDrawerOpen = true;
+  sideDrawerProgress = Math.min(1, Math.max(0, Number(progress) || 0));
+  popup.innerHTML = renderDrawerLateral({ progress: sideDrawerProgress, dragging });
   atualizarMenu();
+}
+
+function fecharDrawerLateral() {
+  sideDrawerOpen = false;
+  sideDrawerProgress = 0;
+  fecharPopup();
+}
+
+function abrirMenuPopup() {
+  if (!isMobile()) {
+    alternarMenuLateral();
+    return;
+  }
+  abrirDrawerLateral("button");
 }
 
 function abrirTelaMenuPopup(tela) {
   fecharPopup();
   trocarTela(tela);
+}
+
+function alvoInterativoDrawer(event) {
+  const alvo = event.target;
+  return !!alvo?.closest?.("input, textarea, select, button, a, .calc-widget-window, .modal-card");
+}
+
+function atualizarProgressoDrawer(progresso) {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const valor = Math.min(1, Math.max(0, progresso));
+  sideDrawerProgress = valor;
+  if (!popup.querySelector(".side-drawer")) {
+    abrirDrawerLateral("gesture", valor, true);
+    return;
+  }
+  popup.querySelector(".side-drawer-backdrop")?.style.setProperty("--drawer-progress", valor);
+  const drawer = popup.querySelector(".side-drawer");
+  drawer?.style.setProperty("--drawer-progress", valor);
+  if (drawer) drawer.style.transform = `translate3d(${((valor - 1) * 100).toFixed(1)}%,0,0)`;
+  popup.querySelector(".side-drawer-backdrop")?.classList.add("is-dragging");
+}
+
+function iniciarGestoDrawerLateral(event) {
+  if (!getUsuarioAtual() || event.pointerType === "mouse" && event.button !== 0) return;
+  if (isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return;
+  const drawerAberto = !!document.querySelector(".side-drawer");
+  const edge = event.clientX <= 26;
+  if (!drawerAberto && (!edge || alvoInterativoDrawer(event))) return;
+
+  sideDrawerGesture = {
+    pointerId: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    mode: drawerAberto ? "close" : "open",
+    active: false,
+    width: Math.min(340, Math.max(280, window.innerWidth - 20)),
+    progress: drawerAberto ? 1 : 0
+  };
+}
+
+function moverGestoDrawerLateral(event) {
+  if (!sideDrawerGesture || event.pointerId !== sideDrawerGesture.pointerId) return;
+  const dx = event.clientX - sideDrawerGesture.startX;
+  const dy = event.clientY - sideDrawerGesture.startY;
+  if (!sideDrawerGesture.active) {
+    if (Math.abs(dx) < 9 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+    sideDrawerGesture.active = true;
+  }
+  event.preventDefault?.();
+  const base = sideDrawerGesture.mode === "close" ? 1 : 0;
+  const progresso = base + dx / sideDrawerGesture.width;
+  atualizarProgressoDrawer(progresso);
+}
+
+function finalizarGestoDrawerLateral(event) {
+  if (!sideDrawerGesture || event.pointerId !== sideDrawerGesture.pointerId) return;
+  const gesto = sideDrawerGesture;
+  sideDrawerGesture = null;
+  if (!gesto.active) return;
+  const abrir = sideDrawerProgress > 0.3 && gesto.mode === "open" || sideDrawerProgress > 0.7 && gesto.mode === "close";
+  if (abrir) abrirDrawerLateral("gesture");
+  else fecharDrawerLateral();
+}
+
+function configurarGestosDrawerLateral() {
+  if (window.__drawerGestureConfigured) return;
+  window.__drawerGestureConfigured = true;
+  document.addEventListener("pointerdown", iniciarGestoDrawerLateral, { passive: true });
+  document.addEventListener("pointermove", moverGestoDrawerLateral, { passive: false });
+  document.addEventListener("pointerup", finalizarGestoDrawerLateral);
+  document.addEventListener("pointercancel", finalizarGestoDrawerLateral);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.querySelector(".side-drawer")) fecharDrawerLateral();
+  });
 }
 
 function renderMobile() {
@@ -6916,12 +7216,31 @@ function classeStatusPlano(status) {
   return `badge-${removerAcentos(status || "gratis").replace(/[^a-z0-9_-]/gi, "").toLowerCase()}`;
 }
 
+function dataLocalIso(valor = new Date()) {
+  const data = valor instanceof Date ? valor : new Date(valor || Date.now());
+  if (Number.isNaN(data.getTime())) return "";
+  const local = new Date(data.getTime() - data.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function parseDataLocalIso(iso = hojeIsoData()) {
+  const partes = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!partes) return new Date();
+  return new Date(Number(partes[1]), Number(partes[2]) - 1, Number(partes[3]));
+}
+
 function hojeIsoData() {
-  return new Date().toISOString().slice(0, 10);
+  return dataLocalIso(new Date());
+}
+
+function dataRegistroIso(registro = {}) {
+  const bruto = registro?.criadoEm || registro?.createdAt || registro?.created_at || registro?.updatedAt || registro?.updated_at || "";
+  if (bruto) return dataLocalIso(bruto);
+  return "";
 }
 
 function dataPedidoIso(pedido) {
-  if (pedido?.criadoEm) return String(pedido.criadoEm).slice(0, 10);
+  if (pedido?.criadoEm || pedido?.createdAt || pedido?.created_at) return dataRegistroIso(pedido);
   const data = String(pedido?.data || "");
   const partes = data.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (partes) return `${partes[3]}-${partes[2]}-${partes[1]}`;
@@ -7040,6 +7359,335 @@ function getDashboardStats() {
   };
 }
 
+function normalizarPeriodoDashboard(periodo = dashboardPeriod) {
+  const valor = String(periodo || "day").toLowerCase();
+  return ["day", "week", "month", "year"].includes(valor) ? valor : "day";
+}
+
+function getDashboardPeriodos() {
+  return [
+    { id: "day", label: "Hoje" },
+    { id: "week", label: "Semana" },
+    { id: "month", label: "Mês" },
+    { id: "year", label: "Ano" }
+  ];
+}
+
+function somarDias(data, dias) {
+  const copia = new Date(data);
+  copia.setDate(copia.getDate() + dias);
+  return copia;
+}
+
+function inicioSemanaLocal(data) {
+  const inicio = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+  const deslocamento = (inicio.getDay() + 6) % 7;
+  inicio.setDate(inicio.getDate() - deslocamento);
+  return inicio;
+}
+
+function getPeriodoReferenciaIso(periodo = dashboardPeriod) {
+  const info = getInfoPeriodoDashboard(periodo);
+  return dataLocalIso(info.start);
+}
+
+function getInfoPeriodoDashboard(periodo = dashboardPeriod, referencia = new Date()) {
+  const tipo = normalizarPeriodoDashboard(periodo);
+  const base = referencia instanceof Date ? referencia : parseDataLocalIso(referencia);
+  let start;
+  let end;
+  let previousStart;
+  let previousEnd;
+  let comparisonLabel;
+
+  if (tipo === "week") {
+    start = inicioSemanaLocal(base);
+    end = somarDias(start, 7);
+    previousStart = somarDias(start, -7);
+    previousEnd = start;
+    comparisonLabel = "comparado à semana anterior";
+  } else if (tipo === "month") {
+    start = new Date(base.getFullYear(), base.getMonth(), 1);
+    end = new Date(base.getFullYear(), base.getMonth() + 1, 1);
+    previousStart = new Date(base.getFullYear(), base.getMonth() - 1, 1);
+    previousEnd = start;
+    comparisonLabel = "comparado ao mês anterior";
+  } else if (tipo === "year") {
+    start = new Date(base.getFullYear(), 0, 1);
+    end = new Date(base.getFullYear() + 1, 0, 1);
+    previousStart = new Date(base.getFullYear() - 1, 0, 1);
+    previousEnd = start;
+    comparisonLabel = "comparado ao ano anterior";
+  } else {
+    start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    end = somarDias(start, 1);
+    previousStart = somarDias(start, -1);
+    previousEnd = start;
+    comparisonLabel = "comparado a ontem";
+  }
+
+  return {
+    tipo,
+    start,
+    end,
+    previousStart,
+    previousEnd,
+    reference: dataLocalIso(start),
+    comparisonLabel
+  };
+}
+
+function getDataPedidoLocal(pedido = {}) {
+  const iso = dataPedidoIso(pedido);
+  return iso ? parseDataLocalIso(iso) : null;
+}
+
+function estaNoIntervalo(data, inicio, fim) {
+  if (!data || Number.isNaN(data.getTime())) return false;
+  return data >= inicio && data < fim;
+}
+
+function pedidoContaParaAnalytics(pedido = {}) {
+  const status = String(pedido.status || "").toLowerCase();
+  if (pedido.deleted_at || pedido.deletedAt) return false;
+  return status !== "cancelado";
+}
+
+function calcularCustosPedidoAnalytics(pedido = {}) {
+  const itens = normalizarItensPedido(pedido);
+  return itens.reduce((totais, item) => {
+    const qtd = Math.max(1, Number(item.qtd) || 1);
+    totais.material += Number(item.custoMaterial) || 0;
+    totais.energy += Number(item.custoEnergia) || 0;
+    totais.cost += Number(item.custoTotal) || 0;
+    totais.hours += (Number(item.tempoHoras) || 0) * qtd;
+    return totais;
+  }, { material: 0, energy: 0, cost: 0, hours: 0 });
+}
+
+function calcularAgregadoAnalytics(inicio, fim) {
+  const pedidosPeriodo = pedidos.filter((pedido) => pedidoContaParaAnalytics(pedido) && estaNoIntervalo(getDataPedidoLocal(pedido), inicio, fim));
+  const totaisCaixa = calcularTotaisCaixa();
+  return pedidosPeriodo.reduce((total, pedido) => {
+    const custos = calcularCustosPedidoAnalytics(pedido);
+    const venda = totalPedido(pedido);
+    total.total_sales += venda;
+    total.total_profit += Math.max(0, venda - custos.cost);
+    total.total_orders += 1;
+    total.material_cost += custos.material;
+    total.energy_cost += custos.energy;
+    total.printer_hours += custos.hours;
+    return total;
+  }, {
+    total_sales: 0,
+    total_profit: 0,
+    total_orders: 0,
+    material_cost: 0,
+    energy_cost: 0,
+    printer_hours: 0,
+    cash_balance: totaisCaixa.saldo
+  });
+}
+
+function criarBucketsAnalytics(info) {
+  const buckets = [];
+  if (info.tipo === "day") {
+    for (let hora = 0; hora < 24; hora += 3) {
+      const start = new Date(info.start);
+      start.setHours(hora, 0, 0, 0);
+      const end = new Date(info.start);
+      end.setHours(hora + 3, 0, 0, 0);
+      buckets.push({ label: `${hora}h`, start, end });
+    }
+  } else if (info.tipo === "week") {
+    for (let dia = 0; dia < 7; dia += 1) {
+      const start = somarDias(info.start, dia);
+      buckets.push({
+        label: start.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""),
+        start,
+        end: somarDias(start, 1)
+      });
+    }
+  } else if (info.tipo === "month") {
+    let cursor = new Date(info.start);
+    while (cursor < info.end) {
+      const start = new Date(cursor);
+      const end = new Date(Math.min(somarDias(start, 7).getTime(), info.end.getTime()));
+      buckets.push({ label: `${start.getDate()}-${somarDias(end, -1).getDate()}`, start, end });
+      cursor = end;
+    }
+  } else {
+    for (let mes = 0; mes < 12; mes += 1) {
+      const start = new Date(info.start.getFullYear(), mes, 1);
+      const end = new Date(info.start.getFullYear(), mes + 1, 1);
+      buckets.push({
+        label: start.toLocaleDateString("pt-BR", { month: "short" }).replace(".", ""),
+        start,
+        end
+      });
+    }
+  }
+  return buckets;
+}
+
+function gerarSeriesDashboardAnalytics(info) {
+  return criarBucketsAnalytics(info).map((bucket) => {
+    const agregado = calcularAgregadoAnalytics(bucket.start, bucket.end);
+    return {
+      label: bucket.label,
+      sales: Number(agregado.total_sales.toFixed(2)),
+      profit: Number(agregado.total_profit.toFixed(2)),
+      orders: agregado.total_orders
+    };
+  });
+}
+
+function calcularComparacaoAnalytics(valorAtual, valorAnterior, sufixo = "") {
+  const atual = Number(valorAtual) || 0;
+  const anterior = Number(valorAnterior) || 0;
+  const diferenca = atual - anterior;
+  const percent = anterior > 0 ? Math.round((diferenca / anterior) * 100) : (atual > 0 ? 100 : 0);
+  const direcao = diferenca > 0 ? "up" : diferenca < 0 ? "down" : "flat";
+  const seta = direcao === "up" ? "↑" : direcao === "down" ? "↓" : "•";
+  const texto = sufixo === "money"
+    ? `${seta} ${formatarMoeda(Math.abs(diferenca))}`
+    : `${seta} ${Math.abs(percent)}%`;
+  return { direcao, percent, texto };
+}
+
+function gerarInsightsAnalytics(analytics) {
+  if (!analytics.total_orders) {
+    return ["Sem atividade suficiente para gerar insights. Salve pedidos para começar o histórico."];
+  }
+  const itens = pedidos
+    .filter((pedido) => pedidoContaParaAnalytics(pedido))
+    .flatMap((pedido) => normalizarItensPedido(pedido));
+  const ranking = itens.reduce((mapa, item) => {
+    const nome = item.nome || "Produto 3D";
+    mapa.set(nome, (mapa.get(nome) || 0) + (Number(item.qtd) || 1));
+    return mapa;
+  }, new Map());
+  const produtoMaisVendido = Array.from(ranking.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const insights = [];
+  if (analytics.growth_percent > 0) insights.push(`Seu faturamento cresceu ${Math.round(analytics.growth_percent)}% neste período.`);
+  if (produtoMaisVendido) insights.push(`Produto mais vendido: ${produtoMaisVendido}.`);
+  if (analytics.material_cost > 0) insights.push(`Custo de material no período: ${formatarMoeda(analytics.material_cost)}.`);
+  if (analytics.printer_hours > 0) insights.push(`Produção estimada: ${analytics.printer_hours.toFixed(1)} h de impressão.`);
+  return insights.slice(0, 4);
+}
+
+function getDashboardAnalyticsCacheKey(periodo = dashboardPeriod) {
+  const uid = syncConfig.supabaseUserId || getUsuarioAtual()?.id || "local";
+  return `${uid}:${normalizarPeriodoDashboard(periodo)}:${getPeriodoReferenciaIso(periodo)}`;
+}
+
+function getDashboardAnalyticsLocal(periodo = dashboardPeriod) {
+  const info = getInfoPeriodoDashboard(periodo);
+  const atual = calcularAgregadoAnalytics(info.start, info.end);
+  const anterior = calcularAgregadoAnalytics(info.previousStart, info.previousEnd);
+  const growth = anterior.total_sales > 0
+    ? ((atual.total_sales - anterior.total_sales) / anterior.total_sales) * 100
+    : (atual.total_sales > 0 ? 100 : 0);
+  const analytics = {
+    ...atual,
+    growth_percent: Number(growth.toFixed(2)),
+    comparison_label: info.comparisonLabel,
+    chart_series: gerarSeriesDashboardAnalytics(info),
+    period_type: info.tipo,
+    period_reference: info.reference,
+    source: "local",
+    updated_at: new Date().toISOString(),
+    comparisons: {
+      sales: calcularComparacaoAnalytics(atual.total_sales, anterior.total_sales),
+      profit: calcularComparacaoAnalytics(atual.total_profit, anterior.total_profit, "money"),
+      orders: calcularComparacaoAnalytics(atual.total_orders, anterior.total_orders),
+      material: calcularComparacaoAnalytics(atual.material_cost, anterior.material_cost, "money"),
+      cash: calcularComparacaoAnalytics(atual.cash_balance, anterior.cash_balance, "money")
+    }
+  };
+  analytics.insights = gerarInsightsAnalytics(analytics);
+  dashboardAnalyticsCache[getDashboardAnalyticsCacheKey(info.tipo)] = analytics;
+  return analytics;
+}
+
+function selecionarPeriodoDashboard(periodo) {
+  dashboardPeriod = normalizarPeriodoDashboard(periodo);
+  salvarDados();
+  renderApp();
+  carregarAnalyticsBackendSilencioso(dashboardPeriod);
+}
+
+function avancarPeriodoDashboard() {
+  const periodos = getDashboardPeriodos().map((periodo) => periodo.id);
+  const atual = Math.max(0, periodos.indexOf(normalizarPeriodoDashboard(dashboardPeriod)));
+  selecionarPeriodoDashboard(periodos[(atual + 1) % periodos.length]);
+}
+
+function agendarAnalyticsDashboard(analytics) {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return;
+  const agora = Date.now();
+  if (agora - dashboardAnalyticsLastUploadAt < 25000) return;
+  dashboardAnalyticsLastUploadAt = agora;
+  setTimeout(() => {
+    enviarAnalyticsDashboardSilencioso(analytics)
+      .then(() => carregarAnalyticsBackendSilencioso(analytics.period_type))
+      .catch((erro) => registrarDiagnostico("Analytics", "Snapshot do dashboard não sincronizado", erro.message));
+  }, 120);
+}
+
+async function enviarAnalyticsDashboardSilencioso(analytics) {
+  if (!analytics || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
+  await requisicaoSupabase("/rest/v1/rpc/upsert_dashboard_analytics_snapshot", {
+    method: "POST",
+    telemetry: false,
+    body: JSON.stringify({
+      p_period_type: analytics.period_type,
+      p_period_reference: analytics.period_reference,
+      p_company_id: billingConfig.companyId || getUsuarioAtual()?.companyId || null,
+      p_total_sales: Number(analytics.total_sales) || 0,
+      p_total_profit: Number(analytics.total_profit) || 0,
+      p_total_orders: Number(analytics.total_orders) || 0,
+      p_material_cost: Number(analytics.material_cost) || 0,
+      p_energy_cost: Number(analytics.energy_cost) || 0,
+      p_printer_hours: Number(analytics.printer_hours) || 0,
+      p_cash_balance: Number(analytics.cash_balance) || 0,
+      p_chart_series: analytics.chart_series || [],
+      p_insights: analytics.insights || []
+    })
+  });
+  return true;
+}
+
+async function carregarAnalyticsBackendSilencioso(periodo = dashboardPeriod) {
+  if (dashboardAnalyticsRequest || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return null;
+  const periodType = normalizarPeriodoDashboard(periodo);
+  const periodReference = getPeriodoReferenciaIso(periodType);
+  dashboardAnalyticsRequest = requisicaoSupabase("/rest/v1/rpc/get_dashboard_analytics", {
+    method: "POST",
+    telemetry: false,
+    body: JSON.stringify({
+      p_period_type: periodType,
+      p_period_reference: periodReference
+    })
+  }).then((dados) => {
+    if (dados && dados.source && dados.source !== "empty") {
+      dashboardAnalyticsCache[getDashboardAnalyticsCacheKey(periodType)] = {
+        ...dashboardAnalyticsCache[getDashboardAnalyticsCacheKey(periodType)],
+        ...dados
+      };
+      salvarDados();
+      if (telaAtual === "dashboard") renderApp();
+    }
+    return dados;
+  }).catch((erro) => {
+    registrarDiagnostico("Analytics", "Leitura remota do dashboard indisponível", erro.message);
+    return null;
+  }).finally(() => {
+    dashboardAnalyticsRequest = null;
+  });
+  return dashboardAnalyticsRequest;
+}
+
 function abrirBlocoDashboard(tela, filtro = "") {
   if (tela === "pedidos") {
     window.__pedidosFiltroDashboard = filtro || "";
@@ -7055,7 +7703,7 @@ function getUserInitials(nome = "") {
 
 function renderUsuarioAvatar(usuario, classe = "home-avatar") {
   const nome = usuario?.nome || usuario?.email || appConfig.businessName || "Simplifica 3D";
-  const avatarUrl = usuario?.avatarUrl || usuario?.avatar_url || "";
+  const avatarUrl = appConfig.profilePhotoDataUrl || usuario?.avatarUrl || usuario?.avatar_url || "";
   if (avatarUrl) {
     return `<img class="${escaparAttr(classe)}" src="${escaparAttr(avatarUrl)}" alt="Avatar do usuário">`;
   }
@@ -7232,10 +7880,198 @@ function renderDashboardKpiCard(card) {
   `;
 }
 
+function renderDashboardPeriodTabs() {
+  const ativo = normalizarPeriodoDashboard(dashboardPeriod);
+  return `
+    <div class="dashboard-period-tabs" role="tablist" aria-label="Período do dashboard">
+      ${getDashboardPeriodos().map((periodo) => `
+        <button class="${ativo === periodo.id ? "active" : ""}" type="button" onclick="selecionarPeriodoDashboard('${periodo.id}')">
+          ${escaparHtml(periodo.label)}
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderComparacaoDashboard(comparacao, label) {
+  const direcao = comparacao?.direcao || "flat";
+  return `<span class="analytics-comparison ${direcao}">${escaparHtml(comparacao?.texto || "• 0%")} ${escaparHtml(label || "")}</span>`;
+}
+
+function renderDashboardAnalyticsKpi({ titulo, valor, comparacao, label, estado = "neutral" }) {
+  return `
+    <div class="analytics-kpi analytics-${estado} card-enter">
+      <span>${escaparHtml(titulo)}</span>
+      <strong>${escaparHtml(valor)}</strong>
+      ${renderComparacaoDashboard(comparacao, label)}
+    </div>
+  `;
+}
+
+function renderDashboardAnalyticsHero(analytics) {
+  const label = analytics.comparison_label || "comparado ao período anterior";
+  return `
+    <section class="dashboard-analytics-hero chart-enter">
+      ${renderDashboardAnalyticsKpi({
+        titulo: "Faturamento",
+        valor: formatarMoeda(analytics.total_sales),
+        comparacao: analytics.comparisons?.sales,
+        label,
+        estado: "teal"
+      })}
+      ${renderDashboardAnalyticsKpi({
+        titulo: "Lucro",
+        valor: formatarMoeda(analytics.total_profit),
+        comparacao: analytics.comparisons?.profit,
+        label,
+        estado: "green"
+      })}
+      ${renderDashboardAnalyticsKpi({
+        titulo: "Pedidos",
+        valor: String(analytics.total_orders || 0),
+        comparacao: analytics.comparisons?.orders,
+        label,
+        estado: "neutral"
+      })}
+      ${renderDashboardAnalyticsKpi({
+        titulo: "Gasto material",
+        valor: formatarMoeda(analytics.material_cost),
+        comparacao: analytics.comparisons?.material,
+        label,
+        estado: "orange"
+      })}
+      ${renderDashboardAnalyticsKpi({
+        titulo: "Saldo do caixa",
+        valor: formatarMoeda(analytics.cash_balance),
+        comparacao: analytics.comparisons?.cash,
+        label: "atual",
+        estado: analytics.cash_balance < 0 ? "red" : "teal"
+      })}
+    </section>
+  `;
+}
+
+function renderDashboardComboChart(analytics) {
+  const series = Array.isArray(analytics.chart_series) && analytics.chart_series.length ? analytics.chart_series : [];
+  const width = 360;
+  const height = 180;
+  const padding = { top: 18, right: 18, bottom: 34, left: 34 };
+  const areaW = width - padding.left - padding.right;
+  const areaH = height - padding.top - padding.bottom;
+  const maxSales = Math.max(...series.map((item) => Number(item.sales) || 0), 1);
+  const maxProfit = Math.max(...series.map((item) => Number(item.profit) || 0), 1);
+  const step = series.length > 1 ? areaW / series.length : areaW;
+  const barWidth = Math.max(10, Math.min(28, step * 0.48));
+  const points = series.map((item, index) => {
+    const x = padding.left + step * index + step / 2;
+    const y = padding.top + areaH - ((Number(item.profit) || 0) / maxProfit) * areaH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  return `
+    <section class="dashboard-chart-card chart-enter" onclick="avancarPeriodoDashboard()" role="button" tabindex="0" aria-label="Gráfico de faturamento e lucro. Toque para trocar o período.">
+      <div class="card-header">
+        <div>
+          <span class="eyebrow">Histórico analítico</span>
+          <h2>Faturamento e lucro</h2>
+        </div>
+        <span class="status-badge">${escaparHtml(getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje")}</span>
+      </div>
+      <svg class="combo-chart-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Barras de faturamento e linha de lucro">
+        <defs>
+          <linearGradient id="salesBarGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#86f0ff" stop-opacity="0.95"></stop>
+            <stop offset="100%" stop-color="#073b4b" stop-opacity="0.82"></stop>
+          </linearGradient>
+          <linearGradient id="profitLineGradient" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0%" stop-color="#45e08f"></stop>
+            <stop offset="100%" stop-color="#ff941c"></stop>
+          </linearGradient>
+          <filter id="chartSoftGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="2.5" result="blur"></feGaussianBlur>
+            <feMerge>
+              <feMergeNode in="blur"></feMergeNode>
+              <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+          </filter>
+        </defs>
+        <line x1="${padding.left}" y1="${padding.top + areaH}" x2="${width - padding.right}" y2="${padding.top + areaH}" class="chart-axis"></line>
+        ${series.map((item, index) => {
+          const value = Number(item.sales) || 0;
+          const barH = Math.max(4, (value / maxSales) * areaH);
+          const x = padding.left + step * index + step / 2 - barWidth / 2;
+          const y = padding.top + areaH - barH;
+          return `
+            <g class="chart-bar-group">
+              <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barH.toFixed(1)}" rx="7" class="chart-sales-bar" style="--delay:${index * 36}ms"></rect>
+              <text x="${(padding.left + step * index + step / 2).toFixed(1)}" y="${height - 12}" text-anchor="middle" class="chart-label">${escaparHtml(item.label)}</text>
+              <title>${escaparHtml(item.label)}: faturamento ${formatarMoeda(item.sales)}, lucro ${formatarMoeda(item.profit)}</title>
+            </g>
+          `;
+        }).join("")}
+        ${points ? `<polyline points="${points}" class="chart-profit-line" filter="url(#chartSoftGlow)"></polyline>` : ""}
+        ${series.map((item, index) => {
+          const x = padding.left + step * index + step / 2;
+          const y = padding.top + areaH - ((Number(item.profit) || 0) / maxProfit) * areaH;
+          return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4" class="chart-profit-point"><title>${escaparHtml(item.label)}: lucro ${formatarMoeda(item.profit)}</title></circle>`;
+        }).join("")}
+      </svg>
+      <div class="chart-legend">
+        <span><i class="legend-sales"></i> Faturamento</span>
+        <span><i class="legend-profit"></i> Lucro</span>
+        <small>Toque no gráfico para alternar Hoje, Semana, Mês e Ano.</small>
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardInsights(analytics) {
+  const insights = Array.isArray(analytics.insights) && analytics.insights.length ? analytics.insights : ["Sem atividade suficiente para gerar insights."];
+  return `
+    <section class="dashboard-insights glass-pop">
+      <div class="card-header">
+        <h2>Insights</h2>
+        <span class="status-badge">Automático</span>
+      </div>
+      <div class="insight-list">
+        ${insights.map((insight) => `<span>${escaparHtml(insight)}</span>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardAnalyticSections(analytics) {
+  const ticketMedio = analytics.total_orders ? analytics.total_sales / analytics.total_orders : 0;
+  return `
+    <div class="analytics-sections">
+      <section class="analytics-module">
+        <span class="eyebrow">Financeiro</span>
+        <div class="metric"><span>Faturamento</span><strong>${formatarMoeda(analytics.total_sales)}</strong></div>
+        <div class="metric"><span>Lucro</span><strong>${formatarMoeda(analytics.total_profit)}</strong></div>
+        <div class="metric"><span>Saldo</span><strong>${formatarMoeda(analytics.cash_balance)}</strong></div>
+      </section>
+      <section class="analytics-module">
+        <span class="eyebrow">Produção</span>
+        <div class="metric"><span>Horas impressas</span><strong>${Number(analytics.printer_hours || 0).toFixed(1)} h</strong></div>
+        <div class="metric"><span>Material</span><strong>${formatarMoeda(analytics.material_cost)}</strong></div>
+        <div class="metric"><span>Energia</span><strong>${formatarMoeda(analytics.energy_cost)}</strong></div>
+      </section>
+      <section class="analytics-module">
+        <span class="eyebrow">Comercial</span>
+        <div class="metric"><span>Pedidos</span><strong>${analytics.total_orders || 0}</strong></div>
+        <div class="metric"><span>Ticket médio</span><strong>${formatarMoeda(ticketMedio)}</strong></div>
+        <div class="metric"><span>Clientes</span><strong>${getDashboardStats().clientesAtivos}</strong></div>
+      </section>
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const totaisCaixa = calcularTotaisCaixa();
   const stats = getDashboardStats();
   const plano = getPlanoAtual();
+  const analytics = getDashboardAnalyticsLocal(dashboardPeriod);
+  agendarAnalyticsDashboard(analytics);
 
   const cards = [
     { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa", state: "teal" },
@@ -7251,7 +8087,11 @@ function renderDashboard() {
   return `
     <section class="dashboard-pro premium-dashboard">
       ${renderDashboardSearch()}
-      ${renderDashboardTechnicalPanel(stats, totaisCaixa)}
+      ${renderDashboardPeriodTabs()}
+      ${renderDashboardAnalyticsHero(analytics)}
+      ${renderDashboardComboChart(analytics)}
+      ${renderDashboardInsights(analytics)}
+      ${renderDashboardAnalyticSections(analytics)}
 
       <div class="dashboard-kpis">
         ${cards.map(renderDashboardKpiCard).join("")}
@@ -9045,10 +9885,10 @@ function renderAuthPublica() {
     <section class="auth-page" aria-label="Acesso ao Simplifica 3D">
       <div class="auth-card">
         <div class="auth-brand">
-          ${renderMarcaProjeto("auth-logo", "Simplifica 3D", "icon")}
+          ${renderMarcaOficialProjeto("auth-logo", "Simplifica 3D", "icon")}
           <div>
             <h1>Simplifica 3D</h1>
-            <p>Organize seus pedidos sem complicação</p>
+            <p>${escaparHtml(appConfig.customLoginMessage || "Organize seus pedidos sem complicação")}</p>
           </div>
         </div>
 
@@ -10439,6 +11279,9 @@ function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {
     secondary_color: origem.secondary_color || "#ff941c",
     pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
     logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
+    profile_photo: origem.profile_photo || appConfig.profilePhotoDataUrl || "",
+    company_logo: origem.company_logo || appConfig.companyLogoDataUrl || "",
+    login_background: origem.login_background || appConfig.loginBackgroundDataUrl || "",
     theme_mode: origem.theme_mode || appConfig.theme || "dark",
     glass_effect: origem.glass_effect !== false,
     custom_pdf_enabled: origem.custom_pdf_enabled !== false
@@ -10451,6 +11294,9 @@ function renderPersonalizacao() {
   const acessoMarca = temAcessoCompleto();
   const marcaAtual = getMarcaProjetoSrc();
   const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
+  const fotoPerfilAtual = appConfig.profilePhotoDataUrl || "";
+  const logoEmpresaAtual = appConfig.companyLogoDataUrl || "";
+  const fundoLoginAtual = appConfig.loginBackgroundDataUrl || "";
   return `
     <section class="card">
       <div class="card-header">
@@ -10474,6 +11320,52 @@ function renderPersonalizacao() {
         <span>Rodapé do PDF</span>
         <input id="documentFooterConfig" value="${escaparAttr(appConfig.documentFooter)}" placeholder="Obrigado pela preferência.">
       </label>
+
+      <div class="danger-zone">
+        <h2 class="section-title">Perfil premium</h2>
+        <p class="muted">Separe a foto do usuário, a logo da empresa e a identidade usada no PDF. Recursos avançados ficam disponíveis no PRO.</p>
+        <div class="profile-preview-row">
+          <div class="profile-preview-avatar">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
+          <div class="brand-preview compact">
+            <img src="${escaparAttr(logoEmpresaAtual || marcaAtual)}" alt="Logo da empresa">
+            <div>
+              <strong>${escaparHtml(appConfig.businessName || "Minha empresa 3D")}</strong>
+              <span class="muted">${escaparHtml(getPlanoAtual().nome)} · ${escaparHtml(getPlanoAtual().descricao || "Plano ativo")}</span>
+            </div>
+          </div>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Foto do usuário</span>
+            <input id="profilePhotoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+          </label>
+          <label class="field">
+            <span>Logo da empresa</span>
+            <input id="companyLogoFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+          </label>
+          <label class="field">
+            <span>Imagem de fundo do login</span>
+            <input id="loginBackgroundFileConfig" class="file-input" type="file" accept="image/png,image/jpeg" ${acessoMarca ? "" : "disabled"}>
+          </label>
+          <label class="field">
+            <span>Mensagem da empresa no login</span>
+            <input id="customLoginMessageConfig" maxlength="90" value="${escaparAttr(appConfig.customLoginMessage || "")}" placeholder="Ex.: Impressão 3D sob medida" ${acessoMarca ? "" : "disabled"}>
+          </label>
+        </div>
+        <div class="sync-grid">
+          <div class="metric"><span>Foto</span><strong>${acessoMarca ? (fotoPerfilAtual ? "Salva" : "Padrão") : "Disponível no PRO"}</strong></div>
+          <div class="metric"><span>Logo empresa</span><strong>${acessoMarca ? (logoEmpresaAtual ? "Salva" : "Padrão") : "Disponível no PRO"}</strong></div>
+          <div class="metric"><span>Fundo login</span><strong>${acessoMarca ? (fundoLoginAtual ? "Salvo" : "Padrão") : "Disponível no PRO"}</strong></div>
+          <label class="field">
+            <span>Nível de animação</span>
+            <select id="motionLevelConfig">
+              <option value="low" ${appConfig.motionLevel === "low" ? "selected" : ""}>Baixo</option>
+              <option value="medium" ${appConfig.motionLevel !== "low" && appConfig.motionLevel !== "high" ? "selected" : ""}>Médio</option>
+              <option value="high" ${appConfig.motionLevel === "high" ? "selected" : ""}>Alto</option>
+            </select>
+          </label>
+        </div>
+      </div>
 
       <div class="danger-zone">
         <h2 class="section-title">PDF, Pix e marca</h2>
@@ -11706,6 +12598,9 @@ function lerPersonalizacaoCampos() {
   const brandWatermarkEnabled = acessoMarca
     ? (document.getElementById("brandWatermarkEnabledConfig") ? !!document.getElementById("brandWatermarkEnabledConfig")?.checked : appConfig.brandWatermarkEnabled !== false)
     : appConfig.brandWatermarkEnabled !== false;
+  const customLoginMessage = acessoMarca
+    ? (document.getElementById("customLoginMessageConfig")?.value || "").trim()
+    : (appConfig.customLoginMessage || "");
   return {
     appName: (document.getElementById("appNameConfig")?.value || SYSTEM_NAME).trim(),
     businessName: (document.getElementById("businessNameConfig")?.value || "Minha empresa 3D").trim(),
@@ -11720,11 +12615,16 @@ function lerPersonalizacaoCampos() {
     accentColor,
     pdfStyle,
     pdfHeaderText,
+    customLoginMessage,
+    motionLevel: document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium",
     appearanceSettings: normalizarAppearanceSettings({
       ...(appConfig.appearanceSettings || {}),
       primary_color: accentColor,
       pdf_background: appConfig.pdfBackgroundDataUrl || "",
       logo_url: appConfig.brandLogoDataUrl || "",
+      profile_photo: appConfig.profilePhotoDataUrl || "",
+      company_logo: appConfig.companyLogoDataUrl || "",
+      login_background: appConfig.loginBackgroundDataUrl || "",
       theme_mode: theme,
       custom_pdf_enabled: acessoMarca
     }),
@@ -11741,7 +12641,34 @@ function lerPersonalizacaoCampos() {
   };
 }
 
-function lerImagemConfiguracao(idInput, valorAtual = "", rotulo = "imagem", limiteKb = 700) {
+function compactarImagemDataUrl(dataUrl, maxSide = 1200, qualidade = 0.84) {
+  if (!dataUrl || typeof Image === "undefined" || typeof document === "undefined") return Promise.resolve(dataUrl || "");
+  return new Promise((resolve) => {
+    const imagem = new Image();
+    imagem.onload = () => {
+      const maior = Math.max(imagem.width || 0, imagem.height || 0);
+      if (!maior || maior <= maxSide) {
+        resolve(dataUrl);
+        return;
+      }
+      const escala = maxSide / maior;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(imagem.width * escala));
+      canvas.height = Math.max(1, Math.round(imagem.height * escala));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+      ctx.drawImage(imagem, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", qualidade));
+    };
+    imagem.onerror = () => resolve(dataUrl);
+    imagem.src = dataUrl;
+  });
+}
+
+function lerImagemConfiguracao(idInput, valorAtual = "", rotulo = "imagem", limiteKb = 700, maxSide = 1200) {
   const arquivo = document.getElementById(idInput)?.files?.[0];
   if (!arquivo) return Promise.resolve(valorAtual || "");
   if (!temAcessoCompleto()) {
@@ -11766,7 +12693,7 @@ function lerImagemConfiguracao(idInput, valorAtual = "", rotulo = "imagem", limi
 
   return new Promise((resolve) => {
     const leitor = new FileReader();
-    leitor.onload = () => resolve(String(leitor.result || ""));
+    leitor.onload = async () => resolve(await compactarImagemDataUrl(String(leitor.result || ""), maxSide));
     leitor.onerror = () => {
       alert(`Não foi possível carregar ${rotulo}.`);
       resolve(valorAtual || "");
@@ -11780,13 +12707,125 @@ function lerLogoMarcaSelecionada() {
 }
 
 function lerFundoPdfSelecionado() {
-  return lerImagemConfiguracao("pdfBackgroundFileConfig", appConfig.pdfBackgroundDataUrl || "", "o fundo do PDF", 900);
+  return lerImagemConfiguracao("pdfBackgroundFileConfig", appConfig.pdfBackgroundDataUrl || "", "o fundo do PDF", 900, 1400);
+}
+
+function lerFotoPerfilSelecionada() {
+  return lerImagemConfiguracao("profilePhotoFileConfig", appConfig.profilePhotoDataUrl || "", "a foto do usuário", 600, 900);
+}
+
+function lerLogoEmpresaSelecionada() {
+  return lerImagemConfiguracao("companyLogoFileConfig", appConfig.companyLogoDataUrl || "", "a logo da empresa", 700, 1000);
+}
+
+function lerFundoLoginSelecionado() {
+  return lerImagemConfiguracao("loginBackgroundFileConfig", appConfig.loginBackgroundDataUrl || "", "o fundo do login", 900, 1400);
+}
+
+function dataUrlParaBlob(dataUrl = "") {
+  const partes = String(dataUrl || "").match(/^data:([^;]+);base64,(.+)$/);
+  if (!partes) return null;
+  const bytes = atob(partes[2]);
+  const array = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i += 1) array[i] = bytes.charCodeAt(i);
+  return new Blob([array], { type: partes[1] });
+}
+
+async function salvarAssetSupabaseSilencioso(dataUrl, tipo) {
+  if (!dataUrl || !String(dataUrl).startsWith("data:") || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return dataUrl || "";
+  const blob = dataUrlParaBlob(dataUrl);
+  if (!blob) return dataUrl;
+  const nome = `${syncConfig.supabaseUserId}/${tipo}-${Date.now()}.jpg`;
+  try {
+    const base = normalizarUrlSupabase();
+    const resposta = await fetch(`${base}/storage/v1/object/simplifica-assets/${nome}`, {
+      method: "POST",
+      headers: cabecalhosSupabase(true, {
+        "Content-Type": blob.type || "image/jpeg",
+        "x-upsert": "true"
+      }),
+      body: blob
+    });
+    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+    return `${base}/storage/v1/object/public/simplifica-assets/${nome}`;
+  } catch (erro) {
+    registrarDiagnostico("Storage", "Upload de personalização indisponível", erro.message);
+    return dataUrl;
+  }
+}
+
+async function salvarPersonalizacaoRemotaSilencioso() {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  const userId = syncConfig.supabaseUserId;
+  const companyId = billingConfig.companyId || getUsuarioAtual()?.companyId || userId;
+  const settings = normalizarAppearanceSettings();
+  try {
+    await Promise.allSettled([
+      requisicaoSupabase("/rest/v1/user_profiles?on_conflict=user_id", {
+        method: "POST",
+        telemetry: false,
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({
+          user_id: userId,
+          display_name: getUsuarioAtual()?.nome || "",
+          profile_photo: appConfig.profilePhotoDataUrl || "",
+          updated_at: new Date().toISOString()
+        })
+      }),
+      requisicaoSupabase("/rest/v1/company_profiles?on_conflict=user_id,company_id", {
+        method: "POST",
+        telemetry: false,
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({
+          user_id: userId,
+          company_id: companyId,
+          company_name: appConfig.businessName || "",
+          company_logo: appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || "",
+          custom_message: appConfig.customLoginMessage || "",
+          updated_at: new Date().toISOString()
+        })
+      }),
+      requisicaoSupabase("/rest/v1/app_customizations?on_conflict=user_id,company_id", {
+        method: "POST",
+        telemetry: false,
+        headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({
+          user_id: userId,
+          company_id: companyId,
+          theme_color: appConfig.accentColor || "#073b4b",
+          secondary_color: settings.secondary_color || "#ff941c",
+          background_image: appConfig.pdfBackgroundDataUrl || "",
+          login_background: appConfig.loginBackgroundDataUrl || "",
+          pdf_watermark: appConfig.brandLogoDataUrl || "",
+          company_logo: appConfig.companyLogoDataUrl || "",
+          profile_photo: appConfig.profilePhotoDataUrl || "",
+          custom_message: appConfig.customLoginMessage || "",
+          settings,
+          updated_at: new Date().toISOString()
+        })
+      })
+    ]);
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Personalização", "Persistência remota indisponível", erro.message);
+    return false;
+  }
 }
 
 async function salvarPersonalizacao() {
-  const [logo, fundoPdf] = await Promise.all([
+  const [logoBruto, fundoPdfBruto, fotoBruta, logoEmpresaBruta, fundoLoginBruto] = await Promise.all([
     lerLogoMarcaSelecionada(),
-    lerFundoPdfSelecionado()
+    lerFundoPdfSelecionado(),
+    lerFotoPerfilSelecionada(),
+    lerLogoEmpresaSelecionada(),
+    lerFundoLoginSelecionado()
+  ]);
+  const [logo, fundoPdf, fotoPerfil, logoEmpresa, fundoLogin] = await Promise.all([
+    salvarAssetSupabaseSilencioso(logoBruto, "brand-logo"),
+    salvarAssetSupabaseSilencioso(fundoPdfBruto, "pdf-background"),
+    salvarAssetSupabaseSilencioso(fotoBruta, "profile-photo"),
+    salvarAssetSupabaseSilencioso(logoEmpresaBruta, "company-logo"),
+    salvarAssetSupabaseSilencioso(fundoLoginBruto, "login-background")
   ]);
   const campos = lerPersonalizacaoCampos();
   appConfig = {
@@ -11794,12 +12833,19 @@ async function salvarPersonalizacao() {
     ...campos,
     brandLogoDataUrl: logo,
     pdfBackgroundDataUrl: fundoPdf,
+    profilePhotoDataUrl: fotoPerfil,
+    companyLogoDataUrl: logoEmpresa,
+    loginBackgroundDataUrl: fundoLogin,
     appearanceSettings: normalizarAppearanceSettings({
       ...(campos.appearanceSettings || {}),
       logo_url: logo,
-      pdf_background: fundoPdf
+      pdf_background: fundoPdf,
+      profile_photo: fotoPerfil,
+      company_logo: logoEmpresa,
+      login_background: fundoLogin
     })
   };
+  await salvarPersonalizacaoRemotaSilencioso();
   salvarDados();
   registrarHistorico("Personalização", "Preferências do app atualizadas");
   mostrarToast(temAcessoCompleto() ? "Personalização salva" : "Dados básicos salvos", "sucesso", 2800);
@@ -11839,6 +12885,10 @@ function restaurarPersonalizacaoPadrao() {
     pixDescription: "Pedido Simplifica 3D",
     brandLogoDataUrl: "",
     pdfBackgroundDataUrl: "",
+    profilePhotoDataUrl: "",
+    companyLogoDataUrl: "",
+    loginBackgroundDataUrl: "",
+    customLoginMessage: "",
     pdfStyle: "clean",
     pdfHeaderText: "",
     brandWatermarkEnabled: true,
@@ -11849,10 +12899,14 @@ function restaurarPersonalizacaoPadrao() {
       secondary_color: "#ff941c",
       pdf_background: "",
       logo_url: "",
+      profile_photo: "",
+      company_logo: "",
+      login_background: "",
       theme_mode: "dark",
       glass_effect: true,
       custom_pdf_enabled: false
     }),
+    motionLevel: "medium",
     compactMode: false,
     showBrandInHeader: true,
     defaultMargin: 100,
@@ -16110,6 +17164,9 @@ function gerarPdfCalculadora() {
 }
 
 function fecharPopup() {
+  sideDrawerOpen = false;
+  sideDrawerProgress = 0;
+  sideDrawerGesture = null;
   const popup = document.getElementById("popup");
   if (popup) {
     popup.innerHTML = "";
@@ -17234,6 +18291,7 @@ document.addEventListener("DOMContentLoaded", () => {
   configurarMonetizacaoAds();
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
+  configurarGestosDrawerLateral();
   processarRotaPublicaLegal();
   processarParametrosAssinaturaUrl();
   processarRetornoOAuthSupabase().then(async (processou) => {
