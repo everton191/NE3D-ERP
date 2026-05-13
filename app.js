@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.6";
-const APP_VERSION_CODE = 57;
+const APP_VERSION = "51.0.7";
+const APP_VERSION_CODE = 58;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -61,6 +61,47 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
+const AI_MODELS = Object.freeze([
+  {
+    id: "lite",
+    name: "IA Lite",
+    model: "SmolLM2-135M-Instruct-GGUF",
+    sizeMb: 90,
+    minBytes: 50 * 1024 * 1024,
+    ramRecommended: "2 GB+",
+    recommended: "Celulares básicos",
+    description: "Ajuda básica com telas, cálculos e dúvidas simples.",
+    fileName: "ia-lite-smollm2-135m-instruct-q4_0_4_4.gguf",
+    officialPage: "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_0_4_4.gguf"
+  },
+  {
+    id: "smart",
+    name: "IA Smart",
+    model: "Qwen2.5-0.5B-Instruct-GGUF",
+    sizeMb: 350,
+    minBytes: 200 * 1024 * 1024,
+    ramRecommended: "4 GB+",
+    recommended: "Celulares intermediários",
+    description: "Mais contexto para pedidos, estoque e precificação.",
+    fileName: "ia-smart-qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+  },
+  {
+    id: "pro",
+    name: "IA Pro",
+    model: "Qwen2.5-0.5B-Instruct-GGUF",
+    sizeMb: 350,
+    minBytes: 200 * 1024 * 1024,
+    ramRecommended: "6 GB+",
+    recommended: "Celulares fortes",
+    description: "Respostas mais naturais e análises mais completas.",
+    fileName: "ia-pro-qwen2.5-0.5b-instruct-q4_k_m.gguf",
+    officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+  }
+]);
 const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
@@ -353,6 +394,14 @@ let appConfig = carregarObjeto("appConfig", {
   adsenseWebEnabled: ADSENSE_WEB_DEFAULT_ENABLED,
   adsensePublisherId: ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
   adsenseBannerSlot: ADSENSE_WEB_DEFAULT_BANNER_SLOT,
+  aiOfflineAssistant: {
+    activeModelId: "",
+    installedModelId: "",
+    models: {},
+    lastFailure: "",
+    lastPerformance: "",
+    basicFallback: true
+  },
   calculatorWidget: {
     open: false,
     x: null,
@@ -1962,20 +2011,78 @@ function renderTravaLocal() {
           <h1>Simplifica 3D</h1>
           <p>Confirme sua senha para continuar usando este dispositivo.</p>
         </div>
-        <div class="actions">
-          <button class="btn" onclick="abrirModalDesbloqueioLocal()">Desbloquear</button>
-          <button class="btn ghost" onclick="logoutUsuario()">Sair</button>
-        </div>
+        <form class="auth-form" onsubmit="desbloquearTravaLocalFormulario(event)">
+          <label class="field auth-field">
+            <span>Senha da conta</span>
+            <div class="password-row auth-password-row">
+              <input id="localUnlockPassword" type="password" autocomplete="current-password" placeholder="Sua senha" required>
+              <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+            </div>
+          </label>
+          <div class="actions">
+            <button id="localUnlockBtn" class="btn" type="submit">Desbloquear</button>
+            <button class="btn ghost" type="button" onclick="logoutUsuario()">Sair</button>
+          </div>
+        </form>
       </section>
     </main>
   `;
 }
 
+async function concluirDesbloqueioLocalComSenha(senha) {
+  if (!window.__simplificaLocalLockActive) return true;
+  const usuario = getUsuarioAtual();
+  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+  if (!senha) return false;
+  if (!estaOnline()) {
+    mostrarToast("Conexão necessária para desbloquear após 12 horas.", "erro", 7000);
+    return false;
+  }
+  try {
+    await loginUsuarioSupabase(email, senha);
+    await consultarLicencaSupabaseSilencioso();
+    desativarTravaLocal("password");
+    fecharPopup();
+    await sincronizarFilaOfflinePendente("unlock").catch((erro) => registrarDiagnostico("sync", "Fila offline após desbloqueio falhou", erro.message));
+    mostrarToast("Dispositivo desbloqueado.", "sucesso", 3500);
+    renderApp();
+    return true;
+  } catch (erro) {
+    ErrorService.capture(erro, { area: "Autenticação", action: "Desbloqueio local", errorKey: "LOCAL_UNLOCK_FAILED", silent: true });
+    mostrarToast("Senha não validada. Tente novamente.", "erro", 6500);
+    return false;
+  }
+}
+
+async function desbloquearTravaLocalFormulario(event) {
+  event?.preventDefault?.();
+  if (localLockModalOpen) return;
+  const input = document.getElementById("localUnlockPassword");
+  const botao = document.getElementById("localUnlockBtn");
+  const senha = input?.value || "";
+  if (!senha) return;
+  localLockModalOpen = true;
+  if (botao) {
+    botao.disabled = true;
+    botao.textContent = "Validando...";
+  }
+  const ok = await concluirDesbloqueioLocalComSenha(senha);
+  localLockModalOpen = false;
+  if (!ok) {
+    if (botao) {
+      botao.disabled = false;
+      botao.textContent = "Desbloquear";
+    }
+    if (input) {
+      input.value = "";
+      input.focus();
+    }
+  }
+}
+
 async function abrirModalDesbloqueioLocal() {
   if (localLockModalOpen || !window.__simplificaLocalLockActive) return;
   localLockModalOpen = true;
-  const usuario = getUsuarioAtual();
-  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
   const senha = await solicitarEntradaTexto({
     titulo: "Desbloquear dispositivo",
     mensagem: "Por segurança, confirme a senha da sua conta. Isso não encerra sua sessão do Supabase.",
@@ -1984,21 +2091,7 @@ async function abrirModalDesbloqueioLocal() {
   });
   localLockModalOpen = false;
   if (!senha) return;
-  if (!estaOnline()) {
-    mostrarToast("Conexão necessária para desbloquear após 12 horas.", "erro", 7000);
-    return;
-  }
-  try {
-    await loginUsuarioSupabase(email, senha);
-    await consultarLicencaSupabaseSilencioso();
-    desativarTravaLocal("password");
-    await sincronizarFilaOfflinePendente("unlock").catch((erro) => registrarDiagnostico("sync", "Fila offline após desbloqueio falhou", erro.message));
-    mostrarToast("Dispositivo desbloqueado.", "sucesso", 3500);
-    renderApp();
-  } catch (erro) {
-    ErrorService.capture(erro, { area: "Autenticação", action: "Desbloqueio local", errorKey: "LOCAL_UNLOCK_FAILED", silent: true });
-    mostrarToast("Senha não validada. Tente novamente.", "erro", 6500);
-  }
+  await concluirDesbloqueioLocalComSenha(senha);
 }
 
 async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
@@ -3514,15 +3607,8 @@ function cancelar2FA() {
 function renderVerificacao2FA() {
   if (!twoFactorPending) return "";
   if (!whatsapp2FABackendDisponivel()) {
-    return `
-      <div class="danger-zone">
-        <h2 class="section-title">Verificação em duas etapas</h2>
-        <p class="muted">2FA WhatsApp desativado temporariamente. Entre com e-mail e senha.</p>
-        <div class="actions">
-          <button class="btn" onclick="cancelar2FA()">Voltar ao login</button>
-        </div>
-      </div>
-    `;
+    twoFactorPending = null;
+    return "";
   }
 
   return `
@@ -5813,7 +5899,7 @@ function renderApp() {
     renderCalculadoraFlutuante();
     sincronizarBannerAdMob();
     sincronizarBannerAdSense();
-    setTimeout(() => abrirModalDesbloqueioLocal(), 80);
+    setTimeout(() => document.getElementById("localUnlockPassword")?.focus(), 80);
     return;
   }
   if (!getUsuarioAtual() && !adminLogado && !isTelaPublica(telaAtual)) {
@@ -5894,7 +5980,7 @@ function renderTopbar() {
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
         <span>🔎</span>
-        <input placeholder="Buscar pedido, cliente ou material" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
@@ -5906,7 +5992,8 @@ function renderTopbar() {
 
 function buscarGlobal(event, valor) {
   if (event.key !== "Enter") return;
-  const termo = String(valor || "").trim().toLowerCase();
+  const valorOriginal = String(valor || "").trim();
+  const termo = valorOriginal.toLowerCase();
   if (!termo) return;
 
   const pedido = pedidos.find((item) => clienteDoPedido(item).toLowerCase().includes(termo) || String(item.id).includes(termo));
@@ -5918,6 +6005,11 @@ function buscarGlobal(event, valor) {
   const material = normalizarEstoque().find((item) => item.nome.toLowerCase().includes(termo));
   if (material) {
     trocarTela("estoque");
+    return;
+  }
+
+  if (deveDirecionarBuscaParaAssistente(valorOriginal)) {
+    abrirAssistenteComPergunta(valorOriginal);
     return;
   }
 
@@ -6282,6 +6374,395 @@ function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxut
   return resposta?.answer || "Ainda não sei responder isso. Procure o suporte ou tente usar palavras como pedido, estoque, backup, PDF ou plano.";
 }
 
+function normalizarAIAssistantSettings(config = appConfig.aiOfflineAssistant || {}) {
+  return {
+    activeModelId: String(config.activeModelId || ""),
+    installedModelId: String(config.installedModelId || ""),
+    models: config.models && typeof config.models === "object" ? config.models : {},
+    lastFailure: String(config.lastFailure || ""),
+    lastPerformance: String(config.lastPerformance || ""),
+    basicFallback: config.basicFallback !== false
+  };
+}
+
+function getAIAssistantSettings() {
+  appConfig.aiOfflineAssistant = normalizarAIAssistantSettings(appConfig.aiOfflineAssistant);
+  return appConfig.aiOfflineAssistant;
+}
+
+function getAIModel(modelId) {
+  return AI_MODELS.find((modelo) => modelo.id === modelId) || null;
+}
+
+function getAIModelLocalState(modelId) {
+  const settings = getAIAssistantSettings();
+  return settings.models?.[modelId] || {};
+}
+
+function setAIModelLocalState(modelId, patch = {}) {
+  const settings = getAIAssistantSettings();
+  settings.models = {
+    ...(settings.models || {}),
+    [modelId]: {
+      ...(settings.models?.[modelId] || {}),
+      ...patch,
+      updatedAt: new Date().toISOString()
+    }
+  };
+  appConfig.aiOfflineAssistant = settings;
+  salvarDados();
+  return settings.models[modelId];
+}
+
+function podeExibirAssistenteIAOffline() {
+  return isAndroidNativeApp() && !!getUsuarioAtual();
+}
+
+function podeUsarAssistenteIAOfflinePro() {
+  return podeExibirAssistenteIAOffline() && temAcessoCompleto();
+}
+
+function getAIModelStatus(modelId) {
+  const settings = getAIAssistantSettings();
+  const state = getAIModelLocalState(modelId);
+  if (state.status) return state.status;
+  if (settings.activeModelId === modelId || settings.installedModelId === modelId || state.installedAt) return "installed";
+  return "not_installed";
+}
+
+function labelStatusAI(status = "") {
+  const labels = {
+    installed: "Instalado",
+    not_installed: "Não instalado",
+    downloading: "Baixando",
+    error: "Erro",
+    incompatible: "Incompatível",
+    removing: "Removendo",
+    active: "Ativo"
+  };
+  return labels[status] || "Não instalado";
+}
+
+function getAIPlugin() {
+  return window.Capacitor?.Plugins?.SimplificaFiles || null;
+}
+
+function estimarMemoriaDispositivoMb() {
+  const gb = Number(navigator.deviceMemory || 0);
+  return gb > 0 ? Math.round(gb * 1024) : 0;
+}
+
+async function obterResumoCapacidadeIA(modelo = {}) {
+  const plugin = getAIPlugin();
+  if (plugin?.testAiModelPerformance) {
+    try {
+      return await plugin.testAiModelPerformance({ modelId: modelo.id || "", sizeMb: Number(modelo.sizeMb) || 0 });
+    } catch (erro) {
+      return { ok: false, risk: "unknown", message: erro.message || String(erro) };
+    }
+  }
+  const memoriaMb = estimarMemoriaDispositivoMb();
+  let storageMb = 0;
+  try {
+    if (navigator.storage?.estimate) {
+      const estimate = await navigator.storage.estimate();
+      storageMb = Math.round(Number(estimate.quota || 0) / 1024 / 1024);
+    }
+  } catch (_) {}
+  const risco = modelo.sizeMb >= 180 && memoriaMb && memoriaMb < 4096 ? "high" : modelo.sizeMb >= 90 && memoriaMb && memoriaMb < 2048 ? "medium" : "low";
+  return {
+    ok: risco !== "high",
+    risk: risco,
+    memoryMb: memoriaMb,
+    storageMb,
+    message: risco === "high"
+      ? "Este aparelho pode ficar lento com este modelo."
+      : "Teste básico concluído."
+  };
+}
+
+function renderAssistenteInteligenteProConfig() {
+  if (!podeExibirAssistenteIAOffline()) return "";
+  const settings = getAIAssistantSettings();
+  const pro = podeUsarAssistenteIAOfflinePro();
+  const ativo = getAIModel(settings.activeModelId);
+  const instalado = getAIModel(settings.installedModelId);
+
+  if (!pro) {
+    return `
+      <div class="danger-zone ai-pro-manager">
+        <div class="card-header compact">
+          <h2 class="section-title">✨ Assistente Inteligente Pro</h2>
+          <span class="status-badge">PRO</span>
+        </div>
+        <p class="muted">Assistente Inteligente Offline disponível no plano Pro.</p>
+        <div class="actions">
+          <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Ver plano Pro</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="danger-zone ai-pro-manager">
+      <div class="card-header compact">
+        <h2 class="section-title">✨ Assistente Inteligente Pro</h2>
+        <span class="status-badge">${ativo ? "Ativo" : "Sem modelo ativo"}</span>
+      </div>
+      <p class="muted">Modelos offline são baixados sob demanda e ficam apenas neste aparelho. O APK não inclui modelos embutidos.</p>
+      <div class="sync-grid">
+        <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(ativo?.name || "Nenhum")}</strong></div>
+        <div class="metric"><span>Modelo instalado</span><strong>${escaparHtml(instalado?.name || "Nenhum")}</strong></div>
+        <div class="metric"><span>Espaço usado</span><strong>${Number(getAIModelLocalState(settings.installedModelId).sizeMb || instalado?.sizeMb || 0) || 0} MB</strong></div>
+        <div class="metric"><span>Último teste</span><strong>${escaparHtml(settings.lastPerformance || "Não testado")}</strong></div>
+      </div>
+      ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
+      <div class="ai-model-list">
+        ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
+  const state = getAIModelLocalState(modelo.id);
+  const status = settings.activeModelId === modelo.id ? "active" : getAIModelStatus(modelo.id);
+  const installed = ["installed", "active"].includes(status) || !!state.installedAt;
+  const busy = ["downloading", "removing"].includes(status);
+  const urlConfigurada = !!String(modelo.url || "").trim();
+  return `
+    <article class="ai-model-card ${settings.activeModelId === modelo.id ? "active" : ""}">
+      <div class="row-title">
+        <div>
+          <strong>${escaparHtml(modelo.name)}</strong>
+          <span class="muted">${escaparHtml(modelo.recommended)} • ${modelo.sizeMb} MB${modelo.ramRecommended ? ` • RAM ${escaparHtml(modelo.ramRecommended)}` : ""}</span>
+        </div>
+        <span class="status-badge">${escaparHtml(labelStatusAI(status))}</span>
+      </div>
+      ${modelo.model ? `<p class="muted">Modelo: ${escaparHtml(modelo.model)}</p>` : ""}
+      <p class="muted">${escaparHtml(modelo.description)}</p>
+      <p class="muted">${urlConfigurada ? "Instalação direta pelo APK. Nenhum site externo é aberto para o usuário." : "Pacote ainda não configurado. O botão será liberado quando o arquivo real estiver hospedado."}</p>
+      <div class="actions">
+        <button class="btn secondary" type="button" onclick="baixarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || installed || !urlConfigurada ? "disabled" : ""}>Baixar</button>
+        <button class="btn" type="button" onclick="usarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !installed ? "disabled" : ""}>Usar este modelo</button>
+        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy ? "disabled" : ""}>Testar desempenho</button>
+        <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !installed ? "disabled" : ""}>Remover modelo</button>
+      </div>
+    </article>
+  `;
+}
+
+async function baixarModeloIAOffline(modelId) {
+  const modelo = getAIModel(modelId);
+  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  if (!modelo.url) {
+    const msg = "Pacote do modelo ainda não configurado. Hospede o arquivo real para liberar a instalação direta pelo APK.";
+    setAIModelLocalState(modelId, { status: "error", lastError: msg });
+    appConfig.aiOfflineAssistant.lastFailure = msg;
+    salvarDados();
+    mostrarToast("Modelo ainda sem URL de download.", "aviso", 5000);
+    renderizarPreservandoScroll();
+    return;
+  }
+  const plugin = getAIPlugin();
+  if (!plugin?.downloadAiModel) {
+    mostrarToast("Camada nativa de modelos offline indisponível neste APK.", "erro", 6000);
+    return;
+  }
+  setAIModelLocalState(modelId, { status: "downloading", lastError: "" });
+  appConfig.aiOfflineAssistant.lastFailure = "";
+  renderizarPreservandoScroll();
+  try {
+    const result = await plugin.downloadAiModel({
+      modelId,
+      name: modelo.name,
+      url: modelo.url,
+      fileName: modelo.fileName,
+      sizeMb: modelo.sizeMb,
+      minBytes: modelo.minBytes || 0
+    });
+    setAIModelLocalState(modelId, {
+      status: "installed",
+      installedAt: new Date().toISOString(),
+      sizeMb: Number(result?.sizeMb || modelo.sizeMb) || modelo.sizeMb,
+      path: result?.path || ""
+    });
+    appConfig.aiOfflineAssistant.installedModelId = modelId;
+    appConfig.aiOfflineAssistant.activeModelId = modelId;
+    salvarDados();
+    mostrarToast(`${modelo.name} instalado.`, "sucesso", 4200);
+  } catch (erro) {
+    const msg = erro?.message || String(erro);
+    setAIModelLocalState(modelId, { status: "error", lastError: msg });
+    appConfig.aiOfflineAssistant.lastFailure = "Falha ao baixar modelo: " + msg;
+    salvarDados();
+    mostrarToast("Não foi possível baixar o modelo.", "erro", 6000);
+  }
+  renderizarPreservandoScroll();
+}
+
+async function usarModeloIAOffline(modelId) {
+  const modelo = getAIModel(modelId);
+  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  const state = getAIModelLocalState(modelId);
+  if (!state.installedAt && getAIModelStatus(modelId) !== "installed") {
+    mostrarToast("Baixe o modelo antes de ativar.", "aviso", 4200);
+    return;
+  }
+  const performance = await obterResumoCapacidadeIA(modelo);
+  if (["high", "medium"].includes(String(performance.risk || ""))) {
+    const seguir = confirm("Este modelo pode deixar seu aparelho lento. Recomendamos usar IA Lite ou IA Smart. Deseja ativar mesmo assim?");
+    if (!seguir) return;
+  }
+  appConfig.aiOfflineAssistant.activeModelId = modelId;
+  appConfig.aiOfflineAssistant.installedModelId = appConfig.aiOfflineAssistant.installedModelId || modelId;
+  appConfig.aiOfflineAssistant.lastPerformance = performance.message || "Modelo ativado";
+  salvarDados();
+  mostrarToast(`${modelo.name} ativo.`, "sucesso", 3500);
+  renderizarPreservandoScroll();
+}
+
+async function removerModeloIAOffline(modelId) {
+  const modelo = getAIModel(modelId);
+  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  const confirmado = confirm("Remover este modelo offline? Você poderá baixar novamente depois.");
+  if (!confirmado) return;
+  const plugin = getAIPlugin();
+  setAIModelLocalState(modelId, { status: "removing" });
+  renderizarPreservandoScroll();
+  try {
+    if (plugin?.deleteAiModel) await plugin.deleteAiModel({ modelId, fileName: modelo.fileName });
+    const settings = getAIAssistantSettings();
+    settings.models = { ...(settings.models || {}) };
+    delete settings.models[modelId];
+    if (settings.activeModelId === modelId) settings.activeModelId = "";
+    if (settings.installedModelId === modelId) settings.installedModelId = "";
+    appConfig.aiOfflineAssistant = settings;
+    salvarDados();
+    mostrarToast("Modelo removido.", "sucesso", 3500);
+  } catch (erro) {
+    setAIModelLocalState(modelId, { status: "error", lastError: erro?.message || String(erro) });
+    mostrarToast("Não foi possível remover o modelo.", "erro", 5000);
+  }
+  renderizarPreservandoScroll();
+}
+
+async function testarModeloIAOffline(modelId) {
+  const modelo = getAIModel(modelId);
+  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  const resultado = await obterResumoCapacidadeIA(modelo);
+  const memoria = resultado.memoryMb ? ` RAM aprox.: ${resultado.memoryMb} MB.` : "";
+  const texto = resultado.message || "Teste concluído.";
+  appConfig.aiOfflineAssistant.lastPerformance = texto;
+  salvarDados();
+  mostrarToast(`${texto}${memoria}`, resultado.risk === "high" ? "aviso" : "info", 6500);
+  renderizarPreservandoScroll();
+}
+
+function montarContextoIAComercial() {
+  const pedidosRecentes = pedidos.slice(-20);
+  const produtos = new Map();
+  pedidosRecentes.forEach((pedido) => {
+    normalizarItensPedido(pedido).forEach((item) => {
+      const nome = String(item.nome || "Item").slice(0, 50);
+      produtos.set(nome, (produtos.get(nome) || 0) + Number(item.qtd || 1));
+    });
+  });
+  const maisVendidos = [...produtos.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([nome, qtd]) => ({ nome, qtd }));
+  const materiaisUsados = normalizarEstoque().slice(0, 8).map((item) => ({ nome: item.nome, qtd: item.qtd, tipo: item.tipo }));
+  return {
+    margemMedia: appConfig.defaultMargin || 0,
+    produtosMaisVendidos: maisVendidos,
+    materiaisMaisUsados: materiaisUsados,
+    estoqueBaixo: materiaisUsados.filter((item) => Number(item.qtd) <= estoqueMinimoKg),
+    pedidosPendentes: pedidos.filter((pedido) => !["entregue", "finalizado", "cancelado"].includes(String(pedido.status || ""))).length,
+    calculoRecente: ultimoCalculo ? {
+      pesoGramas: ultimoCalculo.peso,
+      tempoHoras: ultimoCalculo.tempo,
+      material: ultimoCalculo.materialNome,
+      custoMaterial: ultimoCalculo.custoMaterial,
+      custoEnergia: ultimoCalculo.custoEnergia,
+      margem: appConfig.defaultMargin,
+      precoFinal: ultimoCalculo.precoTotal,
+      tipoPecaInformado: document.getElementById("nomeItem")?.value || "",
+      observacoes: ""
+    } : null
+  };
+}
+
+function gerarSugestoesCalculadoraBasicas(contexto = montarContextoIAComercial().calculoRecente || {}) {
+  const sugestoes = [];
+  const margem = Number(contexto.margem || appConfig.defaultMargin || 0);
+  const tempo = Number(contexto.tempoHoras || 0);
+  const preco = Number(contexto.precoFinal || 0);
+  if (margem < 80) sugestoes.push("Sua margem parece baixa. Confira se embalagem, retrabalho e tempo de atendimento entraram no preço.");
+  if (tempo > 6) sugestoes.push("Peça com prazo longo: considere cobrar urgência ou combinar entrega com folga.");
+  if (preco > 0) sugestoes.push("Ofereça embalagem simples ou kit com mais unidades para aumentar o ticket.");
+  if (/chaveiro|pingente|tag/i.test(contexto.tipoPecaInformado || "")) sugestoes.push("Para chaveiro ou pingente, inclua argola, corrente ou embalagem no orçamento.");
+  if (!contexto.material) sugestoes.push("Vincule um material do estoque para acompanhar custo e reposição com mais precisão.");
+  if (!sugestoes.length) sugestoes.push("Preço calculado. Confira acabamento, embalagem e prazo antes de enviar ao cliente.");
+  return sugestoes.slice(0, 5);
+}
+
+async function sugerirCalculadoraComIA() {
+  if (!podeExibirAssistenteIAOffline()) return;
+  if (!podeUsarAssistenteIAOfflinePro()) {
+    mostrarToast("Assistente Inteligente Offline disponível no plano Pro.", "aviso", 5200);
+    trocarTela("assinatura");
+    return;
+  }
+  if (!ultimoCalculo) {
+    const calculou = calcular();
+    if (!calculou) return;
+  }
+  const contexto = montarContextoIAComercial().calculoRecente || {};
+  const settings = getAIAssistantSettings();
+  const modelo = getAIModel(settings.activeModelId);
+  const sugestoes = gerarSugestoesCalculadoraBasicas(contexto);
+  const detalhesMotor = modelo
+    ? `Modelo ativo: ${modelo.name}. As sugestões abaixo usam o contexto seguro da calculadora; o motor nativo de inferência será conectado quando o arquivo/modelo real estiver hospedado.`
+    : "Nenhum modelo offline ativo. Usando assistente básico com resumo seguro da calculadora.";
+  const popup = document.getElementById("popup");
+  if (!popup) {
+    alert(sugestoes.join("\n"));
+    return;
+  }
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-suggestion-close">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>✨ Sugestões com IA</h2>
+          <button class="icon-button" type="button" data-action="ai-suggestion-close" title="Fechar">✕</button>
+        </div>
+        <p class="muted">${escaparHtml(detalhesMotor)}</p>
+        <div class="history-list">
+          ${sugestoes.map((item) => `<div class="history-item"><strong>${escaparHtml(item)}</strong></div>`).join("")}
+        </div>
+        <p class="muted">A IA não altera o preço oficial. Revise as sugestões antes de enviar ao cliente.</p>
+        <div class="actions">
+          <button class="btn" type="button" data-action="ai-suggestion-close">Entendi</button>
+          <button class="btn ghost" type="button" onclick="trocarTela('config')">Gerenciar IA</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function deveDirecionarBuscaParaAssistente(termo = "") {
+  const texto = String(termo || "").trim();
+  if (!texto) return false;
+  return texto.includes("?") || /^(como|por que|porque|qual|quais|sugere|sugerir|me ajuda|ajuda|ia\b)/i.test(texto);
+}
+
+function abrirAssistenteComPergunta(texto = "") {
+  abrirAssistente();
+  const contexto = montarContextoAssistenteEnxuto(texto);
+  assistantMessages.push({ role: "user", text: texto });
+  assistantMessages.push({ role: "assistant", text: obterRespostaAssistente(texto, contexto) });
+  limitarMensagensAssistente();
+  renderApp();
+}
+
 function enviarMensagemAssistente(event) {
   event?.preventDefault?.();
   const input = document.getElementById("assistantInput");
@@ -6299,16 +6780,24 @@ function renderAssistenteVirtual() {
   if (!podeMostrarControlesFlutuantes()) return "";
 
   if (!assistantOpen) {
-    return `<button class="assistant-fab" onclick="abrirAssistente()" title="Assistente local">💬</button>`;
+    const label = podeUsarAssistenteIAOfflinePro() ? "IA Pro" : "IA";
+    return `<button class="assistant-fab" onclick="abrirAssistente()" title="Assistente inteligente">${escaparHtml(label)}</button>`;
   }
 
   if (assistantMinimized) {
+    const label = podeUsarAssistenteIAOfflinePro() ? "IA Pro" : "IA";
     return `
       <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente()" title="Abrir assistente">
-        💬
+        ${escaparHtml(label)}
       </button>
     `;
   }
+
+  const settings = getAIAssistantSettings();
+  const modeloAtivo = getAIModel(settings.activeModelId);
+  const subtituloAssistente = podeUsarAssistenteIAOfflinePro() && modeloAtivo
+    ? `${modeloAtivo.name} offline`
+    : "Assistente básico local";
 
   const mensagens = assistantMessages.map((msg) => `
     <div class="assistant-message ${msg.role === "user" ? "assistant-user" : "assistant-bot"}">
@@ -6321,7 +6810,7 @@ function renderAssistenteVirtual() {
       <div class="assistant-header">
         <div>
           <strong>Assistente Simplifica 3D</strong>
-          <span>Local/offline</span>
+          <span>${escaparHtml(subtituloAssistente)}</span>
         </div>
         <div class="row-actions">
           <button class="icon-button" onclick="limparConversaAssistente()" title="Limpar conversa">🧹</button>
@@ -8053,7 +8542,7 @@ function renderDashboardSearch() {
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
         <span>🔎</span>
-        <input placeholder="Buscar pedidos, clientes, materiais..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
   `;
@@ -10122,7 +10611,9 @@ function renderConfig() {
       </div>
 
       ${telaAtual === "config" ? `
-        <div class="danger-zone">
+        ${renderAssistenteInteligenteProConfig()}
+
+        ${whatsapp2FABackendDisponivel() ? `<div class="danger-zone">
           <h2 class="section-title">Segurança</h2>
           <label class="checkbox-row">
             <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled && whatsapp2FABackendDisponivel() ? "checked" : ""} ${whatsapp2FABackendDisponivel() ? "" : "disabled"}>
@@ -10145,7 +10636,7 @@ function renderConfig() {
               <input id="twoFactorRememberMinutes" type="number" min="1" step="1" value="${Number(appConfig.twoFactorRememberMinutes) || 60}" ${whatsapp2FABackendDisponivel() ? "" : "disabled"}>
             </label>
           </div>
-        </div>
+        </div>` : ""}
 
         <div class="danger-zone">
           <h2 class="section-title">Atualizações</h2>
@@ -17446,7 +17937,10 @@ function renderCalculadoraConteudo() {
       <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" oninput="salvarConfiguracaoCalculadora()">
     </label>
 
-    <button class="btn secondary" onclick="calcular()">Calcular</button>
+    <div class="actions">
+      <button class="btn secondary" onclick="calcular()">Calcular</button>
+      ${podeExibirAssistenteIAOffline() ? `<button class="btn ghost" type="button" onclick="sugerirCalculadoraComIA()">✨ Sugerir com IA</button>` : ""}
+    </div>
     <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
 
     <div class="actions">
@@ -18694,6 +19188,18 @@ async function exportarBackup() {
 
 function isAndroid() {
   return /Android/i.test(navigator.userAgent || "");
+}
+
+function isAndroidNativeApp() {
+  try {
+    const capacitor = window.Capacitor;
+    if (!capacitor) return false;
+    if (typeof capacitor.getPlatform === "function") return capacitor.getPlatform() === "android";
+    if (typeof capacitor.isNativePlatform === "function") return capacitor.isNativePlatform() && isAndroid();
+    return !!capacitor.Plugins?.SimplificaFiles && isAndroid();
+  } catch (_) {
+    return false;
+  }
 }
 
 function getAndroidDownloadUrl(manifest = {}) {

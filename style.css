@@ -3141,14 +3141,58 @@ body.auth-screen-active #app{
   right:calc(18px + env(safe-area-inset-right));
   bottom:calc(18px + env(safe-area-inset-bottom));
   z-index:95;
-  width:56px;
-  height:56px;
+  min-width:56px;
+  height:48px;
+  padding:0 14px;
   border:1px solid rgba(0,200,83,.48);
-  border-radius:50%;
-  background:var(--primary);
-  color:#06120b;
-  font-size:24px;
+  border-radius:999px;
+  background:linear-gradient(145deg, rgba(11,76,92,.96), rgba(255,148,28,.72));
+  color:#fff;
+  font-size:var(--font-sm);
+  font-weight:900;
   box-shadow:var(--shadow);
+}
+
+.ai-pro-manager{
+  display:grid;
+  gap:10px;
+  background:linear-gradient(145deg, rgba(11,76,92,.20), rgba(7,11,17,.42));
+}
+
+.ai-model-list{
+  display:grid;
+  gap:10px;
+}
+
+.ai-model-card{
+  display:grid;
+  gap:8px;
+  padding:10px;
+  border:1px solid var(--card-border);
+  border-radius:var(--radius);
+  background:rgba(255,255,255,.045);
+  box-shadow:var(--shadow-soft);
+}
+
+.ai-model-card.active{
+  border-color:rgba(255,148,28,.48);
+  background:linear-gradient(145deg, rgba(255,148,28,.12), rgba(11,76,92,.18));
+}
+
+.ai-model-card .row-title{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.ai-model-card .row-title strong,
+.ai-model-card .row-title span{
+  display:block;
+}
+
+.ai-model-card .actions{
+  grid-template-columns:repeat(auto-fit, minmax(132px, 1fr));
 }
 
 .assistant-panel{
