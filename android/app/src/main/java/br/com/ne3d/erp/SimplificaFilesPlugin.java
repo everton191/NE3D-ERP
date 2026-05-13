@@ -21,6 +21,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
+import com.arm.aichat.internal.InferenceEngineImpl;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -194,6 +196,11 @@ public class SimplificaFilesPlugin extends Plugin {
         }
 
         try {
+            try {
+                InferenceEngineImpl.getInstance(getContext()).unloadModel();
+            } catch (Throwable ignored) {
+                // Remocao do arquivo nao deve falhar se o runtime ainda nao foi carregado.
+            }
             File targetFile = new File(getAiModelDir(), fileName);
             boolean deleted = !targetFile.exists() || targetFile.delete();
             JSObject result = new JSObject();
@@ -231,6 +238,51 @@ public class SimplificaFilesPlugin extends Plugin {
             ? "Este modelo pode deixar seu aparelho lento. Recomendamos usar IA Lite ou IA Smart."
             : "Teste básico de desempenho concluído.");
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void runAiPrompt(PluginCall call) {
+        final String modelPath = call.getString("modelPath", "");
+        final String systemPrompt = call.getString("systemPrompt", "");
+        final String prompt = call.getString("prompt", "");
+        final int maxTokens = Math.max(16, Math.min(call.getData().optInt("maxTokens", 160), 256));
+        final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 60000L), 120000L));
+
+        if (modelPath == null || modelPath.trim().isEmpty()) {
+            call.reject("Modelo offline não instalado.");
+            return;
+        }
+        if (prompt == null || prompt.trim().isEmpty()) {
+            call.reject("Pergunta vazia.");
+            return;
+        }
+
+        new Thread(() -> {
+            try {
+                InferenceEngineImpl engine = InferenceEngineImpl.getInstance(getContext());
+                String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, timeoutMs);
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("text", text);
+                result.put("offline", true);
+                result.put("maxTokens", maxTokens);
+                call.resolve(result);
+            } catch (Throwable error) {
+                call.reject("Falha na inferência offline: " + error.getMessage(), error instanceof Exception ? (Exception) error : null);
+            }
+        }).start();
+    }
+
+    @PluginMethod
+    public void cancelAiGeneration(PluginCall call) {
+        try {
+            InferenceEngineImpl.getInstance(getContext()).cancelGeneration();
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            call.resolve(result);
+        } catch (Throwable error) {
+            call.reject("Falha ao cancelar geração offline: " + error.getMessage(), error instanceof Exception ? (Exception) error : null);
+        }
     }
 
     @PermissionCallback

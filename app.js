@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.7";
-const APP_VERSION_CODE = 58;
+const APP_VERSION = "51.0.8";
+const APP_VERSION_CODE = 59;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -61,6 +61,7 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é um assistente de gestão para impressão 3D integrado ao Simplifica 3D. Use apenas os dados fornecidos. Dê respostas curtas, práticas e comerciais. Não invente dados inexistentes. Ajude com precificação, margem, estoque, pedidos, sugestões de extras e produção.";
 const AI_MODELS = Object.freeze([
   {
     id: "lite",
@@ -239,6 +240,7 @@ let sessionWarned = false;
 let assistantOpen = false;
 let assistantMinimized = false;
 let assistantMessages = [];
+let assistantGenerating = false;
 let localLockModalOpen = false;
 let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
@@ -5344,6 +5346,30 @@ function temAcessoCompleto() {
   return canUsePremiumFeatures();
 }
 
+function temPlanoProPagoAtivo(user = getUsuarioAtual()) {
+  if (!user || licencaEfetivaBloqueada(user)) return false;
+
+  const licenca = getLicencaEfetivaSnapshotLocal();
+  if (licenca && licenca.stale !== true) {
+    const status = normalizarStatusLicencaEfetiva(licenca.effectiveStatus || licenca.effective_status);
+    const planCode = String(licenca.planCode || licenca.plan_code || "").toUpperCase().trim();
+    const planoPro = !planCode || ["PREMIUM", "PRO"].includes(planCode);
+    return status === PLAN_ACCESS_STATES.ACTIVE
+      && planoPro
+      && licenca.isTrial !== true
+      && licenca.isBlocked !== true;
+  }
+
+  // IA offline e um beneficio pago: Superadmin, Trial e Free nao entram por atalho local.
+  if (isSuperAdmin(user)) return false;
+
+  const estadoPlano = resolverEstadoPlano(user, { source: "temPlanoProPagoAtivo", ignoreEffectiveLicense: true });
+  return estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE
+    && estadoPlano.isPaidActive === true
+    && estadoPlano.isTrialActive !== true
+    && normalizarSlugPlano(estadoPlano.activePlan || "") === "premium";
+}
+
 function exigirPlanoCompleto() {
   return PlanService.exigirPlanoCompleto();
 }
@@ -6419,7 +6445,7 @@ function podeExibirAssistenteIAOffline() {
 }
 
 function podeUsarAssistenteIAOfflinePro() {
-  return podeExibirAssistenteIAOffline() && temAcessoCompleto();
+  return podeExibirAssistenteIAOffline() && temPlanoProPagoAtivo();
 }
 
 function getAIModelStatus(modelId) {
@@ -6495,7 +6521,7 @@ function renderAssistenteInteligenteProConfig() {
           <h2 class="section-title">✨ Assistente Inteligente Pro</h2>
           <span class="status-badge">PRO</span>
         </div>
-        <p class="muted">Assistente Inteligente Offline disponível no plano Pro.</p>
+        <p class="muted">Assistente Inteligente Offline exclusivo do plano PRO ativo. No teste grátis ou no Free, assine para migrar.</p>
         <div class="actions">
           <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Ver plano Pro</button>
         </div>
@@ -6704,10 +6730,57 @@ function gerarSugestoesCalculadoraBasicas(contexto = montarContextoIAComercial()
   return sugestoes.slice(0, 5);
 }
 
+function getModeloIAOfflineAtivoInstalado() {
+  if (!podeUsarAssistenteIAOfflinePro()) return null;
+  const settings = getAIAssistantSettings();
+  const modelo = getAIModel(settings.activeModelId);
+  const state = getAIModelLocalState(settings.activeModelId);
+  const path = String(state.path || "").trim();
+  if (!modelo || !path) return null;
+  return { modelo, state, path };
+}
+
+function montarPromptIAOffline(texto = "", contexto = {}) {
+  const contextoSeguro = {
+    tela: contexto.tela || telaAtual,
+    pergunta: String(texto || "").slice(0, 600),
+    dados: contexto.calculoRecente || contexto
+  };
+  return [
+    "Responda em português do Brasil.",
+    "Use apenas o contexto abaixo e não altere valores oficiais.",
+    "Contexto resumido:",
+    JSON.stringify(contextoSeguro).slice(0, 1600),
+    "",
+    "Pergunta:",
+    String(texto || "").slice(0, 700)
+  ].join("\n");
+}
+
+async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistenteEnxuto(texto), opcoes = {}) {
+  if (!podeUsarAssistenteIAOfflinePro()) throw new Error("Assistente offline disponível apenas no Android com plano PRO ativo.");
+  const ativo = getModeloIAOfflineAtivoInstalado();
+  if (!ativo) throw new Error("Baixe e ative um modelo offline antes de usar a IA Pro.");
+  const plugin = getAIPlugin();
+  if (!plugin?.runAiPrompt) throw new Error("Runtime nativo de IA indisponível neste APK.");
+
+  const result = await plugin.runAiPrompt({
+    modelId: ativo.modelo.id,
+    modelPath: ativo.path,
+    systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
+    prompt: montarPromptIAOffline(texto, contexto),
+    maxTokens: Math.max(32, Math.min(Number(opcoes.maxTokens || 160) || 160, 256)),
+    timeoutMs: Math.max(10000, Math.min(Number(opcoes.timeoutMs || 60000) || 60000, 120000))
+  });
+  const resposta = String(result?.text || "").trim();
+  if (!resposta) throw new Error("O modelo offline não retornou resposta.");
+  return resposta;
+}
+
 async function sugerirCalculadoraComIA() {
   if (!podeExibirAssistenteIAOffline()) return;
   if (!podeUsarAssistenteIAOfflinePro()) {
-    mostrarToast("Assistente Inteligente Offline disponível no plano Pro.", "aviso", 5200);
+    mostrarToast("IA offline exclusiva do plano PRO ativo. Assine para migrar.", "aviso", 5200);
     trocarTela("assinatura");
     return;
   }
@@ -6718,10 +6791,21 @@ async function sugerirCalculadoraComIA() {
   const contexto = montarContextoIAComercial().calculoRecente || {};
   const settings = getAIAssistantSettings();
   const modelo = getAIModel(settings.activeModelId);
-  const sugestoes = gerarSugestoesCalculadoraBasicas(contexto);
-  const detalhesMotor = modelo
-    ? `Modelo ativo: ${modelo.name}. As sugestões abaixo usam o contexto seguro da calculadora; o motor nativo de inferência será conectado quando o arquivo/modelo real estiver hospedado.`
+  let sugestoes = gerarSugestoesCalculadoraBasicas(contexto);
+  let detalhesMotor = modelo
+    ? `Modelo ativo: ${modelo.name}. Resposta gerada localmente quando o GGUF estiver instalado e carregado.`
     : "Nenhum modelo offline ativo. Usando assistente básico com resumo seguro da calculadora.";
+  try {
+    if (getModeloIAOfflineAtivoInstalado()) {
+      const resposta = await gerarRespostaIAOffline("Sugira melhorias comerciais para este cálculo sem alterar o preço oficial.", { tela: "calculadora", calculoRecente: contexto }, { maxTokens: 140, timeoutMs: 60000 });
+      sugestoes = resposta.split(/\n+/).map((linha) => linha.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean).slice(0, 6);
+      if (!sugestoes.length) sugestoes = [resposta];
+      detalhesMotor = `Modelo ativo: ${modelo?.name || "IA offline"}. Resposta gerada localmente no Android, sem internet.`;
+    }
+  } catch (erro) {
+    detalhesMotor = "Não foi possível carregar o modelo offline agora. Mostrando sugestões básicas seguras.";
+    ErrorService.capture(erro, { area: "Assistente IA", action: "Sugestão calculadora offline", silent: true });
+  }
   const popup = document.getElementById("popup");
   if (!popup) {
     alert(sugestoes.join("\n"));
@@ -6754,26 +6838,55 @@ function deveDirecionarBuscaParaAssistente(termo = "") {
   return texto.includes("?") || /^(como|por que|porque|qual|quais|sugere|sugerir|me ajuda|ajuda|ia\b)/i.test(texto);
 }
 
-function abrirAssistenteComPergunta(texto = "") {
+async function abrirAssistenteComPergunta(texto = "") {
   abrirAssistente();
-  const contexto = montarContextoAssistenteEnxuto(texto);
-  assistantMessages.push({ role: "user", text: texto });
-  assistantMessages.push({ role: "assistant", text: obterRespostaAssistente(texto, contexto) });
+  await responderAssistente(texto);
+}
+
+async function responderAssistente(texto = "") {
+  const pergunta = String(texto || "").trim();
+  if (!pergunta) return;
+  const contexto = montarContextoAssistenteEnxuto(pergunta);
+  assistantMessages.push({ role: "user", text: pergunta });
+  const respostaIndex = assistantMessages.push({ role: "assistant", text: "Gerando resposta offline..." }) - 1;
   limitarMensagensAssistente();
+  assistantGenerating = true;
+  renderApp();
+  try {
+    const resposta = getModeloIAOfflineAtivoInstalado()
+      ? await gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 180, timeoutMs: 70000 })
+      : obterRespostaAssistente(pergunta, contexto);
+    assistantMessages[respostaIndex] = { role: "assistant", text: resposta };
+  } catch (erro) {
+    ErrorService.capture(erro, { area: "Assistente IA", action: "Resposta offline", silent: true });
+    assistantMessages[respostaIndex] = {
+      role: "assistant",
+      text: "Não consegui carregar o modelo offline agora. Você pode trocar/remover o modelo em Configurações ou usar o assistente básico."
+    };
+  } finally {
+    assistantGenerating = false;
+  }
+  limitarMensagensAssistente();
+  renderApp();
+  setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
+}
+
+async function cancelarGeracaoIAOffline() {
+  assistantGenerating = false;
+  try {
+    await getAIPlugin()?.cancelAiGeneration?.();
+    mostrarToast("Geração cancelada.", "info", 2500);
+  } catch (_) {}
   renderApp();
 }
 
-function enviarMensagemAssistente(event) {
+async function enviarMensagemAssistente(event) {
   event?.preventDefault?.();
   const input = document.getElementById("assistantInput");
   const texto = (input?.value || "").trim();
   if (!texto) return;
-  const contexto = montarContextoAssistenteEnxuto(texto);
-  assistantMessages.push({ role: "user", text: texto });
-  assistantMessages.push({ role: "assistant", text: obterRespostaAssistente(texto, contexto) });
-  limitarMensagensAssistente();
-  renderApp();
-  setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
+  if (input) input.value = "";
+  await responderAssistente(texto);
 }
 
 function renderAssistenteVirtual() {
@@ -6813,6 +6926,7 @@ function renderAssistenteVirtual() {
           <span>${escaparHtml(subtituloAssistente)}</span>
         </div>
         <div class="row-actions">
+          ${assistantGenerating ? `<button class="icon-button warning" onclick="cancelarGeracaoIAOffline()" title="Cancelar geração">⏹</button>` : ""}
           <button class="icon-button" onclick="limparConversaAssistente()" title="Limpar conversa">🧹</button>
           <button class="icon-button" onclick="minimizarAssistente()" title="Minimizar">−</button>
           <button class="icon-button danger" onclick="fecharAssistente()" title="Fechar">×</button>
