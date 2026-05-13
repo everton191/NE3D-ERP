@@ -1,0 +1,13 @@
+android
+downloads
+node_modules
+.git
+.vercel/output
+dist
+build
+coverage
+*.apk
+*.aab
+*.keystore
+*.jks
+*.log
