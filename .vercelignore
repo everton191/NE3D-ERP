@@ -2,7 +2,6 @@ android
 downloads
 node_modules
 .git
-.vercel/output
 dist
 build
 coverage
