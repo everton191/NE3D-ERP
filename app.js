@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.8";
-const APP_VERSION_CODE = 59;
+const APP_VERSION = "51.0.9";
+const APP_VERSION_CODE = 60;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -61,11 +61,24 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é um assistente de gestão para impressão 3D integrado ao Simplifica 3D. Use apenas os dados fornecidos. Dê respostas curtas, práticas e comerciais. Não invente dados inexistentes. Ajude com precificação, margem, estoque, pedidos, sugestões de extras e produção.";
+const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é um assistente de gestão para impressão 3D integrado ao Simplifica 3D. Responda sempre em português do Brasil. Use apenas os dados fornecidos e a base interna do app. Dê respostas curtas, práticas e comerciais. Não prometa capacidade equivalente ao ChatGPT. Não invente dados inexistentes. Ajude com precificação, margem, estoque, pedidos, sugestões de extras, produção e uso das telas do sistema.";
+const AI_KNOWLEDGE_BASE = Object.freeze({
+  telas: ["Dashboard", "Pedidos", "Calculadora", "Estoque", "Caixa", "Relatórios", "Backup", "Configurações", "Planos"],
+  fluxos: [
+    "Para adicionar material: abra Estoque, toque em Adicionar material, informe nome, tipo, cor e custo.",
+    "Para calcular preço: abra Calculadora, escolha material, informe peso, tempo, energia, margem e taxa extra.",
+    "Para criar pedido: abra Pedidos, escolha cliente, adicione itens e salve.",
+    "Para gerar PDF: abra um pedido ou orçamento e use Gerar PDF.",
+    "Para sincronizar: use Backup/Sincronizar ou aguarde o salvamento automático quando online."
+  ],
+  limites: "A IA local é focada no Simplifica 3D. Ela ajuda no uso do sistema, mas não substitui suporte humano nem tem capacidade equivalente ao ChatGPT."
+});
 const AI_MODELS = Object.freeze([
   {
     id: "lite",
     name: "IA Lite",
+    tier: "basic",
     model: "SmolLM2-135M-Instruct-GGUF",
     sizeMb: 90,
     minBytes: 50 * 1024 * 1024,
@@ -79,6 +92,7 @@ const AI_MODELS = Object.freeze([
   {
     id: "smart",
     name: "IA Smart",
+    tier: "intermediate",
     model: "Qwen2.5-0.5B-Instruct-GGUF",
     sizeMb: 350,
     minBytes: 200 * 1024 * 1024,
@@ -92,12 +106,13 @@ const AI_MODELS = Object.freeze([
   {
     id: "pro",
     name: "IA Pro",
+    tier: "advanced",
     model: "Qwen2.5-0.5B-Instruct-GGUF",
     sizeMb: 350,
     minBytes: 200 * 1024 * 1024,
     ramRecommended: "6 GB+",
     recommended: "Celulares fortes",
-    description: "Respostas mais naturais e análises mais completas.",
+    description: "Respostas mais completas para uso avançado.",
     fileName: "ia-pro-qwen2.5-0.5b-instruct-q4_k_m.gguf",
     officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
     url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
@@ -241,6 +256,10 @@ let assistantOpen = false;
 let assistantMinimized = false;
 let assistantMessages = [];
 let assistantGenerating = false;
+let assistantMode = "basic";
+let assistantListening = false;
+let assistantVoiceSupport = null;
+let assistantVoiceSupportLoading = false;
 let localLockModalOpen = false;
 let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
@@ -397,11 +416,18 @@ let appConfig = carregarObjeto("appConfig", {
   adsensePublisherId: ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
   adsenseBannerSlot: ADSENSE_WEB_DEFAULT_BANNER_SLOT,
   aiOfflineAssistant: {
+    localEnabled: false,
+    proActivationPromptedVersion: "",
+    onboardingCompleted: false,
     activeModelId: "",
     installedModelId: "",
     models: {},
     lastFailure: "",
     lastPerformance: "",
+    lastDeviceProfile: "",
+    voiceEnabled: false,
+    ttsEnabled: false,
+    ttsRate: 1,
     basicFallback: true
   },
   calculatorWidget: {
@@ -6324,15 +6350,19 @@ function renderOnboarding() {
   `;
 }
 
-function abrirAssistente() {
+function abrirAssistente(modo = "auto") {
   assistantOpen = true;
   assistantMinimized = false;
+  assistantMode = modo === "pro" && iaLocalEstaPronta() ? "pro" : modo === "basic" ? "basic" : getAssistenteModoDisponivel();
   if (!assistantMessages.length) {
     assistantMessages.push({
       role: "assistant",
-      text: "Olá! Sou o assistente local do Simplifica 3D. Posso ajudar com pedido, estoque, calculadora, backup, PDF, plano, login e Supabase."
+      text: assistantMode === "pro"
+        ? "IA Pro Local pronta. Posso ajudar com sugestões contextualizadas do Simplifica 3D."
+        : "Olá! Sou o Assistente do Simplifica 3D. Posso ajudar com pedido, estoque, calculadora, backup, PDF, plano e login."
     });
   }
+  if (assistantMode === "pro") atualizarSuporteVozIASeNecessario();
   renderApp();
 }
 
@@ -6388,25 +6418,43 @@ function limitarMensagensAssistente() {
 
 function limparConversaAssistente() {
   assistantMessages = [];
-  abrirAssistente();
+  abrirAssistente(assistantMode || "auto");
 }
 
 function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxuto(texto)) {
-  const pergunta = normalizarTextoAssistente(texto);
-  const resposta = assistantResponses.find((item) => item.keywords.some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
-  const estimado = estimarTokensTexto(JSON.stringify(contexto));
-  window.__assistantLastTokenEstimate = estimado;
-  console.debug("[Assistente] Contexto enxuto estimado", { tokens: estimado, tela: contexto.tela });
-  return resposta?.answer || "Ainda não sei responder isso. Procure o suporte ou tente usar palavras como pedido, estoque, backup, PDF ou plano.";
+  try {
+    const pergunta = normalizarTextoAssistente(texto);
+    const base = Array.isArray(assistantResponses) ? assistantResponses : [];
+    const resposta = base.find((item) => (item.keywords || []).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
+    const estimado = estimarTokensTexto(JSON.stringify(contexto || {}));
+    window.__assistantLastTokenEstimate = estimado;
+    console.debug("[Assistente] Resposta básica", { tokens: estimado, tela: contexto?.tela || telaAtual, matched: !!resposta });
+    return resposta?.answer || "Não consegui acessar a IA agora, mas posso te ajudar com orientações básicas do sistema. Tente perguntar sobre pedido, estoque, calculadora, PDF, backup, plano ou login.";
+  } catch (erro) {
+    ErrorService.capture(erro, { area: "Assistente básico", action: "fallback", silent: true });
+    return "Não consegui acessar a IA agora, mas posso te ajudar com orientações básicas do sistema.";
+  }
 }
 
 function normalizarAIAssistantSettings(config = appConfig.aiOfflineAssistant || {}) {
+  const activeModelId = String(config.activeModelId || "");
+  const installedModelId = String(config.installedModelId || "");
+  const localEnabled = config.localEnabled === undefined
+    ? !!activeModelId
+    : config.localEnabled === true;
   return {
-    activeModelId: String(config.activeModelId || ""),
-    installedModelId: String(config.installedModelId || ""),
+    localEnabled,
+    proActivationPromptedVersion: String(config.proActivationPromptedVersion || ""),
+    onboardingCompleted: config.onboardingCompleted === true,
+    activeModelId,
+    installedModelId,
     models: config.models && typeof config.models === "object" ? config.models : {},
     lastFailure: String(config.lastFailure || ""),
     lastPerformance: String(config.lastPerformance || ""),
+    lastDeviceProfile: String(config.lastDeviceProfile || ""),
+    voiceEnabled: config.voiceEnabled === true,
+    ttsEnabled: config.ttsEnabled === true,
+    ttsRate: Math.max(0.6, Math.min(Number(config.ttsRate || 1) || 1, 1.4)),
     basicFallback: config.basicFallback !== false
   };
 }
@@ -6446,6 +6494,45 @@ function podeExibirAssistenteIAOffline() {
 
 function podeUsarAssistenteIAOfflinePro() {
   return podeExibirAssistenteIAOffline() && temPlanoProPagoAtivo();
+}
+
+function iaLocalEstaAtivada() {
+  const settings = getAIAssistantSettings();
+  return podeUsarAssistenteIAOfflinePro() && settings.localEnabled === true;
+}
+
+function iaLocalEstaPronta() {
+  return iaLocalEstaAtivada() && !!getModeloIAOfflineAtivoInstalado(false);
+}
+
+function getAssistenteModoDisponivel() {
+  return iaLocalEstaPronta() ? "pro" : "basic";
+}
+
+function getAssistenteLabelPrincipal() {
+  return podeUsarAssistenteIAOfflinePro() ? "IA Pro" : "Assistente";
+}
+
+function renderAssistantFabContent(label = "Assistente", pro = false) {
+  return `
+    <span class="assistant-fab-icon ${pro ? "pro" : ""}" aria-hidden="true">
+      <span></span>
+    </span>
+    <span>${escaparHtml(label)}</span>
+  `;
+}
+
+function registrarFalhaIALocal(action, erro, extra = {}) {
+  ErrorService.capture(erro, { area: "Assistente IA Local", action, silent: true, ...extra });
+}
+
+function definirIAConfig(patch = {}, persistir = true) {
+  appConfig.aiOfflineAssistant = {
+    ...getAIAssistantSettings(),
+    ...patch
+  };
+  if (persistir) salvarDados();
+  return getAIAssistantSettings();
 }
 
 function getAIModelStatus(modelId) {
@@ -6507,45 +6594,162 @@ async function obterResumoCapacidadeIA(modelo = {}) {
   };
 }
 
-function renderAssistenteInteligenteProConfig() {
-  if (!podeExibirAssistenteIAOffline()) return "";
-  const settings = getAIAssistantSettings();
-  const pro = podeUsarAssistenteIAOfflinePro();
-  const ativo = getAIModel(settings.activeModelId);
-  const instalado = getAIModel(settings.installedModelId);
+function classificarDispositivoIA(resumo = {}) {
+  const memoria = Math.max(Number(resumo.memoryMb || 0) || 0, Number(resumo.memoryClassMb || 0) || 0);
+  const storage = Number(resumo.storageMb || 0) || 0;
+  const cores = Number(resumo.cpuCores || navigator.hardwareConcurrency || 0) || 0;
+  if ((memoria && memoria < 1024) || (storage && storage < 700) || (cores && cores <= 2)) {
+    return {
+      id: "basic",
+      label: "Básico",
+      modelId: "lite",
+      description: "Respostas curtas, menor consumo e melhor estabilidade para aparelhos simples.",
+      speed: "mais rápido e leve",
+      quality: "ajuda essencial do sistema"
+    };
+  }
+  if ((memoria && memoria < 4096) || (storage && storage < 1200) || (cores && cores <= 4)) {
+    return {
+      id: "intermediate",
+      label: "Intermediário",
+      modelId: "smart",
+      description: "Bom equilíbrio entre qualidade e desempenho para uso diário.",
+      speed: "velocidade moderada",
+      quality: "mais contexto para pedidos, estoque e cálculo"
+    };
+  }
+  return {
+    id: "advanced",
+    label: "Avançado",
+    modelId: "pro",
+    description: "Melhor qualidade para aparelhos mais fortes.",
+    speed: "mais completo",
+    quality: "análises comerciais mais completas"
+  };
+}
 
-  if (!pro) {
+async function analisarDispositivoParaIA() {
+  const resultados = [];
+  for (const modelo of AI_MODELS) {
+    resultados.push({ modelo, resumo: await obterResumoCapacidadeIA(modelo) });
+  }
+  const melhorResumo = resultados.find((item) => item.modelo.id === "pro")?.resumo
+    || resultados.find((item) => item.modelo.id === "smart")?.resumo
+    || resultados[0]?.resumo
+    || {};
+  const perfil = classificarDispositivoIA(melhorResumo);
+  const modelo = getAIModel(perfil.modelId) || getAIModel("lite");
+  return {
+    perfil,
+    modelo,
+    resumo: melhorResumo,
+    resultados
+  };
+}
+
+async function obterSuporteVozIA() {
+  if (!podeUsarAssistenteIAOfflinePro()) return { speechAvailable: false, ttsAvailable: false };
+  const plugin = getAIPlugin();
+  if (!plugin?.getAiVoiceSupport) return { speechAvailable: false, ttsAvailable: false };
+  if (assistantVoiceSupportLoading) return assistantVoiceSupport || { speechAvailable: false, ttsAvailable: false, loading: true };
+  assistantVoiceSupportLoading = true;
+  try {
+    assistantVoiceSupport = await plugin.getAiVoiceSupport();
+  } catch (erro) {
+    assistantVoiceSupport = { speechAvailable: false, ttsAvailable: false, error: erro?.message || String(erro) };
+    registrarFalhaIALocal("voice_support", erro);
+  } finally {
+    assistantVoiceSupportLoading = false;
+  }
+  return assistantVoiceSupport;
+}
+
+function podeUsarVozIAPro() {
+  return iaLocalEstaPronta()
+    && assistantMode === "pro"
+    && getAIAssistantSettings().voiceEnabled === true
+    && assistantVoiceSupport?.speechAvailable === true;
+}
+
+async function atualizarSuporteVozIASeNecessario() {
+  if (!iaLocalEstaPronta() || assistantVoiceSupport || assistantVoiceSupportLoading) return;
+  await obterSuporteVozIA();
+  renderApp();
+}
+
+function renderAssistenteInteligenteProConfig() {
+  if (!getUsuarioAtual()) return "";
+  if (!podeUsarAssistenteIAOfflinePro()) {
     return `
-      <div class="danger-zone ai-pro-manager">
+      <div class="danger-zone ai-pro-manager ai-basic-manager">
         <div class="card-header compact">
-          <h2 class="section-title">✨ Assistente Inteligente Pro</h2>
-          <span class="status-badge">PRO</span>
-        </div>
-        <p class="muted">Assistente Inteligente Offline exclusivo do plano PRO ativo. No teste grátis ou no Free, assine para migrar.</p>
-        <div class="actions">
-          <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Ver plano Pro</button>
+          <h2 class="section-title">Assistente básico</h2>
+          <span class="status-badge">Ativo</span>
         </div>
       </div>
     `;
   }
+  const settings = getAIAssistantSettings();
+  const ativo = getAIModel(settings.activeModelId);
+  const instalado = getAIModel(settings.installedModelId);
+  const localAtivo = settings.localEnabled === true;
+  const pronto = localAtivo && !!getModeloIAOfflineAtivoInstalado();
+  const vozDisponivel = assistantVoiceSupport?.speechAvailable === true;
+  const vozVerificada = !!assistantVoiceSupport && assistantVoiceSupportLoading === false;
+  const ttsDisponivel = assistantVoiceSupport?.ttsAvailable !== false;
+  if (pronto && !assistantVoiceSupport && !assistantVoiceSupportLoading) {
+    setTimeout(() => atualizarSuporteVozIASeNecessario(), 0);
+  }
+  const textoStatusVoz = assistantVoiceSupportLoading
+    ? "verificando compatibilidade"
+    : vozDisponivel
+      ? "disponível"
+      : vozVerificada
+        ? "indisponível neste aparelho"
+        : "aguardando verificação";
 
   return `
     <div class="danger-zone ai-pro-manager">
       <div class="card-header compact">
-        <h2 class="section-title">✨ Assistente Inteligente Pro</h2>
-        <span class="status-badge">${ativo ? "Ativo" : "Sem modelo ativo"}</span>
+        <h2 class="section-title">IA Local</h2>
+        <span class="status-badge">${pronto ? "Pronta" : localAtivo ? "Configurar" : "Desativada"}</span>
       </div>
-      <p class="muted">Modelos offline são baixados sob demanda e ficam apenas neste aparelho. O APK não inclui modelos embutidos.</p>
+      <label class="toggle-row">
+        <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)">
+        <span>Ativar IA Local</span>
+      </label>
       <div class="sync-grid">
-        <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(ativo?.name || "Nenhum")}</strong></div>
-        <div class="metric"><span>Modelo instalado</span><strong>${escaparHtml(instalado?.name || "Nenhum")}</strong></div>
-        <div class="metric"><span>Espaço usado</span><strong>${Number(getAIModelLocalState(settings.installedModelId).sizeMb || instalado?.sizeMb || 0) || 0} MB</strong></div>
-        <div class="metric"><span>Último teste</span><strong>${escaparHtml(settings.lastPerformance || "Não testado")}</strong></div>
+        <div class="metric"><span>Modo</span><strong>${escaparHtml(settings.lastDeviceProfile || "Automático")}</strong></div>
+        <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "Nenhum") : "Assistente básico")}</strong></div>
+        <div class="metric"><span>Espaço</span><strong>${Number(getAIModelLocalState(settings.installedModelId).sizeMb || instalado?.sizeMb || 0) || 0} MB</strong></div>
+        <div class="metric"><span>Status</span><strong>${pronto ? "Pronta" : "Aguardando"}</strong></div>
       </div>
+      <div class="actions">
+        <button class="btn" type="button" onclick="abrirWizardIAProLocal()">Instalar IA automaticamente</button>
+        <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()">Parar IA Local</button>
+      </div>
+      <label class="toggle-row ${vozDisponivel ? "" : "muted-disabled"}">
+        <input type="checkbox" ${settings.voiceEnabled && vozDisponivel ? "checked" : ""} onchange="alternarVozIAPro(this.checked)" ${vozDisponivel ? "" : "disabled"}>
+        <span>Microfone${vozDisponivel ? "" : ` (${escaparHtml(textoStatusVoz)})`}</span>
+      </label>
+      <label class="toggle-row ${ttsDisponivel ? "" : "muted-disabled"}">
+        <input type="checkbox" ${settings.ttsEnabled && ttsDisponivel ? "checked" : ""} onchange="alternarLeituraVozIAPro(this.checked)" ${ttsDisponivel ? "" : "disabled"}>
+        <span>Ler em voz alta${ttsDisponivel ? "" : " (indisponível)"}</span>
+      </label>
+      ${settings.ttsEnabled && ttsDisponivel ? `
+        <label class="range-row">
+          <span>Velocidade da voz</span>
+          <input type="range" min="0.6" max="1.4" step="0.1" value="${escaparAttr(settings.ttsRate || 1)}" oninput="ajustarVelocidadeLeituraIAPro(this.value)">
+          <strong>${Number(settings.ttsRate || 1).toFixed(1)}x</strong>
+        </label>
+      ` : ""}
       ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
-      <div class="ai-model-list">
-        ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
-      </div>
+      <details class="ai-advanced-settings">
+        <summary>Modelos</summary>
+        <div class="ai-model-list">
+          ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
+        </div>
+      </details>
     </div>
   `;
 }
@@ -6556,22 +6760,20 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
   const installed = ["installed", "active"].includes(status) || !!state.installedAt;
   const busy = ["downloading", "removing"].includes(status);
   const urlConfigurada = !!String(modelo.url || "").trim();
+  const statusLabel = status === "active" ? "Em uso" : labelStatusAI(status);
   return `
     <article class="ai-model-card ${settings.activeModelId === modelo.id ? "active" : ""}">
       <div class="row-title">
         <div>
           <strong>${escaparHtml(modelo.name)}</strong>
-          <span class="muted">${escaparHtml(modelo.recommended)} • ${modelo.sizeMb} MB${modelo.ramRecommended ? ` • RAM ${escaparHtml(modelo.ramRecommended)}` : ""}</span>
+          <span class="muted">${escaparHtml(modelo.recommended)} • ${modelo.sizeMb} MB</span>
         </div>
-        <span class="status-badge">${escaparHtml(labelStatusAI(status))}</span>
+        <span class="status-badge">${escaparHtml(statusLabel)}</span>
       </div>
-      ${modelo.model ? `<p class="muted">Modelo: ${escaparHtml(modelo.model)}</p>` : ""}
-      <p class="muted">${escaparHtml(modelo.description)}</p>
-      <p class="muted">${urlConfigurada ? "Instalação direta pelo APK. Nenhum site externo é aberto para o usuário." : "Pacote ainda não configurado. O botão será liberado quando o arquivo real estiver hospedado."}</p>
       <div class="actions">
         <button class="btn secondary" type="button" onclick="baixarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || installed || !urlConfigurada ? "disabled" : ""}>Baixar</button>
         <button class="btn" type="button" onclick="usarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !installed ? "disabled" : ""}>Usar este modelo</button>
-        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy ? "disabled" : ""}>Testar desempenho</button>
+        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy ? "disabled" : ""}>Testar</button>
         <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !installed ? "disabled" : ""}>Remover modelo</button>
       </div>
     </article>
@@ -6580,20 +6782,20 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
 
 async function baixarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
-  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return false;
   if (!modelo.url) {
-    const msg = "Pacote do modelo ainda não configurado. Hospede o arquivo real para liberar a instalação direta pelo APK.";
+    const msg = "Instalação indisponível no momento.";
     setAIModelLocalState(modelId, { status: "error", lastError: msg });
     appConfig.aiOfflineAssistant.lastFailure = msg;
     salvarDados();
     mostrarToast("Modelo ainda sem URL de download.", "aviso", 5000);
     renderizarPreservandoScroll();
-    return;
+    return false;
   }
   const plugin = getAIPlugin();
   if (!plugin?.downloadAiModel) {
-    mostrarToast("Camada nativa de modelos offline indisponível neste APK.", "erro", 6000);
-    return;
+    mostrarToast("Instalação indisponível neste aparelho.", "erro", 5000);
+    return false;
   }
   setAIModelLocalState(modelId, { status: "downloading", lastError: "" });
   appConfig.aiOfflineAssistant.lastFailure = "";
@@ -6615,16 +6817,22 @@ async function baixarModeloIAOffline(modelId) {
     });
     appConfig.aiOfflineAssistant.installedModelId = modelId;
     appConfig.aiOfflineAssistant.activeModelId = modelId;
+    appConfig.aiOfflineAssistant.localEnabled = true;
+    appConfig.aiOfflineAssistant.onboardingCompleted = true;
     salvarDados();
     mostrarToast(`${modelo.name} instalado.`, "sucesso", 4200);
+    return true;
   } catch (erro) {
     const msg = erro?.message || String(erro);
     setAIModelLocalState(modelId, { status: "error", lastError: msg });
     appConfig.aiOfflineAssistant.lastFailure = "Falha ao baixar modelo: " + msg;
     salvarDados();
     mostrarToast("Não foi possível baixar o modelo.", "erro", 6000);
+    registrarFalhaIALocal("download_model", erro, { modelId });
+    return false;
+  } finally {
+    renderizarPreservandoScroll();
   }
-  renderizarPreservandoScroll();
 }
 
 async function usarModeloIAOffline(modelId) {
@@ -6642,7 +6850,10 @@ async function usarModeloIAOffline(modelId) {
   }
   appConfig.aiOfflineAssistant.activeModelId = modelId;
   appConfig.aiOfflineAssistant.installedModelId = appConfig.aiOfflineAssistant.installedModelId || modelId;
+  appConfig.aiOfflineAssistant.localEnabled = true;
+  appConfig.aiOfflineAssistant.onboardingCompleted = true;
   appConfig.aiOfflineAssistant.lastPerformance = performance.message || "Modelo ativado";
+  assistantVoiceSupport = null;
   salvarDados();
   mostrarToast(`${modelo.name} ativo.`, "sucesso", 3500);
   renderizarPreservandoScroll();
@@ -6651,7 +6862,7 @@ async function usarModeloIAOffline(modelId) {
 async function removerModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
   if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
-  const confirmado = confirm("Remover este modelo offline? Você poderá baixar novamente depois.");
+  const confirmado = confirm("Remover esta IA do aparelho? Você poderá instalar novamente depois.");
   if (!confirmado) return;
   const plugin = getAIPlugin();
   setAIModelLocalState(modelId, { status: "removing" });
@@ -6663,6 +6874,12 @@ async function removerModeloIAOffline(modelId) {
     delete settings.models[modelId];
     if (settings.activeModelId === modelId) settings.activeModelId = "";
     if (settings.installedModelId === modelId) settings.installedModelId = "";
+    if (!settings.activeModelId) {
+      settings.localEnabled = false;
+      settings.voiceEnabled = false;
+      assistantMode = "basic";
+    }
+    assistantVoiceSupport = null;
     appConfig.aiOfflineAssistant = settings;
     salvarDados();
     mostrarToast("Modelo removido.", "sucesso", 3500);
@@ -6677,12 +6894,174 @@ async function testarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
   if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
   const resultado = await obterResumoCapacidadeIA(modelo);
-  const memoria = resultado.memoryMb ? ` RAM aprox.: ${resultado.memoryMb} MB.` : "";
-  const texto = resultado.message || "Teste concluído.";
+  const texto = resultado.risk === "high"
+    ? "Este modelo pode ficar lento neste aparelho."
+    : "Teste concluído.";
   appConfig.aiOfflineAssistant.lastPerformance = texto;
   salvarDados();
-  mostrarToast(`${texto}${memoria}`, resultado.risk === "high" ? "aviso" : "info", 6500);
+  mostrarToast(texto, resultado.risk === "high" ? "aviso" : "info", 4200);
   renderizarPreservandoScroll();
+}
+
+async function alternarIALocalPro(ativo) {
+  if (!podeUsarAssistenteIAOfflinePro()) return;
+  const settings = getAIAssistantSettings();
+  if (!ativo) {
+    definirIAConfig({ localEnabled: false, voiceEnabled: false, ttsEnabled: false });
+    assistantMode = "basic";
+    assistantListening = false;
+    try {
+      await getAIPlugin()?.stopAiVoiceRecognition?.();
+      await getAIPlugin()?.stopAiSpeech?.();
+      await getAIPlugin()?.unloadAiModel?.();
+    } catch (erro) {
+      registrarFalhaIALocal("unload_toggle", erro);
+    }
+    mostrarToast("Assistente básico ativo.", "info", 3200);
+    renderizarPreservandoScroll();
+    return;
+  }
+  const modelo = getAIModel(settings.activeModelId);
+  const state = getAIModelLocalState(settings.activeModelId);
+  if (!modelo || !state.path) {
+    definirIAConfig({ localEnabled: false });
+    abrirWizardIAProLocal();
+    return;
+  }
+  definirIAConfig({ localEnabled: true, onboardingCompleted: true });
+  assistantMode = "pro";
+  assistantVoiceSupport = null;
+  mostrarToast("IA Local ativada.", "sucesso", 3200);
+  obterSuporteVozIA().finally(() => renderizarPreservandoScroll());
+}
+
+async function limparRuntimeIAPro() {
+  try {
+    assistantListening = false;
+    await getAIPlugin()?.stopAiVoiceRecognition?.();
+    await getAIPlugin()?.stopAiSpeech?.();
+    await getAIPlugin()?.unloadAiModel?.();
+    mostrarToast("Memória da IA liberada.", "sucesso", 3000);
+  } catch (erro) {
+    registrarFalhaIALocal("unload_manual", erro);
+    mostrarToast("Não foi possível liberar a IA agora.", "aviso", 4000);
+  }
+}
+
+async function alternarVozIAPro(ativo) {
+  if (!podeUsarAssistenteIAOfflinePro()) return;
+  if (!ativo) {
+    assistantListening = false;
+    try {
+      await getAIPlugin()?.stopAiVoiceRecognition?.();
+    } catch (erro) {
+      registrarFalhaIALocal("voice_disable", erro);
+    }
+  }
+  if (ativo) {
+    const suporte = await obterSuporteVozIA();
+    if (suporte?.speechAvailable !== true) {
+      definirIAConfig({ voiceEnabled: false });
+      mostrarToast("Seu dispositivo não possui suporte completo ao reconhecimento de voz.", "aviso", 5000);
+      renderizarPreservandoScroll();
+      return;
+    }
+  }
+  definirIAConfig({ voiceEnabled: ativo === true });
+  renderizarPreservandoScroll();
+}
+
+function alternarLeituraVozIAPro(ativo) {
+  if (!podeUsarAssistenteIAOfflinePro()) return;
+  if (ativo && assistantVoiceSupport?.ttsAvailable === false) {
+    definirIAConfig({ ttsEnabled: false });
+    mostrarToast("Leitura em voz indisponível neste aparelho.", "aviso", 4200);
+    renderizarPreservandoScroll();
+    return;
+  }
+  if (!ativo) {
+    getAIPlugin()?.stopAiSpeech?.().catch((erro) => registrarFalhaIALocal("tts_disable", erro));
+  }
+  definirIAConfig({ ttsEnabled: ativo === true });
+  mostrarToast(ativo ? "Leitura em voz ativada." : "Leitura em voz desativada.", "info", 2600);
+  renderizarPreservandoScroll();
+}
+
+function ajustarVelocidadeLeituraIAPro(valor) {
+  if (!podeUsarAssistenteIAOfflinePro()) return;
+  const ttsRate = Math.max(0.6, Math.min(Number(valor || 1) || 1, 1.4));
+  definirIAConfig({ ttsRate }, true);
+  renderizarPreservandoScroll();
+}
+
+async function abrirWizardIAProLocal() {
+  if (!podeUsarAssistenteIAOfflinePro()) {
+    trocarTela("assinatura");
+    return;
+  }
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-wizard-cancel">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Preparando IA Local</h2>
+          <button class="icon-button" type="button" data-action="ai-wizard-cancel" title="Fechar">✕</button>
+        </div>
+        <p class="muted">Escolhendo a melhor opção para este aparelho...</p>
+        <div class="skeleton-block"></div>
+      </div>
+    </div>
+  `;
+  try {
+    const analise = await analisarDispositivoParaIA();
+    definirIAConfig({ lastDeviceProfile: analise.perfil.label }, true);
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-wizard-cancel">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h2>Modo ${escaparHtml(analise.perfil.label)}</h2>
+            <button class="icon-button" type="button" data-action="ai-wizard-cancel" title="Fechar">✕</button>
+          </div>
+          <div class="sync-grid">
+            <div class="metric"><span>Escolha</span><strong>${escaparHtml(analise.modelo?.name || "IA Lite")}</strong></div>
+            <div class="metric"><span>Uso</span><strong>${escaparHtml(analise.perfil.speed)}</strong></div>
+            <div class="metric"><span>Ajuda</span><strong>${escaparHtml(analise.perfil.quality)}</strong></div>
+            <div class="metric"><span>Espaço</span><strong>${Number(analise.modelo?.sizeMb || 0)} MB</strong></div>
+          </div>
+          <div class="actions">
+            <button class="btn" type="button" data-action="ai-wizard-install" data-model-id="${escaparAttr(analise.modelo?.id || "lite")}">Instalar IA automaticamente</button>
+            <button class="btn ghost" type="button" data-action="ai-wizard-cancel">Depois</button>
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (erro) {
+    registrarFalhaIALocal("wizard_analyze", erro);
+    mostrarToast("Não foi possível analisar o aparelho agora.", "erro", 5000);
+    fecharPopup();
+  }
+}
+
+async function instalarIAAutomatica(modelId = "lite") {
+  fecharPopup();
+  const ok = await baixarModeloIAOffline(modelId);
+  if (ok) {
+    definirIAConfig({ localEnabled: true, onboardingCompleted: true });
+    assistantMode = "pro";
+    mostrarToast("IA pronta para uso.", "sucesso", 4200);
+  }
+}
+
+function usarAssistenteBasicoAgora(origem = "assistente") {
+  fecharPopup();
+  assistantMode = "basic";
+  if (origem === "calculadora") {
+    const contexto = montarContextoIAComercial().calculoRecente || {};
+    mostrarSugestoesIACalculadora(gerarSugestoesCalculadoraBasicas(contexto), "Assistente básico com resumo seguro da calculadora.");
+    return;
+  }
+  abrirAssistente("basic");
 }
 
 function montarContextoIAComercial() {
@@ -6730,8 +7109,9 @@ function gerarSugestoesCalculadoraBasicas(contexto = montarContextoIAComercial()
   return sugestoes.slice(0, 5);
 }
 
-function getModeloIAOfflineAtivoInstalado() {
+function getModeloIAOfflineAtivoInstalado(exigirToggle = true) {
   if (!podeUsarAssistenteIAOfflinePro()) return null;
+  if (exigirToggle && getAIAssistantSettings().localEnabled !== true) return null;
   const settings = getAIAssistantSettings();
   const modelo = getAIModel(settings.activeModelId);
   const state = getAIModelLocalState(settings.activeModelId);
@@ -6749,6 +7129,8 @@ function montarPromptIAOffline(texto = "", contexto = {}) {
   return [
     "Responda em português do Brasil.",
     "Use apenas o contexto abaixo e não altere valores oficiais.",
+    "Base interna do Simplifica 3D:",
+    JSON.stringify(AI_KNOWLEDGE_BASE),
     "Contexto resumido:",
     JSON.stringify(contextoSeguro).slice(0, 1600),
     "",
@@ -6757,12 +7139,20 @@ function montarPromptIAOffline(texto = "", contexto = {}) {
   ].join("\n");
 }
 
+function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(mensagem)), Math.max(1000, Number(timeoutMs) || 8000));
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistenteEnxuto(texto), opcoes = {}) {
   if (!podeUsarAssistenteIAOfflinePro()) throw new Error("Assistente offline disponível apenas no Android com plano PRO ativo.");
   const ativo = getModeloIAOfflineAtivoInstalado();
-  if (!ativo) throw new Error("Baixe e ative um modelo offline antes de usar a IA Pro.");
+  if (!ativo) throw new Error("Instale a IA Pro antes de usar.");
   const plugin = getAIPlugin();
-  if (!plugin?.runAiPrompt) throw new Error("Runtime nativo de IA indisponível neste APK.");
+  if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
 
   const result = await plugin.runAiPrompt({
     modelId: ativo.modelo.id,
@@ -6770,7 +7160,7 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
     prompt: montarPromptIAOffline(texto, contexto),
     maxTokens: Math.max(32, Math.min(Number(opcoes.maxTokens || 160) || 160, 256)),
-    timeoutMs: Math.max(10000, Math.min(Number(opcoes.timeoutMs || 60000) || 60000, 120000))
+    timeoutMs: Math.max(8000, Math.min(Number(opcoes.timeoutMs || 60000) || 60000, 120000))
   });
   const resposta = String(result?.text || "").trim();
   if (!resposta) throw new Error("O modelo offline não retornou resposta.");
@@ -6778,12 +7168,6 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
 }
 
 async function sugerirCalculadoraComIA() {
-  if (!podeExibirAssistenteIAOffline()) return;
-  if (!podeUsarAssistenteIAOfflinePro()) {
-    mostrarToast("IA offline exclusiva do plano PRO ativo. Assine para migrar.", "aviso", 5200);
-    trocarTela("assinatura");
-    return;
-  }
   if (!ultimoCalculo) {
     const calculou = calcular();
     if (!calculou) return;
@@ -6792,20 +7176,30 @@ async function sugerirCalculadoraComIA() {
   const settings = getAIAssistantSettings();
   const modelo = getAIModel(settings.activeModelId);
   let sugestoes = gerarSugestoesCalculadoraBasicas(contexto);
-  let detalhesMotor = modelo
-    ? `Modelo ativo: ${modelo.name}. Resposta gerada localmente quando o GGUF estiver instalado e carregado.`
-    : "Nenhum modelo offline ativo. Usando assistente básico com resumo seguro da calculadora.";
+  let detalhesMotor = "Assistente básico com resumo seguro da calculadora.";
+  if (podeUsarAssistenteIAOfflinePro() && !iaLocalEstaPronta()) {
+    abrirModalIALocalNaoConfigurada("calculadora");
+    return;
+  }
   try {
-    if (getModeloIAOfflineAtivoInstalado()) {
-      const resposta = await gerarRespostaIAOffline("Sugira melhorias comerciais para este cálculo sem alterar o preço oficial.", { tela: "calculadora", calculoRecente: contexto }, { maxTokens: 140, timeoutMs: 60000 });
+    if (iaLocalEstaPronta()) {
+      const resposta = await promiseComTimeout(
+        gerarRespostaIAOffline("Sugira melhorias comerciais para este cálculo sem alterar o preço oficial.", { tela: "calculadora", calculoRecente: contexto }, { maxTokens: 140, timeoutMs: 60000 }),
+        8000,
+        "IA local demorou demais para responder."
+      );
       sugestoes = resposta.split(/\n+/).map((linha) => linha.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean).slice(0, 6);
       if (!sugestoes.length) sugestoes = [resposta];
       detalhesMotor = `Modelo ativo: ${modelo?.name || "IA offline"}. Resposta gerada localmente no Android, sem internet.`;
     }
   } catch (erro) {
-    detalhesMotor = "Não foi possível carregar o modelo offline agora. Mostrando sugestões básicas seguras.";
-    ErrorService.capture(erro, { area: "Assistente IA", action: "Sugestão calculadora offline", silent: true });
+    detalhesMotor = "Não foi possível usar a IA agora. Mostrando sugestões básicas.";
+    registrarFalhaIALocal("calculator_suggestion", erro);
   }
+  mostrarSugestoesIACalculadora(sugestoes, detalhesMotor);
+}
+
+function mostrarSugestoesIACalculadora(sugestoes = [], detalhesMotor = "Assistente básico com resumo seguro da calculadora.") {
   const popup = document.getElementById("popup");
   if (!popup) {
     alert(sugestoes.join("\n"));
@@ -6832,6 +7226,30 @@ async function sugerirCalculadoraComIA() {
   `;
 }
 
+function abrirModalIALocalNaoConfigurada(origem = "assistente") {
+  const popup = document.getElementById("popup");
+  if (!popup) {
+    mostrarToast("IA local ainda não configurada.", "aviso", 5000);
+    return;
+  }
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-setup-cancel">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>IA local ainda não configurada</h2>
+          <button class="icon-button" type="button" data-action="ai-setup-cancel" title="Fechar">✕</button>
+        </div>
+        <p class="muted">Para usar a IA Pro Local, instale um modelo neste aparelho. Você também pode continuar com o assistente básico agora.</p>
+        <div class="actions">
+          <button class="btn" type="button" data-action="ai-setup-install" data-origin="${escaparAttr(origem)}">Instalar IA</button>
+          <button class="btn secondary" type="button" data-action="ai-setup-basic" data-origin="${escaparAttr(origem)}">Usar assistente básico</button>
+          <button class="btn ghost" type="button" data-action="ai-setup-cancel">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function deveDirecionarBuscaParaAssistente(termo = "") {
   const texto = String(termo || "").trim();
   if (!texto) return false;
@@ -6839,30 +7257,60 @@ function deveDirecionarBuscaParaAssistente(termo = "") {
 }
 
 async function abrirAssistenteComPergunta(texto = "") {
-  abrirAssistente();
+  abrirAssistente("auto");
   await responderAssistente(texto);
 }
 
 async function responderAssistente(texto = "") {
   const pergunta = String(texto || "").trim();
   if (!pergunta) return;
-  const contexto = montarContextoAssistenteEnxuto(pergunta);
+  let contexto = {};
+  try {
+    contexto = montarContextoAssistenteEnxuto(pergunta);
+  } catch (erro) {
+    contexto = { tela: telaAtual, tarefa: pergunta };
+    ErrorService.capture(erro, { area: "Assistente básico", action: "contexto", silent: true });
+  }
+  const usarIAPro = iaLocalEstaPronta();
+  assistantMode = usarIAPro ? "pro" : "basic";
   assistantMessages.push({ role: "user", text: pergunta });
-  const respostaIndex = assistantMessages.push({ role: "assistant", text: "Gerando resposta offline..." }) - 1;
+  const respostaPendente = {
+    role: "assistant",
+    text: usarIAPro ? "Gerando resposta local..." : "Consultando orientações básicas..."
+  };
+  assistantMessages.push(respostaPendente);
   limitarMensagensAssistente();
-  assistantGenerating = true;
+  assistantGenerating = usarIAPro;
   renderApp();
   try {
-    const resposta = getModeloIAOfflineAtivoInstalado()
-      ? await gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 180, timeoutMs: 70000 })
+    const resposta = usarIAPro
+      ? await promiseComTimeout(
+          gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 180, timeoutMs: 70000 }),
+          8000,
+          "IA local demorou demais para responder."
+        )
       : obterRespostaAssistente(pergunta, contexto);
-    assistantMessages[respostaIndex] = { role: "assistant", text: resposta };
+    const respostaIndex = assistantMessages.indexOf(respostaPendente);
+    if (respostaIndex >= 0) {
+      assistantMessages[respostaIndex] = { role: "assistant", text: resposta };
+    } else {
+      assistantMessages.push({ role: "assistant", text: resposta });
+    }
+    if (usarIAPro && getAIAssistantSettings().ttsEnabled === true) {
+      lerRespostaIAEmVoz(resposta);
+    }
   } catch (erro) {
-    ErrorService.capture(erro, { area: "Assistente IA", action: "Resposta offline", silent: true });
-    assistantMessages[respostaIndex] = {
+    registrarFalhaIALocal("chat_response", erro);
+    const respostaIndex = assistantMessages.indexOf(respostaPendente);
+    const fallback = {
       role: "assistant",
-      text: "Não consegui carregar o modelo offline agora. Você pode trocar/remover o modelo em Configurações ou usar o assistente básico."
+      text: obterRespostaAssistente(pergunta, contexto)
     };
+    if (respostaIndex >= 0) {
+      assistantMessages[respostaIndex] = fallback;
+    } else {
+      assistantMessages.push(fallback);
+    }
   } finally {
     assistantGenerating = false;
   }
@@ -6880,6 +7328,52 @@ async function cancelarGeracaoIAOffline() {
   renderApp();
 }
 
+async function iniciarEntradaVozIAPro() {
+  if (!podeUsarVozIAPro()) {
+    mostrarToast("Voz disponível apenas na IA Pro Local configurada.", "aviso", 4200);
+    return;
+  }
+  assistantListening = true;
+  renderApp();
+  try {
+    const result = await promiseComTimeout(
+      getAIPlugin().startAiVoiceRecognition(),
+      14000,
+      "Tempo esgotado para reconhecimento de voz."
+    );
+    const texto = String(result?.text || "").trim();
+    if (!texto) throw new Error("Não foi possível reconhecer sua fala.");
+    assistantListening = false;
+    renderApp();
+    await responderAssistente(texto);
+  } catch (erro) {
+    assistantListening = false;
+    registrarFalhaIALocal("voice_recognition", erro);
+    mostrarToast("Não foi possível reconhecer sua fala.", "aviso", 4200);
+    renderApp();
+  }
+}
+
+async function cancelarEntradaVozIAPro() {
+  assistantListening = false;
+  try {
+    await getAIPlugin()?.stopAiVoiceRecognition?.();
+  } catch (erro) {
+    registrarFalhaIALocal("voice_cancel", erro);
+  }
+  renderApp();
+}
+
+async function lerRespostaIAEmVoz(texto = "") {
+  const settings = getAIAssistantSettings();
+  if (!settings.ttsEnabled || !getAIPlugin()?.speakAiText) return;
+  try {
+    await getAIPlugin().speakAiText({ text: String(texto || "").slice(0, 700), rate: settings.ttsRate || 1 });
+  } catch (erro) {
+    registrarFalhaIALocal("tts", erro);
+  }
+}
+
 async function enviarMensagemAssistente(event) {
   event?.preventDefault?.();
   const input = document.getElementById("assistantInput");
@@ -6891,26 +7385,28 @@ async function enviarMensagemAssistente(event) {
 
 function renderAssistenteVirtual() {
   if (!podeMostrarControlesFlutuantes()) return "";
+  const modoDisponivel = getAssistenteModoDisponivel();
 
   if (!assistantOpen) {
-    const label = podeUsarAssistenteIAOfflinePro() ? "IA Pro" : "IA";
-    return `<button class="assistant-fab" onclick="abrirAssistente()" title="Assistente inteligente">${escaparHtml(label)}</button>`;
+    const label = modoDisponivel === "pro" ? "IA Pro" : "Assistente";
+    return `<button class="assistant-fab" onclick="abrirAssistente('${escaparAttr(modoDisponivel)}')" title="Assistente inteligente">${renderAssistantFabContent(label, modoDisponivel === "pro")}</button>`;
   }
 
   if (assistantMinimized) {
-    const label = podeUsarAssistenteIAOfflinePro() ? "IA Pro" : "IA";
+    const label = assistantMode === "pro" ? "IA Pro" : "Assistente";
     return `
-      <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente()" title="Abrir assistente">
-        ${escaparHtml(label)}
+      <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('${escaparAttr(assistantMode || modoDisponivel)}')" title="Abrir assistente">
+        ${renderAssistantFabContent(label, assistantMode === "pro")}
       </button>
     `;
   }
 
   const settings = getAIAssistantSettings();
   const modeloAtivo = getAIModel(settings.activeModelId);
-  const subtituloAssistente = podeUsarAssistenteIAOfflinePro() && modeloAtivo
+  const subtituloAssistente = assistantMode === "pro" && modeloAtivo
     ? `${modeloAtivo.name} offline`
-    : "Assistente básico local";
+    : "Assistente básico";
+  const podeMostrarMicrofone = podeUsarVozIAPro();
 
   const mensagens = assistantMessages.map((msg) => `
     <div class="assistant-message ${msg.role === "user" ? "assistant-user" : "assistant-bot"}">
@@ -6927,14 +7423,28 @@ function renderAssistenteVirtual() {
         </div>
         <div class="row-actions">
           ${assistantGenerating ? `<button class="icon-button warning" onclick="cancelarGeracaoIAOffline()" title="Cancelar geração">⏹</button>` : ""}
+          ${podeMostrarMicrofone ? `<button class="icon-button ${assistantListening ? "warning" : ""}" onclick="${assistantListening ? "cancelarEntradaVozIAPro()" : "iniciarEntradaVozIAPro()"}" title="${assistantListening ? "Cancelar fala" : "Falar com a IA"}">🎙</button>` : ""}
           <button class="icon-button" onclick="limparConversaAssistente()" title="Limpar conversa">🧹</button>
           <button class="icon-button" onclick="minimizarAssistente()" title="Minimizar">−</button>
           <button class="icon-button danger" onclick="fecharAssistente()" title="Fechar">×</button>
         </div>
       </div>
       <div class="assistant-body">${mensagens}</div>
+      ${assistantListening ? `
+        <div class="assistant-voice-status" aria-live="polite">
+          <span class="voice-wave"></span>
+          <strong>Ouvindo...</strong>
+          <span>Fale sua pergunta em português.</span>
+        </div>
+      ` : assistantGenerating ? `
+        <div class="assistant-voice-status processing" aria-live="polite">
+          <span class="voice-wave"></span>
+          <strong>Processando...</strong>
+          <span>Preparando resposta.</span>
+        </div>
+      ` : ""}
       <form class="assistant-form" onsubmit="enviarMensagemAssistente(event)">
-        <input id="assistantInput" placeholder="Pergunte sobre pedido, estoque, PDF..." autocomplete="off">
+        <input id="assistantInput" placeholder="${assistantMode === "pro" ? "Pergunte para a IA Pro..." : "Pergunte sobre pedido, estoque, PDF..."}" autocomplete="off">
         <button class="btn" type="submit">Enviar</button>
       </form>
     </section>
@@ -18648,7 +19158,7 @@ function configurarEventListenersArquitetura() {
     if (!elemento) return;
     const acao = elemento.dataset.action;
 
-    if (["plan-modal-close", "stock-edit-cancel", "calc-material-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-edit-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -18713,6 +19223,25 @@ function configurarEventListenersArquitetura() {
     if (acao === "plan-support") {
       event.preventDefault();
       falarComSuporteAssinatura();
+      return;
+    }
+
+    if (acao === "ai-setup-install") {
+      event.preventDefault();
+      fecharPopup();
+      abrirWizardIAProLocal();
+      return;
+    }
+
+    if (acao === "ai-setup-basic") {
+      event.preventDefault();
+      usarAssistenteBasicoAgora(elemento.dataset.origin || "assistente");
+      return;
+    }
+
+    if (acao === "ai-wizard-install") {
+      event.preventDefault();
+      instalarIAAutomatica(elemento.dataset.modelId || "lite");
       return;
     }
 

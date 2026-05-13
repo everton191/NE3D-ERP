@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v78-llama-runtime-5108-20260513";
+const CACHE_NAME = "simplifica-3d-v79-ai-voice-5109-20260513";
 const APP_FILES = [
   "./",
   "./index.html",

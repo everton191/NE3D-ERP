@@ -5,11 +5,19 @@ import android.app.ActivityManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.StatFs;
 import android.provider.MediaStore;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 import android.util.Base64;
 
 import com.getcapacitor.JSObject;
@@ -30,16 +38,39 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Locale;
 
 @CapacitorPlugin(
     name = "SimplificaFiles",
     permissions = {
-        @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = "storage")
+        @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = "storage"),
+        @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = "microphone")
     }
 )
 public class SimplificaFilesPlugin extends Plugin {
 
     private static final String AI_MODEL_DIR = "ai-models";
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private SpeechRecognizer speechRecognizer;
+    private PluginCall speechCall;
+    private Runnable speechTimeoutRunnable;
+    private TextToSpeech textToSpeech;
+    private boolean textToSpeechReady = false;
+
+    @Override
+    protected void handleOnDestroy() {
+        mainHandler.post(() -> {
+            cleanupSpeechRecognizer(false);
+            if (textToSpeech != null) {
+                textToSpeech.stop();
+                textToSpeech.shutdown();
+                textToSpeech = null;
+                textToSpeechReady = false;
+            }
+        });
+        super.handleOnDestroy();
+    }
 
     @PluginMethod
     public void requestStoragePermission(PluginCall call) {
@@ -219,6 +250,11 @@ public class SimplificaFilesPlugin extends Plugin {
         int sizeMb = call.getData().optInt("sizeMb", 0);
         long memoryMb = getAvailableMemoryMb();
         long storageMb = getAvailableInternalStorageMb();
+        ActivityManager manager = (ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE);
+        int memoryClassMb = manager != null ? manager.getMemoryClass() : 0;
+        int largeMemoryClassMb = manager != null ? manager.getLargeMemoryClass() : 0;
+        int cpuCores = Math.max(1, Runtime.getRuntime().availableProcessors());
+        boolean speechAvailable = SpeechRecognizer.isRecognitionAvailable(getContext());
         String risk = "low";
 
         if (sizeMb >= 180 && memoryMb > 0 && memoryMb < 1024) {
@@ -233,11 +269,71 @@ public class SimplificaFilesPlugin extends Plugin {
         result.put("ok", !"high".equals(risk));
         result.put("risk", risk);
         result.put("memoryMb", memoryMb);
+        result.put("memoryClassMb", memoryClassMb);
+        result.put("largeMemoryClassMb", largeMemoryClassMb);
         result.put("storageMb", storageMb);
+        result.put("cpuCores", cpuCores);
+        result.put("androidSdk", Build.VERSION.SDK_INT);
+        result.put("speechAvailable", speechAvailable);
+        result.put("ttsAvailable", true);
         result.put("message", "high".equals(risk)
             ? "Este modelo pode deixar seu aparelho lento. Recomendamos usar IA Lite ou IA Smart."
             : "Teste básico de desempenho concluído.");
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void getAiVoiceSupport(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("speechAvailable", SpeechRecognizer.isRecognitionAvailable(getContext()));
+        result.put("ttsAvailable", true);
+        result.put("microphonePermission", getPermissionState("microphone") == PermissionState.GRANTED);
+        result.put("androidSdk", Build.VERSION.SDK_INT);
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void startAiVoiceRecognition(PluginCall call) {
+        if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+            call.reject("Seu dispositivo não possui suporte completo ao reconhecimento de voz.");
+            return;
+        }
+        if (getPermissionState("microphone") != PermissionState.GRANTED) {
+            requestPermissionForAlias("microphone", call, "microphonePermsCallback");
+            return;
+        }
+        startSpeechRecognition(call);
+    }
+
+    @PluginMethod
+    public void stopAiVoiceRecognition(PluginCall call) {
+        mainHandler.post(() -> {
+            cleanupSpeechRecognizer(false);
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            call.resolve(result);
+        });
+    }
+
+    @PluginMethod
+    public void speakAiText(PluginCall call) {
+        final String text = call.getString("text", "");
+        final float rate = (float) Math.max(0.6, Math.min(call.getData().optDouble("rate", 1.0), 1.4));
+        if (text == null || text.trim().isEmpty()) {
+            call.reject("Texto vazio.");
+            return;
+        }
+        mainHandler.post(() -> speakText(call, text, rate));
+    }
+
+    @PluginMethod
+    public void stopAiSpeech(PluginCall call) {
+        mainHandler.post(() -> {
+            if (textToSpeech != null) textToSpeech.stop();
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            call.resolve(result);
+        });
     }
 
     @PluginMethod
@@ -283,6 +379,143 @@ public class SimplificaFilesPlugin extends Plugin {
         } catch (Throwable error) {
             call.reject("Falha ao cancelar geração offline: " + error.getMessage(), error instanceof Exception ? (Exception) error : null);
         }
+    }
+
+    @PluginMethod
+    public void unloadAiModel(PluginCall call) {
+        try {
+            InferenceEngineImpl.getInstance(getContext()).unloadModel();
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            call.resolve(result);
+        } catch (Throwable error) {
+            call.reject("Falha ao liberar IA local: " + error.getMessage(), error instanceof Exception ? (Exception) error : null);
+        }
+    }
+
+    @PermissionCallback
+    private void microphonePermsCallback(PluginCall call) {
+        if (getPermissionState("microphone") == PermissionState.GRANTED) {
+            startSpeechRecognition(call);
+        } else {
+            call.reject("Permissão de microfone negada.");
+        }
+    }
+
+    private void startSpeechRecognition(PluginCall call) {
+        mainHandler.post(() -> {
+            cleanupSpeechRecognizer(false);
+            speechCall = call;
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getContext());
+            speechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override public void onReadyForSpeech(Bundle params) {}
+                @Override public void onBeginningOfSpeech() {}
+                @Override public void onRmsChanged(float rmsdB) {}
+                @Override public void onBufferReceived(byte[] buffer) {}
+                @Override public void onEndOfSpeech() {}
+                @Override public void onPartialResults(Bundle partialResults) {}
+                @Override public void onEvent(int eventType, Bundle params) {}
+
+                @Override
+                public void onError(int error) {
+                    PluginCall activeCall = speechCall;
+                    cleanupSpeechRecognizer(false);
+                    if (activeCall != null) {
+                        activeCall.reject(speechErrorMessage(error));
+                    }
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    String text = matches != null && !matches.isEmpty() ? matches.get(0) : "";
+                    PluginCall activeCall = speechCall;
+                    cleanupSpeechRecognizer(false);
+                    if (activeCall != null) {
+                        if (text == null || text.trim().isEmpty()) {
+                            activeCall.reject("Não foi possível reconhecer sua fala.");
+                            return;
+                        }
+                        JSObject result = new JSObject();
+                        result.put("ok", true);
+                        result.put("text", text.trim());
+                        activeCall.resolve(result);
+                    }
+                }
+            });
+
+            Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR");
+            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Fale com o Assistente Simplifica 3D");
+            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
+            speechTimeoutRunnable = () -> {
+                PluginCall activeCall = speechCall;
+                cleanupSpeechRecognizer(false);
+                if (activeCall != null) {
+                    activeCall.reject("Tempo esgotado para reconhecimento de voz.");
+                }
+            };
+            mainHandler.postDelayed(speechTimeoutRunnable, 12000);
+            speechRecognizer.startListening(intent);
+        });
+    }
+
+    private void cleanupSpeechRecognizer(boolean rejectActive) {
+        if (speechTimeoutRunnable != null) {
+            mainHandler.removeCallbacks(speechTimeoutRunnable);
+            speechTimeoutRunnable = null;
+        }
+        if (speechRecognizer != null) {
+            try {
+                speechRecognizer.cancel();
+                speechRecognizer.destroy();
+            } catch (Exception ignored) {}
+            speechRecognizer = null;
+        }
+        if (rejectActive && speechCall != null) {
+            speechCall.reject("Reconhecimento de voz cancelado.");
+        }
+        speechCall = null;
+    }
+
+    private String speechErrorMessage(int error) {
+        if (error == SpeechRecognizer.ERROR_AUDIO) return "Falha ao acessar o microfone.";
+        if (error == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) return "Permissão de microfone negada.";
+        if (error == SpeechRecognizer.ERROR_NETWORK || error == SpeechRecognizer.ERROR_NETWORK_TIMEOUT) return "O reconhecimento de voz não respondeu. Tente novamente.";
+        if (error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) return "Não foi possível reconhecer sua fala.";
+        if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY) return "Reconhecimento de voz ocupado. Tente novamente.";
+        return "Falha no reconhecimento de voz.";
+    }
+
+    private void speakText(PluginCall call, String text, float rate) {
+        if (textToSpeech == null) {
+            textToSpeech = new TextToSpeech(getContext(), status -> {
+                if (status == TextToSpeech.SUCCESS) {
+                    textToSpeechReady = true;
+                    textToSpeech.setLanguage(new Locale("pt", "BR"));
+                    textToSpeech.setSpeechRate(rate);
+                    textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "simplifica-ai-response");
+                    JSObject result = new JSObject();
+                    result.put("ok", true);
+                    call.resolve(result);
+                } else {
+                    call.reject("Leitura em voz indisponível neste aparelho.");
+                }
+            });
+            return;
+        }
+        if (!textToSpeechReady) {
+            call.reject("Leitura em voz ainda não está pronta.");
+            return;
+        }
+        textToSpeech.setLanguage(new Locale("pt", "BR"));
+        textToSpeech.setSpeechRate(rate);
+        textToSpeech.speak(text, TextToSpeech.QUEUE_FLUSH, null, "simplifica-ai-response");
+        JSObject result = new JSObject();
+        result.put("ok", true);
+        call.resolve(result);
     }
 
     @PermissionCallback
