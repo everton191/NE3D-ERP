@@ -42,6 +42,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @CapacitorPlugin(
@@ -60,6 +61,7 @@ public class SimplificaFilesPlugin extends Plugin {
     private Runnable speechTimeoutRunnable;
     private TextToSpeech textToSpeech;
     private boolean textToSpeechReady = false;
+    private final ConcurrentHashMap<String, AtomicBoolean> aiDownloadCancels = new ConcurrentHashMap<>();
 
     @Override
     protected void handleOnDestroy() {
@@ -73,6 +75,19 @@ public class SimplificaFilesPlugin extends Plugin {
             }
         });
         super.handleOnDestroy();
+    }
+
+    @Override
+    protected void handleOnPause() {
+        // Hiberna o modelo quando o app sai do primeiro plano para reduzir CPU/RAM/bateria.
+        new Thread(() -> {
+            try {
+                InferenceEngineImpl.unloadIfInitialized();
+            } catch (Throwable ignored) {
+                // A pausa do app nunca deve derrubar a interface.
+            }
+        }, "simplifica-ai-hibernate").start();
+        super.handleOnPause();
     }
 
     @PluginMethod
@@ -145,6 +160,7 @@ public class SimplificaFilesPlugin extends Plugin {
 
         new Thread(() -> {
             File tempFile = null;
+            AtomicBoolean cancelFlag = new AtomicBoolean(false);
             try {
                 File dir = getAiModelDir();
                 if (!dir.exists() && !dir.mkdirs()) {
@@ -153,6 +169,24 @@ public class SimplificaFilesPlugin extends Plugin {
                 }
 
                 File targetFile = new File(dir, fileName);
+                JSObject existing = validateAiModelFile(targetFile, minBytes);
+                if (existing.optBoolean("ok", false)) {
+                    notifyAiModelProgress(modelId, "downloaded", 100, existing.optLong("sizeBytes", 0L), existing.optLong("sizeBytes", 0L));
+                    existing.put("ok", true);
+                    existing.put("modelId", modelId);
+                    existing.put("fileName", fileName);
+                    existing.put("installedAt", targetFile.lastModified());
+                    existing.put("alreadyInstalled", true);
+                    call.resolve(existing);
+                    return;
+                }
+
+                AtomicBoolean previous = aiDownloadCancels.putIfAbsent(modelId, cancelFlag);
+                if (previous != null) {
+                    call.reject("A instalação da IA já está em andamento.");
+                    return;
+                }
+
                 tempFile = new File(dir, fileName + ".download");
                 if (tempFile.exists() && !tempFile.delete()) {
                     call.reject("Não foi possível limpar download anterior do modelo.");
@@ -180,6 +214,9 @@ public class SimplificaFilesPlugin extends Plugin {
                     byte[] buffer = new byte[8192];
                     int read;
                     while ((read = input.read(buffer)) != -1) {
+                        if (cancelFlag.get()) {
+                            throw new IOException("Download cancelado.");
+                        }
                         output.write(buffer, 0, read);
                         totalBytes += read;
                         int percent = expectedBytes > 0 ? (int) Math.min(99, Math.max(0, (totalBytes * 100L) / expectedBytes)) : 0;
@@ -229,8 +266,22 @@ public class SimplificaFilesPlugin extends Plugin {
             } catch (Exception error) {
                 if (tempFile != null && tempFile.exists()) tempFile.delete();
                 call.reject("Falha ao baixar o modelo: " + error.getMessage(), error);
+            } finally {
+                aiDownloadCancels.remove(modelId, cancelFlag);
             }
         }).start();
+    }
+
+    @PluginMethod
+    public void cancelAiModelDownload(PluginCall call) {
+        String modelId = sanitizeAiModelId(call.getString("modelId", ""));
+        AtomicBoolean flag = aiDownloadCancels.get(modelId);
+        if (flag != null) flag.set(true);
+        JSObject result = new JSObject();
+        result.put("ok", true);
+        result.put("modelId", modelId);
+        result.put("cancelled", flag != null);
+        call.resolve(result);
     }
 
     @PluginMethod
@@ -267,7 +318,7 @@ public class SimplificaFilesPlugin extends Plugin {
 
         try {
             try {
-                InferenceEngineImpl.getInstance(getContext()).unloadModel();
+                InferenceEngineImpl.unloadIfInitialized();
             } catch (Throwable ignored) {
                 // Remocao do arquivo nao deve falhar se o runtime ainda nao foi carregado.
             }
@@ -316,7 +367,7 @@ public class SimplificaFilesPlugin extends Plugin {
         result.put("speechAvailable", speechAvailable);
         result.put("ttsAvailable", true);
         result.put("message", "high".equals(risk)
-            ? "Este modelo pode deixar seu aparelho lento. Recomendamos usar IA Lite ou IA Smart."
+            ? "Este modelo pode deixar seu aparelho lento neste aparelho."
             : "Teste básico de desempenho concluído.");
         call.resolve(result);
     }
@@ -409,6 +460,34 @@ public class SimplificaFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void loadAiModel(PluginCall call) {
+        final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
+        final String modelPath = call.getString("modelPath", "");
+        final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 60000L), 120000L));
+
+        if (modelPath == null || modelPath.trim().isEmpty()) {
+            call.reject("Modelo offline não instalado.");
+            return;
+        }
+
+        runWithPluginTimeout(call, timeoutMs, "Tempo limite ao carregar a IA local.", () -> {
+            JSObject validation = validateAiModelFile(new File(modelPath), 0L);
+            if (!validation.optBoolean("ok", false)) {
+                throw new IOException("Arquivo GGUF inválido.");
+            }
+            notifyAiModelProgress(modelId, "loading", 100, validation.optLong("sizeBytes", 0L), validation.optLong("sizeBytes", 0L));
+            long startedAt = System.currentTimeMillis();
+            InferenceEngineImpl.getInstance(getContext()).loadModel(modelPath);
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            result.put("modelId", modelId);
+            result.put("elapsedMs", System.currentTimeMillis() - startedAt);
+            result.put("offline", true);
+            return result;
+        });
+    }
+
+    @PluginMethod
     public void testAiModelRuntime(PluginCall call) {
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String modelPath = call.getString("modelPath", "");
@@ -449,7 +528,7 @@ public class SimplificaFilesPlugin extends Plugin {
     @PluginMethod
     public void cancelAiGeneration(PluginCall call) {
         try {
-            InferenceEngineImpl.getInstance(getContext()).cancelGeneration();
+            InferenceEngineImpl.cancelIfInitialized();
             JSObject result = new JSObject();
             result.put("ok", true);
             call.resolve(result);
@@ -461,7 +540,8 @@ public class SimplificaFilesPlugin extends Plugin {
     @PluginMethod
     public void unloadAiModel(PluginCall call) {
         try {
-            InferenceEngineImpl.getInstance(getContext()).unloadModel();
+            // Nao inicializa o runtime apenas para hibernar; isso evita consumo de CPU/RAM ao minimizar o app.
+            InferenceEngineImpl.unloadIfInitialized();
             JSObject result = new JSObject();
             result.put("ok", true);
             call.resolve(result);
@@ -764,7 +844,7 @@ public class SimplificaFilesPlugin extends Plugin {
         mainHandler.postDelayed(() -> {
             if (settled.compareAndSet(false, true)) {
                 try {
-                    InferenceEngineImpl.getInstance(getContext()).cancelGeneration();
+                    InferenceEngineImpl.cancelIfInitialized();
                 } catch (Throwable ignored) {
                     // O timeout deve devolver o controle para a UI mesmo que o runtime esteja ocupado.
                 }

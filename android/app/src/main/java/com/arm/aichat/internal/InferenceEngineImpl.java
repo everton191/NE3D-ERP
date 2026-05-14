@@ -39,6 +39,22 @@ public final class InferenceEngineImpl {
         }
     }
 
+    public static void unloadIfInitialized() {
+        synchronized (LOCK) {
+            if (instance != null) {
+                instance.unloadModel();
+            }
+        }
+    }
+
+    public static void cancelIfInitialized() {
+        synchronized (LOCK) {
+            if (instance != null) {
+                instance.cancelGeneration();
+            }
+        }
+    }
+
     public String generate(String modelPath, String systemPrompt, String userPrompt, int maxTokens, long timeoutMs)
             throws Exception {
         synchronized (LOCK) {
@@ -92,6 +108,16 @@ public final class InferenceEngineImpl {
                 throw new IOException("O modelo não retornou resposta.");
             }
             return text;
+        }
+    }
+
+    public void loadModel(String modelPath) throws Exception {
+        synchronized (LOCK) {
+            File modelFile = new File(modelPath == null ? "" : modelPath);
+            if (!modelFile.exists() || !modelFile.isFile() || !modelFile.canRead()) {
+                throw new IOException("Modelo GGUF não encontrado ou sem permissão de leitura.");
+            }
+            ensureModelLoaded(modelFile.getAbsolutePath());
         }
     }
 

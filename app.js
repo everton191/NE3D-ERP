@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.11";
-const APP_VERSION_CODE = 62;
+const APP_VERSION = "51.0.12";
+const APP_VERSION_CODE = 63;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -63,7 +63,7 @@ const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
 const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é um assistente de gestão para impressão 3D integrado ao Simplifica 3D. Responda sempre em português do Brasil. Use apenas os dados fornecidos e a base interna do app. Dê respostas curtas, práticas e comerciais. Não prometa capacidade equivalente ao ChatGPT. Não invente dados inexistentes. Ajude com precificação, margem, estoque, pedidos, sugestões de extras, produção e uso das telas do sistema.";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D. Responda somente com base nas informações do sistema enviadas no contexto. Não invente funções, telas, preços ou regras. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples e direto.";
 const AI_KNOWLEDGE_BASE = Object.freeze({
   telas: ["Dashboard", "Pedidos", "Calculadora", "Estoque", "Caixa", "Relatórios", "Backup", "Configurações", "Planos"],
   fluxos: [
@@ -97,6 +97,7 @@ const AI_INSTALL_STATUS = Object.freeze({
   DOWNLOADING: "downloading",
   DOWNLOADED: "downloaded",
   VALIDATING: "validating",
+  LOADING: "loading",
   INSTALLING: "installing",
   TESTING: "testing",
   INSTALLED_READY: "installed_ready",
@@ -107,6 +108,14 @@ const AI_INSTALL_STATUS = Object.freeze({
   REMOVING: "removing",
   REMOVED: "removed"
 });
+const AI_INSTALL_STATE_ALIASES = Object.freeze({
+  installed: AI_INSTALL_STATUS.INSTALLED_READY,
+  active: AI_INSTALL_STATUS.INSTALLED_READY,
+  failed: AI_INSTALL_STATUS.FAILED_RUNTIME,
+  installing: AI_INSTALL_STATUS.INSTALLING,
+  ready: AI_INSTALL_STATUS.INSTALLED_READY
+});
+const AI_PROGRESS_RENDER_INTERVAL_MS = 420;
 const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
@@ -252,6 +261,12 @@ let assistantMode = "basic";
 let assistantListening = false;
 let assistantVoiceSupport = null;
 let assistantVoiceSupportLoading = false;
+let assistantRuntimeLoading = false;
+let assistantRuntimeReady = false;
+let assistantRuntimePromise = null;
+let aiModelInstallPromise = null;
+let aiProgressRenderTimer = null;
+let adminAuthValidUntil = 0;
 let localLockModalOpen = false;
 let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
@@ -6351,22 +6366,30 @@ function abrirAssistente(modo = "auto") {
     assistantMessages.push({
       role: "assistant",
       text: assistantMode === "pro"
-        ? "IA Pro Local pronta. Posso ajudar com sugestões contextualizadas do Simplifica 3D."
+        ? "IA local pronta. Posso ajudar com dúvidas do Simplifica 3D."
         : "Olá! Sou o Assistente do Simplifica 3D. Posso ajudar com pedido, estoque, calculadora, backup, PDF, plano e login."
     });
   }
-  if (assistantMode === "pro") atualizarSuporteVozIASeNecessario();
+  if (assistantMode === "pro") {
+    assistantRuntimeReady = false;
+    garantirRuntimeIAAtivo({ silent: true });
+    atualizarSuporteVozIASeNecessario();
+  }
   renderApp();
 }
 
 function fecharAssistente() {
   assistantOpen = false;
   assistantMinimized = false;
+  assistantRuntimeReady = false;
+  try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   renderApp();
 }
 
 function minimizarAssistente() {
   assistantMinimized = true;
+  assistantRuntimeReady = false;
+  try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   renderApp();
 }
 
@@ -6469,17 +6492,42 @@ function getAIModelLocalState(modelId) {
 
 function setAIModelLocalState(modelId, patch = {}) {
   const settings = getAIAssistantSettings();
+  const normalizedPatch = { ...patch };
+  if (normalizedPatch.status) {
+    normalizedPatch.status = AI_INSTALL_STATE_ALIASES[normalizedPatch.status] || normalizedPatch.status;
+    normalizedPatch.installState = normalizedPatch.status;
+  }
   settings.models = {
     ...(settings.models || {}),
     [modelId]: {
       ...(settings.models?.[modelId] || {}),
-      ...patch,
+      ...normalizedPatch,
       updatedAt: new Date().toISOString()
     }
   };
   appConfig.aiOfflineAssistant = settings;
   salvarDados();
   return settings.models[modelId];
+}
+
+function agendarRenderizacaoIA(atraso = AI_PROGRESS_RENDER_INTERVAL_MS) {
+  if (aiProgressRenderTimer) return;
+  aiProgressRenderTimer = setTimeout(() => {
+    aiProgressRenderTimer = null;
+    renderizarPreservandoScroll();
+  }, Math.max(120, Number(atraso) || AI_PROGRESS_RENDER_INTERVAL_MS));
+}
+
+function atualizarElementosProgressoIA(modelId, state = getAIModelLocalState(modelId)) {
+  const progress = progressoIAInstalacao(state);
+  const safeId = String(modelId || "").replace(/["\\]/g, "");
+  document.querySelectorAll(`[data-ai-progress="${safeId}"]`).forEach((root) => {
+    root.style.setProperty("--ai-progress", `${Math.max(0, Math.min(100, progress.percent))}%`);
+    const percent = root.querySelector("[data-ai-progress-percent]");
+    if (percent) percent.textContent = `${Math.max(0, Math.min(100, progress.percent))}%`;
+    const label = root.querySelector("[data-ai-progress-label]");
+    if (label) label.textContent = progress.label || label.textContent || "";
+  });
 }
 
 function podeExibirAssistenteIAOffline() {
@@ -6504,7 +6552,7 @@ function getAssistenteModoDisponivel() {
 }
 
 function getAssistenteLabelPrincipal() {
-  return podeUsarAssistenteIAOfflinePro() ? "IA Pro" : "Assistente";
+  return "Assistente";
 }
 
 function renderAssistantFabContent(label = "Assistente", pro = false) {
@@ -6532,6 +6580,8 @@ function definirIAConfig(patch = {}, persistir = true) {
 function getAIModelStatus(modelId) {
   const settings = getAIAssistantSettings();
   const state = getAIModelLocalState(modelId);
+  const normalizedStatus = AI_INSTALL_STATE_ALIASES[state.status] || state.status;
+  if (normalizedStatus && normalizedStatus !== state.status) return normalizedStatus;
   if (state.status === "installed") {
     return state.runtimeValidatedAt ? AI_INSTALL_STATUS.INSTALLED_READY : AI_INSTALL_STATUS.INSTALLED_BUT_FAILED;
   }
@@ -6551,6 +6601,7 @@ function labelStatusAI(status = "") {
     [AI_INSTALL_STATUS.DOWNLOADING]: "Baixando",
     [AI_INSTALL_STATUS.DOWNLOADED]: "Baixado",
     [AI_INSTALL_STATUS.VALIDATING]: "Verificando",
+    [AI_INSTALL_STATUS.LOADING]: "Carregando",
     [AI_INSTALL_STATUS.INSTALLING]: "Instalando",
     [AI_INSTALL_STATUS.TESTING]: "Testando",
     [AI_INSTALL_STATUS.INSTALLED_READY]: "Pronta",
@@ -6580,6 +6631,7 @@ function isAIModelBusyStatus(status = "") {
   return [
     AI_INSTALL_STATUS.DOWNLOADING,
     AI_INSTALL_STATUS.VALIDATING,
+    AI_INSTALL_STATUS.LOADING,
     AI_INSTALL_STATUS.INSTALLING,
     AI_INSTALL_STATUS.TESTING,
     AI_INSTALL_STATUS.REMOVING
@@ -6593,6 +6645,7 @@ function progressoIAInstalacao(state = {}) {
     [AI_INSTALL_STATUS.DOWNLOADING]: `Baixando modelo: ${progress}%`,
     [AI_INSTALL_STATUS.DOWNLOADED]: "Download concluído",
     [AI_INSTALL_STATUS.VALIDATING]: "Verificando arquivo...",
+    [AI_INSTALL_STATUS.LOADING]: "Carregando modelo...",
     [AI_INSTALL_STATUS.INSTALLING]: "Instalando IA...",
     [AI_INSTALL_STATUS.TESTING]: "Testando IA...",
     [AI_INSTALL_STATUS.INSTALLED_READY]: "IA testada e pronta",
@@ -6819,6 +6872,7 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
   const statusLabel = status === "active" ? "Em uso" : labelStatusAI(status);
   const progress = progressoIAInstalacao(state);
   const tamanho = formatarMb(state.sizeBytes) || `${Number(state.sizeMb || modelo.sizeMb) || modelo.sizeMb} MB`;
+  const acaoPrincipal = ready ? "Abrir IA" : realStatus === AI_INSTALL_STATUS.FAILED_DOWNLOAD || realStatus === AI_INSTALL_STATUS.FAILED_VALIDATION || realStatus === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Tentar novamente" : "Instalar IA";
   return `
     <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""}">
       <div class="row-title">
@@ -6829,16 +6883,18 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
         <span class="status-badge">${escaparHtml(statusLabel)}</span>
       </div>
       ${progress.active || state.lastError || state.runtimeValidatedAt ? `
-        <div class="ai-install-progress">
-          ${progress.label ? `<span>${escaparHtml(progress.label)}</span>` : ""}
-          <div class="ai-progress-track"><i style="width:${Math.max(0, Math.min(100, progress.percent))}%"></i></div>
+        <div class="ai-install-progress" data-ai-progress="${escaparAttr(modelo.id)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
+          <div class="ai-progress-circle" aria-label="Progresso da IA">
+            <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
+          </div>
+          ${progress.label ? `<span data-ai-progress-label>${escaparHtml(progress.label)}</span>` : `<span data-ai-progress-label></span>`}
           ${state.runtimeValidatedAt ? `<small>Teste interno OK</small>` : ""}
           ${state.lastError ? `<small class="error">${escaparHtml(state.lastError)}</small>` : ""}
         </div>
       ` : ""}
       <div class="actions">
-        <button class="btn secondary" type="button" onclick="baixarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !urlConfigurada ? "disabled" : ""}>${hasFile ? "Reinstalar" : "Baixar"}</button>
-        <button class="btn" type="button" onclick="usarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !ready ? "disabled" : ""}>Usar este modelo</button>
+        <button class="btn secondary" type="button" onclick="${ready ? `abrirAssistente('pro')` : `baixarModeloIAOffline('${escaparAttr(modelo.id)}')`}" ${busy || (!ready && !urlConfigurada) ? "disabled" : ""}>${escaparHtml(acaoPrincipal)}</button>
+        ${busy ? `<button class="btn ghost" type="button" onclick="cancelarInstalacaoIAOffline('${escaparAttr(modelo.id)}')">Cancelar</button>` : ""}
         <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !hasFile ? "disabled" : ""}>Testar IA</button>
         <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !hasFile ? "disabled" : ""}>Remover modelo</button>
       </div>
@@ -6860,7 +6916,8 @@ async function adicionarListenerProgressoIA(modelId) {
         totalBytes: Number(event.totalBytes || 0) || 0,
         lastError: ""
       });
-      renderizarPreservandoScroll();
+      atualizarElementosProgressoIA(modelId);
+      agendarRenderizacaoIA();
     });
     return handle;
   } catch (erro) {
@@ -6894,6 +6951,37 @@ async function validarArquivoModeloIA(modelo, modelId, path = "") {
   });
 }
 
+async function verificarModeloIAInstalado(modelo, modelId) {
+  const plugin = getAIPlugin();
+  const state = getAIModelLocalState(modelId);
+  if (!plugin?.validateAiModel) return null;
+  try {
+    const validacao = await plugin.validateAiModel({
+      modelId,
+      fileName: modelo.fileName,
+      modelPath: String(state.path || "").trim(),
+      minBytes: modelo.minBytes || 0
+    });
+    if (validacao?.ok) {
+      const patch = {
+        status: state.runtimeValidatedAt ? AI_INSTALL_STATUS.INSTALLED_READY : AI_INSTALL_STATUS.INSTALLED_BUT_FAILED,
+        progress: 100,
+        path: validacao.path || state.path || "",
+        fileName: validacao.fileName || modelo.fileName,
+        sizeBytes: Number(validacao.sizeBytes || state.sizeBytes || 0) || 0,
+        sizeMb: Number(validacao.sizeMb || state.sizeMb || modelo.sizeMb) || modelo.sizeMb,
+        ggufValid: true,
+        lastError: ""
+      };
+      setAIModelLocalState(modelId, patch);
+      return { ...validacao, ...patch };
+    }
+  } catch (erro) {
+    registrarFalhaIALocal("validate_existing_model", erro, { modelId });
+  }
+  return null;
+}
+
 async function testarRuntimeModeloIA(modelo, modelId, path = "") {
   const plugin = getAIPlugin();
   setAIModelLocalState(modelId, {
@@ -6922,6 +7010,29 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
 async function baixarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
   if (!modelo || !podeUsarAssistenteIAOfflinePro()) return false;
+  if (aiModelInstallPromise && isAIModelBusyStatus(getAIModelStatus(modelId))) {
+    mostrarToast("A instalação da IA já está em andamento.", "info", 3200);
+    return aiModelInstallPromise;
+  }
+  const existente = await verificarModeloIAInstalado(modelo, modelId);
+  if (existente?.path) {
+    try {
+      if (!getAIModelLocalState(modelId).runtimeValidatedAt) {
+        await testarModeloIAOffline(modelId);
+      }
+      if (isAIModelReadyStatus(getAIModelStatus(modelId))) {
+        definirIAConfig({ activeModelId: modelId, installedModelId: modelId, localEnabled: true, onboardingCompleted: true });
+        mostrarToast("IA já instalada neste aparelho.", "sucesso", 3200);
+        abrirAssistente("pro");
+        return true;
+      }
+      return false;
+    } catch (erro) {
+      setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_RUNTIME, lastError: erro?.message || String(erro), progress: 100 });
+      mostrarToast("Modelo encontrado, mas a IA não iniciou neste aparelho.", "erro", 5200);
+      return false;
+    }
+  }
   if (!modelo.url) {
     const msg = "Instalação indisponível no momento.";
     setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_DOWNLOAD, lastError: msg });
@@ -6940,6 +7051,7 @@ async function baixarModeloIAOffline(modelId) {
   appConfig.aiOfflineAssistant.lastFailure = "";
   renderizarPreservandoScroll();
   let progressHandle = null;
+  aiModelInstallPromise = (async () => {
   try {
     progressHandle = await adicionarListenerProgressoIA(modelId);
     const result = await plugin.downloadAiModel({
@@ -7014,8 +7126,27 @@ async function baixarModeloIAOffline(modelId) {
     return false;
   } finally {
     await removerListenerProgressoIA(progressHandle);
+    aiModelInstallPromise = null;
     renderizarPreservandoScroll();
   }
+  })();
+  return aiModelInstallPromise;
+}
+
+async function cancelarInstalacaoIAOffline(modelId) {
+  const plugin = getAIPlugin();
+  try {
+    await plugin?.cancelAiModelDownload?.({ modelId });
+  } catch (erro) {
+    registrarFalhaIALocal("cancel_download", erro, { modelId });
+  }
+  setAIModelLocalState(modelId, {
+    status: AI_INSTALL_STATUS.FAILED_DOWNLOAD,
+    progress: 0,
+    lastError: "Instalação cancelada pelo usuário."
+  });
+  mostrarToast("Instalação da IA cancelada.", "info", 2600);
+  renderizarPreservandoScroll();
 }
 
 async function usarModeloIAOffline(modelId) {
@@ -7028,7 +7159,7 @@ async function usarModeloIAOffline(modelId) {
   }
   const performance = await obterResumoCapacidadeIA(modelo);
   if (["high", "medium"].includes(String(performance.risk || ""))) {
-    const seguir = confirm("Este modelo pode deixar seu aparelho lento. Recomendamos usar IA Lite ou IA Smart. Deseja ativar mesmo assim?");
+    const seguir = confirm("Este modelo pode deixar seu aparelho lento neste aparelho. Deseja ativar mesmo assim?");
     if (!seguir) return;
   }
   appConfig.aiOfflineAssistant.activeModelId = modelId;
@@ -7235,7 +7366,7 @@ async function abrirWizardIAProLocal() {
             <button class="icon-button" type="button" data-action="ai-wizard-cancel" title="Fechar">✕</button>
           </div>
           <div class="sync-grid">
-            <div class="metric"><span>Escolha</span><strong>${escaparHtml(analise.modelo?.name || "IA Lite")}</strong></div>
+            <div class="metric"><span>Escolha</span><strong>${escaparHtml(analise.modelo?.name || "IA Local")}</strong></div>
             <div class="metric"><span>Uso</span><strong>${escaparHtml(analise.perfil.speed)}</strong></div>
             <div class="metric"><span>Ajuda</span><strong>${escaparHtml(analise.perfil.quality)}</strong></div>
             <div class="metric"><span>Espaço</span><strong>${Number(analise.modelo?.sizeMb || 0)} MB</strong></div>
@@ -7331,19 +7462,39 @@ function getModeloIAOfflineAtivoInstalado(exigirToggle = true) {
   return { modelo, state, path };
 }
 
+function buscarTrechosManualIA(texto = "") {
+  const pergunta = normalizarTextoAssistente(texto);
+  const topicos = [
+    ["pedidos", "Pedidos: guarda cliente, telefone, itens, quantidades, subtotais, total geral, status e observações. Alterações devem ser revisadas antes de salvar."],
+    ["estoque material materiais", "Estoque: registra materiais, quantidade, tipo e custo. Materiais podem ser usados pela calculadora."],
+    ["caixa financeiro entrada saída", "Caixa: registra entradas, saídas e histórico financeiro. Alterações sensíveis exigem confirmação."],
+    ["calculadora cálculo peso horas taxa", "Calculadora: calcula preço com material, peso, horas, quantidade, energia, margem e taxa extra. Peso, horas e taxa extra começam limpos em novo cálculo."],
+    ["impressora impressoras", "Impressoras: podem compor o cálculo e organizar produção. Configurações fixas podem ser mantidas quando definidas."],
+    ["plano planos pro free", "Planos: controlam acesso a recursos gratuitos e PRO. Recursos pagos precisam de validação de plano."],
+    ["anúncio anuncios ads", "Anúncios: podem aparecer em fluxos permitidos do plano gratuito e usam integração nativa no Android quando disponível."],
+    ["sincronização sincronizar supabase backup", "Sincronização: pode usar Supabase ou backups configurados, preserva dados locais offline e não deve forçar retorno para a tela inicial."],
+    ["personalização logo fundo pdf", "Personalização: ajusta dados visuais e informações usadas nos PDFs, incluindo logo e fundo."],
+    ["pdf orçamento orcamento", "PDF: pode ser gerado para pedidos e orçamentos usando os dados revisados."],
+    ["superadmin segurança biometria senha", "Segurança e superadmin: ações sensíveis podem exigir senha administrativa ou biometria. A biometria tem validade curta e senha é fallback."]
+  ];
+  const encontrados = topicos
+    .filter(([keywords]) => keywords.split(/\s+/).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))))
+    .map(([, trecho]) => trecho);
+  return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 5);
+}
+
 function montarPromptIAOffline(texto = "", contexto = {}) {
   const contextoSeguro = {
     tela: contexto.tela || telaAtual,
     pergunta: String(texto || "").slice(0, 600),
     dados: contexto.calculoRecente || contexto
   };
+  const trechosManual = buscarTrechosManualIA(texto);
   return [
-    "Responda em português do Brasil.",
-    "Use apenas o contexto abaixo e não altere valores oficiais.",
-    "Base interna do Simplifica 3D:",
-    JSON.stringify(AI_KNOWLEDGE_BASE),
+    "Manual relevante do Simplifica 3D:",
+    trechosManual.join("\n"),
     "Contexto resumido:",
-    JSON.stringify(contextoSeguro).slice(0, 1600),
+    JSON.stringify(contextoSeguro).slice(0, 1200),
     "",
     "Pergunta:",
     String(texto || "").slice(0, 700)
@@ -7361,7 +7512,7 @@ function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
 async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistenteEnxuto(texto), opcoes = {}) {
   if (!podeUsarAssistenteIAOfflinePro()) throw new Error("Assistente offline disponível apenas no Android com plano PRO ativo.");
   const ativo = getModeloIAOfflineAtivoInstalado();
-  if (!ativo) throw new Error("Instale a IA Pro antes de usar.");
+  if (!ativo) throw new Error("Instale a IA local antes de usar.");
   const plugin = getAIPlugin();
   if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
 
@@ -7450,7 +7601,7 @@ function abrirModalIALocalNaoConfigurada(origem = "assistente") {
           <h2>IA local ainda não configurada</h2>
           <button class="icon-button" type="button" data-action="ai-setup-cancel" title="Fechar">✕</button>
         </div>
-        <p class="muted">Para usar a IA Pro Local, instale um modelo neste aparelho. Você também pode continuar com o assistente básico agora.</p>
+        <p class="muted">Para usar a IA local, instale o modelo neste aparelho. Você também pode continuar com o assistente básico agora.</p>
         <div class="actions">
           <button class="btn" type="button" data-action="ai-setup-install" data-origin="${escaparAttr(origem)}">Instalar IA</button>
           <button class="btn secondary" type="button" data-action="ai-setup-basic" data-origin="${escaparAttr(origem)}">Usar assistente básico</button>
@@ -7487,13 +7638,19 @@ async function responderAssistente(texto = "") {
   assistantMessages.push({ role: "user", text: pergunta });
   const respostaPendente = {
     role: "assistant",
-    text: usarIAPro ? "Gerando resposta local..." : "Consultando orientações básicas..."
+    text: usarIAPro ? "Iniciando IA..." : "Consultando orientações básicas..."
   };
   assistantMessages.push(respostaPendente);
   limitarMensagensAssistente();
   assistantGenerating = usarIAPro;
   renderApp();
   try {
+    if (usarIAPro) {
+      const carregou = await garantirRuntimeIAAtivo({ silent: true });
+      if (!carregou) throw new Error("IA local não iniciou neste aparelho.");
+      respostaPendente.text = "Gerando resposta local...";
+      renderizarMensagemAssistentePendente(respostaPendente);
+    }
     const resposta = usarIAPro
       ? await promiseComTimeout(
           gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 180, timeoutMs: 70000 }),
@@ -7530,6 +7687,15 @@ async function responderAssistente(texto = "") {
   setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
 }
 
+function renderizarMensagemAssistentePendente(referencia) {
+  const index = assistantMessages.indexOf(referencia);
+  const body = document.querySelector(".assistant-body");
+  if (!body || index < 0) return;
+  const messages = body.querySelectorAll(".assistant-message");
+  const el = messages[index];
+  if (el) el.textContent = referencia.text || "";
+}
+
 async function cancelarGeracaoIAOffline() {
   assistantGenerating = false;
   try {
@@ -7541,7 +7707,7 @@ async function cancelarGeracaoIAOffline() {
 
 async function iniciarEntradaVozIAPro() {
   if (!podeUsarVozIAPro()) {
-    mostrarToast("Voz disponível apenas na IA Pro Local configurada.", "aviso", 4200);
+    mostrarToast("Voz disponível apenas na IA local configurada.", "aviso", 4200);
     return;
   }
   assistantListening = true;
@@ -7599,12 +7765,12 @@ function renderAssistenteVirtual() {
   const modoDisponivel = getAssistenteModoDisponivel();
 
   if (!assistantOpen) {
-    const label = modoDisponivel === "pro" ? "IA Pro" : "Assistente";
+    const label = modoDisponivel === "pro" ? "IA" : "Assistente";
     return `<button class="assistant-fab" onclick="abrirAssistente('${escaparAttr(modoDisponivel)}')" title="Assistente inteligente">${renderAssistantFabContent(label, modoDisponivel === "pro")}</button>`;
   }
 
   if (assistantMinimized) {
-    const label = assistantMode === "pro" ? "IA Pro" : "Assistente";
+    const label = assistantMode === "pro" ? "IA" : "Assistente";
     return `
       <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('${escaparAttr(assistantMode || modoDisponivel)}')" title="Abrir assistente">
         ${renderAssistantFabContent(label, assistantMode === "pro")}
@@ -7615,9 +7781,10 @@ function renderAssistenteVirtual() {
   const settings = getAIAssistantSettings();
   const modeloAtivo = getAIModel(settings.activeModelId);
   const subtituloAssistente = assistantMode === "pro" && modeloAtivo
-    ? `${modeloAtivo.name} offline`
+    ? assistantRuntimeLoading ? "Iniciando IA..." : `${modeloAtivo.name} offline`
     : "Assistente básico";
   const podeMostrarMicrofone = podeUsarVozIAPro();
+  const envioBloqueado = assistantGenerating || assistantListening || (assistantMode === "pro" && assistantRuntimeLoading);
 
   const mensagens = assistantMessages.map((msg) => `
     <div class="assistant-message ${msg.role === "user" ? "assistant-user" : "assistant-bot"}">
@@ -7647,6 +7814,12 @@ function renderAssistenteVirtual() {
           <strong>Ouvindo...</strong>
           <span>Fale sua pergunta em português.</span>
         </div>
+      ` : assistantRuntimeLoading ? `
+        <div class="assistant-voice-status processing" aria-live="polite">
+          <span class="voice-wave"></span>
+          <strong>Iniciando IA...</strong>
+          <span>Você já pode digitar. O envio libera quando a IA estiver pronta.</span>
+        </div>
       ` : assistantGenerating ? `
         <div class="assistant-voice-status processing" aria-live="polite">
           <span class="voice-wave"></span>
@@ -7655,8 +7828,8 @@ function renderAssistenteVirtual() {
         </div>
       ` : ""}
       <form class="assistant-form" onsubmit="enviarMensagemAssistente(event)">
-        <input id="assistantInput" placeholder="${assistantMode === "pro" ? "Pergunte para a IA Pro..." : "Pergunte sobre pedido, estoque, PDF..."}" autocomplete="off">
-        <button class="btn" type="submit">Enviar</button>
+        <input id="assistantInput" placeholder="${assistantMode === "pro" ? "Pergunte para a IA..." : "Pergunte sobre pedido, estoque, PDF..."}" autocomplete="off">
+        <button class="btn" type="submit" ${envioBloqueado ? "disabled" : ""}>Enviar</button>
       </form>
     </section>
   `;
@@ -18116,6 +18289,47 @@ async function iniciarAdicionarItemPedido() {
   adicionarProdutoManual();
 }
 
+async function garantirRuntimeIAAtivo({ silent = false } = {}) {
+  if (assistantRuntimeReady) return true;
+  if (assistantRuntimePromise) return assistantRuntimePromise;
+  const ativo = getModeloIAOfflineAtivoInstalado();
+  if (!ativo) return false;
+  assistantRuntimeLoading = true;
+  if (!silent) renderizarPreservandoScroll();
+  assistantRuntimePromise = promiseComTimeout(
+    getAIPlugin()?.loadAiModel?.({
+      modelId: ativo.modelo.id,
+      modelPath: ativo.path,
+      timeoutMs: 120000
+    }),
+    125000,
+    "Carregamento da IA demorou demais."
+  )
+    .then((runtime) => {
+      if (!runtime?.ok) throw new Error(runtime?.message || "A IA não carregou neste aparelho.");
+      setAIModelLocalState(ativo.modelo.id, {
+        status: AI_INSTALL_STATUS.INSTALLED_READY,
+        runtimeLoadedAt: new Date().toISOString(),
+        progress: 100,
+        lastError: ""
+      });
+      assistantRuntimeReady = true;
+      return true;
+    })
+    .catch((erro) => {
+      assistantRuntimeReady = false;
+      registrarFalhaIALocal("runtime_warmup", erro, { modelId: ativo.modelo.id });
+      if (!silent) mostrarToast("IA instalada, mas não iniciou neste aparelho.", "erro", 5200);
+      return false;
+    })
+    .finally(() => {
+      assistantRuntimeLoading = false;
+      assistantRuntimePromise = null;
+      renderizarPreservandoScroll();
+    });
+  return assistantRuntimePromise;
+}
+
 async function removerItem(i) {
   const confirmado = await solicitarConfirmacaoAcao({
     titulo: "Remover item",
@@ -18249,6 +18463,15 @@ async function validarSenhaSupabaseUsuarioAtual(senha) {
 }
 
 async function confirmAdminPassword(actionLabel = "continuar") {
+  const agora = Date.now();
+  if (adminAuthValidUntil && adminAuthValidUntil > agora) return true;
+  const biometria = await confirmarBiometriaSeDisponivel(`Confirme para ${actionLabel}.`);
+  if (biometria.disponivel && biometria.ok) {
+    adminAuthValidUntil = Date.now() + 3 * 60 * 1000;
+    registrarAuditoria("biometria_admin_validada", { action: actionLabel });
+    registrarSeguranca("biometria_admin_validada", "sucesso", actionLabel);
+    return true;
+  }
   const senha = await solicitarSenhaConfirmacaoAdmin(actionLabel);
   if (senha === null) return false;
   if (!senha) {
@@ -18261,6 +18484,7 @@ async function confirmAdminPassword(actionLabel = "continuar") {
   try {
     const ok = await validarSenhaSupabaseUsuarioAtual(senha);
     if (ok) {
+      adminAuthValidUntil = Date.now() + 3 * 60 * 1000;
       registrarAuditoria("senha_admin_validada", { action: actionLabel });
       registrarSeguranca("senha_admin_validada", "sucesso", actionLabel);
       return true;
@@ -19607,7 +19831,7 @@ function solicitarEntradaTexto({ titulo = "Informe os dados", mensagem = "", val
           </div>
           ${mensagem ? `<p class="muted">${escaparHtml(mensagem)}</p>` : ""}
           <label class="field">
-            <span>Valor</span>
+            <span>Digite a informação solicitada</span>
             <input id="${idInput}" type="${escaparAttr(tipo)}" value="${escaparAttr(valor)}" ${obrigatorio ? "required" : ""}>
           </label>
           <div class="actions">
@@ -20757,6 +20981,8 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     salvarCacheSessaoLocal();
     salvarDados();
+    assistantRuntimeReady = false;
+    try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   } else if (document.visibilityState === "visible") {
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
     sincronizarAlteracoesLocaisSilencioso("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
