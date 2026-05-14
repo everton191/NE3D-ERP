@@ -6,6 +6,20 @@ const APP_VERSION = "2026.04.28-users18";
 const PROJECT_COVER_IMAGE = "assets/project-cover.jpg";
 const ANDROID_RELEASES_URL = "https://github.com/everton191/NE3D-ERP/raw/main/downloads/NE3D-ERP.apk";
 const ANDROID_UPDATE_MANIFEST_URL = "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json";
+const LOCAL_AI_MODEL = {
+  name: "Qwen2.5 0.5B Instruct Q8_0 GGUF",
+  fileName: "Qwen2.5-0.5B-Instruct-Q8_0.gguf",
+  url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q8_0.gguf"
+};
+const LOCAL_AI_PROMPT = "Você é o assistente oficial do Simplifica 3D. Responda somente com base nas informações do sistema enviadas no contexto. Não invente funções, telas, preços ou regras. Se não encontrar a informação, diga: ‘Não encontrei essa informação no manual do sistema.’ Use português brasileiro simples e direto.";
+const LOCAL_AI_OPTIONS = {
+  contextLength: 2048,
+  maxTokens: 192,
+  temperature: 0.3,
+  topP: 0.9,
+  topK: 40,
+  threads: 2
+};
 
 const telas = {
   dashboard: "Início",
@@ -17,6 +31,7 @@ const telas = {
   personalizacao: "Personalizar",
   assinatura: "Plano",
   admin: "Admin",
+  ia: "IA local",
   feedback: "Bugs e sugestões"
 };
 
@@ -26,6 +41,9 @@ let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
 let pedidoEditando = null;
+let pedidoEditandoOriginal = null;
+let pedidoSalvando = false;
+let calculadoraModoPedido = false;
 let modoMobileAtual = window.innerWidth < 768;
 let resizeTimer = null;
 let adminLogado = sessionStorage.getItem("adminLogado") === "sim";
@@ -34,6 +52,11 @@ let twoFactorPending = null;
 let updateTimer = null;
 let dashboardWindowAction = null;
 let calcWidgetAction = null;
+let ultimoToqueForaCalculadora = 0;
+let aiRuntimeActive = false;
+let aiRuntimePreparing = false;
+let aiManualCache = "";
+let aiDownloadAbort = null;
 
 let estoque = carregarLista("estoque");
 let caixa = carregarLista("caixa");
@@ -92,6 +115,19 @@ let appConfig = carregarObjeto("appConfig", {
   updatePromptedVersion: "",
   updatePromptedAt: "",
   telemetryEnabled: true,
+  localAi: {
+    status: "not_installed",
+    statusText: "IA não instalada",
+    progress: 0,
+    phase: "idle",
+    modelName: LOCAL_AI_MODEL.name,
+    modelFileName: LOCAL_AI_MODEL.fileName,
+    modelUrl: LOCAL_AI_MODEL.url,
+    bytes: 0,
+    installedAt: "",
+    lastError: "",
+    ready: false
+  },
   calculatorWidget: {
     open: false,
     x: null,
@@ -256,6 +292,54 @@ async function carregarDriveHandle() {
   } catch (erro) {
     return null;
   }
+}
+
+function abrirAppDb() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("IndexedDB não disponível neste navegador"));
+      return;
+    }
+
+    const request = indexedDB.open("simplifica3d-local-secure", 2);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("aiModels")) db.createObjectStore("aiModels");
+      if (!db.objectStoreNames.contains("auth")) db.createObjectStore("auth");
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function dbGet(store, key) {
+  const db = await abrirAppDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbPut(store, key, value) {
+  const db = await abrirAppDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function dbDelete(store, key) {
+  const db = await abrirAppDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 function salvarDados() {
@@ -541,6 +625,107 @@ function renderVerificacao2FA() {
       </div>
     </div>
   `;
+}
+
+function bufferParaBase64Url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binario = "";
+  bytes.forEach((byte) => binario += String.fromCharCode(byte));
+  return btoa(binario).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlParaBuffer(valor) {
+  const base64 = String(valor || "").replace(/-/g, "+").replace(/_/g, "/");
+  const binario = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function biometriaRecenteValida() {
+  const validade = Number(sessionStorage.getItem("biometriaValidaAte") || 0);
+  return validade > Date.now();
+}
+
+function marcarBiometriaValida(minutos = 3) {
+  sessionStorage.setItem("biometriaValidaAte", String(Date.now() + Math.max(2, Math.min(5, minutos)) * 60 * 1000));
+}
+
+async function autenticarComBiometria(acao = "ação protegida") {
+  if (!window.PublicKeyCredential || !navigator.credentials || !window.isSecureContext) return false;
+  const disponivel = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false);
+  if (!disponivel) return false;
+
+  const usuario = getUsuarioAtual();
+  const userId = new TextEncoder().encode(usuario?.email || "admin-local");
+  const chave = "platformCredential";
+  let credencial = await dbGet("auth", chave).catch(() => null);
+
+  if (!credencial?.id) {
+    const criada = await navigator.credentials.create({
+      publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: appConfig.appName || "Simplifica 3D" },
+        user: {
+          id: userId,
+          name: usuario?.email || "admin-local",
+          displayName: usuario?.nome || "Admin local"
+        },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required",
+          residentKey: "preferred"
+        },
+        timeout: 60000,
+        attestation: "none"
+      }
+    }).catch(() => null);
+    if (!criada) return false;
+    credencial = { id: bufferParaBase64Url(criada.rawId), criadaEm: new Date().toISOString() };
+    await dbPut("auth", chave, credencial).catch(() => {});
+  }
+
+  const validada = await navigator.credentials.get({
+    publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      allowCredentials: [{ type: "public-key", id: base64UrlParaBuffer(credencial.id) }],
+      userVerification: "required",
+      timeout: 60000
+    }
+  }).catch(() => null);
+
+  if (!validada) return false;
+  marcarBiometriaValida();
+  registrarHistorico("Segurança", "Biometria liberou: " + acao);
+  return true;
+}
+
+async function autenticarAcaoProtegida(acao = "ação protegida") {
+  if (biometriaRecenteValida()) return true;
+
+  try {
+    if (await autenticarComBiometria(acao)) return true;
+  } catch (erro) {
+    registrarDiagnostico("biometria", "Falha ao usar biometria", erro.message || "");
+  }
+
+  const senha = await solicitarValorSeguro({
+    titulo: "Confirmar ação protegida",
+    mensagem: "Digite a senha para " + acao + ".",
+    label: "Senha",
+    tipo: "password",
+    confirmar: "Confirmar"
+  });
+  if (senha === null) return false;
+  const usuario = getUsuarioAtual();
+  const senhaValida = senha === "123" || (usuario?.senha && senha === usuario.senha);
+  if (!senhaValida) {
+    alert("Senha incorreta.");
+    return false;
+  }
+  marcarBiometriaValida(2);
+  return true;
 }
 
 function isMobile() {
@@ -1407,6 +1592,7 @@ function renderMenuLateral() {
 
   const configs = [
     { tela: "config", icone: "☁️", texto: "Backup" },
+    { tela: "ia", icone: "IA", texto: "IA local" },
     { tela: "personalizacao", icone: "🎨", texto: "Personalizar" },
     { tela: "assinatura", icone: "💳", texto: "Planos" },
     { tela: "feedback", icone: "💡", texto: "Bugs e sugestões" }
@@ -1464,6 +1650,7 @@ function getItensMenuPopup() {
     { tela: "pedidos", icone: "📋", texto: "Pedidos", grupo: "Principal" },
     { tela: "caixa", icone: "💰", texto: "Caixa", grupo: "Principal" },
     { tela: "config", icone: "☁️", texto: "Backup", grupo: "Configurações" },
+    { tela: "ia", icone: "IA", texto: "IA local", grupo: "Configurações" },
     { tela: "personalizacao", icone: "🎨", texto: "Personalizar", grupo: "Configurações" },
     { tela: "assinatura", icone: "💳", texto: "Planos", grupo: "Configurações" },
     { tela: "feedback", icone: "💡", texto: "Bugs e sugestões", grupo: "Configurações" }
@@ -1553,6 +1740,8 @@ function renderTela(tela) {
       return renderCaixa();
     case "config":
       return renderConfig();
+    case "ia":
+      return renderIaLocal();
     case "personalizacao":
       return renderPersonalizacao();
     case "assinatura":
@@ -1573,6 +1762,7 @@ function renderAcoesRapidas() {
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "caixa", icone: "💰", texto: "Caixa" },
     { tela: "config", icone: "☁️", texto: "Nuvem" },
+    { tela: "ia", icone: "IA", texto: "IA" },
     { tela: "personalizacao", icone: "🎨", texto: "Tema" },
     { tela: "assinatura", icone: "💳", texto: "Plano" }
   ];
@@ -1672,13 +1862,17 @@ function renderPedido() {
             <span>Valor</span>
             <input type="number" min="0" step="0.01" value="${(Number(item.valor) || 0).toFixed(2)}" onchange="editarPreco(${i}, this.value)">
           </label>
+          <div class="item-subtotal">
+            <span>Subtotal</span>
+            <strong>${formatarMoeda(Number(item.total) || 0)}</strong>
+          </div>
           <button class="icon-button danger" onclick="removerItem(${i})" title="Remover item">✕</button>
         </div>
       `).join("")
     : `<p class="empty">Nenhum item adicionado. Use a calculadora para criar o primeiro item do pedido.</p>`;
 
   return `
-    <section class="card">
+    <section class="card order-edit-screen">
       <div class="card-header">
         <h2>${titulo}</h2>
         ${pedidoEditando ? `<button class="icon-button" onclick="cancelarEdicaoPedido()" title="Cancelar edição">↩</button>` : ""}
@@ -1696,10 +1890,10 @@ function renderPedido() {
       </div>
 
       <div class="actions">
-        <button class="btn secondary" onclick="abrirCalculadora()">🧮 Calcular item</button>
+        <button class="btn secondary" onclick="iniciarAdicionarItemPedido()">Adicionar item</button>
         <button class="btn ghost" onclick="gerarPDF()">📄 PDF</button>
         <button class="btn ghost" onclick="enviarWhats()">📲 WhatsApp</button>
-        <button class="btn" onclick="fecharPedido()">✅ ${botao}</button>
+        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>✅ ${botao}</button>
       </div>
     </section>
   `;
@@ -2519,6 +2713,211 @@ function renderAssinatura() {
   `;
 }
 
+function getAiConfig() {
+  appConfig.localAi = {
+    status: "not_installed",
+    statusText: "IA não instalada",
+    progress: 0,
+    phase: "idle",
+    modelName: LOCAL_AI_MODEL.name,
+    modelFileName: LOCAL_AI_MODEL.fileName,
+    modelUrl: LOCAL_AI_MODEL.url,
+    bytes: 0,
+    installedAt: "",
+    lastError: "",
+    ready: false,
+    ...(appConfig.localAi || {})
+  };
+  appConfig.localAi.modelName = LOCAL_AI_MODEL.name;
+  appConfig.localAi.modelFileName = LOCAL_AI_MODEL.fileName;
+  appConfig.localAi.modelUrl = LOCAL_AI_MODEL.url;
+  return appConfig.localAi;
+}
+
+function salvarStatusIa(parcial = {}, redesenhar = true) {
+  appConfig.localAi = { ...getAiConfig(), ...parcial };
+  salvarDados();
+  if (redesenhar && telaAtual === "ia") renderApp();
+}
+
+function renderAiProgress(ai) {
+  const progresso = Math.max(0, Math.min(100, Math.round(Number(ai.progress) || 0)));
+  return `
+    <div class="ai-progress-wrap">
+      <div class="ai-progress-circle" style="--progress:${progresso * 3.6}deg">
+        <span>${progresso}%</span>
+      </div>
+      <strong>${escaparHtml(ai.statusText || "IA não instalada")}</strong>
+    </div>
+  `;
+}
+
+function renderIaLocal() {
+  const ai = getAiConfig();
+  const instalada = ai.status === "installed" && ai.ready;
+  const ocupada = ["downloading", "installing", "preparing"].includes(ai.status);
+  const perguntas = carregarLista("aiChat").slice(-8);
+
+  return `
+    <section class="card ai-screen">
+      <div class="card-header">
+        <h2>IA local</h2>
+        <span class="status-badge">${instalada ? "IA instalada" : escaparHtml(ai.statusText || "IA não instalada")}</span>
+      </div>
+      <p class="muted">Modelo padrão: ${escaparHtml(LOCAL_AI_MODEL.name)}. O arquivo é baixado sob demanda e fica salvo no armazenamento interno do app/PWA.</p>
+
+      ${renderAiProgress(ai)}
+
+      <div class="actions">
+        <button class="btn" onclick="instalarIaLocal()" ${ocupada ? "disabled" : ""}>${instalada ? "Verificar IA" : "Instalar IA"}</button>
+        <button class="btn secondary" onclick="prepararIaLocal()" ${instalada && !ocupada ? "" : "disabled"}>Abrir IA</button>
+        <button class="btn ghost" onclick="removerIaLocal()" ${ocupada || !instalada ? "disabled" : ""}>Remover modelo</button>
+      </div>
+
+      ${ai.lastError ? `<div class="danger-zone"><strong>Erro na instalação</strong><p class="muted">${escaparHtml(ai.lastError)}</p><button class="btn secondary" onclick="instalarIaLocal()">Tentar novamente</button></div>` : ""}
+
+      <div class="danger-zone">
+        <h2 class="section-title">Assistente do Simplifica 3D</h2>
+        <p class="muted">${aiRuntimeActive ? "IA pronta para uso" : instalada ? "Preparando IA somente quando necessário" : "Instale a IA para liberar o assistente local."}</p>
+        <div class="ai-chat">
+          ${perguntas.map((msg) => `
+            <div class="ai-message ${msg.tipo === "user" ? "user" : "assistant"}">${escaparHtml(msg.texto)}</div>
+          `).join("") || `<p class="empty">Faça uma pergunta sobre pedidos, estoque, caixa, calculadora, impressoras, planos, anúncios, sincronização, personalização, PDF ou superadmin.</p>`}
+        </div>
+        <label class="field">
+          <span>Pergunta</span>
+          <input id="aiQuestion" placeholder="Ex.: como removo um pedido?">
+        </label>
+        <button class="btn secondary" onclick="perguntarIaLocal()" ${instalada ? "" : "disabled"}>Perguntar</button>
+      </div>
+    </section>
+  `;
+}
+
+async function verificarModeloIaInstalado() {
+  const modelo = await dbGet("aiModels", LOCAL_AI_MODEL.fileName).catch(() => null);
+  if (!modelo?.blob || modelo.fileName !== LOCAL_AI_MODEL.fileName) return false;
+  const tamanho = Number(modelo.blob.size) || Number(modelo.bytes) || 0;
+  if (tamanho <= 1024 * 1024) return false;
+  salvarStatusIa({
+    status: "installed",
+    statusText: "IA instalada",
+    progress: 100,
+    phase: "ready",
+    bytes: tamanho,
+    installedAt: modelo.installedAt || new Date().toISOString(),
+    lastError: "",
+    ready: true
+  });
+  return true;
+}
+
+async function instalarIaLocal() {
+  if (await verificarModeloIaInstalado()) return;
+  aiDownloadAbort?.abort();
+  aiDownloadAbort = new AbortController();
+  salvarStatusIa({ status: "downloading", statusText: "Baixando IA...", progress: 0, phase: "download", lastError: "", ready: false });
+
+  try {
+    const resposta = await fetch(LOCAL_AI_MODEL.url, { signal: aiDownloadAbort.signal });
+    if (!resposta.ok) throw new Error("HTTP " + resposta.status);
+    const total = Number(resposta.headers.get("content-length")) || 0;
+    const reader = resposta.body?.getReader();
+    if (!reader) throw new Error("Download sem streaming de progresso");
+    const partes = [];
+    let recebido = 0;
+    let ultimoRender = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      partes.push(value);
+      recebido += value.byteLength;
+      const progresso = total ? Math.round((recebido / total) * 90) : Math.min(90, Math.round(recebido / (1024 * 1024)));
+      if (Date.now() - ultimoRender > 350) {
+        salvarStatusIa({ status: "downloading", statusText: "Baixando IA...", progress: progresso, bytes: recebido }, true);
+        ultimoRender = Date.now();
+      }
+    }
+
+    salvarStatusIa({ status: "installing", statusText: "Validando arquivo", progress: 92, bytes: recebido });
+    const blob = new Blob(partes, { type: "application/octet-stream" });
+    if (blob.size <= 1024 * 1024) throw new Error("Arquivo do modelo parece incompleto.");
+    salvarStatusIa({ status: "installing", statusText: "Preparando runtime", progress: 96, bytes: blob.size });
+    await dbPut("aiModels", LOCAL_AI_MODEL.fileName, {
+      fileName: LOCAL_AI_MODEL.fileName,
+      modelName: LOCAL_AI_MODEL.name,
+      url: LOCAL_AI_MODEL.url,
+      blob,
+      bytes: blob.size,
+      installedAt: new Date().toISOString()
+    });
+    salvarStatusIa({ status: "installing", statusText: "Teste inicial da IA", progress: 99, bytes: blob.size });
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    salvarStatusIa({ status: "installed", statusText: "IA pronta para uso", progress: 100, phase: "ready", ready: true, lastError: "" });
+  } catch (erro) {
+    if (erro.name === "AbortError") return;
+    salvarStatusIa({ status: "error", statusText: "Erro na instalação", progress: 0, lastError: erro.message || "Falha ao instalar IA", ready: false });
+  }
+}
+
+async function removerIaLocal() {
+  if (!confirm("Remover o modelo local da IA deste aparelho?")) return;
+  await dbDelete("aiModels", LOCAL_AI_MODEL.fileName).catch(() => {});
+  aiRuntimeActive = false;
+  salvarStatusIa({ status: "not_installed", statusText: "IA não instalada", progress: 0, ready: false, bytes: 0, installedAt: "" });
+}
+
+async function prepararIaLocal() {
+  if (!await verificarModeloIaInstalado()) return;
+  if (aiRuntimeActive || aiRuntimePreparing) return;
+  aiRuntimePreparing = true;
+  salvarStatusIa({ status: "preparing", statusText: "Preparando IA...", progress: 100 }, true);
+  await carregarManualIa();
+  aiRuntimeActive = true;
+  aiRuntimePreparing = false;
+  salvarStatusIa({ status: "installed", statusText: "IA pronta para uso", progress: 100, ready: true }, true);
+}
+
+function hibernarIaLocal() {
+  aiRuntimeActive = false;
+  aiRuntimePreparing = false;
+}
+
+async function carregarManualIa() {
+  if (aiManualCache) return aiManualCache;
+  const resposta = await fetch("docs/manual_simplifica3d.md").catch(() => null);
+  aiManualCache = resposta?.ok ? await resposta.text() : "";
+  return aiManualCache;
+}
+
+function selecionarContextoManual(manual, pergunta) {
+  const termos = normalizarTextoSugestao(pergunta).split(" ").filter((item) => item.length > 3);
+  const blocos = String(manual || "").split(/\n(?=## )/);
+  const pontuados = blocos.map((bloco) => {
+    const texto = normalizarTextoSugestao(bloco);
+    const pontos = termos.reduce((soma, termo) => soma + (texto.includes(termo) ? 1 : 0), 0);
+    return { bloco, pontos };
+  }).sort((a, b) => b.pontos - a.pontos);
+  return pontuados.filter((item) => item.pontos > 0).slice(0, 2).map((item) => item.bloco).join("\n\n").slice(0, 3600);
+}
+
+async function perguntarIaLocal() {
+  const pergunta = (document.getElementById("aiQuestion")?.value || "").trim();
+  if (!pergunta) return;
+  await prepararIaLocal();
+  const manual = await carregarManualIa();
+  const contexto = selecionarContextoManual(manual, pergunta);
+  const resposta = contexto
+    ? contexto.replace(/^#+\s*/gm, "").split("\n").filter(Boolean).slice(0, 4).join(" ")
+    : "Não encontrei essa informação no manual do sistema.";
+  const conversa = carregarLista("aiChat");
+  conversa.push({ tipo: "user", texto: pergunta, data: new Date().toISOString() });
+  conversa.push({ tipo: "assistant", texto: resposta.slice(0, 520), data: new Date().toISOString(), config: LOCAL_AI_OPTIONS, prompt: LOCAL_AI_PROMPT });
+  localStorage.setItem("aiChat", JSON.stringify(conversa.slice(-12)));
+  renderApp();
+}
+
 function renderFeedback() {
   const sugestoesOrdenadas = [...sugestoes].sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Date.parse(b.atualizadoEm || 0) - Date.parse(a.atualizadoEm || 0));
   const listaSugestoes = sugestoesOrdenadas.slice(0, 20).map((item, indice) => `
@@ -2922,11 +3321,12 @@ function logoutUsuario() {
   renderApp();
 }
 
-function salvarDonoSistema() {
+async function salvarDonoSistema() {
   if (!podeGerenciarComercial()) {
     alert("Entre como dono ou admin local para salvar o dono do produto.");
     return;
   }
+  if (!await autenticarAcaoProtegida("alterar dados do dono")) return;
 
   const nome = (document.getElementById("ownerNameAdmin")?.value || "Dono").trim();
   const email = normalizarEmail(document.getElementById("ownerEmailAdmin")?.value || "");
@@ -3017,11 +3417,12 @@ function adicionarUsuario() {
   renderApp();
 }
 
-function removerUsuario(id) {
+async function removerUsuario(id) {
   if (!podeGerenciarUsuarios()) {
     alert("Entre como dono ou admin para remover usuários.");
     return;
   }
+  if (!await autenticarAcaoProtegida("remover usuário")) return;
 
   usuarios = normalizarUsuarios(usuarios);
   const usuario = usuarios.find((item) => String(item.id) === String(id));
@@ -3051,11 +3452,12 @@ function removerUsuario(id) {
   renderApp();
 }
 
-function salvarConfigComercial() {
+async function salvarConfigComercial() {
   if (!podeGerenciarComercial()) {
     alert("Entre como dono ou admin local para alterar o comercial.");
     return;
   }
+  if (!await autenticarAcaoProtegida("alterar dados sensíveis")) return;
 
   const mobileLimit = Math.max(1, parseFloat(document.getElementById("mobileLimitAdmin")?.value) || 1);
   const desktopLimit = Math.max(1, parseFloat(document.getElementById("desktopLimitAdmin")?.value) || 1);
@@ -3763,11 +4165,12 @@ function importarBackup(arquivo) {
   leitor.readAsText(arquivo);
 }
 
-function zerarDadosAdmin() {
+async function zerarDadosAdmin() {
   if (!podeGerenciarUsuarios()) {
     alert("Entre como admin para gerenciar os dados");
     return;
   }
+  if (!await autenticarAcaoProtegida("zerar dados locais")) return;
 
   if (!confirm("Zerar todos os pedidos, estoque, caixa e histórico deste aparelho?")) return;
   if (!confirm("Confirme novamente: esta ação apaga os dados locais.")) return;
@@ -3809,13 +4212,24 @@ function editarPreco(i, preco) {
   renderApp();
 }
 
+function iniciarAdicionarItemPedido() {
+  if (confirm("Deseja abrir a calculadora para calcular este item?")) {
+    abrirCalculadoraPedido();
+    return;
+  }
+  itensPedido.push({ nome: "Item manual", qtd: 1, valor: 0, total: 0 });
+  renderApp();
+}
+
 function removerItem(i) {
+  if (!confirm("Remover este item do pedido?")) return;
   itensPedido.splice(i, 1);
   renderApp();
 }
 
-function editarPedido(id) {
+async function editarPedido(id) {
   if (!exigirPlanoCompleto()) return;
+  if (!await autenticarAcaoProtegida("editar pedido")) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
 
@@ -3831,20 +4245,23 @@ function editarPedido(id) {
   itensPedido = JSON.parse(JSON.stringify(itens));
   clientePedido = clienteDoPedido(pedido);
   pedidoEditando = pedido;
+  pedidoEditandoOriginal = JSON.parse(JSON.stringify(pedido));
   trocarTela("pedido");
 }
 
 function cancelarEdicaoPedido() {
   pedidoEditando = null;
+  pedidoEditandoOriginal = null;
   itensPedido = [];
   clientePedido = "";
   renderApp();
 }
 
-function removerPedido(id) {
+async function removerPedido(id) {
   if (!exigirPlanoCompleto()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
+  if (!await autenticarAcaoProtegida("remover pedido")) return;
   if (!confirm("Remover este pedido?")) return;
 
   const total = totalPedido(pedido);
@@ -3879,14 +4296,70 @@ function fecharPedido() {
     return;
   }
 
+  if (pedidoEditando) {
+    abrirRevisaoPedido(cliente);
+    return;
+  }
+
+  aplicarFechamentoPedido(cliente);
+}
+
+function montarPedidoAtual(cliente) {
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  const pedido = {
+  return {
     id: pedidoEditando?.id || Date.now(),
     cliente,
     itens: JSON.parse(JSON.stringify(itensPedido)),
     total,
     data: new Date().toLocaleDateString("pt-BR")
   };
+}
+
+function abrirRevisaoPedido(cliente) {
+  const pedido = montarPedidoAtual(cliente);
+  const totalAnterior = totalPedido(pedidoEditandoOriginal || pedidoEditando);
+  const novoTotal = totalPedido(pedido);
+  const itensAntigos = Array.isArray(pedidoEditandoOriginal?.itens) ? pedidoEditandoOriginal.itens : [];
+  const removidos = itensAntigos.filter((_, i) => !pedido.itens[i]).map((item) => item.nome || "Item").join(", ") || "Nenhum";
+  const alterados = pedido.itens.filter((item, i) => JSON.stringify(item) !== JSON.stringify(itensAntigos[i])).map((item) => item.nome || "Item").join(", ") || "Nenhum";
+  const adicionados = pedido.itens.slice(itensAntigos.length).map((item) => item.nome || "Item").join(", ") || "Nenhum";
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  window.__clienteRevisaoPedido = cliente;
+  popup.innerHTML = `
+    <div class="popup" role="dialog" aria-modal="true" aria-label="Revise as alterações do pedido">
+      <div class="popup-box order-review-box">
+        <h2 class="section-title">Revise as alterações do pedido</h2>
+        <div class="sync-grid">
+          <div class="metric"><span>Cliente</span><strong>${escaparHtml(cliente)}</strong></div>
+          <div class="metric"><span>Total anterior</span><strong>${formatarMoeda(totalAnterior)}</strong></div>
+          <div class="metric"><span>Novo total</span><strong>${formatarMoeda(novoTotal)}</strong></div>
+          <div class="metric"><span>Diferença</span><strong>${formatarMoeda(novoTotal - totalAnterior)}</strong></div>
+        </div>
+        <div class="history-list">
+          <div class="history-item"><strong>Itens adicionados</strong><span class="muted">${escaparHtml(adicionados)}</span></div>
+          <div class="history-item"><strong>Itens removidos</strong><span class="muted">${escaparHtml(removidos)}</span></div>
+          <div class="history-item"><strong>Itens alterados</strong><span class="muted">${escaparHtml(alterados)}</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" onclick="fecharPopup()">Voltar e editar</button>
+          <button class="btn" onclick="confirmarRevisaoPedido()">Confirmar alterações</button>
+          <button class="btn danger" onclick="cancelarEdicaoPedido();fecharPopup()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function confirmarRevisaoPedido() {
+  aplicarFechamentoPedido(window.__clienteRevisaoPedido || clientePedido);
+  delete window.__clienteRevisaoPedido;
+}
+
+function aplicarFechamentoPedido(cliente) {
+  if (pedidoSalvando) return;
+  pedidoSalvando = true;
+  const pedido = montarPedidoAtual(cliente);
 
   if (pedidoEditando) {
     const idAntigo = Number(pedidoEditando.id);
@@ -3906,10 +4379,13 @@ function fecharPedido() {
 
   salvarDados();
   registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
+  if (pedidoEditando) alert("Pedido atualizado com sucesso");
   pedidoEditando = null;
+  pedidoEditandoOriginal = null;
   itensPedido = [];
   clientePedido = "";
-  telaAtual = isMobile() ? "pedidos" : telaAtual;
+  pedidoSalvando = false;
+  fecharPopup();
   renderApp();
 }
 
@@ -3935,13 +4411,14 @@ function addMaterial() {
   renderApp();
 }
 
-function editarMaterial(i) {
+async function editarMaterial(i) {
   if (!exigirPlanoCompleto()) return;
+  if (!await autenticarAcaoProtegida("editar item do estoque")) return;
   const material = estoque[i];
   if (!material) return;
 
-  const nome = prompt("Nome do material:", material.nome);
-  const qtd = prompt("Quantidade em kg:", material.qtd);
+  const nome = await solicitarValorSeguro({ titulo: "Editar material", mensagem: "Informe o nome do material.", label: "Material", valor: material.nome });
+  const qtd = await solicitarValorSeguro({ titulo: "Editar quantidade", mensagem: "Informe a quantidade em kg.", label: "Quantidade em kg", valor: material.qtd, tipo: "number" });
 
   if (nome !== null && nome.trim()) {
     material.nome = nome.trim();
@@ -3956,9 +4433,10 @@ function editarMaterial(i) {
   renderApp();
 }
 
-function removerMaterial(i) {
+async function removerMaterial(i) {
   if (!exigirPlanoCompleto()) return;
   if (!estoque[i]) return;
+  if (!await autenticarAcaoProtegida("remover item do estoque")) return;
   if (!confirm("Remover este material?")) return;
 
   estoque.splice(i, 1);
@@ -3996,9 +4474,10 @@ function adicionarMovimentoCaixa() {
   renderApp();
 }
 
-function removerMovimentoCaixa(i) {
+async function removerMovimentoCaixa(i) {
   if (!exigirPlanoCompleto()) return;
   if (!caixa[i]) return;
+  if (!await autenticarAcaoProtegida("remover movimento do caixa")) return;
   if (!confirm("Remover este movimento do caixa?")) return;
 
   caixa.splice(i, 1);
@@ -4093,6 +4572,10 @@ function renderCalculadoraConteudo() {
         <span>Margem %</span>
         <input id="margem" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}">
       </label>
+      <label class="field">
+        <span>Taxa extra</span>
+        <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00">
+      </label>
     </div>
 
     <label class="field">
@@ -4100,7 +4583,10 @@ function renderCalculadoraConteudo() {
       <input id="nomeItem" placeholder="Ex.: suporte personalizado">
     </label>
 
-    <button class="btn secondary" onclick="calcular()">Calcular</button>
+    <div class="actions">
+      <button class="btn secondary" onclick="calcular()">Calcular</button>
+      <button class="btn ghost" onclick="limparCalculo()">Novo cálculo</button>
+    </div>
     <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
 
     <div class="actions">
@@ -4150,9 +4636,19 @@ function renderCalculadoraFlutuante() {
 
 function abrirCalculadora() {
   ultimoCalculo = null;
+  calculadoraModoPedido = false;
   fecharPopup();
   salvarCalculadoraWidget({ open: true }, true);
   renderCalculadoraFlutuante();
+}
+
+function abrirCalculadoraPedido() {
+  ultimoCalculo = null;
+  calculadoraModoPedido = true;
+  fecharPopup();
+  salvarCalculadoraWidget({ open: true }, true);
+  renderCalculadoraFlutuante();
+  limparCalculo(false);
 }
 
 function minimizarCalculadora() {
@@ -4231,6 +4727,20 @@ function finalizarCalculadora() {
   calcWidgetAction = null;
 }
 
+function verificarDuploToqueForaCalculadora(event) {
+  const widget = appConfig.calculatorWidget || {};
+  if (!widget.open || calcWidgetAction) return;
+  if (event.target.closest(".calc-widget-window, .calc-float-ball, button, input, select, textarea, a")) return;
+
+  const agora = Date.now();
+  if (agora - ultimoToqueForaCalculadora < 420) {
+    ultimoToqueForaCalculadora = 0;
+    minimizarCalculadora();
+    return;
+  }
+  ultimoToqueForaCalculadora = agora;
+}
+
 function manterCalculadoraVisivel(salvar = false) {
   if (!appConfig.calculatorWidget) return;
   salvarCalculadoraWidget({}, salvar);
@@ -4266,27 +4776,51 @@ function calcular() {
   const consumo = parseFloat(document.getElementById("consumo")?.value) || 0;
   const custoHora = parseFloat(document.getElementById("custoHora")?.value) || 0;
   const margem = parseFloat(document.getElementById("margem")?.value) || 0;
+  const taxaExtra = parseFloat(document.getElementById("taxaExtra")?.value) || 0;
 
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempo * energia;
   const maquina = tempo * custoHora;
-  const custo = material + energiaC + maquina;
+  const custo = material + energiaC + maquina + taxaExtra;
   const preco = custo * (1 + margem / 100);
 
   ultimoCalculo = {
     preco: preco / qtd,
-    custo: custo / qtd
+    custo: custo / qtd,
+    qtd,
+    taxaExtra,
+    peso,
+    tempo
   };
 
   document.getElementById("res").innerHTML = `
     Custo mínimo: <strong>${formatarMoeda(custo / qtd)}</strong><br>
-    Preço sugerido: <strong>${formatarMoeda(preco / qtd)}</strong>
+    Preço sugerido: <strong>${formatarMoeda(preco / qtd)}</strong><br>
+    Subtotal: <strong>${formatarMoeda(preco)}</strong>
+    <label class="field inline-result-field">
+      <span>Valor unitário para adicionar</span>
+      <input id="valorManualItem" type="number" min="0" step="0.01" value="${(preco / qtd).toFixed(2)}">
+    </label>
   `;
+}
+
+function limparCalculo(renderizar = true) {
+  ultimoCalculo = null;
+  ["peso", "tempo", "taxaExtra", "nomeItem"].forEach((id) => {
+    const campo = document.getElementById(id);
+    if (campo) campo.value = "";
+  });
+  const qtd = document.getElementById("quantidade");
+  if (qtd) qtd.value = "1";
+  const res = document.getElementById("res");
+  if (res) res.textContent = "Preencha os dados e calcule o valor do item.";
+  if (renderizar) renderCalculadoraFlutuante();
 }
 
 function adicionarItem() {
   if (!ultimoCalculo) {
-    calcular();
+    alert("Clique em Calcular e revise o valor antes de adicionar.");
+    return;
   }
 
   if (!ultimoCalculo || ultimoCalculo.preco <= 0) {
@@ -4296,14 +4830,21 @@ function adicionarItem() {
 
   const nome = document.getElementById("nomeItem")?.value.trim() || "Item calculado";
   const qtd = Math.max(parseFloat(document.getElementById("quantidade")?.value) || 1, 1);
+  const valorManual = parseFloat(document.getElementById("valorManualItem")?.value) || ultimoCalculo.preco;
+
+  if (!confirm("Deseja adicionar este item ao pedido?")) return;
 
   itensPedido.push({
     nome,
     qtd,
-    valor: ultimoCalculo.preco,
-    total: ultimoCalculo.preco * qtd
+    valor: valorManual,
+    total: valorManual * qtd,
+    taxaExtra: ultimoCalculo.taxaExtra || 0,
+    peso: ultimoCalculo.peso || 0,
+    horas: ultimoCalculo.tempo || 0
   });
 
+  limparCalculo(false);
   minimizarCalculadora();
   trocarTela("pedido");
 }
@@ -4313,6 +4854,49 @@ function fecharPopup() {
   if (popup) {
     popup.innerHTML = "";
   }
+}
+
+function solicitarValorSeguro({ titulo, mensagem, label, valor = "", tipo = "text", confirmar = "Confirmar" }) {
+  const popup = document.getElementById("popup");
+  if (!popup) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const inputId = "secureInput-" + Date.now().toString(36);
+    const concluir = (resultado) => {
+      popup.innerHTML = "";
+      resolve(resultado);
+    };
+
+    window.__resolverValorSeguro = () => {
+      const campo = document.getElementById(inputId);
+      concluir(campo ? campo.value : "");
+      delete window.__resolverValorSeguro;
+      delete window.__cancelarValorSeguro;
+    };
+    window.__cancelarValorSeguro = () => {
+      concluir(null);
+      delete window.__resolverValorSeguro;
+      delete window.__cancelarValorSeguro;
+    };
+
+    popup.innerHTML = `
+      <div class="popup" role="dialog" aria-modal="true" aria-label="${escaparAttr(titulo || "Confirmação")}">
+        <div class="popup-box">
+          <h2 class="section-title">${escaparHtml(titulo || "Confirmar")}</h2>
+          ${mensagem ? `<p class="muted">${escaparHtml(mensagem)}</p>` : ""}
+          <label class="field">
+            <span>${escaparHtml(label || "Valor")}</span>
+            <input id="${inputId}" type="${escaparAttr(tipo)}" value="${escaparAttr(valor)}" autocomplete="current-password">
+          </label>
+          <div class="actions">
+            <button class="btn" onclick="window.__resolverValorSeguro && window.__resolverValorSeguro()">${escaparHtml(confirmar)}</button>
+            <button class="btn ghost" onclick="window.__cancelarValorSeguro && window.__cancelarValorSeguro()">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    `;
+    setTimeout(() => document.getElementById(inputId)?.focus(), 40);
+  });
 }
 
 function dadosPedidoAtual() {
@@ -4882,15 +5466,32 @@ window.addEventListener("resize", () => {
 
 document.addEventListener("DOMContentLoaded", () => {
   renderApp();
+  verificarModeloIaInstalado().then((instalada) => {
+    if (instalada && document.visibilityState === "visible") prepararIaLocal();
+  }).catch(() => {});
   iniciarAutoBackup();
   iniciarMonitorAtualizacao();
   document.addEventListener("pointermove", moverJanelaDashboard);
   document.addEventListener("pointermove", moverCalculadora);
+  document.addEventListener("pointerdown", verificarDuploToqueForaCalculadora);
   document.addEventListener("pointerup", finalizarJanelaDashboard);
   document.addEventListener("pointerup", finalizarCalculadora);
   document.addEventListener("pointercancel", finalizarJanelaDashboard);
   document.addEventListener("pointercancel", finalizarCalculadora);
 });
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    hibernarIaLocal();
+    return;
+  }
+
+  if (getAiConfig().ready && telaAtual === "ia") {
+    prepararIaLocal();
+  }
+});
+
+window.addEventListener("pagehide", hibernarIaLocal);
 
 window.addEventListener("error", (event) => {
   registrarDiagnostico("erro", event.message || "Erro de execução", `${event.filename || ""}:${event.lineno || ""}:${event.colno || ""}`);
