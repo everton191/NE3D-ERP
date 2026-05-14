@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.13";
-const APP_VERSION_CODE = 64;
+const APP_VERSION = "51.0.14";
+const APP_VERSION_CODE = 65;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -64,6 +64,8 @@ const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
 const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
 const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D. Responda somente com base nas informações do sistema enviadas no contexto. Não invente funções, telas, preços ou regras. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples e direto.";
+const AI_RUNTIME_TEST_SYSTEM_PROMPT = "Responda somente OK.";
+const AI_RUNTIME_TEST_PROMPT = "OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
   telas: ["Dashboard", "Pedidos", "Calculadora", "Estoque", "Caixa", "Relatórios", "Backup", "Configurações", "Planos"],
   fluxos: [
@@ -6042,7 +6044,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <span>🔎</span>
+        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico">${renderAssistantFabContent("IA", false)}</button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
@@ -6369,14 +6371,13 @@ function abrirAssistente(modo = "auto") {
     assistantMessages.push({
       role: "assistant",
       text: assistantMode === "pro"
-        ? "IA local pronta. Posso ajudar com dúvidas do Simplifica 3D."
+        ? "IA local instalada. Digite sua pergunta para iniciar o modelo neste aparelho."
         : "Olá! Sou o Assistente do Simplifica 3D. Posso ajudar com pedido, estoque, calculadora, backup, PDF, plano e login."
     });
   }
   if (assistantMode === "pro") {
     assistantRuntimeReady = false;
     assistantRuntimeDiagnostics = null;
-    garantirRuntimeIAAtivo({ silent: true });
     atualizarSuporteVozIASeNecessario();
   }
   renderApp();
@@ -6972,7 +6973,7 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
         </div>
       ` : ""}
       <div class="actions">
-        <button class="btn secondary" type="button" onclick="${acessoProIA ? (ready ? `abrirAssistente('pro')` : `baixarModeloIAOffline('${escaparAttr(modelo.id)}')`) : "trocarTela('assinatura')"}" ${acessoProIA && (busy || (!ready && !urlConfigurada)) ? "disabled" : ""}>${escaparHtml(acaoPrincipal)}</button>
+        <button class="btn secondary" type="button" onclick="${acessoProIA ? (ready ? `abrirModeloIAOffline('${escaparAttr(modelo.id)}')` : `baixarModeloIAOffline('${escaparAttr(modelo.id)}')`) : "trocarTela('assinatura')"}" ${acessoProIA && (busy || (!ready && !urlConfigurada)) ? "disabled" : ""}>${escaparHtml(acaoPrincipal)}</button>
         ${busy && acessoProIA ? `<button class="btn ghost" type="button" onclick="cancelarInstalacaoIAOffline('${escaparAttr(modelo.id)}')">Cancelar</button>` : ""}
         <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${!acessoProIA || busy || !hasFile ? "disabled" : ""}>Testar IA</button>
         <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${!acessoProIA || busy || !hasFile ? "disabled" : ""}>Remover modelo</button>
@@ -7076,13 +7077,13 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
     plugin.testAiModelRuntime({
       modelId,
       modelPath: path,
-      systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
-      prompt: "Responda apenas: OK",
-      maxTokens: 12,
+      systemPrompt: AI_RUNTIME_TEST_SYSTEM_PROMPT,
+      prompt: AI_RUNTIME_TEST_PROMPT,
+      maxTokens: 4,
       proAllowed: podeUsarAssistenteIAOfflinePro(),
-      timeoutMs: 120000
+      timeoutMs: 240000
     }),
-    125000,
+    245000,
     "Teste da IA demorou demais."
   );
 }
@@ -7231,6 +7232,20 @@ async function cancelarInstalacaoIAOffline(modelId) {
   renderizarPreservandoScroll();
 }
 
+async function abrirModeloIAOffline(modelId) {
+  const modelo = getAIModel(modelId);
+  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
+  const state = getAIModelLocalState(modelId);
+  if (!isAIModelReadyStatus(getAIModelStatus(modelId)) || !String(state.path || "").trim() || !state.runtimeValidatedAt) {
+    await baixarModeloIAOffline(modelId);
+    return;
+  }
+  definirIAConfig({ activeModelId: modelId, installedModelId: modelId, localEnabled: true, onboardingCompleted: true, lastFailure: "" });
+  assistantRuntimeReady = false;
+  assistantRuntimeDiagnostics = null;
+  abrirAssistente("pro");
+}
+
 async function usarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
   if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
@@ -7312,6 +7327,7 @@ async function testarModeloIAOffline(modelId) {
       progress: 100,
       lastError: ""
     });
+    definirIAConfig({ activeModelId: modelId, installedModelId: modelId, localEnabled: true, onboardingCompleted: true, lastFailure: "" });
     appConfig.aiOfflineAssistant.lastPerformance = "Teste interno OK.";
     salvarDados();
     mostrarToast("IA testada e pronta.", "sucesso", 4200);
@@ -7567,13 +7583,13 @@ function buscarTrechosManualIA(texto = "") {
   const encontrados = topicos
     .filter(([keywords]) => keywords.split(/\s+/).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))))
     .map(([, trecho]) => trecho);
-  return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 5);
+  return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 3);
 }
 
 function montarPromptIAOffline(texto = "", contexto = {}) {
   const contextoSeguro = {
     tela: contexto.tela || telaAtual,
-    pergunta: String(texto || "").slice(0, 600),
+    pergunta: String(texto || "").slice(0, 300),
     dados: contexto.calculoRecente || contexto
   };
   const trechosManual = buscarTrechosManualIA(texto);
@@ -7581,10 +7597,10 @@ function montarPromptIAOffline(texto = "", contexto = {}) {
     "Manual relevante do Simplifica 3D:",
     trechosManual.join("\n"),
     "Contexto resumido:",
-    JSON.stringify(contextoSeguro).slice(0, 1200),
+    JSON.stringify(contextoSeguro).slice(0, 700),
     "",
     "Pergunta:",
-    String(texto || "").slice(0, 700)
+    String(texto || "").slice(0, 400)
   ].join("\n");
 }
 
@@ -7610,7 +7626,7 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     prompt: montarPromptIAOffline(texto, contexto),
     maxTokens: Math.max(32, Math.min(Number(opcoes.maxTokens || 160) || 160, 256)),
     proAllowed: podeUsarAssistenteIAOfflinePro(),
-    timeoutMs: Math.max(8000, Math.min(Number(opcoes.timeoutMs || 60000) || 60000, 120000))
+    timeoutMs: Math.max(8000, Math.min(Number(opcoes.timeoutMs || 120000) || 120000, 240000))
   });
   const resposta = String(result?.text || "").trim();
   if (!resposta) throw new Error("O modelo offline não retornou resposta.");
@@ -7741,8 +7757,8 @@ async function responderAssistente(texto = "") {
     }
     const resposta = usarIAPro
       ? await promiseComTimeout(
-          gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 180, timeoutMs: 70000 }),
-          8000,
+          gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 128, timeoutMs: 240000 }),
+          245000,
           "IA local demorou demais para responder."
         )
       : obterRespostaAssistente(pergunta, contexto);
@@ -7853,11 +7869,13 @@ function renderAssistenteVirtual() {
   const modoDisponivel = getAssistenteModoDisponivel();
 
   if (!assistantOpen) {
+    if (modoDisponivel !== "pro") return "";
     const label = modoDisponivel === "pro" ? "IA" : "Assistente";
     return `<button class="assistant-fab" onclick="abrirAssistente('${escaparAttr(modoDisponivel)}')" title="Assistente inteligente">${renderAssistantFabContent(label, modoDisponivel === "pro")}</button>`;
   }
 
   if (assistantMinimized) {
+    if (assistantMode !== "pro") return "";
     const label = assistantMode === "pro" ? "IA" : "Assistente";
     return `
       <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('${escaparAttr(assistantMode || modoDisponivel)}')" title="Abrir assistente">
@@ -7880,7 +7898,7 @@ function renderAssistenteVirtual() {
     </div>
   `).join("");
 
-  return `
+  const painel = `
     <section class="assistant-panel" aria-label="Assistente virtual local">
       <div class="assistant-header">
         <div>
@@ -7889,10 +7907,6 @@ function renderAssistenteVirtual() {
         </div>
         <div class="row-actions">
           ${assistantGenerating ? `<button class="icon-button warning" onclick="cancelarGeracaoIAOffline()" title="Cancelar geração">⏹</button>` : ""}
-          ${podeMostrarMicrofone ? `<button class="icon-button ${assistantListening ? "warning" : ""}" onclick="${assistantListening ? "cancelarEntradaVozIAPro()" : "iniciarEntradaVozIAPro()"}" title="${assistantListening ? "Cancelar fala" : "Falar com a IA"}">🎙</button>` : ""}
-          <button class="icon-button" onclick="limparConversaAssistente()" title="Limpar conversa">🧹</button>
-          <button class="icon-button" onclick="minimizarAssistente()" title="Minimizar">−</button>
-          <button class="icon-button danger" onclick="fecharAssistente()" title="Fechar">×</button>
         </div>
       </div>
       <div class="assistant-body">${mensagens}</div>
@@ -7917,10 +7931,12 @@ function renderAssistenteVirtual() {
       ` : ""}
       <form class="assistant-form" onsubmit="enviarMensagemAssistente(event)">
         <input id="assistantInput" placeholder="${assistantMode === "pro" ? "Pergunte para a IA..." : "Pergunte sobre pedido, estoque, PDF..."}" autocomplete="off">
+        ${podeMostrarMicrofone ? `<button class="assistant-mic-button ${assistantListening ? "warning" : ""}" type="button" onclick="${assistantListening ? "cancelarEntradaVozIAPro()" : "iniciarEntradaVozIAPro()"}" title="${assistantListening ? "Cancelar fala" : "Falar com a IA"}">🎙</button>` : ""}
         <button class="btn" type="submit" ${envioBloqueado ? "disabled" : ""}>Enviar</button>
       </form>
     </section>
   `;
+  return `<div class="assistant-backdrop" onclick="minimizarAssistente()" aria-hidden="true"></div>${painel}`;
 }
 
 function getDashboardLayout() {
@@ -9637,7 +9653,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <span>🔎</span>
+        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico">${renderAssistantFabContent("IA", false)}</button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>

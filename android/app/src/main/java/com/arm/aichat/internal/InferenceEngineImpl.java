@@ -10,17 +10,17 @@ public final class InferenceEngineImpl {
     private static final String TAG = "S3D-Llama";
     private static final String LIB_NAME = "ai-chat";
     private static final int DEFAULT_MAX_TOKENS = 160;
-    private static final int DEFAULT_CONTEXT_TOKENS = 2048;
+    private static final int DEFAULT_CONTEXT_TOKENS = 1024;
     private static final int DEFAULT_THREADS = 2;
     private static final int DEFAULT_GPU_LAYERS = 0;
     private static final int MAX_RESPONSE_CHARS = 2400;
     private static final Object LOCK = new Object();
 
-    private static InferenceEngineImpl instance;
-    private static boolean nativeLoaded = false;
+    private static volatile InferenceEngineImpl instance;
+    private static volatile boolean nativeLoaded = false;
 
-    private String loadedModelPath = "";
-    private boolean modelReady = false;
+    private volatile String loadedModelPath = "";
+    private volatile boolean modelReady = false;
     private volatile boolean cancelRequested = false;
 
     private InferenceEngineImpl(Context context) {
@@ -51,29 +51,24 @@ public final class InferenceEngineImpl {
     }
 
     public static void cancelIfInitialized() {
-        synchronized (LOCK) {
-            if (instance != null) {
-                instance.cancelGeneration();
-            }
+        InferenceEngineImpl engine = instance;
+        if (engine != null) {
+            engine.cancelGeneration();
         }
     }
 
     public static boolean isNativeLoaded() {
-        synchronized (LOCK) {
-            return nativeLoaded;
-        }
+        return nativeLoaded;
     }
 
     public static boolean isModelReady() {
-        synchronized (LOCK) {
-            return instance != null && instance.modelReady;
-        }
+        InferenceEngineImpl engine = instance;
+        return engine != null && engine.modelReady;
     }
 
     public static String getLoadedModelPath() {
-        synchronized (LOCK) {
-            return instance == null ? "" : instance.loadedModelPath;
-        }
+        InferenceEngineImpl engine = instance;
+        return engine == null ? "" : engine.loadedModelPath;
     }
 
     public static int getDefaultContextTokens() {
@@ -98,8 +93,7 @@ public final class InferenceEngineImpl {
             }
 
             int safeMaxTokens = Math.max(16, Math.min(maxTokens <= 0 ? DEFAULT_MAX_TOKENS : maxTokens, 256));
-            long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 120000L));
-            long deadline = System.currentTimeMillis() + safeTimeoutMs;
+            long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 300000L));
 
             ensureModelLoaded(modelFile.getAbsolutePath());
 
@@ -121,6 +115,9 @@ public final class InferenceEngineImpl {
                 throw new IOException("Falha ao processar o prompt: " + userStatus);
             }
 
+            // O carregamento e o prompt processing podem ser lentos no primeiro uso.
+            // O prazo de geração conta daqui para evitar falso "sem resposta" após load bem-sucedido.
+            long deadline = System.currentTimeMillis() + safeTimeoutMs;
             StringBuilder output = new StringBuilder();
             while (!cancelRequested && System.currentTimeMillis() < deadline && output.length() < MAX_RESPONSE_CHARS) {
                 String token = generateNextToken();

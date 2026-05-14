@@ -414,6 +414,8 @@ public class SimplificaFilesPlugin extends Plugin {
         result.put("cpuCores", Math.max(1, Runtime.getRuntime().availableProcessors()));
         result.put("androidSdk", Build.VERSION.SDK_INT);
         result.put("abi", Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : Build.CPU_ABI);
+        result.put("runtimeSupported", isAiRuntimeDeviceSupported());
+        result.put("runtimeUnsupportedReason", getAiRuntimeUnsupportedReason());
         result.put("webView", webView);
         call.resolve(result);
     }
@@ -478,11 +480,15 @@ public class SimplificaFilesPlugin extends Plugin {
             call.reject("IA Local é um recurso exclusivo do Plano Pro.");
             return;
         }
+        if (!isAiRuntimeDeviceSupported()) {
+            call.reject(getAiRuntimeUnsupportedReason());
+            return;
+        }
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "");
         final String prompt = call.getString("prompt", "");
         final int maxTokens = Math.max(16, Math.min(call.getData().optInt("maxTokens", 160), 256));
-        final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 60000L), 120000L));
+        final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {
             call.reject("Modelo offline não instalado.");
@@ -515,9 +521,13 @@ public class SimplificaFilesPlugin extends Plugin {
             call.reject("IA Local é um recurso exclusivo do Plano Pro.");
             return;
         }
+        if (!isAiRuntimeDeviceSupported()) {
+            call.reject(getAiRuntimeUnsupportedReason());
+            return;
+        }
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String modelPath = call.getString("modelPath", "");
-        final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 60000L), 120000L));
+        final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {
             call.reject("Modelo offline não instalado.");
@@ -547,12 +557,16 @@ public class SimplificaFilesPlugin extends Plugin {
             call.reject("IA Local é um recurso exclusivo do Plano Pro.");
             return;
         }
+        if (!isAiRuntimeDeviceSupported()) {
+            call.reject(getAiRuntimeUnsupportedReason());
+            return;
+        }
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "Você é um assistente de gestão para impressão 3D.");
         final String prompt = call.getString("prompt", "Responda apenas: OK");
         final int maxTokens = Math.max(4, Math.min(call.getData().optInt("maxTokens", 12), 32));
-        final long timeoutMs = Math.max(15000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 180000L));
+        final long timeoutMs = Math.max(15000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {
             call.reject("Modelo offline não instalado.");
@@ -902,7 +916,7 @@ public class SimplificaFilesPlugin extends Plugin {
         }, "simplifica-ai-runtime");
         worker.start();
 
-        long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 180000L));
+        long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 300000L));
         mainHandler.postDelayed(() -> {
             if (settled.compareAndSet(false, true)) {
                 try {
@@ -918,6 +932,17 @@ public class SimplificaFilesPlugin extends Plugin {
     private String sanitizeAiModelId(String value) {
         String id = value == null ? "" : value.trim().toLowerCase();
         return id.replaceAll("[^a-z0-9_-]+", "");
+    }
+
+    private boolean isAiRuntimeDeviceSupported() {
+        String abi = Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : Build.CPU_ABI;
+        // O Qwen Q8 GGUF deve rodar no aparelho Android ARM64 real; emuladores x86 tendem a derrubar a WebView por pressão nativa.
+        return abi == null || !abi.toLowerCase().contains("x86");
+    }
+
+    private String getAiRuntimeUnsupportedReason() {
+        if (isAiRuntimeDeviceSupported()) return "";
+        return "IA Local GGUF deve ser testada em aparelho Android ARM64 real. O emulador x86 pode fechar a WebView ao carregar o modelo Q8.";
     }
 
     private long getAvailableMemoryMb() {
