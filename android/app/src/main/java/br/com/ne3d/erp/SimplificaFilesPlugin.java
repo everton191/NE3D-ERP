@@ -32,14 +32,17 @@ import com.getcapacitor.annotation.PermissionCallback;
 import com.arm.aichat.internal.InferenceEngineImpl;
 
 import java.io.BufferedInputStream;
+import java.io.FileInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @CapacitorPlugin(
     name = "SimplificaFiles",
@@ -125,7 +128,7 @@ public class SimplificaFilesPlugin extends Plugin {
     public void downloadAiModel(PluginCall call) {
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String rawUrl = call.getString("url", "");
-        final String fallbackName = modelId.isEmpty() ? "modelo.s3dmodel" : modelId + ".s3dmodel";
+        final String fallbackName = modelId.isEmpty() ? "modelo.gguf" : modelId + ".gguf";
         final String fileName = sanitizeGenericFileName(call.getString("fileName", fallbackName));
         final long minBytes = call.getData().optLong("minBytes", 0L);
         final int sizeMb = call.getData().optInt("sizeMb", 0);
@@ -156,6 +159,7 @@ public class SimplificaFilesPlugin extends Plugin {
                     return;
                 }
 
+                notifyAiModelProgress(modelId, "downloading", 0, 0L, 0L);
                 HttpURLConnection connection = (HttpURLConnection) new URL(rawUrl).openConnection();
                 connection.setConnectTimeout(15000);
                 connection.setReadTimeout(120000);
@@ -169,6 +173,8 @@ public class SimplificaFilesPlugin extends Plugin {
                 }
 
                 long totalBytes = 0;
+                long expectedBytes = Math.max(0L, connection.getContentLengthLong());
+                int lastPercent = -1;
                 try (InputStream input = new BufferedInputStream(connection.getInputStream());
                      FileOutputStream output = new FileOutputStream(tempFile)) {
                     byte[] buffer = new byte[8192];
@@ -176,6 +182,11 @@ public class SimplificaFilesPlugin extends Plugin {
                     while ((read = input.read(buffer)) != -1) {
                         output.write(buffer, 0, read);
                         totalBytes += read;
+                        int percent = expectedBytes > 0 ? (int) Math.min(99, Math.max(0, (totalBytes * 100L) / expectedBytes)) : 0;
+                        if (percent != lastPercent) {
+                            lastPercent = percent;
+                            notifyAiModelProgress(modelId, "downloading", percent, totalBytes, expectedBytes);
+                        }
                     }
                 } finally {
                     connection.disconnect();
@@ -184,6 +195,12 @@ public class SimplificaFilesPlugin extends Plugin {
                 if (minBytes > 0 && totalBytes < minBytes) {
                     if (tempFile.exists()) tempFile.delete();
                     call.reject("Pacote incompleto ou inválido. O arquivo baixado não tem o tamanho mínimo esperado.");
+                    return;
+                }
+
+                if (!fileName.toLowerCase(Locale.ROOT).endsWith(".gguf") || !hasGgufMagic(tempFile)) {
+                    if (tempFile.exists()) tempFile.delete();
+                    call.reject("Arquivo do modelo inválido. O pacote baixado não é GGUF.");
                     return;
                 }
 
@@ -198,6 +215,7 @@ public class SimplificaFilesPlugin extends Plugin {
                     call.reject("Não foi possível concluir a instalação do modelo.");
                     return;
                 }
+                notifyAiModelProgress(modelId, "downloaded", 100, totalBytes, expectedBytes);
 
                 JSObject result = new JSObject();
                 result.put("ok", true);
@@ -216,9 +234,30 @@ public class SimplificaFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void validateAiModel(PluginCall call) {
+        String modelId = sanitizeAiModelId(call.getString("modelId", ""));
+        String fallbackName = modelId.isEmpty() ? "modelo.gguf" : modelId + ".gguf";
+        String fileName = sanitizeGenericFileName(call.getString("fileName", fallbackName));
+        String modelPath = call.getString("modelPath", "");
+        long minBytes = call.getData().optLong("minBytes", 0L);
+
+        try {
+            File targetFile = modelPath != null && !modelPath.trim().isEmpty()
+                ? new File(modelPath)
+                : new File(getAiModelDir(), fileName);
+            JSObject result = validateAiModelFile(targetFile, minBytes);
+            result.put("modelId", modelId);
+            result.put("fileName", fileName);
+            call.resolve(result);
+        } catch (Exception error) {
+            call.reject("Falha ao verificar modelo: " + error.getMessage(), error);
+        }
+    }
+
+    @PluginMethod
     public void deleteAiModel(PluginCall call) {
         String modelId = sanitizeAiModelId(call.getString("modelId", ""));
-        String fallbackName = modelId.isEmpty() ? "modelo.s3dmodel" : modelId + ".s3dmodel";
+        String fallbackName = modelId.isEmpty() ? "modelo.gguf" : modelId + ".gguf";
         String fileName = sanitizeGenericFileName(call.getString("fileName", fallbackName));
 
         if (modelId.isEmpty()) {
@@ -353,7 +392,7 @@ public class SimplificaFilesPlugin extends Plugin {
             return;
         }
 
-        new Thread(() -> {
+        runWithPluginTimeout(call, timeoutMs, "Tempo limite da IA offline atingido. Tente um modelo menor.", () -> {
             try {
                 InferenceEngineImpl engine = InferenceEngineImpl.getInstance(getContext());
                 String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, timeoutMs);
@@ -362,11 +401,49 @@ public class SimplificaFilesPlugin extends Plugin {
                 result.put("text", text);
                 result.put("offline", true);
                 result.put("maxTokens", maxTokens);
-                call.resolve(result);
+                return result;
             } catch (Throwable error) {
-                call.reject("Falha na inferência offline: " + error.getMessage(), error instanceof Exception ? (Exception) error : null);
+                throw new Exception("Falha na inferência offline: " + error.getMessage(), error);
             }
-        }).start();
+        });
+    }
+
+    @PluginMethod
+    public void testAiModelRuntime(PluginCall call) {
+        final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
+        final String modelPath = call.getString("modelPath", "");
+        final String systemPrompt = call.getString("systemPrompt", "Você é um assistente de gestão para impressão 3D.");
+        final String prompt = call.getString("prompt", "Responda apenas: OK");
+        final int maxTokens = Math.max(4, Math.min(call.getData().optInt("maxTokens", 12), 32));
+        final long timeoutMs = Math.max(15000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 180000L));
+
+        if (modelPath == null || modelPath.trim().isEmpty()) {
+            call.reject("Modelo offline não instalado.");
+            return;
+        }
+
+        runWithPluginTimeout(call, timeoutMs, "Tempo limite ao testar a IA. Tente um modelo menor.", () -> {
+            try {
+                JSObject validation = validateAiModelFile(new File(modelPath), 0L);
+                if (!validation.optBoolean("ok", false)) {
+                    throw new IOException("Arquivo GGUF inválido.");
+                }
+                notifyAiModelProgress(modelId, "testing", 100, validation.optLong("sizeBytes", 0L), validation.optLong("sizeBytes", 0L));
+                long startedAt = System.currentTimeMillis();
+                InferenceEngineImpl engine = InferenceEngineImpl.getInstance(getContext());
+                String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, timeoutMs);
+                long elapsedMs = System.currentTimeMillis() - startedAt;
+                JSObject result = new JSObject();
+                result.put("ok", text != null && !text.trim().isEmpty());
+                result.put("modelId", modelId);
+                result.put("text", text == null ? "" : text.trim());
+                result.put("elapsedMs", elapsedMs);
+                result.put("offline", true);
+                return result;
+            } catch (Throwable error) {
+                throw new Exception("Falha no teste da IA offline: " + error.getMessage(), error);
+            }
+        });
     }
 
     @PluginMethod
@@ -605,6 +682,95 @@ public class SimplificaFilesPlugin extends Plugin {
 
     private File getAiModelDir() {
         return new File(getContext().getFilesDir(), AI_MODEL_DIR);
+    }
+
+    private void notifyAiModelProgress(String modelId, String status, int percent, long bytesRead, long totalBytes) {
+        JSObject event = new JSObject();
+        event.put("modelId", modelId == null ? "" : modelId);
+        event.put("status", status == null ? "" : status);
+        event.put("percent", Math.max(0, Math.min(100, percent)));
+        event.put("bytesRead", Math.max(0L, bytesRead));
+        event.put("totalBytes", Math.max(0L, totalBytes));
+        mainHandler.post(() -> notifyListeners("aiModelProgress", event, true));
+    }
+
+    private JSObject validateAiModelFile(File targetFile, long minBytes) throws IOException {
+        JSObject result = new JSObject();
+        if (targetFile == null || !targetFile.exists() || !targetFile.isFile() || !targetFile.canRead()) {
+            result.put("ok", false);
+            result.put("message", "Arquivo do modelo não encontrado.");
+            return result;
+        }
+        long sizeBytes = targetFile.length();
+        if (minBytes > 0 && sizeBytes < minBytes) {
+            result.put("ok", false);
+            result.put("message", "Arquivo incompleto.");
+            result.put("sizeBytes", sizeBytes);
+            return result;
+        }
+        if (!targetFile.getName().toLowerCase(Locale.ROOT).endsWith(".gguf")) {
+            result.put("ok", false);
+            result.put("message", "Extensão inválida.");
+            result.put("sizeBytes", sizeBytes);
+            return result;
+        }
+        if (!hasGgufMagic(targetFile)) {
+            result.put("ok", false);
+            result.put("message", "Cabeçalho GGUF inválido.");
+            result.put("sizeBytes", sizeBytes);
+            return result;
+        }
+        result.put("ok", true);
+        result.put("path", targetFile.getAbsolutePath());
+        result.put("fileName", targetFile.getName());
+        result.put("sizeBytes", sizeBytes);
+        result.put("sizeMb", Math.round(sizeBytes / 1024f / 1024f));
+        result.put("extension", "gguf");
+        return result;
+    }
+
+    private boolean hasGgufMagic(File file) {
+        if (file == null || !file.exists() || file.length() < 4) return false;
+        byte[] header = new byte[4];
+        try (FileInputStream input = new FileInputStream(file)) {
+            int read = input.read(header);
+            return read == 4 && header[0] == 'G' && header[1] == 'G' && header[2] == 'U' && header[3] == 'F';
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private interface AiRuntimeTask {
+        JSObject run() throws Exception;
+    }
+
+    private void runWithPluginTimeout(PluginCall call, long timeoutMs, String timeoutMessage, AiRuntimeTask task) {
+        final AtomicBoolean settled = new AtomicBoolean(false);
+        Thread worker = new Thread(() -> {
+            try {
+                JSObject result = task.run();
+                if (settled.compareAndSet(false, true)) {
+                    mainHandler.post(() -> call.resolve(result));
+                }
+            } catch (Exception error) {
+                if (settled.compareAndSet(false, true)) {
+                    mainHandler.post(() -> call.reject(error.getMessage(), error));
+                }
+            }
+        }, "simplifica-ai-runtime");
+        worker.start();
+
+        long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 180000L));
+        mainHandler.postDelayed(() -> {
+            if (settled.compareAndSet(false, true)) {
+                try {
+                    InferenceEngineImpl.getInstance(getContext()).cancelGeneration();
+                } catch (Throwable ignored) {
+                    // O timeout deve devolver o controle para a UI mesmo que o runtime esteja ocupado.
+                }
+                call.reject(timeoutMessage);
+            }
+        }, safeTimeoutMs);
     }
 
     private String sanitizeAiModelId(String value) {

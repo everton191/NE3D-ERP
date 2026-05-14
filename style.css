@@ -3240,6 +3240,38 @@ body.auth-screen-active #app{
   grid-template-columns:repeat(auto-fit, minmax(132px, 1fr));
 }
 
+.ai-install-progress{
+  display:grid;
+  gap:5px;
+  font-size:.82rem;
+  color:var(--muted);
+}
+
+.ai-progress-track{
+  height:7px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.ai-progress-track i{
+  display:block;
+  height:100%;
+  width:0;
+  border-radius:inherit;
+  background:linear-gradient(90deg, var(--teal), var(--orange));
+  transition:width .22s ease;
+}
+
+.ai-install-progress small{
+  color:var(--muted);
+}
+
+.ai-install-progress small.error{
+  color:#ff9b9b;
+}
+
 .toggle-row{
   display:flex;
   align-items:center;

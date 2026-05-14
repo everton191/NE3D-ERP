@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.9";
-const APP_VERSION_CODE = 60;
+const APP_VERSION = "51.0.10";
+const APP_VERSION_CODE = 61;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -11,9 +11,10 @@ const INTRO_VIDEO_SRC = "assets/intro.mp4";
 const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
+const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d-everton191s-projects.vercel.app");
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
-const SUPPORT_EMAIL = "paessilvae@gmail.com";
+const SUPPORT_EMAIL = "simplifica3d.app@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
 const SUPERADMIN_BOOTSTRAP_HASH = "pbkdf2$120000$7IdXWxbOcEGHYrhsgKxbwQ==$zi+SJZy2LcZmhy0NiWxjIZ43/A9GJZiW0B5/hDSIwJg=";
 const SECURITY_SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -80,44 +81,59 @@ const AI_MODELS = Object.freeze([
     name: "IA Lite",
     tier: "basic",
     model: "SmolLM2-135M-Instruct-GGUF",
-    sizeMb: 90,
-    minBytes: 50 * 1024 * 1024,
+    sizeMb: 120,
+    minBytes: 80 * 1024 * 1024,
     ramRecommended: "2 GB+",
     recommended: "Celulares básicos",
     description: "Ajuda básica com telas, cálculos e dúvidas simples.",
-    fileName: "ia-lite-smollm2-135m-instruct-q4_0_4_4.gguf",
-    officialPage: "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_0_4_4.gguf"
+    fileName: "SmolLM2-135M-Instruct-Q4_K_M.gguf",
+    officialPage: "https://github.com/everton191/NE3D-ERP.apk/releases/tag/ai-models-v1",
+    url: "https://github.com/everton191/NE3D-ERP.apk/releases/download/ai-models-v1/SmolLM2-135M-Instruct-Q4_K_M.gguf"
   },
   {
     id: "smart",
     name: "IA Smart",
     tier: "intermediate",
     model: "Qwen2.5-0.5B-Instruct-GGUF",
-    sizeMb: 350,
+    sizeMb: 379,
     minBytes: 200 * 1024 * 1024,
     ramRecommended: "4 GB+",
     recommended: "Celulares intermediários",
     description: "Mais contexto para pedidos, estoque e precificação.",
-    fileName: "ia-smart-qwen2.5-0.5b-instruct-q4_k_m.gguf",
-    officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+    fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+    officialPage: "https://github.com/everton191/NE3D-ERP.apk/releases/tag/ai-models-v1",
+    url: "https://github.com/everton191/NE3D-ERP.apk/releases/download/ai-models-v1/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
   },
   {
     id: "pro",
     name: "IA Pro",
     tier: "advanced",
     model: "Qwen2.5-0.5B-Instruct-GGUF",
-    sizeMb: 350,
+    sizeMb: 379,
     minBytes: 200 * 1024 * 1024,
     ramRecommended: "6 GB+",
     recommended: "Celulares fortes",
     description: "Respostas mais completas para uso avançado.",
-    fileName: "ia-pro-qwen2.5-0.5b-instruct-q4_k_m.gguf",
-    officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+    fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+    officialPage: "https://github.com/everton191/NE3D-ERP.apk/releases/tag/ai-models-v1",
+    url: "https://github.com/everton191/NE3D-ERP.apk/releases/download/ai-models-v1/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
   }
 ]);
+const AI_INSTALL_STATUS = Object.freeze({
+  NOT_INSTALLED: "not_installed",
+  DOWNLOADING: "downloading",
+  DOWNLOADED: "downloaded",
+  VALIDATING: "validating",
+  INSTALLING: "installing",
+  TESTING: "testing",
+  INSTALLED_READY: "installed_ready",
+  INSTALLED_BUT_FAILED: "installed_but_failed",
+  FAILED_DOWNLOAD: "failed_download",
+  FAILED_VALIDATION: "failed_validation",
+  FAILED_RUNTIME: "failed_runtime",
+  REMOVING: "removing",
+  REMOVED: "removed"
+});
 const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
@@ -1304,6 +1320,7 @@ const AuthService = {
         body: JSON.stringify({
           email,
           password: senha,
+          redirect_to: montarRedirectSupabaseEmail("signup"),
           data: {
             owner_name: nome,
             name: nome,
@@ -5527,7 +5544,7 @@ function getDocumentoLegal(tipo = "termos") {
         {
           titulo: "10. Contato",
           itens: [
-            "Para dúvidas: paessilvae@gmail.com"
+            `Para dúvidas: ${SUPPORT_EMAIL}`
           ]
         }
       ],
@@ -5599,10 +5616,10 @@ function getDocumentoLegal(tipo = "termos") {
         ]
       },
       {
-        titulo: "10. Contato",
-        itens: [
-          "paessilvae@gmail.com"
-        ]
+          titulo: "10. Contato",
+          itens: [
+          SUPPORT_EMAIL
+          ]
       }
     ],
     rodape: `Última atualização: ${data}.`
@@ -6538,26 +6555,87 @@ function definirIAConfig(patch = {}, persistir = true) {
 function getAIModelStatus(modelId) {
   const settings = getAIAssistantSettings();
   const state = getAIModelLocalState(modelId);
+  if (state.status === "installed") {
+    return state.runtimeValidatedAt ? AI_INSTALL_STATUS.INSTALLED_READY : AI_INSTALL_STATUS.INSTALLED_BUT_FAILED;
+  }
   if (state.status) return state.status;
-  if (settings.activeModelId === modelId || settings.installedModelId === modelId || state.installedAt) return "installed";
-  return "not_installed";
+  if ((settings.activeModelId === modelId || settings.installedModelId === modelId || state.installedAt) && state.runtimeValidatedAt) {
+    return AI_INSTALL_STATUS.INSTALLED_READY;
+  }
+  if (settings.activeModelId === modelId || settings.installedModelId === modelId || state.installedAt) {
+    return AI_INSTALL_STATUS.INSTALLED_BUT_FAILED;
+  }
+  return AI_INSTALL_STATUS.NOT_INSTALLED;
 }
 
 function labelStatusAI(status = "") {
   const labels = {
-    installed: "Instalado",
-    not_installed: "Não instalado",
-    downloading: "Baixando",
+    [AI_INSTALL_STATUS.NOT_INSTALLED]: "Não instalado",
+    [AI_INSTALL_STATUS.DOWNLOADING]: "Baixando",
+    [AI_INSTALL_STATUS.DOWNLOADED]: "Baixado",
+    [AI_INSTALL_STATUS.VALIDATING]: "Verificando",
+    [AI_INSTALL_STATUS.INSTALLING]: "Instalando",
+    [AI_INSTALL_STATUS.TESTING]: "Testando",
+    [AI_INSTALL_STATUS.INSTALLED_READY]: "Pronta",
+    [AI_INSTALL_STATUS.INSTALLED_BUT_FAILED]: "Precisa testar",
+    [AI_INSTALL_STATUS.FAILED_DOWNLOAD]: "Falha no download",
+    [AI_INSTALL_STATUS.FAILED_VALIDATION]: "Falha na validação",
+    [AI_INSTALL_STATUS.FAILED_RUNTIME]: "Falha no runtime",
+    [AI_INSTALL_STATUS.REMOVING]: "Removendo",
+    [AI_INSTALL_STATUS.REMOVED]: "Removida",
+    installed: "Precisa testar",
     error: "Erro",
     incompatible: "Incompatível",
-    removing: "Removendo",
-    active: "Ativo"
+    active: "Pronta"
   };
   return labels[status] || "Não instalado";
 }
 
 function getAIPlugin() {
   return window.Capacitor?.Plugins?.SimplificaFiles || null;
+}
+
+function isAIModelReadyStatus(status = "") {
+  return status === AI_INSTALL_STATUS.INSTALLED_READY || status === "active";
+}
+
+function isAIModelBusyStatus(status = "") {
+  return [
+    AI_INSTALL_STATUS.DOWNLOADING,
+    AI_INSTALL_STATUS.VALIDATING,
+    AI_INSTALL_STATUS.INSTALLING,
+    AI_INSTALL_STATUS.TESTING,
+    AI_INSTALL_STATUS.REMOVING
+  ].includes(status);
+}
+
+function progressoIAInstalacao(state = {}) {
+  const status = state.status || AI_INSTALL_STATUS.NOT_INSTALLED;
+  const progress = Math.max(0, Math.min(100, Math.round(Number(state.progress || 0) || 0)));
+  const labels = {
+    [AI_INSTALL_STATUS.DOWNLOADING]: `Baixando modelo: ${progress}%`,
+    [AI_INSTALL_STATUS.DOWNLOADED]: "Download concluído",
+    [AI_INSTALL_STATUS.VALIDATING]: "Verificando arquivo...",
+    [AI_INSTALL_STATUS.INSTALLING]: "Instalando IA...",
+    [AI_INSTALL_STATUS.TESTING]: "Testando IA...",
+    [AI_INSTALL_STATUS.INSTALLED_READY]: "IA testada e pronta",
+    [AI_INSTALL_STATUS.INSTALLED_BUT_FAILED]: "Modelo baixado, mas ainda sem teste válido",
+    [AI_INSTALL_STATUS.FAILED_DOWNLOAD]: "Download não concluído",
+    [AI_INSTALL_STATUS.FAILED_VALIDATION]: "Arquivo inválido",
+    [AI_INSTALL_STATUS.FAILED_RUNTIME]: "Runtime não iniciou",
+    [AI_INSTALL_STATUS.REMOVING]: "Removendo modelo..."
+  };
+  return {
+    active: isAIModelBusyStatus(status) || progress > 0,
+    percent: status === AI_INSTALL_STATUS.DOWNLOADING ? progress : isAIModelReadyStatus(status) ? 100 : Math.max(progress, 0),
+    label: labels[status] || ""
+  };
+}
+
+function formatarMb(bytes = 0) {
+  const valor = Number(bytes || 0);
+  if (!Number.isFinite(valor) || valor <= 0) return "";
+  return `${Math.round(valor / 1024 / 1024)} MB`;
 }
 
 function estimarMemoriaDispositivoMb() {
@@ -6722,7 +6800,7 @@ function renderAssistenteInteligenteProConfig() {
         <div class="metric"><span>Modo</span><strong>${escaparHtml(settings.lastDeviceProfile || "Automático")}</strong></div>
         <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "Nenhum") : "Assistente básico")}</strong></div>
         <div class="metric"><span>Espaço</span><strong>${Number(getAIModelLocalState(settings.installedModelId).sizeMb || instalado?.sizeMb || 0) || 0} MB</strong></div>
-        <div class="metric"><span>Status</span><strong>${pronto ? "Pronta" : "Aguardando"}</strong></div>
+        <div class="metric"><span>Status</span><strong>${pronto ? "Validada" : settings.installedModelId ? labelStatusAI(getAIModelStatus(settings.installedModelId)) : "Aguardando"}</strong></div>
       </div>
       <div class="actions">
         <button class="btn" type="button" onclick="abrirWizardIAProLocal()">Instalar IA automaticamente</button>
@@ -6756,28 +6834,113 @@ function renderAssistenteInteligenteProConfig() {
 
 function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
   const state = getAIModelLocalState(modelo.id);
-  const status = settings.activeModelId === modelo.id ? "active" : getAIModelStatus(modelo.id);
-  const installed = ["installed", "active"].includes(status) || !!state.installedAt;
-  const busy = ["downloading", "removing"].includes(status);
+  const realStatus = getAIModelStatus(modelo.id);
+  const status = settings.activeModelId === modelo.id && isAIModelReadyStatus(realStatus) ? "active" : realStatus;
+  const ready = isAIModelReadyStatus(realStatus);
+  const hasFile = !!state.path || !!state.installedAt || [AI_INSTALL_STATUS.DOWNLOADED, AI_INSTALL_STATUS.INSTALLED_BUT_FAILED, AI_INSTALL_STATUS.FAILED_RUNTIME].includes(realStatus);
+  const busy = isAIModelBusyStatus(realStatus);
   const urlConfigurada = !!String(modelo.url || "").trim();
   const statusLabel = status === "active" ? "Em uso" : labelStatusAI(status);
+  const progress = progressoIAInstalacao(state);
+  const tamanho = formatarMb(state.sizeBytes) || `${Number(state.sizeMb || modelo.sizeMb) || modelo.sizeMb} MB`;
   return `
-    <article class="ai-model-card ${settings.activeModelId === modelo.id ? "active" : ""}">
+    <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""}">
       <div class="row-title">
         <div>
           <strong>${escaparHtml(modelo.name)}</strong>
-          <span class="muted">${escaparHtml(modelo.recommended)} • ${modelo.sizeMb} MB</span>
+          <span class="muted">${escaparHtml(modelo.recommended)} • ${escaparHtml(modelo.ramRecommended)} • ${escaparHtml(tamanho)}</span>
         </div>
         <span class="status-badge">${escaparHtml(statusLabel)}</span>
       </div>
+      ${progress.active || state.lastError || state.runtimeValidatedAt ? `
+        <div class="ai-install-progress">
+          ${progress.label ? `<span>${escaparHtml(progress.label)}</span>` : ""}
+          <div class="ai-progress-track"><i style="width:${Math.max(0, Math.min(100, progress.percent))}%"></i></div>
+          ${state.runtimeValidatedAt ? `<small>Teste interno OK</small>` : ""}
+          ${state.lastError ? `<small class="error">${escaparHtml(state.lastError)}</small>` : ""}
+        </div>
+      ` : ""}
       <div class="actions">
-        <button class="btn secondary" type="button" onclick="baixarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || installed || !urlConfigurada ? "disabled" : ""}>Baixar</button>
-        <button class="btn" type="button" onclick="usarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !installed ? "disabled" : ""}>Usar este modelo</button>
-        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy ? "disabled" : ""}>Testar</button>
-        <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !installed ? "disabled" : ""}>Remover modelo</button>
+        <button class="btn secondary" type="button" onclick="baixarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !urlConfigurada ? "disabled" : ""}>${hasFile ? "Reinstalar" : "Baixar"}</button>
+        <button class="btn" type="button" onclick="usarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !ready ? "disabled" : ""}>Usar este modelo</button>
+        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !hasFile ? "disabled" : ""}>Testar IA</button>
+        <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !hasFile ? "disabled" : ""}>Remover modelo</button>
       </div>
     </article>
   `;
+}
+
+async function adicionarListenerProgressoIA(modelId) {
+  const plugin = getAIPlugin();
+  if (!plugin?.addListener) return null;
+  try {
+    const handle = await plugin.addListener("aiModelProgress", (event = {}) => {
+      if (String(event.modelId || "") !== String(modelId)) return;
+      const status = String(event.status || AI_INSTALL_STATUS.DOWNLOADING);
+      setAIModelLocalState(modelId, {
+        status,
+        progress: Number(event.percent || 0) || 0,
+        downloadedBytes: Number(event.bytesRead || event.downloadedBytes || 0) || 0,
+        totalBytes: Number(event.totalBytes || 0) || 0,
+        lastError: ""
+      });
+      renderizarPreservandoScroll();
+    });
+    return handle;
+  } catch (erro) {
+    registrarFalhaIALocal("progress_listener", erro, { modelId });
+    return null;
+  }
+}
+
+async function removerListenerProgressoIA(handle) {
+  try {
+    await handle?.remove?.();
+  } catch (_) {}
+}
+
+async function validarArquivoModeloIA(modelo, modelId, path = "") {
+  const plugin = getAIPlugin();
+  setAIModelLocalState(modelId, {
+    status: AI_INSTALL_STATUS.VALIDATING,
+    progress: 100,
+    lastError: ""
+  });
+  renderizarPreservandoScroll();
+  if (!plugin?.validateAiModel) {
+    return { ok: true, skipped: true, path };
+  }
+  return await plugin.validateAiModel({
+    modelId,
+    fileName: modelo.fileName,
+    modelPath: path,
+    minBytes: modelo.minBytes || 0
+  });
+}
+
+async function testarRuntimeModeloIA(modelo, modelId, path = "") {
+  const plugin = getAIPlugin();
+  setAIModelLocalState(modelId, {
+    status: AI_INSTALL_STATUS.TESTING,
+    progress: 100,
+    lastError: ""
+  });
+  renderizarPreservandoScroll();
+  if (!plugin?.testAiModelRuntime) {
+    throw new Error("Runtime nativo da IA não disponível neste APK.");
+  }
+  return await promiseComTimeout(
+    plugin.testAiModelRuntime({
+      modelId,
+      modelPath: path,
+      systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
+      prompt: "Responda apenas: OK",
+      maxTokens: 12,
+      timeoutMs: 120000
+    }),
+    125000,
+    "Teste da IA demorou demais."
+  );
 }
 
 async function baixarModeloIAOffline(modelId) {
@@ -6785,7 +6948,7 @@ async function baixarModeloIAOffline(modelId) {
   if (!modelo || !podeUsarAssistenteIAOfflinePro()) return false;
   if (!modelo.url) {
     const msg = "Instalação indisponível no momento.";
-    setAIModelLocalState(modelId, { status: "error", lastError: msg });
+    setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_DOWNLOAD, lastError: msg });
     appConfig.aiOfflineAssistant.lastFailure = msg;
     salvarDados();
     mostrarToast("Modelo ainda sem URL de download.", "aviso", 5000);
@@ -6797,10 +6960,12 @@ async function baixarModeloIAOffline(modelId) {
     mostrarToast("Instalação indisponível neste aparelho.", "erro", 5000);
     return false;
   }
-  setAIModelLocalState(modelId, { status: "downloading", lastError: "" });
+  setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.DOWNLOADING, progress: 0, lastError: "", runtimeValidatedAt: "" });
   appConfig.aiOfflineAssistant.lastFailure = "";
   renderizarPreservandoScroll();
+  let progressHandle = null;
   try {
+    progressHandle = await adicionarListenerProgressoIA(modelId);
     const result = await plugin.downloadAiModel({
       modelId,
       name: modelo.name,
@@ -6810,10 +6975,41 @@ async function baixarModeloIAOffline(modelId) {
       minBytes: modelo.minBytes || 0
     });
     setAIModelLocalState(modelId, {
-      status: "installed",
-      installedAt: new Date().toISOString(),
+      status: AI_INSTALL_STATUS.DOWNLOADED,
+      progress: 100,
+      downloadedAt: new Date().toISOString(),
       sizeMb: Number(result?.sizeMb || modelo.sizeMb) || modelo.sizeMb,
-      path: result?.path || ""
+      sizeBytes: Number(result?.sizeBytes || 0) || 0,
+      path: result?.path || "",
+      lastError: ""
+    });
+    const validacao = await validarArquivoModeloIA(modelo, modelId, result?.path || "");
+    if (validacao?.ok === false) {
+      throw new Error(validacao?.message || "Arquivo GGUF inválido.");
+    }
+    setAIModelLocalState(modelId, {
+      status: AI_INSTALL_STATUS.INSTALLING,
+      progress: 100,
+      validationCheckedAt: new Date().toISOString(),
+      ggufValid: true,
+      path: validacao?.path || result?.path || ""
+    });
+    renderizarPreservandoScroll();
+    const runtime = await testarRuntimeModeloIA(modelo, modelId, validacao?.path || result?.path || "");
+    const runtimeText = String(runtime?.text || "").trim();
+    if (!runtime?.ok || !runtimeText) {
+      throw new Error(runtime?.message || "A IA não respondeu no teste interno.");
+    }
+    setAIModelLocalState(modelId, {
+      status: AI_INSTALL_STATUS.INSTALLED_READY,
+      installedAt: new Date().toISOString(),
+      runtimeValidatedAt: new Date().toISOString(),
+      runtimeTestResponse: runtimeText.slice(0, 80),
+      sizeMb: Number(result?.sizeMb || modelo.sizeMb) || modelo.sizeMb,
+      sizeBytes: Number(result?.sizeBytes || validacao?.sizeBytes || 0) || 0,
+      path: validacao?.path || result?.path || "",
+      progress: 100,
+      lastError: ""
     });
     appConfig.aiOfflineAssistant.installedModelId = modelId;
     appConfig.aiOfflineAssistant.activeModelId = modelId;
@@ -6824,13 +7020,24 @@ async function baixarModeloIAOffline(modelId) {
     return true;
   } catch (erro) {
     const msg = erro?.message || String(erro);
-    setAIModelLocalState(modelId, { status: "error", lastError: msg });
-    appConfig.aiOfflineAssistant.lastFailure = "Falha ao baixar modelo: " + msg;
+    const estadoAtual = getAIModelStatus(modelId);
+    const statusFalha = estadoAtual === AI_INSTALL_STATUS.VALIDATING
+      ? AI_INSTALL_STATUS.FAILED_VALIDATION
+      : estadoAtual === AI_INSTALL_STATUS.TESTING || estadoAtual === AI_INSTALL_STATUS.INSTALLING || getAIModelLocalState(modelId).path
+        ? AI_INSTALL_STATUS.FAILED_RUNTIME
+        : AI_INSTALL_STATUS.FAILED_DOWNLOAD;
+    setAIModelLocalState(modelId, { status: statusFalha, lastError: msg, progress: statusFalha === AI_INSTALL_STATUS.FAILED_DOWNLOAD ? 0 : 100 });
+    appConfig.aiOfflineAssistant.lastFailure = statusFalha === AI_INSTALL_STATUS.FAILED_RUNTIME
+      ? "Modelo baixado, mas não foi possível iniciar a IA neste aparelho."
+      : "Falha ao instalar modelo: " + msg;
+    if (appConfig.aiOfflineAssistant.activeModelId === modelId) appConfig.aiOfflineAssistant.activeModelId = "";
+    appConfig.aiOfflineAssistant.localEnabled = false;
     salvarDados();
-    mostrarToast("Não foi possível baixar o modelo.", "erro", 6000);
+    mostrarToast(statusFalha === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Modelo baixado, mas a IA não iniciou neste aparelho." : "Não foi possível instalar o modelo.", "erro", 6500);
     registrarFalhaIALocal("download_model", erro, { modelId });
     return false;
   } finally {
+    await removerListenerProgressoIA(progressHandle);
     renderizarPreservandoScroll();
   }
 }
@@ -6839,8 +7046,8 @@ async function usarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
   if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
   const state = getAIModelLocalState(modelId);
-  if (!state.installedAt && getAIModelStatus(modelId) !== "installed") {
-    mostrarToast("Baixe o modelo antes de ativar.", "aviso", 4200);
+  if (!isAIModelReadyStatus(getAIModelStatus(modelId)) || !state.runtimeValidatedAt) {
+    mostrarToast("Teste a IA antes de ativar este modelo.", "aviso", 4800);
     return;
   }
   const performance = await obterResumoCapacidadeIA(modelo);
@@ -6865,13 +7072,13 @@ async function removerModeloIAOffline(modelId) {
   const confirmado = confirm("Remover esta IA do aparelho? Você poderá instalar novamente depois.");
   if (!confirmado) return;
   const plugin = getAIPlugin();
-  setAIModelLocalState(modelId, { status: "removing" });
+  setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.REMOVING });
   renderizarPreservandoScroll();
   try {
     if (plugin?.deleteAiModel) await plugin.deleteAiModel({ modelId, fileName: modelo.fileName });
     const settings = getAIAssistantSettings();
     settings.models = { ...(settings.models || {}) };
-    delete settings.models[modelId];
+    settings.models[modelId] = { status: AI_INSTALL_STATUS.REMOVED, removedAt: new Date().toISOString() };
     if (settings.activeModelId === modelId) settings.activeModelId = "";
     if (settings.installedModelId === modelId) settings.installedModelId = "";
     if (!settings.activeModelId) {
@@ -6884,7 +7091,7 @@ async function removerModeloIAOffline(modelId) {
     salvarDados();
     mostrarToast("Modelo removido.", "sucesso", 3500);
   } catch (erro) {
-    setAIModelLocalState(modelId, { status: "error", lastError: erro?.message || String(erro) });
+    setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.INSTALLED_BUT_FAILED, lastError: erro?.message || String(erro) });
     mostrarToast("Não foi possível remover o modelo.", "erro", 5000);
   }
   renderizarPreservandoScroll();
@@ -6893,14 +7100,42 @@ async function removerModeloIAOffline(modelId) {
 async function testarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
   if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
-  const resultado = await obterResumoCapacidadeIA(modelo);
-  const texto = resultado.risk === "high"
-    ? "Este modelo pode ficar lento neste aparelho."
-    : "Teste concluído.";
-  appConfig.aiOfflineAssistant.lastPerformance = texto;
-  salvarDados();
-  mostrarToast(texto, resultado.risk === "high" ? "aviso" : "info", 4200);
-  renderizarPreservandoScroll();
+  const state = getAIModelLocalState(modelId);
+  const path = String(state.path || "").trim();
+  if (!path) {
+    mostrarToast("Baixe o modelo antes de testar.", "aviso", 4200);
+    return;
+  }
+  try {
+    const resultado = await obterResumoCapacidadeIA(modelo);
+    if (resultado.risk === "high") {
+      mostrarToast("Este modelo pode ficar lento neste aparelho.", "aviso", 5200);
+    }
+    const runtime = await testarRuntimeModeloIA(modelo, modelId, path);
+    const runtimeText = String(runtime?.text || "").trim();
+    if (!runtime?.ok || !runtimeText) throw new Error(runtime?.message || "A IA não respondeu no teste interno.");
+    setAIModelLocalState(modelId, {
+      status: AI_INSTALL_STATUS.INSTALLED_READY,
+      runtimeValidatedAt: new Date().toISOString(),
+      runtimeTestResponse: runtimeText.slice(0, 80),
+      progress: 100,
+      lastError: ""
+    });
+    appConfig.aiOfflineAssistant.lastPerformance = "Teste interno OK.";
+    salvarDados();
+    mostrarToast("IA testada e pronta.", "sucesso", 4200);
+  } catch (erro) {
+    const msg = erro?.message || String(erro);
+    setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_RUNTIME, lastError: msg, progress: 100 });
+    appConfig.aiOfflineAssistant.lastFailure = "Modelo baixado, mas não foi possível iniciar a IA neste aparelho.";
+    if (appConfig.aiOfflineAssistant.activeModelId === modelId) appConfig.aiOfflineAssistant.activeModelId = "";
+    appConfig.aiOfflineAssistant.localEnabled = false;
+    salvarDados();
+    registrarFalhaIALocal("test_runtime", erro, { modelId });
+    mostrarToast("Modelo baixado, mas a IA não iniciou neste aparelho.", "erro", 6500);
+  } finally {
+    renderizarPreservandoScroll();
+  }
 }
 
 async function alternarIALocalPro(ativo) {
@@ -6923,7 +7158,7 @@ async function alternarIALocalPro(ativo) {
   }
   const modelo = getAIModel(settings.activeModelId);
   const state = getAIModelLocalState(settings.activeModelId);
-  if (!modelo || !state.path) {
+  if (!modelo || !state.path || !isAIModelReadyStatus(getAIModelStatus(settings.activeModelId))) {
     definirIAConfig({ localEnabled: false });
     abrirWizardIAProLocal();
     return;
@@ -7116,7 +7351,7 @@ function getModeloIAOfflineAtivoInstalado(exigirToggle = true) {
   const modelo = getAIModel(settings.activeModelId);
   const state = getAIModelLocalState(settings.activeModelId);
   const path = String(state.path || "").trim();
-  if (!modelo || !path) return null;
+  if (!modelo || !path || !isAIModelReadyStatus(getAIModelStatus(settings.activeModelId)) || !state.runtimeValidatedAt) return null;
   return { modelo, state, path };
 }
 
@@ -16452,7 +16687,7 @@ async function solicitarRecuperacaoSenha() {
         auth: false,
         body: JSON.stringify({
           email,
-          redirect_to: location.origin + location.pathname
+          redirect_to: montarRedirectSupabaseEmail("recovery")
         })
       });
     }
@@ -16570,10 +16805,12 @@ async function autenticarSupabase(criarConta = false) {
 
   try {
     const caminho = criarConta ? "/auth/v1/signup" : "/auth/v1/token?grant_type=password";
+    const payload = { email, password: senha };
+    if (criarConta) payload.redirect_to = montarRedirectSupabaseEmail("signup");
     const dados = await requisicaoSupabase(caminho, {
       method: "POST",
       auth: false,
-      body: JSON.stringify({ email, password: senha })
+      body: JSON.stringify(payload)
     });
 
     if (!salvarSessaoSupabase(dados, email)) {
@@ -16813,6 +17050,7 @@ async function criarContaSupabaseParaUsuarioLocal(usuario, senha) {
     body: JSON.stringify({
       email,
       password: senha,
+      redirect_to: montarRedirectSupabaseEmail("signup"),
       data: {
         owner_name: nome,
         name: nome,
@@ -16866,6 +17104,20 @@ function criarContaSupabase() {
   autenticarSupabase(true);
 }
 
+function obterUrlPublicaApp() {
+  const origemAtual = typeof location !== "undefined" ? String(location.origin || "") : "";
+  if (/^https?:\/\//i.test(origemAtual) && !/^(http:\/\/127\.0\.0\.1|http:\/\/localhost)/i.test(origemAtual)) {
+    return origemAtual.replace(/\/+$/, "") + "/";
+  }
+  return String(APP_PUBLIC_URL || origemAtual || "").replace(/\/+$/, "") + "/";
+}
+
+function montarRedirectSupabaseEmail(fluxo = "") {
+  const url = new URL(obterUrlPublicaApp());
+  if (fluxo) url.searchParams.set("auth_flow", fluxo);
+  return url.toString();
+}
+
 function montarRedirectSupabaseOAuth() {
   return location.origin + location.pathname;
 }
@@ -16873,7 +17125,7 @@ function montarRedirectSupabaseOAuth() {
 function limparParametrosOAuthSupabase() {
   if (typeof window === "undefined" || !window.history) return;
   const url = new URL(location.href);
-  ["error", "error_code", "error_description", "msg"].forEach((parametro) => url.searchParams.delete(parametro));
+  ["auth_flow", "error", "error_code", "error_description", "msg", "type"].forEach((parametro) => url.searchParams.delete(parametro));
   url.hash = "";
   window.history.replaceState(null, document.title, url.pathname + (url.search ? url.search : ""));
 }
@@ -16888,6 +17140,129 @@ function obterErroOAuthSupabase() {
     erro: String(erro || "oauth_error"),
     descricao: String(descricao || "Login Google não concluído.")
   };
+}
+
+function obterTipoRetornoAuthSupabase() {
+  const search = new URLSearchParams(String(location.search || "").replace(/^\?/, ""));
+  const hash = new URLSearchParams(String(location.hash || "").replace(/^#/, ""));
+  return String(hash.get("type") || search.get("auth_flow") || search.get("type") || "").toLowerCase();
+}
+
+function erroLinkAuthExpirado(erroOAuth) {
+  const texto = `${erroOAuth?.erro || ""} ${erroOAuth?.descricao || ""}`.toLowerCase();
+  return texto.includes("expired")
+    || texto.includes("expir")
+    || texto.includes("otp_expired")
+    || texto.includes("token")
+    || texto.includes("invalid");
+}
+
+async function garantirUsuarioLocalParaAuthSupabase(user) {
+  const email = normalizarEmail(user?.email || syncConfig.supabaseEmail || "");
+  if (!email) return null;
+  usuarios = normalizarUsuarios(usuarios);
+  let usuario = usuarios.find((item) => item.email === email);
+  if (!usuario) {
+    const metadata = user?.user_metadata || {};
+    usuario = normalizarUsuario({
+      id: syncConfig.supabaseUserId || user?.id || criarIdUsuario(),
+      nome: metadata.name || metadata.full_name || metadata.owner_name || email.split("@")[0],
+      email,
+      papel: "user",
+      ativo: true,
+      supabaseUserId: syncConfig.supabaseUserId || user?.id || "",
+      supabasePending: false
+    });
+    usuarios.push(usuario);
+  }
+  await garantirCadastroSaasOnlineAposLogin(usuario);
+  await carregarPerfilSaasSupabase(usuario);
+  await sincronizarFilaOfflinePendente("auth-email").catch((erro) => registrarDiagnostico("sync", "Fila offline auth e-mail falhou", erro.message));
+  return usuario;
+}
+
+async function atualizarSenhaSupabaseComSessao(novaSenha) {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) {
+    throw new Error("Sessão de recuperação inválida.");
+  }
+  await requisicaoSupabase("/auth/v1/user", {
+    method: "PUT",
+    body: JSON.stringify({ password: novaSenha })
+  });
+  registrarSeguranca("Senha redefinida", "sucesso", "Link de recuperação Supabase", syncConfig.supabaseEmail);
+  registrarAuditoria("senha_redefinida", { origem: "supabase_recovery_link" });
+}
+
+function abrirModalRedefinicaoSenhaSupabase() {
+  const popup = document.getElementById("popup");
+  if (!popup) {
+    mostrarToast("Abra o app novamente e entre com sua nova senha.", "info", 6000);
+    return;
+  }
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card" id="supabaseRecoveryPasswordForm">
+        <div class="modal-header">
+          <h2>Redefinir senha</h2>
+          <button class="icon-button" type="button" id="supabaseRecoveryClose" title="Fechar">×</button>
+        </div>
+        <p class="muted">Crie uma nova senha para sua conta do Simplifica 3D.</p>
+        <label class="field">
+          <span>Nova senha</span>
+          <input id="supabaseRecoveryPassword" type="password" autocomplete="new-password" required>
+        </label>
+        <label class="field">
+          <span>Confirmar senha</span>
+          <input id="supabaseRecoveryPasswordConfirm" type="password" autocomplete="new-password" required>
+        </label>
+        <div class="actions">
+          <button class="btn ghost" type="button" id="supabaseRecoveryCancel">Depois</button>
+          <button class="btn" type="submit" id="supabaseRecoverySave">Salvar senha</button>
+        </div>
+      </form>
+    </div>
+  `;
+  const form = document.getElementById("supabaseRecoveryPasswordForm");
+  const senhaInput = document.getElementById("supabaseRecoveryPassword");
+  const confirmarInput = document.getElementById("supabaseRecoveryPasswordConfirm");
+  const botao = document.getElementById("supabaseRecoverySave");
+  const cancelar = () => fecharPopup();
+  document.getElementById("supabaseRecoveryClose")?.addEventListener("click", cancelar, { once: true });
+  document.getElementById("supabaseRecoveryCancel")?.addEventListener("click", cancelar, { once: true });
+  popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) cancelar();
+  });
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const senha = senhaInput?.value || "";
+    const confirmar = confirmarInput?.value || "";
+    const erroSenha = mensagemValidacaoSenha(senha);
+    if (erroSenha) {
+      mostrarToast(erroSenha, "erro", 5000);
+      return;
+    }
+    if (senha !== confirmar) {
+      mostrarToast("As senhas não conferem.", "erro", 4500);
+      return;
+    }
+    if (botao) {
+      botao.disabled = true;
+      botao.textContent = "Salvando...";
+    }
+    try {
+      await atualizarSenhaSupabaseComSessao(senha);
+      fecharPopup();
+      mostrarToast("Senha atualizada com sucesso.", "sucesso", 5000);
+    } catch (erro) {
+      ErrorService.capture(erro, { area: "Supabase", action: "Redefinir senha por link", silent: true });
+      mostrarToast("Não foi possível salvar a nova senha. Solicite um novo link.", "erro", 6500);
+      if (botao) {
+        botao.disabled = false;
+        botao.textContent = "Salvar senha";
+      }
+    }
+  });
+  setTimeout(() => senhaInput?.focus(), 120);
 }
 
 function loginGoogleSupabase() {
@@ -16908,16 +17283,19 @@ function loginGoogleSupabase() {
 }
 
 async function processarRetornoOAuthSupabase() {
+  const tipoRetorno = obterTipoRetornoAuthSupabase();
+  const providerRetorno = sessionStorage.getItem("supabaseOAuthProvider") || "";
   const erroOAuth = obterErroOAuthSupabase();
   if (erroOAuth) {
-    registrarDiagnostico("Supabase", "Login Google recusado", `${erroOAuth.erro}: ${erroOAuth.descricao}`);
-    mostrarToast(
-      erroOAuth.descricao.includes("Unsupported provider")
+    registrarDiagnostico("Supabase", "Retorno de autenticação recusado", `${erroOAuth.erro}: ${erroOAuth.descricao}`);
+    const mensagem = erroLinkAuthExpirado(erroOAuth)
+      ? "Este link expirou. Solicite um novo e-mail."
+      : erroOAuth.descricao.includes("Unsupported provider") || providerRetorno === "google"
         ? "Login Google ainda não está ativado no Supabase."
-        : "Login Google não concluído.",
-      "erro",
-      7000
-    );
+        : "Não foi possível concluir a autenticação.";
+    mostrarToast(mensagem, "erro", 7000);
+    sessionStorage.removeItem("supabaseOAuthProvider");
+    sessionStorage.removeItem("supabaseOAuthRedirectTo");
     limparParametrosOAuthSupabase();
     return false;
   }
@@ -16939,40 +17317,29 @@ async function processarRetornoOAuthSupabase() {
     });
     if (!resposta.ok) throw new Error("OAuth inválido");
     const user = await resposta.json();
-    salvarSessaoSupabase({
+    const sessaoSalva = salvarSessaoSupabase({
       access_token: accessToken,
       refresh_token: refreshToken,
       expires_in: expiresIn,
       user
     }, user.email);
+    if (!sessaoSalva) throw new Error("Sessão de autenticação inválida.");
 
-    const email = normalizarEmail(user.email);
-    usuarios = normalizarUsuarios(usuarios);
-    let usuario = usuarios.find((item) => item.email === email);
-    if (!usuario) {
-      const nomeGoogle = user.user_metadata?.name || user.user_metadata?.full_name || email.split("@")[0];
-      usuario = normalizarUsuario({
-        id: syncConfig.supabaseUserId || criarIdUsuario(),
-        nome: nomeGoogle,
-        email,
-        papel: "user",
-        ativo: true,
-        supabaseUserId: syncConfig.supabaseUserId || "",
-        supabasePending: false
-      });
-      usuarios.push(usuario);
-    }
-    await garantirCadastroSaasOnlineAposLogin(usuario);
-    await carregarPerfilSaasSupabase(usuario);
-    await sincronizarFilaOfflinePendente("oauth").catch((erro) => registrarDiagnostico("sync", "Fila offline OAuth falhou", erro.message));
+    const usuario = await garantirUsuarioLocalParaAuthSupabase(user);
     sessionStorage.removeItem("supabaseOAuthProvider");
     sessionStorage.removeItem("supabaseOAuthRedirectTo");
     limparParametrosOAuthSupabase();
-    concluirLoginUsuario(usuario);
+    if (usuario) concluirLoginUsuario(usuario);
+    if (tipoRetorno === "recovery") {
+      setTimeout(abrirModalRedefinicaoSenhaSupabase, 250);
+    } else if (["signup", "email", "email_change"].includes(tipoRetorno)) {
+      mostrarToast("Conta confirmada no Simplifica 3D.", "sucesso", 5000);
+    }
     return true;
   } catch (erro) {
-    registrarDiagnostico("Supabase", "Login Google não concluído", erro.message);
+    registrarDiagnostico("Supabase", "Retorno de autenticação não concluído", erro.message);
     limparParametrosOAuthSupabase();
+    mostrarToast("Não foi possível concluir a autenticação. Tente entrar novamente.", "erro", 6500);
     return false;
   }
 }

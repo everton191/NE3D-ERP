@@ -126,6 +126,11 @@ public final class InferenceEngineImpl {
 
         int prepareStatus = prepare();
         if (prepareStatus != 0) {
+            try {
+                unload();
+            } catch (Exception cleanupError) {
+                Log.w(TAG, "Failed to cleanup model after prepare error", cleanupError);
+            }
             loadedModelPath = "";
             modelReady = false;
             throw new IOException("Falha ao preparar runtime GGUF: " + prepareStatus);
