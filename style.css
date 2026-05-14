@@ -1547,6 +1547,37 @@ button:disabled{
   box-shadow:var(--shadow-soft);
 }
 
+.order-edit-screen{
+  min-height:min(760px, calc(100dvh - 110px));
+}
+
+.mobile-panel .order-edit-screen{
+  min-height:calc(100dvh - 96px);
+  padding-bottom:calc(var(--floating-button-size) + 28px);
+}
+
+.item-subtotal{
+  display:grid;
+  gap:4px;
+  padding:8px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:rgba(17,20,27,.88);
+}
+
+.item-subtotal span{
+  color:var(--muted);
+  font-size:var(--font-xs);
+}
+
+.order-review-box{
+  width:min(720px, 100%);
+}
+
+.inline-result-field{
+  margin-top:10px;
+}
+
 .plan-card{
   display:grid;
   gap:10px;

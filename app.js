@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.10";
-const APP_VERSION_CODE = 61;
+const APP_VERSION = "51.0.11";
+const APP_VERSION_CODE = 62;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -75,48 +75,21 @@ const AI_KNOWLEDGE_BASE = Object.freeze({
   ],
   limites: "A IA local é focada no Simplifica 3D. Ela ajuda no uso do sistema, mas não substitui suporte humano nem tem capacidade equivalente ao ChatGPT."
 });
+const AI_DEFAULT_MODEL_ID = "qwen25_05b_q8";
 const AI_MODELS = Object.freeze([
   {
-    id: "lite",
-    name: "IA Lite",
-    tier: "basic",
-    model: "SmolLM2-135M-Instruct-GGUF",
-    sizeMb: 120,
-    minBytes: 80 * 1024 * 1024,
-    ramRecommended: "2 GB+",
-    recommended: "Celulares básicos",
-    description: "Ajuda básica com telas, cálculos e dúvidas simples.",
-    fileName: "SmolLM2-135M-Instruct-Q4_K_M.gguf",
-    officialPage: "https://github.com/everton191/NE3D-ERP.apk/releases/tag/ai-models-v1",
-    url: "https://github.com/everton191/NE3D-ERP.apk/releases/download/ai-models-v1/SmolLM2-135M-Instruct-Q4_K_M.gguf"
-  },
-  {
-    id: "smart",
-    name: "IA Smart",
-    tier: "intermediate",
-    model: "Qwen2.5-0.5B-Instruct-GGUF",
-    sizeMb: 379,
-    minBytes: 200 * 1024 * 1024,
+    id: AI_DEFAULT_MODEL_ID,
+    name: "IA Local",
+    tier: "standard",
+    model: "Qwen2.5 0.5B Instruct Q8_0 GGUF",
+    sizeMb: 465,
+    minBytes: 300 * 1024 * 1024,
     ramRecommended: "4 GB+",
-    recommended: "Celulares intermediários",
-    description: "Mais contexto para pedidos, estoque e precificação.",
-    fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
-    officialPage: "https://github.com/everton191/NE3D-ERP.apk/releases/tag/ai-models-v1",
-    url: "https://github.com/everton191/NE3D-ERP.apk/releases/download/ai-models-v1/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
-  },
-  {
-    id: "pro",
-    name: "IA Pro",
-    tier: "advanced",
-    model: "Qwen2.5-0.5B-Instruct-GGUF",
-    sizeMb: 379,
-    minBytes: 200 * 1024 * 1024,
-    ramRecommended: "6 GB+",
-    recommended: "Celulares fortes",
-    description: "Respostas mais completas para uso avançado.",
-    fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
-    officialPage: "https://github.com/everton191/NE3D-ERP.apk/releases/tag/ai-models-v1",
-    url: "https://github.com/everton191/NE3D-ERP.apk/releases/download/ai-models-v1/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+    recommended: "Modelo padrão único",
+    description: "Modelo local padrão do Simplifica 3D para dúvidas do sistema, pedidos, estoque e cálculo.",
+    fileName: "Qwen2.5-0.5B-Instruct-Q8_0.gguf",
+    officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q8_0.gguf"
   }
 ]);
 const AI_INSTALL_STATUS = Object.freeze({
@@ -249,6 +222,9 @@ let itensPedido = [];
 let clientePedido = "";
 let clienteTelefonePedido = "";
 let pedidoEditando = null;
+let pedidoEditandoOriginal = null;
+let pedidoSalvando = false;
+let ultimoToqueForaCalculadora = 0;
 let pedidoVisualizandoId = null;
 let modoMobileAtual = window.innerWidth < 768;
 let resizeTimer = null;
@@ -6454,8 +6430,9 @@ function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxut
 }
 
 function normalizarAIAssistantSettings(config = appConfig.aiOfflineAssistant || {}) {
-  const activeModelId = String(config.activeModelId || "");
-  const installedModelId = String(config.installedModelId || "");
+  const normalizarModelId = (modelId) => AI_MODELS.some((modelo) => modelo.id === String(modelId || "")) ? String(modelId || "") : "";
+  const activeModelId = normalizarModelId(config.activeModelId);
+  const installedModelId = normalizarModelId(config.installedModelId);
   const localEnabled = config.localEnabled === undefined
     ? !!activeModelId
     : config.localEnabled === true;
@@ -6482,7 +6459,7 @@ function getAIAssistantSettings() {
 }
 
 function getAIModel(modelId) {
-  return AI_MODELS.find((modelo) => modelo.id === modelId) || null;
+  return AI_MODELS.find((modelo) => modelo.id === modelId) || AI_MODELS[0] || null;
 }
 
 function getAIModelLocalState(modelId) {
@@ -6680,7 +6657,7 @@ function classificarDispositivoIA(resumo = {}) {
     return {
       id: "basic",
       label: "Básico",
-      modelId: "lite",
+      modelId: AI_DEFAULT_MODEL_ID,
       description: "Respostas curtas, menor consumo e melhor estabilidade para aparelhos simples.",
       speed: "mais rápido e leve",
       quality: "ajuda essencial do sistema"
@@ -6690,7 +6667,7 @@ function classificarDispositivoIA(resumo = {}) {
     return {
       id: "intermediate",
       label: "Intermediário",
-      modelId: "smart",
+      modelId: AI_DEFAULT_MODEL_ID,
       description: "Bom equilíbrio entre qualidade e desempenho para uso diário.",
       speed: "velocidade moderada",
       quality: "mais contexto para pedidos, estoque e cálculo"
@@ -6699,7 +6676,7 @@ function classificarDispositivoIA(resumo = {}) {
   return {
     id: "advanced",
     label: "Avançado",
-    modelId: "pro",
+    modelId: AI_DEFAULT_MODEL_ID,
     description: "Melhor qualidade para aparelhos mais fortes.",
     speed: "mais completo",
     quality: "análises comerciais mais completas"
@@ -6711,12 +6688,11 @@ async function analisarDispositivoParaIA() {
   for (const modelo of AI_MODELS) {
     resultados.push({ modelo, resumo: await obterResumoCapacidadeIA(modelo) });
   }
-  const melhorResumo = resultados.find((item) => item.modelo.id === "pro")?.resumo
-    || resultados.find((item) => item.modelo.id === "smart")?.resumo
+  const melhorResumo = resultados.find((item) => item.modelo.id === AI_DEFAULT_MODEL_ID)?.resumo
     || resultados[0]?.resumo
     || {};
   const perfil = classificarDispositivoIA(melhorResumo);
-  const modelo = getAIModel(perfil.modelId) || getAIModel("lite");
+  const modelo = getAIModel(perfil.modelId) || AI_MODELS[0];
   return {
     perfil,
     modelo,
@@ -9838,6 +9814,10 @@ function renderPedido() {
             <span>Valor</span>
             <input type="number" min="0" step="0.01" value="${(Number(item.valor) || 0).toFixed(2)}" onchange="editarPreco(${i}, this.value)">
           </label>
+          <div class="item-subtotal">
+            <span>Subtotal</span>
+            <strong>${formatarMoeda(Number(item.total) || 0)}</strong>
+          </div>
           <div class="material-editor">
             <div class="row-title">
               <strong>Materiais usados</strong>
@@ -9852,7 +9832,7 @@ function renderPedido() {
     : `<p class="empty">Nenhum item adicionado. Use a calculadora para criar o primeiro item do pedido.</p>`;
 
   return `
-    <section class="card">
+    <section class="card order-edit-screen">
       <div class="card-header">
         <h2>${titulo}</h2>
         ${pedidoEditando ? `<button class="icon-button" onclick="cancelarEdicaoPedido()" title="Cancelar edição">↩</button>` : ""}
@@ -9880,11 +9860,11 @@ function renderPedido() {
       </div>
 
       <div class="actions">
-        <button class="btn secondary" onclick="abrirCalculadora()">🧮 Calcular item</button>
+        <button class="btn secondary" onclick="iniciarAdicionarItemPedido()">Adicionar item</button>
         <button class="btn ghost" onclick="adicionarProdutoManual()">Adicionar produto manual</button>
         <button class="btn ghost" onclick="gerarPDF()">📄 PDF</button>
         <button class="btn ghost" onclick="enviarWhats()">📲 WhatsApp</button>
-        <button class="btn" onclick="fecharPedido()">✅ ${botao}</button>
+        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>✅ ${botao}</button>
       </div>
     </section>
   `;
@@ -18122,7 +18102,29 @@ function editarPreco(i, preco) {
   renderApp();
 }
 
-function removerItem(i) {
+async function iniciarAdicionarItemPedido() {
+  const abrir = await solicitarConfirmacaoAcao({
+    titulo: "Adicionar item",
+    mensagem: "Deseja abrir a calculadora para calcular este item?",
+    confirmar: "Sim, abrir calculadora",
+    cancelar: "Adicionar manual"
+  });
+  if (abrir) {
+    abrirCalculadora();
+    return;
+  }
+  adicionarProdutoManual();
+}
+
+async function removerItem(i) {
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Remover item",
+    mensagem: "Remover este item do pedido?",
+    confirmar: "Remover",
+    cancelar: "Cancelar",
+    perigo: true
+  });
+  if (!confirmado) return;
   itensPedido.splice(i, 1);
   renderApp();
 }
@@ -18322,6 +18324,7 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     clientePedido = clienteDoPedido(pedido);
     clienteTelefonePedido = telefoneDoPedido(pedido);
     pedidoEditando = pedido;
+    pedidoEditandoOriginal = JSON.parse(JSON.stringify(pedido));
     registrarAuditoriaPedido("pedido_edicao_solicitada", pedido);
     trocarTela("pedido");
   } catch (erro) {
@@ -18331,6 +18334,7 @@ function abrirPedidoParaEdicaoAutorizada(id) {
 
 function cancelarEdicaoPedido() {
   pedidoEditando = null;
+  pedidoEditandoOriginal = null;
   itensPedido = [];
   clientePedido = "";
   clienteTelefonePedido = "";
@@ -18524,6 +18528,7 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
 
 async function fecharPedido() {
   try {
+    if (pedidoSalvando) return;
     const planoAtual = getPlanoAtual();
     if (planoAtual.blockLevel === "total" || planoAtual.status === "bloqueado") {
       mostrarBloqueioPlano({ message: "Seu acesso está bloqueado. Regularize o plano para salvar pedidos." });
@@ -18559,7 +18564,17 @@ async function fecharPedido() {
       atualizadoEm: new Date().toISOString()
     });
 
-    if (!aplicarEstoquePedido(pedido, pedidoEditando)) return;
+    if (pedidoEditando && !window.__pedidoReviewConfirmed) {
+      abrirRevisaoAlteracoesPedido(pedido, pedidoEditandoOriginal || pedidoEditando);
+      return;
+    }
+    pedidoSalvando = true;
+
+    if (!aplicarEstoquePedido(pedido, pedidoEditando)) {
+      pedidoSalvando = false;
+      window.__pedidoReviewConfirmed = false;
+      return;
+    }
 
     if (pedidoEditando) {
       const idAntigo = Number(pedidoEditando.id);
@@ -18585,21 +18600,85 @@ async function fecharPedido() {
     mostrarToast(pedidoEditando ? "Pedido atualizado com sucesso." : "Pedido salvo com sucesso.", "sucesso", 3500);
     registrarAcaoCompletaMonetizacao(pedidoEditando ? "order_updated" : "order_created");
     pedidoEditando = null;
+    pedidoEditandoOriginal = null;
     itensPedido = [];
     clientePedido = "";
     clienteTelefonePedido = "";
+    window.__pedidoReviewConfirmed = false;
+    pedidoSalvando = false;
     if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
       finalizarOnboarding(false);
       return;
     }
     renderizarPreservandoScroll();
   } catch (erro) {
+    pedidoSalvando = false;
+    window.__pedidoReviewConfirmed = false;
     ErrorService.notify(erro, {
       area: "Pedidos",
       action: pedidoEditando ? "Atualizar pedido" : "Salvar pedido",
       errorKey: pedidoEditando ? "UPDATE_ORDER_FAILED" : "SAVE_ORDER_FAILED"
     });
   }
+}
+
+function descreverAlteracoesPedido(pedidoNovo, pedidoAntigo = {}) {
+  const antigos = normalizarItensPedido(pedidoAntigo);
+  const novos = normalizarItensPedido(pedidoNovo);
+  const serializar = (item) => JSON.stringify({
+    nome: item.nome,
+    qtd: Number(item.qtd) || 1,
+    valor: Number(item.valor) || 0,
+    total: Number(item.total) || 0,
+    tempoHoras: Number(item.tempoHoras) || 0,
+    materiais: getMateriaisItem(item).map((mat) => ({ materialId: mat.materialId || "", gramas: Number(mat.gramas) || 0 }))
+  });
+  return {
+    adicionados: novos.slice(antigos.length).map((item) => item.nome || "Item"),
+    removidos: antigos.filter((_, index) => !novos[index]).map((item) => item.nome || "Item"),
+    alterados: novos.filter((item, index) => antigos[index] && serializar(item) !== serializar(antigos[index])).map((item) => item.nome || "Item")
+  };
+}
+
+function abrirRevisaoAlteracoesPedido(pedidoNovo, pedidoAntigo = {}) {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const totalAnterior = totalPedido(pedidoAntigo);
+  const novoTotal = totalPedido(pedidoNovo);
+  const diff = descreverAlteracoesPedido(pedidoNovo, pedidoAntigo);
+  const lista = (itens) => itens.length ? itens.map(escaparHtml).join(", ") : "Nenhum";
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal-card order-review-box">
+        <div class="modal-header">
+          <h2>Revise as alterações do pedido</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="sync-grid">
+          <div class="metric"><span>Cliente</span><strong>${escaparHtml(clienteDoPedido(pedidoNovo))}</strong></div>
+          <div class="metric"><span>Total anterior</span><strong>${formatarMoeda(totalAnterior)}</strong></div>
+          <div class="metric"><span>Novo total</span><strong>${formatarMoeda(novoTotal)}</strong></div>
+          <div class="metric"><span>Diferença</span><strong>${formatarMoeda(novoTotal - totalAnterior)}</strong></div>
+        </div>
+        <div class="history-list">
+          <div class="history-item"><strong>Itens adicionados</strong><span class="muted">${lista(diff.adicionados)}</span></div>
+          <div class="history-item"><strong>Itens removidos</strong><span class="muted">${lista(diff.removidos)}</span></div>
+          <div class="history-item"><strong>Itens alterados</strong><span class="muted">${lista(diff.alterados)}</span></div>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" onclick="fecharPopup()">Voltar e editar</button>
+          <button class="btn" type="button" onclick="confirmarRevisaoAlteracoesPedido()">Confirmar alterações</button>
+          <button class="btn danger" type="button" onclick="cancelarEdicaoPedido();fecharPopup()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function confirmarRevisaoAlteracoesPedido() {
+  window.__pedidoReviewConfirmed = true;
+  fecharPopup();
+  fecharPedido();
 }
 
 function alterarStatusPedido(id, status) {
@@ -18815,15 +18894,15 @@ function getConfiguracaoCalculadora() {
     printerType: tipo,
     printerModel: modeloValido,
     materialId: materialIdValido,
-    peso: salvo.peso ?? "",
+    peso: "",
     filamento: salvo.filamento ?? appConfig.defaultFilamentCost ?? 150,
-    tempo: salvo.tempo ?? "",
+    tempo: "",
     quantidade: salvo.quantidade ?? 1,
     energia: salvo.energia ?? appConfig.defaultEnergy ?? 0.85,
     consumo: salvo.consumo ?? impressora.consumo ?? "",
     custoHora: salvo.custoHora ?? impressora.custo ?? "",
     margem: salvo.margem ?? appConfig.defaultMargin ?? 100,
-    taxaExtra: salvo.taxaExtra ?? appConfig.defaultExtraFee ?? 0,
+    taxaExtra: "",
     nomeItem: salvo.nomeItem || ""
   };
 }
@@ -18836,15 +18915,15 @@ function salvarConfiguracaoCalculadora(persistir = true) {
     printerType: tipo,
     printerModel: printer,
     materialId: document.getElementById("calcMaterial")?.value || "",
-    peso: valorCampoCalculadora("peso", atual.peso),
+    peso: "",
     filamento: numeroCalculadora(valorCampoCalculadora("filamento", atual.filamento), atual.filamento),
-    tempo: valorCampoCalculadora("tempo", atual.tempo),
+    tempo: "",
     quantidade: numeroCalculadora(valorCampoCalculadora("quantidade", atual.quantidade), atual.quantidade, 1),
     energia: numeroCalculadora(valorCampoCalculadora("energia", atual.energia), atual.energia),
     consumo: numeroCalculadora(valorCampoCalculadora("consumo", atual.consumo), atual.consumo),
     custoHora: numeroCalculadora(valorCampoCalculadora("custoHora", atual.custoHora), atual.custoHora),
     margem: numeroCalculadora(valorCampoCalculadora("margem", atual.margem), atual.margem),
-    taxaExtra: numeroCalculadora(valorCampoCalculadora("taxaExtra", atual.taxaExtra), atual.taxaExtra),
+    taxaExtra: "",
     nomeItem: valorCampoCalculadora("nomeItem", atual.nomeItem).trim()
   };
   appConfig.calculatorDefaults = proxima;
@@ -18854,7 +18933,6 @@ function salvarConfiguracaoCalculadora(persistir = true) {
   appConfig.defaultFilamentCost = proxima.filamento;
   appConfig.defaultEnergy = proxima.energia;
   appConfig.defaultMargin = proxima.margem;
-  appConfig.defaultExtraFee = proxima.taxaExtra;
   if (persistir) salvarDados();
   return proxima;
 }
@@ -18887,7 +18965,7 @@ function renderCalculadoraConteudo() {
     <div class="calc-grid">
       <label class="field">
         <span>Peso em gramas</span>
-        <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80" value="${escaparAttr(config.peso)}" oninput="salvarConfiguracaoCalculadora()">
+        <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80" value="${escaparAttr(config.peso)}">
       </label>
       <label class="field">
         <span>Material R$/kg</span>
@@ -18895,7 +18973,7 @@ function renderCalculadoraConteudo() {
       </label>
       <label class="field">
         <span>Tempo em horas</span>
-        <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5" value="${escaparAttr(config.tempo)}" oninput="salvarConfiguracaoCalculadora()">
+        <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5" value="${escaparAttr(config.tempo)}">
       </label>
       <label class="field">
         <span>Quantidade</span>
@@ -18919,7 +18997,7 @@ function renderCalculadoraConteudo() {
       </label>
       <label class="field">
         <span>Taxa extra (R$)</span>
-        <input id="taxaExtra" type="number" min="0" step="0.01" value="${escaparAttr(config.taxaExtra)}" oninput="salvarConfiguracaoCalculadora()">
+        <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00" value="${escaparAttr(config.taxaExtra)}">
       </label>
     </div>
 
@@ -18930,6 +19008,7 @@ function renderCalculadoraConteudo() {
 
     <div class="actions">
       <button class="btn secondary" onclick="calcular()">Calcular</button>
+      <button class="btn ghost" type="button" onclick="limparCalculo()">Novo cálculo</button>
       ${podeExibirAssistenteIAOffline() ? `<button class="btn ghost" type="button" onclick="sugerirCalculadoraComIA()">✨ Sugerir com IA</button>` : ""}
     </div>
     <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
@@ -19079,6 +19158,20 @@ function finalizarCalculadora() {
   });
   salvarDados();
   calcWidgetAction = null;
+}
+
+function verificarDuploToqueForaCalculadora(event) {
+  const widget = appConfig.calculatorWidget || {};
+  if (!widget.open || calcWidgetAction) return;
+  if (event.target.closest(".calc-widget-window, .calc-float-ball, button, input, select, textarea, a")) return;
+
+  const agora = Date.now();
+  if (agora - ultimoToqueForaCalculadora < 420) {
+    ultimoToqueForaCalculadora = 0;
+    minimizarCalculadora();
+    return;
+  }
+  ultimoToqueForaCalculadora = agora;
 }
 
 function manterCalculadoraVisivel(salvar = false) {
@@ -19297,21 +19390,38 @@ function calcular() {
       <span>Taxa extra (R$)</span><strong>${formatarMoeda(taxaExtra)}</strong>
       <span>Preço sugerido de venda</span><strong>${formatarMoeda(preco)}</strong>
     </div>
+    <label class="field inline-result-field">
+      <span>Valor unitário para adicionar</span>
+      <input id="valorManualItem" type="number" min="0" step="0.01" value="${(preco / qtd).toFixed(2)}">
+    </label>
   `;
   if (window.MonetizationLimits?.registerCalculation) window.MonetizationLimits.registerCalculation(usuarioMonetizacao);
   else incrementarUsoMensal("calculadora");
   return true;
 }
 
-function adicionarItem() {
+function limparCalculo() {
+  ultimoCalculo = null;
+  ["peso", "tempo", "taxaExtra", "nomeItem"].forEach((id) => {
+    const campo = document.getElementById(id);
+    if (campo) campo.value = "";
+  });
+  const quantidade = document.getElementById("quantidade");
+  if (quantidade) quantidade.value = "1";
+  const resultado = document.getElementById("res");
+  if (resultado) resultado.textContent = "Preencha os dados e calcule o valor do item.";
+  salvarConfiguracaoCalculadora(true);
+}
+
+async function adicionarItem() {
   if (!ultimoCalculo) {
-    const calculou = calcular();
-    if (!calculou) return;
+    alert("Clique em Calcular e revise o valor antes de adicionar.");
+    return false;
   }
 
   if (!ultimoCalculo || ultimoCalculo.preco <= 0) {
     alert("Calcule um valor válido antes de adicionar");
-    return;
+    return false;
   }
 
   const nome = document.getElementById("nomeItem")?.value.trim() || "Item calculado";
@@ -19320,8 +19430,16 @@ function adicionarItem() {
     qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
   } catch (erro) {
     ErrorService.notify(erro, { area: "Calculadora", action: "Adicionar item" });
-    return;
+    return false;
   }
+  const valorManual = numeroCalculadora(document.getElementById("valorManualItem")?.value, ultimoCalculo.preco, 0);
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Adicionar item ao pedido",
+    mensagem: `Deseja adicionar "${nome}" ao pedido por ${formatarMoeda(valorManual)} cada?`,
+    confirmar: "Adicionar item",
+    cancelar: "Voltar e editar"
+  });
+  if (!confirmado) return false;
 
   itensPedido.push({
     id: "item-" + Date.now().toString(36),
@@ -19337,12 +19455,14 @@ function adicionarItem() {
     custoEnergia: ultimoCalculo.custoEnergia,
     custoTotal: ultimoCalculo.custoTotal,
     qtd,
-    valor: ultimoCalculo.preco,
-    total: ultimoCalculo.preco * qtd
+    valor: valorManual,
+    total: valorManual * qtd
   });
 
+  limparCalculo();
   if (telaAtual !== "calculadora") minimizarCalculadora();
   trocarTela("pedido");
+  return true;
 }
 
 function salvarOrcamento() {
@@ -19361,9 +19481,10 @@ function salvarOrcamento() {
   alert("Orçamento salvo com sucesso.");
 }
 
-function gerarPdfCalculadora() {
+async function gerarPdfCalculadora() {
   if (!ultimoCalculo) calcular();
-  adicionarItem();
+  const adicionado = await adicionarItem();
+  if (!adicionado) return;
   setTimeout(() => gerarPDF(), 50);
 }
 
@@ -20673,6 +20794,7 @@ document.addEventListener("DOMContentLoaded", () => {
   monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);
   document.addEventListener("pointermove", moverCalculadora);
+  document.addEventListener("pointerdown", verificarDuploToqueForaCalculadora);
   document.addEventListener("pointerup", finalizarJanelaDashboard);
   document.addEventListener("pointerup", finalizarCalculadora);
   document.addEventListener("pointercancel", finalizarJanelaDashboard);
