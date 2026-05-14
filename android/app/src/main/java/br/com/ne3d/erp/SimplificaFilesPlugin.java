@@ -935,14 +935,11 @@ public class SimplificaFilesPlugin extends Plugin {
     }
 
     private boolean isAiRuntimeDeviceSupported() {
-        String abi = Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : Build.CPU_ABI;
-        // O Qwen Q8 GGUF deve rodar no aparelho Android ARM64 real; emuladores x86 tendem a derrubar a WebView por pressão nativa.
-        return abi == null || !abi.toLowerCase().contains("x86");
+        return true;
     }
 
     private String getAiRuntimeUnsupportedReason() {
-        if (isAiRuntimeDeviceSupported()) return "";
-        return "IA Local GGUF deve ser testada em aparelho Android ARM64 real. O emulador x86 pode fechar a WebView ao carregar o modelo Q8.";
+        return "";
     }
 
     private long getAvailableMemoryMb() {

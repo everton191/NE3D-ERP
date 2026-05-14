@@ -7,6 +7,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(ANDROID)
+    # ggml/llama.cpp fica impraticavel em Debug puro (-O0); mantemos simbolos, mas otimizamos o runtime nativo.
+    add_compile_options("$<$<CONFIG:Debug>:-O2>" "$<$<CONFIG:Debug>:-DNDEBUG>")
+endif()
+
 set(LLAMA_SRC ${CMAKE_CURRENT_LIST_DIR}/llama.cpp)
 
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)

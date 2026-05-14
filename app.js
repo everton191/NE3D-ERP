@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.14";
-const APP_VERSION_CODE = 65;
+const APP_VERSION = "51.0.15";
+const APP_VERSION_CODE = 66;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -6366,7 +6366,11 @@ function renderOnboarding() {
 function abrirAssistente(modo = "auto") {
   assistantOpen = true;
   assistantMinimized = false;
-  assistantMode = modo === "pro" && iaLocalEstaPronta() ? "pro" : modo === "basic" ? "basic" : getAssistenteModoDisponivel();
+  const nextMode = modo === "pro" && iaLocalEstaPronta() ? "pro" : modo === "basic" ? "basic" : getAssistenteModoDisponivel();
+  if (assistantMode && assistantMode !== nextMode) {
+    assistantMessages = [];
+  }
+  assistantMode = nextMode;
   if (!assistantMessages.length) {
     assistantMessages.push({
       role: "assistant",
@@ -7737,7 +7741,7 @@ async function responderAssistente(texto = "") {
     contexto = { tela: telaAtual, tarefa: pergunta };
     ErrorService.capture(erro, { area: "Assistente básico", action: "contexto", silent: true });
   }
-  const usarIAPro = iaLocalEstaPronta();
+  const usarIAPro = assistantMode !== "basic" && iaLocalEstaPronta();
   assistantMode = usarIAPro ? "pro" : "basic";
   assistantMessages.push({ role: "user", text: pergunta });
   const respostaPendente = {
@@ -7776,7 +7780,9 @@ async function responderAssistente(texto = "") {
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
     const fallback = {
       role: "assistant",
-      text: obterRespostaAssistente(pergunta, contexto)
+      text: usarIAPro
+        ? `Não consegui iniciar a IA local agora: ${erro?.message || "erro no runtime"}. O modelo continua instalado; tente novamente ou reinicie o app.`
+        : obterRespostaAssistente(pergunta, contexto)
     };
     if (respostaIndex >= 0) {
       assistantMessages[respostaIndex] = fallback;
