@@ -45,7 +45,18 @@
   }
 
   function todayKey() {
-    return new Date(config.now()).toISOString().slice(0, 10);
+    const data = new Date(config.now());
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+    const dia = String(data.getDate()).padStart(2, "0");
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  function sanitizeDailyCounter(current, today) {
+    if (!current || current.date !== today) return { date: today, count: 0 };
+    const count = Number(current.count || 0);
+    if (!Number.isFinite(count) || count < 0) return { date: today, count: 0 };
+    return { date: today, count: Math.floor(count) };
   }
 
   function isPremium(user = {}) {
@@ -94,9 +105,9 @@
     const state = getState();
     const key = getUserKey(user);
     const today = todayKey();
-    const current = state.pdfUsage?.[key];
-    if (!current || current.date !== today) {
-      state.pdfUsage = { ...(state.pdfUsage || {}), [key]: { date: today, count: 0 } };
+    const current = sanitizeDailyCounter(state.pdfUsage?.[key], today);
+    if (!state.pdfUsage?.[key] || state.pdfUsage[key].date !== current.date || state.pdfUsage[key].count !== current.count) {
+      state.pdfUsage = { ...(state.pdfUsage || {}), [key]: current };
       saveState(state);
     }
     return state.pdfUsage[key];
@@ -110,10 +121,14 @@
     const state = getState();
     const key = getUserKey(user);
     const today = todayKey();
-    const current = state.calculationUsage?.[key];
-    if (!current || current.date !== today) {
-      state.calculationUsage = { ...(state.calculationUsage || {}), [key]: { date: today, count: 0 } };
-      state.calculationBonus = { ...(state.calculationBonus || {}), [key]: { date: today, count: 0 } };
+    const current = sanitizeDailyCounter(state.calculationUsage?.[key], today);
+    const bonusCurrent = sanitizeDailyCounter(state.calculationBonus?.[key], today);
+    if (!state.calculationUsage?.[key] || state.calculationUsage[key].date !== current.date || state.calculationUsage[key].count !== current.count) {
+      state.calculationUsage = { ...(state.calculationUsage || {}), [key]: current };
+      saveState(state);
+    }
+    if (!state.calculationBonus?.[key] || state.calculationBonus[key].date !== bonusCurrent.date || state.calculationBonus[key].count !== bonusCurrent.count) {
+      state.calculationBonus = { ...(state.calculationBonus || {}), [key]: bonusCurrent };
       saveState(state);
     }
     return {

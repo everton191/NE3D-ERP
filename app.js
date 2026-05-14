@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.12";
-const APP_VERSION_CODE = 63;
+const APP_VERSION = "51.0.13";
+const APP_VERSION_CODE = 64;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -261,6 +261,8 @@ let assistantMode = "basic";
 let assistantListening = false;
 let assistantVoiceSupport = null;
 let assistantVoiceSupportLoading = false;
+let assistantRuntimeDiagnostics = null;
+let assistantRuntimeDiagnosticsLoading = false;
 let assistantRuntimeLoading = false;
 let assistantRuntimeReady = false;
 let assistantRuntimePromise = null;
@@ -683,7 +685,8 @@ const ErrorService = {
       registrarDiagnostico(
         contexto.area || "Erro",
         contexto.action || appError.code,
-        `${appError.message}${contexto.detail ? " | " + contexto.detail : ""}`
+        `${appError.message}${contexto.detail ? " | " + contexto.detail : ""}`,
+        { silent: contexto.silent === true }
       );
     } catch (_) {}
     try {
@@ -2276,7 +2279,7 @@ function registrarAuditoria(acao, detalhes = {}, clientId = getClientIdAtual()) 
   registrarAuditLogSupabaseSilencioso(registro);
 }
 
-function registrarDiagnostico(tipo, mensagem, detalhes = "") {
+function registrarDiagnostico(tipo, mensagem, detalhes = "", opcoes = {}) {
   if (appConfig.telemetryEnabled === false) return;
 
   diagnostics.unshift({
@@ -2292,7 +2295,7 @@ function registrarDiagnostico(tipo, mensagem, detalhes = "") {
 
   diagnostics = diagnostics.slice(0, 150);
   localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
-  mostrarToast(String(mensagem || "Erro registrado").slice(0, 120), "erro");
+  if (opcoes.silent !== true) mostrarToast(String(mensagem || "Erro registrado").slice(0, 120), "erro");
 }
 
 function normalizarTextoSugestao(texto) {
@@ -6372,6 +6375,7 @@ function abrirAssistente(modo = "auto") {
   }
   if (assistantMode === "pro") {
     assistantRuntimeReady = false;
+    assistantRuntimeDiagnostics = null;
     garantirRuntimeIAAtivo({ silent: true });
     atualizarSuporteVozIASeNecessario();
   }
@@ -6382,6 +6386,7 @@ function fecharAssistente() {
   assistantOpen = false;
   assistantMinimized = false;
   assistantRuntimeReady = false;
+  assistantRuntimeDiagnostics = null;
   try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   renderApp();
 }
@@ -6389,6 +6394,7 @@ function fecharAssistente() {
 function minimizarAssistente() {
   assistantMinimized = true;
   assistantRuntimeReady = false;
+  assistantRuntimeDiagnostics = null;
   try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   renderApp();
 }
@@ -6535,7 +6541,19 @@ function podeExibirAssistenteIAOffline() {
 }
 
 function podeUsarAssistenteIAOfflinePro() {
+  // IA Local e premium real: Free, Trial e Superadmin sem plano Pro pago visualizam, mas nao executam runtime/download.
   return podeExibirAssistenteIAOffline() && temPlanoProPagoAtivo();
+}
+
+function mensagemUpgradeIALocalPro() {
+  return "Assine o Plano Pro para desbloquear IA Local offline diretamente no aparelho.";
+}
+
+function exigirPlanoProPagoIALocal({ navegar = false } = {}) {
+  if (podeUsarAssistenteIAOfflinePro()) return true;
+  mostrarToast(mensagemUpgradeIALocalPro(), "aviso", 5200);
+  if (navegar) trocarTela("assinatura");
+  return false;
 }
 
 function iaLocalEstaAtivada() {
@@ -6771,6 +6789,64 @@ async function obterSuporteVozIA() {
   return assistantVoiceSupport;
 }
 
+async function obterDiagnosticoRuntimeIA({ force = false } = {}) {
+  if (!podeUsarAssistenteIAOfflinePro()) return null;
+  const plugin = getAIPlugin();
+  if (!plugin?.getAiRuntimeDiagnostics) {
+    assistantRuntimeDiagnostics = { engine: "Indisponível", ok: false };
+    return assistantRuntimeDiagnostics;
+  }
+  if (assistantRuntimeDiagnosticsLoading) return assistantRuntimeDiagnostics || { loading: true };
+  if (assistantRuntimeDiagnostics && !force) return assistantRuntimeDiagnostics;
+  assistantRuntimeDiagnosticsLoading = true;
+  try {
+    assistantRuntimeDiagnostics = await plugin.getAiRuntimeDiagnostics();
+  } catch (erro) {
+    assistantRuntimeDiagnostics = { ok: false, error: erro?.message || String(erro) };
+    registrarFalhaIALocal("runtime_diagnostics", erro);
+  } finally {
+    assistantRuntimeDiagnosticsLoading = false;
+  }
+  return assistantRuntimeDiagnostics;
+}
+
+function atualizarDiagnosticoRuntimeIASeNecessario() {
+  if (!podeUsarAssistenteIAOfflinePro() || assistantRuntimeDiagnostics || assistantRuntimeDiagnosticsLoading) return;
+  obterDiagnosticoRuntimeIA().then(() => {
+    if (telaAtual === "config") renderizarPreservandoScroll();
+  });
+}
+
+async function atualizarDiagnosticoRuntimeIA(force = false) {
+  await obterDiagnosticoRuntimeIA({ force });
+  renderizarPreservandoScroll();
+}
+
+function renderDiagnosticoRuntimeIA() {
+  const diag = assistantRuntimeDiagnostics || {};
+  const carregando = assistantRuntimeDiagnosticsLoading || diag.loading;
+  const valor = (item, fallback = "—") => item === undefined || item === null || item === "" ? fallback : item;
+  return `
+    <details class="ai-runtime-diagnostics">
+      <summary>Diagnóstico técnico da IA</summary>
+      <div class="sync-grid">
+        <div class="metric"><span>Engine</span><strong>${escaparHtml(valor(diag.engine, carregando ? "Verificando" : "llama.cpp JNI"))}</strong></div>
+        <div class="metric"><span>Modelo carregado</span><strong>${diag.modelLoaded ? "Sim" : "Não"}</strong></div>
+        <div class="metric"><span>mmap</span><strong>${diag.mmap === false ? "Não" : "Sim"}</strong></div>
+        <div class="metric"><span>Threads</span><strong>${escaparHtml(valor(diag.threads, 2))}</strong></div>
+        <div class="metric"><span>Contexto</span><strong>${escaparHtml(valor(diag.contextTokens, 2048))}</strong></div>
+        <div class="metric"><span>GPU layers</span><strong>${escaparHtml(valor(diag.gpuLayers, 0))}</strong></div>
+        <div class="metric"><span>RAM livre</span><strong>${escaparHtml(valor(diag.availableMemoryMb))} MB</strong></div>
+        <div class="metric"><span>Android</span><strong>${escaparHtml(valor(diag.androidSdk))}</strong></div>
+      </div>
+      ${diag.error ? `<p class="feedback-status error">${escaparHtml(diag.error)}</p>` : ""}
+      <div class="actions">
+        <button class="btn ghost" type="button" onclick="atualizarDiagnosticoRuntimeIA(true)">Atualizar diagnóstico</button>
+      </div>
+    </details>
+  `;
+}
+
 function podeUsarVozIAPro() {
   return iaLocalEstaPronta()
     && assistantMode === "pro"
@@ -6786,26 +6862,20 @@ async function atualizarSuporteVozIASeNecessario() {
 
 function renderAssistenteInteligenteProConfig() {
   if (!getUsuarioAtual()) return "";
-  if (!podeUsarAssistenteIAOfflinePro()) {
-    return `
-      <div class="danger-zone ai-pro-manager ai-basic-manager">
-        <div class="card-header compact">
-          <h2 class="section-title">Assistente básico</h2>
-          <span class="status-badge">Ativo</span>
-        </div>
-      </div>
-    `;
-  }
+  const acessoProIA = podeUsarAssistenteIAOfflinePro();
   const settings = getAIAssistantSettings();
   const ativo = getAIModel(settings.activeModelId);
   const instalado = getAIModel(settings.installedModelId);
-  const localAtivo = settings.localEnabled === true;
+  const localAtivo = acessoProIA && settings.localEnabled === true;
   const pronto = localAtivo && !!getModeloIAOfflineAtivoInstalado();
   const vozDisponivel = assistantVoiceSupport?.speechAvailable === true;
   const vozVerificada = !!assistantVoiceSupport && assistantVoiceSupportLoading === false;
   const ttsDisponivel = assistantVoiceSupport?.ttsAvailable !== false;
   if (pronto && !assistantVoiceSupport && !assistantVoiceSupportLoading) {
     setTimeout(() => atualizarSuporteVozIASeNecessario(), 0);
+  }
+  if (acessoProIA && !assistantRuntimeDiagnostics && !assistantRuntimeDiagnosticsLoading) {
+    setTimeout(() => atualizarDiagnosticoRuntimeIASeNecessario(), 0);
   }
   const textoStatusVoz = assistantVoiceSupportLoading
     ? "verificando compatibilidade"
@@ -6819,31 +6889,39 @@ function renderAssistenteInteligenteProConfig() {
     <div class="danger-zone ai-pro-manager">
       <div class="card-header compact">
         <h2 class="section-title">IA Local</h2>
-        <span class="status-badge">${pronto ? "Pronta" : localAtivo ? "Configurar" : "Desativada"}</span>
+        <span class="status-badge">${acessoProIA ? (pronto ? "Pronta" : localAtivo ? "Configurar" : "Pro") : "Plano Pro"}</span>
       </div>
+      ${acessoProIA ? "" : `
+        <div class="ai-upgrade-box">
+          <strong>Recurso exclusivo do Plano Pro</strong>
+          <span>${escaparHtml(mensagemUpgradeIALocalPro())}</span>
+          <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Disponível no Plano Pro</button>
+        </div>
+      `}
       <label class="toggle-row">
-        <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)">
+        <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)" ${acessoProIA ? "" : "disabled"}>
         <span>Ativar IA Local</span>
       </label>
       <div class="sync-grid">
         <div class="metric"><span>Modo</span><strong>${escaparHtml(settings.lastDeviceProfile || "Automático")}</strong></div>
-        <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "Nenhum") : "Assistente básico")}</strong></div>
+        <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "Nenhum") : acessoProIA ? "Assistente básico" : "Bloqueado")}</strong></div>
         <div class="metric"><span>Espaço</span><strong>${Number(getAIModelLocalState(settings.installedModelId).sizeMb || instalado?.sizeMb || 0) || 0} MB</strong></div>
-        <div class="metric"><span>Status</span><strong>${pronto ? "Validada" : settings.installedModelId ? labelStatusAI(getAIModelStatus(settings.installedModelId)) : "Aguardando"}</strong></div>
+        <div class="metric"><span>Status</span><strong>${acessoProIA ? (pronto ? "Validada" : settings.installedModelId ? labelStatusAI(getAIModelStatus(settings.installedModelId)) : "Aguardando") : "Exclusivo Pro"}</strong></div>
       </div>
       <div class="actions">
-        <button class="btn" type="button" onclick="abrirWizardIAProLocal()">Instalar IA automaticamente</button>
-        <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()">Parar IA Local</button>
+        <button class="btn" type="button" onclick="${acessoProIA ? "abrirWizardIAProLocal()" : "trocarTela('assinatura')"}">${acessoProIA ? "Instalar IA automaticamente" : "Disponível no Plano Pro"}</button>
+        <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA ? "" : "disabled"}>Parar IA Local</button>
       </div>
+      ${acessoProIA ? renderDiagnosticoRuntimeIA() : ""}
       <label class="toggle-row ${vozDisponivel ? "" : "muted-disabled"}">
-        <input type="checkbox" ${settings.voiceEnabled && vozDisponivel ? "checked" : ""} onchange="alternarVozIAPro(this.checked)" ${vozDisponivel ? "" : "disabled"}>
+        <input type="checkbox" ${settings.voiceEnabled && vozDisponivel && acessoProIA ? "checked" : ""} onchange="alternarVozIAPro(this.checked)" ${vozDisponivel && acessoProIA ? "" : "disabled"}>
         <span>Microfone${vozDisponivel ? "" : ` (${escaparHtml(textoStatusVoz)})`}</span>
       </label>
       <label class="toggle-row ${ttsDisponivel ? "" : "muted-disabled"}">
-        <input type="checkbox" ${settings.ttsEnabled && ttsDisponivel ? "checked" : ""} onchange="alternarLeituraVozIAPro(this.checked)" ${ttsDisponivel ? "" : "disabled"}>
+        <input type="checkbox" ${settings.ttsEnabled && ttsDisponivel && acessoProIA ? "checked" : ""} onchange="alternarLeituraVozIAPro(this.checked)" ${ttsDisponivel && acessoProIA ? "" : "disabled"}>
         <span>Ler em voz alta${ttsDisponivel ? "" : " (indisponível)"}</span>
       </label>
-      ${settings.ttsEnabled && ttsDisponivel ? `
+      ${settings.ttsEnabled && ttsDisponivel && acessoProIA ? `
         <label class="range-row">
           <span>Velocidade da voz</span>
           <input type="range" min="0.6" max="1.4" step="0.1" value="${escaparAttr(settings.ttsRate || 1)}" oninput="ajustarVelocidadeLeituraIAPro(this.value)">
@@ -6862,6 +6940,7 @@ function renderAssistenteInteligenteProConfig() {
 }
 
 function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
+  const acessoProIA = podeUsarAssistenteIAOfflinePro();
   const state = getAIModelLocalState(modelo.id);
   const realStatus = getAIModelStatus(modelo.id);
   const status = settings.activeModelId === modelo.id && isAIModelReadyStatus(realStatus) ? "active" : realStatus;
@@ -6872,9 +6951,9 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
   const statusLabel = status === "active" ? "Em uso" : labelStatusAI(status);
   const progress = progressoIAInstalacao(state);
   const tamanho = formatarMb(state.sizeBytes) || `${Number(state.sizeMb || modelo.sizeMb) || modelo.sizeMb} MB`;
-  const acaoPrincipal = ready ? "Abrir IA" : realStatus === AI_INSTALL_STATUS.FAILED_DOWNLOAD || realStatus === AI_INSTALL_STATUS.FAILED_VALIDATION || realStatus === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Tentar novamente" : "Instalar IA";
+  const acaoPrincipal = !acessoProIA ? "Disponível no Plano Pro" : ready ? "Abrir IA" : realStatus === AI_INSTALL_STATUS.FAILED_DOWNLOAD || realStatus === AI_INSTALL_STATUS.FAILED_VALIDATION || realStatus === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Tentar novamente" : "Instalar IA";
   return `
-    <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""}">
+    <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""} ${acessoProIA ? "" : "locked"}">
       <div class="row-title">
         <div>
           <strong>${escaparHtml(modelo.name)}</strong>
@@ -6893,10 +6972,10 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
         </div>
       ` : ""}
       <div class="actions">
-        <button class="btn secondary" type="button" onclick="${ready ? `abrirAssistente('pro')` : `baixarModeloIAOffline('${escaparAttr(modelo.id)}')`}" ${busy || (!ready && !urlConfigurada) ? "disabled" : ""}>${escaparHtml(acaoPrincipal)}</button>
-        ${busy ? `<button class="btn ghost" type="button" onclick="cancelarInstalacaoIAOffline('${escaparAttr(modelo.id)}')">Cancelar</button>` : ""}
-        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !hasFile ? "disabled" : ""}>Testar IA</button>
-        <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${busy || !hasFile ? "disabled" : ""}>Remover modelo</button>
+        <button class="btn secondary" type="button" onclick="${acessoProIA ? (ready ? `abrirAssistente('pro')` : `baixarModeloIAOffline('${escaparAttr(modelo.id)}')`) : "trocarTela('assinatura')"}" ${acessoProIA && (busy || (!ready && !urlConfigurada)) ? "disabled" : ""}>${escaparHtml(acaoPrincipal)}</button>
+        ${busy && acessoProIA ? `<button class="btn ghost" type="button" onclick="cancelarInstalacaoIAOffline('${escaparAttr(modelo.id)}')">Cancelar</button>` : ""}
+        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${!acessoProIA || busy || !hasFile ? "disabled" : ""}>Testar IA</button>
+        <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${!acessoProIA || busy || !hasFile ? "disabled" : ""}>Remover modelo</button>
       </div>
     </article>
   `;
@@ -7000,6 +7079,7 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
       systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
       prompt: "Responda apenas: OK",
       maxTokens: 12,
+      proAllowed: podeUsarAssistenteIAOfflinePro(),
       timeoutMs: 120000
     }),
     125000,
@@ -7009,7 +7089,8 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
 
 async function baixarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
-  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return false;
+  if (!modelo) return false;
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return false;
   if (aiModelInstallPromise && isAIModelBusyStatus(getAIModelStatus(modelId))) {
     mostrarToast("A instalação da IA já está em andamento.", "info", 3200);
     return aiModelInstallPromise;
@@ -7060,6 +7141,7 @@ async function baixarModeloIAOffline(modelId) {
       url: modelo.url,
       fileName: modelo.fileName,
       sizeMb: modelo.sizeMb,
+      proAllowed: podeUsarAssistenteIAOfflinePro(),
       minBytes: modelo.minBytes || 0
     });
     setAIModelLocalState(modelId, {
@@ -7151,7 +7233,7 @@ async function cancelarInstalacaoIAOffline(modelId) {
 
 async function usarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
-  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
   const state = getAIModelLocalState(modelId);
   if (!isAIModelReadyStatus(getAIModelStatus(modelId)) || !state.runtimeValidatedAt) {
     mostrarToast("Teste a IA antes de ativar este modelo.", "aviso", 4800);
@@ -7168,6 +7250,7 @@ async function usarModeloIAOffline(modelId) {
   appConfig.aiOfflineAssistant.onboardingCompleted = true;
   appConfig.aiOfflineAssistant.lastPerformance = performance.message || "Modelo ativado";
   assistantVoiceSupport = null;
+  assistantRuntimeDiagnostics = null;
   salvarDados();
   mostrarToast(`${modelo.name} ativo.`, "sucesso", 3500);
   renderizarPreservandoScroll();
@@ -7175,7 +7258,7 @@ async function usarModeloIAOffline(modelId) {
 
 async function removerModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
-  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
   const confirmado = confirm("Remover esta IA do aparelho? Você poderá instalar novamente depois.");
   if (!confirmado) return;
   const plugin = getAIPlugin();
@@ -7194,6 +7277,7 @@ async function removerModeloIAOffline(modelId) {
       assistantMode = "basic";
     }
     assistantVoiceSupport = null;
+    assistantRuntimeDiagnostics = null;
     appConfig.aiOfflineAssistant = settings;
     salvarDados();
     mostrarToast("Modelo removido.", "sucesso", 3500);
@@ -7206,7 +7290,7 @@ async function removerModeloIAOffline(modelId) {
 
 async function testarModeloIAOffline(modelId) {
   const modelo = getAIModel(modelId);
-  if (!modelo || !podeUsarAssistenteIAOfflinePro()) return;
+  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
   const state = getAIModelLocalState(modelId);
   const path = String(state.path || "").trim();
   if (!path) {
@@ -7246,12 +7330,14 @@ async function testarModeloIAOffline(modelId) {
 }
 
 async function alternarIALocalPro(ativo) {
-  if (!podeUsarAssistenteIAOfflinePro()) return;
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
   const settings = getAIAssistantSettings();
   if (!ativo) {
     definirIAConfig({ localEnabled: false, voiceEnabled: false, ttsEnabled: false });
     assistantMode = "basic";
     assistantListening = false;
+    assistantRuntimeReady = false;
+    assistantRuntimeDiagnostics = null;
     try {
       await getAIPlugin()?.stopAiVoiceRecognition?.();
       await getAIPlugin()?.stopAiSpeech?.();
@@ -7273,16 +7359,20 @@ async function alternarIALocalPro(ativo) {
   definirIAConfig({ localEnabled: true, onboardingCompleted: true });
   assistantMode = "pro";
   assistantVoiceSupport = null;
+  assistantRuntimeDiagnostics = null;
   mostrarToast("IA Local ativada.", "sucesso", 3200);
   obterSuporteVozIA().finally(() => renderizarPreservandoScroll());
 }
 
 async function limparRuntimeIAPro() {
+  if (!exigirPlanoProPagoIALocal()) return;
   try {
     assistantListening = false;
     await getAIPlugin()?.stopAiVoiceRecognition?.();
     await getAIPlugin()?.stopAiSpeech?.();
     await getAIPlugin()?.unloadAiModel?.();
+    assistantRuntimeReady = false;
+    assistantRuntimeDiagnostics = null;
     mostrarToast("Memória da IA liberada.", "sucesso", 3000);
   } catch (erro) {
     registrarFalhaIALocal("unload_manual", erro);
@@ -7291,7 +7381,7 @@ async function limparRuntimeIAPro() {
 }
 
 async function alternarVozIAPro(ativo) {
-  if (!podeUsarAssistenteIAOfflinePro()) return;
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
   if (!ativo) {
     assistantListening = false;
     try {
@@ -7314,7 +7404,7 @@ async function alternarVozIAPro(ativo) {
 }
 
 function alternarLeituraVozIAPro(ativo) {
-  if (!podeUsarAssistenteIAOfflinePro()) return;
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
   if (ativo && assistantVoiceSupport?.ttsAvailable === false) {
     definirIAConfig({ ttsEnabled: false });
     mostrarToast("Leitura em voz indisponível neste aparelho.", "aviso", 4200);
@@ -7330,17 +7420,14 @@ function alternarLeituraVozIAPro(ativo) {
 }
 
 function ajustarVelocidadeLeituraIAPro(valor) {
-  if (!podeUsarAssistenteIAOfflinePro()) return;
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
   const ttsRate = Math.max(0.6, Math.min(Number(valor || 1) || 1, 1.4));
   definirIAConfig({ ttsRate }, true);
   renderizarPreservandoScroll();
 }
 
 async function abrirWizardIAProLocal() {
-  if (!podeUsarAssistenteIAOfflinePro()) {
-    trocarTela("assinatura");
-    return;
-  }
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
@@ -7522,6 +7609,7 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
     prompt: montarPromptIAOffline(texto, contexto),
     maxTokens: Math.max(32, Math.min(Number(opcoes.maxTokens || 160) || 160, 256)),
+    proAllowed: podeUsarAssistenteIAOfflinePro(),
     timeoutMs: Math.max(8000, Math.min(Number(opcoes.timeoutMs || 60000) || 60000, 120000))
   });
   const resposta = String(result?.text || "").trim();
@@ -9952,92 +10040,170 @@ function renderDashboard() {
   `;
 }
 
+function labelStatusPedido(status = "aberto") {
+  const mapa = {
+    aberto: "Aberto",
+    producao: "Produção",
+    aguardando: "Aguardando",
+    pausado: "Aguardando",
+    entregue: "Pago",
+    finalizado: "Pago",
+    pago: "Pago",
+    cancelado: "Cancelado"
+  };
+  return mapa[String(status || "aberto").toLowerCase()] || String(status || "Aberto");
+}
+
+function classeStatusPedido(status = "aberto") {
+  const valor = String(status || "aberto").toLowerCase();
+  if (["producao", "produção"].includes(valor)) return "order-status-production";
+  if (["aguardando", "pausado"].includes(valor)) return "order-status-waiting";
+  if (["pago", "entregue", "finalizado"].includes(valor)) return "order-status-paid";
+  if (valor === "cancelado") return "order-status-cancelled";
+  return "order-status-open";
+}
+
+function resumoMaterialItemPedido(item = {}) {
+  const materiais = getMateriaisItem(item);
+  if (!materiais.length) return [];
+  return materiais.slice(0, 3).map((material) => {
+    const estoqueItem = getMaterialEstoque(material.materialId);
+    return material.nome || estoqueItem?.nome || "Material";
+  }).filter(Boolean);
+}
+
+function renderChipsMaterialPedido(item = {}) {
+  const chips = resumoMaterialItemPedido(item);
+  if (!chips.length) return `<span class="order-chip muted-chip">Sem material</span>`;
+  return chips.map((chip) => `<span class="order-chip">${escaparHtml(chip)}</span>`).join("");
+}
+
 function renderPedido() {
   const planoAtual = getPlanoAtual();
   if (planoAtual.blockLevel === "total" || planoAtual.status === "bloqueado") return renderBloqueioPlano("Novo pedido");
-  const titulo = pedidoEditando ? "✏️ Editando pedido" : "📦 Novo pedido";
-  const botao = pedidoEditando ? "Atualizar pedido" : "Fechar pedido";
+  const titulo = pedidoEditando ? "Editar pedido" : "Novo pedido";
+  const botao = pedidoEditando ? "Salvar" : "Salvar";
   itensPedido = normalizarItensPedido(itensPedido);
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
   const statusAtual = pedidoEditando?.status || "aberto";
+  const clienteResumo = clientePedido || clienteDoPedido(pedidoEditando || {}) || "Cliente não informado";
+  const observacaoCurta = pedidoEditando?.observacao || pedidoEditando?.observacoes || "";
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
-        <div class="order-item product-item">
-          <label class="field">
-            <span>Produto</span>
-            <input value="${escaparAttr(item.nome)}" oninput="editarNome(${i}, this.value)">
-          </label>
-          <label class="field">
-            <span>Tipo impressão</span>
-            <select onchange="editarTipoImpressaoItem(${i}, this.value)">
-              <option value="FDM" ${item.tipoImpressao !== "RESINA" ? "selected" : ""}>FDM</option>
-              <option value="RESINA" ${item.tipoImpressao === "RESINA" ? "selected" : ""}>RESINA</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Qtd</span>
-            <input type="number" min="1" step="1" value="${Number(item.qtd) || 1}" onchange="editarQtd(${i}, this.value)">
-          </label>
-          <label class="field">
-            <span>Tempo (h)</span>
-            <input type="number" min="0" step="0.01" value="${Number(item.tempoHoras) || 0}" onchange="editarTempoItem(${i}, this.value)">
-          </label>
-          <label class="field">
-            <span>Valor</span>
-            <input type="number" min="0" step="0.01" value="${(Number(item.valor) || 0).toFixed(2)}" onchange="editarPreco(${i}, this.value)">
-          </label>
-          <div class="item-subtotal">
-            <span>Subtotal</span>
-            <strong>${formatarMoeda(Number(item.total) || 0)}</strong>
-          </div>
-          <div class="material-editor">
-            <div class="row-title">
-              <strong>Materiais usados</strong>
-              <span class="muted">${getMateriaisItem(item).length > 1 ? "Multifilamento" : "Material único"}</span>
+        <details class="order-item-card" ${itensPedido.length === 1 ? "open" : ""}>
+          <summary class="order-item-summary">
+            <span class="order-item-main">
+              <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
+              <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
+            </span>
+            <span class="order-item-total">${formatarMoeda(Number(item.total) || 0)}</span>
+          </summary>
+          <div class="order-item-details">
+            <div class="order-item-edit-grid">
+              <label class="field">
+                <span>Item</span>
+                <input value="${escaparAttr(item.nome)}" oninput="editarNome(${i}, this.value)">
+              </label>
+              <label class="field compact-field">
+                <span>Qtd</span>
+                <input type="number" min="1" step="1" value="${Number(item.qtd) || 1}" onchange="editarQtd(${i}, this.value)">
+              </label>
+              <label class="field compact-field">
+                <span>Valor unitário</span>
+                <input type="number" min="0" step="0.01" value="${(Number(item.valor) || 0).toFixed(2)}" onchange="editarPreco(${i}, this.value)">
+              </label>
+              <label class="field compact-field">
+                <span>Horas</span>
+                <input type="number" min="0" step="0.01" value="${Number(item.tempoHoras) || 0}" onchange="editarTempoItem(${i}, this.value)">
+              </label>
+              <label class="field compact-field">
+                <span>Tipo</span>
+                <select onchange="editarTipoImpressaoItem(${i}, this.value)">
+                  <option value="FDM" ${item.tipoImpressao !== "RESINA" ? "selected" : ""}>FDM</option>
+                  <option value="RESINA" ${item.tipoImpressao === "RESINA" ? "selected" : ""}>RESINA</option>
+                </select>
+              </label>
             </div>
-            ${renderMateriaisItemPedido(item, i)}
-            <button class="btn ghost" onclick="adicionarMaterialProduto(${i})">Adicionar material</button>
+            <div class="order-material-compact">
+              <div class="order-material-head">
+                <span>${renderChipsMaterialPedido(item)}</span>
+                <button class="btn ghost compact-action" type="button" onclick="adicionarMaterialProduto(${i})">+ material</button>
+              </div>
+              ${renderMateriaisItemPedido(item, i)}
+            </div>
+            <div class="order-item-actions">
+              <div class="item-subtotal">
+                <span>Subtotal</span>
+                <strong>${formatarMoeda(Number(item.total) || 0)}</strong>
+              </div>
+              <button class="icon-button danger" onclick="removerItem(${i})" title="Remover item">×</button>
+            </div>
           </div>
-          <button class="icon-button danger" onclick="removerItem(${i})" title="Remover item">✕</button>
-        </div>
+        </details>
       `).join("")
-    : `<p class="empty">Nenhum item adicionado. Use a calculadora para criar o primeiro item do pedido.</p>`;
+    : `<div class="order-empty-state"><strong>Nenhum item ainda</strong><span>Adicione pela calculadora ou crie um item manual.</span></div>`;
 
   return `
-    <section class="card order-edit-screen">
-      <div class="card-header">
+    <section class="card order-edit-screen order-flow-screen">
+      <div class="card-header order-edit-header">
         <h2>${titulo}</h2>
         ${pedidoEditando ? `<button class="icon-button" onclick="cancelarEdicaoPedido()" title="Cancelar edição">↩</button>` : ""}
       </div>
-      <label class="field">
-        <span>Cliente</span>
-        <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)">
-      </label>
-      <label class="field">
-        <span>WhatsApp do cliente</span>
-        <input id="clienteTelefone" inputmode="tel" placeholder="Ex.: 5585999999999" value="${escaparAttr(clienteTelefonePedido)}" oninput="atualizarTelefoneClientePedido(this.value)">
-      </label>
-      <label class="field">
-        <span>Status</span>
-        <select id="pedidoStatus">
-          ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${status}</option>`).join("")}
-        </select>
-      </label>
-
-      ${itensHtml}
-
-      <div class="total-line">
-        <span>Total</span>
-        <strong>${formatarMoeda(total)}</strong>
+      <div class="order-mini-summary">
+        <div>
+          <strong>${escaparHtml(clienteResumo)}</strong>
+          <span>${itensPedido.length} item(ns) • ${escaparHtml(labelStatusPedido(statusAtual))} • ${formatarMoeda(total)}</span>
+        </div>
+        <span class="order-status-badge ${classeStatusPedido(statusAtual)}">${escaparHtml(labelStatusPedido(statusAtual))}</span>
       </div>
 
-      <div class="actions">
-        <button class="btn secondary" onclick="iniciarAdicionarItemPedido()">Adicionar item</button>
-        <button class="btn ghost" onclick="adicionarProdutoManual()">Adicionar produto manual</button>
-        <button class="btn ghost" onclick="gerarPDF()">📄 PDF</button>
-        <button class="btn ghost" onclick="enviarWhats()">📲 WhatsApp</button>
-        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>✅ ${botao}</button>
+      <section class="order-step-panel">
+        <div class="order-step-title">
+          <span>1</span>
+          <strong>Resumo</strong>
+        </div>
+        <div class="order-summary-grid">
+          <label class="field">
+            <span>Cliente</span>
+            <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)">
+          </label>
+          <label class="field">
+            <span>WhatsApp</span>
+            <input id="clienteTelefone" inputmode="tel" placeholder="5585999999999" value="${escaparAttr(clienteTelefonePedido)}" oninput="atualizarTelefoneClientePedido(this.value)">
+          </label>
+          <label class="field compact-field">
+            <span>Status</span>
+            <select id="pedidoStatus">
+              ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        ${observacaoCurta ? `<p class="order-note-preview">${escaparHtml(String(observacaoCurta).slice(0, 120))}</p>` : ""}
+      </section>
+
+      <section class="order-step-panel">
+        <div class="order-step-title">
+          <span>2</span>
+          <strong>Itens</strong>
+          <small>${itensPedido.length} item(ns)</small>
+        </div>
+        <div class="order-items-list">${itensHtml}</div>
+      </section>
+
+      <div class="order-bottom-bar">
+        <div>
+          <span>Total</span>
+          <strong>${formatarMoeda(total)}</strong>
+        </div>
+        <button class="btn secondary" onclick="iniciarAdicionarItemPedido()">+ Item</button>
+        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${botao}</button>
+      </div>
+
+      <div class="order-secondary-actions">
+        <button class="btn ghost" onclick="adicionarProdutoManual()">Manual</button>
+        <button class="btn ghost" onclick="gerarPDF()">PDF</button>
+        <button class="btn ghost" onclick="enviarWhats()">WhatsApp</button>
       </div>
     </section>
   `;
@@ -18300,6 +18466,7 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
     getAIPlugin()?.loadAiModel?.({
       modelId: ativo.modelo.id,
       modelPath: ativo.path,
+      proAllowed: podeUsarAssistenteIAOfflinePro(),
       timeoutMs: 120000
     }),
     125000,
@@ -18314,6 +18481,8 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
         lastError: ""
       });
       assistantRuntimeReady = true;
+      assistantRuntimeDiagnostics = null;
+      obterDiagnosticoRuntimeIA({ force: true }).catch(() => {});
       return true;
     })
     .catch((erro) => {
@@ -18490,7 +18659,7 @@ async function confirmAdminPassword(actionLabel = "continuar") {
       return true;
     }
   } catch (erro) {
-    registrarDiagnostico("Auth", "Senha administrativa não validada", erro.message);
+    registrarDiagnostico("Auth", "Senha administrativa não validada", erro.message, { silent: true });
   }
 
   registrarAuditoria("senha_admin_falhou", { action: actionLabel });

@@ -24,11 +24,9 @@ static std::string join(const std::vector<T> &values, const std::string &delim) 
 /**
  * LLama resources: context, model, batch and sampler
  */
-constexpr int   N_THREADS_MIN           = 2;
-constexpr int   N_THREADS_MAX           = 4;
-constexpr int   N_THREADS_HEADROOM      = 2;
-
 constexpr int   DEFAULT_CONTEXT_SIZE    = 2048;
+constexpr int   DEFAULT_THREAD_COUNT     = 2;
+constexpr int   DEFAULT_GPU_LAYERS       = 0;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 128;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.35f;
@@ -60,6 +58,9 @@ extern "C"
 JNIEXPORT jint JNICALL
 Java_com_arm_aichat_internal_InferenceEngineImpl_load(JNIEnv *env, jobject, jstring jmodel_path) {
     llama_model_params model_params = llama_model_default_params();
+    // Configuracao conservadora para Android: mmap reduz copia em RAM e GPU fica desligada.
+    model_params.use_mmap = true;
+    model_params.n_gpu_layers = DEFAULT_GPU_LAYERS;
 
     const auto *model_path = env->GetStringUTFChars(jmodel_path, 0);
     LOGd("%s: Loading model from: \n%s\n", __func__, model_path);
@@ -80,9 +81,7 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
     }
 
     // Multi-threading setup
-    const int n_threads = std::max(N_THREADS_MIN, std::min(N_THREADS_MAX,
-                                                     (int) sysconf(_SC_NPROCESSORS_ONLN) -
-                                                     N_THREADS_HEADROOM));
+    const int n_threads = std::max(1, std::min(DEFAULT_THREAD_COUNT, (int) sysconf(_SC_NPROCESSORS_ONLN)));
     LOGi("%s: Using %d threads", __func__, n_threads);
 
     // Context parameters setup

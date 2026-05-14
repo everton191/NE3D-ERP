@@ -6,6 +6,7 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Build;
@@ -19,6 +20,7 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.util.Base64;
+import android.webkit.WebView;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.PermissionState;
@@ -141,6 +143,10 @@ public class SimplificaFilesPlugin extends Plugin {
 
     @PluginMethod
     public void downloadAiModel(PluginCall call) {
+        if (!isAiLocalProAllowed(call)) {
+            call.reject("IA Local é um recurso exclusivo do Plano Pro.");
+            return;
+        }
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String rawUrl = call.getString("url", "");
         final String fallbackName = modelId.isEmpty() ? "modelo.gguf" : modelId + ".gguf";
@@ -373,6 +379,46 @@ public class SimplificaFilesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getAiRuntimeDiagnostics(PluginCall call) {
+        JSObject result = new JSObject();
+        ActivityManager manager = (ActivityManager) getContext().getSystemService(Context.ACTIVITY_SERVICE);
+        int memoryClassMb = manager != null ? manager.getMemoryClass() : 0;
+        int largeMemoryClassMb = manager != null ? manager.getLargeMemoryClass() : 0;
+        String webView = "indisponível";
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                PackageInfo packageInfo = WebView.getCurrentWebViewPackage();
+                if (packageInfo != null) {
+                    webView = packageInfo.packageName + " " + packageInfo.versionName;
+                }
+            }
+        } catch (Throwable ignored) {
+            webView = "não detectado";
+        }
+
+        result.put("ok", true);
+        result.put("engine", "llama.cpp JNI");
+        result.put("nativeLibraryLoaded", InferenceEngineImpl.isNativeLoaded());
+        result.put("modelLoaded", InferenceEngineImpl.isModelReady());
+        result.put("loadedModelPath", InferenceEngineImpl.getLoadedModelPath());
+        result.put("contextTokens", InferenceEngineImpl.getDefaultContextTokens());
+        result.put("maxTokens", 160);
+        result.put("threads", InferenceEngineImpl.getDefaultThreads());
+        result.put("temperature", 0.35);
+        result.put("gpuLayers", InferenceEngineImpl.getDefaultGpuLayers());
+        result.put("mmap", true);
+        result.put("availableMemoryMb", getAvailableMemoryMb());
+        result.put("memoryClassMb", memoryClassMb);
+        result.put("largeMemoryClassMb", largeMemoryClassMb);
+        result.put("availableStorageMb", getAvailableInternalStorageMb());
+        result.put("cpuCores", Math.max(1, Runtime.getRuntime().availableProcessors()));
+        result.put("androidSdk", Build.VERSION.SDK_INT);
+        result.put("abi", Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : Build.CPU_ABI);
+        result.put("webView", webView);
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void getAiVoiceSupport(PluginCall call) {
         JSObject result = new JSObject();
         result.put("speechAvailable", SpeechRecognizer.isRecognitionAvailable(getContext()));
@@ -428,6 +474,10 @@ public class SimplificaFilesPlugin extends Plugin {
 
     @PluginMethod
     public void runAiPrompt(PluginCall call) {
+        if (!isAiLocalProAllowed(call)) {
+            call.reject("IA Local é um recurso exclusivo do Plano Pro.");
+            return;
+        }
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "");
         final String prompt = call.getString("prompt", "");
@@ -461,6 +511,10 @@ public class SimplificaFilesPlugin extends Plugin {
 
     @PluginMethod
     public void loadAiModel(PluginCall call) {
+        if (!isAiLocalProAllowed(call)) {
+            call.reject("IA Local é um recurso exclusivo do Plano Pro.");
+            return;
+        }
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String modelPath = call.getString("modelPath", "");
         final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 60000L), 120000L));
@@ -489,6 +543,10 @@ public class SimplificaFilesPlugin extends Plugin {
 
     @PluginMethod
     public void testAiModelRuntime(PluginCall call) {
+        if (!isAiLocalProAllowed(call)) {
+            call.reject("IA Local é um recurso exclusivo do Plano Pro.");
+            return;
+        }
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "Você é um assistente de gestão para impressão 3D.");
@@ -762,6 +820,10 @@ public class SimplificaFilesPlugin extends Plugin {
 
     private File getAiModelDir() {
         return new File(getContext().getFilesDir(), AI_MODEL_DIR);
+    }
+
+    private boolean isAiLocalProAllowed(PluginCall call) {
+        return call != null && call.getData() != null && call.getData().optBoolean("proAllowed", false);
     }
 
     private void notifyAiModelProgress(String modelId, String status, int percent, long bytesRead, long totalBytes) {

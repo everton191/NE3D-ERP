@@ -10,6 +10,9 @@ public final class InferenceEngineImpl {
     private static final String TAG = "S3D-Llama";
     private static final String LIB_NAME = "ai-chat";
     private static final int DEFAULT_MAX_TOKENS = 160;
+    private static final int DEFAULT_CONTEXT_TOKENS = 2048;
+    private static final int DEFAULT_THREADS = 2;
+    private static final int DEFAULT_GPU_LAYERS = 0;
     private static final int MAX_RESPONSE_CHARS = 2400;
     private static final Object LOCK = new Object();
 
@@ -53,6 +56,36 @@ public final class InferenceEngineImpl {
                 instance.cancelGeneration();
             }
         }
+    }
+
+    public static boolean isNativeLoaded() {
+        synchronized (LOCK) {
+            return nativeLoaded;
+        }
+    }
+
+    public static boolean isModelReady() {
+        synchronized (LOCK) {
+            return instance != null && instance.modelReady;
+        }
+    }
+
+    public static String getLoadedModelPath() {
+        synchronized (LOCK) {
+            return instance == null ? "" : instance.loadedModelPath;
+        }
+    }
+
+    public static int getDefaultContextTokens() {
+        return DEFAULT_CONTEXT_TOKENS;
+    }
+
+    public static int getDefaultThreads() {
+        return DEFAULT_THREADS;
+    }
+
+    public static int getDefaultGpuLayers() {
+        return DEFAULT_GPU_LAYERS;
     }
 
     public String generate(String modelPath, String systemPrompt, String userPrompt, int maxTokens, long timeoutMs)

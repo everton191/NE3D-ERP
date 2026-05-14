@@ -156,6 +156,13 @@ async function run() {
   now += 24 * 60 * 60 * 1000;
   assert.equal(MonetizationLimits.canExportPDF(resetUser), true, "PDF reseta no dia seguinte");
 
+  configure({ premium: false, orders: 0 });
+  global.localStorage.setItem("simplifica3d:monetization-limits:v1", JSON.stringify({
+    calculationUsage: { "corrupt@example.com": { date: "2026-05-04", count: "invalido" } },
+    calculationBonus: { "corrupt@example.com": { date: "2026-05-04", count: -5 } }
+  }));
+  assert.equal(MonetizationLimits.canUseCalculator({ email: "corrupt@example.com" }), true, "contador diario corrompido nao bloqueia primeiro uso");
+
   configure({ premium: false, orders: 5 });
   failRewarded = true;
   const failedReward = await AdMobService.showRewardedAd({ rewardType: "calculator" });

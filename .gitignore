@@ -4,6 +4,7 @@ modules/
 node_modules/
 dist/
 .tmp-edge-preview*/
+backups/
 /.env
 /.env.*
 !/.env.example
