@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.17";
-const APP_VERSION_CODE = 68;
+const APP_VERSION = "51.0.18";
+const APP_VERSION_CODE = 69;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -8144,7 +8144,7 @@ function renderDashboardJanela(id, janela, tamanho = "m") {
     <section class="dashboard-window window-size-${tamanhoNormalizado}" data-widget="${id}" ondragover="permitirSoltarWidget(event)" ondragleave="sairSoltarWidget(event)" ondrop="soltarWidget(event, '${id}')" style="--window-min-height:${altura}px">
       <div class="window-titlebar" draggable="true" ondragstart="iniciarArrasteWidget(event, '${id}')" title="Arrastar para reorganizar">
         <div class="window-title">
-          <span>${item.icone}</span>
+          <span class="nav-symbol">${renderUiIcon(id, item.icone)}</span>
           <strong>${item.titulo}</strong>
         </div>
         <div class="window-actions">
@@ -8784,7 +8784,7 @@ function getMenuGroups() {
 function renderBotaoLateral(item) {
   return `
     <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
-      <span>${item.icone}</span>
+      <span>${renderUiIcon(item.tela, item.icone)}</span>
       <strong>${item.texto}</strong>
     </button>
   `;
@@ -8998,7 +8998,7 @@ function renderMobileBottomNav() {
     <nav class="mobile-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
         <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="trocarTela('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
-          <span>${item.icone}</span>
+          <span>${renderUiIcon(item.tela, item.icone)}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
       `).join("")}
@@ -9100,7 +9100,7 @@ function renderAcoesRapidas() {
     <div class="quick-actions">
       ${acoes.filter((acao) => acao.acao || canAccessScreen(acao.tela)).map((acao) => `
         <button class="quick-action" onclick="${acao.acao || `trocarTela('${acao.tela}')`}">
-          <span>${acao.icone}</span>
+          <span>${renderUiIcon(acao.tela, acao.icone)}</span>
           <strong>${acao.texto}</strong>
         </button>
       `).join("")}
@@ -9152,7 +9152,7 @@ function renderMais() {
           <div class="more-grid">
             ${grupo.itens.map((item) => `
               <button class="more-item" type="button" onclick="trocarTela('${item.tela}')">
-                <span>${item.icone}</span>
+                <span>${renderUiIcon(item.tela, item.icone)}</span>
                 <strong>${escaparHtml(item.texto)}</strong>
               </button>
             `).join("")}
@@ -10527,10 +10527,62 @@ function renderListaPedidos() {
 function renderAcaoPedidoCompacta(icone, label, onclick, variante = "") {
   return `
     <button class="action-tile ${variante ? `action-${variante}` : ""}" type="button" onclick="${onclick}" title="${escaparAttr(label)}">
-      <span>${icone}</span>
+      <span class="action-symbol" aria-hidden="true">${renderIconeAcaoPedido(icone, label)}</span>
       <small>${escaparHtml(label)}</small>
     </button>
   `;
+}
+
+function renderIconeAcaoPedido(icone, label = "") {
+  const chave = `${label} ${icone}`.toLowerCase();
+  const tipo = chave.includes("whatsapp") || icone === "☘" ? "whatsapp"
+    : chave.includes("pdf") || icone === "▣" ? "pdf"
+    : chave.includes("editar") || icone === "✎" ? "edit"
+    : chave.includes("imprimir") || icone === "⎙" ? "print"
+    : chave.includes("excluir") || icone === "🗑" ? "trash"
+    : chave.includes("ver") || icone === "👁" ? "view"
+    : chave.includes("mais") || icone === "⋯" ? "more"
+    : "plus";
+  const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"`;
+  const icones = {
+    whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.5 8.8c.2 3 2 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1.2.6"/><path d="M8.5 7.1l.9 1.7"/></svg>`,
+    pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 16h7"/><path d="M8.5 12h7"/></svg>`,
+    edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
+    print: `<svg ${attrs}><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>`,
+    trash: `<svg ${attrs}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
+    view: `<svg ${attrs}><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>`,
+    more: `<svg ${attrs}><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>`,
+    plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
+  };
+  return icones[tipo] || icones.plus;
+}
+
+function renderUiIcon(tipo = "", fallback = "") {
+  const chave = String(tipo || fallback || "").toLowerCase();
+  const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"`;
+  const icones = {
+    dashboard: `<svg ${attrs}><path d="M4 13h7V4H4z"/><path d="M13 20h7V4h-7z"/><path d="M4 20h7v-5H4z"/></svg>`,
+    calculadora: `<svg ${attrs}><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8"/><path d="M8 11h.1M12 11h.1M16 11h.1M8 15h.1M12 15h.1M16 15h.1"/></svg>`,
+    pedido: `<svg ${attrs}><path d="M6 3h12v18H6z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>`,
+    pedidos: `<svg ${attrs}><path d="M7 3h10v4H7z"/><path d="M5 7h14v14H5z"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>`,
+    producao: `<svg ${attrs}><path d="M7 8V4h10v4"/><path d="M5 8h14v8H5z"/><path d="M8 16h8v4H8z"/><path d="M9 11h6"/></svg>`,
+    estoque: `<svg ${attrs}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5"/><path d="M12 12v9"/></svg>`,
+    clientes: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M20 20v-1.5a3 3 0 0 0-2.2-2.9"/><path d="M4 20v-1.5a3 3 0 0 1 2.2-2.9"/></svg>`,
+    caixa: `<svg ${attrs}><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/><path d="M12 10v7"/></svg>`,
+    relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
+    assinatura: `<svg ${attrs}><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>`,
+    empresa: `<svg ${attrs}><path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-8h6v8"/><path d="M8 8h.1M12 8h.1M16 8h.1"/></svg>`,
+    config: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .3 2l.1.1-2 3-.2-.1a1.8 1.8 0 0 0-2.1.1 1.8 1.8 0 0 0-.8 1.7V22h-5.4v-.2a1.8 1.8 0 0 0-.8-1.7 1.8 1.8 0 0 0-2.1-.1l-.2.1-2-3 .1-.1a1.8 1.8 0 0 0 .3-2 1.8 1.8 0 0 0-1.5-1.1H3v-3.8h.1A1.8 1.8 0 0 0 4.6 9a1.8 1.8 0 0 0-.3-2l-.1-.1 2-3 .2.1a1.8 1.8 0 0 0 2.1-.1 1.8 1.8 0 0 0 .8-1.7V2h5.4v.2a1.8 1.8 0 0 0 .8 1.7 1.8 1.8 0 0 0 2.1.1l.2-.1 2 3-.1.1a1.8 1.8 0 0 0-.3 2 1.8 1.8 0 0 0 1.5 1.1h.1v3.8h-.1a1.8 1.8 0 0 0-1.5 1.1Z"/></svg>`,
+    backup: `<svg ${attrs}><path d="M17 18a5 5 0 0 0-1-9.9A7 7 0 0 0 2 10.5 4.5 4.5 0 0 0 6.5 18"/><path d="M12 12v8"/><path d="m8.5 16.5 3.5 3.5 3.5-3.5"/></svg>`,
+    preferencias: `<svg ${attrs}><path d="M4 7h16"/><path d="M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/></svg>`,
+    conta: `<svg ${attrs}><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>`,
+    seguranca: `<svg ${attrs}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9.5 12.5 11 14l3.5-4"/></svg>`,
+    feedback: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M9 9h6M9 13h4"/></svg>`,
+    sobre: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.1"/></svg>`,
+    usuarios: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M18 9h3M19.5 7.5v3"/></svg>`,
+    superadmin: `<svg ${attrs}><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5Z"/><path d="M9 12l2 2 4-5"/></svg>`
+  };
+  return icones[chave] || icones[fallback] || icones.dashboard;
 }
 
 function renderDetalhePedido(pedido) {
@@ -12425,7 +12477,16 @@ function alternarSenhaVisivel(idOuBotao) {
     ? document.getElementById(idOuBotao)
     : idOuBotao?.closest?.(".password-row")?.querySelector("input");
   if (!input) return;
-  input.type = input.type === "password" ? "text" : "password";
+  const botao = typeof idOuBotao === "string"
+    ? input.closest?.(".password-row")?.querySelector?.(".icon-button")
+    : idOuBotao;
+  const mostrar = input.type === "password";
+  input.type = mostrar ? "text" : "password";
+  if (botao?.classList) {
+    botao.classList.toggle("is-password-visible", mostrar);
+    botao.setAttribute("aria-pressed", String(mostrar));
+    botao.setAttribute("title", mostrar ? "Ocultar senha" : "Mostrar senha");
+  }
   input.focus();
 }
 
