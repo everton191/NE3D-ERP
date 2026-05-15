@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v90-premium-motion-5122-20260515";
+const CACHE_NAME = "simplifica-3d-v91-ai-auto-installer-5123-20260515";
 const APP_FILES = [
   "./",
   "./index.html",

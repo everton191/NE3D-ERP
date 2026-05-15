@@ -10,10 +10,10 @@ public final class InferenceEngineImpl {
     private static final String TAG = "S3D-Llama";
     private static final String LIB_NAME = "ai-chat";
     private static final int DEFAULT_MAX_TOKENS = 120;
-    private static final int DEFAULT_CONTEXT_TOKENS = 1024;
-    private static final int DEFAULT_THREADS = 2;
+    private static final int DEFAULT_CONTEXT_TOKENS = 2048;
+    private static final int DEFAULT_THREADS = 4;
     private static final int DEFAULT_GPU_LAYERS = 0;
-    private static final int MAX_RESPONSE_CHARS = 1200;
+    private static final int MAX_RESPONSE_CHARS = 1600;
     private static final Object LOCK = new Object();
 
     private static volatile InferenceEngineImpl instance;
@@ -92,7 +92,7 @@ public final class InferenceEngineImpl {
                 throw new IOException("Modelo GGUF não encontrado ou sem permissão de leitura.");
             }
 
-            int safeMaxTokens = Math.max(16, Math.min(maxTokens <= 0 ? DEFAULT_MAX_TOKENS : maxTokens, 256));
+            int safeMaxTokens = Math.max(16, Math.min(maxTokens <= 0 ? DEFAULT_MAX_TOKENS : maxTokens, 280));
             long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 300000L));
 
             ensureModelLoaded(modelFile.getAbsolutePath());

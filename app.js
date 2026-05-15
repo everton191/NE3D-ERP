@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.22";
-const APP_VERSION_CODE = 73;
+const APP_VERSION = "51.0.23";
+const APP_VERSION_CODE = 74;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -64,8 +64,8 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 8;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
-const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente rápido do Simplifica 3D. Responda em português do Brasil, de forma prática, curta e objetiva. Evite introduções como 'Claro', 'Com certeza', 'Vou te ajudar' e conclusões como 'Espero ter ajudado'. Não repita frases. Não invente dados, preços, clientes, estoque, telas ou regras. Não oriente ações de Super Admin. Se faltar informação, peça apenas o dado essencial. Prefira até 3 frases e no máximo passos curtos. O app possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios, produção, PDF, planos, backup, sincronização e configurações comuns.";
+const AI_LOCAL_UI_VERSION = "2026-05-15-auto-model-installer";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do Simplifica 3D. Responda em português do Brasil. Seja curto, lógico e prático. Evite respostas longas. Não repita ideias. Não use introduções como 'Claro', 'Com certeza' ou 'Vou te ajudar'. Não invente dados do aplicativo. Não invente clientes, pedidos, estoque, preços ou valores. Se faltar informação, peça apenas o dado essencial. Quando possível, responda em até 3 frases. Quando precisar orientar, use passos curtos. Priorize ações úteis dentro do app. O aplicativo possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios e painel administrativo. Quando a solicitação for uma ação do aplicativo, gere uma intenção estruturada em JSON somente se a ação estiver permitida para o modelo atual. Nunca salve, exclua, envie, altere estoque, altere caixa ou modifique dados automaticamente. Sempre crie apenas rascunho e exija confirmação do usuário.";
 const AI_RESPONSE_MAX_CHARS = 800;
 const AI_DEFAULT_MAX_TOKENS = 120;
 const AI_TECHNICAL_MAX_TOKENS = 220;
@@ -84,21 +84,92 @@ const AI_KNOWLEDGE_BASE = Object.freeze({
   ],
   limites: "A IA local é focada no uso do Simplifica 3D e impressão 3D FDM. Ela não deve orientar ações de Super Admin nem inventar funções."
 });
-const AI_DEFAULT_MODEL_ID = "qwen25_05b_q8";
+const AI_DEFAULT_MODEL_ID = "qwen25_05b_q4km";
+const AI_SMART_MODEL_ID = "qwen25_15b_q4km";
+const AI_PRO_MODEL_ID = "qwen25_3b_q4km";
+const AI_MODEL_PROFILES = Object.freeze({
+  qwen25_05b_q4km: {
+    label: "Lite",
+    maxTokens: 90,
+    temperature: 0.2,
+    topP: 0.8,
+    repeatPenalty: 1.22,
+    presencePenalty: 0,
+    frequencyPenalty: 0.3,
+    contextSize: 768,
+    threads: "auto_safe",
+    responseMode: "very_short",
+    allowActions: ["explain_screen", "fill_calculator_basic"]
+  },
+  qwen25_15b_q4km: {
+    label: "Smart",
+    maxTokens: 160,
+    temperature: 0.25,
+    topP: 0.85,
+    repeatPenalty: 1.18,
+    presencePenalty: 0.05,
+    frequencyPenalty: 0.25,
+    contextSize: 1024,
+    threads: "auto_balanced",
+    responseMode: "short_logic",
+    allowActions: ["explain_screen", "fill_calculator", "create_client_draft"]
+  },
+  qwen25_3b_q4km: {
+    label: "Pro",
+    maxTokens: 260,
+    temperature: 0.25,
+    topP: 0.85,
+    repeatPenalty: 1.14,
+    presencePenalty: 0.1,
+    frequencyPenalty: 0.2,
+    contextSize: 2048,
+    threads: "auto_performance",
+    responseMode: "assistant_operator",
+    allowActions: ["explain_screen", "fill_calculator", "create_order_draft", "create_client_draft", "add_inventory_draft", "search_order"]
+  }
+});
 const AI_MODELS = Object.freeze([
   {
     id: AI_DEFAULT_MODEL_ID,
-    name: "IA Local",
-    tier: "standard",
-    model: "Qwen2.5 0.5B Instruct Q8_0 GGUF",
-    sizeMb: 465,
-    minBytes: 300 * 1024 * 1024,
-    ramRecommended: "4 GB+",
-    recommended: "Modelo padrão único",
-    description: "Modelo local padrão do Simplifica 3D para dúvidas do sistema, pedidos, estoque e cálculo.",
-    fileName: "Qwen2.5-0.5B-Instruct-Q8_0.gguf",
+    name: "IA Lite",
+    tier: "lite",
+    model: "Qwen2.5 0.5B Instruct Q4_K_M GGUF",
+    sizeMb: 398,
+    minBytes: 280 * 1024 * 1024,
+    ramRecommended: "até 4 GB",
+    recommended: "Celulares fracos",
+    description: "Modelo leve para respostas rápidas, explicação de telas e comandos simples.",
+    fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
     officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q8_0.gguf"
+    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
+  },
+  {
+    id: AI_SMART_MODEL_ID,
+    name: "IA Smart",
+    tier: "smart",
+    model: "Qwen2.5 1.5B Instruct Q4_K_M GGUF",
+    sizeMb: 986,
+    minBytes: 720 * 1024 * 1024,
+    ramRecommended: "6 GB+",
+    recommended: "Celulares intermediários",
+    description: "Modelo equilibrado para ajuda contextual, melhores respostas e menos repetição.",
+    fileName: "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+    officialPage: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
+  },
+  {
+    id: AI_PRO_MODEL_ID,
+    name: "IA Pro",
+    tier: "pro",
+    model: "Qwen2.5 3B Instruct Q4_K_M GGUF",
+    sizeMb: 1900,
+    minBytes: 1300 * 1024 * 1024,
+    ramRecommended: "8 GB+",
+    recommended: "Celulares fortes",
+    description: "Modelo mais forte para interpretação, rascunhos operacionais e comandos complexos. Exclusivo PRO.",
+    fileName: "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
+    officialPage: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
   }
 ]);
 const AI_INSTALL_STATUS = Object.freeze({
@@ -5883,6 +5954,8 @@ function calcularEscalaInterface() {
 
 function detectarNivelMovimento() {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return "low";
+  const perfilIA = String(getAIAssistantSettings?.().uiPerformanceProfile || "").toLowerCase();
+  if (["low", "medium", "high"].includes(perfilIA)) return perfilIA;
   const escolhido = String(appConfig.motionLevel || "medium").toLowerCase();
   if (["low", "medium", "high"].includes(escolhido)) return escolhido;
   return isMobile() ? "medium" : "high";
@@ -6634,24 +6707,30 @@ function contextoPedidoIA() {
   };
 }
 
-function buildAiContext(screen = telaAtual, userInput = "") {
+function buildAiContext(screen = telaAtual, userInput = "", modelProfile = getAIModelProfile()) {
   const tela = String(screen || telaAtual || "dashboard");
   const contexto = {
     tela,
     pergunta: String(userInput || "").slice(0, 220),
-    perfilUso: getLocalAiUsageProfile()
+    perfilUso: getLocalAiUsageProfile(),
+    modelo: modelProfile.label || "Lite",
+    permissoes: Array.isArray(modelProfile.allowActions) ? modelProfile.allowActions : [],
+    camposVisiveis: []
   };
   if (tela === "calculadora") {
     contexto.modulo = "calculadora";
     contexto.instrucao = "Ajude com cálculo de impressão 3D. Não invente valores.";
     contexto.dados = contextoCalculadoraIA();
+    contexto.camposVisiveis = ["peso", "tempo", "material", "margem", "taxaExtra"];
   } else if (["pedido", "pedidos", "producao"].includes(tela)) {
     contexto.modulo = "pedidos";
     contexto.instrucao = "Ajude o usuário com pedidos e organização.";
     contexto.dados = contextoPedidoIA();
+    contexto.camposVisiveis = ["cliente", "telefone", "itens", "quantidade", "status"];
   } else if (tela === "estoque") {
     contexto.modulo = "estoque";
     contexto.instrucao = "Ajude com controle de materiais.";
+    contexto.camposVisiveis = ["material", "cor", "quantidade", "custo"];
     contexto.dados = normalizarEstoque().slice(0, ASSISTANT_MAX_CONTEXT_RESULTS).map((material) => ({
       nome: material.nome,
       qtd: material.qtd,
@@ -6661,10 +6740,12 @@ function buildAiContext(screen = telaAtual, userInput = "") {
   } else if (tela === "clientes") {
     contexto.modulo = "clientes";
     contexto.instrucao = "Ajude com cadastro e organização de clientes.";
+    contexto.camposVisiveis = ["nome", "telefone", "email"];
     contexto.dados = { totalClientes: Array.isArray(clientes) ? clientes.length : 0 };
   } else if (tela === "caixa") {
     contexto.modulo = "caixa";
     contexto.instrucao = "Ajude com informações financeiras sem inventar valores.";
+    contexto.camposVisiveis = ["entradas", "saídas", "saldo"];
     const stats = getDashboardStats();
     const totais = calcularTotaisCaixa();
     contexto.dados = {
@@ -6749,6 +6830,10 @@ function normalizarAIAssistantSettings(config = appConfig.aiOfflineAssistant || 
     onboardingCompleted: config.onboardingCompleted === true,
     activeModelId,
     installedModelId,
+    recommendedModelId: normalizarModelId(config.recommendedModelId),
+    deviceProfile: String(config.deviceProfile || ""),
+    uiPerformanceProfile: String(config.uiPerformanceProfile || ""),
+    downloadState: config.downloadState && typeof config.downloadState === "object" ? config.downloadState : {},
     models: config.models && typeof config.models === "object" ? config.models : {},
     lastFailure: String(config.lastFailure || ""),
     lastPerformance: String(config.lastPerformance || ""),
@@ -6767,6 +6852,28 @@ function getAIAssistantSettings() {
 
 function getAIModel(modelId) {
   return AI_MODELS.find((modelo) => modelo.id === modelId) || AI_MODELS[0] || null;
+}
+
+function getAIModelProfile(modelOrId = getAIAssistantSettings().activeModelId) {
+  const modelId = typeof modelOrId === "object" ? modelOrId?.id : modelOrId;
+  return AI_MODEL_PROFILES[String(modelId || "")] || AI_MODEL_PROFILES[AI_DEFAULT_MODEL_ID];
+}
+
+function getAIModelByProfile(profile = "weak", proAtivo = podeUsarAssistenteIAOfflinePro()) {
+  if (profile === "strong" && proAtivo) return getAIModel(AI_PRO_MODEL_ID);
+  if (profile === "medium" || profile === "strong") return getAIModel(AI_SMART_MODEL_ID);
+  return getAIModel(AI_DEFAULT_MODEL_ID);
+}
+
+function getSaferAIModelId(modelId = "") {
+  if (String(modelId) === AI_PRO_MODEL_ID) return AI_SMART_MODEL_ID;
+  if (String(modelId) === AI_SMART_MODEL_ID) return AI_DEFAULT_MODEL_ID;
+  return "";
+}
+
+function isAIProOnlyModel(modelOrId) {
+  const modelo = typeof modelOrId === "object" ? modelOrId : getAIModel(String(modelOrId || ""));
+  return String(modelo?.id || "") === AI_PRO_MODEL_ID || String(modelo?.tier || "") === "pro";
 }
 
 function obterRespostaOrientadaAssistente(pergunta = "") {
@@ -6791,6 +6898,27 @@ function getAIModelLocalState(modelId) {
   return settings.models?.[modelId] || {};
 }
 
+function atualizarAiDownloadState(modelId, patch = {}) {
+  const settings = getAIAssistantSettings();
+  settings.downloadState = {
+    ...(settings.downloadState || {}),
+    modelId,
+    status: String(patch.status || settings.downloadState?.status || "idle"),
+    progressPercent: Number(patch.progressPercent ?? patch.progress ?? settings.downloadState?.progressPercent ?? 0) || 0,
+    downloadedBytes: Number(patch.downloadedBytes ?? settings.downloadState?.downloadedBytes ?? 0) || 0,
+    totalBytes: Number(patch.totalBytes ?? settings.downloadState?.totalBytes ?? 0) || 0,
+    speed: Number(patch.speed ?? patch.speedBytesPerSec ?? settings.downloadState?.speed ?? 0) || 0,
+    currentTask: String(patch.currentTask || settings.downloadState?.currentTask || ""),
+    errorMessage: String(patch.errorMessage || patch.lastError || ""),
+    filePath: String(patch.filePath || patch.path || settings.downloadState?.filePath || ""),
+    hashValidated: patch.hashValidated === true || patch.ggufValid === true || settings.downloadState?.hashValidated === true,
+    lastUpdatedAt: new Date().toISOString()
+  };
+  appConfig.aiOfflineAssistant = settings;
+  salvarDados();
+  return settings.downloadState;
+}
+
 function setAIModelLocalState(modelId, patch = {}) {
   const settings = getAIAssistantSettings();
   const normalizedPatch = { ...patch };
@@ -6807,6 +6935,7 @@ function setAIModelLocalState(modelId, patch = {}) {
     }
   };
   appConfig.aiOfflineAssistant = settings;
+  atualizarAiDownloadState(modelId, normalizedPatch);
   salvarDados();
   return settings.models[modelId];
 }
@@ -7001,6 +7130,14 @@ function estimarMemoriaDispositivoMb() {
   return gb > 0 ? Math.round(gb * 1024) : 0;
 }
 
+function classificarPerfilVisualPorDispositivo(deviceInfo = {}) {
+  const memoria = Math.max(Number(deviceInfo.memoryMb || 0) || 0, Number(deviceInfo.memoryClassMb || 0) || 0);
+  const cores = Number(deviceInfo.cpuCores || navigator.hardwareConcurrency || 0) || 0;
+  if ((memoria && memoria <= 4096) || (cores && cores <= 4) || String(deviceInfo.deviceProfile || "") === "weak") return "low";
+  if ((memoria && memoria >= 8192) && cores >= 6 && String(deviceInfo.deviceProfile || "") === "strong") return "high";
+  return "medium";
+}
+
 async function obterResumoCapacidadeIA(modelo = {}) {
   const plugin = getAIPlugin();
   if (plugin?.testAiModelPerformance) {
@@ -7030,57 +7167,106 @@ async function obterResumoCapacidadeIA(modelo = {}) {
   };
 }
 
+async function detectDeviceProfile() {
+  const base = await obterResumoCapacidadeIA({ id: "device_probe", sizeMb: 986 });
+  const memoria = Math.max(Number(base.memoryMb || 0) || 0, Number(base.memoryClassMb || 0) || 0, Number(base.largeMemoryClassMb || 0) || 0);
+  const memoriaLivre = Number(base.memoryMb || 0) || 0;
+  const storage = Number(base.storageMb || base.availableStorageMb || 0) || 0;
+  const cores = Number(base.cpuCores || navigator.hardwareConcurrency || 0) || 0;
+  const androidSdk = Number(base.androidSdk || 0) || 0;
+  const falhas = AI_MODELS.some((modelo) => /falha|erro|runtime|pesado/i.test(String(getAIModelLocalState(modelo.id).lastError || "")));
+  let deviceProfile = "medium";
+  if ((memoria && memoria <= 4096) || (memoriaLivre && memoriaLivre < 900) || (storage && storage < 1400) || (androidSdk && androidSdk < 26) || (cores && cores <= 4) || falhas) {
+    deviceProfile = "weak";
+  } else if ((memoria && memoria >= 8192) && (!storage || storage >= 3200) && (!cores || cores >= 6) && !falhas) {
+    deviceProfile = "strong";
+  }
+  return {
+    ...base,
+    memoryTotalMb: memoria,
+    memoryFreeMb: memoriaLivre,
+    storageMb: storage,
+    cpuCores: cores,
+    androidSdk,
+    deviceProfile,
+    uiPerformanceProfile: classificarPerfilVisualPorDispositivo({ ...base, deviceProfile })
+  };
+}
+
 function classificarDispositivoIA(resumo = {}) {
   const memoria = Math.max(Number(resumo.memoryMb || 0) || 0, Number(resumo.memoryClassMb || 0) || 0);
   const storage = Number(resumo.storageMb || 0) || 0;
   const cores = Number(resumo.cpuCores || navigator.hardwareConcurrency || 0) || 0;
-  if ((memoria && memoria < 1024) || (storage && storage < 700) || (cores && cores <= 2)) {
+  if (resumo.deviceProfile === "weak" || (memoria && memoria <= 4096) || (storage && storage < 1400) || (cores && cores <= 4)) {
     return {
-      id: "basic",
-      label: "Básico",
+      id: "weak",
+      label: "Fraco",
       modelId: AI_DEFAULT_MODEL_ID,
-      description: "Respostas curtas, menor consumo e melhor estabilidade para aparelhos simples.",
+      description: "Modelo Lite recomendado para menor RAM e melhor estabilidade.",
       speed: "mais rápido e leve",
       quality: "ajuda essencial do sistema"
     };
   }
-  if ((memoria && memoria < 4096) || (storage && storage < 1200) || (cores && cores <= 4)) {
+  if (resumo.deviceProfile === "medium" || (memoria && memoria < 8192) || (storage && storage < 3200)) {
     return {
-      id: "intermediate",
+      id: "medium",
       label: "Intermediário",
-      modelId: AI_DEFAULT_MODEL_ID,
-      description: "Bom equilíbrio entre qualidade e desempenho para uso diário.",
+      modelId: AI_SMART_MODEL_ID,
+      description: "Modelo Smart recomendado para equilibrar velocidade e qualidade.",
       speed: "velocidade moderada",
       quality: "mais contexto para pedidos, estoque e cálculo"
     };
   }
   return {
-    id: "advanced",
-    label: "Avançado",
-    modelId: AI_DEFAULT_MODEL_ID,
-    description: "Melhor qualidade para aparelhos mais fortes.",
+    id: "strong",
+    label: "Forte",
+    modelId: podeUsarAssistenteIAOfflinePro() ? AI_PRO_MODEL_ID : AI_SMART_MODEL_ID,
+    description: "Modelo Pro recomendado apenas quando o plano e o aparelho suportam.",
     speed: "mais completo",
-    quality: "análises comerciais mais completas"
+    quality: "rascunhos e orientação operacional"
   };
 }
 
 async function analisarDispositivoParaIA() {
-  const resultados = [];
-  for (const modelo of AI_MODELS) {
-    resultados.push({ modelo, resumo: await obterResumoCapacidadeIA(modelo) });
-  }
-  const melhorResumo = resultados.find((item) => item.modelo.id === AI_DEFAULT_MODEL_ID)?.resumo
-    || resultados[0]?.resumo
-    || {};
-  const perfil = classificarDispositivoIA(melhorResumo);
-  const modelo = getAIModel(perfil.modelId) || AI_MODELS[0];
+  const deviceInfo = await detectDeviceProfile();
+  const perfil = classificarDispositivoIA(deviceInfo);
+  const modelo = getAIModelByProfile(perfil.id, podeUsarAssistenteIAOfflinePro()) || AI_MODELS[0];
+  const resultados = AI_MODELS.map((item) => ({ modelo: item, resumo: { ...deviceInfo, ok: !isAIProOnlyModel(item) || podeUsarAssistenteIAOfflinePro() } }));
+  definirIAConfig({
+    recommendedModelId: modelo.id,
+    deviceProfile: perfil.id,
+    uiPerformanceProfile: deviceInfo.uiPerformanceProfile,
+    lastDeviceProfile: `${perfil.label}: ${modelo.name}`
+  });
   return {
     perfil,
     modelo,
-    resumo: melhorResumo,
+    resumo: deviceInfo,
     resultados
   };
 }
+
+const AIModelManager = Object.freeze({
+  detectDeviceProfile,
+  selectBestModel: (deviceInfo = {}, userPlan = getPlanoAtual()) => {
+    const proAtivo = userPlan?.pro === true || userPlan?.status === PLAN_ACCESS_STATES.ACTIVE || podeUsarAssistenteIAOfflinePro();
+    return getAIModelByProfile(deviceInfo.deviceProfile || "weak", proAtivo);
+  },
+  downloadSelectedModel: (modelId) => baixarModeloIAOffline(modelId),
+  validateModelFile: (modelId) => validarArquivoModeloIA(getAIModel(modelId), modelId),
+  loadSelectedModel: (modelId) => abrirModeloIAOffline(modelId),
+  runAiHealthCheck: (modelId) => testarModeloIAOffline(modelId),
+  applyModelParams: (modelId) => getAIModelProfile(modelId),
+  fallbackToSaferModel: async (modelId) => {
+    const safeId = getSaferAIModelId(modelId);
+    if (!safeId) return false;
+    mostrarToast("Este modelo ficou pesado para este aparelho. Vamos tentar um modelo menor.", "aviso", 5200);
+    setAIModelLocalState(modelId, { fallbackTo: safeId, fallbackAt: new Date().toISOString() });
+    return baixarModeloIAOffline(safeId);
+  },
+  removeCurrentModel: () => removerModeloIAOffline(getAIAssistantSettings().activeModelId || getAIAssistantSettings().installedModelId),
+  changeModelAdvanced: (modelId) => usarModeloIAOffline(modelId)
+});
 
 async function obterSuporteVozIA() {
   if (!podeUsarAssistenteIAOfflinePro()) return { speechAvailable: false, ttsAvailable: false };
@@ -7177,7 +7363,8 @@ function renderAssistenteInteligenteProConfig() {
   if (!getUsuarioAtual()) return "";
   const acessoProIA = podeUsarAssistenteIAOfflinePro();
   const settings = getAIAssistantSettings();
-  const ativo = getAIModel(settings.activeModelId);
+  const recomendado = getAIModel(settings.recommendedModelId) || getAIModelByProfile(settings.deviceProfile || "weak", acessoProIA);
+  const ativo = getAIModel(settings.activeModelId || settings.installedModelId || recomendado?.id);
   const instalado = getAIModel(settings.installedModelId);
   const localAtivo = acessoProIA && settings.localEnabled === true;
   const pronto = localAtivo && !!getModeloIAOfflineAtivoInstalado();
@@ -7206,8 +7393,8 @@ function renderAssistenteInteligenteProConfig() {
       </div>
       ${acessoProIA ? "" : `
         <div class="ai-upgrade-box">
-          <strong>Recurso exclusivo do Plano Pro</strong>
-          <span>${escaparHtml(mensagemUpgradeIALocalPro())}</span>
+          <strong>IA disponível no plano Pro.</strong>
+          <span>Assine o Plano Pro para baixar, instalar e usar IA local offline no APK.</span>
           <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Disponível no Plano Pro</button>
         </div>
       `}
@@ -7216,13 +7403,14 @@ function renderAssistenteInteligenteProConfig() {
         <span>Ativar IA Local</span>
       </label>
       <div class="sync-grid">
-        <div class="metric"><span>Modo</span><strong>${escaparHtml(settings.lastDeviceProfile || "Automático")}</strong></div>
+        <div class="metric"><span>Perfil do aparelho</span><strong>${escaparHtml(settings.lastDeviceProfile || "Análise automática")}</strong></div>
+        <div class="metric"><span>Modelo recomendado</span><strong>${escaparHtml(recomendado?.name || "IA Lite")}</strong></div>
         <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "Nenhum") : acessoProIA ? "Assistente básico" : "Bloqueado")}</strong></div>
-        <div class="metric"><span>Espaço</span><strong>${Number(getAIModelLocalState(settings.installedModelId).sizeMb || instalado?.sizeMb || 0) || 0} MB</strong></div>
         <div class="metric"><span>Status</span><strong>${acessoProIA ? (pronto ? "Validada" : settings.installedModelId ? labelStatusAI(getAIModelStatus(settings.installedModelId)) : "Aguardando") : "Exclusivo Pro"}</strong></div>
       </div>
       <div class="actions">
-        <button class="btn" type="button" onclick="${acessoProIA ? "abrirWizardIAProLocal()" : "trocarTela('assinatura')"}">${acessoProIA ? "Instalar IA automaticamente" : "Disponível no Plano Pro"}</button>
+        <button class="btn" type="button" onclick="${acessoProIA ? "instalarIARecomendadaAutomaticamente()" : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Abrir IA" : "Instalar IA recomendada") : "Disponível no Plano Pro"}</button>
+        <button class="btn secondary" type="button" onclick="${acessoProIA ? "abrirWizardIAProLocal()" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Analisar aparelho</button>
         <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA ? "" : "disabled"}>Parar IA Local</button>
       </div>
       ${acessoProIA ? renderDiagnosticoRuntimeIA() : ""}
@@ -7243,7 +7431,8 @@ function renderAssistenteInteligenteProConfig() {
       ` : ""}
       ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
       <details class="ai-advanced-settings">
-        <summary>Modelos</summary>
+        <summary>Configurações avançadas da IA</summary>
+        <p class="muted">Troque o modelo apenas se o aparelho travar, aquecer demais ou responder muito devagar.</p>
         <div class="ai-model-list">
           ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
         </div>
@@ -7525,6 +7714,13 @@ async function baixarModeloIAOffline(modelId) {
     salvarDados();
     mostrarToast(statusFalha === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Modelo baixado, mas a IA não iniciou neste aparelho." : "Não foi possível instalar o modelo.", "erro", 6500);
     registrarFalhaIALocal("download_model", erro, { modelId });
+    const safeId = getSaferAIModelId(modelId);
+    const cancelado = /cancelad/i.test(msg);
+    if (safeId && !cancelado && !getAIModelLocalState(modelId).fallbackAttemptedAt) {
+      setAIModelLocalState(modelId, { fallbackAttemptedAt: new Date().toISOString(), fallbackTo: safeId });
+      mostrarToast("Este modelo ficou pesado para este aparelho. Vamos tentar um modelo menor.", "aviso", 5200);
+      return baixarModeloIAOffline(safeId);
+    }
     return false;
   } finally {
     await removerListenerProgressoIA(progressHandle);
@@ -7794,7 +7990,7 @@ async function abrirWizardIAProLocal() {
             <div class="metric"><span>Espaço</span><strong>${Number(analise.modelo?.sizeMb || 0)} MB</strong></div>
           </div>
           <div class="actions">
-            <button class="btn" type="button" data-action="ai-wizard-install" data-model-id="${escaparAttr(analise.modelo?.id || "lite")}">Instalar IA automaticamente</button>
+            <button class="btn" type="button" data-action="ai-wizard-install" data-model-id="${escaparAttr(analise.modelo?.id || AI_DEFAULT_MODEL_ID)}">Instalar IA automaticamente</button>
             <button class="btn ghost" type="button" data-action="ai-wizard-cancel">Depois</button>
           </div>
         </div>
@@ -7807,7 +8003,7 @@ async function abrirWizardIAProLocal() {
   }
 }
 
-async function instalarIAAutomatica(modelId = "lite") {
+async function instalarIAAutomatica(modelId = AI_DEFAULT_MODEL_ID) {
   fecharPopup();
   const ok = await baixarModeloIAOffline(modelId);
   if (ok) {
@@ -7815,6 +8011,20 @@ async function instalarIAAutomatica(modelId = "lite") {
     assistantMode = "pro";
     mostrarToast("IA pronta para uso.", "sucesso", 4200);
   }
+}
+
+async function instalarIARecomendadaAutomaticamente() {
+  if (!exigirPlanoProPagoIALocal({ navegar: true })) return false;
+  const settings = getAIAssistantSettings();
+  const pronto = getModeloIAOfflineAtivoInstalado(false);
+  if (pronto) {
+    definirIAConfig({ activeModelId: pronto.modelo.id, installedModelId: pronto.modelo.id, localEnabled: true });
+    abrirAssistente("pro");
+    return true;
+  }
+  const analise = await analisarDispositivoParaIA();
+  const modelId = analise.modelo?.id || settings.recommendedModelId || AI_DEFAULT_MODEL_ID;
+  return instalarIAAutomatica(modelId);
 }
 
 function usarAssistenteBasicoAgora(origem = "assistente") {
@@ -7900,7 +8110,7 @@ function buscarTrechosManualIA(texto = "") {
     ["personalização logo fundo pdf tema pix cores escala", "Personalização: ajusta nome do app, empresa, WhatsApp, logo, cores, fundo de login, PDF, Pix, escala de tela e modo compacto."],
     ["pdf orçamento orcamento exportar", "PDF e orçamentos: PDFs podem ser gerados para pedidos e orçamentos usando os dados revisados. Free pode ter PDF simples; PRO libera PDF completo."],
     ["segurança biometria senha admin sensível sensivel", "Segurança: ações sensíveis podem exigir senha administrativa ou biometria no Android. A biometria tem validade curta e senha é fallback."],
-    ["ia local offline modelo qwen", "IA local: exclusiva do PRO pago ativo no Android. Free e Trial visualizam, mas não baixam nem usam. O modelo padrão é Qwen2.5 0.5B Instruct Q8_0 GGUF."],
+    ["ia local offline modelo qwen", "IA local: exclusiva do PRO pago ativo no Android. O instalador analisa o aparelho e escolhe um modelo Qwen2.5 Q4_K_M: Lite 0.5B, Smart 1.5B ou Pro 3B. Free e Trial visualizam, mas não baixam nem usam."],
     ["aprendizado sugestão sugestoes inteligente local", "Aprendizado local: registra eventos simples no aparelho para melhorar sugestões, sem treinar modelo e sem coletar senhas ou dados sensíveis."]
   ];
   if (pergunta.includes("superadmin") || pergunta.includes("super admin")) {
@@ -7912,17 +8122,20 @@ function buscarTrechosManualIA(texto = "") {
   return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 3);
 }
 
-function getAiGenerationOptions(texto = "") {
+function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().activeModelId) {
   const tecnico = /diagn[oó]stico|erro|trav|runtime|modelo|download|instala|configura|relat[oó]rio|financeiro|detalh/i.test(texto);
+  const perfil = getAIModelProfile(modelId);
   return {
-    maxTokens: tecnico ? AI_TECHNICAL_MAX_TOKENS : AI_DEFAULT_MAX_TOKENS,
-    temperature: tecnico ? 0.25 : 0.2,
-    topP: 0.85,
+    maxTokens: tecnico ? Math.min(AI_TECHNICAL_MAX_TOKENS, perfil.maxTokens || AI_TECHNICAL_MAX_TOKENS) : (perfil.maxTokens || AI_DEFAULT_MAX_TOKENS),
+    temperature: perfil.temperature ?? (tecnico ? 0.25 : 0.2),
+    topP: perfil.topP ?? 0.85,
     topK: 40,
-    repeatPenalty: 1.22,
-    presencePenalty: 0.1,
-    frequencyPenalty: 0.35,
-    maxChars: tecnico ? AI_RESPONSE_MAX_CHARS : 520
+    repeatPenalty: perfil.repeatPenalty ?? 1.18,
+    presencePenalty: perfil.presencePenalty ?? 0.05,
+    frequencyPenalty: perfil.frequencyPenalty ?? 0.25,
+    contextSize: perfil.contextSize || 1024,
+    threads: perfil.threads || "auto_safe",
+    maxChars: Math.min(AI_RESPONSE_MAX_CHARS, perfil.responseMode === "very_short" ? 420 : tecnico ? AI_RESPONSE_MAX_CHARS : 650)
   };
 }
 
@@ -7942,13 +8155,16 @@ function resumirContextoIA(contexto = {}) {
   }).slice(0, 900);
 }
 
-function montarPromptIAOffline(texto = "", contexto = {}) {
+function montarPromptIAOffline(texto = "", contexto = {}, modelId = getAIAssistantSettings().activeModelId) {
   const trechosManual = buscarTrechosManualIA(texto);
+  const perfil = getAIModelProfile(modelId);
   return [
     "Manual curto:",
     trechosManual.join("\n"),
     "Regra:",
     "Se a pergunta for ampla, pergunte só qual tarefa deseja fazer. Responda curto, direto e sem repetir.",
+    `Permissões do modelo ${perfil.label}: ${(perfil.allowActions || []).join(", ") || "explain_screen"}.`,
+    "Se for ação do app permitida, você pode retornar JSON app_action. Sempre requiresConfirmation=true. Nunca salve automaticamente.",
     "Contexto:",
     resumirContextoIA(contexto),
     "",
@@ -8008,6 +8224,110 @@ function registrarDiagnosticoIA(tipo, dados = {}) {
   }), { silent: true });
 }
 
+function extrairJsonAcaoIA(texto = "") {
+  const bruto = String(texto || "").trim();
+  const inicio = bruto.indexOf("{");
+  const fim = bruto.lastIndexOf("}");
+  if (inicio < 0 || fim <= inicio) return null;
+  try {
+    const action = JSON.parse(bruto.slice(inicio, fim + 1));
+    return action?.type === "app_action" ? action : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function validateAiAction(action, modelId = getAIAssistantSettings().activeModelId) {
+  if (!action || action.type !== "app_action") return { ok: false, reason: "Ação inválida." };
+  const perfil = getAIModelProfile(modelId);
+  const intent = String(action.intent || "");
+  const permitido = Array.isArray(perfil.allowActions) && perfil.allowActions.includes(intent);
+  const perigosos = /delete|remove|save|send|payment|cash|stock_update|final/i;
+  if (!permitido || perigosos.test(intent)) return { ok: false, reason: "Ação não permitida para este modelo." };
+  if (action.requiresConfirmation !== true) return { ok: false, reason: "Ação da IA precisa exigir confirmação." };
+  const fields = action.fields && typeof action.fields === "object" ? action.fields : {};
+  Object.keys(fields).forEach((key) => {
+    if (typeof fields[key] === "string") fields[key] = fields[key].slice(0, 160);
+  });
+  return { ok: true, intent, fields, missingFields: Array.isArray(action.missingFields) ? action.missingFields.slice(0, 5) : [], userMessage: String(action.userMessage || "Rascunho criado pela IA. Confira antes de salvar.").slice(0, 180) };
+}
+
+function marcarCampoRascunhoIA(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add("ai-draft-highlight");
+  setTimeout(() => el.classList.remove("ai-draft-highlight"), 3500);
+}
+
+function preencherCampoRascunhoIA(id, valor) {
+  if (valor === undefined || valor === null || valor === "") return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = String(valor);
+  el.dispatchEvent(new Event("input", { bubbles: true }));
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+  marcarCampoRascunhoIA(id);
+}
+
+function encontrarMaterialPorTextoIA(texto = "") {
+  const alvo = normalizarTextoAssistente(texto);
+  if (!alvo) return "";
+  return normalizarEstoque().find((material) => normalizarTextoAssistente(`${material.nome} ${material.tipo} ${material.cor}`).includes(alvo))?.id || "";
+}
+
+async function executeAiDraftAction(validatedAction) {
+  if (!validatedAction?.ok) return false;
+  const fields = validatedAction.fields || {};
+  window.__aiDraftBanner = validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.";
+  if (["fill_calculator", "fill_calculator_basic"].includes(validatedAction.intent)) {
+    trocarTela("calculadora");
+    setTimeout(() => {
+      preencherCampoRascunhoIA("peso", fields.peso || fields.pesoGramas || fields.weight);
+      preencherCampoRascunhoIA("tempo", fields.tempo || fields.tempoHoras || fields.hours);
+      preencherCampoRascunhoIA("margem", fields.margem || fields.margin);
+      preencherCampoRascunhoIA("taxaExtra", fields.taxaExtra || fields.extraFee);
+      const materialId = fields.materialId || encontrarMaterialPorTextoIA(fields.material || fields.materialNome || "");
+      if (materialId) preencherCampoRascunhoIA("materialSelect", materialId);
+      if (validatedAction.intent === "fill_calculator" && document.getElementById("peso")?.value && document.getElementById("tempo")?.value) calcular();
+    }, 120);
+  } else if (validatedAction.intent === "create_order_draft") {
+    clientePedido = String(fields.cliente || fields.nomeCliente || "");
+    clienteTelefonePedido = String(fields.telefone || fields.whatsapp || "");
+    itensPedido = Array.isArray(fields.itens) ? fields.itens.slice(0, 5).map((item) => normalizarItemPedido({
+      nome: item.nome || item.descricao || "Item 3D",
+      qtd: Number(item.qtd || item.quantidade || 1) || 1,
+      valor: Number(item.valor || item.preco || 0) || 0,
+      total: (Number(item.valor || item.preco || 0) || 0) * (Number(item.qtd || item.quantidade || 1) || 1),
+      material: item.material || "",
+      observacao: item.observacao || ""
+    })).filter((item) => item.nome && item.total >= 0) : [];
+    trocarTela("pedido");
+  } else if (validatedAction.intent === "search_order") {
+    trocarTela("pedidos");
+    setTimeout(() => {
+      const termo = String(fields.busca || fields.cliente || fields.status || "");
+      const input = document.querySelector("input[placeholder*='Buscar'], input[type='search']");
+      if (input && termo) {
+        input.value = termo;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        marcarCampoRascunhoIA(input.id || "");
+      }
+    }, 120);
+  } else if (validatedAction.intent === "create_client_draft") {
+    trocarTela("clientes");
+    registrarSugestaoLocal("Rascunho de cliente criado pela IA. Confira antes de cadastrar.", "ia", fields);
+  } else if (validatedAction.intent === "add_inventory_draft") {
+    trocarTela("estoque");
+    window.__aiInventoryDraft = fields;
+    registrarSugestaoLocal("Rascunho de estoque criado pela IA. Confira antes de cadastrar.", "ia", fields);
+  } else {
+    return false;
+  }
+  mostrarToast(validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.", "info", 5200);
+  registrarDiagnosticoIA("draft_action", { intent: validatedAction.intent, responseChars: 0 });
+  return true;
+}
+
 function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
   let timer = null;
   const timeout = new Promise((_, reject) => {
@@ -8022,8 +8342,9 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
   if (!ativo) throw new Error("Instale a IA local antes de usar.");
   const plugin = getAIPlugin();
   if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
-  const geracao = { ...getAiGenerationOptions(texto), ...opcoes };
-  const prompt = montarPromptIAOffline(texto, contexto);
+  const geracao = { ...getAiGenerationOptions(texto, ativo.modelo.id), ...opcoes };
+  const contextoFinal = buildAiContext(contexto?.tela || telaAtual, texto, getAIModelProfile(ativo.modelo.id));
+  const prompt = montarPromptIAOffline(texto, { ...contextoFinal, ...contexto }, ativo.modelo.id);
   const inicio = performance.now();
   registrarDiagnosticoIA("prompt", {
     promptChars: prompt.length,
@@ -8037,7 +8358,7 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     modelPath: ativo.path,
     systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
     prompt,
-    maxTokens: Math.max(32, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 256)),
+    maxTokens: Math.max(32, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 280)),
     temperature: geracao.temperature,
     topP: geracao.topP,
     topK: geracao.topK,
@@ -8193,7 +8514,14 @@ async function responderAssistente(texto = "") {
       : obterRespostaAssistente(pergunta, contexto);
     if (tokenGeracao !== assistantGenerationToken) return;
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
-    const respostaLimpa = cleanAiResponse(resposta, getAiGenerationOptions(pergunta));
+    const modeloAtivo = getAIAssistantSettings().activeModelId;
+    const acaoIA = usarIAPro ? validateAiAction(extrairJsonAcaoIA(resposta), modeloAtivo) : { ok: false };
+    if (acaoIA.ok) {
+      await executeAiDraftAction(acaoIA);
+    }
+    const respostaLimpa = acaoIA.ok
+      ? acaoIA.userMessage
+      : cleanAiResponse(resposta, getAiGenerationOptions(pergunta, modeloAtivo));
     if (respostaIndex >= 0) {
       assistantMessages[respostaIndex] = { role: "assistant", text: respostaLimpa };
     } else {

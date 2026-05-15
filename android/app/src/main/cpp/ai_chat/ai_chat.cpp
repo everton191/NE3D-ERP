@@ -24,15 +24,15 @@ static std::string join(const std::vector<T> &values, const std::string &delim) 
 /**
  * LLama resources: context, model, batch and sampler
  */
-constexpr int   DEFAULT_CONTEXT_SIZE    = 1024;
-constexpr int   DEFAULT_THREAD_COUNT     = 2;
+constexpr int   DEFAULT_CONTEXT_SIZE    = 2048;
+constexpr int   DEFAULT_THREAD_COUNT     = 4;
 constexpr int   DEFAULT_GPU_LAYERS       = 0;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 64;
 constexpr float DEFAULT_SAMPLER_TEMP    = 0.25f;
 constexpr float DEFAULT_SAMPLER_TOP_P   = 0.85f;
-constexpr float DEFAULT_REPEAT_PENALTY  = 1.22f;
-constexpr float DEFAULT_FREQ_PENALTY    = 0.35f;
+constexpr float DEFAULT_REPEAT_PENALTY  = 1.16f;
+constexpr float DEFAULT_FREQ_PENALTY    = 0.24f;
 constexpr float DEFAULT_PRESENT_PENALTY = 0.10f;
 
 static llama_model                      * g_model;
