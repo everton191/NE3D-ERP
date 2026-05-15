@@ -336,7 +336,7 @@ header h1{
   flex-basis:28px;
 }
 
-.search-ai-button > span:last-child{
+.search-ai-button > span:not(.search-lens-icon):last-child{
   display:none;
 }
 
