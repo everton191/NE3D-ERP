@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.19";
-const APP_VERSION_CODE = 70;
+const APP_VERSION = "51.0.20";
+const APP_VERSION_CODE = 71;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -6157,7 +6157,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar ou perguntar ao assistente"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
@@ -6201,6 +6201,16 @@ function expandirBuscaGlobal(elemento) {
   setTimeout(() => label.querySelector?.("input")?.focus(), 30);
 }
 
+function abrirBuscaAssistente(event, botao) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const label = botao?.closest?.(".search-compact");
+  if (!label) return;
+  label.classList.add("is-expanded");
+  const input = label.querySelector("input");
+  setTimeout(() => input?.focus(), 20);
+}
+
 function recolherBuscaGlobal(input) {
   const label = input?.closest?.(".search-compact");
   if (!label) return;
@@ -6224,8 +6234,8 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
 
   const permissoes = {
     admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding"],
-    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "seguranca", "feedback", "onboarding"],
     visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
   };
 
@@ -8021,11 +8031,12 @@ function renderAssistenteVirtual() {
   const modoDisponivel = getAssistenteModoDisponivel();
 
   if (!assistantOpen) {
-    if (!podeUsarAssistenteIAOfflinePro()) return "";
+    if (!podeExibirAssistenteIAOffline()) return "";
     const pronto = iaLocalEstaPronta();
-    const acao = pronto ? `abrirAssistente('pro')` : `trocarTela('config')`;
-    const titulo = pronto ? "Abrir IA Local" : "Configurar IA Local";
-    return `<button class="assistant-fab" onclick="${acao}" title="${titulo}">${renderAssistantFabContent("IA", true)}</button>`;
+    const acessoPro = podeUsarAssistenteIAOfflinePro();
+    const acao = pronto ? `abrirAssistente('pro')` : acessoPro ? `trocarTela('config')` : `trocarTela('assinatura')`;
+    const titulo = pronto ? "Abrir IA Local" : acessoPro ? "Configurar IA Local" : "IA Local exclusiva do Plano Pro";
+    return `<button class="assistant-fab ai-local-fab" onclick="${acao}" title="${titulo}" aria-label="${titulo}">${renderAssistantFabContent("IA", true)}</button>`;
   }
 
   if (assistantMinimized) {
@@ -8040,9 +8051,10 @@ function renderAssistenteVirtual() {
 
   const settings = getAIAssistantSettings();
   const modeloAtivo = getAIModel(settings.activeModelId);
+  const tituloAssistente = assistantMode === "pro" ? "IA Local" : "Assistente de pesquisa";
   const subtituloAssistente = assistantMode === "pro" && modeloAtivo
     ? assistantRuntimeLoading ? "Iniciando IA..." : `${modeloAtivo.name} offline`
-    : "Assistente básico";
+    : "Busca e ajuda rápida";
   const podeMostrarMicrofone = podeUsarVozIAPro();
   const envioBloqueado = assistantGenerating || assistantListening || (assistantMode === "pro" && assistantRuntimeLoading);
 
@@ -8056,7 +8068,7 @@ function renderAssistenteVirtual() {
     <section class="assistant-panel" aria-label="Assistente virtual local">
       <div class="assistant-header">
         <div>
-          <strong>Assistente Simplifica 3D</strong>
+          <strong>${tituloAssistente}</strong>
           <span>${escaparHtml(subtituloAssistente)}</span>
         </div>
         <div class="row-actions">
@@ -9030,7 +9042,8 @@ function getMobileBottomNavItems() {
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "producao", icone: "🖨️", texto: "Produção" },
     { tela: "estoque", icone: "📦", texto: "Estoque" },
-    { tela: "caixa", icone: "💰", texto: "Caixa" }
+    { tela: "caixa", icone: "💰", texto: "Caixa" },
+    { tela: "mais", icone: "☰", texto: "Mais" }
   ].filter((item) => canAccessScreen(item.tela));
 }
 
@@ -9823,7 +9836,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar ou perguntar ao assistente"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
@@ -10271,6 +10284,12 @@ function renderPedido() {
   const titulo = pedidoEditando ? "Editar pedido" : "Novo pedido";
   const botao = pedidoEditando ? "Salvar" : "Salvar";
   itensPedido = normalizarItensPedido(itensPedido);
+  const itemSelecionadoAtual = Number(window.__pedidoItemSelecionado);
+  if (!itensPedido.length) {
+    window.__pedidoItemSelecionado = null;
+  } else if (!Number.isInteger(itemSelecionadoAtual) || itemSelecionadoAtual < 0 || itemSelecionadoAtual >= itensPedido.length) {
+    window.__pedidoItemSelecionado = 0;
+  }
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
   const statusAtual = pedidoEditando?.status || "aberto";
   const clienteResumo = clientePedido || clienteDoPedido(pedidoEditando || {}) || "Cliente não informado";
@@ -10279,13 +10298,15 @@ function renderPedido() {
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
-        <details class="order-item-card" ${itensPedido.length === 1 ? "open" : ""}>
-          <summary class="order-item-summary">
+        <details class="order-item-card ${Number(window.__pedidoItemSelecionado) === i ? "selected" : ""}" data-order-item-index="${i}" ${itensPedido.length === 1 || Number(window.__pedidoItemSelecionado) === i ? "open" : ""}>
+          <summary class="order-item-summary" onclick="selecionarItemPedido(${i})">
+            <span class="order-item-selector" aria-hidden="true">${Number(window.__pedidoItemSelecionado) === i ? "✓" : i + 1}</span>
             <span class="order-item-main">
               <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
               <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
             </span>
-            <span class="order-item-total">${formatarMoeda(Number(item.total) || 0)}</span>
+            <span class="order-item-total" data-item-total-index="${i}">${formatarMoeda(Number(item.total) || 0)}</span>
+            <button class="icon-action-button order-edit-inline" type="button" onclick="event.preventDefault();event.stopPropagation();selecionarItemPedido(${i})" title="Editar item">${renderIconeAcaoPedido("✎", "Editar")}</button>
             <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
           </summary>
           <div class="order-item-details">
@@ -10324,7 +10345,7 @@ function renderPedido() {
             <div class="order-item-actions">
               <div class="item-subtotal">
                 <span>Subtotal</span>
-                <strong>${formatarMoeda(Number(item.total) || 0)}</strong>
+                <strong data-item-subtotal-index="${i}">${formatarMoeda(Number(item.total) || 0)}</strong>
               </div>
               <button class="icon-action-button danger" onclick="removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </div>
@@ -10377,13 +10398,22 @@ function renderPedido() {
           <strong>Itens</strong>
           <small>${itensPedido.length} item(ns)</small>
         </div>
+        ${itensPedido.length ? `
+          <div class="order-selection-toolbar">
+            <span data-selected-item-label>${Number.isInteger(Number(window.__pedidoItemSelecionado)) && itensPedido[Number(window.__pedidoItemSelecionado)] ? `Item ${Number(window.__pedidoItemSelecionado) + 1} selecionado` : "Selecione um item para editar ou excluir"}</span>
+            <div>
+              <button class="icon-action-button" type="button" onclick="selecionarItemPedido(Number(window.__pedidoItemSelecionado) || 0)" title="Editar selecionado">${renderIconeAcaoPedido("✎", "Editar")}</button>
+              <button class="icon-action-button danger" type="button" onclick="removerItemSelecionadoPedido()" title="Excluir selecionado">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
+            </div>
+          </div>
+        ` : ""}
         <div class="order-items-list">${itensHtml}</div>
       </section>
 
       <div class="order-bottom-bar">
         <div>
           <span>Total</span>
-          <strong>${formatarMoeda(total)}</strong>
+          <strong data-order-total>${formatarMoeda(total)}</strong>
         </div>
         <button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" onclick="iniciarAdicionarItemPedido()">+ Item</button>
         <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${botao}</button>
@@ -10667,7 +10697,7 @@ function renderDetalhePedido(pedido) {
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⎙", "Imprimir", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
-        ${renderAcaoPedidoCompacta("⋯", "Mais", `pedidoVisualizandoId=null; renderApp()`)}
+        ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
       </div>
       <div class="history-list order-detail-items">
         ${itens.map((item) => `
@@ -10685,6 +10715,65 @@ function renderDetalhePedido(pedido) {
       <button class="btn danger compact-danger-action" onclick="removerPedido(${Number(pedido.id)})">🗑 Excluir pedido</button>
     </div>
   `;
+}
+
+async function abrirMaisOpcoesPedido(id) {
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return;
+  const escolha = await solicitarEscolhaPedido({
+    titulo: `Pedido #${pedido.id}`,
+    mensagem: "Escolha uma ação para este pedido.",
+    opcoes: [
+      { id: "visualizar", label: "Ver detalhes", classe: "secondary", icone: "▣" },
+      { id: "editar", label: "Editar pedido", classe: "secondary", icone: "✎" },
+      { id: "whatsapp", label: "Enviar WhatsApp", classe: "ghost", icone: "☘" },
+      { id: "pdf", label: "Gerar PDF", classe: "ghost", icone: "▣" },
+      { id: "excluir", label: "Excluir pedido", classe: "danger", icone: "🗑" }
+    ]
+  });
+  if (escolha === "visualizar") visualizarPedido(id);
+  if (escolha === "editar") editarPedido(id);
+  if (escolha === "whatsapp") enviarWhatsPedidoSalvo(id);
+  if (escolha === "pdf") baixarPdfPedidoSalvo(id);
+  if (escolha === "excluir") removerPedido(id);
+}
+
+function solicitarEscolhaPedido({ titulo = "Opções", mensagem = "", opcoes = [] } = {}) {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      resolve("");
+      return;
+    }
+    const fechar = (valor = "") => {
+      fecharPopup();
+      resolve(valor);
+    };
+    const nomeCallback = `__pedidoEscolha_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    window[nomeCallback] = (valor) => {
+      delete window[nomeCallback];
+      fechar(valor);
+    };
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="${nomeCallback}('')">
+        <section class="modal-card order-more-options modal-enter" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h2>${escaparHtml(titulo)}</h2>
+            <button class="icon-button" type="button" onclick="${nomeCallback}('')" title="Fechar">✕</button>
+          </div>
+          ${mensagem ? `<p class="muted">${escaparHtml(mensagem)}</p>` : ""}
+          <div class="order-more-grid">
+            ${opcoes.map((opcao) => `
+              <button class="order-more-action ${escaparAttr(opcao.classe || "ghost")}" type="button" onclick="${nomeCallback}('${escaparAttr(opcao.id)}')">
+                <span class="action-symbol" aria-hidden="true">${renderIconeAcaoPedido(opcao.icone || "⋯", opcao.label)}</span>
+                <strong>${escaparHtml(opcao.label)}</strong>
+              </button>
+            `).join("")}
+          </div>
+        </section>
+      </div>
+    `;
+  });
 }
 
 function visualizarPedido(id) {
@@ -18699,6 +18788,33 @@ function atualizarTelefoneClientePedido(valor) {
   clienteTelefonePedido = valor;
 }
 
+function totalItensPedidoAtual() {
+  return normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+}
+
+function marcarValorAtualizado(elemento) {
+  if (!elemento) return;
+  elemento.classList.remove("value-updated");
+  void elemento.offsetWidth;
+  elemento.classList.add("value-updated");
+}
+
+function atualizarResumoPedidoSemRender(itemIndex = null) {
+  const totalFormatado = formatarMoeda(totalItensPedidoAtual());
+  document.querySelectorAll("[data-order-total]").forEach((elemento) => {
+    elemento.textContent = totalFormatado;
+    marcarValorAtualizado(elemento);
+  });
+  const indice = Number(itemIndex);
+  if (Number.isInteger(indice) && itensPedido[indice]) {
+    const subtotal = formatarMoeda(Number(itensPedido[indice].total) || 0);
+    document.querySelectorAll(`[data-item-total-index="${indice}"], [data-item-subtotal-index="${indice}"]`).forEach((elemento) => {
+      elemento.textContent = subtotal;
+      marcarValorAtualizado(elemento);
+    });
+  }
+}
+
 function editarNome(i, nome) {
   if (!itensPedido[i]) return;
   itensPedido[i].nome = nome;
@@ -18715,13 +18831,12 @@ function editarQtd(i, qtd) {
   }
   itensPedido[i].qtd = quantidade;
   itensPedido[i].total = quantidade * (Number(itensPedido[i].valor) || 0);
-  renderApp();
+  atualizarResumoPedidoSemRender(i);
 }
 
 function editarTipoImpressaoItem(i, tipo) {
   if (!itensPedido[i]) return;
   itensPedido[i].tipoImpressao = tipo === "RESINA" ? "RESINA" : "FDM";
-  renderApp();
 }
 
 function editarTempoItem(i, tempo) {
@@ -18744,7 +18859,7 @@ function editarPreco(i, preco) {
   }
   itensPedido[i].valor = valor;
   itensPedido[i].total = valor * (Number(itensPedido[i].qtd) || 1);
-  renderApp();
+  atualizarResumoPedidoSemRender(i);
 }
 
 async function iniciarAdicionarItemPedido() {
@@ -18830,7 +18945,34 @@ async function removerItem(i) {
   });
   if (!confirmado) return;
   itensPedido.splice(i, 1);
-  renderApp();
+  const atual = Number(window.__pedidoItemSelecionado);
+  if (Number.isInteger(atual)) window.__pedidoItemSelecionado = Math.max(0, Math.min(atual, itensPedido.length - 1));
+  renderizarPreservandoScroll();
+}
+
+function selecionarItemPedido(i) {
+  const indice = Number(i);
+  if (!Number.isInteger(indice) || !itensPedido[indice]) return;
+  window.__pedidoItemSelecionado = indice;
+  document.querySelectorAll(".order-item-card").forEach((card) => {
+    const ativo = Number(card.dataset.orderItemIndex) === indice;
+    card.classList.toggle("selected", ativo);
+    if (ativo) card.open = true;
+  });
+  document.querySelectorAll(".order-item-selector").forEach((selector, idx) => {
+    selector.textContent = idx === indice ? "✓" : String(idx + 1);
+  });
+  const label = document.querySelector("[data-selected-item-label]");
+  if (label) label.textContent = `Item ${indice + 1} selecionado`;
+}
+
+async function removerItemSelecionadoPedido() {
+  const indice = Number(window.__pedidoItemSelecionado);
+  if (!Number.isInteger(indice) || !itensPedido[indice]) {
+    mostrarToast("Selecione um item do pedido para excluir.", "aviso");
+    return;
+  }
+  await removerItem(indice);
 }
 
 function garantirMateriaisItem(i) {
@@ -18849,7 +18991,7 @@ function editarMaterialItem(itemIndex, materialIndex, materialId) {
     nome: material?.nome || "",
     gramas: Number(materiais[materialIndex]?.gramas) || 0
   };
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function editarGramasItem(itemIndex, materialIndex, gramas) {
@@ -18867,13 +19009,13 @@ function editarGramasItem(itemIndex, materialIndex, gramas) {
 function adicionarMaterialProduto(itemIndex) {
   const materiais = garantirMateriaisItem(itemIndex);
   materiais.push({ materialId: normalizarEstoque()[0]?.id || "", gramas: 0 });
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function removerMaterialProduto(itemIndex, materialIndex) {
   const materiais = garantirMateriaisItem(itemIndex);
   materiais.splice(materialIndex, 1);
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 function adicionarProdutoManual() {
@@ -18885,8 +19027,9 @@ function adicionarProdutoManual() {
     total: 0,
     materiais: []
   }));
+  window.__pedidoItemSelecionado = itensPedido.length - 1;
   registrarEventoUsoLocal("item_adicionado");
-  renderApp();
+  renderizarPreservandoScroll();
 }
 
 async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar") {
@@ -19036,6 +19179,7 @@ function abrirPedidoParaEdicaoAutorizada(id) {
         }];
 
     itensPedido = JSON.parse(JSON.stringify(itens));
+    window.__pedidoItemSelecionado = itensPedido.length ? 0 : null;
     clientePedido = clienteDoPedido(pedido);
     clienteTelefonePedido = telefoneDoPedido(pedido);
     pedidoEditando = pedido;
@@ -19051,6 +19195,7 @@ function cancelarEdicaoPedido() {
   pedidoEditando = null;
   pedidoEditandoOriginal = null;
   itensPedido = [];
+  window.__pedidoItemSelecionado = null;
   clientePedido = "";
   clienteTelefonePedido = "";
   renderizarPreservandoScroll();
@@ -19329,6 +19474,7 @@ async function fecharPedido() {
     pedidoEditando = null;
     pedidoEditandoOriginal = null;
     itensPedido = [];
+    window.__pedidoItemSelecionado = null;
     clientePedido = "";
     clienteTelefonePedido = "";
     window.__pedidoReviewConfirmed = false;
@@ -20190,6 +20336,7 @@ async function adicionarItem() {
     valor: valorManual,
     total: valorManual * qtd
   });
+  window.__pedidoItemSelecionado = itensPedido.length - 1;
   registrarEventoUsoLocal("item_adicionado");
 
   limparCalculo();
@@ -20996,6 +21143,7 @@ function limparPedidoAtual() {
   itensPedido = [];
   clientePedido = "";
   pedidoEditando = null;
+  window.__pedidoItemSelecionado = null;
   registrarHistorico("Pedido", "Pedido atual limpo");
   renderApp();
 }
