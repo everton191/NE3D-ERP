@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.15";
-const APP_VERSION_CODE = 66;
+const APP_VERSION = "51.0.16";
+const APP_VERSION_CODE = 67;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -23,8 +23,10 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
+const FREE_MONTHLY_ORDER_LIMIT = 30;
+const FREE_CLIENT_LIMIT = 30;
 const DEFAULT_SAAS_PLANS = [
-  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: null, maxClients: null, maxCalculatorUses: 30, maxStorageMb: 25, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "free", showsAds: true },
+  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: FREE_MONTHLY_ORDER_LIMIT, maxClients: FREE_CLIENT_LIMIT, maxCalculatorUses: null, maxStorageMb: 25, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "free", showsAds: true },
   { id: "premium_trial", slug: "premium_trial", name: "Teste gratis", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7, showsAds: false },
   { id: "premium", slug: "premium", name: "PRO", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid", showsAds: false }
 ];
@@ -63,19 +65,21 @@ const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
 const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D. Responda somente com base nas informações do sistema enviadas no contexto. Não invente funções, telas, preços ou regras. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples e direto.";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D. Responda somente com base nas informações do sistema enviadas no contexto. Não invente funções, telas, preços ou regras. Não oriente ações de Super Admin. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples e direto.";
 const AI_RUNTIME_TEST_SYSTEM_PROMPT = "Responda somente OK.";
 const AI_RUNTIME_TEST_PROMPT = "OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
-  telas: ["Dashboard", "Pedidos", "Calculadora", "Estoque", "Caixa", "Relatórios", "Backup", "Configurações", "Planos"],
+  telas: ["Dashboard", "Pedidos", "Clientes", "Calculadora", "Estoque", "Produção", "Caixa", "Relatórios", "Backup", "Configurações", "Personalização", "Planos", "Segurança"],
   fluxos: [
-    "Para adicionar material: abra Estoque, toque em Adicionar material, informe nome, tipo, cor e custo.",
+    "Para adicionar material: abra Estoque, toque em Adicionar material, informe tipo, cor e quantidade.",
     "Para calcular preço: abra Calculadora, escolha material, informe peso, tempo, energia, margem e taxa extra.",
-    "Para criar pedido: abra Pedidos, escolha cliente, adicione itens e salve.",
+    "Para criar pedido: abra Pedidos, escolha cliente, adicione itens, revise o total e salve.",
+    "Para editar pedido: abra o pedido, edite itens em etapas e confirme na revisão final.",
     "Para gerar PDF: abra um pedido ou orçamento e use Gerar PDF.",
-    "Para sincronizar: use Backup/Sincronizar ou aguarde o salvamento automático quando online."
+    "Para sincronizar: use Backup/Sincronizar ou aguarde o salvamento automático quando online.",
+    "Para segurança: use senha administrativa e biometria quando disponível para ações sensíveis."
   ],
-  limites: "A IA local é focada no Simplifica 3D. Ela ajuda no uso do sistema, mas não substitui suporte humano nem tem capacidade equivalente ao ChatGPT."
+  limites: "A IA local é focada no uso do Simplifica 3D e impressão 3D FDM. Ela não deve orientar ações de Super Admin nem inventar funções."
 });
 const AI_DEFAULT_MODEL_ID = "qwen25_05b_q8";
 const AI_MODELS = Object.freeze([
@@ -193,6 +197,16 @@ const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID
 const ANDROID_UPDATE_MANIFEST_FALLBACK_URLS = [
   "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json"
 ];
+const USAGE_LEARNING_KEY = "usageLearning";
+const USAGE_LEARNING_ALLOWED_EVENTS = new Set([
+  "tela_aberta",
+  "calculadora_aberta",
+  "pedido_criado",
+  "item_adicionado",
+  "orcamento_finalizado",
+  "material_usado",
+  "impressora_usada"
+]);
 
 const telas = {
   dashboard: "Início",
@@ -268,6 +282,7 @@ let assistantRuntimeDiagnosticsLoading = false;
 let assistantRuntimeLoading = false;
 let assistantRuntimeReady = false;
 let assistantRuntimePromise = null;
+let assistantRuntimeWarmupAt = 0;
 let aiModelInstallPromise = null;
 let aiProgressRenderTimer = null;
 let adminAuthValidUntil = 0;
@@ -323,6 +338,11 @@ let saasClientsRemoteState = {
   updatedAt: ""
 };
 let usageCounters = carregarObjeto("usageCounters", {});
+let usageLearning = carregarObjeto(USAGE_LEARNING_KEY, {
+  version: 1,
+  events: [],
+  dismissed: {}
+});
 let loginAttempts = carregarObjeto("loginAttempts", {});
 let syncConfig = carregarObjeto("syncConfig", {
   cloudUrl: "",
@@ -396,6 +416,8 @@ let appConfig = carregarObjeto("appConfig", {
   defaultPrinterModel: "Ender 3",
   defaultResinCost: 180,
   calculatorDefaults: {},
+  smartSuggestionsEnabled: true,
+  smartSuggestionsDismissedAt: "",
   screenFit: "auto",
   uiScale: 100,
   desktopCardMinWidth: 320,
@@ -555,6 +577,7 @@ const StateStore = {
       saasSessions,
       pendingSync,
       usageCounters,
+      usageLearning,
       loginAttempts,
       usuarios,
       syncConfig,
@@ -584,6 +607,7 @@ const StateStore = {
       case "saasSessions": saasSessions = Array.isArray(valor) ? valor : []; break;
       case "pendingSync": pendingSync = Array.isArray(valor) ? valor : []; break;
       case "usageCounters": usageCounters = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
+      case "usageLearning": usageLearning = normalizarUsoInteligente(valor); break;
       case "loginAttempts": loginAttempts = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
       case "usuarios": usuarios = normalizarUsuarios(valor); break;
       case "syncConfig": syncConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...syncConfig, ...valor } : syncConfig; break;
@@ -810,7 +834,7 @@ function getUsuarioMonetizacao() {
     currentPeriodEnd: assinatura.planExpiresAt || assinatura.trialExpiresAt || assinatura.currentPeriodEnd || assinatura.expiresAt || billingConfig.planExpiresAt || billingConfig.paidUntil || "",
     trialExpiresAt: assinatura.trialExpiresAt || billingConfig.trialExpiresAt || "",
     lastAdShownAt: billingConfig.lastAdShownAt || getClienteSaasAtual()?.lastAdShownAt || "",
-    orderCount: getPedidosAtivosPlanoFree(),
+    orderCount: getPedidosMesAtual(),
     email: usuario.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || ""
   };
 }
@@ -825,7 +849,7 @@ function configurarMonetizacaoAds() {
     });
     window.MonetizationLimits?.configure?.({
       isPremiumResolver: () => canUsePremiumFeatures(),
-      getOrderCount: () => getPedidosAtivosPlanoFree()
+      getOrderCount: () => getPedidosMesAtual()
     });
     window.AdSenseService?.configure?.({
       enabled: appConfig.adsenseWebEnabled === true,
@@ -922,6 +946,9 @@ function mensagemRewardedPorResultado(resultado = {}) {
   if (motivo === "WEB_OR_ELECTRON") return "Anúncio recompensado disponível no APK Android.";
   if (motivo === "PREMIUM_USER" || motivo === "ADS_NOT_ALLOWED") return "Sua conta não precisa assistir anúncio para este recurso.";
   if (motivo === "NOT_COMPLETED") return "Anúncio não concluído.";
+  if (/NOT_LOADED|LOAD_FAILED|SHOW_FAILED|REAL_ID|DISABLED|UNAVAILABLE|ERROR/.test(motivo)) {
+    return "Não foi possível carregar o vídeo. Verifique a internet e, se usar AdBlock ou DNS particular, desative para liberar a recompensa.";
+  }
   return "Anúncio indisponível no momento.";
 }
 
@@ -1033,7 +1060,7 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
         await atualizarBotaoRewardedModal(botao, rewardType);
       } catch (erro) {
         registrarErroAplicacaoSilencioso("ADMOB_REWARDED_LOAD_FAILED", erro, "Rewarded Ad", { rewardType });
-        mostrarToast("Anúncio indisponível no momento.", "erro", 5000);
+        mostrarToast("Não foi possível carregar o vídeo. Verifique a internet e, se usar AdBlock ou DNS particular, desative para liberar a recompensa.", "erro", 6500);
         setBotaoLoading(botao, false);
         await atualizarBotaoRewardedModal(botao, rewardType);
       }
@@ -1559,7 +1586,8 @@ function criarSnapshotDadosUsuario(escopo = getEscopoDadosAtual()) {
       saasSessions,
       appConfig,
       billingConfig,
-      usageCounters
+      usageCounters,
+      usageLearning
     }
   };
 }
@@ -1589,6 +1617,7 @@ function aplicarCacheDadosUsuario(cache) {
   appConfig = data.appConfig && typeof data.appConfig === "object" ? { ...appConfig, ...data.appConfig } : appConfig;
   billingConfig = data.billingConfig && typeof data.billingConfig === "object" ? { ...billingConfig, ...data.billingConfig } : billingConfig;
   usageCounters = data.usageCounters && typeof data.usageCounters === "object" ? data.usageCounters : {};
+  usageLearning = normalizarUsoInteligente(data.usageLearning || {});
 }
 
 function limparDadosOperacionaisLocais() {
@@ -1606,6 +1635,7 @@ function limparDadosOperacionaisLocais() {
   saasPayments = [];
   saasSessions = [];
   pendingSync = [];
+  usageLearning = normalizarUsoInteligente({});
   pedidoEditando = null;
   pedidoVisualizandoId = null;
   itensPedido = [];
@@ -1911,6 +1941,7 @@ function salvarDados() {
   localStorage.setItem("passwordResetTokens", JSON.stringify(passwordResetTokens));
   localStorage.setItem("saasPlans", JSON.stringify(saasPlans));
   localStorage.setItem("usageCounters", JSON.stringify(usageCounters));
+  localStorage.setItem(USAGE_LEARNING_KEY, JSON.stringify(normalizarUsoInteligente(usageLearning)));
   localStorage.setItem("loginAttempts", JSON.stringify(loginAttempts));
   localStorage.setItem("usuarios", JSON.stringify(usuarios));
   localStorage.setItem("syncConfig", JSON.stringify(criarSyncConfigPersistente()));
@@ -1918,6 +1949,85 @@ function salvarDados() {
   localStorage.setItem("billingConfig", JSON.stringify(billingConfig));
   localStorage.setItem("dashboardPeriod", dashboardPeriod);
   localStorage.setItem("dashboardAnalyticsCache", JSON.stringify(dashboardAnalyticsCache));
+}
+
+function normalizarUsoInteligente(origem = usageLearning) {
+  const base = origem && typeof origem === "object" && !Array.isArray(origem) ? origem : {};
+  const eventos = Array.isArray(base.events) ? base.events : [];
+  return {
+    version: 1,
+    events: eventos
+      .filter((evento) => evento && USAGE_LEARNING_ALLOWED_EVENTS.has(evento.tipo))
+      .slice(-240),
+    dismissed: base.dismissed && typeof base.dismissed === "object" && !Array.isArray(base.dismissed) ? base.dismissed : {}
+  };
+}
+
+function sugestoesInteligentesAtivas() {
+  return appConfig.smartSuggestionsEnabled !== false;
+}
+
+function salvarUsoInteligenteLocal() {
+  usageLearning = normalizarUsoInteligente(usageLearning);
+  localStorage.setItem(USAGE_LEARNING_KEY, JSON.stringify(usageLearning));
+}
+
+function registrarEventoUsoLocal(tipo, dados = {}) {
+  if (!sugestoesInteligentesAtivas() || !USAGE_LEARNING_ALLOWED_EVENTS.has(tipo)) return;
+  const evento = { tipo, at: new Date().toISOString() };
+  if (tipo === "tela_aberta") evento.tela = String(dados.tela || "").slice(0, 48);
+  if (tipo === "material_usado") {
+    evento.materialId = String(dados.materialId || "").slice(0, 80);
+    evento.materialNome = String(dados.materialNome || "").slice(0, 80);
+  }
+  if (tipo === "impressora_usada") evento.impressora = String(dados.impressora || "").slice(0, 80);
+  usageLearning = normalizarUsoInteligente({
+    ...usageLearning,
+    events: [...(usageLearning?.events || []), evento]
+  });
+  salvarUsoInteligenteLocal();
+}
+
+function contarEventosUso(tipo, limite = 30) {
+  return normalizarUsoInteligente(usageLearning).events
+    .filter((evento) => evento.tipo === tipo)
+    .slice(-limite)
+    .length;
+}
+
+function valorFrequenteUso(tipo, campo, limite = 40) {
+  if (!sugestoesInteligentesAtivas()) return "";
+  const mapa = new Map();
+  normalizarUsoInteligente(usageLearning).events
+    .filter((evento) => evento.tipo === tipo)
+    .slice(-limite)
+    .forEach((evento) => {
+      const valor = String(evento[campo] || "").trim();
+      if (!valor) return;
+      mapa.set(valor, (mapa.get(valor) || 0) + 1);
+    });
+  return [...mapa.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+function deveSugerirCalculadoraInicial() {
+  if (!sugestoesInteligentesAtivas()) return false;
+  if (usageLearning?.dismissed?.calculadoraInicial === hojeIsoData()) return false;
+  const telasRecentes = normalizarUsoInteligente(usageLearning).events
+    .filter((evento) => evento.tipo === "tela_aberta" && !["dashboard", "onboarding", "admin"].includes(evento.tela))
+    .slice(-5);
+  return telasRecentes.length >= 5 && telasRecentes.every((evento) => evento.tela === "calculadora");
+}
+
+function dispensarSugestaoUsoInteligente(chave) {
+  usageLearning = normalizarUsoInteligente({
+    ...usageLearning,
+    dismissed: {
+      ...(usageLearning?.dismissed || {}),
+      [chave]: hojeIsoData()
+    }
+  });
+  salvarUsoInteligenteLocal();
+  renderizarPreservandoScroll();
 }
 
 function criarSyncConfigPersistente() {
@@ -5238,7 +5348,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     hasPremium: [PLAN_ACCESS_STATES.TRIAL, PLAN_ACCESS_STATES.ACTIVE].includes(state),
     isTrialActive: state === PLAN_ACCESS_STATES.TRIAL,
     isPaidActive: state === PLAN_ACCESS_STATES.ACTIVE,
-    adsAllowed: [PLAN_ACCESS_STATES.FREE, PLAN_ACCESS_STATES.PENDING].includes(state) && activePlan === "free",
+    adsAllowed: [PLAN_ACCESS_STATES.FREE, PLAN_ACCESS_STATES.PENDING, PLAN_ACCESS_STATES.EXPIRED].includes(state),
     blockLevel: state === PLAN_ACCESS_STATES.BLOCKED ? "total" : "none"
   };
   logEstadoPlanoDebug(snapshot);
@@ -5672,21 +5782,19 @@ function aceitarTermosCadastro() {
 }
 
 async function verificarLimitePedidosAntesCriar() {
-  if (getPlanoAtual().blockLevel === "partial") {
-    mostrarModalLimitePlano("Seu pagamento está pendente. Regularize para evitar bloqueio.");
-    return false;
-  }
   if (!window.MonetizationLimits) return true;
   const usuario = getUsuarioMonetizacao();
   if (window.MonetizationLimits.canCreateOrder(usuario)) return true;
   registrarErroAplicacaoSilencioso("FREE_ORDER_LIMIT_BLOCKED", new Error("FREE_ORDER_LIMIT_BLOCKED"), "Limite de pedidos gratuito", {
     remaining: window.MonetizationLimits.getRemainingFreeOrders(usuario)
   });
-  return mostrarModalDesbloqueioAnuncio({
+  const liberado = await mostrarModalDesbloqueioAnuncio({
     tipo: "orders",
-    titulo: "Limite da versão gratuita",
-    texto: "Você atingiu o limite de pedidos gratuitos. Assista a um anúncio para liberar novos pedidos por 30 minutos ou assine o plano para uso ilimitado."
+    titulo: "Limite mensal do Free",
+    texto: "Você chegou ao limite recomendado de pedidos do Free neste mês. Assista a um anúncio para liberar +5 pedidos, assine o PRO para uso ilimitado ou continue no modo básico."
   });
+  if (!liberado) mostrarToast("Você pode continuar no Free. O PRO remove limites, anúncios e libera automações.", "info", 5200);
+  return true;
 }
 
 async function verificarPermissaoPdfAntesGerar() {
@@ -5718,8 +5826,8 @@ function verificarLimiteClientesAntesPedido(clienteNome = "") {
     if (atual) nomes.add(atual);
   });
   if (!nome || nomes.has(nome) || nomes.size < plano.maxClients) return true;
-  mostrarModalLimitePlano("Você atingiu o limite de clientes do seu plano. Faça upgrade para continuar.");
-  return false;
+  mostrarToast("Limite recomendado de clientes do Free atingido. Você pode continuar, mas o PRO libera clientes ilimitados e sem anúncios.", "info", 6200);
+  return true;
 }
 
 function temAcessoNuvem() {
@@ -5929,6 +6037,7 @@ function trocarTela(tela) {
   }
 
   telaAtual = tela;
+  registrarEventoUsoLocal("tela_aberta", { tela });
   if (tela === "calculadora" && appConfig.calculatorWidget?.open) {
     appConfig.calculatorWidget.open = false;
     salvarDados();
@@ -6044,7 +6153,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico">${renderAssistantFabContent("IA", false)}</button>
+        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">🔍</span></button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
@@ -6380,9 +6489,9 @@ function abrirAssistente(modo = "auto") {
     });
   }
   if (assistantMode === "pro") {
-    assistantRuntimeReady = false;
     assistantRuntimeDiagnostics = null;
     atualizarSuporteVozIASeNecessario();
+    aquecerIALocalEmSegundoPlano("abrir-assistente");
   }
   renderApp();
 }
@@ -7572,18 +7681,25 @@ function getModeloIAOfflineAtivoInstalado(exigirToggle = true) {
 function buscarTrechosManualIA(texto = "") {
   const pergunta = normalizarTextoAssistente(texto);
   const topicos = [
-    ["pedidos", "Pedidos: guarda cliente, telefone, itens, quantidades, subtotais, total geral, status e observações. Alterações devem ser revisadas antes de salvar."],
-    ["estoque material materiais", "Estoque: registra materiais, quantidade, tipo e custo. Materiais podem ser usados pela calculadora."],
-    ["caixa financeiro entrada saída", "Caixa: registra entradas, saídas e histórico financeiro. Alterações sensíveis exigem confirmação."],
-    ["calculadora cálculo peso horas taxa", "Calculadora: calcula preço com material, peso, horas, quantidade, energia, margem e taxa extra. Peso, horas e taxa extra começam limpos em novo cálculo."],
-    ["impressora impressoras", "Impressoras: podem compor o cálculo e organizar produção. Configurações fixas podem ser mantidas quando definidas."],
-    ["plano planos pro free", "Planos: controlam acesso a recursos gratuitos e PRO. Recursos pagos precisam de validação de plano."],
-    ["anúncio anuncios ads", "Anúncios: podem aparecer em fluxos permitidos do plano gratuito e usam integração nativa no Android quando disponível."],
-    ["sincronização sincronizar supabase backup", "Sincronização: pode usar Supabase ou backups configurados, preserva dados locais offline e não deve forçar retorno para a tela inicial."],
-    ["personalização logo fundo pdf", "Personalização: ajusta dados visuais e informações usadas nos PDFs, incluindo logo e fundo."],
-    ["pdf orçamento orcamento", "PDF: pode ser gerado para pedidos e orçamentos usando os dados revisados."],
-    ["superadmin segurança biometria senha", "Segurança e superadmin: ações sensíveis podem exigir senha administrativa ou biometria. A biometria tem validade curta e senha é fallback."]
+    ["inicio dashboard busca lupa", "Início: mostra indicadores de pedidos, faturamento, caixa, produção, estoque baixo e clientes. A lupa busca pedidos, clientes, materiais e abre o assistente básico."],
+    ["pedidos pedido editar item itens status revisar revisão", "Pedidos: guarda cliente, WhatsApp, itens, quantidades, subtotais, total geral, status e observações. A edição é em etapas e só salva após revisão final."],
+    ["cliente clientes cadastro", "Clientes: podem ser cadastrados e usados nos pedidos. O Free funciona para pequenos usuários; o PRO libera clientes ilimitados."],
+    ["estoque material materiais filamento cor kg baixo", "Estoque: registra tipo, cor, quantidade em kg e custo. Materiais podem ser vinculados ao cálculo e aos itens do pedido, com alerta de estoque baixo."],
+    ["caixa financeiro entrada saída saldo estorno", "Caixa: registra entradas, saídas, saldo e histórico. Pedidos salvos geram entrada; cancelamentos podem gerar estorno quando aplicável."],
+    ["calculadora cálculo preco preço peso horas taxa margem energia quantidade", "Calculadora: calcula preço com material, peso, horas, quantidade, energia, margem e taxa extra. Peso, horas e taxa extra começam limpos em novo cálculo."],
+    ["impressora impressoras produção bambu orca fdm pla petg tpu", "Impressoras e produção: impressoras entram no cálculo por consumo, custo/hora e tipo. Produção acompanha pedidos por status. A IA deve focar em impressão 3D FDM, Bambu Lab, OrcaSlicer, PLA, PETG e TPU."],
+    ["plano planos pro free trial pending pagamento", "Planos: Free é funcional com anúncios leves e limites recomendados; PRO libera pedidos/clientes ilimitados, relatórios completos, PDF completo, IA local, automações, backup avançado e sem anúncios. Pending não deve travar o Free."],
+    ["anúncio anuncios ads rewarded recompensa adblock dns", "Anúncios: no Free são leves, discretos e não aparecem em telas críticas. Rewarded é opcional para bônus. Se vídeo falhar, o uso básico continua e o usuário pode tentar novamente."],
+    ["sincronização sincronizar supabase backup offline fila", "Sincronização: usa Supabase e fila local offline. Não deve forçar retorno para a tela inicial. Backup básico fica disponível; backup avançado é PRO."],
+    ["personalização logo fundo pdf tema pix cores escala", "Personalização: ajusta nome do app, empresa, WhatsApp, logo, cores, fundo de login, PDF, Pix, escala de tela e modo compacto."],
+    ["pdf orçamento orcamento exportar", "PDF e orçamentos: PDFs podem ser gerados para pedidos e orçamentos usando os dados revisados. Free pode ter PDF simples; PRO libera PDF completo."],
+    ["segurança biometria senha admin sensível sensivel", "Segurança: ações sensíveis podem exigir senha administrativa ou biometria no Android. A biometria tem validade curta e senha é fallback."],
+    ["ia local offline modelo qwen", "IA local: exclusiva do PRO pago ativo no Android. Free e Trial visualizam, mas não baixam nem usam. O modelo padrão é Qwen2.5 0.5B Instruct Q8_0 GGUF."],
+    ["aprendizado sugestão sugestoes inteligente local", "Aprendizado local: registra eventos simples no aparelho para melhorar sugestões, sem treinar modelo e sem coletar senhas ou dados sensíveis."]
   ];
+  if (pergunta.includes("superadmin") || pergunta.includes("super admin")) {
+    return ["Super Admin é área restrita administrativa. A IA não deve orientar ações de Super Admin."];
+  }
   const encontrados = topicos
     .filter(([keywords]) => keywords.split(/\s+/).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))))
     .map(([, trecho]) => trecho);
@@ -8645,8 +8761,7 @@ function getMenuGroups() {
     grupos.push({
       titulo: "Admin",
       itens: [
-        { tela: "usuarios", icone: "🔐", texto: "Usuários" },
-        { tela: "planos", icone: "💳", texto: "Planos" }
+        { tela: "usuarios", icone: "🔐", texto: "Usuários" }
       ]
     });
   }
@@ -9659,7 +9774,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico">${renderAssistantFabContent("IA", false)}</button>
+        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">🔍</span></button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
@@ -10010,6 +10125,7 @@ function renderDashboard() {
   return `
     <section class="dashboard-pro premium-dashboard">
       ${renderDashboardSearch()}
+      ${renderSugestoesInteligentesDashboard()}
       ${renderDashboardPeriodTabs()}
       ${renderDashboardAnalyticsHero(analytics)}
       ${renderDashboardComboChart(analytics)}
@@ -10110,6 +10226,7 @@ function renderPedido() {
   const statusAtual = pedidoEditando?.status || "aberto";
   const clienteResumo = clientePedido || clienteDoPedido(pedidoEditando || {}) || "Cliente não informado";
   const observacaoCurta = pedidoEditando?.observacao || pedidoEditando?.observacoes || "";
+  const destacarAdicionarItem = pedidoEditando && sugestoesInteligentesAtivas() && contarEventosUso("item_adicionado", 20) >= 3;
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
@@ -10218,7 +10335,7 @@ function renderPedido() {
           <span>Total</span>
           <strong>${formatarMoeda(total)}</strong>
         </div>
-        <button class="btn secondary" onclick="iniciarAdicionarItemPedido()">+ Item</button>
+        <button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" onclick="iniciarAdicionarItemPedido()">+ Item</button>
         <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${botao}</button>
       </div>
 
@@ -10229,6 +10346,11 @@ function renderPedido() {
       </div>
     </section>
   `;
+}
+
+function renderSugestoesInteligentesDashboard() {
+  // Aprendizado fica local e discreto: ele ajusta sugestões internas sem criar botões extras na tela inicial.
+  return "";
 }
 
 function renderPaletaCoresMaterial(inputId, selected = "") {
@@ -13578,6 +13700,10 @@ function renderPersonalizacao() {
         <span>Modo compacto</span>
       </label>
       <label class="checkbox-row">
+        <input id="smartSuggestionsEnabledConfig" type="checkbox" ${appConfig.smartSuggestionsEnabled !== false ? "checked" : ""}>
+        <span>Sugestões inteligentes locais</span>
+      </label>
+      <label class="checkbox-row">
         <input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}>
         <span>Mostrar nome do app no topo</span>
       </label>
@@ -14697,6 +14823,7 @@ function lerPersonalizacaoCampos() {
       custom_pdf_enabled: acessoMarca
     }),
     compactMode: !!document.getElementById("compactModeConfig")?.checked,
+    smartSuggestionsEnabled: !!document.getElementById("smartSuggestionsEnabledConfig")?.checked,
     showBrandInHeader: !!document.getElementById("showBrandInHeaderConfig")?.checked,
     defaultMargin: Math.max(0, parseFloat(document.getElementById("defaultMarginConfig")?.value) || 100),
     defaultEnergy: Math.max(0, parseFloat(document.getElementById("defaultEnergyConfig")?.value) || 0.85),
@@ -15170,6 +15297,8 @@ function restaurarPersonalizacaoPadrao() {
     }),
     motionLevel: "medium",
     compactMode: false,
+    smartSuggestionsEnabled: appConfig.smartSuggestionsEnabled !== false,
+    smartSuggestionsDismissedAt: appConfig.smartSuggestionsDismissedAt || "",
     showBrandInHeader: true,
     defaultMargin: 100,
     defaultEnergy: 0.85,
@@ -18521,6 +18650,21 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
   return assistantRuntimePromise;
 }
 
+function aquecerIALocalEmSegundoPlano(origem = "app") {
+  if (document.visibilityState === "hidden") return false;
+  if (!iaLocalEstaPronta() || assistantRuntimeReady || assistantRuntimeLoading || assistantRuntimePromise) return false;
+  const agora = Date.now();
+  if (agora - assistantRuntimeWarmupAt < 45000) return false;
+  assistantRuntimeWarmupAt = agora;
+  window.setTimeout(() => {
+    if (document.visibilityState === "hidden" || !iaLocalEstaPronta()) return;
+    garantirRuntimeIAAtivo({ silent: true }).then((ok) => {
+      if (ok) registrarDiagnostico("IA Local", "Runtime aquecido em segundo plano", origem, { silent: true });
+    }).catch((erro) => registrarFalhaIALocal("background_warmup", erro, { origem }));
+  }, 900);
+  return true;
+}
+
 async function removerItem(i) {
   const confirmado = await solicitarConfirmacaoAcao({
     titulo: "Remover item",
@@ -18586,6 +18730,7 @@ function adicionarProdutoManual() {
     total: 0,
     materiais: []
   }));
+  registrarEventoUsoLocal("item_adicionado");
   renderApp();
 }
 
@@ -18998,6 +19143,7 @@ async function fecharPedido() {
     }
 
     pedidos.push(pedido);
+    if (!pedidoEditando) registrarEventoUsoLocal("pedido_criado");
     caixa.push(prepararRegistroOnline({
       id: Date.now() + 1,
       tipo: "entrada",
@@ -19298,12 +19444,14 @@ function valorCampoCalculadora(id, fallback = "") {
 function getConfiguracaoCalculadora() {
   const salvo = appConfig.calculatorDefaults && typeof appConfig.calculatorDefaults === "object" ? appConfig.calculatorDefaults : {};
   const tipo = normalizarTipoImpressoraCalculadora(salvo.printerType || appConfig.defaultPrinterType || "FDM");
-  const modeloSalvo = salvo.printerModel || appConfig.defaultPrinterModel || "Ender 3";
+  const modeloFrequente = valorFrequenteUso("impressora_usada", "impressora", 40);
+  const modeloSalvo = modeloFrequente || salvo.printerModel || appConfig.defaultPrinterModel || "Ender 3";
   const modeloValido = printers[modeloSalvo]?.tipo === tipo
     ? modeloSalvo
     : Object.keys(printers).find((nome) => printers[nome].tipo === tipo) || "Ender 3";
   const impressora = printers[modeloValido] || printers["Ender 3"];
-  const materialSalvo = salvo.materialId || appConfig.defaultMaterial || "";
+  const materialFrequente = valorFrequenteUso("material_usado", "materialId", 40);
+  const materialSalvo = materialFrequente || salvo.materialId || appConfig.defaultMaterial || "";
   const materialIdValido = materialSalvo && getMaterialEstoque(materialSalvo) ? materialSalvo : "";
   return {
     printerType: tipo,
@@ -19495,6 +19643,7 @@ function renderCalculadoraFlutuante() {
 function abrirCalculadora() {
   ultimoCalculo = null;
   fecharPopup();
+  registrarEventoUsoLocal("calculadora_aberta");
   salvarCalculadoraWidget({ open: true }, true);
   renderCalculadoraFlutuante();
 }
@@ -19768,6 +19917,8 @@ function calcular() {
   const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
   const materialId = document.getElementById("calcMaterial")?.value || "";
   const materialEstoque = getMaterialEstoque(materialId);
+  registrarEventoUsoLocal("impressora_usada", { impressora: printer });
+  if (materialId) registrarEventoUsoLocal("material_usado", { materialId, materialNome: materialEstoque?.nome || "" });
 
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempo * energia;
@@ -19873,6 +20024,7 @@ async function adicionarItem() {
     valor: valorManual,
     total: valorManual * qtd
   });
+  registrarEventoUsoLocal("item_adicionado");
 
   limparCalculo();
   if (telaAtual !== "calculadora") minimizarCalculadora();
@@ -19891,6 +20043,7 @@ function salvarOrcamento() {
     criadoEm: new Date().toISOString()
   });
   orcamentos = orcamentos.slice(0, 100);
+  registrarEventoUsoLocal("orcamento_finalizado");
   salvarDados();
   registrarHistorico("Orçamento", "Orçamento salvo: " + nome);
   alert("Orçamento salvo com sucesso.");
@@ -21177,6 +21330,7 @@ document.addEventListener("visibilitychange", () => {
   } else if (document.visibilityState === "visible") {
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
     sincronizarAlteracoesLocaisSilencioso("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
+    aquecerIALocalEmSegundoPlano("visible");
   }
 });
 
@@ -21200,6 +21354,7 @@ document.addEventListener("DOMContentLoaded", () => {
         telaAtual = "admin";
       }
       renderApp();
+      aquecerIALocalEmSegundoPlano("startup");
     }
   });
   iniciarAutoBackup();

@@ -1,7 +1,8 @@
 (function (global) {
   "use strict";
 
-  const FREE_ORDER_LIMIT = null;
+  const FREE_ORDER_LIMIT = 30;
+  const REWARDED_ORDER_BONUS = 5;
   const FREE_DAILY_CALCULATION_LIMIT = 30;
   const REWARDED_CALCULATION_BONUS = 20;
   const FREE_DAILY_PDF_LIMIT = 1;
@@ -26,14 +27,14 @@
 
   function getState() {
     const storage = config.getStorage();
-    if (!storage) return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, unlocks: {} };
-    return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, unlocks: {}, ...safeJsonParse(storage.getItem(STORAGE_KEY), {}) };
+    if (!storage) return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, orderBonus: {}, unlocks: {} };
+    return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, orderBonus: {}, unlocks: {}, ...safeJsonParse(storage.getItem(STORAGE_KEY), {}) };
   }
 
   function saveState(state) {
     const storage = config.getStorage();
     if (!storage) return;
-    storage.setItem(STORAGE_KEY, JSON.stringify({ pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, unlocks: {}, ...state }));
+    storage.setItem(STORAGE_KEY, JSON.stringify({ pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, orderBonus: {}, unlocks: {}, ...state }));
   }
 
   function normalize(value = "") {
@@ -83,6 +84,20 @@
     return Math.max(0, Number(user.orderCount || user.activeOrderCount || 0) || 0);
   }
 
+  function monthKey() {
+    const data = new Date(config.now());
+    const ano = data.getFullYear();
+    const mes = String(data.getMonth() + 1).padStart(2, "0");
+    return `${ano}-${mes}`;
+  }
+
+  function sanitizeMonthlyCounter(current, month) {
+    if (!current || current.month !== month) return { month, count: 0 };
+    const count = Number(current.count || 0);
+    if (!Number.isFinite(count) || count < 0) return { month, count: 0 };
+    return { month, count: Math.floor(count) };
+  }
+
   function getUnlockUntil(type, user = {}) {
     if (global.AdMobService?.hasTemporaryUnlock?.(type)) return config.now() + 1;
     const state = getState();
@@ -93,12 +108,33 @@
     return getUnlockUntil(type, user) > config.now();
   }
 
+  function getOrderBonus(user = {}) {
+    const state = getState();
+    const key = getUserKey(user);
+    const month = monthKey();
+    const current = sanitizeMonthlyCounter(state.orderBonus?.[key], month);
+    if (!state.orderBonus?.[key] || state.orderBonus[key].month !== current.month || state.orderBonus[key].count !== current.count) {
+      state.orderBonus = { ...(state.orderBonus || {}), [key]: current };
+      saveState(state);
+    }
+    return state.orderBonus[key];
+  }
+
+  function getMonthlyOrderLimit(user = {}) {
+    if (isPremium(user)) return Number.POSITIVE_INFINITY;
+    if (!Number.isFinite(FREE_ORDER_LIMIT)) return Number.POSITIVE_INFINITY;
+    return FREE_ORDER_LIMIT + Math.max(0, Number(getOrderBonus(user).count || 0) || 0);
+  }
+
   function canCreateOrder(user = {}) {
-    return true;
+    if (isPremium(user)) return true;
+    if (hasUnlock("orders", user)) return true;
+    return getOrderCount(user) < getMonthlyOrderLimit(user);
   }
 
   function getRemainingFreeOrders(user = {}) {
-    return Number.POSITIVE_INFINITY;
+    if (isPremium(user) || hasUnlock("orders", user)) return Number.POSITIVE_INFINITY;
+    return Math.max(0, getMonthlyOrderLimit(user) - getOrderCount(user));
   }
 
   function resetDailyPdfLimitIfNeeded(user = {}) {
@@ -207,7 +243,15 @@
   }
 
   function unlockOrdersByAd(user = {}) {
-    return unlockByAd("orders", user);
+    const state = getState();
+    const key = getUserKey(user);
+    const bonus = getOrderBonus(user);
+    state.orderBonus = {
+      ...(state.orderBonus || {}),
+      [key]: { month: monthKey(), count: Number(bonus.count || 0) + REWARDED_ORDER_BONUS }
+    };
+    saveState(state);
+    return { type: "orders", bonus: REWARDED_ORDER_BONUS, totalBonus: state.orderBonus[key].count };
   }
 
   function unlockPdfByAd(user = {}) {
@@ -245,6 +289,7 @@
 
   const api = {
     FREE_ORDER_LIMIT,
+    REWARDED_ORDER_BONUS,
     FREE_DAILY_CALCULATION_LIMIT,
     REWARDED_CALCULATION_BONUS,
     FREE_DAILY_PDF_LIMIT,
