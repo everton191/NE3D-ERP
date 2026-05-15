@@ -5594,6 +5594,18 @@ body[data-motion="low"] *{
   gap:10px;
 }
 
+.profile-account-actions{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+  padding-top:10px;
+  border-top:1px solid rgba(255,255,255,.10);
+}
+
+.profile-account-actions .btn{
+  width:100%;
+}
+
 .profile-option{
   display:grid;
   gap:4px;

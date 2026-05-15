@@ -8684,9 +8684,24 @@ function abrirPerfilPremiumPainel(event) {
           <button class="btn secondary" type="button" onclick="abrirTelaPlanosPerfil()">Ver planos</button>
           <button class="btn" type="button" onclick="abrirPersonalizacaoDoPerfil('all')">Personalizar</button>
         </div>
+        <div class="profile-account-actions">
+          <button class="btn ghost" type="button" onclick="abrirTrocaContaPerfil()">Trocar conta</button>
+          <button class="btn warning" type="button" onclick="logoutUsuario()">Sair</button>
+        </div>
       </section>
     </div>
   `;
+}
+
+function abrirTrocaContaPerfil() {
+  const perfis = getUsuariosContaAtiva();
+  if (perfis.length > 1) {
+    abrirSeletorUsuariosPerfil(perfis);
+    return;
+  }
+  fecharPopup();
+  mostrarToast("Para trocar de conta, saia e entre com outro usuário.", "info", 4200);
+  logoutUsuario();
 }
 
 function abrirPersonalizacaoDoPerfil(tipo = "all") {
