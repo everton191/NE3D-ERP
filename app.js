@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.21";
-const APP_VERSION_CODE = 72;
+const APP_VERSION = "51.0.22";
+const APP_VERSION_CODE = 73;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -6035,6 +6035,45 @@ function agendarRenderizacaoPreservandoScroll(atraso = 120) {
   }, Math.max(0, Number(atraso) || 0));
 }
 
+function iniciarTransicaoNavegacao(tipo = "forward") {
+  if (typeof document === "undefined") return;
+  clearTimeout(window.__simplificaMotionTimer);
+  document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
+  document.body.classList.add(`motion-${tipo}`);
+  window.__simplificaMotionTimer = setTimeout(() => {
+    document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
+  }, 520);
+}
+
+function aplicarMotionSequenciado() {
+  if (typeof document === "undefined") return;
+  const animar = document.body.classList.contains("motion-forward")
+    || document.body.classList.contains("motion-back")
+    || window.__simplificaMotionPrimed !== true;
+  if (!animar) return;
+  window.__simplificaMotionPrimed = true;
+  const alvos = [
+    ".dashboard-kpis .kpi-card",
+    ".dashboard-analytics-hero",
+    ".analytics-kpi",
+    ".dashboard-chart-card",
+    ".dashboard-insights",
+    ".insight-card",
+    ".order-list-card",
+    ".order-item-card",
+    ".chart-card",
+    ".plan-card",
+    ".mobile-panel-content > .card",
+    ".desktop-focus > .card",
+    ".desktop-main > .card"
+  ].join(",");
+  document.querySelectorAll(alvos).forEach((elemento, index) => {
+    if (index > 26) return;
+    elemento.classList.add("motion-stagger-item");
+    elemento.style.setProperty("--motion-index", String(index));
+  });
+}
+
 function renderizarStatusSyncSeVisivel() {
   if (["backup", "config", "conta"].includes(telaAtual)) renderizarPreservandoScroll();
 }
@@ -6049,7 +6088,8 @@ function trocarTela(tela) {
     tela = "acessoNegado";
   }
 
-  if (telaAtual !== tela) {
+  const mudouTela = telaAtual !== tela;
+  if (mudouTela) {
     telaAnterior = telaAtual;
   }
 
@@ -6059,6 +6099,7 @@ function trocarTela(tela) {
     appConfig.calculatorWidget.open = false;
     salvarDados();
   }
+  if (mudouTela) iniciarTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
   renderApp();
 }
 
@@ -6066,12 +6107,14 @@ function voltarTela() {
   const destino = telas[telaAnterior] ? telaAnterior : "dashboard";
   telaAtual = destino;
   telaAnterior = "dashboard";
+  iniciarTransicaoNavegacao("back");
   renderApp();
 }
 
 function voltarInicio() {
   telaAnterior = telaAtual;
   telaAtual = "dashboard";
+  iniciarTransicaoNavegacao("back");
   renderApp();
 }
 
@@ -6112,6 +6155,7 @@ function renderApp() {
   sincronizarBannerAdSense();
   preencherImpressoras();
   preencherMateriaisCalculadora();
+  aplicarMotionSequenciado();
 }
 
 function podeMostrarControlesFlutuantes() {
