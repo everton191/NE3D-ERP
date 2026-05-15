@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.16";
-const APP_VERSION_CODE = 67;
+const APP_VERSION = "51.0.17";
+const APP_VERSION_CODE = 68;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -10340,9 +10340,9 @@ function renderPedido() {
       </div>
 
       <div class="order-secondary-actions">
-        <button class="btn ghost" onclick="adicionarProdutoManual()">Manual</button>
-        <button class="btn ghost" onclick="gerarPDF()">PDF</button>
-        <button class="btn ghost" onclick="enviarWhats()">WhatsApp</button>
+        ${renderAcaoPedidoCompacta("✚", "Manual", "adicionarProdutoManual()")}
+        ${renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()")}
+        ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()")}
       </div>
     </section>
   `;
@@ -10482,18 +10482,24 @@ function renderListaPedidos() {
         const id = Number(pedido.id);
         const itens = Array.isArray(pedido.itens) ? pedido.itens.length : 1;
         const status = pedido.status || "aberto";
+        const total = totalPedido(pedido);
         return `
-          <div class="list-row clickable-row" onclick="visualizarPedido(${id})">
-            <div class="row-title">
-              <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
-              <span class="muted">${escaparHtml(pedido.data || "")}</span>
+          <div class="list-row clickable-row order-list-card" onclick="visualizarPedido(${id})">
+            <div class="order-card-topline">
+              <div class="row-title">
+                <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
+                <span class="muted">#${escaparHtml(pedido.id)} • ${escaparHtml(pedido.data || "")}</span>
+              </div>
+              <span class="order-status-badge ${classeStatusPedido(status)}">${escaparHtml(labelStatusPedido(status))}</span>
             </div>
-            <span class="status-badge ${classeStatusPlano(status)}">${escaparHtml(status)}</span>
-            <div class="muted">${itens} item(ns) • ${formatarMoeda(totalPedido(pedido))}</div>
-            <div class="row-actions">
-              <button class="btn ghost" onclick="event.stopPropagation(); visualizarPedido(${id})">Ver</button>
-              ${podeOperar ? `<button class="btn ghost" onclick="event.stopPropagation(); editarPedido(${id})">✏️ Editar</button>
-              <button class="btn danger" onclick="event.stopPropagation(); removerPedido(${id})">Excluir</button>` : ""}
+            <div class="order-card-summary">
+              <span>${itens} item(ns)</span>
+              <strong>${formatarMoeda(total)}</strong>
+            </div>
+            <div class="order-card-actions compact-action-grid">
+              ${renderAcaoPedidoCompacta("👁", "Ver", `event.stopPropagation(); visualizarPedido(${id})`)}
+              ${podeOperar ? renderAcaoPedidoCompacta("✎", "Editar", `event.stopPropagation(); editarPedido(${id})`) : ""}
+              ${podeOperar ? renderAcaoPedidoCompacta("🗑", "Excluir", `event.stopPropagation(); removerPedido(${id})`, "danger") : ""}
             </div>
           </div>
         `;
@@ -10518,32 +10524,61 @@ function renderListaPedidos() {
   `;
 }
 
+function renderAcaoPedidoCompacta(icone, label, onclick, variante = "") {
+  return `
+    <button class="action-tile ${variante ? `action-${variante}` : ""}" type="button" onclick="${onclick}" title="${escaparAttr(label)}">
+      <span>${icone}</span>
+      <small>${escaparHtml(label)}</small>
+    </button>
+  `;
+}
+
 function renderDetalhePedido(pedido) {
   const itens = normalizarItensPedido(pedido);
   const total = totalPedido(pedido);
+  const data = pedido.data || dataPedidoIso(pedido) || "";
   return `
-    <div class="detail-panel">
-      <div class="card-header">
-        <h2>Pedido #${escaparHtml(pedido.id)}</h2>
-        <span class="status-badge ${classeStatusPlano(pedido.status || "aberto")}">${escaparHtml(pedido.status || "aberto")}</span>
+    <div class="detail-panel order-detail-panel">
+      <div class="order-detail-hero">
+        <div>
+          <span class="eyebrow">Pedido</span>
+          <h2>#${escaparHtml(pedido.id)}</h2>
+          <p class="muted">👤 ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
+          ${data ? `<p class="muted">📅 ${escaparHtml(data)}</p>` : ""}
+        </div>
+        <span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span>
       </div>
-      <p class="muted">Cliente: ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • WhatsApp: " + escaparHtml(telefoneDoPedido(pedido)) : ""} • Total: ${formatarMoeda(total)}</p>
-      <div class="history-list">
+      <div class="order-detail-total">
+        <div>
+          <span>Resumo do pedido</span>
+          <strong>${itens.length} item(ns)</strong>
+        </div>
+        <div>
+          <span>Total</span>
+          <strong>${formatarMoeda(total)}</strong>
+        </div>
+      </div>
+      <div class="compact-action-grid order-detail-actions">
+        ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("⎙", "Imprimir", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("⋯", "Mais", `pedidoVisualizandoId=null; renderApp()`)}
+      </div>
+      <div class="history-list order-detail-items">
         ${itens.map((item) => `
-          <div class="history-item">
-            <strong>${escaparHtml(item.nome)} • ${escaparHtml(item.tipoImpressao)}</strong>
-            <span class="muted">Qtd ${item.qtd} • Tempo ${Number(item.tempoHoras || 0).toFixed(2)}h • ${formatarMoeda(item.total)}</span>
-            ${getMateriaisItem(item).map((material) => `<span class="muted">${escaparHtml(material.nome || getMaterialEstoque(material.materialId)?.nome || "Material")} - ${Number(material.gramas).toFixed(1)}g</span>`).join("")}
+          <div class="history-item premium-order-item">
+            <span class="item-cube-icon">▧</span>
+            <div>
+              <strong>${escaparHtml(item.nome)}</strong>
+              <span class="muted">Qtd ${item.qtd} • ${escaparHtml(item.tipoImpressao)} • ${Number(item.tempoHoras || 0).toFixed(2)}h</span>
+              <div class="material-chip-row">${getMateriaisItem(item).map((material) => `<span class="order-chip">${escaparHtml(material.nome || getMaterialEstoque(material.materialId)?.nome || "Material")} • ${Number(material.gramas).toFixed(0)}g</span>`).join("") || `<span class="order-chip muted-chip">Sem material</span>`}</div>
+            </div>
+            <strong class="item-price">${formatarMoeda(item.total)}</strong>
           </div>
         `).join("")}
       </div>
-      <div class="actions">
-        <button class="btn" onclick="baixarPdfPedidoSalvo(${Number(pedido.id)})">Baixar PDF</button>
-        <button class="btn ghost" onclick="enviarWhatsPedidoSalvo(${Number(pedido.id)})">WhatsApp</button>
-        <button class="btn secondary" onclick="editarPedido(${Number(pedido.id)})">Editar pedido</button>
-        <button class="btn danger" onclick="removerPedido(${Number(pedido.id)})">Excluir pedido</button>
-        <button class="btn ghost" onclick="pedidoVisualizandoId=null; renderApp()">Fechar detalhe</button>
-      </div>
+      <button class="btn danger compact-danger-action" onclick="removerPedido(${Number(pedido.id)})">🗑 Excluir pedido</button>
     </div>
   `;
 }
