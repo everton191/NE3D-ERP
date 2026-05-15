@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.18";
-const APP_VERSION_CODE = 69;
+const APP_VERSION = "51.0.19";
+const APP_VERSION_CODE = 70;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -65,7 +65,7 @@ const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 20;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
 const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D. Responda somente com base nas informações do sistema enviadas no contexto. Não invente funções, telas, preços ou regras. Não oriente ações de Super Admin. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples e direto.";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D para usuários do app. Responda somente com base no contexto/manual enviado. Explique passos práticos sobre pedidos, estoque, calculadora, caixa, produção, clientes, PDFs, anúncios, planos, backup/sincronização, personalização e configurações comuns. Não invente funções, telas, preços ou regras. Não explique nem oriente ações de Super Admin. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples, direto e respostas curtas.";
 const AI_RUNTIME_TEST_SYSTEM_PROMPT = "Responda somente OK.";
 const AI_RUNTIME_TEST_PROMPT = "OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
@@ -485,7 +485,11 @@ let appConfig = carregarObjeto("appConfig", {
 });
 
 const assistantResponses = [
-  { keywords: ["pedido", "pedidos", "venda", "vendas"], answer: "Para criar um pedido, vá em Pedidos ou Novo pedido, adicione um ou mais produtos e finalize. Ao clicar em um pedido da lista você pode visualizar, editar, excluir e acompanhar o status. Ao editar, o sistema recalcula o estoque pela diferença para evitar baixa duplicada." },
+  { keywords: ["criar pedido", "novo pedido", "montar pedido"], answer: "Para criar um pedido, abra Novo pedido, informe cliente e WhatsApp, adicione itens pela calculadora ou manualmente, revise o total e toque em Salvar." },
+  { keywords: ["editar pedido", "alterar pedido", "mudar pedido"], answer: "Para editar um pedido, abra Pedidos, toque no pedido, escolha Editar, ajuste os itens na lista e confirme na revisão final. A lixeira remove um item e o estoque é recalculado pela diferença." },
+  { keywords: ["fechar pedido", "finalizar pedido", "salvar pedido"], answer: "Para fechar/salvar, revise cliente, itens e total. Depois toque em Salvar ou Confirmar alterações. O pedido gera entrada no Caixa e pode sincronizar em segundo plano." },
+  { keywords: ["excluir pedido", "remover pedido", "cancelar pedido"], answer: "Para excluir/remover um pedido, abra a lista de Pedidos e use a ação de lixeira. O app pede confirmação e pode devolver estoque quando houver material vinculado." },
+  { keywords: ["pedido", "pedidos", "venda", "vendas"], answer: "Você quer ajuda com qual parte dos pedidos: criar um novo pedido, editar itens, fechar/salvar, excluir, gerar PDF ou enviar por WhatsApp?" },
   { keywords: ["estoque", "material", "filamento", "resina"], answer: "No Estoque você cadastra materiais por tipo e cor, como PLA Preto ou Resina Transparente. Quando um pedido usa material vinculado por ID, o sistema verifica saldo, baixa automaticamente ao salvar e devolve ao excluir/cancelar." },
   { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
   { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode sincronizar pelo Supabase, exportar um JSON local ou importar um JSON seguro. A sincronização fica vinculada à conta logada; Google Drive está oculto enquanto não estiver validado." },
@@ -6153,7 +6157,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">🔍</span></button>
+        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
@@ -6560,6 +6564,8 @@ function limparConversaAssistente() {
 function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxuto(texto)) {
   try {
     const pergunta = normalizarTextoAssistente(texto);
+    const respostaAmpla = obterRespostaOrientadaAssistente(pergunta);
+    if (respostaAmpla) return respostaAmpla;
     const base = Array.isArray(assistantResponses) ? assistantResponses : [];
     const resposta = base.find((item) => (item.keywords || []).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
     const estimado = estimarTokensTexto(JSON.stringify(contexto || {}));
@@ -6603,6 +6609,23 @@ function getAIAssistantSettings() {
 
 function getAIModel(modelId) {
   return AI_MODELS.find((modelo) => modelo.id === modelId) || AI_MODELS[0] || null;
+}
+
+function obterRespostaOrientadaAssistente(pergunta = "") {
+  const contem = (termos) => termos.some((termo) => pergunta.includes(normalizarTextoAssistente(termo)));
+  const especificaPedido = contem(["criar", "novo", "editar", "alterar", "fechar", "finalizar", "salvar", "excluir", "remover", "pdf", "whatsapp", "status", "item"]);
+  if (contem(["pedido", "pedidos"]) && !especificaPedido) {
+    return "Claro. Em pedidos, você quer ajuda para criar, editar itens, fechar/salvar, excluir, gerar PDF ou enviar por WhatsApp?";
+  }
+  const especificaEstoque = contem(["cadastrar", "editar", "remover", "baixar", "material", "cor", "kg", "filamento", "resina"]);
+  if (contem(["estoque"]) && !especificaEstoque) {
+    return "Posso ajudar com estoque. Você quer cadastrar material, editar quantidade/cor, remover material ou entender baixa automática por pedido?";
+  }
+  const especificaCalculadora = contem(["peso", "hora", "taxa", "margem", "energia", "material", "preço", "preco", "adicionar"]);
+  if (contem(["calculadora", "calculo", "cálculo"]) && !especificaCalculadora) {
+    return "Na calculadora, você quer ajuda para calcular preço, limpar um cálculo, escolher material/impressora ou adicionar o resultado ao pedido?";
+  }
+  return "";
 }
 
 function getAIModelLocalState(modelId) {
@@ -6789,7 +6812,13 @@ function progressoIAInstalacao(state = {}) {
   };
   return {
     active: isAIModelBusyStatus(status) || progress > 0,
-    percent: status === AI_INSTALL_STATUS.DOWNLOADING ? progress : isAIModelReadyStatus(status) ? 100 : Math.max(progress, 0),
+    percent: status === AI_INSTALL_STATUS.DOWNLOADING ? progress
+      : status === AI_INSTALL_STATUS.VALIDATING ? Math.max(progress, 55)
+      : status === AI_INSTALL_STATUS.INSTALLING ? Math.max(progress, 70)
+      : status === AI_INSTALL_STATUS.LOADING ? Math.max(progress, 82)
+      : status === AI_INSTALL_STATUS.TESTING ? Math.max(progress, 92)
+      : isAIModelReadyStatus(status) ? 100
+      : Math.max(progress, 0),
     label: labels[status] || ""
   };
 }
@@ -7110,7 +7139,6 @@ async function adicionarListenerProgressoIA(modelId) {
         lastError: ""
       });
       atualizarElementosProgressoIA(modelId);
-      agendarRenderizacaoIA();
     });
     return handle;
   } catch (erro) {
@@ -7682,9 +7710,9 @@ function buscarTrechosManualIA(texto = "") {
   const pergunta = normalizarTextoAssistente(texto);
   const topicos = [
     ["inicio dashboard busca lupa", "Início: mostra indicadores de pedidos, faturamento, caixa, produção, estoque baixo e clientes. A lupa busca pedidos, clientes, materiais e abre o assistente básico."],
-    ["pedidos pedido editar item itens status revisar revisão", "Pedidos: guarda cliente, WhatsApp, itens, quantidades, subtotais, total geral, status e observações. A edição é em etapas e só salva após revisão final."],
+    ["pedidos pedido editar item itens status revisar revisão excluir remover", "Pedidos: guarda cliente, WhatsApp, itens, quantidades, subtotais, total geral, status e observações. Na edição, itens aparecem em lista com subtotal e lixeira para remover. A edição só salva após revisão final."],
     ["cliente clientes cadastro", "Clientes: podem ser cadastrados e usados nos pedidos. O Free funciona para pequenos usuários; o PRO libera clientes ilimitados."],
-    ["estoque material materiais filamento cor kg baixo", "Estoque: registra tipo, cor, quantidade em kg e custo. Materiais podem ser vinculados ao cálculo e aos itens do pedido, com alerta de estoque baixo."],
+    ["estoque material materiais filamento cor kg baixo editar remover", "Estoque: registra tipo, cor, quantidade em kg e custo. Materiais podem ser editados ou removidos pelos ícones da lista. Materiais podem ser vinculados ao cálculo e aos itens do pedido, com alerta de estoque baixo."],
     ["caixa financeiro entrada saída saldo estorno", "Caixa: registra entradas, saídas, saldo e histórico. Pedidos salvos geram entrada; cancelamentos podem gerar estorno quando aplicável."],
     ["calculadora cálculo preco preço peso horas taxa margem energia quantidade", "Calculadora: calcula preço com material, peso, horas, quantidade, energia, margem e taxa extra. Peso, horas e taxa extra começam limpos em novo cálculo."],
     ["impressora impressoras produção bambu orca fdm pla petg tpu", "Impressoras e produção: impressoras entram no cálculo por consumo, custo/hora e tipo. Produção acompanha pedidos por status. A IA deve focar em impressão 3D FDM, Bambu Lab, OrcaSlicer, PLA, PETG e TPU."],
@@ -7716,6 +7744,8 @@ function montarPromptIAOffline(texto = "", contexto = {}) {
   return [
     "Manual relevante do Simplifica 3D:",
     trechosManual.join("\n"),
+    "Regra de interação:",
+    "Se a pergunta for ampla, pergunte qual tarefa o usuário quer fazer antes de dar passos. Exemplo: em 'ajuda com pedidos', ofereça criar, editar, fechar/salvar, excluir, PDF ou WhatsApp.",
     "Contexto resumido:",
     JSON.stringify(contextoSeguro).slice(0, 700),
     "",
@@ -7991,9 +8021,11 @@ function renderAssistenteVirtual() {
   const modoDisponivel = getAssistenteModoDisponivel();
 
   if (!assistantOpen) {
-    if (modoDisponivel !== "pro") return "";
-    const label = modoDisponivel === "pro" ? "IA" : "Assistente";
-    return `<button class="assistant-fab" onclick="abrirAssistente('${escaparAttr(modoDisponivel)}')" title="Assistente inteligente">${renderAssistantFabContent(label, modoDisponivel === "pro")}</button>`;
+    if (!podeUsarAssistenteIAOfflinePro()) return "";
+    const pronto = iaLocalEstaPronta();
+    const acao = pronto ? `abrirAssistente('pro')` : `trocarTela('config')`;
+    const titulo = pronto ? "Abrir IA Local" : "Configurar IA Local";
+    return `<button class="assistant-fab" onclick="${acao}" title="${titulo}">${renderAssistantFabContent("IA", true)}</button>`;
   }
 
   if (assistantMinimized) {
@@ -8722,6 +8754,7 @@ function getMenuGroups() {
     {
       titulo: "Operação",
       itens: [
+        { tela: "pedido", icone: "🧾", texto: "Novo pedido" },
         { tela: "pedidos", icone: "📋", texto: "Pedidos" },
         { tela: "producao", icone: "🖨️", texto: "Produção" },
         { tela: "estoque", icone: "📦", texto: "Estoque" }
@@ -8746,6 +8779,7 @@ function getMenuGroups() {
       itens: [
         { tela: "empresa", icone: "🏢", texto: "Empresa" },
         { tela: "config", icone: "⚙️", texto: "Configurações" },
+        { tela: "personalizacao", icone: "🎨", texto: "Personalização" },
         { tela: "backup", icone: "☁️", texto: "Backup" },
         { tela: "preferencias", icone: "🎛️", texto: "Preferências" },
         { tela: "conta", icone: "👤", texto: "Conta" },
@@ -9774,7 +9808,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">🔍</span></button>
+        <button class="search-ai-button" type="button" onclick="event.stopPropagation(); abrirAssistente('basic')" title="Abrir assistente básico"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
@@ -10127,8 +10161,8 @@ function renderDashboard() {
       ${renderDashboardSearch()}
       ${renderSugestoesInteligentesDashboard()}
       ${renderDashboardPeriodTabs()}
-      ${renderDashboardAnalyticsHero(analytics)}
       ${renderDashboardComboChart(analytics)}
+      ${renderDashboardAnalyticsHero(analytics)}
       ${renderDashboardInsights(analytics)}
       ${renderDashboardAnalyticSections(analytics)}
 
@@ -10237,6 +10271,7 @@ function renderPedido() {
               <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
             </span>
             <span class="order-item-total">${formatarMoeda(Number(item.total) || 0)}</span>
+            <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
           </summary>
           <div class="order-item-details">
             <div class="order-item-edit-grid">
@@ -10276,7 +10311,7 @@ function renderPedido() {
                 <span>Subtotal</span>
                 <strong>${formatarMoeda(Number(item.total) || 0)}</strong>
               </div>
-              <button class="icon-button danger" onclick="removerItem(${i})" title="Remover item">×</button>
+              <button class="icon-action-button danger" onclick="removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </div>
           </div>
         </details>
@@ -10428,9 +10463,9 @@ function renderEstoque() {
             <span class="muted">${escaparHtml(material.tipo || inferirTipoMaterial(material.nome))}${material.cor ? " • " + escaparHtml(material.cor) : ""} • ${(Number(material.qtd) || 0).toFixed(3)} kg</span>
           </div>
           ${(Number(material.qtd) || 0) <= estoqueMinimoKg ? `<span class="status-badge badge-alerta">Estoque baixo</span>` : `<span class="status-badge badge-ativo">OK</span>`}
-          ${podeOperar ? `<div class="row-actions">
-            <button class="btn ghost" type="button" data-action="stock-edit" data-index="${i}">✏️ Editar</button>
-            <button class="btn danger" type="button" data-action="stock-remove" data-index="${i}">Remover</button>
+          ${podeOperar ? `<div class="stock-actions">
+            <button class="icon-action-button" type="button" data-action="stock-edit" data-index="${i}" title="Editar material">${renderIconeAcaoPedido("✎", "Editar")}</button>
+            <button class="icon-action-button danger" type="button" data-action="stock-remove" data-index="${i}" title="Remover material">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
           </div>` : ""}
         </div>
       `).join("")
@@ -10458,7 +10493,7 @@ function renderEstoque() {
         <span>Quantidade em kg</span>
         <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
       </label>
-      <button class="btn" type="button" data-action="stock-add">Adicionar material</button>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
+      <div class="actions"><button class="btn" type="button" data-action="stock-add">Adicionar material</button></div>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
       ${linhas}
     </section>
   `;
@@ -10579,6 +10614,8 @@ function renderUiIcon(tipo = "", fallback = "") {
     seguranca: `<svg ${attrs}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9.5 12.5 11 14l3.5-4"/></svg>`,
     feedback: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M9 9h6M9 13h4"/></svg>`,
     sobre: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.1"/></svg>`,
+    search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
+    personalizacao: `<svg ${attrs}><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 .6-3.9 1.5 1.5 0 0 1 .4-2.9H16a5 5 0 0 0 0-10Z"/><circle cx="7.5" cy="10" r=".8"/><circle cx="10" cy="7.5" r=".8"/><circle cx="13" cy="7.5" r=".8"/><circle cx="15.5" cy="10" r=".8"/></svg>`,
     usuarios: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M18 9h3M19.5 7.5v3"/></svg>`,
     superadmin: `<svg ${attrs}><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5Z"/><path d="M9 12l2 2 4-5"/></svg>`
   };
@@ -13418,11 +13455,14 @@ function renderSuperAdmin() {
 
   return `
     <section class="card superadmin-panel">
-      <div class="card-header">
-        <h2>🛡️ Superadmin Simplifica 3D</h2>
+      <div class="superadmin-hero">
+        <div>
+          <span class="eyebrow">Administração interna</span>
+          <h2>Superadmin Simplifica 3D</h2>
+          <p class="muted">Métricas, planos, pagamentos, clientes e suporte em um painel mais organizado.</p>
+        </div>
         <span class="status-badge badge-superadmin">Acesso total</span>
       </div>
-      <p class="muted">Painel SaaS com métricas, planos, pagamentos e controle de clientes.</p>
       <div class="superadmin-tabs">
         ${abas.map(([id, label]) => `<button class="tab-button ${tab === id ? "active" : ""}" onclick="trocarAbaSuperAdmin('${id}')">${label}</button>`).join("")}
       </div>
@@ -13931,6 +13971,7 @@ function renderAssinatura() {
           <div class="metric"><span>Pedidos</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "Limitados"}</strong></div>
           <div class="metric"><span>PDFs</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "1 por dia"}</strong></div>
           <div class="metric"><span>Relatórios</span><strong>${estadoPlano.hasPremium ? "Avançados" : "Básicos"}</strong></div>
+          <div class="metric plan-ai-exclusive"><span>Assistente IA</span><strong>Exclusivo do Plano PRO</strong><small>* Pode causar lentidão no dispositivo dependendo do modelo instalado.</small></div>
         </div>
       </div>
 
@@ -13981,9 +14022,11 @@ function renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin = fal
         "PDFs ilimitados",
         "Sem anúncios",
         "Relatórios avançados",
+        "Assistente IA exclusivo do Plano PRO",
         "Backup e sincronização",
         "Suporte prioritário"
       ])}
+      <p class="muted plan-card-footnote">* A IA local pode causar lentidão no dispositivo dependendo do modelo instalado.</p>
       <div class="actions">
         <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
         ${superadmin
@@ -14007,8 +14050,8 @@ function renderPlanoSaasCard(plano, options = {}) {
   const isPremium = plano.slug === "premium";
   const preco = isPremium ? Number(options.preco || getPrecoPagoVigenteLocal()) : 0;
   const beneficios = isPremium
-    ? ["Pedidos ilimitados", "PDFs ilimitados", "Sem anúncios", "Relatórios avançados", "Backup e sincronização", "Suporte prioritário"]
-    : ["Pedidos limitados", "1 PDF grátis por dia", "Anúncios leves", "Recursos básicos"];
+    ? ["Pedidos ilimitados", "PDFs ilimitados", "Sem anúncios", "Relatórios avançados", "Assistente IA exclusivo do Plano PRO", "Backup e sincronização", "Suporte prioritário"]
+    : ["Pedidos limitados", "1 PDF grátis por dia", "Anúncios leves", "Recursos básicos", "Sem IA local/offline"];
 
   return `
     <div class="plan-card ${isPremium ? "featured plan-card-premium" : "plan-card-free"}">
@@ -14022,6 +14065,7 @@ function renderPlanoSaasCard(plano, options = {}) {
            <p class="muted plan-card-note">Primeiro mês por ${formatarMoeda(PREMIUM_FIRST_MONTH_PRICE)}.</p>`
         : `<p class="plan-free-copy">Para continuar sem custo, com anúncios leves e recursos básicos.</p>`}
       ${renderPlanBenefitList(beneficios)}
+      ${isPremium ? `<p class="muted plan-card-footnote">* A IA local pode causar lentidão no dispositivo dependendo do modelo instalado.</p>` : ""}
       ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora não cancela o teste atual; o acesso PRO continua normalmente enquanto o pagamento é confirmado.</p>` : ""}
       <div class="actions single">
         ${superadmin
@@ -18819,7 +18863,7 @@ function removerMaterialProduto(itemIndex, materialIndex) {
 
 function adicionarProdutoManual() {
   itensPedido.push(normalizarItemPedido({
-    nome: "Produto 3D",
+    nome: "Novo item",
     tipoImpressao: "FDM",
     qtd: 1,
     valor: 0,
@@ -19202,8 +19246,19 @@ async function fecharPedido() {
 
     if (!pedidoEditando && !verificarLimiteClientesAntesPedido(cliente)) return;
 
+    itensPedido = normalizarItensPedido(itensPedido).filter((item) => {
+      const nome = String(item.nome || "").trim();
+      const nomeValido = nome && nome !== "Produto 3D";
+      return nomeValido || Number(item.total) > 0 || Number(item.valor) > 0;
+    });
+
     if (itensPedido.length === 0) {
       alert("Nenhum item no pedido");
+      return;
+    }
+
+    if (itensPedido.some((item) => Number(item.total) <= 0 || !String(item.nome || "").trim())) {
+      alert("Revise os itens: todos precisam ter descrição e valor maior que zero.");
       return;
     }
 
