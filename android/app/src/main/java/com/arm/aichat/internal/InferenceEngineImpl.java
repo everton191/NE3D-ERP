@@ -9,11 +9,11 @@ import java.io.IOException;
 public final class InferenceEngineImpl {
     private static final String TAG = "S3D-Llama";
     private static final String LIB_NAME = "ai-chat";
-    private static final int DEFAULT_MAX_TOKENS = 160;
+    private static final int DEFAULT_MAX_TOKENS = 120;
     private static final int DEFAULT_CONTEXT_TOKENS = 1024;
     private static final int DEFAULT_THREADS = 2;
     private static final int DEFAULT_GPU_LAYERS = 0;
-    private static final int MAX_RESPONSE_CHARS = 2400;
+    private static final int MAX_RESPONSE_CHARS = 1200;
     private static final Object LOCK = new Object();
 
     private static volatile InferenceEngineImpl instance;

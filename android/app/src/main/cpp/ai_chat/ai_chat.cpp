@@ -29,7 +29,11 @@ constexpr int   DEFAULT_THREAD_COUNT     = 2;
 constexpr int   DEFAULT_GPU_LAYERS       = 0;
 constexpr int   OVERFLOW_HEADROOM       = 4;
 constexpr int   BATCH_SIZE              = 64;
-constexpr float DEFAULT_SAMPLER_TEMP    = 0.35f;
+constexpr float DEFAULT_SAMPLER_TEMP    = 0.25f;
+constexpr float DEFAULT_SAMPLER_TOP_P   = 0.85f;
+constexpr float DEFAULT_REPEAT_PENALTY  = 1.22f;
+constexpr float DEFAULT_FREQ_PENALTY    = 0.35f;
+constexpr float DEFAULT_PRESENT_PENALTY = 0.10f;
 
 static llama_model                      * g_model;
 static llama_context                    * g_context;
@@ -106,6 +110,12 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
 static common_sampler *new_sampler(float temp) {
     common_params_sampling sparams;
     sparams.temp = temp;
+    sparams.top_k = 40;
+    sparams.top_p = DEFAULT_SAMPLER_TOP_P;
+    sparams.penalty_repeat = DEFAULT_REPEAT_PENALTY;
+    sparams.penalty_freq = DEFAULT_FREQ_PENALTY;
+    sparams.penalty_present = DEFAULT_PRESENT_PENALTY;
+    sparams.penalty_last_n = 128;
     return common_sampler_init(g_model, sparams);
 }
 

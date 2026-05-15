@@ -404,7 +404,9 @@ public class SimplificaFilesPlugin extends Plugin {
         result.put("contextTokens", InferenceEngineImpl.getDefaultContextTokens());
         result.put("maxTokens", 160);
         result.put("threads", InferenceEngineImpl.getDefaultThreads());
-        result.put("temperature", 0.35);
+        result.put("temperature", 0.25);
+        result.put("topP", 0.85);
+        result.put("repeatPenalty", 1.22);
         result.put("gpuLayers", InferenceEngineImpl.getDefaultGpuLayers());
         result.put("mmap", true);
         result.put("availableMemoryMb", getAvailableMemoryMb());
@@ -487,7 +489,7 @@ public class SimplificaFilesPlugin extends Plugin {
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "");
         final String prompt = call.getString("prompt", "");
-        final int maxTokens = Math.max(16, Math.min(call.getData().optInt("maxTokens", 160), 256));
+        final int maxTokens = Math.max(16, Math.min(call.getData().optInt("maxTokens", 120), 256));
         final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {

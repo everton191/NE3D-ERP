@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.20";
-const APP_VERSION_CODE = 71;
+const APP_VERSION = "51.0.21";
+const APP_VERSION_CODE = 72;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -62,10 +62,13 @@ const ONBOARDING_PRINT_TYPES = [
   { id: "ambos", label: "Ambos" }
 ];
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
-const ASSISTANT_MAX_MESSAGES = 20;
-const ASSISTANT_MAX_CONTEXT_RESULTS = 10;
+const ASSISTANT_MAX_MESSAGES = 8;
+const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
 const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente oficial do Simplifica 3D para usuários do app. Responda somente com base no contexto/manual enviado. Explique passos práticos sobre pedidos, estoque, calculadora, caixa, produção, clientes, PDFs, anúncios, planos, backup/sincronização, personalização e configurações comuns. Não invente funções, telas, preços ou regras. Não explique nem oriente ações de Super Admin. Se não encontrar a informação, diga: 'Não encontrei essa informação no manual do sistema.' Use português brasileiro simples, direto e respostas curtas.";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente rápido do Simplifica 3D. Responda em português do Brasil, de forma prática, curta e objetiva. Evite introduções como 'Claro', 'Com certeza', 'Vou te ajudar' e conclusões como 'Espero ter ajudado'. Não repita frases. Não invente dados, preços, clientes, estoque, telas ou regras. Não oriente ações de Super Admin. Se faltar informação, peça apenas o dado essencial. Prefira até 3 frases e no máximo passos curtos. O app possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios, produção, PDF, planos, backup, sincronização e configurações comuns.";
+const AI_RESPONSE_MAX_CHARS = 800;
+const AI_DEFAULT_MAX_TOKENS = 120;
+const AI_TECHNICAL_MAX_TOKENS = 220;
 const AI_RUNTIME_TEST_SYSTEM_PROMPT = "Responda somente OK.";
 const AI_RUNTIME_TEST_PROMPT = "OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
@@ -283,6 +286,16 @@ let assistantRuntimeLoading = false;
 let assistantRuntimeReady = false;
 let assistantRuntimePromise = null;
 let assistantRuntimeWarmupAt = 0;
+let assistantGenerationToken = 0;
+let assistantLocalDiagnostics = {
+  promptChars: 0,
+  responseChars: 0,
+  promptTokens: 0,
+  responseMs: 0,
+  lastError: "",
+  lastScreen: "",
+  lastUpdatedAt: ""
+};
 let aiModelInstallPromise = null;
 let aiProgressRenderTimer = null;
 let adminAuthValidUntil = 0;
@@ -6531,26 +6544,117 @@ function normalizarTextoAssistente(texto) {
   return removerAcentos(String(texto || "").toLowerCase());
 }
 
-function montarContextoAssistenteEnxuto(tarefa = "") {
+function getLocalAiUsageProfile() {
+  const eventos = normalizarUsoInteligente(usageLearning).events;
+  const telas = eventos.filter((evento) => evento.tipo === "tela_aberta").slice(-30);
+  const telaFrequente = (() => {
+    const mapa = new Map();
+    telas.forEach((evento) => {
+      const tela = String(evento.tela || "").trim();
+      if (!tela || ["admin", "onboarding"].includes(tela)) return;
+      mapa.set(tela, (mapa.get(tela) || 0) + 1);
+    });
+    return [...mapa.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+  })();
+  return {
+    favoriteMaterial: valorFrequenteUso("material_usado", "materialNome", 60) || valorFrequenteUso("material_usado", "materialId", 60),
+    preferredPrinter: valorFrequenteUso("impressora_usada", "impressora", 60),
+    mostVisitedScreen: telaFrequente,
+    commonActions: eventos.slice(-20).map((evento) => evento.tipo).filter(Boolean).slice(-5)
+  };
+}
+
+function contextoCalculadoraIA() {
+  const materialId = document.getElementById("materialSelect")?.value || appConfig.defaultMaterialId || "";
+  const material = getMaterialEstoque(materialId);
+  return {
+    peso: Number(document.getElementById("peso")?.value || 0) || undefined,
+    tempo: document.getElementById("tempo")?.value || undefined,
+    material: material?.nome || materialId || undefined,
+    margem: Number(document.getElementById("margem")?.value || appConfig.defaultMargin || 0) || undefined,
+    energia: Number(appConfig.energyCost || 0) || undefined,
+    impressora: document.getElementById("printerSelect")?.value || appConfig.defaultPrinter || undefined
+  };
+}
+
+function contextoPedidoIA() {
   const pedidoAtual = pedidoEditando || (pedidoVisualizandoId ? pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId)) : null);
+  if (!pedidoAtual && !itensPedido.length) return null;
+  const itens = normalizarItensPedido(pedidoAtual || itensPedido).slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
+  return {
+    id: pedidoAtual?.id || pedidoEditando?.id || "",
+    cliente: pedidoAtual ? clienteDoPedido(pedidoAtual) : clientePedido,
+    status: pedidoAtual?.status || pedidoEditando?.status || "aberto",
+    total: pedidoAtual ? totalPedido(pedidoAtual) : itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0),
+    itens: itens.map((item) => ({ nome: item.nome, qtd: item.qtd, total: item.total }))
+  };
+}
+
+function buildAiContext(screen = telaAtual, userInput = "") {
+  const tela = String(screen || telaAtual || "dashboard");
+  const contexto = {
+    tela,
+    pergunta: String(userInput || "").slice(0, 220),
+    perfilUso: getLocalAiUsageProfile()
+  };
+  if (tela === "calculadora") {
+    contexto.modulo = "calculadora";
+    contexto.instrucao = "Ajude com cálculo de impressão 3D. Não invente valores.";
+    contexto.dados = contextoCalculadoraIA();
+  } else if (["pedido", "pedidos", "producao"].includes(tela)) {
+    contexto.modulo = "pedidos";
+    contexto.instrucao = "Ajude o usuário com pedidos e organização.";
+    contexto.dados = contextoPedidoIA();
+  } else if (tela === "estoque") {
+    contexto.modulo = "estoque";
+    contexto.instrucao = "Ajude com controle de materiais.";
+    contexto.dados = normalizarEstoque().slice(0, ASSISTANT_MAX_CONTEXT_RESULTS).map((material) => ({
+      nome: material.nome,
+      qtd: material.qtd,
+      cor: material.cor,
+      tipo: material.tipo
+    }));
+  } else if (tela === "clientes") {
+    contexto.modulo = "clientes";
+    contexto.instrucao = "Ajude com cadastro e organização de clientes.";
+    contexto.dados = { totalClientes: Array.isArray(clientes) ? clientes.length : 0 };
+  } else if (tela === "caixa") {
+    contexto.modulo = "caixa";
+    contexto.instrucao = "Ajude com informações financeiras sem inventar valores.";
+    const stats = getDashboardStats();
+    const totais = calcularTotaisCaixa();
+    contexto.dados = {
+      faturamentoHoje: stats.faturamentoDia,
+      lucroEstimado: stats.lucroEstimado,
+      entradas: totais.entradas,
+      saidas: totais.saidas,
+      saldo: totais.saldo
+    };
+  } else {
+    contexto.modulo = "geral";
+    contexto.instrucao = "Oriente somente sobre funções comuns do Simplifica 3D.";
+    contexto.dados = { plano: getPlanoAtual().status, empresa: appConfig.businessName || SYSTEM_NAME };
+  }
+  contexto.mensagensRecentes = assistantMessages
+    .filter((mensagem) => mensagem?.role && mensagem?.text && !/gerando|iniciando|consultando/i.test(mensagem.text))
+    .slice(-2)
+    .map((mensagem) => ({ role: mensagem.role, text: String(mensagem.text).slice(0, 180) }));
+  return contexto;
+}
+
+function montarContextoAssistenteEnxuto(tarefa = "") {
+  const contexto = buildAiContext(telaAtual, tarefa);
   const materiaisBaixos = normalizarEstoque()
     .filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg)
     .slice(0, ASSISTANT_MAX_CONTEXT_RESULTS)
     .map((material) => ({ nome: material.nome, qtd: material.qtd, tipo: material.tipo }));
   return {
+    ...contexto,
     tarefa: String(tarefa || "").slice(0, 300),
-    tela: telaAtual,
     empresa: appConfig.businessName || SYSTEM_NAME,
     plano: getPlanoAtual().status,
-    pedidoAtual: pedidoAtual ? {
-      id: pedidoAtual.id,
-      cliente: clienteDoPedido(pedidoAtual),
-      total: totalPedido(pedidoAtual),
-      status: pedidoAtual.status || "aberto",
-      itens: normalizarItensPedido(pedidoAtual).slice(0, ASSISTANT_MAX_CONTEXT_RESULTS)
-    } : null,
+    pedidoAtual: contexto.modulo === "pedidos" ? contexto.dados : null,
     materiaisBaixos,
-    mensagensRecentes: assistantMessages.slice(-ASSISTANT_MAX_MESSAGES),
     limites: {
       mensagens: ASSISTANT_MAX_MESSAGES,
       resultados: ASSISTANT_MAX_CONTEXT_RESULTS
@@ -6581,10 +6685,10 @@ function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxut
     const estimado = estimarTokensTexto(JSON.stringify(contexto || {}));
     window.__assistantLastTokenEstimate = estimado;
     console.debug("[Assistente] Resposta básica", { tokens: estimado, tela: contexto?.tela || telaAtual, matched: !!resposta });
-    return resposta?.answer || "Não consegui acessar a IA agora, mas posso te ajudar com orientações básicas do sistema. Tente perguntar sobre pedido, estoque, calculadora, PDF, backup, plano ou login.";
+    return cleanAiResponse(resposta?.answer || "Não consegui acessar a IA agora, mas posso te ajudar com orientações básicas do sistema. Tente perguntar sobre pedido, estoque, calculadora, PDF, backup, plano ou login.", { maxChars: 520 });
   } catch (erro) {
     ErrorService.capture(erro, { area: "Assistente básico", action: "fallback", silent: true });
-    return "Não consegui acessar a IA agora, mas posso te ajudar com orientações básicas do sistema.";
+    return "Não consegui acessar a IA agora. Pergunte sobre pedido, estoque, calculadora, PDF, backup, plano ou login.";
   }
 }
 
@@ -6625,7 +6729,7 @@ function obterRespostaOrientadaAssistente(pergunta = "") {
   const contem = (termos) => termos.some((termo) => pergunta.includes(normalizarTextoAssistente(termo)));
   const especificaPedido = contem(["criar", "novo", "editar", "alterar", "fechar", "finalizar", "salvar", "excluir", "remover", "pdf", "whatsapp", "status", "item"]);
   if (contem(["pedido", "pedidos"]) && !especificaPedido) {
-    return "Claro. Em pedidos, você quer ajuda para criar, editar itens, fechar/salvar, excluir, gerar PDF ou enviar por WhatsApp?";
+    return "Em pedidos, você quer criar, editar itens, salvar, excluir, gerar PDF ou enviar por WhatsApp?";
   }
   const especificaEstoque = contem(["cadastrar", "editar", "remover", "baixar", "material", "cor", "kg", "filamento", "resina"]);
   if (contem(["estoque"]) && !especificaEstoque) {
@@ -6680,7 +6784,16 @@ function atualizarElementosProgressoIA(modelId, state = getAIModelLocalState(mod
     if (percent) percent.textContent = `${Math.max(0, Math.min(100, progress.percent))}%`;
     const label = root.querySelector("[data-ai-progress-label]");
     if (label) label.textContent = progress.label || label.textContent || "";
+    const meta = root.querySelector("[data-ai-progress-meta]");
+    if (meta) meta.textContent = formatarMetaProgressoIA(state);
   });
+}
+
+function formatarMetaProgressoIA(state = {}) {
+  const baixado = formatarMb(state.downloadedBytes);
+  const total = formatarMb(state.totalBytes);
+  const speed = Number(state.speedBytesPerSec || 0) > 0 ? `${formatarMb(state.speedBytesPerSec)}/s` : "";
+  return [baixado && total ? `${baixado} de ${total}` : baixado, speed].filter(Boolean).join(" • ");
 }
 
 function podeExibirAssistenteIAOffline() {
@@ -6991,8 +7104,11 @@ function renderDiagnosticoRuntimeIA() {
         <div class="metric"><span>GPU layers</span><strong>${escaparHtml(valor(diag.gpuLayers, 0))}</strong></div>
         <div class="metric"><span>RAM livre</span><strong>${escaparHtml(valor(diag.availableMemoryMb))} MB</strong></div>
         <div class="metric"><span>Android</span><strong>${escaparHtml(valor(diag.androidSdk))}</strong></div>
+        <div class="metric"><span>Prompt</span><strong>${assistantLocalDiagnostics.promptChars || 0} chars</strong></div>
+        <div class="metric"><span>Resposta</span><strong>${assistantLocalDiagnostics.responseChars || 0} chars</strong></div>
+        <div class="metric"><span>Tempo IA</span><strong>${assistantLocalDiagnostics.responseMs || 0} ms</strong></div>
       </div>
-      ${diag.error ? `<p class="feedback-status error">${escaparHtml(diag.error)}</p>` : ""}
+      ${diag.error || assistantLocalDiagnostics.lastError ? `<p class="feedback-status error">${escaparHtml(diag.error || assistantLocalDiagnostics.lastError)}</p>` : ""}
       <div class="actions">
         <button class="btn ghost" type="button" onclick="atualizarDiagnosticoRuntimeIA(true)">Atualizar diagnóstico</button>
       </div>
@@ -7120,6 +7236,7 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
             <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
           </div>
           ${progress.label ? `<span data-ai-progress-label>${escaparHtml(progress.label)}</span>` : `<span data-ai-progress-label></span>`}
+          <small data-ai-progress-meta>${escaparHtml(formatarMetaProgressoIA(state))}</small>
           ${state.runtimeValidatedAt ? `<small>Teste interno OK</small>` : ""}
           ${state.lastError ? `<small class="error">${escaparHtml(state.lastError)}</small>` : ""}
         </div>
@@ -7141,11 +7258,18 @@ async function adicionarListenerProgressoIA(modelId) {
     const handle = await plugin.addListener("aiModelProgress", (event = {}) => {
       if (String(event.modelId || "") !== String(modelId)) return;
       const status = String(event.status || AI_INSTALL_STATUS.DOWNLOADING);
+      const anterior = getAIModelLocalState(modelId);
+      const agora = Date.now();
+      const bytes = Number(event.bytesRead || event.downloadedBytes || 0) || 0;
+      const deltaBytes = Math.max(0, bytes - (Number(anterior.downloadedBytes || 0) || 0));
+      const deltaMs = Math.max(250, agora - (Number(anterior.lastUpdateMs || 0) || agora));
       setAIModelLocalState(modelId, {
         status,
         progress: Number(event.percent || 0) || 0,
-        downloadedBytes: Number(event.bytesRead || event.downloadedBytes || 0) || 0,
+        downloadedBytes: bytes,
         totalBytes: Number(event.totalBytes || 0) || 0,
+        speedBytesPerSec: Math.round((deltaBytes * 1000) / deltaMs),
+        lastUpdateMs: agora,
         lastError: ""
       });
       atualizarElementosProgressoIA(modelId);
@@ -7744,24 +7868,100 @@ function buscarTrechosManualIA(texto = "") {
   return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 3);
 }
 
-function montarPromptIAOffline(texto = "", contexto = {}) {
-  const contextoSeguro = {
-    tela: contexto.tela || telaAtual,
-    pergunta: String(texto || "").slice(0, 300),
-    dados: contexto.calculoRecente || contexto
+function getAiGenerationOptions(texto = "") {
+  const tecnico = /diagn[oó]stico|erro|trav|runtime|modelo|download|instala|configura|relat[oó]rio|financeiro|detalh/i.test(texto);
+  return {
+    maxTokens: tecnico ? AI_TECHNICAL_MAX_TOKENS : AI_DEFAULT_MAX_TOKENS,
+    temperature: tecnico ? 0.25 : 0.2,
+    topP: 0.85,
+    topK: 40,
+    repeatPenalty: 1.22,
+    presencePenalty: 0.1,
+    frequencyPenalty: 0.35,
+    maxChars: tecnico ? AI_RESPONSE_MAX_CHARS : 520
   };
+}
+
+function resumirContextoIA(contexto = {}) {
+  const seguro = {
+    tela: contexto.tela || telaAtual,
+    modulo: contexto.modulo || "geral",
+    instrucao: contexto.instrucao || "",
+    dados: contexto.dados || contexto.pedidoAtual || null,
+    perfilUso: contexto.perfilUso || getLocalAiUsageProfile(),
+    ultimas: Array.isArray(contexto.mensagensRecentes) ? contexto.mensagensRecentes.slice(-2) : []
+  };
+  return JSON.stringify(seguro, (_, valor) => {
+    if (typeof valor === "string") return valor.slice(0, 180);
+    if (Array.isArray(valor)) return valor.slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
+    return valor;
+  }).slice(0, 900);
+}
+
+function montarPromptIAOffline(texto = "", contexto = {}) {
   const trechosManual = buscarTrechosManualIA(texto);
   return [
-    "Manual relevante do Simplifica 3D:",
+    "Manual curto:",
     trechosManual.join("\n"),
-    "Regra de interação:",
-    "Se a pergunta for ampla, pergunte qual tarefa o usuário quer fazer antes de dar passos. Exemplo: em 'ajuda com pedidos', ofereça criar, editar, fechar/salvar, excluir, PDF ou WhatsApp.",
-    "Contexto resumido:",
-    JSON.stringify(contextoSeguro).slice(0, 700),
+    "Regra:",
+    "Se a pergunta for ampla, pergunte só qual tarefa deseja fazer. Responda curto, direto e sem repetir.",
+    "Contexto:",
+    resumirContextoIA(contexto),
     "",
     "Pergunta:",
-    String(texto || "").slice(0, 400)
+    String(texto || "").slice(0, 260)
   ].join("\n");
+}
+
+function cleanAiResponse(response = "", opcoes = {}) {
+  const limite = Math.max(160, Math.min(Number(opcoes.maxChars || AI_RESPONSE_MAX_CHARS) || AI_RESPONSE_MAX_CHARS, AI_RESPONSE_MAX_CHARS));
+  let texto = String(response || "")
+    .replace(/\r/g, "\n")
+    .replace(/\*\*/g, "")
+    .replace(/```[\s\S]*?```/g, (bloco) => bloco.replace(/```/g, ""))
+    .replace(/^\s*(claro!?|com certeza!?|vou te ajudar\.?|posso ajudar\.?)\s*/i, "")
+    .replace(/\b(espero ter ajudado|se precisar estou aqui|posso ajudar em mais alguma coisa\??)\b\.?/gi, "")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+  const linhas = [];
+  const vistas = new Set();
+  texto.split(/\n+/).forEach((linha) => {
+    const limpa = linha.replace(/^[-*•\d.)\s]+/, "").trim();
+    if (!limpa) return;
+    const chave = normalizarTextoAssistente(limpa).replace(/\W+/g, " ").trim();
+    if (vistas.has(chave)) return;
+    vistas.add(chave);
+    linhas.push(limpa);
+  });
+  texto = linhas.join("\n").trim();
+  const frases = texto.split(/(?<=[.!?])\s+/).filter(Boolean);
+  const frasesUnicas = [];
+  const chaves = new Set();
+  frases.forEach((frase) => {
+    const chave = normalizarTextoAssistente(frase).replace(/\W+/g, " ").slice(0, 120);
+    if (chaves.has(chave)) return;
+    chaves.add(chave);
+    frasesUnicas.push(frase.trim());
+  });
+  if (frasesUnicas.length > 3) texto = frasesUnicas.slice(0, 3).join(" ");
+  if (texto.length > limite) texto = texto.slice(0, limite).replace(/\s+\S*$/, "").trim() + ".";
+  return texto || "Não encontrei essa informação no manual do sistema.";
+}
+
+function registrarDiagnosticoIA(tipo, dados = {}) {
+  assistantLocalDiagnostics = {
+    ...assistantLocalDiagnostics,
+    ...dados,
+    lastScreen: telaAtual,
+    lastUpdatedAt: new Date().toISOString()
+  };
+  if (tipo === "erro") assistantLocalDiagnostics.lastError = String(dados.error || dados.lastError || "").slice(0, 160);
+  registrarDiagnostico("IA Local", tipo, JSON.stringify({
+    tela: assistantLocalDiagnostics.lastScreen,
+    promptChars: assistantLocalDiagnostics.promptChars,
+    responseChars: assistantLocalDiagnostics.responseChars,
+    responseMs: assistantLocalDiagnostics.responseMs
+  }), { silent: true });
 }
 
 function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
@@ -7778,18 +7978,38 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
   if (!ativo) throw new Error("Instale a IA local antes de usar.");
   const plugin = getAIPlugin();
   if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
+  const geracao = { ...getAiGenerationOptions(texto), ...opcoes };
+  const prompt = montarPromptIAOffline(texto, contexto);
+  const inicio = performance.now();
+  registrarDiagnosticoIA("prompt", {
+    promptChars: prompt.length,
+    promptTokens: estimarTokensTexto(prompt),
+    responseChars: 0,
+    responseMs: 0
+  });
 
   const result = await plugin.runAiPrompt({
     modelId: ativo.modelo.id,
     modelPath: ativo.path,
     systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
-    prompt: montarPromptIAOffline(texto, contexto),
-    maxTokens: Math.max(32, Math.min(Number(opcoes.maxTokens || 160) || 160, 256)),
+    prompt,
+    maxTokens: Math.max(32, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 256)),
+    temperature: geracao.temperature,
+    topP: geracao.topP,
+    topK: geracao.topK,
+    repeatPenalty: geracao.repeatPenalty,
+    presencePenalty: geracao.presencePenalty,
+    frequencyPenalty: geracao.frequencyPenalty,
     proAllowed: podeUsarAssistenteIAOfflinePro(),
-    timeoutMs: Math.max(8000, Math.min(Number(opcoes.timeoutMs || 120000) || 120000, 240000))
+    timeoutMs: Math.max(8000, Math.min(Number(geracao.timeoutMs || 90000) || 90000, 180000))
   });
-  const resposta = String(result?.text || "").trim();
+  const resposta = cleanAiResponse(result?.text || "", geracao);
   if (!resposta) throw new Error("O modelo offline não retornou resposta.");
+  registrarDiagnosticoIA("resposta", {
+    responseChars: resposta.length,
+    responseMs: Math.round(performance.now() - inicio),
+    lastError: ""
+  });
   return resposta;
 }
 
@@ -7890,9 +8110,13 @@ async function abrirAssistenteComPergunta(texto = "") {
 async function responderAssistente(texto = "") {
   const pergunta = String(texto || "").trim();
   if (!pergunta) return;
+  const tokenGeracao = ++assistantGenerationToken;
+  if (assistantGenerating) {
+    try { await getAIPlugin()?.cancelAiGeneration?.(); } catch (_) {}
+  }
   let contexto = {};
   try {
-    contexto = montarContextoAssistenteEnxuto(pergunta);
+    contexto = buildAiContext(telaAtual, pergunta);
   } catch (erro) {
     contexto = { tela: telaAtual, tarefa: pergunta };
     ErrorService.capture(erro, { area: "Assistente básico", action: "contexto", silent: true });
@@ -7912,32 +8136,37 @@ async function responderAssistente(texto = "") {
     if (usarIAPro) {
       const carregou = await garantirRuntimeIAAtivo({ silent: true });
       if (!carregou) throw new Error("IA local não iniciou neste aparelho.");
-      respostaPendente.text = "Gerando resposta local...";
+      if (tokenGeracao !== assistantGenerationToken) return;
+      respostaPendente.text = "Gerando resposta...";
       renderizarMensagemAssistentePendente(respostaPendente);
     }
     const resposta = usarIAPro
       ? await promiseComTimeout(
-          gerarRespostaIAOffline(pergunta, contexto, { maxTokens: 128, timeoutMs: 240000 }),
-          245000,
+          gerarRespostaIAOffline(pergunta, contexto, { timeoutMs: 90000 }),
+          95000,
           "IA local demorou demais para responder."
         )
       : obterRespostaAssistente(pergunta, contexto);
+    if (tokenGeracao !== assistantGenerationToken) return;
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
+    const respostaLimpa = cleanAiResponse(resposta, getAiGenerationOptions(pergunta));
     if (respostaIndex >= 0) {
-      assistantMessages[respostaIndex] = { role: "assistant", text: resposta };
+      assistantMessages[respostaIndex] = { role: "assistant", text: respostaLimpa };
     } else {
-      assistantMessages.push({ role: "assistant", text: resposta });
+      assistantMessages.push({ role: "assistant", text: respostaLimpa });
     }
     if (usarIAPro && getAIAssistantSettings().ttsEnabled === true) {
-      lerRespostaIAEmVoz(resposta);
+      lerRespostaIAEmVoz(respostaLimpa);
     }
   } catch (erro) {
+    if (tokenGeracao !== assistantGenerationToken) return;
     registrarFalhaIALocal("chat_response", erro);
+    registrarDiagnosticoIA("erro", { error: erro?.message || String(erro) });
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
     const fallback = {
       role: "assistant",
       text: usarIAPro
-        ? `Não consegui iniciar a IA local agora: ${erro?.message || "erro no runtime"}. O modelo continua instalado; tente novamente ou reinicie o app.`
+        ? getFallbackAssistentePorTela(telaAtual, erro)
         : obterRespostaAssistente(pergunta, contexto)
     };
     if (respostaIndex >= 0) {
@@ -7946,11 +8175,20 @@ async function responderAssistente(texto = "") {
       assistantMessages.push(fallback);
     }
   } finally {
-    assistantGenerating = false;
+    if (tokenGeracao === assistantGenerationToken) assistantGenerating = false;
   }
   limitarMensagensAssistente();
   renderApp();
   setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
+}
+
+function getFallbackAssistentePorTela(tela = telaAtual, erro = null) {
+  const sufixo = erro?.message ? ` (${String(erro.message).slice(0, 80)})` : "";
+  if (tela === "calculadora") return `Preencha peso, tempo, material e margem. Depois toque em Calcular.${sufixo}`;
+  if (["pedido", "pedidos"].includes(tela)) return `Abra ou crie um pedido, selecione o item e revise total antes de salvar.${sufixo}`;
+  if (tela === "estoque") return `Cadastre material com tipo, cor e quantidade em kg. Ajuste pelo ícone de editar.${sufixo}`;
+  if (tela === "caixa") return `Confira entradas, saídas e saldo. Não altere valores sem revisar a origem.${sufixo}`;
+  return `A IA local falhou agora. Use o assistente básico ou tente novamente.${sufixo}`;
 }
 
 function renderizarMensagemAssistentePendente(referencia) {
@@ -7963,6 +8201,7 @@ function renderizarMensagemAssistentePendente(referencia) {
 }
 
 async function cancelarGeracaoIAOffline() {
+  assistantGenerationToken++;
   assistantGenerating = false;
   try {
     await getAIPlugin()?.cancelAiGeneration?.();
