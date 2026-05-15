@@ -19,7 +19,7 @@ const legacyApk = path.join(downloadsDir, "NE3D-ERP-android-users17-debug.apk");
 const updateManifest = path.join(downloadsDir, "update.json");
 const appJs = path.join(rootDir, "app.js");
 const buildGradle = path.join(rootDir, "android", "app", "build.gradle");
-const publicRepo = "everton191/NE3D-ERP.apk";
+const publicRepo = process.env.ANDROID_PUBLIC_REPO || "everton191/NE3D-ERP.apk-test";
 const defaultApkUrl = `https://raw.githubusercontent.com/${publicRepo}/main/NE3D-ERP.apk`;
 
 if (!fs.existsSync(sourceApk)) {

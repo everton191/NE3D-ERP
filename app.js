@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.21";
-const APP_VERSION_CODE = 72;
+const APP_VERSION = "51.0.22";
+const APP_VERSION_CODE = 73;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -66,6 +66,7 @@ const ASSISTANT_MAX_MESSAGES = 8;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
 const AI_LOCAL_UI_VERSION = "2026-05-13-pro-only-v2";
 const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente rápido do Simplifica 3D. Responda em português do Brasil, de forma prática, curta e objetiva. Evite introduções como 'Claro', 'Com certeza', 'Vou te ajudar' e conclusões como 'Espero ter ajudado'. Não repita frases. Não invente dados, preços, clientes, estoque, telas ou regras. Não oriente ações de Super Admin. Se faltar informação, peça apenas o dado essencial. Prefira até 3 frases e no máximo passos curtos. O app possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios, produção, PDF, planos, backup, sincronização e configurações comuns.";
+const AI_PRO_SYSTEM_PROMPT = "Você é a IA Pro do Simplifica 3D. Ajude o usuário de forma prática, inteligente e objetiva, em português do Brasil. Você entende impressão 3D FDM, cálculo de preço, pedidos, estoque, clientes, produção, materiais e organização do sistema. Responda de forma natural, curta e organizada; use passos apenas quando necessário. Não repita, não invente dados, preços, clientes, pedidos, estoque, telas ou regras. Se faltar informação, peça apenas o dado essencial. Não faça ações sozinho, nunca salve automaticamente e nunca confirme alterações sem o usuário.";
 const AI_RESPONSE_MAX_CHARS = 800;
 const AI_DEFAULT_MAX_TOKENS = 120;
 const AI_TECHNICAL_MAX_TOKENS = 220;
@@ -85,6 +86,7 @@ const AI_KNOWLEDGE_BASE = Object.freeze({
   limites: "A IA local é focada no uso do Simplifica 3D e impressão 3D FDM. Ela não deve orientar ações de Super Admin nem inventar funções."
 });
 const AI_DEFAULT_MODEL_ID = "qwen25_05b_q8";
+const AI_PRO_MODEL_ID = "qwen25_3b_q5km_pro";
 const AI_MODELS = Object.freeze([
   {
     id: AI_DEFAULT_MODEL_ID,
@@ -99,6 +101,20 @@ const AI_MODELS = Object.freeze([
     fileName: "Qwen2.5-0.5B-Instruct-Q8_0.gguf",
     officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
     url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q8_0.gguf"
+  },
+  {
+    id: AI_PRO_MODEL_ID,
+    name: "IA Pro",
+    tier: "pro",
+    model: "Qwen2.5 3B Instruct Q5_K_M GGUF",
+    sizeMb: 2300,
+    minBytes: 1700 * 1024 * 1024,
+    ramRecommended: "6 GB+",
+    recommended: "Modo avançado experimental",
+    description: "Modelo local maior para respostas mais inteligentes no canal de testes. Pode ser mais lento e consumir mais RAM.",
+    fileName: "Qwen2.5-3B-Instruct-Q5_K_M.gguf",
+    officialPage: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF",
+    url: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q5_K_M.gguf"
   }
 ]);
 const AI_INSTALL_STATUS = Object.freeze({
@@ -194,7 +210,7 @@ const BACKUP_REMINDER_START_MIN = 17 * 60 + 30;
 const BACKUP_REMINDER_END_MIN = 18 * 60 + 30;
 const CLIENT_CODE_PREFIX = "S3D";
 const INACTIVE_CLIENT_DAYS = 90;
-const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP.apk";
+const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP.apk-test";
 const ANDROID_RELEASES_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/NE3D-ERP.apk`;
 const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/update.json`;
 const ANDROID_UPDATE_MANIFEST_FALLBACK_URLS = [
@@ -6564,6 +6580,16 @@ function getLocalAiUsageProfile() {
   };
 }
 
+function getProAiUsageProfile() {
+  const base = getLocalAiUsageProfile();
+  return {
+    ...base,
+    commonMargin: Number(appConfig.defaultMargin || appConfig.margin || 0) || undefined,
+    frequentScreens: [base.mostVisitedScreen].filter(Boolean),
+    learnedLocally: true
+  };
+}
+
 function contextoCalculadoraIA() {
   const materialId = document.getElementById("materialSelect")?.value || appConfig.defaultMaterialId || "";
   const material = getMaterialEstoque(materialId);
@@ -6640,6 +6666,19 @@ function buildAiContext(screen = telaAtual, userInput = "") {
     .slice(-2)
     .map((mensagem) => ({ role: mensagem.role, text: String(mensagem.text).slice(0, 180) }));
   return contexto;
+}
+
+function buildProAiContext(screen = telaAtual, userInput = "") {
+  const contexto = buildAiContext(screen, userInput);
+  return {
+    ...contexto,
+    modo: "IA Pro",
+    perfilUso: getProAiUsageProfile(),
+    instrucao: [
+      contexto.instrucao || "Ajude o usuário dentro do Simplifica 3D.",
+      "A IA Pro pode orientar e preparar próximas ações, mas nunca altera dados nem salva sem confirmação."
+    ].join(" ")
+  };
 }
 
 function montarContextoAssistenteEnxuto(tarefa = "") {
@@ -6723,6 +6762,13 @@ function getAIAssistantSettings() {
 
 function getAIModel(modelId) {
   return AI_MODELS.find((modelo) => modelo.id === modelId) || AI_MODELS[0] || null;
+}
+
+function isAIProModel(modelOrId) {
+  const modelo = typeof modelOrId === "object" && modelOrId
+    ? modelOrId
+    : getAIModel(String(modelOrId || ""));
+  return String(modelo?.tier || "") === "pro" || String(modelo?.id || "") === AI_PRO_MODEL_ID;
 }
 
 function obterRespostaOrientadaAssistente(pergunta = "") {
@@ -7210,6 +7256,7 @@ function renderAssistenteInteligenteProConfig() {
 
 function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
   const acessoProIA = podeUsarAssistenteIAOfflinePro();
+  const modeloPro = isAIProModel(modelo);
   const state = getAIModelLocalState(modelo.id);
   const realStatus = getAIModelStatus(modelo.id);
   const status = settings.activeModelId === modelo.id && isAIModelReadyStatus(realStatus) ? "active" : realStatus;
@@ -7220,9 +7267,9 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
   const statusLabel = status === "active" ? "Em uso" : labelStatusAI(status);
   const progress = progressoIAInstalacao(state);
   const tamanho = formatarMb(state.sizeBytes) || `${Number(state.sizeMb || modelo.sizeMb) || modelo.sizeMb} MB`;
-  const acaoPrincipal = !acessoProIA ? "Disponível no Plano Pro" : ready ? "Abrir IA" : realStatus === AI_INSTALL_STATUS.FAILED_DOWNLOAD || realStatus === AI_INSTALL_STATUS.FAILED_VALIDATION || realStatus === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Tentar novamente" : "Instalar IA";
+  const acaoPrincipal = !acessoProIA ? "Disponível no Plano Pro" : ready ? (modeloPro ? "Abrir IA Pro" : "Abrir IA") : realStatus === AI_INSTALL_STATUS.FAILED_DOWNLOAD || realStatus === AI_INSTALL_STATUS.FAILED_VALIDATION || realStatus === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Tentar novamente" : (modeloPro ? "Instalar IA Pro" : "Instalar IA");
   return `
-    <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""} ${acessoProIA ? "" : "locked"}">
+    <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""} ${modeloPro ? "pro" : ""} ${acessoProIA ? "" : "locked"}">
       <div class="row-title">
         <div>
           <strong>${escaparHtml(modelo.name)}</strong>
@@ -7230,6 +7277,8 @@ function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
         </div>
         <span class="status-badge">${escaparHtml(statusLabel)}</span>
       </div>
+      <p class="muted">${escaparHtml(modelo.description || "")}</p>
+      ${modeloPro ? `<p class="muted ai-pro-warning">Exclusivo do Plano Pro. * Pode causar lentidão no dispositivo dependendo da RAM e do modelo.</p>` : ""}
       ${progress.active || state.lastError || state.runtimeValidatedAt ? `
         <div class="ai-install-progress" data-ai-progress="${escaparAttr(modelo.id)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
           <div class="ai-progress-circle" aria-label="Progresso da IA">
@@ -7398,6 +7447,21 @@ async function baixarModeloIAOffline(modelId) {
     mostrarToast("Modelo ainda sem URL de download.", "aviso", 5000);
     renderizarPreservandoScroll();
     return false;
+  }
+  if (isAIProModel(modelo) && !getAIModelLocalState(modelId).heavyModelConfirmedAt) {
+    const capacidade = await obterResumoCapacidadeIA(modelo);
+    setAIModelLocalState(modelId, {
+      lastDeviceProfile: capacidade.message || "",
+      lastCapacityRisk: capacidade.risk || ""
+    });
+    if (["medium", "high"].includes(String(capacidade.risk || ""))) {
+      const continuar = confirm(`${capacidade.message || "Este modelo pode ser pesado neste aparelho."}\n\nA IA Pro usa mais RAM e pode ficar lenta. Deseja continuar o teste mesmo assim?`);
+      if (!continuar) {
+        mostrarToast("Use a IA Local menor neste aparelho ou tente a IA Pro depois.", "info", 4200);
+        return false;
+      }
+      setAIModelLocalState(modelId, { heavyModelConfirmedAt: new Date().toISOString() });
+    }
   }
   const plugin = getAIPlugin();
   if (!plugin?.downloadAiModel) {
@@ -7868,17 +7932,18 @@ function buscarTrechosManualIA(texto = "") {
   return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 3);
 }
 
-function getAiGenerationOptions(texto = "") {
+function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().activeModelId) {
   const tecnico = /diagn[oó]stico|erro|trav|runtime|modelo|download|instala|configura|relat[oó]rio|financeiro|detalh/i.test(texto);
+  const pro = isAIProModel(modelId);
   return {
-    maxTokens: tecnico ? AI_TECHNICAL_MAX_TOKENS : AI_DEFAULT_MAX_TOKENS,
-    temperature: tecnico ? 0.25 : 0.2,
+    maxTokens: pro ? 300 : tecnico ? AI_TECHNICAL_MAX_TOKENS : AI_DEFAULT_MAX_TOKENS,
+    temperature: pro ? 0.25 : tecnico ? 0.25 : 0.2,
     topP: 0.85,
     topK: 40,
-    repeatPenalty: 1.22,
+    repeatPenalty: pro ? 1.12 : 1.22,
     presencePenalty: 0.1,
-    frequencyPenalty: 0.35,
-    maxChars: tecnico ? AI_RESPONSE_MAX_CHARS : 520
+    frequencyPenalty: pro ? 0.2 : 0.35,
+    maxChars: pro ? 900 : tecnico ? AI_RESPONSE_MAX_CHARS : 520
   };
 }
 
@@ -7898,15 +7963,19 @@ function resumirContextoIA(contexto = {}) {
   }).slice(0, 900);
 }
 
-function montarPromptIAOffline(texto = "", contexto = {}) {
+function montarPromptIAOffline(texto = "", contexto = {}, modelo = null) {
   const trechosManual = buscarTrechosManualIA(texto);
+  const pro = isAIProModel(modelo);
+  const contextoSeguro = pro ? { ...buildProAiContext(contexto.tela || telaAtual, texto), ...contexto } : contexto;
   return [
     "Manual curto:",
     trechosManual.join("\n"),
     "Regra:",
-    "Se a pergunta for ampla, pergunte só qual tarefa deseja fazer. Responda curto, direto e sem repetir.",
+    pro
+      ? "Modo IA Pro: responda melhor, mas curto. Oriente e peça confirmação; não execute nem salve ações."
+      : "Se a pergunta for ampla, pergunte só qual tarefa deseja fazer. Responda curto, direto e sem repetir.",
     "Contexto:",
-    resumirContextoIA(contexto),
+    resumirContextoIA(contextoSeguro),
     "",
     "Pergunta:",
     String(texto || "").slice(0, 260)
@@ -7964,6 +8033,66 @@ function registrarDiagnosticoIA(tipo, dados = {}) {
   }), { silent: true });
 }
 
+// Estrutura separada da IA Pro para testar o modelo 3B sem misturar com o fluxo da IA local atual.
+const ProAiStateManager = Object.freeze({
+  getState: () => getAIModelLocalState(AI_PRO_MODEL_ID),
+  setState: (patch = {}) => setAIModelLocalState(AI_PRO_MODEL_ID, patch),
+  isReady: () => isAIModelReadyStatus(getAIModelStatus(AI_PRO_MODEL_ID))
+});
+
+const ProAiContextBuilder = Object.freeze({
+  build: (screen = telaAtual, userInput = "") => buildProAiContext(screen, userInput)
+});
+
+const ProAiPromptManager = Object.freeze({
+  systemPrompt: AI_PRO_SYSTEM_PROMPT,
+  buildPrompt: (input = "", context = buildProAiContext(telaAtual, input)) => montarPromptIAOffline(input, context, getAIModel(AI_PRO_MODEL_ID)),
+  options: (input = "") => getAiGenerationOptions(input, AI_PRO_MODEL_ID)
+});
+
+const ProAiResponseCleaner = Object.freeze({
+  clean: (response = "", options = {}) => cleanAiResponse(response, { maxChars: 900, ...options })
+});
+
+const ProAiDiagnostics = Object.freeze({
+  record: (type, data = {}) => registrarDiagnosticoIA(`pro_${type}`, { ...data, modelId: AI_PRO_MODEL_ID }),
+  get: () => ({ ...assistantLocalDiagnostics, modelId: AI_PRO_MODEL_ID, usageProfile: getProAiUsageProfile() })
+});
+
+const ProAiDownloadManager = Object.freeze({
+  get proAiDownloadState() {
+    const state = getAIModelLocalState(AI_PRO_MODEL_ID);
+    return {
+      status: getAIModelStatus(AI_PRO_MODEL_ID) || "idle",
+      progress: Number(state.progress || 0) || 0,
+      downloadedBytes: Number(state.downloadedBytes || 0) || 0,
+      totalBytes: Number(state.totalBytes || 0) || 0,
+      speed: Number(state.speedBytesPerSec || 0) || 0,
+      currentTask: labelStatusAI(getAIModelStatus(AI_PRO_MODEL_ID)),
+      error: String(state.lastError || ""),
+      filePath: String(state.path || ""),
+      hashValidated: state.ggufValid === true
+    };
+  },
+  download: () => baixarModeloIAOffline(AI_PRO_MODEL_ID),
+  cancel: () => cancelarInstalacaoIAOffline(AI_PRO_MODEL_ID),
+  remove: () => removerModeloIAOffline(AI_PRO_MODEL_ID)
+});
+
+const ProAiRuntimeManager = Object.freeze({
+  async ensure() {
+    if (ProAiStateManager.isReady()) return true;
+    return baixarModeloIAOffline(AI_PRO_MODEL_ID);
+  },
+  async generate(text = "", context = buildProAiContext(telaAtual, text), options = {}) {
+    definirIAConfig({ activeModelId: AI_PRO_MODEL_ID });
+    return gerarRespostaIAOffline(text, context, { ...ProAiPromptManager.options(text), ...options });
+  },
+  unload() {
+    try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
+  }
+});
+
 function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
   let timer = null;
   const timeout = new Promise((_, reject) => {
@@ -7978,8 +8107,11 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
   if (!ativo) throw new Error("Instale a IA local antes de usar.");
   const plugin = getAIPlugin();
   if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
-  const geracao = { ...getAiGenerationOptions(texto), ...opcoes };
-  const prompt = montarPromptIAOffline(texto, contexto);
+  const modeloAtivo = ativo.modelo || getAIModel(ativo.modelId || getAIAssistantSettings().activeModelId);
+  const pro = isAIProModel(modeloAtivo);
+  const contextoFinal = pro ? { ...buildProAiContext(contexto?.tela || telaAtual, texto), ...contexto } : contexto;
+  const geracao = { ...getAiGenerationOptions(texto, modeloAtivo?.id), ...opcoes };
+  const prompt = montarPromptIAOffline(texto, contextoFinal, modeloAtivo);
   const inicio = performance.now();
   registrarDiagnosticoIA("prompt", {
     promptChars: prompt.length,
@@ -7991,9 +8123,9 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
   const result = await plugin.runAiPrompt({
     modelId: ativo.modelo.id,
     modelPath: ativo.path,
-    systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
+    systemPrompt: pro ? AI_PRO_SYSTEM_PROMPT : AI_OFFLINE_SYSTEM_PROMPT,
     prompt,
-    maxTokens: Math.max(32, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 256)),
+    maxTokens: Math.max(32, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, pro ? 320 : 256)),
     temperature: geracao.temperature,
     topP: geracao.topP,
     topK: geracao.topK,
@@ -8122,6 +8254,9 @@ async function responderAssistente(texto = "") {
     ErrorService.capture(erro, { area: "Assistente básico", action: "contexto", silent: true });
   }
   const usarIAPro = assistantMode !== "basic" && iaLocalEstaPronta();
+  const modeloAtivo = usarIAPro ? getAIModel(getAIAssistantSettings().activeModelId) : null;
+  const modeloPro = isAIProModel(modeloAtivo);
+  if (modeloPro) contexto = buildProAiContext(telaAtual, pergunta);
   assistantMode = usarIAPro ? "pro" : "basic";
   assistantMessages.push({ role: "user", text: pergunta });
   const respostaPendente = {
@@ -8137,7 +8272,7 @@ async function responderAssistente(texto = "") {
       const carregou = await garantirRuntimeIAAtivo({ silent: true });
       if (!carregou) throw new Error("IA local não iniciou neste aparelho.");
       if (tokenGeracao !== assistantGenerationToken) return;
-      respostaPendente.text = "Gerando resposta...";
+      respostaPendente.text = modeloPro ? "IA Pro pensando..." : "Gerando resposta...";
       renderizarMensagemAssistentePendente(respostaPendente);
     }
     const resposta = usarIAPro
@@ -8149,7 +8284,7 @@ async function responderAssistente(texto = "") {
       : obterRespostaAssistente(pergunta, contexto);
     if (tokenGeracao !== assistantGenerationToken) return;
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
-    const respostaLimpa = cleanAiResponse(resposta, getAiGenerationOptions(pergunta));
+    const respostaLimpa = cleanAiResponse(resposta, getAiGenerationOptions(pergunta, modeloAtivo?.id));
     if (respostaIndex >= 0) {
       assistantMessages[respostaIndex] = { role: "assistant", text: respostaLimpa };
     } else {
