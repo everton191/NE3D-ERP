@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.24";
-const APP_VERSION_CODE = 75;
+const APP_VERSION = "51.0.25";
+const APP_VERSION_CODE = 76;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -64,7 +64,7 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 8;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
-const AI_LOCAL_UI_VERSION = "2026-05-15-auto-model-installer";
+const AI_LOCAL_UI_VERSION = "2026-05-15-auto-model-installer-hidden-memory";
 const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do Simplifica 3D. Responda em português do Brasil. Seja curto, lógico e prático. Evite respostas longas. Não repita ideias. Não use introduções como 'Claro', 'Com certeza' ou 'Vou te ajudar'. Não invente dados do aplicativo. Não invente clientes, pedidos, estoque, preços ou valores. Se faltar informação, peça apenas o dado essencial. Quando possível, responda em até 3 frases. Quando precisar orientar, use passos curtos. Priorize ações úteis dentro do app. O aplicativo possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios e painel administrativo. Quando a solicitação for uma ação do aplicativo, gere uma intenção estruturada em JSON somente se a ação estiver permitida para o modelo atual. Nunca salve, exclua, envie, altere estoque, altere caixa ou modifique dados automaticamente. Sempre crie apenas rascunho e exija confirmação do usuário.";
 const AI_RESPONSE_MAX_CHARS = 800;
 const AI_DEFAULT_MAX_TOKENS = 120;
@@ -358,6 +358,7 @@ let assistantRuntimeLoading = false;
 let assistantRuntimeReady = false;
 let assistantRuntimePromise = null;
 let assistantRuntimeWarmupAt = 0;
+let assistantRuntimeHibernateTimer = null;
 let assistantGenerationToken = 0;
 let assistantLocalDiagnostics = {
   promptChars: 0,
@@ -942,7 +943,7 @@ function configurarMonetizacaoAds() {
       getOrderCount: () => getPedidosMesAtual()
     });
     window.AdSenseService?.configure?.({
-      enabled: appConfig.adsenseWebEnabled === true,
+      enabled: !isAndroidNativeApp() && ADSENSE_WEB_DEFAULT_ENABLED !== false,
       publisherId: appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
       bannerSlot: appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT,
       isPremiumResolver: () => canUsePremiumFeatures(),
@@ -1615,7 +1616,7 @@ function carregarObjeto(chave, fallback = {}) {
 function sincronizarBannerAdSense() {
   try {
     window.AdSenseService?.configure?.({
-      enabled: appConfig.adsenseWebEnabled === true,
+      enabled: !isAndroidNativeApp() && ADSENSE_WEB_DEFAULT_ENABLED !== false,
       publisherId: appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
       bannerSlot: appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT
     });
@@ -6817,6 +6818,7 @@ function abrirAssistente(modo = "auto") {
     });
   }
   if (assistantMode === "pro") {
+    cancelarHibernacaoIALocal();
     assistantRuntimeDiagnostics = null;
     atualizarSuporteVozIASeNecessario();
     aquecerIALocalEmSegundoPlano("abrir-assistente");
@@ -6825,20 +6827,47 @@ function abrirAssistente(modo = "auto") {
 }
 
 function fecharAssistente() {
+  const deveHibernarIA = assistantMode === "pro" && iaLocalEstaPronta();
   assistantOpen = false;
   assistantMinimized = false;
-  assistantRuntimeReady = false;
+  if (!deveHibernarIA) assistantRuntimeReady = false;
   assistantRuntimeDiagnostics = null;
-  try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
+  if (deveHibernarIA) {
+    // Mantem o modelo aquecido por alguns minutos para reabrir o chat sem novo carregamento pesado.
+    agendarHibernacaoIALocal("assistente-fechado", 300000);
+  } else {
+    cancelarHibernacaoIALocal();
+    try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
+  }
   renderApp();
 }
 
 function minimizarAssistente() {
   assistantMinimized = true;
-  assistantRuntimeReady = false;
-  assistantRuntimeDiagnostics = null;
-  try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
+  if (assistantMode === "pro") agendarHibernacaoIALocal("assistente-minimizado", 300000);
   renderApp();
+}
+
+function cancelarHibernacaoIALocal() {
+  if (assistantRuntimeHibernateTimer) clearTimeout(assistantRuntimeHibernateTimer);
+  assistantRuntimeHibernateTimer = null;
+}
+
+function agendarHibernacaoIALocal(motivo = "idle", atrasoMs = 300000) {
+  cancelarHibernacaoIALocal();
+  assistantRuntimeHibernateTimer = setTimeout(async () => {
+    assistantRuntimeHibernateTimer = null;
+    if (assistantOpen && !assistantMinimized) return;
+    if (assistantGenerating || assistantRuntimeLoading) return;
+    assistantRuntimeReady = false;
+    assistantRuntimeDiagnostics = null;
+    try {
+      await getAIPlugin()?.unloadAiModel?.();
+      registrarDiagnosticoIA("hibernate", { reason: motivo });
+    } catch (erro) {
+      registrarFalhaIALocal("hibernate_runtime", erro, { motivo });
+    }
+  }, Math.max(30000, Number(atrasoMs) || 300000));
 }
 
 function normalizarTextoAssistente(texto) {
@@ -8550,6 +8579,7 @@ function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
 
 async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistenteEnxuto(texto), opcoes = {}) {
   if (!podeUsarAssistenteIAOfflinePro()) throw new Error("Assistente offline disponível apenas no Android com plano PRO ativo.");
+  cancelarHibernacaoIALocal();
   const ativo = getModeloIAOfflineAtivoInstalado();
   if (!ativo) throw new Error("Instale a IA local antes de usar.");
   const plugin = getAIPlugin();
@@ -12902,69 +12932,6 @@ function renderBloqueioPlano(recurso) {
   `;
 }
 
-function renderMemoriaIAConfig() {
-  const memoria = AiUsageMemoryManager.exportUserAiMemory();
-  const material = valorPreferidoMemoriaIA(memoria.materialStats) || "Ainda não aprendido";
-  const impressora = valorPreferidoMemoriaIA(memoria.printerStats) || "Ainda não aprendida";
-  const margem = valorPreferidoMemoriaIA(memoria.marginStats) || mediaMemoriaIA(memoria.averages.margin) || "Ainda não aprendida";
-  const tela = valorPreferidoMemoriaIA(memoria.screenStats) || "Ainda não aprendida";
-  return `
-    <div class="danger-zone">
-      <h2 class="section-title">Memória local da IA</h2>
-      <p class="muted">A IA usa padrões de uso do app para sugerir respostas melhores. Você pode apagar esses dados quando quiser.</p>
-      <label class="checkbox-row">
-        <input id="aiUsageMemoryEnabled" type="checkbox" ${appConfig.aiUsageMemoryEnabled !== false && memoria.enabled !== false ? "checked" : ""}>
-        <span>Ativar aprendizado local da IA</span>
-      </label>
-      <div class="sync-grid">
-        <div class="metric"><span>Material comum</span><strong>${escaparHtml(material)}</strong></div>
-        <div class="metric"><span>Impressora comum</span><strong>${escaparHtml(impressora)}</strong></div>
-        <div class="metric"><span>Margem comum</span><strong>${escaparHtml(String(margem))}${Number(margem) ? "%" : ""}</strong></div>
-        <div class="metric"><span>Tela frequente</span><strong>${escaparHtml(tela)}</strong></div>
-      </div>
-      <p class="muted">A memória guarda apenas contagens, médias e preferências locais por conta. Ela não salva conversas completas, senhas, documentos ou dados financeiros detalhados.</p>
-      <div class="actions">
-        <button class="btn ghost" type="button" onclick="abrirPainelMemoriaIA()">Ver dados aprendidos</button>
-        <button class="btn ghost" type="button" onclick="AiUsageMemoryManager.resetUserAiMemory()">Limpar memória da IA</button>
-        <button class="btn ghost" type="button" onclick="AiUsageMemoryManager.disableUserAiMemory()">Desativar</button>
-      </div>
-    </div>
-  `;
-}
-
-function abrirPainelMemoriaIA() {
-  const popup = document.getElementById("popup");
-  if (!popup) return;
-  const memoria = AiUsageMemoryManager.exportUserAiMemory();
-  const resumo = {
-    favoriteMaterial: valorPreferidoMemoriaIA(memoria.materialStats),
-    favoriteColor: valorPreferidoMemoriaIA(memoria.colorStats),
-    preferredPrinter: valorPreferidoMemoriaIA(memoria.printerStats),
-    averageMargin: valorPreferidoMemoriaIA(memoria.marginStats) || mediaMemoriaIA(memoria.averages.margin),
-    commonProducts: Object.keys(memoria.productStats || {}).slice(0, 5),
-    frequentScreens: Object.keys(memoria.screenStats || {}).slice(0, 5),
-    commonActions: Object.keys(memoria.actionStats || {}).slice(0, 5),
-    averageWeight: mediaMemoriaIA(memoria.averages.weight),
-    averagePrintTime: mediaMemoriaIA(memoria.averages.printTime)
-  };
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>Dados aprendidos pela IA</h2>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
-        </div>
-        <pre class="diagnostics-json">${escaparHtml(JSON.stringify(resumo, null, 2))}</pre>
-        <p class="muted">Esses dados ficam neste aparelho, separados por usuário, e servem apenas como sugestão para rascunhos e respostas.</p>
-        <div class="actions">
-          <button class="btn ghost" type="button" onclick="AiUsageMemoryManager.resetUserAiMemory()">Limpar memória</button>
-          <button class="btn" type="button" onclick="fecharPopup()">Fechar</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function renderConfig() {
   const usuario = getUsuarioAtual();
   const emailConta = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || "");
@@ -13048,7 +13015,6 @@ function renderConfig() {
 
       ${telaAtual === "config" ? `
         ${renderAssistenteInteligenteProConfig()}
-        ${renderMemoriaIAConfig()}
 
         ${whatsapp2FABackendDisponivel() ? `<div class="danger-zone">
           <h2 class="section-title">Segurança</h2>
@@ -13110,28 +13076,6 @@ function renderConfig() {
             <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
           </div>
         </div>
-
-        ${isSuperAdmin() || isAmbienteLocal() ? `
-          <div class="danger-zone">
-            <h2 class="section-title">Anúncios web</h2>
-            <p class="muted">Configuração reservada para PWA/navegador. O APK continua usando AdMob e esta camada nunca carrega em Android nativo.</p>
-            <label class="checkbox-row">
-              <input id="adsenseWebEnabled" type="checkbox" ${appConfig.adsenseWebEnabled === true ? "checked" : ""}>
-              <span>Ativar AdSense na versão web</span>
-            </label>
-            <div class="sync-grid">
-              <label class="field">
-                <span>Publisher ID</span>
-                <input id="adsensePublisherId" value="${escaparAttr(appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID)}" placeholder="ca-pub-0000000000000000">
-              </label>
-              <label class="field">
-                <span>Slot do banner</span>
-                <input id="adsenseBannerSlot" value="${escaparAttr(appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT)}" placeholder="0000000000">
-              </label>
-            </div>
-            <p class="muted">Sem esses dados válidos o app não carrega script externo nem exibe espaço de anúncio.</p>
-          </div>
-        ` : ""}
 
         <div class="danger-zone">
           <h2 class="section-title">Introdução</h2>
@@ -17186,9 +17130,9 @@ function lerConfigAppCampos() {
     autoUpdateEnabled: autoUpdateEnabledEl ? autoUpdateEnabledEl.checked : appConfig.autoUpdateEnabled !== false,
     updateCheckInterval: Math.max(5, parseFloat(document.getElementById("updateCheckInterval")?.value || appConfig.updateCheckInterval || 30) || 30),
     aiUsageMemoryEnabled: aiUsageMemoryEnabledEl ? aiUsageMemoryEnabledEl.checked : appConfig.aiUsageMemoryEnabled !== false,
-    adsenseWebEnabled: document.getElementById("adsenseWebEnabled") ? !!document.getElementById("adsenseWebEnabled")?.checked : appConfig.adsenseWebEnabled === true,
-    adsensePublisherId: (document.getElementById("adsensePublisherId")?.value || appConfig.adsensePublisherId || "").trim(),
-    adsenseBannerSlot: (document.getElementById("adsenseBannerSlot")?.value || appConfig.adsenseBannerSlot || "").trim()
+    adsenseWebEnabled: true,
+    adsensePublisherId: (document.getElementById("adsensePublisherId")?.value || appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID).trim(),
+    adsenseBannerSlot: (document.getElementById("adsenseBannerSlot")?.value || appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT).trim()
   };
 }
 
@@ -19769,6 +19713,7 @@ async function iniciarAdicionarItemPedido() {
 }
 
 async function garantirRuntimeIAAtivo({ silent = false } = {}) {
+  cancelarHibernacaoIALocal();
   if (assistantRuntimeReady) return true;
   if (assistantRuntimePromise) return assistantRuntimePromise;
   const ativo = getModeloIAOfflineAtivoInstalado();
@@ -19807,7 +19752,7 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
     .finally(() => {
       assistantRuntimeLoading = false;
       assistantRuntimePromise = null;
-      renderizarPreservandoScroll();
+      if (!silent || assistantOpen) renderizarPreservandoScroll();
     });
   return assistantRuntimePromise;
 }
@@ -22560,6 +22505,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     salvarCacheSessaoLocal();
     salvarDados();
+    cancelarHibernacaoIALocal();
     assistantRuntimeReady = false;
     try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   } else if (document.visibilityState === "visible") {

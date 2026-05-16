@@ -5854,18 +5854,6 @@ body[data-screen-fit="locked"] .web-adsense-slot{
   transition:border-color .2s ease, box-shadow .2s ease;
 }
 
-.diagnostics-json{
-  max-height:42vh;
-  overflow:auto;
-  padding:12px;
-  border:1px solid var(--border);
-  border-radius:8px;
-  background:rgba(15,41,55,.72);
-  color:var(--text);
-  white-space:pre-wrap;
-  font-size:.86rem;
-}
-
 body[data-motion="low"] *{
   animation-duration:.01ms !important;
   animation-iteration-count:1 !important;
