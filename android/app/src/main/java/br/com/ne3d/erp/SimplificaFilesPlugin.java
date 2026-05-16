@@ -6,7 +6,9 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Build;
@@ -15,6 +17,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.StatFs;
 import android.provider.MediaStore;
+import android.provider.ContactsContract;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -23,6 +26,7 @@ import android.util.Base64;
 import android.webkit.WebView;
 
 import com.getcapacitor.JSObject;
+import com.getcapacitor.JSArray;
 import com.getcapacitor.PermissionState;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -42,8 +46,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -51,7 +58,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
     name = "SimplificaFiles",
     permissions = {
         @Permission(strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE }, alias = "storage"),
-        @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = "microphone")
+        @Permission(strings = { Manifest.permission.RECORD_AUDIO }, alias = "microphone"),
+        @Permission(strings = { Manifest.permission.READ_CONTACTS }, alias = "contacts")
     }
 )
 public class SimplificaFilesPlugin extends Plugin {
@@ -415,6 +423,7 @@ public class SimplificaFilesPlugin extends Plugin {
         result.put("availableStorageMb", getAvailableInternalStorageMb());
         result.put("cpuCores", Math.max(1, Runtime.getRuntime().availableProcessors()));
         result.put("androidSdk", Build.VERSION.SDK_INT);
+        result.put("buildType", getBuildTypeLabel());
         result.put("abi", Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0 ? Build.SUPPORTED_ABIS[0] : Build.CPU_ABI);
         result.put("runtimeSupported", isAiRuntimeDeviceSupported());
         result.put("runtimeUnsupportedReason", getAiRuntimeUnsupportedReason());
@@ -430,6 +439,15 @@ public class SimplificaFilesPlugin extends Plugin {
         result.put("microphonePermission", getPermissionState("microphone") == PermissionState.GRANTED);
         result.put("androidSdk", Build.VERSION.SDK_INT);
         call.resolve(result);
+    }
+
+    @PluginMethod
+    public void searchPhoneContacts(PluginCall call) {
+        if (getPermissionState("contacts") != PermissionState.GRANTED) {
+            requestPermissionForAlias("contacts", call, "contactsPermsCallback");
+            return;
+        }
+        searchPhoneContactsGranted(call);
     }
 
     @PluginMethod
@@ -489,7 +507,9 @@ public class SimplificaFilesPlugin extends Plugin {
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "");
         final String prompt = call.getString("prompt", "");
-        final int maxTokens = Math.max(16, Math.min(call.getData().optInt("maxTokens", 120), 280));
+        final int maxTokens = Math.max(5, Math.min(call.getData().optInt("maxTokens", 120), 360));
+        final int contextSize = Math.max(512, Math.min(call.getData().optInt("contextSize", 1024), 4096));
+        final int threads = Math.max(1, Math.min(call.getData().optInt("threads", 2), Math.max(1, Runtime.getRuntime().availableProcessors() - 1)));
         final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {
@@ -504,12 +524,18 @@ public class SimplificaFilesPlugin extends Plugin {
         runWithPluginTimeout(call, timeoutMs, "Tempo limite da IA offline atingido. Tente um modelo menor.", () -> {
             try {
                 InferenceEngineImpl engine = InferenceEngineImpl.getInstance(getContext());
-                String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, timeoutMs);
+                long startedAt = System.currentTimeMillis();
+                String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, contextSize, threads, timeoutMs);
+                long elapsedMs = System.currentTimeMillis() - startedAt;
                 JSObject result = new JSObject();
                 result.put("ok", true);
                 result.put("text", text);
                 result.put("offline", true);
                 result.put("maxTokens", maxTokens);
+                result.put("contextSize", contextSize);
+                result.put("threads", threads);
+                result.put("totalMs", elapsedMs);
+                result.put("tokensPerSecond", estimateTokensPerSecond(text, elapsedMs));
                 return result;
             } catch (Throwable error) {
                 throw new Exception("Falha na inferência offline: " + error.getMessage(), error);
@@ -529,6 +555,8 @@ public class SimplificaFilesPlugin extends Plugin {
         }
         final String modelId = sanitizeAiModelId(call.getString("modelId", ""));
         final String modelPath = call.getString("modelPath", "");
+        final int contextSize = Math.max(512, Math.min(call.getData().optInt("contextSize", 1024), 4096));
+        final int threads = Math.max(1, Math.min(call.getData().optInt("threads", 2), Math.max(1, Runtime.getRuntime().availableProcessors() - 1)));
         final long timeoutMs = Math.max(8000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {
@@ -543,11 +571,13 @@ public class SimplificaFilesPlugin extends Plugin {
             }
             notifyAiModelProgress(modelId, "loading", 100, validation.optLong("sizeBytes", 0L), validation.optLong("sizeBytes", 0L));
             long startedAt = System.currentTimeMillis();
-            InferenceEngineImpl.getInstance(getContext()).loadModel(modelPath);
+            InferenceEngineImpl.getInstance(getContext()).loadModel(modelPath, contextSize, threads);
             JSObject result = new JSObject();
             result.put("ok", true);
             result.put("modelId", modelId);
             result.put("elapsedMs", System.currentTimeMillis() - startedAt);
+            result.put("contextSize", contextSize);
+            result.put("threads", threads);
             result.put("offline", true);
             return result;
         });
@@ -567,7 +597,9 @@ public class SimplificaFilesPlugin extends Plugin {
         final String modelPath = call.getString("modelPath", "");
         final String systemPrompt = call.getString("systemPrompt", "Você é um assistente de gestão para impressão 3D.");
         final String prompt = call.getString("prompt", "Responda apenas: OK");
-        final int maxTokens = Math.max(4, Math.min(call.getData().optInt("maxTokens", 12), 32));
+        final int maxTokens = Math.max(4, Math.min(call.getData().optInt("maxTokens", 5), 32));
+        final int contextSize = Math.max(512, Math.min(call.getData().optInt("contextSize", 512), 4096));
+        final int threads = Math.max(1, Math.min(call.getData().optInt("threads", 2), Math.max(1, Runtime.getRuntime().availableProcessors() - 1)));
         final long timeoutMs = Math.max(15000L, Math.min(call.getData().optLong("timeoutMs", 120000L), 300000L));
 
         if (modelPath == null || modelPath.trim().isEmpty()) {
@@ -582,15 +614,33 @@ public class SimplificaFilesPlugin extends Plugin {
                     throw new IOException("Arquivo GGUF inválido.");
                 }
                 notifyAiModelProgress(modelId, "testing", 100, validation.optLong("sizeBytes", 0L), validation.optLong("sizeBytes", 0L));
-                long startedAt = System.currentTimeMillis();
+                long loadStartedAt = System.currentTimeMillis();
                 InferenceEngineImpl engine = InferenceEngineImpl.getInstance(getContext());
-                String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, timeoutMs);
-                long elapsedMs = System.currentTimeMillis() - startedAt;
+                engine.loadModel(modelPath, contextSize, threads);
+                long loadModelMs = System.currentTimeMillis() - loadStartedAt;
+                long inferenceStartedAt = System.currentTimeMillis();
+                String text = engine.generate(modelPath, systemPrompt, prompt, maxTokens, contextSize, threads, timeoutMs);
+                long inferenceMs = System.currentTimeMillis() - inferenceStartedAt;
+                long elapsedMs = loadModelMs + inferenceMs;
                 JSObject result = new JSObject();
                 result.put("ok", text != null && !text.trim().isEmpty());
                 result.put("modelId", modelId);
                 result.put("text", text == null ? "" : text.trim());
                 result.put("elapsedMs", elapsedMs);
+                result.put("loadModelMs", loadModelMs);
+                result.put("warmupMs", inferenceMs);
+                result.put("firstTokenMs", 0);
+                result.put("inferenceMs", inferenceMs);
+                result.put("totalMs", elapsedMs);
+                result.put("tokensPerSecond", estimateTokensPerSecond(text, inferenceMs));
+                result.put("contextSize", contextSize);
+                result.put("threads", threads);
+                result.put("mmap", true);
+                result.put("modelFile", new File(modelPath).getName());
+                result.put("modelSize", validation.optLong("sizeBytes", 0L));
+                result.put("ramFreeMb", getAvailableMemoryMb());
+                result.put("androidSdk", Build.VERSION.SDK_INT);
+                result.put("buildType", getBuildTypeLabel());
                 result.put("offline", true);
                 return result;
             } catch (Throwable error) {
@@ -622,6 +672,19 @@ public class SimplificaFilesPlugin extends Plugin {
         } catch (Throwable error) {
             call.reject("Falha ao liberar IA local: " + error.getMessage(), error instanceof Exception ? (Exception) error : null);
         }
+    }
+
+    @PermissionCallback
+    private void contactsPermsCallback(PluginCall call) {
+        if (getPermissionState("contacts") == PermissionState.GRANTED) {
+            searchPhoneContactsGranted(call);
+            return;
+        }
+        JSObject result = new JSObject();
+        result.put("ok", true);
+        result.put("granted", false);
+        result.put("contacts", new JSArray());
+        call.resolve(result);
     }
 
     @PermissionCallback
@@ -831,6 +894,146 @@ public class SimplificaFilesPlugin extends Plugin {
             call.resolve(result);
         } catch (Exception error) {
             call.reject("Falha ao salvar " + label + ": " + error.getMessage(), error);
+        }
+    }
+
+    private void searchPhoneContactsGranted(PluginCall call) {
+        final String query = call.getString("query", "");
+        final int limit = Math.max(1, Math.min(call.getData().optInt("limit", 8), 12));
+        if (query == null || (normalizeContactText(query).length() < 2 && normalizeContactPhone(query).length() < 2)) {
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            result.put("granted", true);
+            result.put("contacts", new JSArray());
+            call.resolve(result);
+            return;
+        }
+
+        runWithPluginTimeout(call, 12000L, "Busca de contatos demorou demais.", () -> {
+            JSArray contacts = queryPhoneContacts(query, limit);
+            JSObject result = new JSObject();
+            result.put("ok", true);
+            result.put("granted", true);
+            result.put("contacts", contacts);
+            return result;
+        });
+    }
+
+    private JSArray queryPhoneContacts(String query, int limit) {
+        JSArray results = new JSArray();
+        Map<String, JSObject> byContact = new LinkedHashMap<>();
+        Map<String, JSArray> phonesByContact = new LinkedHashMap<>();
+        String normalizedQuery = normalizeContactText(query);
+        String queryPhone = normalizeContactPhone(query);
+        String[] projection = {
+            ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER
+        };
+        ContentResolver resolver = getContext().getContentResolver();
+        try (Cursor cursor = resolver.query(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+            projection,
+            null,
+            null,
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC"
+        )) {
+            if (cursor == null) return results;
+            int idIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID);
+            int nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
+            int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+            while (cursor.moveToNext() && byContact.size() < limit) {
+                String contactId = idIndex >= 0 ? cursor.getString(idIndex) : "";
+                String name = nameIndex >= 0 ? cursor.getString(nameIndex) : "";
+                String number = numberIndex >= 0 ? cursor.getString(numberIndex) : "";
+                String normalizedName = normalizeContactText(name);
+                String normalizedPhone = normalizeContactPhone(number);
+                boolean matchesName = !normalizedQuery.isEmpty() && normalizedName.contains(normalizedQuery);
+                boolean matchesPhone = queryPhone.length() >= 2 && normalizedPhone.contains(queryPhone);
+                if (!matchesName && !matchesPhone) continue;
+
+                String key = contactId == null || contactId.isEmpty() ? normalizedName + "|" + normalizedPhone : contactId;
+                JSObject item = byContact.get(key);
+                if (item == null) {
+                    JSArray phones = new JSArray();
+                    item = new JSObject();
+                    item.put("id", key);
+                    item.put("name", name == null ? "" : name.trim());
+                    item.put("source", "phone_contact");
+                    item.put("phones", phones);
+                    item.put("emails", queryEmailsForContact(contactId));
+                    byContact.put(key, item);
+                    phonesByContact.put(key, phones);
+                }
+                JSArray phones = phonesByContact.get(key);
+                if (phones == null) phones = new JSArray();
+                if (!normalizedPhone.isEmpty() && !arrayContainsString(phones, normalizedPhone)) phones.put(normalizedPhone);
+                if (!item.has("phone")) item.put("phone", normalizedPhone);
+            }
+        } catch (SecurityException error) {
+            return results;
+        }
+
+        for (JSObject item : byContact.values()) results.put(item);
+        return results;
+    }
+
+    private JSArray queryEmailsForContact(String contactId) {
+        JSArray emails = new JSArray();
+        if (contactId == null || contactId.trim().isEmpty()) return emails;
+        String[] projection = { ContactsContract.CommonDataKinds.Email.ADDRESS };
+        try (Cursor cursor = getContext().getContentResolver().query(
+            ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+            projection,
+            ContactsContract.CommonDataKinds.Email.CONTACT_ID + "=?",
+            new String[] { contactId },
+            null
+        )) {
+            if (cursor == null) return emails;
+            int emailIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Email.ADDRESS);
+            while (cursor.moveToNext()) {
+                String email = emailIndex >= 0 ? cursor.getString(emailIndex) : "";
+                if (email != null && !email.trim().isEmpty() && !arrayContainsString(emails, email.trim())) {
+                    emails.put(email.trim());
+                }
+            }
+        } catch (Exception ignored) {
+            // E-mail é opcional para sugestão de clientes.
+        }
+        return emails;
+    }
+
+    private boolean arrayContainsString(JSArray array, String value) {
+        if (array == null || value == null) return false;
+        for (int i = 0; i < array.length(); i++) {
+            if (value.equalsIgnoreCase(array.optString(i, ""))) return true;
+        }
+        return false;
+    }
+
+    private String normalizeContactText(String value) {
+        String text = value == null ? "" : value.toLowerCase(Locale.ROOT).trim();
+        text = Normalizer.normalize(text, Normalizer.Form.NFD).replaceAll("\\p{M}+", "");
+        return text.replaceAll("\\s+", " ");
+    }
+
+    private String normalizeContactPhone(String value) {
+        return value == null ? "" : value.replaceAll("\\D+", "");
+    }
+
+    private double estimateTokensPerSecond(String text, long elapsedMs) {
+        if (elapsedMs <= 0L) return 0.0;
+        int chars = text == null ? 0 : text.trim().length();
+        double tokens = Math.max(1.0, chars / 4.0);
+        return Math.round((tokens / (elapsedMs / 1000.0)) * 100.0) / 100.0;
+    }
+
+    private String getBuildTypeLabel() {
+        try {
+            boolean debug = (getContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+            return debug ? "debug" : "release";
+        } catch (Exception ignored) {
+            return "unknown";
         }
     }
 

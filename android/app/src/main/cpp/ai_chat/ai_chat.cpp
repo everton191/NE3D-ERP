@@ -1,5 +1,6 @@
 #include <android/log.h>
 #include <jni.h>
+#include <algorithm>
 #include <iomanip>
 #include <cmath>
 #include <string>
@@ -40,6 +41,8 @@ static llama_context                    * g_context;
 static llama_batch                        g_batch;
 static common_chat_templates_ptr          g_chat_templates;
 static common_sampler                   * g_sampler;
+static int                                 g_context_size = DEFAULT_CONTEXT_SIZE;
+static int                                 g_thread_count = DEFAULT_THREAD_COUNT;
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -56,6 +59,15 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_init(JNIEnv *env, jobject /*unu
     // Initialize backends
     llama_backend_init();
     LOGi("Backend initiated; Log handler set.");
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_arm_aichat_internal_InferenceEngineImpl_configure(JNIEnv *, jobject, jint context_size, jint threads) {
+    const int cpu_threads = std::max(1, (int) sysconf(_SC_NPROCESSORS_ONLN));
+    g_context_size = std::max(512, std::min((int) context_size, 4096));
+    g_thread_count = std::max(1, std::min((int) threads, std::max(1, cpu_threads - 1)));
+    LOGi("configure: context=%d threads=%d cpu=%d", g_context_size, g_thread_count, cpu_threads);
 }
 
 extern "C"
@@ -85,7 +97,7 @@ static llama_context *init_context(llama_model *model, const int n_ctx = DEFAULT
     }
 
     // Multi-threading setup
-    const int n_threads = std::max(1, std::min(DEFAULT_THREAD_COUNT, (int) sysconf(_SC_NPROCESSORS_ONLN)));
+    const int n_threads = std::max(1, std::min(g_thread_count, (int) sysconf(_SC_NPROCESSORS_ONLN)));
     LOGi("%s: Using %d threads", __func__, n_threads);
 
     // Context parameters setup
@@ -122,7 +134,7 @@ static common_sampler *new_sampler(float temp) {
 extern "C"
 JNIEXPORT jint JNICALL
 Java_com_arm_aichat_internal_InferenceEngineImpl_prepare(JNIEnv * /*env*/, jobject /*unused*/) {
-    auto *context = init_context(g_model);
+    auto *context = init_context(g_model, g_context_size);
     if (!context) { return 1; }
     g_context = context;
     g_batch = llama_batch_init(BATCH_SIZE, 0, 1);
@@ -336,7 +348,7 @@ static int decode_tokens_in_batches(
         LOGv("%s: Preparing a batch size of %d starting at: %d", __func__, cur_batch_size, i);
 
         // Shift context if current batch cannot fit into the context
-        if (start_pos + i + cur_batch_size >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
+        if (start_pos + i + cur_batch_size >= (int) llama_n_ctx(context) - OVERFLOW_HEADROOM) {
             LOGw("%s: Current batch won't fit into context! Shifting...", __func__);
             shift_context();
         }
@@ -390,7 +402,7 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_processSystemPrompt(
     }
 
     // Handle context overflow
-    const int max_batch_size = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
+    const int max_batch_size = (int) llama_n_ctx(g_context) - OVERFLOW_HEADROOM;
     if ((int) system_tokens.size() > max_batch_size) {
         LOGe("%s: System prompt too long for context! %d tokens, max: %d",
              __func__, (int) system_tokens.size(), max_batch_size);
@@ -439,7 +451,7 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_processUserPrompt(
 
     // Ensure user prompt doesn't exceed the context size by truncating if necessary.
     const int user_prompt_size = (int) user_tokens.size();
-    const int max_batch_size = DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM;
+    const int max_batch_size = (int) llama_n_ctx(g_context) - OVERFLOW_HEADROOM;
     if (user_prompt_size > max_batch_size) {
         const int skipped_tokens = user_prompt_size - max_batch_size;
         user_tokens.resize(max_batch_size);
@@ -499,7 +511,7 @@ Java_com_arm_aichat_internal_InferenceEngineImpl_generateNextToken(
         jobject /*unused*/
 ) {
     // Infinite text generation via context shifting
-    if (current_position >= DEFAULT_CONTEXT_SIZE - OVERFLOW_HEADROOM) {
+    if (current_position >= (int) llama_n_ctx(g_context) - OVERFLOW_HEADROOM) {
         LOGw("%s: Context full! Shifting...", __func__);
         shift_context();
     }

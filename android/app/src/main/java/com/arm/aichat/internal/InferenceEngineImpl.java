@@ -22,6 +22,8 @@ public final class InferenceEngineImpl {
     private volatile String loadedModelPath = "";
     private volatile boolean modelReady = false;
     private volatile boolean cancelRequested = false;
+    private volatile int contextTokens = DEFAULT_CONTEXT_TOKENS;
+    private volatile int threadCount = DEFAULT_THREADS;
 
     private InferenceEngineImpl(Context context) {
         synchronized (LOCK) {
@@ -72,18 +74,20 @@ public final class InferenceEngineImpl {
     }
 
     public static int getDefaultContextTokens() {
-        return DEFAULT_CONTEXT_TOKENS;
+        InferenceEngineImpl engine = instance;
+        return engine == null ? DEFAULT_CONTEXT_TOKENS : engine.contextTokens;
     }
 
     public static int getDefaultThreads() {
-        return DEFAULT_THREADS;
+        InferenceEngineImpl engine = instance;
+        return engine == null ? DEFAULT_THREADS : engine.threadCount;
     }
 
     public static int getDefaultGpuLayers() {
         return DEFAULT_GPU_LAYERS;
     }
 
-    public String generate(String modelPath, String systemPrompt, String userPrompt, int maxTokens, long timeoutMs)
+    public String generate(String modelPath, String systemPrompt, String userPrompt, int maxTokens, int contextSize, int threads, long timeoutMs)
             throws Exception {
         synchronized (LOCK) {
             cancelRequested = false;
@@ -92,8 +96,9 @@ public final class InferenceEngineImpl {
                 throw new IOException("Modelo GGUF não encontrado ou sem permissão de leitura.");
             }
 
-            int safeMaxTokens = Math.max(16, Math.min(maxTokens <= 0 ? DEFAULT_MAX_TOKENS : maxTokens, 280));
+            int safeMaxTokens = Math.max(5, Math.min(maxTokens <= 0 ? DEFAULT_MAX_TOKENS : maxTokens, 360));
             long safeTimeoutMs = Math.max(8000L, Math.min(timeoutMs <= 0 ? 60000L : timeoutMs, 300000L));
+            configureRuntime(contextSize, threads);
 
             ensureModelLoaded(modelFile.getAbsolutePath());
 
@@ -141,14 +146,25 @@ public final class InferenceEngineImpl {
         }
     }
 
-    public void loadModel(String modelPath) throws Exception {
+    public void loadModel(String modelPath, int contextSize, int threads) throws Exception {
         synchronized (LOCK) {
             File modelFile = new File(modelPath == null ? "" : modelPath);
             if (!modelFile.exists() || !modelFile.isFile() || !modelFile.canRead()) {
                 throw new IOException("Modelo GGUF não encontrado ou sem permissão de leitura.");
             }
+            configureRuntime(contextSize, threads);
             ensureModelLoaded(modelFile.getAbsolutePath());
         }
+    }
+
+    private void configureRuntime(int contextSize, int threads) {
+        int safeContext = Math.max(512, Math.min(contextSize <= 0 ? DEFAULT_CONTEXT_TOKENS : contextSize, 4096));
+        int safeThreads = Math.max(1, Math.min(threads <= 0 ? DEFAULT_THREADS : threads, Math.max(1, Runtime.getRuntime().availableProcessors() - 1)));
+        boolean changed = safeContext != contextTokens || safeThreads != threadCount;
+        if (changed && modelReady) unloadModel();
+        contextTokens = safeContext;
+        threadCount = safeThreads;
+        configure(safeContext, safeThreads);
     }
 
     public void cancelGeneration() {
@@ -197,6 +213,7 @@ public final class InferenceEngineImpl {
     }
 
     private native void init(String nativeLibDir);
+    private native void configure(int contextSize, int threads);
     private native int load(String modelPath);
     private native int prepare();
     private native String systemInfo();

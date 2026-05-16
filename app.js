@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.26";
-const APP_VERSION_CODE = 77;
+const APP_VERSION = "51.0.27";
+const APP_VERSION_CODE = 78;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -64,13 +64,13 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 8;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
-const AI_LOCAL_UI_VERSION = "2026-05-16-pwa-control-center-password-fix";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do Simplifica 3D. Responda em português do Brasil. Seja curto, lógico e prático. Evite respostas longas. Não repita ideias. Não use introduções como 'Claro', 'Com certeza' ou 'Vou te ajudar'. Não invente dados do aplicativo. Não invente clientes, pedidos, estoque, preços ou valores. Se faltar informação, peça apenas o dado essencial. Quando possível, responda em até 3 frases. Quando precisar orientar, use passos curtos. Priorize ações úteis dentro do app. O aplicativo possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios e painel administrativo. Quando a solicitação for uma ação do aplicativo, gere uma intenção estruturada em JSON somente se a ação estiver permitida para o modelo atual. Nunca salve, exclua, envie, altere estoque, altere caixa ou modifique dados automaticamente. Sempre crie apenas rascunho e exija confirmação do usuário.";
+const AI_LOCAL_UI_VERSION = "2026-05-16-customer-suggestions-ai-runtime";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do Simplifica 3D. Responda somente sobre o aplicativo, impressão 3D, cálculo de preço, pedidos, clientes, estoque, caixa, produção e sugestões de produtos 3D. Você funciona offline e não pesquisa na internet. Não invente dados, valores, clientes, pedidos ou estoque. Se faltar informação, peça só o essencial. Seja curto, lógico e prático. Prefira até 3 frases. Para ações do app, crie apenas rascunho com confirmação do usuário.";
 const AI_RESPONSE_MAX_CHARS = 800;
 const AI_DEFAULT_MAX_TOKENS = 120;
 const AI_TECHNICAL_MAX_TOKENS = 220;
-const AI_RUNTIME_TEST_SYSTEM_PROMPT = "Responda somente OK.";
-const AI_RUNTIME_TEST_PROMPT = "OK";
+const AI_RUNTIME_TEST_SYSTEM_PROMPT = "";
+const AI_RUNTIME_TEST_PROMPT = "Responda OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
   telas: ["Dashboard", "Pedidos", "Clientes", "Calculadora", "Estoque", "Produção", "Caixa", "Relatórios", "Backup", "Configurações", "Personalização", "Planos", "Segurança"],
   fluxos: [
@@ -90,40 +90,58 @@ const AI_PRO_MODEL_ID = "qwen25_3b_q4km";
 const AI_MODEL_PROFILES = Object.freeze({
   qwen25_05b_q4km: {
     label: "Lite",
-    maxTokens: 90,
+    maxTokens: 120,
+    technicalMaxTokens: 180,
+    jsonMaxTokens: 220,
     temperature: 0.2,
     topP: 0.8,
-    repeatPenalty: 1.22,
+    repeatPenalty: 1.2,
     presencePenalty: 0,
     frequencyPenalty: 0.3,
     contextSize: 768,
-    threads: "auto_safe",
+    benchmarkContextSize: 512,
+    promptLimit: 600,
+    memoryLimit: 120,
+    threads: 2,
+    maxThreads: 3,
     responseMode: "very_short",
     allowActions: ["explain_screen", "fill_calculator_basic"]
   },
   qwen25_15b_q4km: {
     label: "Smart",
     maxTokens: 160,
+    technicalMaxTokens: 220,
+    jsonMaxTokens: 280,
     temperature: 0.25,
     topP: 0.85,
     repeatPenalty: 1.18,
     presencePenalty: 0.05,
     frequencyPenalty: 0.25,
     contextSize: 1024,
-    threads: "auto_balanced",
+    benchmarkContextSize: 512,
+    promptLimit: 900,
+    memoryLimit: 250,
+    threads: 3,
+    maxThreads: 4,
     responseMode: "short_logic",
     allowActions: ["explain_screen", "fill_calculator", "create_client_draft"]
   },
   qwen25_3b_q4km: {
     label: "Pro",
-    maxTokens: 260,
+    maxTokens: 220,
+    technicalMaxTokens: 300,
+    jsonMaxTokens: 360,
     temperature: 0.25,
     topP: 0.85,
     repeatPenalty: 1.14,
     presencePenalty: 0.1,
     frequencyPenalty: 0.2,
-    contextSize: 2048,
-    threads: "auto_performance",
+    contextSize: 1024,
+    benchmarkContextSize: 512,
+    promptLimit: 1200,
+    memoryLimit: 400,
+    threads: 4,
+    maxThreads: 4,
     responseMode: "assistant_operator",
     allowActions: ["explain_screen", "fill_calculator", "create_order_draft", "create_client_draft", "add_inventory_draft", "search_order"]
   }
@@ -321,6 +339,17 @@ let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
 let clienteTelefonePedido = "";
+let clienteEmailPedido = "";
+let selectedCustomerSuggestion = null;
+let customerSuggestionState = {
+  query: "",
+  suggestions: [],
+  loading: false,
+  error: "",
+  phoneContactsEnabled: false,
+  searchToken: 0
+};
+let customerSuggestionDebounceTimer = null;
 let pedidoEditando = null;
 let pedidoEditandoOriginal = null;
 let pedidoSalvando = false;
@@ -1732,6 +1761,9 @@ function limparDadosOperacionaisLocais() {
   itensPedido = [];
   clientePedido = "";
   clienteTelefonePedido = "";
+  clienteEmailPedido = "";
+  selectedCustomerSuggestion = null;
+  customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
 }
 
 function removerCachesOperacionaisGlobais() {
@@ -4233,11 +4265,13 @@ function coletarClientesOperacionaisParaSync() {
     const nome = String(clienteDoPedido(pedido) || "").trim();
     if (!nome || nome === "Sem cliente") return;
     const telefone = telefoneDoPedido(pedido);
-    const chave = normalizarTextoBusca(`${nome}|${telefone || ""}`);
+    const email = emailDoPedido(pedido);
+    const chave = normalizarTextoBusca(`${nome}|${telefone || ""}|${email || ""}`);
     const atual = mapa.get(chave) || {
       id: `cliente-${chave.slice(0, 72)}`,
       nome,
       telefone,
+      email,
       pedidos: 0,
       total: 0,
       owner_id: pedido.owner_id || getDataOwnerId(),
@@ -5193,6 +5227,10 @@ function telefoneDoPedido(pedido) {
   return String(pedido?.clienteTelefone || pedido?.telefoneCliente || pedido?.whatsappCliente || pedido?.phone || "").trim();
 }
 
+function emailDoPedido(pedido) {
+  return String(pedido?.clienteEmail || pedido?.emailCliente || pedido?.customerEmail || pedido?.email || "").trim();
+}
+
 function normalizePhoneBR(phone = "") {
   let digits = String(phone || "").replace(/\D/g, "");
   if (!digits) return "";
@@ -5211,6 +5249,245 @@ function normalizePhoneBR(phone = "") {
 
 function normalizarTelefoneWhatsapp(numero = "") {
   return normalizePhoneBR(numero).replace(/^\+/, "");
+}
+
+function normalizarTelefoneBusca(numero = "") {
+  return String(numero || "").replace(/\D/g, "");
+}
+
+function normalizarSugestaoClienteTexto(valor = "") {
+  return removerAcentos(String(valor || "").toLowerCase())
+    .replace(/[^a-z0-9\s@.+-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getCustomerSuggestionUserKey() {
+  const usuario = getUsuarioAtual();
+  return String(syncConfig.supabaseUserId || usuario?.id || usuario?.email || usuarioAtualEmail || "local").trim() || "local";
+}
+
+function getCustomerSuggestionStorageKey() {
+  return `recentCustomerSuggestions_${getCustomerSuggestionUserKey()}`;
+}
+
+function normalizarSugestaoCliente(item = {}) {
+  const name = String(item.name || item.nome || item.displayName || "").trim();
+  const phones = Array.isArray(item.phones) ? item.phones : [item.phone || item.telefone || item.number || ""];
+  const emails = Array.isArray(item.emails) ? item.emails : [item.email || item.mail || ""];
+  const phone = normalizarTelefoneWhatsapp(phones.find(Boolean) || "");
+  const email = String(emails.find(Boolean) || "").trim();
+  if (!name && !phone && !email) return null;
+  return {
+    id: String(item.id || item.contactId || `${item.source || "app"}-${name}-${phone}-${email}`).slice(0, 140),
+    source: item.source || "app_client",
+    name,
+    phone,
+    email,
+    phones: phones.map((valor) => normalizarTelefoneWhatsapp(valor)).filter(Boolean),
+    emails: emails.map((valor) => String(valor || "").trim()).filter(Boolean),
+    usageCount: Number(item.usageCount || item.pedidos || 0) || 0,
+    lastUsedAt: item.lastUsedAt || item.updated_at || item.atualizadoEm || item.createdAt || ""
+  };
+}
+
+function pontuarSugestaoCliente(sugestao = {}, query = "") {
+  const termo = normalizarSugestaoClienteTexto(query);
+  const termoTel = normalizarTelefoneBusca(query);
+  const nome = normalizarSugestaoClienteTexto(sugestao.name);
+  const telefone = normalizarTelefoneBusca(sugestao.phone || sugestao.phones?.[0] || "");
+  if (!termo && !termoTel) return 0;
+  let score = Number(sugestao.usageCount || 0) * 2;
+  if (termoTel.length >= 2 && telefone.includes(termoTel)) score += telefone.startsWith(termoTel) ? 95 : 70;
+  if (termo) {
+    if (nome === termo) score += 120;
+    else if (nome.startsWith(termo)) score += 95;
+    else if (nome.split(/\s+/).some((parte) => parte.startsWith(termo))) score += 82;
+    else if (nome.includes(termo)) score += 64;
+    else {
+      let pos = 0;
+      for (const letra of termo) {
+        pos = nome.indexOf(letra, pos);
+        if (pos < 0) return score;
+        pos += 1;
+      }
+      score += 35;
+    }
+  }
+  if (sugestao.source === "app_client") score += 18;
+  if (sugestao.source === "phone_contact") score += 8;
+  if (sugestao.source === "recent") score += 12;
+  return score;
+}
+
+function coletarClientesAppParaSugestao() {
+  const mapa = new Map();
+  const adicionar = (item = {}, source = "app_client") => {
+    const sugestao = normalizarSugestaoCliente({
+      ...item,
+      source,
+      name: item.name || item.nome || item.cliente,
+      phone: item.phone || item.telefone || item.clienteTelefone,
+      email: item.email || item.clienteEmail
+    });
+    if (!sugestao?.name) return;
+    const chave = normalizarSugestaoClienteTexto(`${sugestao.name}|${sugestao.phone || ""}|${sugestao.email || ""}`);
+    const atual = mapa.get(chave);
+    mapa.set(chave, atual ? { ...atual, usageCount: Math.max(atual.usageCount || 0, sugestao.usageCount || 0) } : sugestao);
+  };
+  try {
+    coletarClientesOperacionaisParaSync().forEach((cliente) => adicionar({
+      ...cliente,
+      email: cliente.email || cliente.clienteEmail,
+      usageCount: cliente.pedidos
+    }, "app_client"));
+  } catch (_) {}
+  pedidos.forEach((pedido) => adicionar({
+    id: pedido.id,
+    name: clienteDoPedido(pedido),
+    phone: telefoneDoPedido(pedido),
+    email: emailDoPedido(pedido),
+    usageCount: 1,
+    lastUsedAt: pedido.updated_at || pedido.updatedAt || pedido.criadoEm
+  }, "app_client"));
+  if (isSuperAdmin()) {
+    saasClients.forEach((cliente) => adicionar({
+      id: cliente.id,
+      name: cliente.name || cliente.nome || cliente.businessName,
+      phone: cliente.phone || cliente.telefone,
+      email: cliente.email
+    }, "app_client"));
+  }
+  return Array.from(mapa.values());
+}
+
+const CustomerSuggestionManager = {
+  searchAppClients(query) {
+    return this.rankSuggestions(coletarClientesAppParaSugestao(), query);
+  },
+  async searchPhoneContacts(query) {
+    if (!isAndroidNativeApp() || normalizarSugestaoClienteTexto(query).length < 2) return [];
+    const plugin = getAIPlugin();
+    if (!plugin?.searchPhoneContacts) return [];
+    const result = await plugin.searchPhoneContacts({ query, limit: 8 });
+    if (result?.granted === false) {
+      customerSuggestionState.phoneContactsEnabled = false;
+      mostrarToast("Permissão de contatos negada. Vou usar apenas clientes cadastrados.", "aviso", 4200);
+      return [];
+    }
+    customerSuggestionState.phoneContactsEnabled = true;
+    return (Array.isArray(result?.contacts) ? result.contacts : [])
+      .map((item) => normalizarSugestaoCliente({ ...item, source: "phone_contact" }))
+      .filter(Boolean);
+  },
+  searchRecentSuggestions(query) {
+    return this.rankSuggestions(carregarLista(getCustomerSuggestionStorageKey())
+      .map((item) => normalizarSugestaoCliente({ ...item, source: item.source || "recent" }))
+      .filter(Boolean), query);
+  },
+  mergeSuggestions(...listas) {
+    const mapa = new Map();
+    listas.flat().filter(Boolean).forEach((item) => {
+      const chave = normalizarSugestaoClienteTexto(`${item.name}|${item.phone || ""}|${item.email || ""}`);
+      if (!chave) return;
+      const atual = mapa.get(chave);
+      mapa.set(chave, atual ? {
+        ...atual,
+        ...item,
+        usageCount: Math.max(atual.usageCount || 0, item.usageCount || 0),
+        source: atual.source === "app_client" ? atual.source : item.source
+      } : item);
+    });
+    return Array.from(mapa.values());
+  },
+  rankSuggestions(suggestions, query) {
+    return (Array.isArray(suggestions) ? suggestions : [])
+      .map((item) => ({ ...item, _score: pontuarSugestaoCliente(item, query) }))
+      .filter((item) => item._score > 0)
+      .sort((a, b) => b._score - a._score || normalizarSugestaoClienteTexto(a.name).localeCompare(normalizarSugestaoClienteTexto(b.name)))
+      .slice(0, 8);
+  },
+  clearSelectedSuggestionIfUserChangesText(text) {
+    if (!selectedCustomerSuggestion) return false;
+    const atual = normalizarSugestaoClienteTexto(text);
+    const selecionado = normalizarSugestaoClienteTexto(selectedCustomerSuggestion.name);
+    if (!atual || atual === selecionado) return false;
+    const phoneEl = document.getElementById("clienteTelefone");
+    const emailEl = document.getElementById("clienteEmail");
+    if (phoneEl && normalizarTelefoneWhatsapp(phoneEl.value) === normalizarTelefoneWhatsapp(selectedCustomerSuggestion.phone || "")) {
+      phoneEl.value = "";
+      clienteTelefonePedido = "";
+    }
+    if (emailEl && String(emailEl.value || "").trim() === String(selectedCustomerSuggestion.email || "").trim()) {
+      emailEl.value = "";
+      clienteEmailPedido = "";
+    }
+    selectedCustomerSuggestion = null;
+    return true;
+  },
+  recordRecentSuggestion(item = {}) {
+    const sugestao = normalizarSugestaoCliente({ ...item, source: item.source || "recent" });
+    if (!sugestao?.name) return;
+    const chaveStorage = getCustomerSuggestionStorageKey();
+    const agora = new Date().toISOString();
+    const lista = carregarLista(chaveStorage).map((entry) => normalizarSugestaoCliente(entry)).filter(Boolean);
+    const chaveNova = normalizarSugestaoClienteTexto(`${sugestao.name}|${sugestao.phone || ""}|${sugestao.email || ""}`);
+    const semDuplicado = lista.filter((entry) => normalizarSugestaoClienteTexto(`${entry.name}|${entry.phone || ""}|${entry.email || ""}`) !== chaveNova);
+    semDuplicado.unshift({
+      ...sugestao,
+      source: sugestao.source === "phone_contact" ? "recent" : sugestao.source,
+      usageCount: (sugestao.usageCount || 0) + 1,
+      lastUsedAt: agora
+    });
+    localStorage.setItem(chaveStorage, JSON.stringify(semDuplicado.slice(0, 30)));
+  }
+};
+
+function labelOrigemSugestaoCliente(source = "") {
+  if (source === "phone_contact") return "Contato do telefone";
+  if (source === "recent") return "Sugestão recente";
+  return "Cliente cadastrado";
+}
+
+function renderCustomerSuggestions() {
+  const query = String(customerSuggestionState.query || clientePedido || "").trim();
+  const selectedBadge = selectedCustomerSuggestion ? `
+    <span class="selected-customer-badge">${escaparHtml(labelOrigemSugestaoCliente(selectedCustomerSuggestion.source))}</span>
+  ` : "";
+  if (query.length < 2 && !selectedBadge) return "";
+  const linhas = customerSuggestionState.suggestions.length ? customerSuggestionState.suggestions.map((item, index) => `
+    <button class="customer-suggestion-item" type="button" onclick="selecionarSugestaoCliente(${index})">
+      <span>
+        <strong>${escaparHtml(item.name || "Contato")}</strong>
+        <small>${[item.phone, item.email].filter(Boolean).map(escaparHtml).join(" • ") || "Sem telefone/e-mail"}</small>
+      </span>
+      <em>${escaparHtml(labelOrigemSugestaoCliente(item.source))}</em>
+    </button>
+  `).join("") : "";
+  return `
+    <div class="customer-suggestion-box">
+      <div class="customer-suggestion-toolbar">
+        <span id="selectedCustomerBadgeContainer">${selectedBadge}</span>
+        <button class="text-link" type="button" onclick="buscarSugestoesContatosTelefone()">Buscar nos contatos</button>
+      </div>
+      ${customerSuggestionState.loading ? `<div class="customer-suggestion-loading">Buscando...</div>` : ""}
+      ${linhas || (!customerSuggestionState.loading && query.length >= 2 ? `<div class="customer-suggestion-empty">Nenhum cliente encontrado. <button class="text-link" type="button" onclick="cadastrarNovoClientePedido()">Cadastrar novo</button></div>` : "")}
+      ${customerSuggestionState.error ? `<div class="customer-suggestion-error">${escaparHtml(customerSuggestionState.error)}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderizarSugestoesClientePedido() {
+  const panel = document.getElementById("customerSuggestionPanel");
+  if (panel) panel.innerHTML = renderCustomerSuggestions();
+}
+
+function cadastrarNovoClientePedido() {
+  selectedCustomerSuggestion = null;
+  customerSuggestionState.suggestions = [];
+  customerSuggestionState.loading = false;
+  customerSuggestionState.error = "";
+  renderizarSugestoesClientePedido();
 }
 
 async function obterTelefoneWhatsappPedido(pedido = null) {
@@ -6985,6 +7262,7 @@ function contextoPedidoIA() {
   return {
     id: pedidoAtual?.id || pedidoEditando?.id || "",
     cliente: pedidoAtual ? clienteDoPedido(pedidoAtual) : clientePedido,
+    email: pedidoAtual ? emailDoPedido(pedidoAtual) : clienteEmailPedido,
     status: pedidoAtual?.status || pedidoEditando?.status || "aberto",
     total: pedidoAtual ? totalPedido(pedidoAtual) : itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0),
     itens: itens.map((item) => ({ nome: item.nome, qtd: item.qtd, total: item.total }))
@@ -6993,11 +7271,12 @@ function contextoPedidoIA() {
 
 function buildAiContext(screen = telaAtual, userInput = "", modelProfile = getAIModelProfile()) {
   const tela = String(screen || telaAtual || "dashboard");
+  const memoriaUsuario = AiUsageMemoryManager.buildUserMemoryContext(getAiUsageMemoryUserId(), modelProfile);
   const contexto = {
     tela,
     pergunta: String(userInput || "").slice(0, 220),
     perfilUso: getLocalAiUsageProfile(),
-    memoriaUsuario: AiUsageMemoryManager.buildUserMemoryContext(getAiUsageMemoryUserId(), modelProfile),
+    memoriaUsuario: String(memoriaUsuario || "").slice(0, Number(modelProfile.memoryLimit || 250)),
     modelo: modelProfile.label || "Lite",
     permissoes: Array.isArray(modelProfile.allowActions) ? modelProfile.allowActions : [],
     camposVisiveis: []
@@ -7622,6 +7901,9 @@ function renderDiagnosticoRuntimeIA() {
         <div class="metric"><span>Prompt</span><strong>${assistantLocalDiagnostics.promptChars || 0} chars</strong></div>
         <div class="metric"><span>Resposta</span><strong>${assistantLocalDiagnostics.responseChars || 0} chars</strong></div>
         <div class="metric"><span>Tempo IA</span><strong>${assistantLocalDiagnostics.responseMs || 0} ms</strong></div>
+        <div class="metric"><span>Inferência</span><strong>${assistantLocalDiagnostics.inferenceMs || 0} ms</strong></div>
+        <div class="metric"><span>Tokens/s</span><strong>${assistantLocalDiagnostics.tokensPerSecond || 0}</strong></div>
+        <div class="metric"><span>Build</span><strong>${escaparHtml(valor(diag.buildType, "n/d"))}</strong></div>
       </div>
       ${diag.error || assistantLocalDiagnostics.lastError ? `<p class="feedback-status error">${escaparHtml(diag.error || assistantLocalDiagnostics.lastError)}</p>` : ""}
       <div class="actions">
@@ -7857,6 +8139,7 @@ async function verificarModeloIAInstalado(modelo, modelId) {
 
 async function testarRuntimeModeloIA(modelo, modelId, path = "") {
   const plugin = getAIPlugin();
+  const perfil = getAIModelProfile(modelId);
   setAIModelLocalState(modelId, {
     status: AI_INSTALL_STATUS.TESTING,
     progress: 100,
@@ -7866,19 +8149,32 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
   if (!plugin?.testAiModelRuntime) {
     throw new Error("Runtime nativo da IA não disponível neste APK.");
   }
-  return await promiseComTimeout(
+  const resultado = await promiseComTimeout(
     plugin.testAiModelRuntime({
       modelId,
       modelPath: path,
       systemPrompt: AI_RUNTIME_TEST_SYSTEM_PROMPT,
       prompt: AI_RUNTIME_TEST_PROMPT,
-      maxTokens: 4,
+      maxTokens: 5,
+      contextSize: 512,
+      threads: Math.max(1, Math.min(Number(perfil.threads || 2) || 2, 4)),
       proAllowed: podeUsarAssistenteIAOfflinePro(),
       timeoutMs: 240000
     }),
     245000,
     "Teste da IA demorou demais."
   );
+  registrarDiagnosticoIA("benchmark_limpo", {
+    loadModelMs: resultado?.loadModelMs || 0,
+    warmupMs: resultado?.warmupMs || 0,
+    firstTokenMs: resultado?.firstTokenMs || 0,
+    inferenceMs: resultado?.inferenceMs || resultado?.elapsedMs || 0,
+    responseMs: resultado?.totalMs || resultado?.elapsedMs || 0,
+    tokensPerSecond: resultado?.tokensPerSecond || 0,
+    threads: resultado?.threads || perfil.threads,
+    contextSize: resultado?.contextSize || 512
+  });
+  return resultado;
 }
 
 async function baixarModeloIAOffline(modelId) {
@@ -8409,9 +8705,11 @@ function buscarTrechosManualIA(texto = "") {
 
 function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().activeModelId) {
   const tecnico = /diagn[oó]stico|erro|trav|runtime|modelo|download|instala|configura|relat[oó]rio|financeiro|detalh/i.test(texto);
+  const json = /rascunho|criar|preencher|pedido|cliente|estoque|json|a[cç][aã]o/i.test(texto);
   const perfil = getAIModelProfile(modelId);
+  const maxTokensPerfil = json ? perfil.jsonMaxTokens : tecnico ? perfil.technicalMaxTokens : perfil.maxTokens;
   return {
-    maxTokens: tecnico ? Math.min(AI_TECHNICAL_MAX_TOKENS, perfil.maxTokens || AI_TECHNICAL_MAX_TOKENS) : (perfil.maxTokens || AI_DEFAULT_MAX_TOKENS),
+    maxTokens: Number(maxTokensPerfil || perfil.maxTokens || AI_DEFAULT_MAX_TOKENS),
     temperature: perfil.temperature ?? (tecnico ? 0.25 : 0.2),
     topP: perfil.topP ?? 0.85,
     topK: 40,
@@ -8419,12 +8717,12 @@ function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().a
     presencePenalty: perfil.presencePenalty ?? 0.05,
     frequencyPenalty: perfil.frequencyPenalty ?? 0.25,
     contextSize: perfil.contextSize || 1024,
-    threads: perfil.threads || "auto_safe",
+    threads: Number(perfil.threads || 2),
     maxChars: Math.min(AI_RESPONSE_MAX_CHARS, perfil.responseMode === "very_short" ? 420 : tecnico ? AI_RESPONSE_MAX_CHARS : 650)
   };
 }
 
-function resumirContextoIA(contexto = {}) {
+function resumirContextoIA(contexto = {}, modelProfile = getAIModelProfile()) {
   const seguro = {
     tela: contexto.tela || telaAtual,
     modulo: contexto.modulo || "geral",
@@ -8433,11 +8731,12 @@ function resumirContextoIA(contexto = {}) {
     perfilUso: contexto.perfilUso || getLocalAiUsageProfile(),
     ultimas: Array.isArray(contexto.mensagensRecentes) ? contexto.mensagensRecentes.slice(-2) : []
   };
+  const limite = Number(modelProfile.promptLimit || 900);
   return JSON.stringify(seguro, (_, valor) => {
     if (typeof valor === "string") return valor.slice(0, 180);
     if (Array.isArray(valor)) return valor.slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
     return valor;
-  }).slice(0, 900);
+  }).slice(0, limite);
 }
 
 function montarPromptIAOffline(texto = "", contexto = {}, modelId = getAIAssistantSettings().activeModelId) {
@@ -8454,11 +8753,11 @@ function montarPromptIAOffline(texto = "", contexto = {}, modelId = getAIAssista
     contexto.memoriaUsuario || "",
     contexto.memoriaUsuario ? "Se usar uma preferência aprendida, avise que é sugestão e peça conferência." : "",
     "Contexto:",
-    resumirContextoIA(contexto),
+    resumirContextoIA(contexto, perfil),
     "",
     "Pergunta:",
     String(texto || "").slice(0, 260)
-  ].join("\n");
+  ].join("\n").slice(0, Number(perfil.promptLimit || 900) + 900);
 }
 
 function cleanAiResponse(response = "", opcoes = {}) {
@@ -8600,6 +8899,8 @@ async function executeAiDraftAction(validatedAction) {
   } else if (validatedAction.intent === "create_order_draft") {
     clientePedido = String(fields.cliente || fields.nomeCliente || "");
     clienteTelefonePedido = String(fields.telefone || fields.whatsapp || "");
+    clienteEmailPedido = String(fields.email || fields.emailCliente || "");
+    selectedCustomerSuggestion = null;
     itensPedido = Array.isArray(fields.itens) ? fields.itens.slice(0, 5).map((item) => normalizarItemPedido({
       nome: item.nome || item.descricao || "Item 3D",
       qtd: Number(item.qtd || item.quantidade || 1) || 1,
@@ -8644,8 +8945,33 @@ function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+function detectarPerguntaForaEscopoIA(texto = "") {
+  const pergunta = normalizarTextoAssistente(texto);
+  if (!pergunta || pergunta.length < 3) return null;
+  const escopo = /(simplifica|app|aplicativo|pedido|cliente|estoque|caixa|calcul|pre[cç]o|impress|3d|filamento|pla|petg|tpu|bambu|orca|material|produto|or[cç]amento|pdf|backup|sincron|relatorio|produção|producao)/i;
+  if (escopo.test(texto)) return null;
+  if (/(internet|pesquisa|pesquisar|not[ií]cia|tempo hoje|previs[aã]o|futebol|pol[ií]tica|elei[cç][aã]o|medicina|rem[eé]dio|diagn[oó]stico m[eé]dico|cinema|filme|receita de comida)/i.test(texto)) {
+    if (/(internet|pesquisa|pesquisar|not[ií]cia|tempo hoje|previs[aã]o)/i.test(texto)) {
+      return "Não consigo pesquisar na internet no modo offline. Posso ajudar com informações do app, impressão 3D, cálculo, pedidos, estoque e caixa.";
+    }
+    return "Posso ajudar com o Simplifica 3D, impressão 3D, pedidos, estoque, caixa, cálculo de preço e sugestões de produtos 3D.";
+  }
+  return null;
+}
+
+function respostaIAIncompleta(texto = "") {
+  const bruto = String(texto || "").trim();
+  if (!bruto) return true;
+  if (bruto.includes("{") && bruto.lastIndexOf("}") < bruto.lastIndexOf("{")) return true;
+  if (/[,:;(-]\s*$/.test(bruto)) return true;
+  if (/\b(e|de|para|com|por|que|se|em|no|na|do|da)\s*$/i.test(bruto)) return true;
+  return bruto.length > 80 && !/[.!?}"\]]$/.test(bruto);
+}
+
 async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistenteEnxuto(texto), opcoes = {}) {
   if (!podeUsarAssistenteIAOfflinePro()) throw new Error("Assistente offline disponível apenas no Android com plano PRO ativo.");
+  const foraEscopo = detectarPerguntaForaEscopoIA(texto);
+  if (foraEscopo) return foraEscopo;
   cancelarHibernacaoIALocal();
   const ativo = getModeloIAOfflineAtivoInstalado();
   if (!ativo) throw new Error("Instale a IA local antes de usar.");
@@ -8662,12 +8988,14 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     responseMs: 0
   });
 
-  const result = await plugin.runAiPrompt({
+  const payloadGeracao = {
     modelId: ativo.modelo.id,
     modelPath: ativo.path,
     systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
     prompt,
-    maxTokens: Math.max(32, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 280)),
+    maxTokens: Math.max(5, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 360)),
+    contextSize: Math.max(512, Math.min(Number(geracao.contextSize || 1024) || 1024, 2048)),
+    threads: Math.max(1, Math.min(Number(geracao.threads || 2) || 2, 6)),
     temperature: geracao.temperature,
     topP: geracao.topP,
     topK: geracao.topK,
@@ -8676,12 +9004,25 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     frequencyPenalty: geracao.frequencyPenalty,
     proAllowed: podeUsarAssistenteIAOfflinePro(),
     timeoutMs: Math.max(8000, Math.min(Number(geracao.timeoutMs || 90000) || 90000, 180000))
-  });
+  };
+  let result = await plugin.runAiPrompt(payloadGeracao);
+  if (respostaIAIncompleta(result?.text || "") && !opcoes.skipContinuation) {
+    registrarDiagnosticoIA("resposta_incompleta", { responseChars: String(result?.text || "").length });
+    result = await plugin.runAiPrompt({
+      ...payloadGeracao,
+      prompt: `${prompt}\n\nA resposta anterior ficou incompleta. Responda novamente de forma completa e curta.`,
+      maxTokens: Math.min((payloadGeracao.maxTokens || 120) + 60, 360)
+    });
+  }
   const resposta = cleanAiResponse(result?.text || "", geracao);
   if (!resposta) throw new Error("O modelo offline não retornou resposta.");
   registrarDiagnosticoIA("resposta", {
     responseChars: resposta.length,
     responseMs: Math.round(performance.now() - inicio),
+    inferenceMs: result?.inferenceMs || result?.totalMs || Math.round(performance.now() - inicio),
+    tokensPerSecond: result?.tokensPerSecond || 0,
+    threads: payloadGeracao.threads,
+    contextSize: payloadGeracao.contextSize,
     lastError: ""
   });
   return resposta;
@@ -11348,13 +11689,18 @@ function renderPedido() {
           <strong>Resumo</strong>
         </div>
         <div class="order-summary-grid">
-          <label class="field">
+          <label class="field customer-field">
             <span>Cliente</span>
-            <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)">
+            <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)" autocomplete="off">
+            <div id="customerSuggestionPanel">${renderCustomerSuggestions()}</div>
           </label>
           <label class="field">
             <span>WhatsApp</span>
             <input id="clienteTelefone" inputmode="tel" placeholder="5585999999999" value="${escaparAttr(clienteTelefonePedido)}" oninput="atualizarTelefoneClientePedido(this.value)">
+          </label>
+          <label class="field">
+            <span>E-mail</span>
+            <input id="clienteEmail" inputmode="email" placeholder="cliente@email.com" value="${escaparAttr(clienteEmailPedido)}" oninput="atualizarEmailClientePedido(this.value)">
           </label>
           <label class="field compact-field">
             <span>Status</span>
@@ -19731,6 +20077,8 @@ function zerarDadosAdmin() {
   itensPedido = [];
   clientePedido = "";
   clienteTelefonePedido = "";
+  clienteEmailPedido = "";
+  selectedCustomerSuggestion = null;
   pedidoEditando = null;
   registrarHistorico("Admin", "Dados locais zerados");
   salvarDados();
@@ -19738,11 +20086,108 @@ function zerarDadosAdmin() {
 }
 
 function atualizarClientePedido(valor) {
-  clientePedido = valor;
+  clientePedido = String(valor || "");
+  CustomerSuggestionManager.clearSelectedSuggestionIfUserChangesText(clientePedido);
+  customerSuggestionState.query = clientePedido;
+  customerSuggestionState.error = "";
+  clearTimeout(customerSuggestionDebounceTimer);
+  if (normalizarSugestaoClienteTexto(clientePedido).length < 2 && normalizarTelefoneBusca(clientePedido).length < 2) {
+    customerSuggestionState.suggestions = [];
+    customerSuggestionState.loading = false;
+    renderizarSugestoesClientePedido();
+    return;
+  }
+  customerSuggestionState.loading = true;
+  renderizarSugestoesClientePedido();
+  const token = ++customerSuggestionState.searchToken;
+  customerSuggestionDebounceTimer = setTimeout(() => executarBuscaSugestoesCliente(clientePedido, { token }), 320);
 }
 
 function atualizarTelefoneClientePedido(valor) {
   clienteTelefonePedido = valor;
+}
+
+function atualizarEmailClientePedido(valor) {
+  clienteEmailPedido = valor;
+}
+
+async function executarBuscaSugestoesCliente(query, { incluirContatos = false, token = ++customerSuggestionState.searchToken } = {}) {
+  try {
+    const recentes = CustomerSuggestionManager.searchRecentSuggestions(query);
+    const appClients = CustomerSuggestionManager.searchAppClients(query);
+    let contatos = [];
+    if (incluirContatos) contatos = await CustomerSuggestionManager.searchPhoneContacts(query);
+    if (token !== customerSuggestionState.searchToken) return;
+    customerSuggestionState.suggestions = CustomerSuggestionManager.rankSuggestions(
+      CustomerSuggestionManager.mergeSuggestions(appClients, contatos, recentes),
+      query
+    ).slice(0, 8);
+    customerSuggestionState.error = "";
+  } catch (erro) {
+    if (token === customerSuggestionState.searchToken) {
+      customerSuggestionState.error = "Não foi possível buscar contatos agora.";
+      registrarDiagnostico("Pedidos", "Sugestão de cliente falhou", erro.message || erro, { silent: true });
+    }
+  } finally {
+    if (token === customerSuggestionState.searchToken) {
+      customerSuggestionState.loading = false;
+      renderizarSugestoesClientePedido();
+    }
+  }
+}
+
+async function buscarSugestoesContatosTelefone() {
+  const query = String(document.getElementById("clienteNome")?.value || clientePedido || "").trim();
+  if (normalizarSugestaoClienteTexto(query).length < 2 && normalizarTelefoneBusca(query).length < 2) {
+    mostrarToast("Digite pelo menos 2 caracteres para buscar contatos.", "aviso");
+    return;
+  }
+  customerSuggestionState.loading = true;
+  customerSuggestionState.error = "";
+  renderizarSugestoesClientePedido();
+  await executarBuscaSugestoesCliente(query, { incluirContatos: true, token: ++customerSuggestionState.searchToken });
+}
+
+async function escolherValorContato(label, valores = []) {
+  const unicos = Array.from(new Set((valores || []).filter(Boolean)));
+  if (unicos.length <= 1) return unicos[0] || "";
+  const resposta = window.prompt(`Escolha ${label}:\n${unicos.map((valor, index) => `${index + 1}. ${valor}`).join("\n")}`, "1");
+  const indice = Math.max(0, Math.min(unicos.length - 1, Number(resposta || 1) - 1));
+  return unicos[indice] || "";
+}
+
+async function selecionarSugestaoCliente(index) {
+  const sugestao = customerSuggestionState.suggestions[Number(index)];
+  if (!sugestao) return;
+  const phone = await escolherValorContato("o telefone", sugestao.phones?.length ? sugestao.phones : [sugestao.phone]);
+  const email = await escolherValorContato("o e-mail", sugestao.emails?.length ? sugestao.emails : [sugestao.email]);
+  selectedCustomerSuggestion = {
+    ...sugestao,
+    phone: phone || sugestao.phone || "",
+    email: email || sugestao.email || ""
+  };
+  clientePedido = selectedCustomerSuggestion.name || "";
+  clienteTelefonePedido = selectedCustomerSuggestion.phone || "";
+  clienteEmailPedido = selectedCustomerSuggestion.email || "";
+  const nomeEl = document.getElementById("clienteNome");
+  const phoneEl = document.getElementById("clienteTelefone");
+  const emailEl = document.getElementById("clienteEmail");
+  if (nomeEl) nomeEl.value = clientePedido;
+  if (phoneEl) phoneEl.value = clienteTelefonePedido;
+  if (emailEl) emailEl.value = clienteEmailPedido;
+  customerSuggestionState.query = clientePedido;
+  customerSuggestionState.suggestions = [];
+  customerSuggestionState.loading = false;
+  renderizarSugestoesClientePedido();
+}
+
+function validarSugestaoClienteAntesSalvar() {
+  const nomeAtual = String(document.getElementById("clienteNome")?.value || clientePedido || "").trim();
+  if (CustomerSuggestionManager.clearSelectedSuggestionIfUserChangesText(nomeAtual)) {
+    renderizarSugestoesClientePedido();
+  }
+  const emailEl = document.getElementById("clienteEmail");
+  clienteEmailPedido = String(emailEl?.value || clienteEmailPedido || "").trim();
 }
 
 function totalItensPedidoAtual() {
@@ -19839,12 +20284,15 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
   if (assistantRuntimePromise) return assistantRuntimePromise;
   const ativo = getModeloIAOfflineAtivoInstalado();
   if (!ativo) return false;
+  const perfil = getAIModelProfile(ativo.modelo.id);
   assistantRuntimeLoading = true;
   if (!silent) renderizarPreservandoScroll();
   assistantRuntimePromise = promiseComTimeout(
     getAIPlugin()?.loadAiModel?.({
       modelId: ativo.modelo.id,
       modelPath: ativo.path,
+      contextSize: Math.max(512, Math.min(Number(perfil.contextSize || 1024) || 1024, 2048)),
+      threads: Math.max(1, Math.min(Number(perfil.threads || 2) || 2, 6)),
       proAllowed: podeUsarAssistenteIAOfflinePro(),
       timeoutMs: 120000
     }),
@@ -19879,6 +20327,8 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
 }
 
 function aquecerIALocalEmSegundoPlano(origem = "app") {
+  // Autocomplete e navegação não devem iniciar LLM pesado; aquece somente com o assistente aberto.
+  if (!assistantOpen || assistantMode !== "pro") return false;
   if (document.visibilityState === "hidden") return false;
   if (!iaLocalEstaPronta() || assistantRuntimeReady || assistantRuntimeLoading || assistantRuntimePromise) return false;
   const agora = Date.now();
@@ -20151,6 +20601,9 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     window.__pedidoItemSelecionado = itensPedido.length ? 0 : null;
     clientePedido = clienteDoPedido(pedido);
     clienteTelefonePedido = telefoneDoPedido(pedido);
+    clienteEmailPedido = emailDoPedido(pedido);
+    selectedCustomerSuggestion = null;
+    customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
     pedidoEditando = pedido;
     pedidoEditandoOriginal = JSON.parse(JSON.stringify(pedido));
     registrarAuditoriaPedido("pedido_edicao_solicitada", pedido);
@@ -20167,6 +20620,9 @@ function cancelarEdicaoPedido() {
   window.__pedidoItemSelecionado = null;
   clientePedido = "";
   clienteTelefonePedido = "";
+  clienteEmailPedido = "";
+  selectedCustomerSuggestion = null;
+  customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   renderizarPreservandoScroll();
 }
 
@@ -20364,9 +20820,11 @@ async function fecharPedido() {
       return;
     }
     if (!pedidoEditando && !(await verificarLimitePedidosAntesCriar())) return;
+    validarSugestaoClienteAntesSalvar();
     const campoCliente = document.getElementById("clienteNome");
     const cliente = (campoCliente?.value || clientePedido).trim();
     const telefoneCliente = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
+    const emailCliente = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
 
     if (!cliente) {
       alert("Digite o nome do cliente");
@@ -20396,6 +20854,8 @@ async function fecharPedido() {
       id: pedidoEditando?.id || Date.now(),
       cliente,
       clienteTelefone: telefoneCliente,
+      clienteEmail: emailCliente,
+      emailCliente,
       itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
       total,
       status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto",
@@ -20423,6 +20883,12 @@ async function fecharPedido() {
     }
 
     pedidos.push(pedido);
+    CustomerSuggestionManager.recordRecentSuggestion({
+      source: selectedCustomerSuggestion?.source || "recent",
+      name: cliente,
+      phone: telefoneCliente,
+      email: emailCliente
+    });
     if (!pedidoEditando) registrarEventoUsoLocal("pedido_criado", {
       tipoPedido: pedido.status,
       produto: pedido.itens?.[0]?.nome || "",
@@ -20452,6 +20918,9 @@ async function fecharPedido() {
     window.__pedidoItemSelecionado = null;
     clientePedido = "";
     clienteTelefonePedido = "";
+    clienteEmailPedido = "";
+    selectedCustomerSuggestion = null;
+    customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
     pedidoSalvando = false;
     if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
@@ -22140,6 +22609,10 @@ function limparPedidoAtual() {
 
   itensPedido = [];
   clientePedido = "";
+  clienteTelefonePedido = "";
+  clienteEmailPedido = "";
+  selectedCustomerSuggestion = null;
+  customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   pedidoEditando = null;
   window.__pedidoItemSelecionado = null;
   registrarHistorico("Pedido", "Pedido atual limpo");
