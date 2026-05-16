@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.23";
-const APP_VERSION_CODE = 74;
+const APP_VERSION = "51.0.24";
+const APP_VERSION_CODE = 75;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -272,6 +272,7 @@ const ANDROID_UPDATE_MANIFEST_FALLBACK_URLS = [
   "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json"
 ];
 const USAGE_LEARNING_KEY = "usageLearning";
+const AI_USAGE_MEMORY_PREFIX = "aiUsageMemory";
 const USAGE_LEARNING_ALLOWED_EVENTS = new Set([
   "tela_aberta",
   "calculadora_aberta",
@@ -501,6 +502,7 @@ let appConfig = carregarObjeto("appConfig", {
   defaultResinCost: 180,
   calculatorDefaults: {},
   smartSuggestionsEnabled: true,
+  aiUsageMemoryEnabled: true,
   smartSuggestionsDismissedAt: "",
   screenFit: "auto",
   uiScale: 100,
@@ -2067,14 +2069,196 @@ function registrarEventoUsoLocal(tipo, dados = {}) {
   if (tipo === "material_usado") {
     evento.materialId = String(dados.materialId || "").slice(0, 80);
     evento.materialNome = String(dados.materialNome || "").slice(0, 80);
+    evento.cor = String(dados.cor || "").slice(0, 48);
   }
   if (tipo === "impressora_usada") evento.impressora = String(dados.impressora || "").slice(0, 80);
+  if (tipo === "pedido_criado") evento.tipoPedido = String(dados.tipoPedido || dados.status || "").slice(0, 48);
+  if (tipo === "item_adicionado") evento.produto = String(dados.produto || dados.nome || "").slice(0, 80);
+  if (dados.margem !== undefined) evento.margem = Number(dados.margem) || 0;
+  if (dados.peso !== undefined) evento.peso = Number(dados.peso) || 0;
+  if (dados.tempo !== undefined) evento.tempo = Number(dados.tempo) || 0;
   usageLearning = normalizarUsoInteligente({
     ...usageLearning,
     events: [...(usageLearning?.events || []), evento]
   });
   salvarUsoInteligenteLocal();
+  if (globalThis.AiUsageMemoryManager) {
+    globalThis.AiUsageMemoryManager.collectUsageSignals(tipo, evento);
+  }
 }
+
+function getAiUsageMemoryUserId(usuario = getUsuarioAtual()) {
+  const uid = syncConfig.supabaseUserId || usuario?.id || usuario?.email || usuarioAtualEmail || "local";
+  return String(uid || "local").replace(/[^\w.@-]/g, "_").slice(0, 96);
+}
+
+function getAiUsageMemoryKey(userId = getAiUsageMemoryUserId()) {
+  return `${AI_USAGE_MEMORY_PREFIX}:${userId || "local"}`;
+}
+
+function normalizarMapaNumerico(valor = {}, limite = 40) {
+  const mapa = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {};
+  return Object.fromEntries(Object.entries(mapa)
+    .map(([chave, peso]) => [String(chave).slice(0, 80), Math.max(0, Number(peso) || 0)])
+    .filter(([chave, peso]) => chave && peso > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limite));
+}
+
+function normalizarMediaUso(valor = {}) {
+  return {
+    total: Math.max(0, Number(valor?.total) || 0),
+    count: Math.max(0, Number(valor?.count) || 0)
+  };
+}
+
+function normalizarAiUsageMemory(origem = {}) {
+  const base = origem && typeof origem === "object" && !Array.isArray(origem) ? origem : {};
+  return {
+    version: 1,
+    enabled: base.enabled !== false,
+    userId: String(base.userId || getAiUsageMemoryUserId()).slice(0, 96),
+    updatedAt: String(base.updatedAt || ""),
+    materialStats: normalizarMapaNumerico(base.materialStats),
+    colorStats: normalizarMapaNumerico(base.colorStats),
+    printerStats: normalizarMapaNumerico(base.printerStats),
+    productStats: normalizarMapaNumerico(base.productStats),
+    screenStats: normalizarMapaNumerico(base.screenStats),
+    actionStats: normalizarMapaNumerico(base.actionStats),
+    fieldStats: normalizarMapaNumerico(base.fieldStats),
+    orderTypeStats: normalizarMapaNumerico(base.orderTypeStats),
+    marginStats: normalizarMapaNumerico(base.marginStats, 20),
+    averages: {
+      margin: normalizarMediaUso(base.averages?.margin),
+      weight: normalizarMediaUso(base.averages?.weight),
+      printTime: normalizarMediaUso(base.averages?.printTime)
+    }
+  };
+}
+
+function aplicarDecayMemoriaIA(memoria) {
+  const proxima = normalizarAiUsageMemory(memoria);
+  const ultimaAtualizacao = Date.parse(proxima.updatedAt || "") || 0;
+  const dias = ultimaAtualizacao ? (Date.now() - ultimaAtualizacao) / 86400000 : 0;
+  if (dias < 14) return proxima;
+  const fator = dias > 90 ? 0.55 : 0.85;
+  ["materialStats", "colorStats", "printerStats", "productStats", "screenStats", "actionStats", "fieldStats", "orderTypeStats", "marginStats"].forEach((chave) => {
+    proxima[chave] = normalizarMapaNumerico(Object.fromEntries(Object.entries(proxima[chave]).map(([item, peso]) => [item, peso * fator])));
+  });
+  return proxima;
+}
+
+function incrementarStatMemoriaIA(memoria, chave, valor, peso = 1) {
+  const texto = String(valor || "").trim().slice(0, 80);
+  if (!texto) return;
+  memoria[chave] = normalizarMapaNumerico({
+    ...(memoria[chave] || {}),
+    [texto]: (Number(memoria[chave]?.[texto]) || 0) + Math.max(0.1, Number(peso) || 1)
+  });
+}
+
+function registrarMediaMemoriaIA(memoria, chave, valor) {
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || numero <= 0) return;
+  const atual = normalizarMediaUso(memoria.averages?.[chave]);
+  const count = Math.min(200, atual.count + 1);
+  const total = atual.count >= 200 ? atual.total * 0.98 + numero : atual.total + numero;
+  memoria.averages[chave] = { total, count };
+}
+
+function valorPreferidoMemoriaIA(stats = {}) {
+  return Object.entries(stats || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+}
+
+function mediaMemoriaIA(media = {}) {
+  const count = Number(media?.count) || 0;
+  return count > 0 ? Math.round((Number(media.total) || 0) / count) : 0;
+}
+
+const AiUsageMemoryManager = Object.freeze({
+  load(userId = getAiUsageMemoryUserId()) {
+    try {
+      const bruto = JSON.parse(localStorage.getItem(getAiUsageMemoryKey(userId)) || "{}");
+      return aplicarDecayMemoriaIA({ ...bruto, userId });
+    } catch (_) {
+      return normalizarAiUsageMemory({ userId });
+    }
+  },
+  save(memory) {
+    const normalizada = normalizarAiUsageMemory({ ...memory, updatedAt: new Date().toISOString() });
+    localStorage.setItem(getAiUsageMemoryKey(normalizada.userId), JSON.stringify(normalizada));
+    return normalizada;
+  },
+  collectUsageSignals(tipo, dados = {}) {
+    if (appConfig.aiUsageMemoryEnabled === false) return null;
+    if (!sugestoesInteligentesAtivas()) return null;
+    const memory = this.load();
+    if (memory.enabled === false) return null;
+    incrementarStatMemoriaIA(memory, "actionStats", tipo);
+    if (dados.tela) incrementarStatMemoriaIA(memory, "screenStats", dados.tela);
+    if (dados.materialNome || dados.materialId) incrementarStatMemoriaIA(memory, "materialStats", dados.materialNome || dados.materialId);
+    if (dados.cor) incrementarStatMemoriaIA(memory, "colorStats", dados.cor);
+    if (dados.impressora) incrementarStatMemoriaIA(memory, "printerStats", dados.impressora);
+    if (dados.produto) incrementarStatMemoriaIA(memory, "productStats", dados.produto);
+    if (dados.tipoPedido) incrementarStatMemoriaIA(memory, "orderTypeStats", dados.tipoPedido);
+    if (dados.margem !== undefined) {
+      const margem = Math.round(Number(dados.margem) || 0);
+      if (margem > 0) incrementarStatMemoriaIA(memory, "marginStats", String(margem));
+      registrarMediaMemoriaIA(memory, "margin", margem);
+    }
+    if (dados.peso !== undefined) registrarMediaMemoriaIA(memory, "weight", dados.peso);
+    if (dados.tempo !== undefined) registrarMediaMemoriaIA(memory, "printTime", dados.tempo);
+    ["peso", "tempo", "material", "impressora", "margem", "cliente", "produto"].forEach((campo) => {
+      if (dados[campo] !== undefined && dados[campo] !== "") incrementarStatMemoriaIA(memory, "fieldStats", campo, 0.5);
+    });
+    return this.updateUserAiProfile(memory);
+  },
+  updateUserAiProfile(memory = this.load()) {
+    return this.save(memory);
+  },
+  buildUserMemoryContext(userId = getAiUsageMemoryUserId(), modelProfile = getAIModelProfile()) {
+    if (appConfig.aiUsageMemoryEnabled === false) return "";
+    const memory = this.load(userId);
+    if (memory.enabled === false) return "";
+    const material = valorPreferidoMemoriaIA(memory.materialStats);
+    const cor = valorPreferidoMemoriaIA(memory.colorStats);
+    const impressora = valorPreferidoMemoriaIA(memory.printerStats);
+    const margem = valorPreferidoMemoriaIA(memory.marginStats) || mediaMemoriaIA(memory.averages.margin);
+    const produto = Object.keys(memory.productStats || {}).slice(0, 2).join(", ");
+    const tela = valorPreferidoMemoriaIA(memory.screenStats);
+    const partes = [];
+    if (material) partes.push(`material ${material}`);
+    if (cor) partes.push(`cor ${cor}`);
+    if (impressora) partes.push(`impressora ${impressora}`);
+    if (margem) partes.push(`margem ${margem}%`);
+    if (produto) partes.push(`produtos ${produto}`);
+    if (tela) partes.push(`tela frequente ${tela}`);
+    if (!partes.length) return "";
+    const label = modelProfile?.label || "Lite";
+    if (label === "Lite") return `Preferências: ${partes.slice(0, 3).join(", ")}. Use como sugestão e confirme.`;
+    if (label === "Smart") return `Preferências do usuário: ${partes.slice(0, 4).join(", ")}. Use só como sugestão, sem salvar sozinho.`;
+    return `Preferências do usuário: ${partes.slice(0, 6).join(", ")}. Use isso apenas como sugestão, avise quando usar e nunca salve nada sem confirmação.`;
+  },
+  resetUserAiMemory(userId = getAiUsageMemoryUserId()) {
+    localStorage.removeItem(getAiUsageMemoryKey(userId));
+    mostrarToast("Memória da IA apagada.", "sucesso", 3200);
+    renderizarPreservandoScroll();
+  },
+  exportUserAiMemory(userId = getAiUsageMemoryUserId()) {
+    return this.load(userId);
+  },
+  disableUserAiMemory(userId = getAiUsageMemoryUserId()) {
+    const memory = this.load(userId);
+    memory.enabled = false;
+    appConfig.aiUsageMemoryEnabled = false;
+    this.save(memory);
+    salvarDados();
+    mostrarToast("Aprendizado da IA desativado.", "info", 3200);
+    renderizarPreservandoScroll();
+  }
+});
+
+globalThis.AiUsageMemoryManager = AiUsageMemoryManager;
 
 function contarEventosUso(tipo, limite = 30) {
   return normalizarUsoInteligente(usageLearning).events
@@ -6662,6 +6846,7 @@ function normalizarTextoAssistente(texto) {
 }
 
 function getLocalAiUsageProfile() {
+  const memoriaIA = globalThis.AiUsageMemoryManager?.exportUserAiMemory?.() || null;
   const eventos = normalizarUsoInteligente(usageLearning).events;
   const telas = eventos.filter((evento) => evento.tipo === "tela_aberta").slice(-30);
   const telaFrequente = (() => {
@@ -6674,8 +6859,11 @@ function getLocalAiUsageProfile() {
     return [...mapa.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
   })();
   return {
-    favoriteMaterial: valorFrequenteUso("material_usado", "materialNome", 60) || valorFrequenteUso("material_usado", "materialId", 60),
-    preferredPrinter: valorFrequenteUso("impressora_usada", "impressora", 60),
+    favoriteMaterial: valorPreferidoMemoriaIA(memoriaIA?.materialStats) || valorFrequenteUso("material_usado", "materialNome", 60) || valorFrequenteUso("material_usado", "materialId", 60),
+    favoriteColor: valorPreferidoMemoriaIA(memoriaIA?.colorStats),
+    preferredPrinter: valorPreferidoMemoriaIA(memoriaIA?.printerStats) || valorFrequenteUso("impressora_usada", "impressora", 60),
+    averageMargin: valorPreferidoMemoriaIA(memoriaIA?.marginStats) || mediaMemoriaIA(memoriaIA?.averages?.margin),
+    commonProducts: Object.keys(memoriaIA?.productStats || {}).slice(0, 3),
     mostVisitedScreen: telaFrequente,
     commonActions: eventos.slice(-20).map((evento) => evento.tipo).filter(Boolean).slice(-5)
   };
@@ -6713,6 +6901,7 @@ function buildAiContext(screen = telaAtual, userInput = "", modelProfile = getAI
     tela,
     pergunta: String(userInput || "").slice(0, 220),
     perfilUso: getLocalAiUsageProfile(),
+    memoriaUsuario: AiUsageMemoryManager.buildUserMemoryContext(getAiUsageMemoryUserId(), modelProfile),
     modelo: modelProfile.label || "Lite",
     permissoes: Array.isArray(modelProfile.allowActions) ? modelProfile.allowActions : [],
     camposVisiveis: []
@@ -8165,6 +8354,9 @@ function montarPromptIAOffline(texto = "", contexto = {}, modelId = getAIAssista
     "Se a pergunta for ampla, pergunte só qual tarefa deseja fazer. Responda curto, direto e sem repetir.",
     `Permissões do modelo ${perfil.label}: ${(perfil.allowActions || []).join(", ") || "explain_screen"}.`,
     "Se for ação do app permitida, você pode retornar JSON app_action. Sempre requiresConfirmation=true. Nunca salve automaticamente.",
+    contexto.memoriaUsuario ? "Memória local do usuário:" : "",
+    contexto.memoriaUsuario || "",
+    contexto.memoriaUsuario ? "Se usar uma preferência aprendida, avise que é sugestão e peça conferência." : "",
     "Contexto:",
     resumirContextoIA(contexto),
     "",
@@ -8278,8 +8470,24 @@ function encontrarMaterialPorTextoIA(texto = "") {
 async function executeAiDraftAction(validatedAction) {
   if (!validatedAction?.ok) return false;
   const fields = validatedAction.fields || {};
+  const memoriaIA = AiUsageMemoryManager.exportUserAiMemory();
+  const sugestoesMemoria = [];
   window.__aiDraftBanner = validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.";
   if (["fill_calculator", "fill_calculator_basic"].includes(validatedAction.intent)) {
+    if (!fields.material && !fields.materialId) {
+      const materialSugerido = valorPreferidoMemoriaIA(memoriaIA.materialStats);
+      if (materialSugerido) {
+        fields.material = materialSugerido;
+        sugestoesMemoria.push(`material ${materialSugerido}`);
+      }
+    }
+    if (!fields.margem && !fields.margin) {
+      const margemSugerida = valorPreferidoMemoriaIA(memoriaIA.marginStats) || mediaMemoriaIA(memoriaIA.averages.margin);
+      if (margemSugerida) {
+        fields.margem = margemSugerida;
+        sugestoesMemoria.push(`margem ${margemSugerida}%`);
+      }
+    }
     trocarTela("calculadora");
     setTimeout(() => {
       preencherCampoRascunhoIA("peso", fields.peso || fields.pesoGramas || fields.weight);
@@ -8287,7 +8495,10 @@ async function executeAiDraftAction(validatedAction) {
       preencherCampoRascunhoIA("margem", fields.margem || fields.margin);
       preencherCampoRascunhoIA("taxaExtra", fields.taxaExtra || fields.extraFee);
       const materialId = fields.materialId || encontrarMaterialPorTextoIA(fields.material || fields.materialNome || "");
-      if (materialId) preencherCampoRascunhoIA("materialSelect", materialId);
+      if (materialId) {
+        preencherCampoRascunhoIA("materialSelect", materialId);
+        preencherCampoRascunhoIA("calcMaterial", materialId);
+      }
       if (validatedAction.intent === "fill_calculator" && document.getElementById("peso")?.value && document.getElementById("tempo")?.value) calcular();
     }, 120);
   } else if (validatedAction.intent === "create_order_draft") {
@@ -8323,7 +8534,8 @@ async function executeAiDraftAction(validatedAction) {
   } else {
     return false;
   }
-  mostrarToast(validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.", "info", 5200);
+  const avisoMemoria = sugestoesMemoria.length ? ` Usei seu padrão de ${sugestoesMemoria.join(" e ")}. Confira antes de salvar.` : "";
+  mostrarToast((validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.") + avisoMemoria, "info", 5600);
   registrarDiagnosticoIA("draft_action", { intent: validatedAction.intent, responseChars: 0 });
   return true;
 }
@@ -12690,6 +12902,69 @@ function renderBloqueioPlano(recurso) {
   `;
 }
 
+function renderMemoriaIAConfig() {
+  const memoria = AiUsageMemoryManager.exportUserAiMemory();
+  const material = valorPreferidoMemoriaIA(memoria.materialStats) || "Ainda não aprendido";
+  const impressora = valorPreferidoMemoriaIA(memoria.printerStats) || "Ainda não aprendida";
+  const margem = valorPreferidoMemoriaIA(memoria.marginStats) || mediaMemoriaIA(memoria.averages.margin) || "Ainda não aprendida";
+  const tela = valorPreferidoMemoriaIA(memoria.screenStats) || "Ainda não aprendida";
+  return `
+    <div class="danger-zone">
+      <h2 class="section-title">Memória local da IA</h2>
+      <p class="muted">A IA usa padrões de uso do app para sugerir respostas melhores. Você pode apagar esses dados quando quiser.</p>
+      <label class="checkbox-row">
+        <input id="aiUsageMemoryEnabled" type="checkbox" ${appConfig.aiUsageMemoryEnabled !== false && memoria.enabled !== false ? "checked" : ""}>
+        <span>Ativar aprendizado local da IA</span>
+      </label>
+      <div class="sync-grid">
+        <div class="metric"><span>Material comum</span><strong>${escaparHtml(material)}</strong></div>
+        <div class="metric"><span>Impressora comum</span><strong>${escaparHtml(impressora)}</strong></div>
+        <div class="metric"><span>Margem comum</span><strong>${escaparHtml(String(margem))}${Number(margem) ? "%" : ""}</strong></div>
+        <div class="metric"><span>Tela frequente</span><strong>${escaparHtml(tela)}</strong></div>
+      </div>
+      <p class="muted">A memória guarda apenas contagens, médias e preferências locais por conta. Ela não salva conversas completas, senhas, documentos ou dados financeiros detalhados.</p>
+      <div class="actions">
+        <button class="btn ghost" type="button" onclick="abrirPainelMemoriaIA()">Ver dados aprendidos</button>
+        <button class="btn ghost" type="button" onclick="AiUsageMemoryManager.resetUserAiMemory()">Limpar memória da IA</button>
+        <button class="btn ghost" type="button" onclick="AiUsageMemoryManager.disableUserAiMemory()">Desativar</button>
+      </div>
+    </div>
+  `;
+}
+
+function abrirPainelMemoriaIA() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const memoria = AiUsageMemoryManager.exportUserAiMemory();
+  const resumo = {
+    favoriteMaterial: valorPreferidoMemoriaIA(memoria.materialStats),
+    favoriteColor: valorPreferidoMemoriaIA(memoria.colorStats),
+    preferredPrinter: valorPreferidoMemoriaIA(memoria.printerStats),
+    averageMargin: valorPreferidoMemoriaIA(memoria.marginStats) || mediaMemoriaIA(memoria.averages.margin),
+    commonProducts: Object.keys(memoria.productStats || {}).slice(0, 5),
+    frequentScreens: Object.keys(memoria.screenStats || {}).slice(0, 5),
+    commonActions: Object.keys(memoria.actionStats || {}).slice(0, 5),
+    averageWeight: mediaMemoriaIA(memoria.averages.weight),
+    averagePrintTime: mediaMemoriaIA(memoria.averages.printTime)
+  };
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Dados aprendidos pela IA</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <pre class="diagnostics-json">${escaparHtml(JSON.stringify(resumo, null, 2))}</pre>
+        <p class="muted">Esses dados ficam neste aparelho, separados por usuário, e servem apenas como sugestão para rascunhos e respostas.</p>
+        <div class="actions">
+          <button class="btn ghost" type="button" onclick="AiUsageMemoryManager.resetUserAiMemory()">Limpar memória</button>
+          <button class="btn" type="button" onclick="fecharPopup()">Fechar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderConfig() {
   const usuario = getUsuarioAtual();
   const emailConta = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || "");
@@ -12773,6 +13048,7 @@ function renderConfig() {
 
       ${telaAtual === "config" ? `
         ${renderAssistenteInteligenteProConfig()}
+        ${renderMemoriaIAConfig()}
 
         ${whatsapp2FABackendDisponivel() ? `<div class="danger-zone">
           <h2 class="section-title">Segurança</h2>
@@ -16900,6 +17176,7 @@ function lerConfigSyncCampos() {
 function lerConfigAppCampos() {
   const twoFactorEnabledEl = document.getElementById("twoFactorEnabled");
   const autoUpdateEnabledEl = document.getElementById("autoUpdateEnabled");
+  const aiUsageMemoryEnabledEl = document.getElementById("aiUsageMemoryEnabled");
 
   return {
     twoFactorEnabled: whatsapp2FABackendDisponivel() && (twoFactorEnabledEl ? twoFactorEnabledEl.checked : !!appConfig.twoFactorEnabled),
@@ -16908,6 +17185,7 @@ function lerConfigAppCampos() {
     twoFactorRememberMinutes: Math.max(1, parseFloat(document.getElementById("twoFactorRememberMinutes")?.value || appConfig.twoFactorRememberMinutes || 60) || 60),
     autoUpdateEnabled: autoUpdateEnabledEl ? autoUpdateEnabledEl.checked : appConfig.autoUpdateEnabled !== false,
     updateCheckInterval: Math.max(5, parseFloat(document.getElementById("updateCheckInterval")?.value || appConfig.updateCheckInterval || 30) || 30),
+    aiUsageMemoryEnabled: aiUsageMemoryEnabledEl ? aiUsageMemoryEnabledEl.checked : appConfig.aiUsageMemoryEnabled !== false,
     adsenseWebEnabled: document.getElementById("adsenseWebEnabled") ? !!document.getElementById("adsenseWebEnabled")?.checked : appConfig.adsenseWebEnabled === true,
     adsensePublisherId: (document.getElementById("adsensePublisherId")?.value || appConfig.adsensePublisherId || "").trim(),
     adsenseBannerSlot: (document.getElementById("adsenseBannerSlot")?.value || appConfig.adsenseBannerSlot || "").trim()
@@ -16926,6 +17204,9 @@ function salvarConfigSync() {
     ...appConfig,
     ...lerConfigAppCampos()
   };
+  const memoriaIA = AiUsageMemoryManager.load();
+  memoriaIA.enabled = appConfig.aiUsageMemoryEnabled !== false;
+  AiUsageMemoryManager.updateUserAiProfile(memoriaIA);
 
   salvarDados();
   registrarHistorico("Configuração", "Sincronização atualizada");
@@ -20065,7 +20346,13 @@ async function fecharPedido() {
     }
 
     pedidos.push(pedido);
-    if (!pedidoEditando) registrarEventoUsoLocal("pedido_criado");
+    if (!pedidoEditando) registrarEventoUsoLocal("pedido_criado", {
+      tipoPedido: pedido.status,
+      produto: pedido.itens?.[0]?.nome || "",
+      materialNome: pedido.itens?.[0]?.material || "",
+      peso: pedido.itens?.[0]?.materialGramsTotal || 0,
+      tempo: pedido.itens?.[0]?.tempoHoras || 0
+    });
     caixa.push(prepararRegistroOnline({
       id: Date.now() + 1,
       tipo: "entrada",
@@ -20184,6 +20471,7 @@ function addMaterial() {
 
   try {
     InventoryService.addMaterial({ tipo, cor, qtd });
+    registrarEventoUsoLocal("material_usado", { materialNome: [tipo, cor].filter(Boolean).join(" "), materialId: tipo, cor });
     agendarSyncSilenciosoDados("estoque-adicionado");
     renderizarPreservandoScroll();
   } catch (erro) {
@@ -20786,6 +21074,7 @@ function salvarMaterialCalculadoraRapido() {
         materialId: material.id
       };
     }
+    registrarEventoUsoLocal("material_usado", { materialId: material?.id || tipo, materialNome: material?.nome || [tipo, cor].filter(Boolean).join(" "), cor });
     fecharPopup();
     preencherMateriaisCalculadora();
     if (material?.id) {
@@ -20840,8 +21129,15 @@ function calcular() {
   const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
   const materialId = document.getElementById("calcMaterial")?.value || "";
   const materialEstoque = getMaterialEstoque(materialId);
-  registrarEventoUsoLocal("impressora_usada", { impressora: printer });
-  if (materialId) registrarEventoUsoLocal("material_usado", { materialId, materialNome: materialEstoque?.nome || "" });
+  registrarEventoUsoLocal("impressora_usada", { impressora: printer, margem, peso, tempo });
+  if (materialId) registrarEventoUsoLocal("material_usado", {
+    materialId,
+    materialNome: materialEstoque?.nome || "",
+    cor: materialEstoque?.cor || "",
+    margem,
+    peso,
+    tempo
+  });
 
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempo * energia;
@@ -20948,7 +21244,14 @@ async function adicionarItem() {
     total: valorManual * qtd
   });
   window.__pedidoItemSelecionado = itensPedido.length - 1;
-  registrarEventoUsoLocal("item_adicionado");
+  registrarEventoUsoLocal("item_adicionado", {
+    produto: nome,
+    materialNome: ultimoCalculo.materialNome,
+    materialId: ultimoCalculo.materialId,
+    impressora: ultimoCalculo.printer,
+    peso: ultimoCalculo.peso,
+    tempo: ultimoCalculo.tempo
+  });
 
   limparCalculo();
   if (telaAtual !== "calculadora") minimizarCalculadora();
@@ -20967,7 +21270,14 @@ function salvarOrcamento() {
     criadoEm: new Date().toISOString()
   });
   orcamentos = orcamentos.slice(0, 100);
-  registrarEventoUsoLocal("orcamento_finalizado");
+  registrarEventoUsoLocal("orcamento_finalizado", {
+    produto: nome,
+    materialNome: ultimoCalculo.materialNome,
+    materialId: ultimoCalculo.materialId,
+    impressora: ultimoCalculo.printer,
+    peso: ultimoCalculo.peso,
+    tempo: ultimoCalculo.tempo
+  });
   salvarDados();
   registrarHistorico("Orçamento", "Orçamento salvo: " + nome);
   alert("Orçamento salvo com sucesso.");
