@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v93-ads-visible-fix-5125-20260515";
+const CACHE_NAME = "simplifica-3d-v94-pwa-control-center-5126-20260516";
 const APP_FILES = [
   "./",
   "./index.html",

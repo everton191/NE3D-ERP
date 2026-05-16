@@ -6583,3 +6583,242 @@ body[data-motion="low"]{
     max-height:152px;
   }
 }
+
+/* PWA/web recebe o painel tecnico denso. APK continua no perfil leve para preservar memoria da IA. */
+body[data-ui-profile="web_pwa"] .desktop-main{
+  background:
+    linear-gradient(rgba(134,240,255,.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(134,240,255,.028) 1px, transparent 1px),
+    radial-gradient(circle at 12% 0%, rgba(13,189,184,.12), transparent 28%),
+    radial-gradient(circle at 86% 4%, rgba(255,148,28,.08), transparent 25%),
+    var(--bg);
+  background-size:28px 28px, 28px 28px, auto, auto, auto;
+}
+
+body[data-ui-profile="web_pwa"] .desktop-focus{
+  max-width:min(1760px, calc(100vw - 292px));
+}
+
+body[data-ui-profile="web_pwa"] .side-nav-button span,
+body[data-ui-profile="web_pwa"] .quick-action span,
+body[data-ui-profile="web_pwa"] .menu-button span,
+body[data-ui-profile="web_pwa"] .mobile-bottom-nav-button span,
+body[data-ui-profile="web_pwa"] .action-symbol,
+body[data-ui-profile="web_pwa"] .kpi-icon,
+body[data-ui-profile="web_pwa"] .node-icon{
+  background:linear-gradient(145deg, rgba(13,189,184,.18), rgba(134,240,255,.055));
+  color:#3ffbf1;
+  border:1px solid rgba(134,240,255,.16);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.18);
+}
+
+.card-header h2 svg,
+.btn svg,
+.kpi-icon svg,
+.node-icon svg,
+.control-center-header svg{
+  width:1.05em;
+  height:1.05em;
+  display:inline-block;
+  vertical-align:-.16em;
+}
+
+.kpi-icon svg,
+.node-icon svg{
+  width:20px;
+  height:20px;
+}
+
+.dashboard-control-center{
+  width:100%;
+  max-width:min(1760px, 100%);
+  gap:10px;
+}
+
+.control-center-header{
+  display:grid;
+  grid-template-columns:minmax(0, 1.25fr) minmax(360px, .75fr);
+  gap:12px;
+  align-items:center;
+  padding:14px;
+  border:1px solid rgba(134,240,255,.18);
+  border-radius:20px;
+  background:
+    linear-gradient(135deg, rgba(13,189,184,.16), rgba(255,255,255,.035)),
+    rgba(7,11,17,.74);
+  box-shadow:var(--shadow-soft);
+}
+
+.control-center-header h1{
+  margin:2px 0 4px;
+  font-size:clamp(22px, 2.2vw, 34px);
+  line-height:1;
+}
+
+.control-center-meta{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:7px;
+}
+
+.control-center-meta div{
+  min-height:54px;
+  display:grid;
+  align-content:center;
+  gap:3px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  background:rgba(0,0,0,.20);
+}
+
+.control-center-meta span{
+  color:var(--muted);
+  font-size:var(--font-xs);
+  text-transform:uppercase;
+  font-weight:800;
+}
+
+.control-center-meta strong{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font-size:var(--font-sm);
+}
+
+.control-center-header .dashboard-period-tabs{
+  grid-column:1 / -1;
+}
+
+.control-center-layout{
+  display:grid;
+  grid-template-columns:minmax(0, 1.38fr) minmax(360px, .62fr);
+  gap:10px;
+  align-items:start;
+}
+
+.control-center-main,
+.control-center-side{
+  min-width:0;
+  display:grid;
+  gap:10px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .dashboard-chart-card{
+  min-height:318px;
+  padding:14px;
+  border-radius:18px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .combo-chart-svg{
+  height:220px;
+  max-height:230px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .dashboard-analytics-hero{
+  grid-template-columns:repeat(5, minmax(0, 1fr));
+  gap:7px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-kpi{
+  min-height:72px;
+  padding:9px 10px;
+  border-radius:14px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-kpi strong{
+  font-size:clamp(16px, 1.45vw, 23px);
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .technical-glass-panel,
+body[data-ui-profile="web_pwa"] .dashboard-control-center .dashboard-insights,
+body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-module{
+  border-radius:18px;
+  padding:12px;
+  backdrop-filter:blur(8px);
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-hero{
+  grid-template-columns:minmax(0, 1fr) 92px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-ring{
+  width:88px;
+  height:88px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-flow{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  padding:8px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-flow::before,
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-flow::after{
+  display:none;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-node{
+  min-height:82px;
+  border-radius:14px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-insights{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .insight-card{
+  min-height:66px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-sections{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-module .metric{
+  min-height:46px;
+  padding:8px 9px;
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .control-center-kpis{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+body[data-ui-profile="web_pwa"] .dashboard-control-center .kpi-card{
+  min-height:68px;
+  padding:10px;
+  border-radius:14px;
+}
+
+body[data-ui-profile="android_apk"] .dashboard-apk-simple .dashboard-insights,
+body[data-ui-profile="android_apk"] .dashboard-apk-simple .analytics-sections,
+body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel{
+  display:none;
+}
+
+.password-confirm-card{
+  max-width:420px;
+}
+
+.auth-inline-feedback{
+  margin:-6px 0 0;
+}
+
+@media(max-width:1180px){
+  .control-center-header,
+  .control-center-layout{
+    grid-template-columns:1fr;
+  }
+
+  body[data-ui-profile="web_pwa"] .dashboard-control-center .dashboard-analytics-hero,
+  body[data-ui-profile="web_pwa"] .dashboard-control-center .control-center-kpis{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media(max-width:720px){
+  .control-center-meta,
+  body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-sections,
+  body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-insights{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}

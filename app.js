@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.25";
-const APP_VERSION_CODE = 76;
+const APP_VERSION = "51.0.26";
+const APP_VERSION_CODE = 77;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -64,7 +64,7 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 8;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
-const AI_LOCAL_UI_VERSION = "2026-05-15-auto-model-installer-hidden-memory";
+const AI_LOCAL_UI_VERSION = "2026-05-16-pwa-control-center-password-fix";
 const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do Simplifica 3D. Responda em português do Brasil. Seja curto, lógico e prático. Evite respostas longas. Não repita ideias. Não use introduções como 'Claro', 'Com certeza' ou 'Vou te ajudar'. Não invente dados do aplicativo. Não invente clientes, pedidos, estoque, preços ou valores. Se faltar informação, peça apenas o dado essencial. Quando possível, responda em até 3 frases. Quando precisar orientar, use passos curtos. Priorize ações úteis dentro do app. O aplicativo possui calculadora de impressão 3D, pedidos, clientes, estoque, caixa, relatórios e painel administrativo. Quando a solicitação for uma ação do aplicativo, gere uma intenção estruturada em JSON somente se a ação estiver permitida para o modelo atual. Nunca salve, exclua, envie, altere estoque, altere caixa ou modifique dados automaticamente. Sempre crie apenas rascunho e exija confirmação do usuário.";
 const AI_RESPONSE_MAX_CHARS = 800;
 const AI_DEFAULT_MAX_TOKENS = 120;
@@ -2426,6 +2426,25 @@ function desativarTravaLocal(motivo = "unlock") {
   registrarDesbloqueioLocal(motivo);
 }
 
+function focarCampoSenha(inputOrId, selecionar = false) {
+  const input = typeof inputOrId === "string" ? document.getElementById(inputOrId) : inputOrId;
+  if (!input) return;
+  const aplicarFoco = () => {
+    try {
+      input.focus({ preventScroll: true });
+    } catch (_) {
+      input.focus();
+    }
+    if (selecionar) {
+      try { input.select(); } catch (_) {}
+    }
+  };
+  requestAnimationFrame(() => {
+    aplicarFoco();
+    setTimeout(aplicarFoco, 80);
+  });
+}
+
 function renderTravaLocal() {
   return `
     <main class="auth-desktop-main">
@@ -2439,10 +2458,11 @@ function renderTravaLocal() {
           <label class="field auth-field">
             <span>Senha da conta</span>
             <div class="password-row auth-password-row">
-              <input id="localUnlockPassword" type="password" autocomplete="current-password" placeholder="Sua senha" required>
+              <input id="localUnlockPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" inputmode="text" placeholder="Sua senha" required>
               <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
             </div>
           </label>
+          <p class="muted auth-inline-feedback" id="localUnlockFeedback">Digite a senha usada nesta conta. O teclado permanece aberto se houver erro.</p>
           <div class="actions">
             <button id="localUnlockBtn" class="btn" type="submit">Desbloquear</button>
             <button class="btn ghost" type="button" onclick="logoutUsuario()">Sair</button>
@@ -2453,18 +2473,52 @@ function renderTravaLocal() {
   `;
 }
 
-async function concluirDesbloqueioLocalComSenha(senha) {
-  if (!window.__simplificaLocalLockActive) return true;
+async function validarSenhaLocalUsuarioAtual(senha) {
   const usuario = getUsuarioAtual();
-  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
-  if (!senha) return false;
-  if (!estaOnline()) {
-    mostrarToast("Conexão necessária para desbloquear após 12 horas.", "erro", 7000);
+  if (!usuario || !senha) return false;
+  try {
+    return await verificarSenhaUsuario(usuario, senha);
+  } catch (erro) {
+    registrarDiagnostico("Auth", "Fallback local de senha falhou", erro.message, { silent: true });
     return false;
   }
+}
+
+async function validarSenhaContaAtual(senha, { preferRemote = true, allowLocalFallback = true } = {}) {
+  if (!senha) return { ok: false, source: "", reason: "empty" };
+  const usuario = getUsuarioAtual();
+  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+  const podeValidarRemoto = !!(email && syncConfig.supabaseUrl && syncConfig.supabaseAnonKey && estaOnline());
+
+  if (preferRemote && podeValidarRemoto) {
+    try {
+      const remoto = await loginUsuarioSupabase(email, senha);
+      if (!syncConfig.supabaseUserId || String(remoto?.id || "") === String(syncConfig.supabaseUserId || "")) {
+        return { ok: true, source: "supabase" };
+      }
+    } catch (erro) {
+      registrarDiagnostico("Auth", "Senha remota não validada, tentando fallback local", erro.message, { silent: true });
+    }
+  }
+
+  if (allowLocalFallback && await validarSenhaLocalUsuarioAtual(senha)) {
+    return { ok: true, source: "local" };
+  }
+
+  if (!podeValidarRemoto && !allowLocalFallback) return { ok: false, source: "", reason: "offline" };
+  return { ok: false, source: "", reason: podeValidarRemoto ? "invalid" : "offline" };
+}
+
+async function concluirDesbloqueioLocalComSenha(senha) {
+  if (!window.__simplificaLocalLockActive) return true;
+  if (!senha) return false;
   try {
-    await loginUsuarioSupabase(email, senha);
-    await consultarLicencaSupabaseSilencioso();
+    const validacao = await validarSenhaContaAtual(senha, { preferRemote: true, allowLocalFallback: true });
+    if (!validacao.ok) {
+      if (validacao.reason === "offline") mostrarToast("Sem conexão agora. Se esta senha já foi validada neste aparelho, tente novamente.", "aviso", 6500);
+      return false;
+    }
+    if (estaOnline()) await consultarLicencaSupabaseSilencioso().catch((erro) => registrarDiagnostico("Supabase", "Licença após desbloqueio falhou", erro.message));
     desativarTravaLocal("password");
     fecharPopup();
     await sincronizarFilaOfflinePendente("unlock").catch((erro) => registrarDiagnostico("sync", "Fila offline após desbloqueio falhou", erro.message));
@@ -2497,9 +2551,10 @@ async function desbloquearTravaLocalFormulario(event) {
       botao.disabled = false;
       botao.textContent = "Desbloquear";
     }
+    const feedback = document.getElementById("localUnlockFeedback");
+    if (feedback) feedback.textContent = "Senha não validada. Confira se digitou igual à senha da conta e tente novamente.";
     if (input) {
-      input.value = "";
-      input.focus();
+      focarCampoSenha(input, true);
     }
   }
 }
@@ -4054,6 +4109,14 @@ function renderVerificacao2FA() {
 
 function isMobile() {
   return window.innerWidth < 768;
+}
+
+function getUiProfile() {
+  return isAndroidNativeApp() ? "android_apk" : "web_pwa";
+}
+
+function isWebPwaProfile() {
+  return getUiProfile() === "web_pwa";
 }
 
 function detectarTipoDispositivo() {
@@ -6204,6 +6267,10 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--desktop-sidebar-width", `${Math.round(230 * Math.min(1.05, Math.max(0.92, escala)))}px`);
   root.style.setProperty("--login-background-image", appConfig.loginBackgroundDataUrl ? `url("${String(appConfig.loginBackgroundDataUrl).replace(/"/g, "%22")}")` : "none");
 
+  const uiProfile = getUiProfile();
+  document.body.dataset.uiProfile = uiProfile;
+  document.body.classList.toggle("web-pwa-ui", uiProfile === "web_pwa");
+  document.body.classList.toggle("android-apk-ui", uiProfile === "android_apk");
   document.body.classList.toggle("compact-mode", !!appConfig.compactMode);
   document.body.dataset.screenFit = appConfig.screenFit || "auto";
   document.body.dataset.screenProfile = detectarPerfilTela();
@@ -10744,10 +10811,10 @@ function renderDashboardTechnicalPanel(stats, totaisCaixa) {
   const saldoState = totaisCaixa.saldo < 0 ? "red" : "teal";
   const ultimaAtualizacao = formatarUltimoAcessoConta();
   const etapas = [
-    { label: "Pedidos", value: stats.pedidosHoje, detail: "hoje", icon: "📋", state: "teal" },
-    { label: "Produção", value: stats.producoesAtivas, detail: "ativa", icon: "🖨️", state: "orange" },
-    { label: "Concluídos", value: stats.pedidosConcluidos, detail: "entregas", icon: "✓", state: "green" },
-    { label: "Caixa", value: formatarMoeda(totaisCaixa.saldo), detail: "saldo", icon: "💳", state: saldoState }
+    { label: "Pedidos", value: stats.pedidosHoje, detail: "hoje", icon: "pedidos", state: "teal" },
+    { label: "Produção", value: stats.producoesAtivas, detail: "ativa", icon: "producao", state: "orange" },
+    { label: "Concluídos", value: stats.pedidosConcluidos, detail: "entregas", icon: "pedido", state: "green" },
+    { label: "Caixa", value: formatarMoeda(totaisCaixa.saldo), detail: "saldo", icon: "caixa", state: saldoState }
   ];
 
   return `
@@ -10767,7 +10834,7 @@ function renderDashboardTechnicalPanel(stats, totaisCaixa) {
       <div class="infographic-flow" style="--flow:${andamento}%">
         ${etapas.map((etapa, index) => `
           <button class="infographic-node node-${etapa.state}" type="button" onclick="abrirBlocoDashboard('${index === 3 ? "caixa" : index === 1 ? "producao" : "pedidos"}', '${index === 0 ? "hoje" : index === 2 ? "hoje" : ""}')">
-            <span class="node-icon">${etapa.icon}</span>
+            <span class="node-icon">${renderUiIcon(etapa.icon)}</span>
             <strong>${escaparHtml(etapa.value)}</strong>
             <small>${escaparHtml(etapa.label)} · ${escaparHtml(etapa.detail)}</small>
           </button>
@@ -10808,7 +10875,7 @@ function renderDashboardTechnicalPanel(stats, totaisCaixa) {
 function renderDashboardKpiCard(card) {
   return `
     <button class="kpi-card kpi-card-button ${card.state ? `kpi-${card.state}` : ""}" onclick="abrirBlocoDashboard('${card.tela}', '${card.filtro || ""}')">
-      <span class="kpi-icon">${card.icone}</span>
+      <span class="kpi-icon">${renderUiIcon(card.iconKey || card.tela, card.icone)}</span>
       <div>
         <span>${escaparHtml(card.titulo)}</span>
         <strong>${escaparHtml(card.valor)}</strong>
@@ -11019,78 +11086,132 @@ function renderDashboardAnalyticSections(analytics) {
   `;
 }
 
+function getDashboardKpiCards(stats, totaisCaixa) {
+  return [
+    { iconKey: "caixa", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa", state: "teal" },
+    { iconKey: "pedidos", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje", state: "neutral" },
+    { iconKey: "pedidos", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK", tela: "pedidos", filtro: "abertos", state: stats.pedidosAbertos ? "orange" : "green" },
+    { iconKey: "producao", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao", state: "teal" },
+    { iconKey: "estoque", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque", state: stats.estoqueBaixo ? "orange" : "green" },
+    { iconKey: "relatorios", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios", state: "green" },
+    { iconKey: "clientes", titulo: "Clientes", valor: stats.clientesAtivos, badge: "Carteira", tela: "clientes", state: "neutral" },
+    { iconKey: "caixa", titulo: "Caixa / financeiro", valor: formatarMoeda(totaisCaixa.saldo), badge: "Saldo", tela: "caixa", state: totaisCaixa.saldo < 0 ? "red" : "teal" }
+  ];
+}
+
+function renderDashboardOnboardingCard() {
+  if (pedidos.length !== 0 || !temAcessoCompleto()) return "";
+  return `
+    <section class="card onboarding-card">
+      <div class="card-header">
+        <h2>Primeiro pedido guiado</h2>
+        <span class="status-badge">Onboarding</span>
+      </div>
+      <div class="actions">
+        <button class="btn" onclick="trocarTela('calculadora')">${renderUiIcon("calculadora")} Calcular item</button>
+        <button class="btn secondary" onclick="trocarTela('estoque')">${renderUiIcon("estoque")} Cadastrar material</button>
+        <button class="btn ghost" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Montar pedido</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardSupportCards(totaisCaixa) {
+  return `
+    <div class="dashboard-split dashboard-support-cards">
+      <section class="card">
+        <div class="card-header">
+          <h2>${renderUiIcon("caixa")} Resumo financeiro</h2>
+          <span class="status-badge">Caixa</span>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>Saldo</span><strong>${formatarMoeda(totaisCaixa.saldo)}</strong></div>
+          <div class="metric"><span>Entradas</span><strong>${formatarMoeda(totaisCaixa.entradas)}</strong></div>
+          <div class="metric"><span>Saídas</span><strong>${formatarMoeda(totaisCaixa.saidas)}</strong></div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="card-header">
+          <h2>${renderUiIcon("backup")} Continuidade</h2>
+          <span class="status-badge">${temAcessoNuvem() ? "Liberado" : "Premium"}</span>
+        </div>
+        <p class="muted">Backup JSON permanece disponível. A sincronização principal usa Supabase vinculado à conta logada, sem configuração técnica manual.</p>
+        <div class="actions">
+          <button class="btn secondary" onclick="exportarBackup()">${renderUiIcon("backup")} Exportar backup</button>
+          <button class="btn ghost" onclick="trocarTela('backup')">${renderUiIcon("config")} Dados e Backup</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
+  const nomeEmpresa = appConfig.businessName || appConfig.appName || SYSTEM_NAME;
+  const periodo = getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje";
+  return `
+    <section class="dashboard-pro premium-dashboard dashboard-control-center">
+      ${renderDashboardSearch()}
+      <section class="control-center-header glass-pop">
+        <div>
+          <span class="eyebrow">Control center web</span>
+          <h1>${escaparHtml(nomeEmpresa)}</h1>
+          <p class="muted">Dashboard técnico do PWA com visão operacional, financeira e produtiva em alta densidade.</p>
+        </div>
+        <div class="control-center-meta">
+          <div><span>UI</span><strong>web_pwa</strong></div>
+          <div><span>Período</span><strong>${escaparHtml(periodo)}</strong></div>
+          <div><span>Plano</span><strong>${escaparHtml(plano.nome || "Free")}</strong></div>
+          <div><span>Sync</span><strong>${escaparHtml(syncConfig.autoBackupStatus || "local")}</strong></div>
+        </div>
+        ${renderDashboardPeriodTabs()}
+      </section>
+      ${renderSugestoesInteligentesDashboard()}
+      <div class="control-center-layout">
+        <div class="control-center-main">
+          ${renderDashboardComboChart(analytics)}
+          ${renderDashboardAnalyticsHero(analytics)}
+        </div>
+        <aside class="control-center-side">
+          ${renderDashboardTechnicalPanel(stats, totaisCaixa)}
+          ${renderDashboardInsights(analytics)}
+        </aside>
+      </div>
+      ${renderDashboardAnalyticSections(analytics)}
+      <div class="dashboard-kpis control-center-kpis">
+        ${cards.map(renderDashboardKpiCard).join("")}
+      </div>
+      ${renderDashboardOnboardingCard()}
+      ${renderDashboardSupportCards(totaisCaixa)}
+    </section>
+  `;
+}
+
+function renderDashboardApkSimple({ totaisCaixa, analytics, cards }) {
+  return `
+    <section class="dashboard-pro premium-dashboard dashboard-apk-simple">
+      ${renderDashboardSearch()}
+      ${renderSugestoesInteligentesDashboard()}
+      ${renderDashboardPeriodTabs()}
+      ${renderDashboardAnalyticsHero(analytics)}
+      ${renderDashboardComboChart(analytics)}
+      <div class="dashboard-kpis">
+        ${cards.map(renderDashboardKpiCard).join("")}
+      </div>
+      ${renderDashboardOnboardingCard()}
+      ${renderDashboardSupportCards(totaisCaixa)}
+    </section>
+  `;
+}
+
 function renderDashboard() {
   const totaisCaixa = calcularTotaisCaixa();
   const stats = getDashboardStats();
   const plano = getPlanoAtual();
   const analytics = getDashboardAnalyticsLocal(dashboardPeriod);
   agendarAnalyticsDashboard(analytics);
-
-  const cards = [
-    { icone: "💸", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa", state: "teal" },
-    { icone: "📋", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje", state: "neutral" },
-    { icone: "🕒", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK", tela: "pedidos", filtro: "abertos", state: stats.pedidosAbertos ? "orange" : "green" },
-    { icone: "🖨️", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao", state: "teal" },
-    { icone: "📦", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque", state: stats.estoqueBaixo ? "orange" : "green" },
-    { icone: "📈", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios", state: "green" },
-    { icone: "👥", titulo: "Clientes", valor: stats.clientesAtivos, badge: "Carteira", tela: "clientes", state: "neutral" },
-    { icone: "💳", titulo: "Caixa / financeiro", valor: formatarMoeda(totaisCaixa.saldo), badge: "Saldo", tela: "caixa", state: totaisCaixa.saldo < 0 ? "red" : "teal" }
-  ];
-
-  return `
-    <section class="dashboard-pro premium-dashboard">
-      ${renderDashboardSearch()}
-      ${renderSugestoesInteligentesDashboard()}
-      ${renderDashboardPeriodTabs()}
-      ${renderDashboardComboChart(analytics)}
-      ${renderDashboardAnalyticsHero(analytics)}
-      ${renderDashboardInsights(analytics)}
-      ${renderDashboardAnalyticSections(analytics)}
-
-      <div class="dashboard-kpis">
-        ${cards.map(renderDashboardKpiCard).join("")}
-      </div>
-
-      ${pedidos.length === 0 && temAcessoCompleto() ? `
-        <section class="card onboarding-card">
-          <div class="card-header">
-            <h2>Primeiro pedido guiado</h2>
-            <span class="status-badge">Onboarding</span>
-          </div>
-          <div class="actions">
-            <button class="btn" onclick="trocarTela('calculadora')">Calcular item</button>
-            <button class="btn secondary" onclick="trocarTela('estoque')">Cadastrar material</button>
-            <button class="btn ghost" onclick="trocarTela('pedido')">Montar pedido</button>
-          </div>
-        </section>
-      ` : ""}
-
-      <div class="dashboard-split">
-        <section class="card">
-          <div class="card-header">
-            <h2>💰 Resumo financeiro</h2>
-            <span class="status-badge">Caixa</span>
-          </div>
-          <div class="metrics">
-            <div class="metric"><span>Saldo</span><strong>${formatarMoeda(totaisCaixa.saldo)}</strong></div>
-            <div class="metric"><span>Entradas</span><strong>${formatarMoeda(totaisCaixa.entradas)}</strong></div>
-            <div class="metric"><span>Saídas</span><strong>${formatarMoeda(totaisCaixa.saidas)}</strong></div>
-          </div>
-        </section>
-        <section class="card">
-          <div class="card-header">
-            <h2>☁️ Continuidade</h2>
-            <span class="status-badge">${temAcessoNuvem() ? "Liberado" : "Premium"}</span>
-          </div>
-          <p class="muted">Backup JSON permanece disponível. A sincronização principal usa Supabase vinculado à conta logada, sem configuração técnica manual.</p>
-          <div class="actions">
-            <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
-            <button class="btn ghost" onclick="trocarTela('backup')">Dados e Backup</button>
-          </div>
-        </section>
-      </div>
-    </section>
-  `;
+  const cards = getDashboardKpiCards(stats, totaisCaixa);
+  const payload = { stats, totaisCaixa, plano, analytics, cards };
+  return isWebPwaProfile() ? renderDashboardPwaTechnical(payload) : renderDashboardApkSimple(payload);
 }
 
 function labelStatusPedido(status = "aberto") {
@@ -11483,7 +11604,7 @@ function renderIconeAcaoPedido(icone, label = "") {
     edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
     print: `<svg ${attrs}><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>`,
     trash: `<svg ${attrs}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
-    view: `<svg ${attrs}><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>`,
+    view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
     more: `<svg ${attrs}><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>`,
     plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`
   };
@@ -19879,7 +20000,7 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar") {
 
     popup.innerHTML = `
       <div class="modal-backdrop" role="dialog" aria-modal="true">
-        <form class="modal-card" id="adminPasswordConfirmForm">
+        <form class="modal-card password-confirm-card" id="adminPasswordConfirmForm">
           <div class="modal-header">
             <h2>Confirmar autorização</h2>
             <button class="icon-button" type="button" id="adminPasswordCancelTop" title="Fechar">✕</button>
@@ -19887,8 +20008,12 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar") {
           <p class="muted">Para ${escaparHtml(actionLabel)}, confirme sua senha de administrador.</p>
           <label class="field">
             <span>Senha</span>
-            <input id="adminPasswordConfirmInput" type="password" autocomplete="current-password" required>
+            <div class="password-row auth-password-row">
+              <input id="adminPasswordConfirmInput" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" inputmode="text" required>
+              <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+            </div>
           </label>
+          <p class="muted auth-inline-feedback">A senha atual continua como fallback da biometria.</p>
           <div class="actions">
             <button class="btn ghost" type="button" id="adminPasswordCancel">Cancelar</button>
             <button class="btn" type="submit">Confirmar</button>
@@ -19908,9 +20033,12 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar") {
     document.getElementById("adminPasswordCancel")?.addEventListener("click", () => finalizar(null), { once: true });
     document.getElementById("adminPasswordCancelTop")?.addEventListener("click", () => finalizar(null), { once: true });
     popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
-      if (event.target === event.currentTarget) finalizar(null);
+      if (event.target === event.currentTarget) {
+        event.preventDefault();
+        focarCampoSenha("adminPasswordConfirmInput");
+      }
     });
-    setTimeout(() => document.getElementById("adminPasswordConfirmInput")?.focus(), 80);
+    setTimeout(() => focarCampoSenha("adminPasswordConfirmInput"), 80);
   });
 }
 
@@ -19918,19 +20046,23 @@ async function validarSenhaSupabaseUsuarioAtual(senha) {
   if (!senha) return false;
   const usuario = getUsuarioAtual();
   const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
-  if (!email || !syncConfig.supabaseUrl || !syncConfig.supabaseAnonKey || !syncConfig.supabaseUserId) {
-    // TODO: manter esta rotina conectada ao Supabase Auth em produção. Sem auth.uid, não autorizar ações destrutivas.
-    return false;
+  if (!email || !syncConfig.supabaseUrl || !syncConfig.supabaseAnonKey || !syncConfig.supabaseUserId || !estaOnline()) {
+    return validarSenhaLocalUsuarioAtual(senha);
   }
 
-  const dados = await requisicaoSupabase("/auth/v1/token?grant_type=password", {
-    method: "POST",
-    auth: false,
-    telemetry: false,
-    body: JSON.stringify({ email, password: senha })
-  }, false);
-  const authUser = obterUsuarioAuthResposta(dados);
-  return String(authUser?.id || "") === String(syncConfig.supabaseUserId || "");
+  try {
+    const dados = await requisicaoSupabase("/auth/v1/token?grant_type=password", {
+      method: "POST",
+      auth: false,
+      telemetry: false,
+      body: JSON.stringify({ email, password: senha })
+    }, false);
+    const authUser = obterUsuarioAuthResposta(dados);
+    if (String(authUser?.id || "") === String(syncConfig.supabaseUserId || "")) return true;
+  } catch (erro) {
+    registrarDiagnostico("Auth", "Senha administrativa remota falhou", erro.message, { silent: true });
+  }
+  return validarSenhaLocalUsuarioAtual(senha);
 }
 
 async function confirmAdminPassword(actionLabel = "continuar") {
