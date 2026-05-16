@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.27";
-const APP_VERSION_CODE = 78;
+const APP_VERSION = "51.0.28";
+const APP_VERSION_CODE = 79;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -340,6 +340,8 @@ let itensPedido = [];
 let clientePedido = "";
 let clienteTelefonePedido = "";
 let clienteEmailPedido = "";
+let observacaoPedido = "";
+let prazoPedido = "";
 let selectedCustomerSuggestion = null;
 let customerSuggestionState = {
   query: "",
@@ -353,6 +355,10 @@ let customerSuggestionDebounceTimer = null;
 let pedidoEditando = null;
 let pedidoEditandoOriginal = null;
 let pedidoSalvando = false;
+let itemAdicionandoPedido = false;
+let lastOrderItemAddFingerprint = "";
+let lastOrderItemAddAt = 0;
+let calculadoraModoPedido = false;
 let ultimoToqueForaCalculadora = 0;
 let pedidoVisualizandoId = null;
 let modoMobileAtual = window.innerWidth < 768;
@@ -1762,6 +1768,8 @@ function limparDadosOperacionaisLocais() {
   clientePedido = "";
   clienteTelefonePedido = "";
   clienteEmailPedido = "";
+  observacaoPedido = "";
+  prazoPedido = "";
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
 }
@@ -5588,6 +5596,101 @@ function normalizarItemPedido(item = {}) {
 function normalizarItensPedido(pedidoOuItens = itensPedido) {
   const itens = Array.isArray(pedidoOuItens) ? pedidoOuItens : Array.isArray(pedidoOuItens?.itens) ? pedidoOuItens.itens : [];
   return itens.map(normalizarItemPedido);
+}
+
+function itemEhPlaceholderPedido(item = {}) {
+  const nome = normalizarTextoBusca(item.nome || "");
+  const semValor = Number(item.valor) <= 0 && Number(item.total) <= 0;
+  const nomesPlaceholder = ["", "produto 3d", "novo item", "item calculado", "item do pedido"];
+  return semValor && nomesPlaceholder.includes(nome);
+}
+
+function validarItemPedidoParaSalvar(item = {}) {
+  const normalizado = normalizarItemPedido(item);
+  const nome = String(normalizado.nome || "").trim();
+  const nomeOriginal = String(item.nome || "").trim();
+  const nomeBusca = normalizarTextoBusca(nome);
+  const nomesPlaceholder = ["", "produto 3d", "novo item", "item calculado", "item do pedido"];
+  if (!nomeOriginal || nomesPlaceholder.includes(nomeBusca) || itemEhPlaceholderPedido(normalizado)) {
+    return { ok: false, reason: "Informe a descrição do item.", item: normalizado };
+  }
+  if ((Number(normalizado.qtd) || 0) <= 0) return { ok: false, reason: "A quantidade precisa ser maior que zero.", item: normalizado };
+  if ((Number(normalizado.valor) || 0) <= 0 || (Number(normalizado.total) || 0) <= 0) return { ok: false, reason: "O valor do item precisa ser maior que zero.", item: normalizado };
+  return { ok: true, item: normalizado };
+}
+
+function sanitizeItensPedidoParaSalvar(itens = itensPedido) {
+  const normalizados = normalizarItensPedido(itens);
+  const validos = [];
+  const invalidos = [];
+  normalizados.forEach((item) => {
+    const validacao = validarItemPedidoParaSalvar(item);
+    if (validacao.ok) validos.push(validacao.item);
+    else invalidos.push({ item, reason: validacao.reason });
+  });
+  return { validos, invalidos };
+}
+
+function assinaturaItemPedido(item = {}) {
+  const normalizado = normalizarItemPedido(item);
+  const materiais = getMateriaisItem(normalizado);
+  const materialPrincipal = materiais[0] || {};
+  const materialId = normalizado.materialId || materialPrincipal.materialId || "";
+  const material = getMaterialEstoque(materialId);
+  return {
+    nome: normalizarTextoBusca(normalizado.nome || ""),
+    valor: Number(normalizado.valor) || 0,
+    peso: Number(normalizado.materialGramsTotal ?? materialPrincipal.gramas ?? normalizado.materialGrams) || 0,
+    tempoMin: Math.round((Number(normalizado.tempoHoras ?? normalizado.tempo) || 0) * 60),
+    tipo: normalizarTextoBusca(normalizado.tipoImpressao || ""),
+    material: normalizarTextoBusca(normalizado.material || materialPrincipal.nome || material?.nome || materialId || ""),
+    cor: normalizarTextoBusca(material?.cor || normalizado.cor || ""),
+    impressora: normalizarTextoBusca(normalizado.impressora || normalizado.printer || "")
+  };
+}
+
+function itensPedidoEquivalentes(a = {}, b = {}) {
+  const ia = assinaturaItemPedido(a);
+  const ib = assinaturaItemPedido(b);
+  return ia.nome === ib.nome
+    && Math.abs(ia.valor - ib.valor) <= 0.01
+    && Math.abs(ia.peso - ib.peso) <= 0.1
+    && Math.abs(ia.tempoMin - ib.tempoMin) <= 1
+    && ia.tipo === ib.tipo
+    && ia.material === ib.material
+    && ia.cor === ib.cor
+    && ia.impressora === ib.impressora;
+}
+
+function itensPedidoSemelhantes(a = {}, b = {}) {
+  const ia = assinaturaItemPedido(a);
+  const ib = assinaturaItemPedido(b);
+  return Math.abs(ia.valor - ib.valor) <= 0.01
+    && Math.abs(ia.peso - ib.peso) <= 0.1
+    && Math.abs(ia.tempoMin - ib.tempoMin) <= 1
+    && (ia.nome !== ib.nome || ia.material !== ib.material);
+}
+
+function encontrarItemEquivalentePedido(item = {}) {
+  return normalizarItensPedido(itensPedido).findIndex((existente) => itensPedidoEquivalentes(existente, item));
+}
+
+function encontrarItemSemelhantePedido(item = {}) {
+  return normalizarItensPedido(itensPedido).findIndex((existente) => itensPedidoSemelhantes(existente, item));
+}
+
+function fingerprintItemPedido(item = {}) {
+  const assinatura = assinaturaItemPedido(item);
+  return JSON.stringify({
+    nome: assinatura.nome,
+    valor: assinatura.valor.toFixed(2),
+    peso: assinatura.peso.toFixed(1),
+    tempo: assinatura.tempoMin,
+    tipo: assinatura.tipo,
+    material: assinatura.material,
+    cor: assinatura.cor,
+    impressora: assinatura.impressora
+  });
 }
 
 function calcularConsumoMateriais(itens = []) {
@@ -11597,8 +11700,8 @@ function renderPedido() {
   const planoAtual = getPlanoAtual();
   if (planoAtual.blockLevel === "total" || planoAtual.status === "bloqueado") return renderBloqueioPlano("Novo pedido");
   const titulo = pedidoEditando ? "Editar pedido" : "Novo pedido";
-  const botao = pedidoEditando ? "Salvar" : "Salvar";
-  itensPedido = normalizarItensPedido(itensPedido);
+  const botao = pedidoEditando ? "Confirmar alterações" : "Finalizar pedido";
+  itensPedido = normalizarItensPedido(itensPedido).filter((item) => !itemEhPlaceholderPedido(item));
   const itemSelecionadoAtual = Number(window.__pedidoItemSelecionado);
   if (!itensPedido.length) {
     window.__pedidoItemSelecionado = null;
@@ -11608,7 +11711,9 @@ function renderPedido() {
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
   const statusAtual = pedidoEditando?.status || "aberto";
   const clienteResumo = clientePedido || clienteDoPedido(pedidoEditando || {}) || "Cliente não informado";
-  const observacaoCurta = pedidoEditando?.observacao || pedidoEditando?.observacoes || "";
+  const observacaoAtual = observacaoPedido || pedidoEditando?.observacao || pedidoEditando?.observacoes || "";
+  const prazoAtual = prazoPedido || pedidoEditando?.prazo || pedidoEditando?.dataPrazo || "";
+  const observacaoCurta = observacaoAtual || "";
   const destacarAdicionarItem = pedidoEditando && sugestoesInteligentesAtivas() && contarEventosUso("item_adicionado", 20) >= 3;
 
   const itensHtml = itensPedido.length
@@ -11667,7 +11772,14 @@ function renderPedido() {
           </div>
         </details>
       `).join("")
-    : `<div class="order-empty-state"><strong>Nenhum item ainda</strong><span>Adicione pela calculadora ou crie um item manual.</span></div>`;
+    : `<div class="order-empty-state">
+        <strong>Nenhum item ainda</strong>
+        <span>Preencha o cabeçalho e adicione o primeiro item quando estiver pronto.</span>
+        <div class="order-empty-actions">
+          <button class="btn secondary" type="button" onclick="iniciarAdicionarItemPedido()">${renderIconeAcaoPedido("✚", "Adicionar item")} Adicionar item</button>
+          <button class="btn ghost" type="button" onclick="openCalculatorForOrder()">${renderUiIcon("calculadora")} Calcular preço do item</button>
+        </div>
+      </div>`;
 
   return `
     <section class="card order-edit-screen order-flow-screen">
@@ -11702,11 +11814,19 @@ function renderPedido() {
             <span>E-mail</span>
             <input id="clienteEmail" inputmode="email" placeholder="cliente@email.com" value="${escaparAttr(clienteEmailPedido)}" oninput="atualizarEmailClientePedido(this.value)">
           </label>
+          <label class="field">
+            <span>Prazo/data</span>
+            <input id="pedidoPrazo" type="date" value="${escaparAttr(prazoAtual)}" oninput="atualizarPrazoPedido(this.value)">
+          </label>
           <label class="field compact-field">
             <span>Status</span>
             <select id="pedidoStatus">
               ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
             </select>
+          </label>
+          <label class="field order-observation-field">
+            <span>Observação</span>
+            <textarea id="pedidoObservacao" rows="2" placeholder="Ex.: cor, acabamento, prazo combinado" oninput="atualizarObservacaoPedido(this.value)">${escaparHtml(observacaoAtual)}</textarea>
           </label>
         </div>
         ${observacaoCurta ? `<p class="order-note-preview">${escaparHtml(String(observacaoCurta).slice(0, 120))}</p>` : ""}
@@ -11735,12 +11855,13 @@ function renderPedido() {
           <span>Total</span>
           <strong data-order-total>${formatarMoeda(total)}</strong>
         </div>
-        <button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" onclick="iniciarAdicionarItemPedido()">+ Item</button>
-        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${botao}</button>
+        <button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" onclick="iniciarAdicionarItemPedido()">${renderIconeAcaoPedido("✚", "Adicionar item")} Item</button>
+        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${pedidoSalvando ? "Salvando pedido..." : botao}</button>
       </div>
 
       <div class="order-secondary-actions">
         ${renderAcaoPedidoCompacta("✚", "Manual", "adicionarProdutoManual()")}
+        ${renderAcaoPedidoCompacta("🧮", "Calcular", "openCalculatorForOrder()")}
         ${renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()")}
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()")}
       </div>
@@ -11939,6 +12060,7 @@ function renderIconeAcaoPedido(icone, label = "") {
     : chave.includes("pdf") || icone === "▣" ? "pdf"
     : chave.includes("editar") || icone === "✎" ? "edit"
     : chave.includes("imprimir") || icone === "⎙" ? "print"
+    : chave.includes("calcul") || icone === "🧮" ? "calc"
     : chave.includes("excluir") || icone === "🗑" ? "trash"
     : chave.includes("ver") || icone === "👁" ? "view"
     : chave.includes("mais") || icone === "⋯" ? "more"
@@ -11949,6 +12071,7 @@ function renderIconeAcaoPedido(icone, label = "") {
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 16h7"/><path d="M8.5 12h7"/></svg>`,
     edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
     print: `<svg ${attrs}><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>`,
+    calc: `<svg ${attrs}><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/><path d="M8 15h.01"/><path d="M12 15h.01"/><path d="M16 15h.01"/></svg>`,
     trash: `<svg ${attrs}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
     view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
     more: `<svg ${attrs}><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>`,
@@ -20078,6 +20201,8 @@ function zerarDadosAdmin() {
   clientePedido = "";
   clienteTelefonePedido = "";
   clienteEmailPedido = "";
+  observacaoPedido = "";
+  prazoPedido = "";
   selectedCustomerSuggestion = null;
   pedidoEditando = null;
   registrarHistorico("Admin", "Dados locais zerados");
@@ -20109,6 +20234,14 @@ function atualizarTelefoneClientePedido(valor) {
 
 function atualizarEmailClientePedido(valor) {
   clienteEmailPedido = valor;
+}
+
+function atualizarObservacaoPedido(valor) {
+  observacaoPedido = String(valor || "");
+}
+
+function atualizarPrazoPedido(valor) {
+  prazoPedido = String(valor || "");
 }
 
 async function executarBuscaSugestoesCliente(query, { incluirContatos = false, token = ++customerSuggestionState.searchToken } = {}) {
@@ -20272,10 +20405,16 @@ async function iniciarAdicionarItemPedido() {
     cancelar: "Adicionar manual"
   });
   if (abrir) {
-    abrirCalculadora();
+    openCalculatorForOrder();
     return;
   }
   adicionarProdutoManual();
+}
+
+function openCalculatorForOrder() {
+  calculadoraModoPedido = true;
+  abrirCalculadora({ fromOrder: true });
+  mostrarToast("Calcule o item e confirme para adicionar ao pedido.", "info", 3200);
 }
 
 async function garantirRuntimeIAAtivo({ silent = false } = {}) {
@@ -20383,6 +20522,198 @@ async function removerItemSelecionadoPedido() {
   await removerItem(indice);
 }
 
+function createOrderHeader() {
+  validarSugestaoClienteAntesSalvar();
+  const cliente = String(document.getElementById("clienteNome")?.value || clientePedido || "").trim();
+  const telefone = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
+  const email = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
+  const observacao = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
+  const prazo = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
+  clientePedido = cliente;
+  clienteTelefonePedido = telefone;
+  clienteEmailPedido = email;
+  observacaoPedido = observacao;
+  prazoPedido = prazo;
+  return { cliente, telefone, email, observacao, prazo, status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto" };
+}
+
+function solicitarDecisaoItemDuplicado(item, existente) {
+  return new Promise((resolve) => {
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      resolve(null);
+      return;
+    }
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h2>Item já existe</h2>
+            <button class="icon-button" type="button" data-dup-action="cancel" title="Fechar">✕</button>
+          </div>
+          <p class="muted">Este item parece já existir no pedido. Deseja adicionar mais uma unidade?</p>
+          <div class="duplicate-item-preview">
+            <strong>${escaparHtml(existente.nome || "Item")}</strong>
+            <span>${formatarMoeda(Number(existente.valor) || 0)} • qtd atual ${Number(existente.qtd) || 1}</span>
+          </div>
+          <div class="actions stacked-actions">
+            <button class="btn" type="button" data-dup-action="increment">Adicionar como +1 unidade</button>
+            <button class="btn secondary" type="button" data-dup-action="separate">Adicionar separado</button>
+            <button class="btn ghost" type="button" data-dup-action="cancel">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    `;
+    popup.querySelectorAll("[data-dup-action]").forEach((botao) => {
+      botao.addEventListener("click", () => {
+        const action = botao.dataset.dupAction || "cancel";
+        fecharPopup();
+        resolve(action === "increment" || action === "separate" ? action : null);
+      }, { once: true });
+    });
+    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+      if (event.target === event.currentTarget) {
+        fecharPopup();
+        resolve(null);
+      }
+    }, { once: true });
+  });
+}
+
+async function addCalculatedItemToOrder(item, opcoes = {}) {
+  if (itemAdicionandoPedido) return false;
+  itemAdicionandoPedido = true;
+  const botaoConfirmar = document.getElementById("confirmCalculatorItemButton");
+  if (botaoConfirmar) {
+    botaoConfirmar.disabled = true;
+    botaoConfirmar.textContent = "Adicionando item...";
+  }
+  mostrarToast("Adicionando item...", "info", 1200);
+  try {
+    const validacao = validarItemPedidoParaSalvar(item);
+    if (!validacao.ok) {
+      mostrarToast(validacao.reason || "Revise o item antes de adicionar.", "erro", 4200);
+      return false;
+    }
+    const normalizado = validacao.item;
+    const fingerprint = fingerprintItemPedido(normalizado);
+    const agora = Date.now();
+    if (fingerprint === lastOrderItemAddFingerprint && agora - lastOrderItemAddAt < 1200) {
+      mostrarToast("Item já processado. Aguarde um instante.", "aviso", 2400);
+      return false;
+    }
+
+    const duplicadoIndex = encontrarItemEquivalentePedido(normalizado);
+    if (duplicadoIndex >= 0 && opcoes.allowDuplicatePrompt !== false) {
+      const existente = itensPedido[duplicadoIndex];
+      const decisao = await solicitarDecisaoItemDuplicado(normalizado, existente);
+      if (!decisao) {
+        mostrarToast("Item não adicionado.", "info", 2400);
+        return false;
+      }
+      if (decisao === "increment") {
+        existente.qtd = Math.max(1, Number(existente.qtd) || 1) + Math.max(1, Number(normalizado.qtd) || 1);
+        existente.total = (Number(existente.valor) || 0) * existente.qtd;
+        window.__pedidoItemSelecionado = duplicadoIndex;
+        lastOrderItemAddFingerprint = fingerprint;
+        lastOrderItemAddAt = agora;
+        registrarEventoUsoLocal("item_adicionado", { produto: existente.nome, modo: "incremento" });
+        mostrarToast("Quantidade atualizada.", "sucesso", 2600);
+        minimizarCalculadora();
+        trocarTela("pedido");
+        return true;
+      }
+    } else {
+      const semelhanteIndex = encontrarItemSemelhantePedido(normalizado);
+      if (semelhanteIndex >= 0) {
+        mostrarToast("Existe um item parecido no pedido. Adicionei separado porque descrição ou material são diferentes.", "info", 4200);
+      }
+    }
+
+    itensPedido.push({ ...normalizado, id: normalizado.id || "item-" + Date.now().toString(36) });
+    window.__pedidoItemSelecionado = itensPedido.length - 1;
+    lastOrderItemAddFingerprint = fingerprint;
+    lastOrderItemAddAt = agora;
+    registrarEventoUsoLocal("item_adicionado", {
+      produto: normalizado.nome,
+      materialNome: normalizado.material,
+      materialId: normalizado.materialId,
+      impressora: normalizado.impressora,
+      peso: normalizado.materialGramsTotal,
+      tempo: normalizado.tempoHoras
+    });
+    mostrarToast("Item adicionado.", "sucesso", 2600);
+    minimizarCalculadora();
+    trocarTela("pedido");
+    return true;
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedido", action: "Adicionar item calculado", errorKey: "ADD_ORDER_ITEM_FAILED" });
+    mostrarToast("Erro ao adicionar item. Nada foi salvo.", "erro", 4200);
+    return false;
+  } finally {
+    itemAdicionandoPedido = false;
+    const botaoAtual = document.getElementById("confirmCalculatorItemButton");
+    if (botaoAtual) {
+      botaoAtual.disabled = false;
+      botaoAtual.textContent = "Confirmar item";
+    }
+  }
+}
+
+async function confirmCalculatorResult() {
+  if (!ultimoCalculo) {
+    alert("Clique em Calcular e revise o valor antes de adicionar.");
+    return false;
+  }
+  if (!ultimoCalculo || ultimoCalculo.preco <= 0) {
+    alert("Calcule um valor válido antes de adicionar");
+    return false;
+  }
+  const nome = String(document.getElementById("nomeItem")?.value || "").trim() || `Item ${ultimoCalculo.materialNome || "3D"}`;
+  let qtd = 1;
+  try {
+    qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Calculadora", action: "Adicionar item" });
+    return false;
+  }
+  const valorManual = numeroCalculadora(document.getElementById("valorManualItem")?.value, ultimoCalculo.preco, 0);
+  const titulo = calculadoraModoPedido || telaAtual === "pedido" ? "Adicionar item ao pedido" : "Criar pedido com este item";
+  const mensagem = calculadoraModoPedido || telaAtual === "pedido"
+    ? `Deseja adicionar "${nome}" ao pedido por ${formatarMoeda(valorManual)} cada?`
+    : `Deseja criar um pedido com "${nome}" por ${formatarMoeda(valorManual)} cada?`;
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo,
+    mensagem,
+    confirmar: calculadoraModoPedido || telaAtual === "pedido" ? "Adicionar item" : "Criar pedido",
+    cancelar: "Voltar e editar"
+  });
+  if (!confirmado) return false;
+  const item = {
+    id: "item-" + Date.now().toString(36),
+    nome,
+    tipoImpressao: ultimoCalculo.tipoImpressao,
+    impressora: ultimoCalculo.printer,
+    tempoHoras: ultimoCalculo.tempo,
+    materialId: ultimoCalculo.materialId,
+    material: ultimoCalculo.materialNome,
+    materialGramsTotal: ultimoCalculo.peso,
+    materiais: ultimoCalculo.materialId ? [{ materialId: ultimoCalculo.materialId, nome: ultimoCalculo.materialNome, gramas: ultimoCalculo.peso }] : [],
+    custoMaterial: ultimoCalculo.custoMaterial,
+    custoEnergia: ultimoCalculo.custoEnergia,
+    custoTotal: ultimoCalculo.custoTotal,
+    qtd,
+    valor: valorManual,
+    total: valorManual * qtd
+  };
+  const adicionado = await addCalculatedItemToOrder(item);
+  if (adicionado) {
+    calculadoraModoPedido = false;
+    limparCalculo();
+  }
+  return adicionado;
+}
+
 function garantirMateriaisItem(i) {
   if (!itensPedido[i]) return [];
   itensPedido[i] = normalizarItemPedido(itensPedido[i]);
@@ -20427,17 +20758,74 @@ function removerMaterialProduto(itemIndex, materialIndex) {
 }
 
 function adicionarProdutoManual() {
-  itensPedido.push(normalizarItemPedido({
-    nome: "Novo item",
-    tipoImpressao: "FDM",
-    qtd: 1,
-    valor: 0,
-    total: 0,
-    materiais: []
-  }));
-  window.__pedidoItemSelecionado = itensPedido.length - 1;
-  registrarEventoUsoLocal("item_adicionado");
-  renderizarPreservandoScroll();
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="manual-item-cancel">
+      <form class="modal-card" id="manualOrderItemForm">
+        <div class="modal-header">
+          <h2>Adicionar item manual</h2>
+          <button class="icon-button" type="button" data-action="manual-item-cancel" title="Fechar">✕</button>
+        </div>
+        <p class="muted">Preencha os dados do item. Nada será adicionado sem confirmação.</p>
+        <label class="field">
+          <span>Descrição do item</span>
+          <input id="manualItemNome" placeholder="Ex.: suporte personalizado" required>
+        </label>
+        <div class="order-item-edit-grid">
+          <label class="field compact-field">
+            <span>Quantidade</span>
+            <input id="manualItemQtd" type="number" min="1" step="1" value="1" required>
+          </label>
+          <label class="field compact-field">
+            <span>Valor unitário</span>
+            <input id="manualItemValor" type="number" min="0.01" step="0.01" placeholder="0,00" required>
+          </label>
+          <label class="field compact-field">
+            <span>Horas</span>
+            <input id="manualItemTempo" type="number" min="0" step="0.01" placeholder="0">
+          </label>
+        </div>
+        <label class="field">
+          <span>Observação do item</span>
+          <textarea id="manualItemObs" rows="2" placeholder="Opcional"></textarea>
+        </label>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="manual-item-cancel">Cancelar</button>
+          <button class="btn" type="submit">Adicionar item</button>
+        </div>
+      </form>
+    </div>
+  `;
+  const cancelar = () => fecharPopup();
+  popup.querySelectorAll("[data-action='manual-item-cancel']").forEach((el) => el.addEventListener("click", cancelar, { once: true }));
+  document.getElementById("manualOrderItemForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    let qtd = 1;
+    let valor = 0;
+    let tempo = 0;
+    try {
+      qtd = InventoryService.parseNumberStrict(document.getElementById("manualItemQtd")?.value, "quantidade", { min: 1 });
+      valor = InventoryService.parseNumberStrict(document.getElementById("manualItemValor")?.value, "valor unitário", { min: 0.01 });
+      tempo = InventoryService.parseNumberStrict(document.getElementById("manualItemTempo")?.value || 0, "horas", { min: 0 });
+    } catch (erro) {
+      ErrorService.notify(erro, { area: "Pedido", action: "Adicionar item manual" });
+      return;
+    }
+    const item = {
+      nome: String(document.getElementById("manualItemNome")?.value || "").trim(),
+      tipoImpressao: "FDM",
+      qtd,
+      valor,
+      total: valor * qtd,
+      tempoHoras: tempo,
+      observacao: String(document.getElementById("manualItemObs")?.value || "").trim(),
+      materiais: []
+    };
+    fecharPopup();
+    await addCalculatedItemToOrder(item);
+  }, { once: true });
+  setTimeout(() => document.getElementById("manualItemNome")?.focus(), 80);
 }
 
 async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar") {
@@ -20602,6 +20990,8 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     clientePedido = clienteDoPedido(pedido);
     clienteTelefonePedido = telefoneDoPedido(pedido);
     clienteEmailPedido = emailDoPedido(pedido);
+    observacaoPedido = pedido.observacao || pedido.observacoes || "";
+    prazoPedido = pedido.prazo || pedido.dataPrazo || "";
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
     pedidoEditando = pedido;
@@ -20621,6 +21011,8 @@ function cancelarEdicaoPedido() {
   clientePedido = "";
   clienteTelefonePedido = "";
   clienteEmailPedido = "";
+  observacaoPedido = "";
+  prazoPedido = "";
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   renderizarPreservandoScroll();
@@ -20819,33 +21211,46 @@ async function fecharPedido() {
       mostrarBloqueioPlano({ message: "Seu acesso está bloqueado. Regularize o plano para salvar pedidos." });
       return;
     }
-    if (!pedidoEditando && !(await verificarLimitePedidosAntesCriar())) return;
-    validarSugestaoClienteAntesSalvar();
-    const campoCliente = document.getElementById("clienteNome");
-    const cliente = (campoCliente?.value || clientePedido).trim();
-    const telefoneCliente = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
-    const emailCliente = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
+    const headerPedido = createOrderHeader();
+    const cliente = headerPedido.cliente;
+    const telefoneCliente = headerPedido.telefone;
+    const emailCliente = headerPedido.email;
+    pedidoSalvando = true;
+    renderizarPreservandoScroll();
+    if (!pedidoEditando && !(await verificarLimitePedidosAntesCriar())) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
+      return;
+    }
 
     if (!cliente) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
       alert("Digite o nome do cliente");
       return;
     }
 
-    if (!pedidoEditando && !verificarLimiteClientesAntesPedido(cliente)) return;
-
-    itensPedido = normalizarItensPedido(itensPedido).filter((item) => {
-      const nome = String(item.nome || "").trim();
-      const nomeValido = nome && nome !== "Produto 3D";
-      return nomeValido || Number(item.total) > 0 || Number(item.valor) > 0;
-    });
-
-    if (itensPedido.length === 0) {
-      alert("Nenhum item no pedido");
+    if (!pedidoEditando && !verificarLimiteClientesAntesPedido(cliente)) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
       return;
     }
 
-    if (itensPedido.some((item) => Number(item.total) <= 0 || !String(item.nome || "").trim())) {
-      alert("Revise os itens: todos precisam ter descrição e valor maior que zero.");
+    const itensValidados = sanitizeItensPedidoParaSalvar(itensPedido);
+
+    if (itensValidados.invalidos.length) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
+      alert("Revise os itens: todos precisam ter descrição, quantidade e valor maior que zero.");
+      return;
+    }
+
+    itensPedido = itensValidados.validos;
+
+    if (itensPedido.length === 0) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
+      alert("Nenhum item no pedido");
       return;
     }
 
@@ -20858,21 +21263,30 @@ async function fecharPedido() {
       emailCliente,
       itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
       total,
-      status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto",
+      status: headerPedido.status,
+      observacao: headerPedido.observacao,
+      observacoes: headerPedido.observacao,
+      prazo: headerPedido.prazo,
+      dataPrazo: headerPedido.prazo,
+      clienteSuggestionSource: selectedCustomerSuggestion?.source || "",
+      clienteSuggestionName: selectedCustomerSuggestion?.name || "",
+      clienteSuggestionPhone: selectedCustomerSuggestion?.phone || "",
       data: pedidoEditando?.data || new Date().toLocaleDateString("pt-BR"),
       criadoEm: pedidoEditando?.criadoEm || new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
     });
 
     if (pedidoEditando && !window.__pedidoReviewConfirmed) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
       abrirRevisaoAlteracoesPedido(pedido, pedidoEditandoOriginal || pedidoEditando);
       return;
     }
-    pedidoSalvando = true;
 
     if (!aplicarEstoquePedido(pedido, pedidoEditando)) {
       pedidoSalvando = false;
       window.__pedidoReviewConfirmed = false;
+      renderizarPreservandoScroll();
       return;
     }
 
@@ -20919,6 +21333,8 @@ async function fecharPedido() {
     clientePedido = "";
     clienteTelefonePedido = "";
     clienteEmailPedido = "";
+    observacaoPedido = "";
+    prazoPedido = "";
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
@@ -21334,7 +21750,7 @@ function renderCalculadoraConteudo() {
     <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
 
     <div class="actions">
-      <button class="btn" onclick="adicionarItem()">Adicionar como pedido</button>
+      <button class="btn" id="confirmCalculatorItemButton" onclick="adicionarItem()" ${itemAdicionandoPedido ? "disabled" : ""}>${itemAdicionandoPedido ? "Adicionando item..." : "Confirmar item"}</button>
       <button class="btn secondary" onclick="salvarOrcamento()">Salvar orçamento</button>
       <button class="btn ghost" onclick="gerarPdfCalculadora()">Gerar PDF</button>
       <button class="btn ghost" onclick="minimizarCalculadora()">Minimizar</button>
@@ -21397,7 +21813,9 @@ function renderCalculadoraFlutuante() {
   preencherMateriaisCalculadora();
 }
 
-function abrirCalculadora() {
+function abrirCalculadora(opcoes = {}) {
+  if (opcoes.fromOrder) calculadoraModoPedido = true;
+  else if (telaAtual !== "pedido") calculadoraModoPedido = false;
   ultimoCalculo = null;
   fecharPopup();
   registrarEventoUsoLocal("calculadora_aberta");
@@ -21745,64 +22163,7 @@ function limparCalculo() {
 }
 
 async function adicionarItem() {
-  if (!ultimoCalculo) {
-    alert("Clique em Calcular e revise o valor antes de adicionar.");
-    return false;
-  }
-
-  if (!ultimoCalculo || ultimoCalculo.preco <= 0) {
-    alert("Calcule um valor válido antes de adicionar");
-    return false;
-  }
-
-  const nome = document.getElementById("nomeItem")?.value.trim() || "Item calculado";
-  let qtd = 1;
-  try {
-    qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
-  } catch (erro) {
-    ErrorService.notify(erro, { area: "Calculadora", action: "Adicionar item" });
-    return false;
-  }
-  const valorManual = numeroCalculadora(document.getElementById("valorManualItem")?.value, ultimoCalculo.preco, 0);
-  const confirmado = await solicitarConfirmacaoAcao({
-    titulo: "Adicionar item ao pedido",
-    mensagem: `Deseja adicionar "${nome}" ao pedido por ${formatarMoeda(valorManual)} cada?`,
-    confirmar: "Adicionar item",
-    cancelar: "Voltar e editar"
-  });
-  if (!confirmado) return false;
-
-  itensPedido.push({
-    id: "item-" + Date.now().toString(36),
-    nome,
-    tipoImpressao: ultimoCalculo.tipoImpressao,
-    impressora: ultimoCalculo.printer,
-    tempoHoras: ultimoCalculo.tempo,
-    materialId: ultimoCalculo.materialId,
-    material: ultimoCalculo.materialNome,
-    materialGramsTotal: ultimoCalculo.peso,
-    materiais: ultimoCalculo.materialId ? [{ materialId: ultimoCalculo.materialId, nome: ultimoCalculo.materialNome, gramas: ultimoCalculo.peso }] : [],
-    custoMaterial: ultimoCalculo.custoMaterial,
-    custoEnergia: ultimoCalculo.custoEnergia,
-    custoTotal: ultimoCalculo.custoTotal,
-    qtd,
-    valor: valorManual,
-    total: valorManual * qtd
-  });
-  window.__pedidoItemSelecionado = itensPedido.length - 1;
-  registrarEventoUsoLocal("item_adicionado", {
-    produto: nome,
-    materialNome: ultimoCalculo.materialNome,
-    materialId: ultimoCalculo.materialId,
-    impressora: ultimoCalculo.printer,
-    peso: ultimoCalculo.peso,
-    tempo: ultimoCalculo.tempo
-  });
-
-  limparCalculo();
-  if (telaAtual !== "calculadora") minimizarCalculadora();
-  trocarTela("pedido");
-  return true;
+  return confirmCalculatorResult();
 }
 
 function salvarOrcamento() {
@@ -21994,7 +22355,7 @@ function configurarEventListenersArquitetura() {
     if (!elemento) return;
     const acao = elemento.dataset.action;
 
-    if (["plan-modal-close", "stock-edit-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-edit-cancel", "calc-material-cancel", "manual-item-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -22116,8 +22477,87 @@ function configurarEventListenersArquitetura() {
 function dadosPedidoAtual() {
   const cliente = (document.getElementById("clienteNome")?.value || clientePedido || "Sem cliente").trim();
   const telefone = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
-  const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  return { cliente, telefone, total };
+  const email = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
+  const observacao = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
+  const prazo = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
+  const total = normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+  return { cliente, telefone, email, observacao, prazo, total };
+}
+
+function contatoSelecionadoValidoParaWhatsapp(pedido = null) {
+  const telefonePedido = normalizarTelefoneWhatsapp(pedido ? telefoneDoPedido(pedido) : document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
+  const nomePedido = normalizarSugestaoClienteTexto(pedido ? clienteDoPedido(pedido) : document.getElementById("clienteNome")?.value || clientePedido);
+  const sugestao = pedido
+    ? {
+        source: pedido.clienteSuggestionSource || "",
+        name: pedido.clienteSuggestionName || "",
+        phone: pedido.clienteSuggestionPhone || ""
+      }
+    : selectedCustomerSuggestion;
+  if (!sugestao?.name || !sugestao?.phone || !telefonePedido) return null;
+  const telefoneSugestao = normalizarTelefoneWhatsapp(sugestao.phone);
+  const nomeSugestao = normalizarSugestaoClienteTexto(sugestao.name);
+  if (telefoneSugestao === telefonePedido && nomeSugestao === nomePedido) return { ...sugestao, phone: telefoneSugestao };
+  return null;
+}
+
+function obterTelefoneDestinoWhatsappPedido(pedido = null) {
+  const contatoValido = contatoSelecionadoValidoParaWhatsapp(pedido);
+  if (contatoValido?.phone) return contatoValido.phone;
+  const telefone = normalizarTelefoneWhatsapp(pedido ? telefoneDoPedido(pedido) : document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
+  if (telefone) return telefone;
+  mostrarToast("Contato não encontrado, selecione a conversa no WhatsApp.", "aviso", 4200);
+  return "";
+}
+
+function formatarPrazoWhatsapp(valor = "") {
+  if (!valor) return "";
+  const data = new Date(`${valor}T12:00:00`);
+  if (Number.isNaN(data.getTime())) return String(valor);
+  return data.toLocaleDateString("pt-BR");
+}
+
+function montarMensagemOrcamentoWhatsapp(pedido = null) {
+  const itens = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
+  const dados = pedido
+    ? {
+        cliente: clienteDoPedido(pedido),
+        observacao: pedido.observacao || pedido.observacoes || "",
+        prazo: pedido.prazo || pedido.dataPrazo || "",
+        total: totalPedido(pedido)
+      }
+    : dadosPedidoAtual();
+  const linhas = itens.flatMap((item) => {
+    const linha = `- ${item.nome} | Qtd: ${item.qtd} | Unit.: ${formatarMoeda(item.valor)} | Total: ${formatarMoeda(item.total)}`;
+    return item.observacao ? [linha, `  Obs.: ${item.observacao}`] : [linha];
+  });
+  const extras = [];
+  if (dados.prazo) extras.push("Prazo: " + formatarPrazoWhatsapp(dados.prazo));
+  if (dados.observacao) extras.push("Observações: " + dados.observacao);
+  return [
+    "Orçamento " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
+    "Cliente: " + (dados.cliente || "Sem cliente"),
+    "",
+    ...linhas,
+    "",
+    "Total: " + formatarMoeda(dados.total),
+    ...extras,
+    appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
+  ].filter((linha) => linha !== null && linha !== undefined).join("\n");
+}
+
+async function sendQuoteToWhatsApp(pedido = null) {
+  if (!permitirAcaoPlanoCompleto()) return false;
+  const itens = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
+  if (itens.length === 0) {
+    alert("Adicione itens válidos ao pedido antes de enviar");
+    return false;
+  }
+  const mensagem = montarMensagemOrcamentoWhatsapp(pedido);
+  const numero = obterTelefoneDestinoWhatsappPedido(pedido);
+  const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
+  window.open(destino + encodeURIComponent(mensagem), "_blank");
+  return true;
 }
 
 function removerAcentos(valor) {
@@ -22523,30 +22963,7 @@ async function gerarPDF() {
 }
 
 async function enviarWhats() {
-  if (!permitirAcaoPlanoCompleto()) return;
-  if (itensPedido.length === 0) {
-    alert("Adicione itens ao pedido antes de enviar");
-    return;
-  }
-
-  const { cliente, total } = dadosPedidoAtual();
-  const linhas = itensPedido.map((item) => {
-    return `- ${item.nome} | Qtd: ${item.qtd} | Total: ${formatarMoeda(item.total)}`;
-  });
-
-  const mensagem = [
-    "Pedido " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
-    "Cliente: " + cliente,
-    "",
-    ...linhas,
-    "",
-    "Total: " + formatarMoeda(total),
-    appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
-  ].join("\n");
-
-  const numero = await obterTelefoneWhatsappPedido();
-  const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
-  window.open(destino + encodeURIComponent(mensagem), "_blank");
+  return sendQuoteToWhatsApp();
 }
 
 async function baixarPdfPedidoSalvo(id) {
@@ -22556,6 +22973,9 @@ async function baixarPdfPedidoSalvo(id) {
     itensPedido,
     clientePedido,
     clienteTelefonePedido,
+    clienteEmailPedido,
+    observacaoPedido,
+    prazoPedido,
     pedidoEditando
   };
 
@@ -22563,40 +22983,26 @@ async function baixarPdfPedidoSalvo(id) {
     itensPedido = normalizarItensPedido(pedido);
     clientePedido = clienteDoPedido(pedido);
     clienteTelefonePedido = telefoneDoPedido(pedido);
+    clienteEmailPedido = emailDoPedido(pedido);
+    observacaoPedido = pedido.observacao || pedido.observacoes || "";
+    prazoPedido = pedido.prazo || pedido.dataPrazo || "";
     pedidoEditando = pedido;
     await gerarPDF();
   } finally {
     itensPedido = estadoAnterior.itensPedido;
     clientePedido = estadoAnterior.clientePedido;
     clienteTelefonePedido = estadoAnterior.clienteTelefonePedido;
+    clienteEmailPedido = estadoAnterior.clienteEmailPedido;
+    observacaoPedido = estadoAnterior.observacaoPedido;
+    prazoPedido = estadoAnterior.prazoPedido;
     pedidoEditando = estadoAnterior.pedidoEditando;
   }
 }
 
 async function enviarWhatsPedidoSalvo(id) {
-  if (!permitirAcaoPlanoCompleto()) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
-  const itens = normalizarItensPedido(pedido);
-  const linhas = itens.map((item) => `- ${item.nome} | Qtd: ${item.qtd} | Total: ${formatarMoeda(item.total)}`);
-  const cliente = clienteDoPedido(pedido);
-  const mensagem = [
-    "Pedido " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
-    "Cliente: " + cliente,
-    "",
-    ...linhas,
-    "",
-    "Total: " + formatarMoeda(totalPedido(pedido)),
-    appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
-  ].join("\n");
-  const numero = await obterTelefoneWhatsappPedido(pedido);
-  if (numero && !pedido.clienteTelefone) {
-    pedido.clienteTelefone = numero;
-    pedido.atualizadoEm = new Date().toISOString();
-    salvarDados();
-  }
-  const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
-  window.open(destino + encodeURIComponent(mensagem), "_blank");
+  return sendQuoteToWhatsApp(pedido);
 }
 
 function limparPedidoAtual() {
@@ -22611,6 +23017,8 @@ function limparPedidoAtual() {
   clientePedido = "";
   clienteTelefonePedido = "";
   clienteEmailPedido = "";
+  observacaoPedido = "";
+  prazoPedido = "";
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   pedidoEditando = null;

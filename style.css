@@ -2357,6 +2357,10 @@ button:disabled{
   grid-column:span 2;
 }
 
+.order-summary-grid .order-observation-field{
+  grid-column:1 / -1;
+}
+
 .customer-suggestion-box{
   display:grid;
   gap:6px;
@@ -2648,6 +2652,33 @@ button:disabled{
   color:var(--muted);
   border:1px dashed rgba(255,255,255,.18);
   border-radius:var(--radius);
+}
+
+.order-empty-actions,
+.stacked-actions{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+  margin-top:10px;
+}
+
+.stacked-actions{
+  grid-template-columns:1fr;
+}
+
+.duplicate-item-preview{
+  display:grid;
+  gap:4px;
+  margin:12px 0;
+  padding:10px;
+  border:1px solid rgba(13,189,184,.20);
+  border-radius:14px;
+  background:rgba(13,189,184,.08);
+}
+
+.duplicate-item-preview span{
+  color:var(--muted);
+  font-size:var(--font-sm);
 }
 
 .order-bottom-bar{
