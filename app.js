@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.29";
-const APP_VERSION_CODE = 80;
+const APP_VERSION = "51.0.30";
+const APP_VERSION_CODE = 81;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -17,6 +17,13 @@ const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "s
 const SUPPORT_EMAIL = "simplifica3d.app@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
 const SUPERADMIN_BOOTSTRAP_HASH = "pbkdf2$120000$7IdXWxbOcEGHYrhsgKxbwQ==$zi+SJZy2LcZmhy0NiWxjIZ43/A9GJZiW0B5/hDSIwJg=";
+const APP_DEBUG_MODE = (() => {
+  try {
+    return localStorage.getItem("simplificaDebug") === "true" || /[?&]debug=1\b/.test(location.search || "");
+  } catch (_) {
+    return false;
+  }
+})();
 const SECURITY_SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SECURITY_SESSION_WARNING_MS = 2 * 60 * 1000;
 const LOGIN_LOCK_MS = 5 * 60 * 1000;
@@ -1554,7 +1561,7 @@ const AuthService = {
           userMessage: "Não foi possível validar sua sessão online."
         });
       }
-      console.info("[Auth][login]", { email, auth_uid: syncConfig.supabaseUserId, source: "supabase" });
+      debugInfo("[Auth][login]", { email, auth_uid: syncConfig.supabaseUserId, source: "supabase" });
       const hidratado = await this.hydrateAuthenticatedUser(usuario, { source: "supabase" });
       await sincronizarFilaOfflinePendente("login").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-login falhou", erro.message));
       return { usuario: hidratado || usuario, source: "supabase" };
@@ -1748,7 +1755,7 @@ const AuthService = {
     await consultarLicencaSupabaseSilencioso().catch((erro) => registrarDiagnostico("Supabase", "Licença pós-cadastro não carregada", erro.message));
     await sincronizarFilaOfflinePendente("signup").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-cadastro falhou", erro.message));
     salvarDados();
-    console.info("[Auth][signup]", { email, auth_uid: syncConfig.supabaseUserId, client_id: cadastroOnline?.client_id || "", sync_status: "synced" });
+    debugInfo("[Auth][signup]", { email, auth_uid: syncConfig.supabaseUserId, client_id: cadastroOnline?.client_id || "", sync_status: "synced" });
     return { ...local, cadastroOnline, cadastroAguardandoConfirmacao: false };
   }
 };
@@ -2147,7 +2154,7 @@ function ativarEscopoDadosUsuarioAtual(motivo = "session", opcoes = {}) {
     const cache = lerCacheDadosUsuario(escopo);
     if (!possuiDadosOperacionaisLocais() && cacheTemDadosOperacionais(cache)) {
       aplicarCacheDadosUsuario(cache);
-      console.info("[SyncScope][hydrate]", { motivo, auth_uid: escopo, restored_cache: true });
+      debugInfo("[SyncScope][hydrate]", { motivo, auth_uid: escopo, restored_cache: true });
     }
     atribuirDonoRemotoDadosLocais(escopo);
     pendingSync = carregarLista(getChaveFilaSyncUsuario(escopo));
@@ -2163,7 +2170,7 @@ function ativarEscopoDadosUsuarioAtual(motivo = "session", opcoes = {}) {
   atribuirDonoRemotoDadosLocais(escopo);
   limparCacheTemporarioContaAnterior();
   dataScopeChangedOnCurrentSession = true;
-  console.info("[SyncScope][switch]", { motivo, previous_scope: anterior || "", auth_uid: escopo, restored_cache: !!cache });
+  debugInfo("[SyncScope][switch]", { motivo, previous_scope: anterior || "", auth_uid: escopo, restored_cache: !!cache });
   if (opcoes.persistir !== false) salvarDados();
   return true;
 }
@@ -2257,6 +2264,40 @@ async function carregarDriveHandle() {
   }
 }
 
+const localStorageWriteCache = new Map();
+const diagnosticThrottleCache = new Map();
+
+function salvarLocalSeMudou(chave, valor = "") {
+  const texto = String(valor ?? "");
+  try {
+    const anterior = localStorageWriteCache.has(chave) ? localStorageWriteCache.get(chave) : localStorage.getItem(chave);
+    if (anterior === texto) return false;
+    localStorage.setItem(chave, texto);
+    localStorageWriteCache.set(chave, texto);
+    return true;
+  } catch (erro) {
+    if (APP_DEBUG_MODE) console.warn("Falha ao salvar cache local", chave, erro);
+    return false;
+  }
+}
+
+function salvarJsonLocalSeMudou(chave, valor) {
+  try {
+    return salvarLocalSeMudou(chave, JSON.stringify(valor));
+  } catch (erro) {
+    if (APP_DEBUG_MODE) console.warn("Falha ao serializar cache local", chave, erro);
+    return false;
+  }
+}
+
+function debugInfo(...args) {
+  if (APP_DEBUG_MODE) console.info(...args);
+}
+
+function debugLog(...args) {
+  if (APP_DEBUG_MODE) console.debug(...args);
+}
+
 function salvarDados() {
   const escopo = scopedDataCacheReady ? getEscopoDadosAtual() : "";
   if (escopo) {
@@ -2264,28 +2305,28 @@ function salvarDados() {
     salvarCacheDadosUsuario(escopo);
     removerCachesOperacionaisGlobais();
   } else {
-    localStorage.setItem("estoque", JSON.stringify(estoque));
-    localStorage.setItem("caixa", JSON.stringify(caixa));
-    localStorage.setItem("pedidos", JSON.stringify(pedidos));
-    localStorage.setItem("orcamentos", JSON.stringify(orcamentos));
-    localStorage.setItem("historico", JSON.stringify(historico));
-    localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
-    localStorage.setItem("sugestoes", JSON.stringify(sugestoes));
-    localStorage.setItem("securityLogs", JSON.stringify(securityLogs));
-    localStorage.setItem("auditLogs", JSON.stringify(auditLogs));
-    localStorage.setItem(PENDING_SYNC_QUEUE_KEY, JSON.stringify(pendingSync));
+    salvarJsonLocalSeMudou("estoque", estoque);
+    salvarJsonLocalSeMudou("caixa", caixa);
+    salvarJsonLocalSeMudou("pedidos", pedidos);
+    salvarJsonLocalSeMudou("orcamentos", orcamentos);
+    salvarJsonLocalSeMudou("historico", historico);
+    salvarJsonLocalSeMudou("diagnostics", diagnostics);
+    salvarJsonLocalSeMudou("sugestoes", sugestoes);
+    salvarJsonLocalSeMudou("securityLogs", securityLogs);
+    salvarJsonLocalSeMudou("auditLogs", auditLogs);
+    salvarJsonLocalSeMudou(PENDING_SYNC_QUEUE_KEY, pendingSync);
   }
-  localStorage.setItem("passwordResetTokens", JSON.stringify(passwordResetTokens));
-  localStorage.setItem("saasPlans", JSON.stringify(saasPlans));
-  localStorage.setItem("usageCounters", JSON.stringify(usageCounters));
-  localStorage.setItem(USAGE_LEARNING_KEY, JSON.stringify(normalizarUsoInteligente(usageLearning)));
-  localStorage.setItem("loginAttempts", JSON.stringify(loginAttempts));
-  localStorage.setItem("usuarios", JSON.stringify(usuarios));
-  localStorage.setItem("syncConfig", JSON.stringify(criarSyncConfigPersistente()));
-  localStorage.setItem("appConfig", JSON.stringify(appConfig));
-  localStorage.setItem("billingConfig", JSON.stringify(billingConfig));
-  localStorage.setItem("dashboardPeriod", dashboardPeriod);
-  localStorage.setItem("dashboardAnalyticsCache", JSON.stringify(dashboardAnalyticsCache));
+  salvarJsonLocalSeMudou("passwordResetTokens", passwordResetTokens);
+  salvarJsonLocalSeMudou("saasPlans", saasPlans);
+  salvarJsonLocalSeMudou("usageCounters", usageCounters);
+  salvarJsonLocalSeMudou(USAGE_LEARNING_KEY, normalizarUsoInteligente(usageLearning));
+  salvarJsonLocalSeMudou("loginAttempts", loginAttempts);
+  salvarJsonLocalSeMudou("usuarios", usuarios);
+  salvarJsonLocalSeMudou("syncConfig", criarSyncConfigPersistente());
+  salvarJsonLocalSeMudou("appConfig", appConfig);
+  salvarJsonLocalSeMudou("billingConfig", billingConfig);
+  salvarLocalSeMudou("dashboardPeriod", dashboardPeriod);
+  salvarJsonLocalSeMudou("dashboardAnalyticsCache", dashboardAnalyticsCache);
 }
 
 function normalizarUsoInteligente(origem = usageLearning) {
@@ -2306,7 +2347,7 @@ function sugestoesInteligentesAtivas() {
 
 function salvarUsoInteligenteLocal() {
   usageLearning = normalizarUsoInteligente(usageLearning);
-  localStorage.setItem(USAGE_LEARNING_KEY, JSON.stringify(usageLearning));
+  salvarJsonLocalSeMudou(USAGE_LEARNING_KEY, usageLearning);
 }
 
 function registrarEventoUsoLocal(tipo, dados = {}) {
@@ -2642,7 +2683,7 @@ function salvarCacheSessaoLocal() {
 function registrarDesbloqueioLocal(motivo = "manual") {
   const agora = new Date().toISOString();
   localStorage.setItem(LOCAL_UNLOCK_KEY, agora);
-  console.info("[Auth][local-unlock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", at: agora });
+  debugInfo("[Auth][local-unlock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", at: agora });
 }
 
 function getUltimoDesbloqueioLocalMs() {
@@ -2822,7 +2863,7 @@ async function abrirModalDesbloqueioLocal() {
 async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
   if (!precisaDesbloqueioLocal()) return true;
   ativarTravaLocal(motivo);
-  console.info("[Auth][local-lock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", last_unlock_at: localStorage.getItem(LOCAL_UNLOCK_KEY) || "" });
+  debugInfo("[Auth][local-lock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", last_unlock_at: localStorage.getItem(LOCAL_UNLOCK_KEY) || "" });
   return false;
 }
 
@@ -2967,11 +3008,21 @@ function registrarAuditoria(acao, detalhes = {}, clientId = getClientIdAtual()) 
 
 function registrarDiagnostico(tipo, mensagem, detalhes = "", opcoes = {}) {
   if (appConfig.telemetryEnabled === false) return;
+  const tipoTexto = String(tipo || "info");
+  const mensagemTexto = String(mensagem || "");
+  const silencioso = opcoes.silent === true;
+  const importante = /erro|falha|fatal|crash|anr|seguran|auth|pagamento|licen/i.test(`${tipoTexto} ${mensagemTexto}`);
+  if (!APP_DEBUG_MODE && silencioso && !importante) return;
+  const chaveThrottle = `${tipoTexto}:${mensagemTexto.slice(0, 120)}`;
+  const agoraMs = Date.now();
+  const ultimoMs = Number(diagnosticThrottleCache.get(chaveThrottle) || 0);
+  if (!APP_DEBUG_MODE && silencioso && agoraMs - ultimoMs < 30000) return;
+  diagnosticThrottleCache.set(chaveThrottle, agoraMs);
 
   diagnostics.unshift({
     id: Date.now(),
-    tipo: String(tipo || "info"),
-    mensagem: String(mensagem || "").slice(0, 220),
+    tipo: tipoTexto,
+    mensagem: mensagemTexto.slice(0, 220),
     detalhes: String(detalhes || "").slice(0, 900),
     tela: telaAtual,
     versao: APP_VERSION,
@@ -2980,7 +3031,7 @@ function registrarDiagnostico(tipo, mensagem, detalhes = "", opcoes = {}) {
   });
 
   diagnostics = diagnostics.slice(0, 150);
-  localStorage.setItem("diagnostics", JSON.stringify(diagnostics));
+  salvarJsonLocalSeMudou("diagnostics", diagnostics);
   if (opcoes.silent !== true) mostrarToast(String(mensagem || "Erro registrado").slice(0, 120), "erro");
 }
 
@@ -4588,7 +4639,7 @@ async function enviarRegistroSyncSupabase(item) {
     throw new Error("Fila offline pertence a outra conta.");
   }
   const payload = normalizarPayloadSync(item.collection, item.data || {});
-  console.info("[SyncQueue][send]", {
+  debugInfo("[SyncQueue][send]", {
     auth_uid: syncConfig.supabaseUserId || "",
     scope_id: item.scopeId || escopo || "",
     collection: item.collection,
@@ -4632,7 +4683,7 @@ async function sincronizarFilaOfflinePendente(motivo = "manual") {
         sync_result: action
       });
       enviados += 1;
-      console.info("[SyncQueue][ok]", {
+      debugInfo("[SyncQueue][ok]", {
         motivo,
         collection: item.collection,
         record_id: item.recordId,
@@ -4815,7 +4866,7 @@ async function iniciarRealtimeSyncUsuario(motivo = "manual") {
     }, { joinRef: null });
     iniciarHeartbeatRealtime();
     agendarPollingSyncTempoReal(`realtime:${motivo}`);
-    console.info("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records", "subscriptions", "payments"] });
+    debugInfo("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records", "subscriptions", "payments"] });
   };
 
   socket.onmessage = (event) => {
@@ -5373,7 +5424,7 @@ function tentarReproduzirIntro(video, overlay) {
       overlay.classList.remove("needs-action");
       video.controls = false;
     }).catch((erro) => {
-      console.debug("Intro: autoplay bloqueado, aguardando toque do usuario.", erro);
+      debugLog("Intro: autoplay bloqueado, aguardando toque do usuario.", erro);
       overlay.classList.add("needs-action");
       video.controls = true;
     });
@@ -5416,7 +5467,7 @@ function iniciarIntroAbertura() {
 
   video?.addEventListener("ended", concluir, { once: true });
   video?.addEventListener("error", (erro) => {
-    console.debug("Intro: video indisponivel, seguindo para o app.", erro);
+    debugLog("Intro: video indisponivel, seguindo para o app.", erro);
     setTimeout(concluir, 1200);
   }, { once: true });
   video?.addEventListener("loadeddata", () => tentarReproduzirIntro(video, overlay), { once: true });
@@ -6292,7 +6343,7 @@ function logEstadoPlanoDebug(snapshot = {}) {
   ].join("|");
   if (holder.__simplificaLastPlanDebug === chave) return;
   holder.__simplificaLastPlanDebug = chave;
-  console.info("[Simplifica3D][PlanState]", {
+  debugInfo("[Simplifica3D][PlanState]", {
     state: snapshot.state,
     source: snapshot.source,
     active_plan: snapshot.activePlan,
@@ -6989,6 +7040,16 @@ function renderizarStatusSyncSeVisivel() {
   if (["backup", "config", "conta"].includes(telaAtual)) renderizarPreservandoScroll();
 }
 
+function sincronizarBannersSeNecessario(force = false) {
+  const agora = Date.now();
+  const chave = `${telaAtual}:${getPlanoAtual().status}:${isMobile() ? "m" : "d"}`;
+  if (!force && window.__simplificaBannerSyncKey === chave && agora - Number(window.__simplificaBannerSyncAt || 0) < 1500) return;
+  window.__simplificaBannerSyncKey = chave;
+  window.__simplificaBannerSyncAt = agora;
+  sincronizarBannerAdMob();
+  sincronizarBannerAdSense();
+}
+
 function trocarTela(tela) {
   if (!telas[tela]) {
     tela = "dashboard";
@@ -7042,8 +7103,7 @@ function renderApp() {
     aplicarPersonalizacao();
     app.innerHTML = renderTravaLocal();
     renderCalculadoraFlutuante();
-    sincronizarBannerAdMob();
-    sincronizarBannerAdSense();
+    sincronizarBannersSeNecessario();
     setTimeout(() => document.getElementById("localUnlockPassword")?.focus(), 80);
     return;
   }
@@ -7062,8 +7122,7 @@ function renderApp() {
   atualizarMenu();
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
-  sincronizarBannerAdMob();
-  sincronizarBannerAdSense();
+  sincronizarBannersSeNecessario();
   preencherImpressoras();
   preencherMateriaisCalculadora();
   aplicarMotionSequenciado();
@@ -7673,6 +7732,27 @@ function limparConversaAssistente() {
   abrirAssistente(assistantMode || "auto");
 }
 
+let assistantManualSearchIndex = null;
+
+function getAssistantManualSearchIndex() {
+  if (assistantManualSearchIndex) return assistantManualSearchIndex;
+  assistantManualSearchIndex = ASSISTANT_MANUAL_ITEMS.map((item) => ({
+    item,
+    priorityScore: Number(item.priority || 0) / 100,
+    relatedScreen: normalizarTextoAssistente(item.relatedScreen || ""),
+    titleTokens: normalizarTextoAssistente(item.titulo || "").split(/\s+/).filter((parte) => parte.length >= 3),
+    keywords: (item.keywords || []).map((keyword) => {
+      const termo = normalizarTextoAssistente(keyword);
+      return {
+        termo,
+        tokens: termo.split(/\s+/).filter((parte) => parte.length >= 3),
+        phrase: termo.includes(" ")
+      };
+    })
+  }));
+  return assistantManualSearchIndex;
+}
+
 function getPlanoAtualParaManualAssistente() {
   try {
     const plano = getPlanoAtual();
@@ -7689,27 +7769,34 @@ function pontuarItemManualAssistente(item = {}, pergunta = "", contexto = {}) {
   if (!texto) return 0;
   const tela = normalizarTextoAssistente(contexto?.tela || contexto?.modulo || telaAtual || "");
   const palavras = texto.split(/\s+/).filter((palavra) => palavra.length >= 3);
+  const palavrasSet = new Set(palavras);
+  const indexado = item.item ? item : null;
+  const alvo = indexado?.item || item;
   let score = 0;
-  (item.keywords || []).forEach((keyword) => {
+  const keywords = indexado?.keywords || (alvo.keywords || []).map((keyword) => {
     const termo = normalizarTextoAssistente(keyword);
+    return { termo, tokens: termo.split(/\s+/).filter((parte) => parte.length >= 3), phrase: termo.includes(" ") };
+  });
+  keywords.forEach(({ termo, tokens, phrase }) => {
     if (!termo) return;
-    if (texto.includes(termo)) score += termo.includes(" ") ? 8 : 4;
-    termo.split(/\s+/).forEach((parte) => {
-      if (parte.length >= 3 && palavras.includes(parte)) score += 1;
+    if (texto.includes(termo)) score += phrase ? 8 : 4;
+    tokens.forEach((parte) => {
+      if (palavrasSet.has(parte)) score += 1;
     });
   });
-  const titulo = normalizarTextoAssistente(item.titulo || "");
-  titulo.split(/\s+/).forEach((parte) => {
-    if (parte.length >= 3 && palavras.includes(parte)) score += 1;
+  const titleTokens = indexado?.titleTokens || normalizarTextoAssistente(alvo.titulo || "").split(/\s+/).filter((parte) => parte.length >= 3);
+  titleTokens.forEach((parte) => {
+    if (palavrasSet.has(parte)) score += 1;
   });
-  if (tela && normalizarTextoAssistente(item.relatedScreen || "").includes(tela)) score += 2;
-  score += Number(item.priority || 0) / 100;
+  const telaItem = indexado?.relatedScreen || normalizarTextoAssistente(alvo.relatedScreen || "");
+  if (tela && telaItem.includes(tela)) score += 2;
+  score += indexado?.priorityScore ?? Number(alvo.priority || 0) / 100;
   return score;
 }
 
 function buscarManualAssistente(pergunta = "", contexto = {}) {
-  const ranked = ASSISTANT_MANUAL_ITEMS
-    .map((item) => ({ item, score: pontuarItemManualAssistente(item, pergunta, contexto) }))
+  const ranked = getAssistantManualSearchIndex()
+    .map((entrada) => ({ item: entrada.item, score: pontuarItemManualAssistente(entrada, pergunta, contexto) }))
     .filter((resultado) => resultado.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, 5);
@@ -7769,7 +7856,7 @@ function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxut
     window.__assistantLastTokenEstimate = estimado;
     const source = resposta ? "manual" : "fallback_manual";
     registrarDiagnosticoIA("assistant_source", { assistant_source: source, manualConfidence: resposta ? "medium" : "low", promptTokens: estimado });
-    console.debug("[Assistente] Resposta básica", { tokens: estimado, tela: contexto?.tela || telaAtual, matched: !!resposta });
+    debugLog("[Assistente] Resposta básica", { tokens: estimado, tela: contexto?.tela || telaAtual, matched: !!resposta });
     return cleanAiResponse(resposta?.answer || ASSISTANT_MANUAL_FALLBACK_MESSAGE, { maxChars: 520 });
   } catch (erro) {
     ErrorService.capture(erro, { area: "Assistente básico", action: "fallback", silent: true });
@@ -18833,7 +18920,7 @@ async function sincronizarUsuarioSaasAposLoginSupabase(usuario = getUsuarioAtual
       marcarUsuarioSupabaseSincronizado(usuario);
       salvarDados();
     }
-    console.info("[Supabase pós-login] sync_saas_user_after_login OK", {
+    debugInfo("[Supabase pós-login] sync_saas_user_after_login OK", {
       clientId: resultado?.client_id || "",
       companyId: resultado?.company_id || "",
       subscriptionId: resultado?.subscription_id || "",
@@ -19014,7 +19101,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   billingConfig.blockedAt = licenca.blocked_at || "";
   billingConfig.blockedReason = licenca.blocked_reason || "";
   if (licenca.current_paid_price) billingConfig.monthlyPrice = Number(licenca.current_paid_price) || billingConfig.monthlyPrice;
-  console.info("[Auth][license]", {
+  debugInfo("[Auth][license]", {
     auth_uid: syncConfig.supabaseUserId || "",
     effective_status: statusEfetivo,
     plan_code: billingConfig.effectivePlanCode || "",
