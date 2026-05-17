@@ -1,0 +1,14 @@
+{
+  "version": "2026-05-16",
+  "description": "Manual modular do Assistente Inteligente do Simplifica 3D.",
+  "modules": [
+    { "id": "pedidos", "file": "manual_pedidos.json" },
+    { "id": "calculadora", "file": "manual_calculadora.json" },
+    { "id": "estoque", "file": "manual_estoque.json" },
+    { "id": "caixa", "file": "manual_caixa.json" },
+    { "id": "clientes", "file": "manual_clientes.json" },
+    { "id": "planos", "file": "manual_planos.json" },
+    { "id": "erros", "file": "manual_erros.json" },
+    { "id": "feedback", "file": "manual_feedback.json" }
+  ]
+}

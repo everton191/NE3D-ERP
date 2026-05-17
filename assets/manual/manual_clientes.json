@@ -1,0 +1,26 @@
+[
+  {
+    "id": "clientes_cadastrar",
+    "titulo": "Cadastrar cliente",
+    "intent": "cadastrar_cliente",
+    "keywords": ["cliente", "cadastrar cliente", "novo cliente", "contato", "telefone cliente"],
+    "shortAnswer": "Abra Clientes > Novo cliente. Preencha nome, telefone e e-mail se tiver, depois salve.",
+    "fullAnswer": "Clientes cadastrados podem ser usados nos pedidos e nas sugestões do campo Cliente. Se o contato vier do telefone, ele só é usado depois que você selecionar a sugestão.",
+    "relatedScreen": "clientes",
+    "suggestedAction": "open_clients",
+    "requiredPlan": "free",
+    "priority": 88
+  },
+  {
+    "id": "clientes_nao_selecionado",
+    "titulo": "Cliente não selecionado",
+    "intent": "cliente_nao_selecionado",
+    "keywords": ["cliente não selecionado", "contato errado", "telefone errado"],
+    "shortAnswer": "Se não selecionar sugestão de cliente, o app usa o nome digitado e deixa telefone/e-mail para preenchimento manual.",
+    "fullAnswer": "Quando você escolhe uma sugestão, nome, telefone e e-mail são preenchidos. Se editar o nome depois, o app limpa os dados automáticos para evitar contato errado.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "review_customer",
+    "requiredPlan": "free",
+    "priority": 72
+  }
+]

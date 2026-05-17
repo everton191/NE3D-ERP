@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.28";
-const APP_VERSION_CODE = 79;
+const APP_VERSION = "51.0.29";
+const APP_VERSION_CODE = 80;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -64,11 +64,11 @@ const ONBOARDING_PRINT_TYPES = [
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
 const ASSISTANT_MAX_MESSAGES = 8;
 const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
-const AI_LOCAL_UI_VERSION = "2026-05-16-customer-suggestions-ai-runtime";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do Simplifica 3D. Responda somente sobre o aplicativo, impressão 3D, cálculo de preço, pedidos, clientes, estoque, caixa, produção e sugestões de produtos 3D. Você funciona offline e não pesquisa na internet. Não invente dados, valores, clientes, pedidos ou estoque. Se faltar informação, peça só o essencial. Seja curto, lógico e prático. Prefira até 3 frases. Para ações do app, crie apenas rascunho com confirmação do usuário.";
+const AI_LOCAL_UI_VERSION = "2026-05-16-assistente-manual-ia-media";
+const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do app Simplifica 3D. Responda somente com base no manual fornecido e no contexto da tela. Não invente funções, telas, botões ou regras. Seja direto, natural e útil. Se a informação não estiver no manual, diga que não encontrou essa informação e sugira Ajuda e Feedback.";
 const AI_RESPONSE_MAX_CHARS = 800;
-const AI_DEFAULT_MAX_TOKENS = 120;
-const AI_TECHNICAL_MAX_TOKENS = 220;
+const AI_DEFAULT_MAX_TOKENS = 256;
+const AI_TECHNICAL_MAX_TOKENS = 256;
 const AI_RUNTIME_TEST_SYSTEM_PROMPT = "";
 const AI_RUNTIME_TEST_PROMPT = "Responda OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
@@ -84,110 +84,49 @@ const AI_KNOWLEDGE_BASE = Object.freeze({
   ],
   limites: "A IA local é focada no uso do Simplifica 3D e impressão 3D FDM. Ela não deve orientar ações de Super Admin nem inventar funções."
 });
-const AI_DEFAULT_MODEL_ID = "qwen25_05b_q4km";
-const AI_SMART_MODEL_ID = "qwen25_15b_q4km";
-const AI_PRO_MODEL_ID = "qwen25_3b_q4km";
+const AI_LOCAL_MEDIUM_MODEL_ID = "qwen25_15b_q8_0";
+const AI_DEFAULT_MODEL_ID = AI_LOCAL_MEDIUM_MODEL_ID;
+const AI_SMART_MODEL_ID = AI_LOCAL_MEDIUM_MODEL_ID;
+const AI_PRO_MODEL_ID = AI_LOCAL_MEDIUM_MODEL_ID;
 const AI_MODEL_PROFILES = Object.freeze({
-  qwen25_05b_q4km: {
-    label: "Lite",
-    maxTokens: 120,
-    technicalMaxTokens: 180,
-    jsonMaxTokens: 220,
-    temperature: 0.2,
-    topP: 0.8,
-    repeatPenalty: 1.2,
-    presencePenalty: 0,
-    frequencyPenalty: 0.3,
-    contextSize: 768,
-    benchmarkContextSize: 512,
-    promptLimit: 600,
-    memoryLimit: 120,
-    threads: 2,
-    maxThreads: 3,
-    responseMode: "very_short",
-    allowActions: ["explain_screen", "fill_calculator_basic"]
-  },
-  qwen25_15b_q4km: {
-    label: "Smart",
-    maxTokens: 160,
-    technicalMaxTokens: 220,
-    jsonMaxTokens: 280,
-    temperature: 0.25,
-    topP: 0.85,
-    repeatPenalty: 1.18,
+  [AI_LOCAL_MEDIUM_MODEL_ID]: {
+    label: "IA Local Média",
+    maxTokens: 256,
+    quickMaxTokens: 128,
+    technicalMaxTokens: 256,
+    jsonMaxTokens: 256,
+    temperature: 0.3,
+    topP: 0.9,
+    repeatPenalty: 1.1,
     presencePenalty: 0.05,
-    frequencyPenalty: 0.25,
-    contextSize: 1024,
+    frequencyPenalty: 0.2,
+    contextSize: 2048,
     benchmarkContextSize: 512,
-    promptLimit: 900,
+    promptLimit: 1200,
     memoryLimit: 250,
     threads: 3,
     maxThreads: 4,
-    responseMode: "short_logic",
-    allowActions: ["explain_screen", "fill_calculator", "create_client_draft"]
-  },
-  qwen25_3b_q4km: {
-    label: "Pro",
-    maxTokens: 220,
-    technicalMaxTokens: 300,
-    jsonMaxTokens: 360,
-    temperature: 0.25,
-    topP: 0.85,
-    repeatPenalty: 1.14,
-    presencePenalty: 0.1,
-    frequencyPenalty: 0.2,
-    contextSize: 1024,
-    benchmarkContextSize: 512,
-    promptLimit: 1200,
-    memoryLimit: 400,
-    threads: 4,
-    maxThreads: 4,
-    responseMode: "assistant_operator",
+    gpuLayers: 0,
+    gpuLayerTests: [0, 4, 8, 12],
+    responseMode: "manual_polish",
     allowActions: ["explain_screen", "fill_calculator", "create_order_draft", "create_client_draft", "add_inventory_draft", "search_order"]
   }
 });
 const AI_MODELS = Object.freeze([
   {
-    id: AI_DEFAULT_MODEL_ID,
-    name: "IA Lite",
-    tier: "lite",
-    model: "Qwen2.5 0.5B Instruct Q4_K_M GGUF",
-    sizeMb: 398,
-    minBytes: 280 * 1024 * 1024,
-    ramRecommended: "até 4 GB",
-    recommended: "Celulares fracos",
-    description: "Modelo leve para respostas rápidas, explicação de telas e comandos simples.",
-    fileName: "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
-    officialPage: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf"
-  },
-  {
-    id: AI_SMART_MODEL_ID,
-    name: "IA Smart",
-    tier: "smart",
-    model: "Qwen2.5 1.5B Instruct Q4_K_M GGUF",
-    sizeMb: 986,
-    minBytes: 720 * 1024 * 1024,
+    id: AI_LOCAL_MEDIUM_MODEL_ID,
+    name: "IA Local Média",
+    tier: "medium",
+    requiredPlan: "pro",
+    model: "Qwen2.5 1.5B Instruct Q8_0 GGUF",
+    sizeMb: 1650,
+    minBytes: 1200 * 1024 * 1024,
     ramRecommended: "6 GB+",
-    recommended: "Celulares intermediários",
-    description: "Modelo equilibrado para ajuda contextual, melhores respostas e menos repetição.",
-    fileName: "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
+    recommended: "Modo avançado opcional",
+    description: "Modelo local único para melhorar a naturalidade das respostas encontradas no manual interno.",
+    fileName: "Qwen2.5-1.5B-Instruct-Q8_0.gguf",
     officialPage: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf"
-  },
-  {
-    id: AI_PRO_MODEL_ID,
-    name: "IA Pro",
-    tier: "pro",
-    model: "Qwen2.5 3B Instruct Q4_K_M GGUF",
-    sizeMb: 1900,
-    minBytes: 1300 * 1024 * 1024,
-    ramRecommended: "8 GB+",
-    recommended: "Celulares fortes",
-    description: "Modelo mais forte para interpretação, rascunhos operacionais e comandos complexos. Exclusivo PRO.",
-    fileName: "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-    officialPage: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf"
+    url: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q8_0.gguf"
   }
 ]);
 const AI_INSTALL_STATUS = Object.freeze({
@@ -624,6 +563,273 @@ const assistantResponses = [
   { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Os pedidos finalizados entram como movimentação financeira. Relatórios mostram visão resumida para acompanhar faturamento, saldo e operação." },
   { keywords: ["producao", "produção", "impressao", "impressão"], answer: "A tela Produção acompanha pedidos em aberto ou em andamento. Atualize o status para organizar o fluxo de impressão, entrega e finalização." }
 ];
+const ASSISTANT_MANUAL_FALLBACK_MESSAGE = "Não encontrei essa informação no manual do app. Você pode enviar isso como sugestão em Ajuda e Feedback.";
+const ASSISTANT_MANUAL_ITEMS = Object.freeze([
+  {
+    id: "pedidos_criar",
+    titulo: "Criar pedido",
+    intent: "criar_pedido",
+    keywords: ["criar pedido", "novo pedido", "pedido novo", "cadastrar pedido", "abrir pedido"],
+    shortAnswer: "Abra Pedidos > Novo pedido. Preencha cliente, telefone e observação, depois adicione itens e salve.",
+    fullAnswer: "Para criar um pedido, abra Pedidos e toque em Novo pedido. Primeiro preencha o cabeçalho com cliente, WhatsApp, observação, prazo e status. Depois adicione itens calculados ou manuais, revise o total e salve.",
+    relatedScreen: "pedidos",
+    suggestedAction: "open_new_order",
+    requiredPlan: "free",
+    priority: 100
+  },
+  {
+    id: "pedidos_adicionar_item",
+    titulo: "Adicionar item ao pedido",
+    intent: "adicionar_item_pedido",
+    keywords: ["adicionar item", "item no pedido", "calcular item", "mais item", "incluir item"],
+    shortAnswer: "No pedido, toque em Adicionar item. Calcule ou preencha o item, confirme o resultado e ele entra na lista do pedido.",
+    fullAnswer: "Ao adicionar item, o app pode abrir a calculadora para calcular peso, tempo, material, quantidade e taxa extra. O item só entra no pedido depois da confirmação do usuário, e o total é atualizado na lista.",
+    relatedScreen: "pedidos",
+    suggestedAction: "open_order_calculator",
+    requiredPlan: "free",
+    priority: 98
+  },
+  {
+    id: "pedidos_item_duplicado",
+    titulo: "Evitar item duplicado",
+    intent: "evitar_item_duplicado",
+    keywords: ["duplicado", "repetido", "dois itens", "item vazio", "duplicou", "duplicar"],
+    shortAnswer: "O app verifica itens iguais antes de adicionar. Se parecer repetido, ele pergunta se deseja somar quantidade, adicionar separado ou cancelar.",
+    fullAnswer: "Itens são comparados por nome, valor unitário, peso, tempo, material, cor e impressora. Se forem equivalentes, o app não cria outra linha sem confirmação. Para item vazio, nome, quantidade e valor precisam ser válidos antes de salvar.",
+    relatedScreen: "pedidos",
+    suggestedAction: "review_order_items",
+    requiredPlan: "free",
+    priority: 96
+  },
+  {
+    id: "calculadora_usar",
+    titulo: "Usar calculadora",
+    intent: "usar_calculadora",
+    keywords: ["calculadora", "calcular", "calculo", "cálculo", "preço", "preco", "orçamento", "orcamento"],
+    shortAnswer: "Informe peso, tempo de impressão, material, quantidade e margem. Depois toque em Calcular.",
+    fullAnswer: "A calculadora usa peso, tempo, material, energia, margem, quantidade e taxa extra para sugerir preço. Peso, horas e taxa extra começam limpos em novo cálculo para evitar reaproveitar valores variáveis.",
+    relatedScreen: "calculadora",
+    suggestedAction: "open_calculator",
+    requiredPlan: "free",
+    priority: 95
+  },
+  {
+    id: "whatsapp_orcamento",
+    titulo: "Enviar orçamento pelo WhatsApp",
+    intent: "enviar_whatsapp",
+    keywords: ["whatsapp", "enviar orçamento", "enviar orcamento", "mandar cliente", "mensagem"],
+    shortAnswer: "Abra o pedido e toque em WhatsApp. O app monta a mensagem com itens, quantidades, valores, total, observação e prazo.",
+    fullAnswer: "Se o pedido tiver telefone válido, o WhatsApp abre com o número informado. Se não houver telefone, o app abre a mensagem pronta para você escolher a conversa. O orçamento não envia lucro interno ao cliente.",
+    relatedScreen: "pedidos",
+    suggestedAction: "send_quote_whatsapp",
+    requiredPlan: "free",
+    priority: 94
+  },
+  {
+    id: "pdf_gerar",
+    titulo: "Gerar PDF",
+    intent: "gerar_pdf",
+    keywords: ["pdf", "gerar pdf", "orçamento pdf", "orcamento pdf", "recibo"],
+    shortAnswer: "Abra o pedido ou orçamento e toque em PDF. Revise os dados antes de gerar.",
+    fullAnswer: "O PDF usa cliente, itens, quantidades, valores, total, observações e dados da empresa. O plano Free pode usar PDF simples; o plano Pro libera recursos completos conforme as regras do app.",
+    relatedScreen: "pedidos",
+    suggestedAction: "generate_pdf",
+    requiredPlan: "free",
+    priority: 90
+  },
+  {
+    id: "clientes_cadastrar",
+    titulo: "Cadastrar cliente",
+    intent: "cadastrar_cliente",
+    keywords: ["cliente", "cadastrar cliente", "novo cliente", "contato", "telefone cliente"],
+    shortAnswer: "Abra Clientes > Novo cliente. Preencha nome, telefone e e-mail se tiver, depois salve.",
+    fullAnswer: "Clientes cadastrados podem ser usados nos pedidos e nas sugestões do campo Cliente. Se o contato vier do telefone, ele só é usado depois que você selecionar a sugestão.",
+    relatedScreen: "clientes",
+    suggestedAction: "open_clients",
+    requiredPlan: "free",
+    priority: 88
+  },
+  {
+    id: "estoque_cadastrar_material",
+    titulo: "Cadastrar material no estoque",
+    intent: "cadastrar_material",
+    keywords: ["estoque", "material", "filamento", "cadastrar material", "cor", "kg"],
+    shortAnswer: "Abra Estoque, toque em Adicionar material e informe tipo, cor, quantidade e custo.",
+    fullAnswer: "O estoque controla materiais como PLA, PETG, TPU ou resina. Informe tipo, cor, quantidade em kg e custo para usar no cálculo e acompanhar saldo baixo.",
+    relatedScreen: "estoque",
+    suggestedAction: "open_inventory",
+    requiredPlan: "free",
+    priority: 87
+  },
+  {
+    id: "pedidos_editar",
+    titulo: "Editar pedido",
+    intent: "editar_pedido",
+    keywords: ["editar pedido", "alterar pedido", "mudar pedido", "remover item", "excluir item"],
+    shortAnswer: "Abra o pedido, toque em Editar e ajuste os itens na lista. Use a lixeira do item para remover.",
+    fullAnswer: "A edição de pedido mostra cliente, itens, subtotais e total. Antes de salvar, revise itens adicionados, removidos, alterados, total anterior e novo total.",
+    relatedScreen: "pedidos",
+    suggestedAction: "edit_order",
+    requiredPlan: "free",
+    priority: 86
+  },
+  {
+    id: "pedidos_finalizar",
+    titulo: "Finalizar pedido",
+    intent: "finalizar_pedido",
+    keywords: ["finalizar pedido", "salvar pedido", "confirmar pedido", "fechar pedido"],
+    shortAnswer: "Revise cliente, itens e total. Depois toque em Salvar ou Confirmar alterações.",
+    fullAnswer: "O pedido só deve ser salvo depois da revisão final. Ao confirmar, o app atualiza a lista, sincroniza quando possível e mantém você no fluxo de pedidos.",
+    relatedScreen: "pedidos",
+    suggestedAction: "finish_order",
+    requiredPlan: "free",
+    priority: 85
+  },
+  {
+    id: "caixa_pagamento",
+    titulo: "Registrar pagamento no caixa",
+    intent: "registrar_pagamento",
+    keywords: ["caixa", "pagamento", "entrada", "recebimento", "saldo", "financeiro"],
+    shortAnswer: "Use Caixa para registrar entradas e saídas. Pedidos salvos podem gerar entrada financeira.",
+    fullAnswer: "O Caixa mostra entradas, saídas, saldo e histórico. Registre pagamentos com descrição clara e revise valores antes de salvar.",
+    relatedScreen: "caixa",
+    suggestedAction: "open_cash",
+    requiredPlan: "free",
+    priority: 84
+  },
+  {
+    id: "pedidos_orcamento_diferenca",
+    titulo: "Diferença entre orçamento e pedido",
+    intent: "orcamento_vs_pedido",
+    keywords: ["orçamento", "orcamento", "pedido", "diferença", "diferenca"],
+    shortAnswer: "Orçamento é uma proposta para o cliente. Pedido é o registro de produção/venda que você acompanha no app.",
+    fullAnswer: "Use orçamento para enviar valores e condições ao cliente. Quando o cliente aprovar, transforme ou registre como pedido para acompanhar itens, status, caixa e entrega.",
+    relatedScreen: "pedidos",
+    suggestedAction: "explain_quote_order",
+    requiredPlan: "free",
+    priority: 80
+  },
+  {
+    id: "planos_free",
+    titulo: "Plano Free",
+    intent: "plano_free",
+    keywords: ["free", "gratis", "gratuito", "limite free", "anuncio"],
+    shortAnswer: "O Free permite usar o app com limites básicos e anúncios leves. Ele não libera IA Local.",
+    fullAnswer: "O plano Free é funcional para começar: pedidos, clientes e cálculo básico continuam disponíveis dentro dos limites definidos. Recursos avançados, IA Local, automações e experiência sem anúncios ficam no Pro.",
+    relatedScreen: "planos",
+    suggestedAction: "open_plans",
+    requiredPlan: "free",
+    priority: 78
+  },
+  {
+    id: "planos_pro",
+    titulo: "Plano Pro",
+    intent: "plano_pro",
+    keywords: ["pro", "premium", "assinar", "plano pago", "assinatura"],
+    shortAnswer: "O Pro libera pedidos e clientes ilimitados, relatórios completos, PDF completo, IA Local, backup avançado e sem anúncios.",
+    fullAnswer: "O plano Pro é voltado para produtividade: remove anúncios, amplia limites, libera relatórios e PDF completos, backup/sincronização avançados, automações e IA Local no Android.",
+    relatedScreen: "planos",
+    suggestedAction: "open_subscription",
+    requiredPlan: "free",
+    priority: 78
+  },
+  {
+    id: "backup_sincronizacao",
+    titulo: "Backup e sincronização",
+    intent: "backup_sincronizacao",
+    keywords: ["backup", "sincronização", "sincronizacao", "supabase", "restaurar dados", "offline"],
+    shortAnswer: "Use Backup/Sincronizar para salvar dados online quando houver internet. O app também mantém dados locais.",
+    fullAnswer: "A sincronização usa a conta logada e uma fila local quando estiver offline. Se a internet falhar, o app mantém o uso básico e tenta sincronizar depois.",
+    relatedScreen: "backup",
+    suggestedAction: "open_backup",
+    requiredPlan: "free",
+    priority: 76
+  },
+  {
+    id: "erros_internet",
+    titulo: "Erro de internet",
+    intent: "erro_internet",
+    keywords: ["internet", "offline", "sem conexão", "sem conexao", "erro de rede", "não salvou", "nao salvou"],
+    shortAnswer: "Verifique a conexão e tente novamente. Se estiver offline, o app mantém dados locais e sincroniza quando voltar.",
+    fullAnswer: "Quando houver erro de internet, evite fechar o app durante um salvamento importante. Revise se os campos obrigatórios foram preenchidos e tente sincronizar novamente quando a conexão estabilizar.",
+    relatedScreen: "erros",
+    suggestedAction: "show_network_help",
+    requiredPlan: "free",
+    priority: 75
+  },
+  {
+    id: "ia_local_indisponivel",
+    titulo: "IA local indisponível",
+    intent: "ia_indisponivel",
+    keywords: ["ia local", "modelo", "qwen", "baixar ia", "instalar ia", "ia indisponível", "ia indisponivel"],
+    shortAnswer: "Se a IA Local não estiver pronta, use o Assistente Inteligente. Ele responde pelo manual sem baixar modelo.",
+    fullAnswer: "A IA Local Média é opcional e usa o modelo Qwen2.5 1.5B offline no Android. Ela só fica pronta depois de baixar, validar, carregar e passar no teste interno. Se falhar ou demorar, o app volta para o manual.",
+    relatedScreen: "config",
+    suggestedAction: "open_ai_settings",
+    requiredPlan: "pro",
+    priority: 74
+  },
+  {
+    id: "feedback_enviar",
+    titulo: "Enviar feedback",
+    intent: "enviar_feedback",
+    keywords: ["feedback", "sugestão", "sugestao", "ajuda", "suporte", "reportar erro"],
+    shortAnswer: "Abra Ajuda e Feedback para enviar sugestão, erro ou dúvida sobre o app.",
+    fullAnswer: "Use Ajuda e Feedback quando faltar alguma informação no manual, quando encontrar erro ou quando quiser sugerir melhoria. A mensagem ajuda a melhorar o app sem depender da IA inventar respostas.",
+    relatedScreen: "feedback",
+    suggestedAction: "open_feedback",
+    requiredPlan: "free",
+    priority: 73
+  },
+  {
+    id: "app_atualizar",
+    titulo: "Atualizar app",
+    intent: "atualizar_app",
+    keywords: ["atualizar app", "nova versão", "nova versao", "update", "apk", "pwa"],
+    shortAnswer: "No APK, instale a atualização disponibilizada. No PWA, atualize a página ou reinstale o atalho se necessário.",
+    fullAnswer: "Antes de atualizar, mantenha backup/sincronização em dia. No PWA, o navegador pode manter cache; atualizar a página normalmente carrega a versão nova.",
+    relatedScreen: "config",
+    suggestedAction: "show_update_help",
+    requiredPlan: "free",
+    priority: 70
+  },
+  {
+    id: "pedidos_sem_item",
+    titulo: "Pedido sem item",
+    intent: "pedido_sem_item",
+    keywords: ["pedido sem item", "sem item", "item vazio", "valor zero", "0,00"],
+    shortAnswer: "Um pedido pode ser criado pelo cabeçalho, mas item vazio não deve ser salvo. Adicione um item válido antes de finalizar.",
+    fullAnswer: "Para um item ser válido, ele precisa ter nome ou descrição, quantidade maior que zero e valor maior que zero. A calculadora só adiciona o item depois da confirmação.",
+    relatedScreen: "pedidos",
+    suggestedAction: "add_valid_item",
+    requiredPlan: "free",
+    priority: 92
+  },
+  {
+    id: "clientes_nao_selecionado",
+    titulo: "Cliente não selecionado",
+    intent: "cliente_nao_selecionado",
+    keywords: ["cliente não selecionado", "cliente nao selecionado", "contato errado", "telefone errado"],
+    shortAnswer: "Se não selecionar sugestão de cliente, o app usa o nome digitado e deixa telefone/e-mail para preenchimento manual.",
+    fullAnswer: "Quando você escolhe uma sugestão, nome, telefone e e-mail são preenchidos. Se editar o nome depois, o app limpa os dados automáticos para evitar contato errado.",
+    relatedScreen: "pedidos",
+    suggestedAction: "review_customer",
+    requiredPlan: "free",
+    priority: 72
+  },
+  {
+    id: "calculadora_preco",
+    titulo: "Cálculo de preço",
+    intent: "calculo_preco",
+    keywords: ["custo por grama", "tempo de impressão", "tempo de impressao", "energia", "margem", "lucro", "taxa extra", "peso"],
+    shortAnswer: "O preço considera material, peso, tempo, energia, margem, quantidade e taxa extra.",
+    fullAnswer: "O custo por grama vem do material cadastrado. O tempo entra no custo de energia e operação. A margem define o lucro sugerido, e a taxa extra pode cobrir acabamento, urgência ou embalagem.",
+    relatedScreen: "calculadora",
+    suggestedAction: "explain_calculation",
+    requiredPlan: "free",
+    priority: 82
+  }
+]);
 let billingConfig = carregarObjeto("billingConfig", {
   clientId: "",
   companyId: "",
@@ -7467,20 +7673,108 @@ function limparConversaAssistente() {
   abrirAssistente(assistantMode || "auto");
 }
 
+function getPlanoAtualParaManualAssistente() {
+  try {
+    const plano = getPlanoAtual();
+    if (plano?.pro) return "pro";
+    if (plano?.trial) return "trial";
+    return "free";
+  } catch (_) {
+    return "free";
+  }
+}
+
+function pontuarItemManualAssistente(item = {}, pergunta = "", contexto = {}) {
+  const texto = normalizarTextoAssistente(pergunta);
+  if (!texto) return 0;
+  const tela = normalizarTextoAssistente(contexto?.tela || contexto?.modulo || telaAtual || "");
+  const palavras = texto.split(/\s+/).filter((palavra) => palavra.length >= 3);
+  let score = 0;
+  (item.keywords || []).forEach((keyword) => {
+    const termo = normalizarTextoAssistente(keyword);
+    if (!termo) return;
+    if (texto.includes(termo)) score += termo.includes(" ") ? 8 : 4;
+    termo.split(/\s+/).forEach((parte) => {
+      if (parte.length >= 3 && palavras.includes(parte)) score += 1;
+    });
+  });
+  const titulo = normalizarTextoAssistente(item.titulo || "");
+  titulo.split(/\s+/).forEach((parte) => {
+    if (parte.length >= 3 && palavras.includes(parte)) score += 1;
+  });
+  if (tela && normalizarTextoAssistente(item.relatedScreen || "").includes(tela)) score += 2;
+  score += Number(item.priority || 0) / 100;
+  return score;
+}
+
+function buscarManualAssistente(pergunta = "", contexto = {}) {
+  const ranked = ASSISTANT_MANUAL_ITEMS
+    .map((item) => ({ item, score: pontuarItemManualAssistente(item, pergunta, contexto) }))
+    .filter((resultado) => resultado.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5);
+  const best = ranked[0] || null;
+  const score = Number(best?.score || 0);
+  const confidence = score >= 8 ? "high" : score >= 3 ? "medium" : "low";
+  return {
+    confidence,
+    score,
+    best: best?.item || null,
+    snippets: ranked.slice(0, 3).map((resultado) => resultado.item)
+  };
+}
+
+function formatarRespostaManualAssistente(resultado = {}, pergunta = "", contexto = {}) {
+  if (!resultado.best || resultado.confidence === "low") return ASSISTANT_MANUAL_FALLBACK_MESSAGE;
+  const item = resultado.best;
+  const plano = getPlanoAtualParaManualAssistente();
+  if (String(item.requiredPlan || "free") === "pro" && plano !== "pro") {
+    return `${item.shortAnswer} Recurso completo disponível no Plano Pro.`;
+  }
+  if (resultado.confidence === "medium") {
+    const relacionados = (resultado.snippets || [])
+      .filter((relacionado) => relacionado.id !== item.id)
+      .map((relacionado) => relacionado.titulo)
+      .slice(0, 2);
+    const sufixo = relacionados.length ? ` Também posso orientar sobre: ${relacionados.join(" ou ")}.` : "";
+    return `${item.shortAnswer}${sufixo}`;
+  }
+  return item.fullAnswer || item.shortAnswer || ASSISTANT_MANUAL_FALLBACK_MESSAGE;
+}
+
 function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxuto(texto)) {
   try {
     const pergunta = normalizarTextoAssistente(texto);
     const respostaAmpla = obterRespostaOrientadaAssistente(pergunta);
-    if (respostaAmpla) return respostaAmpla;
+    if (respostaAmpla) {
+      registrarDiagnosticoIA("assistant_source", { assistant_source: "manual", manualConfidence: "high" });
+      return respostaAmpla;
+    }
+    const manual = buscarManualAssistente(texto, contexto);
+    if (manual.confidence !== "low") {
+      const estimadoManual = estimarTokensTexto(JSON.stringify({ id: manual.best?.id, tela: contexto?.tela || telaAtual }));
+      window.__assistantLastTokenEstimate = estimadoManual;
+      registrarDiagnosticoIA("assistant_source", {
+        assistant_source: "manual",
+        manualConfidence: manual.confidence,
+        manualIntent: manual.best?.intent || "",
+        promptChars: String(texto || "").length,
+        promptTokens: estimadoManual
+      });
+      return cleanAiResponse(formatarRespostaManualAssistente(manual, texto, contexto), { maxChars: 520 });
+    }
     const base = Array.isArray(assistantResponses) ? assistantResponses : [];
     const resposta = base.find((item) => (item.keywords || []).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
     const estimado = estimarTokensTexto(JSON.stringify(contexto || {}));
     window.__assistantLastTokenEstimate = estimado;
+    const source = resposta ? "manual" : "fallback_manual";
+    registrarDiagnosticoIA("assistant_source", { assistant_source: source, manualConfidence: resposta ? "medium" : "low", promptTokens: estimado });
     console.debug("[Assistente] Resposta básica", { tokens: estimado, tela: contexto?.tela || telaAtual, matched: !!resposta });
-    return cleanAiResponse(resposta?.answer || "Não consegui acessar a IA agora, mas posso te ajudar com orientações básicas do sistema. Tente perguntar sobre pedido, estoque, calculadora, PDF, backup, plano ou login.", { maxChars: 520 });
+    return cleanAiResponse(resposta?.answer || ASSISTANT_MANUAL_FALLBACK_MESSAGE, { maxChars: 520 });
   } catch (erro) {
     ErrorService.capture(erro, { area: "Assistente básico", action: "fallback", silent: true });
-    return "Não consegui acessar a IA agora. Pergunte sobre pedido, estoque, calculadora, PDF, backup, plano ou login.";
+    registrarDiagnosticoIA("assistant_source", { assistant_source: "error", lastError: erro?.message || String(erro) });
+    return ASSISTANT_MANUAL_FALLBACK_MESSAGE;
   }
 }
 
@@ -7527,20 +7821,16 @@ function getAIModelProfile(modelOrId = getAIAssistantSettings().activeModelId) {
 }
 
 function getAIModelByProfile(profile = "weak", proAtivo = podeUsarAssistenteIAOfflinePro()) {
-  if (profile === "strong" && proAtivo) return getAIModel(AI_PRO_MODEL_ID);
-  if (profile === "medium" || profile === "strong") return getAIModel(AI_SMART_MODEL_ID);
-  return getAIModel(AI_DEFAULT_MODEL_ID);
+  return getAIModel(AI_LOCAL_MEDIUM_MODEL_ID);
 }
 
 function getSaferAIModelId(modelId = "") {
-  if (String(modelId) === AI_PRO_MODEL_ID) return AI_SMART_MODEL_ID;
-  if (String(modelId) === AI_SMART_MODEL_ID) return AI_DEFAULT_MODEL_ID;
   return "";
 }
 
 function isAIProOnlyModel(modelOrId) {
   const modelo = typeof modelOrId === "object" ? modelOrId : getAIModel(String(modelOrId || ""));
-  return String(modelo?.id || "") === AI_PRO_MODEL_ID || String(modelo?.tier || "") === "pro";
+  return String(modelo?.requiredPlan || "") === "pro" || String(modelo?.tier || "") === "pro";
 }
 
 function obterRespostaOrientadaAssistente(pergunta = "") {
@@ -7637,12 +7927,12 @@ function formatarMetaProgressoIA(state = {}) {
 }
 
 function podeExibirAssistenteIAOffline() {
-  return isAndroidNativeApp() && !!getUsuarioAtual();
+  return !!getUsuarioAtual();
 }
 
 function podeUsarAssistenteIAOfflinePro() {
   // IA Local e premium real: Free, Trial e Superadmin sem plano Pro pago visualizam, mas nao executam runtime/download.
-  return podeExibirAssistenteIAOffline() && temPlanoProPagoAtivo();
+  return isAndroidNativeApp() && !!getUsuarioAtual() && temPlanoProPagoAtivo();
 }
 
 function mensagemUpgradeIALocalPro() {
@@ -7670,7 +7960,7 @@ function getAssistenteModoDisponivel() {
 }
 
 function getAssistenteLabelPrincipal() {
-  return "Assistente";
+  return "Assistente Inteligente";
 }
 
 function renderAssistantFabContent(label = "Assistente", pro = false) {
@@ -7868,29 +8158,29 @@ function classificarDispositivoIA(resumo = {}) {
     return {
       id: "weak",
       label: "Fraco",
-      modelId: AI_DEFAULT_MODEL_ID,
-      description: "Modelo Lite recomendado para menor RAM e melhor estabilidade.",
-      speed: "mais rápido e leve",
-      quality: "ajuda essencial do sistema"
+      modelId: AI_LOCAL_MEDIUM_MODEL_ID,
+      description: "Use primeiro o Assistente Inteligente. A IA Local Média pode ficar lenta neste aparelho.",
+      speed: "manual imediato",
+      quality: "ajuda essencial pelo manual"
     };
   }
   if (resumo.deviceProfile === "medium" || (memoria && memoria < 8192) || (storage && storage < 3200)) {
     return {
       id: "medium",
       label: "Intermediário",
-      modelId: AI_SMART_MODEL_ID,
-      description: "Modelo Smart recomendado para equilibrar velocidade e qualidade.",
-      speed: "velocidade moderada",
-      quality: "mais contexto para pedidos, estoque e cálculo"
+      modelId: AI_LOCAL_MEDIUM_MODEL_ID,
+      description: "IA Local Média recomendada como camada opcional sobre o manual.",
+      speed: "resposta natural moderada",
+      quality: "manual com resposta mais natural"
     };
   }
   return {
     id: "strong",
     label: "Forte",
-    modelId: podeUsarAssistenteIAOfflinePro() ? AI_PRO_MODEL_ID : AI_SMART_MODEL_ID,
-    description: "Modelo Pro recomendado apenas quando o plano e o aparelho suportam.",
-    speed: "mais completo",
-    quality: "rascunhos e orientação operacional"
+    modelId: AI_LOCAL_MEDIUM_MODEL_ID,
+    description: "IA Local Média pode ser testada com diagnóstico de CPU/Vulkan sem carregar outros modelos.",
+    speed: "melhor margem para streaming",
+    quality: "respostas naturais com manual curto"
   };
 }
 
@@ -7994,21 +8284,27 @@ function renderDiagnosticoRuntimeIA() {
       <summary>Diagnóstico técnico da IA</summary>
       <div class="sync-grid">
         <div class="metric"><span>Engine</span><strong>${escaparHtml(valor(diag.engine, carregando ? "Verificando" : "llama.cpp JNI"))}</strong></div>
+        <div class="metric"><span>Backend ativo</span><strong>${escaparHtml(valor(diag.backend || diag.backendActive || assistantLocalDiagnostics.ai_backend_selected, "CPU/fallback"))}</strong></div>
+        <div class="metric"><span>Vulkan</span><strong>${(diag.vulkanAvailable ?? assistantLocalDiagnostics.ai_vulkan_available) ? "Sim" : "Não/indisponível"}</strong></div>
+        <div class="metric"><span>Driver GPU</span><strong>${escaparHtml(valor(diag.gpuDriver || diag.vulkanDriver || diag.gpuName, "n/d"))}</strong></div>
         <div class="metric"><span>Modelo carregado</span><strong>${diag.modelLoaded ? "Sim" : "Não"}</strong></div>
         <div class="metric"><span>mmap</span><strong>${diag.mmap === false ? "Não" : "Sim"}</strong></div>
-        <div class="metric"><span>Threads</span><strong>${escaparHtml(valor(diag.threads, 2))}</strong></div>
+        <div class="metric"><span>Threads</span><strong>${escaparHtml(valor(diag.threads || assistantLocalDiagnostics.threads, 2))}</strong></div>
         <div class="metric"><span>Contexto</span><strong>${escaparHtml(valor(diag.contextTokens, 2048))}</strong></div>
-        <div class="metric"><span>GPU layers</span><strong>${escaparHtml(valor(diag.gpuLayers, 0))}</strong></div>
+        <div class="metric"><span>GPU layers</span><strong>${escaparHtml(valor(diag.gpuLayers ?? assistantLocalDiagnostics.ai_gpu_layers, 0))}</strong></div>
         <div class="metric"><span>RAM livre</span><strong>${escaparHtml(valor(diag.availableMemoryMb))} MB</strong></div>
         <div class="metric"><span>Android</span><strong>${escaparHtml(valor(diag.androidSdk))}</strong></div>
         <div class="metric"><span>Prompt</span><strong>${assistantLocalDiagnostics.promptChars || 0} chars</strong></div>
         <div class="metric"><span>Resposta</span><strong>${assistantLocalDiagnostics.responseChars || 0} chars</strong></div>
+        <div class="metric"><span>TTFT</span><strong>${assistantLocalDiagnostics.ai_ttft_ms || assistantLocalDiagnostics.firstTokenMs || 0} ms</strong></div>
         <div class="metric"><span>Tempo IA</span><strong>${assistantLocalDiagnostics.responseMs || 0} ms</strong></div>
+        <div class="metric"><span>Tempo total</span><strong>${assistantLocalDiagnostics.ai_total_time_ms || assistantLocalDiagnostics.responseMs || 0} ms</strong></div>
         <div class="metric"><span>Inferência</span><strong>${assistantLocalDiagnostics.inferenceMs || 0} ms</strong></div>
-        <div class="metric"><span>Tokens/s</span><strong>${assistantLocalDiagnostics.tokensPerSecond || 0}</strong></div>
+        <div class="metric"><span>Tokens/s</span><strong>${assistantLocalDiagnostics.ai_tokens_per_second || assistantLocalDiagnostics.tokensPerSecond || 0}</strong></div>
+        <div class="metric"><span>Fonte</span><strong>${escaparHtml(valor(assistantLocalDiagnostics.assistant_source, "manual"))}</strong></div>
         <div class="metric"><span>Build</span><strong>${escaparHtml(valor(diag.buildType, "n/d"))}</strong></div>
       </div>
-      ${diag.error || assistantLocalDiagnostics.lastError ? `<p class="feedback-status error">${escaparHtml(diag.error || assistantLocalDiagnostics.lastError)}</p>` : ""}
+      ${diag.error || assistantLocalDiagnostics.lastError || assistantLocalDiagnostics.ai_fallback_reason ? `<p class="feedback-status error">${escaparHtml(diag.error || assistantLocalDiagnostics.lastError || assistantLocalDiagnostics.ai_fallback_reason)}</p>` : ""}
       <div class="actions">
         <button class="btn ghost" type="button" onclick="atualizarDiagnosticoRuntimeIA(true)">Atualizar diagnóstico</button>
       </div>
@@ -8033,76 +8329,80 @@ function renderAssistenteInteligenteProConfig() {
   if (!getUsuarioAtual()) return "";
   const acessoProIA = podeUsarAssistenteIAOfflinePro();
   const settings = getAIAssistantSettings();
-  const recomendado = getAIModel(settings.recommendedModelId) || getAIModelByProfile(settings.deviceProfile || "weak", acessoProIA);
-  const ativo = getAIModel(settings.activeModelId || settings.installedModelId || recomendado?.id);
-  const instalado = getAIModel(settings.installedModelId);
+  const modeloLocal = getAIModel(AI_LOCAL_MEDIUM_MODEL_ID);
+  const ativo = getAIModel(settings.activeModelId || settings.installedModelId || modeloLocal?.id);
   const localAtivo = acessoProIA && settings.localEnabled === true;
   const pronto = localAtivo && !!getModeloIAOfflineAtivoInstalado();
-  const vozDisponivel = assistantVoiceSupport?.speechAvailable === true;
-  const vozVerificada = !!assistantVoiceSupport && assistantVoiceSupportLoading === false;
-  const ttsDisponivel = assistantVoiceSupport?.ttsAvailable !== false;
-  if (pronto && !assistantVoiceSupport && !assistantVoiceSupportLoading) {
-    setTimeout(() => atualizarSuporteVozIASeNecessario(), 0);
-  }
   if (acessoProIA && !assistantRuntimeDiagnostics && !assistantRuntimeDiagnosticsLoading) {
     setTimeout(() => atualizarDiagnosticoRuntimeIASeNecessario(), 0);
   }
-  const textoStatusVoz = assistantVoiceSupportLoading
-    ? "verificando compatibilidade"
-    : vozDisponivel
-      ? "disponível"
-      : vozVerificada
-        ? "indisponível neste aparelho"
-        : "aguardando verificação";
+  const statusModelo = getAIModelStatus(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID);
+  const progress = progressoIAInstalacao(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID));
 
   return `
     <div class="danger-zone ai-pro-manager">
       <div class="card-header compact">
-        <h2 class="section-title">IA Local</h2>
-        <span class="status-badge">${acessoProIA ? (pronto ? "Pronta" : localAtivo ? "Configurar" : "Pro") : "Plano Pro"}</span>
+        <h2 class="section-title">Assistente e IA</h2>
+        <span class="status-badge">${pronto ? "IA pronta" : "Manual rápido"}</span>
       </div>
-      ${acessoProIA ? "" : `
-        <div class="ai-upgrade-box">
-          <strong>IA disponível no plano Pro.</strong>
-          <span>Assine o Plano Pro para baixar, instalar e usar IA local offline no APK.</span>
-          <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Disponível no Plano Pro</button>
-        </div>
-      `}
-      <label class="toggle-row">
-        <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)" ${acessoProIA ? "" : "disabled"}>
-        <span>Ativar IA Local</span>
-      </label>
-      <div class="sync-grid">
-        <div class="metric"><span>Perfil do aparelho</span><strong>${escaparHtml(settings.lastDeviceProfile || "Análise automática")}</strong></div>
-        <div class="metric"><span>Modelo recomendado</span><strong>${escaparHtml(recomendado?.name || "IA Lite")}</strong></div>
-        <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "Nenhum") : acessoProIA ? "Assistente básico" : "Bloqueado")}</strong></div>
-        <div class="metric"><span>Status</span><strong>${acessoProIA ? (pronto ? "Validada" : settings.installedModelId ? labelStatusAI(getAIModelStatus(settings.installedModelId)) : "Aguardando") : "Exclusivo Pro"}</strong></div>
-      </div>
-      <div class="actions">
-        <button class="btn" type="button" onclick="${acessoProIA ? "instalarIARecomendadaAutomaticamente()" : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Abrir IA" : "Instalar IA recomendada") : "Disponível no Plano Pro"}</button>
-        <button class="btn secondary" type="button" onclick="${acessoProIA ? "abrirWizardIAProLocal()" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Analisar aparelho</button>
-        <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA ? "" : "disabled"}>Parar IA Local</button>
+      <div class="ai-model-list">
+        <article class="ai-model-card active">
+          <div class="row-title">
+            <div>
+              <strong>Assistente Inteligente</strong>
+              <span class="muted">Respostas rápidas com base no manual. Não precisa baixar modelo.</span>
+            </div>
+            <span class="status-badge">Pronto</span>
+          </div>
+          <p class="muted">Use para tirar dúvidas sobre pedidos, calculadora, estoque, caixa, planos, PDF, WhatsApp e erros comuns.</p>
+          <div class="actions">
+            <button class="btn" type="button" onclick="abrirAssistente('basic')">Abrir Assistente</button>
+            <button class="btn ghost" type="button" onclick="abrirAssistenteComPergunta('Como criar um pedido?')">Exemplo</button>
+          </div>
+        </article>
+
+        <article class="ai-model-card ${pronto ? "active" : ""} ${acessoProIA ? "" : "locked"}">
+          <div class="row-title">
+            <div>
+              <strong>IA Local Média</strong>
+              <span class="muted">Modelo: Qwen2.5 1.5B Q8_0 • opcional • Android</span>
+            </div>
+            <span class="status-badge">${acessoProIA ? (pronto ? "Pronta" : labelStatusAI(statusModelo)) : "Plano Pro"}</span>
+          </div>
+          <p class="muted">Usa o modelo offline apenas para deixar mais natural a resposta encontrada no manual. Se demorar, o app volta para o Assistente Inteligente.</p>
+          ${progress.active ? `
+            <div class="ai-install-progress" data-ai-progress="${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
+              <div class="ai-progress-circle" aria-label="Progresso da IA">
+                <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
+              </div>
+              <span data-ai-progress-label>${escaparHtml(progress.label || "Preparando IA Local Média...")}</span>
+              <small data-ai-progress-meta>${escaparHtml(formatarMetaProgressoIA(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)))}</small>
+            </div>
+          ` : ""}
+          ${acessoProIA ? "" : `
+            <div class="ai-upgrade-box">
+              <strong>IA Local Média disponível no plano Pro.</strong>
+              <span>O Assistente Inteligente continua disponível sem baixar modelo.</span>
+            </div>
+          `}
+          <div class="actions">
+            <button class="btn" type="button" onclick="${acessoProIA ? (pronto ? `abrirModeloIAOffline('${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}')` : "instalarIARecomendadaAutomaticamente()") : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Testar IA Local" : "Instalar IA Local Média") : "Disponível no Plano Pro"}</button>
+            <button class="btn secondary" type="button" onclick="${acessoProIA ? "atualizarDiagnosticoRuntimeIA(true)" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Diagnóstico</button>
+            <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA && pronto ? "" : "disabled"}>Hibernar IA</button>
+          </div>
+          ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
+        </article>
       </div>
       ${acessoProIA ? renderDiagnosticoRuntimeIA() : ""}
-      <label class="toggle-row ${vozDisponivel ? "" : "muted-disabled"}">
-        <input type="checkbox" ${settings.voiceEnabled && vozDisponivel && acessoProIA ? "checked" : ""} onchange="alternarVozIAPro(this.checked)" ${vozDisponivel && acessoProIA ? "" : "disabled"}>
-        <span>Microfone${vozDisponivel ? "" : ` (${escaparHtml(textoStatusVoz)})`}</span>
-      </label>
-      <label class="toggle-row ${ttsDisponivel ? "" : "muted-disabled"}">
-        <input type="checkbox" ${settings.ttsEnabled && ttsDisponivel && acessoProIA ? "checked" : ""} onchange="alternarLeituraVozIAPro(this.checked)" ${ttsDisponivel && acessoProIA ? "" : "disabled"}>
-        <span>Ler em voz alta${ttsDisponivel ? "" : " (indisponível)"}</span>
-      </label>
-      ${settings.ttsEnabled && ttsDisponivel && acessoProIA ? `
-        <label class="range-row">
-          <span>Velocidade da voz</span>
-          <input type="range" min="0.6" max="1.4" step="0.1" value="${escaparAttr(settings.ttsRate || 1)}" oninput="ajustarVelocidadeLeituraIAPro(this.value)">
-          <strong>${Number(settings.ttsRate || 1).toFixed(1)}x</strong>
-        </label>
-      ` : ""}
-      ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
       <details class="ai-advanced-settings">
-        <summary>Configurações avançadas da IA</summary>
-        <p class="muted">Troque o modelo apenas se o aparelho travar, aquecer demais ou responder muito devagar.</p>
+        <summary>Diagnóstico avançado</summary>
+        <p class="muted">A IA Local Média é o único modelo local ativo. O app não carrega 3B, IQ3_M ou outros modelos lentos neste fluxo.</p>
+        <div class="sync-grid">
+          <div class="metric"><span>Perfil do aparelho</span><strong>${escaparHtml(settings.lastDeviceProfile || "Não analisado")}</strong></div>
+          <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "IA Local Média") : "Assistente Inteligente")}</strong></div>
+          <div class="metric"><span>Contexto</span><strong>${getAIModelProfile(modeloLocal?.id).contextSize} tokens</strong></div>
+          <div class="metric"><span>Threads</span><strong>${calcularThreadsIA(getAIModelProfile(modeloLocal?.id))}</strong></div>
+        </div>
         <div class="ai-model-list">
           ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
         </div>
@@ -8243,6 +8543,8 @@ async function verificarModeloIAInstalado(modelo, modelId) {
 async function testarRuntimeModeloIA(modelo, modelId, path = "") {
   const plugin = getAIPlugin();
   const perfil = getAIModelProfile(modelId);
+  const backend = getAiBackendConfig(perfil);
+  const threads = calcularThreadsIA(perfil);
   setAIModelLocalState(modelId, {
     status: AI_INSTALL_STATUS.TESTING,
     progress: 100,
@@ -8260,7 +8562,10 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
       prompt: AI_RUNTIME_TEST_PROMPT,
       maxTokens: 5,
       contextSize: 512,
-      threads: Math.max(1, Math.min(Number(perfil.threads || 2) || 2, 4)),
+      threads,
+      backendPreference: backend.backendPreference,
+      gpuLayers: backend.gpuLayers,
+      gpuLayerTests: backend.gpuLayerTests,
       proAllowed: podeUsarAssistenteIAOfflinePro(),
       timeoutMs: 240000
     }),
@@ -8274,8 +8579,15 @@ async function testarRuntimeModeloIA(modelo, modelId, path = "") {
     inferenceMs: resultado?.inferenceMs || resultado?.elapsedMs || 0,
     responseMs: resultado?.totalMs || resultado?.elapsedMs || 0,
     tokensPerSecond: resultado?.tokensPerSecond || 0,
-    threads: resultado?.threads || perfil.threads,
-    contextSize: resultado?.contextSize || 512
+    threads: resultado?.threads || threads,
+    contextSize: resultado?.contextSize || 512,
+    ai_backend_selected: resultado?.backend || resultado?.backendActive || backend.backendPreference || "auto",
+    ai_gpu_layers: resultado?.gpuLayers ?? backend.gpuLayers,
+    ai_vulkan_available: resultado?.vulkanAvailable === true,
+    ai_ttft_ms: resultado?.firstTokenMs || 0,
+    ai_total_time_ms: resultado?.totalMs || resultado?.elapsedMs || 0,
+    ai_tokens_per_second: resultado?.tokensPerSecond || 0,
+    ai_model_selected: modelId
   });
   return resultado;
 }
@@ -8780,30 +9092,15 @@ function getModeloIAOfflineAtivoInstalado(exigirToggle = true) {
 
 function buscarTrechosManualIA(texto = "") {
   const pergunta = normalizarTextoAssistente(texto);
-  const topicos = [
-    ["inicio dashboard busca lupa", "Início: mostra indicadores de pedidos, faturamento, caixa, produção, estoque baixo e clientes. A lupa busca pedidos, clientes, materiais e abre o assistente básico."],
-    ["pedidos pedido editar item itens status revisar revisão excluir remover", "Pedidos: guarda cliente, WhatsApp, itens, quantidades, subtotais, total geral, status e observações. Na edição, itens aparecem em lista com subtotal e lixeira para remover. A edição só salva após revisão final."],
-    ["cliente clientes cadastro", "Clientes: podem ser cadastrados e usados nos pedidos. O Free funciona para pequenos usuários; o PRO libera clientes ilimitados."],
-    ["estoque material materiais filamento cor kg baixo editar remover", "Estoque: registra tipo, cor, quantidade em kg e custo. Materiais podem ser editados ou removidos pelos ícones da lista. Materiais podem ser vinculados ao cálculo e aos itens do pedido, com alerta de estoque baixo."],
-    ["caixa financeiro entrada saída saldo estorno", "Caixa: registra entradas, saídas, saldo e histórico. Pedidos salvos geram entrada; cancelamentos podem gerar estorno quando aplicável."],
-    ["calculadora cálculo preco preço peso horas taxa margem energia quantidade", "Calculadora: calcula preço com material, peso, horas, quantidade, energia, margem e taxa extra. Peso, horas e taxa extra começam limpos em novo cálculo."],
-    ["impressora impressoras produção bambu orca fdm pla petg tpu", "Impressoras e produção: impressoras entram no cálculo por consumo, custo/hora e tipo. Produção acompanha pedidos por status. A IA deve focar em impressão 3D FDM, Bambu Lab, OrcaSlicer, PLA, PETG e TPU."],
-    ["plano planos pro free trial pending pagamento", "Planos: Free é funcional com anúncios leves e limites recomendados; PRO libera pedidos/clientes ilimitados, relatórios completos, PDF completo, IA local, automações, backup avançado e sem anúncios. Pending não deve travar o Free."],
-    ["anúncio anuncios ads rewarded recompensa adblock dns", "Anúncios: no Free são leves, discretos e não aparecem em telas críticas. Rewarded é opcional para bônus. Se vídeo falhar, o uso básico continua e o usuário pode tentar novamente."],
-    ["sincronização sincronizar supabase backup offline fila", "Sincronização: usa Supabase e fila local offline. Não deve forçar retorno para a tela inicial. Backup básico fica disponível; backup avançado é PRO."],
-    ["personalização logo fundo pdf tema pix cores escala", "Personalização: ajusta nome do app, empresa, WhatsApp, logo, cores, fundo de login, PDF, Pix, escala de tela e modo compacto."],
-    ["pdf orçamento orcamento exportar", "PDF e orçamentos: PDFs podem ser gerados para pedidos e orçamentos usando os dados revisados. Free pode ter PDF simples; PRO libera PDF completo."],
-    ["segurança biometria senha admin sensível sensivel", "Segurança: ações sensíveis podem exigir senha administrativa ou biometria no Android. A biometria tem validade curta e senha é fallback."],
-    ["ia local offline modelo qwen", "IA local: exclusiva do PRO pago ativo no Android. O instalador analisa o aparelho e escolhe um modelo Qwen2.5 Q4_K_M: Lite 0.5B, Smart 1.5B ou Pro 3B. Free e Trial visualizam, mas não baixam nem usam."],
-    ["aprendizado sugestão sugestoes inteligente local", "Aprendizado local: registra eventos simples no aparelho para melhorar sugestões, sem treinar modelo e sem coletar senhas ou dados sensíveis."]
-  ];
   if (pergunta.includes("superadmin") || pergunta.includes("super admin")) {
     return ["Super Admin é área restrita administrativa. A IA não deve orientar ações de Super Admin."];
   }
-  const encontrados = topicos
-    .filter(([keywords]) => keywords.split(/\s+/).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))))
-    .map(([, trecho]) => trecho);
-  return (encontrados.length ? encontrados : topicos.slice(0, 4).map(([, trecho]) => trecho)).slice(0, 3);
+  const resultado = buscarManualAssistente(texto, buildAiContext(telaAtual, texto));
+  const trechos = (resultado.snippets || []).map((item) => `${item.titulo}: ${item.shortAnswer}`);
+  if (trechos.length) return trechos.slice(0, 3);
+  return ASSISTANT_MANUAL_ITEMS
+    .filter((item) => ["pedidos_criar", "calculadora_usar", "estoque_cadastrar_material"].includes(item.id))
+    .map((item) => `${item.titulo}: ${item.shortAnswer}`);
 }
 
 function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().activeModelId) {
@@ -8819,9 +9116,28 @@ function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().a
     repeatPenalty: perfil.repeatPenalty ?? 1.18,
     presencePenalty: perfil.presencePenalty ?? 0.05,
     frequencyPenalty: perfil.frequencyPenalty ?? 0.25,
-    contextSize: perfil.contextSize || 1024,
-    threads: Number(perfil.threads || 2),
-    maxChars: Math.min(AI_RESPONSE_MAX_CHARS, perfil.responseMode === "very_short" ? 420 : tecnico ? AI_RESPONSE_MAX_CHARS : 650)
+    contextSize: perfil.contextSize || 2048,
+    threads: calcularThreadsIA(perfil),
+    maxChars: Math.min(AI_RESPONSE_MAX_CHARS, tecnico ? AI_RESPONSE_MAX_CHARS : 650)
+  };
+}
+
+function calcularThreadsIA(perfil = getAIModelProfile()) {
+  const cores = Number(navigator.hardwareConcurrency || 0) || 4;
+  const metade = Math.floor(cores / 2) || Number(perfil.threads || 2) || 2;
+  return Math.max(2, Math.min(Number(perfil.maxThreads || 4) || 4, metade, 4));
+}
+
+function getAiBackendConfig(perfil = getAIModelProfile()) {
+  const settings = getAIAssistantSettings();
+  const layersConfig = settings.gpuLayers ?? perfil.gpuLayers ?? 0;
+  const gpuLayers = String(layersConfig) === "auto"
+    ? "auto"
+    : Math.max(0, Math.min(12, Number(layersConfig) || 0));
+  return {
+    backendPreference: settings.backendPreference || "auto",
+    gpuLayers,
+    gpuLayerTests: Array.isArray(perfil.gpuLayerTests) ? perfil.gpuLayerTests : [0, 4, 8, 12]
   };
 }
 
@@ -8843,24 +9159,45 @@ function resumirContextoIA(contexto = {}, modelProfile = getAIModelProfile()) {
 }
 
 function montarPromptIAOffline(texto = "", contexto = {}, modelId = getAIAssistantSettings().activeModelId) {
-  const trechosManual = buscarTrechosManualIA(texto);
   const perfil = getAIModelProfile(modelId);
+  const manual = buscarManualAssistente(texto, contexto);
+  const trechosManual = (manual.snippets || []).slice(0, 3).map((item) => ({
+    titulo: item.titulo,
+    resposta: item.shortAnswer,
+    tela: item.relatedScreen,
+    plano: item.requiredPlan
+  }));
+  const respostaManual = manual.best
+    ? formatarRespostaManualAssistente(manual, texto, contexto)
+    : ASSISTANT_MANUAL_FALLBACK_MESSAGE;
+  const contextoSeguro = {
+    tela: contexto.tela || telaAtual,
+    plano: getPlanoAtualParaManualAssistente(),
+    permissoes: Array.isArray(perfil.allowActions) ? perfil.allowActions : [],
+    camposVisiveis: Array.isArray(contexto.camposVisiveis) ? contexto.camposVisiveis.slice(0, 8) : [],
+    dados: contexto.dados || null,
+    memoriaUsuario: contexto.memoriaUsuario || ""
+  };
   return [
-    "Manual curto:",
-    trechosManual.join("\n"),
-    "Regra:",
-    "Se a pergunta for ampla, pergunte só qual tarefa deseja fazer. Responda curto, direto e sem repetir.",
-    `Permissões do modelo ${perfil.label}: ${(perfil.allowActions || []).join(", ") || "explain_screen"}.`,
-    "Se for ação do app permitida, você pode retornar JSON app_action. Sempre requiresConfirmation=true. Nunca salve automaticamente.",
-    contexto.memoriaUsuario ? "Memória local do usuário:" : "",
-    contexto.memoriaUsuario || "",
-    contexto.memoriaUsuario ? "Se usar uma preferência aprendida, avise que é sugestão e peça conferência." : "",
-    "Contexto:",
-    resumirContextoIA(contexto, perfil),
+    "Resposta do manual:",
+    respostaManual,
+    "",
+    "Trechos relevantes do manual (max 3):",
+    JSON.stringify(trechosManual).slice(0, 900),
+    "",
+    "Contexto curto:",
+    JSON.stringify(contextoSeguro, (_, valor) => {
+      if (typeof valor === "string") return valor.slice(0, 180);
+      if (Array.isArray(valor)) return valor.slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
+      return valor;
+    }).slice(0, Number(perfil.promptLimit || 1200)),
+    "",
+    "Regras:",
+    "Melhore a naturalidade sem adicionar informação fora do manual. Se o manual não responder, use exatamente a mensagem de não encontrado. Para ações, gere apenas rascunho JSON com requiresConfirmation=true.",
     "",
     "Pergunta:",
     String(texto || "").slice(0, 260)
-  ].join("\n").slice(0, Number(perfil.promptLimit || 900) + 900);
+  ].join("\n").slice(0, Number(perfil.promptLimit || 1200) + 900);
 }
 
 function cleanAiResponse(response = "", opcoes = {}) {
@@ -8908,6 +9245,15 @@ function registrarDiagnosticoIA(tipo, dados = {}) {
   if (tipo === "erro") assistantLocalDiagnostics.lastError = String(dados.error || dados.lastError || "").slice(0, 160);
   registrarDiagnostico("IA Local", tipo, JSON.stringify({
     tela: assistantLocalDiagnostics.lastScreen,
+    assistant_source: assistantLocalDiagnostics.assistant_source,
+    ai_model_selected: assistantLocalDiagnostics.ai_model_selected,
+    ai_backend_selected: assistantLocalDiagnostics.ai_backend_selected,
+    ai_gpu_layers: assistantLocalDiagnostics.ai_gpu_layers,
+    ai_vulkan_available: assistantLocalDiagnostics.ai_vulkan_available,
+    ai_fallback_reason: assistantLocalDiagnostics.ai_fallback_reason,
+    ai_ttft_ms: assistantLocalDiagnostics.ai_ttft_ms,
+    ai_tokens_per_second: assistantLocalDiagnostics.ai_tokens_per_second,
+    ai_total_time_ms: assistantLocalDiagnostics.ai_total_time_ms,
     promptChars: assistantLocalDiagnostics.promptChars,
     responseChars: assistantLocalDiagnostics.responseChars,
     responseMs: assistantLocalDiagnostics.responseMs
@@ -9081,6 +9427,8 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
   const plugin = getAIPlugin();
   if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
   const geracao = { ...getAiGenerationOptions(texto, ativo.modelo.id), ...opcoes };
+  const perfilAtivo = getAIModelProfile(ativo.modelo.id);
+  const backend = getAiBackendConfig(perfilAtivo);
   const contextoFinal = buildAiContext(contexto?.tela || telaAtual, texto, getAIModelProfile(ativo.modelo.id));
   const prompt = montarPromptIAOffline(texto, { ...contextoFinal, ...contexto }, ativo.modelo.id);
   const inicio = performance.now();
@@ -9098,7 +9446,9 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     prompt,
     maxTokens: Math.max(5, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 360)),
     contextSize: Math.max(512, Math.min(Number(geracao.contextSize || 1024) || 1024, 2048)),
-    threads: Math.max(1, Math.min(Number(geracao.threads || 2) || 2, 6)),
+    threads: calcularThreadsIA(perfilAtivo),
+    backendPreference: backend.backendPreference,
+    gpuLayers: backend.gpuLayers,
     temperature: geracao.temperature,
     topP: geracao.topP,
     topK: geracao.topK,
@@ -9124,6 +9474,13 @@ async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistente
     responseMs: Math.round(performance.now() - inicio),
     inferenceMs: result?.inferenceMs || result?.totalMs || Math.round(performance.now() - inicio),
     tokensPerSecond: result?.tokensPerSecond || 0,
+    ai_ttft_ms: result?.firstTokenMs || result?.ttftMs || 0,
+    ai_total_time_ms: result?.totalMs || Math.round(performance.now() - inicio),
+    ai_tokens_per_second: result?.tokensPerSecond || 0,
+    ai_backend_selected: result?.backend || result?.backendActive || backend.backendPreference || "auto",
+    ai_gpu_layers: result?.gpuLayers ?? backend.gpuLayers,
+    ai_vulkan_available: result?.vulkanAvailable === true,
+    assistant_source: "local_ai",
     threads: payloadGeracao.threads,
     contextSize: payloadGeracao.contextSize,
     lastError: ""
@@ -9239,12 +9596,14 @@ async function responderAssistente(texto = "") {
     contexto = { tela: telaAtual, tarefa: pergunta };
     ErrorService.capture(erro, { area: "Assistente básico", action: "contexto", silent: true });
   }
-  const usarIAPro = assistantMode !== "basic" && iaLocalEstaPronta();
+  const manualBusca = buscarManualAssistente(pergunta, contexto);
+  const usarIAPro = assistantMode !== "basic" && iaLocalEstaPronta() && manualBusca.confidence !== "low";
   assistantMode = usarIAPro ? "pro" : "basic";
+  const respostaManual = obterRespostaAssistente(pergunta, contexto);
   assistantMessages.push({ role: "user", text: pergunta });
   const respostaPendente = {
     role: "assistant",
-    text: usarIAPro ? "Iniciando IA..." : "Consultando orientações básicas..."
+    text: usarIAPro ? "Consultando manual..." : "Consultando manual..."
   };
   assistantMessages.push(respostaPendente);
   limitarMensagensAssistente();
@@ -9252,19 +9611,23 @@ async function responderAssistente(texto = "") {
   renderApp();
   try {
     if (usarIAPro) {
-      const carregou = await garantirRuntimeIAAtivo({ silent: true });
+      const carregou = await promiseComTimeout(
+        garantirRuntimeIAAtivo({ silent: true }),
+        8000,
+        "IA local demorou mais de 8s para iniciar."
+      );
       if (!carregou) throw new Error("IA local não iniciou neste aparelho.");
       if (tokenGeracao !== assistantGenerationToken) return;
-      respostaPendente.text = "Gerando resposta...";
+      respostaPendente.text = "Aprimorando resposta...";
       renderizarMensagemAssistentePendente(respostaPendente);
     }
     const resposta = usarIAPro
       ? await promiseComTimeout(
-          gerarRespostaIAOffline(pergunta, contexto, { timeoutMs: 90000 }),
-          95000,
-          "IA local demorou demais para responder."
+          gerarRespostaIAOffline(pergunta, contexto, { timeoutMs: 8000, manualAnswer: respostaManual }),
+          8000,
+          "IA local demorou mais de 8s para responder."
         )
-      : obterRespostaAssistente(pergunta, contexto);
+      : respostaManual;
     if (tokenGeracao !== assistantGenerationToken) return;
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
     const modeloAtivo = getAIAssistantSettings().activeModelId;
@@ -9287,13 +9650,16 @@ async function responderAssistente(texto = "") {
     if (tokenGeracao !== assistantGenerationToken) return;
     registrarFalhaIALocal("chat_response", erro);
     registrarDiagnosticoIA("erro", { error: erro?.message || String(erro) });
+    if (usarIAPro) assistantMode = "basic";
     const respostaIndex = assistantMessages.indexOf(respostaPendente);
     const fallback = {
       role: "assistant",
-      text: usarIAPro
-        ? getFallbackAssistentePorTela(telaAtual, erro)
-        : obterRespostaAssistente(pergunta, contexto)
+      text: respostaManual || getFallbackAssistentePorTela(telaAtual, erro)
     };
+    registrarDiagnosticoIA("assistant_source", {
+      assistant_source: usarIAPro ? "fallback_manual" : "manual",
+      ai_fallback_reason: erro?.message || String(erro)
+    });
     if (respostaIndex >= 0) {
       assistantMessages[respostaIndex] = fallback;
     } else {
@@ -9396,6 +9762,9 @@ function renderAssistenteVirtual() {
 
   if (!assistantOpen) {
     if (!podeExibirAssistenteIAOffline()) return "";
+    if (!isAndroidNativeApp()) {
+      return `<button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('basic')" title="Abrir Assistente Inteligente" aria-label="Abrir Assistente Inteligente">${renderAssistantFabContent("Ajuda", false)}</button>`;
+    }
     const pronto = iaLocalEstaPronta();
     const acessoPro = podeUsarAssistenteIAOfflinePro();
     const acao = pronto ? `abrirAssistente('pro')` : acessoPro ? `trocarTela('config')` : `trocarTela('assinatura')`;
@@ -9415,10 +9784,10 @@ function renderAssistenteVirtual() {
 
   const settings = getAIAssistantSettings();
   const modeloAtivo = getAIModel(settings.activeModelId);
-  const tituloAssistente = assistantMode === "pro" ? "IA Local" : "Assistente de pesquisa";
+  const tituloAssistente = assistantMode === "pro" ? "IA Local Média" : "Assistente Inteligente";
   const subtituloAssistente = assistantMode === "pro" && modeloAtivo
     ? assistantRuntimeLoading ? "Iniciando IA..." : `${modeloAtivo.name} offline`
-    : "Busca e ajuda rápida";
+    : "Manual rápido do app";
   const podeMostrarMicrofone = podeUsarVozIAPro();
   const envioBloqueado = assistantGenerating || assistantListening || (assistantMode === "pro" && assistantRuntimeLoading);
 
@@ -20424,6 +20793,8 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
   const ativo = getModeloIAOfflineAtivoInstalado();
   if (!ativo) return false;
   const perfil = getAIModelProfile(ativo.modelo.id);
+  const backend = getAiBackendConfig(perfil);
+  const threads = calcularThreadsIA(perfil);
   assistantRuntimeLoading = true;
   if (!silent) renderizarPreservandoScroll();
   assistantRuntimePromise = promiseComTimeout(
@@ -20431,7 +20802,10 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
       modelId: ativo.modelo.id,
       modelPath: ativo.path,
       contextSize: Math.max(512, Math.min(Number(perfil.contextSize || 1024) || 1024, 2048)),
-      threads: Math.max(1, Math.min(Number(perfil.threads || 2) || 2, 6)),
+      threads,
+      backendPreference: backend.backendPreference,
+      gpuLayers: backend.gpuLayers,
+      gpuLayerTests: backend.gpuLayerTests,
       proAllowed: podeUsarAssistenteIAOfflinePro(),
       timeoutMs: 120000
     }),
@@ -20448,6 +20822,14 @@ async function garantirRuntimeIAAtivo({ silent = false } = {}) {
       });
       assistantRuntimeReady = true;
       assistantRuntimeDiagnostics = null;
+      registrarDiagnosticoIA("ai_backend_selected", {
+        ai_model_selected: ativo.modelo.id,
+        ai_backend_selected: runtime?.backend || runtime?.backendActive || backend.backendPreference || "auto",
+        ai_gpu_layers: runtime?.gpuLayers ?? backend.gpuLayers,
+        ai_vulkan_available: runtime?.vulkanAvailable === true,
+        threads,
+        contextSize: Math.max(512, Math.min(Number(perfil.contextSize || 1024) || 1024, 2048))
+      });
       obterDiagnosticoRuntimeIA({ force: true }).catch(() => {});
       return true;
     })

@@ -4,7 +4,9 @@ const path = require("path");
 function readAppConfigValue(name) {
   const appPath = path.join(__dirname, "..", "app.js");
   const appSource = fs.readFileSync(appPath, "utf8");
-  const match = appSource.match(new RegExp(`const\\s+${name}\\s*=\\s*["']([^"']+)["']`));
+  const match =
+    appSource.match(new RegExp(`const\\s+${name}\\s*=\\s*["']([^"']+)["']`)) ||
+    appSource.match(new RegExp(`const\\s+${name}\\s*=\\s*String\\([^\\n]*?["']([^"']+)["']\\)`));
   return match ? match[1] : "";
 }
 

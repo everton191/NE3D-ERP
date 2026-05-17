@@ -1,0 +1,110 @@
+[
+  {
+    "id": "pedidos_criar",
+    "titulo": "Criar pedido",
+    "intent": "criar_pedido",
+    "keywords": ["criar pedido", "novo pedido", "pedido novo", "cadastrar pedido"],
+    "shortAnswer": "Abra Pedidos > Novo pedido. Preencha cliente, telefone e observação, depois adicione itens e salve.",
+    "fullAnswer": "Para criar um pedido, abra Pedidos e toque em Novo pedido. Primeiro preencha o cabeçalho com cliente, WhatsApp, observação, prazo e status. Depois adicione itens calculados ou manuais, revise o total e salve.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "open_new_order",
+    "requiredPlan": "free",
+    "priority": 100
+  },
+  {
+    "id": "pedidos_adicionar_item",
+    "titulo": "Adicionar item ao pedido",
+    "intent": "adicionar_item_pedido",
+    "keywords": ["adicionar item", "item no pedido", "calcular item", "mais item"],
+    "shortAnswer": "No pedido, toque em Adicionar item. Calcule ou preencha o item, confirme o resultado e ele entra na lista.",
+    "fullAnswer": "Ao adicionar item, o app pode abrir a calculadora. O item só entra no pedido depois da confirmação do usuário, e o total é atualizado na lista.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "open_order_calculator",
+    "requiredPlan": "free",
+    "priority": 98
+  },
+  {
+    "id": "pedidos_item_duplicado",
+    "titulo": "Evitar item duplicado",
+    "intent": "evitar_item_duplicado",
+    "keywords": ["duplicado", "repetido", "dois itens", "item vazio", "duplicou"],
+    "shortAnswer": "O app verifica itens iguais antes de adicionar. Se parecer repetido, ele pergunta se deseja somar quantidade, adicionar separado ou cancelar.",
+    "fullAnswer": "Itens são comparados por nome, valor unitário, peso, tempo, material, cor e impressora. Item vazio não deve ser salvo: precisa ter nome, quantidade maior que zero e valor maior que zero.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "review_order_items",
+    "requiredPlan": "free",
+    "priority": 96
+  },
+  {
+    "id": "whatsapp_orcamento",
+    "titulo": "Enviar orçamento pelo WhatsApp",
+    "intent": "enviar_whatsapp",
+    "keywords": ["whatsapp", "enviar orçamento", "mandar cliente", "mensagem"],
+    "shortAnswer": "Abra o pedido e toque em WhatsApp. O app monta a mensagem com itens, quantidades, valores, total, observação e prazo.",
+    "fullAnswer": "Se houver telefone válido, o WhatsApp abre com esse número. Se não houver telefone, o app abre a mensagem pronta para você escolher a conversa. O orçamento não envia lucro interno.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "send_quote_whatsapp",
+    "requiredPlan": "free",
+    "priority": 94
+  },
+  {
+    "id": "pdf_gerar",
+    "titulo": "Gerar PDF",
+    "intent": "gerar_pdf",
+    "keywords": ["pdf", "gerar pdf", "orçamento pdf", "recibo"],
+    "shortAnswer": "Abra o pedido ou orçamento e toque em PDF. Revise os dados antes de gerar.",
+    "fullAnswer": "O PDF usa cliente, itens, quantidades, valores, total, observações e dados da empresa. O plano Free pode usar PDF simples; o Pro libera recursos completos conforme as regras do app.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "generate_pdf",
+    "requiredPlan": "free",
+    "priority": 90
+  },
+  {
+    "id": "pedidos_editar",
+    "titulo": "Editar pedido",
+    "intent": "editar_pedido",
+    "keywords": ["editar pedido", "alterar pedido", "mudar pedido", "remover item", "excluir item"],
+    "shortAnswer": "Abra o pedido, toque em Editar e ajuste os itens na lista. Use a lixeira do item para remover.",
+    "fullAnswer": "A edição mostra cliente, itens, subtotais e total. Antes de salvar, revise itens adicionados, removidos, alterados, total anterior e novo total.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "edit_order",
+    "requiredPlan": "free",
+    "priority": 86
+  },
+  {
+    "id": "pedidos_finalizar",
+    "titulo": "Finalizar pedido",
+    "intent": "finalizar_pedido",
+    "keywords": ["finalizar pedido", "salvar pedido", "confirmar pedido", "fechar pedido"],
+    "shortAnswer": "Revise cliente, itens e total. Depois toque em Salvar ou Confirmar alterações.",
+    "fullAnswer": "O pedido só deve ser salvo depois da revisão final. Ao confirmar, o app atualiza a lista, sincroniza quando possível e mantém você no fluxo de pedidos.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "finish_order",
+    "requiredPlan": "free",
+    "priority": 85
+  },
+  {
+    "id": "pedidos_orcamento_diferenca",
+    "titulo": "Diferença entre orçamento e pedido",
+    "intent": "orcamento_vs_pedido",
+    "keywords": ["orçamento", "pedido", "diferença"],
+    "shortAnswer": "Orçamento é uma proposta para o cliente. Pedido é o registro de produção/venda que você acompanha no app.",
+    "fullAnswer": "Use orçamento para enviar valores e condições ao cliente. Quando o cliente aprovar, registre como pedido para acompanhar itens, status, caixa e entrega.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "explain_quote_order",
+    "requiredPlan": "free",
+    "priority": 80
+  },
+  {
+    "id": "pedidos_sem_item",
+    "titulo": "Pedido sem item",
+    "intent": "pedido_sem_item",
+    "keywords": ["pedido sem item", "sem item", "item vazio", "valor zero"],
+    "shortAnswer": "Um pedido pode ser criado pelo cabeçalho, mas item vazio não deve ser salvo. Adicione um item válido antes de finalizar.",
+    "fullAnswer": "Para um item ser válido, ele precisa ter nome ou descrição, quantidade maior que zero e valor maior que zero. A calculadora só adiciona o item depois da confirmação.",
+    "relatedScreen": "pedidos",
+    "suggestedAction": "add_valid_item",
+    "requiredPlan": "free",
+    "priority": 92
+  }
+]

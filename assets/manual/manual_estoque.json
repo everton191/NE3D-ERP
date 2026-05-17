@@ -1,0 +1,14 @@
+[
+  {
+    "id": "estoque_cadastrar_material",
+    "titulo": "Cadastrar material no estoque",
+    "intent": "cadastrar_material",
+    "keywords": ["estoque", "material", "filamento", "cadastrar material", "cor", "kg"],
+    "shortAnswer": "Abra Estoque, toque em Adicionar material e informe tipo, cor, quantidade e custo.",
+    "fullAnswer": "O estoque controla materiais como PLA, PETG, TPU ou resina. Informe tipo, cor, quantidade em kg e custo para usar no cálculo e acompanhar saldo baixo.",
+    "relatedScreen": "estoque",
+    "suggestedAction": "open_inventory",
+    "requiredPlan": "free",
+    "priority": 87
+  }
+]

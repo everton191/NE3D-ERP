@@ -1,0 +1,26 @@
+[
+  {
+    "id": "calculadora_usar",
+    "titulo": "Usar calculadora",
+    "intent": "usar_calculadora",
+    "keywords": ["calculadora", "calcular", "cálculo", "preço", "orçamento"],
+    "shortAnswer": "Informe peso, tempo de impressão, material, quantidade e margem. Depois toque em Calcular.",
+    "fullAnswer": "A calculadora usa peso, tempo, material, energia, margem, quantidade e taxa extra para sugerir preço. Peso, horas e taxa extra começam limpos em novo cálculo.",
+    "relatedScreen": "calculadora",
+    "suggestedAction": "open_calculator",
+    "requiredPlan": "free",
+    "priority": 95
+  },
+  {
+    "id": "calculadora_preco",
+    "titulo": "Cálculo de preço",
+    "intent": "calculo_preco",
+    "keywords": ["custo por grama", "tempo de impressão", "energia", "margem", "lucro", "taxa extra", "peso"],
+    "shortAnswer": "O preço considera material, peso, tempo, energia, margem, quantidade e taxa extra.",
+    "fullAnswer": "O custo por grama vem do material cadastrado. O tempo entra no custo de energia e operação. A margem define o lucro sugerido, e a taxa extra pode cobrir acabamento, urgência ou embalagem.",
+    "relatedScreen": "calculadora",
+    "suggestedAction": "explain_calculation",
+    "requiredPlan": "free",
+    "priority": 82
+  }
+]

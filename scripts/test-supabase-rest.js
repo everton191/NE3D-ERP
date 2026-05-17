@@ -13,12 +13,14 @@ function getSupabaseConfig() {
 
   const appPath = path.join(__dirname, "..", "app.js");
   const app = fs.readFileSync(appPath, "utf8");
+  const readConstString = (name) =>
+    app.match(new RegExp(`const\\s+${name}\\s*=\\s*["']([^"']+)["']`))?.[1] ||
+    app.match(new RegExp(`const\\s+${name}\\s*=\\s*String\\([^\\n]*?["']([^"']+)["']\\)`))?.[1] ||
+    app.match(new RegExp(`${name}["']?\\s*:\\s*["']([^"']+)["']`))?.[1];
   const url =
-    app.match(/const\s+SUPABASE_DEFAULT_URL\s*=\s*["']([^"']+)["']/)?.[1] ||
-    app.match(/SUPABASE_DEFAULT_URL["']?\s*:\s*["']([^"']+)["']/)?.[1];
+    readConstString("SUPABASE_DEFAULT_URL");
   const key =
-    app.match(/const\s+SUPABASE_DEFAULT_ANON_KEY\s*=\s*["']([^"']+)["']/)?.[1] ||
-    app.match(/SUPABASE_DEFAULT_ANON_KEY["']?\s*:\s*["']([^"']+)["']/)?.[1];
+    readConstString("SUPABASE_DEFAULT_ANON_KEY");
   if (!url || !key) {
     throw new Error("Configuracao Supabase nao encontrada. Defina SUPABASE_URL/SUPABASE_ANON_KEY ou confira app.js.");
   }

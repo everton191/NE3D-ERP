@@ -4,6 +4,8 @@
   "private": true,
   "description": "Simplifica 3D para gestao de pedidos, caixa e impressao 3D.",
   "scripts": {
+    "build": "npm run build:web",
+    "vercel-build": "npm run build:web",
     "build:web": "node scripts/prepare-web.js",
     "supabase:help": "supabase --help",
     "supabase:login": "supabase login",

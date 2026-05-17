@@ -1,0 +1,14 @@
+[
+  {
+    "id": "feedback_enviar",
+    "titulo": "Enviar feedback",
+    "intent": "enviar_feedback",
+    "keywords": ["feedback", "sugestão", "ajuda", "suporte", "reportar erro"],
+    "shortAnswer": "Abra Ajuda e Feedback para enviar sugestão, erro ou dúvida sobre o app.",
+    "fullAnswer": "Use Ajuda e Feedback quando faltar alguma informação no manual, quando encontrar erro ou quando quiser sugerir melhoria. A mensagem ajuda a melhorar o app sem depender da IA inventar respostas.",
+    "relatedScreen": "feedback",
+    "suggestedAction": "open_feedback",
+    "requiredPlan": "free",
+    "priority": 73
+  }
+]

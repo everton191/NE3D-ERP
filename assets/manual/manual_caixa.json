@@ -1,0 +1,14 @@
+[
+  {
+    "id": "caixa_pagamento",
+    "titulo": "Registrar pagamento no caixa",
+    "intent": "registrar_pagamento",
+    "keywords": ["caixa", "pagamento", "entrada", "recebimento", "saldo", "financeiro"],
+    "shortAnswer": "Use Caixa para registrar entradas e saídas. Pedidos salvos podem gerar entrada financeira.",
+    "fullAnswer": "O Caixa mostra entradas, saídas, saldo e histórico. Registre pagamentos com descrição clara e revise valores antes de salvar.",
+    "relatedScreen": "caixa",
+    "suggestedAction": "open_cash",
+    "requiredPlan": "free",
+    "priority": 84
+  }
+]

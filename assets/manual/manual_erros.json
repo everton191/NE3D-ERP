@@ -1,0 +1,50 @@
+[
+  {
+    "id": "backup_sincronizacao",
+    "titulo": "Backup e sincronização",
+    "intent": "backup_sincronizacao",
+    "keywords": ["backup", "sincronização", "supabase", "restaurar dados", "offline"],
+    "shortAnswer": "Use Backup/Sincronizar para salvar dados online quando houver internet. O app também mantém dados locais.",
+    "fullAnswer": "A sincronização usa a conta logada e uma fila local quando estiver offline. Se a internet falhar, o app mantém o uso básico e tenta sincronizar depois.",
+    "relatedScreen": "backup",
+    "suggestedAction": "open_backup",
+    "requiredPlan": "free",
+    "priority": 76
+  },
+  {
+    "id": "erros_internet",
+    "titulo": "Erro de internet",
+    "intent": "erro_internet",
+    "keywords": ["internet", "offline", "sem conexão", "erro de rede", "não salvou"],
+    "shortAnswer": "Verifique a conexão e tente novamente. Se estiver offline, o app mantém dados locais e sincroniza quando voltar.",
+    "fullAnswer": "Quando houver erro de internet, evite fechar o app durante um salvamento importante. Revise campos obrigatórios e tente sincronizar quando a conexão estabilizar.",
+    "relatedScreen": "erros",
+    "suggestedAction": "show_network_help",
+    "requiredPlan": "free",
+    "priority": 75
+  },
+  {
+    "id": "ia_local_indisponivel",
+    "titulo": "IA local indisponível",
+    "intent": "ia_indisponivel",
+    "keywords": ["ia local", "modelo", "qwen", "baixar ia", "instalar ia", "ia indisponível"],
+    "shortAnswer": "Se a IA Local não estiver pronta, use o Assistente Inteligente. Ele responde pelo manual sem baixar modelo.",
+    "fullAnswer": "A IA Local Média é opcional e usa o modelo Qwen2.5 1.5B offline no Android. Ela só fica pronta depois de baixar, validar, carregar e passar no teste interno. Se falhar ou demorar, o app volta para o manual.",
+    "relatedScreen": "config",
+    "suggestedAction": "open_ai_settings",
+    "requiredPlan": "pro",
+    "priority": 74
+  },
+  {
+    "id": "app_atualizar",
+    "titulo": "Atualizar app",
+    "intent": "atualizar_app",
+    "keywords": ["atualizar app", "nova versão", "update", "apk", "pwa"],
+    "shortAnswer": "No APK, instale a atualização disponibilizada. No PWA, atualize a página ou reinstale o atalho se necessário.",
+    "fullAnswer": "Antes de atualizar, mantenha backup/sincronização em dia. No PWA, o navegador pode manter cache; atualizar a página normalmente carrega a versão nova.",
+    "relatedScreen": "config",
+    "suggestedAction": "show_update_help",
+    "requiredPlan": "free",
+    "priority": 70
+  }
+]
