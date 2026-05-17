@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.30";
-const APP_VERSION_CODE = 81;
+const APP_VERSION = "51.0.31";
+const APP_VERSION_CODE = 82;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -8425,71 +8425,55 @@ function renderAssistenteInteligenteProConfig() {
   }
   const statusModelo = getAIModelStatus(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID);
   const progress = progressoIAInstalacao(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID));
+  const statusTexto = acessoProIA
+    ? pronto
+      ? "Pronta"
+      : labelStatusAI(statusModelo)
+    : "Plano Pro";
 
   return `
     <div class="danger-zone ai-pro-manager">
       <div class="card-header compact">
-        <h2 class="section-title">Assistente e IA</h2>
-        <span class="status-badge">${pronto ? "IA pronta" : "Manual rápido"}</span>
+        <h2 class="section-title">IA Local</h2>
+        <span class="status-badge">${escaparHtml(statusTexto)}</span>
       </div>
-      <div class="ai-model-list">
-        <article class="ai-model-card active">
-          <div class="row-title">
-            <div>
-              <strong>Assistente Inteligente</strong>
-              <span class="muted">Respostas rápidas com base no manual. Não precisa baixar modelo.</span>
-            </div>
-            <span class="status-badge">Pronto</span>
-          </div>
-          <p class="muted">Use para tirar dúvidas sobre pedidos, calculadora, estoque, caixa, planos, PDF, WhatsApp e erros comuns.</p>
-          <div class="actions">
-            <button class="btn" type="button" onclick="abrirAssistente('basic')">Abrir Assistente</button>
-            <button class="btn ghost" type="button" onclick="abrirAssistenteComPergunta('Como criar um pedido?')">Exemplo</button>
-          </div>
-        </article>
-
-        <article class="ai-model-card ${pronto ? "active" : ""} ${acessoProIA ? "" : "locked"}">
-          <div class="row-title">
-            <div>
-              <strong>IA Local Média</strong>
-              <span class="muted">Modelo: Qwen2.5 1.5B Q8_0 • opcional • Android</span>
-            </div>
-            <span class="status-badge">${acessoProIA ? (pronto ? "Pronta" : labelStatusAI(statusModelo)) : "Plano Pro"}</span>
-          </div>
-          <p class="muted">Usa o modelo offline apenas para deixar mais natural a resposta encontrada no manual. Se demorar, o app volta para o Assistente Inteligente.</p>
-          ${progress.active ? `
-            <div class="ai-install-progress" data-ai-progress="${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
-              <div class="ai-progress-circle" aria-label="Progresso da IA">
-                <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
-              </div>
-              <span data-ai-progress-label>${escaparHtml(progress.label || "Preparando IA Local Média...")}</span>
-              <small data-ai-progress-meta>${escaparHtml(formatarMetaProgressoIA(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)))}</small>
-            </div>
-          ` : ""}
-          ${acessoProIA ? "" : `
-            <div class="ai-upgrade-box">
-              <strong>IA Local Média disponível no plano Pro.</strong>
-              <span>O Assistente Inteligente continua disponível sem baixar modelo.</span>
-            </div>
-          `}
-          <div class="actions">
-            <button class="btn" type="button" onclick="${acessoProIA ? (pronto ? `abrirModeloIAOffline('${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}')` : "instalarIARecomendadaAutomaticamente()") : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Testar IA Local" : "Instalar IA Local Média") : "Disponível no Plano Pro"}</button>
-            <button class="btn secondary" type="button" onclick="${acessoProIA ? "atualizarDiagnosticoRuntimeIA(true)" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Diagnóstico</button>
-            <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA && pronto ? "" : "disabled"}>Hibernar IA</button>
-          </div>
-          ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
-        </article>
-      </div>
-      ${acessoProIA ? renderDiagnosticoRuntimeIA() : ""}
-      <details class="ai-advanced-settings">
-        <summary>Diagnóstico avançado</summary>
-        <p class="muted">A IA Local Média é o único modelo local ativo. O app não carrega 3B, IQ3_M ou outros modelos lentos neste fluxo.</p>
-        <div class="sync-grid">
-          <div class="metric"><span>Perfil do aparelho</span><strong>${escaparHtml(settings.lastDeviceProfile || "Não analisado")}</strong></div>
-          <div class="metric"><span>Modelo ativo</span><strong>${escaparHtml(localAtivo ? (ativo?.name || "IA Local Média") : "Assistente Inteligente")}</strong></div>
-          <div class="metric"><span>Contexto</span><strong>${getAIModelProfile(modeloLocal?.id).contextSize} tokens</strong></div>
-          <div class="metric"><span>Threads</span><strong>${calcularThreadsIA(getAIModelProfile(modeloLocal?.id))}</strong></div>
+      ${acessoProIA ? "" : `
+        <div class="ai-upgrade-box">
+          <strong>IA disponível no plano Pro.</strong>
+          <span>Assine o Plano Pro para baixar, instalar e usar IA local offline no APK.</span>
+          <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Disponível no Plano Pro</button>
         </div>
+      `}
+      <p class="muted">Instalação automática com o modelo configurado para este APK. O app baixa, valida, testa o runtime e só marca como pronta se responder no teste interno.</p>
+      <label class="toggle-row">
+        <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)" ${acessoProIA ? "" : "disabled"}>
+        <span>Ativar IA Local</span>
+      </label>
+      <div class="sync-grid">
+        <div class="metric"><span>Modelo</span><strong>${escaparHtml(modeloLocal?.model || "Qwen2.5 1.5B Q8_0")}</strong></div>
+        <div class="metric"><span>Status</span><strong>${escaparHtml(statusTexto)}</strong></div>
+        <div class="metric"><span>Runtime</span><strong>${assistantRuntimeReady ? "Carregado" : pronto ? "Hibernado" : "Aguardando"}</strong></div>
+        <div class="metric"><span>Instalação</span><strong>Automática</strong></div>
+      </div>
+      ${progress.active ? `
+        <div class="ai-install-progress" data-ai-progress="${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
+          <div class="ai-progress-circle" aria-label="Progresso da IA">
+            <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
+          </div>
+          <span data-ai-progress-label>${escaparHtml(progress.label || "Preparando IA Local...")}</span>
+          <small data-ai-progress-meta>${escaparHtml(formatarMetaProgressoIA(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)))}</small>
+        </div>
+      ` : ""}
+      <div class="actions">
+        <button class="btn" type="button" onclick="${acessoProIA ? (pronto ? `abrirModeloIAOffline('${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}')` : "instalarIARecomendadaAutomaticamente()") : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Abrir IA" : "Instalar IA automaticamente") : "Disponível no Plano Pro"}</button>
+        <button class="btn secondary" type="button" onclick="${acessoProIA ? "atualizarDiagnosticoRuntimeIA(true)" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Diagnóstico</button>
+        <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA && pronto ? "" : "disabled"}>Parar IA Local</button>
+      </div>
+      ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
+      <details class="ai-advanced-settings">
+        <summary>Configurações avançadas da IA</summary>
+        <p class="muted">Modelo único ativo: Qwen2.5 1.5B Q8_0. O app não carrega modelos 3B, IQ3_M ou outros modelos lentos neste fluxo.</p>
+        ${acessoProIA ? renderDiagnosticoRuntimeIA() : ""}
         <div class="ai-model-list">
           ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
         </div>
@@ -9854,8 +9838,8 @@ function renderAssistenteVirtual() {
     }
     const pronto = iaLocalEstaPronta();
     const acessoPro = podeUsarAssistenteIAOfflinePro();
-    const acao = pronto ? `abrirAssistente('pro')` : acessoPro ? `trocarTela('config')` : `trocarTela('assinatura')`;
-    const titulo = pronto ? "Abrir IA Local" : acessoPro ? "Configurar IA Local" : "IA Local exclusiva do Plano Pro";
+    const acao = pronto ? `abrirAssistente('pro')` : acessoPro ? "instalarIARecomendadaAutomaticamente()" : `trocarTela('assinatura')`;
+    const titulo = pronto ? "Abrir IA Local" : acessoPro ? "Instalar IA Local automaticamente" : "IA Local exclusiva do Plano Pro";
     return `<button class="assistant-fab ai-local-fab" onclick="${acao}" title="${titulo}" aria-label="${titulo}">${renderAssistantFabContent("IA", true)}</button>`;
   }
 
@@ -9871,10 +9855,10 @@ function renderAssistenteVirtual() {
 
   const settings = getAIAssistantSettings();
   const modeloAtivo = getAIModel(settings.activeModelId);
-  const tituloAssistente = assistantMode === "pro" ? "IA Local Média" : "Assistente Inteligente";
+  const tituloAssistente = assistantMode === "pro" ? "IA Local" : "Assistente";
   const subtituloAssistente = assistantMode === "pro" && modeloAtivo
     ? assistantRuntimeLoading ? "Iniciando IA..." : `${modeloAtivo.name} offline`
-    : "Manual rápido do app";
+    : "Ajuda rápida do app";
   const podeMostrarMicrofone = podeUsarVozIAPro();
   const envioBloqueado = assistantGenerating || assistantListening || (assistantMode === "pro" && assistantRuntimeLoading);
 
