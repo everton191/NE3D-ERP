@@ -7760,8 +7760,24 @@ body[data-ui-profile="web_pwa"] .desktop-main{
   background-size:28px 28px, 28px 28px, auto, auto, auto;
 }
 
+body[data-ui-profile="web_pwa"] #app{
+  padding:16px clamp(14px, 1.5vw, 28px);
+}
+
+body[data-ui-profile="web_pwa"] .desktop-shell{
+  width:100%;
+  max-width:none;
+  margin:0;
+  grid-template-columns:minmax(218px, var(--desktop-sidebar-width)) minmax(0, 1fr);
+}
+
+body[data-ui-profile="web_pwa"] .desktop-shell.sidebar-collapsed{
+  grid-template-columns:64px minmax(0, 1fr);
+}
+
 body[data-ui-profile="web_pwa"] .desktop-focus{
-  max-width:min(1760px, calc(100vw - 292px));
+  width:100%;
+  max-width:none;
 }
 
 body[data-ui-profile="web_pwa"] .side-nav-button span,
@@ -7796,8 +7812,8 @@ body[data-ui-profile="web_pwa"] .node-icon{
 
 .dashboard-control-center{
   width:100%;
-  max-width:min(1760px, 100%);
-  gap:10px;
+  max-width:none;
+  gap:14px;
 }
 
 .control-center-header{
@@ -7954,6 +7970,205 @@ body[data-ui-profile="web_pwa"] .dashboard-control-center .kpi-card{
   border-radius:14px;
 }
 
+.desktop-dashboard-grid{
+  display:grid;
+  grid-template-columns:repeat(12, minmax(0, 1fr));
+  gap:14px;
+  align-items:start;
+}
+
+.desktop-dashboard-span-12{ grid-column:span 12; }
+.desktop-dashboard-span-8{ grid-column:span 8; }
+.desktop-dashboard-span-6{ grid-column:span 6; }
+.desktop-dashboard-span-4{ grid-column:span 4; }
+.desktop-dashboard-span-3{ grid-column:span 3; }
+
+.desktop-dashboard-metrics{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:14px;
+}
+
+.desktop-dashboard-metric{
+  min-height:126px;
+  display:grid;
+  grid-template-columns:54px minmax(0, 1fr);
+  gap:14px;
+  align-items:center;
+  width:100%;
+  padding:18px;
+  color:var(--text);
+  text-align:left;
+  border:1px solid rgba(134,240,255,.16);
+  border-radius:22px;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(13,189,184,.20), transparent 34%),
+    linear-gradient(145deg, rgba(17,31,42,.88), rgba(7,11,17,.92));
+  box-shadow:var(--shadow);
+  cursor:pointer;
+  transition:transform .18s var(--motion-ease), border-color .18s ease, box-shadow .18s ease;
+}
+
+.desktop-dashboard-metric:hover,
+.desktop-dashboard-metric:focus-visible{
+  transform:translate3d(0, -2px, 0);
+  border-color:rgba(134,240,255,.34);
+  box-shadow:0 20px 38px rgba(0,0,0,.32), 0 0 0 1px rgba(13,189,184,.12);
+  outline:none;
+}
+
+.desktop-dashboard-metric-icon{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  border-radius:18px;
+  color:#39fff4;
+  background:linear-gradient(145deg, rgba(13,189,184,.22), rgba(134,240,255,.07));
+  border:1px solid rgba(134,240,255,.18);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 10px 22px rgba(0,0,0,.20);
+}
+
+.desktop-dashboard-metric-icon svg{
+  width:25px;
+  height:25px;
+}
+
+.desktop-dashboard-metric-copy{
+  min-width:0;
+  display:grid;
+  gap:6px;
+}
+
+.desktop-dashboard-metric-copy small{
+  color:var(--muted);
+  font-weight:800;
+  text-transform:uppercase;
+}
+
+.desktop-dashboard-metric-copy strong{
+  font-size:clamp(28px, 2.6vw, 44px);
+  line-height:1;
+  overflow-wrap:anywhere;
+}
+
+.desktop-dashboard-metric-copy em{
+  color:#86f0ff;
+  font-style:normal;
+  font-size:var(--font-sm);
+}
+
+.desktop-metric-orange{
+  border-color:rgba(255,148,28,.26);
+  background:
+    radial-gradient(circle at 10% 12%, rgba(255,148,28,.18), transparent 34%),
+    linear-gradient(145deg, rgba(29,24,17,.88), rgba(8,11,16,.92));
+}
+
+.desktop-metric-green{
+  border-color:rgba(69,224,143,.24);
+}
+
+.desktop-metric-blue{
+  border-color:rgba(56,189,248,.25);
+}
+
+.desktop-dashboard-actions{
+  display:block;
+}
+
+body[data-ui-profile="web_pwa"] .desktop-dashboard-actions .quick-actions{
+  grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));
+}
+
+body[data-ui-profile="web_pwa"] .desktop-dashboard-actions .quick-action{
+  min-height:96px;
+  padding:18px;
+}
+
+body[data-ui-profile="web_pwa"] .desktop-dashboard-actions .quick-action span{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+}
+
+.desktop-dashboard-card,
+.desktop-dashboard-grid .dashboard-recent-orders,
+.desktop-dashboard-grid .dashboard-chart-card,
+.desktop-dashboard-grid .dashboard-insights{
+  height:100%;
+}
+
+.desktop-dashboard-grid .dashboard-recent-orders,
+.desktop-dashboard-card{
+  min-height:286px;
+}
+
+.desktop-dashboard-large .dashboard-recent-orders,
+.desktop-dashboard-large .dashboard-chart-card{
+  min-height:360px;
+}
+
+.dashboard-compact-list{
+  display:grid;
+  gap:8px;
+}
+
+.dashboard-compact-row{
+  width:100%;
+  min-height:66px;
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:10px;
+  color:var(--text);
+  text-align:left;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:16px;
+  background:rgba(255,255,255,.04);
+}
+
+.dashboard-compact-row span{
+  min-width:0;
+}
+
+.dashboard-compact-row strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.dashboard-compact-row small{
+  display:block;
+  color:var(--muted);
+}
+
+.dashboard-compact-row em{
+  color:#86f0ff;
+  font-style:normal;
+  font-weight:800;
+}
+
+.stock-warning-row{
+  border-color:rgba(255,148,28,.22);
+}
+
+body[data-ui-profile="web_pwa"] .desktop-dashboard-span-4 .dashboard-analytics-hero,
+body[data-ui-profile="web_pwa"] .desktop-dashboard-span-4 .analytics-sections{
+  grid-template-columns:1fr;
+}
+
+body[data-ui-profile="web_pwa"] .desktop-dashboard-span-4 .analytics-kpi{
+  min-height:78px;
+}
+
+body[data-ui-profile="web_pwa"] .desktop-dashboard-span-12.control-center-kpis{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+}
+
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .dashboard-insights,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .analytics-sections,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel{
@@ -7975,6 +8190,22 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
     grid-template-columns:1fr;
   }
 
+  .desktop-dashboard-grid{
+    grid-template-columns:repeat(6, minmax(0, 1fr));
+  }
+
+  .desktop-dashboard-span-12,
+  .desktop-dashboard-span-8,
+  .desktop-dashboard-span-6,
+  .desktop-dashboard-span-4,
+  .desktop-dashboard-span-3{
+    grid-column:span 6;
+  }
+
+  .desktop-dashboard-metrics{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
   .orders-pwa-detail{
     position:relative;
     top:auto;
@@ -7992,5 +8223,18 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
   body[data-ui-profile="web_pwa"] .dashboard-control-center .analytics-sections,
   body[data-ui-profile="web_pwa"] .dashboard-control-center .infographic-insights{
     grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .desktop-dashboard-grid,
+  .desktop-dashboard-metrics{
+    grid-template-columns:1fr;
+  }
+
+  .desktop-dashboard-span-12,
+  .desktop-dashboard-span-8,
+  .desktop-dashboard-span-6,
+  .desktop-dashboard-span-4,
+  .desktop-dashboard-span-3{
+    grid-column:1 / -1;
   }
 }

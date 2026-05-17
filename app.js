@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.34";
-const APP_VERSION_CODE = 85;
+const APP_VERSION = "51.0.35";
+const APP_VERSION_CODE = 86;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -81,15 +81,15 @@ const AI_TECHNICAL_MAX_TOKENS = 256;
 const AI_RUNTIME_TEST_SYSTEM_PROMPT = "";
 const AI_RUNTIME_TEST_PROMPT = "Responda OK";
 const AI_KNOWLEDGE_BASE = Object.freeze({
-  telas: ["Dashboard", "Pedidos", "Clientes", "Calculadora", "Estoque", "Produção", "Caixa", "Relatórios", "Backup", "Configurações", "Personalização", "Planos", "Segurança"],
+  telas: ["Dashboard", "Pedidos", "Clientes", "Calculadora", "Estoque", "Produção", "Caixa", "Relatórios", "Empresa", "Aparência", "PDF", "Sistema", "Conta"],
   fluxos: [
     "Para adicionar material: abra Estoque, toque em Adicionar material, informe tipo, cor e quantidade.",
-    "Para calcular preço: abra Calculadora, escolha material, informe peso, tempo, energia, margem e taxa extra.",
+    "Para calcular preço: abra Calculadora, escolha material, informe peso, tempo, margem e taxa extra. Custos fixos ficam em Calculadora > Configurações.",
     "Para criar pedido: abra Pedidos, escolha cliente, adicione itens, revise o total e salve.",
     "Para editar pedido: abra o pedido, edite itens em etapas e confirme na revisão final.",
     "Para gerar PDF: abra um pedido ou orçamento e use Gerar PDF.",
-    "Para sincronizar: use Backup/Sincronizar ou aguarde o salvamento automático quando online.",
-    "Para segurança: use senha administrativa e biometria quando disponível para ações sensíveis."
+    "Para sincronizar: use Sistema para backup, sincronização, cache e atualizações.",
+    "Para segurança e sessão: use Conta para perfil, plano, senha, biometria e troca de conta."
   ],
   limites: "A IA local é focada no uso do Simplifica 3D e impressão 3D FDM. Ela não deve orientar ações de Super Admin nem inventar funções."
 });
@@ -276,17 +276,18 @@ const telas = {
   clientes: "Clientes",
   caixa: "Caixa",
   relatorios: "Relatórios",
-  config: "Configurações",
+  config: "Sistema",
   empresa: "Empresa",
-  backup: "Backup",
-  preferencias: "Preferências",
-  personalizacao: "Personalizar",
+  backup: "Sistema",
+  preferencias: "Calculadora",
+  personalizacao: "Aparência",
+  pdf: "PDF",
   mais: "Mais",
   conta: "Conta",
   assinatura: "Plano",
   minhaAssinatura: "Minha Assinatura",
   usuarios: "Usuários",
-  seguranca: "Segurança",
+  seguranca: "Conta",
   planos: "Planos",
   admin: "Admin",
   superadmin: "Super Admin",
@@ -7239,7 +7240,7 @@ function renderDesktopConteudo() {
     return `<div class="desktop-focus">${renderTrocaSenhaObrigatoria()}</div>`;
   }
 
-  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "privacy", "terms", "acessoNegado"];
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
@@ -7340,9 +7341,9 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (licencaEfetivaBloqueada(usuario)) return false;
 
   const permissoes = {
-    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding"],
-    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "seguranca", "feedback", "onboarding"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding"],
+    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding"],
     visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
   };
 
@@ -10456,7 +10457,7 @@ function renderPerfilMenuLateral() {
       onpointermove="moverPressPerfil(event)"
       onpointerup="finalizarPressPerfil(event)"
       onpointercancel="cancelarPressPerfil()"
-      title="Abrir perfil e personalização">
+      title="Abrir perfil e conta">
       <div class="side-profile-photo-stack">
         ${renderUsuarioAvatar(usuario, "side-profile-avatar")}
         ${empresaLogo ? `<img class="side-company-logo" src="${escaparAttr(empresaLogo)}" alt="Logo da empresa">` : ""}
@@ -10546,7 +10547,7 @@ function abrirPerfilPremiumPainel(event) {
     <div class="modal-backdrop profile-panel-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card profile-premium-panel modal-enter" onclick="event.stopPropagation()">
         <div class="modal-header">
-          <h2>Perfil e personalização</h2>
+          <h2>Perfil e conta</h2>
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </div>
         <div class="profile-hero-card">
@@ -10569,21 +10570,21 @@ function abrirPerfilPremiumPainel(event) {
         </div>
         <div class="profile-customization-grid">
           <button class="profile-option" type="button" onclick="abrirPersonalizacaoDoPerfil('avatar')">
-            <strong>Foto e logo</strong><span>Usuário e empresa</span>
+            <strong>Empresa</strong><span>Logo e dados comerciais</span>
           </button>
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('pdf')">
-            <strong>Personalizar PDF</strong><span>${pro ? "Logo, fundo e marca d'água" : "Disponível no PRO"}</span>
+            <strong>PDF</strong><span>${pro ? "Tema, rodapé e assinatura" : "Disponível no PRO"}</span>
           </button>
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('theme')">
-            <strong>Cores do app</strong><span>${pro ? "Tema e transparência" : "Disponível no PRO"}</span>
+            <strong>Aparência</strong><span>${pro ? "Tema, cores e layout" : "Disponível no PRO"}</span>
           </button>
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('login')">
-            <strong>Tela de login</strong><span>${pro ? "Fundo e mensagem" : "Disponível no PRO"}</span>
+            <strong>Login visual</strong><span>${pro ? "Fundo e mensagem" : "Disponível no PRO"}</span>
           </button>
         </div>
         <div class="actions">
           <button class="btn secondary" type="button" onclick="abrirTelaPlanosPerfil()">Ver planos</button>
-          <button class="btn" type="button" onclick="abrirPersonalizacaoDoPerfil('all')">Personalizar</button>
+          <button class="btn" type="button" onclick="abrirPersonalizacaoDoPerfil('all')">Abrir aparência</button>
         </div>
         <div class="profile-account-actions">
           <button class="btn ghost" type="button" onclick="abrirTrocaContaPerfil()">Trocar conta</button>
@@ -10609,11 +10610,18 @@ function abrirPersonalizacaoDoPerfil(tipo = "all") {
   if (!temAcessoCompleto() && ["pdf", "theme", "login", "all"].includes(tipo)) {
     fecharPopup();
     trocarTela("assinatura");
-    mostrarToast("Personalização avançada disponível no PRO.", "info", 3200);
+    mostrarToast("Aparência avançada disponível no PRO.", "info", 3200);
     return;
   }
   fecharPopup();
-  trocarTela("personalizacao");
+  const destino = {
+    avatar: "empresa",
+    pdf: "pdf",
+    theme: "personalizacao",
+    login: "personalizacao",
+    all: "personalizacao"
+  }[tipo] || "personalizacao";
+  trocarTela(destino);
 }
 
 function abrirSeletorUsuariosPerfil(perfis = getUsuariosContaAtiva()) {
@@ -10686,20 +10694,18 @@ function getMenuGroups() {
       titulo: "Financeiro",
       itens: [
         { tela: "caixa", icone: "💰", texto: "Caixa" },
-        { tela: "relatorios", icone: "📈", texto: "Relatórios" },
-        { tela: "assinatura", icone: "💳", texto: "Planos" }
+        { tela: "relatorios", icone: "📈", texto: "Relatórios" }
       ]
     },
     {
       titulo: "Configurações",
       itens: [
         { tela: "empresa", icone: "🏢", texto: "Empresa" },
-        { tela: "config", icone: "⚙️", texto: "Configurações" },
-        { tela: "personalizacao", icone: "🎨", texto: "Personalização" },
-        { tela: "backup", icone: "☁️", texto: "Backup" },
-        { tela: "preferencias", icone: "🎛️", texto: "Preferências" },
+        { tela: "personalizacao", icone: "🎨", texto: "Aparência" },
+        { tela: "preferencias", icone: "🎛️", texto: "Calculadora" },
+        { tela: "pdf", icone: "▣", texto: "PDF" },
+        { tela: "config", icone: "⚙️", texto: "Sistema" },
         { tela: "conta", icone: "👤", texto: "Conta" },
-        { tela: "seguranca", icone: "🔒", texto: "Segurança" },
         { tela: "feedback", icone: "💡", texto: "Ajuda" },
         { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
       ]
@@ -11001,9 +11007,13 @@ function renderTela(tela) {
     case "config":
       return renderConfig();
     case "empresa":
+      return renderEmpresaConfig();
     case "preferencias":
+      return renderCalculadoraConfigPage();
     case "personalizacao":
-      return renderPersonalizacao();
+      return renderAparenciaConfig();
+    case "pdf":
+      return renderPdfConfig();
     case "planos":
     case "assinatura":
       return renderAssinatura();
@@ -11018,7 +11028,7 @@ function renderTela(tela) {
     case "terms":
       return renderDocumentoLegalPage("termos");
     case "seguranca":
-      return renderSeguranca();
+      return renderConta();
     case "onboarding":
       return renderOnboarding();
     case "acessoNegado":
@@ -11232,17 +11242,25 @@ function renderMais() {
       itens: [
         { tela: "clientes", icone: "👥", texto: "Clientes" },
         { tela: "relatorios", icone: "📈", texto: "Relatórios" },
-        { tela: "backup", icone: "☁️", texto: "Backup" },
         { tela: "producao", icone: "🖨️", texto: "Produção" }
       ]
     },
     {
-      titulo: "Conta",
+      titulo: "Configurações",
       itens: [
-        { tela: "conta", icone: "👤", texto: "Conta" },
-        { tela: "assinatura", icone: "💳", texto: "Planos" },
-        { tela: "config", icone: "⚙️", texto: "Configurações" },
-        { tela: "feedback", icone: "💡", texto: "Ajuda" }
+        { tela: "empresa", icone: "🏢", texto: "Empresa" },
+        { tela: "personalizacao", icone: "🎨", texto: "Aparência" },
+        { tela: "preferencias", icone: "🎛️", texto: "Calculadora" },
+        { tela: "pdf", icone: "▣", texto: "PDF" },
+        { tela: "config", icone: "⚙️", texto: "Sistema" },
+        { tela: "conta", icone: "👤", texto: "Conta" }
+      ]
+    },
+    {
+      titulo: "Conta e ajuda",
+      itens: [
+        { tela: "feedback", icone: "💡", texto: "Ajuda" },
+        { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
       ]
     },
     {
@@ -11285,8 +11303,29 @@ function renderConta() {
   if (!usuario) return renderAcessoNegado();
   const inicial = String(usuario.nome || usuario.email || "S").trim().slice(0, 1).toUpperCase();
   const syncStatus = syncConfig.supabaseAccessToken ? "Online" : "Local";
+  const logs = securityLogs.slice(0, 12).map((log) => `
+    <div class="history-item">
+      <strong>${escaparHtml(log.acao)} • ${escaparHtml(log.resultado)}</strong>
+      <span class="muted">${new Date(log.data).toLocaleString("pt-BR")} • ${escaparHtml(log.usuario)} • ${escaparHtml(log.detalhes || log.dispositivo || "")}</span>
+    </div>
+  `).join("") || `<p class="empty">Nenhum log de segurança registrado.</p>`;
+  const securityContent = `
+    <label class="checkbox-row">
+      <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
+      <span>Manter login neste aparelho</span>
+    </label>
+    <label class="checkbox-row">
+      <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
+      <span>Usar digital, rosto ou padrão para proteger este aparelho</span>
+    </label>
+    <div class="actions">
+      <button class="btn warning" type="button" onclick="logoutUsuario()">Sair ou trocar de conta</button>
+      <button class="btn ghost" type="button" onclick="sairSupabase()">Encerrar Supabase</button>
+      <button class="btn ghost" type="button" onclick="verificarPermissoesDispositivo()">Verificar permissões</button>
+    </div>
+  `;
   return `
-    <section class="card account-screen">
+    <section class="card account-screen organized-page settings-page">
       <div class="account-profile">
         <div class="account-avatar">${escaparHtml(inicial)}</div>
         <div>
@@ -11305,18 +11344,18 @@ function renderConta() {
       </div>
 
       <div class="actions">
-        <button class="btn secondary" type="button" onclick="sincronizarSupabase()">Sincronizar</button>
-        <button class="btn secondary" type="button" onclick="trocarTela('backup')">Backup</button>
-        <button class="btn ghost" type="button" onclick="trocarTela('seguranca')">Segurança</button>
+        <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Plano e assinatura</button>
+        ${podeGerenciarUsuarios() ? `<button class="btn secondary" type="button" onclick="trocarTela('usuarios')">Usuários</button>` : ""}
+        <button class="btn ghost" type="button" onclick="entrarComCredencialSalva()">Senha salva/digital</button>
         <button class="btn warning" type="button" onclick="logoutUsuario()">Sair</button>
       </div>
 
-      <div class="danger-zone">
-        <h2 class="section-title">Alterar senha</h2>
-        ${renderFormularioAlterarSenha(false)}
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "conta-seguranca", title: "Sessão e segurança", subtitle: "Login, biometria, permissões e troca de conta", icon: "🔒", content: securityContent, open: true, group: "conta" })}
+        ${renderUiSection({ id: "conta-senha", title: "Senha", subtitle: "Alterar senha da conta atual", icon: "◎", content: renderFormularioAlterarSenha(false), group: "conta" })}
+        ${renderUiSection({ id: "conta-dispositivos", title: "Plano e dispositivos", subtitle: "Licença, assinatura e aparelhos vinculados", icon: "▦", content: renderDispositivosLicenca(), group: "conta" })}
+        ${renderUiSection({ id: "conta-logs", title: "Logs de segurança", subtitle: "Eventos recentes desta conta", icon: "≡", content: `<div class="history-list">${logs}</div>`, group: "conta" })}
       </div>
-
-      ${renderDispositivosLicenca()}
     </section>
   `;
 }
@@ -12280,6 +12319,101 @@ function renderDashboardSupportCards(totaisCaixa) {
   `;
 }
 
+function renderDashboardDesktopMetricCard({ titulo, valor, detalhe = "", iconKey = "dashboard", tela = "dashboard", filtro = "", state = "teal" } = {}) {
+  return `
+    <button class="desktop-dashboard-metric desktop-metric-${escaparAttr(state)}" type="button" onclick="abrirBlocoDashboard('${escaparAttr(tela)}', '${escaparAttr(filtro)}')">
+      <span class="desktop-dashboard-metric-icon">${renderUiIcon(iconKey)}</span>
+      <span class="desktop-dashboard-metric-copy">
+        <small>${escaparHtml(titulo)}</small>
+        <strong>${escaparHtml(valor)}</strong>
+        ${detalhe ? `<em>${escaparHtml(detalhe)}</em>` : ""}
+      </span>
+    </button>
+  `;
+}
+
+function renderDashboardDesktopMetricRow(stats, totaisCaixa) {
+  return `
+    <div class="desktop-dashboard-metrics">
+      ${renderDashboardDesktopMetricCard({ titulo: "Pedidos ativos", valor: String(stats.pedidosAbertos || 0), detalhe: `${stats.pedidosHoje || 0} hoje`, iconKey: "pedidos", tela: "pedidos", filtro: "abertos", state: stats.pedidosAbertos ? "orange" : "green" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Produção", valor: String(stats.producoesAtivas || 0), detalhe: "em andamento", iconKey: "producao", tela: "producao", state: "blue" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Faturamento", valor: formatarMoeda(stats.faturamentoDia), detalhe: "hoje", iconKey: "caixa", tela: "caixa", state: "teal" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Lucro", valor: formatarMoeda(Math.max(0, stats.lucroEstimado)), detalhe: "estimado", iconKey: "relatorios", tela: "relatorios", state: "green" })}
+    </div>
+  `;
+}
+
+function renderDashboardDesktopProductionPanel() {
+  const producao = pedidos
+    .filter((pedido) => String(pedido.status || "").toLowerCase() === "producao")
+    .slice(0, 5);
+  const linhas = producao.map((pedido) => `
+    <button class="dashboard-compact-row" type="button" onclick="visualizarPedido(${Number(pedido.id)})">
+      <span class="dashboard-order-avatar">${escaparHtml(getUserInitials(clienteDoPedido(pedido) || "P"))}</span>
+      <span>
+        <strong>${escaparHtml(clienteDoPedido(pedido) || `Pedido #${pedido.id}`)}</strong>
+        <small>${normalizarItensPedido(pedido).length} item(ns)${pedido.prazo ? ` • Prazo: ${escaparHtml(pedido.prazo)}` : ""}</small>
+      </span>
+      <em>${formatarMoeda(totalPedido(pedido))}</em>
+    </button>
+  `).join("");
+  return `
+    <section class="card desktop-dashboard-card desktop-dashboard-medium">
+      <div class="card-header">
+        <h2>${renderUiIcon("producao")} Produção em andamento</h2>
+        <button class="text-link" type="button" onclick="trocarTela('producao')">Abrir</button>
+      </div>
+      <div class="dashboard-compact-list">
+        ${linhas || `<p class="empty">Nenhuma produção ativa agora.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardDesktopStockPanel(stats) {
+  const materiaisBaixos = normalizarEstoque()
+    .filter((item) => (Number(item.qtd) || 0) <= estoqueMinimoKg)
+    .slice(0, 5);
+  const linhas = materiaisBaixos.map((item) => `
+    <button class="dashboard-compact-row stock-warning-row" type="button" onclick="trocarTela('estoque')">
+      <span class="desktop-dashboard-metric-icon">${renderUiIcon("estoque")}</span>
+      <span>
+        <strong>${escaparHtml(item.nome || item.tipo || "Material")}</strong>
+        <small>${(Number(item.qtd) || 0).toFixed(3)} kg em estoque</small>
+      </span>
+      <em>Atenção</em>
+    </button>
+  `).join("");
+  return `
+    <section class="card desktop-dashboard-card desktop-dashboard-medium">
+      <div class="card-header">
+        <h2>${renderUiIcon("estoque")} Estoque</h2>
+        <span class="status-badge ${stats.estoqueBaixo ? "badge-alerta" : "badge-ativo"}">${stats.estoqueBaixo ? `${stats.estoqueBaixo} baixo(s)` : "OK"}</span>
+      </div>
+      <div class="dashboard-compact-list">
+        ${linhas || `<p class="empty">Nenhum material abaixo do mínimo.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardDesktopContinuityPanel() {
+  const continuar = renderContinuarDeOndeParouDashboard();
+  return `
+    <section class="card desktop-dashboard-card desktop-dashboard-medium">
+      <div class="card-header">
+        <h2>${renderUiIcon("backup")} Continuidade</h2>
+        <button class="text-link" type="button" onclick="exportarBackup()">Backup</button>
+      </div>
+      ${continuar || `<p class="muted">Nenhum rascunho pendente. Seus dados locais continuam disponíveis e podem ser exportados a qualquer momento.</p>`}
+      <div class="actions">
+        <button class="btn secondary" type="button" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Novo pedido</button>
+        <button class="btn ghost" type="button" onclick="trocarTela('config')">${renderUiIcon("config")} Sistema</button>
+      </div>
+    </section>
+  `;
+}
+
 function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
   const nomeEmpresa = appConfig.businessName || appConfig.appName || SYSTEM_NAME;
   const periodo = getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje";
@@ -12288,9 +12422,9 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
       ${renderDashboardSearch()}
       <section class="control-center-header glass-pop">
         <div>
-          <span class="eyebrow">Control center web</span>
+          <span class="eyebrow">Painel SaaS desktop</span>
           <h1>${escaparHtml(nomeEmpresa)}</h1>
-          <p class="muted">Dashboard técnico do PWA com visão operacional, financeira e produtiva em alta densidade.</p>
+          <p class="muted">Visão operacional, pedidos, produção e caixa com grid responsivo para PWA/desktop.</p>
         </div>
         <div class="control-center-meta">
           <div><span>UI</span><strong>web_pwa</strong></div>
@@ -12300,24 +12434,44 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         </div>
         ${renderDashboardPeriodTabs()}
       </section>
-      ${renderSugestoesInteligentesDashboard()}
-      ${renderAcoesRapidas()}
-      <div class="control-center-layout">
-        <div class="control-center-main">
+
+      <div class="desktop-dashboard-grid">
+        <div class="desktop-dashboard-span-12">
+          ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
+        </div>
+        <section class="desktop-dashboard-span-12 desktop-dashboard-actions">
+          ${renderAcoesRapidas()}
+        </section>
+        <div class="desktop-dashboard-span-6 desktop-dashboard-large">
+          ${renderPedidosRecentesDashboard()}
+        </div>
+        <div class="desktop-dashboard-span-3">
+          ${renderDashboardDesktopProductionPanel()}
+        </div>
+        <div class="desktop-dashboard-span-3">
+          ${renderDashboardInsights(analytics)}
+        </div>
+        <div class="desktop-dashboard-span-8 desktop-dashboard-large">
           ${renderDashboardComboChart(analytics)}
+        </div>
+        <div class="desktop-dashboard-span-4">
           ${renderDashboardAnalyticsHero(analytics)}
         </div>
-        <aside class="control-center-side">
-          ${renderDashboardTechnicalPanel(stats, totaisCaixa)}
-          ${renderDashboardInsights(analytics)}
-        </aside>
-      </div>
-      ${renderDashboardAnalyticSections(analytics)}
-      <div class="dashboard-kpis control-center-kpis">
-        ${cards.map(renderDashboardKpiCard).join("")}
+        <div class="desktop-dashboard-span-4">
+          ${renderDashboardDesktopStockPanel(stats)}
+        </div>
+        <div class="desktop-dashboard-span-4">
+          ${renderDashboardAnalyticSections(analytics)}
+        </div>
+        <div class="desktop-dashboard-span-4">
+          ${renderDashboardDesktopContinuityPanel()}
+        </div>
+        <div class="desktop-dashboard-span-12 dashboard-kpis control-center-kpis">
+          ${cards.map(renderDashboardKpiCard).join("")}
+        </div>
       </div>
       ${renderDashboardOnboardingCard()}
-      ${renderDashboardSupportCards(totaisCaixa)}
+      ${renderSugestoesInteligentesDashboard()}
     </section>
   `;
 }
@@ -12942,6 +13096,7 @@ function renderUiIcon(tipo = "", fallback = "") {
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 12h7"/><path d="M8.5 16h7"/></svg>`,
+    aparencia: `<svg ${attrs}><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 .6-3.9 1.5 1.5 0 0 1 .4-2.9H16a5 5 0 0 0 0-10Z"/><circle cx="7.5" cy="10" r=".8"/><circle cx="10" cy="7.5" r=".8"/><circle cx="13" cy="7.5" r=".8"/><circle cx="15.5" cy="10" r=".8"/></svg>`,
     assinatura: `<svg ${attrs}><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>`,
     empresa: `<svg ${attrs}><path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-8h6v8"/><path d="M8 8h.1M12 8h.1M16 8h.1"/></svg>`,
     config: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .3 2l.1.1-2 3-.2-.1a1.8 1.8 0 0 0-2.1.1 1.8 1.8 0 0 0-.8 1.7V22h-5.4v-.2a1.8 1.8 0 0 0-.8-1.7 1.8 1.8 0 0 0-2.1-.1l-.2.1-2-3 .1-.1a1.8 1.8 0 0 0 .3-2 1.8 1.8 0 0 0-1.5-1.1H3v-3.8h.1A1.8 1.8 0 0 0 4.6 9a1.8 1.8 0 0 0-.3-2l-.1-.1 2-3 .2.1a1.8 1.8 0 0 0 2.1-.1 1.8 1.8 0 0 0 .8-1.7V2h5.4v.2a1.8 1.8 0 0 0 .8 1.7 1.8 1.8 0 0 0 2.1.1l.2-.1 2 3-.1.1a1.8 1.8 0 0 0-.3 2 1.8 1.8 0 0 0 1.5 1.1h.1v3.8h-.1a1.8 1.8 0 0 0-1.5 1.1Z"/></svg>`,
@@ -14532,17 +14687,15 @@ function renderConfig() {
   return `
     <section class="card organized-page settings-page">
       <div class="card-header">
-        <h2>Configurações</h2>
+        <h2>Sistema</h2>
         <span class="status-badge">${escaparHtml(status)}</span>
       </div>
-      <p class="muted">Configurações separadas por categoria para manter APK e PWA com a mesma organização.</p>
+      <p class="muted">Comportamento interno do app: backup, sincronização, atualizações, cache e documentos do sistema.</p>
       <div class="settings-accordion-list">
         ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta, sync, exportação e importação", icon: "☁", content: backupContent, open: true, group: "config" })}
         ${telaAtual === "config" ? `
-          ${renderAssistenteInteligenteProConfig()}
-          ${renderUiSection({ id: "seguranca", title: "Segurança", subtitle: "2FA, senha e proteção de acesso", icon: "⌁", content: securityContent, group: "config" })}
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
-          ${renderUiSection({ id: "sistema", title: "Sistema", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
+          ${renderUiSection({ id: "sistema", title: "Cache, offline e suporte", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
         ` : ""}
       </div>
       <div class="actions single">
@@ -16071,6 +16224,264 @@ function limitarCorPdf(valor, fallback = "#00d8c8") {
   return /^#[0-9a-f]{6}$/i.test(texto) ? texto : fallback;
 }
 
+function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
+  return `
+    <div class="actions">
+      <button class="btn" type="button" onclick="salvarPersonalizacao()">${escaparHtml(rotulo)}</button>
+      <button class="btn ghost" type="button" onclick="voltarTela()">Voltar</button>
+    </div>
+    <p id="personalizationImageHint" class="muted" hidden>Imagem ajustada automaticamente para o melhor tamanho.</p>
+  `;
+}
+
+function renderEmpresaConfig() {
+  const marcaAtual = getMarcaProjetoSrc("icon");
+  const logoEmpresaAtual = appConfig.companyLogoDataUrl || "";
+  return `
+    <section class="card organized-page settings-page">
+      <div class="card-header">
+        <h2>Empresa</h2>
+        <span class="status-badge">Comercial</span>
+      </div>
+      <p class="muted">Identidade comercial usada em pedidos, orçamentos, WhatsApp e PDF. Aparência e sistema ficam em menus separados.</p>
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "empresa-dados", title: "Dados comerciais", subtitle: "Nome, logo e documentação", icon: "🏢", open: true, group: "empresa", content: `
+          <div class="brand-preview compact">
+            <img id="companyLogoPreview" src="${escaparAttr(logoEmpresaAtual || marcaAtual)}" alt="Logo da empresa">
+            <div>
+              <strong>${escaparHtml(appConfig.businessName || "Minha empresa 3D")}</strong>
+              <span class="muted">A logo cadastrada aqui é usada automaticamente no PDF.</span>
+            </div>
+          </div>
+          <div class="sync-grid">
+            <label class="field"><span>Nome da empresa</span><input id="businessNameConfig" value="${escaparAttr(appConfig.businessName)}" placeholder="Minha empresa 3D"></label>
+            <label class="field"><span>Logo</span><input id="companyLogoFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'company-logo')"></label>
+            <label class="field"><span>CNPJ</span><input id="companyCnpjConfig" value="${escaparAttr(appConfig.companyCnpj || "")}" placeholder="00.000.000/0001-00"></label>
+            <label class="field"><span>Nome do app nesta conta</span><input id="appNameConfig" value="${escaparAttr(appConfig.appName)}" placeholder="Simplifica 3D"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "empresa-contatos", title: "Contatos", subtitle: "WhatsApp, telefone, e-mail e Instagram", icon: "☎", group: "empresa", content: `
+          <div class="sync-grid">
+            <label class="field"><span>WhatsApp</span><input id="whatsappNumberConfig" value="${escaparAttr(appConfig.whatsappNumber)}" placeholder="Ex.: 5585999999999"></label>
+            <label class="field"><span>Telefone</span><input id="companyPhoneConfig" value="${escaparAttr(appConfig.companyPhone || "")}" placeholder="Ex.: (11) 99999-9999"></label>
+            <label class="field"><span>E-mail</span><input id="companyEmailConfig" type="email" value="${escaparAttr(appConfig.companyEmail || "")}" placeholder="contato@suaempresa.com.br"></label>
+            <label class="field"><span>Instagram</span><input id="companyInstagramConfig" value="${escaparAttr(appConfig.companyInstagram || "")}" placeholder="@suaempresa"></label>
+            <label class="field"><span>Site</span><input id="companyWebsiteConfig" value="${escaparAttr(appConfig.companyWebsite || "")}" placeholder="www.suaempresa.com.br"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "empresa-endereco", title: "Endereço", subtitle: "Localização comercial", icon: "⌖", group: "empresa", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Endereço</span><input id="companyAddressConfig" value="${escaparAttr(appConfig.companyAddress || "")}" placeholder="Rua, número e bairro"></label>
+            <label class="field"><span>Cidade/Estado</span><input id="companyCityStateConfig" value="${escaparAttr(appConfig.companyCityState || "")}" placeholder="São Paulo - SP"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "empresa-pix", title: "Pix", subtitle: "Dados comerciais de recebimento", icon: "◇", group: "empresa", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Chave Pix</span><input id="pixKeyConfig" value="${escaparAttr(appConfig.pixKey || "")}" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"></label>
+            <label class="field"><span>Nome do recebedor Pix</span><input id="pixReceiverNameConfig" maxlength="25" value="${escaparAttr(appConfig.pixReceiverName || "")}" placeholder="Nome ou empresa"></label>
+            <label class="field"><span>Cidade do Pix</span><input id="pixCityConfig" maxlength="15" value="${escaparAttr(appConfig.pixCity || "")}" placeholder="Cidade"></label>
+            <label class="field"><span>Descrição Pix</span><input id="pixDescriptionConfig" maxlength="40" value="${escaparAttr(appConfig.pixDescription || "Pedido Simplifica 3D")}"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "empresa-padroes", title: "Padrões comerciais", subtitle: "Mensagem, observação e prazo usados nos documentos", icon: "☰", group: "empresa", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Mensagem padrão</span><textarea id="pdfDefaultMessageConfig" rows="2" maxlength="220" placeholder="Peças produzidas com impressão 3D de alta qualidade.">${escaparHtml(appConfig.pdfDefaultMessage || "")}</textarea></label>
+            <label class="field"><span>Observação padrão</span><textarea id="pdfDefaultNotesConfig" rows="3" maxlength="420" placeholder="Condições, prazos e orientações comerciais.">${escaparHtml(appConfig.pdfDefaultNotes || "")}</textarea></label>
+            <label class="field"><span>Prazo padrão</span><input id="productionDeadlineTextConfig" value="${escaparAttr(appConfig.productionDeadlineText || "")}" placeholder="Até 5 dias úteis"></label>
+          </div>
+        ` })}
+      </div>
+      ${renderAcoesSalvarConfiguracao("Salvar empresa")}
+    </section>
+  `;
+}
+
+function renderAparenciaConfig() {
+  const acessoMarca = true;
+  const corAtual = appConfig.accentColor || "#073b4b";
+  const fotoPerfilAtual = appConfig.profilePhotoDataUrl || "";
+  const fundoLoginAtual = appConfig.loginBackgroundDataUrl || "";
+  const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
+  return `
+    <section class="card organized-page settings-page">
+      <div class="card-header">
+        <h2>Aparência</h2>
+        <span class="status-badge">Interface</span>
+      </div>
+      <p class="muted">Somente visual do aplicativo: tema, cores, densidade, navegação e proporção das telas.</p>
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "aparencia-tema", title: "Tema", subtitle: "Modo visual, cor principal e glow", icon: "◐", open: true, group: "aparencia", content: `
+          <div class="sync-grid">
+            <label class="field">
+              <span>Tema</span>
+              <select id="themeConfig" ${acessoMarca ? "" : "disabled"}>
+                <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
+                <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
+                <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
+              </select>
+            </label>
+            <label class="field"><span>Cor principal</span><input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}" ${acessoMarca ? "" : "disabled"}></label>
+            <label class="field">
+              <span>Nível de animação</span>
+              <select id="motionLevelConfig">
+                <option value="low" ${appConfig.motionLevel === "low" ? "selected" : ""}>Baixo</option>
+                <option value="medium" ${appConfig.motionLevel !== "low" && appConfig.motionLevel !== "high" ? "selected" : ""}>Médio</option>
+                <option value="high" ${appConfig.motionLevel === "high" ? "selected" : ""}>Alto</option>
+              </select>
+            </label>
+          </div>
+          <div class="color-swatches">
+            ${["#073b4b", "#ff941c", "#2f6fed", "#e11d48", "#f59e0b", "#0f766e"].map((cor) => `
+              <button class="color-swatch" type="button" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}" ${acessoMarca ? "" : "disabled"}></button>
+            `).join("")}
+          </div>
+        ` })}
+        ${renderUiSection({ id: "aparencia-layout", title: "Layout", subtitle: "Densidade, escala e tamanho dos cards", icon: "▦", group: "aparencia", content: `
+          <div class="sync-grid">
+            <label class="checkbox-row"><input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}><span>Compactar interface</span></label>
+            <label class="checkbox-row"><input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}><span>Mostrar nome do app no topo</span></label>
+            <label class="field">
+              <span>Ajuste da interface</span>
+              <select id="screenFitConfig">
+                <option value="auto" ${appConfig.screenFit !== "manual" ? "selected" : ""}>Automático</option>
+                <option value="manual" ${appConfig.screenFit === "manual" ? "selected" : ""}>Manual</option>
+              </select>
+            </label>
+            <div class="metric"><span>Resolução atual</span><strong>${escaparHtml(resolucaoAtual)}</strong></div>
+            <label class="field"><span>Escala manual (%)</span><input id="uiScaleConfig" type="number" min="70" max="140" step="5" value="${Number(appConfig.uiScale) || 100}"></label>
+            <label class="field"><span>Largura mínima dos cards</span><input id="desktopCardMinWidthConfig" type="number" min="220" max="560" step="10" value="${Number(appConfig.desktopCardMinWidth) || 320}"></label>
+            <label class="field"><span>Largura máxima no desktop</span><input id="desktopMaxWidthConfig" type="number" min="900" max="3200" step="20" value="${Number(appConfig.desktopMaxWidth) || 1480}"></label>
+          </div>
+          <div class="actions single"><button class="btn ghost" type="button" onclick="restaurarLayoutDashboard()">Restaurar janelas da tela principal</button></div>
+        ` })}
+        ${renderUiSection({ id: "aparencia-login", title: "Login e perfil", subtitle: "Foto, fundo e mensagem visual de entrada", icon: "◎", group: "aparencia", content: `
+          <div class="profile-preview-row">
+            <div class="profile-preview-avatar" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
+            <div class="metric"><span>Fundo do login</span><strong>${fundoLoginAtual ? "Salvo" : "Padrão"}</strong></div>
+          </div>
+          <div class="sync-grid">
+            <label class="field"><span>Foto do usuário</span><input id="profilePhotoFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'profile-photo')"></label>
+            <label class="field"><span>Imagem de fundo do login</span><input id="loginBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'login-background')"></label>
+            <label class="field"><span>Mensagem no login</span><input id="customLoginMessageConfig" maxlength="90" value="${escaparAttr(appConfig.customLoginMessage || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
+          </div>
+        ` })}
+      </div>
+      ${renderAcoesSalvarConfiguracao("Salvar aparência")}
+    </section>
+  `;
+}
+
+function renderCalculadoraConfigPage() {
+  const materiais = normalizarEstoque();
+  return `
+    <section class="card organized-page settings-page">
+      <div class="card-header">
+        <h2>Calculadora</h2>
+        <span class="status-badge">Cálculo</span>
+      </div>
+      <p class="muted">Parâmetros usados pela calculadora. Dados da empresa, PDF e aparência ficam fora desta tela.</p>
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "calc-perfil", title: "Perfil padrão", subtitle: "Impressora, material e preset inicial", icon: "▤", open: true, group: "calc", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Impressora padrão</span><input id="defaultPrinterModelConfig" value="${escaparAttr(appConfig.defaultPrinterModel || "Ender 3")}" placeholder="Bambu Lab A1"></label>
+            <label class="field">
+              <span>Tipo de impressora</span>
+              <select id="defaultPrinterTypeConfig">
+                <option value="FDM" ${String(appConfig.defaultPrinterType || "FDM").toLowerCase() !== "resina" ? "selected" : ""}>FDM / Filamento</option>
+                <option value="Resina" ${String(appConfig.defaultPrinterType || "").toLowerCase() === "resina" ? "selected" : ""}>Resina</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Material padrão</span>
+              <select id="defaultMaterialConfig">
+                <option value="">Automático / último usado</option>
+                ${materiais.map((material) => `<option value="${escaparAttr(material.id || material.nome)}" ${String(appConfig.defaultMaterial || "") === String(material.id || material.nome) ? "selected" : ""}>${escaparHtml(material.nome || material.tipo || "Material")}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field">
+              <span>Preset de qualidade</span>
+              <select id="defaultQualityPresetConfig">
+                ${["0.20mm padrão", "0.28mm rápido", "0.12mm fino", "TPU lento"].map((valor) => `<option value="${escaparAttr(valor)}" ${String(appConfig.defaultQualityPreset || "0.20mm padrão") === valor ? "selected" : ""}>${escaparHtml(valor)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field"><span>Altura de camada</span><input id="defaultLayerHeightConfig" value="${escaparAttr(appConfig.defaultLayerHeight || "0.20mm")}"></label>
+            <label class="field"><span>Bico padrão</span><input id="defaultNozzleConfig" value="${escaparAttr(appConfig.defaultNozzle || "0.4mm")}"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "calc-custos", title: "Custos", subtitle: "Material, energia, hora de máquina e taxas", icon: "R$", group: "calc", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Preço por kg padrão (R$)</span><input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}"></label>
+            <label class="field"><span>Resina padrão R$/kg</span><input id="defaultResinCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultResinCost) || 180}"></label>
+            <label class="field"><span>Custo kWh</span><input id="defaultEnergyConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}"></label>
+            <label class="field"><span>Taxa fixa padrão (R$)</span><input id="defaultExtraFeeConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "calc-margens", title: "Margens e regras", subtitle: "Margem, tempo mínimo e arredondamento", icon: "%", group: "calc", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Margem padrão (%)</span><input id="defaultMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}"></label>
+            <label class="field"><span>Margem mínima recomendada (%)</span><input id="minimumRecommendedMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.minimumRecommendedMargin) || 60}"></label>
+            <label class="field"><span>Tempo mínimo cobrado (h)</span><input id="minimumChargedHoursConfig" type="number" min="0" step="0.1" value="${Number(appConfig.minimumChargedHours) || 0}"></label>
+            <label class="field">
+              <span>Arredondamento</span>
+              <select id="priceRoundingConfig">
+                ${[0, 0.5, 1, 5].map((valor) => `<option value="${valor}" ${Number(appConfig.priceRounding || 0) === valor ? "selected" : ""}>${valor ? `R$ ${valor}` : "Sem arredondar"}</option>`).join("")}
+              </select>
+            </label>
+          </div>
+        ` })}
+      </div>
+      ${renderAcoesSalvarConfiguracao("Salvar calculadora")}
+    </section>
+  `;
+}
+
+function renderPdfConfig() {
+  const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
+  const temaPdfAtual = normalizarPdfTheme();
+  const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
+  return `
+    <section class="card organized-page settings-page">
+      <div class="card-header">
+        <h2>PDF</h2>
+        <span class="status-badge">Documento</span>
+      </div>
+      <p class="muted">Configurações do orçamento/PDF. Logo, Pix e dados comerciais vêm automaticamente do menu Empresa.</p>
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "pdf-tema", title: "Tema", subtitle: "Visual fixo do documento", icon: "▣", open: true, group: "pdf", content: `
+          <div class="sync-grid">
+            <label class="field">
+              <span>Tema do PDF</span>
+              <select id="pdfThemeConfig">
+                ${Object.entries(PDF_THEME_PRESETS).map(([id, tema]) => `<option value="${id}" ${temaPdfAtual === id ? "selected" : ""}>${escaparHtml(tema.label)}</option>`).join("")}
+              </select>
+            </label>
+            <label class="field"><span>Cor secundária do PDF</span><input id="pdfSecondaryColorConfig" type="color" value="${escaparAttr(corSecundariaAtual)}"></label>
+            <div class="metric"><span>Logo</span><strong>Usa Empresa</strong></div>
+            <div class="metric"><span>Pix</span><strong>Usa Empresa</strong></div>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "pdf-cabecalho", title: "Cabeçalho", subtitle: "Título comercial e subtítulo", icon: "⌂", group: "pdf", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Subtítulo da empresa no PDF</span><input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
+            <label class="field"><span>Validade padrão (dias)</span><input id="quoteValidityDaysConfig" type="number" min="1" max="90" step="1" value="${Number(appConfig.quoteValidityDays) || 7}"></label>
+            <label class="field"><span>Forma de pagamento</span><input id="paymentTermsConfig" value="${escaparAttr(appConfig.paymentTerms || "")}" placeholder="PIX / Transferência"></label>
+          </div>
+        ` })}
+        ${renderUiSection({ id: "pdf-rodape", title: "Rodapé e Pix", subtitle: "Assinatura, instrução Pix e marca d'água", icon: "☷", group: "pdf", content: `
+          <div class="sync-grid">
+            <label class="field"><span>Assinatura final</span><input id="pdfSignatureConfig" maxlength="160" value="${escaparAttr(appConfig.pdfSignature || appConfig.documentFooter || "")}" placeholder="Qualquer dúvida, estamos à disposição."></label>
+            <label class="field"><span>Instrução Pix no PDF</span><input id="pixInstructionConfig" maxlength="120" value="${escaparAttr(appConfig.pixInstruction || "")}" placeholder="Após o pagamento, envie o comprovante pelo WhatsApp."></label>
+            <label class="field"><span>Fundo/marca d'água do PDF</span><input id="pdfBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'pdf-background')"></label>
+            <div class="metric"><span>Fundo personalizado</span><strong>${pdfBgAtual ? "Salvo" : "Padrão"}</strong></div>
+          </div>
+          ${appConfig.pdfBackgroundDataUrl ? `<button class="btn ghost" type="button" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
+        ` })}
+      </div>
+      ${renderAcoesSalvarConfiguracao("Salvar PDF")}
+    </section>
+  `;
+}
+
 function renderPersonalizacao() {
   const corAtual = appConfig.accentColor || "#073b4b";
   const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
@@ -17483,72 +17894,84 @@ function selecionarCor(cor) {
 
 function lerPersonalizacaoCampos() {
   const acessoMarca = temAcessoCompleto();
+  const el = (id) => document.getElementById(id);
+  const texto = (id, fallback = "") => el(id) ? String(el(id).value || "").trim() : String(fallback || "").trim();
+  const textoLivre = (id, fallback = "") => el(id) ? String(el(id).value || "") : String(fallback || "");
+  const numero = (id, fallback = 0, { min = -Infinity, max = Infinity, inteiro = false } = {}) => {
+    const bruto = el(id) ? el(id).value : fallback;
+    const valor = inteiro ? parseInt(bruto, 10) : parseFloat(bruto);
+    const normalizado = Number.isFinite(valor) ? valor : Number(fallback) || 0;
+    return Math.min(max, Math.max(min, normalizado));
+  };
+  const marcado = (id, fallback = false) => el(id) ? !!el(id).checked : !!fallback;
   const accentColor = acessoMarca
-    ? (document.getElementById("accentColorConfig")?.value || appConfig.accentColor || "#073b4b")
+    ? (texto("accentColorConfig", appConfig.accentColor || "#073b4b") || "#073b4b")
     : (appConfig.accentColor || "#073b4b");
   const theme = acessoMarca
-    ? (document.getElementById("themeConfig")?.value || appConfig.theme || "dark")
+    ? (texto("themeConfig", appConfig.theme || "dark") || "dark")
     : (appConfig.theme || "dark");
-  const pdfTheme = normalizarPdfTheme(document.getElementById("pdfThemeConfig")?.value || appConfig.pdfTheme || appConfig.pdfStyle);
+  const pdfTheme = normalizarPdfTheme(texto("pdfThemeConfig", appConfig.pdfTheme || appConfig.pdfStyle));
   const pdfHeaderText = acessoMarca
-    ? (document.getElementById("pdfHeaderTextConfig")?.value || "").trim()
+    ? texto("pdfHeaderTextConfig", appConfig.pdfHeaderText || "")
     : (appConfig.pdfHeaderText || "");
   const brandWatermarkEnabled = appConfig.brandWatermarkEnabled !== false;
   const customLoginMessage = acessoMarca
-    ? (document.getElementById("customLoginMessageConfig")?.value || "").trim()
+    ? texto("customLoginMessageConfig", appConfig.customLoginMessage || "")
     : (appConfig.customLoginMessage || "");
-  const assinaturaPdf = (document.getElementById("pdfSignatureConfig")?.value || appConfig.pdfSignature || appConfig.documentFooter || "").trim();
+  const assinaturaPdf = texto("pdfSignatureConfig", appConfig.pdfSignature || appConfig.documentFooter || "");
+  const pdfSecondaryColor = limitarCorPdf(texto("pdfSecondaryColorConfig", appConfig.pdfSecondaryColor || "#00d8c8"));
+  const quoteValidityDays = numero("quoteValidityDaysConfig", appConfig.quoteValidityDays || 7, { min: 1, max: 90, inteiro: true });
   return {
-    appName: (document.getElementById("appNameConfig")?.value || SYSTEM_NAME).trim(),
-    businessName: (document.getElementById("businessNameConfig")?.value || "Minha empresa 3D").trim(),
-    whatsappNumber: normalizePhoneBR(document.getElementById("whatsappNumberConfig")?.value || ""),
-    companyPhone: (document.getElementById("companyPhoneConfig")?.value || "").trim(),
-    companyEmail: (document.getElementById("companyEmailConfig")?.value || "").trim(),
-    companyInstagram: (document.getElementById("companyInstagramConfig")?.value || "").trim(),
-    companyCnpj: (document.getElementById("companyCnpjConfig")?.value || "").trim(),
-    companyAddress: (document.getElementById("companyAddressConfig")?.value || "").trim(),
-    companyCityState: (document.getElementById("companyCityStateConfig")?.value || "").trim(),
-    companyWebsite: (document.getElementById("companyWebsiteConfig")?.value || "").trim(),
-    quoteValidityDays: Math.min(90, Math.max(1, parseInt(document.getElementById("quoteValidityDaysConfig")?.value, 10) || 7)),
-    paymentTerms: (document.getElementById("paymentTermsConfig")?.value || "").trim(),
-    productionDeadlineText: (document.getElementById("productionDeadlineTextConfig")?.value || "").trim(),
-    pdfDefaultMessage: (document.getElementById("pdfDefaultMessageConfig")?.value || "").trim(),
-    pdfDefaultNotes: (document.getElementById("pdfDefaultNotesConfig")?.value || "").trim(),
+    appName: texto("appNameConfig", appConfig.appName || SYSTEM_NAME) || SYSTEM_NAME,
+    businessName: texto("businessNameConfig", appConfig.businessName || "Minha empresa 3D") || "Minha empresa 3D",
+    whatsappNumber: el("whatsappNumberConfig") ? normalizePhoneBR(el("whatsappNumberConfig").value || "") : (appConfig.whatsappNumber || ""),
+    companyPhone: texto("companyPhoneConfig", appConfig.companyPhone || ""),
+    companyEmail: texto("companyEmailConfig", appConfig.companyEmail || ""),
+    companyInstagram: texto("companyInstagramConfig", appConfig.companyInstagram || ""),
+    companyCnpj: texto("companyCnpjConfig", appConfig.companyCnpj || ""),
+    companyAddress: texto("companyAddressConfig", appConfig.companyAddress || ""),
+    companyCityState: texto("companyCityStateConfig", appConfig.companyCityState || ""),
+    companyWebsite: texto("companyWebsiteConfig", appConfig.companyWebsite || ""),
+    quoteValidityDays,
+    paymentTerms: texto("paymentTermsConfig", appConfig.paymentTerms || ""),
+    productionDeadlineText: texto("productionDeadlineTextConfig", appConfig.productionDeadlineText || ""),
+    pdfDefaultMessage: textoLivre("pdfDefaultMessageConfig", appConfig.pdfDefaultMessage || "").trim(),
+    pdfDefaultNotes: textoLivre("pdfDefaultNotesConfig", appConfig.pdfDefaultNotes || "").trim(),
     pdfSignature: assinaturaPdf,
     documentFooter: assinaturaPdf,
-    pixKey: (document.getElementById("pixKeyConfig")?.value || "").trim(),
-    pixReceiverName: (document.getElementById("pixReceiverNameConfig")?.value || "").trim(),
-    pixCity: (document.getElementById("pixCityConfig")?.value || "").trim(),
-    pixDescription: (document.getElementById("pixDescriptionConfig")?.value || "Pedido Simplifica 3D").trim(),
-    pixInstruction: (document.getElementById("pixInstructionConfig")?.value || "").trim(),
+    pixKey: texto("pixKeyConfig", appConfig.pixKey || ""),
+    pixReceiverName: texto("pixReceiverNameConfig", appConfig.pixReceiverName || ""),
+    pixCity: texto("pixCityConfig", appConfig.pixCity || ""),
+    pixDescription: texto("pixDescriptionConfig", appConfig.pixDescription || "Pedido Simplifica 3D") || "Pedido Simplifica 3D",
+    pixInstruction: texto("pixInstructionConfig", appConfig.pixInstruction || ""),
     brandWatermarkEnabled,
     theme,
     accentColor,
     pdfTheme,
     pdfStyle: pdfTheme,
-    pdfSecondaryColor: limitarCorPdf(document.getElementById("pdfSecondaryColorConfig")?.value || appConfig.pdfSecondaryColor || "#00d8c8"),
+    pdfSecondaryColor,
     pdfHeaderText,
     customLoginMessage,
-    motionLevel: document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium",
+    motionLevel: texto("motionLevelConfig", appConfig.motionLevel || "medium") || "medium",
     appearanceSettings: normalizarAppearanceSettings({
       ...(appConfig.appearanceSettings || {}),
       primary_color: accentColor,
-      secondary_color: limitarCorPdf(document.getElementById("pdfSecondaryColorConfig")?.value || appConfig.pdfSecondaryColor || "#00d8c8"),
+      secondary_color: pdfSecondaryColor,
       pdf_theme: pdfTheme,
-      company_phone: document.getElementById("companyPhoneConfig")?.value || "",
-      company_email: document.getElementById("companyEmailConfig")?.value || "",
-      company_instagram: document.getElementById("companyInstagramConfig")?.value || "",
-      company_cnpj: document.getElementById("companyCnpjConfig")?.value || "",
-      company_address: document.getElementById("companyAddressConfig")?.value || "",
-      company_city_state: document.getElementById("companyCityStateConfig")?.value || "",
-      company_website: document.getElementById("companyWebsiteConfig")?.value || "",
-      quote_validity_days: Math.min(90, Math.max(1, parseInt(document.getElementById("quoteValidityDaysConfig")?.value, 10) || 7)),
-      payment_terms: document.getElementById("paymentTermsConfig")?.value || "",
-      production_deadline: document.getElementById("productionDeadlineTextConfig")?.value || "",
-      pdf_default_message: document.getElementById("pdfDefaultMessageConfig")?.value || "",
-      pdf_default_notes: document.getElementById("pdfDefaultNotesConfig")?.value || "",
+      company_phone: texto("companyPhoneConfig", appConfig.companyPhone || ""),
+      company_email: texto("companyEmailConfig", appConfig.companyEmail || ""),
+      company_instagram: texto("companyInstagramConfig", appConfig.companyInstagram || ""),
+      company_cnpj: texto("companyCnpjConfig", appConfig.companyCnpj || ""),
+      company_address: texto("companyAddressConfig", appConfig.companyAddress || ""),
+      company_city_state: texto("companyCityStateConfig", appConfig.companyCityState || ""),
+      company_website: texto("companyWebsiteConfig", appConfig.companyWebsite || ""),
+      quote_validity_days: quoteValidityDays,
+      payment_terms: texto("paymentTermsConfig", appConfig.paymentTerms || ""),
+      production_deadline: texto("productionDeadlineTextConfig", appConfig.productionDeadlineText || ""),
+      pdf_default_message: textoLivre("pdfDefaultMessageConfig", appConfig.pdfDefaultMessage || ""),
+      pdf_default_notes: textoLivre("pdfDefaultNotesConfig", appConfig.pdfDefaultNotes || ""),
       pdf_signature: assinaturaPdf,
-      pix_instruction: document.getElementById("pixInstructionConfig")?.value || "",
+      pix_instruction: texto("pixInstructionConfig", appConfig.pixInstruction || ""),
       pdf_background: appConfig.pdfBackgroundDataUrl || "",
       logo_url: appConfig.brandLogoDataUrl || "",
       profile_photo: appConfig.profilePhotoDataUrl || "",
@@ -17557,17 +17980,33 @@ function lerPersonalizacaoCampos() {
       theme_mode: theme,
       custom_pdf_enabled: acessoMarca
     }),
-    compactMode: !!document.getElementById("compactModeConfig")?.checked,
-    smartSuggestionsEnabled: !!document.getElementById("smartSuggestionsEnabledConfig")?.checked,
-    showBrandInHeader: !!document.getElementById("showBrandInHeaderConfig")?.checked,
-    defaultMargin: Math.max(0, parseFloat(document.getElementById("defaultMarginConfig")?.value) || 100),
-    defaultEnergy: Math.max(0, parseFloat(document.getElementById("defaultEnergyConfig")?.value) || 0.85),
-    defaultFilamentCost: Math.max(0, parseFloat(document.getElementById("defaultFilamentCostConfig")?.value) || 150),
-    defaultExtraFee: Math.max(0, parseFloat(document.getElementById("defaultExtraFeeConfig")?.value) || 0),
-    screenFit: document.getElementById("screenFitConfig")?.value === "manual" ? "manual" : "auto",
-    uiScale: Math.min(140, Math.max(70, parseFloat(document.getElementById("uiScaleConfig")?.value) || 100)),
-    desktopCardMinWidth: Math.min(560, Math.max(220, parseFloat(document.getElementById("desktopCardMinWidthConfig")?.value) || 320)),
-    desktopMaxWidth: Math.min(3200, Math.max(900, parseFloat(document.getElementById("desktopMaxWidthConfig")?.value) || 1480))
+    compactMode: marcado("compactModeConfig", !!appConfig.compactMode),
+    smartSuggestionsEnabled: marcado("smartSuggestionsEnabledConfig", appConfig.smartSuggestionsEnabled !== false),
+    showBrandInHeader: marcado("showBrandInHeaderConfig", !!appConfig.showBrandInHeader),
+    defaultMargin: numero("defaultMarginConfig", appConfig.defaultMargin || 100, { min: 0 }),
+    defaultEnergy: numero("defaultEnergyConfig", appConfig.defaultEnergy || 0.85, { min: 0 }),
+    defaultFilamentCost: numero("defaultFilamentCostConfig", appConfig.defaultFilamentCost || 150, { min: 0 }),
+    defaultExtraFee: numero("defaultExtraFeeConfig", appConfig.defaultExtraFee || 0, { min: 0 }),
+    defaultPrinterType: texto("defaultPrinterTypeConfig", appConfig.defaultPrinterType || "FDM") || "FDM",
+    defaultPrinterModel: texto("defaultPrinterModelConfig", appConfig.defaultPrinterModel || "Ender 3") || "Ender 3",
+    defaultMaterial: texto("defaultMaterialConfig", appConfig.defaultMaterial || ""),
+    defaultResinCost: numero("defaultResinCostConfig", appConfig.defaultResinCost || 180, { min: 0 }),
+    minimumRecommendedMargin: numero("minimumRecommendedMarginConfig", appConfig.minimumRecommendedMargin || 60, { min: 0 }),
+    minimumChargedHours: numero("minimumChargedHoursConfig", appConfig.minimumChargedHours || 0, { min: 0 }),
+    priceRounding: numero("priceRoundingConfig", appConfig.priceRounding || 0, { min: 0 }),
+    defaultLayerHeight: texto("defaultLayerHeightConfig", appConfig.defaultLayerHeight || "0.20mm") || "0.20mm",
+    defaultNozzle: texto("defaultNozzleConfig", appConfig.defaultNozzle || "0.4mm") || "0.4mm",
+    defaultQualityPreset: texto("defaultQualityPresetConfig", appConfig.defaultQualityPreset || "0.20mm padrão") || "0.20mm padrão",
+    calculatorDefaults: {
+      ...(appConfig.calculatorDefaults || {}),
+      printerType: texto("defaultPrinterTypeConfig", appConfig.defaultPrinterType || appConfig.calculatorDefaults?.printerType || "FDM") || "FDM",
+      printerModel: texto("defaultPrinterModelConfig", appConfig.defaultPrinterModel || appConfig.calculatorDefaults?.printerModel || "Ender 3") || "Ender 3",
+      materialId: texto("defaultMaterialConfig", appConfig.defaultMaterial || appConfig.calculatorDefaults?.materialId || "")
+    },
+    screenFit: texto("screenFitConfig", appConfig.screenFit || "auto") === "manual" ? "manual" : "auto",
+    uiScale: numero("uiScaleConfig", appConfig.uiScale || 100, { min: 70, max: 140 }),
+    desktopCardMinWidth: numero("desktopCardMinWidthConfig", appConfig.desktopCardMinWidth || 320, { min: 220, max: 560 }),
+    desktopMaxWidth: numero("desktopMaxWidthConfig", appConfig.desktopMaxWidth || 1480, { min: 900, max: 3200 })
   };
 }
 
