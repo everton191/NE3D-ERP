@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v97-ai-auto-install-20260517";
+const CACHE_NAME = "simplifica-3d-v99-pwa-pdf-smart-20260517";
 const APP_FILES = [
   "./",
   "./index.html",

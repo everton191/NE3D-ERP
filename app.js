@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.31";
-const APP_VERSION_CODE = 82;
+const APP_VERSION = "51.0.33";
+const APP_VERSION_CODE = 84;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -47,6 +47,8 @@ const PLAN_ACCESS_STATES = Object.freeze({
   BLOCKED: "BLOCKED"
 });
 const PLAN_DEBUG_ENABLED = false;
+// IA local pesada fica preservada como legado, mas desativada no app principal.
+const HEAVY_AI_FEATURE_ENABLED = false;
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
   { limit: 200, price: 24.9 },
@@ -244,7 +246,24 @@ const USAGE_LEARNING_ALLOWED_EVENTS = new Set([
   "item_adicionado",
   "orcamento_finalizado",
   "material_usado",
-  "impressora_usada"
+  "impressora_usada",
+  "atalho_acionado"
+]);
+
+const QUICK_ACTION_REORDER_MIN_USES = 5;
+const QUICK_ACTIONS_DEFAULT_ORDER = Object.freeze(["novo_pedido", "calculadora", "clientes", "estoque", "relatorios"]);
+const QUICK_ACTIONS_DANGEROUS = new Set(["excluir", "limpar", "cancelar"]);
+const QUICK_ACTIONS_CATALOG = Object.freeze([
+  { id: "novo_pedido", label: "Novo pedido", tela: "pedido", iconKey: "pedido", default: true, primary: true },
+  { id: "calculadora", label: "Calculadora", tela: "calculadora", iconKey: "calculadora", default: true },
+  { id: "clientes", label: "Clientes", tela: "clientes", iconKey: "clientes", default: true },
+  { id: "estoque", label: "Estoque", tela: "estoque", iconKey: "estoque", default: true },
+  { id: "relatorios", label: "Relatórios", tela: "relatorios", iconKey: "relatorios", default: true },
+  { id: "pedidos", label: "Pedidos", tela: "pedidos", iconKey: "pedidos" },
+  { id: "financeiro", label: "Financeiro", tela: "caixa", iconKey: "caixa" },
+  { id: "producao", label: "Produção", tela: "producao", iconKey: "producao" },
+  { id: "whatsapp", label: "WhatsApp", iconKey: "whatsapp", requiresOrder: true, customAction: "whatsapp" },
+  { id: "pdf", label: "PDF", iconKey: "pdf", requiresOrder: true, customAction: "pdf" }
 ]);
 
 const telas = {
@@ -444,18 +463,34 @@ let appConfig = carregarObjeto("appConfig", {
   appName: SYSTEM_NAME,
   businessName: "Minha empresa 3D",
   whatsappNumber: "",
+  companyPhone: "",
+  companyEmail: "",
+  companyInstagram: "",
+  companyCnpj: "",
+  companyAddress: "",
+  companyCityState: "",
+  companyWebsite: "",
+  quoteValidityDays: 7,
+  paymentTerms: "PIX / Transferência",
+  productionDeadlineText: "Até 5 dias úteis",
+  pdfDefaultMessage: "Peças produzidas com impressão 3D de alta qualidade.",
+  pdfDefaultNotes: "As cores podem variar levemente conforme o lote do material.\nQualquer alteração no projeto pode impactar o prazo de entrega.",
+  pdfSignature: "Qualquer dúvida, estamos à disposição.",
   documentFooter: "Obrigado pela preferência.",
   pixKey: "",
   pixReceiverName: "",
   pixCity: "",
   pixDescription: "Pedido Simplifica 3D",
+  pixInstruction: "Após o pagamento, envie o comprovante pelo WhatsApp.",
   brandLogoDataUrl: "",
   profilePhotoDataUrl: "",
   companyLogoDataUrl: "",
   loginBackgroundDataUrl: "",
   customLoginMessage: "",
   pdfBackgroundDataUrl: "",
-  pdfStyle: "clean",
+  pdfTheme: "modern_dark",
+  pdfStyle: "modern_dark",
+  pdfSecondaryColor: "#00d8c8",
   pdfHeaderText: "",
   brandWatermarkEnabled: true,
   theme: "dark",
@@ -482,6 +517,12 @@ let appConfig = carregarObjeto("appConfig", {
   companySetupCompleted: false,
   defaultPrinterModel: "Ender 3",
   defaultResinCost: 180,
+  minimumRecommendedMargin: 60,
+  minimumChargedHours: 0,
+  priceRounding: 0,
+  defaultLayerHeight: "0.20mm",
+  defaultNozzle: "0.4mm",
+  defaultQualityPreset: "0.20mm padrão",
   calculatorDefaults: {},
   smartSuggestionsEnabled: true,
   aiUsageMemoryEnabled: true,
@@ -2332,12 +2373,23 @@ function salvarDados() {
 function normalizarUsoInteligente(origem = usageLearning) {
   const base = origem && typeof origem === "object" && !Array.isArray(origem) ? origem : {};
   const eventos = Array.isArray(base.events) ? base.events : [];
+  const idsAtalhos = new Set(QUICK_ACTIONS_CATALOG.map((acao) => acao.id));
+  const shortcutPins = Array.isArray(base.shortcutPins)
+    ? base.shortcutPins.map(String).filter((id, index, lista) => idsAtalhos.has(id) && lista.indexOf(id) === index)
+    : [];
+  const shortcutOrder = Array.isArray(base.shortcutOrder)
+    ? base.shortcutOrder.map(String).filter((id, index, lista) => idsAtalhos.has(id) && lista.indexOf(id) === index)
+    : [];
   return {
     version: 1,
     events: eventos
       .filter((evento) => evento && USAGE_LEARNING_ALLOWED_EVENTS.has(evento.tipo))
       .slice(-240),
-    dismissed: base.dismissed && typeof base.dismissed === "object" && !Array.isArray(base.dismissed) ? base.dismissed : {}
+    dismissed: base.dismissed && typeof base.dismissed === "object" && !Array.isArray(base.dismissed) ? base.dismissed : {},
+    shortcutPins,
+    shortcutOrder,
+    shortcutOrderDate: String(base.shortcutOrderDate || ""),
+    shortcutUsageSinceOrder: Math.max(0, Number(base.shortcutUsageSinceOrder) || 0)
   };
 }
 
@@ -2354,6 +2406,11 @@ function registrarEventoUsoLocal(tipo, dados = {}) {
   if (!sugestoesInteligentesAtivas() || !USAGE_LEARNING_ALLOWED_EVENTS.has(tipo)) return;
   const evento = { tipo, at: new Date().toISOString() };
   if (tipo === "tela_aberta") evento.tela = String(dados.tela || "").slice(0, 48);
+  if (tipo === "atalho_acionado") {
+    evento.actionId = String(dados.actionId || dados.id || "").slice(0, 48);
+    evento.tela = String(dados.tela || "").slice(0, 48);
+    evento.source = String(dados.source || "atalhos").slice(0, 32);
+  }
   if (tipo === "material_usado") {
     evento.materialId = String(dados.materialId || "").slice(0, 80);
     evento.materialNome = String(dados.materialNome || "").slice(0, 80);
@@ -2367,7 +2424,10 @@ function registrarEventoUsoLocal(tipo, dados = {}) {
   if (dados.tempo !== undefined) evento.tempo = Number(dados.tempo) || 0;
   usageLearning = normalizarUsoInteligente({
     ...usageLearning,
-    events: [...(usageLearning?.events || []), evento]
+    events: [...(usageLearning?.events || []), evento],
+    shortcutUsageSinceOrder: tipo === "atalho_acionado"
+      ? (Number(usageLearning?.shortcutUsageSinceOrder) || 0) + 1
+      : Number(usageLearning?.shortcutUsageSinceOrder) || 0
   });
   salvarUsoInteligenteLocal();
   if (globalThis.AiUsageMemoryManager) {
@@ -6989,6 +7049,28 @@ function renderizarPreservandoScroll() {
   restaurarScrollInterface(snapshot);
 }
 
+function resetarScrollTelaAtiva() {
+  if (typeof window === "undefined" || typeof document === "undefined") return;
+  requestAnimationFrame(() => {
+    try {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    } catch (_) {
+      window.scrollTo(0, 0);
+    }
+    [
+      ".desktop-main",
+      ".desktop-focus",
+      ".mobile-home",
+      ".mobile-panel-content"
+    ].forEach((seletor) => {
+      document.querySelectorAll(seletor).forEach((elemento) => {
+        elemento.scrollTop = 0;
+        elemento.scrollLeft = 0;
+      });
+    });
+  });
+}
+
 function agendarRenderizacaoPreservandoScroll(atraso = 120) {
   if (window.__simplificaRenderPreserveTimer) clearTimeout(window.__simplificaRenderPreserveTimer);
   window.__simplificaRenderPreserveTimer = setTimeout(() => {
@@ -7073,6 +7155,7 @@ function trocarTela(tela) {
   }
   if (mudouTela) iniciarTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
   renderApp();
+  if (mudouTela) resetarScrollTelaAtiva();
 }
 
 function voltarTela() {
@@ -7118,7 +7201,7 @@ function renderApp() {
   const mobile = isMobile();
   document.body.classList.toggle("mobile-mode", mobile);
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
-  app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (podeMostrarControlesFlutuantes() ? renderAssistenteVirtual() : "");
+  app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (HEAVY_AI_FEATURE_ENABLED && podeMostrarControlesFlutuantes() ? renderAssistenteVirtual() : "");
   atualizarMenu();
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
@@ -7164,10 +7247,7 @@ function renderDesktopConteudo() {
   }
 
   if (telaAtual !== "dashboard") {
-    return `
-      <div class="desktop-focus">${atualizacaoAndroid}${renderTela(telaAtual)}</div>
-      <div class="desktop-side-preview">${renderDashboard()}</div>
-    `;
+    return `<div class="desktop-focus desktop-page-${escaparAttr(telaAtual)}">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
   }
 
   return `${atualizacaoAndroid}${renderDashboard()}`;
@@ -7184,8 +7264,8 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar ou perguntar ao assistente"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-        <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
@@ -7213,7 +7293,7 @@ function buscarGlobal(event, valor) {
     return;
   }
 
-  if (deveDirecionarBuscaParaAssistente(valorOriginal)) {
+  if (HEAVY_AI_FEATURE_ENABLED && deveDirecionarBuscaParaAssistente(valorOriginal)) {
     abrirAssistenteComPergunta(valorOriginal);
     return;
   }
@@ -8014,10 +8094,12 @@ function formatarMetaProgressoIA(state = {}) {
 }
 
 function podeExibirAssistenteIAOffline() {
+  if (!HEAVY_AI_FEATURE_ENABLED) return false;
   return !!getUsuarioAtual();
 }
 
 function podeUsarAssistenteIAOfflinePro() {
+  if (!HEAVY_AI_FEATURE_ENABLED) return false;
   // IA Local e premium real: Free, Trial e Superadmin sem plano Pro pago visualizam, mas nao executam runtime/download.
   return isAndroidNativeApp() && !!getUsuarioAtual() && temPlanoProPagoAtivo();
 }
@@ -8413,6 +8495,7 @@ async function atualizarSuporteVozIASeNecessario() {
 }
 
 function renderAssistenteInteligenteProConfig() {
+  if (!HEAVY_AI_FEATURE_ENABLED) return "";
   if (!getUsuarioAtual()) return "";
   const acessoProIA = podeUsarAssistenteIAOfflinePro();
   const settings = getAIAssistantSettings();
@@ -9643,6 +9726,7 @@ function abrirModalIALocalNaoConfigurada(origem = "assistente") {
 }
 
 function deveDirecionarBuscaParaAssistente(termo = "") {
+  if (!HEAVY_AI_FEATURE_ENABLED) return false;
   const texto = String(termo || "").trim();
   if (!texto) return false;
   return texto.includes("?") || /^(como|por que|porque|qual|quais|sugere|sugerir|me ajuda|ajuda|ia\b)/i.test(texto);
@@ -9828,6 +9912,7 @@ async function enviarMensagemAssistente(event) {
 }
 
 function renderAssistenteVirtual() {
+  if (!HEAVY_AI_FEATURE_ENABLED) return "";
   if (!podeMostrarControlesFlutuantes()) return "";
   const modoDisponivel = getAssistenteModoDisponivel();
 
@@ -10827,7 +10912,6 @@ function renderMobile() {
     <div class="mobile-home">
       ${renderAtualizacaoAndroidDownload()}
       ${home}
-      ${renderAcoesRapidas()}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
     ${renderMobileBottomNav()}
@@ -10950,27 +11034,194 @@ function renderTela(tela) {
 }
 
 function renderAcoesRapidas() {
-  const acoes = [
-    { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-    { tela: "producao", icone: "🖨️", texto: "Produção" },
-    { tela: "estoque", icone: "📦", texto: "Estoque" },
-    { tela: "caixa", icone: "💰", texto: "Caixa" },
-    { tela: "clientes", icone: "👥", texto: "Clientes" },
-    { tela: "relatorios", icone: "📈", texto: "Relatórios" },
-    { tela: "backup", icone: "☁️", texto: "Backup" },
-    { tela: "assinatura", icone: "💳", texto: "Planos" }
-  ];
-  if (getUsuarioAtual()) acoes.push({ tela: "conta", icone: "👤", texto: "Conta" });
+  const limite = isMobile() ? 5 : 6;
+  const acoes = getAtalhosRapidosOrdenados(limite);
 
   return `
-    <div class="quick-actions">
-      ${acoes.filter((acao) => acao.acao || canAccessScreen(acao.tela)).map((acao) => `
-        <button class="quick-action" onclick="${acao.acao || `trocarTela('${acao.tela}')`}">
-          <span>${renderUiIcon(acao.tela, acao.icone)}</span>
-          <strong>${acao.texto}</strong>
+    <section class="quick-actions-section">
+      <div class="quick-actions-header">
+        <h2>Ações rápidas</h2>
+        <button class="text-link quick-customize-link" type="button" onclick="abrirPersonalizarAtalhos()">
+          Personalizar ${renderUiIcon("preferencias")}
         </button>
-      `).join("")}
-    </div>
+      </div>
+      <div class="quick-actions">
+        ${acoes.map((acao) => `
+          <button class="quick-action ${acao.primary ? "primary" : ""} ${normalizarUsoInteligente(usageLearning).shortcutPins.includes(acao.id) ? "pinned" : ""}" type="button" onclick="acionarAtalhoRapido('${escaparAttr(acao.id)}')">
+            <span>${renderUiIcon(acao.iconKey || acao.tela)}</span>
+            <strong>${escaparHtml(acao.label)}</strong>
+            ${normalizarUsoInteligente(usageLearning).shortcutPins.includes(acao.id) ? `<small>Fixado</small>` : ""}
+          </button>
+        `).join("")}
+      </div>
+      ${renderSugestaoFixarAtalho()}
+    </section>
+  `;
+}
+
+function renderDashboardHomeHeader() {
+  const usuario = getUsuarioAtual();
+  const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
+  return `
+    <section class="dashboard-home-header">
+      <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+      <div class="dashboard-greeting">
+        <h1>Olá, ${escaparHtml(nome)}!</h1>
+        <p>Aqui está o resumo do seu negócio hoje.</p>
+      </div>
+      <div class="dashboard-header-actions">
+        <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
+          <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        </label>
+        <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}</button>
+      </div>
+    </section>
+  `;
+}
+
+function getPedidoRecenteDashboard() {
+  return [...pedidos].filter(Boolean).sort((a, b) => {
+    const dataB = Date.parse(b.updatedAt || b.criadoEm || b.createdAt || b.data || "") || Number(b.id) || 0;
+    const dataA = Date.parse(a.updatedAt || a.criadoEm || a.createdAt || a.data || "") || Number(a.id) || 0;
+    return dataB - dataA;
+  });
+}
+
+function renderPedidosRecentesDashboard() {
+  const lista = getPedidoRecenteDashboard().slice(0, 4);
+  if (!lista.length) {
+    return `
+      <section class="dashboard-recent-orders card">
+        <div class="card-header">
+          <h2>Pedidos recentes</h2>
+          <button class="text-link" type="button" onclick="acionarAtalhoRapido('novo_pedido')">Criar pedido</button>
+        </div>
+        <div class="empty-state compact-empty">Nenhum pedido recente ainda.</div>
+      </section>
+    `;
+  }
+  return `
+    <section class="dashboard-recent-orders card">
+      <div class="card-header">
+        <h2>Pedidos recentes</h2>
+        <button class="text-link" type="button" onclick="trocarTela('pedidos')">Ver todos ${renderUiIcon("search")}</button>
+      </div>
+      <div class="dashboard-order-list">
+        ${lista.map((pedido) => {
+          const cliente = clienteDoPedido(pedido) || "Cliente";
+          const itens = normalizarItensPedido(pedido);
+          const prazo = pedido.prazo || pedido.dataPrazo || pedido.data || "";
+          const status = pedido.status || "aberto";
+          const tone = classeStatusPedido(status).replace("order-status-", "");
+          return `
+            <button class="dashboard-order-row order-card-tone-${escaparAttr(tone)}" type="button" onclick="visualizarPedido(${Number(pedido.id)})">
+              <span class="dashboard-order-avatar">${escaparHtml(getUserInitials(cliente))}</span>
+              <span class="dashboard-order-main">
+                <strong>${escaparHtml(cliente)}</strong>
+                <small>${itens.length} item(ns)${prazo ? ` • Prazo: ${escaparHtml(prazo)}` : ""}</small>
+              </span>
+              <span class="dashboard-order-total">
+                <strong>${formatarMoeda(totalPedido(pedido))}</strong>
+                <small>${escaparHtml(labelStatusPedido(status))}</small>
+              </span>
+              <span class="dashboard-order-arrow">›</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMiniSparklineDashboard(valores = [], estado = "teal") {
+  const serie = valores.map((valor) => Math.max(0, Number(valor) || 0));
+  const dados = serie.length ? serie : [0, 1, 1, 2, 1, 3, 2, 4, 3];
+  const maximo = Math.max(...dados, 1);
+  const pontos = dados.map((valor, index) => {
+    const x = 6 + index * (88 / Math.max(1, dados.length - 1));
+    const y = 34 - (valor / maximo) * 25;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return `<svg class="dashboard-sparkline spark-${escaparAttr(estado)}" viewBox="0 0 100 40" aria-hidden="true"><polyline points="${pontos}"></polyline></svg>`;
+}
+
+function renderResumoDiaDashboard(stats, totaisCaixa, analytics) {
+  const serie = Array.isArray(analytics.chart_series) ? analytics.chart_series : [];
+  const vendas = serie.map((item) => Number(item.sales) || 0);
+  const lucros = serie.map((item) => Number(item.profit) || 0);
+  const pedidosSerie = serie.map((item) => Number(item.orders) || 0);
+  const cards = [
+    { label: "Faturamento", value: formatarMoeda(stats.faturamentoDia), state: "teal", series: vendas },
+    { label: "Lucro", value: formatarMoeda(Math.max(0, stats.lucroEstimado)), state: "green", series: lucros },
+    { label: "Pedidos", value: String(stats.pedidosHoje || 0), state: "blue", series: pedidosSerie }
+  ];
+  return `
+    <section class="dashboard-day-summary card">
+      <div class="card-header">
+        <h2>Resumo do dia</h2>
+        <button class="text-link" type="button" onclick="trocarTela('relatorios')">Detalhes</button>
+      </div>
+      <div class="dashboard-day-grid">
+        ${cards.map((card) => `
+          <button class="dashboard-day-card day-${card.state}" type="button" onclick="trocarTela('${card.label === "Pedidos" ? "pedidos" : "caixa"}')">
+            <span>${escaparHtml(card.label)}</span>
+            <strong>${escaparHtml(card.value)}</strong>
+            ${renderMiniSparklineDashboard(card.series, card.state)}
+            <small>Hoje</small>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderInsightSmartDashboard(stats) {
+  const material = valorFrequenteUso("material_usado", "materialNome", 60);
+  const estoqueBaixo = normalizarEstoque().find((item) => (Number(item.qtd) || 0) <= estoqueMinimoKg);
+  if (estoqueBaixo) {
+    return `
+      <section class="dashboard-smart-insight">
+        <span class="insight-icon">${renderUiIcon("estoque")}</span>
+        <div>
+          <strong>${escaparHtml(estoqueBaixo.nome)} está abaixo do mínimo.</strong>
+          <small>Estoque atual: ${(Number(estoqueBaixo.qtd) || 0).toFixed(3)} kg</small>
+        </div>
+        <button class="btn secondary compact-action" type="button" onclick="trocarTela('estoque')">Ver estoque</button>
+      </section>
+    `;
+  }
+  if (material) {
+    return `
+      <section class="dashboard-smart-insight">
+        <span class="insight-icon">${renderUiIcon("calculadora")}</span>
+        <div>
+          <strong>Você usa ${escaparHtml(material)} na maioria dos cálculos recentes.</strong>
+          <small>Use os atalhos smart para aplicar padrões com regras locais.</small>
+        </div>
+        <button class="btn secondary compact-action" type="button" onclick="trocarTela('calculadora')">Calcular</button>
+      </section>
+    `;
+  }
+  return "";
+}
+
+function renderContinuarDeOndeParouDashboard() {
+  const temRascunhoPedido = clientePedido || clienteTelefonePedido || itensPedido.length;
+  if (!temRascunhoPedido && !ultimoCalculo) return "";
+  const texto = temRascunhoPedido
+    ? `Rascunho de pedido${clientePedido ? ` de ${clientePedido}` : ""}`
+    : "Cálculo preenchido na calculadora";
+  const destino = temRascunhoPedido ? "pedido" : "calculadora";
+  return `
+    <section class="dashboard-continue-card">
+      <span class="continue-icon">${renderUiIcon("backup")}</span>
+      <div>
+        <strong>Continuar de onde parou</strong>
+        <small>${escaparHtml(texto)}</small>
+      </div>
+      <button class="btn ghost compact-action" type="button" onclick="trocarTela('${destino}')">Continuar</button>
+    </section>
   `;
 }
 
@@ -11640,8 +11891,8 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar ou perguntar ao assistente"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-        <input placeholder="Buscar pedidos, clientes ou perguntar ao assistente..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
   `;
@@ -12050,6 +12301,7 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         ${renderDashboardPeriodTabs()}
       </section>
       ${renderSugestoesInteligentesDashboard()}
+      ${renderAcoesRapidas()}
       <div class="control-center-layout">
         <div class="control-center-main">
           ${renderDashboardComboChart(analytics)}
@@ -12070,19 +12322,17 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
   `;
 }
 
-function renderDashboardApkSimple({ totaisCaixa, analytics, cards }) {
+function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
   return `
     <section class="dashboard-pro premium-dashboard dashboard-apk-simple">
-      ${renderDashboardSearch()}
+      ${renderDashboardHomeHeader()}
       ${renderSugestoesInteligentesDashboard()}
-      ${renderDashboardPeriodTabs()}
-      ${renderDashboardAnalyticsHero(analytics)}
-      ${renderDashboardComboChart(analytics)}
-      <div class="dashboard-kpis">
-        ${cards.map(renderDashboardKpiCard).join("")}
-      </div>
+      ${renderAcoesRapidas()}
+      ${renderPedidosRecentesDashboard()}
+      ${renderResumoDiaDashboard(stats, totaisCaixa, analytics)}
+      ${renderInsightSmartDashboard(stats)}
+      ${renderContinuarDeOndeParouDashboard()}
       ${renderDashboardOnboardingCard()}
-      ${renderDashboardSupportCards(totaisCaixa)}
     </section>
   `;
 }
@@ -12302,16 +12552,65 @@ function renderPedido() {
       <div class="order-secondary-actions">
         ${renderAcaoPedidoCompacta("✚", "Manual", "adicionarProdutoManual()")}
         ${renderAcaoPedidoCompacta("🧮", "Calcular", "openCalculatorForOrder()")}
-        ${renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()")}
-        ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()")}
+        ${itensPedido.length ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
+        ${itensPedido.length ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
       </div>
     </section>
   `;
 }
 
 function renderSugestoesInteligentesDashboard() {
-  // Aprendizado fica local e discreto: ele ajusta sugestões internas sem criar botões extras na tela inicial.
-  return "";
+  if (!sugestoesInteligentesAtivas()) return "";
+  const hoje = hojeIsoData();
+  const pedidosHoje = pedidos.filter((pedido) => dataPedidoIso(pedido) === hoje);
+  const atrasado = pedidos.find((pedido) => {
+    const prazo = pedido.prazo || pedido.dataPrazo || "";
+    return prazo && prazo < hoje && !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"));
+  });
+  const pendentesEnvio = pedidos.filter((pedido) => ["aberto", "orcamento", "orçamento"].includes(String(pedido.status || "aberto").toLowerCase()));
+  const estoqueBaixo = normalizarEstoque().find((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg);
+  let texto = "";
+  let detalhe = "";
+  let acao = "";
+  let label = "";
+  if (atrasado) {
+    texto = `Pedido de ${clienteDoPedido(atrasado)} com prazo vencido`;
+    detalhe = `Total: ${formatarMoeda(totalPedido(atrasado))}`;
+    acao = `visualizarPedido(${Number(atrasado.id)})`;
+    label = "Revisar";
+  } else if (pendentesEnvio.length >= 2) {
+    texto = `${pendentesEnvio.length} pedidos aguardando envio`;
+    detalhe = `Total: ${formatarMoeda(pendentesEnvio.reduce((soma, pedido) => soma + totalPedido(pedido), 0))}`;
+    acao = "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')";
+    label = "Ver pedidos";
+  } else if (estoqueBaixo) {
+    texto = `${estoqueBaixo.nome} abaixo do mínimo`;
+    detalhe = `${(Number(estoqueBaixo.qtd) || 0).toFixed(3)} kg em estoque`;
+    acao = "trocarTela('estoque')";
+    label = "Ver estoque";
+  } else if (!pedidosHoje.length) {
+    texto = "Nenhum pedido criado hoje";
+    detalhe = "Comece pelo cabeçalho e adicione itens depois.";
+    acao = "trocarTela('pedido')";
+    label = "Criar pedido";
+  } else if (deveSugerirCalculadoraInicial()) {
+    texto = "Você costuma abrir a calculadora primeiro";
+    detalhe = "Use seu perfil ativo para calcular mais rápido.";
+    acao = "trocarTela('calculadora')";
+    label = "Abrir calculadora";
+  } else {
+    return "";
+  }
+  return `
+    <div class="smart-top-card">
+      <span class="smart-top-icon">${renderUiIcon("personalizacao")}</span>
+      <div>
+        <strong>${escaparHtml(texto)}</strong>
+        <small>${escaparHtml(detalhe)}</small>
+      </div>
+      <button class="btn secondary compact-action" type="button" onclick="${acao}">${escaparHtml(label)}</button>
+    </div>
+  `;
 }
 
 function renderPaletaCoresMaterial(inputId, selected = "") {
@@ -12444,12 +12743,13 @@ function renderListaPedidos() {
         const itens = Array.isArray(pedido.itens) ? pedido.itens.length : 1;
         const status = pedido.status || "aberto";
         const total = totalPedido(pedido);
+        const prazo = pedido.prazo || pedido.dataPrazo || pedido.data || "";
         return `
-          <div class="list-row clickable-row order-list-card" onclick="visualizarPedido(${id})">
+          <div class="list-row clickable-row order-list-card order-card-tone-${escaparAttr(classeStatusPedido(status).replace("order-status-", ""))}" onclick="visualizarPedido(${id})">
             <div class="order-card-topline">
               <div class="row-title">
                 <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
-                <span class="muted">#${escaparHtml(pedido.id)} • ${escaparHtml(pedido.data || "")}</span>
+                <span class="muted">#${escaparHtml(pedido.id)}${prazo ? " • " + escaparHtml(prazo) : ""}</span>
               </div>
               <span class="order-status-badge ${classeStatusPedido(status)}">${escaparHtml(labelStatusPedido(status))}</span>
             </div>
@@ -12458,9 +12758,7 @@ function renderListaPedidos() {
               <strong>${formatarMoeda(total)}</strong>
             </div>
             <div class="order-card-actions compact-action-grid">
-              ${renderAcaoPedidoCompacta("👁", "Ver", `event.stopPropagation(); visualizarPedido(${id})`)}
-              ${podeOperar ? renderAcaoPedidoCompacta("✎", "Editar", `event.stopPropagation(); editarPedido(${id})`) : ""}
-              ${podeOperar ? renderAcaoPedidoCompacta("🗑", "Excluir", `event.stopPropagation(); removerPedido(${id})`, "danger") : ""}
+              ${renderAcaoPedidoCompacta("▣", "Abrir", `event.stopPropagation(); visualizarPedido(${id})`)}
             </div>
           </div>
         `;
@@ -12469,6 +12767,18 @@ function renderListaPedidos() {
   const paginacao = lista.length > listaPaginada.length
     ? `<div class="actions pagination-actions"><span class="muted">Mostrando ${listaPaginada.length} de ${lista.length}</span><button class="btn ghost" onclick="carregarMaisPedidos()">Carregar mais</button></div>`
     : "";
+
+  if (isWebPwaProfile() && !isMobile()) {
+    return renderListaPedidosPwa({
+      podeOperar,
+      filtroDashboard,
+      lista,
+      listaPaginada,
+      pedidoSelecionado,
+      linhas,
+      paginacao
+    });
+  }
 
   return `
     <section class="card">
@@ -12533,6 +12843,8 @@ function renderUiIcon(tipo = "", fallback = "") {
     clientes: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M20 20v-1.5a3 3 0 0 0-2.2-2.9"/><path d="M4 20v-1.5a3 3 0 0 1 2.2-2.9"/></svg>`,
     caixa: `<svg ${attrs}><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/><path d="M12 10v7"/></svg>`,
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
+    whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
+    pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 12h7"/><path d="M8.5 16h7"/></svg>`,
     assinatura: `<svg ${attrs}><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>`,
     empresa: `<svg ${attrs}><path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-8h6v8"/><path d="M8 8h.1M12 8h.1M16 8h.1"/></svg>`,
     config: `<svg ${attrs}><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .3 2l.1.1-2 3-.2-.1a1.8 1.8 0 0 0-2.1.1 1.8 1.8 0 0 0-.8 1.7V22h-5.4v-.2a1.8 1.8 0 0 0-.8-1.7 1.8 1.8 0 0 0-2.1-.1l-.2.1-2-3 .1-.1a1.8 1.8 0 0 0 .3-2 1.8 1.8 0 0 0-1.5-1.1H3v-3.8h.1A1.8 1.8 0 0 0 4.6 9a1.8 1.8 0 0 0-.3-2l-.1-.1 2-3 .2.1a1.8 1.8 0 0 0 2.1-.1 1.8 1.8 0 0 0 .8-1.7V2h5.4v.2a1.8 1.8 0 0 0 .8 1.7 1.8 1.8 0 0 0 2.1.1l.2-.1 2 3-.1.1a1.8 1.8 0 0 0-.3 2 1.8 1.8 0 0 0 1.5 1.1h.1v3.8h-.1a1.8 1.8 0 0 0-1.5 1.1Z"/></svg>`,
@@ -12575,13 +12887,13 @@ function renderDetalhePedido(pedido) {
           <strong>${formatarMoeda(total)}</strong>
         </div>
       </div>
-      <div class="compact-action-grid order-detail-actions">
+      ${itens.length ? `<div class="compact-action-grid order-detail-actions">
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⎙", "Imprimir", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
-      </div>
+      </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
       <div class="history-list order-detail-items">
         ${itens.map((item) => `
           <div class="history-item premium-order-item">
@@ -15565,7 +15877,7 @@ function desbloquearRelatoriosComAnuncio() {
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
   return {
     primary_color: origem.primary_color || appConfig.accentColor || "#073b4b",
-    secondary_color: origem.secondary_color || "#ff941c",
+    secondary_color: origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8",
     pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
     logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
     profile_photo: origem.profile_photo || appConfig.profilePhotoDataUrl || "",
@@ -15573,14 +15885,90 @@ function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {
     login_background: origem.login_background || appConfig.loginBackgroundDataUrl || "",
     theme_mode: origem.theme_mode || appConfig.theme || "dark",
     glass_effect: origem.glass_effect !== false,
-    custom_pdf_enabled: origem.custom_pdf_enabled !== false
+    custom_pdf_enabled: origem.custom_pdf_enabled !== false,
+    pdf_theme: origem.pdf_theme || appConfig.pdfTheme || appConfig.pdfStyle || "modern_dark",
+    company_phone: origem.company_phone || appConfig.companyPhone || "",
+    company_email: origem.company_email || appConfig.companyEmail || "",
+    company_instagram: origem.company_instagram || appConfig.companyInstagram || "",
+    company_cnpj: origem.company_cnpj || appConfig.companyCnpj || "",
+    company_address: origem.company_address || appConfig.companyAddress || "",
+    company_city_state: origem.company_city_state || appConfig.companyCityState || "",
+    company_website: origem.company_website || appConfig.companyWebsite || "",
+    quote_validity_days: origem.quote_validity_days || appConfig.quoteValidityDays || 7,
+    payment_terms: origem.payment_terms || appConfig.paymentTerms || "",
+    production_deadline: origem.production_deadline || appConfig.productionDeadlineText || "",
+    pdf_default_message: origem.pdf_default_message || appConfig.pdfDefaultMessage || "",
+    pdf_default_notes: origem.pdf_default_notes || appConfig.pdfDefaultNotes || "",
+    pdf_signature: origem.pdf_signature || appConfig.pdfSignature || appConfig.documentFooter || "",
+    pix_instruction: origem.pix_instruction || appConfig.pixInstruction || ""
   };
+}
+
+const PDF_THEME_PRESETS = Object.freeze({
+  modern_dark: {
+    label: "Modern Dark",
+    background: "#06131b",
+    panel: "#0a2230",
+    panelAlt: "#071a26",
+    line: "#0bb8b1",
+    text: "#f5fbff",
+    muted: "#b8c6d4",
+    headerText: "#ffffff",
+    tableStripe: "#0c2838"
+  },
+  clean_white: {
+    label: "Clean White",
+    background: "#f7fafc",
+    panel: "#ffffff",
+    panelAlt: "#eef6f8",
+    line: "#0f766e",
+    text: "#10202c",
+    muted: "#526173",
+    headerText: "#10202c",
+    tableStripe: "#f1f7f8"
+  },
+  compact_business: {
+    label: "Compact Business",
+    background: "#f2f5f7",
+    panel: "#ffffff",
+    panelAlt: "#e8eef2",
+    line: "#073b4b",
+    text: "#111827",
+    muted: "#4b5563",
+    headerText: "#111827",
+    tableStripe: "#edf2f5"
+  },
+  neon_dark: {
+    label: "Neon Dark",
+    background: "#030b12",
+    panel: "#071724",
+    panelAlt: "#06111d",
+    line: "#00d8c8",
+    text: "#f8fdff",
+    muted: "#aab8c6",
+    headerText: "#ffffff",
+    tableStripe: "#092235"
+  }
+});
+
+function normalizarPdfTheme(valor = appConfig.pdfTheme || appConfig.pdfStyle || "modern_dark") {
+  const tema = String(valor || "").trim().toLowerCase();
+  if (tema === "brand") return "modern_dark";
+  if (tema === "clean") return "clean_white";
+  return PDF_THEME_PRESETS[tema] ? tema : "modern_dark";
+}
+
+function limitarCorPdf(valor, fallback = "#00d8c8") {
+  const texto = String(valor || "").trim();
+  return /^#[0-9a-f]{6}$/i.test(texto) ? texto : fallback;
 }
 
 function renderPersonalizacao() {
   const corAtual = appConfig.accentColor || "#073b4b";
+  const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
+  const temaPdfAtual = normalizarPdfTheme();
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
-  const acessoMarca = temAcessoCompleto();
+  const acessoMarca = true;
   const marcaAtual = getMarcaProjetoSrc();
   const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
   const fotoPerfilAtual = appConfig.profilePhotoDataUrl || "";
@@ -15590,7 +15978,7 @@ function renderPersonalizacao() {
     <section class="card">
       <div class="card-header">
         <h2>🎨 Personalização</h2>
-        <span class="status-badge">${acessoMarca ? "Recurso PRO" : "PRO"}</span>
+        <span class="status-badge">Identidade</span>
       </div>
 
       <label class="field">
@@ -15605,14 +15993,42 @@ function renderPersonalizacao() {
         <span>WhatsApp comercial</span>
         <input id="whatsappNumberConfig" value="${escaparAttr(appConfig.whatsappNumber)}" placeholder="Ex.: 5585999999999">
       </label>
-      <label class="field">
-        <span>Rodapé do PDF</span>
-        <input id="documentFooterConfig" value="${escaparAttr(appConfig.documentFooter)}" placeholder="Obrigado pela preferência.">
-      </label>
+      <div class="sync-grid">
+        <label class="field">
+          <span>Telefone</span>
+          <input id="companyPhoneConfig" value="${escaparAttr(appConfig.companyPhone || "")}" placeholder="Ex.: (11) 99999-9999">
+        </label>
+        <label class="field">
+          <span>E-mail comercial</span>
+          <input id="companyEmailConfig" type="email" value="${escaparAttr(appConfig.companyEmail || "")}" placeholder="contato@suaempresa.com.br">
+        </label>
+        <label class="field">
+          <span>Instagram</span>
+          <input id="companyInstagramConfig" value="${escaparAttr(appConfig.companyInstagram || "")}" placeholder="@suaempresa">
+        </label>
+        <label class="field">
+          <span>Site</span>
+          <input id="companyWebsiteConfig" value="${escaparAttr(appConfig.companyWebsite || "")}" placeholder="www.suaempresa.com.br">
+        </label>
+      </div>
+      <div class="sync-grid">
+        <label class="field">
+          <span>Endereço</span>
+          <input id="companyAddressConfig" value="${escaparAttr(appConfig.companyAddress || "")}" placeholder="Rua, número e bairro">
+        </label>
+        <label class="field">
+          <span>Cidade/Estado</span>
+          <input id="companyCityStateConfig" value="${escaparAttr(appConfig.companyCityState || "")}" placeholder="São Paulo - SP">
+        </label>
+        <label class="field">
+          <span>CNPJ</span>
+          <input id="companyCnpjConfig" value="${escaparAttr(appConfig.companyCnpj || "")}" placeholder="00.000.000/0001-00">
+        </label>
+      </div>
 
       <div class="danger-zone">
-        <h2 class="section-title">Perfil premium</h2>
-        <p class="muted">Separe a foto do usuário, a logo da empresa e a identidade usada no PDF. Recursos avançados ficam disponíveis no PRO.</p>
+        <h2 class="section-title">Identidade da empresa</h2>
+        <p class="muted">Separe a foto do usuário, a logo da empresa e a identidade usada no PDF.</p>
         <div class="profile-preview-row">
           <div class="profile-preview-avatar" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
           <div class="brand-preview compact">
@@ -15658,15 +16074,27 @@ function renderPersonalizacao() {
 
       <div class="danger-zone">
         <h2 class="section-title">PDF, Pix e marca</h2>
-        <p class="muted">Esses dados aparecem no PDF do pedido. A marca d'água e o logotipo ficam liberados no plano completo.</p>
+        <p class="muted">Esses dados aparecem automaticamente no orçamento. O layout fica fixo para manter o PDF profissional e alinhado.</p>
         <div class="brand-preview">
           <img id="brandLogoPreview" src="${escaparAttr(marcaAtual)}" alt="Prévia da marca no PDF">
           <div>
             <strong>${appConfig.brandLogoDataUrl ? "Marca personalizada" : "Capa padrão do projeto"}</strong>
-            <span class="muted">Essa imagem aparece no app e no PDF. Clientes pagos podem trocar pela própria marca.</span>
+            <span class="muted">Essa imagem aparece no app e no PDF, sem alterar a estrutura fixa do orçamento.</span>
           </div>
         </div>
         <div class="sync-grid">
+          <label class="field">
+            <span>Tema do PDF</span>
+            <select id="pdfThemeConfig">
+              ${Object.entries(PDF_THEME_PRESETS).map(([id, tema]) => `
+                <option value="${id}" ${temaPdfAtual === id ? "selected" : ""}>${escaparHtml(tema.label)}</option>
+              `).join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>Cor secundária do PDF</span>
+            <input id="pdfSecondaryColorConfig" type="color" value="${escaparAttr(corSecundariaAtual)}">
+          </label>
           <label class="field">
             <span>Chave Pix</span>
             <input id="pixKeyConfig" value="${escaparAttr(appConfig.pixKey || "")}" placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória">
@@ -15682,6 +16110,36 @@ function renderPersonalizacao() {
           <label class="field">
             <span>Descrição Pix</span>
             <input id="pixDescriptionConfig" maxlength="40" value="${escaparAttr(appConfig.pixDescription || "Pedido Simplifica 3D")}">
+          </label>
+          <label class="field">
+            <span>Instrução Pix</span>
+            <input id="pixInstructionConfig" maxlength="120" value="${escaparAttr(appConfig.pixInstruction || "")}" placeholder="Após o pagamento, envie o comprovante pelo WhatsApp.">
+          </label>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Mensagem padrão do orçamento</span>
+            <textarea id="pdfDefaultMessageConfig" rows="2" maxlength="220" placeholder="Peças produzidas com impressão 3D de alta qualidade.">${escaparHtml(appConfig.pdfDefaultMessage || "")}</textarea>
+          </label>
+          <label class="field">
+            <span>Observações padrão</span>
+            <textarea id="pdfDefaultNotesConfig" rows="3" maxlength="420" placeholder="Condições, prazos e orientações comerciais.">${escaparHtml(appConfig.pdfDefaultNotes || "")}</textarea>
+          </label>
+          <label class="field">
+            <span>Prazo padrão</span>
+            <input id="productionDeadlineTextConfig" value="${escaparAttr(appConfig.productionDeadlineText || "")}" placeholder="Até 5 dias úteis">
+          </label>
+          <label class="field">
+            <span>Validade padrão (dias)</span>
+            <input id="quoteValidityDaysConfig" type="number" min="1" max="90" step="1" value="${Number(appConfig.quoteValidityDays) || 7}">
+          </label>
+          <label class="field">
+            <span>Forma de pagamento</span>
+            <input id="paymentTermsConfig" value="${escaparAttr(appConfig.paymentTerms || "")}" placeholder="PIX / Transferência">
+          </label>
+          <label class="field">
+            <span>Assinatura final</span>
+            <input id="pdfSignatureConfig" maxlength="160" value="${escaparAttr(appConfig.pdfSignature || appConfig.documentFooter || "")}" placeholder="Qualquer dúvida, estamos à disposição.">
           </label>
         </div>
         <div class="sync-grid">
@@ -15704,21 +16162,10 @@ function renderPersonalizacao() {
         </div>
         <div class="sync-grid">
           <label class="field">
-            <span>Estilo do PDF</span>
-            <select id="pdfStyleConfig" ${acessoMarca ? "" : "disabled"}>
-              <option value="clean" ${appConfig.pdfStyle !== "brand" ? "selected" : ""}>Limpo</option>
-              <option value="brand" ${appConfig.pdfStyle === "brand" ? "selected" : ""}>Marca destacada</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Cabeçalho personalizado</span>
-            <input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Qualidade em impressão 3D" ${acessoMarca ? "" : "disabled"}>
+            <span>Subtítulo da empresa no PDF</span>
+            <input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Impressão 3D sob medida">
           </label>
         </div>
-        <label class="checkbox-row">
-          <input id="brandWatermarkEnabledConfig" type="checkbox" ${appConfig.brandWatermarkEnabled !== false ? "checked" : ""} ${acessoMarca ? "" : "disabled"}>
-          <span>Usar logo como marca d'água no PDF</span>
-        </label>
         ${appConfig.brandLogoDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerLogoMarca()">Remover logo salva</button>` : ""}
         ${appConfig.pdfBackgroundDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
       </div>
@@ -15936,7 +16383,7 @@ function renderAssinatura() {
           <div class="metric"><span>Pedidos</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "Limitados"}</strong></div>
           <div class="metric"><span>PDFs</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "1 por dia"}</strong></div>
           <div class="metric"><span>Relatórios</span><strong>${estadoPlano.hasPremium ? "Avançados" : "Básicos"}</strong></div>
-          <div class="metric plan-ai-exclusive"><span>Assistente IA</span><strong>Exclusivo do Plano PRO</strong><small>* Pode causar lentidão no dispositivo dependendo do modelo instalado.</small></div>
+          <div class="metric plan-ai-exclusive"><span>Smart UX</span><strong>Sugestões locais no app</strong><small>Atalhos e dicas por histórico, com regras locais.</small></div>
         </div>
       </div>
 
@@ -15987,11 +16434,11 @@ function renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin = fal
         "PDFs ilimitados",
         "Sem anúncios",
         "Relatórios avançados",
-        "Assistente IA exclusivo do Plano PRO",
+        "Atalhos smart locais",
         "Backup e sincronização",
         "Suporte prioritário"
       ])}
-      <p class="muted plan-card-footnote">* A IA local pode causar lentidão no dispositivo dependendo do modelo instalado.</p>
+      <p class="muted plan-card-footnote">* O app usa sugestões locais leves por histórico e contexto.</p>
       <div class="actions">
         <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
         ${superadmin
@@ -16015,8 +16462,8 @@ function renderPlanoSaasCard(plano, options = {}) {
   const isPremium = plano.slug === "premium";
   const preco = isPremium ? Number(options.preco || getPrecoPagoVigenteLocal()) : 0;
   const beneficios = isPremium
-    ? ["Pedidos ilimitados", "PDFs ilimitados", "Sem anúncios", "Relatórios avançados", "Assistente IA exclusivo do Plano PRO", "Backup e sincronização", "Suporte prioritário"]
-    : ["Pedidos limitados", "1 PDF grátis por dia", "Anúncios leves", "Recursos básicos", "Sem IA local/offline"];
+    ? ["Pedidos ilimitados", "PDFs ilimitados", "Sem anúncios", "Relatórios avançados", "Atalhos smart locais", "Backup e sincronização", "Suporte prioritário"]
+    : ["Pedidos limitados", "1 PDF grátis por dia", "Anúncios leves", "Recursos básicos", "Suporte por feedback"];
 
   return `
     <div class="plan-card ${isPremium ? "featured plan-card-premium" : "plan-card-free"}">
@@ -16030,7 +16477,7 @@ function renderPlanoSaasCard(plano, options = {}) {
            <p class="muted plan-card-note">Primeiro mês por ${formatarMoeda(PREMIUM_FIRST_MONTH_PRICE)}.</p>`
         : `<p class="plan-free-copy">Para continuar sem custo, com anúncios leves e recursos básicos.</p>`}
       ${renderPlanBenefitList(beneficios)}
-      ${isPremium ? `<p class="muted plan-card-footnote">* A IA local pode causar lentidão no dispositivo dependendo do modelo instalado.</p>` : ""}
+      ${isPremium ? `<p class="muted plan-card-footnote">* O app usa sugestões locais leves por histórico e contexto.</p>` : ""}
       ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora não cancela o teste atual; o acesso PRO continua normalmente enquanto o pagamento é confirmado.</p>` : ""}
       <div class="actions single">
         ${superadmin
@@ -16888,37 +17335,66 @@ function lerPersonalizacaoCampos() {
   const theme = acessoMarca
     ? (document.getElementById("themeConfig")?.value || appConfig.theme || "dark")
     : (appConfig.theme || "dark");
-  const pdfStyle = acessoMarca
-    ? (document.getElementById("pdfStyleConfig")?.value || appConfig.pdfStyle || "clean")
-    : (appConfig.pdfStyle || "clean");
+  const pdfTheme = normalizarPdfTheme(document.getElementById("pdfThemeConfig")?.value || appConfig.pdfTheme || appConfig.pdfStyle);
   const pdfHeaderText = acessoMarca
     ? (document.getElementById("pdfHeaderTextConfig")?.value || "").trim()
     : (appConfig.pdfHeaderText || "");
-  const brandWatermarkEnabled = acessoMarca
-    ? (document.getElementById("brandWatermarkEnabledConfig") ? !!document.getElementById("brandWatermarkEnabledConfig")?.checked : appConfig.brandWatermarkEnabled !== false)
-    : appConfig.brandWatermarkEnabled !== false;
+  const brandWatermarkEnabled = appConfig.brandWatermarkEnabled !== false;
   const customLoginMessage = acessoMarca
     ? (document.getElementById("customLoginMessageConfig")?.value || "").trim()
     : (appConfig.customLoginMessage || "");
+  const assinaturaPdf = (document.getElementById("pdfSignatureConfig")?.value || appConfig.pdfSignature || appConfig.documentFooter || "").trim();
   return {
     appName: (document.getElementById("appNameConfig")?.value || SYSTEM_NAME).trim(),
     businessName: (document.getElementById("businessNameConfig")?.value || "Minha empresa 3D").trim(),
     whatsappNumber: normalizePhoneBR(document.getElementById("whatsappNumberConfig")?.value || ""),
-    documentFooter: (document.getElementById("documentFooterConfig")?.value || "").trim(),
+    companyPhone: (document.getElementById("companyPhoneConfig")?.value || "").trim(),
+    companyEmail: (document.getElementById("companyEmailConfig")?.value || "").trim(),
+    companyInstagram: (document.getElementById("companyInstagramConfig")?.value || "").trim(),
+    companyCnpj: (document.getElementById("companyCnpjConfig")?.value || "").trim(),
+    companyAddress: (document.getElementById("companyAddressConfig")?.value || "").trim(),
+    companyCityState: (document.getElementById("companyCityStateConfig")?.value || "").trim(),
+    companyWebsite: (document.getElementById("companyWebsiteConfig")?.value || "").trim(),
+    quoteValidityDays: Math.min(90, Math.max(1, parseInt(document.getElementById("quoteValidityDaysConfig")?.value, 10) || 7)),
+    paymentTerms: (document.getElementById("paymentTermsConfig")?.value || "").trim(),
+    productionDeadlineText: (document.getElementById("productionDeadlineTextConfig")?.value || "").trim(),
+    pdfDefaultMessage: (document.getElementById("pdfDefaultMessageConfig")?.value || "").trim(),
+    pdfDefaultNotes: (document.getElementById("pdfDefaultNotesConfig")?.value || "").trim(),
+    pdfSignature: assinaturaPdf,
+    documentFooter: assinaturaPdf,
     pixKey: (document.getElementById("pixKeyConfig")?.value || "").trim(),
     pixReceiverName: (document.getElementById("pixReceiverNameConfig")?.value || "").trim(),
     pixCity: (document.getElementById("pixCityConfig")?.value || "").trim(),
     pixDescription: (document.getElementById("pixDescriptionConfig")?.value || "Pedido Simplifica 3D").trim(),
+    pixInstruction: (document.getElementById("pixInstructionConfig")?.value || "").trim(),
     brandWatermarkEnabled,
     theme,
     accentColor,
-    pdfStyle,
+    pdfTheme,
+    pdfStyle: pdfTheme,
+    pdfSecondaryColor: limitarCorPdf(document.getElementById("pdfSecondaryColorConfig")?.value || appConfig.pdfSecondaryColor || "#00d8c8"),
     pdfHeaderText,
     customLoginMessage,
     motionLevel: document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium",
     appearanceSettings: normalizarAppearanceSettings({
       ...(appConfig.appearanceSettings || {}),
       primary_color: accentColor,
+      secondary_color: limitarCorPdf(document.getElementById("pdfSecondaryColorConfig")?.value || appConfig.pdfSecondaryColor || "#00d8c8"),
+      pdf_theme: pdfTheme,
+      company_phone: document.getElementById("companyPhoneConfig")?.value || "",
+      company_email: document.getElementById("companyEmailConfig")?.value || "",
+      company_instagram: document.getElementById("companyInstagramConfig")?.value || "",
+      company_cnpj: document.getElementById("companyCnpjConfig")?.value || "",
+      company_address: document.getElementById("companyAddressConfig")?.value || "",
+      company_city_state: document.getElementById("companyCityStateConfig")?.value || "",
+      company_website: document.getElementById("companyWebsiteConfig")?.value || "",
+      quote_validity_days: Math.min(90, Math.max(1, parseInt(document.getElementById("quoteValidityDaysConfig")?.value, 10) || 7)),
+      payment_terms: document.getElementById("paymentTermsConfig")?.value || "",
+      production_deadline: document.getElementById("productionDeadlineTextConfig")?.value || "",
+      pdf_default_message: document.getElementById("pdfDefaultMessageConfig")?.value || "",
+      pdf_default_notes: document.getElementById("pdfDefaultNotesConfig")?.value || "",
+      pdf_signature: assinaturaPdf,
+      pix_instruction: document.getElementById("pixInstructionConfig")?.value || "",
       pdf_background: appConfig.pdfBackgroundDataUrl || "",
       logo_url: appConfig.brandLogoDataUrl || "",
       profile_photo: appConfig.profilePhotoDataUrl || "",
@@ -17250,7 +17726,25 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
     brandLogoDataUrl: usarTexto(linha.pdf_watermark) || usarTexto(settings.logo_url) || appConfig.brandLogoDataUrl,
     companyLogoDataUrl: usarTexto(linha.company_logo) || usarTexto(settings.company_logo) || appConfig.companyLogoDataUrl,
     profilePhotoDataUrl: usarTexto(linha.profile_photo) || usarTexto(settings.profile_photo) || appConfig.profilePhotoDataUrl,
-    customLoginMessage: usarTexto(linha.custom_message) || appConfig.customLoginMessage
+    customLoginMessage: usarTexto(linha.custom_message) || appConfig.customLoginMessage,
+    pdfTheme: normalizarPdfTheme(usarTexto(settings.pdf_theme) || appConfig.pdfTheme || appConfig.pdfStyle),
+    pdfStyle: normalizarPdfTheme(usarTexto(settings.pdf_theme) || appConfig.pdfTheme || appConfig.pdfStyle),
+    pdfSecondaryColor: limitarCorPdf(usarTexto(linha.secondary_color) || usarTexto(settings.secondary_color) || appConfig.pdfSecondaryColor || "#00d8c8"),
+    companyPhone: usarTexto(settings.company_phone) || appConfig.companyPhone,
+    companyEmail: usarTexto(settings.company_email) || appConfig.companyEmail,
+    companyInstagram: usarTexto(settings.company_instagram) || appConfig.companyInstagram,
+    companyCnpj: usarTexto(settings.company_cnpj) || appConfig.companyCnpj,
+    companyAddress: usarTexto(settings.company_address) || appConfig.companyAddress,
+    companyCityState: usarTexto(settings.company_city_state) || appConfig.companyCityState,
+    companyWebsite: usarTexto(settings.company_website) || appConfig.companyWebsite,
+    quoteValidityDays: Number(settings.quote_validity_days) || appConfig.quoteValidityDays || 7,
+    paymentTerms: usarTexto(settings.payment_terms) || appConfig.paymentTerms,
+    productionDeadlineText: usarTexto(settings.production_deadline) || appConfig.productionDeadlineText,
+    pdfDefaultMessage: usarTexto(settings.pdf_default_message) || appConfig.pdfDefaultMessage,
+    pdfDefaultNotes: usarTexto(settings.pdf_default_notes) || appConfig.pdfDefaultNotes,
+    pdfSignature: usarTexto(settings.pdf_signature) || appConfig.pdfSignature || appConfig.documentFooter,
+    documentFooter: usarTexto(settings.pdf_signature) || appConfig.documentFooter,
+    pixInstruction: usarTexto(settings.pix_instruction) || appConfig.pixInstruction
   };
   const appearanceSettings = normalizarAppearanceSettings({
     ...(appConfig.appearanceSettings || {}),
@@ -17372,25 +17866,41 @@ function restaurarPersonalizacaoPadrao() {
     appName: SYSTEM_NAME,
     businessName: "Minha empresa 3D",
     whatsappNumber: "",
+    companyPhone: "",
+    companyEmail: "",
+    companyInstagram: "",
+    companyCnpj: "",
+    companyAddress: "",
+    companyCityState: "",
+    companyWebsite: "",
+    quoteValidityDays: 7,
+    paymentTerms: "PIX / Transferência",
+    productionDeadlineText: "Até 5 dias úteis",
+    pdfDefaultMessage: "Peças produzidas com impressão 3D de alta qualidade.",
+    pdfDefaultNotes: "As cores podem variar levemente conforme o lote do material.\nQualquer alteração no projeto pode impactar o prazo de entrega.",
+    pdfSignature: "Qualquer dúvida, estamos à disposição.",
     documentFooter: "Obrigado pela preferência.",
     pixKey: "",
     pixReceiverName: "",
     pixCity: "",
     pixDescription: "Pedido Simplifica 3D",
+    pixInstruction: "Após o pagamento, envie o comprovante pelo WhatsApp.",
     brandLogoDataUrl: "",
     pdfBackgroundDataUrl: "",
     profilePhotoDataUrl: "",
     companyLogoDataUrl: "",
     loginBackgroundDataUrl: "",
     customLoginMessage: "",
-    pdfStyle: "clean",
+    pdfTheme: "modern_dark",
+    pdfStyle: "modern_dark",
+    pdfSecondaryColor: "#00d8c8",
     pdfHeaderText: "",
     brandWatermarkEnabled: true,
     theme: "dark",
     accentColor: "#073b4b",
     appearanceSettings: normalizarAppearanceSettings({
       primary_color: "#073b4b",
-      secondary_color: "#ff941c",
+      secondary_color: "#00d8c8",
       pdf_background: "",
       logo_url: "",
       profile_photo: "",
@@ -17410,6 +17920,12 @@ function restaurarPersonalizacaoPadrao() {
     defaultFilamentCost: 150,
     defaultPrinterType: appConfig.defaultPrinterType || "FDM",
     defaultPrinterModel: appConfig.defaultPrinterModel || "Ender 3",
+    minimumRecommendedMargin: 60,
+    minimumChargedHours: 0,
+    priceRounding: 0,
+    defaultLayerHeight: "0.20mm",
+    defaultNozzle: "0.4mm",
+    defaultQualityPreset: "0.20mm padrão",
     defaultResinCost: Number(appConfig.defaultResinCost) || 180,
     screenFit: "auto",
     uiScale: 100,
@@ -21115,8 +21631,11 @@ async function addCalculatedItemToOrder(item, opcoes = {}) {
 
 async function confirmCalculatorResult() {
   if (!ultimoCalculo) {
-    alert("Clique em Calcular e revise o valor antes de adicionar.");
-    return false;
+    const calculou = calcular();
+    if (!calculou || !ultimoCalculo) {
+      alert("Preencha peso, tempo, material e quantidade antes de adicionar.");
+      return false;
+    }
   }
   if (!ultimoCalculo || ultimoCalculo.preco <= 0) {
     alert("Calcule um valor válido antes de adicionar");
@@ -22126,98 +22645,669 @@ function salvarConfiguracaoCalculadora(persistir = true) {
   return proxima;
 }
 
-function renderCalculadoraConteudo() {
-  const config = getConfiguracaoCalculadora();
+function obterPerfilAtivoCalculadora(config = getConfiguracaoCalculadora()) {
+  const impressora = printers[config.printerModel] || printers["Ender 3"];
+  const material = getMaterialEstoque(config.materialId);
+  const materialNome = material?.nome || valorFrequenteUso("material_usado", "materialNome", 40) || "PLA";
+  const ultima = normalizarUsoInteligente(usageLearning).events
+    .filter((evento) => evento.tipo === "calculadora_aberta" || evento.tipo === "impressora_usada" || evento.tipo === "material_usado")
+    .slice(-1)[0];
+  const ultimaData = ultima?.at ? new Date(ultima.at) : null;
+  const ultimoUso = ultimaData && !Number.isNaN(ultimaData.getTime())
+    ? `Último usado ${ultimaData.toLocaleDateString("pt-BR")} às ${ultimaData.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`
+    : "Pronto para novo cálculo";
+  return {
+    nome: config.printerModel || "Ender 3",
+    tipo: impressora?.tipo || config.printerType || "FDM",
+    materialNome,
+    camada: appConfig.defaultLayerHeight || "0.20mm",
+    bico: appConfig.defaultNozzle || "0.4mm",
+    ultimoUso
+  };
+}
+
+function renderDicaSmartCalculadora(config = getConfiguracaoCalculadora()) {
+  if (!sugestoesInteligentesAtivas() || usageLearning?.dismissed?.calcSmartTip === hojeIsoData()) return "";
+  const materialFrequente = valorFrequenteUso("material_usado", "materialNome", 40);
+  const impressoraFrequente = valorFrequenteUso("impressora_usada", "impressora", 40);
+  const materialAtual = getMaterialEstoque(config.materialId)?.nome || "";
+  const estoqueBaixo = normalizarEstoque().find((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg);
+  let texto = "";
+  let acao = "";
+  let label = "";
+  if (estoqueBaixo) {
+    texto = `${estoqueBaixo.nome} está abaixo do mínimo`;
+    acao = "trocarTela('estoque')";
+    label = "Ver estoque";
+  } else if (materialFrequente && materialFrequente !== materialAtual) {
+    texto = `Você costuma usar ${materialFrequente}`;
+    acao = "aplicarMaterialFrequenteCalculadora()";
+    label = "Usar novamente";
+  } else if (impressoraFrequente && impressoraFrequente !== config.printerModel) {
+    texto = `Você costuma usar ${impressoraFrequente}`;
+    acao = `aplicarPerfilCalculadora('${escaparAttr(impressoraFrequente)}')`;
+    label = "Aplicar perfil";
+  } else if (Number(config.margem) < Number(appConfig.minimumRecommendedMargin || 60)) {
+    texto = "Margem abaixo do recomendado";
+    acao = "abrirConfiguracoesCalculadora()";
+    label = "Ajustar margem";
+  } else {
+    texto = "Use peso, tempo e material para ver o valor em tempo real";
+    acao = "agendarCalculoTempoReal()";
+    label = "Atualizar";
+  }
   return `
-    <div class="calc-grid">
-      <label class="field">
-        <span>Tipo de impressora</span>
-        <select id="printerType" onchange="preencherImpressoras(true)">
-          <option value="FDM" ${config.printerType !== "RESINA" ? "selected" : ""}>FDM</option>
-          <option value="RESINA" ${config.printerType === "RESINA" ? "selected" : ""}>RESINA</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>Impressora</span>
-        <select id="printer"></select>
-      </label>
-    </div>
-
-    <div class="calc-material-row">
-      <label class="field">
-        <span>Material do estoque</span>
-        <select id="calcMaterial" onchange="alterarMaterialCalculadora(this.value)"></select>
-      </label>
-    </div>
-    <p class="muted calc-stock-hint">Use sem vínculo, selecione um material do estoque ou cadastre um material direto pela lista.</p>
-
-    <div class="calc-grid">
-      <label class="field">
-        <span>Peso em gramas</span>
-        <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 80" value="${escaparAttr(config.peso)}">
-      </label>
-      <label class="field">
-        <span>Material R$/kg</span>
-        <input id="filamento" type="number" min="0" step="0.01" value="${escaparAttr(config.filamento)}" oninput="salvarConfiguracaoCalculadora()">
-      </label>
-      <label class="field">
-        <span>Tempo em horas</span>
-        <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 4.5" value="${escaparAttr(config.tempo)}">
-      </label>
-      <label class="field">
-        <span>Quantidade</span>
-        <input id="quantidade" type="number" min="1" step="1" value="${escaparAttr(config.quantidade)}" oninput="salvarConfiguracaoCalculadora()">
-      </label>
-      <label class="field">
-        <span>Energia R$/kWh</span>
-        <input id="energia" type="number" min="0" step="0.01" value="${escaparAttr(config.energia)}" oninput="salvarConfiguracaoCalculadora()">
-      </label>
-      <label class="field">
-        <span>Consumo W</span>
-        <input id="consumo" type="number" min="0" step="1" value="${escaparAttr(config.consumo)}" oninput="salvarConfiguracaoCalculadora()">
-      </label>
-      <label class="field">
-        <span>Custo hora</span>
-        <input id="custoHora" type="number" min="0" step="0.01" value="${escaparAttr(config.custoHora)}" oninput="salvarConfiguracaoCalculadora()">
-      </label>
-      <label class="field">
-        <span>Margem %</span>
-        <input id="margem" type="number" min="0" step="1" value="${escaparAttr(config.margem)}" oninput="salvarConfiguracaoCalculadora()">
-      </label>
-      <label class="field">
-        <span>Taxa extra (R$)</span>
-        <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00" value="${escaparAttr(config.taxaExtra)}">
-      </label>
-    </div>
-
-    <label class="field">
-      <span>Nome do item</span>
-      <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" oninput="salvarConfiguracaoCalculadora()">
-    </label>
-
-    <div class="actions">
-      <button class="btn secondary" onclick="calcular()">Calcular</button>
-      <button class="btn ghost" type="button" onclick="limparCalculo()">Novo cálculo</button>
-      ${podeExibirAssistenteIAOffline() ? `<button class="btn ghost" type="button" onclick="sugerirCalculadoraComIA()">✨ Sugerir com IA</button>` : ""}
-    </div>
-    <div id="res" class="result-box">Preencha os dados e calcule o valor do item.</div>
-
-    <div class="actions">
-      <button class="btn" id="confirmCalculatorItemButton" onclick="adicionarItem()" ${itemAdicionandoPedido ? "disabled" : ""}>${itemAdicionandoPedido ? "Adicionando item..." : "Confirmar item"}</button>
-      <button class="btn secondary" onclick="salvarOrcamento()">Salvar orçamento</button>
-      <button class="btn ghost" onclick="gerarPdfCalculadora()">Gerar PDF</button>
-      <button class="btn ghost" onclick="minimizarCalculadora()">Minimizar</button>
+    <div class="calc-smart-tip">
+      <span class="calc-tip-icon">${renderUiIcon("preferencias")}</span>
+      <div>
+        <strong>Dica inteligente</strong>
+        <small>${escaparHtml(texto)}</small>
+      </div>
+      <button class="btn ghost compact-action" type="button" onclick="${acao}">${escaparHtml(label)}</button>
+      <button class="icon-button" type="button" onclick="dispensarDicaCalculadora()" title="Dispensar">×</button>
     </div>
   `;
 }
 
+function renderListaPedidosPwa({ podeOperar, filtroDashboard, lista, listaPaginada, pedidoSelecionado, linhas, paginacao }) {
+  const selecionado = pedidoSelecionado || listaPaginada[0] || null;
+  const detalhe = selecionado ? renderDetalhePedido(selecionado) : `
+    <div class="order-empty-detail">
+      <strong>Selecione um pedido</strong>
+      <span>Os detalhes, itens, status e ações aparecem neste painel.</span>
+    </div>
+  `;
+  return `
+    <section class="orders-pwa-page">
+      <header class="pwa-page-header">
+        <div>
+          <span class="eyebrow">Pedidos</span>
+          <h2>Pedidos e orçamentos</h2>
+          <p class="muted">Lista, detalhes e ações em painéis separados para evitar mistura com a Home.</p>
+        </div>
+        ${podeOperar ? `<button class="btn" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
+      </header>
+      <div class="orders-pwa-layout">
+        <section class="orders-pwa-list card">
+          <div class="card-header">
+            <div>
+              <h2>Lista de pedidos</h2>
+              <span class="muted">${lista.length} registro(s)</span>
+            </div>
+            <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
+              <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+              <input placeholder="Buscar pedido..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+            </label>
+          </div>
+          ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost compact-action" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
+          ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
+          <div class="orders-pwa-list-scroll">${linhas}</div>
+          ${paginacao}
+        </section>
+        <aside class="orders-pwa-detail card">
+          ${detalhe}
+        </aside>
+      </div>
+    </section>
+  `;
+}
+
+function renderResumoCalculo(calculo = ultimoCalculo) {
+  if (!calculo) {
+    return `
+      <div class="calc-summary-card muted-summary">
+        <div class="calc-summary-head">
+          <strong>${renderUiIcon("calculadora")} Resumo do cálculo</strong>
+          <span>Preencha peso e tempo</span>
+        </div>
+        <p class="muted">O valor final será atualizado automaticamente.</p>
+      </div>
+    `;
+  }
+  const margem = Number(document.getElementById("margem")?.value || appConfig.defaultMargin || 0) || 0;
+  const margemMinima = Number(appConfig.minimumRecommendedMargin || 60) || 60;
+  const status = calculo.precoTotal < calculo.custoTotal
+    ? "Preço abaixo do custo estimado"
+    : margem < margemMinima
+      ? "Margem abaixo do recomendado"
+      : "Margem dentro do recomendado";
+  return `
+    <div class="calc-summary-card">
+      <div class="calc-summary-head">
+        <strong>${renderUiIcon("calculadora")} Resumo do cálculo</strong>
+        <button class="icon-button" type="button" onclick="alternarResumoCalculadora()" title="Recolher/expandir">⌃</button>
+      </div>
+      <div class="calc-summary-lines" id="calcSummaryLines">
+        <span>Custo do material</span><strong>${formatarMoeda(calculo.custoMaterial)}</strong>
+        <span>Custo de impressão</span><strong>${formatarMoeda((Number(calculo.custoEnergia) || 0) + (Number(calculo.custoMaquina) || 0))}</strong>
+        <span>Taxa extra</span><strong>${formatarMoeda(calculo.taxaExtra)}</strong>
+        <span>Custo total</span><strong>${formatarMoeda(calculo.custoTotal)}</strong>
+        <span>Margem de lucro (${margem}%)</span><strong>${formatarMoeda(Math.max(0, calculo.precoSemTaxa - calculo.custoTotal))}</strong>
+      </div>
+      <label class="field inline-result-field">
+        <span>Valor unitário ajustável</span>
+        <input id="valorManualItem" type="number" min="0" step="0.01" value="${(Number(calculo.preco) || 0).toFixed(2)}">
+      </label>
+      <div class="calc-final-row">
+        <span>Valor final</span>
+        <strong>${formatarMoeda(calculo.precoTotal)}</strong>
+      </div>
+      <small class="calc-margin-status">${escaparHtml(status)}</small>
+    </div>
+  `;
+}
+
+function renderCalculadoraConteudo() {
+  const config = getConfiguracaoCalculadora();
+  const perfil = obterPerfilAtivoCalculadora(config);
+  return `
+    <div class="calc-toolbar">
+      <button class="icon-button" type="button" onclick="voltarTela()" title="Voltar">‹</button>
+      <strong>Calculadora</strong>
+      <button class="btn ghost compact-action" type="button" onclick="abrirConfiguracoesCalculadora()">${renderUiIcon("config")} Configurações</button>
+    </div>
+
+    <section class="calc-active-profile">
+      <div class="calc-printer-art">${renderUiIcon("producao")}</div>
+      <div>
+        <span>Perfil ativo</span>
+        <strong>${escaparHtml(perfil.nome)}</strong>
+        <small>${escaparHtml(perfil.materialNome)} • ${escaparHtml(perfil.camada)} • ${escaparHtml(perfil.bico)}</small>
+        <em>${escaparHtml(perfil.ultimoUso)}</em>
+      </div>
+      <button class="btn ghost compact-action" type="button" onclick="abrirTrocaPerfilCalculadora()">Trocar perfil</button>
+    </section>
+
+    ${renderDicaSmartCalculadora(config)}
+
+    <section class="calc-input-panel">
+      <div class="calc-section-title">
+        <strong>${renderUiIcon("producao")} Dados da impressão</strong>
+        <button class="btn ghost compact-action" type="button" onclick="limparCalculo()">Limpar</button>
+      </div>
+      <input id="printerType" type="hidden" value="${escaparAttr(config.printerType)}">
+      <select id="printer" hidden></select>
+      <input id="filamento" type="hidden" value="${escaparAttr(config.filamento)}">
+      <input id="energia" type="hidden" value="${escaparAttr(config.energia)}">
+      <input id="consumo" type="hidden" value="${escaparAttr(config.consumo)}">
+      <input id="custoHora" type="hidden" value="${escaparAttr(config.custoHora)}">
+      <input id="margem" type="hidden" value="${escaparAttr(config.margem)}">
+
+      <div class="calc-modern-grid">
+        <label class="field calc-field-card">
+          <span>Peso da peça (g)</span>
+          <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 120" value="${escaparAttr(config.peso)}" oninput="agendarCalculoTempoReal()">
+          <i>g</i>
+        </label>
+        <label class="field calc-field-card">
+          <span>Tempo de impressão</span>
+          <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 5.5" value="${escaparAttr(config.tempo)}" oninput="agendarCalculoTempoReal()">
+          <i>h</i>
+        </label>
+        <label class="field calc-field-card">
+          <span>Quantidade</span>
+          <input id="quantidade" type="number" min="1" step="1" value="${escaparAttr(config.quantidade)}" oninput="agendarCalculoTempoReal()">
+          <i>un</i>
+        </label>
+        <label class="field calc-field-card">
+          <span>Material</span>
+          <select id="calcMaterial" onchange="alterarMaterialCalculadora(this.value);agendarCalculoTempoReal()"></select>
+        </label>
+        <label class="field calc-field-card wide">
+          <span>Taxa extra</span>
+          <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00" value="${escaparAttr(config.taxaExtra || appConfig.defaultExtraFee || "")}" oninput="agendarCalculoTempoReal()">
+          <i>R$</i>
+        </label>
+      </div>
+      <div class="calc-quick-fees">
+        ${[0, 5, 10, 15].map((valor) => `<button type="button" onclick="aplicarTaxaRapidaCalculadora(${valor})">${valor ? `R$ ${valor}` : "R$ 0"}</button>`).join("")}
+        <button type="button" onclick="document.getElementById('taxaExtra')?.focus()">Personalizado</button>
+      </div>
+      <label class="field">
+        <span>Nome do item</span>
+        <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" oninput="salvarConfiguracaoCalculadora(false)">
+      </label>
+    </section>
+
+    <div id="res" class="result-box calc-result-modern">${renderResumoCalculo()}</div>
+
+    <div class="calc-primary-actions">
+      <button class="btn calc-main-action" id="confirmCalculatorItemButton" onclick="adicionarItem()" ${itemAdicionandoPedido ? "disabled" : ""}>
+        ${renderUiIcon("pedido")} <span>${itemAdicionandoPedido ? "Adicionando item..." : "Adicionar ao pedido"}<small>e continuar</small></span>
+      </button>
+      <button class="btn ghost calc-save-action" onclick="salvarOrcamento()">${renderIconeAcaoPedido("▣", "Salvar")} Salvar item</button>
+    </div>
+
+    <div class="calc-secondary-actions">
+      ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()", "ghost")}
+      ${renderAcaoPedidoCompacta("▣", "PDF", "gerarPdfCalculadora()", "ghost")}
+      ${renderAcaoPedidoCompacta("▣", "Duplicar", "duplicarCalculoAtual()", "ghost")}
+      ${renderAcaoPedidoCompacta("🗑", "Excluir", "limparCalculo()", "danger")}
+    </div>
+  `;
+}
+
+function dispensarDicaCalculadora() {
+  usageLearning = normalizarUsoInteligente({
+    ...usageLearning,
+    dismissed: {
+      ...(usageLearning?.dismissed || {}),
+      calcSmartTip: hojeIsoData()
+    }
+  });
+  salvarUsoInteligenteLocal();
+  renderizarPreservandoScroll();
+}
+
+function getQuickActionById(id) {
+  return QUICK_ACTIONS_CATALOG.find((acao) => acao.id === String(id || "")) || null;
+}
+
+function quickActionDisponivel(acao = {}) {
+  if (!acao || QUICK_ACTIONS_DANGEROUS.has(acao.id)) return false;
+  if (acao.requiresOrder && !pedidos.length) return false;
+  if (acao.tela && !canAccessScreen(acao.tela)) return false;
+  return true;
+}
+
+function getEventosAtalhosRapidos(limite = 120) {
+  return normalizarUsoInteligente(usageLearning).events
+    .filter((evento) => evento.tipo === "atalho_acionado" && evento.actionId)
+    .slice(-limite);
+}
+
+function pontuarAtalhoRapido(id) {
+  const agora = Date.now();
+  const eventos = getEventosAtalhosRapidos(180).filter((evento) => evento.actionId === id);
+  const seteDias = 7 * 24 * 60 * 60 * 1000;
+  const trintaDias = 30 * 24 * 60 * 60 * 1000;
+  return eventos.reduce((score, evento) => {
+    const idade = agora - (Date.parse(evento.at || "") || 0);
+    const recente7 = idade <= seteDias ? 6 : 0;
+    const recente30 = idade <= trintaDias ? 2 : 0;
+    const recencia = idade <= 24 * 60 * 60 * 1000 ? 3 : idade <= seteDias ? 1 : 0;
+    return score + 1 + recente7 + recente30 + recencia;
+  }, 0);
+}
+
+function calcularOrdemAtalhosRapidos() {
+  const eventos = getEventosAtalhosRapidos();
+  const temHistorico = eventos.length >= QUICK_ACTION_REORDER_MIN_USES;
+  const padraoIndex = new Map(QUICK_ACTIONS_DEFAULT_ORDER.map((id, index) => [id, index]));
+  const disponiveis = QUICK_ACTIONS_CATALOG.filter(quickActionDisponivel);
+  const ordenados = [...disponiveis].sort((a, b) => {
+    if (!temHistorico) {
+      return (padraoIndex.get(a.id) ?? 99) - (padraoIndex.get(b.id) ?? 99);
+    }
+    const diff = pontuarAtalhoRapido(b.id) - pontuarAtalhoRapido(a.id);
+    if (diff) return diff;
+    return (padraoIndex.get(a.id) ?? 99) - (padraoIndex.get(b.id) ?? 99);
+  });
+  const basePadrao = QUICK_ACTIONS_DEFAULT_ORDER.filter((id) => disponiveis.some((acao) => acao.id === id));
+  const ids = (temHistorico ? ordenados.map((acao) => acao.id) : [...basePadrao, ...ordenados.map((acao) => acao.id)])
+    .filter((id, index, lista) => lista.indexOf(id) === index);
+  return ids;
+}
+
+function getOrdemAtalhosRapidos() {
+  const uso = normalizarUsoInteligente(usageLearning);
+  const hoje = hojeIsoData();
+  const precisaAtualizar = !uso.shortcutOrder.length
+    || uso.shortcutOrderDate !== hoje
+    || Number(uso.shortcutUsageSinceOrder || 0) >= QUICK_ACTION_REORDER_MIN_USES;
+  if (!precisaAtualizar) return uso.shortcutOrder;
+
+  const proximaOrdem = calcularOrdemAtalhosRapidos();
+  usageLearning = normalizarUsoInteligente({
+    ...uso,
+    shortcutOrder: proximaOrdem,
+    shortcutOrderDate: hoje,
+    shortcutUsageSinceOrder: 0
+  });
+  salvarUsoInteligenteLocal();
+  return proximaOrdem;
+}
+
+function getAtalhosRapidosOrdenados(limite = 5) {
+  const uso = normalizarUsoInteligente(usageLearning);
+  const pins = uso.shortcutPins.filter((id) => quickActionDisponivel(getQuickActionById(id)));
+  const ordem = getOrdemAtalhosRapidos().filter((id) => quickActionDisponivel(getQuickActionById(id)));
+  return [...pins, ...ordem]
+    .filter((id, index, lista) => lista.indexOf(id) === index)
+    .map(getQuickActionById)
+    .filter(Boolean)
+    .slice(0, Math.max(1, Number(limite) || 5));
+}
+
+function acaoAtalhoPedidoRecente(tipo) {
+  const pedido = [...pedidos].filter(Boolean).sort((a, b) => {
+    const dataB = Date.parse(b.updatedAt || b.criadoEm || b.createdAt || b.data || "") || Number(b.id) || 0;
+    const dataA = Date.parse(a.updatedAt || a.criadoEm || a.createdAt || a.data || "") || Number(a.id) || 0;
+    return dataB - dataA;
+  })[0];
+  if (!pedido) {
+    mostrarToast("Crie um pedido para usar este atalho.", "aviso", 3600);
+    return;
+  }
+  if (tipo === "whatsapp") {
+    enviarWhatsPedidoSalvo(Number(pedido.id));
+    return;
+  }
+  if (tipo === "pdf") {
+    baixarPdfPedidoSalvo(Number(pedido.id));
+  }
+}
+
+function acionarAtalhoRapido(id) {
+  const acao = getQuickActionById(id);
+  if (!quickActionDisponivel(acao)) {
+    mostrarToast("Atalho indisponível agora.", "aviso", 3200);
+    return;
+  }
+  registrarEventoUsoLocal("atalho_acionado", {
+    actionId: acao.id,
+    tela: acao.tela || "",
+    source: "dashboard"
+  });
+  if (acao.customAction) {
+    acaoAtalhoPedidoRecente(acao.customAction);
+    return;
+  }
+  trocarTela(acao.tela || "dashboard");
+}
+
+function fixarAtalhoRapido(id, fixar = true, manterPopup = false) {
+  const acao = getQuickActionById(id);
+  if (!quickActionDisponivel(acao)) return;
+  const uso = normalizarUsoInteligente(usageLearning);
+  const pins = new Set(uso.shortcutPins);
+  if (fixar) pins.add(acao.id);
+  else pins.delete(acao.id);
+  usageLearning = normalizarUsoInteligente({
+    ...uso,
+    shortcutPins: [...pins],
+    dismissed: {
+      ...(uso.dismissed || {}),
+      [`fixShortcut:${acao.id}`]: hojeIsoData()
+    }
+  });
+  salvarUsoInteligenteLocal();
+  mostrarToast(fixar ? "Atalho fixado." : "Atalho liberado.", "sucesso", 2400);
+  if (manterPopup) abrirPersonalizarAtalhos();
+  else renderizarPreservandoScroll();
+}
+
+function dispensarSugestaoFixarAtalho(id) {
+  const uso = normalizarUsoInteligente(usageLearning);
+  usageLearning = normalizarUsoInteligente({
+    ...uso,
+    dismissed: {
+      ...(uso.dismissed || {}),
+      [`fixShortcut:${id}`]: hojeIsoData()
+    }
+  });
+  salvarUsoInteligenteLocal();
+  renderizarPreservandoScroll();
+}
+
+function getSugestaoFixarAtalho() {
+  const uso = normalizarUsoInteligente(usageLearning);
+  const fixados = new Set(uso.shortcutPins);
+  const candidatos = QUICK_ACTIONS_CATALOG
+    .filter((acao) => quickActionDisponivel(acao) && !fixados.has(acao.id))
+    .map((acao) => ({ acao, score: pontuarAtalhoRapido(acao.id) }))
+    .filter((item) => item.score >= 18 && uso.dismissed?.[`fixShortcut:${item.acao.id}`] !== hojeIsoData())
+    .sort((a, b) => b.score - a.score);
+  return candidatos[0]?.acao || null;
+}
+
+function renderSugestaoFixarAtalho() {
+  const acao = getSugestaoFixarAtalho();
+  if (!acao) return "";
+  return `
+    <div class="quick-suggestion-card">
+      <div>
+        <span>Sugestão discreta</span>
+        <strong>Você usa bastante ${escaparHtml(acao.label)}. Deseja fixar nos atalhos?</strong>
+      </div>
+      <div class="quick-suggestion-actions">
+        <button class="btn secondary compact-action" type="button" onclick="fixarAtalhoRapido('${escaparAttr(acao.id)}')">Fixar</button>
+        <button class="btn ghost compact-action" type="button" onclick="dispensarSugestaoFixarAtalho('${escaparAttr(acao.id)}')">Agora não</button>
+      </div>
+    </div>
+  `;
+}
+
+function abrirPersonalizarAtalhos() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const uso = normalizarUsoInteligente(usageLearning);
+  const pins = new Set(uso.shortcutPins);
+  const linhas = QUICK_ACTIONS_CATALOG
+    .filter(quickActionDisponivel)
+    .map((acao) => {
+      const fixado = pins.has(acao.id);
+      return `
+        <button class="quick-customize-row ${fixado ? "pinned" : ""}" type="button" onclick="fixarAtalhoRapido('${escaparAttr(acao.id)}', ${fixado ? "false" : "true"}, true)">
+          <span>${renderUiIcon(acao.iconKey || acao.tela)}</span>
+          <strong>${escaparHtml(acao.label)}</strong>
+          <small>${fixado ? "Fixado" : "Dinâmico"}</small>
+        </button>
+      `;
+    }).join("");
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card quick-customize-modal modal-enter" onclick="event.stopPropagation()">
+        <div class="card-header">
+          <div>
+            <h2>Personalizar atalhos</h2>
+            <p class="muted">O menu principal continua fixo. Apenas estes atalhos rápidos podem mudar com o uso.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="quick-customize-list">${linhas}</div>
+        <button class="btn ghost" type="button" onclick="fecharPopup()">Concluir</button>
+      </section>
+    </div>
+  `;
+}
+
+function aplicarMaterialFrequenteCalculadora() {
+  const materialNome = valorFrequenteUso("material_usado", "materialNome", 40);
+  const materialId = valorFrequenteUso("material_usado", "materialId", 40);
+  const material = normalizarEstoque().find((item) => String(item.id) === String(materialId))
+    || normalizarEstoque().find((item) => normalizarTextoBusca(item.nome) === normalizarTextoBusca(materialNome));
+  if (!material?.id) {
+    mostrarToast("Material recente não encontrado no estoque.", "aviso", 3200);
+    return;
+  }
+  appConfig.defaultMaterial = material.id;
+  appConfig.calculatorDefaults = { ...(appConfig.calculatorDefaults || {}), materialId: material.id };
+  salvarDados();
+  renderizarPreservandoScroll();
+  setTimeout(() => agendarCalculoTempoReal(), 80);
+}
+
+function abrirTrocaPerfilCalculadora() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const recentes = [
+    valorFrequenteUso("impressora_usada", "impressora", 40),
+    appConfig.defaultPrinterModel,
+    "Bambu A1",
+    "Bambu Lab",
+    "Ender 3",
+    "PETG rápido",
+    "TPU lento",
+    "Alta qualidade"
+  ].filter(Boolean);
+  const unicos = Array.from(new Set(recentes)).slice(0, 8);
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card calc-profile-modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Trocar perfil</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <p class="muted">Escolha um perfil rápido. Os parâmetros técnicos continuam ajustáveis em Configurações.</p>
+        <div class="order-more-grid">
+          ${unicos.map((nome) => `
+            <button class="order-more-action secondary" type="button" onclick="aplicarPerfilCalculadora('${escaparAttr(nome)}')">
+              <span class="action-symbol">${renderUiIcon("producao")}</span>
+              <strong>${escaparHtml(nome)}</strong>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function aplicarPerfilCalculadora(nome = "") {
+  const texto = String(nome || "").trim();
+  const printerNome = printers[texto] ? texto
+    : texto.toLowerCase().includes("bambu") ? "Bambu A1"
+      : texto.toLowerCase().includes("ender") ? "Ender 3"
+        : appConfig.defaultPrinterModel || "Ender 3";
+  const impressora = printers[printerNome] || printers["Ender 3"];
+  appConfig.defaultPrinterModel = printerNome;
+  appConfig.defaultPrinterType = impressora.tipo || "FDM";
+  appConfig.calculatorDefaults = {
+    ...(appConfig.calculatorDefaults || {}),
+    printerModel: printerNome,
+    printerType: impressora.tipo || "FDM",
+    consumo: impressora.consumo,
+    custoHora: impressora.custo
+  };
+  if (texto.toLowerCase().includes("petg")) {
+    const petg = normalizarEstoque().find((item) => normalizarTextoBusca(item.nome).includes("petg"));
+    if (petg?.id) appConfig.calculatorDefaults.materialId = petg.id;
+  }
+  if (texto.toLowerCase().includes("tpu")) {
+    const tpu = normalizarEstoque().find((item) => normalizarTextoBusca(item.nome).includes("tpu"));
+    if (tpu?.id) appConfig.calculatorDefaults.materialId = tpu.id;
+  }
+  salvarDados();
+  fecharPopup();
+  renderizarPreservandoScroll();
+  setTimeout(() => agendarCalculoTempoReal(), 80);
+}
+
+function abrirConfiguracoesCalculadora() {
+  const config = getConfiguracaoCalculadora();
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card calc-settings-modal" id="calculatorSettingsForm" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Configurações da Calculadora</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="calc-settings-grid">
+          <label class="field">
+            <span>Impressora padrão</span>
+            <select id="calcSettingsPrinter">
+              ${Object.keys(printers).map((nome) => `<option value="${escaparAttr(nome)}" ${nome === config.printerModel ? "selected" : ""}>${escaparHtml(nome)}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>Material padrão</span>
+            <select id="calcSettingsMaterial">${renderMaterialOptions(config.materialId, { emptyLabel: "Sem material padrão" })}</select>
+          </label>
+          <label class="field"><span>Preço por kg</span><input id="calcSettingsFilament" type="number" min="0" step="0.01" value="${escaparAttr(config.filamento)}"></label>
+          <label class="field"><span>Custo do kWh</span><input id="calcSettingsEnergy" type="number" min="0" step="0.01" value="${escaparAttr(config.energia)}"></label>
+          <label class="field"><span>Consumo médio W</span><input id="calcSettingsConsumption" type="number" min="0" step="1" value="${escaparAttr(config.consumo)}"></label>
+          <label class="field"><span>Custo/hora da máquina</span><input id="calcSettingsHour" type="number" min="0" step="0.01" value="${escaparAttr(config.custoHora)}"></label>
+          <label class="field"><span>Margem padrão %</span><input id="calcSettingsMargin" type="number" min="0" step="1" value="${escaparAttr(config.margem)}"></label>
+          <label class="field"><span>Margem mínima recomendada %</span><input id="calcSettingsMinMargin" type="number" min="0" step="1" value="${Number(appConfig.minimumRecommendedMargin) || 60}"></label>
+          <label class="field"><span>Taxa fixa padrão R$</span><input id="calcSettingsFixedFee" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}"></label>
+          <label class="field"><span>Tempo mínimo cobrado (h)</span><input id="calcSettingsMinTime" type="number" min="0" step="0.1" value="${Number(appConfig.minimumChargedHours) || 0}"></label>
+          <label class="field"><span>Arredondamento</span><select id="calcSettingsRounding">
+            ${[0, 0.5, 1, 5].map((valor) => `<option value="${valor}" ${Number(appConfig.priceRounding || 0) === valor ? "selected" : ""}>${valor ? `R$ ${valor}` : "Sem arredondar"}</option>`).join("")}
+          </select></label>
+          <label class="field"><span>Preset de qualidade</span><select id="calcSettingsQuality">
+            ${["0.20mm padrão", "0.28mm rápido", "0.12mm fino", "TPU lento"].map((valor) => `<option value="${escaparAttr(valor)}" ${String(appConfig.defaultQualityPreset || "0.20mm padrão") === valor ? "selected" : ""}>${escaparHtml(valor)}</option>`).join("")}
+          </select></label>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button>
+          <button class="btn secondary" type="button" onclick="salvarConfiguracoesCalculadoraAvancadas(true)">Usar como padrão</button>
+          <button class="btn" type="submit">Salvar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById("calculatorSettingsForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    salvarConfiguracoesCalculadoraAvancadas(true);
+  }, { once: true });
+}
+
+function salvarConfiguracoesCalculadoraAvancadas(persistir = true) {
+  const printer = document.getElementById("calcSettingsPrinter")?.value || appConfig.defaultPrinterModel || "Ender 3";
+  const impressora = printers[printer] || printers["Ender 3"];
+  const materialId = document.getElementById("calcSettingsMaterial")?.value || "";
+  const proxima = {
+    ...(appConfig.calculatorDefaults || {}),
+    printerType: impressora.tipo || "FDM",
+    printerModel: printer,
+    materialId,
+    filamento: numeroCalculadora(document.getElementById("calcSettingsFilament")?.value, appConfig.defaultFilamentCost || 150),
+    energia: numeroCalculadora(document.getElementById("calcSettingsEnergy")?.value, appConfig.defaultEnergy || 0.85),
+    consumo: numeroCalculadora(document.getElementById("calcSettingsConsumption")?.value, impressora.consumo || 0),
+    custoHora: numeroCalculadora(document.getElementById("calcSettingsHour")?.value, impressora.custo || 0),
+    margem: numeroCalculadora(document.getElementById("calcSettingsMargin")?.value, appConfig.defaultMargin || 100),
+    peso: "",
+    tempo: "",
+    taxaExtra: ""
+  };
+  appConfig.calculatorDefaults = proxima;
+  appConfig.defaultPrinterModel = printer;
+  appConfig.defaultPrinterType = proxima.printerType;
+  appConfig.defaultMaterial = materialId;
+  appConfig.defaultFilamentCost = proxima.filamento;
+  appConfig.defaultEnergy = proxima.energia;
+  appConfig.defaultMargin = proxima.margem;
+  appConfig.defaultExtraFee = numeroCalculadora(document.getElementById("calcSettingsFixedFee")?.value, appConfig.defaultExtraFee || 0);
+  appConfig.minimumRecommendedMargin = numeroCalculadora(document.getElementById("calcSettingsMinMargin")?.value, appConfig.minimumRecommendedMargin || 60);
+  appConfig.minimumChargedHours = numeroCalculadora(document.getElementById("calcSettingsMinTime")?.value, appConfig.minimumChargedHours || 0);
+  appConfig.priceRounding = numeroCalculadora(document.getElementById("calcSettingsRounding")?.value, appConfig.priceRounding || 0);
+  appConfig.defaultQualityPreset = document.getElementById("calcSettingsQuality")?.value || appConfig.defaultQualityPreset || "0.20mm padrão";
+  if (persistir) salvarDados();
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast("Configurações da calculadora salvas.", "sucesso", 2800);
+}
+
+function aplicarTaxaRapidaCalculadora(valor = 0) {
+  const campo = document.getElementById("taxaExtra");
+  if (campo) campo.value = Number(valor || 0).toFixed(2);
+  agendarCalculoTempoReal();
+}
+
+function alternarResumoCalculadora() {
+  document.getElementById("calcSummaryLines")?.classList.toggle("is-collapsed");
+}
+
+function agendarCalculoTempoReal() {
+  clearTimeout(window.__calcRealtimeTimer);
+  window.__calcRealtimeTimer = setTimeout(() => calcular({ silent: true, skipUsage: true }), 180);
+}
+
+function duplicarCalculoAtual() {
+  if (!ultimoCalculo) {
+    mostrarToast("Faça um cálculo antes de duplicar.", "aviso");
+    return;
+  }
+  const qtd = document.getElementById("quantidade");
+  if (qtd) qtd.value = String(Math.max(1, Number(qtd.value) || 1) + 1);
+  agendarCalculoTempoReal();
+}
+
 function renderCalculadoraTela() {
   return `
-    <section class="card calc-main-card">
-      <div class="card-header">
-        <h2>🧮 Calculadora 3D</h2>
-        <span class="status-badge">Principal</span>
-      </div>
+    <section class="card calc-main-card calc-modern-screen">
       ${renderCalculadoraConteudo()}
     </section>
   `;
@@ -22506,9 +23596,19 @@ function salvarMaterialCalculadoraRapido() {
   }
 }
 
-function calcular() {
+function calcular(opcoes = {}) {
+  const silent = opcoes.silent === true;
+  const skipUsage = opcoes.skipUsage === true;
+  const pesoRaw = document.getElementById("peso")?.value;
+  const tempoRaw = document.getElementById("tempo")?.value;
+  if (silent && (!String(pesoRaw || "").trim() || !String(tempoRaw || "").trim())) {
+    ultimoCalculo = null;
+    const resultadoVazio = document.getElementById("res");
+    if (resultadoVazio) resultadoVazio.innerHTML = renderResumoCalculo(null);
+    return false;
+  }
   const usuarioMonetizacao = getUsuarioMonetizacao();
-  if (window.MonetizationLimits && !window.MonetizationLimits.canUseCalculator(usuarioMonetizacao)) {
+  if (!skipUsage && window.MonetizationLimits && !window.MonetizationLimits.canUseCalculator(usuarioMonetizacao)) {
     mostrarModalDesbloqueioAnuncio({
       tipo: "calculator",
       titulo: "Limite diário da calculadora",
@@ -22539,30 +23639,35 @@ function calcular() {
     margem = InventoryService.parseNumberStrict(document.getElementById("margem")?.value, "margem", { min: 0 });
     taxaExtra = InventoryService.parseNumberStrict(document.getElementById("taxaExtra")?.value, "taxa extra", { min: 0 });
   } catch (erro) {
-    ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço", errorKey: "CALCULATE_QUOTE_FAILED" });
+    if (!silent) ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço", errorKey: "CALCULATE_QUOTE_FAILED" });
     return false;
   }
   const printer = document.getElementById("printer")?.value || appConfig.defaultPrinterModel || "";
   const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
   const materialId = document.getElementById("calcMaterial")?.value || "";
   const materialEstoque = getMaterialEstoque(materialId);
-  registrarEventoUsoLocal("impressora_usada", { impressora: printer, margem, peso, tempo });
-  if (materialId) registrarEventoUsoLocal("material_usado", {
-    materialId,
-    materialNome: materialEstoque?.nome || "",
-    cor: materialEstoque?.cor || "",
-    margem,
-    peso,
-    tempo
-  });
+  if (!skipUsage) {
+    registrarEventoUsoLocal("impressora_usada", { impressora: printer, margem, peso, tempo });
+    if (materialId) registrarEventoUsoLocal("material_usado", {
+      materialId,
+      materialNome: materialEstoque?.nome || "",
+      cor: materialEstoque?.cor || "",
+      margem,
+      peso,
+      tempo
+    });
+  }
 
+  const tempoCobrado = Math.max(tempo, Number(appConfig.minimumChargedHours) || 0);
   const material = (peso / 1000) * filamento;
-  const energiaC = (consumo / 1000) * tempo * energia;
-  const maquina = tempo * custoHora;
+  const energiaC = (consumo / 1000) * tempoCobrado * energia;
+  const maquina = tempoCobrado * custoHora;
   const custo = material + energiaC + maquina;
   const precoSemTaxa = custo * (1 + margem / 100);
-  const preco = precoSemTaxa + taxaExtra;
-  salvarConfiguracaoCalculadora(true);
+  const arredondamento = Number(appConfig.priceRounding) || 0;
+  let preco = precoSemTaxa + taxaExtra;
+  if (arredondamento > 0) preco = Math.ceil(preco / arredondamento) * arredondamento;
+  salvarConfiguracaoCalculadora(!silent && !skipUsage);
 
   ultimoCalculo = {
     preco: preco / qtd,
@@ -22577,28 +23682,19 @@ function calcular() {
     qtd,
     peso,
     tempo,
+    tempoCobrado,
     printer,
     tipoImpressao,
     materialId,
     materialNome: materialEstoque?.nome || ""
   };
 
-  document.getElementById("res").innerHTML = `
-    <div class="result-grid">
-      <span>Custo do material</span><strong>${formatarMoeda(material)}</strong>
-      <span>Custo de energia</span><strong>${formatarMoeda(energiaC)}</strong>
-      <span>Custo base</span><strong>${formatarMoeda(custo)}</strong>
-      <span>Preço antes da taxa</span><strong>${formatarMoeda(precoSemTaxa)}</strong>
-      <span>Taxa extra (R$)</span><strong>${formatarMoeda(taxaExtra)}</strong>
-      <span>Preço sugerido de venda</span><strong>${formatarMoeda(preco)}</strong>
-    </div>
-    <label class="field inline-result-field">
-      <span>Valor unitário para adicionar</span>
-      <input id="valorManualItem" type="number" min="0" step="0.01" value="${(preco / qtd).toFixed(2)}">
-    </label>
-  `;
-  if (window.MonetizationLimits?.registerCalculation) window.MonetizationLimits.registerCalculation(usuarioMonetizacao);
-  else incrementarUsoMensal("calculadora");
+  const resultado = document.getElementById("res");
+  if (resultado) resultado.innerHTML = renderResumoCalculo(ultimoCalculo);
+  if (!skipUsage) {
+    if (window.MonetizationLimits?.registerCalculation) window.MonetizationLimits.registerCalculation(usuarioMonetizacao);
+    else incrementarUsoMensal("calculadora");
+  }
   return true;
 }
 
@@ -22611,7 +23707,7 @@ function limparCalculo() {
   const quantidade = document.getElementById("quantidade");
   if (quantidade) quantidade.value = "1";
   const resultado = document.getElementById("res");
-  if (resultado) resultado.textContent = "Preencha os dados e calcule o valor do item.";
+  if (resultado) resultado.innerHTML = renderResumoCalculo(null);
   salvarConfiguracaoCalculadora(true);
 }
 
@@ -23010,6 +24106,7 @@ async function sendQuoteToWhatsApp(pedido = null) {
   const numero = obterTelefoneDestinoWhatsappPedido(pedido);
   const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
   window.open(destino + encodeURIComponent(mensagem), "_blank");
+  mostrarToast(numero ? "WhatsApp aberto com o orçamento preenchido." : "Contato não encontrado, selecione a conversa no WhatsApp.", numero ? "sucesso" : "aviso", 4200);
   return true;
 }
 
@@ -23115,8 +24212,7 @@ function carregarImagemDataUrl(src) {
 }
 
 async function obterMarcaPdfDataUrl() {
-  if (!temAcessoPdfProfissional()) return "";
-  return carregarImagemDataUrl(getMarcaProjetoSrc());
+  return carregarImagemDataUrl(appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || getMarcaProjetoSrc("icon"));
 }
 
 async function obterFundoPdfDataUrl() {
@@ -23266,9 +24362,210 @@ async function salvarPdfAndroidNativo(doc, nomeArquivo) {
   return false;
 }
 
+function rgbPdf(cor, fallback = "#00d8c8") {
+  return hexParaRgb(limitarCorPdf(cor, fallback));
+}
+
+function setFillPdf(doc, cor, fallback) {
+  const [r, g, b] = rgbPdf(cor, fallback);
+  doc.setFillColor(r, g, b);
+}
+
+function setDrawPdf(doc, cor, fallback) {
+  const [r, g, b] = rgbPdf(cor, fallback);
+  doc.setDrawColor(r, g, b);
+}
+
+function setTextPdf(doc, cor, fallback) {
+  const [r, g, b] = rgbPdf(cor, fallback);
+  doc.setTextColor(r, g, b);
+}
+
+function setFontePdf(doc, tamanho, estilo = "normal") {
+  doc.setFont("helvetica", estilo);
+  doc.setFontSize(tamanho);
+}
+
+function getPdfThemeConfig() {
+  const id = normalizarPdfTheme();
+  const base = PDF_THEME_PRESETS[id] || PDF_THEME_PRESETS.modern_dark;
+  const principal = limitarCorPdf(appConfig.accentColor || base.line || "#00d8c8", base.line || "#00d8c8");
+  const secundaria = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || base.line || "#00d8c8", base.line || "#00d8c8");
+  return { id, ...base, primary: principal, secondary: secundaria };
+}
+
+function formatarTelefonePdf(valor = "") {
+  const normalizado = normalizePhoneBR(valor);
+  const digitos = normalizado.replace(/\D/g, "");
+  if (!digitos) return String(valor || "").trim();
+  const semPais = digitos.startsWith("55") ? digitos.slice(2) : digitos;
+  if (semPais.length === 11) return `(${semPais.slice(0, 2)}) ${semPais.slice(2, 7)}-${semPais.slice(7)}`;
+  if (semPais.length === 10) return `(${semPais.slice(0, 2)}) ${semPais.slice(2, 6)}-${semPais.slice(6)}`;
+  return normalizado;
+}
+
+function getEmpresaPdfInfo() {
+  const instagram = String(appConfig.companyInstagram || "").trim();
+  return {
+    nome: String(appConfig.businessName || appConfig.appName || SYSTEM_NAME).trim(),
+    subtitulo: String(appConfig.pdfHeaderText || "Impressão 3D").trim(),
+    whatsapp: formatarTelefonePdf(appConfig.whatsappNumber || ""),
+    telefone: formatarTelefonePdf(appConfig.companyPhone || ""),
+    email: String(appConfig.companyEmail || "").trim(),
+    instagram: instagram ? (instagram.startsWith("@") ? instagram : "@" + instagram) : "",
+    endereco: String(appConfig.companyAddress || "").trim(),
+    cidadeEstado: String(appConfig.companyCityState || appConfig.pixCity || "").trim(),
+    cnpj: String(appConfig.companyCnpj || "").trim(),
+    site: String(appConfig.companyWebsite || "").trim(),
+    pixKey: String(appConfig.pixKey || "").trim(),
+    pixReceiverName: String(appConfig.pixReceiverName || appConfig.businessName || "").trim()
+  };
+}
+
+function numeroDocumentoPdf(pedidoId, data = new Date()) {
+  const ano = data.getFullYear();
+  const numero = String(pedidoId || Date.now()).replace(/\D/g, "").slice(-6).padStart(6, "0");
+  return `${ano}-${numero}`;
+}
+
+function getTipoDocumentoPedidoPdf(pedido = pedidoEditando) {
+  const status = String(pedido?.status || pedido?.situacao || "").toLowerCase();
+  return /pago|produção|producao|conclu|entreg/.test(status) ? "PEDIDO" : "ORÇAMENTO";
+}
+
+function textoMaterialPdf(item = {}) {
+  const materiais = getMateriaisItem(item);
+  const materialPrincipal = materiais[0] || {};
+  const materialId = item.materialId || materialPrincipal.materialId || "";
+  const material = getMaterialEstoque(materialId);
+  const partes = [
+    item.material || materialPrincipal.nome || material?.nome || materialId,
+    item.cor || material?.cor || materialPrincipal.cor,
+    item.impressora || item.printer || item.printerModel
+  ].map((valor) => String(valor || "").trim()).filter(Boolean);
+  return partes.length ? partes.join(" • ") : "Material não informado";
+}
+
+function desenharFundoComercialPdf(doc, largura, altura, tema) {
+  setFillPdf(doc, tema.background, "#06131b");
+  doc.rect(0, 0, largura, altura, "F");
+  const dark = /dark|neon/.test(tema.id);
+  if (dark) {
+    const [r, g, b] = rgbPdf(tema.secondary, "#00d8c8");
+    doc.setDrawColor(r, g, b);
+    for (let i = 0; i < 16; i++) {
+      const y = 28 + i * 2.2;
+      doc.setLineWidth(0.12);
+      doc.line(74 + i * 1.7, y, largura - 12, y + 32 + Math.sin(i) * 8);
+    }
+  } else {
+    setFillPdf(doc, tema.panelAlt, "#eef6f8");
+    doc.rect(0, 0, largura, 38, "F");
+  }
+}
+
+function desenharCartaoPdf(doc, x, y, w, h, tema, fill = "") {
+  setFillPdf(doc, fill || tema.panel, "#0a2230");
+  setDrawPdf(doc, tema.line, "#0bb8b1");
+  doc.setLineWidth(0.25);
+  doc.roundedRect(x, y, w, h, 2, 2, "FD");
+}
+
+function textoLimitadoPdf(doc, texto, x, y, largura, maxLinhas, lineHeight = 4.4) {
+  const linhas = doc.splitTextToSize(String(texto || ""), largura).slice(0, maxLinhas);
+  doc.text(linhas, x, y);
+  return y + linhas.length * lineHeight;
+}
+
+function desenharCabecalhoComercialPdf(doc, contexto) {
+  const { largura, margem, tema, empresa, data, numeroDoc, tipoDoc, marcaPdf } = contexto;
+  const logoSize = 17;
+  if (marcaPdf) {
+    try {
+      doc.addImage(marcaPdf, tipoImagemDataUrl(marcaPdf), margem, 12, logoSize, logoSize);
+    } catch (erro) {
+      registrarDiagnostico("pdf", "Logo não aplicada no orçamento", erro.message);
+    }
+  } else {
+    setFillPdf(doc, tema.primary, "#00d8c8");
+    doc.roundedRect(margem, 12, logoSize, logoSize, 3, 3, "F");
+    setTextPdf(doc, "#ffffff", "#ffffff");
+    setFontePdf(doc, 10, "bold");
+    doc.text("S3D", margem + logoSize / 2, 22, { align: "center" });
+  }
+
+  const tx = margem + logoSize + 4;
+  setTextPdf(doc, tema.headerText, "#ffffff");
+  setFontePdf(doc, 19, "bold");
+  doc.text(empresa.nome, tx, 19);
+  setTextPdf(doc, tema.secondary, "#00d8c8");
+  setFontePdf(doc, 10, "bold");
+  doc.text(empresa.subtitulo || "Impressão 3D", tx, 27);
+
+  setTextPdf(doc, tema.muted, "#b8c6d4");
+  setFontePdf(doc, 8);
+  const contatos = [
+    empresa.whatsapp ? `WhatsApp: ${empresa.whatsapp}` : "",
+    empresa.telefone ? `Telefone: ${empresa.telefone}` : "",
+    empresa.email ? `E-mail: ${empresa.email}` : "",
+    empresa.site ? `Site: ${empresa.site}` : "",
+    empresa.instagram ? `Instagram: ${empresa.instagram}` : "",
+    empresa.endereco ? `${empresa.endereco}${empresa.cidadeEstado ? " - " + empresa.cidadeEstado : ""}` : empresa.cidadeEstado,
+    empresa.cnpj ? `CNPJ: ${empresa.cnpj}` : ""
+  ].filter(Boolean).slice(0, 6);
+  contatos.forEach((linha, i) => doc.text(linha, margem + 2, 40 + i * 5));
+
+  setTextPdf(doc, tema.headerText, "#ffffff");
+  setFontePdf(doc, 24, "bold");
+  doc.text(tipoDoc, largura - margem, 18, { align: "right" });
+  setDrawPdf(doc, tema.muted, "#b8c6d4");
+  doc.roundedRect(largura - margem - 60, 24, 60, 9, 1.5, 1.5, "S");
+  setTextPdf(doc, tema.secondary, "#00d8c8");
+  setFontePdf(doc, 10, "bold");
+  doc.text(`Nº ${numeroDoc}`, largura - margem - 30, 30.2, { align: "center" });
+
+  setTextPdf(doc, tema.text, "#f5fbff");
+  setFontePdf(doc, 8);
+  const validade = Math.max(1, Number(appConfig.quoteValidityDays) || 7);
+  const dataValidade = new Date(data.getTime() + validade * 86400000);
+  const info = [
+    ["Data de emissão", data.toLocaleDateString("pt-BR")],
+    ["Validade do orçamento", `${dataValidade.toLocaleDateString("pt-BR")} (${validade} dias)`],
+    ["Prazo de produção", appConfig.productionDeadlineText || "A combinar"],
+    ["Forma de pagamento", appConfig.paymentTerms || "A combinar"]
+  ];
+  info.forEach(([label, value], i) => {
+    const y = 44 + i * 11;
+    setTextPdf(doc, tema.secondary, "#00d8c8");
+    setFontePdf(doc, 8, "bold");
+    doc.text(label + ":", largura - margem - 58, y);
+    setTextPdf(doc, tema.text, "#f5fbff");
+    setFontePdf(doc, 8);
+    doc.text(String(value), largura - margem - 58, y + 4.5);
+  });
+}
+
+function desenharRodapeComercialPdf(doc, contexto) {
+  const { largura, altura, margem, tema, empresa, pagina, totalPaginas } = contexto;
+  desenharCartaoPdf(doc, margem, altura - 22, largura - margem * 2, 12, tema, tema.panelAlt);
+  setTextPdf(doc, tema.text, "#f5fbff");
+  setFontePdf(doc, 9, "bold");
+  doc.text(appConfig.documentFooter || "Obrigado pela preferência!", margem + 6, altura - 15);
+  setTextPdf(doc, tema.muted, "#b8c6d4");
+  setFontePdf(doc, 7.5);
+  doc.text(appConfig.pdfSignature || "Qualquer dúvida, estamos à disposição.", margem + 6, altura - 10.5);
+  const contato = empresa.instagram || empresa.whatsapp || empresa.email || empresa.site || "";
+  if (contato) doc.text(contato, largura - margem - 6, altura - 14, { align: "right" });
+  doc.text(`Página ${pagina}/${totalPaginas}`, largura - margem - 6, altura - 9.5, { align: "right" });
+}
+
 async function gerarPDF() {
   if (!(await verificarPermissaoPdfAntesGerar())) return;
-  if (itensPedido.length === 0) {
+  const itensValidos = normalizarItensPedido(itensPedido)
+    .map((item) => validarItemPedidoParaSalvar(item))
+    .filter((validacao) => validacao.ok)
+    .map((validacao) => validacao.item);
+  if (itensValidos.length === 0) {
     alert("Adicione itens ao pedido antes de gerar o PDF");
     return;
   }
@@ -23279,137 +24576,197 @@ async function gerarPDF() {
     return;
   }
 
-  const { cliente, total } = dadosPedidoAtual();
-  const doc = new jsPDF();
-  const empresa = appConfig.businessName || appConfig.appName || SYSTEM_NAME;
+  const dados = dadosPedidoAtual();
+  const { cliente, total } = dados;
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const empresa = getEmpresaPdfInfo();
+  const tema = getPdfThemeConfig();
   const largura = doc.internal.pageSize.getWidth();
   const altura = doc.internal.pageSize.getHeight();
-  const margem = 14;
-  const cor = appConfig.accentColor || "#073b4b";
-  const corRgb = hexParaRgb(cor);
+  const margem = 10;
   const agoraPdf = new Date();
-  const data = agoraPdf.toLocaleDateString("pt-BR");
   const pedidoId = pedidoEditando?.id || Date.now();
-  const cidade = appConfig.pixCity || "Não informada";
+  const numeroDoc = numeroDocumentoPdf(pedidoId, agoraPdf);
+  const tipoDoc = getTipoDocumentoPedidoPdf(pedidoEditando);
   window.__simplificaExportandoPdf = true;
   try {
-  const telefoneCliente = await obterTelefoneWhatsappPedido(pedidoEditando);
-  const marcaPdf = await obterMarcaPdfDataUrl();
-  const fundoPdf = await obterFundoPdfDataUrl();
+    const marcaPdf = await obterMarcaPdfDataUrl();
+    const telefoneCliente = formatarTelefonePdf(await obterTelefoneWhatsappPedido(pedidoEditando));
+    const emailCliente = dados.email || (pedidoEditando ? emailDoPedido(pedidoEditando) : "");
+    const resumoItens = itensValidos.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+    const taxaExtraComercial = Math.max(0, Number(pedidoEditando?.taxaExtra || pedidoEditando?.extraFee || 0) || 0);
+    const descontoComercial = Math.max(0, Number(pedidoEditando?.desconto || pedidoEditando?.discount || 0) || 0);
+    const totalComercial = Math.max(0, Number(total) || resumoItens + taxaExtraComercial - descontoComercial);
 
-  adicionarFundoPdf(doc, largura, altura, fundoPdf);
-  adicionarMarcaPdf(doc, largura, altura, marcaPdf);
-  adicionarMarcaDaguaFreePdf(doc, largura, altura);
+    const contextoCabecalho = { largura, altura, margem, tema, empresa, data: agoraPdf, numeroDoc, tipoDoc, marcaPdf };
+    desenharFundoComercialPdf(doc, largura, altura, tema);
+    desenharCabecalhoComercialPdf(doc, contextoCabecalho);
 
-  doc.setFillColor(corRgb[0], corRgb[1], corRgb[2]);
-  doc.rect(0, 0, largura, 32, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(18);
-  doc.text(empresa, margem, 14);
-  doc.setFontSize(10);
-  doc.text("Pedido #" + pedidoId, margem, 23);
-  if (appConfig.pdfHeaderText && temAcessoPdfProfissional()) doc.text(String(appConfig.pdfHeaderText).slice(0, 60), margem, 29);
-  doc.text(data, largura - margem, 23, { align: "right" });
+    let y = 84;
+    desenharCartaoPdf(doc, margem, y, largura - margem * 2, 34, tema);
+    setTextPdf(doc, tema.secondary, "#00d8c8");
+    setFontePdf(doc, 9, "bold");
+    doc.text("DADOS DO CLIENTE", margem + 6, y + 9);
+    setTextPdf(doc, tema.text, "#f5fbff");
+    setFontePdf(doc, 8);
+    doc.text("Nome:", margem + 6, y + 18);
+    setFontePdf(doc, 11, "bold");
+    doc.text(cliente || "Cliente não informado", margem + 6, y + 25);
+    setFontePdf(doc, 8);
+    doc.text("WhatsApp:", margem + 96, y + 18);
+    setFontePdf(doc, 10, "bold");
+    doc.text(telefoneCliente || "Não informado", margem + 96, y + 25);
+    setFontePdf(doc, 8);
+    doc.text("E-mail:", margem + 6, y + 30);
+    doc.text(emailCliente || "Não informado", margem + 22, y + 30);
+    doc.text("Endereço:", margem + 96, y + 30);
+    doc.text(dados.endereco || pedidoEditando?.enderecoCliente || "Não informado", margem + 116, y + 30);
 
-  if (temAcessoPdfProfissional() && marcaPdf) {
-    try {
-      doc.addImage(marcaPdf, tipoImagemDataUrl(marcaPdf), largura - 32, 6, 18, 18);
-    } catch (erro) {
-      registrarDiagnostico("pdf", "Logo não aplicada no cabeçalho", erro.message);
-    }
-  }
+    y += 42;
+    desenharCartaoPdf(doc, margem, y, largura - margem * 2, 10, tema, tema.panelAlt);
+    setTextPdf(doc, tema.secondary, "#00d8c8");
+    setFontePdf(doc, 9, "bold");
+    doc.text("ITENS DO ORÇAMENTO", margem + 6, y + 6.7);
+    y += 15;
 
-  doc.setTextColor(17, 24, 39);
-  doc.setFillColor(245, 247, 251);
-  doc.roundedRect(margem, 40, largura - margem * 2, 38, 3, 3, "F");
-  doc.setFontSize(11);
-  doc.text("Cliente", margem + 4, 49);
-  doc.setFontSize(13);
-  doc.text(cliente || "Sem cliente", margem + 4, 58);
-  doc.setFontSize(10);
-  doc.text("Empresa: " + empresa, largura - margem - 4, 49, { align: "right" });
-  doc.text("Pedido: #" + pedidoId, largura - margem - 4, 56, { align: "right" });
-  doc.text("Cidade: " + cidade, margem + 4, 68);
-  doc.text(telefoneCliente ? "Telefone cliente: " + telefoneCliente : "Telefone cliente: não informado", largura - margem - 4, 68, { align: "right" });
+    const desenharTabelaCabecalho = () => {
+      setTextPdf(doc, tema.secondary, "#00d8c8");
+      setFontePdf(doc, 7, "bold");
+      doc.text("ITEM", margem + 4, y);
+      doc.text("DESCRIÇÃO", margem + 35, y);
+      doc.text("MATERIAL", margem + 92, y);
+      doc.text("QTD.", largura - margem - 68, y, { align: "right" });
+      doc.text("VALOR UNIT.", largura - margem - 34, y, { align: "right" });
+      doc.text("SUBTOTAL", largura - margem - 4, y, { align: "right" });
+      setDrawPdf(doc, tema.line, "#0bb8b1");
+      doc.line(margem + 3, y + 4, largura - margem - 3, y + 4);
+      y += 10;
+    };
 
-  let y = 90;
-  doc.setFillColor(31, 41, 55);
-  doc.roundedRect(margem, y - 7, largura - margem * 2, 10, 2, 2, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(10);
-  doc.text("Item", margem + 4, y);
-  doc.text("Qtd", 118, y, { align: "right" });
-  doc.text("Unit.", 145, y, { align: "right" });
-  doc.text("Total", largura - margem - 4, y, { align: "right" });
-  y += 10;
-
-  doc.setTextColor(17, 24, 39);
-  itensPedido.forEach((item, i) => {
-    if (y > 250) {
+    const novaPagina = () => {
       doc.addPage();
-      adicionarFundoPdf(doc, largura, altura, fundoPdf);
-      adicionarMarcaPdf(doc, largura, altura, marcaPdf);
-      adicionarMarcaDaguaFreePdf(doc, largura, altura);
-      y = 24;
+      desenharFundoComercialPdf(doc, largura, altura, tema);
+      y = 18;
+      desenharCartaoPdf(doc, margem, y - 5, largura - margem * 2, 11, tema, tema.panelAlt);
+      setTextPdf(doc, tema.secondary, "#00d8c8");
+      setFontePdf(doc, 9, "bold");
+      doc.text("ITENS DO ORÇAMENTO (continuação)", margem + 6, y + 2);
+      y += 14;
+      desenharTabelaCabecalho();
+    };
+
+    desenharTabelaCabecalho();
+    itensValidos.forEach((item, indice) => {
+      const nomeLinhas = doc.splitTextToSize(String(item.nome || "Item"), 48).slice(0, 2);
+      const obs = String(item.observacao || item.descricao || "").trim();
+      const materialLinhas = doc.splitTextToSize(textoMaterialPdf(item), 38).slice(0, 2);
+      const alturaLinha = Math.max(14, nomeLinhas.length * 4.4 + (obs ? 4.2 : 0) + 5, materialLinhas.length * 4.4 + 5);
+      if (y + alturaLinha > altura - 34) novaPagina();
+      if (indice % 2 === 1) {
+        setFillPdf(doc, tema.tableStripe, "#0c2838");
+        doc.rect(margem + 3, y - 5, largura - margem * 2 - 6, alturaLinha, "F");
+      }
+      setTextPdf(doc, tema.text, "#f5fbff");
+      setFontePdf(doc, 9, "bold");
+      doc.text(String(indice + 1).padStart(2, "0"), margem + 4, y);
+      doc.text(nomeLinhas, margem + 35, y);
+      if (obs) {
+        setTextPdf(doc, tema.muted, "#b8c6d4");
+        setFontePdf(doc, 7.5);
+        doc.text(doc.splitTextToSize(obs, 48).slice(0, 1), margem + 35, y + 8.8);
+      }
+      setTextPdf(doc, tema.muted, "#b8c6d4");
+      setFontePdf(doc, 8);
+      doc.text(materialLinhas, margem + 92, y);
+      setTextPdf(doc, tema.text, "#f5fbff");
+      setFontePdf(doc, 8.5);
+      doc.text(String(item.qtd || 1), largura - margem - 68, y, { align: "right" });
+      doc.text(formatarMoeda(item.valor || 0), largura - margem - 34, y, { align: "right" });
+      doc.text(formatarMoeda(item.total || 0), largura - margem - 4, y, { align: "right" });
+      setDrawPdf(doc, tema.line, "#0bb8b1");
+      doc.setLineWidth(0.12);
+      doc.line(margem + 3, y + alturaLinha - 4, largura - margem - 3, y + alturaLinha - 4);
+      y += alturaLinha;
+    });
+
+    if (y > 206) novaPagina();
+    y += 5;
+    const larguraObs = 98;
+    const larguraResumo = largura - margem * 2 - larguraObs - 4;
+    desenharCartaoPdf(doc, margem, y, larguraObs, 44, tema);
+    setTextPdf(doc, tema.secondary, "#00d8c8");
+    setFontePdf(doc, 9, "bold");
+    doc.text("OBSERVAÇÕES", margem + 6, y + 8);
+    setTextPdf(doc, tema.muted, "#b8c6d4");
+    setFontePdf(doc, 7.5);
+    const observacoes = [
+      appConfig.pdfDefaultMessage,
+      appConfig.pdfDefaultNotes,
+      dados.observacao,
+      dados.prazo ? `Prazo combinado: ${formatarPrazoWhatsapp(dados.prazo)}` : ""
+    ].filter(Boolean).join("\n");
+    textoLimitadoPdf(doc, observacoes || "Sem observações adicionais.", margem + 6, y + 16, larguraObs - 12, 5, 4.2);
+
+    const resumoX = margem + larguraObs + 4;
+    desenharCartaoPdf(doc, resumoX, y, larguraResumo, 44, tema);
+    setTextPdf(doc, tema.text, "#f5fbff");
+    setFontePdf(doc, 8);
+    const resumoLinhas = [
+      ["Subtotal dos itens", resumoItens],
+      ["Taxa extra", taxaExtraComercial],
+      ["Desconto", descontoComercial]
+    ];
+    resumoLinhas.forEach(([label, valor], i) => {
+      doc.text(label, resumoX + 6, y + 8 + i * 8);
+      doc.text(formatarMoeda(valor), resumoX + larguraResumo - 6, y + 8 + i * 8, { align: "right" });
+    });
+    setDrawPdf(doc, tema.muted, "#b8c6d4");
+    doc.line(resumoX + 6, y + 28, resumoX + larguraResumo - 6, y + 28);
+    setTextPdf(doc, tema.secondary, "#00d8c8");
+    setFontePdf(doc, 10, "bold");
+    doc.text("TOTAL", resumoX + 6, y + 38);
+    setFontePdf(doc, 18, "bold");
+    doc.text(formatarMoeda(totalComercial), resumoX + larguraResumo - 6, y + 38, { align: "right" });
+
+    y += 52;
+    const payloadPix = gerarPayloadPix(totalComercial, cliente);
+    if (payloadPix && y <= altura - 58) {
+      const qrData = gerarQrPixDataUrl(payloadPix);
+      desenharCartaoPdf(doc, margem, y, largura - margem * 2, 44, tema);
+      setTextPdf(doc, tema.secondary, "#00d8c8");
+      setFontePdf(doc, 9, "bold");
+      doc.text("PAGUE COM PIX", margem + 16, y + 12);
+      setTextPdf(doc, tema.muted, "#b8c6d4");
+      setFontePdf(doc, 8);
+      doc.text("Escaneie o QR Code ou copie a chave Pix:", margem + 16, y + 20);
+      setTextPdf(doc, tema.secondary, "#00d8c8");
+      setFontePdf(doc, 9, "bold");
+      doc.text(empresa.pixKey || appConfig.pixKey || "", margem + 16, y + 29);
+      if (qrData) doc.addImage(qrData, "PNG", largura / 2 - 16, y + 6, 32, 32);
+      setTextPdf(doc, tema.text, "#f5fbff");
+      setFontePdf(doc, 9, "bold");
+      doc.text("Pagamento via PIX", largura - margem - 56, y + 16);
+      setTextPdf(doc, tema.muted, "#b8c6d4");
+      setFontePdf(doc, 8);
+      const pixTexto = [
+        empresa.pixReceiverName ? `Recebedor: ${empresa.pixReceiverName}` : "",
+        appConfig.pixInstruction || "Após o pagamento, envie o comprovante pelo WhatsApp."
+      ].filter(Boolean).join("\n");
+      textoLimitadoPdf(doc, pixTexto, largura - margem - 56, y + 25, 50, 3, 4.2);
     }
 
-    const nomeLinhas = doc.splitTextToSize(`${i + 1}. ${item.nome}`, 86);
-    const linhaAltura = Math.max(12, nomeLinhas.length * 5 + 5);
-    doc.setDrawColor(220, 226, 235);
-    doc.line(margem, y + linhaAltura - 4, largura - margem, y + linhaAltura - 4);
-    doc.setFontSize(10);
-    doc.text(nomeLinhas, margem + 4, y);
-    doc.text(String(item.qtd), 118, y, { align: "right" });
-    doc.text(formatarMoeda(item.valor || 0), 145, y, { align: "right" });
-    doc.text(formatarMoeda(item.total || 0), largura - margem - 4, y, { align: "right" });
-    y += linhaAltura;
-  });
-
-  y += 4;
-  doc.setFillColor(245, 247, 251);
-  doc.roundedRect(largura - 78, y, 64, 18, 3, 3, "F");
-  doc.setFontSize(10);
-  doc.text("Total do pedido", largura - 46, y + 7, { align: "center" });
-  doc.setFontSize(15);
-  doc.text(formatarMoeda(total), largura - 46, y + 15, { align: "center" });
-  y += 28;
-
-  const payloadPix = gerarPayloadPix(total, cliente);
-  if (payloadPix) {
-    if (y > 218) {
-      doc.addPage();
-      adicionarFundoPdf(doc, largura, altura, fundoPdf);
-      adicionarMarcaPdf(doc, largura, altura, marcaPdf);
-      adicionarMarcaDaguaFreePdf(doc, largura, altura);
-      y = 24;
+    const totalPaginas = doc.getNumberOfPages();
+    for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
+      doc.setPage(pagina);
+      desenharRodapeComercialPdf(doc, { largura, altura, margem, tema, empresa, pagina, totalPaginas });
     }
 
-    const qrData = gerarQrPixDataUrl(payloadPix);
-    doc.setFillColor(248, 250, 252);
-    doc.roundedRect(margem, y, largura - margem * 2, qrData ? 48 : 34, 3, 3, "F");
-    doc.setTextColor(17, 24, 39);
-    doc.setFontSize(12);
-    doc.text("Pagamento via Pix", margem + 5, y + 9);
-    doc.setFontSize(8);
-    const linhasPix = doc.splitTextToSize(payloadPix, qrData ? largura - 76 : largura - margem * 2 - 10);
-    doc.text(linhasPix.slice(0, 5), margem + 5, y + 18);
-    if (qrData) {
-      doc.addImage(qrData, "PNG", largura - margem - 38, y + 5, 32, 32);
+    registrarHistorico("PDF", `${tipoDoc} ${numeroDoc} gerado para ${cliente}`);
+    const salvou = await salvarOuCompartilharPdf(doc, nomeArquivoPdfPedido(pedidoId, cliente, agoraPdf), `${tipoDoc} ${cliente}`);
+    if (salvou) {
+      window.MonetizationLimits?.registerPdfExport?.(getUsuarioMonetizacao());
+      mostrarToast(`${tipoDoc} gerado com visual profissional.`, "sucesso", 3200);
     }
-    y += qrData ? 56 : 42;
-  }
-
-  if (appConfig.documentFooter) {
-    doc.setTextColor(95, 107, 122);
-    doc.setFontSize(10);
-    doc.text(doc.splitTextToSize(appConfig.documentFooter, largura - margem * 2), margem, Math.min(y + 6, altura - 18));
-  }
-
-  registrarHistorico("PDF", "PDF gerado para " + cliente);
-  const salvou = await salvarOuCompartilharPdf(doc, nomeArquivoPdfPedido(pedidoId, cliente, agoraPdf), "Pedido " + cliente);
-  if (salvou) {
-    window.MonetizationLimits?.registerPdfExport?.(getUsuarioMonetizacao());
-  }
   } finally {
     window.__simplificaExportandoPdf = false;
   }
