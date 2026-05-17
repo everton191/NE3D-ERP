@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.33";
-const APP_VERSION_CODE = 84;
+const APP_VERSION = "51.0.34";
+const APP_VERSION_CODE = 85;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -12405,6 +12405,13 @@ function renderPedido() {
   const prazoAtual = prazoPedido || pedidoEditando?.prazo || pedidoEditando?.dataPrazo || "";
   const observacaoCurta = observacaoAtual || "";
   const destacarAdicionarItem = pedidoEditando && sugestoesInteligentesAtivas() && contarEventosUso("item_adicionado", 20) >= 3;
+  const pedidoTabs = [
+    { id: "cliente", label: "Cliente", icon: "◉" },
+    { id: "itens", label: "Itens", icon: "▦" },
+    { id: "producao", label: "Produção", icon: "⎙" },
+    { id: "financeiro", label: "Financeiro", icon: "R$" }
+  ];
+  const pedidoTab = pedidoTabs.some((tab) => tab.id === getUiTab("pedidoEditor", "")) ? getUiTab("pedidoEditor") : (itensPedido.length ? "itens" : "cliente");
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
@@ -12485,10 +12492,12 @@ function renderPedido() {
         <span class="order-status-badge ${classeStatusPedido(statusAtual)}">${escaparHtml(labelStatusPedido(statusAtual))}</span>
       </div>
 
-      <section class="order-step-panel">
+      ${renderUiTabs("pedidoEditor", pedidoTabs, pedidoTab)}
+      <div class="ui-tab-panel order-tab-panel">
+      ${pedidoTab === "cliente" ? `<section class="order-step-panel">
         <div class="order-step-title">
           <span>1</span>
-          <strong>Resumo</strong>
+          <strong>Cliente</strong>
         </div>
         <div class="order-summary-grid">
           <label class="field customer-field">
@@ -12520,9 +12529,9 @@ function renderPedido() {
           </label>
         </div>
         ${observacaoCurta ? `<p class="order-note-preview">${escaparHtml(String(observacaoCurta).slice(0, 120))}</p>` : ""}
-      </section>
+      </section>` : ""}
 
-      <section class="order-step-panel">
+      ${pedidoTab === "itens" ? `<section class="order-step-panel">
         <div class="order-step-title">
           <span>2</span>
           <strong>Itens</strong>
@@ -12538,7 +12547,47 @@ function renderPedido() {
           </div>
         ` : ""}
         <div class="order-items-list">${itensHtml}</div>
-      </section>
+      </section>` : ""}
+
+      ${pedidoTab === "producao" ? `<section class="order-step-panel">
+        <div class="order-step-title">
+          <span>3</span>
+          <strong>Produção</strong>
+        </div>
+        <div class="order-summary-grid">
+          <label class="field">
+            <span>Prazo/data</span>
+            <input id="pedidoPrazo" type="date" value="${escaparAttr(prazoAtual)}" oninput="atualizarPrazoPedido(this.value)">
+          </label>
+          <label class="field compact-field">
+            <span>Status</span>
+            <select id="pedidoStatus">
+              ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field order-observation-field">
+            <span>Observação de produção</span>
+            <textarea id="pedidoObservacao" rows="3" placeholder="Ex.: cor, acabamento, prazo combinado" oninput="atualizarObservacaoPedido(this.value)">${escaparHtml(observacaoAtual)}</textarea>
+          </label>
+        </div>
+      </section>` : ""}
+
+      ${pedidoTab === "financeiro" ? `<section class="order-step-panel">
+        <div class="order-step-title">
+          <span>4</span>
+          <strong>Financeiro</strong>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>Total</span><strong>${formatarMoeda(total)}</strong></div>
+          <div class="metric"><span>Itens</span><strong>${itensPedido.length}</strong></div>
+          <div class="metric"><span>Status</span><strong>${escaparHtml(labelStatusPedido(statusAtual))}</strong></div>
+        </div>
+        <div class="order-secondary-actions">
+          ${itensPedido.length ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
+          ${itensPedido.length ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
+        </div>
+      </section>` : ""}
+      </div>
 
       <div class="order-bottom-bar">
         <div>
@@ -12552,8 +12601,8 @@ function renderPedido() {
       <div class="order-secondary-actions">
         ${renderAcaoPedidoCompacta("✚", "Manual", "adicionarProdutoManual()")}
         ${renderAcaoPedidoCompacta("🧮", "Calcular", "openCalculatorForOrder()")}
-        ${itensPedido.length ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
-        ${itensPedido.length ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
+        ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
+        ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
       </div>
     </section>
   `;
@@ -12680,6 +12729,16 @@ function renderMateriaisItemPedido(item, itemIndex) {
 function renderEstoque() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   normalizarEstoque();
+  const estoqueTabs = [
+    { id: "materiais", label: "Materiais", icon: "▦" },
+    { id: "alertas", label: "Alertas", icon: "!" },
+    { id: "historico", label: "Histórico", icon: "↻" }
+  ];
+  const estoqueTab = estoqueTabs.some((tab) => tab.id === getUiTab("estoque", "")) ? getUiTab("estoque") : "materiais";
+  const materiaisBaixos = estoque.filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg);
+  const historicoEstoque = historico
+    .filter((item) => /estoque|material/i.test(`${item.acao || ""} ${item.detalhes || ""}`))
+    .slice(0, 12);
   const linhas = estoque.length
     ? estoque.map((material, i) => `
         <div class="stock-row">
@@ -12697,29 +12756,67 @@ function renderEstoque() {
     : `<p class="empty">Nenhum material cadastrado.</p>`;
 
   return `
-    <section class="card">
+    <section class="card organized-page stock-page">
       <div class="card-header">
-        <h2>📦 Estoque</h2>
+        <h2>Estoque</h2>
       </div>
       ${podeOperar ? "" : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; alterações voltam após regularização.</p>`}
-      ${podeOperar ? `
-      <label class="field">
-        <span>Tipo de material</span>
-        <select id="matTipo">
-          ${tiposMaterial.map((tipo) => `<option value="${tipo}">${tipo}</option>`).join("")}
-        </select>
-      </label>
-      <label class="field">
-        <span>Cor do material</span>
-        <input id="matCor" placeholder="Escolha na paleta" readonly>
-        ${renderPaletaCoresMaterial("matCor")}
-      </label>
-      <label class="field">
-        <span>Quantidade em kg</span>
-        <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
-      </label>
-      <div class="actions"><button class="btn" type="button" data-action="stock-add">Adicionar material</button></div>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
-      ${linhas}
+      ${renderUiTabs("estoque", estoqueTabs, estoqueTab)}
+      <div class="ui-tab-panel">
+        ${estoqueTab === "materiais" ? `
+          <div class="settings-group">
+            <h3>Cadastro rápido</h3>
+            ${podeOperar ? `
+            <div class="sync-grid">
+              <label class="field">
+                <span>Tipo de material</span>
+                <select id="matTipo">
+                  ${tiposMaterial.map((tipo) => `<option value="${tipo}">${tipo}</option>`).join("")}
+                </select>
+              </label>
+              <label class="field">
+                <span>Cor do material</span>
+                <input id="matCor" placeholder="Escolha na paleta" readonly>
+                ${renderPaletaCoresMaterial("matCor")}
+              </label>
+              <label class="field">
+                <span>Quantidade em kg</span>
+                <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
+              </label>
+            </div>
+            <div class="actions"><button class="btn" type="button" data-action="stock-add">Adicionar material</button></div>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
+          </div>
+          <div class="settings-group">
+            <h3>Materiais</h3>
+            ${linhas}
+          </div>
+        ` : ""}
+        ${estoqueTab === "alertas" ? `
+          <div class="settings-group">
+            <h3>Alertas de estoque</h3>
+            ${materiaisBaixos.length ? materiaisBaixos.map((material) => `
+              <div class="stock-row stock-alert-row">
+                <div class="row-title">
+                  <strong>${escaparHtml(material.nome)}</strong>
+                  <span class="muted">${(Number(material.qtd) || 0).toFixed(3)} kg disponíveis • mínimo ${Number(estoqueMinimoKg).toFixed(3)} kg</span>
+                </div>
+                <span class="status-badge badge-alerta">Repor</span>
+              </div>
+            `).join("") : `<p class="empty">Nenhum alerta de estoque baixo.</p>`}
+          </div>
+        ` : ""}
+        ${estoqueTab === "historico" ? `
+          <div class="settings-group">
+            <h3>Histórico do estoque</h3>
+            ${historicoEstoque.length ? historicoEstoque.map((item) => `
+              <div class="history-item">
+                <strong>${escaparHtml(item.acao || "Estoque")}</strong>
+                <span class="muted">${item.data ? new Date(item.data).toLocaleString("pt-BR") : ""} • ${escaparHtml(item.detalhes || "")}</span>
+              </div>
+            `).join("") : `<p class="empty">Nenhum movimento de estoque registrado.</p>`}
+          </div>
+        ` : ""}
+      </div>
     </section>
   `;
 }
@@ -14274,6 +14371,57 @@ function renderBloqueioPlano(recurso) {
   `;
 }
 
+function getUiTab(group, fallback = "") {
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  return String(window.__simplificaUiTabs[group] || fallback || "");
+}
+
+function trocarUiTab(group, tab) {
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  window.__simplificaUiTabs[group] = String(tab || "");
+  renderizarPreservandoScroll();
+}
+
+function renderUiTabs(group, tabs = [], active = "") {
+  const activeTab = active || tabs[0]?.id || "";
+  return `
+    <div class="ui-tabs" role="tablist" aria-label="${escaparAttr(group)}">
+      ${tabs.map((tab) => `
+        <button class="ui-tab ${activeTab === tab.id ? "active" : ""}" type="button" role="tab" aria-selected="${activeTab === tab.id}" onclick="trocarUiTab('${escaparAttr(group)}','${escaparAttr(tab.id)}')">
+          ${tab.icon ? `<span aria-hidden="true">${tab.icon}</span>` : ""}
+          <span>${escaparHtml(tab.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderUiSection({ id = "", title = "", subtitle = "", icon = "", content = "", open = false, group = "" } = {}) {
+  return `
+    <details class="ui-section" data-ui-section="${escaparAttr(id)}" data-accordion-group="${escaparAttr(group)}" ${open ? "open" : ""} ontoggle="sincronizarAcordeaoUi(this)">
+      <summary>
+        <span class="ui-section-icon" aria-hidden="true">${icon || "▦"}</span>
+        <span class="ui-section-title">
+          <strong>${escaparHtml(title)}</strong>
+          ${subtitle ? `<small>${escaparHtml(subtitle)}</small>` : ""}
+        </span>
+        <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+      </summary>
+      <div class="ui-section-body">${content}</div>
+    </details>
+  `;
+}
+
+function sincronizarAcordeaoUi(elemento) {
+  if (!elemento?.open || !isMobile()) return;
+  const grupo = elemento.dataset.accordionGroup || "";
+  if (!grupo) return;
+  const seletorGrupo = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(grupo) : String(grupo).replace(/"/g, '\\"');
+  document.querySelectorAll(`.ui-section[data-accordion-group="${seletorGrupo}"]`).forEach((item) => {
+    if (item !== elemento) item.open = false;
+  });
+}
+
 function renderConfig() {
   const usuario = getUsuarioAtual();
   const emailConta = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || "");
@@ -14289,63 +14437,14 @@ function renderConfig() {
         : conectado
           ? "Conectado"
           : "Conta necessária";
-
-  if (!temAcessoNuvem()) {
-    return `
-      <section class="card">
-        <div class="card-header">
-          <h2>☁️ Backup e sincronização</h2>
-          <span class="status-badge">Conta necessária</span>
-        </div>
-        <p class="muted">Entre ou crie uma conta para sincronizar dados entre Android, Windows e navegador. O plano Free também sincroniza, respeitando o limite de armazenamento.</p>
-        <div class="admin-grid">
-          <div class="metric">
-            <span>Free</span>
-            <strong>Sync limitada</strong>
-          </div>
-          <div class="metric">
-            <span>Premium</span>
-            <strong>Sync ampliada</strong>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="trocarTela('admin')">Entrar ou criar conta</button>
-          <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
-          <button class="btn ghost" onclick="voltarTela()">Voltar</button>
-        </div>
-        <label class="field">
-          <span>Restaurar backup JSON local</span>
-          <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
-        </label>
-      </section>
-    `;
-  }
-
-  return `
-    <section class="card">
-      <div class="card-header">
-        <h2>☁️ Dados e Backup</h2>
-        <span class="status-badge">${escaparHtml(status)}</span>
-      </div>
+  const backupContent = temAcessoNuvem()
+    ? `
       <div class="sync-grid">
-        <div class="metric">
-          <span>Conta</span>
-          <strong>${escaparHtml(emailConta || "Não conectada")}</strong>
-        </div>
-        <div class="metric">
-          <span>Status</span>
-          <strong>${escaparHtml(status)}</strong>
-        </div>
-        <div class="metric">
-          <span>Última sincronização</span>
-          <strong>${ultimaSync ? new Date(ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong>
-        </div>
-        <div class="metric">
-          <span>Dispositivo</span>
-          <strong>${escaparHtml(syncConfig.deviceName || deviceId.slice(0, 10))}</strong>
-        </div>
+        <div class="metric"><span>Conta</span><strong>${escaparHtml(emailConta || "Não conectada")}</strong></div>
+        <div class="metric"><span>Status</span><strong>${escaparHtml(status)}</strong></div>
+        <div class="metric"><span>Última sincronização</span><strong>${ultimaSync ? new Date(ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong></div>
+        <div class="metric"><span>Dispositivo</span><strong>${escaparHtml(syncConfig.deviceName || deviceId.slice(0, 10))}</strong></div>
       </div>
-
       <div class="actions">
         <button class="btn" onclick="sincronizarSupabase()">Sincronizar agora</button>
         <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
@@ -14353,90 +14452,99 @@ function renderConfig() {
           <span>Importar backup</span>
           <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
         </label>
+      </div>`
+    : `
+      <p class="muted">Entre ou crie uma conta para sincronizar dados entre Android, Windows e navegador. O Free continua funcional com sync limitada.</p>
+      <div class="admin-grid">
+        <div class="metric"><span>Free</span><strong>Sync limitada</strong></div>
+        <div class="metric"><span>Premium</span><strong>Sync ampliada</strong></div>
       </div>
+      <div class="actions">
+        <button class="btn" onclick="trocarTela('admin')">Entrar ou criar conta</button>
+        <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
+        <button class="btn ghost" onclick="voltarTela()">Voltar</button>
+      </div>
+      <label class="field">
+        <span>Restaurar backup JSON local</span>
+        <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
+      </label>`;
+  const securityContent = whatsapp2FABackendDisponivel()
+    ? `
+      <label class="checkbox-row">
+        <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled ? "checked" : ""}>
+        <span>Ativar verificação em duas etapas pelo WhatsApp</span>
+      </label>
+      <div class="sync-grid">
+        <label class="field">
+          <span>WhatsApp da verificação</span>
+          <input id="twoFactorWhatsapp" value="${escaparAttr(appConfig.twoFactorWhatsapp || appConfig.whatsappNumber || "")}" placeholder="Ex.: +5585999999999">
+        </label>
+        <label class="field">
+          <span>Proteger</span>
+          <select id="twoFactorScope">
+            <option value="admin" ${appConfig.twoFactorScope !== "todos" ? "selected" : ""}>Admins</option>
+            <option value="todos" ${appConfig.twoFactorScope === "todos" ? "selected" : ""}>Todos os usuários</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Lembrar neste aparelho por minutos</span>
+          <input id="twoFactorRememberMinutes" type="number" min="1" step="1" value="${Number(appConfig.twoFactorRememberMinutes) || 60}">
+        </label>
+      </div>
+      <div class="actions"><button class="btn" onclick="salvarConfigSync()">Salvar segurança</button></div>`
+    : `<p class="muted">2FA WhatsApp desativado temporariamente neste ambiente.</p>`;
+  const updatesContent = `
+    <label class="checkbox-row">
+      <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
+      <span>Atualizar automaticamente quando houver versão nova</span>
+    </label>
+    <div class="sync-grid">
+      <div class="metric"><span>Versão instalada</span><strong>${escaparHtml(APP_VERSION)}</strong></div>
+      <div class="metric"><span>Status</span><strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong></div>
+      <div class="metric"><span>Versão disponível</span><strong>${escaparHtml(appConfig.updateAvailableVersion || "Nenhuma")}</strong></div>
+      <label class="field">
+        <span>Checar a cada minutos</span>
+        <input id="updateCheckInterval" type="number" min="5" step="1" value="${Number(appConfig.updateCheckInterval) || 30}">
+      </label>
+      <div class="metric"><span>Última checagem</span><strong>${appConfig.updateLastCheck ? new Date(appConfig.updateLastCheck).toLocaleString("pt-BR") : "Nunca"}</strong></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="salvarConfigSync()">Salvar atualizações</button>
+      <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
+      <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
+      <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
+    </div>`;
+  const systemContent = `
+    <div class="settings-group">
+      <h3>Introdução</h3>
+      <p class="muted">Refaça o guia inicial quando quiser revisar o fluxo básico do sistema.</p>
+      <div class="actions"><button class="btn secondary" onclick="reiniciarOnboarding()">Refazer introdução</button></div>
+    </div>
+    <div class="settings-group">
+      <h3>Legal e versão</h3>
+      <div class="actions">
+        <button class="btn ghost" onclick="trocarTela('privacy')">Política de Privacidade</button>
+        <button class="btn ghost" onclick="trocarTela('terms')">Termos de Uso</button>
+        <button class="btn ghost" onclick="trocarTela('sobre')">Sobre e licenças</button>
+      </div>
+    </div>`;
 
-      ${telaAtual === "config" ? `
-        ${renderAssistenteInteligenteProConfig()}
-
-        ${whatsapp2FABackendDisponivel() ? `<div class="danger-zone">
-          <h2 class="section-title">Segurança</h2>
-          <label class="checkbox-row">
-            <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled && whatsapp2FABackendDisponivel() ? "checked" : ""} ${whatsapp2FABackendDisponivel() ? "" : "disabled"}>
-            <span>${whatsapp2FABackendDisponivel() ? "Ativar verificação em duas etapas pelo WhatsApp" : "2FA WhatsApp desativado temporariamente"}</span>
-          </label>
-          <div class="sync-grid">
-            <label class="field">
-              <span>WhatsApp da verificação</span>
-              <input id="twoFactorWhatsapp" value="${escaparAttr(appConfig.twoFactorWhatsapp || appConfig.whatsappNumber || "")}" placeholder="Ex.: +5585999999999" ${whatsapp2FABackendDisponivel() ? "" : "disabled"}>
-            </label>
-            <label class="field">
-              <span>Proteger</span>
-              <select id="twoFactorScope" ${whatsapp2FABackendDisponivel() ? "" : "disabled"}>
-                <option value="admin" ${appConfig.twoFactorScope !== "todos" ? "selected" : ""}>Admins</option>
-                <option value="todos" ${appConfig.twoFactorScope === "todos" ? "selected" : ""}>Todos os usuários</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Lembrar neste aparelho por minutos</span>
-              <input id="twoFactorRememberMinutes" type="number" min="1" step="1" value="${Number(appConfig.twoFactorRememberMinutes) || 60}" ${whatsapp2FABackendDisponivel() ? "" : "disabled"}>
-            </label>
-          </div>
-        </div>` : ""}
-
-        <div class="danger-zone">
-          <h2 class="section-title">Atualizações</h2>
-          <label class="checkbox-row">
-            <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
-            <span>Atualizar automaticamente quando houver versão nova</span>
-          </label>
-          <div class="sync-grid">
-            <div class="metric">
-              <span>Versão instalada</span>
-              <strong>${escaparHtml(APP_VERSION)}</strong>
-            </div>
-            <div class="metric">
-              <span>Status</span>
-              <strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong>
-            </div>
-            <div class="metric">
-              <span>Versão disponível</span>
-              <strong>${escaparHtml(appConfig.updateAvailableVersion || "Nenhuma")}</strong>
-            </div>
-            <label class="field">
-              <span>Checar a cada minutos</span>
-              <input id="updateCheckInterval" type="number" min="5" step="1" value="${Number(appConfig.updateCheckInterval) || 30}">
-            </label>
-            <div class="metric">
-              <span>Última checagem</span>
-              <strong>${appConfig.updateLastCheck ? new Date(appConfig.updateLastCheck).toLocaleString("pt-BR") : "Nunca"}</strong>
-            </div>
-          </div>
-          <div class="actions">
-            <button class="btn" onclick="salvarConfigSync()">Salvar configurações</button>
-            <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
-            <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
-            <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
-          </div>
-        </div>
-
-        <div class="danger-zone">
-          <h2 class="section-title">Introdução</h2>
-          <p class="muted">Refaça o guia inicial quando quiser revisar o fluxo básico do sistema.</p>
-          <div class="actions">
-            <button class="btn secondary" onclick="reiniciarOnboarding()">Refazer introdução</button>
-          </div>
-        </div>
-
-        <div class="danger-zone">
-          <h2 class="section-title">Legal e versão</h2>
-          <div class="actions">
-            <button class="btn ghost" onclick="trocarTela('privacy')">Política de Privacidade</button>
-            <button class="btn ghost" onclick="trocarTela('terms')">Termos de Uso</button>
-            <button class="btn ghost" onclick="trocarTela('sobre')">Sobre e licenças</button>
-          </div>
-        </div>
-      ` : ""}
-
+  return `
+    <section class="card organized-page settings-page">
+      <div class="card-header">
+        <h2>Configurações</h2>
+        <span class="status-badge">${escaparHtml(status)}</span>
+      </div>
+      <p class="muted">Configurações separadas por categoria para manter APK e PWA com a mesma organização.</p>
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta, sync, exportação e importação", icon: "☁", content: backupContent, open: true, group: "config" })}
+        ${telaAtual === "config" ? `
+          ${renderAssistenteInteligenteProConfig()}
+          ${renderUiSection({ id: "seguranca", title: "Segurança", subtitle: "2FA, senha e proteção de acesso", icon: "⌁", content: securityContent, group: "config" })}
+          ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
+          ${renderUiSection({ id: "sistema", title: "Sistema", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
+        ` : ""}
+      </div>
       <div class="actions single">
         <button class="btn ghost" onclick="voltarTela()">← Voltar para a tela anterior</button>
         <button class="btn ghost" onclick="voltarInicio()">Ir para o início</button>
@@ -15981,6 +16089,14 @@ function renderPersonalizacao() {
         <span class="status-badge">Identidade</span>
       </div>
 
+      <div class="settings-accordion-list">
+      <details class="ui-section" data-ui-section="empresa" data-accordion-group="personalizacao" open ontoggle="sincronizarAcordeaoUi(this)">
+        <summary>
+          <span class="ui-section-icon" aria-hidden="true">🏢</span>
+          <span class="ui-section-title"><strong>Empresa</strong><small>Dados comerciais, contatos e endereço</small></span>
+          <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="ui-section-body">
       <label class="field">
         <span>Nome do aplicativo</span>
               <input id="appNameConfig" value="${escaparAttr(appConfig.appName)}" placeholder="Simplifica 3D">
@@ -16025,9 +16141,16 @@ function renderPersonalizacao() {
           <input id="companyCnpjConfig" value="${escaparAttr(appConfig.companyCnpj || "")}" placeholder="00.000.000/0001-00">
         </label>
       </div>
+        </div>
+      </details>
 
-      <div class="danger-zone">
-        <h2 class="section-title">Identidade da empresa</h2>
+      <details class="ui-section" data-ui-section="identidade" data-accordion-group="personalizacao" ontoggle="sincronizarAcordeaoUi(this)">
+        <summary>
+          <span class="ui-section-icon" aria-hidden="true">◎</span>
+          <span class="ui-section-title"><strong>Identidade</strong><small>Logo, foto, login e movimento</small></span>
+          <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="ui-section-body">
         <p class="muted">Separe a foto do usuário, a logo da empresa e a identidade usada no PDF.</p>
         <div class="profile-preview-row">
           <div class="profile-preview-avatar" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
@@ -16070,10 +16193,16 @@ function renderPersonalizacao() {
             </select>
           </label>
         </div>
-      </div>
+        </div>
+      </details>
 
-      <div class="danger-zone">
-        <h2 class="section-title">PDF, Pix e marca</h2>
+      <details class="ui-section" data-ui-section="pdf" data-accordion-group="personalizacao" ontoggle="sincronizarAcordeaoUi(this)">
+        <summary>
+          <span class="ui-section-icon" aria-hidden="true">▣</span>
+          <span class="ui-section-title"><strong>PDF</strong><small>Tema, Pix, cabeçalho, observações e rodapé</small></span>
+          <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="ui-section-body">
         <p class="muted">Esses dados aparecem automaticamente no orçamento. O layout fica fixo para manter o PDF profissional e alinhado.</p>
         <div class="brand-preview">
           <img id="brandLogoPreview" src="${escaparAttr(marcaAtual)}" alt="Prévia da marca no PDF">
@@ -16168,8 +16297,16 @@ function renderPersonalizacao() {
         </div>
         ${appConfig.brandLogoDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerLogoMarca()">Remover logo salva</button>` : ""}
         ${appConfig.pdfBackgroundDataUrl && acessoMarca ? `<button class="btn ghost" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
-      </div>
+        </div>
+      </details>
 
+      <details class="ui-section" data-ui-section="aparencia" data-accordion-group="personalizacao" ontoggle="sincronizarAcordeaoUi(this)">
+        <summary>
+          <span class="ui-section-icon" aria-hidden="true">◐</span>
+          <span class="ui-section-title"><strong>Aparência</strong><small>Tema, cores e modo compacto</small></span>
+          <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="ui-section-body">
       <div class="sync-grid">
         <label class="field">
           <span>Tema</span>
@@ -16190,7 +16327,24 @@ function renderPersonalizacao() {
           <button class="color-swatch" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}" ${acessoMarca ? "" : "disabled"}></button>
         `).join("")}
       </div>
+      <label class="checkbox-row">
+        <input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}>
+        <span>Modo compacto</span>
+      </label>
+      <label class="checkbox-row">
+        <input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}>
+        <span>Mostrar nome do app no topo</span>
+      </label>
+        </div>
+      </details>
 
+      <details class="ui-section" data-ui-section="calculadora" data-accordion-group="personalizacao" ontoggle="sincronizarAcordeaoUi(this)">
+        <summary>
+          <span class="ui-section-icon" aria-hidden="true">▤</span>
+          <span class="ui-section-title"><strong>Calculadora</strong><small>Custos, margens e regras padrão</small></span>
+          <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="ui-section-body">
       <div class="sync-grid">
         <label class="field">
           <span>Margem padrão da calculadora (%)</span>
@@ -16209,9 +16363,16 @@ function renderPersonalizacao() {
         <span>Taxa extra padrão (R$)</span>
         <input id="defaultExtraFeeConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}">
       </label>
+        </div>
+      </details>
 
-      <div class="danger-zone">
-        <h2 class="section-title">Tela e resolução</h2>
+      <details class="ui-section" data-ui-section="sistema" data-accordion-group="personalizacao" ontoggle="sincronizarAcordeaoUi(this)">
+        <summary>
+          <span class="ui-section-icon" aria-hidden="true">⚙</span>
+          <span class="ui-section-title"><strong>Sistema</strong><small>Tela, resolução e sugestões locais</small></span>
+          <span class="ui-section-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="ui-section-body">
         <p class="muted">O modo automático ajusta espaçamento, tamanho dos campos e largura dos blocos conforme a tela do cliente.</p>
         <div class="sync-grid">
           <label class="field">
@@ -16241,20 +16402,13 @@ function renderPersonalizacao() {
         <div class="actions single">
           <button class="btn ghost" onclick="restaurarLayoutDashboard()">Restaurar janelas da tela principal</button>
         </div>
-      </div>
-
-      <label class="checkbox-row">
-        <input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}>
-        <span>Modo compacto</span>
-      </label>
       <label class="checkbox-row">
         <input id="smartSuggestionsEnabledConfig" type="checkbox" ${appConfig.smartSuggestionsEnabled !== false ? "checked" : ""}>
         <span>Sugestões inteligentes locais</span>
       </label>
-      <label class="checkbox-row">
-        <input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}>
-        <span>Mostrar nome do app no topo</span>
-      </label>
+        </div>
+      </details>
+      </div>
 
       <div class="actions">
         <button class="btn" onclick="salvarPersonalizacao()">Salvar personalização</button>
