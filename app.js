@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.36";
-const APP_VERSION_CODE = 87;
+const APP_VERSION = "51.0.37";
+const APP_VERSION_CODE = 88;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -6029,6 +6029,13 @@ function descricaoCaixa(movimento) {
   return movimento?.descricao || movimento?.desc || "Movimento";
 }
 
+function formatarDataCurta(valor = "") {
+  if (!valor) return "";
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return String(valor);
+  return data.toLocaleDateString("pt-BR");
+}
+
 function calcularSaldo() {
   return caixa.reduce((saldo, movimento) => {
     const valor = Number(movimento.valor) || 0;
@@ -11354,63 +11361,109 @@ function renderMais() {
 function renderConta() {
   const usuario = getUsuarioAtual();
   if (!usuario) return renderAcessoNegado();
-  const inicial = String(usuario.nome || usuario.email || "S").trim().slice(0, 1).toUpperCase();
-  const syncStatus = syncConfig.supabaseAccessToken ? "Online" : "Local";
-  const logs = securityLogs.slice(0, 12).map((log) => `
-    <div class="history-item">
-      <strong>${escaparHtml(log.acao)} • ${escaparHtml(log.resultado)}</strong>
-      <span class="muted">${new Date(log.data).toLocaleString("pt-BR")} • ${escaparHtml(log.usuario)} • ${escaparHtml(log.detalhes || log.dispositivo || "")}</span>
-    </div>
-  `).join("") || `<p class="empty">Nenhum log de segurança registrado.</p>`;
-  const securityContent = `
-    <label class="checkbox-row">
-      <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
-      <span>Manter login neste aparelho</span>
-    </label>
-    <label class="checkbox-row">
-      <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
-      <span>Usar digital, rosto ou padrão para proteger este aparelho</span>
-    </label>
-    <div class="actions">
-      <button class="btn warning" type="button" onclick="logoutUsuario()">Sair ou trocar de conta</button>
-      <button class="btn ghost" type="button" onclick="sairSupabase()">Encerrar Supabase</button>
-      <button class="btn ghost" type="button" onclick="verificarPermissoesDispositivo()">Verificar permissões</button>
-    </div>
-  `;
+  const plano = getPlanoAtual();
+  const estadoPlano = resolverEstadoPlano(usuario, { source: "profile-screen" });
+  const planoSlug = estadoPlano.hasPremium ? "premium" : estadoPlano.state === PLAN_ACCESS_STATES.TRIAL ? "premium_trial" : "free";
+  const planoAtual = getPlanoSaas(planoSlug);
+  const preco = getPrecoPagoVigenteLocal();
+  const vencimento = estadoPlano.planExpiresAt || usuario.planExpiresAt || billingConfig.paidUntil || "";
+  const proximaCobranca = vencimento ? new Date(vencimento).toLocaleDateString("pt-BR") : "-";
+  const usuariosAtivos = Math.max(1, getUsuariosDoCliente().filter((item) => item.ativo !== false && !item.bloqueado).length || 1);
+  const maxUsuarios = estadoPlano.hasPremium ? 10 : 5;
+  const maxProjetos = estadoPlano.hasPremium ? 30 : 10;
+  const pedidosUsados = pedidos.length;
+  const relatoriosUsados = Math.min(100, Math.max(0, historico.filter((item) => /relat/i.test(item.acao || "")).length || pedidosUsados * 2));
+  const armazenamentoPercentual = Math.min(100, Math.max(8, Math.round(JSON.stringify({ pedidos, estoque, caixa }).length / 5000)));
+  const fotoPerfilAtual = appConfig.profilePhotoDataUrl || usuario.avatarUrl || usuario.avatar_url || "";
   return `
-    <section class="card account-screen organized-page settings-page">
-      <div class="account-profile">
-        <div class="account-avatar">${escaparHtml(inicial)}</div>
-        <div>
-          <h2>Conta</h2>
+    <section class="profile-modern-screen">
+      <div class="profile-modern-header">
+        <span></span>
+        <h2>Meu Perfil</h2>
+        <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}</button>
+      </div>
+
+      <button class="profile-modern-user-card" type="button" onclick="trocarTela('aparencia')">
+        <span class="profile-modern-avatar">
+          ${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : `<i>${escaparHtml(getUserInitials(usuario.nome || usuario.email))}</i>`}
+          <em>${renderUiIcon("edit")}</em>
+        </span>
+        <span>
           <strong>${escaparHtml(usuario.nome || usuario.email)}</strong>
-          <span class="muted">${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</span>
+          <small><b class="status-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(planoAtual.slug === "premium" ? "Pro" : planoAtual.slug === "premium_trial" ? "Trial" : "Free")}</b></small>
+          <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</small>
+          <small>${escaparHtml(usuario.phone || usuario.telefone || appConfig.companyPhone || "")}</small>
+        </span>
+        <span class="profile-row-arrow">›</span>
+      </button>
+
+      <section class="profile-modern-card">
+        <div class="profile-section-title">
+          <strong>${renderUiIcon("assinatura")} Meu plano</strong>
+          <button class="inline-link" type="button" onclick="trocarTela('assinatura')">Ver detalhes</button>
         </div>
-        <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${usuario.ativo === false ? "Inativa" : "Ativa"}</span>
-      </div>
+        <div class="profile-plan-summary">
+          <div>
+            <h3>${escaparHtml(planoAtual.name || plano.nome || "Plano Free")} <span class="profile-active-dot"></span> <small>${estadoPlano.hasPremium ? "Ativo" : planoSlug === "premium_trial" ? "Trial" : "Free"}</small></h3>
+          </div>
+          <div class="profile-plan-split">
+            <span><small>Próxima cobrança</small><strong>${escaparHtml(proximaCobranca)}</strong></span>
+            <span><small>Valor</small><strong>${estadoPlano.hasPremium ? `${formatarMoeda(preco)}/mês` : "Grátis"}</strong></span>
+          </div>
+        </div>
+      </section>
 
-      <div class="metrics">
-        <div class="metric"><span>Perfil</span><strong>${escaparHtml(usuario.papel || "user")}</strong></div>
-        <div class="metric"><span>Sessão</span><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong></div>
-        <div class="metric"><span>Sincronização</span><strong>${escaparHtml(syncStatus)}</strong></div>
-        <div class="metric"><span>Último acesso</span><strong>${escaparHtml(formatarUltimoAcessoConta())}</strong></div>
-      </div>
+      <section class="profile-modern-card">
+        <div class="profile-section-title">
+          <strong>Uso do plano</strong>
+          <button class="inline-link" type="button" onclick="trocarTela('minhaAssinatura')">Ver uso</button>
+        </div>
+        <div class="profile-usage-grid">
+          ${renderProfileUsageTile("clientes", "Usuários", `${usuariosAtivos}/${maxUsuarios}`, Math.min(100, usuariosAtivos / maxUsuarios * 100))}
+          ${renderProfileUsageTile("pedido", "Projetos", `${pedidosUsados}/${maxProjetos}`, Math.min(100, pedidosUsados / maxProjetos * 100))}
+          ${renderProfileUsageTile("relatorios", "Relatórios", `${relatoriosUsados}/100`, Math.min(100, relatoriosUsados))}
+          ${renderProfileUsageTile("assinatura", "Armazenamento", `${(armazenamentoPercentual / 20).toFixed(1)}/5 GB`, armazenamentoPercentual)}
+        </div>
+      </section>
 
-      <div class="actions">
-        <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Plano e assinatura</button>
-        ${podeGerenciarUsuarios() ? `<button class="btn secondary" type="button" onclick="trocarTela('usuarios')">Usuários</button>` : ""}
-        <button class="btn ghost" type="button" onclick="entrarComCredencialSalva()">Senha salva/digital</button>
-        <button class="btn warning" type="button" onclick="logoutUsuario()">Sair</button>
-      </div>
+      <section class="profile-modern-card profile-list-card">
+        <h3>Conta</h3>
+        ${renderProfileMenuRow("conta", "Dados pessoais", "aparencia")}
+        ${renderProfileMenuRow("seguranca", "Segurança", "seguranca")}
+        ${renderProfileMenuRow("bell", "Notificações", "feedback")}
+        ${renderProfileMenuRow("preferencias", "Preferências", "preferencias")}
+      </section>
 
-      <div class="settings-accordion-list">
-        ${renderUiSection({ id: "conta-seguranca", title: "Sessão e segurança", subtitle: "Login, biometria, permissões e troca de conta", icon: "🔒", content: securityContent, open: true, group: "conta" })}
-        ${renderUiSection({ id: "conta-senha", title: "Senha", subtitle: "Alterar senha da conta atual", icon: "◎", content: renderFormularioAlterarSenha(false), group: "conta" })}
-        ${renderUiSection({ id: "conta-dispositivos", title: "Plano e dispositivos", subtitle: "Licença, assinatura e aparelhos vinculados", icon: "▦", content: renderDispositivosLicenca(), group: "conta" })}
-        ${renderUiSection({ id: "conta-logs", title: "Logs de segurança", subtitle: "Eventos recentes desta conta", icon: "≡", content: `<div class="history-list">${logs}</div>`, group: "conta" })}
-      </div>
+      <section class="profile-modern-card profile-list-card">
+        <h3>Pagamentos</h3>
+        ${renderProfileMenuRow("assinatura", "Histórico de pagamentos", "minhaAssinatura")}
+        ${renderProfileMenuRow("pdf", "Métodos de pagamento", "assinatura")}
+      </section>
+
+      <section class="profile-modern-card profile-list-card">
+        <h3>Suporte</h3>
+        ${renderProfileMenuRow("sobre", "Central de ajuda", "feedback")}
+        ${renderProfileMenuRow("feedback", "Falar com suporte", "feedback")}
+        <button class="profile-list-row danger" type="button" onclick="logoutUsuario()">${renderUiIcon("back")} <span>Sair ou trocar de conta</span><b>›</b></button>
+      </section>
     </section>
   `;
+}
+
+function renderProfileUsageTile(icon, label, value, percent = 0) {
+  const largura = Math.max(4, Math.min(100, Number(percent) || 0));
+  return `
+    <div class="profile-usage-tile">
+      <span>${renderUiIcon(icon)}</span>
+      <small>${escaparHtml(label)}</small>
+      <strong>${escaparHtml(value)}</strong>
+      <i><em style="width:${largura}%"></em></i>
+    </div>
+  `;
+}
+
+function renderProfileMenuRow(icon, label, tela) {
+  return `<button class="profile-list-row" type="button" onclick="trocarTela('${escaparAttr(tela)}')">${renderUiIcon(icon)} <span>${escaparHtml(label)}</span><b>›</b></button>`;
 }
 
 function renderAtualizacaoAndroidDownload() {
@@ -12664,8 +12717,10 @@ function renderPedido() {
               <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
             </span>
             <span class="order-item-total" data-item-total-index="${i}">${formatarMoeda(Number(item.total) || 0)}</span>
-            <button class="icon-action-button order-edit-inline" type="button" onclick="event.preventDefault();event.stopPropagation();selecionarItemPedido(${i})" title="Editar item">${renderIconeAcaoPedido("✎", "Editar")}</button>
-            <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
+            <span class="order-item-inline-actions" aria-label="Ações do item">
+              <button class="icon-action-button order-edit-inline" type="button" onclick="event.preventDefault();event.stopPropagation();selecionarItemPedido(${i})" title="Editar item">${renderIconeAcaoPedido("✎", "Editar")}</button>
+              <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
+            </span>
           </summary>
           <div class="order-item-details">
             <div class="order-item-edit-grid">
@@ -12705,7 +12760,6 @@ function renderPedido() {
                 <span>Subtotal</span>
                 <strong data-item-subtotal-index="${i}">${formatarMoeda(Number(item.total) || 0)}</strong>
               </div>
-              <button class="icon-action-button danger" onclick="removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </div>
           </div>
         </details>
@@ -13183,6 +13237,8 @@ function renderUiIcon(tipo = "", fallback = "") {
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 12h7"/><path d="M8.5 16h7"/></svg>`,
+    edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
+    trash: `<svg ${attrs}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
     aparencia: `<svg ${attrs}><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 .6-3.9 1.5 1.5 0 0 1 .4-2.9H16a5 5 0 0 0 0-10Z"/><circle cx="7.5" cy="10" r=".8"/><circle cx="10" cy="7.5" r=".8"/><circle cx="13" cy="7.5" r=".8"/><circle cx="15.5" cy="10" r=".8"/></svg>`,
     assinatura: `<svg ${attrs}><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>`,
     empresa: `<svg ${attrs}><path d="M4 21V5l8-3 8 3v16"/><path d="M9 21v-8h6v8"/><path d="M8 8h.1M12 8h.1M16 8h.1"/></svg>`,
@@ -13194,6 +13250,10 @@ function renderUiIcon(tipo = "", fallback = "") {
     feedback: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M9 9h6M9 13h4"/></svg>`,
     sobre: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.1"/></svg>`,
     search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
+    back: `<svg ${attrs}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`,
+    menu: `<svg ${attrs}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>`,
+    bell: `<svg ${attrs}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`,
+    agenda: `<svg ${attrs}><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/></svg>`,
     personalizacao: `<svg ${attrs}><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 .6-3.9 1.5 1.5 0 0 1 .4-2.9H16a5 5 0 0 0 0-10Z"/><circle cx="7.5" cy="10" r=".8"/><circle cx="10" cy="7.5" r=".8"/><circle cx="13" cy="7.5" r=".8"/><circle cx="15.5" cy="10" r=".8"/></svg>`,
     usuarios: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M18 9h3M19.5 7.5v3"/></svg>`,
     superadmin: `<svg ${attrs}><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5Z"/><path d="M9 12l2 2 4-5"/></svg>`
@@ -13543,6 +13603,13 @@ function getClientesSaasPagina(lista = getClientesSaasFiltrados()) {
   };
 }
 
+function classePlanoSaasCompacto(planoSlug = "free") {
+  const slug = String(planoSlug || "free").toLowerCase();
+  if (slug.includes("premium") || slug.includes("pro")) return "plan-pro";
+  if (slug.includes("trial")) return "plan-trial";
+  return "plan-free";
+}
+
 function renderLinhaClienteSaas(cliente) {
   const assinatura = getAssinaturaSaas(cliente.id);
   const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
@@ -13552,15 +13619,13 @@ function renderLinhaClienteSaas(cliente) {
   const badgeTeste = cliente.isTestUser ? `<span class="status-badge badge-teste">Teste</span>` : "";
   return `
     <div class="client-admin-row ${selecionado ? "selected" : ""}" data-client-row="saas" data-client-id="${clienteIdAttr}" role="button" tabindex="0" aria-selected="${selecionado ? "true" : "false"}" onpointerdown="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" onpointermove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" onpointercancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchstart="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchmove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" ontouchcancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" onclick="selecionarResultadoClienteSaas(event, '${clienteIdAttr}')" onkeydown="acionarClienteSaasPorTeclado(event, '${clienteIdAttr}')">
-      <div>
+      <div class="client-admin-main">
         <strong>${escaparHtml(cliente.name)}</strong>
-        <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)}</span>
         <span class="muted">${escaparHtml(cliente.email)}${cliente.phone ? " • " + escaparHtml(cliente.phone) : ""}</span>
-        <span class="muted">user_id: ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")}</span>
-        <span class="muted">active_plan: ${escaparHtml(assinatura?.activePlan || cliente.activePlan || "free")} • pending: ${escaparHtml(assinatura?.pendingPlan || cliente.pendingPlan || "-")} • status: ${escaparHtml(assinatura?.subscriptionStatus || cliente.subscriptionStatus || normalizarStatusPlano(assinatura?.status || cliente.statusAssinatura || "active"))}</span>
-        <span class="muted">promo_used: ${assinatura?.promoUsed ? "true" : "false"} • expira: ${assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"}</span>
+        <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)} • expira: ${assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"}</span>
+        <span class="muted client-admin-tech">user_id: ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")} • pending: ${escaparHtml(assinatura?.pendingPlan || cliente.pendingPlan || "-")}</span>
       </div>
-      <span class="status-badge">${escaparHtml(plano.name)}</span>
+      <span class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.name)}</span>
       <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
       ${badgeTeste}
       <div class="client-meta">
@@ -13570,13 +13635,13 @@ function renderLinhaClienteSaas(cliente) {
       <div class="row-actions">
         <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar</button>
         <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
-        <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Alterar plano</button>
-        <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">Liberar dias</button>
-        <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Remover teste" : "Marcar teste"}</button>
+        <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Plano</button>
+        <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">+ dias</button>
+        <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Teste off" : "Teste"}</button>
         <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar</button>
         <button class="btn ghost" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar</button>
-        <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar</button>
-        ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
+        <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anon.</button>
+        ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir teste</button>` : ""}
       </div>
     </div>
   `;
@@ -13602,6 +13667,128 @@ function renderListaClientesSaasConteudo(totalClientes) {
   return `${estadoRemoto}${linhas}${vazioFiltro}${renderPaginacaoClientesSaas(paginaInfo)}`;
 }
 
+function formatarDataPerfilSaas(valor, fallback = "-") {
+  const data = Date.parse(valor || "");
+  if (!Number.isFinite(data)) return fallback;
+  return new Date(data).toLocaleDateString("pt-BR");
+}
+
+function getStatusPlanoClienteSaas(cliente, assinatura) {
+  if (!cliente) return "indefinido";
+  if (cliente.status === "blocked") return "Bloqueado";
+  if (cliente.status === "overdue") return "Atrasado";
+  const status = normalizarStatusPlano(assinatura?.status || cliente.statusAssinatura || cliente.subscriptionStatus || cliente.status || "active");
+  if (["past_due", "expired", "cancelled"].includes(status)) return "Atrasado";
+  return "Em dia";
+}
+
+function renderSuperAdminProfileRow(label, value, options = {}) {
+  const badge = options.badge ? ` <span class="status-badge ${escaparAttr(options.badgeClass || "")}">${escaparHtml(options.badge)}</span>` : "";
+  const action = options.onclick ? ` role="button" tabindex="0" onclick="${options.onclick}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${options.onclick}}"` : "";
+  const arrow = options.onclick ? `<span class="profile-row-arrow">›</span>` : "";
+  return `
+    <div class="superadmin-profile-row"${action}>
+      <span>${escaparHtml(label)}</span>
+      <strong>${escaparHtml(value || "-")}${badge}</strong>
+      ${arrow}
+    </div>
+  `;
+}
+
+function renderSuperAdminClientePerfil() {
+  const id = window.__clienteSaasPerfilId || window.__clienteSaasSelecionadoId || "";
+  const cliente = getClienteSaasPorId(id);
+  if (!cliente) {
+    return `
+      <section class="card superadmin-profile-empty">
+        <p class="empty">Usuário não encontrado.</p>
+        <button class="btn secondary" onclick="voltarClientesSaas()">Voltar para clientes</button>
+      </section>
+    `;
+  }
+  const assinatura = getAssinaturaSaas(cliente.id);
+  const usuariosCliente = getUsuariosDoCliente(cliente.id);
+  const usuarioPrincipal = usuariosCliente[0] || {};
+  const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+  const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
+  const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
+  const planoCurto = plano.slug === "premium" ? "PRO" : plano.slug === "premium_trial" ? "TRIAL" : "FREE";
+  const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
+  const emDia = statusPlano === "Em dia";
+  const online = cliente.status === "active";
+  const criadoEm = cliente.createdAt || cliente.criadoEm || usuarioPrincipal.criadoEm || usuarioPrincipal.createdAt || "";
+  const ultimoAcesso = cliente.lastAccessAt || usuarioPrincipal.lastLoginAt || usuarioPrincipal.ultimoAcesso || "";
+  const vencimento = assinatura?.currentPeriodEnd || assinatura?.planExpiresAt || assinatura?.expiresAt || cliente.planExpiresAt || "";
+  const proximaCobranca = assinatura?.nextBillingAt || assinatura?.proximoVencimento || "";
+  const acessoMes = Math.max(1, pagamentos.length + usuariosCliente.length);
+  const acessoPercentual = Math.min(100, Math.max(8, acessoMes * 8));
+  return `
+    <section class="superadmin-profile-screen">
+      <div class="superadmin-profile-hero">
+        <div class="superadmin-profile-avatar">
+          ${usuarioPrincipal.avatarUrl || cliente.avatarUrl
+            ? `<img src="${escaparAttr(usuarioPrincipal.avatarUrl || cliente.avatarUrl)}" alt="Foto de ${escaparAttr(cliente.name)}">`
+            : `<span>${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>`}
+          <i class="${online ? "online" : ""}"></i>
+        </div>
+        <div>
+          <h2>${escaparHtml(cliente.name || usuarioPrincipal.nome || "Usuário")}</h2>
+          <p class="muted">${escaparHtml(cliente.email || usuarioPrincipal.email || "-")}</p>
+          <span class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(planoCurto)}</span>
+        </div>
+      </div>
+
+      <div class="superadmin-profile-status-grid">
+        <div><span class="profile-status-dot ${online ? "online" : ""}"></span><strong>${online ? "Online" : "Offline"}</strong><small>${online ? "Agora" : "Sem sessão"}</small></div>
+        <div><span class="profile-status-icon amber">${renderUiIcon("assinatura")}</span><strong>${escaparHtml(statusPlano)}</strong><small>Plano ativo</small></div>
+        <div><span class="profile-status-icon purple">${renderUiIcon("agenda")}</span><strong>Membro desde</strong><small>${formatarDataPerfilSaas(criadoEm)}</small></div>
+        <div><span class="profile-status-icon">${renderUiIcon("clientes")}</span><strong>ID Usuário</strong><small>#${escaparHtml(cliente.clientCode || String(cliente.id).slice(0, 6))}</small></div>
+      </div>
+
+      <div class="superadmin-profile-card">
+        <h3>Resumo da conta</h3>
+        ${renderSuperAdminProfileRow("Plano atual", plano.name, { badge: planoCurto, badgeClass: classePlanoSaasCompacto(plano.slug) })}
+        ${renderSuperAdminProfileRow("Status do plano", statusPlano, { badgeClass: emDia ? "badge-ativo" : "badge-danger" })}
+        ${renderSuperAdminProfileRow("Próxima cobrança", formatarDataPerfilSaas(proximaCobranca))}
+        ${renderSuperAdminProfileRow("Vencimento do plano", formatarDataPerfilSaas(vencimento))}
+        ${renderSuperAdminProfileRow("Pagamentos", String(pagamentosAprovados.length || pagamentos.length || 0))}
+        ${renderSuperAdminProfileRow("Convites realizados", String(Math.max(0, usuariosCliente.length - 1)))}
+      </div>
+
+      <div class="superadmin-profile-card">
+        <h3>Uso da conta</h3>
+        <div class="superadmin-profile-row progress-row">
+          <span>Acessos no mês</span>
+          <strong>${acessoMes}</strong>
+          <i class="profile-mini-progress"><em style="width:${acessoPercentual}%"></em></i>
+          <small>${acessoPercentual}%</small>
+        </div>
+        ${renderSuperAdminProfileRow("Último acesso", ultimoAcesso ? formatarDataPerfilSaas(ultimoAcesso, "Agora") : "Agora")}
+        ${renderSuperAdminProfileRow("Dispositivos ativos", String(Math.max(1, Number(cliente.deviceCount || cliente.dispositivosAtivos || usuariosCliente.length || 1))))}
+      </div>
+
+      <div class="superadmin-profile-card">
+        <h3>Informações pessoais</h3>
+        ${renderSuperAdminProfileRow("Nome completo", cliente.name || usuarioPrincipal.nome || "-")}
+        ${renderSuperAdminProfileRow("E-mail", cliente.email || usuarioPrincipal.email || "-")}
+        ${renderSuperAdminProfileRow("Telefone", cliente.phone || usuarioPrincipal.phone || "-")}
+        ${renderSuperAdminProfileRow("Alterar senha", "", { onclick: usuariosCliente[0]?.id ? `redefinirSenhaUsuario('${escaparAttr(usuariosCliente[0].id)}')` : "" })}
+      </div>
+
+      <div class="superadmin-profile-card superadmin-profile-actions-card">
+        <h3>Ações</h3>
+        <button class="profile-action-row" onclick="editarClienteSaas('${escaparAttr(cliente.id)}')">${renderUiIcon("edit")} <span>Editar usuário</span></button>
+        <button class="profile-action-row warning" onclick="alterarStatusClienteSaas('${escaparAttr(cliente.id)}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${renderUiIcon("seguranca")} <span>${cliente.status === "blocked" ? "Reativar acesso" : "Suspender acesso"}</span></button>
+        <button class="profile-action-row" onclick="exportarClienteSaas('${escaparAttr(cliente.id)}')">${renderUiIcon("backup")} <span>Exportar dados</span></button>
+      </div>
+
+      <button class="superadmin-profile-danger" onclick="${cliente.isTestUser ? `excluirUsuarioTesteSaas('${escaparAttr(cliente.id)}')` : `anonimizarClienteSaas('${escaparAttr(cliente.id)}')`}">
+        ${cliente.isTestUser ? "Excluir usuário permanentemente" : "Anonimizar usuário"}
+      </button>
+    </section>
+  `;
+}
+
 function renderClientesSaas() {
   garantirEstruturaSaasLocal();
   const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt);
@@ -13613,16 +13800,16 @@ function renderClientesSaas() {
   const linhas = renderListaClientesSaasConteudo(total);
 
   return `
-    <section class="card">
+    <section class="card clients-saas-panel">
       <div class="card-header">
-        <h2>👥 Clientes SaaS</h2>
+        <h2>${renderUiIcon("clientes")} Clientes SaaS</h2>
         <span class="status-badge badge-superadmin">${ativos} ativos</span>
       </div>
-      <div class="metrics">
-        <div class="metric"><span>Total clientes</span><strong>${total}</strong></div>
+      <div class="metrics clients-compact-metrics">
+        <div class="metric"><span>Total</span><strong>${total}</strong></div>
         <div class="metric"><span>Ativos</span><strong>${ativos}</strong></div>
         <div class="metric"><span>Atrasados</span><strong>${atrasados}</strong></div>
-        <div class="metric"><span>Inativos &gt;90 dias</span><strong>${inativos}</strong></div>
+        <div class="metric"><span>Inativos</span><strong>${inativos}</strong></div>
       </div>
       <div class="sync-grid">
         <label class="field">
@@ -13648,7 +13835,7 @@ function renderClientesSaas() {
           </select>
         </label>
       </div>
-      <div class="actions">
+      <div class="actions admin-action-grid compact-action-grid">
         <button class="btn secondary" onclick="atualizarClientesSaasRemoto()">Atualizar Supabase</button>
         <button class="btn secondary" onclick="marcarClientesInativosAcao()">Marcar inativos &gt;90 dias</button>
         <button class="btn ghost" onclick="exportarClientesSaas()">Exportar dados</button>
@@ -13752,10 +13939,24 @@ async function selecionarClienteSaasResultado(id) {
   window.__clienteSaasSelecionadoId = String(id);
   fecharTecladoBuscaClientesSaas();
   try {
-    await editarClienteSaas(id);
+    abrirPerfilClienteSaas(id);
   } finally {
     window.__clienteSaasSelecaoEmAndamento = "";
   }
+}
+
+function abrirPerfilClienteSaas(id) {
+  if (!isSuperAdmin() || !id) return;
+  window.__clienteSaasSelecionadoId = String(id);
+  window.__clienteSaasPerfilId = String(id);
+  window.__superAdminTab = "clientePerfil";
+  renderApp();
+}
+
+function voltarClientesSaas() {
+  window.__superAdminTab = "clientes";
+  window.__clienteSaasPerfilId = "";
+  renderApp();
 }
 
 function getClienteSaasPorId(id) {
@@ -14543,14 +14744,18 @@ function renderCaixa() {
         const indice = caixa.length - 1 - posicaoInvertida;
         const saida = movimento.tipo === "saida";
         return `
-          <div class="cash-row">
-            <div class="row-title">
-              <strong>${saida ? "Saída" : "Entrada"}</strong>
-              <span class="muted">${formatarMoeda(movimento.valor)}</span>
+          <div class="cash-row cash-row-${saida ? "saida" : "entrada"}">
+            <div class="cash-row-main">
+              <div class="row-title">
+                <strong>${saida ? "Saída" : "Entrada"}</strong>
+                <span class="muted">${formatarMoeda(movimento.valor)}</span>
+              </div>
+              <div class="muted">${escaparHtml(descricaoCaixa(movimento))}</div>
+              ${movimento.data ? `<small class="cash-row-date">${formatarDataCurta(movimento.data)}</small>` : ""}
             </div>
-            <div class="muted">${escaparHtml(descricaoCaixa(movimento))}</div>
-            ${podeOperar ? `<div class="row-actions">
-              <button class="btn danger" onclick="removerMovimentoCaixa(${indice})">Remover</button>
+            ${podeOperar ? `<div class="row-actions cash-row-actions" aria-label="Ações do movimento">
+              <button class="icon-action-button" type="button" onclick="editarMovimentoCaixa(${indice})" title="Editar movimento">${renderIconeAcaoPedido("✎", "Editar")}</button>
+              <button class="icon-action-button danger" type="button" onclick="removerMovimentoCaixa(${indice})" title="Excluir movimento">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </div>` : ""}
           </div>
         `;
@@ -14560,7 +14765,7 @@ function renderCaixa() {
   return `
     <section class="card">
       <div class="card-header">
-        <h2>💰 Caixa</h2>
+        <h2>${renderUiIcon("caixa")} Caixa</h2>
         <strong>${formatarMoeda(totais.saldo)}</strong>
       </div>
       <div class="metrics">
@@ -14969,9 +15174,9 @@ function renderAdmin() {
   const podeComercial = podeGerenciarComercial();
 
   return `
-      <section class="card">
+      <section class="card admin-modern-panel">
         <div class="card-header">
-          <h2>🔐 Admin</h2>
+          <h2>${renderUiIcon("seguranca")} Admin</h2>
           <button class="icon-button" onclick="logoutAdmin()" title="Sair">↩</button>
         </div>
           <p class="muted">Logado como ${escaparHtml(perfilAtual)}. Admin gerencia usuários, configurações e ações administrativas do cliente.</p>
@@ -14995,12 +15200,12 @@ function renderAdmin() {
         </div>
       </div>
 
-      <div class="actions">
-        <button class="btn secondary" onclick="exportarBackup()">Exportar tudo</button>
-        <button class="btn ghost" onclick="trocarTela('config')">Nuvem</button>
-        <button class="btn ghost" onclick="trocarTela('assinatura')">Planos</button>
-        <button class="btn ghost" onclick="sincronizarNuvem()">Sincronizar</button>
-        <button class="btn warning" onclick="limparPedidoAtual()">Limpar pedido atual</button>
+      <div class="actions admin-action-grid">
+        <button class="btn secondary" onclick="exportarBackup()">${renderUiIcon("backup")} Exportar</button>
+        <button class="btn ghost" onclick="trocarTela('config')">${renderUiIcon("config")} Nuvem</button>
+        <button class="btn ghost" onclick="trocarTela('assinatura')">${renderUiIcon("assinatura")} Planos</button>
+        <button class="btn ghost" onclick="sincronizarNuvem()">${renderUiIcon("backup")} Sincronizar</button>
+        <button class="btn warning" onclick="limparPedidoAtual()">${renderUiIcon("trash")} Limpar pedido</button>
       </div>
 
       <div class="danger-zone">
@@ -15047,7 +15252,9 @@ function renderAdmin() {
             </select>
           </label>
         </div>
-        <button class="btn secondary" onclick="adicionarUsuario()">Adicionar usuário</button>
+        <div class="actions admin-action-grid">
+          <button class="btn secondary" onclick="adicionarUsuario()">${renderUiIcon("usuarios")} Adicionar usuário</button>
+        </div>
         ${renderUsuariosAdmin()}
       </div>
 
@@ -15083,10 +15290,10 @@ function renderAdmin() {
           <span>Link Windows/navegador</span>
           <input id="windowsWebUrlAdmin" value="${escaparAttr(billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || "")}" placeholder="https://seu-app.vercel.app">
         </label>
-        <div class="actions">
-          <button class="btn" onclick="salvarConfigComercial()">Salvar comercial</button>
-          <button class="btn secondary" onclick="ativarLicencaLocal()">Ativar completo local</button>
-          <button class="btn ghost" onclick="voltarParaGratis()">Voltar para grátis</button>
+        <div class="actions admin-action-grid">
+          <button class="btn" onclick="salvarConfigComercial()">${renderUiIcon("edit")} Salvar comercial</button>
+          <button class="btn secondary" onclick="ativarLicencaLocal()">${renderUiIcon("seguranca")} Ativar completo</button>
+          <button class="btn ghost" onclick="voltarParaGratis()">${renderUiIcon("assinatura")} Voltar grátis</button>
         </div>
       </div>` : ""}
 
@@ -15110,16 +15317,16 @@ function renderUsuariosAdmin() {
   return `
     <div class="history-list users-list">
       ${lista.map((usuario) => `
-        <div class="user-row">
+        <div class="user-row admin-user-row">
           <div>
             <strong>${escaparHtml(usuario.nome)}</strong>
             <span class="muted">${escaparHtml(usuario.email)}${usuario.phone ? " • " + escaparHtml(usuario.phone) : ""}</span>
           </div>
           <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${escaparHtml(usuario.papel)} • ${usuario.ativo === false ? "inativo" : "ativo"}</span>
           <div class="row-actions">
-            <button class="btn ghost" onclick="redefinirSenhaUsuario('${escaparAttr(usuario.id)}')">Redefinir senha</button>
+            <button class="btn ghost" onclick="redefinirSenhaUsuario('${escaparAttr(usuario.id)}')">${renderUiIcon("seguranca")} Senha</button>
             <button class="btn warning" onclick="alternarStatusUsuario('${escaparAttr(usuario.id)}')">${usuario.ativo === false ? "Reativar" : "Desativar"}</button>
-            <button class="icon-button danger" onclick="removerUsuario('${escaparAttr(usuario.id)}')" title="Remover">×</button>
+            <button class="icon-action-button danger" onclick="removerUsuario('${escaparAttr(usuario.id)}')" title="Remover">${renderUiIcon("trash")}</button>
           </div>
         </div>
       `).join("")}
@@ -15537,36 +15744,105 @@ function getSeriesMensais(campo = "clientes") {
 
 function renderSuperAdminDashboard() {
   const metricas = getSuperAdminMetricas();
-  const cards = [
-    ["Total clientes", metricas.total, "clientes", ""],
-    ["Free", metricas.porPlano.free, "clientes", "free"],
-    ["Premium", metricas.porPlano.premium, "clientes", "premium"],
-    ["Trial", metricas.porPlano.trial, "clientes", "premium_trial"],
-    ["Vencidos", metricas.vencidos, "clientesStatus", "past_due"],
-    ["Pagamentos pendentes", metricas.pendentes, "pagamentos", "pending"],
-    ["Receita", formatarMoeda(metricas.receita), "pagamentos", "approved"]
+  const total = Math.max(metricas.total, 1);
+  const offline = Math.max(metricas.total - metricas.ativos, 0);
+  const emDia = Math.max(0, metricas.total - metricas.vencidos);
+  const segmentos = [
+    { label: "Online", valor: metricas.ativos, cor: "#22d861", classe: "online" },
+    { label: "Offline", valor: offline, cor: "#78849f", classe: "offline" },
+    { label: "Em dia", valor: emDia, cor: "#f5a11a", classe: "ok" },
+    { label: "Atrasados", valor: metricas.vencidos, cor: "#ff4d57", classe: "late" }
+  ];
+  let acumulado = 0;
+  const conic = segmentos.map((segmento) => {
+    const inicio = acumulado;
+    const fim = inicio + (Number(segmento.valor) || 0) / total * 100;
+    acumulado = fim;
+    return `${segmento.cor} ${inicio.toFixed(2)}% ${fim.toFixed(2)}%`;
+  }).join(", ");
+  const recentes = saasClients
+    .filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt)
+    .sort((a, b) => (Date.parse(b.lastAccessAt || b.updatedAt || b.createdAt || 0) || 0) - (Date.parse(a.lastAccessAt || a.updatedAt || a.createdAt || 0) || 0))
+    .slice(0, 5);
+  const planoCards = [
+    { titulo: "Plano Free", slug: "free", valor: metricas.porPlano.free, filtro: "free" },
+    { titulo: "Plano Pro", slug: "premium", valor: metricas.porPlano.premium, filtro: "premium" },
+    { titulo: "Trial", slug: "premium_trial", valor: metricas.porPlano.trial, filtro: "premium_trial" }
+  ];
+  const kpis = [
+    { titulo: "Usuários Totais", valor: metricas.total.toLocaleString("pt-BR"), detalhe: `+${recentes.length} recentes`, classe: "purple", icon: "clientes", tab: "clientes", filtro: "" },
+    { titulo: "Online", valor: metricas.ativos.toLocaleString("pt-BR"), detalhe: `${Math.round(metricas.ativos / total * 100)}% do total`, classe: "green", icon: "usuarios", tab: "clientesStatus", filtro: "active" },
+    { titulo: "Em dia", valor: emDia.toLocaleString("pt-BR"), detalhe: `${Math.round(emDia / total * 100)}% do total`, classe: "amber", icon: "assinatura", tab: "pagamentos", filtro: "approved" },
+    { titulo: "Atrasados", valor: metricas.vencidos.toLocaleString("pt-BR"), detalhe: `${Math.round(metricas.vencidos / total * 100)}% do total`, classe: "red", icon: "seguranca", tab: "clientesStatus", filtro: "overdue" }
   ];
   return `
-    <div class="metrics superadmin-metrics">
-      ${cards.map(([titulo, valor, tab, filtro]) => `
-        <button class="metric metric-button" onclick="abrirSuperAdminFiltro('${tab}', '${filtro}')">
-          <span>${escaparHtml(titulo)}</span>
-          <strong>${escaparHtml(valor)}</strong>
+    <div class="superadmin-kpi-grid">
+      ${kpis.map((card) => `
+        <button class="superadmin-kpi-card ${card.classe}" onclick="abrirSuperAdminFiltro('${card.tab}', '${card.filtro}')">
+          <span class="superadmin-kpi-icon">${renderUiIcon(card.icon)}</span>
+          <span>${escaparHtml(card.titulo)}</span>
+          <strong>${escaparHtml(card.valor)}</strong>
+          <small>${escaparHtml(card.detalhe)}</small>
         </button>
       `).join("")}
     </div>
-    <div class="chart-grid">
-      ${renderGraficoLinha("Crescimento de usuários", getSeriesMensais("clientes"))}
-      ${renderGraficoBarras("Receita", getSeriesMensais("receita"))}
-      ${renderGraficoPizza("Planos", [
-        { label: "Free", valor: metricas.porPlano.free },
-        { label: "Premium", valor: metricas.porPlano.premium },
-        { label: "Trial", valor: metricas.porPlano.trial }
-      ])}
-      ${renderGraficoBarras("Pagamentos", ["approved", "pending", "rejected", "cancelled"].map((status) => ({
-        label: status,
-        valor: saasPayments.filter((pagamento) => pagamento.status === status).length
-      })))}
+    <div class="superadmin-overview-card">
+      <div class="row-title">
+        <div>
+          <strong>Visão Geral</strong>
+          <span class="muted">Status dos usuários</span>
+        </div>
+        <button class="btn ghost" onclick="abrirSuperAdminFiltro('clientes', '')">Todos os planos</button>
+      </div>
+      <div class="superadmin-overview-body">
+        <div class="superadmin-donut" style="background:conic-gradient(${conic || "#253044 0 100%"});">
+          <span><strong>${metricas.total.toLocaleString("pt-BR")}</strong><small>Total</small></span>
+        </div>
+        <div class="superadmin-status-legend">
+          ${segmentos.map((item) => `
+            <button onclick="abrirSuperAdminFiltro('${item.classe === "late" ? "clientesStatus" : "clientes"}', '${item.classe === "late" ? "overdue" : ""}')">
+              <i style="background:${item.cor}"></i>
+              <span>${escaparHtml(item.label)}</span>
+              <strong>${Number(item.valor || 0).toLocaleString("pt-BR")} (${Math.round((Number(item.valor) || 0) / total * 100)}%)</strong>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="superadmin-section-head">
+      <h3>Usuários por plano</h3>
+    </div>
+    <div class="superadmin-plan-grid">
+      ${planoCards.map((plano) => `
+        <button class="superadmin-plan-card ${classePlanoSaasCompacto(plano.slug)}" onclick="abrirSuperAdminFiltro('clientes', '${plano.filtro}')">
+          <span class="row-title"><strong>${escaparHtml(plano.titulo)}</strong><i>${escaparHtml(plano.slug === "premium" ? "PRO" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i></span>
+          <strong>${Number(plano.valor || 0).toLocaleString("pt-BR")}</strong>
+          <span class="muted">usuários</span>
+          <small>Ver todos ›</small>
+        </button>
+      `).join("")}
+    </div>
+    <div class="superadmin-section-head">
+      <h3>Usuários recentes</h3>
+      <button class="inline-link" onclick="abrirSuperAdminFiltro('clientes', '')">Ver todos</button>
+    </div>
+    <div class="superadmin-recent-list">
+      ${recentes.map((cliente) => {
+        const assinatura = getAssinaturaSaas(cliente.id);
+        const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+        const status = cliente.status === "overdue" || cliente.status === "blocked" ? "Atrasado" : cliente.status === "inactive" ? "Offline" : "Em dia";
+        const online = cliente.status === "active";
+        return `
+          <button class="superadmin-recent-row" onclick="abrirPerfilClienteSaas('${escaparAttr(cliente.id)}')">
+            <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>
+            <strong>${escaparHtml(cliente.name || cliente.email)}</strong>
+            <i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.slug === "premium" ? "PRO" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i>
+            <span class="${online ? "sa-online" : "sa-offline"}">${online ? "Online" : "Offline"}</span>
+            <span class="${status === "Atrasado" ? "sa-late" : "sa-ok"}">${escaparHtml(status)}</span>
+            <small>•••</small>
+          </button>
+        `;
+      }).join("") || `<p class="empty">Nenhum usuário recente encontrado.</p>`}
     </div>
   `;
 }
@@ -16054,7 +16330,8 @@ function renderSuperAdminConteudo(tab) {
     suporte: renderSuperAdminSuporte,
     relatorios: renderSuperAdminRelatoriosAutomaticos,
     feedbacks: renderSuperAdminFeedbackReports,
-    configuracoes: renderSuperAdminConfiguracoes
+    configuracoes: renderSuperAdminConfiguracoes,
+    clientePerfil: renderSuperAdminClientePerfil
   };
   return (mapa[tab] || mapa.dashboard)();
 }
@@ -16078,15 +16355,40 @@ function renderSuperAdmin() {
     ["configuracoes", "Configurações"]
   ];
 
+  if (tab === "clientePerfil") {
+    return `
+      <section class="superadmin-panel superadmin-profile-panel">
+        <div class="superadmin-titlebar">
+          <button class="icon-action-button" type="button" onclick="voltarClientesSaas()" title="Voltar">${renderUiIcon("back")}</button>
+          <div class="superadmin-brand">
+            <span class="superadmin-crown">${renderUiIcon("superadmin")}</span>
+            <strong>SuperAdmin</strong>
+          </div>
+          <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Avisos">${renderUiIcon("bell")}</button>
+        </div>
+        <div class="superadmin-content">${renderSuperAdminConteudo(tab)}</div>
+      </section>
+    `;
+  }
+
   return `
-    <section class="card superadmin-panel">
+    <section class="superadmin-panel">
+      <div class="superadmin-titlebar">
+        <button class="icon-action-button" type="button" onclick="abrirMenuPopup()" title="Menu">${renderUiIcon("menu")}</button>
+        <div class="superadmin-brand">
+          <span class="superadmin-crown">${renderUiIcon("superadmin")}</span>
+          <strong>SuperAdmin</strong>
+        </div>
+        <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Avisos">${renderUiIcon("bell")}</button>
+      </div>
       <div class="superadmin-hero">
         <div>
-          <span class="eyebrow">Administração interna</span>
-          <h2>Superadmin Simplifica 3D</h2>
-          <p class="muted">Métricas, planos, pagamentos, clientes e suporte em um painel mais organizado.</p>
+          <h2>Olá, SuperAdmin 👑</h2>
+          <p class="muted">Aqui está o resumo geral da plataforma.</p>
         </div>
-        <span class="status-badge badge-superadmin">Acesso total</span>
+        <button class="btn ghost superadmin-date-filter" type="button">
+          ${renderUiIcon("agenda")} Hoje
+        </button>
       </div>
       <div class="superadmin-tabs">
         ${abas.map(([id, label]) => `<button class="tab-button ${tab === id ? "active" : ""}" onclick="trocarAbaSuperAdmin('${id}')">${label}</button>`).join("")}
@@ -16983,64 +17285,116 @@ function renderStatusPlanoUnico(resumo) {
 
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
-  const plano = getPlanoAtual();
   const estadoPlano = resolverEstadoPlano(getUsuarioAtual(), { source: "plans-screen" });
   const precoVigente = getPrecoPagoVigenteLocal();
   const superadmin = isSuperAdmin();
-  const isTrial = estadoPlano.state === PLAN_ACCESS_STATES.TRIAL && estadoPlano.isTrialActive;
   const isPremiumAtivo = superadmin || estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE;
-  const diasTrial = Math.max(0, Number(estadoPlano.trialRemainingDays || 0));
-  const diasPlano = Math.max(0, Number(estadoPlano.planRemainingDays || plano.diasRestantes || 0));
-  const resumoPlano = getResumoPlanoUnico(estadoPlano, precoVigente, superadmin);
-  const cardsPlanos = isPremiumAtivo
-    ? renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin, diasPlano)
-    : `${isTrial ? renderTrialPremiumAtivoCard(diasTrial) : ""}
-       ${renderPlanoSaasCard(getPlanoSaas("premium"), { destaque: true, isTrial, preco: precoVigente })}
-       ${renderPlanoSaasCard(getPlanoSaas("free"), { secundario: true, isTrial })}`;
+  const planoAtual = isPremiumAtivo ? getPlanoSaas("premium") : getPlanoSaas("free");
+  const usuario = getUsuarioAtual();
+  const usuariosAtivos = Math.max(1, getUsuariosDoCliente().filter((item) => item.ativo !== false && !item.bloqueado).length || 1);
+  const pedidosMes = pedidos.filter((pedido) => {
+    const data = Date.parse(pedido.createdAt || pedido.criadoEm || pedido.data || 0) || 0;
+    return data && Date.now() - data < 31 * 24 * 60 * 60 * 1000;
+  }).length || pedidos.length;
+  const proximaCobranca = estadoPlano.planExpiresAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
+  const dataCobranca = proximaCobranca ? new Date(proximaCobranca).toLocaleDateString("pt-BR") : "-";
+  const statusLabel = isPremiumAtivo ? "Ativo" : estadoPlano.pending ? "Pendente" : "Free";
 
   return `
-    <section class="card plans-screen ${isTrial ? "plans-screen-trial" : isPremiumAtivo ? "plans-screen-premium" : "plans-screen-free"}">
-      <div class="card-header">
+    <section class="plans-modern-screen">
+      <div class="plans-modern-header">
+        <button class="icon-action-button" type="button" onclick="trocarTela('conta')" title="Voltar">${renderUiIcon("back")}</button>
         <h2>Planos</h2>
-        <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
+        <span></span>
       </div>
-      <p class="muted">${isTrial
-        ? "Você está usando os benefícios Premium gratuitamente durante o teste."
-        : isPremiumAtivo
-          ? "Seu Premium está ativo e os recursos completos estão liberados."
-          : "Escolha o Premium para remover anúncios e liberar o app completo."}</p>
 
-      ${renderStatusPlanoUnico(resumoPlano)}
+      <div class="plans-modern-tabs">
+        <button class="active" type="button">Meu plano</button>
+        <button type="button">Todos os planos</button>
+      </div>
 
-      ${estadoPlano.pending ? `
-        <div class="plan-note plan-note-warning">
-          <strong>Pagamento pendente</strong>
-          <span>O plano atual continua funcionando normalmente até a confirmação do pagamento.</span>
+      <div class="plans-current-modern">
+        <div class="row-title">
+          <div>
+            <span class="eyebrow">Seu plano atual</span>
+            <h3>${escaparHtml(planoAtual.name || (isPremiumAtivo ? "Plano Pro" : "Plano Free"))} <small>${escaparHtml(statusLabel)}</small></h3>
+            <p class="muted">${isPremiumAtivo ? "Mais recursos para impulsionar seus projetos." : "Ideal para começar na plataforma."}</p>
+          </div>
+          <span class="plan-modern-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${isPremiumAtivo ? renderUiIcon("superadmin") : ""}${escaparHtml(isPremiumAtivo ? "PRO" : "FREE")}</span>
         </div>
-      ` : ""}
-
-      <div class="plans-grid">
-        ${cardsPlanos}
-      </div>
-
-      <div class="plan-benefits-panel">
-        <h2 class="section-title">Benefícios Premium</h2>
-        <div class="comparison-grid">
-          <div class="metric"><span>Anúncios</span><strong>${estadoPlano.hasPremium ? "Sem anúncios" : "Ativos no Free"}</strong></div>
-          <div class="metric"><span>Pedidos</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "Limitados"}</strong></div>
-          <div class="metric"><span>PDFs</span><strong>${estadoPlano.hasPremium ? "Ilimitados" : "1 por dia"}</strong></div>
-          <div class="metric"><span>Relatórios</span><strong>${estadoPlano.hasPremium ? "Avançados" : "Básicos"}</strong></div>
-          <div class="metric plan-ai-exclusive"><span>Smart UX</span><strong>Sugestões locais no app</strong><small>Atalhos e dicas por histórico, com regras locais.</small></div>
+        <div class="plans-current-stats">
+          <span><small>Usuários</small><strong>${usuariosAtivos}/${isPremiumAtivo ? 10 : 5}</strong></span>
+          <span><small>Projetos</small><strong>${pedidosMes}/${isPremiumAtivo ? 30 : 10}</strong></span>
+          <span><small>Próxima cobrança</small><strong>${escaparHtml(dataCobranca)}</strong></span>
+        </div>
+        <div class="plans-current-bottom">
+          <span><small>Valor</small><strong>${isPremiumAtivo ? `${formatarMoeda(precoVigente)}/mês` : "Grátis"}</strong></span>
+          <button class="btn ghost" type="button" ${isPremiumAtivo ? "onclick=\"sincronizarSupabase()\"" : "data-action=\"open-payment\" data-slug=\"premium\""}>${renderUiIcon("config")} ${isPremiumAtivo ? "Gerenciar plano" : "Assinar Pro"}</button>
         </div>
       </div>
 
-      <div class="actions">
-        ${superadmin
-          ? `<button class="btn secondary" type="button" onclick="trocarTela('superadmin')">Gerenciar clientes</button>`
-          : `<button class="btn secondary" type="button" onclick="sincronizarSupabase()">Restaurar compra</button>
-             <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>`}
+      <h3 class="plans-modern-section-title">Escolha um novo plano</h3>
+      <div class="plans-modern-list">
+        ${renderModernPlanOption({
+          slug: "free",
+          title: "Plano Free",
+          subtitle: "Ideal para começar na plataforma.",
+          price: "Grátis",
+          current: !isPremiumAtivo,
+          features: ["Até 5 usuários", "10 projetos", "Relatórios básicos"],
+          actionLabel: !isPremiumAtivo ? "Plano atual" : "Escolher plano",
+          action: "dashboard"
+        })}
+        ${renderModernPlanOption({
+          slug: "premium",
+          title: "Plano Pro",
+          subtitle: "Mais recursos para impulsionar seus projetos.",
+          price: `${formatarMoeda(precoVigente)}/mês`,
+          current: isPremiumAtivo,
+          featured: true,
+          features: ["Até 10 usuários", "30 projetos", "Relatórios avançados", "Suporte prioritário"],
+          actionLabel: isPremiumAtivo ? "Plano atual" : "Escolher plano",
+          action: "premium"
+        })}
       </div>
+
+      <button class="plans-help-card" type="button" onclick="trocarTela('feedback')">
+        ${renderUiIcon("feedback")}
+        <span><strong>Dúvidas?</strong><small>Fale com nosso time ou acesse a central de ajuda.</small></span>
+        <b>›</b>
+      </button>
     </section>
+  `;
+}
+
+function renderModernPlanOption({ slug, title, subtitle, price, features = [], current = false, featured = false, actionLabel = "Escolher plano", action = "" }) {
+  const isPro = slug === "premium";
+  const short = isPro ? "PRO" : "FREE";
+  const click = current
+    ? ""
+    : action === "premium"
+      ? `data-action="open-payment" data-slug="premium"`
+      : `onclick="trocarTela('${escaparAttr(action || "dashboard")}')"`;
+  return `
+    <div class="plan-modern-option ${featured ? "featured" : ""} ${current ? "current" : ""}">
+      ${current ? `<span class="plan-current-ribbon">Atual</span>` : ""}
+      <div class="row-title">
+        <div>
+          <h3>${escaparHtml(title)}</h3>
+          <p class="muted">${escaparHtml(subtitle)}</p>
+        </div>
+        <span class="plan-modern-badge ${classePlanoSaasCompacto(slug)}">${escaparHtml(short)}</span>
+      </div>
+      <div class="plan-modern-body">
+        <ul>
+          ${features.map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
+        </ul>
+        <div>
+          <strong>${escaparHtml(price)}</strong>
+          <button class="btn ghost" type="button" ${click} ${current ? "disabled" : ""}>${escaparHtml(actionLabel)}</button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -23188,15 +23542,102 @@ function adicionarMovimentoCaixa() {
   renderApp();
 }
 
-function removerMovimentoCaixa(i) {
+async function editarMovimentoCaixa(i) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar o caixa.")) return;
-  if (!caixa[i]) return;
-  if (!confirm("Remover este movimento do caixa?")) return;
+  const movimento = caixa[i];
+  if (!movimento) return;
+  if (!await confirmAdminPassword("editar movimento do caixa")) return;
 
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const tipoAtual = String(movimento.tipo || "entrada").toLowerCase() === "saida" ? "saida" : "entrada";
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card cash-edit-modal" id="cashEditForm">
+        <div class="modal-header">
+          <h2>${renderUiIcon("caixa")} Editar movimento</h2>
+          <button class="icon-button" type="button" data-action="cash-edit-cancel" title="Fechar">✕</button>
+        </div>
+        <p class="muted">Revise entrada ou saída antes de salvar. Esta ação fica protegida por biometria ou senha.</p>
+        <div class="form-grid">
+          <label class="field">
+            <span>Tipo</span>
+            <select id="cashEditTipo">
+              <option value="entrada" ${tipoAtual === "entrada" ? "selected" : ""}>Entrada</option>
+              <option value="saida" ${tipoAtual === "saida" ? "selected" : ""}>Saída</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Valor</span>
+            <input id="cashEditValor" type="number" min="0" step="0.01" value="${escaparAttr(Number(movimento.valor) || 0)}" required>
+          </label>
+          <label class="field wide-field">
+            <span>Descrição</span>
+            <input id="cashEditDescricao" value="${escaparAttr(descricaoCaixa(movimento))}" placeholder="Ex.: material, pagamento, ferramenta">
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="cash-edit-cancel">Cancelar</button>
+          <button class="btn" type="submit">${renderIconeAcaoPedido("✎", "Editar")} Salvar alteração</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  const cancelar = () => fecharPopup();
+  popup.querySelectorAll('[data-action="cash-edit-cancel"]').forEach((botao) => {
+    botao.addEventListener("click", cancelar, { once: true });
+  });
+  document.getElementById("cashEditForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const tipo = document.getElementById("cashEditTipo")?.value || "entrada";
+    let valor = 0;
+    try {
+      valor = InventoryService.parseNumberStrict(document.getElementById("cashEditValor")?.value, "valor do caixa", { min: 0, allowZero: false });
+    } catch (erro) {
+      ErrorService.notify(erro, { area: "Caixa", action: "Editar movimento" });
+      return;
+    }
+    const descricao = document.getElementById("cashEditDescricao")?.value.trim() || "";
+    if (tipo === "saida" && !descricao) {
+      alert("Para manter o caixa claro, informe a descrição da saída.");
+      return;
+    }
+    const agora = new Date().toISOString();
+    caixa[i] = prepararRegistroOnline({
+      ...movimento,
+      tipo,
+      valor,
+      descricao: descricao || "Movimento manual",
+      data: movimento.data || agora,
+      updated_at: agora,
+      updatedAt: agora
+    });
+
+    salvarDados();
+    agendarSyncSilenciosoDados("caixa-editado");
+    registrarHistorico("Caixa", "Movimento editado: " + formatarMoeda(valor) + " - " + (descricao || "Movimento manual"));
+    fecharPopup();
+    renderApp();
+    mostrarToast("Movimento atualizado.", "sucesso", 2600);
+  }, { once: true });
+  setTimeout(() => document.getElementById("cashEditValor")?.focus(), 80);
+}
+
+async function removerMovimentoCaixa(i) {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar o caixa.")) return;
+  const movimento = caixa[i];
+  if (!movimento) return;
+  if (!confirm("Remover este movimento do caixa?")) return;
+  if (!await confirmAdminPassword("excluir movimento do caixa")) return;
+
+  const resumo = `${movimento.tipo === "saida" ? "Saída" : "Entrada"} ${formatarMoeda(movimento.valor)} - ${descricaoCaixa(movimento)}`;
   caixa.splice(i, 1);
   salvarDados();
-  registrarHistorico("Caixa", "Movimento removido");
+  agendarSyncSilenciosoDados("caixa-removido");
+  registrarHistorico("Caixa", "Movimento removido: " + resumo);
   renderApp();
+  mostrarToast("Movimento removido.", "sucesso", 2600);
 }
 
 function normalizarCalculadoraWidget(widget = {}) {

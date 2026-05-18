@@ -32,6 +32,17 @@
   --floating-button-size:48px;
   --menu-button-height:56px;
   --mobile-header-height:58px;
+  --font-title:21px;
+  --font-subtitle:15px;
+  --font-body:14px;
+  --font-label:12px;
+  --font-button:14px;
+  --icon-size-primary:22px;
+  --icon-size-secondary:18px;
+  --card-padding-mobile:10px;
+  --section-gap-mobile:9px;
+  --button-height-mobile:44px;
+  --sheet-radius:18px;
   --metric-min-height:68px;
   --summary-metric-min-height:64px;
   --quick-action-min-height:74px;
@@ -2426,6 +2437,69 @@ button:disabled{
   transition:transform .16s ease, filter .16s ease, border-color .16s ease;
 }
 
+.cash-row{
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  border-left:3px solid rgba(13,189,184,.55);
+}
+
+.cash-row-saida{
+  border-left-color:rgba(239,68,68,.58);
+}
+
+.cash-row-entrada{
+  border-left-color:rgba(69,224,143,.58);
+}
+
+.cash-row-main{
+  min-width:0;
+  display:grid;
+  gap:4px;
+}
+
+.cash-row .row-title{
+  align-items:center;
+}
+
+.cash-row .row-title .muted{
+  white-space:nowrap;
+  font-weight:900;
+}
+
+.cash-row-date{
+  color:var(--muted);
+  font-size:var(--font-xs);
+}
+
+.cash-row-actions{
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:nowrap;
+  gap:6px;
+  padding-left:8px;
+}
+
+.cash-row-actions .icon-action-button{
+  width:34px;
+  min-width:34px;
+  height:34px;
+  min-height:34px;
+  border-radius:12px;
+}
+
+.cash-row-actions .icon-action-button svg{
+  width:17px;
+  height:17px;
+}
+
+.cash-edit-modal .form-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+.cash-edit-modal .wide-field{
+  grid-column:1 / -1;
+}
+
 .order-edit-screen{
   min-height:min(760px, calc(100dvh - 110px));
 }
@@ -3056,7 +3130,7 @@ button:disabled{
 
 .order-item-summary{
   display:grid;
-  grid-template-columns:30px minmax(0, 1fr) auto auto auto 18px;
+  grid-template-columns:30px minmax(0, 1fr) auto auto 18px;
   align-items:center;
   gap:8px;
   padding:10px 12px;
@@ -3093,6 +3167,13 @@ button:disabled{
   color:#061316;
   background:linear-gradient(145deg, #0fd0cb, #45e0aa);
   border-color:rgba(255,255,255,.20);
+}
+
+.order-item-inline-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
 }
 
 .order-remove-inline{
@@ -3189,12 +3270,13 @@ button:disabled{
 .order-item-actions{
   display:flex;
   align-items:center;
-  justify-content:space-between;
+  justify-content:flex-end;
   gap:10px;
 }
 
 .order-item-actions .item-subtotal{
   flex:1;
+  text-align:right;
 }
 
 .order-empty-state{
@@ -6697,7 +6779,7 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
 
   .order-item-summary{
     align-items:flex-start;
-    grid-template-columns:28px minmax(0, 1fr) auto 34px 34px;
+    grid-template-columns:28px minmax(0, 1fr) auto 72px;
   }
 
   .order-item-summary::after{
@@ -6708,10 +6790,32 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
     font-size:var(--font-sm);
   }
 
-  .order-material-head,
-  .order-item-actions{
+  .order-material-head{
     align-items:stretch;
     flex-direction:column;
+  }
+
+  .order-item-inline-actions{
+    gap:5px;
+  }
+
+  .order-item-inline-actions .icon-action-button{
+    width:32px;
+    min-width:32px;
+    height:32px;
+    min-height:32px;
+    border-radius:11px;
+  }
+
+  .order-item-inline-actions .icon-action-button svg{
+    width:16px;
+    height:16px;
+  }
+
+  .order-item-actions{
+    align-items:center;
+    flex-direction:row;
+    justify-content:flex-end;
   }
 
   .order-bottom-bar{
@@ -10494,4 +10598,1979 @@ body.mobile-mode .more-item span{
 body.mobile-mode .more-item span svg{
   width:17px;
   height:17px;
+}
+
+body.mobile-mode .cash-row{
+  grid-template-columns:minmax(0, 1fr) 72px;
+  gap:7px;
+  padding:8px;
+  border-radius:15px;
+}
+
+body.mobile-mode .cash-row .row-title{
+  gap:6px;
+}
+
+body.mobile-mode .cash-row .row-title strong{
+  font-size:14px;
+}
+
+body.mobile-mode .cash-row .row-title .muted{
+  font-size:12px;
+}
+
+body.mobile-mode .cash-row-actions{
+  padding-left:0;
+  gap:5px;
+}
+
+body.mobile-mode .cash-row-actions .icon-action-button{
+  width:32px;
+  min-width:32px;
+  height:32px;
+  min-height:32px;
+  border-radius:11px;
+}
+
+body.mobile-mode .cash-row-actions .icon-action-button svg{
+  width:16px;
+  height:16px;
+}
+
+body.mobile-mode .cash-edit-modal .form-grid{
+  grid-template-columns:1fr;
+}
+
+body.mobile-mode .cash-edit-modal .wide-field{
+  grid-column:auto;
+}
+
+/* Calculator flagship polish: same compact premium scale as the approved Home. */
+body.mobile-mode{
+  --font-title:20px;
+  --font-subtitle:15px;
+  --font-body:13px;
+  --font-label:11.5px;
+  --font-button:13.5px;
+  --icon-size-primary:21px;
+  --icon-size-secondary:17px;
+  --card-padding-mobile:9px;
+  --section-gap-mobile:8px;
+  --button-height-mobile:42px;
+}
+
+body.mobile-mode .mobile-panel-calculator{
+  background:#02080d;
+  padding:0;
+}
+
+body.mobile-mode .mobile-panel-calculator .calculator-panel-content{
+  height:100dvh;
+  max-height:100dvh;
+  padding:0;
+  overflow:hidden;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-modern-screen,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-modern-screen,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-modern-screen{
+  width:100vw;
+  min-height:100dvh;
+  max-height:100dvh;
+  display:grid;
+  grid-template-rows:auto;
+  align-content:start;
+  gap:var(--section-gap-mobile);
+  padding:
+    calc(var(--safe-area-inset-top, env(safe-area-inset-top)) + 8px)
+    10px
+    calc(16px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
+  overflow-y:auto;
+  overflow-x:hidden;
+  scroll-padding-top:72px;
+  overscroll-behavior:contain;
+  border:0;
+  border-radius:0;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(13,189,184,.16), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(255,148,28,.055), transparent 30%),
+    linear-gradient(180deg, #02080d 0%, #04111a 48%, #02070c 100%);
+  box-shadow:none;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-toolbar,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-toolbar,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar{
+  position:sticky;
+  top:0;
+  z-index:4;
+  min-height:44px;
+  padding:0 0 4px;
+  background:linear-gradient(180deg, #02080d 74%, rgba(2,8,13,0));
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-toolbar .icon-button,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-toolbar .icon-button,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar .icon-button{
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  border-radius:50%;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-toolbar .icon-button svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-toolbar .icon-button svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar .icon-button svg{
+  width:var(--icon-size-secondary);
+  height:var(--icon-size-secondary);
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-toolbar strong,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-toolbar strong,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar strong{
+  font-size:var(--font-title);
+  line-height:1;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-toolbar .compact-action,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-toolbar .compact-action,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar .compact-action{
+  min-height:36px;
+  padding:0 10px;
+  border-radius:13px;
+  font-size:12px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-toolbar .compact-action svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-toolbar .compact-action svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar .compact-action svg{
+  width:16px;
+  height:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-active-profile,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile{
+  grid-template-columns:58px minmax(0, 1fr) 96px;
+  gap:8px;
+  padding:8px;
+  border-radius:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-printer-art,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-printer-art,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-printer-art{
+  width:58px;
+  height:58px;
+  border-radius:14px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-printer-art svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-printer-art svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-printer-art svg{
+  width:26px;
+  height:26px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-active-profile span,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile span,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile span{
+  font-size:var(--font-label);
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-active-profile strong,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile strong,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile strong{
+  margin:1px 0;
+  font-size:19px;
+  line-height:1.04;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-active-profile small,
+body.mobile-mode .mobile-panel-calculator .calc-active-profile em,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile small,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile em,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile small,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile em{
+  font-size:11.5px;
+  line-height:1.18;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-active-profile .btn,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile .btn,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile .btn{
+  grid-column:auto;
+  min-width:92px;
+  min-height:34px;
+  padding:0 7px;
+  border-radius:12px;
+  font-size:11.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-smart-tip,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-smart-tip,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-smart-tip{
+  grid-template-columns:32px minmax(0, 1fr) auto 28px;
+  min-height:50px;
+  gap:7px;
+  padding:7px 8px;
+  border-radius:15px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-tip-icon,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-tip-icon,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-tip-icon{
+  width:32px;
+  height:32px;
+  font-size:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-smart-tip strong,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-smart-tip strong,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-smart-tip strong{
+  font-size:12.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-smart-tip small,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-smart-tip small,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-smart-tip small{
+  font-size:11.5px;
+  line-height:1.15;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-smart-tip .btn,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-smart-tip .btn,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-smart-tip .btn{
+  min-height:32px;
+  padding:0 7px;
+  border-radius:11px;
+  font-size:11.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-smart-tip .icon-button,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-smart-tip .icon-button,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-smart-tip .icon-button{
+  width:28px;
+  min-width:28px;
+  height:28px;
+  min-height:28px;
+  border-radius:10px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-input-panel,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-input-panel,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-input-panel{
+  gap:7px;
+  padding:8px;
+  border-radius:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-section-title strong,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-section-title strong,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-section-title strong{
+  gap:6px;
+  font-size:16px;
+  line-height:1.1;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-section-title svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-section-title svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-section-title svg{
+  width:18px;
+  height:18px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-section-title .compact-action,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-section-title .compact-action,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-section-title .compact-action{
+  min-height:34px;
+  padding:0 9px;
+  border-radius:12px;
+  font-size:12px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-modern-grid,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-modern-grid,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-modern-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-field-card,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card{
+  min-height:72px;
+  padding:9px;
+  border-radius:13px;
+  scroll-margin-top:76px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-field-card.wide,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card.wide,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card.wide{
+  min-height:78px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-field-card span,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card span,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card span{
+  font-size:var(--font-label);
+  line-height:1.1;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-field-card input,
+body.mobile-mode .mobile-panel-calculator .calc-field-card select,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card input,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card select,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card input,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card select{
+  min-height:32px;
+  padding:0 30px 0 0;
+  font-size:18px;
+  line-height:1.08;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-field-card select,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card select,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card select{
+  font-size:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-field-card i,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-field-card i,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-field-card i{
+  right:8px;
+  bottom:8px;
+  min-width:26px;
+  height:26px;
+  padding:0 6px;
+  border-radius:9px;
+  font-size:11px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-quick-fees,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-quick-fees,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-quick-fees{
+  grid-template-columns:repeat(5, minmax(0, 1fr));
+  gap:6px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-quick-fees button,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-quick-fees button,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-quick-fees button{
+  min-width:0;
+  min-height:31px;
+  padding:0 4px;
+  overflow:hidden;
+  border-radius:10px;
+  font-size:11px;
+  line-height:1;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-input-panel > .field:not(.calc-field-card),
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-input-panel > .field:not(.calc-field-card),
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-input-panel > .field:not(.calc-field-card){
+  display:none;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-summary-card,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-summary-card,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-summary-card{
+  gap:7px;
+  padding:9px;
+  border-radius:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-summary-head strong,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-summary-head strong,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-summary-head strong{
+  gap:6px;
+  font-size:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-summary-head svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-summary-head svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-summary-head svg{
+  width:17px;
+  height:17px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-summary-head .icon-button,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-summary-head .icon-button,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-summary-head .icon-button{
+  width:30px;
+  min-width:30px;
+  height:30px;
+  min-height:30px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-summary-lines,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-summary-lines,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-summary-lines{
+  gap:5px 8px;
+  padding-bottom:8px;
+  font-size:12px;
+  line-height:1.16;
+}
+
+body.mobile-mode .mobile-panel-calculator .inline-result-field,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .inline-result-field,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .inline-result-field{
+  display:none;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-final-row span,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-final-row span,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-final-row span{
+  font-size:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-final-row strong,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-final-row strong,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-final-row strong{
+  font-size:30px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-margin-status,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-margin-status,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-margin-status{
+  gap:5px;
+  font-size:11.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-margin-status::before,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-margin-status::before,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-margin-status::before{
+  width:15px;
+  height:15px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-primary-actions,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-primary-actions,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-primary-actions{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) 86px;
+  gap:8px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-main-action,
+body.mobile-mode .mobile-panel-calculator .calc-save-action,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-main-action,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-save-action,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-main-action,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-save-action{
+  min-height:58px;
+  border-radius:15px;
+  font-size:13.5px;
+  line-height:1.08;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-main-action{
+  gap:8px;
+  padding:0 10px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-main-action svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-main-action svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-main-action svg{
+  width:22px;
+  height:22px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-main-action small,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-main-action small,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-main-action small{
+  font-size:11.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-save-action,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-save-action,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-save-action{
+  width:auto;
+  padding:0 7px;
+  display:grid;
+  place-items:center;
+  gap:3px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-save-action svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-save-action svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-save-action svg{
+  width:19px;
+  height:19px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-secondary-actions,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-secondary-actions,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-secondary-actions{
+  min-height:58px;
+  border-radius:16px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-tile,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-tile,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-tile{
+  min-height:58px;
+  padding:5px 3px;
+  gap:3px;
+  font-size:10.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-symbol,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-symbol,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-symbol{
+  width:23px;
+  height:23px;
+  border-radius:8px;
+  background:transparent;
+  border:0;
+  box-shadow:none;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-symbol svg,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-symbol svg,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-symbol svg{
+  width:18px;
+  height:18px;
+}
+
+body.mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-tile small,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-tile small,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-secondary-actions .action-tile small{
+  font-size:10.5px;
+}
+
+body.mobile-mode .mobile-panel-calculator:focus-within .calc-smart-tip,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator:focus-within .calc-smart-tip,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-within .calc-smart-tip{
+  display:none;
+}
+
+body.mobile-mode .mobile-panel-calculator:focus-within .calc-active-profile,
+body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator:focus-within .calc-active-profile,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-within .calc-active-profile{
+  display:none;
+}
+
+@media(max-width:370px){
+  body.mobile-mode .mobile-panel-calculator .calc-active-profile,
+  body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile,
+  body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile{
+    grid-template-columns:52px minmax(0, 1fr);
+  }
+
+  body.mobile-mode .mobile-panel-calculator .calc-active-profile .btn,
+  body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-active-profile .btn,
+  body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-active-profile .btn{
+    grid-column:1 / -1;
+    justify-self:stretch;
+  }
+
+  body.mobile-mode .mobile-panel-calculator .calc-printer-art,
+  body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-printer-art,
+  body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-printer-art{
+    width:52px;
+    height:52px;
+  }
+}
+
+/* SuperAdmin/Admin polish: compact cards, consistent icons and action grids */
+.superadmin-panel{
+  width:100%;
+  max-width:1180px;
+  margin:0 auto;
+  display:grid;
+  gap:14px;
+}
+
+.superadmin-titlebar{
+  display:grid;
+  grid-template-columns:42px minmax(0, 1fr) 42px;
+  align-items:center;
+  gap:12px;
+  padding:4px 0 12px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.superadmin-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  font-size:var(--font-title);
+}
+
+.superadmin-crown,
+.superadmin-kpi-icon{
+  width:38px;
+  height:38px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:#9b6cff;
+  background:linear-gradient(145deg, rgba(126,76,255,.26), rgba(74,31,158,.18));
+  border:1px solid rgba(155,108,255,.42);
+  box-shadow:0 10px 24px rgba(89,55,190,.22), inset 0 1px 0 rgba(255,255,255,.10);
+}
+
+.superadmin-crown svg,
+.superadmin-kpi-icon svg,
+.admin-modern-panel .btn svg,
+.clients-saas-panel .card-header svg{
+  width:20px;
+  height:20px;
+}
+
+.superadmin-titlebar .icon-action-button{
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  border-radius:14px;
+  color:#f5f7ff;
+}
+
+.superadmin-hero{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  gap:12px;
+  padding:14px 0 4px;
+  border:0;
+  background:none;
+  box-shadow:none;
+}
+
+.superadmin-hero h2{
+  margin:0 0 4px;
+  font-size:clamp(21px, 3vw, 30px);
+}
+
+.superadmin-date-filter{
+  width:auto !important;
+  min-width:110px;
+  min-height:44px;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border-radius:13px;
+}
+
+.superadmin-date-filter svg{
+  width:18px;
+  height:18px;
+}
+
+.superadmin-tabs{
+  gap:8px;
+  padding:2px 0 6px;
+}
+
+.superadmin-kpi-grid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:12px;
+}
+
+.superadmin-kpi-card,
+.superadmin-plan-card,
+.superadmin-recent-row{
+  position:relative;
+  min-width:0;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.09);
+  color:var(--text);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(126,76,255,.14), transparent 32%),
+    linear-gradient(145deg, rgba(28,31,52,.72), rgba(10,13,27,.92));
+  box-shadow:var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+.superadmin-kpi-card{
+  min-height:128px;
+  display:grid;
+  justify-items:start;
+  gap:6px;
+  padding:16px;
+  border-radius:18px;
+  text-align:left;
+  cursor:pointer;
+}
+
+.superadmin-kpi-card strong{
+  font-size:clamp(24px, 4vw, 34px);
+  line-height:1;
+}
+
+.superadmin-kpi-card small{
+  font-weight:800;
+}
+
+.superadmin-kpi-card.green .superadmin-kpi-icon,
+.superadmin-kpi-card.green small{
+  color:#43f16a;
+}
+
+.superadmin-kpi-card.amber .superadmin-kpi-icon,
+.superadmin-kpi-card.amber small{
+  color:#ffad25;
+}
+
+.superadmin-kpi-card.red .superadmin-kpi-icon,
+.superadmin-kpi-card.red small{
+  color:#ff5964;
+}
+
+.superadmin-overview-card{
+  display:grid;
+  gap:12px;
+  padding:18px;
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,.09);
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255,255,255,.08), transparent 34%),
+    linear-gradient(145deg, rgba(28,31,52,.78), rgba(10,13,27,.94));
+  box-shadow:var(--shadow-soft);
+}
+
+.superadmin-overview-card .row-title{
+  align-items:center;
+}
+
+.superadmin-overview-card .row-title strong{
+  display:block;
+  font-size:var(--font-subtitle);
+}
+
+.superadmin-overview-card .row-title .btn{
+  width:auto;
+  min-height:42px;
+  padding:0 14px;
+}
+
+.superadmin-overview-body{
+  display:grid;
+  grid-template-columns:minmax(180px, .9fr) minmax(220px, 1.2fr);
+  gap:18px;
+  align-items:center;
+}
+
+.superadmin-donut{
+  width:min(260px, 62vw);
+  aspect-ratio:1;
+  justify-self:center;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 18px 50px rgba(0,0,0,.24);
+}
+
+.superadmin-donut span{
+  width:47%;
+  aspect-ratio:1;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  border-radius:50%;
+  background:linear-gradient(145deg, #111429, #090c18);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08);
+}
+
+.superadmin-donut strong{
+  font-size:clamp(24px, 5vw, 34px);
+}
+
+.superadmin-donut small{
+  color:var(--muted);
+  font-weight:800;
+}
+
+.superadmin-status-legend{
+  display:grid;
+  gap:10px;
+}
+
+.superadmin-status-legend button{
+  display:grid;
+  grid-template-columns:14px minmax(0, 1fr) auto;
+  align-items:center;
+  gap:12px;
+  min-height:40px;
+  padding:0;
+  color:var(--muted);
+  background:transparent;
+  border:0;
+  text-align:left;
+}
+
+.superadmin-status-legend i{
+  width:14px;
+  height:14px;
+  border-radius:50%;
+}
+
+.superadmin-status-legend strong{
+  color:#dfe8f2;
+}
+
+.superadmin-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.superadmin-section-head h3{
+  margin:0;
+  font-size:var(--font-subtitle);
+}
+
+.superadmin-plan-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:12px;
+}
+
+.superadmin-plan-card{
+  display:grid;
+  gap:4px;
+  padding:14px;
+  min-height:126px;
+  border-radius:16px;
+  text-align:left;
+  cursor:pointer;
+}
+
+.superadmin-plan-card > strong{
+  font-size:clamp(22px, 3vw, 30px);
+}
+
+.superadmin-plan-card i,
+.status-badge.plan-free,
+.status-badge.plan-pro,
+.status-badge.plan-trial{
+  display:inline-grid;
+  place-items:center;
+  min-height:22px;
+  padding:0 8px;
+  border-radius:8px;
+  font-style:normal;
+  font-size:11px;
+  font-weight:900;
+}
+
+.superadmin-plan-card small{
+  margin-top:12px;
+  color:#d8d3ff;
+}
+
+.plan-free{
+  color:#a985ff;
+  background:rgba(122,77,255,.16);
+  border-color:rgba(122,77,255,.34);
+}
+
+.plan-pro{
+  color:#6ab7ff;
+  background:rgba(38,98,255,.16);
+  border-color:rgba(38,98,255,.34);
+}
+
+.plan-trial{
+  color:#ffcc37;
+  background:rgba(255,179,0,.16);
+  border-color:rgba(255,179,0,.34);
+}
+
+.superadmin-recent-list{
+  display:grid;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;
+  background:linear-gradient(145deg, rgba(28,31,52,.70), rgba(10,13,27,.92));
+}
+
+.superadmin-recent-row{
+  display:grid;
+  grid-template-columns:42px minmax(0, 1.3fr) auto .7fr .7fr 28px;
+  align-items:center;
+  gap:12px;
+  min-height:58px;
+  padding:10px 14px;
+  border:0;
+  border-radius:0;
+  text-align:left;
+  background:transparent;
+  box-shadow:none;
+  cursor:pointer;
+}
+
+.superadmin-recent-row + .superadmin-recent-row{
+  border-top:1px solid rgba(255,255,255,.07);
+}
+
+.superadmin-user-avatar{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:#b49cff;
+  background:rgba(126,76,255,.18);
+  font-weight:900;
+}
+
+.sa-online,
+.sa-ok{
+  color:#42ec69;
+}
+
+.sa-offline{
+  color:#95a0ba;
+}
+
+.sa-late{
+  color:#ff5964;
+}
+
+.admin-modern-panel .card-header h2,
+.clients-saas-panel .card-header h2{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.admin-action-grid{
+  grid-template-columns:repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.admin-action-grid .btn,
+.superadmin-panel .row-actions .btn,
+.clients-saas-panel .row-actions .btn{
+  min-height:38px;
+  padding:0 10px;
+  border-radius:12px;
+  font-size:var(--font-button);
+}
+
+.admin-action-grid .btn,
+.admin-modern-panel .btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+}
+
+.admin-modern-panel .admin-grid,
+.clients-compact-metrics{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:10px;
+}
+
+.admin-modern-panel .metric,
+.clients-saas-panel .metric{
+  min-height:94px;
+  padding:12px;
+  border-radius:16px;
+}
+
+.admin-user-row{
+  grid-template-columns:minmax(0, 1.2fr) auto minmax(220px, .9fr);
+}
+
+.admin-user-row .row-actions,
+.client-admin-row .row-actions,
+.superadmin-row .row-actions{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(74px, 1fr));
+  gap:6px;
+  justify-content:end;
+}
+
+.admin-user-row .row-actions .btn,
+.client-admin-row .row-actions .btn,
+.superadmin-row .row-actions .btn{
+  width:auto;
+  flex:0 0 auto;
+}
+
+.admin-user-row .icon-action-button{
+  width:38px;
+  min-width:38px;
+  height:38px;
+  min-height:38px;
+  justify-self:end;
+}
+
+.client-admin-row{
+  grid-template-columns:minmax(190px, 1.55fr) auto auto auto minmax(88px, .42fr) minmax(260px, .95fr);
+  gap:8px;
+  padding:9px 10px;
+  border-radius:15px;
+}
+
+.client-admin-main{
+  display:grid;
+  gap:2px;
+}
+
+.client-admin-main strong{
+  font-size:var(--font-sm);
+}
+
+.client-admin-main .muted,
+.client-meta{
+  font-size:var(--font-xs);
+}
+
+.client-admin-tech{
+  opacity:.72;
+}
+
+.clients-saas-panel .sync-grid{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+}
+
+.superadmin-profile-panel{
+  max-width:620px;
+}
+
+.superadmin-profile-screen{
+  display:grid;
+  gap:14px;
+  padding-bottom:calc(86px + env(safe-area-inset-bottom));
+}
+
+.superadmin-profile-hero{
+  display:grid;
+  grid-template-columns:96px minmax(0, 1fr);
+  align-items:center;
+  gap:18px;
+}
+
+.superadmin-profile-avatar{
+  position:relative;
+  width:94px;
+  height:94px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  overflow:visible;
+  background:linear-gradient(145deg, rgba(126,76,255,.28), rgba(10,13,27,.92));
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 18px 46px rgba(0,0,0,.24);
+}
+
+.superadmin-profile-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:inherit;
+}
+
+.superadmin-profile-avatar span{
+  font-size:28px;
+  font-weight:900;
+  color:#d8cdff;
+}
+
+.superadmin-profile-avatar i{
+  position:absolute;
+  right:4px;
+  bottom:10px;
+  width:21px;
+  height:21px;
+  border-radius:50%;
+  background:#7b849a;
+  border:3px solid #0b0e1e;
+}
+
+.superadmin-profile-avatar i.online{
+  background:#22d861;
+}
+
+.superadmin-profile-hero h2{
+  margin:0 0 4px;
+  font-size:22px;
+}
+
+.superadmin-profile-hero .status-badge{
+  margin-top:8px;
+}
+
+.superadmin-profile-status-grid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+  padding:12px;
+  border-radius:17px;
+  border:1px solid rgba(255,255,255,.09);
+  background:linear-gradient(145deg, rgba(28,31,52,.72), rgba(10,13,27,.93));
+  box-shadow:var(--shadow-soft);
+}
+
+.superadmin-profile-status-grid div{
+  min-width:0;
+  display:grid;
+  justify-items:center;
+  gap:5px;
+  text-align:center;
+}
+
+.superadmin-profile-status-grid strong{
+  font-size:var(--font-xs);
+}
+
+.superadmin-profile-status-grid small{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.profile-status-dot,
+.profile-status-icon{
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  color:#aab4cc;
+  background:rgba(255,255,255,.06);
+}
+
+.profile-status-dot{
+  border-radius:50%;
+}
+
+.profile-status-dot.online{
+  background:#22d861;
+  box-shadow:0 0 20px rgba(34,216,97,.32);
+}
+
+.profile-status-icon svg{
+  width:16px;
+  height:16px;
+}
+
+.profile-status-icon.amber{
+  color:#ffad25;
+}
+
+.profile-status-icon.purple{
+  color:#9b6cff;
+}
+
+.superadmin-profile-card{
+  overflow:hidden;
+  border-radius:17px;
+  border:1px solid rgba(255,255,255,.09);
+  background:
+    radial-gradient(circle at 14% 8%, rgba(255,255,255,.06), transparent 34%),
+    linear-gradient(145deg, rgba(28,31,52,.74), rgba(10,13,27,.94));
+  box-shadow:var(--shadow-soft);
+}
+
+.superadmin-profile-card h3{
+  margin:0;
+  padding:14px 16px;
+  font-size:var(--font-md);
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+
+.superadmin-profile-row{
+  min-height:48px;
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto 16px;
+  align-items:center;
+  gap:8px;
+  padding:0 16px;
+  border-top:1px solid rgba(255,255,255,.055);
+}
+
+.superadmin-profile-row:first-of-type{
+  border-top:0;
+}
+
+.superadmin-profile-row[role="button"]{
+  cursor:pointer;
+}
+
+.superadmin-profile-row span{
+  color:#edf3ff;
+}
+
+.superadmin-profile-row strong{
+  color:#dfe7f4;
+  font-size:var(--font-sm);
+  font-weight:700;
+  text-align:right;
+}
+
+.profile-row-arrow{
+  color:#aeb8cc;
+  font-size:24px;
+  line-height:1;
+}
+
+.superadmin-profile-row.progress-row{
+  grid-template-columns:minmax(0, 1fr) auto minmax(84px, 110px) auto;
+}
+
+.profile-mini-progress{
+  height:5px;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+  overflow:hidden;
+}
+
+.profile-mini-progress em{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg, #9b6cff, #6737ff);
+}
+
+.superadmin-profile-actions-card{
+  display:grid;
+}
+
+.profile-action-row{
+  min-height:52px;
+  display:grid;
+  grid-template-columns:24px minmax(0, 1fr);
+  align-items:center;
+  gap:12px;
+  padding:0 16px;
+  color:#eef4ff;
+  background:transparent;
+  border:0;
+  border-top:1px solid rgba(255,255,255,.055);
+  text-align:left;
+}
+
+.profile-action-row svg{
+  width:20px;
+  height:20px;
+  color:#9b6cff;
+}
+
+.profile-action-row.warning svg{
+  color:#ffad25;
+}
+
+.profile-action-row.danger svg{
+  color:#ff5964;
+}
+
+.superadmin-profile-danger{
+  min-height:52px;
+  border-radius:14px;
+  border:1px solid rgba(255,77,87,.28);
+  color:#ff5964;
+  background:rgba(255,77,87,.055);
+  font-weight:800;
+}
+
+.superadmin-profile-empty{
+  display:grid;
+  gap:12px;
+}
+
+@media (max-width: 900px){
+  .superadmin-kpi-grid,
+  .admin-modern-panel .admin-grid,
+  .clients-compact-metrics{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .superadmin-overview-body,
+  .client-admin-row,
+  .admin-user-row{
+    grid-template-columns:1fr;
+  }
+
+  .superadmin-plan-grid{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    overflow:auto;
+    padding-bottom:4px;
+  }
+
+  .superadmin-plan-card{
+    min-width:178px;
+  }
+
+  .superadmin-recent-row{
+    grid-template-columns:34px minmax(0, 1fr) auto;
+    gap:8px;
+  }
+
+  .superadmin-recent-row .sa-online,
+  .superadmin-recent-row .sa-offline,
+  .superadmin-recent-row .sa-ok,
+  .superadmin-recent-row .sa-late,
+  .superadmin-recent-row small{
+    display:none;
+  }
+
+  .clients-saas-panel .sync-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .superadmin-profile-panel{
+    max-width:680px;
+  }
+}
+
+@media (max-width: 640px){
+  .superadmin-panel{
+    gap:12px;
+  }
+
+  .superadmin-titlebar{
+    grid-template-columns:40px minmax(0, 1fr) 40px;
+  }
+
+  .superadmin-hero{
+    grid-template-columns:1fr auto;
+    padding-top:8px;
+  }
+
+  .superadmin-hero h2{
+    font-size:22px;
+  }
+
+  .superadmin-date-filter{
+    min-width:78px;
+    padding:0 10px;
+  }
+
+  .superadmin-kpi-card{
+    min-height:106px;
+    padding:12px;
+    border-radius:16px;
+  }
+
+  .superadmin-kpi-icon{
+    width:34px;
+    height:34px;
+    border-radius:11px;
+  }
+
+  .superadmin-overview-card{
+    padding:14px;
+  }
+
+  .superadmin-overview-card .row-title{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .superadmin-status-legend button{
+    grid-template-columns:12px minmax(0, 1fr) auto;
+    min-height:34px;
+    font-size:var(--font-sm);
+  }
+
+  .superadmin-plan-grid{
+    grid-template-columns:1fr;
+    overflow:visible;
+  }
+
+  .superadmin-plan-card{
+    min-width:0;
+    min-height:104px;
+  }
+
+  .admin-action-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .admin-action-grid .btn{
+    min-width:0;
+    width:100%;
+  }
+
+  .admin-user-row .row-actions,
+  .client-admin-row .row-actions,
+  .superadmin-row .row-actions{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+  }
+
+  .clients-saas-panel .sync-grid{
+    grid-template-columns:1fr;
+  }
+
+  .client-admin-row{
+    padding:9px;
+  }
+
+  .client-admin-tech{
+    display:none;
+  }
+
+  .superadmin-profile-screen{
+    gap:12px;
+  }
+
+  .superadmin-profile-hero{
+    grid-template-columns:90px minmax(0, 1fr);
+    gap:14px;
+  }
+
+  .superadmin-profile-avatar{
+    width:86px;
+    height:86px;
+  }
+
+  .superadmin-profile-status-grid{
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:6px;
+    padding:10px 8px;
+  }
+
+  .superadmin-profile-status-grid strong{
+    font-size:11px;
+  }
+
+  .superadmin-profile-status-grid small{
+    font-size:10px;
+  }
+
+  .superadmin-profile-row{
+    min-height:46px;
+    padding:0 14px;
+  }
+
+  .superadmin-profile-row.progress-row{
+    grid-template-columns:minmax(0, 1fr) auto minmax(70px, 90px) auto;
+  }
+}
+
+/* Profile and plans: mobile premium profile/cards */
+.profile-modern-screen,
+.plans-modern-screen{
+  width:100%;
+  max-width:620px;
+  margin:0 auto;
+  display:grid;
+  gap:14px;
+  padding-bottom:calc(86px + env(safe-area-inset-bottom));
+}
+
+.profile-modern-header,
+.plans-modern-header{
+  display:grid;
+  grid-template-columns:42px minmax(0, 1fr) 42px;
+  align-items:center;
+  gap:10px;
+  min-height:52px;
+}
+
+.profile-modern-header h2,
+.plans-modern-header h2{
+  margin:0;
+  text-align:center;
+  font-size:var(--font-title);
+}
+
+.profile-modern-user-card,
+.profile-modern-card,
+.plans-current-modern,
+.plan-modern-option,
+.plans-help-card{
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 14% 8%, rgba(255,255,255,.06), transparent 34%),
+    linear-gradient(145deg, rgba(28,31,52,.76), rgba(10,13,27,.94));
+  box-shadow:var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.04);
+}
+
+.profile-modern-user-card{
+  display:grid;
+  grid-template-columns:92px minmax(0, 1fr) 18px;
+  align-items:center;
+  gap:16px;
+  min-height:122px;
+  padding:16px;
+  color:var(--text);
+  text-align:left;
+}
+
+.profile-modern-avatar{
+  position:relative;
+  width:84px;
+  height:84px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  overflow:hidden;
+  background:linear-gradient(145deg, #7c3dff, #291658);
+}
+
+.profile-modern-avatar img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.profile-modern-avatar i{
+  font-size:28px;
+  font-style:normal;
+  font-weight:900;
+}
+
+.profile-modern-avatar em{
+  position:absolute;
+  right:2px;
+  bottom:2px;
+  width:26px;
+  height:26px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:#dfe8ff;
+  background:rgba(16,20,38,.88);
+  border:1px solid rgba(255,255,255,.16);
+}
+
+.profile-modern-avatar em svg{
+  width:14px;
+  height:14px;
+}
+
+.profile-modern-user-card strong{
+  display:block;
+  margin-bottom:4px;
+  font-size:18px;
+}
+
+.profile-modern-user-card small{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:var(--font-sm);
+}
+
+.profile-modern-card{
+  overflow:hidden;
+  padding:16px;
+}
+
+.profile-section-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+.profile-section-title strong{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.profile-section-title svg{
+  width:20px;
+  height:20px;
+  color:#9b6cff;
+}
+
+.profile-plan-summary h3{
+  margin:0 0 12px;
+  font-size:18px;
+}
+
+.profile-plan-summary h3 small{
+  color:#9b6cff;
+}
+
+.profile-active-dot{
+  width:8px;
+  height:8px;
+  display:inline-block;
+  margin:0 4px;
+  border-radius:50%;
+  background:#9b6cff;
+}
+
+.profile-plan-split{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+.profile-plan-split span + span{
+  border-left:1px solid rgba(255,255,255,.08);
+  padding-left:14px;
+}
+
+.profile-plan-split small{
+  display:block;
+  color:var(--muted);
+}
+
+.profile-plan-split strong{
+  color:#36e66a;
+}
+
+.profile-usage-grid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:10px;
+}
+
+.profile-usage-tile{
+  min-width:0;
+  min-height:100px;
+  display:grid;
+  align-content:center;
+  gap:7px;
+  padding:10px;
+  border-radius:13px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.035);
+}
+
+.profile-usage-tile span{
+  color:#b9c3db;
+}
+
+.profile-usage-tile svg{
+  width:20px;
+  height:20px;
+}
+
+.profile-usage-tile small{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.profile-usage-tile strong{
+  font-size:17px;
+}
+
+.profile-usage-tile i{
+  height:5px;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+  overflow:hidden;
+}
+
+.profile-usage-tile em{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:linear-gradient(90deg, #9b6cff, #6737ff);
+}
+
+.profile-list-card{
+  padding:0;
+}
+
+.profile-list-card h3{
+  margin:0;
+  padding:14px 16px;
+  font-size:var(--font-md);
+}
+
+.profile-list-row{
+  min-height:48px;
+  display:grid;
+  grid-template-columns:24px minmax(0, 1fr) 18px;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  padding:0 16px;
+  color:#edf3ff;
+  background:transparent;
+  border:0;
+  border-top:1px solid rgba(255,255,255,.06);
+  text-align:left;
+}
+
+.profile-list-row svg{
+  width:20px;
+  height:20px;
+  color:#aeb8cc;
+}
+
+.profile-list-row b{
+  color:#aeb8cc;
+  font-size:22px;
+}
+
+.profile-list-row.danger{
+  color:#ff777f;
+}
+
+.plans-modern-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0;
+  padding:4px;
+  border-radius:13px;
+  border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.035);
+}
+
+.plans-modern-tabs button{
+  min-height:44px;
+  border:0;
+  border-radius:10px;
+  color:#dfe7f4;
+  background:transparent;
+  font-weight:800;
+}
+
+.plans-modern-tabs button.active{
+  color:#fff;
+  background:linear-gradient(135deg, #8d4fff, #5d27ef);
+  box-shadow:0 12px 28px rgba(101,58,255,.28);
+}
+
+.plans-current-modern,
+.plan-modern-option{
+  display:grid;
+  gap:14px;
+  padding:16px;
+}
+
+.plans-current-modern h3,
+.plan-modern-option h3{
+  margin:0 0 4px;
+  font-size:19px;
+}
+
+.plans-current-modern h3 small{
+  color:#9b6cff;
+  font-size:13px;
+}
+
+.plan-modern-badge{
+  min-width:54px;
+  min-height:50px;
+  display:grid;
+  place-items:center;
+  gap:2px;
+  padding:4px 8px;
+  border-radius:10px;
+  font-weight:900;
+}
+
+.plan-modern-badge svg{
+  width:16px;
+  height:16px;
+}
+
+.plans-current-stats{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  padding:12px 0;
+  border-top:1px solid rgba(255,255,255,.08);
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+
+.plans-current-stats span{
+  display:grid;
+  place-items:center;
+  gap:4px;
+  text-align:center;
+}
+
+.plans-current-stats span + span{
+  border-left:1px solid rgba(255,255,255,.08);
+}
+
+.plans-current-stats small,
+.plans-current-bottom small{
+  color:var(--muted);
+}
+
+.plans-current-bottom{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  gap:12px;
+}
+
+.plans-current-bottom strong,
+.plan-modern-body strong{
+  color:#36e66a;
+  font-size:18px;
+}
+
+.plans-current-bottom .btn{
+  min-height:42px;
+  width:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.plans-current-bottom .btn svg{
+  width:18px;
+  height:18px;
+}
+
+.plans-modern-section-title{
+  margin:8px 0 0;
+  font-size:var(--font-md);
+}
+
+.plans-modern-list{
+  display:grid;
+  gap:12px;
+}
+
+.plan-modern-option{
+  position:relative;
+}
+
+.plan-modern-option.current{
+  border-color:#8d4fff;
+  box-shadow:0 0 0 1px rgba(141,79,255,.38), var(--shadow-soft);
+}
+
+.plan-current-ribbon{
+  position:absolute;
+  top:-1px;
+  left:116px;
+  min-height:22px;
+  padding:0 8px;
+  display:grid;
+  place-items:center;
+  border-radius:0 0 8px 8px;
+  background:#8d4fff;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+}
+
+.plan-modern-body{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:end;
+  gap:12px;
+}
+
+.plan-modern-body ul{
+  display:grid;
+  gap:7px;
+  margin:0;
+  padding:0;
+  list-style:none;
+  color:#c8d2e3;
+  font-size:var(--font-sm);
+}
+
+.plan-modern-body li{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.plan-modern-body li::before{
+  content:"";
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:#34df65;
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.24);
+}
+
+.plan-modern-option.featured .plan-modern-body li::before{
+  background:#8d4fff;
+}
+
+.plan-modern-body > div{
+  display:grid;
+  justify-items:end;
+  gap:10px;
+}
+
+.plan-modern-body .btn{
+  min-height:42px;
+  min-width:126px;
+}
+
+.plans-help-card{
+  min-height:74px;
+  display:grid;
+  grid-template-columns:38px minmax(0, 1fr) 18px;
+  align-items:center;
+  gap:12px;
+  padding:14px 16px;
+  color:var(--text);
+  text-align:left;
+}
+
+.plans-help-card svg{
+  width:30px;
+  height:30px;
+  color:#aeb8cc;
+}
+
+.plans-help-card small{
+  display:block;
+  margin-top:3px;
+  color:var(--muted);
+}
+
+@media (max-width: 640px){
+  .profile-modern-screen,
+  .plans-modern-screen{
+    gap:13px;
+  }
+
+  .profile-modern-user-card{
+    grid-template-columns:82px minmax(0, 1fr) 16px;
+    min-height:112px;
+    padding:14px;
+  }
+
+  .profile-modern-avatar{
+    width:76px;
+    height:76px;
+  }
+
+  .profile-usage-grid{
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:8px;
+  }
+
+  .profile-usage-tile{
+    min-height:92px;
+    padding:8px;
+  }
+
+  .profile-usage-tile strong{
+    font-size:15px;
+  }
+
+  .plans-current-stats{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+  }
+
+  .plan-modern-body{
+    grid-template-columns:minmax(0, 1fr) minmax(116px, auto);
+  }
+}
+
+@media (max-width: 390px){
+  .profile-usage-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .plans-current-bottom,
+  .plan-modern-body{
+    grid-template-columns:1fr;
+  }
+
+  .plans-current-bottom .btn,
+  .plan-modern-body .btn{
+    width:100%;
+  }
 }
