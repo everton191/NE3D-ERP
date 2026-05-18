@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.35";
-const APP_VERSION_CODE = 86;
+const APP_VERSION = "51.0.36";
+const APP_VERSION_CODE = 87;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -512,6 +512,9 @@ let appConfig = carregarObjeto("appConfig", {
   defaultEnergy: 0.85,
   defaultFilamentCost: 150,
   defaultExtraFee: 0,
+  calcExtraFeeMode: "percent",
+  calcExtraFeePercent: 0,
+  calcExtraFeeValue: 0,
   defaultPrinterType: "FDM",
   defaultPrintType: "",
   defaultMaterial: "",
@@ -7213,7 +7216,7 @@ function renderApp() {
 }
 
 function podeMostrarControlesFlutuantes() {
-  return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding";
+  return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding" && telaAtual !== "dashboard";
 }
 
 function renderDesktop() {
@@ -10935,7 +10938,6 @@ function getMobileBottomNavItems() {
     { tela: "dashboard", icone: "⌂", texto: "Home" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "producao", icone: "🖨️", texto: "Produção" },
-    { tela: "estoque", icone: "📦", texto: "Estoque" },
     { tela: "caixa", icone: "💰", texto: "Caixa" },
     { tela: "mais", icone: "☰", texto: "Mais" }
   ].filter((item) => canAccessScreen(item.tela));
@@ -10963,6 +10965,15 @@ function renderMobileBottomNav() {
 }
 
 function renderPainelMobile(tela) {
+  if (tela === "calculadora") {
+    return `
+      <section class="mobile-panel mobile-panel-calculator" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
+        <div class="mobile-panel-content calculator-panel-content">
+          ${renderTela(tela)}
+        </div>
+      </section>
+    `;
+  }
   return `
     <section class="mobile-panel" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
       <div class="mobile-panel-bar">
@@ -11044,7 +11055,7 @@ function renderTela(tela) {
 }
 
 function renderAcoesRapidas() {
-  const limite = isMobile() ? 5 : 6;
+  const limite = isMobile() ? 4 : 5;
   const acoes = getAtalhosRapidosOrdenados(limite);
 
   return `
@@ -11084,8 +11095,40 @@ function renderDashboardHomeHeader() {
           <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
-        <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}</button>
+        <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
       </div>
+    </section>
+  `;
+}
+
+function getPedidosAguardandoEnvioDashboard() {
+  return pedidos.filter((pedido) => ["aberto", "orcamento", "orçamento"].includes(String(pedido.status || "aberto").toLowerCase()));
+}
+
+function getPedidosAtrasadosDashboard() {
+  const hoje = hojeIsoData();
+  return pedidos.filter((pedido) => {
+    const prazo = pedido.prazo || pedido.dataPrazo || "";
+    return prazo && prazo < hoje && !["entregue", "cancelado", "finalizado", "pago"].includes(String(pedido.status || "aberto").toLowerCase());
+  });
+}
+
+function renderDashboardMainSummaryCard() {
+  const pendentesEnvio = getPedidosAguardandoEnvioDashboard();
+  const total = pendentesEnvio.reduce((soma, pedido) => soma + totalPedido(pedido), 0);
+  const titulo = pendentesEnvio.length
+    ? `${pendentesEnvio.length} pedido${pendentesEnvio.length === 1 ? "" : "s"} aguardando envio`
+    : "Nenhum pedido aguardando envio";
+  const destino = pendentesEnvio.length ? "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')" : "trocarTela('pedido')";
+  const label = pendentesEnvio.length ? "Ver pedidos" : "Criar pedido";
+  return `
+    <section class="dashboard-main-summary">
+      <span class="summary-star">${renderUiIcon("dashboard")}</span>
+      <div>
+        <strong>${escaparHtml(titulo)}</strong>
+        <small>Total: ${formatarMoeda(total)}</small>
+      </div>
+      <button class="btn secondary compact-action" type="button" onclick="${destino}">${escaparHtml(label)} ›</button>
     </section>
   `;
 }
@@ -11115,7 +11158,7 @@ function renderPedidosRecentesDashboard() {
     <section class="dashboard-recent-orders card">
       <div class="card-header">
         <h2>Pedidos recentes</h2>
-        <button class="text-link" type="button" onclick="trocarTela('pedidos')">Ver todos ${renderUiIcon("search")}</button>
+        <button class="text-link" type="button" onclick="trocarTela('pedidos')">Ver todos ›</button>
       </div>
       <div class="dashboard-order-list">
         ${lista.map((pedido) => {
@@ -11146,7 +11189,13 @@ function renderPedidosRecentesDashboard() {
 
 function renderMiniSparklineDashboard(valores = [], estado = "teal") {
   const serie = valores.map((valor) => Math.max(0, Number(valor) || 0));
-  const dados = serie.length ? serie : [0, 1, 1, 2, 1, 3, 2, 4, 3];
+  const temDado = serie.some((valor) => valor > 0);
+  const temVariacao = temDado && (Math.max(...serie) - Math.min(...serie)) > 0.01;
+  const dados = temVariacao
+    ? serie
+    : temDado
+      ? serie.map((valor, index) => Math.max(0, valor * (0.92 + ((index % 4) * 0.035))))
+      : [0.12, 0.28, 0.20, 0.38, 0.30, 0.48, 0.36, 0.44];
   const maximo = Math.max(...dados, 1);
   const pontos = dados.map((valor, index) => {
     const x = 6 + index * (88 / Math.max(1, dados.length - 1));
@@ -11158,13 +11207,17 @@ function renderMiniSparklineDashboard(valores = [], estado = "teal") {
 
 function renderResumoDiaDashboard(stats, totaisCaixa, analytics) {
   const serie = Array.isArray(analytics.chart_series) ? analytics.chart_series : [];
+  const serieSemana = gerarSeriesDashboardAnalytics(getInfoPeriodoDashboard("week"));
   const vendas = serie.map((item) => Number(item.sales) || 0);
   const lucros = serie.map((item) => Number(item.profit) || 0);
   const pedidosSerie = serie.map((item) => Number(item.orders) || 0);
+  const vendasRecentes = vendas.some(Boolean) ? vendas : serieSemana.map((item) => Number(item.sales) || 0);
+  const lucrosRecentes = lucros.some(Boolean) ? lucros : serieSemana.map((item) => Number(item.profit) || 0);
+  const pedidosRecentes = pedidosSerie.some(Boolean) ? pedidosSerie : serieSemana.map((item) => Number(item.orders) || 0);
   const cards = [
-    { label: "Faturamento", value: formatarMoeda(stats.faturamentoDia), state: "teal", series: vendas },
-    { label: "Lucro", value: formatarMoeda(Math.max(0, stats.lucroEstimado)), state: "green", series: lucros },
-    { label: "Pedidos", value: String(stats.pedidosHoje || 0), state: "blue", series: pedidosSerie }
+    { label: "Faturamento", value: formatarMoeda(stats.faturamentoDia), state: "teal", series: vendasRecentes },
+    { label: "Lucro", value: formatarMoeda(Math.max(0, stats.lucroDiaEstimado)), state: "green", series: lucrosRecentes },
+    { label: "Pedidos", value: String(stats.pedidosHoje || 0), state: "blue", series: pedidosRecentes }
   ];
   return `
     <section class="dashboard-day-summary card">
@@ -11519,6 +11572,11 @@ function getDashboardStats() {
     const consumo = calcularConsumoMateriais(normalizarItensPedido(pedido));
     return total + Array.from(consumo.values()).reduce((soma, kg) => soma + kg, 0);
   }, 0);
+  const lucroDiaEstimado = pedidosHoje.reduce((total, pedido) => {
+    const itens = normalizarItensPedido(pedido);
+    const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
+    return total + Math.max(0, totalPedido(pedido) - custo);
+  }, 0);
   const lucroEstimado = pedidos.reduce((total, pedido) => {
     const itens = normalizarItensPedido(pedido);
     const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
@@ -11530,6 +11588,7 @@ function getDashboardStats() {
     pedidosAbertos,
     producoesAtivas,
     estoqueBaixo,
+    lucroDiaEstimado,
     lucroEstimado,
     pedidosConcluidos,
     clientesAtivos,
@@ -12147,6 +12206,7 @@ function renderDashboardAnalyticsHero(analytics) {
 
 function renderDashboardComboChart(analytics) {
   const series = Array.isArray(analytics.chart_series) && analytics.chart_series.length ? analytics.chart_series : [];
+  const temDadosGrafico = series.some((item) => (Number(item.sales) || 0) > 0 || (Number(item.profit) || 0) > 0 || (Number(item.orders) || 0) > 0);
   const width = 360;
   const height = 180;
   const padding = { top: 18, right: 18, bottom: 34, left: 34 };
@@ -12161,6 +12221,24 @@ function renderDashboardComboChart(analytics) {
     const y = padding.top + areaH - ((Number(item.profit) || 0) / maxProfit) * areaH;
     return `${x.toFixed(1)},${y.toFixed(1)}`;
   }).join(" ");
+
+  if (!temDadosGrafico) {
+    return `
+      <section class="dashboard-chart-card chart-enter" onclick="avancarPeriodoDashboard()" role="button" tabindex="0" aria-label="Histórico analítico sem movimentação neste período.">
+        <div class="card-header">
+          <div>
+            <span class="eyebrow">Histórico analítico</span>
+            <h2>Faturamento e lucro</h2>
+          </div>
+          <span class="status-badge">${escaparHtml(getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje")}</span>
+        </div>
+        <div class="chart-empty-state">
+          <strong>Sem movimentação neste período.</strong>
+          <small>Quando houver pedidos ou caixa, o gráfico acompanha a variação real.</small>
+        </div>
+      </section>
+    `;
+  }
 
   return `
     <section class="dashboard-chart-card chart-enter" onclick="avancarPeriodoDashboard()" role="button" tabindex="0" aria-label="Gráfico de faturamento e lucro. Toque para trocar o período.">
@@ -12333,13 +12411,43 @@ function renderDashboardDesktopMetricCard({ titulo, valor, detalhe = "", iconKey
 }
 
 function renderDashboardDesktopMetricRow(stats, totaisCaixa) {
+  const aguardando = getPedidosAguardandoEnvioDashboard();
+  const atrasados = getPedidosAtrasadosDashboard();
+  const concluidos = pedidos.filter((pedido) => ["entregue", "finalizado", "pago"].includes(String(pedido.status || "").toLowerCase()));
   return `
     <div class="desktop-dashboard-metrics">
-      ${renderDashboardDesktopMetricCard({ titulo: "Pedidos ativos", valor: String(stats.pedidosAbertos || 0), detalhe: `${stats.pedidosHoje || 0} hoje`, iconKey: "pedidos", tela: "pedidos", filtro: "abertos", state: stats.pedidosAbertos ? "orange" : "green" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Produção", valor: String(stats.producoesAtivas || 0), detalhe: "em andamento", iconKey: "producao", tela: "producao", state: "blue" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Faturamento", valor: formatarMoeda(stats.faturamentoDia), detalhe: "hoje", iconKey: "caixa", tela: "caixa", state: "teal" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Lucro", valor: formatarMoeda(Math.max(0, stats.lucroEstimado)), detalhe: "estimado", iconKey: "relatorios", tela: "relatorios", state: "green" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Pedidos hoje", valor: String(stats.pedidosHoje || 0), detalhe: formatarMoeda(stats.faturamentoDia), iconKey: "pedidos", tela: "pedidos", filtro: "hoje", state: "teal" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Aguardando envio", valor: String(aguardando.length), detalhe: formatarMoeda(aguardando.reduce((soma, pedido) => soma + totalPedido(pedido), 0)), iconKey: "pedido", tela: "pedidos", filtro: "abertos", state: "orange" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Atrasados", valor: String(atrasados.length), detalhe: formatarMoeda(atrasados.reduce((soma, pedido) => soma + totalPedido(pedido), 0)), iconKey: "backup", tela: "pedidos", filtro: "abertos", state: "red" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Concluídos", valor: String(concluidos.length), detalhe: formatarMoeda(concluidos.reduce((soma, pedido) => soma + totalPedido(pedido), 0)), iconKey: "pedido", tela: "pedidos", state: "green" })}
     </div>
+  `;
+}
+
+function renderDashboardDesktopHeader(plano, analytics) {
+  const usuario = getUsuarioAtual();
+  const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
+  const periodo = getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje";
+  return `
+    <header class="desktop-dashboard-hero">
+      <div>
+        <h1>Olá, ${escaparHtml(nome)}! <span aria-hidden="true">👋</span></h1>
+        <p>Aqui está o resumo do seu negócio hoje.</p>
+      </div>
+      <div class="desktop-dashboard-hero-actions">
+        <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
+          <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <input placeholder="Buscar..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        </label>
+        <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
+        ${renderDashboardAvatar(usuario)}
+        <button class="icon-button" type="button" onclick="abrirPerfilPremiumPainel(event)" title="Perfil">⌄</button>
+      </div>
+      <div class="desktop-dashboard-hero-meta">
+        <span>${escaparHtml(plano.nome || "Free")}</span>
+        <span>${escaparHtml(periodo)}</span>
+      </div>
+    </header>
   `;
 }
 
@@ -12415,26 +12523,9 @@ function renderDashboardDesktopContinuityPanel() {
 }
 
 function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
-  const nomeEmpresa = appConfig.businessName || appConfig.appName || SYSTEM_NAME;
-  const periodo = getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje";
   return `
     <section class="dashboard-pro premium-dashboard dashboard-control-center">
-      ${renderDashboardSearch()}
-      <section class="control-center-header glass-pop">
-        <div>
-          <span class="eyebrow">Painel SaaS desktop</span>
-          <h1>${escaparHtml(nomeEmpresa)}</h1>
-          <p class="muted">Visão operacional, pedidos, produção e caixa com grid responsivo para PWA/desktop.</p>
-        </div>
-        <div class="control-center-meta">
-          <div><span>UI</span><strong>web_pwa</strong></div>
-          <div><span>Período</span><strong>${escaparHtml(periodo)}</strong></div>
-          <div><span>Plano</span><strong>${escaparHtml(plano.nome || "Free")}</strong></div>
-          <div><span>Sync</span><strong>${escaparHtml(syncConfig.autoBackupStatus || "local")}</strong></div>
-        </div>
-        ${renderDashboardPeriodTabs()}
-      </section>
-
+      ${renderDashboardDesktopHeader(plano, analytics)}
       <div class="desktop-dashboard-grid">
         <div class="desktop-dashboard-span-12">
           ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
@@ -12466,12 +12557,8 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         <div class="desktop-dashboard-span-4">
           ${renderDashboardDesktopContinuityPanel()}
         </div>
-        <div class="desktop-dashboard-span-12 dashboard-kpis control-center-kpis">
-          ${cards.map(renderDashboardKpiCard).join("")}
-        </div>
       </div>
       ${renderDashboardOnboardingCard()}
-      ${renderSugestoesInteligentesDashboard()}
     </section>
   `;
 }
@@ -12480,7 +12567,7 @@ function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
   return `
     <section class="dashboard-pro premium-dashboard dashboard-apk-simple">
       ${renderDashboardHomeHeader()}
-      ${renderSugestoesInteligentesDashboard()}
+      ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
       ${renderPedidosRecentesDashboard()}
       ${renderResumoDiaDashboard(stats, totaisCaixa, analytics)}
@@ -12499,7 +12586,7 @@ function renderDashboard() {
   agendarAnalyticsDashboard(analytics);
   const cards = getDashboardKpiCards(stats, totaisCaixa);
   const payload = { stats, totaisCaixa, plano, analytics, cards };
-  return isWebPwaProfile() ? renderDashboardPwaTechnical(payload) : renderDashboardApkSimple(payload);
+  return isWebPwaProfile() && !isMobile() ? renderDashboardPwaTechnical(payload) : renderDashboardApkSimple(payload);
 }
 
 function labelStatusPedido(status = "aberto") {
@@ -16408,12 +16495,11 @@ function renderCalculadoraConfigPage() {
             <label class="field"><span>Bico padrão</span><input id="defaultNozzleConfig" value="${escaparAttr(appConfig.defaultNozzle || "0.4mm")}"></label>
           </div>
         ` })}
-        ${renderUiSection({ id: "calc-custos", title: "Custos", subtitle: "Material, energia, hora de máquina e taxas", icon: "R$", group: "calc", content: `
+        ${renderUiSection({ id: "calc-custos", title: "Custos", subtitle: "Material, energia e hora de máquina", icon: "R$", group: "calc", content: `
           <div class="sync-grid">
             <label class="field"><span>Preço por kg padrão (R$)</span><input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}"></label>
             <label class="field"><span>Resina padrão R$/kg</span><input id="defaultResinCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultResinCost) || 180}"></label>
             <label class="field"><span>Custo kWh</span><input id="defaultEnergyConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultEnergy) || 0.85}"></label>
-            <label class="field"><span>Taxa fixa padrão (R$)</span><input id="defaultExtraFeeConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}"></label>
           </div>
         ` })}
         ${renderUiSection({ id: "calc-margens", title: "Margens e regras", subtitle: "Margem, tempo mínimo e arredondamento", icon: "%", group: "calc", content: `
@@ -16769,10 +16855,6 @@ function renderPersonalizacao() {
       <label class="field">
         <span>Filamento padrão R$/kg</span>
         <input id="defaultFilamentCostConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultFilamentCost) || 150}">
-      </label>
-      <label class="field">
-        <span>Taxa extra padrão (R$)</span>
-        <input id="defaultExtraFeeConfig" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}">
       </label>
         </div>
       </details>
@@ -23204,6 +23286,9 @@ function getConfiguracaoCalculadora() {
     custoHora: salvo.custoHora ?? impressora.custo ?? "",
     margem: salvo.margem ?? appConfig.defaultMargin ?? 100,
     taxaExtra: "",
+    taxaExtraMode: appConfig.calcExtraFeeMode || "percent",
+    taxaExtraPercent: Number(appConfig.calcExtraFeePercent) || 0,
+    taxaExtraValue: Number(appConfig.calcExtraFeeValue) || 0,
     nomeItem: salvo.nomeItem || ""
   };
 }
@@ -23302,6 +23387,71 @@ function renderDicaSmartCalculadora(config = getConfiguracaoCalculadora()) {
   `;
 }
 
+function getEstadoTaxaExtraCalculadora() {
+  const modo = String(appConfig.calcExtraFeeMode || "percent") === "manual" ? "manual" : "percent";
+  const percent = Math.max(0, Number(appConfig.calcExtraFeePercent) || 0);
+  const value = Math.max(0, Number(appConfig.calcExtraFeeValue) || 0);
+  return { modo, percent, value };
+}
+
+function valorExibidoTaxaExtraCalculadora(estado = getEstadoTaxaExtraCalculadora()) {
+  return estado.modo === "manual" ? estado.value : estado.percent;
+}
+
+function atualizarVisualTaxaExtraCalculadora() {
+  const estado = getEstadoTaxaExtraCalculadora();
+  const campo = document.getElementById("taxaExtra");
+  const unidade = document.getElementById("taxaExtraUnit");
+  if (campo) {
+    campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2) : "";
+    campo.readOnly = estado.modo !== "manual";
+  }
+  if (unidade) unidade.textContent = estado.modo === "manual" ? "R$" : "%";
+  document.querySelectorAll("[data-extra-fee-mode]").forEach((botao) => {
+    const modoBotao = botao.getAttribute("data-extra-fee-mode");
+    const percentBotao = Number(botao.getAttribute("data-extra-fee-percent") || 0);
+    botao.classList.toggle("active", modoBotao === estado.modo && (modoBotao === "manual" || percentBotao === estado.percent));
+  });
+}
+
+function selecionarTaxaExtraPercentual(percent = 0) {
+  appConfig.calcExtraFeeMode = "percent";
+  appConfig.calcExtraFeePercent = Math.max(0, Number(percent) || 0);
+  salvarDados();
+  atualizarVisualTaxaExtraCalculadora();
+  agendarCalculoTempoReal();
+}
+
+function selecionarTaxaExtraManual() {
+  appConfig.calcExtraFeeMode = "manual";
+  appConfig.calcExtraFeeValue = Math.max(0, Number(appConfig.calcExtraFeeValue) || Number(appConfig.defaultExtraFee) || 0);
+  salvarDados();
+  atualizarVisualTaxaExtraCalculadora();
+  document.getElementById("taxaExtra")?.focus();
+  agendarCalculoTempoReal();
+}
+
+function atualizarTaxaExtraManual() {
+  appConfig.calcExtraFeeMode = "manual";
+  appConfig.calcExtraFeeValue = numeroCalculadora(document.getElementById("taxaExtra")?.value, 0, 0);
+  salvarDados();
+  atualizarVisualTaxaExtraCalculadora();
+  agendarCalculoTempoReal();
+}
+
+function calcularTaxaExtraAplicada(custoBase = 0) {
+  const estado = getEstadoTaxaExtraCalculadora();
+  const base = Math.max(0, Number(custoBase) || 0);
+  if (estado.modo === "manual") {
+    return { valor: estado.value, rotulo: "R$", modo: "manual" };
+  }
+  return {
+    valor: base * (estado.percent / 100),
+    rotulo: `${Number(estado.percent || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`,
+    modo: "percent"
+  };
+}
+
 function renderListaPedidosPwa({ podeOperar, filtroDashboard, lista, listaPaginada, pedidoSelecionado, linhas, paginacao }) {
   const selecionado = pedidoSelecionado || listaPaginada[0] || null;
   const detalhe = selecionado ? renderDetalhePedido(selecionado) : `
@@ -23373,7 +23523,7 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
       <div class="calc-summary-lines" id="calcSummaryLines">
         <span>Custo do material</span><strong>${formatarMoeda(calculo.custoMaterial)}</strong>
         <span>Custo de impressão</span><strong>${formatarMoeda((Number(calculo.custoEnergia) || 0) + (Number(calculo.custoMaquina) || 0))}</strong>
-        <span>Taxa extra</span><strong>${formatarMoeda(calculo.taxaExtra)}</strong>
+        <span>Taxa extra${calculo.taxaExtraRotulo ? ` (${escaparHtml(calculo.taxaExtraRotulo)})` : ""}</span><strong>${formatarMoeda(calculo.taxaExtra)}</strong>
         <span>Custo total</span><strong>${formatarMoeda(calculo.custoTotal)}</strong>
         <span>Margem de lucro (${margem}%)</span><strong>${formatarMoeda(Math.max(0, calculo.precoSemTaxa - calculo.custoTotal))}</strong>
       </div>
@@ -23393,6 +23543,10 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
 function renderCalculadoraConteudo() {
   const config = getConfiguracaoCalculadora();
   const perfil = obterPerfilAtivoCalculadora(config);
+  const taxaEstado = getEstadoTaxaExtraCalculadora();
+  const emPedido = calculadoraModoPedido === true;
+  const acaoPrincipal = emPedido ? "Adicionar ao pedido" : "Criar pedido com este item";
+  const subtituloAcao = emPedido ? "e continuar" : "abrir pedido";
   return `
     <div class="calc-toolbar">
       <button class="icon-button" type="button" onclick="voltarTela()" title="Voltar">‹</button>
@@ -23448,13 +23602,13 @@ function renderCalculadoraConteudo() {
         </label>
         <label class="field calc-field-card wide">
           <span>Taxa extra</span>
-          <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00" value="${escaparAttr(config.taxaExtra || appConfig.defaultExtraFee || "")}" oninput="agendarCalculoTempoReal()">
-          <i>R$</i>
+          <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00" value="${escaparAttr(valorExibidoTaxaExtraCalculadora(taxaEstado) || "")}" ${taxaEstado.modo === "manual" ? "" : "readonly"} oninput="atualizarTaxaExtraManual()">
+          <i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i>
         </label>
       </div>
       <div class="calc-quick-fees">
-        ${[0, 5, 10, 15].map((valor) => `<button type="button" onclick="aplicarTaxaRapidaCalculadora(${valor})">${valor ? `R$ ${valor}` : "R$ 0"}</button>`).join("")}
-        <button type="button" onclick="document.getElementById('taxaExtra')?.focus()">Personalizado</button>
+        ${[0, 5, 10, 15].map((valor) => `<button type="button" class="${taxaEstado.modo === "percent" && taxaEstado.percent === valor ? "active" : ""}" data-extra-fee-mode="percent" data-extra-fee-percent="${valor}" onclick="selecionarTaxaExtraPercentual(${valor})">${valor}%</button>`).join("")}
+        <button type="button" class="${taxaEstado.modo === "manual" ? "active" : ""}" data-extra-fee-mode="manual" onclick="selecionarTaxaExtraManual()">Personalizado</button>
       </div>
       <label class="field">
         <span>Nome do item</span>
@@ -23466,7 +23620,7 @@ function renderCalculadoraConteudo() {
 
     <div class="calc-primary-actions">
       <button class="btn calc-main-action" id="confirmCalculatorItemButton" onclick="adicionarItem()" ${itemAdicionandoPedido ? "disabled" : ""}>
-        ${renderUiIcon("pedido")} <span>${itemAdicionandoPedido ? "Adicionando item..." : "Adicionar ao pedido"}<small>e continuar</small></span>
+        ${renderUiIcon("pedido")} <span>${itemAdicionandoPedido ? "Adicionando item..." : acaoPrincipal}<small>${subtituloAcao}</small></span>
       </button>
       <button class="btn ghost calc-save-action" onclick="salvarOrcamento()">${renderIconeAcaoPedido("▣", "Salvar")} Salvar item</button>
     </div>
@@ -23814,7 +23968,6 @@ function abrirConfiguracoesCalculadora() {
           <label class="field"><span>Custo/hora da máquina</span><input id="calcSettingsHour" type="number" min="0" step="0.01" value="${escaparAttr(config.custoHora)}"></label>
           <label class="field"><span>Margem padrão %</span><input id="calcSettingsMargin" type="number" min="0" step="1" value="${escaparAttr(config.margem)}"></label>
           <label class="field"><span>Margem mínima recomendada %</span><input id="calcSettingsMinMargin" type="number" min="0" step="1" value="${Number(appConfig.minimumRecommendedMargin) || 60}"></label>
-          <label class="field"><span>Taxa fixa padrão R$</span><input id="calcSettingsFixedFee" type="number" min="0" step="0.01" value="${Number(appConfig.defaultExtraFee) || 0}"></label>
           <label class="field"><span>Tempo mínimo cobrado (h)</span><input id="calcSettingsMinTime" type="number" min="0" step="0.1" value="${Number(appConfig.minimumChargedHours) || 0}"></label>
           <label class="field"><span>Arredondamento</span><select id="calcSettingsRounding">
             ${[0, 0.5, 1, 5].map((valor) => `<option value="${valor}" ${Number(appConfig.priceRounding || 0) === valor ? "selected" : ""}>${valor ? `R$ ${valor}` : "Sem arredondar"}</option>`).join("")}
@@ -23862,7 +24015,6 @@ function salvarConfiguracoesCalculadoraAvancadas(persistir = true) {
   appConfig.defaultFilamentCost = proxima.filamento;
   appConfig.defaultEnergy = proxima.energia;
   appConfig.defaultMargin = proxima.margem;
-  appConfig.defaultExtraFee = numeroCalculadora(document.getElementById("calcSettingsFixedFee")?.value, appConfig.defaultExtraFee || 0);
   appConfig.minimumRecommendedMargin = numeroCalculadora(document.getElementById("calcSettingsMinMargin")?.value, appConfig.minimumRecommendedMargin || 60);
   appConfig.minimumChargedHours = numeroCalculadora(document.getElementById("calcSettingsMinTime")?.value, appConfig.minimumChargedHours || 0);
   appConfig.priceRounding = numeroCalculadora(document.getElementById("calcSettingsRounding")?.value, appConfig.priceRounding || 0);
@@ -23874,9 +24026,7 @@ function salvarConfiguracoesCalculadoraAvancadas(persistir = true) {
 }
 
 function aplicarTaxaRapidaCalculadora(valor = 0) {
-  const campo = document.getElementById("taxaExtra");
-  if (campo) campo.value = Number(valor || 0).toFixed(2);
-  agendarCalculoTempoReal();
+  selecionarTaxaExtraPercentual(valor);
 }
 
 function alternarResumoCalculadora() {
@@ -23955,8 +24105,9 @@ function abrirCalculadora(opcoes = {}) {
   ultimoCalculo = null;
   fecharPopup();
   registrarEventoUsoLocal("calculadora_aberta");
-  salvarCalculadoraWidget({ open: true }, true);
-  renderCalculadoraFlutuante();
+  salvarCalculadoraWidget({ open: false }, true);
+  if (telaAtual !== "calculadora") trocarTela("calculadora");
+  else renderApp();
 }
 
 function minimizarCalculadora() {
@@ -24220,7 +24371,6 @@ function calcular(opcoes = {}) {
   let consumo;
   let custoHora;
   let margem;
-  let taxaExtra;
   try {
     peso = InventoryService.parseNumberStrict(document.getElementById("peso")?.value, "peso em gramas", { min: 0 });
     filamento = InventoryService.parseNumberStrict(document.getElementById("filamento")?.value, "custo do material", { min: 0 });
@@ -24230,7 +24380,6 @@ function calcular(opcoes = {}) {
     consumo = InventoryService.parseNumberStrict(document.getElementById("consumo")?.value, "consumo elétrico", { min: 0 });
     custoHora = InventoryService.parseNumberStrict(document.getElementById("custoHora")?.value, "custo por hora", { min: 0 });
     margem = InventoryService.parseNumberStrict(document.getElementById("margem")?.value, "margem", { min: 0 });
-    taxaExtra = InventoryService.parseNumberStrict(document.getElementById("taxaExtra")?.value, "taxa extra", { min: 0 });
   } catch (erro) {
     if (!silent) ErrorService.notify(erro, { area: "Calculadora", action: "Calcular preço", errorKey: "CALCULATE_QUOTE_FAILED" });
     return false;
@@ -24255,10 +24404,13 @@ function calcular(opcoes = {}) {
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempoCobrado * energia;
   const maquina = tempoCobrado * custoHora;
-  const custo = material + energiaC + maquina;
+  const custoBase = material + energiaC + maquina;
+  const taxaInfo = calcularTaxaExtraAplicada(custoBase);
+  const taxaExtra = taxaInfo.valor;
+  const custo = custoBase + taxaExtra;
   const precoSemTaxa = custo * (1 + margem / 100);
   const arredondamento = Number(appConfig.priceRounding) || 0;
-  let preco = precoSemTaxa + taxaExtra;
+  let preco = precoSemTaxa;
   if (arredondamento > 0) preco = Math.ceil(preco / arredondamento) * arredondamento;
   salvarConfiguracaoCalculadora(!silent && !skipUsage);
 
@@ -24269,6 +24421,8 @@ function calcular(opcoes = {}) {
     custoEnergia: energiaC,
     custoMaquina: maquina,
     taxaExtra,
+    taxaExtraMode: taxaInfo.modo,
+    taxaExtraRotulo: taxaInfo.rotulo,
     precoSemTaxa,
     custoTotal: custo,
     precoTotal: preco,
@@ -24297,10 +24451,14 @@ function limparCalculo() {
     const campo = document.getElementById(id);
     if (campo) campo.value = "";
   });
+  appConfig.calcExtraFeeMode = "percent";
+  appConfig.calcExtraFeePercent = 0;
+  appConfig.calcExtraFeeValue = 0;
   const quantidade = document.getElementById("quantidade");
   if (quantidade) quantidade.value = "1";
   const resultado = document.getElementById("res");
   if (resultado) resultado.innerHTML = renderResumoCalculo(null);
+  atualizarVisualTaxaExtraCalculadora();
   salvarConfiguracaoCalculadora(true);
 }
 
