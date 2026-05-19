@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.40";
-const APP_VERSION_CODE = 91;
+const APP_VERSION = "51.0.41";
+const APP_VERSION_CODE = 92;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -11271,8 +11271,9 @@ function renderPainelMobile(tela) {
       </section>
     `;
   }
+  const classePainel = tela === "pedido" ? " mobile-panel-order" : "";
   return `
-    <section class="mobile-panel" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
+    <section class="mobile-panel${classePainel}" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
       <div class="mobile-panel-bar">
         <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
