@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.37";
-const APP_VERSION_CODE = 88;
+const APP_VERSION = "51.0.40";
+const APP_VERSION_CODE = 91;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -283,11 +283,11 @@ const telas = {
   personalizacao: "Aparência",
   pdf: "PDF",
   mais: "Mais",
-  conta: "Conta",
+  conta: "Usuário",
   assinatura: "Plano",
   minhaAssinatura: "Minha Assinatura",
   usuarios: "Usuários",
-  seguranca: "Conta",
+  seguranca: "Segurança",
   planos: "Planos",
   admin: "Admin",
   superadmin: "Super Admin",
@@ -301,6 +301,8 @@ const telas = {
 
 let telaAtual = "dashboard";
 let telaAnterior = "dashboard";
+let navigationStack = [];
+let lastDashboardBackPromptAt = 0;
 let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
@@ -308,6 +310,7 @@ let clienteTelefonePedido = "";
 let clienteEmailPedido = "";
 let observacaoPedido = "";
 let prazoPedido = "";
+let entradaPedido = 0;
 let selectedCustomerSuggestion = null;
 let customerSuggestionState = {
   query: "",
@@ -600,7 +603,7 @@ let appConfig = carregarObjeto("appConfig", {
 const assistantResponses = [
   { keywords: ["criar pedido", "novo pedido", "montar pedido"], answer: "Para criar um pedido, abra Novo pedido, informe cliente e WhatsApp, adicione itens pela calculadora ou manualmente, revise o total e toque em Salvar." },
   { keywords: ["editar pedido", "alterar pedido", "mudar pedido"], answer: "Para editar um pedido, abra Pedidos, toque no pedido, escolha Editar, ajuste os itens na lista e confirme na revisão final. A lixeira remove um item e o estoque é recalculado pela diferença." },
-  { keywords: ["fechar pedido", "finalizar pedido", "salvar pedido"], answer: "Para fechar/salvar, revise cliente, itens e total. Depois toque em Salvar ou Confirmar alterações. O pedido gera entrada no Caixa e pode sincronizar em segundo plano." },
+  { keywords: ["fechar pedido", "finalizar pedido", "salvar pedido"], answer: "Para fechar/salvar, revise cliente, itens, entrada/sinal e total. Depois toque em Salvar ou Confirmar alterações. O caixa recebe somente o valor realmente pago." },
   { keywords: ["excluir pedido", "remover pedido", "cancelar pedido"], answer: "Para excluir/remover um pedido, abra a lista de Pedidos e use a ação de lixeira. O app pede confirmação e pode devolver estoque quando houver material vinculado." },
   { keywords: ["pedido", "pedidos", "venda", "vendas"], answer: "Você quer ajuda com qual parte dos pedidos: criar um novo pedido, editar itens, fechar/salvar, excluir, gerar PDF ou enviar por WhatsApp?" },
   { keywords: ["estoque", "material", "filamento", "resina"], answer: "No Estoque você cadastra materiais por tipo e cor, como PLA Preto ou Resina Transparente. Quando um pedido usa material vinculado por ID, o sistema verifica saldo, baixa automaticamente ao salvar e devolve ao excluir/cancelar." },
@@ -612,7 +615,7 @@ const assistantResponses = [
   { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão fica salva até o logout manual enquanto o Supabase conseguir renovar o token. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
   { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha; com Supabase configurado, o reset usa o fluxo de autenticação online." },
   { keywords: ["usuario", "usuário", "usuarios", "usuários", "permissao", "permissão", "perfil"], answer: "Admin e superadmin podem criar usuários. Os perfis são superadmin, admin, operador e visualizador. Operador trabalha na operação; visualizador consulta; admin gerencia usuários e dados; superadmin acessa tudo." },
-  { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Os pedidos finalizados entram como movimentação financeira. Relatórios mostram visão resumida para acompanhar faturamento, saldo e operação." },
+  { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Em pedidos com entrada/sinal, o app lança somente o valor recebido e mantém o restante como saldo a receber." },
   { keywords: ["producao", "produção", "impressao", "impressão"], answer: "A tela Produção acompanha pedidos em aberto ou em andamento. Atualize o status para organizar o fluxo de impressão, entrega e finalização." }
 ];
 const ASSISTANT_MANUAL_FALLBACK_MESSAGE = "Não encontrei essa informação no manual do app. Você pode enviar isso como sugestão em Ajuda e Feedback.";
@@ -1502,14 +1505,34 @@ const InventoryService = {
     const nome = [tipoNormalizado, corNormalizada].filter(Boolean).join(" ");
     const quantidade = this.parseNumberStrict(qtd, "quantidade em kg", { min: 0, allowZero: false });
     const atual = normalizarEstoque();
+    const agora = new Date().toISOString();
     const indice = atual.findIndex((material) => material.tipo === tipoNormalizado && String(material.cor || "").toLowerCase() === corNormalizada.toLowerCase());
     const proximo = indice >= 0
       ? atual.map((material, i) => i === indice
-        ? prepararRegistroOnline({ ...material, qtd: this.parseNumberStrict(material.qtd, "saldo atual", { min: 0 }) + quantidade })
+        ? prepararRegistroOnline(normalizarMaterialEstoque({
+          ...material,
+          qtd: this.parseNumberStrict(material.qtd, "saldo atual", { min: 0 }) + quantidade,
+          current_quantity: this.parseNumberStrict(material.qtd, "saldo atual", { min: 0 }) + quantidade,
+          quantity_base: this.parseNumberStrict(material.qtd, "saldo atual", { min: 0 }) + quantidade,
+          last_restock_at: agora,
+          notified_low_stock: false,
+          notified_critical_stock: false,
+          atualizadoEm: agora
+        }))
         : material)
-      : [...atual, prepararRegistroOnline(normalizarMaterialEstoque({ id: Date.now(), nome, tipo: tipoNormalizado, cor: corNormalizada, qtd: quantidade }))];
+      : [...atual, prepararRegistroOnline(normalizarMaterialEstoque({
+        id: Date.now(),
+        nome,
+        tipo: tipoNormalizado,
+        cor: corNormalizada,
+        qtd: quantidade,
+        initial_quantity: quantidade,
+        current_quantity: quantidade,
+        quantity_base: quantidade,
+        last_restock_at: agora
+      }))];
     StateStore.set("estoque", proximo, { persistir: true });
-    registrarHistorico("Estoque", "Material adicionado: " + nome + " (" + quantidade + " kg)");
+    registrarHistorico("Estoque", (indice >= 0 ? "Reposição de estoque: " : "Material adicionado: ") + nome + " (" + quantidade + " kg)");
     return proximo;
   },
   updateMaterial(indice, dados = {}) {
@@ -1532,6 +1555,8 @@ const InventoryService = {
       tipo,
       cor,
       qtd,
+      current_quantity: qtd,
+      quantity_base: Math.max(qtd, Number(material.quantity_base) || 0),
       atualizadoEm: new Date().toISOString()
     }));
     const proximo = atual.map((item, i) => i === Number(indice) ? atualizado : item);
@@ -1572,7 +1597,13 @@ const InventoryService = {
       const saldoNovo = Math.max(0, saldoAtual - consumo);
       const tipoMovimento = consumo >= 0 ? "saída" : "entrada";
       movimentos.push(`${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(consumo).toFixed(3)} kg)`);
-      return prepararRegistroOnline({ ...material, qtd: saldoNovo, atualizadoEm: new Date().toISOString() });
+      return prepararRegistroOnline(normalizarMaterialEstoque({
+        ...material,
+        qtd: saldoNovo,
+        current_quantity: saldoNovo,
+        quantity_base: Math.max(Number(material.quantity_base) || 0, saldoNovo),
+        atualizadoEm: new Date().toISOString()
+      }));
     });
     StateStore.set("estoque", proximo, { persistir: true });
     movimentos.forEach((movimento) => registrarHistorico("Estoque", movimento));
@@ -5544,8 +5575,89 @@ function iniciarIntroAbertura() {
   setTimeout(concluir, 14000);
 }
 
+function numeroMonetarioPedido(valor, fallback = 0) {
+  if (valor === null || valor === undefined || String(valor).trim() === "") return fallback;
+  const texto = String(valor).trim().replace(/[^\d,.-]/g, "");
+  const normalizado = texto.includes(",") && texto.lastIndexOf(",") > texto.lastIndexOf(".")
+    ? texto.replace(/\./g, "").replace(",", ".")
+    : texto.replace(/,/g, "");
+  const numero = Number(normalizado);
+  return Number.isFinite(numero) ? numero : fallback;
+}
+
+function subtotalItensPedido(origem = {}) {
+  const itens = Array.isArray(origem) ? origem : normalizarItensPedido(origem);
+  return itens.reduce((soma, item) => {
+    const total = numeroMonetarioPedido(item.total, NaN);
+    if (Number.isFinite(total) && total > 0) return soma + total;
+    const valor = Math.max(0, numeroMonetarioPedido(item.valor ?? item.precoVenda, 0));
+    const qtd = Math.max(1, Number(item.qtd) || 1);
+    return soma + valor * qtd;
+  }, 0);
+}
+
+function valorDescontoPedido(pedido = {}) {
+  return Math.max(0, numeroMonetarioPedido(pedido?.desconto ?? pedido?.discount ?? pedido?.valor_desconto, 0));
+}
+
+function valorEntradaPedido(pedido = {}) {
+  return Math.max(0, numeroMonetarioPedido(
+    pedido?.down_payment ?? pedido?.valor_entrada ?? pedido?.entradaPaga ?? pedido?.entrada_pago ?? pedido?.entrada ?? pedido?.sinal,
+    0
+  ));
+}
+
+function labelStatusFinanceiroPedido(status = "pendente") {
+  const mapa = {
+    pendente: "Pendente",
+    pago_parcial: "Pago parcial",
+    parcial: "Pago parcial",
+    pago_total: "Pago total",
+    quitado: "Pago total"
+  };
+  return mapa[String(status || "pendente").toLowerCase()] || "Pendente";
+}
+
+function classeStatusFinanceiroPedido(status = "pendente") {
+  const valor = String(status || "pendente").toLowerCase();
+  if (["pago_total", "quitado"].includes(valor)) return "order-status-paid";
+  if (["pago_parcial", "parcial"].includes(valor)) return "order-status-waiting";
+  return "order-status-open";
+}
+
+function calcularResumoFinanceiroPedido(pedido = {}) {
+  const subtotalInformado = numeroMonetarioPedido(pedido?.subtotalItens ?? pedido?.subtotal_itens, NaN);
+  const subtotal = Number.isFinite(subtotalInformado) && subtotalInformado >= 0 ? subtotalInformado : subtotalItensPedido(pedido);
+  const desconto = valorDescontoPedido(pedido);
+  const taxaExtra = Math.max(0, numeroMonetarioPedido(pedido?.taxaExtra ?? pedido?.extraFee ?? pedido?.taxa_extra, 0));
+  const totalInformado = numeroMonetarioPedido(pedido?.total ?? pedido?.valor ?? pedido?.totalPedido, NaN);
+  const totalCalculado = Math.max(0, subtotal + taxaExtra - desconto);
+  const total = Number.isFinite(totalInformado) && totalInformado >= 0 && (totalInformado > 0 || subtotal === 0)
+    ? totalInformado
+    : totalCalculado;
+  const entrada = valorEntradaPedido(pedido);
+  const restante = Math.max(0, total - entrada);
+  const entradaMaiorQueTotal = entrada > total + 0.009;
+  const statusFinanceiro = entrada <= 0 ? "pendente" : restante <= 0 ? "pago_total" : "pago_parcial";
+  return { subtotal, desconto, taxaExtra, total, entrada, restante, entradaMaiorQueTotal, statusFinanceiro };
+}
+
 function totalPedido(pedido) {
-  return Number(pedido?.total ?? pedido?.valor ?? 0) || 0;
+  return calcularResumoFinanceiroPedido(pedido || {}).total;
+}
+
+function getResumoFinanceiroPedidos(lista = pedidos) {
+  return (Array.isArray(lista) ? lista : []).reduce((resumo, pedido) => {
+    if (pedidoJaCancelado(pedido)) return resumo;
+    const financeiro = calcularResumoFinanceiroPedido(pedido);
+    resumo.totalPedidos += financeiro.total;
+    resumo.valorRecebido += Math.min(financeiro.entrada, financeiro.total);
+    resumo.valorAReceber += financeiro.restante;
+    if (financeiro.statusFinanceiro === "pago_total") resumo.pagosTotal += 1;
+    else if (financeiro.statusFinanceiro === "pago_parcial") resumo.pagosParcial += 1;
+    else resumo.pendentes += 1;
+    return resumo;
+  }, { totalPedidos: 0, valorRecebido: 0, valorAReceber: 0, pendentes: 0, pagosParcial: 0, pagosTotal: 0 });
 }
 
 function clienteDoPedido(pedido) {
@@ -5847,18 +5959,56 @@ function inferirTipoMaterial(nome = "") {
   return "PLA";
 }
 
+function calcularPercentualEstoque(atual = 0, base = 0) {
+  const saldo = Math.max(0, Number(atual) || 0);
+  const referencia = Math.max(0, Number(base) || 0);
+  if (!referencia) return saldo > 0 ? 100 : 0;
+  return Math.max(0, Math.min(100, Math.round((saldo / referencia) * 100)));
+}
+
+function resolverStatusEstoque(percentual = 0, material = {}) {
+  const critical = Number(material.critical_stock_threshold ?? material.criticalStockThreshold ?? 10) || 10;
+  const low = Number(material.low_stock_threshold ?? material.lowStockThreshold ?? 30) || 30;
+  if (percentual <= critical) return "critical";
+  if (percentual <= low) return "low";
+  return "normal";
+}
+
+function labelStatusEstoque(status = "normal") {
+  const mapa = { normal: "Normal", low: "Baixo", critical: "Crítico" };
+  return mapa[String(status || "normal")] || "Normal";
+}
+
 function normalizarMaterialEstoque(material = {}) {
   const tipo = material.tipo || inferirTipoMaterial(material.nome);
   const cor = String(material.cor || "").trim();
   const nomeBase = String(material.nome || [tipo, cor].filter(Boolean).join(" ") || tipo).trim();
+  const unidade = material.unit || material.unidade || "kg";
+  const saldoAtual = Math.max(0, Number(material.current_quantity ?? material.currentQuantity ?? material.qtd) || 0);
+  const baseInformada = Number(material.quantity_base ?? material.quantityBase ?? material.initial_quantity ?? material.initialQuantity) || 0;
+  const basePadrao = String(unidade).toLowerCase() === "kg" ? Math.max(1, saldoAtual) : Math.max(1, saldoAtual);
+  const base = Math.max(saldoAtual, baseInformada || basePadrao);
+  const percentual = calcularPercentualEstoque(saldoAtual, base);
+  const status = resolverStatusEstoque(percentual, material);
   return {
     ...material,
     id: material.id || "mat-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
     nome: nomeBase,
     tipo,
     cor,
-    qtd: Math.max(0, Number(material.qtd) || 0),
-    unidade: material.unidade || "kg"
+    qtd: saldoAtual,
+    unidade,
+    unit: unidade,
+    initial_quantity: Math.max(0, Number(material.initial_quantity ?? material.initialQuantity ?? base) || 0),
+    current_quantity: saldoAtual,
+    quantity_base: base,
+    remaining_percent: percentual,
+    stock_status: status,
+    low_stock_threshold: Number(material.low_stock_threshold ?? material.lowStockThreshold ?? 30) || 30,
+    critical_stock_threshold: Number(material.critical_stock_threshold ?? material.criticalStockThreshold ?? 10) || 10,
+    notified_low_stock: !!(material.notified_low_stock || material.notifiedLowStock),
+    notified_critical_stock: !!(material.notified_critical_stock || material.notifiedCriticalStock),
+    last_restock_at: material.last_restock_at || material.lastRestockAt || ""
   };
 }
 
@@ -5866,7 +6016,7 @@ function normalizarEstoque() {
   let mudou = false;
   estoque = (Array.isArray(estoque) ? estoque : []).map((material) => {
     const normalizado = normalizarMaterialEstoque(material);
-    if (!material.id || !material.tipo || material.qtd !== normalizado.qtd) mudou = true;
+    if (!material.id || !material.tipo || material.qtd !== normalizado.qtd || material.quantity_base !== normalizado.quantity_base || material.remaining_percent !== normalizado.remaining_percent || material.stock_status !== normalizado.stock_status) mudou = true;
     return normalizado;
   });
   if (mudou) salvarDados();
@@ -6029,6 +6179,10 @@ function descricaoCaixa(movimento) {
   return movimento?.descricao || movimento?.desc || "Movimento";
 }
 
+function movimentoCaixaCancelado(movimento = {}) {
+  return !!(movimento.cancelado || movimento.cancelled || movimento.canceladoEm || movimento.cancelled_at || String(movimento.status || "").toLowerCase() === "cancelado");
+}
+
 function formatarDataCurta(valor = "") {
   if (!valor) return "";
   const data = new Date(valor);
@@ -6038,6 +6192,7 @@ function formatarDataCurta(valor = "") {
 
 function calcularSaldo() {
   return caixa.reduce((saldo, movimento) => {
+    if (movimentoCaixaCancelado(movimento)) return saldo;
     const valor = Number(movimento.valor) || 0;
     return movimento.tipo === "saida" ? saldo - valor : saldo + valor;
   }, 0);
@@ -6045,6 +6200,10 @@ function calcularSaldo() {
 
 function calcularTotaisCaixa() {
   return caixa.reduce((totais, movimento) => {
+    if (movimentoCaixaCancelado(movimento)) {
+      totais.cancelados += 1;
+      return totais;
+    }
     const valor = Number(movimento.valor) || 0;
     if (movimento.tipo === "saida") {
       totais.saidas += valor;
@@ -6053,7 +6212,7 @@ function calcularTotaisCaixa() {
     }
     totais.saldo = totais.entradas - totais.saidas;
     return totais;
-  }, { entradas: 0, saidas: 0, saldo: 0 });
+  }, { entradas: 0, saidas: 0, saldo: 0, cancelados: 0 });
 }
 
 // Regra central de planos/permissões: somente active_plan libera acesso; pending nunca ativa plano.
@@ -6950,6 +7109,24 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--input-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--input-placeholder", usarClaro ? "#7a8797" : "#8f98a6");
   root.style.setProperty("--result-bg", usarClaro ? "#ffffff" : "#111419");
+  root.style.setProperty("--surface", usarClaro ? "#ffffff" : "#121923");
+  root.style.setProperty("--surface-2", usarClaro ? "#edf2f7" : "#1c2634");
+  root.style.setProperty("--glass-bg", usarClaro
+    ? "linear-gradient(145deg, rgba(255,255,255,.96), rgba(239,245,249,.90))"
+    : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
+  root.style.setProperty("--glass-bg-strong", usarClaro
+    ? "linear-gradient(145deg, rgba(255,255,255,.98), rgba(226,235,243,.94))"
+    : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
+  root.style.setProperty("--glass-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
+  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.78)" : "rgba(255,255,255,.08)");
+  root.style.setProperty("--card-gradient", "var(--glass-bg)");
+  root.style.setProperty("--card-gradient-strong", "var(--glass-bg-strong)");
+  root.style.setProperty("--card-border", "var(--glass-border)");
+  root.style.setProperty("--shadow", usarClaro ? "0 14px 30px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9)" : "0 16px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05)");
+  root.style.setProperty("--shadow-soft", usarClaro ? "0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.85)" : "0 9px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--app-body-background", usarClaro
+    ? "radial-gradient(circle at 18% 0%, rgba(13,189,184,.12), transparent 34%), radial-gradient(circle at 88% 12%, rgba(37,99,235,.08), transparent 30%), linear-gradient(180deg, #f8fafc 0%, #eef4f7 48%, #e7eef3 100%)"
+    : "radial-gradient(circle at 18% 0%, rgba(13,189,184,.16), transparent 33%), radial-gradient(circle at 88% 12%, rgba(255,148,28,.10), transparent 30%), linear-gradient(180deg, #0b1620 0%, var(--bg) 46%, #050a0f 100%)");
   root.style.setProperty("--ui-scale", escala.toFixed(2));
   root.style.setProperty("--base-font-size", `${Math.max(11, Math.round(15 * escala))}px`);
   root.style.setProperty("--font-xs", `${Math.max(8, Math.round(12 * escala))}px`);
@@ -6983,6 +7160,8 @@ function aplicarPersonalizacao() {
   document.body.dataset.screenFit = appConfig.screenFit || "auto";
   document.body.dataset.screenProfile = detectarPerfilTela();
   document.body.dataset.motion = detectarNivelMovimento();
+  document.body.dataset.theme = usarClaro ? "light" : "dark";
+  document.body.classList.toggle("theme-light", usarClaro);
 
   const nome = appConfig.appName || SYSTEM_NAME;
   document.title = nome;
@@ -7143,7 +7322,49 @@ function sincronizarBannersSeNecessario(force = false) {
   sincronizarBannerAdSense();
 }
 
-function trocarTela(tela) {
+function getParentScreenForBack(tela = telaAtual) {
+  const pais = {
+    assinatura: "conta",
+    planos: "conta",
+    minhaAssinatura: "conta",
+    seguranca: "conta",
+    empresa: "conta",
+    preferencias: "config",
+    personalizacao: "config",
+    pdf: "config",
+    backup: "config",
+    pedido: "pedidos"
+  };
+  return pais[tela] || "dashboard";
+}
+
+function fecharCamadaAtualSeExistir() {
+  const popup = document.getElementById("popup");
+  if (popup && popup.innerHTML.trim()) {
+    fecharPopup();
+    return true;
+  }
+  if (sideDrawerOpen || document.querySelector(".side-drawer")) {
+    fecharDrawerLateral();
+    return true;
+  }
+  if (assistantOpen && typeof fecharAssistente === "function") {
+    fecharAssistente();
+    return true;
+  }
+  return false;
+}
+
+function atualizarHistoricoBrowserApp(replace = false) {
+  if (typeof window === "undefined" || !window.history) return;
+  const state = { simplifica: true, tela: telaAtual };
+  try {
+    if (replace) window.history.replaceState(state, document.title, window.location.href);
+    else window.history.pushState(state, document.title, window.location.href);
+  } catch (_) {}
+}
+
+function trocarTela(tela, opcoes = {}) {
   if (!telas[tela]) {
     tela = "dashboard";
   }
@@ -7154,8 +7375,19 @@ function trocarTela(tela) {
   }
 
   const mudouTela = telaAtual !== tela;
+  if (opcoes.resetStack) {
+    navigationStack = [];
+  }
   if (mudouTela) {
-    telaAnterior = telaAtual;
+    if (!opcoes.skipStack && !opcoes.resetStack) {
+      const anterior = telaAtual;
+      const ultimo = navigationStack[navigationStack.length - 1];
+      if (anterior && anterior !== tela && ultimo !== anterior) {
+        navigationStack.push(anterior);
+        if (navigationStack.length > 24) navigationStack = navigationStack.slice(-24);
+      }
+    }
+    telaAnterior = opcoes.menuRoot ? "dashboard" : (opcoes.resetStack ? getParentScreenForBack(tela) : telaAtual);
   }
 
   telaAtual = tela;
@@ -7164,24 +7396,71 @@ function trocarTela(tela) {
     appConfig.calculatorWidget.open = false;
     salvarDados();
   }
+  if (mudouTela && !opcoes.fromHistory) atualizarHistoricoBrowserApp(!!opcoes.replaceHistory);
   if (mudouTela) iniciarTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
   renderApp();
   if (mudouTela) resetarScrollTelaAtiva();
 }
 
 function voltarTela() {
-  const destino = telas[telaAnterior] ? telaAnterior : "dashboard";
+  if (fecharCamadaAtualSeExistir()) return;
+  const destinoStack = navigationStack.pop();
+  const destino = telas[destinoStack] ? destinoStack : (telas[telaAnterior] ? telaAnterior : getParentScreenForBack(telaAtual));
+  const atual = telaAtual;
   telaAtual = destino;
-  telaAnterior = "dashboard";
+  telaAnterior = navigationStack[navigationStack.length - 1] || getParentScreenForBack(destino);
   iniciarTransicaoNavegacao("back");
+  atualizarHistoricoBrowserApp(true);
   renderApp();
+  if (atual !== destino) resetarScrollTelaAtiva();
 }
 
 function voltarInicio() {
   telaAnterior = telaAtual;
+  navigationStack = [];
   telaAtual = "dashboard";
   iniciarTransicaoNavegacao("back");
+  atualizarHistoricoBrowserApp(true);
   renderApp();
+}
+
+async function lidarComVoltarSistema(event = null) {
+  event?.preventDefault?.();
+  if (fecharCamadaAtualSeExistir()) {
+    atualizarHistoricoBrowserApp(true);
+    return true;
+  }
+  if (telaAtual !== "dashboard") {
+    voltarTela();
+    return true;
+  }
+  const agora = Date.now();
+  if (agora - lastDashboardBackPromptAt < 1800) {
+    try {
+      const appPlugin = window.Capacitor?.Plugins?.App;
+      if (isAndroidNativeApp() && appPlugin?.exitApp) appPlugin.exitApp();
+    } catch (_) {}
+    return false;
+  }
+  lastDashboardBackPromptAt = agora;
+  mostrarToast("Você está na Home. Toque em voltar novamente para sair.", "info", 2200);
+  atualizarHistoricoBrowserApp(true);
+  return true;
+}
+
+function configurarNavegacaoInternaApp() {
+  if (window.__simplificaNavigationConfigured) return;
+  window.__simplificaNavigationConfigured = true;
+  atualizarHistoricoBrowserApp(true);
+  window.addEventListener("popstate", (event) => {
+    lidarComVoltarSistema(event);
+  });
+  try {
+    const appPlugin = window.Capacitor?.Plugins?.App;
+    appPlugin?.addListener?.("backButton", () => {
+      lidarComVoltarSistema();
+    });
+  } catch (_) {}
 }
 
 function atualizarMenu() {
@@ -10461,13 +10740,13 @@ function renderPerfilMenuLateral() {
 
   return `
     <div class="side-profile-card premium-profile-trigger" role="button" tabindex="0"
-      onclick="abrirPerfilPremiumPainel(event)"
-      onkeydown="if(event.key === 'Enter' || event.key === ' '){abrirPerfilPremiumPainel(event)}"
+      onclick="abrirUsuarioMenuLateral(event)"
+      onkeydown="if(event.key === 'Enter' || event.key === ' '){abrirUsuarioMenuLateral(event)}"
       onpointerdown="iniciarPressPerfil(event)"
       onpointermove="moverPressPerfil(event)"
       onpointerup="finalizarPressPerfil(event)"
       onpointercancel="cancelarPressPerfil()"
-      title="Abrir perfil e conta">
+      title="Abrir usuário">
       <div class="side-profile-photo-stack">
         ${renderUsuarioAvatar(usuario, "side-profile-avatar")}
         ${empresaLogo ? `<img class="side-company-logo" src="${escaparAttr(empresaLogo)}" alt="Logo da empresa">` : ""}
@@ -10475,13 +10754,19 @@ function renderPerfilMenuLateral() {
       <span class="side-profile-meta">
         <strong>${escaparHtml(nome)}</strong>
         <small>${escaparHtml(usuario?.nome || email)}</small>
-        <small class="side-profile-status">${escaparHtml(plano.descricao || "Assinatura ativa")}</small>
+        <small class="side-profile-status">Usuário e assinatura</small>
       </span>
       <button class="status-badge profile-plan-link ${classeStatusPlano(plano.status)}" type="button" onclick="event.stopPropagation(); abrirTelaPlanosPerfil()">
         ${escaparHtml(status)}
       </button>
     </div>
   `;
+}
+
+function abrirUsuarioMenuLateral(event) {
+  event?.preventDefault?.();
+  if (Date.now() - Number(window.__profileLongPressLock || 0) < 700) return;
+  navegarMenuPrincipal("conta");
 }
 
 function abrirTelaPlanosPerfil() {
@@ -10713,9 +10998,7 @@ function getMenuGroups() {
         { tela: "empresa", icone: "🏢", texto: "Empresa" },
         { tela: "personalizacao", icone: "🎨", texto: "Aparência" },
         { tela: "preferencias", icone: "🎛️", texto: "Calculadora" },
-        { tela: "pdf", icone: "▣", texto: "PDF" },
         { tela: "config", icone: "⚙️", texto: "Sistema" },
-        { tela: "conta", icone: "👤", texto: "Conta" },
         { tela: "feedback", icone: "💡", texto: "Ajuda" },
         { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
       ]
@@ -10764,8 +11047,13 @@ function alternarMenuLateral() {
 }
 
 function abrirTelaMenuLateral(tela) {
+  navegarMenuPrincipal(tela);
+}
+
+function navegarMenuPrincipal(tela) {
   fecharPopup();
-  trocarTela(tela);
+  fecharDrawerLateral();
+  trocarTela(tela, { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
 }
 
 function getItensMenuPopup() {
@@ -10815,9 +11103,12 @@ function abrirMenuPopup() {
   abrirDrawerLateral("button");
 }
 
+function abrirMenuLateral() {
+  abrirMenuPopup();
+}
+
 function abrirTelaMenuPopup(tela) {
-  fecharPopup();
-  trocarTela(tela);
+  navegarMenuPrincipal(tela);
 }
 
 function alvoInterativoDrawer(event) {
@@ -10945,8 +11236,7 @@ function getMobileBottomNavItems() {
     { tela: "dashboard", icone: "⌂", texto: "Home" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "producao", icone: "🖨️", texto: "Produção" },
-    { tela: "caixa", icone: "💰", texto: "Caixa" },
-    { tela: "mais", icone: "☰", texto: "Mais" }
+    { tela: "caixa", icone: "💰", texto: "Caixa" }
   ].filter((item) => canAccessScreen(item.tela));
 }
 
@@ -10962,7 +11252,7 @@ function renderMobileBottomNav() {
   return `
     <nav class="mobile-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
-        <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="trocarTela('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
+        <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="navegarMenuPrincipal('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
           <span>${renderUiIcon(item.tela, item.icone)}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
@@ -10986,7 +11276,7 @@ function renderPainelMobile(tela) {
       <div class="mobile-panel-bar">
         <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
-        <button class="icon-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+        ${tela === "mais" ? `<span class="mobile-panel-spacer" aria-hidden="true"></span>` : `<button class="icon-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>`}
       </div>
       <div class="mobile-panel-content">
         ${renderTela(tela)}
@@ -11103,6 +11393,7 @@ function renderDashboardHomeHeader() {
           <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
         <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
+        ${renderDashboardProfileButton(usuario)}
       </div>
     </section>
   `;
@@ -11296,38 +11587,43 @@ function renderContinuarDeOndeParouDashboard() {
 }
 
 function renderMais() {
+  const usuario = getUsuarioAtual();
+  const plano = getPlanoAtual();
+  const fotoPerfilAtual = appConfig.profilePhotoDataUrl || usuario?.avatarUrl || usuario?.avatar_url || "";
   const grupos = [
     {
-      titulo: "Operação",
+      titulo: "Principal",
       itens: [
-        { tela: "clientes", icone: "👥", texto: "Clientes" },
-        { tela: "relatorios", icone: "📈", texto: "Relatórios" },
-        { tela: "producao", icone: "🖨️", texto: "Produção" }
+        { tela: "dashboard", icone: "dashboard", texto: "Início" },
+        { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
+        { tela: "caixa", icone: "caixa", texto: "Caixa" },
+        { tela: "estoque", icone: "estoque", texto: "Produtos" },
+        { tela: "clientes", icone: "clientes", texto: "Clientes" },
+        { tela: "assinatura", icone: "assinatura", texto: "Planos", badge: "Novo" },
+        { tela: "relatorios", icone: "relatorios", texto: "Relatórios" }
       ]
     },
     {
       titulo: "Configurações",
       itens: [
-        { tela: "empresa", icone: "🏢", texto: "Empresa" },
-        { tela: "personalizacao", icone: "🎨", texto: "Aparência" },
-        { tela: "preferencias", icone: "🎛️", texto: "Calculadora" },
-        { tela: "pdf", icone: "▣", texto: "PDF" },
-        { tela: "config", icone: "⚙️", texto: "Sistema" },
-        { tela: "conta", icone: "👤", texto: "Conta" }
+        { tela: "conta", icone: "conta", texto: "Meu perfil" },
+        { tela: "empresa", icone: "empresa", texto: "Empresa" },
+        { tela: "personalizacao", icone: "aparencia", texto: "Aparência" },
+        { tela: "config", icone: "config", texto: "Sistema" }
       ]
     },
     {
       titulo: "Conta e ajuda",
       itens: [
-        { tela: "feedback", icone: "💡", texto: "Ajuda" },
-        { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
+        { tela: "feedback", icone: "feedback", texto: "Ajuda e suporte" },
+        { tela: "sobre", icone: "sobre", texto: "Sobre" }
       ]
     },
     {
       titulo: "Admin",
       itens: [
-        { tela: "usuarios", icone: "🔐", texto: "Admin" },
-        { tela: "superadmin", icone: "🛡️", texto: "Superadmin" }
+        { tela: "usuarios", icone: "usuarios", texto: "Admin" },
+        { tela: "superadmin", icone: "superadmin", texto: "Superadmin" }
       ]
     }
   ].map((grupo) => ({
@@ -11336,24 +11632,39 @@ function renderMais() {
   })).filter((grupo) => grupo.itens.length);
 
   return `
-    <section class="card more-screen">
-      <div class="card-header">
-        <h2>Mais</h2>
-        <span class="status-badge">${escaparHtml(getPlanoAtual().nome)}</span>
-      </div>
+    <section class="more-screen premium-menu-screen">
+      <button class="premium-menu-profile" type="button" onclick="navegarMenuPrincipal('conta')">
+        <span class="premium-menu-avatar">
+          ${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Perfil">` : `<i>${escaparHtml(getUserInitials(usuario?.nome || usuario?.email || "U"))}</i>`}
+        </span>
+        <span>
+          <strong>${escaparHtml(usuario?.nome || "Meu perfil")}</strong>
+          <small>${escaparHtml(usuario?.email || syncConfig.supabaseEmail || "")}</small>
+          <em>Ver perfil</em>
+        </span>
+        <b>›</b>
+      </button>
       ${grupos.map((grupo) => `
-        <div class="more-group">
+        <div class="more-group premium-menu-group">
           <h3>${escaparHtml(grupo.titulo)}</h3>
-          <div class="more-grid">
+          <div class="premium-menu-list">
             ${grupo.itens.map((item) => `
-              <button class="more-item" type="button" onclick="trocarTela('${item.tela}')">
-                <span>${renderUiIcon(item.tela, item.icone)}</span>
+              <button class="premium-menu-row" type="button" onclick="navegarMenuPrincipal('${item.tela}')">
+                <span class="premium-menu-icon">${renderUiIcon(item.icone || item.tela)}</span>
                 <strong>${escaparHtml(item.texto)}</strong>
+                ${item.badge ? `<em>${escaparHtml(item.badge)}</em>` : ""}
+                <b>›</b>
               </button>
             `).join("")}
           </div>
         </div>
       `).join("")}
+      <button class="premium-menu-row danger" type="button" onclick="logoutUsuario()">
+        <span class="premium-menu-icon">${renderUiIcon("back")}</span>
+        <strong>Sair</strong>
+        <b>›</b>
+      </button>
+      <p class="muted menu-plan-footnote">Plano atual: ${escaparHtml(plano.nome)}</p>
     </section>
   `;
 }
@@ -11383,7 +11694,7 @@ function renderConta() {
         <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}</button>
       </div>
 
-      <button class="profile-modern-user-card" type="button" onclick="trocarTela('aparencia')">
+      <button class="profile-modern-user-card" type="button" onclick="abrirFotoPerfilUsuario()">
         <span class="profile-modern-avatar">
           ${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : `<i>${escaparHtml(getUserInitials(usuario.nome || usuario.email))}</i>`}
           <em>${renderUiIcon("edit")}</em>
@@ -11427,11 +11738,12 @@ function renderConta() {
       </section>
 
       <section class="profile-modern-card profile-list-card">
-        <h3>Conta</h3>
-        ${renderProfileMenuRow("conta", "Dados pessoais", "aparencia")}
-        ${renderProfileMenuRow("seguranca", "Segurança", "seguranca")}
+        <h3>Usuário</h3>
+        <button class="profile-list-row" type="button" onclick="abrirFotoPerfilUsuario()">${renderUiIcon("conta")} <span>Foto do perfil</span><b>›</b></button>
+        <button class="profile-list-row" type="button" onclick="abrirDadosPessoaisUsuario()">${renderUiIcon("clientes")} <span>Dados pessoais</span><b>›</b></button>
+        ${renderProfileMenuRow("seguranca", "Segurança da conta", "seguranca")}
         ${renderProfileMenuRow("bell", "Notificações", "feedback")}
-        ${renderProfileMenuRow("preferencias", "Preferências", "preferencias")}
+        ${renderProfileMenuRow("preferencias", "Sessão e preferências", "config")}
       </section>
 
       <section class="profile-modern-card profile-list-card">
@@ -11464,6 +11776,164 @@ function renderProfileUsageTile(icon, label, value, percent = 0) {
 
 function renderProfileMenuRow(icon, label, tela) {
   return `<button class="profile-list-row" type="button" onclick="trocarTela('${escaparAttr(tela)}')">${renderUiIcon(icon)} <span>${escaparHtml(label)}</span><b>›</b></button>`;
+}
+
+function abrirDadosPessoaisUsuario() {
+  const popup = document.getElementById("popup");
+  const usuario = getUsuarioAtual();
+  if (!popup || !usuario) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop profile-photo-modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card profile-photo-modal modal-enter" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Dados pessoais</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="profile-photo-view compact">
+          <span class="profile-photo-view-image">${renderFotoPerfilAtualUsuario()}</span>
+          <strong>${escaparHtml(usuario.nome || usuario.email || "Usuário")}</strong>
+          <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "")}</small>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Nome</span>
+            <input id="userProfileNameInput" value="${escaparAttr(usuario.nome || "")}" placeholder="Nome do usuário">
+          </label>
+          <label class="field">
+            <span>Telefone</span>
+            <input id="userProfilePhoneInput" value="${escaparAttr(usuario.phone || usuario.telefone || "")}" placeholder="(00) 00000-0000">
+          </label>
+          <label class="field">
+            <span>E-mail</span>
+            <input value="${escaparAttr(usuario.email || syncConfig.supabaseEmail || "")}" disabled>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" onclick="salvarDadosPessoaisUsuario()">Salvar dados</button>
+          <button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function salvarDadosPessoaisUsuario() {
+  const usuario = getUsuarioAtual();
+  if (!usuario) return;
+  const nome = String(document.getElementById("userProfileNameInput")?.value || "").trim();
+  const telefone = String(document.getElementById("userProfilePhoneInput")?.value || "").trim();
+  if (!nome) {
+    mostrarToast("Informe o nome do usuário.", "warning", 2600);
+    return;
+  }
+  const id = String(usuario.id || "");
+  const email = normalizarEmail(usuario.email || "");
+  usuarios = normalizarUsuarios(usuarios).map((item) => {
+    const mesmoUsuario = (id && String(item.id || "") === id) || (email && normalizarEmail(item.email || "") === email);
+    if (!mesmoUsuario) return item;
+    return normalizarUsuario({
+      ...item,
+      nome,
+      phone: telefone,
+      telefone,
+      atualizadoEm: new Date().toISOString()
+    });
+  });
+  const atualizado = usuarios.find((item) => (id && String(item.id || "") === id) || (email && normalizarEmail(item.email || "") === email));
+  if (atualizado?.email) {
+    usuarioAtualEmail = atualizado.email;
+    sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+  }
+  salvarDados();
+  fecharPopup();
+  renderApp();
+  mostrarToast("Dados do usuário atualizados.", "sucesso", 2600);
+}
+
+function renderFotoPerfilAtualUsuario() {
+  const usuario = getUsuarioAtual();
+  const foto = appConfig.profilePhotoDataUrl || usuario?.avatarUrl || usuario?.avatar_url || "";
+  if (foto) return `<img src="${escaparAttr(foto)}" alt="Foto do perfil">`;
+  return `<i>${escaparHtml(getUserInitials(usuario?.nome || usuario?.email || "U"))}</i>`;
+}
+
+function abrirFotoPerfilUsuario() {
+  const popup = document.getElementById("popup");
+  const usuario = getUsuarioAtual();
+  if (!popup || !usuario) return;
+  const temFoto = !!(appConfig.profilePhotoDataUrl || usuario.avatarUrl || usuario.avatar_url);
+  popup.innerHTML = `
+    <div class="modal-backdrop profile-photo-modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card profile-photo-modal modal-enter" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <h2>Foto do perfil</h2>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="profile-photo-view">
+          <span class="profile-photo-view-image">${renderFotoPerfilAtualUsuario()}</span>
+          <strong>${escaparHtml(usuario.nome || usuario.email || "Usuário")}</strong>
+          <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "")}</small>
+        </div>
+        <input id="profilePhotoUserFile" class="file-input" type="file" accept="image/*" onchange="salvarFotoPerfilUsuario(this)">
+        <div class="actions">
+          <button class="btn" type="button" onclick="document.getElementById('profilePhotoUserFile')?.click()">Trocar foto</button>
+          ${temFoto ? `<button class="btn danger" type="button" onclick="removerFotoPerfilUsuario()">Remover</button>` : ""}
+          <button class="btn ghost" type="button" onclick="fecharPopup()">Fechar</button>
+        </div>
+        <p class="muted">A foto fica vinculada ao usuário e aparece no app. A aparência geral continua no menu Aparência.</p>
+      </section>
+    </div>
+  `;
+}
+
+async function salvarFotoPerfilUsuario(input) {
+  const arquivo = input?.files?.[0];
+  if (!arquivo) return;
+  try {
+    input.disabled = true;
+    mostrarToast("Ajustando foto do perfil...", "info", 1800);
+    const otimizada = await otimizarImagemPersonalizacao(arquivo, "profile-photo");
+    const foto = await salvarAssetSupabaseSilencioso(otimizada.dataUrl, "profile-photo");
+    appConfig.profilePhotoDataUrl = foto || otimizada.dataUrl || "";
+    appConfig.appearanceSettings = normalizarAppearanceSettings({
+      ...(appConfig.appearanceSettings || {}),
+      profile_photo: appConfig.profilePhotoDataUrl
+    });
+    const usuario = getUsuarioAtual();
+    if (usuario) {
+      usuario.avatarUrl = appConfig.profilePhotoDataUrl;
+      usuario.avatar_url = appConfig.profilePhotoDataUrl;
+    }
+    appConfig.customizationSyncPending = !(await salvarPersonalizacaoRemotaSilencioso());
+    salvarDados();
+    mostrarToast("Foto do perfil atualizada.", "sucesso", 2600);
+    renderApp();
+    abrirFotoPerfilUsuario();
+  } catch (erro) {
+    console.warn("[Perfil] Falha ao salvar foto", erro);
+    mostrarToast("Não foi possível salvar essa foto. Escolha outra imagem.", "erro", 4800);
+  } finally {
+    if (input) input.disabled = false;
+  }
+}
+
+async function removerFotoPerfilUsuario() {
+  if (!confirm("Remover a foto do perfil?")) return;
+  appConfig.profilePhotoDataUrl = "";
+  appConfig.appearanceSettings = normalizarAppearanceSettings({
+    ...(appConfig.appearanceSettings || {}),
+    profile_photo: ""
+  });
+  const usuario = getUsuarioAtual();
+  if (usuario) {
+    usuario.avatarUrl = "";
+    usuario.avatar_url = "";
+  }
+  appConfig.customizationSyncPending = !(await salvarPersonalizacaoRemotaSilencioso());
+  salvarDados();
+  mostrarToast("Foto do perfil removida.", "sucesso", 2400);
+  renderApp();
+  abrirFotoPerfilUsuario();
 }
 
 function renderAtualizacaoAndroidDownload() {
@@ -11635,6 +12105,7 @@ function getDashboardStats() {
     const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
     return total + Math.max(0, totalPedido(pedido) - custo);
   }, 0);
+  const financeiroPedidos = getResumoFinanceiroPedidos(pedidos);
   return {
     faturamentoDia,
     pedidosHoje: pedidosHoje.length,
@@ -11646,7 +12117,13 @@ function getDashboardStats() {
     pedidosConcluidos,
     clientesAtivos,
     consumoHojeKg,
-    totalMateriais: materiaisEstoque.length
+    totalMateriais: materiaisEstoque.length,
+    totalPedidosFinanceiro: financeiroPedidos.totalPedidos,
+    valorRecebidoPedidos: financeiroPedidos.valorRecebido,
+    valorAReceberPedidos: financeiroPedidos.valorAReceber,
+    pedidosFinanceiroPendentes: financeiroPedidos.pendentes,
+    pedidosPagosParcialmente: financeiroPedidos.pagosParcial,
+    pedidosQuitados: financeiroPedidos.pagosTotal
   };
 }
 
@@ -12003,6 +12480,14 @@ function renderUsuarioAvatar(usuario, classe = "home-avatar") {
 
 function renderDashboardAvatar(usuario) {
   return renderUsuarioAvatar(usuario, "home-avatar");
+}
+
+function renderDashboardProfileButton(usuario = getUsuarioAtual()) {
+  return `
+    <button class="dashboard-profile-button" type="button" onclick="navegarMenuPrincipal('conta')" title="Usuário">
+      ${renderDashboardAvatar(usuario)}
+    </button>
+  `;
 }
 
 function renderDashboardPremiumHeader(plano) {
@@ -12422,6 +12907,7 @@ function renderDashboardOnboardingCard() {
 }
 
 function renderDashboardSupportCards(totaisCaixa) {
+  const resumoPedidos = getResumoFinanceiroPedidos();
   return `
     <div class="dashboard-split dashboard-support-cards">
       <section class="card">
@@ -12431,8 +12917,9 @@ function renderDashboardSupportCards(totaisCaixa) {
         </div>
         <div class="metrics">
           <div class="metric"><span>Saldo</span><strong>${formatarMoeda(totaisCaixa.saldo)}</strong></div>
-          <div class="metric"><span>Entradas</span><strong>${formatarMoeda(totaisCaixa.entradas)}</strong></div>
-          <div class="metric"><span>Saídas</span><strong>${formatarMoeda(totaisCaixa.saidas)}</strong></div>
+          <div class="metric"><span>Total em pedidos</span><strong>${formatarMoeda(resumoPedidos.totalPedidos)}</strong></div>
+          <div class="metric"><span>Já recebido</span><strong>${formatarMoeda(resumoPedidos.valorRecebido)}</strong></div>
+          <div class="metric"><span>A receber</span><strong>${formatarMoeda(resumoPedidos.valorAReceber)}</strong></div>
         </div>
       </section>
       <section class="card">
@@ -12480,7 +12967,6 @@ function renderDashboardDesktopMetricRow(stats, totaisCaixa) {
 function renderDashboardDesktopHeader(plano, analytics) {
   const usuario = getUsuarioAtual();
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
-  const periodo = getDashboardPeriodos().find((item) => item.id === analytics.period_type)?.label || "Hoje";
   return `
     <header class="desktop-dashboard-hero">
       <div>
@@ -12493,12 +12979,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
           <input placeholder="Buscar..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
         <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
-        ${renderDashboardAvatar(usuario)}
-        <button class="icon-button" type="button" onclick="abrirPerfilPremiumPainel(event)" title="Perfil">⌄</button>
-      </div>
-      <div class="desktop-dashboard-hero-meta">
-        <span>${escaparHtml(plano.nome || "Free")}</span>
-        <span>${escaparHtml(periodo)}</span>
+        ${renderDashboardProfileButton(usuario)}
       </div>
     </header>
   `;
@@ -12645,10 +13126,13 @@ function renderDashboard() {
 function labelStatusPedido(status = "aberto") {
   const mapa = {
     aberto: "Aberto",
+    pendente: "Pendente",
     producao: "Produção",
+    produção: "Produção",
+    pronto: "Pronto",
     aguardando: "Aguardando",
     pausado: "Aguardando",
-    entregue: "Pago",
+    entregue: "Entregue",
     finalizado: "Pago",
     pago: "Pago",
     cancelado: "Cancelado"
@@ -12659,10 +13143,70 @@ function labelStatusPedido(status = "aberto") {
 function classeStatusPedido(status = "aberto") {
   const valor = String(status || "aberto").toLowerCase();
   if (["producao", "produção"].includes(valor)) return "order-status-production";
+  if (["pronto", "prontos"].includes(valor)) return "order-status-ready";
+  if (["entregue"].includes(valor)) return "order-status-delivered";
   if (["aguardando", "pausado"].includes(valor)) return "order-status-waiting";
-  if (["pago", "entregue", "finalizado"].includes(valor)) return "order-status-paid";
+  if (["pago", "finalizado"].includes(valor)) return "order-status-paid";
   if (valor === "cancelado") return "order-status-cancelled";
   return "order-status-open";
+}
+
+function normalizarStatusPedidoFiltro(pedido = {}) {
+  const status = String(pedido.status || "aberto").toLowerCase();
+  if (pedidoJaCancelado(pedido) || status === "cancelado") return "cancelados";
+  if (["pago", "finalizado"].includes(status)) return "pagos";
+  if (status === "entregue") return "entregues";
+  if (["pronto", "prontos"].includes(status)) return "prontos";
+  if (["producao", "produção"].includes(status)) return "producao";
+  return "pendentes";
+}
+
+function getPedidoFilterDefs() {
+  return [
+    { id: "todos", label: "Todos" },
+    { id: "pendentes", label: "Pendentes" },
+    { id: "producao", label: "Em produção" },
+    { id: "prontos", label: "Prontos" },
+    { id: "entregues", label: "Entregues" },
+    { id: "pagos", label: "Pagos" },
+    { id: "cancelados", label: "Cancelados" }
+  ];
+}
+
+function contarPedidosPorFiltro(lista = pedidos) {
+  const contadores = { todos: 0, pendentes: 0, producao: 0, prontos: 0, entregues: 0, pagos: 0, cancelados: 0 };
+  lista.forEach((pedido) => {
+    contadores.todos += 1;
+    const filtro = normalizarStatusPedidoFiltro(pedido);
+    contadores[filtro] = (contadores[filtro] || 0) + 1;
+  });
+  return contadores;
+}
+
+function getPedidoFiltroAtivo() {
+  const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
+  if (filtroDashboard === "abertos") return "pendentes";
+  const salvo = getUiTab("pedidosStatus", "todos");
+  return getPedidoFilterDefs().some((item) => item.id === salvo) ? salvo : "todos";
+}
+
+function trocarFiltroPedidos(filtro = "todos") {
+  window.__pedidosFiltroDashboard = "";
+  trocarUiTab("pedidosStatus", filtro);
+}
+
+function renderPedidoStatusChips(lista = pedidos, ativo = "todos") {
+  const contadores = contarPedidosPorFiltro(lista);
+  return `
+    <div class="order-filter-chips" role="tablist" aria-label="Filtrar pedidos">
+      ${getPedidoFilterDefs().map((item) => `
+        <button class="order-filter-chip ${ativo === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroPedidos('${escaparAttr(item.id)}')">
+          <span>${escaparHtml(item.label)}</span>
+          <strong>${Number(contadores[item.id] || 0)}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function resumoMaterialItemPedido(item = {}) {
@@ -12693,6 +13237,14 @@ function renderPedido() {
     window.__pedidoItemSelecionado = 0;
   }
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+  const descontoAtual = valorDescontoPedido(pedidoEditando || {});
+  const resumoFinanceiro = calcularResumoFinanceiroPedido({
+    itens: itensPedido,
+    subtotalItens: total,
+    desconto: descontoAtual,
+    down_payment: entradaPedido
+  });
+  const entradaCampoValor = resumoFinanceiro.entrada > 0 ? resumoFinanceiro.entrada.toFixed(2) : "";
   const statusAtual = pedidoEditando?.status || "aberto";
   const clienteResumo = clientePedido || clienteDoPedido(pedidoEditando || {}) || "Cliente não informado";
   const observacaoAtual = observacaoPedido || pedidoEditando?.observacao || pedidoEditando?.observacoes || "";
@@ -12818,11 +13370,16 @@ function renderPedido() {
               ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
             </select>
           </label>
+          <label class="field compact-field">
+            <span>Entrada / sinal</span>
+            <input id="pedidoEntrada" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor)}" oninput="atualizarEntradaPedido(this.value)">
+          </label>
           <label class="field order-observation-field">
             <span>Observação</span>
             <textarea id="pedidoObservacao" rows="2" placeholder="Ex.: cor, acabamento, prazo combinado" oninput="atualizarObservacaoPedido(this.value)">${escaparHtml(observacaoAtual)}</textarea>
           </label>
         </div>
+        <p class="order-finance-warning" data-order-down-payment-warning ${resumoFinanceiro.entradaMaiorQueTotal ? "" : "hidden"}>A entrada é maior que o total do pedido</p>
         ${observacaoCurta ? `<p class="order-note-preview">${escaparHtml(String(observacaoCurta).slice(0, 120))}</p>` : ""}
       </section>` : ""}
 
@@ -12872,11 +13429,19 @@ function renderPedido() {
           <span>4</span>
           <strong>Financeiro</strong>
         </div>
-        <div class="metrics">
-          <div class="metric"><span>Total</span><strong>${formatarMoeda(total)}</strong></div>
-          <div class="metric"><span>Itens</span><strong>${itensPedido.length}</strong></div>
-          <div class="metric"><span>Status</span><strong>${escaparHtml(labelStatusPedido(statusAtual))}</strong></div>
+        <label class="field compact-field order-down-payment-field">
+          <span>Entrada / sinal</span>
+          <input id="pedidoEntrada" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor)}" oninput="atualizarEntradaPedido(this.value)">
+        </label>
+        <div class="order-financial-summary">
+          <div><span>Subtotal dos itens</span><strong>${formatarMoeda(resumoFinanceiro.subtotal)}</strong></div>
+          ${resumoFinanceiro.desconto > 0 ? `<div><span>Desconto</span><strong>${formatarMoeda(resumoFinanceiro.desconto)}</strong></div>` : ""}
+          <div><span>Total do pedido</span><strong data-order-total>${formatarMoeda(resumoFinanceiro.total)}</strong></div>
+          <div><span>Entrada paga</span><strong data-order-down-payment>${formatarMoeda(resumoFinanceiro.entrada)}</strong></div>
+          <div><span>Valor restante</span><strong data-order-remaining>${formatarMoeda(resumoFinanceiro.restante)}</strong></div>
+          <div><span>Status financeiro</span><strong class="order-status-badge ${classeStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)}" data-order-financial-status>${escaparHtml(labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro))}</strong></div>
         </div>
+        <p class="order-finance-warning" data-order-down-payment-warning ${resumoFinanceiro.entradaMaiorQueTotal ? "" : "hidden"}>A entrada é maior que o total do pedido</p>
         <div class="order-secondary-actions">
           ${itensPedido.length ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
           ${itensPedido.length ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
@@ -12887,7 +13452,8 @@ function renderPedido() {
       <div class="order-bottom-bar">
         <div>
           <span>Total</span>
-          <strong data-order-total>${formatarMoeda(total)}</strong>
+          <strong data-order-total>${formatarMoeda(resumoFinanceiro.total)}</strong>
+          ${resumoFinanceiro.entrada > 0 ? `<small>Restante: <em data-order-remaining>${formatarMoeda(resumoFinanceiro.restante)}</em></small>` : ""}
         </div>
         <button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" onclick="iniciarAdicionarItemPedido()">${renderIconeAcaoPedido("✚", "Adicionar item")} Item</button>
         <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${pedidoSalvando ? "Salvando pedido..." : botao}</button>
@@ -13021,45 +13587,210 @@ function renderMateriaisItemPedido(item, itemIndex) {
   `).join("");
 }
 
+function getEstoqueFiltroAtivo() {
+  const salvo = getUiTab("estoqueStatus", "todos");
+  return ["todos", "normal", "low", "critical"].includes(salvo) ? salvo : "todos";
+}
+
+function trocarFiltroEstoque(filtro = "todos") {
+  trocarUiTab("estoqueStatus", filtro);
+}
+
+function classeStatusEstoque(status = "normal") {
+  if (status === "critical") return "stock-status-critical";
+  if (status === "low") return "stock-status-low";
+  return "stock-status-normal";
+}
+
+function renderEstoqueStatusChips(materiais = estoque, ativo = "todos") {
+  const contadores = materiais.reduce((acc, material) => {
+    const normalizado = normalizarMaterialEstoque(material);
+    acc.todos += 1;
+    acc[normalizado.stock_status] = (acc[normalizado.stock_status] || 0) + 1;
+    return acc;
+  }, { todos: 0, normal: 0, low: 0, critical: 0 });
+  const itens = [
+    { id: "todos", label: "Todos" },
+    { id: "normal", label: "Normal" },
+    { id: "low", label: "Baixo" },
+    { id: "critical", label: "Crítico" }
+  ];
+  return `
+    <div class="order-filter-chips stock-filter-chips" role="tablist" aria-label="Filtrar estoque">
+      ${itens.map((item) => `
+        <button class="order-filter-chip ${ativo === item.id ? "active" : ""} ${item.id === "critical" ? "danger" : item.id === "low" ? "warning" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroEstoque('${escaparAttr(item.id)}')">
+          <span>${escaparHtml(item.label)}</span>
+          <strong>${Number(contadores[item.id] || 0)}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function filtrarMateriaisEstoque(materiais = estoque, filtro = "todos", busca = "") {
+  const termo = normalizarSugestaoClienteTexto(busca || "");
+  return materiais.filter((material) => {
+    const normalizado = normalizarMaterialEstoque(material);
+    const texto = normalizarSugestaoClienteTexto(`${normalizado.nome} ${normalizado.tipo} ${normalizado.cor} ${normalizado.id}`);
+    const passaBusca = !termo || texto.includes(termo);
+    const passaFiltro = filtro === "todos" || normalizado.stock_status === filtro;
+    return passaBusca && passaFiltro;
+  });
+}
+
+function getMaterialEstoquePorIndiceOuId(referencia) {
+  normalizarEstoque();
+  const ref = String(referencia ?? "");
+  const indiceNumerico = Number(referencia);
+  if (Number.isInteger(indiceNumerico) && estoque[indiceNumerico]) return { material: estoque[indiceNumerico], indice: indiceNumerico };
+  const indice = estoque.findIndex((material) => String(material.id) === ref);
+  return indice >= 0 ? { material: estoque[indice], indice } : { material: null, indice: -1 };
+}
+
+function selecionarMaterialEstoque(referencia) {
+  const { material } = getMaterialEstoquePorIndiceOuId(referencia);
+  if (!material) return;
+  window.__estoqueSelecionadoId = String(material.id);
+  trocarUiTab("estoque", "materiais");
+}
+
+function renderEstoqueDetalheSelecionado(materiaisNormalizados = estoque, podeOperar = false) {
+  const idSelecionado = String(window.__estoqueSelecionadoId || "");
+  const material = materiaisNormalizados.find((item) => String(item.id) === idSelecionado);
+  if (!material) return "";
+  const indice = materiaisNormalizados.findIndex((item) => String(item.id) === idSelecionado);
+  const percentual = Number(material.remaining_percent) || 0;
+  const unidade = material.unidade || "kg";
+  const quantidadeAtual = (Number(material.qtd) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+  const quantidadeBase = (Number(material.quantity_base) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+  const status = labelStatusEstoque(material.stock_status);
+  return `
+    <section class="stock-detail-card ${classeStatusEstoque(material.stock_status)}">
+      <div class="stock-detail-head">
+        <button class="icon-action-button" type="button" onclick="window.__estoqueSelecionadoId=''; renderizarPreservandoScroll()" title="Voltar">${renderUiIcon("back")}</button>
+        <div>
+          <strong>${escaparHtml(material.nome)}</strong>
+          <small>${escaparHtml(inferirTipoMaterial(material.nome) || material.tipo || "Material")}${material.cor ? " • " + escaparHtml(material.cor) : ""}</small>
+        </div>
+        <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : material.stock_status === "low" ? "badge-alerta" : "badge-ativo"}">${escaparHtml(status)}</span>
+      </div>
+      <div class="stock-detail-current">
+        <span><small>Situação atual</small><strong>${escaparHtml(status)}</strong></span>
+        <span><small>Percentual restante</small><strong>${percentual}%</strong></span>
+      </div>
+      <div class="stock-percent-track"><i style="width:${Math.max(3, Math.min(100, percentual))}%"></i></div>
+      <div class="stock-detail-kpis">
+        <div class="metric"><span>Quantidade inicial</span><strong>${quantidadeBase} ${escaparHtml(unidade)}</strong></div>
+        <div class="metric"><span>Quantidade atual</span><strong>${quantidadeAtual} ${escaparHtml(unidade)}</strong></div>
+        <div class="metric"><span>Estoque</span><strong>${material.stock_status === "normal" ? "OK" : status}</strong></div>
+      </div>
+      ${podeOperar ? `
+        <div class="stock-detail-actions">
+          <button class="btn" type="button" data-action="stock-restock" data-index="${indice}">${renderUiIcon("plus")} Repor estoque</button>
+          <button class="btn secondary" type="button" onclick="trocarUiTab('estoque','historico')">${renderUiIcon("backup")} Movimentações</button>
+          <button class="btn secondary" type="button" data-action="stock-edit" data-index="${indice}">${renderUiIcon("edit")} Ajustes</button>
+          <button class="btn danger" type="button" data-action="stock-remove" data-index="${indice}">${renderUiIcon("trash")} Excluir</button>
+        </div>
+      ` : ""}
+      ${material.stock_status !== "normal" ? `
+        <button class="stock-alert-inline" type="button" data-action="stock-restock" data-index="${indice}">
+          <span>${renderUiIcon("bell")}</span>
+          <span><strong>Alerta de estoque ${material.stock_status === "critical" ? "crítico" : "baixo"} (${percentual}%)</strong><small>Você será avisado quando este item chegar a ${Number(material.critical_stock_threshold) || 10}%.</small></span>
+          <b>›</b>
+        </button>
+      ` : ""}
+    </section>
+  `;
+}
+
+function focarCadastroRapidoEstoque() {
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  window.__simplificaUiTabs.estoque = "materiais";
+  renderizarPreservandoScroll();
+  setTimeout(() => {
+    const campo = document.getElementById("matTipo");
+    campo?.scrollIntoView({ behavior: "smooth", block: "center" });
+    campo?.focus();
+  }, 120);
+}
+
 function renderEstoque() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
-  normalizarEstoque();
+  const materiaisNormalizados = normalizarEstoque();
+  const filtroEstoque = getEstoqueFiltroAtivo();
+  const buscaEstoque = String(window.__estoqueBusca || "");
+  const materiaisFiltrados = filtrarMateriaisEstoque(materiaisNormalizados, filtroEstoque, buscaEstoque);
   const estoqueTabs = [
     { id: "materiais", label: "Materiais", icon: "▦" },
     { id: "alertas", label: "Alertas", icon: "!" },
     { id: "historico", label: "Histórico", icon: "↻" }
   ];
   const estoqueTab = estoqueTabs.some((tab) => tab.id === getUiTab("estoque", "")) ? getUiTab("estoque") : "materiais";
-  const materiaisBaixos = estoque.filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg);
+  const materiaisBaixos = materiaisNormalizados.filter((material) => material.stock_status === "low" || material.stock_status === "critical");
+  const itensBaixos = materiaisNormalizados.filter((material) => material.stock_status === "low").length;
+  const itensCriticos = materiaisNormalizados.filter((material) => material.stock_status === "critical").length;
+  const valorTotalEstoque = materiaisNormalizados.reduce((soma, material) => {
+    const valorRegistrado = Number(material.valorTotal || material.valor_total || material.custoTotal || material.costTotal) || 0;
+    const custoKg = Number(material.precoKg || material.preco_por_kg || material.pricePerKg || material.custoKg || material.costPerKg) || 0;
+    return soma + (valorRegistrado || (Number(material.qtd) || 0) * custoKg);
+  }, 0);
   const historicoEstoque = historico
     .filter((item) => /estoque|material/i.test(`${item.acao || ""} ${item.detalhes || ""}`))
     .slice(0, 12);
-  const linhas = estoque.length
-    ? estoque.map((material, i) => `
-        <div class="stock-row">
-          <div class="row-title">
+  const linhas = materiaisFiltrados.length
+    ? materiaisFiltrados.map((material) => {
+        const indice = materiaisNormalizados.findIndex((item) => String(item.id) === String(material.id));
+        const percentual = Number(material.remaining_percent) || 0;
+        return `
+        <div class="stock-row smart-stock-row ${classeStatusEstoque(material.stock_status)} ${String(window.__estoqueSelecionadoId || "") === String(material.id) ? "selected" : ""}">
+          <button class="row-title stock-row-main-button" type="button" data-action="stock-view" data-index="${indice}">
             <strong>${escaparHtml(material.nome)}</strong>
-            <span class="muted">${escaparHtml(material.tipo || inferirTipoMaterial(material.nome))}${material.cor ? " • " + escaparHtml(material.cor) : ""} • ${(Number(material.qtd) || 0).toFixed(3)} kg</span>
+            <span class="muted">${escaparHtml(material.tipo || inferirTipoMaterial(material.nome))}${material.cor ? " • " + escaparHtml(material.cor) : ""} • ${(Number(material.qtd) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")} de ${(Number(material.quantity_base) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")}</span>
+            <div class="stock-percent-track"><i style="width:${Math.max(3, Math.min(100, percentual))}%"></i></div>
+          </button>
+          <div class="stock-percent-box">
+            <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : material.stock_status === "low" ? "badge-alerta" : "badge-ativo"}">${escaparHtml(labelStatusEstoque(material.stock_status))}</span>
+            <strong>${percentual}%</strong>
           </div>
-          ${(Number(material.qtd) || 0) <= estoqueMinimoKg ? `<span class="status-badge badge-alerta">Estoque baixo</span>` : `<span class="status-badge badge-ativo">OK</span>`}
-          ${podeOperar ? `<div class="stock-actions">
-            <button class="icon-action-button" type="button" data-action="stock-edit" data-index="${i}" title="Editar material">${renderIconeAcaoPedido("✎", "Editar")}</button>
-            <button class="icon-action-button danger" type="button" data-action="stock-remove" data-index="${i}" title="Remover material">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
-          </div>` : ""}
+          <button class="icon-action-button stock-row-chevron" type="button" data-action="stock-view" data-index="${indice}" title="Ver detalhes">›</button>
         </div>
-      `).join("")
-    : `<p class="empty">Nenhum material cadastrado.</p>`;
+      `;
+      }).join("")
+    : `<p class="empty">Nenhum material neste filtro.</p>`;
 
   return `
     <section class="card organized-page stock-page">
-      <div class="card-header">
-        <h2>Estoque</h2>
+      <div class="card-header stock-page-header">
+        <div>
+          <h2>Estoque</h2>
+          <p class="muted">Controle de materiais e produtos</p>
+        </div>
+        <div class="stock-header-actions">
+          <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Alertas">${renderUiIcon("bell")}</button>
+          ${podeOperar ? `<button class="icon-action-button primary" type="button" onclick="focarCadastroRapidoEstoque()" title="Adicionar item">${renderUiIcon("plus")}</button>` : ""}
+        </div>
       </div>
       ${podeOperar ? "" : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; alterações voltam após regularização.</p>`}
+      <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
+        <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
+        <input value="${escaparAttr(buscaEstoque)}" placeholder="Buscar itens..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)">
+      </label>
+      ${renderEstoqueStatusChips(materiaisNormalizados, filtroEstoque)}
+      <div class="metrics">
+        <div class="metric"><span>Total de itens</span><strong>${materiaisNormalizados.length}</strong></div>
+        <div class="metric"><span>Estoque baixo</span><strong>${itensBaixos}</strong></div>
+        <div class="metric"><span>Itens críticos</span><strong>${itensCriticos}</strong></div>
+        <div class="metric"><span>Valor total</span><strong>${formatarMoeda(valorTotalEstoque)}</strong></div>
+      </div>
       ${renderUiTabs("estoque", estoqueTabs, estoqueTab)}
       <div class="ui-tab-panel">
         ${estoqueTab === "materiais" ? `
+          ${renderEstoqueDetalheSelecionado(materiaisNormalizados, podeOperar)}
           <div class="settings-group">
+            <h3>Itens do estoque</h3>
+            ${linhas}
+          </div>
+          <div class="settings-group" id="cadastroRapidoEstoque">
             <h3>Cadastro rápido</h3>
             ${podeOperar ? `
             <div class="sync-grid">
@@ -13079,11 +13810,7 @@ function renderEstoque() {
                 <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
               </label>
             </div>
-            <div class="actions"><button class="btn" type="button" data-action="stock-add">Adicionar material</button></div>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
-          </div>
-          <div class="settings-group">
-            <h3>Materiais</h3>
-            ${linhas}
+            <div class="actions"><button class="btn" type="button" data-action="stock-add">${renderUiIcon("plus")} Adicionar item ao estoque</button></div>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
           </div>
         ` : ""}
         ${estoqueTab === "alertas" ? `
@@ -13093,9 +13820,9 @@ function renderEstoque() {
               <div class="stock-row stock-alert-row">
                 <div class="row-title">
                   <strong>${escaparHtml(material.nome)}</strong>
-                  <span class="muted">${(Number(material.qtd) || 0).toFixed(3)} kg disponíveis • mínimo ${Number(estoqueMinimoKg).toFixed(3)} kg</span>
+                  <span class="muted">${(Number(material.qtd) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")} disponíveis • ${Number(material.remaining_percent || 0)}% restante</span>
                 </div>
-                <span class="status-badge badge-alerta">Repor</span>
+                <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : "badge-alerta"}">${material.stock_status === "critical" ? "Crítico" : "Repor"}</span>
               </div>
             `).join("") : `<p class="empty">Nenhum alerta de estoque baixo.</p>`}
           </div>
@@ -13119,11 +13846,19 @@ function renderEstoque() {
 function renderListaPedidos() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
-  const listaBase = filtroDashboard === "abertos"
-    ? pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto")))
+  const filtroCliente = String(window.__pedidosFiltroCliente || "");
+  const listaPorOrigem = filtroDashboard === "abertos"
+    ? pedidos.filter((pedido) => !pedidoJaCancelado(pedido) && !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto")))
     : filtroDashboard === "hoje"
       ? pedidos.filter((pedido) => dataPedidoIso(pedido) === hojeIsoData())
       : pedidos;
+  const listaBaseInicial = filtroCliente
+    ? listaPorOrigem.filter((pedido) => normalizarSugestaoClienteTexto(clienteDoPedido(pedido)) === normalizarSugestaoClienteTexto(filtroCliente))
+    : listaPorOrigem;
+  const filtroAtivo = getPedidoFiltroAtivo();
+  const listaBase = filtroAtivo === "todos"
+    ? listaBaseInicial
+    : listaBaseInicial.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === filtroAtivo);
   const lista = [...listaBase].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
   const limitePedidos = Math.max(LIST_PAGE_SIZE, Number(window.__pedidosLimite) || LIST_PAGE_SIZE);
   const listaPaginada = lista.slice(0, limitePedidos);
@@ -13136,21 +13871,25 @@ function renderListaPedidos() {
         const status = pedido.status || "aberto";
         const total = totalPedido(pedido);
         const prazo = pedido.prazo || pedido.dataPrazo || pedido.data || "";
+        const telefone = telefoneDoPedido(pedido);
         return `
-          <div class="list-row clickable-row order-list-card order-card-tone-${escaparAttr(classeStatusPedido(status).replace("order-status-", ""))}" onclick="visualizarPedido(${id})">
-            <div class="order-card-topline">
-              <div class="row-title">
+          <div class="list-row clickable-row order-list-card smart-order-row order-card-tone-${escaparAttr(classeStatusPedido(status).replace("order-status-", ""))}" onclick="visualizarPedido(${id})">
+            <span class="smart-order-icon">${renderUiIcon("pedido")}</span>
+            <div class="smart-order-main">
+              <div class="smart-order-head">
                 <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
-                <span class="muted">#${escaparHtml(pedido.id)}${prazo ? " • " + escaparHtml(prazo) : ""}</span>
+                <span class="order-status-badge ${classeStatusPedido(status)}">${escaparHtml(labelStatusPedido(status))}</span>
               </div>
-              <span class="order-status-badge ${classeStatusPedido(status)}">${escaparHtml(labelStatusPedido(status))}</span>
+              <div class="smart-order-meta">
+                <span>#${escaparHtml(pedido.id)}</span>
+                <span>${itens} item(ns)</span>
+                ${prazo ? `<span>Prazo: ${escaparHtml(prazo)}</span>` : ""}
+                ${telefone ? `<span>${escaparHtml(telefone)}</span>` : ""}
+              </div>
             </div>
-            <div class="order-card-summary">
-              <span>${itens} item(ns)</span>
+            <div class="smart-order-side">
               <strong>${formatarMoeda(total)}</strong>
-            </div>
-            <div class="order-card-actions compact-action-grid">
-              ${renderAcaoPedidoCompacta("▣", "Abrir", `event.stopPropagation(); visualizarPedido(${id})`)}
+              <button class="icon-action-button smart-order-open" type="button" onclick="event.stopPropagation(); visualizarPedido(${id})" title="Abrir pedido">${renderUiIcon("view")}</button>
             </div>
           </div>
         `;
@@ -13164,22 +13903,26 @@ function renderListaPedidos() {
     return renderListaPedidosPwa({
       podeOperar,
       filtroDashboard,
+      filtroCliente,
       lista,
       listaPaginada,
       pedidoSelecionado,
+      filtroAtivo,
+      listaBaseInicial,
       linhas,
       paginacao
     });
   }
 
   return `
-    <section class="card">
+    <section class="card orders-screen-card">
       <div class="card-header">
-        <h2>📋 Pedidos</h2>
-        ${podeOperar ? `<button class="icon-button" onclick="trocarTela('pedido')" title="Novo pedido">➕</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
+        <h2>${renderUiIcon("pedidos")} Pedidos</h2>
+        ${podeOperar ? `<button class="icon-button" onclick="trocarTela('pedido')" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
       </div>
       ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
+      ${renderPedidoStatusChips(listaBaseInicial, filtroAtivo)}
       ${detalhe}
       ${linhas}
       ${paginacao}
@@ -13250,6 +13993,8 @@ function renderUiIcon(tipo = "", fallback = "") {
     feedback: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M9 9h6M9 13h4"/></svg>`,
     sobre: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.1"/></svg>`,
     search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
+    view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
+    plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
     back: `<svg ${attrs}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`,
     menu: `<svg ${attrs}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>`,
     bell: `<svg ${attrs}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`,
@@ -13263,8 +14008,10 @@ function renderUiIcon(tipo = "", fallback = "") {
 
 function renderDetalhePedido(pedido) {
   const itens = normalizarItensPedido(pedido);
-  const total = totalPedido(pedido);
+  const resumoFinanceiro = calcularResumoFinanceiroPedido(pedido);
+  const total = resumoFinanceiro.total;
   const data = pedido.data || dataPedidoIso(pedido) || "";
+  const cancelado = normalizarStatusPedidoFiltro(pedido) === "cancelados";
   return `
     <div class="detail-panel order-detail-panel">
       <div class="order-detail-hero">
@@ -13286,6 +14033,15 @@ function renderDetalhePedido(pedido) {
           <strong>${formatarMoeda(total)}</strong>
         </div>
       </div>
+      <div class="order-financial-summary compact">
+        <div><span>Subtotal dos itens</span><strong>${formatarMoeda(resumoFinanceiro.subtotal)}</strong></div>
+        ${resumoFinanceiro.desconto > 0 ? `<div><span>Desconto</span><strong>${formatarMoeda(resumoFinanceiro.desconto)}</strong></div>` : ""}
+        <div><span>Total do pedido</span><strong>${formatarMoeda(resumoFinanceiro.total)}</strong></div>
+        <div><span>Entrada paga</span><strong>${formatarMoeda(resumoFinanceiro.entrada)}</strong></div>
+        <div><span>Valor restante</span><strong>${formatarMoeda(resumoFinanceiro.restante)}</strong></div>
+        <div><span>Status financeiro</span><strong class="order-status-badge ${classeStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)}">${escaparHtml(labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro))}</strong></div>
+        ${resumoFinanceiro.entradaMaiorQueTotal ? `<p class="order-finance-warning">A entrada é maior que o total do pedido</p>` : ""}
+      </div>
       ${itens.length ? `<div class="compact-action-grid order-detail-actions">
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
@@ -13293,6 +14049,19 @@ function renderDetalhePedido(pedido) {
         ${renderAcaoPedidoCompacta("⎙", "Imprimir", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
+      ${cancelado ? `
+        <div class="order-cancel-info">
+          <strong>Pedido cancelado</strong>
+          <span>${escaparHtml(pedido.cancelReason || pedido.cancel_reason || "Histórico preservado. Este pedido não entra nos fluxos principais.")}</span>
+        </div>
+      ` : `
+        <div class="order-status-action-strip">
+          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'producao')">Produção</button>
+          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'pronto')">Pronto</button>
+          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'entregue')">Entregue</button>
+          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'pago')">Pago</button>
+        </div>
+      `}
       <div class="history-list order-detail-items">
         ${itens.map((item) => `
           <div class="history-item premium-order-item">
@@ -13306,7 +14075,7 @@ function renderDetalhePedido(pedido) {
           </div>
         `).join("")}
       </div>
-      <button class="btn danger compact-danger-action" onclick="removerPedido(${Number(pedido.id)})">🗑 Excluir pedido</button>
+      ${cancelado ? "" : `<button class="btn danger compact-danger-action" onclick="removerPedido(${Number(pedido.id)})">${renderIconeAcaoPedido("🗑", "Cancelar")} Cancelar pedido</button>`}
     </div>
   `;
 }
@@ -13322,7 +14091,7 @@ async function abrirMaisOpcoesPedido(id) {
       { id: "editar", label: "Editar pedido", classe: "secondary", icone: "✎" },
       { id: "whatsapp", label: "Enviar WhatsApp", classe: "ghost", icone: "☘" },
       { id: "pdf", label: "Gerar PDF", classe: "ghost", icone: "▣" },
-      { id: "excluir", label: "Excluir pedido", classe: "danger", icone: "🗑" }
+      { id: "excluir", label: "Cancelar pedido", classe: "danger", icone: "🗑" }
     ]
   });
   if (escolha === "visualizar") visualizarPedido(id);
@@ -13419,29 +14188,57 @@ function renderClientesOperacionais() {
   const mapa = new Map();
   pedidos.forEach((pedido) => {
     const nome = clienteDoPedido(pedido);
-    const atual = mapa.get(nome) || { nome, pedidos: 0, total: 0 };
+    const atual = mapa.get(nome) || { nome, pedidos: 0, total: 0, telefone: "", ultimoPedido: "", abertos: 0 };
     atual.pedidos += 1;
     atual.total += totalPedido(pedido);
+    atual.telefone = atual.telefone || telefoneDoPedido(pedido) || "";
+    atual.ultimoPedido = pedido.data || pedido.createdAt || pedido.criadoEm || atual.ultimoPedido || "";
+    if (!pedidoJaCancelado(pedido) && !["entregue", "pago", "finalizado"].includes(String(pedido.status || "").toLowerCase())) atual.abertos += 1;
     mapa.set(nome, atual);
   });
-  const clientes = Array.from(mapa.values()).sort((a, b) => b.total - a.total);
+  const busca = String(window.__clientesBusca || "");
+  const termo = normalizarSugestaoClienteTexto(busca);
+  const clientes = Array.from(mapa.values())
+    .filter((cliente) => {
+      if (!termo) return true;
+      return normalizarSugestaoClienteTexto(`${cliente.nome} ${cliente.telefone}`).includes(termo);
+    })
+    .sort((a, b) => b.total - a.total);
+  const totalClientes = mapa.size;
   const linhas = clientes.length ? clientes.map((cliente) => `
-    <div class="list-row">
-      <div class="row-title">
+    <button class="client-compact-row" type="button" onclick="window.__pedidosFiltroCliente='${escaparAttr(cliente.nome)}'; trocarTela('pedidos')">
+      <span class="client-compact-avatar">${escaparHtml(getUserInitials(cliente.nome))}</span>
+      <span class="client-compact-main">
         <strong>${escaparHtml(cliente.nome)}</strong>
-        <span class="muted">${cliente.pedidos} pedido(s)</span>
-      </div>
-      <strong>${formatarMoeda(cliente.total)}</strong>
-    </div>
-  `).join("") : `<p class="empty">Clientes aparecem automaticamente a partir dos pedidos.</p>`;
+        <small>${cliente.telefone ? escaparHtml(cliente.telefone) : "Sem WhatsApp"} • ${cliente.pedidos} pedido(s)</small>
+      </span>
+      <span class="client-compact-status">
+        <strong>${formatarMoeda(cliente.total)}</strong>
+        <small class="${cliente.abertos ? "client-status-online" : ""}">${cliente.abertos ? `${cliente.abertos} em aberto` : "em dia"}</small>
+      </span>
+      <b>›</b>
+    </button>
+  `).join("") : `<p class="empty">${termo ? "Nenhum cliente encontrado." : "Clientes aparecem automaticamente a partir dos pedidos."}</p>`;
 
   return `
-    <section class="card">
+    <section class="card clients-compact-screen">
       <div class="card-header">
-        <h2>👥 Clientes</h2>
-        <span class="status-badge">${clientes.length}</span>
+        <h2>${renderUiIcon("clientes")} Clientes</h2>
+        <span class="status-badge">${totalClientes}</span>
+      </div>
+      <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
+        <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
+        <input value="${escaparAttr(busca)}" placeholder="Buscar cliente ou WhatsApp..." oninput="window.__clientesBusca=this.value; agendarRenderizacaoPreservandoScroll(180)">
+      </label>
+      <div class="clients-compact-metrics">
+        <div class="metric"><span>Clientes</span><strong>${totalClientes}</strong></div>
+        <div class="metric"><span>Pedidos</span><strong>${pedidos.length}</strong></div>
+        <div class="metric"><span>Em aberto</span><strong>${Array.from(mapa.values()).reduce((soma, item) => soma + item.abertos, 0)}</strong></div>
       </div>
       ${linhas}
+      <div class="actions">
+        <button class="btn compact-action" type="button" onclick="trocarTela('pedido')">${renderUiIcon("plus")} Novo cliente/pedido</button>
+      </div>
     </section>
   `;
 }
@@ -14699,6 +15496,352 @@ async function marcarClientesInativosAcao() {
   renderApp();
 }
 
+function getPeriodoRelatoriosAtivo() {
+  const salvo = getUiTab("relatoriosPeriodo", "mes");
+  return ["hoje", "7d", "30d", "mes", "mes-passado", "personalizado"].includes(salvo) ? salvo : "mes";
+}
+
+function selecionarPeriodoRelatorios(periodo = "mes") {
+  trocarUiTab("relatoriosPeriodo", periodo);
+}
+
+function inicioDiaRelatorios(data = new Date()) {
+  return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+}
+
+function fimDiaRelatorios(data = new Date()) {
+  return somarDias(inicioDiaRelatorios(data), 1);
+}
+
+function getInfoPeriodoRelatorios(periodo = getPeriodoRelatoriosAtivo(), referencia = new Date()) {
+  const hoje = inicioDiaRelatorios(referencia);
+  if (periodo === "hoje") {
+    return { id: "hoje", label: "Hoje", start: hoje, end: fimDiaRelatorios(hoje), previousStart: somarDias(hoje, -1), previousEnd: hoje };
+  }
+  if (periodo === "7d") {
+    return { id: "7d", label: "7 dias", start: somarDias(hoje, -6), end: fimDiaRelatorios(hoje), previousStart: somarDias(hoje, -13), previousEnd: somarDias(hoje, -6) };
+  }
+  if (periodo === "30d") {
+    return { id: "30d", label: "30 dias", start: somarDias(hoje, -29), end: fimDiaRelatorios(hoje), previousStart: somarDias(hoje, -59), previousEnd: somarDias(hoje, -29) };
+  }
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  if (periodo === "mes-passado") {
+    const start = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+    const end = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    return { id: "mes-passado", label: "Mês passado", start, end, previousStart: new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1), previousEnd: start };
+  }
+  return {
+    id: periodo === "personalizado" ? "personalizado" : "mes",
+    label: periodo === "personalizado" ? "Personalizado" : "Este mês",
+    start: inicioMes,
+    end: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1),
+    previousStart: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1),
+    previousEnd: inicioMes
+  };
+}
+
+function calcularDeltaPercentualRelatorios(atual = 0, anterior = 0) {
+  const valorAtual = Number(atual) || 0;
+  const valorAnterior = Number(anterior) || 0;
+  if (!valorAnterior) return valorAtual > 0 ? 100 : 0;
+  return Number((((valorAtual - valorAnterior) / Math.abs(valorAnterior)) * 100).toFixed(1));
+}
+
+function calcularAgregadoRelatorios(info) {
+  const atual = calcularAgregadoAnalytics(info.start, info.end);
+  const anterior = calcularAgregadoAnalytics(info.previousStart, info.previousEnd);
+  const ticketAtual = atual.total_orders ? atual.total_sales / atual.total_orders : 0;
+  const ticketAnterior = anterior.total_orders ? anterior.total_sales / anterior.total_orders : 0;
+  return {
+    atual,
+    anterior,
+    ticketAtual,
+    ticketAnterior,
+    comparacoes: {
+      faturamento: calcularDeltaPercentualRelatorios(atual.total_sales, anterior.total_sales),
+      pedidos: calcularDeltaPercentualRelatorios(atual.total_orders, anterior.total_orders),
+      ticket: calcularDeltaPercentualRelatorios(ticketAtual, ticketAnterior),
+      lucro: calcularDeltaPercentualRelatorios(atual.total_profit, anterior.total_profit)
+    }
+  };
+}
+
+function formatarDeltaRelatorios(valor = 0) {
+  const numero = Number(valor) || 0;
+  const seta = numero < 0 ? "↓" : "↑";
+  return `${seta} ${Math.abs(numero).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
+function renderDeltaRelatorios(valor = 0) {
+  const classe = Number(valor) < 0 ? "down" : "up";
+  return `<span class="reports-delta ${classe}">${escaparHtml(formatarDeltaRelatorios(valor))}</span>`;
+}
+
+function formatarPeriodoCurtoRelatorios(data = new Date()) {
+  return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function criarBucketsRelatorios(info) {
+  const duracaoMs = Math.max(1, info.end.getTime() - info.start.getTime());
+  const diaMs = 24 * 60 * 60 * 1000;
+  if (duracaoMs <= diaMs * 1.2) {
+    const buckets = [];
+    for (let hora = 0; hora < 24; hora += 4) {
+      const start = new Date(info.start);
+      start.setHours(hora, 0, 0, 0);
+      const end = new Date(info.start);
+      end.setHours(hora + 4, 0, 0, 0);
+      buckets.push({ label: `${hora}h`, start, end });
+    }
+    return buckets;
+  }
+  const dias = Math.max(1, Math.ceil(duracaoMs / diaMs));
+  const passo = Math.max(1, Math.ceil(dias / 12));
+  const buckets = [];
+  let cursor = new Date(info.start);
+  while (cursor < info.end) {
+    const start = new Date(cursor);
+    const end = new Date(Math.min(somarDias(start, passo).getTime(), info.end.getTime()));
+    buckets.push({ label: formatarPeriodoCurtoRelatorios(start), start, end });
+    cursor = end;
+  }
+  return buckets;
+}
+
+function gerarSerieRelatorios(info) {
+  return criarBucketsRelatorios(info).map((bucket) => {
+    const agregado = calcularAgregadoAnalytics(bucket.start, bucket.end);
+    return {
+      label: bucket.label,
+      sales: Number(agregado.total_sales.toFixed(2)),
+      profit: Number(agregado.total_profit.toFixed(2)),
+      orders: Number(agregado.total_orders) || 0
+    };
+  });
+}
+
+function renderRelatorioLineChart(series = []) {
+  const dados = Array.isArray(series) && series.length ? series : [];
+  const vendas = dados.map((item) => Number(item.sales) || 0);
+  const temDado = vendas.some((valor) => valor > 0);
+  const curvaReferencia = [1200, 2200, 3800, 2100, 3500, 4100, 6400, 5400, 4600, 3300, 5900, 7100];
+  const valores = temDado ? vendas : (dados.length ? dados.map((_, index) => curvaReferencia[index % curvaReferencia.length]) : curvaReferencia);
+  const labels = dados.length ? dados.map((item, index) => item.label || String(index + 1)) : ["01/05", "04/05", "08/05", "11/05", "15/05", "18/05", "22/05", "25/05", "28/05", "31/05", "03/06", "06/06"];
+  const width = 640;
+  const height = 260;
+  const padding = { top: 22, right: 24, bottom: 44, left: 48 };
+  const areaW = width - padding.left - padding.right;
+  const areaH = height - padding.top - padding.bottom;
+  const maximo = Math.max(...valores, 1);
+  const pontos = valores.map((valor, index) => {
+    const x = padding.left + index * (areaW / Math.max(1, valores.length - 1));
+    const y = padding.top + areaH - (valor / maximo) * areaH;
+    return { x, y, valor };
+  });
+  const polyline = pontos.map((ponto) => `${ponto.x.toFixed(1)},${ponto.y.toFixed(1)}`).join(" ");
+  const area = `${padding.left},${padding.top + areaH} ${polyline} ${padding.left + areaW},${padding.top + areaH}`;
+  const labelStep = Math.max(1, Math.ceil(pontos.length / 5));
+  return `
+    <svg class="reports-line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Faturamento ao longo do tempo">
+      <defs>
+        <linearGradient id="reportsLineFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#14d6c6" stop-opacity=".42"></stop>
+          <stop offset="100%" stop-color="#14d6c6" stop-opacity=".02"></stop>
+        </linearGradient>
+      </defs>
+      <g class="reports-grid-lines">
+        ${[0, 1, 2, 3].map((linha) => {
+          const y = padding.top + (areaH / 3) * linha;
+          return `<line x1="${padding.left}" y1="${y.toFixed(1)}" x2="${width - padding.right}" y2="${y.toFixed(1)}"></line>`;
+        }).join("")}
+      </g>
+      <polygon class="reports-line-area" points="${area}"></polygon>
+      <polyline class="reports-line-stroke" points="${polyline}"></polyline>
+      ${pontos.map((ponto, index) => `<circle class="reports-line-dot" cx="${ponto.x.toFixed(1)}" cy="${ponto.y.toFixed(1)}" r="5"><title>${temDado ? `${escaparHtml(labels[index] || "")}: ${formatarMoeda(ponto.valor)}` : `${escaparHtml(labels[index] || "")}: sem movimentação`}</title></circle>`).join("")}
+      ${pontos.map((ponto, index) => index % labelStep === 0 || index === pontos.length - 1 ? `<text class="reports-axis-label" x="${ponto.x.toFixed(1)}" y="${height - 14}" text-anchor="middle">${escaparHtml(labels[index] || "")}</text>` : "").join("")}
+    </svg>
+    ${temDado ? "" : `<p class="reports-chart-note">Sem movimentação no período. A curva mostra apenas o espaço reservado do gráfico.</p>`}
+  `;
+}
+
+function obterPedidosRelatorios(info) {
+  return pedidos.filter((pedido) => pedidoContaParaAnalytics(pedido) && estaNoIntervalo(getDataPedidoLocal(pedido), info.start, info.end));
+}
+
+function classificarCategoriaRelatorio(item = {}) {
+  const texto = normalizarTextoBusca(`${item.nome || ""} ${item.tipo || ""} ${item.material || ""}`);
+  if (texto.includes("servico") || texto.includes("manutencao") || texto.includes("instalacao")) return "Serviços";
+  if (texto.includes("produto") || texto.includes("filamento") || texto.includes("resina") || texto.includes("cola")) return "Produtos";
+  if (item.tempoHoras || item.material || item.materialId || getMateriaisItem(item).length) return "Impressão 3D";
+  return "Outros";
+}
+
+function calcularCategoriasRelatorios(info) {
+  const cores = {
+    "Impressão 3D": "#0f766e",
+    Produtos: "#2563eb",
+    Serviços: "#6d43ff",
+    Outros: "#f59e0b"
+  };
+  const mapa = new Map();
+  obterPedidosRelatorios(info).forEach((pedido) => {
+    const itens = normalizarItensPedido(pedido);
+    if (!itens.length) {
+      mapa.set("Impressão 3D", (mapa.get("Impressão 3D") || 0) + totalPedido(pedido));
+      return;
+    }
+    itens.forEach((item) => {
+      const categoria = classificarCategoriaRelatorio(item);
+      const subtotal = Number(item.total) || (Number(item.valor) || 0) * (Number(item.qtd) || 1);
+      mapa.set(categoria, (mapa.get(categoria) || 0) + Math.max(0, subtotal));
+    });
+  });
+  const total = Array.from(mapa.values()).reduce((soma, valor) => soma + valor, 0);
+  return ["Impressão 3D", "Produtos", "Serviços", "Outros"].map((nome) => {
+    const valor = Number(mapa.get(nome) || 0);
+    return { nome, valor, percent: total ? Math.round((valor / total) * 100) : 0, cor: cores[nome] };
+  });
+}
+
+function renderRelatorioDonut(categorias = []) {
+  const total = categorias.reduce((soma, item) => soma + (Number(item.valor) || 0), 0);
+  let inicio = 0;
+  const segmentos = total ? categorias.map((item) => {
+    const percent = Math.max(0, Number(item.percent) || 0);
+    const fim = inicio + percent;
+    const segmento = `${item.cor} ${inicio}% ${fim}%`;
+    inicio = fim;
+    return segmento;
+  }).join(", ") : "rgba(255,255,255,.12) 0 100%";
+  return `
+    <div class="reports-donut-wrap">
+      <div class="reports-donut" style="background:conic-gradient(${escaparAttr(segmentos)});">
+        <span><small>Total</small><strong>${formatarMoeda(total)}</strong><em>100%</em></span>
+      </div>
+      <div class="reports-category-legend">
+        ${categorias.map((item) => `
+          <div class="reports-category-row">
+            <span><i style="background:${escaparAttr(item.cor)}"></i>${escaparHtml(item.nome)}</span>
+            <strong>${Number(item.percent) || 0}%</strong>
+            <em>${formatarMoeda(item.valor)}</em>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderRelatorioKpiCard({ titulo, valor, delta, icon = "relatorios", estado = "teal", series = [] }) {
+  return `
+    <button class="reports-kpi-card reports-kpi-${escaparAttr(estado)}" type="button" onclick="trocarTela('${titulo === "Pedidos" ? "pedidos" : "caixa"}')">
+      <span class="reports-kpi-icon">${renderUiIcon(icon)}</span>
+      <span class="reports-kpi-copy">
+        <small>${escaparHtml(titulo)}</small>
+        <strong>${escaparHtml(valor)}</strong>
+        ${renderDeltaRelatorios(delta)}
+        <em>vs período anterior</em>
+      </span>
+      ${series.length ? renderMiniSparklineDashboard(series, estado === "orange" ? "orange" : estado) : ""}
+    </button>
+  `;
+}
+
+function renderRelatorioQuickTile({ titulo, subtitulo, icon = "relatorios", tela = "relatorios", estado = "teal", action = "" }) {
+  const acao = action || `abrirRelatorioRapido('${escaparAttr(titulo)}','${escaparAttr(tela)}')`;
+  return `
+    <button class="reports-quick-tile reports-quick-${escaparAttr(estado)}" type="button" onclick="${acao}">
+      <span>${renderUiIcon(icon)}</span>
+      <strong>${escaparHtml(titulo)}</strong>
+      <small>${escaparHtml(subtitulo)}</small>
+    </button>
+  `;
+}
+
+function abrirRelatorioVendas() {
+  window.__pedidosFiltroDashboard = "";
+  window.__pedidosFiltroCliente = "";
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  window.__simplificaUiTabs.pedidosStatus = "todos";
+  navegarMenuPrincipal("pedidos");
+}
+
+function abrirRelatorioRapido(tipo = "", tela = "relatorios") {
+  const chave = normalizarTextoBusca(tipo);
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  if (chave.includes("vendas")) {
+    abrirRelatorioVendas();
+    return;
+  }
+  if (chave.includes("caixa")) {
+    window.__simplificaUiTabs.caixaStatus = "todos";
+    navegarMenuPrincipal("caixa");
+    return;
+  }
+  if (chave.includes("cliente")) {
+    navegarMenuPrincipal("clientes");
+    return;
+  }
+  if (chave.includes("produto")) {
+    window.__simplificaUiTabs.estoque = "materiais";
+    navegarMenuPrincipal("estoque");
+    return;
+  }
+  navegarMenuPrincipal(tela || "relatorios");
+}
+
+function renderResumoPeriodoRelatorios(label, sublabel, info) {
+  const agregado = calcularAgregadoRelatorios(info);
+  const ticket = agregado.atual.total_orders ? agregado.atual.total_sales / agregado.atual.total_orders : 0;
+  return `
+    <button class="reports-period-row" type="button" onclick="selecionarPeriodoRelatorios('${escaparAttr(info.id)}')">
+      <span class="reports-period-name"><strong>${escaparHtml(label)}</strong><small>${escaparHtml(sublabel)}</small></span>
+      <span><small>Faturamento</small><strong>${formatarMoeda(agregado.atual.total_sales)}</strong>${renderDeltaRelatorios(agregado.comparacoes.faturamento)}</span>
+      <span><small>Pedidos</small><strong>${Number(agregado.atual.total_orders) || 0}</strong>${renderDeltaRelatorios(agregado.comparacoes.pedidos)}</span>
+      <span><small>Ticket médio</small><strong>${formatarMoeda(ticket)}</strong>${renderDeltaRelatorios(agregado.comparacoes.ticket)}</span>
+      <span><small>Lucro líquido</small><strong>${formatarMoeda(agregado.atual.total_profit)}</strong>${renderDeltaRelatorios(agregado.comparacoes.lucro)}</span>
+      <b>›</b>
+    </button>
+  `;
+}
+
+function getResumoPeriodosRelatorios() {
+  const hoje = inicioDiaRelatorios(new Date());
+  const ontem = somarDias(hoje, -1);
+  const inicioMesPassado = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const fimMesPassado = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  return [
+    { label: "Hoje", sublabel: formatarPeriodoCurtoRelatorios(hoje), info: getInfoPeriodoRelatorios("hoje") },
+    { label: "Ontem", sublabel: formatarPeriodoCurtoRelatorios(ontem), info: { ...getInfoPeriodoRelatorios("hoje", ontem), id: "hoje" } },
+    { label: "Últimos 7 dias", sublabel: `${formatarPeriodoCurtoRelatorios(somarDias(hoje, -6))} a ${formatarPeriodoCurtoRelatorios(hoje)}`, info: getInfoPeriodoRelatorios("7d") },
+    { label: "Últimos 30 dias", sublabel: `${formatarPeriodoCurtoRelatorios(somarDias(hoje, -29))} a ${formatarPeriodoCurtoRelatorios(hoje)}`, info: getInfoPeriodoRelatorios("30d") },
+    { label: "Mês passado", sublabel: `${formatarPeriodoCurtoRelatorios(inicioMesPassado)} a ${formatarPeriodoCurtoRelatorios(somarDias(fimMesPassado, -1))}`, info: getInfoPeriodoRelatorios("mes-passado") }
+  ];
+}
+
+function abrirFiltrosRelatorios() {
+  mostrarToast("Use os filtros de período no topo dos relatórios.", "info", 3200);
+}
+
+function exportarResumoRelatorios() {
+  const linhas = [["Periodo", "Faturamento", "Pedidos", "Ticket medio", "Lucro liquido"]];
+  getResumoPeriodosRelatorios().forEach((linha) => {
+    const agregado = calcularAgregadoRelatorios(linha.info);
+    const ticket = agregado.atual.total_orders ? agregado.atual.total_sales / agregado.atual.total_orders : 0;
+    linhas.push([linha.label, agregado.atual.total_sales.toFixed(2), String(agregado.atual.total_orders || 0), ticket.toFixed(2), agregado.atual.total_profit.toFixed(2)]);
+  });
+  const csv = linhas.map((linha) => linha.map((valor) => `"${String(valor).replace(/"/g, '""')}"`).join(";")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `relatorios-simplifica-3d-${hojeIsoData()}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  mostrarToast("Resumo exportado.", "sucesso", 2600);
+}
+
 function renderRelatorios() {
   if (!planoPermiteRecurso("reports")) {
     return `
@@ -14716,51 +15859,178 @@ function renderRelatorios() {
     `;
   }
   const podeOperar = temAcessoCompleto();
-  const totais = calcularTotaisCaixa();
-  const stats = getDashboardStats();
+  const periodoAtivo = getPeriodoRelatoriosAtivo();
+  const info = getInfoPeriodoRelatorios(periodoAtivo);
+  const agregado = calcularAgregadoRelatorios(info);
+  const series = gerarSerieRelatorios(info);
+  const categorias = calcularCategoriasRelatorios(info);
+  const ticketMedio = agregado.atual.total_orders ? agregado.atual.total_sales / agregado.atual.total_orders : 0;
+  const seriesFaturamento = series.map((item) => Number(item.sales) || 0);
+  const seriesPedidos = series.map((item) => Number(item.orders) || 0);
+  const seriesLucro = series.map((item) => Number(item.profit) || 0);
+  const periodos = [
+    { id: "hoje", label: "Hoje" },
+    { id: "7d", label: "7 dias" },
+    { id: "30d", label: "30 dias" },
+    { id: "mes", label: "Este mês" },
+    { id: "mes-passado", label: "Mês passado" },
+    { id: "personalizado", label: "Personalizado", icon: "agenda" }
+  ];
   return `
-    <section class="card">
-      <div class="card-header">
-        <h2>📈 Relatórios</h2>
-        <span class="status-badge">Local</span>
+    <section class="reports-page organized-page">
+      <header class="reports-header">
+        <div class="reports-title-row">
+          <button class="icon-action-button" type="button" onclick="abrirMenuLateral()" title="Menu">${renderUiIcon("menu")}</button>
+          <div>
+            <h2>Relatórios</h2>
+            <p>Acompanhe o desempenho do seu negócio</p>
+          </div>
+        </div>
+        <div class="reports-header-actions">
+          <button class="icon-action-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar">${renderUiIcon("search")}</button>
+          <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}<span>7</span></button>
+          <button class="btn reports-filter-button" type="button" onclick="abrirFiltrosRelatorios()">${renderUiIcon("preferencias")} <span>Filtros</span></button>
+        </div>
+      </header>
+
+      <div class="reports-period-tabs" role="tablist" aria-label="Período dos relatórios">
+        ${periodos.map((periodo) => `
+          <button class="reports-period-chip ${periodoAtivo === periodo.id ? "active" : ""}" type="button" role="tab" aria-selected="${periodoAtivo === periodo.id}" onclick="selecionarPeriodoRelatorios('${escaparAttr(periodo.id)}')">
+            ${periodo.icon ? renderUiIcon(periodo.icon) : ""}
+            <span>${escaparHtml(periodo.label)}</span>
+          </button>
+        `).join("")}
       </div>
-      <div class="metrics">
-        <div class="metric"><span>Faturamento hoje</span><strong>${formatarMoeda(stats.faturamentoDia)}</strong></div>
-        <div class="metric"><span>Lucro estimado</span><strong>${formatarMoeda(stats.lucroEstimado)}</strong></div>
-        <div class="metric"><span>Saldo em caixa</span><strong>${formatarMoeda(totais.saldo)}</strong></div>
-        <div class="metric"><span>Pedidos totais</span><strong>${pedidos.length}</strong></div>
+
+      <div class="reports-kpi-grid">
+        ${renderRelatorioKpiCard({ titulo: "Faturamento", valor: formatarMoeda(agregado.atual.total_sales), delta: agregado.comparacoes.faturamento, icon: "caixa", estado: "teal", series: seriesFaturamento })}
+        ${renderRelatorioKpiCard({ titulo: "Pedidos", valor: String(agregado.atual.total_orders || 0), delta: agregado.comparacoes.pedidos, icon: "pedidos", estado: "blue", series: seriesPedidos })}
+        ${renderRelatorioKpiCard({ titulo: "Ticket médio", valor: formatarMoeda(ticketMedio), delta: agregado.comparacoes.ticket, icon: "assinatura", estado: "purple", series: seriesFaturamento })}
+        ${renderRelatorioKpiCard({ titulo: "Lucro líquido", valor: formatarMoeda(agregado.atual.total_profit), delta: agregado.comparacoes.lucro, icon: "relatorios", estado: "orange", series: seriesLucro })}
       </div>
-      <p class="muted">${podeOperar ? "Relatórios avançados por período ficam preparados para a futura camada online/Supabase, mantendo o localStorage atual funcionando." : "Seu plano está inativo. Visualização liberada; recursos avançados voltam após regularização."}</p>
-      ${podeOperar ? "" : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
+
+      <div class="reports-main-grid">
+        <section class="reports-panel reports-chart-panel">
+          <div class="reports-panel-header">
+            <div>
+              <h3>Faturamento ao longo do tempo</h3>
+              <strong>${formatarMoeda(agregado.atual.total_sales)}</strong>
+              ${renderDeltaRelatorios(agregado.comparacoes.faturamento)}
+            </div>
+            <button class="btn ghost compact-action" type="button" onclick="abrirFiltrosRelatorios()">Gráfico de linha ▾</button>
+          </div>
+          ${renderRelatorioLineChart(series)}
+        </section>
+
+        <section class="reports-panel reports-category-panel">
+          <div class="reports-panel-header">
+            <h3>Faturamento por categoria</h3>
+          </div>
+          ${renderRelatorioDonut(categorias)}
+        </section>
+      </div>
+
+      <section class="reports-panel reports-quick-panel">
+        <div class="reports-panel-header">
+          <h3>Relatórios rápidos</h3>
+          <button class="text-link" type="button" onclick="mostrarToast('Todos os relatórios rápidos ficam nesta área.', 'info')">Ver todos ›</button>
+        </div>
+        <div class="reports-quick-grid">
+          ${renderRelatorioQuickTile({ titulo: "Pedidos", subtitulo: "Pedidos e orçamentos", icon: "pedidos", tela: "pedidos", estado: "teal", action: "abrirRelatorioVendas()" })}
+          ${renderRelatorioQuickTile({ titulo: "Caixa", subtitulo: "Faturamento, entradas e saídas", icon: "caixa", tela: "caixa", estado: "blue" })}
+          ${renderRelatorioQuickTile({ titulo: "Clientes", subtitulo: "Novos clientes e recorrência", icon: "clientes", tela: "clientes", estado: "purple" })}
+          ${renderRelatorioQuickTile({ titulo: "Produtos", subtitulo: "Mais vendidos e estoque", icon: "estoque", tela: "estoque", estado: "orange" })}
+          ${renderRelatorioQuickTile({ titulo: "Desempenho", subtitulo: "Análise geral do negócio", icon: "relatorios", tela: "relatorios", estado: "green" })}
+        </div>
+      </section>
+
+      <section class="reports-panel reports-summary-panel">
+        <div class="reports-panel-header">
+          <h3>Resumo por períodos</h3>
+          <button class="btn ghost compact-action" type="button" onclick="exportarResumoRelatorios()">${renderUiIcon("backup")} Exportar</button>
+        </div>
+        <div class="reports-period-table">
+          ${getResumoPeriodosRelatorios().map((linha) => renderResumoPeriodoRelatorios(linha.label, linha.sublabel, linha.info)).join("")}
+        </div>
+      </section>
+
+      ${podeOperar ? "" : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Regularizar plano</button></div>`}
     </section>
   `;
+}
+
+function getCaixaFiltroAtivo() {
+  const salvo = getUiTab("caixaStatus", "todos");
+  return ["todos", "entradas", "saidas", "cancelados"].includes(salvo) ? salvo : "todos";
+}
+
+function trocarFiltroCaixa(filtro = "todos") {
+  trocarUiTab("caixaStatus", filtro);
+}
+
+function renderCaixaFiltroChips(movimentos = caixa, ativo = "todos") {
+  const contadores = movimentos.reduce((acc, movimento) => {
+    const cancelado = movimentoCaixaCancelado(movimento);
+    acc.todos += 1;
+    if (cancelado) acc.cancelados += 1;
+    else if (String(movimento.tipo || "").toLowerCase() === "saida") acc.saidas += 1;
+    else acc.entradas += 1;
+    return acc;
+  }, { todos: 0, entradas: 0, saidas: 0, cancelados: 0 });
+  const itens = [
+    { id: "todos", label: "Todos" },
+    { id: "entradas", label: "Entradas" },
+    { id: "saidas", label: "Saídas" },
+    { id: "cancelados", label: "Cancelados" }
+  ];
+  return `
+    <div class="order-filter-chips cash-filter-chips" role="tablist" aria-label="Filtrar caixa">
+      ${itens.map((item) => `
+        <button class="order-filter-chip ${ativo === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroCaixa('${escaparAttr(item.id)}')">
+          <span>${escaparHtml(item.label)}</span>
+          <strong>${Number(contadores[item.id] || 0)}</strong>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function filtrarMovimentosCaixa(movimentos = caixa, filtro = "todos") {
+  if (filtro === "cancelados") return movimentos.filter(movimentoCaixaCancelado);
+  if (filtro === "entradas") return movimentos.filter((movimento) => !movimentoCaixaCancelado(movimento) && String(movimento.tipo || "").toLowerCase() !== "saida");
+  if (filtro === "saidas") return movimentos.filter((movimento) => !movimentoCaixaCancelado(movimento) && String(movimento.tipo || "").toLowerCase() === "saida");
+  return movimentos;
 }
 
 function renderCaixa() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const totais = calcularTotaisCaixa();
-  const linhas = caixa.length
-    ? [...caixa].reverse().map((movimento, posicaoInvertida) => {
-        const indice = caixa.length - 1 - posicaoInvertida;
+  const filtroCaixa = getCaixaFiltroAtivo();
+  const movimentosFiltrados = filtrarMovimentosCaixa(caixa, filtroCaixa);
+  const linhas = movimentosFiltrados.length
+    ? [...movimentosFiltrados].reverse().map((movimento) => {
+        const indice = caixa.indexOf(movimento);
         const saida = movimento.tipo === "saida";
+        const cancelado = movimentoCaixaCancelado(movimento);
         return `
-          <div class="cash-row cash-row-${saida ? "saida" : "entrada"}">
+          <div class="cash-row cash-row-${cancelado ? "cancelado" : saida ? "saida" : "entrada"}">
             <div class="cash-row-main">
               <div class="row-title">
-                <strong>${saida ? "Saída" : "Entrada"}</strong>
+                <strong>${cancelado ? "Cancelado" : saida ? "Saída" : "Entrada"}</strong>
                 <span class="muted">${formatarMoeda(movimento.valor)}</span>
               </div>
               <div class="muted">${escaparHtml(descricaoCaixa(movimento))}</div>
               ${movimento.data ? `<small class="cash-row-date">${formatarDataCurta(movimento.data)}</small>` : ""}
+              ${cancelado ? `<small class="cash-row-date">Cancelado: ${escaparHtml(movimento.motivoCancelamento || movimento.cancelReason || "sem motivo informado")}</small>` : ""}
             </div>
-            ${podeOperar ? `<div class="row-actions cash-row-actions" aria-label="Ações do movimento">
+            ${podeOperar && !cancelado ? `<div class="row-actions cash-row-actions" aria-label="Ações do movimento">
               <button class="icon-action-button" type="button" onclick="editarMovimentoCaixa(${indice})" title="Editar movimento">${renderIconeAcaoPedido("✎", "Editar")}</button>
-              <button class="icon-action-button danger" type="button" onclick="removerMovimentoCaixa(${indice})" title="Excluir movimento">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
+              <button class="icon-action-button danger" type="button" onclick="removerMovimentoCaixa(${indice})" title="Cancelar movimento">${renderIconeAcaoPedido("🗑", "Cancelar")}</button>
             </div>` : ""}
           </div>
         `;
       }).join("")
-    : `<p class="empty">Nenhum movimento no caixa.</p>`;
+    : `<p class="empty">Nenhum movimento neste filtro.</p>`;
 
   return `
     <section class="card">
@@ -14777,7 +16047,12 @@ function renderCaixa() {
           <span>Saídas</span>
           <strong>${formatarMoeda(totais.saidas)}</strong>
         </div>
+        <div class="metric">
+          <span>Cancelados</span>
+          <strong>${Number(totais.cancelados || 0)}</strong>
+        </div>
       </div>
+      ${renderCaixaFiltroChips(caixa, filtroCaixa)}
       ${podeOperar ? `
       <label class="field">
         <span>Tipo</span>
@@ -16623,6 +17898,43 @@ function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
   `;
 }
 
+function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
+  const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
+  const temaPdfAtual = normalizarPdfTheme();
+  const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
+  return `
+    ${renderUiSection({ id: `${group}-pdf-tema`, title: "PDF", subtitle: "Tema e identidade do orçamento", icon: "▣", open, group, content: `
+      <div class="sync-grid">
+        <label class="field">
+          <span>Tema do PDF</span>
+          <select id="pdfThemeConfig">
+            ${Object.entries(PDF_THEME_PRESETS).map(([id, tema]) => `<option value="${id}" ${temaPdfAtual === id ? "selected" : ""}>${escaparHtml(tema.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label class="field"><span>Cor secundária do PDF</span><input id="pdfSecondaryColorConfig" type="color" value="${escaparAttr(corSecundariaAtual)}"></label>
+        <div class="metric"><span>Logo</span><strong>Usa Empresa</strong></div>
+        <div class="metric"><span>Pix</span><strong>Usa Empresa</strong></div>
+      </div>
+    ` })}
+    ${renderUiSection({ id: `${group}-pdf-cabecalho`, title: "Cabeçalho do PDF", subtitle: "Subtítulo, validade e pagamento", icon: "⌂", group, content: `
+      <div class="sync-grid">
+        <label class="field"><span>Subtítulo da empresa no PDF</span><input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
+        <label class="field"><span>Validade padrão (dias)</span><input id="quoteValidityDaysConfig" type="number" min="1" max="90" step="1" value="${Number(appConfig.quoteValidityDays) || 7}"></label>
+        <label class="field"><span>Forma de pagamento</span><input id="paymentTermsConfig" value="${escaparAttr(appConfig.paymentTerms || "")}" placeholder="PIX / Transferência"></label>
+      </div>
+    ` })}
+    ${renderUiSection({ id: `${group}-pdf-rodape`, title: "Rodapé e Pix do PDF", subtitle: "Assinatura, instrução Pix e marca d'água", icon: "☷", group, content: `
+      <div class="sync-grid">
+        <label class="field"><span>Assinatura final</span><input id="pdfSignatureConfig" maxlength="160" value="${escaparAttr(appConfig.pdfSignature || appConfig.documentFooter || "")}" placeholder="Qualquer dúvida, estamos à disposição."></label>
+        <label class="field"><span>Instrução Pix no PDF</span><input id="pixInstructionConfig" maxlength="120" value="${escaparAttr(appConfig.pixInstruction || "")}" placeholder="Após o pagamento, envie o comprovante pelo WhatsApp."></label>
+        <label class="field"><span>Fundo/marca d'água do PDF</span><input id="pdfBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'pdf-background')"></label>
+        <div class="metric"><span>Fundo personalizado</span><strong>${pdfBgAtual ? "Salvo" : "Padrão"}</strong></div>
+      </div>
+      ${appConfig.pdfBackgroundDataUrl ? `<button class="btn ghost" type="button" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
+    ` })}
+  `;
+}
+
 function renderEmpresaConfig() {
   const marcaAtual = getMarcaProjetoSrc("icon");
   const logoEmpresaAtual = appConfig.companyLogoDataUrl || "";
@@ -16679,6 +17991,7 @@ function renderEmpresaConfig() {
             <label class="field"><span>Prazo padrão</span><input id="productionDeadlineTextConfig" value="${escaparAttr(appConfig.productionDeadlineText || "")}" placeholder="Até 5 dias úteis"></label>
           </div>
         ` })}
+        ${renderPdfSettingsSections({ group: "empresa" })}
       </div>
       ${renderAcoesSalvarConfiguracao("Salvar empresa")}
     </section>
@@ -16688,8 +18001,6 @@ function renderEmpresaConfig() {
 function renderAparenciaConfig() {
   const acessoMarca = true;
   const corAtual = appConfig.accentColor || "#073b4b";
-  const fotoPerfilAtual = appConfig.profilePhotoDataUrl || "";
-  const fundoLoginAtual = appConfig.loginBackgroundDataUrl || "";
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   return `
     <section class="card organized-page settings-page">
@@ -16737,22 +18048,18 @@ function renderAparenciaConfig() {
               </select>
             </label>
             <div class="metric"><span>Resolução atual</span><strong>${escaparHtml(resolucaoAtual)}</strong></div>
-            <label class="field"><span>Escala manual (%)</span><input id="uiScaleConfig" type="number" min="70" max="140" step="5" value="${Number(appConfig.uiScale) || 100}"></label>
+            <label class="field app-range-field">
+              <span>Escala da interface</span>
+              <div class="app-range-row">
+                <input id="uiScaleConfig" type="range" min="70" max="140" step="5" value="${Number(appConfig.uiScale) || 100}" oninput="atualizarRotuloEscalaInterface(this.value)">
+                <output id="uiScaleConfigValue">${Number(appConfig.uiScale) || 100}%</output>
+              </div>
+              <small class="muted">Use menor para botões e cards mais compactos.</small>
+            </label>
             <label class="field"><span>Largura mínima dos cards</span><input id="desktopCardMinWidthConfig" type="number" min="220" max="560" step="10" value="${Number(appConfig.desktopCardMinWidth) || 320}"></label>
             <label class="field"><span>Largura máxima no desktop</span><input id="desktopMaxWidthConfig" type="number" min="900" max="3200" step="20" value="${Number(appConfig.desktopMaxWidth) || 1480}"></label>
           </div>
           <div class="actions single"><button class="btn ghost" type="button" onclick="restaurarLayoutDashboard()">Restaurar janelas da tela principal</button></div>
-        ` })}
-        ${renderUiSection({ id: "aparencia-login", title: "Login e perfil", subtitle: "Foto, fundo e mensagem visual de entrada", icon: "◎", group: "aparencia", content: `
-          <div class="profile-preview-row">
-            <div class="profile-preview-avatar" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
-            <div class="metric"><span>Fundo do login</span><strong>${fundoLoginAtual ? "Salvo" : "Padrão"}</strong></div>
-          </div>
-          <div class="sync-grid">
-            <label class="field"><span>Foto do usuário</span><input id="profilePhotoFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'profile-photo')"></label>
-            <label class="field"><span>Imagem de fundo do login</span><input id="loginBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'login-background')"></label>
-            <label class="field"><span>Mensagem no login</span><input id="customLoginMessageConfig" maxlength="90" value="${escaparAttr(appConfig.customLoginMessage || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
-          </div>
         ` })}
       </div>
       ${renderAcoesSalvarConfiguracao("Salvar aparência")}
@@ -16824,9 +18131,6 @@ function renderCalculadoraConfigPage() {
 }
 
 function renderPdfConfig() {
-  const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
-  const temaPdfAtual = normalizarPdfTheme();
-  const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
   return `
     <section class="card organized-page settings-page">
       <div class="card-header">
@@ -16835,35 +18139,7 @@ function renderPdfConfig() {
       </div>
       <p class="muted">Configurações do orçamento/PDF. Logo, Pix e dados comerciais vêm automaticamente do menu Empresa.</p>
       <div class="settings-accordion-list">
-        ${renderUiSection({ id: "pdf-tema", title: "Tema", subtitle: "Visual fixo do documento", icon: "▣", open: true, group: "pdf", content: `
-          <div class="sync-grid">
-            <label class="field">
-              <span>Tema do PDF</span>
-              <select id="pdfThemeConfig">
-                ${Object.entries(PDF_THEME_PRESETS).map(([id, tema]) => `<option value="${id}" ${temaPdfAtual === id ? "selected" : ""}>${escaparHtml(tema.label)}</option>`).join("")}
-              </select>
-            </label>
-            <label class="field"><span>Cor secundária do PDF</span><input id="pdfSecondaryColorConfig" type="color" value="${escaparAttr(corSecundariaAtual)}"></label>
-            <div class="metric"><span>Logo</span><strong>Usa Empresa</strong></div>
-            <div class="metric"><span>Pix</span><strong>Usa Empresa</strong></div>
-          </div>
-        ` })}
-        ${renderUiSection({ id: "pdf-cabecalho", title: "Cabeçalho", subtitle: "Título comercial e subtítulo", icon: "⌂", group: "pdf", content: `
-          <div class="sync-grid">
-            <label class="field"><span>Subtítulo da empresa no PDF</span><input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
-            <label class="field"><span>Validade padrão (dias)</span><input id="quoteValidityDaysConfig" type="number" min="1" max="90" step="1" value="${Number(appConfig.quoteValidityDays) || 7}"></label>
-            <label class="field"><span>Forma de pagamento</span><input id="paymentTermsConfig" value="${escaparAttr(appConfig.paymentTerms || "")}" placeholder="PIX / Transferência"></label>
-          </div>
-        ` })}
-        ${renderUiSection({ id: "pdf-rodape", title: "Rodapé e Pix", subtitle: "Assinatura, instrução Pix e marca d'água", icon: "☷", group: "pdf", content: `
-          <div class="sync-grid">
-            <label class="field"><span>Assinatura final</span><input id="pdfSignatureConfig" maxlength="160" value="${escaparAttr(appConfig.pdfSignature || appConfig.documentFooter || "")}" placeholder="Qualquer dúvida, estamos à disposição."></label>
-            <label class="field"><span>Instrução Pix no PDF</span><input id="pixInstructionConfig" maxlength="120" value="${escaparAttr(appConfig.pixInstruction || "")}" placeholder="Após o pagamento, envie o comprovante pelo WhatsApp."></label>
-            <label class="field"><span>Fundo/marca d'água do PDF</span><input id="pdfBackgroundFileConfig" class="file-input" type="file" accept="image/*" onchange="prepararPreviewImagemPersonalizacao(this, 'pdf-background')"></label>
-            <div class="metric"><span>Fundo personalizado</span><strong>${pdfBgAtual ? "Salvo" : "Padrão"}</strong></div>
-          </div>
-          ${appConfig.pdfBackgroundDataUrl ? `<button class="btn ghost" type="button" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
-        ` })}
+        ${renderPdfSettingsSections({ group: "pdf", open: true })}
       </div>
       ${renderAcoesSalvarConfiguracao("Salvar PDF")}
     </section>
@@ -16881,6 +18157,72 @@ function renderPersonalizacao() {
   const fotoPerfilAtual = appConfig.profilePhotoDataUrl || "";
   const logoEmpresaAtual = appConfig.companyLogoDataUrl || "";
   const fundoLoginAtual = appConfig.loginBackgroundDataUrl || "";
+  return `
+    <section class="card organized-page settings-page">
+      <div class="card-header">
+        <h2>Aparência</h2>
+        <span class="status-badge">Visual do app</span>
+      </div>
+      <p class="muted">Personalização geral da interface. Dados da empresa, PDF, usuário e calculadora ficam em seus próprios menus.</p>
+      <div class="settings-accordion-list">
+        ${renderUiSection({ id: "aparencia-tema", title: "Tema e cores", subtitle: "Modo claro/escuro, cor principal e contraste", icon: "◐", group: "aparencia", open: true, content: `
+          <div class="sync-grid">
+            <label class="field">
+              <span>Tema</span>
+              <select id="themeConfig">
+                <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
+                <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
+                <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Cor principal</span>
+              <input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}">
+            </label>
+            <label class="field">
+              <span>Nível de animação</span>
+              <select id="motionLevelConfig">
+                <option value="low" ${appConfig.motionLevel === "low" ? "selected" : ""}>Baixo</option>
+                <option value="medium" ${appConfig.motionLevel !== "low" && appConfig.motionLevel !== "high" ? "selected" : ""}>Médio</option>
+                <option value="high" ${appConfig.motionLevel === "high" ? "selected" : ""}>Alto</option>
+              </select>
+            </label>
+          </div>
+          <div class="color-swatches">
+            ${["#0F766E", "#115E59", "#134E4A", "#2563EB", "#1D4ED8", "#f59e0b"].map((cor) => `
+              <button class="color-swatch" type="button" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}"></button>
+            `).join("")}
+          </div>
+        ` })}
+        ${renderUiSection({ id: "aparencia-layout", title: "Layout e escala", subtitle: "Densidade, cards e proporção da interface", icon: "▦", group: "aparencia", content: `
+          <div class="sync-grid">
+            <label class="checkbox-row"><input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}><span>Compactar interface</span></label>
+            <label class="checkbox-row"><input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}><span>Mostrar nome do app no topo</span></label>
+            <label class="field">
+              <span>Ajuste da interface</span>
+              <select id="screenFitConfig">
+                <option value="auto" ${appConfig.screenFit !== "manual" ? "selected" : ""}>Automático</option>
+                <option value="manual" ${appConfig.screenFit === "manual" ? "selected" : ""}>Manual</option>
+              </select>
+            </label>
+            <div class="metric"><span>Resolução atual</span><strong>${escaparHtml(resolucaoAtual)}</strong></div>
+            <label class="field app-range-field">
+              <span>Escala da interface</span>
+              <div class="app-range-row">
+                <input id="uiScaleConfig" type="range" min="70" max="140" step="5" value="${Number(appConfig.uiScale) || 100}" oninput="atualizarRotuloEscalaInterface(this.value)">
+                <output id="uiScaleConfigValue">${Number(appConfig.uiScale) || 100}%</output>
+              </div>
+              <small class="muted">Use menor para botões e cards mais compactos.</small>
+            </label>
+            <label class="field"><span>Largura mínima dos cards no PWA</span><input id="desktopCardMinWidthConfig" type="number" min="220" max="560" step="10" value="${Number(appConfig.desktopCardMinWidth) || 320}"></label>
+            <label class="field"><span>Largura máxima no PWA</span><input id="desktopMaxWidthConfig" type="number" min="900" max="3200" step="20" value="${Number(appConfig.desktopMaxWidth) || 1480}"></label>
+          </div>
+          <div class="actions single"><button class="btn ghost" type="button" onclick="restaurarLayoutDashboard()">Restaurar janelas da tela principal</button></div>
+        ` })}
+      </div>
+      ${renderAcoesSalvarConfiguracao("Salvar aparência")}
+    </section>
+  `;
   return `
     <section class="card">
       <div class="card-header">
@@ -18326,6 +19668,14 @@ function selecionarCor(cor) {
   if (input) {
     input.value = cor;
   }
+}
+
+function atualizarRotuloEscalaInterface(valor) {
+  const escala = Math.min(140, Math.max(70, Math.round(Number(valor) || Number(appConfig.uiScale) || 100)));
+  const saida = document.getElementById("uiScaleConfigValue");
+  if (saida) saida.textContent = `${escala}%`;
+  const modo = document.getElementById("screenFitConfig");
+  if (modo) modo.value = "manual";
 }
 
 function lerPersonalizacaoCampos() {
@@ -22188,6 +23538,7 @@ function zerarDadosAdmin() {
   clienteEmailPedido = "";
   observacaoPedido = "";
   prazoPedido = "";
+  entradaPedido = 0;
   selectedCustomerSuggestion = null;
   pedidoEditando = null;
   registrarHistorico("Admin", "Dados locais zerados");
@@ -22227,6 +23578,11 @@ function atualizarObservacaoPedido(valor) {
 
 function atualizarPrazoPedido(valor) {
   prazoPedido = String(valor || "");
+}
+
+function atualizarEntradaPedido(valor) {
+  entradaPedido = Math.max(0, numeroMonetarioPedido(valor, 0));
+  atualizarResumoPedidoSemRender();
 }
 
 async function executarBuscaSugestoesCliente(query, { incluirContatos = false, token = ++customerSuggestionState.searchToken } = {}) {
@@ -22320,10 +23676,31 @@ function marcarValorAtualizado(elemento) {
 }
 
 function atualizarResumoPedidoSemRender(itemIndex = null) {
-  const totalFormatado = formatarMoeda(totalItensPedidoAtual());
+  const resumo = calcularResumoFinanceiroPedido({
+    itens: itensPedido,
+    subtotalItens: totalItensPedidoAtual(),
+    desconto: valorDescontoPedido(pedidoEditando || {}),
+    down_payment: entradaPedido
+  });
+  const totalFormatado = formatarMoeda(resumo.total);
   document.querySelectorAll("[data-order-total]").forEach((elemento) => {
     elemento.textContent = totalFormatado;
     marcarValorAtualizado(elemento);
+  });
+  document.querySelectorAll("[data-order-down-payment]").forEach((elemento) => {
+    elemento.textContent = formatarMoeda(resumo.entrada);
+    marcarValorAtualizado(elemento);
+  });
+  document.querySelectorAll("[data-order-remaining]").forEach((elemento) => {
+    elemento.textContent = formatarMoeda(resumo.restante);
+    marcarValorAtualizado(elemento);
+  });
+  document.querySelectorAll("[data-order-financial-status]").forEach((elemento) => {
+    elemento.textContent = labelStatusFinanceiroPedido(resumo.statusFinanceiro);
+    elemento.className = `order-status-badge ${classeStatusFinanceiroPedido(resumo.statusFinanceiro)}`;
+  });
+  document.querySelectorAll("[data-order-down-payment-warning]").forEach((elemento) => {
+    elemento.hidden = !resumo.entradaMaiorQueTotal;
   });
   const indice = Number(itemIndex);
   if (Number.isInteger(indice) && itensPedido[indice]) {
@@ -22527,12 +23904,24 @@ function createOrderHeader() {
   const email = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
   const observacao = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
   const prazo = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
+  const entrada = Math.max(0, numeroMonetarioPedido(document.getElementById("pedidoEntrada")?.value ?? entradaPedido, 0));
   clientePedido = cliente;
   clienteTelefonePedido = telefone;
   clienteEmailPedido = email;
   observacaoPedido = observacao;
   prazoPedido = prazo;
-  return { cliente, telefone, email, observacao, prazo, status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto" };
+  entradaPedido = entrada;
+  return {
+    cliente,
+    telefone,
+    email,
+    observacao,
+    prazo,
+    entrada,
+    down_payment: entrada,
+    valor_entrada: entrada,
+    status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto"
+  };
 }
 
 function solicitarDecisaoItemDuplicado(item, existente) {
@@ -22993,6 +24382,7 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     clienteEmailPedido = emailDoPedido(pedido);
     observacaoPedido = pedido.observacao || pedido.observacoes || "";
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
+    entradaPedido = valorEntradaPedido(pedido);
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
     pedidoEditando = pedido;
@@ -23014,6 +24404,7 @@ function cancelarEdicaoPedido() {
   clienteEmailPedido = "";
   observacaoPedido = "";
   prazoPedido = "";
+  entradaPedido = 0;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   renderizarPreservandoScroll();
@@ -23026,14 +24417,46 @@ function pedidoPossuiConsumoEstoque(pedido) {
 function movimentoCaixaPertenceAoPedido(movimento, pedido) {
   if (!movimento || !pedido) return false;
   const id = Number(pedido.id);
-  if (Number(movimento.pedidoId) === id) return true;
+  if (Number(movimento.pedidoId ?? movimento.pedido_id ?? movimento.orderId) === id) return true;
   const total = totalPedido(pedido);
   const cliente = clienteDoPedido(pedido);
-  return Number(movimento.valor) === total && descricaoCaixa(movimento) === "Pedido - " + cliente;
+  const descricao = descricaoCaixa(movimento);
+  if (descricao.includes(`#${pedido.id}`) && /pedido/i.test(descricao)) return true;
+  return Number(movimento.valor) === total && descricao === "Pedido - " + cliente;
 }
 
 function movimentosCaixaPedido(pedido) {
   return caixa.filter((movimento) => movimentoCaixaPertenceAoPedido(movimento, pedido));
+}
+
+function valorRecebidoPedido(pedido) {
+  const resumo = calcularResumoFinanceiroPedido(pedido);
+  return Math.min(resumo.total, Math.max(0, resumo.entrada));
+}
+
+function valorRegistradoCaixaPedido(pedido) {
+  return movimentosCaixaPedido(pedido).reduce((saldo, movimento) => {
+    if (movimentoCaixaCancelado(movimento)) return saldo;
+    const valor = Math.max(0, Number(movimento.valor) || 0);
+    return saldo + (String(movimento.tipo || "").toLowerCase() === "saida" ? -valor : valor);
+  }, 0);
+}
+
+function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entrada") {
+  const valorSeguro = Math.max(0, Number(valor) || 0);
+  if (valorSeguro <= 0.009) return null;
+  const agora = new Date().toISOString();
+  return prepararRegistroOnline({
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    tipo: "entrada",
+    valor: valorSeguro,
+    descricao: `${tipoRecebimento === "quitacao" ? "Quitação" : "Entrada"} pedido #${pedido.id} - ${clienteDoPedido(pedido)}`,
+    pedidoId: pedido.id,
+    orderPaymentKind: tipoRecebimento,
+    data: agora,
+    criadoEm: agora,
+    atualizadoEm: agora
+  });
 }
 
 function pedidoJaCancelado(pedido) {
@@ -23122,18 +24545,18 @@ async function requestOrderDelete(orderId) {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para excluir pedidos.")) return;
     const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
-    registrarAuditoriaPedido("pedido_exclusao_solicitada", pedido);
+    registrarAuditoriaPedido("pedido_cancelamento_solicitado", pedido);
 
     const continuar = await solicitarConfirmacaoAcao({
-      titulo: "Excluir pedido",
-      mensagem: "Tem certeza que deseja excluir este pedido? Esta ação pode afetar histórico, caixa e estoque.",
+      titulo: "Cancelar pedido",
+      mensagem: "Tem certeza que deseja cancelar este pedido? Ele será movido para Cancelados e o histórico será preservado.",
       cancelar: "Cancelar",
       confirmar: "Continuar",
       perigo: true
     });
     if (!continuar) return;
 
-    if (!await confirmAdminPassword("excluir este pedido")) return;
+    if (!await confirmAdminPassword("cancelar este pedido")) return;
 
     let devolverEstoque = false;
     if (pedidoPossuiConsumoEstoque(pedido) && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm) {
@@ -23151,7 +24574,7 @@ async function requestOrderDelete(orderId) {
       reason: "Cancelamento solicitado pelo usuário"
     });
   } catch (erro) {
-    ErrorService.notify(erro, { area: "Pedidos", action: "Solicitar exclusão de pedido", errorKey: "REQUEST_ORDER_DELETE_FAILED" });
+    ErrorService.notify(erro, { area: "Pedidos", action: "Solicitar cancelamento de pedido", errorKey: "REQUEST_ORDER_DELETE_FAILED" });
   }
 }
 
@@ -23255,7 +24678,15 @@ async function fecharPedido() {
       return;
     }
 
-    const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+    const subtotal = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+    const resumoFinanceiro = calcularResumoFinanceiroPedido({
+      itens: itensPedido,
+      subtotalItens: subtotal,
+      desconto: valorDescontoPedido(pedidoEditando || {}),
+      down_payment: headerPedido.down_payment
+    });
+    const total = resumoFinanceiro.total;
+    const caixaRegistradoAntes = pedidoEditando ? valorRegistradoCaixaPedido(pedidoEditando) : 0;
     const pedido = prepararRegistroOnline({
       id: pedidoEditando?.id || Date.now(),
       cliente,
@@ -23263,7 +24694,16 @@ async function fecharPedido() {
       clienteEmail: emailCliente,
       emailCliente,
       itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
+      subtotalItens: subtotal,
+      subtotal_itens: subtotal,
+      desconto: resumoFinanceiro.desconto,
       total,
+      down_payment: resumoFinanceiro.entrada,
+      valor_entrada: resumoFinanceiro.entrada,
+      valorRestante: resumoFinanceiro.restante,
+      valor_restante: resumoFinanceiro.restante,
+      financial_status: resumoFinanceiro.statusFinanceiro,
+      status_financeiro: resumoFinanceiro.statusFinanceiro,
       status: headerPedido.status,
       observacao: headerPedido.observacao,
       observacoes: headerPedido.observacao,
@@ -23294,7 +24734,6 @@ async function fecharPedido() {
     if (pedidoEditando) {
       const idAntigo = Number(pedidoEditando.id);
       pedidos = pedidos.filter((item) => Number(item.id) !== idAntigo);
-      caixa = caixa.filter((movimento) => Number(movimento.pedidoId) !== idAntigo);
     }
 
     pedidos.push(pedido);
@@ -23311,15 +24750,11 @@ async function fecharPedido() {
       peso: pedido.itens?.[0]?.materialGramsTotal || 0,
       tempo: pedido.itens?.[0]?.tempoHoras || 0
     });
-    caixa.push(prepararRegistroOnline({
-      id: Date.now() + 1,
-      tipo: "entrada",
-      valor: total,
-      descricao: "Pedido - " + cliente,
-      pedidoId: pedido.id,
-      data: new Date().toISOString(),
-      atualizadoEm: new Date().toISOString()
-    }));
+    const valorRecebido = valorRecebidoPedido(pedido);
+    const valorPendenteCaixa = Math.max(0, valorRecebido - Math.max(0, caixaRegistradoAntes));
+    const tipoRecebimento = resumoFinanceiro.statusFinanceiro === "pago_total" && caixaRegistradoAntes > 0 ? "quitacao" : resumoFinanceiro.statusFinanceiro === "pago_total" ? "quitacao" : "entrada";
+    const lancamentoRecebimento = criarLancamentoRecebimentoPedido(pedido, valorPendenteCaixa, tipoRecebimento);
+    if (lancamentoRecebimento) caixa.push(lancamentoRecebimento);
 
     salvarDados();
     agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
@@ -23336,6 +24771,7 @@ async function fecharPedido() {
     clienteEmailPedido = "";
     observacaoPedido = "";
     prazoPedido = "";
+    entradaPedido = 0;
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
@@ -23415,10 +24851,14 @@ function confirmarRevisaoAlteracoesPedido() {
   fecharPedido();
 }
 
-function alterarStatusPedido(id, status) {
+async function alterarStatusPedido(id, status) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar pedidos.")) return;
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
+  if (String(status || "").toLowerCase() === "cancelado") {
+    await requestOrderDelete(id);
+    return;
+  }
   marcarRegistroLocalAlteradoParaSync(pedido, { status: status || "aberto" });
   salvarDados();
   agendarSyncSilenciosoDados("status-pedido");
@@ -23498,10 +24938,115 @@ function salvarEdicaoMaterialEstoque(indice) {
   }
 }
 
-function removerMaterial(i) {
+function abrirReposicaoEstoque(indice) {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
+  normalizarEstoque();
+  const material = estoque[indice];
+  if (!material) return;
+  const unidade = material.unidade || "kg";
+  const atual = Number(material.qtd) || 0;
+  const percentual = Number(material.remaining_percent) || 0;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-restock-cancel">
+      <form class="modal-card stock-restock-modal" id="stockRestockForm">
+        <div class="modal-header">
+          <h2>Repor estoque</h2>
+          <button class="icon-button" type="button" data-action="stock-restock-cancel" title="Fechar">✕</button>
+        </div>
+        <div class="stock-restock-item">
+          <strong>${escaparHtml(material.nome)}</strong>
+          <span>Atual: ${atual.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(unidade)} • ${percentual}% restante</span>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Quantidade a adicionar</span>
+            <input id="stockRestockQty" type="number" min="0.001" step="0.001" placeholder="Ex.: 1" required>
+          </label>
+          <label class="field">
+            <span>Observação opcional</span>
+            <input id="stockRestockObs" placeholder="Ex.: compra fornecedor">
+          </label>
+        </div>
+        <div class="stock-restock-preview">
+          <span><small>Nova quantidade</small><strong id="stockRestockNewQty">${atual.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(unidade)}</strong></span>
+          <span><small>Nova base de cálculo</small><strong id="stockRestockNewBase">${atual.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(unidade)}</strong></span>
+          <span><small>Percentual restante</small><strong>100%</strong></span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="stock-restock-cancel">Cancelar</button>
+          <button class="btn" type="submit">Confirmar reposição</button>
+        </div>
+      </form>
+    </div>
+  `;
+  const qtyInput = document.getElementById("stockRestockQty");
+  const atualizarPreview = () => {
+    const entrada = Number(String(qtyInput?.value || "0").replace(",", ".")) || 0;
+    const novoTotal = Math.max(0, atual + entrada);
+    const texto = `${novoTotal.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${unidade}`;
+    const novaQtd = document.getElementById("stockRestockNewQty");
+    const novaBase = document.getElementById("stockRestockNewBase");
+    if (novaQtd) novaQtd.textContent = texto;
+    if (novaBase) novaBase.textContent = texto;
+  };
+  qtyInput?.addEventListener("input", atualizarPreview);
+  document.getElementById("stockRestockForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    confirmarReposicaoEstoque(indice);
+  });
+  setTimeout(() => qtyInput?.focus(), 80);
+}
+
+function confirmarReposicaoEstoque(indice) {
+  const material = estoque[indice];
+  if (!material) return;
+  let quantidade = 0;
+  try {
+    quantidade = InventoryService.parseNumberStrict(document.getElementById("stockRestockQty")?.value, "quantidade da reposição", { min: 0, allowZero: false });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Repor material" });
+    return;
+  }
+  const observacao = String(document.getElementById("stockRestockObs")?.value || "").trim();
+  const agora = new Date().toISOString();
+  const atual = Number(material.qtd) || 0;
+  const novoTotal = atual + quantidade;
+  estoque[indice] = normalizarMaterialEstoque(prepararRegistroOnline({
+    ...material,
+    qtd: novoTotal,
+    current_quantity: novoTotal,
+    quantity_base: novoTotal,
+    remaining_percent: 100,
+    stock_status: "normal",
+    notified_low_stock: false,
+    notified_critical_stock: false,
+    last_restock_at: agora,
+    updated_at: agora,
+    updatedAt: agora
+  }));
+  salvarDados();
+  agendarSyncSilenciosoDados("estoque-reposicao");
+  registrarHistorico("Estoque", `Reposição de estoque: ${material.nome} +${quantidade} ${material.unidade || "kg"}${observacao ? " - " + observacao : ""}`);
+  fecharPopup();
+  window.__estoqueSelecionadoId = String(estoque[indice]?.id || "");
+  renderizarPreservandoScroll();
+  mostrarToast("Estoque reposto.", "sucesso", 2600);
+}
+
+async function removerMaterial(i) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   if (!estoque[i]) return;
-  if (!confirm("Remover este material?")) return;
+  const continuar = await solicitarConfirmacaoAcao({
+    titulo: "Remover material",
+    mensagem: "Tem certeza que deseja remover este material do estoque? Esta ação é sensível.",
+    confirmar: "Continuar",
+    cancelar: "Cancelar",
+    perigo: true
+  });
+  if (!continuar) return;
+  if (!await confirmAdminPassword("remover material do estoque")) return;
 
   try {
     InventoryService.removeMaterial(i);
@@ -23546,6 +25091,10 @@ async function editarMovimentoCaixa(i) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar o caixa.")) return;
   const movimento = caixa[i];
   if (!movimento) return;
+  if (movimentoCaixaCancelado(movimento)) {
+    mostrarToast("Movimento cancelado não pode ser editado.", "aviso", 3200);
+    return;
+  }
   if (!await confirmAdminPassword("editar movimento do caixa")) return;
 
   const popup = document.getElementById("popup");
@@ -23628,16 +25177,92 @@ async function removerMovimentoCaixa(i) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar o caixa.")) return;
   const movimento = caixa[i];
   if (!movimento) return;
-  if (!confirm("Remover este movimento do caixa?")) return;
-  if (!await confirmAdminPassword("excluir movimento do caixa")) return;
-
-  const resumo = `${movimento.tipo === "saida" ? "Saída" : "Entrada"} ${formatarMoeda(movimento.valor)} - ${descricaoCaixa(movimento)}`;
-  caixa.splice(i, 1);
-  salvarDados();
-  agendarSyncSilenciosoDados("caixa-removido");
-  registrarHistorico("Caixa", "Movimento removido: " + resumo);
-  renderApp();
-  mostrarToast("Movimento removido.", "sucesso", 2600);
+  if (movimentoCaixaCancelado(movimento)) {
+    mostrarToast("Este movimento já está cancelado.", "info", 2600);
+    return;
+  }
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const tipo = String(movimento.tipo || "entrada").toLowerCase() === "saida" ? "Saída" : "Entrada";
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card cash-cancel-modal" id="cashCancelForm">
+        <div class="modal-header">
+          <h2>${renderUiIcon("trash")} Cancelar movimentação</h2>
+          <button class="icon-button" type="button" id="cashCancelClose" title="Fechar">✕</button>
+        </div>
+        <div class="danger-auth-card">
+          <strong>Atenção!</strong>
+          <span>Essa ação não pode ser desfeita. O movimento será marcado como cancelado e não entrará mais no total.</span>
+        </div>
+        <div class="cash-cancel-summary">
+          <span><small>Movimento</small><strong>${escaparHtml(descricaoCaixa(movimento))}</strong></span>
+          <span><small>Tipo</small><strong>${escaparHtml(tipo)}</strong></span>
+          <span><small>Valor</small><strong>${formatarMoeda(movimento.valor)}</strong></span>
+          ${movimento.data ? `<span><small>Data</small><strong>${escaparHtml(formatarDataCurta(movimento.data))}</strong></span>` : ""}
+        </div>
+        <label class="field">
+          <span>Motivo do cancelamento</span>
+          <input id="cashCancelReason" placeholder="Ex.: lançamento duplicado" required>
+        </label>
+        <label class="field">
+          <span>Digite sua senha para confirmar</span>
+          <div class="password-row auth-password-row">
+            <input id="cashCancelPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
+            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">${renderUiIcon("view")}</button>
+          </div>
+        </label>
+        <p class="muted auth-inline-feedback" id="cashCancelFeedback">Movimentos cancelados ficam no histórico e aparecem no filtro Cancelados.</p>
+        <div class="actions">
+          <button class="btn ghost" type="button" id="cashCancelBack">Voltar</button>
+          <button class="btn danger" type="submit">Confirmar cancelamento</button>
+        </div>
+      </form>
+    </div>
+  `;
+  const cancelar = () => fecharPopup();
+  document.getElementById("cashCancelClose")?.addEventListener("click", cancelar, { once: true });
+  document.getElementById("cashCancelBack")?.addEventListener("click", cancelar, { once: true });
+  popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) event.preventDefault();
+  });
+  document.getElementById("cashCancelForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const senha = document.getElementById("cashCancelPassword")?.value || "";
+    const motivo = String(document.getElementById("cashCancelReason")?.value || "").trim();
+    const feedback = document.getElementById("cashCancelFeedback");
+    if (!motivo) {
+      if (feedback) feedback.textContent = "Informe o motivo do cancelamento.";
+      return;
+    }
+    const okSenha = await validarSenhaSupabaseUsuarioAtual(senha);
+    if (!okSenha) {
+      if (feedback) feedback.textContent = "Senha não validada. Confira e tente novamente.";
+      focarCampoSenha("cashCancelPassword", true);
+      return;
+    }
+    const resumo = `${tipo} ${formatarMoeda(movimento.valor)} - ${descricaoCaixa(movimento)}`;
+    const agora = new Date().toISOString();
+    caixa[i] = prepararRegistroOnline({
+      ...movimento,
+      status: "cancelado",
+      cancelado: true,
+      canceladoEm: agora,
+      cancelled_at: agora,
+      canceladoPor: syncConfig.supabaseUserId || getUsuarioAtual()?.id || getUsuarioAtual()?.email || "local",
+      motivoCancelamento: motivo || "Cancelamento manual",
+      updated_at: agora,
+      updatedAt: agora
+    });
+    salvarDados();
+    agendarSyncSilenciosoDados("caixa-cancelado");
+    registrarHistorico("Caixa", "Movimento cancelado: " + resumo);
+    registrarAuditoria("caixa_movimento_cancelado", { tipo, valor: movimento.valor, motivo });
+    fecharPopup();
+    renderApp();
+    mostrarToast("Movimento cancelado.", "sucesso", 2600);
+  });
+  setTimeout(() => document.getElementById("cashCancelReason")?.focus(), 80);
 }
 
 function normalizarCalculadoraWidget(widget = {}) {
@@ -23893,7 +25518,7 @@ function calcularTaxaExtraAplicada(custoBase = 0) {
   };
 }
 
-function renderListaPedidosPwa({ podeOperar, filtroDashboard, lista, listaPaginada, pedidoSelecionado, linhas, paginacao }) {
+function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = "", lista, listaPaginada, pedidoSelecionado, filtroAtivo = "todos", listaBaseInicial = pedidos, linhas, paginacao }) {
   const selecionado = pedidoSelecionado || listaPaginada[0] || null;
   const detalhe = selecionado ? renderDetalhePedido(selecionado) : `
     <div class="order-empty-detail">
@@ -23923,8 +25548,9 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, lista, listaPagina
               <input placeholder="Buscar pedido..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
             </label>
           </div>
-          ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost compact-action" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
+        ${(filtroDashboard || filtroCliente) ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroCliente ? escaparHtml(filtroCliente) : filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost compact-action" onclick="window.__pedidosFiltroDashboard=''; window.__pedidosFiltroCliente=''; renderApp()">Ver todos</button></div>` : ""}
           ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
+          ${renderPedidoStatusChips(listaBaseInicial, filtroAtivo)}
           <div class="orders-pwa-list-scroll">${linhas}</div>
           ${paginacao}
         </section>
@@ -24003,7 +25629,6 @@ function renderCalculadoraConteudo() {
         <small>${escaparHtml(perfil.materialNome)} • ${escaparHtml(perfil.camada)} • ${escaparHtml(perfil.bico)}</small>
         <em>${escaparHtml(perfil.ultimoUso)}</em>
       </div>
-      <button class="btn ghost compact-action" type="button" onclick="abrirTrocaPerfilCalculadora()">Trocar perfil</button>
     </section>
 
     ${renderDicaSmartCalculadora(config)}
@@ -24316,9 +25941,7 @@ function aplicarMaterialFrequenteCalculadora() {
   setTimeout(() => agendarCalculoTempoReal(), 80);
 }
 
-function abrirTrocaPerfilCalculadora() {
-  const popup = document.getElementById("popup");
-  if (!popup) return;
+function getPerfisRapidosCalculadora() {
   const recentes = [
     valorFrequenteUso("impressora_usada", "impressora", 40),
     appConfig.defaultPrinterModel,
@@ -24329,29 +25952,46 @@ function abrirTrocaPerfilCalculadora() {
     "TPU lento",
     "Alta qualidade"
   ].filter(Boolean);
-  const unicos = Array.from(new Set(recentes)).slice(0, 8);
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
-      <section class="modal-card calc-profile-modal" onclick="event.stopPropagation()">
-        <div class="modal-header">
-          <h2>Trocar perfil</h2>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+  return Array.from(new Set(recentes)).slice(0, 8);
+}
+
+function renderSeletorPerfilCalculadora() {
+  if (!window.__calcProfilePickerOpen) return "";
+  const unicos = getPerfisRapidosCalculadora();
+  return `
+    <section class="calc-profile-inline" onclick="event.stopPropagation()">
+      <div class="calc-profile-inline-head">
+        <div>
+          <strong>Trocar perfil</strong>
+          <small>Escolha um perfil rápido. Ajustes técnicos ficam na engrenagem.</small>
         </div>
-        <p class="muted">Escolha um perfil rápido. Os parâmetros técnicos continuam ajustáveis em Configurações.</p>
-        <div class="order-more-grid">
-          ${unicos.map((nome) => `
-            <button class="order-more-action secondary" type="button" onclick="aplicarPerfilCalculadora('${escaparAttr(nome)}')">
-              <span class="action-symbol">${renderUiIcon("producao")}</span>
-              <strong>${escaparHtml(nome)}</strong>
-            </button>
-          `).join("")}
-        </div>
-      </section>
-    </div>
+        <button class="icon-button" type="button" onclick="alternarTrocaPerfilCalculadora(event, false)" title="Fechar">×</button>
+      </div>
+      <div class="calc-profile-grid">
+        ${unicos.map((nome) => `
+          <button class="order-more-action secondary" type="button" onclick="aplicarPerfilCalculadora('${escaparAttr(nome)}')">
+            <span class="action-symbol">${renderUiIcon("producao")}</span>
+            <strong>${escaparHtml(nome)}</strong>
+          </button>
+        `).join("")}
+      </div>
+    </section>
   `;
 }
 
+function alternarTrocaPerfilCalculadora(event, valor = undefined) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  window.__calcProfilePickerOpen = typeof valor === "boolean" ? valor : !window.__calcProfilePickerOpen;
+  renderizarPreservandoScroll();
+}
+
+function abrirTrocaPerfilCalculadora() {
+  alternarTrocaPerfilCalculadora(null, true);
+}
+
 function aplicarPerfilCalculadora(nome = "") {
+  window.__calcProfilePickerOpen = false;
   const texto = String(nome || "").trim();
   const printerNome = printers[texto] ? texto
     : texto.toLowerCase().includes("bambu") ? "Bambu A1"
@@ -24376,7 +26016,6 @@ function aplicarPerfilCalculadora(nome = "") {
     if (tpu?.id) appConfig.calculatorDefaults.materialId = tpu.id;
   }
   salvarDados();
-  fecharPopup();
   renderizarPreservandoScroll();
   setTimeout(() => agendarCalculoTempoReal(), 80);
 }
@@ -25096,7 +26735,7 @@ function configurarEventListenersArquitetura() {
     if (!elemento) return;
     const acao = elemento.dataset.action;
 
-    if (["plan-modal-close", "stock-edit-cancel", "calc-material-cancel", "manual-item-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-edit-cancel", "stock-restock-cancel", "calc-material-cancel", "manual-item-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -25195,6 +26834,18 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
+    if (acao === "stock-view") {
+      event.preventDefault();
+      selecionarMaterialEstoque(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "stock-restock") {
+      event.preventDefault();
+      abrirReposicaoEstoque(Number(elemento.dataset.index));
+      return;
+    }
+
     if (acao === "stock-edit") {
       event.preventDefault();
       editarMaterial(Number(elemento.dataset.index));
@@ -25221,8 +26872,30 @@ function dadosPedidoAtual() {
   const email = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
   const observacao = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
   const prazo = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
-  const total = normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  return { cliente, telefone, email, observacao, prazo, total };
+  const subtotal = normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+  const entrada = Math.max(0, numeroMonetarioPedido(document.getElementById("pedidoEntrada")?.value ?? entradaPedido, 0));
+  const resumo = calcularResumoFinanceiroPedido({
+    itens: itensPedido,
+    subtotalItens: subtotal,
+    desconto: valorDescontoPedido(pedidoEditando || {}),
+    down_payment: entrada,
+    total: subtotal
+  });
+  return {
+    cliente,
+    telefone,
+    email,
+    observacao,
+    prazo,
+    subtotal,
+    total: resumo.total,
+    entrada,
+    down_payment: entrada,
+    valor_entrada: entrada,
+    valorRestante: resumo.restante,
+    financial_status: resumo.statusFinanceiro,
+    status_financeiro: resumo.statusFinanceiro
+  };
 }
 
 function contatoSelecionadoValidoParaWhatsapp(pedido = null) {
@@ -25265,9 +26938,16 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
         cliente: clienteDoPedido(pedido),
         observacao: pedido.observacao || pedido.observacoes || "",
         prazo: pedido.prazo || pedido.dataPrazo || "",
-        total: totalPedido(pedido)
+        total: totalPedido(pedido),
+        entrada: valorEntradaPedido(pedido)
       }
     : dadosPedidoAtual();
+  const resumoFinanceiro = calcularResumoFinanceiroPedido(pedido || {
+    itens,
+    subtotalItens: subtotalItensPedido(itens),
+    total: dados.total,
+    down_payment: dados.entrada
+  });
   const linhas = itens.flatMap((item) => {
     const linha = `- ${item.nome} | Qtd: ${item.qtd} | Unit.: ${formatarMoeda(item.valor)} | Total: ${formatarMoeda(item.total)}`;
     return item.observacao ? [linha, `  Obs.: ${item.observacao}`] : [linha];
@@ -25275,13 +26955,21 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
   const extras = [];
   if (dados.prazo) extras.push("Prazo: " + formatarPrazoWhatsapp(dados.prazo));
   if (dados.observacao) extras.push("Observações: " + dados.observacao);
+  const linhasFinanceiras = resumoFinanceiro.entrada > 0
+    ? [
+        "Total do pedido: " + formatarMoeda(resumoFinanceiro.total),
+        "Entrada paga: " + formatarMoeda(resumoFinanceiro.entrada),
+        "Valor restante: " + formatarMoeda(resumoFinanceiro.restante),
+        "Status financeiro: " + labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)
+      ]
+    : ["Total: " + formatarMoeda(resumoFinanceiro.total)];
   return [
     "Orçamento " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
     "Cliente: " + (dados.cliente || "Sem cliente"),
     "",
     ...linhas,
     "",
-    "Total: " + formatarMoeda(dados.total),
+    ...linhasFinanceiras,
     ...extras,
     appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
   ].filter((linha) => linha !== null && linha !== undefined).join("\n");
@@ -25788,7 +27476,16 @@ async function gerarPDF() {
     const resumoItens = itensValidos.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
     const taxaExtraComercial = Math.max(0, Number(pedidoEditando?.taxaExtra || pedidoEditando?.extraFee || 0) || 0);
     const descontoComercial = Math.max(0, Number(pedidoEditando?.desconto || pedidoEditando?.discount || 0) || 0);
-    const totalComercial = Math.max(0, Number(total) || resumoItens + taxaExtraComercial - descontoComercial);
+    const totalComercialBase = Math.max(0, Number(total) || resumoItens + taxaExtraComercial - descontoComercial);
+    const resumoFinanceiroPdf = calcularResumoFinanceiroPedido({
+      itens: itensValidos,
+      subtotalItens: resumoItens,
+      taxaExtra: taxaExtraComercial,
+      desconto: descontoComercial,
+      total: totalComercialBase,
+      down_payment: dados.entrada ?? valorEntradaPedido(pedidoEditando || {})
+    });
+    const totalComercial = resumoFinanceiroPdf.total;
 
     const contextoCabecalho = { largura, altura, margem, tema, empresa, data: agoraPdf, numeroDoc, tipoDoc, marcaPdf };
     desenharFundoComercialPdf(doc, largura, altura, tema);
@@ -25885,7 +27582,8 @@ async function gerarPDF() {
     y += 5;
     const larguraObs = 98;
     const larguraResumo = largura - margem * 2 - larguraObs - 4;
-    desenharCartaoPdf(doc, margem, y, larguraObs, 44, tema);
+    const resumoAltura = resumoFinanceiroPdf.entrada > 0 ? 76 : 44;
+    desenharCartaoPdf(doc, margem, y, larguraObs, resumoAltura, tema);
     setTextPdf(doc, tema.secondary, "#00d8c8");
     setFontePdf(doc, 9, "bold");
     doc.text("OBSERVAÇÕES", margem + 6, y + 8);
@@ -25900,28 +27598,42 @@ async function gerarPDF() {
     textoLimitadoPdf(doc, observacoes || "Sem observações adicionais.", margem + 6, y + 16, larguraObs - 12, 5, 4.2);
 
     const resumoX = margem + larguraObs + 4;
-    desenharCartaoPdf(doc, resumoX, y, larguraResumo, 44, tema);
+    desenharCartaoPdf(doc, resumoX, y, larguraResumo, resumoAltura, tema);
     setTextPdf(doc, tema.text, "#f5fbff");
     setFontePdf(doc, 8);
     const resumoLinhas = [
       ["Subtotal dos itens", resumoItens],
-      ["Taxa extra", taxaExtraComercial],
-      ["Desconto", descontoComercial]
+      ...(taxaExtraComercial > 0 ? [["Taxa extra", taxaExtraComercial]] : []),
+      ...(descontoComercial > 0 ? [["Desconto", descontoComercial]] : [])
     ];
     resumoLinhas.forEach(([label, valor], i) => {
-      doc.text(label, resumoX + 6, y + 8 + i * 8);
-      doc.text(formatarMoeda(valor), resumoX + larguraResumo - 6, y + 8 + i * 8, { align: "right" });
+      doc.text(label, resumoX + 6, y + 8 + i * 7);
+      doc.text(formatarMoeda(valor), resumoX + larguraResumo - 6, y + 8 + i * 7, { align: "right" });
     });
+    const linhaSeparador = y + 12 + resumoLinhas.length * 7;
     setDrawPdf(doc, tema.muted, "#b8c6d4");
-    doc.line(resumoX + 6, y + 28, resumoX + larguraResumo - 6, y + 28);
+    doc.line(resumoX + 6, linhaSeparador, resumoX + larguraResumo - 6, linhaSeparador);
     setTextPdf(doc, tema.secondary, "#00d8c8");
     setFontePdf(doc, 10, "bold");
-    doc.text("TOTAL", resumoX + 6, y + 38);
-    setFontePdf(doc, 18, "bold");
-    doc.text(formatarMoeda(totalComercial), resumoX + larguraResumo - 6, y + 38, { align: "right" });
+    doc.text("TOTAL", resumoX + 6, linhaSeparador + 9);
+    setFontePdf(doc, resumoFinanceiroPdf.entrada > 0 ? 14 : 18, "bold");
+    doc.text(formatarMoeda(totalComercial), resumoX + larguraResumo - 6, linhaSeparador + 9, { align: "right" });
+    if (resumoFinanceiroPdf.entrada > 0) {
+      setTextPdf(doc, tema.text, "#f5fbff");
+      setFontePdf(doc, 8);
+      doc.text("Entrada paga", resumoX + 6, linhaSeparador + 18);
+      doc.text(formatarMoeda(resumoFinanceiroPdf.entrada), resumoX + larguraResumo - 6, linhaSeparador + 18, { align: "right" });
+      doc.text("Valor restante", resumoX + 6, linhaSeparador + 26);
+      doc.text(formatarMoeda(resumoFinanceiroPdf.restante), resumoX + larguraResumo - 6, linhaSeparador + 26, { align: "right" });
+      setTextPdf(doc, tema.secondary, "#00d8c8");
+      setFontePdf(doc, 8, "bold");
+      doc.text("Status financeiro", resumoX + 6, linhaSeparador + 34);
+      doc.text(labelStatusFinanceiroPedido(resumoFinanceiroPdf.statusFinanceiro), resumoX + larguraResumo - 6, linhaSeparador + 34, { align: "right" });
+    }
 
-    y += 52;
-    const payloadPix = gerarPayloadPix(totalComercial, cliente);
+    y += resumoAltura + 8;
+    const valorPix = resumoFinanceiroPdf.entrada > 0 ? resumoFinanceiroPdf.restante : totalComercial;
+    const payloadPix = valorPix > 0 ? gerarPayloadPix(valorPix, cliente) : "";
     if (payloadPix && y <= altura - 58) {
       const qrData = gerarQrPixDataUrl(payloadPix);
       desenharCartaoPdf(doc, margem, y, largura - margem * 2, 44, tema);
@@ -25978,6 +27690,7 @@ async function baixarPdfPedidoSalvo(id) {
     clienteEmailPedido,
     observacaoPedido,
     prazoPedido,
+    entradaPedido,
     pedidoEditando
   };
 
@@ -25988,6 +27701,7 @@ async function baixarPdfPedidoSalvo(id) {
     clienteEmailPedido = emailDoPedido(pedido);
     observacaoPedido = pedido.observacao || pedido.observacoes || "";
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
+    entradaPedido = valorEntradaPedido(pedido);
     pedidoEditando = pedido;
     await gerarPDF();
   } finally {
@@ -25997,6 +27711,7 @@ async function baixarPdfPedidoSalvo(id) {
     clienteEmailPedido = estadoAnterior.clienteEmailPedido;
     observacaoPedido = estadoAnterior.observacaoPedido;
     prazoPedido = estadoAnterior.prazoPedido;
+    entradaPedido = estadoAnterior.entradaPedido;
     pedidoEditando = estadoAnterior.pedidoEditando;
   }
 }
@@ -26021,6 +27736,7 @@ function limparPedidoAtual() {
   clienteEmailPedido = "";
   observacaoPedido = "";
   prazoPedido = "";
+  entradaPedido = 0;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   pedidoEditando = null;
@@ -26541,6 +28257,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();
+  configurarNavegacaoInternaApp();
   processarRotaPublicaLegal();
   processarParametrosAssinaturaUrl();
   processarRetornoOAuthSupabase().then(async (processou) => {
