@@ -13461,7 +13461,7 @@ function renderPedido() {
       </div>
 
       <div class="order-secondary-actions">
-        ${renderAcaoPedidoCompacta("✚", "Manual", "adicionarProdutoManual()")}
+        ${renderAcaoPedidoCompacta("✚", "Manual", "return abrirItemManualPedido(event)")}
         ${renderAcaoPedidoCompacta("🧮", "Calcular", "openCalculatorForOrder()")}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
@@ -23771,7 +23771,7 @@ async function iniciarAdicionarItemPedido() {
     openCalculatorForOrder();
     return;
   }
-  adicionarProdutoManual();
+  abrirItemManualPedido();
 }
 
 function openCalculatorForOrder() {
@@ -24148,15 +24148,38 @@ function removerMaterialProduto(itemIndex, materialIndex) {
   renderizarPreservandoScroll();
 }
 
+function garantirPedidoAbertoParaItemManual() {
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  window.__simplificaUiTabs.pedidoEditor = "itens";
+  if (telaAtual === "pedido") return;
+  telaAnterior = telas.pedidos ? "pedidos" : "dashboard";
+  telaAtual = "pedido";
+  atualizarHistoricoBrowserApp(true);
+  renderApp();
+}
+
+function abrirItemManualPedido(event = null) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  event?.stopImmediatePropagation?.();
+  adicionarProdutoManual();
+  return false;
+}
+
+if (typeof window !== "undefined") {
+  window.abrirItemManualPedido = abrirItemManualPedido;
+}
+
 function adicionarProdutoManual() {
+  garantirPedidoAbertoParaItemManual();
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="manual-item-cancel">
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
       <form class="modal-card" id="manualOrderItemForm">
         <div class="modal-header">
           <h2>Adicionar item manual</h2>
-          <button class="icon-button" type="button" data-action="manual-item-cancel" title="Fechar">✕</button>
+          <button class="icon-button" type="button" data-manual-item-cancel title="Fechar">✕</button>
         </div>
         <p class="muted">Preencha os dados do item. Nada será adicionado sem confirmação.</p>
         <label class="field">
@@ -24182,16 +24205,20 @@ function adicionarProdutoManual() {
           <textarea id="manualItemObs" rows="2" placeholder="Opcional"></textarea>
         </label>
         <div class="actions">
-          <button class="btn ghost" type="button" data-action="manual-item-cancel">Cancelar</button>
+          <button class="btn ghost" type="button" data-manual-item-cancel>Cancelar</button>
           <button class="btn" type="submit">Adicionar item</button>
         </div>
       </form>
     </div>
   `;
   const cancelar = () => fecharPopup();
-  popup.querySelectorAll("[data-action='manual-item-cancel']").forEach((el) => el.addEventListener("click", cancelar, { once: true }));
+  popup.querySelectorAll("[data-manual-item-cancel]").forEach((el) => el.addEventListener("click", cancelar, { once: true }));
+  popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) cancelar();
+  });
   document.getElementById("manualOrderItemForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    event.stopPropagation();
     let qtd = 1;
     let valor = 0;
     let tempo = 0;
@@ -24214,7 +24241,11 @@ function adicionarProdutoManual() {
       materiais: []
     };
     fecharPopup();
-    await addCalculatedItemToOrder(item);
+    const adicionado = await addCalculatedItemToOrder(item);
+    if (adicionado) {
+      window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+      window.__simplificaUiTabs.pedidoEditor = "itens";
+    }
   }, { once: true });
   setTimeout(() => document.getElementById("manualItemNome")?.focus(), 80);
 }
@@ -26736,7 +26767,7 @@ function configurarEventListenersArquitetura() {
     if (!elemento) return;
     const acao = elemento.dataset.action;
 
-    if (["plan-modal-close", "stock-edit-cancel", "stock-restock-cancel", "calc-material-cancel", "manual-item-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-edit-cancel", "stock-restock-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
