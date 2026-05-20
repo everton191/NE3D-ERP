@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.2";
-const APP_VERSION_CODE = 96;
+const APP_VERSION = "51.1.3";
+const APP_VERSION_CODE = 97;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -25785,13 +25785,17 @@ function valorExibidoTaxaExtraCalculadora(estado = getEstadoTaxaExtraCalculadora
   return estado.modo === "manual" ? estado.value : estado.percent;
 }
 
-function atualizarVisualTaxaExtraCalculadora() {
+function atualizarVisualTaxaExtraCalculadora(opcoes = {}) {
   const estado = getEstadoTaxaExtraCalculadora();
   const campo = document.getElementById("taxaExtra");
   const unidade = document.getElementById("taxaExtraUnit");
   if (campo) {
-    campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2) : "";
+    const preservarDigitacao = opcoes.preservarDigitacao === true || (estado.modo === "manual" && document.activeElement === campo);
+    if (!preservarDigitacao) {
+      campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2) : "";
+    }
     campo.readOnly = estado.modo !== "manual";
+    campo.classList.toggle("is-manual-fee", estado.modo === "manual");
   }
   if (unidade) unidade.textContent = estado.modo === "manual" ? "R$" : "%";
   document.querySelectorAll("[data-extra-fee-mode]").forEach((botao) => {
@@ -25814,7 +25818,13 @@ function selecionarTaxaExtraManual() {
   appConfig.calcExtraFeeValue = Math.max(0, Number(appConfig.calcExtraFeeValue) || Number(appConfig.defaultExtraFee) || 0);
   salvarDados();
   atualizarVisualTaxaExtraCalculadora();
-  document.getElementById("taxaExtra")?.focus();
+  setTimeout(() => {
+    const campo = document.getElementById("taxaExtra");
+    if (!campo) return;
+    campo.readOnly = false;
+    campo.focus();
+    campo.select?.();
+  }, 30);
   agendarCalculoTempoReal();
 }
 
@@ -25822,7 +25832,7 @@ function atualizarTaxaExtraManual() {
   appConfig.calcExtraFeeMode = "manual";
   appConfig.calcExtraFeeValue = numeroCalculadora(document.getElementById("taxaExtra")?.value, 0, 0);
   salvarDados();
-  atualizarVisualTaxaExtraCalculadora();
+  atualizarVisualTaxaExtraCalculadora({ preservarDigitacao: true });
   agendarCalculoTempoReal();
 }
 
@@ -25985,7 +25995,7 @@ function renderCalculadoraConteudo() {
         </label>
         <label class="field calc-field-card">
           <span>Material</span>
-          <select id="calcMaterial" onchange="alterarMaterialCalculadora(this.value);agendarCalculoTempoReal()"></select>
+          <select id="calcMaterial" class="calc-material-select" onchange="alterarMaterialCalculadora(this.value);agendarCalculoTempoReal()"></select>
         </label>
         <label class="field calc-field-card wide">
           <span>Taxa extra</span>

@@ -6797,6 +6797,30 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
   font-size:20px;
 }
 
+.calc-field-card select,
+.calc-material-select{
+  color:var(--color-text-primary);
+  background:color-mix(in srgb, var(--color-input) 92%, transparent);
+}
+
+.calc-field-card select option,
+.calc-material-select option{
+  color:var(--color-text-primary);
+  background:var(--color-input);
+}
+
+body:not(.theme-light) .calc-field-card select,
+body:not(.theme-light) .calc-material-select,
+body:not(.theme-light) .calc-field-card select option,
+body:not(.theme-light) .calc-material-select option,
+body.theme-light .calc-field-card select,
+body.theme-light .calc-material-select,
+body.theme-light .calc-field-card select option,
+body.theme-light .calc-material-select option{
+  color:var(--color-text-primary);
+  background:var(--color-input);
+}
+
 .calc-field-card i{
   position:absolute;
   right:14px;
