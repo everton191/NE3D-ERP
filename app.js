@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.0.42";
-const APP_VERSION_CODE = 93;
+const APP_VERSION = "51.1.2";
+const APP_VERSION_CODE = 96;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -14,6 +14,7 @@ const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d-everton191s-projects.vercel.app");
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
+const SUPABASE_REQUEST_TIMEOUT_MS = 25000;
 const SUPPORT_EMAIL = "simplifica3d.app@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
 const SUPERADMIN_BOOTSTRAP_HASH = "pbkdf2$120000$7IdXWxbOcEGHYrhsgKxbwQ==$zi+SJZy2LcZmhy0NiWxjIZ43/A9GJZiW0B5/hDSIwJg=";
@@ -509,6 +510,7 @@ let appConfig = carregarObjeto("appConfig", {
     custom_pdf_enabled: false
   },
   compactMode: false,
+  interfaceDensity: "default",
   motionLevel: "medium",
   showBrandInHeader: true,
   defaultMargin: 100,
@@ -4521,6 +4523,29 @@ function nomeTipoDispositivo(tipo) {
   return tipo === "mobile" ? "celular Android" : "Windows/navegador";
 }
 
+function getPlatformAdapter() {
+  const capacitor = window.Capacitor || null;
+  const platform = String(capacitor?.getPlatform?.() || (isAndroid() ? "android-web" : "web")).toLowerCase();
+  const isAPK = isAndroidNativeApp();
+  const isPWA = !isAPK;
+  return {
+    id: isAPK ? "android_apk" : "web_pwa",
+    platform,
+    isPWA,
+    isAndroid: isAndroid(),
+    isAPK,
+    supportsLocalAI: isAPK && !!window.Capacitor?.Plugins?.SimplificaFiles,
+    supportsInstallPrompt: isPWA,
+    supportsServiceWorker: isPWA && "serviceWorker" in navigator && location.protocol !== "file:",
+    safeAreaInsets: {
+      top: "env(safe-area-inset-top)",
+      right: "env(safe-area-inset-right)",
+      bottom: "env(safe-area-inset-bottom)",
+      left: "env(safe-area-inset-left)"
+    }
+  };
+}
+
 function getLimitesDispositivos() {
   const limitePlano = getSessionLimitPlano();
   const limites = billingConfig.deviceLimits && typeof billingConfig.deviceLimits === "object" ? billingConfig.deviceLimits : {};
@@ -5807,10 +5832,14 @@ const CustomerSuggestionManager = {
     return this.rankSuggestions(coletarClientesAppParaSugestao(), query);
   },
   async searchPhoneContacts(query) {
-    if (!isAndroidNativeApp() || normalizarSugestaoClienteTexto(query).length < 2) return [];
     const plugin = getAIPlugin();
     if (!plugin?.searchPhoneContacts) return [];
-    const result = await plugin.searchPhoneContacts({ query, limit: 8 });
+    if (normalizarSugestaoClienteTexto(query).length < 2 && normalizarTelefoneBusca(query).length < 2) return [];
+    const result = await promiseComTimeout(
+      plugin.searchPhoneContacts({ query, limit: 8 }),
+      14000,
+      "Busca de contatos demorou demais."
+    );
     if (result?.granted === false) {
       customerSuggestionState.phoneContactsEnabled = false;
       mostrarToast("Permissão de contatos negada. Vou usar apenas clientes cadastrados.", "aviso", 4200);
@@ -7083,6 +7112,11 @@ function aplicarPersonalizacao() {
   const usarClaro = temaClaro || temaAuto;
   const cor = appConfig.accentColor || "#073b4b";
   const escala = calcularEscalaInterface();
+  const densidade = appConfig.interfaceDensity || (appConfig.compactMode ? "compact" : "default");
+  const densityScale = densidade === "compact" ? 0.88 : densidade === "comfortable" ? 1.12 : 1;
+  const spacingScale = Math.min(1.2, Math.max(0.82, escala * densityScale));
+  const componentScale = Math.min(1.16, Math.max(0.82, escala));
+  const platformAdapter = getPlatformAdapter();
   const largura = window.innerWidth || 1024;
   const cardMinManual = Math.min(560, Math.max(220, Number(appConfig.desktopCardMinWidth) || 320));
   const cardMinAuto = largura < 900 ? 260 : largura < 1200 ? 280 : largura < 1500 ? 300 : 320;
@@ -7124,10 +7158,53 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--card-border", "var(--glass-border)");
   root.style.setProperty("--shadow", usarClaro ? "0 14px 30px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9)" : "0 16px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05)");
   root.style.setProperty("--shadow-soft", usarClaro ? "0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.85)" : "0 9px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--color-background", usarClaro ? "#eef4f7" : "#071018");
+  root.style.setProperty("--color-background-secondary", usarClaro ? "#f8fafc" : "#101923");
+  root.style.setProperty("--color-surface", usarClaro ? "#ffffff" : "#121923");
+  root.style.setProperty("--color-card", usarClaro ? "#ffffff" : "#121923");
+  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(255,255,255,.92)" : "rgba(20,31,42,.82)");
+  root.style.setProperty("--color-modal", usarClaro ? "rgba(255,255,255,.98)" : "rgba(20,31,42,.96)");
+  root.style.setProperty("--color-input", usarClaro ? "#ffffff" : "#111419");
+  root.style.setProperty("--color-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
+  root.style.setProperty("--color-divider", usarClaro ? "rgba(15,23,42,.10)" : "rgba(255,255,255,.10)");
+  root.style.setProperty("--color-primary", cor);
+  root.style.setProperty("--color-primary-hover", usarClaro ? "#0f766e" : "#12b8b2");
+  root.style.setProperty("--color-secondary", usarClaro ? "#2563eb" : "#087b83");
+  root.style.setProperty("--color-accent", usarClaro ? "#f59e0b" : "#ff941c");
+  root.style.setProperty("--color-danger", usarClaro ? "#dc2626" : "#ff5252");
+  root.style.setProperty("--color-warning", usarClaro ? "#d97706" : "#ffab00");
+  root.style.setProperty("--color-success", usarClaro ? "#15803d" : "#45e08f");
+  root.style.setProperty("--color-info", usarClaro ? "#0284c7" : "#38bdf8");
+  root.style.setProperty("--color-text-primary", usarClaro ? "#111827" : "#f5f7fb");
+  root.style.setProperty("--color-text-secondary", usarClaro ? "#334155" : "#dbe7ef");
+  root.style.setProperty("--color-text-muted", usarClaro ? "#5f6b7a" : "#a9b1bd");
+  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(71,85,105,.58)" : "rgba(179,187,200,.58)");
+  root.style.setProperty("--color-icon-primary", usarClaro ? "#0f172a" : "#c9fffb");
+  root.style.setProperty("--color-icon-secondary", usarClaro ? "#475569" : "#b8c6d2");
+  root.style.setProperty("--color-navbar", usarClaro ? "rgba(255,255,255,.90)" : "rgba(7,13,20,.82)");
+  root.style.setProperty("--color-bottom-navigation", usarClaro ? "rgba(255,255,255,.92)" : "rgba(7,13,20,.78)");
+  root.style.setProperty("--color-overlay", usarClaro ? "rgba(15,23,42,.32)" : "rgba(2,6,12,.66)");
+  root.style.setProperty("--color-backdrop", usarClaro ? "rgba(15,23,42,.24)" : "rgba(2,6,12,.56)");
+  root.style.setProperty("--effect-shadow-sm", usarClaro ? "0 6px 16px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.86)" : "0 8px 18px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--effect-shadow-md", "var(--shadow-soft)");
+  root.style.setProperty("--effect-shadow-lg", "var(--shadow)");
+  root.style.setProperty("--effect-shadow-xl", usarClaro ? "0 28px 70px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.92)" : "0 26px 72px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06)");
+  root.style.setProperty("--effect-glow-primary", usarClaro ? "0 0 0 1px rgba(13,148,136,.14), 0 14px 28px rgba(13,148,136,.08)" : "0 0 0 1px rgba(13,189,184,.16), 0 16px 36px rgba(13,189,184,.16)");
+  root.style.setProperty("--effect-glow-accent", usarClaro ? "0 0 0 1px rgba(245,158,11,.14), 0 14px 28px rgba(245,158,11,.08)" : "0 0 0 1px rgba(255,148,28,.16), 0 16px 36px rgba(255,148,28,.12)");
+  root.style.setProperty("--chart-line", usarClaro ? "#0f766e" : "#14d6c6");
+  root.style.setProperty("--chart-fill", usarClaro ? "rgba(13,148,136,.13)" : "rgba(20,214,198,.18)");
+  root.style.setProperty("--chart-grid", usarClaro ? "rgba(15,23,42,.10)" : "rgba(148,163,184,.14)");
+  root.style.setProperty("--chart-axis", usarClaro ? "#64748b" : "rgba(203,213,225,.76)");
+  root.style.setProperty("--chart-tooltip-bg", usarClaro ? "rgba(255,255,255,.98)" : "rgba(8,13,20,.94)");
+  root.style.setProperty("--chart-tooltip-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--app-body-background", usarClaro
     ? "radial-gradient(circle at 18% 0%, rgba(13,189,184,.12), transparent 34%), radial-gradient(circle at 88% 12%, rgba(37,99,235,.08), transparent 30%), linear-gradient(180deg, #f8fafc 0%, #eef4f7 48%, #e7eef3 100%)"
     : "radial-gradient(circle at 18% 0%, rgba(13,189,184,.16), transparent 33%), radial-gradient(circle at 88% 12%, rgba(255,148,28,.10), transparent 30%), linear-gradient(180deg, #0b1620 0%, var(--bg) 46%, #050a0f 100%)");
   root.style.setProperty("--ui-scale", escala.toFixed(2));
+  root.style.setProperty("--font-scale", escala.toFixed(2));
+  root.style.setProperty("--spacing-scale", spacingScale.toFixed(2));
+  root.style.setProperty("--component-scale", componentScale.toFixed(2));
+  root.style.setProperty("--density-scale", densityScale.toFixed(2));
   root.style.setProperty("--base-font-size", `${Math.max(11, Math.round(15 * escala))}px`);
   root.style.setProperty("--font-xs", `${Math.max(8, Math.round(12 * escala))}px`);
   root.style.setProperty("--font-sm", `${Math.max(9, Math.round(13 * escala))}px`);
@@ -7150,10 +7227,20 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--desktop-card-min", `${cardMin}px`);
   root.style.setProperty("--desktop-max-width", `${maxWidth}px`);
   root.style.setProperty("--desktop-sidebar-width", `${Math.round(230 * Math.min(1.05, Math.max(0.92, escala)))}px`);
+  root.style.setProperty("--safe-area-inset-top", platformAdapter.safeAreaInsets.top);
+  root.style.setProperty("--safe-area-inset-right", platformAdapter.safeAreaInsets.right);
+  root.style.setProperty("--safe-area-inset-bottom", platformAdapter.safeAreaInsets.bottom);
+  root.style.setProperty("--safe-area-inset-left", platformAdapter.safeAreaInsets.left);
   root.style.setProperty("--login-background-image", appConfig.loginBackgroundDataUrl ? `url("${String(appConfig.loginBackgroundDataUrl).replace(/"/g, "%22")}")` : "none");
 
-  const uiProfile = getUiProfile();
+  const uiProfile = platformAdapter.id;
   document.body.dataset.uiProfile = uiProfile;
+  document.body.dataset.platform = platformAdapter.isAPK ? "apk" : "pwa";
+  document.body.dataset.os = platformAdapter.isAndroid ? "android" : "web";
+  document.body.dataset.density = densidade;
+  document.body.dataset.supportsLocalAi = platformAdapter.supportsLocalAI ? "true" : "false";
+  document.body.dataset.supportsInstallPrompt = platformAdapter.supportsInstallPrompt ? "true" : "false";
+  document.body.dataset.supportsServiceWorker = platformAdapter.supportsServiceWorker ? "true" : "false";
   document.body.classList.toggle("web-pwa-ui", uiProfile === "web_pwa");
   document.body.classList.toggle("android-apk-ui", uiProfile === "android_apk");
   document.body.classList.toggle("compact-mode", !!appConfig.compactMode);
@@ -7513,7 +7600,7 @@ function renderDesktop() {
   return `
     <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
-      <main class="desktop-main">
+      <main class="desktop-main app-content">
         ${renderDesktopConteudo()}
       </main>
     </div>
@@ -7522,22 +7609,22 @@ function renderDesktop() {
 
 function renderDesktopConteudo() {
   if (!canAccessScreen(telaAtual)) {
-    return `<div class="desktop-focus">${renderAcessoNegado()}</div>`;
+    return `<div class="desktop-focus app-page">${renderAcessoNegado()}</div>`;
   }
 
   if (getUsuarioAtual()?.mustChangePassword && telaAtual !== "seguranca") {
-    return `<div class="desktop-focus">${renderTrocaSenhaObrigatoria()}</div>`;
+    return `<div class="desktop-focus app-page">${renderTrocaSenhaObrigatoria()}</div>`;
   }
 
   const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
-    return `<div class="desktop-focus">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
+    return `<div class="desktop-focus app-page">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
   }
 
   if (telaAtual !== "dashboard") {
-    return `<div class="desktop-focus desktop-page-${escaparAttr(telaAtual)}">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
+    return `<div class="desktop-focus app-page desktop-page-${escaparAttr(telaAtual)}">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
   }
 
   return `${atualizacaoAndroid}${renderDashboard()}`;
@@ -11205,7 +11292,7 @@ function renderMobile() {
 
   if (getUsuarioAtual()?.mustChangePassword) {
     return `
-      <div class="mobile-home password-required-mobile">
+      <div class="mobile-home app-page password-required-mobile">
         ${renderTrocaSenhaObrigatoria()}
       </div>
     `;
@@ -11216,7 +11303,7 @@ function renderMobile() {
 
   return `
     ${renderDrawerGestureRail()}
-    <div class="mobile-home">
+    <div class="mobile-home app-page">
       ${renderAtualizacaoAndroidDownload()}
       ${home}
     </div>
@@ -11250,7 +11337,7 @@ function renderMobileBottomNav() {
   const itens = getMobileBottomNavItems();
   if (!itens.length || !getUsuarioAtual()) return "";
   return `
-    <nav class="mobile-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
+    <nav class="mobile-bottom-nav app-bottom-navigation" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
         <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="navegarMenuPrincipal('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
           <span>${renderUiIcon(item.tela, item.icone)}</span>
@@ -11265,7 +11352,7 @@ function renderPainelMobile(tela) {
   if (tela === "calculadora") {
     return `
       <section class="mobile-panel mobile-panel-calculator" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
-        <div class="mobile-panel-content calculator-panel-content">
+        <div class="mobile-panel-content app-content calculator-panel-content">
           ${renderTela(tela)}
         </div>
       </section>
@@ -11274,12 +11361,12 @@ function renderPainelMobile(tela) {
   const classePainel = tela === "pedido" ? " mobile-panel-order" : "";
   return `
     <section class="mobile-panel${classePainel}" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
-      <div class="mobile-panel-bar">
+      <div class="mobile-panel-bar app-header">
         <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
         ${tela === "mais" ? `<span class="mobile-panel-spacer" aria-hidden="true"></span>` : `<button class="icon-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>`}
       </div>
-      <div class="mobile-panel-content">
+      <div class="mobile-panel-content app-content">
         ${renderTela(tela)}
       </div>
     </section>
@@ -13445,6 +13532,7 @@ function renderPedido() {
         <p class="order-finance-warning" data-order-down-payment-warning ${resumoFinanceiro.entradaMaiorQueTotal ? "" : "hidden"}>A entrada é maior que o total do pedido</p>
         <div class="order-secondary-actions">
           ${itensPedido.length ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
+          ${itensPedido.length ? renderAcaoPedidoCompacta("⎙", "Imprimir", "imprimirPedidoAtual()") : ""}
           ${itensPedido.length ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
         </div>
       </section>` : ""}
@@ -13464,6 +13552,7 @@ function renderPedido() {
         ${renderAcaoPedidoCompacta("✚", "Manual", "return abrirItemManualPedido(event)")}
         ${renderAcaoPedidoCompacta("🧮", "Calcular", "openCalculatorForOrder()")}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
+        ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("⎙", "Imprimir", "imprimirPedidoAtual()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
       </div>
     </section>
@@ -14047,7 +14136,7 @@ function renderDetalhePedido(pedido) {
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
-        ${renderAcaoPedidoCompacta("⎙", "Imprimir", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
       ${cancelado ? `
@@ -14092,6 +14181,7 @@ async function abrirMaisOpcoesPedido(id) {
       { id: "editar", label: "Editar pedido", classe: "secondary", icone: "✎" },
       { id: "whatsapp", label: "Enviar WhatsApp", classe: "ghost", icone: "☘" },
       { id: "pdf", label: "Gerar PDF", classe: "ghost", icone: "▣" },
+      { id: "imprimir", label: "Imprimir", classe: "ghost", icone: "⎙" },
       { id: "excluir", label: "Cancelar pedido", classe: "danger", icone: "🗑" }
     ]
   });
@@ -14099,6 +14189,7 @@ async function abrirMaisOpcoesPedido(id) {
   if (escolha === "editar") editarPedido(id);
   if (escolha === "whatsapp") enviarWhatsPedidoSalvo(id);
   if (escolha === "pdf") baixarPdfPedidoSalvo(id);
+  if (escolha === "imprimir") imprimirPedidoSalvo(id);
   if (escolha === "excluir") removerPedido(id);
 }
 
@@ -14765,6 +14856,8 @@ async function editarClienteSaas(id) {
   if (!isSuperAdmin()) return;
   const cliente = getClienteSaasPorId(id);
   if (!cliente) return;
+  const nomeAnterior = cliente.name;
+  const telefoneAnterior = cliente.phone || "";
   const nome = await solicitarEntradaTexto({
     titulo: "Editar cliente",
     mensagem: "Nome da empresa",
@@ -14778,12 +14871,45 @@ async function editarClienteSaas(id) {
     valor: cliente.phone || "",
     tipo: "tel"
   });
-  cliente.name = nome.trim() || cliente.name;
-  cliente.phone = telefone === null ? cliente.phone : (normalizePhoneBR(telefone) || telefone.trim());
-  cliente.updatedAt = new Date().toISOString();
-  salvarDados();
-  registrarAuditoria("cliente editado", { email: cliente.email }, cliente.id);
-  renderApp();
+  const nomeAtualizado = nome.trim() || cliente.name;
+  const telefoneAtualizado = telefone === null ? cliente.phone : (normalizePhoneBR(telefone) || telefone.trim());
+  const mudou = nomeAtualizado !== nomeAnterior || telefoneAtualizado !== telefoneAnterior;
+  if (!mudou) return;
+  const toast = mostrarToast("Salvando...", "loading");
+  try {
+    if (podeSalvarAdminSupabaseRemoto()) {
+      await atualizarClienteSaasSupabaseParcial(id, {
+        name: nomeAtualizado,
+        responsible_name: nomeAtualizado,
+        nome_responsavel: nomeAtualizado,
+        phone: telefoneAtualizado || null
+      });
+      await atualizarDadosPerfisClienteSupabase(id, {
+        name: nomeAtualizado,
+        phone: telefoneAtualizado || null
+      });
+    }
+    cliente.name = nomeAtualizado;
+    cliente.responsibleName = nomeAtualizado;
+    cliente.phone = telefoneAtualizado;
+    cliente.updatedAt = new Date().toISOString();
+    getUsuariosDoCliente(id).forEach((usuario) => {
+      const nomeUsuarioIgualAnterior = normalizarSugestaoClienteTexto(usuario.nome) === normalizarSugestaoClienteTexto(nomeAnterior);
+      const telefoneUsuarioIgualAnterior = normalizarTelefoneWhatsapp(usuario.phone) === normalizarTelefoneWhatsapp(telefoneAnterior);
+      if (!usuario.nome || nomeUsuarioIgualAnterior) usuario.nome = nomeAtualizado;
+      if (!usuario.phone || telefoneUsuarioIgualAnterior) usuario.phone = telefoneAtualizado || "";
+      usuario.atualizadoEm = cliente.updatedAt;
+    });
+    salvarDados();
+    registrarAuditoria("cliente editado", { email: cliente.email, remoto: podeSalvarAdminSupabaseRemoto() }, cliente.id);
+    mostrarToast(podeSalvarAdminSupabaseRemoto() ? "Usuário atualizado." : "Usuário salvo neste aparelho.", "sucesso", 3600);
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Erro ao editar cliente", erro.message);
+    mostrarToast(`Falha ao salvar usuário: ${erro.message}`, "erro", 6500);
+  } finally {
+    toast?.remove?.();
+    renderApp();
+  }
 }
 
 function pareceUuid(valor = "") {
@@ -14908,6 +15034,32 @@ async function atualizarStatusPerfisClienteSupabase(id, status) {
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ status: statusPerfil, updated_at: new Date().toISOString() })
     }).catch((erro) => registrarDiagnostico("Supabase", "Status erp_profiles não atualizado", erro.message))
+  ]);
+  return { ok: true };
+}
+
+async function atualizarDadosPerfisClienteSupabase(id, payload = {}) {
+  if (!podeSalvarAdminSupabaseRemoto()) return { ok: false, skipped: true, reason: "NO_SUPABASE_SESSION" };
+  const atualizadoEm = new Date().toISOString();
+  await Promise.all([
+    requisicaoSupabase(`/rest/v1/profiles?client_id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        ...(payload.name ? { name: payload.name } : {}),
+        ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+        updated_at: atualizadoEm
+      })
+    }).catch((erro) => registrarDiagnostico("Supabase", "Dados profiles não atualizados", erro.message)),
+    requisicaoSupabase(`/rest/v1/erp_profiles?client_id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        ...(payload.name ? { display_name: payload.name } : {}),
+        ...(payload.phone !== undefined ? { phone: payload.phone } : {}),
+        updated_at: atualizadoEm
+      })
+    }).catch((erro) => registrarDiagnostico("Supabase", "Dados erp_profiles não atualizados", erro.message))
   ]);
   return { ok: true };
 }
@@ -16105,12 +16257,76 @@ function trocarUiTab(group, tab) {
   renderizarPreservandoScroll();
 }
 
+function appClasseBase(base = "", variantes = []) {
+  const classes = [base];
+  (Array.isArray(variantes) ? variantes : [variantes]).forEach((item) => {
+    const valor = String(item || "").trim();
+    if (valor) classes.push(valor);
+  });
+  return classes.join(" ");
+}
+
+function renderAppButton({ label = "", icon = "", variant = "primary", action = "", type = "button", extraClass = "", attrs = "" } = {}) {
+  const classes = appClasseBase(`btn app-button ${variant || "primary"}`, extraClass);
+  const onclick = action ? ` onclick="${action}"` : "";
+  return `<button class="${classes}" type="${escaparAttr(type)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
+}
+
+function renderAppBadge(label = "", variant = "neutral", extraClass = "") {
+  return `<span class="${appClasseBase(`status-badge app-badge ${variant || "neutral"}`, extraClass)}">${escaparHtml(label)}</span>`;
+}
+
+function renderAppEmptyState({ title = "Nada por aqui", description = "", action = "" } = {}) {
+  return `
+    <div class="app-empty-state">
+      <strong>${escaparHtml(title)}</strong>
+      ${description ? `<span>${escaparHtml(description)}</span>` : ""}
+      ${action || ""}
+    </div>
+  `;
+}
+
+function renderAppLoadingState(label = "Carregando...") {
+  return `<div class="app-loading-state"><span class="sync-spinner" aria-hidden="true"></span><strong>${escaparHtml(label)}</strong></div>`;
+}
+
+function renderAppErrorState({ title = "Não foi possível carregar", description = "", retryAction = "" } = {}) {
+  return `
+    <div class="app-error-state">
+      <strong>${escaparHtml(title)}</strong>
+      ${description ? `<span>${escaparHtml(description)}</span>` : ""}
+      ${retryAction ? renderAppButton({ label: "Tentar novamente", variant: "secondary", action: retryAction }) : ""}
+    </div>
+  `;
+}
+
+function renderAppPage({ title = "", subtitle = "", content = "", actions = "", extraClass = "" } = {}) {
+  return `
+    <section class="${appClasseBase("app-page organized-page", extraClass)}">
+      ${title ? renderAppHeader({ title, subtitle, actions }) : ""}
+      ${content}
+    </section>
+  `;
+}
+
+function renderAppHeader({ title = "", subtitle = "", actions = "" } = {}) {
+  return `
+    <header class="app-header card-header">
+      <div>
+        <h2>${escaparHtml(title)}</h2>
+        ${subtitle ? `<p class="muted">${escaparHtml(subtitle)}</p>` : ""}
+      </div>
+      ${actions ? `<div class="app-header-actions">${actions}</div>` : ""}
+    </header>
+  `;
+}
+
 function renderUiTabs(group, tabs = [], active = "") {
   const activeTab = active || tabs[0]?.id || "";
   return `
-    <div class="ui-tabs" role="tablist" aria-label="${escaparAttr(group)}">
+    <div class="ui-tabs app-tabs" role="tablist" aria-label="${escaparAttr(group)}">
       ${tabs.map((tab) => `
-        <button class="ui-tab ${activeTab === tab.id ? "active" : ""}" type="button" role="tab" aria-selected="${activeTab === tab.id}" onclick="trocarUiTab('${escaparAttr(group)}','${escaparAttr(tab.id)}')">
+        <button class="ui-tab app-tab ${activeTab === tab.id ? "active" : ""}" type="button" role="tab" aria-selected="${activeTab === tab.id}" onclick="trocarUiTab('${escaparAttr(group)}','${escaparAttr(tab.id)}')">
           ${tab.icon ? `<span aria-hidden="true">${tab.icon}</span>` : ""}
           <span>${escaparHtml(tab.label)}</span>
         </button>
@@ -16121,7 +16337,7 @@ function renderUiTabs(group, tabs = [], active = "") {
 
 function renderUiSection({ id = "", title = "", subtitle = "", icon = "", content = "", open = false, group = "" } = {}) {
   return `
-    <details class="ui-section" data-ui-section="${escaparAttr(id)}" data-accordion-group="${escaparAttr(group)}" ${open ? "open" : ""} ontoggle="sincronizarAcordeaoUi(this)">
+    <details class="ui-section app-section" data-ui-section="${escaparAttr(id)}" data-accordion-group="${escaparAttr(group)}" ${open ? "open" : ""} ontoggle="sincronizarAcordeaoUi(this)">
       <summary>
         <span class="ui-section-icon" aria-hidden="true">${icon || "▦"}</span>
         <span class="ui-section-title">
@@ -16132,6 +16348,32 @@ function renderUiSection({ id = "", title = "", subtitle = "", icon = "", conten
       </summary>
       <div class="ui-section-body">${content}</div>
     </details>
+  `;
+}
+
+function renderAppSection(options = {}) {
+  return renderUiSection(options);
+}
+
+function renderAppModal({ title = "", content = "", actions = "", size = "medium", extraClass = "" } = {}) {
+  return `
+    <div class="modal-backdrop app-modal-backdrop" role="dialog" aria-modal="true">
+      <section class="${appClasseBase(`modal-card app-modal app-modal-${size}`, extraClass)}" onclick="event.stopPropagation()">
+        ${title ? renderAppHeader({ title }) : ""}
+        <div class="app-modal-content">${content}</div>
+        ${actions ? `<footer class="actions app-modal-actions">${actions}</footer>` : ""}
+      </section>
+    </div>
+  `;
+}
+
+function renderAppFormGroup({ label = "", id = "", type = "text", value = "", placeholder = "", error = "", attrs = "" } = {}) {
+  return `
+    <label class="field app-form-group">
+      <span>${escaparHtml(label)}</span>
+      <input id="${escaparAttr(id)}" class="app-input ${error ? "error" : ""}" type="${escaparAttr(type)}" value="${escaparAttr(value)}" placeholder="${escaparAttr(placeholder)}" ${error ? "aria-invalid=\"true\"" : ""} ${attrs}>
+      ${error ? `<small class="app-field-error">${escaparHtml(error)}</small>` : ""}
+    </label>
   `;
 }
 
@@ -18042,6 +18284,14 @@ function renderAparenciaConfig() {
             <label class="checkbox-row"><input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}><span>Compactar interface</span></label>
             <label class="checkbox-row"><input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}><span>Mostrar nome do app no topo</span></label>
             <label class="field">
+              <span>Densidade visual</span>
+              <select id="interfaceDensityConfig">
+                <option value="default" ${!["compact", "comfortable"].includes(appConfig.interfaceDensity) ? "selected" : ""}>Padrão</option>
+                <option value="compact" ${appConfig.interfaceDensity === "compact" ? "selected" : ""}>Compacta</option>
+                <option value="comfortable" ${appConfig.interfaceDensity === "comfortable" ? "selected" : ""}>Confortável</option>
+              </select>
+            </label>
+            <label class="field">
               <span>Ajuste da interface</span>
               <select id="screenFitConfig">
                 <option value="auto" ${appConfig.screenFit !== "manual" ? "selected" : ""}>Automático</option>
@@ -18199,6 +18449,14 @@ function renderPersonalizacao() {
           <div class="sync-grid">
             <label class="checkbox-row"><input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}><span>Compactar interface</span></label>
             <label class="checkbox-row"><input id="showBrandInHeaderConfig" type="checkbox" ${appConfig.showBrandInHeader ? "checked" : ""}><span>Mostrar nome do app no topo</span></label>
+            <label class="field">
+              <span>Densidade visual</span>
+              <select id="interfaceDensityConfig">
+                <option value="default" ${!["compact", "comfortable"].includes(appConfig.interfaceDensity) ? "selected" : ""}>Padrão</option>
+                <option value="compact" ${appConfig.interfaceDensity === "compact" ? "selected" : ""}>Compacta</option>
+                <option value="comfortable" ${appConfig.interfaceDensity === "comfortable" ? "selected" : ""}>Confortável</option>
+              </select>
+            </label>
             <label class="field">
               <span>Ajuste da interface</span>
               <select id="screenFitConfig">
@@ -19768,6 +20026,9 @@ function lerPersonalizacaoCampos() {
       custom_pdf_enabled: acessoMarca
     }),
     compactMode: marcado("compactModeConfig", !!appConfig.compactMode),
+    interfaceDensity: ["compact", "comfortable"].includes(texto("interfaceDensityConfig", appConfig.interfaceDensity || "default"))
+      ? texto("interfaceDensityConfig", appConfig.interfaceDensity || "default")
+      : "default",
     smartSuggestionsEnabled: marcado("smartSuggestionsEnabledConfig", appConfig.smartSuggestionsEnabled !== false),
     showBrandInHeader: marcado("showBrandInHeaderConfig", !!appConfig.showBrandInHeader),
     defaultMargin: numero("defaultMarginConfig", appConfig.defaultMargin || 100, { min: 0 }),
@@ -20292,6 +20553,7 @@ function restaurarPersonalizacaoPadrao() {
     }),
     motionLevel: "medium",
     compactMode: false,
+    interfaceDensity: "default",
     smartSuggestionsEnabled: appConfig.smartSuggestionsEnabled !== false,
     smartSuggestionsDismissedAt: appConfig.smartSuggestionsDismissedAt || "",
     showBrandInHeader: true,
@@ -21562,13 +21824,29 @@ function cabecalhosSupabase(autenticado = true, extras = {}) {
 }
 
 async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
+  let estourouTimeout = false;
+  let timeoutId = null;
   try {
     const base = normalizarUrlSupabase();
     const autenticado = opcoes.auth !== false;
+    const timeoutMs = Math.max(5000, Number(opcoes.timeoutMs) || SUPABASE_REQUEST_TIMEOUT_MS);
+    const controller = typeof AbortController !== "undefined" && !opcoes.signal ? new AbortController() : null;
+    if (controller) {
+      timeoutId = setTimeout(() => {
+        estourouTimeout = true;
+        controller.abort();
+      }, timeoutMs);
+    }
+    const { auth, telemetry, timeoutMs: _timeoutMs, headers, ...fetchOptions } = opcoes;
     const resposta = await fetch(base + caminho, {
-      ...opcoes,
-      headers: cabecalhosSupabase(autenticado, opcoes.headers || {})
+      ...fetchOptions,
+      ...(controller ? { signal: controller.signal } : {}),
+      headers: cabecalhosSupabase(autenticado, headers || {})
     });
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
 
     if (resposta.status === 401 && autenticado && tentarRenovar && await renovarSessaoSupabase()) {
       return requisicaoSupabase(caminho, opcoes, false);
@@ -21594,13 +21872,23 @@ async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
 
     return dados;
   } catch (erro) {
-    throw ErrorService.capture(erro, {
+    const erroTratado = estourouTimeout
+      ? new AppError("Tempo limite da comunicação com o Supabase.", {
+        code: "SUPABASE_TIMEOUT",
+        userMessage: "A comunicação online demorou demais. Tente novamente."
+      })
+      : erro;
+    throw ErrorService.capture(erroTratado, {
       area: "Supabase",
       action: caminho,
-      errorKey: /rls|row-level security|permission|PGRST/i.test(String(erro?.message || erro)) ? "SUPABASE_RLS_DENIED" : "SUPABASE_SYNC_FAILED",
+      errorKey: estourouTimeout
+        ? "SUPABASE_TIMEOUT"
+        : /rls|row-level security|permission|PGRST/i.test(String(erro?.message || erro)) ? "SUPABASE_RLS_DENIED" : "SUPABASE_SYNC_FAILED",
       telemetry: opcoes.telemetry !== false && !String(caminho || "").includes("register_app_error"),
       silent: true
     });
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
@@ -23591,7 +23879,8 @@ async function executarBuscaSugestoesCliente(query, { incluirContatos = false, t
     const recentes = CustomerSuggestionManager.searchRecentSuggestions(query);
     const appClients = CustomerSuggestionManager.searchAppClients(query);
     let contatos = [];
-    if (incluirContatos) contatos = await CustomerSuggestionManager.searchPhoneContacts(query);
+    const buscarContatos = incluirContatos || customerSuggestionState.phoneContactsEnabled === true;
+    if (buscarContatos) contatos = await CustomerSuggestionManager.searchPhoneContacts(query);
     if (token !== customerSuggestionState.searchToken) return;
     customerSuggestionState.suggestions = CustomerSuggestionManager.rankSuggestions(
       CustomerSuggestionManager.mergeSuggestions(appClients, contatos, recentes),
@@ -26171,44 +26460,11 @@ function renderCalculadoraTela() {
 function renderCalculadoraFlutuante() {
   const root = document.getElementById("floatingCalculator");
   if (!root) return;
-  if (!podeMostrarControlesFlutuantes()) {
-    root.innerHTML = "";
-    return;
+  if (appConfig.calculatorWidget?.open) {
+    appConfig.calculatorWidget.open = false;
+    salvarDados();
   }
-
-  const widget = normalizarCalculadoraWidget(appConfig.calculatorWidget || {});
-  appConfig.calculatorWidget = widget;
-
-  if (!widget.open) {
-    root.innerHTML = `
-      <button class="calc-float-ball" onclick="abrirCalculadora()" title="Abrir calculadora">
-        <span>🧮</span>
-      </button>
-    `;
-    return;
-  }
-
-  root.innerHTML = `
-    <section class="calc-widget-window" style="left:${widget.x}px;top:${widget.y}px;width:${widget.w}px;height:${widget.h}px" role="dialog" aria-label="Calculadora flutuante">
-      <div class="calc-widget-titlebar" onpointerdown="iniciarMoverCalculadora(event)">
-        <div class="window-title">
-          <span>🧮</span>
-          <strong>Calculadora</strong>
-        </div>
-        <div class="window-actions">
-          <button class="icon-button" onclick="minimizarCalculadora()" title="Minimizar">−</button>
-          <button class="icon-button" onclick="minimizarCalculadora()" title="Voltar para bolinha">✕</button>
-        </div>
-      </div>
-      <div class="calc-widget-content">
-        ${renderCalculadoraConteudo()}
-      </div>
-      <div class="calc-widget-resize" onpointerdown="iniciarRedimensionarCalculadora(event)" title="Redimensionar"></div>
-    </section>
-  `;
-
-  preencherImpressoras();
-  preencherMateriaisCalculadora();
+  root.innerHTML = "";
 }
 
 function abrirCalculadora(opcoes = {}) {
@@ -27244,6 +27500,27 @@ async function salvarOuCompartilharPdf(doc, nomeArquivo, titulo = "Pedido Simpli
   }
 }
 
+async function imprimirOuOferecerPdf(doc, nomeArquivo, titulo = "Pedido Simplifica 3D") {
+  const nomeSeguro = String(nomeArquivo || "pedido-simplifica-3d.pdf")
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+
+  try {
+    const imprimiu = isAndroidNativeApp()
+      ? await imprimirPdfAndroidNativo(doc, nomeSeguro, titulo)
+      : await imprimirPdfNavegador(doc, nomeSeguro, titulo);
+    if (imprimiu) return true;
+  } catch (erro) {
+    registrarDiagnostico("pdf", "Impressão falhou", erro.message || erro);
+  }
+
+  if (confirm("Nenhuma impressora disponível. Deseja gerar PDF?")) {
+    return salvarOuCompartilharPdf(doc, nomeSeguro, titulo);
+  }
+  return false;
+}
+
 function arrayBufferParaBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   let binario = "";
@@ -27254,11 +27531,28 @@ function arrayBufferParaBase64(buffer) {
   return btoa(binario);
 }
 
+async function garantirPermissaoArmazenamentoAndroid() {
+  const plugin = window.Capacitor?.Plugins?.SimplificaFiles;
+  if (!plugin?.requestStoragePermission) return true;
+  try {
+    const resultado = await plugin.requestStoragePermission();
+    if (resultado?.granted === false) {
+      alert("Permissão de armazenamento negada. Não foi possível salvar o PDF.");
+      return false;
+    }
+  } catch (erro) {
+    registrarDiagnostico("pdf", "Permissão de armazenamento falhou", erro.message || erro);
+    return false;
+  }
+  return true;
+}
+
 async function salvarPdfAndroidNativo(doc, nomeArquivo) {
   const plugin = window.Capacitor?.Plugins?.SimplificaFiles;
   if (!plugin?.savePdf) return false;
 
   try {
+    if (!(await garantirPermissaoArmazenamentoAndroid())) return false;
     const base64 = arrayBufferParaBase64(doc.output("arraybuffer"));
     const resultado = await plugin.savePdf({ fileName: nomeArquivo, base64 });
     if (resultado?.ok) {
@@ -27272,6 +27566,73 @@ async function salvarPdfAndroidNativo(doc, nomeArquivo) {
   }
 
   return false;
+}
+
+async function imprimirPdfAndroidNativo(doc, nomeArquivo, titulo = "Pedido Simplifica 3D") {
+  const plugin = window.Capacitor?.Plugins?.SimplificaFiles;
+  if (!plugin?.printPdf) return false;
+
+  const base64 = arrayBufferParaBase64(doc.output("arraybuffer"));
+  const resultado = await plugin.printPdf({
+    fileName: nomeArquivo,
+    base64,
+    title: titulo,
+    jobName: titulo
+  });
+  if (resultado?.ok) {
+    registrarHistorico("Impressão", "Diálogo de impressão aberto no Android: " + nomeArquivo);
+    return true;
+  }
+  return false;
+}
+
+async function imprimirPdfNavegador(doc, nomeArquivo, titulo = "Pedido Simplifica 3D") {
+  if (typeof window.print !== "function") return false;
+  const blob = doc.output("blob");
+  const url = URL.createObjectURL(blob);
+  const iframe = document.createElement("iframe");
+  iframe.title = titulo;
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  iframe.style.opacity = "0";
+
+  let cleanupTimer = null;
+  const limpar = () => {
+    clearTimeout(cleanupTimer);
+    iframe.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  try {
+    const carregou = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("Tempo esgotado ao preparar impressão.")), 8000);
+      iframe.onload = () => {
+        clearTimeout(timer);
+        resolve(true);
+      };
+      iframe.onerror = () => {
+        clearTimeout(timer);
+        reject(new Error("Não foi possível preparar o documento para impressão."));
+      };
+    });
+    document.body.appendChild(iframe);
+    iframe.src = url;
+    await carregou;
+    const janelaImpressao = iframe.contentWindow;
+    if (!janelaImpressao?.print) throw new Error("Impressão não suportada neste navegador.");
+    janelaImpressao.focus();
+    janelaImpressao.print();
+    cleanupTimer = setTimeout(limpar, 60000);
+    registrarHistorico("Impressão", "Diálogo de impressão aberto no navegador: " + nomeArquivo);
+    return true;
+  } catch (erro) {
+    limpar();
+    throw erro;
+  }
 }
 
 function rgbPdf(cor, fallback = "#00d8c8") {
@@ -27471,7 +27832,11 @@ function desenharRodapeComercialPdf(doc, contexto) {
   doc.text(`Página ${pagina}/${totalPaginas}`, largura - margem - 6, altura - 9.5, { align: "right" });
 }
 
-async function gerarPDF() {
+async function gerarPDF(opcoes = {}) {
+  const modoDocumento = typeof opcoes === "string"
+    ? opcoes
+    : String(opcoes?.modo || opcoes?.acao || opcoes?.destino || "pdf");
+  const deveImprimir = /imprim|print/i.test(modoDocumento);
   if (!(await verificarPermissaoPdfAntesGerar())) return;
   const itensValidos = normalizarItensPedido(itensPedido)
     .map((item) => validarItemPedidoParaSalvar(item))
@@ -27697,22 +28062,29 @@ async function gerarPDF() {
       desenharRodapeComercialPdf(doc, { largura, altura, margem, tema, empresa, pagina, totalPaginas });
     }
 
-    registrarHistorico("PDF", `${tipoDoc} ${numeroDoc} gerado para ${cliente}`);
-    const salvou = await salvarOuCompartilharPdf(doc, nomeArquivoPdfPedido(pedidoId, cliente, agoraPdf), `${tipoDoc} ${cliente}`);
-    if (salvou) {
+    const nomeArquivo = nomeArquivoPdfPedido(pedidoId, cliente, agoraPdf);
+    registrarHistorico(deveImprimir ? "Impressão" : "PDF", `${tipoDoc} ${numeroDoc} gerado para ${cliente}`);
+    const concluiu = deveImprimir
+      ? await imprimirOuOferecerPdf(doc, nomeArquivo, `${tipoDoc} ${cliente}`)
+      : await salvarOuCompartilharPdf(doc, nomeArquivo, `${tipoDoc} ${cliente}`);
+    if (concluiu) {
       window.MonetizationLimits?.registerPdfExport?.(getUsuarioMonetizacao());
-      mostrarToast(`${tipoDoc} gerado com visual profissional.`, "sucesso", 3200);
+      mostrarToast(deveImprimir ? `${tipoDoc} enviado para impressão.` : `${tipoDoc} gerado com visual profissional.`, "sucesso", 3200);
     }
   } finally {
     window.__simplificaExportandoPdf = false;
   }
 }
 
+async function imprimirPedidoAtual() {
+  return gerarPDF({ acao: "imprimir" });
+}
+
 async function enviarWhats() {
   return sendQuoteToWhatsApp();
 }
 
-async function baixarPdfPedidoSalvo(id) {
+async function gerarDocumentoPedidoSalvo(id, opcoes = {}) {
   const pedido = pedidos.find((item) => Number(item.id) === Number(id));
   if (!pedido) return;
   const estadoAnterior = {
@@ -27735,7 +28107,7 @@ async function baixarPdfPedidoSalvo(id) {
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
     entradaPedido = valorEntradaPedido(pedido);
     pedidoEditando = pedido;
-    await gerarPDF();
+    await gerarPDF(opcoes);
   } finally {
     itensPedido = estadoAnterior.itensPedido;
     clientePedido = estadoAnterior.clientePedido;
@@ -27746,6 +28118,14 @@ async function baixarPdfPedidoSalvo(id) {
     entradaPedido = estadoAnterior.entradaPedido;
     pedidoEditando = estadoAnterior.pedidoEditando;
   }
+}
+
+async function baixarPdfPedidoSalvo(id) {
+  return gerarDocumentoPedidoSalvo(id, { acao: "pdf" });
+}
+
+async function imprimirPedidoSalvo(id) {
+  return gerarDocumentoPedidoSalvo(id, { acao: "imprimir" });
 }
 
 async function enviarWhatsPedidoSalvo(id) {

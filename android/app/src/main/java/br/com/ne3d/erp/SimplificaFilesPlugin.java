@@ -12,10 +12,17 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.ParcelFileDescriptor;
 import android.os.StatFs;
+import android.print.PageRange;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import android.print.PrintDocumentInfo;
+import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.provider.ContactsContract;
 import android.speech.RecognitionListener;
@@ -147,6 +154,51 @@ public class SimplificaFilesPlugin extends Plugin {
         }
 
         writeFile(call);
+    }
+
+    @PluginMethod
+    public void printPdf(PluginCall call) {
+        String base64 = call.getString("base64", "");
+        if (base64 == null || base64.trim().isEmpty()) {
+            call.reject("PDF vazio.");
+            return;
+        }
+
+        final byte[] bytes;
+        try {
+            bytes = Base64.decode(base64.replaceAll("\\s", ""), Base64.DEFAULT);
+        } catch (Exception error) {
+            call.reject("PDF inválido para impressão.", error);
+            return;
+        }
+
+        final String fileName = sanitizePdfFileName(call.getString("fileName", "pedido-simplifica-3d.pdf"));
+        final String jobName = call.getString("jobName", call.getString("title", "Simplifica 3D"));
+
+        mainHandler.post(() -> {
+            try {
+                PrintManager printManager = (PrintManager) getContext().getSystemService(Context.PRINT_SERVICE);
+                if (printManager == null) {
+                    call.reject("Impressão não disponível neste dispositivo.");
+                    return;
+                }
+
+                PrintAttributes attributes = new PrintAttributes.Builder()
+                    .setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                    .setColorMode(PrintAttributes.COLOR_MODE_COLOR)
+                    .build();
+
+                printManager.print(jobName, new PdfPrintDocumentAdapter(bytes, fileName), attributes);
+
+                JSObject result = new JSObject();
+                result.put("ok", true);
+                result.put("fileName", fileName);
+                result.put("jobName", jobName);
+                call.resolve(result);
+            } catch (Exception error) {
+                call.reject("Falha ao abrir impressão: " + error.getMessage(), error);
+            }
+        });
     }
 
     @PluginMethod
@@ -1164,6 +1216,56 @@ public class SimplificaFilesPlugin extends Plugin {
             return Math.max(0L, stats.getAvailableBytes() / 1024L / 1024L);
         } catch (Exception ignored) {
             return 0L;
+        }
+    }
+
+    private static class PdfPrintDocumentAdapter extends PrintDocumentAdapter {
+        private final byte[] bytes;
+        private final String fileName;
+
+        PdfPrintDocumentAdapter(byte[] bytes, String fileName) {
+            this.bytes = bytes;
+            this.fileName = fileName;
+        }
+
+        @Override
+        public void onLayout(
+            PrintAttributes oldAttributes,
+            PrintAttributes newAttributes,
+            CancellationSignal cancellationSignal,
+            LayoutResultCallback callback,
+            Bundle extras
+        ) {
+            if (cancellationSignal.isCanceled()) {
+                callback.onLayoutCancelled();
+                return;
+            }
+
+            PrintDocumentInfo info = new PrintDocumentInfo.Builder(fileName)
+                .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
+                .build();
+            callback.onLayoutFinished(info, true);
+        }
+
+        @Override
+        public void onWrite(
+            PageRange[] pages,
+            ParcelFileDescriptor destination,
+            CancellationSignal cancellationSignal,
+            WriteResultCallback callback
+        ) {
+            if (cancellationSignal.isCanceled()) {
+                callback.onWriteCancelled();
+                return;
+            }
+
+            try (FileOutputStream output = new FileOutputStream(destination.getFileDescriptor())) {
+                output.write(bytes);
+                callback.onWriteFinished(new PageRange[] { PageRange.ALL_PAGES });
+            } catch (IOException error) {
+                callback.onWriteFailed(error.getMessage());
+            }
         }
     }
 
