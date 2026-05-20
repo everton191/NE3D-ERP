@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.4";
-const APP_VERSION_CODE = 98;
+const APP_VERSION = "51.1.5";
+const APP_VERSION_CODE = 99;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -31,12 +31,17 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
-const FREE_MONTHLY_ORDER_LIMIT = 30;
-const FREE_CLIENT_LIMIT = 30;
+const FREE_ACTION_CREDIT_LIMIT = 15;
+const FREE_ACTION_FALLBACK_UNLOCK_MINUTES = 30;
+const FREE_BACKUP_LIMIT_MB = 50;
+const PRO_BACKUP_LIMIT_MB = 1024;
+const FREE_DEVICE_LIMIT = 2;
+const PRO_DEVICE_LIMIT = 4;
+const FREE_CLIENT_LIMIT = null;
 const DEFAULT_SAAS_PLANS = [
-  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: FREE_MONTHLY_ORDER_LIMIT, maxClients: FREE_CLIENT_LIMIT, maxCalculatorUses: null, maxStorageMb: 25, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, kind: "free", showsAds: true },
-  { id: "premium_trial", slug: "premium_trial", name: "Teste gratis", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, kind: "trial", durationDays: 7, showsAds: false },
-  { id: "premium", slug: "premium", name: "PRO", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: null, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, kind: "paid", showsAds: false }
+  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: null, maxClients: FREE_CLIENT_LIMIT, maxCalculatorUses: null, maxStorageMb: FREE_BACKUP_LIMIT_MB, maxDevices: FREE_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, allowEmployees: false, allowCustomization: false, kind: "free", showsAds: true },
+  { id: "premium", slug: "premium", name: "PRO", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, kind: "paid", showsAds: false },
+  { id: "premium_trial", slug: "premium_trial", name: "PRO Trial", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: false, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, kind: "trial", durationDays: 7, showsAds: false }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
 const PLAN_ACCESS_STATES = Object.freeze({
@@ -921,8 +926,8 @@ let billingConfig = carregarObjeto("billingConfig", {
   windowsWebUrl: "",
   supportUrl: "",
   deviceLimits: {
-    mobile: 1,
-    desktop: 1
+    mobile: FREE_DEVICE_LIMIT,
+    desktop: FREE_DEVICE_LIMIT
   },
   registeredDevices: [],
   cloudSyncPaidOnly: false
@@ -1173,6 +1178,40 @@ function registrarFluxoSalvamento(area = "Salvamento", action = "Salvar", payloa
 }
 
 const PlanService = {
+  getPolicy(usuario = getUsuarioAtual()) {
+    const estado = resolverEstadoPlano(usuario, { source: "plan-policy" });
+    const pro = isSuperAdmin(usuario) || estado.hasPremium === true;
+    return {
+      slug: pro ? "premium" : "free",
+      name: pro ? "PRO" : "Free",
+      isPro: pro,
+      isFree: !pro,
+      adsEnabled: !pro,
+      actionCreditLimit: pro ? Number.POSITIVE_INFINITY : FREE_ACTION_CREDIT_LIMIT,
+      actionFallbackMinutes: FREE_ACTION_FALLBACK_UNLOCK_MINUTES,
+      backupLimitMb: pro ? PRO_BACKUP_LIMIT_MB : FREE_BACKUP_LIMIT_MB,
+      maxDevices: pro ? PRO_DEVICE_LIMIT : FREE_DEVICE_LIMIT,
+      employees: pro,
+      reports: pro,
+      customization: pro,
+      visualIdentity: pro,
+      customThemes: pro,
+      prioritySync: pro,
+      expandedRecovery: pro,
+      backupLabel: pro ? "1 GB" : "50 MB"
+    };
+  },
+  podeUsarRecurso(recurso, usuario = getUsuarioAtual()) {
+    if (isSuperAdmin(usuario)) return true;
+    const policy = this.getPolicy(usuario);
+    const chave = String(recurso || "").toLowerCase();
+    if (["pedidos", "clientes", "estoque", "caixa", "calculadora", "pdf_basico", "orcamento"].includes(chave)) return true;
+    if (["reports", "relatorios"].includes(chave)) return policy.reports;
+    if (["employees", "funcionarios", "permissions"].includes(chave)) return policy.employees;
+    if (["customization", "personalizacao", "appearance", "aparencia", "themes", "temas"].includes(chave)) return policy.customization;
+    if (["backup"].includes(chave)) return true;
+    return policy.isPro;
+  },
   exigirPlanoCompleto(usuario = getUsuarioAtual()) {
     const plano = getPlanoAtual(usuario);
     if (canUsePremiumFeatures(usuario)) {
@@ -1187,9 +1226,31 @@ const PlanService = {
     if (plano.completo) {
       return { status: "BLOCKED", allowed: false, reason: "DEVICE_LIMIT", plano, message: "Este e-mail já atingiu o limite de aparelhos da licença." };
     }
-    return { status: "BLOCKED", allowed: false, reason: "PREMIUM_REQUIRED", plano, message: "Recurso premium. O trial ativo e o plano pago liberam esta função." };
+    return { status: "BLOCKED", allowed: false, reason: "PREMIUM_REQUIRED", plano, message: "Recurso PRO. Faça upgrade para liberar relatórios, funcionários, temas e personalização." };
   }
 };
+
+function getPlanPolicy(usuario = getUsuarioAtual()) {
+  return PlanService.getPolicy(usuario);
+}
+
+function getBackupLimitPlanoMb(usuario = getUsuarioAtual()) {
+  return getPlanPolicy(usuario).backupLimitMb;
+}
+
+function getLimiteSessoesPlano(usuario = getUsuarioAtual()) {
+  return getPlanPolicy(usuario).maxDevices;
+}
+
+function mostrarBloqueioRecursoPro(recurso = "este recurso") {
+  const mensagem = `${recurso} faz parte do plano PRO. O Free continua liberado para pedidos, clientes, estoque, caixa e calculadora.`;
+  if (typeof mostrarModalLimitePlano === "function") {
+    mostrarModalLimitePlano(mensagem);
+  } else {
+    mostrarToast(mensagem, "info", 5200);
+  }
+  return false;
+}
 
 function configurarTelemetriaErros() {
   try {
@@ -1341,6 +1402,73 @@ function registrarAcaoCompletaMonetizacao(actionName = "completed_action") {
   } catch (erro) {
     registrarErroAplicacaoSilencioso("ADMOB_INTERSTITIAL_FAILED", erro, "Interstitial pós-ação", { actionName });
   }
+}
+
+function minutosRestantesFallbackAcoes(usuario = getUsuarioMonetizacao()) {
+  try {
+    const unlockAt = Number(window.MonetizationLimits?.getFallbackUnlock?.(usuario) || 0) || 0;
+    if (!unlockAt) return 0;
+    return Math.max(0, Math.ceil((unlockAt - Date.now()) / 60000));
+  } catch (_) {
+    return 0;
+  }
+}
+
+async function tentarLiberarCreditosAcaoPorAnuncio(actionName = "free_action_limit") {
+  const usuario = getUsuarioMonetizacao();
+  try {
+    const contexto = {
+      ...contextoInterstitialSeguro(actionName),
+      actionName,
+      isTyping: false,
+      isModalOpen: false,
+      forceLimitAd: true
+    };
+    const resultado = await (window.AdMobService?.showInterstitialNow
+      ? window.AdMobService.showInterstitialNow({ user: usuario, context: contexto })
+      : window.AdMobService?.maybeShowInterstitialAfterCompletedAction?.(usuario, contexto));
+    if (resultado?.shown) {
+      registrarAnuncioExibido();
+      window.MonetizationLimits?.resetActionsAfterAd?.(usuario);
+      mostrarToast("Mais 15 ações liberadas no Free.", "sucesso", 3600);
+      return true;
+    }
+    window.MonetizationLimits?.scheduleFallbackUnlock?.(usuario, FREE_ACTION_FALLBACK_UNLOCK_MINUTES);
+    registrarErroAplicacaoSilencioso("FREE_ACTION_AD_FALLBACK", new Error(resultado?.reason || "AD_UNAVAILABLE"), "Liberar ações Free", {
+      actionName,
+      reason: resultado?.reason || "unknown"
+    });
+    return false;
+  } catch (erro) {
+    window.MonetizationLimits?.scheduleFallbackUnlock?.(usuario, FREE_ACTION_FALLBACK_UNLOCK_MINUTES);
+    registrarErroAplicacaoSilencioso("FREE_ACTION_AD_FAILED", erro, "Liberar ações Free", { actionName });
+    return false;
+  }
+}
+
+async function consumirCreditoAcaoFree(actionType, label = "ação") {
+  const monetizacao = window.MonetizationLimits;
+  const usuario = getUsuarioMonetizacao();
+  if (!monetizacao || getPlanPolicy().isPro || !monetizacao.shouldCountAction?.(actionType)) return true;
+  if (monetizacao.canUseAction(usuario)) {
+    const uso = monetizacao.registerAction(usuario, actionType);
+    const restantes = Math.max(0, FREE_ACTION_CREDIT_LIMIT - Number(uso?.count || 0));
+    if (restantes <= 3) {
+      mostrarToast(`${restantes} ação(ões) restantes no Free antes do próximo anúncio.`, restantes ? "info" : "aviso", 3600);
+    }
+    return true;
+  }
+
+  const liberadoPorAnuncio = await tentarLiberarCreditosAcaoPorAnuncio(actionType);
+  if (liberadoPorAnuncio && monetizacao.canUseAction(usuario)) {
+    monetizacao.registerAction(usuario, actionType);
+    return true;
+  }
+
+  const minutos = minutosRestantesFallbackAcoes(usuario) || FREE_ACTION_FALLBACK_UNLOCK_MINUTES;
+  mostrarToast(`Limite de ações do Free atingido. Como o anúncio não abriu, a liberação automática acontece em até ${minutos} minuto(s).`, "aviso", 6500);
+  registrarAuditoria("limite ações free", { actionType, label, fallbackMinutes: minutos });
+  return false;
 }
 
 function sincronizarBannerAdMob() {
@@ -1817,7 +1945,7 @@ const AuthService = {
 
       const usuarioAuth = obterUsuarioAuthResposta(dados);
       if (salvarSessaoSupabase(dados, email)) {
-        cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "premium_trial" });
+        cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "free" });
       } else if (usuarioAuth?.id) {
         syncConfig.supabaseUserId = "";
         syncConfig.supabaseAccessToken = "";
@@ -1843,7 +1971,7 @@ const AuthService = {
       throw appError;
     }
 
-    const local = criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug: "premium_trial", trial: true });
+    const local = criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug: "free", trial: false });
     if (cadastroOnline?.client_id) {
       const clientIdOnline = String(cadastroOnline.client_id);
       local.cliente.id = clientIdOnline;
@@ -3462,10 +3590,13 @@ function normalizarPlanoSaas(plano = {}) {
     maxOrders: planoPadrao ? padrao.maxOrders : (plano.maxOrders === null || plano.max_orders === null ? null : Math.max(1, Number(plano.maxOrders ?? plano.max_orders ?? padrao.maxOrders ?? 50))),
     maxClients: planoPadrao ? padrao.maxClients : (plano.maxClients === null || plano.max_clients === null ? null : Math.max(1, Number(plano.maxClients ?? plano.max_clients ?? padrao.maxClients ?? 10))),
     maxCalculatorUses: planoPadrao ? padrao.maxCalculatorUses : (plano.maxCalculatorUses === null || plano.max_calculator_uses === null ? null : Math.max(1, Number(plano.maxCalculatorUses ?? plano.max_calculator_uses ?? padrao.maxCalculatorUses ?? 30))),
-    maxStorageMb: planoPadrao ? padrao.maxStorageMb : (plano.maxStorageMb === null || plano.max_storage_mb === null ? null : Math.max(1, Number(plano.maxStorageMb ?? plano.max_storage_mb ?? padrao.maxStorageMb ?? 25))),
+    maxStorageMb: planoPadrao ? padrao.maxStorageMb : (plano.maxStorageMb === null || plano.max_storage_mb === null ? null : Math.max(1, Number(plano.maxStorageMb ?? plano.max_storage_mb ?? padrao.maxStorageMb ?? FREE_BACKUP_LIMIT_MB))),
+    maxDevices: planoPadrao ? padrao.maxDevices : Math.max(1, Number(plano.maxDevices ?? plano.max_devices ?? padrao.maxDevices ?? FREE_DEVICE_LIMIT)),
     allowPdf: Boolean(planoPadrao ? padrao.allowPdf : (plano.allowPdf ?? plano.allow_pdf ?? padrao.allowPdf)),
     allowReports: Boolean(planoPadrao ? padrao.allowReports : (plano.allowReports ?? plano.allow_reports ?? padrao.allowReports)),
     allowPermissions: Boolean(planoPadrao ? padrao.allowPermissions : (plano.allowPermissions ?? plano.allow_permissions ?? padrao.allowPermissions)),
+    allowEmployees: Boolean(planoPadrao ? padrao.allowEmployees : (plano.allowEmployees ?? plano.allow_employees ?? padrao.allowEmployees)),
+    allowCustomization: Boolean(planoPadrao ? padrao.allowCustomization : (plano.allowCustomization ?? plano.allow_customization ?? padrao.allowCustomization)),
     kind: String(planoPadrao ? padrao.kind : (plano.kind || padrao.kind || "paid")),
     durationDays: Number(planoPadrao ? padrao.durationDays : (plano.durationDays ?? plano.duration_days ?? padrao.durationDays ?? 0)) || 0,
     active: plano.active !== false && plano.ativo !== false,
@@ -3897,20 +4028,20 @@ function incrementarUsoMensal(tipo) {
 function planoPermiteRecurso(recurso) {
   if (isSuperAdmin()) return true;
   const plano = getPlanoSaasAtual();
-  if (recurso === "pdf") return canUsePremiumFeatures() && !!plano.allowPdf;
-  if (recurso === "reports") return !!plano.allowReports || window.AdMobService?.hasTemporaryUnlock?.("reports") || window.MonetizationLimits?.hasUnlock?.("reports", getUsuarioMonetizacao());
-  if (!canUsePremiumFeatures()) return false;
-  if (recurso === "permissions") return !!plano.allowPermissions;
-  return canUsePremiumFeatures();
+  if (recurso === "pdf") return !!plano.allowPdf;
+  if (recurso === "reports") return PlanService.podeUsarRecurso("reports");
+  if (recurso === "permissions") return PlanService.podeUsarRecurso("employees") && !!plano.allowPermissions;
+  if (["employees", "funcionarios", "customization", "personalizacao", "themes", "temas"].includes(String(recurso || "").toLowerCase())) {
+    return PlanService.podeUsarRecurso(recurso);
+  }
+  return PlanService.podeUsarRecurso(recurso);
 }
 
 function getSessionLimitPlano() {
-  const slug = getPlanoSaasAtual().slug;
-  if (["premium", "premium_trial"].includes(slug)) return 5;
-  return 1;
+  return getLimiteSessoesPlano();
 }
 
-function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug = "premium_trial", trial = true }) {
+function criarClienteSaasLocal({ nome, email, senha, negocio, telefone, planSlug = "free", trial = false }) {
   const emailNormalizado = normalizarEmail(email);
   if (saasClients.some((cliente) => normalizarEmail(cliente.email) === emailNormalizado)) {
     throw new Error("Este e-mail já está cadastrado.");
@@ -4282,7 +4413,7 @@ function isAdminCliente() {
 }
 
 function podeGerenciarUsuarios() {
-  return adminLogado || isAdminCliente();
+  return adminLogado || isSuperAdmin() || (isAdminCliente() && PlanService.podeUsarRecurso("employees"));
 }
 
 function existeAdminCliente(clientId = getClientIdAtual()) {
@@ -4590,10 +4721,9 @@ function getPlatformAdapter() {
 
 function getLimitesDispositivos() {
   const limitePlano = getSessionLimitPlano();
-  const limites = billingConfig.deviceLimits && typeof billingConfig.deviceLimits === "object" ? billingConfig.deviceLimits : {};
   return {
-    mobile: Math.max(1, Number(limites.mobile) || limitePlano),
-    desktop: Math.max(1, Number(limites.desktop) || limitePlano),
+    mobile: limitePlano,
+    desktop: limitePlano,
     total: limitePlano
   };
 }
@@ -5401,13 +5531,6 @@ function registrarDispositivoLicenca(email = getEmailLicencaAtual(), silencioso 
   const atual = lista.find((item) => item.email === emailLicenca && item.tipo === tipo && item.id === deviceId);
   const usuarioDono = usuarioEhDonoDaLicenca(emailLicenca);
 
-  if (!usuarioDono && !atual && lista.filter((item) => item.email === emailLicenca).length >= limites.total) {
-    if (!silencioso) {
-      alert("Detectamos múltiplos acessos. Para mais usuários, faça upgrade.");
-    }
-    return false;
-  }
-
   const agora = new Date().toISOString();
   const nome = syncConfig.deviceName || nomeTipoDispositivo(tipo);
   const proximaLista = lista.filter((item) => !(item.email === emailLicenca && item.tipo === tipo && item.id === deviceId));
@@ -5419,7 +5542,21 @@ function registrarDispositivoLicenca(email = getEmailLicencaAtual(), silencioso 
     ultimoAcesso: agora
   });
 
-  billingConfig.registeredDevices = proximaLista.slice(0, 30);
+  let fechados = 0;
+  const porEmail = proximaLista.filter((item) => item.email === emailLicenca)
+    .sort((a, b) => (Date.parse(b.ultimoAcesso || 0) || 0) - (Date.parse(a.ultimoAcesso || 0) || 0));
+  const permitidos = new Set((usuarioDono ? porEmail : porEmail.slice(0, limites.total)).map((item) => `${item.email}:${item.tipo}:${item.id}`));
+  const filtrada = proximaLista.filter((item) => {
+    if (item.email !== emailLicenca || usuarioDono) return true;
+    const manter = permitidos.has(`${item.email}:${item.tipo}:${item.id}`);
+    if (!manter) fechados += 1;
+    return manter;
+  });
+
+  billingConfig.registeredDevices = filtrada.slice(0, 30);
+  if (fechados > 0 && !silencioso) {
+    mostrarToast("Sua conta atingiu o limite de dispositivos conectados para este plano.", "aviso", 5200);
+  }
   salvarDados();
   return true;
 }
@@ -5474,7 +5611,7 @@ function registrarSessaoSaasLocal(usuario = getUsuarioAtual()) {
 
   if (fechadas > 0) {
     registrarAuditoria("múltiplos acessos", { closedSessions: fechadas, limit: limite }, clientId);
-    alert("Detectamos múltiplos acessos. Para mais usuários, faça upgrade.");
+    mostrarToast("Sua conta atingiu o limite de dispositivos conectados para este plano.", "aviso", 5200);
   }
 
   salvarDados();
@@ -5492,7 +5629,7 @@ async function registrarSessaoSaasOnlineSilencioso(usuario = getUsuarioAtual()) 
       })
     });
     if (Number(resultado?.closed_sessions || 0) > 0) {
-      alert("Detectamos múltiplos acessos. Para mais usuários, faça upgrade.");
+      mostrarToast("Sua conta atingiu o limite de dispositivos conectados para este plano.", "aviso", 5200);
     }
   } catch (erro) {
     registrarDiagnostico("Sessão SaaS", "Controle online de sessão não registrado", erro.message);
@@ -7083,18 +7220,6 @@ function aceitarTermosCadastro() {
 }
 
 async function verificarLimitePedidosAntesCriar() {
-  if (!window.MonetizationLimits) return true;
-  const usuario = getUsuarioMonetizacao();
-  if (window.MonetizationLimits.canCreateOrder(usuario)) return true;
-  registrarErroAplicacaoSilencioso("FREE_ORDER_LIMIT_BLOCKED", new Error("FREE_ORDER_LIMIT_BLOCKED"), "Limite de pedidos gratuito", {
-    remaining: window.MonetizationLimits.getRemainingFreeOrders(usuario)
-  });
-  const liberado = await mostrarModalDesbloqueioAnuncio({
-    tipo: "orders",
-    titulo: "Limite mensal do Free",
-    texto: "Você chegou ao limite recomendado de pedidos do Free neste mês. Assista a um anúncio para liberar +5 pedidos, assine o PRO para uso ilimitado ou continue no modo básico."
-  });
-  if (!liberado) mostrarToast("Você pode continuar no Free. O PRO remove limites, anúncios e libera automações.", "info", 5200);
   return true;
 }
 
@@ -7104,17 +7229,7 @@ async function verificarPermissaoPdfAntesGerar() {
     mostrarBloqueioPlano({ message: "Seu acesso está bloqueado. Regularize o plano para gerar PDF." });
     return false;
   }
-  if (!window.MonetizationLimits) return permitirAcaoPlanoCompleto();
-  const usuario = getUsuarioMonetizacao();
-  if (window.MonetizationLimits.canExportPDF(usuario)) return true;
-  registrarErroAplicacaoSilencioso("FREE_PDF_LIMIT_BLOCKED", new Error("FREE_PDF_LIMIT_BLOCKED"), "Limite de PDF gratuito", {
-    remaining: window.MonetizationLimits.getRemainingFreePdfExports(usuario)
-  });
-  return mostrarModalDesbloqueioAnuncio({
-    tipo: "pdf",
-    titulo: "Exportação em PDF",
-    texto: "Você já usou sua exportação gratuita de hoje. Assista a um anúncio para liberar uma exportação extra ou assine o plano para exportações ilimitadas."
-  });
+  return consumirCreditoAcaoFree("gerar_orcamento", "gerar orçamento/PDF");
 }
 
 function verificarLimiteClientesAntesPedido(clienteNome = "") {
@@ -7617,6 +7732,38 @@ function configurarNavegacaoInternaApp() {
       lidarComVoltarSistema();
     });
   } catch (_) {}
+}
+
+function configurarProtecaoGestosMobile() {
+  if (window.__simplificaGestureGuardConfigured) return;
+  window.__simplificaGestureGuardConfigured = true;
+  let inicioX = 0;
+  let inicioY = 0;
+  let bloqueandoBorda = false;
+
+  const deveProteger = () => isMobile() || isAndroidNativeApp() || getPlatformAdapter().isPWA;
+  document.addEventListener("touchstart", (event) => {
+    if (!deveProteger() || !event.touches?.length) return;
+    const toque = event.touches[0];
+    inicioX = toque.clientX;
+    inicioY = toque.clientY;
+    const largura = window.innerWidth || document.documentElement.clientWidth || 0;
+    bloqueandoBorda = inicioX <= 22 || (largura > 0 && inicioX >= largura - 22);
+  }, { passive: true, capture: true });
+
+  document.addEventListener("touchmove", (event) => {
+    if (!bloqueandoBorda || !event.touches?.length) return;
+    const toque = event.touches[0];
+    const dx = toque.clientX - inicioX;
+    const dy = toque.clientY - inicioY;
+    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+      event.preventDefault();
+    }
+  }, { passive: false, capture: true });
+
+  document.addEventListener("touchend", () => {
+    bloqueandoBorda = false;
+  }, { passive: true, capture: true });
 }
 
 function atualizarMenu() {
@@ -16082,10 +16229,10 @@ function renderRelatorios() {
           <h2>📈 Relatórios avançados</h2>
           <span class="status-badge">PRO</span>
         </div>
-        <p class="muted">O Free mantém dashboard e dados básicos. Relatórios avançados ficam disponíveis no PRO ou temporariamente ao assistir um anúncio recompensado.</p>
+        <p class="muted">O Free mantém dashboard e dados básicos. Relatórios completos, comparativos e exportações ficam disponíveis no PRO.</p>
         <div class="actions">
-          <button class="btn secondary" type="button" onclick="desbloquearRelatoriosComAnuncio()">Assistir anúncio</button>
-          <button class="btn ghost" type="button" onclick="trocarTela('assinatura')">Ver planos</button>
+          <button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>
+          <button class="btn ghost" type="button" onclick="trocarTela('dashboard')">Voltar ao dashboard</button>
         </div>
       </section>
     `;
@@ -16729,6 +16876,27 @@ function renderAuthCriarConta() {
 function renderAdmin() {
   const usuarioAtual = getUsuarioAtual();
   const podeAdmin = podeGerenciarUsuarios();
+
+  if (usuarioAtual && isAdminCliente() && !PlanService.podeUsarRecurso("employees")) {
+    return `
+      <section class="card">
+        <div class="card-header">
+          <h2>Funcionários</h2>
+          <span class="status-badge badge-warning">PRO</span>
+        </div>
+        <p class="muted">No Free você continua com pedidos, clientes, estoque, caixa e calculadora. A criação e gestão de funcionários fica disponível no PRO.</p>
+        <div class="metrics">
+          <div class="metric"><span>Plano atual</span><strong>FREE</strong></div>
+          <div class="metric"><span>Dispositivos</span><strong>${FREE_DEVICE_LIMIT}</strong></div>
+          <div class="metric"><span>Backup</span><strong>${FREE_BACKUP_LIMIT_MB} MB</strong></div>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>
+          <button class="btn ghost" type="button" onclick="trocarTela('dashboard')">Continuar no Free</button>
+        </div>
+      </section>
+    `;
+  }
 
   if (!podeAdmin) {
     if (usuarioAtual && !existeAdminCliente()) {
@@ -17473,7 +17641,7 @@ function renderSuperAdminPagamentos() {
 function renderSuperAdminPlanos() {
   return `
     <div class="comparison-grid">
-      ${garantirPlanosSaas().filter((plano) => ["free", "premium_trial", "premium"].includes(plano.slug)).map((plano) => `
+      ${garantirPlanosSaas().filter((plano) => ["free", "premium"].includes(plano.slug)).map((plano) => `
         <div class="plan-card ${plano.recommended ? "featured" : ""}">
           <div class="row-title"><strong>${escaparHtml(plano.name)}</strong><span>${formatarMoeda(plano.price)}</span></div>
           <p class="muted">${plano.maxUsers} usuário(s) • ${plano.maxOrders || "pedidos ilimitados"} • ${plano.maxCalculatorUses || "calculadora ilimitada"}</p>
@@ -18491,9 +18659,10 @@ function renderPersonalizacao() {
     <section class="card organized-page settings-page">
       <div class="card-header">
         <h2>Aparência</h2>
-        <span class="status-badge">Visual do app</span>
+        <span class="status-badge">${PlanService.podeUsarRecurso("personalizacao") ? "Visual do app" : "PRO para identidade"}</span>
       </div>
       <p class="muted">Personalização geral da interface. Dados da empresa, PDF, usuário e calculadora ficam em seus próprios menus.</p>
+      ${PlanService.podeUsarRecurso("personalizacao") ? "" : `<div class="info-card"><strong>FREE</strong><span>Modo claro/escuro e densidade continuam disponíveis. Logo, cores personalizadas, tema premium e identidade visual ficam no PRO.</span></div>`}
       <div class="settings-accordion-list">
         ${renderUiSection({ id: "aparencia-tema", title: "Tema e cores", subtitle: "Modo claro/escuro, cor principal e contraste", icon: "◐", group: "aparencia", open: true, content: `
           <div class="sync-grid">
@@ -18979,6 +19148,12 @@ function renderAssinatura() {
   const proximaCobranca = estadoPlano.planExpiresAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
   const dataCobranca = proximaCobranca ? new Date(proximaCobranca).toLocaleDateString("pt-BR") : "-";
   const statusLabel = isPremiumAtivo ? "Ativo" : estadoPlano.pending ? "Pendente" : "Free";
+  const policy = getPlanPolicy(usuario);
+  const usuarioMonetizacao = getUsuarioMonetizacao();
+  const acoesRestantes = policy.isPro ? "Ilimitadas" : String(window.MonetizationLimits?.getRemainingFreeActions?.(usuarioMonetizacao) ?? FREE_ACTION_CREDIT_LIMIT);
+  const resumoBackup = calcularUsoBackupPlano();
+  const sessoesAtivas = saasSessions.filter((sessao) => sessao.clientId === (usuario?.clientId || billingConfig.clientId) && sessao.active !== false).length || 1;
+  const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}`;
 
   return `
     <section class="plans-modern-screen">
@@ -19003,8 +19178,9 @@ function renderAssinatura() {
           <span class="plan-modern-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${isPremiumAtivo ? renderUiIcon("superadmin") : ""}${escaparHtml(isPremiumAtivo ? "PRO" : "FREE")}</span>
         </div>
         <div class="plans-current-stats">
-          <span><small>Usuários</small><strong>${usuariosAtivos}/${isPremiumAtivo ? 10 : 5}</strong></span>
-          <span><small>Projetos</small><strong>${pedidosMes}/${isPremiumAtivo ? 30 : 10}</strong></span>
+          <span><small>Ações restantes</small><strong>${escaparHtml(acoesRestantes)}</strong></span>
+          <span><small>Backup</small><strong>${escaparHtml(textoBackup)}</strong></span>
+          <span><small>Dispositivos</small><strong>${sessoesAtivas}/${policy.maxDevices}</strong></span>
           <span><small>Próxima cobrança</small><strong>${escaparHtml(dataCobranca)}</strong></span>
         </div>
         <div class="plans-current-bottom">
@@ -19018,10 +19194,10 @@ function renderAssinatura() {
         ${renderModernPlanOption({
           slug: "free",
           title: "Plano Free",
-          subtitle: "Ideal para começar na plataforma.",
+          subtitle: "Pedidos, clientes, estoque, caixa e calculadora com anúncios leves.",
           price: "Grátis",
           current: !isPremiumAtivo,
-          features: ["Até 5 usuários", "10 projetos", "Relatórios básicos"],
+          features: [`${FREE_ACTION_CREDIT_LIMIT} ações por ciclo`, "Anúncios no Free", `${FREE_BACKUP_LIMIT_MB} MB de backup`, `${FREE_DEVICE_LIMIT} dispositivos`, "Sem relatórios, funcionários e temas personalizados"],
           actionLabel: !isPremiumAtivo ? "Plano atual" : "Escolher plano",
           action: "dashboard"
         })}
@@ -19032,7 +19208,7 @@ function renderAssinatura() {
           price: `${formatarMoeda(precoVigente)}/mês`,
           current: isPremiumAtivo,
           featured: true,
-          features: ["Até 10 usuários", "30 projetos", "Relatórios avançados", "Suporte prioritário"],
+          features: ["Sem anúncios", "Relatórios completos", `${PRO_BACKUP_LIMIT_MB / 1024} GB de backup`, `${PRO_DEVICE_LIMIT} dispositivos`, "Funcionários e personalização visual"],
           actionLabel: isPremiumAtivo ? "Plano atual" : "Escolher plano",
           action: "premium"
         })}
@@ -19111,12 +19287,12 @@ function renderPlanoPremiumAtivoCard(estadoPlano, precoVigente, superadmin = fal
       <h3>PRO</h3>
       <div class="plan-price">${formatarMoeda(precoVigente)}<small>/mês</small></div>
       ${renderPlanBenefitList([
-        "Pedidos ilimitados",
-        "PDFs ilimitados",
+        "Ações ilimitadas",
         "Sem anúncios",
         "Relatórios avançados",
-        "Atalhos smart locais",
-        "Backup e sincronização",
+        "Funcionários e permissões",
+        "Backup de 1 GB",
+        "Temas e identidade visual",
         "Suporte prioritário"
       ])}
       <p class="muted plan-card-footnote">* O app usa sugestões locais leves por histórico e contexto.</p>
@@ -19143,8 +19319,8 @@ function renderPlanoSaasCard(plano, options = {}) {
   const isPremium = plano.slug === "premium";
   const preco = isPremium ? Number(options.preco || getPrecoPagoVigenteLocal()) : 0;
   const beneficios = isPremium
-    ? ["Pedidos ilimitados", "PDFs ilimitados", "Sem anúncios", "Relatórios avançados", "Atalhos smart locais", "Backup e sincronização", "Suporte prioritário"]
-    : ["Pedidos limitados", "1 PDF grátis por dia", "Anúncios leves", "Recursos básicos", "Suporte por feedback"];
+    ? ["Sem anúncios", "Ações ilimitadas", "Relatórios completos", "Backup de 1 GB", "Funcionários", "Temas e identidade visual"]
+    : [`${FREE_ACTION_CREDIT_LIMIT} ações por ciclo`, "Anúncios leves", "Backup de 50 MB", "2 dispositivos", "Pedidos, clientes, estoque, caixa e calculadora"];
 
   return `
     <div class="plan-card ${isPremium ? "featured plan-card-premium" : "plan-card-free"}">
@@ -20521,10 +20697,31 @@ async function sincronizarPersonalizacaoInicialSilencioso() {
   return carregarPersonalizacaoRemotaSilencioso();
 }
 
+function salvarPreferenciasBasicasFree() {
+  appConfig.theme = document.getElementById("themeConfig")?.value || appConfig.theme || "dark";
+  appConfig.motionLevel = document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium";
+  appConfig.compactMode = !!document.getElementById("compactModeConfig")?.checked;
+  appConfig.showBrandInHeader = !!document.getElementById("showBrandInHeaderConfig")?.checked;
+  appConfig.interfaceDensity = document.getElementById("interfaceDensityConfig")?.value || appConfig.interfaceDensity || "default";
+  appConfig.screenFit = document.getElementById("screenFitConfig")?.value || appConfig.screenFit || "auto";
+  appConfig.uiScale = Math.max(70, Math.min(140, Number(document.getElementById("uiScaleConfig")?.value || appConfig.uiScale || 100)));
+  appConfig.desktopCardMinWidth = Math.max(220, Math.min(560, Number(document.getElementById("desktopCardMinWidthConfig")?.value || appConfig.desktopCardMinWidth || 320)));
+  appConfig.desktopMaxWidth = Math.max(900, Math.min(3200, Number(document.getElementById("desktopMaxWidthConfig")?.value || appConfig.desktopMaxWidth || 1480)));
+  salvarDados();
+  aplicarPersonalizacao();
+  registrarHistorico("Aparência", "Preferências básicas do Free atualizadas");
+}
+
 async function salvarPersonalizacao() {
   const botao = document.activeElement?.closest?.("button") || null;
   setBotaoLoading(botao, true, "Salvando...");
   try {
+    if (!PlanService.podeUsarRecurso("personalizacao")) {
+      salvarPreferenciasBasicasFree();
+      mostrarToast("Ajustes básicos salvos. Logo, cores personalizadas, tema premium e identidade visual são recursos PRO.", "info", 5600);
+      renderizarPreservandoScroll();
+      return;
+    }
     const [logoBruto, fundoPdfBruto, fotoBruta, logoEmpresaBruta, fundoLoginBruto] = await Promise.all([
       lerLogoMarcaSelecionada(),
       lerFundoPdfSelecionado(),
@@ -20887,7 +21084,7 @@ async function cadastrarClienteSaas() {
     salvarDados();
     registrarHistorico("Conta", "Conta SaaS criada: " + email);
     registrarSeguranca("Criação usuário", "sucesso", "Cadastro inicial", email);
-    registrarAuditoria("criação usuário", { email, negocio, plano: "premium_trial" }, local.usuario.clientId);
+    registrarAuditoria("criação usuário", { email, negocio, plano: "free" }, local.usuario.clientId);
     mostrarToast(
       local.cadastroAguardandoConfirmacao && !local.cadastroOnline?.client_id
         ? "Conta criada. Confirme o e-mail para ativar a sincronização online."
@@ -21705,20 +21902,37 @@ function tamanhoBackupMb(payload = criarSnapshotBackup()) {
 }
 
 function limiteBackupPlanoMb() {
-  const plano = getPlanoSaasAtual();
-  if (plano.maxStorageMb === null || plano.maxStorageMb === undefined) return null;
-  return Math.max(1, Number(plano.maxStorageMb) || 25);
+  return getBackupLimitPlanoMb();
+}
+
+function calcularUsoBackupPlano(payload = criarSnapshotBackupUsuarioAtual()) {
+  const tamanhoMb = tamanhoBackupMb(payload);
+  const limiteMb = limiteBackupPlanoMb();
+  const usadoBytes = Math.round(tamanhoMb * 1024 * 1024);
+  const limiteBytes = Math.round(limiteMb * 1024 * 1024);
+  return {
+    usedBytes: usadoBytes,
+    usedMb: tamanhoMb,
+    limitBytes: limiteBytes,
+    limitMb: limiteMb,
+    remainingBytes: Math.max(0, limiteBytes - usadoBytes),
+    remainingMb: Math.max(0, limiteMb - tamanhoMb),
+    percent: limiteBytes ? Math.min(100, Math.round((usadoBytes / limiteBytes) * 100)) : 0,
+    full: usadoBytes > limiteBytes
+  };
+}
+
+function mensagemLimiteBackupCheio() {
+  return "Seu espaço de backup está cheio.\nFaça upgrade para o plano Pro e tenha mais espaço e backups ampliados.";
 }
 
 function verificarLimiteBackupPlano(payload = criarSnapshotBackup(), avisar = true) {
-  const limite = limiteBackupPlanoMb();
-  if (!limite) return true;
-  const tamanho = tamanhoBackupMb(payload);
-  if (tamanho <= limite) return true;
+  const resumo = calcularUsoBackupPlano(payload);
+  if (!resumo.full) return true;
   if (avisar) {
-    alert(`Seu backup está com ${tamanho.toFixed(1)} MB e o limite do plano atual é ${limite} MB. Seus dados continuam no aparelho; para sincronizar tudo na nuvem, reduza arquivos pesados ou altere o plano.`);
+    alert(mensagemLimiteBackupCheio());
   }
-  registrarAuditoria("limite armazenamento", { tamanhoMb: Number(tamanho.toFixed(2)), limiteMb: limite });
+  registrarAuditoria("limite armazenamento", { tamanhoMb: Number(resumo.usedMb.toFixed(2)), limiteMb: resumo.limitMb, plano: getPlanPolicy().slug });
   return false;
 }
 
@@ -22163,7 +22377,7 @@ async function atualizarClientesSaasRemoto() {
   await carregarSaasSupabaseSilencioso({ renderizar: true, feedback: true });
 }
 
-async function registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug = "premium_trial" }) {
+async function registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug = "free" }) {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return null;
   return await requisicaoSupabase("/rest/v1/rpc/register_saas_client", {
     method: "POST",
@@ -22968,7 +23182,7 @@ async function criarContaSupabaseParaUsuarioLocal(usuario, senha) {
     email,
     negocio,
     telefone,
-    planSlug: normalizarSlugPlano(clienteLocal?.planoAtual || billingConfig.planSlug || "premium_trial")
+    planSlug: normalizarSlugPlano(clienteLocal?.planoAtual || billingConfig.planSlug || "free")
   });
 
   if (cadastroOnline?.client_id) {
@@ -23834,6 +24048,7 @@ async function enviarBackupNuvem() {
 
   try {
     const payload = criarSnapshotBackup();
+    if (!verificarLimiteBackupPlano(payload, true)) return;
     const resposta = await fetch(syncConfig.cloudUrl, {
       method: "PUT",
       headers: cabecalhosSync(),
@@ -24285,6 +24500,7 @@ async function removerItem(i) {
     perigo: true
   });
   if (!confirmado) return;
+  if (!await consumirCreditoAcaoFree("excluir_item", "excluir item do pedido")) return;
   itensPedido.splice(i, 1);
   const atual = Number(window.__pedidoItemSelecionado);
   if (Number.isInteger(atual)) window.__pedidoItemSelecionado = Math.max(0, Math.min(atual, itensPedido.length - 1));
@@ -24418,6 +24634,7 @@ async function addCalculatedItemToOrder(item, opcoes = {}) {
         return false;
       }
       if (decisao === "increment") {
+        if (!await consumirCreditoAcaoFree("adicionar_item", "adicionar item ao pedido")) return false;
         existente.qtd = Math.max(1, Number(existente.qtd) || 1) + Math.max(1, Number(normalizado.qtd) || 1);
         existente.total = (Number(existente.valor) || 0) * existente.qtd;
         window.__pedidoItemSelecionado = duplicadoIndex;
@@ -24436,6 +24653,7 @@ async function addCalculatedItemToOrder(item, opcoes = {}) {
       }
     }
 
+    if (!await consumirCreditoAcaoFree("adicionar_item", "adicionar item ao pedido")) return false;
     itensPedido.push({ ...normalizado, id: normalizado.id || "item-" + Date.now().toString(36) });
     window.__pedidoItemSelecionado = itensPedido.length - 1;
     lastOrderItemAddFingerprint = fingerprint;
@@ -24847,6 +25065,7 @@ async function requestOrderEdit(orderId) {
     const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
     if (!await requestSensitiveActionConfirmation({ actionLabel: "editar este pedido" })) return;
+    if (!await consumirCreditoAcaoFree("editar_pedido", "editar pedido")) return;
     abrirPedidoParaEdicaoAutorizada(orderId);
   } catch (erro) {
     ErrorService.notify(erro, { area: "Pedidos", action: "Solicitar edição de pedido", errorKey: "REQUEST_ORDER_EDIT_FAILED" });
@@ -25219,6 +25438,13 @@ async function fecharPedido() {
       return;
     }
 
+    if (!await consumirCreditoAcaoFree(pedidoEditando ? "salvar_pedido" : "criar_pedido", pedidoEditando ? "salvar alteração do pedido" : "criar pedido")) {
+      pedidoSalvando = false;
+      window.__pedidoReviewConfirmed = false;
+      renderizarPreservandoScroll();
+      return;
+    }
+
     if (!aplicarEstoquePedido(pedido, pedidoEditando)) {
       pedidoSalvando = false;
       window.__pedidoReviewConfirmed = false;
@@ -25370,6 +25596,7 @@ async function alterarStatusPedido(id, status) {
     await requestOrderDelete(id);
     return;
   }
+  if (/final|conclu|entreg|pago|produção|producao/i.test(String(status || "")) && !await consumirCreditoAcaoFree("finalizar_pedido", "finalizar pedido")) return;
   marcarRegistroLocalAlteradoParaSync(pedido, { status: status || "aberto" });
   salvarDados();
   agendarSyncSilenciosoDados("status-pedido");
@@ -25377,13 +25604,14 @@ async function alterarStatusPedido(id, status) {
   renderizarPreservandoScroll();
 }
 
-function addMaterial() {
+async function addMaterial() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   const tipo = document.getElementById("matTipo")?.value || "PLA";
   const cor = (document.getElementById("matCor")?.value || "").trim();
   const qtd = document.getElementById("matQtd")?.value;
 
   try {
+    if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
     InventoryService.addMaterial({ tipo, cor, qtd });
     registrarEventoUsoLocal("material_usado", { materialNome: [tipo, cor].filter(Boolean).join(" "), materialId: tipo, cor });
     agendarSyncSilenciosoDados("estoque-adicionado");
@@ -25434,8 +25662,9 @@ function mostrarModalEdicaoMaterial(indice, material) {
   setTimeout(() => document.getElementById("stockEditName")?.focus(), 50);
 }
 
-function salvarEdicaoMaterialEstoque(indice) {
+async function salvarEdicaoMaterialEstoque(indice) {
   try {
+    if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
     InventoryService.updateMaterial(indice, {
       nome: document.getElementById("stockEditName")?.value || "",
       qtd: document.getElementById("stockEditQty")?.value,
@@ -25510,7 +25739,7 @@ function abrirReposicaoEstoque(indice) {
   setTimeout(() => qtyInput?.focus(), 80);
 }
 
-function confirmarReposicaoEstoque(indice) {
+async function confirmarReposicaoEstoque(indice) {
   const material = estoque[indice];
   if (!material) return;
   let quantidade = 0;
@@ -25521,6 +25750,7 @@ function confirmarReposicaoEstoque(indice) {
     return;
   }
   const observacao = String(document.getElementById("stockRestockObs")?.value || "").trim();
+  if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
   const agora = new Date().toISOString();
   const atual = Number(material.qtd) || 0;
   const novoTotal = atual + quantidade;
@@ -25561,6 +25791,7 @@ async function removerMaterial(i) {
   if (!continuar) return;
 
   try {
+    if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
     InventoryService.removeMaterial(i);
     agendarSyncSilenciosoDados("estoque-removido");
     renderizarPreservandoScroll();
@@ -25569,7 +25800,7 @@ async function removerMaterial(i) {
   }
 }
 
-function adicionarMovimentoCaixa() {
+async function adicionarMovimentoCaixa() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para lançar no caixa.")) return;
   const tipo = document.getElementById("caixaTipo")?.value || "entrada";
   let valor = 0;
@@ -25586,6 +25817,7 @@ function adicionarMovimentoCaixa() {
     return;
   }
 
+  if (!await consumirCreditoAcaoFree("registrar_caixa", "registrar entrada/saída no caixa")) return;
   caixa.push(prepararRegistroOnline({
     id: Date.now(),
     tipo,
@@ -25649,7 +25881,7 @@ async function editarMovimentoCaixa(i) {
   popup.querySelectorAll('[data-action="cash-edit-cancel"]').forEach((botao) => {
     botao.addEventListener("click", cancelar, { once: true });
   });
-  document.getElementById("cashEditForm")?.addEventListener("submit", (event) => {
+  document.getElementById("cashEditForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const tipo = document.getElementById("cashEditTipo")?.value || "entrada";
     let valor = 0;
@@ -25664,6 +25896,7 @@ async function editarMovimentoCaixa(i) {
       alert("Para manter o caixa claro, informe a descrição da saída.");
       return;
     }
+    if (!await consumirCreditoAcaoFree("registrar_caixa", "registrar entrada/saída no caixa")) return;
     const agora = new Date().toISOString();
     caixa[i] = prepararRegistroOnline({
       ...movimento,
@@ -25744,6 +25977,7 @@ async function removerMovimentoCaixa(i) {
       mostrarToast("Confirmação cancelada.", "info", 2600);
       return;
     }
+    if (!await consumirCreditoAcaoFree("registrar_caixa", "registrar entrada/saída no caixa")) return;
     const resumo = `${tipo} ${formatarMoeda(movimento.valor)} - ${descricaoCaixa(movimento)}`;
     const agora = new Date().toISOString();
     caixa[i] = prepararRegistroOnline({
@@ -27042,9 +27276,10 @@ async function adicionarItem() {
   return confirmCalculatorResult();
 }
 
-function salvarOrcamento() {
+async function salvarOrcamento() {
   if (!ultimoCalculo) calcular();
   if (!ultimoCalculo || ultimoCalculo.preco <= 0) return;
+  if (!await consumirCreditoAcaoFree("gerar_orcamento", "gerar orçamento")) return;
   const nome = document.getElementById("nomeItem")?.value.trim() || "Orçamento 3D";
   orcamentos.unshift({
     id: Date.now(),
@@ -27133,7 +27368,7 @@ function solicitarPlanoSuperadmin(planoAtual = "free") {
       resolve(null);
       return;
     }
-    const planos = garantirPlanosSaas().filter((plano) => ["free", "premium_trial", "premium"].includes(plano.slug));
+    const planos = garantirPlanosSaas().filter((plano) => ["free", "premium"].includes(plano.slug));
     popup.innerHTML = `
       <div class="modal-backdrop" role="dialog" aria-modal="true">
         <form class="modal-card" id="adminPlanForm">
@@ -28305,7 +28540,6 @@ async function gerarPDF(opcoes = {}) {
       ? await imprimirOuOferecerPdf(doc, nomeArquivo, `${tipoDoc} ${cliente}`)
       : await salvarOuCompartilharPdf(doc, nomeArquivo, `${tipoDoc} ${cliente}`);
     if (concluiu) {
-      window.MonetizationLimits?.registerPdfExport?.(getUsuarioMonetizacao());
       mostrarToast(deveImprimir ? `${tipoDoc} enviado para impressão.` : `${tipoDoc} gerado com visual profissional.`, "sucesso", 3200);
     }
   } finally {
@@ -28427,6 +28661,7 @@ async function exportarBackup() {
   syncConfig.lastActivityAt = agora;
   salvarDados();
   const dados = criarSnapshotBackupUsuarioAtual();
+  if (!verificarLimiteBackupPlano(dados, true)) return;
   const nomeArquivo = nomeArquivoBackupUsuario();
   const conteudo = JSON.stringify(dados, null, 2);
   if (await salvarBackupAndroidNativo(conteudo, nomeArquivo)) return;
@@ -28907,6 +29142,7 @@ document.addEventListener("DOMContentLoaded", () => {
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();
   configurarNavegacaoInternaApp();
+  configurarProtecaoGestosMobile();
   processarRotaPublicaLegal();
   processarParametrosAssinaturaUrl();
   processarRetornoOAuthSupabase().then(async (processou) => {

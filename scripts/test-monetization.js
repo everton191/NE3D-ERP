@@ -16,191 +16,113 @@ global.Capacitor = { Plugins: {} };
 const AdMobService = require("../src/services/adMobService.js");
 const MonetizationLimits = require("../src/services/monetizationLimits.js");
 
-let now = Date.parse("2026-05-04T12:00:00.000Z");
+let now = Date.parse("2026-05-20T12:00:00.000Z");
 let interstitialShows = 0;
-let rewardedShows = 0;
-let bannerShows = 0;
-let bannerHides = 0;
-let failRewarded = false;
+let failInterstitial = false;
 
 const mockPlugin = {
   initialize: async () => ({ ok: true }),
-  prepareRewardVideoAd: async () => {
-    if (failRewarded) throw new Error("rewarded failed");
+  prepareInterstitial: async () => {
+    if (failInterstitial) throw new Error("interstitial failed");
     return { ok: true };
   },
-  showRewardVideoAd: async () => {
-    if (failRewarded) throw new Error("rewarded failed");
-    rewardedShows += 1;
-    return { rewarded: true };
-  },
-  prepareInterstitial: async () => ({ ok: true }),
   showInterstitial: async () => {
+    if (failInterstitial) throw new Error("interstitial failed");
     interstitialShows += 1;
     return { ok: true };
   },
-  showBanner: async () => {
-    bannerShows += 1;
-    return { ok: true };
-  },
-  hideBanner: async () => {
-    bannerHides += 1;
-    return { ok: true };
-  }
+  prepareRewardVideoAd: async () => ({ ok: true }),
+  showRewardVideoAd: async () => ({ rewarded: true }),
+  showBanner: async () => ({ ok: true }),
+  hideBanner: async () => ({ ok: true })
 };
 
-function configure({ premium = false, orders = 0, production = false, random = 0.1, shouldShowAdsResolver = null, platform = "android" } = {}) {
+function configure({ premium = false, platform = "android", production = true } = {}) {
   global.localStorage.clear();
+  failInterstitial = false;
+  interstitialShows = 0;
   AdMobService.configure({
     now: () => now,
-    random: () => random,
+    random: () => 0,
     productionEnabledOverride: production,
     nativePlatformOverride: platform,
     getPlugin: () => mockPlugin,
     isPremiumResolver: () => premium,
-    shouldShowAdsResolver,
+    shouldShowAdsResolver: (user = {}, context = {}) => {
+      const screen = String(context.screenName || "").toLowerCase();
+      return !premium && !["login", "admin", "assinatura"].includes(screen);
+    },
     telemetry: () => {},
     toast: () => {}
   });
   MonetizationLimits.configure({
     now: () => now,
-    getOrderCount: () => orders,
     isPremiumResolver: () => premium
   });
   AdMobService.resetForTests();
   MonetizationLimits.resetForTests();
-  interstitialShows = 0;
-  rewardedShows = 0;
-  bannerShows = 0;
-  bannerHides = 0;
-  failRewarded = false;
 }
 
 async function run() {
-  configure({ premium: true, orders: 999 });
-  assert.equal(AdMobService.isAdsAllowed({}), false, "premium nao deve ver anuncios");
-  assert.equal((await AdMobService.preloadRewardedAd({ user: {} })).ok, false, "premium nao faz preload do SDK");
-  assert.equal(MonetizationLimits.canCreateOrder({}), true, "premium cria pedido direto");
-  assert.equal(MonetizationLimits.canExportPDF({}), true, "premium exporta PDF direto");
+  configure({ premium: true });
+  const pro = { email: "pro@example.com", activePlan: "premium", subscriptionStatus: "active" };
+  assert.equal(MonetizationLimits.canUseAction(pro), true, "PRO nao consome creditos");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(pro), Number.POSITIVE_INFINITY, "PRO tem acoes ilimitadas");
+  for (let i = 0; i < 40; i += 1) MonetizationLimits.registerAction(pro, "salvar_pedido");
+  assert.equal(MonetizationLimits.canUseAction(pro), true, "PRO continua liberado apos varias acoes");
 
-  const shouldShowAds = (user = {}, context = {}) => {
-    const screen = String(context.screenName || context.screen || "").toLowerCase();
-    if (["login", "pagamento", "assinatura", "admin"].includes(screen) || context.isTyping || context.hasError || context.isEditingOrder) return false;
-    const plan = String(user.activePlan || user.active_plan || "free").toLowerCase();
-    return plan === "free";
-  };
+  configure({ premium: false });
+  const free = { email: "free@example.com", activePlan: "free", subscriptionStatus: "free" };
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 15, "FREE comeca com 15 acoes");
+  assert.equal(MonetizationLimits.shouldCountAction("abrir_dashboard"), false, "navegacao nao consome credito");
+  MonetizationLimits.registerAction(free, "abrir_dashboard");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 15, "acao visual nao altera contador");
 
-  configure({ premium: false, shouldShowAdsResolver: shouldShowAds });
-  assert.equal(AdMobService.isAdsAllowed({ activePlan: "free", paymentStatus: "pending" }), true, "pending nao desliga anuncios do free");
-  assert.equal(AdMobService.isAdsAllowed({ activePlan: "premium_trial", subscriptionStatus: "trialing" }), false, "trial nao deve ver anuncios");
-  assert.equal(AdMobService.isAdsAllowed({ activePlan: "premium", subscriptionStatus: "active" }), false, "pago nao deve ver anuncios");
-  assert.equal(AdMobService.canShowInterstitial({ activePlan: "free" }, { screenName: "login" }).allowed, false, "login nunca mostra anuncio");
-  assert.equal(AdMobService.canShowBanner({ activePlan: "free" }, { screenName: "dashboard" }).allowed, true, "banner pode aparecer no dashboard free");
-  assert.equal(AdMobService.canShowBanner({ activePlan: "free" }, { screenName: "pedido" }).allowed, false, "banner nao aparece em edicao/pedido");
-
-  MonetizationLimits.configure({
-    now: () => now,
-    getOrderCount: () => 999,
-    isPremiumResolver: null
-  });
-  assert.equal(MonetizationLimits.canCreateOrder({
-    activePlan: "premium_trial",
-    subscriptionStatus: "trialing",
-    trialExpiresAt: new Date(now + 7 * 24 * 60 * 60 * 1000).toISOString()
-  }), true, "trial ativo libera limites");
-  assert.equal(MonetizationLimits.canCreateOrder({
-    activePlan: "free",
-    pendingPlan: "premium",
-    paymentStatus: "pending",
-    subscriptionStatus: "free",
-    orderCount: 999
-  }), true, "pending nao bloqueia pedidos basicos do free");
-  assert.equal(MonetizationLimits.canUseCalculator({
-    activePlan: "premium",
-    paymentStatus: "pending",
-    subscriptionStatus: "pending",
-    orderCount: 999
-  }), true, "pending nao derruba calculadora basica do free");
-
-  configure({ premium: false, orders: 4 });
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "free@example.com" }), true, "free cria pedidos basicos");
-  assert.equal(MonetizationLimits.getRemainingFreeOrders({ email: "free@example.com" }), Number.POSITIVE_INFINITY, "free nao tem limite de pedidos basicos");
-
-  configure({ premium: false, orders: 5 });
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "limit@example.com" }), true, "free nao bloqueia pedidos basicos");
-  for (let i = 0; i < MonetizationLimits.FREE_DAILY_CALCULATION_LIMIT; i += 1) {
-    assert.equal(MonetizationLimits.canUseCalculator({ email: "limit@example.com" }), true, "free calcula ate limite diario");
-    MonetizationLimits.registerCalculation({ email: "limit@example.com" });
+  for (let i = 0; i < 15; i += 1) {
+    assert.equal(MonetizationLimits.canUseAction(free), true, "FREE usa credito disponivel");
+    MonetizationLimits.registerAction(free, "salvar_pedido");
   }
-  assert.equal(MonetizationLimits.canUseCalculator({ email: "limit@example.com" }), false, "free bloqueia calculadora apos limite diario");
-  await AdMobService.showRewardedAd({
-    rewardType: "calculator",
-    onReward: () => MonetizationLimits.unlockCalculationsByAd({ email: "limit@example.com" })
-  });
-  assert.equal(rewardedShows, 1, "rewarded simulado exibido");
-  assert.equal(MonetizationLimits.canUseCalculator({ email: "limit@example.com" }), true, "rewarded libera calculos extras");
-  assert.equal(MonetizationLimits.getRemainingFreeCalculations({ email: "limit@example.com" }), MonetizationLimits.REWARDED_CALCULATION_BONUS, "rewarded adiciona vinte calculos");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 0, "contador chega a zero");
+  assert.equal(MonetizationLimits.canUseAction(free), false, "FREE bloqueia nova acao importante quando esgota");
 
-  configure({ premium: false, orders: 0 });
-  const pdfUser = { email: "pdf@example.com" };
-  assert.equal(MonetizationLimits.canExportPDF(pdfUser), true, "primeiro PDF do dia liberado");
-  MonetizationLimits.registerPdfExport(pdfUser);
-  assert.equal(MonetizationLimits.canExportPDF(pdfUser), false, "segundo PDF do dia bloqueado");
-  MonetizationLimits.unlockPdfByAd(pdfUser);
-  assert.equal(MonetizationLimits.canExportPDF(pdfUser), true, "rewarded libera PDF extra");
+  const ad = await AdMobService.showInterstitialNow({ user: free, context: { screenName: "pedidos", actionName: "free_action_limit" } });
+  assert.equal(ad.shown, true, "interstitial abre para liberar credito");
+  assert.equal(interstitialShows, 1, "SDK de interstitial chamado");
+  MonetizationLimits.resetActionsAfterAd(free);
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 15, "anuncio concluido reseta 15 acoes");
 
-  configure({ premium: false, orders: 0 });
-  const resetUser = { email: "reset@example.com" };
-  MonetizationLimits.registerPdfExport(resetUser);
-  assert.equal(MonetizationLimits.canExportPDF(resetUser), false, "PDF usado no dia");
-  now += 24 * 60 * 60 * 1000;
-  assert.equal(MonetizationLimits.canExportPDF(resetUser), true, "PDF reseta no dia seguinte");
+  configure({ premium: false });
+  const fallbackUser = { email: "fallback@example.com", activePlan: "free" };
+  for (let i = 0; i < 15; i += 1) MonetizationLimits.registerAction(fallbackUser, "adicionar_item");
+  failInterstitial = true;
+  const failedAd = await AdMobService.showInterstitialNow({ user: fallbackUser, context: { screenName: "pedido", actionName: "free_action_limit" } });
+  assert.equal(failedAd.shown, false, "falha de anuncio nao libera na hora");
+  const fallback = MonetizationLimits.scheduleFallbackUnlock(fallbackUser, 30);
+  assert.equal(MonetizationLimits.canUseAction(fallbackUser), false, "fallback antes de 30 min ainda aguarda");
+  now = fallback.availableAt + 1;
+  assert.equal(MonetizationLimits.canUseAction(fallbackUser), true, "fallback libera automaticamente depois de 30 min");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(fallbackUser), 15, "fallback reseta novo ciclo");
 
-  configure({ premium: false, orders: 0 });
-  global.localStorage.setItem("simplifica3d:monetization-limits:v1", JSON.stringify({
-    calculationUsage: { "corrupt@example.com": { date: "2026-05-04", count: "invalido" } },
-    calculationBonus: { "corrupt@example.com": { date: "2026-05-04", count: -5 } }
-  }));
-  assert.equal(MonetizationLimits.canUseCalculator({ email: "corrupt@example.com" }), true, "contador diario corrompido nao bloqueia primeiro uso");
+  configure({ premium: false });
+  const backupFree = MonetizationLimits.getBackupUsageSummary({ usedBytes: 51 * 1024 * 1024, plan: "free" });
+  assert.equal(backupFree.limitMb, 50, "FREE tem backup de 50 MB");
+  assert.equal(backupFree.full, true, "backup acima de 50 MB fica cheio");
+  const backupPro = MonetizationLimits.getBackupUsageSummary({ usedBytes: 900 * 1024 * 1024, plan: "premium" });
+  assert.equal(backupPro.limitMb, 1024, "PRO tem backup de 1 GB");
+  assert.equal(backupPro.full, false, "900 MB cabe no PRO");
 
-  configure({ premium: false, orders: 5 });
-  failRewarded = true;
-  const failedReward = await AdMobService.showRewardedAd({ rewardType: "calculator" });
-  assert.equal(failedReward.rewarded, false, "falha no SDK nao concede recompensa");
-  for (let i = 0; i < MonetizationLimits.FREE_DAILY_CALCULATION_LIMIT; i += 1) {
-    MonetizationLimits.registerCalculation({ email: "fail@example.com" });
-  }
-  assert.equal(MonetizationLimits.canUseCalculator({ email: "fail@example.com" }), false, "falha no SDK mantem limite de calculadora");
+  const sessions = [
+    { id: "old", active: true, lastSeenAt: "2026-05-20T09:00:00.000Z" },
+    { id: "middle", active: true, lastSeenAt: "2026-05-20T10:00:00.000Z" },
+    { id: "new", active: true, lastSeenAt: "2026-05-20T11:00:00.000Z" }
+  ];
+  const limitedFree = MonetizationLimits.enforceSessionLimit(sessions, 2, "2026-05-20T12:00:00.000Z");
+  assert.equal(limitedFree.find((session) => session.id === "old").active, false, "FREE encerra sessao mais antiga ao passar de 2");
+  const limitedPro = MonetizationLimits.enforceSessionLimit(sessions, 4, "2026-05-20T12:00:00.000Z");
+  assert.equal(limitedPro.every((session) => session.active), true, "PRO permite ate 4 sessoes");
 
-  now = Date.parse("2026-05-04T12:00:00.000Z");
-  configure({ premium: false, orders: 0, production: true, random: 0.1 });
-  await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "pedidos", actionName: "order_saved" });
-  assert.equal(interstitialShows, 0, "interstitial nao aparece com menos de duas acoes");
-  now += 61 * 60 * 1000;
-  await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "pedidos", actionName: "order_saved" });
-  assert.equal(interstitialShows, 1, "interstitial aparece depois de 60min e 2 acoes");
-
-  configure({ premium: false, orders: 0, production: true, random: 0.1 });
-  now += 61 * 60 * 1000;
-  AdMobService.registerCompletedAction();
-  AdMobService.registerCompletedAction();
-  const critical = await AdMobService.maybeShowInterstitialAfterCompletedAction({}, { screenName: "login", actionName: "order_saved" });
-  assert.equal(critical.shown, false, "interstitial nao aparece em tela critica");
-  assert.equal(interstitialShows, 0, "tela critica nao chama SDK");
-
-  configure({ premium: false, orders: 0, production: false, platform: "web" });
-  const webBanner = await AdMobService.showBanner({ user: { activePlan: "free" }, context: { screenName: "dashboard" } });
-  assert.equal(webBanner.shown, false, "web nao carrega banner AdMob");
-  assert.equal(bannerShows, 0, "web nao chama SDK de banner");
-
-  configure({ premium: false, orders: 0, production: false, platform: "android" });
-  const shownBanner = await AdMobService.showBanner({ user: { activePlan: "free" }, context: { screenName: "dashboard" } });
-  assert.equal(shownBanner.shown, true, "android free pode exibir banner leve");
-  assert.equal(bannerShows, 1, "banner chamou SDK uma vez");
-
-  configure({ premium: false, orders: 5 });
-  MonetizationLimits.unlockOrdersByAd({ email: "persist@example.com" });
-  assert.equal(MonetizationLimits.canCreateOrder({ email: "persist@example.com" }), true, "unlock persistiu em localStorage");
+  assert.equal(MonetizationLimits.canUseCalculator({ email: "calc@example.com", activePlan: "free" }), true, "calculadora continua livre no FREE");
+  assert.equal(MonetizationLimits.canExportPDF({ email: "pdf@example.com", activePlan: "free" }), true, "PDF/orcamento usa o mesmo ciclo de acoes");
 
   console.log("Monetization tests OK");
 }

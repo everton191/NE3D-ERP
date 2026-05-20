@@ -533,6 +533,31 @@
     }
   }
 
+  async function showInterstitialNow({ user = {}, context = {} } = {}) {
+    const native = canUseNativeAds(user);
+    if (!native.allowed) return { shown: false, reason: native.reason };
+    if (!isAdsAllowed(user, context)) return { shown: false, reason: "ADS_NOT_ALLOWED" };
+    if (isCriticalContext({ ...context, isTyping: false, isModalOpen: false })) return { shown: false, reason: "CRITICAL_CONTEXT" };
+
+    const plugin = config.getPlugin();
+    if (!plugin) return { shown: false, reason: "SDK_UNAVAILABLE" };
+
+    try {
+      await ensureInitialized(plugin, user);
+      const adId = getInterstitialUnitId();
+      if (plugin.prepareInterstitial) await plugin.prepareInterstitial({ adId, isTesting: !isProductionEnabled() });
+      if (plugin.showInterstitial) await plugin.showInterstitial();
+      else if (plugin.showInterstitialAd) await plugin.showInterstitialAd();
+      registerAdShown("interstitial");
+      logEvent("ADMOB_INTERSTITIAL_SHOWN", { actionName: context.actionName || "free_action_limit", production: isProductionEnabled() });
+      return { shown: true };
+    } catch (error) {
+      interstitialPrepared = false;
+      logEvent("ADMOB_INTERSTITIAL_FAILED", { actionName: context.actionName || "free_action_limit", message: String(error?.message || error || "").slice(0, 160) });
+      return { shown: false, reason: "SHOW_FAILED", error };
+    }
+  }
+
   function canShowBanner(user = {}, context = {}) {
     const native = canUseNativeAds(user);
     if (!native.allowed) return { allowed: false, reason: native.reason };
@@ -648,6 +673,7 @@
     canShowInterstitial,
     preloadInterstitial,
     maybeShowInterstitialAfterCompletedAction,
+    showInterstitialNow,
     canShowBanner,
     showBanner,
     hideBanner,

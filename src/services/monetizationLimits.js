@@ -1,20 +1,29 @@
 (function (global) {
   "use strict";
 
-  const FREE_ORDER_LIMIT = 30;
-  const REWARDED_ORDER_BONUS = 5;
-  const FREE_DAILY_CALCULATION_LIMIT = 30;
-  const REWARDED_CALCULATION_BONUS = 20;
-  const FREE_DAILY_PDF_LIMIT = 1;
-  const AD_UNLOCK_DURATION_MINUTES = 30;
+  const FREE_ACTION_CREDIT_LIMIT = 15;
+  const FALLBACK_UNLOCK_MINUTES = 30;
   const AD_FREE_UNLOCK_DURATION_MINUTES = 10;
-  const STORAGE_KEY = "simplifica3d:monetization-limits:v1";
+  const STORAGE_KEY = "simplifica3d:monetization-limits:v2";
+  const LEGACY_STORAGE_KEY = "simplifica3d:monetization-limits:v1";
+  const CREDIT_ACTIONS = new Set([
+    "criar_pedido",
+    "salvar_pedido",
+    "editar_pedido",
+    "adicionar_item",
+    "excluir_item",
+    "finalizar_pedido",
+    "gerar_orcamento",
+    "salvar_estoque",
+    "alterar_cliente",
+    "registrar_caixa"
+  ]);
 
   const config = {
     now: () => Date.now(),
     getStorage: () => global.localStorage || null,
-    getOrderCount: null,
-    isPremiumResolver: null
+    isPremiumResolver: null,
+    getOrderCount: null
   };
 
   function safeJsonParse(value, fallback) {
@@ -25,18 +34,6 @@
     }
   }
 
-  function getState() {
-    const storage = config.getStorage();
-    if (!storage) return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, orderBonus: {}, unlocks: {} };
-    return { pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, orderBonus: {}, unlocks: {}, ...safeJsonParse(storage.getItem(STORAGE_KEY), {}) };
-  }
-
-  function saveState(state) {
-    const storage = config.getStorage();
-    if (!storage) return;
-    storage.setItem(STORAGE_KEY, JSON.stringify({ pdfUsage: {}, calculationUsage: {}, calculationBonus: {}, orderBonus: {}, unlocks: {}, ...state }));
-  }
-
   function normalize(value = "") {
     return String(value || "").toLowerCase().trim().replace(/-/g, "_");
   }
@@ -45,19 +42,29 @@
     return normalize(user.id || user.userId || user.user_id || user.email || user.userEmail || "local");
   }
 
-  function todayKey() {
-    const data = new Date(config.now());
-    const ano = data.getFullYear();
-    const mes = String(data.getMonth() + 1).padStart(2, "0");
-    const dia = String(data.getDate()).padStart(2, "0");
-    return `${ano}-${mes}-${dia}`;
+  function baseState() {
+    return {
+      actionUsage: {},
+      actionResets: {},
+      fallbackUnlocks: {},
+      unlocks: {},
+      pdfUsage: {},
+      calculationUsage: {},
+      calculationBonus: {},
+      orderBonus: {}
+    };
   }
 
-  function sanitizeDailyCounter(current, today) {
-    if (!current || current.date !== today) return { date: today, count: 0 };
-    const count = Number(current.count || 0);
-    if (!Number.isFinite(count) || count < 0) return { date: today, count: 0 };
-    return { date: today, count: Math.floor(count) };
+  function getState() {
+    const storage = config.getStorage();
+    if (!storage) return baseState();
+    return { ...baseState(), ...safeJsonParse(storage.getItem(STORAGE_KEY), {}) };
+  }
+
+  function saveState(state) {
+    const storage = config.getStorage();
+    if (!storage) return;
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...baseState(), ...state }));
   }
 
   function isPremium(user = {}) {
@@ -77,25 +84,108 @@
     return false;
   }
 
-  function getOrderCount(user = {}) {
-    if (typeof config.getOrderCount === "function") {
-      return Math.max(0, Number(config.getOrderCount(user)) || 0);
+  function actionKey(user = {}) {
+    return getUserKey(user);
+  }
+
+  function sanitizeActionUsage(current) {
+    const count = Math.max(0, Math.floor(Number(current?.count || 0) || 0));
+    return {
+      count,
+      limit: Math.max(1, Math.floor(Number(current?.limit || FREE_ACTION_CREDIT_LIMIT) || FREE_ACTION_CREDIT_LIMIT)),
+      updatedAt: Number(current?.updatedAt || 0) || 0
+    };
+  }
+
+  function consumeFallbackIfReady(state, key) {
+    const availableAt = Number(state.fallbackUnlocks?.[key] || 0) || 0;
+    if (!availableAt || availableAt > config.now()) return false;
+    state.fallbackUnlocks = { ...(state.fallbackUnlocks || {}) };
+    delete state.fallbackUnlocks[key];
+    state.actionUsage = {
+      ...(state.actionUsage || {}),
+      [key]: { count: 0, limit: FREE_ACTION_CREDIT_LIMIT, updatedAt: config.now() }
+    };
+    state.actionResets = { ...(state.actionResets || {}), [key]: config.now() };
+    return true;
+  }
+
+  function getActionUsage(user = {}) {
+    const state = getState();
+    const key = actionKey(user);
+    if (consumeFallbackIfReady(state, key)) saveState(state);
+    const current = sanitizeActionUsage(state.actionUsage?.[key]);
+    if (!state.actionUsage?.[key] || state.actionUsage[key].count !== current.count || state.actionUsage[key].limit !== current.limit) {
+      state.actionUsage = { ...(state.actionUsage || {}), [key]: current };
+      saveState(state);
     }
-    return Math.max(0, Number(user.orderCount || user.activeOrderCount || 0) || 0);
+    return current;
   }
 
-  function monthKey() {
-    const data = new Date(config.now());
-    const ano = data.getFullYear();
-    const mes = String(data.getMonth() + 1).padStart(2, "0");
-    return `${ano}-${mes}`;
+  function getRemainingFreeActions(user = {}) {
+    if (isPremium(user)) return Number.POSITIVE_INFINITY;
+    const usage = getActionUsage(user);
+    return Math.max(0, FREE_ACTION_CREDIT_LIMIT - Number(usage.count || 0));
   }
 
-  function sanitizeMonthlyCounter(current, month) {
-    if (!current || current.month !== month) return { month, count: 0 };
-    const count = Number(current.count || 0);
-    if (!Number.isFinite(count) || count < 0) return { month, count: 0 };
-    return { month, count: Math.floor(count) };
+  function canUseAction(user = {}) {
+    if (isPremium(user)) return true;
+    return getRemainingFreeActions(user) > 0;
+  }
+
+  function shouldCountAction(actionType = "") {
+    return CREDIT_ACTIONS.has(normalize(actionType));
+  }
+
+  function registerAction(user = {}, actionType = "acao_importante") {
+    if (isPremium(user) || !shouldCountAction(actionType)) return getActionUsage(user);
+    const state = getState();
+    const key = actionKey(user);
+    if (consumeFallbackIfReady(state, key)) {
+      saveState(state);
+      return state.actionUsage[key];
+    }
+    const current = sanitizeActionUsage(state.actionUsage?.[key]);
+    state.actionUsage = {
+      ...(state.actionUsage || {}),
+      [key]: {
+        count: Math.min(FREE_ACTION_CREDIT_LIMIT, current.count + 1),
+        limit: FREE_ACTION_CREDIT_LIMIT,
+        updatedAt: config.now()
+      }
+    };
+    saveState(state);
+    return state.actionUsage[key];
+  }
+
+  function resetActionsAfterAd(user = {}) {
+    const state = getState();
+    const key = actionKey(user);
+    state.actionUsage = {
+      ...(state.actionUsage || {}),
+      [key]: { count: 0, limit: FREE_ACTION_CREDIT_LIMIT, updatedAt: config.now() }
+    };
+    state.actionResets = { ...(state.actionResets || {}), [key]: config.now() };
+    if (state.fallbackUnlocks?.[key]) {
+      state.fallbackUnlocks = { ...(state.fallbackUnlocks || {}) };
+      delete state.fallbackUnlocks[key];
+    }
+    saveState(state);
+    return { type: "actions", count: FREE_ACTION_CREDIT_LIMIT, remaining: FREE_ACTION_CREDIT_LIMIT };
+  }
+
+  function scheduleFallbackUnlock(user = {}, minutes = FALLBACK_UNLOCK_MINUTES) {
+    const state = getState();
+    const key = actionKey(user);
+    const availableAt = config.now() + Math.max(1, Number(minutes) || FALLBACK_UNLOCK_MINUTES) * 60 * 1000;
+    state.fallbackUnlocks = { ...(state.fallbackUnlocks || {}), [key]: availableAt };
+    saveState(state);
+    return { type: "actions", availableAt, minutes: Math.max(1, Number(minutes) || FALLBACK_UNLOCK_MINUTES) };
+  }
+
+  function getFallbackUnlock(user = {}) {
+    const state = getState();
+    return Number(state.fallbackUnlocks?.[actionKey(user)] || 0) || 0;
   }
 
   function getUnlockUntil(type, user = {}) {
@@ -108,154 +198,88 @@
     return getUnlockUntil(type, user) > config.now();
   }
 
-  function getOrderBonus(user = {}) {
-    const state = getState();
-    const key = getUserKey(user);
-    const month = monthKey();
-    const current = sanitizeMonthlyCounter(state.orderBonus?.[key], month);
-    if (!state.orderBonus?.[key] || state.orderBonus[key].month !== current.month || state.orderBonus[key].count !== current.count) {
-      state.orderBonus = { ...(state.orderBonus || {}), [key]: current };
-      saveState(state);
-    }
-    return state.orderBonus[key];
-  }
-
-  function getMonthlyOrderLimit(user = {}) {
-    if (isPremium(user)) return Number.POSITIVE_INFINITY;
-    if (!Number.isFinite(FREE_ORDER_LIMIT)) return Number.POSITIVE_INFINITY;
-    return FREE_ORDER_LIMIT + Math.max(0, Number(getOrderBonus(user).count || 0) || 0);
-  }
-
-  function canCreateOrder(user = {}) {
-    if (isPremium(user)) return true;
-    if (hasUnlock("orders", user)) return true;
-    return getOrderCount(user) < getMonthlyOrderLimit(user);
-  }
-
-  function getRemainingFreeOrders(user = {}) {
-    if (isPremium(user) || hasUnlock("orders", user)) return Number.POSITIVE_INFINITY;
-    return Math.max(0, getMonthlyOrderLimit(user) - getOrderCount(user));
-  }
-
-  function resetDailyPdfLimitIfNeeded(user = {}) {
-    const state = getState();
-    const key = getUserKey(user);
-    const today = todayKey();
-    const current = sanitizeDailyCounter(state.pdfUsage?.[key], today);
-    if (!state.pdfUsage?.[key] || state.pdfUsage[key].date !== current.date || state.pdfUsage[key].count !== current.count) {
-      state.pdfUsage = { ...(state.pdfUsage || {}), [key]: current };
-      saveState(state);
-    }
-    return state.pdfUsage[key];
-  }
-
-  function getPdfUsage(user = {}) {
-    return resetDailyPdfLimitIfNeeded(user);
-  }
-
-  function resetDailyCalculationLimitIfNeeded(user = {}) {
-    const state = getState();
-    const key = getUserKey(user);
-    const today = todayKey();
-    const current = sanitizeDailyCounter(state.calculationUsage?.[key], today);
-    const bonusCurrent = sanitizeDailyCounter(state.calculationBonus?.[key], today);
-    if (!state.calculationUsage?.[key] || state.calculationUsage[key].date !== current.date || state.calculationUsage[key].count !== current.count) {
-      state.calculationUsage = { ...(state.calculationUsage || {}), [key]: current };
-      saveState(state);
-    }
-    if (!state.calculationBonus?.[key] || state.calculationBonus[key].date !== bonusCurrent.date || state.calculationBonus[key].count !== bonusCurrent.count) {
-      state.calculationBonus = { ...(state.calculationBonus || {}), [key]: bonusCurrent };
-      saveState(state);
-    }
-    return {
-      usage: state.calculationUsage[key] || { date: today, count: 0 },
-      bonus: state.calculationBonus?.[key] || { date: today, count: 0 }
-    };
-  }
-
-  function getCalculationUsage(user = {}) {
-    return resetDailyCalculationLimitIfNeeded(user).usage;
-  }
-
-  function getCalculationBonus(user = {}) {
-    return resetDailyCalculationLimitIfNeeded(user).bonus;
-  }
-
-  function getDailyCalculationLimit(user = {}) {
-    if (isPremium(user)) return Number.POSITIVE_INFINITY;
-    const bonus = getCalculationBonus(user);
-    return FREE_DAILY_CALCULATION_LIMIT + Math.max(0, Number(bonus.count || 0) || 0);
-  }
-
-  function canUseCalculator(user = {}) {
-    if (isPremium(user)) return true;
-    if (hasUnlock("calculator_unlimited", user)) return true;
-    const usage = getCalculationUsage(user);
-    return Number(usage.count || 0) < getDailyCalculationLimit(user);
-  }
-
-  function getRemainingFreeCalculations(user = {}) {
-    if (isPremium(user) || hasUnlock("calculator_unlimited", user)) return Number.POSITIVE_INFINITY;
-    const usage = getCalculationUsage(user);
-    return Math.max(0, getDailyCalculationLimit(user) - Number(usage.count || 0));
-  }
-
-  function registerCalculation(user = {}) {
-    if (isPremium(user) || hasUnlock("calculator_unlimited", user)) return getCalculationUsage(user);
-    const state = getState();
-    const key = getUserKey(user);
-    const usage = resetDailyCalculationLimitIfNeeded(user).usage;
-    state.calculationUsage = { ...(state.calculationUsage || {}), [key]: { date: usage.date, count: Number(usage.count || 0) + 1 } };
-    saveState(state);
-    return state.calculationUsage[key];
-  }
-
-  function canExportPDF(user = {}) {
-    if (isPremium(user)) return true;
-    if (hasUnlock("pdf", user)) return true;
-    return getPdfUsage(user).count < FREE_DAILY_PDF_LIMIT;
-  }
-
-  function getRemainingFreePdfExports(user = {}) {
-    if (isPremium(user) || hasUnlock("pdf", user)) return Number.POSITIVE_INFINITY;
-    return Math.max(0, FREE_DAILY_PDF_LIMIT - getPdfUsage(user).count);
-  }
-
-  function registerPdfExport(user = {}) {
-    if (isPremium(user) || hasUnlock("pdf", user)) return getPdfUsage(user);
-    const state = getState();
-    const key = getUserKey(user);
-    const usage = resetDailyPdfLimitIfNeeded(user);
-    state.pdfUsage = { ...(state.pdfUsage || {}), [key]: { date: usage.date, count: Number(usage.count || 0) + 1 } };
-    saveState(state);
-    return state.pdfUsage[key];
-  }
-
-  function unlockByAd(type, user = {}, minutes = AD_UNLOCK_DURATION_MINUTES) {
+  function unlockByAd(type, user = {}, minutes = FALLBACK_UNLOCK_MINUTES) {
+    if (type === "actions" || type === "orders") return resetActionsAfterAd(user);
     if (global.AdMobService?.grantTemporaryUnlock) {
       return global.AdMobService.grantTemporaryUnlock(type, minutes);
     }
     const state = getState();
-    const until = config.now() + Math.max(1, Number(minutes) || AD_UNLOCK_DURATION_MINUTES) * 60 * 1000;
+    const until = config.now() + Math.max(1, Number(minutes) || FALLBACK_UNLOCK_MINUTES) * 60 * 1000;
     state.unlocks = { ...(state.unlocks || {}), [`${getUserKey(user)}:${type}`]: until };
     saveState(state);
     return { type, until };
   }
 
-  function unlockOrdersByAd(user = {}) {
-    const state = getState();
-    const key = getUserKey(user);
-    const bonus = getOrderBonus(user);
-    state.orderBonus = {
-      ...(state.orderBonus || {}),
-      [key]: { month: monthKey(), count: Number(bonus.count || 0) + REWARDED_ORDER_BONUS }
+  function getBackupUsageSummary({ usedBytes = 0, plan = "free" } = {}) {
+    const limitMb = normalize(plan) === "premium" || normalize(plan) === "pro" ? 1024 : 50;
+    const limitBytes = limitMb * 1024 * 1024;
+    const used = Math.max(0, Number(usedBytes) || 0);
+    return {
+      usedBytes: used,
+      limitBytes,
+      limitMb,
+      remainingBytes: Math.max(0, limitBytes - used),
+      percent: limitBytes ? Math.min(100, Math.round((used / limitBytes) * 100)) : 0,
+      full: used >= limitBytes
     };
-    saveState(state);
-    return { type: "orders", bonus: REWARDED_ORDER_BONUS, totalBonus: state.orderBonus[key].count };
+  }
+
+  function enforceSessionLimit(sessions = [], limit = 2, nowIso = new Date(config.now()).toISOString()) {
+    const max = Math.max(1, Number(limit) || 2);
+    const normalized = (Array.isArray(sessions) ? sessions : [])
+      .map((session) => ({ ...session, active: session?.active !== false }))
+      .sort((a, b) => (Date.parse(a.lastSeenAt || a.updatedAt || a.startedAt || 0) || 0) - (Date.parse(b.lastSeenAt || b.updatedAt || b.startedAt || 0) || 0));
+    const active = normalized.filter((session) => session.active);
+    const toClose = Math.max(0, active.length - max);
+    const closing = new Set(active.slice(0, toClose).map((session) => session.id || session.deviceId || session.device_id));
+    return normalized.map((session) => {
+      const id = session.id || session.deviceId || session.device_id;
+      return closing.has(id) ? { ...session, active: false, endedAt: session.endedAt || nowIso } : session;
+    });
+  }
+
+  function canCreateOrder(user = {}) {
+    return canUseAction(user);
+  }
+
+  function getRemainingFreeOrders(user = {}) {
+    return getRemainingFreeActions(user);
+  }
+
+  function unlockOrdersByAd(user = {}) {
+    return resetActionsAfterAd(user);
+  }
+
+  function canUseCalculator() {
+    return true;
+  }
+
+  function getRemainingFreeCalculations() {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  function registerCalculation(user = {}) {
+    return getActionUsage(user);
+  }
+
+  function unlockCalculationsByAd(user = {}) {
+    return resetActionsAfterAd(user);
+  }
+
+  function canExportPDF(user = {}) {
+    return canUseAction(user);
+  }
+
+  function getRemainingFreePdfExports(user = {}) {
+    return getRemainingFreeActions(user);
+  }
+
+  function registerPdfExport(user = {}) {
+    return registerAction(user, "gerar_orcamento");
   }
 
   function unlockPdfByAd(user = {}) {
-    return unlockByAd("pdf", user);
+    return resetActionsAfterAd(user);
   }
 
   function unlockAdsByAd(user = {}) {
@@ -266,16 +290,12 @@
     return unlockByAd("reports", user);
   }
 
-  function unlockCalculationsByAd(user = {}) {
-    const state = getState();
-    const key = getUserKey(user);
-    const { bonus } = resetDailyCalculationLimitIfNeeded(user);
-    state.calculationBonus = {
-      ...(state.calculationBonus || {}),
-      [key]: { date: todayKey(), count: Number(bonus.count || 0) + REWARDED_CALCULATION_BONUS }
-    };
-    saveState(state);
-    return { type: "calculator", bonus: REWARDED_CALCULATION_BONUS, totalBonus: state.calculationBonus[key].count };
+  function resetDailyCalculationLimitIfNeeded(user = {}) {
+    return { usage: getActionUsage(user), bonus: { date: "", count: 0 } };
+  }
+
+  function resetDailyPdfLimitIfNeeded(user = {}) {
+    return getActionUsage(user);
   }
 
   function configure(options = {}) {
@@ -284,18 +304,28 @@
 
   function resetForTests() {
     const storage = config.getStorage();
-    if (storage) storage.removeItem(STORAGE_KEY);
+    if (!storage) return;
+    storage.removeItem(STORAGE_KEY);
+    storage.removeItem(LEGACY_STORAGE_KEY);
   }
 
   const api = {
-    FREE_ORDER_LIMIT,
-    REWARDED_ORDER_BONUS,
-    FREE_DAILY_CALCULATION_LIMIT,
-    REWARDED_CALCULATION_BONUS,
-    FREE_DAILY_PDF_LIMIT,
-    AD_UNLOCK_DURATION_MINUTES,
+    FREE_ACTION_CREDIT_LIMIT,
+    FALLBACK_UNLOCK_MINUTES,
+    AD_UNLOCK_DURATION_MINUTES: FALLBACK_UNLOCK_MINUTES,
     AD_FREE_UNLOCK_DURATION_MINUTES,
+    CREDIT_ACTIONS: Array.from(CREDIT_ACTIONS),
     configure,
+    canUseAction,
+    registerAction,
+    resetActionsAfterAd,
+    scheduleFallbackUnlock,
+    getFallbackUnlock,
+    getRemainingFreeActions,
+    shouldCountAction,
+    getActionUsage,
+    getBackupUsageSummary,
+    enforceSessionLimit,
     canCreateOrder,
     canUseCalculator,
     canExportPDF,
