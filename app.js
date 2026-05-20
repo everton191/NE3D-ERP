@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.3";
-const APP_VERSION_CODE = 97;
+const APP_VERSION = "51.1.4";
+const APP_VERSION_CODE = 98;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -1129,6 +1129,48 @@ const ErrorService = {
     return appError;
   }
 };
+
+function resumirPayloadSalvamento(valor, profundidade = 0) {
+  if (profundidade > 3) return "[limite]";
+  if (valor === null || valor === undefined) return valor;
+  if (typeof valor === "string") {
+    if (/^data:/i.test(valor) || valor.length > 180) return valor.slice(0, 48) + "...";
+    return valor;
+  }
+  if (typeof valor === "number" || typeof valor === "boolean") return valor;
+  if (Array.isArray(valor)) return valor.slice(0, 8).map((item) => resumirPayloadSalvamento(item, profundidade + 1));
+  if (typeof valor !== "object") return String(valor);
+  return Object.entries(valor).reduce((resumo, [chave, item]) => {
+    if (/senha|password|token|secret|anon|apikey|access|refresh|dataurl|imagem|image|logo|foto|photo|arquivo|file|blob/i.test(chave)) {
+      resumo[chave] = "[omitido]";
+      return resumo;
+    }
+    resumo[chave] = resumirPayloadSalvamento(item, profundidade + 1);
+    return resumo;
+  }, {});
+}
+
+function registrarFluxoSalvamento(area = "Salvamento", action = "Salvar", payload = {}, erro = null) {
+  const metadata = {
+    tela: telaAtual || "",
+    action,
+    payload: resumirPayloadSalvamento(payload)
+  };
+  try {
+    const metodo = erro ? "error" : "info";
+    console[metodo]?.(`[Simplifica Save] ${area} - ${action}`, {
+      ...metadata,
+      erro: erro ? (erro?.message || String(erro)) : undefined
+    });
+  } catch (_) {}
+  if (!erro) return;
+  try {
+    registrarDiagnostico(area || "Salvamento", `${action} falhou`, erro?.message || String(erro));
+  } catch (_) {}
+  try {
+    registrarErroAplicacaoSilencioso("SAVE_FLOW_FAILED", erro, action, metadata, telaAtual);
+  } catch (_) {}
+}
 
 const PlanService = {
   exigirPlanoCompleto(usuario = getUsuarioAtual()) {
@@ -5667,6 +5709,29 @@ function calcularResumoFinanceiroPedido(pedido = {}) {
   return { subtotal, desconto, taxaExtra, total, entrada, restante, entradaMaiorQueTotal, statusFinanceiro };
 }
 
+function embutirTaxaExtraNosItensCliente(itens = [], taxaExtra = 0) {
+  const normalizados = normalizarItensPedido(itens);
+  const valorTaxa = Math.max(0, numeroMonetarioPedido(taxaExtra, 0));
+  if (!valorTaxa || !normalizados.length) return normalizados;
+  const subtotal = subtotalItensPedido(normalizados);
+  if (subtotal <= 0) return normalizados;
+  let taxaRestante = valorTaxa;
+  return normalizados.map((item, indice) => {
+    const qtd = Math.max(1, Number(item.qtd) || 1);
+    const totalOriginal = Math.max(0, numeroMonetarioPedido(item.total, 0));
+    const parcela = indice === normalizados.length - 1
+      ? taxaRestante
+      : Math.round(valorTaxa * (totalOriginal / subtotal) * 100) / 100;
+    taxaRestante = Math.max(0, taxaRestante - parcela);
+    const totalCliente = Math.max(0, totalOriginal + parcela);
+    return {
+      ...item,
+      valor: totalCliente / qtd,
+      total: totalCliente
+    };
+  });
+}
+
 function totalPedido(pedido) {
   return calcularResumoFinanceiroPedido(pedido || {}).total;
 }
@@ -6089,7 +6154,11 @@ function normalizarItemPedido(item = {}) {
     total: Math.max(0, Number(item.total) || valor * qtd),
     custoMaterial: Math.max(0, Number(item.custoMaterial) || 0),
     custoEnergia: Math.max(0, Number(item.custoEnergia) || 0),
-    custoTotal: Math.max(0, Number(item.custoTotal ?? item.custo) || 0)
+    custoTotal: Math.max(0, Number(item.custoTotal ?? item.custo) || 0),
+    baseProduto: Math.max(0, Number(item.baseProduto ?? item.productBase) || 0),
+    lucroProduto: Math.max(0, Number(item.lucroProduto ?? item.productProfit) || 0),
+    valorProduto: Math.max(0, Number(item.valorProduto ?? item.productValue) || 0),
+    taxaExtra: Math.max(0, Number(item.taxaExtra ?? item.extraFee) || 0)
   };
 }
 
@@ -11914,28 +11983,38 @@ function salvarDadosPessoaisUsuario() {
     mostrarToast("Informe o nome do usuário.", "warning", 2600);
     return;
   }
-  const id = String(usuario.id || "");
-  const email = normalizarEmail(usuario.email || "");
-  usuarios = normalizarUsuarios(usuarios).map((item) => {
-    const mesmoUsuario = (id && String(item.id || "") === id) || (email && normalizarEmail(item.email || "") === email);
-    if (!mesmoUsuario) return item;
-    return normalizarUsuario({
-      ...item,
-      nome,
-      phone: telefone,
-      telefone,
-      atualizadoEm: new Date().toISOString()
+  const botao = document.activeElement?.closest?.("button") || null;
+  setBotaoLoading(botao, true, "Salvando...");
+  try {
+    const id = String(usuario.id || "");
+    const email = normalizarEmail(usuario.email || "");
+    usuarios = normalizarUsuarios(usuarios).map((item) => {
+      const mesmoUsuario = (id && String(item.id || "") === id) || (email && normalizarEmail(item.email || "") === email);
+      if (!mesmoUsuario) return item;
+      return normalizarUsuario({
+        ...item,
+        nome,
+        phone: telefone,
+        telefone,
+        atualizadoEm: new Date().toISOString()
+      });
     });
-  });
-  const atualizado = usuarios.find((item) => (id && String(item.id || "") === id) || (email && normalizarEmail(item.email || "") === email));
-  if (atualizado?.email) {
-    usuarioAtualEmail = atualizado.email;
-    sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+    const atualizado = usuarios.find((item) => (id && String(item.id || "") === id) || (email && normalizarEmail(item.email || "") === email));
+    if (atualizado?.email) {
+      usuarioAtualEmail = atualizado.email;
+      sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+    }
+    salvarDados();
+    registrarFluxoSalvamento("Perfil", "Salvar dados pessoais", { id, email, campos: ["nome", "telefone"] });
+    fecharPopup();
+    renderApp();
+    mostrarToast("Dados do usuário atualizados.", "sucesso", 2600);
+  } catch (erro) {
+    registrarFluxoSalvamento("Perfil", "Salvar dados pessoais", { email: usuario.email || "" }, erro);
+    ErrorService.notify(erro, { area: "Perfil", action: "Salvar dados pessoais", errorKey: "SAVE_PROFILE_FAILED" });
+  } finally {
+    setBotaoLoading(botao, false);
   }
-  salvarDados();
-  fecharPopup();
-  renderApp();
-  mostrarToast("Dados do usuário atualizados.", "sucesso", 2600);
 }
 
 function renderFotoPerfilAtualUsuario() {
@@ -20289,6 +20368,7 @@ async function salvarAssetSupabaseSilencioso(dataUrl, tipo) {
     return `${base}/storage/v1/object/public/simplifica-assets/${nome}`;
   } catch (erro) {
     registrarDiagnostico("Storage", "Upload de personalização indisponível", erro.message);
+    registrarFluxoSalvamento("Personalização", "Upload de asset Supabase", { tipo, tamanho: String(dataUrl || "").length }, erro);
     return dataUrl;
   }
 }
@@ -20352,6 +20432,7 @@ async function salvarPersonalizacaoRemotaSilencioso() {
     return true;
   } catch (erro) {
     registrarDiagnostico("Personalização", "Persistência remota indisponível", erro.message);
+    registrarFluxoSalvamento("Personalização", "Salvar personalização remota", { userId, companyId, tabelas: ["user_profiles", "company_profiles", "app_customizations"] }, erro);
     return false;
   }
 }
@@ -20441,44 +20522,56 @@ async function sincronizarPersonalizacaoInicialSilencioso() {
 }
 
 async function salvarPersonalizacao() {
-  const [logoBruto, fundoPdfBruto, fotoBruta, logoEmpresaBruta, fundoLoginBruto] = await Promise.all([
-    lerLogoMarcaSelecionada(),
-    lerFundoPdfSelecionado(),
-    lerFotoPerfilSelecionada(),
-    lerLogoEmpresaSelecionada(),
-    lerFundoLoginSelecionado()
-  ]);
-  const [logo, fundoPdf, fotoPerfil, logoEmpresa, fundoLogin] = await Promise.all([
-    salvarAssetSupabaseSilencioso(logoBruto, "brand-logo"),
-    salvarAssetSupabaseSilencioso(fundoPdfBruto, "pdf-background"),
-    salvarAssetSupabaseSilencioso(fotoBruta, "profile-photo"),
-    salvarAssetSupabaseSilencioso(logoEmpresaBruta, "company-logo"),
-    salvarAssetSupabaseSilencioso(fundoLoginBruto, "login-background")
-  ]);
-  const campos = lerPersonalizacaoCampos();
-  appConfig = {
-    ...appConfig,
-    ...campos,
-    brandLogoDataUrl: logo,
-    pdfBackgroundDataUrl: fundoPdf,
-    profilePhotoDataUrl: fotoPerfil,
-    companyLogoDataUrl: logoEmpresa,
-    loginBackgroundDataUrl: fundoLogin,
-    appearanceSettings: normalizarAppearanceSettings({
-      ...(campos.appearanceSettings || {}),
-      logo_url: logo,
-      pdf_background: fundoPdf,
-      profile_photo: fotoPerfil,
-      company_logo: logoEmpresa,
-      login_background: fundoLogin
-    })
-  };
-  const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
-  appConfig.customizationSyncPending = !remotoOk;
-  salvarDados();
-  registrarHistorico("Personalização", "Preferências do app atualizadas");
-  mostrarToast(temAcessoCompleto() ? "Personalização salva" : "Dados básicos salvos", "sucesso", 2800);
-  renderizarPreservandoScroll();
+  const botao = document.activeElement?.closest?.("button") || null;
+  setBotaoLoading(botao, true, "Salvando...");
+  try {
+    const [logoBruto, fundoPdfBruto, fotoBruta, logoEmpresaBruta, fundoLoginBruto] = await Promise.all([
+      lerLogoMarcaSelecionada(),
+      lerFundoPdfSelecionado(),
+      lerFotoPerfilSelecionada(),
+      lerLogoEmpresaSelecionada(),
+      lerFundoLoginSelecionado()
+    ]);
+    const [logo, fundoPdf, fotoPerfil, logoEmpresa, fundoLogin] = await Promise.all([
+      salvarAssetSupabaseSilencioso(logoBruto, "brand-logo"),
+      salvarAssetSupabaseSilencioso(fundoPdfBruto, "pdf-background"),
+      salvarAssetSupabaseSilencioso(fotoBruta, "profile-photo"),
+      salvarAssetSupabaseSilencioso(logoEmpresaBruta, "company-logo"),
+      salvarAssetSupabaseSilencioso(fundoLoginBruto, "login-background")
+    ]);
+    const campos = lerPersonalizacaoCampos();
+    appConfig = {
+      ...appConfig,
+      ...campos,
+      brandLogoDataUrl: logo,
+      pdfBackgroundDataUrl: fundoPdf,
+      profilePhotoDataUrl: fotoPerfil,
+      companyLogoDataUrl: logoEmpresa,
+      loginBackgroundDataUrl: fundoLogin,
+      appearanceSettings: normalizarAppearanceSettings({
+        ...(campos.appearanceSettings || {}),
+        logo_url: logo,
+        pdf_background: fundoPdf,
+        profile_photo: fotoPerfil,
+        company_logo: logoEmpresa,
+        login_background: fundoLogin
+      })
+    };
+    const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+    appConfig.customizationSyncPending = !remotoOk;
+    salvarDados();
+    registrarFluxoSalvamento("Aparência", "Salvar personalização", { remotoOk, campos: Object.keys(campos || {}) });
+    registrarHistorico("Personalização", "Preferências do app atualizadas");
+    mostrarToast(remotoOk
+      ? (temAcessoCompleto() ? "Personalização salva." : "Dados básicos salvos.")
+      : "Personalização salva neste aparelho. A nuvem será sincronizada quando possível.", remotoOk ? "sucesso" : "warning", 3600);
+    renderizarPreservandoScroll();
+  } catch (erro) {
+    registrarFluxoSalvamento("Aparência", "Salvar personalização", { tela: telaAtual }, erro);
+    ErrorService.notify(erro, { area: "Aparência", action: "Salvar personalização", errorKey: "SAVE_APPEARANCE_FAILED" });
+  } finally {
+    setBotaoLoading(botao, false);
+  }
 }
 
 function removerLogoMarca() {
@@ -21205,21 +21298,27 @@ async function alterarSenhaAtual(obrigatoria = false, botao = null) {
     return;
   }
   setBotaoLoading(botao || "alterarSenhaBtn", true, "Salvando...");
-  if (!await verificarSenhaUsuario(usuario, atual)) {
-    registrarSeguranca("Troca de senha", "erro", "Senha atual inválida", usuario.email);
-    alert("Usuário ou senha inválidos");
+  try {
+    if (!await verificarSenhaUsuario(usuario, atual)) {
+      registrarSeguranca("Troca de senha", "erro", "Senha atual inválida", usuario.email);
+      alert("Usuário ou senha inválidos");
+      return;
+    }
+    await definirSenhaUsuario(usuario, nova, false);
+    await alterarSenhaSupabaseSeConectado(nova);
+    salvarDados();
+    registrarFluxoSalvamento("Segurança", "Alterar senha", { usuarioId: usuario.id || "", email: usuario.email || "" });
+    registrarHistorico("Segurança", "Senha alterada");
+    registrarSeguranca("Troca de senha", "sucesso", "", usuario.email);
+    alert("Senha alterada com sucesso");
+    if (obrigatoria) trocarTela("dashboard");
+    else renderApp();
+  } catch (erro) {
+    registrarFluxoSalvamento("Segurança", "Alterar senha", { usuarioId: usuario.id || "", email: usuario.email || "" }, erro);
+    ErrorService.notify(erro, { area: "Segurança", action: "Alterar senha", errorKey: "CHANGE_PASSWORD_FAILED" });
+  } finally {
     setBotaoLoading(botao || "alterarSenhaBtn", false);
-    return;
   }
-  await definirSenhaUsuario(usuario, nova, false);
-  await alterarSenhaSupabaseSeConectado(nova);
-  salvarDados();
-  registrarHistorico("Segurança", "Senha alterada");
-  registrarSeguranca("Troca de senha", "sucesso", "", usuario.email);
-  alert("Senha alterada com sucesso");
-  setBotaoLoading(botao || "alterarSenhaBtn", false);
-  if (obrigatoria) trocarTela("dashboard");
-  else renderApp();
 }
 
 function salvarConfigComercial() {
@@ -21228,28 +21327,39 @@ function salvarConfigComercial() {
     return;
   }
 
-  const mobileLimit = Math.max(1, parseFloat(document.getElementById("mobileLimitAdmin")?.value) || 1);
-  const desktopLimit = Math.max(1, parseFloat(document.getElementById("desktopLimitAdmin")?.value) || 1);
+  const botao = document.activeElement?.closest?.("button") || null;
+  setBotaoLoading(botao, true, "Salvando...");
+  try {
+    const mobileLimit = Math.max(1, parseFloat(document.getElementById("mobileLimitAdmin")?.value) || 1);
+    const desktopLimit = Math.max(1, parseFloat(document.getElementById("desktopLimitAdmin")?.value) || 1);
 
-  billingConfig = {
-    ...billingConfig,
-    ownerMode: false,
-    trialDays: Math.max(1, parseFloat(document.getElementById("trialDaysAdmin")?.value) || 7),
-    monthlyPrice: Math.max(0, parseFloat(document.getElementById("monthlyPriceAdmin")?.value) || 19.9),
-    mercadoPagoLink: (document.getElementById("mercadoPagoLinkAdmin")?.value || "").trim(),
-    androidDownloadUrl: (document.getElementById("androidDownloadUrlAdmin")?.value || "").trim(),
-    windowsWebUrl: (document.getElementById("windowsWebUrlAdmin")?.value || "").trim(),
-    windowsDownloadUrl: "",
-    deviceLimits: {
-      mobile: mobileLimit,
-      desktop: desktopLimit
-    },
-    cloudSyncPaidOnly: false
-  };
+    billingConfig = {
+      ...billingConfig,
+      ownerMode: false,
+      trialDays: Math.max(1, parseFloat(document.getElementById("trialDaysAdmin")?.value) || 7),
+      monthlyPrice: Math.max(0, parseFloat(document.getElementById("monthlyPriceAdmin")?.value) || 19.9),
+      mercadoPagoLink: (document.getElementById("mercadoPagoLinkAdmin")?.value || "").trim(),
+      androidDownloadUrl: (document.getElementById("androidDownloadUrlAdmin")?.value || "").trim(),
+      windowsWebUrl: (document.getElementById("windowsWebUrlAdmin")?.value || "").trim(),
+      windowsDownloadUrl: "",
+      deviceLimits: {
+        mobile: mobileLimit,
+        desktop: desktopLimit
+      },
+      cloudSyncPaidOnly: false
+    };
 
-  salvarDados();
-  registrarHistorico("Comercial", "Configuração comercial atualizada");
-  renderApp();
+    salvarDados();
+    registrarFluxoSalvamento("Superadmin", "Salvar configuração comercial", { mobileLimit, desktopLimit, trialDays: billingConfig.trialDays });
+    registrarHistorico("Comercial", "Configuração comercial atualizada");
+    mostrarToast("Configuração comercial salva.", "sucesso", 2600);
+    renderApp();
+  } catch (erro) {
+    registrarFluxoSalvamento("Superadmin", "Salvar configuração comercial", {}, erro);
+    ErrorService.notify(erro, { area: "Superadmin", action: "Salvar configuração comercial", errorKey: "SAVE_COMMERCIAL_CONFIG_FAILED" });
+  } finally {
+    setBotaoLoading(botao, false);
+  }
 }
 
 function ativarLicencaLocal() {
@@ -21327,26 +21437,40 @@ function lerConfigAppCampos() {
 function salvarConfigSync() {
   if (!exigirAcessoNuvem()) return;
 
-  syncConfig = {
-    ...syncConfig,
-    ...lerConfigSyncCampos()
-  };
+  const botao = document.activeElement?.closest?.("button") || null;
+  setBotaoLoading(botao, true, "Salvando...");
+  try {
+    syncConfig = {
+      ...syncConfig,
+      ...lerConfigSyncCampos()
+    };
 
-  appConfig = {
-    ...appConfig,
-    ...lerConfigAppCampos()
-  };
-  const memoriaIA = AiUsageMemoryManager.load();
-  memoriaIA.enabled = appConfig.aiUsageMemoryEnabled !== false;
-  AiUsageMemoryManager.updateUserAiProfile(memoriaIA);
+    appConfig = {
+      ...appConfig,
+      ...lerConfigAppCampos()
+    };
+    const memoriaIA = AiUsageMemoryManager.load();
+    memoriaIA.enabled = appConfig.aiUsageMemoryEnabled !== false;
+    AiUsageMemoryManager.updateUserAiProfile(memoriaIA);
 
-  salvarDados();
-  registrarHistorico("Configuração", "Sincronização atualizada");
-  iniciarAutoBackup();
-  iniciarMonitorAtualizacao();
-  configurarMonetizacaoAds();
-  alert("Configurações salvas");
-  renderApp();
+    salvarDados();
+    registrarFluxoSalvamento("Configuração", "Salvar sincronização", {
+      supabaseEnabled: syncConfig.supabaseEnabled,
+      autoBackupEnabled: syncConfig.autoBackupEnabled,
+      autoBackupTarget: syncConfig.autoBackupTarget
+    });
+    registrarHistorico("Configuração", "Sincronização atualizada");
+    iniciarAutoBackup();
+    iniciarMonitorAtualizacao();
+    configurarMonetizacaoAds();
+    mostrarToast("Configurações salvas.", "sucesso", 2600);
+    renderApp();
+  } catch (erro) {
+    registrarFluxoSalvamento("Configuração", "Salvar sincronização", {}, erro);
+    ErrorService.notify(erro, { area: "Configuração", action: "Salvar sincronização", errorKey: "SAVE_SYNC_CONFIG_FAILED" });
+  } finally {
+    setBotaoLoading(botao, false);
+  }
 }
 
 function criarBillingConfigBackup() {
@@ -21866,7 +21990,12 @@ async function requisicaoSupabase(caminho, opcoes = {}, tentarRenovar = true) {
       throw new AppError(detalhe, {
         code: "SUPABASE_REQUEST_FAILED",
         userMessage: ErrorService.toAppError(new Error(detalhe)).userMessage,
-        details: { caminho, status: resposta.status }
+        details: {
+          caminho,
+          method: fetchOptions.method || "GET",
+          status: resposta.status,
+          response: resumirPayloadSalvamento(dados || texto || "")
+        }
       });
     }
 
@@ -24382,6 +24511,10 @@ async function confirmCalculatorResult() {
     custoMaterial: ultimoCalculo.custoMaterial,
     custoEnergia: ultimoCalculo.custoEnergia,
     custoTotal: ultimoCalculo.custoTotal,
+    baseProduto: ultimoCalculo.baseProduto,
+    lucroProduto: ultimoCalculo.lucroProduto,
+    valorProduto: ultimoCalculo.valorProduto,
+    taxaExtra: ultimoCalculo.taxaExtra,
     qtd,
     valor: valorManual,
     total: valorManual * qtd
@@ -24614,22 +24747,58 @@ async function validarSenhaSupabaseUsuarioAtual(senha) {
   return validarSenhaLocalUsuarioAtual(senha);
 }
 
-async function confirmAdminPassword(actionLabel = "continuar") {
+async function requestSensitiveActionConfirmation({
+  actionLabel = "continuar",
+  titulo = "",
+  mensagem = "",
+  confirmar = "Confirmar",
+  cancelar = "Cancelar",
+  perigo = false,
+  exigirConfirmacaoVisual = false
+} = {}) {
+  const acao = String(actionLabel || "continuar").trim() || "continuar";
+
+  if (exigirConfirmacaoVisual) {
+    const confirmou = await solicitarConfirmacaoAcao({
+      titulo: titulo || "Confirmar ação",
+      mensagem: mensagem || `Deseja ${acao}?`,
+      confirmar,
+      cancelar,
+      perigo
+    });
+    if (!confirmou) {
+      mostrarToast("Confirmação cancelada.", "info", 2600);
+      registrarAuditoria("acao_sensivel_cancelada", { action: acao, etapa: "confirmacao" });
+      return false;
+    }
+  }
+
   const agora = Date.now();
   if (adminAuthValidUntil && adminAuthValidUntil > agora) return true;
-  const biometria = await confirmarBiometriaSeDisponivel(`Confirme para ${actionLabel}.`);
+
+  const biometria = await confirmarBiometriaSeDisponivel(`Confirme para ${acao}.`);
   if (biometria.disponivel && biometria.ok) {
     adminAuthValidUntil = Date.now() + 3 * 60 * 1000;
-    registrarAuditoria("biometria_admin_validada", { action: actionLabel });
-    registrarSeguranca("biometria_admin_validada", "sucesso", actionLabel);
+    registrarAuditoria("biometria_admin_validada", { action: acao });
+    registrarSeguranca("biometria_admin_validada", "sucesso", acao);
+    mostrarToast("Autorizado com sucesso.", "sucesso", 2200);
     return true;
   }
-  const senha = await solicitarSenhaConfirmacaoAdmin(actionLabel);
-  if (senha === null) return false;
-  if (!senha) {
-    mostrarToast("Senha incorreta. Alteração não autorizada.", "erro", 5500);
-    registrarAuditoria("senha_admin_falhou", { action: actionLabel, motivo: "senha_vazia" });
-    registrarSeguranca("senha_admin_falhou", "erro", actionLabel);
+  if (biometria.disponivel && !biometria.ok) {
+    mostrarToast("Biometria cancelada. Confirme com sua senha.", "info", 3200);
+  }
+
+  const senha = await solicitarSenhaConfirmacaoAdmin(acao);
+  if (senha === null) {
+    mostrarToast("Confirmação cancelada.", "info", 2600);
+    registrarAuditoria("acao_sensivel_cancelada", { action: acao, etapa: "senha" });
+    registrarSeguranca("acao_sensivel_cancelada", "erro", acao);
+    return false;
+  }
+  if (!String(senha || "").trim()) {
+    mostrarToast("Senha incorreta.", "erro", 5500);
+    registrarAuditoria("senha_admin_falhou", { action: acao, motivo: "senha_vazia" });
+    registrarSeguranca("senha_admin_falhou", "erro", acao);
     return false;
   }
 
@@ -24637,20 +24806,25 @@ async function confirmAdminPassword(actionLabel = "continuar") {
     const ok = await validarSenhaSupabaseUsuarioAtual(senha);
     if (ok) {
       adminAuthValidUntil = Date.now() + 3 * 60 * 1000;
-      registrarAuditoria("senha_admin_validada", { action: actionLabel });
-      registrarSeguranca("senha_admin_validada", "sucesso", actionLabel);
+      registrarAuditoria("senha_admin_validada", { action: acao });
+      registrarSeguranca("senha_admin_validada", "sucesso", acao);
+      mostrarToast("Autorizado com sucesso.", "sucesso", 2200);
       return true;
     }
   } catch (erro) {
     registrarDiagnostico("Auth", "Senha administrativa não validada", erro.message, { silent: true });
   }
 
-  registrarAuditoria("senha_admin_falhou", { action: actionLabel });
-  registrarSeguranca("senha_admin_falhou", "erro", actionLabel);
-  mostrarToast(actionLabel.includes("excluir")
-    ? "Senha incorreta. Exclusão não autorizada."
+  registrarAuditoria("senha_admin_falhou", { action: acao });
+  registrarSeguranca("senha_admin_falhou", "erro", acao);
+  mostrarToast(/excluir|remover|cancelar/i.test(acao)
+    ? "Senha incorreta. Ação não autorizada."
     : "Senha incorreta. Alteração não autorizada.", "erro", 6000);
   return false;
+}
+
+async function confirmAdminPassword(actionLabel = "continuar") {
+  return requestSensitiveActionConfirmation({ actionLabel });
 }
 
 async function requireAdminPassword(actionName) {
@@ -24672,7 +24846,7 @@ async function requestOrderEdit(orderId) {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para editar pedidos.")) return;
     const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
     if (!pedido) return;
-    if (!await confirmAdminPassword("editar este pedido")) return;
+    if (!await requestSensitiveActionConfirmation({ actionLabel: "editar este pedido" })) return;
     abrirPedidoParaEdicaoAutorizada(orderId);
   } catch (erro) {
     ErrorService.notify(erro, { area: "Pedidos", action: "Solicitar edição de pedido", errorKey: "REQUEST_ORDER_EDIT_FAILED" });
@@ -24868,16 +25042,16 @@ async function requestOrderDelete(orderId) {
     if (!pedido) return;
     registrarAuditoriaPedido("pedido_cancelamento_solicitado", pedido);
 
-    const continuar = await solicitarConfirmacaoAcao({
+    const continuar = await requestSensitiveActionConfirmation({
+      actionLabel: "cancelar este pedido",
       titulo: "Cancelar pedido",
       mensagem: "Tem certeza que deseja cancelar este pedido? Ele será movido para Cancelados e o histórico será preservado.",
       cancelar: "Cancelar",
-      confirmar: "Continuar",
-      perigo: true
+      confirmar: "Autorizar cancelamento",
+      perigo: true,
+      exigirConfirmacaoVisual: true
     });
     if (!continuar) return;
-
-    if (!await confirmAdminPassword("cancelar este pedido")) return;
 
     let devolverEstoque = false;
     if (pedidoPossuiConsumoEstoque(pedido) && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm) {
@@ -25078,6 +25252,12 @@ async function fecharPedido() {
     if (lancamentoRecebimento) caixa.push(lancamentoRecebimento);
 
     salvarDados();
+    registrarFluxoSalvamento("Pedidos", pedidoEditando ? "Atualizar pedido" : "Salvar pedido", {
+      id: pedido.id,
+      cliente,
+      itens: pedido.itens?.length || 0,
+      total
+    });
     agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
     if (pedidoEditando) registrarAuditoriaPedido("pedido_editado", pedido);
     registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
@@ -25105,11 +25285,21 @@ async function fecharPedido() {
   } catch (erro) {
     pedidoSalvando = false;
     window.__pedidoReviewConfirmed = false;
+    registrarFluxoSalvamento("Pedidos", pedidoEditando ? "Atualizar pedido" : "Salvar pedido", {
+      cliente: clientePedido,
+      itens: itensPedido.length
+    }, erro);
     ErrorService.notify(erro, {
       area: "Pedidos",
       action: pedidoEditando ? "Atualizar pedido" : "Salvar pedido",
       errorKey: pedidoEditando ? "UPDATE_ORDER_FAILED" : "SAVE_ORDER_FAILED"
     });
+    renderizarPreservandoScroll();
+  } finally {
+    if (pedidoSalvando) {
+      pedidoSalvando = false;
+      renderizarPreservandoScroll();
+    }
   }
 }
 
@@ -25359,15 +25549,16 @@ function confirmarReposicaoEstoque(indice) {
 async function removerMaterial(i) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   if (!estoque[i]) return;
-  const continuar = await solicitarConfirmacaoAcao({
+  const continuar = await requestSensitiveActionConfirmation({
+    actionLabel: "remover material do estoque",
     titulo: "Remover material",
     mensagem: "Tem certeza que deseja remover este material do estoque? Esta ação é sensível.",
-    confirmar: "Continuar",
+    confirmar: "Autorizar remoção",
     cancelar: "Cancelar",
-    perigo: true
+    perigo: true,
+    exigirConfirmacaoVisual: true
   });
   if (!continuar) return;
-  if (!await confirmAdminPassword("remover material do estoque")) return;
 
   try {
     InventoryService.removeMaterial(i);
@@ -25416,7 +25607,7 @@ async function editarMovimentoCaixa(i) {
     mostrarToast("Movimento cancelado não pode ser editado.", "aviso", 3200);
     return;
   }
-  if (!await confirmAdminPassword("editar movimento do caixa")) return;
+  if (!await requestSensitiveActionConfirmation({ actionLabel: "editar movimento do caixa" })) return;
 
   const popup = document.getElementById("popup");
   if (!popup) return;
@@ -25526,14 +25717,7 @@ async function removerMovimentoCaixa(i) {
           <span>Motivo do cancelamento</span>
           <input id="cashCancelReason" placeholder="Ex.: lançamento duplicado" required>
         </label>
-        <label class="field">
-          <span>Digite sua senha para confirmar</span>
-          <div class="password-row auth-password-row">
-            <input id="cashCancelPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
-            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">${renderUiIcon("view")}</button>
-          </div>
-        </label>
-        <p class="muted auth-inline-feedback" id="cashCancelFeedback">Movimentos cancelados ficam no histórico e aparecem no filtro Cancelados.</p>
+        <p class="muted auth-inline-feedback" id="cashCancelFeedback">Depois do motivo, a autorização será feita por biometria ou senha.</p>
         <div class="actions">
           <button class="btn ghost" type="button" id="cashCancelBack">Voltar</button>
           <button class="btn danger" type="submit">Confirmar cancelamento</button>
@@ -25549,17 +25733,15 @@ async function removerMovimentoCaixa(i) {
   });
   document.getElementById("cashCancelForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const senha = document.getElementById("cashCancelPassword")?.value || "";
     const motivo = String(document.getElementById("cashCancelReason")?.value || "").trim();
     const feedback = document.getElementById("cashCancelFeedback");
     if (!motivo) {
       if (feedback) feedback.textContent = "Informe o motivo do cancelamento.";
       return;
     }
-    const okSenha = await validarSenhaSupabaseUsuarioAtual(senha);
-    if (!okSenha) {
-      if (feedback) feedback.textContent = "Senha não validada. Confira e tente novamente.";
-      focarCampoSenha("cashCancelPassword", true);
+    const autorizado = await requestSensitiveActionConfirmation({ actionLabel: "cancelar movimento do caixa" });
+    if (!autorizado) {
+      mostrarToast("Confirmação cancelada.", "info", 2600);
       return;
     }
     const resumo = `${tipo} ${formatarMoeda(movimento.valor)} - ${descricaoCaixa(movimento)}`;
@@ -25907,7 +26089,13 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
   }
   const margem = Number(document.getElementById("margem")?.value || appConfig.defaultMargin || 0) || 0;
   const margemMinima = Number(appConfig.minimumRecommendedMargin || 60) || 60;
-  const status = calculo.precoTotal < calculo.custoTotal
+  const baseProduto = Math.max(0, Number(calculo.baseProduto ?? calculo.custoTotal) || 0);
+  const lucroProduto = Math.max(0, Number(calculo.lucroProduto ?? ((Number(calculo.precoSemTaxa) || 0) - baseProduto)) || 0);
+  const valorProduto = Math.max(0, Number(calculo.valorProduto ?? calculo.precoSemTaxa) || 0);
+  const taxaExtra = Math.max(0, Number(calculo.taxaExtra) || 0);
+  const totalFinal = Math.max(0, Number(calculo.totalFinal ?? calculo.precoTotal) || 0);
+  const ajusteArredondamento = Math.max(0, Number(calculo.ajusteArredondamento) || 0);
+  const status = valorProduto < baseProduto
     ? "Preço abaixo do custo estimado"
     : margem < margemMinima
       ? "Margem abaixo do recomendado"
@@ -25921,17 +26109,19 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
       <div class="calc-summary-lines" id="calcSummaryLines">
         <span>Custo do material</span><strong>${formatarMoeda(calculo.custoMaterial)}</strong>
         <span>Custo de impressão</span><strong>${formatarMoeda((Number(calculo.custoEnergia) || 0) + (Number(calculo.custoMaquina) || 0))}</strong>
-        <span>Taxa extra${calculo.taxaExtraRotulo ? ` (${escaparHtml(calculo.taxaExtraRotulo)})` : ""}</span><strong>${formatarMoeda(calculo.taxaExtra)}</strong>
-        <span>Custo total</span><strong>${formatarMoeda(calculo.custoTotal)}</strong>
-        <span>Margem de lucro (${margem}%)</span><strong>${formatarMoeda(Math.max(0, calculo.precoSemTaxa - calculo.custoTotal))}</strong>
+        <span>Base do produto</span><strong>${formatarMoeda(baseProduto)}</strong>
+        <span>Margem de lucro (${margem}%)</span><strong>${formatarMoeda(lucroProduto)}</strong>
+        <span>Valor do produto</span><strong>${formatarMoeda(valorProduto)}</strong>
+        ${taxaExtra > 0 ? `<span>Taxa extra${calculo.taxaExtraRotulo ? ` (${escaparHtml(calculo.taxaExtraRotulo)})` : ""}</span><strong>${formatarMoeda(taxaExtra)}</strong>` : ""}
+        ${ajusteArredondamento > 0 ? `<span>Arredondamento</span><strong>${formatarMoeda(ajusteArredondamento)}</strong>` : ""}
       </div>
       <label class="field inline-result-field">
         <span>Valor unitário ajustável</span>
         <input id="valorManualItem" type="number" min="0" step="0.01" value="${(Number(calculo.preco) || 0).toFixed(2)}">
       </label>
       <div class="calc-final-row">
-        <span>Valor final</span>
-        <strong>${formatarMoeda(calculo.precoTotal)}</strong>
+        <span>Total final</span>
+        <strong>${formatarMoeda(totalFinal)}</strong>
       </div>
       <small class="calc-margin-status">${escaparHtml(status)}</small>
     </div>
@@ -26782,28 +26972,36 @@ function calcular(opcoes = {}) {
   const material = (peso / 1000) * filamento;
   const energiaC = (consumo / 1000) * tempoCobrado * energia;
   const maquina = tempoCobrado * custoHora;
-  const custoBase = material + energiaC + maquina;
-  const taxaInfo = calcularTaxaExtraAplicada(custoBase);
+  const baseProduto = material + energiaC + maquina;
+  const taxaInfo = calcularTaxaExtraAplicada(baseProduto);
   const taxaExtra = taxaInfo.valor;
-  const custo = custoBase + taxaExtra;
-  const precoSemTaxa = custo * (1 + margem / 100);
+  const lucroProduto = baseProduto * (margem / 100);
+  const valorProduto = baseProduto + lucroProduto;
+  const totalAntesArredondamento = valorProduto + taxaExtra;
   const arredondamento = Number(appConfig.priceRounding) || 0;
-  let preco = precoSemTaxa;
+  let preco = totalAntesArredondamento;
   if (arredondamento > 0) preco = Math.ceil(preco / arredondamento) * arredondamento;
+  const ajusteArredondamento = Math.max(0, preco - totalAntesArredondamento);
   salvarConfiguracaoCalculadora(!silent && !skipUsage);
 
   ultimoCalculo = {
     preco: preco / qtd,
-    custo: custo / qtd,
+    custo: baseProduto / qtd,
     custoMaterial: material,
     custoEnergia: energiaC,
     custoMaquina: maquina,
+    baseProduto,
+    lucroProduto,
+    valorProduto,
+    valorProdutoTotal: valorProduto,
     taxaExtra,
     taxaExtraMode: taxaInfo.modo,
     taxaExtraRotulo: taxaInfo.rotulo,
-    precoSemTaxa,
-    custoTotal: custo,
+    precoSemTaxa: valorProduto,
+    custoTotal: baseProduto,
     precoTotal: preco,
+    totalFinal: preco,
+    ajusteArredondamento,
     qtd,
     peso,
     tempo,
@@ -27230,7 +27428,9 @@ function formatarPrazoWhatsapp(valor = "") {
 }
 
 function montarMensagemOrcamentoWhatsapp(pedido = null) {
-  const itens = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
+  const itensOriginais = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
+  const taxaExtraCliente = pedido ? calcularResumoFinanceiroPedido(pedido).taxaExtra : 0;
+  const itens = embutirTaxaExtraNosItensCliente(itensOriginais, taxaExtraCliente);
   const dados = pedido
     ? {
         cliente: clienteDoPedido(pedido),
@@ -27240,12 +27440,30 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
         entrada: valorEntradaPedido(pedido)
       }
     : dadosPedidoAtual();
+  const subtotalCliente = subtotalItensPedido(itens);
+  const descontoCliente = valorDescontoPedido(pedido || {});
+  const totalClienteInformado = numeroMonetarioPedido(dados.total, NaN);
+  const totalCliente = Number.isFinite(totalClienteInformado) && totalClienteInformado > 0
+    ? Math.max(totalClienteInformado, Math.max(0, subtotalCliente - descontoCliente))
+    : Math.max(0, subtotalCliente - descontoCliente);
   const resumoFinanceiro = calcularResumoFinanceiroPedido(pedido || {
     itens,
-    subtotalItens: subtotalItensPedido(itens),
-    total: dados.total,
+    subtotalItens: subtotalCliente,
+    total: totalCliente,
     down_payment: dados.entrada
   });
+  const resumoCliente = pedido
+    ? calcularResumoFinanceiroPedido({
+        ...pedido,
+        itens,
+        subtotalItens: subtotalCliente,
+        taxaExtra: 0,
+        extraFee: 0,
+        taxa_extra: 0,
+        total: totalCliente,
+        down_payment: dados.entrada
+      })
+    : resumoFinanceiro;
   const linhas = itens.flatMap((item) => {
     const linha = `- ${item.nome} | Qtd: ${item.qtd} | Unit.: ${formatarMoeda(item.valor)} | Total: ${formatarMoeda(item.total)}`;
     return item.observacao ? [linha, `  Obs.: ${item.observacao}`] : [linha];
@@ -27253,14 +27471,14 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
   const extras = [];
   if (dados.prazo) extras.push("Prazo: " + formatarPrazoWhatsapp(dados.prazo));
   if (dados.observacao) extras.push("Observações: " + dados.observacao);
-  const linhasFinanceiras = resumoFinanceiro.entrada > 0
+  const linhasFinanceiras = resumoCliente.entrada > 0
     ? [
-        "Total do pedido: " + formatarMoeda(resumoFinanceiro.total),
-        "Entrada paga: " + formatarMoeda(resumoFinanceiro.entrada),
-        "Valor restante: " + formatarMoeda(resumoFinanceiro.restante),
-        "Status financeiro: " + labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)
+        "Total do pedido: " + formatarMoeda(resumoCliente.total),
+        "Entrada paga: " + formatarMoeda(resumoCliente.entrada),
+        "Valor restante: " + formatarMoeda(resumoCliente.restante),
+        "Status financeiro: " + labelStatusFinanceiroPedido(resumoCliente.statusFinanceiro)
       ]
-    : ["Total: " + formatarMoeda(resumoFinanceiro.total)];
+    : ["Total: " + formatarMoeda(resumoCliente.total)];
   return [
     "Orçamento " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
     "Cliente: " + (dados.cliente || "Sem cliente"),
@@ -27880,14 +28098,24 @@ async function gerarPDF(opcoes = {}) {
     const marcaPdf = await obterMarcaPdfDataUrl();
     const telefoneCliente = formatarTelefonePdf(await obterTelefoneWhatsappPedido(pedidoEditando));
     const emailCliente = dados.email || (pedidoEditando ? emailDoPedido(pedidoEditando) : "");
-    const resumoItens = itensValidos.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
     const taxaExtraComercial = Math.max(0, Number(pedidoEditando?.taxaExtra || pedidoEditando?.extraFee || 0) || 0);
+    const itensClientePdf = embutirTaxaExtraNosItensCliente(itensValidos, taxaExtraComercial);
+    const resumoItens = itensClientePdf.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
     const descontoComercial = Math.max(0, Number(pedidoEditando?.desconto || pedidoEditando?.discount || 0) || 0);
-    const totalComercialBase = Math.max(0, Number(total) || resumoItens + taxaExtraComercial - descontoComercial);
+    const totalPedidoInformado = numeroMonetarioPedido(
+      pedidoEditando?.total ?? pedidoEditando?.valor ?? pedidoEditando?.totalPedido ?? total,
+      NaN
+    );
+    const totalCalculadoCliente = Math.max(0, resumoItens - descontoComercial);
+    const totalComercialBase = Number.isFinite(totalPedidoInformado) && totalPedidoInformado > 0
+      ? Math.max(totalPedidoInformado, totalCalculadoCliente)
+      : totalCalculadoCliente;
     const resumoFinanceiroPdf = calcularResumoFinanceiroPedido({
-      itens: itensValidos,
+      itens: itensClientePdf,
       subtotalItens: resumoItens,
-      taxaExtra: taxaExtraComercial,
+      taxaExtra: 0,
+      extraFee: 0,
+      taxa_extra: 0,
       desconto: descontoComercial,
       total: totalComercialBase,
       down_payment: dados.entrada ?? valorEntradaPedido(pedidoEditando || {})
@@ -27952,7 +28180,7 @@ async function gerarPDF(opcoes = {}) {
     };
 
     desenharTabelaCabecalho();
-    itensValidos.forEach((item, indice) => {
+    itensClientePdf.forEach((item, indice) => {
       const nomeLinhas = doc.splitTextToSize(String(item.nome || "Item"), 48).slice(0, 2);
       const obs = String(item.observacao || item.descricao || "").trim();
       const materialLinhas = doc.splitTextToSize(textoMaterialPdf(item), 38).slice(0, 2);
@@ -28010,7 +28238,6 @@ async function gerarPDF(opcoes = {}) {
     setFontePdf(doc, 8);
     const resumoLinhas = [
       ["Subtotal dos itens", resumoItens],
-      ...(taxaExtraComercial > 0 ? [["Taxa extra", taxaExtraComercial]] : []),
       ...(descontoComercial > 0 ? [["Desconto", descontoComercial]] : [])
     ];
     resumoLinhas.forEach(([label, valor], i) => {
