@@ -15592,6 +15592,260 @@ body.theme-light .dashboard-day-card strong{
   color:var(--color-text-primary);
 }
 
+body.theme-light .icon-button,
+body.theme-light .icon-action-button,
+body.theme-light .action-tile,
+body.theme-light .more-item span,
+body.theme-light .quick-action span,
+body.theme-light .dashboard-order-avatar,
+body.theme-light .client-compact-avatar,
+body.theme-light .account-avatar,
+body.theme-light .home-avatar,
+body.theme-light .side-profile-avatar,
+body.theme-light .profile-modern-avatar,
+body.theme-light .profile-usage-tile span,
+body.theme-light .calc-printer-art,
+body.theme-light .calc-tip-icon,
+body.theme-light .kpi-icon,
+body.theme-light .summary-star{
+  color:var(--color-primary) !important;
+  background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)) !important;
+  border-color:color-mix(in srgb, var(--color-primary) 24%, var(--color-border)) !important;
+  box-shadow:var(--effect-shadow-sm);
+}
+
+body.theme-light .icon-button svg,
+body.theme-light .icon-action-button svg,
+body.theme-light .action-tile svg,
+body.theme-light .more-item svg,
+body.theme-light .quick-action svg,
+body.theme-light .mobile-bottom-nav-button svg,
+body.theme-light .side-nav-button svg,
+body.theme-light .profile-list-row svg,
+body.theme-light .calc-section-title svg,
+body.theme-light .calc-main-action svg{
+  color:currentColor;
+  stroke:currentColor;
+}
+
+body.theme-light .icon-button.danger,
+body.theme-light .icon-action-button.danger,
+body.theme-light .profile-list-row.danger{
+  color:var(--color-danger) !important;
+  background:color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)) !important;
+  border-color:color-mix(in srgb, var(--color-danger) 34%, var(--color-border)) !important;
+}
+
+body.theme-light .calc-modern-screen,
+body.theme-light .calc-input-panel,
+body.theme-light .calc-active-profile,
+body.theme-light .calc-smart-tip,
+body.theme-light .calc-summary-card,
+body.theme-light .calc-secondary-actions,
+body.theme-light .result-box,
+body.theme-light .plan-current-card,
+body.theme-light .more-item,
+body.theme-light .account-profile,
+body.theme-light .profile-modern-user-card,
+body.theme-light .profile-modern-card,
+body.theme-light .plans-current-modern,
+body.theme-light .plan-modern-option,
+body.theme-light .plans-help-card,
+body.theme-light .profile-list-card,
+body.theme-light .profile-usage-tile,
+body.theme-light .client-compact-row,
+body.theme-light .superadmin-profile-card,
+body.theme-light .plans-modern-tabs,
+body.theme-light .cash-cancel-summary,
+body.theme-light .stock-search-field,
+body.theme-light .smart-stock-row,
+body.theme-light .stock-detail-card,
+body.theme-light .payment-row,
+body.theme-light .chart-card,
+body.theme-light .window-workspace,
+body.theme-light .dashboard-window{
+  color:var(--color-text-primary);
+  background:var(--card-gradient) !important;
+  border-color:var(--color-border) !important;
+  box-shadow:var(--effect-shadow-md);
+}
+
+body.theme-light .calc-modern-screen{
+  background:var(--app-body-background, var(--color-background)) !important;
+}
+
+body.theme-light .mobile-panel-calculator,
+body.theme-light .mobile-panel-calculator .calculator-panel-content{
+  background:var(--app-body-background, var(--color-background)) !important;
+}
+
+body.theme-light .mobile-panel-calculator .calc-toolbar,
+body.theme-light[data-ui-profile="android_apk"] .mobile-panel-calculator .calc-toolbar,
+body.theme-light[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-toolbar{
+  background:linear-gradient(180deg, rgba(244,247,250,.98) 72%, rgba(244,247,250,0)) !important;
+  color:var(--color-text-primary);
+  border-bottom-color:transparent;
+}
+
+body.theme-light .calc-field-card,
+body.theme-light .material-color-chip,
+body.theme-light .calc-quick-fees button,
+body.theme-light .calc-secondary-actions .action-tile,
+body.theme-light .order-status-action-strip button,
+body.theme-light .tab-button,
+body.theme-light .plans-modern-tabs button{
+  color:var(--color-text-primary);
+  background:color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-soft)) !important;
+  border-color:var(--color-border) !important;
+  box-shadow:inset 0 1px 0 var(--glass-highlight);
+}
+
+body.theme-light .calc-field-card input,
+body.theme-light .calc-field-card select,
+body.theme-light .calc-field-card textarea,
+body.theme-light .calc-field-card i,
+body.theme-light .stock-search-field input{
+  color:var(--color-text-primary) !important;
+}
+
+body.theme-light .calc-field-card input::placeholder,
+body.theme-light .stock-search-field input::placeholder{
+  color:var(--color-text-muted);
+  opacity:.82;
+}
+
+body.theme-light .calc-active-profile span,
+body.theme-light .calc-smart-tip strong,
+body.theme-light .calc-section-title strong,
+body.theme-light .calc-summary-head strong,
+body.theme-light .calc-final-row strong,
+body.theme-light .calc-toolbar strong,
+body.theme-light .mobile-panel-calculator .calc-toolbar strong,
+body.theme-light .account-profile h2,
+body.theme-light .account-profile strong,
+body.theme-light .profile-modern-user-card,
+body.theme-light .profile-modern-user-card strong,
+body.theme-light .profile-modern-card,
+body.theme-light .profile-modern-card strong,
+body.theme-light .profile-plan-summary h3,
+body.theme-light .more-item,
+body.theme-light .profile-list-row,
+body.theme-light .profile-list-row b,
+body.theme-light .client-compact-main strong,
+body.theme-light .client-compact-status strong,
+body.theme-light .plan-current-card h3,
+body.theme-light .superadmin-profile-card h3{
+  color:var(--color-text-primary);
+}
+
+body.theme-light .calc-active-profile small,
+body.theme-light .calc-active-profile em,
+body.theme-light .calc-smart-tip small,
+body.theme-light .calc-summary-lines span,
+body.theme-light .calc-margin-status,
+body.theme-light .calc-main-action small,
+body.theme-light .calc-secondary-actions .action-tile small,
+body.theme-light .profile-usage-tile span,
+body.theme-light .profile-usage-tile small,
+body.theme-light .profile-modern-user-card small,
+body.theme-light .profile-plan-summary h3 small,
+body.theme-light .client-compact-main small,
+body.theme-light .client-compact-status small,
+body.theme-light .client-meta,
+body.theme-light .plan-current-card p,
+body.theme-light .more-group h3,
+body.theme-light .legend-list span{
+  color:var(--color-text-secondary);
+}
+
+body.theme-light .calc-quick-fees button:hover,
+body.theme-light .calc-quick-fees button:focus-visible,
+body.theme-light .material-color-chip:hover,
+body.theme-light .material-color-chip.active,
+body.theme-light .tab-button.active,
+body.theme-light .tab-button:hover,
+body.theme-light .plans-modern-tabs button.active{
+  color:var(--color-primary);
+  background:var(--primary-soft) !important;
+  border-color:color-mix(in srgb, var(--color-primary) 34%, var(--color-border)) !important;
+}
+
+body.theme-light .calc-secondary-actions .action-symbol,
+body.theme-light .calc-secondary-actions .action-symbol svg,
+body.theme-light .calc-secondary-actions .action-tile:not(:disabled){
+  color:var(--color-primary) !important;
+}
+
+body.theme-light .calc-secondary-actions .action-tile:disabled,
+body.theme-light .calc-secondary-actions .action-tile[disabled]{
+  color:var(--color-text-disabled) !important;
+  background:color-mix(in srgb, var(--color-surface-soft) 70%, var(--color-surface)) !important;
+}
+
+body.theme-light .calc-main-action small{
+  color:rgba(255,255,255,.72) !important;
+}
+
+body.theme-light .quick-action.primary{
+  color:var(--color-text-primary);
+  background:linear-gradient(145deg, rgba(204,251,241,.92), rgba(226,232,240,.88)) !important;
+  border-color:color-mix(in srgb, var(--color-primary) 34%, var(--color-border)) !important;
+  box-shadow:var(--effect-shadow-md);
+}
+
+body.theme-light .quick-action.primary span{
+  color:var(--color-primary) !important;
+  background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)) !important;
+}
+
+body.theme-light .profile-section-title svg,
+body.theme-light .profile-modern-card svg,
+body.theme-light .profile-modern-user-card svg{
+  color:var(--color-primary);
+  stroke:currentColor;
+}
+
+body.theme-light .profile-usage-tile i{
+  background:color-mix(in srgb, var(--color-border) 72%, var(--color-surface)) !important;
+}
+
+body.theme-light .profile-usage-tile span{
+  width:32px;
+  height:32px;
+  display:grid;
+  place-items:center;
+  justify-self:start;
+  border-radius:10px;
+}
+
+body.theme-light.mobile-mode .profile-usage-grid,
+body.theme-light[data-ui-profile="android_apk"] .profile-usage-grid,
+body.theme-light[data-ui-profile="web_pwa"].mobile-mode .profile-usage-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+body.theme-light.mobile-mode .mobile-panel-calculator .calc-quick-fees,
+body.theme-light[data-ui-profile="android_apk"] .mobile-panel-calculator .calc-quick-fees,
+body.theme-light[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-quick-fees{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+body.theme-light.mobile-mode .mobile-panel-calculator .calc-quick-fees button,
+body.theme-light[data-ui-profile="android_apk"] .mobile-panel-calculator .calc-quick-fees button,
+body.theme-light[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-quick-fees button{
+  min-width:0;
+  padding-inline:6px;
+  white-space:normal;
+  overflow-wrap:anywhere;
+  line-height:1.05;
+}
+
+body.theme-light .btn.ghost,
+body.theme-light .btn.secondary,
+body.theme-light .calc-save-action{
+  color:var(--color-text-primary);
+}
+
 @media (max-width: 640px){
   :root{
     --page-padding:calc(10px * var(--spacing-scale));

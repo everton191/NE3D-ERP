@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v117-apk-native-back-20260521";
+const CACHE_NAME = "simplifica-3d-v118-light-theme-audit-20260521";
 const APP_FILES = [
   "./",
   "./index.html",
