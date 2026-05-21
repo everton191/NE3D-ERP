@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.7";
-const APP_VERSION_CODE = 101;
+const APP_VERSION = "51.1.8";
+const APP_VERSION_CODE = 102;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -309,6 +309,9 @@ let telaAtual = "dashboard";
 let telaAnterior = "dashboard";
 let navigationStack = [];
 let lastDashboardBackPromptAt = 0;
+let androidBackButtonListener = null;
+let androidBackExitInProgress = false;
+let androidBackConfirmOpen = false;
 let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
@@ -504,9 +507,9 @@ let appConfig = carregarObjeto("appConfig", {
   pdfHeaderText: "",
   brandWatermarkEnabled: true,
   theme: "dark",
-  accentColor: "#073b4b",
+  accentColor: "#00BFA6",
   appearanceSettings: {
-    primary_color: "#073b4b",
+    primary_color: "#00BFA6",
     secondary_color: "#ff941c",
     pdf_background: "",
     logo_url: "",
@@ -7300,7 +7303,7 @@ function aplicarPersonalizacao() {
   const temaClaro = appConfig.theme === "light";
   const temaAuto = appConfig.theme === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
   const usarClaro = temaClaro || temaAuto;
-  const cor = appConfig.accentColor || "#073b4b";
+  const cor = appConfig.accentColor || "#00BFA6";
   const escala = calcularEscalaInterface();
   const densidade = appConfig.interfaceDensity || (appConfig.compactMode ? "compact" : "default");
   const densityScale = densidade === "compact" ? 0.88 : densidade === "comfortable" ? 1.12 : 1;
@@ -7322,24 +7325,24 @@ function aplicarPersonalizacao() {
 
   root.style.setProperty("--primary", cor);
   root.style.setProperty("--primary-2", cor);
-  root.style.setProperty("--bg", usarClaro ? "#f4f6f8" : "#101114");
-  root.style.setProperty("--panel", usarClaro ? "#f8fafc" : "#1a1d22");
-  root.style.setProperty("--panel-2", usarClaro ? "#edf1f5" : "#20252b");
-  root.style.setProperty("--chrome", usarClaro ? "#f8fafc" : "#08090b");
-  root.style.setProperty("--line", usarClaro ? "#d8dee6" : "#2d333b");
+  root.style.setProperty("--bg", usarClaro ? "#F4F7FA" : "#101114");
+  root.style.setProperty("--panel", usarClaro ? "#FFFFFF" : "#1a1d22");
+  root.style.setProperty("--panel-2", usarClaro ? "#EEF4F7" : "#20252b");
+  root.style.setProperty("--chrome", usarClaro ? "#FFFFFF" : "#08090b");
+  root.style.setProperty("--line", usarClaro ? "#D8E0E6" : "#2d333b");
   root.style.setProperty("--text", usarClaro ? "#111827" : "#f5f7fb");
-  root.style.setProperty("--muted", usarClaro ? "#5f6b7a" : "#a9b1bd");
-  root.style.setProperty("--input-bg", usarClaro ? "#fbfdff" : "#111419");
+  root.style.setProperty("--muted", usarClaro ? "#6B7280" : "#a9b1bd");
+  root.style.setProperty("--input-bg", usarClaro ? "#FFFFFF" : "#111419");
   root.style.setProperty("--input-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--input-placeholder", usarClaro ? "#7a8797" : "#8f98a6");
-  root.style.setProperty("--result-bg", usarClaro ? "#fbfdff" : "#111419");
-  root.style.setProperty("--surface", usarClaro ? "#fbfdff" : "#121923");
-  root.style.setProperty("--surface-2", usarClaro ? "#edf2f7" : "#1c2634");
+  root.style.setProperty("--result-bg", usarClaro ? "#FFFFFF" : "#111419");
+  root.style.setProperty("--surface", usarClaro ? "#FFFFFF" : "#121923");
+  root.style.setProperty("--surface-2", usarClaro ? "#EEF4F7" : "#1c2634");
   root.style.setProperty("--glass-bg", usarClaro
-    ? "linear-gradient(145deg, rgba(251,253,255,.96), rgba(239,245,249,.92))"
+    ? "linear-gradient(145deg, rgba(255,255,255,.97), rgba(238,244,247,.92))"
     : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
   root.style.setProperty("--glass-bg-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(251,253,255,.98), rgba(226,235,243,.95))"
+    ? "linear-gradient(145deg, rgba(255,255,255,.99), rgba(238,244,247,.96))"
     : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
   root.style.setProperty("--glass-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
   root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.62)" : "rgba(255,255,255,.08)");
@@ -7348,47 +7351,48 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--card-border", "var(--glass-border)");
   root.style.setProperty("--shadow", usarClaro ? "0 14px 30px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9)" : "0 16px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05)");
   root.style.setProperty("--shadow-soft", usarClaro ? "0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.85)" : "0 9px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04)");
-  root.style.setProperty("--color-background", usarClaro ? "#eef4f7" : "#071018");
-  root.style.setProperty("--color-background-secondary", usarClaro ? "#f8fafc" : "#101923");
-  root.style.setProperty("--color-surface", usarClaro ? "#fbfdff" : "#121923");
-  root.style.setProperty("--color-card", usarClaro ? "#fbfdff" : "#121923");
-  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(251,253,255,.92)" : "rgba(20,31,42,.82)");
-  root.style.setProperty("--color-modal", usarClaro ? "rgba(251,253,255,.98)" : "rgba(20,31,42,.96)");
-  root.style.setProperty("--color-input", usarClaro ? "#fbfdff" : "#111419");
-  root.style.setProperty("--color-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
-  root.style.setProperty("--color-divider", usarClaro ? "rgba(15,23,42,.10)" : "rgba(255,255,255,.10)");
+  root.style.setProperty("--color-background", usarClaro ? "#F4F7FA" : "#071018");
+  root.style.setProperty("--color-background-secondary", usarClaro ? "#EEF4F7" : "#101923");
+  root.style.setProperty("--color-surface", usarClaro ? "#FFFFFF" : "#121923");
+  root.style.setProperty("--color-surface-soft", usarClaro ? "#EEF4F7" : "#1c2634");
+  root.style.setProperty("--color-card", usarClaro ? "#FFFFFF" : "#121923");
+  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(255,255,255,.92)" : "rgba(20,31,42,.82)");
+  root.style.setProperty("--color-modal", usarClaro ? "rgba(255,255,255,.98)" : "rgba(20,31,42,.96)");
+  root.style.setProperty("--color-input", usarClaro ? "#FFFFFF" : "#111419");
+  root.style.setProperty("--color-border", usarClaro ? "#D8E0E6" : "rgba(255,255,255,.12)");
+  root.style.setProperty("--color-divider", usarClaro ? "rgba(216,224,230,.86)" : "rgba(255,255,255,.10)");
   root.style.setProperty("--color-primary", cor);
-  root.style.setProperty("--color-primary-hover", usarClaro ? "#0f766e" : "#12b8b2");
+  root.style.setProperty("--color-primary-hover", usarClaro ? "#009B87" : "#12b8b2");
   root.style.setProperty("--color-secondary", usarClaro ? "#2563eb" : "#087b83");
-  root.style.setProperty("--color-accent", usarClaro ? "#f59e0b" : "#ff941c");
+  root.style.setProperty("--color-accent", usarClaro ? "#FF8A1F" : "#ff941c");
   root.style.setProperty("--color-danger", usarClaro ? "#dc2626" : "#ff5252");
   root.style.setProperty("--color-warning", usarClaro ? "#d97706" : "#ffab00");
   root.style.setProperty("--color-success", usarClaro ? "#15803d" : "#45e08f");
   root.style.setProperty("--color-info", usarClaro ? "#0284c7" : "#38bdf8");
   root.style.setProperty("--color-text-primary", usarClaro ? "#111827" : "#f5f7fb");
-  root.style.setProperty("--color-text-secondary", usarClaro ? "#334155" : "#dbe7ef");
-  root.style.setProperty("--color-text-muted", usarClaro ? "#5f6b7a" : "#a9b1bd");
-  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(71,85,105,.58)" : "rgba(179,187,200,.58)");
-  root.style.setProperty("--color-icon-primary", usarClaro ? "#0f172a" : "#c9fffb");
-  root.style.setProperty("--color-icon-secondary", usarClaro ? "#475569" : "#b8c6d2");
-  root.style.setProperty("--color-navbar", usarClaro ? "rgba(255,255,255,.90)" : "rgba(7,13,20,.82)");
-  root.style.setProperty("--color-bottom-navigation", usarClaro ? "rgba(255,255,255,.92)" : "rgba(7,13,20,.78)");
+  root.style.setProperty("--color-text-secondary", usarClaro ? "#4B5563" : "#dbe7ef");
+  root.style.setProperty("--color-text-muted", usarClaro ? "#6B7280" : "#a9b1bd");
+  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(75,85,99,.58)" : "rgba(179,187,200,.58)");
+  root.style.setProperty("--color-icon-primary", usarClaro ? "#111827" : "#c9fffb");
+  root.style.setProperty("--color-icon-secondary", usarClaro ? "#4B5563" : "#b8c6d2");
+  root.style.setProperty("--color-navbar", usarClaro ? "#FFFFFF" : "rgba(7,13,20,.82)");
+  root.style.setProperty("--color-bottom-navigation", usarClaro ? "#FFFFFF" : "rgba(7,13,20,.78)");
   root.style.setProperty("--color-overlay", usarClaro ? "rgba(15,23,42,.32)" : "rgba(2,6,12,.66)");
   root.style.setProperty("--color-backdrop", usarClaro ? "rgba(15,23,42,.24)" : "rgba(2,6,12,.56)");
   root.style.setProperty("--effect-shadow-sm", usarClaro ? "0 6px 16px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.86)" : "0 8px 18px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04)");
   root.style.setProperty("--effect-shadow-md", "var(--shadow-soft)");
   root.style.setProperty("--effect-shadow-lg", "var(--shadow)");
   root.style.setProperty("--effect-shadow-xl", usarClaro ? "0 28px 70px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.92)" : "0 26px 72px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06)");
-  root.style.setProperty("--effect-glow-primary", usarClaro ? "0 0 0 1px rgba(13,148,136,.14), 0 14px 28px rgba(13,148,136,.08)" : "0 0 0 1px rgba(13,189,184,.16), 0 16px 36px rgba(13,189,184,.16)");
-  root.style.setProperty("--effect-glow-accent", usarClaro ? "0 0 0 1px rgba(245,158,11,.14), 0 14px 28px rgba(245,158,11,.08)" : "0 0 0 1px rgba(255,148,28,.16), 0 16px 36px rgba(255,148,28,.12)");
-  root.style.setProperty("--chart-line", usarClaro ? "#0f766e" : "#14d6c6");
-  root.style.setProperty("--chart-fill", usarClaro ? "rgba(13,148,136,.13)" : "rgba(20,214,198,.18)");
+  root.style.setProperty("--effect-glow-primary", usarClaro ? "0 0 0 1px rgba(0,191,166,.14), 0 14px 28px rgba(0,191,166,.08)" : "0 0 0 1px rgba(13,189,184,.16), 0 16px 36px rgba(13,189,184,.16)");
+  root.style.setProperty("--effect-glow-accent", usarClaro ? "0 0 0 1px rgba(255,138,31,.14), 0 14px 28px rgba(255,138,31,.08)" : "0 0 0 1px rgba(255,148,28,.16), 0 16px 36px rgba(255,148,28,.12)");
+  root.style.setProperty("--chart-line", usarClaro ? "#00BFA6" : "#14d6c6");
+  root.style.setProperty("--chart-fill", usarClaro ? "rgba(0,191,166,.13)" : "rgba(20,214,198,.18)");
   root.style.setProperty("--chart-grid", usarClaro ? "rgba(15,23,42,.10)" : "rgba(148,163,184,.14)");
   root.style.setProperty("--chart-axis", usarClaro ? "#64748b" : "rgba(203,213,225,.76)");
   root.style.setProperty("--chart-tooltip-bg", usarClaro ? "rgba(255,255,255,.98)" : "rgba(8,13,20,.94)");
   root.style.setProperty("--chart-tooltip-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--app-body-background", usarClaro
-    ? "radial-gradient(circle at 18% 0%, rgba(13,189,184,.12), transparent 34%), radial-gradient(circle at 88% 12%, rgba(37,99,235,.08), transparent 30%), linear-gradient(180deg, #f8fafc 0%, #eef4f7 48%, #e7eef3 100%)"
+    ? "linear-gradient(180deg, #F4F7FA 0%, #EEF4F7 52%, #E7EEF3 100%)"
     : "radial-gradient(circle at 18% 0%, rgba(13,189,184,.16), transparent 33%), radial-gradient(circle at 88% 12%, rgba(255,148,28,.10), transparent 30%), linear-gradient(180deg, #0b1620 0%, var(--bg) 46%, #050a0f 100%)");
   root.style.setProperty("--ui-scale", escala.toFixed(2));
   root.style.setProperty("--font-scale", escala.toFixed(2));
@@ -7615,6 +7619,10 @@ function getParentScreenForBack(tela = telaAtual) {
   return pais[tela] || "dashboard";
 }
 
+function isDashboardRoute(tela = telaAtual) {
+  return String(tela || "").trim() === "dashboard";
+}
+
 function fecharCamadaAtualSeExistir() {
   const popup = document.getElementById("popup");
   if (popup && popup.innerHTML.trim()) {
@@ -7630,6 +7638,28 @@ function fecharCamadaAtualSeExistir() {
     return true;
   }
   return false;
+}
+
+function navegarVoltarSeguroInterno() {
+  if (fecharCamadaAtualSeExistir()) {
+    atualizarHistoricoBrowserApp(true);
+    return true;
+  }
+  if (isDashboardRoute()) return false;
+
+  const destinoStack = navigationStack[navigationStack.length - 1];
+  if (destinoStack && telas[destinoStack] && destinoStack !== telaAtual) {
+    voltarTela();
+    return true;
+  }
+
+  const destinoPai = getParentScreenForBack(telaAtual);
+  trocarTela(telas[destinoPai] ? destinoPai : "dashboard", {
+    resetStack: true,
+    skipStack: true,
+    replaceHistory: true
+  });
+  return true;
 }
 
 function atualizarHistoricoBrowserApp(replace = false) {
@@ -7702,27 +7732,110 @@ function voltarInicio() {
 }
 
 async function lidarComVoltarSistema(event = null) {
-  event?.preventDefault?.();
-  if (fecharCamadaAtualSeExistir()) {
+  return handleAndroidBackPress({ source: "system", event });
+}
+
+async function solicitarConfirmacaoSaidaAndroid() {
+  if (androidBackConfirmOpen) return false;
+  androidBackConfirmOpen = true;
+  try {
+    return await solicitarConfirmacaoAcao({
+      titulo: "Sair do aplicativo",
+      mensagem: "Deseja realmente sair do aplicativo?",
+      confirmar: "Sair",
+      cancelar: "Cancelar",
+      perigo: false
+    });
+  } catch (erro) {
+    registrarDiagnostico("Navegação", "Confirmação de saída falhou", erro?.message || String(erro || ""));
+    return window.confirm("Deseja realmente sair do aplicativo?");
+  } finally {
+    androidBackConfirmOpen = false;
+  }
+}
+
+function sairAplicativoAndroidConfirmado() {
+  if (androidBackExitInProgress) return true;
+  androidBackExitInProgress = true;
+  try {
+    const appPlugin = window.Capacitor?.Plugins?.App;
+    if (isAndroidNativeApp() && appPlugin?.exitApp) {
+      appPlugin.exitApp();
+      return true;
+    }
+  } catch (erro) {
+    registrarDiagnostico("Navegação", "Falha ao fechar APK", erro?.message || String(erro || ""));
+  } finally {
+    setTimeout(() => {
+      androidBackExitInProgress = false;
+    }, 1600);
+  }
+  return false;
+}
+
+async function handleAndroidBackPress(opcoes = {}) {
+  const dados = opcoes && typeof opcoes === "object" && ("source" in opcoes || "event" in opcoes || "nativeEvent" in opcoes)
+    ? opcoes
+    : { source: "event", event: opcoes };
+  const evento = dados.event || dados.nativeEvent || null;
+  evento?.preventDefault?.();
+
+  if (navegarVoltarSeguroInterno()) return true;
+
+  if (!isDashboardRoute()) {
+    trocarTela("dashboard", { resetStack: true, skipStack: true, replaceHistory: true });
+    return true;
+  }
+
+  atualizarHistoricoBrowserApp(true);
+  const confirmou = await solicitarConfirmacaoSaidaAndroid();
+  if (!confirmou) {
+    lastDashboardBackPromptAt = Date.now();
+    mostrarToast("Saída cancelada.", "info", 1800);
     atualizarHistoricoBrowserApp(true);
     return true;
   }
-  if (telaAtual !== "dashboard") {
-    voltarTela();
-    return true;
+
+  if (!sairAplicativoAndroidConfirmado()) {
+    mostrarToast("Não foi possível fechar o app automaticamente.", "erro", 2600);
+    atualizarHistoricoBrowserApp(true);
   }
-  const agora = Date.now();
-  if (agora - lastDashboardBackPromptAt < 1800) {
-    try {
-      const appPlugin = window.Capacitor?.Plugins?.App;
-      if (isAndroidNativeApp() && appPlugin?.exitApp) appPlugin.exitApp();
-    } catch (_) {}
-    return false;
-  }
-  lastDashboardBackPromptAt = agora;
-  mostrarToast("Você está na Home. Toque em voltar novamente para sair.", "info", 2200);
-  atualizarHistoricoBrowserApp(true);
   return true;
+}
+
+function removerAndroidBackHandler() {
+  try {
+    androidBackButtonListener?.remove?.();
+  } catch (_) {}
+  androidBackButtonListener = null;
+  window.__simplificaAndroidBackHandlerConfigured = false;
+}
+
+function registrarAndroidBackHandler() {
+  if (!isAndroidNativeApp()) return;
+  const appPlugin = window.Capacitor?.Plugins?.App;
+  if (!appPlugin?.addListener || window.__simplificaAndroidBackHandlerConfigured) return;
+  window.__simplificaAndroidBackHandlerConfigured = true;
+  try {
+    const listener = appPlugin.addListener("backButton", (event) => {
+      handleAndroidBackPress({ source: "capacitor-back", nativeEvent: event });
+    });
+    if (listener?.then) {
+      listener
+        .then((handle) => {
+          androidBackButtonListener = handle;
+        })
+        .catch((erro) => {
+          window.__simplificaAndroidBackHandlerConfigured = false;
+          registrarDiagnostico("Navegação", "BackHandler Android não registrado", erro?.message || String(erro || ""));
+        });
+    } else {
+      androidBackButtonListener = listener;
+    }
+  } catch (erro) {
+    window.__simplificaAndroidBackHandlerConfigured = false;
+    registrarDiagnostico("Navegação", "BackHandler Android falhou", erro?.message || String(erro || ""));
+  }
 }
 
 function configurarNavegacaoInternaApp() {
@@ -7730,14 +7843,10 @@ function configurarNavegacaoInternaApp() {
   window.__simplificaNavigationConfigured = true;
   atualizarHistoricoBrowserApp(true);
   window.addEventListener("popstate", (event) => {
-    lidarComVoltarSistema(event);
+    handleAndroidBackPress({ source: "popstate", event });
   });
-  try {
-    const appPlugin = window.Capacitor?.Plugins?.App;
-    appPlugin?.addListener?.("backButton", () => {
-      lidarComVoltarSistema();
-    });
-  } catch (_) {}
+  registrarAndroidBackHandler();
+  window.addEventListener("beforeunload", removerAndroidBackHandler);
 }
 
 function configurarProtecaoGestosMobile() {
@@ -7745,31 +7854,75 @@ function configurarProtecaoGestosMobile() {
   window.__simplificaGestureGuardConfigured = true;
   let inicioX = 0;
   let inicioY = 0;
-  let bloqueandoBorda = false;
+  let protegendoToque = false;
+  let ponteiroProtegidoId = null;
+  let ponteiroInicioX = 0;
+  let ponteiroInicioY = 0;
 
   const deveProteger = () => isMobile() || isAndroidNativeApp() || getPlatformAdapter().isPWA;
+  const permiteHorizontal = (alvo) => !!alvo?.closest?.([
+    "[data-allow-horizontal-scroll]",
+    ".order-filter-chips",
+    ".reports-period-tabs",
+    ".reports-period-table",
+    ".material-chip-row",
+    ".filter-chip-row",
+    ".table-scroll",
+    ".scroll-x"
+  ].join(","));
+  const gestoHorizontalDominante = (dx, dy, limite = 18) => Math.abs(dx) > limite && Math.abs(dx) > Math.abs(dy) * 1.15;
+
   document.addEventListener("touchstart", (event) => {
     if (!deveProteger() || !event.touches?.length) return;
     const toque = event.touches[0];
     inicioX = toque.clientX;
     inicioY = toque.clientY;
     const largura = window.innerWidth || document.documentElement.clientWidth || 0;
-    bloqueandoBorda = inicioX <= 22 || (largura > 0 && inicioX >= largura - 22);
+    const toqueNaBorda = inicioX <= 28 || (largura > 0 && inicioX >= largura - 28);
+    protegendoToque = toqueNaBorda || isAndroidNativeApp() || !!event.target?.closest?.(".mobile-panel, .side-drawer, .modal-backdrop, .mobile-bottom-nav");
   }, { passive: true, capture: true });
 
   document.addEventListener("touchmove", (event) => {
-    if (!bloqueandoBorda || !event.touches?.length) return;
+    if (!protegendoToque || !event.touches?.length || permiteHorizontal(event.target)) return;
     const toque = event.touches[0];
     const dx = toque.clientX - inicioX;
     const dy = toque.clientY - inicioY;
-    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+    if (gestoHorizontalDominante(dx, dy)) {
       event.preventDefault();
+      event.stopPropagation();
     }
   }, { passive: false, capture: true });
 
   document.addEventListener("touchend", () => {
-    bloqueandoBorda = false;
+    protegendoToque = false;
   }, { passive: true, capture: true });
+
+  document.addEventListener("touchcancel", () => {
+    protegendoToque = false;
+  }, { passive: true, capture: true });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!deveProteger() || event.pointerType === "mouse") return;
+    ponteiroProtegidoId = event.pointerId;
+    ponteiroInicioX = event.clientX;
+    ponteiroInicioY = event.clientY;
+  }, { passive: true, capture: true });
+
+  document.addEventListener("pointermove", (event) => {
+    if (ponteiroProtegidoId !== event.pointerId || event.pointerType === "mouse" || permiteHorizontal(event.target)) return;
+    const dx = event.clientX - ponteiroInicioX;
+    const dy = event.clientY - ponteiroInicioY;
+    if (gestoHorizontalDominante(dx, dy, 22)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, { passive: false, capture: true });
+
+  const limparPonteiro = (event) => {
+    if (ponteiroProtegidoId === event.pointerId) ponteiroProtegidoId = null;
+  };
+  document.addEventListener("pointerup", limparPonteiro, { passive: true, capture: true });
+  document.addEventListener("pointercancel", limparPonteiro, { passive: true, capture: true });
 }
 
 function atualizarMenu() {
@@ -18923,7 +19076,7 @@ function desbloquearRelatoriosComAnuncio() {
 
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
   return {
-    primary_color: origem.primary_color || appConfig.accentColor || "#073b4b",
+    primary_color: origem.primary_color || appConfig.accentColor || "#00BFA6",
     secondary_color: origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8",
     pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
     logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
@@ -19122,7 +19275,7 @@ function renderEmpresaConfig() {
 
 function renderAparenciaConfig() {
   const acessoMarca = true;
-  const corAtual = appConfig.accentColor || "#073b4b";
+  const corAtual = appConfig.accentColor || "#00BFA6";
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   return `
     <section class="card organized-page settings-page">
@@ -19277,7 +19430,7 @@ function renderPdfConfig() {
 }
 
 function renderPersonalizacao() {
-  const corAtual = appConfig.accentColor || "#073b4b";
+  const corAtual = appConfig.accentColor || "#00BFA6";
   const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
   const temaPdfAtual = normalizarPdfTheme();
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
@@ -20837,8 +20990,8 @@ function lerPersonalizacaoCampos() {
   };
   const marcado = (id, fallback = false) => el(id) ? !!el(id).checked : !!fallback;
   const accentColor = acessoMarca
-    ? (texto("accentColorConfig", appConfig.accentColor || "#073b4b") || "#073b4b")
-    : (appConfig.accentColor || "#073b4b");
+    ? (texto("accentColorConfig", appConfig.accentColor || "#00BFA6") || "#00BFA6")
+    : (appConfig.accentColor || "#00BFA6");
   const theme = acessoMarca
     ? (texto("themeConfig", appConfig.theme || "dark") || "dark")
     : (appConfig.theme || "dark");
@@ -21219,7 +21372,7 @@ async function salvarPersonalizacaoRemotaSilencioso() {
         body: JSON.stringify({
           user_id: userId,
           company_id: companyId,
-          theme_color: appConfig.accentColor || "#073b4b",
+          theme_color: appConfig.accentColor || "#00BFA6",
           secondary_color: settings.secondary_color || "#ff941c",
           background_image: appConfig.pdfBackgroundDataUrl || "",
           login_background: appConfig.loginBackgroundDataUrl || "",
@@ -21471,9 +21624,9 @@ function restaurarPersonalizacaoPadrao() {
     pdfHeaderText: "",
     brandWatermarkEnabled: true,
     theme: "dark",
-    accentColor: "#073b4b",
+    accentColor: "#00BFA6",
     appearanceSettings: normalizarAppearanceSettings({
-      primary_color: "#073b4b",
+      primary_color: "#00BFA6",
       secondary_color: "#00d8c8",
       pdf_background: "",
       logo_url: "",
