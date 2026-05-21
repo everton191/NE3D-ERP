@@ -14547,9 +14547,35 @@ body.theme-light :where(
   .technical-glass-panel,
   .ui-section,
   .settings-group,
+  [class$="-panel"],
+  [class*="-panel "],
+  [class$="-tile"],
+  [class*="-tile "],
+  [class$="-row"],
+  [class*="-row "],
+  [class$="-item"],
+  [class*="-item "],
+  [class$="-box"],
+  [class*="-box "],
+  [class$="-summary"],
+  [class*="-summary "],
+  [class$="-metric"],
+  [class*="-metric "],
+  [class$="-shell"],
+  [class*="-shell "],
+  [class$="-group"],
+  [class*="-group "],
+  [class$="-list"],
+  [class*="-list "],
+  [class$="-state"],
+  [class*="-state "],
+  [class$="-preview"],
+  [class*="-preview "],
+  [class$="-strip"],
+  [class*="-strip "],
   [class$="-card"],
   [class*="-card "]
-){
+):not(.mobile-panel):not(.mobile-panel-content):not(.mobile-panel-spacer):not(.modal-backdrop):not(.side-drawer-backdrop):not(.profile-panel-backdrop):not(.bar-item):not(.order-item-actions):not(.order-item-inline-actions):not(.row-actions):not(.admin-action-grid):not(.compact-action-grid){
   color:var(--color-text-primary);
   border-color:var(--glass-border);
   background:
@@ -14567,9 +14593,35 @@ body.theme-light :where(
   .technical-glass-panel,
   .ui-section,
   .settings-group,
+  [class$="-panel"],
+  [class*="-panel "],
+  [class$="-tile"],
+  [class*="-tile "],
+  [class$="-row"],
+  [class*="-row "],
+  [class$="-item"],
+  [class*="-item "],
+  [class$="-box"],
+  [class*="-box "],
+  [class$="-summary"],
+  [class*="-summary "],
+  [class$="-metric"],
+  [class*="-metric "],
+  [class$="-shell"],
+  [class*="-shell "],
+  [class$="-group"],
+  [class*="-group "],
+  [class$="-list"],
+  [class*="-list "],
+  [class$="-state"],
+  [class*="-state "],
+  [class$="-preview"],
+  [class*="-preview "],
+  [class$="-strip"],
+  [class*="-strip "],
   [class$="-card"],
   [class*="-card "]
-) :where(h1,h2,h3,h4,strong,b){
+):not(.mobile-panel):not(.mobile-panel-content):not(.mobile-panel-spacer):not(.modal-backdrop):not(.side-drawer-backdrop):not(.profile-panel-backdrop):not(.bar-item):not(.order-item-actions):not(.order-item-inline-actions):not(.row-actions):not(.admin-action-grid):not(.compact-action-grid) :where(h1,h2,h3,h4,strong,b){
   color:var(--color-text-primary);
 }
 
@@ -14580,10 +14632,186 @@ body.theme-light :where(
   .technical-glass-panel,
   .ui-section,
   .settings-group,
+  [class$="-panel"],
+  [class*="-panel "],
+  [class$="-tile"],
+  [class*="-tile "],
+  [class$="-row"],
+  [class*="-row "],
+  [class$="-item"],
+  [class*="-item "],
+  [class$="-box"],
+  [class*="-box "],
+  [class$="-summary"],
+  [class*="-summary "],
+  [class$="-metric"],
+  [class*="-metric "],
+  [class$="-shell"],
+  [class*="-shell "],
+  [class$="-group"],
+  [class*="-group "],
+  [class$="-list"],
+  [class*="-list "],
+  [class$="-state"],
+  [class*="-state "],
+  [class$="-preview"],
+  [class*="-preview "],
+  [class$="-strip"],
+  [class*="-strip "],
   [class$="-card"],
   [class*="-card "]
-) :where(p,small,span,em){
+):not(.mobile-panel):not(.mobile-panel-content):not(.mobile-panel-spacer):not(.modal-backdrop):not(.side-drawer-backdrop):not(.profile-panel-backdrop):not(.bar-item):not(.order-item-actions):not(.order-item-inline-actions):not(.row-actions):not(.admin-action-grid):not(.compact-action-grid) :where(p,small,span,em){
   color:inherit;
+}
+
+body.theme-light :where(
+  button,
+  .app-button,
+  .btn,
+  .tab-button,
+  .ui-tab,
+  [class$="-button"],
+  [class*="-button "],
+  [class$="-chip"],
+  [class*="-chip "],
+  [class$="-pill"],
+  [class*="-pill "],
+  [class$="-badge"],
+  [class*="-badge "],
+  [class$="-tab"],
+  [class*="-tab "],
+  [class$="-action"],
+  [class*="-action "]
+):not(.mobile-bottom-nav-button):not(.side-nav-button):not(.icon-button):not(.icon-action-button):not(.menu-button){
+  color:var(--color-text-primary);
+  background:rgba(255,255,255,.72);
+  border-color:var(--glass-border);
+  box-shadow:inset 0 1px 0 var(--glass-highlight), var(--effect-shadow-sm);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+}
+
+body.theme-light :where(
+  .app-button.primary,
+  .btn.primary,
+  .app-button:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon),
+  .btn:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon),
+  .primary-button,
+  .button-primary,
+  .plan-primary-button,
+  .plan-free-button,
+  .calc-main-action,
+  .compact-action:not(.compact-danger-action),
+  [class*="primary"][class*="button"]
+){
+  color:#ffffff;
+  background:linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 82%, #0f172a), color-mix(in srgb, var(--color-primary) 58%, #052f35));
+  border-color:color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+  box-shadow:var(--effect-shadow-md), var(--effect-glow-primary);
+}
+
+body.theme-light :where(
+  button.active,
+  .tab-button.active,
+  .ui-tab.active,
+  [class$="-chip"].active,
+  [class*="-chip "].active,
+  [class$="-tab"].active,
+  [class*="-tab "].active,
+  [class$="-button"].active,
+  [class*="-button "].active
+):not(.mobile-bottom-nav-button):not(.side-nav-button):not(.icon-button):not(.icon-action-button):not(.menu-button){
+  color:var(--color-primary);
+  background:var(--primary-soft);
+  border-color:color-mix(in srgb, var(--color-primary) 36%, var(--color-border));
+  box-shadow:var(--effect-shadow-sm), var(--effect-glow-primary);
+}
+
+body.theme-light :where(
+  .app-button.danger,
+  .btn.danger,
+  .danger-button,
+  .button-danger,
+  [class*="danger"][class*="button"]
+){
+  color:var(--color-danger);
+  background:color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-danger) 34%, var(--color-border));
+}
+
+body.theme-light :where(
+  .icon-button,
+  .icon-action-button,
+  .menu-button,
+  .side-menu-toggle,
+  .dashboard-menu-trigger,
+  .dashboard-search-trigger,
+  .dashboard-notification-button,
+  .dashboard-profile-button,
+  .home-menu-button,
+  .header-menu-button,
+  .assistant-mic-button,
+  .search-ai-button,
+  .calc-float-ball,
+  .assistant-fab
+){
+  color:var(--color-primary);
+  background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  box-shadow:var(--effect-shadow-sm);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+}
+
+body.theme-light :where(
+  [class$="-icon"],
+  [class*="-icon "],
+  [class$="-avatar"],
+  [class*="-avatar "],
+  [class$="-symbol"],
+  [class*="-symbol "]
+):not(.toast-icon):not(.assistant-fab-icon):not(.search-lens-icon){
+  color:var(--color-primary);
+  background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+}
+
+body.theme-light :where(
+  .app-badge,
+  .status-badge,
+  .order-status-badge,
+  [class$="-badge"],
+  [class*="-badge "],
+  [class$="-pill"],
+  [class*="-pill "]
+){
+  color:var(--color-text-secondary);
+  background:rgba(255,255,255,.72);
+  border-color:var(--glass-border);
+}
+
+body.theme-light :where(.badge-ativo,.badge-pago,.badge-trial,.badge-superadmin,.badge-ok,.app-badge.success){
+  color:var(--color-success);
+  background:color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+}
+
+body.theme-light :where(.badge-alerta,.badge-expirado,.badge-acao,.badge-atencao,.app-badge.warning){
+  color:var(--color-warning);
+  background:color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-warning) 30%, var(--color-border));
+}
+
+body.theme-light :where(.badge-bloqueado,.badge-cancelado,.badge-anonymized,.badge-danger,.app-badge.danger){
+  color:var(--color-danger);
+  background:color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-danger) 30%, var(--color-border));
+}
+
+body.theme-light :where(.badge-gratis,.badge-aberto,.badge-producao,.app-badge.info){
+  color:var(--color-info);
+  background:color-mix(in srgb, var(--color-info) 11%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-info) 30%, var(--color-border));
 }
 
 .app-card.elevated,
@@ -15851,6 +16079,25 @@ body.theme-light .quick-action.primary{
 body.theme-light .quick-action.primary span{
   color:var(--color-primary) !important;
   background:color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)) !important;
+}
+
+body.theme-light .btn:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon),
+body.theme-light .app-button:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon),
+body.theme-light .calc-main-action,
+body.theme-light .compact-action:not(.compact-danger-action),
+body.theme-light .plan-primary-button,
+body.theme-light .plan-free-button{
+  color:#ffffff !important;
+  background:linear-gradient(145deg, color-mix(in srgb, var(--color-primary) 82%, #0f172a), color-mix(in srgb, var(--color-primary) 58%, #052f35)) !important;
+  border-color:color-mix(in srgb, var(--color-primary) 42%, var(--color-border)) !important;
+  box-shadow:var(--effect-shadow-md), var(--effect-glow-primary) !important;
+}
+
+body.theme-light .btn:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon) :where(span,strong,small,svg),
+body.theme-light .app-button:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon) :where(span,strong,small,svg),
+body.theme-light .calc-main-action :where(span,strong,small,svg){
+  color:inherit !important;
+  stroke:currentColor;
 }
 
 body.theme-light .profile-section-title svg,

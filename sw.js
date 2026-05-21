@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v119-global-light-glass-20260521";
+const CACHE_NAME = "simplifica-3d-v120-global-theme-map-20260521";
 const APP_FILES = [
   "./",
   "./index.html",

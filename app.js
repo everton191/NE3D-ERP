@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.11";
-const APP_VERSION_CODE = 105;
+const APP_VERSION = "51.1.12";
+const APP_VERSION_CODE = 106;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -7340,15 +7340,20 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--surface", usarClaro ? "#FFFFFF" : "#121923");
   root.style.setProperty("--surface-2", usarClaro ? "#EEF4F7" : "#1c2634");
   root.style.setProperty("--glass-bg", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.97), rgba(238,244,247,.92))"
+    ? "linear-gradient(145deg, rgba(255,255,255,.84), rgba(238,244,247,.70))"
     : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
   root.style.setProperty("--glass-bg-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.99), rgba(238,244,247,.96))"
+    ? "linear-gradient(145deg, rgba(255,255,255,.92), rgba(232,240,245,.78))"
     : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
-  root.style.setProperty("--glass-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
-  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.62)" : "rgba(255,255,255,.08)");
-  root.style.setProperty("--card-gradient", "var(--glass-bg)");
-  root.style.setProperty("--card-gradient-strong", "var(--glass-bg-strong)");
+  root.style.setProperty("--glass-border", usarClaro ? "rgba(216,224,230,.72)" : "rgba(255,255,255,.12)");
+  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.08)");
+  root.style.setProperty("--glass-blur", usarClaro ? "14px" : "10px");
+  root.style.setProperty("--card-gradient", usarClaro
+    ? "linear-gradient(145deg, rgba(255,255,255,.86), rgba(238,244,247,.72))"
+    : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
+  root.style.setProperty("--card-gradient-strong", usarClaro
+    ? "linear-gradient(145deg, rgba(255,255,255,.94), rgba(232,240,245,.82))"
+    : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
   root.style.setProperty("--card-border", "var(--glass-border)");
   root.style.setProperty("--shadow", usarClaro ? "0 14px 30px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9)" : "0 16px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05)");
   root.style.setProperty("--shadow-soft", usarClaro ? "0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.85)" : "0 9px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04)");
@@ -7357,7 +7362,7 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--color-surface", usarClaro ? "#FFFFFF" : "#121923");
   root.style.setProperty("--color-surface-soft", usarClaro ? "#EEF4F7" : "#1c2634");
   root.style.setProperty("--color-card", usarClaro ? "#FFFFFF" : "#121923");
-  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(255,255,255,.92)" : "rgba(20,31,42,.82)");
+  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(255,255,255,.76)" : "rgba(20,31,42,.82)");
   root.style.setProperty("--color-modal", usarClaro ? "rgba(255,255,255,.98)" : "rgba(20,31,42,.96)");
   root.style.setProperty("--color-input", usarClaro ? "#FFFFFF" : "#111419");
   root.style.setProperty("--color-border", usarClaro ? "#D8E0E6" : "rgba(255,255,255,.12)");
