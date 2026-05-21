@@ -14407,12 +14407,13 @@ body.theme-light{
   --danger:#DC2626;
   --surface:#FFFFFF;
   --surface-2:#EEF4F7;
-  --glass-bg:linear-gradient(145deg, rgba(255,255,255,.96), rgba(238,244,247,.90));
-  --glass-bg-strong:linear-gradient(145deg, rgba(255,255,255,.98), rgba(232,240,245,.94));
-  --glass-border:rgba(216,224,230,.96);
+  --glass-bg:linear-gradient(145deg, rgba(255,255,255,.84), rgba(238,244,247,.70));
+  --glass-bg-strong:linear-gradient(145deg, rgba(255,255,255,.92), rgba(232,240,245,.78));
+  --glass-border:rgba(216,224,230,.72);
   --glass-highlight:rgba(255,255,255,.92);
-  --card-gradient:linear-gradient(145deg, rgba(255,255,255,.98), rgba(238,244,247,.92));
-  --card-gradient-strong:linear-gradient(145deg, rgba(255,255,255,1), rgba(232,240,245,.96));
+  --glass-blur:14px;
+  --card-gradient:linear-gradient(145deg, rgba(255,255,255,.86), rgba(238,244,247,.72));
+  --card-gradient-strong:linear-gradient(145deg, rgba(255,255,255,.94), rgba(232,240,245,.82));
   --card-border:#D8E0E6;
   --shadow:0 16px 38px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.92);
   --shadow-soft:0 10px 24px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.9);
@@ -14423,7 +14424,7 @@ body.theme-light{
   --color-surface:#FFFFFF;
   --color-surface-soft:#EEF4F7;
   --color-card:#FFFFFF;
-  --color-card-glass:rgba(255,255,255,.92);
+  --color-card-glass:rgba(255,255,255,.76);
   --color-modal:rgba(255,255,255,.98);
   --color-input:#FFFFFF;
   --color-border:#D8E0E6;
@@ -14535,6 +14536,54 @@ body[data-density="comfortable"]{
   background:var(--card-gradient);
   color:var(--color-text-primary);
   box-shadow:var(--effect-shadow-md);
+  -webkit-backdrop-filter:var(--effect-blur-glass);
+  backdrop-filter:var(--effect-blur-glass);
+}
+
+body.theme-light :where(
+  .app-card,
+  .card,
+  .modal-card,
+  .technical-glass-panel,
+  .ui-section,
+  .settings-group,
+  [class$="-card"],
+  [class*="-card "]
+){
+  color:var(--color-text-primary);
+  border-color:var(--glass-border);
+  background:
+    radial-gradient(circle at 12% 0, rgba(255,255,255,.78), transparent 42%),
+    var(--card-gradient);
+  box-shadow:var(--effect-shadow-md);
+  -webkit-backdrop-filter:var(--effect-blur-glass);
+  backdrop-filter:var(--effect-blur-glass);
+}
+
+body.theme-light :where(
+  .app-card,
+  .card,
+  .modal-card,
+  .technical-glass-panel,
+  .ui-section,
+  .settings-group,
+  [class$="-card"],
+  [class*="-card "]
+) :where(h1,h2,h3,h4,strong,b){
+  color:var(--color-text-primary);
+}
+
+body.theme-light :where(
+  .app-card,
+  .card,
+  .modal-card,
+  .technical-glass-panel,
+  .ui-section,
+  .settings-group,
+  [class$="-card"],
+  [class*="-card "]
+) :where(p,small,span,em){
+  color:inherit;
 }
 
 .app-card.elevated,
@@ -15665,9 +15714,13 @@ body.theme-light .chart-card,
 body.theme-light .window-workspace,
 body.theme-light .dashboard-window{
   color:var(--color-text-primary);
-  background:var(--card-gradient) !important;
-  border-color:var(--color-border) !important;
+  background:
+    radial-gradient(circle at 12% 0, rgba(255,255,255,.76), transparent 42%),
+    var(--card-gradient) !important;
+  border-color:var(--glass-border) !important;
   box-shadow:var(--effect-shadow-md);
+  -webkit-backdrop-filter:var(--effect-blur-glass);
+  backdrop-filter:var(--effect-blur-glass);
 }
 
 body.theme-light .calc-modern-screen{
@@ -15695,9 +15748,11 @@ body.theme-light .order-status-action-strip button,
 body.theme-light .tab-button,
 body.theme-light .plans-modern-tabs button{
   color:var(--color-text-primary);
-  background:color-mix(in srgb, var(--color-surface) 88%, var(--color-surface-soft)) !important;
-  border-color:var(--color-border) !important;
+  background:rgba(255,255,255,.72) !important;
+  border-color:var(--glass-border) !important;
   box-shadow:inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
 }
 
 body.theme-light .calc-field-card input,
