@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v113-free-pro-navigation-20260520";
+const CACHE_NAME = "simplifica-3d-v115-light-dashboard-sync-20260521";
 const APP_FILES = [
   "./",
   "./index.html",

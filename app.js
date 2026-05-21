@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.5";
-const APP_VERSION_CODE = 99;
+const APP_VERSION = "51.1.7";
+const APP_VERSION_CODE = 101;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -925,6 +925,8 @@ let billingConfig = carregarObjeto("billingConfig", {
   windowsDownloadUrl: "",
   windowsWebUrl: "",
   supportUrl: "",
+  backup_over_limit: false,
+  backupOverLimit: false,
   deviceLimits: {
     mobile: FREE_DEVICE_LIMIT,
     desktop: FREE_DEVICE_LIMIT
@@ -3993,8 +3995,8 @@ function verificarVencimentoPlanoLocal(salvar = true) {
 }
 
 function getPedidosMesAtual() {
-  const prefixo = hojeIsoData().slice(0, 7);
-  return pedidos.filter((pedido) => String(pedido.criadoEm || dataPedidoIso(pedido) || "").slice(0, 7) === prefixo).length;
+  const info = criarIntervaloPeriodoLocal("mes");
+  return pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), info.start, info.end)).length;
 }
 
 function getPedidosAtivosPlanoFree() {
@@ -6414,14 +6416,18 @@ function descricaoCaixa(movimento) {
   return movimento?.descricao || movimento?.desc || "Movimento";
 }
 
+function obterDataMovimentoCaixa(movimento = {}) {
+  return obterDataRegistroLocal(movimento, ["dataHora", "createdAt", "created_at", "criadoEm", "data", "date", "updatedAt", "updated_at"]);
+}
+
 function movimentoCaixaCancelado(movimento = {}) {
   return !!(movimento.cancelado || movimento.cancelled || movimento.canceladoEm || movimento.cancelled_at || String(movimento.status || "").toLowerCase() === "cancelado");
 }
 
 function formatarDataCurta(valor = "") {
   if (!valor) return "";
-  const data = new Date(valor);
-  if (Number.isNaN(data.getTime())) return String(valor);
+  const data = normalizarDataLocal(valor, null);
+  if (!data) return String(valor);
   return data.toLocaleDateString("pt-BR");
 }
 
@@ -7317,26 +7323,26 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--primary", cor);
   root.style.setProperty("--primary-2", cor);
   root.style.setProperty("--bg", usarClaro ? "#f4f6f8" : "#101114");
-  root.style.setProperty("--panel", usarClaro ? "#ffffff" : "#1a1d22");
+  root.style.setProperty("--panel", usarClaro ? "#f8fafc" : "#1a1d22");
   root.style.setProperty("--panel-2", usarClaro ? "#edf1f5" : "#20252b");
-  root.style.setProperty("--chrome", usarClaro ? "#ffffff" : "#08090b");
+  root.style.setProperty("--chrome", usarClaro ? "#f8fafc" : "#08090b");
   root.style.setProperty("--line", usarClaro ? "#d8dee6" : "#2d333b");
   root.style.setProperty("--text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--muted", usarClaro ? "#5f6b7a" : "#a9b1bd");
-  root.style.setProperty("--input-bg", usarClaro ? "#ffffff" : "#111419");
+  root.style.setProperty("--input-bg", usarClaro ? "#fbfdff" : "#111419");
   root.style.setProperty("--input-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--input-placeholder", usarClaro ? "#7a8797" : "#8f98a6");
-  root.style.setProperty("--result-bg", usarClaro ? "#ffffff" : "#111419");
-  root.style.setProperty("--surface", usarClaro ? "#ffffff" : "#121923");
+  root.style.setProperty("--result-bg", usarClaro ? "#fbfdff" : "#111419");
+  root.style.setProperty("--surface", usarClaro ? "#fbfdff" : "#121923");
   root.style.setProperty("--surface-2", usarClaro ? "#edf2f7" : "#1c2634");
   root.style.setProperty("--glass-bg", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.96), rgba(239,245,249,.90))"
+    ? "linear-gradient(145deg, rgba(251,253,255,.96), rgba(239,245,249,.92))"
     : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
   root.style.setProperty("--glass-bg-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.98), rgba(226,235,243,.94))"
+    ? "linear-gradient(145deg, rgba(251,253,255,.98), rgba(226,235,243,.95))"
     : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
   root.style.setProperty("--glass-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
-  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.78)" : "rgba(255,255,255,.08)");
+  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.62)" : "rgba(255,255,255,.08)");
   root.style.setProperty("--card-gradient", "var(--glass-bg)");
   root.style.setProperty("--card-gradient-strong", "var(--glass-bg-strong)");
   root.style.setProperty("--card-border", "var(--glass-border)");
@@ -7344,11 +7350,11 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--shadow-soft", usarClaro ? "0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.85)" : "0 9px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04)");
   root.style.setProperty("--color-background", usarClaro ? "#eef4f7" : "#071018");
   root.style.setProperty("--color-background-secondary", usarClaro ? "#f8fafc" : "#101923");
-  root.style.setProperty("--color-surface", usarClaro ? "#ffffff" : "#121923");
-  root.style.setProperty("--color-card", usarClaro ? "#ffffff" : "#121923");
-  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(255,255,255,.92)" : "rgba(20,31,42,.82)");
-  root.style.setProperty("--color-modal", usarClaro ? "rgba(255,255,255,.98)" : "rgba(20,31,42,.96)");
-  root.style.setProperty("--color-input", usarClaro ? "#ffffff" : "#111419");
+  root.style.setProperty("--color-surface", usarClaro ? "#fbfdff" : "#121923");
+  root.style.setProperty("--color-card", usarClaro ? "#fbfdff" : "#121923");
+  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(251,253,255,.92)" : "rgba(20,31,42,.82)");
+  root.style.setProperty("--color-modal", usarClaro ? "rgba(251,253,255,.98)" : "rgba(20,31,42,.96)");
+  root.style.setProperty("--color-input", usarClaro ? "#fbfdff" : "#111419");
   root.style.setProperty("--color-border", usarClaro ? "rgba(15,23,42,.14)" : "rgba(255,255,255,.12)");
   root.style.setProperty("--color-divider", usarClaro ? "rgba(15,23,42,.10)" : "rgba(255,255,255,.10)");
   root.style.setProperty("--color-primary", cor);
@@ -12309,11 +12315,180 @@ function dataRegistroIso(registro = {}) {
 }
 
 function dataPedidoIso(pedido) {
-  if (pedido?.criadoEm || pedido?.createdAt || pedido?.created_at) return dataRegistroIso(pedido);
-  const data = String(pedido?.data || "");
-  const partes = data.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (partes) return `${partes[3]}-${partes[2]}-${partes[1]}`;
-  return "";
+  const data = obterDataRegistroLocal(pedido, ["criadoEm", "createdAt", "created_at", "dataHora", "data", "date", "updatedAt", "updated_at"]);
+  return data ? dataLocalIso(data) : "";
+}
+
+function normalizarDataLocal(valor, fallback = null) {
+  if (valor instanceof Date) {
+    return Number.isNaN(valor.getTime()) ? fallback : new Date(valor.getTime());
+  }
+  if (typeof valor === "number" && Number.isFinite(valor)) {
+    const data = new Date(valor);
+    return Number.isNaN(data.getTime()) ? fallback : data;
+  }
+  const texto = String(valor || "").trim();
+  if (!texto) return fallback;
+
+  const temFusoHorario = /(?:z|[+-]\d{2}:?\d{2})$/i.test(texto);
+  if (temFusoHorario && texto.includes("T")) {
+    const dataComFuso = new Date(texto);
+    if (!Number.isNaN(dataComFuso.getTime())) return dataComFuso;
+  }
+
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/);
+  if (iso) {
+    return new Date(
+      Number(iso[1]),
+      Number(iso[2]) - 1,
+      Number(iso[3]),
+      Number(iso[4] || 0),
+      Number(iso[5] || 0),
+      Number(iso[6] || 0),
+      Number(String(iso[7] || "0").padEnd(3, "0"))
+    );
+  }
+
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[,\s]+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+  if (br) {
+    return new Date(
+      Number(br[3]),
+      Number(br[2]) - 1,
+      Number(br[1]),
+      Number(br[4] || 0),
+      Number(br[5] || 0),
+      Number(br[6] || 0)
+    );
+  }
+
+  const data = new Date(texto);
+  return Number.isNaN(data.getTime()) ? fallback : data;
+}
+
+function obterDataRegistroLocal(registro = {}, campos = []) {
+  if (!registro || typeof registro !== "object") return null;
+  const candidatos = campos.length ? campos : [
+    "dataHora",
+    "paidAt",
+    "paid_at",
+    "createdAt",
+    "created_at",
+    "criadoEm",
+    "updatedAt",
+    "updated_at",
+    "data",
+    "date"
+  ];
+  for (const campo of candidatos) {
+    if (registro[campo] === undefined || registro[campo] === null || registro[campo] === "") continue;
+    const data = normalizarDataLocal(registro[campo], null);
+    if (data) return data;
+  }
+  return null;
+}
+
+function inicioDiaLocal(data = new Date()) {
+  const base = normalizarDataLocal(data, new Date());
+  return new Date(base.getFullYear(), base.getMonth(), base.getDate());
+}
+
+function fimDiaInclusivoLocal(data = new Date()) {
+  const fim = inicioDiaLocal(data);
+  fim.setHours(23, 59, 59, 999);
+  return fim;
+}
+
+function normalizarPeriodoGlobal(periodo = "mes") {
+  const valor = String(periodo || "mes").toLowerCase();
+  const aliases = {
+    day: "hoje",
+    today: "hoje",
+    semana: "semana",
+    week: "semana",
+    month: "mes",
+    "este-mes": "mes",
+    custom: "personalizado"
+  };
+  return aliases[valor] || valor;
+}
+
+function criarIntervaloPeriodoLocal(periodo = "mes", opcoes = {}) {
+  const tipo = normalizarPeriodoGlobal(periodo);
+  const referencia = normalizarDataLocal(opcoes.referencia || new Date(), new Date());
+  const hoje = inicioDiaLocal(referencia);
+  let start = hoje;
+  let end = somarDias(hoje, 1);
+  let previousStart = somarDias(hoje, -1);
+  let previousEnd = hoje;
+  let label = "Hoje";
+
+  if (tipo === "semana") {
+    start = inicioSemanaLocal(referencia);
+    end = somarDias(start, 7);
+    previousStart = somarDias(start, -7);
+    previousEnd = start;
+    label = "Semana";
+  } else if (tipo === "mes") {
+    start = new Date(referencia.getFullYear(), referencia.getMonth(), 1);
+    end = new Date(referencia.getFullYear(), referencia.getMonth() + 1, 1);
+    previousStart = new Date(referencia.getFullYear(), referencia.getMonth() - 1, 1);
+    previousEnd = start;
+    label = "Este mês";
+  } else if (tipo === "ano" || tipo === "year") {
+    start = new Date(referencia.getFullYear(), 0, 1);
+    end = new Date(referencia.getFullYear() + 1, 0, 1);
+    previousStart = new Date(referencia.getFullYear() - 1, 0, 1);
+    previousEnd = start;
+    label = "Ano";
+  } else if (tipo === "7d") {
+    start = somarDias(hoje, -6);
+    end = somarDias(hoje, 1);
+    previousStart = somarDias(hoje, -13);
+    previousEnd = somarDias(hoje, -6);
+    label = "7 dias";
+  } else if (tipo === "30d") {
+    start = somarDias(hoje, -29);
+    end = somarDias(hoje, 1);
+    previousStart = somarDias(hoje, -59);
+    previousEnd = somarDias(hoje, -29);
+    label = "30 dias";
+  } else if (tipo === "mes-passado") {
+    start = new Date(referencia.getFullYear(), referencia.getMonth() - 1, 1);
+    end = new Date(referencia.getFullYear(), referencia.getMonth(), 1);
+    previousStart = new Date(referencia.getFullYear(), referencia.getMonth() - 2, 1);
+    previousEnd = start;
+    label = "Mês passado";
+  } else if (tipo === "personalizado") {
+    const inicioCustom = normalizarDataLocal(opcoes.inicio || opcoes.start, null);
+    const fimCustom = normalizarDataLocal(opcoes.fim || opcoes.end, null);
+    if (inicioCustom) start = inicioDiaLocal(inicioCustom);
+    if (fimCustom) end = somarDias(inicioDiaLocal(fimCustom), 1);
+    if (end <= start) end = somarDias(start, 1);
+    const duracao = Math.max(1, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
+    previousEnd = start;
+    previousStart = somarDias(start, -duracao);
+    label = "Personalizado";
+  }
+
+  return {
+    id: tipo,
+    tipo,
+    label,
+    start,
+    end,
+    endInclusive: new Date(end.getTime() - 1),
+    previousStart,
+    previousEnd,
+    reference: dataLocalIso(start)
+  };
+}
+
+function dataDentroIntervalo(data, inicio, fim) {
+  const valor = normalizarDataLocal(data, null);
+  const start = normalizarDataLocal(inicio, null);
+  const end = normalizarDataLocal(fim, null);
+  if (!valor || !start || !end) return false;
+  return valor >= start && valor < end;
 }
 
 function getUltimaAtividadeAplicativo() {
@@ -12396,8 +12571,8 @@ function calcularFluxoAtivoDashboard(stats, totaisCaixa) {
 }
 
 function getDashboardStats() {
-  const hoje = hojeIsoData();
-  const pedidosHoje = pedidos.filter((pedido) => dataPedidoIso(pedido) === hoje);
+  const hoje = criarIntervaloPeriodoLocal("hoje");
+  const pedidosHoje = pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), hoje.start, hoje.end));
   const faturamentoDia = pedidosHoje.reduce((total, pedido) => total + totalPedido(pedido), 0);
   const pedidosAbertos = pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"))).length;
   const producoesAtivas = pedidos.filter((pedido) => String(pedido.status || "") === "producao").length;
@@ -12475,58 +12650,53 @@ function getPeriodoReferenciaIso(periodo = dashboardPeriod) {
 
 function getInfoPeriodoDashboard(periodo = dashboardPeriod, referencia = new Date()) {
   const tipo = normalizarPeriodoDashboard(periodo);
-  const base = referencia instanceof Date ? referencia : parseDataLocalIso(referencia);
-  let start;
-  let end;
-  let previousStart;
-  let previousEnd;
-  let comparisonLabel;
-
-  if (tipo === "week") {
-    start = inicioSemanaLocal(base);
-    end = somarDias(start, 7);
-    previousStart = somarDias(start, -7);
-    previousEnd = start;
-    comparisonLabel = "comparado à semana anterior";
-  } else if (tipo === "month") {
-    start = new Date(base.getFullYear(), base.getMonth(), 1);
-    end = new Date(base.getFullYear(), base.getMonth() + 1, 1);
-    previousStart = new Date(base.getFullYear(), base.getMonth() - 1, 1);
-    previousEnd = start;
-    comparisonLabel = "comparado ao mês anterior";
-  } else if (tipo === "year") {
-    start = new Date(base.getFullYear(), 0, 1);
-    end = new Date(base.getFullYear() + 1, 0, 1);
-    previousStart = new Date(base.getFullYear() - 1, 0, 1);
-    previousEnd = start;
-    comparisonLabel = "comparado ao ano anterior";
-  } else {
-    start = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-    end = somarDias(start, 1);
-    previousStart = somarDias(start, -1);
-    previousEnd = start;
-    comparisonLabel = "comparado a ontem";
-  }
+  const mapa = { day: "hoje", week: "semana", month: "mes", year: "ano" };
+  const intervalo = criarIntervaloPeriodoLocal(mapa[tipo] || "hoje", { referencia });
+  const comparisonLabel = tipo === "week"
+    ? "comparado à semana anterior"
+    : tipo === "month"
+      ? "comparado ao mês anterior"
+      : tipo === "year"
+        ? "comparado ao ano anterior"
+        : "comparado a ontem";
 
   return {
     tipo,
-    start,
-    end,
-    previousStart,
-    previousEnd,
-    reference: dataLocalIso(start),
+    start: intervalo.start,
+    end: intervalo.end,
+    endInclusive: intervalo.endInclusive,
+    previousStart: intervalo.previousStart,
+    previousEnd: intervalo.previousEnd,
+    reference: intervalo.reference,
     comparisonLabel
   };
 }
 
 function getDataPedidoLocal(pedido = {}) {
-  const iso = dataPedidoIso(pedido);
-  return iso ? parseDataLocalIso(iso) : null;
+  return obterDataRegistroLocal(pedido, ["criadoEm", "createdAt", "created_at", "dataHora", "data", "date", "updatedAt", "updated_at"]);
 }
 
 function estaNoIntervalo(data, inicio, fim) {
-  if (!data || Number.isNaN(data.getTime())) return false;
-  return data >= inicio && data < fim;
+  return dataDentroIntervalo(data, inicio, fim);
+}
+
+function calcularTotaisCaixaPeriodo(inicio, fim, movimentos = caixa) {
+  return movimentos.reduce((totais, movimento) => {
+    const data = obterDataMovimentoCaixa(movimento);
+    if (!dataDentroIntervalo(data, inicio, fim)) return totais;
+    if (movimentoCaixaCancelado(movimento)) {
+      totais.cancelados += 1;
+      return totais;
+    }
+    const valor = Number(movimento.valor) || 0;
+    if (String(movimento.tipo || "").toLowerCase() === "saida") {
+      totais.saidas += valor;
+    } else {
+      totais.entradas += valor;
+    }
+    totais.saldo = totais.entradas - totais.saidas;
+    return totais;
+  }, { entradas: 0, saidas: 0, saldo: 0, cancelados: 0 });
 }
 
 function pedidoContaParaAnalytics(pedido = {}) {
@@ -12549,7 +12719,7 @@ function calcularCustosPedidoAnalytics(pedido = {}) {
 
 function calcularAgregadoAnalytics(inicio, fim) {
   const pedidosPeriodo = pedidos.filter((pedido) => pedidoContaParaAnalytics(pedido) && estaNoIntervalo(getDataPedidoLocal(pedido), inicio, fim));
-  const totaisCaixa = calcularTotaisCaixa();
+  const totaisCaixa = calcularTotaisCaixaPeriodo(inicio, fim);
   return pedidosPeriodo.reduce((total, pedido) => {
     const custos = calcularCustosPedidoAnalytics(pedido);
     const venda = totalPedido(pedido);
@@ -13788,7 +13958,8 @@ function renderPedido() {
 function renderSugestoesInteligentesDashboard() {
   if (!sugestoesInteligentesAtivas()) return "";
   const hoje = hojeIsoData();
-  const pedidosHoje = pedidos.filter((pedido) => dataPedidoIso(pedido) === hoje);
+  const periodoHoje = criarIntervaloPeriodoLocal("hoje");
+  const pedidosHoje = pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), periodoHoje.start, periodoHoje.end));
   const atrasado = pedidos.find((pedido) => {
     const prazo = pedido.prazo || pedido.dataPrazo || "";
     return prazo && prazo < hoje && !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"));
@@ -14163,10 +14334,11 @@ function renderListaPedidos() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
   const filtroCliente = String(window.__pedidosFiltroCliente || "");
+  const periodoHoje = criarIntervaloPeriodoLocal("hoje");
   const listaPorOrigem = filtroDashboard === "abertos"
     ? pedidos.filter((pedido) => !pedidoJaCancelado(pedido) && !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto")))
     : filtroDashboard === "hoje"
-      ? pedidos.filter((pedido) => dataPedidoIso(pedido) === hojeIsoData())
+      ? pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), periodoHoje.start, periodoHoje.end))
       : pedidos;
   const listaBaseInicial = filtroCliente
     ? listaPorOrigem.filter((pedido) => normalizarSugestaoClienteTexto(clienteDoPedido(pedido)) === normalizarSugestaoClienteTexto(filtroCliente))
@@ -15877,7 +16049,7 @@ async function marcarClientesInativosAcao() {
 
 function getPeriodoRelatoriosAtivo() {
   const salvo = getUiTab("relatoriosPeriodo", "mes");
-  return ["hoje", "7d", "30d", "mes", "mes-passado", "personalizado"].includes(salvo) ? salvo : "mes";
+  return ["hoje", "semana", "7d", "30d", "mes", "mes-passado", "personalizado"].includes(salvo) ? salvo : "mes";
 }
 
 function selecionarPeriodoRelatorios(periodo = "mes") {
@@ -15885,38 +16057,36 @@ function selecionarPeriodoRelatorios(periodo = "mes") {
 }
 
 function inicioDiaRelatorios(data = new Date()) {
-  return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+  return inicioDiaLocal(data);
 }
 
 function fimDiaRelatorios(data = new Date()) {
-  return somarDias(inicioDiaRelatorios(data), 1);
+  return somarDias(inicioDiaLocal(data), 1);
+}
+
+function getPeriodoCustomizadoRelatorios() {
+  window.__relatoriosPeriodoCustom = window.__relatoriosPeriodoCustom || {};
+  return {
+    inicio: window.__relatoriosPeriodoCustom.inicio || hojeIsoData(),
+    fim: window.__relatoriosPeriodoCustom.fim || window.__relatoriosPeriodoCustom.inicio || hojeIsoData()
+  };
+}
+
+function aplicarPeriodoPersonalizadoRelatorios() {
+  const inicio = document.getElementById("relatoriosDataInicio")?.value || hojeIsoData();
+  const fim = document.getElementById("relatoriosDataFim")?.value || inicio;
+  window.__relatoriosPeriodoCustom = { inicio, fim };
+  trocarUiTab("relatoriosPeriodo", "personalizado");
+  renderizarPreservandoScroll();
 }
 
 function getInfoPeriodoRelatorios(periodo = getPeriodoRelatoriosAtivo(), referencia = new Date()) {
-  const hoje = inicioDiaRelatorios(referencia);
-  if (periodo === "hoje") {
-    return { id: "hoje", label: "Hoje", start: hoje, end: fimDiaRelatorios(hoje), previousStart: somarDias(hoje, -1), previousEnd: hoje };
-  }
-  if (periodo === "7d") {
-    return { id: "7d", label: "7 dias", start: somarDias(hoje, -6), end: fimDiaRelatorios(hoje), previousStart: somarDias(hoje, -13), previousEnd: somarDias(hoje, -6) };
-  }
-  if (periodo === "30d") {
-    return { id: "30d", label: "30 dias", start: somarDias(hoje, -29), end: fimDiaRelatorios(hoje), previousStart: somarDias(hoje, -59), previousEnd: somarDias(hoje, -29) };
-  }
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  if (periodo === "mes-passado") {
-    const start = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-    const end = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    return { id: "mes-passado", label: "Mês passado", start, end, previousStart: new Date(hoje.getFullYear(), hoje.getMonth() - 2, 1), previousEnd: start };
-  }
-  return {
-    id: periodo === "personalizado" ? "personalizado" : "mes",
-    label: periodo === "personalizado" ? "Personalizado" : "Este mês",
-    start: inicioMes,
-    end: new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1),
-    previousStart: new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1),
-    previousEnd: inicioMes
-  };
+  const custom = periodo === "personalizado" ? getPeriodoCustomizadoRelatorios() : {};
+  return criarIntervaloPeriodoLocal(periodo === "mes" ? "mes" : periodo, {
+    referencia,
+    inicio: custom.inicio,
+    fim: custom.fim
+  });
 }
 
 function calcularDeltaPercentualRelatorios(atual = 0, anterior = 0) {
@@ -16191,6 +16361,7 @@ function getResumoPeriodosRelatorios() {
   return [
     { label: "Hoje", sublabel: formatarPeriodoCurtoRelatorios(hoje), info: getInfoPeriodoRelatorios("hoje") },
     { label: "Ontem", sublabel: formatarPeriodoCurtoRelatorios(ontem), info: { ...getInfoPeriodoRelatorios("hoje", ontem), id: "hoje" } },
+    { label: "Semana atual", sublabel: "Segunda a domingo", info: getInfoPeriodoRelatorios("semana") },
     { label: "Últimos 7 dias", sublabel: `${formatarPeriodoCurtoRelatorios(somarDias(hoje, -6))} a ${formatarPeriodoCurtoRelatorios(hoje)}`, info: getInfoPeriodoRelatorios("7d") },
     { label: "Últimos 30 dias", sublabel: `${formatarPeriodoCurtoRelatorios(somarDias(hoje, -29))} a ${formatarPeriodoCurtoRelatorios(hoje)}`, info: getInfoPeriodoRelatorios("30d") },
     { label: "Mês passado", sublabel: `${formatarPeriodoCurtoRelatorios(inicioMesPassado)} a ${formatarPeriodoCurtoRelatorios(somarDias(fimMesPassado, -1))}`, info: getInfoPeriodoRelatorios("mes-passado") }
@@ -16240,6 +16411,7 @@ function renderRelatorios() {
   const podeOperar = temAcessoCompleto();
   const periodoAtivo = getPeriodoRelatoriosAtivo();
   const info = getInfoPeriodoRelatorios(periodoAtivo);
+  const periodoCustomizado = getPeriodoCustomizadoRelatorios();
   const agregado = calcularAgregadoRelatorios(info);
   const series = gerarSerieRelatorios(info);
   const categorias = calcularCategoriasRelatorios(info);
@@ -16249,8 +16421,7 @@ function renderRelatorios() {
   const seriesLucro = series.map((item) => Number(item.profit) || 0);
   const periodos = [
     { id: "hoje", label: "Hoje" },
-    { id: "7d", label: "7 dias" },
-    { id: "30d", label: "30 dias" },
+    { id: "semana", label: "Semana" },
     { id: "mes", label: "Este mês" },
     { id: "mes-passado", label: "Mês passado" },
     { id: "personalizado", label: "Personalizado", icon: "agenda" }
@@ -16280,6 +16451,19 @@ function renderRelatorios() {
           </button>
         `).join("")}
       </div>
+      ${periodoAtivo === "personalizado" ? `
+        <div class="period-custom-bar reports-custom-period">
+          <label class="field">
+            <span>Data inicial</span>
+            <input id="relatoriosDataInicio" type="date" value="${escaparAttr(periodoCustomizado.inicio)}">
+          </label>
+          <label class="field">
+            <span>Data final</span>
+            <input id="relatoriosDataFim" type="date" value="${escaparAttr(periodoCustomizado.fim)}">
+          </label>
+          <button class="btn secondary" type="button" onclick="aplicarPeriodoPersonalizadoRelatorios()">Aplicar período</button>
+        </div>
+      ` : ""}
 
       <div class="reports-kpi-grid">
         ${renderRelatorioKpiCard({ titulo: "Faturamento", valor: formatarMoeda(agregado.atual.total_sales), delta: agregado.comparacoes.faturamento, icon: "caixa", estado: "teal", series: seriesFaturamento })}
@@ -16347,6 +16531,101 @@ function trocarFiltroCaixa(filtro = "todos") {
   trocarUiTab("caixaStatus", filtro);
 }
 
+function getCaixaViewAtiva() {
+  const salvo = getUiTab("caixaView", "movimentos");
+  return ["movimentos", "extrato"].includes(salvo) ? salvo : "movimentos";
+}
+
+function trocarAbaCaixa(aba = "movimentos") {
+  trocarUiTab("caixaView", aba);
+}
+
+function getCaixaPeriodoAtivo() {
+  const salvo = getUiTab("caixaPeriodo", "mes");
+  return ["hoje", "semana", "mes", "personalizado"].includes(salvo) ? salvo : "mes";
+}
+
+function trocarPeriodoCaixa(periodo = "mes") {
+  trocarUiTab("caixaPeriodo", periodo);
+}
+
+function getPeriodoCustomizadoCaixa() {
+  window.__caixaPeriodoCustom = window.__caixaPeriodoCustom || {};
+  return {
+    inicio: window.__caixaPeriodoCustom.inicio || hojeIsoData(),
+    fim: window.__caixaPeriodoCustom.fim || window.__caixaPeriodoCustom.inicio || hojeIsoData()
+  };
+}
+
+function aplicarPeriodoPersonalizadoCaixa() {
+  const inicio = document.getElementById("caixaDataInicio")?.value || hojeIsoData();
+  const fim = document.getElementById("caixaDataFim")?.value || inicio;
+  window.__caixaPeriodoCustom = { inicio, fim };
+  trocarUiTab("caixaPeriodo", "personalizado");
+}
+
+function getInfoPeriodoCaixa(periodo = getCaixaPeriodoAtivo()) {
+  const custom = periodo === "personalizado" ? getPeriodoCustomizadoCaixa() : {};
+  return criarIntervaloPeriodoLocal(periodo, {
+    inicio: custom.inicio,
+    fim: custom.fim
+  });
+}
+
+function filtrarMovimentosCaixaPorPeriodo(movimentos = caixa, info = getInfoPeriodoCaixa()) {
+  return movimentos.filter((movimento) => dataDentroIntervalo(obterDataMovimentoCaixa(movimento), info.start, info.end));
+}
+
+function renderCaixaViewTabs(ativo = getCaixaViewAtiva()) {
+  const abas = [
+    { id: "movimentos", label: "Movimentos", icon: "caixa" },
+    { id: "extrato", label: "Extrato", icon: "relatorios" }
+  ];
+  return `
+    <div class="ui-tabs cash-view-tabs" role="tablist" aria-label="Visão do caixa">
+      ${abas.map((aba) => `
+        <button class="ui-tab ${ativo === aba.id ? "active" : ""}" type="button" role="tab" aria-selected="${ativo === aba.id}" onclick="trocarAbaCaixa('${escaparAttr(aba.id)}')">
+          ${renderUiIcon(aba.icon)}
+          <span>${escaparHtml(aba.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderCaixaPeriodoChips(periodoAtivo = getCaixaPeriodoAtivo()) {
+  const periodos = [
+    { id: "hoje", label: "Hoje" },
+    { id: "semana", label: "Semana" },
+    { id: "mes", label: "Mês" },
+    { id: "personalizado", label: "Período", icon: "agenda" }
+  ];
+  const custom = getPeriodoCustomizadoCaixa();
+  return `
+    <div class="reports-period-tabs cash-period-tabs" role="tablist" aria-label="Período do caixa">
+      ${periodos.map((periodo) => `
+        <button class="reports-period-chip ${periodoAtivo === periodo.id ? "active" : ""}" type="button" role="tab" aria-selected="${periodoAtivo === periodo.id}" onclick="trocarPeriodoCaixa('${escaparAttr(periodo.id)}')">
+          ${periodo.icon ? renderUiIcon(periodo.icon) : ""}
+          <span>${escaparHtml(periodo.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+    ${periodoAtivo === "personalizado" ? `
+      <div class="period-custom-bar cash-custom-period">
+        <label class="field">
+          <span>Data inicial</span>
+          <input id="caixaDataInicio" type="date" value="${escaparAttr(custom.inicio)}">
+        </label>
+        <label class="field">
+          <span>Data final</span>
+          <input id="caixaDataFim" type="date" value="${escaparAttr(custom.fim)}">
+        </label>
+        <button class="btn secondary" type="button" onclick="aplicarPeriodoPersonalizadoCaixa()">Aplicar período</button>
+      </div>
+    ` : ""}
+  `;
+}
+
 function renderCaixaFiltroChips(movimentos = caixa, ativo = "todos") {
   const contadores = movimentos.reduce((acc, movimento) => {
     const cancelado = movimentoCaixaCancelado(movimento);
@@ -16374,18 +16653,357 @@ function renderCaixaFiltroChips(movimentos = caixa, ativo = "todos") {
   `;
 }
 
-function filtrarMovimentosCaixa(movimentos = caixa, filtro = "todos") {
-  if (filtro === "cancelados") return movimentos.filter(movimentoCaixaCancelado);
-  if (filtro === "entradas") return movimentos.filter((movimento) => !movimentoCaixaCancelado(movimento) && String(movimento.tipo || "").toLowerCase() !== "saida");
-  if (filtro === "saidas") return movimentos.filter((movimento) => !movimentoCaixaCancelado(movimento) && String(movimento.tipo || "").toLowerCase() === "saida");
-  return movimentos;
+function filtrarMovimentosCaixa(movimentos = caixa, filtro = "todos", info = null) {
+  const base = info ? filtrarMovimentosCaixaPorPeriodo(movimentos, info) : movimentos;
+  if (filtro === "cancelados") return base.filter(movimentoCaixaCancelado);
+  if (filtro === "entradas") return base.filter((movimento) => !movimentoCaixaCancelado(movimento) && String(movimento.tipo || "").toLowerCase() !== "saida");
+  if (filtro === "saidas") return base.filter((movimento) => !movimentoCaixaCancelado(movimento) && String(movimento.tipo || "").toLowerCase() === "saida");
+  return base;
+}
+
+function classificarOrigemMovimentoCaixa(movimento = {}) {
+  if (movimentoCaixaCancelado(movimento)) return "cancelamento";
+  const texto = normalizarTextoBusca(`${movimento.origem || ""} ${movimento.source || ""} ${descricaoCaixa(movimento)} ${movimento.status || ""}`);
+  if (movimento.pedidoId || movimento.orderId || texto.includes("pedido")) return "pedido pago";
+  if (texto.includes("taxa")) return "taxa";
+  if (texto.includes("desconto")) return "desconto";
+  if (texto.includes("retirada") || texto.includes("sangria")) return "retirada";
+  if (texto.includes("ajuste")) return "ajuste";
+  if (texto.includes("despesa") || texto.includes("compra") || String(movimento.tipo || "").toLowerCase() === "saida") return "despesa";
+  return "entrada manual";
+}
+
+function encontrarPedidoPorMovimentoCaixa(movimento = {}) {
+  const idDireto = movimento.pedidoId || movimento.orderId || movimento.order_id || "";
+  if (idDireto) {
+    const pedido = pedidos.find((item) => String(item.id) === String(idDireto));
+    if (pedido) return pedido;
+  }
+  const texto = String(descricaoCaixa(movimento) || "");
+  const idTexto = texto.match(/#?\b(\d{1,10})\b/);
+  if (idTexto) return pedidos.find((item) => String(item.id) === idTexto[1]) || null;
+  return null;
+}
+
+function getMovimentosExtratoFinanceiro() {
+  const ordenados = caixa
+    .map((movimento, indice) => {
+      const data = obterDataMovimentoCaixa(movimento) || new Date(0);
+      const pedido = encontrarPedidoPorMovimentoCaixa(movimento);
+      const cancelado = movimentoCaixaCancelado(movimento);
+      const saida = String(movimento.tipo || "").toLowerCase() === "saida";
+      const valorAbs = Math.abs(Number(movimento.valor) || 0);
+      const valorAssinado = cancelado ? 0 : saida ? -valorAbs : valorAbs;
+      return {
+        indice,
+        movimento,
+        pedido,
+        data,
+        descricao: descricaoCaixa(movimento),
+        valor: valorAbs,
+        valorAssinado,
+        tipo: cancelado ? "cancelado" : saida ? "saida" : "entrada",
+        responsavel: movimento.responsavel || movimento.userName || movimento.usuario || getUsuarioAtual()?.nome || getUsuarioAtual()?.email || "Sistema",
+        origem: classificarOrigemMovimentoCaixa(movimento),
+        status: cancelado ? "cancelado" : movimento.status || "confirmado",
+        cliente: pedido ? clienteDoPedido(pedido) : (movimento.cliente || movimento.customer || ""),
+        pedidoId: pedido?.id || movimento.pedidoId || movimento.orderId || ""
+      };
+    })
+    .sort((a, b) => a.data - b.data || a.indice - b.indice);
+
+  let saldo = 0;
+  ordenados.forEach((item) => {
+    saldo += item.valorAssinado;
+    item.saldoAcumulado = saldo;
+  });
+  return ordenados;
+}
+
+function getFiltrosExtratoFinanceiro() {
+  window.__extratoFinanceiroFiltros = window.__extratoFinanceiroFiltros || {};
+  return {
+    tipo: window.__extratoFinanceiroFiltros.tipo || "todos",
+    pedido: window.__extratoFinanceiroFiltros.pedido || "",
+    cliente: window.__extratoFinanceiroFiltros.cliente || ""
+  };
+}
+
+function atualizarFiltroExtratoCampo(campo, valor) {
+  window.__extratoFinanceiroFiltros = window.__extratoFinanceiroFiltros || {};
+  window.__extratoFinanceiroFiltros[campo] = String(valor || "");
+  renderizarPreservandoScroll();
+}
+
+function filtrarExtratoFinanceiro(itens = getMovimentosExtratoFinanceiro(), info = getInfoPeriodoCaixa(), filtros = getFiltrosExtratoFinanceiro()) {
+  const tipo = String(filtros.tipo || "todos");
+  const pedidoBusca = normalizarTextoBusca(filtros.pedido || "");
+  const clienteBusca = normalizarTextoBusca(filtros.cliente || "");
+  return itens.filter((item) => {
+    if (!dataDentroIntervalo(item.data, info.start, info.end)) return false;
+    if (tipo !== "todos") {
+      if (["entrada", "saida", "cancelado"].includes(tipo) && item.tipo !== tipo) return false;
+      if (!["entrada", "saida", "cancelado"].includes(tipo) && normalizarTextoBusca(item.origem) !== tipo) return false;
+    }
+    if (pedidoBusca && !normalizarTextoBusca(`${item.pedidoId || ""} ${item.descricao || ""}`).includes(pedidoBusca)) return false;
+    if (clienteBusca && !normalizarTextoBusca(`${item.cliente || ""} ${item.descricao || ""}`).includes(clienteBusca)) return false;
+    return true;
+  });
+}
+
+function calcularLucroEstimadoExtrato(info = getInfoPeriodoCaixa()) {
+  return pedidos
+    .filter((pedido) => pedidoContaParaAnalytics(pedido) && dataDentroIntervalo(getDataPedidoLocal(pedido), info.start, info.end))
+    .reduce((total, pedido) => {
+      const custos = calcularCustosPedidoAnalytics(pedido);
+      return total + Math.max(0, totalPedido(pedido) - custos.cost);
+    }, 0);
+}
+
+function calcularResumoExtratoFinanceiro(itens = [], info = getInfoPeriodoCaixa()) {
+  const resumo = itens.reduce((totais, item) => {
+    if (item.tipo === "cancelado") {
+      totais.cancelados += 1;
+      return totais;
+    }
+    if (item.valorAssinado < 0) totais.saidas += Math.abs(item.valorAssinado);
+    else totais.entradas += item.valorAssinado;
+    totais.saldoFinal = totais.entradas - totais.saidas;
+    return totais;
+  }, { entradas: 0, saidas: 0, saldoFinal: 0, cancelados: 0 });
+  resumo.saldoAtual = calcularTotaisCaixa().saldo;
+  resumo.lucroEstimado = calcularLucroEstimadoExtrato(info);
+  return resumo;
+}
+
+function getExtratoFinanceiroAtual() {
+  const info = getInfoPeriodoCaixa();
+  const filtros = getFiltrosExtratoFinanceiro();
+  const itens = filtrarExtratoFinanceiro(getMovimentosExtratoFinanceiro(), info, filtros);
+  return { info, filtros, itens, resumo: calcularResumoExtratoFinanceiro(itens, info) };
+}
+
+function renderResumoCardsExtrato(resumo) {
+  const cards = [
+    { label: "Total entradas", valor: formatarMoeda(resumo.entradas), tone: "entrada" },
+    { label: "Total saídas", valor: formatarMoeda(resumo.saidas), tone: "saida" },
+    { label: "Lucro estimado", valor: formatarMoeda(resumo.lucroEstimado), tone: "lucro" },
+    { label: "Saldo final", valor: formatarMoeda(resumo.saldoFinal), tone: resumo.saldoFinal < 0 ? "saida" : "entrada" }
+  ];
+  return `
+    <div class="statement-summary-grid">
+      ${cards.map((card) => `
+        <div class="metric statement-summary-card statement-${escaparAttr(card.tone)}">
+          <span>${escaparHtml(card.label)}</span>
+          <strong>${escaparHtml(card.valor)}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFiltrosExtratoFinanceiro(filtros = getFiltrosExtratoFinanceiro()) {
+  const tipos = [
+    ["todos", "Todos os tipos"],
+    ["entrada", "Entradas"],
+    ["saida", "Saídas"],
+    ["cancelado", "Cancelamentos"],
+    ["pedido pago", "Pedido pago"],
+    ["entrada manual", "Entrada manual"],
+    ["retirada", "Retirada"],
+    ["ajuste", "Ajuste"],
+    ["despesa", "Despesa"],
+    ["taxa", "Taxa"],
+    ["desconto", "Desconto"]
+  ];
+  return `
+    <div class="statement-filter-grid">
+      <label class="field">
+        <span>Tipo de movimentação</span>
+        <select onchange="atualizarFiltroExtratoCampo('tipo', this.value)">
+          ${tipos.map(([id, label]) => `<option value="${escaparAttr(id)}" ${filtros.tipo === id ? "selected" : ""}>${escaparHtml(label)}</option>`).join("")}
+        </select>
+      </label>
+      <label class="field">
+        <span>Pedido</span>
+        <input value="${escaparAttr(filtros.pedido)}" placeholder="Número ou descrição" onchange="atualizarFiltroExtratoCampo('pedido', this.value)">
+      </label>
+      <label class="field">
+        <span>Cliente</span>
+        <input value="${escaparAttr(filtros.cliente)}" placeholder="Nome do cliente" onchange="atualizarFiltroExtratoCampo('cliente', this.value)">
+      </label>
+    </div>
+  `;
+}
+
+function renderLinhaExtratoFinanceiro(item) {
+  const valorClasse = item.valorAssinado < 0 ? "negative" : item.tipo === "cancelado" ? "neutral" : "positive";
+  return `
+    <div class="statement-row statement-${escaparAttr(item.tipo)}">
+      <div class="statement-row-main">
+        <div class="row-title">
+          <strong>${escaparHtml(item.descricao)}</strong>
+          <span class="statement-value ${valorClasse}">${formatarMoeda(item.valorAssinado)}</span>
+        </div>
+        <div class="statement-meta">
+          <span>${item.data ? item.data.toLocaleString("pt-BR") : "-"}</span>
+          <span>${escaparHtml(item.origem)}</span>
+          ${item.cliente ? `<span>${escaparHtml(item.cliente)}</span>` : ""}
+          ${item.pedidoId ? `<span>Pedido #${escaparHtml(item.pedidoId)}</span>` : ""}
+        </div>
+        <div class="statement-meta muted">
+          <span>Responsável: ${escaparHtml(item.responsavel)}</span>
+          <span>Status: ${escaparHtml(item.status)}</span>
+          <span>Saldo acumulado: ${formatarMoeda(item.saldoAcumulado)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderExtratoFinanceiro() {
+  const { info, filtros, itens, resumo } = getExtratoFinanceiroAtual();
+  const proLiberado = planoPermiteRecurso("reports");
+  if (!proLiberado) {
+    return `
+      <section class="statement-panel statement-locked">
+        ${renderResumoCardsExtrato(resumo)}
+        <div class="pro-lock-panel">
+          <span class="status-badge">PRO</span>
+          <h3>Extrato Financeiro</h3>
+          <p>Desbloqueie o Extrato Financeiro completo no plano Pro.</p>
+          <button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar Pro</button>
+        </div>
+      </section>
+    `;
+  }
+  return `
+    <section class="statement-panel">
+      <div class="statement-head">
+        <div>
+          <span class="eyebrow">Fluxo financeiro</span>
+          <h3>Extrato Financeiro</h3>
+          <p class="muted">${escaparHtml(info.label)}: ${info.start.toLocaleDateString("pt-BR")} a ${info.endInclusive.toLocaleDateString("pt-BR")}</p>
+        </div>
+        <div class="actions statement-actions">
+          <button class="btn ghost compact-action" type="button" onclick="exportarExtratoFinanceiro('pdf')">${renderUiIcon("pdf")} PDF</button>
+          <button class="btn ghost compact-action" type="button" onclick="exportarExtratoFinanceiro('print')">${renderUiIcon("print")} Imprimir</button>
+          <button class="btn ghost compact-action" type="button" onclick="compartilharExtratoFinanceiro()">${renderUiIcon("whatsapp")} Compartilhar</button>
+        </div>
+      </div>
+      ${renderFiltrosExtratoFinanceiro(filtros)}
+      ${renderResumoCardsExtrato(resumo)}
+      <div class="statement-list">
+        ${itens.length ? [...itens].reverse().map(renderLinhaExtratoFinanceiro).join("") : `<p class="empty">Nenhuma movimentação no período selecionado.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function textoExtratoFinanceiro() {
+  const { info, itens, resumo } = getExtratoFinanceiroAtual();
+  const linhas = [
+    "Extrato Financeiro - Simplifica 3D",
+    `${info.label}: ${info.start.toLocaleDateString("pt-BR")} a ${info.endInclusive.toLocaleDateString("pt-BR")}`,
+    `Entradas: ${formatarMoeda(resumo.entradas)}`,
+    `Saídas: ${formatarMoeda(resumo.saidas)}`,
+    `Lucro estimado: ${formatarMoeda(resumo.lucroEstimado)}`,
+    `Saldo final: ${formatarMoeda(resumo.saldoFinal)}`,
+    ""
+  ];
+  itens.forEach((item) => {
+    linhas.push(`${item.data.toLocaleString("pt-BR")} | ${item.origem} | ${item.descricao} | ${formatarMoeda(item.valorAssinado)} | Saldo: ${formatarMoeda(item.saldoAcumulado)}`);
+  });
+  return linhas.join("\n");
+}
+
+async function exportarExtratoFinanceiro(modo = "pdf") {
+  if (!planoPermiteRecurso("reports")) {
+    mostrarBloqueioRecursoPro("Extrato Financeiro completo");
+    return false;
+  }
+  const jsPDF = window.jspdf?.jsPDF;
+  if (!jsPDF) {
+    alert("Biblioteca de PDF não carregou. Verifique a internet e tente novamente.");
+    return false;
+  }
+  const { info, itens, resumo } = getExtratoFinanceiroAtual();
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const largura = doc.internal.pageSize.getWidth();
+  const margem = 12;
+  let y = 16;
+  doc.setTextColor(17, 24, 39);
+  doc.setFontSize(16);
+  doc.text("Extrato Financeiro", margem, y);
+  y += 7;
+  doc.setFontSize(9);
+  doc.setTextColor(71, 85, 105);
+  doc.text(`${info.label}: ${info.start.toLocaleDateString("pt-BR")} a ${info.endInclusive.toLocaleDateString("pt-BR")}`, margem, y);
+  y += 8;
+  doc.setTextColor(17, 24, 39);
+  [
+    `Entradas: ${formatarMoeda(resumo.entradas)}`,
+    `Saídas: ${formatarMoeda(resumo.saidas)}`,
+    `Lucro estimado: ${formatarMoeda(resumo.lucroEstimado)}`,
+    `Saldo final: ${formatarMoeda(resumo.saldoFinal)}`
+  ].forEach((linha) => {
+    doc.text(linha, margem, y);
+    y += 6;
+  });
+  y += 4;
+  itens.forEach((item) => {
+    if (y > 280) {
+      doc.addPage();
+      y = 16;
+    }
+    doc.setFontSize(8.5);
+    doc.setTextColor(17, 24, 39);
+    const descricao = `${item.data.toLocaleString("pt-BR")} - ${item.descricao}`;
+    doc.text(doc.splitTextToSize(descricao, largura - margem * 2), margem, y);
+    y += 5;
+    doc.setTextColor(71, 85, 105);
+    doc.text(`${item.origem} | ${item.tipo} | ${formatarMoeda(item.valorAssinado)} | Saldo ${formatarMoeda(item.saldoAcumulado)}`, margem, y);
+    y += 7;
+  });
+  const nome = `extrato-financeiro-${hojeIsoData()}.pdf`;
+  return String(modo).toLowerCase().includes("print")
+    ? imprimirOuOferecerPdf(doc, nome, "Extrato Financeiro Simplifica 3D")
+    : salvarOuCompartilharPdf(doc, nome, "Extrato Financeiro Simplifica 3D");
+}
+
+async function compartilharExtratoFinanceiro() {
+  if (!planoPermiteRecurso("reports")) {
+    mostrarBloqueioRecursoPro("Extrato Financeiro completo");
+    return false;
+  }
+  const texto = textoExtratoFinanceiro();
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: "Extrato Financeiro Simplifica 3D", text: texto });
+      return true;
+    } catch (erro) {
+      if (erro?.name === "AbortError") return true;
+    }
+  }
+  try {
+    await navigator.clipboard?.writeText(texto);
+    mostrarToast("Extrato copiado para a área de transferência.", "sucesso", 2800);
+    return true;
+  } catch (_) {
+    alert(texto);
+    return false;
+  }
 }
 
 function renderCaixa() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
-  const totais = calcularTotaisCaixa();
+  const caixaView = getCaixaViewAtiva();
+  const periodoCaixa = getCaixaPeriodoAtivo();
+  const infoPeriodoCaixa = getInfoPeriodoCaixa(periodoCaixa);
+  const movimentosPeriodo = filtrarMovimentosCaixaPorPeriodo(caixa, infoPeriodoCaixa);
+  const totais = calcularTotaisCaixaPeriodo(infoPeriodoCaixa.start, infoPeriodoCaixa.end);
   const filtroCaixa = getCaixaFiltroAtivo();
-  const movimentosFiltrados = filtrarMovimentosCaixa(caixa, filtroCaixa);
+  const movimentosFiltrados = filtrarMovimentosCaixa(movimentosPeriodo, filtroCaixa);
   const linhas = movimentosFiltrados.length
     ? [...movimentosFiltrados].reverse().map((movimento) => {
         const indice = caixa.indexOf(movimento);
@@ -16417,6 +17035,8 @@ function renderCaixa() {
         <h2>${renderUiIcon("caixa")} Caixa</h2>
         <strong>${formatarMoeda(totais.saldo)}</strong>
       </div>
+      ${renderCaixaViewTabs(caixaView)}
+      ${renderCaixaPeriodoChips(periodoCaixa)}
       <div class="metrics">
         <div class="metric">
           <span>Entradas</span>
@@ -16431,25 +17051,27 @@ function renderCaixa() {
           <strong>${Number(totais.cancelados || 0)}</strong>
         </div>
       </div>
-      ${renderCaixaFiltroChips(caixa, filtroCaixa)}
-      ${podeOperar ? `
-      <label class="field">
-        <span>Tipo</span>
-        <select id="caixaTipo">
-          <option value="entrada">Entrada</option>
-          <option value="saida">Saída</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>Valor</span>
-        <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00">
-      </label>
-      <label class="field">
-        <span>Descrição</span>
-        <input id="caixaDescricao" placeholder="Ex.: 2 reais caneta">
-      </label>
-      <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
-      ${linhas}
+      ${caixaView === "extrato" ? renderExtratoFinanceiro() : `
+        ${renderCaixaFiltroChips(movimentosPeriodo, filtroCaixa)}
+        ${podeOperar ? `
+        <label class="field">
+          <span>Tipo</span>
+          <select id="caixaTipo">
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Valor</span>
+          <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00">
+        </label>
+        <label class="field">
+          <span>Descrição</span>
+          <input id="caixaDescricao" placeholder="Ex.: 2 reais caneta">
+        </label>
+        <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
+        ${linhas}
+      `}
     </section>
   `;
 }
@@ -16628,16 +17250,25 @@ function renderConfig() {
         : conectado
           ? "Conectado"
           : "Conta necessária";
+  const resumoBackupPlano = atualizarFlagBackupOverLimit(criarSnapshotBackupUsuarioAtual(), false);
+  const backupSomenteLeitura = resumoBackupPlano.backup_over_limit === true;
+  const backupAviso = backupSomenteLeitura
+    ? `<div class="app-error-state backup-readonly-notice"><strong>Backup em somente leitura</strong><span>${escaparHtml(mensagemLimiteBackupCheio())}</span></div>`
+    : "";
+  const acaoSyncBackup = backupSomenteLeitura
+    ? `mostrarToast('${escaparAttr(mensagemLimiteBackupCheio().replace(/\n/g, " "))}', 'info', 6200)`
+    : "sincronizarSupabase()";
   const backupContent = temAcessoNuvem()
     ? `
+      ${backupAviso}
       <div class="sync-grid">
         <div class="metric"><span>Conta</span><strong>${escaparHtml(emailConta || "Não conectada")}</strong></div>
         <div class="metric"><span>Status</span><strong>${escaparHtml(status)}</strong></div>
         <div class="metric"><span>Última sincronização</span><strong>${ultimaSync ? new Date(ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong></div>
-        <div class="metric"><span>Dispositivo</span><strong>${escaparHtml(syncConfig.deviceName || deviceId.slice(0, 10))}</strong></div>
+        <div class="metric"><span>Backup</span><strong>${resumoBackupPlano.usedMb.toFixed(resumoBackupPlano.usedMb >= 10 ? 0 : 1)} MB / ${resumoBackupPlano.limitMb >= 1024 ? "1 GB" : `${resumoBackupPlano.limitMb} MB`}</strong></div>
       </div>
       <div class="actions">
-        <button class="btn" onclick="sincronizarSupabase()">Sincronizar agora</button>
+        <button class="btn" onclick="${acaoSyncBackup}">Sincronizar agora</button>
         <button class="btn secondary" onclick="exportarBackup()">Exportar backup</button>
         <label class="btn ghost file-label">
           <span>Importar backup</span>
@@ -16645,6 +17276,7 @@ function renderConfig() {
         </label>
       </div>`
     : `
+      ${backupAviso}
       <p class="muted">Entre ou crie uma conta para sincronizar dados entre Android, Windows e navegador. O Free continua funcional com sync limitada.</p>
       <div class="admin-grid">
         <div class="metric"><span>Free</span><strong>Sync limitada</strong></div>
@@ -19141,19 +19773,19 @@ function renderAssinatura() {
   const planoAtual = isPremiumAtivo ? getPlanoSaas("premium") : getPlanoSaas("free");
   const usuario = getUsuarioAtual();
   const usuariosAtivos = Math.max(1, getUsuariosDoCliente().filter((item) => item.ativo !== false && !item.bloqueado).length || 1);
+  const periodoMes = criarIntervaloPeriodoLocal("mes");
   const pedidosMes = pedidos.filter((pedido) => {
-    const data = Date.parse(pedido.createdAt || pedido.criadoEm || pedido.data || 0) || 0;
-    return data && Date.now() - data < 31 * 24 * 60 * 60 * 1000;
-  }).length || pedidos.length;
+    return dataDentroIntervalo(getDataPedidoLocal(pedido), periodoMes.start, periodoMes.end);
+  }).length;
   const proximaCobranca = estadoPlano.planExpiresAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
   const dataCobranca = proximaCobranca ? new Date(proximaCobranca).toLocaleDateString("pt-BR") : "-";
   const statusLabel = isPremiumAtivo ? "Ativo" : estadoPlano.pending ? "Pendente" : "Free";
   const policy = getPlanPolicy(usuario);
   const usuarioMonetizacao = getUsuarioMonetizacao();
   const acoesRestantes = policy.isPro ? "Ilimitadas" : String(window.MonetizationLimits?.getRemainingFreeActions?.(usuarioMonetizacao) ?? FREE_ACTION_CREDIT_LIMIT);
-  const resumoBackup = calcularUsoBackupPlano();
+  const resumoBackup = atualizarFlagBackupOverLimit(criarSnapshotBackupUsuarioAtual(), false);
   const sessoesAtivas = saasSessions.filter((sessao) => sessao.clientId === (usuario?.clientId || billingConfig.clientId) && sessao.active !== false).length || 1;
-  const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}`;
+  const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}${resumoBackup.backup_over_limit ? " · somente leitura" : ""}`;
 
   return `
     <section class="plans-modern-screen">
@@ -20617,7 +21249,9 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   if (!linha || typeof linha !== "object") return false;
   const settings = linha.settings && typeof linha.settings === "object" ? linha.settings : {};
   const usarTexto = (valor) => (typeof valor === "string" && valor.trim() ? valor.trim() : "");
+  const themeModeRemoto = usarTexto(settings.theme_mode);
   const proximo = {
+    theme: ["dark", "light", "auto"].includes(themeModeRemoto) ? themeModeRemoto : appConfig.theme,
     accentColor: usarTexto(linha.theme_color) || usarTexto(settings.primary_color) || appConfig.accentColor,
     pdfBackgroundDataUrl: usarTexto(linha.background_image) || usarTexto(settings.pdf_background) || appConfig.pdfBackgroundDataUrl,
     loginBackgroundDataUrl: usarTexto(linha.login_background) || usarTexto(settings.login_background) || appConfig.loginBackgroundDataUrl,
@@ -20653,7 +21287,8 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
     logo_url: proximo.brandLogoDataUrl,
     profile_photo: proximo.profilePhotoDataUrl,
     company_logo: proximo.companyLogoDataUrl,
-    login_background: proximo.loginBackgroundDataUrl
+    login_background: proximo.loginBackgroundDataUrl,
+    theme_mode: proximo.theme
   });
   const mudou = Object.entries(proximo).some(([chave, valor]) => String(appConfig[chave] || "") !== String(valor || ""))
     || JSON.stringify(appConfig.appearanceSettings || {}) !== JSON.stringify(appearanceSettings || {});
@@ -20757,6 +21392,14 @@ async function salvarPersonalizacao() {
     const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
     appConfig.customizationSyncPending = !remotoOk;
     salvarDados();
+    if (remotoOk && syncConfig.supabaseAccessToken && syncConfig.supabaseUserId && syncConfig.supabaseEnabled && temAcessoNuvem()) {
+      await salvarBackupSupabase({ contexto: "appearance-save", avisarLimite: false })
+        .catch((erro) => {
+          registrarDiagnostico("Personalização", "Backup remoto não atualizado após salvar aparência", erro.message || erro);
+          registrarFluxoSalvamento("Aparência", "Atualizar backup remoto", { tela: telaAtual }, erro);
+          return false;
+        });
+    }
     registrarFluxoSalvamento("Aparência", "Salvar personalização", { remotoOk, campos: Object.keys(campos || {}) });
     registrarHistorico("Personalização", "Preferências do app atualizadas");
     mostrarToast(remotoOk
@@ -21908,8 +22551,11 @@ function limiteBackupPlanoMb() {
 function calcularUsoBackupPlano(payload = criarSnapshotBackupUsuarioAtual()) {
   const tamanhoMb = tamanhoBackupMb(payload);
   const limiteMb = limiteBackupPlanoMb();
+  const policy = getPlanPolicy();
   const usadoBytes = Math.round(tamanhoMb * 1024 * 1024);
   const limiteBytes = Math.round(limiteMb * 1024 * 1024);
+  const full = usadoBytes > limiteBytes;
+  const backupOverLimit = full && policy.isFree;
   return {
     usedBytes: usadoBytes,
     usedMb: tamanhoMb,
@@ -21918,21 +22564,47 @@ function calcularUsoBackupPlano(payload = criarSnapshotBackupUsuarioAtual()) {
     remainingBytes: Math.max(0, limiteBytes - usadoBytes),
     remainingMb: Math.max(0, limiteMb - tamanhoMb),
     percent: limiteBytes ? Math.min(100, Math.round((usadoBytes / limiteBytes) * 100)) : 0,
-    full: usadoBytes > limiteBytes
+    full,
+    backup_over_limit: backupOverLimit,
+    backupOverLimit,
+    readonly: backupOverLimit
   };
 }
 
 function mensagemLimiteBackupCheio() {
-  return "Seu espaço de backup está cheio.\nFaça upgrade para o plano Pro e tenha mais espaço e backups ampliados.";
+  return "Seu armazenamento atual excede o limite do plano Free.\nFaça upgrade para continuar criando novos backups.";
 }
 
-function verificarLimiteBackupPlano(payload = criarSnapshotBackup(), avisar = true) {
+function atualizarFlagBackupOverLimit(payload = criarSnapshotBackupUsuarioAtual(), persistir = false) {
   const resumo = calcularUsoBackupPlano(payload);
+  const overLimit = !!resumo.backup_over_limit;
+  billingConfig.backup_over_limit = overLimit;
+  billingConfig.backupOverLimit = overLimit;
+  appConfig.backup_over_limit = overLimit;
+  appConfig.backupOverLimit = overLimit;
+  if (persistir) salvarDados();
+  return resumo;
+}
+
+function backupEmModoSomenteLeitura(payload = criarSnapshotBackupUsuarioAtual()) {
+  return atualizarFlagBackupOverLimit(payload, false).backup_over_limit === true;
+}
+
+function verificarLimiteBackupPlano(payload = criarSnapshotBackupUsuarioAtual(), avisar = true, contexto = "backup-write") {
+  const resumo = atualizarFlagBackupOverLimit(payload, false);
   if (!resumo.full) return true;
   if (avisar) {
-    alert(mensagemLimiteBackupCheio());
+    const mensagem = resumo.backup_over_limit ? mensagemLimiteBackupCheio() : "Seu espaço de backup está cheio.\nFaça upgrade para ampliar o armazenamento.";
+    if (typeof mostrarToast === "function") mostrarToast(mensagem.replace(/\n/g, " "), "info", 6200);
+    alert(mensagem);
   }
-  registrarAuditoria("limite armazenamento", { tamanhoMb: Number(resumo.usedMb.toFixed(2)), limiteMb: resumo.limitMb, plano: getPlanPolicy().slug });
+  registrarAuditoria("limite armazenamento", {
+    contexto,
+    modo: resumo.backup_over_limit ? "somente leitura" : "bloqueado",
+    tamanhoMb: Number(resumo.usedMb.toFixed(2)),
+    limiteMb: resumo.limitMb,
+    plano: getPlanPolicy().slug
+  });
   return false;
 }
 
@@ -22067,6 +22739,7 @@ function aplicarBackup(dados, modo = "substituir") {
   atribuirDonoRemotoDadosLocais();
   reconciliarOnboardingConcluido();
   dataScopeChangedOnCurrentSession = false;
+  atualizarFlagBackupOverLimit(criarSnapshotBackupUsuarioAtual(), false);
   salvarDados();
   return true;
 }
@@ -23545,9 +24218,15 @@ async function aplicarBackupRemotoAntesDeUploadSeNecessario(motivo = "sync") {
   return { remoto, aplicado: false };
 }
 
-async function salvarBackupSupabase() {
+async function salvarBackupSupabase(opcoes = {}) {
+  const contexto = opcoes.contexto || "supabase-upload";
+  const avisarLimite = opcoes.avisarLimite !== false;
   const payload = criarSnapshotBackupUsuarioAtual();
-  if (!verificarLimiteBackupPlano(payload, true)) return false;
+  if (!verificarLimiteBackupPlano(payload, avisarLimite, contexto)) {
+    syncConfig.autoBackupStatus = backupEmModoSomenteLeitura(payload) ? "Backup em somente leitura" : "Limite de backup atingido";
+    salvarDados();
+    return false;
+  }
   await requisicaoSupabase("/rest/v1/erp_backups?on_conflict=user_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
@@ -23807,7 +24486,9 @@ async function enviarBackupGoogleDrive() {
   if (!confirm("Salvar um backup dentro da pasta escolhida do Google Drive? O Google Drive Desktop poderá enviar esse arquivo para a nuvem.")) return;
 
   try {
-    await escreverBackupDrive(handle, criarSnapshotBackupUsuarioAtual());
+    const payload = criarSnapshotBackupUsuarioAtual();
+    if (!verificarLimiteBackupPlano(payload, true, "drive-upload")) return;
+    await escreverBackupDrive(handle, payload);
     syncConfig.driveLastSync = new Date().toISOString();
     syncConfig.ultimoBackup = syncConfig.driveLastSync;
     salvarDados();
@@ -23896,7 +24577,13 @@ async function sincronizarGoogleDriveSilencioso() {
     aplicarBackup(dadosRemotos, "mesclar");
   }
 
-  await escreverBackupDrive(handle, criarSnapshotBackupUsuarioAtual());
+  const payload = criarSnapshotBackupUsuarioAtual();
+  if (!verificarLimiteBackupPlano(payload, false, "drive-auto-upload")) {
+    syncConfig.autoBackupStatus = "Backup em somente leitura";
+    salvarDados();
+    return false;
+  }
+  await escreverBackupDrive(handle, payload);
   const agora = new Date().toISOString();
   syncConfig.driveLastSync = agora;
   syncConfig.ultimoBackup = agora;
@@ -23952,10 +24639,17 @@ async function sincronizarUrlSilencioso() {
     aplicarBackup(remoto, "mesclar");
   }
 
+  const payload = criarSnapshotBackup();
+  if (!verificarLimiteBackupPlano(payload, false, "url-auto-upload")) {
+    syncConfig.autoBackupStatus = "Backup em somente leitura";
+    salvarDados();
+    return false;
+  }
+
   const escrita = await fetch(syncConfig.cloudUrl, {
     method: "PUT",
     headers: cabecalhosSync(),
-    body: JSON.stringify(criarSnapshotBackup())
+    body: JSON.stringify(payload)
   });
 
   if (!escrita.ok) {
@@ -24048,7 +24742,7 @@ async function enviarBackupNuvem() {
 
   try {
     const payload = criarSnapshotBackup();
-    if (!verificarLimiteBackupPlano(payload, true)) return;
+    if (!verificarLimiteBackupPlano(payload, true, "cloud-upload")) return;
     const resposta = await fetch(syncConfig.cloudUrl, {
       method: "PUT",
       headers: cabecalhosSync(),
@@ -28661,7 +29355,7 @@ async function exportarBackup() {
   syncConfig.lastActivityAt = agora;
   salvarDados();
   const dados = criarSnapshotBackupUsuarioAtual();
-  if (!verificarLimiteBackupPlano(dados, true)) return;
+  atualizarFlagBackupOverLimit(dados, true);
   const nomeArquivo = nomeArquivoBackupUsuario();
   const conteudo = JSON.stringify(dados, null, 2);
   if (await salvarBackupAndroidNativo(conteudo, nomeArquivo)) return;
