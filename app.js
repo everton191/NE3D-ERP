@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.8";
-const APP_VERSION_CODE = 102;
+const APP_VERSION = "51.1.9";
+const APP_VERSION_CODE = 103;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "assets/icon-512.png";
@@ -312,6 +312,7 @@ let lastDashboardBackPromptAt = 0;
 let androidBackButtonListener = null;
 let androidBackExitInProgress = false;
 let androidBackConfirmOpen = false;
+let lastAndroidBackHandledAt = 0;
 let ultimoCalculo = null;
 let itensPedido = [];
 let clientePedido = "";
@@ -7779,6 +7780,11 @@ async function handleAndroidBackPress(opcoes = {}) {
     : { source: "event", event: opcoes };
   const evento = dados.event || dados.nativeEvent || null;
   evento?.preventDefault?.();
+  const origem = String(dados.source || "");
+  const agora = Date.now();
+  if (androidBackConfirmOpen) return true;
+  if (origem !== "popstate" && agora - lastAndroidBackHandledAt < 450) return true;
+  lastAndroidBackHandledAt = agora;
 
   if (navegarVoltarSeguroInterno()) return true;
 
@@ -7923,6 +7929,11 @@ function configurarProtecaoGestosMobile() {
   };
   document.addEventListener("pointerup", limparPonteiro, { passive: true, capture: true });
   document.addEventListener("pointercancel", limparPonteiro, { passive: true, capture: true });
+}
+
+if (typeof window !== "undefined") {
+  window.handleAndroidBackPress = handleAndroidBackPress;
+  window.isDashboardRoute = isDashboardRoute;
 }
 
 function atualizarMenu() {

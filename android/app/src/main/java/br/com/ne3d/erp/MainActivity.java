@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsetsController;
+import android.webkit.WebView;
+import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -15,12 +17,31 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaBiometricPlugin.class);
         super.onCreate(savedInstanceState);
         applySimplificaSystemBars();
+        setupAndroidBackDispatch();
     }
 
     @Override
     public void onResume() {
         super.onResume();
         applySimplificaSystemBars();
+    }
+
+    private void setupAndroidBackDispatch() {
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                dispatchAndroidBackToWebView();
+            }
+        });
+    }
+
+    private void dispatchAndroidBackToWebView() {
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        webView.post(() -> webView.evaluateJavascript(
+            "window.handleAndroidBackPress ? window.handleAndroidBackPress({ source: 'native-main-activity' }) : false;",
+            null
+        ));
     }
 
     private void applySimplificaSystemBars() {
