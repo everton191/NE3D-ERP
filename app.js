@@ -5,9 +5,9 @@
 const APP_VERSION = "51.1.12";
 const APP_VERSION_CODE = 106;
 const SYSTEM_NAME = "Simplifica 3D";
-const PROJECT_COVER_IMAGE = "assets/simplifica-brand-cover.jpg";
-const PROJECT_ICON_IMAGE = "assets/icon-512.png";
-const INTRO_VIDEO_SRC = "assets/intro.mp4";
+const PROJECT_COVER_IMAGE = "/assets/simplifica-brand-cover.jpg";
+const PROJECT_ICON_IMAGE = "/assets/icon-512.png";
+const INTRO_VIDEO_SRC = "/assets/intro.mp4";
 const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
@@ -296,6 +296,7 @@ const telas = {
   seguranca: "Segurança",
   planos: "Planos",
   admin: "Admin",
+  lojaOnline: "Loja Online",
   superadmin: "Super Admin",
   onboarding: "Introdução",
   feedback: "Bugs e sugestões",
@@ -306,6 +307,10 @@ const telas = {
 };
 
 let telaAtual = "dashboard";
+let storefrontPublicRouteState = null;
+let storefrontPublicLastPath = "";
+let storefrontPublicNavigationTimer = null;
+const storefrontPublicScrollPositions = new Map();
 let telaAnterior = "dashboard";
 let navigationStack = [];
 let lastDashboardBackPromptAt = 0;
@@ -322,6 +327,21 @@ let observacaoPedido = "";
 let prazoPedido = "";
 let entradaPedido = 0;
 let selectedCustomerSuggestion = null;
+let quickOrderItemDraft = {
+  nome: "",
+  qtd: "1",
+  valor: "",
+  tempoHoras: ""
+};
+let quickOrderLastItem = null;
+let quickOrderStatusDraft = "";
+const QUICK_ORDER_DRAFT_VERSION = 1;
+const QUICK_ORDER_DRAFT_TTL_MS = 1000 * 60 * 60 * 24 * 7;
+let quickOrderDraftTimer = null;
+let quickOrderSaveLock = false;
+let quickOrderDraftRestoredNoticeShown = false;
+let quickCashSaveLock = false;
+let quickStockSaveLock = false;
 let customerSuggestionState = {
   query: "",
   suggestions: [],
@@ -2237,6 +2257,7 @@ function limparDadosOperacionaisLocais() {
   clienteEmailPedido = "";
   observacaoPedido = "";
   prazoPedido = "";
+  quickOrderStatusDraft = "";
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
 }
@@ -5738,6 +5759,7 @@ function tentarReproduzirIntro(video, overlay) {
 
 function iniciarIntroAbertura() {
   if (!INTRO_VIDEO_SRC || !document.body) return;
+  if (parseStorefrontPublicRoute(location.pathname)) return;
   if (document.getElementById("introOverlay")) return;
 
   const overlay = document.createElement("div");
@@ -6162,6 +6184,13 @@ function renderizarSugestoesClientePedido() {
 
 function cadastrarNovoClientePedido() {
   selectedCustomerSuggestion = null;
+  customerSuggestionState.suggestions = [];
+  customerSuggestionState.loading = false;
+  customerSuggestionState.error = "";
+  renderizarSugestoesClientePedido();
+}
+
+function fecharSugestoesClientePedido() {
   customerSuggestionState.suggestions = [];
   customerSuggestionState.loading = false;
   customerSuggestionState.error = "";
@@ -7854,8 +7883,20 @@ function configurarNavegacaoInternaApp() {
   window.__simplificaNavigationConfigured = true;
   atualizarHistoricoBrowserApp(true);
   window.addEventListener("popstate", (event) => {
+    const publicRoute = parseStorefrontPublicRoute(location.pathname);
+    if (publicRoute) {
+      salvarScrollLojaPublica();
+      storefrontPublicRouteState = publicRoute;
+      storefrontPublicLastPath = getStorefrontPublicRoutePath(publicRoute);
+      telaAtual = "lojaPublica";
+      marcarLojaPublicaNavegando();
+      renderApp();
+      restaurarScrollLojaPublica(storefrontPublicLastPath, 0);
+      return;
+    }
     handleAndroidBackPress({ source: "popstate", event });
   });
+  configurarNavegacaoLojaPublica();
   registrarAndroidBackHandler();
   window.addEventListener("beforeunload", removerAndroidBackHandler);
 }
@@ -7974,16 +8015,137 @@ function renderApp() {
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
   sincronizarBannersSeNecessario();
+  sincronizarStorefrontBetaAccessRemoto(false);
+  hidratarLojaPublicaSeNecessario();
   preencherImpressoras();
   preencherMateriaisCalculadora();
   aplicarMotionSequenciado();
+  hidratarLojaOnlineAdmin();
 }
 
 function podeMostrarControlesFlutuantes() {
   return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding" && telaAtual !== "dashboard";
 }
 
+const STOREFRONT_BETA_ACCESS_KEY = "simplifica-storefront-beta-access-v1";
+const STOREFRONT_TRUE_VALUES = new Set(["true", "1", "yes", "sim", "on"]);
+
+function isStorefrontTruthy(value) {
+  return STOREFRONT_TRUE_VALUES.has(String(value ?? "").trim().toLowerCase());
+}
+
+function getStorefrontBetaAccessCache() {
+  try {
+    const cache = JSON.parse(localStorage.getItem(STOREFRONT_BETA_ACCESS_KEY) || "{}");
+    return cache && typeof cache === "object" ? cache : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function setStorefrontBetaAccessCache(access) {
+  try {
+    localStorage.setItem(STOREFRONT_BETA_ACCESS_KEY, JSON.stringify({
+      ...access,
+      updatedAt: new Date().toISOString()
+    }));
+  } catch (_) {}
+}
+
+function isStorefrontDevOverrideEnabled() {
+  if (!isAmbienteLocal()) return false;
+  try {
+    return isStorefrontTruthy(localStorage.getItem("STORE_FRONT_ENABLED"))
+      || isStorefrontTruthy(localStorage.getItem("simplifica3d:storefront-enabled"));
+  } catch (_) {
+    return false;
+  }
+}
+
+function getStorefrontRuntimeFlags() {
+  const valorGlobal = String(window.STORE_FRONT_ENABLED ?? window.__STORE_FRONT_ENABLED__ ?? "").toLowerCase();
+  const beta = getStorefrontBetaAccessCache();
+  const devOverride = isStorefrontDevOverrideEnabled();
+  return {
+    enabledByEnv: isStorefrontTruthy(valorGlobal),
+    enabledByRemote: beta.enabled === true,
+    betaAllowedByRemote: beta.allowed === true,
+    devOverride,
+    checkedAt: beta.updatedAt || ""
+  };
+}
+
+function isStorefrontFeatureEnabled(flags = getStorefrontRuntimeFlags()) {
+  return flags.enabledByEnv || flags.enabledByRemote || flags.devOverride;
+}
+
+function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getStorefrontRuntimeFlags()) {
+  const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+  const permitidos = new Set([
+    "neprintshop9790@gmail.com",
+    "teste@simplifica3d.local",
+    "storefront@simplifica3d.local"
+  ]);
+  if (isSuperAdmin(usuario)) return true;
+  if (flags.betaAllowedByRemote) return true;
+  return (flags.enabledByEnv || flags.devOverride) && permitidos.has(email);
+}
+
+function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
+  const plano = normalizarSlugPlano(userPlan || "free");
+  const pro = ["premium", "premium_trial", "pro", "trial"].includes(plano);
+  return {
+    enabled: pro,
+    productLimit: pro ? 250 : 5,
+    leadsEnabled: pro,
+    qrCodeEnabled: pro,
+    customThemeEnabled: pro,
+    metricsEnabled: pro,
+    simplificaBrandingRequired: !pro
+  };
+}
+
+function canAccessStorefrontAdmin(usuario = getUsuarioAtual(), plan = getPlanoAtual(usuario), flags = getStorefrontRuntimeFlags()) {
+  if (!usuario) return false;
+  if (!isStorefrontFeatureEnabled(flags)) return false;
+  if (!isStorefrontAllowedTestUser(usuario, flags)) return false;
+  if (isSuperAdmin(usuario)) return true;
+  const limits = getStorefrontLimitsLocal(plan?.slug);
+  return limits.enabled === true || flags.betaAllowedByRemote === true || flags.devOverride === true;
+}
+
+function canUseStorefrontLocal(usuario = getUsuarioAtual()) {
+  return canAccessStorefrontAdmin(usuario, getPlanoAtual(usuario), getStorefrontRuntimeFlags());
+}
+
+async function sincronizarStorefrontBetaAccessRemoto(force = false) {
+  const usuario = getUsuarioAtual();
+  if (!usuario || !storefrontAdminRemoteReady()) return;
+  const cache = getStorefrontBetaAccessCache();
+  if (!force && cache.updatedAt && Date.now() - Date.parse(cache.updatedAt) < 180000) return;
+  try {
+    const userId = encodeURIComponent(syncConfig.supabaseUserId || "");
+    const email = encodeURIComponent(normalizarEmail(usuario.email || syncConfig.supabaseEmail || ""));
+    if (!userId && !email) return;
+    const query = `/rest/v1/storefront_beta_users?select=id,user_id,email,enabled&enabled=eq.true&or=(user_id.eq.${userId},email.eq.${email})&limit=1`;
+    const rows = await storefrontAdminRequest(query, { timeoutMs: 7000 });
+    const allowed = Array.isArray(rows) && rows.some((row) => row?.enabled === true);
+    setStorefrontBetaAccessCache({ enabled: allowed, allowed });
+    if (allowed && telaAtual !== "lojaOnline") renderApp();
+  } catch (error) {
+    if (/storefront_beta_users|schema cache|PGRST205/i.test(String(error?.message || error))) {
+      setStorefrontBetaAccessCache({ enabled: false, allowed: false, schemaMissing: true });
+      return;
+    }
+    if (force) mostrarToast("Não foi possível validar o beta da Loja Online agora.", "erro", 3600);
+    console.warn("[Storefront admin] beta access check failed", error);
+  }
+}
+
 function renderDesktop() {
+  if (telaAtual === "lojaPublica") {
+    return renderTela("lojaPublica");
+  }
   if (!getUsuarioAtual() && telaAtual === "admin") {
     return `<main class="auth-desktop-main">${renderAdmin()}</main>`;
   }
@@ -7992,6 +8154,7 @@ function renderDesktop() {
     <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
       <main class="desktop-main app-content">
+        ${renderTopbar()}
         ${renderDesktopConteudo()}
       </main>
     </div>
@@ -8007,7 +8170,7 @@ function renderDesktopConteudo() {
     return `<div class="desktop-focus app-page">${renderTrocaSenhaObrigatoria()}</div>`;
   }
 
-  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "superadmin", "privacy", "terms", "acessoNegado"];
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "lojaOnline", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
@@ -8025,11 +8188,13 @@ function renderTopbar() {
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
   const nomeUsuario = usuario?.nome || (adminLogado ? "Admin local" : "Visitante");
+  const titulo = getTituloTelaDesktop(telaAtual);
+  const subtitulo = getSubtituloTelaDesktop(telaAtual);
   return `
-    <section class="topbar">
+    <section class="topbar app-topbar">
       <div>
-        <strong>${escaparHtml(appConfig.appName || SYSTEM_NAME)}</strong>
-        <span class="muted">${escaparHtml(appConfig.businessName || "Gestão para impressão 3D")}</span>
+        <strong>${escaparHtml(titulo)}</strong>
+        <span class="muted">${escaparHtml(subtitulo)}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
         <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
@@ -8037,9 +8202,81 @@ function renderTopbar() {
       </label>
       <div class="topbar-user">
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
-        <strong>${escaparHtml(nomeUsuario)}</strong>
+        <button class="topbar-avatar-button" type="button" onclick="abrirMenuUsuarioTopo(event)" title="Perfil">
+          ${renderUsuarioAvatar(usuario, "topbar-avatar")}
+          <span>${escaparHtml(nomeUsuario)}</span>
+        </button>
       </div>
     </section>
+  `;
+}
+
+function getTituloTelaDesktop(tela = telaAtual) {
+  const mapa = {
+    dashboard: "Dashboard",
+    pedido: "Novo pedido",
+    pedidos: "Pedidos",
+    producao: "Produção",
+    clientes: "Clientes",
+    estoque: "Estoque",
+    caixa: "Caixa",
+    relatorios: "Relatórios",
+    lojaOnline: "Loja Online",
+    empresa: "Empresa",
+    personalizacao: "Aparência",
+    preferencias: "Calculadora",
+    config: "Configurações",
+    conta: "Perfil",
+    usuarios: "Usuários",
+    superadmin: "Superadmin",
+    feedback: "Ajuda",
+    sobre: "Sobre"
+  };
+  return mapa[tela] || appConfig.appName || SYSTEM_NAME;
+}
+
+function getSubtituloTelaDesktop(tela = telaAtual) {
+  const mapa = {
+    dashboard: "Resumo operacional do Simplifica 3D",
+    pedidos: "Acompanhe, filtre e atualize pedidos",
+    pedido: "Crie um pedido para revisão e orçamento",
+    clientes: "Base de contatos e histórico comercial",
+    estoque: "Materiais, entradas, saídas e alertas",
+    caixa: "Fluxo financeiro e movimentações",
+    relatorios: "Indicadores, gráficos e períodos",
+    lojaOnline: "Vitrine pública, produtos, leads e QR Code",
+    empresa: "Identidade comercial e dados da empresa",
+    personalizacao: "Tema, densidade e aparência do app",
+    preferencias: "Parâmetros da calculadora 3D",
+    config: "Sistema, sincronização e segurança"
+  };
+  return mapa[tela] || appConfig.businessName || "Gestão para impressão 3D";
+}
+
+function abrirMenuUsuarioTopo(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const usuario = getUsuarioAtual();
+  const plano = getPlanoAtual(usuario);
+  popup.innerHTML = `
+    <div class="topbar-profile-backdrop" onclick="fecharPopup()">
+      <section class="topbar-profile-menu glass-pop" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <div class="topbar-profile-head">
+          ${renderUsuarioAvatar(usuario, "topbar-profile-avatar")}
+          <div>
+            <strong>${escaparHtml(usuario?.nome || usuario?.email || "Usuário")}</strong>
+            <small>${escaparHtml(usuario?.email || syncConfig.supabaseEmail || plano.nome || "Conta ativa")}</small>
+          </div>
+          <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome || "Free")}</span>
+        </div>
+        <button type="button" onclick="fecharPopup(); trocarTela('conta')">${renderUiIcon("conta")} <span>Perfil</span></button>
+        <button type="button" onclick="fecharPopup(); trocarTela('empresa')">${renderUiIcon("empresa")} <span>Empresa</span></button>
+        <button type="button" onclick="fecharPopup(); abrirTelaPlanosPerfil()">${renderUiIcon("assinatura")} <span>Plano</span></button>
+        <button class="danger" type="button" onclick="logoutUsuario()">${renderUiIcon("back")} <span>Sair</span></button>
+      </section>
+    </div>
   `;
 }
 
@@ -8096,11 +8333,12 @@ function recolherBuscaGlobal(input) {
 }
 
 function isTelaPublica(tela) {
-  return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "sobre", "privacy", "terms", "acessoNegado"].includes(tela);
+  return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "sobre", "privacy", "terms", "acessoNegado", "lojaPublica"].includes(tela);
 }
 
 function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (isTelaPublica(tela)) return true;
+  if (tela === "lojaOnline") return canUseStorefrontLocal(usuario);
   if (adminLogado && !usuario) return tela !== "superadmin";
   if (!usuario) return false;
   if (tela === "onboarding") return !isSuperAdmin(usuario);
@@ -8108,9 +8346,9 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (licencaEfetivaBloqueada(usuario)) return false;
 
   const permissoes = {
-    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding"],
-    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding", "lojaOnline"],
+    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline"],
     visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
   };
 
@@ -11180,14 +11418,41 @@ function renderMenuLateral() {
   return `
     <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
       ${renderCabecalhoMenuLateral({ recolhido })}
-      ${renderPerfilMenuLateral()}
-      ${grupos.map((grupo) => `
-        <div class="side-section">
-          <span>${escaparHtml(grupo.titulo)}</span>
-          ${grupo.itens.map(renderBotaoLateral).join("")}
-        </div>
-      `).join("")}
+      ${grupos.map(renderGrupoMenuLateral).join("")}
     </aside>
+  `;
+}
+
+function getSidebarGroupId(titulo = "") {
+  return String(titulo || "grupo").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "grupo";
+}
+
+function isSidebarGroupOpen(id) {
+  if (appConfig.sidebarCollapsed) return true;
+  const state = appConfig.sidebarOpenGroups || {};
+  return state[id] !== false;
+}
+
+function alternarGrupoMenuLateral(id) {
+  appConfig.sidebarOpenGroups = appConfig.sidebarOpenGroups || {};
+  appConfig.sidebarOpenGroups[id] = !isSidebarGroupOpen(id);
+  salvarDados();
+  renderApp();
+}
+
+function renderGrupoMenuLateral(grupo) {
+  const id = getSidebarGroupId(grupo.titulo);
+  const aberto = isSidebarGroupOpen(id);
+  return `
+    <div class="side-section ${aberto ? "is-open" : "is-closed"}" data-menu-group="${escaparAttr(id)}">
+      <button class="side-section-header" type="button" onclick="alternarGrupoMenuLateral('${escaparAttr(id)}')" aria-expanded="${aberto}">
+        <span>${escaparHtml(grupo.titulo)}</span>
+        <i aria-hidden="true">⌄</i>
+      </button>
+      <div class="side-section-items">
+        ${grupo.itens.map(renderBotaoLateral).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -11440,34 +11705,26 @@ function selecionarUsuarioPerfil(id) {
 }
 
 function getMenuGroups() {
+  const lojaOnlineItem = canUseStorefrontLocal() ? [{ tela: "lojaOnline", icone: "🛍️", texto: "Loja Online" }] : [];
   const grupos = [
     {
-      titulo: "Dashboard",
+      titulo: "Principal",
       itens: [
         { tela: "dashboard", icone: "📊", texto: "Dashboard" },
-        { tela: "calculadora", icone: "🧮", texto: "Calculadora 3D" }
+        { tela: "pedidos", icone: "📋", texto: "Pedidos" },
+        { tela: "clientes", icone: "👥", texto: isSuperAdmin() ? "Clientes SaaS" : "Clientes" },
+        { tela: "estoque", icone: "📦", texto: "Estoque" },
+        { tela: "caixa", icone: "💰", texto: "Caixa" },
+        { tela: "relatorios", icone: "📈", texto: "Relatórios" },
+        ...lojaOnlineItem
       ]
     },
     {
       titulo: "Operação",
       itens: [
         { tela: "pedido", icone: "🧾", texto: "Novo pedido" },
-        { tela: "pedidos", icone: "📋", texto: "Pedidos" },
         { tela: "producao", icone: "🖨️", texto: "Produção" },
-        { tela: "estoque", icone: "📦", texto: "Estoque" }
-      ]
-    },
-    {
-      titulo: "Clientes",
-      itens: [
-        { tela: "clientes", icone: "👥", texto: isSuperAdmin() ? "Clientes SaaS" : "Clientes" }
-      ]
-    },
-    {
-      titulo: "Financeiro",
-      itens: [
-        { tela: "caixa", icone: "💰", texto: "Caixa" },
-        { tela: "relatorios", icone: "📈", texto: "Relatórios" }
+        { tela: "calculadora", icone: "🧮", texto: "Calculadora 3D" }
       ]
     },
     {
@@ -11676,7 +11933,94 @@ function configurarGestosDrawerLateral() {
   });
 }
 
+function elementoEditavelOperacional(elemento) {
+  if (!elemento) return false;
+  const tag = String(elemento.tagName || "").toLowerCase();
+  return elemento.isContentEditable || ["input", "textarea", "select"].includes(tag);
+}
+
+function focarBuscaRapidaOperacional() {
+  const campo = document.querySelector(".topbar-search input, .dashboard-search input, .stock-search-field input");
+  if (!campo) return false;
+  expandirBuscaGlobal(campo.closest(".search-compact") || campo.closest("label") || campo);
+  campo.focus();
+  campo.select?.();
+  mostrarToast("Busca rápida pronta.", "info", 1600);
+  return true;
+}
+
+function salvarFluxoOperacionalAtivo(event = null) {
+  if (document.querySelector(".quick-order-drawer")) {
+    salvarPedidoRapidoOperacional(event || new Event("submit"));
+    return true;
+  }
+  if (telaAtual === "pedido") {
+    fecharPedido();
+    return true;
+  }
+  return false;
+}
+
+function configurarAtalhosOperacionais() {
+  if (window.__simplificaOperationalShortcutsConfigured) return;
+  window.__simplificaOperationalShortcutsConfigured = true;
+  document.addEventListener("keydown", (event) => {
+    const key = String(event.key || "").toLowerCase();
+    const ctrl = event.ctrlKey || event.metaKey;
+    const editavel = elementoEditavelOperacional(event.target);
+
+    if (key === "escape" && fecharCamadaAtualSeExistir()) {
+      event.preventDefault();
+      return;
+    }
+
+    if (ctrl && key === "k") {
+      event.preventDefault();
+      focarBuscaRapidaOperacional();
+      return;
+    }
+
+    if (ctrl && key === "enter") {
+      if (salvarFluxoOperacionalAtivo(event)) event.preventDefault();
+      return;
+    }
+
+    if (ctrl && key === "s") {
+      if (salvarFluxoOperacionalAtivo(event)) event.preventDefault();
+      return;
+    }
+
+    if (!editavel && ctrl && key === "n") {
+      event.preventDefault();
+      abrirPedidoRapidoOperacional();
+    }
+  });
+}
+
+function atualizarViewportOperacionalMobile() {
+  if (typeof document === "undefined" || !document.documentElement) return;
+  const viewport = window.visualViewport;
+  const alturaViewport = viewport?.height || window.innerHeight || document.documentElement.clientHeight || 0;
+  const alturaJanela = window.innerHeight || alturaViewport;
+  const teclado = Math.max(0, alturaJanela - alturaViewport - (viewport?.offsetTop || 0));
+  if (alturaViewport) document.documentElement.style.setProperty("--app-viewport-height", `${Math.round(alturaViewport)}px`);
+  document.documentElement.style.setProperty("--keyboard-inset", `${Math.round(teclado)}px`);
+}
+
+function configurarViewportOperacionalMobile() {
+  if (window.__simplificaOperationalViewportConfigured) return;
+  window.__simplificaOperationalViewportConfigured = true;
+  atualizarViewportOperacionalMobile();
+  window.addEventListener("resize", atualizarViewportOperacionalMobile, { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(atualizarViewportOperacionalMobile, 240), { passive: true });
+  window.visualViewport?.addEventListener("resize", atualizarViewportOperacionalMobile, { passive: true });
+  window.visualViewport?.addEventListener("scroll", atualizarViewportOperacionalMobile, { passive: true });
+}
+
 function renderMobile() {
+  if (telaAtual === "lojaPublica") {
+    return renderTela("lojaPublica");
+  }
   if (!getUsuarioAtual() && telaAtual === "admin") {
     return `<div class="mobile-auth-shell">${renderAdmin()}</div>`;
   }
@@ -11823,6 +12167,10 @@ function renderTela(tela) {
     case "usuarios":
     case "admin":
       return renderAdmin();
+    case "lojaOnline":
+      return renderLojaOnlineAdmin();
+    case "lojaPublica":
+      return renderLojaOnlinePublica();
     case "superadmin":
       return renderSuperAdmin();
     default:
@@ -12337,6 +12685,2170 @@ function salvarDadosPessoaisUsuario() {
   } finally {
     setBotaoLoading(botao, false);
   }
+}
+
+function getStorefrontPreviewLeadsLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("simplifica-storefront-leads-preview-v1") || "null");
+    if (Array.isArray(saved)) return saved;
+  } catch (_) {
+    return [];
+  }
+  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData().leads : [];
+}
+
+function getStorefrontPreviewEventsLocal() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("simplifica-storefront-events-preview-v1") || "null");
+    if (Array.isArray(saved)) return saved;
+  } catch (_) {
+    return [];
+  }
+  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData().events : [];
+}
+
+function getStorefrontPublicUrlLocal() {
+  const origem = location.origin && location.origin !== "null" ? location.origin : "";
+  return `${origem}/loja/ne3d-teste`;
+}
+
+function copiarLinkLojaOnline() {
+  const link = getStorefrontPublicUrlLocal();
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(link).then(() => mostrarToast("Link da loja copiado.", "sucesso", 2600)).catch(() => prompt("Copie o link da loja:", link));
+    return;
+  }
+  prompt("Copie o link da loja:", link);
+}
+
+async function transformarLeadLojaOnlinePreview(id) {
+  if (String(id || "").startsWith("demo-")) {
+    mostrarToast("Este lead é apenas demonstrativo e não gera pedido.", "info", 3200);
+    return;
+  }
+  const leads = getStorefrontPreviewLeadsLocal();
+  const lead = leads.find((item) => String(item.id) === String(id));
+  if (!lead) {
+    mostrarToast("Lead não encontrado no preview.", "erro", 3200);
+    return;
+  }
+  const draft = {
+    id: `draft-${Date.now()}`,
+    store_id: lead.store_id,
+    owner_id: lead.owner_id,
+    lead_id: lead.id,
+    customer_name: lead.customer_name || "",
+    customer_phone: lead.customer_phone || "",
+    items_json: lead.items_json || [],
+    subtotal: Number(lead.subtotal || 0),
+    status: "rascunho",
+    created_at: new Date().toISOString()
+  };
+  try {
+    if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id)) {
+      const rows = await storefrontAdminRequest("/rest/v1/store_order_drafts", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          store_id: lead.store_id,
+          owner_id: storefrontAdminCurrentOwnerId(),
+          lead_id: lead.id,
+          customer_name: lead.customer_name || null,
+          customer_phone: lead.customer_phone || null,
+          items_json: lead.items_json || [],
+          subtotal: Number(lead.subtotal || 0),
+          status: "rascunho"
+        })
+      });
+      await storefrontAdminRequest(`/rest/v1/store_cart_leads?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ status: "convertido" })
+      });
+      if (rows?.[0]) draft.id = rows[0].id;
+    }
+    const drafts = JSON.parse(localStorage.getItem("simplifica-storefront-order-drafts-preview-v1") || "[]");
+    localStorage.setItem("simplifica-storefront-order-drafts-preview-v1", JSON.stringify([draft, ...drafts].slice(0, 100)));
+    localStorage.setItem("simplifica-storefront-leads-preview-v1", JSON.stringify(leads.map((item) => String(item.id) === String(id) ? { ...item, status: "convertido" } : item)));
+    mostrarToast("Pedido rascunho criado para revisão manual.", "sucesso", 3600);
+    renderApp();
+  } catch (error) {
+    mostrarToast("Não foi possível transformar o lead em pedido agora.", "erro", 4200);
+    console.error("[Storefront admin] transformar lead", error);
+  }
+}
+
+function renderLojaOnlineAdmin() {
+  if (!canUseStorefrontLocal()) return renderAcessoNegado();
+  const linkPublico = getStorefrontPublicUrlLocal();
+  const leads = getStorefrontPreviewLeadsLocal();
+  const events = getStorefrontPreviewEventsLocal();
+  const visitas = events.filter((event) => event.event_type === "store_view").length;
+  const whatsapp = events.filter((event) => event.event_type === "whatsapp_click").length;
+  const addCart = events.filter((event) => event.event_type === "add_to_cart").length;
+  const novos = leads.filter((lead) => String(lead.status || "novo") === "novo").length;
+  const produtosTeste = ["Carimbo personalizado", "Cortador de docinhos", "Ejetor de brigadeiro", "Topo de bolo", "Suporte de projetor", "Chaveiro personalizado", "Peça sob encomenda"];
+
+  return `
+    <section class="app-page storefront-admin-page">
+      <div class="app-header">
+        <div>
+          <span class="status-badge badge-info">Fase 3.5</span>
+          <h2>Loja Online</h2>
+          <p class="muted">Painel controlado por feature flag. A migration ainda não foi aplicada em produção.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" onclick="trocarTela('lojaOnline')">Gerenciar loja no ERP</button>
+          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+          <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        ${[
+          ["Status", "Preview/Staging", "Loja real depende da migration aplicada"],
+          ["Leads", leads.length, `${novos} novo(s)`],
+          ["WhatsApp", whatsapp, "cliques registrados no preview"],
+          ["Add carrinho", addCart, `${visitas} visita(s) simuladas`]
+        ].map(([titulo, valor, desc]) => `
+          <article class="metric-card">
+            <span>${escaparHtml(titulo)}</span>
+            <strong>${escaparHtml(valor)}</strong>
+            <small>${escaparHtml(desc)}</small>
+          </article>
+        `).join("")}
+      </div>
+
+      <section class="card">
+        <div class="card-header">
+          <h3>Link público e QR Code</h3>
+          <span class="status-badge">ne3d-teste</span>
+        </div>
+        <p class="muted">${escaparHtml(linkPublico)}</p>
+        <div id="storefrontAdminQr" class="qr-preview" aria-label="QR Code da loja"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h3>Produtos publicados de teste</h3>
+          <span class="status-badge badge-success">${produtosTeste.length} produtos</span>
+        </div>
+        <div class="settings-list">
+          ${produtosTeste.map((produto) => `
+            <div class="settings-row">
+              <div>
+                <strong>${escaparHtml(produto)}</strong>
+                <small>Produto de impressão 3D preparado para publicação controlada.</small>
+              </div>
+              <span class="status-badge badge-info">visível</span>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h3>Leads recebidos</h3>
+          <span class="status-badge ${novos ? "badge-warning" : ""}">${novos} novo(s)</span>
+        </div>
+        ${leads.length ? `
+          <div class="settings-list">
+            ${leads.slice(0, 8).map((lead) => `
+              <div class="settings-row">
+                <div>
+                  <strong>${escaparHtml(lead.customer_name || "Cliente via WhatsApp")}</strong>
+                  <small>${escaparHtml((lead.items_json || []).map((item) => `${item.quantity || 1}x ${item.title || "Produto"}`).join(", ") || "Itens do carrinho")}</small>
+                </div>
+                <div class="actions">
+                  <span class="status-badge">${escaparHtml(lead.status || "novo")}</span>
+                  <button class="btn secondary" type="button" onclick="transformarLeadLojaOnlinePreview('${escaparAttr(lead.id)}')">Transformar em pedido</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<p class="muted">Nenhum lead registrado no preview deste navegador ainda.</p>`}
+      </section>
+    </section>
+  `;
+}
+
+function hidratarLojaOnlineAdmin() {
+  if (telaAtual !== "lojaOnline") return;
+  const alvo = document.getElementById("storefrontAdminQr");
+  if (!alvo) return;
+  const dataUrl = gerarQrPixDataUrl(getStorefrontPublicUrlLocal());
+  alvo.innerHTML = dataUrl
+    ? `<img src="${dataUrl}" alt="QR Code da loja online" style="width:160px;height:160px;border-radius:16px;background:#fff;padding:10px;">`
+    : `<p class="muted">QR Code indisponível neste ambiente.</p>`;
+}
+
+const STOREFRONT_ADMIN_KEYS = {
+  tab: "simplifica-storefront-admin-tab-v1",
+  store: "simplifica-storefront-admin-store-v1",
+  categories: "simplifica-storefront-admin-categories-v1",
+  products: "simplifica-storefront-admin-products-v1",
+  images: "simplifica-storefront-admin-images-v1",
+  editingCategory: "simplifica-storefront-admin-editing-category-v1",
+  editingProduct: "simplifica-storefront-admin-editing-product-v1",
+  lastRemoteSync: "simplifica-storefront-admin-last-remote-sync-v1"
+};
+
+const STOREFRONT_ADMIN_TABS = [
+  ["overview", "Visão geral"],
+  ["appearance", "Aparência"],
+  ["categories", "Categorias"],
+  ["products", "Produtos da loja"],
+  ["leads", "Leads/Pedidos"],
+  ["qrcode", "QR Code e Link"]
+];
+
+function storefrontAdminSlugify(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function storefrontAdminRead(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function storefrontAdminHasStoredValue(key) {
+  try {
+    return localStorage.getItem(key) !== null;
+  } catch (_) {
+    return false;
+  }
+}
+
+function storefrontAdminWrite(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (_) {}
+}
+
+function getStorefrontOwnerIdLocal() {
+  return String(syncConfig.supabaseUserId || getUsuarioAtual()?.supabaseUserId || getUsuarioAtual()?.id || getUsuarioAtual()?.email || usuarioAtualEmail || "local").trim();
+}
+
+function isStorefrontStagingEnvironment() {
+  const url = String(syncConfig.supabaseUrl || "").toLowerCase();
+  const host = String(location.hostname || "").toLowerCase();
+  return url.includes("dcaqiatgftkjxyewlhgi") || host.includes("staging") || host.includes("homolog");
+}
+
+function isStorefrontDemoPreviewAllowed() {
+  return isAmbienteLocal() || isStorefrontStagingEnvironment();
+}
+
+function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
+  const ownerId = store.owner_id || getStorefrontOwnerIdLocal();
+  const demoCategories = [
+    ["Personalizados", "★"],
+    ["Cortadores", "◒"],
+    ["Suportes", "▣"]
+  ].map(([name, icon], index) => ({
+    id: `demo-cat-${storefrontAdminSlugify(name)}`,
+    store_id: store.id,
+    owner_id: ownerId,
+    name,
+    slug: storefrontAdminSlugify(name),
+    icon,
+    order_index: index + 1,
+    visible: true,
+    __demo: true
+  }));
+  const categoryBySlug = (slug) => demoCategories.find((cat) => cat.slug === slug)?.id || demoCategories[0]?.id || null;
+  const demoProducts = [
+    ["Carimbo personalizado", "personalizados", 39.9, true, "2 a 4 dias úteis"],
+    ["Cortador de docinhos", "cortadores", 24.9, true, "1 a 3 dias úteis"],
+    ["Suporte de projetor", "suportes", 79.9, false, "3 a 5 dias úteis"],
+    ["Brinde personalizado", "personalizados", 18.5, false, "Sob consulta"]
+  ].map(([title, categorySlug, price, featured, time]) => ({
+    id: `demo-prod-${storefrontAdminSlugify(title)}`,
+    store_id: store.id,
+    owner_id: ownerId,
+    erp_product_id: null,
+    title,
+    slug: storefrontAdminSlugify(title),
+    description: "Produto demonstrativo para visualizar a vitrine da Loja Online.",
+    price,
+    compare_price: null,
+    price_mode: categorySlug === "personalizados" && title === "Brinde personalizado" ? "from" : "fixed",
+    show_price: true,
+    category_id: categoryBySlug(categorySlug),
+    visible: true,
+    featured,
+    is_customizable: categorySlug === "personalizados",
+    estimated_production_time: time,
+    public_observations: "Demonstração visual. Não é um produto salvo.",
+    stock_mode: "unlimited",
+    stock_quantity: null,
+    __demo: true
+  }));
+  const demoLead = {
+    id: "demo-lead-storefront-preview",
+    store_id: store.id,
+    owner_id: ownerId,
+    customer_name: "Cliente demonstração",
+    customer_phone: "(00) 00000-0000",
+    customer_note: "Lead fictício apenas para preview.",
+    items_json: [{ title: "Carimbo personalizado", quantity: 1, price: 39.9 }],
+    subtotal: 39.9,
+    whatsapp_message: "Mensagem demonstrativa da loja.",
+    status: "novo",
+    source: "demonstração",
+    created_at: new Date().toISOString(),
+    __demo: true
+  };
+  const now = new Date().toISOString();
+  const demoEvents = [
+    { id: "demo-event-store-view", event_type: "store_view", created_at: now, __demo: true },
+    { id: "demo-event-whatsapp", event_type: "whatsapp_click", created_at: now, __demo: true },
+    { id: "demo-event-cart", event_type: "add_to_cart", created_at: now, __demo: true }
+  ];
+  const demoStore = {
+    ...store,
+    name: store.name || "NE 3D Demo",
+    description: store.description || "Preview demonstrativo de uma vitrine de impressão 3D.",
+    active: false,
+    theme_config: {
+      primary: store.theme_config?.primary || "#00BFA6",
+      accent: store.theme_config?.accent || "#FF8A1F",
+      mode: store.theme_config?.mode || "auto"
+    },
+    __demo: true
+  };
+  return { store: demoStore, categories: demoCategories, products: demoProducts, leads: [demoLead], events: demoEvents, images: [] };
+}
+
+function getStorefrontAdminStoreLocal() {
+  const ownerId = getStorefrontOwnerIdLocal();
+  const fallback = {
+    id: `store-${ownerId || "local"}`,
+    owner_id: ownerId,
+    slug: "ne3d-internal-test",
+    name: appConfig.businessName || "NE 3D",
+    description: "Produtos personalizados em impressão 3D.",
+    logo_url: "",
+    banner_url: "",
+    whatsapp: "",
+    instagram: "",
+    active: false,
+    theme_config: { primary: "#00BFA6", accent: "#FF8A1F", mode: "auto" }
+  };
+  return { ...fallback, ...storefrontAdminRead(STOREFRONT_ADMIN_KEYS.store, fallback), owner_id: ownerId };
+}
+
+function getStorefrontAdminCategoriesLocal() {
+  const store = getStorefrontAdminStoreLocal();
+  const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.categories, null);
+  if (Array.isArray(saved)) return saved;
+  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData(store).categories : [];
+}
+
+function getStorefrontAdminProductsLocal() {
+  const store = getStorefrontAdminStoreLocal();
+  const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.products, null);
+  if (Array.isArray(saved)) return saved;
+  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData(store).products : [];
+}
+
+function getStorefrontAdminImagesLocal() {
+  const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.images, []);
+  return Array.isArray(saved) ? saved : [];
+}
+
+function getStorefrontAdminTab() {
+  const tab = localStorage.getItem(STOREFRONT_ADMIN_KEYS.tab) || "overview";
+  return STOREFRONT_ADMIN_TABS.some(([id]) => id === tab) ? tab : "overview";
+}
+
+function setStorefrontAdminTab(tab) {
+  localStorage.setItem(STOREFRONT_ADMIN_KEYS.tab, tab);
+  renderApp();
+}
+
+function getStorefrontPublicUrlLocal() {
+  const store = getStorefrontAdminStoreLocal();
+  const origem = location.origin && location.origin !== "null" ? location.origin : "";
+  return `${origem}/loja/${store.slug || "ne3d-internal-test"}`;
+}
+
+function abrirPainelLojaOnlineAdmin(tab = "") {
+  if (tab && STOREFRONT_ADMIN_TABS.some(([id]) => id === tab)) {
+    localStorage.setItem(STOREFRONT_ADMIN_KEYS.tab, tab);
+  }
+  trocarTela("lojaOnline");
+}
+
+function abrirLojaPublicaOnline() {
+  window.open(getStorefrontPublicUrlLocal(), "_blank", "noopener");
+}
+
+function copiarLinkLojaOnline() {
+  const link = getStorefrontPublicUrlLocal();
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(link).then(() => mostrarToast("Link da loja copiado.", "sucesso", 2600)).catch(() => prompt("Copie o link da loja:", link));
+    return;
+  }
+  prompt("Copie o link da loja:", link);
+}
+
+function storefrontAdminRemoteReady() {
+  return !!(syncConfig.supabaseAccessToken && syncConfig.supabaseUserId && syncConfig.supabaseUrl && estaOnline());
+}
+
+async function storefrontAdminRequest(path, options = {}) {
+  return requisicaoSupabase(path, { ...options, telemetry: false });
+}
+
+function storefrontAdminIsLocalId(id, prefix = "") {
+  const value = String(id || "");
+  return !value || value.startsWith(prefix) || /^(cat|prod|img|store|draft)-/.test(value);
+}
+
+function storefrontAdminCurrentOwnerId() {
+  return syncConfig.supabaseUserId || getStorefrontAdminStoreLocal().owner_id || getUsuarioAtual()?.id || "";
+}
+
+function storefrontAdminRequireRemoteStore() {
+  const store = getStorefrontAdminStoreLocal();
+  if (!store?.id || storefrontAdminIsLocalId(store.id, "store-")) {
+    throw new Error("Salve a loja em Aparência antes de publicar categorias, produtos ou imagens.");
+  }
+  return store;
+}
+
+async function storefrontAdminUpsertCategory(category) {
+  const payload = {
+    store_id: category.store_id,
+    owner_id: storefrontAdminCurrentOwnerId(),
+    name: category.name,
+    slug: category.slug,
+    icon: category.icon || null,
+    order_index: Number(category.order_index || 0),
+    visible: category.visible !== false
+  };
+  if (storefrontAdminIsLocalId(category.id, "cat-")) {
+    const rows = await storefrontAdminRequest("/rest/v1/store_categories", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(payload)
+    });
+    return rows?.[0] || category;
+  }
+  await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(category.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(payload)
+  });
+  return category;
+}
+
+async function storefrontAdminUpsertProduct(product) {
+  const payload = {
+    store_id: product.store_id,
+    owner_id: storefrontAdminCurrentOwnerId(),
+    erp_product_id: product.erp_product_id || null,
+    title: product.title,
+    slug: product.slug,
+    description: product.description || "",
+    price: Number(product.price || 0),
+    compare_price: product.compare_price || null,
+    category_id: product.category_id || null,
+    visible: product.visible === true,
+    featured: product.featured === true,
+    is_customizable: product.is_customizable === true,
+    estimated_production_time: product.estimated_production_time || "",
+    stock_mode: product.stock_mode || "unlimited",
+    stock_quantity: product.stock_quantity === null || product.stock_quantity === undefined ? null : Number(product.stock_quantity || 0),
+    price_mode: product.price_mode || "fixed",
+    show_price: product.show_price !== false,
+    public_observations: product.public_observations || null
+  };
+  if (storefrontAdminIsLocalId(product.id, "prod-")) {
+    const rows = await storefrontAdminRequest("/rest/v1/store_products", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(payload)
+    });
+    return rows?.[0] || product;
+  }
+  await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(product.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(payload)
+  });
+  return product;
+}
+
+function validarArquivoStorefrontImagem(file, tipo = "produto") {
+  const mime = String(file?.type || "").toLowerCase();
+  const permitido = ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(mime);
+  if (!permitido) throw new Error("Formato não permitido. Use JPG, PNG ou WebP.");
+  const limites = { logo: 1024 * 1024, banner: 3 * 1024 * 1024, produto: 3 * 1024 * 1024 };
+  const limite = limites[tipo] || limites.produto;
+  if (file.size > limite) throw new Error(tipo === "logo" ? "Imagem muito grande. Use logo até 1 MB." : "Imagem muito grande. Use até 3 MB.");
+}
+
+function compressStorefrontImage(file, tipo = "produto") {
+  validarArquivoStorefrontImagem(file, tipo);
+  if (typeof createImageBitmap === "undefined" || typeof OffscreenCanvas === "undefined") {
+    return Promise.resolve(file);
+  }
+  const maxSide = tipo === "logo" ? 512 : tipo === "banner" ? 1600 : 1200;
+  return createImageBitmap(file).then((bitmap) => {
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    return canvas.convertToBlob({ type: "image/webp", quality: tipo === "logo" ? 0.86 : 0.82 });
+  }).catch(() => file);
+}
+
+async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } = {}) {
+  const store = storefrontAdminRequireRemoteStore();
+  const blob = await compressStorefrontImage(file, tipo);
+  validarArquivoStorefrontImagem(blob, tipo);
+  const base = normalizarUrlSupabase();
+  const owner = segmentoStorageSeguro(storefrontAdminCurrentOwnerId(), "owner");
+  const storeId = segmentoStorageSeguro(store.id, "store");
+  const ext = extensaoImagemBlob(blob.type || file.type || "image/webp");
+  const safeName = segmentoStorageSeguro((file.name || tipo).replace(/\.[^.]+$/, ""), tipo);
+  const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}-${safeName}.${ext}`;
+  const path = tipo === "logo"
+    ? `${owner}/${storeId}/logo/${unique}`
+    : tipo === "banner"
+      ? `${owner}/${storeId}/banner/${unique}`
+      : `${owner}/${storeId}/products/${segmentoStorageSeguro(productId, "product")}/${unique}`;
+  const resposta = await fetch(`${base}/storage/v1/object/storefront-assets/${path}`, {
+    method: "POST",
+    headers: cabecalhosSupabase(true, {
+      "Content-Type": blob.type || "image/webp",
+      "x-upsert": "false"
+    }),
+    body: blob
+  });
+  if (!resposta.ok) {
+    const text = await resposta.text().catch(() => "");
+    throw new Error(text || "Erro ao enviar imagem. Tente novamente.");
+  }
+  return `${base}/storage/v1/object/public/storefront-assets/${path}`;
+}
+
+async function sincronizarLojaOnlineAdminRemoto(force = false) {
+  if (!canUseStorefrontLocal() || !storefrontAdminRemoteReady()) return;
+  const lastSync = Number(localStorage.getItem(STOREFRONT_ADMIN_KEYS.lastRemoteSync) || 0);
+  if (!force && Date.now() - lastSync < 120000) return;
+  try {
+    const owner = encodeURIComponent(syncConfig.supabaseUserId);
+    const stores = await storefrontAdminRequest(`/rest/v1/stores?select=*&owner_id=eq.${owner}&limit=1`);
+    const store = stores?.[0];
+    if (!store?.id) return;
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.store, store);
+    const storeId = encodeURIComponent(store.id);
+    const [categories, products, leads, events, images] = await Promise.all([
+      storefrontAdminRequest(`/rest/v1/store_categories?select=*&store_id=eq.${storeId}&order=order_index.asc`),
+      storefrontAdminRequest(`/rest/v1/store_products?select=*&store_id=eq.${storeId}&order=featured.desc,updated_at.desc`),
+      storefrontAdminRequest(`/rest/v1/store_cart_leads?select=*&store_id=eq.${storeId}&order=created_at.desc`),
+      storefrontAdminRequest(`/rest/v1/store_events?select=*&store_id=eq.${storeId}&order=created_at.desc&limit=500`),
+      storefrontAdminRequest(`/rest/v1/store_product_images?select=*&store_id=eq.${storeId}&order=order_index.asc`)
+    ]);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, categories || []);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, products || []);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, images || []);
+    storefrontAdminWrite("simplifica-storefront-leads-preview-v1", leads || []);
+    storefrontAdminWrite("simplifica-storefront-events-preview-v1", events || []);
+    localStorage.setItem(STOREFRONT_ADMIN_KEYS.lastRemoteSync, String(Date.now()));
+    if (force) {
+      mostrarToast("Dados da Loja Online sincronizados.", "sucesso", 2600);
+      renderApp();
+    }
+  } catch (error) {
+    if (force) mostrarToast("Não foi possível sincronizar a Loja Online agora.", "erro", 3600);
+    console.warn("[Storefront admin] sync failed", error);
+  }
+}
+
+function getStorefrontAdminViewModel() {
+  const baseStore = getStorefrontAdminStoreLocal();
+  const demoAllowed = isStorefrontDemoPreviewAllowed();
+  const hasStoredStore = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
+  const demoPreview = demoAllowed ? getStorefrontDemoPreviewData(baseStore) : null;
+  const store = demoAllowed && !hasStoredStore ? demoPreview.store : baseStore;
+  const hasStoredCategories = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.categories);
+  const hasStoredProducts = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.products);
+  const hasStoredLeads = storefrontAdminHasStoredValue("simplifica-storefront-leads-preview-v1");
+  const hasStoredEvents = storefrontAdminHasStoredValue("simplifica-storefront-events-preview-v1");
+  const categories = getStorefrontAdminCategoriesLocal().sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
+  const products = getStorefrontAdminProductsLocal();
+  const images = getStorefrontAdminImagesLocal();
+  const leads = getStorefrontPreviewLeadsLocal();
+  const events = getStorefrontPreviewEventsLocal();
+  const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+  const demo = {
+    enabled: demoAllowed && (
+      categories.some((item) => item.__demo)
+      || products.some((item) => item.__demo)
+      || leads.some((item) => item.__demo)
+      || events.some((item) => item.__demo)
+      || store.__demo
+    ),
+    store: demoAllowed && !hasStoredStore,
+    categories: demoAllowed && !hasStoredCategories,
+    products: demoAllowed && !hasStoredProducts,
+    leads: demoAllowed && !hasStoredLeads,
+    events: demoAllowed && !hasStoredEvents
+  };
+  return { store, categories, products, images, leads, events, limits, demo };
+}
+
+function storefrontAdminSaveStore(store) {
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.store, store);
+}
+
+async function salvarStorefrontAparencia(event) {
+  event?.preventDefault?.();
+  const form = event?.target || document.getElementById("storefrontAppearanceForm");
+  if (!form) return;
+  const botao = form.querySelector("button[type='submit']");
+  setBotaoLoading(botao, true, "Salvando...");
+  try {
+    const store = getStorefrontAdminStoreLocal();
+    const name = form.storeName?.value?.trim();
+    if (!name) throw new Error("Informe o nome público da loja.");
+    const whatsapp = String(form.storeWhatsApp?.value || "").replace(/\D/g, "");
+    if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
+    const slug = storefrontAdminSlugify(form.storeSlug?.value || store.slug || name);
+    if (!slug) throw new Error("Informe um slug válido.");
+    const next = {
+      ...store,
+      name,
+      slug,
+      description: form.storeDescription?.value?.trim() || "",
+      whatsapp,
+      instagram: form.storeInstagram?.value?.trim() || "",
+      logo_url: form.storeLogoUrl?.value?.trim() || store.logo_url || "",
+      banner_url: form.storeBannerUrl?.value?.trim() || store.banner_url || "",
+      theme_config: {
+        ...(store.theme_config || {}),
+        primary: form.storePrimary?.value || "#00BFA6",
+        accent: form.storeAccent?.value || "#FF8A1F",
+        mode: form.storeThemeMode?.value || "auto"
+      }
+    };
+    storefrontAdminSaveStore(next);
+    if (storefrontAdminRemoteReady()) {
+      const payload = {
+        owner_id: syncConfig.supabaseUserId,
+        slug: next.slug,
+        name: next.name,
+        description: next.description,
+        logo_url: next.logo_url || null,
+        banner_url: next.banner_url || null,
+        whatsapp: next.whatsapp || null,
+        instagram: next.instagram || null,
+        active: next.active === true,
+        theme_config: next.theme_config || {}
+      };
+      if (String(next.id || "").startsWith("store-")) {
+        const rows = await storefrontAdminRequest("/rest/v1/stores?on_conflict=owner_id,slug", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify(payload)
+        });
+        if (rows?.[0]) storefrontAdminSaveStore(rows[0]);
+      } else {
+        await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify(payload)
+        });
+      }
+    }
+    mostrarToast("Aparência da loja salva.", "sucesso", 2800);
+    renderApp();
+  } catch (error) {
+    mostrarToast(error?.message || "Não foi possível salvar a aparência.", "erro", 4200);
+    console.error("[Storefront admin] salvar aparência", error);
+  } finally {
+    setBotaoLoading(botao, false);
+  }
+}
+
+async function alternarStatusLojaOnline() {
+  const store = getStorefrontAdminStoreLocal();
+  const next = { ...store, active: !store.active };
+  storefrontAdminSaveStore(next);
+  try {
+    if (storefrontAdminRemoteReady() && next.id && !String(next.id).startsWith("store-")) {
+      await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ active: next.active === true })
+      });
+    }
+    mostrarToast(next.active ? "Loja ativada em modo controlado." : "Loja desativada.", "sucesso", 2600);
+  } catch (error) {
+    mostrarToast("Status salvo localmente, mas não sincronizado.", "erro", 3200);
+  }
+  renderApp();
+}
+
+function abrirEditorCategoriaLojaOnline(id = "") {
+  if (id) localStorage.setItem(STOREFRONT_ADMIN_KEYS.editingCategory, id);
+  else localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingCategory);
+  setStorefrontAdminTab("categories");
+}
+
+async function salvarCategoriaLojaOnline(event) {
+  event?.preventDefault?.();
+  const form = event?.target;
+  const botao = form?.querySelector?.("button[type='submit']");
+  setBotaoLoading(botao, true, "Salvando...");
+  const store = getStorefrontAdminStoreLocal();
+  const categories = getStorefrontAdminCategoriesLocal();
+  try {
+    const id = form?.categoryId?.value || "";
+    const name = form?.categoryName?.value?.trim();
+    if (!name) throw new Error("Informe o nome da categoria.");
+    const slug = storefrontAdminSlugify(form?.categorySlug?.value || name);
+    if (categories.some((cat) => cat.slug === slug && cat.id !== id)) throw new Error("Já existe categoria com este slug.");
+    let nextCategory = {
+      id: id || `cat-${Date.now()}`,
+      store_id: store.id,
+      owner_id: store.owner_id || storefrontAdminCurrentOwnerId(),
+      name,
+      slug,
+      icon: form?.categoryIcon?.value?.trim() || "",
+      order_index: Number(form?.categoryOrder?.value || categories.length + 1),
+      visible: !!form?.categoryVisible?.checked
+    };
+    if (storefrontAdminRemoteReady()) {
+      storefrontAdminRequireRemoteStore();
+      nextCategory = await storefrontAdminUpsertCategory(nextCategory);
+    }
+    const next = id ? categories.map((cat) => cat.id === id ? { ...cat, ...nextCategory } : cat) : [...categories, nextCategory];
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, next);
+    localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingCategory);
+    mostrarToast("Categoria salva.", "sucesso");
+    renderApp();
+  } catch (error) {
+    mostrarToast(error?.message || "Não foi possível salvar a categoria.", "erro", 4200);
+    console.error("[Storefront admin] salvar categoria", error);
+  } finally {
+    setBotaoLoading(botao, false);
+  }
+}
+
+async function excluirCategoriaLojaOnline(id) {
+  const products = getStorefrontAdminProductsLocal();
+  if (products.some((product) => product.category_id === id)) return mostrarToast("Não é possível excluir categoria com produtos vinculados.", "erro", 4200);
+  try {
+    if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "cat-")) {
+      await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" }
+      });
+    }
+    const categories = getStorefrontAdminCategoriesLocal().filter((cat) => cat.id !== id);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, categories);
+    mostrarToast("Categoria removida.", "sucesso");
+    renderApp();
+  } catch (error) {
+    mostrarToast("Não foi possível remover a categoria.", "erro", 3600);
+    console.error("[Storefront admin] excluir categoria", error);
+  }
+}
+
+function abrirEditorProdutoLojaOnline(id = "") {
+  if (id) localStorage.setItem(STOREFRONT_ADMIN_KEYS.editingProduct, id);
+  else localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingProduct);
+  setStorefrontAdminTab("products");
+}
+
+async function salvarProdutoLojaOnline(event) {
+  event?.preventDefault?.();
+  const form = event?.target;
+  const botao = form?.querySelector?.("button[type='submit']");
+  setBotaoLoading(botao, true, "Salvando...");
+  const store = getStorefrontAdminStoreLocal();
+  const products = getStorefrontAdminProductsLocal();
+  try {
+    const id = form?.productId?.value || "";
+    const title = form?.productTitle?.value?.trim();
+    if (!title) throw new Error("Informe o título público do produto.");
+    const slug = storefrontAdminSlugify(form?.productSlug?.value || title);
+    if (products.some((product) => product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este slug.");
+    const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+    if (!id && products.length >= limits.productLimit) throw new Error(`Limite de ${limits.productLimit} produto(s) para este plano.`);
+    const priceMode = form?.productPriceMode?.value || "fixed";
+    const price = Math.max(0, Number(String(form?.productPrice?.value || "0").replace(",", ".")) || 0);
+    const compare = Math.max(0, Number(String(form?.productComparePrice?.value || "0").replace(",", ".")) || 0);
+    if (priceMode !== "quote" && price <= 0) throw new Error("Informe um preço válido.");
+    let nextProduct = {
+      id: id || `prod-${Date.now()}`,
+      store_id: store.id,
+      owner_id: store.owner_id || storefrontAdminCurrentOwnerId(),
+      erp_product_id: form?.erpProductId?.value?.trim() || null,
+      title,
+      slug,
+      description: form?.productDescription?.value?.trim() || "",
+      price,
+      compare_price: priceMode === "promo" && compare > price ? compare : null,
+      price_mode: priceMode,
+      show_price: priceMode !== "quote" && !!form?.productShowPrice?.checked,
+      category_id: form?.productCategory?.value || null,
+      visible: !!form?.productVisible?.checked && store.active === true,
+      featured: !!form?.productFeatured?.checked,
+      is_customizable: !!form?.productCustomizable?.checked,
+      estimated_production_time: form?.productTime?.value?.trim() || "",
+      public_observations: form?.productObservations?.value?.trim() || "",
+      stock_mode: form?.productStockMode?.value || "unlimited",
+      stock_quantity: form?.productStockQuantity?.value ? Math.max(0, Number(form.productStockQuantity.value) || 0) : null
+    };
+    if (storefrontAdminRemoteReady()) {
+      storefrontAdminRequireRemoteStore();
+      nextProduct = await storefrontAdminUpsertProduct(nextProduct);
+    }
+    const next = id ? products.map((product) => product.id === id ? { ...product, ...nextProduct } : product) : [...products, nextProduct];
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
+    localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingProduct);
+    mostrarToast(nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto.", "sucesso");
+    renderApp();
+  } catch (error) {
+    mostrarToast(error?.message || "Não foi possível salvar o produto.", "erro", 4200);
+    console.error("[Storefront admin] salvar produto", error);
+  } finally {
+    setBotaoLoading(botao, false);
+  }
+}
+
+async function alternarProdutoLojaOnline(id, field) {
+  const store = getStorefrontAdminStoreLocal();
+  let changed = null;
+  const products = getStorefrontAdminProductsLocal().map((product) => {
+    if (product.id !== id) return product;
+    if (field === "visible" && !store.active) {
+      mostrarToast("Ative a loja antes de deixar produtos visíveis.", "erro", 3600);
+      return { ...product, visible: false };
+    }
+    changed = { ...product, [field]: !product[field] };
+    return changed;
+  });
+  try {
+    if (changed && storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "prod-")) {
+      await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ [field]: changed[field] })
+      });
+    }
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, products);
+    renderApp();
+  } catch (error) {
+    mostrarToast("Não foi possível atualizar o produto.", "erro", 3600);
+    console.error("[Storefront admin] alternar produto", error);
+  }
+}
+
+async function removerProdutoLojaOnline(id) {
+  if (!confirm("Remover este produto da loja? O produto interno do ERP não será apagado.")) return;
+  try {
+    if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "prod-")) {
+      await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" }
+      });
+    }
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, getStorefrontAdminProductsLocal().filter((product) => product.id !== id));
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().filter((image) => image.product_id !== id));
+    mostrarToast("Produto removido da loja.", "sucesso");
+    renderApp();
+  } catch (error) {
+    mostrarToast("Não foi possível remover o produto.", "erro", 3600);
+    console.error("[Storefront admin] remover produto", error);
+  }
+}
+
+async function processarImagemProdutoLojaOnline(productId, input) {
+  const files = Array.from(input?.files || []);
+  if (!files.length) return;
+  const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+  const maxImages = limits.customThemeEnabled ? 5 : 1;
+  const images = getStorefrontAdminImagesLocal();
+  const atuais = images.filter((image) => image.product_id === productId).length;
+  if (atuais + files.length > maxImages) {
+    input.value = "";
+    return mostrarToast(`Limite de ${maxImages} foto(s) por produto neste plano.`, "erro", 4200);
+  }
+  for (const file of files.slice(0, maxImages - atuais)) {
+    try {
+      validarArquivoStorefrontImagem(file, "produto");
+      if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(productId, "prod-")) {
+        const url = await uploadStorefrontAsset(file, { tipo: "produto", productId });
+        const store = getStorefrontAdminStoreLocal();
+        const order = getStorefrontAdminImagesLocal().filter((image) => image.product_id === productId).length;
+        const rows = await storefrontAdminRequest("/rest/v1/store_product_images", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify({
+            product_id: productId,
+            store_id: store.id,
+            owner_id: storefrontAdminCurrentOwnerId(),
+            image_url: url,
+            alt_text: file.name.replace(/\.[^.]+$/, ""),
+            order_index: order
+          })
+        });
+        const next = getStorefrontAdminImagesLocal();
+        next.push(rows?.[0] || {
+          id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          product_id: productId,
+          store_id: store.id,
+          owner_id: storefrontAdminCurrentOwnerId(),
+          image_url: url,
+          alt_text: file.name.replace(/\.[^.]+$/, ""),
+          order_index: order
+        });
+        storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+        mostrarToast("Imagem enviada para Storage.", "sucesso", 2800);
+        continue;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const next = getStorefrontAdminImagesLocal();
+        next.push({
+          id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          product_id: productId,
+          store_id: getStorefrontAdminStoreLocal().id,
+          owner_id: getStorefrontAdminStoreLocal().owner_id,
+          image_url: reader.result,
+          alt_text: file.name.replace(/\.[^.]+$/, ""),
+          order_index: next.filter((image) => image.product_id === productId).length
+        });
+        storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+        mostrarToast("Imagem adicionada em preview local.", "info", 3200);
+        renderApp();
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      mostrarToast(error?.message || "Erro ao enviar imagem. Tente novamente.", "erro", 4200);
+      console.error("[Storefront admin] imagem produto", error);
+    }
+  }
+  input.value = "";
+  renderApp();
+}
+
+async function processarImagemLojaOnline(tipo, input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  try {
+    validarArquivoStorefrontImagem(file, tipo);
+    const store = getStorefrontAdminStoreLocal();
+    if (!storefrontAdminRemoteReady()) throw new Error("Upload real exige conexão Supabase no beta fechado.");
+    const url = await uploadStorefrontAsset(file, { tipo });
+    const field = tipo === "logo" ? "logo_url" : "banner_url";
+    const next = { ...store, [field]: url };
+    storefrontAdminSaveStore(next);
+    await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ [field]: url })
+    });
+    mostrarToast(tipo === "logo" ? "Logo enviado." : "Banner enviado.", "sucesso", 2600);
+    renderApp();
+  } catch (error) {
+    mostrarToast(error?.message || "Erro ao enviar imagem. Tente novamente.", "erro", 4200);
+    console.error("[Storefront admin] imagem loja", error);
+  } finally {
+    if (input) input.value = "";
+  }
+}
+
+async function removerImagemProdutoLojaOnline(id) {
+  try {
+    if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "img-")) {
+      await storefrontAdminRequest(`/rest/v1/store_product_images?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" }
+      });
+    }
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().filter((image) => image.id !== id));
+    renderApp();
+  } catch (error) {
+    mostrarToast("Não foi possível remover a imagem.", "erro", 3600);
+    console.error("[Storefront admin] remover imagem", error);
+  }
+}
+
+async function alterarStatusLeadLojaOnline(id, status) {
+  try {
+    if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id)) {
+      await storefrontAdminRequest(`/rest/v1/store_cart_leads?id=eq.${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ status })
+      });
+    }
+    const leads = getStorefrontPreviewLeadsLocal().map((lead) => String(lead.id) === String(id) ? { ...lead, status } : lead);
+    storefrontAdminWrite("simplifica-storefront-leads-preview-v1", leads);
+    mostrarToast("Status do lead atualizado.", "sucesso");
+    renderApp();
+  } catch (error) {
+    mostrarToast("Não foi possível atualizar o lead.", "erro", 3600);
+    console.error("[Storefront admin] alterar lead", error);
+  }
+}
+
+function abrirWhatsAppLeadLojaOnline(id) {
+  const lead = getStorefrontPreviewLeadsLocal().find((item) => String(item.id) === String(id));
+  const phone = String(lead?.customer_phone || getStorefrontAdminStoreLocal().whatsapp || "").replace(/\D/g, "");
+  const msg = lead?.whatsapp_message || `Olá! Sobre o pedido da loja ${getStorefrontAdminStoreLocal().name}.`;
+  if (!phone) return mostrarToast("WhatsApp não configurado para este lead/loja.", "erro", 3600);
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, "_blank", "noopener");
+}
+
+function baixarQrCodeLojaOnline() {
+  const dataUrl = gerarQrPixDataUrl(getStorefrontPublicUrlLocal());
+  if (!dataUrl) return mostrarToast("QR Code indisponível neste ambiente.", "erro");
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = `loja-${getStorefrontAdminStoreLocal().slug || "simplifica3d"}-qrcode.png`;
+  a.click();
+}
+
+function renderStorefrontTabs(active) {
+  return `<div class="tabs storefront-admin-tabs">${STOREFRONT_ADMIN_TABS.map(([id, label]) => `
+    <button class="tab ${active === id ? "active" : ""}" type="button" onclick="setStorefrontAdminTab('${id}')">${escaparHtml(label)}</button>
+  `).join("")}</div>`;
+}
+
+function renderStoreEmptyState({ title = "Nada por aqui ainda", description = "", action = "", icon = "▦" } = {}) {
+  return `
+    <div class="store-empty-state">
+      <span aria-hidden="true">${escaparHtml(icon)}</span>
+      <strong>${escaparHtml(title)}</strong>
+      ${description ? `<small>${escaparHtml(description)}</small>` : ""}
+      ${action}
+    </div>
+  `;
+}
+
+function renderStorefrontDemoNotice(vm = {}) {
+  if (!vm.demo?.enabled) return "";
+  return `
+    <div class="storefront-demo-banner">
+      <strong>Demonstração visual</strong>
+      <span>Algumas informações desta tela são exemplos locais/staging para preview. Elas não foram salvas no banco e não aparecem em produção sem ambiente autorizado.</span>
+    </div>
+  `;
+}
+
+function renderStoreStatusCard({ label = "", value = "", description = "", tone = "neutral" } = {}) {
+  return `
+    <article class="store-status-card store-status-${escaparAttr(tone)}">
+      <span>${escaparHtml(label)}</span>
+      <strong>${escaparHtml(value)}</strong>
+      ${description ? `<small>${escaparHtml(description)}</small>` : ""}
+    </article>
+  `;
+}
+
+function renderStorePreviewContainer({ content = "", actions = "", title = "Preview da loja", subtitle = "Estrutura preparada para o futuro editor visual." } = {}) {
+  return `
+    <section class="store-preview-container">
+      <div class="store-preview-toolbar">
+        <div>
+          <strong>${escaparHtml(title)}</strong>
+          <small>${escaparHtml(subtitle)}</small>
+        </div>
+        <span class="status-badge">Preview</span>
+      </div>
+      <div class="store-preview-device">${content}</div>
+      ${actions ? `<div class="actions store-preview-actions">${actions}</div>` : ""}
+    </section>
+  `;
+}
+
+function renderEditableContainer({ label = "", content = "", className = "" } = {}) {
+  return `<div class="editable-container ${escaparAttr(className)}" data-editor-ready="future">${label ? `<span>${escaparHtml(label)}</span>` : ""}${content}</div>`;
+}
+
+function renderStoreSection({ title = "", content = "", subtitle = "", className = "" } = {}) {
+  return `<section class="store-section ${escaparAttr(className)}">
+    <div class="store-section-head">
+      <h4>${escaparHtml(title)}</h4>
+      ${subtitle ? `<small>${escaparHtml(subtitle)}</small>` : ""}
+    </div>
+    ${content}
+  </section>`;
+}
+
+function getStorefrontProductTypeLabel(product = {}) {
+  if (String(product.stock_mode || "") === "unavailable") return "Indisponível";
+  if (product.is_customizable) return "Personalizável";
+  if (String(product.stock_mode || "") === "manual" && Number(product.stock_quantity || 0) > 0) return "Entrega imediata";
+  return "Sob encomenda";
+}
+
+function renderStoreProductCard(product = {}, images = [], categories = []) {
+  const image = images.find((item) => item.product_id === product.id)?.image_url || "";
+  const categoryName = categories.find((cat) => String(cat.id) === String(product.category_id))?.name || "Produto 3D";
+  const typeLabel = getStorefrontProductTypeLabel(product);
+  const time = product.estimated_production_time || (product.is_customizable ? "Sob consulta" : "Pronto para orçamento");
+  return `
+    <article class="store-product-card editable-product-card" data-editor-ready="future">
+      <div class="store-product-media">
+        ${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : renderUiIcon("estoque")}
+        <span class="store-product-floating-badge">${product.featured ? "Destaque" : product.__demo ? "Demo" : typeLabel}</span>
+      </div>
+      <div class="store-product-copy">
+        <span>${escaparHtml(categoryName)}</span>
+        <strong>${escaparHtml(product.title || "Produto da loja")}</strong>
+        <small>${escaparHtml(product.description || "Produto público preparado para vitrine.")}</small>
+      </div>
+      <div class="store-product-meta">
+        <strong>${escaparHtml(renderPrecoProdutoLojaOnline(product))}</strong>
+        <small>${escaparHtml(typeLabel)} • ${escaparHtml(time)}</small>
+      </div>
+      <div class="store-product-actions">
+        ${product.is_customizable ? `<span class="status-badge badge-info">personalizado</span>` : ""}
+        ${String(product.stock_mode || "") === "unavailable" ? `<span class="status-badge badge-warning">indisponível</span>` : ""}
+        <button class="btn secondary" type="button" disabled title="Carrinho público será controlado pela loja pública.">Adicionar</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderStoreProductGrid(products = [], images = [], categories = [], limit = 4) {
+  return `<div class="store-product-grid">${products.slice(0, limit).map((product) => renderStoreProductCard(product, images, categories)).join("") || renderStoreEmptyState({ title: "Nenhum produto publicado ainda", description: "Sua vitrine começará a aparecer aqui quando os produtos forem publicados.", icon: "□" })}</div>`;
+}
+
+function renderStoreCategorySection(categories = []) {
+  const visibleCategories = categories.filter((cat) => cat.visible !== false).slice(0, 8);
+  return renderStoreSection({
+    title: "Categorias",
+    subtitle: "Navegação da vitrine pública",
+    className: "editable-category-section",
+    content: `<div class="store-category-row">${visibleCategories.map((cat, index) => `
+      <button class="${index === 0 ? "active" : ""}" type="button" disabled title="Filtro interativo será liberado na loja pública.">
+        <span aria-hidden="true">${escaparHtml(cat.icon || "▦")}</span>
+        <strong>${escaparHtml(cat.name)}</strong>
+        ${cat.__demo ? `<em>Demonstração</em>` : ""}
+      </button>
+    `).join("") || renderStoreEmptyState({ title: "Nenhuma categoria criada", description: "Adicione categorias para organizar sua loja.", icon: "≡" })}</div>`
+  });
+}
+
+function renderBannerSection(store = {}) {
+  return `
+    <div class="store-banner-section editable-banner" data-editor-ready="future" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
+      ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner da loja">` : ""}
+      <div>
+        <span>${escaparHtml(store.__demo ? "Demonstração local" : store.active ? "Loja ativa" : "Prévia interna")}</span>
+        <strong>${escaparHtml(store.name || "Loja Online")}</strong>
+        <small>${escaparHtml(store.description || "Sua vitrine de impressão 3D integrada ao ERP.")}</small>
+        <button class="btn secondary" type="button" disabled title="CTA público será liberado na loja pública.">Ver produtos</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderStoreHeader(store = {}) {
+  return `
+    <header class="store-header-preview editable-store-header" data-editor-ready="future">
+      <div class="store-header-brand">
+        ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="Logo da loja">` : renderMarcaOficialProjeto("store-header-logo", "Simplifica 3D", "icon")}
+        <div>
+          <strong>${escaparHtml(store.name || "Loja Online")}</strong>
+          <small>${escaparHtml(store.description || "Catálogo público integrado ao Simplifica 3D.")}</small>
+        </div>
+      </div>
+      <div class="store-header-actions">
+        <span class="status-badge badge-info">Beta</span>
+        ${store.whatsapp ? `<button class="btn secondary" type="button" disabled title="WhatsApp público abre na loja publicada.">WhatsApp</button>` : ""}
+        ${store.instagram ? `<button class="btn ghost" type="button" disabled title="Instagram público abre na loja publicada.">Instagram</button>` : ""}
+        <button class="btn ghost" type="button" disabled title="Compartilhamento será liberado na loja pública.">Compartilhar</button>
+      </div>
+    </header>
+  `;
+}
+
+function renderStorefrontEditorFutureButton(extraClass = "secondary") {
+  return `<button class="btn ${escaparAttr(extraClass)}" type="button" disabled title="Editor visual será implementado em fase futura.">Editor visual futuro</button>`;
+}
+
+function renderStorefrontPreview(vm, options = {}) {
+  const products = options.products || vm.products.filter((product) => product.featured || product.visible);
+  const featured = products.filter((product) => product.featured).length ? products.filter((product) => product.featured) : products;
+  const visibleProducts = vm.products.filter((product) => product.visible !== false);
+  return renderStorePreviewContainer({
+    title: options.title || "Preview da vitrine",
+    subtitle: options.subtitle || "Experiência beta: loja real em preview, editor visual ainda bloqueado.",
+    content: `
+      ${renderStoreHeader(vm.store)}
+      ${renderEditableContainer({ label: "Banner principal", className: "editable-banner-container", content: renderBannerSection(vm.store) })}
+      ${renderStoreCategorySection(vm.categories)}
+      ${renderStoreSection({ title: "Produtos em destaque", subtitle: "Itens que aparecem primeiro para o cliente", className: "store-featured-section", content: renderStoreProductGrid(featured, vm.images, vm.categories, 3) })}
+      ${renderStoreSection({ title: "Catálogo", subtitle: "Grade pública da loja", className: "store-catalog-section", content: renderStoreProductGrid(visibleProducts, vm.images, vm.categories, 6) })}
+      <footer class="store-preview-footer">
+        <span>Loja criada com Simplifica 3D</span>
+        <strong>${escaparHtml(vm.store.slug || "loja")}</strong>
+      </footer>
+    `,
+    actions: renderStorefrontEditorFutureButton()
+  });
+}
+
+const STOREFRONT_PUBLIC_CACHE_PREFIX = "simplifica-storefront-public-cache-v1:";
+const STOREFRONT_PUBLIC_LEADS_KEY = "simplifica-storefront-public-leads-v1";
+const STOREFRONT_PUBLIC_EVENTS_KEY = "simplifica-storefront-public-events-v1";
+
+function parseStorefrontPublicRoute(pathname = location.pathname) {
+  const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
+  if (partes[0] !== "loja" || !partes[1]) return null;
+  return {
+    slug: decodeURIComponent(partes[1] || ""),
+    view: partes[2] === "produto" ? "product" : partes[2] === "categoria" ? "category" : "home",
+    productSlug: partes[2] === "produto" ? decodeURIComponent(partes[3] || "") : "",
+    categorySlug: partes[2] === "categoria" ? decodeURIComponent(partes[3] || "") : ""
+  };
+}
+
+function getStorefrontPublicRoutePath(route = getStorefrontPublicRoute()) {
+  const slug = encodeURIComponent(route.slug || "ne3d-teste");
+  if (route.view === "product" && route.productSlug) return `/loja/${slug}/produto/${encodeURIComponent(route.productSlug)}`;
+  if (route.view === "category" && route.categorySlug) return `/loja/${slug}/categoria/${encodeURIComponent(route.categorySlug)}`;
+  return `/loja/${slug}`;
+}
+
+function getStorefrontPublicRoute() {
+  return storefrontPublicRouteState || { slug: "ne3d-teste", view: "home", productSlug: "", categorySlug: "" };
+}
+
+function getStorefrontPublicCacheKey(slug = getStorefrontPublicRoute().slug) {
+  return `${STOREFRONT_PUBLIC_CACHE_PREFIX}${storefrontAdminSlugify(slug || "loja")}`;
+}
+
+function getStorefrontPublicCache(slug) {
+  try {
+    const cached = JSON.parse(localStorage.getItem(getStorefrontPublicCacheKey(slug)) || "null");
+    if (cached?.store?.slug) return cached;
+  } catch (_) {}
+  return null;
+}
+
+function setStorefrontPublicCache(slug, data) {
+  try {
+    localStorage.setItem(getStorefrontPublicCacheKey(slug), JSON.stringify({
+      ...data,
+      cached_at: new Date().toISOString()
+    }));
+  } catch (_) {}
+}
+
+function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
+  const adminVm = getStorefrontAdminViewModel();
+  const adminSlug = String(adminVm.store.slug || "").toLowerCase();
+  const slugAtual = String(slug || "").toLowerCase();
+  const slugCompat = new Set([adminSlug, "ne3d", "ne3d-teste", "ne3d-internal-test"].filter(Boolean));
+  if (slugCompat.has(slugAtual)) {
+    const localDemoPermitido = isStorefrontDemoPreviewAllowed();
+    const store = {
+      ...adminVm.store,
+      slug: slug || adminVm.store.slug || "ne3d-teste",
+      active: adminVm.store.active === true || localDemoPermitido,
+      __demo: adminVm.demo?.enabled === true || adminVm.store.__demo === true
+    };
+    return {
+      store,
+      categories: adminVm.categories.filter((cat) => cat.visible !== false),
+      products: adminVm.products.filter((product) => product.visible !== false),
+      images: adminVm.images || [],
+      source: "local"
+    };
+  }
+  return null;
+}
+
+function getStorefrontPublicViewModel() {
+  const route = getStorefrontPublicRoute();
+  const cached = getStorefrontPublicCache(route.slug);
+  const fallback = cached || getStorefrontPublicFallback(route.slug);
+  if (!fallback?.store) {
+    return { route, store: null, categories: [], products: [], images: [], loading: true, source: "empty" };
+  }
+  const categories = (fallback.categories || []).filter((cat) => cat.visible !== false).sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
+  const products = (fallback.products || []).filter((product) => product.visible !== false);
+  return { ...fallback, route, categories, products, images: fallback.images || [], loading: false };
+}
+
+function getStorefrontPublicUrl(route = getStorefrontPublicRoute()) {
+  const origem = location.origin && location.origin !== "null" ? location.origin : APP_PUBLIC_URL;
+  return `${origem}${getStorefrontPublicRoutePath(route)}`;
+}
+
+function getStorefrontProductImage(product = {}, images = []) {
+  return images.find((item) => String(item.product_id) === String(product.id))?.image_url || product.image_url || product.images?.[0] || "";
+}
+
+function storefrontPublicCategoryName(vm, product = {}) {
+  return vm.categories.find((cat) => String(cat.id) === String(product.category_id))?.name || product.category || "Produto 3D";
+}
+
+function storefrontPublicProductUrl(vm, product = {}) {
+  return `/loja/${encodeURIComponent(vm.store.slug || vm.route.slug)}/produto/${encodeURIComponent(product.slug || product.id)}`;
+}
+
+function storefrontPublicCategoryUrl(vm, category = {}) {
+  return `/loja/${encodeURIComponent(vm.store.slug || vm.route.slug)}/categoria/${encodeURIComponent(category.slug || category.id)}`;
+}
+
+function renderStoreStatusBadge(product = {}) {
+  const typeLabel = getStorefrontProductTypeLabel(product);
+  const mode = String(product.stock_mode || "unlimited");
+  const tone = mode === "unavailable" ? "warning" : product.is_customizable ? "info" : product.featured ? "success" : "neutral";
+  return `<span class="store-status-badge store-status-badge-${escaparAttr(tone)}">${escaparHtml(typeLabel)}</span>`;
+}
+
+function renderStorePublicHeader(vm) {
+  const store = vm.store;
+  const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
+  return `
+    <header class="store-public-header">
+      <a class="store-public-brand" href="/loja/${encodeURIComponent(store.slug)}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(store.name || "Loja")}">
+        ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="${escaparAttr(store.name || "Loja")}">` : renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
+        <span>
+          <strong>${escaparHtml(store.name || "Loja Online")}</strong>
+          <small>${escaparHtml(store.description || "Catálogo público de impressão 3D")}</small>
+        </span>
+      </a>
+      <nav class="store-public-actions" aria-label="Ações da loja">
+        ${store.whatsapp ? `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">WhatsApp</button>` : ""}
+        ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
+        <button class="btn ghost" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>
+      </nav>
+    </header>
+  `;
+}
+
+function normalizarUrlInstagramLoja(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "#";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://instagram.com/${raw.replace(/^@/, "")}`;
+}
+
+function renderStorePublicBanner(vm) {
+  const store = vm.store;
+  return `
+    <section class="store-public-banner" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
+      ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
+      <div class="store-public-banner-copy">
+        <span>${store.__demo ? "Preview público" : store.active ? "Loja ativa" : "Loja em preparação"}</span>
+        <h1>${escaparHtml(store.name || "Loja Online")}</h1>
+        <p>${escaparHtml(store.description || "Escolha produtos 3D, solicite orçamento e fale com a loja pelo WhatsApp.")}</p>
+        <div class="actions">
+          <a class="btn" href="#catalogo">Ver catálogo</a>
+          <button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderStorePublicCategoryBar(vm) {
+  const active = vm.route.view === "category" ? vm.route.categorySlug : "";
+  return `
+    <section class="store-public-category-bar" data-allow-horizontal-scroll>
+      <a class="${!active ? "active" : ""}" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">Todos</a>
+      ${vm.categories.map((cat) => `
+        <a class="${String(cat.slug) === String(active) ? "active" : ""}" href="${storefrontPublicCategoryUrl(vm, cat)}" onclick="return navegarLojaPublicaLink(event, this)">
+          <span>${escaparHtml(cat.icon || "▦")}</span>${escaparHtml(cat.name)}
+        </a>
+      `).join("")}
+    </section>
+  `;
+}
+
+function renderStorePublicProductCard(vm, product = {}) {
+  const image = getStorefrontProductImage(product, vm.images);
+  const unavailable = String(product.stock_mode || "") === "unavailable";
+  return `
+    <article class="store-public-product-card">
+      <a class="store-public-product-media" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">
+        ${image ? `<img loading="lazy" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
+        ${product.featured ? `<em>Destaque</em>` : ""}
+      </a>
+      <div class="store-public-product-body">
+        <div class="store-public-product-kicker">
+          <span>${escaparHtml(storefrontPublicCategoryName(vm, product))}</span>
+          ${renderStoreStatusBadge(product)}
+        </div>
+        <a class="store-public-product-title" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${escaparHtml(product.title || "Produto da loja")}</a>
+        <p>${escaparHtml(product.description || "Produto público preparado para orçamento.")}</p>
+        <div class="store-public-product-bottom">
+          <strong>${escaparHtml(renderPrecoProdutoLojaOnline(product))}</strong>
+          <small>${escaparHtml(product.estimated_production_time || "Prazo sob consulta")}</small>
+        </div>
+      </div>
+      <div class="store-public-product-actions">
+        <a class="btn ghost" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Detalhes</a>
+        <button class="btn secondary" type="button" onclick="abrirStoreLeadModal('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Solicitar"}</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle = "Produtos disponíveis para orçamento") {
+  return `
+    <section class="store-public-section" id="catalogo">
+      <div class="store-public-section-head">
+        <div>
+          <span>Vitrine</span>
+          <h2>${escaparHtml(title)}</h2>
+          <p>${escaparHtml(subtitle)}</p>
+        </div>
+      </div>
+      <div class="store-public-product-grid">
+        ${products.map((product) => renderStorePublicProductCard(vm, product)).join("") || renderStoreEmptyState({ title: "Nenhum produto publicado ainda", description: "A loja está sendo preparada. Fale pelo WhatsApp para solicitar um orçamento.", icon: "□", action: `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>` })}
+      </div>
+    </section>
+  `;
+}
+
+function renderStorePublicProductDetail(vm, product = {}) {
+  const image = getStorefrontProductImage(product, vm.images);
+  const related = vm.products.filter((item) => item.id !== product.id && (item.category_id === product.category_id || item.featured)).slice(0, 4);
+  return `
+    <main class="store-public-product-page">
+      <a class="store-public-back" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
+      <section class="store-public-product-hero">
+        <div class="store-public-product-gallery">
+          ${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
+        </div>
+        <div class="store-public-product-info">
+          <span class="store-public-eyebrow">${escaparHtml(storefrontPublicCategoryName(vm, product))}</span>
+          <h1>${escaparHtml(product.title || "Produto da loja")}</h1>
+          <div class="store-public-price-line">
+            <strong>${escaparHtml(renderPrecoProdutoLojaOnline(product))}</strong>
+            ${renderStoreStatusBadge(product)}
+          </div>
+          <p>${escaparHtml(product.description || "Produto preparado para orçamento pela loja.")}</p>
+          <div class="store-public-spec-grid">
+            <span><small>Prazo</small><strong>${escaparHtml(product.estimated_production_time || "Sob consulta")}</strong></span>
+            <span><small>Tipo</small><strong>${escaparHtml(getStorefrontProductTypeLabel(product))}</strong></span>
+            <span><small>Status</small><strong>${String(product.stock_mode || "") === "unavailable" ? "Indisponível" : "Disponível para solicitar"}</strong></span>
+          </div>
+          ${product.is_customizable ? `<div class="store-public-note">Produto personalizado. O valor final pode variar conforme tamanho, cor e detalhes combinados com o vendedor.</div>` : ""}
+          ${product.public_observations ? `<div class="store-public-note">${escaparHtml(product.public_observations)}</div>` : ""}
+          <div class="actions">
+            <button class="btn" type="button" onclick="abrirStoreLeadModal('${escaparAttr(product.id)}')" ${String(product.stock_mode || "") === "unavailable" ? "disabled" : ""}>Solicitar orçamento</button>
+            <button class="btn secondary" type="button" onclick="abrirWhatsappProdutoLojaPublica('${escaparAttr(product.id)}')">Pedir pelo WhatsApp</button>
+          </div>
+        </div>
+      </section>
+      ${renderStorePublicGrid(vm, related, "Produtos relacionados", "Outras opções da vitrine")}
+    </main>
+  `;
+}
+
+function renderStorePublicRouteNotFound(vm, { title = "Conteúdo não encontrado", description = "O item solicitado não está disponível nesta vitrine." } = {}) {
+  return `
+    <main class="store-public-product-page">
+      <a class="store-public-back" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
+      <section class="store-public-not-found">
+        ${renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
+        <h1>${escaparHtml(title)}</h1>
+        <p>${escaparHtml(description)}</p>
+        <a class="btn secondary" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">Ver catálogo da loja</a>
+      </section>
+    </main>
+  `;
+}
+
+function renderLojaOnlinePublica() {
+  const vm = getStorefrontPublicViewModel();
+  if (!vm.store) {
+    return `
+      <main class="store-public-shell">
+        <section class="store-public-not-found">
+          ${renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
+          <h1>Loja não encontrada</h1>
+          <p>Esta vitrine ainda não está ativa ou o link informado não existe.</p>
+          <a class="btn secondary" href="/">Voltar ao Simplifica 3D</a>
+        </section>
+      </main>
+    `;
+  }
+  if (vm.store.active !== true && !vm.store.__demo) {
+    return `
+      <main class="store-public-shell">
+        <section class="store-public-not-found">
+          <h1>Loja em preparação</h1>
+          <p>Esta vitrine ainda não foi ativada pelo vendedor.</p>
+          <a class="btn secondary" href="/">Voltar</a>
+        </section>
+      </main>
+    `;
+  }
+  const featured = vm.products.filter((product) => product.featured);
+  const productDetail = vm.route.view === "product"
+    ? vm.products.find((product) => String(product.slug || product.id) === String(vm.route.productSlug))
+    : null;
+  const category = vm.route.view === "category"
+    ? vm.categories.find((cat) => String(cat.slug || cat.id) === String(vm.route.categorySlug))
+    : null;
+  const routeMissing = vm.route.view === "product" && !productDetail
+    ? renderStorePublicRouteNotFound(vm, {
+      title: "Produto não encontrado",
+      description: "Este produto não está publicado ou o link informado não existe mais."
+    })
+    : vm.route.view === "category" && !category
+      ? renderStorePublicRouteNotFound(vm, {
+        title: "Categoria não encontrada",
+        description: "Esta categoria não está visível na loja ou o link informado não existe mais."
+      })
+      : "";
+  const catalog = category ? vm.products.filter((product) => String(product.category_id) === String(category.id)) : vm.products;
+
+  return `
+    <main class="store-public-shell" style="--store-primary:${escaparAttr(vm.store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
+      ${renderStorePublicHeader(vm)}
+      ${vm.store.__demo ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
+      ${productDetail ? renderStorePublicProductDetail(vm, productDetail) : routeMissing || `
+        ${renderStorePublicBanner(vm)}
+        ${renderStorePublicCategoryBar(vm)}
+        ${featured.length ? renderStorePublicGrid(vm, featured.slice(0, 4), "Produtos em destaque", "Itens que aparecem primeiro para o cliente") : ""}
+        ${renderStorePublicGrid(vm, catalog, category ? category.name : "Catálogo", category ? `Produtos em ${category.name}` : "Escolha um produto e solicite pelo WhatsApp")}
+        <section class="store-public-contact">
+          <div>
+            <span>Contato</span>
+            <h2>Pronto para pedir?</h2>
+            <p>Envie sua solicitação e a loja retorna com detalhes de produção, prazo e acabamento.</p>
+          </div>
+          <button class="btn" type="button" onclick="abrirWhatsappLojaPublica()">Falar no WhatsApp</button>
+        </section>
+      `}
+      <footer class="store-public-footer">
+        <span>Loja criada com Simplifica 3D</span>
+        <button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>
+      </footer>
+    </main>
+  `;
+}
+
+async function storefrontPublicRequest(path, options = {}) {
+  return requisicaoSupabase(path, { ...options, auth: false, telemetry: false, timeoutMs: options.timeoutMs || 10000 });
+}
+
+async function hidratarLojaPublicaSeNecessario() {
+  if (telaAtual !== "lojaPublica" || !storefrontPublicRouteState || !estaOnline()) return;
+  const route = getStorefrontPublicRoute();
+  const cache = getStorefrontPublicCache(route.slug);
+  if (cache?.cached_at && Date.now() - Date.parse(cache.cached_at) < 90000) return;
+  try {
+    const slug = encodeURIComponent(route.slug);
+    const stores = await storefrontPublicRequest(`/rest/v1/stores?select=*&slug=eq.${slug}&active=eq.true&limit=1`);
+    const store = Array.isArray(stores) ? stores[0] : null;
+    if (!store?.id) return;
+    const storeId = encodeURIComponent(store.id);
+    const [categories, products, images] = await Promise.all([
+      storefrontPublicRequest(`/rest/v1/store_categories?select=*&store_id=eq.${storeId}&visible=eq.true&order=order_index.asc`),
+      storefrontPublicRequest(`/rest/v1/store_products?select=*&store_id=eq.${storeId}&visible=eq.true&order=featured.desc,updated_at.desc`),
+      storefrontPublicRequest(`/rest/v1/store_product_images?select=*&store_id=eq.${storeId}&order=order_index.asc`)
+    ]);
+    setStorefrontPublicCache(route.slug, { store, categories: categories || [], products: products || [], images: images || [], source: "supabase" });
+    registrarEventoLojaPublica("store_view", { slug: route.slug }, { silent: true });
+    renderApp();
+  } catch (error) {
+    console.warn("[Storefront public] hydrate failed", error);
+  }
+}
+
+function getStorefrontPublicVmProduto(productId = "") {
+  const vm = getStorefrontPublicViewModel();
+  const product = vm.products.find((item) => String(item.id) === String(productId) || String(item.slug) === String(productId));
+  return { vm, product };
+}
+
+function montarMensagemProdutoLojaPublica(product = {}, vm = getStorefrontPublicViewModel(), lead = {}) {
+  const linhas = [
+    `Olá! Tenho interesse neste produto da loja ${vm.store?.name || "Simplifica 3D"}:`,
+    "",
+    `${product.title || "Produto"} - ${renderPrecoProdutoLojaOnline(product)}`,
+    product.estimated_production_time ? `Prazo informado: ${product.estimated_production_time}` : "",
+    "",
+    lead.customer_name ? `Meu nome: ${lead.customer_name}` : "Meu nome:",
+    lead.customer_note ? `Observação: ${lead.customer_note}` : "Observação:",
+    "",
+    `Link da loja: ${getStorefrontPublicUrl(vm.route)}`
+  ].filter((line) => line !== "");
+  return linhas.join("\n");
+}
+
+function abrirStoreLeadModal(productId = "") {
+  const { vm, product } = getStorefrontPublicVmProduto(productId);
+  if (!product) return mostrarToast("Produto não encontrado na loja.", "erro", 3200);
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card store-lead-modal" onsubmit="enviarLeadLojaPublica(event)">
+        <div class="modal-header">
+          <div>
+            <span class="status-badge badge-info">Solicitação</span>
+            <h2>${escaparHtml(product.title || "Produto")}</h2>
+            <p class="muted">Envie uma intenção de pedido para a loja. O vendedor revisa antes de virar pedido interno.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <input type="hidden" name="productId" value="${escaparAttr(product.id)}">
+        <div class="form-grid">
+          <label>Nome<input name="customerName" placeholder="Seu nome"></label>
+          <label>WhatsApp<input name="customerPhone" inputmode="tel" placeholder="DDD + número"></label>
+        </div>
+        <label class="field"><span>Observação</span><textarea name="customerNote" rows="3" placeholder="Tamanho, cor, prazo desejado ou detalhes do personalizado"></textarea></label>
+        <div class="store-lead-product-summary">
+          <strong>${escaparHtml(renderPrecoProdutoLojaOnline(product))}</strong>
+          <span>${escaparHtml(storefrontPublicCategoryName(vm, product))} • ${escaparHtml(getStorefrontProductTypeLabel(product))}</span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button>
+          <button class="btn" type="submit">Enviar pelo WhatsApp</button>
+        </div>
+      </form>
+    </div>
+  `;
+  setTimeout(() => popup.querySelector("input[name='customerName']")?.focus(), 80);
+}
+
+async function enviarLeadLojaPublica(event) {
+  event?.preventDefault?.();
+  const form = event?.target;
+  const productId = form?.productId?.value || "";
+  const { vm, product } = getStorefrontPublicVmProduto(productId);
+  if (!product || !vm.store) return mostrarToast("Produto indisponível.", "erro", 3200);
+  const lead = {
+    customer_name: form?.customerName?.value?.trim() || null,
+    customer_phone: String(form?.customerPhone?.value || "").replace(/\D/g, "") || null,
+    customer_note: form?.customerNote?.value?.trim() || null
+  };
+  const whatsapp_message = montarMensagemProdutoLojaPublica(product, vm, lead);
+  await registrarLeadLojaPublica(vm, product, { ...lead, whatsapp_message });
+  registrarEventoLojaPublica("lead_created", { product_id: product.id }, { silent: true });
+  fecharPopup();
+  abrirWhatsappLojaPublica(whatsapp_message);
+}
+
+async function registrarLeadLojaPublica(vm, product, lead = {}) {
+  const item = { title: product.title, quantity: 1, price: Number(product.price || 0), product_id: product.id };
+  const payload = {
+    store_id: vm.store.id,
+    owner_id: vm.store.owner_id,
+    customer_name: lead.customer_name,
+    customer_phone: lead.customer_phone,
+    customer_note: lead.customer_note,
+    items_json: [item],
+    subtotal: Number(product.price || 0),
+    whatsapp_message: lead.whatsapp_message,
+    status: "novo",
+    source: "storefront-public"
+  };
+  try {
+    if (vm.source === "supabase" && !String(vm.store.id || "").startsWith("store-")) {
+      await storefrontPublicRequest("/rest/v1/store_cart_leads", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload)
+      });
+      return;
+    }
+  } catch (error) {
+    console.warn("[Storefront public] lead best-effort failed", error);
+  }
+  try {
+    const current = JSON.parse(localStorage.getItem(STOREFRONT_PUBLIC_LEADS_KEY) || "[]");
+    current.unshift({ ...payload, id: `public-lead-${Date.now()}`, created_at: new Date().toISOString() });
+    localStorage.setItem(STOREFRONT_PUBLIC_LEADS_KEY, JSON.stringify(current.slice(0, 120)));
+    const adminLeads = getStorefrontPreviewLeadsLocal();
+    storefrontAdminWrite("simplifica-storefront-leads-preview-v1", [{ ...payload, id: `public-lead-${Date.now()}`, created_at: new Date().toISOString() }, ...adminLeads].slice(0, 120));
+  } catch (_) {}
+}
+
+async function registrarEventoLojaPublica(eventType, metadata = {}, options = {}) {
+  const vm = getStorefrontPublicViewModel();
+  if (!vm.store?.id) return;
+  const payload = { store_id: vm.store.id, product_id: metadata.product_id || null, event_type: eventType, metadata_json: metadata };
+  try {
+    if (vm.source === "supabase" && !String(vm.store.id || "").startsWith("store-")) {
+      await storefrontPublicRequest("/rest/v1/store_events", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload)
+      });
+      return;
+    }
+  } catch (error) {
+    if (!options.silent) console.warn("[Storefront public] event failed", error);
+  }
+  try {
+    const current = JSON.parse(localStorage.getItem(STOREFRONT_PUBLIC_EVENTS_KEY) || "[]");
+    current.unshift({ ...payload, id: `public-event-${Date.now()}`, created_at: new Date().toISOString() });
+    localStorage.setItem(STOREFRONT_PUBLIC_EVENTS_KEY, JSON.stringify(current.slice(0, 300)));
+  } catch (_) {}
+}
+
+function marcarLojaPublicaNavegando() {
+  document.body.classList.add("storefront-public-navigating");
+  clearTimeout(storefrontPublicNavigationTimer);
+  storefrontPublicNavigationTimer = setTimeout(() => {
+    document.body.classList.remove("storefront-public-navigating");
+  }, 220);
+}
+
+function salvarScrollLojaPublica() {
+  if (telaAtual !== "lojaPublica") return;
+  const path = getStorefrontPublicRoutePath();
+  storefrontPublicScrollPositions.set(path, window.scrollY || document.documentElement.scrollTop || 0);
+}
+
+function restaurarScrollLojaPublica(path = getStorefrontPublicRoutePath(), fallback = 0) {
+  const y = storefrontPublicScrollPositions.has(path) ? storefrontPublicScrollPositions.get(path) : fallback;
+  requestAnimationFrame(() => window.scrollTo({ top: Math.max(0, Number(y) || 0), behavior: "auto" }));
+}
+
+function navegarLojaPublica(url, options = {}) {
+  const destino = new URL(url, location.origin);
+  const route = parseStorefrontPublicRoute(destino.pathname);
+  if (!route) return false;
+  salvarScrollLojaPublica();
+  storefrontPublicRouteState = route;
+  storefrontPublicLastPath = getStorefrontPublicRoutePath(route);
+  telaAtual = "lojaPublica";
+  marcarLojaPublicaNavegando();
+  const nextUrl = `${destino.pathname}${destino.search || ""}${destino.hash || ""}`;
+  if (!options.replace && nextUrl !== `${location.pathname}${location.search || ""}${location.hash || ""}`) {
+    history.pushState({ simplifica: true, tela: "lojaPublica", loja: route }, document.title, nextUrl);
+  } else if (options.replace) {
+    history.replaceState({ simplifica: true, tela: "lojaPublica", loja: route }, document.title, nextUrl);
+  }
+  renderApp();
+  const shouldRestore = options.restoreScroll === true;
+  if (shouldRestore) restaurarScrollLojaPublica(getStorefrontPublicRoutePath(route), 0);
+  else if (route.view === "product" || options.scrollTop) window.scrollTo({ top: 0, behavior: "smooth" });
+  else if (destino.hash) document.querySelector(destino.hash)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  return true;
+}
+
+function configurarNavegacaoLojaPublica() {
+  if (window.__simplificaStorefrontPublicNavigationConfigured) return;
+  window.__simplificaStorefrontPublicNavigationConfigured = true;
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest?.("a[href]");
+    if (!link || event.defaultPrevented) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const href = link.getAttribute("href") || "";
+    if (!href || href.startsWith("#") || link.target || link.hasAttribute("download")) return;
+    const destino = new URL(href, location.origin);
+    if (destino.origin !== location.origin || !parseStorefrontPublicRoute(destino.pathname)) return;
+    const cliqueDentroDaLojaPublica = telaAtual === "lojaPublica" || !!link.closest(".store-public-shell");
+    if (!cliqueDentroDaLojaPublica) return;
+    event.preventDefault();
+    navegarLojaPublica(destino.href);
+  });
+}
+
+function navegarLojaPublicaLink(event, element, options = {}) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  const href = element?.href || element?.getAttribute?.("href") || "";
+  if (!href) return false;
+  navegarLojaPublica(href, options);
+  return false;
+}
+
+function abrirWhatsappLojaPublica(mensagem = "") {
+  const vm = getStorefrontPublicViewModel();
+  const phone = String(vm.store?.whatsapp || appConfig.whatsappNumber || "").replace(/\D/g, "");
+  if (!phone) return mostrarToast("WhatsApp da loja ainda não foi configurado.", "erro", 3600);
+  const texto = mensagem || `Olá! Vim pela loja ${vm.store?.name || "Simplifica 3D"}.\n${getStorefrontPublicUrl(vm.route)}`;
+  registrarEventoLojaPublica("whatsapp_click", { source: "storefront-public" }, { silent: true });
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+}
+
+function abrirWhatsappProdutoLojaPublica(productId = "") {
+  const { vm, product } = getStorefrontPublicVmProduto(productId);
+  if (!product) return mostrarToast("Produto não encontrado.", "erro", 3200);
+  registrarEventoLojaPublica("whatsapp_click", { product_id: product.id }, { silent: true });
+  abrirWhatsappLojaPublica(montarMensagemProdutoLojaPublica(product, vm));
+}
+
+function compartilharLojaPublica(url = getStorefrontPublicUrl()) {
+  const texto = "Conheça esta loja no Simplifica 3D";
+  if (navigator.share) {
+    navigator.share({ title: texto, text: texto, url }).catch(() => {});
+    return;
+  }
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(() => mostrarToast("Link da loja copiado.", "sucesso", 2400)).catch(() => prompt("Copie o link da loja:", url));
+    return;
+  }
+  prompt("Copie o link da loja:", url);
+}
+
+function getStorefrontCategoryName(vm, categoryId) {
+  return vm.categories.find((cat) => String(cat.id) === String(categoryId))?.name || "Sem categoria";
+}
+
+function getStorefrontStockLabel(product = {}) {
+  const mode = String(product.stock_mode || "unlimited");
+  if (mode === "manual") return product.stock_quantity === null || product.stock_quantity === undefined ? "Estoque manual" : `${Number(product.stock_quantity || 0)} un.`;
+  if (mode === "erp_linked") return "Vinculado ao ERP";
+  if (mode === "unavailable") return "Indisponível";
+  return "Sob encomenda";
+}
+
+function renderLojaOnlineAdmin() {
+  if (!canUseStorefrontLocal()) return renderAcessoNegado();
+  const vm = getStorefrontAdminViewModel();
+  const activeTab = getStorefrontAdminTab();
+  const linkPublico = getStorefrontPublicUrlLocal();
+  const novos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
+  const whatsapp = vm.events.filter((event) => event.event_type === "whatsapp_click").length;
+  const visitas = vm.events.filter((event) => event.event_type === "store_view").length;
+  const published = vm.products.filter((product) => product.visible).length;
+
+  return `
+    <section class="app-page storefront-admin-page">
+      <div class="app-header storefront-admin-hero">
+        <div>
+          <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
+          <h2>Loja Online</h2>
+          <p class="muted">Painel administrativo em beta fechado, protegido por feature flag.</p>
+        </div>
+        <div class="actions storefront-hero-actions">
+          <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin('${escaparAttr(activeTab)}')">Gerenciar loja no ERP</button>
+          <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
+          <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+          ${renderStorefrontEditorFutureButton("ghost")}
+        </div>
+      </div>
+      <div class="storefront-beta-banner">
+        <strong>Beta fechado</strong>
+        <span>Esta área continua escondida por feature flag. Nenhum usuário fora do beta visualiza o menu ou o painel.</span>
+      </div>
+      ${renderStorefrontDemoNotice(vm)}
+      ${renderStorefrontTabs(activeTab)}
+      ${activeTab === "overview" ? renderStorefrontOverview(vm, { linkPublico, novos, whatsapp, visitas, published }) : ""}
+      ${activeTab === "appearance" ? renderStorefrontAppearance(vm) : ""}
+      ${activeTab === "categories" ? renderStorefrontCategories(vm) : ""}
+      ${activeTab === "products" ? renderStorefrontProducts(vm) : ""}
+      ${activeTab === "leads" ? renderStorefrontLeads(vm) : ""}
+      ${activeTab === "qrcode" ? renderStorefrontQrLink(vm, linkPublico) : ""}
+    </section>
+  `;
+}
+
+function renderStorefrontOverview(vm, stats) {
+  const noWhatsapp = !String(vm.store.whatsapp || "").trim();
+  return `
+    <div class="storefront-overview-layout">
+      <div class="storefront-overview-main">
+        <div class="storefront-status-grid">
+          ${[
+            { label: "Status", value: vm.store.active ? "Ativa" : "Inativa", description: vm.store.active ? "Estrutura pronta para beta controlado" : "Protegida enquanto o beta não for liberado", tone: vm.store.active ? "success" : "warning" },
+            { label: "Produtos visíveis", value: stats.published, description: `${vm.products.length} cadastrados`, tone: "neutral" },
+            { label: "Categorias", value: vm.categories.length, description: `${vm.categories.filter((cat) => cat.visible).length} visíveis`, tone: "neutral" },
+            { label: "Leads novos", value: stats.novos, description: `${vm.leads.length} recebidos`, tone: stats.novos ? "info" : "neutral" },
+            { label: "WhatsApp", value: stats.whatsapp, description: "cliques registrados", tone: "neutral" },
+            { label: "Visitas", value: stats.visitas, description: "eventos locais/remotos", tone: "neutral" }
+          ].map(renderStoreStatusCard).join("")}
+        </div>
+        ${noWhatsapp ? `<div class="card alert-card storefront-alert"><strong>WhatsApp não configurado</strong><p class="muted">Configure o número na aba Aparência antes de publicar ou testar a loja.</p></div>` : ""}
+        <section class="card storefront-link-card">
+          <div class="card-header">
+            <h3>Link público</h3>
+            <span class="status-badge">${escaparHtml(vm.store.slug)}</span>
+          </div>
+          <div class="storefront-link-box"><span>${escaparHtml(stats.linkPublico)}</span></div>
+          <div class="actions">
+            <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin()">Gerenciar loja no ERP</button>
+            <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+            <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+            <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+            <button class="btn secondary" type="button" onclick="setStorefrontAdminTab('qrcode')">Ver QR Code</button>
+            <button class="btn ${vm.store.active ? "danger" : ""}" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Desativar loja" : "Ativar loja"}</button>
+          </div>
+        </section>
+        <section class="card storefront-next-card">
+          <div class="card-header"><h3>Atalhos de organização</h3><span class="status-badge">ERP</span></div>
+          <div class="storefront-shortcut-grid">
+            <button class="btn secondary" type="button" onclick="setStorefrontAdminTab('appearance')">Ajustar aparência</button>
+            <button class="btn secondary" type="button" onclick="setStorefrontAdminTab('products')">Ir para produtos</button>
+            <button class="btn secondary" type="button" onclick="setStorefrontAdminTab('categories')">Ir para categorias</button>
+            ${renderStorefrontEditorFutureButton("ghost")}
+          </div>
+        </section>
+      </div>
+      ${renderStorefrontPreview(vm)}
+    </div>
+  `;
+}
+
+function renderStorefrontAppearance(vm) {
+  const theme = vm.store.theme_config || {};
+  const hasStoredAppearance = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
+  return `
+    <div class="storefront-workspace">
+      <form class="card app-form storefront-form-card" id="storefrontAppearanceForm" onsubmit="salvarStorefrontAparencia(event)">
+        <div class="card-header">
+          <div><h3>Aparência pública</h3><p class="muted">Identidade da vitrine pública, sem editor visual nesta fase.</p></div>
+          <span class="status-badge">Configuração</span>
+        </div>
+        ${hasStoredAppearance ? "" : renderStoreEmptyState({
+          title: "Configure a aparência da sua loja para visualizar melhor",
+          description: "Defina nome público, descrição, WhatsApp, logo, banner e cores para substituir o preview demonstrativo.",
+          icon: "◐"
+        })}
+        <div class="form-grid">
+          <label>Nome público<input name="storeName" required value="${escaparAttr(vm.store.name || "")}"></label>
+          <label>Slug<input name="storeSlug" value="${escaparAttr(vm.store.slug || "")}"></label>
+          <label>WhatsApp<input name="storeWhatsApp" inputmode="tel" value="${escaparAttr(vm.store.whatsapp || "")}"></label>
+          <label>Instagram<input name="storeInstagram" value="${escaparAttr(vm.store.instagram || "")}"></label>
+          <label>Logo URL<input name="storeLogoUrl" value="${escaparAttr(vm.store.logo_url || "")}"></label>
+          <label>Banner URL<input name="storeBannerUrl" value="${escaparAttr(vm.store.banner_url || "")}"></label>
+          <label>Upload logo<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('logo', this)"></label>
+          <label>Upload banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"></label>
+          <label>Cor principal<input name="storePrimary" type="color" value="${escaparAttr(theme.primary || "#00BFA6")}"></label>
+          <label>Cor de destaque<input name="storeAccent" type="color" value="${escaparAttr(theme.accent || "#FF8A1F")}"></label>
+          <label>Tema<select name="storeThemeMode">
+            ${["auto", "light", "dark"].map((mode) => `<option value="${mode}" ${String(theme.mode || "auto") === mode ? "selected" : ""}>${mode === "auto" ? "Automático" : mode === "light" ? "Claro" : "Escuro"}</option>`).join("")}
+          </select></label>
+        </div>
+        <label>Descrição<textarea name="storeDescription" rows="3">${escaparHtml(vm.store.description || "")}</textarea></label>
+        <div class="storefront-image-row">
+          ${vm.store.logo_url ? `<span class="storefront-thumb"><img src="${escaparAttr(vm.store.logo_url)}" alt="Logo da loja"></span>` : `<span class="storefront-thumb storefront-thumb-empty">Logo</span>`}
+          ${vm.store.banner_url ? `<span class="storefront-thumb storefront-thumb-wide"><img src="${escaparAttr(vm.store.banner_url)}" alt="Banner da loja"></span>` : `<span class="storefront-thumb storefront-thumb-wide storefront-thumb-empty">Banner</span>`}
+        </div>
+        <p class="muted">Uploads usam Supabase Storage no beta fechado. Logo até 1 MB; banner até 3 MB; formatos JPG, PNG ou WebP.</p>
+        <div class="actions"><button class="btn" type="submit">Salvar aparência</button></div>
+      </form>
+      ${renderStorefrontPreview(vm, { title: "Preview de aparência", subtitle: "Mostra como logo, banner, nome, descrição e cores serão encaixados." })}
+    </div>
+  `;
+}
+
+function renderStorefrontCategories(vm) {
+  const editingId = localStorage.getItem(STOREFRONT_ADMIN_KEYS.editingCategory) || "";
+  const editing = vm.categories.find((cat) => cat.id === editingId) || {};
+  return `
+    <section class="card storefront-form-card">
+      <div class="card-header">
+        <div><h3>Categorias</h3><p class="muted">Organize a vitrine em grupos claros. Reordenação visual fica para fase futura.</p></div>
+        <button class="btn secondary" type="button" onclick="abrirEditorCategoriaLojaOnline()">Nova categoria</button>
+      </div>
+      <form class="app-form" onsubmit="salvarCategoriaLojaOnline(event)">
+        <input type="hidden" name="categoryId" value="${escaparAttr(editing.id || "")}">
+        <div class="form-grid">
+          <label>Nome<input name="categoryName" required value="${escaparAttr(editing.name || "")}"></label>
+          <label>Slug<input name="categorySlug" value="${escaparAttr(editing.slug || "")}"></label>
+          <label>Ícone opcional<input name="categoryIcon" value="${escaparAttr(editing.icon || "")}"></label>
+          <label>Ordem<input name="categoryOrder" type="number" min="0" value="${escaparAttr(editing.order_index ?? vm.categories.length + 1)}"></label>
+          <label class="checkbox-row"><input name="categoryVisible" type="checkbox" ${editing.visible !== false ? "checked" : ""}> Visível</label>
+        </div>
+        <div class="actions"><button class="btn" type="submit">${editing.id ? "Salvar categoria" : "Criar categoria"}</button></div>
+      </form>
+    </section>
+    <section class="card">
+      <div class="card-header"><h3>Lista de categorias</h3><span class="status-badge">${vm.categories.length} categoria(s)</span></div>
+      <div class="store-admin-list">
+        ${vm.categories.map((cat) => `<article class="store-admin-row">
+          <div class="store-admin-main">
+            <span class="store-admin-icon">${escaparHtml(cat.icon || "▦")}</span>
+            <div>
+              <strong>${escaparHtml(cat.name)}</strong>
+              <small>${escaparHtml(cat.slug)} • ordem ${Number(cat.order_index || 0)}</small>
+            </div>
+          </div>
+          <div class="store-admin-meta">
+            ${cat.__demo ? `<span class="status-badge badge-info">demonstração</span>` : ""}
+            <span class="status-badge ${cat.visible ? "badge-success" : ""}">${cat.visible ? "visível" : "oculta"}</span>
+            <span class="muted">Reorganizar em fase futura</span>
+          </div>
+          <div class="store-admin-actions">
+            <button class="btn secondary" type="button" ${cat.__demo ? "disabled title=\"Categoria demonstrativa não é salva. Crie uma categoria real para editar.\"" : `onclick="abrirEditorCategoriaLojaOnline('${escaparAttr(cat.id)}')"`}>Editar</button>
+            <button class="btn ghost" type="button" disabled title="Drag and drop será implementado em fase futura.">Reordenar</button>
+            <button class="btn ghost" type="button" ${cat.__demo ? "disabled title=\"Categoria demonstrativa não pode ser excluída.\"" : `onclick="excluirCategoriaLojaOnline('${escaparAttr(cat.id)}')"`}>Excluir</button>
+          </div>
+        </article>`).join("") || renderStoreEmptyState({ title: "Nenhuma categoria", description: "Crie categorias para organizar os produtos públicos." })}
+      </div>
+    </section>
+  `;
+}
+
+function renderPrecoProdutoLojaOnline(product) {
+  if (product.price_mode === "quote" || product.show_price === false) return "Sob orçamento";
+  if (product.price_mode === "from") return `A partir de ${formatarMoeda(product.price)}`;
+  if (product.compare_price && Number(product.compare_price) > Number(product.price)) return `${formatarMoeda(product.compare_price)} → ${formatarMoeda(product.price)}`;
+  return formatarMoeda(product.price);
+}
+
+function renderStorefrontProducts(vm) {
+  const editingId = localStorage.getItem(STOREFRONT_ADMIN_KEYS.editingProduct) || "";
+  const editing = vm.products.find((product) => product.id === editingId) || {};
+  const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}</option>`).join("");
+  return `
+    <section class="card storefront-form-card">
+      <div class="card-header">
+        <div><h3>Produtos da loja</h3><p class="muted">Dados públicos da vitrine. Custos, margem e lucro internos não aparecem aqui.</p></div>
+        <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline()">Novo produto</button>
+      </div>
+      <form class="app-form" onsubmit="salvarProdutoLojaOnline(event)">
+        <input type="hidden" name="productId" value="${escaparAttr(editing.id || "")}">
+        <div class="form-grid">
+          <label>Título público<input name="productTitle" required value="${escaparAttr(editing.title || "")}"></label>
+          <label>Slug<input name="productSlug" value="${escaparAttr(editing.slug || "")}"></label>
+          <label>Produto ERP opcional<input name="erpProductId" value="${escaparAttr(editing.erp_product_id || "")}"></label>
+          <label>Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
+          <label>Preço público<input name="productPrice" inputmode="decimal" value="${escaparAttr(editing.price ?? "")}"></label>
+          <label>Preço antigo/promocional<input name="productComparePrice" inputmode="decimal" value="${escaparAttr(editing.compare_price ?? "")}"></label>
+          <label>Modo de preço<select name="productPriceMode">${["fixed", "from", "quote", "promo"].map((mode) => `<option value="${mode}" ${(editing.price_mode || "fixed") === mode ? "selected" : ""}>${mode === "fixed" ? "Preço fixo" : mode === "from" ? "A partir de" : mode === "quote" ? "Sob orçamento" : "Promoção"}</option>`).join("")}</select></label>
+          <label>Prazo estimado<input name="productTime" value="${escaparAttr(editing.estimated_production_time || "")}"></label>
+          <label>Estoque<select name="productStockMode">${["unlimited", "manual", "erp_linked", "unavailable"].map((mode) => `<option value="${mode}" ${(editing.stock_mode || "unlimited") === mode ? "selected" : ""}>${mode}</option>`).join("")}</select></label>
+          <label>Qtd. manual<input name="productStockQuantity" type="number" min="0" value="${escaparAttr(editing.stock_quantity ?? "")}"></label>
+          <label class="checkbox-row"><input name="productShowPrice" type="checkbox" ${editing.show_price !== false ? "checked" : ""}> Mostrar preço</label>
+          <label class="checkbox-row"><input name="productVisible" type="checkbox" ${editing.visible ? "checked" : ""}> Visível</label>
+          <label class="checkbox-row"><input name="productFeatured" type="checkbox" ${editing.featured ? "checked" : ""}> Destaque</label>
+          <label class="checkbox-row"><input name="productCustomizable" type="checkbox" ${editing.is_customizable !== false ? "checked" : ""}> Personalizável</label>
+        </div>
+        <label>Descrição pública<textarea name="productDescription" rows="3">${escaparHtml(editing.description || "")}</textarea></label>
+        <label>Observações públicas<textarea name="productObservations" rows="2">${escaparHtml(editing.public_observations || "")}</textarea></label>
+        <div class="actions"><button class="btn" type="submit">${editing.id ? "Salvar produto" : "Criar produto"}</button></div>
+      </form>
+    </section>
+    <section class="card">
+      <div class="card-header"><h3>Produtos publicados</h3><span class="status-badge">${vm.products.length} produto(s)</span></div>
+      <div class="store-product-admin-grid">
+        ${vm.products.map((product) => {
+          const productImages = vm.images.filter((image) => image.product_id === product.id);
+          const image = productImages[0]?.image_url || "";
+          return `<article class="store-product-admin-card">
+            <div class="store-product-admin-media">${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title)}">` : renderUiIcon("estoque")}</div>
+            <div class="store-product-admin-body">
+              <div class="store-badge-row">
+                ${product.__demo ? `<span class="status-badge badge-info">demonstração</span>` : ""}
+                <span class="status-badge ${product.visible ? "badge-success" : ""}">${product.visible ? "visível" : "oculto"}</span>
+                ${product.featured ? `<span class="status-badge">destaque</span>` : ""}
+                ${product.is_customizable ? `<span class="status-badge">personalizado</span>` : ""}
+              </div>
+              <strong>${escaparHtml(product.title)}</strong>
+              <small>${escaparHtml(getStorefrontCategoryName(vm, product.category_id))} • ${escaparHtml(renderPrecoProdutoLojaOnline(product))}</small>
+              <small>${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
+            </div>
+            <div class="store-admin-actions">
+              <button class="btn secondary" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não é salvo. Crie um produto real para editar.\"" : `onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Editar</button>
+              <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera publicação.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','visible')"`}>${product.visible ? "Ocultar" : "Exibir"}</button>
+              <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera destaque.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','featured')"`}>${product.featured ? "Remover destaque" : "Destacar"}</button>
+              <button class="btn ghost" type="button" disabled title="Use o cadastro de produto/estoque quando a integração final for ativada.">Gerenciar no catálogo/estoque</button>
+              <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não pode ser removido.\"" : `onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Remover</button>
+            </div>
+            <div class="storefront-image-row">
+              ${productImages.map((image) => `<span class="storefront-thumb"><img src="${escaparAttr(image.image_url)}" alt="${escaparAttr(image.alt_text || product.title)}"><button type="button" onclick="removerImagemProdutoLojaOnline('${escaparAttr(image.id)}')">×</button></span>`).join("")}
+              <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto real para enviar fotos.\"" : ""}>Fotos<input type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
+            </div>
+          </article>`;
+        }).join("") || renderStoreEmptyState({ title: "Nenhum produto", description: "Crie produtos públicos ou vincule itens do ERP quando a integração estiver ativa." })}
+      </div>
+    </section>
+  `;
+}
+
+function renderStorefrontLeads(vm) {
+  const statusList = ["novo", "em_atendimento", "convertido", "perdido", "arquivado"];
+  return `<section class="card">
+    <div class="card-header">
+      <div><h3>Leads e pedidos</h3><p class="muted">Contatos vindos da loja. Conversão em pedido continua em revisão manual.</p></div>
+      <span class="status-badge">${vm.leads.length} lead(s)</span>
+    </div>
+    ${vm.leads.length ? `<div class="store-admin-list">${vm.leads.map((lead) => `
+      <article class="store-admin-row store-lead-row">
+        <div class="store-admin-main">
+          <span class="store-admin-icon">●</span>
+          <div>
+            <strong>${escaparHtml(lead.customer_name || "Cliente via WhatsApp")}</strong>
+            <small>${escaparHtml(lead.customer_phone || "Sem telefone")} • ${new Date(lead.created_at || Date.now()).toLocaleString("pt-BR")}</small>
+            <small>${escaparHtml((lead.items_json || []).map((item) => `${item.quantity || 1}x ${item.title || "Produto"}`).join(", ") || "Itens do carrinho")}</small>
+          </div>
+        </div>
+        <div class="store-admin-meta">
+          ${lead.__demo ? `<span class="status-badge badge-info">demonstração</span>` : ""}
+          <span class="status-badge">${escaparHtml(lead.status || "novo")}</span>
+          <span>${formatarMoeda(lead.subtotal || 0)}</span>
+          <small>${escaparHtml(lead.source || "storefront")}</small>
+        </div>
+        <div class="store-admin-actions">
+          <select ${lead.__demo ? "disabled title=\"Lead demonstrativo não altera status.\"" : `onchange="alterarStatusLeadLojaOnline('${escaparAttr(lead.id)}', this.value)"`}>${statusList.map((status) => `<option value="${status}" ${String(lead.status || "novo") === status ? "selected" : ""}>${status}</option>`).join("")}</select>
+          <button class="btn secondary" type="button" ${lead.__demo ? "disabled title=\"Lead demonstrativo não abre WhatsApp.\"" : `onclick="abrirWhatsAppLeadLojaOnline('${escaparAttr(lead.id)}')"`}>WhatsApp</button>
+          <button class="btn" type="button" ${lead.__demo ? "disabled title=\"Lead demonstrativo não gera pedido.\"" : `onclick="transformarLeadLojaOnlinePreview('${escaparAttr(lead.id)}')"`}>Transformar em pedido</button>
+        </div>
+      </article>`).join("")}</div>` : renderStoreEmptyState({ title: "Nenhum lead recebido", description: "Quando alguém enviar um carrinho pelo WhatsApp, o lead aparecerá aqui." })}
+  </section>`;
+}
+
+function renderStorefrontQrLink(vm, linkPublico) {
+  return `
+    <section class="card storefront-qr-card">
+      <div class="card-header">
+        <div><h3>QR Code e link</h3><p class="muted">Material para compartilhar a vitrine quando o beta fechado estiver liberado.</p></div>
+        <span class="status-badge">${escaparHtml(vm.store.slug)}</span>
+      </div>
+      <div class="store-qr-layout">
+        <div>
+          <span class="store-qr-label">Link da loja</span>
+          <div class="storefront-link-box"><span>${escaparHtml(linkPublico)}</span></div>
+          <p class="muted">Use este link em redes sociais, etiquetas, embalagens ou atendimento. O acesso administrativo continua protegido por feature flag.</p>
+          <div class="actions">
+            <button class="btn" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+            <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+            <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+            <button class="btn" type="button" onclick="baixarQrCodeLojaOnline()">Baixar QR Code</button>
+          </div>
+        </div>
+        <div class="store-qr-panel">
+          <div id="storefrontAdminQr" class="qr-preview" aria-label="QR Code da loja"></div>
+          <small>QR Code da loja pública</small>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function hidratarLojaOnlineAdmin() {
+  if (telaAtual !== "lojaOnline") return;
+  sincronizarLojaOnlineAdminRemoto(false);
+  const alvo = document.getElementById("storefrontAdminQr");
+  if (!alvo) return;
+  const dataUrl = gerarQrPixDataUrl(getStorefrontPublicUrlLocal());
+  alvo.innerHTML = dataUrl
+    ? `<img src="${dataUrl}" alt="QR Code da loja online" style="width:160px;height:160px;border-radius:16px;background:#fff;padding:10px;">`
+    : `<p class="muted">QR Code indisponível neste ambiente.</p>`;
 }
 
 function renderFotoPerfilAtualUsuario() {
@@ -13137,7 +15649,7 @@ function renderDashboardAvatar(usuario) {
 
 function renderDashboardProfileButton(usuario = getUsuarioAtual()) {
   return `
-    <button class="dashboard-profile-button" type="button" onclick="navegarMenuPrincipal('conta')" title="Usuário">
+    <button class="dashboard-profile-button" type="button" onclick="abrirMenuUsuarioTopo(event)" title="Usuário">
       ${renderDashboardAvatar(usuario)}
     </button>
   `;
@@ -13590,29 +16102,59 @@ function renderDashboardSupportCards(totaisCaixa) {
   `;
 }
 
-function renderDashboardDesktopMetricCard({ titulo, valor, detalhe = "", iconKey = "dashboard", tela = "dashboard", filtro = "", state = "teal" } = {}) {
+function calcularResumoPedidosDashboardPeriodo(periodo = "hoje") {
+  const intervalo = criarIntervaloPeriodoLocal(periodo);
+  const atuais = pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), intervalo.start, intervalo.end));
+  const anteriores = pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), intervalo.previousStart, intervalo.previousEnd));
+  return {
+    pedidos: atuais.length,
+    faturamento: atuais.reduce((total, pedido) => total + totalPedido(pedido), 0),
+    pedidosAnterior: anteriores.length,
+    faturamentoAnterior: anteriores.reduce((total, pedido) => total + totalPedido(pedido), 0)
+  };
+}
+
+function formatarVariacaoDashboard(atual = 0, anterior = 0, label = "vs anterior") {
+  const valorAtual = Number(atual) || 0;
+  const valorAnterior = Number(anterior) || 0;
+  if (!valorAtual && !valorAnterior) return { texto: `0% ${label}`, estado: "neutral" };
+  if (!valorAnterior) return { texto: `+100% ${label}`, estado: "positive" };
+  const variacao = ((valorAtual - valorAnterior) / Math.max(1, Math.abs(valorAnterior))) * 100;
+  const prefixo = variacao > 0 ? "+" : "";
+  return {
+    texto: `${prefixo}${variacao.toFixed(0)}% ${label}`,
+    estado: variacao < 0 ? "negative" : variacao > 0 ? "positive" : "neutral"
+  };
+}
+
+function renderDashboardDesktopMetricCard({ titulo, valor, detalhe = "", trend = "", trendState = "neutral", iconKey = "dashboard", tela = "dashboard", filtro = "", state = "teal" } = {}) {
   return `
-    <button class="desktop-dashboard-metric desktop-metric-${escaparAttr(state)}" type="button" onclick="abrirBlocoDashboard('${escaparAttr(tela)}', '${escaparAttr(filtro)}')">
-      <span class="desktop-dashboard-metric-icon">${renderUiIcon(iconKey)}</span>
-      <span class="desktop-dashboard-metric-copy">
-        <small>${escaparHtml(titulo)}</small>
-        <strong>${escaparHtml(valor)}</strong>
-        ${detalhe ? `<em>${escaparHtml(detalhe)}</em>` : ""}
+    <button class="metric-card desktop-dashboard-metric desktop-metric-${escaparAttr(state)}" type="button" onclick="abrirBlocoDashboard('${escaparAttr(tela)}', '${escaparAttr(filtro)}')">
+      <span class="metric-card__header desktop-dashboard-metric-copy">
+        <small class="metric-card__title">${escaparHtml(titulo)}</small>
+        <strong class="metric-card__value">${escaparHtml(valor)}</strong>
+        ${detalhe ? `<em class="metric-card__subtitle">${escaparHtml(detalhe)}</em>` : ""}
+        ${trend ? `<i class="metric-card__trend trend-${escaparAttr(trendState)}">${escaparHtml(trend)}</i>` : ""}
       </span>
+      <span class="metric-card__icon desktop-dashboard-metric-icon">${renderUiIcon(iconKey)}</span>
     </button>
   `;
 }
 
 function renderDashboardDesktopMetricRow(stats, totaisCaixa) {
-  const aguardando = getPedidosAguardandoEnvioDashboard();
-  const atrasados = getPedidosAtrasadosDashboard();
-  const concluidos = pedidos.filter((pedido) => ["entregue", "finalizado", "pago"].includes(String(pedido.status || "").toLowerCase()));
+  const hoje = calcularResumoPedidosDashboardPeriodo("hoje");
+  const mes = calcularResumoPedidosDashboardPeriodo("mes");
+  const variacaoPedidosHoje = formatarVariacaoDashboard(hoje.pedidos, hoje.pedidosAnterior, "vs ontem");
+  const variacaoFaturamentoHoje = formatarVariacaoDashboard(hoje.faturamento, hoje.faturamentoAnterior, "vs ontem");
+  const variacaoPedidosMes = formatarVariacaoDashboard(mes.pedidos, mes.pedidosAnterior, "vs mês anterior");
+  const variacaoFaturamentoMes = formatarVariacaoDashboard(mes.faturamento, mes.faturamentoAnterior, "vs mês anterior");
   return `
-    <div class="desktop-dashboard-metrics">
-      ${renderDashboardDesktopMetricCard({ titulo: "Pedidos hoje", valor: String(stats.pedidosHoje || 0), detalhe: formatarMoeda(stats.faturamentoDia), iconKey: "pedidos", tela: "pedidos", filtro: "hoje", state: "teal" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Aguardando envio", valor: String(aguardando.length), detalhe: formatarMoeda(aguardando.reduce((soma, pedido) => soma + totalPedido(pedido), 0)), iconKey: "pedido", tela: "pedidos", filtro: "abertos", state: "orange" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Atrasados", valor: String(atrasados.length), detalhe: formatarMoeda(atrasados.reduce((soma, pedido) => soma + totalPedido(pedido), 0)), iconKey: "backup", tela: "pedidos", filtro: "abertos", state: "red" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Concluídos", valor: String(concluidos.length), detalhe: formatarMoeda(concluidos.reduce((soma, pedido) => soma + totalPedido(pedido), 0)), iconKey: "pedido", tela: "pedidos", state: "green" })}
+    <div class="dashboard-metrics-grid desktop-dashboard-metrics">
+      ${renderDashboardDesktopMetricCard({ titulo: "Pedidos hoje", valor: String(stats.pedidosHoje || 0), detalhe: `${formatarMoeda(stats.faturamentoDia)} faturados`, trend: variacaoPedidosHoje.texto, trendState: variacaoPedidosHoje.estado, iconKey: "pedidos", tela: "pedidos", filtro: "hoje", state: "teal" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Faturamento hoje", valor: formatarMoeda(stats.faturamentoDia), detalhe: `${stats.pedidosHoje || 0} pedido(s)`, trend: variacaoFaturamentoHoje.texto, trendState: variacaoFaturamentoHoje.estado, iconKey: "caixa", tela: "caixa", filtro: "hoje", state: "purple" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Pedidos mês", valor: String(mes.pedidos || 0), detalhe: `${stats.pedidosAbertos || 0} em aberto`, trend: variacaoPedidosMes.texto, trendState: variacaoPedidosMes.estado, iconKey: "pedido", tela: "pedidos", filtro: "mes", state: "orange" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Faturamento mês", valor: formatarMoeda(mes.faturamento), detalhe: `${formatarMoeda(stats.lucroEstimado)} lucro estimado`, trend: variacaoFaturamentoMes.texto, trendState: variacaoFaturamentoMes.estado, iconKey: "relatorios", tela: "relatorios", state: "green" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Clientes ativos", valor: String(stats.clientesAtivos || 0), detalhe: `${stats.pedidosConcluidos || 0} concluído(s) hoje`, trend: "Carteira ativa", trendState: "positive", iconKey: "clientes", tela: "clientes", state: "blue" })}
     </div>
   `;
 }
@@ -13683,7 +16225,10 @@ function renderDashboardDesktopStockPanel(stats) {
     <section class="card desktop-dashboard-card desktop-dashboard-medium">
       <div class="card-header">
         <h2>${renderUiIcon("estoque")} Estoque</h2>
-        <span class="status-badge ${stats.estoqueBaixo ? "badge-alerta" : "badge-ativo"}">${stats.estoqueBaixo ? `${stats.estoqueBaixo} baixo(s)` : "OK"}</span>
+        <div class="operational-card-actions">
+          <span class="status-badge ${stats.estoqueBaixo ? "badge-alerta" : "badge-ativo"}">${stats.estoqueBaixo ? `${stats.estoqueBaixo} baixo(s)` : "OK"}</span>
+          <button class="text-link" type="button" onclick="abrirEstoqueRapidoOperacional()">Entrada rápida</button>
+        </div>
       </div>
       <div class="dashboard-compact-list">
         ${linhas || `<p class="empty">Nenhum material abaixo do mínimo.</p>`}
@@ -13709,41 +16254,146 @@ function renderDashboardDesktopContinuityPanel() {
   `;
 }
 
-function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
+function renderDashboardDesktopCashPanel(totaisCaixa = calcularTotaisCaixa()) {
   return `
-    <section class="dashboard-pro premium-dashboard dashboard-control-center">
-      ${renderDashboardDesktopHeader(plano, analytics)}
-      <div class="desktop-dashboard-grid">
-        <div class="desktop-dashboard-span-12">
-          ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
+    <section class="card desktop-dashboard-card cash-card">
+      <div class="card-header">
+        <h2>${renderUiIcon("caixa")} Caixa</h2>
+        <div class="operational-card-actions">
+          <button class="text-link" type="button" onclick="abrirCaixaRapidoOperacional('entrada')">Lançar rápido</button>
+          <button class="text-link" type="button" onclick="trocarTela('caixa')">Abrir caixa</button>
         </div>
-        <section class="desktop-dashboard-span-12 desktop-dashboard-actions">
-          ${renderAcoesRapidas()}
-        </section>
-        <div class="desktop-dashboard-span-6 desktop-dashboard-large">
-          ${renderPedidosRecentesDashboard()}
+      </div>
+      <div class="dashboard-cash-balance">
+        <span>Saldo atual</span>
+        <strong>${formatarMoeda(totaisCaixa.saldo)}</strong>
+      </div>
+      <div class="dashboard-mini-metrics">
+        <span><small>Entradas</small><strong>${formatarMoeda(totaisCaixa.entradas)}</strong></span>
+        <span><small>Saídas</small><strong>${formatarMoeda(totaisCaixa.saidas)}</strong></span>
+        <span><small>Previsto</small><strong>${formatarMoeda(getDashboardStats().valorAReceberPedidos || 0)}</strong></span>
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardDesktopShortcutsPanel() {
+  const acoes = getAtalhosRapidosOrdenados(4);
+  return `
+    <section class="card desktop-dashboard-card shortcuts-card">
+      <div class="card-header">
+        <h2>${renderUiIcon("preferencias")} Atalhos personalizados</h2>
+        <button class="text-link" type="button" onclick="abrirPersonalizarAtalhos()">Editar</button>
+      </div>
+      <div class="dashboard-shortcut-grid">
+        ${acoes.map((acao) => `
+          <button type="button" onclick="acionarAtalhoRapido('${escaparAttr(acao.id)}')">
+            <span>${renderUiIcon(acao.iconKey || acao.tela)}</span>
+            <strong>${escaparHtml(acao.label)}</strong>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardDesktopStorePanel() {
+  if (!canUseStorefrontLocal()) return "";
+  const vm = getStorefrontAdminViewModel();
+  const produtosVisiveis = vm.products.filter((product) => product.visible).length;
+  const leadsNovos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
+  return `
+    <section class="card desktop-dashboard-card store-summary-card">
+      <div class="card-header">
+        <h2>${renderUiIcon("lojaOnline")} Loja Online</h2>
+        <span class="status-badge badge-info">Beta</span>
+      </div>
+      <div class="dashboard-store-preview">
+        <span>${renderUiIcon("lojaOnline")}</span>
+        <div>
+          <strong>${vm.store.active ? "Loja ativa no beta" : "Loja em preparação"}</strong>
+          <small>${produtosVisiveis} produto(s) visíveis • ${leadsNovos} lead(s) novo(s)</small>
         </div>
-        <div class="desktop-dashboard-span-3">
-          ${renderDashboardDesktopProductionPanel()}
+      </div>
+      <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Gerenciar loja</button>
+    </section>
+  `;
+}
+
+function dashboardDeveMostrarAnuncio(plano = getPlanoAtual()) {
+  const slug = normalizarSlugPlano(plano?.slug || plano?.codigo || plano?.code || "free");
+  return !["pro", "premium", "premium_trial", "trial"].includes(slug);
+}
+
+function renderDashboardAdCard(plano = getPlanoAtual()) {
+  if (!dashboardDeveMostrarAnuncio(plano)) return "";
+  return `
+    <section class="card desktop-dashboard-card dashboard-ad-card" aria-label="Área patrocinada do plano Free">
+      <span class="dashboard-ad-label">Patrocinado</span>
+      <div class="dashboard-ad-content">
+        <span class="dashboard-ad-image">${renderUiIcon("relatorios")}</span>
+        <div>
+          <strong>Seu Simplifica 3D continua Free</strong>
+          <small>Anúncios discretos mantêm recursos essenciais ativos sem interromper seu fluxo.</small>
         </div>
-        <div class="desktop-dashboard-span-3">
-          ${renderDashboardInsights(analytics)}
-        </div>
-        <div class="desktop-dashboard-span-8 desktop-dashboard-large">
-          ${renderDashboardComboChart(analytics)}
-        </div>
-        <div class="desktop-dashboard-span-4">
-          ${renderDashboardAnalyticsHero(analytics)}
-        </div>
-        <div class="desktop-dashboard-span-4">
-          ${renderDashboardDesktopStockPanel(stats)}
-        </div>
-        <div class="desktop-dashboard-span-4">
-          ${renderDashboardAnalyticSections(analytics)}
-        </div>
-        <div class="desktop-dashboard-span-4">
-          ${renderDashboardDesktopContinuityPanel()}
-        </div>
+      </div>
+      <div class="dashboard-ad-footer">
+        <span>Plano Free</span>
+        <button class="btn ghost compact-action" type="button" onclick="trocarTela('planos')">Ver Pro</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardQuickActionsPanel() {
+  const acoesBase = getAtalhosRapidosOrdenados(7);
+  const acoes = [...acoesBase];
+  if (canUseStorefrontLocal() && !acoes.some((acao) => acao.id === "loja_online")) {
+    acoes.push({ id: "loja_online", label: "Gerenciar loja", tela: "lojaOnline", iconKey: "lojaOnline" });
+  }
+  return `
+    <section class="dashboard-actions-panel desktop-dashboard-actions">
+      <div class="quick-actions-header">
+        <h2>Ações rápidas</h2>
+        <button class="text-link quick-customize-link" type="button" onclick="abrirPersonalizarAtalhos()">Personalizar ${renderUiIcon("preferencias")}</button>
+      </div>
+      <div class="quick-actions-grid quick-actions">
+        ${acoes.slice(0, 7).map((acao) => `
+          <button class="quick-action-card quick-action ${acao.primary ? "primary" : ""}" type="button" onclick="${acao.id === "loja_online" ? "trocarTela('lojaOnline')" : `acionarAtalhoRapido('${escaparAttr(acao.id)}')`}">
+            <span>${renderUiIcon(acao.iconKey || acao.tela)}</span>
+            <strong>${escaparHtml(acao.label)}</strong>
+          </button>
+        `).join("")}
+      </div>
+      ${renderSugestaoFixarAtalho()}
+    </section>
+  `;
+}
+
+function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
+  const lojaCard = renderDashboardDesktopStorePanel();
+  return `
+    <section class="dashboard-page dashboard-pro premium-dashboard dashboard-control-center">
+      <div class="dashboard-metrics-section">
+        ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
+      </div>
+      ${renderDashboardQuickActionsPanel()}
+      <div class="dashboard-main-grid">
+        <div class="recent-orders-card">${renderPedidosRecentesDashboard()}</div>
+        <div class="revenue-card">${renderDashboardComboChart(analytics)}${renderDashboardAnalyticsHero(analytics)}</div>
+        <div class="insights-card">${renderDashboardInsights(analytics)}</div>
+      </div>
+      <div class="dashboard-bottom-grid ${lojaCard ? "has-store-card" : "no-store-card"}">
+        <div class="inventory-card">${renderDashboardDesktopStockPanel(stats)}</div>
+        <div class="production-card">${renderDashboardDesktopProductionPanel()}</div>
+        <div>${renderDashboardDesktopCashPanel(totaisCaixa)}</div>
+        <div>${renderDashboardDesktopShortcutsPanel()}</div>
+        ${lojaCard ? `<div>${lojaCard}</div>` : ""}
+        ${renderDashboardAdCard(plano)}
+      </div>
+      <div class="dashboard-secondary-grid">
+        ${renderDashboardAnalyticSections(analytics)}
+        ${renderDashboardDesktopContinuityPanel()}
       </div>
       ${renderDashboardOnboardingCard()}
     </section>
@@ -13814,11 +16464,25 @@ function normalizarStatusPedidoFiltro(pedido = {}) {
   return "pendentes";
 }
 
+function pedidoEhHoje(pedido = {}) {
+  return dataPedidoIso(pedido) === hojeIsoData();
+}
+
+function pedidoEstaAtrasado(pedido = {}) {
+  const status = normalizarStatusPedidoFiltro(pedido);
+  if (["entregues", "pagos", "cancelados"].includes(status)) return false;
+  const prazo = String(pedido.prazo || pedido.dataPrazo || "").trim();
+  if (!prazo) return false;
+  return prazo < hojeIsoData();
+}
+
 function getPedidoFilterDefs() {
   return [
     { id: "todos", label: "Todos" },
+    { id: "hoje", label: "Hoje" },
     { id: "pendentes", label: "Pendentes" },
     { id: "producao", label: "Em produção" },
+    { id: "atrasados", label: "Atrasados", className: "danger" },
     { id: "prontos", label: "Prontos" },
     { id: "entregues", label: "Entregues" },
     { id: "pagos", label: "Pagos" },
@@ -13827,9 +16491,11 @@ function getPedidoFilterDefs() {
 }
 
 function contarPedidosPorFiltro(lista = pedidos) {
-  const contadores = { todos: 0, pendentes: 0, producao: 0, prontos: 0, entregues: 0, pagos: 0, cancelados: 0 };
+  const contadores = { todos: 0, hoje: 0, pendentes: 0, producao: 0, atrasados: 0, prontos: 0, entregues: 0, pagos: 0, cancelados: 0 };
   lista.forEach((pedido) => {
     contadores.todos += 1;
+    if (pedidoEhHoje(pedido)) contadores.hoje += 1;
+    if (pedidoEstaAtrasado(pedido)) contadores.atrasados += 1;
     const filtro = normalizarStatusPedidoFiltro(pedido);
     contadores[filtro] = (contadores[filtro] || 0) + 1;
   });
@@ -13853,7 +16519,7 @@ function renderPedidoStatusChips(lista = pedidos, ativo = "todos") {
   return `
     <div class="order-filter-chips" role="tablist" aria-label="Filtrar pedidos">
       ${getPedidoFilterDefs().map((item) => `
-        <button class="order-filter-chip ${ativo === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroPedidos('${escaparAttr(item.id)}')">
+        <button class="order-filter-chip ${item.className || ""} ${ativo === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroPedidos('${escaparAttr(item.id)}')">
           <span>${escaparHtml(item.label)}</span>
           <strong>${Number(contadores[item.id] || 0)}</strong>
         </button>
@@ -13924,6 +16590,7 @@ function renderPedido() {
             <span class="order-item-total" data-item-total-index="${i}">${formatarMoeda(Number(item.total) || 0)}</span>
             <span class="order-item-inline-actions" aria-label="Ações do item">
               <button class="icon-action-button order-edit-inline" type="button" onclick="event.preventDefault();event.stopPropagation();selecionarItemPedido(${i})" title="Editar item">${renderIconeAcaoPedido("✎", "Editar")}</button>
+              <button class="icon-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();duplicarItemPedido(${i})" title="Duplicar item">${renderIconeAcaoPedido("▣", "Duplicar")}</button>
               <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </span>
           </summary>
@@ -14515,7 +17182,11 @@ function renderListaPedidos() {
   const filtroAtivo = getPedidoFiltroAtivo();
   const listaBase = filtroAtivo === "todos"
     ? listaBaseInicial
-    : listaBaseInicial.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === filtroAtivo);
+    : filtroAtivo === "hoje"
+      ? listaBaseInicial.filter(pedidoEhHoje)
+      : filtroAtivo === "atrasados"
+        ? listaBaseInicial.filter(pedidoEstaAtrasado)
+        : listaBaseInicial.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === filtroAtivo);
   const lista = [...listaBase].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
   const limitePedidos = Math.max(LIST_PAGE_SIZE, Number(window.__pedidosLimite) || LIST_PAGE_SIZE);
   const listaPaginada = lista.slice(0, limitePedidos);
@@ -14575,7 +17246,7 @@ function renderListaPedidos() {
     <section class="card orders-screen-card">
       <div class="card-header">
         <h2>${renderUiIcon("pedidos")} Pedidos</h2>
-        ${podeOperar ? `<button class="icon-button" onclick="trocarTela('pedido')" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
+        ${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
       </div>
       ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
@@ -14599,6 +17270,7 @@ function renderAcaoPedidoCompacta(icone, label, onclick, variante = "") {
 function renderIconeAcaoPedido(icone, label = "") {
   const chave = `${label} ${icone}`.toLowerCase();
   const tipo = chave.includes("whatsapp") || icone === "☘" ? "whatsapp"
+    : chave.includes("duplicar") || chave.includes("copiar") ? "copy"
     : chave.includes("pdf") || icone === "▣" ? "pdf"
     : chave.includes("editar") || icone === "✎" ? "edit"
     : chave.includes("imprimir") || icone === "⎙" ? "print"
@@ -14612,6 +17284,7 @@ function renderIconeAcaoPedido(icone, label = "") {
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.5 8.8c.2 3 2 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1.2.6"/><path d="M8.5 7.1l.9 1.7"/></svg>`,
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 16h7"/><path d="M8.5 12h7"/></svg>`,
     edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
+    copy: `<svg ${attrs}><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>`,
     print: `<svg ${attrs}><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>`,
     calc: `<svg ${attrs}><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 11h.01"/><path d="M12 11h.01"/><path d="M16 11h.01"/><path d="M8 15h.01"/><path d="M12 15h.01"/><path d="M16 15h.01"/></svg>`,
     trash: `<svg ${attrs}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
@@ -14699,10 +17372,12 @@ function renderDetalhePedido(pedido) {
         <div><span>Status financeiro</span><strong class="order-status-badge ${classeStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)}">${escaparHtml(labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro))}</strong></div>
         ${resumoFinanceiro.entradaMaiorQueTotal ? `<p class="order-finance-warning">A entrada é maior que o total do pedido</p>` : ""}
       </div>
+      ${renderPedidoRapidoTimeline(pedido.status || "aberto")}
       ${itens.length ? `<div class="compact-action-grid order-detail-actions">
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("▣", "Duplicar", `duplicarPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
@@ -14746,6 +17421,8 @@ async function abrirMaisOpcoesPedido(id) {
     opcoes: [
       { id: "visualizar", label: "Ver detalhes", classe: "secondary", icone: "▣" },
       { id: "editar", label: "Editar pedido", classe: "secondary", icone: "✎" },
+      { id: "duplicar", label: "Duplicar pedido", classe: "secondary", icone: "▣" },
+      { id: "copiar", label: "Copiar orçamento", classe: "ghost", icone: "▣" },
       { id: "whatsapp", label: "Enviar WhatsApp", classe: "ghost", icone: "☘" },
       { id: "pdf", label: "Gerar PDF", classe: "ghost", icone: "▣" },
       { id: "imprimir", label: "Imprimir", classe: "ghost", icone: "⎙" },
@@ -14754,10 +17431,49 @@ async function abrirMaisOpcoesPedido(id) {
   });
   if (escolha === "visualizar") visualizarPedido(id);
   if (escolha === "editar") editarPedido(id);
+  if (escolha === "duplicar") duplicarPedidoSalvo(id);
+  if (escolha === "copiar") copiarOrcamentoPedidoSalvo(id);
   if (escolha === "whatsapp") enviarWhatsPedidoSalvo(id);
   if (escolha === "pdf") baixarPdfPedidoSalvo(id);
   if (escolha === "imprimir") imprimirPedidoSalvo(id);
   if (escolha === "excluir") removerPedido(id);
+}
+
+function duplicarPedidoSalvo(id) {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para duplicar pedidos.")) return;
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return;
+  pedidoEditando = null;
+  pedidoEditandoOriginal = null;
+  itensPedido = normalizarItensPedido(pedido).map((item) => normalizarItemPedido({
+    ...JSON.parse(JSON.stringify(item)),
+    id: "item-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 5)
+  }));
+  clientePedido = clienteDoPedido(pedido);
+  clienteTelefonePedido = telefoneDoPedido(pedido);
+  clienteEmailPedido = emailDoPedido(pedido);
+  observacaoPedido = pedido.observacao || pedido.observacoes || "";
+  prazoPedido = "";
+  entradaPedido = 0;
+  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+  quickOrderLastItem = itensPedido.length ? JSON.parse(JSON.stringify(itensPedido[itensPedido.length - 1])) : quickOrderLastItem;
+  selectedCustomerSuggestion = null;
+  customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
+  window.__pedidoItemSelecionado = itensPedido.length ? 0 : null;
+  abrirPedidoRapidoOperacional();
+  mostrarToast("Pedido duplicado como rascunho. Revise e salve para criar.", "sucesso", 3600);
+}
+
+async function copiarOrcamentoPedidoSalvo(id) {
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return;
+  const texto = montarMensagemOrcamentoWhatsapp(pedido);
+  try {
+    await navigator.clipboard?.writeText(texto);
+    mostrarToast("Orçamento copiado.", "sucesso", 2400);
+  } catch (_) {
+    window.prompt("Copie o orçamento:", texto);
+  }
 }
 
 function solicitarEscolhaPedido({ titulo = "Opções", mensagem = "", opcoes = [] } = {}) {
@@ -25370,6 +28086,23 @@ async function removerItem(i) {
   renderizarPreservandoScroll();
 }
 
+async function duplicarItemPedido(i) {
+  const indice = Number(i);
+  const origem = Number.isInteger(indice) ? normalizarItensPedido(itensPedido)[indice] : null;
+  if (!origem) return;
+  if (!await consumirCreditoAcaoFree("adicionar_item", "duplicar item do pedido")) return;
+  const copia = normalizarItemPedido(JSON.parse(JSON.stringify({
+    ...origem,
+    id: "item-" + Date.now().toString(36),
+    nome: origem.nome || "Item duplicado"
+  })));
+  itensPedido.splice(indice + 1, 0, copia);
+  window.__pedidoItemSelecionado = indice + 1;
+  quickOrderLastItem = JSON.parse(JSON.stringify(copia));
+  mostrarToast("Item duplicado.", "sucesso", 2200);
+  renderizarPreservandoScroll();
+}
+
 function selecionarItemPedido(i) {
   const indice = Number(i);
   if (!Number.isInteger(indice) || !itensPedido[indice]) return;
@@ -26206,7 +28939,10 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
 
 async function fecharPedido() {
   try {
-    if (pedidoSalvando) return;
+    if (pedidoSalvando) {
+      mostrarToast("Salvamento em andamento. Aguarde concluir.", "info", 2200);
+      return;
+    }
     const planoAtual = getPlanoAtual();
     if (planoAtual.blockLevel === "total" || planoAtual.status === "bloqueado") {
       mostrarBloqueioPlano({ message: "Seu acesso está bloqueado. Regularize o plano para salvar pedidos." });
@@ -26362,9 +29098,12 @@ async function fecharPedido() {
     observacaoPedido = "";
     prazoPedido = "";
     entradaPedido = 0;
+    quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+    quickOrderStatusDraft = "";
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
+    limparRascunhoPedidoRapidoLocal();
     pedidoSalvando = false;
     if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
       finalizarOnboarding(false);
@@ -26464,6 +29203,7 @@ async function alterarStatusPedido(id, status) {
   salvarDados();
   agendarSyncSilenciosoDados("status-pedido");
   registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
+  mostrarToast(`Status atualizado para ${labelStatusPedido(pedido.status)}.`, "sucesso", 2200);
   renderizarPreservandoScroll();
 }
 
@@ -27144,7 +29884,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
           <h2>Pedidos e orçamentos</h2>
           <p class="muted">Lista, detalhes e ações em painéis separados para evitar mistura com a Home.</p>
         </div>
-        ${podeOperar ? `<button class="btn" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
+        ${podeOperar ? `<button class="btn" type="button" data-action="open-quick-order">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
       </header>
       <div class="orders-pwa-layout">
         <section class="orders-pwa-list card">
@@ -27444,7 +30184,769 @@ function acionarAtalhoRapido(id) {
     acaoAtalhoPedidoRecente(acao.customAction);
     return;
   }
+  if (acao.id === "novo_pedido") {
+    abrirPedidoRapidoOperacional();
+    return;
+  }
   trocarTela(acao.tela || "dashboard");
+}
+
+function pedidoRapidoTemRascunho() {
+  const temItemEmDigitacao = !!(quickOrderItemDraft.nome || quickOrderItemDraft.valor || quickOrderItemDraft.tempoHoras);
+  return !!(clientePedido || clienteTelefonePedido || clienteEmailPedido || observacaoPedido || prazoPedido || entradaPedido || itensPedido.length || pedidoEditando || temItemEmDigitacao);
+}
+
+function getChaveRascunhoPedidoRapido() {
+  const escopo = getEscopoDadosAtual?.() || normalizarEmail(usuarioAtualEmail || syncConfig.supabaseEmail || getUsuarioAtual()?.email || "") || "local";
+  return `simplifica:quick-order-draft:${escopo}`;
+}
+
+function criarSnapshotRascunhoPedidoRapido() {
+  return {
+    version: QUICK_ORDER_DRAFT_VERSION,
+    updatedAt: new Date().toISOString(),
+    screen: telaAtual || "",
+    open: !!document.querySelector(".quick-order-drawer"),
+    pedidoEditandoId: pedidoEditando?.id || "",
+    cliente: clientePedido,
+    telefone: clienteTelefonePedido,
+    email: clienteEmailPedido,
+    observacao: observacaoPedido,
+    prazo: prazoPedido,
+    entrada: entradaPedido,
+    status: document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || pedidoEditando?.status || "aberto",
+    itens: normalizarItensPedido(itensPedido).slice(0, 80),
+    itemDraft: { ...quickOrderItemDraft },
+    lastItem: quickOrderLastItem ? { ...quickOrderLastItem } : null
+  };
+}
+
+function rascunhoPedidoRapidoTemConteudo(snapshot) {
+  if (!snapshot || typeof snapshot !== "object") return false;
+  const itemDraft = snapshot.itemDraft || {};
+  return !!(
+    snapshot.cliente ||
+    snapshot.telefone ||
+    snapshot.email ||
+    snapshot.observacao ||
+    snapshot.prazo ||
+    Number(snapshot.entrada) > 0 ||
+    (Array.isArray(snapshot.itens) && snapshot.itens.length) ||
+    itemDraft.nome ||
+    itemDraft.valor ||
+    itemDraft.tempoHoras
+  );
+}
+
+function salvarRascunhoPedidoRapidoLocal({ force = false } = {}) {
+  try {
+    if (!force && !document.querySelector(".quick-order-drawer") && !pedidoRapidoTemRascunho()) return;
+    const chave = getChaveRascunhoPedidoRapido();
+    const snapshot = criarSnapshotRascunhoPedidoRapido();
+    if (!rascunhoPedidoRapidoTemConteudo(snapshot)) {
+      localStorage.removeItem(chave);
+      return;
+    }
+    localStorage.setItem(chave, JSON.stringify(snapshot));
+  } catch (erro) {
+    registrarDiagnostico("Pedidos", "Falha ao salvar rascunho local do pedido rápido", erro.message || String(erro));
+  }
+}
+
+function agendarSalvarRascunhoPedidoRapido() {
+  if (quickOrderDraftTimer) clearTimeout(quickOrderDraftTimer);
+  quickOrderDraftTimer = setTimeout(() => {
+    quickOrderDraftTimer = null;
+    salvarRascunhoPedidoRapidoLocal();
+  }, 260);
+}
+
+function carregarRascunhoPedidoRapidoLocal() {
+  try {
+    const chave = getChaveRascunhoPedidoRapido();
+    const bruto = localStorage.getItem(chave);
+    if (!bruto) return null;
+    const snapshot = JSON.parse(bruto);
+    const atualizadoEm = new Date(snapshot.updatedAt || 0).getTime();
+    const expirado = !atualizadoEm || Date.now() - atualizadoEm > QUICK_ORDER_DRAFT_TTL_MS;
+    if (snapshot.version !== QUICK_ORDER_DRAFT_VERSION || expirado || !rascunhoPedidoRapidoTemConteudo(snapshot)) {
+      localStorage.removeItem(chave);
+      return null;
+    }
+    return snapshot;
+  } catch (erro) {
+    registrarDiagnostico("Pedidos", "Falha ao carregar rascunho local do pedido rápido", erro.message || String(erro));
+    return null;
+  }
+}
+
+function aplicarRascunhoPedidoRapidoLocal(snapshot) {
+  if (!snapshot) return false;
+  clientePedido = String(snapshot.cliente || "").trim();
+  clienteTelefonePedido = normalizarTelefoneWhatsapp(snapshot.telefone || "");
+  clienteEmailPedido = String(snapshot.email || "").trim();
+  observacaoPedido = String(snapshot.observacao || "").trim();
+  prazoPedido = String(snapshot.prazo || "").trim();
+  entradaPedido = Math.max(0, Number(snapshot.entrada) || 0);
+  itensPedido = normalizarItensPedido(Array.isArray(snapshot.itens) ? snapshot.itens : []);
+  quickOrderItemDraft = {
+    nome: String(snapshot.itemDraft?.nome || ""),
+    qtd: String(snapshot.itemDraft?.qtd || "1"),
+    valor: String(snapshot.itemDraft?.valor || ""),
+    tempoHoras: String(snapshot.itemDraft?.tempoHoras || "")
+  };
+  quickOrderLastItem = snapshot.lastItem || quickOrderLastItem;
+  quickOrderStatusDraft = String(snapshot.status || "");
+  pedidoEditando = snapshot.pedidoEditandoId ? pedidos.find((pedido) => String(pedido.id) === String(snapshot.pedidoEditandoId)) || null : null;
+  pedidoEditandoOriginal = pedidoEditando ? JSON.parse(JSON.stringify(pedidoEditando)) : null;
+  if (snapshot.status && pedidoEditando) pedidoEditando.status = snapshot.status;
+  selectedCustomerSuggestion = null;
+  customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
+  window.__pedidoItemSelecionado = itensPedido.length ? 0 : null;
+  return true;
+}
+
+function restaurarRascunhoPedidoRapidoSeDisponivel() {
+  if (pedidoRapidoTemRascunho()) return false;
+  const snapshot = carregarRascunhoPedidoRapidoLocal();
+  if (!snapshot) return false;
+  const restaurado = aplicarRascunhoPedidoRapidoLocal(snapshot);
+  if (restaurado && !quickOrderDraftRestoredNoticeShown) {
+    quickOrderDraftRestoredNoticeShown = true;
+    mostrarToast("Rascunho do pedido recuperado neste dispositivo.", "info", 3600);
+  }
+  return restaurado;
+}
+
+function recuperarPedidoRapidoAposReabertura() {
+  if (!getUsuarioAtual()) return;
+  const snapshot = carregarRascunhoPedidoRapidoLocal();
+  if (!snapshot) return;
+  if (snapshot.open) {
+    aplicarRascunhoPedidoRapidoLocal(snapshot);
+    setTimeout(() => abrirPedidoRapidoOperacional(), 260);
+    return;
+  }
+  if (!quickOrderDraftRestoredNoticeShown) {
+    quickOrderDraftRestoredNoticeShown = true;
+    mostrarToast("Há um rascunho de Pedido Rápido salvo. Abra Novo pedido para continuar.", "info", 4200);
+  }
+}
+
+function limparRascunhoPedidoRapidoLocal() {
+  try {
+    if (quickOrderDraftTimer) {
+      clearTimeout(quickOrderDraftTimer);
+      quickOrderDraftTimer = null;
+    }
+    localStorage.removeItem(getChaveRascunhoPedidoRapido());
+  } catch (erro) {
+    registrarDiagnostico("Pedidos", "Falha ao limpar rascunho local do pedido rápido", erro.message || String(erro));
+  }
+}
+
+async function limparRascunhoPedidoRapido() {
+  if (pedidoRapidoTemRascunho()) {
+    const continuar = await solicitarConfirmacaoAcao({
+      titulo: "Limpar rascunho",
+      mensagem: "Deseja limpar o rascunho atual do Pedido Rápido?",
+      cancelar: "Voltar",
+      confirmar: "Limpar rascunho",
+      perigo: true
+    });
+    if (!continuar) {
+      const popup = document.getElementById("popup");
+      if (popup) popup.innerHTML = renderPedidoRapidoOperacional();
+      return;
+    }
+  }
+  itensPedido = [];
+  clientePedido = "";
+  clienteTelefonePedido = "";
+  clienteEmailPedido = "";
+  observacaoPedido = "";
+  prazoPedido = "";
+  entradaPedido = 0;
+  pedidoEditando = null;
+  pedidoEditandoOriginal = null;
+  selectedCustomerSuggestion = null;
+  customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
+  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+  quickOrderStatusDraft = "";
+  window.__pedidoItemSelecionado = null;
+  limparRascunhoPedidoRapidoLocal();
+  const popup = document.getElementById("popup");
+  if (popup) {
+    popup.innerHTML = renderPedidoRapidoOperacional();
+    focarCampoOperacional("clienteNome");
+  } else {
+    atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+  }
+}
+
+function sincronizarItemRapidoDraft() {
+  const nomeCampo = document.getElementById("quickItemNome");
+  if (!nomeCampo) return;
+  quickOrderItemDraft = {
+    nome: String(nomeCampo.value || "").trim(),
+    qtd: String(document.getElementById("quickItemQtd")?.value || "1"),
+    valor: String(document.getElementById("quickItemValor")?.value || ""),
+    tempoHoras: String(document.getElementById("quickItemTempo")?.value || "")
+  };
+}
+
+function sincronizarPedidoRapidoOperacional({ syncItemDraft = true } = {}) {
+  clientePedido = String(document.getElementById("clienteNome")?.value || clientePedido || "").trim();
+  clienteTelefonePedido = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido || "");
+  clienteEmailPedido = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
+  observacaoPedido = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
+  prazoPedido = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
+  entradaPedido = Math.max(0, numeroMonetarioPedido(document.getElementById("pedidoEntrada")?.value ?? entradaPedido, 0));
+  quickOrderStatusDraft = String(document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || pedidoEditando?.status || "aberto");
+  if (syncItemDraft) sincronizarItemRapidoDraft();
+  agendarSalvarRascunhoPedidoRapido();
+}
+
+function focarCampoOperacional(id) {
+  setTimeout(() => {
+    const campo = document.getElementById(id);
+    if (!campo) return;
+    campo.focus();
+    campo.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }, 60);
+}
+
+function focoProximoCampoOperacional(id) {
+  const ordem = ["clienteNome", "clienteTelefone", "quickItemNome", "quickItemQtd", "quickItemValor", "quickItemTempo", "pedidoEntrada"];
+  const atual = ordem.indexOf(id);
+  const proximo = ordem[atual + 1] || "quickItemNome";
+  focarCampoOperacional(proximo);
+}
+
+function gerenciarTecladoPedidoRapido(event) {
+  if (!event) return;
+  const alvo = event.target;
+  const id = alvo?.id || "";
+  if (event.key === "Escape") {
+    event.preventDefault();
+    fecharPopup();
+    return;
+  }
+  if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault();
+    salvarPedidoRapidoOperacional(event);
+    return;
+  }
+  if (event.key !== "Enter" || event.shiftKey) return;
+  if (alvo?.tagName === "TEXTAREA") return;
+  if (["quickItemNome", "quickItemQtd", "quickItemValor", "quickItemTempo"].includes(id)) {
+    event.preventDefault();
+    fecharSugestoesClientePedido();
+    adicionarItemRapidoOperacional(event).then((ok) => {
+      if (ok) focarCampoOperacional("quickItemNome");
+    });
+    return;
+  }
+  if (["clienteNome", "clienteTelefone", "clienteEmail"].includes(id)) {
+    event.preventDefault();
+    focoProximoCampoOperacional(id);
+  }
+}
+
+function renderPedidoRapidoTimeline(status = "aberto") {
+  const statusAtual = String(status || "aberto").toLowerCase();
+  const etapas = [
+    { id: "aberto", label: "Criado" },
+    { id: "producao", label: "Produção" },
+    { id: "pronto", label: "Pronto" },
+    { id: "entregue", label: "Entregue" },
+    { id: "pago", label: "Pago" }
+  ];
+  const indiceAtual = Math.max(0, etapas.findIndex((etapa) => etapa.id === statusAtual));
+  return `
+    <div class="order-operational-timeline" aria-label="Linha do tempo do pedido">
+      ${etapas.map((etapa, index) => `
+        <span class="${index <= indiceAtual ? "done" : ""}">
+          <i></i>
+          <small>${escaparHtml(etapa.label)}</small>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderPedidoRapidoOperacional() {
+  const total = normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+  const resumo = calcularResumoFinanceiroPedido({
+    itens: itensPedido,
+    subtotalItens: total,
+    desconto: valorDescontoPedido(pedidoEditando || {}),
+    down_payment: entradaPedido
+  });
+  const statusAtual = pedidoEditando?.status || document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || "aberto";
+  const itensHtml = itensPedido.length
+    ? `<div class="quick-order-items">${normalizarItensPedido(itensPedido).map((item, index) => `
+        <article>
+          <span>${index + 1}</span>
+          <div>
+            <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
+            <small>Qtd ${Number(item.qtd) || 1} • ${formatarMoeda(Number(item.valor) || 0)} un. • ${Number(item.tempoHoras || 0).toFixed(2)}h</small>
+          </div>
+          <b>${formatarMoeda(Number(item.total) || 0)}</b>
+          <button class="icon-action-button" type="button" onclick="duplicarItemPedidoRapido(${index})" title="Duplicar item">${renderIconeAcaoPedido("▣", "Duplicar")}</button>
+          <button class="icon-action-button danger" type="button" onclick="removerItemRapidoOperacional(${index})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
+        </article>
+      `).join("")}</div>`
+    : renderAppEmptyState({
+        title: "Nenhum item ainda",
+        description: "Adicione um item manual ou use a calculadora inline para continuar sem sair do fluxo."
+      });
+
+  return `
+    <div class="modal-backdrop operational-drawer-backdrop" role="dialog" aria-modal="true">
+      <section class="modal-card operational-drawer quick-order-drawer">
+        <div class="modal-header">
+          <div>
+            <h2>${pedidoEditando ? "Editar pedido rápido" : "Pedido rápido"}</h2>
+            <p class="muted">Cliente, item, entrada e status em um fluxo contínuo.</p>
+            <div class="operational-shortcuts">
+              <span>Enter adiciona item</span>
+              <span>Ctrl+Enter salva</span>
+              <span>Esc fecha</span>
+            </div>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="quick-order-layout">
+          <form class="quick-order-form" id="quickOrderForm" onsubmit="salvarPedidoRapidoOperacional(event)" onkeydown="gerenciarTecladoPedidoRapido(event)">
+            <section class="quick-order-section">
+              <div class="quick-order-section-title">
+                <span>1</span>
+                <strong>Cliente rápido</strong>
+              </div>
+              <div class="form-grid">
+                <label class="field customer-field">
+                  <span>Cliente</span>
+                  <input id="clienteNome" value="${escaparAttr(clientePedido)}" placeholder="Nome do cliente" autocomplete="off" oninput="atualizarClientePedido(this.value)">
+                  <div id="customerSuggestionPanel">${renderCustomerSuggestions()}</div>
+                </label>
+                <label class="field">
+                  <span>WhatsApp</span>
+                  <input id="clienteTelefone" inputmode="tel" value="${escaparAttr(clienteTelefonePedido)}" placeholder="5585999999999" oninput="atualizarTelefoneClientePedido(this.value)">
+                </label>
+                <label class="field">
+                  <span>E-mail</span>
+                  <input id="clienteEmail" inputmode="email" value="${escaparAttr(clienteEmailPedido)}" placeholder="cliente@email.com" oninput="atualizarEmailClientePedido(this.value)">
+                </label>
+              </div>
+            </section>
+
+            <section class="quick-order-section">
+              <div class="quick-order-section-title">
+                <span>2</span>
+                <strong>Adicionar item</strong>
+              </div>
+              <div class="quick-item-grid">
+                <label class="field">
+                  <span>Item</span>
+                  <input id="quickItemNome" value="${escaparAttr(quickOrderItemDraft.nome)}" placeholder="Ex.: suporte personalizado" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
+                </label>
+                <label class="field">
+                  <span>Qtd</span>
+                  <input id="quickItemQtd" type="number" min="1" step="1" value="${escaparAttr(quickOrderItemDraft.qtd || "1")}" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
+                </label>
+                <label class="field">
+                  <span>Valor un.</span>
+                  <input id="quickItemValor" type="number" min="0" step="0.01" value="${escaparAttr(quickOrderItemDraft.valor)}" placeholder="0,00" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
+                </label>
+                <label class="field">
+                  <span>Horas</span>
+                  <input id="quickItemTempo" type="number" min="0" step="0.01" value="${escaparAttr(quickOrderItemDraft.tempoHoras)}" placeholder="0" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
+                </label>
+              </div>
+              <div class="actions quick-order-inline-actions">
+                <button class="btn secondary" type="button" onclick="fecharSugestoesClientePedido();adicionarItemRapidoOperacional(event)">${renderIconeAcaoPedido("✚", "Adicionar")} Adicionar item</button>
+                ${quickOrderLastItem ? `<button class="btn ghost" type="button" onclick="repetirUltimoItemPedidoRapido()">${renderIconeAcaoPedido("▣", "Duplicar")} Repetir último</button>` : ""}
+                <button class="btn ghost" type="button" onclick="abrirCalculadoraPedidoRapido()">${renderUiIcon("calculadora")} Calculadora inline</button>
+              </div>
+            </section>
+
+            <section class="quick-order-section">
+              <div class="quick-order-section-title">
+                <span>3</span>
+                <strong>Entrada e status</strong>
+              </div>
+              <div class="form-grid">
+                <label class="field">
+                  <span>Entrada / sinal</span>
+                  <input id="pedidoEntrada" type="number" min="0" step="0.01" value="${resumo.entrada > 0 ? resumo.entrada.toFixed(2) : ""}" placeholder="0,00" oninput="atualizarEntradaPedido(this.value); atualizarPedidoRapidoResumo()">
+                </label>
+                <label class="field">
+                  <span>Prazo</span>
+                  <input id="pedidoPrazo" type="date" value="${escaparAttr(prazoPedido || pedidoEditando?.prazo || pedidoEditando?.dataPrazo || "")}" oninput="atualizarPrazoPedido(this.value)">
+                </label>
+                <label class="field">
+                  <span>Status</span>
+                  <select id="pedidoStatus" onchange="atualizarPedidoRapidoOperacional()">
+                    ${["aberto", "producao", "pronto", "entregue", "pago"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span>Observação</span>
+                <textarea id="pedidoObservacao" rows="2" placeholder="Cor, acabamento, prazo combinado" oninput="atualizarObservacaoPedido(this.value)">${escaparHtml(observacaoPedido || pedidoEditando?.observacao || pedidoEditando?.observacoes || "")}</textarea>
+              </label>
+            </section>
+          </form>
+
+          <aside class="quick-order-summary">
+            <div>
+              <span class="status-badge ${classeStatusPedido(statusAtual)}">${escaparHtml(labelStatusPedido(statusAtual))}</span>
+              <h3>Resumo operacional</h3>
+              <p class="muted">Revise tudo sem perder o contexto do dashboard.</p>
+            </div>
+            ${renderPedidoRapidoTimeline(statusAtual)}
+            ${itensHtml}
+            <div class="order-financial-summary compact quick-order-finance" data-quick-order-summary>
+              <div><span>Subtotal</span><strong>${formatarMoeda(resumo.subtotal)}</strong></div>
+              <div><span>Entrada</span><strong>${formatarMoeda(resumo.entrada)}</strong></div>
+              <div><span>Restante</span><strong>${formatarMoeda(resumo.restante)}</strong></div>
+              <div><span>Total</span><strong>${formatarMoeda(resumo.total)}</strong></div>
+            </div>
+            <div class="actions quick-order-final-actions">
+              <button class="btn ghost" type="button" onclick="limparRascunhoPedidoRapido()">Limpar</button>
+              <button class="btn secondary" type="button" onclick="continuarPedidoRapidoOperacional()">Continuar no editor</button>
+              <button class="btn" type="submit" form="quickOrderForm" ${pedidoSalvando || quickOrderSaveLock ? "disabled" : ""}>${pedidoSalvando || quickOrderSaveLock ? "Salvando..." : "Salvar pedido"}</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function abrirPedidoRapidoOperacional({ reset = false } = {}) {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para criar pedidos.")) return;
+  if (!reset) restaurarRascunhoPedidoRapidoSeDisponivel();
+  if (reset || !pedidoRapidoTemRascunho()) {
+    if (reset) limparRascunhoPedidoRapidoLocal();
+    pedidoEditando = null;
+    pedidoEditandoOriginal = null;
+    itensPedido = [];
+    clientePedido = "";
+    clienteTelefonePedido = "";
+    clienteEmailPedido = "";
+    observacaoPedido = "";
+    prazoPedido = "";
+    entradaPedido = 0;
+    quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+    quickOrderStatusDraft = "";
+    selectedCustomerSuggestion = null;
+    window.__pedidoItemSelecionado = null;
+    customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
+  }
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = renderPedidoRapidoOperacional();
+  setTimeout(() => document.getElementById("clienteNome")?.focus(), 80);
+}
+
+function atualizarPedidoRapidoOperacional(options = {}) {
+  const popup = document.getElementById("popup");
+  if (!popup?.querySelector(".quick-order-drawer")) return;
+  sincronizarPedidoRapidoOperacional(options);
+  popup.innerHTML = renderPedidoRapidoOperacional();
+}
+
+function atualizarPedidoRapidoResumo() {
+  sincronizarPedidoRapidoOperacional();
+  const popup = document.getElementById("popup");
+  const alvo = popup?.querySelector("[data-quick-order-summary]");
+  if (!alvo) return;
+  const subtotal = normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
+  const resumo = calcularResumoFinanceiroPedido({
+    itens: itensPedido,
+    subtotalItens: subtotal,
+    desconto: valorDescontoPedido(pedidoEditando || {}),
+    down_payment: entradaPedido
+  });
+  alvo.innerHTML = `
+    <div><span>Subtotal</span><strong>${formatarMoeda(resumo.subtotal)}</strong></div>
+    <div><span>Entrada</span><strong>${formatarMoeda(resumo.entrada)}</strong></div>
+    <div><span>Restante</span><strong>${formatarMoeda(resumo.restante)}</strong></div>
+    <div><span>Total</span><strong>${formatarMoeda(resumo.total)}</strong></div>
+  `;
+}
+
+async function adicionarItemRapidoOperacional(event = null, { silent = false } = {}) {
+  event?.preventDefault?.();
+  sincronizarPedidoRapidoOperacional();
+  const nome = String(quickOrderItemDraft.nome || "").trim();
+  const valorCampo = quickOrderItemDraft.valor;
+  if (!nome && !valorCampo) {
+    if (!silent) mostrarToast("Informe o item e o valor para adicionar.", "aviso", 3000);
+    return false;
+  }
+  const item = {
+    nome,
+    tipoImpressao: "FDM",
+    qtd: Math.max(1, Number(quickOrderItemDraft.qtd) || 1),
+    valor: numeroMonetarioPedido(valorCampo, 0),
+    tempoHoras: Math.max(0, Number(quickOrderItemDraft.tempoHoras) || 0),
+    materiais: []
+  };
+  item.total = item.valor * item.qtd;
+  const validacao = validarItemPedidoParaSalvar(item);
+  if (!validacao.ok) {
+    if (!silent) mostrarToast(validacao.reason || "Revise o item.", "erro", 3600);
+    return false;
+  }
+  if (!await consumirCreditoAcaoFree("adicionar_item", "adicionar item ao pedido")) return false;
+  itensPedido.push({ ...validacao.item, id: validacao.item.id || "item-" + Date.now().toString(36) });
+  window.__pedidoItemSelecionado = itensPedido.length - 1;
+  quickOrderLastItem = JSON.parse(JSON.stringify(validacao.item));
+  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+  registrarEventoUsoLocal("item_adicionado", { produto: validacao.item.nome, modo: "pedido_rapido" });
+  if (!silent) mostrarToast("Item adicionado ao pedido rápido.", "sucesso", 2200);
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+  return true;
+}
+
+function removerItemRapidoOperacional(index) {
+  const indice = Number(index);
+  if (!Number.isInteger(indice) || !itensPedido[indice]) return;
+  itensPedido.splice(indice, 1);
+  window.__pedidoItemSelecionado = itensPedido.length ? Math.max(0, Math.min(indice, itensPedido.length - 1)) : null;
+  atualizarPedidoRapidoOperacional();
+}
+
+async function duplicarItemPedidoRapido(index) {
+  const indice = Number(index);
+  const origem = Number.isInteger(indice) ? normalizarItensPedido(itensPedido)[indice] : null;
+  if (!origem) return;
+  if (!await consumirCreditoAcaoFree("adicionar_item", "duplicar item do pedido")) return;
+  const copia = normalizarItemPedido(JSON.parse(JSON.stringify({
+    ...origem,
+    id: "item-" + Date.now().toString(36),
+    nome: origem.nome || "Item duplicado"
+  })));
+  itensPedido.splice(indice + 1, 0, copia);
+  window.__pedidoItemSelecionado = indice + 1;
+  quickOrderLastItem = JSON.parse(JSON.stringify(copia));
+  mostrarToast("Item duplicado no pedido rápido.", "sucesso", 2200);
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+}
+
+async function repetirUltimoItemPedidoRapido() {
+  if (!quickOrderLastItem) {
+    mostrarToast("Nenhum item recente para repetir.", "aviso", 2600);
+    return;
+  }
+  if (!await consumirCreditoAcaoFree("adicionar_item", "repetir item do pedido")) return;
+  const copia = normalizarItemPedido(JSON.parse(JSON.stringify({
+    ...quickOrderLastItem,
+    id: "item-" + Date.now().toString(36)
+  })));
+  itensPedido.push(copia);
+  window.__pedidoItemSelecionado = itensPedido.length - 1;
+  mostrarToast("Último item repetido.", "sucesso", 2200);
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+}
+
+async function salvarPedidoRapidoOperacional(event) {
+  event?.preventDefault?.();
+  if (quickOrderSaveLock || pedidoSalvando) {
+    mostrarToast("Salvamento em andamento. Aguarde concluir.", "info", 2200);
+    return;
+  }
+  quickOrderSaveLock = true;
+  try {
+    sincronizarPedidoRapidoOperacional();
+    salvarRascunhoPedidoRapidoLocal({ force: true });
+    if (!clientePedido) {
+      mostrarToast("Informe o cliente para salvar o pedido rápido.", "aviso", 3200);
+      focarCampoOperacional("clienteNome");
+      return;
+    }
+    const temItemPendente = String(quickOrderItemDraft.nome || "").trim() || String(quickOrderItemDraft.valor || "").trim();
+    if (temItemPendente) {
+      const adicionado = await adicionarItemRapidoOperacional(null, { silent: false });
+      if (!adicionado) return;
+    }
+    if (!itensPedido.length) {
+      mostrarToast("Adicione pelo menos um item antes de salvar.", "aviso", 3200);
+      focarCampoOperacional("quickItemNome");
+      return;
+    }
+    await fecharPedido();
+    if (!pedidoEditando && !itensPedido.length && !clientePedido) fecharPopup();
+    else atualizarPedidoRapidoOperacional();
+  } finally {
+    quickOrderSaveLock = false;
+  }
+}
+
+function continuarPedidoRapidoOperacional() {
+  sincronizarPedidoRapidoOperacional();
+  fecharPopup();
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  window.__simplificaUiTabs.pedidoEditor = itensPedido.length ? "itens" : "cliente";
+  trocarTela("pedido");
+}
+
+function abrirCalculadoraPedidoRapido() {
+  sincronizarPedidoRapidoOperacional();
+  fecharPopup();
+  openCalculatorForOrder();
+}
+
+function abrirCaixaRapidoOperacional(tipoInicial = "entrada") {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para lançar no caixa.")) return;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const tipo = String(tipoInicial || "entrada").toLowerCase() === "saida" ? "saida" : "entrada";
+  popup.innerHTML = `
+    <div class="modal-backdrop operational-drawer-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card operational-drawer quick-cash-drawer" id="quickCashForm" onsubmit="salvarCaixaRapidoOperacional(event)">
+        <div class="modal-header">
+          <div>
+            <h2>${renderUiIcon("caixa")} Lançamento rápido</h2>
+            <p class="muted">Entrada ou saída sem sair do fluxo atual.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="quick-operation-grid">
+          <label class="field">
+            <span>Tipo</span>
+            <select id="caixaTipo">
+              <option value="entrada" ${tipo === "entrada" ? "selected" : ""}>Entrada</option>
+              <option value="saida" ${tipo === "saida" ? "selected" : ""}>Saída</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Valor</span>
+            <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00" required>
+          </label>
+          <label class="field wide-field">
+            <span>Descrição</span>
+            <input id="caixaDescricao" placeholder="Ex.: pagamento, material, ferramenta">
+          </label>
+        </div>
+        <div class="quick-operation-summary">
+          <span><small>Saldo atual</small><strong>${formatarMoeda(calcularTotaisCaixa().saldo)}</strong></span>
+          <span><small>Entradas</small><strong>${formatarMoeda(calcularTotaisCaixa().entradas)}</strong></span>
+          <span><small>Saídas</small><strong>${formatarMoeda(calcularTotaisCaixa().saidas)}</strong></span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" onclick="trocarTela('caixa');fecharPopup()">Abrir caixa completo</button>
+          <button class="btn" type="submit">Lançar movimento</button>
+        </div>
+      </form>
+    </div>
+  `;
+  setTimeout(() => document.getElementById("caixaValor")?.focus(), 80);
+}
+
+async function salvarCaixaRapidoOperacional(event) {
+  event?.preventDefault?.();
+  if (quickCashSaveLock) {
+    mostrarToast("Lançamento em andamento. Aguarde concluir.", "info", 2200);
+    return;
+  }
+  quickCashSaveLock = true;
+  try {
+    const tipo = document.getElementById("caixaTipo")?.value || "entrada";
+    const valor = numeroMonetarioPedido(document.getElementById("caixaValor")?.value, 0);
+    const descricao = String(document.getElementById("caixaDescricao")?.value || "").trim();
+    if (valor <= 0) {
+      mostrarToast("Informe um valor maior que zero para lançar no caixa.", "aviso", 3200);
+      focarCampoOperacional("caixaValor");
+      return;
+    }
+    if (tipo === "saida" && !descricao) {
+      mostrarToast("Informe a descrição para registrar uma saída.", "aviso", 3200);
+      focarCampoOperacional("caixaDescricao");
+      return;
+    }
+    const totalAntes = caixa.length;
+    await adicionarMovimentoCaixa();
+    if (caixa.length > totalAntes) {
+      fecharPopup();
+      mostrarToast("Movimento lançado no caixa.", "sucesso", 2600);
+    }
+  } finally {
+    quickCashSaveLock = false;
+  }
+}
+
+function abrirEstoqueRapidoOperacional() {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop operational-drawer-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card operational-drawer quick-stock-drawer" id="quickStockForm" onsubmit="salvarEstoqueRapidoOperacional(event)">
+        <div class="modal-header">
+          <div>
+            <h2>${renderUiIcon("estoque")} Entrada rápida no estoque</h2>
+            <p class="muted">Cadastre ou reponha material sem abrir outra tela.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="quick-operation-grid">
+          <label class="field">
+            <span>Tipo de material</span>
+            <select id="matTipo">
+              ${tiposMaterial.map((tipo) => `<option value="${tipo}">${tipo}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>Cor</span>
+            <input id="matCor" placeholder="Escolha na paleta" readonly>
+            ${renderPaletaCoresMaterial("matCor")}
+          </label>
+          <label class="field">
+            <span>Quantidade em kg</span>
+            <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5" required>
+          </label>
+        </div>
+        <div class="quick-operation-summary">
+          <span><small>Itens cadastrados</small><strong>${normalizarEstoque().length}</strong></span>
+          <span><small>Estoque baixo</small><strong>${normalizarEstoque().filter((item) => Number(item.qtd || 0) <= estoqueMinimoKg).length}</strong></span>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" onclick="trocarTela('estoque');fecharPopup()">Abrir estoque completo</button>
+          <button class="btn" type="submit">Adicionar ao estoque</button>
+        </div>
+      </form>
+    </div>
+  `;
+  setTimeout(() => document.getElementById("matQtd")?.focus(), 80);
+}
+
+async function salvarEstoqueRapidoOperacional(event) {
+  event?.preventDefault?.();
+  if (quickStockSaveLock) {
+    mostrarToast("Atualização de estoque em andamento. Aguarde concluir.", "info", 2200);
+    return;
+  }
+  quickStockSaveLock = true;
+  try {
+    const qtd = numeroMonetarioPedido(document.getElementById("matQtd")?.value, 0);
+    if (qtd <= 0) {
+      mostrarToast("Informe uma quantidade maior que zero para atualizar o estoque.", "aviso", 3200);
+      focarCampoOperacional("matQtd");
+      return;
+    }
+    const estadoAntes = JSON.stringify(normalizarEstoque());
+    await addMaterial();
+    if (JSON.stringify(normalizarEstoque()) !== estadoAntes) {
+      fecharPopup();
+      mostrarToast("Estoque atualizado.", "sucesso", 2600);
+    }
+  } finally {
+    quickStockSaveLock = false;
+  }
 }
 
 function fixarAtalhoRapido(id, fixar = true, manterPopup = false) {
@@ -28346,6 +31848,13 @@ function configurarEventListenersArquitetura() {
     if (acao === "open-screen") {
       event.preventDefault();
       trocarTela(elemento.dataset.screen || "dashboard");
+      return;
+    }
+
+    if (acao === "open-quick-order") {
+      event.preventDefault();
+      event.stopPropagation();
+      abrirPedidoRapidoOperacional();
       return;
     }
 
@@ -29877,6 +33386,13 @@ function processarParametrosAssinaturaUrl() {
 }
 
 function processarRotaPublicaLegal() {
+  const publicRoute = parseStorefrontPublicRoute(location.pathname);
+  if (publicRoute) {
+    storefrontPublicRouteState = publicRoute;
+    storefrontPublicLastPath = getStorefrontPublicRoutePath(publicRoute);
+    telaAtual = "lojaPublica";
+    return;
+  }
   const rota = String(location.pathname || "").replace(/\/+$/, "").toLowerCase();
   if (rota === "/privacy" || rota === "/privacidade") {
     telaAtual = "privacy";
@@ -29975,12 +33491,14 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("pagehide", () => {
+  salvarRascunhoPedidoRapidoLocal({ force: true });
   salvarCacheSessaoLocal();
   salvarDados();
 });
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
+    salvarRascunhoPedidoRapidoLocal({ force: true });
     salvarCacheSessaoLocal();
     salvarDados();
     cancelarHibernacaoIALocal();
@@ -29994,8 +33512,19 @@ document.addEventListener("visibilitychange", () => {
 });
 
 window.addEventListener("online", () => {
+  atualizarIndicadorSincronizacao("syncing", "Reconectando");
+  mostrarToast("Conexão restaurada. Sincronizando alterações pendentes.", "info", 3200);
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
   sincronizarAlteracoesLocaisSilencioso("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
+});
+
+window.addEventListener("offline", () => {
+  salvarRascunhoPedidoRapidoLocal({ force: true });
+  recomporFilaSyncPendente();
+  syncConfig.autoBackupStatus = "Offline - fila pendente";
+  salvarDados();
+  atualizarIndicadorSincronizacao("pending", "Offline");
+  mostrarToast("Sem internet. O app manterá rascunhos e alterações locais.", "aviso", 4200);
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -30004,6 +33533,8 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();
+  configurarAtalhosOperacionais();
+  configurarViewportOperacionalMobile();
   configurarNavegacaoInternaApp();
   configurarProtecaoGestosMobile();
   processarRotaPublicaLegal();
@@ -30015,6 +33546,7 @@ document.addEventListener("DOMContentLoaded", () => {
         telaAtual = "admin";
       }
       renderApp();
+      recuperarPedidoRapidoAposReabertura();
       aquecerIALocalEmSegundoPlano("startup");
     }
   });
