@@ -8097,6 +8097,23 @@ function isStorefrontFeatureEnabled(flags = getStorefrontRuntimeFlags()) {
   return flags.enabledByEnv || flags.enabledByRemote || flags.devOverride;
 }
 
+function registrarStorefrontDebugLeve(evento, detalhe = "", extra = {}) {
+  try {
+    const payload = {
+      evento,
+      detalhe,
+      extra,
+      tela: telaAtual || "",
+      at: new Date().toISOString()
+    };
+    console.warn(`[Storefront] ${evento}: ${detalhe}`, extra || "");
+    const key = "simplifica-storefront-debug-v1";
+    const current = JSON.parse(localStorage.getItem(key) || "[]");
+    current.unshift(payload);
+    localStorage.setItem(key, JSON.stringify(current.slice(0, 40)));
+  } catch (_) {}
+}
+
 function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getStorefrontRuntimeFlags()) {
   const email = normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
   const permitidos = new Set([
@@ -8124,12 +8141,23 @@ function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
 }
 
 function canAccessStorefrontAdmin(usuario = getUsuarioAtual(), plan = getPlanoAtual(usuario), flags = getStorefrontRuntimeFlags()) {
-  if (!usuario) return false;
-  if (!isStorefrontFeatureEnabled(flags)) return false;
-  if (!isStorefrontAllowedTestUser(usuario, flags)) return false;
+  if (!usuario) {
+    registrarStorefrontDebugLeve("sessao_perdida", "Acesso ao admin da loja sem usuário autenticado.");
+    return false;
+  }
   if (isSuperAdmin(usuario)) return true;
   const limits = getStorefrontLimitsLocal(plan?.slug);
-  return limits.enabled === true || flags.betaAllowedByRemote === true || flags.devOverride === true;
+  if (limits.enabled === true) return true;
+  if (flags.devOverride === true && isAmbienteLocal()) return true;
+  if (!isStorefrontFeatureEnabled(flags)) {
+    registrarStorefrontDebugLeve("feature_flag_desligada", "Loja Online contextual bloqueada pela feature flag.");
+    return false;
+  }
+  registrarStorefrontDebugLeve("plano_bloqueado", "Loja Online contextual liberada apenas para PRO e Super Admin.", {
+    plan: plan?.slug || "free",
+    email: normalizarEmail(usuario?.email || "")
+  });
+  return false;
 }
 
 function canUseStorefrontLocal(usuario = getUsuarioAtual()) {
@@ -13229,6 +13257,11 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } 
   });
   if (!resposta.ok) {
     const text = await resposta.text().catch(() => "");
+    registrarStorefrontDebugLeve("upload_falhou", "Falha ao enviar imagem da Loja Online.", {
+      tipo,
+      status: resposta.status,
+      store_id: store.id
+    });
     throw new Error(text || "Erro ao enviar imagem. Tente novamente.");
   }
   return `${base}/storage/v1/object/public/storefront-assets/${path}`;
@@ -13264,6 +13297,7 @@ async function sincronizarLojaOnlineAdminRemoto(force = false) {
     }
   } catch (error) {
     if (force) mostrarToast("Não foi possível sincronizar a Loja Online agora.", "erro", 3600);
+    registrarStorefrontDebugLeve("persistencia_falhou", "Sincronização remota da Loja Online falhou.", { message: error?.message || String(error) });
     console.warn("[Storefront admin] sync failed", error);
   }
 }
@@ -13373,6 +13407,7 @@ async function salvarStorefrontAparencia(event) {
     renderApp();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar a aparência.", "erro", 4200);
+    registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar aparência da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar aparência", error);
   } finally {
     setBotaoLoading(botao, false);
@@ -13396,6 +13431,7 @@ async function alternarStatusLojaOnline() {
     mostrarToast(next.active ? "Loja ativada em modo controlado." : "Loja desativada.", "sucesso", 2600);
   } catch (error) {
     mostrarToast("Status salvo localmente, mas não sincronizado.", "erro", 3200);
+    registrarStorefrontDebugLeve("save_falhou", "Falha ao sincronizar status da loja.", { message: error?.message || String(error) });
   }
   renderApp();
 }
@@ -13442,6 +13478,7 @@ async function salvarCategoriaLojaOnline(event) {
     renderApp();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar a categoria.", "erro", 4200);
+    registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar categoria da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar categoria", error);
   } finally {
     setBotaoLoading(botao, false);
@@ -13528,6 +13565,7 @@ async function salvarProdutoLojaOnline(event) {
     renderApp();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar o produto.", "erro", 4200);
+    registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar produto da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar produto", error);
   } finally {
     setBotaoLoading(botao, false);
@@ -14021,6 +14059,12 @@ function getStorefrontPublicMode(vm = null) {
   const requested = params.get("admin") === "1";
   const route = vm?.route || getStorefrontPublicRoute();
   const owner = requested && isStorefrontOwnerForSlug(route.slug, vm);
+  if (requested && !owner) {
+    registrarStorefrontDebugLeve("owner_invalido", "Modo admin contextual solicitado sem sessão/propriedade válida.", {
+      slug: route.slug || "",
+      hasUser: !!getUsuarioAtual()
+    });
+  }
   return {
     requested,
     admin: owner,
@@ -14587,7 +14631,8 @@ function renderLojaOnlinePublica() {
       </main>
     `;
   }
-  if (vm.store.active !== true && !vm.store.__demo) {
+  const mode = getStorefrontPublicMode(vm);
+  if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
     return `
       <main class="store-public-shell">
         <section class="store-public-not-found">
@@ -14618,7 +14663,6 @@ function renderLojaOnlinePublica() {
       : "";
   const catalog = category ? vm.products.filter((product) => String(product.category_id) === String(category.id)) : vm.products;
   atualizarSeoLojaPublica(vm, productDetail);
-  const mode = getStorefrontPublicMode(vm);
   sincronizarAdminLocalComLojaPublica(vm);
 
   return `
@@ -14864,6 +14908,7 @@ async function registrarLeadLojaPublica(vm, product, lead = {}) {
       return;
     }
   } catch (error) {
+    registrarStorefrontDebugLeve("lead_falhou", "Lead de produto não foi salvo no Supabase; fallback local será usado.", { message: error?.message || String(error) });
     console.warn("[Storefront public] lead best-effort failed", error);
   }
   try {
@@ -14872,7 +14917,9 @@ async function registrarLeadLojaPublica(vm, product, lead = {}) {
     localStorage.setItem(STOREFRONT_PUBLIC_LEADS_KEY, JSON.stringify(current.slice(0, 120)));
     const adminLeads = getStorefrontPreviewLeadsLocal();
     storefrontAdminWrite("simplifica-storefront-leads-preview-v1", [{ ...payload, id: `public-lead-${Date.now()}`, created_at: new Date().toISOString() }, ...adminLeads].slice(0, 120));
-  } catch (_) {}
+  } catch (error) {
+    registrarStorefrontDebugLeve("persistencia_falhou", "Fallback local do lead de produto falhou.", { message: error?.message || String(error) });
+  }
 }
 
 async function registrarLeadCarrinhoLojaPublica(vm, summary, lead = {}) {
@@ -14899,6 +14946,7 @@ async function registrarLeadCarrinhoLojaPublica(vm, summary, lead = {}) {
       return;
     }
   } catch (error) {
+    registrarStorefrontDebugLeve("lead_falhou", "Lead do carrinho não foi salvo no Supabase; fallback local será usado.", { message: error?.message || String(error) });
     console.warn("[Storefront public] cart lead best-effort failed", error);
   }
   try {
@@ -14908,7 +14956,9 @@ async function registrarLeadCarrinhoLojaPublica(vm, summary, lead = {}) {
     const adminLeads = getStorefrontPreviewLeadsLocal();
     storefrontAdminWrite("simplifica-storefront-leads-preview-v1", [localLead, ...adminLeads].slice(0, 120));
     setStorefrontPublicCart([]);
-  } catch (_) {}
+  } catch (error) {
+    registrarStorefrontDebugLeve("persistencia_falhou", "Fallback local do lead do carrinho falhou.", { message: error?.message || String(error) });
+  }
 }
 
 async function registrarEventoLojaPublica(eventType, metadata = {}, options = {}) {
@@ -14925,6 +14975,10 @@ async function registrarEventoLojaPublica(eventType, metadata = {}, options = {}
       return;
     }
   } catch (error) {
+    registrarStorefrontDebugLeve("persistencia_falhou", "Evento da loja pública não foi registrado no Supabase; fallback local será usado.", {
+      eventType,
+      message: error?.message || String(error)
+    });
     if (!options.silent) console.warn("[Storefront public] event failed", error);
   }
   try {
