@@ -13968,6 +13968,7 @@ function renderStorefrontPreview(vm, options = {}) {
 const STOREFRONT_PUBLIC_CACHE_PREFIX = "simplifica-storefront-public-cache-v1:";
 const STOREFRONT_PUBLIC_LEADS_KEY = "simplifica-storefront-public-leads-v1";
 const STOREFRONT_PUBLIC_EVENTS_KEY = "simplifica-storefront-public-events-v1";
+const STOREFRONT_PUBLIC_CART_KEY = "simplifica-storefront-public-cart-v1";
 
 function parseStorefrontAdminRoute(pathname = location.pathname) {
   const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
@@ -14069,6 +14070,17 @@ function getStorefrontProductImage(product = {}, images = []) {
   return images.find((item) => String(item.product_id) === String(product.id))?.image_url || product.image_url || product.images?.[0] || "";
 }
 
+function getStorefrontProductImages(product = {}, images = []) {
+  const gallery = images
+    .filter((item) => String(item.product_id) === String(product.id))
+    .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))
+    .map((item) => item.image_url)
+    .filter(Boolean);
+  if (product.image_url) gallery.unshift(product.image_url);
+  if (Array.isArray(product.images)) gallery.push(...product.images.filter(Boolean));
+  return [...new Set(gallery)];
+}
+
 function storefrontPublicCategoryName(vm, product = {}) {
   return vm.categories.find((cat) => String(cat.id) === String(product.category_id))?.name || product.category || "Produto 3D";
 }
@@ -14088,9 +14100,109 @@ function renderStoreStatusBadge(product = {}) {
   return `<span class="store-status-badge store-status-badge-${escaparAttr(tone)}">${escaparHtml(typeLabel)}</span>`;
 }
 
+function getStorefrontPublicCart() {
+  try {
+    const cart = JSON.parse(localStorage.getItem(STOREFRONT_PUBLIC_CART_KEY) || "[]");
+    return Array.isArray(cart) ? cart.filter((item) => item?.product_id && Number(item.quantity || 0) > 0) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function setStorefrontPublicCart(cart = []) {
+  try {
+    localStorage.setItem(STOREFRONT_PUBLIC_CART_KEY, JSON.stringify(cart.slice(0, 80)));
+  } catch (_) {}
+}
+
+function getStorefrontPublicCartSummary(vm = getStorefrontPublicViewModel()) {
+  const products = vm.products || [];
+  const items = getStorefrontPublicCart()
+    .map((item) => {
+      const product = products.find((prod) => String(prod.id) === String(item.product_id));
+      if (!product) return null;
+      const quantity = Math.max(1, Number(item.quantity || 1));
+      const price = Number(product.price || item.price || 0);
+      return { ...item, product, quantity, price, subtotal: quantity * price };
+    })
+    .filter(Boolean);
+  return {
+    items,
+    count: items.reduce((total, item) => total + item.quantity, 0),
+    subtotal: items.reduce((total, item) => total + item.subtotal, 0)
+  };
+}
+
+function adicionarProdutoCarrinhoLojaPublica(productId = "", quantity = 1) {
+  const { product } = getStorefrontPublicVmProduto(productId);
+  if (!product || String(product.stock_mode || "") === "unavailable") return mostrarToast("Produto indisponível no momento.", "erro", 3200);
+  const cart = getStorefrontPublicCart();
+  const current = cart.find((item) => String(item.product_id) === String(product.id));
+  if (current) current.quantity = Math.min(99, Number(current.quantity || 1) + Math.max(1, Number(quantity || 1)));
+  else cart.push({ product_id: product.id, quantity: Math.max(1, Number(quantity || 1)), price: Number(product.price || 0), added_at: new Date().toISOString() });
+  setStorefrontPublicCart(cart);
+  registrarEventoLojaPublica("add_to_cart", { product_id: product.id }, { silent: true });
+  mostrarToast("Produto adicionado ao carrinho.", "sucesso", 2200);
+  renderApp();
+}
+
+function atualizarQuantidadeCarrinhoLojaPublica(productId = "", delta = 0) {
+  const cart = getStorefrontPublicCart();
+  const item = cart.find((entry) => String(entry.product_id) === String(productId));
+  if (!item) return;
+  item.quantity = Math.max(0, Math.min(99, Number(item.quantity || 1) + Number(delta || 0)));
+  setStorefrontPublicCart(cart.filter((entry) => Number(entry.quantity || 0) > 0));
+  if (delta < 0) registrarEventoLojaPublica("remove_from_cart", { product_id: productId }, { silent: true });
+  abrirCarrinhoLojaPublica();
+  renderApp();
+}
+
+function removerProdutoCarrinhoLojaPublica(productId = "") {
+  setStorefrontPublicCart(getStorefrontPublicCart().filter((entry) => String(entry.product_id) !== String(productId)));
+  registrarEventoLojaPublica("remove_from_cart", { product_id: productId }, { silent: true });
+  abrirCarrinhoLojaPublica();
+  renderApp();
+}
+
+function limparCarrinhoLojaPublica() {
+  setStorefrontPublicCart([]);
+  mostrarToast("Carrinho limpo.", "info", 2200);
+  fecharPopup();
+  renderApp();
+}
+
+function renderStorePublicCartFloating(vm) {
+  const summary = getStorefrontPublicCartSummary(vm);
+  return `
+    <button class="store-public-floating-cart" type="button" onclick="abrirCarrinhoLojaPublica()" aria-label="Abrir carrinho">
+      <span>${renderUiIcon("carrinho")}</span>
+      <strong>Carrinho</strong>
+      ${summary.count ? `<em>${summary.count}</em>` : ""}
+    </button>
+  `;
+}
+
+function renderStoreAdSlot({ placement = "inline", label = "Espaço patrocinado" } = {}) {
+  return `
+    <aside class="store-ad-slot store-ad-slot-${escaparAttr(placement)}" data-ad-ready="future" hidden>
+      <span>Patrocinado</span>
+      <strong>${escaparHtml(label)}</strong>
+    </aside>
+  `;
+}
+
+function renderStoreSponsoredCard() {
+  return renderStoreAdSlot({ placement: "card", label: "Card patrocinado preparado para fase futura" });
+}
+
+function renderInlineStoreAd() {
+  return renderStoreAdSlot({ placement: "inline", label: "Anúncio inline preparado para fase futura" });
+}
+
 function renderStorePublicHeader(vm) {
   const store = vm.store;
   const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
+  const cart = getStorefrontPublicCartSummary(vm);
   return `
     <header class="store-public-header">
       <a class="store-public-brand" href="/loja/${encodeURIComponent(store.slug)}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(store.name || "Loja")}">
@@ -14100,8 +14212,13 @@ function renderStorePublicHeader(vm) {
           <small>${escaparHtml(store.description || "Catálogo público de impressão 3D")}</small>
         </span>
       </a>
+      <label class="store-public-search" aria-label="Busca em breve">
+        <span>${renderUiIcon("search")}</span>
+        <input type="search" placeholder="Buscar produtos..." disabled>
+      </label>
       <nav class="store-public-actions" aria-label="Ações da loja">
         ${store.whatsapp ? `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">WhatsApp</button>` : ""}
+        <button class="btn ghost store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()">Carrinho${cart.count ? ` (${cart.count})` : ""}</button>
         ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
         <button class="btn ghost" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>
       </nav>
@@ -14118,6 +14235,7 @@ function normalizarUrlInstagramLoja(value = "") {
 
 function renderStorePublicBanner(vm) {
   const store = vm.store;
+  const visibleCount = vm.products.length;
   return `
     <section class="store-public-banner" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
       ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
@@ -14129,6 +14247,11 @@ function renderStorePublicBanner(vm) {
           <a class="btn" href="#catalogo">Ver catálogo</a>
           <button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>
         </div>
+        <div class="store-public-banner-stats">
+          <span><strong>${visibleCount}</strong><small>produto(s)</small></span>
+          <span><strong>${vm.categories.length}</strong><small>categoria(s)</small></span>
+          <span><strong>WhatsApp</strong><small>orçamento rápido</small></span>
+        </div>
       </div>
     </section>
   `;
@@ -14138,10 +14261,10 @@ function renderStorePublicCategoryBar(vm) {
   const active = vm.route.view === "category" ? vm.route.categorySlug : "";
   return `
     <section class="store-public-category-bar" data-allow-horizontal-scroll>
-      <a class="${!active ? "active" : ""}" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">Todos</a>
+      <a class="${!active ? "active" : ""}" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">Todos <small>${vm.products.length}</small></a>
       ${vm.categories.map((cat) => `
         <a class="${String(cat.slug) === String(active) ? "active" : ""}" href="${storefrontPublicCategoryUrl(vm, cat)}" onclick="return navegarLojaPublicaLink(event, this)">
-          <span>${escaparHtml(cat.icon || "▦")}</span>${escaparHtml(cat.name)}
+          <span>${escaparHtml(cat.icon || "▦")}</span>${escaparHtml(cat.name)} <small>${vm.products.filter((product) => String(product.category_id) === String(cat.id)).length}</small>
         </a>
       `).join("")}
     </section>
@@ -14171,7 +14294,7 @@ function renderStorePublicProductCard(vm, product = {}) {
       </div>
       <div class="store-public-product-actions">
         <a class="btn ghost" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Detalhes</a>
-        <button class="btn secondary" type="button" onclick="abrirStoreLeadModal('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Solicitar"}</button>
+        <button class="btn secondary" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Adicionar"}</button>
       </div>
     </article>
   `;
@@ -14195,14 +14318,18 @@ function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle 
 }
 
 function renderStorePublicProductDetail(vm, product = {}) {
-  const image = getStorefrontProductImage(product, vm.images);
+  const gallery = getStorefrontProductImages(product, vm.images);
+  const image = gallery[0] || "";
   const related = vm.products.filter((item) => item.id !== product.id && (item.category_id === product.category_id || item.featured)).slice(0, 4);
   return `
     <main class="store-public-product-page">
       <a class="store-public-back" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
       <section class="store-public-product-hero">
         <div class="store-public-product-gallery">
-          ${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
+          <div class="store-public-main-image">
+            ${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
+          </div>
+          ${gallery.length > 1 ? `<div class="store-public-gallery-strip">${gallery.slice(0, 5).map((url) => `<img src="${escaparAttr(url)}" alt="${escaparAttr(product.title || "Produto")}">`).join("")}</div>` : ""}
         </div>
         <div class="store-public-product-info">
           <span class="store-public-eyebrow">${escaparHtml(storefrontPublicCategoryName(vm, product))}</span>
@@ -14220,8 +14347,9 @@ function renderStorePublicProductDetail(vm, product = {}) {
           ${product.is_customizable ? `<div class="store-public-note">Produto personalizado. O valor final pode variar conforme tamanho, cor e detalhes combinados com o vendedor.</div>` : ""}
           ${product.public_observations ? `<div class="store-public-note">${escaparHtml(product.public_observations)}</div>` : ""}
           <div class="actions">
-            <button class="btn" type="button" onclick="abrirStoreLeadModal('${escaparAttr(product.id)}')" ${String(product.stock_mode || "") === "unavailable" ? "disabled" : ""}>Solicitar orçamento</button>
+            <button class="btn" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${String(product.stock_mode || "") === "unavailable" ? "disabled" : ""}>Adicionar ao carrinho</button>
             <button class="btn secondary" type="button" onclick="abrirWhatsappProdutoLojaPublica('${escaparAttr(product.id)}')">Pedir pelo WhatsApp</button>
+            <button class="btn ghost" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "product", productSlug: product.slug || product.id }))}')">Compartilhar</button>
           </div>
         </div>
       </section>
@@ -14242,6 +14370,31 @@ function renderStorePublicRouteNotFound(vm, { title = "Conteúdo não encontrado
       </section>
     </main>
   `;
+}
+
+function atualizarSeoLojaPublica(vm, product = null) {
+  try {
+    const title = product?.title ? `${product.title} | ${vm.store?.name || "Loja Online"}` : `${vm.store?.name || "Loja Online"} | Simplifica 3D`;
+    const description = product?.description || vm.store?.description || "Loja online de produtos e personalizados em impressão 3D.";
+    document.title = title;
+    const metas = [
+      ["description", description],
+      ["og:title", title],
+      ["og:description", description],
+      ["og:url", getStorefrontPublicUrl(vm.route)]
+    ];
+    metas.forEach(([name, content]) => {
+      const selector = name.startsWith("og:") ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+      let meta = document.head.querySelector(selector);
+      if (!meta) {
+        meta = document.createElement("meta");
+        if (name.startsWith("og:")) meta.setAttribute("property", name);
+        else meta.setAttribute("name", name);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute("content", String(content || ""));
+    });
+  } catch (_) {}
 }
 
 function renderLojaOnlinePublica() {
@@ -14288,6 +14441,7 @@ function renderLojaOnlinePublica() {
       })
       : "";
   const catalog = category ? vm.products.filter((product) => String(product.category_id) === String(category.id)) : vm.products;
+  atualizarSeoLojaPublica(vm, productDetail);
 
   return `
     <main class="store-public-shell" style="--store-primary:${escaparAttr(vm.store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
@@ -14311,6 +14465,7 @@ function renderLojaOnlinePublica() {
         <span>Loja criada com Simplifica 3D</span>
         <button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>
       </footer>
+      ${renderStorePublicCartFloating(vm)}
     </main>
   `;
 }
@@ -14362,6 +14517,76 @@ function montarMensagemProdutoLojaPublica(product = {}, vm = getStorefrontPublic
     `Link da loja: ${getStorefrontPublicUrl(vm.route)}`
   ].filter((line) => line !== "");
   return linhas.join("\n");
+}
+
+function montarMensagemCarrinhoLojaPublica(vm, summary, lead = {}) {
+  const linhas = [
+    `Olá! Tenho interesse nestes produtos da loja ${vm.store?.name || "Simplifica 3D"}:`,
+    "",
+    ...summary.items.map((item, index) => `${index + 1}. ${item.quantity}x ${item.product.title || "Produto"} - ${formatarMoeda(item.price)} cada`),
+    "",
+    `Subtotal estimado: ${formatarMoeda(summary.subtotal)}`,
+    "",
+    lead.customer_name ? `Meu nome: ${lead.customer_name}` : "Meu nome:",
+    lead.customer_note ? `Observação: ${lead.customer_note}` : "Observação:",
+    "",
+    `Link da loja: ${getStorefrontPublicUrl({ slug: vm.store?.slug || vm.route.slug, view: "home" })}`
+  ];
+  return linhas.join("\n");
+}
+
+function abrirCarrinhoLojaPublica() {
+  const vm = getStorefrontPublicViewModel();
+  const summary = getStorefrontPublicCartSummary(vm);
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop store-cart-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card store-cart-drawer" onsubmit="enviarCarrinhoLojaPublica(event)">
+        <div class="modal-header">
+          <div>
+            <span class="status-badge badge-info">Orçamento</span>
+            <h2>Carrinho da loja</h2>
+            <p class="muted">Revise os itens e envie a solicitação pelo WhatsApp.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="store-cart-items">
+          ${summary.items.map((item) => `
+            <article class="store-cart-item">
+              <div>
+                <strong>${escaparHtml(item.product.title || "Produto")}</strong>
+                <span>${escaparHtml(renderPrecoProdutoLojaOnline(item.product))} • ${escaparHtml(storefrontPublicCategoryName(vm, item.product))}</span>
+              </div>
+              <div class="store-cart-stepper">
+                <button type="button" onclick="atualizarQuantidadeCarrinhoLojaPublica('${escaparAttr(item.product.id)}', -1)">−</button>
+                <strong>${item.quantity}</strong>
+                <button type="button" onclick="atualizarQuantidadeCarrinhoLojaPublica('${escaparAttr(item.product.id)}', 1)">+</button>
+              </div>
+              <button class="btn ghost compact-action" type="button" onclick="removerProdutoCarrinhoLojaPublica('${escaparAttr(item.product.id)}')">Remover</button>
+            </article>
+          `).join("") || renderStoreEmptyState({ title: "Carrinho vazio", description: "Adicione produtos do catálogo para solicitar um orçamento.", icon: "□" })}
+        </div>
+        <div class="store-cart-total">
+          <span>Subtotal estimado</span>
+          <strong>${formatarMoeda(summary.subtotal)}</strong>
+        </div>
+        ${summary.items.length ? `
+          <div class="form-grid">
+            <label>Nome<input name="customerName" placeholder="Seu nome"></label>
+            <label>WhatsApp<input name="customerPhone" inputmode="tel" placeholder="DDD + número"></label>
+          </div>
+          <label class="field"><span>Observação</span><textarea name="customerNote" rows="3" placeholder="Tamanho, cor, prazo desejado ou detalhes do personalizado"></textarea></label>
+        ` : ""}
+        <div class="actions">
+          ${summary.items.length ? `<button class="btn ghost" type="button" onclick="limparCarrinhoLojaPublica()">Limpar</button>` : ""}
+          <button class="btn secondary" type="button" onclick="fecharPopup()">Continuar comprando</button>
+          <button class="btn" type="submit" ${summary.items.length ? "" : "disabled"}>Enviar pelo WhatsApp</button>
+        </div>
+      </form>
+    </div>
+  `;
+  setTimeout(() => popup.querySelector("input[name='customerName']")?.focus(), 80);
 }
 
 function abrirStoreLeadModal(productId = "") {
@@ -14418,6 +14643,24 @@ async function enviarLeadLojaPublica(event) {
   abrirWhatsappLojaPublica(whatsapp_message);
 }
 
+async function enviarCarrinhoLojaPublica(event) {
+  event?.preventDefault?.();
+  const form = event?.target;
+  const vm = getStorefrontPublicViewModel();
+  const summary = getStorefrontPublicCartSummary(vm);
+  if (!summary.items.length) return mostrarToast("Adicione um produto antes de enviar.", "info", 2800);
+  const lead = {
+    customer_name: form?.customerName?.value?.trim() || null,
+    customer_phone: String(form?.customerPhone?.value || "").replace(/\D/g, "") || null,
+    customer_note: form?.customerNote?.value?.trim() || null
+  };
+  const whatsapp_message = montarMensagemCarrinhoLojaPublica(vm, summary, lead);
+  await registrarLeadCarrinhoLojaPublica(vm, summary, { ...lead, whatsapp_message });
+  registrarEventoLojaPublica("lead_created", { source: "cart" }, { silent: true });
+  fecharPopup();
+  abrirWhatsappLojaPublica(whatsapp_message);
+}
+
 async function registrarLeadLojaPublica(vm, product, lead = {}) {
   const item = { title: product.title, quantity: 1, price: Number(product.price || 0), product_id: product.id };
   const payload = {
@@ -14450,6 +14693,42 @@ async function registrarLeadLojaPublica(vm, product, lead = {}) {
     localStorage.setItem(STOREFRONT_PUBLIC_LEADS_KEY, JSON.stringify(current.slice(0, 120)));
     const adminLeads = getStorefrontPreviewLeadsLocal();
     storefrontAdminWrite("simplifica-storefront-leads-preview-v1", [{ ...payload, id: `public-lead-${Date.now()}`, created_at: new Date().toISOString() }, ...adminLeads].slice(0, 120));
+  } catch (_) {}
+}
+
+async function registrarLeadCarrinhoLojaPublica(vm, summary, lead = {}) {
+  const payload = {
+    store_id: vm.store.id,
+    owner_id: vm.store.owner_id,
+    customer_name: lead.customer_name,
+    customer_phone: lead.customer_phone,
+    customer_note: lead.customer_note,
+    items_json: summary.items.map((item) => ({ title: item.product.title, quantity: item.quantity, price: item.price, product_id: item.product.id })),
+    subtotal: Number(summary.subtotal || 0),
+    whatsapp_message: lead.whatsapp_message,
+    status: "novo",
+    source: "storefront-cart"
+  };
+  try {
+    if (vm.source === "supabase" && !String(vm.store.id || "").startsWith("store-")) {
+      await storefrontPublicRequest("/rest/v1/store_cart_leads", {
+        method: "POST",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify(payload)
+      });
+      setStorefrontPublicCart([]);
+      return;
+    }
+  } catch (error) {
+    console.warn("[Storefront public] cart lead best-effort failed", error);
+  }
+  try {
+    const localLead = { ...payload, id: `public-cart-lead-${Date.now()}`, created_at: new Date().toISOString() };
+    const current = JSON.parse(localStorage.getItem(STOREFRONT_PUBLIC_LEADS_KEY) || "[]");
+    localStorage.setItem(STOREFRONT_PUBLIC_LEADS_KEY, JSON.stringify([localLead, ...current].slice(0, 120)));
+    const adminLeads = getStorefrontPreviewLeadsLocal();
+    storefrontAdminWrite("simplifica-storefront-leads-preview-v1", [localLead, ...adminLeads].slice(0, 120));
+    setStorefrontPublicCart([]);
   } catch (_) {}
 }
 
@@ -17590,6 +17869,7 @@ function renderUiIcon(tipo = "", fallback = "") {
     clientes: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M20 20v-1.5a3 3 0 0 0-2.2-2.9"/><path d="M4 20v-1.5a3 3 0 0 1 2.2-2.9"/></svg>`,
     caixa: `<svg ${attrs}><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/><path d="M12 10v7"/></svg>`,
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
+    carrinho: `<svg ${attrs}><path d="M6 6h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>`,
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 12h7"/><path d="M8.5 16h7"/></svg>`,
     edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
