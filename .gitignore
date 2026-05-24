@@ -9,6 +9,7 @@ backups/
 /.env.*
 !/.env.example
 !/.env.test.example
+!/.env.staging.example
 supabase/functions/.env
 supabase/functions/.env.*
 supabase/.env
