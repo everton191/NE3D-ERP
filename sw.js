@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v120-global-theme-map-20260521";
+const CACHE_NAME = "simplifica-3d-v122-storefront-admin-pro-gate-20260524";
 const APP_FILES = [
   "./",
   "./index.html",

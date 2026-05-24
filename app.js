@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "51.1.12";
-const APP_VERSION_CODE = 106;
+const APP_VERSION = "51.1.14";
+const APP_VERSION_CODE = 108;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "/assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "/assets/icon-512.png";
@@ -8105,17 +8105,55 @@ function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   };
 }
 
-function canAccessStorefrontAdmin(usuario = getUsuarioAtual(), plan = getPlanoAtual(usuario), flags = getStorefrontRuntimeFlags()) {
-  if (!usuario) return false;
-  if (!isStorefrontFeatureEnabled(flags)) return false;
-  if (!isStorefrontAllowedTestUser(usuario, flags)) return false;
-  if (isSuperAdmin(usuario)) return true;
-  const limits = getStorefrontLimitsLocal(plan?.slug);
-  return limits.enabled === true || flags.betaAllowedByRemote === true || flags.devOverride === true;
+function canAccessStorefrontAdmin(usuario = getUsuarioAtual()) {
+  return !!usuario;
 }
 
 function canUseStorefrontLocal(usuario = getUsuarioAtual()) {
-  return canAccessStorefrontAdmin(usuario, getPlanoAtual(usuario), getStorefrontRuntimeFlags());
+  return !!usuario;
+}
+
+function canManageStorefrontByPlan(usuario = getUsuarioAtual()) {
+  if (!usuario) return false;
+  if (isSuperAdmin(usuario)) return true;
+  const plano = getPlanoAtual(usuario);
+  return plano.completo === true || ["premium", "premium_trial", "pro", "trial"].includes(normalizarSlugPlano(plano.slug || ""));
+}
+
+function renderStorefrontPlanLocked() {
+  const plano = getPlanoAtual();
+  return `
+    <section class="app-page storefront-admin-page">
+      <div class="app-header storefront-admin-hero">
+        <div>
+          <span class="status-badge badge-info">Plano ${escaparHtml(plano.nome || "Free")}</span>
+          <h2>Loja Online</h2>
+          <p class="muted">A área já está disponível no ERP. O gerenciamento completo da loja é liberado no plano Pro.</p>
+        </div>
+        <div class="actions storefront-hero-actions">
+          <button class="btn" type="button" onclick="abrirTelaPlanosPerfil()">Ver plano Pro</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('dashboard')">Voltar ao dashboard</button>
+        </div>
+      </div>
+      <section class="card storefront-next-card">
+        <div class="card-header">
+          <div>
+            <h3>Desbloqueie sua vitrine pública</h3>
+            <p class="muted">No Pro você configura aparência, categorias, produtos, QR Code, leads e link público sem sair do Simplifica 3D.</p>
+          </div>
+          <span class="status-badge">PRO</span>
+        </div>
+        <div class="storefront-status-grid">
+          ${[
+            { label: "Produtos públicos", value: "Pro", description: "Publique itens da loja com preço, foto e categoria.", tone: "info" },
+            { label: "Leads", value: "Pro", description: "Receba solicitações da vitrine e revise no ERP.", tone: "info" },
+            { label: "QR Code", value: "Pro", description: "Compartilhe a loja em etiquetas, balcão e redes sociais.", tone: "info" },
+            { label: "Personalização", value: "Pro", description: "Configure nome, banner, logo, cores e WhatsApp.", tone: "info" }
+          ].map(renderStoreStatusCard).join("")}
+        </div>
+      </section>
+    </section>
+  `;
 }
 
 async function sincronizarStorefrontBetaAccessRemoto(force = false) {
@@ -8191,7 +8229,7 @@ function renderTopbar() {
   const titulo = getTituloTelaDesktop(telaAtual);
   const subtitulo = getSubtituloTelaDesktop(telaAtual);
   return `
-    <section class="topbar app-topbar">
+    <section class="topbar app-topbar" style="position:sticky;top:0;z-index:220;">
       <div>
         <strong>${escaparHtml(titulo)}</strong>
         <span class="muted">${escaparHtml(subtitulo)}</span>
@@ -8202,7 +8240,7 @@ function renderTopbar() {
       </label>
       <div class="topbar-user">
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
-        <button class="topbar-avatar-button" type="button" onclick="abrirMenuUsuarioTopo(event)" title="Perfil">
+        <button class="topbar-avatar-button" type="button" data-action="open-user-menu" onclick="abrirMenuUsuarioTopo(event)" title="Perfil" style="pointer-events:auto;">
           ${renderUsuarioAvatar(usuario, "topbar-avatar")}
           <span>${escaparHtml(nomeUsuario)}</span>
         </button>
@@ -8260,8 +8298,9 @@ function abrirMenuUsuarioTopo(event) {
   if (!popup) return;
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
+  popup.style.pointerEvents = "auto";
   popup.innerHTML = `
-    <div class="topbar-profile-backdrop" onclick="fecharPopup()">
+    <div class="topbar-profile-backdrop" onclick="fecharPopup()" style="position:fixed;inset:0;z-index:10000;background:transparent;">
       <section class="topbar-profile-menu glass-pop" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
         <div class="topbar-profile-head">
           ${renderUsuarioAvatar(usuario, "topbar-profile-avatar")}
@@ -14525,6 +14564,7 @@ function getStorefrontStockLabel(product = {}) {
 
 function renderLojaOnlineAdmin() {
   if (!canUseStorefrontLocal()) return renderAcessoNegado();
+  if (!canManageStorefrontByPlan()) return renderStorefrontPlanLocked();
   const vm = getStorefrontAdminViewModel();
   const activeTab = getStorefrontAdminTab();
   const linkPublico = getStorefrontPublicUrlLocal();
@@ -14539,7 +14579,7 @@ function renderLojaOnlineAdmin() {
         <div>
           <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
           <h2>Loja Online</h2>
-          <p class="muted">Painel administrativo em beta fechado, protegido por feature flag.</p>
+          <p class="muted">Painel administrativo da loja dentro do ERP. A vitrine pública só abre pelos botões próprios.</p>
         </div>
         <div class="actions storefront-hero-actions">
           <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin('${escaparAttr(activeTab)}')">Gerenciar loja no ERP</button>
@@ -14551,8 +14591,8 @@ function renderLojaOnlineAdmin() {
         </div>
       </div>
       <div class="storefront-beta-banner">
-        <strong>Beta fechado</strong>
-        <span>Esta área continua escondida por feature flag. Nenhum usuário fora do beta visualiza o menu ou o painel.</span>
+        <strong>Loja Online</strong>
+        <span>Gerencie aparência, produtos, categorias, leads, QR Code e link público sem sair do ERP.</span>
       </div>
       ${renderStorefrontDemoNotice(vm)}
       ${renderStorefrontTabs(activeTab)}
@@ -15649,7 +15689,7 @@ function renderDashboardAvatar(usuario) {
 
 function renderDashboardProfileButton(usuario = getUsuarioAtual()) {
   return `
-    <button class="dashboard-profile-button" type="button" onclick="abrirMenuUsuarioTopo(event)" title="Usuário">
+    <button class="dashboard-profile-button" type="button" data-action="open-user-menu" onclick="abrirMenuUsuarioTopo(event)" title="Usuário">
       ${renderDashboardAvatar(usuario)}
     </button>
   `;
@@ -16299,6 +16339,24 @@ function renderDashboardDesktopShortcutsPanel() {
 
 function renderDashboardDesktopStorePanel() {
   if (!canUseStorefrontLocal()) return "";
+  if (!canManageStorefrontByPlan()) {
+    return `
+      <section class="card desktop-dashboard-card store-summary-card">
+        <div class="card-header">
+          <h2>${renderUiIcon("lojaOnline")} Loja Online</h2>
+          <span class="status-badge badge-info">PRO</span>
+        </div>
+        <div class="dashboard-store-preview">
+          <span>${renderUiIcon("lojaOnline")}</span>
+          <div>
+            <strong>Vitrine disponível no Pro</strong>
+            <small>Configure produtos, QR Code, leads e link público dentro do ERP.</small>
+          </div>
+        </div>
+        <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Gerenciar loja</button>
+      </section>
+    `;
+  }
   const vm = getStorefrontAdminViewModel();
   const produtosVisiveis = vm.products.filter((product) => product.visible).length;
   const leadsNovos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
@@ -31855,6 +31913,11 @@ function configurarEventListenersArquitetura() {
       event.preventDefault();
       event.stopPropagation();
       abrirPedidoRapidoOperacional();
+      return;
+    }
+
+    if (acao === "open-user-menu") {
+      abrirMenuUsuarioTopo(event);
       return;
     }
 
