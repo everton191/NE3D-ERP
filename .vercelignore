@@ -10,3 +10,5 @@ coverage
 *.keystore
 *.jks
 *.log
+!downloads/
+!downloads/**
