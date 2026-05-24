@@ -297,6 +297,7 @@ const telas = {
   planos: "Planos",
   admin: "Admin",
   lojaOnline: "Loja Online",
+  lojaAdmin: "Admin da Loja",
   superadmin: "Super Admin",
   onboarding: "Introdução",
   feedback: "Bugs e sugestões",
@@ -7738,7 +7739,18 @@ function trocarTela(tela, opcoes = {}) {
     appConfig.calculatorWidget.open = false;
     salvarDados();
   }
-  if (mudouTela && !opcoes.fromHistory) atualizarHistoricoBrowserApp(!!opcoes.replaceHistory);
+  if (mudouTela && !opcoes.fromHistory) {
+    const rotaEspecial = parseStorefrontAdminRoute(location.pathname) || parseStorefrontPublicRoute(location.pathname);
+    if (rotaEspecial && tela !== "lojaAdmin" && tela !== "lojaPublica") {
+      try {
+        history.pushState({ simplifica: true, tela }, document.title, "/");
+      } catch (_) {
+        atualizarHistoricoBrowserApp(!!opcoes.replaceHistory);
+      }
+    } else {
+      atualizarHistoricoBrowserApp(!!opcoes.replaceHistory);
+    }
+  }
   if (mudouTela) iniciarTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
   renderApp();
   if (mudouTela) resetarScrollTelaAtiva();
@@ -7883,6 +7895,12 @@ function configurarNavegacaoInternaApp() {
   window.__simplificaNavigationConfigured = true;
   atualizarHistoricoBrowserApp(true);
   window.addEventListener("popstate", (event) => {
+    const adminRoute = parseStorefrontAdminRoute(location.pathname);
+    if (adminRoute) {
+      telaAtual = "lojaAdmin";
+      renderApp();
+      return;
+    }
     const publicRoute = parseStorefrontPublicRoute(location.pathname);
     if (publicRoute) {
       salvarScrollLojaPublica();
@@ -8170,7 +8188,7 @@ function renderDesktopConteudo() {
     return `<div class="desktop-focus app-page">${renderTrocaSenhaObrigatoria()}</div>`;
   }
 
-  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "lojaOnline", "superadmin", "privacy", "terms", "acessoNegado"];
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "lojaOnline", "lojaAdmin", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
@@ -8339,7 +8357,8 @@ function isTelaPublica(tela) {
 
 function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (isTelaPublica(tela)) return true;
-  if (tela === "lojaOnline") return canUseStorefrontLocal(usuario);
+  if (tela === "lojaOnline") return !!usuario;
+  if (tela === "lojaAdmin") return canUseStorefrontLocal(usuario);
   if (adminLogado && !usuario) return tela !== "superadmin";
   if (!usuario) return false;
   if (tela === "onboarding") return !isSuperAdmin(usuario);
@@ -8347,9 +8366,9 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (licencaEfetivaBloqueada(usuario)) return false;
 
   const permissoes = {
-    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding", "lojaOnline"],
-    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline"],
+    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
+    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
     visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
   };
 
@@ -11706,7 +11725,7 @@ function selecionarUsuarioPerfil(id) {
 }
 
 function getMenuGroups() {
-  const lojaOnlineItem = canUseStorefrontLocal() ? [{ tela: "lojaOnline", icone: "🛍️", texto: "Loja Online" }] : [];
+  const lojaOnlineItem = getUsuarioAtual() ? [{ tela: "lojaOnline", icone: "🛍️", texto: "Loja Online" }] : [];
   const grupos = [
     {
       titulo: "Principal",
@@ -12169,7 +12188,9 @@ function renderTela(tela) {
     case "admin":
       return renderAdmin();
     case "lojaOnline":
-      return renderLojaOnlineAdmin();
+      return renderLojaOnlineHub();
+    case "lojaAdmin":
+      return renderStorefrontAdminPanel();
     case "lojaPublica":
       return renderLojaOnlinePublica();
     case "superadmin":
@@ -12779,111 +12800,6 @@ async function transformarLeadLojaOnlinePreview(id) {
   }
 }
 
-function renderLojaOnlineAdmin() {
-  if (!canUseStorefrontLocal()) return renderAcessoNegado();
-  const linkPublico = getStorefrontPublicUrlLocal();
-  const leads = getStorefrontPreviewLeadsLocal();
-  const events = getStorefrontPreviewEventsLocal();
-  const visitas = events.filter((event) => event.event_type === "store_view").length;
-  const whatsapp = events.filter((event) => event.event_type === "whatsapp_click").length;
-  const addCart = events.filter((event) => event.event_type === "add_to_cart").length;
-  const novos = leads.filter((lead) => String(lead.status || "novo") === "novo").length;
-  const produtosTeste = ["Carimbo personalizado", "Cortador de docinhos", "Ejetor de brigadeiro", "Topo de bolo", "Suporte de projetor", "Chaveiro personalizado", "Peça sob encomenda"];
-
-  return `
-    <section class="app-page storefront-admin-page">
-      <div class="app-header">
-        <div>
-          <span class="status-badge badge-info">Fase 3.5</span>
-          <h2>Loja Online</h2>
-          <p class="muted">Painel controlado por feature flag. A migration ainda não foi aplicada em produção.</p>
-        </div>
-        <div class="actions">
-          <button class="btn" type="button" onclick="trocarTela('lojaOnline')">Gerenciar loja no ERP</button>
-          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
-          <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
-          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
-        </div>
-      </div>
-
-      <div class="dashboard-grid">
-        ${[
-          ["Status", "Preview/Staging", "Loja real depende da migration aplicada"],
-          ["Leads", leads.length, `${novos} novo(s)`],
-          ["WhatsApp", whatsapp, "cliques registrados no preview"],
-          ["Add carrinho", addCart, `${visitas} visita(s) simuladas`]
-        ].map(([titulo, valor, desc]) => `
-          <article class="metric-card">
-            <span>${escaparHtml(titulo)}</span>
-            <strong>${escaparHtml(valor)}</strong>
-            <small>${escaparHtml(desc)}</small>
-          </article>
-        `).join("")}
-      </div>
-
-      <section class="card">
-        <div class="card-header">
-          <h3>Link público e QR Code</h3>
-          <span class="status-badge">ne3d-teste</span>
-        </div>
-        <p class="muted">${escaparHtml(linkPublico)}</p>
-        <div id="storefrontAdminQr" class="qr-preview" aria-label="QR Code da loja"></div>
-      </section>
-
-      <section class="card">
-        <div class="card-header">
-          <h3>Produtos publicados de teste</h3>
-          <span class="status-badge badge-success">${produtosTeste.length} produtos</span>
-        </div>
-        <div class="settings-list">
-          ${produtosTeste.map((produto) => `
-            <div class="settings-row">
-              <div>
-                <strong>${escaparHtml(produto)}</strong>
-                <small>Produto de impressão 3D preparado para publicação controlada.</small>
-              </div>
-              <span class="status-badge badge-info">visível</span>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-
-      <section class="card">
-        <div class="card-header">
-          <h3>Leads recebidos</h3>
-          <span class="status-badge ${novos ? "badge-warning" : ""}">${novos} novo(s)</span>
-        </div>
-        ${leads.length ? `
-          <div class="settings-list">
-            ${leads.slice(0, 8).map((lead) => `
-              <div class="settings-row">
-                <div>
-                  <strong>${escaparHtml(lead.customer_name || "Cliente via WhatsApp")}</strong>
-                  <small>${escaparHtml((lead.items_json || []).map((item) => `${item.quantity || 1}x ${item.title || "Produto"}`).join(", ") || "Itens do carrinho")}</small>
-                </div>
-                <div class="actions">
-                  <span class="status-badge">${escaparHtml(lead.status || "novo")}</span>
-                  <button class="btn secondary" type="button" onclick="transformarLeadLojaOnlinePreview('${escaparAttr(lead.id)}')">Transformar em pedido</button>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        ` : `<p class="muted">Nenhum lead registrado no preview deste navegador ainda.</p>`}
-      </section>
-    </section>
-  `;
-}
-
-function hidratarLojaOnlineAdmin() {
-  if (telaAtual !== "lojaOnline") return;
-  const alvo = document.getElementById("storefrontAdminQr");
-  if (!alvo) return;
-  const dataUrl = gerarQrPixDataUrl(getStorefrontPublicUrlLocal());
-  alvo.innerHTML = dataUrl
-    ? `<img src="${dataUrl}" alt="QR Code da loja online" style="width:160px;height:160px;border-radius:16px;background:#fff;padding:10px;">`
-    : `<p class="muted">QR Code indisponível neste ambiente.</p>`;
-}
-
 const STOREFRONT_ADMIN_KEYS = {
   tab: "simplifica-storefront-admin-tab-v1",
   store: "simplifica-storefront-admin-store-v1",
@@ -12898,10 +12814,12 @@ const STOREFRONT_ADMIN_KEYS = {
 const STOREFRONT_ADMIN_TABS = [
   ["overview", "Visão geral"],
   ["appearance", "Aparência"],
-  ["categories", "Categorias"],
   ["products", "Produtos da loja"],
+  ["categories", "Categorias"],
+  ["banner", "Banner"],
   ["leads", "Leads/Pedidos"],
-  ["qrcode", "QR Code e Link"]
+  ["qrcode", "Compartilhamento"],
+  ["settings", "Configurações"]
 ];
 
 function storefrontAdminSlugify(value) {
@@ -13076,6 +12994,10 @@ function getStorefrontAdminTab() {
 
 function setStorefrontAdminTab(tab) {
   localStorage.setItem(STOREFRONT_ADMIN_KEYS.tab, tab);
+  if (telaAtual !== "lojaAdmin") {
+    telaAtual = "lojaAdmin";
+    atualizarHistoricoBrowserApp(true);
+  }
   renderApp();
 }
 
@@ -13086,10 +13008,25 @@ function getStorefrontPublicUrlLocal() {
 }
 
 function abrirPainelLojaOnlineAdmin(tab = "") {
+  abrirStorefrontAdminRoute(tab);
+}
+
+function abrirStorefrontAdminRoute(tab = "") {
   if (tab && STOREFRONT_ADMIN_TABS.some(([id]) => id === tab)) {
     localStorage.setItem(STOREFRONT_ADMIN_KEYS.tab, tab);
   }
-  trocarTela("lojaOnline");
+  if (!canUseStorefrontLocal()) {
+    mostrarToast("Admin da loja disponível para usuários autorizados ou plano habilitado.", "aviso", 3600);
+    trocarTela("lojaOnline");
+    return;
+  }
+  telaAtual = "lojaAdmin";
+  const path = getStorefrontAdminRoutePath(getStorefrontAdminStoreLocal().slug);
+  try {
+    history.pushState({ simplifica: true, tela: "lojaAdmin" }, document.title, path);
+  } catch (_) {}
+  renderApp();
+  resetarScrollTelaAtiva();
 }
 
 function abrirLojaPublicaOnline() {
@@ -13919,6 +13856,18 @@ const STOREFRONT_PUBLIC_CACHE_PREFIX = "simplifica-storefront-public-cache-v1:";
 const STOREFRONT_PUBLIC_LEADS_KEY = "simplifica-storefront-public-leads-v1";
 const STOREFRONT_PUBLIC_EVENTS_KEY = "simplifica-storefront-public-events-v1";
 
+function parseStorefrontAdminRoute(pathname = location.pathname) {
+  const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
+  if (partes[0] !== "store-admin" || !partes[1]) return null;
+  return {
+    slug: decodeURIComponent(partes[1] || "")
+  };
+}
+
+function getStorefrontAdminRoutePath(slug = getStorefrontAdminStoreLocal().slug || "ne3d-teste") {
+  return `/store-admin/${encodeURIComponent(storefrontAdminSlugify(slug || "loja"))}`;
+}
+
 function parseStorefrontPublicRoute(pathname = location.pathname) {
   const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
   if (partes[0] !== "loja" || !partes[1]) return null;
@@ -14524,7 +14473,112 @@ function getStorefrontStockLabel(product = {}) {
   return "Sob encomenda";
 }
 
-function renderLojaOnlineAdmin() {
+function renderLojaOnlineHub() {
+  const vm = getStorefrontAdminViewModel();
+  const linkPublico = getStorefrontPublicUrlLocal();
+  const novos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
+  const whatsapp = vm.events.filter((event) => event.event_type === "whatsapp_click").length;
+  const visitas = vm.events.filter((event) => event.event_type === "store_view").length;
+  const published = vm.products.filter((product) => product.visible).length;
+  const podeAdministrar = canUseStorefrontLocal();
+  return `
+    <section class="app-page storefront-hub-page">
+      <div class="app-header storefront-hub-header">
+        <div>
+          <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Loja ativa" : "Loja inativa"}</span>
+          <h2>Loja Online</h2>
+          <p class="muted">Resumo operacional da vitrine. A edição completa fica no admin separado da loja.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" onclick="abrirStorefrontAdminRoute()" ${podeAdministrar ? "" : "disabled title=\"Admin da loja liberado para usuários autorizados/plano habilitado.\""}>Abrir admin da loja</button>
+          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link público</button>
+          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+        </div>
+      </div>
+      <div class="storefront-hub-grid">
+        ${[
+          { label: "Status", value: vm.store.active ? "Publicado" : "Rascunho", description: vm.store.slug || "slug pendente", tone: vm.store.active ? "success" : "warning" },
+          { label: "Produtos visíveis", value: published, description: `${vm.products.length} no catálogo`, tone: "neutral" },
+          { label: "Leads novos", value: novos, description: `${vm.leads.length} recebidos`, tone: novos ? "info" : "neutral" },
+          { label: "Visitas", value: visitas, description: `${whatsapp} clique(s) no WhatsApp`, tone: "neutral" }
+        ].map(renderStoreStatusCard).join("")}
+      </div>
+      <section class="card storefront-hub-card">
+        <div class="card-header">
+          <div>
+            <h3>Link e compartilhamento</h3>
+            <p class="muted">A loja pública abre somente por ação explícita.</p>
+          </div>
+          <span class="status-badge">${escaparHtml(vm.store.slug || "loja")}</span>
+        </div>
+        <div class="storefront-link-box"><span>${escaparHtml(linkPublico)}</span></div>
+        <div class="store-qr-layout compact">
+          <div id="storefrontHubQr" class="qr-preview" aria-label="QR Code da loja"></div>
+          <div class="storefront-hub-actions">
+            <button class="btn" type="button" onclick="abrirStorefrontAdminRoute()" ${podeAdministrar ? "" : "disabled"}>Abrir admin da loja</button>
+            <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')">Compartilhar</button>
+            <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+            <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+          </div>
+        </div>
+      </section>
+      <section class="card storefront-hub-card">
+        <div class="card-header">
+          <div>
+            <h3>Atividades recentes da loja</h3>
+            <p class="muted">Resumo simples, sem abrir preview gigante dentro do ERP.</p>
+          </div>
+        </div>
+        ${renderStorefrontRecentActivity(vm)}
+      </section>
+      ${!podeAdministrar ? `<section class="card storefront-hub-card"><strong>Admin da loja bloqueado</strong><p class="muted">O menu fica visível para orientar o usuário, mas a edição completa depende de permissão, plano ou beta autorizado.</p></section>` : ""}
+    </section>
+  `;
+}
+
+function renderStorefrontRecentActivity(vm) {
+  const atividades = [
+    ...vm.events.slice(0, 4).map((event) => ({
+      title: event.event_type === "whatsapp_click" ? "Clique no WhatsApp" : event.event_type === "add_to_cart" ? "Produto adicionado ao carrinho" : "Visita registrada",
+      description: new Date(event.created_at || Date.now()).toLocaleString("pt-BR")
+    })),
+    ...vm.leads.slice(0, 3).map((lead) => ({
+      title: "Lead recebido",
+      description: `${lead.customer_name || "Cliente via WhatsApp"} • ${formatarMoeda(lead.subtotal || 0)}`
+    }))
+  ].slice(0, 6);
+  if (!atividades.length) {
+    return renderStoreEmptyState({
+      title: "Nenhuma atividade recente",
+      description: "Visitas, cliques, leads e atualizações da loja aparecerão aqui.",
+      icon: "◷"
+    });
+  }
+  return `<div class="store-admin-list compact">${atividades.map((item) => `
+    <article class="store-admin-row">
+      <div class="store-admin-main">
+        <span class="store-admin-icon">•</span>
+        <div>
+          <strong>${escaparHtml(item.title)}</strong>
+          <small>${escaparHtml(item.description)}</small>
+        </div>
+      </div>
+    </article>
+  `).join("")}</div>`;
+}
+
+function renderStorefrontSaveState(vm) {
+  const atualizado = vm.store.updated_at || vm.store.updatedAt || vm.store.created_at || "";
+  return `
+    <div class="storefront-save-state">
+      <span class="status-badge badge-success">Alterações salvas</span>
+      <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Publicado" : "Rascunho"}</span>
+      <small>Última atualização: ${atualizado ? new Date(atualizado).toLocaleString("pt-BR") : "local"}</small>
+    </div>
+  `;
+}
+
+function renderStorefrontAdminPanel() {
   if (!canUseStorefrontLocal()) return renderAcessoNegado();
   const vm = getStorefrontAdminViewModel();
   const activeTab = getStorefrontAdminTab();
@@ -14539,11 +14593,12 @@ function renderLojaOnlineAdmin() {
       <div class="app-header storefront-admin-hero">
         <div>
           <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
-          <h2>Loja Online</h2>
-          <p class="muted">Painel administrativo em beta fechado, protegido por feature flag.</p>
+          <h2>Admin da Loja</h2>
+          <p class="muted">Edição separada do ERP. Mesma sessão, mesmo usuário e owner_id.</p>
+          ${renderStorefrontSaveState(vm)}
         </div>
         <div class="actions storefront-hero-actions">
-          <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin('${escaparAttr(activeTab)}')">Gerenciar loja no ERP</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Voltar ao resumo ERP</button>
           <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
           <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
           <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
@@ -14559,10 +14614,12 @@ function renderLojaOnlineAdmin() {
       ${renderStorefrontTabs(activeTab)}
       ${activeTab === "overview" ? renderStorefrontOverview(vm, { linkPublico, novos, whatsapp, visitas, published }) : ""}
       ${activeTab === "appearance" ? renderStorefrontAppearance(vm) : ""}
-      ${activeTab === "categories" ? renderStorefrontCategories(vm) : ""}
       ${activeTab === "products" ? renderStorefrontProducts(vm) : ""}
+      ${activeTab === "categories" ? renderStorefrontCategories(vm) : ""}
+      ${activeTab === "banner" ? renderStorefrontBanner(vm) : ""}
       ${activeTab === "leads" ? renderStorefrontLeads(vm) : ""}
       ${activeTab === "qrcode" ? renderStorefrontQrLink(vm, linkPublico) : ""}
+      ${activeTab === "settings" ? renderStorefrontSettings(vm) : ""}
     </section>
   `;
 }
@@ -14590,7 +14647,7 @@ function renderStorefrontOverview(vm, stats) {
           </div>
           <div class="storefront-link-box"><span>${escaparHtml(stats.linkPublico)}</span></div>
           <div class="actions">
-            <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin()">Gerenciar loja no ERP</button>
+            <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin()">Abrir admin da loja</button>
             <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
             <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
             <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
@@ -14781,6 +14838,78 @@ function renderStorefrontProducts(vm) {
   `;
 }
 
+function renderStorefrontBanner(vm) {
+  return `
+    <div class="storefront-workspace">
+      <form class="card app-form storefront-form-card" onsubmit="salvarStorefrontAparencia(event)">
+        <div class="card-header">
+          <div>
+            <h3>Banner e capa</h3>
+            <p class="muted">Controle focado em imagens grandes da vitrine. O preview permanece compacto.</p>
+          </div>
+          <span class="status-badge">Imagem</span>
+        </div>
+        <input type="hidden" name="storeName" value="${escaparAttr(vm.store.name || "")}">
+        <input type="hidden" name="storeSlug" value="${escaparAttr(vm.store.slug || "")}">
+        <input type="hidden" name="storeWhatsApp" value="${escaparAttr(vm.store.whatsapp || "")}">
+        <input type="hidden" name="storeInstagram" value="${escaparAttr(vm.store.instagram || "")}">
+        <input type="hidden" name="storeLogoUrl" value="${escaparAttr(vm.store.logo_url || "")}">
+        <input type="hidden" name="storePrimary" value="${escaparAttr(vm.store.theme_config?.primary || "#00BFA6")}">
+        <input type="hidden" name="storeAccent" value="${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
+        <input type="hidden" name="storeThemeMode" value="${escaparAttr(vm.store.theme_config?.mode || "auto")}">
+        <input type="hidden" name="storeDescription" value="${escaparAttr(vm.store.description || "")}">
+        <div class="form-grid">
+          <label>URL do banner<input name="storeBannerUrl" value="${escaparAttr(vm.store.banner_url || "")}"></label>
+          <label>Upload banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"></label>
+        </div>
+        <div class="storefront-image-row">
+          ${vm.store.banner_url ? `<span class="storefront-thumb storefront-thumb-wide"><img src="${escaparAttr(vm.store.banner_url)}" alt="Banner da loja"></span>` : `<span class="storefront-thumb storefront-thumb-wide storefront-thumb-empty">Banner</span>`}
+        </div>
+        <p class="muted">Banner até 3 MB em JPG, PNG ou WebP. Se o upload falhar, a loja usa fallback visual amigável.</p>
+        <div class="actions"><button class="btn" type="submit">Salvar banner</button></div>
+      </form>
+      ${renderStorefrontPreview(vm, { title: "Preview compacto do banner", subtitle: "Sem navegar para a loja pública e sem resetar a SPA." })}
+    </div>
+  `;
+}
+
+function renderStorefrontSettings(vm) {
+  return `
+    <section class="card storefront-form-card">
+      <div class="card-header">
+        <div>
+          <h3>Configurações da loja</h3>
+          <p class="muted">Controles seguros para publicação. Checkout, pagamentos e editor visual continuam fora desta fase.</p>
+        </div>
+        <span class="status-badge">Operação</span>
+      </div>
+      <div class="settings-list">
+        <div class="settings-row">
+          <div>
+            <strong>Publicação</strong>
+            <small>${vm.store.active ? "Loja marcada como ativa para beta/controlado." : "Loja em rascunho/inativa."}</small>
+          </div>
+          <button class="btn ${vm.store.active ? "danger" : ""}" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Desativar loja" : "Ativar loja"}</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <strong>Editor visual</strong>
+            <small>Preparado, mas bloqueado para fase futura.</small>
+          </div>
+          ${renderStorefrontEditorFutureButton("ghost")}
+        </div>
+        <div class="settings-row">
+          <div>
+            <strong>Monetização</strong>
+            <small>Slots futuros preparados apenas para loja pública. Não aparecem no ERP nem no admin.</small>
+          </div>
+          <span class="status-badge">Preparado</span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 function renderStorefrontLeads(vm) {
   const statusList = ["novo", "em_atendimento", "convertido", "perdido", "arquivado"];
   return `<section class="card">
@@ -14842,9 +14971,9 @@ function renderStorefrontQrLink(vm, linkPublico) {
 }
 
 function hidratarLojaOnlineAdmin() {
-  if (telaAtual !== "lojaOnline") return;
+  if (telaAtual !== "lojaOnline" && telaAtual !== "lojaAdmin") return;
   sincronizarLojaOnlineAdminRemoto(false);
-  const alvo = document.getElementById("storefrontAdminQr");
+  const alvo = document.getElementById("storefrontAdminQr") || document.getElementById("storefrontHubQr");
   if (!alvo) return;
   const dataUrl = gerarQrPixDataUrl(getStorefrontPublicUrlLocal());
   alvo.innerHTML = dataUrl
@@ -33392,6 +33521,11 @@ function processarParametrosAssinaturaUrl() {
 }
 
 function processarRotaPublicaLegal() {
+  const adminRoute = parseStorefrontAdminRoute(location.pathname);
+  if (adminRoute) {
+    telaAtual = "lojaAdmin";
+    return;
+  }
   const publicRoute = parseStorefrontPublicRoute(location.pathname);
   if (publicRoute) {
     storefrontPublicRouteState = publicRoute;

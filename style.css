@@ -18683,6 +18683,48 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .storefront-admin-page{
   align-content:start;
 }
 
+.storefront-hub-page{
+  display:grid;
+  gap:16px;
+}
+
+.storefront-hub-header{
+  align-items:center;
+}
+
+.storefront-hub-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:12px;
+}
+
+.storefront-hub-card{
+  min-width:0;
+}
+
+.store-qr-layout.compact{
+  grid-template-columns:minmax(180px, 220px) minmax(0, 1fr);
+  align-items:center;
+}
+
+.storefront-hub-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+
+.storefront-save-state{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  margin-top:8px;
+}
+
+.storefront-save-state small{
+  color:var(--color-text-muted);
+}
+
 .storefront-admin-hero{
   display:grid;
   grid-template-columns:minmax(0, 1fr) auto;
@@ -18744,7 +18786,7 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .storefront-admin-page{
 .storefront-overview-layout,
 .storefront-workspace{
   display:grid;
-  grid-template-columns:minmax(0, 1.08fr) minmax(340px, .92fr);
+  grid-template-columns:minmax(0, 1.2fr) minmax(300px, .72fr);
   gap:18px;
   align-items:start;
 }
@@ -18834,6 +18876,8 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .storefront-admin-page{
   top:128px;
   display:grid;
   gap:14px;
+  max-width:420px;
+  justify-self:end;
 }
 
 .store-preview-toolbar{
@@ -18865,6 +18909,9 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .storefront-admin-page{
   border:1px solid color-mix(in srgb, var(--color-border) 78%, var(--color-primary));
   border-radius:22px;
   background:color-mix(in srgb, var(--color-background-secondary) 76%, transparent);
+  max-height:620px;
+  overflow:auto;
+  overscroll-behavior:contain;
 }
 
 .store-preview-actions{
@@ -20131,11 +20178,14 @@ body.theme-light .store-public-banner{
 
   .store-preview-container{
     position:static;
+    max-width:none;
+    justify-self:stretch;
   }
 }
 
 @media (max-width: 860px){
   .storefront-admin-hero,
+  .storefront-hub-header,
   .store-admin-row,
   .store-lead-row,
   .store-qr-layout{

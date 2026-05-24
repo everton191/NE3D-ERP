@@ -16,6 +16,10 @@
       "dest": "/"
     },
     {
+      "src": "/store-admin/(.*)",
+      "dest": "/"
+    },
+    {
       "handle": "filesystem"
     },
     {
