@@ -1,9 +1,11 @@
 android
+downloads
 node_modules
 .git
 dist
 build
 coverage
+*.apk
 *.aab
 *.keystore
 *.jks
