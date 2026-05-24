@@ -29,6 +29,10 @@ if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
 }
 
+if (fs.existsSync(path.join(root, "downloads"))) {
+  fs.cpSync(path.join(root, "downloads"), path.join(dist, "downloads"), { recursive: true });
+}
+
 if (fs.existsSync(path.join(root, "src"))) {
   fs.cpSync(path.join(root, "src"), path.join(dist, "src"), { recursive: true });
 }
