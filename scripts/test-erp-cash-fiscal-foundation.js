@@ -26,6 +26,12 @@ const shadowMigrationPath = path.join(
   "migrations",
   "20260525153000_erp_financial_integrity_shadow_mode.sql"
 );
+const reconciliationMigrationPath = path.join(
+  rootDir,
+  "supabase",
+  "migrations",
+  "20260525163000_erp_financial_reconciliation_recovery.sql"
+);
 const appJsPath = path.join(rootDir, "app.js");
 
 function fail(message) {
@@ -55,6 +61,9 @@ const idempotencySql = fs.existsSync(idempotencyMigrationPath)
   : "";
 const shadowSql = fs.existsSync(shadowMigrationPath)
   ? fs.readFileSync(shadowMigrationPath, "utf8").replace(/\s+/g, " ").trim()
+  : "";
+const reconciliationSql = fs.existsSync(reconciliationMigrationPath)
+  ? fs.readFileSync(reconciliationMigrationPath, "utf8").replace(/\s+/g, " ").trim()
   : "";
 const appJs = fs.existsSync(appJsPath)
   ? fs.readFileSync(appJsPath, "utf8")
@@ -319,4 +328,62 @@ assertRegex(
 
 if (!process.exitCode) {
   console.log("ERP financial shadow/integrity layer looks consistent.");
+}
+
+if (!reconciliationSql) {
+  fail(`Reconciliation/recovery migration not found: ${reconciliationMigrationPath}`);
+  process.exit();
+}
+
+[
+  "create table if not exists public.operation_reconciliation_queue",
+  "public.enqueue_operation_reconciliation",
+  "public.mark_abandoned_financial_operations",
+  "public.run_operation_reconciliation",
+  "operation_abandoned_timeout",
+  "add column if not exists sync_attempts integer not null default 0",
+  "add column if not exists last_sync_error text",
+  "add column if not exists recovery_source text",
+  "add column if not exists recovered_at timestamptz",
+  "add column if not exists reconciliation_version text not null default 'reconciliation-v1'",
+  "add column if not exists processing_node text",
+  "add column if not exists abandoned_at timestamptz",
+  "public.validate_reconciliation_tracking",
+].forEach((needle) => assertIncludes(reconciliationSql, needle, `Reconciliation/recovery missing: ${needle}`));
+
+[
+  "operation_reconciliation_company_status_idx",
+  "operation_reconciliation_operation_uuid_idx",
+  "erp_financial_operations_recovery_idx",
+  "erp_financial_operations_reconciliation_idx",
+].forEach((needle) => assertIncludes(reconciliationSql, needle, `Reconciliation/recovery index missing: ${needle}`));
+
+assertRegex(
+  reconciliationSql,
+  /status in \('pending', 'processing', 'completed', 'partially_completed', 'failed', 'reversed', 'abandoned', 'cancelled'\)/,
+  "Financial operation states must support recovery/reconciliation lifecycle."
+);
+assertRegex(
+  reconciliationSql,
+  /status in \('queued', 'retrying', 'recovered', 'failed', 'ignored', 'abandoned'\)/,
+  "Reconciliation queue states must support retry/recovery lifecycle."
+);
+assertRegex(
+  reconciliationSql,
+  /public\.mark_abandoned_financial_operations\(p_company_id\)[\s\S]+public\.run_financial_integrity_checks\(p_company_id\)/,
+  "Operational reconciliation must combine abandoned-operation recovery and integrity checks."
+);
+
+[
+  "const FINANCIAL_RECONCILIATION_VERSION = \"reconciliation-v1\";",
+  "sync_attempts",
+  "last_sync_error",
+  "recovery_source",
+  "recovered_at",
+  "reconciliation_version",
+  "processing_node",
+].forEach((needle) => assertIncludes(appJs, needle, `Frontend reconciliation metadata missing: ${needle}`));
+
+if (!process.exitCode) {
+  console.log("ERP financial reconciliation/recovery layer looks consistent.");
 }
