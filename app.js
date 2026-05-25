@@ -8047,6 +8047,7 @@ function podeMostrarControlesFlutuantes() {
 
 const STOREFRONT_BETA_ACCESS_KEY = "simplifica-storefront-beta-access-v1";
 const STOREFRONT_TRUE_VALUES = new Set(["true", "1", "yes", "sim", "on"]);
+const STOREFRONT_UPLOAD_STATUS_KEY = "simplifica-storefront-upload-status-v1";
 
 function isStorefrontTruthy(value) {
   return STOREFRONT_TRUE_VALUES.has(String(value ?? "").trim().toLowerCase());
@@ -8112,6 +8113,45 @@ function registrarStorefrontDebugLeve(evento, detalhe = "", extra = {}) {
     current.unshift(payload);
     localStorage.setItem(key, JSON.stringify(current.slice(0, 40)));
   } catch (_) {}
+}
+
+function setStorefrontUploadStatus(status = {}) {
+  try {
+    localStorage.setItem(STOREFRONT_UPLOAD_STATUS_KEY, JSON.stringify({
+      type: status.type || "info",
+      title: status.title || "",
+      message: status.message || "",
+      detail: status.detail || "",
+      at: new Date().toISOString()
+    }));
+  } catch (_) {}
+}
+
+function clearStorefrontUploadStatus() {
+  try {
+    localStorage.removeItem(STOREFRONT_UPLOAD_STATUS_KEY);
+  } catch (_) {}
+}
+
+function getStorefrontUploadStatus() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STOREFRONT_UPLOAD_STATUS_KEY) || "null");
+    return saved && typeof saved === "object" ? saved : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function renderStorefrontUploadStatus() {
+  const status = getStorefrontUploadStatus();
+  if (!status?.title && !status?.message) return "";
+  return `
+    <div class="storefront-upload-status ${escaparAttr(status.type || "info")}" data-storefront-upload-status>
+      <strong>${escaparHtml(status.title || "Status do upload")}</strong>
+      ${status.message ? `<span>${escaparHtml(status.message)}</span>` : ""}
+      ${status.detail ? `<small>${escaparHtml(status.detail)}</small>` : ""}
+    </div>
+  `;
 }
 
 function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getStorefrontRuntimeFlags()) {
@@ -8191,6 +8231,9 @@ async function sincronizarStorefrontBetaAccessRemoto(force = false) {
 function renderDesktop() {
   if (telaAtual === "lojaPublica") {
     return renderTela("lojaPublica");
+  }
+  if (telaAtual === "lojaAdmin") {
+    return renderStorefrontAdminStandalone();
   }
   if (!getUsuarioAtual() && telaAtual === "admin") {
     return `<main class="auth-desktop-main">${renderAdmin()}</main>`;
@@ -12069,6 +12112,9 @@ function renderMobile() {
   if (telaAtual === "lojaPublica") {
     return renderTela("lojaPublica");
   }
+  if (telaAtual === "lojaAdmin") {
+    return renderStorefrontAdminStandalone();
+  }
   if (!getUsuarioAtual() && telaAtual === "admin") {
     return `<div class="mobile-auth-shell">${renderAdmin()}</div>`;
   }
@@ -12616,6 +12662,26 @@ function renderConta() {
 
       <section class="profile-modern-card profile-list-card">
         <h3>Usuário</h3>
+        <div class="profile-inline-edit-card">
+          <div class="profile-section-title compact">
+            <strong>Editar perfil</strong>
+            <span class="status-badge">Conta</span>
+          </div>
+          <div class="profile-inline-grid">
+            <label class="field">
+              <span>Nome</span>
+              <input id="userProfileNameInline" value="${escaparAttr(usuario.nome || "")}" placeholder="Nome do usuário">
+            </label>
+            <label class="field">
+              <span>Telefone</span>
+              <input id="userProfilePhoneInline" value="${escaparAttr(usuario.phone || usuario.telefone || "")}" placeholder="(00) 00000-0000">
+            </label>
+          </div>
+          <div class="profile-inline-actions">
+            <button class="btn" type="button" onclick="salvarDadosPessoaisUsuario({ inline: true })">Salvar Perfil</button>
+            <button class="btn secondary" type="button" onclick="abrirDadosPessoaisUsuario()">Abrir edição completa</button>
+          </div>
+        </div>
         <button class="profile-list-row" type="button" onclick="abrirFotoPerfilUsuario()">${renderUiIcon("conta")} <span>Foto do perfil</span><b>›</b></button>
         <button class="profile-list-row" type="button" onclick="abrirDadosPessoaisUsuario()">${renderUiIcon("clientes")} <span>Dados pessoais</span><b>›</b></button>
         ${renderProfileMenuRow("seguranca", "Segurança da conta", "seguranca")}
@@ -12686,7 +12752,7 @@ function abrirDadosPessoaisUsuario() {
           </label>
         </div>
         <div class="actions">
-          <button class="btn" type="button" onclick="salvarDadosPessoaisUsuario()">Salvar dados</button>
+          <button class="btn" type="button" onclick="salvarDadosPessoaisUsuario()">Salvar Perfil</button>
           <button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button>
         </div>
       </section>
@@ -12694,11 +12760,12 @@ function abrirDadosPessoaisUsuario() {
   `;
 }
 
-function salvarDadosPessoaisUsuario() {
+function salvarDadosPessoaisUsuario(options = {}) {
   const usuario = getUsuarioAtual();
   if (!usuario) return;
-  const nome = String(document.getElementById("userProfileNameInput")?.value || "").trim();
-  const telefone = String(document.getElementById("userProfilePhoneInput")?.value || "").trim();
+  const inline = options?.inline === true;
+  const nome = String(document.getElementById(inline ? "userProfileNameInline" : "userProfileNameInput")?.value || "").trim();
+  const telefone = String(document.getElementById(inline ? "userProfilePhoneInline" : "userProfilePhoneInput")?.value || "").trim();
   if (!nome) {
     mostrarToast("Informe o nome do usuário.", "warning", 2600);
     return;
@@ -12726,7 +12793,7 @@ function salvarDadosPessoaisUsuario() {
     }
     salvarDados();
     registrarFluxoSalvamento("Perfil", "Salvar dados pessoais", { id, email, campos: ["nome", "telefone"] });
-    fecharPopup();
+    if (!inline) fecharPopup();
     renderApp();
     mostrarToast("Dados do usuário atualizados.", "sucesso", 2600);
   } catch (erro) {
@@ -12738,22 +12805,14 @@ function salvarDadosPessoaisUsuario() {
 }
 
 function getStorefrontPreviewLeadsLocal() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("simplifica-storefront-leads-preview-v1") || "null");
-    if (Array.isArray(saved)) return saved;
-  } catch (_) {
-    return [];
-  }
+  const saved = storefrontAdminRead("simplifica-storefront-leads-preview-v1", null);
+  if (Array.isArray(saved)) return saved;
   return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData().leads : [];
 }
 
 function getStorefrontPreviewEventsLocal() {
-  try {
-    const saved = JSON.parse(localStorage.getItem("simplifica-storefront-events-preview-v1") || "null");
-    if (Array.isArray(saved)) return saved;
-  } catch (_) {
-    return [];
-  }
+  const saved = storefrontAdminRead("simplifica-storefront-events-preview-v1", null);
+  if (Array.isArray(saved)) return saved;
   return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData().events : [];
 }
 
@@ -12817,9 +12876,9 @@ async function transformarLeadLojaOnlinePreview(id) {
       });
       if (rows?.[0]) draft.id = rows[0].id;
     }
-    const drafts = JSON.parse(localStorage.getItem("simplifica-storefront-order-drafts-preview-v1") || "[]");
-    localStorage.setItem("simplifica-storefront-order-drafts-preview-v1", JSON.stringify([draft, ...drafts].slice(0, 100)));
-    localStorage.setItem("simplifica-storefront-leads-preview-v1", JSON.stringify(leads.map((item) => String(item.id) === String(id) ? { ...item, status: "convertido" } : item)));
+    const drafts = storefrontAdminRead("simplifica-storefront-order-drafts-preview-v1", []);
+    storefrontAdminWrite("simplifica-storefront-order-drafts-preview-v1", [draft, ...(Array.isArray(drafts) ? drafts : [])].slice(0, 100));
+    storefrontAdminWrite("simplifica-storefront-leads-preview-v1", leads.map((item) => String(item.id) === String(id) ? { ...item, status: "convertido" } : item));
     mostrarToast("Pedido rascunho criado para revisão manual.", "sucesso", 3600);
     renderApp();
   } catch (error) {
@@ -12836,9 +12895,11 @@ const STOREFRONT_ADMIN_KEYS = {
   images: "simplifica-storefront-admin-images-v1",
   editingCategory: "simplifica-storefront-admin-editing-category-v1",
   editingProduct: "simplifica-storefront-admin-editing-product-v1",
+  editingProductSeed: "simplifica-storefront-admin-editing-product-seed-v1",
   lastRemoteSync: "simplifica-storefront-admin-last-remote-sync-v1",
   dirty: "simplifica-storefront-admin-dirty-v1",
-  activity: "simplifica-storefront-admin-activity-v1"
+  activity: "simplifica-storefront-admin-activity-v1",
+  editorMode: "simplifica-storefront-admin-editor-mode-v1"
 };
 
 const STOREFRONT_ADMIN_TABS = [
@@ -12862,9 +12923,46 @@ function storefrontAdminSlugify(value) {
     .slice(0, 80);
 }
 
+function getStorefrontScopedOwnerId() {
+  return storefrontAdminSlugify(syncConfig.supabaseUserId || getUsuarioAtual()?.id || usuarioAtualEmail || "local") || "local";
+}
+
+function getStorefrontAdminScopedKey(key = "") {
+  const text = String(key);
+  const scopedPrefixes = [
+    "simplifica-storefront-admin-",
+    "simplifica-storefront-leads-preview-",
+    "simplifica-storefront-events-preview-",
+    "simplifica-storefront-order-drafts-preview-"
+  ];
+  if (!scopedPrefixes.some((prefix) => text.startsWith(prefix))) return key;
+  return `${key}:${getStorefrontScopedOwnerId()}`;
+}
+
+function storefrontAdminStorageGet(key) {
+  try {
+    return localStorage.getItem(getStorefrontAdminScopedKey(key)) ?? localStorage.getItem(key);
+  } catch (_) {
+    return null;
+  }
+}
+
+function storefrontAdminStorageSet(key, value) {
+  try {
+    localStorage.setItem(getStorefrontAdminScopedKey(key), value);
+  } catch (_) {}
+}
+
+function storefrontAdminStorageRemove(key) {
+  try {
+    localStorage.removeItem(getStorefrontAdminScopedKey(key));
+    localStorage.removeItem(key);
+  } catch (_) {}
+}
+
 function storefrontAdminRead(key, fallback) {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = storefrontAdminStorageGet(key);
     return raw ? JSON.parse(raw) : fallback;
   } catch (_) {
     return fallback;
@@ -12873,7 +12971,7 @@ function storefrontAdminRead(key, fallback) {
 
 function storefrontAdminHasStoredValue(key) {
   try {
-    return localStorage.getItem(key) !== null;
+    return storefrontAdminStorageGet(key) !== null;
   } catch (_) {
     return false;
   }
@@ -12881,8 +12979,20 @@ function storefrontAdminHasStoredValue(key) {
 
 function storefrontAdminWrite(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    storefrontAdminStorageSet(key, JSON.stringify(value));
   } catch (_) {}
+}
+
+function getStorefrontEditorMode() {
+  const mode = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.editorMode) || "simple";
+  return mode === "complete" ? "complete" : "simple";
+}
+
+function setStorefrontEditorMode(mode = "simple") {
+  const value = mode === "complete" ? "complete" : "simple";
+  storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editorMode, value);
+  mostrarToast(value === "complete" ? "Modo completo ativado." : "Modo simples ativado.", "info", 1800);
+  renderApp();
 }
 
 function getStorefrontActivityLocal() {
@@ -12902,7 +13012,7 @@ function registrarStorefrontActivity(title, description = "") {
 
 function marcarStorefrontAlteracoesPendentes(detail = "Edição em andamento") {
   try {
-    localStorage.setItem(STOREFRONT_ADMIN_KEYS.dirty, JSON.stringify({
+    storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.dirty, JSON.stringify({
       dirty: true,
       detail,
       updatedAt: new Date().toISOString()
@@ -12914,7 +13024,7 @@ function marcarStorefrontAlteracoesPendentes(detail = "Edição em andamento") {
 
 function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
   try {
-    localStorage.setItem(STOREFRONT_ADMIN_KEYS.dirty, JSON.stringify({
+    storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.dirty, JSON.stringify({
       dirty: false,
       detail,
       updatedAt: new Date().toISOString()
@@ -12924,7 +13034,7 @@ function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
 
 function getStorefrontDirtyState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STOREFRONT_ADMIN_KEYS.dirty) || "null");
+    const saved = JSON.parse(storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.dirty) || "null");
     return saved && typeof saved === "object" ? saved : { dirty: false };
   } catch (_) {
     return { dirty: false };
@@ -12945,12 +13055,56 @@ function isStorefrontDemoPreviewAllowed() {
   return isAmbienteLocal() || isStorefrontStagingEnvironment();
 }
 
+function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
+  const commons = {
+    vase: "assets/storefront-demo/vase.jpg?v=20260525",
+    stamp: "assets/storefront-demo/stamp.jpg?v=20260525",
+    box: "assets/storefront-demo/organizer.jpg?v=20260525",
+    figure: "assets/storefront-demo/figure.jpg?v=20260525",
+    miniature: "assets/storefront-demo/miniature.jpg?v=20260525",
+    custom: "assets/storefront-demo/custom-part.jpg?v=20260525"
+  };
+  if (commons[visual]) return commons[visual];
+  const palette = {
+    vase: ["#243746", "#6fb7c9", "#d8f5f2"],
+    stamp: ["#2b2d36", "#9aa4b2", "#f2f7fb"],
+    box: ["#232a34", "#5f7184", "#e9eef5"],
+    figure: ["#251f2f", "#8d79b7", "#f3eefe"],
+    miniature: ["#1f2937", "#7aa8d8", "#edf6ff"],
+    custom: ["#2d2732", "#d0a870", "#fff4db"]
+  };
+  const [bg, main, light] = palette[visual] || palette.box;
+  const safeTitle = escaparHtml(String(title || "Produto").slice(0, 34));
+  const shape = {
+    vase: `<path d="M265 92c-26 30-26 58-8 82 17 23 19 50-4 88-19 31-7 70 46 70h66c53 0 65-39 46-70-23-38-21-65-4-88 18-24 18-52-8-82-31 15-103 15-134 0Z" fill="${main}"/><ellipse cx="332" cy="94" rx="70" ry="18" fill="${light}" opacity=".75"/><ellipse cx="332" cy="330" rx="86" ry="18" fill="#000" opacity=".18"/>`,
+    stamp: `<rect x="212" y="204" width="240" height="92" rx="18" fill="${main}"/><rect x="276" y="124" width="112" height="96" rx="22" fill="${light}" opacity=".82"/><rect x="238" y="292" width="188" height="34" rx="12" fill="#111827" opacity=".55"/>`,
+    box: `<path d="m206 174 124-62 128 62-128 70-124-70Z" fill="${light}" opacity=".75"/><path d="M206 174v126l124 70V244L206 174Z" fill="${main}"/><path d="M458 174v126l-128 70V244l128-70Z" fill="#94a3b8" opacity=".58"/>`,
+    figure: `<circle cx="332" cy="126" r="42" fill="${light}" opacity=".85"/><path d="M278 204c8-44 100-44 108 0l19 126H259l19-126Z" fill="${main}"/><path d="M250 332h164v26H250z" fill="#111827" opacity=".48"/>`,
+    miniature: `<path d="M330 92 376 180l96 14-70 68 17 95-89-46-86 46 16-95-70-68 96-14 44-88Z" fill="${main}"/><path d="M210 358h240" stroke="${light}" stroke-width="18" stroke-linecap="round" opacity=".72"/>`,
+    custom: `<rect x="196" y="154" width="272" height="164" rx="34" fill="${main}" transform="rotate(-7 332 236)"/><path d="M238 226h188M260 268h142" stroke="${light}" stroke-width="18" stroke-linecap="round" opacity=".8"/>`
+  }[visual] || "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 664 440" role="img" aria-label="${safeTitle}">
+    <defs>
+      <radialGradient id="g" cx="50%" cy="22%" r="72%"><stop offset="0" stop-color="${light}" stop-opacity=".26"/><stop offset=".58" stop-color="${bg}" stop-opacity=".92"/><stop offset="1" stop-color="#090b10"/></radialGradient>
+      <filter id="s"><feDropShadow dx="0" dy="26" stdDeviation="24" flood-color="#000" flood-opacity=".32"/></filter>
+    </defs>
+    <rect width="664" height="440" fill="url(#g)"/>
+    <circle cx="512" cy="74" r="120" fill="${main}" opacity=".12"/>
+    <g filter="url(#s)">${shape}</g>
+    <text x="42" y="394" fill="#f8fbff" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">${safeTitle}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   const ownerId = store.owner_id || getStorefrontOwnerIdLocal();
   const demoCategories = [
+    ["Decoração", "◒"],
     ["Personalizados", "★"],
-    ["Cortadores", "◒"],
-    ["Suportes", "▣"]
+    ["Utilidades", "▣"],
+    ["Geek e anime", "✦"],
+    ["Miniaturas", "◎"],
+    ["Sob encomenda", "+"]
   ].map(([name, icon], index) => ({
     id: `demo-cat-${storefrontAdminSlugify(name)}`,
     store_id: store.id,
@@ -12964,18 +13118,20 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   }));
   const categoryBySlug = (slug) => demoCategories.find((cat) => cat.slug === slug)?.id || demoCategories[0]?.id || null;
   const demoProducts = [
-    ["Carimbo personalizado", "personalizados", 39.9, true, "2 a 4 dias úteis"],
-    ["Cortador de docinhos", "cortadores", 24.9, true, "1 a 3 dias úteis"],
-    ["Suporte de projetor", "suportes", 79.9, false, "3 a 5 dias úteis"],
-    ["Brinde personalizado", "personalizados", 18.5, false, "Sob consulta"]
-  ].map(([title, categorySlug, price, featured, time]) => ({
+    ["Vaso decorativo 3D", "decoracao", 64.9, true, "2 a 4 dias úteis", "vase", "Peça decorativa com acabamento limpo para compor ambientes, mesas e estantes."],
+    ["Carimbo personalizado", "personalizados", 39.9, false, "2 a 4 dias úteis", "stamp", "Modelo sob medida para marca, papelaria, embalagens e presentes personalizados."],
+    ["Organizador modular", "utilidades", 54.9, false, "1 a 3 dias úteis", "box", "Organizador prático para escritório, bancada de produção ou itens do dia a dia."],
+    ["Action figure custom", "geek-e-anime", 129.9, false, "5 a 8 dias úteis", "figure", "Miniatura personalizada para coleção, decoração ou presente criativo."],
+    ["Miniatura colecionável", "miniaturas", 79.9, false, "3 a 6 dias úteis", "miniature", "Modelo em escala com visual detalhado para colecionadores e projetos especiais."],
+    ["Peça sob encomenda", "sob-encomenda", 18.5, false, "Sob consulta", "custom", "Produção personalizada conforme medidas, referência e necessidade do cliente."]
+  ].map(([title, categorySlug, price, featured, time, visual, description]) => ({
     id: `demo-prod-${storefrontAdminSlugify(title)}`,
     store_id: store.id,
     owner_id: ownerId,
     erp_product_id: null,
     title,
     slug: storefrontAdminSlugify(title),
-    description: "Produto demonstrativo para visualizar a vitrine da Loja Online.",
+    description,
     price,
     compare_price: null,
     price_mode: categorySlug === "personalizados" && title === "Brinde personalizado" ? "from" : "fixed",
@@ -12985,9 +13141,11 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
     featured,
     is_customizable: categorySlug === "personalizados",
     estimated_production_time: time,
-    public_observations: "Demonstração visual. Não é um produto salvo.",
+    public_observations: "",
     stock_mode: "unlimited",
     stock_quantity: null,
+    visual_type: visual,
+    image_url: getStorefrontDemoProductImage(visual, title),
     __demo: true
   }));
   const demoLead = {
@@ -13013,8 +13171,8 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   ];
   const demoStore = {
     ...store,
-    name: store.name || "NE 3D Demo",
-    description: store.description || "Preview demonstrativo de uma vitrine de impressão 3D.",
+    name: store.name || "Minha loja criativa",
+    description: store.description || "Produtos personalizados, utilidades e peças sob encomenda com acabamento profissional.",
     active: false,
     theme_config: {
       primary: store.theme_config?.primary || "#00BFA6",
@@ -13028,12 +13186,13 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
 
 function getStorefrontAdminStoreLocal() {
   const ownerId = getStorefrontOwnerIdLocal();
+  const defaultSlug = getStorefrontDefaultSlugLocal();
   const fallback = {
     id: `store-${ownerId || "local"}`,
     owner_id: ownerId,
-    slug: "ne3d-internal-test",
-    name: appConfig.businessName || "NE 3D",
-    description: "Produtos personalizados em impressão 3D.",
+    slug: defaultSlug,
+    name: appConfig.businessName || "Minha loja 3D",
+    description: "Produtos personalizados, brindes e peças sob encomenda em impressão 3D.",
     logo_url: "",
     banner_url: "",
     whatsapp: "",
@@ -13044,11 +13203,32 @@ function getStorefrontAdminStoreLocal() {
   return { ...fallback, ...storefrontAdminRead(STOREFRONT_ADMIN_KEYS.store, fallback), owner_id: ownerId };
 }
 
+function getStorefrontDefaultSlugLocal() {
+  const usuario = getUsuarioAtual() || {};
+  const candidates = [
+    appConfig.businessSlug,
+    appConfig.businessName,
+    usuario.store_slug,
+    usuario.username,
+    usuario.nome,
+    usuario.email,
+    usuarioAtualEmail,
+    syncConfig.supabaseEmail,
+    syncConfig.supabaseUserId
+  ];
+  for (const candidate of candidates) {
+    const raw = String(candidate || "").split("@")[0];
+    const slug = storefrontAdminSlugify(raw);
+    if (slug && !["local", "usuario", "admin", "teste"].includes(slug)) return slug;
+  }
+  return `loja-${getStorefrontScopedOwnerId().slice(0, 8)}`;
+}
+
 function getStorefrontAdminCategoriesLocal() {
   const store = getStorefrontAdminStoreLocal();
   const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.categories, null);
   if (Array.isArray(saved)) return saved;
-  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData(store).categories : [];
+  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData(store).categories : getStorefrontDefaultCategories(store);
 }
 
 function getStorefrontAdminProductsLocal() {
@@ -13063,13 +13243,27 @@ function getStorefrontAdminImagesLocal() {
   return Array.isArray(saved) ? saved : [];
 }
 
+function getStorefrontDefaultCategories(store = getStorefrontAdminStoreLocal()) {
+  return ["Decoração", "Personalizados", "Utilidades", "Geek e anime", "Miniaturas", "Sob encomenda"].map((name, index) => ({
+    id: `template-cat-${storefrontAdminSlugify(name)}`,
+    store_id: store.id,
+    owner_id: store.owner_id,
+    name,
+    slug: storefrontAdminSlugify(name),
+    icon: ["◒", "★", "▣", "✦", "◎", "+"][index] || "▦",
+    order_index: index + 1,
+    visible: true,
+    __template: true
+  }));
+}
+
 function getStorefrontAdminTab() {
-  const tab = localStorage.getItem(STOREFRONT_ADMIN_KEYS.tab) || "overview";
+  const tab = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.tab) || "overview";
   return STOREFRONT_ADMIN_TABS.some(([id]) => id === tab) ? tab : "overview";
 }
 
 function setStorefrontAdminTab(tab) {
-  localStorage.setItem(STOREFRONT_ADMIN_KEYS.tab, tab);
+  storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.tab, tab);
   if (telaAtual !== "lojaAdmin") {
     telaAtual = "lojaAdmin";
     atualizarHistoricoBrowserApp(true);
@@ -13084,12 +13278,13 @@ function getStorefrontPublicUrlLocal() {
 }
 
 function abrirPainelLojaOnlineAdmin(tab = "") {
-  abrirStorefrontAdminRoute(tab);
+  if (tab) storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.tab, tab);
+  abrirLojaPublicaAdminContextual({ slug: getStorefrontAdminStoreLocal().slug || getStorefrontDefaultSlugLocal() });
 }
 
 function abrirStorefrontAdminRoute(tab = "") {
   if (tab && STOREFRONT_ADMIN_TABS.some(([id]) => id === tab)) {
-    localStorage.setItem(STOREFRONT_ADMIN_KEYS.tab, tab);
+    storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.tab, tab);
   }
   if (!canUseStorefrontLocal()) {
     mostrarToast("Admin da loja disponível para usuários autorizados ou plano habilitado.", "aviso", 3600);
@@ -13217,19 +13412,56 @@ function validarArquivoStorefrontImagem(file, tipo = "produto") {
 
 function compressStorefrontImage(file, tipo = "produto") {
   validarArquivoStorefrontImagem(file, tipo);
-  if (typeof createImageBitmap === "undefined" || typeof OffscreenCanvas === "undefined") {
-    return Promise.resolve(file);
-  }
   const maxSide = tipo === "logo" ? 512 : tipo === "banner" ? 1600 : 1200;
+  const quality = tipo === "logo" ? 0.86 : 0.82;
+  if (typeof createImageBitmap === "undefined") {
+    return compressStorefrontImageWithHtmlCanvas(file, maxSide, quality).catch(() => file);
+  }
   return createImageBitmap(file).then((bitmap) => {
     const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
-    const canvas = new OffscreenCanvas(width, height);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(bitmap, 0, 0, width, height);
-    return canvas.convertToBlob({ type: "image/webp", quality: tipo === "logo" ? 0.86 : 0.82 });
-  }).catch(() => file);
+    if (typeof OffscreenCanvas !== "undefined") {
+      const canvas = new OffscreenCanvas(width, height);
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      return canvas.convertToBlob({ type: "image/webp", quality });
+    }
+    return compressStorefrontImageWithHtmlCanvas(file, maxSide, quality);
+  }).catch(() => compressStorefrontImageWithHtmlCanvas(file, maxSide, quality).catch(() => file));
+}
+
+function compressStorefrontImageWithHtmlCanvas(file, maxSide = 1200, quality = 0.82) {
+  if (typeof document === "undefined" || typeof URL === "undefined") return Promise.reject(new Error("Canvas indisponível"));
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+        const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+        const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(objectUrl);
+          if (blob) resolve(blob);
+          else reject(new Error("Não foi possível compactar a imagem."));
+        }, "image/webp", quality);
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        reject(error);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Não foi possível carregar a imagem."));
+    };
+    img.src = objectUrl;
+  });
 }
 
 async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } = {}) {
@@ -13247,6 +13479,13 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } 
     : tipo === "banner"
       ? `${owner}/${storeId}/banner/${unique}`
       : `${owner}/${storeId}/products/${segmentoStorageSeguro(productId, "product")}/${unique}`;
+  registrarStorefrontDebugLeve("upload_iniciado", "Upload Storefront iniciado.", {
+    bucket: "storefront-assets",
+    path,
+    tipo,
+    size: blob.size,
+    mime: blob.type || file.type || ""
+  });
   const resposta = await fetch(`${base}/storage/v1/object/storefront-assets/${path}`, {
     method: "POST",
     headers: cabecalhosSupabase(true, {
@@ -13258,18 +13497,53 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } 
   if (!resposta.ok) {
     const text = await resposta.text().catch(() => "");
     registrarStorefrontDebugLeve("upload_falhou", "Falha ao enviar imagem da Loja Online.", {
+      bucket: "storefront-assets",
+      path,
       tipo,
       status: resposta.status,
-      store_id: store.id
+      store_id: store.id,
+      response: text.slice(0, 600)
     });
     throw new Error(text || "Erro ao enviar imagem. Tente novamente.");
   }
-  return `${base}/storage/v1/object/public/storefront-assets/${path}`;
+  const url = `${base}/storage/v1/object/public/storefront-assets/${path}`;
+  registrarStorefrontDebugLeve("upload_concluido", "Upload Storefront concluído.", {
+    bucket: "storefront-assets",
+    path,
+    tipo,
+    url
+  });
+  return url;
+}
+
+function storefrontUploadPodeUsarFallbackLocal(error) {
+  const message = String(error?.message || error || "");
+  return /bucket not found|storage|404|Upload real exige|Salve a aparência/i.test(message);
+}
+
+function lerArquivoComoDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("Não foi possível ler a imagem."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function prepararStorefrontImagemPreview(file, tipo = "produto") {
+  const blob = await compressStorefrontImage(file, tipo).catch(() => file);
+  return lerArquivoComoDataUrl(blob);
+}
+
+function storefrontImagemRemotaOuNull(value = "") {
+  const texto = String(value || "").trim();
+  if (!texto || texto.startsWith("data:")) return null;
+  return texto;
 }
 
 async function sincronizarLojaOnlineAdminRemoto(force = false) {
   if (!canUseStorefrontLocal() || !storefrontAdminRemoteReady()) return;
-  const lastSync = Number(localStorage.getItem(STOREFRONT_ADMIN_KEYS.lastRemoteSync) || 0);
+  const lastSync = Number(storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.lastRemoteSync) || 0);
   if (!force && Date.now() - lastSync < 120000) return;
   try {
     const owner = encodeURIComponent(syncConfig.supabaseUserId);
@@ -13290,7 +13564,7 @@ async function sincronizarLojaOnlineAdminRemoto(force = false) {
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, images || []);
     storefrontAdminWrite("simplifica-storefront-leads-preview-v1", leads || []);
     storefrontAdminWrite("simplifica-storefront-events-preview-v1", events || []);
-    localStorage.setItem(STOREFRONT_ADMIN_KEYS.lastRemoteSync, String(Date.now()));
+    storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.lastRemoteSync, String(Date.now()));
     if (force) {
       mostrarToast("Dados da Loja Online sincronizados.", "sucesso", 2600);
       renderApp();
@@ -13379,8 +13653,8 @@ async function salvarStorefrontAparencia(event) {
         slug: next.slug,
         name: next.name,
         description: next.description,
-        logo_url: next.logo_url || null,
-        banner_url: next.banner_url || null,
+        logo_url: storefrontImagemRemotaOuNull(next.logo_url),
+        banner_url: storefrontImagemRemotaOuNull(next.banner_url),
         whatsapp: next.whatsapp || null,
         instagram: next.instagram || null,
         active: next.active === true,
@@ -13402,6 +13676,7 @@ async function salvarStorefrontAparencia(event) {
       }
     }
     limparStorefrontAlteracoesPendentes("Aparência salva");
+    clearStorefrontUploadStatus();
     registrarStorefrontActivity("Aparência atualizada", "Nome, cores, links ou imagens da vitrine foram salvos.");
     mostrarToast("Aparência da loja salva.", "sucesso", 2800);
     renderApp();
@@ -13437,8 +13712,8 @@ async function alternarStatusLojaOnline() {
 }
 
 function abrirEditorCategoriaLojaOnline(id = "") {
-  if (id) localStorage.setItem(STOREFRONT_ADMIN_KEYS.editingCategory, id);
-  else localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingCategory);
+  if (id) storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editingCategory, id);
+  else storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingCategory);
   setStorefrontAdminTab("categories");
 }
 
@@ -13471,7 +13746,7 @@ async function salvarCategoriaLojaOnline(event) {
     }
     const next = id ? categories.map((cat) => cat.id === id ? { ...cat, ...nextCategory } : cat) : [...categories, nextCategory];
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, next);
-    localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingCategory);
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingCategory);
     limparStorefrontAlteracoesPendentes("Categoria salva");
     registrarStorefrontActivity(id ? "Categoria atualizada" : "Categoria criada", nextCategory.name);
     mostrarToast("Categoria salva.", "sucesso");
@@ -13507,8 +13782,29 @@ async function excluirCategoriaLojaOnline(id) {
 }
 
 function abrirEditorProdutoLojaOnline(id = "") {
-  if (id) localStorage.setItem(STOREFRONT_ADMIN_KEYS.editingProduct, id);
-  else localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingProduct);
+  if (id) {
+    const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(id));
+    if (product?.__demo || product?.__template) {
+      const seed = {
+        ...product,
+        id: "",
+        slug: "",
+        visible: getStorefrontAdminStoreLocal().active === true,
+        __demo: false,
+        __template: false,
+        public_observations: ""
+      };
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, seed);
+      storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
+      mostrarToast("Use este exemplo como base para criar seu produto real.", "info", 3200);
+    } else {
+      storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editingProduct, id);
+      storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
+    }
+  } else {
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
+  }
   setStorefrontAdminTab("products");
 }
 
@@ -13558,7 +13854,8 @@ async function salvarProdutoLojaOnline(event) {
     }
     const next = id ? products.map((product) => product.id === id ? { ...product, ...nextProduct } : product) : [...products, nextProduct];
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
-    localStorage.removeItem(STOREFRONT_ADMIN_KEYS.editingProduct);
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
     limparStorefrontAlteracoesPendentes("Produto salvo");
     registrarStorefrontActivity(id ? "Produto atualizado" : "Produto criado", nextProduct.title);
     mostrarToast(nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto.", "sucesso");
@@ -13621,6 +13918,54 @@ async function removerProdutoLojaOnline(id) {
   }
 }
 
+function moverProdutoLojaOnline(id, direction = 0) {
+  const products = getStorefrontAdminProductsLocal();
+  const index = products.findIndex((product) => String(product.id) === String(id));
+  if (index < 0) return;
+  const target = Math.max(0, Math.min(products.length - 1, index + Number(direction || 0)));
+  if (target === index) return;
+  const next = [...products];
+  const [item] = next.splice(index, 1);
+  next.splice(target, 0, item);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
+  marcarStorefrontAlteracoesPendentes("Ordem visual dos produtos alterada");
+  registrarStorefrontActivity("Produto reorganizado", item.title || "Produto da loja");
+  mostrarToast("Ordem visual atualizada no preview local.", "info", 2400);
+  renderApp();
+}
+
+async function moverCategoriaLojaOnline(id, direction = 0) {
+  const categories = getStorefrontAdminCategoriesLocal().sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
+  const index = categories.findIndex((cat) => String(cat.id) === String(id));
+  if (index < 0) return;
+  const target = Math.max(0, Math.min(categories.length - 1, index + Number(direction || 0)));
+  if (target === index) return;
+  const next = [...categories];
+  const [item] = next.splice(index, 1);
+  next.splice(target, 0, item);
+  const normalized = next.map((cat, idx) => ({ ...cat, order_index: idx + 1 }));
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, normalized);
+  try {
+    if (storefrontAdminRemoteReady()) {
+      await Promise.all(normalized
+        .filter((cat) => !storefrontAdminIsLocalId(cat.id, "cat-") && !cat.__demo)
+        .map((cat) => storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(cat.id)}`, {
+          method: "PATCH",
+          headers: { Prefer: "return=minimal" },
+          body: JSON.stringify({ order_index: Number(cat.order_index || 0) })
+        })));
+    }
+    limparStorefrontAlteracoesPendentes("Ordem de categorias salva");
+    registrarStorefrontActivity("Categoria reorganizada", item.name || "Categoria da loja");
+    mostrarToast("Ordem de categorias atualizada.", "sucesso", 2400);
+  } catch (error) {
+    marcarStorefrontAlteracoesPendentes("Ordem de categorias pendente de sincronização");
+    registrarStorefrontDebugLeve("save_falhou", "Falha ao persistir ordem de categorias.", { message: error?.message || String(error) });
+    mostrarToast("Ordem atualizada localmente. Sincronização pendente.", "aviso", 3600);
+  }
+  renderApp();
+}
+
 function duplicarProdutoLojaOnline(id) {
   const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(id));
   if (!product || product.__demo) return mostrarToast("Crie um produto real para duplicar.", "info", 3200);
@@ -13635,7 +13980,7 @@ function duplicarProdutoLojaOnline(id) {
     updatedAt: new Date().toISOString()
   };
   storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, [copy, ...getStorefrontAdminProductsLocal()]);
-  localStorage.setItem(STOREFRONT_ADMIN_KEYS.editingProduct, copy.id);
+  storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editingProduct, copy.id);
   registrarStorefrontActivity("Produto duplicado", copy.title);
   mostrarToast("Produto duplicado como rascunho oculto.", "sucesso", 2800);
   setStorefrontAdminTab("products");
@@ -13645,13 +13990,18 @@ function abrirProdutoLojaPublica(productId = "") {
   const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(productId));
   if (!product?.slug) return mostrarToast("Produto sem slug público.", "erro", 3200);
   const store = getStorefrontAdminStoreLocal();
-  const url = `${location.origin}/loja/${encodeURIComponent(store.slug || "loja")}/produto/${encodeURIComponent(product.slug)}`;
+  const url = `${location.origin}${getStorefrontPublicRoutePath({ slug: store.slug || "loja", view: "product", productSlug: product.slug })}`;
   window.open(url, "_blank", "noopener");
 }
 
 async function processarImagemProdutoLojaOnline(productId, input) {
   const files = Array.from(input?.files || []);
   if (!files.length) return;
+  setStorefrontUploadStatus({
+    type: "info",
+    title: "Enviando imagem",
+    message: "Validando arquivo e preparando upload do produto."
+  });
   const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
   const maxImages = limits.customThemeEnabled ? 5 : 1;
   const images = getStorefrontAdminImagesLocal();
@@ -13690,29 +14040,72 @@ async function processarImagemProdutoLojaOnline(productId, input) {
           order_index: order
         });
         storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+        setStorefrontUploadStatus({
+          type: "success",
+          title: "Foto enviada",
+          message: "Imagem salva no Storage e vinculada ao produto.",
+          detail: file.name
+        });
         registrarStorefrontActivity("Foto de produto enviada", file.name);
         mostrarToast("Imagem enviada para Storage.", "sucesso", 2800);
         continue;
       }
-      const reader = new FileReader();
-      reader.onload = () => {
-        const next = getStorefrontAdminImagesLocal();
-        next.push({
-          id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          product_id: productId,
-          store_id: getStorefrontAdminStoreLocal().id,
-          owner_id: getStorefrontAdminStoreLocal().owner_id,
-          image_url: reader.result,
-          alt_text: file.name.replace(/\.[^.]+$/, ""),
-          order_index: next.filter((image) => image.product_id === productId).length
-        });
-        storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
-        registrarStorefrontActivity("Foto de produto adicionada", file.name);
-        mostrarToast("Imagem adicionada em preview local.", "info", 3200);
-        renderApp();
-      };
-      reader.readAsDataURL(file);
+      const dataUrl = await prepararStorefrontImagemPreview(file, "produto");
+      const next = getStorefrontAdminImagesLocal();
+      next.push({
+        id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        product_id: productId,
+        store_id: getStorefrontAdminStoreLocal().id,
+        owner_id: getStorefrontAdminStoreLocal().owner_id,
+        image_url: dataUrl,
+        alt_text: file.name.replace(/\.[^.]+$/, ""),
+        order_index: next.filter((image) => image.product_id === productId).length
+      });
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+      setStorefrontUploadStatus({
+        type: "warning",
+        title: "Foto em preview local",
+        message: "Imagem compactada para preview. Salve/sincronize o produto no Supabase para enviar ao Storage.",
+        detail: file.name
+      });
+      registrarStorefrontActivity("Foto de produto adicionada", file.name);
+      mostrarToast("Imagem compactada em preview local.", "info", 3200);
+      renderApp();
     } catch (error) {
+      if (storefrontUploadPodeUsarFallbackLocal(error)) {
+        try {
+          const dataUrl = await prepararStorefrontImagemPreview(file, "produto");
+          const next = getStorefrontAdminImagesLocal();
+          next.push({
+            id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            product_id: productId,
+            store_id: getStorefrontAdminStoreLocal().id,
+            owner_id: getStorefrontAdminStoreLocal().owner_id,
+            image_url: dataUrl,
+            alt_text: file.name.replace(/\.[^.]+$/, ""),
+            order_index: next.filter((image) => image.product_id === productId).length
+          });
+          storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+          setStorefrontUploadStatus({
+            type: "warning",
+            title: "Foto salva localmente",
+            message: "O Storage storefront-assets ainda não está disponível. A imagem compactada fica no preview deste aparelho.",
+            detail: error?.message || String(error)
+          });
+          registrarStorefrontActivity("Foto de produto salva localmente", file.name);
+          mostrarToast("Storage indisponível. Foto salva em preview local.", "aviso", 4200);
+          continue;
+        } catch (fallbackError) {
+          registrarStorefrontDebugLeve("persistencia_falhou", "Fallback local de foto de produto falhou.", { message: fallbackError?.message || String(fallbackError) });
+        }
+      }
+      setStorefrontUploadStatus({
+        type: "error",
+        title: "Falha ao enviar foto",
+        message: error?.message || "Erro ao enviar imagem. Tente novamente.",
+        detail: "Verifique sessão, bucket storefront-assets, políticas de Storage e tamanho do arquivo."
+      });
+      registrarStorefrontDebugLeve("upload_falhou", "Falha ao processar foto de produto.", { productId, message: error?.message || String(error) });
       mostrarToast(error?.message || "Erro ao enviar imagem. Tente novamente.", "erro", 4200);
       console.error("[Storefront admin] imagem produto", error);
     }
@@ -13725,9 +14118,15 @@ async function processarImagemLojaOnline(tipo, input) {
   const file = input?.files?.[0];
   if (!file) return;
   try {
+    setStorefrontUploadStatus({
+      type: "info",
+      title: tipo === "logo" ? "Enviando logo" : "Enviando banner",
+      message: "Validando arquivo, sessão e Storage."
+    });
     validarArquivoStorefrontImagem(file, tipo);
     const store = getStorefrontAdminStoreLocal();
     if (!storefrontAdminRemoteReady()) throw new Error("Upload real exige conexão Supabase no beta fechado.");
+    if (!store?.id || storefrontAdminIsLocalId(store.id, "store-")) throw new Error("Salve a aparência da loja antes de enviar imagens para o Storage.");
     const url = await uploadStorefrontAsset(file, { tipo });
     const field = tipo === "logo" ? "logo_url" : "banner_url";
     const next = { ...store, [field]: url };
@@ -13738,12 +14137,47 @@ async function processarImagemLojaOnline(tipo, input) {
       body: JSON.stringify({ [field]: url })
     });
     limparStorefrontAlteracoesPendentes(tipo === "logo" ? "Logo salva" : "Banner salvo");
+    setStorefrontUploadStatus({
+      type: "success",
+      title: tipo === "logo" ? "Logo enviado" : "Banner enviado",
+      message: "Imagem salva no Storage e URL persistida na loja.",
+      detail: url
+    });
     registrarStorefrontActivity(tipo === "logo" ? "Logo atualizada" : "Banner alterado", file.name);
     mostrarToast(tipo === "logo" ? "Logo enviado." : "Banner enviado.", "sucesso", 2600);
     renderApp();
   } catch (error) {
+    if (storefrontUploadPodeUsarFallbackLocal(error)) {
+      try {
+        const dataUrl = await prepararStorefrontImagemPreview(file, tipo);
+        const field = tipo === "logo" ? "logo_url" : "banner_url";
+        const next = { ...getStorefrontAdminStoreLocal(), [field]: dataUrl };
+        storefrontAdminSaveStore(next);
+        limparStorefrontAlteracoesPendentes(tipo === "logo" ? "Logo salva localmente" : "Banner salvo localmente");
+        setStorefrontUploadStatus({
+          type: "warning",
+          title: tipo === "logo" ? "Logo salvo localmente" : "Banner salvo localmente",
+          message: "O Storage storefront-assets ainda não está disponível. A imagem compactada persiste neste aparelho e no preview.",
+          detail: error?.message || String(error)
+        });
+        registrarStorefrontActivity(tipo === "logo" ? "Logo salva localmente" : "Banner salvo localmente", file.name);
+        mostrarToast("Storage indisponível. Imagem salva em preview local.", "aviso", 4200);
+        renderApp();
+        return;
+      } catch (fallbackError) {
+        registrarStorefrontDebugLeve("persistencia_falhou", `Fallback local de ${tipo} falhou.`, { message: fallbackError?.message || String(fallbackError) });
+      }
+    }
+    setStorefrontUploadStatus({
+      type: "error",
+      title: tipo === "logo" ? "Falha no upload do logo" : "Falha no upload do banner",
+      message: error?.message || "Erro ao enviar imagem. Tente novamente.",
+      detail: "Verifique login, token Supabase, bucket storefront-assets, permissões e limite de tamanho."
+    });
+    registrarStorefrontDebugLeve("upload_falhou", `Falha ao enviar ${tipo} da Loja Online.`, { message: error?.message || String(error) });
     mostrarToast(error?.message || "Erro ao enviar imagem. Tente novamente.", "erro", 4200);
     console.error("[Storefront admin] imagem loja", error);
+    renderApp();
   } finally {
     if (input) input.value = "";
   }
@@ -13859,7 +14293,7 @@ function renderStorePreviewContainer({ content = "", actions = "", title = "Prev
     <button class="btn ghost" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
   `;
   return `
-    <section class="store-preview-container">
+    <section class="store-preview-container" data-storefront-live-preview>
       <div class="store-preview-toolbar">
         <div>
           <strong>${escaparHtml(title)}</strong>
@@ -14003,6 +14437,39 @@ function renderStorefrontPreview(vm, options = {}) {
   });
 }
 
+function criarStorefrontPreviewVmDoFormulario(form) {
+  const vm = getStorefrontAdminViewModel();
+  if (!form) return vm;
+  const baseStore = { ...vm.store };
+  const theme = { ...(baseStore.theme_config || {}) };
+  if (form.storeName) baseStore.name = String(form.storeName.value || "").trim() || baseStore.name;
+  if (form.storeSlug) baseStore.slug = storefrontAdminSlugify(form.storeSlug.value || baseStore.slug || "");
+  if (form.storeDescription) baseStore.description = String(form.storeDescription.value || "").trim();
+  if (form.storeWhatsApp) baseStore.whatsapp = String(form.storeWhatsApp.value || "").replace(/\D/g, "");
+  if (form.storeInstagram) baseStore.instagram = String(form.storeInstagram.value || "").trim();
+  if (form.storeLogoUrl) baseStore.logo_url = String(form.storeLogoUrl.value || "").trim();
+  if (form.storeBannerUrl) baseStore.banner_url = String(form.storeBannerUrl.value || "").trim();
+  if (form.storePrimary) theme.primary = form.storePrimary.value || theme.primary || "#00BFA6";
+  if (form.storeAccent) theme.accent = form.storeAccent.value || theme.accent || "#FF8A1F";
+  if (form.storeThemeMode) theme.mode = form.storeThemeMode.value || theme.mode || "auto";
+  baseStore.theme_config = theme;
+  return { ...vm, store: baseStore };
+}
+
+function atualizarStorefrontPreviewAoVivo(form) {
+  try {
+    const target = document.querySelector("[data-storefront-live-preview]");
+    if (!target) return;
+    const vm = criarStorefrontPreviewVmDoFormulario(form);
+    target.outerHTML = renderStorefrontPreview(vm, {
+      title: "Preview em tempo real",
+      subtitle: "As alterações aparecem aqui antes de salvar."
+    });
+  } catch (error) {
+    registrarStorefrontDebugLeve("preview_falhou", "Falha ao atualizar preview em tempo real.", { message: error?.message || String(error) });
+  }
+}
+
 const STOREFRONT_PUBLIC_CACHE_PREFIX = "simplifica-storefront-public-cache-v1:";
 const STOREFRONT_PUBLIC_LEADS_KEY = "simplifica-storefront-public-leads-v1";
 const STOREFRONT_PUBLIC_EVENTS_KEY = "simplifica-storefront-public-events-v1";
@@ -14022,10 +14489,23 @@ function getStorefrontAdminRoutePath(slug = getStorefrontAdminStoreLocal().slug 
 
 function parseStorefrontPublicRoute(pathname = location.pathname) {
   const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
-  if (partes[0] !== "loja" || !partes[1]) return null;
+  const simpleViews = new Set(["produtos", "categorias", "contato", "sobre"]);
+  if (partes[0] !== "loja") {
+    const reserved = new Set(["store-admin", "admin", "privacy", "privacidade", "terms", "termos", "api", "assets", "dist", "index.html"]);
+    if (partes.length && !reserved.has(String(partes[0] || "").toLowerCase())) {
+      return {
+        slug: decodeURIComponent(partes[0] || ""),
+        view: partes[1] === "produto" ? "product" : partes[1] === "categoria" ? "category" : simpleViews.has(partes[1]) ? partes[1] : "home",
+        productSlug: partes[1] === "produto" ? decodeURIComponent(partes[2] || "") : "",
+        categorySlug: partes[1] === "categoria" ? decodeURIComponent(partes[2] || "") : ""
+      };
+    }
+    return null;
+  }
+  if (!partes[1]) return null;
   return {
     slug: decodeURIComponent(partes[1] || ""),
-    view: partes[2] === "produto" ? "product" : partes[2] === "categoria" ? "category" : "home",
+    view: partes[2] === "produto" ? "product" : partes[2] === "categoria" ? "category" : simpleViews.has(partes[2]) ? partes[2] : "home",
     productSlug: partes[2] === "produto" ? decodeURIComponent(partes[3] || "") : "",
     categorySlug: partes[2] === "categoria" ? decodeURIComponent(partes[3] || "") : ""
   };
@@ -14033,9 +14513,10 @@ function parseStorefrontPublicRoute(pathname = location.pathname) {
 
 function getStorefrontPublicRoutePath(route = getStorefrontPublicRoute()) {
   const slug = encodeURIComponent(route.slug || "ne3d-teste");
-  if (route.view === "product" && route.productSlug) return `/loja/${slug}/produto/${encodeURIComponent(route.productSlug)}`;
-  if (route.view === "category" && route.categorySlug) return `/loja/${slug}/categoria/${encodeURIComponent(route.categorySlug)}`;
-  return `/loja/${slug}`;
+  if (route.view === "product" && route.productSlug) return `/${slug}/produto/${encodeURIComponent(route.productSlug)}`;
+  if (route.view === "category" && route.categorySlug) return `/${slug}/categoria/${encodeURIComponent(route.categorySlug)}`;
+  if (["produtos", "categorias", "contato", "sobre"].includes(route.view)) return `/${slug}/${route.view}`;
+  return `/${slug}`;
 }
 
 function getStorefrontPublicRoute() {
@@ -14193,11 +14674,11 @@ function storefrontPublicCategoryName(vm, product = {}) {
 }
 
 function storefrontPublicProductUrl(vm, product = {}) {
-  return `/loja/${encodeURIComponent(vm.store.slug || vm.route.slug)}/produto/${encodeURIComponent(product.slug || product.id)}`;
+  return getStorefrontPublicRoutePath({ slug: vm.store.slug || vm.route.slug, view: "product", productSlug: product.slug || product.id });
 }
 
 function storefrontPublicCategoryUrl(vm, category = {}) {
-  return `/loja/${encodeURIComponent(vm.store.slug || vm.route.slug)}/categoria/${encodeURIComponent(category.slug || category.id)}`;
+  return getStorefrontPublicRoutePath({ slug: vm.store.slug || vm.route.slug, view: "category", categorySlug: category.slug || category.id });
 }
 
 function renderStoreStatusBadge(product = {}) {
@@ -14209,16 +14690,20 @@ function renderStoreStatusBadge(product = {}) {
 
 function getStorefrontPublicCart() {
   try {
-    const cart = JSON.parse(localStorage.getItem(STOREFRONT_PUBLIC_CART_KEY) || "[]");
+    const cart = JSON.parse(localStorage.getItem(getStorefrontPublicCartKey()) || "[]");
     return Array.isArray(cart) ? cart.filter((item) => item?.product_id && Number(item.quantity || 0) > 0) : [];
   } catch (_) {
     return [];
   }
 }
 
+function getStorefrontPublicCartKey(route = getStorefrontPublicRoute()) {
+  return `${STOREFRONT_PUBLIC_CART_KEY}:${storefrontAdminSlugify(route.slug || "loja")}`;
+}
+
 function setStorefrontPublicCart(cart = []) {
   try {
-    localStorage.setItem(STOREFRONT_PUBLIC_CART_KEY, JSON.stringify(cart.slice(0, 80)));
+    localStorage.setItem(getStorefrontPublicCartKey(), JSON.stringify(cart.slice(0, 80)));
   } catch (_) {}
 }
 
@@ -14318,7 +14803,7 @@ function renderStoreAdminControls(type = "", data = {}, vm = getStorefrontPublic
     catalog: "products"
   };
   const advancedTab = tabByType[type] || "overview";
-  const advanced = `<button type="button" onclick="abrirStorefrontAdminRoute('${advancedTab}')">Avançado</button>`;
+  const advanced = `<button type="button" onclick="abrirStorefrontAdminRoute('${advancedTab}')">Editar detalhes</button>`;
   if (type === "header") {
     return `<div class="store-context-controls store-context-controls-header">
       <button type="button" onclick="setStorefrontAdminTab('appearance'); abrirStorefrontAdminRoute('appearance')">Alterar logo</button>
@@ -14340,12 +14825,12 @@ function renderStoreAdminControls(type = "", data = {}, vm = getStorefrontPublic
     </div>`;
   }
   if (type === "category") {
-    return `<span class="store-context-mini" onclick="event.preventDefault(); event.stopPropagation(); localStorage.setItem('${STOREFRONT_ADMIN_KEYS.editingCategory}', '${id}'); abrirStorefrontAdminRoute('categories')">Editar</span>`;
+    return `<span class="store-context-mini" onclick="event.preventDefault(); event.stopPropagation(); abrirEditorCategoriaLojaOnline('${id}')">Editar</span>`;
   }
   if (type === "product") {
     const product = data || {};
     return `<div class="store-context-controls store-context-controls-card">
-      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); localStorage.setItem('${STOREFRONT_ADMIN_KEYS.editingProduct}', '${id}'); abrirStorefrontAdminRoute('products')">Editar</button>
+      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); abrirEditorProdutoLojaOnline('${id}')">Editar</button>
       <button type="button" onclick="event.preventDefault(); event.stopPropagation(); alternarProdutoLojaOnline('${id}', 'visible')">${product.visible === false ? "Publicar" : "Ocultar"}</button>
       <button type="button" onclick="event.preventDefault(); event.stopPropagation(); alternarProdutoLojaOnline('${id}', 'featured')">${product.featured ? "Remover destaque" : "Destacar"}</button>
       <button type="button" onclick="event.preventDefault(); event.stopPropagation(); duplicarProdutoLojaOnline('${id}')">Duplicar</button>
@@ -14374,12 +14859,381 @@ function renderStoreAdminFloatingEditor(vm) {
         <span>Você está editando a loja real.</span>
       </div>
       <div class="store-context-admin-actions">
-        <button type="button" onclick="abrirStorefrontAdminRoute('overview')">Admin avançado</button>
+        <button type="button" onclick="abrirStorefrontAdminRoute('overview')">Configurações completas</button>
         <button type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
         <a href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Ver como cliente</a>
       </div>
     </div>
     <button class="store-context-edit-fab" type="button" onclick="abrirStoreContextSheet()">Editar</button>
+  `;
+}
+
+function renderStorefrontSimpleOnboarding(vm) {
+  const store = vm.store || {};
+  const products = Array.isArray(vm.products) ? vm.products : [];
+  const categories = Array.isArray(vm.categories) ? vm.categories : [];
+  const hasLogo = !!store.logo_url;
+  const hasColor = !!store.theme_config?.primary;
+  const hasWhatsapp = !!store.whatsapp;
+  const hasProduct = products.some((product) => product.visible !== false);
+  const steps = [
+    ["Nome da loja", !!store.name, "appearance"],
+    ["Logo", hasLogo, "appearance"],
+    ["Cor principal", hasColor, "appearance"],
+    ["WhatsApp", hasWhatsapp, "appearance"],
+    ["Primeiro produto", hasProduct, "products"],
+    ["Publicar loja", !!store.active, "settings"]
+  ];
+  const completed = steps.filter(([, done]) => done).length;
+  const percent = Math.round((completed / steps.length) * 100);
+  return `
+    <section class="store-simple-onboarding" aria-label="Guia rapido da loja">
+      <div class="store-simple-onboarding-head">
+        <span>Modo simples</span>
+        <strong>Sua loja pronta em minutos</strong>
+        <small>${completed}/${steps.length} passos concluidos</small>
+      </div>
+      <div class="store-simple-progress" aria-hidden="true"><span style="width:${percent}%"></span></div>
+      <div class="store-simple-step-list">
+        ${steps.map(([label, done, tab]) => `
+          <button type="button" class="${done ? "done" : ""}" onclick="abrirStorefrontAdminRoute('${escaparAttr(tab)}')">
+            <i>${done ? "✓" : "○"}</i>
+            <span>${escaparHtml(label)}</span>
+          </button>
+        `).join("")}
+      </div>
+      ${categories.length ? "" : `<p>As categorias base ja aparecem no template para evitar uma loja vazia.</p>`}
+    </section>
+  `;
+}
+
+function renderStoreVisualEditorSidebar(vm) {
+  const editorMode = getStorefrontEditorMode();
+  const sections = [
+    ["header", "Cabeçalho", "Logo e navegação", "▣"],
+    ["banner", "Banner principal", "Hero da loja", "◉"],
+    ["categorias", "Categorias", "Cards de navegação", "⌘"],
+    ["destaques", "Produtos em destaque", "Vitrine principal", "✥"],
+    ["promocao", "Promoções", "Bloco comercial", "◇"],
+    ["beneficios", "Benefícios", "Confiança e prazo", "◎"],
+    ["contato", "Contato", "Canais e atendimento", "☎"],
+    ["depoimentos", "Depoimentos", "Prova social futura", "✦"],
+    ["newsletter", "Newsletter", "Captação futura", "✉"],
+    ["rodape", "Rodapé", "Links e marca", "▭"]
+  ];
+  const configs = [
+    ["appearance", "Cores e tema", "◒"],
+    ["appearance", "Tipografia", "A"],
+    ["settings", "Layout", "▦"],
+    ["settings", "Configurações da loja", "⚙"]
+  ];
+  const simpleItems = [
+    ["theme", "Logo", "Marca da loja", "▣"],
+    ["theme", "Nome da loja", "Identidade publica", "Aa"],
+    ["theme", "Cor principal", "Botões e destaques", "◒"],
+    ["banner", "Banner", "Primeira dobra pronta", "◉"],
+    ["products", "Produtos", "Vitrine e preços", "▦"],
+    ["categories", "Categorias", "Organização da loja", "⌘"],
+    ["contacts", "WhatsApp", "Contato de venda", "☎"],
+    ["contacts", "Redes sociais", "Instagram e links", "↗"],
+    ["publish", "Publicar loja", "Status publico", "✓"]
+  ];
+  const visibleSections = editorMode === "simple" ? simpleItems : sections;
+  return `
+    <aside class="store-visual-editor-sidebar" aria-label="Editor visual da loja">
+      <div class="store-visual-editor-brand">
+        <button type="button" aria-label="Voltar" onclick="trocarTela('lojaOnline')">‹</button>
+        <strong>${escaparHtml(vm.store.name || "NE3D Loja")}</strong>
+        <button type="button" aria-label="Recolher painel" onclick="informarRecursoFuturoLoja('Painel recolhivel')">›</button>
+      </div>
+      <div class="store-visual-mode-switch" role="group" aria-label="Modo de edicao">
+        <button class="${editorMode === "simple" ? "active" : ""}" type="button" onclick="setStorefrontEditorMode('simple')">Simples</button>
+        <button class="${editorMode === "complete" ? "active" : ""}" type="button" onclick="setStorefrontEditorMode('complete')">Completo</button>
+      </div>
+      <strong class="store-visual-sidebar-title">Editar loja</strong>
+      <button class="store-visual-home-button" type="button" onclick="destacarSecaoLojaVisual('banner')">
+        <span>▣</span><strong>Página inicial</strong><em>›</em>
+      </button>
+      <div class="store-visual-editor-actions">
+        ${renderStorefrontSaveState({ ...vm, store: vm.store })}
+      </div>
+      ${editorMode === "simple" ? renderStorefrontSimpleOnboarding(vm) : ""}
+      <div class="store-visual-section-list">
+        <strong>${editorMode === "simple" ? "Essenciais" : "Seções"}</strong>
+        ${visibleSections.map(([id, title, desc, icon]) => {
+          const panelKeys = new Set(["theme", "products", "categories", "banner", "contacts", "publish"]);
+          const action = panelKeys.has(id) ? `abrirStoreVisualPanel('${escaparAttr(id)}')` : `destacarSecaoLojaVisual('${escaparAttr(id)}')`;
+          return `
+          <button type="button" onclick="${action}">
+            <i>${escaparHtml(icon)}</i>
+            <span>${escaparHtml(title)}</span>
+            <em>›</em>
+            <small>${escaparHtml(desc)}</small>
+          </button>
+        `}).join("")}
+        ${editorMode === "complete" ? `<button class="store-visual-add-section" type="button" onclick="abrirStoreContextSheet()">+ Adicionar seção</button>` : ""}
+      </div>
+      <div class="store-visual-section-list store-visual-config-list ${editorMode === "simple" ? "is-muted" : ""}">
+        <strong>Configurações</strong>
+        ${(editorMode === "simple" ? configs.slice(0, 1) : configs).map(([tab, title, icon]) => `
+          <button type="button" onclick="abrirStorefrontAdminRoute('${escaparAttr(tab)}')">
+            <i>${escaparHtml(icon)}</i>
+            <span>${escaparHtml(title)}</span>
+            <em>›</em>
+          </button>
+        `).join("")}
+      </div>
+      <div class="store-visual-sidebar-footer">
+        <a class="btn ghost" href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Visualizar loja</a>
+        <button class="btn" type="button" onclick="salvarStorefrontAparencia()">Salvar alterações</button>
+      </div>
+    </aside>
+  `;
+}
+
+function renderStoreVisualEditorTopbar(vm) {
+  const editorMode = getStorefrontEditorMode();
+  return `
+    <div class="store-visual-editor-topbar">
+      <div class="store-visual-top-context">
+        <strong>${editorMode === "simple" ? "Edição simples" : "Editor completo"}</strong>
+        <span>${editorMode === "simple" ? "Ajuste o essencial e publique rapido." : "Personalize secoes, layout e preview."}</span>
+      </div>
+      <div class="store-visual-device-switcher" aria-label="Preview responsivo">
+        <button class="active" type="button" onclick="setStoreVisualViewport('desktop')">▣ Desktop</button>
+        <button type="button" onclick="setStoreVisualViewport('tablet')">▯ Tablet</button>
+        <button type="button" onclick="setStoreVisualViewport('mobile')">▯ Mobile</button>
+      </div>
+      <div class="store-visual-top-actions">
+        <button type="button" title="Desfazer" onclick="informarRecursoFuturoLoja('Historico de desfazer')">↶</button>
+        <button type="button" title="Refazer" onclick="informarRecursoFuturoLoja('Historico de refazer')">↷</button>
+        <a href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Visualizar loja</a>
+        <button class="publish" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Publicado" : "Publicar"}</button>
+      </div>
+    </div>
+  `;
+}
+
+function destacarSecaoLojaVisual(section = "") {
+  const id = String(section || "").trim();
+  document.querySelectorAll(".store-section-editing").forEach((node) => node.classList.remove("store-section-editing"));
+  const target = Array.from(document.querySelectorAll("[data-store-section]")).find((node) => String(node.dataset.storeSection || "") === id);
+  if (target) {
+    target.classList.add("store-section-editing");
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    mostrarToast(`Editando seção: ${id}`, "info", 1800);
+  } else {
+    mostrarToast("Esta seção ainda está preparada como bloco futuro.", "info", 2400);
+  }
+}
+
+function setStoreVisualViewport(mode = "desktop") {
+  const allowed = new Set(["desktop", "tablet", "mobile"]);
+  const value = allowed.has(mode) ? mode : "desktop";
+  const canvas = document.querySelector(".store-visual-editor-canvas");
+  if (!canvas) return;
+  canvas.dataset.previewSize = value;
+  document.querySelectorAll(".store-visual-device-switcher button").forEach((button) => {
+    button.classList.toggle("active", button.textContent.toLowerCase().includes(value));
+  });
+}
+
+function informarRecursoFuturoLoja(label = "Este recurso") {
+  mostrarToast(`${label} sera liberado em uma fase futura.`, "info", 2600);
+}
+
+function renderStoreVisualContactsPanel(vm) {
+  const contact = getStorefrontContactConfig(vm.store || {});
+  return `
+    <div class="modal-backdrop store-visual-panel-backdrop" role="dialog" aria-modal="true">
+      <section class="store-visual-panel store-visual-panel-wide">
+        <header>
+          <div>
+            <span>Contato</span>
+            <h2>Contato e atendimento</h2>
+            <p>Edite os canais da loja. O cliente final verá apenas a página pública limpa, sem controles de admin.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </header>
+        <div class="store-visual-contact-editor">
+          <form class="store-contact-admin-list" id="storeContactAdminForm" onsubmit="salvarStorefrontContatos(event)">
+            <label><span>WhatsApp</span><input name="whatsapp" inputmode="tel" value="${escaparAttr(contact.whatsapp)}" placeholder="(00) 00000-0000"></label>
+            <label><span>Instagram</span><input name="instagram" value="${escaparAttr(contact.instagram)}" placeholder="@sualoja"></label>
+            <label><span>Facebook</span><input name="facebook" value="${escaparAttr(contact.facebook)}" placeholder="/sualoja"></label>
+            <label><span>E-mail</span><input name="email" type="email" value="${escaparAttr(contact.email)}" placeholder="contato@sualoja.com"></label>
+            <label><span>Endereço</span><input name="address" value="${escaparAttr(contact.address)}" placeholder="Rua, número, cidade"></label>
+            <label><span>Horário</span><textarea name="hours" rows="3" placeholder="Segunda a sexta: 09h às 18h">${escaparHtml(contact.hours)}</textarea></label>
+            <div class="store-contact-admin-actions">
+              <button class="btn secondary" type="button" onclick="fecharPopup(); destacarSecaoLojaVisual('contato')">Ver seção na loja</button>
+              <button class="btn" type="submit">Salvar contatos</button>
+            </div>
+          </form>
+          ${renderStoreContactHeroPreview(vm, { compact: true })}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+async function salvarStorefrontContatos(event) {
+  event?.preventDefault?.();
+  const form = event?.target || document.getElementById("storeContactAdminForm");
+  if (!form) return;
+  const botao = form.querySelector("button[type='submit']");
+  setBotaoLoading(botao, true, "Salvando...");
+  try {
+    const store = getStorefrontAdminStoreLocal();
+    const whatsapp = String(form.whatsapp?.value || "").replace(/\D/g, "");
+    if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
+    const contact = {
+      whatsapp,
+      instagram: String(form.instagram?.value || "").trim(),
+      facebook: String(form.facebook?.value || "").trim(),
+      email: String(form.email?.value || "").trim(),
+      address: String(form.address?.value || "").trim(),
+      hours: String(form.hours?.value || "").trim()
+    };
+    const next = {
+      ...store,
+      whatsapp: contact.whatsapp,
+      instagram: contact.instagram,
+      theme_config: {
+        ...(store.theme_config || {}),
+        contact
+      }
+    };
+    storefrontAdminSaveStore(next);
+    if (storefrontAdminRemoteReady() && next.id && !storefrontAdminIsLocalId(next.id, "store-")) {
+      await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          whatsapp: contact.whatsapp || null,
+          instagram: contact.instagram || null,
+          theme_config: next.theme_config || {}
+        })
+      });
+    }
+    limparStorefrontAlteracoesPendentes("Contatos salvos");
+    registrarStorefrontActivity("Contatos atualizados", "Canais de atendimento da loja foram salvos.");
+    mostrarToast("Contatos da loja salvos.", "sucesso", 2600);
+    fecharPopup();
+    renderApp();
+  } catch (error) {
+    mostrarToast(error?.message || "Não foi possível salvar os contatos.", "erro", 4200);
+    registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar contatos da loja.", { message: error?.message || String(error) });
+  } finally {
+    setBotaoLoading(botao, false);
+  }
+}
+
+function abrirStoreVisualPanel(area = "overview") {
+  const vm = getStorefrontPublicViewModel();
+  if (!getStorefrontPublicMode(vm).admin) return mostrarToast("Modo admin não autorizado.", "erro", 3200);
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  if (area === "contacts") {
+    popup.innerHTML = renderStoreVisualContactsPanel(vm);
+    return;
+  }
+  const areaConfig = {
+    contacts: {
+      title: "Contatos e canais",
+      desc: "Organize WhatsApp, redes sociais, endereço, horário e links da loja.",
+      badge: "Contato",
+      actions: [
+        ["WhatsApp", vm.store.whatsapp || "Ainda não configurado", "appearance"],
+        ["Instagram", vm.store.instagram || "Adicionar perfil", "appearance"],
+        ["E-mail", vm.store.email || "Adicionar e-mail público", "appearance"],
+        ["Horário", vm.store.opening_hours || "Adicionar horário", "settings"]
+      ]
+    },
+    products: {
+      title: "Produtos da vitrine",
+      desc: "Gerencie produtos como catálogo visual, com miniaturas, destaque e status.",
+      badge: `${vm.products.length} produtos`,
+      actions: vm.products.slice(0, 6).map((product) => [product.title || "Produto", renderPrecoProdutoLojaOnline(product), "products"])
+    },
+    categories: {
+      title: "Categorias visuais",
+      desc: "Organize a navegação da loja com cards, ordem e produtos vinculados.",
+      badge: `${vm.categories.length} categorias`,
+      actions: vm.categories.slice(0, 6).map((cat) => [cat.name || "Categoria", `${vm.products.filter((product) => String(product.category_id) === String(cat.id)).length} produtos`, "categories"])
+    },
+    banner: {
+      title: "Banner principal",
+      desc: "A primeira dobra da loja deve comunicar a marca e chamar para o catálogo.",
+      badge: vm.store.banner_url ? "Imagem configurada" : "Template pronto",
+      actions: [["Headline", "Editar texto e descrição", "appearance"], ["Imagem", "Alterar banner", "banner"], ["CTA", "Botões de catálogo e WhatsApp", "banner"]]
+    },
+    theme: {
+      title: "Identidade visual",
+      desc: "Cor principal, logo, tipografia e aparência da loja.",
+      badge: "Tema",
+      actions: [["Logo", vm.store.logo_url ? "Configurada" : "Adicionar logo", "appearance"], ["Cor principal", vm.store.theme_config?.primary || "#00BFA6", "appearance"], ["Nome público", vm.store.name || "Minha loja", "appearance"]]
+    },
+    publish: {
+      title: "Publicação",
+      desc: "Confira se a loja está pronta para compartilhar com clientes.",
+      badge: vm.store.active ? "Publicado" : "Rascunho",
+      actions: [["Status", vm.store.active ? "Loja online" : "Loja em rascunho", "settings"], ["Link público", getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }), "qrcode"], ["Compartilhar", "Copiar link ou abrir como cliente", "qrcode"]]
+    }
+  };
+  const config = areaConfig[area] || areaConfig.theme;
+  popup.innerHTML = `
+    <div class="modal-backdrop store-visual-panel-backdrop" role="dialog" aria-modal="true">
+      <section class="store-visual-panel">
+        <header>
+          <div>
+            <span>${escaparHtml(config.badge)}</span>
+            <h2>${escaparHtml(config.title)}</h2>
+            <p>${escaparHtml(config.desc)}</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </header>
+        <div class="store-visual-panel-grid">
+          ${(config.actions.length ? config.actions : [["Adicionar item", "Comece pelo admin avançado", "overview"]]).map(([title, desc, tab]) => `
+            <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('${escaparAttr(tab)}')">
+              <strong>${escaparHtml(title)}</strong>
+              <small>${escaparHtml(desc)}</small>
+            </button>
+          `).join("")}
+        </div>
+        <footer>
+          <button class="btn secondary" type="button" onclick="fecharPopup(); destacarSecaoLojaVisual('${area === "products" ? "catalogo" : area === "categories" ? "categorias" : area === "contacts" ? "contato" : area === "theme" ? "header" : area}')">Ver na loja</button>
+          <button class="btn" type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('${area === "products" ? "products" : area === "categories" ? "categories" : area === "contacts" || area === "theme" ? "appearance" : area === "publish" ? "settings" : area}')">Editar detalhes</button>
+        </footer>
+      </section>
+    </div>
+  `;
+}
+
+function renderStorePublicPromoSection(vm) {
+  const featured = vm.products.find((product) => product.featured) || vm.products[0];
+  return `
+    <section class="store-public-promo" data-store-section="promocao">
+      <div>
+        <span>Destaque da loja</span>
+        <h2>${escaparHtml(featured?.title ? `Destaque: ${featured.title}` : "Crie uma vitrine pronta para vender")}</h2>
+        <p>${escaparHtml(featured?.description || "Produtos especiais, combos e peças personalizadas aparecem aqui com destaque para o cliente.")}</p>
+      </div>
+      <button class="btn secondary" type="button" onclick="${featured?.id ? `adicionarProdutoCarrinhoLojaPublica('${escaparAttr(featured.id)}')` : "abrirWhatsappLojaPublica()"}">${featured?.id ? "Adicionar destaque" : "Falar no WhatsApp"}</button>
+      ${renderStoreAdminControls("promo", featured || {}, vm)}
+    </section>
+  `;
+}
+
+function renderStorePublicBenefits(vm) {
+  const items = [
+    ["Produção sob medida", "Peças personalizadas para sua necessidade."],
+    ["Atendimento direto", "Orçamento pelo WhatsApp com revisão manual."],
+    ["Catálogo organizado", "Categorias, fotos e prazos em um link único."]
+  ];
+  return `
+    <section class="store-public-benefits" data-store-section="beneficios">
+      ${items.map(([title, desc]) => `<article><strong>${escaparHtml(title)}</strong><span>${escaparHtml(desc)}</span></article>`).join("")}
+      ${renderStoreAdminControls("benefits", {}, vm)}
+    </section>
   `;
 }
 
@@ -14400,12 +15254,12 @@ function abrirStoreContextSheet() {
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </div>
         <div class="store-context-sheet-grid">
-          <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('appearance')">Logo e descrição</button>
-          <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('banner')">Banner</button>
-          <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('products')">Produtos</button>
-          <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('categories')">Categorias</button>
+          <button type="button" onclick="fecharPopup(); abrirStoreVisualPanel('theme')">Logo e descrição</button>
+          <button type="button" onclick="fecharPopup(); abrirStoreVisualPanel('banner')">Banner</button>
+          <button type="button" onclick="fecharPopup(); abrirStoreVisualPanel('products')">Produtos</button>
+          <button type="button" onclick="fecharPopup(); abrirStoreVisualPanel('categories')">Categorias</button>
           <button type="button" onclick="fecharPopup(); alternarStatusLojaOnline()">${vm.store.active ? "Colocar em rascunho" : "Publicar loja"}</button>
-          <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('leads')">Leads</button>
+          <button type="button" onclick="fecharPopup(); abrirStoreVisualPanel('contacts')">Contatos</button>
         </div>
       </div>
     </div>
@@ -14417,24 +15271,27 @@ function renderStorePublicHeader(vm) {
   const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
   const cart = getStorefrontPublicCartSummary(vm);
   return `
-    <header class="store-public-header">
-      <a class="store-public-brand" href="/loja/${encodeURIComponent(store.slug)}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(store.name || "Loja")}">
+    <header class="store-public-header" data-store-section="header">
+      <a class="store-public-brand" href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(store.name || "Loja")}">
         ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="${escaparAttr(store.name || "Loja")}">` : renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
-        <span>
-          <strong>${escaparHtml(store.name || "Loja Online")}</strong>
-          <small>${escaparHtml(store.description || "Catálogo público de impressão 3D")}</small>
-        </span>
+        <strong>${escaparHtml(store.name || "NE3D")}</strong>
       </a>
       ${renderStoreAdminControls("header", store, vm)}
-      <label class="store-public-search" aria-label="Busca em breve">
-        <span>${renderUiIcon("search")}</span>
-        <input type="search" placeholder="Buscar produtos..." disabled>
-      </label>
+      <nav class="store-public-main-nav" aria-label="Navegação da loja">
+        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">Início</a>
+        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "categorias" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Categorias</a>
+        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Produtos</a>
+        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Personalizados</a>
+        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "sobre" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Sobre nós</a>
+        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "contato" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Contato</a>
+      </nav>
       <nav class="store-public-actions" aria-label="Ações da loja">
+        <button class="store-public-icon-action" type="button" title="Buscar" onclick="informarRecursoFuturoLoja('Busca da loja')">${renderUiIcon("search")}<small>Em breve</small></button>
+        <button class="store-public-icon-action" type="button" title="Conta" onclick="informarRecursoFuturoLoja('Conta do cliente')">${renderUiIcon("clientes")}<small>Em breve</small></button>
         ${store.whatsapp ? `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">WhatsApp</button>` : ""}
-        <button class="btn ghost store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()">Carrinho${cart.count ? ` (${cart.count})` : ""}</button>
+        <button class="store-public-icon-action store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()" title="Carrinho">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}</button>
         ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
-        <button class="btn ghost" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>
+        <button class="btn ghost store-public-share-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>
       </nav>
     </header>
   `;
@@ -14451,35 +15308,51 @@ function renderStorePublicBanner(vm) {
   const store = vm.store;
   const visibleCount = vm.products.length;
   return `
-    <section class="store-public-banner" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
+    <section class="store-public-banner" data-store-section="banner" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
       ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
+      ${store.banner_url ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
       <div class="store-public-banner-copy">
-        <span>${store.__demo ? "Preview público" : store.active ? "Loja ativa" : "Loja em preparação"}</span>
-        <h1>${escaparHtml(store.name || "Loja Online")}</h1>
-        <p>${escaparHtml(store.description || "Escolha produtos 3D, solicite orçamento e fale com a loja pelo WhatsApp.")}</p>
+        <span>Loja pronta para personalizar</span>
+        <h1>Produtos que parecem feitos para a sua <mark>marca</mark></h1>
+        <p>${escaparHtml(store.description || "Uma vitrine moderna para produtos personalizados, utilidades criativas e peças sob encomenda.")}</p>
         <div class="actions">
-          <a class="btn" href="#catalogo">Ver catálogo</a>
+          <a class="btn" href="#catalogo" onclick="document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return false;">Ver catálogo</a>
           <button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>
-        </div>
-        <div class="store-public-banner-stats">
-          <span><strong>${visibleCount}</strong><small>produto(s)</small></span>
-          <span><strong>${vm.categories.length}</strong><small>categoria(s)</small></span>
-          <span><strong>WhatsApp</strong><small>orçamento rápido</small></span>
         </div>
       </div>
     </section>
   `;
 }
 
+function renderStoreHeroDeviceArt(store = {}) {
+  return `
+    <div class="store-hero-device-art" aria-hidden="true">
+      <div class="store-hero-printer">
+        <span>${escaparHtml((store.name || "NE3D").slice(0, 8))}</span>
+        <i></i>
+      </div>
+      <div class="store-hero-object store-hero-object-rocket"></div>
+      <div class="store-hero-object store-hero-object-vase"></div>
+      <div class="store-hero-object store-hero-object-figure"></div>
+    </div>
+  `;
+}
+
 function renderStorePublicCategoryBar(vm) {
   const active = vm.route.view === "category" ? vm.route.categorySlug : "";
   return `
-    <section class="store-public-category-bar" data-allow-horizontal-scroll>
-      <a class="${!active ? "active" : ""}" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">Todos <small>${vm.products.length}</small></a>
+    <section class="store-public-category-bar" data-store-section="categorias" data-allow-horizontal-scroll>
+      <a class="${!active ? "active" : ""}" href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">
+        <span class="store-category-visual store-category-visual-all">⌂</span>
+        <strong>Todos</strong>
+        <small>${vm.products.length} produtos</small>
+      </a>
       ${vm.categories.map((cat) => `
         <a class="${String(cat.slug) === String(active) ? "active" : ""}" href="${storefrontPublicCategoryUrl(vm, cat)}" onclick="return navegarLojaPublicaLink(event, this)">
-          <span>${escaparHtml(cat.icon || "▦")}</span>${escaparHtml(cat.name)} <small>${vm.products.filter((product) => String(product.category_id) === String(cat.id)).length}</small>
+          <span class="store-category-visual">${escaparHtml(cat.icon || "▦")}</span>
+          <strong>${escaparHtml(cat.name)}</strong>
+          <small>${vm.products.filter((product) => String(product.category_id) === String(cat.id)).length} produtos</small>
           ${renderStoreAdminControls("category", cat, vm)}
         </a>
       `).join("")}
@@ -14491,11 +15364,12 @@ function renderStorePublicCategoryBar(vm) {
 function renderStorePublicProductCard(vm, product = {}) {
   const image = getStorefrontProductImage(product, vm.images);
   const unavailable = String(product.stock_mode || "") === "unavailable";
+  const placeholder = renderStoreProductVisualPlaceholder(product);
   return `
     <article class="store-public-product-card">
       ${renderStoreAdminControls("product", product, vm)}
       <a class="store-public-product-media" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">
-        ${image ? `<img loading="lazy" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
+        ${image ? `<img loading="lazy" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : placeholder}
         ${product.featured ? `<em>Destaque</em>` : ""}
       </a>
       <div class="store-public-product-body">
@@ -14518,9 +15392,35 @@ function renderStorePublicProductCard(vm, product = {}) {
   `;
 }
 
-function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle = "Produtos disponíveis para orçamento") {
+function renderStoreProductVisualPlaceholder(product = {}) {
+  const visual = escaparAttr(product.visual_type || storefrontAdminSlugify(product.title || "produto"));
+  const title = escaparHtml(product.title || "Produto");
   return `
-    <section class="store-public-section" id="catalogo">
+    <div class="store-product-visual store-product-visual-${visual}" aria-label="${title}">
+      <span></span>
+      <i></i>
+      <b></b>
+    </div>
+  `;
+}
+
+function renderStorePublicAddProductCard(vm) {
+  if (!getStorefrontPublicMode(vm).admin) return "";
+  return `
+    <article class="store-public-product-card store-public-add-product-card">
+      <button type="button" onclick="abrirEditorProdutoLojaOnline()">
+        <span>+</span>
+        <strong>Adicionar produto</strong>
+        <small>Use os exemplos como guia e publique seus próprios itens.</small>
+      </button>
+    </article>
+  `;
+}
+
+function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle = "Produtos disponíveis para orçamento") {
+  const sectionId = /destaque/i.test(title) ? "destaques" : "catalogo";
+  return `
+    <section class="store-public-section" ${sectionId === "catalogo" ? `id="catalogo"` : ""} data-store-section="${sectionId}">
       <div class="store-public-section-head">
         <div>
           <span>Vitrine</span>
@@ -14531,6 +15431,7 @@ function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle 
       </div>
       <div class="store-public-product-grid">
         ${products.map((product) => renderStorePublicProductCard(vm, product)).join("") || renderStoreEmptyState({ title: "Nenhum produto publicado ainda", description: "A loja está sendo preparada. Fale pelo WhatsApp para solicitar um orçamento.", icon: "□", action: `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>` })}
+        ${renderStorePublicAddProductCard(vm)}
       </div>
     </section>
   `;
@@ -14542,7 +15443,7 @@ function renderStorePublicProductDetail(vm, product = {}) {
   const related = vm.products.filter((item) => item.id !== product.id && (item.category_id === product.category_id || item.featured)).slice(0, 4);
   return `
     <main class="store-public-product-page">
-      <a class="store-public-back" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
+      <a class="store-public-back" href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
       <section class="store-public-product-hero">
         ${renderStoreAdminControls("product", product, vm)}
         <div class="store-public-product-gallery">
@@ -14581,12 +15482,12 @@ function renderStorePublicProductDetail(vm, product = {}) {
 function renderStorePublicRouteNotFound(vm, { title = "Conteúdo não encontrado", description = "O item solicitado não está disponível nesta vitrine." } = {}) {
   return `
     <main class="store-public-product-page">
-      <a class="store-public-back" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
+      <a class="store-public-back" href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">← Voltar para a loja</a>
       <section class="store-public-not-found">
         ${renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
         <h1>${escaparHtml(title)}</h1>
         <p>${escaparHtml(description)}</p>
-        <a class="btn secondary" href="/loja/${encodeURIComponent(vm.store.slug)}" onclick="return navegarLojaPublicaLink(event, this)">Ver catálogo da loja</a>
+        <a class="btn secondary" href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">Ver catálogo da loja</a>
       </section>
     </main>
   `;
@@ -14664,32 +15565,202 @@ function renderLojaOnlinePublica() {
   const catalog = category ? vm.products.filter((product) => String(product.category_id) === String(category.id)) : vm.products;
   atualizarSeoLojaPublica(vm, productDetail);
   sincronizarAdminLocalComLojaPublica(vm);
+  const homeContent = `
+    ${renderStorePublicBanner(vm)}
+    ${renderStorePublicCategoryBar(vm)}
+    ${featured.length ? renderStorePublicGrid(vm, featured.slice(0, 1), "Produto exemplo em destaque", "Um item pronto para o usuario editar e substituir pelos proprios produtos") : ""}
+    ${renderStorePublicPromoSection(vm)}
+    ${renderStorePublicGrid(vm, catalog, category ? category.name : "Catálogo", category ? `Produtos em ${category.name}` : "Escolha um produto e solicite pelo WhatsApp")}
+    ${renderStorePublicBenefits(vm)}
+    <section class="store-public-contact" data-store-section="contato">
+      <div>
+        <span>Contato</span>
+        <h2>Pronto para pedir?</h2>
+        <p>Envie sua solicitação e a loja retorna com detalhes de produção, prazo e acabamento.</p>
+      </div>
+      <button class="btn" type="button" onclick="abrirWhatsappLojaPublica()">Falar no WhatsApp</button>
+    </section>
+  `;
+  const pageContent = productDetail ? renderStorePublicProductDetail(vm, productDetail)
+    : routeMissing || (vm.route.view === "category" && category ? renderStorePublicCategoryProductsPage(vm, category)
+      : vm.route.view === "produtos" ? renderStorePublicProductsPage(vm)
+      : vm.route.view === "categorias" ? renderStorePublicCategoriesPage(vm)
+        : vm.route.view === "contato" ? renderStorePublicContactPage(vm)
+          : vm.route.view === "sobre" ? renderStorePublicAboutPage(vm)
+            : homeContent);
+  const storeContent = `
+    ${renderStorePublicHeader(vm)}
+    ${renderStoreAdminFloatingEditor(vm)}
+    ${vm.store.__demo ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
+    ${pageContent}
+    <footer class="store-public-footer" data-store-section="rodape">
+      <span>Loja criada com Simplifica 3D</span>
+      <button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>
+    </footer>
+    ${renderStorePublicCartFloating(vm)}
+  `;
 
   return `
     <main class="store-public-shell ${mode.admin ? "store-public-admin-mode" : ""}" style="--store-primary:${escaparAttr(vm.store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
-      ${renderStorePublicHeader(vm)}
-      ${renderStoreAdminFloatingEditor(vm)}
-      ${vm.store.__demo ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
-      ${productDetail ? renderStorePublicProductDetail(vm, productDetail) : routeMissing || `
-        ${renderStorePublicBanner(vm)}
-        ${renderStorePublicCategoryBar(vm)}
-        ${featured.length ? renderStorePublicGrid(vm, featured.slice(0, 4), "Produtos em destaque", "Itens que aparecem primeiro para o cliente") : ""}
-        ${renderStorePublicGrid(vm, catalog, category ? category.name : "Catálogo", category ? `Produtos em ${category.name}` : "Escolha um produto e solicite pelo WhatsApp")}
-        <section class="store-public-contact">
-          <div>
-            <span>Contato</span>
-            <h2>Pronto para pedir?</h2>
-            <p>Envie sua solicitação e a loja retorna com detalhes de produção, prazo e acabamento.</p>
-          </div>
-          <button class="btn" type="button" onclick="abrirWhatsappLojaPublica()">Falar no WhatsApp</button>
-        </section>
-      `}
-      <footer class="store-public-footer">
-        <span>Loja criada com Simplifica 3D</span>
-        <button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>
-      </footer>
-      ${renderStorePublicCartFloating(vm)}
+      ${mode.admin ? `
+        <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
+          ${renderStoreVisualEditorSidebar(vm)}
+          <section class="store-visual-editor-main">
+            ${renderStoreVisualEditorTopbar(vm)}
+            <div class="store-visual-editor-canvas">${storeContent}</div>
+          </section>
+        </div>
+      ` : storeContent}
     </main>
+  `;
+}
+
+function renderStorePublicInnerHeader(vm, { eyebrow = "Loja", title = "", description = "" } = {}) {
+  return `
+    <section class="store-public-inner-head">
+      <span>${escaparHtml(eyebrow)}</span>
+      <h1>${escaparHtml(title)}</h1>
+      <p>${escaparHtml(description)}</p>
+    </section>
+  `;
+}
+
+function renderStorePublicProductsPage(vm) {
+  return `
+    ${renderStorePublicInnerHeader(vm, {
+      eyebrow: "Vitrine",
+      title: "Produtos da loja",
+      description: "Explore a seleção principal, veja prazos e solicite orçamento pelo WhatsApp."
+    })}
+    ${renderStorePublicCategoryBar(vm)}
+    ${renderStorePublicGrid(vm, vm.products, "Catálogo completo", "Produtos organizados para orçamento rápido")}
+  `;
+}
+
+function renderStorePublicCategoriesPage(vm) {
+  return `
+    ${renderStorePublicInnerHeader(vm, {
+      eyebrow: "Navegação",
+      title: "Categorias",
+      description: "Escolha uma área da vitrine e encontre produtos com a mesma identidade visual da loja."
+    })}
+    ${renderStorePublicCategoryBar(vm)}
+    <section class="store-public-section">
+      <div class="store-public-category-showcase">
+        ${vm.categories.map((cat) => `
+          <a href="${storefrontPublicCategoryUrl(vm, cat)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">
+            <span class="store-category-visual">${escaparHtml(cat.icon || "▦")}</span>
+            <strong>${escaparHtml(cat.name)}</strong>
+            <small>${vm.products.filter((product) => String(product.category_id) === String(cat.id)).length} produtos</small>
+          </a>
+        `).join("") || renderStoreEmptyState({ title: "Nenhuma categoria criada", description: "A loja pode começar com categorias base e ser personalizada depois.", icon: "▦" })}
+      </div>
+    </section>
+  `;
+}
+
+function renderStorePublicCategoryProductsPage(vm, category) {
+  const products = vm.products.filter((product) => String(product.category_id) === String(category.id));
+  return `
+    ${renderStorePublicInnerHeader(vm, {
+      eyebrow: "Categoria",
+      title: category.name || "Categoria",
+      description: `Produtos em ${category.name || "categoria"} organizados para navegação rápida.`
+    })}
+    ${renderStorePublicCategoryBar(vm)}
+    ${renderStorePublicGrid(vm, products, category.name || "Categoria", `Produtos em ${category.name || "categoria"}`)}
+  `;
+}
+
+function getStorefrontContactConfig(store = {}) {
+  const contact = store.contact_config || store.theme_config?.contact || {};
+  return {
+    whatsapp: String(store.whatsapp || contact.whatsapp || "").trim(),
+    instagram: String(store.instagram || contact.instagram || "").trim(),
+    email: String(store.email || contact.email || "").trim(),
+    facebook: String(contact.facebook || "").trim(),
+    address: String(contact.address || "").trim(),
+    hours: String(store.opening_hours || contact.hours || "").trim()
+  };
+}
+
+function renderStoreContactHeroPreview(vm, { compact = false } = {}) {
+  const store = vm.store || {};
+  const contact = getStorefrontContactConfig(store);
+  const banner = String(store.banner_url || "").trim();
+  return `
+    <aside class="store-public-contact-preview ${compact ? "compact" : ""}" ${banner ? `style="--store-contact-bg:url('${escaparAttr(banner)}')"` : ""}>
+      <div>
+        <span>Fale conosco</span>
+        <h2>Estamos aqui para ajudar</h2>
+        <p>Peça orçamento, tire dúvidas sobre personalização e combine prazos com atendimento direto.</p>
+      </div>
+      <div class="store-public-contact-mini-grid">
+        <button type="button" onclick="${contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<strong>WhatsApp</strong><small>${escaparHtml(contact.whatsapp || "Adicionar número")}</small></button>
+        <button type="button" onclick="${contact.email ? `location.href='mailto:${escaparAttr(contact.email)}'` : "informarRecursoFuturoLoja('E-mail público')"}">${renderUiIcon("email")}<strong>E-mail</strong><small>${escaparHtml(contact.email || "Adicionar e-mail")}</small></button>
+        <button type="button" onclick="${contact.instagram ? `window.open('${escaparAttr(normalizarUrlInstagramLoja(contact.instagram))}', '_blank', 'noopener')` : "informarRecursoFuturoLoja('Instagram da loja')"}">${renderUiIcon("instagram")}<strong>Instagram</strong><small>${escaparHtml(contact.instagram || "Adicionar perfil")}</small></button>
+        <button type="button">${renderUiIcon("agenda")}<strong>Endereço</strong><small>${escaparHtml(contact.address || "Atendimento online")}</small></button>
+      </div>
+    </aside>
+  `;
+}
+
+function renderStorePublicContactPage(vm) {
+  const store = vm.store || {};
+  const contact = getStorefrontContactConfig(store);
+  const contacts = [
+    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"],
+    ["Instagram", contact.instagram || "Perfil da loja", contact.instagram ? `window.open('${escaparAttr(normalizarUrlInstagramLoja(contact.instagram))}', '_blank', 'noopener')` : "informarRecursoFuturoLoja('Instagram da loja')"],
+    ["E-mail", contact.email || "Contato por e-mail", contact.email ? `location.href='mailto:${escaparAttr(contact.email)}'` : "informarRecursoFuturoLoja('E-mail publico')"],
+    ["Horário", contact.hours || "Atendimento sob consulta", "informarRecursoFuturoLoja('Horario de atendimento')"]
+  ];
+  return `
+    ${renderStorePublicInnerHeader(vm, {
+      eyebrow: "Atendimento",
+      title: "Contato",
+      description: "Canais organizados para o cliente pedir orçamento, tirar dúvidas e acompanhar a produção."
+    })}
+    <section class="store-public-contact-page" data-store-section="contato">
+      ${renderStoreContactHeroPreview(vm)}
+      <div class="store-public-contact-grid">
+        ${contacts.map(([title, desc, action]) => `
+          <button type="button" onclick="${action}">
+            <i>${renderUiIcon(title === "WhatsApp" ? "whatsapp" : title === "Instagram" ? "instagram" : title === "E-mail" ? "email" : "agenda")}</i>
+            <strong>${escaparHtml(title)}</strong>
+            <span>${escaparHtml(desc)}</span>
+          </button>
+        `).join("")}
+      </div>
+      <aside>
+        <span>Resposta rápida</span>
+        <h2>Solicite seu orçamento</h2>
+        <p>O atendimento pelo WhatsApp ajuda a revisar detalhes, personalização e prazo antes de transformar em pedido.</p>
+        <button class="btn" type="button" onclick="abrirWhatsappLojaPublica()">Falar no WhatsApp</button>
+      </aside>
+    </section>
+  `;
+}
+
+function renderStorePublicAboutPage(vm) {
+  return `
+    ${renderStorePublicInnerHeader(vm, {
+      eyebrow: "Sobre a loja",
+      title: vm.store.name || "Sobre nós",
+      description: vm.store.description || "Uma vitrine criada para apresentar produtos com clareza, confiança e identidade propria."
+    })}
+    ${renderStorePublicBenefits(vm)}
+    <section class="store-public-about-panel">
+      <article>
+        <span>Produção</span>
+        <h2>Feito com cuidado, sob medida e foco no cliente</h2>
+        <p>Conheça os diferenciais, materiais, prazos e cuidados por trás de cada peça produzida para o cliente.</p>
+      </article>
+      <article>
+        <span>Como comprar</span>
+        <h2>Escolha um produto e solicite orçamento</h2>
+        <p>O cliente navega pelo catálogo, adiciona itens ao carrinho leve e conversa pelo WhatsApp para fechar detalhes.</p>
+      </article>
+    </section>
   `;
 }
 
@@ -14704,7 +15775,8 @@ async function hidratarLojaPublicaSeNecessario() {
   if (cache?.cached_at && Date.now() - Date.parse(cache.cached_at) < 90000) return;
   try {
     const slug = encodeURIComponent(route.slug);
-    const stores = await storefrontPublicRequest(`/rest/v1/stores?select=*&slug=eq.${slug}&active=eq.true&limit=1`);
+    const adminRequested = new URLSearchParams(location.search || "").get("admin") === "1";
+    const stores = await storefrontPublicRequest(`/rest/v1/stores?select=*&slug=eq.${slug}${adminRequested ? "" : "&active=eq.true"}&limit=1`);
     const store = Array.isArray(stores) ? stores[0] : null;
     if (!store?.id) return;
     const storeId = encodeURIComponent(store.id);
@@ -15143,7 +16215,7 @@ function renderLojaOnlineHub() {
           <div id="storefrontHubQr" class="qr-preview" aria-label="QR Code da loja"></div>
           <div class="storefront-hub-actions">
             <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled"}>Editar na loja real</button>
-            <button class="btn secondary" type="button" onclick="abrirStorefrontAdminRoute()">Admin avançado</button>
+            <button class="btn secondary" type="button" onclick="abrirStorefrontAdminRoute()">Configurações completas</button>
             <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')">Compartilhar</button>
             <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
             <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
@@ -15262,6 +16334,14 @@ function renderStorefrontAdminPanel() {
   `;
 }
 
+function renderStorefrontAdminStandalone() {
+  return `
+    <main class="storefront-admin-standalone" data-store-admin-context="standalone">
+      ${renderStorefrontAdminPanel()}
+    </main>
+  `;
+}
+
 function renderStorefrontOverview(vm, stats) {
   const noWhatsapp = !String(vm.store.whatsapp || "").trim();
   return `
@@ -15312,37 +16392,52 @@ function renderStorefrontAppearance(vm) {
   const theme = vm.store.theme_config || {};
   const hasStoredAppearance = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
   return `
-    <div class="storefront-workspace">
-      <form class="card app-form storefront-form-card" id="storefrontAppearanceForm" oninput="marcarStorefrontAlteracoesPendentes('Aparência com alterações pendentes')" onsubmit="salvarStorefrontAparencia(event)">
+    <div class="storefront-workspace storefront-editor-layout">
+      <form class="card app-form storefront-form-card storefront-editor-panel" id="storefrontAppearanceForm" oninput="marcarStorefrontAlteracoesPendentes('Aparência com alterações pendentes'); atualizarStorefrontPreviewAoVivo(this)" onsubmit="salvarStorefrontAparencia(event)">
         <div class="card-header">
-          <div><h3>Aparência pública</h3><p class="muted">Identidade da vitrine pública, sem editor visual nesta fase.</p></div>
-          <span class="status-badge">Configuração</span>
+          <div><h3>Construtor visual da loja</h3><p class="muted">Edite identidade, banner e cores vendo o resultado no preview ao lado.</p></div>
+          <span class="status-badge">Tempo real</span>
         </div>
         ${hasStoredAppearance ? "" : renderStoreEmptyState({
           title: "Configure a aparência da sua loja para visualizar melhor",
           description: "Defina nome público, descrição, WhatsApp, logo, banner e cores para substituir o preview demonstrativo.",
           icon: "◐"
         })}
-        <div class="storefront-form-section">
-          <strong>Identidade</strong>
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">01</span>
+            <div><strong>Identidade da loja</strong><small>Nome, descrição e canais públicos.</small></div>
+          </div>
           <div class="form-grid">
           <label>Nome público<input name="storeName" required value="${escaparAttr(vm.store.name || "")}"></label>
           <label>Slug<input name="storeSlug" value="${escaparAttr(vm.store.slug || "")}"></label>
           <label>WhatsApp<input name="storeWhatsApp" inputmode="tel" value="${escaparAttr(vm.store.whatsapp || "")}"></label>
           <label>Instagram<input name="storeInstagram" value="${escaparAttr(vm.store.instagram || "")}"></label>
           </div>
+          <label>Descrição<textarea name="storeDescription" rows="3">${escaparHtml(vm.store.description || "")}</textarea></label>
         </div>
-        <div class="storefront-form-section">
-          <strong>Imagens</strong>
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">02</span>
+            <div><strong>Logo e banner</strong><small>Upload real para Storage com preview imediato.</small></div>
+          </div>
+          ${renderStorefrontUploadStatus()}
           <div class="form-grid">
           <label>Logo URL<input name="storeLogoUrl" value="${escaparAttr(vm.store.logo_url || "")}"></label>
           <label>Banner URL<input name="storeBannerUrl" value="${escaparAttr(vm.store.banner_url || "")}"></label>
-          <label>Upload logo<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('logo', this)"></label>
-          <label>Upload banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"></label>
+          <label class="storefront-upload-drop">Alterar logo<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('logo', this)"><span>JPG, PNG ou WebP até 1 MB</span></label>
+          <label class="storefront-upload-drop">Alterar banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"><span>JPG, PNG ou WebP até 3 MB</span></label>
+          </div>
+          <div class="storefront-image-row">
+            ${vm.store.logo_url ? `<span class="storefront-thumb"><img src="${escaparAttr(vm.store.logo_url)}" alt="Logo da loja"></span>` : `<span class="storefront-thumb storefront-thumb-empty">Logo</span>`}
+            ${vm.store.banner_url ? `<span class="storefront-thumb storefront-thumb-wide"><img src="${escaparAttr(vm.store.banner_url)}" alt="Banner da loja"></span>` : `<span class="storefront-thumb storefront-thumb-wide storefront-thumb-empty">Banner</span>`}
           </div>
         </div>
-        <div class="storefront-form-section">
-          <strong>Cores</strong>
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">03</span>
+            <div><strong>Cores e tema</strong><small>Controle visual da vitrine pública.</small></div>
+          </div>
           <div class="form-grid">
           <label>Cor principal<input name="storePrimary" type="color" value="${escaparAttr(theme.primary || "#00BFA6")}"></label>
           <label>Cor de destaque<input name="storeAccent" type="color" value="${escaparAttr(theme.accent || "#FF8A1F")}"></label>
@@ -15351,30 +16446,30 @@ function renderStorefrontAppearance(vm) {
           </select></label>
           </div>
         </div>
-        <label>Descrição<textarea name="storeDescription" rows="3">${escaparHtml(vm.store.description || "")}</textarea></label>
-        <div class="storefront-image-row">
-          ${vm.store.logo_url ? `<span class="storefront-thumb"><img src="${escaparAttr(vm.store.logo_url)}" alt="Logo da loja"></span>` : `<span class="storefront-thumb storefront-thumb-empty">Logo</span>`}
-          ${vm.store.banner_url ? `<span class="storefront-thumb storefront-thumb-wide"><img src="${escaparAttr(vm.store.banner_url)}" alt="Banner da loja"></span>` : `<span class="storefront-thumb storefront-thumb-wide storefront-thumb-empty">Banner</span>`}
-        </div>
-        <p class="muted">Uploads usam Supabase Storage no beta fechado. Logo até 1 MB; banner até 3 MB; formatos JPG, PNG ou WebP.</p>
-        <div class="actions"><button class="btn" type="submit">Salvar aparência</button></div>
+        <p class="muted">Preview local é temporário. Upload concluído só aparece como salvo quando o Storage retorna URL pública.</p>
+        <div class="actions storefront-sticky-actions"><button class="btn" type="submit">Salvar aparência</button></div>
       </form>
-      ${renderStorefrontPreview(vm, { title: "Preview de aparência", subtitle: "Mostra como logo, banner, nome, descrição e cores serão encaixados." })}
+      ${renderStorefrontPreview(vm, { title: "Preview em tempo real", subtitle: "As alterações aparecem aqui antes de salvar." })}
     </div>
   `;
 }
 
 function renderStorefrontCategories(vm) {
-  const editingId = localStorage.getItem(STOREFRONT_ADMIN_KEYS.editingCategory) || "";
+  const editingId = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.editingCategory) || "";
   const editing = vm.categories.find((cat) => cat.id === editingId) || {};
   return `
-    <section class="card storefront-form-card">
+    <section class="card storefront-form-card storefront-editor-panel">
       <div class="card-header">
         <div><h3>Categorias</h3><p class="muted">Organize a vitrine em grupos claros. Reordenação visual fica para fase futura.</p></div>
         <button class="btn secondary" type="button" onclick="abrirEditorCategoriaLojaOnline()">Nova categoria</button>
       </div>
       <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Categoria com alterações pendentes')" onsubmit="salvarCategoriaLojaOnline(event)">
         <input type="hidden" name="categoryId" value="${escaparAttr(editing.id || "")}">
+        <div class="storefront-visual-block">
+        <div class="storefront-block-head">
+          <span class="storefront-block-icon">≡</span>
+          <div><strong>${editing.id ? "Editar categoria" : "Nova categoria"}</strong><small>Chips que aparecem na navegação pública da loja.</small></div>
+        </div>
         <div class="form-grid">
           <label>Nome<input name="categoryName" required value="${escaparAttr(editing.name || "")}"></label>
           <label>Slug<input name="categorySlug" value="${escaparAttr(editing.slug || "")}"></label>
@@ -15382,7 +16477,8 @@ function renderStorefrontCategories(vm) {
           <label>Ordem<input name="categoryOrder" type="number" min="0" value="${escaparAttr(editing.order_index ?? vm.categories.length + 1)}"></label>
           <label class="checkbox-row"><input name="categoryVisible" type="checkbox" ${editing.visible !== false ? "checked" : ""}> Visível</label>
         </div>
-        <div class="actions"><button class="btn" type="submit">${editing.id ? "Salvar categoria" : "Criar categoria"}</button></div>
+        </div>
+        <div class="actions storefront-sticky-actions"><button class="btn" type="submit">${editing.id ? "Salvar categoria" : "Criar categoria"}</button></div>
       </form>
     </section>
     <section class="card">
@@ -15397,15 +16493,16 @@ function renderStorefrontCategories(vm) {
             </div>
           </div>
           <div class="store-admin-meta">
-            ${cat.__demo ? `<span class="status-badge badge-info">demonstração</span>` : ""}
+            ${cat.__demo || cat.__template ? `<span class="status-badge badge-info">${cat.__template ? "template" : "demonstração"}</span>` : ""}
             <span class="status-badge ${cat.visible ? "badge-success" : ""}">${cat.visible ? "visível" : "oculta"}</span>
             <span class="status-badge">${vm.products.filter((product) => String(product.category_id || "") === String(cat.id)).length} produto(s)</span>
             <span class="muted">Reorganizar em fase futura</span>
           </div>
           <div class="store-admin-actions">
-            <button class="btn secondary" type="button" ${cat.__demo ? "disabled title=\"Categoria demonstrativa não é salva. Crie uma categoria real para editar.\"" : `onclick="abrirEditorCategoriaLojaOnline('${escaparAttr(cat.id)}')"`}>Editar</button>
-            <button class="btn ghost" type="button" disabled title="Drag and drop será implementado em fase futura.">Reordenar</button>
-            <button class="btn ghost" type="button" ${cat.__demo ? "disabled title=\"Categoria demonstrativa não pode ser excluída.\"" : `onclick="excluirCategoriaLojaOnline('${escaparAttr(cat.id)}')"`}>Excluir</button>
+            <button class="btn secondary" type="button" ${cat.__demo || cat.__template ? "disabled title=\"Crie uma categoria real para editar este item.\"" : `onclick="abrirEditorCategoriaLojaOnline('${escaparAttr(cat.id)}')"`}>Editar</button>
+            <button class="btn ghost" type="button" ${cat.__demo || cat.__template ? "disabled" : `onclick="moverCategoriaLojaOnline('${escaparAttr(cat.id)}', -1)"`}>Subir</button>
+            <button class="btn ghost" type="button" ${cat.__demo || cat.__template ? "disabled" : `onclick="moverCategoriaLojaOnline('${escaparAttr(cat.id)}', 1)"`}>Descer</button>
+            <button class="btn ghost" type="button" ${cat.__demo || cat.__template ? "disabled title=\"Categoria de template não pode ser excluída.\"" : `onclick="excluirCategoriaLojaOnline('${escaparAttr(cat.id)}')"`}>Excluir</button>
           </div>
         </article>`).join("") || renderStoreEmptyState({ title: "Nenhuma categoria", description: "Crie categorias para organizar os produtos públicos." })}
       </div>
@@ -15421,19 +16518,23 @@ function renderPrecoProdutoLojaOnline(product) {
 }
 
 function renderStorefrontProducts(vm) {
-  const editingId = localStorage.getItem(STOREFRONT_ADMIN_KEYS.editingProduct) || "";
-  const editing = vm.products.find((product) => product.id === editingId) || {};
-  const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}</option>`).join("");
+  const editingId = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.editingProduct) || "";
+  const editingSeed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
+  const editing = vm.products.find((product) => product.id === editingId) || (editingSeed && typeof editingSeed === "object" ? editingSeed : {});
+  const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${cat.__template ? "disabled" : ""} ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}${cat.__template ? " (template)" : ""}</option>`).join("");
   return `
-    <section class="card storefront-form-card">
+    <section class="card storefront-form-card storefront-editor-panel">
       <div class="card-header">
         <div><h3>Produtos da loja</h3><p class="muted">Dados públicos da vitrine. Custos, margem e lucro internos não aparecem aqui.</p></div>
         <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline()">Novo produto</button>
       </div>
       <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes')" onsubmit="salvarProdutoLojaOnline(event)">
         <input type="hidden" name="productId" value="${escaparAttr(editing.id || "")}">
-        <div class="storefront-form-section">
-          <strong>Dados públicos</strong>
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">01</span>
+            <div><strong>Dados públicos</strong><small>Informações que o cliente enxerga na vitrine.</small></div>
+          </div>
           <div class="form-grid">
           <label>Título público<input name="productTitle" required value="${escaparAttr(editing.title || "")}"></label>
           <label>Slug<input name="productSlug" value="${escaparAttr(editing.slug || "")}"></label>
@@ -15441,8 +16542,11 @@ function renderStorefrontProducts(vm) {
           <label>Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
           </div>
         </div>
-        <div class="storefront-form-section">
-          <strong>Preço e estoque</strong>
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">02</span>
+            <div><strong>Preço e estoque</strong><small>Exibição pública sem custo, lucro ou margem interna.</small></div>
+          </div>
           <div class="form-grid">
           <label>Preço público<input name="productPrice" inputmode="decimal" value="${escaparAttr(editing.price ?? "")}"></label>
           <label>Preço antigo/promocional<input name="productComparePrice" inputmode="decimal" value="${escaparAttr(editing.compare_price ?? "")}"></label>
@@ -15452,8 +16556,11 @@ function renderStorefrontProducts(vm) {
           <label>Qtd. manual<input name="productStockQuantity" type="number" min="0" value="${escaparAttr(editing.stock_quantity ?? "")}"></label>
           </div>
         </div>
-        <div class="storefront-form-section">
-          <strong>Publicação</strong>
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">03</span>
+            <div><strong>Publicação</strong><small>Controle onde o item aparece na loja.</small></div>
+          </div>
           <div class="form-grid">
           <label class="checkbox-row"><input name="productShowPrice" type="checkbox" ${editing.show_price !== false ? "checked" : ""}> Mostrar preço</label>
           <label class="checkbox-row"><input name="productVisible" type="checkbox" ${editing.visible ? "checked" : ""}> Visível</label>
@@ -15463,11 +16570,12 @@ function renderStorefrontProducts(vm) {
         </div>
         <label>Descrição pública<textarea name="productDescription" rows="3">${escaparHtml(editing.description || "")}</textarea></label>
         <label>Observações públicas<textarea name="productObservations" rows="2">${escaparHtml(editing.public_observations || "")}</textarea></label>
-        <div class="actions"><button class="btn" type="submit">${editing.id ? "Salvar produto" : "Criar produto"}</button></div>
+        <div class="actions storefront-sticky-actions"><button class="btn" type="submit">${editing.id ? "Salvar produto" : "Criar produto"}</button></div>
       </form>
     </section>
     <section class="card">
       <div class="card-header"><h3>Produtos publicados</h3><span class="status-badge">${vm.products.length} produto(s)</span></div>
+      ${renderStorefrontUploadStatus()}
       <div class="store-product-admin-grid">
         ${vm.products.map((product) => {
           const productImages = vm.images.filter((image) => image.product_id === product.id);
@@ -15486,10 +16594,12 @@ function renderStorefrontProducts(vm) {
               <small>${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
             </div>
             <div class="store-admin-actions">
-              <button class="btn secondary" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não é salvo. Crie um produto real para editar.\"" : `onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Editar</button>
+              <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar como base" : "Editar"}</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera publicação.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','visible')"`}>${product.visible ? "Ocultar" : "Exibir"}</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não pode ser duplicado.\"" : `onclick="duplicarProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Duplicar</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera destaque.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','featured')"`}>${product.featured ? "Remover destaque" : "Destacar"}</button>
+              <button class="btn ghost" type="button" ${product.__demo ? "disabled" : `onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', -1)"`}>Subir</button>
+              <button class="btn ghost" type="button" ${product.__demo ? "disabled" : `onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', 1)"`}>Descer</button>
               <button class="btn ghost" type="button" onclick="abrirProdutoLojaPublica('${escaparAttr(product.id)}')">Abrir público</button>
               <button class="btn ghost" type="button" disabled title="Use o cadastro de produto/estoque quando a integração final for ativada.">Gerenciar no catálogo/estoque</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não pode ser removido.\"" : `onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Remover</button>
@@ -15507,14 +16617,14 @@ function renderStorefrontProducts(vm) {
 
 function renderStorefrontBanner(vm) {
   return `
-    <div class="storefront-workspace">
-      <form class="card app-form storefront-form-card" oninput="marcarStorefrontAlteracoesPendentes('Banner com alterações pendentes')" onsubmit="salvarStorefrontAparencia(event)">
+    <div class="storefront-workspace storefront-editor-layout">
+      <form class="card app-form storefront-form-card storefront-editor-panel" oninput="marcarStorefrontAlteracoesPendentes('Banner com alterações pendentes'); atualizarStorefrontPreviewAoVivo(this)" onsubmit="salvarStorefrontAparencia(event)">
         <div class="card-header">
           <div>
-            <h3>Banner e capa</h3>
-            <p class="muted">Controle focado em imagens grandes da vitrine. O preview permanece compacto.</p>
+            <h3>Banner principal</h3>
+            <p class="muted">Controle visual da primeira área que o cliente vê na loja.</p>
           </div>
-          <span class="status-badge">Imagem</span>
+          <span class="status-badge">Preview ao vivo</span>
         </div>
         <input type="hidden" name="storeName" value="${escaparAttr(vm.store.name || "")}">
         <input type="hidden" name="storeSlug" value="${escaparAttr(vm.store.slug || "")}">
@@ -15525,17 +16635,24 @@ function renderStorefrontBanner(vm) {
         <input type="hidden" name="storeAccent" value="${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
         <input type="hidden" name="storeThemeMode" value="${escaparAttr(vm.store.theme_config?.mode || "auto")}">
         <input type="hidden" name="storeDescription" value="${escaparAttr(vm.store.description || "")}">
-        <div class="form-grid">
-          <label>URL do banner<input name="storeBannerUrl" value="${escaparAttr(vm.store.banner_url || "")}"></label>
-          <label>Upload banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"></label>
-        </div>
-        <div class="storefront-image-row">
-          ${vm.store.banner_url ? `<span class="storefront-thumb storefront-thumb-wide"><img src="${escaparAttr(vm.store.banner_url)}" alt="Banner da loja"></span>` : `<span class="storefront-thumb storefront-thumb-wide storefront-thumb-empty">Banner</span>`}
+        <div class="storefront-visual-block">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">B</span>
+            <div><strong>Imagem de capa</strong><small>Use uma imagem horizontal com boa leitura no mobile.</small></div>
+          </div>
+          <div class="form-grid">
+            <label>URL do banner<input name="storeBannerUrl" value="${escaparAttr(vm.store.banner_url || "")}"></label>
+            <label class="storefront-upload-drop">Alterar banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"><span>Até 3 MB, JPG/PNG/WebP</span></label>
+          </div>
+          ${renderStorefrontUploadStatus()}
+          <div class="storefront-image-row">
+            ${vm.store.banner_url ? `<span class="storefront-thumb storefront-thumb-wide"><img src="${escaparAttr(vm.store.banner_url)}" alt="Banner da loja"></span>` : `<span class="storefront-thumb storefront-thumb-wide storefront-thumb-empty">Banner</span>`}
+          </div>
         </div>
         <p class="muted">Banner até 3 MB em JPG, PNG ou WebP. Se o upload falhar, a loja usa fallback visual amigável.</p>
-        <div class="actions"><button class="btn" type="submit">Salvar banner</button></div>
+        <div class="actions storefront-sticky-actions"><button class="btn" type="submit">Salvar banner</button></div>
       </form>
-      ${renderStorefrontPreview(vm, { title: "Preview compacto do banner", subtitle: "Sem navegar para a loja pública e sem resetar a SPA." })}
+      ${renderStorefrontPreview(vm, { title: "Preview do banner em tempo real", subtitle: "Sem navegar para a loja pública e sem resetar a SPA." })}
     </div>
   `;
 }
@@ -18107,6 +19224,9 @@ function renderUiIcon(tipo = "", fallback = "") {
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
     carrinho: `<svg ${attrs}><path d="M6 6h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>`,
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
+    search: `<svg ${attrs}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
+    instagram: `<svg ${attrs}><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.2"/><path d="M16.6 7.4h.1"/></svg>`,
+    email: `<svg ${attrs}><rect x="4" y="6" width="16" height="12" rx="2"/><path d="m4 8 8 5 8-5"/></svg>`,
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 12h7"/><path d="M8.5 16h7"/></svg>`,
     edit: `<svg ${attrs}><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>`,
     trash: `<svg ${attrs}><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 15h10l1-15"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>`,
