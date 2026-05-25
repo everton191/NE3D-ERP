@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.5-estavel";
-const APP_VERSION_CODE = 7;
+const APP_VERSION = "1.0.6-estavel";
+const APP_VERSION_CODE = 8;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
