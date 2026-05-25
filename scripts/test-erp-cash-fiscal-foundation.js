@@ -32,6 +32,12 @@ const reconciliationMigrationPath = path.join(
   "migrations",
   "20260525163000_erp_financial_reconciliation_recovery.sql"
 );
+const workerOrchestrationMigrationPath = path.join(
+  rootDir,
+  "supabase",
+  "migrations",
+  "20260525170000_erp_financial_worker_orchestration.sql"
+);
 const appJsPath = path.join(rootDir, "app.js");
 
 function fail(message) {
@@ -64,6 +70,9 @@ const shadowSql = fs.existsSync(shadowMigrationPath)
   : "";
 const reconciliationSql = fs.existsSync(reconciliationMigrationPath)
   ? fs.readFileSync(reconciliationMigrationPath, "utf8").replace(/\s+/g, " ").trim()
+  : "";
+const workerOrchestrationSql = fs.existsSync(workerOrchestrationMigrationPath)
+  ? fs.readFileSync(workerOrchestrationMigrationPath, "utf8").replace(/\s+/g, " ").trim()
   : "";
 const appJs = fs.existsSync(appJsPath)
   ? fs.readFileSync(appJsPath, "utf8")
@@ -386,4 +395,69 @@ assertRegex(
 
 if (!process.exitCode) {
   console.log("ERP financial reconciliation/recovery layer looks consistent.");
+}
+
+if (!workerOrchestrationSql) {
+  fail(`Worker orchestration migration not found: ${workerOrchestrationMigrationPath}`);
+  process.exit();
+}
+
+[
+  "add column if not exists processing_started_at timestamptz",
+  "add column if not exists processing_timeout_at timestamptz",
+  "add column if not exists last_worker_heartbeat timestamptz",
+  "add column if not exists max_retry_limit integer not null default 5",
+  "add column if not exists worker_version text",
+  "add column if not exists worker_node text",
+  "add column if not exists processing_priority integer not null default 0",
+  "add column if not exists retry_strategy text not null default 'exponential'",
+  "add column if not exists retry_backoff_level integer not null default 0",
+  "create table if not exists public.dead_letter_operations",
+  "create table if not exists public.financial_operation_events",
+  "create table if not exists public.financial_operational_metrics",
+  "public.calculate_reconciliation_next_retry",
+  "public.record_financial_operation_event",
+  "public.claim_operation_reconciliation_batch",
+  "for update skip locked",
+  "public.release_operation_reconciliation_item",
+  "public.run_reconciliation_health_checks",
+  "reconciliation_dead_lettered",
+  "reconciliation_retry_scheduled",
+].forEach((needle) => assertIncludes(workerOrchestrationSql, needle, `Worker orchestration missing: ${needle}`));
+
+[
+  "operation_reconciliation_worker_claim_idx",
+  "operation_reconciliation_lock_health_idx",
+  "dead_letter_operations_company_status_idx",
+  "financial_operation_events_operation_idx",
+  "financial_operational_metrics_type_idx",
+].forEach((needle) => assertIncludes(workerOrchestrationSql, needle, `Worker orchestration index missing: ${needle}`));
+
+assertRegex(
+  workerOrchestrationSql,
+  /retry_strategy in \('fixed', 'exponential', 'manual'\)/,
+  "Retry strategies must be explicit and controlled."
+);
+assertRegex(
+  workerOrchestrationSql,
+  /when v_retry <= 0 then interval '1 minute'[\s\S]+when v_retry = 1 then interval '5 minutes'[\s\S]+when v_retry = 2 then interval '15 minutes'[\s\S]+when v_retry = 3 then interval '1 hour'[\s\S]+else interval '6 hours'/,
+  "Exponential retry backoff must avoid aggressive retry loops."
+);
+assertRegex(
+  workerOrchestrationSql,
+  /insert into public\.dead_letter_operations[\s\S]+reconciliation retry limit reached/,
+  "Failed reconciliation retries must be preserved in DLQ instead of deleted."
+);
+
+[
+  "const FINANCIAL_WORKER_VERSION = \"client-shadow-v1\";",
+  "worker_version",
+  "worker_node",
+  "retry_strategy",
+  "retry_backoff_level",
+  "processing_priority",
+].forEach((needle) => assertIncludes(appJs, needle, `Frontend worker orchestration metadata missing: ${needle}`));
+
+if (!process.exitCode) {
+  console.log("ERP financial worker orchestration layer looks consistent.");
 }

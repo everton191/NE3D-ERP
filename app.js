@@ -7,6 +7,7 @@ const APP_VERSION_CODE = 3;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
+const FINANCIAL_WORKER_VERSION = "client-shadow-v1";
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "/assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "/assets/icon-512.png";
@@ -4882,6 +4883,16 @@ function criarMetadadosOperacaoFinanceira(tipo, referencia = {}, opcoes = {}) {
     reconciliationVersion: FINANCIAL_RECONCILIATION_VERSION,
     processing_node: opcoes.processing_node || getPlataformaDispositivoOperacional(),
     processingNode: opcoes.processing_node || getPlataformaDispositivoOperacional(),
+    worker_version: FINANCIAL_WORKER_VERSION,
+    workerVersion: FINANCIAL_WORKER_VERSION,
+    worker_node: opcoes.worker_node || `${getPlataformaDispositivoOperacional()}:${deviceId}`,
+    workerNode: opcoes.worker_node || `${getPlataformaDispositivoOperacional()}:${deviceId}`,
+    retry_strategy: opcoes.retry_strategy || "exponential",
+    retryStrategy: opcoes.retry_strategy || "exponential",
+    retry_backoff_level: opcoes.retry_backoff_level ?? 0,
+    retryBackoffLevel: opcoes.retry_backoff_level ?? 0,
+    processing_priority: opcoes.processing_priority ?? 0,
+    processingPriority: opcoes.processing_priority ?? 0,
     app_version: APP_VERSION,
     appVersion: APP_VERSION,
     pwa_version: APP_VERSION,
