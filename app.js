@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.0-estavel";
-const APP_VERSION_CODE = 2;
+const APP_VERSION = "1.0.1-estavel";
+const APP_VERSION_CODE = 3;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "/assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "/assets/icon-512.png";

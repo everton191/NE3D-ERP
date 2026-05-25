@@ -39,6 +39,7 @@
     "test:storefront-rls-simulation": "node scripts/test-storefront-rls-simulation.js",
     "test:storefront-staging": "node scripts/test-storefront-staging.js",
     "test:storefront-production-controlled": "node scripts/test-storefront-production-controlled.js",
+    "test:erp-cash-fiscal-foundation": "node scripts/test-erp-cash-fiscal-foundation.js",
     "test:monetization": "node scripts/test-monetization.js",
     "android:add": "npm run build:web && cap add android",
     "android:sync": "npm run build:web && cap sync android",
