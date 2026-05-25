@@ -20202,6 +20202,15 @@ body[data-ui-profile="android_apk"]:has(.store-public-shell){
   transform:translateY(-1px);
 }
 
+.store-readiness-mini{
+  margin:4px 0 2px;
+  background:rgba(255,255,255,.045);
+}
+
+.store-readiness-mini strong{
+  font-size:22px;
+}
+
 .store-visual-section-list i{
   width:30px;
   height:30px;
@@ -20921,7 +20930,7 @@ body.storefront-public-navigating .store-public-shell{
   background:
     radial-gradient(circle at 74% 42%, color-mix(in srgb, var(--store-primary, var(--color-primary)) 16%, transparent), transparent 26%),
     linear-gradient(90deg, var(--store-bg) 0%, #10141b 45%, #171c25 100%);
-  box-shadow:none;
+  box-shadow:0 24px 80px rgba(0,0,0,.18);
 }
 
 .store-public-banner img{
@@ -20948,6 +20957,12 @@ body.storefront-public-navigating .store-public-shell{
   display:grid;
   gap:18px;
   padding:clamp(34px, 6vw, 86px) clamp(24px, 8vw, 142px);
+  animation:storeSoftRise .34s ease both;
+}
+
+@keyframes storeSoftRise{
+  from{ opacity:0; transform:translateY(10px); }
+  to{ opacity:1; transform:none; }
 }
 
 .store-public-banner-copy span,
@@ -20982,6 +20997,12 @@ body.storefront-public-navigating .store-public-shell{
   color:var(--store-muted);
   font-size:clamp(16px, 2vw, 20px);
   line-height:1.5;
+}
+
+.store-public-banner-copy .actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
 }
 
 .store-hero-device-art{
@@ -21174,6 +21195,13 @@ body.storefront-public-navigating .store-public-shell{
   border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 34%, var(--color-border));
   background:color-mix(in srgb, var(--store-primary, var(--color-primary)) 12%, var(--color-surface));
   transform:translateY(-3px);
+}
+
+.store-public-category-bar a,
+.store-public-product-card,
+.store-public-benefits article,
+.store-public-testimonial-grid article{
+  will-change:transform;
 }
 
 .store-public-section{
@@ -21535,6 +21563,12 @@ body.storefront-public-navigating .store-public-shell{
   border-radius:22px;
   background:color-mix(in srgb, var(--color-surface) 74%, transparent);
   box-shadow:var(--effect-shadow-sm);
+  transition:var(--store-transition);
+}
+
+.store-public-benefits article:hover{
+  transform:translateY(-2px);
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 22%, var(--store-border));
 }
 
 .store-public-benefits strong{
@@ -21583,7 +21617,7 @@ body.storefront-public-navigating .store-public-shell{
 }
 
 .store-public-product-card:hover{
-  transform:translateY(-3px);
+  transform:translateY(-4px);
   border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 30%, var(--color-border));
   box-shadow:var(--store-shadow);
 }
@@ -21840,6 +21874,57 @@ body.storefront-public-navigating .store-public-shell{
   padding:0 14px 14px;
 }
 
+.store-public-testimonials{
+  gap:18px;
+}
+
+.store-public-testimonial-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:16px;
+}
+
+.store-public-testimonial-grid article{
+  min-height:168px;
+  display:grid;
+  align-content:start;
+  gap:10px;
+  padding:18px;
+  border:1px solid var(--store-border-soft);
+  border-radius:var(--store-radius-lg);
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--store-primary, var(--color-primary)) 10%, transparent), transparent 38%),
+    var(--store-surface);
+  box-shadow:var(--store-shadow-soft);
+  transition:var(--store-transition);
+}
+
+.store-public-testimonial-grid article:hover{
+  transform:translateY(-3px);
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 26%, var(--store-border));
+}
+
+.store-public-testimonial-grid i{
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:color-mix(in srgb, var(--store-primary, var(--color-primary)) 13%, transparent);
+  color:var(--store-primary, var(--color-primary));
+}
+
+.store-public-testimonial-grid strong{
+  color:var(--store-text);
+  font-size:18px;
+}
+
+.store-public-testimonial-grid p{
+  margin:0;
+  color:var(--store-muted);
+  line-height:1.5;
+}
+
 .store-status-badge{
   display:inline-flex;
   align-items:center;
@@ -21940,6 +22025,56 @@ body.storefront-public-navigating .store-public-shell{
   padding-left:18px;
   color:var(--color-text-secondary);
   line-height:1.55;
+}
+
+.store-publication-progress,
+.store-readiness-mini{
+  display:grid;
+  gap:10px;
+  padding:14px;
+  border:1px solid color-mix(in srgb, var(--store-primary, var(--color-primary)) 22%, var(--store-border));
+  border-radius:20px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--store-primary, var(--color-primary)) 10%, transparent), transparent 42%),
+    color-mix(in srgb, var(--store-surface) 84%, transparent);
+}
+
+.store-publication-progress div,
+.store-readiness-mini div{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.store-publication-progress strong,
+.store-readiness-mini strong{
+  color:var(--store-text);
+}
+
+.store-publication-progress span,
+.store-readiness-mini span,
+.store-readiness-mini small{
+  color:var(--store-muted);
+  font-size:12px;
+  font-weight:800;
+}
+
+.store-publication-progress i,
+.store-readiness-mini i{
+  height:8px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(255,255,255,.08);
+}
+
+.store-publication-progress b,
+.store-readiness-mini b{
+  display:block;
+  height:100%;
+  border-radius:inherit;
+  background:var(--store-button-bg);
+  box-shadow:0 0 18px color-mix(in srgb, var(--store-primary, var(--color-primary)) 35%, transparent);
 }
 
 .store-publication-check-list{
@@ -22280,7 +22415,7 @@ body.storefront-public-navigating .store-public-shell{
 
 .store-cart-item{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) auto auto;
+  grid-template-columns:58px minmax(0, 1fr) auto auto;
   gap:10px;
   align-items:center;
   padding:12px;
@@ -22289,7 +22424,30 @@ body.storefront-public-navigating .store-public-shell{
   background:var(--color-surface-soft);
 }
 
-.store-cart-item div:first-child{
+.store-cart-thumb{
+  width:58px;
+  height:58px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid var(--store-border-soft);
+  border-radius:16px;
+  background:color-mix(in srgb, var(--store-primary, var(--color-primary)) 8%, var(--color-surface));
+  color:var(--store-primary, var(--color-primary));
+}
+
+.store-cart-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.store-cart-thumb svg{
+  width:22px;
+  height:22px;
+}
+
+.store-cart-item div:nth-child(2){
   display:grid;
   gap:4px;
   min-width:0;
@@ -22366,6 +22524,10 @@ body.theme-light .store-public-shell{
     #eef4f7;
 }
 
+body.theme-light .store-public-shell :where(.store-public-banner,.store-public-product-card,.store-public-category-bar a,.store-public-inner-head,.store-public-contact-page aside,.store-public-about-panel article,.store-public-testimonial-grid article,.store-public-benefits article,.store-public-promo){
+  box-shadow:var(--store-shadow-soft);
+}
+
 body.theme-light :where(.store-public-header,.store-public-product-card,.store-public-contact,.store-public-product-hero,.store-public-category-bar a,.store-public-spec-grid span,.store-lead-product-summary){
   background:var(--store-surface);
   border-color:var(--store-border);
@@ -22412,7 +22574,7 @@ body.theme-light .store-public-banner-copy p{
 
 body.theme-light .store-public-banner::after{
   background:
-    linear-gradient(90deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.82) 48%, rgba(255,255,255,.30) 100%),
+    linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.88) 52%, rgba(255,255,255,.38) 100%),
     linear-gradient(0deg, rgba(255,255,255,.36), transparent 48%);
 }
 
@@ -22641,6 +22803,11 @@ body.theme-light .store-hero-device-art{
     grid-template-columns:1fr;
   }
 
+  .store-cart-thumb{
+    width:100%;
+    height:150px;
+  }
+
   .store-context-sheet{
     width:100%;
     margin:0;
@@ -22846,7 +23013,8 @@ body.theme-light .store-hero-device-art{
   }
 
   .store-public-promo,
-  .store-public-benefits{
+  .store-public-benefits,
+  .store-public-testimonial-grid{
     grid-template-columns:1fr;
   }
 

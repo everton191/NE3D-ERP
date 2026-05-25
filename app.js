@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.4-estavel";
-const APP_VERSION_CODE = 6;
+const APP_VERSION = "1.0.5-estavel";
+const APP_VERSION_CODE = 7;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -13443,6 +13443,8 @@ function abrirCorrecaoChecklistLoja(area = "appearance") {
 
 function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPublicationChecklist(), { intent = "publicar" } = {}) {
   const primaryArea = checklist.missing[0]?.area || checklist.recommended[0]?.area || "appearance";
+  const completed = checklist.required.filter((item) => item.done).length;
+  const progress = Math.round((completed / Math.max(1, checklist.required.length)) * 100);
   const actionLabel = {
     appearance: "Ir para aparência",
     banner: "Ir para banner",
@@ -13461,6 +13463,10 @@ function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPubl
             <p class="muted">A loja precisa representar sua marca antes de ser compartilhada com clientes.</p>
           </div>
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <div class="store-publication-progress">
+          <div><strong>Loja pronta: ${progress}%</strong><span>${completed}/${checklist.required.length} itens essenciais</span></div>
+          <i aria-hidden="true"><b style="width:${progress}%"></b></i>
         </div>
         ${checklist.demoItems.length ? `
           <div class="store-publication-demo-alert">
@@ -15370,6 +15376,23 @@ function renderStorefrontSimpleOnboarding(vm) {
   `;
 }
 
+function renderStorefrontReadinessMini(vm) {
+  const checklist = getStorefrontPublicationChecklist(vm);
+  const completed = checklist.required.filter((item) => item.done).length;
+  const percent = Math.round((completed / Math.max(1, checklist.required.length)) * 100);
+  const next = checklist.missing[0] || checklist.recommended[0];
+  return `
+    <section class="store-readiness-mini" aria-label="Progresso da loja">
+      <div>
+        <span>Loja pronta</span>
+        <strong>${percent}%</strong>
+      </div>
+      <i aria-hidden="true"><b style="width:${percent}%"></b></i>
+      <small>${next ? `Próximo passo: ${escaparHtml(next.title)}` : "Tudo pronto para publicar com segurança."}</small>
+    </section>
+  `;
+}
+
 function renderStoreVisualEditorSidebar(vm) {
   const editorMode = getStorefrontEditorMode();
   const sections = [
@@ -15420,6 +15443,7 @@ function renderStoreVisualEditorSidebar(vm) {
       <div class="store-visual-editor-actions">
         ${renderStorefrontSaveState({ ...vm, store: vm.store })}
       </div>
+      ${renderStorefrontReadinessMini(vm)}
       ${editorMode === "simple" ? renderStorefrontSimpleOnboarding(vm) : ""}
       <div class="store-visual-section-list">
         <strong>${editorMode === "simple" ? "Essenciais" : "Seções"}</strong>
@@ -15700,6 +15724,28 @@ function renderStorePublicBenefits(vm) {
   `;
 }
 
+function renderStorePublicTestimonials(vm) {
+  const items = [
+    ["Vitrine clara", "Mostre produtos, prazos e opções sem depender de mensagens soltas."],
+    ["Pedido por conversa", "O cliente monta uma intenção de compra e chama direto no WhatsApp."],
+    ["Pronta para crescer", "Estrutura visual organizada para receber mais produtos e categorias."]
+  ];
+  return `
+    <section class="store-public-section store-public-testimonials" data-store-section="depoimentos">
+      <div class="store-public-section-head">
+        <div>
+          <span>Experiência</span>
+          <h2>Uma loja moderna para vender de forma simples</h2>
+          <p>Visual profissional, carrinho leve e contato direto para transformar interesse em orçamento.</p>
+        </div>
+      </div>
+      <div class="store-public-testimonial-grid">
+        ${items.map(([title, desc]) => `<article><i>${renderUiIcon("estrela")}</i><strong>${escaparHtml(title)}</strong><p>${escaparHtml(desc)}</p></article>`).join("")}
+      </div>
+    </section>
+  `;
+}
+
 function abrirStoreContextSheet() {
   const vm = getStorefrontPublicViewModel();
   if (!getStorefrontPublicMode(vm).admin) return mostrarToast("Modo admin não autorizado.", "erro", 3200);
@@ -15839,7 +15885,7 @@ function renderStorePublicProductCard(vm, product = {}) {
     <article class="store-public-product-card">
       ${renderStoreAdminControls("product", product, vm)}
       <a class="store-public-product-media" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">
-        ${image ? `<img loading="lazy" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : placeholder}
+        ${image ? `<img loading="lazy" decoding="async" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : placeholder}
         ${product.featured ? `<em>Destaque</em>` : ""}
       </a>
       <div class="store-public-product-body">
@@ -15918,9 +15964,9 @@ function renderStorePublicProductDetail(vm, product = {}) {
         ${renderStoreAdminControls("product", product, vm)}
         <div class="store-public-product-gallery">
           <div class="store-public-main-image">
-            ${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
+            ${image ? `<img src="${escaparAttr(image)}" loading="eager" decoding="async" alt="${escaparAttr(product.title || "Produto")}">` : `<span>${renderUiIcon("estoque")}</span>`}
           </div>
-          ${gallery.length > 1 ? `<div class="store-public-gallery-strip">${gallery.slice(0, 5).map((url) => `<img src="${escaparAttr(url)}" alt="${escaparAttr(product.title || "Produto")}">`).join("")}</div>` : ""}
+          ${gallery.length > 1 ? `<div class="store-public-gallery-strip">${gallery.slice(0, 5).map((url, index) => `<img src="${escaparAttr(url)}" loading="lazy" decoding="async" alt="${escaparAttr(`${product.title || "Produto"} ${index + 1}`)}">`).join("")}</div>` : ""}
         </div>
         <div class="store-public-product-info">
           <span class="store-public-eyebrow">${escaparHtml(storefrontPublicCategoryName(vm, product))}</span>
@@ -16042,6 +16088,7 @@ function renderLojaOnlinePublica() {
     ${renderStorePublicPromoSection(vm)}
     ${renderStorePublicGrid(vm, catalog, category ? category.name : "Catálogo", category ? `Produtos em ${category.name}` : "Escolha um produto e solicite pelo WhatsApp")}
     ${renderStorePublicBenefits(vm)}
+    ${renderStorePublicTestimonials(vm)}
     <section class="store-public-contact" data-store-section="contato">
       <div>
         <span>Contato</span>
@@ -16305,6 +16352,10 @@ function abrirCarrinhoLojaPublica() {
   const summary = getStorefrontPublicCartSummary(vm);
   const popup = document.getElementById("popup");
   if (!popup) return;
+  const renderCartThumb = (product) => {
+    const url = getStorefrontProductImage(product, vm.images || []);
+    return `<div class="store-cart-thumb">${url ? `<img src="${escaparAttr(url)}" loading="lazy" decoding="async" alt="${escaparAttr(product.title || "Produto")}">` : renderUiIcon("estoque")}</div>`;
+  };
   popup.innerHTML = `
     <div class="modal-backdrop store-cart-backdrop" role="dialog" aria-modal="true">
       <form class="modal-card store-cart-drawer" onsubmit="enviarCarrinhoLojaPublica(event)">
@@ -16319,6 +16370,7 @@ function abrirCarrinhoLojaPublica() {
         <div class="store-cart-items">
           ${summary.items.map((item) => `
             <article class="store-cart-item">
+              ${renderCartThumb(item.product)}
               <div>
                 <strong>${escaparHtml(item.product.title || "Produto")}</strong>
                 <span>${escaparHtml(renderPrecoProdutoLojaOnline(item.product))} • ${escaparHtml(storefrontPublicCategoryName(vm, item.product))}</span>
@@ -19696,6 +19748,7 @@ function renderUiIcon(tipo = "", fallback = "") {
     caixa: `<svg ${attrs}><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/><path d="M12 10v7"/></svg>`,
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
     carrinho: `<svg ${attrs}><path d="M6 6h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>`,
+    estrela: `<svg ${attrs}><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9Z"/></svg>`,
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
     search: `<svg ${attrs}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,
     instagram: `<svg ${attrs}><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.2"/><path d="M16.6 7.4h.1"/></svg>`,
