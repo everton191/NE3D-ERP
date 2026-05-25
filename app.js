@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.6-estavel";
-const APP_VERSION_CODE = 8;
+const APP_VERSION = "1.0.7-estavel";
+const APP_VERSION_CODE = 9;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -14943,6 +14943,16 @@ const STOREFRONT_PUBLIC_CACHE_PREFIX = "simplifica-storefront-public-cache-v1:";
 const STOREFRONT_PUBLIC_LEADS_KEY = "simplifica-storefront-public-leads-v1";
 const STOREFRONT_PUBLIC_EVENTS_KEY = "simplifica-storefront-public-events-v1";
 const STOREFRONT_PUBLIC_CART_KEY = "simplifica-storefront-public-cart-v1";
+const STOREFRONT_TEMPLATE_PRESETS = [
+  { id: "minimal", title: "Neutro minimalista", desc: "Base limpa para qualquer pequeno negócio.", primary: "#00BFA6", accent: "#2563EB", tone: "clean" },
+  { id: "impressao-3d", title: "Impressão 3D", desc: "Tecnológico, claro e focado em produto personalizado.", primary: "#00BFA6", accent: "#FF8A1F", tone: "tech" },
+  { id: "personalizados", title: "Personalizados", desc: "Vitrine calorosa para brindes, presentes e sob encomenda.", primary: "#EC4899", accent: "#F59E0B", tone: "creative" },
+  { id: "sublimacao", title: "Sublimação", desc: "Cores vivas para canecas, camisetas e papelaria visual.", primary: "#7C3AED", accent: "#06B6D4", tone: "colorful" },
+  { id: "papelaria", title: "Papelaria", desc: "Leve, organizado e amigável para produtos delicados.", primary: "#0EA5E9", accent: "#F97316", tone: "soft" },
+  { id: "moda", title: "Moda e acessórios", desc: "Elegante e editorial, com foco em foto e marca.", primary: "#111827", accent: "#BE8C63", tone: "editorial" },
+  { id: "doces", title: "Doces e festas", desc: "Acolhedor para encomendas, kits e produtos sazonais.", primary: "#F43F5E", accent: "#FBBF24", tone: "warm" },
+  { id: "geek", title: "Geek e colecionáveis", desc: "Visual forte para action figures, miniaturas e cultura pop.", primary: "#2563EB", accent: "#22C55E", tone: "bold" }
+];
 
 function parseStorefrontAdminRoute(pathname = location.pathname) {
   const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
@@ -15393,6 +15403,50 @@ function renderStorefrontReadinessMini(vm) {
   `;
 }
 
+function renderStorefrontTemplatePresets(vm) {
+  const active = vm.store?.theme_config?.template_id || "minimal";
+  const editorMode = getStorefrontEditorMode();
+  const presets = editorMode === "simple" ? STOREFRONT_TEMPLATE_PRESETS.slice(0, 4) : STOREFRONT_TEMPLATE_PRESETS;
+  return `
+    <section class="store-template-panel" aria-label="Modelos visuais da loja">
+      <div class="store-template-panel-head">
+        <span>Templates</span>
+        <strong>Estilo da loja</strong>
+      </div>
+      <div class="store-template-grid">
+        ${presets.map((preset) => `
+          <button type="button" class="${active === preset.id ? "active" : ""}" onclick="aplicarStorefrontPresetVisual('${escaparAttr(preset.id)}')" title="${escaparAttr(preset.desc)}">
+            <i style="--preset-primary:${escaparAttr(preset.primary)};--preset-accent:${escaparAttr(preset.accent)}"><b></b></i>
+            <span>${escaparHtml(preset.title)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function aplicarStorefrontPresetVisual(id = "minimal") {
+  const preset = STOREFRONT_TEMPLATE_PRESETS.find((item) => item.id === id) || STOREFRONT_TEMPLATE_PRESETS[0];
+  const store = getStorefrontAdminStoreLocal();
+  const next = {
+    ...store,
+    theme_config: {
+      ...(store.theme_config || {}),
+      primary: preset.primary,
+      accent: preset.accent,
+      template_id: preset.id,
+      template_name: preset.title,
+      template_tone: preset.tone,
+      layout_preset: preset.id === "moda" ? "editorial" : preset.id === "geek" ? "showcase" : "balanced"
+    }
+  };
+  storefrontAdminSaveStore(next);
+  marcarStorefrontAlteracoesPendentes(`Template ${preset.title} aplicado`);
+  registrarStorefrontActivity("Template visual aplicado", preset.title);
+  mostrarToast(`Template ${preset.title} aplicado.`, "sucesso", 2200);
+  renderApp();
+}
+
 function renderStoreVisualEditorSidebar(vm) {
   const editorMode = getStorefrontEditorMode();
   const sections = [
@@ -15444,6 +15498,7 @@ function renderStoreVisualEditorSidebar(vm) {
         ${renderStorefrontSaveState({ ...vm, store: vm.store })}
       </div>
       ${renderStorefrontReadinessMini(vm)}
+      ${renderStorefrontTemplatePresets(vm)}
       ${editorMode === "simple" ? renderStorefrontSimpleOnboarding(vm) : ""}
       <div class="store-visual-section-list">
         <strong>${editorMode === "simple" ? "Essenciais" : "Seções"}</strong>
@@ -15658,6 +15713,12 @@ function abrirStoreVisualPanel(area = "overview") {
       desc: "Cor principal, logo, tipografia e aparência da loja.",
       badge: "Tema",
       actions: [["Logo", vm.store.logo_url ? "Configurada" : "Adicionar logo", "appearance"], ["Cor principal", vm.store.theme_config?.primary || "#00BFA6", "appearance"], ["Nome público", vm.store.name || "Minha loja", "appearance"]]
+    },
+    templates: {
+      title: "Templates profissionais",
+      desc: "Escolha um preset visual para acelerar a personalização sem reconstruir a loja.",
+      badge: "Presets",
+      actions: STOREFRONT_TEMPLATE_PRESETS.map((preset) => [preset.title, preset.desc, "appearance"])
     },
     publish: {
       title: "Publicação",
@@ -16013,12 +16074,21 @@ function atualizarSeoLojaPublica(vm, product = null) {
   try {
     const title = product?.title ? `${product.title} | ${vm.store?.name || "Loja Online"}` : `${vm.store?.name || "Loja Online"} | Simplifica 3D`;
     const description = product?.description || vm.store?.description || "Loja online de produtos e personalizados em impressão 3D.";
+    const image = product ? getStorefrontProductImage(product, vm.images || []) : (vm.store?.banner_url || vm.store?.logo_url || "/assets/simplifica-brand-cover.jpg");
+    const url = getStorefrontPublicUrl(vm.route);
     document.title = title;
     const metas = [
       ["description", description],
       ["og:title", title],
       ["og:description", description],
-      ["og:url", getStorefrontPublicUrl(vm.route)]
+      ["og:url", url],
+      ["og:type", product ? "product" : "website"],
+      ["og:image", image],
+      ["twitter:card", "summary_large_image"],
+      ["twitter:title", title],
+      ["twitter:description", description],
+      ["twitter:image", image],
+      ["theme-color", vm.store?.theme_config?.primary || "#00BFA6"]
     ];
     metas.forEach(([name, content]) => {
       const selector = name.startsWith("og:") ? `meta[property="${name}"]` : `meta[name="${name}"]`;
@@ -16031,6 +16101,23 @@ function atualizarSeoLojaPublica(vm, product = null) {
       }
       meta.setAttribute("content", String(content || ""));
     });
+    let canonical = document.head.querySelector('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.setAttribute("rel", "canonical");
+      document.head.appendChild(canonical);
+    }
+    canonical.setAttribute("href", url);
+    const favicon = vm.store?.favicon_url || vm.store?.logo_url;
+    if (favicon) {
+      let icon = document.head.querySelector('link[rel="icon"]');
+      if (!icon) {
+        icon = document.createElement("link");
+        icon.setAttribute("rel", "icon");
+        document.head.appendChild(icon);
+      }
+      icon.setAttribute("href", favicon);
+    }
   } catch (_) {}
 }
 

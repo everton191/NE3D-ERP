@@ -20211,6 +20211,84 @@ body[data-ui-profile="android_apk"]:has(.store-public-shell){
   font-size:22px;
 }
 
+.store-template-panel{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  border:1px solid color-mix(in srgb, var(--store-primary, var(--color-primary)) 18%, var(--store-border));
+  border-radius:18px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--store-primary, var(--color-primary)) 9%, transparent), transparent 42%),
+    rgba(255,255,255,.045);
+}
+
+.store-template-panel-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.store-template-panel-head span{
+  color:var(--store-muted);
+  font-size:11px;
+  font-weight:950;
+  text-transform:uppercase;
+}
+
+.store-template-panel-head strong{
+  color:var(--store-text);
+  font-size:14px;
+}
+
+.store-template-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.store-template-grid button{
+  min-width:0;
+  min-height:72px;
+  display:grid;
+  align-content:center;
+  gap:7px;
+  padding:9px;
+  border:1px solid var(--store-border);
+  border-radius:14px;
+  background:rgba(255,255,255,.045);
+  color:var(--store-text-soft);
+  text-align:left;
+  cursor:pointer;
+  transition:var(--store-transition);
+}
+
+.store-template-grid button:hover,
+.store-template-grid button.active{
+  transform:translateY(-1px);
+  border-color:color-mix(in srgb, var(--preset-primary, var(--store-primary, var(--color-primary))) 34%, var(--store-border));
+  background:color-mix(in srgb, var(--preset-primary, var(--store-primary, var(--color-primary))) 10%, rgba(255,255,255,.06));
+}
+
+.store-template-grid i{
+  width:100%;
+  height:12px;
+  display:block;
+  overflow:hidden;
+  border-radius:999px;
+  background:linear-gradient(90deg, var(--preset-primary), var(--preset-accent));
+  box-shadow:0 8px 18px color-mix(in srgb, var(--preset-primary) 22%, transparent);
+}
+
+.store-template-grid span{
+  overflow:hidden;
+  color:inherit;
+  font-size:12px;
+  font-weight:900;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
 .store-visual-section-list i{
   width:30px;
   height:30px;
@@ -22584,6 +22662,7 @@ body.theme-light .store-visual-top-context strong,
 body.theme-light .store-visual-editor-brand strong,
 body.theme-light .store-visual-sidebar-title,
 body.theme-light .store-simple-onboarding-head strong,
+body.theme-light .store-template-panel-head strong,
 body.theme-light .store-visual-section-list span{
   color:var(--store-text);
 }
@@ -22593,6 +22672,7 @@ body.theme-light .store-visual-section-list > strong,
 body.theme-light .store-visual-section-list em,
 body.theme-light .store-visual-section-list small,
 body.theme-light .store-simple-onboarding-head small,
+body.theme-light .store-template-panel-head span,
 body.theme-light .store-simple-onboarding p{
   color:var(--store-muted);
 }
@@ -22601,6 +22681,8 @@ body.theme-light .store-visual-top-actions :where(button,a),
 body.theme-light .store-visual-mode-switch,
 body.theme-light .store-visual-home-button,
 body.theme-light .store-visual-section-list button,
+body.theme-light .store-template-panel,
+body.theme-light .store-template-grid button,
 body.theme-light .store-simple-onboarding,
 body.theme-light .store-simple-step-list button,
 body.theme-light .store-visual-device-switcher button,
@@ -22611,6 +22693,8 @@ body.theme-light .store-readiness-mini{
 }
 
 body.theme-light .store-visual-section-list button:hover,
+body.theme-light .store-template-grid button:hover,
+body.theme-light .store-template-grid button.active,
 body.theme-light .store-simple-step-list button:hover,
 body.theme-light .store-visual-home-button:hover,
 body.theme-light .store-visual-top-actions :where(button,a):hover{
