@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.1-estavel";
-const APP_VERSION_CODE = 3;
+const APP_VERSION = "1.0.2-estavel";
+const APP_VERSION_CODE = 4;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -13269,6 +13269,225 @@ function getStorefrontDirtyState() {
   }
 }
 
+function storefrontIsDefaultText(value = "", defaults = []) {
+  const text = normalizarTextoBusca(value);
+  if (!text) return true;
+  return defaults.some((item) => text === normalizarTextoBusca(item));
+}
+
+function storefrontIsDemoImage(value = "") {
+  const text = String(value || "").toLowerCase();
+  return !text || text.includes("storefront-demo") || text.startsWith("data:image/svg+xml");
+}
+
+function storefrontIsDemoProduct(product = {}) {
+  const id = String(product.id || "");
+  const title = String(product.title || product.name || "");
+  return !!(
+    product.__demo
+    || product.__template
+    || id.startsWith("demo-")
+    || id.startsWith("template-")
+    || storefrontIsDefaultText(title, ["Produto exemplo", "Produto da loja", "Peça sob encomenda"])
+  );
+}
+
+function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
+  const store = vm.store || {};
+  const contact = getStorefrontContactConfig(store);
+  const theme = store.theme_config || {};
+  const visibleProducts = (vm.products || []).filter((product) => product.visible !== false);
+  const realProducts = visibleProducts.filter((product) => !storefrontIsDemoProduct(product));
+  const validCategories = (vm.categories || []).filter((cat) => cat.visible !== false && !cat.__demo && !cat.__template && String(cat.name || "").trim());
+  const demoProducts = visibleProducts.filter(storefrontIsDemoProduct);
+  const genericStoreName = storefrontIsDefaultText(store.name, ["Minha loja 3D", "Minha loja criativa", "Minha empresa 3D", "Loja Online", "NE3D", "Simplifica 3D"]);
+  const genericDescription = storefrontIsDefaultText(store.description, [
+    "Produtos personalizados, brindes e peças sob encomenda em impressão 3D.",
+    "Produtos personalizados, utilidades e peças sob encomenda com acabamento profissional.",
+    "Sua vitrine de impressão 3D integrada ao ERP."
+  ]);
+  const required = [
+    {
+      id: "store-name",
+      title: "Nome da loja",
+      description: genericStoreName ? "Troque o nome padrão pelo nome público da sua marca." : "Informe o nome público da loja.",
+      area: "appearance",
+      done: !!String(store.name || "").trim() && !genericStoreName
+    },
+    {
+      id: "store-logo",
+      title: "Logo personalizada",
+      description: "Adicione uma logo própria para a loja não parecer um template.",
+      area: "appearance",
+      done: !storefrontIsDemoImage(store.logo_url)
+    },
+    {
+      id: "store-banner",
+      title: "Banner principal personalizado",
+      description: "Substitua o banner padrão por uma imagem da marca, produto ou vitrine.",
+      area: "banner",
+      done: !storefrontIsDemoImage(store.banner_url)
+    },
+    {
+      id: "store-whatsapp",
+      title: "WhatsApp de contato",
+      description: "Configure o WhatsApp para clientes solicitarem orçamento.",
+      area: "contacts",
+      done: String(contact.whatsapp || "").replace(/\D/g, "").length >= 10
+    },
+    {
+      id: "store-social",
+      title: "E-mail ou rede social",
+      description: "Adicione e-mail, Instagram ou Facebook para dar confiança ao cliente.",
+      area: "contacts",
+      done: !!(contact.email || contact.instagram || contact.facebook)
+    },
+    {
+      id: "store-products",
+      title: "Produto real publicado",
+      description: demoProducts.length ? "Substitua os produtos de exemplo por pelo menos 1 produto real." : "Adicione pelo menos 1 produto real visível.",
+      area: "products",
+      done: realProducts.length >= 1
+    },
+    {
+      id: "store-categories",
+      title: "Categorias válidas",
+      description: "Crie ou confirme categorias reais para organizar a vitrine.",
+      area: "categories",
+      done: validCategories.length >= 1
+    },
+    {
+      id: "store-description",
+      title: "Descrição da loja",
+      description: "Escreva uma descrição curta que represente a marca e o tipo de produto.",
+      area: "appearance",
+      done: !!String(store.description || "").trim() && !genericDescription
+    },
+    {
+      id: "store-primary-color",
+      title: "Cor principal definida",
+      description: "Escolha uma cor principal para padronizar botões e destaques.",
+      area: "appearance",
+      done: !!String(theme.primary || "").trim()
+    }
+  ];
+  const warnings = [
+    {
+      id: "store-favicon",
+      title: "Favicon/ícone da loja",
+      description: "Recomendado para reforçar a marca quando a loja for compartilhada.",
+      area: "appearance",
+      done: !!(store.favicon_url || theme.favicon_url || store.logo_url)
+    },
+    {
+      id: "store-hours",
+      title: "Horário de atendimento",
+      description: "Opcional, mas ajuda o cliente a entender quando será respondido.",
+      area: "contacts",
+      done: !!contact.hours
+    },
+    {
+      id: "store-address",
+      title: "Endereço ou atendimento online",
+      description: "Opcional, útil para lojas com retirada local ou região definida.",
+      area: "contacts",
+      done: !!contact.address
+    },
+    {
+      id: "store-images",
+      title: "Imagens dos produtos",
+      description: "Use fotos reais para melhorar a percepção profissional da vitrine.",
+      area: "products",
+      done: realProducts.every((product) => !storefrontIsDemoImage(getStorefrontProductImage(product, vm.images || [])))
+    }
+  ];
+  const demoItems = [
+    demoProducts.length ? `${demoProducts.length} produto(s) de exemplo` : "",
+    storefrontIsDemoImage(store.banner_url) ? "banner padrão" : "",
+    storefrontIsDemoImage(store.logo_url) ? "logo padrão" : "",
+    (vm.categories || []).some((cat) => cat.__demo || cat.__template) ? "categorias de template" : "",
+    genericDescription ? "texto genérico da loja" : ""
+  ].filter(Boolean);
+  return {
+    required,
+    warnings,
+    demoItems,
+    missing: required.filter((item) => !item.done),
+    recommended: warnings.filter((item) => !item.done),
+    ready: required.every((item) => item.done) && !demoItems.length
+  };
+}
+
+function abrirCorrecaoChecklistLoja(area = "appearance") {
+  fecharPopup();
+  if (area === "contacts" || area === "publish" || area === "theme") {
+    abrirStoreVisualPanel(area === "theme" ? "theme" : area);
+    return;
+  }
+  abrirStorefrontAdminRoute(area || "appearance");
+}
+
+function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPublicationChecklist(), { intent = "publicar" } = {}) {
+  const primaryArea = checklist.missing[0]?.area || checklist.recommended[0]?.area || "appearance";
+  const actionLabel = {
+    appearance: "Ir para aparência",
+    banner: "Ir para banner",
+    products: "Ir para produtos",
+    categories: "Ir para categorias",
+    contacts: "Ir para contato",
+    settings: "Ir para configurações"
+  }[primaryArea] || "Corrigir agora";
+  return `
+    <div class="modal-backdrop store-publication-check-backdrop" role="dialog" aria-modal="true">
+      <section class="modal-card store-publication-check-modal">
+        <div class="modal-header">
+          <div>
+            <span class="status-badge badge-warning">Checklist obrigatório</span>
+            <h2>Finalize sua loja antes de ${escaparHtml(intent)}</h2>
+            <p class="muted">A loja precisa representar sua marca antes de ser compartilhada com clientes.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        ${checklist.demoItems.length ? `
+          <div class="store-publication-demo-alert">
+            <strong>Você ainda está utilizando conteúdo de demonstração:</strong>
+            <ul>${checklist.demoItems.map((item) => `<li>${escaparHtml(item)}</li>`).join("")}</ul>
+          </div>
+        ` : ""}
+        <div class="store-publication-check-list">
+          ${checklist.required.map((item) => `
+            <button type="button" class="${item.done ? "done" : "pending"}" onclick="abrirCorrecaoChecklistLoja('${escaparAttr(item.area)}')">
+              <i>${item.done ? "✓" : "!"}</i>
+              <span><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.done ? "Tudo certo." : item.description)}</small></span>
+            </button>
+          `).join("")}
+        </div>
+        ${checklist.recommended.length ? `
+          <details class="store-publication-recommended">
+            <summary>Itens recomendados para uma publicação mais profissional</summary>
+            ${checklist.recommended.map((item) => `<button type="button" onclick="abrirCorrecaoChecklistLoja('${escaparAttr(item.area)}')">${escaparHtml(item.title)}</button>`).join("")}
+          </details>
+        ` : ""}
+        <div class="actions">
+          <button class="btn secondary" type="button" onclick="fecharPopup()">Depois</button>
+          <button class="btn" type="button" onclick="abrirCorrecaoChecklistLoja('${escaparAttr(primaryArea)}')">${escaparHtml(actionLabel)}</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function exigirChecklistPublicacaoLoja({ intent = "publicar", silent = false } = {}) {
+  const checklist = getStorefrontPublicationChecklist();
+  if (checklist.ready) return true;
+  if (!silent) {
+    const popup = document.getElementById("popup");
+    if (popup) popup.innerHTML = renderStorefrontPublicationChecklistModal(checklist, { intent });
+    else mostrarToast("Finalize o checklist da loja antes de publicar ou compartilhar.", "aviso", 4200);
+  }
+  return false;
+}
+
 function getStorefrontOwnerIdLocal() {
   return String(syncConfig.supabaseUserId || getUsuarioAtual()?.supabaseUserId || getUsuarioAtual()?.id || getUsuarioAtual()?.email || usuarioAtualEmail || "local").trim();
 }
@@ -13533,6 +13752,7 @@ function abrirLojaPublicaOnline() {
 }
 
 function copiarLinkLojaOnline() {
+  if (!exigirChecklistPublicacaoLoja({ intent: "compartilhar" })) return;
   const link = getStorefrontPublicUrlLocal();
   if (navigator.clipboard?.writeText) {
     navigator.clipboard.writeText(link).then(() => mostrarToast("Link da loja copiado.", "sucesso", 2600)).catch(() => prompt("Copie o link da loja:", link));
@@ -13919,6 +14139,7 @@ async function salvarStorefrontAparencia(event) {
 
 async function alternarStatusLojaOnline() {
   const store = getStorefrontAdminStoreLocal();
+  if (!store.active && !exigirChecklistPublicacaoLoja({ intent: "publicar" })) return;
   const next = { ...store, active: !store.active };
   storefrontAdminSaveStore(next);
   try {
@@ -16376,6 +16597,9 @@ function abrirWhatsappProdutoLojaPublica(productId = "") {
 }
 
 function compartilharLojaPublica(url = getStorefrontPublicUrl()) {
+  const vm = getStorefrontPublicViewModel();
+  const mode = getStorefrontPublicMode(vm);
+  if ((mode.admin || telaAtual === "lojaOnline" || telaAtual === "lojaAdmin") && !exigirChecklistPublicacaoLoja({ intent: "compartilhar" })) return;
   const texto = "Conheça esta loja no Simplifica 3D";
   if (navigator.share) {
     navigator.share({ title: texto, text: texto, url }).catch(() => {});

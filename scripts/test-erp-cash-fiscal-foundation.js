@@ -475,6 +475,9 @@ if (!process.exitCode) {
   "Aparece no Caixa quando houver entrada.",
   "Sangria / retirada",
   "registrado no caixa",
+  "function getStorefrontPublicationChecklist",
+  "Checklist obrigatório",
+  "Finalize sua loja antes de",
 ].forEach((needle) => assertIncludes(appJs, needle, `Simple cash activation missing: ${needle}`));
 
 if (!process.exitCode) {
