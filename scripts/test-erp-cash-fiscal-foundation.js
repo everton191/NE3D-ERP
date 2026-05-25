@@ -20,6 +20,13 @@ const idempotencyMigrationPath = path.join(
   "migrations",
   "20260525143000_erp_financial_idempotency_atomicity.sql"
 );
+const shadowMigrationPath = path.join(
+  rootDir,
+  "supabase",
+  "migrations",
+  "20260525153000_erp_financial_integrity_shadow_mode.sql"
+);
+const appJsPath = path.join(rootDir, "app.js");
 
 function fail(message) {
   console.error(`FAIL: ${message}`);
@@ -45,6 +52,12 @@ const hardeningSql = fs.existsSync(hardeningMigrationPath)
   : "";
 const idempotencySql = fs.existsSync(idempotencyMigrationPath)
   ? fs.readFileSync(idempotencyMigrationPath, "utf8").replace(/\s+/g, " ").trim()
+  : "";
+const shadowSql = fs.existsSync(shadowMigrationPath)
+  ? fs.readFileSync(shadowMigrationPath, "utf8").replace(/\s+/g, " ").trim()
+  : "";
+const appJs = fs.existsSync(appJsPath)
+  ? fs.readFileSync(appJsPath, "utf8")
   : "";
 
 [
@@ -243,4 +256,67 @@ assertRegex(
 
 if (!process.exitCode) {
   console.log("ERP financial idempotency migration looks consistent.");
+}
+
+if (!shadowSql) {
+  fail(`Shadow/integrity migration not found: ${shadowMigrationPath}`);
+  process.exit();
+}
+
+[
+  "create table if not exists public.financial_integrity_checks",
+  "public.record_financial_integrity_check",
+  "public.run_financial_integrity_checks",
+  "payment_without_movement",
+  "movement_without_session",
+  "orphan_open_session",
+  "partial_operation",
+  "cancelled_at timestamptz",
+  "reversed_by uuid references auth.users(id)",
+  "reversal_operation_id uuid references public.erp_financial_operations(id)",
+  "financial_flow_version text",
+  "operation_source text",
+  "sync_version integer",
+  "app_version text",
+  "pwa_version text",
+  "sync_source text",
+  "offline_created_at timestamptz",
+  "synced_at timestamptz",
+  "device_platform text",
+  "shadow_validation_json jsonb not null default '{}'::jsonb",
+  "public.validate_financial_operation_tracking",
+].forEach((needle) => assertIncludes(shadowSql, needle, `Shadow/integrity missing: ${needle}`));
+
+[
+  "financial_integrity_checks_empresa_status_idx",
+  "cash_movements_reversal_idx",
+  "sale_payments_reversal_idx",
+  "erp_financial_operations_flow_idx",
+  "erp_records_financial_flow_idx",
+].forEach((needle) => assertIncludes(shadowSql, needle, `Shadow/integrity index missing: ${needle}`));
+
+[
+  "const FINANCIAL_FLOW_VERSION = \"shadow-v1\";",
+  "function criarMetadadosOperacaoFinanceira",
+  "operation_uuid",
+  "client_request_id",
+  "request_hash",
+  "created_from_device",
+  "registrarShadowFinanceiroLocal",
+  "criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = \"entrada\", metadadosOperacao = null)",
+].forEach((needle) => assertIncludes(appJs, needle, `Frontend shadow mode missing: ${needle}`));
+
+assertRegex(
+  appJs,
+  /const metadadosOperacao = criarMetadadosOperacaoFinanceira\(pedidoEditando \? "pedido_update" : "pedido_create"/,
+  "Orders must generate financial shadow metadata."
+);
+assertRegex(
+  appJs,
+  /criarMetadadosOperacaoFinanceira\("caixa_manual"/,
+  "Manual cash movements must generate financial shadow metadata."
+);
+
+if (!process.exitCode) {
+  console.log("ERP financial shadow/integrity layer looks consistent.");
 }

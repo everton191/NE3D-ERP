@@ -4,6 +4,8 @@
 
 const APP_VERSION = "1.0.1-estavel";
 const APP_VERSION_CODE = 3;
+const FINANCIAL_FLOW_VERSION = "shadow-v1";
+const FINANCIAL_SYNC_VERSION = 1;
 const SYSTEM_NAME = "Simplifica 3D";
 const PROJECT_COVER_IMAGE = "/assets/simplifica-brand-cover.jpg";
 const PROJECT_ICON_IMAGE = "/assets/icon-512.png";
@@ -4801,6 +4803,108 @@ function prepararRegistroOnline(registro = {}) {
     updated_at: atualizadoEm,
     updatedAt: registro.updatedAt || atualizadoEm
   };
+}
+
+function gerarUuidOperacional() {
+  try {
+    if (crypto?.randomUUID) return crypto.randomUUID();
+  } catch (_) {}
+  return "op-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+
+function gerarHashOperacional(valor = "") {
+  const texto = String(valor || "");
+  let hash = 2166136261;
+  for (let i = 0; i < texto.length; i += 1) {
+    hash ^= texto.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function getPlataformaDispositivoOperacional() {
+  const ua = String(navigator?.userAgent || "").toLowerCase();
+  if (/android/.test(ua)) return "android";
+  if (/iphone|ipad|ipod/.test(ua)) return "ios";
+  if (/mobile/.test(ua)) return "mobile-web";
+  return "web";
+}
+
+function criarMetadadosOperacaoFinanceira(tipo, referencia = {}, opcoes = {}) {
+  const agora = opcoes.createdAt || new Date().toISOString();
+  const escopo = getEscopoDadosAtual?.() || getDataOwnerId() || "local";
+  const referenciaId = referencia.id || referencia.sale_id || referencia.pedidoId || referencia.record_id || Date.now();
+  const operationUuid = opcoes.operation_uuid || gerarUuidOperacional();
+  const baseRequest = [
+    tipo || "financial",
+    escopo,
+    deviceId,
+    referenciaId,
+    referencia.total ?? referencia.valor ?? "",
+    referencia.status ?? "",
+    referencia.updated_at || referencia.atualizadoEm || agora
+  ].join("|");
+  const clientRequestId = opcoes.client_request_id || `${tipo || "financial"}:${escopo}:${deviceId}:${referenciaId}:${gerarHashOperacional(baseRequest)}`;
+  const requestHash = opcoes.request_hash || gerarHashOperacional(JSON.stringify({
+    tipo,
+    referenciaId,
+    total: referencia.total ?? referencia.valor ?? null,
+    itens: referencia.itens?.length ?? null,
+    status: referencia.status || "",
+    cliente: referencia.cliente || ""
+  }));
+  const offline = !estaOnline();
+  return {
+    operation_uuid: operationUuid,
+    operationUuid,
+    client_request_id: clientRequestId,
+    clientRequestId,
+    request_hash: requestHash,
+    requestHash,
+    created_from_device: deviceId,
+    createdFromDevice: deviceId,
+    financial_flow_version: FINANCIAL_FLOW_VERSION,
+    financialFlowVersion: FINANCIAL_FLOW_VERSION,
+    operation_source: opcoes.operation_source || "pwa_shadow",
+    operationSource: opcoes.operation_source || "pwa_shadow",
+    sync_version: FINANCIAL_SYNC_VERSION,
+    syncVersion: FINANCIAL_SYNC_VERSION,
+    app_version: APP_VERSION,
+    appVersion: APP_VERSION,
+    pwa_version: APP_VERSION,
+    pwaVersion: APP_VERSION,
+    sync_source: offline ? "offline_queue" : "online",
+    syncSource: offline ? "offline_queue" : "online",
+    offline_created_at: offline ? agora : "",
+    offlineCreatedAt: offline ? agora : "",
+    synced_at: "",
+    syncedAt: "",
+    device_platform: getPlataformaDispositivoOperacional(),
+    devicePlatform: getPlataformaDispositivoOperacional(),
+    shadow_validation_json: {
+      mode: "shadow",
+      legacyFlow: "active",
+      atomicFlow: "prepared",
+      generatedAt: agora
+    },
+    shadowValidation: {
+      mode: "shadow",
+      legacyFlow: "active",
+      atomicFlow: "prepared",
+      generatedAt: agora
+    }
+  };
+}
+
+function registrarShadowFinanceiroLocal(tipo, detalhes = {}) {
+  try {
+    registrarDiagnostico("financeiro-shadow", tipo, JSON.stringify({
+      ...detalhes,
+      financial_flow_version: FINANCIAL_FLOW_VERSION,
+      app_version: APP_VERSION,
+      device_id: deviceId
+    }).slice(0, 900), { silent: true });
+  } catch (_) {}
 }
 
 function getRegistroSyncId(colecao, registro = {}) {
@@ -30670,10 +30774,16 @@ function valorRegistradoCaixaPedido(pedido) {
   }, 0);
 }
 
-function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entrada") {
+function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entrada", metadadosOperacao = null) {
   const valorSeguro = Math.max(0, Number(valor) || 0);
   if (valorSeguro <= 0.009) return null;
   const agora = new Date().toISOString();
+  const metadados = metadadosOperacao || criarMetadadosOperacaoFinanceira("pedido_recebimento", {
+    id: pedido?.id,
+    total: valorSeguro,
+    status: pedido?.status,
+    cliente: clienteDoPedido(pedido)
+  }, { createdAt: agora });
   return prepararRegistroOnline({
     id: Date.now() + Math.floor(Math.random() * 1000),
     tipo: "entrada",
@@ -30681,6 +30791,7 @@ function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entr
     descricao: `${tipoRecebimento === "quitacao" ? "Quitação" : "Entrada"} pedido #${pedido.id} - ${clienteDoPedido(pedido)}`,
     pedidoId: pedido.id,
     orderPaymentKind: tipoRecebimento,
+    ...metadados,
     data: agora,
     criadoEm: agora,
     atualizadoEm: agora
@@ -30918,8 +31029,17 @@ async function fecharPedido() {
     });
     const total = resumoFinanceiro.total;
     const caixaRegistradoAntes = pedidoEditando ? valorRegistradoCaixaPedido(pedidoEditando) : 0;
+    const pedidoIdOperacional = pedidoEditando?.id || Date.now();
+    const metadadosOperacao = criarMetadadosOperacaoFinanceira(pedidoEditando ? "pedido_update" : "pedido_create", {
+      id: pedidoIdOperacional,
+      cliente,
+      total,
+      status: headerPedido.status,
+      itens: itensPedido,
+      atualizadoEm: new Date().toISOString()
+    });
     const pedido = prepararRegistroOnline({
-      id: pedidoEditando?.id || Date.now(),
+      id: pedidoIdOperacional,
       cliente,
       clienteTelefone: telefoneCliente,
       clienteEmail: emailCliente,
@@ -30943,6 +31063,7 @@ async function fecharPedido() {
       clienteSuggestionSource: selectedCustomerSuggestion?.source || "",
       clienteSuggestionName: selectedCustomerSuggestion?.name || "",
       clienteSuggestionPhone: selectedCustomerSuggestion?.phone || "",
+      ...metadadosOperacao,
       data: pedidoEditando?.data || new Date().toLocaleDateString("pt-BR"),
       criadoEm: pedidoEditando?.criadoEm || new Date().toISOString(),
       atualizadoEm: new Date().toISOString()
@@ -30991,8 +31112,16 @@ async function fecharPedido() {
     const valorRecebido = valorRecebidoPedido(pedido);
     const valorPendenteCaixa = Math.max(0, valorRecebido - Math.max(0, caixaRegistradoAntes));
     const tipoRecebimento = resumoFinanceiro.statusFinanceiro === "pago_total" && caixaRegistradoAntes > 0 ? "quitacao" : resumoFinanceiro.statusFinanceiro === "pago_total" ? "quitacao" : "entrada";
-    const lancamentoRecebimento = criarLancamentoRecebimentoPedido(pedido, valorPendenteCaixa, tipoRecebimento);
+    const lancamentoRecebimento = criarLancamentoRecebimentoPedido(pedido, valorPendenteCaixa, tipoRecebimento, metadadosOperacao);
     if (lancamentoRecebimento) caixa.push(lancamentoRecebimento);
+    registrarShadowFinanceiroLocal("pedido_salvo_shadow", {
+      pedidoId: pedido.id,
+      operation_uuid: pedido.operation_uuid,
+      client_request_id: pedido.client_request_id,
+      total: pedido.total,
+      valorRecebido,
+      lancamentoCaixa: !!lancamentoRecebimento
+    });
 
     salvarDados();
     registrarFluxoSalvamento("Pedidos", pedidoEditando ? "Atualizar pedido" : "Salvar pedido", {
@@ -31339,13 +31468,30 @@ async function adicionarMovimentoCaixa() {
   }
 
   if (!await consumirCreditoAcaoFree("registrar_caixa", "registrar entrada/saída no caixa")) return;
+  const agora = new Date().toISOString();
+  const movimentoIdOperacional = Date.now();
+  const metadadosOperacao = criarMetadadosOperacaoFinanceira("caixa_manual", {
+    id: movimentoIdOperacional,
+    valor,
+    status: tipo,
+    atualizadoEm: agora
+  }, { createdAt: agora });
   caixa.push(prepararRegistroOnline({
-    id: Date.now(),
+    id: movimentoIdOperacional,
     tipo,
     valor,
     descricao: descricao || "Movimento manual",
-    data: new Date().toISOString()
+    ...metadadosOperacao,
+    data: agora,
+    criadoEm: agora,
+    atualizadoEm: agora
   }));
+  registrarShadowFinanceiroLocal("caixa_manual_shadow", {
+    tipo,
+    valor,
+    operation_uuid: metadadosOperacao.operation_uuid,
+    client_request_id: metadadosOperacao.client_request_id
+  });
 
   salvarDados();
   registrarHistorico("Caixa", (tipo === "saida" ? "Saída: " : "Entrada: ") + formatarMoeda(valor) + " - " + (descricao || "Movimento manual"));
