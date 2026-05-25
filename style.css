@@ -20439,7 +20439,7 @@ body.storefront-public-navigating .store-public-shell{
   align-items:center;
   gap:clamp(14px, 2.2vw, 26px);
   min-height:78px;
-  padding:0 clamp(20px, 7vw, 110px);
+  padding:0 clamp(16px, 2.2vw, 32px);
   border:1px solid var(--store-border-soft);
   border-bottom-color:var(--store-border);
   border-radius:0;
@@ -20487,12 +20487,13 @@ body.storefront-public-navigating .store-public-shell{
   justify-content:center;
   gap:clamp(14px, 2.4vw, 30px);
   min-width:0;
+  overflow:hidden;
 }
 
 .store-public-main-nav a{
   color:var(--store-text-soft);
   text-decoration:none;
-  font-size:14px;
+  font-size:clamp(13px, .9vw, 14px);
   font-weight:800;
   white-space:nowrap;
   transition:var(--store-transition);
@@ -22118,6 +22119,7 @@ body.theme-light .store-public-banner-copy p{
     grid-column:1 / -1;
     justify-content:flex-start;
     overflow-x:auto;
+    overflow-y:hidden;
     padding-bottom:4px;
     scrollbar-width:none;
   }
