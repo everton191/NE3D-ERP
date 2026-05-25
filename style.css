@@ -2878,6 +2878,53 @@ button:disabled{
   height:17px;
 }
 
+.cash-session-panel{
+  margin:14px 0 16px;
+  padding:14px;
+  border:1px solid rgba(120,220,220,.12);
+  border-radius:16px;
+  background:linear-gradient(145deg,rgba(18,38,50,.72),rgba(10,24,33,.78));
+}
+
+.cash-session-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.cash-session-head p{
+  margin:6px 0 0;
+}
+
+.compact-metrics{
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:10px;
+}
+
+.cash-payment-summary{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+  gap:8px;
+  margin-top:10px;
+}
+
+.cash-payment-summary span{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  padding:9px 10px;
+  border:1px solid rgba(120,220,220,.10);
+  border-radius:12px;
+  color:var(--muted);
+  background:rgba(255,255,255,.025);
+}
+
+.cash-payment-summary strong{
+  color:var(--text);
+}
+
 .cash-edit-modal .form-grid{
   grid-template-columns:repeat(2, minmax(0, 1fr));
 }

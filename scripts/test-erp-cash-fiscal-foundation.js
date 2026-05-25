@@ -461,3 +461,19 @@ assertRegex(
 if (!process.exitCode) {
   console.log("ERP financial worker orchestration layer looks consistent.");
 }
+
+[
+  "cashSimpleModeEnabled: true",
+  "function abrirSessaoCaixaAutomatica",
+  "function fecharSessaoCaixaBasica",
+  "function renderStatusSessaoCaixaSimples",
+  "function getMetodosPagamentoCaixa",
+  "payment_method_id",
+  "cash_session_id",
+  "Forma da entrada",
+  "Sangria / retirada",
+].forEach((needle) => assertIncludes(appJs, needle, `Simple cash activation missing: ${needle}`));
+
+if (!process.exitCode) {
+  console.log("ERP simple cash activation layer looks consistent.");
+}

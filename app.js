@@ -521,6 +521,14 @@ let appConfig = carregarObjeto("appConfig", {
   pixCity: "",
   pixDescription: "Pedido Simplifica 3D",
   pixInstruction: "Após o pagamento, envie o comprovante pelo WhatsApp.",
+  cashSimpleModeEnabled: true,
+  cashSession: null,
+  paymentMethods: [
+    { id: "dinheiro", name: "Dinheiro", type: "cash", active: true },
+    { id: "pix", name: "PIX", type: "pix", active: true },
+    { id: "credito", name: "Crédito", type: "credit", active: true },
+    { id: "debito", name: "Débito", type: "debit", active: true }
+  ],
   brandLogoDataUrl: "",
   profilePhotoDataUrl: "",
   companyLogoDataUrl: "",
@@ -6584,6 +6592,96 @@ function obterDataMovimentoCaixa(movimento = {}) {
 
 function movimentoCaixaCancelado(movimento = {}) {
   return !!(movimento.cancelado || movimento.cancelled || movimento.canceladoEm || movimento.cancelled_at || String(movimento.status || "").toLowerCase() === "cancelado");
+}
+
+function getMetodosPagamentoCaixa() {
+  const padrao = [
+    { id: "dinheiro", name: "Dinheiro", type: "cash", active: true },
+    { id: "pix", name: "PIX", type: "pix", active: true },
+    { id: "credito", name: "Crédito", type: "credit", active: true },
+    { id: "debito", name: "Débito", type: "debit", active: true }
+  ];
+  const origem = Array.isArray(appConfig.paymentMethods) && appConfig.paymentMethods.length ? appConfig.paymentMethods : padrao;
+  return origem
+    .map((metodo) => ({
+      id: String(metodo.id || metodo.type || metodo.name || "").trim().toLowerCase() || "outro",
+      name: String(metodo.name || metodo.nome || metodo.id || "Outro").trim(),
+      type: String(metodo.type || metodo.tipo || metodo.id || "other").trim().toLowerCase(),
+      active: metodo.active !== false && metodo.ativo !== false
+    }))
+    .filter((metodo) => metodo.active);
+}
+
+function normalizarMetodoPagamentoCaixa(valor = "") {
+  const id = String(valor || "").trim().toLowerCase();
+  const metodos = getMetodosPagamentoCaixa();
+  return metodos.find((metodo) => metodo.id === id || metodo.type === id) || metodos[0] || { id: "dinheiro", name: "Dinheiro", type: "cash" };
+}
+
+function getMetodoPagamentoMovimento(movimento = {}) {
+  return normalizarMetodoPagamentoCaixa(movimento.payment_method_id || movimento.paymentMethodId || movimento.paymentMethod || movimento.metodoPagamento || movimento.formaPagamento || "dinheiro");
+}
+
+function caixaModoSimplesAtivo() {
+  return appConfig.cashSimpleModeEnabled !== false;
+}
+
+function getSessaoCaixaAtual() {
+  const sessao = appConfig.cashSession && typeof appConfig.cashSession === "object" ? appConfig.cashSession : null;
+  if (sessao && sessao.status === "open") return sessao;
+  return null;
+}
+
+function abrirSessaoCaixaAutomatica(motivo = "auto") {
+  if (!caixaModoSimplesAtivo()) return null;
+  const aberta = getSessaoCaixaAtual();
+  if (aberta) return aberta;
+  const agora = new Date().toISOString();
+  const sessao = {
+    id: `cash-${dataLocalIso(new Date())}-${gerarHashOperacional(`${getDataOwnerId() || "local"}:${agora}`)}`,
+    status: "open",
+    mode: "auto",
+    openedAt: agora,
+    opened_at: agora,
+    openingBalance: calcularTotaisCaixa().saldo,
+    opening_balance: calcularTotaisCaixa().saldo,
+    expectedBalance: calcularTotaisCaixa().saldo,
+    expected_balance: calcularTotaisCaixa().saldo,
+    reason: motivo,
+    financial_flow_version: FINANCIAL_FLOW_VERSION,
+    reconciliation_version: FINANCIAL_RECONCILIATION_VERSION
+  };
+  appConfig.cashSession = sessao;
+  registrarShadowFinanceiroLocal("cash_session_auto_open", { session_id: sessao.id, motivo });
+  return sessao;
+}
+
+function getIdSessaoMovimentoCaixa(movimento = {}) {
+  return movimento.cash_session_id || movimento.cashSessionId || movimento.session_id || movimento.sessionId || "";
+}
+
+function calcularResumoSessaoCaixa(sessao = getSessaoCaixaAtual()) {
+  const sessionId = sessao?.id || "";
+  const movimentos = sessionId ? caixa.filter((movimento) => String(getIdSessaoMovimentoCaixa(movimento)) === String(sessionId)) : [];
+  const resumo = movimentos.reduce((totais, movimento) => {
+    if (movimentoCaixaCancelado(movimento)) {
+      totais.cancelados += 1;
+      return totais;
+    }
+    const valor = Number(movimento.valor) || 0;
+    const saida = String(movimento.tipo || "").toLowerCase() === "saida";
+    const metodo = getMetodoPagamentoMovimento(movimento);
+    if (saida) totais.saidas += valor;
+    else {
+      totais.entradas += valor;
+      totais.porForma[metodo.id] = (totais.porForma[metodo.id] || 0) + valor;
+    }
+    totais.saldo = totais.entradas - totais.saidas;
+    totais.ultimaMovimentacao = obterDataMovimentoCaixa(movimento) || totais.ultimaMovimentacao;
+    return totais;
+  }, { entradas: 0, saidas: 0, saldo: 0, cancelados: 0, porForma: {}, ultimaMovimentacao: null });
+  resumo.expectedBalance = (Number(sessao?.openingBalance ?? sessao?.opening_balance) || 0) + resumo.saldo;
+  return resumo;
 }
 
 function formatarDataCurta(valor = "") {
@@ -21584,6 +21682,44 @@ function renderCaixaFiltroChips(movimentos = caixa, ativo = "todos") {
   `;
 }
 
+function renderOpcoesMetodoPagamentoCaixa(valorAtual = "pix") {
+  const atual = normalizarMetodoPagamentoCaixa(valorAtual).id;
+  return getMetodosPagamentoCaixa().map((metodo) => (
+    `<option value="${escaparAttr(metodo.id)}" ${metodo.id === atual ? "selected" : ""}>${escaparHtml(metodo.name)}</option>`
+  )).join("");
+}
+
+function renderStatusSessaoCaixaSimples() {
+  if (!caixaModoSimplesAtivo()) return "";
+  const sessao = getSessaoCaixaAtual();
+  const resumo = calcularResumoSessaoCaixa(sessao);
+  const metodos = getMetodosPagamentoCaixa();
+  const ultima = resumo.ultimaMovimentacao ? resumo.ultimaMovimentacao.toLocaleString("pt-BR") : "Nenhuma movimentação";
+  const linhasForma = metodos
+    .map((metodo) => `<span><small>${escaparHtml(metodo.name)}</small><strong>${formatarMoeda(resumo.porForma[metodo.id] || 0)}</strong></span>`)
+    .join("");
+  return `
+    <div class="cash-session-panel">
+      <div class="cash-session-head">
+        <div>
+          <span class="status-badge ${sessao ? "badge-ativo" : "badge-alerta"}">${sessao ? "Caixa aberto" : "Caixa fechado"}</span>
+          <p class="muted">${sessao ? `Aberto em ${new Date(sessao.openedAt || sessao.opened_at || Date.now()).toLocaleString("pt-BR")}` : "O caixa abre automaticamente no primeiro lançamento."}</p>
+        </div>
+        <div class="actions">
+          ${sessao ? `<button class="btn ghost compact-action" type="button" onclick="fecharSessaoCaixaBasica()">Fechar caixa</button>` : `<button class="btn ghost compact-action" type="button" onclick="abrirSessaoCaixaManual()">Abrir caixa</button>`}
+        </div>
+      </div>
+      <div class="metrics compact-metrics">
+        <div class="metric"><span>Total vendido</span><strong>${formatarMoeda(resumo.entradas)}</strong></div>
+        <div class="metric"><span>Retiradas/saídas</span><strong>${formatarMoeda(resumo.saidas)}</strong></div>
+        <div class="metric"><span>Total esperado</span><strong>${formatarMoeda(resumo.expectedBalance)}</strong></div>
+        <div class="metric"><span>Última movimentação</span><strong>${escaparHtml(ultima)}</strong></div>
+      </div>
+      <div class="cash-payment-summary">${linhasForma}</div>
+    </div>
+  `;
+}
+
 function filtrarMovimentosCaixa(movimentos = caixa, filtro = "todos", info = null) {
   const base = info ? filtrarMovimentosCaixaPorPeriodo(movimentos, info) : movimentos;
   if (filtro === "cancelados") return base.filter(movimentoCaixaCancelado);
@@ -21948,6 +22084,7 @@ function renderCaixa() {
                 <span class="muted">${formatarMoeda(movimento.valor)}</span>
               </div>
               <div class="muted">${escaparHtml(descricaoCaixa(movimento))}</div>
+              <small class="cash-row-date">Forma: ${escaparHtml(getMetodoPagamentoMovimento(movimento).name)}</small>
               ${movimento.data ? `<small class="cash-row-date">${formatarDataCurta(movimento.data)}</small>` : ""}
               ${cancelado ? `<small class="cash-row-date">Cancelado: ${escaparHtml(movimento.motivoCancelamento || movimento.cancelReason || "sem motivo informado")}</small>` : ""}
             </div>
@@ -21966,6 +22103,7 @@ function renderCaixa() {
         <h2>${renderUiIcon("caixa")} Caixa</h2>
         <strong>${formatarMoeda(totais.saldo)}</strong>
       </div>
+      ${renderStatusSessaoCaixaSimples()}
       ${renderCaixaViewTabs(caixaView)}
       ${renderCaixaPeriodoChips(periodoCaixa)}
       <div class="metrics">
@@ -21993,6 +22131,12 @@ function renderCaixa() {
           </select>
         </label>
         <label class="field">
+          <span>Forma</span>
+          <select id="caixaMetodoPagamento">
+            ${renderOpcoesMetodoPagamentoCaixa("pix")}
+          </select>
+        </label>
+        <label class="field">
           <span>Valor</span>
           <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00">
         </label>
@@ -22000,7 +22144,10 @@ function renderCaixa() {
           <span>Descrição</span>
           <input id="caixaDescricao" placeholder="Ex.: 2 reais caneta">
         </label>
-        <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>` : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
+        <div class="actions">
+          <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>
+          <button class="btn ghost" type="button" onclick="document.getElementById('caixaTipo').value='saida';document.getElementById('caixaDescricao').value='Sangria / retirada';document.getElementById('caixaValor')?.focus()">Sangria / retirada</button>
+        </div>` : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
         ${linhas}
       `}
     </section>
@@ -30802,6 +30949,8 @@ function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entr
   const valorSeguro = Math.max(0, Number(valor) || 0);
   if (valorSeguro <= 0.009) return null;
   const agora = new Date().toISOString();
+  const sessao = abrirSessaoCaixaAutomatica("pedido");
+  const metodo = normalizarMetodoPagamentoCaixa(pedido?.paymentMethod || pedido?.payment_method || pedido?.formaPagamento || "pix");
   const metadados = metadadosOperacao || criarMetadadosOperacaoFinanceira("pedido_recebimento", {
     id: pedido?.id,
     total: valorSeguro,
@@ -30815,6 +30964,12 @@ function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entr
     descricao: `${tipoRecebimento === "quitacao" ? "Quitação" : "Entrada"} pedido #${pedido.id} - ${clienteDoPedido(pedido)}`,
     pedidoId: pedido.id,
     orderPaymentKind: tipoRecebimento,
+    cash_session_id: sessao?.id || "",
+    cashSessionId: sessao?.id || "",
+    payment_method_id: metodo.id,
+    paymentMethodId: metodo.id,
+    paymentMethod: metodo.name,
+    payment_method_type: metodo.type,
     ...metadados,
     data: agora,
     criadoEm: agora,
@@ -31054,6 +31209,7 @@ async function fecharPedido() {
     const total = resumoFinanceiro.total;
     const caixaRegistradoAntes = pedidoEditando ? valorRegistradoCaixaPedido(pedidoEditando) : 0;
     const pedidoIdOperacional = pedidoEditando?.id || Date.now();
+    const metodoPedido = normalizarMetodoPagamentoCaixa(document.getElementById("pedidoMetodoPagamento")?.value || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix");
     const metadadosOperacao = criarMetadadosOperacaoFinanceira(pedidoEditando ? "pedido_update" : "pedido_create", {
       id: pedidoIdOperacional,
       cliente,
@@ -31084,6 +31240,10 @@ async function fecharPedido() {
       observacoes: headerPedido.observacao,
       prazo: headerPedido.prazo,
       dataPrazo: headerPedido.prazo,
+      payment_method_id: metodoPedido.id,
+      paymentMethodId: metodoPedido.id,
+      paymentMethod: metodoPedido.name,
+      payment_method_type: metodoPedido.type,
       clienteSuggestionSource: selectedCustomerSuggestion?.source || "",
       clienteSuggestionName: selectedCustomerSuggestion?.name || "",
       clienteSuggestionPhone: selectedCustomerSuggestion?.phone || "",
@@ -31477,6 +31637,7 @@ async function removerMaterial(i) {
 async function adicionarMovimentoCaixa() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para lançar no caixa.")) return;
   const tipo = document.getElementById("caixaTipo")?.value || "entrada";
+  const metodo = normalizarMetodoPagamentoCaixa(document.getElementById("caixaMetodoPagamento")?.value || (tipo === "saida" ? "dinheiro" : "pix"));
   let valor = 0;
   try {
     valor = InventoryService.parseNumberStrict(document.getElementById("caixaValor")?.value, "valor do caixa", { min: 0, allowZero: false });
@@ -31493,6 +31654,7 @@ async function adicionarMovimentoCaixa() {
 
   if (!await consumirCreditoAcaoFree("registrar_caixa", "registrar entrada/saída no caixa")) return;
   const agora = new Date().toISOString();
+  const sessao = abrirSessaoCaixaAutomatica(tipo === "saida" ? "retirada" : "movimento_manual");
   const movimentoIdOperacional = Date.now();
   const metadadosOperacao = criarMetadadosOperacaoFinanceira("caixa_manual", {
     id: movimentoIdOperacional,
@@ -31505,6 +31667,12 @@ async function adicionarMovimentoCaixa() {
     tipo,
     valor,
     descricao: descricao || "Movimento manual",
+    cash_session_id: sessao?.id || "",
+    cashSessionId: sessao?.id || "",
+    payment_method_id: metodo.id,
+    paymentMethodId: metodo.id,
+    paymentMethod: metodo.name,
+    payment_method_type: metodo.type,
     ...metadadosOperacao,
     data: agora,
     criadoEm: agora,
@@ -31513,6 +31681,8 @@ async function adicionarMovimentoCaixa() {
   registrarShadowFinanceiroLocal("caixa_manual_shadow", {
     tipo,
     valor,
+    metodo: metodo.id,
+    session_id: sessao?.id || "",
     operation_uuid: metadadosOperacao.operation_uuid,
     client_request_id: metadadosOperacao.client_request_id
   });
@@ -31520,6 +31690,52 @@ async function adicionarMovimentoCaixa() {
   salvarDados();
   registrarHistorico("Caixa", (tipo === "saida" ? "Saída: " : "Entrada: ") + formatarMoeda(valor) + " - " + (descricao || "Movimento manual"));
   renderApp();
+}
+
+function abrirSessaoCaixaManual() {
+  const sessao = abrirSessaoCaixaAutomatica("abertura_manual");
+  if (!sessao) return;
+  salvarDados();
+  mostrarToast("Caixa aberto.", "sucesso", 2600);
+  renderizarPreservandoScroll();
+}
+
+async function fecharSessaoCaixaBasica() {
+  const sessao = getSessaoCaixaAtual();
+  if (!sessao) {
+    mostrarToast("O caixa já está fechado.", "info", 2600);
+    return;
+  }
+  const resumo = calcularResumoSessaoCaixa(sessao);
+  const confirmar = await solicitarConfirmacaoAcao({
+    titulo: "Fechar caixa",
+    mensagem: `Total esperado: ${formatarMoeda(resumo.expectedBalance)}. Deseja encerrar a sessão atual?`,
+    cancelar: "Cancelar",
+    confirmar: "Fechar caixa"
+  });
+  if (!confirmar) return;
+  const agora = new Date().toISOString();
+  appConfig.cashSession = {
+    ...sessao,
+    status: "closed",
+    closedAt: agora,
+    closed_at: agora,
+    closingBalance: resumo.expectedBalance,
+    closing_balance: resumo.expectedBalance,
+    expectedBalance: resumo.expectedBalance,
+    expected_balance: resumo.expectedBalance,
+    paymentsSummary: resumo.porForma,
+    payments_summary_json: resumo.porForma
+  };
+  registrarShadowFinanceiroLocal("cash_session_closed_basic", {
+    session_id: sessao.id,
+    total: resumo.expectedBalance,
+    entradas: resumo.entradas,
+    saidas: resumo.saidas
+  });
+  salvarDados();
+  mostrarToast("Caixa fechado com sucesso.", "sucesso", 3200);
+  renderizarPreservandoScroll();
 }
 
 async function editarMovimentoCaixa(i) {
@@ -32670,6 +32886,12 @@ function renderPedidoRapidoOperacional() {
                   <input id="pedidoEntrada" type="number" min="0" step="0.01" value="${resumo.entrada > 0 ? resumo.entrada.toFixed(2) : ""}" placeholder="0,00" oninput="atualizarEntradaPedido(this.value); atualizarPedidoRapidoResumo()">
                 </label>
                 <label class="field">
+                  <span>Forma da entrada</span>
+                  <select id="pedidoMetodoPagamento">
+                    ${renderOpcoesMetodoPagamentoCaixa(pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || pedidoEditando?.paymentMethod || "pix")}
+                  </select>
+                </label>
+                <label class="field">
                   <span>Prazo</span>
                   <input id="pedidoPrazo" type="date" value="${escaparAttr(prazoPedido || pedidoEditando?.prazo || pedidoEditando?.dataPrazo || "")}" oninput="atualizarPrazoPedido(this.value)">
                 </label>
@@ -32914,6 +33136,12 @@ function abrirCaixaRapidoOperacional(tipoInicial = "entrada") {
           <label class="field">
             <span>Valor</span>
             <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00" required>
+          </label>
+          <label class="field">
+            <span>Forma</span>
+            <select id="caixaMetodoPagamento">
+              ${renderOpcoesMetodoPagamentoCaixa(tipo === "saida" ? "dinheiro" : "pix")}
+            </select>
           </label>
           <label class="field wide-field">
             <span>Descrição</span>
