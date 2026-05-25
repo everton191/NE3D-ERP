@@ -19898,8 +19898,11 @@ body.theme-light .store-product-floating-badge{
   --store-radius-xl:34px;
   --store-shadow:0 26px 74px rgba(0,0,0,.34);
   --store-shadow-soft:0 14px 34px rgba(0,0,0,.24);
-  --store-button-bg:linear-gradient(135deg, var(--store-primary, var(--color-primary)), color-mix(in srgb, var(--store-primary, var(--color-primary)) 72%, #2488ff));
+  --store-button-bg:color-mix(in srgb, var(--store-primary, var(--color-primary)) 92%, #ffffff 8%);
   --store-button-hover:color-mix(in srgb, var(--store-primary, var(--color-primary)) 86%, #ffffff);
+  --store-button-radius:14px;
+  --store-button-height:44px;
+  --store-button-shadow:0 12px 26px color-mix(in srgb, var(--store-primary, var(--color-primary)) 18%, transparent);
   --store-transition:background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease, opacity .18s ease;
   min-height:100svh;
   width:100%;
@@ -20023,17 +20026,18 @@ body[data-ui-profile="android_apk"]:has(.store-public-shell){
 }
 
 .store-visual-top-actions :where(button,a){
-  min-height:40px;
+  min-height:var(--store-button-height);
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding:0 14px;
+  gap:8px;
+  padding:0 16px;
   border:1px solid color-mix(in srgb, var(--store-border) 100%, #ffffff 8%);
-  border-radius:10px;
+  border-radius:var(--store-button-radius);
   background:rgba(255,255,255,.045);
   color:var(--store-text-soft);
   text-decoration:none;
-  font-weight:800;
+  font-weight:850;
   cursor:pointer;
   transition:var(--store-transition);
 }
@@ -20047,7 +20051,8 @@ body[data-ui-profile="android_apk"]:has(.store-public-shell){
 .store-visual-top-actions .publish{
   border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 70%, transparent);
   background:var(--store-button-bg);
-  box-shadow:0 12px 30px rgba(37,99,235,.28);
+  color:#fff;
+  box-shadow:var(--store-button-shadow);
 }
 
 .store-visual-editor-layout{
@@ -20574,6 +20579,35 @@ body.storefront-public-navigating .store-public-shell{
   line-height:1.1;
 }
 
+.store-public-menu-toggle{
+  display:none;
+  min-height:var(--store-button-height);
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:0 14px;
+  border:1px solid color-mix(in srgb, var(--store-border) 80%, #ffffff 8%);
+  border-radius:var(--store-button-radius);
+  background:rgba(255,255,255,.055);
+  color:var(--store-text);
+  font-size:13px;
+  font-weight:850;
+  cursor:pointer;
+  transition:var(--store-transition);
+}
+
+.store-public-menu-toggle svg{
+  width:18px;
+  height:18px;
+}
+
+.store-public-menu-toggle:hover,
+.store-public-menu-toggle:focus-visible{
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 35%, var(--store-border));
+  background:rgba(255,255,255,.09);
+  transform:translateY(-1px);
+}
+
 .store-public-main-nav{
   display:flex;
   align-items:center;
@@ -20617,13 +20651,13 @@ body.storefront-public-navigating .store-public-shell{
 
 .store-public-icon-action{
   position:relative;
-  width:38px;
-  height:38px;
+  width:var(--store-button-height);
+  height:var(--store-button-height);
   display:grid;
   place-items:center;
-  border:0;
-  border-radius:12px;
-  background:transparent;
+  border:1px solid transparent;
+  border-radius:var(--store-button-radius);
+  background:rgba(255,255,255,.035);
   color:var(--store-text-soft);
   cursor:pointer;
   transition:var(--store-transition);
@@ -20650,7 +20684,8 @@ body.storefront-public-navigating .store-public-shell{
 }
 
 .store-public-icon-action:hover{
-  background:var(--store-surface-muted);
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 22%, transparent);
+  background:rgba(255,255,255,.075);
   color:var(--store-text);
   transform:translateY(-1px);
 }
@@ -21821,7 +21856,16 @@ body.storefront-public-navigating .store-public-shell{
 }
 
 .store-public-shell :where(.btn, .store-public-product-actions button, .store-public-product-actions a){
-  border-radius:12px;
+  min-height:var(--store-button-height);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:0 16px;
+  border-radius:var(--store-button-radius);
+  font-weight:850;
+  letter-spacing:0;
+  text-decoration:none;
   transition:var(--store-transition);
 }
 
@@ -21830,12 +21874,45 @@ body.storefront-public-navigating .store-public-shell{
   border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 58%, transparent);
   background:var(--store-button-bg);
   color:#fff;
+  box-shadow:var(--store-button-shadow);
+}
+
+.store-public-shell .btn.secondary,
+.store-public-product-actions .btn.secondary{
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 24%, var(--store-border));
+  background:color-mix(in srgb, var(--store-primary, var(--color-primary)) 10%, rgba(255,255,255,.05));
+  color:var(--store-text);
+}
+
+.store-public-shell .btn.ghost,
+.store-public-product-actions .btn.ghost{
+  border-color:color-mix(in srgb, var(--store-border) 90%, #ffffff 5%);
+  background:rgba(255,255,255,.035);
+  color:var(--store-text-soft);
 }
 
 .store-public-shell .btn:hover,
 .store-public-product-actions .btn:hover{
   transform:translateY(-1px);
-  box-shadow:0 14px 28px color-mix(in srgb, var(--store-primary, var(--color-primary)) 18%, transparent);
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 36%, var(--store-border));
+  box-shadow:var(--store-button-shadow);
+}
+
+.store-public-shell :where(.btn, .store-public-product-actions button, .store-public-product-actions a):focus-visible,
+.store-public-icon-action:focus-visible,
+.store-visual-top-actions :where(button,a):focus-visible,
+.store-public-menu-toggle:focus-visible{
+  outline:3px solid color-mix(in srgb, var(--store-primary, var(--color-primary)) 28%, transparent);
+  outline-offset:3px;
+}
+
+.store-public-shell :where(.btn, .store-public-product-actions button, .store-public-product-actions a):disabled,
+.store-public-icon-action:disabled,
+.store-visual-top-actions :where(button,a):disabled{
+  cursor:not-allowed;
+  opacity:.56;
+  transform:none;
+  box-shadow:none;
 }
 
 .store-publication-check-modal{
@@ -22269,23 +22346,24 @@ body.storefront-public-navigating .store-public-shell{
 }
 
 body.theme-light .store-public-shell{
-  --store-bg:#ffffff;
-  --store-bg-soft:#f4f7fb;
-  --store-surface:rgba(255,255,255,.96);
-  --store-surface-strong:rgba(247,250,252,.98);
+  --store-bg:#f7fafc;
+  --store-bg-soft:#eef4f7;
+  --store-surface:rgba(255,255,255,.94);
+  --store-surface-strong:rgba(255,255,255,.98);
   --store-surface-muted:rgba(10, 165, 166, .08);
   --store-text:#10242b;
   --store-text-soft:#1f3340;
   --store-muted:#64748b;
   --store-muted-2:#7b8d98;
-  --store-border:rgba(15,95,130,.12);
-  --store-border-soft:rgba(15,95,130,.08);
-  --store-shadow:0 20px 54px rgba(15,23,42,.10);
-  --store-shadow-soft:0 12px 28px rgba(15,23,42,.07);
+  --store-border:rgba(15,95,130,.16);
+  --store-border-soft:rgba(15,95,130,.10);
+  --store-shadow:0 18px 42px rgba(15,23,42,.12);
+  --store-shadow-soft:0 10px 24px rgba(15,23,42,.08);
+  --store-button-shadow:0 10px 22px color-mix(in srgb, var(--store-primary, var(--color-primary)) 16%, rgba(15,23,42,.10));
   background:
     radial-gradient(circle at top left, color-mix(in srgb, var(--store-primary, var(--color-primary)) 8%, transparent), transparent 34%),
     radial-gradient(circle at top right, color-mix(in srgb, var(--store-accent, var(--color-accent)) 6%, transparent), transparent 32%),
-    #f4f7fb;
+    #eef4f7;
 }
 
 body.theme-light :where(.store-public-header,.store-public-product-card,.store-public-contact,.store-public-product-hero,.store-public-category-bar a,.store-public-spec-grid span,.store-lead-product-summary){
@@ -22299,8 +22377,28 @@ body.theme-light .store-public-banner{
 }
 
 body.theme-light .store-public-main-nav a,
-body.theme-light .store-public-icon-action{
+body.theme-light .store-public-icon-action,
+body.theme-light .store-public-menu-toggle{
   color:var(--store-text-soft);
+}
+
+body.theme-light .store-public-icon-action,
+body.theme-light .store-public-menu-toggle,
+body.theme-light .store-public-shell .btn.ghost,
+body.theme-light .store-public-product-actions .btn.ghost{
+  background:rgba(255,255,255,.72);
+  border-color:var(--store-border);
+}
+
+body.theme-light .store-public-shell .btn.secondary,
+body.theme-light .store-public-product-actions .btn.secondary{
+  background:color-mix(in srgb, var(--store-primary, var(--color-primary)) 8%, #ffffff);
+  color:var(--store-text);
+}
+
+body.theme-light .store-public-shell .btn:not(.ghost):not(.secondary),
+body.theme-light .store-public-product-actions .btn:not(.ghost):not(.secondary){
+  color:#ffffff;
 }
 
 body.theme-light .store-public-banner-copy h1,
@@ -22310,6 +22408,16 @@ body.theme-light .store-public-product-title{
 
 body.theme-light .store-public-banner-copy p{
   color:var(--store-muted);
+}
+
+body.theme-light .store-public-banner::after{
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.82) 48%, rgba(255,255,255,.30) 100%),
+    linear-gradient(0deg, rgba(255,255,255,.36), transparent 48%);
+}
+
+body.theme-light .store-hero-device-art{
+  opacity:.52;
 }
 
 @media (max-width: 1100px){
@@ -22373,18 +22481,28 @@ body.theme-light .store-public-banner-copy p{
   .store-public-header{
     position:relative;
     top:auto;
-    align-items:flex-start;
-    grid-template-columns:1fr;
+    align-items:center;
+    grid-template-columns:1fr auto;
     border-radius:20px;
     padding:14px;
   }
 
+  .store-public-menu-toggle{
+    display:inline-flex;
+  }
+
   .store-public-main-nav{
+    display:none;
+    grid-column:1 / -1;
     gap:16px;
     margin-inline:-2px;
     flex-wrap:wrap;
     overflow:visible;
     scroll-padding-inline:12px;
+  }
+
+  .store-public-header.mobile-open .store-public-main-nav{
+    display:flex;
   }
 
   .store-public-search{
@@ -22393,11 +22511,17 @@ body.theme-light .store-public-banner-copy p{
   }
 
   .store-public-actions{
+    display:none;
+    grid-column:1 / -1;
     width:100%;
     min-width:0;
     justify-content:flex-start;
     flex-wrap:wrap;
     gap:8px;
+  }
+
+  .store-public-header.mobile-open .store-public-actions{
+    display:flex;
   }
 
   .store-public-actions :where(.btn, a.btn){
@@ -22464,6 +22588,11 @@ body.theme-light .store-public-banner-copy p{
 
   .store-public-banner-copy{
     padding:22px;
+    max-width:100%;
+  }
+
+  body.theme-light .store-hero-device-art{
+    opacity:.30;
   }
 
   .store-public-product-grid{

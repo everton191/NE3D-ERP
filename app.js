@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.3-estavel";
-const APP_VERSION_CODE = 5;
+const APP_VERSION = "1.0.4-estavel";
+const APP_VERSION_CODE = 6;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -15731,14 +15731,20 @@ function abrirStoreContextSheet() {
 
 function renderStorePublicHeader(vm) {
   const store = vm.store;
+  const mode = getStorefrontPublicMode(vm);
   const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
   const cart = getStorefrontPublicCartSummary(vm);
+  const futureActions = mode.admin ? `
+        <button class="store-public-icon-action" type="button" aria-label="Busca da loja" title="Buscar" onclick="informarRecursoFuturoLoja('Busca da loja')">${renderUiIcon("search")}<small>Em breve</small></button>
+        <button class="store-public-icon-action" type="button" aria-label="Conta do cliente" title="Conta" onclick="informarRecursoFuturoLoja('Conta do cliente')">${renderUiIcon("clientes")}<small>Em breve</small></button>
+  ` : "";
   return `
     <header class="store-public-header" data-store-section="header">
       <a class="store-public-brand" href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(store.name || "Loja")}">
         ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="${escaparAttr(store.name || "Loja")}">` : renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
         <strong>${escaparHtml(store.name || "NE3D")}</strong>
       </a>
+      <button class="store-public-menu-toggle" type="button" aria-label="Abrir menu da loja" onclick="this.closest('.store-public-header')?.classList.toggle('mobile-open')">${renderUiIcon("menu")}<span>Menu</span></button>
       ${renderStoreAdminControls("header", store, vm)}
       <nav class="store-public-main-nav" aria-label="Navegação da loja">
         <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">Início</a>
@@ -15749,10 +15755,9 @@ function renderStorePublicHeader(vm) {
         <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "contato" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Contato</a>
       </nav>
       <nav class="store-public-actions" aria-label="Ações da loja">
-        <button class="store-public-icon-action" type="button" title="Buscar" onclick="informarRecursoFuturoLoja('Busca da loja')">${renderUiIcon("search")}<small>Em breve</small></button>
-        <button class="store-public-icon-action" type="button" title="Conta" onclick="informarRecursoFuturoLoja('Conta do cliente')">${renderUiIcon("clientes")}<small>Em breve</small></button>
+        ${futureActions}
         ${store.whatsapp ? `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">WhatsApp</button>` : ""}
-        <button class="store-public-icon-action store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()" title="Carrinho">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}</button>
+        <button class="store-public-icon-action store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()" aria-label="Abrir carrinho" title="Carrinho">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}</button>
         ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
         <button class="btn ghost store-public-share-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>
       </nav>
@@ -15770,13 +15775,15 @@ function normalizarUrlInstagramLoja(value = "") {
 function renderStorePublicBanner(vm) {
   const store = vm.store;
   const visibleCount = vm.products.length;
+  const mode = getStorefrontPublicMode(vm);
+  const eyebrow = mode.admin ? "Loja pronta para personalizar" : "Vitrine oficial";
   return `
     <section class="store-public-banner" data-store-section="banner" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
       ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
       ${store.banner_url ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
       <div class="store-public-banner-copy">
-        <span>Loja pronta para personalizar</span>
+        <span>${escaparHtml(eyebrow)}</span>
         <h1>Produtos que parecem feitos para a sua <mark>marca</mark></h1>
         <p>${escaparHtml(store.description || "Uma vitrine moderna para produtos personalizados, utilidades criativas e peças sob encomenda.")}</p>
         <div class="actions">
@@ -16031,7 +16038,7 @@ function renderLojaOnlinePublica() {
   const homeContent = `
     ${renderStorePublicBanner(vm)}
     ${renderStorePublicCategoryBar(vm)}
-    ${featured.length ? renderStorePublicGrid(vm, featured.slice(0, 1), "Produto exemplo em destaque", "Um item pronto para o usuario editar e substituir pelos proprios produtos") : ""}
+    ${featured.length ? renderStorePublicGrid(vm, featured.slice(0, 1), mode.admin ? "Produto exemplo em destaque" : "Produto em destaque", mode.admin ? "Um item pronto para o usuário editar e substituir pelos próprios produtos." : "Seleção especial da loja para orçamento rápido.") : ""}
     ${renderStorePublicPromoSection(vm)}
     ${renderStorePublicGrid(vm, catalog, category ? category.name : "Catálogo", category ? `Produtos em ${category.name}` : "Escolha um produto e solicite pelo WhatsApp")}
     ${renderStorePublicBenefits(vm)}
@@ -16054,7 +16061,7 @@ function renderLojaOnlinePublica() {
   const storeContent = `
     ${renderStorePublicHeader(vm)}
     ${renderStoreAdminFloatingEditor(vm)}
-    ${vm.store.__demo ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
+    ${vm.store.__demo && mode.admin ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
     ${pageContent}
     <footer class="store-public-footer" data-store-section="rodape">
       <span>Loja criada com Simplifica 3D</span>
