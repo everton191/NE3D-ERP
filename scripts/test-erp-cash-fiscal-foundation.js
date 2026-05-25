@@ -14,6 +14,12 @@ const hardeningMigrationPath = path.join(
   "migrations",
   "20260525133000_erp_cash_concurrency_audit_hardening.sql"
 );
+const idempotencyMigrationPath = path.join(
+  rootDir,
+  "supabase",
+  "migrations",
+  "20260525143000_erp_financial_idempotency_atomicity.sql"
+);
 
 function fail(message) {
   console.error(`FAIL: ${message}`);
@@ -36,6 +42,9 @@ if (!fs.existsSync(migrationPath)) {
 const sql = fs.readFileSync(migrationPath, "utf8").replace(/\s+/g, " ").trim();
 const hardeningSql = fs.existsSync(hardeningMigrationPath)
   ? fs.readFileSync(hardeningMigrationPath, "utf8").replace(/\s+/g, " ").trim()
+  : "";
+const idempotencySql = fs.existsSync(idempotencyMigrationPath)
+  ? fs.readFileSync(idempotencyMigrationPath, "utf8").replace(/\s+/g, " ").trim()
   : "";
 
 [
@@ -175,4 +184,63 @@ assertRegex(
 
 if (!process.exitCode) {
   console.log("ERP cash/fiscal hardening migration looks consistent.");
+}
+
+if (!idempotencySql) {
+  fail(`Idempotency migration not found: ${idempotencyMigrationPath}`);
+  process.exit();
+}
+
+[
+  "create table if not exists public.erp_financial_operations",
+  "operation_uuid uuid not null",
+  "client_request_id text",
+  "request_hash text",
+  "created_from_device text",
+  "erp_financial_operations_uuid_unique_idx",
+  "erp_financial_operations_client_request_unique_idx",
+  "erp_financial_operations_request_hash_unique_idx",
+  "add column if not exists operation_uuid uuid",
+  "add column if not exists operation_id uuid references public.erp_financial_operations(id)",
+  "public.s3d_financial_operation_lock_key",
+  "drop function if exists public.register_cash_movement(uuid, uuid, text, numeric, uuid, text, text, text, jsonb)",
+  "public.register_sale_financial_operation",
+  "pg_advisory_xact_lock(public.s3d_financial_operation_lock_key(p_empresa_id, p_operation_uuid))",
+  "public.register_cash_movement(",
+  "payments_summary_json",
+  "closing_snapshot_json",
+].forEach((needle) => assertIncludes(idempotencySql, needle, `Idempotency/atomicity missing: ${needle}`));
+
+[
+  "expected_cash_total numeric(14,2) not null default 0",
+  "counted_cash_total numeric(14,2)",
+  "payment_status in ('pending', 'approved', 'failed', 'refunded', 'partial_refund')",
+  "status in ('open', 'closing', 'closed', 'cancelled')",
+].forEach((needle) => assertIncludes(idempotencySql, needle, `Canonical state/snapshot field missing: ${needle}`));
+
+[
+  "cash_movements_operation_unique_idx",
+  "sale_payments_operation_method_unique_idx",
+  "erp_records_client_request_unique_idx",
+  "erp_records_operation_unique_idx",
+].forEach((needle) => assertIncludes(idempotencySql, needle, `Duplicate protection index missing: ${needle}`));
+
+assertRegex(
+  idempotencySql,
+  /returns jsonb language plpgsql security definer/,
+  "Atomic sale operation must be a database function."
+);
+assertRegex(
+  idempotencySql,
+  /insert into public\.sale_payments[\s\S]+public\.register_cash_movement[\s\S]+update public\.cash_sessions[\s\S]+update public\.erp_financial_operations/,
+  "Sale financial operation must register payments, movements, session totals and operation result together."
+);
+assertRegex(
+  idempotencySql,
+  /if v_existing\.id is not null and v_existing\.status = 'completed' then return v_existing\.result_json;/,
+  "Completed idempotent operations must return the existing result."
+);
+
+if (!process.exitCode) {
+  console.log("ERP financial idempotency migration looks consistent.");
 }
