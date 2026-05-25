@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.7-estavel";
-const APP_VERSION_CODE = 9;
+const APP_VERSION = "1.0.8-estavel";
+const APP_VERSION_CODE = 10;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -13445,6 +13445,8 @@ function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPubl
   const primaryArea = checklist.missing[0]?.area || checklist.recommended[0]?.area || "appearance";
   const completed = checklist.required.filter((item) => item.done).length;
   const progress = Math.round((completed / Math.max(1, checklist.required.length)) * 100);
+  const vm = getStorefrontPublicViewModel();
+  const previewImage = vm.store?.banner_url || vm.store?.logo_url || "/assets/simplifica-brand-cover.jpg";
   const actionLabel = {
     appearance: "Ir para aparência",
     banner: "Ir para banner",
@@ -13467,6 +13469,14 @@ function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPubl
         <div class="store-publication-progress">
           <div><strong>Loja pronta: ${progress}%</strong><span>${completed}/${checklist.required.length} itens essenciais</span></div>
           <i aria-hidden="true"><b style="width:${progress}%"></b></i>
+        </div>
+        <div class="store-publication-preview">
+          <div>
+            <span>Preview final</span>
+            <strong>${escaparHtml(vm.store?.name || "Sua loja")}</strong>
+            <small>${escaparHtml(vm.store?.description || "Confira a identidade, produtos e contatos antes de compartilhar.")}</small>
+          </div>
+          <img src="${escaparAttr(previewImage)}" alt="${escaparAttr(vm.store?.name || "Preview da loja")}" loading="lazy" decoding="async">
         </div>
         ${checklist.demoItems.length ? `
           <div class="store-publication-demo-alert">
@@ -13491,6 +13501,27 @@ function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPubl
         <div class="actions">
           <button class="btn secondary" type="button" onclick="fecharPopup()">Depois</button>
           <button class="btn" type="button" onclick="abrirCorrecaoChecklistLoja('${escaparAttr(primaryArea)}')">${escaparHtml(actionLabel)}</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderStorefrontPublishedModal(store = getStorefrontAdminStoreLocal()) {
+  const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
+  return `
+    <div class="modal-backdrop store-publication-check-backdrop" role="dialog" aria-modal="true">
+      <section class="modal-card store-publication-check-modal store-publication-success-modal">
+        <div class="store-publication-success-mark">✓</div>
+        <h2>Loja publicada com sucesso</h2>
+        <p>Seu link já pode ser compartilhado. A vitrine continua usando a mesma estrutura segura do ERP e você pode voltar para editar quando quiser.</p>
+        <div class="store-publication-share-box">
+          <span>Link público</span>
+          <strong>${escaparHtml(shareUrl)}</strong>
+        </div>
+        <div class="actions">
+          <button class="btn secondary" type="button" onclick="fecharPopup(); window.location.href='${escaparAttr(getStorefrontPublicRoutePath({ slug: store.slug, view: "home" }))}'">Ver como cliente</button>
+          <button class="btn" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar loja</button>
         </div>
       </section>
     </div>
@@ -14172,7 +14203,13 @@ async function alternarStatusLojaOnline() {
     }
     limparStorefrontAlteracoesPendentes(next.active ? "Loja publicada" : "Loja em rascunho");
     registrarStorefrontActivity(next.active ? "Loja publicada" : "Loja colocada em rascunho", next.slug || "loja");
-    mostrarToast(next.active ? "Loja ativada em modo controlado." : "Loja desativada.", "sucesso", 2600);
+    if (next.active) {
+      const popup = document.getElementById("popup");
+      if (popup) popup.innerHTML = renderStorefrontPublishedModal(next);
+      mostrarToast("Loja publicada com sucesso.", "sucesso", 2600);
+    } else {
+      mostrarToast("Loja colocada em rascunho.", "sucesso", 2600);
+    }
   } catch (error) {
     mostrarToast("Status salvo localmente, mas não sincronizado.", "erro", 3200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao sincronizar status da loja.", { message: error?.message || String(error) });
@@ -15556,6 +15593,25 @@ function renderStoreVisualEditorTopbar(vm) {
   `;
 }
 
+function renderStoreVisualMobileActions(vm) {
+  return `
+    <nav class="store-mobile-admin-actions" aria-label="Ações rápidas da edição mobile">
+      <button type="button" onclick="trocarTela('lojaOnline')"><i>‹</i><span>Voltar</span></button>
+      <button type="button" onclick="abrirStoreVisualPanel('theme')"><i>◒</i><span>Aparência</span></button>
+      <button type="button" onclick="abrirStoreVisualPanel('products')"><i>▦</i><span>Produtos</span></button>
+      <button type="button" onclick="salvarStorefrontMobileRapido()"><i>✓</i><span>Salvar</span></button>
+      <button type="button" class="publish" onclick="alternarStatusLojaOnline()"><i>↗</i><span>${vm.store.active ? "Online" : "Publicar"}</span></button>
+    </nav>
+  `;
+}
+
+function salvarStorefrontMobileRapido() {
+  limparStorefrontAlteracoesPendentes("Alterações salvas");
+  registrarStorefrontActivity("Edição mobile salva", "Ações rápidas do editor mobile confirmadas.");
+  mostrarToast("Alterações salvas.", "sucesso", 2200);
+  renderApp();
+}
+
 function destacarSecaoLojaVisual(section = "") {
   const id = String(section || "").trim();
   document.querySelectorAll(".store-section-editing").forEach((node) => node.classList.remove("store-section-editing"));
@@ -16212,6 +16268,7 @@ function renderLojaOnlinePublica() {
           <section class="store-visual-editor-main">
             ${renderStoreVisualEditorTopbar(vm)}
             <div class="store-visual-editor-canvas">${storeContent}</div>
+            ${renderStoreVisualMobileActions(vm)}
           </section>
         </div>
       ` : storeContent}
