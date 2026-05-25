@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.2-estavel";
-const APP_VERSION_CODE = 4;
+const APP_VERSION = "1.0.3-estavel";
+const APP_VERSION_CODE = 5;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -12320,19 +12320,33 @@ function atualizarViewportOperacionalMobile() {
   if (typeof document === "undefined" || !document.documentElement) return;
   const viewport = window.visualViewport;
   const alturaViewport = viewport?.height || window.innerHeight || document.documentElement.clientHeight || 0;
+  const larguraViewport = viewport?.width || window.innerWidth || document.documentElement.clientWidth || 0;
   const alturaJanela = window.innerHeight || alturaViewport;
   const teclado = Math.max(0, alturaJanela - alturaViewport - (viewport?.offsetTop || 0));
   if (alturaViewport) document.documentElement.style.setProperty("--app-viewport-height", `${Math.round(alturaViewport)}px`);
+  if (larguraViewport) document.documentElement.style.setProperty("--app-viewport-width", `${Math.round(larguraViewport)}px`);
   document.documentElement.style.setProperty("--keyboard-inset", `${Math.round(teclado)}px`);
+}
+
+function agendarAtualizacaoViewportOperacionalMobile() {
+  atualizarViewportOperacionalMobile();
+  requestAnimationFrame(() => atualizarViewportOperacionalMobile());
+  setTimeout(atualizarViewportOperacionalMobile, 160);
+  setTimeout(atualizarViewportOperacionalMobile, 420);
 }
 
 function configurarViewportOperacionalMobile() {
   if (window.__simplificaOperationalViewportConfigured) return;
   window.__simplificaOperationalViewportConfigured = true;
-  atualizarViewportOperacionalMobile();
-  window.addEventListener("resize", atualizarViewportOperacionalMobile, { passive: true });
-  window.addEventListener("orientationchange", () => setTimeout(atualizarViewportOperacionalMobile, 240), { passive: true });
-  window.visualViewport?.addEventListener("resize", atualizarViewportOperacionalMobile, { passive: true });
+  agendarAtualizacaoViewportOperacionalMobile();
+  window.addEventListener("resize", agendarAtualizacaoViewportOperacionalMobile, { passive: true });
+  window.addEventListener("pageshow", agendarAtualizacaoViewportOperacionalMobile, { passive: true });
+  window.addEventListener("focus", agendarAtualizacaoViewportOperacionalMobile, { passive: true });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) agendarAtualizacaoViewportOperacionalMobile();
+  }, { passive: true });
+  window.addEventListener("orientationchange", () => setTimeout(agendarAtualizacaoViewportOperacionalMobile, 240), { passive: true });
+  window.visualViewport?.addEventListener("resize", agendarAtualizacaoViewportOperacionalMobile, { passive: true });
   window.visualViewport?.addEventListener("scroll", atualizarViewportOperacionalMobile, { passive: true });
 }
 
