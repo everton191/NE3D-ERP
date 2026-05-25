@@ -468,10 +468,13 @@ if (!process.exitCode) {
   "function fecharSessaoCaixaBasica",
   "function renderStatusSessaoCaixaSimples",
   "function getMetodosPagamentoCaixa",
+  "function getResumoMetodoMovimentoCaixa",
   "payment_method_id",
   "cash_session_id",
   "Forma da entrada",
+  "Aparece no Caixa quando houver entrada.",
   "Sangria / retirada",
+  "registrado no caixa",
 ].forEach((needle) => assertIncludes(appJs, needle, `Simple cash activation missing: ${needle}`));
 
 if (!process.exitCode) {

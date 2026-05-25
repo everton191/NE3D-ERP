@@ -340,6 +340,7 @@ let quickOrderItemDraft = {
 };
 let quickOrderLastItem = null;
 let quickOrderStatusDraft = "";
+let quickOrderPaymentMethodDraft = "pix";
 const QUICK_ORDER_DRAFT_VERSION = 1;
 const QUICK_ORDER_DRAFT_TTL_MS = 1000 * 60 * 60 * 24 * 7;
 let quickOrderDraftTimer = null;
@@ -2271,6 +2272,7 @@ function limparDadosOperacionaisLocais() {
   observacaoPedido = "";
   prazoPedido = "";
   quickOrderStatusDraft = "";
+  quickOrderPaymentMethodDraft = "pix";
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
 }
@@ -6623,7 +6625,7 @@ function getMetodoPagamentoMovimento(movimento = {}) {
 }
 
 function caixaModoSimplesAtivo() {
-  return appConfig.cashSimpleModeEnabled !== false;
+  return true;
 }
 
 function getSessaoCaixaAtual() {
@@ -21689,6 +21691,20 @@ function renderOpcoesMetodoPagamentoCaixa(valorAtual = "pix") {
   )).join("");
 }
 
+function getRotuloTipoMovimentoCaixa(movimento = {}) {
+  if (movimentoCaixaCancelado(movimento)) return "Cancelado";
+  const saida = String(movimento.tipo || "").toLowerCase() === "saida";
+  const texto = normalizarTextoBusca(descricaoCaixa(movimento));
+  if (!saida) return "Entrada";
+  if (texto.includes("sangria")) return "Sangria";
+  if (texto.includes("retirada")) return "Retirada";
+  return "Saída";
+}
+
+function getResumoMetodoMovimentoCaixa(movimento = {}) {
+  return `${getRotuloTipoMovimentoCaixa(movimento)} • ${getMetodoPagamentoMovimento(movimento).name}`;
+}
+
 function renderStatusSessaoCaixaSimples() {
   if (!caixaModoSimplesAtivo()) return "";
   const sessao = getSessaoCaixaAtual();
@@ -21702,8 +21718,8 @@ function renderStatusSessaoCaixaSimples() {
     <div class="cash-session-panel">
       <div class="cash-session-head">
         <div>
-          <span class="status-badge ${sessao ? "badge-ativo" : "badge-alerta"}">${sessao ? "Caixa aberto" : "Caixa fechado"}</span>
-          <p class="muted">${sessao ? `Aberto em ${new Date(sessao.openedAt || sessao.opened_at || Date.now()).toLocaleString("pt-BR")}` : "O caixa abre automaticamente no primeiro lançamento."}</p>
+          <span class="status-badge cash-session-status ${sessao ? "badge-ativo" : "badge-alerta"}"><i class="cash-status-dot ${sessao ? "open" : "closed"}"></i>${sessao ? "Caixa aberto" : "Caixa fechado"}</span>
+          <p class="muted">${sessao ? `Abertura ${sessao.reason === "abertura_manual" ? "manual" : "automática"} às ${new Date(sessao.openedAt || sessao.opened_at || Date.now()).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "O caixa abre automaticamente no primeiro lançamento."}</p>
         </div>
         <div class="actions">
           ${sessao ? `<button class="btn ghost compact-action" type="button" onclick="fecharSessaoCaixaBasica()">Fechar caixa</button>` : `<button class="btn ghost compact-action" type="button" onclick="abrirSessaoCaixaManual()">Abrir caixa</button>`}
@@ -22080,11 +22096,10 @@ function renderCaixa() {
           <div class="cash-row cash-row-${cancelado ? "cancelado" : saida ? "saida" : "entrada"}">
             <div class="cash-row-main">
               <div class="row-title">
-                <strong>${cancelado ? "Cancelado" : saida ? "Saída" : "Entrada"}</strong>
+                <strong>${escaparHtml(getResumoMetodoMovimentoCaixa(movimento))}</strong>
                 <span class="muted">${formatarMoeda(movimento.valor)}</span>
               </div>
               <div class="muted">${escaparHtml(descricaoCaixa(movimento))}</div>
-              <small class="cash-row-date">Forma: ${escaparHtml(getMetodoPagamentoMovimento(movimento).name)}</small>
               ${movimento.data ? `<small class="cash-row-date">${formatarDataCurta(movimento.data)}</small>` : ""}
               ${cancelado ? `<small class="cash-row-date">Cancelado: ${escaparHtml(movimento.motivoCancelamento || movimento.cancelReason || "sem motivo informado")}</small>` : ""}
             </div>
@@ -30329,12 +30344,14 @@ function createOrderHeader() {
   const observacao = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
   const prazo = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
   const entrada = Math.max(0, numeroMonetarioPedido(document.getElementById("pedidoEntrada")?.value ?? entradaPedido, 0));
+  const metodoPagamento = normalizarMetodoPagamentoCaixa(document.getElementById("pedidoMetodoPagamento")?.value || quickOrderPaymentMethodDraft || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix");
   clientePedido = cliente;
   clienteTelefonePedido = telefone;
   clienteEmailPedido = email;
   observacaoPedido = observacao;
   prazoPedido = prazo;
   entradaPedido = entrada;
+  quickOrderPaymentMethodDraft = metodoPagamento.id;
   return {
     cliente,
     telefone,
@@ -30344,6 +30361,10 @@ function createOrderHeader() {
     entrada,
     down_payment: entrada,
     valor_entrada: entrada,
+    paymentMethodId: metodoPagamento.id,
+    payment_method_id: metodoPagamento.id,
+    paymentMethod: metodoPagamento.name,
+    payment_method_type: metodoPagamento.type,
     status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto"
   };
 }
@@ -30886,6 +30907,7 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     observacaoPedido = pedido.observacao || pedido.observacoes || "";
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
     entradaPedido = valorEntradaPedido(pedido);
+    quickOrderPaymentMethodDraft = normalizarMetodoPagamentoCaixa(pedido.paymentMethodId || pedido.payment_method_id || pedido.paymentMethod || "pix").id;
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
     pedidoEditando = pedido;
@@ -31317,7 +31339,10 @@ async function fecharPedido() {
     agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
     if (pedidoEditando) registrarAuditoriaPedido("pedido_editado", pedido);
     registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
-    mostrarToast(pedidoEditando ? "Pedido atualizado com sucesso." : "Pedido salvo com sucesso.", "sucesso", 3500);
+    const mensagemCaixa = lancamentoRecebimento
+      ? ` e ${lancamentoRecebimento.paymentMethod || "pagamento"} registrado no caixa`
+      : "";
+    mostrarToast(pedidoEditando ? `Pedido atualizado${mensagemCaixa}.` : `Pedido salvo${mensagemCaixa}.`, "sucesso", 3500);
     registrarAcaoCompletaMonetizacao(pedidoEditando ? "order_updated" : "order_created");
     pedidoEditando = null;
     pedidoEditandoOriginal = null;
@@ -31331,6 +31356,7 @@ async function fecharPedido() {
     entradaPedido = 0;
     quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
     quickOrderStatusDraft = "";
+    quickOrderPaymentMethodDraft = "pix";
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
@@ -31689,6 +31715,8 @@ async function adicionarMovimentoCaixa() {
 
   salvarDados();
   registrarHistorico("Caixa", (tipo === "saida" ? "Saída: " : "Entrada: ") + formatarMoeda(valor) + " - " + (descricao || "Movimento manual"));
+  const rotulo = tipo === "saida" && /sangria/i.test(descricao) ? "Sangria" : tipo === "saida" ? "Retirada" : metodo.name;
+  mostrarToast(`${rotulo} registrado no caixa.`, "sucesso", 2600);
   renderApp();
 }
 
@@ -32518,6 +32546,7 @@ function criarSnapshotRascunhoPedidoRapido() {
     observacao: observacaoPedido,
     prazo: prazoPedido,
     entrada: entradaPedido,
+    paymentMethod: document.getElementById("pedidoMetodoPagamento")?.value || quickOrderPaymentMethodDraft || pedidoEditando?.paymentMethodId || "pix",
     status: document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || pedidoEditando?.status || "aberto",
     itens: normalizarItensPedido(itensPedido).slice(0, 80),
     itemDraft: { ...quickOrderItemDraft },
@@ -32592,6 +32621,7 @@ function aplicarRascunhoPedidoRapidoLocal(snapshot) {
   observacaoPedido = String(snapshot.observacao || "").trim();
   prazoPedido = String(snapshot.prazo || "").trim();
   entradaPedido = Math.max(0, Number(snapshot.entrada) || 0);
+  quickOrderPaymentMethodDraft = normalizarMetodoPagamentoCaixa(snapshot.paymentMethod || "pix").id;
   itensPedido = normalizarItensPedido(Array.isArray(snapshot.itens) ? snapshot.itens : []);
   quickOrderItemDraft = {
     nome: String(snapshot.itemDraft?.nome || ""),
@@ -32677,6 +32707,7 @@ async function limparRascunhoPedidoRapido() {
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
   quickOrderStatusDraft = "";
+  quickOrderPaymentMethodDraft = "pix";
   window.__pedidoItemSelecionado = null;
   limparRascunhoPedidoRapidoLocal();
   const popup = document.getElementById("popup");
@@ -32707,6 +32738,7 @@ function sincronizarPedidoRapidoOperacional({ syncItemDraft = true } = {}) {
   prazoPedido = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
   entradaPedido = Math.max(0, numeroMonetarioPedido(document.getElementById("pedidoEntrada")?.value ?? entradaPedido, 0));
   quickOrderStatusDraft = String(document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || pedidoEditando?.status || "aberto");
+  quickOrderPaymentMethodDraft = normalizarMetodoPagamentoCaixa(document.getElementById("pedidoMetodoPagamento")?.value || quickOrderPaymentMethodDraft || "pix").id;
   if (syncItemDraft) sincronizarItemRapidoDraft();
   agendarSalvarRascunhoPedidoRapido();
 }
@@ -32887,9 +32919,10 @@ function renderPedidoRapidoOperacional() {
                 </label>
                 <label class="field">
                   <span>Forma da entrada</span>
-                  <select id="pedidoMetodoPagamento">
-                    ${renderOpcoesMetodoPagamentoCaixa(pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || pedidoEditando?.paymentMethod || "pix")}
+                  <select id="pedidoMetodoPagamento" class="cash-payment-method-select" onchange="sincronizarPedidoRapidoOperacional({ syncItemDraft:false })">
+                    ${renderOpcoesMetodoPagamentoCaixa(quickOrderPaymentMethodDraft || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || pedidoEditando?.paymentMethod || "pix")}
                   </select>
+                  <small class="field-hint">Aparece no Caixa quando houver entrada.</small>
                 </label>
                 <label class="field">
                   <span>Prazo</span>
@@ -32951,6 +32984,7 @@ function abrirPedidoRapidoOperacional({ reset = false } = {}) {
     entradaPedido = 0;
     quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
     quickOrderStatusDraft = "";
+    quickOrderPaymentMethodDraft = "pix";
     selectedCustomerSuggestion = null;
     window.__pedidoItemSelecionado = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
@@ -33188,7 +33222,6 @@ async function salvarCaixaRapidoOperacional(event) {
     await adicionarMovimentoCaixa();
     if (caixa.length > totalAntes) {
       fecharPopup();
-      mostrarToast("Movimento lançado no caixa.", "sucesso", 2600);
     }
   } finally {
     quickCashSaveLock = false;
