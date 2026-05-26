@@ -65,7 +65,7 @@ function configure({ premium = false, platform = "android", production = true } 
 
 async function run() {
   configure({ premium: true });
-  const pro = { email: "pro@example.com", activePlan: "premium", subscriptionStatus: "active" };
+  const pro = { email: "pro@example.com", activePlan: "pro", subscriptionStatus: "active" };
   assert.equal(MonetizationLimits.canUseAction(pro), true, "PRO nao consome creditos");
   assert.equal(MonetizationLimits.getRemainingFreeActions(pro), Number.POSITIVE_INFINITY, "PRO tem acoes ilimitadas");
   for (let i = 0; i < 40; i += 1) MonetizationLimits.registerAction(pro, "salvar_pedido");
@@ -73,12 +73,12 @@ async function run() {
 
   configure({ premium: false });
   const free = { email: "free@example.com", activePlan: "free", subscriptionStatus: "free" };
-  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 15, "FREE comeca com 15 acoes");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 5, "GRATIS comeca com 5 pedidos/acoes por dia");
   assert.equal(MonetizationLimits.shouldCountAction("abrir_dashboard"), false, "navegacao nao consome credito");
   MonetizationLimits.registerAction(free, "abrir_dashboard");
-  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 15, "acao visual nao altera contador");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 5, "acao visual nao altera contador");
 
-  for (let i = 0; i < 15; i += 1) {
+  for (let i = 0; i < 5; i += 1) {
     assert.equal(MonetizationLimits.canUseAction(free), true, "FREE usa credito disponivel");
     MonetizationLimits.registerAction(free, "salvar_pedido");
   }
@@ -89,11 +89,13 @@ async function run() {
   assert.equal(ad.shown, true, "interstitial abre para liberar credito");
   assert.equal(interstitialShows, 1, "SDK de interstitial chamado");
   MonetizationLimits.resetActionsAfterAd(free);
-  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 15, "anuncio concluido reseta 15 acoes");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(free), 5, "anuncio concluido libera mais 5 pedidos no dia");
+  for (let i = 0; i < 5; i += 1) MonetizationLimits.registerAction(free, "salvar_pedido");
+  assert.equal(MonetizationLimits.canUseAction(free), false, "GRATIS bloqueia ao atingir maximo de 10 pedidos/dia");
 
   configure({ premium: false });
   const fallbackUser = { email: "fallback@example.com", activePlan: "free" };
-  for (let i = 0; i < 15; i += 1) MonetizationLimits.registerAction(fallbackUser, "adicionar_item");
+  for (let i = 0; i < 5; i += 1) MonetizationLimits.registerAction(fallbackUser, "adicionar_item");
   failInterstitial = true;
   const failedAd = await AdMobService.showInterstitialNow({ user: fallbackUser, context: { screenName: "pedido", actionName: "free_action_limit" } });
   assert.equal(failedAd.shown, false, "falha de anuncio nao libera na hora");
@@ -101,7 +103,7 @@ async function run() {
   assert.equal(MonetizationLimits.canUseAction(fallbackUser), false, "fallback antes de 30 min ainda aguarda");
   now = fallback.availableAt + 1;
   assert.equal(MonetizationLimits.canUseAction(fallbackUser), true, "fallback libera automaticamente depois de 30 min");
-  assert.equal(MonetizationLimits.getRemainingFreeActions(fallbackUser), 15, "fallback reseta novo ciclo");
+  assert.equal(MonetizationLimits.getRemainingFreeActions(fallbackUser), 5, "fallback libera novo ciclo basico");
 
   configure({ premium: false });
   const backupFree = MonetizationLimits.getBackupUsageSummary({ usedBytes: 51 * 1024 * 1024, plan: "free" });
@@ -110,6 +112,8 @@ async function run() {
   const backupPro = MonetizationLimits.getBackupUsageSummary({ usedBytes: 900 * 1024 * 1024, plan: "premium" });
   assert.equal(backupPro.limitMb, 1024, "PRO tem backup de 1 GB");
   assert.equal(backupPro.full, false, "900 MB cabe no PRO");
+  const backupStart = MonetizationLimits.getBackupUsageSummary({ usedBytes: 120 * 1024 * 1024, plan: "start" });
+  assert.equal(backupStart.limitMb, 256, "Start tem backup intermediario");
 
   const sessions = [
     { id: "old", active: true, lastSeenAt: "2026-05-20T09:00:00.000Z" },

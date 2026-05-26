@@ -62,6 +62,7 @@
     "test:storefront-production-controlled": "node scripts/test-storefront-production-controlled.js",
     "test:erp-cash-fiscal-foundation": "node scripts/test-erp-cash-fiscal-foundation.js",
     "test:monetization": "node scripts/test-monetization.js",
+    "test:plans-saas-structure": "node scripts/test-plans-saas-structure.js",
     "android:add": "npm run build:web && cap add android",
     "android:sync": "npm run build:web && cap sync android",
     "android:open": "npm run android:sync && cap open android",

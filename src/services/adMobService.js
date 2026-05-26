@@ -164,7 +164,7 @@
     const trialEnd = getTimestamp(user.trialExpiresAt || user.trial_expires_at || user.trialEndAt || user.trial_end_at);
     const planEnd = getTimestamp(user.planExpiresAt || user.plan_expires_at || user.currentPeriodEnd || user.current_period_end || user.expiresAt || user.expires_at);
     if (planId === "premium_trial") return trialEnd > config.now();
-    if (planId === "premium") return ["active", "paid", "pago", "approved"].includes(status) && (!planEnd || planEnd > config.now());
+    if (["start", "pro", "premium"].includes(planId)) return ["active", "paid", "pago", "approved"].includes(status) && (!planEnd || planEnd > config.now());
     return false;
   }
 

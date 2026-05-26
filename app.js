@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.13-estavel";
-const APP_VERSION_CODE = 12;
+const APP_VERSION = "1.0.14-estavel";
+const APP_VERSION_CODE = 13;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -47,17 +47,24 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
-const FREE_ACTION_CREDIT_LIMIT = 15;
+const FREE_ACTION_CREDIT_LIMIT = 5;
+const FREE_ACTION_AD_BONUS_LIMIT = 5;
+const FREE_ACTION_DAILY_MAX = FREE_ACTION_CREDIT_LIMIT + FREE_ACTION_AD_BONUS_LIMIT;
 const FREE_ACTION_FALLBACK_UNLOCK_MINUTES = 30;
 const FREE_BACKUP_LIMIT_MB = 50;
+const START_BACKUP_LIMIT_MB = 256;
 const PRO_BACKUP_LIMIT_MB = 1024;
 const FREE_DEVICE_LIMIT = 2;
+const START_DEVICE_LIMIT = 3;
 const PRO_DEVICE_LIMIT = 4;
 const FREE_CLIENT_LIMIT = null;
+const FREE_PRODUCT_LIMIT = 25;
+const START_PRODUCT_LIMIT = 300;
 const DEFAULT_SAAS_PLANS = [
-  { id: "free", slug: "free", name: "Free", price: 0, maxUsers: 1, maxOrders: null, maxClients: FREE_CLIENT_LIMIT, maxCalculatorUses: null, maxStorageMb: FREE_BACKUP_LIMIT_MB, maxDevices: FREE_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, allowEmployees: false, allowCustomization: false, kind: "free", showsAds: true },
-  { id: "premium", slug: "premium", name: "PRO", price: 29.9, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, kind: "paid", showsAds: false },
-  { id: "premium_trial", slug: "premium_trial", name: "PRO Trial", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: false, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, kind: "trial", durationDays: 7, showsAds: false }
+  { id: "free", slug: "free", name: "Grátis", price: 0, maxUsers: 1, maxOrders: 5, maxClients: FREE_CLIENT_LIMIT, maxProducts: FREE_PRODUCT_LIMIT, maxCalculatorUses: null, maxStorageMb: FREE_BACKUP_LIMIT_MB, maxDevices: FREE_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, allowEmployees: false, allowCustomization: false, allowPublicStore: false, allowAdvancedThemes: false, kind: "free", showsAds: true, sortOrder: 10 },
+  { id: "start", slug: "start", name: "Start", price: 29.9, maxUsers: 2, maxOrders: null, maxClients: null, maxProducts: START_PRODUCT_LIMIT, maxCalculatorUses: null, maxStorageMb: START_BACKUP_LIMIT_MB, maxDevices: START_DEVICE_LIMIT, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: false, allowEmployees: false, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: false, kind: "paid", showsAds: false, sortOrder: 20 },
+  { id: "pro", slug: "pro", name: "Pro", price: 59.9, maxUsers: 5, maxOrders: null, maxClients: null, maxProducts: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: true, kind: "paid", showsAds: false, sortOrder: 30 },
+  { id: "premium_trial", slug: "premium_trial", name: "Teste Pro", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxProducts: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: false, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: true, kind: "trial", durationDays: 7, showsAds: false, sortOrder: 40 }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
 const PLAN_ACCESS_STATES = Object.freeze({
@@ -76,15 +83,19 @@ const PAID_PRICE_TIERS = [
   { limit: 200, price: 24.9 },
   { limit: Infinity, price: 29.9 }
 ];
-const PREMIUM_FIRST_MONTH_PRICE = PAID_PRICE_TIERS[0].price;
-const PREMIUM_MONTHLY_PRICE = 29.9;
+const START_MONTHLY_PRICE = 29.9;
+const PRO_MONTHLY_PRICE = 59.9;
+const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
+const PREMIUM_MONTHLY_PRICE = PRO_MONTHLY_PRICE;
 const AD_MIN_INTERVAL_MS = 45 * 60 * 1000;
 const ADSENSE_WEB_DEFAULT_ENABLED = true;
 const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "ca-pub-1056970757696623");
 const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "3186212257");
 const BILLING_VARIANTS = {
-  premium_first_month: { id: "premium_first_month", planId: "premium", amount: PREMIUM_FIRST_MONTH_PRICE },
-  premium_monthly: { id: "premium_monthly", planId: "premium", amount: PREMIUM_MONTHLY_PRICE }
+  start_monthly: { id: "start_monthly", planId: "start", amount: START_MONTHLY_PRICE },
+  pro_monthly: { id: "pro_monthly", planId: "pro", amount: PRO_MONTHLY_PRICE },
+  premium_first_month: { id: "premium_first_month", planId: "start", amount: START_MONTHLY_PRICE },
+  premium_monthly: { id: "premium_monthly", planId: "pro", amount: PRO_MONTHLY_PRICE }
 };
 const ENABLE_GOOGLE_DRIVE_BACKUP = false;
 const ONBOARDING_PRINT_TYPES = [
@@ -666,7 +677,7 @@ const assistantResponses = [
   { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
   { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode sincronizar pelo Supabase, exportar um JSON local ou importar um JSON seguro. A sincronização fica vinculada à conta logada; Google Drive está oculto enquanto não estiver validado." },
   { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Trial ativo, plano pago e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
-  { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Premium Trial libera recursos por 7 dias. Free mantém limites básicos. Premium libera recursos completos. O primeiro pagamento usa a condição promocional e os seguintes usam o mensal normal. Superadmin sempre tem acesso total." },
+  { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Grátis permite testar o ERP e montar a loja em preview. O Start libera loja pública, pedidos ilimitados e remove anúncios. O Pro libera recursos avançados, multiusuário, temas premium e suporte prioritário. Superadmin sempre tem acesso total." },
   { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
   { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão fica salva até o logout manual enquanto o Supabase conseguir renovar o token. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
   { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha; com Supabase configurado, o reset usa o fluxo de autenticação online." },
@@ -1231,25 +1242,36 @@ function registrarFluxoSalvamento(area = "Salvamento", action = "Salvar", payloa
 const PlanService = {
   getPolicy(usuario = getUsuarioAtual()) {
     const estado = resolverEstadoPlano(usuario, { source: "plan-policy" });
-    const pro = isSuperAdmin(usuario) || estado.hasPremium === true;
+    const slug = isSuperAdmin(usuario) ? "pro" : normalizarSlugPlano(estado.hasPremium ? estado.activePlan : "free");
+    const start = slug === "start";
+    const pro = isSuperAdmin(usuario) || slug === "pro" || slug === "premium_trial";
+    const paid = start || pro;
     return {
-      slug: pro ? "premium" : "free",
-      name: pro ? "PRO" : "Free",
+      slug: paid ? (pro ? "pro" : "start") : "free",
+      name: paid ? (pro ? "Pro" : "Start") : "Grátis",
       isPro: pro,
-      isFree: !pro,
-      adsEnabled: !pro,
-      actionCreditLimit: pro ? Number.POSITIVE_INFINITY : FREE_ACTION_CREDIT_LIMIT,
+      isStart: start,
+      isPaid: paid,
+      isFree: !paid,
+      adsEnabled: !paid,
+      actionCreditLimit: paid ? Number.POSITIVE_INFINITY : FREE_ACTION_CREDIT_LIMIT,
+      actionAdBonusLimit: FREE_ACTION_AD_BONUS_LIMIT,
+      actionDailyMax: paid ? Number.POSITIVE_INFINITY : FREE_ACTION_DAILY_MAX,
       actionFallbackMinutes: FREE_ACTION_FALLBACK_UNLOCK_MINUTES,
-      backupLimitMb: pro ? PRO_BACKUP_LIMIT_MB : FREE_BACKUP_LIMIT_MB,
-      maxDevices: pro ? PRO_DEVICE_LIMIT : FREE_DEVICE_LIMIT,
+      backupLimitMb: pro ? PRO_BACKUP_LIMIT_MB : start ? START_BACKUP_LIMIT_MB : FREE_BACKUP_LIMIT_MB,
+      maxDevices: pro ? PRO_DEVICE_LIMIT : start ? START_DEVICE_LIMIT : FREE_DEVICE_LIMIT,
+      productLimit: pro ? null : start ? START_PRODUCT_LIMIT : FREE_PRODUCT_LIMIT,
       employees: pro,
-      reports: pro,
-      customization: pro,
-      visualIdentity: pro,
+      reports: paid,
+      advancedReports: pro,
+      customization: paid,
+      visualIdentity: paid,
       customThemes: pro,
+      publicStore: paid,
+      shareStore: paid,
       prioritySync: pro,
       expandedRecovery: pro,
-      backupLabel: pro ? "1 GB" : "50 MB"
+      backupLabel: pro ? "1 GB" : start ? "256 MB" : "50 MB"
     };
   },
   podeUsarRecurso(recurso, usuario = getUsuarioAtual()) {
@@ -1257,9 +1279,12 @@ const PlanService = {
     const policy = this.getPolicy(usuario);
     const chave = String(recurso || "").toLowerCase();
     if (["pedidos", "clientes", "estoque", "caixa", "calculadora", "pdf_basico", "orcamento"].includes(chave)) return true;
-    if (["reports", "relatorios"].includes(chave)) return policy.reports;
+    if (["reports", "relatorios", "financeiro_basico", "relatorios_basicos"].includes(chave)) return policy.reports;
+    if (["analytics", "analytics_avancado", "financeiro_avancado", "dashboard_avancado"].includes(chave)) return policy.isPro;
     if (["employees", "funcionarios", "permissions"].includes(chave)) return policy.employees;
-    if (["customization", "personalizacao", "appearance", "aparencia", "themes", "temas"].includes(chave)) return policy.customization;
+    if (["customization", "personalizacao", "appearance", "aparencia"].includes(chave)) return policy.customization;
+    if (["themes", "temas", "temas_premium"].includes(chave)) return policy.customThemes;
+    if (["loja_publica", "publicar_loja", "compartilhar_loja"].includes(chave)) return policy.publicStore;
     if (["backup"].includes(chave)) return true;
     return policy.isPro;
   },
@@ -1481,7 +1506,7 @@ async function tentarLiberarCreditosAcaoPorAnuncio(actionName = "free_action_lim
     if (resultado?.shown) {
       registrarAnuncioExibido();
       window.MonetizationLimits?.resetActionsAfterAd?.(usuario);
-      mostrarToast("Mais 15 ações liberadas no Free.", "sucesso", 3600);
+      mostrarToast("Mais 5 pedidos liberados no Grátis hoje.", "sucesso", 3600);
       return true;
     }
     window.MonetizationLimits?.scheduleFallbackUnlock?.(usuario, FREE_ACTION_FALLBACK_UNLOCK_MINUTES);
@@ -1503,7 +1528,7 @@ async function consumirCreditoAcaoFree(actionType, label = "ação") {
   if (!monetizacao || getPlanPolicy().isPro || !monetizacao.shouldCountAction?.(actionType)) return true;
   if (monetizacao.canUseAction(usuario)) {
     const uso = monetizacao.registerAction(usuario, actionType);
-    const restantes = Math.max(0, FREE_ACTION_CREDIT_LIMIT - Number(uso?.count || 0));
+    const restantes = Math.max(0, Number(uso?.limit || FREE_ACTION_CREDIT_LIMIT) - Number(uso?.count || 0));
     if (restantes <= 3) {
       mostrarToast(`${restantes} ação(ões) restantes no Free antes do próximo anúncio.`, restantes ? "info" : "aviso", 3600);
     }
@@ -3540,8 +3565,21 @@ function normalizarSlugPlano(slug = "free") {
   const valor = String(slug || "free").toLowerCase().trim().replace(/-/g, "_");
   if (["basic", "basico", "básico", "gratis", "grátis", "free"].includes(valor)) return "free";
   if (["trial", "premium_trial"].includes(valor)) return "premium_trial";
-  if (["pro", "premium", "premium_normal", "premium_monthly"].includes(valor)) return "premium";
+  if (["start", "starter", "premium_first_month", "start_monthly"].includes(valor)) return "start";
+  if (["pro", "premium", "premium_normal", "premium_monthly", "pro_monthly"].includes(valor)) return "pro";
   return "free";
+}
+
+function isPlanoStartSlug(slug = "free") {
+  return normalizarSlugPlano(slug) === "start";
+}
+
+function isPlanoProSlug(slug = "free") {
+  return ["pro", "premium_trial"].includes(normalizarSlugPlano(slug));
+}
+
+function isPlanoPagoSlug(slug = "free") {
+  return ["start", "pro", "premium_trial"].includes(normalizarSlugPlano(slug));
 }
 
 function normalizarStatusPlano(status = "pending") {
@@ -3609,11 +3647,16 @@ function normalizarStatusAssinaturaDefinitivo(status = "free") {
 
 function normalizarBillingVariant(valor = "") {
   const variant = String(valor || "").toLowerCase().trim().replace(/-/g, "_");
-  return variant === "premium_monthly" ? "premium_monthly" : "premium_first_month";
+  if (["start_monthly", "premium_first_month"].includes(variant)) return "start_monthly";
+  if (["pro_monthly", "premium_monthly"].includes(variant)) return "pro_monthly";
+  return "start_monthly";
 }
 
 function getBillingVariantAssinatura(assinatura = getAssinaturaSaas()) {
-  return assinatura?.promoUsed ? "premium_monthly" : "premium_first_month";
+  const plano = normalizarSlugPlano(assinatura?.activePlan || assinatura?.planSlug || billingConfig.activePlan || billingConfig.planSlug || "free");
+  if (plano === "pro") return "pro_monthly";
+  if (plano === "start") return "start_monthly";
+  return assinatura?.promoUsed ? "pro_monthly" : "start_monthly";
 }
 
 function getPrecoBillingVariant(variant = "premium_first_month") {
@@ -3621,7 +3664,8 @@ function getPrecoBillingVariant(variant = "premium_first_month") {
 }
 
 function getPrecoPagoVigenteLocal() {
-  return PREMIUM_MONTHLY_PRICE;
+  const plano = normalizarSlugPlano(billingConfig.activePlan || billingConfig.planSlug || "pro");
+  return plano === "start" ? START_MONTHLY_PRICE : PRO_MONTHLY_PRICE;
 }
 
 function proximoClienteIdS3D() {
@@ -3653,7 +3697,7 @@ function normalizarPlanoSaas(plano = {}) {
     kind: String(planoPadrao ? padrao.kind : (plano.kind || padrao.kind || "paid")),
     durationDays: Number(planoPadrao ? padrao.durationDays : (plano.durationDays ?? plano.duration_days ?? padrao.durationDays ?? 0)) || 0,
     active: plano.active !== false && plano.ativo !== false,
-    recommended: planoPadrao ? !!padrao.recommended : (plano.recommended === true || plano.recomendado === true || slug === "premium"),
+    recommended: planoPadrao ? !!padrao.recommended : (plano.recommended === true || plano.recomendado === true || slug === "start"),
     sortOrder: Number(planoPadrao ? padrao.sortOrder : (plano.sortOrder ?? plano.sort_order ?? padrao.sortOrder ?? 100)) || 100
   };
 }
@@ -3708,7 +3752,7 @@ function normalizarAssinaturaSaas(assinatura = {}) {
   const activePlan = normalizarSlugPlano(activePlanInformado || (status === "pending" ? "free" : planSlug));
   const pendingPlan = assinatura.pendingPlan || assinatura.pending_plan ? normalizarSlugPlano(assinatura.pendingPlan || assinatura.pending_plan) : "";
   const paymentStatus = normalizarStatusPagamento(assinatura.paymentStatus || assinatura.payment_status || (status === "pending" ? "pending" : "none"));
-  const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(assinatura.subscriptionStatus || assinatura.subscription_status || (activePlan === "premium_trial" ? "trialing" : activePlan === "premium" ? "active" : "free"));
+  const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(assinatura.subscriptionStatus || assinatura.subscription_status || (activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(activePlan) ? "active" : "free"));
   const currentPeriodStart = assinatura.currentPeriodStart || assinatura.current_period_start || assinatura.startedAt || assinatura.started_at || assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || assinatura.createdAt || assinatura.created_at || new Date().toISOString();
   const currentPeriodEnd = assinatura.planExpiresAt || assinatura.plan_expires_at || assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || assinatura.trialEndAt || assinatura.trial_end_at || "";
   const trialStartedAt = assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || (activePlan === "premium_trial" ? currentPeriodStart : "");
@@ -3803,7 +3847,7 @@ function garantirPlanosSaas() {
   DEFAULT_SAAS_PLANS.forEach((plano) => mapa.set(plano.slug, normalizarPlanoSaas(plano)));
   (Array.isArray(saasPlans) ? saasPlans : []).forEach((plano) => {
     const slugOriginal = String(plano.slug || plano.id || "").toLowerCase().trim().replace(/-/g, "_");
-    if (!["free", "premium_trial", "premium"].includes(slugOriginal)) return;
+    if (!["free", "premium_trial", "premium", "start", "pro"].includes(slugOriginal)) return;
     const normalizado = normalizarPlanoSaas(plano);
     mapa.set(normalizado.slug, { ...mapa.get(normalizado.slug), ...normalizado });
   });
@@ -3833,7 +3877,7 @@ function calcularStatusAssinatura(assinatura = getAssinaturaSaas()) {
   if (!assinatura) return { status: "active", blockLevel: "none", diasAtraso: 0 };
   assinatura = normalizarAssinaturaSaas(assinatura);
   if (assinatura.paymentStatus === "pending") {
-    return { status: assinatura.activePlan === "premium_trial" ? "trialing" : assinatura.activePlan === "premium" ? "active" : "free", blockLevel: "none", diasAtraso: 0, pending: true };
+    return { status: assinatura.activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(assinatura.activePlan) ? "active" : "free", blockLevel: "none", diasAtraso: 0, pending: true };
   }
   if (assinatura.activePlan === "free") return { status: "free", blockLevel: "none", diasAtraso: 0 };
   const status = normalizarStatusPlano(assinatura.status || assinatura.statusAssinatura);
@@ -3843,7 +3887,7 @@ function calcularStatusAssinatura(assinatura = getAssinaturaSaas()) {
   if ((status === "active" || status === "trialing") && vencimento && vencimento >= Date.now()) {
     return { status, blockLevel: "none", diasAtraso: 0 };
   }
-  if (assinatura.activePlan === "premium" && status === "active" && !vencimento) {
+  if (["start", "pro"].includes(assinatura.activePlan) && status === "active" && !vencimento) {
     return { status, blockLevel: "none", diasAtraso: 0 };
   }
   if (assinatura.activePlan === "free" && status === "active") {
@@ -3896,13 +3940,13 @@ function garantirEstruturaSaasLocal() {
   billingConfig.activePlan = normalizarSlugPlano(billingConfig.activePlan || billingConfig.planSlug || "free");
   billingConfig.pendingPlan = billingConfig.pendingPlan ? normalizarSlugPlano(billingConfig.pendingPlan) : "";
   billingConfig.paymentStatus = normalizarStatusPagamento(billingConfig.paymentStatus || "none");
-  billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(billingConfig.subscriptionStatus || (billingConfig.activePlan === "premium_trial" ? "trialing" : billingConfig.activePlan === "premium" ? "active" : "free"));
+  billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(billingConfig.subscriptionStatus || (billingConfig.activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(billingConfig.activePlan) ? "active" : "free"));
   billingConfig.cloudSyncPaidOnly = false;
 
   const planoAtual = getPlanoSaas(billingConfig.activePlan || billingConfig.planSlug || "free");
   billingConfig.planSlug = planoAtual.slug;
   billingConfig.activePlan = planoAtual.slug;
-  billingConfig.monthlyPrice = Number(billingConfig.monthlyPrice) || (planoAtual.slug === "premium" ? getPrecoPagoVigenteLocal() : planoAtual.price);
+  billingConfig.monthlyPrice = Number(billingConfig.monthlyPrice) || (isPlanoPagoSlug(planoAtual.slug) ? planoAtual.price : 0);
   billingConfig.planPrice = Math.max(0, Number(billingConfig.planPrice) || 0);
   billingConfig.priceLocked = billingConfig.priceLocked === true;
   billingConfig.trialDays = Math.max(1, Number(billingConfig.trialDays) || DEFAULT_TRIAL_DAYS);
@@ -6773,7 +6817,11 @@ function slugPlanoPorLicencaEfetiva(licenca = {}) {
   const status = normalizarStatusLicencaEfetiva(licenca.effective_status || licenca.effectiveStatus);
   const planCode = String(licenca.plan_code || licenca.planCode || "").toUpperCase().trim();
   if (status === PLAN_ACCESS_STATES.TRIAL) return "premium_trial";
-  if (status === PLAN_ACCESS_STATES.ACTIVE || planCode === "PREMIUM") return status === PLAN_ACCESS_STATES.FREE ? "free" : "premium";
+  if (status === PLAN_ACCESS_STATES.ACTIVE || ["START", "PRO", "PREMIUM"].includes(planCode)) {
+    if (status === PLAN_ACCESS_STATES.FREE) return "free";
+    if (planCode === "START") return "start";
+    return "pro";
+  }
   return "free";
 }
 
@@ -6822,7 +6870,12 @@ function licencaEfetivaRemotaFresca() {
 function montarSnapshotPlanoDeLicencaEfetiva(licenca = getLicencaEfetivaSnapshotLocal(), source = "backend-rpc") {
   if (!licenca) return null;
   const state = normalizarStatusLicencaEfetiva(licenca.effectiveStatus || licenca.effective_status);
-  const activePlan = state === PLAN_ACCESS_STATES.TRIAL ? "premium_trial" : state === PLAN_ACCESS_STATES.ACTIVE ? "premium" : "free";
+  const planCode = String(licenca.planCode || licenca.plan_code || "").toUpperCase().trim();
+  const activePlan = state === PLAN_ACCESS_STATES.TRIAL
+    ? "premium_trial"
+    : state === PLAN_ACCESS_STATES.ACTIVE
+      ? (planCode === "START" ? "start" : "pro")
+      : "free";
   const trialRemainingDays = Math.max(0, Number(licenca.remainingTrialDays || licenca.remaining_trial_days || 0) || 0);
   const planExpiresAt = licenca.premiumUntil || licenca.premium_until || licenca.expires_at || "";
   return {
@@ -6889,7 +6942,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     const snapshotSuper = {
       state: PLAN_ACCESS_STATES.ACTIVE,
       source,
-      activePlan: "premium",
+      activePlan: "pro",
       pendingPlan: "",
       paymentStatus: "none",
       subscriptionStatus: "active",
@@ -6972,7 +7025,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     billingConfig.subscriptionStatus,
     user?.subscriptionStatus,
     user?.subscription_status,
-    activePlan === "premium_trial" ? "trialing" : activePlan === "premium" ? "active" : "free"
+    activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(activePlan) ? "active" : "free"
   ));
   const statusPlanoBruto = primeiroValorPlano(
     assinatura?.status,
@@ -6982,7 +7035,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     cliente?.status_assinatura,
     billingConfig.licenseStatus,
     user?.planStatus,
-    activePlan === "premium_trial" ? "trialing" : activePlan === "premium" ? "active" : "active"
+    activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(activePlan) ? "active" : "active"
   );
   const statusPlano = ["free", "gratis", "grátis"].includes(String(statusPlanoBruto || "").toLowerCase().trim())
     ? "active"
@@ -7014,7 +7067,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
   const pendingExpired = paymentStatus === "pending" && pendingStartedAt && (now - getTimestampPlano(pendingStartedAt) > 24 * 60 * 60 * 1000);
   const pending = !pendingExpired && (paymentStatus === "pending" || (!!pendingPlan && pendingPlan !== "free") || statusPlano === "pending");
   const blocked = usuarioEstaBloqueado(user) || (paymentStatus !== "pending" && (billingConfig.licenseStatus === "blocked" || billingConfig.licenseBlockLevel === "total" || billingConfig.blocked));
-  const paidActive = activePlan === "premium"
+  const paidActive = ["start", "pro"].includes(activePlan)
     && !planExpired
     && (subscriptionStatus === "active" || statusPlano === "active" || paymentStatus === "approved");
   const trialActive = trial.active && (
@@ -7037,7 +7090,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     ["past_due", "cancelled", "expired"].includes(subscriptionStatus)
     || ["past_due", "cancelled", "expired"].includes(statusPlano)
     || (activePlan === "premium_trial" && !!trial.expiresMs && !trial.active)
-    || (activePlan === "premium" && planExpired)
+    || (["start", "pro"].includes(activePlan) && planExpired)
   ) {
     state = PLAN_ACCESS_STATES.EXPIRED;
   }
@@ -7045,7 +7098,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
   const planoEfetivoUnico = state === PLAN_ACCESS_STATES.TRIAL
     ? "premium_trial"
     : state === PLAN_ACCESS_STATES.ACTIVE
-      ? "premium"
+      ? activePlan
       : "free";
   const snapshot = {
     state,
@@ -7148,10 +7201,10 @@ function getPlanoAtual(user = getUsuarioAtual()) {
     return {
       nome: "Super Admin",
       status: "superadmin",
-      slug: "premium",
+      slug: "pro",
       completo: true,
       diasRestantes: 9999,
-      descricao: "PRO interno"
+      descricao: "Pro interno"
     };
   }
 
@@ -7177,7 +7230,7 @@ function getPlanoAtual(user = getUsuarioAtual()) {
   };
   const nomes = {
     [PLAN_ACCESS_STATES.TRIAL]: "Teste PRO",
-    [PLAN_ACCESS_STATES.ACTIVE]: "PRO",
+    [PLAN_ACCESS_STATES.ACTIVE]: planoSaas.slug === "start" ? "Start" : "Pro",
     [PLAN_ACCESS_STATES.PENDING]: "Pendente",
     [PLAN_ACCESS_STATES.EXPIRED]: "Expirado",
     [PLAN_ACCESS_STATES.FREE]: "Free"
@@ -7233,7 +7286,7 @@ function temPlanoProPagoAtivo(user = getUsuarioAtual()) {
   return estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE
     && estadoPlano.isPaidActive === true
     && estadoPlano.isTrialActive !== true
-    && normalizarSlugPlano(estadoPlano.activePlan || "") === "premium";
+    && normalizarSlugPlano(estadoPlano.activePlan || "") === "pro";
 }
 
 function exigirPlanoCompleto() {
@@ -8429,15 +8482,20 @@ function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getSto
 
 function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const plano = normalizarSlugPlano(userPlan || "free");
-  const pro = ["premium", "premium_trial", "pro", "trial"].includes(plano);
+  const start = plano === "start";
+  const pro = ["pro", "premium_trial"].includes(plano);
+  const paid = start || pro;
   return {
-    enabled: pro,
-    productLimit: pro ? 250 : 5,
-    leadsEnabled: pro,
-    qrCodeEnabled: pro,
-    customThemeEnabled: pro,
+    enabled: true,
+    publishEnabled: paid,
+    shareEnabled: paid,
+    productLimit: pro ? Number.POSITIVE_INFINITY : start ? START_PRODUCT_LIMIT : FREE_PRODUCT_LIMIT,
+    leadsEnabled: paid,
+    qrCodeEnabled: paid,
+    customThemeEnabled: paid,
+    premiumThemeEnabled: pro,
     metricsEnabled: pro,
-    simplificaBrandingRequired: !pro
+    simplificaBrandingRequired: !paid
   };
 }
 
@@ -12888,7 +12946,7 @@ function renderConta() {
         </span>
         <span>
           <strong>${escaparHtml(usuario.nome || usuario.email)}</strong>
-          <small><b class="status-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(planoAtual.slug === "premium" ? "Pro" : planoAtual.slug === "premium_trial" ? "Trial" : "Free")}</b></small>
+          <small><b class="status-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(planoAtual.slug === "pro" ? "Pro" : planoAtual.slug === "start" ? "Start" : planoAtual.slug === "premium_trial" ? "Trial" : "Grátis")}</b></small>
           <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</small>
           <small>${escaparHtml(usuario.phone || usuario.telefone || appConfig.companyPhone || "")}</small>
         </span>
@@ -13753,6 +13811,20 @@ function renderStorefrontPublishedModal(store = getStorefrontAdminStoreLocal()) 
 }
 
 function exigirChecklistPublicacaoLoja({ intent = "publicar", silent = false } = {}) {
+  const policy = getPlanPolicy();
+  if (!policy.publicStore) {
+    if (!silent) {
+      const mensagem = intent === "compartilhar"
+        ? "O link público e o compartilhamento da loja ficam disponíveis no plano Start ou Pro."
+        : "Sua loja pode ser editada no plano Grátis, mas a publicação pública fica disponível no Start ou Pro.";
+      if (typeof mostrarModalLimitePlano === "function") {
+        mostrarModalLimitePlano(`${mensagem}<br><br><strong>Sua loja está pronta para ser publicada.</strong><br>Ative um plano pago para liberar o link público, remover a marca Simplifica 3D e compartilhar sua vitrine.`);
+      } else {
+        mostrarToast(mensagem, "aviso", 5200);
+      }
+    }
+    return false;
+  }
   const checklist = getStorefrontPublicationChecklist();
   if (checklist.ready) return true;
   if (!silent) {
@@ -20901,6 +20973,7 @@ function getClientesSaasPagina(lista = getClientesSaasFiltrados()) {
 
 function classePlanoSaasCompacto(planoSlug = "free") {
   const slug = String(planoSlug || "free").toLowerCase();
+  if (slug.includes("start")) return "plan-start";
   if (slug.includes("premium") || slug.includes("pro")) return "plan-pro";
   if (slug.includes("trial")) return "plan-trial";
   return "plan-free";
@@ -21008,7 +21081,7 @@ function renderSuperAdminClientePerfil() {
   const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
   const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
   const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
-  const planoCurto = plano.slug === "premium" ? "PRO" : plano.slug === "premium_trial" ? "TRIAL" : "FREE";
+  const planoCurto = plano.slug === "pro" ? "PRO" : plano.slug === "start" ? "START" : plano.slug === "premium_trial" ? "TRIAL" : "FREE";
   const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
   const emDia = statusPlano === "Em dia";
   const online = cliente.status === "active";
@@ -21622,12 +21695,8 @@ async function alterarPlanoClienteSaas(id) {
   if (respostaPlano === null) return;
   const novoPlano = normalizarSlugPlano(respostaPlano || "");
   const plano = getPlanoSaas(novoPlano);
-  if (!["free", "premium_trial", "premium"].includes(novoPlano)) {
+  if (!["free", "start", "pro"].includes(novoPlano)) {
     alert("Plano inválido.");
-    return;
-  }
-  if (novoPlano === "premium_trial") {
-    alert("Teste grátis não pode ser reativado manualmente. Use Premium manual ou Free.");
     return;
   }
   const confirmado = await solicitarConfirmacaoAcao({
@@ -21650,8 +21719,8 @@ async function alterarPlanoClienteSaas(id) {
   }
   const toast = mostrarToast("Salvando...", "loading");
   try {
-    const licenca = await chamarSuperadminUpdateSubscription(id, novoPlano === "premium" ? "ACTIVATE_PREMIUM_MANUAL" : "SET_FREE", {
-      planCode: novoPlano === "premium" ? "PREMIUM" : "FREE",
+    const licenca = await chamarSuperadminUpdateSubscription(id, novoPlano === "free" ? "SET_FREE" : "ACTIVATE_PREMIUM_MANUAL", {
+      planCode: novoPlano === "pro" ? "PRO" : novoPlano === "start" ? "START" : "FREE",
       premiumUntil: null,
       reason: `Alteração manual para ${plano.name}`
     });
@@ -22411,7 +22480,7 @@ function renderRelatorios() {
         </div>
         <p class="muted">O Free mantém dashboard e dados básicos. Relatórios completos, comparativos e exportações ficam disponíveis no PRO.</p>
         <div class="actions">
-          <button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>
+          <button class="btn" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
           <button class="btn ghost" type="button" onclick="trocarTela('dashboard')">Voltar ao dashboard</button>
         </div>
       </section>
@@ -22933,7 +23002,7 @@ function renderExtratoFinanceiro() {
           <span class="status-badge">PRO</span>
           <h3>Extrato Financeiro</h3>
           <p>Desbloqueie o Extrato Financeiro completo no plano Pro.</p>
-          <button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar Pro</button>
+          <button class="btn" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
         </div>
       </section>
     `;
@@ -23594,7 +23663,7 @@ function renderAdmin() {
           <div class="metric"><span>Backup</span><strong>${FREE_BACKUP_LIMIT_MB} MB</strong></div>
         </div>
         <div class="actions">
-          <button class="btn" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>
+          <button class="btn" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
           <button class="btn ghost" type="button" onclick="trocarTela('dashboard')">Continuar no Free</button>
         </div>
       </section>
@@ -24110,11 +24179,12 @@ function statusUsuarioPlano(usuario) {
 
 function getSuperAdminMetricas() {
   garantirEstruturaSaasLocal();
-  const porPlano = { free: 0, premium: 0, trial: 0 };
+  const porPlano = { free: 0, start: 0, pro: 0, trial: 0 };
   saasClients.forEach((cliente) => {
     const plano = getPlanoSaas(getAssinaturaSaas(cliente.id)?.planSlug || cliente.planoAtual || "free");
     if (plano.kind === "trial") porPlano.trial += 1;
-    else if (plano.slug === "premium") porPlano.premium += 1;
+    else if (plano.slug === "start") porPlano.start += 1;
+    else if (plano.slug === "pro") porPlano.pro += 1;
     else porPlano.free += 1;
   });
   return {
@@ -24233,8 +24303,9 @@ function renderSuperAdminDashboard() {
     .sort((a, b) => (Date.parse(b.lastAccessAt || b.updatedAt || b.createdAt || 0) || 0) - (Date.parse(a.lastAccessAt || a.updatedAt || a.createdAt || 0) || 0))
     .slice(0, 5);
   const planoCards = [
-    { titulo: "Plano Free", slug: "free", valor: metricas.porPlano.free, filtro: "free" },
-    { titulo: "Plano Pro", slug: "premium", valor: metricas.porPlano.premium, filtro: "premium" },
+    { titulo: "Plano Grátis", slug: "free", valor: metricas.porPlano.free, filtro: "free" },
+    { titulo: "Plano Start", slug: "start", valor: metricas.porPlano.start, filtro: "start" },
+    { titulo: "Plano Pro", slug: "pro", valor: metricas.porPlano.pro, filtro: "pro" },
     { titulo: "Trial", slug: "premium_trial", valor: metricas.porPlano.trial, filtro: "premium_trial" }
   ];
   const kpis = [
@@ -24283,7 +24354,7 @@ function renderSuperAdminDashboard() {
     <div class="superadmin-plan-grid">
       ${planoCards.map((plano) => `
         <button class="superadmin-plan-card ${classePlanoSaasCompacto(plano.slug)}" onclick="abrirSuperAdminFiltro('clientes', '${plano.filtro}')">
-          <span class="row-title"><strong>${escaparHtml(plano.titulo)}</strong><i>${escaparHtml(plano.slug === "premium" ? "PRO" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i></span>
+          <span class="row-title"><strong>${escaparHtml(plano.titulo)}</strong><i>${escaparHtml(plano.slug === "pro" ? "PRO" : plano.slug === "start" ? "START" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i></span>
           <strong>${Number(plano.valor || 0).toLocaleString("pt-BR")}</strong>
           <span class="muted">usuários</span>
           <small>Ver todos ›</small>
@@ -24304,7 +24375,7 @@ function renderSuperAdminDashboard() {
           <button class="superadmin-recent-row" onclick="abrirPerfilClienteSaas('${escaparAttr(cliente.id)}')">
             <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>
             <strong>${escaparHtml(cliente.name || cliente.email)}</strong>
-            <i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.slug === "premium" ? "PRO" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i>
+            <i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.slug === "pro" ? "PRO" : plano.slug === "start" ? "START" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i>
             <span class="${online ? "sa-online" : "sa-offline"}">${online ? "Online" : "Offline"}</span>
             <span class="${status === "Atrasado" ? "sa-late" : "sa-ok"}">${escaparHtml(status)}</span>
             <small>•••</small>
@@ -24344,7 +24415,7 @@ function renderSuperAdminPagamentos() {
 function renderSuperAdminPlanos() {
   return `
     <div class="comparison-grid">
-      ${garantirPlanosSaas().filter((plano) => ["free", "premium"].includes(plano.slug)).map((plano) => `
+      ${garantirPlanosSaas().filter((plano) => ["free", "start", "pro"].includes(plano.slug)).map((plano) => `
         <div class="plan-card ${plano.recommended ? "featured" : ""}">
           <div class="row-title"><strong>${escaparHtml(plano.name)}</strong><span>${formatarMoeda(plano.price)}</span></div>
           <p class="muted">${plano.maxUsers} usuário(s) • ${plano.maxOrders || "pedidos ilimitados"} • ${plano.maxCalculatorUses || "calculadora ilimitada"}</p>
@@ -25888,37 +25959,91 @@ function renderStatusPlanoUnico(resumo) {
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
   const estadoPlano = resolverEstadoPlano(getUsuarioAtual(), { source: "plans-screen" });
-  const precoVigente = getPrecoPagoVigenteLocal();
   const superadmin = isSuperAdmin();
   const isPremiumAtivo = superadmin || estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE;
-  const planoAtual = isPremiumAtivo ? getPlanoSaas("premium") : getPlanoSaas("free");
+  const planoAtual = getPlanoSaas(isPremiumAtivo ? estadoPlano.activePlan : "free");
   const usuario = getUsuarioAtual();
-  const usuariosAtivos = Math.max(1, getUsuariosDoCliente().filter((item) => item.ativo !== false && !item.bloqueado).length || 1);
-  const periodoMes = criarIntervaloPeriodoLocal("mes");
-  const pedidosMes = pedidos.filter((pedido) => {
-    return dataDentroIntervalo(getDataPedidoLocal(pedido), periodoMes.start, periodoMes.end);
-  }).length;
   const proximaCobranca = estadoPlano.planExpiresAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
   const dataCobranca = proximaCobranca ? new Date(proximaCobranca).toLocaleDateString("pt-BR") : "-";
-  const statusLabel = isPremiumAtivo ? "Ativo" : estadoPlano.pending ? "Pendente" : "Free";
+  const statusLabel = isPremiumAtivo ? "Ativo" : estadoPlano.pending ? "Pendente" : "Grátis";
   const policy = getPlanPolicy(usuario);
   const usuarioMonetizacao = getUsuarioMonetizacao();
-  const acoesRestantes = policy.isPro ? "Ilimitadas" : String(window.MonetizationLimits?.getRemainingFreeActions?.(usuarioMonetizacao) ?? FREE_ACTION_CREDIT_LIMIT);
+  const acoesRestantes = policy.isPaid ? "Ilimitados" : String(window.MonetizationLimits?.getRemainingFreeActions?.(usuarioMonetizacao) ?? FREE_ACTION_CREDIT_LIMIT);
   const resumoBackup = atualizarFlagBackupOverLimit(criarSnapshotBackupUsuarioAtual(), false);
   const sessoesAtivas = saasSessions.filter((sessao) => sessao.clientId === (usuario?.clientId || billingConfig.clientId) && sessao.active !== false).length || 1;
   const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}${resumoBackup.backup_over_limit ? " · somente leitura" : ""}`;
+  const planos = [
+    {
+      slug: "free",
+      name: "Grátis",
+      subtitle: "Ideal para começar e testar a plataforma",
+      price: "R$ 0",
+      period: "/mês",
+      badge: "Entrada",
+      allowedTitle: "Permitido",
+      allowed: ["Até 25 produtos", "Cadastro de clientes", "Controle simples de pedidos", "Caixa simples", "Histórico básico", "Criar, editar e visualizar loja em preview"],
+      blockedTitle: "Bloqueado",
+      blocked: ["Não publica vitrine", "Não gera link público", "Não permite compartilhar loja", "Sem personalização avançada"],
+      highlights: ["5 pedidos grátis por dia", "+5 pedidos assistindo anúncio", "Máximo 10 pedidos/dia", "Powered by Simplifica 3D"],
+      note: "Sua loja está pronta para ser publicada. Ative um plano pago para liberar seu link público.",
+      cta: policy.isFree ? "Plano atual" : "Voltar para Grátis",
+      current: policy.isFree,
+      action: "dashboard"
+    },
+    {
+      slug: "start",
+      name: "Start",
+      subtitle: "Comece a vender de verdade",
+      price: "R$ 29,90",
+      period: "/mês",
+      badge: "MAIS POPULAR",
+      allowedTitle: "Libera sua loja online",
+      allowed: ["Até 300 produtos", "Pedidos ilimitados", "Loja pública liberada", "Link compartilhável", "Sem anúncios", "Personalização básica", "Banner simples", "Relatórios básicos", "Financeiro básico", "Backup automático", "Remove marca Simplifica 3D"],
+      blockedTitle: "Fica para o Pro",
+      blocked: ["Analytics avançado", "Multiusuário/admin", "Temas premium", "Automações e integrações futuras"],
+      highlights: ["Preview vira loja real online", "Sem anúncios", "Link público para compartilhar"],
+      note: "O plano principal para colocar a vitrine no ar com aparência profissional.",
+      cta: policy.isStart ? "Plano atual" : "Escolher Start",
+      current: policy.isStart,
+      action: "start"
+    },
+    {
+      slug: "pro",
+      name: "Pro",
+      subtitle: "Para operação profissional",
+      price: "R$ 59,90",
+      period: "/mês",
+      badge: "PROFISSIONAL",
+      allowedTitle: "Profissional completo",
+      allowed: ["Produtos ilimitados", "Pedidos ilimitados", "Loja premium completa", "Destaque/publicação premium", "Dashboard avançado", "Analytics completos", "Financeiro avançado", "Multiusuário/admin", "Temas premium", "Automações", "Integrações futuras", "Suporte prioritário"],
+      blockedTitle: "",
+      blocked: [],
+      highlights: ["Operação sem limites", "Identidade premium", "Suporte prioritário"],
+      note: "O plano completo para quem quer escalar e vender mais.",
+      cta: policy.isPro ? "Plano atual" : "Escolher Pro",
+      current: policy.isPro,
+      action: "pro"
+    }
+  ];
 
   return `
-    <section class="plans-modern-screen">
+    <section class="plans-modern-screen plans-pricing-screen">
       <div class="plans-modern-header">
         <button class="icon-action-button" type="button" onclick="trocarTela('conta')" title="Voltar">${renderUiIcon("back")}</button>
         <h2>Planos</h2>
         <span></span>
       </div>
 
-      <div class="plans-modern-tabs">
-        <button class="active" type="button">Meu plano</button>
-        <button type="button">Todos os planos</button>
+      <div class="plans-pricing-hero">
+        <div>
+          <span class="eyebrow">Simplifica 3D</span>
+          <h2>Escolha o plano ideal</h2>
+          <p>Mais organização, mais vendas e uma loja pronta para crescer junto com seu negócio.</p>
+        </div>
+        <div class="plans-pricing-note">
+          ${renderUiIcon("time")}
+          <span>Valores promocionais de lançamento por tempo limitado. Os preços podem sofrer reajustes conforme novos recursos forem adicionados.</span>
+        </div>
       </div>
 
       <div class="plans-current-modern">
@@ -25926,45 +26051,24 @@ function renderAssinatura() {
           <div>
             <span class="eyebrow">Seu plano atual</span>
             <h3>${escaparHtml(planoAtual.name || (isPremiumAtivo ? "Plano Pro" : "Plano Free"))} <small>${escaparHtml(statusLabel)}</small></h3>
-            <p class="muted">${isPremiumAtivo ? "Mais recursos para impulsionar seus projetos." : "Ideal para começar na plataforma."}</p>
+            <p class="muted">${policy.isPaid ? "Sua conta está sem anúncios e com recursos pagos liberados conforme o plano." : "Você pode testar o ERP e montar a loja em preview antes de publicar."}</p>
           </div>
-          <span class="plan-modern-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${isPremiumAtivo ? renderUiIcon("superadmin") : ""}${escaparHtml(isPremiumAtivo ? "PRO" : "FREE")}</span>
+          <span class="plan-modern-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(policy.isPro ? "PRO" : policy.isStart ? "START" : "GRÁTIS")}</span>
         </div>
         <div class="plans-current-stats">
-          <span><small>Ações restantes</small><strong>${escaparHtml(acoesRestantes)}</strong></span>
+          <span><small>Pedidos restantes hoje</small><strong>${escaparHtml(acoesRestantes)}</strong></span>
           <span><small>Backup</small><strong>${escaparHtml(textoBackup)}</strong></span>
           <span><small>Dispositivos</small><strong>${sessoesAtivas}/${policy.maxDevices}</strong></span>
           <span><small>Próxima cobrança</small><strong>${escaparHtml(dataCobranca)}</strong></span>
         </div>
         <div class="plans-current-bottom">
-          <span><small>Valor</small><strong>${isPremiumAtivo ? `${formatarMoeda(precoVigente)}/mês` : "Grátis"}</strong></span>
-          <button class="btn ghost" type="button" ${isPremiumAtivo ? "onclick=\"sincronizarSupabase()\"" : "data-action=\"open-payment\" data-slug=\"premium\""}>${renderUiIcon("config")} ${isPremiumAtivo ? "Gerenciar plano" : "Assinar Pro"}</button>
+          <span><small>Loja pública</small><strong>${policy.publicStore ? "Liberada" : "Somente preview"}</strong></span>
+          <button class="btn ghost" type="button" ${isPremiumAtivo ? "onclick=\"sincronizarSupabase()\"" : "data-action=\"open-payment\" data-slug=\"start\""}>${renderUiIcon("config")} ${isPremiumAtivo ? "Gerenciar plano" : "Publicar com Start"}</button>
         </div>
       </div>
 
-      <h3 class="plans-modern-section-title">Escolha um novo plano</h3>
-      <div class="plans-modern-list">
-        ${renderModernPlanOption({
-          slug: "free",
-          title: "Plano Free",
-          subtitle: "Pedidos, clientes, estoque, caixa e calculadora com anúncios leves.",
-          price: "Grátis",
-          current: !isPremiumAtivo,
-          features: [`${FREE_ACTION_CREDIT_LIMIT} ações por ciclo`, "Anúncios no Free", `${FREE_BACKUP_LIMIT_MB} MB de backup`, `${FREE_DEVICE_LIMIT} dispositivos`, "Sem relatórios, funcionários e temas personalizados"],
-          actionLabel: !isPremiumAtivo ? "Plano atual" : "Escolher plano",
-          action: "dashboard"
-        })}
-        ${renderModernPlanOption({
-          slug: "premium",
-          title: "Plano Pro",
-          subtitle: "Mais recursos para impulsionar seus projetos.",
-          price: `${formatarMoeda(precoVigente)}/mês`,
-          current: isPremiumAtivo,
-          featured: true,
-          features: ["Sem anúncios", "Relatórios completos", `${PRO_BACKUP_LIMIT_MB / 1024} GB de backup`, `${PRO_DEVICE_LIMIT} dispositivos`, "Funcionários e personalização visual"],
-          actionLabel: isPremiumAtivo ? "Plano atual" : "Escolher plano",
-          action: "premium"
-        })}
+      <div class="plans-pricing-grid">
+        ${planos.map(renderModernPlanOption).join("")}
       </div>
 
       <button class="plans-help-card" type="button" onclick="trocarTela('feedback')">
@@ -25976,34 +26080,47 @@ function renderAssinatura() {
   `;
 }
 
-function renderModernPlanOption({ slug, title, subtitle, price, features = [], current = false, featured = false, actionLabel = "Escolher plano", action = "" }) {
-  const isPro = slug === "premium";
-  const short = isPro ? "PRO" : "FREE";
-  const click = current
+function renderModernPlanOption(plan = {}) {
+  const slug = normalizarSlugPlano(plan.slug || "free");
+  const short = slug === "pro" ? "PRO" : slug === "start" ? "START" : "GRÁTIS";
+  const click = plan.current
     ? ""
-    : action === "premium"
-      ? `data-action="open-payment" data-slug="premium"`
-      : `onclick="trocarTela('${escaparAttr(action || "dashboard")}')"`;
+    : ["start", "pro"].includes(plan.action)
+      ? `data-action="open-payment" data-slug="${escaparAttr(plan.action)}"`
+      : `onclick="trocarTela('${escaparAttr(plan.action || "dashboard")}')"`;
   return `
-    <div class="plan-modern-option ${featured ? "featured" : ""} ${current ? "current" : ""}">
-      ${current ? `<span class="plan-current-ribbon">Atual</span>` : ""}
+    <article class="plan-modern-option plan-tier-card plan-tier-${escaparAttr(slug)} ${plan.current ? "current" : ""}" tabindex="0">
+      ${plan.current ? `<span class="plan-current-ribbon">Atual</span>` : ""}
+      ${plan.badge ? `<span class="plan-tier-badge">${escaparHtml(plan.badge)}</span>` : ""}
       <div class="row-title">
+        <span class="plan-tier-avatar">${short.charAt(0)}</span>
         <div>
-          <h3>${escaparHtml(title)}</h3>
-          <p class="muted">${escaparHtml(subtitle)}</p>
+          <h3>${escaparHtml(plan.name)}</h3>
+          <p class="muted">${escaparHtml(plan.subtitle)}</p>
         </div>
         <span class="plan-modern-badge ${classePlanoSaasCompacto(slug)}">${escaparHtml(short)}</span>
       </div>
-      <div class="plan-modern-body">
-        <ul>
-          ${features.map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
-        </ul>
-        <div>
-          <strong>${escaparHtml(price)}</strong>
-          <button class="btn ghost" type="button" ${click} ${current ? "disabled" : ""}>${escaparHtml(actionLabel)}</button>
-        </div>
+      <div class="plan-tier-price"><small>R$</small><strong>${escaparHtml(plan.price.replace(/^R\$\s*/, ""))}</strong><span>${escaparHtml(plan.period)}</span></div>
+      <div class="plan-tier-highlights">
+        ${(plan.highlights || []).map((item) => `<b>${escaparHtml(item)}</b>`).join("")}
       </div>
-    </div>
+      <div class="plan-tier-section">
+        <strong>${escaparHtml(plan.allowedTitle || "Inclui")}</strong>
+        <ul class="plan-tier-list allowed">
+          ${(plan.allowed || []).map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
+        </ul>
+      </div>
+      ${plan.blocked?.length ? `
+        <div class="plan-tier-section blocked">
+          <strong>${escaparHtml(plan.blockedTitle || "Bloqueado")}</strong>
+          <ul class="plan-tier-list blocked">
+            ${plan.blocked.map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : ""}
+      <div class="plan-tier-note">${escaparHtml(plan.note || "")}</div>
+      <button class="btn plan-tier-button" type="button" ${click} ${plan.current ? "disabled" : ""}>${escaparHtml(plan.cta || "Escolher plano")}</button>
+    </article>
   `;
 }
 
@@ -26018,7 +26135,7 @@ function renderTrialPremiumAtivoCard(diasTrial = 0) {
       <h3>Você está testando o PRO gratuitamente</h3>
       <p>Ao final do período, sua conta volta para o plano gratuito caso você não assine.</p>
       <div class="actions">
-        <button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>
+        <button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
         <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
       </div>
     </div>
@@ -26069,10 +26186,11 @@ function renderPlanBenefitList(beneficios = []) {
 
 function renderPlanoSaasCard(plano, options = {}) {
   const superadmin = isSuperAdmin();
-  const isPremium = plano.slug === "premium";
+  const isPremium = ["start", "pro", "premium_trial"].includes(plano.slug);
   const preco = isPremium ? Number(options.preco || getPrecoPagoVigenteLocal()) : 0;
+  const isPro = plano.slug === "pro" || plano.slug === "premium_trial";
   const beneficios = isPremium
-    ? ["Sem anúncios", "Ações ilimitadas", "Relatórios completos", "Backup de 1 GB", "Funcionários", "Temas e identidade visual"]
+    ? (isPro ? ["Sem anúncios", "Pedidos ilimitados", "Produtos ilimitados", "Analytics completos", "Multiusuário/admin", "Temas premium"] : ["Sem anúncios", "Pedidos ilimitados", "Até 300 produtos", "Loja pública liberada", "Relatórios básicos", "Backup automático"])
     : [`${FREE_ACTION_CREDIT_LIMIT} ações por ciclo`, "Anúncios leves", "Backup de 50 MB", "2 dispositivos", "Pedidos, clientes, estoque, caixa e calculadora"];
 
   return `
@@ -26093,7 +26211,7 @@ function renderPlanoSaasCard(plano, options = {}) {
         ${superadmin
           ? `<button class="btn ghost" type="button" disabled>Não aplicável</button>`
           : isPremium
-            ? `<button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="premium">Assinar PRO</button>`
+            ? `<button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="${escaparAttr(plano.slug === "start" ? "start" : "pro")}">Assinar ${escaparHtml(plano.slug === "start" ? "Start" : "Pro")}</button>`
             : `<button class="btn ghost plan-free-button" type="button" data-action="open-screen" data-screen="dashboard">Continuar no plano gratuito</button>`}
       </div>
     </div>
@@ -26530,7 +26648,7 @@ function registrarDiagnosticoManual() {
 
 function escolherPlanoSaas(slug = "free") {
   const plano = getPlanoSaas(slug);
-  if (!["free", "premium"].includes(plano.slug)) {
+  if (!["free", "start", "pro"].includes(plano.slug)) {
     alert("Plano indisponível.");
     return;
   }
@@ -26562,7 +26680,7 @@ function escolherPlanoSaas(slug = "free") {
   }
   billingConfig.planSlug = assinatura.activePlan || assinatura.planSlug || "free";
   billingConfig.activePlan = assinatura.activePlan || assinatura.planSlug || "free";
-  billingConfig.monthlyPrice = plano.slug === "premium" ? getPrecoPagoVigenteLocal() : plano.price;
+  billingConfig.monthlyPrice = isPlanoPagoSlug(plano.slug) ? plano.price : 0;
   billingConfig.subscriptionId = assinatura.id;
   salvarDados();
   registrarAuditoria(plano.price > 0 ? "upgrade" : "alteração plano", { plano: plano.slug }, clientId);
@@ -26665,8 +26783,8 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
   const agora = new Date().toISOString();
   const assinatura = garantirAssinaturaClienteLocal(clientId);
   const expiresAt = dias > 0 ? new Date(Date.now() + dias * 24 * 60 * 60 * 1000).toISOString() : "";
-  const planPrice = plano.slug === "premium"
-    ? Math.max(0, Number(detalhes.planPrice ?? detalhes.plan_price ?? assinatura.planPrice ?? getPrecoPagoVigenteLocal()) || getPrecoPagoVigenteLocal())
+  const planPrice = isPlanoPagoSlug(plano.slug)
+    ? Math.max(0, Number(detalhes.planPrice ?? detalhes.plan_price ?? assinatura.planPrice ?? plano.price) || plano.price)
     : 0;
   assinatura.planSlug = plano.slug;
   assinatura.planId = plano.slug;
@@ -26674,13 +26792,13 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
   assinatura.pendingPlan = "";
   assinatura.pendingStartedAt = "";
   assinatura.paymentStatus = status === "pending" ? "pending" : "none";
-  assinatura.subscriptionStatus = plano.slug === "premium_trial" ? "trialing" : plano.slug === "premium" ? "active" : "free";
+  assinatura.subscriptionStatus = plano.slug === "premium_trial" ? "trialing" : isPlanoPagoSlug(plano.slug) ? "active" : "free";
   assinatura.status = normalizarStatusPlano(status);
   assinatura.statusAssinatura = assinatura.status;
   assinatura.promoUsed = detalhes.promoUsed === true || assinatura.promoUsed === true;
   assinatura.billingVariant = normalizarBillingVariant(detalhes.billingVariant || getBillingVariantAssinatura(assinatura));
   assinatura.planPrice = planPrice;
-  assinatura.priceLocked = plano.slug === "premium";
+  assinatura.priceLocked = isPlanoPagoSlug(plano.slug);
   assinatura.currentPeriodStart = agora;
   assinatura.currentPeriodEnd = expiresAt;
   assinatura.startedAt = assinatura.startedAt || agora;
@@ -26704,7 +26822,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     cliente.statusAssinatura = assinatura.statusAssinatura;
     cliente.status = status === "blocked" ? "blocked" : "active";
     cliente.planPrice = planPrice;
-    cliente.priceLocked = plano.slug === "premium";
+    cliente.priceLocked = isPlanoPagoSlug(plano.slug);
     cliente.planExpiresAt = expiresAt;
     cliente.trialStartedAt = assinatura.trialStartedAt;
     cliente.trialExpiresAt = assinatura.trialExpiresAt;
@@ -26734,9 +26852,9 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     billingConfig.licenseBlockLevel = "none";
     billingConfig.paidUntil = expiresAt;
     billingConfig.planExpiresAt = expiresAt;
-    billingConfig.monthlyPrice = plano.slug === "premium" ? planPrice : plano.price;
+    billingConfig.monthlyPrice = isPlanoPagoSlug(plano.slug) ? planPrice : 0;
     billingConfig.planPrice = planPrice;
-    billingConfig.priceLocked = plano.slug === "premium";
+    billingConfig.priceLocked = isPlanoPagoSlug(plano.slug);
     billingConfig.trialStartedAt = assinatura.trialStartedAt;
     billingConfig.trialExpiresAt = assinatura.trialExpiresAt;
     billingConfig.trialConsumedAt = assinatura.trialConsumedAt || billingConfig.trialConsumedAt || "";
@@ -26798,7 +26916,7 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
 
 async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") {
   const plano = getPlanoSaas(slug);
-  if (plano.slug !== "premium") {
+  if (!["start", "pro"].includes(plano.slug)) {
     trocarTela("assinatura");
     return;
   }
@@ -26813,7 +26931,7 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") 
   registrarAuditoria("tentativa", { tipo: "assinatura", plano: plano.slug }, clientId);
   try {
     const assinatura = garantirAssinaturaClienteLocal(clientId);
-    const billingVariant = getBillingVariantAssinatura(assinatura);
+    const billingVariant = plano.slug === "start" ? "start_monthly" : "pro_monthly";
     const planPrice = getPrecoBillingVariant(billingVariant);
     const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
       clienteId: clientId,
@@ -26841,8 +26959,8 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") 
 
 async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "premium") {
   const plano = getPlanoSaas(slug);
-  if (plano.slug !== "premium") {
-    alert("Pagamento disponível para o plano Premium.");
+  if (!["start", "pro"].includes(plano.slug)) {
+    alert("Pagamento disponível para os planos Start e Pro.");
     return;
   }
 
@@ -26855,7 +26973,7 @@ async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "
 
   try {
     const assinatura = garantirAssinaturaClienteLocal(clientId);
-    const billingVariant = getBillingVariantAssinatura(assinatura);
+    const billingVariant = plano.slug === "start" ? "start_monthly" : "pro_monthly";
     const planPrice = getPrecoBillingVariant(billingVariant);
     const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
       clienteId: clientId,
@@ -28009,7 +28127,7 @@ function sincronizarAposLogin() {
     sincronizarAlteracoesLocaisSilencioso("login").catch((erro) => registrarDiagnostico("sync", "Sync Supabase pós-login falhou", erro.message));
     return;
   }
-  if (plano.slug === "premium" || plano.slug === "premium_trial") {
+  if (isPlanoPagoSlug(plano.slug)) {
     syncConfig.supabaseEnabled = true;
     syncConfig.autoBackupTarget = "supabase";
     sincronizarSupabaseSilencioso().catch((erro) => registrarDiagnostico("sync", "Sync Premium pós-login falhou", erro.message));
@@ -29417,7 +29535,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   }
   billingConfig.pendingPlan = licenca.pending_plan ? normalizarSlugPlano(licenca.pending_plan) : "";
   billingConfig.paymentStatus = normalizarStatusPagamento(licenca.payment_status || (statusEfetivo === PLAN_ACCESS_STATES.PENDING ? "pending" : "none"));
-  billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(licenca.subscription_status || (billingConfig.activePlan === "premium_trial" ? "trialing" : billingConfig.activePlan === "premium" ? "active" : "free"));
+  billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(licenca.subscription_status || (billingConfig.activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(billingConfig.activePlan) ? "active" : "free"));
   if (!isLicencaEfetiva) billingConfig.licenseStatus = normalizarStatusPlano(licenca.status || billingConfig.licenseStatus || "pending");
   billingConfig.licenseBlockLevel = String(licenca.block_level || (statusEfetivo === PLAN_ACCESS_STATES.BLOCKED ? "total" : "none"));
   billingConfig.planPrice = Math.max(0, Number(licenca.plan_price ?? billingConfig.planPrice ?? 0) || 0);
@@ -35271,7 +35389,7 @@ function solicitarPlanoSuperadmin(planoAtual = "free") {
       resolve(null);
       return;
     }
-    const planos = garantirPlanosSaas().filter((plano) => ["free", "premium"].includes(plano.slug));
+    const planos = garantirPlanosSaas().filter((plano) => ["free", "start", "pro"].includes(plano.slug));
     popup.innerHTML = `
       <div class="modal-backdrop" role="dialog" aria-modal="true">
         <form class="modal-card" id="adminPlanForm">
@@ -37003,7 +37121,7 @@ async function verificarBancosDadosAoEntrar() {
     await baixarAtualizacoesSupabaseSilencioso("startup-health").catch(() => false);
     await sincronizarFilaOfflinePendente("startup-health");
     const plano = getPlanoAtual();
-    if ((plano.slug === "premium" || plano.slug === "premium_trial") && temAcessoNuvem()) {
+    if (isPlanoPagoSlug(plano.slug) && temAcessoNuvem()) {
       syncConfig.supabaseEnabled = true;
       syncConfig.autoBackupTarget = "supabase";
       await sincronizarSupabaseSilencioso();

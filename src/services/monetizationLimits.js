@@ -1,7 +1,9 @@
 (function (global) {
   "use strict";
 
-  const FREE_ACTION_CREDIT_LIMIT = 15;
+  const FREE_ACTION_CREDIT_LIMIT = 5;
+  const FREE_ACTION_AD_BONUS_LIMIT = 5;
+  const FREE_ACTION_DAILY_MAX = FREE_ACTION_CREDIT_LIMIT + FREE_ACTION_AD_BONUS_LIMIT;
   const FALLBACK_UNLOCK_MINUTES = 30;
   const AD_FREE_UNLOCK_DURATION_MINUTES = 10;
   const STORAGE_KEY = "simplifica3d:monetization-limits:v2";
@@ -80,19 +82,20 @@
     const status = normalize(user?.subscriptionStatus || user?.subscription_status || user?.status || user?.planStatus || user?.statusAssinatura);
     const expiresAt = Date.parse(user?.trialExpiresAt || user?.trial_expires_at || user?.planExpiresAt || user?.plan_expires_at || user?.currentPeriodEnd || user?.current_period_end || user?.expiresAt || user?.expires_at || 0) || 0;
     if (planId === "premium_trial") return status === "trialing" && expiresAt > config.now();
-    if (planId === "premium") return status === "active" && (!expiresAt || expiresAt > config.now());
+    if (["start", "pro", "premium"].includes(planId)) return status === "active" && (!expiresAt || expiresAt > config.now());
     return false;
   }
 
   function actionKey(user = {}) {
-    return getUserKey(user);
+    const day = new Date(config.now()).toISOString().slice(0, 10);
+    return `${getUserKey(user)}:${day}`;
   }
 
   function sanitizeActionUsage(current) {
     const count = Math.max(0, Math.floor(Number(current?.count || 0) || 0));
     return {
       count,
-      limit: Math.max(1, Math.floor(Number(current?.limit || FREE_ACTION_CREDIT_LIMIT) || FREE_ACTION_CREDIT_LIMIT)),
+      limit: Math.max(FREE_ACTION_CREDIT_LIMIT, Math.min(FREE_ACTION_DAILY_MAX, Math.floor(Number(current?.limit || FREE_ACTION_CREDIT_LIMIT) || FREE_ACTION_CREDIT_LIMIT))),
       updatedAt: Number(current?.updatedAt || 0) || 0
     };
   }
@@ -125,7 +128,7 @@
   function getRemainingFreeActions(user = {}) {
     if (isPremium(user)) return Number.POSITIVE_INFINITY;
     const usage = getActionUsage(user);
-    return Math.max(0, FREE_ACTION_CREDIT_LIMIT - Number(usage.count || 0));
+    return Math.max(0, Number(usage.limit || FREE_ACTION_CREDIT_LIMIT) - Number(usage.count || 0));
   }
 
   function canUseAction(user = {}) {
@@ -149,8 +152,8 @@
     state.actionUsage = {
       ...(state.actionUsage || {}),
       [key]: {
-        count: Math.min(FREE_ACTION_CREDIT_LIMIT, current.count + 1),
-        limit: FREE_ACTION_CREDIT_LIMIT,
+        count: Math.min(current.limit || FREE_ACTION_CREDIT_LIMIT, current.count + 1),
+        limit: current.limit || FREE_ACTION_CREDIT_LIMIT,
         updatedAt: config.now()
       }
     };
@@ -163,7 +166,7 @@
     const key = actionKey(user);
     state.actionUsage = {
       ...(state.actionUsage || {}),
-      [key]: { count: 0, limit: FREE_ACTION_CREDIT_LIMIT, updatedAt: config.now() }
+      [key]: { count: Math.min(FREE_ACTION_CREDIT_LIMIT, getActionUsage(user).count || FREE_ACTION_CREDIT_LIMIT), limit: FREE_ACTION_DAILY_MAX, updatedAt: config.now() }
     };
     state.actionResets = { ...(state.actionResets || {}), [key]: config.now() };
     if (state.fallbackUnlocks?.[key]) {
@@ -171,7 +174,7 @@
       delete state.fallbackUnlocks[key];
     }
     saveState(state);
-    return { type: "actions", count: FREE_ACTION_CREDIT_LIMIT, remaining: FREE_ACTION_CREDIT_LIMIT };
+    return { type: "actions", count: FREE_ACTION_AD_BONUS_LIMIT, remaining: getRemainingFreeActions(user), limit: FREE_ACTION_DAILY_MAX };
   }
 
   function scheduleFallbackUnlock(user = {}, minutes = FALLBACK_UNLOCK_MINUTES) {
@@ -211,7 +214,8 @@
   }
 
   function getBackupUsageSummary({ usedBytes = 0, plan = "free" } = {}) {
-    const limitMb = normalize(plan) === "premium" || normalize(plan) === "pro" ? 1024 : 50;
+    const normalizedPlan = normalize(plan);
+    const limitMb = normalizedPlan === "premium" || normalizedPlan === "pro" ? 1024 : normalizedPlan === "start" ? 256 : 50;
     const limitBytes = limitMb * 1024 * 1024;
     const used = Math.max(0, Number(usedBytes) || 0);
     return {
@@ -311,6 +315,8 @@
 
   const api = {
     FREE_ACTION_CREDIT_LIMIT,
+    FREE_ACTION_AD_BONUS_LIMIT,
+    FREE_ACTION_DAILY_MAX,
     FALLBACK_UNLOCK_MINUTES,
     AD_UNLOCK_DURATION_MINUTES: FALLBACK_UNLOCK_MINUTES,
     AD_FREE_UNLOCK_DURATION_MINUTES,
