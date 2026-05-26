@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.8-estavel";
-const APP_VERSION_CODE = 10;
+const APP_VERSION = "1.0.9-estavel";
+const APP_VERSION_CODE = 107;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -13141,7 +13141,10 @@ const STOREFRONT_ADMIN_KEYS = {
   lastRemoteSync: "simplifica-storefront-admin-last-remote-sync-v1",
   dirty: "simplifica-storefront-admin-dirty-v1",
   activity: "simplifica-storefront-admin-activity-v1",
-  editorMode: "simplifica-storefront-admin-editor-mode-v1"
+  editorMode: "simplifica-storefront-admin-editor-mode-v1",
+  autosave: "simplifica-storefront-admin-autosave-v1",
+  recovery: "simplifica-storefront-admin-recovery-v1",
+  offlineQueue: "simplifica-storefront-admin-offline-queue-v1"
 };
 
 const STOREFRONT_ADMIN_TABS = [
@@ -13271,6 +13274,7 @@ function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
       detail,
       updatedAt: new Date().toISOString()
     }));
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.autosave);
   } catch (_) {}
 }
 
@@ -13281,6 +13285,192 @@ function getStorefrontDirtyState() {
   } catch (_) {
     return { dirty: false };
   }
+}
+
+let storefrontAutosaveTimer = null;
+
+function serializeStorefrontForm(form) {
+  const data = {};
+  if (!form?.elements) return data;
+  Array.from(form.elements).forEach((field) => {
+    if (!field?.name || field.type === "file" || field.disabled) return;
+    if (field.type === "checkbox") data[field.name] = !!field.checked;
+    else if (field.type === "radio") {
+      if (field.checked) data[field.name] = field.value;
+    } else {
+      data[field.name] = field.value;
+    }
+  });
+  return data;
+}
+
+function getStorefrontSessionRecoveryState() {
+  return {
+    tab: storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.tab) || "overview",
+    editorMode: getStorefrontEditorMode(),
+    path: window.location.pathname,
+    search: window.location.search,
+    scrollY: Math.max(0, Math.round(window.scrollY || 0)),
+    savedAt: new Date().toISOString(),
+    appVersion: APP_VERSION
+  };
+}
+
+function storefrontScheduleAutosave(scope = "general", payload = {}) {
+  clearTimeout(storefrontAutosaveTimer);
+  storefrontAutosaveTimer = setTimeout(() => {
+    const draft = {
+      scope,
+      payload: payload && typeof payload === "object" ? payload : {},
+      recovery: getStorefrontSessionRecoveryState()
+    };
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.autosave, draft);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.recovery, draft.recovery);
+    if (!navigator.onLine) storefrontQueuePendingAction(`autosave:${scope}`, draft.payload);
+    marcarStorefrontAlteracoesPendentes("Rascunho salvo automaticamente neste aparelho");
+    const indicator = document.querySelector("[data-storefront-autosave-indicator]");
+    if (indicator) indicator.textContent = `Salvo automaticamente às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  }, 700);
+}
+
+function storefrontFlushAutosaveNow() {
+  const form = document.querySelector("#storefrontAppearanceForm, .storefront-form-card form, form.app-form");
+  if (!form) return;
+  if (!getStorefrontDirtyState().dirty) return;
+  const route = parseStorefrontPublicRoute(location.pathname);
+  const adminRoute = parseStorefrontAdminRoute(location.pathname);
+  if (!route && !adminRoute && telaAtual !== "lojaAdmin" && telaAtual !== "lojaOnline") return;
+  const draft = {
+    scope: storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.tab) || "general",
+    payload: serializeStorefrontForm(form),
+    recovery: getStorefrontSessionRecoveryState()
+  };
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.autosave, draft);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.recovery, draft.recovery);
+}
+
+function getStorefrontAutosaveDraft() {
+  const draft = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.autosave, null);
+  if (!draft || typeof draft !== "object" || !draft.recovery?.savedAt) return null;
+  return draft;
+}
+
+function aplicarStorefrontAutosavePayload(draft) {
+  if (!draft?.payload || typeof draft.payload !== "object") return false;
+  const payload = draft.payload;
+  const store = getStorefrontAdminStoreLocal();
+  if (draft.scope === "appearance" || draft.scope === "banner") {
+    const next = {
+      ...store,
+      name: payload.storeName?.trim?.() || store.name,
+      slug: storefrontAdminSlugify(payload.storeSlug || store.slug || payload.storeName || store.name),
+      description: payload.storeDescription ?? store.description,
+      whatsapp: String(payload.storeWhatsApp || store.whatsapp || "").replace(/\D/g, ""),
+      instagram: payload.storeInstagram ?? store.instagram,
+      logo_url: payload.storeLogoUrl || store.logo_url,
+      banner_url: payload.storeBannerUrl || store.banner_url,
+      theme_config: {
+        ...(store.theme_config || {}),
+        primary: payload.storePrimary || store.theme_config?.primary || "#00BFA6",
+        accent: payload.storeAccent || store.theme_config?.accent || "#FF8A1F",
+        mode: payload.storeThemeMode || store.theme_config?.mode || "auto"
+      }
+    };
+    storefrontAdminSaveStore(next);
+    return true;
+  }
+  if (draft.scope === "product") {
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, {
+      id: payload.productId || "",
+      title: payload.productTitle || "",
+      slug: payload.productSlug || "",
+      erp_product_id: payload.erpProductId || "",
+      category_id: payload.productCategory || "",
+      price: payload.productPrice || "",
+      compare_price: payload.productComparePrice || "",
+      price_mode: payload.productPriceMode || "fixed",
+      estimated_production_time: payload.productTime || "",
+      stock_mode: payload.productStockMode || "unlimited",
+      stock_quantity: payload.productStockQuantity || "",
+      show_price: payload.productShowPrice !== false,
+      visible: payload.productVisible !== false,
+      featured: !!payload.productFeatured,
+      is_customizable: payload.productCustomizable !== false,
+      description: payload.productDescription || "",
+      public_observations: payload.productObservations || ""
+    });
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
+    return true;
+  }
+  if (draft.scope === "category") {
+    storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editingCategory, payload.categoryId || "");
+    return true;
+  }
+  return false;
+}
+
+function restaurarStorefrontAutosaveLocal() {
+  const draft = getStorefrontAutosaveDraft();
+  if (!draft) {
+    mostrarToast("Nenhum rascunho local encontrado.", "info", 2200);
+    return;
+  }
+  const restored = aplicarStorefrontAutosavePayload(draft);
+  if (draft.recovery?.tab) storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.tab, draft.recovery.tab);
+  if (draft.recovery?.editorMode) storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editorMode, draft.recovery.editorMode);
+  marcarStorefrontAlteracoesPendentes("Rascunho local recuperado");
+  mostrarToast(restored ? "Rascunho local recuperado." : "Sessão de edição recuperada.", "sucesso", 2600);
+  renderApp();
+  setTimeout(() => window.scrollTo({ top: Number(draft.recovery?.scrollY || 0), behavior: "smooth" }), 80);
+}
+
+function descartarStorefrontAutosaveLocal() {
+  storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.autosave);
+  storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.recovery);
+  limparStorefrontAlteracoesPendentes("Rascunho local descartado");
+  mostrarToast("Rascunho local descartado.", "info", 2200);
+  renderApp();
+}
+
+function renderStorefrontRecoveryNotice() {
+  const draft = getStorefrontAutosaveDraft();
+  if (!draft) return "";
+  const when = new Date(draft.recovery.savedAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return `
+    <div class="storefront-recovery-card">
+      <strong>Rascunho local encontrado</strong>
+      <small>${escaparHtml(when)} • ${escaparHtml(draft.scope || "edição")}</small>
+      <div>
+        <button type="button" onclick="restaurarStorefrontAutosaveLocal()">Retomar</button>
+        <button type="button" onclick="descartarStorefrontAutosaveLocal()">Descartar</button>
+      </div>
+    </div>
+  `;
+}
+
+function storefrontQueuePendingAction(type = "draft", payload = {}) {
+  const queue = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.offlineQueue, []);
+  const next = Array.isArray(queue) ? queue : [];
+  next.unshift({
+    id: `store-queue-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    type,
+    payload,
+    status: navigator.onLine ? "pending" : "offline",
+    createdAt: new Date().toISOString(),
+    appVersion: APP_VERSION
+  });
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, next.slice(0, 30));
+}
+
+function storefrontFlushPendingQueue() {
+  const queue = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.offlineQueue, []);
+  if (!Array.isArray(queue) || !queue.length) return;
+  const pending = queue.filter((item) => item.status !== "completed");
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, pending.map((item) => ({
+    ...item,
+    status: navigator.onLine ? "waiting-sync" : "offline",
+    lastAttemptAt: new Date().toISOString()
+  })).slice(0, 30));
 }
 
 function storefrontIsDefaultText(value = "", defaults = []) {
@@ -13314,6 +13504,11 @@ function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
   const realProducts = visibleProducts.filter((product) => !storefrontIsDemoProduct(product));
   const validCategories = (vm.categories || []).filter((cat) => cat.visible !== false && !cat.__demo && !cat.__template && String(cat.name || "").trim());
   const demoProducts = visibleProducts.filter(storefrontIsDemoProduct);
+  const invalidPriceProducts = realProducts.filter((product) => {
+    const mode = String(product.price_mode || "fixed");
+    if (mode === "quote" || product.show_price === false) return false;
+    return Number(product.price || 0) <= 0;
+  });
   const genericStoreName = storefrontIsDefaultText(store.name, ["Minha loja 3D", "Minha loja criativa", "Minha empresa 3D", "Loja Online", "NE3D", "Simplifica 3D"]);
   const genericDescription = storefrontIsDefaultText(store.description, [
     "Produtos personalizados, brindes e peças sob encomenda em impressão 3D.",
@@ -13362,6 +13557,13 @@ function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
       description: demoProducts.length ? "Substitua os produtos de exemplo por pelo menos 1 produto real." : "Adicione pelo menos 1 produto real visível.",
       area: "products",
       done: realProducts.length >= 1
+    },
+    {
+      id: "store-product-prices",
+      title: "Preços dos produtos válidos",
+      description: invalidPriceProducts.length ? `Corrija ${invalidPriceProducts.length} produto(s) com preço zerado ou inválido.` : "Produtos com preço exibido precisam ter valor maior que zero.",
+      area: "products",
+      done: invalidPriceProducts.length === 0
     },
     {
       id: "store-categories",
@@ -14620,8 +14822,126 @@ async function processarImagemProdutoLojaOnline(productId, input) {
   renderApp();
 }
 
-async function processarImagemLojaOnline(tipo, input) {
+function getStorefrontCropConfig(tipo = "banner") {
+  if (tipo === "logo") return { aspect: 1, width: 720, height: 720, title: "Ajustar logo", help: "Use enquadramento quadrado para a marca aparecer bem no header e no favicon." };
+  return { aspect: 16 / 9, width: 1600, height: 900, title: "Ajustar banner", help: "Use enquadramento 16:9 para evitar cortes no mobile e desktop." };
+}
+
+function readStorefrontFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function abrirCropImagemLojaOnline(tipo, input) {
   const file = input?.files?.[0];
+  if (!file) return;
+  try {
+    validarArquivoStorefrontImagem(file, tipo);
+    const dataUrl = await readStorefrontFileAsDataUrl(file);
+    const config = getStorefrontCropConfig(tipo);
+    const popup = document.getElementById("popup");
+    if (!popup) {
+      await processarImagemLojaOnlineComArquivo(tipo, file, input);
+      return;
+    }
+    popup.innerHTML = `
+      <div class="modal-backdrop storefront-crop-backdrop" role="dialog" aria-modal="true">
+        <section class="modal-card storefront-crop-modal">
+          <div class="modal-header">
+            <div>
+              <span class="status-badge">Crop ${tipo === "logo" ? "1:1" : "16:9"}</span>
+              <h2>${escaparHtml(config.title)}</h2>
+              <p class="muted">${escaparHtml(config.help)}</p>
+            </div>
+            <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+          </div>
+          <div class="storefront-crop-grid">
+            <div class="storefront-crop-stage ${tipo === "logo" ? "is-logo" : ""}">
+              <img src="${escaparAttr(dataUrl)}" alt="Preview de crop" data-storefront-crop-image>
+            </div>
+            <div class="storefront-crop-controls">
+              <label>Zoom<input type="range" min="1" max="2.4" step="0.05" value="1" data-storefront-crop-zoom oninput="atualizarPreviewCropLojaOnline()"></label>
+              <label>Horizontal<input type="range" min="-40" max="40" step="1" value="0" data-storefront-crop-x oninput="atualizarPreviewCropLojaOnline()"></label>
+              <label>Vertical<input type="range" min="-40" max="40" step="1" value="0" data-storefront-crop-y oninput="atualizarPreviewCropLojaOnline()"></label>
+              <p class="muted">A imagem será compactada após o recorte para reduzir espaço no PWA/APK.</p>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button>
+            <button class="btn" type="button" onclick="confirmarCropImagemLojaOnline('${escaparAttr(tipo)}')">Usar imagem recortada</button>
+          </div>
+        </section>
+      </div>
+    `;
+    window.__storefrontCropState = { tipo, fileName: file.name, dataUrl, input };
+    atualizarPreviewCropLojaOnline();
+  } catch (error) {
+    mostrarToast(error?.message || "Não foi possível abrir o editor da imagem.", "erro", 3800);
+    if (input) input.value = "";
+  }
+}
+
+function atualizarPreviewCropLojaOnline() {
+  const image = document.querySelector("[data-storefront-crop-image]");
+  if (!image) return;
+  const zoom = Number(document.querySelector("[data-storefront-crop-zoom]")?.value || 1);
+  const x = Number(document.querySelector("[data-storefront-crop-x]")?.value || 0);
+  const y = Number(document.querySelector("[data-storefront-crop-y]")?.value || 0);
+  image.style.transform = `translate(${x}%, ${y}%) scale(${zoom})`;
+}
+
+async function confirmarCropImagemLojaOnline(tipo) {
+  const state = window.__storefrontCropState || {};
+  const config = getStorefrontCropConfig(tipo || state.tipo);
+  const zoom = Number(document.querySelector("[data-storefront-crop-zoom]")?.value || 1);
+  const offsetX = Number(document.querySelector("[data-storefront-crop-x]")?.value || 0) / 100;
+  const offsetY = Number(document.querySelector("[data-storefront-crop-y]")?.value || 0) / 100;
+  const image = new Image();
+  image.src = state.dataUrl;
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = reject;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = config.width;
+  canvas.height = config.height;
+  const ctx = canvas.getContext("2d");
+  const sourceAspect = image.naturalWidth / image.naturalHeight;
+  let sx = 0;
+  let sy = 0;
+  let sw = image.naturalWidth;
+  let sh = image.naturalHeight;
+  if (sourceAspect > config.aspect) {
+    sw = image.naturalHeight * config.aspect;
+    sx = (image.naturalWidth - sw) / 2;
+  } else {
+    sh = image.naturalWidth / config.aspect;
+    sy = (image.naturalHeight - sh) / 2;
+  }
+  sw = sw / zoom;
+  sh = sh / zoom;
+  sx = Math.max(0, Math.min(image.naturalWidth - sw, sx + offsetX * (image.naturalWidth - sw)));
+  sy = Math.max(0, Math.min(image.naturalHeight - sh, sy + offsetY * (image.naturalHeight - sh)));
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+  if (!blob) {
+    mostrarToast("Não foi possível recortar a imagem.", "erro", 3200);
+    return;
+  }
+  const file = new File([blob], `${String(state.fileName || "storefront").replace(/\.[^.]+$/, "")}-crop.webp`, { type: "image/webp" });
+  fecharPopup();
+  await processarImagemLojaOnlineComArquivo(tipo || state.tipo, file, state.input);
+}
+
+async function processarImagemLojaOnline(tipo, input) {
+  await abrirCropImagemLojaOnline(tipo, input);
+}
+
+async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
   if (!file) return;
   try {
     setStorefrontUploadStatus({
@@ -15533,7 +15853,9 @@ function renderStoreVisualEditorSidebar(vm) {
       </button>
       <div class="store-visual-editor-actions">
         ${renderStorefrontSaveState({ ...vm, store: vm.store })}
+        <span class="storefront-autosave-indicator" data-storefront-autosave-indicator></span>
       </div>
+      ${renderStorefrontRecoveryNotice()}
       ${renderStorefrontReadinessMini(vm)}
       ${renderStorefrontTemplatePresets(vm)}
       ${editorMode === "simple" ? renderStorefrontSimpleOnboarding(vm) : ""}
@@ -17062,7 +17384,7 @@ function renderStorefrontAppearance(vm) {
   const hasStoredAppearance = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
   return `
     <div class="storefront-workspace storefront-editor-layout">
-      <form class="card app-form storefront-form-card storefront-editor-panel" id="storefrontAppearanceForm" oninput="marcarStorefrontAlteracoesPendentes('Aparência com alterações pendentes'); atualizarStorefrontPreviewAoVivo(this)" onsubmit="salvarStorefrontAparencia(event)">
+      <form class="card app-form storefront-form-card storefront-editor-panel" id="storefrontAppearanceForm" oninput="marcarStorefrontAlteracoesPendentes('Aparência com alterações pendentes'); storefrontScheduleAutosave('appearance', serializeStorefrontForm(this)); atualizarStorefrontPreviewAoVivo(this)" onsubmit="salvarStorefrontAparencia(event)">
         <div class="card-header">
           <div><h3>Construtor visual da loja</h3><p class="muted">Edite identidade, banner e cores vendo o resultado no preview ao lado.</p></div>
           <span class="status-badge">Tempo real</span>
@@ -17132,7 +17454,7 @@ function renderStorefrontCategories(vm) {
         <div><h3>Categorias</h3><p class="muted">Organize a vitrine em grupos claros. Reordenação visual fica para fase futura.</p></div>
         <button class="btn secondary" type="button" onclick="abrirEditorCategoriaLojaOnline()">Nova categoria</button>
       </div>
-      <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Categoria com alterações pendentes')" onsubmit="salvarCategoriaLojaOnline(event)">
+      <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Categoria com alterações pendentes'); storefrontScheduleAutosave('category', serializeStorefrontForm(this))" onsubmit="salvarCategoriaLojaOnline(event)">
         <input type="hidden" name="categoryId" value="${escaparAttr(editing.id || "")}">
         <div class="storefront-visual-block">
         <div class="storefront-block-head">
@@ -17197,7 +17519,7 @@ function renderStorefrontProducts(vm) {
         <div><h3>Produtos da loja</h3><p class="muted">Dados públicos da vitrine. Custos, margem e lucro internos não aparecem aqui.</p></div>
         <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline()">Novo produto</button>
       </div>
-      <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes')" onsubmit="salvarProdutoLojaOnline(event)">
+      <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes'); storefrontScheduleAutosave('product', serializeStorefrontForm(this))" onsubmit="salvarProdutoLojaOnline(event)">
         <input type="hidden" name="productId" value="${escaparAttr(editing.id || "")}">
         <div class="storefront-visual-block">
           <div class="storefront-block-head">
@@ -17287,7 +17609,7 @@ function renderStorefrontProducts(vm) {
 function renderStorefrontBanner(vm) {
   return `
     <div class="storefront-workspace storefront-editor-layout">
-      <form class="card app-form storefront-form-card storefront-editor-panel" oninput="marcarStorefrontAlteracoesPendentes('Banner com alterações pendentes'); atualizarStorefrontPreviewAoVivo(this)" onsubmit="salvarStorefrontAparencia(event)">
+      <form class="card app-form storefront-form-card storefront-editor-panel" oninput="marcarStorefrontAlteracoesPendentes('Banner com alterações pendentes'); storefrontScheduleAutosave('banner', serializeStorefrontForm(this)); atualizarStorefrontPreviewAoVivo(this)" onsubmit="salvarStorefrontAparencia(event)">
         <div class="card-header">
           <div>
             <h3>Banner principal</h3>
@@ -36292,6 +36614,7 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("pagehide", () => {
+  storefrontFlushAutosaveNow();
   salvarRascunhoPedidoRapidoLocal({ force: true });
   salvarCacheSessaoLocal();
   salvarDados();
@@ -36299,6 +36622,7 @@ window.addEventListener("pagehide", () => {
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
+    storefrontFlushAutosaveNow();
     salvarRascunhoPedidoRapidoLocal({ force: true });
     salvarCacheSessaoLocal();
     salvarDados();
@@ -36315,12 +36639,14 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("online", () => {
   atualizarIndicadorSincronizacao("syncing", "Reconectando");
   mostrarToast("Conexão restaurada. Sincronizando alterações pendentes.", "info", 3200);
+  storefrontFlushPendingQueue();
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
   sincronizarAlteracoesLocaisSilencioso("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
 });
 
 window.addEventListener("offline", () => {
   salvarRascunhoPedidoRapidoLocal({ force: true });
+  if (getStorefrontAutosaveDraft()) storefrontQueuePendingAction("session-offline-recovery", getStorefrontSessionRecoveryState());
   recomporFilaSyncPendente();
   syncConfig.autoBackupStatus = "Offline - fila pendente";
   salvarDados();
