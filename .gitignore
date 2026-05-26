@@ -5,6 +5,9 @@ node_modules/
 dist/
 .tmp-edge-preview*/
 backups/
+rollback/
+storefront-preview/
+scripts/backup-supabase-public-rest.js
 /.env
 /.env.*
 !/.env.example

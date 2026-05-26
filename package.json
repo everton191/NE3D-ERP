@@ -50,6 +50,7 @@
     "test:ui-theme-consistency": "node scripts/test-ui-theme-consistency.js",
     "test:mobile-visual-stability": "node scripts/test-mobile-visual-stability.js",
     "test:storefront-visual-balance": "node scripts/test-storefront-visual-balance.js",
+    "test:project-saneamento": "node scripts/test-project-saneamento.js",
     "test:storefront-rls-simulation": "node scripts/test-storefront-rls-simulation.js",
     "test:storefront-staging": "node scripts/test-storefront-staging.js",
     "test:storefront-production-controlled": "node scripts/test-storefront-production-controlled.js",
