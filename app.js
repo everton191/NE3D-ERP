@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.14-estavel";
-const APP_VERSION_CODE = 13;
+const APP_VERSION = "1.0.15-estavel";
+const APP_VERSION_CODE = 14;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -76,6 +76,7 @@ const PLAN_ACCESS_STATES = Object.freeze({
   BLOCKED: "BLOCKED"
 });
 const PLAN_DEBUG_ENABLED = false;
+const LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000;
 // IA local pesada fica preservada como legado, mas desativada no app principal.
 const HEAVY_AI_FEATURE_ENABLED = false;
 const PAID_PRICE_TIERS = [
@@ -3857,7 +3858,8 @@ function garantirPlanosSaas() {
 
 function getPlanoSaas(slug = billingConfig.planSlug || "free") {
   garantirPlanosSaas();
-  return saasPlans.find((plano) => plano.slug === slug || plano.id === slug) || saasPlans[0] || normalizarPlanoSaas(DEFAULT_SAAS_PLANS[0]);
+  const slugNormalizado = normalizarSlugPlano(slug || "free");
+  return saasPlans.find((plano) => plano.slug === slugNormalizado || plano.id === slugNormalizado) || saasPlans[0] || normalizarPlanoSaas(DEFAULT_SAAS_PLANS[0]);
 }
 
 function getClientIdAtual(usuario = getUsuarioAtual()) {
@@ -3895,6 +3897,54 @@ function calcularStatusAssinatura(assinatura = getAssinaturaSaas()) {
   }
   const diasAtraso = vencimento ? Math.max(0, Math.floor((Date.now() - vencimento) / (24 * 60 * 60 * 1000))) : 0;
   return { status: status === "trialing" ? "expired" : "past_due", blockLevel: "total", diasAtraso };
+}
+
+function limparCheckoutsLocaisExpirados({ force = false } = {}) {
+  const agora = Date.now();
+  let alterou = false;
+  const expirado = (inicio) => {
+    const ts = getTimestampPlano(inicio || 0);
+    return force || !ts || agora - ts > LOCAL_CHECKOUT_PENDING_TTL_MS;
+  };
+
+  if (billingConfig.paymentStatus === "pending" && expirado(billingConfig.pendingStartedAt || billingConfig.updatedAt)) {
+    billingConfig.pendingPlan = "";
+    billingConfig.paymentStatus = "none";
+    billingConfig.pendingStartedAt = "";
+    alterou = true;
+  }
+
+  saasSubscriptions.forEach((assinatura) => {
+    if (assinatura.paymentStatus !== "pending" || !expirado(assinatura.pendingStartedAt || assinatura.updatedAt || assinatura.createdAt)) return;
+    assinatura.pendingPlan = "";
+    assinatura.paymentStatus = "none";
+    assinatura.pendingStartedAt = "";
+    if (String(assinatura.clientId || "") === String(billingConfig.clientId || "")) {
+      billingConfig.pendingPlan = "";
+      billingConfig.paymentStatus = "none";
+      billingConfig.pendingStartedAt = "";
+    }
+    alterou = true;
+  });
+
+  saasPayments.forEach((pagamento) => {
+    if (!["pending", "checkout_opened"].includes(String(pagamento.status || ""))) return;
+    if (!expirado(pagamento.createdAt || pagamento.updatedAt)) return;
+    pagamento.status = "expired";
+    pagamento.updatedAt = new Date().toISOString();
+    alterou = true;
+  });
+
+  try {
+    const storage = window.sessionStorage;
+    const raw = storage?.getItem?.("simplifica3d:checkout-session:v1");
+    if (raw) {
+      const sessao = JSON.parse(raw);
+      if (force || expirado(sessao.createdAt)) storage.removeItem("simplifica3d:checkout-session:v1");
+    }
+  } catch (_) {}
+
+  return alterou;
 }
 
 function getUsuariosDoCliente(clientId = getClientIdAtual()) {
@@ -3954,6 +4004,7 @@ function garantirEstruturaSaasLocal() {
     billingConfig.trialExpiresAt = calcularFimTrial(billingConfig.trialStartedAt, billingConfig.trialDays);
   }
   billingConfig.isTrialActive = billingConfig.activePlan === "premium_trial" && !!billingConfig.trialExpiresAt && getRemainingDays(billingConfig.trialExpiresAt) > 0;
+  limparCheckoutsLocaisExpirados();
 
   if (billingConfig.clientId && !saasClients.some((cliente) => cliente.id === billingConfig.clientId)) {
     saasClients.push(normalizarClienteSaas({
@@ -4000,7 +4051,7 @@ function verificarVencimentoPlanoLocal(salvar = true) {
 
   if (billingConfig.paymentStatus === "pending") {
     const inicioPendenteGlobal = getTimestampPlano(billingConfig.pendingStartedAt || billingConfig.updatedAt || 0);
-    if (inicioPendenteGlobal && Date.now() - inicioPendenteGlobal > 24 * 60 * 60 * 1000) {
+    if (!inicioPendenteGlobal || Date.now() - inicioPendenteGlobal > LOCAL_CHECKOUT_PENDING_TTL_MS) {
       billingConfig.pendingPlan = "";
       billingConfig.paymentStatus = "none";
       billingConfig.pendingStartedAt = "";
@@ -4013,7 +4064,7 @@ function verificarVencimentoPlanoLocal(salvar = true) {
     const vencimento = getTimestampPlano(assinatura.planExpiresAt || assinatura.trialExpiresAt || assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0);
     if (assinatura.paymentStatus === "pending") {
       const inicioPendente = getTimestampPlano(assinatura.pendingStartedAt || assinatura.updatedAt || assinatura.createdAt || 0);
-      if (inicioPendente && Date.now() - inicioPendente > 24 * 60 * 60 * 1000) {
+      if (!inicioPendente || Date.now() - inicioPendente > LOCAL_CHECKOUT_PENDING_TTL_MS) {
         assinatura.pendingPlan = "";
         assinatura.paymentStatus = "none";
         assinatura.pendingStartedAt = "";
@@ -6931,6 +6982,9 @@ function getTrialSnapshotPlano(source = {}, now = Date.now()) {
 }
 
 function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
+  try {
+    limparCheckoutsLocaisExpirados();
+  } catch (_) {}
   const now = Number(options.now || Date.now());
   const assinatura = options.subscription === undefined
     ? getAssinaturaSaas(user?.clientId || billingConfig.clientId || "")
@@ -7064,7 +7118,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
   const planExpiresMs = getTimestampPlano(planExpiresAt);
   const planExpired = !!planExpiresMs && planExpiresMs <= now;
   const pendingStartedAt = primeiroValorPlano(assinatura?.pendingStartedAt, assinatura?.pending_started_at, billingConfig.pendingStartedAt, cliente?.pendingStartedAt, cliente?.pending_started_at);
-  const pendingExpired = paymentStatus === "pending" && pendingStartedAt && (now - getTimestampPlano(pendingStartedAt) > 24 * 60 * 60 * 1000);
+  const pendingExpired = paymentStatus === "pending" && (!pendingStartedAt || (now - getTimestampPlano(pendingStartedAt) > LOCAL_CHECKOUT_PENDING_TTL_MS));
   const pending = !pendingExpired && (paymentStatus === "pending" || (!!pendingPlan && pendingPlan !== "free") || statusPlano === "pending");
   const blocked = usuarioEstaBloqueado(user) || (paymentStatus !== "pending" && (billingConfig.licenseStatus === "blocked" || billingConfig.licenseBlockLevel === "total" || billingConfig.blocked));
   const paidActive = ["start", "pro"].includes(activePlan)
@@ -15847,12 +15901,12 @@ function renderStoreAdminFloatingEditor(vm) {
       <div class="store-context-denied store-context-access-card">
         <div>
           <span>Admin contextual</span>
-          <strong>Painel administrativo em liberação gradual</strong>
-          <p>Entre com uma conta PRO, Super Admin ou beta autorizada para editar esta loja. A loja pública continua visível normalmente para clientes.</p>
+          <strong>Entre para editar esta loja</strong>
+          <p>A edição da loja fica disponível para usuários autenticados. No plano Grátis você pode montar e visualizar a vitrine; publicar e compartilhar link público exigem Start ou Pro.</p>
         </div>
         <div class="store-context-access-actions">
           <a class="btn ghost" href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store?.slug || getStorefrontPublicRoute().slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Ver loja pública</a>
-          <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Solicitar acesso</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('admin')">Entrar no ERP</button>
         </div>
       </div>
     `;
@@ -26669,21 +26723,13 @@ function escolherPlanoSaas(slug = "free") {
     assinatura.paymentStatus = "none";
     billingConfig.pendingPlan = "";
     billingConfig.paymentStatus = "none";
-  } else {
-    const agoraPendente = new Date().toISOString();
-    assinatura.pendingPlan = plano.slug;
-    assinatura.paymentStatus = "pending";
-    assinatura.pendingStartedAt = agoraPendente;
-    billingConfig.pendingPlan = plano.slug;
-    billingConfig.paymentStatus = "pending";
-    billingConfig.pendingStartedAt = agoraPendente;
   }
   billingConfig.planSlug = assinatura.activePlan || assinatura.planSlug || "free";
   billingConfig.activePlan = assinatura.activePlan || assinatura.planSlug || "free";
-  billingConfig.monthlyPrice = isPlanoPagoSlug(plano.slug) ? plano.price : 0;
+  billingConfig.monthlyPrice = isPlanoPagoSlug(billingConfig.activePlan) ? getPlanoSaas(billingConfig.activePlan).price : 0;
   billingConfig.subscriptionId = assinatura.id;
   salvarDados();
-  registrarAuditoria(plano.price > 0 ? "upgrade" : "alteração plano", { plano: plano.slug }, clientId);
+  registrarAuditoria(plano.price > 0 ? "checkout solicitado" : "alteração plano", { plano: plano.slug }, clientId);
   if (plano.slug === "free") {
     ativarPlanoClienteLocal(clientId, "free", "active", 0, { origem: "escolha_free" });
     renderApp();
@@ -26880,11 +26926,14 @@ async function chamarFuncaoSaas(nome, corpo = {}) {
 }
 
 function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription") {
+  limparCheckoutsLocaisExpirados({ force: true });
   const clientId = getClientIdAtual() || billingConfig.clientId;
   const assinatura = garantirAssinaturaClienteLocal(clientId);
   const billingVariant = normalizarBillingVariant(dados.billing_variant || dados.billingVariant || getBillingVariantAssinatura(assinatura));
   const precoPadrao = getPrecoBillingVariant(billingVariant);
   const planPrice = Math.max(0, Number(dados.plan_price ?? dados.planPrice ?? dados.amount ?? dados.valor ?? precoPadrao) || precoPadrao);
+  const createdAt = new Date().toISOString();
+  const expiresAt = new Date(Date.now() + LOCAL_CHECKOUT_PENDING_TTL_MS).toISOString();
   const pagamento = normalizarPagamentoSaas({
     clientId,
     subscriptionId: assinatura.id,
@@ -26894,27 +26943,38 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
     planSlug: plano.slug,
     billingVariant,
     amount: Number(dados.amount || dados.valor || planPrice),
-    status: "pending",
+    status: "checkout_opened",
     paymentMethod: "mercado_pago",
-    createdAt: new Date().toISOString()
+    createdAt
   });
   pagamento.planPrice = planPrice;
+  pagamento.checkoutExpiresAt = expiresAt;
   saasPayments.unshift(pagamento);
   saasPayments = saasPayments.slice(0, 500);
   if (dados.subscriptionId) assinatura.mercadoPagoSubscriptionId = String(dados.subscriptionId);
-  assinatura.pendingPlan = plano.slug;
-  assinatura.paymentStatus = "pending";
-  assinatura.pendingStartedAt = pagamento.createdAt;
-  assinatura.planPrice = assinatura.planPrice || planPrice;
-  billingConfig.pendingPlan = plano.slug;
-  billingConfig.paymentStatus = "pending";
-  billingConfig.pendingStartedAt = pagamento.createdAt;
-  billingConfig.monthlyPrice = planPrice;
+  assinatura.lastCheckoutAt = createdAt;
+  assinatura.lastCheckoutPlan = plano.slug;
+  assinatura.lastCheckoutExpiresAt = expiresAt;
+  assinatura.lastCheckoutPrice = planPrice;
+  billingConfig.lastCheckoutAt = createdAt;
+  billingConfig.lastCheckoutPlan = plano.slug;
+  billingConfig.lastCheckoutExpiresAt = expiresAt;
+  billingConfig.lastCheckoutPrice = planPrice;
+  try {
+    window.sessionStorage?.setItem?.("simplifica3d:checkout-session:v1", JSON.stringify({
+      planSlug: plano.slug,
+      billingVariant,
+      planPrice,
+      preferenceId: pagamento.preferenceId,
+      createdAt,
+      expiresAt
+    }));
+  } catch (_) {}
   salvarDados();
-  registrarAuditoria("pagamento criado", { tipo, plano: plano.slug, preferenceId: pagamento.preferenceId, subscriptionId: pagamento.mercadoPagoSubscriptionId }, clientId);
+  registrarAuditoria("checkout aberto", { tipo, plano: plano.slug, preferenceId: pagamento.preferenceId, subscriptionId: pagamento.mercadoPagoSubscriptionId }, clientId);
 }
 
-async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") {
+async function abrirLinkMercadoPago(slug = "start") {
   const plano = getPlanoSaas(slug);
   if (!["start", "pro"].includes(plano.slug)) {
     trocarTela("assinatura");
@@ -26957,7 +27017,7 @@ async function abrirLinkMercadoPago(slug = billingConfig.planSlug || "premium") 
   }
 }
 
-async function criarPagamentoUnicoMercadoPago(slug = billingConfig.planSlug || "premium") {
+async function criarPagamentoUnicoMercadoPago(slug = "start") {
   const plano = getPlanoSaas(slug);
   if (!["start", "pro"].includes(plano.slug)) {
     alert("Pagamento disponível para os planos Start e Pro.");
@@ -35527,7 +35587,8 @@ function configurarEventListenersArquitetura() {
 
     if (acao === "open-payment") {
       event.preventDefault();
-      abrirLinkMercadoPago(elemento.dataset.slug || billingConfig.planSlug || "premium");
+      const planoAtual = normalizarSlugPlano(billingConfig.activePlan || billingConfig.planSlug || "free");
+      abrirLinkMercadoPago(elemento.dataset.slug || (isPlanoPagoSlug(planoAtual) ? planoAtual : "start"));
       return;
     }
 
@@ -35545,13 +35606,13 @@ function configurarEventListenersArquitetura() {
 
     if (acao === "plan-payment") {
       event.preventDefault();
-      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "premium");
+      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "start");
       return;
     }
 
     if (acao === "plan-renew") {
       event.preventDefault();
-      abrirLinkMercadoPago(elemento.dataset.slug || "premium");
+      abrirLinkMercadoPago(elemento.dataset.slug || "start");
       return;
     }
 

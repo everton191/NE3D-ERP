@@ -9,9 +9,9 @@ const requiredApp = [
   "Fase atual: editor liberado para qualquer usuário autenticado.",
   "function getStorefrontCompatibleAdminSlugs",
   "getStorefrontCompatibleAdminSlugs(adminSlug).has(targetSlug)",
-  "Painel administrativo em liberação gradual",
-  "PRO, Super Admin ou beta autorizada",
-  "Solicitar acesso"
+  "Entre para editar esta loja",
+  "No plano Grátis você pode montar e visualizar a vitrine",
+  "Entrar no ERP"
 ];
 
 const requiredCss = [
@@ -30,4 +30,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Admin beta access: regras PRO/Super Admin/beta e fallback elegante validados.");
+console.log("Admin access: fallback autenticado e mensagem elegante validados.");

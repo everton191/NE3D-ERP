@@ -20,6 +20,7 @@ includesAll(app, [
   "START_PRODUCT_LIMIT = 300",
   "START_MONTHLY_PRICE = 29.9",
   "PRO_MONTHLY_PRICE = 59.9",
+  "LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000",
   "slug: \"start\"",
   "slug: \"pro\"",
   "5 pedidos grátis por dia",
@@ -34,6 +35,18 @@ includesAll(app, [
 ], "app.js estrutura de planos");
 
 includesAll(app, [
+  "const slugNormalizado = normalizarSlugPlano(slug || \"free\")",
+  "status: \"checkout_opened\"",
+  "lastCheckoutPlan",
+  "simplifica3d:checkout-session:v1",
+  "limparCheckoutsLocaisExpirados({ force: true })",
+], "checkout temporario sem upgrade fantasma");
+
+assert(!app.includes("assinatura.pendingPlan = plano.slug"), "checkout nao deve gravar pendingPlan antes do pagamento aprovado");
+assert(!app.includes("billingConfig.pendingPlan = plano.slug"), "checkout nao deve gravar pendingPlan global antes do pagamento aprovado");
+assert(!app.includes("billingConfig.monthlyPrice = planPrice"), "checkout nao deve alterar preco mensal antes do pagamento aprovado");
+
+includesAll(app, [
   "O link público e o compartilhamento da loja ficam disponíveis no plano Start ou Pro.",
   "Sua loja pode ser editada no plano Grátis",
 ], "bloqueio de publicacao gratis");
@@ -46,6 +59,9 @@ includesAll(css, [
   "--plan-accent:#22c55e",
   "--plan-accent:#8b5cf6",
   "--plan-accent:#f6b51d",
+  "body.theme-light .plans-pricing-screen .plan-tier-card",
+  "body.theme-light .plans-pricing-screen .plan-tier-free",
+  "body.theme-light .status-badge.plan-start",
 ], "CSS premium dos cards");
 
 includesAll(monetization, [
