@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.11-estavel";
-const APP_VERSION_CODE = 109;
+const APP_VERSION = "1.0.12-estavel";
+const APP_VERSION_CODE = 110;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -8448,6 +8448,7 @@ function canAccessStorefrontAdmin(usuario = getUsuarioAtual(), plan = getPlanoAt
     return false;
   }
   if (isSuperAdmin(usuario)) return true;
+  if (isStorefrontAllowedTestUser(usuario, flags)) return true;
   const limits = getStorefrontLimitsLocal(plan?.slug);
   if (limits.enabled === true) return true;
   if (flags.devOverride === true && isAmbienteLocal()) return true;
@@ -15393,6 +15394,15 @@ function getStorefrontPublicRoute() {
   return storefrontPublicRouteState || { slug: "ne3d-teste", view: "home", productSlug: "", categorySlug: "" };
 }
 
+function getStorefrontCompatibleAdminSlugs(adminSlug = getStorefrontAdminStoreLocal().slug) {
+  return new Set([
+    String(adminSlug || "").toLowerCase(),
+    "ne3d",
+    "ne3d-teste",
+    "ne3d-internal-test"
+  ].filter(Boolean));
+}
+
 function isStorefrontOwnerForSlug(slug = getStorefrontPublicRoute().slug, vm = null) {
   const usuario = getUsuarioAtual();
   if (!usuario || !canUseStorefrontLocal(usuario)) return false;
@@ -15402,6 +15412,7 @@ function isStorefrontOwnerForSlug(slug = getStorefrontPublicRoute().slug, vm = n
   const adminSlug = String(adminStore.slug || "").toLowerCase();
   const publicOwner = String(vm?.store?.owner_id || "");
   if (publicOwner && currentOwner && publicOwner === currentOwner) return true;
+  if (!publicOwner && (vm?.source === "local" || isAmbienteLocal()) && getStorefrontCompatibleAdminSlugs(adminSlug).has(targetSlug)) return true;
   return !!targetSlug && !!adminSlug && targetSlug === adminSlug;
 }
 
@@ -15464,7 +15475,7 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
   const adminVm = getStorefrontAdminViewModel();
   const adminSlug = String(adminVm.store.slug || "").toLowerCase();
   const slugAtual = String(slug || "").toLowerCase();
-  const slugCompat = new Set([adminSlug, "ne3d", "ne3d-teste", "ne3d-internal-test"].filter(Boolean));
+  const slugCompat = getStorefrontCompatibleAdminSlugs(adminSlug);
   if (slugCompat.has(slugAtual)) {
     const localDemoPermitido = isStorefrontDemoPreviewAllowed();
     const store = {
@@ -15719,7 +15730,19 @@ function renderStoreAdminFloatingEditor(vm) {
   const mode = getStorefrontPublicMode(vm);
   if (!mode.requested) return "";
   if (mode.readonly) {
-    return `<div class="store-context-denied">Modo admin indisponível para esta conta.</div>`;
+    return `
+      <div class="store-context-denied store-context-access-card">
+        <div>
+          <span>Admin contextual</span>
+          <strong>Painel administrativo em liberação gradual</strong>
+          <p>Entre com uma conta PRO, Super Admin ou beta autorizada para editar esta loja. A loja pública continua visível normalmente para clientes.</p>
+        </div>
+        <div class="store-context-access-actions">
+          <a class="btn ghost" href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store?.slug || getStorefrontPublicRoute().slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Ver loja pública</a>
+          <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Solicitar acesso</button>
+        </div>
+      </div>
+    `;
   }
   if (!mode.admin) return "";
   return `

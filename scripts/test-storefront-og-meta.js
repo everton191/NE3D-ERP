@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "store-phase38-visual-111-20260526"
+  "store-responsive-admin-112-20260526"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));
