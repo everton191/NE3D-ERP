@@ -10,22 +10,49 @@ const requiredApp = [
   "function alternarSelecaoItemPedidoRapido(index, checked = null)",
   "function selecionarTodosItensPedidoRapido()",
   "function removerItensSelecionadosPedidoRapido()",
-  "async function duplicarItensSelecionadosPedidoRapido()",
+  "function aplicarQuantidadeItensSelecionadosPedidoRapido()",
+  "function getItensPedidoSelecionados()",
+  "function alternarSelecaoItemPedido(index, checked = null)",
+  "function aplicarQuantidadeItensSelecionadosPedido()",
+  "function removerItensSelecionadosPedido()",
   "quick-order-bulkbar",
+  "order-bulkbar",
   "quick-order-item-select",
-  "window.__pedidoRapidoItensSelecionados = []"
+  "order-item-multi-select",
+  "quickOrderBulkQty",
+  "orderBulkQty",
+  "Aplicar qtd",
+  "window.__pedidoItensSelecionados = []",
+  "window.__pedidoRapidoItensSelecionados = []",
+  "Duplicar pedido foi desativado para evitar pedidos repetidos"
 ];
 
 const requiredCss = [
   ".quick-order-items article.is-selected",
+  ".order-item-card.is-multi-selected",
   ".quick-order-item-select input:checked + span",
+  ".order-item-multi-select input:checked + span",
   ".quick-order-bulk-actions",
+  ".order-bulk-actions",
+  ".bulk-qty-field",
   "grid-template-columns:repeat(2, minmax(0, 1fr));"
+];
+
+const forbiddenApp = [
+  "duplicarItensSelecionadosPedidoRapido()",
+  "async function duplicarItensSelecionadosPedidoRapido",
+  "duplicarItemPedidoRapido(",
+  "async function duplicarItemPedidoRapido",
+  "duplicarItemPedido(",
+  "async function duplicarItemPedido",
+  "Repetir último",
+  "Duplicar pedido\", classe"
 ];
 
 const missing = [
   ...requiredApp.filter((snippet) => !app.includes(snippet)),
-  ...requiredCss.filter((snippet) => !css.includes(snippet))
+  ...requiredCss.filter((snippet) => !css.includes(snippet)),
+  ...forbiddenApp.filter((snippet) => app.includes(snippet)).map((snippet) => `duplicação ainda exposta: ${snippet}`)
 ];
 
 if (missing.length) {

@@ -19697,12 +19697,35 @@ function renderPedido() {
     { id: "financeiro", label: "Financeiro", icon: "R$" }
   ];
   const pedidoTab = pedidoTabs.some((tab) => tab.id === getUiTab("pedidoEditor", "")) ? getUiTab("pedidoEditor") : (itensPedido.length ? "itens" : "cliente");
+  const itensSelecionadosPedido = getItensPedidoSelecionados();
+  const totalSelecionadoPedido = itensSelecionadosPedido.reduce((soma, index) => soma + (Number(itensPedido[index]?.total) || 0), 0);
+  const barraSelecaoPedido = itensPedido.length ? `
+    <div class="order-bulkbar ${itensSelecionadosPedido.length ? "is-active" : ""}">
+      <div>
+        <strong>${itensSelecionadosPedido.length ? `${itensSelecionadosPedido.length} selecionado${itensSelecionadosPedido.length > 1 ? "s" : ""}` : "Seleção múltipla"}</strong>
+        <small>${itensSelecionadosPedido.length ? `Total selecionado: ${formatarMoeda(totalSelecionadoPedido)}` : "Marque itens para alterar quantidade ou remover em lote."}</small>
+      </div>
+      <div class="order-bulk-actions">
+        <button class="btn ghost" type="button" onclick="selecionarTodosItensPedido()">Todos</button>
+        <button class="btn ghost" type="button" onclick="limparSelecaoItensPedido()" ${itensSelecionadosPedido.length ? "" : "disabled"}>Limpar</button>
+        <label class="bulk-qty-field">
+          <span>Qtd</span>
+          <input id="orderBulkQty" type="number" min="1" step="1" value="1" ${itensSelecionadosPedido.length ? "" : "disabled"}>
+        </label>
+        <button class="btn secondary" type="button" onclick="aplicarQuantidadeItensSelecionadosPedido()" ${itensSelecionadosPedido.length ? "" : "disabled"}>Aplicar qtd</button>
+        <button class="btn danger" type="button" onclick="removerItensSelecionadosPedido()" ${itensSelecionadosPedido.length ? "" : "disabled"}>${renderIconeAcaoPedido("🗑", "Excluir")} Remover</button>
+      </div>
+    </div>
+  ` : "";
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
-        <details class="order-item-card ${Number(window.__pedidoItemSelecionado) === i ? "selected" : ""}" data-order-item-index="${i}" ${itensPedido.length === 1 || Number(window.__pedidoItemSelecionado) === i ? "open" : ""}>
+        <details class="order-item-card ${Number(window.__pedidoItemSelecionado) === i ? "selected" : ""} ${isItemPedidoSelecionado(i) ? "is-multi-selected" : ""}" data-order-item-index="${i}" ${itensPedido.length === 1 || Number(window.__pedidoItemSelecionado) === i ? "open" : ""}>
           <summary class="order-item-summary" onclick="selecionarItemPedido(${i})">
-            <span class="order-item-selector" aria-hidden="true">${Number(window.__pedidoItemSelecionado) === i ? "✓" : i + 1}</span>
+            <label class="order-item-multi-select" title="Selecionar item ${i + 1}" onclick="event.preventDefault();event.stopPropagation();alternarSelecaoItemPedido(${i})">
+              <input type="checkbox" ${isItemPedidoSelecionado(i) ? "checked" : ""} tabindex="-1">
+              <span>${isItemPedidoSelecionado(i) ? "✓" : i + 1}</span>
+            </label>
             <span class="order-item-main">
               <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
               <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
@@ -19710,7 +19733,6 @@ function renderPedido() {
             <span class="order-item-total" data-item-total-index="${i}">${formatarMoeda(Number(item.total) || 0)}</span>
             <span class="order-item-inline-actions" aria-label="Ações do item">
               <button class="icon-action-button order-edit-inline" type="button" onclick="event.preventDefault();event.stopPropagation();selecionarItemPedido(${i})" title="Editar item">${renderIconeAcaoPedido("✎", "Editar")}</button>
-              <button class="icon-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();duplicarItemPedido(${i})" title="Duplicar item">${renderIconeAcaoPedido("▣", "Duplicar")}</button>
               <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </span>
           </summary>
@@ -19837,6 +19859,7 @@ function renderPedido() {
               <button class="icon-action-button danger" type="button" onclick="removerItemSelecionadoPedido()" title="Excluir selecionado">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
             </div>
           </div>
+          ${barraSelecaoPedido}
         ` : ""}
         <div class="order-items-list">${itensHtml}</div>
       </section>` : ""}
@@ -20502,7 +20525,6 @@ function renderDetalhePedido(pedido) {
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
-        ${renderAcaoPedidoCompacta("▣", "Duplicar", `duplicarPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
@@ -20546,7 +20568,6 @@ async function abrirMaisOpcoesPedido(id) {
     opcoes: [
       { id: "visualizar", label: "Ver detalhes", classe: "secondary", icone: "▣" },
       { id: "editar", label: "Editar pedido", classe: "secondary", icone: "✎" },
-      { id: "duplicar", label: "Duplicar pedido", classe: "secondary", icone: "▣" },
       { id: "copiar", label: "Copiar orçamento", classe: "ghost", icone: "▣" },
       { id: "whatsapp", label: "Enviar WhatsApp", classe: "ghost", icone: "☘" },
       { id: "pdf", label: "Gerar PDF", classe: "ghost", icone: "▣" },
@@ -20556,7 +20577,6 @@ async function abrirMaisOpcoesPedido(id) {
   });
   if (escolha === "visualizar") visualizarPedido(id);
   if (escolha === "editar") editarPedido(id);
-  if (escolha === "duplicar") duplicarPedidoSalvo(id);
   if (escolha === "copiar") copiarOrcamentoPedidoSalvo(id);
   if (escolha === "whatsapp") enviarWhatsPedidoSalvo(id);
   if (escolha === "pdf") baixarPdfPedidoSalvo(id);
@@ -20565,28 +20585,7 @@ async function abrirMaisOpcoesPedido(id) {
 }
 
 function duplicarPedidoSalvo(id) {
-  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para duplicar pedidos.")) return;
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
-  if (!pedido) return;
-  pedidoEditando = null;
-  pedidoEditandoOriginal = null;
-  itensPedido = normalizarItensPedido(pedido).map((item) => normalizarItemPedido({
-    ...JSON.parse(JSON.stringify(item)),
-    id: "item-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 5)
-  }));
-  clientePedido = clienteDoPedido(pedido);
-  clienteTelefonePedido = telefoneDoPedido(pedido);
-  clienteEmailPedido = emailDoPedido(pedido);
-  observacaoPedido = pedido.observacao || pedido.observacoes || "";
-  prazoPedido = "";
-  entradaPedido = 0;
-  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
-  quickOrderLastItem = itensPedido.length ? JSON.parse(JSON.stringify(itensPedido[itensPedido.length - 1])) : quickOrderLastItem;
-  selectedCustomerSuggestion = null;
-  customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
-  window.__pedidoItemSelecionado = itensPedido.length ? 0 : null;
-  abrirPedidoRapidoOperacional();
-  mostrarToast("Pedido duplicado como rascunho. Revise e salve para criar.", "sucesso", 3600);
+  mostrarToast("Duplicar pedido foi desativado para evitar pedidos repetidos. Use edição de quantidade nos itens.", "info", 4200);
 }
 
 async function copiarOrcamentoPedidoSalvo(id) {
@@ -31346,25 +31345,11 @@ async function removerItem(i) {
   if (!confirmado) return;
   if (!await consumirCreditoAcaoFree("excluir_item", "excluir item do pedido")) return;
   itensPedido.splice(i, 1);
+  window.__pedidoItensSelecionados = getItensPedidoSelecionados()
+    .filter((selecionado) => selecionado !== i)
+    .map((selecionado) => selecionado > i ? selecionado - 1 : selecionado);
   const atual = Number(window.__pedidoItemSelecionado);
   if (Number.isInteger(atual)) window.__pedidoItemSelecionado = Math.max(0, Math.min(atual, itensPedido.length - 1));
-  renderizarPreservandoScroll();
-}
-
-async function duplicarItemPedido(i) {
-  const indice = Number(i);
-  const origem = Number.isInteger(indice) ? normalizarItensPedido(itensPedido)[indice] : null;
-  if (!origem) return;
-  if (!await consumirCreditoAcaoFree("adicionar_item", "duplicar item do pedido")) return;
-  const copia = normalizarItemPedido(JSON.parse(JSON.stringify({
-    ...origem,
-    id: "item-" + Date.now().toString(36),
-    nome: origem.nome || "Item duplicado"
-  })));
-  itensPedido.splice(indice + 1, 0, copia);
-  window.__pedidoItemSelecionado = indice + 1;
-  quickOrderLastItem = JSON.parse(JSON.stringify(copia));
-  mostrarToast("Item duplicado.", "sucesso", 2200);
   renderizarPreservandoScroll();
 }
 
@@ -31382,6 +31367,77 @@ function selecionarItemPedido(i) {
   });
   const label = document.querySelector("[data-selected-item-label]");
   if (label) label.textContent = `Item ${indice + 1} selecionado`;
+}
+
+function getItensPedidoSelecionados() {
+  const selecionados = Array.isArray(window.__pedidoItensSelecionados) ? window.__pedidoItensSelecionados : [];
+  const indices = selecionados
+    .map((index) => Number(index))
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < itensPedido.length);
+  const unicos = [...new Set(indices)].sort((a, b) => a - b);
+  window.__pedidoItensSelecionados = unicos;
+  return unicos;
+}
+
+function isItemPedidoSelecionado(index) {
+  return getItensPedidoSelecionados().includes(Number(index));
+}
+
+function alternarSelecaoItemPedido(index, checked = null) {
+  const indice = Number(index);
+  if (!Number.isInteger(indice) || !itensPedido[indice]) return;
+  const selecionados = new Set(getItensPedidoSelecionados());
+  const deveSelecionar = checked === null ? !selecionados.has(indice) : checked === true;
+  if (deveSelecionar) selecionados.add(indice);
+  else selecionados.delete(indice);
+  window.__pedidoItensSelecionados = [...selecionados].sort((a, b) => a - b);
+  selecionarItemPedido(indice);
+  renderizarPreservandoScroll();
+}
+
+function selecionarTodosItensPedido() {
+  window.__pedidoItensSelecionados = itensPedido.map((_, index) => index);
+  renderizarPreservandoScroll();
+}
+
+function limparSelecaoItensPedido() {
+  window.__pedidoItensSelecionados = [];
+  renderizarPreservandoScroll();
+}
+
+function aplicarQuantidadeItensSelecionadosPedido() {
+  const selecionados = getItensPedidoSelecionados();
+  const quantidade = Math.max(1, Number(document.getElementById("orderBulkQty")?.value) || 1);
+  if (!selecionados.length) return;
+  selecionados.forEach((index) => {
+    const item = itensPedido[index];
+    if (!item) return;
+    item.qtd = quantidade;
+    item.total = (Number(item.valor) || 0) * quantidade;
+  });
+  mostrarToast(`Quantidade ${quantidade} aplicada a ${selecionados.length} item${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
+  renderizarPreservandoScroll();
+}
+
+async function removerItensSelecionadosPedido() {
+  const selecionados = getItensPedidoSelecionados();
+  if (!selecionados.length) return;
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Remover itens",
+    mensagem: `Remover ${selecionados.length} item${selecionados.length > 1 ? "s" : ""} selecionado${selecionados.length > 1 ? "s" : ""}?`,
+    confirmar: "Remover",
+    cancelar: "Cancelar",
+    perigo: true
+  });
+  if (!confirmado) return;
+  if (!await consumirCreditoAcaoFree("excluir_item", "excluir itens do pedido")) return;
+  [...selecionados].sort((a, b) => b - a).forEach((index) => {
+    if (itensPedido[index]) itensPedido.splice(index, 1);
+  });
+  window.__pedidoItensSelecionados = [];
+  window.__pedidoItemSelecionado = itensPedido.length ? Math.min(selecionados[0], itensPedido.length - 1) : null;
+  mostrarToast(`${selecionados.length} item${selecionados.length > 1 ? "s" : ""} removido${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
+  renderizarPreservandoScroll();
 }
 
 async function removerItemSelecionadoPedido() {
@@ -31984,6 +32040,7 @@ function cancelarEdicaoPedido() {
   entradaPedido = 0;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
+  window.__pedidoItensSelecionados = [];
   window.__pedidoRapidoItensSelecionados = [];
   renderizarPreservandoScroll();
 }
@@ -32413,6 +32470,7 @@ async function fecharPedido() {
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
+    window.__pedidoItensSelecionados = [];
     window.__pedidoRapidoItensSelecionados = [];
     limparRascunhoPedidoRapidoLocal();
     pedidoSalvando = false;
@@ -33459,7 +33517,6 @@ function renderCalculadoraConteudo() {
     <div class="calc-secondary-actions">
       ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()", "ghost")}
       ${renderAcaoPedidoCompacta("▣", "PDF", "gerarPdfCalculadora()", "ghost")}
-      ${renderAcaoPedidoCompacta("▣", "Duplicar", "duplicarCalculoAtual()", "ghost")}
       ${renderAcaoPedidoCompacta("🗑", "Excluir", "limparCalculo()", "danger")}
     </div>
   `;
@@ -33908,7 +33965,11 @@ function renderPedidoRapidoOperacional() {
       <div class="quick-order-bulk-actions">
         <button class="btn ghost" type="button" onclick="selecionarTodosItensPedidoRapido()">Todos</button>
         <button class="btn ghost" type="button" onclick="limparSelecaoItensPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>Limpar</button>
-        <button class="btn secondary" type="button" onclick="duplicarItensSelecionadosPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>${renderIconeAcaoPedido("▣", "Duplicar")} Duplicar</button>
+        <label class="bulk-qty-field">
+          <span>Qtd</span>
+          <input id="quickOrderBulkQty" type="number" min="1" step="1" value="1" ${selecionadosPedidoRapido.length ? "" : "disabled"}>
+        </label>
+        <button class="btn secondary" type="button" onclick="aplicarQuantidadeItensSelecionadosPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>Aplicar qtd</button>
         <button class="btn danger" type="button" onclick="removerItensSelecionadosPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>${renderIconeAcaoPedido("🗑", "Excluir")} Remover</button>
       </div>
     </div>
@@ -33925,7 +33986,6 @@ function renderPedidoRapidoOperacional() {
             <small>Qtd ${Number(item.qtd) || 1} • ${formatarMoeda(Number(item.valor) || 0)} un. • ${Number(item.tempoHoras || 0).toFixed(2)}h</small>
           </div>
           <b>${formatarMoeda(Number(item.total) || 0)}</b>
-          <button class="icon-action-button" type="button" onclick="duplicarItemPedidoRapido(${index})" title="Duplicar item">${renderIconeAcaoPedido("▣", "Duplicar")}</button>
           <button class="icon-action-button danger" type="button" onclick="removerItemRapidoOperacional(${index})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
         </article>
       `).join("")}</div>`
@@ -33998,7 +34058,6 @@ function renderPedidoRapidoOperacional() {
               </div>
               <div class="actions quick-order-inline-actions">
                 <button class="btn secondary" type="button" onclick="fecharSugestoesClientePedido();adicionarItemRapidoOperacional(event)">${renderIconeAcaoPedido("✚", "Adicionar")} Adicionar item</button>
-                ${quickOrderLastItem ? `<button class="btn ghost" type="button" onclick="repetirUltimoItemPedidoRapido()">${renderIconeAcaoPedido("▣", "Duplicar")} Repetir último</button>` : ""}
                 <button class="btn ghost" type="button" onclick="abrirCalculadoraPedidoRapido()">${renderUiIcon("calculadora")} Calculadora inline</button>
               </div>
             </section>
@@ -34213,56 +34272,17 @@ function removerItensSelecionadosPedidoRapido() {
   atualizarPedidoRapidoOperacional({ syncItemDraft: false });
 }
 
-async function duplicarItemPedidoRapido(index) {
-  const indice = Number(index);
-  const origem = Number.isInteger(indice) ? normalizarItensPedido(itensPedido)[indice] : null;
-  if (!origem) return;
-  if (!await consumirCreditoAcaoFree("adicionar_item", "duplicar item do pedido")) return;
-  const copia = normalizarItemPedido(JSON.parse(JSON.stringify({
-    ...origem,
-    id: "item-" + Date.now().toString(36),
-    nome: origem.nome || "Item duplicado"
-  })));
-  itensPedido.splice(indice + 1, 0, copia);
-  window.__pedidoItemSelecionado = indice + 1;
-  quickOrderLastItem = JSON.parse(JSON.stringify(copia));
-  mostrarToast("Item duplicado no pedido rápido.", "sucesso", 2200);
-  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
-}
-
-async function duplicarItensSelecionadosPedidoRapido() {
+function aplicarQuantidadeItensSelecionadosPedidoRapido() {
   const selecionados = getItensPedidoRapidoSelecionados();
+  const quantidade = Math.max(1, Number(document.getElementById("quickOrderBulkQty")?.value) || 1);
   if (!selecionados.length) return;
-  if (!await consumirCreditoAcaoFree("adicionar_item", "duplicar itens do pedido")) return;
-  const base = normalizarItensPedido(itensPedido);
-  const copias = selecionados
-    .map((index, ordem) => base[index] ? normalizarItemPedido(JSON.parse(JSON.stringify({
-      ...base[index],
-      id: `item-${Date.now().toString(36)}-${ordem}`,
-      nome: base[index].nome || "Item duplicado"
-    }))) : null)
-    .filter(Boolean);
-  itensPedido.push(...copias);
-  window.__pedidoRapidoItensSelecionados = copias.map((_, index) => itensPedido.length - copias.length + index);
-  window.__pedidoItemSelecionado = window.__pedidoRapidoItensSelecionados[0] ?? null;
-  if (copias.length) quickOrderLastItem = JSON.parse(JSON.stringify(copias[copias.length - 1]));
-  mostrarToast(`${copias.length} item${copias.length > 1 ? "s" : ""} duplicado${copias.length > 1 ? "s" : ""}.`, "sucesso", 2200);
-  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
-}
-
-async function repetirUltimoItemPedidoRapido() {
-  if (!quickOrderLastItem) {
-    mostrarToast("Nenhum item recente para repetir.", "aviso", 2600);
-    return;
-  }
-  if (!await consumirCreditoAcaoFree("adicionar_item", "repetir item do pedido")) return;
-  const copia = normalizarItemPedido(JSON.parse(JSON.stringify({
-    ...quickOrderLastItem,
-    id: "item-" + Date.now().toString(36)
-  })));
-  itensPedido.push(copia);
-  window.__pedidoItemSelecionado = itensPedido.length - 1;
-  mostrarToast("Último item repetido.", "sucesso", 2200);
+  selecionados.forEach((index) => {
+    const item = itensPedido[index];
+    if (!item) return;
+    item.qtd = quantidade;
+    item.total = (Number(item.valor) || 0) * quantidade;
+  });
+  mostrarToast(`Quantidade ${quantidade} aplicada a ${selecionados.length} item${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
   atualizarPedidoRapidoOperacional({ syncItemDraft: false });
 }
 
@@ -36519,6 +36539,7 @@ function limparPedidoAtual() {
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   pedidoEditando = null;
   window.__pedidoItemSelecionado = null;
+  window.__pedidoItensSelecionados = [];
   window.__pedidoRapidoItensSelecionados = [];
   registrarHistorico("Pedido", "Pedido atual limpo");
   renderApp();
