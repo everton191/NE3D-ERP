@@ -31984,6 +31984,7 @@ function cancelarEdicaoPedido() {
   entradaPedido = 0;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
+  window.__pedidoRapidoItensSelecionados = [];
   renderizarPreservandoScroll();
 }
 
@@ -32412,6 +32413,7 @@ async function fecharPedido() {
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
     window.__pedidoReviewConfirmed = false;
+    window.__pedidoRapidoItensSelecionados = [];
     limparRascunhoPedidoRapidoLocal();
     pedidoSalvando = false;
     if (appConfig.onboardingFirstOrderPending && deveMostrarOnboarding()) {
@@ -33710,6 +33712,7 @@ function aplicarRascunhoPedidoRapidoLocal(snapshot) {
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   window.__pedidoItemSelecionado = itensPedido.length ? 0 : null;
+  window.__pedidoRapidoItensSelecionados = [];
   return true;
 }
 
@@ -33782,6 +33785,7 @@ async function limparRascunhoPedidoRapido() {
   quickOrderStatusDraft = "";
   quickOrderPaymentMethodDraft = "pix";
   window.__pedidoItemSelecionado = null;
+  window.__pedidoRapidoItensSelecionados = [];
   limparRascunhoPedidoRapidoLocal();
   const popup = document.getElementById("popup");
   if (popup) {
@@ -33893,10 +33897,29 @@ function renderPedidoRapidoOperacional() {
     down_payment: entradaPedido
   });
   const statusAtual = pedidoEditando?.status || document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || "aberto";
+  const selecionadosPedidoRapido = getItensPedidoRapidoSelecionados();
+  const totalSelecionadoPedidoRapido = selecionadosPedidoRapido.reduce((soma, index) => soma + (Number(normalizarItensPedido(itensPedido)[index]?.total) || 0), 0);
+  const barraSelecaoPedidoRapido = itensPedido.length ? `
+    <div class="quick-order-bulkbar ${selecionadosPedidoRapido.length ? "is-active" : ""}">
+      <div>
+        <strong>${selecionadosPedidoRapido.length ? `${selecionadosPedidoRapido.length} selecionado${selecionadosPedidoRapido.length > 1 ? "s" : ""}` : "Seleção múltipla"}</strong>
+        <small>${selecionadosPedidoRapido.length ? `Total selecionado: ${formatarMoeda(totalSelecionadoPedidoRapido)}` : "Marque itens para agir em lote."}</small>
+      </div>
+      <div class="quick-order-bulk-actions">
+        <button class="btn ghost" type="button" onclick="selecionarTodosItensPedidoRapido()">Todos</button>
+        <button class="btn ghost" type="button" onclick="limparSelecaoItensPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>Limpar</button>
+        <button class="btn secondary" type="button" onclick="duplicarItensSelecionadosPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>${renderIconeAcaoPedido("▣", "Duplicar")} Duplicar</button>
+        <button class="btn danger" type="button" onclick="removerItensSelecionadosPedidoRapido()" ${selecionadosPedidoRapido.length ? "" : "disabled"}>${renderIconeAcaoPedido("🗑", "Excluir")} Remover</button>
+      </div>
+    </div>
+  ` : "";
   const itensHtml = itensPedido.length
     ? `<div class="quick-order-items">${normalizarItensPedido(itensPedido).map((item, index) => `
-        <article>
-          <span>${index + 1}</span>
+        <article class="${isItemPedidoRapidoSelecionado(index) ? "is-selected" : ""}">
+          <label class="quick-order-item-select" title="Selecionar item ${index + 1}">
+            <input type="checkbox" ${isItemPedidoRapidoSelecionado(index) ? "checked" : ""} onchange="alternarSelecaoItemPedidoRapido(${index}, this.checked)">
+            <span>${isItemPedidoRapidoSelecionado(index) ? "✓" : index + 1}</span>
+          </label>
           <div>
             <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
             <small>Qtd ${Number(item.qtd) || 1} • ${formatarMoeda(Number(item.valor) || 0)} un. • ${Number(item.tempoHoras || 0).toFixed(2)}h</small>
@@ -34019,10 +34042,11 @@ function renderPedidoRapidoOperacional() {
             <div>
               <span class="status-badge ${classeStatusPedido(statusAtual)}">${escaparHtml(labelStatusPedido(statusAtual))}</span>
               <h3>Resumo operacional</h3>
-              <p class="muted">Revise tudo sem perder o contexto do dashboard.</p>
-            </div>
-            ${renderPedidoRapidoTimeline(statusAtual)}
-            ${itensHtml}
+            <p class="muted">Revise tudo sem perder o contexto do dashboard.</p>
+          </div>
+          ${renderPedidoRapidoTimeline(statusAtual)}
+          ${barraSelecaoPedidoRapido}
+          ${itensHtml}
             <div class="order-financial-summary compact quick-order-finance" data-quick-order-summary>
               <div><span>Subtotal</span><strong>${formatarMoeda(resumo.subtotal)}</strong></div>
               <div><span>Entrada</span><strong>${formatarMoeda(resumo.entrada)}</strong></div>
@@ -34060,6 +34084,7 @@ function abrirPedidoRapidoOperacional({ reset = false } = {}) {
     quickOrderPaymentMethodDraft = "pix";
     selectedCustomerSuggestion = null;
     window.__pedidoItemSelecionado = null;
+    window.__pedidoRapidoItensSelecionados = [];
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   }
   const popup = document.getElementById("popup");
@@ -34129,12 +34154,63 @@ async function adicionarItemRapidoOperacional(event = null, { silent = false } =
   return true;
 }
 
+function getItensPedidoRapidoSelecionados() {
+  const selecionados = Array.isArray(window.__pedidoRapidoItensSelecionados) ? window.__pedidoRapidoItensSelecionados : [];
+  const indices = selecionados
+    .map((index) => Number(index))
+    .filter((index) => Number.isInteger(index) && index >= 0 && index < itensPedido.length);
+  const unicos = [...new Set(indices)].sort((a, b) => a - b);
+  window.__pedidoRapidoItensSelecionados = unicos;
+  return unicos;
+}
+
+function isItemPedidoRapidoSelecionado(index) {
+  return getItensPedidoRapidoSelecionados().includes(Number(index));
+}
+
+function alternarSelecaoItemPedidoRapido(index, checked = null) {
+  const indice = Number(index);
+  if (!Number.isInteger(indice) || !itensPedido[indice]) return;
+  const selecionados = new Set(getItensPedidoRapidoSelecionados());
+  const deveSelecionar = checked === null ? !selecionados.has(indice) : checked === true;
+  if (deveSelecionar) selecionados.add(indice);
+  else selecionados.delete(indice);
+  window.__pedidoRapidoItensSelecionados = [...selecionados].sort((a, b) => a - b);
+  window.__pedidoItemSelecionado = indice;
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+}
+
+function selecionarTodosItensPedidoRapido() {
+  window.__pedidoRapidoItensSelecionados = itensPedido.map((_, index) => index);
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+}
+
+function limparSelecaoItensPedidoRapido() {
+  window.__pedidoRapidoItensSelecionados = [];
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+}
+
 function removerItemRapidoOperacional(index) {
   const indice = Number(index);
   if (!Number.isInteger(indice) || !itensPedido[indice]) return;
   itensPedido.splice(indice, 1);
+  window.__pedidoRapidoItensSelecionados = getItensPedidoRapidoSelecionados()
+    .filter((selecionado) => selecionado !== indice)
+    .map((selecionado) => selecionado > indice ? selecionado - 1 : selecionado);
   window.__pedidoItemSelecionado = itensPedido.length ? Math.max(0, Math.min(indice, itensPedido.length - 1)) : null;
   atualizarPedidoRapidoOperacional();
+}
+
+function removerItensSelecionadosPedidoRapido() {
+  const selecionados = getItensPedidoRapidoSelecionados();
+  if (!selecionados.length) return;
+  [...selecionados].sort((a, b) => b - a).forEach((index) => {
+    if (itensPedido[index]) itensPedido.splice(index, 1);
+  });
+  window.__pedidoRapidoItensSelecionados = [];
+  window.__pedidoItemSelecionado = itensPedido.length ? Math.min(selecionados[0], itensPedido.length - 1) : null;
+  mostrarToast(`${selecionados.length} item${selecionados.length > 1 ? "s" : ""} removido${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
 }
 
 async function duplicarItemPedidoRapido(index) {
@@ -34151,6 +34227,26 @@ async function duplicarItemPedidoRapido(index) {
   window.__pedidoItemSelecionado = indice + 1;
   quickOrderLastItem = JSON.parse(JSON.stringify(copia));
   mostrarToast("Item duplicado no pedido rápido.", "sucesso", 2200);
+  atualizarPedidoRapidoOperacional({ syncItemDraft: false });
+}
+
+async function duplicarItensSelecionadosPedidoRapido() {
+  const selecionados = getItensPedidoRapidoSelecionados();
+  if (!selecionados.length) return;
+  if (!await consumirCreditoAcaoFree("adicionar_item", "duplicar itens do pedido")) return;
+  const base = normalizarItensPedido(itensPedido);
+  const copias = selecionados
+    .map((index, ordem) => base[index] ? normalizarItemPedido(JSON.parse(JSON.stringify({
+      ...base[index],
+      id: `item-${Date.now().toString(36)}-${ordem}`,
+      nome: base[index].nome || "Item duplicado"
+    }))) : null)
+    .filter(Boolean);
+  itensPedido.push(...copias);
+  window.__pedidoRapidoItensSelecionados = copias.map((_, index) => itensPedido.length - copias.length + index);
+  window.__pedidoItemSelecionado = window.__pedidoRapidoItensSelecionados[0] ?? null;
+  if (copias.length) quickOrderLastItem = JSON.parse(JSON.stringify(copias[copias.length - 1]));
+  mostrarToast(`${copias.length} item${copias.length > 1 ? "s" : ""} duplicado${copias.length > 1 ? "s" : ""}.`, "sucesso", 2200);
   atualizarPedidoRapidoOperacional({ syncItemDraft: false });
 }
 
@@ -36423,6 +36519,7 @@ function limparPedidoAtual() {
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   pedidoEditando = null;
   window.__pedidoItemSelecionado = null;
+  window.__pedidoRapidoItensSelecionados = [];
   registrarHistorico("Pedido", "Pedido atual limpo");
   renderApp();
 }

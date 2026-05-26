@@ -18727,6 +18727,84 @@ body[data-ui-profile="web_pwa"] .operational-drawer > .modal-header{
   background:color-mix(in srgb, var(--color-surface) 64%, transparent);
 }
 
+.quick-order-items article.is-selected{
+  border-color:color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
+  background:color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  box-shadow:0 10px 28px color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.quick-order-item-select{
+  width:30px;
+  height:30px;
+  position:relative;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+
+.quick-order-item-select input{
+  position:absolute;
+  inset:0;
+  opacity:0;
+  cursor:pointer;
+}
+
+.quick-order-item-select span{
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border:1px solid color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+  border-radius:999px;
+  background:color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color:var(--color-primary);
+  font-weight:900;
+  transition:background-color .18s ease, color .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.quick-order-item-select input:checked + span{
+  border-color:var(--color-primary);
+  background:var(--color-primary);
+  color:var(--color-on-primary, #fff);
+  transform:scale(1.04);
+}
+
+.quick-order-bulkbar{
+  display:grid;
+  gap:10px;
+  padding:10px;
+  border:1px solid var(--color-border);
+  border-radius:16px;
+  background:color-mix(in srgb, var(--color-surface) 56%, transparent);
+}
+
+.quick-order-bulkbar.is-active{
+  border-color:color-mix(in srgb, var(--color-primary) 34%, var(--color-border));
+  background:linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 12%, transparent), color-mix(in srgb, var(--color-surface) 72%, transparent));
+}
+
+.quick-order-bulkbar strong,
+.quick-order-bulkbar small{
+  display:block;
+}
+
+.quick-order-bulkbar small{
+  margin-top:2px;
+  color:var(--color-text-muted);
+  font-size:12px;
+}
+
+.quick-order-bulk-actions{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+}
+
+.quick-order-bulk-actions .btn{
+  min-height:38px;
+  padding-inline:10px;
+}
+
 .quick-order-items strong,
 .quick-order-items small{
   display:block;
@@ -18862,6 +18940,10 @@ body.theme-light :where(.quick-order-section,.quick-order-summary,.quick-order-i
 
   .quick-order-items article{
     grid-template-columns:auto minmax(0, 1fr) auto;
+  }
+
+  .quick-order-bulk-actions{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
   }
 
   .quick-order-items article .icon-action-button{
