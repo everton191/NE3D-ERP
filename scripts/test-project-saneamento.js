@@ -19,12 +19,12 @@ if (missingIgnores.length) {
 
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.12-estavel\"",
-  "APP_VERSION_CODE = 110",
+  "APP_VERSION_CODE = 11",
   "simplifica-3d-v112-estavel-20260526-responsive-admin",
   "versionName \"1.0.12-estavel\"",
-  "versionCode 110",
+  "versionCode 11",
   "\"version\": \"1.0.12-estavel\"",
-  "\"versionCode\": 110"
+  "\"versionCode\": 11"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

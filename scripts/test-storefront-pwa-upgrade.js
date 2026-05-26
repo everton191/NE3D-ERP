@@ -10,9 +10,9 @@ const required = [
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
   "versionName \"1.0.12-estavel\"",
-  "versionCode 110",
+  "versionCode 11",
   "APP_VERSION = \"1.0.12-estavel\"",
-  "APP_VERSION_CODE = 110"
+  "APP_VERSION_CODE = 11"
 ];
 
 const sources = [sw, manifest, gradle, app].join("\n");
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache, manifest e versionamento 1.0.12/110 presentes.");
+console.log("Storefront PWA upgrade: cache, manifest e versionamento 1.0.12/11 presentes.");

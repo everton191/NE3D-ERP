@@ -3,7 +3,7 @@
 // ==========================================================
 
 const APP_VERSION = "1.0.12-estavel";
-const APP_VERSION_CODE = 110;
+const APP_VERSION_CODE = 11;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
