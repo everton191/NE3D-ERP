@@ -1,8 +1,8 @@
 {
-  "apkUrl": "https://raw.githubusercontent.com/everton191/NE3D-ERP.apk/main/NE3D-ERP.apk?v=107",
-  "version": "1.0.9-estavel",
+  "version": "1.0.10-estavel",
+  "versionCode": 108,
+  "apkUrl": "https://raw.githubusercontent.com/everton191/NE3D-ERP.apk/main/NE3D-ERP.apk?v=108",
   "apkFile": "NE3D-ERP.apk",
-  "generatedAt": "2026-05-26T00:10:11.2190499Z",
-  "versionCode": 107,
-  "publicRepo": "everton191/NE3D-ERP.apk"
+  "publicRepo": "everton191/NE3D-ERP.apk",
+  "generatedAt": "2026-05-26T00:30:01.206Z"
 }

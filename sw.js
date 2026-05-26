@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v109-estavel-20260525-store-phase36-commercial";
+const CACHE_NAME = "simplifica-3d-v110-estavel-20260525-store-phase37-public";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -56,11 +56,15 @@ self.addEventListener("fetch", (event) => {
     "/assets/intro.mp4"
   ].includes(url.pathname);
 
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request, { cache: "no-store" }).catch(() => caches.match("./index.html"))
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request, deveIgnorarCache ? { cache: "no-store" } : undefined).then((response) => {
-      if (response.status === 404 && event.request.mode === "navigate") {
-        return caches.match("./index.html").then((cached) => cached || fetch("./index.html", { cache: "no-store" }));
-      }
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
       return response;

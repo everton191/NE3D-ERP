@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.9-estavel";
-const APP_VERSION_CODE = 107;
+const APP_VERSION = "1.0.10-estavel";
+const APP_VERSION_CODE = 108;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -16316,6 +16316,10 @@ function renderStorePublicCategoryBar(vm) {
   `;
 }
 
+function renderStorefrontShareInlineButton(url = getStorefrontPublicUrl(), label = "Compartilhar") {
+  return `<button class="btn ghost store-public-share-inline" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')">${escaparHtml(label)}</button>`;
+}
+
 function renderStorePublicProductCard(vm, product = {}) {
   const image = getStorefrontProductImage(product, vm.images);
   const unavailable = String(product.stock_mode || "") === "unavailable";
@@ -16342,6 +16346,7 @@ function renderStorePublicProductCard(vm, product = {}) {
       <div class="store-public-product-actions">
         <a class="btn ghost" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Detalhes</a>
         <button class="btn secondary" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Adicionar"}</button>
+        ${renderStorefrontShareInlineButton(getStorefrontPublicUrl({ slug: vm.store.slug, view: "product", productSlug: product.slug || product.id }), "Enviar")}
       </div>
     </article>
   `;
@@ -16454,6 +16459,7 @@ function atualizarSeoLojaPublica(vm, product = null) {
     const description = product?.description || vm.store?.description || "Loja online de produtos e personalizados em impressão 3D.";
     const image = product ? getStorefrontProductImage(product, vm.images || []) : (vm.store?.banner_url || vm.store?.logo_url || "/assets/simplifica-brand-cover.jpg");
     const url = getStorefrontPublicUrl(vm.route);
+    const primary = vm.store?.theme_config?.primary || "#00BFA6";
     document.title = title;
     const metas = [
       ["description", description],
@@ -16462,11 +16468,14 @@ function atualizarSeoLojaPublica(vm, product = null) {
       ["og:url", url],
       ["og:type", product ? "product" : "website"],
       ["og:image", image],
+      ["og:site_name", vm.store?.name || "Simplifica 3D"],
+      ["og:locale", "pt_BR"],
       ["twitter:card", "summary_large_image"],
       ["twitter:title", title],
       ["twitter:description", description],
       ["twitter:image", image],
-      ["theme-color", vm.store?.theme_config?.primary || "#00BFA6"]
+      ["theme-color", primary],
+      ["apple-mobile-web-app-title", vm.store?.name || "Simplifica 3D"]
     ];
     metas.forEach(([name, content]) => {
       const selector = name.startsWith("og:") ? `meta[property="${name}"]` : `meta[name="${name}"]`;
@@ -16488,15 +16497,37 @@ function atualizarSeoLojaPublica(vm, product = null) {
     canonical.setAttribute("href", url);
     const favicon = vm.store?.favicon_url || vm.store?.logo_url;
     if (favicon) {
-      let icon = document.head.querySelector('link[rel="icon"]');
-      if (!icon) {
-        icon = document.createElement("link");
-        icon.setAttribute("rel", "icon");
-        document.head.appendChild(icon);
-      }
-      icon.setAttribute("href", favicon);
+      ["icon", "apple-touch-icon"].forEach((rel) => {
+        let icon = document.head.querySelector(`link[rel="${rel}"]`);
+        if (!icon) {
+          icon = document.createElement("link");
+          icon.setAttribute("rel", rel);
+          document.head.appendChild(icon);
+        }
+        icon.setAttribute("href", favicon);
+      });
     }
   } catch (_) {}
+}
+
+function renderStorefrontConnectionBadge() {
+  const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
+  return `
+    <div class="store-public-connection-badge ${online ? "online" : "offline"}" data-storefront-connection>
+      <i></i>
+      <span>${online ? "Online" : "Offline - vitrine em modo local"}</span>
+    </div>
+  `;
+}
+
+function atualizarStorefrontConnectionBadge() {
+  document.querySelectorAll("[data-storefront-connection]").forEach((node) => {
+    const online = typeof navigator === "undefined" ? true : navigator.onLine !== false;
+    node.classList.toggle("online", online);
+    node.classList.toggle("offline", !online);
+    const label = node.querySelector("span");
+    if (label) label.textContent = online ? "Online" : "Offline - vitrine em modo local";
+  });
 }
 
 function renderLojaOnlinePublica() {
@@ -16572,6 +16603,7 @@ function renderLojaOnlinePublica() {
             : homeContent);
   const storeContent = `
     ${renderStorePublicHeader(vm)}
+    ${renderStorefrontConnectionBadge()}
     ${renderStoreAdminFloatingEditor(vm)}
     ${vm.store.__demo && mode.admin ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
     ${pageContent}
@@ -16651,6 +16683,9 @@ function renderStorePublicCategoryProductsPage(vm, category) {
       description: `Produtos em ${category.name || "categoria"} organizados para navegação rápida.`
     })}
     ${renderStorePublicCategoryBar(vm)}
+    <div class="store-public-inner-actions">
+      ${renderStorefrontShareInlineButton(getStorefrontPublicUrl({ slug: vm.store.slug, view: "category", categorySlug: category.slug || category.id }), "Compartilhar categoria")}
+    </div>
     ${renderStorePublicGrid(vm, products, category.name || "Categoria", `Produtos em ${category.name || "categoria"}`)}
   `;
 }
@@ -17135,20 +17170,89 @@ function abrirWhatsappProdutoLojaPublica(productId = "") {
   abrirWhatsappLojaPublica(montarMensagemProdutoLojaPublica(product, vm));
 }
 
-function compartilharLojaPublica(url = getStorefrontPublicUrl()) {
+function getStorefrontShareContext(url = getStorefrontPublicUrl()) {
   const vm = getStorefrontPublicViewModel();
+  const route = parseStorefrontPublicRoute(new URL(url, location.origin).pathname) || vm.route || {};
+  const product = route.view === "product"
+    ? vm.products.find((item) => String(item.slug || item.id) === String(route.productSlug))
+    : null;
+  const category = route.view === "category"
+    ? vm.categories.find((item) => String(item.slug || item.id) === String(route.categorySlug))
+    : null;
+  const title = product?.title
+    ? `${product.title} | ${vm.store?.name || "Loja"}`
+    : category?.name
+      ? `${category.name} | ${vm.store?.name || "Loja"}`
+      : vm.store?.name || "Loja Online";
+  const text = product?.title
+    ? `Olha este produto da loja ${vm.store?.name || "Simplifica 3D"}: ${product.title}`
+    : category?.name
+      ? `Veja a categoria ${category.name} da loja ${vm.store?.name || "Simplifica 3D"}.`
+      : `Conheça a loja ${vm.store?.name || "Simplifica 3D"} no Simplifica 3D.`;
+  const image = product ? getStorefrontProductImage(product, vm.images || []) : (vm.store?.banner_url || vm.store?.logo_url || "/assets/simplifica-brand-cover.jpg");
+  const whatsappText = `${text}\n${url}`;
+  return { vm, route, product, category, title, text, image, whatsappText, url };
+}
+
+function abrirPreviewCompartilhamentoLoja(url = getStorefrontPublicUrl()) {
+  const context = getStorefrontShareContext(url);
+  const popup = document.getElementById("popup");
+  if (!popup) return prompt("Copie o link:", url);
+  popup.innerHTML = `
+    <div class="modal-backdrop store-share-preview-backdrop" role="dialog" aria-modal="true">
+      <section class="modal-card store-share-preview-modal">
+        <div class="modal-header">
+          <div>
+            <span class="status-badge">Compartilhamento</span>
+            <h2>Link pronto para enviar</h2>
+            <p class="muted">Use o compartilhamento nativo do celular, copie o link ou envie direto pelo WhatsApp.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        <article class="store-share-preview-card">
+          ${context.image ? `<img src="${escaparAttr(context.image)}" loading="lazy" decoding="async" alt="${escaparAttr(context.title)}">` : ""}
+          <div>
+            <strong>${escaparHtml(context.title)}</strong>
+            <span>${escaparHtml(context.text)}</span>
+            <small>${escaparHtml(context.url)}</small>
+          </div>
+        </article>
+        <div class="store-share-preview-actions">
+          <button class="btn" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}', { forceNative: true })">Compartilhar no celular</button>
+          <button class="btn secondary" type="button" onclick="abrirWhatsappCompartilhamentoLoja('${escaparAttr(url)}')">Enviar WhatsApp</button>
+          <button class="btn ghost" type="button" onclick="copiarLinkLojaPublica('${escaparAttr(url)}')">Copiar link</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function copiarLinkLojaPublica(url = getStorefrontPublicUrl()) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url).then(() => mostrarToast("Link copiado.", "sucesso", 2200)).catch(() => prompt("Copie o link:", url));
+    return;
+  }
+  prompt("Copie o link:", url);
+}
+
+function abrirWhatsappCompartilhamentoLoja(url = getStorefrontPublicUrl()) {
+  const { whatsappText } = getStorefrontShareContext(url);
+  window.open(`https://wa.me/?text=${encodeURIComponent(whatsappText)}`, "_blank", "noopener");
+}
+
+function compartilharLojaPublica(url = getStorefrontPublicUrl(), options = {}) {
+  const { vm, title, text } = getStorefrontShareContext(url);
   const mode = getStorefrontPublicMode(vm);
   if ((mode.admin || telaAtual === "lojaOnline" || telaAtual === "lojaAdmin") && !exigirChecklistPublicacaoLoja({ intent: "compartilhar" })) return;
-  const texto = "Conheça esta loja no Simplifica 3D";
   if (navigator.share) {
-    navigator.share({ title: texto, text: texto, url }).catch(() => {});
+    navigator.share({ title, text, url }).then(() => registrarEventoLojaPublica("share_click", { url }, { silent: true })).catch(() => {});
     return;
   }
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(url).then(() => mostrarToast("Link da loja copiado.", "sucesso", 2400)).catch(() => prompt("Copie o link da loja:", url));
+  if (!options.forceNative) {
+    abrirPreviewCompartilhamentoLoja(url);
     return;
   }
-  prompt("Copie o link da loja:", url);
+  copiarLinkLojaPublica(url);
 }
 
 function getStorefrontCategoryName(vm, categoryId) {
@@ -36638,6 +36742,7 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("online", () => {
   atualizarIndicadorSincronizacao("syncing", "Reconectando");
+  atualizarStorefrontConnectionBadge();
   mostrarToast("Conexão restaurada. Sincronizando alterações pendentes.", "info", 3200);
   storefrontFlushPendingQueue();
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
@@ -36646,6 +36751,7 @@ window.addEventListener("online", () => {
 
 window.addEventListener("offline", () => {
   salvarRascunhoPedidoRapidoLocal({ force: true });
+  atualizarStorefrontConnectionBadge();
   if (getStorefrontAutosaveDraft()) storefrontQueuePendingAction("session-offline-recovery", getStorefrontSessionRecoveryState());
   recomporFilaSyncPendente();
   syncConfig.autoBackupStatus = "Offline - fila pendente";
