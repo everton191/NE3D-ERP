@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v112-estavel-20260526-responsive-admin";
+const CACHE_NAME = "simplifica-3d-v113-estavel-20260526-sensitive-actions";
 const APP_FILES = [
   "./",
   "./index.html",

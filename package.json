@@ -52,6 +52,7 @@
     "test:storefront-visual-balance": "node scripts/test-storefront-visual-balance.js",
     "test:storefront-desktop-upscale": "node scripts/test-storefront-desktop-upscale.js",
     "test:admin-beta-access": "node scripts/test-admin-beta-access.js",
+    "test:sensitive-action-guards": "node scripts/test-sensitive-action-guards.js",
     "test:ui-responsive-balance": "node scripts/test-ui-responsive-balance.js",
     "test:ultrawide-layout": "node scripts/test-ultrawide-layout.js",
     "test:project-saneamento": "node scripts/test-project-saneamento.js",

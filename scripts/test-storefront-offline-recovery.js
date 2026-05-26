@@ -12,7 +12,7 @@ const required = [
   "descartarStorefrontAutosaveLocal",
   "window.addEventListener(\"online\"",
   "window.addEventListener(\"offline\"",
-  "simplifica-3d-v112-estavel-20260526-responsive-admin"
+  "simplifica-3d-v113-estavel-20260526-sensitive-actions"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !sw.includes(item));

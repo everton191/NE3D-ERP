@@ -6,7 +6,7 @@ const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 
 const requiredApp = [
-  "if (isStorefrontAllowedTestUser(usuario, flags)) return true;",
+  "Fase atual: editor liberado para qualquer usuário autenticado.",
   "function getStorefrontCompatibleAdminSlugs",
   "getStorefrontCompatibleAdminSlugs(adminSlug).has(targetSlug)",
   "Painel administrativo em liberação gradual",

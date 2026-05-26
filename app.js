@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.12-estavel";
-const APP_VERSION_CODE = 11;
+const APP_VERSION = "1.0.13-estavel";
+const APP_VERSION_CODE = 12;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -423,7 +423,6 @@ let assistantLocalDiagnostics = {
 };
 let aiModelInstallPromise = null;
 let aiProgressRenderTimer = null;
-let adminAuthValidUntil = 0;
 let localLockModalOpen = false;
 let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
@@ -8447,20 +8446,8 @@ function canAccessStorefrontAdmin(usuario = getUsuarioAtual(), plan = getPlanoAt
     registrarStorefrontDebugLeve("sessao_perdida", "Acesso ao admin da loja sem usuário autenticado.");
     return false;
   }
-  if (isSuperAdmin(usuario)) return true;
-  if (isStorefrontAllowedTestUser(usuario, flags)) return true;
-  const limits = getStorefrontLimitsLocal(plan?.slug);
-  if (limits.enabled === true) return true;
-  if (flags.devOverride === true && isAmbienteLocal()) return true;
-  if (!isStorefrontFeatureEnabled(flags)) {
-    registrarStorefrontDebugLeve("feature_flag_desligada", "Loja Online contextual bloqueada pela feature flag.");
-    return false;
-  }
-  registrarStorefrontDebugLeve("plano_bloqueado", "Loja Online contextual liberada apenas para PRO e Super Admin.", {
-    plan: plan?.slug || "free",
-    email: normalizarEmail(usuario?.email || "")
-  });
-  return false;
+  // Fase atual: editor liberado para qualquer usuário autenticado.
+  return true;
 }
 
 function canUseStorefrontLocal(usuario = getUsuarioAtual()) {
@@ -14357,7 +14344,6 @@ async function salvarStorefrontAparencia(event) {
   const form = event?.target || document.getElementById("storefrontAppearanceForm");
   if (!form) return;
   const botao = form.querySelector("button[type='submit']");
-  setBotaoLoading(botao, true, "Salvando...");
   try {
     const store = getStorefrontAdminStoreLocal();
     const name = form.storeName?.value?.trim();
@@ -14382,6 +14368,15 @@ async function salvarStorefrontAparencia(event) {
         mode: form.storeThemeMode?.value || "auto"
       }
     };
+    if (!await requestSensitiveActionConfirmation({
+      actionLabel: "alterar identidade visual e link da loja",
+      titulo: "Autorizar identidade da loja",
+      mensagem: "Confirme sua senha antes de alterar nome, slug, logo, banner, cores ou identidade pública da loja.",
+      confirmar: "Autorizar alteração",
+      cancelar: "Cancelar",
+      exigirConfirmacaoVisual: true
+    })) return;
+    setBotaoLoading(botao, true, "Salvando...");
     storefrontAdminSaveStore(next);
     if (storefrontAdminRemoteReady()) {
       const payload = {
@@ -14428,6 +14423,17 @@ async function salvarStorefrontAparencia(event) {
 async function alternarStatusLojaOnline() {
   const store = getStorefrontAdminStoreLocal();
   if (!store.active && !exigirChecklistPublicacaoLoja({ intent: "publicar" })) return;
+  if (!await requestSensitiveActionConfirmation({
+    actionLabel: store.active ? "colocar loja em rascunho" : "publicar loja",
+    titulo: store.active ? "Autorizar rascunho da loja" : "Autorizar publicação da loja",
+    mensagem: store.active
+      ? "Confirme sua senha antes de retirar a loja do ar."
+      : "Confirme sua senha antes de liberar esta loja para clientes.",
+    confirmar: store.active ? "Autorizar rascunho" : "Autorizar publicação",
+    cancelar: "Cancelar",
+    perigo: store.active,
+    exigirConfirmacaoVisual: true
+  })) return;
   const next = { ...store, active: !store.active };
   storefrontAdminSaveStore(next);
   try {
@@ -14506,6 +14512,15 @@ async function salvarCategoriaLojaOnline(event) {
 async function excluirCategoriaLojaOnline(id) {
   const products = getStorefrontAdminProductsLocal();
   if (products.some((product) => product.category_id === id)) return mostrarToast("Não é possível excluir categoria com produtos vinculados.", "erro", 4200);
+  if (!await requestSensitiveActionConfirmation({
+    actionLabel: "excluir categoria da loja",
+    titulo: "Autorizar exclusão de categoria",
+    mensagem: "Confirme sua senha antes de remover esta categoria da loja.",
+    confirmar: "Excluir categoria",
+    cancelar: "Cancelar",
+    perigo: true,
+    exigirConfirmacaoVisual: true
+  })) return;
   try {
     if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "cat-")) {
       await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(id)}`, {
@@ -14555,7 +14570,6 @@ async function salvarProdutoLojaOnline(event) {
   event?.preventDefault?.();
   const form = event?.target;
   const botao = form?.querySelector?.("button[type='submit']");
-  setBotaoLoading(botao, true, "Salvando...");
   const store = getStorefrontAdminStoreLocal();
   const products = getStorefrontAdminProductsLocal();
   try {
@@ -14591,6 +14605,17 @@ async function salvarProdutoLojaOnline(event) {
       stock_mode: form?.productStockMode?.value || "unlimited",
       stock_quantity: form?.productStockQuantity?.value ? Math.max(0, Number(form.productStockQuantity.value) || 0) : null
     };
+    if (!await requestSensitiveActionConfirmation({
+      actionLabel: id ? "editar produto, preço ou publicação da loja" : "criar produto na loja",
+      titulo: id ? "Autorizar alteração de produto" : "Autorizar novo produto",
+      mensagem: id
+        ? "Confirme sua senha antes de alterar preço, visibilidade, destaque ou dados públicos do produto."
+        : "Confirme sua senha antes de criar um produto público na loja.",
+      confirmar: "Autorizar produto",
+      cancelar: "Cancelar",
+      exigirConfirmacaoVisual: true
+    })) return;
+    setBotaoLoading(botao, true, "Salvando...");
     if (storefrontAdminRemoteReady()) {
       storefrontAdminRequireRemoteStore();
       nextProduct = await storefrontAdminUpsertProduct(nextProduct);
@@ -14613,6 +14638,14 @@ async function salvarProdutoLojaOnline(event) {
 }
 
 async function alternarProdutoLojaOnline(id, field) {
+  if (!await requestSensitiveActionConfirmation({
+    actionLabel: field === "visible" ? "alterar visibilidade do produto na loja" : "alterar destaque do produto na loja",
+    titulo: field === "visible" ? "Autorizar visibilidade do produto" : "Autorizar destaque do produto",
+    mensagem: "Confirme sua senha antes de alterar como este produto aparece para clientes.",
+    confirmar: "Autorizar alteração",
+    cancelar: "Cancelar",
+    exigirConfirmacaoVisual: true
+  })) return;
   const store = getStorefrontAdminStoreLocal();
   let changed = null;
   const products = getStorefrontAdminProductsLocal().map((product) => {
@@ -14642,7 +14675,15 @@ async function alternarProdutoLojaOnline(id, field) {
 }
 
 async function removerProdutoLojaOnline(id) {
-  if (!confirm("Remover este produto da loja? O produto interno do ERP não será apagado.")) return;
+  if (!await requestSensitiveActionConfirmation({
+    actionLabel: "excluir produto da loja",
+    titulo: "Autorizar exclusão de produto",
+    mensagem: "O produto interno do ERP não será apagado, mas ele sairá da loja pública. Confirme sua senha para continuar.",
+    confirmar: "Excluir produto da loja",
+    cancelar: "Cancelar",
+    perigo: true,
+    exigirConfirmacaoVisual: true
+  })) return;
   try {
     if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "prod-")) {
       await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(id)}`, {
@@ -16057,7 +16098,6 @@ async function salvarStorefrontContatos(event) {
   const form = event?.target || document.getElementById("storeContactAdminForm");
   if (!form) return;
   const botao = form.querySelector("button[type='submit']");
-  setBotaoLoading(botao, true, "Salvando...");
   try {
     const store = getStorefrontAdminStoreLocal();
     const whatsapp = String(form.whatsapp?.value || "").replace(/\D/g, "");
@@ -16079,6 +16119,15 @@ async function salvarStorefrontContatos(event) {
         contact
       }
     };
+    if (!await requestSensitiveActionConfirmation({
+      actionLabel: "alterar canais de contato da loja",
+      titulo: "Autorizar contatos da loja",
+      mensagem: "Confirme sua senha antes de alterar WhatsApp, e-mail, redes sociais ou links públicos da loja.",
+      confirmar: "Autorizar contatos",
+      cancelar: "Cancelar",
+      exigirConfirmacaoVisual: true
+    })) return;
+    setBotaoLoading(botao, true, "Salvando...");
     storefrontAdminSaveStore(next);
     if (storefrontAdminRemoteReady() && next.id && !storefrontAdminIsLocalId(next.id, "store-")) {
       await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
@@ -27653,11 +27702,12 @@ function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...")
   const botao = typeof idOuBotao === "string" ? document.getElementById(idOuBotao) : idOuBotao;
   if (!botao) return;
   if (carregando) {
-    botao.dataset.textoOriginal = botao.textContent;
+    if (!botao.dataset.textoOriginal) botao.dataset.textoOriginal = botao.textContent;
     botao.textContent = textoCarregando;
     botao.disabled = true;
   } else {
     botao.textContent = botao.dataset.textoOriginal || botao.textContent;
+    delete botao.dataset.textoOriginal;
     botao.disabled = false;
   }
 }
@@ -31808,12 +31858,8 @@ async function requestSensitiveActionConfirmation({
     }
   }
 
-  const agora = Date.now();
-  if (adminAuthValidUntil && adminAuthValidUntil > agora) return true;
-
   const biometria = await confirmarBiometriaSeDisponivel(`Confirme para ${acao}.`);
   if (biometria.disponivel && biometria.ok) {
-    adminAuthValidUntil = Date.now() + 3 * 60 * 1000;
     registrarAuditoria("biometria_admin_validada", { action: acao });
     registrarSeguranca("biometria_admin_validada", "sucesso", acao);
     mostrarToast("Autorizado com sucesso.", "sucesso", 2200);
@@ -31840,7 +31886,6 @@ async function requestSensitiveActionConfirmation({
   try {
     const ok = await validarSenhaSupabaseUsuarioAtual(senha);
     if (ok) {
-      adminAuthValidUntil = Date.now() + 3 * 60 * 1000;
       registrarAuditoria("senha_admin_validada", { action: acao });
       registrarSeguranca("senha_admin_validada", "sucesso", acao);
       mostrarToast("Autorizado com sucesso.", "sucesso", 2200);
@@ -32685,6 +32730,16 @@ async function adicionarMovimentoCaixa() {
     return;
   }
 
+  if (!await requestSensitiveActionConfirmation({
+    actionLabel: tipo === "saida" ? "registrar sangria ou retirada no caixa" : "registrar suprimento no caixa",
+    titulo: tipo === "saida" ? "Autorizar saída do caixa" : "Autorizar entrada manual",
+    mensagem: `${tipo === "saida" ? "Saída" : "Entrada"} de ${formatarMoeda(valor)} em ${metodo.name}. Confirme sua senha antes de lançar.`,
+    confirmar: "Autorizar lançamento",
+    cancelar: "Cancelar",
+    perigo: tipo === "saida",
+    exigirConfirmacaoVisual: true
+  })) return;
+
   if (!await consumirCreditoAcaoFree("registrar_caixa", "registrar entrada/saída no caixa")) return;
   const agora = new Date().toISOString();
   const sessao = abrirSessaoCaixaAutomatica(tipo === "saida" ? "retirada" : "movimento_manual");
@@ -32727,7 +32782,15 @@ async function adicionarMovimentoCaixa() {
   renderApp();
 }
 
-function abrirSessaoCaixaManual() {
+async function abrirSessaoCaixaManual() {
+  if (!await requestSensitiveActionConfirmation({
+    actionLabel: "abrir ou reabrir caixa",
+    titulo: "Autorizar abertura do caixa",
+    mensagem: "Confirme sua senha antes de abrir uma nova sessão de caixa.",
+    confirmar: "Autorizar abertura",
+    cancelar: "Cancelar",
+    exigirConfirmacaoVisual: true
+  })) return;
   const sessao = abrirSessaoCaixaAutomatica("abertura_manual");
   if (!sessao) return;
   salvarDados();
@@ -32742,11 +32805,14 @@ async function fecharSessaoCaixaBasica() {
     return;
   }
   const resumo = calcularResumoSessaoCaixa(sessao);
-  const confirmar = await solicitarConfirmacaoAcao({
+  const confirmar = await requestSensitiveActionConfirmation({
+    actionLabel: "fechar caixa",
     titulo: "Fechar caixa",
     mensagem: `Total esperado: ${formatarMoeda(resumo.expectedBalance)}. Deseja encerrar a sessão atual?`,
     cancelar: "Cancelar",
-    confirmar: "Fechar caixa"
+    confirmar: "Fechar caixa",
+    perigo: false,
+    exigirConfirmacaoVisual: true
   });
   if (!confirmar) return;
   const agora = new Date().toISOString();

@@ -9863,6 +9863,50 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
   max-width:420px;
 }
 
+.password-confirm-card :where(input, textarea, select),
+.cash-cancel-modal :where(input, textarea, select),
+.cash-edit-modal :where(input, textarea, select){
+  background:var(--surface-primary, var(--color-surface));
+  border-color:var(--border-soft, var(--color-border));
+  color:var(--text-primary, var(--color-text-primary));
+  -webkit-text-fill-color:var(--text-primary, var(--color-text-primary));
+  caret-color:var(--accent-primary, var(--color-primary));
+  opacity:1;
+  transition:background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.password-confirm-card :where(input, textarea, select)::placeholder,
+.cash-cancel-modal :where(input, textarea, select)::placeholder,
+.cash-edit-modal :where(input, textarea, select)::placeholder{
+  color:var(--text-muted, var(--color-text-muted));
+  -webkit-text-fill-color:var(--text-muted, var(--color-text-muted));
+  opacity:1;
+}
+
+.password-confirm-card :where(input, textarea, select):focus,
+.cash-cancel-modal :where(input, textarea, select):focus,
+.cash-edit-modal :where(input, textarea, select):focus{
+  background:var(--surface-secondary, var(--color-surface));
+  border-color:var(--accent-primary, var(--color-primary));
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent-primary, var(--color-primary)) 18%, transparent);
+}
+
+.password-confirm-card :where(input, textarea, select):-webkit-autofill,
+.cash-cancel-modal :where(input, textarea, select):-webkit-autofill,
+.cash-edit-modal :where(input, textarea, select):-webkit-autofill{
+  -webkit-text-fill-color:var(--text-primary, var(--color-text-primary));
+  box-shadow:0 0 0 1000px var(--surface-primary, var(--color-surface)) inset;
+  transition:background-color 9999s ease-out 0s;
+}
+
+body.theme-light .password-confirm-card :where(input, textarea, select),
+body.theme-light .cash-cancel-modal :where(input, textarea, select),
+body.theme-light .cash-edit-modal :where(input, textarea, select){
+  background:var(--surface-secondary, #f6f9fb);
+  color:var(--text-primary, #10202b);
+  -webkit-text-fill-color:var(--text-primary, #10202b);
+}
+
 .auth-inline-feedback{
   margin:-6px 0 0;
 }
