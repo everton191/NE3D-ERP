@@ -6,13 +6,13 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v110-estavel-20260525-store-phase37-public",
+  "simplifica-3d-v111-estavel-20260526-store-phase38-visual",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.10-estavel\"",
-  "versionCode 108",
-  "APP_VERSION = \"1.0.10-estavel\"",
-  "APP_VERSION_CODE = 108"
+  "versionName \"1.0.11-estavel\"",
+  "versionCode 109",
+  "APP_VERSION = \"1.0.11-estavel\"",
+  "APP_VERSION_CODE = 109"
 ];
 
 const sources = [sw, manifest, gradle, app].join("\n");
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache, manifest e versionamento 1.0.10/108 presentes.");
+console.log("Storefront PWA upgrade: cache, manifest e versionamento 1.0.11/109 presentes.");

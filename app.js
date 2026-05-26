@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.10-estavel";
-const APP_VERSION_CODE = 108;
+const APP_VERSION = "1.0.11-estavel";
+const APP_VERSION_CODE = 109;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -29,6 +29,18 @@ const APP_DEBUG_MODE = (() => {
     return false;
   }
 })();
+const THEME_LIGHT_PALETTES = Object.freeze([
+  { id: "soft-teal", label: "Soft Teal", primary: "#0F766E", secondary: "#C2410C", surface: "#F8FAFC", hover: "#EAF1F6", border: "#C8D3DE", text: "#10202B", accent: "#C2410C", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
+  { id: "petroleo", label: "Petróleo", primary: "#073B4B", secondary: "#D97706", surface: "#F8FAFC", hover: "#E8F0F4", border: "#C1CDD8", text: "#10202B", accent: "#D97706", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
+  { id: "minimal-blue", label: "Minimal Blue", primary: "#2563EB", secondary: "#C2410C", surface: "#F8FAFC", hover: "#EAF0FA", border: "#C8D3DE", text: "#10202B", accent: "#C2410C", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
+  { id: "light-graphite", label: "Light Graphite", primary: "#475569", secondary: "#0F766E", surface: "#F8FAFC", hover: "#E7EDF3", border: "#C5D0DB", text: "#10202B", accent: "#0F766E", success: "#15803D", warning: "#B45309", danger: "#B91C1C" }
+]);
+const THEME_DARK_PALETTES = Object.freeze([
+  { id: "deep-ocean", label: "Deep Ocean", primary: "#0EA5A3", secondary: "#F59E0B", surface: "#151D27", hover: "#1E2936", border: "rgba(255,255,255,.13)", text: "#F5F7FB", accent: "#F59E0B", success: "#45E08F", warning: "#F59E0B", danger: "#F87171" },
+  { id: "midnight", label: "Midnight", primary: "#38BDF8", secondary: "#F97316", surface: "#151D27", hover: "#1E2936", border: "rgba(255,255,255,.13)", text: "#F5F7FB", accent: "#F97316", success: "#45E08F", warning: "#F59E0B", danger: "#F87171" },
+  { id: "grafite", label: "Grafite", primary: "#94A3B8", secondary: "#0EA5A3", surface: "#151D27", hover: "#202B38", border: "rgba(255,255,255,.14)", text: "#F5F7FB", accent: "#0EA5A3", success: "#45E08F", warning: "#F59E0B", danger: "#F87171" },
+  { id: "teal-classic", label: "Teal Classic", primary: "#00BFA6", secondary: "#FF8A1F", surface: "#151D27", hover: "#1E2936", border: "rgba(255,255,255,.13)", text: "#F5F7FB", accent: "#FF8A1F", success: "#45E08F", warning: "#F59E0B", danger: "#F87171" }
+]);
 const SECURITY_SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 const SECURITY_SESSION_WARNING_MS = 2 * 60 * 1000;
 const LOGIN_LOCK_MS = 5 * 60 * 1000;
@@ -7562,7 +7574,8 @@ function aplicarPersonalizacao() {
   const temaClaro = appConfig.theme === "light";
   const temaAuto = appConfig.theme === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
   const usarClaro = temaClaro || temaAuto;
-  const cor = appConfig.accentColor || "#00BFA6";
+  const cor = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "dark", "primary");
+  const paletaTema = getCurrentControlledPalette(appConfig.theme || "dark", cor);
   const escala = calcularEscalaInterface();
   const densidade = appConfig.interfaceDensity || (appConfig.compactMode ? "compact" : "default");
   const densityScale = densidade === "compact" ? 0.88 : densidade === "comfortable" ? 1.12 : 1;
@@ -7584,66 +7597,87 @@ function aplicarPersonalizacao() {
 
   root.style.setProperty("--primary", cor);
   root.style.setProperty("--primary-2", cor);
-  root.style.setProperty("--bg", usarClaro ? "#F4F7FA" : "#101114");
-  root.style.setProperty("--panel", usarClaro ? "#FFFFFF" : "#1a1d22");
-  root.style.setProperty("--panel-2", usarClaro ? "#EEF4F7" : "#20252b");
-  root.style.setProperty("--chrome", usarClaro ? "#FFFFFF" : "#08090b");
-  root.style.setProperty("--line", usarClaro ? "#D8E0E6" : "#2d333b");
-  root.style.setProperty("--text", usarClaro ? "#111827" : "#f5f7fb");
-  root.style.setProperty("--muted", usarClaro ? "#6B7280" : "#a9b1bd");
-  root.style.setProperty("--input-bg", usarClaro ? "#FFFFFF" : "#111419");
-  root.style.setProperty("--input-text", usarClaro ? "#111827" : "#f5f7fb");
-  root.style.setProperty("--input-placeholder", usarClaro ? "#7a8797" : "#8f98a6");
-  root.style.setProperty("--result-bg", usarClaro ? "#FFFFFF" : "#111419");
-  root.style.setProperty("--surface", usarClaro ? "#FFFFFF" : "#121923");
-  root.style.setProperty("--surface-2", usarClaro ? "#EEF4F7" : "#1c2634");
+  root.style.setProperty("--bg", usarClaro ? "#EEF3F7" : "#0c1118");
+  root.style.setProperty("--panel", usarClaro ? "#F8FAFC" : "#171d26");
+  root.style.setProperty("--panel-2", usarClaro ? "#E6EDF3" : "#202832");
+  root.style.setProperty("--chrome", usarClaro ? "#F8FAFC" : "#070b11");
+  root.style.setProperty("--line", usarClaro ? "#C8D3DE" : "#303946");
+  root.style.setProperty("--text", usarClaro ? "#10202B" : "#f5f7fb");
+  root.style.setProperty("--muted", usarClaro ? "#526170" : "#aeb8c6");
+  root.style.setProperty("--input-bg", usarClaro ? "#FDFEFF" : "#111822");
+  root.style.setProperty("--input-text", usarClaro ? "#10202B" : "#f5f7fb");
+  root.style.setProperty("--input-placeholder", usarClaro ? "#667485" : "#95a0ae");
+  root.style.setProperty("--result-bg", usarClaro ? "#F8FAFC" : "#111822");
+  root.style.setProperty("--surface", usarClaro ? "#F8FAFC" : "#151d27");
+  root.style.setProperty("--surface-2", usarClaro ? "#E6EDF3" : "#202832");
   root.style.setProperty("--glass-bg", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.84), rgba(238,244,247,.70))"
-    : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
+    ? "linear-gradient(145deg, rgba(248,250,252,.94), rgba(230,237,243,.82))"
+    : "linear-gradient(145deg, rgba(23,31,42,.88), rgba(9,15,24,.90))");
   root.style.setProperty("--glass-bg-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.92), rgba(232,240,245,.78))"
-    : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
-  root.style.setProperty("--glass-border", usarClaro ? "rgba(216,224,230,.72)" : "rgba(255,255,255,.12)");
-  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.92)" : "rgba(255,255,255,.08)");
-  root.style.setProperty("--glass-blur", usarClaro ? "14px" : "10px");
+    ? "linear-gradient(145deg, rgba(253,254,255,.96), rgba(224,233,240,.88))"
+    : "linear-gradient(145deg, rgba(28,40,54,.94), rgba(8,15,24,.96))");
+  root.style.setProperty("--glass-border", usarClaro ? "rgba(183,197,211,.86)" : "rgba(255,255,255,.13)");
+  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.78)" : "rgba(255,255,255,.08)");
+  root.style.setProperty("--glass-blur", usarClaro ? "8px" : "8px");
   root.style.setProperty("--card-gradient", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.86), rgba(238,244,247,.72))"
-    : "linear-gradient(145deg, rgba(20,31,42,.82), rgba(7,14,22,.86))");
+    ? "linear-gradient(145deg, rgba(248,250,252,.96), rgba(228,236,243,.84))"
+    : "linear-gradient(145deg, rgba(23,31,42,.88), rgba(9,15,24,.90))");
   root.style.setProperty("--card-gradient-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(255,255,255,.94), rgba(232,240,245,.82))"
-    : "linear-gradient(145deg, rgba(24,38,50,.92), rgba(6,13,21,.94))");
+    ? "linear-gradient(145deg, rgba(253,254,255,.98), rgba(224,233,240,.90))"
+    : "linear-gradient(145deg, rgba(28,40,54,.94), rgba(8,15,24,.96))");
   root.style.setProperty("--card-border", "var(--glass-border)");
-  root.style.setProperty("--shadow", usarClaro ? "0 14px 30px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9)" : "0 16px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.05)");
-  root.style.setProperty("--shadow-soft", usarClaro ? "0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.85)" : "0 9px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.04)");
-  root.style.setProperty("--color-background", usarClaro ? "#F4F7FA" : "#071018");
-  root.style.setProperty("--color-background-secondary", usarClaro ? "#EEF4F7" : "#101923");
-  root.style.setProperty("--color-surface", usarClaro ? "#FFFFFF" : "#121923");
-  root.style.setProperty("--color-surface-soft", usarClaro ? "#EEF4F7" : "#1c2634");
-  root.style.setProperty("--color-card", usarClaro ? "#FFFFFF" : "#121923");
-  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(255,255,255,.76)" : "rgba(20,31,42,.82)");
-  root.style.setProperty("--color-modal", usarClaro ? "rgba(255,255,255,.98)" : "rgba(20,31,42,.96)");
-  root.style.setProperty("--color-input", usarClaro ? "#FFFFFF" : "#111419");
-  root.style.setProperty("--color-border", usarClaro ? "#D8E0E6" : "rgba(255,255,255,.12)");
-  root.style.setProperty("--color-divider", usarClaro ? "rgba(216,224,230,.86)" : "rgba(255,255,255,.10)");
+  root.style.setProperty("--shadow", usarClaro ? "0 18px 40px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.72)" : "0 18px 38px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05)");
+  root.style.setProperty("--shadow-soft", usarClaro ? "0 9px 22px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.68)" : "0 10px 22px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--color-background", usarClaro ? "#EEF3F7" : "#0c1118");
+  root.style.setProperty("--color-background-secondary", usarClaro ? "#E6EDF3" : "#111a25");
+  root.style.setProperty("--color-surface", usarClaro ? "#F8FAFC" : "#151d27");
+  root.style.setProperty("--color-surface-soft", usarClaro ? "#E6EDF3" : "#202832");
+  root.style.setProperty("--color-card", usarClaro ? "#F8FAFC" : "#151d27");
+  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(248,250,252,.84)" : "rgba(23,31,42,.86)");
+  root.style.setProperty("--color-modal", usarClaro ? "rgba(253,254,255,.98)" : "rgba(18,27,38,.97)");
+  root.style.setProperty("--color-input", usarClaro ? "#FDFEFF" : "#111822");
+  root.style.setProperty("--color-border", usarClaro ? "#C8D3DE" : "rgba(255,255,255,.13)");
+  root.style.setProperty("--color-divider", usarClaro ? "rgba(183,197,211,.88)" : "rgba(255,255,255,.11)");
   root.style.setProperty("--color-primary", cor);
   root.style.setProperty("--color-primary-hover", usarClaro ? "#009B87" : "#12b8b2");
-  root.style.setProperty("--color-secondary", usarClaro ? "#2563eb" : "#087b83");
-  root.style.setProperty("--color-accent", usarClaro ? "#FF8A1F" : "#ff941c");
-  root.style.setProperty("--color-danger", usarClaro ? "#dc2626" : "#ff5252");
-  root.style.setProperty("--color-warning", usarClaro ? "#d97706" : "#ffab00");
-  root.style.setProperty("--color-success", usarClaro ? "#15803d" : "#45e08f");
+  root.style.setProperty("--color-secondary", paletaTema.secondary || (usarClaro ? "#2563EB" : "#0EA5A3"));
+  root.style.setProperty("--color-accent", paletaTema.accent || paletaTema.secondary || (usarClaro ? "#C2410C" : "#F59E0B"));
+  root.style.setProperty("--color-danger", paletaTema.danger || (usarClaro ? "#B91C1C" : "#F87171"));
+  root.style.setProperty("--color-warning", paletaTema.warning || (usarClaro ? "#B45309" : "#F59E0B"));
+  root.style.setProperty("--color-success", paletaTema.success || (usarClaro ? "#15803D" : "#45E08F"));
   root.style.setProperty("--color-info", usarClaro ? "#0284c7" : "#38bdf8");
-  root.style.setProperty("--color-text-primary", usarClaro ? "#111827" : "#f5f7fb");
-  root.style.setProperty("--color-text-secondary", usarClaro ? "#4B5563" : "#dbe7ef");
-  root.style.setProperty("--color-text-muted", usarClaro ? "#6B7280" : "#a9b1bd");
-  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(75,85,99,.58)" : "rgba(179,187,200,.58)");
-  root.style.setProperty("--color-icon-primary", usarClaro ? "#111827" : "#c9fffb");
-  root.style.setProperty("--color-icon-secondary", usarClaro ? "#4B5563" : "#b8c6d2");
-  root.style.setProperty("--color-navbar", usarClaro ? "#FFFFFF" : "rgba(7,13,20,.82)");
-  root.style.setProperty("--color-bottom-navigation", usarClaro ? "#FFFFFF" : "rgba(7,13,20,.78)");
+  root.style.setProperty("--color-text-primary", usarClaro ? "#10202B" : "#f5f7fb");
+  root.style.setProperty("--color-text-secondary", usarClaro ? "#344454" : "#dbe7ef");
+  root.style.setProperty("--color-text-muted", usarClaro ? "#526170" : "#aeb8c6");
+  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(52,68,84,.58)" : "rgba(179,187,200,.58)");
+  root.style.setProperty("--color-icon-primary", usarClaro ? "#10202B" : "#c9fffb");
+  root.style.setProperty("--color-icon-secondary", usarClaro ? "#344454" : "#b8c6d2");
+  root.style.setProperty("--color-navbar", usarClaro ? "#F8FAFC" : "rgba(7,13,20,.86)");
+  root.style.setProperty("--color-bottom-navigation", usarClaro ? "#F8FAFC" : "rgba(7,13,20,.82)");
   root.style.setProperty("--color-overlay", usarClaro ? "rgba(15,23,42,.32)" : "rgba(2,6,12,.66)");
   root.style.setProperty("--color-backdrop", usarClaro ? "rgba(15,23,42,.24)" : "rgba(2,6,12,.56)");
-  root.style.setProperty("--effect-shadow-sm", usarClaro ? "0 6px 16px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.86)" : "0 8px 18px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--background-primary", usarClaro ? "#EEF3F7" : "#0c1118");
+  root.style.setProperty("--background-secondary", usarClaro ? "#E6EDF3" : "#111a25");
+  root.style.setProperty("--bg-primary", usarClaro ? "#EEF3F7" : "#0c1118");
+  root.style.setProperty("--bg-secondary", usarClaro ? "#E6EDF3" : "#111a25");
+  root.style.setProperty("--surface-primary", usarClaro ? "#F8FAFC" : "#151d27");
+  root.style.setProperty("--surface-secondary", usarClaro ? "#E6EDF3" : "#202832");
+  root.style.setProperty("--surface-hover", usarClaro ? "#EAF1F6" : "#1e2936");
+  root.style.setProperty("--sidebar-bg", usarClaro ? "#F8FAFC" : "#101923");
+  root.style.setProperty("--header-bg", usarClaro ? "#F8FAFC" : "#0d141d");
+  root.style.setProperty("--card-bg", usarClaro ? "#F8FAFC" : "#151d27");
+  root.style.setProperty("--card-hover", usarClaro ? "#EAF1F6" : "#1e2936");
+  root.style.setProperty("--border-soft", usarClaro ? "#C8D3DE" : "rgba(255,255,255,.13)");
+  root.style.setProperty("--border-strong", usarClaro ? "#AEBECD" : "rgba(255,255,255,.22)");
+  root.style.setProperty("--text-primary", usarClaro ? "#10202B" : "#f5f7fb");
+  root.style.setProperty("--text-secondary", usarClaro ? "#344454" : "#dbe7ef");
+  root.style.setProperty("--text-muted", usarClaro ? "#526170" : "#aeb8c6");
+  root.style.setProperty("--accent-primary", cor);
+  root.style.setProperty("--accent-secondary", paletaTema.accent || paletaTema.secondary || (usarClaro ? "#C2410C" : "#F59E0B"));
+  root.style.setProperty("--success", paletaTema.success || (usarClaro ? "#15803D" : "#45E08F"));
+  root.style.setProperty("--warning", paletaTema.warning || (usarClaro ? "#B45309" : "#F59E0B"));
+  root.style.setProperty("--danger", paletaTema.danger || (usarClaro ? "#B91C1C" : "#F87171"));
+  root.style.setProperty("--effect-shadow-sm", usarClaro ? "0 7px 18px rgba(15,23,42,.09), inset 0 1px 0 rgba(255,255,255,.64)" : "0 8px 18px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.04)");
   root.style.setProperty("--effect-shadow-md", "var(--shadow-soft)");
   root.style.setProperty("--effect-shadow-lg", "var(--shadow)");
   root.style.setProperty("--effect-shadow-xl", usarClaro ? "0 28px 70px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.92)" : "0 26px 72px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06)");
@@ -7656,8 +7690,8 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--chart-tooltip-bg", usarClaro ? "rgba(255,255,255,.98)" : "rgba(8,13,20,.94)");
   root.style.setProperty("--chart-tooltip-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--app-body-background", usarClaro
-    ? "linear-gradient(180deg, #F4F7FA 0%, #EEF4F7 52%, #E7EEF3 100%)"
-    : "radial-gradient(circle at 18% 0%, rgba(13,189,184,.16), transparent 33%), radial-gradient(circle at 88% 12%, rgba(255,148,28,.10), transparent 30%), linear-gradient(180deg, #0b1620 0%, var(--bg) 46%, #050a0f 100%)");
+    ? "linear-gradient(180deg, #EEF3F7 0%, #E6EDF3 54%, #DDE7EE 100%)"
+    : "radial-gradient(circle at 18% 0%, rgba(13,189,184,.13), transparent 33%), radial-gradient(circle at 88% 12%, rgba(255,148,28,.08), transparent 30%), linear-gradient(180deg, #0f1a25 0%, var(--bg) 48%, #070b11 100%)");
   root.style.setProperty("--ui-scale", escala.toFixed(2));
   root.style.setProperty("--font-scale", escala.toFixed(2));
   root.style.setProperty("--spacing-scale", spacingScale.toFixed(2));
@@ -13371,8 +13405,8 @@ function aplicarStorefrontAutosavePayload(draft) {
       banner_url: payload.storeBannerUrl || store.banner_url,
       theme_config: {
         ...(store.theme_config || {}),
-        primary: payload.storePrimary || store.theme_config?.primary || "#00BFA6",
-        accent: payload.storeAccent || store.theme_config?.accent || "#FF8A1F",
+        primary: normalizarCorTemaControlado(payload.storePrimary || store.theme_config?.primary || "#00BFA6", payload.storeThemeMode || store.theme_config?.mode || "auto", "primary"),
+        accent: normalizarCorTemaControlado(payload.storeAccent || store.theme_config?.accent || "#FF8A1F", payload.storeThemeMode || store.theme_config?.mode || "auto", "secondary"),
         mode: payload.storeThemeMode || store.theme_config?.mode || "auto"
       }
     };
@@ -14342,8 +14376,8 @@ async function salvarStorefrontAparencia(event) {
       banner_url: form.storeBannerUrl?.value?.trim() || store.banner_url || "",
       theme_config: {
         ...(store.theme_config || {}),
-        primary: form.storePrimary?.value || "#00BFA6",
-        accent: form.storeAccent?.value || "#FF8A1F",
+        primary: normalizarCorTemaControlado(form.storePrimary?.value || "#00BFA6", form.storeThemeMode?.value || "auto", "primary"),
+        accent: normalizarCorTemaControlado(form.storeAccent?.value || "#FF8A1F", form.storeThemeMode?.value || "auto", "secondary"),
         mode: form.storeThemeMode?.value || "auto"
       }
     };
@@ -15205,7 +15239,7 @@ function renderStoreCategorySection(categories = []) {
 
 function renderBannerSection(store = {}) {
   return `
-    <div class="store-banner-section editable-banner" data-editor-ready="future" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
+    <div class="store-banner-section editable-banner" data-editor-ready="future" style="--store-primary:${escaparAttr(getStorefrontControlledTheme(store.theme_config || {}).primary)};--store-accent:${escaparAttr(getStorefrontControlledTheme(store.theme_config || {}).accent)}">
       ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner da loja">` : ""}
       <div>
         <span>${escaparHtml(store.__demo ? "Demonstração local" : store.active ? "Loja ativa" : "Prévia interna")}</span>
@@ -15275,9 +15309,9 @@ function criarStorefrontPreviewVmDoFormulario(form) {
   if (form.storeInstagram) baseStore.instagram = String(form.storeInstagram.value || "").trim();
   if (form.storeLogoUrl) baseStore.logo_url = String(form.storeLogoUrl.value || "").trim();
   if (form.storeBannerUrl) baseStore.banner_url = String(form.storeBannerUrl.value || "").trim();
-  if (form.storePrimary) theme.primary = form.storePrimary.value || theme.primary || "#00BFA6";
-  if (form.storeAccent) theme.accent = form.storeAccent.value || theme.accent || "#FF8A1F";
   if (form.storeThemeMode) theme.mode = form.storeThemeMode.value || theme.mode || "auto";
+  if (form.storePrimary) theme.primary = normalizarCorTemaControlado(form.storePrimary.value || theme.primary || "#00BFA6", theme.mode, "primary");
+  if (form.storeAccent) theme.accent = normalizarCorTemaControlado(form.storeAccent.value || theme.accent || "#FF8A1F", theme.mode, "secondary");
   baseStore.theme_config = theme;
   return { ...vm, store: baseStore };
 }
@@ -15301,14 +15335,14 @@ const STOREFRONT_PUBLIC_LEADS_KEY = "simplifica-storefront-public-leads-v1";
 const STOREFRONT_PUBLIC_EVENTS_KEY = "simplifica-storefront-public-events-v1";
 const STOREFRONT_PUBLIC_CART_KEY = "simplifica-storefront-public-cart-v1";
 const STOREFRONT_TEMPLATE_PRESETS = [
-  { id: "minimal", title: "Neutro minimalista", desc: "Base limpa para qualquer pequeno negócio.", primary: "#00BFA6", accent: "#2563EB", tone: "clean" },
+  { id: "minimal", title: "Neutro minimalista", desc: "Base limpa para qualquer pequeno negócio.", primary: "#0F766E", accent: "#C2410C", tone: "clean" },
   { id: "impressao-3d", title: "Impressão 3D", desc: "Tecnológico, claro e focado em produto personalizado.", primary: "#00BFA6", accent: "#FF8A1F", tone: "tech" },
-  { id: "personalizados", title: "Personalizados", desc: "Vitrine calorosa para brindes, presentes e sob encomenda.", primary: "#EC4899", accent: "#F59E0B", tone: "creative" },
-  { id: "sublimacao", title: "Sublimação", desc: "Cores vivas para canecas, camisetas e papelaria visual.", primary: "#7C3AED", accent: "#06B6D4", tone: "colorful" },
-  { id: "papelaria", title: "Papelaria", desc: "Leve, organizado e amigável para produtos delicados.", primary: "#0EA5E9", accent: "#F97316", tone: "soft" },
-  { id: "moda", title: "Moda e acessórios", desc: "Elegante e editorial, com foco em foto e marca.", primary: "#111827", accent: "#BE8C63", tone: "editorial" },
-  { id: "doces", title: "Doces e festas", desc: "Acolhedor para encomendas, kits e produtos sazonais.", primary: "#F43F5E", accent: "#FBBF24", tone: "warm" },
-  { id: "geek", title: "Geek e colecionáveis", desc: "Visual forte para action figures, miniaturas e cultura pop.", primary: "#2563EB", accent: "#22C55E", tone: "bold" }
+  { id: "personalizados", title: "Personalizados", desc: "Vitrine calorosa para brindes, presentes e sob encomenda.", primary: "#073B4B", accent: "#D97706", tone: "creative" },
+  { id: "sublimacao", title: "Sublimação", desc: "Visual vivo, mas controlado, para presentes e papelaria.", primary: "#2563EB", accent: "#C2410C", tone: "colorful" },
+  { id: "papelaria", title: "Papelaria", desc: "Leve, organizado e amigável para produtos delicados.", primary: "#0F766E", accent: "#D97706", tone: "soft" },
+  { id: "moda", title: "Moda e acessórios", desc: "Elegante e editorial, com foco em foto e marca.", primary: "#475569", accent: "#0F766E", tone: "editorial" },
+  { id: "doces", title: "Doces e festas", desc: "Acolhedor para encomendas, kits e produtos sazonais.", primary: "#073B4B", accent: "#C2410C", tone: "warm" },
+  { id: "geek", title: "Geek e colecionáveis", desc: "Visual forte para action figures, miniaturas e cultura pop.", primary: "#2563EB", accent: "#C2410C", tone: "bold" }
 ];
 
 function parseStorefrontAdminRoute(pathname = location.pathname) {
@@ -15789,8 +15823,8 @@ function aplicarStorefrontPresetVisual(id = "minimal") {
     ...store,
     theme_config: {
       ...(store.theme_config || {}),
-      primary: preset.primary,
-      accent: preset.accent,
+      primary: normalizarCorTemaControlado(preset.primary, store.theme_config?.mode || "auto", "primary"),
+      accent: normalizarCorTemaControlado(preset.accent, store.theme_config?.mode || "auto", "secondary"),
       template_id: preset.id,
       template_name: preset.title,
       template_tone: preset.tone,
@@ -16259,11 +16293,12 @@ function normalizarUrlInstagramLoja(value = "") {
 
 function renderStorePublicBanner(vm) {
   const store = vm.store;
+  const theme = getStorefrontControlledTheme(store.theme_config || {});
   const visibleCount = vm.products.length;
   const mode = getStorefrontPublicMode(vm);
   const eyebrow = mode.admin ? "Loja pronta para personalizar" : "Vitrine oficial";
   return `
-    <section class="store-public-banner" data-store-section="banner" style="--store-primary:${escaparAttr(store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
+    <section class="store-public-banner" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}">
       ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
       ${store.banner_url ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
@@ -16615,7 +16650,7 @@ function renderLojaOnlinePublica() {
   `;
 
   return `
-    <main class="store-public-shell ${mode.admin ? "store-public-admin-mode" : ""}" style="--store-primary:${escaparAttr(vm.store.theme_config?.primary || "#00BFA6")};--store-accent:${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
+    <main class="store-public-shell ${mode.admin ? "store-public-admin-mode" : ""}" style="--store-primary:${escaparAttr(getStorefrontControlledTheme(vm.store.theme_config || {}).primary)};--store-accent:${escaparAttr(getStorefrontControlledTheme(vm.store.theme_config || {}).accent)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
           ${renderStoreVisualEditorSidebar(vm)}
@@ -17485,6 +17520,9 @@ function renderStorefrontOverview(vm, stats) {
 
 function renderStorefrontAppearance(vm) {
   const theme = vm.store.theme_config || {};
+  const themeMode = theme.mode || "auto";
+  const primary = normalizarCorTemaControlado(theme.primary || "#00BFA6", themeMode, "primary");
+  const accent = normalizarCorTemaControlado(theme.accent || "#FF8A1F", themeMode, "secondary");
   const hasStoredAppearance = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
   return `
     <div class="storefront-workspace storefront-editor-layout">
@@ -17534,12 +17572,13 @@ function renderStorefrontAppearance(vm) {
             <div><strong>Cores e tema</strong><small>Controle visual da vitrine pública.</small></div>
           </div>
           <div class="form-grid">
-          <label>Cor principal<input name="storePrimary" type="color" value="${escaparAttr(theme.primary || "#00BFA6")}"></label>
-          <label>Cor de destaque<input name="storeAccent" type="color" value="${escaparAttr(theme.accent || "#FF8A1F")}"></label>
           <label>Tema<select name="storeThemeMode">
-            ${["auto", "light", "dark"].map((mode) => `<option value="${mode}" ${String(theme.mode || "auto") === mode ? "selected" : ""}>${mode === "auto" ? "Automático" : mode === "light" ? "Claro" : "Escuro"}</option>`).join("")}
+            ${["auto", "light", "dark"].map((mode) => `<option value="${mode}" ${String(themeMode) === mode ? "selected" : ""}>${mode === "auto" ? "Automático" : mode === "light" ? "Claro" : "Escuro"}</option>`).join("")}
           </select></label>
+          <label>Cor principal<input name="storePrimary" value="${escaparAttr(primary)}" readonly></label>
+          <label>Cor de destaque<input name="storeAccent" value="${escaparAttr(accent)}" readonly></label>
           </div>
+          ${renderThemePaletteButtons({ mode: themeMode, selected: primary, target: "storefront" })}
         </div>
         <p class="muted">Preview local é temporário. Upload concluído só aparece como salvo quando o Storage retorna URL pública.</p>
         <div class="actions storefront-sticky-actions"><button class="btn" type="submit">Salvar aparência</button></div>
@@ -24883,15 +24922,16 @@ function desbloquearRelatoriosComAnuncio() {
 }
 
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
+  const themeMode = origem.theme_mode || appConfig.theme || "dark";
   return {
-    primary_color: origem.primary_color || appConfig.accentColor || "#00BFA6",
-    secondary_color: origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8",
+    primary_color: normalizarCorTemaControlado(origem.primary_color || appConfig.accentColor || "#00BFA6", themeMode, "primary"),
+    secondary_color: normalizarCorTemaControlado(origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8", themeMode, "secondary"),
     pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
     logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
     profile_photo: origem.profile_photo || appConfig.profilePhotoDataUrl || "",
     company_logo: origem.company_logo || appConfig.companyLogoDataUrl || "",
     login_background: origem.login_background || appConfig.loginBackgroundDataUrl || "",
-    theme_mode: origem.theme_mode || appConfig.theme || "dark",
+    theme_mode: themeMode,
     glass_effect: origem.glass_effect !== false,
     custom_pdf_enabled: origem.custom_pdf_enabled !== false,
     pdf_theme: origem.pdf_theme || appConfig.pdfTheme || appConfig.pdfStyle || "modern_dark",
@@ -24964,6 +25004,67 @@ function normalizarPdfTheme(valor = appConfig.pdfTheme || appConfig.pdfStyle || 
   if (tema === "brand") return "modern_dark";
   if (tema === "clean") return "clean_white";
   return PDF_THEME_PRESETS[tema] ? tema : "modern_dark";
+}
+
+function getEffectiveThemeMode(mode = appConfig.theme || "dark") {
+  if (mode === "auto" && window.matchMedia) {
+    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+  return mode === "light" ? "light" : "dark";
+}
+
+function getThemePalettes(mode = appConfig.theme || "dark") {
+  return getEffectiveThemeMode(mode) === "light" ? THEME_LIGHT_PALETTES : THEME_DARK_PALETTES;
+}
+
+function getThemePaletteByColor(color, mode = appConfig.theme || "dark") {
+  const normalized = limitarCorPdf(color || "").toUpperCase();
+  return getThemePalettes(mode).find((palette) => (
+    String(palette.primary).toUpperCase() === normalized
+    || String(palette.accent).toUpperCase() === normalized
+    || String(palette.secondary).toUpperCase() === normalized
+  ));
+}
+
+function normalizarCorTemaControlado(color, mode = appConfig.theme || "dark", kind = "primary") {
+  const palettes = getThemePalettes(mode);
+  const fallback = palettes.find((palette) => String(palette.primary).toUpperCase() === String(appConfig.accentColor || "").toUpperCase()) || palettes[0];
+  const normalized = limitarCorPdf(color || "", fallback[kind] || fallback.primary).toUpperCase();
+  const allowed = palettes.flatMap((palette) => [palette.primary, palette.secondary, palette.accent]).map((item) => String(item).toUpperCase());
+  if (allowed.includes(normalized)) return normalized;
+  return String((fallback && (fallback[kind] || fallback.primary)) || palettes[0].primary).toUpperCase();
+}
+
+function getCurrentControlledPalette(mode = appConfig.theme || "dark", primary = appConfig.accentColor || "") {
+  const palettes = getThemePalettes(mode);
+  return palettes.find((palette) => String(palette.primary).toUpperCase() === normalizarCorTemaControlado(primary, mode, "primary"))
+    || palettes[0];
+}
+
+function getStorefrontControlledTheme(theme = {}) {
+  const mode = theme.mode || "auto";
+  return {
+    ...theme,
+    mode,
+    primary: normalizarCorTemaControlado(theme.primary || "#00BFA6", mode, "primary"),
+    accent: normalizarCorTemaControlado(theme.accent || "#FF8A1F", mode, "secondary")
+  };
+}
+
+function renderThemePaletteButtons({ mode = appConfig.theme || "dark", selected = appConfig.accentColor || "", target = "app" } = {}) {
+  const active = normalizarCorTemaControlado(selected, mode, "primary");
+  return `
+    <div class="theme-palette-grid" data-theme-palette="${escaparAttr(target)}">
+      ${getThemePalettes(mode).map((palette) => `
+        <button class="theme-palette-chip ${String(palette.primary).toUpperCase() === active ? "active" : ""}" type="button"
+          style="--palette-primary:${escaparAttr(palette.primary)};--palette-secondary:${escaparAttr(palette.secondary)};--palette-surface:${escaparAttr(palette.surface)}"
+          onclick="${target === "storefront" ? `selecionarPaletaStorefront('${escaparAttr(palette.id)}')` : `selecionarPaletaTema('${escaparAttr(palette.id)}')`}"
+          title="${escaparAttr(palette.label)}">
+          <i><b></b></i><span>${escaparHtml(palette.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
 }
 
 function limitarCorPdf(valor, fallback = "#00d8c8") {
@@ -25083,7 +25184,7 @@ function renderEmpresaConfig() {
 
 function renderAparenciaConfig() {
   const acessoMarca = true;
-  const corAtual = appConfig.accentColor || "#00BFA6";
+  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "dark", "primary");
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   return `
     <section class="card organized-page settings-page">
@@ -25103,7 +25204,7 @@ function renderAparenciaConfig() {
                 <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
               </select>
             </label>
-            <label class="field"><span>Cor principal</span><input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}" ${acessoMarca ? "" : "disabled"}></label>
+            <label class="field"><span>Cor principal</span><input id="accentColorConfig" value="${escaparAttr(corAtual)}" readonly ${acessoMarca ? "" : "disabled"}></label>
             <label class="field">
               <span>Nível de animação</span>
               <select id="motionLevelConfig">
@@ -25113,11 +25214,7 @@ function renderAparenciaConfig() {
               </select>
             </label>
           </div>
-          <div class="color-swatches">
-            ${["#073b4b", "#ff941c", "#2f6fed", "#e11d48", "#f59e0b", "#0f766e"].map((cor) => `
-              <button class="color-swatch" type="button" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}" ${acessoMarca ? "" : "disabled"}></button>
-            `).join("")}
-          </div>
+          ${acessoMarca ? renderThemePaletteButtons({ mode: appConfig.theme || "dark", selected: corAtual, target: "app" }) : `<p class="muted">Personalização de tema disponível no PRO.</p>`}
         ` })}
         ${renderUiSection({ id: "aparencia-layout", title: "Layout", subtitle: "Densidade, escala e tamanho dos cards", icon: "▦", group: "aparencia", content: `
           <div class="sync-grid">
@@ -25238,7 +25335,7 @@ function renderPdfConfig() {
 }
 
 function renderPersonalizacao() {
-  const corAtual = appConfig.accentColor || "#00BFA6";
+  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "dark", "primary");
   const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
   const temaPdfAtual = normalizarPdfTheme();
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
@@ -25269,7 +25366,7 @@ function renderPersonalizacao() {
             </label>
             <label class="field">
               <span>Cor principal</span>
-              <input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}">
+              <input id="accentColorConfig" value="${escaparAttr(corAtual)}" readonly>
             </label>
             <label class="field">
               <span>Nível de animação</span>
@@ -25280,11 +25377,7 @@ function renderPersonalizacao() {
               </select>
             </label>
           </div>
-          <div class="color-swatches">
-            ${["#0F766E", "#115E59", "#134E4A", "#2563EB", "#1D4ED8", "#f59e0b"].map((cor) => `
-              <button class="color-swatch" type="button" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}"></button>
-            `).join("")}
-          </div>
+          ${renderThemePaletteButtons({ mode: appConfig.theme || "dark", selected: corAtual, target: "app" })}
         ` })}
         ${renderUiSection({ id: "aparencia-layout", title: "Layout e escala", subtitle: "Densidade, cards e proporção da interface", icon: "▦", group: "aparencia", content: `
           <div class="sync-grid">
@@ -25559,15 +25652,11 @@ function renderPersonalizacao() {
         </label>
         <label class="field">
           <span>Cor principal</span>
-          <input id="accentColorConfig" type="color" value="${escaparAttr(corAtual)}" ${acessoMarca ? "" : "disabled"}>
+          <input id="accentColorConfig" value="${escaparAttr(corAtual)}" readonly ${acessoMarca ? "" : "disabled"}>
         </label>
       </div>
 
-      <div class="color-swatches">
-        ${["#073b4b", "#ff941c", "#2f6fed", "#e11d48", "#f59e0b", "#0f766e"].map((cor) => `
-          <button class="color-swatch" style="--swatch:${cor}" onclick="selecionarCor('${cor}')" title="${cor}" ${acessoMarca ? "" : "disabled"}></button>
-        `).join("")}
-      </div>
+      ${acessoMarca ? renderThemePaletteButtons({ mode: appConfig.theme || "dark", selected: corAtual, target: "app" }) : ""}
       <label class="checkbox-row">
         <input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}>
         <span>Modo compacto</span>
@@ -26773,8 +26862,35 @@ function selecionarCor(cor) {
   }
   const input = document.getElementById("accentColorConfig");
   if (input) {
-    input.value = cor;
+    input.value = normalizarCorTemaControlado(cor, document.getElementById("themeConfig")?.value || appConfig.theme || "dark", "primary");
   }
+}
+
+function selecionarPaletaTema(id) {
+  if (!temAcessoCompleto()) {
+    mostrarToast("Recurso PRO", "warning", 3500);
+    return;
+  }
+  const mode = document.getElementById("themeConfig")?.value || appConfig.theme || "dark";
+  const palette = getThemePalettes(mode).find((item) => item.id === id) || getThemePalettes(mode)[0];
+  const input = document.getElementById("accentColorConfig");
+  if (input) input.value = palette.primary;
+  document.querySelectorAll("[data-theme-palette='app'] .theme-palette-chip").forEach((chip) => chip.classList.remove("active"));
+  document.querySelector(`[data-theme-palette='app'] .theme-palette-chip[onclick*="${id}"]`)?.classList.add("active");
+  mostrarToast(`Paleta ${palette.label} selecionada.`, "sucesso", 1800);
+}
+
+function selecionarPaletaStorefront(id) {
+  const form = document.getElementById("storefrontAppearanceForm") || document.querySelector(".storefront-form-card form");
+  const mode = form?.storeThemeMode?.value || "auto";
+  const palette = getThemePalettes(mode).find((item) => item.id === id) || getThemePalettes(mode)[0];
+  if (form?.storePrimary) form.storePrimary.value = palette.primary;
+  if (form?.storeAccent) form.storeAccent.value = palette.accent || palette.secondary;
+  form?.querySelectorAll?.("[data-theme-palette='storefront'] .theme-palette-chip").forEach((chip) => chip.classList.remove("active"));
+  form?.querySelector?.(`[data-theme-palette='storefront'] .theme-palette-chip[onclick*="${id}"]`)?.classList.add("active");
+  marcarStorefrontAlteracoesPendentes(`Paleta ${palette.label} selecionada`);
+  storefrontScheduleAutosave("appearance", serializeStorefrontForm(form));
+  atualizarStorefrontPreviewAoVivo(form);
 }
 
 function atualizarRotuloEscalaInterface(valor) {
@@ -26797,12 +26913,12 @@ function lerPersonalizacaoCampos() {
     return Math.min(max, Math.max(min, normalizado));
   };
   const marcado = (id, fallback = false) => el(id) ? !!el(id).checked : !!fallback;
-  const accentColor = acessoMarca
-    ? (texto("accentColorConfig", appConfig.accentColor || "#00BFA6") || "#00BFA6")
-    : (appConfig.accentColor || "#00BFA6");
   const theme = acessoMarca
     ? (texto("themeConfig", appConfig.theme || "dark") || "dark")
     : (appConfig.theme || "dark");
+  const accentColor = acessoMarca
+    ? normalizarCorTemaControlado(texto("accentColorConfig", appConfig.accentColor || "#00BFA6") || "#00BFA6", theme, "primary")
+    : normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", theme, "primary");
   const pdfTheme = normalizarPdfTheme(texto("pdfThemeConfig", appConfig.pdfTheme || appConfig.pdfStyle));
   const pdfHeaderText = acessoMarca
     ? texto("pdfHeaderTextConfig", appConfig.pdfHeaderText || "")
