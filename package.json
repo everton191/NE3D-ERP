@@ -57,6 +57,7 @@
     "test:ui-responsive-balance": "node scripts/test-ui-responsive-balance.js",
     "test:ultrawide-layout": "node scripts/test-ultrawide-layout.js",
     "test:project-saneamento": "node scripts/test-project-saneamento.js",
+    "test:restructuring-checks": "node scripts/test-restructuring-checks.js",
     "test:storefront-rls-simulation": "node scripts/test-storefront-rls-simulation.js",
     "test:storefront-staging": "node scripts/test-storefront-staging.js",
     "test:storefront-production-controlled": "node scripts/test-storefront-production-controlled.js",
