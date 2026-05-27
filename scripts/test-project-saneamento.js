@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.15-estavel\"",
-  "APP_VERSION_CODE = 14",
-  "simplifica-3d-v115-estavel-20260526-light-plans-state",
-  "versionName \"1.0.15-estavel\"",
-  "versionCode 14",
-  "\"version\": \"1.0.15-estavel\"",
-  "\"versionCode\": 14"
+  "APP_VERSION = \"1.0.16-estavel\"",
+  "APP_VERSION_CODE = 15",
+  "simplifica-3d-v116-estavel-20260526-plan-profile-rings",
+  "versionName \"1.0.16-estavel\"",
+  "versionCode 15",
+  "\"version\": \"1.0.16-estavel\"",
+  "\"versionCode\": 15"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

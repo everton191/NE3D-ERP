@@ -40,6 +40,12 @@ includesAll(app, [
   "lastCheckoutPlan",
   "simplifica3d:checkout-session:v1",
   "limparCheckoutsLocaisExpirados({ force: true })",
+  "function setPlansModernTab",
+  "Todos os planos",
+  "plansModernTab === \"all\"",
+  "function getAvatarPlanoClasseUsuario",
+  "avatar-${classePlanoSaasCompacto",
+  "sidebarPreferenceSet",
 ], "checkout temporario sem upgrade fantasma");
 
 assert(!app.includes("assinatura.pendingPlan = plano.slug"), "checkout nao deve gravar pendingPlan antes do pagamento aprovado");
@@ -62,6 +68,9 @@ includesAll(css, [
   "body.theme-light .plans-pricing-screen .plan-tier-card",
   "body.theme-light .plans-pricing-screen .plan-tier-free",
   "body.theme-light .status-badge.plan-start",
+  ".avatar-plan-free",
+  ".avatar-plan-start",
+  ".avatar-plan-pro",
 ], "CSS premium dos cards");
 
 includesAll(monetization, [

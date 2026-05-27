@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.15-estavel";
-const APP_VERSION_CODE = 14;
+const APP_VERSION = "1.0.16-estavel";
+const APP_VERSION_CODE = 15;
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -77,6 +77,7 @@ const PLAN_ACCESS_STATES = Object.freeze({
 });
 const PLAN_DEBUG_ENABLED = false;
 const LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000;
+let plansModernTab = "current";
 // IA local pesada fica preservada como legado, mas desativada no app principal.
 const HEAVY_AI_FEATURE_ENABLED = false;
 const PAID_PRICE_TIERS = [
@@ -667,6 +668,9 @@ let appConfig = carregarObjeto("appConfig", {
     windows: {}
   }
 });
+if (appConfig.sidebarCollapsed === true && appConfig.sidebarPreferenceSet !== true) {
+  appConfig.sidebarCollapsed = false;
+}
 
 const assistantResponses = [
   { keywords: ["criar pedido", "novo pedido", "montar pedido"], answer: "Para criar um pedido, abra Novo pedido, informe cliente e WhatsApp, adicione itens pela calculadora ou manualmente, revise o total e toque em Salvar." },
@@ -12229,6 +12233,7 @@ function renderBotaoLateral(item) {
 
 function alternarMenuLateral() {
   appConfig.sidebarCollapsed = !appConfig.sidebarCollapsed;
+  appConfig.sidebarPreferenceSet = true;
   salvarDados();
   fecharPopup();
   renderApp();
@@ -12973,7 +12978,11 @@ function renderConta() {
   if (!usuario) return renderAcessoNegado();
   const plano = getPlanoAtual();
   const estadoPlano = resolverEstadoPlano(usuario, { source: "profile-screen" });
-  const planoSlug = estadoPlano.hasPremium ? "premium" : estadoPlano.state === PLAN_ACCESS_STATES.TRIAL ? "premium_trial" : "free";
+  const planoSlug = estadoPlano.state === PLAN_ACCESS_STATES.TRIAL
+    ? "premium_trial"
+    : estadoPlano.hasPremium
+      ? normalizarSlugPlano(estadoPlano.activePlan || "pro")
+      : "free";
   const planoAtual = getPlanoSaas(planoSlug);
   const preco = getPrecoPagoVigenteLocal();
   const vencimento = estadoPlano.planExpiresAt || usuario.planExpiresAt || billingConfig.paidUntil || "";
@@ -12994,7 +13003,7 @@ function renderConta() {
       </div>
 
       <button class="profile-modern-user-card" type="button" onclick="abrirFotoPerfilUsuario()">
-        <span class="profile-modern-avatar">
+        <span class="profile-modern-avatar ${escaparAttr(getAvatarPlanoClasseUsuario(usuario))}">
           ${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : `<i>${escaparHtml(getUserInitials(usuario.nome || usuario.email))}</i>`}
           <em>${renderUiIcon("edit")}</em>
         </span>
@@ -13109,7 +13118,7 @@ function abrirDadosPessoaisUsuario() {
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </div>
         <div class="profile-photo-view compact">
-          <span class="profile-photo-view-image">${renderFotoPerfilAtualUsuario()}</span>
+          <span class="profile-photo-view-image ${escaparAttr(getAvatarPlanoClasseUsuario(usuario))}">${renderFotoPerfilAtualUsuario()}</span>
           <strong>${escaparHtml(usuario.nome || usuario.email || "Usuário")}</strong>
           <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "")}</small>
         </div>
@@ -18109,6 +18118,7 @@ function abrirFotoPerfilUsuario() {
   const usuario = getUsuarioAtual();
   if (!popup || !usuario) return;
   const temFoto = !!(appConfig.profilePhotoDataUrl || usuario.avatarUrl || usuario.avatar_url);
+  const classePlanoAvatar = getAvatarPlanoClasseUsuario(usuario);
   popup.innerHTML = `
     <div class="modal-backdrop profile-photo-modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card profile-photo-modal modal-enter" onclick="event.stopPropagation()">
@@ -18117,7 +18127,7 @@ function abrirFotoPerfilUsuario() {
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </div>
         <div class="profile-photo-view">
-          <span class="profile-photo-view-image">${renderFotoPerfilAtualUsuario()}</span>
+          <span class="profile-photo-view-image ${escaparAttr(classePlanoAvatar)}">${renderFotoPerfilAtualUsuario()}</span>
           <strong>${escaparHtml(usuario.nome || usuario.email || "Usuário")}</strong>
           <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "")}</small>
         </div>
@@ -18880,13 +18890,23 @@ function getUserInitials(nome = "") {
   return partes.slice(0, 2).map((parte) => parte.charAt(0).toUpperCase()).join("");
 }
 
+function getAvatarPlanoClasseUsuario(usuario = getUsuarioAtual()) {
+  try {
+    return `avatar-${classePlanoSaasCompacto(getPlanoAtual(usuario).slug)}`;
+  } catch (_) {
+    return "avatar-plan-free";
+  }
+}
+
 function renderUsuarioAvatar(usuario, classe = "home-avatar") {
   const nome = usuario?.nome || usuario?.email || appConfig.businessName || "Simplifica 3D";
   const avatarUrl = appConfig.profilePhotoDataUrl || usuario?.avatarUrl || usuario?.avatar_url || "";
+  const classePlanoAvatar = getAvatarPlanoClasseUsuario(usuario);
+  const classes = `${classe} ${classePlanoAvatar}`;
   if (avatarUrl) {
-    return `<img class="${escaparAttr(classe)}" src="${escaparAttr(avatarUrl)}" alt="Avatar do usuário">`;
+    return `<img class="${escaparAttr(classes)}" src="${escaparAttr(avatarUrl)}" alt="Avatar do usuário">`;
   }
-  return `<div class="${escaparAttr(classe)}" aria-label="Avatar do usuário">${escaparHtml(getUserInitials(nome))}</div>`;
+  return `<div class="${escaparAttr(classes)}" aria-label="Avatar do usuário">${escaparHtml(getUserInitials(nome))}</div>`;
 }
 
 function renderDashboardAvatar(usuario) {
@@ -25683,7 +25703,7 @@ function renderPersonalizacao() {
         <div class="ui-section-body">
         <p class="muted">Separe a foto do usuário, a logo da empresa e a identidade usada no PDF.</p>
         <div class="profile-preview-row">
-          <div class="profile-preview-avatar" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
+          <div class="profile-preview-avatar ${escaparAttr(getAvatarPlanoClasseUsuario())}" id="profilePhotoPreview">${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : escaparHtml(getUserInitials(getUsuarioAtual()?.nome || getUsuarioAtual()?.email || ""))}</div>
           <div class="brand-preview compact">
             <img id="companyLogoPreview" src="${escaparAttr(logoEmpresaAtual || marcaAtual)}" alt="Logo da empresa">
             <div>
@@ -26079,6 +26099,8 @@ function renderAssinatura() {
       action: "pro"
     }
   ];
+  const abaPlanos = plansModernTab === "all" ? "all" : "current";
+  const planoAtualLista = planos.find((plano) => plano.current) || planos.find((plano) => plano.slug === planoAtual.slug) || planos[0];
 
   return `
     <section class="plans-modern-screen plans-pricing-screen">
@@ -26086,6 +26108,11 @@ function renderAssinatura() {
         <button class="icon-action-button" type="button" onclick="trocarTela('conta')" title="Voltar">${renderUiIcon("back")}</button>
         <h2>Planos</h2>
         <span></span>
+      </div>
+
+      <div class="plans-modern-tabs" role="tablist" aria-label="Visualização de planos">
+        <button type="button" class="${abaPlanos === "current" ? "active" : ""}" onclick="setPlansModernTab('current')" aria-selected="${abaPlanos === "current"}">Meu plano</button>
+        <button type="button" class="${abaPlanos === "all" ? "active" : ""}" onclick="setPlansModernTab('all')" aria-selected="${abaPlanos === "all"}">Todos os planos</button>
       </div>
 
       <div class="plans-pricing-hero">
@@ -26100,7 +26127,7 @@ function renderAssinatura() {
         </div>
       </div>
 
-      <div class="plans-current-modern">
+      ${abaPlanos === "current" ? `<div class="plans-current-modern">
         <div class="row-title">
           <div>
             <span class="eyebrow">Seu plano atual</span>
@@ -26120,10 +26147,20 @@ function renderAssinatura() {
           <button class="btn ghost" type="button" ${isPremiumAtivo ? "onclick=\"sincronizarSupabase()\"" : "data-action=\"open-payment\" data-slug=\"start\""}>${renderUiIcon("config")} ${isPremiumAtivo ? "Gerenciar plano" : "Publicar com Start"}</button>
         </div>
       </div>
+      <button class="plans-help-card plans-view-all-card" type="button" onclick="setPlansModernTab('all')">
+        ${renderUiIcon("assinatura")}
+        <span><strong>Ver todos os planos</strong><small>Compare Grátis, Start e Pro antes de trocar.</small></span>
+        <b>›</b>
+      </button>` : `
+      <div class="plans-current-modern plans-current-compact">
+        <span class="eyebrow">Seu plano atual</span>
+        <strong>${escaparHtml(planoAtualLista.name || planoAtual.name || "Plano atual")}</strong>
+        <small class="muted">${escaparHtml(statusLabel)} · ${policy.publicStore ? "Loja pública liberada" : "Loja em preview"}</small>
+      </div>`}
 
-      <div class="plans-pricing-grid">
+      ${abaPlanos === "all" ? `<div class="plans-pricing-grid">
         ${planos.map(renderModernPlanOption).join("")}
-      </div>
+      </div>` : ""}
 
       <button class="plans-help-card" type="button" onclick="trocarTela('feedback')">
         ${renderUiIcon("feedback")}
@@ -26132,6 +26169,11 @@ function renderAssinatura() {
       </button>
     </section>
   `;
+}
+
+function setPlansModernTab(tab = "current") {
+  plansModernTab = tab === "all" ? "all" : "current";
+  renderApp();
 }
 
 function renderModernPlanOption(plan = {}) {
