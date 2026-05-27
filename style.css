@@ -254,10 +254,46 @@ body[data-ui-profile="web_pwa"]{
   pointer-events:auto;
 }
 
+.app-modal-layer.is-active{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:var(--space-lg);
+}
+
+.app-modal-stage{
+  width:min(100%, var(--size-modal-width));
+  max-height:calc(100dvh - (var(--space-lg) * 2));
+  display:grid;
+  place-items:center;
+  pointer-events:auto;
+}
+
+.app-modal-stage.app-modal-size-wide{
+  width:min(100%, 760px);
+}
+
+.app-drawer-layer.is-active{
+  display:block;
+}
+
+.app-drawer-layer .side-drawer-backdrop{
+  position:absolute;
+  inset:0;
+  z-index:auto;
+  background:transparent;
+  pointer-events:none;
+}
+
+.app-drawer-layer .side-drawer{
+  pointer-events:auto;
+}
+
 .app-overlay-scrim{
   position:absolute;
   inset:0;
   background:var(--color-overlay);
+  pointer-events:auto;
 }
 
 .app-overlay-layer{

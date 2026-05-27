@@ -25,6 +25,24 @@ function warn(condition, message) {
   else console.log(`OK: ${message}`);
 }
 
+function getFunctionBody(source, functionName) {
+  const marker = `function ${functionName}`;
+  const start = source.indexOf(marker);
+  if (start < 0) return "";
+  const braceStart = source.indexOf("{", start);
+  if (braceStart < 0) return "";
+  let depth = 0;
+  for (let index = braceStart; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === "{") depth += 1;
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(braceStart + 1, index);
+    }
+  }
+  return "";
+}
+
 const app = read("app.js");
 const css = read("style.css");
 const sw = read("sw.js");
@@ -59,6 +77,12 @@ assert(app.includes("function ensureAppShellLayers"), "app.js garante app-shell 
 ["openModal", "closeModal", "openDrawer", "closeDrawer", "showToast", "hideToast", "showOverlay", "hideOverlay"].forEach((fn) => {
   assert(app.includes(`function ${fn}`), `handler global presente: ${fn}`);
 });
+assert(app.includes("function normalizeLayerOptions"), "wrapper de modal/drawer aceita assinatura estruturada");
+assert(app.includes("function renderOverlayScrim"), "overlay central usa scrim padronizado");
+assert(app.includes("openModal({\n    size: \"wide\""), "modal legal migrado para modal-layer");
+assert(app.includes("openDrawer({\n    content: renderDrawerLateral"), "drawer lateral migrado para drawer-layer");
+assert(!getFunctionBody(app, "abrirDocumentoLegal").includes("popup.innerHTML"), "abrirDocumentoLegal nao escreve mais direto no popup legado");
+assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), "abrirDrawerLateral nao escreve mais direto no popup legado");
 ["--z-base", "--z-sidebar", "--z-overlay", "--z-drawer", "--z-modal", "--z-toast", "--z-critical"].forEach((token) => {
   assert(css.includes(token), `token z-index presente: ${token}`);
 });

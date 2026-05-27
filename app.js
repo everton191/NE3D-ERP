@@ -7578,22 +7578,23 @@ function abrirDocumentoLegal(tipo = "termos", evento) {
     evento.stopPropagation();
   }
 
-  const popup = document.getElementById("popup");
   const documento = getDocumentoLegal(tipo);
-  if (!popup) {
+  if (!documento) {
     alert(`${documento.titulo}\n\n${documento.subtitulo}`);
     return;
   }
 
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle" onclick="fecharPopup()">
-      <div class="modal-card legal-modal" onclick="event.stopPropagation()">
+  openModal({
+    size: "wide",
+    label: documento.titulo,
+    content: `
+      <div class="modal-card legal-modal" role="document">
         <div class="modal-header">
           <div>
             <h2 id="legalModalTitle">${escaparHtml(documento.titulo)}</h2>
             <p class="muted">${escaparHtml(documento.subtitulo)}</p>
           </div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+          <button class="icon-button" type="button" onclick="closeModal()" title="Fechar">✕</button>
         </div>
         <div class="legal-content">
           ${documento.secoes.map((secao) => `
@@ -7607,12 +7608,12 @@ function abrirDocumentoLegal(tipo = "termos", evento) {
           <p class="muted">${escaparHtml(documento.rodape)}</p>
         </div>
         <div class="actions legal-actions">
-          <button class="btn secondary" type="button" onclick="fecharPopup()">Fechar</button>
+          <button class="btn secondary" type="button" onclick="closeModal()">Fechar</button>
           <button class="btn" type="button" onclick="aceitarTermosCadastro()">Aceitar e fechar</button>
         </div>
       </div>
-    </div>
-  `;
+    `
+  });
 }
 
 function aceitarTermosCadastro() {
@@ -8432,7 +8433,9 @@ function garantirFilhoAppShell(shell, tag, id, className, hidden = false) {
   } else if (el.parentElement !== shell && id !== APP_LAYER_IDS.content) {
     shell.appendChild(el);
   }
+  const estavaAtivo = el.classList?.contains("is-active") || !!String(el.innerHTML || "").trim();
   el.className = className;
+  if (estavaAtivo) el.classList.add("is-active");
   if (hidden) el.setAttribute("aria-hidden", "true");
   return el;
 }
@@ -8452,16 +8455,39 @@ function setAppLayerContent(layer, html = "", options = {}) {
   return alvo;
 }
 
-function openModal(html = "", options = {}) {
-  return setAppLayerContent("modal", html, { role: "dialog", ...options });
+function normalizeLayerOptions(input = "", options = {}) {
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return { ...input };
+  }
+  return { ...options, content: input };
+}
+
+function renderOverlayScrim(options = {}) {
+  const closeAction = options.closeAction || "";
+  return `<div class="app-overlay-scrim" aria-hidden="true" ${closeAction ? `onclick="${escaparAttr(closeAction)}"` : ""}></div>`;
+}
+
+function openModal(input = "", options = {}) {
+  const config = normalizeLayerOptions(input, options);
+  const content = config.content || config.html || "";
+  if (!content) return null;
+  if (config.overlay !== false) showOverlay(null, { closeAction: config.closable === false ? "" : "closeModal()" });
+  const size = config.size ? ` app-modal-size-${String(config.size).replace(/[^a-z0-9_-]/gi, "")}` : "";
+  const html = `<div class="app-modal-stage${size}" onclick="event.stopPropagation()">${content}</div>`;
+  return setAppLayerContent("modal", html, { role: "dialog", label: config.label || "Modal" });
 }
 
 function closeModal() {
   setAppLayerContent("modal", "");
+  hideOverlay();
 }
 
-function openDrawer(html = "", options = {}) {
-  return setAppLayerContent("drawer", html, { role: "dialog", ...options });
+function openDrawer(input = "", options = {}) {
+  const config = normalizeLayerOptions(input, options);
+  const content = config.content || config.html || "";
+  if (!content) return null;
+  if (config.overlay !== false) showOverlay(null, { closeAction: config.closable === false ? "" : "closeDrawer()" });
+  return setAppLayerContent("drawer", content, { role: "dialog", label: config.label || "Drawer" });
 }
 
 function closeDrawer() {
@@ -8469,10 +8495,11 @@ function closeDrawer() {
   sideDrawerProgress = 0;
   sideDrawerGesture = null;
   setAppLayerContent("drawer", "");
+  hideOverlay();
 }
 
-function showOverlay(html = "<div class=\"app-overlay-scrim\" aria-hidden=\"true\"></div>", options = {}) {
-  return setAppLayerContent("overlay", html, options);
+function showOverlay(html = null, options = {}) {
+  return setAppLayerContent("overlay", html || renderOverlayScrim(options), options);
 }
 
 function hideOverlay() {
@@ -12388,7 +12415,7 @@ function renderDrawerLateral({ progress = 1, dragging = false } = {}) {
   const grupos = getMenuGroups().map((grupo) => grupo.titulo);
   const progresso = Math.min(1, Math.max(0, Number(progress) || 0));
   return `
-    <div class="side-drawer-backdrop ${dragging ? "is-dragging" : ""}" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" onclick="fecharDrawerLateral()" style="--drawer-progress:${progresso}">
+    <div class="side-drawer-backdrop ${dragging ? "is-dragging" : ""}" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" style="--drawer-progress:${progresso}">
       <aside class="side-menu side-drawer" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
         ${renderCabecalhoMenuLateral({ drawer: true })}
         ${renderPerfilMenuLateral()}
@@ -12404,18 +12431,20 @@ function renderDrawerLateral({ progress = 1, dragging = false } = {}) {
 }
 
 function abrirDrawerLateral(origem = "menu", progress = 1, dragging = false) {
-  const popup = document.getElementById("popup");
-  if (!popup || !getUsuarioAtual()) return;
+  if (!getUsuarioAtual()) return;
   sideDrawerOpen = true;
   sideDrawerProgress = Math.min(1, Math.max(0, Number(progress) || 0));
-  popup.innerHTML = renderDrawerLateral({ progress: sideDrawerProgress, dragging });
+  openDrawer({
+    content: renderDrawerLateral({ progress: sideDrawerProgress, dragging }),
+    label: "Menu do aplicativo",
+    closable: true,
+    overlay: true
+  });
   atualizarMenu();
 }
 
 function fecharDrawerLateral() {
-  sideDrawerOpen = false;
-  sideDrawerProgress = 0;
-  fecharPopup();
+  closeDrawer();
 }
 
 function abrirMenuPopup() {
@@ -12440,19 +12469,19 @@ function alvoInterativoDrawer(event) {
 }
 
 function atualizarProgressoDrawer(progresso) {
-  const popup = document.getElementById("popup");
-  if (!popup) return;
+  const drawerLayer = getAppLayer("drawer");
+  if (!drawerLayer) return;
   const valor = Math.min(1, Math.max(0, progresso));
   sideDrawerProgress = valor;
-  if (!popup.querySelector(".side-drawer")) {
+  if (!drawerLayer.querySelector(".side-drawer")) {
     abrirDrawerLateral("gesture", valor, true);
     return;
   }
-  popup.querySelector(".side-drawer-backdrop")?.style.setProperty("--drawer-progress", valor);
-  const drawer = popup.querySelector(".side-drawer");
+  drawerLayer.querySelector(".side-drawer-backdrop")?.style.setProperty("--drawer-progress", valor);
+  const drawer = drawerLayer.querySelector(".side-drawer");
   drawer?.style.setProperty("--drawer-progress", valor);
   if (drawer) drawer.style.transform = `translate3d(${((valor - 1) * 100).toFixed(1)}%,0,0)`;
-  popup.querySelector(".side-drawer-backdrop")?.classList.add("is-dragging");
+  drawerLayer.querySelector(".side-drawer-backdrop")?.classList.add("is-dragging");
 }
 
 function iniciarGestoDrawerLateral(event) {

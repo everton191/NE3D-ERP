@@ -81,6 +81,35 @@ Uso inicial:
 - `.toast-area` usa `--z-toast`.
 - hardcodes `z-index:9999` e `z-index:10000` foram removidos dos pontos encontrados.
 
+## Fase 2B - Camadas em Uso Real
+
+Primeiros componentes migrados:
+
+| Componente | Camada nova | Camada legada removida deste fluxo |
+| --- | --- | --- |
+| Documento legal (`Termos`/`Politica`) | `#modal-layer` + `#overlay-layer` | `#popup.innerHTML` |
+| Drawer lateral mobile | `#drawer-layer` + `#overlay-layer` | `#popup.innerHTML` |
+
+`#popup` continua ativo para os fluxos ainda nao migrados, mas nao deve receber codigo novo.
+
+Responsabilidade atual das camadas:
+
+```txt
+overlay-layer
+ └── app-overlay-scrim
+
+drawer-layer
+ └── side-drawer-backdrop
+      └── side-drawer
+
+modal-layer
+ └── app-modal-stage
+      └── modal-card
+
+toast-layer
+ └── toastArea
+```
+
 ## Zonas de Scroll
 
 | Zona | Status Atual | Risco |

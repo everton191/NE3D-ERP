@@ -60,8 +60,36 @@ showToast()/hideToast()
 Responsabilidade atual:
 
 - `toast-layer`: ja recebe `#toastArea`.
-- `modal-layer`, `drawer-layer`, `overlay-layer`: preparados para migracao gradual.
+- `modal-layer`: ja recebe o modal leve de documentos legais (`abrirDocumentoLegal`).
+- `drawer-layer`: ja recebe o drawer lateral mobile (`abrirDrawerLateral`).
+- `overlay-layer`: ja fornece o scrim central para modal/drawer migrados.
 - `#popup`: permanece como fallback legado.
+
+## Fase 2B - Primeira Migracao Controlada
+
+Itens migrados para as novas camadas:
+
+```txt
+abrirDocumentoLegal()
+ └── openModal({ content, size:"wide" })
+      ├── modal-layer
+      └── overlay-layer
+
+abrirDrawerLateral()
+ └── openDrawer({ content: renderDrawerLateral() })
+      ├── drawer-layer
+      └── overlay-layer
+```
+
+O que continua legado:
+
+- Fluxos de pedidos.
+- Editor/storefront admin.
+- Planos e billing.
+- Confirmacoes criticas.
+- Modais de IA/desbloqueio/admin sob demanda.
+
+Regra a partir daqui: novo modal/drawer deve usar `openModal()`/`openDrawer()`. `#popup` fica apenas para migracoes pendentes.
 
 ## Fluxo Desktop
 

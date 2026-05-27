@@ -165,3 +165,14 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Direcionar `mostrarToast()` para `#toast-layer`.
 - `[~]` Scroll central preparado em `#app-content`; migracao completa do scroll principal fica para etapa seguinte para evitar regressao brusca.
 - `[ ]` Migrar modais/drawers legados do `#popup` para camadas novas de forma gradual.
+
+## Fase 2B - Migracao Inicial do Popup Legado
+
+- `[x]` Criar wrapper estruturado para `openModal({ content, size, closable, overlay })`.
+- `[x]` Criar wrapper estruturado para `openDrawer({ content, closable, overlay })`.
+- `[x]` Centralizar scrim em `#overlay-layer`.
+- `[x]` Migrar `abrirDocumentoLegal()` para `#modal-layer`.
+- `[x]` Migrar `abrirDrawerLateral()` para `#drawer-layer`.
+- `[x]` Manter `#popup` como fallback legado.
+- `[x]` Atualizar checks para impedir regressao desses dois fluxos ao `#popup`.
+- `[ ]` Migrar proximos modais leves em commits pequenos.
