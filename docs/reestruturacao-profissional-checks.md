@@ -197,3 +197,12 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Aplicar tokens apenas em shell, topbar/sidebar base e camadas visuais.
 - `[x]` Criar documentacao `design-system`, `theme-tokens` e `spacing-system`.
 - `[ ]` Componentizar botoes/cards/inputs na Fase 3B.
+
+## Fase 3B - Componentizacao Visual
+
+- `[x]` Criar estrutura `/components` por familia visual.
+- `[x]` Criar contratos CSS para buttons, cards, inputs, modals, badges, tables, navigation, empty-states e loaders.
+- `[x]` Ativar classes base `ds-*` e pontes `app-*` no `style.css`.
+- `[x]` Documentar `docs/components.md` e `docs/component-contracts.md`.
+- `[x]` Manter classes legadas funcionando para migracao gradual.
+- `[ ]` Migrar telas reais para `ds-*` por fluxo nas proximas fases.

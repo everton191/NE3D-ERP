@@ -1,0 +1,40 @@
+.ds-badge,
+.app-badge{
+  min-height:calc(var(--size-input-height) * .68);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--space-xs);
+  padding:0 var(--space-sm);
+  border:1px solid var(--border-primary);
+  border-radius:var(--radius-pill);
+  background:var(--surface-secondary);
+  color:var(--text-secondary);
+  font-size:var(--type-caption);
+  font-weight:var(--font-weight-semibold);
+  line-height:1;
+}
+
+.ds-badge.success,
+.app-badge.success{
+  border-color:color-mix(in srgb, var(--success) 42%, var(--border-primary));
+  color:var(--success);
+}
+
+.ds-badge.warning,
+.app-badge.warning{
+  border-color:color-mix(in srgb, var(--warning) 42%, var(--border-primary));
+  color:var(--warning);
+}
+
+.ds-badge.danger,
+.app-badge.danger{
+  border-color:color-mix(in srgb, var(--danger) 42%, var(--border-primary));
+  color:var(--danger);
+}
+
+.ds-badge.premium,
+.app-badge.premium{
+  border-color:color-mix(in srgb, var(--accent-secondary) 48%, var(--border-primary));
+  color:var(--accent-secondary);
+}

@@ -1,0 +1,19 @@
+.ds-empty-state,
+.app-empty-state{
+  min-height:160px;
+  display:grid;
+  place-items:center;
+  gap:var(--space-sm);
+  padding:var(--space-xl);
+  border:1px dashed var(--border-primary);
+  border-radius:var(--radius-card);
+  background:color-mix(in srgb, var(--card-bg) 82%, transparent);
+  color:var(--text-secondary);
+  text-align:center;
+}
+
+.ds-error-state,
+.app-error-state{
+  border-color:color-mix(in srgb, var(--danger) 36%, var(--border-primary));
+  color:var(--danger);
+}

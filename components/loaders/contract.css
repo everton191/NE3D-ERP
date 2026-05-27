@@ -1,0 +1,18 @@
+.ds-skeleton,
+.app-skeleton{
+  min-height:1em;
+  border-radius:var(--radius-sm);
+  background:linear-gradient(90deg, var(--surface-secondary), var(--card-bg-hover), var(--surface-secondary));
+  background-size:200% 100%;
+  animation:skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.ds-loader,
+.app-loader{
+  width:32px;
+  height:32px;
+  border:3px solid color-mix(in srgb, var(--accent-primary) 20%, transparent);
+  border-top-color:var(--accent-primary);
+  border-radius:var(--radius-pill);
+  animation:sync-spin .8s linear infinite;
+}

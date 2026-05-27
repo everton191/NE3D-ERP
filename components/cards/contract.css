@@ -1,0 +1,33 @@
+.ds-card,
+.app-card{
+  min-width:0;
+  border:1px solid var(--border-primary);
+  border-radius:var(--radius-card);
+  background:var(--card-bg);
+  color:var(--text-primary);
+  box-shadow:var(--shadow-sm);
+  padding:var(--space-lg);
+}
+
+.ds-card.elevated,
+.app-card.elevated{
+  box-shadow:var(--shadow-lg);
+}
+
+.ds-card.compact,
+.app-card.compact{
+  padding:var(--space-md);
+  border-radius:var(--radius-md);
+}
+
+.ds-card.interactive,
+.app-card.interactive{
+  cursor:pointer;
+  transition:transform .18s var(--motion-ease), box-shadow .18s var(--motion-ease), border-color .18s var(--motion-ease);
+}
+
+.ds-card.premium,
+.app-card.premium{
+  border-color:color-mix(in srgb, var(--accent-primary) 34%, var(--border-primary));
+  box-shadow:var(--shadow-lg), var(--effect-glow-primary);
+}

@@ -57,7 +57,9 @@ const pkg = JSON.parse(read("package.json"));
   "docs/layout-zones.md",
   "docs/design-system.md",
   "docs/theme-tokens.md",
-  "docs/spacing-system.md"
+  "docs/spacing-system.md",
+  "docs/components.md",
+  "docs/component-contracts.md"
 ].forEach((file) => assert(exists(file), `documento de reestruturacao presente: ${file}`));
 
 [
@@ -69,7 +71,16 @@ const pkg = JSON.parse(read("package.json"));
   "themes/base/tokens.css",
   "themes/dark/tokens.css",
   "themes/light/tokens.css",
-  "themes/premium/tokens.css"
+  "themes/premium/tokens.css",
+  "components/buttons/contract.css",
+  "components/cards/contract.css",
+  "components/inputs/contract.css",
+  "components/modals/contract.css",
+  "components/badges/contract.css",
+  "components/tables/contract.css",
+  "components/navigation/contract.css",
+  "components/empty-states/contract.css",
+  "components/loaders/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
 assert(/const APP_VERSION = "1\.0\.16-estavel"/.test(app), "app.js esta na versao 1.0.16-estavel");
@@ -151,6 +162,18 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
 ["--breakpoint-mobile", "--breakpoint-tablet", "--breakpoint-desktop", "--breakpoint-ultrawide", "--sidebar-width"].forEach((token) => {
   assert(css.includes(token), `token/layout responsivo presente: ${token}`);
 });
+[
+  ".ds-button",
+  ".ds-card",
+  ".ds-input",
+  ".ds-modal",
+  ".ds-badge",
+  ".ds-table",
+  ".ds-nav-item",
+  ".ds-empty-state",
+  ".ds-skeleton",
+  ".ds-loader"
+].forEach((selector) => assert(css.includes(selector), `contrato visual ativo presente: ${selector}`));
 assert(css.includes("body.app-shell-ready #app-content"), "app-content e o scroller principal do app shell");
 assert(css.includes("body.app-shell-ready.app-layer-open #app-content"), "scroll de fundo bloqueado quando camadas visuais estao abertas");
 [".layout-shell", ".layout-admin", ".layout-storefront", ".layout-auth", ".layout-editor"].forEach((zone) => {

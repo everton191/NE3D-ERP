@@ -1,0 +1,28 @@
+.ds-table,
+.app-table{
+  width:100%;
+  min-width:0;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
+  border:1px solid var(--border-primary);
+  border-radius:var(--radius-card);
+  background:var(--card-bg);
+  color:var(--text-primary);
+}
+
+.ds-table th,
+.app-table th{
+  color:var(--text-secondary);
+  font-size:var(--type-caption);
+  font-weight:var(--font-weight-bold);
+  text-align:left;
+}
+
+.ds-table th,
+.ds-table td,
+.app-table th,
+.app-table td{
+  padding:var(--space-sm) var(--space-md);
+  border-bottom:1px solid var(--border-primary);
+}

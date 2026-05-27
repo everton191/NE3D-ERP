@@ -1,0 +1,36 @@
+.ds-input,
+.ds-select,
+.ds-textarea,
+.app-input,
+.app-select,
+.app-textarea{
+  width:100%;
+  min-height:var(--size-input-height);
+  border:1px solid var(--border-primary);
+  border-radius:var(--radius-input);
+  background:var(--color-input);
+  color:var(--text-primary);
+  padding:0 var(--space-md);
+  font-size:var(--type-body);
+  line-height:var(--line-height-body);
+}
+
+.ds-textarea,
+.app-textarea{
+  min-height:calc(var(--size-input-height) * 2);
+  padding-block:var(--space-sm);
+  resize:vertical;
+}
+
+.ds-field,
+.app-form-group{
+  display:grid;
+  gap:var(--space-xs);
+}
+
+.ds-field label,
+.app-form-group label{
+  color:var(--text-muted);
+  font-size:var(--type-label);
+  font-weight:var(--font-weight-semibold);
+}

@@ -1,0 +1,59 @@
+.ds-button,
+.app-button{
+  min-height:var(--size-button-height);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--space-sm);
+  padding:0 var(--space-lg);
+  border:1px solid var(--border-primary);
+  border-radius:var(--radius-button);
+  background:var(--card-bg);
+  color:var(--text-primary);
+  box-shadow:var(--shadow-sm);
+  font-size:var(--type-button);
+  font-weight:var(--font-weight-semibold);
+  line-height:1;
+  transition:transform .18s var(--motion-ease), box-shadow .18s var(--motion-ease), border-color .18s var(--motion-ease), background .18s var(--motion-ease);
+}
+
+.ds-button.primary,
+.app-button.primary{
+  border-color:color-mix(in srgb, var(--accent-primary) 62%, var(--border-primary));
+  background:linear-gradient(135deg, var(--accent-primary), color-mix(in srgb, var(--accent-primary) 72%, var(--accent-secondary)));
+  color:#fff;
+  box-shadow:var(--shadow-md);
+}
+
+.ds-button.secondary,
+.app-button.secondary{
+  background:var(--surface-secondary);
+}
+
+.ds-button.ghost,
+.app-button.ghost{
+  background:transparent;
+  box-shadow:none;
+}
+
+.ds-button.danger,
+.app-button.danger{
+  border-color:color-mix(in srgb, var(--danger) 46%, var(--border-primary));
+  color:var(--danger);
+}
+
+.ds-button.success,
+.app-button.success{
+  border-color:color-mix(in srgb, var(--success) 46%, var(--border-primary));
+  color:var(--success);
+}
+
+.ds-icon-button,
+.app-icon-button{
+  width:var(--icon-button-size);
+  min-width:var(--icon-button-size);
+  height:var(--icon-button-size);
+  min-height:var(--icon-button-size);
+  padding:0;
+  border-radius:var(--radius-md);
+}

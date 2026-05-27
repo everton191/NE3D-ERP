@@ -1,0 +1,28 @@
+.ds-nav-item,
+.app-nav-item{
+  min-height:var(--menu-button-height);
+  display:flex;
+  align-items:center;
+  gap:var(--space-sm);
+  padding:var(--space-sm) var(--space-md);
+  border:1px solid transparent;
+  border-radius:var(--radius-md);
+  color:var(--text-secondary);
+  background:transparent;
+}
+
+.ds-nav-item.active,
+.app-nav-item.active{
+  color:var(--accent-primary);
+  border-color:color-mix(in srgb, var(--accent-primary) 28%, var(--border-primary));
+  background:color-mix(in srgb, var(--accent-primary) 12%, transparent);
+  box-shadow:var(--shadow-xs);
+}
+
+.ds-topbar-action,
+.app-topbar-action{
+  min-height:var(--topbar-height);
+  display:inline-flex;
+  align-items:center;
+  gap:var(--space-sm);
+}
