@@ -1,0 +1,20 @@
+:root,
+body.theme-dark{
+  --theme-name:dark;
+  --bg-primary:#071018;
+  --bg-secondary:#101923;
+  --bg-tertiary:#172432;
+  --card-bg:#121923;
+  --card-bg-hover:#172933;
+  --text-primary:#ffffff;
+  --text-secondary:#dbe7ef;
+  --text-muted:#b3bbc8;
+  --border-primary:rgba(255,255,255,.12);
+  --border-secondary:rgba(255,255,255,.24);
+  --accent-primary:#0dbdb8;
+  --accent-secondary:#ff941c;
+  --success:#45e08f;
+  --warning:#ffab00;
+  --danger:#ff5252;
+  --info:#38bdf8;
+}

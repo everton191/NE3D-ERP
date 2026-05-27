@@ -54,7 +54,10 @@ const pkg = JSON.parse(read("package.json"));
   "docs/module-dependencies.md",
   "docs/render-flow.md",
   "docs/css-risk-map.md",
-  "docs/layout-zones.md"
+  "docs/layout-zones.md",
+  "docs/design-system.md",
+  "docs/theme-tokens.md",
+  "docs/spacing-system.md"
 ].forEach((file) => assert(exists(file), `documento de reestruturacao presente: ${file}`));
 
 [
@@ -62,7 +65,11 @@ const pkg = JSON.parse(read("package.json"));
   "layouts/.gitkeep",
   "components/.gitkeep",
   "themes/.gitkeep",
-  "legacy/.gitkeep"
+  "legacy/.gitkeep",
+  "themes/base/tokens.css",
+  "themes/dark/tokens.css",
+  "themes/light/tokens.css",
+  "themes/premium/tokens.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
 assert(/const APP_VERSION = "1\.0\.16-estavel"/.test(app), "app.js esta na versao 1.0.16-estavel");
@@ -97,17 +104,49 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
 [
   "--bg-primary",
   "--bg-secondary",
+  "--bg-tertiary",
   "--card-bg",
+  "--card-bg-hover",
   "--text-primary",
   "--text-secondary",
+  "--text-muted",
+  "--border-primary",
+  "--border-secondary",
   "--accent-primary",
   "--accent-secondary",
+  "--success",
+  "--warning",
+  "--danger",
+  "--info",
+  "--space-xxs",
   "--space-xs",
   "--space-sm",
   "--space-md",
+  "--space-lg",
+  "--space-xl",
+  "--space-2xl",
+  "--radius-sm",
+  "--radius-md",
+  "--radius-lg",
+  "--radius-xl",
+  "--radius-pill",
   "--radius-card",
   "--radius-button",
-  "--shadow-soft"
+  "--shadow-xs",
+  "--shadow-sm",
+  "--shadow-md",
+  "--shadow-lg",
+  "--shadow-xl",
+  "--shadow-soft",
+  "--font-xs",
+  "--font-sm",
+  "--font-md",
+  "--font-lg",
+  "--font-xl",
+  "--font-2xl",
+  "--topbar-height",
+  "--bottom-nav-height",
+  "--content-max-width"
 ].forEach((token) => assert(css.includes(token), `token global presente: ${token}`));
 ["--breakpoint-mobile", "--breakpoint-tablet", "--breakpoint-desktop", "--breakpoint-ultrawide", "--sidebar-width"].forEach((token) => {
   assert(css.includes(token), `token/layout responsivo presente: ${token}`);

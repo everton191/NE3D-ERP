@@ -1,0 +1,11 @@
+body[data-theme-preset="premium"]{
+  --theme-name:premium;
+  --accent-primary:#087b83;
+  --accent-secondary:#ff941c;
+  --card-bg-hover:color-mix(in srgb, var(--card-bg) 88%, var(--accent-primary) 12%);
+  --shadow-xs:0 5px 12px rgba(8,123,131,.08);
+  --shadow-sm:0 10px 24px rgba(8,123,131,.10), inset 0 1px 0 rgba(255,255,255,.06);
+  --shadow-md:0 16px 36px rgba(8,123,131,.14), inset 0 1px 0 rgba(255,255,255,.06);
+  --shadow-lg:0 24px 56px rgba(8,123,131,.18), inset 0 1px 0 rgba(255,255,255,.07);
+  --shadow-xl:0 34px 78px rgba(8,123,131,.22), inset 0 1px 0 rgba(255,255,255,.08);
+}

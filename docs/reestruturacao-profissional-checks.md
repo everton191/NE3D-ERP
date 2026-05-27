@@ -187,3 +187,13 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Criar zonas oficiais `layout-shell`, `layout-admin`, `layout-storefront`, `layout-auth` e `layout-editor`.
 - `[~]` Manter scroll proprio apenas em drawers/modais e areas legadas ainda nao migradas.
 - `[ ]` Migrar containers antigos com `overflow:hidden` tela por tela.
+
+## Fase 3A - Design System Foundation
+
+- `[x]` Criar estrutura `themes/base`, `themes/dark`, `themes/light` e `themes/premium`.
+- `[x]` Criar arquivos de tokens por tema.
+- `[x]` Completar tokens globais criticos em `style.css`.
+- `[x]` Adicionar aliases oficiais para cores, bordas, spacing, radius, shadows, tipografia e layout.
+- `[x]` Aplicar tokens apenas em shell, topbar/sidebar base e camadas visuais.
+- `[x]` Criar documentacao `design-system`, `theme-tokens` e `spacing-system`.
+- `[ ]` Componentizar botoes/cards/inputs na Fase 3B.

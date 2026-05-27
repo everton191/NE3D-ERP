@@ -1,0 +1,19 @@
+body.theme-light{
+  --theme-name:light;
+  --bg-primary:#f4f7fa;
+  --bg-secondary:#eef4f7;
+  --bg-tertiary:#e6eef3;
+  --card-bg:#ffffff;
+  --card-bg-hover:#f5fbfc;
+  --text-primary:#111827;
+  --text-secondary:#4b5563;
+  --text-muted:#6b7280;
+  --border-primary:#d8e0e6;
+  --border-secondary:#aebbc6;
+  --accent-primary:#00bfa6;
+  --accent-secondary:#ff8a1f;
+  --success:#15803d;
+  --warning:#b45309;
+  --danger:#dc2626;
+  --info:#2563eb;
+}
