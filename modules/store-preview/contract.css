@@ -1,0 +1,17 @@
+.store-preview-zone,
+.store-preview-frame,
+.store-preview-scroll{
+  min-width:0;
+  max-width:100%;
+}
+
+.store-preview-frame{
+  overflow:hidden;
+  contain:layout paint;
+}
+
+.store-preview-scroll{
+  overflow:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}

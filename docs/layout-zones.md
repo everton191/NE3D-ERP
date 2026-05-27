@@ -152,6 +152,35 @@ layout-editor
 | storefront preview/editor | possui containers com scroll | high-risk |
 | public storefront | deve scrollar natural | deve ficar separado do editor |
 
+## Fase 4A - Zonas Formais da Loja
+
+```txt
+storefront publica
+ ├── store-header
+ ├── store-sidebar
+ ├── store-content
+ │    ├── store-filters
+ │    └── store-products
+ ├── store-cart
+ └── store-footer
+
+store editor
+ ├── store-editor-panel
+ ├── store-editor-content
+ └── store-editor-actions
+
+store preview
+ ├── store-preview-frame
+ └── store-preview-scroll
+```
+
+Contrato de scroll:
+
+- storefront publica usa `#app-content`;
+- preview usa somente `store-preview-scroll`;
+- editor nao deve depender do scroll do preview;
+- carrinho/filtros publicos devem entrar por `#drawer-layer`.
+
 ## Overlays Concorrentes
 
 | Overlay | Atual | Risco |

@@ -1,6 +1,12 @@
 .idea/
 .vscode/
-modules/
+modules/*
+!modules/storefront/
+!modules/storefront/**
+!modules/store-editor/
+!modules/store-editor/**
+!modules/store-preview/
+!modules/store-preview/**
 node_modules/
 dist/
 .tmp-edge-preview*/

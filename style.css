@@ -25940,6 +25940,111 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
   }
 }
 
+/* Fase 4A - arquitetura modular da storefront/editor/preview */
+.store-layout-zone,
+.store-header,
+.store-sidebar,
+.store-content,
+.store-products,
+.store-filters,
+.store-cart,
+.store-footer,
+.store-editor-zone,
+.store-editor-panel,
+.store-editor-content,
+.store-editor-actions,
+.store-preview-zone,
+.store-preview-frame,
+.store-preview-scroll,
+:where(.store-public-shell,.storefront-admin-standalone,.store-preview-container,.store-preview-device,.store-visual-editor-canvas){
+  min-width:0;
+  max-width:100%;
+}
+
+:where(.store-public-shell,.storefront-admin-standalone){
+  overflow-x:clip;
+  overscroll-behavior-y:auto;
+}
+
+:where(.store-public-header,.store-header){
+  min-width:0;
+  max-width:100%;
+}
+
+:where(.store-public-main,.store-public-section,.store-content){
+  min-width:0;
+  max-width:min(100%, var(--store-stage-max, var(--content-max-width)));
+}
+
+:where(.store-products,.store-product-grid,.store-public-product-grid){
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap:clamp(var(--space-md), 1.6vw, var(--space-xl));
+  align-items:stretch;
+}
+
+.store-preview-zone,
+.store-preview-frame,
+:where(.store-preview-container,.store-preview-device){
+  contain:layout paint;
+}
+
+.store-preview-scroll,
+:where(.store-preview-container,.store-preview-device){
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+.store-preview-scroll{
+  overflow:auto;
+}
+
+.store-editor-content,
+.store-editor-panel,
+:where(.storefront-admin-content,.storefront-editor-panel){
+  display:grid;
+  gap:var(--space-lg);
+  min-width:0;
+}
+
+.store-layer,
+.store-public-modal,
+.store-cart-drawer,
+.store-filter-drawer,
+.store-preview-overlay{
+  z-index:var(--z-drawer);
+}
+
+@media (max-width: 767px){
+  :where(.store-products,.store-product-grid,.store-public-product-grid){
+    grid-template-columns:1fr;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px){
+  :where(.store-products,.store-product-grid,.store-public-product-grid){
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px){
+  :where(.store-products,.store-product-grid,.store-public-product-grid){
+    grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+@media (min-width: 1440px){
+  :where(.store-products,.store-product-grid,.store-public-product-grid){
+    grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));
+  }
+}
+
+@media (min-width: 1800px){
+  :where(.store-products,.store-product-grid,.store-public-product-grid){
+    grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+  }
+}
+
 @media (max-width: 900px){
   .storefront-admin-standalone{
     min-height:100dvh;

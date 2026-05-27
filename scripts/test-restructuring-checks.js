@@ -59,7 +59,10 @@ const pkg = JSON.parse(read("package.json"));
   "docs/theme-tokens.md",
   "docs/spacing-system.md",
   "docs/components.md",
-  "docs/component-contracts.md"
+  "docs/component-contracts.md",
+  "docs/storefront-architecture.md",
+  "docs/storefront-layout.md",
+  "docs/storefront-zones.md"
 ].forEach((file) => assert(exists(file), `documento de reestruturacao presente: ${file}`));
 
 [
@@ -80,7 +83,13 @@ const pkg = JSON.parse(read("package.json"));
   "components/tables/contract.css",
   "components/navigation/contract.css",
   "components/empty-states/contract.css",
-  "components/loaders/contract.css"
+  "components/loaders/contract.css",
+  "modules/storefront/README.md",
+  "modules/storefront/contract.css",
+  "modules/store-editor/README.md",
+  "modules/store-editor/contract.css",
+  "modules/store-preview/README.md",
+  "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
 assert(/const APP_VERSION = "1\.0\.16-estavel"/.test(app), "app.js esta na versao 1.0.16-estavel");
@@ -178,6 +187,15 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   ".ds-loader"
 ].forEach((selector) => assert(css.includes(selector), `contrato visual ativo presente: ${selector}`));
 [
+  ".store-layout-zone",
+  ".store-editor-zone",
+  ".store-preview-zone",
+  ".store-products",
+  ".store-preview-scroll",
+  ".store-cart-drawer",
+  "contain:layout paint"
+].forEach((selector) => assert(css.includes(selector), `contrato modular da storefront presente: ${selector}`));
+[
   "--interaction-hover-lift",
   "--interaction-active-scale",
   "@keyframes ds-enter-soft",
@@ -219,7 +237,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
 ].forEach((script) => assert(Boolean(pkg.scripts?.[script]), `script npm ativo: ${script}`));
 
 warn(css.includes("--z-sidebar"), "tokens de z-index formalizados para a Fase 2A");
-warn(exists("modules"), "pasta modules existe, mas permanece ignorada e sem reorganizacao nesta fase");
+warn(exists("modules/storefront/README.md"), "pasta modules agora expoe apenas contratos seguros da storefront");
 warn(app.includes("enableNewStorefront") || app.includes("enableNewPlans"), "feature flags oficiais ainda devem ser formalizadas");
 
 if (process.exitCode) {

@@ -217,3 +217,16 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Refinar feedback visual de toast/modal/drawer.
 - `[x]` Respeitar `prefers-reduced-motion` nos componentes novos.
 - `[ ]` Aplicar polimento profundo em dashboards reais na fase futura.
+
+## Fase 4A - Arquitetura Modular da Storefront e Editor
+
+- `[x]` Criar estrutura formal `modules/storefront`, `modules/store-editor` e `modules/store-preview`.
+- `[x]` Manter migracao apenas em contratos/documentacao, sem mover logica critica de `app.js`.
+- `[x]` Documentar responsabilidades em `docs/storefront-architecture.md`.
+- `[x]` Documentar zonas e grids em `docs/storefront-layout.md`.
+- `[x]` Documentar isolamento de storefront/editor/preview em `docs/storefront-zones.md`.
+- `[x]` Criar contratos CSS seguros para storefront, editor e preview.
+- `[x]` Aplicar ponte de CSS em `style.css` para grids, zonas, scroll de preview e camadas da loja.
+- `[x]` Permitir no `.gitignore` apenas os modulos formais da loja, mantendo o restante de `modules/` protegido.
+- `[~]` Preview continua usando a implementacao legada, mas agora possui contrato de isolamento para migracao futura.
+- `[~]` Storefront/editor continuam renderizados em `app.js`; a migracao real fica para Fase 4B.

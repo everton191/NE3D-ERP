@@ -1,0 +1,12 @@
+.store-editor-zone,
+.store-editor-panel,
+.store-editor-content,
+.store-editor-actions{
+  min-width:0;
+  max-width:100%;
+}
+
+.store-editor-content{
+  display:grid;
+  gap:var(--space-lg);
+}

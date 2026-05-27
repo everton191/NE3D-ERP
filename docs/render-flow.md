@@ -265,6 +265,31 @@ Risco principal: `#popup` atua como modal-layer, drawer-layer, overlay-layer e m
 | `#popup` | usado para drawer, modal, perfil e admin visual | overlays concorrentes |
 | `renderizarPreservandoScroll` | preserva scroll em re-render | scroll errado se containers mudam |
 
+## Fase 4A - Storefront, Editor e Preview
+
+Contrato novo, ainda sem migracao pesada de runtime:
+
+```txt
+storefront publico
+ └── modules/storefront
+      └── render publico/catalogo/carrinho
+
+store editor
+ └── modules/store-editor
+      └── configuracao/blocos/publicacao
+
+store preview
+ └── modules/store-preview
+      └── preview isolado com scroll visual proprio
+```
+
+Regras desta fase:
+
+- storefront publica continua seguindo `#app-content`;
+- preview deve usar contrato de isolamento e nao controlar shell global;
+- novos modais/drawers da loja devem usar `#modal-layer`, `#drawer-layer` e `#overlay-layer`;
+- `#popup` permanece apenas como fallback legado.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.
