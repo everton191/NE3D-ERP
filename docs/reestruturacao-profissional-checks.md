@@ -136,3 +136,16 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 3. Corrigir z-index/overflow por camada, com testes mobile e desktop.
 4. Somente depois iniciar App Shell formal.
 
+## Fase 1B - Mapeamento Antes da Cirurgia
+
+- `[x]` Criar `docs/module-dependencies.md`.
+- `[x]` Criar `docs/render-flow.md`.
+- `[x]` Criar `docs/css-risk-map.md`.
+- `[x]` Criar `docs/layout-zones.md`.
+- `[x]` Criar pastas-base `/core`, `/layouts`, `/components`, `/themes`, `/legacy`.
+- `[x]` Confirmar que `/modules` ja existe e permanece sem mudanca nesta fase.
+- `[x]` Mapear fluxo de renderizacao principal.
+- `[x]` Mapear overlays concorrentes.
+- `[x]` Mapear riscos de CSS.
+- `[x]` Classificar itens sem mover arquivos.
+- `[ ]` Iniciar Bloco 2 apenas depois de revisar estes mapas.

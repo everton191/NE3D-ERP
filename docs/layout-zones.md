@@ -1,0 +1,101 @@
+# Layout Zones - Fase 1B
+
+Data: 2026-05-27
+
+Escopo: mapa das zonas visuais e camadas atuais antes do App Shell profissional.
+
+## Zonas Atuais
+
+```txt
+body
+ ├── #app
+ │    ├── desktop-shell
+ │    │    ├── side-menu
+ │    │    └── desktop-main app-content
+ │    │         ├── topbar
+ │    │         └── desktop-focus/app-page/dashboard
+ │    ├── mobile shell/render
+ │    │    ├── mobile content
+ │    │    ├── drawer gesture rail
+ │    │    └── mobile-bottom-nav
+ │    ├── lojaPublica
+ │    └── lojaAdmin standalone
+ ├── #popup
+ ├── #toastArea
+ ├── introOverlay
+ └── floating controls
+```
+
+## Camadas Desejadas no App Shell
+
+```txt
+app-shell
+ ├── sidebar
+ ├── topbar
+ ├── page-content
+ ├── overlay-layer
+ ├── modal-layer
+ └── toast-layer
+```
+
+## Mapeamento Atual Para Futuro
+
+| Futuro | Atual | Status | Risco |
+| --- | --- | --- | --- |
+| `app-shell` | `desktop-shell`, mobile render, storefront standalone | parcial | high-risk |
+| `sidebar` | `renderMenuLateral`, `.side-menu` | ativo | medium |
+| `topbar` | `renderTopbar`, `.topbar` | ativo | medium |
+| `page-content` | `.desktop-main`, `.desktop-focus`, mobile content | parcial | critical para scroll |
+| `overlay-layer` | `#popup`, `introOverlay`, drawer backdrops | misturado | critical |
+| `modal-layer` | `#popup .modal-backdrop/.modal-card` | misturado | critical |
+| `toast-layer` | `#toastArea` criado por `mostrarToast` | ativo | medium |
+
+## Zonas de Scroll
+
+| Zona | Status Atual | Risco |
+| --- | --- | --- |
+| `body/html` | controla base e overflow-x | mascara overflow |
+| `.desktop-main`/`.app-content` | area de conteudo desktop | precisa virar page-content oficial |
+| drawers | usam scroll proprio | necessario, mas precisa limite |
+| modais | usam scroll proprio | necessario, mas pode brigar com body |
+| storefront preview/editor | possui containers com scroll | high-risk |
+| public storefront | deve scrollar natural | deve ficar separado do editor |
+
+## Overlays Concorrentes
+
+| Overlay | Atual | Risco |
+| --- | --- | --- |
+| menu usuario topbar | `#popup` + `topbar-profile-backdrop` | usa z-index inline |
+| drawer lateral | `#popup` + `side-drawer-backdrop` | divide camada com modais |
+| modais sensiveis | `#popup` + `modal-backdrop` | pode ser sobrescrito por outro popup |
+| editor visual loja | `store-visual-panel-backdrop` | precisa camada propria |
+| carrinho loja | `store-cart-drawer` | drawer/modal misto |
+| quick order/cash/stock | `operational-drawer-backdrop` | drawer operacional |
+| toast | `#toastArea` | separado, mas z-index precisa token |
+
+## Zonas Criticas Para Teste Manual
+
+### Mobile
+
+- Drawer abre/fecha sem travar scroll.
+- Bottom-nav nao cobre botoes finais.
+- Modais cabem com teclado aberto.
+- Store admin nao parece desktop comprimido.
+- Store publica nao tem controles admin sem `admin=1`.
+
+### Desktop
+
+- Mouse wheel funciona em dashboard, pedidos, loja admin e storefront.
+- Sidebar expandida/recolhida nao quebra conteudo.
+- Topbar nao sobrepoe botoes.
+- Planos mostram atual/todos os planos corretamente.
+- Storefront desktop usa largura real, nao container mobile.
+
+## Regras Para a Proxima Fase
+
+1. Nenhum novo modal deve escrever direto no `#popup` sem passar pela camada padronizada.
+2. Nenhum novo z-index numerico deve ser adicionado sem token.
+3. Nenhuma tela nova deve criar scroll de pagina proprio.
+4. Storefront publico e editor/admin devem ter containers separados.
+5. Bottom-nav e drawer mobile precisam respeitar safe-area e teclado.
+

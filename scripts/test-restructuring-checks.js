@@ -31,6 +31,22 @@ const sw = read("sw.js");
 const index = read("index.html");
 const pkg = JSON.parse(read("package.json"));
 
+[
+  "docs/reestruturacao-profissional-checks.md",
+  "docs/module-dependencies.md",
+  "docs/render-flow.md",
+  "docs/css-risk-map.md",
+  "docs/layout-zones.md"
+].forEach((file) => assert(exists(file), `documento de reestruturacao presente: ${file}`));
+
+[
+  "core/.gitkeep",
+  "layouts/.gitkeep",
+  "components/.gitkeep",
+  "themes/.gitkeep",
+  "legacy/.gitkeep"
+].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
+
 assert(/const APP_VERSION = "1\.0\.16-estavel"/.test(app), "app.js esta na versao 1.0.16-estavel");
 assert(/const APP_VERSION_CODE = 15/.test(app), "app.js possui versionCode 15");
 assert(sw.includes("simplifica-3d-v116-estavel-20260526-plan-profile-rings"), "service worker possui cache versionado atual");
@@ -81,7 +97,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
 ].forEach((script) => assert(Boolean(pkg.scripts?.[script]), `script npm ativo: ${script}`));
 
 warn(css.includes("--z-sidebar"), "tokens de z-index ainda devem ser formalizados");
-warn(exists("themes"), "pasta themes ainda deve ser criada na fase de design system");
+warn(exists("modules"), "pasta modules existe, mas permanece ignorada e sem reorganizacao nesta fase");
 warn(app.includes("enableNewStorefront") || app.includes("enableNewPlans"), "feature flags oficiais ainda devem ser formalizadas");
 
 if (process.exitCode) {
