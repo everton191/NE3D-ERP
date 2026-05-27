@@ -91,6 +91,34 @@ O que continua legado:
 
 Regra a partir daqui: novo modal/drawer deve usar `openModal()`/`openDrawer()`. `#popup` fica apenas para migracoes pendentes.
 
+## Fase 2C - Scroll Principal
+
+Fluxo visual consolidado:
+
+```txt
+ensureAppShellLayers()
+ └── body.app-shell-ready
+      └── #app-shell
+           ├── #app-content  <- scroller principal
+           │    └── #app
+           ├── #overlay-layer
+           ├── #drawer-layer
+           ├── #modal-layer
+           └── #toast-layer
+```
+
+Quando uma camada visual abre:
+
+```txt
+openModal/openDrawer/showOverlay
+ └── setAppLayerContent()
+      └── syncAppShellLayerState()
+           └── body.app-layer-open
+                └── #app-content overflow bloqueado temporariamente
+```
+
+O desktop PWA deixa de usar `.desktop-main` como scroller principal. O objetivo e reduzir scrolls concorrentes sem migrar ainda os fluxos criticos.
+
 ## Fluxo Desktop
 
 ```txt

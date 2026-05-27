@@ -176,3 +176,14 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Manter `#popup` como fallback legado.
 - `[x]` Atualizar checks para impedir regressao desses dois fluxos ao `#popup`.
 - `[ ]` Migrar proximos modais leves em commits pequenos.
+
+## Fase 2C - Scroll, Sidebar e Responsividade Base
+
+- `[x]` Definir `#app-content` como scroller principal do app shell.
+- `[x]` Adicionar lock de scroll de fundo com `body.app-layer-open`.
+- `[x]` Reduzir scroll concorrente da `.desktop-main` no PWA desktop.
+- `[x]` Padronizar `--sidebar-width` e `--sidebar-width-collapsed`.
+- `[x]` Criar tokens de breakpoints oficiais.
+- `[x]` Criar zonas oficiais `layout-shell`, `layout-admin`, `layout-storefront`, `layout-auth` e `layout-editor`.
+- `[~]` Manter scroll proprio apenas em drawers/modais e areas legadas ainda nao migradas.
+- `[ ]` Migrar containers antigos com `overflow:hidden` tela por tela.

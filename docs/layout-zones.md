@@ -110,12 +110,43 @@ toast-layer
  └── toastArea
 ```
 
+## Fase 2C - Scroll e Sidebar Consolidados
+
+O shell passa a tratar `#app-content` como scroller principal quando `body.app-shell-ready` esta ativo.
+
+```txt
+body.app-shell-ready
+ └── #app-shell
+      └── #app-content  <- scroll principal
+           └── #app
+                └── desktop-shell/mobile/storefront
+```
+
+Regras consolidadas:
+
+- `#app-content` controla o scroll vertical principal.
+- `.desktop-main` deixa de competir com scroll proprio no perfil PWA desktop.
+- `.side-menu:not(.side-drawer)` usa largura oficial `--sidebar-width`.
+- `body.app-layer-open` bloqueia o scroll de fundo enquanto modal/drawer/overlay esta ativo.
+- drawer, modal e toast continuam autorizados a usar `position:fixed`.
+
+Zonas oficiais preparadas:
+
+```txt
+layout-shell
+layout-admin
+layout-storefront
+layout-auth
+layout-editor
+```
+
 ## Zonas de Scroll
 
 | Zona | Status Atual | Risco |
 | --- | --- | --- |
-| `body/html` | controla base e overflow-x | mascara overflow |
-| `.desktop-main`/`.app-content` | area de conteudo desktop | precisa virar page-content oficial |
+| `body/html` | travado quando `app-shell-ready` esta ativo | baixo, depende de excecoes publicas |
+| `#app-content` | scroller principal oficial | medio, precisa testes por tela |
+| `.desktop-main` | conteudo desktop sem scroll proprio no PWA | medio, depende de telas antigas |
 | drawers | usam scroll proprio | necessario, mas precisa limite |
 | modais | usam scroll proprio | necessario, mas pode brigar com body |
 | storefront preview/editor | possui containers com scroll | high-risk |

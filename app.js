@@ -8452,7 +8452,18 @@ function setAppLayerContent(layer, html = "", options = {}) {
   alvo.classList.toggle("is-active", !!html);
   if (options.label) alvo.setAttribute("aria-label", options.label);
   if (options.role) alvo.setAttribute("role", options.role);
+  syncAppShellLayerState();
   return alvo;
+}
+
+function syncAppShellLayerState() {
+  if (typeof document === "undefined" || !document.body) return;
+  const modalAtivo = document.getElementById(APP_LAYER_IDS.modal)?.classList.contains("is-active") === true;
+  const drawerAtivo = document.getElementById(APP_LAYER_IDS.drawer)?.classList.contains("is-active") === true;
+  const overlayAtivo = document.getElementById(APP_LAYER_IDS.overlay)?.classList.contains("is-active") === true;
+  document.body.classList.toggle("app-modal-open", modalAtivo);
+  document.body.classList.toggle("app-drawer-open", drawerAtivo);
+  document.body.classList.toggle("app-layer-open", modalAtivo || drawerAtivo || overlayAtivo);
 }
 
 function normalizeLayerOptions(input = "", options = {}) {

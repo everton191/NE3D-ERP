@@ -25237,6 +25237,157 @@ body.theme-light .status-badge.plan-pro{
   border-color:rgba(146,86,4,.26);
 }
 
+/* Fase 2C - App Shell, scroll principal e zonas responsivas */
+:root{
+  --breakpoint-mobile:767px;
+  --breakpoint-tablet:1023px;
+  --breakpoint-desktop:1439px;
+  --breakpoint-ultrawide:1440px;
+  --sidebar-width:var(--desktop-sidebar-width);
+  --sidebar-width-collapsed:64px;
+  --layout-shell-max:var(--desktop-max-width);
+}
+
+html,
+body{
+  min-height:100%;
+}
+
+body.app-shell-ready{
+  height:var(--app-viewport-height, 100dvh);
+  overflow:hidden;
+}
+
+body.app-shell-ready #app-shell{
+  height:var(--app-viewport-height, 100dvh);
+  min-height:var(--app-viewport-height, 100dvh);
+  overflow:hidden;
+}
+
+body.app-shell-ready #app-content{
+  height:var(--app-viewport-height, 100dvh);
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:clip;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-gutter:stable;
+}
+
+body.app-shell-ready.app-layer-open #app-content{
+  overflow:hidden;
+}
+
+.layout-shell,
+.layout-admin,
+.layout-storefront,
+.layout-auth,
+.layout-editor{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+}
+
+body.app-shell-ready #app,
+body.app-shell-ready .desktop-shell,
+body.app-shell-ready .desktop-main,
+body.app-shell-ready .app-page,
+body.app-shell-ready .desktop-focus{
+  min-width:0;
+  max-width:100%;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready #app{
+  height:auto;
+  min-height:100%;
+  overflow:visible;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready .desktop-shell{
+  min-height:var(--app-viewport-height, 100dvh);
+  height:auto;
+  grid-template-columns:var(--sidebar-width) minmax(0, 1fr);
+  overflow:visible;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready .desktop-shell.sidebar-collapsed{
+  grid-template-columns:var(--sidebar-width-collapsed) minmax(0, 1fr);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready .desktop-main{
+  height:auto;
+  min-height:var(--app-viewport-height, 100dvh);
+  overflow:visible;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready .side-menu:not(.side-drawer){
+  width:var(--sidebar-width);
+  max-width:var(--sidebar-width);
+  position:sticky;
+  top:0;
+  height:var(--app-viewport-height, 100dvh);
+  max-height:var(--app-viewport-height, 100dvh);
+  overflow-y:auto;
+  overflow-x:hidden;
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready .desktop-shell.sidebar-collapsed .side-menu:not(.side-drawer){
+  width:var(--sidebar-width-collapsed);
+  max-width:var(--sidebar-width-collapsed);
+}
+
+body.app-shell-ready .app-overlay-layer,
+body.app-shell-ready .app-drawer-layer,
+body.app-shell-ready .app-modal-layer,
+body.app-shell-ready .app-toast-layer{
+  position:fixed;
+  inset:0;
+}
+
+body.app-shell-ready .app-drawer-layer .side-drawer{
+  max-height:calc(var(--app-viewport-height, 100dvh) - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+@media (max-width: 767px){
+  body.app-shell-ready #app-content{
+    scrollbar-gutter:auto;
+  }
+
+  body.app-shell-ready #app{
+    min-height:100%;
+    overflow:visible;
+  }
+
+  body.app-shell-ready .desktop-shell{
+    display:block;
+    width:100%;
+    min-height:100%;
+  }
+
+  body.app-shell-ready .desktop-main,
+  body.app-shell-ready .mobile-panel-content,
+  body.app-shell-ready .mobile-home{
+    overflow:visible;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px){
+  body[data-ui-profile="web_pwa"]:not(.mobile-mode).app-shell-ready{
+    --sidebar-width:min(210px, var(--desktop-sidebar-width));
+  }
+}
+
+@media (min-width: 1440px){
+  body.app-shell-ready{
+    --layout-shell-max:min(1680px, calc(100vw - 48px));
+  }
+}
+
 @media (max-width: 900px){
   .storefront-admin-standalone{
     min-height:100dvh;

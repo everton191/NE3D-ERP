@@ -79,6 +79,8 @@ assert(app.includes("function ensureAppShellLayers"), "app.js garante app-shell 
 });
 assert(app.includes("function normalizeLayerOptions"), "wrapper de modal/drawer aceita assinatura estruturada");
 assert(app.includes("function renderOverlayScrim"), "overlay central usa scrim padronizado");
+assert(app.includes("function syncAppShellLayerState"), "estado global das camadas sincroniza lock visual");
+assert(app.includes("app-layer-open"), "body recebe classe de lock quando camada visual esta ativa");
 assert(app.includes("openModal({\n    size: \"wide\""), "modal legal migrado para modal-layer");
 assert(app.includes("openDrawer({\n    content: renderDrawerLateral"), "drawer lateral migrado para drawer-layer");
 assert(!getFunctionBody(app, "abrirDocumentoLegal").includes("popup.innerHTML"), "abrirDocumentoLegal nao escreve mais direto no popup legado");
@@ -107,6 +109,14 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "--radius-button",
   "--shadow-soft"
 ].forEach((token) => assert(css.includes(token), `token global presente: ${token}`));
+["--breakpoint-mobile", "--breakpoint-tablet", "--breakpoint-desktop", "--breakpoint-ultrawide", "--sidebar-width"].forEach((token) => {
+  assert(css.includes(token), `token/layout responsivo presente: ${token}`);
+});
+assert(css.includes("body.app-shell-ready #app-content"), "app-content e o scroller principal do app shell");
+assert(css.includes("body.app-shell-ready.app-layer-open #app-content"), "scroll de fundo bloqueado quando camadas visuais estao abertas");
+[".layout-shell", ".layout-admin", ".layout-storefront", ".layout-auth", ".layout-editor"].forEach((zone) => {
+  assert(css.includes(zone), `zona oficial de layout presente: ${zone}`);
+});
 
 assert(css.includes(".side-drawer"), "CSS possui drawer mobile");
 assert(css.includes(".mobile-bottom-nav"), "CSS possui bottom navigation mobile");

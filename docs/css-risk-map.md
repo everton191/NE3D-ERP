@@ -95,3 +95,22 @@ Nao remover em massa. Primeiro criar componentes/tokens substitutos e migrar tel
 4. Limitar regras globais de `button`, `.card`, `.btn` com classes de componente.
 5. Separar CSS de storefront publico do admin/editor.
 
+## Fase 2C - Riscos Reduzidos
+
+Alteracoes feitas de forma incremental:
+
+- `#app-content` definido como scroller principal quando `body.app-shell-ready` esta ativo.
+- `body.app-layer-open` bloqueia o scroll de fundo durante modal/drawer/overlay.
+- `.desktop-main` no PWA desktop deixa de usar `overflow-y:auto` como scroller concorrente.
+- `--sidebar-width` e `--sidebar-width-collapsed` padronizam largura da sidebar desktop.
+- Breakpoints oficiais documentados como tokens CSS:
+  - `--breakpoint-mobile`
+  - `--breakpoint-tablet`
+  - `--breakpoint-desktop`
+  - `--breakpoint-ultrawide`
+
+Riscos que permanecem para fases futuras:
+
+- Muitos `overflow:hidden` continuam em componentes antigos e devem ser migrados tela por tela.
+- Drawers operacionais legados ainda possuem scroll proprio necessario.
+- Storefront editor/preview ainda precisa separacao modular propria no Bloco 5.
