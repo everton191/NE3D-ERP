@@ -30,6 +30,39 @@ app.js
       └── hidratarLojaOnlineAdmin()
 ```
 
+## Fase 2A - App Shell de Camadas
+
+Infraestrutura adicionada em coexistencia com o runtime legado:
+
+```txt
+app-shell
+ ├── app-sidebar        vazio nesta fase
+ ├── app-topbar         vazio nesta fase
+ ├── app-content
+ │    └── app           render atual continua aqui
+ ├── overlay-layer      nova camada global preparada
+ ├── drawer-layer       nova camada global preparada
+ ├── modal-layer        nova camada global preparada
+ └── toast-layer        camada usada por mostrarToast()
+```
+
+O `#popup` continua existindo como camada legada para modais/drawers ainda nao migrados. A regra desta fase e coexistencia segura, nao migracao completa.
+
+Handlers globais criados:
+
+```txt
+openModal()/closeModal()
+openDrawer()/closeDrawer()
+showOverlay()/hideOverlay()
+showToast()/hideToast()
+```
+
+Responsabilidade atual:
+
+- `toast-layer`: ja recebe `#toastArea`.
+- `modal-layer`, `drawer-layer`, `overlay-layer`: preparados para migracao gradual.
+- `#popup`: permanece como fallback legado.
+
 ## Fluxo Desktop
 
 ```txt
@@ -147,7 +180,13 @@ Risco: esta area tem regras financeiras future-ready. Evitar refatoracao visual 
 
 ```txt
 body
- ├── #app
+ ├── #app-shell
+ │    ├── #app-content
+ │    │    └── #app
+ │    ├── #overlay-layer
+ │    ├── #drawer-layer
+ │    ├── #modal-layer
+ │    └── #toast-layer
  ├── #popup
  │    ├── modal-backdrop
  │    ├── side-drawer-backdrop
@@ -177,4 +216,3 @@ Risco principal: `#popup` atua como modal-layer, drawer-layer, overlay-layer e m
 3. Padronizar scroll do shell.
 4. Migrar desktop e mobile para o mesmo shell.
 5. So entao extrair telas.
-

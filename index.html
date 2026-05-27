@@ -36,10 +36,20 @@
   <span class="header-spacer" aria-hidden="true"></span>
 </header>
 
-<div id="app"></div>
+<div id="app-shell" class="app-shell" data-shell-version="2a">
+  <aside id="app-sidebar" class="app-shell-slot app-sidebar-slot" aria-hidden="true"></aside>
+  <header id="app-topbar" class="app-shell-slot app-topbar-slot" aria-hidden="true"></header>
+  <main id="app-content" class="app-content-shell">
+    <div id="app"></div>
+  </main>
+  <div id="overlay-layer" class="app-layer app-overlay-layer" aria-live="off"></div>
+  <div id="drawer-layer" class="app-layer app-drawer-layer" aria-live="off"></div>
+  <div id="modal-layer" class="app-layer app-modal-layer" aria-live="polite"></div>
+  <div id="toast-layer" class="app-layer app-toast-layer" aria-live="polite"></div>
+</div>
 
 <div id="floatingCalculator"></div>
-<div id="popup"></div>
+<div id="popup" data-legacy-layer="popup"></div>
 
 <script src="/src/services/errorTelemetry.js?v=telemetry-20260504"></script>
 <script src="/src/services/adMobService.js?v=1.0.16-estavel-plan-profile-rings"></script>

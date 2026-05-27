@@ -206,6 +206,79 @@ body[data-ui-profile="web_pwa"]{
   --chart-positive:var(--success);
   --chart-negative:var(--danger);
   --chart-neutral:var(--muted);
+  --z-base:1;
+  --z-sidebar:100;
+  --z-header:120;
+  --z-overlay:400;
+  --z-drawer:500;
+  --z-modal:700;
+  --z-toast:900;
+  --z-critical:9999;
+}
+
+.app-shell{
+  position:relative;
+  width:100%;
+  min-height:var(--app-viewport-height, 100dvh);
+  isolation:isolate;
+}
+
+.app-content-shell{
+  position:relative;
+  z-index:var(--z-base);
+  width:100%;
+  max-width:100%;
+  min-height:var(--app-viewport-height, 100dvh);
+  overflow-x:hidden;
+  overscroll-behavior-x:none;
+  touch-action:pan-y;
+}
+
+.app-shell-slot:empty,
+.app-layer:empty{
+  display:none;
+}
+
+.app-sidebar-slot,
+.app-topbar-slot{
+  display:none;
+}
+
+.app-layer{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+}
+
+.app-layer > *{
+  pointer-events:auto;
+}
+
+.app-overlay-scrim{
+  position:absolute;
+  inset:0;
+  background:var(--color-overlay);
+}
+
+.app-overlay-layer{
+  z-index:var(--z-overlay);
+}
+
+.app-drawer-layer{
+  z-index:var(--z-drawer);
+}
+
+.app-modal-layer{
+  z-index:var(--z-modal);
+}
+
+.app-toast-layer{
+  z-index:var(--z-toast);
+}
+
+#popup[data-legacy-layer="popup"]{
+  position:relative;
+  z-index:var(--z-critical);
 }
 
 /* Ajuste fino do editor de pedidos em telas pequenas.
@@ -621,7 +694,7 @@ body.motion-back .mobile-home{
 .intro-overlay{
   position:fixed;
   inset:0;
-  z-index:10000;
+  z-index:var(--z-critical);
   display:grid;
   place-items:center;
   overflow:hidden;
@@ -5040,7 +5113,7 @@ body.theme-light .plan-tier-card{
 .modal-backdrop{
   position:fixed;
   inset:0;
-  z-index:1000;
+  z-index:var(--z-modal);
   display:grid;
   place-items:center;
   padding:18px;
@@ -5632,7 +5705,7 @@ body.auth-screen-active #app{
   position:fixed;
   right:16px;
   bottom:16px;
-  z-index:9999;
+  z-index:var(--z-toast);
   display:grid;
   gap:8px;
   width:min(360px, calc(100vw - 32px));
@@ -7069,7 +7142,7 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
 .popup{
   position:fixed;
   inset:0;
-  z-index:80;
+  z-index:var(--z-modal);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -7080,7 +7153,7 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
 .side-drawer-backdrop{
   position:fixed;
   inset:0;
-  z-index:80;
+  z-index:var(--z-drawer);
   display:flex;
   align-items:stretch;
   justify-content:flex-start;

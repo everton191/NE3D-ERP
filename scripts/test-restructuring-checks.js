@@ -49,6 +49,21 @@ const pkg = JSON.parse(read("package.json"));
 
 assert(/const APP_VERSION = "1\.0\.16-estavel"/.test(app), "app.js esta na versao 1.0.16-estavel");
 assert(/const APP_VERSION_CODE = 15/.test(app), "app.js possui versionCode 15");
+assert(index.includes('id="app-shell"'), "index.html monta app-shell");
+assert(index.includes('id="app-content"'), "index.html monta app-content");
+assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
+assert(index.includes('id="drawer-layer"'), "index.html monta drawer-layer");
+assert(index.includes('id="modal-layer"'), "index.html monta modal-layer");
+assert(index.includes('id="toast-layer"'), "index.html monta toast-layer");
+assert(app.includes("function ensureAppShellLayers"), "app.js garante app-shell em runtime");
+["openModal", "closeModal", "openDrawer", "closeDrawer", "showToast", "hideToast", "showOverlay", "hideOverlay"].forEach((fn) => {
+  assert(app.includes(`function ${fn}`), `handler global presente: ${fn}`);
+});
+["--z-base", "--z-sidebar", "--z-overlay", "--z-drawer", "--z-modal", "--z-toast", "--z-critical"].forEach((token) => {
+  assert(css.includes(token), `token z-index presente: ${token}`);
+});
+assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
+assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
 assert(sw.includes("simplifica-3d-v116-estavel-20260526-plan-profile-rings"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
 assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cache-bust atual");
@@ -96,7 +111,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "test:project-saneamento"
 ].forEach((script) => assert(Boolean(pkg.scripts?.[script]), `script npm ativo: ${script}`));
 
-warn(css.includes("--z-sidebar"), "tokens de z-index ainda devem ser formalizados");
+warn(css.includes("--z-sidebar"), "tokens de z-index formalizados para a Fase 2A");
 warn(exists("modules"), "pasta modules existe, mas permanece ignorada e sem reorganizacao nesta fase");
 warn(app.includes("enableNewStorefront") || app.includes("enableNewPlans"), "feature flags oficiais ainda devem ser formalizadas");
 

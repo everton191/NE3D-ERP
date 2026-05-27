@@ -4,6 +4,18 @@
 
 const APP_VERSION = "1.0.16-estavel";
 const APP_VERSION_CODE = 15;
+const APP_SHELL_VERSION = "2a";
+const APP_LAYER_IDS = Object.freeze({
+  shell: "app-shell",
+  sidebar: "app-sidebar",
+  topbar: "app-topbar",
+  content: "app-content",
+  overlay: "overlay-layer",
+  drawer: "drawer-layer",
+  modal: "modal-layer",
+  toast: "toast-layer",
+  legacyPopup: "popup"
+});
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
 const FINANCIAL_RECONCILIATION_VERSION = "reconciliation-v1";
@@ -8372,6 +8384,123 @@ if (typeof window !== "undefined") {
   window.isDashboardRoute = isDashboardRoute;
 }
 
+function ensureAppShellLayers() {
+  if (typeof document === "undefined") return null;
+  const app = document.getElementById("app");
+  let shell = document.getElementById(APP_LAYER_IDS.shell);
+  if (!shell && app?.parentElement) {
+    shell = document.createElement("div");
+    shell.id = APP_LAYER_IDS.shell;
+    shell.className = "app-shell";
+    shell.dataset.shellVersion = APP_SHELL_VERSION;
+    app.parentElement.insertBefore(shell, app);
+    const content = document.createElement("main");
+    content.id = APP_LAYER_IDS.content;
+    content.className = "app-content-shell";
+    shell.appendChild(criarAppShellSlot("aside", APP_LAYER_IDS.sidebar, "app-shell-slot app-sidebar-slot"));
+    shell.appendChild(criarAppShellSlot("header", APP_LAYER_IDS.topbar, "app-shell-slot app-topbar-slot"));
+    shell.appendChild(content);
+    content.appendChild(app);
+  }
+  if (!shell) return null;
+  shell.dataset.shellVersion = APP_SHELL_VERSION;
+  garantirFilhoAppShell(shell, "aside", APP_LAYER_IDS.sidebar, "app-shell-slot app-sidebar-slot", true);
+  garantirFilhoAppShell(shell, "header", APP_LAYER_IDS.topbar, "app-shell-slot app-topbar-slot", true);
+  const content = garantirFilhoAppShell(shell, "main", APP_LAYER_IDS.content, "app-content-shell", false);
+  if (app && content && app.parentElement !== content) content.appendChild(app);
+  garantirFilhoAppShell(shell, "div", APP_LAYER_IDS.overlay, "app-layer app-overlay-layer", false);
+  garantirFilhoAppShell(shell, "div", APP_LAYER_IDS.drawer, "app-layer app-drawer-layer", false);
+  garantirFilhoAppShell(shell, "div", APP_LAYER_IDS.modal, "app-layer app-modal-layer", false);
+  garantirFilhoAppShell(shell, "div", APP_LAYER_IDS.toast, "app-layer app-toast-layer", false);
+  document.body?.classList.add("app-shell-ready");
+  return shell;
+}
+
+function criarAppShellSlot(tag, id, className, hidden = false) {
+  const el = document.createElement(tag);
+  el.id = id;
+  el.className = className;
+  if (hidden) el.setAttribute("aria-hidden", "true");
+  return el;
+}
+
+function garantirFilhoAppShell(shell, tag, id, className, hidden = false) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = criarAppShellSlot(tag, id, className, hidden);
+    shell.appendChild(el);
+  } else if (el.parentElement !== shell && id !== APP_LAYER_IDS.content) {
+    shell.appendChild(el);
+  }
+  el.className = className;
+  if (hidden) el.setAttribute("aria-hidden", "true");
+  return el;
+}
+
+function getAppLayer(layer = "modal") {
+  ensureAppShellLayers();
+  return document.getElementById(APP_LAYER_IDS[layer] || layer);
+}
+
+function setAppLayerContent(layer, html = "", options = {}) {
+  const alvo = getAppLayer(layer);
+  if (!alvo) return null;
+  alvo.innerHTML = html || "";
+  alvo.classList.toggle("is-active", !!html);
+  if (options.label) alvo.setAttribute("aria-label", options.label);
+  if (options.role) alvo.setAttribute("role", options.role);
+  return alvo;
+}
+
+function openModal(html = "", options = {}) {
+  return setAppLayerContent("modal", html, { role: "dialog", ...options });
+}
+
+function closeModal() {
+  setAppLayerContent("modal", "");
+}
+
+function openDrawer(html = "", options = {}) {
+  return setAppLayerContent("drawer", html, { role: "dialog", ...options });
+}
+
+function closeDrawer() {
+  sideDrawerOpen = false;
+  sideDrawerProgress = 0;
+  sideDrawerGesture = null;
+  setAppLayerContent("drawer", "");
+}
+
+function showOverlay(html = "<div class=\"app-overlay-scrim\" aria-hidden=\"true\"></div>", options = {}) {
+  return setAppLayerContent("overlay", html, options);
+}
+
+function hideOverlay() {
+  setAppLayerContent("overlay", "");
+}
+
+function showToast(mensagem, tipo = "info", duracao = 4200) {
+  return mostrarToast(mensagem, tipo, duracao);
+}
+
+function hideToast() {
+  const area = document.getElementById("toastArea");
+  if (area) area.innerHTML = "";
+}
+
+if (typeof window !== "undefined") {
+  Object.assign(window, {
+    openModal,
+    closeModal,
+    openDrawer,
+    closeDrawer,
+    showToast,
+    hideToast,
+    showOverlay,
+    hideOverlay
+  });
+}
+
 function atualizarMenu() {
   document.querySelectorAll(".menu-button, .side-nav-button, .popup-nav-button, .mobile-bottom-nav-button").forEach((botao) => {
     botao.classList.toggle("active", botao.dataset.tela === telaAtual);
@@ -8379,6 +8508,7 @@ function atualizarMenu() {
 }
 
 function renderApp() {
+  ensureAppShellLayers();
   const app = document.getElementById("app");
   if (!app) return;
   if (window.__simplificaLocalLockActive && getUsuarioAtual()) {
@@ -8717,7 +8847,7 @@ function abrirMenuUsuarioTopo(event) {
   const plano = getPlanoAtual(usuario);
   popup.style.pointerEvents = "auto";
   popup.innerHTML = `
-    <div class="topbar-profile-backdrop" onclick="fecharPopup()" style="position:fixed;inset:0;z-index:10000;background:transparent;">
+    <div class="topbar-profile-backdrop" onclick="fecharPopup()" style="position:fixed;inset:0;z-index:var(--z-modal);background:transparent;">
       <section class="topbar-profile-menu glass-pop" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
         <div class="topbar-profile-head">
           ${renderUsuarioAvatar(usuario, "topbar-profile-avatar")}
@@ -27980,8 +28110,10 @@ function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
     area = document.createElement("div");
     area.id = "toastArea";
     area.className = "toast-area";
-    document.body.appendChild(area);
   }
+  const toastLayer = getAppLayer("toast");
+  if (toastLayer && area.parentElement !== toastLayer) toastLayer.appendChild(area);
+  if (!area.parentElement) document.body.appendChild(area);
 
   const existentes = Array.from(area.querySelectorAll(".app-toast:not(.toast-loading)"));
   while (existentes.length >= 3) {
@@ -35432,9 +35564,9 @@ async function gerarPdfCalculadora() {
 }
 
 function fecharPopup() {
-  sideDrawerOpen = false;
-  sideDrawerProgress = 0;
-  sideDrawerGesture = null;
+  closeModal();
+  closeDrawer();
+  hideOverlay();
   const popup = document.getElementById("popup");
   if (popup) {
     popup.innerHTML = "";
@@ -37307,6 +37439,7 @@ window.addEventListener("offline", () => {
 document.addEventListener("DOMContentLoaded", () => {
   configurarTelemetriaErros();
   configurarMonetizacaoAds();
+  ensureAppShellLayers();
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();

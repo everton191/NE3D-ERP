@@ -8,18 +8,26 @@ Escopo: mapa das zonas visuais e camadas atuais antes do App Shell profissional.
 
 ```txt
 body
- ├── #app
- │    ├── desktop-shell
- │    │    ├── side-menu
- │    │    └── desktop-main app-content
- │    │         ├── topbar
- │    │         └── desktop-focus/app-page/dashboard
- │    ├── mobile shell/render
- │    │    ├── mobile content
- │    │    ├── drawer gesture rail
- │    │    └── mobile-bottom-nav
- │    ├── lojaPublica
- │    └── lojaAdmin standalone
+ ├── #app-shell
+ │    ├── #app-sidebar       reservado
+ │    ├── #app-topbar        reservado
+ │    ├── #app-content
+ │    │    └── #app
+ │    │         ├── desktop-shell
+ │    │         │    ├── side-menu
+ │    │         │    └── desktop-main app-content
+ │    │         │         ├── topbar
+ │    │         │         └── desktop-focus/app-page/dashboard
+ │    │         ├── mobile shell/render
+ │    │         │    ├── mobile content
+ │    │         │    ├── drawer gesture rail
+ │    │         │    └── mobile-bottom-nav
+ │    │         ├── lojaPublica
+ │    │         └── lojaAdmin standalone
+ │    ├── #overlay-layer
+ │    ├── #drawer-layer
+ │    ├── #modal-layer
+ │    └── #toast-layer
  ├── #popup
  ├── #toastArea
  ├── introOverlay
@@ -48,7 +56,30 @@ app-shell
 | `page-content` | `.desktop-main`, `.desktop-focus`, mobile content | parcial | critical para scroll |
 | `overlay-layer` | `#popup`, `introOverlay`, drawer backdrops | misturado | critical |
 | `modal-layer` | `#popup .modal-backdrop/.modal-card` | misturado | critical |
-| `toast-layer` | `#toastArea` criado por `mostrarToast` | ativo | medium |
+| `toast-layer` | `#toast-layer` recebe `#toastArea` criado por `mostrarToast` | ativo | medium |
+
+## Fase 2A - Tokens de Camada
+
+Tokens globais criados:
+
+```css
+--z-base: 1;
+--z-sidebar: 100;
+--z-header: 120;
+--z-overlay: 400;
+--z-drawer: 500;
+--z-modal: 700;
+--z-toast: 900;
+--z-critical: 9999;
+```
+
+Uso inicial:
+
+- `intro-overlay` usa `--z-critical`.
+- `modal-backdrop` e `.popup` usam `--z-modal`.
+- `side-drawer-backdrop` usa `--z-drawer`.
+- `.toast-area` usa `--z-toast`.
+- hardcodes `z-index:9999` e `z-index:10000` foram removidos dos pontos encontrados.
 
 ## Zonas de Scroll
 
@@ -98,4 +129,3 @@ app-shell
 3. Nenhuma tela nova deve criar scroll de pagina proprio.
 4. Storefront publico e editor/admin devem ter containers separados.
 5. Bottom-nav e drawer mobile precisam respeitar safe-area e teclado.
-

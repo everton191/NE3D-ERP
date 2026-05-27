@@ -149,3 +149,19 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Mapear riscos de CSS.
 - `[x]` Classificar itens sem mover arquivos.
 - `[ ]` Iniciar Bloco 2 apenas depois de revisar estes mapas.
+
+## Fase 2A - Infraestrutura Global de Camadas e Scroll
+
+- `[x]` Criar `#app-shell`.
+- `[x]` Criar `#app-content` envolvendo o `#app` atual.
+- `[x]` Criar `#overlay-layer`.
+- `[x]` Criar `#drawer-layer`.
+- `[x]` Criar `#modal-layer`.
+- `[x]` Criar `#toast-layer`.
+- `[x]` Manter `#popup` como camada legada temporaria.
+- `[x]` Criar tokens `--z-base`, `--z-sidebar`, `--z-overlay`, `--z-drawer`, `--z-modal`, `--z-toast`, `--z-critical`.
+- `[x]` Remover hardcodes `z-index:9999` e `z-index:10000` encontrados.
+- `[x]` Criar handlers globais compativeis: `openModal`, `closeModal`, `openDrawer`, `closeDrawer`, `showToast`, `hideToast`, `showOverlay`, `hideOverlay`.
+- `[x]` Direcionar `mostrarToast()` para `#toast-layer`.
+- `[~]` Scroll central preparado em `#app-content`; migracao completa do scroll principal fica para etapa seguinte para evitar regressao brusca.
+- `[ ]` Migrar modais/drawers legados do `#popup` para camadas novas de forma gradual.
