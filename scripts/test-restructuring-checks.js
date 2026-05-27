@@ -221,6 +221,22 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "@media (min-width:1920px)"
 ].forEach((marker) => assert(css.includes(marker), `hotfix escala storefront v2 presente: ${marker}`));
 [
+  "Hotfix global - escala visual segura do ERP e Storefront",
+  "html{\n  font-size:16px;",
+  "--font-xs:0.75rem",
+  "--font-3xl:1.875rem",
+  "--space-md:0.75rem",
+  "body[data-ui-profile=\"web_pwa\"]:not(.mobile-mode) :where(.btn,.app-button,.ds-button)",
+  "body[data-ui-profile=\"web_pwa\"]:not(.mobile-mode) :where(.desktop-main,.app-page,.dashboard-grid,.desktop-grid)"
+].forEach((marker) => assert(css.includes(marker), `hotfix escala global presente: ${marker}`));
+[
+  "function isTablet()",
+  "function isDesktop()",
+  "return Math.min(1.08, Math.max(0.86",
+  "root.style.setProperty(\"--base-font-size\", \"1rem\")",
+  "root.style.setProperty(\"--font-3xl\", \"1.875rem\")"
+].forEach((marker) => assert(app.includes(marker), `controle global de escala presente: ${marker}`));
+[
   "--interaction-hover-lift",
   "--interaction-active-scale",
   "@keyframes ds-enter-soft",

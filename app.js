@@ -4843,6 +4843,14 @@ function isMobile() {
   return window.innerWidth < 768;
 }
 
+function isTablet() {
+  return window.innerWidth >= 768 && window.innerWidth < 1024;
+}
+
+function isDesktop() {
+  return window.innerWidth >= 1024;
+}
+
 function getUiProfile() {
   return isAndroidNativeApp() ? "android_apk" : "web_pwa";
 }
@@ -7672,15 +7680,14 @@ function detectarPerfilTela() {
 
 function calcularEscalaInterface() {
   if (appConfig.screenFit === "manual") {
-    return Math.min(1.4, Math.max(0.7, (Number(appConfig.uiScale) || 100) / 100));
+    return Math.min(1.08, Math.max(0.86, (Number(appConfig.uiScale) || 100) / 100));
   }
 
   const largura = window.innerWidth || 1024;
   if (largura < 360) return 0.82;
   if (largura < 420) return 0.88;
   if (largura < 768) return 1;
-  if (largura < 1100) return 0.92;
-  if (largura > 1700) return 1.05;
+  if (largura < 1100) return 0.94;
   return 1;
 }
 
@@ -7703,8 +7710,8 @@ function aplicarPersonalizacao() {
   const escala = calcularEscalaInterface();
   const densidade = appConfig.interfaceDensity || (appConfig.compactMode ? "compact" : "default");
   const densityScale = densidade === "compact" ? 0.88 : densidade === "comfortable" ? 1.12 : 1;
-  const spacingScale = Math.min(1.2, Math.max(0.82, escala * densityScale));
-  const componentScale = Math.min(1.16, Math.max(0.82, escala));
+  const spacingScale = Math.min(1.08, Math.max(0.86, escala * densityScale));
+  const componentScale = Math.min(1.06, Math.max(0.88, escala));
   const platformAdapter = getPlatformAdapter();
   const largura = window.innerWidth || 1024;
   const cardMinManual = Math.min(560, Math.max(220, Number(appConfig.desktopCardMinWidth) || 320));
@@ -7717,7 +7724,7 @@ function aplicarPersonalizacao() {
       ? Math.round(largura * 0.96)
       : Math.max(900, largura - 24);
   const maxWidth = appConfig.screenFit === "manual" ? maxWidthManual : maxWidthAuto;
-  const controlHeight = Math.max(30, Math.round(40 * escala));
+  const controlHeight = Math.max(36, Math.min(42, Math.round(40 * componentScale)));
 
   root.style.setProperty("--primary", cor);
   root.style.setProperty("--primary-2", cor);
@@ -7821,25 +7828,27 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--spacing-scale", spacingScale.toFixed(2));
   root.style.setProperty("--component-scale", componentScale.toFixed(2));
   root.style.setProperty("--density-scale", densityScale.toFixed(2));
-  root.style.setProperty("--base-font-size", `${Math.max(11, Math.round(15 * escala))}px`);
-  root.style.setProperty("--font-xs", `${Math.max(8, Math.round(12 * escala))}px`);
-  root.style.setProperty("--font-sm", `${Math.max(9, Math.round(13 * escala))}px`);
-  root.style.setProperty("--font-md", `${Math.max(10, Math.round(15 * escala))}px`);
-  root.style.setProperty("--font-lg", `${Math.max(11, Math.round(16 * escala))}px`);
-  root.style.setProperty("--font-xl", `${Math.max(14, Math.round(20 * escala))}px`);
+  root.style.setProperty("--base-font-size", "1rem");
+  root.style.setProperty("--font-xs", "0.75rem");
+  root.style.setProperty("--font-sm", "0.875rem");
+  root.style.setProperty("--font-md", "1rem");
+  root.style.setProperty("--font-lg", "1.125rem");
+  root.style.setProperty("--font-xl", "1.25rem");
+  root.style.setProperty("--font-2xl", "1.5rem");
+  root.style.setProperty("--font-3xl", "1.875rem");
   root.style.setProperty("--control-height", `${controlHeight}px`);
   root.style.setProperty("--icon-button-size", `${controlHeight}px`);
-  root.style.setProperty("--floating-button-size", `${Math.max(36, Math.round(48 * escala))}px`);
-  root.style.setProperty("--menu-button-height", `${Math.max(42, Math.round(56 * escala))}px`);
-  root.style.setProperty("--mobile-header-height", `${Math.max(46, Math.round(58 * escala))}px`);
-  root.style.setProperty("--metric-min-height", `${Math.max(48, Math.round(68 * escala))}px`);
-  root.style.setProperty("--summary-metric-min-height", `${Math.max(46, Math.round(64 * escala))}px`);
-  root.style.setProperty("--quick-action-min-height", `${Math.max(52, Math.round(74 * escala))}px`);
-  root.style.setProperty("--popup-nav-min-height", `${Math.max(52, Math.round(72 * escala))}px`);
-  root.style.setProperty("--toolbar-button-size", `${Math.max(24, Math.round(30 * escala))}px`);
-  root.style.setProperty("--card-padding", `${Math.max(7, Math.round(12 * escala))}px`);
-  root.style.setProperty("--gap", `${Math.max(6, Math.round(12 * escala))}px`);
-  root.style.setProperty("--radius", `${Math.max(6, Math.round(10 * escala))}px`);
+  root.style.setProperty("--floating-button-size", `${Math.max(42, Math.min(50, Math.round(48 * componentScale)))}px`);
+  root.style.setProperty("--menu-button-height", `${Math.max(42, Math.min(48, Math.round(44 * componentScale)))}px`);
+  root.style.setProperty("--mobile-header-height", `${Math.max(50, Math.min(58, Math.round(54 * componentScale)))}px`);
+  root.style.setProperty("--metric-min-height", `${Math.max(58, Math.min(72, Math.round(64 * componentScale)))}px`);
+  root.style.setProperty("--summary-metric-min-height", `${Math.max(54, Math.min(68, Math.round(60 * componentScale)))}px`);
+  root.style.setProperty("--quick-action-min-height", `${Math.max(58, Math.min(78, Math.round(68 * componentScale)))}px`);
+  root.style.setProperty("--popup-nav-min-height", `${Math.max(56, Math.min(72, Math.round(64 * componentScale)))}px`);
+  root.style.setProperty("--toolbar-button-size", `${Math.max(28, Math.min(34, Math.round(30 * componentScale)))}px`);
+  root.style.setProperty("--card-padding", `${Math.max(10, Math.min(14, Math.round(12 * spacingScale)))}px`);
+  root.style.setProperty("--gap", `${Math.max(8, Math.min(14, Math.round(12 * spacingScale)))}px`);
+  root.style.setProperty("--radius", `${Math.max(8, Math.min(12, Math.round(10 * componentScale)))}px`);
   root.style.setProperty("--desktop-card-min", `${cardMin}px`);
   root.style.setProperty("--desktop-max-width", `${maxWidth}px`);
   root.style.setProperty("--desktop-sidebar-width", `${Math.round(230 * Math.min(1.05, Math.max(0.92, escala)))}px`);

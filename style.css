@@ -4,6 +4,7 @@
 
 html,
 body{
+  font-size:16px;
   width:100%;
   max-width:100%;
   overflow-x:hidden;
@@ -52,12 +53,12 @@ body[data-ui-profile="web_pwa"]{
   --radius-sm:12px;
   --radius-lg:26px;
   --gap:12px;
-  --base-font-size:15px;
-  --font-xs:12px;
-  --font-sm:13px;
-  --font-md:15px;
-  --font-lg:16px;
-  --font-xl:20px;
+  --base-font-size:1rem;
+  --font-xs:0.75rem;
+  --font-sm:0.875rem;
+  --font-md:1rem;
+  --font-lg:1.125rem;
+  --font-xl:1.25rem;
   --control-height:42px;
   --icon-button-size:40px;
   --floating-button-size:48px;
@@ -175,13 +176,13 @@ body[data-ui-profile="web_pwa"]{
   --effect-hover:translate3d(0, -2px, 0);
   --effect-active:scale(.96);
   --effect-focus-ring:0 0 0 3px color-mix(in srgb, var(--color-primary) 24%, transparent);
-  --space-xxs:calc(2px * var(--spacing-scale));
-  --space-xs:calc(4px * var(--spacing-scale));
-  --space-sm:calc(8px * var(--spacing-scale));
-  --space-md:calc(12px * var(--spacing-scale));
-  --space-lg:calc(16px * var(--spacing-scale));
-  --space-xl:calc(22px * var(--spacing-scale));
-  --space-2xl:calc(30px * var(--spacing-scale));
+  --space-xxs:calc(0.125rem * var(--spacing-scale));
+  --space-xs:calc(0.25rem * var(--spacing-scale));
+  --space-sm:calc(0.5rem * var(--spacing-scale));
+  --space-md:calc(0.75rem * var(--spacing-scale));
+  --space-lg:calc(1rem * var(--spacing-scale));
+  --space-xl:calc(1.5rem * var(--spacing-scale));
+  --space-2xl:calc(2rem * var(--spacing-scale));
   --page-padding:clamp(10px, 2vw, 24px);
   --section-gap:var(--space-md);
   --card-padding-token:var(--card-padding);
@@ -210,7 +211,8 @@ body[data-ui-profile="web_pwa"]{
   --shadow-md:var(--effect-shadow-md);
   --shadow-lg:var(--effect-shadow-lg);
   --shadow-xl:var(--effect-shadow-xl);
-  --font-2xl:clamp(24px, 3.2vw, 34px);
+  --font-2xl:1.5rem;
+  --font-3xl:1.875rem;
   --line-height-tight:1.08;
   --line-height-heading:1.16;
   --line-height-body:1.55;
@@ -600,7 +602,7 @@ body{
     radial-gradient(circle at 88% 12%, rgba(255,148,28,.10), transparent 30%),
     linear-gradient(180deg, #0b1620 0%, var(--bg) 46%, #050a0f 100%));
   color:var(--text);
-  line-height:1.35;
+  line-height:1.5;
 }
 
 @keyframes softViewIn{
@@ -26278,4 +26280,75 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
     position:relative;
     top:auto;
   }
+}
+
+/* Hotfix global - escala visual segura do ERP e Storefront */
+html{
+  font-size:16px;
+}
+
+body{
+  font-size:1rem;
+  line-height:1.5;
+}
+
+#app,
+#app-shell,
+#app-content{
+  font-size:inherit;
+}
+
+:root{
+  --font-xs:0.75rem;
+  --font-sm:0.875rem;
+  --font-md:1rem;
+  --font-lg:1.125rem;
+  --font-xl:1.25rem;
+  --font-2xl:1.5rem;
+  --font-3xl:1.875rem;
+  --space-xs:0.25rem;
+  --space-sm:0.5rem;
+  --space-md:0.75rem;
+  --space-lg:1rem;
+  --space-xl:1.5rem;
+  --space-2xl:2rem;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.side-menu,.app-sidebar){
+  font-size:var(--font-sm);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.topbar,.app-topbar){
+  min-height:56px;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.side-nav-button,.ds-nav-item,.app-nav-item){
+  min-height:44px;
+  padding:0.5rem 0.75rem;
+  font-size:var(--font-sm);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.side-nav-button span,.side-menu-toggle,.icon-button,.icon-action-button,.ds-icon-button,.app-icon-button){
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.btn,.app-button,.ds-button){
+  min-height:40px;
+  padding:0 var(--space-md);
+  font-size:var(--font-sm);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(input,select,textarea,.ds-input,.ds-select,.ds-textarea){
+  font-size:var(--font-md);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.card,.app-card,.ds-card,.ui-section,.panel-card,.desktop-dashboard-card){
+  padding:var(--space-lg);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.desktop-main,.app-page,.dashboard-grid,.desktop-grid){
+  gap:var(--space-lg);
 }
