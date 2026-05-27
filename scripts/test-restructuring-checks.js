@@ -212,6 +212,15 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "storefront-admin-page store-editor-zone"
 ].forEach((marker) => assert(app.includes(marker), `migracao storefront v2 presente: ${marker}`));
 [
+  "Hotfix 4B.1 - escala responsiva controlada da Storefront V2",
+  ".store-public-shell[data-storefront-source=\"v2\"]",
+  "--store-stage-max:clamp(1120px, 84vw, 1440px)",
+  ".store-public-shell[data-storefront-source=\"v2\"] .store-public-banner-copy h1",
+  ".store-public-shell[data-storefront-source=\"v2\"] .store-mobile-admin-actions",
+  "@media (min-width:1024px)",
+  "@media (min-width:1920px)"
+].forEach((marker) => assert(css.includes(marker), `hotfix escala storefront v2 presente: ${marker}`));
+[
   "--interaction-hover-lift",
   "--interaction-active-scale",
   "@keyframes ds-enter-soft",
