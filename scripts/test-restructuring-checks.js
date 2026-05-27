@@ -157,7 +157,10 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "--font-2xl",
   "--topbar-height",
   "--bottom-nav-height",
-  "--content-max-width"
+  "--content-max-width",
+  "--transition-fast",
+  "--transition-base",
+  "--transition-slow"
 ].forEach((token) => assert(css.includes(token), `token global presente: ${token}`));
 ["--breakpoint-mobile", "--breakpoint-tablet", "--breakpoint-desktop", "--breakpoint-ultrawide", "--sidebar-width"].forEach((token) => {
   assert(css.includes(token), `token/layout responsivo presente: ${token}`);
@@ -174,6 +177,14 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   ".ds-skeleton",
   ".ds-loader"
 ].forEach((selector) => assert(css.includes(selector), `contrato visual ativo presente: ${selector}`));
+[
+  "--interaction-hover-lift",
+  "--interaction-active-scale",
+  "@keyframes ds-enter-soft",
+  "@keyframes ds-toast-in",
+  "@keyframes ds-skeleton-sweep",
+  "prefers-reduced-motion: reduce"
+].forEach((marker) => assert(css.includes(marker), `polimento premium presente: ${marker}`));
 assert(css.includes("body.app-shell-ready #app-content"), "app-content e o scroller principal do app shell");
 assert(css.includes("body.app-shell-ready.app-layer-open #app-content"), "scroll de fundo bloqueado quando camadas visuais estao abertas");
 [".layout-shell", ".layout-admin", ".layout-storefront", ".layout-auth", ".layout-editor"].forEach((zone) => {

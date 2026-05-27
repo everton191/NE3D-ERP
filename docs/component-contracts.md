@@ -36,6 +36,7 @@ Estados esperados:
 - hover/focus: realce leve;
 - active: resposta curta;
 - disabled: opacidade reduzida e sem sombra forte.
+- reduced motion: sem animacao obrigatoria.
 
 ## Card
 
@@ -140,3 +141,30 @@ Classes:
 
 Regra: loaders devem usar animaçoes leves e respeitar `prefers-reduced-motion` nas fases de polimento.
 
+## Motion
+
+Tokens:
+
+```css
+--transition-fast
+--transition-base
+--transition-slow
+```
+
+Contratos:
+
+- hover usa transform/box-shadow/border-color;
+- active usa escala discreta;
+- focus usa `--effect-focus-ring`;
+- animacoes de entrada usam distancia curta;
+- skeleton usa varredura discreta;
+- todos os novos componentes respeitam `prefers-reduced-motion`.
+
+## Densidade
+
+Regras:
+
+- cards e grids usam `clamp()` apenas em gaps, nao em fonte fluida;
+- botoes mantem area minima de toque;
+- empty states usam texto curto e CTA claro;
+- tabelas devem preservar leitura e evitar linhas comprimidas.

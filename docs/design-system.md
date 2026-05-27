@@ -56,3 +56,28 @@ Novo CSS deve preferir tokens:
 - dividir `app.js`;
 - limpar todos os hardcodes antigos.
 
+## Fase 3C - Motion e UX Premium
+
+Tokens de transicao adicionados:
+
+```css
+--transition-fast
+--transition-base
+--transition-slow
+```
+
+Regras de movimento:
+
+- hover deve ser sutil, com deslocamento curto;
+- active deve ter escala discreta;
+- focus deve usar ring do tema;
+- skeletons devem ser leves;
+- `prefers-reduced-motion` deve desativar animacoes dos componentes novos.
+
+Foco visual:
+
+- clareza operacional;
+- resposta imediata;
+- densidade controlada;
+- sem glow pesado;
+- sem efeitos exagerados.

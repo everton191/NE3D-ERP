@@ -100,6 +100,13 @@ body[data-ui-profile="web_pwa"]{
   --motion-ease:cubic-bezier(.22,1,.36,1);
   --motion-ease-emphasis:cubic-bezier(.16,1,.3,1);
   --motion-duration:380ms;
+  --transition-fast:140ms var(--motion-ease);
+  --transition-base:220ms var(--motion-ease);
+  --transition-slow:360ms var(--motion-ease-emphasis);
+  --interaction-hover-lift:translate3d(0, -1px, 0);
+  --interaction-card-lift:translate3d(0, -2px, 0);
+  --interaction-active-scale:scale(.985);
+  --interaction-fade-opacity:.86;
   --font-scale:1;
   --spacing-scale:1;
   --component-scale:1;
@@ -25705,6 +25712,232 @@ body.app-shell-ready .app-drawer-layer .side-drawer{
   border-top-color:var(--accent-primary);
   border-radius:var(--radius-pill);
   animation:sync-spin .8s linear infinite;
+}
+
+/* Fase 3C - microinteracoes, densidade e UX empresarial */
+.ds-button,
+.app-button,
+.ds-icon-button,
+.app-icon-button,
+.ds-nav-item,
+.app-nav-item,
+.ds-topbar-action,
+.app-topbar-action{
+  touch-action:manipulation;
+  will-change:transform;
+}
+
+@media (hover:hover) and (pointer:fine){
+  .ds-button:hover,
+  .app-button:hover,
+  .ds-icon-button:hover,
+  .app-icon-button:hover,
+  .ds-nav-item:hover,
+  .app-nav-item:hover,
+  .ds-topbar-action:hover,
+  .app-topbar-action:hover{
+    transform:var(--interaction-hover-lift);
+    border-color:color-mix(in srgb, var(--accent-primary) 34%, var(--border-primary));
+    background:var(--card-bg-hover);
+    box-shadow:var(--shadow-md);
+  }
+
+  .ds-card.interactive:hover,
+  .app-card.interactive:hover{
+    transform:var(--interaction-card-lift);
+    border-color:color-mix(in srgb, var(--accent-primary) 28%, var(--border-primary));
+    box-shadow:var(--shadow-lg);
+  }
+
+  .ds-table tbody tr:hover,
+  .app-table tbody tr:hover{
+    background:color-mix(in srgb, var(--accent-primary) 7%, transparent);
+  }
+
+  body[data-ui-profile="web_pwa"]:not(.mobile-mode) .side-nav-button:hover,
+  body[data-ui-profile="web_pwa"]:not(.mobile-mode) .side-menu-toggle:hover{
+    transform:var(--interaction-hover-lift);
+    border-color:color-mix(in srgb, var(--accent-primary) 24%, var(--border-primary));
+    background:color-mix(in srgb, var(--accent-primary) 9%, transparent);
+  }
+}
+
+.ds-button:active,
+.app-button:active,
+.ds-icon-button:active,
+.app-icon-button:active,
+.ds-nav-item:active,
+.app-nav-item:active,
+.ds-card.interactive:active,
+.app-card.interactive:active,
+.side-nav-button:active,
+.mobile-bottom-nav-button:active{
+  transform:var(--interaction-active-scale);
+  filter:brightness(.98);
+}
+
+.ds-button:focus-visible,
+.app-button:focus-visible,
+.ds-icon-button:focus-visible,
+.app-icon-button:focus-visible,
+.ds-input:focus-visible,
+.ds-select:focus-visible,
+.ds-textarea:focus-visible,
+.ds-nav-item:focus-visible,
+.app-nav-item:focus-visible,
+.ds-card.interactive:focus-visible,
+.app-card.interactive:focus-visible{
+  outline:none;
+  border-color:color-mix(in srgb, var(--accent-primary) 58%, var(--border-primary));
+  box-shadow:var(--effect-focus-ring), var(--shadow-sm);
+}
+
+.ds-button:disabled,
+.app-button:disabled,
+.ds-icon-button:disabled,
+.app-icon-button:disabled{
+  cursor:not-allowed;
+  opacity:.58;
+  transform:none;
+  filter:none;
+  box-shadow:none;
+}
+
+.ds-card,
+.app-card,
+.ds-modal,
+.app-modal,
+.ds-table,
+.app-table,
+.ds-empty-state,
+.app-empty-state{
+  transition:border-color var(--transition-base), background var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+.ds-modal,
+.app-modal,
+.app-modal-stage,
+.side-drawer{
+  animation:ds-enter-soft var(--transition-base) both;
+}
+
+.ds-table th,
+.app-table th{
+  position:sticky;
+  top:0;
+  z-index:1;
+  background:var(--card-bg);
+}
+
+.ds-table tbody tr:nth-child(even),
+.app-table tbody tr:nth-child(even){
+  background:color-mix(in srgb, var(--surface-secondary) 28%, transparent);
+}
+
+.ds-empty-state strong,
+.app-empty-state strong{
+  color:var(--text-primary);
+  font-size:var(--font-lg);
+  line-height:var(--line-height-heading);
+}
+
+.ds-empty-state p,
+.app-empty-state p{
+  max-width:46ch;
+  margin:0;
+  color:var(--text-muted);
+  line-height:var(--line-height-body);
+}
+
+.ds-skeleton,
+.app-skeleton,
+.skeleton-block,
+.skeleton-loading{
+  overflow:hidden;
+  position:relative;
+}
+
+.ds-skeleton::after,
+.app-skeleton::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  transform:translateX(-100%);
+  background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--text-primary) 10%, transparent), transparent);
+  animation:ds-skeleton-sweep 1.35s var(--motion-ease) infinite;
+}
+
+.toast-area{
+  transition:transform var(--transition-base), opacity var(--transition-base);
+}
+
+.toast{
+  border-color:var(--border-primary);
+  box-shadow:var(--shadow-lg);
+  animation:ds-toast-in var(--transition-base) both;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .side-menu,
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .side-nav-button,
+.mobile-bottom-nav,
+.mobile-bottom-nav-button{
+  transition:background var(--transition-base), border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-fast), color var(--transition-base);
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main,
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
+.dashboard-grid,
+.desktop-grid{
+  gap:clamp(var(--space-md), 1.4vw, var(--space-xl));
+}
+
+@keyframes ds-enter-soft{
+  from{
+    opacity:0;
+    transform:translate3d(0, 6px, 0) scale(.992);
+  }
+  to{
+    opacity:1;
+    transform:translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes ds-toast-in{
+  from{
+    opacity:0;
+    transform:translate3d(0, 8px, 0);
+  }
+  to{
+    opacity:1;
+    transform:translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ds-skeleton-sweep{
+  to{
+    transform:translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .ds-button,
+  .app-button,
+  .ds-icon-button,
+  .app-icon-button,
+  .ds-card,
+  .app-card,
+  .ds-modal,
+  .app-modal,
+  .app-modal-stage,
+  .side-drawer,
+  .toast,
+  .ds-skeleton,
+  .app-skeleton,
+  .ds-skeleton::after,
+  .app-skeleton::after{
+    animation:none !important;
+    transition:none !important;
+  }
 }
 
 @media (max-width: 900px){

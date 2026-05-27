@@ -62,3 +62,17 @@ Nao migrar ainda:
 - storefront editor;
 - autenticaçao.
 
+## Fase 3C - Estados de interacao
+
+Componentes `ds-*` e pontes `app-*` passam a ter estados padronizados:
+
+- hover com lift leve;
+- active com escala discreta;
+- focus visivel com ring do tema;
+- disabled sem sombra forte;
+- card interativo com profundidade controlada;
+- tabelas com hover/zebra;
+- skeleton com varredura leve;
+- toast/modal/drawer com entrada suave.
+
+Esses estados sao aplicados de forma incremental e nao substituem ainda todos os componentes legados.

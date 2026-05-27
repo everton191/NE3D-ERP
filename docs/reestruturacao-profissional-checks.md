@@ -206,3 +206,14 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Documentar `docs/components.md` e `docs/component-contracts.md`.
 - `[x]` Manter classes legadas funcionando para migracao gradual.
 - `[ ]` Migrar telas reais para `ds-*` por fluxo nas proximas fases.
+
+## Fase 3C - Polimento Premium e UX Empresarial
+
+- `[x]` Criar tokens `--transition-fast`, `--transition-base` e `--transition-slow`.
+- `[x]` Padronizar hover, active, focus e disabled para componentes `ds-*`/`app-*`.
+- `[x]` Refinar skeleton loaders com varredura leve.
+- `[x]` Refinar empty states com hierarquia e leitura.
+- `[x]` Refinar tabelas base com hover, zebra e sticky header.
+- `[x]` Refinar feedback visual de toast/modal/drawer.
+- `[x]` Respeitar `prefers-reduced-motion` nos componentes novos.
+- `[ ]` Aplicar polimento profundo em dashboards reais na fase futura.
