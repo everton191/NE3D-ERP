@@ -405,6 +405,7 @@ let calculadoraModoPedido = false;
 let ultimoToqueForaCalculadora = 0;
 let pedidoVisualizandoId = null;
 let modoMobileAtual = window.innerWidth < 768;
+let viewportModeAtual = window.innerWidth < 768 ? "mobile" : window.innerWidth < 1024 ? "tablet" : "desktop";
 let resizeTimer = null;
 let adminLogado = sessionStorage.getItem("adminLogado") === "sim";
 let usuarioAtualEmail = sessionStorage.getItem("usuarioAtualEmail") || "";
@@ -4851,6 +4852,22 @@ function isDesktop() {
   return window.innerWidth >= 1024;
 }
 
+function getViewportMode() {
+  const viewportWidth = window.innerWidth || 1024;
+  if (viewportWidth < 768) return "mobile";
+  if (viewportWidth < 1024) return "tablet";
+  return "desktop";
+}
+
+function applyViewportModeClasses(target = document.body) {
+  if (!target?.classList) return getViewportMode();
+  const mode = getViewportMode();
+  target.classList.remove("viewport-mobile", "viewport-tablet", "viewport-desktop");
+  target.classList.add(`viewport-${mode}`);
+  target.dataset.viewportMode = mode;
+  return mode;
+}
+
 function getUiProfile() {
   return isAndroidNativeApp() ? "android_apk" : "web_pwa";
 }
@@ -8559,6 +8576,7 @@ function renderApp() {
   ensureAppShellLayers();
   const app = document.getElementById("app");
   if (!app) return;
+  applyViewportModeClasses(document.body);
   if (window.__simplificaLocalLockActive && getUsuarioAtual()) {
     aplicarPersonalizacao();
     app.innerHTML = renderTravaLocal();
@@ -8575,8 +8593,11 @@ function renderApp() {
   }
 
   aplicarPersonalizacao();
-  const mobile = isMobile();
+  const viewportMode = applyViewportModeClasses(document.body);
+  const mobile = viewportMode === "mobile";
   document.body.classList.toggle("mobile-mode", mobile);
+  document.body.classList.toggle("tablet-mode", viewportMode === "tablet");
+  document.body.classList.toggle("desktop-mode", viewportMode === "desktop");
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
   app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (HEAVY_AI_FEATURE_ENABLED && podeMostrarControlesFlutuantes() ? renderAssistenteVirtual() : "");
   atualizarMenu();
@@ -37488,11 +37509,14 @@ function nomeArquivoPdfPedido(pedidoId, cliente = "", data = new Date()) {
 
 window.addEventListener("resize", () => {
   aplicarPersonalizacao();
+  applyViewportModeClasses(document.body);
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
     const novoModoMobile = isMobile();
-    if (novoModoMobile !== modoMobileAtual) {
+    const novoViewportMode = getViewportMode();
+    if (novoModoMobile !== modoMobileAtual || novoViewportMode !== viewportModeAtual) {
       modoMobileAtual = novoModoMobile;
+      viewportModeAtual = novoViewportMode;
       renderApp();
       return;
     }

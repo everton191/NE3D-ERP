@@ -232,10 +232,26 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
 [
   "function isTablet()",
   "function isDesktop()",
+  "function getViewportMode()",
+  "function applyViewportModeClasses",
+  "viewport-mobile",
+  "viewport-tablet",
+  "viewport-desktop",
   "return Math.min(1.08, Math.max(0.86",
   "root.style.setProperty(\"--base-font-size\", \"1rem\")",
   "root.style.setProperty(\"--font-3xl\", \"1.875rem\")"
 ].forEach((marker) => assert(app.includes(marker), `controle global de escala presente: ${marker}`));
+[
+  "Hotfix global 2 - modo desktop/tablet/mobile explicito",
+  "body.viewport-desktop .mobile-bottom-nav",
+  "body.viewport-tablet .mobile-bottom-nav",
+  "body.viewport-desktop .menu",
+  "body.viewport-desktop .desktop-shell",
+  "body.viewport-desktop :where(.desktop-sidebar,.app-sidebar,.side-menu:not(.side-drawer))",
+  "body.viewport-mobile :where(.desktop-sidebar,.app-sidebar,.side-menu:not(.side-drawer))",
+  "body.viewport-mobile .desktop-shell",
+  "@media (min-width: 1024px)"
+].forEach((marker) => assert(css.includes(marker), `hotfix viewport global presente: ${marker}`));
 [
   "--interaction-hover-lift",
   "--interaction-active-scale",

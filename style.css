@@ -26352,3 +26352,83 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.card,.app-card,.ds-car
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.desktop-main,.app-page,.dashboard-grid,.desktop-grid){
   gap:var(--space-lg);
 }
+
+/* Hotfix global 2 - modo desktop/tablet/mobile explicito */
+body.viewport-desktop .bottom-nav,
+body.viewport-desktop .mobile-bottom-nav,
+body.viewport-desktop .app-bottom-nav,
+body.viewport-desktop .app-bottom-navigation,
+body.viewport-desktop .menu,
+body.viewport-tablet .bottom-nav,
+body.viewport-tablet .mobile-bottom-nav,
+body.viewport-tablet .app-bottom-nav,
+body.viewport-tablet .app-bottom-navigation,
+body.viewport-tablet .menu{
+  display:none !important;
+}
+
+body.viewport-desktop .desktop-shell{
+  display:grid !important;
+  grid-template-columns:var(--sidebar-width, var(--desktop-sidebar-width)) minmax(0, 1fr);
+  width:100%;
+  max-width:none;
+}
+
+body.viewport-desktop .desktop-shell.sidebar-collapsed{
+  grid-template-columns:var(--sidebar-width-collapsed, 64px) minmax(0, 1fr);
+}
+
+body.viewport-desktop :where(.desktop-sidebar,.app-sidebar,.side-menu:not(.side-drawer)){
+  display:flex !important;
+}
+
+body.viewport-mobile :where(.desktop-sidebar,.app-sidebar,.side-menu:not(.side-drawer)){
+  display:none !important;
+}
+
+body.viewport-mobile .desktop-shell{
+  display:block;
+}
+
+body.viewport-desktop :where(.dashboard-menu-trigger,.dashboard-search-trigger){
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  padding:0;
+  font-size:var(--font-sm);
+}
+
+body.viewport-desktop .mobile-home,
+body.viewport-desktop .mobile-panel,
+body.viewport-desktop .mobile-panel-content{
+  display:none !important;
+}
+
+body.viewport-desktop.app-shell-ready #app-shell{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr);
+}
+
+body.viewport-desktop.app-shell-ready #app-content{
+  overflow-y:auto;
+  overflow-x:clip;
+}
+
+body.viewport-mobile.app-shell-ready #app-shell{
+  display:block;
+}
+
+@media (min-width: 1024px){
+  body:not(.viewport-mobile) .bottom-nav,
+  body:not(.viewport-mobile) .mobile-bottom-nav,
+  body:not(.viewport-mobile) .app-bottom-nav,
+  body:not(.viewport-mobile) .app-bottom-navigation,
+  body:not(.viewport-mobile) .menu{
+    display:none !important;
+  }
+
+  body:not(.viewport-mobile) .side-menu:not(.side-drawer){
+    display:flex !important;
+  }
+}
