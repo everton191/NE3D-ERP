@@ -230,3 +230,16 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Permitir no `.gitignore` apenas os modulos formais da loja, mantendo o restante de `modules/` protegido.
 - `[~]` Preview continua usando a implementacao legada, mas agora possui contrato de isolamento para migracao futura.
 - `[~]` Storefront/editor continuam renderizados em `app.js`; a migracao real fica para Fase 4B.
+
+## Fase 4B - Migracao Controlada da Storefront V2
+
+- `[x]` Criar flag oficial `enableStorefrontV2`.
+- `[x]` Criar adapter central `renderStorefrontView({ mode, source })`.
+- `[x]` Manter fallback `Legacy` para publico, editor e preview.
+- `[x]` Ativar `public/v2` por padrao com atributos `data-storefront-render` e `data-storefront-source`.
+- `[x]` Aplicar zonas oficiais em header, conteudo, filtros, produtos e rodape da loja publica.
+- `[x]` Aplicar zonas oficiais no painel editor/admin.
+- `[x]` Isolar preview com `store-preview-zone`, `store-preview-frame` e `store-preview-scroll`.
+- `[x]` Adicionar check anti-regressao para flag, adapter, v2/legacy e zonas.
+- `[ ]` Migrar overlays visuais restantes da loja para layers globais em fase posterior.
+- `[ ]` Extrair render real para arquivos modulares na Fase 4C/4D.

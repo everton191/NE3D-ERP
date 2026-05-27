@@ -28,6 +28,7 @@ const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d-everton191s-projects.vercel.app");
+const enableStorefrontV2 = String(globalThis?.__ENABLE_STOREFRONT_V2__ ?? "true").toLowerCase() !== "false";
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
 const SUPABASE_REQUEST_TIMEOUT_MS = 25000;
@@ -15493,14 +15494,14 @@ function renderStoreStatusCard({ label = "", value = "", description = "", tone 
   `;
 }
 
-function renderStorePreviewContainer({ content = "", actions = "", title = "Preview da loja", subtitle = "Estrutura preparada para o futuro editor visual." } = {}) {
+function renderStorePreviewContainer({ content = "", actions = "", title = "Preview da loja", subtitle = "Estrutura preparada para o futuro editor visual.", source = "legacy" } = {}) {
   const previewActions = actions || `
     <button class="btn secondary" type="button" onclick="document.querySelector('.store-preview-container')?.classList.toggle('expanded')">Expandir preview</button>
     <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
     <button class="btn ghost" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
   `;
   return `
-    <section class="store-preview-container" data-storefront-live-preview>
+    <section class="store-preview-container store-preview-zone" data-storefront-live-preview data-storefront-render="preview" data-storefront-source="${escaparAttr(source)}">
       <div class="store-preview-toolbar">
         <div>
           <strong>${escaparHtml(title)}</strong>
@@ -15508,7 +15509,7 @@ function renderStorePreviewContainer({ content = "", actions = "", title = "Prev
         </div>
         <span class="status-badge">Preview</span>
       </div>
-      <div class="store-preview-device">${content}</div>
+      <div class="store-preview-device store-preview-frame"><div class="store-preview-scroll">${content}</div></div>
       <div class="actions store-preview-actions">${previewActions}</div>
     </section>
   `;
@@ -15622,13 +15623,14 @@ function renderStorefrontEditorFutureButton(extraClass = "secondary") {
   return `<button class="btn ${escaparAttr(extraClass)}" type="button" disabled title="Editor visual será implementado em fase futura.">Editor visual futuro</button>`;
 }
 
-function renderStorefrontPreview(vm, options = {}) {
+function renderStorefrontPreviewLegacy(vm, options = {}) {
   const products = options.products || vm.products.filter((product) => product.featured || product.visible);
   const featured = products.filter((product) => product.featured).length ? products.filter((product) => product.featured) : products;
   const visibleProducts = vm.products.filter((product) => product.visible !== false);
   return renderStorePreviewContainer({
     title: options.title || "Preview da vitrine",
     subtitle: options.subtitle || "Experiência beta: loja real em preview, editor visual ainda bloqueado.",
+    source: options.source || "legacy",
     content: `
       ${renderStoreHeader(vm.store)}
       ${renderEditableContainer({ label: "Banner principal", className: "editable-banner-container", content: renderBannerSection(vm.store) })}
@@ -15641,6 +15643,19 @@ function renderStorefrontPreview(vm, options = {}) {
       </footer>
     `,
     actions: ""
+  });
+}
+
+function renderStorefrontPreviewV2(vm, options = {}) {
+  return renderStorefrontPreviewLegacy(vm, { ...options, source: "v2" });
+}
+
+function renderStorefrontPreview(vm, options = {}) {
+  return renderStorefrontView({
+    mode: "preview",
+    source: options.source,
+    vm,
+    options
   });
 }
 
@@ -16635,7 +16650,7 @@ function renderStorePublicHeader(vm) {
         <button class="store-public-icon-action" type="button" aria-label="Conta do cliente" title="Conta" onclick="informarRecursoFuturoLoja('Conta do cliente')">${renderUiIcon("clientes")}<small>Em breve</small></button>
   ` : "";
   return `
-    <header class="store-public-header" data-store-section="header">
+    <header class="store-public-header store-header" data-store-section="header">
       <a class="store-public-brand" href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(store.name || "Loja")}">
         ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="${escaparAttr(store.name || "Loja")}">` : renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
         <strong>${escaparHtml(store.name || "NE3D")}</strong>
@@ -16675,7 +16690,7 @@ function renderStorePublicBanner(vm) {
   const mode = getStorefrontPublicMode(vm);
   const eyebrow = mode.admin ? "Loja pronta para personalizar" : "Vitrine oficial";
   return `
-    <section class="store-public-banner" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}">
+    <section class="store-public-banner store-content" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}">
       ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
       ${store.banner_url ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
@@ -16709,7 +16724,7 @@ function renderStoreHeroDeviceArt(store = {}) {
 function renderStorePublicCategoryBar(vm) {
   const active = vm.route.view === "category" ? vm.route.categorySlug : "";
   return `
-    <section class="store-public-category-bar" data-store-section="categorias" data-allow-horizontal-scroll>
+    <section class="store-public-category-bar store-filters" data-store-section="categorias" data-allow-horizontal-scroll>
       <a class="${!active ? "active" : ""}" href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">
         <span class="store-category-visual store-category-visual-all">⌂</span>
         <strong>Todos</strong>
@@ -16792,7 +16807,7 @@ function renderStorePublicAddProductCard(vm) {
 function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle = "Produtos disponíveis para orçamento") {
   const sectionId = /destaque/i.test(title) ? "destaques" : "catalogo";
   return `
-    <section class="store-public-section" ${sectionId === "catalogo" ? `id="catalogo"` : ""} data-store-section="${sectionId}">
+    <section class="store-public-section store-content" ${sectionId === "catalogo" ? `id="catalogo"` : ""} data-store-section="${sectionId}">
       <div class="store-public-section-head">
         <div>
           <span>Vitrine</span>
@@ -16801,7 +16816,7 @@ function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle 
         </div>
         ${renderStoreAdminControls("catalog", {}, vm)}
       </div>
-      <div class="store-public-product-grid">
+      <div class="store-public-product-grid store-products">
         ${products.map((product) => renderStorePublicProductCard(vm, product)).join("") || renderStoreEmptyState({ title: "Nenhum produto publicado ainda", description: "A loja está sendo preparada. Fale pelo WhatsApp para solicitar um orçamento.", icon: "□", action: `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>` })}
         ${renderStorePublicAddProductCard(vm)}
       </div>
@@ -16942,7 +16957,44 @@ function atualizarStorefrontConnectionBadge() {
   });
 }
 
+function getStorefrontRenderSource(source = "") {
+  const requested = String(source || "").trim().toLowerCase();
+  if (requested === "legacy" || requested === "v2") return requested;
+  return enableStorefrontV2 ? "v2" : "legacy";
+}
+
+function renderStorefrontView({ mode = "public", source = "", vm = null, options = {} } = {}) {
+  const renderMode = String(mode || "public").trim().toLowerCase();
+  const renderSource = getStorefrontRenderSource(source);
+  if (renderMode === "preview") {
+    return renderSource === "v2"
+      ? renderStorefrontPreviewV2(vm || getStorefrontAdminViewModel(), options)
+      : renderStorefrontPreviewLegacy(vm || getStorefrontAdminViewModel(), options);
+  }
+  if (renderMode === "editor") {
+    return renderSource === "v2"
+      ? renderStorefrontEditorV2(options)
+      : renderStorefrontAdminPanelLegacy(options);
+  }
+  return renderSource === "v2"
+    ? renderStorefrontPublicV2(options)
+    : renderStorefrontPublicLegacy(options);
+}
+
+function addStorefrontV2RootAttributes(html = "", mode = "public") {
+  const sourceAttr = `data-storefront-render="${escaparAttr(mode)}" data-storefront-source="v2"`;
+  return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront" ${sourceAttr}`);
+}
+
+function renderStorefrontPublicV2(options = {}) {
+  return addStorefrontV2RootAttributes(renderStorefrontPublicLegacy(options), "public");
+}
+
 function renderLojaOnlinePublica() {
+  return renderStorefrontView({ mode: "public" });
+}
+
+function renderStorefrontPublicLegacy() {
   const vm = getStorefrontPublicViewModel();
   if (!vm.store) {
     return `
@@ -17019,7 +17071,7 @@ function renderLojaOnlinePublica() {
     ${renderStoreAdminFloatingEditor(vm)}
     ${vm.store.__demo && mode.admin ? `<div class="store-public-demo-notice">Modo preview: dados locais/staging para validar a Loja Online.</div>` : ""}
     ${pageContent}
-    <footer class="store-public-footer" data-store-section="rodape">
+    <footer class="store-public-footer store-footer" data-store-section="rodape">
       <span>Loja criada com Simplifica 3D</span>
       <button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>
     </footer>
@@ -17790,7 +17842,7 @@ function renderStorefrontSaveState(vm) {
   `;
 }
 
-function renderStorefrontAdminPanel() {
+function renderStorefrontAdminPanelLegacy() {
   if (!canUseStorefrontLocal()) return renderAcessoNegado();
   const vm = getStorefrontAdminViewModel();
   const activeTab = getStorefrontAdminTab();
@@ -17811,7 +17863,7 @@ function renderStorefrontAdminPanel() {
   `;
 
   return `
-    <section class="app-page storefront-admin-page">
+    <section class="app-page storefront-admin-page store-editor-zone" data-storefront-render="editor" data-storefront-source="legacy">
       <div class="app-header storefront-admin-hero">
         <div>
           <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
@@ -17833,17 +17885,25 @@ function renderStorefrontAdminPanel() {
         <span>Esta área continua escondida por feature flag. Nenhum usuário fora do beta visualiza o menu ou o painel.</span>
       </div>
       ${renderStorefrontDemoNotice(vm)}
-      <div class="storefront-admin-shell">
+      <div class="storefront-admin-shell store-editor-panel">
         ${renderStorefrontTabs(activeTab)}
-        <div class="storefront-admin-content">${body}</div>
+        <div class="storefront-admin-content store-editor-content">${body}</div>
       </div>
     </section>
   `;
 }
 
+function renderStorefrontEditorV2(options = {}) {
+  return renderStorefrontAdminPanelLegacy(options).replace('data-storefront-source="legacy"', 'data-storefront-source="v2"');
+}
+
+function renderStorefrontAdminPanel() {
+  return renderStorefrontView({ mode: "editor" });
+}
+
 function renderStorefrontAdminStandalone() {
   return `
-    <main class="storefront-admin-standalone" data-store-admin-context="standalone">
+    <main class="storefront-admin-standalone layout-editor" data-store-admin-context="standalone">
       ${renderStorefrontAdminPanel()}
     </main>
   `;

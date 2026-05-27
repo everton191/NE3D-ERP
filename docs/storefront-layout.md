@@ -1,4 +1,4 @@
-# Storefront Layout - Fase 4A
+# Storefront Layout - Fases 4A/4B
 
 Data: 2026-05-27
 
@@ -39,3 +39,15 @@ Regras:
 - preview possui scroll proprio controlado;
 - editor nao deve usar scroll do preview;
 - drawers/modais usam camadas globais.
+
+## Aplicacao inicial na Fase 4B
+
+- header publico recebeu `store-header`;
+- hero/secao de conteudo recebeu `store-content`;
+- barra de categorias recebeu `store-filters`;
+- grid publico recebeu `store-products`;
+- rodape recebeu `store-footer`;
+- painel admin recebeu `store-editor-zone`, `store-editor-panel` e `store-editor-content`;
+- preview recebeu `store-preview-zone`, `store-preview-frame` e `store-preview-scroll`.
+
+Essas classes sao pontes de migracao. A estrutura visual antiga continua existindo para evitar ruptura.

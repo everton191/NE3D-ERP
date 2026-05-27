@@ -196,6 +196,22 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "contain:layout paint"
 ].forEach((selector) => assert(css.includes(selector), `contrato modular da storefront presente: ${selector}`));
 [
+  "const enableStorefrontV2",
+  "function renderStorefrontView",
+  "mode = \"public\"",
+  "source = \"legacy\"",
+  "renderStorefrontPublicV2",
+  "renderStorefrontPublicLegacy",
+  "renderStorefrontPreviewLegacy",
+  "renderStorefrontAdminPanelLegacy",
+  "data-storefront-render",
+  "data-storefront-source",
+  "store-public-header store-header",
+  "store-public-product-grid store-products",
+  "store-public-footer store-footer",
+  "storefront-admin-page store-editor-zone"
+].forEach((marker) => assert(app.includes(marker), `migracao storefront v2 presente: ${marker}`));
+[
   "--interaction-hover-lift",
   "--interaction-active-scale",
   "@keyframes ds-enter-soft",
@@ -238,7 +254,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
 
 warn(css.includes("--z-sidebar"), "tokens de z-index formalizados para a Fase 2A");
 warn(exists("modules/storefront/README.md"), "pasta modules agora expoe apenas contratos seguros da storefront");
-warn(app.includes("enableNewStorefront") || app.includes("enableNewPlans"), "feature flags oficiais ainda devem ser formalizadas");
+warn(app.includes("enableStorefrontV2") || app.includes("enableNewStorefront") || app.includes("enableNewPlans"), "feature flags oficiais formalizadas");
 
 if (process.exitCode) {
   process.exit(process.exitCode);

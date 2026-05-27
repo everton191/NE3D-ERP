@@ -267,7 +267,7 @@ Risco principal: `#popup` atua como modal-layer, drawer-layer, overlay-layer e m
 
 ## Fase 4A - Storefront, Editor e Preview
 
-Contrato novo, ainda sem migracao pesada de runtime:
+Contrato novo, iniciado sem migracao pesada de runtime:
 
 ```txt
 storefront publico
@@ -289,6 +289,25 @@ Regras desta fase:
 - preview deve usar contrato de isolamento e nao controlar shell global;
 - novos modais/drawers da loja devem usar `#modal-layer`, `#drawer-layer` e `#overlay-layer`;
 - `#popup` permanece apenas como fallback legado.
+
+## Fase 4B - Adapter de renderizacao
+
+```txt
+renderTela("lojaPublica")
+ └── renderLojaOnlinePublica()
+      └── renderStorefrontView({ mode: "public" })
+           ├── source "v2" -> renderStorefrontPublicV2()
+           └── source "legacy" -> renderStorefrontPublicLegacy()
+
+renderTela("lojaAdmin")
+ └── renderStorefrontAdminPanel()
+      └── renderStorefrontView({ mode: "editor" })
+
+renderStorefrontPreview()
+ └── renderStorefrontView({ mode: "preview" })
+```
+
+Regra: novas chamadas devem passar pelo adapter. A renderizacao antiga permanece como `Legacy` para rollback controlado.
 
 ## Sequencia Segura Para App Shell
 

@@ -25999,6 +25999,17 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
   overflow:auto;
 }
 
+.store-preview-frame > .store-preview-scroll{
+  width:100%;
+  height:100%;
+}
+
+.store-public-shell[data-storefront-source="v2"],
+.storefront-admin-page[data-storefront-source="v2"],
+.store-preview-container[data-storefront-source="v2"]{
+  isolation:isolate;
+}
+
 .store-editor-content,
 .store-editor-panel,
 :where(.storefront-admin-content,.storefront-editor-panel){

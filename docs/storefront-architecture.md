@@ -1,4 +1,4 @@
-# Storefront Architecture - Fase 4A
+# Storefront Architecture - Fases 4A/4B
 
 Data: 2026-05-27
 
@@ -60,3 +60,34 @@ Novas interacoes da loja devem usar:
 - `#overlay-layer`.
 
 `#popup` permanece apenas como legado temporario fora dos novos fluxos.
+
+## Fase 4B - Migracao controlada
+
+Flag oficial:
+
+```js
+enableStorefrontV2
+```
+
+Adapter central:
+
+```js
+renderStorefrontView({
+  mode: "public" | "editor" | "preview",
+  source: "legacy" | "v2"
+})
+```
+
+Estado atual:
+
+- `public/v2`: ativo por padrao, adiciona contrato raiz e zonas oficiais sem mudar carrinho, checkout ou pedidos;
+- `editor/v2`: ativo por padrao, usa wrapper do painel existente com zona `store-editor-zone`;
+- `preview/v2`: ativo por padrao, usa `store-preview-zone`, `store-preview-frame` e `store-preview-scroll`;
+- `legacy`: permanece disponivel para rollback via `source: "legacy"` ou desativando `__ENABLE_STOREFRONT_V2__`.
+
+Ainda legacy:
+
+- checkout/carrinho real;
+- handlers de produtos/categorias;
+- persistencia e salvamento;
+- overlays antigos de paineis visuais ainda migrados depois.
