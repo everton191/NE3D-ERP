@@ -289,3 +289,14 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Marcar fallback com `data-store-editor-renderer="fallback"` e `data-store-editor-modules-ready="false"`.
 - `[x]` Manter log de fallback apenas em modo debug.
 - `[x]` Manter fallback local preservado para PWA/cache antigo e rollback.
+
+## Fase 4G - Reducao Segura do app.js
+
+- `[x]` Adicionar `version = "4G"` e `moduleVersion = "store-editor-4g"` ao namespace do editor.
+- `[x]` Criar validacao segura `isStoreEditorModuleReady()`.
+- `[x]` Separar log de fallback em `logStoreEditorModuleFallback()`.
+- `[x]` Reduzir fallback local para modo minimo/controlado.
+- `[x]` Remover duplicacao de `previewTitles` do fallback em `app.js`.
+- `[x]` Manter `renderStorefrontView` e decisao de modo no `app.js`.
+- `[x]` Manter fallback observavel com `data-store-editor-renderer="fallback"`.
+- `[x]` Atualizar cache-bust/cache version para a etapa 4G.

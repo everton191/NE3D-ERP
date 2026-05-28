@@ -377,6 +377,20 @@ renderStoreEditorTabContent(...)
 
 O service worker faz precache de `modules/store-editor/*.js` e ignora cache para esses caminhos durante fetch, da mesma forma que `app.js`, `style.css` e `sw.js`. Isso reduz risco de PWA carregar index/app novo com helpers antigos, ou o contrario.
 
+## Fase 4G - Fallback minimo
+
+```txt
+renderStoreEditorTabContent(...)
+ ├── isStoreEditorModuleReady(namespace)
+ │    ├── true  -> renderer modular 4G
+ │    └── false -> fallback minimo
+ │         ├── aviso de compatibilidade
+ │         ├── conteudo administrativo da aba
+ │         └── sem preview automatico duplicado no app.js
+```
+
+O `app.js` nao replica mais `previewTitles` nem a regra completa de preview lateral no fallback. O caminho rico vive em `modules/store-editor`; o fallback local fica propositalmente pequeno para manter operacao basica e rollback.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

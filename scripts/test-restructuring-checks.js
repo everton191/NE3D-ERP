@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v116-estavel-20260528-store-editor-modules"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v116-estavel-20260528-store-editor-4g"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-store-editor-modules-20260528"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-store-editor-4g-20260528"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
@@ -317,7 +317,6 @@ assert(index.includes("1.0.16-estavel-store-editor-modules-20260528"), "index.ht
   "function renderStorefrontEditorActionGroups",
   "function renderStoreEditorTabContent",
   "store-editor-tab-panel",
-  "has-preview-panel",
   "has-inline-preview",
   "store-editor-shell store-editor-zone",
   "store-editor-sidebar",
@@ -349,7 +348,8 @@ assert(index.includes("1.0.16-estavel-store-editor-modules-20260528"), "index.ht
 [
   "SimplificaStoreEditor",
   "getStoreEditorNamespace",
-  "hasStoreEditorModules",
+  "isStoreEditorModuleReady",
+  "logStoreEditorModuleFallback",
   "renderer.renderTabContent",
   "renderStorefrontView({ mode: \"editor\" })",
   "renderStorefrontView({ mode: \"public\" })"
@@ -379,11 +379,18 @@ assertOrdered(index, [
   "has-inline-preview",
   "store-editor-tab-main",
   "data-store-editor-renderer=\"module\"",
-  "data-store-editor-modules-ready=\"true\""
+  "data-store-editor-modules-ready=\"true\"",
+  "data-store-editor-module-version",
+  "moduleVersion = \"store-editor-4g\"",
+  "isStoreEditorModuleReady"
 ].forEach((marker) => assert(storeEditorRenderer.includes(marker), `fase 4e renderer preserva contrato: ${marker}`));
 assert(app.includes("data-store-editor-renderer=\"fallback\""), "fase 4f fallback legado continua identificavel");
 assert(app.includes("data-store-editor-modules-ready=\"false\""), "fase 4f fallback marca modulos indisponiveis");
+assert(app.includes("data-store-editor-module-version=\"app-fallback-4g\""), "fase 4g fallback possui versao diagnostica");
 assert(app.includes("[StoreEditorModules] módulos incompletos, usando fallback local"), "fase 4f fallback possui log debug controlado");
+assert(app.includes("FALLBACK_REQUIRED Fase 4G"), "fase 4g fallback minimo classificado");
+assert(app.includes("store-editor-fallback-minimal"), "fase 4g fallback minimo aplicado");
+assert(!getFunctionBody(app, "renderStoreEditorTabContent").includes("previewTitles"), "fase 4g remove duplicacao de titulos de preview do fallback");
 [
   "sanitizeTab",
   "hasInlinePreview",

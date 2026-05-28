@@ -17910,24 +17910,31 @@ function renderStorefrontEditorActionGroups() {
 function getStoreEditorNamespace() {
   if (typeof window === "undefined" || !window.SimplificaStoreEditor) return null;
   const namespace = window.SimplificaStoreEditor;
-  const hasStoreEditorModules = Boolean(
+  if (!isStoreEditorModuleReady(namespace)) {
+    if (APP_DEBUG_MODE) logStoreEditorModuleFallback(namespace);
+    return null;
+  }
+  return namespace;
+}
+
+function isStoreEditorModuleReady(namespace = (typeof window !== "undefined" ? window.SimplificaStoreEditor : null)) {
+  return Boolean(
+    namespace?.moduleVersion &&
     namespace.renderer?.renderTabContent &&
     namespace.tabs?.sanitizeTab &&
     namespace.preview?.renderPreviewForTab &&
     namespace.products?.getStats
   );
-  if (!hasStoreEditorModules) {
-    if (APP_DEBUG_MODE) {
-      console.warn("[StoreEditorModules] módulos incompletos, usando fallback local", {
-        renderer: Boolean(namespace.renderer?.renderTabContent),
-        tabs: Boolean(namespace.tabs?.sanitizeTab),
-        preview: Boolean(namespace.preview?.renderPreviewForTab),
-        products: Boolean(namespace.products?.getStats)
-      });
-    }
-    return null;
-  }
-  return namespace;
+}
+
+function logStoreEditorModuleFallback(namespace) {
+  console.warn("[StoreEditorModules] módulos incompletos, usando fallback local", {
+    version: namespace?.moduleVersion || "",
+    renderer: Boolean(namespace?.renderer?.renderTabContent),
+    tabs: Boolean(namespace?.tabs?.sanitizeTab),
+    preview: Boolean(namespace?.preview?.renderPreviewForTab),
+    products: Boolean(namespace?.products?.getStats)
+  });
 }
 
 function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
@@ -17942,27 +17949,16 @@ function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
     });
   }
 
-  // LEGACY FALLBACK: mantido temporariamente enquanto a Fase 4E migra helpers para modules/store-editor.
+  // FALLBACK_REQUIRED Fase 4G: fallback minimo e observavel para cache/PWA antigo ou modulo indisponivel.
   const safeTab = String(tab || "overview").replace(/[^a-z0-9_-]/gi, "");
-  const previewTabs = new Set(["overview", "appearance", "banner"]);
-  const previewTitles = {
-    products: ["Preview do catálogo", "Confira a vitrine enquanto ajusta produtos."],
-    categories: ["Preview das categorias", "Veja como a navegação da loja se organiza."],
-    leads: ["Preview da experiência do cliente", "Leads e carrinho continuam separados da loja pública."],
-    qrcode: ["Preview compartilhável", "Confirme a vitrine antes de divulgar o link."],
-    settings: ["Preview de publicação", "Status e ajustes sem alterar checkout ou pagamentos."]
-  };
-  const needsPreview = !previewTabs.has(safeTab);
-  const preview = needsPreview
-    ? renderStorefrontPreview(vm, {
-      title: previewTitles[safeTab]?.[0] || "Preview da loja",
-      subtitle: previewTitles[safeTab]?.[1] || "Visual isolado do editor administrativo."
-    })
-    : "";
 
   return `
-    <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${escaparAttr(safeTab)}" data-store-editor-section="${escaparAttr(safeTab)}" data-store-editor-renderer="fallback" data-store-editor-modules-ready="false">
-      ${needsPreview ? `<div class="store-editor-tab-main">${content}</div>${preview}` : content}
+    <div class="store-editor-tab-panel store-editor-panel has-inline-preview store-editor-tab-${escaparAttr(safeTab)} store-editor-fallback-minimal" data-store-editor-section="${escaparAttr(safeTab)}" data-store-editor-renderer="fallback" data-store-editor-modules-ready="false" data-store-editor-module-version="app-fallback-4g">
+      <div class="storefront-beta-banner">
+        <strong>Editor em modo compatibilidade</strong>
+        <span>Os módulos do editor não carregaram completamente. A edição continua disponível pelo fallback seguro.</span>
+      </div>
+      <div class="store-editor-tab-main">${content}</div>
     </div>
   `;
 }

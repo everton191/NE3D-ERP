@@ -1,5 +1,16 @@
 (function attachStoreEditorRenderer(root) {
   const namespace = root.SimplificaStoreEditor = root.SimplificaStoreEditor || {};
+  namespace.version = "4G";
+  namespace.moduleVersion = "store-editor-4g";
+
+  namespace.isStoreEditorModuleReady = function isStoreEditorModuleReady() {
+    return Boolean(
+      namespace.renderer?.renderTabContent &&
+      namespace.tabs?.sanitizeTab &&
+      namespace.preview?.renderPreviewForTab &&
+      namespace.products?.getStats
+    );
+  };
 
   function fallbackEscapeAttr(value) {
     return String(value ?? "")
@@ -20,7 +31,7 @@
     const attr = typeof escapeAttr === "function" ? escapeAttr : fallbackEscapeAttr;
 
     return `
-      <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${attr(safeTab)}" data-store-editor-section="${attr(safeTab)}" data-store-editor-renderer="module" data-store-editor-modules-ready="true">
+      <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${attr(safeTab)}" data-store-editor-section="${attr(safeTab)}" data-store-editor-renderer="module" data-store-editor-modules-ready="true" data-store-editor-module-version="${attr(namespace.moduleVersion || "store-editor-4g")}">
         ${needsPreview ? `<div class="store-editor-tab-main">${content}</div>${preview}` : content}
       </div>
     `;

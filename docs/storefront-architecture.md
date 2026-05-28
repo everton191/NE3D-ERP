@@ -159,3 +159,21 @@ O service worker inclui os quatro helpers do editor no precache e usa cache vers
 Se todos existirem, a aba recebe `data-store-editor-renderer="module"` e `data-store-editor-modules-ready="true"`. Se algum helper faltar, o fallback local assume e marca `data-store-editor-renderer="fallback"` e `data-store-editor-modules-ready="false"`. O log de fallback e discreto e restrito a `APP_DEBUG_MODE`.
 
 O fallback ainda nao deve ser removido. Ele protege PWA/cache antigo, deploy parcial, falha de script e rollback.
+
+## Fase 4G - Reducao segura do app.js
+
+Os modulos do editor agora expoem versao interna:
+
+- `version = "4G"`;
+- `moduleVersion = "store-editor-4g"`;
+- `isStoreEditorModuleReady()`.
+
+Classificacao dos trechos nesta fase:
+
+- `KEEP_IN_APP_ORCHESTRATOR`: `renderStorefrontView`, decisao `public/editor/preview`, integracao com estado global e fallback;
+- `ACTIVE_IN_MODULE`: wrapper das abas, decisao de preview por aba, preview automatico e helpers visuais de produtos;
+- `FALLBACK_REQUIRED`: `renderStoreEditorTabContent` local, agora reduzido para fallback minimo;
+- `LEGACY_DUPLICATED`: titulos/preview automatico que existiam dentro do fallback e foram removidos do `app.js`;
+- `SAFE_TO_REMOVE_LATER`: fallback minimo, apenas depois de validar PWA/deploy por mais ciclos.
+
+O fallback minimo ainda abre o editor e mostra o conteudo da aba, mas nao tenta reproduzir todo o preview automatico do modulo. Isso reduz duplicacao real no `app.js` sem retirar a protecao contra cache antigo ou falha parcial de scripts.
