@@ -91,3 +91,32 @@ Ainda legacy:
 - handlers de produtos/categorias;
 - persistencia e salvamento;
 - overlays antigos de paineis visuais ainda migrados depois.
+
+## Fase 4C - Editor profissional
+
+O editor passa a ter um workspace dedicado, sem depender do grid generico da loja publica:
+
+```txt
+store-editor-shell
+ ├── store-editor-sidebar
+ ├── store-editor-workspace
+ │    ├── store-editor-header
+ │    ├── store-editor-main
+ │    └── store-editor-sections
+ └── store-preview-panel
+```
+
+Responsabilidades atuais:
+
+- `store-editor-sidebar`: navegacao interna, estado da loja e salvamento;
+- `store-editor-workspace`: area principal de edicao;
+- `store-editor-header`: titulo e acoes agrupadas;
+- `store-editor-main`: avisos e conteudo da aba ativa;
+- `store-editor-sections`: agrupamento dos cards reais da aba;
+- `store-preview-panel`: preview responsivo, lateral no desktop e empilhado em telas menores.
+
+Regras:
+
+- acoes primarias, secundarias e de sistema ficam agrupadas para evitar sobreposicao;
+- preview nao deve reduzir o workspace abaixo do minimo util;
+- mobile usa navegacao horizontal/abas e preview empilhado, sem desktop comprimido.

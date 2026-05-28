@@ -243,3 +243,14 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Adicionar check anti-regressao para flag, adapter, v2/legacy e zonas.
 - `[ ]` Migrar overlays visuais restantes da loja para layers globais em fase posterior.
 - `[ ]` Extrair render real para arquivos modulares na Fase 4C/4D.
+
+## Fase 4C - Editor Profissional da Loja
+
+- `[x]` Criar `store-editor-shell` como workspace dedicado do editor.
+- `[x]` Separar `store-editor-sidebar`, `store-editor-workspace`, `store-editor-header`, `store-editor-main` e `store-editor-sections`.
+- `[x]` Transformar preview em `store-preview-panel` com largura lateral controlada no desktop.
+- `[x]` Empilhar preview em tablet/mobile para evitar painel central espremido.
+- `[x]` Agrupar acoes do topo em primarias, secundarias, sistema e `Mais acoes`.
+- `[x]` Manter regras de planos, pagamentos, checkout e pedidos fora do escopo.
+- `[~]` Preview ainda usa render legado por dentro; a isolacao profunda fica para fase futura.
+- `[ ]` Migrar conteudo real das abas para componentes modulares em commits menores.

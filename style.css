@@ -26282,6 +26282,295 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
   }
 }
 
+/* Fase 4C - editor profissional da loja */
+.store-editor-shell{
+  min-width:0;
+  width:100%;
+  display:grid;
+  gap:var(--space-lg);
+  align-items:start;
+}
+
+.store-editor-sidebar,
+.store-editor-workspace,
+.store-editor-main,
+.store-editor-sections{
+  min-width:0;
+}
+
+.store-editor-sidebar{
+  display:grid;
+  gap:var(--space-md);
+}
+
+.store-editor-sidebar-card{
+  display:grid;
+  gap:var(--space-sm);
+  padding:var(--space-lg);
+  border:1px solid var(--border-soft, var(--color-border));
+  border-radius:var(--radius-lg, var(--radius-card));
+  background:var(--surface-primary, var(--color-surface));
+  box-shadow:var(--shadow-sm, var(--effect-shadow-sm));
+}
+
+.store-editor-sidebar-card strong{
+  color:var(--text-primary, var(--color-text-primary));
+  font-size:var(--font-lg, 1.125rem);
+  line-height:1.2;
+}
+
+.store-editor-sidebar-card small{
+  color:var(--text-secondary, var(--color-text-secondary));
+}
+
+.store-editor-sidebar .storefront-save-state{
+  margin-top:var(--space-xs);
+}
+
+.store-editor-sidebar .storefront-admin-tabs{
+  position:sticky;
+  top:var(--space-lg);
+  z-index:var(--z-sidebar, 100);
+}
+
+.store-editor-workspace{
+  display:grid;
+  gap:var(--space-lg);
+}
+
+.store-editor-header{
+  width:100%;
+  position:sticky;
+  top:0;
+  z-index:calc(var(--z-header, 80) + 1);
+  grid-template-columns:minmax(0, 1fr) auto;
+  padding:var(--space-lg);
+  border:1px solid var(--border-soft, var(--color-border));
+  border-radius:var(--radius-xl, var(--radius-card));
+  background:color-mix(in srgb, var(--surface-primary, var(--color-surface)) 94%, transparent);
+  box-shadow:var(--shadow-sm, var(--effect-shadow-sm));
+  backdrop-filter:blur(14px);
+}
+
+.store-editor-title{
+  min-width:0;
+  display:grid;
+  gap:var(--space-xs);
+}
+
+.store-editor-title h2{
+  margin:0;
+  font-size:var(--font-2xl, 1.5rem);
+  line-height:1.15;
+}
+
+.store-editor-title p{
+  margin:0;
+  max-width:64ch;
+}
+
+.store-editor-action-groups{
+  min-width:0;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:var(--space-sm);
+}
+
+.store-editor-actions-primary,
+.store-editor-actions-secondary,
+.store-editor-actions-system{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:var(--space-sm);
+}
+
+.store-editor-action-groups .btn{
+  min-height:40px;
+  padding:0 var(--space-md);
+  font-size:var(--font-sm);
+  white-space:nowrap;
+}
+
+.store-editor-more-actions{
+  position:relative;
+  display:none;
+}
+
+.store-editor-more-actions summary{
+  list-style:none;
+  cursor:pointer;
+}
+
+.store-editor-more-actions summary::-webkit-details-marker{
+  display:none;
+}
+
+.store-editor-more-menu{
+  position:absolute;
+  right:0;
+  top:calc(100% + var(--space-sm));
+  min-width:210px;
+  display:grid;
+  gap:var(--space-xs);
+  padding:var(--space-sm);
+  border:1px solid var(--border-soft, var(--color-border));
+  border-radius:var(--radius-lg, var(--radius-card));
+  background:var(--surface-primary, var(--color-surface));
+  box-shadow:var(--shadow-lg, var(--effect-shadow-md));
+  z-index:var(--z-drawer, 500);
+}
+
+.store-editor-main{
+  display:grid;
+  gap:var(--space-lg);
+}
+
+.store-editor-notices{
+  display:grid;
+  gap:var(--space-sm);
+}
+
+.store-editor-sections{
+  display:grid;
+  gap:var(--space-lg);
+}
+
+.store-editor-shell .storefront-overview-layout,
+.store-editor-shell .storefront-workspace{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(360px, min(420px, 32vw));
+  gap:var(--space-lg);
+  align-items:start;
+}
+
+.store-preview-panel{
+  width:min(420px, 32vw);
+  min-width:360px;
+  max-width:480px;
+  position:sticky;
+  top:var(--space-lg);
+  align-self:start;
+}
+
+.store-editor-shell .store-preview-device{
+  max-height:min(720px, calc(100dvh - 180px));
+}
+
+@media (min-width: 1024px){
+  .store-editor-shell{
+    grid-template-columns:minmax(220px, 260px) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1440px){
+  .store-editor-shell{
+    grid-template-columns:260px minmax(0, 1fr);
+  }
+
+  .store-editor-workspace{
+    max-width:calc(100vw - 320px);
+  }
+}
+
+@media (max-width: 1280px){
+  .store-editor-actions-secondary,
+  .store-editor-actions-system{
+    display:none;
+  }
+
+  .store-editor-more-actions{
+    display:block;
+  }
+}
+
+@media (max-width: 1180px){
+  .store-editor-header{
+    position:relative;
+    top:auto;
+    grid-template-columns:1fr;
+  }
+
+  .store-editor-action-groups,
+  .store-editor-actions-primary{
+    justify-content:flex-start;
+  }
+
+  .store-editor-shell .storefront-overview-layout,
+  .store-editor-shell .storefront-workspace{
+    grid-template-columns:1fr;
+  }
+
+  .store-preview-panel{
+    width:100%;
+    min-width:0;
+    max-width:none;
+    position:relative;
+    top:auto;
+  }
+
+  .store-editor-shell .store-preview-device{
+    max-height:72dvh;
+  }
+}
+
+@media (max-width: 767px){
+  .store-editor-shell{
+    display:block;
+  }
+
+  .store-editor-sidebar{
+    margin-bottom:var(--space-md);
+  }
+
+  .store-editor-sidebar .storefront-admin-tabs{
+    position:relative;
+    top:auto;
+    display:flex;
+    gap:var(--space-sm);
+    overflow-x:auto;
+    padding:var(--space-sm);
+    scroll-snap-type:x proximity;
+  }
+
+  .store-editor-sidebar .storefront-admin-tabs .tab{
+    flex:0 0 auto;
+    min-width:132px;
+    scroll-snap-align:start;
+  }
+
+  .store-editor-header{
+    padding:var(--space-md);
+  }
+
+  .store-editor-action-groups{
+    width:100%;
+  }
+
+  .store-editor-actions-primary{
+    width:100%;
+  }
+
+  .store-editor-actions-primary .btn,
+  .store-editor-more-actions,
+  .store-editor-more-actions summary{
+    flex:1 1 0;
+  }
+
+  .store-editor-more-menu{
+    left:0;
+    right:0;
+    min-width:0;
+  }
+
+  .store-editor-shell .store-preview-device{
+    max-height:68dvh;
+  }
+}
+
 /* Hotfix global - escala visual segura do ERP e Storefront */
 html{
   font-size:16px;

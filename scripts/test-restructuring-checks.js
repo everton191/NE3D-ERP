@@ -209,7 +209,7 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "store-public-header store-header",
   "store-public-product-grid store-products",
   "store-public-footer store-footer",
-  "storefront-admin-page store-editor-zone"
+  "storefront-admin-page store-editor-shell store-editor-zone"
 ].forEach((marker) => assert(app.includes(marker), `migracao storefront v2 presente: ${marker}`));
 [
   "Hotfix 4B.1 - escala responsiva controlada da Storefront V2",
@@ -261,6 +261,25 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   ".store-public-shell .store-public-header.mobile-open .store-public-main-nav",
   ".store-public-shell .store-public-header.mobile-open .store-public-actions"
 ].forEach((marker) => assert(css.includes(marker), `hotfix menu loja presente: ${marker}`));
+[
+  "Fase 4C - editor profissional da loja",
+  ".store-editor-shell",
+  ".store-editor-sidebar",
+  ".store-editor-workspace",
+  ".store-editor-header",
+  ".store-editor-main",
+  ".store-editor-sections",
+  ".store-preview-panel"
+].forEach((marker) => assert(css.includes(marker), `fase 4c editor profissional presente no CSS: ${marker}`));
+[
+  "function renderStorefrontEditorActionGroups",
+  "store-editor-shell store-editor-zone",
+  "store-editor-sidebar",
+  "store-editor-workspace",
+  "store-editor-main",
+  "store-editor-sections",
+  "store-preview-container store-preview-panel store-preview-zone"
+].forEach((marker) => assert(app.includes(marker), `fase 4c editor profissional presente no app: ${marker}`));
 [
   "--interaction-hover-lift",
   "--interaction-active-scale",

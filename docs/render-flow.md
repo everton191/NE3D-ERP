@@ -309,6 +309,27 @@ renderStorefrontPreview()
 
 Regra: novas chamadas devem passar pelo adapter. A renderizacao antiga permanece como `Legacy` para rollback controlado.
 
+## Fase 4C - Fluxo do editor profissional
+
+```txt
+renderTela("lojaAdmin")
+ └── renderStorefrontAdminStandalone()
+      └── renderStorefrontAdminPanel()
+           └── renderStorefrontView({ mode: "editor" })
+                └── renderStorefrontAdminPanelLegacy()
+                     └── store-editor-shell
+                          ├── store-editor-sidebar
+                          │    ├── store-editor-sidebar-card
+                          │    └── renderStorefrontTabs(activeTab)
+                          └── store-editor-workspace
+                               ├── store-editor-header
+                               │    └── renderStorefrontEditorActionGroups()
+                               └── store-editor-main
+                                    └── store-editor-sections
+```
+
+Quando a aba ativa possui preview, `renderStorefrontPreview()` continua passando pelo adapter e gera `store-preview-panel` dentro do conteudo da aba. Assim o preview fica visualmente lateral/empilhado, mas sem controlar o shell principal.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

@@ -15531,7 +15531,7 @@ function renderStorePreviewContainer({ content = "", actions = "", title = "Prev
     <button class="btn ghost" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
   `;
   return `
-    <section class="store-preview-container store-preview-zone" data-storefront-live-preview data-storefront-render="preview" data-storefront-source="${escaparAttr(source)}">
+    <section class="store-preview-container store-preview-panel store-preview-zone" data-storefront-live-preview data-storefront-render="preview" data-storefront-source="${escaparAttr(source)}">
       <div class="store-preview-toolbar">
         <div>
           <strong>${escaparHtml(title)}</strong>
@@ -17872,6 +17872,33 @@ function renderStorefrontSaveState(vm) {
   `;
 }
 
+function renderStorefrontEditorActionGroups() {
+  return `
+    <div class="store-editor-action-groups" aria-label="Ações do editor da loja">
+      <div class="store-editor-actions-primary" aria-label="Ações principais">
+        <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+        <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+      </div>
+      <div class="store-editor-actions-secondary" aria-label="Ações secundárias">
+        <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
+        <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+      </div>
+      <div class="store-editor-actions-system" aria-label="Sistema">
+        <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Voltar ao resumo ERP</button>
+      </div>
+      <details class="store-editor-more-actions">
+        <summary class="btn secondary">Mais ações</summary>
+        <div class="store-editor-more-menu">
+          <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
+          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Voltar ao resumo ERP</button>
+          ${renderStorefrontEditorFutureButton("ghost")}
+        </div>
+      </details>
+    </div>
+  `;
+}
+
 function renderStorefrontAdminPanelLegacy() {
   if (!canUseStorefrontLocal()) return renderAcessoNegado();
   const vm = getStorefrontAdminViewModel();
@@ -17893,31 +17920,35 @@ function renderStorefrontAdminPanelLegacy() {
   `;
 
   return `
-    <section class="app-page storefront-admin-page store-editor-zone" data-storefront-render="editor" data-storefront-source="legacy">
-      <div class="app-header storefront-admin-hero">
-        <div>
+    <section class="app-page storefront-admin-page store-editor-shell store-editor-zone" data-storefront-render="editor" data-storefront-source="legacy">
+      <aside class="store-editor-sidebar" aria-label="Navegação do editor da loja">
+        <div class="store-editor-sidebar-card">
           <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
-          <h2>Admin da Loja</h2>
-          <p class="muted">Edição separada do ERP. Mesma sessão, mesmo usuário e owner_id.</p>
+          <strong>${escaparHtml(vm.store.name || "Minha loja 3D")}</strong>
+          <small>Edição separada do ERP, com preview e publicação controlados.</small>
           ${renderStorefrontSaveState(vm)}
         </div>
-        <div class="actions storefront-hero-actions">
-          <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Voltar ao resumo ERP</button>
-          <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
-          <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
-          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
-          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
-          ${renderStorefrontEditorFutureButton("ghost")}
-        </div>
-      </div>
-      <div class="storefront-beta-banner">
-        <strong>Beta fechado</strong>
-        <span>Esta área continua escondida por feature flag. Nenhum usuário fora do beta visualiza o menu ou o painel.</span>
-      </div>
-      ${renderStorefrontDemoNotice(vm)}
-      <div class="storefront-admin-shell store-editor-panel">
         ${renderStorefrontTabs(activeTab)}
-        <div class="storefront-admin-content store-editor-content">${body}</div>
+      </aside>
+      <div class="store-editor-workspace">
+        <header class="app-header storefront-admin-hero store-editor-header">
+          <div class="store-editor-title">
+            <span class="status-badge">Editor da loja</span>
+            <h2>Admin da Loja</h2>
+            <p class="muted">Ajuste aparência, produtos e publicação com a loja isolada do fluxo operacional do ERP.</p>
+          </div>
+          ${renderStorefrontEditorActionGroups()}
+        </header>
+        <main class="store-editor-main">
+          <div class="store-editor-notices">
+            <div class="storefront-beta-banner">
+              <strong>Beta fechado</strong>
+              <span>Esta área continua escondida por feature flag. Nenhum usuário fora do beta visualiza o menu ou o painel.</span>
+            </div>
+            ${renderStorefrontDemoNotice(vm)}
+          </div>
+          <div class="storefront-admin-content store-editor-content store-editor-sections">${body}</div>
+        </main>
       </div>
     </section>
   `;
