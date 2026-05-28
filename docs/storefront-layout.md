@@ -79,3 +79,21 @@ As acoes do topo sao separadas em:
 - sistema: voltar ao resumo ERP.
 
 Quando falta espaco, as acoes secundarias/sistema entram em `Mais acoes`.
+
+## Fase 4D - Painel por aba
+
+Cada aba do editor e encapsulada por:
+
+```txt
+store-editor-tab-panel
+ ├── store-editor-tab-main
+ └── store-preview-panel
+```
+
+Abas com preview proprio, como `overview`, `appearance` e `banner`, continuam usando o preview interno ja existente. As demais recebem `store-preview-panel` automaticamente para manter consistencia visual.
+
+O preview agora preserva proporcao de device e evita scroll duplo:
+
+- `store-preview-device` funciona como moldura;
+- `store-preview-scroll` e o unico scroller interno do preview;
+- tablet/mobile empilham preview em largura total.

@@ -330,6 +330,20 @@ renderTela("lojaAdmin")
 
 Quando a aba ativa possui preview, `renderStorefrontPreview()` continua passando pelo adapter e gera `store-preview-panel` dentro do conteudo da aba. Assim o preview fica visualmente lateral/empilhado, mas sem controlar o shell principal.
 
+## Fase 4D - Render por aba
+
+```txt
+renderStorefrontAdminPanelLegacy()
+ ├── render da aba ativa
+ └── renderStoreEditorTabContent(activeTab, bodyContent, vm)
+      ├── has-inline-preview -> usa preview que a aba ja renderiza
+      └── has-preview-panel
+           ├── store-editor-tab-main
+           └── renderStorefrontPreview(vm)
+```
+
+Esse fluxo evita preview duplicado em `overview`, `appearance` e `banner`, mas garante que `products`, `categories`, `leads`, `qrcode` e `settings` tenham a mesma estrutura visual do editor profissional.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

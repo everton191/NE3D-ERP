@@ -254,3 +254,13 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Manter regras de planos, pagamentos, checkout e pedidos fora do escopo.
 - `[~]` Preview ainda usa render legado por dentro; a isolacao profunda fica para fase futura.
 - `[ ]` Migrar conteudo real das abas para componentes modulares em commits menores.
+
+## Fase 4D - Refinamento e Migracao do Editor da Loja
+
+- `[x]` Encapsular todas as abas em `store-editor-tab-panel`.
+- `[x]` Separar abas com preview proprio (`has-inline-preview`) e preview automatico (`has-preview-panel`).
+- `[x]` Garantir preview lateral/empilhado em produtos, categorias, leads, compartilhamento e configuracoes.
+- `[x]` Ajustar preview para evitar scroll duplicado entre device e scroll interno.
+- `[x]` Melhorar Produtos com resumo, CTA de adicionar, formulario nomeado e lista com empty state acionavel.
+- `[x]` Manter planos, pagamentos, checkout e regras de assinatura fora do escopo.
+- `[ ]` Extrair render das abas para arquivos em `modules/store-editor` em fase posterior.

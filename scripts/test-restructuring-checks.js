@@ -291,6 +291,10 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
 ].forEach((marker) => assert(css.includes(marker), `fase 4c editor profissional presente no CSS: ${marker}`));
 [
   "function renderStorefrontEditorActionGroups",
+  "function renderStoreEditorTabContent",
+  "store-editor-tab-panel",
+  "has-preview-panel",
+  "has-inline-preview",
   "store-editor-shell store-editor-zone",
   "store-editor-sidebar",
   "store-editor-workspace",
@@ -298,6 +302,26 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "store-editor-sections",
   "store-preview-container store-preview-panel store-preview-zone"
 ].forEach((marker) => assert(app.includes(marker), `fase 4c editor profissional presente no app: ${marker}`));
+[
+  "Fase 4D - refinamento e migracao do editor da loja",
+  ".store-editor-tab-panel",
+  ".store-editor-tab-panel.has-preview-panel",
+  ".store-editor-tab-main",
+  ".store-products-summary",
+  ".store-products-summary-grid",
+  ".store-product-editor-panel",
+  ".store-product-list-panel",
+  ".store-preview-panel .store-preview-device",
+  ".store-preview-panel .store-preview-scroll"
+].forEach((marker) => assert(css.includes(marker), `fase 4d refinamento do editor presente no CSS: ${marker}`));
+[
+  "storefrontProductForm",
+  "store-products-summary",
+  "store-product-editor-panel",
+  "store-product-list-panel",
+  "Adicionar produto",
+  "renderStoreEditorTabContent(activeTab, bodyContent, vm)"
+].forEach((marker) => assert(app.includes(marker), `fase 4d refinamento do editor presente no app: ${marker}`));
 [
   "--interaction-hover-lift",
   "--interaction-active-scale",

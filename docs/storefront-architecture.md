@@ -120,3 +120,14 @@ Regras:
 - acoes primarias, secundarias e de sistema ficam agrupadas para evitar sobreposicao;
 - preview nao deve reduzir o workspace abaixo do minimo util;
 - mobile usa navegacao horizontal/abas e preview empilhado, sem desktop comprimido.
+
+## Fase 4D - Refinamento do editor
+
+Todas as abas passam por `renderStoreEditorTabContent(...)`, que aplica:
+
+- `store-editor-tab-panel`;
+- variante `has-inline-preview` para abas que ja renderizam preview proprio;
+- variante `has-preview-panel` para abas que precisam receber o preview lateral automaticamente;
+- `store-editor-tab-main` para separar conteudo administrativo do preview.
+
+Produtos ganharam uma camada de resumo operacional (`store-products-summary`), formulario identificado (`storefrontProductForm`) e lista em `store-product-list-panel`, mantendo a logica de salvar/produtos intacta.

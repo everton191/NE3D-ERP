@@ -17907,6 +17907,31 @@ function renderStorefrontEditorActionGroups() {
   `;
 }
 
+function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
+  const safeTab = String(tab || "overview").replace(/[^a-z0-9_-]/gi, "");
+  const previewTabs = new Set(["overview", "appearance", "banner"]);
+  const previewTitles = {
+    products: ["Preview do catálogo", "Confira a vitrine enquanto ajusta produtos."],
+    categories: ["Preview das categorias", "Veja como a navegação da loja se organiza."],
+    leads: ["Preview da experiência do cliente", "Leads e carrinho continuam separados da loja pública."],
+    qrcode: ["Preview compartilhável", "Confirme a vitrine antes de divulgar o link."],
+    settings: ["Preview de publicação", "Status e ajustes sem alterar checkout ou pagamentos."]
+  };
+  const needsPreview = !previewTabs.has(safeTab);
+  const preview = needsPreview
+    ? renderStorefrontPreview(vm, {
+      title: previewTitles[safeTab]?.[0] || "Preview da loja",
+      subtitle: previewTitles[safeTab]?.[1] || "Visual isolado do editor administrativo."
+    })
+    : "";
+
+  return `
+    <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${escaparAttr(safeTab)}" data-store-editor-section="${escaparAttr(safeTab)}">
+      ${needsPreview ? `<div class="store-editor-tab-main">${content}</div>${preview}` : content}
+    </div>
+  `;
+}
+
 function renderStorefrontAdminPanelLegacy() {
   if (!canUseStorefrontLocal()) return renderAcessoNegado();
   const vm = getStorefrontAdminViewModel();
@@ -17916,7 +17941,7 @@ function renderStorefrontAdminPanelLegacy() {
   const whatsapp = vm.events.filter((event) => event.event_type === "whatsapp_click").length;
   const visitas = vm.events.filter((event) => event.event_type === "store_view").length;
   const published = vm.products.filter((product) => product.visible).length;
-  const body = `
+  const bodyContent = `
     ${activeTab === "overview" ? renderStorefrontOverview(vm, { linkPublico, novos, whatsapp, visitas, published }) : ""}
     ${activeTab === "appearance" ? renderStorefrontAppearance(vm) : ""}
     ${activeTab === "products" ? renderStorefrontProducts(vm) : ""}
@@ -17926,6 +17951,7 @@ function renderStorefrontAdminPanelLegacy() {
     ${activeTab === "qrcode" ? renderStorefrontQrLink(vm, linkPublico) : ""}
     ${activeTab === "settings" ? renderStorefrontSettings(vm) : ""}
   `;
+  const body = renderStoreEditorTabContent(activeTab, bodyContent, vm);
 
   return `
     <section class="app-page storefront-admin-page store-editor-shell store-editor-zone" data-storefront-render="editor" data-storefront-source="legacy">
@@ -18162,13 +18188,31 @@ function renderStorefrontProducts(vm) {
   const editingSeed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
   const editing = vm.products.find((product) => product.id === editingId) || (editingSeed && typeof editingSeed === "object" ? editingSeed : {});
   const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${cat.__template ? "disabled" : ""} ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}${cat.__template ? " (template)" : ""}</option>`).join("");
+  const visibleProducts = vm.products.filter((product) => product.visible !== false).length;
+  const featuredProducts = vm.products.filter((product) => product.featured).length;
   return `
-    <section class="card storefront-form-card storefront-editor-panel">
+    <section class="card storefront-products-summary store-editor-panel">
+      <div>
+        <span class="status-badge">Catálogo</span>
+        <h3>Produtos da loja</h3>
+        <p class="muted">Organize a vitrine pública sem expor custo, margem ou dados internos do ERP.</p>
+      </div>
+      <div class="store-products-summary-grid">
+        ${renderStoreStatusCard({ label: "Total", value: vm.products.length, description: "produtos cadastrados", tone: "neutral" })}
+        ${renderStoreStatusCard({ label: "Visíveis", value: visibleProducts, description: "aparecem na loja", tone: visibleProducts ? "success" : "warning" })}
+        ${renderStoreStatusCard({ label: "Destaques", value: featuredProducts, description: "prioridade na vitrine", tone: featuredProducts ? "info" : "neutral" })}
+      </div>
+      <div class="actions">
+        <button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button>
+        <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
+      </div>
+    </section>
+    <section class="card storefront-form-card storefront-editor-panel store-product-editor-panel">
       <div class="card-header">
         <div><h3>Produtos da loja</h3><p class="muted">Dados públicos da vitrine. Custos, margem e lucro internos não aparecem aqui.</p></div>
-        <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline()">Novo produto</button>
+        <div class="store-editor-save-inline">${renderStorefrontSaveState(vm)}</div>
       </div>
-      <form class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes'); storefrontScheduleAutosave('product', serializeStorefrontForm(this))" onsubmit="salvarProdutoLojaOnline(event)">
+      <form id="storefrontProductForm" class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes'); storefrontScheduleAutosave('product', serializeStorefrontForm(this))" onsubmit="salvarProdutoLojaOnline(event)">
         <input type="hidden" name="productId" value="${escaparAttr(editing.id || "")}">
         <div class="storefront-visual-block">
           <div class="storefront-block-head">
@@ -18213,7 +18257,7 @@ function renderStorefrontProducts(vm) {
         <div class="actions storefront-sticky-actions"><button class="btn" type="submit">${editing.id ? "Salvar produto" : "Criar produto"}</button></div>
       </form>
     </section>
-    <section class="card">
+    <section class="card store-product-list-panel store-editor-panel">
       <div class="card-header"><h3>Produtos publicados</h3><span class="status-badge">${vm.products.length} produto(s)</span></div>
       ${renderStorefrontUploadStatus()}
       <div class="store-product-admin-grid">
@@ -18249,7 +18293,12 @@ function renderStorefrontProducts(vm) {
               <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto real para enviar fotos.\"" : ""}>Fotos<input type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
             </div>
           </article>`;
-        }).join("") || renderStoreEmptyState({ title: "Nenhum produto", description: "Crie produtos públicos ou vincule itens do ERP quando a integração estiver ativa." })}
+        }).join("") || renderStoreEmptyState({
+          title: "Nenhum produto",
+          description: "Crie o primeiro item da vitrine para testar preview, publicação e link público.",
+          icon: "▣",
+          action: `<button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button>`
+        })}
       </div>
     </section>
   `;

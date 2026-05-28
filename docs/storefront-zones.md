@@ -58,3 +58,15 @@ Render duplicado deve ser tratado no adapter `renderStorefrontView(...)`, nunca 
 | `store-preview-panel` | preview lateral/empilhado | lateral no desktop, 100% no tablet/mobile |
 
 O preview continua usando `store-preview-scroll` dentro do frame. A diferenca da Fase 4C e que o painel externo possui limites responsivos para nao estreitar o conteudo central.
+
+## Fase 4D - Zonas por aba
+
+| Zona | Papel | Observacao |
+| --- | --- | --- |
+| `store-editor-tab-panel` | contrato raiz da aba ativa | sempre dentro de `store-editor-sections` |
+| `store-editor-tab-main` | conteudo administrativo sem preview | usado quando a aba recebe preview externo |
+| `has-preview-panel` | aba com preview automatico | produtos, categorias, leads, compartilhamento e configuracoes |
+| `has-inline-preview` | aba com preview proprio | visao geral, aparencia e banner |
+| `store-products-summary` | resumo operacional de produtos | nao substitui ledger/cadastro ERP |
+| `store-product-editor-panel` | formulario de edicao do produto | feedback de salvamento local |
+| `store-product-list-panel` | lista publica da vitrine | empty state com CTA |

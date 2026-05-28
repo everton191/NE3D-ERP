@@ -26571,6 +26571,167 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
   }
 }
 
+/* Fase 4D - refinamento e migracao do editor da loja */
+.store-editor-tab-panel{
+  min-width:0;
+  display:grid;
+  gap:var(--space-lg);
+}
+
+.store-editor-tab-panel.has-preview-panel{
+  grid-template-columns:minmax(0, 1fr) minmax(360px, min(420px, 32vw));
+  align-items:start;
+}
+
+.store-editor-tab-main{
+  min-width:0;
+  display:grid;
+  gap:var(--space-lg);
+}
+
+.store-editor-tab-panel.has-inline-preview :where(.storefront-overview-layout,.storefront-workspace){
+  margin:0;
+}
+
+.store-editor-tab-panel > .store-preview-panel{
+  justify-self:end;
+}
+
+.store-preview-panel{
+  justify-self:end;
+}
+
+.store-preview-panel .store-preview-toolbar{
+  align-items:flex-start;
+}
+
+.store-preview-panel .store-preview-toolbar .status-badge{
+  flex:0 0 auto;
+}
+
+.store-preview-panel .store-preview-device{
+  width:min(100%, 390px);
+  min-height:560px;
+  max-height:min(760px, calc(100dvh - 190px));
+  margin-inline:auto;
+  overflow:hidden;
+}
+
+.store-preview-panel .store-preview-scroll{
+  height:100%;
+  max-height:inherit;
+  overflow:auto;
+}
+
+.store-preview-panel.expanded{
+  width:min(760px, 100%);
+  max-width:760px;
+}
+
+.store-preview-panel.expanded .store-preview-device{
+  width:min(100%, 430px);
+  max-height:min(820px, calc(100dvh - 160px));
+}
+
+.store-products-summary{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(260px, 420px);
+  gap:var(--space-lg);
+  align-items:center;
+}
+
+.store-products-summary > .actions{
+  grid-column:1 / -1;
+  justify-content:flex-start;
+}
+
+.store-products-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:var(--space-sm);
+}
+
+.store-products-summary-grid .store-status-card{
+  min-height:92px;
+  padding:var(--space-md);
+}
+
+.store-product-editor-panel .card-header,
+.store-product-list-panel .card-header{
+  align-items:flex-start;
+}
+
+.store-editor-save-inline .storefront-save-state{
+  margin:0;
+  justify-content:flex-end;
+}
+
+.store-product-list-panel .store-empty-state .btn{
+  margin-top:var(--space-sm);
+}
+
+.store-product-admin-grid{
+  grid-template-columns:repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap:var(--space-md);
+}
+
+.store-product-admin-card{
+  padding:var(--space-md);
+}
+
+.store-product-admin-card .store-admin-actions{
+  justify-content:flex-start;
+}
+
+.store-product-admin-card .store-admin-actions .btn{
+  min-height:38px;
+}
+
+@media (max-width: 1180px){
+  .store-editor-tab-panel.has-preview-panel{
+    grid-template-columns:1fr;
+  }
+
+  .store-editor-tab-panel > .store-preview-panel,
+  .store-preview-panel{
+    width:100%;
+    min-width:0;
+    max-width:none;
+    justify-self:stretch;
+    position:relative;
+    top:auto;
+  }
+
+  .store-preview-panel .store-preview-device{
+    min-height:520px;
+    max-height:72dvh;
+  }
+
+  .store-products-summary{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 767px){
+  .store-products-summary-grid{
+    grid-template-columns:1fr;
+  }
+
+  .store-editor-save-inline .storefront-save-state{
+    justify-content:flex-start;
+  }
+
+  .store-preview-panel .store-preview-actions{
+    grid-template-columns:1fr;
+  }
+
+  .store-preview-panel .store-preview-device{
+    width:100%;
+    min-height:480px;
+    max-height:68dvh;
+  }
+}
+
 /* Hotfix global - escala visual segura do ERP e Storefront */
 html{
   font-size:16px;
