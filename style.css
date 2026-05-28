@@ -26432,3 +26432,103 @@ body.viewport-mobile.app-shell-ready #app-shell{
     display:flex !important;
   }
 }
+
+/* Hotfix menu loja - evita sobreposicao dos links no editor */
+@media (max-width: 1180px){
+  .store-public-shell .store-public-header{
+    grid-template-columns:minmax(0, 1fr) auto !important;
+    align-items:center;
+    overflow:visible;
+  }
+
+  .store-public-shell .store-public-header .store-public-brand{
+    grid-column:1;
+    grid-row:1;
+    min-width:0;
+  }
+
+  .store-public-shell .store-public-header .store-public-menu-toggle{
+    grid-column:2;
+    grid-row:1;
+    display:inline-flex !important;
+    max-width:128px;
+  }
+
+  .store-public-shell .store-public-header .store-public-main-nav,
+  .store-public-shell .store-public-header .store-public-actions{
+    display:none !important;
+    grid-column:1 / -1;
+    grid-row:auto;
+    width:100%;
+    min-width:0;
+  }
+
+  .store-public-shell .store-public-header.mobile-open .store-public-main-nav{
+    display:flex !important;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:10px 14px;
+    overflow:visible;
+    padding-top:10px;
+  }
+
+  .store-public-shell .store-public-header.mobile-open .store-public-actions{
+    display:flex !important;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:8px;
+    padding-top:10px;
+  }
+
+  .store-public-shell .store-public-header.mobile-open .store-public-actions :where(.btn, a.btn){
+    flex:0 1 auto;
+    min-width:120px;
+  }
+}
+
+@media (max-width: 1360px){
+  .store-public-shell.store-public-admin-mode .store-public-header{
+    grid-template-columns:minmax(0, 1fr) auto !important;
+    align-items:center;
+    overflow:visible;
+  }
+
+  .store-public-shell.store-public-admin-mode .store-public-header .store-public-brand{
+    grid-column:1;
+    grid-row:1;
+    min-width:0;
+  }
+
+  .store-public-shell.store-public-admin-mode .store-public-header .store-public-menu-toggle{
+    grid-column:2;
+    grid-row:1;
+    display:inline-flex !important;
+    max-width:128px;
+  }
+
+  .store-public-shell.store-public-admin-mode .store-public-header .store-public-main-nav,
+  .store-public-shell.store-public-admin-mode .store-public-header .store-public-actions{
+    display:none !important;
+    grid-column:1 / -1;
+    grid-row:auto;
+    width:100%;
+    min-width:0;
+  }
+
+  .store-public-shell.store-public-admin-mode .store-public-header.mobile-open .store-public-main-nav{
+    display:flex !important;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:10px 14px;
+    overflow:visible;
+    padding-top:10px;
+  }
+
+  .store-public-shell.store-public-admin-mode .store-public-header.mobile-open .store-public-actions{
+    display:flex !important;
+    justify-content:flex-start;
+    flex-wrap:wrap;
+    gap:8px;
+    padding-top:10px;
+  }
+}

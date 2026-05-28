@@ -253,6 +253,15 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "@media (min-width: 1024px)"
 ].forEach((marker) => assert(css.includes(marker), `hotfix viewport global presente: ${marker}`));
 [
+  "Hotfix menu loja - evita sobreposicao dos links no editor",
+  "@media (max-width: 1180px)",
+  "@media (max-width: 1360px)",
+  ".store-public-shell .store-public-header .store-public-menu-toggle",
+  ".store-public-shell.store-public-admin-mode .store-public-header .store-public-menu-toggle",
+  ".store-public-shell .store-public-header.mobile-open .store-public-main-nav",
+  ".store-public-shell .store-public-header.mobile-open .store-public-actions"
+].forEach((marker) => assert(css.includes(marker), `hotfix menu loja presente: ${marker}`));
+[
   "--interaction-hover-lift",
   "--interaction-active-scale",
   "@keyframes ds-enter-soft",
