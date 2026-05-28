@@ -278,3 +278,14 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Preservar fallback local de `renderStoreEditorTabContent`.
 - `[x]` Preservar contratos `store-editor-tab-panel`, `store-preview-device`, `store-preview-scroll` e `storefrontProductForm`.
 - `[x]` Nao mover planos, pagamentos, checkout, assinatura ou regras de salvar produto.
+
+## Fase 4F - Endurecimento dos Modulos, Cache e Fallback
+
+- `[x]` Incluir os helpers `modules/store-editor/*.js` no precache do service worker.
+- `[x]` Atualizar cache version para `simplifica-3d-v116-estavel-20260528-store-editor-modules`.
+- `[x]` Atualizar cache-bust de `app.js`, `sw.js` e scripts do editor no `index.html`.
+- `[x]` Validar namespace completo antes de usar renderer modular.
+- `[x]` Marcar caminho modular com `data-store-editor-renderer="module"` e `data-store-editor-modules-ready="true"`.
+- `[x]` Marcar fallback com `data-store-editor-renderer="fallback"` e `data-store-editor-modules-ready="false"`.
+- `[x]` Manter log de fallback apenas em modo debug.
+- `[x]` Manter fallback local preservado para PWA/cache antigo e rollback.

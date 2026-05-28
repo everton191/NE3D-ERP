@@ -17909,7 +17909,25 @@ function renderStorefrontEditorActionGroups() {
 
 function getStoreEditorNamespace() {
   if (typeof window === "undefined" || !window.SimplificaStoreEditor) return null;
-  return window.SimplificaStoreEditor;
+  const namespace = window.SimplificaStoreEditor;
+  const hasStoreEditorModules = Boolean(
+    namespace.renderer?.renderTabContent &&
+    namespace.tabs?.sanitizeTab &&
+    namespace.preview?.renderPreviewForTab &&
+    namespace.products?.getStats
+  );
+  if (!hasStoreEditorModules) {
+    if (APP_DEBUG_MODE) {
+      console.warn("[StoreEditorModules] módulos incompletos, usando fallback local", {
+        renderer: Boolean(namespace.renderer?.renderTabContent),
+        tabs: Boolean(namespace.tabs?.sanitizeTab),
+        preview: Boolean(namespace.preview?.renderPreviewForTab),
+        products: Boolean(namespace.products?.getStats)
+      });
+    }
+    return null;
+  }
+  return namespace;
 }
 
 function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
@@ -17943,7 +17961,7 @@ function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
     : "";
 
   return `
-    <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${escaparAttr(safeTab)}" data-store-editor-section="${escaparAttr(safeTab)}" data-store-editor-renderer="legacy">
+    <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${escaparAttr(safeTab)}" data-store-editor-section="${escaparAttr(safeTab)}" data-store-editor-renderer="fallback" data-store-editor-modules-ready="false">
       ${needsPreview ? `<div class="store-editor-tab-main">${content}</div>${preview}` : content}
     </div>
   `;

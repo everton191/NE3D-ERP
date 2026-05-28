@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v116-estavel-20260526-plan-profile-rings";
+const CACHE_NAME = "simplifica-3d-v116-estavel-20260528-store-editor-modules";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -8,6 +8,10 @@ const APP_FILES = [
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
+  "./modules/store-editor/storeEditorRenderer.js",
+  "./modules/store-editor/storeEditorTabs.js",
+  "./modules/store-editor/storeEditorPreview.js",
+  "./modules/store-editor/storeEditorProducts.js",
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",
   "./assets/simplifica-cover.svg",
@@ -53,6 +57,10 @@ self.addEventListener("fetch", (event) => {
     "/app.js",
     "/style.css",
     "/sw.js",
+    "/modules/store-editor/storeEditorRenderer.js",
+    "/modules/store-editor/storeEditorTabs.js",
+    "/modules/store-editor/storeEditorPreview.js",
+    "/modules/store-editor/storeEditorProducts.js",
     "/assets/intro.mp4"
   ].includes(url.pathname);
 

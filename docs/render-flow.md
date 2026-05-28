@@ -364,6 +364,19 @@ O contrato visual continua o mesmo: `store-editor-tab-panel`, `has-inline-previe
 
 `build:web` copia os modulos formais para `dist/modules`, entao o build final publica os mesmos helpers que o ambiente local referencia no `index.html`.
 
+## Fase 4F - Caminho module/fallback
+
+```txt
+renderStoreEditorTabContent(...)
+ ├── getStoreEditorNamespace()
+ │    ├── namespace completo -> renderer modular
+ │    │    └── data-store-editor-renderer="module"
+ │    └── namespace incompleto/ausente -> fallback local
+ │         └── data-store-editor-renderer="fallback"
+```
+
+O service worker faz precache de `modules/store-editor/*.js` e ignora cache para esses caminhos durante fetch, da mesma forma que `app.js`, `style.css` e `sw.js`. Isso reduz risco de PWA carregar index/app novo com helpers antigos, ou o contrario.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

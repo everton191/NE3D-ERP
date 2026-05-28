@@ -144,3 +144,18 @@ O editor passou a carregar helpers em `modules/store-editor` antes do `app.js`, 
 Ordem de carregamento: renderer, tabs, preview, products e depois `app.js`. O renderer busca `tabs` e `preview` somente em tempo de execucao do render, permitindo essa ordem sem acoplamento rigido.
 
 `scripts/prepare-web.js` copia apenas os modulos formais (`modules/store-editor`, `modules/store-preview` e `modules/storefront`) para `dist/modules`, evitando publicar scripts antigos ou experimentais. `app.js` continua sendo o orquestrador principal: decide `renderStorefrontView`, chama o render da aba, injeta estado global e preserva fallback local caso os scripts modulares nao carreguem por cache/PWA. Nenhuma regra de planos, pagamentos, checkout ou salvamento de produto foi movida nesta fase.
+
+## Fase 4F - Cache, PWA e fallback observavel
+
+O service worker inclui os quatro helpers do editor no precache e usa cache versionado `simplifica-3d-v116-estavel-20260528-store-editor-modules`. O `index.html` tambem usa query string propria da fase para `app.js`, `sw.js` e scripts de `modules/store-editor`, evitando combinacao antiga de app/cache com helpers novos.
+
+`app.js` valida se o namespace modular esta completo antes de usar o renderer:
+
+- `renderer.renderTabContent`;
+- `tabs.sanitizeTab`;
+- `preview.renderPreviewForTab`;
+- `products.getStats`.
+
+Se todos existirem, a aba recebe `data-store-editor-renderer="module"` e `data-store-editor-modules-ready="true"`. Se algum helper faltar, o fallback local assume e marca `data-store-editor-renderer="fallback"` e `data-store-editor-modules-ready="false"`. O log de fallback e discreto e restrito a `APP_DEBUG_MODE`.
+
+O fallback ainda nao deve ser removido. Ele protege PWA/cache antigo, deploy parcial, falha de script e rollback.

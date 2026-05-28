@@ -135,9 +135,15 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v116-estavel-20260526-plan-profile-rings"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v116-estavel-20260528-store-editor-modules"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-store-editor-modules-20260528"), "index.html usa cache-bust atual");
+[
+  "./modules/store-editor/storeEditorRenderer.js",
+  "./modules/store-editor/storeEditorTabs.js",
+  "./modules/store-editor/storeEditorPreview.js",
+  "./modules/store-editor/storeEditorProducts.js"
+].forEach((marker) => assert(sw.includes(marker), `fase 4f modulo entra no precache PWA: ${marker}`));
 
 [
   "--bg-primary",
@@ -343,6 +349,7 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
 [
   "SimplificaStoreEditor",
   "getStoreEditorNamespace",
+  "hasStoreEditorModules",
   "renderer.renderTabContent",
   "renderStorefrontView({ mode: \"editor\" })",
   "renderStorefrontView({ mode: \"public\" })"
@@ -371,9 +378,12 @@ assertOrdered(index, [
   "has-preview-panel",
   "has-inline-preview",
   "store-editor-tab-main",
-  "data-store-editor-renderer=\"module\""
+  "data-store-editor-renderer=\"module\"",
+  "data-store-editor-modules-ready=\"true\""
 ].forEach((marker) => assert(storeEditorRenderer.includes(marker), `fase 4e renderer preserva contrato: ${marker}`));
-assert(app.includes("data-store-editor-renderer=\"legacy\""), "fase 4e fallback legado continua identificavel");
+assert(app.includes("data-store-editor-renderer=\"fallback\""), "fase 4f fallback legado continua identificavel");
+assert(app.includes("data-store-editor-modules-ready=\"false\""), "fase 4f fallback marca modulos indisponiveis");
+assert(app.includes("[StoreEditorModules] módulos incompletos, usando fallback local"), "fase 4f fallback possui log debug controlado");
 [
   "sanitizeTab",
   "hasInlinePreview",

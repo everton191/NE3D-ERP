@@ -20,7 +20,7 @@
     const attr = typeof escapeAttr === "function" ? escapeAttr : fallbackEscapeAttr;
 
     return `
-      <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${attr(safeTab)}" data-store-editor-section="${attr(safeTab)}" data-store-editor-renderer="module">
+      <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${attr(safeTab)}" data-store-editor-section="${attr(safeTab)}" data-store-editor-renderer="module" data-store-editor-modules-ready="true">
         ${needsPreview ? `<div class="store-editor-tab-main">${content}</div>${preview}` : content}
       </div>
     `;
