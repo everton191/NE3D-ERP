@@ -33,4 +33,17 @@ if (fs.existsSync(path.join(root, "src"))) {
   fs.cpSync(path.join(root, "src"), path.join(dist, "src"), { recursive: true });
 }
 
+const publicModuleDirs = [
+  "modules/store-editor",
+  "modules/store-preview",
+  "modules/storefront"
+];
+
+publicModuleDirs.forEach((relativePath) => {
+  const source = path.join(root, relativePath);
+  if (fs.existsSync(source)) {
+    fs.cpSync(source, path.join(dist, relativePath), { recursive: true });
+  }
+});
+
 console.log("Arquivos web preparados em dist/");

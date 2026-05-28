@@ -131,3 +131,16 @@ Todas as abas passam por `renderStoreEditorTabContent(...)`, que aplica:
 - `store-editor-tab-main` para separar conteudo administrativo do preview.
 
 Produtos ganharam uma camada de resumo operacional (`store-products-summary`), formulario identificado (`storefrontProductForm`) e lista em `store-product-list-panel`, mantendo a logica de salvar/produtos intacta.
+
+## Fase 4E - Extracao segura do editor para modulos
+
+O editor passou a carregar helpers em `modules/store-editor` antes do `app.js`, sem transformar o build em ES modules e sem remover fallback legado:
+
+- `storeEditorRenderer.js`: renderiza o wrapper `store-editor-tab-panel`.
+- `storeEditorTabs.js`: normaliza a aba ativa e define quais abas ja possuem preview proprio;
+- `storeEditorPreview.js`: monta o preview automatico das abas que precisam de `has-preview-panel`;
+- `storeEditorProducts.js`: concentra helpers visuais/estatisticos de produtos e empty state;
+
+Ordem de carregamento: renderer, tabs, preview, products e depois `app.js`. O renderer busca `tabs` e `preview` somente em tempo de execucao do render, permitindo essa ordem sem acoplamento rigido.
+
+`scripts/prepare-web.js` copia apenas os modulos formais (`modules/store-editor`, `modules/store-preview` e `modules/storefront`) para `dist/modules`, evitando publicar scripts antigos ou experimentais. `app.js` continua sendo o orquestrador principal: decide `renderStorefrontView`, chama o render da aba, injeta estado global e preserva fallback local caso os scripts modulares nao carreguem por cache/PWA. Nenhuma regra de planos, pagamentos, checkout ou salvamento de produto foi movida nesta fase.

@@ -25,6 +25,15 @@ function warn(condition, message) {
   else console.log(`OK: ${message}`);
 }
 
+function assertOrdered(source, markers, message) {
+  let previousIndex = -1;
+  markers.forEach((marker) => {
+    const index = source.indexOf(marker);
+    assert(index > previousIndex, `${message}: ${marker}`);
+    previousIndex = index;
+  });
+}
+
 function getFunctionBody(source, functionName) {
   const marker = `function ${functionName}`;
   const start = source.indexOf(marker);
@@ -47,7 +56,12 @@ const app = read("app.js");
 const css = read("style.css");
 const sw = read("sw.js");
 const index = read("index.html");
+const prepareWeb = read("scripts/prepare-web.js");
 const pkg = JSON.parse(read("package.json"));
+const storeEditorRenderer = read("modules/store-editor/storeEditorRenderer.js");
+const storeEditorTabs = read("modules/store-editor/storeEditorTabs.js");
+const storeEditorPreview = read("modules/store-editor/storeEditorPreview.js");
+const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
 
 [
   "docs/reestruturacao-profissional-checks.md",
@@ -88,6 +102,10 @@ const pkg = JSON.parse(read("package.json"));
   "modules/storefront/contract.css",
   "modules/store-editor/README.md",
   "modules/store-editor/contract.css",
+  "modules/store-editor/storeEditorRenderer.js",
+  "modules/store-editor/storeEditorTabs.js",
+  "modules/store-editor/storeEditorPreview.js",
+  "modules/store-editor/storeEditorProducts.js",
   "modules/store-preview/README.md",
   "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
@@ -322,6 +340,55 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "Adicionar produto",
   "renderStoreEditorTabContent(activeTab, bodyContent, vm)"
 ].forEach((marker) => assert(app.includes(marker), `fase 4d refinamento do editor presente no app: ${marker}`));
+[
+  "SimplificaStoreEditor",
+  "getStoreEditorNamespace",
+  "renderer.renderTabContent",
+  "renderStorefrontView({ mode: \"editor\" })",
+  "renderStorefrontView({ mode: \"public\" })"
+].forEach((marker) => assert(app.includes(marker), `fase 4e app.js continua orquestrando com modulo: ${marker}`));
+[
+  "/modules/store-editor/storeEditorTabs.js",
+  "/modules/store-editor/storeEditorPreview.js",
+  "/modules/store-editor/storeEditorProducts.js",
+  "/modules/store-editor/storeEditorRenderer.js"
+].forEach((marker) => assert(index.includes(marker), `fase 4e modulo carregado antes do app: ${marker}`));
+assertOrdered(index, [
+  "/modules/store-editor/storeEditorRenderer.js",
+  "/modules/store-editor/storeEditorTabs.js",
+  "/modules/store-editor/storeEditorPreview.js",
+  "/modules/store-editor/storeEditorProducts.js",
+  "/app.js"
+], "fase 4e ordem de scripts antes do app.js");
+[
+  "modules/store-editor",
+  "modules/store-preview",
+  "modules/storefront"
+].forEach((marker) => assert(prepareWeb.includes(marker), `fase 4e build copia modulo publico: ${marker}`));
+[
+  "renderTabContent",
+  "store-editor-tab-panel",
+  "has-preview-panel",
+  "has-inline-preview",
+  "store-editor-tab-main",
+  "data-store-editor-renderer=\"module\""
+].forEach((marker) => assert(storeEditorRenderer.includes(marker), `fase 4e renderer preserva contrato: ${marker}`));
+assert(app.includes("data-store-editor-renderer=\"legacy\""), "fase 4e fallback legado continua identificavel");
+[
+  "sanitizeTab",
+  "hasInlinePreview",
+  "getPreviewCopy"
+].forEach((marker) => assert(storeEditorTabs.includes(marker), `fase 4e tabs helper presente: ${marker}`));
+[
+  "renderPreviewForTab",
+  "store-preview-device",
+  "store-preview-scroll"
+].forEach((marker) => assert(`${storeEditorPreview}\n${app}`.includes(marker), `fase 4e preview preservado: ${marker}`));
+[
+  "getStats",
+  "renderEmptyState",
+  "storefrontProductForm"
+].forEach((marker) => assert(`${storeEditorProducts}\n${app}`.includes(marker), `fase 4e produtos preservados: ${marker}`));
 [
   "--interaction-hover-lift",
   "--interaction-active-scale",

@@ -264,3 +264,17 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Melhorar Produtos com resumo, CTA de adicionar, formulario nomeado e lista com empty state acionavel.
 - `[x]` Manter planos, pagamentos, checkout e regras de assinatura fora do escopo.
 - `[ ]` Extrair render das abas para arquivos em `modules/store-editor` em fase posterior.
+
+## Fase 4E - Extracao Segura do Editor da Loja
+
+- `[x]` Criar `modules/store-editor/storeEditorRenderer.js`.
+- `[x]` Criar `modules/store-editor/storeEditorTabs.js`.
+- `[x]` Criar `modules/store-editor/storeEditorPreview.js`.
+- `[x]` Criar `modules/store-editor/storeEditorProducts.js`.
+- `[x]` Carregar helpers antes do `app.js` sem mudar para ES modules.
+- `[x]` Garantir ordem renderer -> tabs -> preview -> products -> app.js.
+- `[x]` Copiar `modules/store-editor`, `modules/store-preview` e `modules/storefront` para `dist/modules` no `build:web`.
+- `[x]` Manter `app.js` como orquestrador de `renderStorefrontView`.
+- `[x]` Preservar fallback local de `renderStoreEditorTabContent`.
+- `[x]` Preservar contratos `store-editor-tab-panel`, `store-preview-device`, `store-preview-scroll` e `storefrontProductForm`.
+- `[x]` Nao mover planos, pagamentos, checkout, assinatura ou regras de salvar produto.

@@ -17907,7 +17907,24 @@ function renderStorefrontEditorActionGroups() {
   `;
 }
 
+function getStoreEditorNamespace() {
+  if (typeof window === "undefined" || !window.SimplificaStoreEditor) return null;
+  return window.SimplificaStoreEditor;
+}
+
 function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
+  const renderer = getStoreEditorNamespace()?.renderer;
+  if (renderer && typeof renderer.renderTabContent === "function") {
+    return renderer.renderTabContent({
+      tab,
+      content,
+      vm,
+      escapeAttr: escaparAttr,
+      renderPreview: (targetVm, options) => renderStorefrontPreview(targetVm || vm, options)
+    });
+  }
+
+  // LEGACY FALLBACK: mantido temporariamente enquanto a Fase 4E migra helpers para modules/store-editor.
   const safeTab = String(tab || "overview").replace(/[^a-z0-9_-]/gi, "");
   const previewTabs = new Set(["overview", "appearance", "banner"]);
   const previewTitles = {
@@ -17926,7 +17943,7 @@ function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
     : "";
 
   return `
-    <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${escaparAttr(safeTab)}" data-store-editor-section="${escaparAttr(safeTab)}">
+    <div class="store-editor-tab-panel store-editor-panel ${needsPreview ? "has-preview-panel" : "has-inline-preview"} store-editor-tab-${escaparAttr(safeTab)}" data-store-editor-section="${escaparAttr(safeTab)}" data-store-editor-renderer="legacy">
       ${needsPreview ? `<div class="store-editor-tab-main">${content}</div>${preview}` : content}
     </div>
   `;
@@ -18188,8 +18205,11 @@ function renderStorefrontProducts(vm) {
   const editingSeed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
   const editing = vm.products.find((product) => product.id === editingId) || (editingSeed && typeof editingSeed === "object" ? editingSeed : {});
   const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${cat.__template ? "disabled" : ""} ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}${cat.__template ? " (template)" : ""}</option>`).join("");
-  const visibleProducts = vm.products.filter((product) => product.visible !== false).length;
-  const featuredProducts = vm.products.filter((product) => product.featured).length;
+  const productStats = getStoreEditorNamespace()?.products?.getStats?.(vm) || {
+    total: vm.products.length,
+    visible: vm.products.filter((product) => product.visible !== false).length,
+    featured: vm.products.filter((product) => product.featured).length
+  };
   return `
     <section class="card storefront-products-summary store-editor-panel">
       <div>
@@ -18198,9 +18218,9 @@ function renderStorefrontProducts(vm) {
         <p class="muted">Organize a vitrine pública sem expor custo, margem ou dados internos do ERP.</p>
       </div>
       <div class="store-products-summary-grid">
-        ${renderStoreStatusCard({ label: "Total", value: vm.products.length, description: "produtos cadastrados", tone: "neutral" })}
-        ${renderStoreStatusCard({ label: "Visíveis", value: visibleProducts, description: "aparecem na loja", tone: visibleProducts ? "success" : "warning" })}
-        ${renderStoreStatusCard({ label: "Destaques", value: featuredProducts, description: "prioridade na vitrine", tone: featuredProducts ? "info" : "neutral" })}
+        ${renderStoreStatusCard({ label: "Total", value: productStats.total, description: "produtos cadastrados", tone: "neutral" })}
+        ${renderStoreStatusCard({ label: "Visíveis", value: productStats.visible, description: "aparecem na loja", tone: productStats.visible ? "success" : "warning" })}
+        ${renderStoreStatusCard({ label: "Destaques", value: productStats.featured, description: "prioridade na vitrine", tone: productStats.featured ? "info" : "neutral" })}
       </div>
       <div class="actions">
         <button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button>
@@ -18293,12 +18313,12 @@ function renderStorefrontProducts(vm) {
               <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto real para enviar fotos.\"" : ""}>Fotos<input type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
             </div>
           </article>`;
-        }).join("") || renderStoreEmptyState({
+        }).join("") || (getStoreEditorNamespace()?.products?.renderEmptyState?.({ renderEmptyState: renderStoreEmptyState }) || renderStoreEmptyState({
           title: "Nenhum produto",
           description: "Crie o primeiro item da vitrine para testar preview, publicação e link público.",
           icon: "▣",
           action: `<button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button>`
-        })}
+        }))}
       </div>
     </section>
   `;

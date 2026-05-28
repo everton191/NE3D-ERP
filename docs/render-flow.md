@@ -344,6 +344,26 @@ renderStorefrontAdminPanelLegacy()
 
 Esse fluxo evita preview duplicado em `overview`, `appearance` e `banner`, mas garante que `products`, `categories`, `leads`, `qrcode` e `settings` tenham a mesma estrutura visual do editor profissional.
 
+## Fase 4E - Fluxo modular do editor
+
+```txt
+index.html
+ ├── modules/store-editor/storeEditorRenderer.js
+ ├── modules/store-editor/storeEditorTabs.js
+ ├── modules/store-editor/storeEditorPreview.js
+ ├── modules/store-editor/storeEditorProducts.js
+ └── app.js
+      └── renderStorefrontView({ mode: "editor" })
+           └── renderStorefrontAdminPanelLegacy()
+                └── renderStoreEditorTabContent(activeTab, bodyContent, vm)
+                     ├── SimplificaStoreEditor.renderer.renderTabContent(...)
+                     └── fallback local legado se o modulo nao estiver disponivel
+```
+
+O contrato visual continua o mesmo: `store-editor-tab-panel`, `has-inline-preview`, `has-preview-panel`, `store-preview-device`, `store-preview-scroll` e `storefrontProductForm` permanecem presentes. A extracao e uma ponte: reduz acoplamento sem alterar regras de negocio nem remover o fluxo legado.
+
+`build:web` copia os modulos formais para `dist/modules`, entao o build final publica os mesmos helpers que o ambiente local referencia no `index.html`.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.
