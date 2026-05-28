@@ -391,6 +391,34 @@ renderStoreEditorTabContent(...)
 
 O `app.js` nao replica mais `previewTitles` nem a regra completa de preview lateral no fallback. O caminho rico vive em `modules/store-editor`; o fallback local fica propositalmente pequeno para manter operacao basica e rollback.
 
+## Fase 4H - Fluxo validado
+
+```txt
+store-admin/ne3d
+ └── renderStorefrontView({ mode: "editor" })
+      └── renderStorefrontAdminPanelLegacy()
+           └── renderStoreEditorTabContent(...)
+                ├── renderer modular 4G
+                │    ├── data-store-editor-renderer="module"
+                │    ├── data-store-editor-modules-ready="true"
+                │    └── data-store-editor-module-version="store-editor-4g"
+                └── fallback minimo quando modulo falha
+                     ├── data-store-editor-renderer="fallback"
+                     └── data-store-editor-modules-ready="false"
+```
+
+Validacao autenticada confirmou troca de abas, Produtos com `storefrontProductForm`, preview com `store-preview-device/store-preview-scroll` e apenas um `store-editor-shell`. A loja publica continua separada do editor:
+
+```txt
+ne3d
+ └── renderStorefrontView({ mode: "public" })
+      └── storefront V2
+           ├── data-storefront-render="public"
+           └── data-storefront-source="v2"
+```
+
+O teste de fallback da 4H foi local e temporario: um helper modular foi tornado indisponivel no servidor de validacao, o editor caiu para fallback minimo e a simulacao nao fica ativa no codigo final.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

@@ -177,3 +177,24 @@ Classificacao dos trechos nesta fase:
 - `SAFE_TO_REMOVE_LATER`: fallback minimo, apenas depois de validar PWA/deploy por mais ciclos.
 
 O fallback minimo ainda abre o editor e mostra o conteudo da aba, mas nao tenta reproduzir todo o preview automatico do modulo. Isso reduz duplicacao real no `app.js` sem retirar a protecao contra cache antigo ou falha parcial de scripts.
+
+## Fase 4H - Validacao final do editor modular
+
+A fase 4H nao altera arquitetura nem regras de negocio. Ela valida o caminho modular ja consolidado antes de avancar para planos, assinatura ou pagamentos.
+
+Validacoes realizadas:
+
+- editor autenticado abre pelo caminho `data-store-editor-renderer="module"`;
+- `data-store-editor-modules-ready="true"` e `data-store-editor-module-version="store-editor-4g"` permanecem no DOM;
+- abas Visao geral, Aparencia, Produtos, Categorias, Banner, Leads/Pedidos, Compartilhamento e Configuracoes renderizam sem duplicar `store-editor-shell`;
+- Produtos mantem `storefrontProductForm`, CTA de adicionar e preview;
+- loja publica renderiza `data-storefront-render="public"` com `data-storefront-source="v2"` e sem vazamento de UI administrativa;
+- service worker ativo usa cache `simplifica-3d-v116-estavel-20260528-store-editor-4g`;
+- os quatro scripts `modules/store-editor/*.js` retornam HTTP 200 no build servido de `dist/`;
+- fallback controlado foi simulado localmente com falha de modulo, retornando `data-store-editor-renderer="fallback"` e `data-store-editor-modules-ready="false"` sem erro fatal.
+
+Pendencias antes de remover o fallback:
+
+- repetir a validacao em PWA instalado/celular fisico;
+- validar uma conta de teste real criando e descartando rascunho de produto;
+- manter ao menos mais um ciclo de deploy/cache com fallback preservado.

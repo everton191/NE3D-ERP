@@ -300,3 +300,18 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Manter `renderStorefrontView` e decisao de modo no `app.js`.
 - `[x]` Manter fallback observavel com `data-store-editor-renderer="fallback"`.
 - `[x]` Atualizar cache-bust/cache version para a etapa 4G.
+
+## Fase 4H - Validacao Final da Loja e Editor Modular
+
+- `[x]` Validar editor autenticado pelo caminho modular.
+- `[x]` Confirmar `data-store-editor-renderer="module"`.
+- `[x]` Confirmar `data-store-editor-modules-ready="true"`.
+- `[x]` Confirmar versao `store-editor-4g` no DOM e namespace em Chrome real.
+- `[x]` Trocar abas do editor sem duplicar tela.
+- `[x]` Validar Produtos com `storefrontProductForm`, CTA e preview sem salvar dados permanentes.
+- `[x]` Validar loja publica V2 sem vazamento de UI administrativa.
+- `[x]` Validar modulos `modules/store-editor/*.js` com HTTP 200.
+- `[x]` Validar service worker/cache `simplifica-3d-v116-estavel-20260528-store-editor-4g`.
+- `[x]` Simular falha local de modulo e confirmar fallback minimo.
+- `[x]` Manter planos, pagamentos, checkout, assinatura e banco fora do escopo.
+- `[~]` Validacao em PWA instalado/celular fisico ainda precisa ser repetida manualmente.
