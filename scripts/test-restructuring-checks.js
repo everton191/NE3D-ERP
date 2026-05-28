@@ -265,6 +265,12 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "side-menu side-drawer mobile-drawer"
 ].forEach((marker) => assert(app.includes(marker), `separacao sidebar/drawer presente: ${marker}`));
 [
+  "products:new",
+  "product:${product.id}",
+  "fecharPopup(); abrirEditorProdutoLojaOnline()",
+  "abrirEditorProdutoLojaOnline('${escaparAttr(action.slice(8))}')"
+].forEach((marker) => assert(app.includes(marker), `atalho de produtos da loja abre editor correto: ${marker}`));
+[
   "Hotfix menu loja - evita sobreposicao dos links no editor",
   "@media (max-width: 1180px)",
   "@media (max-width: 1360px)",

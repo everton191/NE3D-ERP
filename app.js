@@ -16528,7 +16528,7 @@ function abrirStoreVisualPanel(area = "overview") {
       title: "Produtos da vitrine",
       desc: "Gerencie produtos como catálogo visual, com miniaturas, destaque e status.",
       badge: `${vm.products.length} produtos`,
-      actions: vm.products.slice(0, 6).map((product) => [product.title || "Produto", renderPrecoProdutoLojaOnline(product), "products"])
+      actions: vm.products.slice(0, 6).map((product) => [product.title || "Produto", renderPrecoProdutoLojaOnline(product), `product:${product.id}`])
     },
     categories: {
       title: "Categorias visuais",
@@ -16574,12 +16574,20 @@ function abrirStoreVisualPanel(area = "overview") {
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </header>
         <div class="store-visual-panel-grid">
-          ${(config.actions.length ? config.actions : [["Adicionar item", "Comece pelo admin avançado", "overview"]]).map(([title, desc, tab]) => `
-            <button type="button" onclick="fecharPopup(); abrirStorefrontAdminRoute('${escaparAttr(tab)}')">
+          ${(config.actions.length ? config.actions : [[area === "products" ? "Adicionar produto" : "Adicionar item", "Comece pelo admin avançado", area === "products" ? "products:new" : area === "categories" ? "categories" : "overview"]]).map(([title, desc, tab]) => {
+            const action = String(tab || "");
+            const click = action === "products:new"
+              ? "fecharPopup(); abrirEditorProdutoLojaOnline()"
+              : action.startsWith("product:")
+                ? `fecharPopup(); abrirEditorProdutoLojaOnline('${escaparAttr(action.slice(8))}')`
+                : `fecharPopup(); abrirStorefrontAdminRoute('${escaparAttr(action)}')`;
+            return `
+            <button type="button" onclick="${click}">
               <strong>${escaparHtml(title)}</strong>
               <small>${escaparHtml(desc)}</small>
             </button>
-          `).join("")}
+          `;
+          }).join("")}
         </div>
         <footer>
           <button class="btn secondary" type="button" onclick="fecharPopup(); destacarSecaoLojaVisual('${area === "products" ? "catalogo" : area === "categories" ? "categorias" : area === "contacts" ? "contato" : area === "theme" ? "header" : area}')">Ver na loja</button>
