@@ -253,6 +253,18 @@ assert(index.includes("1.0.16-estavel-plan-profile-rings"), "index.html usa cach
   "@media (min-width: 1024px)"
 ].forEach((marker) => assert(css.includes(marker), `hotfix viewport global presente: ${marker}`));
 [
+  "Hotfix sidebar desktop - separa menu ERP de drawer/mobile",
+  "body.viewport-desktop{",
+  "--sidebar-width:clamp(240px, 15vw, 300px)",
+  "body.viewport-desktop :where(.app-sidebar,.desktop-sidebar,.side-menu:not(.side-drawer))",
+  "flex-direction:column !important",
+  "body.viewport-desktop :where(.mobile-menu,.mobile-drawer,.app-bottom-nav,.app-bottom-navigation,.mobile-bottom-nav,.side-drawer)"
+].forEach((marker) => assert(css.includes(marker), `hotfix sidebar desktop presente: ${marker}`));
+[
+  "side-menu app-sidebar desktop-sidebar",
+  "side-menu side-drawer mobile-drawer"
+].forEach((marker) => assert(app.includes(marker), `separacao sidebar/drawer presente: ${marker}`));
+[
   "Hotfix menu loja - evita sobreposicao dos links no editor",
   "@media (max-width: 1180px)",
   "@media (max-width: 1360px)",

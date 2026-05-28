@@ -26821,3 +26821,90 @@ body.viewport-mobile.app-shell-ready #app-shell{
     padding-top:10px;
   }
 }
+
+/* Hotfix sidebar desktop - separa menu ERP de drawer/mobile */
+body.viewport-desktop{
+  --sidebar-width:clamp(240px, 15vw, 300px);
+}
+
+body.viewport-desktop .desktop-shell,
+body.viewport-desktop .desktop-shell.sidebar-collapsed,
+body.viewport-desktop.app-shell-ready .desktop-shell,
+body.viewport-desktop.app-shell-ready .desktop-shell.sidebar-collapsed,
+body[data-ui-profile="web_pwa"].viewport-desktop:not(.mobile-mode) .desktop-shell,
+body[data-ui-profile="web_pwa"].viewport-desktop:not(.mobile-mode) .desktop-shell.sidebar-collapsed,
+body[data-ui-profile="web_pwa"].viewport-desktop:not(.mobile-mode).app-shell-ready .desktop-shell,
+body[data-ui-profile="web_pwa"].viewport-desktop:not(.mobile-mode).app-shell-ready .desktop-shell.sidebar-collapsed{
+  display:grid !important;
+  grid-template-columns:var(--sidebar-width) minmax(0, 1fr) !important;
+}
+
+body.viewport-desktop :where(.app-sidebar,.desktop-sidebar,.side-menu:not(.side-drawer)){
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  width:var(--sidebar-width) !important;
+  min-width:240px !important;
+  max-width:300px !important;
+}
+
+body.viewport-desktop :where(.app-sidebar,.desktop-sidebar,.side-menu:not(.side-drawer)).is-collapsed,
+body.viewport-desktop .desktop-shell.sidebar-collapsed :where(.app-sidebar,.desktop-sidebar,.side-menu:not(.side-drawer)){
+  width:var(--sidebar-width) !important;
+  min-width:240px !important;
+  max-width:300px !important;
+  padding:14px 12px !important;
+}
+
+body.viewport-desktop .side-menu.is-collapsed .side-brand{
+  grid-template-columns:auto 38px minmax(0, 1fr) auto !important;
+  justify-items:stretch !important;
+  padding:10px !important;
+}
+
+body.viewport-desktop .side-menu.is-collapsed :where(.side-brand-text,.side-brand-copy,.side-brand-logo,.side-brand-mark,.side-profile-meta,.side-profile-card .status-badge,.side-plan-pill,.side-section > span,.side-nav-button strong,.side-section-header){
+  display:revert !important;
+  opacity:1 !important;
+  max-width:none !important;
+}
+
+body.viewport-desktop .side-menu.is-collapsed .side-section-header{
+  display:flex !important;
+}
+
+body.viewport-desktop .side-menu.is-collapsed .side-profile-card{
+  min-height:84px !important;
+  grid-template-columns:46px minmax(0, 1fr) !important;
+  justify-items:stretch !important;
+  padding:10px !important;
+}
+
+body.viewport-desktop .side-menu.is-collapsed .side-nav-button,
+body.viewport-desktop .side-nav-button{
+  width:100% !important;
+  grid-template-columns:32px minmax(0, 1fr) !important;
+  justify-items:stretch !important;
+  gap:10px !important;
+  padding:9px 12px !important;
+}
+
+body.viewport-desktop .side-nav-button strong{
+  display:block !important;
+  min-width:0 !important;
+  opacity:1 !important;
+  max-width:none !important;
+}
+
+body.viewport-desktop :where(.mobile-menu,.mobile-drawer,.app-bottom-nav,.app-bottom-navigation,.mobile-bottom-nav,.side-drawer){
+  display:none !important;
+}
+
+body.viewport-mobile :where(.app-sidebar,.desktop-sidebar,.side-menu:not(.side-drawer)){
+  display:none !important;
+}
+
+body.viewport-desktop #app-content{
+  min-width:0;
+  overflow-y:auto;
+  overflow-x:clip;
+}

@@ -12072,7 +12072,7 @@ function renderMenuLateral() {
   const grupos = getMenuGroups();
 
   return `
-    <aside class="side-menu ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
+    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
       ${renderCabecalhoMenuLateral({ recolhido })}
       ${grupos.map(renderGrupoMenuLateral).join("")}
     </aside>
@@ -12458,7 +12458,7 @@ function renderDrawerLateral({ progress = 1, dragging = false } = {}) {
   const progresso = Math.min(1, Math.max(0, Number(progress) || 0));
   return `
     <div class="side-drawer-backdrop ${dragging ? "is-dragging" : ""}" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" style="--drawer-progress:${progresso}">
-      <aside class="side-menu side-drawer" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
+      <aside class="side-menu side-drawer mobile-drawer" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
         ${renderCabecalhoMenuLateral({ drawer: true })}
         ${renderPerfilMenuLateral()}
         ${grupos.map((grupo) => `
