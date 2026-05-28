@@ -315,3 +315,16 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Simular falha local de modulo e confirmar fallback minimo.
 - `[x]` Manter planos, pagamentos, checkout, assinatura e banco fora do escopo.
 - `[~]` Validacao em PWA instalado/celular fisico ainda precisa ser repetida manualmente.
+
+## Fase 5A - Logica de Planos e Assinatura
+
+- `[x]` Criar helper central `getPlanAccessState()`.
+- `[x]` Separar plano efetivo, status de assinatura e status de pagamento.
+- `[x]` Impedir que usuario Free veja "voltar para Free" ou "cancelar Free".
+- `[x]` Impedir que cancelamento de Start/Pro faca downgrade imediato.
+- `[x]` Marcar cancelamento pago como `cancelAtPeriodEnd = true`.
+- `[x]` Manter acesso pago ate `currentPeriodEnd || expiresAt || planExpiresAt`.
+- `[x]` Tratar `checkout_opened` como tentativa temporaria, sem mudar plano.
+- `[x]` Mostrar pagamento pendente apenas quando houver transacao real pendente.
+- `[x]` Adicionar teste `test:plans` para as regras de assinatura.
+- `[ ]` Validar webhook Mercado Pago em ambiente remoto antes de remover caminhos legados.

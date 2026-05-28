@@ -433,6 +433,10 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
 [
   "activePlan",
   "subscriptionStatus",
+  "cancelAtPeriodEnd",
+  "getPlanAccessState",
+  "canCancelRenewal",
+  "shouldShowPendingPayment",
   "expiresAt",
   "normalizarSlugPlano",
   "checkout_opened",
@@ -444,6 +448,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "test:ui-theme-consistency",
   "test:storefront-desktop-upscale",
   "test:plans-saas-structure",
+  "test:plans",
   "test:project-saneamento"
 ].forEach((script) => assert(Boolean(pkg.scripts?.[script]), `script npm ativo: ${script}`));
 

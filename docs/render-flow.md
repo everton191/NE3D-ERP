@@ -419,6 +419,23 @@ ne3d
 
 O teste de fallback da 4H foi local e temporario: um helper modular foi tornado indisponivel no servidor de validacao, o editor caiu para fallback minimo e a simulacao nao fica ativa no codigo final.
 
+## Fase 5A - Planos e assinatura
+
+```txt
+renderAssinatura()
+ └── getPlanAccessState(userSubscription)
+      ├── resolverEstadoPlano(...)
+      ├── cancelAtPeriodEnd/currentPeriodEnd
+      ├── temPagamentoPendenteReal(...)
+      └── acoes da tela
+           ├── Free -> Assinar Start / Assinar Pro
+           ├── Start ativo -> Upgrade Pro / Cancelar renovacao
+           ├── Pro ativo -> Cancelar renovacao
+           └── canceling -> Reativar renovacao
+```
+
+`checkout_opened` permanece como tentativa temporaria e nao altera o plano efetivo. A tela so mostra pagamento pendente quando existe transacao real pendente. Cancelar renovacao nao chama downgrade para Free: o acesso pago continua ate `currentPeriodEnd || expiresAt || planExpiresAt`.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

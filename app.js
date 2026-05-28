@@ -237,6 +237,8 @@ const BACKEND_LICENSE_CACHE_KEYS = Object.freeze([
   "pendingPlan",
   "paymentStatus",
   "subscriptionStatus",
+  "cancelAtPeriodEnd",
+  "currentPeriodEnd",
   "licenseStatus",
   "licenseBlockLevel",
   "effectiveUserId",
@@ -986,6 +988,8 @@ let billingConfig = carregarObjeto("billingConfig", {
   pendingStartedAt: "",
   paymentStatus: "none",
   subscriptionStatus: "free",
+  cancelAtPeriodEnd: false,
+  currentPeriodEnd: "",
   trialStartedAt: "",
   trialExpiresAt: "",
   isTrialActive: false,
@@ -1260,8 +1264,8 @@ function registrarFluxoSalvamento(area = "Salvamento", action = "Salvar", payloa
 
 const PlanService = {
   getPolicy(usuario = getUsuarioAtual()) {
-    const estado = resolverEstadoPlano(usuario, { source: "plan-policy" });
-    const slug = isSuperAdmin(usuario) ? "pro" : normalizarSlugPlano(estado.hasPremium ? estado.activePlan : "free");
+    const acesso = getPlanAccessState(getAssinaturaSaas(usuario?.clientId || billingConfig.clientId || ""), { user: usuario, source: "plan-policy" });
+    const slug = isSuperAdmin(usuario) ? "pro" : normalizarSlugPlano(acesso.effectivePlan || "free");
     const start = slug === "start";
     const pro = isSuperAdmin(usuario) || slug === "pro" || slug === "premium_trial";
     const paid = start || pro;
@@ -3601,6 +3605,12 @@ function isPlanoPagoSlug(slug = "free") {
   return ["start", "pro", "premium_trial"].includes(normalizarSlugPlano(slug));
 }
 
+function normalizarBooleanoPlano(valor) {
+  if (valor === true || valor === 1) return true;
+  if (valor === false || valor === 0 || valor === null || valor === undefined) return false;
+  return ["true", "1", "sim", "yes", "y"].includes(String(valor).toLowerCase().trim());
+}
+
 function normalizarStatusPlano(status = "pending") {
   const valor = String(status || "pending").toLowerCase().trim();
   const mapa = {
@@ -3614,13 +3624,16 @@ function normalizarStatusPlano(status = "pending") {
     overdue: "past_due",
     blocked: "past_due",
     bloqueado: "past_due",
+    cancelando: "canceling",
+    cancelamento_agendado: "canceling",
+    cancel_at_period_end: "canceling",
     cancelado: "cancelled",
     canceled: "cancelled",
     vencido: "expired",
     expirado: "expired"
   };
   const normalizado = mapa[valor] || valor;
-  return ["active", "trialing", "pending", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "pending";
+  return ["active", "trialing", "pending", "canceling", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "pending";
 }
 
 function normalizarStatusPagamento(status = "none") {
@@ -3654,6 +3667,9 @@ function normalizarStatusAssinaturaDefinitivo(status = "free") {
     gratis: "free",
     grátis: "free",
     free: "free",
+    cancelando: "canceling",
+    cancelamento_agendado: "canceling",
+    cancel_at_period_end: "canceling",
     atrasado: "past_due",
     vencido: "expired",
     expirado: "expired",
@@ -3661,7 +3677,7 @@ function normalizarStatusAssinaturaDefinitivo(status = "free") {
     canceled: "cancelled"
   };
   const normalizado = mapa[valor] || valor;
-  return ["free", "trialing", "active", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "free";
+  return ["free", "trialing", "active", "canceling", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "free";
 }
 
 function normalizarBillingVariant(valor = "") {
@@ -3741,6 +3757,8 @@ function normalizarClienteSaas(cliente = {}) {
     pendingStartedAt: cliente.pendingStartedAt || cliente.pending_started_at || "",
     paymentStatus: normalizarStatusPagamento(cliente.paymentStatus || cliente.payment_status || "none"),
     subscriptionStatus: normalizarStatusAssinaturaDefinitivo(cliente.subscriptionStatus || cliente.subscription_status || "free"),
+    cancelAtPeriodEnd: normalizarBooleanoPlano(cliente.cancelAtPeriodEnd ?? cliente.cancel_at_period_end),
+    currentPeriodEnd: cliente.currentPeriodEnd || cliente.current_period_end || cliente.planExpiresAt || cliente.plan_expires_at || "",
     planExpiresAt: cliente.planExpiresAt || cliente.plan_expires_at || "",
     planPrice: Math.max(0, Number(cliente.planPrice ?? cliente.plan_price ?? 0) || 0),
     priceLocked: cliente.priceLocked === true || cliente.price_locked === true,
@@ -3771,7 +3789,8 @@ function normalizarAssinaturaSaas(assinatura = {}) {
   const activePlan = normalizarSlugPlano(activePlanInformado || (status === "pending" ? "free" : planSlug));
   const pendingPlan = assinatura.pendingPlan || assinatura.pending_plan ? normalizarSlugPlano(assinatura.pendingPlan || assinatura.pending_plan) : "";
   const paymentStatus = normalizarStatusPagamento(assinatura.paymentStatus || assinatura.payment_status || (status === "pending" ? "pending" : "none"));
-  const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(assinatura.subscriptionStatus || assinatura.subscription_status || (activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(activePlan) ? "active" : "free"));
+  const cancelAtPeriodEnd = normalizarBooleanoPlano(assinatura.cancelAtPeriodEnd ?? assinatura.cancel_at_period_end);
+  const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(assinatura.subscriptionStatus || assinatura.subscription_status || (cancelAtPeriodEnd && isPlanoPagoSlug(activePlan) ? "canceling" : activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(activePlan) ? "active" : "free"));
   const currentPeriodStart = assinatura.currentPeriodStart || assinatura.current_period_start || assinatura.startedAt || assinatura.started_at || assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || assinatura.createdAt || assinatura.created_at || new Date().toISOString();
   const currentPeriodEnd = assinatura.planExpiresAt || assinatura.plan_expires_at || assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || assinatura.trialEndAt || assinatura.trial_end_at || "";
   const trialStartedAt = assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || (activePlan === "premium_trial" ? currentPeriodStart : "");
@@ -3791,6 +3810,7 @@ function normalizarAssinaturaSaas(assinatura = {}) {
     subscriptionStatus,
     status,
     statusAssinatura: normalizarStatusPlano(assinatura.statusAssinatura || assinatura.status_assinatura || status),
+    cancelAtPeriodEnd,
     promoUsed: assinatura.promoUsed === true || assinatura.promo_used === true,
     billingVariant: normalizarBillingVariant(assinatura.billingVariant || assinatura.billing_variant || (assinatura.promoUsed || assinatura.promo_used ? "premium_monthly" : "premium_first_month")),
     planPrice,
@@ -3904,6 +3924,7 @@ function calcularStatusAssinatura(assinatura = getAssinaturaSaas()) {
   if (["cancelled", "expired"].includes(status)) return { status, blockLevel: "total", diasAtraso: 0 };
   if (status === "past_due") return { status, blockLevel: "total", diasAtraso: 1 };
   const vencimento = Date.parse(assinatura.planExpiresAt || assinatura.trialExpiresAt || assinatura.currentPeriodEnd || assinatura.expiresAt || assinatura.nextBillingAt || 0) || 0;
+  if (assinatura.cancelAtPeriodEnd && (!vencimento || vencimento >= Date.now())) return { status: "canceling", blockLevel: "none", diasAtraso: 0, cancelAtPeriodEnd: true };
   if ((status === "active" || status === "trialing") && vencimento && vencimento >= Date.now()) {
     return { status, blockLevel: "none", diasAtraso: 0 };
   }
@@ -4009,6 +4030,8 @@ function garantirEstruturaSaasLocal() {
   billingConfig.pendingPlan = billingConfig.pendingPlan ? normalizarSlugPlano(billingConfig.pendingPlan) : "";
   billingConfig.paymentStatus = normalizarStatusPagamento(billingConfig.paymentStatus || "none");
   billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(billingConfig.subscriptionStatus || (billingConfig.activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(billingConfig.activePlan) ? "active" : "free"));
+  billingConfig.cancelAtPeriodEnd = normalizarBooleanoPlano(billingConfig.cancelAtPeriodEnd ?? billingConfig.cancel_at_period_end);
+  billingConfig.currentPeriodEnd = billingConfig.currentPeriodEnd || billingConfig.current_period_end || billingConfig.planExpiresAt || billingConfig.paidUntil || "";
   billingConfig.cloudSyncPaidOnly = false;
 
   const planoAtual = getPlanoSaas(billingConfig.activePlan || billingConfig.planSlug || "free");
@@ -4103,6 +4126,7 @@ function verificarVencimentoPlanoLocal(salvar = true) {
       assinatura.planId = "free";
       assinatura.activePlan = "free";
       assinatura.subscriptionStatus = "free";
+      assinatura.cancelAtPeriodEnd = false;
       assinatura.status = "active";
       assinatura.statusAssinatura = "active";
       assinatura.currentPeriodEnd = "";
@@ -4116,6 +4140,7 @@ function verificarVencimentoPlanoLocal(salvar = true) {
         cliente.planoAtual = "free";
         cliente.activePlan = "free";
         cliente.subscriptionStatus = "free";
+        cliente.cancelAtPeriodEnd = false;
         cliente.isTrialActive = false;
         cliente.statusAssinatura = "active";
         cliente.updatedAt = new Date().toISOString();
@@ -4124,6 +4149,8 @@ function verificarVencimentoPlanoLocal(salvar = true) {
         billingConfig.planSlug = "free";
         billingConfig.activePlan = "free";
         billingConfig.subscriptionStatus = "free";
+        billingConfig.cancelAtPeriodEnd = false;
+        billingConfig.currentPeriodEnd = "";
         billingConfig.isTrialActive = false;
         billingConfig.licenseStatus = "free";
         billingConfig.licenseBlockLevel = "none";
@@ -4135,6 +4162,7 @@ function verificarVencimentoPlanoLocal(salvar = true) {
       assinatura.planId = "free";
       assinatura.activePlan = "free";
       assinatura.subscriptionStatus = "free";
+      assinatura.cancelAtPeriodEnd = false;
       assinatura.status = "active";
       assinatura.statusAssinatura = "active";
       assinatura.currentPeriodEnd = "";
@@ -4147,8 +4175,18 @@ function verificarVencimentoPlanoLocal(salvar = true) {
         cliente.planoAtual = "free";
         cliente.activePlan = "free";
         cliente.subscriptionStatus = "free";
+        cliente.cancelAtPeriodEnd = false;
         cliente.statusAssinatura = "active";
         cliente.updatedAt = new Date().toISOString();
+      }
+      if (billingConfig.clientId === assinatura.clientId) {
+        billingConfig.planSlug = "free";
+        billingConfig.activePlan = "free";
+        billingConfig.subscriptionStatus = "free";
+        billingConfig.cancelAtPeriodEnd = false;
+        billingConfig.currentPeriodEnd = "";
+        billingConfig.licenseStatus = "free";
+        billingConfig.licenseBlockLevel = "none";
       }
       alterou = true;
     }
@@ -7162,10 +7200,20 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
   const pendingStartedAt = primeiroValorPlano(assinatura?.pendingStartedAt, assinatura?.pending_started_at, billingConfig.pendingStartedAt, cliente?.pendingStartedAt, cliente?.pending_started_at);
   const pendingExpired = paymentStatus === "pending" && (!pendingStartedAt || (now - getTimestampPlano(pendingStartedAt) > LOCAL_CHECKOUT_PENDING_TTL_MS));
   const pending = !pendingExpired && (paymentStatus === "pending" || (!!pendingPlan && pendingPlan !== "free") || statusPlano === "pending");
+  const cancelAtPeriodEnd = normalizarBooleanoPlano(primeiroValorPlano(
+    assinatura?.cancelAtPeriodEnd,
+    assinatura?.cancel_at_period_end,
+    cliente?.cancelAtPeriodEnd,
+    cliente?.cancel_at_period_end,
+    billingConfig.cancelAtPeriodEnd,
+    user?.cancelAtPeriodEnd,
+    user?.cancel_at_period_end,
+    false
+  ));
   const blocked = usuarioEstaBloqueado(user) || (paymentStatus !== "pending" && (billingConfig.licenseStatus === "blocked" || billingConfig.licenseBlockLevel === "total" || billingConfig.blocked));
   const paidActive = ["start", "pro"].includes(activePlan)
     && !planExpired
-    && (subscriptionStatus === "active" || statusPlano === "active" || paymentStatus === "approved");
+    && (["active", "canceling"].includes(subscriptionStatus) || ["active", "canceling"].includes(statusPlano) || paymentStatus === "approved" || cancelAtPeriodEnd);
   const trialActive = trial.active && (
     activePlan === "premium_trial"
     || billingConfig.isTrialActive === true
@@ -7204,6 +7252,7 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
     paymentStatus,
     subscriptionStatus,
     statusPlano,
+    cancelAtPeriodEnd,
     pending,
     pendingExpired: !!pendingExpired,
     trialStartedAt: trial.startedAt,
@@ -7219,6 +7268,80 @@ function resolverEstadoPlano(user = getUsuarioAtual(), options = {}) {
   };
   logEstadoPlanoDebug(snapshot);
   return snapshot;
+}
+
+function temPagamentoPendenteReal(clientId = getClientIdAtual(), assinatura = getAssinaturaSaas(clientId)) {
+  const assinaturaId = String(assinatura?.id || billingConfig.subscriptionId || "");
+  return saasPayments.some((pagamento) => {
+    const status = String(pagamento.status || "").toLowerCase().trim();
+    if (status !== "pending") return false;
+    const mesmoCliente = !clientId || String(pagamento.clientId || "") === String(clientId);
+    const mesmaAssinatura = !assinaturaId || !pagamento.subscriptionId || String(pagamento.subscriptionId) === assinaturaId;
+    const transacaoReal = Boolean(pagamento.mercadoPagoPaymentId || pagamento.mercado_pago_payment_id || pagamento.paymentId || pagamento.payment_id || pagamento.mercadoPagoSubscriptionId || pagamento.mercado_pago_subscription_id);
+    return mesmoCliente && mesmaAssinatura && transacaoReal;
+  });
+}
+
+function getPlanAccessState(userSubscription = getAssinaturaSaas(), options = {}) {
+  const usuario = options.user === undefined ? getUsuarioAtual() : options.user;
+  const cliente = options.client === undefined ? getClienteSaasAtual() : options.client;
+  const assinatura = userSubscription ? normalizarAssinaturaSaas(userSubscription) : null;
+  const estado = resolverEstadoPlano(usuario, {
+    subscription: assinatura,
+    client: cliente,
+    source: options.source || "plan-access-state",
+    now: options.now
+  });
+  const currentPlan = normalizarSlugPlano(primeiroValorPlano(
+    assinatura?.activePlan,
+    assinatura?.planSlug,
+    cliente?.activePlan,
+    cliente?.planoAtual,
+    billingConfig.activePlan,
+    billingConfig.planSlug,
+    "free"
+  ));
+  const effectivePlan = normalizarSlugPlano(estado.hasPremium ? estado.activePlan : "free");
+  const accessEndsAt = primeiroValorPlano(
+    estado.planExpiresAt,
+    assinatura?.currentPeriodEnd,
+    assinatura?.expiresAt,
+    assinatura?.nextBillingAt,
+    cliente?.currentPeriodEnd,
+    cliente?.planExpiresAt,
+    billingConfig.currentPeriodEnd,
+    billingConfig.planExpiresAt,
+    billingConfig.paidUntil,
+    ""
+  );
+  const cancelAtPeriodEnd = normalizarBooleanoPlano(primeiroValorPlano(
+    assinatura?.cancelAtPeriodEnd,
+    cliente?.cancelAtPeriodEnd,
+    billingConfig.cancelAtPeriodEnd,
+    false
+  ));
+  const isPaid = ["start", "pro"].includes(effectivePlan);
+  const isActive = estado.state === PLAN_ACCESS_STATES.ACTIVE || estado.state === PLAN_ACCESS_STATES.TRIAL;
+  const isCancelingAtPeriodEnd = isPaid && isActive && cancelAtPeriodEnd;
+  const realPendingPayment = temPagamentoPendenteReal(assinatura?.clientId || cliente?.id || billingConfig.clientId, assinatura);
+  return {
+    currentPlan,
+    effectivePlan,
+    subscriptionStatus: isCancelingAtPeriodEnd ? "canceling" : estado.subscriptionStatus,
+    paymentStatus: estado.paymentStatus,
+    isFree: !isPaid,
+    isPaid,
+    isActive,
+    isCancelingAtPeriodEnd,
+    canUpgrade: effectivePlan === "free" || effectivePlan === "start",
+    canCancelRenewal: isPaid && isActive && !isCancelingAtPeriodEnd,
+    canSubscribe: effectivePlan === "free",
+    shouldShowPendingPayment: estado.pending === true && realPendingPayment,
+    accessEndsAt: accessEndsAt || "",
+    state: estado.state,
+    pendingCheckout: estado.pending === true && !realPendingPayment,
+    planRemainingDays: estado.planRemainingDays || 0
+  };
 }
 
 function logEstadoPlanoDebug(snapshot = {}) {
@@ -26414,14 +26537,20 @@ function renderStatusPlanoUnico(resumo) {
 
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
-  const estadoPlano = resolverEstadoPlano(getUsuarioAtual(), { source: "plans-screen" });
-  const superadmin = isSuperAdmin();
-  const isPremiumAtivo = superadmin || estadoPlano.state === PLAN_ACCESS_STATES.ACTIVE;
-  const planoAtual = getPlanoSaas(isPremiumAtivo ? estadoPlano.activePlan : "free");
   const usuario = getUsuarioAtual();
-  const proximaCobranca = estadoPlano.planExpiresAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
+  const accessState = getPlanAccessState(getAssinaturaSaas(usuario?.clientId || billingConfig.clientId || ""), { user: usuario, source: "plans-screen" });
+  const superadmin = isSuperAdmin();
+  const isPremiumAtivo = superadmin || accessState.isPaid;
+  const planoAtual = getPlanoSaas(superadmin ? "pro" : accessState.effectivePlan);
+  const proximaCobranca = accessState.accessEndsAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
   const dataCobranca = proximaCobranca ? new Date(proximaCobranca).toLocaleDateString("pt-BR") : "-";
-  const statusLabel = isPremiumAtivo ? "Ativo" : estadoPlano.pending ? "Pendente" : "Grátis";
+  const statusLabel = accessState.isCancelingAtPeriodEnd
+    ? "Cancelamento agendado"
+    : accessState.shouldShowPendingPayment
+      ? "Pagamento pendente"
+      : isPremiumAtivo
+        ? "Ativo"
+        : "Grátis";
   const policy = getPlanPolicy(usuario);
   const usuarioMonetizacao = getUsuarioMonetizacao();
   const acoesRestantes = policy.isPaid ? "Ilimitados" : String(window.MonetizationLimits?.getRemainingFreeActions?.(usuarioMonetizacao) ?? FREE_ACTION_CREDIT_LIMIT);
@@ -26442,9 +26571,10 @@ function renderAssinatura() {
       blocked: ["Não publica vitrine", "Não gera link público", "Não permite compartilhar loja", "Sem personalização avançada"],
       highlights: ["5 pedidos grátis por dia", "+5 pedidos assistindo anúncio", "Máximo 10 pedidos/dia", "Powered by Simplifica 3D"],
       note: "Sua loja está pronta para ser publicada. Ative um plano pago para liberar seu link público.",
-      cta: policy.isFree ? "Plano atual" : "Voltar para Grátis",
-      current: policy.isFree,
-      action: "dashboard"
+      cta: accessState.isFree ? "Plano atual" : "Indisponível durante plano pago",
+      current: accessState.isFree,
+      disabled: !accessState.isFree,
+      action: ""
     },
     {
       slug: "start",
@@ -26459,8 +26589,9 @@ function renderAssinatura() {
       blocked: ["Analytics avançado", "Multiusuário/admin", "Temas premium", "Automações e integrações futuras"],
       highlights: ["Preview vira loja real online", "Sem anúncios", "Link público para compartilhar"],
       note: "O plano principal para colocar a vitrine no ar com aparência profissional.",
-      cta: policy.isStart ? "Plano atual" : "Escolher Start",
+      cta: policy.isStart ? "Plano atual" : policy.isPro ? "Incluído no Pro" : "Assinar Start",
       current: policy.isStart,
+      disabled: policy.isPro,
       action: "start"
     },
     {
@@ -26476,7 +26607,7 @@ function renderAssinatura() {
       blocked: [],
       highlights: ["Operação sem limites", "Identidade premium", "Suporte prioritário"],
       note: "O plano completo para quem quer escalar e vender mais.",
-      cta: policy.isPro ? "Plano atual" : "Escolher Pro",
+      cta: policy.isPro ? "Plano atual" : policy.isStart ? "Upgrade para Pro" : "Assinar Pro",
       current: policy.isPro,
       action: "pro"
     }
@@ -26514,7 +26645,7 @@ function renderAssinatura() {
           <div>
             <span class="eyebrow">Seu plano atual</span>
             <h3>${escaparHtml(planoAtual.name || (isPremiumAtivo ? "Plano Pro" : "Plano Free"))} <small>${escaparHtml(statusLabel)}</small></h3>
-            <p class="muted">${policy.isPaid ? "Sua conta está sem anúncios e com recursos pagos liberados conforme o plano." : "Você pode testar o ERP e montar a loja em preview antes de publicar."}</p>
+            <p class="muted">${accessState.isCancelingAtPeriodEnd ? `Sua assinatura será encerrada em ${escaparHtml(dataCobranca)}. O acesso pago continua liberado até essa data.` : policy.isPaid ? "Sua conta está sem anúncios e com recursos pagos liberados conforme o plano." : "Você pode testar o ERP e montar a loja em preview antes de publicar."}</p>
           </div>
           <span class="plan-modern-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(policy.isPro ? "PRO" : policy.isStart ? "START" : "GRÁTIS")}</span>
         </div>
@@ -26526,7 +26657,7 @@ function renderAssinatura() {
         </div>
         <div class="plans-current-bottom">
           <span><small>Loja pública</small><strong>${policy.publicStore ? "Liberada" : "Somente preview"}</strong></span>
-          <button class="btn ghost" type="button" ${isPremiumAtivo ? "onclick=\"sincronizarSupabase()\"" : "data-action=\"open-payment\" data-slug=\"start\""}>${renderUiIcon("config")} ${isPremiumAtivo ? "Gerenciar plano" : "Publicar com Start"}</button>
+          <button class="btn ghost" type="button" ${accessState.canCancelRenewal ? "data-action=\"plan-cancel\"" : accessState.isCancelingAtPeriodEnd ? "data-action=\"plan-reactivate\"" : "data-action=\"open-payment\" data-slug=\"start\""}>${renderUiIcon("config")} ${accessState.canCancelRenewal ? "Cancelar renovação" : accessState.isCancelingAtPeriodEnd ? "Reativar renovação" : "Publicar com Start"}</button>
         </div>
       </div>
       <button class="plans-help-card plans-view-all-card" type="button" onclick="setPlansModernTab('all')">
@@ -26561,13 +26692,16 @@ function setPlansModernTab(tab = "current") {
 function renderModernPlanOption(plan = {}) {
   const slug = normalizarSlugPlano(plan.slug || "free");
   const short = slug === "pro" ? "PRO" : slug === "start" ? "START" : "GRÁTIS";
-  const click = plan.current
+  const disabled = plan.current || plan.disabled;
+  const click = disabled
     ? ""
     : ["start", "pro"].includes(plan.action)
       ? `data-action="open-payment" data-slug="${escaparAttr(plan.action)}"`
-      : `onclick="trocarTela('${escaparAttr(plan.action || "dashboard")}')"`;
+      : plan.action
+        ? `onclick="trocarTela('${escaparAttr(plan.action)}')"`
+        : "";
   return `
-    <article class="plan-modern-option plan-tier-card plan-tier-${escaparAttr(slug)} ${plan.current ? "current" : ""}" tabindex="0">
+    <article class="plan-modern-option plan-tier-card plan-tier-${escaparAttr(slug)} ${plan.current ? "current" : ""} ${plan.disabled ? "disabled" : ""}" tabindex="0">
       ${plan.current ? `<span class="plan-current-ribbon">Atual</span>` : ""}
       ${plan.badge ? `<span class="plan-tier-badge">${escaparHtml(plan.badge)}</span>` : ""}
       <div class="row-title">
@@ -26597,7 +26731,7 @@ function renderModernPlanOption(plan = {}) {
         </div>
       ` : ""}
       <div class="plan-tier-note">${escaparHtml(plan.note || "")}</div>
-      <button class="btn plan-tier-button" type="button" ${click} ${plan.current ? "disabled" : ""}>${escaparHtml(plan.cta || "Escolher plano")}</button>
+      <button class="btn plan-tier-button" type="button" ${click} ${disabled ? "disabled" : ""}>${escaparHtml(plan.cta || "Escolher plano")}</button>
     </article>
   `;
 }
@@ -27263,6 +27397,7 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
   assinatura.pendingStartedAt = "";
   assinatura.paymentStatus = status === "pending" ? "pending" : "none";
   assinatura.subscriptionStatus = plano.slug === "premium_trial" ? "trialing" : isPlanoPagoSlug(plano.slug) ? "active" : "free";
+  assinatura.cancelAtPeriodEnd = false;
   assinatura.status = normalizarStatusPlano(status);
   assinatura.statusAssinatura = assinatura.status;
   assinatura.promoUsed = detalhes.promoUsed === true || assinatura.promoUsed === true;
@@ -27289,6 +27424,8 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     cliente.pendingStartedAt = "";
     cliente.paymentStatus = assinatura.paymentStatus;
     cliente.subscriptionStatus = assinatura.subscriptionStatus;
+    cliente.cancelAtPeriodEnd = false;
+    cliente.currentPeriodEnd = expiresAt;
     cliente.statusAssinatura = assinatura.statusAssinatura;
     cliente.status = status === "blocked" ? "blocked" : "active";
     cliente.planPrice = planPrice;
@@ -27318,6 +27455,8 @@ function ativarPlanoClienteLocal(clientId, slug, status = "active", dias = 30, d
     billingConfig.pendingStartedAt = "";
     billingConfig.paymentStatus = assinatura.paymentStatus;
     billingConfig.subscriptionStatus = assinatura.subscriptionStatus;
+    billingConfig.cancelAtPeriodEnd = false;
+    billingConfig.currentPeriodEnd = expiresAt;
     billingConfig.licenseStatus = status;
     billingConfig.licenseBlockLevel = "none";
     billingConfig.paidUntil = expiresAt;
@@ -27482,11 +27621,18 @@ async function criarPagamentoUnicoMercadoPago(slug = "start") {
 async function cancelarAssinaturaCliente() {
   const clientId = getClientIdAtual() || billingConfig.clientId;
   const assinatura = garantirAssinaturaClienteLocal(clientId);
-  if (getPlanoSaas(assinatura.planSlug).slug === "free") {
-    alert("Sua conta já está no plano Free.");
+  const accessState = getPlanAccessState(assinatura, { source: "cancel-renewal" });
+  if (accessState.isFree || !accessState.isActive) {
+    alert("O plano Free não possui renovação para cancelar.");
     return;
   }
-  if (!confirm("Cancelar a assinatura e voltar para o Free? Seus dados serão mantidos.")) return;
+  if (accessState.isCancelingAtPeriodEnd) {
+    alert("A renovação já está cancelada. Seu acesso pago continua até o fim do período.");
+    return;
+  }
+  const fimPeriodo = accessState.accessEndsAt || assinatura.currentPeriodEnd || assinatura.planExpiresAt || assinatura.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const dataFim = fimPeriodo ? new Date(fimPeriodo).toLocaleDateString("pt-BR") : "o fim do período pago";
+  if (!confirm(`Cancelar a renovação? O plano ${getPlanoSaas(accessState.effectivePlan).name} continua ativo até ${dataFim}.`)) return;
 
   try {
     if (syncConfig.supabaseAccessToken && assinatura.mercadoPagoSubscriptionId) {
@@ -27500,8 +27646,75 @@ async function cancelarAssinaturaCliente() {
     alert("Não foi possível confirmar o cancelamento automático. Vamos manter a solicitação local e o suporte pode conferir a cobrança.");
   }
 
-  ativarPlanoClienteLocal(clientId, "free", "active", 0, { origem: "cancelamento_cliente", paymentStatus: "cancelled" });
-  alert("Assinatura cancelada. A conta voltou para o Free com anúncios e seus dados foram mantidos.");
+  const agora = new Date().toISOString();
+  assinatura.cancelAtPeriodEnd = true;
+  assinatura.subscriptionStatus = "canceling";
+  assinatura.status = "active";
+  assinatura.statusAssinatura = "canceling";
+  assinatura.paymentStatus = "none";
+  assinatura.pendingPlan = "";
+  assinatura.pendingStartedAt = "";
+  assinatura.currentPeriodEnd = fimPeriodo || assinatura.currentPeriodEnd || "";
+  assinatura.expiresAt = fimPeriodo || assinatura.expiresAt || "";
+  assinatura.planExpiresAt = fimPeriodo || assinatura.planExpiresAt || "";
+  assinatura.updatedAt = agora;
+  const cliente = getClienteSaasPorId(clientId);
+  if (cliente) {
+    cliente.cancelAtPeriodEnd = true;
+    cliente.subscriptionStatus = "canceling";
+    cliente.statusAssinatura = "canceling";
+    cliente.pendingPlan = "";
+    cliente.pendingStartedAt = "";
+    cliente.paymentStatus = "none";
+    cliente.currentPeriodEnd = fimPeriodo || cliente.currentPeriodEnd || "";
+    cliente.planExpiresAt = fimPeriodo || cliente.planExpiresAt || "";
+    cliente.updatedAt = agora;
+  }
+  if (String(clientId || "") === String(getClientIdAtual() || billingConfig.clientId || "")) {
+    billingConfig.cancelAtPeriodEnd = true;
+    billingConfig.subscriptionStatus = "canceling";
+    billingConfig.licenseStatus = "active";
+    billingConfig.paymentStatus = "none";
+    billingConfig.pendingPlan = "";
+    billingConfig.pendingStartedAt = "";
+    billingConfig.currentPeriodEnd = fimPeriodo || billingConfig.currentPeriodEnd || "";
+    billingConfig.planExpiresAt = fimPeriodo || billingConfig.planExpiresAt || "";
+    billingConfig.paidUntil = fimPeriodo || billingConfig.paidUntil || "";
+  }
+  salvarDados();
+  registrarAuditoria("cancelamento renovacao", { plano: accessState.effectivePlan, accessEndsAt: fimPeriodo, origem: "cliente" }, clientId);
+  alert(`Renovação cancelada. O acesso pago continua liberado até ${dataFim}.`);
+  renderApp();
+}
+
+function reativarRenovacaoAssinaturaCliente() {
+  const clientId = getClientIdAtual() || billingConfig.clientId;
+  const assinatura = garantirAssinaturaClienteLocal(clientId);
+  const accessState = getPlanAccessState(assinatura, { source: "reactivate-renewal" });
+  if (!accessState.isCancelingAtPeriodEnd) {
+    alert("Não há cancelamento de renovação agendado para reativar.");
+    return;
+  }
+  assinatura.cancelAtPeriodEnd = false;
+  assinatura.subscriptionStatus = "active";
+  assinatura.status = "active";
+  assinatura.statusAssinatura = "active";
+  assinatura.updatedAt = new Date().toISOString();
+  const cliente = getClienteSaasPorId(clientId);
+  if (cliente) {
+    cliente.cancelAtPeriodEnd = false;
+    cliente.subscriptionStatus = "active";
+    cliente.statusAssinatura = "active";
+    cliente.updatedAt = new Date().toISOString();
+  }
+  if (String(clientId || "") === String(getClientIdAtual() || billingConfig.clientId || "")) {
+    billingConfig.cancelAtPeriodEnd = false;
+    billingConfig.subscriptionStatus = "active";
+    billingConfig.licenseStatus = "active";
+  }
+  salvarDados();
+  registrarAuditoria("reativacao renovacao", { plano: accessState.effectivePlan }, clientId);
+  alert("Renovação reativada. Sua assinatura continua ativa normalmente.");
   renderApp();
 }
 
@@ -30021,7 +30234,8 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   }
   billingConfig.pendingPlan = licenca.pending_plan ? normalizarSlugPlano(licenca.pending_plan) : "";
   billingConfig.paymentStatus = normalizarStatusPagamento(licenca.payment_status || (statusEfetivo === PLAN_ACCESS_STATES.PENDING ? "pending" : "none"));
-  billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(licenca.subscription_status || (billingConfig.activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(billingConfig.activePlan) ? "active" : "free"));
+  billingConfig.cancelAtPeriodEnd = normalizarBooleanoPlano(licenca.cancel_at_period_end ?? licenca.cancelAtPeriodEnd ?? billingConfig.cancelAtPeriodEnd);
+  billingConfig.subscriptionStatus = normalizarStatusAssinaturaDefinitivo(licenca.subscription_status || (billingConfig.cancelAtPeriodEnd && isPlanoPagoSlug(billingConfig.activePlan) ? "canceling" : billingConfig.activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(billingConfig.activePlan) ? "active" : "free"));
   if (!isLicencaEfetiva) billingConfig.licenseStatus = normalizarStatusPlano(licenca.status || billingConfig.licenseStatus || "pending");
   billingConfig.licenseBlockLevel = String(licenca.block_level || (statusEfetivo === PLAN_ACCESS_STATES.BLOCKED ? "total" : "none"));
   billingConfig.planPrice = Math.max(0, Number(licenca.plan_price ?? billingConfig.planPrice ?? 0) || 0);
@@ -30034,6 +30248,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     billingConfig.paidUntil = String(licenca.premium_until || licenca.current_period_end || licenca.expires_at);
     billingConfig.planExpiresAt = billingConfig.paidUntil;
     billingConfig.premiumUntil = billingConfig.paidUntil;
+    billingConfig.currentPeriodEnd = billingConfig.paidUntil;
   }
   billingConfig.blockedAt = licenca.blocked_at || "";
   billingConfig.blockedReason = licenca.blocked_reason || "";
@@ -30067,6 +30282,8 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     cliente.pendingPlan = billingConfig.pendingPlan;
     cliente.paymentStatus = billingConfig.paymentStatus;
     cliente.subscriptionStatus = billingConfig.subscriptionStatus;
+    cliente.cancelAtPeriodEnd = billingConfig.cancelAtPeriodEnd;
+    cliente.currentPeriodEnd = billingConfig.currentPeriodEnd || billingConfig.planExpiresAt;
     cliente.planPrice = billingConfig.planPrice;
     cliente.priceLocked = billingConfig.priceLocked;
     cliente.planExpiresAt = billingConfig.planExpiresAt;
@@ -30093,6 +30310,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     assinatura.pendingPlan = billingConfig.pendingPlan;
     assinatura.paymentStatus = billingConfig.paymentStatus;
     assinatura.subscriptionStatus = billingConfig.subscriptionStatus;
+    assinatura.cancelAtPeriodEnd = billingConfig.cancelAtPeriodEnd;
     assinatura.planPrice = billingConfig.planPrice;
     assinatura.priceLocked = billingConfig.priceLocked;
     assinatura.userId = licenca.user_id || assinatura.userId;
@@ -36045,6 +36263,12 @@ function configurarEventListenersArquitetura() {
     if (acao === "plan-cancel") {
       event.preventDefault();
       cancelarAssinaturaCliente();
+      return;
+    }
+
+    if (acao === "plan-reactivate") {
+      event.preventDefault();
+      reativarRenovacaoAssinaturaCliente();
       return;
     }
 
