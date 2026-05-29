@@ -162,6 +162,7 @@ assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML")
 
 [
   "src/services/diagnosticsService.js",
+  "scripts/diagnostics-remote-controlled.js",
   "scripts/test-diagnostics-foundation.js",
   "docs/diagnostics-error-reports.md",
   "docs/superadmin-bug-reports.md",
@@ -174,6 +175,7 @@ assert(pkg.scripts && pkg.scripts["test:diagnostics"] === "node scripts/test-dia
 assert(pkg.scripts && pkg.scripts["test:feedback-reports"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:feedback-reports");
 assert(pkg.scripts && pkg.scripts["test:superadmin-diagnostics"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:superadmin-diagnostics");
 assert(pkg.scripts && pkg.scripts["test:codex-report-export"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:codex-report-export");
+assert(pkg.scripts && pkg.scripts["supabase:diagnostics:validate"] === "node scripts/diagnostics-remote-controlled.js validate", "package.json expoe validacao remota de diagnosticos");
 assert(index.includes("/src/services/diagnosticsService.js") && index.indexOf("/src/services/diagnosticsService.js") < index.indexOf("/app.js"), "DiagnosticsService carrega antes do app.js");
 assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService entra no precache PWA");
 [
@@ -198,6 +200,9 @@ assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService 
   "Relatórios e Diagnóstico"
 ].forEach((marker) => assert(app.includes(marker), `fase 6a marker presente: ${marker}`));
 assert(read("supabase/migrations/20260529173500_diagnostics_validation_hardening.sql").includes("refresh_app_bug_cluster_from_error"), "fase 6b clusters recebem trigger de atualizacao");
+assert(read("supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql").includes("add column if not exists message text"), "fase 6c migration de feedback e idempotente para coluna message");
+assert(read("scripts/diagnostics-remote-controlled.js").includes("diagnostics_remote_validation_ok"), "fase 6c validacao remota tem marcador de sucesso");
+assert(read("scripts/diagnostics-remote-controlled.js").includes("refresh_app_bug_cluster_after_error"), "fase 6c validacao remota confere trigger de cluster");
 
 [
   "--bg-primary",

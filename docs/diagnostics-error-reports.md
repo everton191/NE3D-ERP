@@ -121,3 +121,33 @@ Limites:
 
 - A migration precisa estar aplicada no Supabase remoto para validar dados reais.
 - A validacao autenticada do painel Superadmin deve ser repetida com conta real apos deploy/migration.
+
+## Aplicacao remota e RLS - Fase 6C
+
+As migrations de IA desativada e diagnosticos foram aplicadas no projeto remoto principal `qsufnnivlgdidmjuaprb` em 2026-05-29 por execucao individual controlada:
+
+- `20260529141000_ai_foundation_disabled.sql`;
+- `20260529162000_diagnostics_bugs_feedback_codex.sql`;
+- `20260529173500_diagnostics_validation_hardening.sql`.
+
+O fluxo evitou `db push` geral porque o dry-run indicou migrations antigas fora de escopo pendentes antes da fase atual. Depois da aplicacao individual, o historico remoto foi reparado apenas para essas tres versoes com `supabase migration repair --status applied`.
+
+Validacao remota executada:
+
+- tabelas de IA e diagnosticos existem no schema publico;
+- RLS esta ativo em todas as tabelas novas;
+- nenhuma policy das tabelas novas usa `using (true)` ou `with check (true)`;
+- `app_ai_settings` permanece com IA desligada (`ai_enabled=false`, provider `disabled`, limite `0`);
+- trigger `refresh_app_bug_cluster_after_error` esta instalado;
+- usuario comum consegue inserir/ler o proprio feedback, erro, evento e tentativa bloqueada de IA;
+- usuario comum nao consegue ler clusters globais nem alterar severidade;
+- superadmin reconhecido por `erp_is_superadmin()` consegue ler cluster, alterar bug/feedback e criar export para Codex;
+- a validacao usa transacao com `rollback`, sem deixar dados de teste permanentes.
+
+Comando repetivel:
+
+```bash
+npm run supabase:diagnostics:validate
+```
+
+Observacao: o dry-run global ainda aponta migrations antigas de storefront/financeiro fora do escopo desta fase. Elas nao devem ser enviadas junto com diagnosticos sem uma revisao propria.

@@ -87,3 +87,14 @@ O texto continua sem IA real e sem envio para provider externo.
 Limite:
 
 - o salvamento definitivo depende de token Supabase e migration aplicada no ambiente alvo.
+
+## Validacao remota - Fase 6C
+
+Com as migrations aplicadas no Supabase remoto, o export tecnico foi validado em transacao:
+
+- `app_bug_reports_exports` existe com RLS ativo;
+- usuario comum nao tem acesso global ao export;
+- superadmin consegue inserir relatorio com status `generated`;
+- o teste usa `rollback`, portanto nao deixa relatorio temporario salvo.
+
+O relatorio continua deterministico, sem provider de IA e sem envio automatico para servico externo.

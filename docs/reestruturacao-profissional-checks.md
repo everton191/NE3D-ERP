@@ -370,3 +370,19 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Confirmar que eventos de planos/Mercado Pago sao aceitos sem mexer no webhook real.
 - `[ ]` Validar envio manual pela UI com usuario autenticado em ambiente remoto.
 - `[ ]` Validar RLS real com usuario comum e superadmin apos aplicar migrations no Supabase.
+
+## Fase 6C - Aplicacao Remota, RLS e Superadmin
+
+- `[x]` Rodar dry-run remoto antes de aplicar migrations.
+- `[x]` Identificar que `db push` geral tentaria aplicar migrations antigas fora do escopo.
+- `[x]` Aplicar individualmente `20260529141000_ai_foundation_disabled.sql`.
+- `[x]` Aplicar individualmente `20260529162000_diagnostics_bugs_feedback_codex.sql`.
+- `[x]` Aplicar individualmente `20260529173500_diagnostics_validation_hardening.sql`.
+- `[x]` Reparar historico remoto apenas das tres migrations da fase.
+- `[x]` Corrigir idempotencia de `app_feedback_reports.message` para bancos onde a tabela ja existia.
+- `[x]` Criar `scripts/diagnostics-remote-controlled.js` para status, dry-run, apply e validate.
+- `[x]` Validar RLS remoto com usuario comum e superadmin em transacao com rollback.
+- `[x]` Validar que usuario comum nao le clusters globais nem altera severidade.
+- `[x]` Validar que superadmin altera bug/feedback e gera export Codex.
+- `[x]` Confirmar IA futura ainda desativada no remoto.
+- `[~]` Validacao manual com usuario/superadmin real no navegador deve ser repetida apos deploy.

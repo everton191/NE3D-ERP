@@ -67,3 +67,20 @@ A validacao de diagnosticos manteve a IA desativada:
 - nenhum item visual novo de IA.
 
 Os relatorios para Codex sao gerados por template deterministico, sem modelo de IA.
+
+## Validacao remota - Fase 6C
+
+A migration `20260529141000_ai_foundation_disabled.sql` foi aplicada no Supabase remoto principal junto das migrations de diagnostico.
+
+Validacoes confirmadas:
+
+- `app_ai_settings`, `app_ai_usage_logs`, `app_ai_context_snapshots` e `app_ai_feature_flags` existem;
+- RLS esta ativo nas tabelas;
+- nao ha policy publica aberta;
+- `app_ai_settings` nao possui IA habilitada nem provider real configurado;
+- usuario comum consegue registrar somente tentativa bloqueada em `app_ai_usage_logs`;
+- nenhum provider de IA foi conectado;
+- nenhuma chave foi adicionada;
+- nenhuma mudanca visual foi exposta ao usuario.
+
+A ativacao futura continua exigindo backend seguro, provider real, flags, limites e liberacao controlada.

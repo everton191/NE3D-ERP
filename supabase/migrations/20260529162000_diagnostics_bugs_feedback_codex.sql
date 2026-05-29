@@ -68,6 +68,7 @@ create table if not exists public.app_feedback_reports (
 alter table public.app_feedback_reports
   add column if not exists user_email text,
   add column if not exists user_name text,
+  add column if not exists message text,
   add column if not exists description text,
   add column if not exists screen text,
   add column if not exists screen_name text,
