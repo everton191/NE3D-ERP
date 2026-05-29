@@ -70,6 +70,7 @@
     "test:plans-saas-structure": "node scripts/test-plans-saas-structure.js",
     "test:plans": "node scripts/test-plans-subscription-rules.js",
     "test:ai-foundation": "node scripts/test-ai-foundation.js",
+    "test:google-integrations-foundation": "node scripts/test-google-integrations-foundation.js",
     "test:diagnostics": "node scripts/test-diagnostics-foundation.js",
     "test:feedback-reports": "node scripts/test-diagnostics-foundation.js",
     "test:superadmin-diagnostics": "node scripts/test-diagnostics-foundation.js",

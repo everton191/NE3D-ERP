@@ -161,6 +161,28 @@ assert(!index.includes("aiService.js"), "services de IA nao carregam na UI");
 assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML");
 
 [
+  "src/integrations/google/README.md",
+  "src/integrations/google/google.config.example.js",
+  "src/integrations/google/googleIntegrationService.js",
+  "src/integrations/google/auth/README.md",
+  "src/integrations/google/calendar/README.md",
+  "src/integrations/google/drive/README.md",
+  "src/integrations/google/gmail/README.md",
+  "src/integrations/google/sheets/README.md",
+  "supabase/functions/google-oauth/README.md",
+  "supabase/functions/google-calendar-sync/README.md",
+  "supabase/functions/google-drive-backup/README.md",
+  "supabase/functions/google-gmail-send/README.md",
+  "supabase/functions/google-sheets-sync/README.md",
+  "supabase/migrations/20260529193000_google_integrations_foundation_disabled.sql",
+  "scripts/test-google-integrations-foundation.js"
+].forEach((file) => assert(exists(file), `fundacao Google futura desativada presente: ${file}`));
+assert(pkg.scripts && pkg.scripts["test:google-integrations-foundation"] === "node scripts/test-google-integrations-foundation.js", "package.json expoe test:google-integrations-foundation");
+assert(!index.includes("googleIntegrationService.js"), "service Google futuro nao carrega na UI");
+assert(read("src/integrations/google/googleIntegrationService.js").includes("GOOGLE_INTEGRATIONS_DISABLED"), "service Google retorna disabled controlado");
+assert(read("supabase/migrations/20260529193000_google_integrations_foundation_disabled.sql").includes("app_integration_feature_flags"), "migration Google prepara feature flags desligadas");
+
+[
   "src/services/diagnosticsService.js",
   "scripts/diagnostics-remote-controlled.js",
   "scripts/test-diagnostics-foundation.js",

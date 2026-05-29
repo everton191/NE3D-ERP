@@ -386,3 +386,18 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Validar que superadmin altera bug/feedback e gera export Codex.
 - `[x]` Confirmar IA futura ainda desativada no remoto.
 - `[~]` Validacao manual com usuario/superadmin real no navegador deve ser repetida apos deploy.
+
+## Fundacao Google Futura Desativada
+
+- `[x]` Criar estrutura `src/integrations/google`.
+- `[x]` Criar placeholders para Auth, Calendar, Drive, Gmail e Sheets.
+- `[x]` Criar placeholders de Supabase Functions para OAuth e sincronizacoes futuras.
+- `[x]` Criar `googleIntegrationService.js` sem chamadas externas.
+- `[x]` Garantir retorno `GOOGLE_INTEGRATIONS_DISABLED` em todos os metodos.
+- `[x]` Documentar variaveis futuras `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` e `GOOGLE_ENCRYPTION_KEY`.
+- `[x]` Criar migration idempotente para `external_integrations`, `integration_tokens`, `integration_sync_jobs`, `integration_logs` e `app_integration_feature_flags`.
+- `[x]` Manter flags Google futuras desligadas por padrao.
+- `[x]` Ativar RLS com isolamento por `owner_id = auth.uid()` e superadmin.
+- `[x]` Nao carregar service Google no `index.html`.
+- `[x]` Nao alterar login por e-mail/senha nem Supabase Auth atual.
+- `[x]` Nao adicionar SDK Google ou OAuth funcional.

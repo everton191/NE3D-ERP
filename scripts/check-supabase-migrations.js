@@ -62,7 +62,16 @@ const checks = [
   ["error logs RLS", /alter table public\.app_error_logs enable row level security/i],
   ["feedback RLS", /alter table public\.app_feedback_reports enable row level security/i],
   ["error dedupe 6 hours", /last_seen_at >= now\(\) - interval '6 hours'/i],
-  ["error affected users count", /affected_user_count[\s\S]*app_error_log_users/i]
+  ["error affected users count", /affected_user_count[\s\S]*app_error_log_users/i],
+  ["google external integrations table", /create table if not exists public\.external_integrations/i],
+  ["google integration tokens table", /create table if not exists public\.integration_tokens/i],
+  ["google integration jobs table", /create table if not exists public\.integration_sync_jobs/i],
+  ["google integration logs table", /create table if not exists public\.integration_logs/i],
+  ["google integration flags table", /create table if not exists public\.app_integration_feature_flags/i],
+  ["google integrations RLS", /alter table public\.external_integrations enable row level security/i],
+  ["google flags disabled", /google_integrations_enabled[\s\S]*google_auth_enabled[\s\S]*google_calendar_enabled[\s\S]*google_drive_enabled[\s\S]*google_gmail_enabled[\s\S]*google_sheets_enabled/i],
+  ["google token placeholder only", /encrypted_token_placeholder text not null default 'not_configured'/i],
+  ["google tokens service role only", /grant select, insert, update, delete on public\.integration_tokens to service_role/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({
