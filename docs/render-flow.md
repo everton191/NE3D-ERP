@@ -203,6 +203,23 @@ renderDesktop()
 
 Risco: preview, editor e admin ainda compartilham bastante CSS global e estado em `app.js`.
 
+## Fase 5B - Fundacao de IA Desativada
+
+A fundacao de IA nao entra no fluxo de renderizacao do app. Os services ficam isolados em `src/services/ai*.js` e nao sao referenciados por `index.html`, menus, planos ou telas do ERP.
+
+Fluxo futuro preparado e bloqueado:
+
+```txt
+askAi(payload)
+ ├── valida ownerId/userId
+ ├── getAiAccessState()
+ │    └── retorna AI_DISABLED nesta fase
+ ├── registra tentativa bloqueada de forma segura
+ └── retorna { ok:false, reason:"AI_DISABLED" }
+```
+
+Providers reais ficam apenas como stubs controlados. Nenhum caminho de render cria botao, tela, menu ou card de IA nesta fase.
+
 ## Fluxo Pedidos / Modal / Detalhes
 
 ```txt

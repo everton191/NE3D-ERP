@@ -135,15 +135,30 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v116-estavel-20260528-store-editor-4g"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v117-estavel-20260529-brand-ai-foundation"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-store-editor-4g-20260528"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-brand-assets-20260529"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
   "./modules/store-editor/storeEditorPreview.js",
   "./modules/store-editor/storeEditorProducts.js"
 ].forEach((marker) => assert(sw.includes(marker), `fase 4f modulo entra no precache PWA: ${marker}`));
+
+[
+  "src/services/aiService.js",
+  "src/services/aiProviderAdapter.js",
+  "src/services/aiQuotaService.js",
+  "src/services/aiContextService.js",
+  "src/services/aiFeatureFlagService.js",
+  "src/services/aiCostService.js",
+  "scripts/test-ai-foundation.js",
+  "docs/ai-foundation.md",
+  "supabase/migrations/20260529141000_ai_foundation_disabled.sql"
+].forEach((file) => assert(exists(file), `fase 5b fundacao IA desativada presente: ${file}`));
+assert(pkg.scripts && pkg.scripts["test:ai-foundation"] === "node scripts/test-ai-foundation.js", "package.json expoe test:ai-foundation");
+assert(!index.includes("aiService.js"), "services de IA nao carregam na UI");
+assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML");
 
 [
   "--bg-primary",

@@ -218,6 +218,20 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Respeitar `prefers-reduced-motion` nos componentes novos.
 - `[ ]` Aplicar polimento profundo em dashboards reais na fase futura.
 
+## Fase 5B - Fundacao de IA Futura Desativada
+
+- `[x]` Criar services isolados `src/services/ai*.js`.
+- `[x]` Criar provider adapter com `disabled` funcional e providers futuros como stubs seguros.
+- `[x]` Criar quota, feature flags, custo e context builders seguros.
+- `[x]` Criar migration idempotente `app_ai_*` com RLS ativo.
+- `[x]` Garantir que todas as feature flags de IA nascem desligadas.
+- `[x]` Garantir que todos os planos retornam IA bloqueada nesta fase.
+- `[x]` Criar `docs/ai-foundation.md`.
+- `[x]` Criar `npm run test:ai-foundation`.
+- `[x]` Nao carregar services de IA no `index.html`.
+- `[x]` Nao adicionar menu, botao, card, tooltip ou tela de IA.
+- `[x]` Nao adicionar provider real, SDK externo, fetch de IA ou chave de API.
+
 ## Fase 4A - Arquitetura Modular da Storefront e Editor
 
 - `[x]` Criar estrutura formal `modules/storefront`, `modules/store-editor` e `modules/store-preview`.
