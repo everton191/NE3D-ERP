@@ -5120,7 +5120,7 @@ body.theme-light .plan-tier-card{
 }
 
 .telemetry-table .payment-row{
-  grid-template-columns:minmax(150px, 1.4fr) minmax(70px, .5fr) minmax(70px, .5fr) minmax(90px, .7fr) minmax(110px, .8fr) minmax(120px, 1fr) minmax(120px, .9fr) minmax(80px, .6fr) minmax(170px, 1fr);
+  grid-template-columns:minmax(150px, 1.4fr) repeat(8, minmax(70px, .75fr)) minmax(110px, .8fr);
 }
 
 .telemetry-table small{
@@ -5128,6 +5128,20 @@ body.theme-light .plan-tier-card{
   color:var(--muted);
   font-size:var(--font-xs);
   margin-top:4px;
+}
+
+.diagnostics-codex-report{
+  width:100%;
+  min-height:18rem;
+  resize:vertical;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:var(--font-sm);
+  line-height:1.55;
+  color:var(--text-primary);
+  background:var(--surface-primary);
+  border:1px solid var(--border-soft);
+  border-radius:var(--radius-lg);
+  padding:var(--space-lg);
 }
 
 .comparison-grid{

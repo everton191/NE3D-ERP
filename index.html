@@ -52,6 +52,7 @@
 <div id="popup" data-legacy-layer="popup"></div>
 
 <script src="/src/services/errorTelemetry.js?v=telemetry-20260504"></script>
+<script src="/src/services/diagnosticsService.js?v=fase-6a-diagnostics-20260529"></script>
 <script src="/src/services/adMobService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/adSenseService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
@@ -59,10 +60,10 @@
 <script src="/modules/store-editor/storeEditorTabs.js?v=fase-4g-appjs-reduction"></script>
 <script src="/modules/store-editor/storeEditorPreview.js?v=fase-4g-appjs-reduction"></script>
 <script src="/modules/store-editor/storeEditorProducts.js?v=fase-4g-appjs-reduction"></script>
-  <script src="/app.js?v=1.0.16-estavel-brand-assets-20260529"></script>
+  <script src="/app.js?v=1.0.16-estavel-diagnostics-20260529"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.16-estavel-brand-assets-20260529", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=1.0.16-estavel-diagnostics-20260529", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>

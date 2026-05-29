@@ -453,6 +453,46 @@ renderAssinatura()
 
 `checkout_opened` permanece como tentativa temporaria e nao altera o plano efetivo. A tela so mostra pagamento pendente quando existe transacao real pendente. Cancelar renovacao nao chama downgrade para Free: o acesso pago continua ate `currentPeriodEnd || expiresAt || planExpiresAt`.
 
+## Fase 6A - Diagnosticos, feedback e relatorios
+
+```txt
+index.html
+ ├── src/services/diagnosticsService.js
+ ├── app.js
+ │    └── configurarTelemetriaErros()
+ │         ├── ErrorTelemetry legado preservado
+ │         └── DiagnosticsService.configure(...)
+ │              ├── reportAppError()
+ │              ├── reportFeedback()
+ │              ├── reportDiagnosticEvent()
+ │              ├── fila offline local
+ │              └── sanitizacao de payload
+ └── sw.js precacheia diagnosticsService.js
+```
+
+O usuario comum envia relatos pela tela de Ajuda e Feedback. O Superadmin acessa `Relatorios e Diagnostico`, que agrega bugs, sugestoes, eventos, clusters e gera relatorio tecnico para Codex.
+
+Fluxo de bug:
+
+```txt
+erro capturado
+ └── generateErrorFingerprint()
+      └── register_app_error / app_error_logs
+           ├── occurrence_count
+           ├── app_error_log_users
+           └── app_bug_clusters futuro/processado
+```
+
+Fluxo de IA futura:
+
+```txt
+enableAiDiagnostics=false
+enableAiAssistant=false
+enableAiBugSummary=false
+```
+
+Nenhuma IA local/offline, provider externo ou API de IA e chamada nesta fase.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

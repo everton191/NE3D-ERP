@@ -82,3 +82,28 @@ A tela e as politicas devem depender de `getPlanAccessState(userSubscription)`, 
 - `accessEndsAt`
 
 Essa funcao evita logica de plano espalhada e reduz regressao futura.
+
+## Diagnosticos preparados - Fase 6A
+
+A Fase 6A adiciona eventos de diagnostico para planos, checkout e Mercado Pago sem alterar a regra de negocio corrigida na Fase 5A.
+
+Eventos preparados:
+
+- `checkout_opened`;
+- `checkout_abandoned`;
+- `checkout_returned_without_payment`;
+- `payment_pending_real`;
+- `payment_approved`;
+- `payment_failed`;
+- `subscription_created`;
+- `subscription_cancel_requested`;
+- `subscription_cancel_at_period_end`;
+- `subscription_reactivated`;
+- `subscription_expired`;
+- `webhook_received`;
+- `webhook_validation_failed`;
+- `webhook_ignored_duplicate`;
+- `webhook_plan_resolved`;
+- `webhook_plan_resolution_failed`.
+
+Esses eventos servem apenas para auditoria e relatorios. Eles nao mudam plano, nao criam pagamento pendente visual, nao liberam recurso e nao alteram `cancelAtPeriodEnd`.

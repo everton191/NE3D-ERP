@@ -342,3 +342,18 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Mostrar pagamento pendente apenas quando houver transacao real pendente.
 - `[x]` Adicionar teste `test:plans` para as regras de assinatura.
 - `[ ]` Validar webhook Mercado Pago em ambiente remoto antes de remover caminhos legados.
+
+## Fase 6A - Diagnosticos, Bugs, Sugestoes e Relatorio Codex
+
+- `[x]` Criar `src/services/diagnosticsService.js` com fila offline, sanitizacao, fingerprint e envio seguro.
+- `[x]` Expor `reportAppError`, `reportFeedback`, `reportDiagnosticEvent`, `generateErrorFingerprint`, `sanitizeDiagnosticPayload` e `flushPendingDiagnosticsQueue`.
+- `[x]` Capturar `window.onerror` e `window.onunhandledrejection` sem quebrar runtime.
+- `[x]` Criar migration idempotente para `app_error_logs`, `app_error_log_users`, `app_feedback_reports`, `app_diagnostic_events`, `app_bug_clusters`, `app_bug_reports_exports`, `app_ai_analysis_runs` e `app_ai_knowledge_base`.
+- `[x]` Ativar RLS nas tabelas novas sem policies publicas abertas.
+- `[x]` Adicionar aba Superadmin `Relatorios e Diagnostico`.
+- `[x]` Gerar relatorio tecnico para Codex a partir de bugs/clusters.
+- `[x]` Preparar eventos de planos, checkout e Mercado Pago sem alterar regras de assinatura.
+- `[x]` Preparar flags de IA futura (`enableAiDiagnostics`, `enableAiAssistant`, `enableAiBugSummary`) desligadas.
+- `[x]` Criar testes `test:diagnostics`, `test:feedback-reports`, `test:superadmin-diagnostics` e `test:codex-report-export`.
+- `[ ]` Aplicar migration no Supabase remoto antes de validar dados reais de usuarios.
+- `[ ]` Validar painel Superadmin autenticado contra dados reais de producao controlada.

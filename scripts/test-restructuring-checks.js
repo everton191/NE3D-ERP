@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v117-estavel-20260529-brand-ai-foundation"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v118-estavel-20260529-diagnostics"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-brand-assets-20260529"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-diagnostics-20260529"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
@@ -159,6 +159,36 @@ assert(index.includes("1.0.16-estavel-brand-assets-20260529"), "index.html usa c
 assert(pkg.scripts && pkg.scripts["test:ai-foundation"] === "node scripts/test-ai-foundation.js", "package.json expoe test:ai-foundation");
 assert(!index.includes("aiService.js"), "services de IA nao carregam na UI");
 assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML");
+
+[
+  "src/services/diagnosticsService.js",
+  "scripts/test-diagnostics-foundation.js",
+  "docs/diagnostics-error-reports.md",
+  "docs/superadmin-bug-reports.md",
+  "docs/codex-diagnostics-report.md",
+  "docs/ai-future-foundation.md",
+  "supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql"
+].forEach((file) => assert(exists(file), `fase 6a diagnosticos presente: ${file}`));
+assert(pkg.scripts && pkg.scripts["test:diagnostics"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:diagnostics");
+assert(pkg.scripts && pkg.scripts["test:feedback-reports"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:feedback-reports");
+assert(pkg.scripts && pkg.scripts["test:superadmin-diagnostics"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:superadmin-diagnostics");
+assert(pkg.scripts && pkg.scripts["test:codex-report-export"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:codex-report-export");
+assert(index.includes("/src/services/diagnosticsService.js") && index.indexOf("/src/services/diagnosticsService.js") < index.indexOf("/app.js"), "DiagnosticsService carrega antes do app.js");
+assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService entra no precache PWA");
+[
+  "reportAppError",
+  "reportFeedback",
+  "reportDiagnosticEvent",
+  "generateErrorFingerprint",
+  "sanitizeDiagnosticPayload",
+  "flushPendingDiagnosticsQueue"
+].forEach((marker) => assert(read("src/services/diagnosticsService.js").includes(marker), `fase 6a service marker presente: ${marker}`));
+[
+  "window.DiagnosticsService.configure",
+  "renderSuperAdminDiagnosticos",
+  "gerarRelatorioCodexDiagnostico",
+  "Relatórios e Diagnóstico"
+].forEach((marker) => assert(app.includes(marker), `fase 6a marker presente: ${marker}`));
 
 [
   "--bg-primary",

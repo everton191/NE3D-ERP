@@ -488,6 +488,9 @@ let sugestoes = carregarLista("sugestoes");
 let appErrorLogsRemotos = [];
 let appFeedbackReportsRemotos = [];
 let appSuggestionsRemotas = [];
+let appDiagnosticEventsRemotos = [];
+let appBugClustersRemotos = [];
+let appBugReportsExportsRemotos = [];
 let securityLogs = carregarLista("securityLogs");
 let auditLogs = carregarLista("auditLogs");
 let passwordResetTokens = carregarLista("passwordResetTokens");
@@ -1372,6 +1375,70 @@ function configurarTelemetriaErros() {
         telemetry: false,
         body: JSON.stringify(payload)
       })
+    });
+  } catch (_) {}
+  try {
+    if (!window.DiagnosticsService?.configure) return;
+    window.DiagnosticsService.configure({
+      getContext: () => {
+        const usuario = getUsuarioAtual();
+        const planState = getPlanAccessState(usuario || {});
+        return {
+          userId: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : "",
+          userEmail: normalizarEmail(syncConfig.supabaseEmail || usuario?.email || billingConfig.licenseEmail || ""),
+          appVersion: APP_VERSION,
+          buildNumber: String(APP_VERSION_CODE || ""),
+          screen: telaAtual || "",
+          action: "",
+          deviceModel: syncConfig.deviceName || deviceId || navigator.platform || "",
+          os: navigator.userAgent || "",
+          browser: navigator.userAgent || "",
+          platform: window.Capacitor?.getPlatform?.() || (navigator.userAgentData?.mobile ? "mobile-web" : "web"),
+          isPwa: window.matchMedia?.("(display-mode: standalone)")?.matches || false,
+          isApk: !!window.Capacitor?.isNativePlatform?.(),
+          route: location.pathname || "",
+          planAtTime: planState.currentPlan || "",
+          subscriptionStatusAtTime: planState.subscriptionStatus || "",
+          paymentStatusAtTime: planState.paymentStatus || ""
+        };
+      },
+      send: (kind, payload) => {
+        if (kind === "error") {
+          return requisicaoSupabase("/rest/v1/rpc/register_app_error", {
+            method: "POST",
+            telemetry: false,
+            body: JSON.stringify({
+              p_error_key: payload.fingerprint || payload.error_type || "APP_ERROR",
+              p_error_message: payload.error_message,
+              p_screen_name: payload.screen || payload.screen_name,
+              p_action_name: payload.action || payload.action_name,
+              p_app_version: payload.app_version,
+              p_device_model: payload.device_model,
+              p_os_version: payload.os,
+              p_platform: payload.platform,
+              p_metadata: payload.metadata_json || {},
+              p_user_email: payload.user_email || ""
+            })
+          });
+        }
+        if (kind === "feedback") {
+          return requisicaoSupabase("/rest/v1/app_feedback_reports", {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            telemetry: false,
+            body: JSON.stringify(payload)
+          });
+        }
+        if (kind === "event") {
+          return requisicaoSupabase("/rest/v1/app_diagnostic_events", {
+            method: "POST",
+            headers: { Prefer: "return=minimal" },
+            telemetry: false,
+            body: JSON.stringify(payload)
+          });
+        }
+        return Promise.resolve(false);
+      }
     });
   } catch (_) {}
 }
@@ -25064,9 +25131,11 @@ function getEstadoTelemetriaSuperadmin() {
       erros: "idle",
       feedback: "idle",
       sugestoes: "idle",
+      diagnosticos: "idle",
       errosMessage: "",
       feedbackMessage: "",
-      sugestoesMessage: ""
+      sugestoesMessage: "",
+      diagnosticosMessage: ""
     };
   }
   return window.__superAdminTelemetryState;
@@ -25082,7 +25151,9 @@ function getFiltrosTelemetriaSuperadmin() {
       feedbackStatus: "",
       feedbackType: "",
       suggestionStatus: "",
-      suggestionCategory: ""
+      suggestionCategory: "",
+      eventType: "",
+      clusterStatus: ""
     };
   }
   return window.__superAdminTelemetryFilters;
@@ -25172,6 +25243,40 @@ async function carregarSugestoesSupabase(opcoes = {}) {
   if (opcoes.renderizar) renderApp();
 }
 
+async function carregarDiagnosticosSuperadminSupabase(opcoes = {}) {
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (!isSuperAdmin()) return;
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    estado.diagnosticos = "missing-token";
+    estado.diagnosticosMessage = "Entre com a conta Supabase do superadmin para carregar diagnósticos.";
+    if (opcoes.renderizar) renderApp();
+    return;
+  }
+  estado.diagnosticos = "loading";
+  estado.diagnosticosMessage = "Carregando diagnósticos...";
+  if (opcoes.renderizar) renderApp();
+  try {
+    const [eventos, clusters, exports] = await Promise.all([
+      requisicaoSupabase("/rest/v1/app_diagnostic_events?select=*&order=created_at.desc&limit=160", { method: "GET" }),
+      requisicaoSupabase("/rest/v1/app_bug_clusters?select=*&order=last_seen_at.desc&limit=120", { method: "GET" }),
+      requisicaoSupabase("/rest/v1/app_bug_reports_exports?select=*&order=created_at.desc&limit=80", { method: "GET" })
+    ]);
+    appDiagnosticEventsRemotos = Array.isArray(eventos) ? eventos : [];
+    appBugClustersRemotos = Array.isArray(clusters) ? clusters : [];
+    appBugReportsExportsRemotos = Array.isArray(exports) ? exports : [];
+    estado.diagnosticos = "loaded";
+    estado.diagnosticosMessage = "";
+  } catch (erro) {
+    appDiagnosticEventsRemotos = [];
+    appBugClustersRemotos = [];
+    appBugReportsExportsRemotos = [];
+    estado.diagnosticos = "error";
+    estado.diagnosticosMessage = ErrorService.toAppError(erro).userMessage || "Não foi possível carregar diagnósticos.";
+    registrarErroAplicacaoSilencioso("LOAD_DIAGNOSTICS_FAILED", erro, "Carregar diagnósticos superadmin");
+  }
+  if (opcoes.renderizar) renderApp();
+}
+
 async function atualizarStatusRelatorioAutomatico(id, status) {
   if (!isSuperAdmin() || !id) return;
   try {
@@ -25249,12 +25354,76 @@ function filtrarSugestoesApp(lista) {
   });
 }
 
+function filtrarEventosDiagnostico(lista) {
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  return lista.filter((item) => {
+    if (filtros.eventType && item.event_type !== filtros.eventType) return false;
+    if (filtros.severity && item.severity !== filtros.severity) return false;
+    return true;
+  });
+}
+
+function filtrarBugClusters(lista) {
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  return lista.filter((item) => {
+    if (filtros.clusterStatus && item.status !== filtros.clusterStatus) return false;
+    if (filtros.severity && item.severity !== filtros.severity) return false;
+    return true;
+  });
+}
+
 function contarSugestoesPorCategoria(lista = []) {
   return lista.reduce((acc, item) => {
     const categoria = String(item.category || "geral").toLowerCase();
     acc[categoria] = (Number(acc[categoria]) || 0) + 1;
     return acc;
   }, {});
+}
+
+function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
+  if (!isSuperAdmin()) return;
+  const bug = tipo === "cluster"
+    ? appBugClustersRemotos.find((item) => String(item.id) === String(id)) || appBugClustersRemotos[0]
+    : appErrorLogsRemotos.find((item) => String(item.id) === String(id)) || appErrorLogsRemotos[0] || appBugClustersRemotos[0];
+  if (!bug) {
+    mostrarToast("Nenhum diagnóstico disponível para gerar relatório.", "info");
+    return;
+  }
+  const report = window.DiagnosticsService?.generateCodexTechnicalReport
+    ? window.DiagnosticsService.generateCodexTechnicalReport({
+      bug,
+      events: appDiagnosticEventsRemotos.filter((event) => event.fingerprint && event.fingerprint === bug.fingerprint).slice(0, 8),
+      feedbacks: appFeedbackReportsRemotos.slice(0, 5)
+    })
+    : `# Relatório técnico para correção\n\n## Resumo\n${bug.error_message || bug.summary || bug.fingerprint || "Diagnóstico coletado."}`;
+  window.__codexDiagnosticsReport = report;
+  try {
+    navigator.clipboard?.writeText(report).catch(() => {});
+  } catch (_) {}
+  mostrarToast("Relatório técnico para Codex gerado.", "sucesso", 4200);
+  renderApp();
+}
+
+function renderCodexDiagnosticsReport() {
+  const report = window.__codexDiagnosticsReport || "";
+  return `
+    <div class="danger-zone">
+      <div class="section-title-row">
+        <h2 class="section-title">Relatórios para Codex</h2>
+        <button class="btn secondary" type="button" onclick="gerarRelatorioCodexDiagnostico()">Gerar relatório técnico para Codex</button>
+      </div>
+      ${report ? `<textarea class="diagnostics-codex-report" rows="16" readonly>${escaparHtml(report)}</textarea>` : `<p class="empty">Selecione um bug ou cluster para gerar um relatório técnico estruturado.</p>`}
+      <div class="history-list">
+        ${appBugReportsExportsRemotos.map((item) => `
+          <div class="history-item">
+            <strong>${escaparHtml(item.report_title || "Relatório")}</strong>
+            <span class="muted">${escaparHtml(item.status || "draft")} • ${item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-"}</span>
+            <span>${escaparHtml(item.summary || "")}</span>
+          </div>
+        `).join("") || `<p class="empty">Nenhum relatório exportado ainda.</p>`}
+      </div>
+    </div>
+  `;
 }
 
 function renderSuperAdminRelatoriosAutomaticos() {
@@ -25396,6 +25565,108 @@ function renderSuperAdminFeedbackReports() {
   `;
 }
 
+function renderSuperAdminDiagnosticos() {
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (estado.erros === "idle") {
+    estado.erros = "loading";
+    setTimeout(() => carregarRelatoriosAutomaticosSupabase({ renderizar: true }), 0);
+  }
+  if (estado.feedback === "idle") {
+    estado.feedback = "loading";
+    setTimeout(() => carregarFeedbackReportsSupabase({ renderizar: true }), 0);
+  }
+  if (estado.diagnosticos === "idle") {
+    estado.diagnosticos = "loading";
+    setTimeout(() => carregarDiagnosticosSuperadminSupabase({ renderizar: true }), 0);
+  }
+  const filtros = getFiltrosTelemetriaSuperadmin();
+  const bugs = filtrarRelatoriosAutomaticos(appErrorLogsRemotos);
+  const eventos = filtrarEventosDiagnostico(appDiagnosticEventsRemotos);
+  const clusters = filtrarBugClusters(appBugClustersRemotos);
+  const bugsCriticos = appErrorLogsRemotos.filter((item) => item.severity === "critical" && item.status !== "fixed").length;
+  const usuariosAfetados = appErrorLogsRemotos.reduce((total, item) => total + (Number(item.affected_users_count || item.affected_user_count) || 0), 0);
+  const versaoMaisErros = Object.entries(appErrorLogsRemotos.reduce((acc, item) => {
+    const key = item.app_version || "-";
+    acc[key] = (acc[key] || 0) + (Number(item.occurrence_count) || 1);
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+  const telaMaisErros = Object.entries(appErrorLogsRemotos.reduce((acc, item) => {
+    const key = item.screen || item.screen_name || "-";
+    acc[key] = (acc[key] || 0) + (Number(item.occurrence_count) || 1);
+    return acc;
+  }, {})).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
+  const eventosTipos = [...new Set(appDiagnosticEventsRemotos.map((item) => item.event_type).filter(Boolean))].sort();
+  return `
+    <div class="metrics">
+      <div class="metric"><span>Bugs novos</span><strong>${appErrorLogsRemotos.filter((item) => (item.status || "new") === "new").length}</strong></div>
+      <div class="metric"><span>Bugs críticos</span><strong>${bugsCriticos}</strong></div>
+      <div class="metric"><span>Sugestões novas</span><strong>${appFeedbackReportsRemotos.filter((item) => (item.status || "new") === "new").length}</strong></div>
+      <div class="metric"><span>Usuários afetados</span><strong>${usuariosAfetados}</strong></div>
+      <div class="metric"><span>Versão com mais erros</span><strong>${escaparHtml(versaoMaisErros)}</strong></div>
+      <div class="metric"><span>Tela com mais erros</span><strong>${escaparHtml(telaMaisErros)}</strong></div>
+      <div class="metric"><span>Últimas 24h</span><strong>${appDiagnosticEventsRemotos.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 86400000).length}</strong></div>
+      <div class="metric"><span>Últimos 7 dias</span><strong>${appDiagnosticEventsRemotos.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 7 * 86400000).length}</strong></div>
+    </div>
+    <div class="sync-grid">
+      <label class="field"><span>Severidade</span><select onchange="atualizarFiltroTelemetriaSuperadmin('severity', this.value)">
+        <option value="">Todas</option>
+        ${["critical", "high", "medium", "low"].map((valor) => `<option value="${valor}" ${filtros.severity === valor ? "selected" : ""}>${valor}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Evento</span><select onchange="atualizarFiltroTelemetriaSuperadmin('eventType', this.value)">
+        <option value="">Todos</option>
+        ${eventosTipos.map((valor) => `<option value="${escaparAttr(valor)}" ${filtros.eventType === valor ? "selected" : ""}>${escaparHtml(valor)}</option>`).join("")}
+      </select></label>
+      <label class="field"><span>Status cluster</span><select onchange="atualizarFiltroTelemetriaSuperadmin('clusterStatus', this.value)">
+        <option value="">Todos</option>
+        ${["new", "investigating", "fixed", "ignored", "regression"].map((valor) => `<option value="${valor}" ${filtros.clusterStatus === valor ? "selected" : ""}>${valor}</option>`).join("")}
+      </select></label>
+    </div>
+    <div class="actions">
+      <button class="btn secondary" onclick="carregarDiagnosticosSuperadminSupabase({ renderizar: true })">Atualizar diagnóstico</button>
+      <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico()">Gerar relatório geral para Codex</button>
+    </div>
+    ${estado.diagnosticosMessage ? `<div class="saas-sync-state ${estado.diagnosticos === "error" ? "warning" : "info"}">${escaparHtml(estado.diagnosticosMessage)}</div>` : ""}
+    <h2 class="section-title">Bugs</h2>
+    <div class="payment-table admin-table telemetry-table">
+      <div class="payment-row table-head"><span>Erro</span><span>Tela</span><span>Ação</span><span>Severidade</span><span>Status</span><span>Ocorrências</span><span>Usuários</span><span>Versão</span><span>Plataforma</span><span>Ações</span></div>
+      ${bugs.slice(0, 40).map((item) => `
+        <div class="payment-row">
+          <span><strong>${escaparHtml(item.error_key || item.fingerprint || "-")}</strong><small>${escaparHtml(item.error_message || "")}</small></span>
+          <span>${escaparHtml(item.screen || item.screen_name || "-")}</span>
+          <span>${escaparHtml(item.action || item.action_name || "-")}</span>
+          <span>${escaparHtml(item.severity || "low")}</span>
+          <span>${escaparHtml(item.status || "new")}</span>
+          <span>${Number(item.occurrence_count) || 0}</span>
+          <span>${Number(item.affected_users_count || item.affected_user_count) || 0}</span>
+          <span>${escaparHtml(item.app_version || "-")}</span>
+          <span>${escaparHtml(item.platform || "-")}</span>
+          <span><button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'bug')">Codex</button></span>
+        </div>
+      `).join("") || `<p class="empty">Nenhum bug carregado.</p>`}
+    </div>
+    <h2 class="section-title">Eventos</h2>
+    <div class="history-list">
+      ${eventos.slice(0, 50).map((item) => `
+        <div class="history-item">
+          <strong>${escaparHtml(item.event_type || "evento")}</strong>
+          <span class="muted">${escaparHtml(item.screen || "-")} • ${escaparHtml(item.action || "-")} • ${escaparHtml(item.severity || "low")} • ${item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-"}</span>
+        </div>
+      `).join("") || `<p class="empty">Nenhum evento carregado.</p>`}
+    </div>
+    <h2 class="section-title">Clusters</h2>
+    <div class="history-list">
+      ${clusters.slice(0, 40).map((item) => `
+        <div class="history-item">
+          <strong>${escaparHtml(item.title || item.fingerprint || "Cluster")}</strong>
+          <span class="muted">${Number(item.occurrence_count) || 0} ocorrências • ${Number(item.affected_users_count) || 0} usuários • ${escaparHtml(item.status || "new")} • ${escaparHtml(item.severity || "low")}</span>
+          <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'cluster')">Gerar relatório técnico</button>
+        </div>
+      `).join("") || `<p class="empty">Nenhum cluster carregado.</p>`}
+    </div>
+    ${renderCodexDiagnosticsReport()}
+  `;
+}
+
 function renderSuperAdminConfiguracoes() {
   usuarios = normalizarUsuarios(usuarios);
   const termo = String(window.__superAdminBusca || "").toLowerCase();
@@ -25447,6 +25718,7 @@ function renderSuperAdminConteudo(tab) {
     logs: renderSuperAdminLogs,
     suporte: renderSuperAdminSuporte,
     relatorios: renderSuperAdminRelatoriosAutomaticos,
+    diagnosticos: renderSuperAdminDiagnosticos,
     feedbacks: renderSuperAdminFeedbackReports,
     configuracoes: renderSuperAdminConfiguracoes,
     clientePerfil: renderSuperAdminClientePerfil
@@ -25469,6 +25741,7 @@ function renderSuperAdmin() {
     ["logs", "Logs"],
     ["suporte", "Suporte"],
     ["relatorios", "Relatórios automáticos"],
+    ["diagnosticos", "Relatórios e Diagnóstico"],
     ["feedbacks", "Sugestões e Feedback"],
     ["configuracoes", "Configurações"]
   ];
@@ -26996,11 +27269,12 @@ function renderFeedback() {
           <label class="field">
             <span>Tipo</span>
             <select id="feedbackTipo">
-              <option value="bug">Bug</option>
-              <option value="sugestao" selected>Sugestão</option>
-              <option value="duvida">Dúvida</option>
-              <option value="melhoria">Melhoria</option>
-              <option value="reclamacao">Reclamação</option>
+              <option value="bug_report">Relatar problema</option>
+              <option value="suggestion" selected>Enviar sugestão</option>
+              <option value="improvement">Solicitar melhoria</option>
+              <option value="question">Informar dúvida</option>
+              <option value="complaint">Reclamação</option>
+              <option value="other">Outro</option>
             </select>
           </label>
           <label class="field">
@@ -27071,18 +27345,24 @@ function lerFormularioFeedbackManual() {
 function montarPayloadFeedbackManual(form) {
   const usuario = getUsuarioAtual();
   const email = normalizarEmail(syncConfig.supabaseEmail || usuario?.email || billingConfig.licenseEmail || "");
+  const planState = getPlanAccessState(usuario || {});
+  const mensagem = form.description.slice(0, 1200);
   return {
     user_id: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
     user_email: email || null,
     user_name: usuario?.nome || null,
     type: form.type,
     title: form.title.slice(0, 120),
-    description: form.description.slice(0, 1200),
+    message: mensagem,
+    description: mensagem,
     app_version: APP_VERSION,
     device_model: syncConfig.deviceName || deviceId || navigator.platform || "",
     os_version: navigator.userAgent || "",
     platform: window.Capacitor?.getPlatform?.() || (navigator.userAgentData?.mobile ? "mobile-web" : "web"),
+    screen: telaAtual || "",
     screen_name: telaAtual || "",
+    action: "manual_feedback",
+    plan_at_time: planState.currentPlan || "",
     metadata: {
       device_id: deviceId,
       company_id: billingConfig.companyId || "",
@@ -27092,6 +27372,10 @@ function montarPayloadFeedbackManual(form) {
 }
 
 async function salvarFeedbackManualSupabase(form) {
+  if (window.DiagnosticsService?.reportFeedback) {
+    const resultado = await window.DiagnosticsService.reportFeedback(montarPayloadFeedbackManual(form));
+    if (resultado?.queued || resultado?.ok) return resultado;
+  }
   return requisicaoSupabase("/rest/v1/app_feedback_reports", {
     method: "POST",
     headers: { Prefer: "return=minimal" },
@@ -27101,8 +27385,8 @@ async function salvarFeedbackManualSupabase(form) {
 
 function normalizarTipoSugestaoApp(tipo = "suggestion") {
   const valor = String(tipo || "").toLowerCase();
-  if (valor === "bug") return "bug";
-  if (["feature", "melhoria", "recurso"].includes(valor)) return "feature";
+  if (["bug", "bug_report"].includes(valor)) return "bug";
+  if (["feature", "melhoria", "improvement", "recurso"].includes(valor)) return "feature";
   return "suggestion";
 }
 
@@ -27224,8 +27508,8 @@ async function enviarFeedbackManual() {
     await salvarFeedbackManualSupabase(form);
     registrarSugestaoLocal(`${form.title}: ${form.description}`, "feedback");
     registrarHistorico("Feedback", `${form.type}: ${form.title}`);
-    window.__feedbackManualStatus = { status: "success", message: "Feedback enviado com sucesso." };
-    mostrarToast("Feedback enviado com sucesso.", "sucesso", 4000);
+    window.__feedbackManualStatus = { status: "success", message: "Obrigado! Seu relato foi enviado e será analisado." };
+    mostrarToast("Obrigado! Seu relato foi enviado e será analisado.", "sucesso", 4000);
   } catch (erro) {
     registrarSugestaoLocal(`${form.title}: ${form.description}`, "feedback-local");
     registrarErroAplicacaoSilencioso("FEEDBACK_SUBMIT_FAILED", erro, "Enviar feedback manual", { type: form.type });

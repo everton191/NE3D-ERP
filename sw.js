@@ -1,10 +1,11 @@
-const CACHE_NAME = "simplifica-3d-v117-estavel-20260529-brand-ai-foundation";
+const CACHE_NAME = "simplifica-3d-v118-estavel-20260529-diagnostics";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
   "./src/services/errorTelemetry.js",
+  "./src/services/diagnosticsService.js",
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
