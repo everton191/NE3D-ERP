@@ -162,6 +162,7 @@ assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML")
 
 [
   "src/integrations/google/README.md",
+  "docs/google-integrations-foundation.md",
   "src/integrations/google/google.config.example.js",
   "src/integrations/google/googleIntegrationService.js",
   "src/integrations/google/auth/README.md",
@@ -175,12 +176,16 @@ assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML")
   "supabase/functions/google-gmail-send/README.md",
   "supabase/functions/google-sheets-sync/README.md",
   "supabase/migrations/20260529193000_google_integrations_foundation_disabled.sql",
-  "scripts/test-google-integrations-foundation.js"
+  "scripts/test-google-integrations-foundation.js",
+  "scripts/google-integrations-remote-controlled.js"
 ].forEach((file) => assert(exists(file), `fundacao Google futura desativada presente: ${file}`));
 assert(pkg.scripts && pkg.scripts["test:google-integrations-foundation"] === "node scripts/test-google-integrations-foundation.js", "package.json expoe test:google-integrations-foundation");
+assert(pkg.scripts && pkg.scripts["supabase:google-integrations:validate"] === "node scripts/google-integrations-remote-controlled.js validate", "package.json expoe validacao remota Google");
 assert(!index.includes("googleIntegrationService.js"), "service Google futuro nao carrega na UI");
 assert(read("src/integrations/google/googleIntegrationService.js").includes("GOOGLE_INTEGRATIONS_DISABLED"), "service Google retorna disabled controlado");
 assert(read("supabase/migrations/20260529193000_google_integrations_foundation_disabled.sql").includes("app_integration_feature_flags"), "migration Google prepara feature flags desligadas");
+assert(read("scripts/google-integrations-remote-controlled.js").includes("google_integrations_remote_validation_ok"), "validacao remota Google tem marcador de sucesso");
+assert(read("scripts/google-integrations-remote-controlled.js").includes("integration_tokens should not expose frontend policies"), "validacao remota Google protege tokens");
 
 [
   "src/services/diagnosticsService.js",

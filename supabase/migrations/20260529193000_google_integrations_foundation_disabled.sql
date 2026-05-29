@@ -211,6 +211,8 @@ for all
 using (public.erp_is_superadmin())
 with check (public.erp_is_superadmin());
 
+revoke all on public.integration_tokens from anon, authenticated;
+
 grant select, insert on public.external_integrations to authenticated, service_role;
 grant select on public.integration_sync_jobs, public.app_integration_feature_flags to authenticated, service_role;
 grant select, insert, update, delete on public.integration_tokens to service_role;

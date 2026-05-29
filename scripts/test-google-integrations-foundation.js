@@ -112,6 +112,7 @@ async function run() {
   assert.match(migration, /owner_id = auth\.uid\(\)/, "RLS deve usar auth.uid por owner_id");
   assert.match(migration, /public\.erp_is_superadmin\(\)/, "RLS deve respeitar superadmin");
   assert.doesNotMatch(migration, /integration tokens select owner or superadmin/i, "tokens nao devem ter policy de leitura frontend");
+  assert.match(migration, /revoke all on public\.integration_tokens from anon, authenticated/i, "tokens devem revogar acesso frontend explicitamente");
   assert.doesNotMatch(migration, /grant select on public\.integration_tokens to authenticated/i, "tokens nao devem ter grant select para authenticated");
   assert.match(migration, /grant select, insert, update, delete on public\.integration_tokens to service_role/i, "tokens devem ficar reservados ao service_role");
 

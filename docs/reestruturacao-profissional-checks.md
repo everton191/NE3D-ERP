@@ -401,3 +401,18 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Nao carregar service Google no `index.html`.
 - `[x]` Nao alterar login por e-mail/senha nem Supabase Auth atual.
 - `[x]` Nao adicionar SDK Google ou OAuth funcional.
+
+## Fase 6C.1 - Google Remoto e Seguranca
+
+- `[x]` Criar checkpoint local da fundacao Google antes da aplicacao remota.
+- `[x]` Validar dependencia remota `public.erp_is_superadmin()`.
+- `[x]` Aplicar individualmente `20260529193000_google_integrations_foundation_disabled.sql`.
+- `[x]` Reparar historico remoto apenas da migration Google.
+- `[x]` Criar `scripts/google-integrations-remote-controlled.js`.
+- `[x]` Validar tabelas remotas, RLS e ausencia de policy publica.
+- `[x]` Validar `integration_tokens` sem policy/grant para frontend.
+- `[x]` Validar flags Google desligadas.
+- `[x]` Validar isolamento por `owner_id`.
+- `[x]` Validar usuario comum sem acesso a outro owner e sem criar token.
+- `[x]` Validar superadmin sem leitura frontend de tokens.
+- `[x]` Confirmar que login atual e UI continuam sem botao Google.

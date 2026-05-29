@@ -534,6 +534,34 @@ scripts/diagnostics-remote-controlled.js
 
 O fluxo remoto nao usa `db push` geral porque existem migrations antigas fora de escopo pendentes entre 2026-05-22 e 2026-05-25. A Fase 6C isola diagnosticos para nao misturar storefront, caixa ou financeiro.
 
+## Fase 6C.1 - Google Futuro Desativado
+
+```txt
+src/integrations/google
+ ├── google.config.example.js
+ └── googleIntegrationService.js
+      └── retorna GOOGLE_INTEGRATIONS_DISABLED
+```
+
+```txt
+scripts/google-integrations-remote-controlled.js
+ ├── status
+ ├── dry-run
+ ├── apply
+ │    ├── aplica apenas 20260529193000_google_integrations_foundation_disabled.sql
+ │    └── repara historico remoto apenas dessa versao
+ └── validate
+      ├── checa public.erp_is_superadmin()
+      ├── checa tabelas + RLS + policies
+      ├── confirma flags Google desligadas
+      ├── confirma integration_tokens sem acesso frontend
+      ├── simula usuario comum por auth.uid()
+      ├── simula superadmin por erp_profiles.role
+      └── rollback sem dados permanentes
+```
+
+O service Google nao e carregado no `index.html`; portanto nao altera login, menu, PWA ou UI atual.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.
