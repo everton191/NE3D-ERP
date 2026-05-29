@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v118-estavel-20260529-diagnostics"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v119-estavel-20260529-diagnostics-6b"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-diagnostics-20260529"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-diagnostics-6b-20260529"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
@@ -167,7 +167,8 @@ assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML")
   "docs/superadmin-bug-reports.md",
   "docs/codex-diagnostics-report.md",
   "docs/ai-future-foundation.md",
-  "supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql"
+  "supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql",
+  "supabase/migrations/20260529173500_diagnostics_validation_hardening.sql"
 ].forEach((file) => assert(exists(file), `fase 6a diagnosticos presente: ${file}`));
 assert(pkg.scripts && pkg.scripts["test:diagnostics"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:diagnostics");
 assert(pkg.scripts && pkg.scripts["test:feedback-reports"] === "node scripts/test-diagnostics-foundation.js", "package.json expoe test:feedback-reports");
@@ -185,10 +186,18 @@ assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService 
 ].forEach((marker) => assert(read("src/services/diagnosticsService.js").includes(marker), `fase 6a service marker presente: ${marker}`));
 [
   "window.DiagnosticsService.configure",
+  "app_bug_reports_exports?select=*",
+  "atualizarSeveridadeRelatorioAutomatico",
+  "atualizarNotaAdminBug",
+  "atualizarNotaAdminFeedback",
+  "atualizarStatusClusterDiagnostico",
+  "atualizarSeveridadeClusterDiagnostico",
+  "atualizarNotaAdminCluster",
   "renderSuperAdminDiagnosticos",
   "gerarRelatorioCodexDiagnostico",
   "Relatórios e Diagnóstico"
 ].forEach((marker) => assert(app.includes(marker), `fase 6a marker presente: ${marker}`));
+assert(read("supabase/migrations/20260529173500_diagnostics_validation_hardening.sql").includes("refresh_app_bug_cluster_from_error"), "fase 6b clusters recebem trigger de atualizacao");
 
 [
   "--bg-primary",

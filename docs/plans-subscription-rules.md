@@ -107,3 +107,14 @@ Eventos preparados:
 - `webhook_plan_resolution_failed`.
 
 Esses eventos servem apenas para auditoria e relatorios. Eles nao mudam plano, nao criam pagamento pendente visual, nao liberam recurso e nao alteram `cancelAtPeriodEnd`.
+
+## Validacao de eventos - Fase 6B
+
+Os testes de diagnostico confirmam que a base aceita os eventos de planos, checkout e Mercado Pago preparados para a proxima fase.
+
+Ainda nao foi alterado:
+
+- webhook real do Mercado Pago;
+- checkout;
+- aprovacao/cancelamento real de pagamento;
+- tela premium de planos.

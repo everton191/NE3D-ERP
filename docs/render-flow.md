@@ -493,6 +493,27 @@ enableAiBugSummary=false
 
 Nenhuma IA local/offline, provider externo ou API de IA e chamada nesta fase.
 
+## Fase 6B - Validacao real dos diagnosticos
+
+```txt
+reportAppError()
+ └── register_app_error
+      └── app_error_logs
+           └── trigger refresh_app_bug_cluster_from_error()
+                └── app_bug_clusters
+```
+
+```txt
+Superadmin / Relatorios e Diagnostico
+ ├── atualiza bugs / feedbacks / eventos / clusters
+ ├── altera status, severidade e notas
+ └── gerarRelatorioCodexDiagnostico()
+      ├── textarea local
+      └── app_bug_reports_exports
+```
+
+A fila offline de diagnostico e validada pelo service. Ao voltar online, `flushPendingDiagnosticsQueue()` reenvia os itens pendentes sem duplicacao infinita.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

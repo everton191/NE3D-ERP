@@ -11,11 +11,13 @@ const diagnostics = require("../src/services/diagnosticsService.js");
 async function run() {
   const serviceFile = "src/services/diagnosticsService.js";
   const migrationFile = "supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql";
+  const hardeningMigrationFile = "supabase/migrations/20260529173500_diagnostics_validation_hardening.sql";
   const app = read("app.js");
   const service = read(serviceFile);
   const index = read("index.html");
   const sw = read("sw.js");
   const migration = read(migrationFile);
+  const hardeningMigration = read(hardeningMigrationFile);
 
   assert(exists(serviceFile), "DiagnosticsService deve existir");
   assert(index.includes("/src/services/diagnosticsService.js"), "index.html deve carregar DiagnosticsService antes do app");
@@ -40,6 +42,11 @@ async function run() {
   assert(!/with check\s*\(\s*true\s*\)/i.test(migration), "migration nova nao pode criar policy with check true");
   assert(migration.includes("public.erp_is_superadmin()"), "policies devem respeitar superadmin");
   assert(migration.includes("auth.uid() is null or user_id is null or user_id = auth.uid()"), "insert de usuario comum deve ser isolado por user_id");
+  assert(hardeningMigration.includes("refresh_app_bug_cluster_from_error"), "fase 6B deve atualizar clusters por trigger");
+  assert(hardeningMigration.includes("app_bug_clusters"), "fase 6B deve manter clusters sincronizados");
+  assert(hardeningMigration.includes("affected_versions"), "cluster deve registrar versoes afetadas");
+  assert(hardeningMigration.includes("affected_screens"), "cluster deve registrar telas afetadas");
+  assert(hardeningMigration.includes("affected_platforms"), "cluster deve registrar plataformas afetadas");
 
   const sanitized = diagnostics.sanitizeDiagnosticPayload({
     access_token: "secret",
@@ -103,6 +110,65 @@ async function run() {
   assert.equal(sent[2].kind, "event", "evento deve usar canal event");
   assert.equal(sent[2].payload.metadata_json.webhook_secret, "[redacted]", "evento deve sanitizar segredo");
 
+  [
+    "sync_failed",
+    "store_editor_failed",
+    "checkout_opened",
+    "checkout_abandoned",
+    "checkout_returned_without_payment",
+    "payment_pending_real",
+    "payment_approved",
+    "payment_failed",
+    "subscription_created",
+    "subscription_cancel_requested",
+    "subscription_cancel_at_period_end",
+    "subscription_reactivated",
+    "subscription_expired",
+    "webhook_received",
+    "webhook_validation_failed",
+    "webhook_ignored_duplicate",
+    "webhook_plan_resolved",
+    "webhook_plan_resolution_failed",
+    "pwa_cache_error"
+  ].forEach((eventType) => assert(diagnostics.DIAGNOSTIC_EVENTS.includes(eventType), `evento diagnostico aceito: ${eventType}`));
+
+  const localStorageMemory = new Map();
+  Object.defineProperty(global, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key) => localStorageMemory.has(key) ? localStorageMemory.get(key) : null,
+      setItem: (key, value) => localStorageMemory.set(key, String(value)),
+      removeItem: (key) => localStorageMemory.delete(key)
+    }
+  });
+  Object.defineProperty(global, "navigator", { configurable: true, value: { onLine: false } });
+  diagnostics.configure({
+    getContext: () => ({
+      userId: "00000000-0000-0000-0000-000000000001",
+      screen: "offline",
+      action: "fila",
+      appVersion: "1.0.16",
+      platform: "web"
+    }),
+    send: async () => {
+      throw new Error("offline");
+    }
+  });
+  const offlineResult = await diagnostics.reportDiagnosticEvent("sync_failed", { action: "offline-test" });
+  assert.equal(offlineResult.queued, true, "offline deve colocar diagnostico em fila local");
+  Object.defineProperty(global, "navigator", { configurable: true, value: { onLine: true } });
+  const flushed = [];
+  diagnostics.configure({
+    send: async (kind, payload) => {
+      flushed.push({ kind, payload });
+      return { ok: true };
+    }
+  });
+  const flushResult = await diagnostics.flushPendingDiagnosticsQueue();
+  assert.equal(flushResult, true, "fila offline deve ser processada ao voltar online");
+  assert.equal(flushed.length, 1, "fila offline deve reenviar um item");
+  assert.equal(flushed[0].kind, "event", "fila deve preservar tipo do diagnostico");
+
   const codexReport = diagnostics.generateCodexTechnicalReport({
     bug: {
       title: "Erro no editor",
@@ -120,6 +186,8 @@ async function run() {
     "## Resumo",
     "## Frequência",
     "## Evidências",
+    "Stack sanitizada",
+    "## Arquivos prováveis",
     "## Instrução para Codex"
   ].forEach((marker) => assert(codexReport.includes(marker), `relatorio Codex deve conter ${marker}`));
 
@@ -149,6 +217,13 @@ async function run() {
   ].forEach((marker) => assert(service.includes(marker), `DiagnosticsService deve expor ${marker}`));
   [
     "window.DiagnosticsService.configure",
+    "app_bug_reports_exports?select=*",
+    "atualizarSeveridadeRelatorioAutomatico",
+    "atualizarNotaAdminBug",
+    "atualizarNotaAdminFeedback",
+    "atualizarStatusClusterDiagnostico",
+    "atualizarSeveridadeClusterDiagnostico",
+    "atualizarNotaAdminCluster",
     "renderSuperAdminDiagnosticos",
     "gerarRelatorioCodexDiagnostico",
     "Relatórios e Diagnóstico"

@@ -25293,6 +25293,41 @@ async function atualizarStatusRelatorioAutomatico(id, status) {
   }
 }
 
+async function atualizarSeveridadeRelatorioAutomatico(id, severity) {
+  if (!isSuperAdmin() || !id || !severity) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_error_logs?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ severity })
+    });
+    appErrorLogsRemotos = appErrorLogsRemotos.map((item) => String(item.id) === String(id) ? { ...item, severity } : item);
+    mostrarToast("Severidade do bug atualizada.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar severidade bug", errorKey: "UPDATE_ERROR_REPORT_SEVERITY_FAILED" });
+  }
+}
+
+async function atualizarNotaAdminBug(id) {
+  if (!isSuperAdmin() || !id) return;
+  const atual = appErrorLogsRemotos.find((item) => String(item.id) === String(id))?.admin_notes || "";
+  const admin_notes = prompt("Nota administrativa do bug", atual);
+  if (admin_notes === null) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_error_logs?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ admin_notes })
+    });
+    appErrorLogsRemotos = appErrorLogsRemotos.map((item) => String(item.id) === String(id) ? { ...item, admin_notes } : item);
+    mostrarToast("Nota administrativa salva.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar nota bug", errorKey: "UPDATE_ERROR_REPORT_NOTE_FAILED" });
+  }
+}
+
 async function atualizarStatusFeedbackReport(id, status) {
   if (!isSuperAdmin() || !id) return;
   try {
@@ -25309,6 +25344,25 @@ async function atualizarStatusFeedbackReport(id, status) {
   }
 }
 
+async function atualizarNotaAdminFeedback(id) {
+  if (!isSuperAdmin() || !id) return;
+  const atual = appFeedbackReportsRemotos.find((item) => String(item.id) === String(id))?.admin_notes || "";
+  const admin_notes = prompt("Nota administrativa do feedback", atual);
+  if (admin_notes === null) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_feedback_reports?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ admin_notes })
+    });
+    appFeedbackReportsRemotos = appFeedbackReportsRemotos.map((item) => String(item.id) === String(id) ? { ...item, admin_notes } : item);
+    mostrarToast("Nota administrativa salva.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar nota feedback", errorKey: "UPDATE_FEEDBACK_NOTE_FAILED" });
+  }
+}
+
 async function atualizarStatusSugestaoApp(id, status) {
   if (!isSuperAdmin() || !id) return;
   try {
@@ -25322,6 +25376,57 @@ async function atualizarStatusSugestaoApp(id, status) {
     renderApp();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar status sugestão", errorKey: "UPDATE_APP_SUGGESTION_STATUS_FAILED" });
+  }
+}
+
+async function atualizarStatusClusterDiagnostico(id, status) {
+  if (!isSuperAdmin() || !id || !status) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_bug_clusters?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status })
+    });
+    appBugClustersRemotos = appBugClustersRemotos.map((item) => String(item.id) === String(id) ? { ...item, status } : item);
+    mostrarToast("Status do cluster atualizado.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar status cluster", errorKey: "UPDATE_BUG_CLUSTER_STATUS_FAILED" });
+  }
+}
+
+async function atualizarSeveridadeClusterDiagnostico(id, severity) {
+  if (!isSuperAdmin() || !id || !severity) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_bug_clusters?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ severity })
+    });
+    appBugClustersRemotos = appBugClustersRemotos.map((item) => String(item.id) === String(id) ? { ...item, severity } : item);
+    mostrarToast("Severidade do cluster atualizada.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar severidade cluster", errorKey: "UPDATE_BUG_CLUSTER_SEVERITY_FAILED" });
+  }
+}
+
+async function atualizarNotaAdminCluster(id) {
+  if (!isSuperAdmin() || !id) return;
+  const atual = appBugClustersRemotos.find((item) => String(item.id) === String(id))?.admin_notes || "";
+  const admin_notes = prompt("Nota administrativa do cluster", atual);
+  if (admin_notes === null) return;
+  try {
+    await requisicaoSupabase(`/rest/v1/app_bug_clusters?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ admin_notes })
+    });
+    appBugClustersRemotos = appBugClustersRemotos.map((item) => String(item.id) === String(id) ? { ...item, admin_notes } : item);
+    mostrarToast("Nota administrativa salva.", "sucesso", 3500);
+    renderApp();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Atualizar nota cluster", errorKey: "UPDATE_BUG_CLUSTER_NOTE_FAILED" });
   }
 }
 
@@ -25380,7 +25485,7 @@ function contarSugestoesPorCategoria(lista = []) {
   }, {});
 }
 
-function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
+async function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
   if (!isSuperAdmin()) return;
   const bug = tipo === "cluster"
     ? appBugClustersRemotos.find((item) => String(item.id) === String(id)) || appBugClustersRemotos[0]
@@ -25400,7 +25505,37 @@ function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
   try {
     navigator.clipboard?.writeText(report).catch(() => {});
   } catch (_) {}
-  mostrarToast("Relatório técnico para Codex gerado.", "sucesso", 4200);
+  const exportPayload = {
+    created_by: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    report_title: `Relatório Codex - ${bug.title || bug.error_key || bug.fingerprint || "diagnóstico"}`.slice(0, 180),
+    filters_json: {
+      type: tipo,
+      generated_from_id: id || bug.id || null,
+      severity: bug.severity || null,
+      status: bug.status || null
+    },
+    summary: String(bug.summary || bug.error_message || bug.error_key || bug.fingerprint || "Diagnóstico").slice(0, 900),
+    technical_report: report,
+    related_error_ids: tipo === "bug" && bug.id ? [bug.id] : [],
+    related_feedback_ids: appFeedbackReportsRemotos.slice(0, 5).map((item) => item.id).filter(Boolean),
+    related_cluster_ids: tipo === "cluster" && bug.id ? [bug.id] : [],
+    status: "generated"
+  };
+  try {
+    if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) throw new Error("Supabase indisponível para salvar relatório técnico.");
+    const salvo = await requisicaoSupabase("/rest/v1/app_bug_reports_exports?select=*", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(exportPayload)
+    });
+    const item = Array.isArray(salvo) ? salvo[0] : salvo;
+    if (item?.id) appBugReportsExportsRemotos = [item, ...appBugReportsExportsRemotos.filter((registro) => String(registro.id) !== String(item.id))].slice(0, 80);
+    mostrarToast("Relatório técnico para Codex gerado e salvo.", "sucesso", 4200);
+  } catch (erro) {
+    appBugReportsExportsRemotos = [{ ...exportPayload, id: `local-${Date.now()}`, created_at: new Date().toISOString() }, ...appBugReportsExportsRemotos].slice(0, 80);
+    mostrarToast("Relatório gerado localmente. Não foi possível salvar no Supabase agora.", "aviso", 5200);
+    registrarErroAplicacaoSilencioso("SAVE_CODEX_REPORT_EXPORT_FAILED", erro, "Salvar relatório Codex");
+  }
   renderApp();
 }
 
@@ -25469,6 +25604,8 @@ function renderSuperAdminRelatoriosAutomaticos() {
             <button class="btn ghost" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'reviewing')">Analisar</button>
             <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Corrigido</button>
             <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
+            <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Crítico</button>
+            <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Nota</button>
           </span>
         </div>
       `).join("") || `<p class="empty">Nenhum relatório automático encontrado.</p>`}
@@ -25558,6 +25695,7 @@ function renderSuperAdminFeedbackReports() {
             <button class="btn secondary" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'fixed')">Corrigido</button>
             <button class="btn warning" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
             <button class="btn ghost" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'closed')">Fechar</button>
+            <button class="btn ghost" onclick="atualizarNotaAdminFeedback('${escaparAttr(item.id)}')">Nota</button>
           </div>
         </div>
       `).join("") || `<p class="empty">Nenhum feedback encontrado.</p>`}
@@ -25640,7 +25778,14 @@ function renderSuperAdminDiagnosticos() {
           <span>${Number(item.affected_users_count || item.affected_user_count) || 0}</span>
           <span>${escaparHtml(item.app_version || "-")}</span>
           <span>${escaparHtml(item.platform || "-")}</span>
-          <span><button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'bug')">Codex</button></span>
+          <span class="row-actions">
+            <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'bug')">Codex</button>
+            <button class="btn ghost" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'investigating')">Investigando</button>
+            <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Fixed</button>
+            <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
+            <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Crítico</button>
+            <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Nota</button>
+          </span>
         </div>
       `).join("") || `<p class="empty">Nenhum bug carregado.</p>`}
     </div>
@@ -25659,7 +25804,14 @@ function renderSuperAdminDiagnosticos() {
         <div class="history-item">
           <strong>${escaparHtml(item.title || item.fingerprint || "Cluster")}</strong>
           <span class="muted">${Number(item.occurrence_count) || 0} ocorrências • ${Number(item.affected_users_count) || 0} usuários • ${escaparHtml(item.status || "new")} • ${escaparHtml(item.severity || "low")}</span>
-          <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'cluster')">Gerar relatório técnico</button>
+          <div class="row-actions">
+            <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'cluster')">Gerar relatório técnico</button>
+            <button class="btn ghost" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'investigating')">Investigando</button>
+            <button class="btn secondary" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'fixed')">Fixed</button>
+            <button class="btn warning" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
+            <button class="btn ghost" onclick="atualizarSeveridadeClusterDiagnostico('${escaparAttr(item.id)}', 'critical')">Crítico</button>
+            <button class="btn ghost" onclick="atualizarNotaAdminCluster('${escaparAttr(item.id)}')">Nota</button>
+          </div>
         </div>
       `).join("") || `<p class="empty">Nenhum cluster carregado.</p>`}
     </div>

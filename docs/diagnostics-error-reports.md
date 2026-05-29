@@ -103,3 +103,21 @@ Regra geral:
 - sistema/service role pode usar as operacoes administrativas conforme Supabase.
 
 Nao ha policy publica `using (true)` ou `with check (true)` nas novas tabelas da fase.
+
+## Validacao e endurecimento - Fase 6B
+
+A Fase 6B adicionou a migration `20260529173500_diagnostics_validation_hardening.sql`.
+
+Validacoes/correcoes:
+
+- `app_error_logs` recebeu `admin_notes` e compatibilidade com `affected_users_count`.
+- `refresh_app_bug_cluster_from_error()` cria ou atualiza `app_bug_clusters` sempre que um erro e inserido/atualizado.
+- O cluster usa `fingerprint`, ou `error_key` como fallback, para agrupar erros repetidos.
+- `occurrence_count`, usuarios afetados, versoes, telas e plataformas afetadas sao recalculados pelo trigger.
+- Se um cluster marcado como `fixed` ou `ignored` receber nova ocorrencia posterior, ele pode voltar como `regression`.
+- Testes validam sanitizacao, eventos de planos, fila offline, relatorio Codex e flags de IA desligadas.
+
+Limites:
+
+- A migration precisa estar aplicada no Supabase remoto para validar dados reais.
+- A validacao autenticada do painel Superadmin deve ser repetida com conta real apos deploy/migration.

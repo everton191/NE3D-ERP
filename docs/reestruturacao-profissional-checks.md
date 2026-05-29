@@ -357,3 +357,16 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Criar testes `test:diagnostics`, `test:feedback-reports`, `test:superadmin-diagnostics` e `test:codex-report-export`.
 - `[ ]` Aplicar migration no Supabase remoto antes de validar dados reais de usuarios.
 - `[ ]` Validar painel Superadmin autenticado contra dados reais de producao controlada.
+
+## Fase 6B - Validacao dos Relatorios de Bugs, Sugestoes e Superadmin
+
+- `[x]` Validar envio programatico de feedback com tipos `suggestion`, `bug_report` e eventos diagnosticos.
+- `[x]` Validar sanitizacao de `access_token`, `refresh_token`, `password`, `authorization`, `apikey`, `secret`, `webhook_secret`, `card`, `cpf` e `cnpj`.
+- `[x]` Validar fingerprint normalizado para erros repetidos.
+- `[x]` Validar fila offline e flush posterior.
+- `[x]` Criar trigger `refresh_app_bug_cluster_from_error()` para manter `app_bug_clusters`.
+- `[x]` Persistir relatorios Codex em `app_bug_reports_exports` quando Supabase estiver disponivel.
+- `[x]` Adicionar acoes Superadmin para status, severidade e notas de bugs/clusters/feedback.
+- `[x]` Confirmar que eventos de planos/Mercado Pago sao aceitos sem mexer no webhook real.
+- `[ ]` Validar envio manual pela UI com usuario autenticado em ambiente remoto.
+- `[ ]` Validar RLS real com usuario comum e superadmin apos aplicar migrations no Supabase.

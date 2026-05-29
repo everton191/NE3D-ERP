@@ -54,3 +54,16 @@ Antes de ativar qualquer IA sera necessario:
 8. Liberar por plano pago.
 
 Enquanto esses passos nao ocorrerem, a IA permanece apenas como fundacao tecnica documentada.
+
+## Fase 6B
+
+A validacao de diagnosticos manteve a IA desativada:
+
+- `enableAiDiagnostics = false`;
+- `enableAiAssistant = false`;
+- `enableAiBugSummary = false`;
+- nenhuma chamada local/offline;
+- nenhuma chamada externa;
+- nenhum item visual novo de IA.
+
+Os relatorios para Codex sao gerados por template deterministico, sem modelo de IA.

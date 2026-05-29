@@ -70,3 +70,20 @@ O relatorio deve usar stack sanitizada e metadados ja filtrados. Ele nao deve in
 - recomendacoes de prioridade.
 
 Nesta fase o relatorio e deterministico e local. Nenhuma IA e chamada.
+
+## Validacao e persistencia - Fase 6B
+
+`gerarRelatorioCodexDiagnostico()` agora:
+
+- gera o texto estruturado;
+- copia para area de transferencia quando o navegador permite;
+- tenta salvar o registro em `app_bug_reports_exports`;
+- relaciona `related_error_ids`, `related_feedback_ids` e `related_cluster_ids`;
+- usa status inicial `generated`;
+- cria entrada local temporaria se o Supabase estiver indisponivel.
+
+O texto continua sem IA real e sem envio para provider externo.
+
+Limite:
+
+- o salvamento definitivo depende de token Supabase e migration aplicada no ambiente alvo.
