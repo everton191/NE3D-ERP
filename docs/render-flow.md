@@ -562,6 +562,34 @@ scripts/google-integrations-remote-controlled.js
 
 O service Google nao e carregado no `index.html`; portanto nao altera login, menu, PWA ou UI atual.
 
+## Fase 6D - Deploy Controlado e Smoke
+
+```txt
+npm run build:web
+ └── scripts/prepare-web.js
+      ├── copia HTML/CSS/app/sw/manifest/assets
+      ├── copia apenas src/services publicos permitidos
+      ├── nao copia src/integrations/google
+      └── copia modules/store-editor, store-preview e storefront
+```
+
+```txt
+vercel build --prod
+ └── .vercel/output
+      └── vercel deploy --prebuilt --prod
+           └── https://erpne3d.vercel.app
+```
+
+Deploy validado:
+
+- `dpl_GWXFJVvQxrGJtX2Zqyb9SkL5gu8z`;
+- alias `https://erpne3d.vercel.app`;
+- cache `simplifica-3d-v119-estavel-20260529-diagnostics-6b`;
+- diagnostics e Google remoto validados por scripts;
+- smoke sem login confirmou login por e-mail/senha, ausencia de IA/Google visiveis e rota admin protegida.
+
+Validacao autenticada de usuario comum/Superadmin permanece manual porque exige sessao real.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

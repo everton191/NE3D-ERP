@@ -98,3 +98,20 @@ Com as migrations aplicadas no Supabase remoto, o export tecnico foi validado em
 - o teste usa `rollback`, portanto nao deixa relatorio temporario salvo.
 
 O relatorio continua deterministico, sem provider de IA e sem envio automatico para servico externo.
+
+## Smoke remoto - Fase 6D
+
+No deploy `dpl_GWXFJVvQxrGJtX2Zqyb9SkL5gu8z`, a base remota de diagnosticos foi validada por script e continua apta a salvar exports em `app_bug_reports_exports`.
+
+Validado:
+
+- `npm run supabase:diagnostics:validate` retornou `diagnostics_remote_validation_ok`;
+- templates continuam deterministicos;
+- nenhuma IA e chamada para gerar o texto;
+- nenhuma chave, token ou segredo aparece no HTML publico.
+
+Pendente:
+
+- gerar relatorio Codex pela UI com Superadmin autenticado;
+- validar copia para clipboard no navegador real;
+- limpar ou marcar como teste qualquer export criado manualmente.

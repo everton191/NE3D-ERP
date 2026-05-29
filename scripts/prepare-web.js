@@ -29,9 +29,19 @@ if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
 }
 
-if (fs.existsSync(path.join(root, "src"))) {
-  fs.cpSync(path.join(root, "src"), path.join(dist, "src"), { recursive: true });
-}
+const publicSrcFiles = [
+  "src/services/errorTelemetry.js",
+  "src/services/diagnosticsService.js",
+  "src/services/adMobService.js",
+  "src/services/adSenseService.js",
+  "src/services/monetizationLimits.js"
+];
+
+publicSrcFiles.forEach((relativePath) => {
+  if (fs.existsSync(path.join(root, relativePath))) {
+    copyFile(relativePath);
+  }
+});
 
 const publicModuleDirs = [
   "modules/store-editor",

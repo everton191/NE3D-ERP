@@ -75,6 +75,11 @@ async function run() {
   const index = read("index.html");
   assert.doesNotMatch(index, /googleIntegrationService\.js|google-oauth|Entrar com Google|Login com Google/i, "index.html nao deve carregar ou exibir Google");
 
+  const prepareWeb = read("scripts/prepare-web.js");
+  assert.match(prepareWeb, /publicSrcFiles/, "build web deve usar allowlist de src publico");
+  assert.match(prepareWeb, /src\/services\/diagnosticsService\.js/, "build web deve publicar diagnosticsService");
+  assert.doesNotMatch(prepareWeb, /fs\.cpSync\(path\.join\(root,\s*["']src["']\)/, "build web nao deve publicar src inteiro");
+
   const app = read("app.js");
   const authPublica = extractFunction(app, "renderAuthPublica");
   const authEntrar = extractFunction(app, "renderAuthEntrar");

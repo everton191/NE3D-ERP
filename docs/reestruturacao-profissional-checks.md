@@ -416,3 +416,19 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Validar usuario comum sem acesso a outro owner e sem criar token.
 - `[x]` Validar superadmin sem leitura frontend de tokens.
 - `[x]` Confirmar que login atual e UI continuam sem botao Google.
+
+## Fase 6D - Deploy Controlado e Smoke Real
+
+- `[x]` Conferir checkpoint `80d4852` e tags recentes.
+- `[x]` Manter arquivos antigos fora de escopo fora do commit/deploy de codigo.
+- `[x]` Executar suite pre-deploy de diagnosticos, Google, planos, UI, migrations e build.
+- `[x]` Publicar deploy prebuilt no Vercel.
+- `[x]` Validar URL `https://erpne3d.vercel.app`.
+- `[x]` Confirmar assets novos: icon-192, icon-512, apple-touch-icon, intro.mp4 e simplifica-brand-cover.
+- `[x]` Confirmar cache `v119` ou posterior.
+- `[x]` Corrigir build para nao publicar `src/integrations/google`.
+- `[x]` Confirmar Google/IA invisiveis no HTML remoto.
+- `[x]` Confirmar diagnosticos remotos com `diagnostics_remote_validation_ok`.
+- `[x]` Confirmar Google remoto com `google_integrations_remote_validation_ok`.
+- `[~]` Validacao de usuario comum e Superadmin reais exige login manual/autenticado.
+- `[~]` Loja publica `/ne3d` retornou `Loja em preparacao`; validar com loja publicada antes de release final.

@@ -84,3 +84,22 @@ Validacoes confirmadas:
 - nenhuma mudanca visual foi exposta ao usuario.
 
 A ativacao futura continua exigindo backend seguro, provider real, flags, limites e liberacao controlada.
+
+## Smoke remoto - Fase 6D
+
+No deploy `dpl_GWXFJVvQxrGJtX2Zqyb9SkL5gu8z`, a fundacao de IA permaneceu invisivel:
+
+- `index.html` remoto nao contem `aiService`, `ai-foundation` ou `AI_ENABLED_GLOBAL`;
+- nenhum script de IA e carregado pela pagina;
+- nenhum botao, menu, card ou tela de IA aparece no smoke sem login;
+- os testes `test:diagnostics`, `test:restructuring-checks` e `supabase:test:migrations` continuam passando.
+
+Estado final da fase:
+
+```txt
+IA estruturada: sim
+IA ativa: nao
+Provider real: nao
+API externa: nao
+Botao/menu visivel: nao
+```

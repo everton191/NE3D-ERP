@@ -125,3 +125,22 @@ Validacao manual ainda recomendada apos deploy:
 - acessar `Relatorios e Diagnostico`;
 - confirmar carregamento das abas Bugs, Sugestoes, Eventos, Clusters e Relatorios para Codex;
 - confirmar que usuario comum nao ve o painel nem dados globais.
+
+## Smoke remoto - Fase 6D
+
+O deploy `dpl_GWXFJVvQxrGJtX2Zqyb9SkL5gu8z` foi publicado em producao e validado em `https://erpne3d.vercel.app`.
+
+Confirmado sem login:
+
+- rota protegida `/store-admin/ne3d` volta para login;
+- login por e-mail/senha continua visivel;
+- nao aparece Google Login;
+- nao aparece recurso de IA;
+- nao ha erro de console capturado no smoke inicial.
+
+Pendente de usuario autenticado:
+
+- abrir `Relatorios e Diagnostico` com conta Superadmin real;
+- validar filtros, detalhes, status, severidade e notas;
+- confirmar persistencia apos reload;
+- confirmar que usuario comum nao executa acoes administrativas.

@@ -151,3 +151,23 @@ npm run supabase:diagnostics:validate
 ```
 
 Observacao: o dry-run global ainda aponta migrations antigas de storefront/financeiro fora do escopo desta fase. Elas nao devem ser enviadas junto com diagnosticos sem uma revisao propria.
+
+## Deploy e smoke remoto - Fase 6D
+
+Deploy web publicado em 2026-05-29:
+
+- commit base: `80d4852`;
+- deploy Vercel: `dpl_GWXFJVvQxrGJtX2Zqyb9SkL5gu8z`;
+- URL validada: `https://erpne3d.vercel.app`;
+- cache publicado: `simplifica-3d-v119-estavel-20260529-diagnostics-6b`.
+
+Validacoes executadas:
+
+- `npm run supabase:diagnostics:validate` retornou `diagnostics_remote_validation_ok`;
+- `dist/src/services/diagnosticsService.js` publicado com HTTP 200;
+- tela publica e tela protegida carregam sem erro de console no smoke sem login;
+- o bundle publico nao carrega service de IA nem service Google.
+
+Limite da fase:
+
+- envio manual de feedback com usuario real, acoes de Superadmin e geracao visual de relatorio Codex precisam de sessao autenticada. Sem credenciais nesta execucao, esses pontos ficaram registrados como smoke manual pendente, nao como falha automatica.

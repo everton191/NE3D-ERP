@@ -137,3 +137,34 @@ GOOGLE_CLIENT_SECRET
 GOOGLE_REDIRECT_URI
 GOOGLE_ENCRYPTION_KEY
 ```
+
+## Deploy e bundle publico - Fase 6D
+
+No deploy `dpl_GWXFJVvQxrGJtX2Zqyb9SkL5gu8z`, a fundacao Google continuou desativada e fora do bundle publico.
+
+Correcao aplicada na fase:
+
+- `scripts/prepare-web.js` deixou de copiar o `src` inteiro para `dist`;
+- o build web agora usa allowlist apenas para services publicos realmente carregados;
+- `dist/src/integrations/google` nao e gerado;
+- `/src/integrations/google/googleIntegrationService.js` no remoto retorna o fallback HTML da SPA, nao o arquivo JavaScript do service;
+- `index.html` remoto nao contem `googleIntegrationService`, `Entrar com Google` ou `Login com Google`.
+
+Validacoes:
+
+- `npm run test:google-integrations-foundation`;
+- `npm run test:restructuring-checks`;
+- `npm run supabase:google-integrations:validate`;
+- HTTP 200 para assets/PWA essenciais e ausencia dos markers Google no HTML.
+
+Estado final da fase:
+
+```txt
+Google estruturado: sim
+Google ativo: nao
+OAuth ativo: nao
+SDK instalado: nao
+Service no bundle publico: nao
+Botao/menu visivel: nao
+Tokens frontend: nao
+```
