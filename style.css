@@ -4584,10 +4584,12 @@ button:disabled{
   transition:transform .22s ease, border-color .22s ease, box-shadow .22s ease, filter .22s ease;
 }
 
-.plan-tier-card:hover,
-.plan-tier-card:focus-visible,
-.plan-tier-card:active{
+.plan-tier-card:focus-visible{
   transform:translateY(-4px) scale(1.012);
+}
+
+.plan-tier-card:active{
+  transform:scale(.995);
 }
 
 .plan-tier-card .row-title{
@@ -27082,4 +27084,115 @@ body.viewport-desktop #app-content{
   min-width:0;
   overflow-y:auto;
   overflow-x:clip;
+}
+
+/* Fase 5B: plans workspace premium, balanced and safe across breakpoints */
+.plans-modern-screen.plans-pricing-screen{
+  width:min(100%, 1280px);
+  max-width:1280px;
+  margin-inline:auto;
+  gap:var(--space-xl);
+  padding:var(--space-xl);
+}
+
+.plans-pricing-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap:var(--space-xl);
+  align-items:stretch;
+}
+
+.plans-pricing-grid .plan-tier-card{
+  min-width:0;
+}
+
+.plan-tier-card .row-title{
+  min-width:0;
+  padding-right:104px;
+}
+
+.plan-tier-card.disabled:not(.current){
+  filter:saturate(.82);
+}
+
+.plan-tier-button.is-unavailable,
+.plan-tier-button.is-unavailable:hover,
+.plan-tier-button.is-unavailable:focus-visible{
+  cursor:not-allowed;
+  color:rgba(255,255,255,.78);
+  background:rgba(255,255,255,.10);
+  border-color:rgba(255,255,255,.18);
+  box-shadow:none;
+}
+
+.plans-current-stats{
+  grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.plans-state-notice{
+  display:grid;
+  gap:4px;
+  padding:var(--space-md) var(--space-lg);
+  border:1px solid color-mix(in srgb, var(--warning) 34%, var(--border-primary));
+  border-radius:var(--radius-md);
+  color:var(--text-primary);
+  background:color-mix(in srgb, var(--warning) 12%, var(--card-bg));
+}
+
+.plans-state-notice span{
+  color:var(--text-secondary);
+  line-height:1.45;
+}
+
+.plans-state-notice.checkout-opened{
+  border-color:color-mix(in srgb, var(--info) 34%, var(--border-primary));
+  background:color-mix(in srgb, var(--info) 10%, var(--card-bg));
+}
+
+body.theme-light .plans-state-notice{
+  color:var(--color-text-primary);
+  background:color-mix(in srgb, var(--color-warning, #b45309) 10%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-warning, #b45309) 30%, var(--color-border));
+}
+
+body.theme-light .plans-state-notice.checkout-opened{
+  background:color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+  border-color:color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+}
+
+body.theme-light .plans-state-notice span{
+  color:var(--color-text-secondary);
+}
+
+@media (hover:hover){
+  .plan-tier-card:hover{
+    transform:translateY(-4px) scale(1.012);
+  }
+}
+
+@media (min-width:1024px){
+  .plans-pricing-grid{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width:767px){
+  .plans-modern-screen.plans-pricing-screen{
+    max-width:100%;
+    gap:var(--space-lg);
+    padding:var(--space-md);
+  }
+
+  .plans-pricing-grid{
+    grid-template-columns:1fr;
+    gap:var(--space-lg);
+  }
+
+  .plans-current-bottom{
+    grid-template-columns:1fr;
+  }
+
+  .plans-current-bottom .btn{
+    width:100%;
+  }
 }

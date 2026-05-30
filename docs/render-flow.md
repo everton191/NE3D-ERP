@@ -608,6 +608,26 @@ O slug remoto legado `premium` continua preservado como autoridade paga. Aliases
 
 Validacao autenticada de usuario comum/Superadmin permanece manual porque exige sessao real.
 
+## Fase 5B - Tela premium de planos
+
+```txt
+renderAssinatura()
+ ├── getPlanAccessState()
+ │    ├── effectivePlan
+ │    ├── canCancelRenewal
+ │    ├── canReactivateRenewal
+ │    └── shouldShowPendingPayment
+ ├── getCheckoutVisualState()
+ │    ├── checkout_opened -> aviso discreto, sem pending real
+ │    └── expired -> pagamento nao concluido, plano preservado
+ └── plans-pricing-grid
+      ├── Free -> atual ou indisponivel durante plano pago
+      ├── Start -> Em breve, sem checkout
+      └── Pro -> unico checkout produtivo
+```
+
+O workspace de planos limita largura ultrawide, mantem tres cards equilibrados no desktop e uma coluna no mobile. A UI registra eventos seguros de visualizacao e acao sem persistir dados sensiveis.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

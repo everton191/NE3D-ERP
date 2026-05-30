@@ -79,6 +79,7 @@
     "test:monetization": "node scripts/test-monetization.js",
     "test:plans-saas-structure": "node scripts/test-plans-saas-structure.js",
     "test:plans": "node scripts/test-plans-subscription-rules.js",
+    "test:plans-ui": "node scripts/test-plans-ui.js",
     "test:billing-webhook": "node scripts/test-billing-webhook.js",
     "test:ai-foundation": "node scripts/test-ai-foundation.js",
     "test:google-integrations-foundation": "node scripts/test-google-integrations-foundation.js",

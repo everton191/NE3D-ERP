@@ -91,6 +91,7 @@ const PLAN_ACCESS_STATES = Object.freeze({
 const PLAN_DEBUG_ENABLED = false;
 const LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000;
 let plansModernTab = "current";
+const planDiagnosticsSeen = new Set();
 // IA local pesada fica preservada como legado, mas desativada no app principal.
 const HEAVY_AI_FEATURE_ENABLED = false;
 const PAID_PRICE_TIERS = [
@@ -7402,6 +7403,7 @@ function getPlanAccessState(userSubscription = getAssinaturaSaas(), options = {}
     isCancelingAtPeriodEnd,
     canUpgrade: effectivePlan === "free" || effectivePlan === "start",
     canCancelRenewal: isPaid && isActive && !isCancelingAtPeriodEnd,
+    canReactivateRenewal: isCancelingAtPeriodEnd,
     canSubscribe: effectivePlan === "free",
     shouldShowPendingPayment: estado.pending === true && realPendingPayment,
     accessEndsAt: accessEndsAt || "",
@@ -26960,6 +26962,60 @@ function renderStatusPlanoUnico(resumo) {
   `;
 }
 
+function registrarEventoPlanoSeguro(eventType, metadata = {}, onceKey = "") {
+  const key = String(onceKey || "");
+  if (key && planDiagnosticsSeen.has(key)) return;
+  if (key) planDiagnosticsSeen.add(key);
+  try {
+    if (typeof window.reportDiagnosticEvent !== "function") return;
+    void window.reportDiagnosticEvent(eventType, {
+      screen: "planos",
+      action: eventType,
+      metadata
+    });
+  } catch (_) {}
+}
+
+function getCheckoutVisualState() {
+  limparCheckoutsLocaisExpirados();
+  const clientId = String(getClientIdAtual() || billingConfig.clientId || "");
+  const checkout = saasPayments.find((pagamento) => {
+    const status = String(pagamento.status || "").toLowerCase();
+    const mesmoCliente = !clientId || String(pagamento.clientId || "") === clientId;
+    const transacaoReal = Boolean(pagamento.mercadoPagoPaymentId || pagamento.mercado_pago_payment_id || pagamento.paymentId || pagamento.payment_id || pagamento.mercadoPagoSubscriptionId || pagamento.mercado_pago_subscription_id);
+    return mesmoCliente && !transacaoReal && ["checkout_opened", "expired"].includes(status);
+  });
+  if (!checkout) return { type: "", message: "" };
+  if (String(checkout.status || "").toLowerCase() === "checkout_opened") {
+    return {
+      type: "checkout-opened",
+      message: "Checkout iniciado. Seu plano atual continua normalmente até a confirmação real do pagamento."
+    };
+  }
+  return {
+    type: "checkout-abandoned",
+    message: "Pagamento não concluído. Seu plano atual continua normalmente."
+  };
+}
+
+function renderPlanPaymentNotice(accessState, checkoutState) {
+  if (accessState.shouldShowPendingPayment) {
+    return `
+      <div class="plans-state-notice pending" role="status">
+        <strong>Pagamento em processamento.</strong>
+        <span>Assim que houver confirmação, seu plano será atualizado automaticamente.</span>
+      </div>
+    `;
+  }
+  if (!checkoutState?.message) return "";
+  return `
+    <div class="plans-state-notice ${escaparAttr(checkoutState.type)}" role="status">
+      <strong>${checkoutState.type === "checkout-abandoned" ? "Pagamento não concluído." : "Pagamento ainda não confirmado."}</strong>
+      <span>${escaparHtml(checkoutState.message)}</span>
+    </div>
+  `;
+}
+
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
   const usuario = getUsuarioAtual();
@@ -26967,6 +27023,10 @@ function renderAssinatura() {
   const superadmin = isSuperAdmin();
   const isPremiumAtivo = superadmin || accessState.isPaid;
   const planoAtual = getPlanoSaas(superadmin ? "pro" : accessState.effectivePlan);
+  const isFreeCurrent = !superadmin && accessState.effectivePlan === "free";
+  const isStartCurrent = !superadmin && accessState.effectivePlan === "start";
+  const isProCurrent = superadmin || accessState.effectivePlan === "pro";
+  const checkoutState = getCheckoutVisualState();
   const proximaCobranca = accessState.accessEndsAt || usuario?.planExpiresAt || billingConfig.paidUntil || "";
   const dataCobranca = proximaCobranca ? new Date(proximaCobranca).toLocaleDateString("pt-BR") : "-";
   const statusLabel = accessState.isCancelingAtPeriodEnd
@@ -26996,9 +27056,9 @@ function renderAssinatura() {
       blocked: ["Não publica vitrine", "Não gera link público", "Não permite compartilhar loja", "Sem personalização avançada"],
       highlights: ["5 pedidos grátis por dia", "+5 pedidos assistindo anúncio", "Máximo 10 pedidos/dia", "Powered by Simplifica 3D"],
       note: "Sua loja está pronta para ser publicada. Ative um plano pago para liberar seu link público.",
-      cta: accessState.isFree ? "Plano atual" : "Indisponível durante plano pago",
-      current: accessState.isFree,
-      disabled: !accessState.isFree,
+      cta: isFreeCurrent ? "Plano atual" : "Indisponível durante plano pago",
+      current: isFreeCurrent,
+      disabled: !isFreeCurrent,
       action: ""
     },
     {
@@ -27007,17 +27067,18 @@ function renderAssinatura() {
       subtitle: "Comece a vender de verdade",
       price: "R$ 29,90",
       period: "/mês",
-      badge: "MAIS POPULAR",
+      badge: isStartCurrent ? "PLANO ATUAL" : "EM BREVE",
       allowedTitle: "Libera sua loja online",
       allowed: ["Até 300 produtos", "Pedidos ilimitados", "Loja pública liberada", "Link compartilhável", "Sem anúncios", "Personalização básica", "Banner simples", "Relatórios básicos", "Financeiro básico", "Backup automático", "Remove marca Simplifica 3D"],
       blockedTitle: "Fica para o Pro",
       blocked: ["Analytics avançado", "Multiusuário/admin", "Temas premium", "Automações e integrações futuras"],
       highlights: ["Preview vira loja real online", "Sem anúncios", "Link público para compartilhar"],
-      note: "O plano principal para colocar a vitrine no ar com aparência profissional.",
-      cta: policy.isStart ? "Plano atual" : policy.isPro ? "Incluído no Pro" : "Assinar Start",
-      current: policy.isStart,
-      disabled: policy.isPro,
-      action: "start"
+      note: "Estrutura comercial preparada. A contratação será liberada após a ativação segura do tier Start no backend.",
+      cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : "Indisponível no momento",
+      current: isStartCurrent,
+      disabled: true,
+      unavailable: !isStartCurrent && !isProCurrent,
+      action: "start-unavailable"
     },
     {
       slug: "pro",
@@ -27032,11 +27093,15 @@ function renderAssinatura() {
       blocked: [],
       highlights: ["Operação sem limites", "Identidade premium", "Suporte prioritário"],
       note: "O plano completo para quem quer escalar e vender mais.",
-      cta: policy.isPro ? "Plano atual" : policy.isStart ? "Upgrade para Pro" : "Assinar Pro",
-      current: policy.isPro,
+      cta: isProCurrent ? "Plano atual" : isStartCurrent ? "Upgrade para Pro" : "Assinar Pro",
+      current: isProCurrent,
+      disabled: isProCurrent,
       action: "pro"
     }
   ];
+  registrarEventoPlanoSeguro("plans_screen_opened", { effectivePlan: accessState.effectivePlan }, "plans-screen-opened");
+  planos.forEach((plano) => registrarEventoPlanoSeguro("plan_card_viewed", { plan: plano.slug, current: plano.current === true }, `plan-card-viewed:${plano.slug}`));
+  if (accessState.shouldShowPendingPayment) registrarEventoPlanoSeguro("payment_pending_real_viewed", { effectivePlan: accessState.effectivePlan }, "payment-pending-real-viewed");
   const abaPlanos = plansModernTab === "all" ? "all" : "current";
   const planoAtualLista = planos.find((plano) => plano.current) || planos.find((plano) => plano.slug === planoAtual.slug) || planos[0];
 
@@ -27082,8 +27147,9 @@ function renderAssinatura() {
         </div>
         <div class="plans-current-bottom">
           <span><small>Loja pública</small><strong>${policy.publicStore ? "Liberada" : "Somente preview"}</strong></span>
-          <button class="btn ghost" type="button" ${accessState.canCancelRenewal ? "data-action=\"plan-cancel\"" : accessState.isCancelingAtPeriodEnd ? "data-action=\"plan-reactivate\"" : "data-action=\"open-payment\" data-slug=\"start\""}>${renderUiIcon("config")} ${accessState.canCancelRenewal ? "Cancelar renovação" : accessState.isCancelingAtPeriodEnd ? "Reativar renovação" : "Publicar com Start"}</button>
+          <button class="btn ghost" type="button" ${accessState.canCancelRenewal ? "data-action=\"plan-cancel\"" : accessState.canReactivateRenewal ? "data-action=\"plan-reactivate\"" : "data-action=\"open-payment\" data-slug=\"pro\""}>${renderUiIcon("config")} ${accessState.canCancelRenewal ? "Cancelar renovação" : accessState.canReactivateRenewal ? "Reativar renovação" : "Assinar Pro"}</button>
         </div>
+        ${renderPlanPaymentNotice(accessState, checkoutState)}
       </div>
       <button class="plans-help-card plans-view-all-card" type="button" onclick="setPlansModernTab('all')">
         ${renderUiIcon("assinatura")}
@@ -27096,6 +27162,7 @@ function renderAssinatura() {
         <small class="muted">${escaparHtml(statusLabel)} · ${policy.publicStore ? "Loja pública liberada" : "Loja em preview"}</small>
       </div>`}
 
+      ${abaPlanos === "all" ? renderPlanPaymentNotice(accessState, checkoutState) : ""}
       ${abaPlanos === "all" ? `<div class="plans-pricing-grid">
         ${planos.map(renderModernPlanOption).join("")}
       </div>` : ""}
@@ -27117,8 +27184,10 @@ function setPlansModernTab(tab = "current") {
 function renderModernPlanOption(plan = {}) {
   const slug = normalizarSlugPlano(plan.slug || "free");
   const short = slug === "pro" ? "PRO" : slug === "start" ? "START" : "GRÁTIS";
-  const disabled = plan.current || plan.disabled;
-  const click = disabled
+  const disabled = plan.current || (plan.disabled && !plan.unavailable);
+  const click = plan.unavailable
+    ? `data-action="plan-start-unavailable"`
+    : disabled
     ? ""
     : ["start", "pro"].includes(plan.action)
       ? `data-action="open-payment" data-slug="${escaparAttr(plan.action)}"`
@@ -27156,7 +27225,7 @@ function renderModernPlanOption(plan = {}) {
         </div>
       ` : ""}
       <div class="plan-tier-note">${escaparHtml(plan.note || "")}</div>
-      <button class="btn plan-tier-button" type="button" ${click} ${disabled ? "disabled" : ""}>${escaparHtml(plan.cta || "Escolher plano")}</button>
+      <button class="btn plan-tier-button ${plan.unavailable ? "is-unavailable" : ""}" type="button" ${click} ${disabled ? "disabled" : ""} ${plan.unavailable ? "aria-disabled=\"true\"" : ""}>${escaparHtml(plan.cta || "Escolher plano")}</button>
     </article>
   `;
 }
@@ -27973,9 +28042,14 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
   registrarAuditoria("checkout aberto", { tipo, plano: plano.slug, preferenceId: pagamento.preferenceId, subscriptionId: pagamento.mercadoPagoSubscriptionId }, clientId);
 }
 
-async function abrirLinkMercadoPago(slug = "start") {
+async function abrirLinkMercadoPago(slug = "pro") {
   const plano = getPlanoSaas(slug);
-  if (!["start", "pro"].includes(plano.slug)) {
+  if (plano.slug === "start") {
+    registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start" });
+    mostrarToast("O plano Start será liberado em breve. A contratação segura disponível agora é o Pro.", "info", 6500);
+    return;
+  }
+  if (plano.slug !== "pro") {
     trocarTela("assinatura");
     return;
   }
@@ -27986,6 +28060,14 @@ async function abrirLinkMercadoPago(slug = "start") {
     trocarTela("admin");
     return;
   }
+
+  registrarEventoPlanoSeguro("plan_checkout_clicked", { plan: plano.slug });
+  const confirmou = await solicitarConfirmacaoAcao({
+    titulo: "Assinar plano Pro",
+    mensagem: "Você será direcionado ao pagamento seguro do Mercado Pago. Seu plano será ativado automaticamente após a confirmação.",
+    confirmar: "Continuar para pagamento"
+  });
+  if (!confirmou) return;
 
   registrarAuditoria("tentativa", { tipo: "assinatura", plano: plano.slug }, clientId);
   try {
@@ -28016,10 +28098,15 @@ async function abrirLinkMercadoPago(slug = "start") {
   }
 }
 
-async function criarPagamentoUnicoMercadoPago(slug = "start") {
+async function criarPagamentoUnicoMercadoPago(slug = "pro") {
   const plano = getPlanoSaas(slug);
-  if (!["start", "pro"].includes(plano.slug)) {
-    alert("Pagamento disponível para os planos Start e Pro.");
+  if (plano.slug === "start") {
+    registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start", origin: "single-payment" });
+    mostrarToast("O plano Start ainda não está disponível para contratação.", "info", 5500);
+    return;
+  }
+  if (plano.slug !== "pro") {
+    alert("Pagamento disponível para o plano Pro.");
     return;
   }
 
@@ -28068,7 +28155,14 @@ async function cancelarAssinaturaCliente() {
   }
   const fimPeriodo = accessState.accessEndsAt || assinatura.currentPeriodEnd || assinatura.planExpiresAt || assinatura.expiresAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   const dataFim = fimPeriodo ? new Date(fimPeriodo).toLocaleDateString("pt-BR") : "o fim do período pago";
-  if (!confirm(`Cancelar a renovação? O plano ${getPlanoSaas(accessState.effectivePlan).name} continua ativo até ${dataFim}.`)) return;
+  const confirmou = await solicitarConfirmacaoAcao({
+    titulo: "Cancelar renovação automática",
+    mensagem: `Deseja cancelar a renovação automática? Seu plano ${getPlanoSaas(accessState.effectivePlan).name} continuará ativo até ${dataFim}. Depois disso, sua conta voltará ao plano Free.`,
+    confirmar: "Cancelar renovação",
+    perigo: true
+  });
+  if (!confirmou) return;
+  registrarEventoPlanoSeguro("subscription_cancel_requested", { plan: accessState.effectivePlan, accessEndsAt: fimPeriodo });
 
   try {
     if (syncConfig.supabaseAccessToken && assinatura.mercadoPagoSubscriptionId) {
@@ -28119,11 +28213,12 @@ async function cancelarAssinaturaCliente() {
   }
   salvarDados();
   registrarAuditoria("cancelamento renovacao", { plano: accessState.effectivePlan, accessEndsAt: fimPeriodo, origem: "cliente" }, clientId);
+  registrarEventoPlanoSeguro("subscription_cancel_at_period_end", { plan: accessState.effectivePlan, accessEndsAt: fimPeriodo });
   alert(`Renovação cancelada. O acesso pago continua liberado até ${dataFim}.`);
   renderApp();
 }
 
-function reativarRenovacaoAssinaturaCliente() {
+async function reativarRenovacaoAssinaturaCliente() {
   const clientId = getClientIdAtual() || billingConfig.clientId;
   const assinatura = garantirAssinaturaClienteLocal(clientId);
   const accessState = getPlanAccessState(assinatura, { source: "reactivate-renewal" });
@@ -28131,6 +28226,12 @@ function reativarRenovacaoAssinaturaCliente() {
     alert("Não há cancelamento de renovação agendado para reativar.");
     return;
   }
+  const confirmou = await solicitarConfirmacaoAcao({
+    titulo: "Reativar renovação automática",
+    mensagem: "Deseja reativar a renovação automática do seu plano Pro?",
+    confirmar: "Reativar renovação"
+  });
+  if (!confirmou) return;
   assinatura.cancelAtPeriodEnd = false;
   assinatura.subscriptionStatus = "active";
   assinatura.status = "active";
@@ -28150,6 +28251,7 @@ function reativarRenovacaoAssinaturaCliente() {
   }
   salvarDados();
   registrarAuditoria("reativacao renovacao", { plano: accessState.effectivePlan }, clientId);
+  registrarEventoPlanoSeguro("subscription_reactivated", { plan: accessState.effectivePlan });
   alert("Renovação reativada. Sua assinatura continua ativa normalmente.");
   renderApp();
 }
@@ -36668,7 +36770,14 @@ function configurarEventListenersArquitetura() {
     if (acao === "open-payment") {
       event.preventDefault();
       const planoAtual = normalizarSlugPlano(billingConfig.activePlan || billingConfig.planSlug || "free");
-      abrirLinkMercadoPago(elemento.dataset.slug || (isPlanoPagoSlug(planoAtual) ? planoAtual : "start"));
+      abrirLinkMercadoPago(elemento.dataset.slug || (isPlanoPagoSlug(planoAtual) ? planoAtual : "pro"));
+      return;
+    }
+
+    if (acao === "plan-start-unavailable") {
+      event.preventDefault();
+      registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start" });
+      mostrarToast("O plano Start será liberado em breve. Nenhuma cobrança foi iniciada.", "info", 5500);
       return;
     }
 
@@ -36686,13 +36795,13 @@ function configurarEventListenersArquitetura() {
 
     if (acao === "plan-payment") {
       event.preventDefault();
-      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "start");
+      criarPagamentoUnicoMercadoPago(elemento.dataset.slug || "pro");
       return;
     }
 
     if (acao === "plan-renew") {
       event.preventDefault();
-      abrirLinkMercadoPago(elemento.dataset.slug || "start");
+      abrirLinkMercadoPago(elemento.dataset.slug || "pro");
       return;
     }
 

@@ -39,8 +39,8 @@ Pagamento pendente visual so aparece quando existe uma transacao real associada,
 Free:
 
 - Mostra plano atual Free.
-- Permite assinar Start.
 - Permite assinar Pro.
+- Mostra Start como `Em breve`, sem checkout funcional.
 - Nao mostra voltar para Free.
 - Nao mostra cancelar Free.
 
@@ -133,3 +133,13 @@ O cancelamento remoto foi alinhado com a regra da Fase 5A:
 A autoridade remota historica ainda usa `premium` como slug interno do plano pago. A ponte backend resolve aliases Pro de forma controlada. O checkout Start permanece bloqueado com erro explicito ate existir migracao completa do tier remoto, pois mapear Start parcialmente para `premium` liberaria recursos Pro indevidamente.
 
 Detalhes operacionais: `docs/billing-mercado-pago.md`.
+
+## Fase 5B - Tela premium e estados corretos
+
+A tela premium usa `getPlanAccessState()` como contrato central. O plano Start permanece visivel como referencia comercial, mas seu CTA fica indisponivel ate existir tier remoto isolado. O Pro e o unico plano pago contratavel nesta fase.
+
+O resumo do Free direciona para `Assinar Pro`. Pagamento pendente visual exige transacao real. Checkout aberto ou abandonado nao altera o plano efetivo e nao bloqueia a interface.
+
+Cancelamento mostra a data final do acesso pago. Reativacao aparece somente quando `canReactivateRenewal = true`.
+
+Detalhes visuais: `docs/plans-premium-ui.md`.

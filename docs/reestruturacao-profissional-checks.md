@@ -444,3 +444,20 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Confirmar Google remoto com `google_integrations_remote_validation_ok`.
 - `[~]` Validacao de usuario comum e Superadmin reais exige login manual/autenticado.
 - `[~]` Loja publica `/ne3d` retornou `Loja em preparacao`; validar com loja publicada antes de release final.
+
+## Fase 5B - Tela Premium de Planos
+
+- `[x]` Derivar tela moderna de `getPlanAccessState()`.
+- `[x]` Adicionar `canReactivateRenewal` ao contrato central.
+- `[x]` Manter Start visivel como `Em breve`, sem checkout funcional.
+- `[x]` Direcionar Free somente para checkout Pro.
+- `[x]` Mostrar pending apenas com transacao remota real.
+- `[x]` Mostrar aviso discreto para checkout aberto ou abandonado sem congelar interface.
+- `[x]` Confirmar contratacao Pro antes do redirecionamento Mercado Pago.
+- `[x]` Confirmar cancelamento e reativacao com textos claros.
+- `[x]` Criar workspace responsivo limitado a `1280px`.
+- `[x]` Garantir uma coluna mobile e ate tres cards equilibrados desktop.
+- `[x]` Preservar contraste dos cards e avisos em tema claro e escuro.
+- `[x]` Registrar eventos seguros da tela sem payload sensivel.
+- `[x]` Criar `test:plans-ui`.
+- `[~]` Validacao visual autenticada em navegador deve ser repetida manualmente antes do release.

@@ -127,3 +127,15 @@ Em 2026-05-29:
 ## Referencia oficial
 
 - Mercado Pago Developers: https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/payment-notifications
+
+## Fase 5B - Limite visual preservado
+
+A tela premium de planos foi alinhada com o backend seguro sem alterar Edge Functions:
+
+- Start aparece como `Em breve` e nao chama checkout;
+- Pro permanece como unico plano pago contratavel;
+- abrir checkout nao ativa plano nem mostra pending real;
+- cancelamento e reativacao exibem confirmacoes claras;
+- pagamento pendente visual depende de transacao remota real.
+
+Detalhes: `docs/plans-premium-ui.md`.

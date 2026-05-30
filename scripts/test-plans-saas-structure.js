@@ -30,9 +30,10 @@ includesAll(app, [
   "Loja pública liberada",
   "Produtos ilimitados",
   "Valores promocionais de lançamento",
-  "data-slug=\\\"start\\\"",
+  "plan-start-unavailable",
   "data-slug=\"pro\"",
 ], "app.js estrutura de planos");
+assert(!app.includes("data-action=\\\"open-payment\\\" data-slug=\\\"start\\\""), "Start bloqueado nao deve expor checkout funcional");
 
 includesAll(app, [
   "const slugNormalizado = normalizarSlugPlano(slug || \"free\")",

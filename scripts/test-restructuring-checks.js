@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v119-estavel-20260529-diagnostics-6b"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v120-estavel-20260529-plans-ui-5b"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-diagnostics-6b-20260529"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-plans-ui-5b-20260529"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
@@ -550,8 +550,22 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "test:storefront-desktop-upscale",
   "test:plans-saas-structure",
   "test:plans",
+  "test:plans-ui",
   "test:project-saneamento"
 ].forEach((script) => assert(Boolean(pkg.scripts?.[script]), `script npm ativo: ${script}`));
+
+[
+  "canReactivateRenewal",
+  "plans_screen_opened",
+  "plan_card_viewed",
+  "plan_checkout_clicked",
+  "plan_start_unavailable_clicked",
+  "payment_pending_real_viewed",
+  "Indisponível no momento",
+  "Assinar Pro"
+].forEach((marker) => assert(app.includes(marker), `fase 5b tela premium de planos presente: ${marker}`));
+assert(css.includes(".plans-modern-screen.plans-pricing-screen"), "fase 5b workspace dedicado de planos presente");
+assert(css.includes("repeat(auto-fit, minmax(min(100%, 300px), 1fr))"), "fase 5b grid responsivo de planos presente");
 
 warn(css.includes("--z-sidebar"), "tokens de z-index formalizados para a Fase 2A");
 warn(exists("modules/storefront/README.md"), "pasta modules agora expoe apenas contratos seguros da storefront");

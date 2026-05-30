@@ -23,7 +23,12 @@
     "webhook_validation_failed",
     "webhook_ignored_duplicate",
     "webhook_plan_resolved",
-    "webhook_plan_resolution_failed"
+    "webhook_plan_resolution_failed",
+    "plans_screen_opened",
+    "plan_card_viewed",
+    "plan_checkout_clicked",
+    "plan_start_unavailable_clicked",
+    "payment_pending_real_viewed"
   ]);
   const DIAGNOSTIC_EVENTS = new Set([
     "login_failed",
