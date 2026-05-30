@@ -75,14 +75,18 @@ async function main() {
   }
 
   const internalStoreRows = await runQuery(`
-    select slug, active from public.stores where slug = 'ne3d-internal-test';
+    select slug, active from public.stores
+    where slug in ('ne3d-internal-test', 'ne3d')
+    order by updated_at desc nulls last, created_at desc nulls last
+    limit 1;
   `);
   if (internalStoreRows.length !== 1) throw new Error("Loja interna controlada nao encontrada no principal.");
   if (internalStoreRows[0].active !== false) throw new Error("Loja interna controlada nao pode estar publica/ativa.");
+  const internalSlug = internalStoreRows[0].slug;
 
   const publicReadRows = await runQuery(`
     set local role anon;
-    select slug from public.stores where slug = 'ne3d-internal-test';
+    select slug from public.stores where slug = '${internalSlug}';
   `);
   if (publicReadRows.length > 0) throw new Error("Anon consegue ler loja interna desativada.");
 

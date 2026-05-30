@@ -22,6 +22,19 @@ Objetivo deste arquivo: manter um controle simples, incremental e verificavel da
 - `[ ]` Validar sandbox Start com token `TEST-` dedicado.
 - `[ ]` Ativar comercialmente Start.
 
+## Fase 7A - release candidate
+
+- `[x]` Auditar arquivos antigos e arquivar docs historicos da Storefront.
+- `[x]` Auditar migrations locais/remotas sem `db push` geral.
+- `[x]` Atualizar PWA para cache v122.
+- `[x]` Atualizar web/APK para `1.0.17-rc` e versionCode `16`.
+- `[x]` Publicar web/PWA em Vercel.
+- `[x]` Bloquear rotas publicas internas de Google/IA.
+- `[x]` Gerar APK debug atualizado.
+- `[ ]` Validar APK em aparelho fisico.
+- `[ ]` Validar PWA em aparelho fisico.
+- `[ ]` Validar Start em sandbox real com token `TEST-`.
+
 Legenda:
 
 - `[x]` concluido ou ja implementado com evidencia local.

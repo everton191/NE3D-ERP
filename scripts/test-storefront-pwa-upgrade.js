@@ -6,13 +6,13 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v116-estavel-20260526-plan-profile-rings",
+  "simplifica-3d-v122-estavel-20260530-release-candidate",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.16-estavel\"",
-  "versionCode 15",
-  "APP_VERSION = \"1.0.16-estavel\"",
-  "APP_VERSION_CODE = 15"
+  "versionName \"1.0.17-rc\"",
+  "versionCode 16",
+  "APP_VERSION = \"1.0.17-rc\"",
+  "APP_VERSION_CODE = 16"
 ];
 
 const sources = [sw, manifest, gradle, app].join("\n");
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache, manifest e versionamento 1.0.16/15 presentes.");
+console.log("Storefront PWA upgrade: cache, manifest e versionamento 1.0.17/16 presentes.");

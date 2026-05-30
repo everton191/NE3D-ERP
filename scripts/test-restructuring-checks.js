@@ -110,8 +110,8 @@ const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
   "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.16-estavel"/.test(app), "app.js esta na versao 1.0.16-estavel");
-assert(/const APP_VERSION_CODE = 15/.test(app), "app.js possui versionCode 15");
+assert(/const APP_VERSION = "1\.0\.17-rc"/.test(app), "app.js esta na versao 1.0.17-rc");
+assert(/const APP_VERSION_CODE = 16/.test(app), "app.js possui versionCode 16");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v121-estavel-20260529-checkout-states-5c"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v122-estavel-20260530-release-candidate"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-checkout-states-5c-20260529"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.17-rc-release-candidate-20260530"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
