@@ -1,5 +1,17 @@
 # Mercado Pago - Webhook unico e ativacao segura
 
+## Fase 5A.2 - Start preparado e desativado
+
+O Start usa a mesma infraestrutura central do Mercado Pago. Nao existe webhook separado.
+
+- `mercadopago-webhook` resolve Start e Pro por allowlist backend de `preapproval_plan_id`.
+- `MERCADO_PAGO_START_PLAN_ID` e `MERCADO_PAGO_PRO_PLAN_ID` ficam somente no backend.
+- `START_PLAN_ENABLED=false` mantem Start fechado mesmo que exista variavel local.
+- Plano desconhecido registra falha de resolucao e nao ativa assinatura.
+- O runner `scripts/start-plan-remote-controlled.js` aplica apenas a migration Start e cria plano apenas em sandbox com token `TEST-`.
+
+Nao commitar tokens, IDs reais, secrets ou payloads integrais de pagamento.
+
 ## Fase 5A.1
 
 Data: 2026-05-29

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { getBillingVariant, normalizeBillingVariant, normalizeRequestedPlan } from "../_shared/mercadopago-billing.ts";
+import { getBillingVariant, getMercadoPagoPlanId, normalizeBillingVariant, normalizeRequestedPlan } from "../_shared/mercadopago-billing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -133,6 +133,10 @@ serve(async (req) => {
     const { userId, client } = await getCurrentContext(req, body.clienteId || body.clientId);
     const billingVariant = normalizeBillingVariant(body.billing_variant || body.billingVariant, plan.requestedPlanSlug);
     const plano = getBillingVariant(billingVariant, plan.requestedPlanSlug);
+    const mercadoPagoPlanId = getMercadoPagoPlanId(plan.requestedPlanSlug);
+    if (plan.requestedPlanSlug === "start" && !mercadoPagoPlanId) {
+      throw new Error("Plano Start sem MERCADO_PAGO_START_PLAN_ID configurado");
+    }
     const { subscriptionId } = await ensureSubscription(client.id, userId, planSlug, billingVariant);
     const externalReference = `${client.id}|${planSlug}|payment|${billingVariant}`;
 
@@ -163,6 +167,7 @@ serve(async (req) => {
         plan_id: planSlug,
         plan_slug: planSlug,
         requested_plan_slug: plan.requestedPlanSlug,
+        mercado_pago_plan_id: mercadoPagoPlanId || null,
         billing_variant: billingVariant,
         subscription_id: subscriptionId,
         kind: "checkout_preference",

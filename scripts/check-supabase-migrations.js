@@ -77,7 +77,10 @@ const checks = [
   ["billing webhook events RLS", /alter table public\.billing_webhook_events enable row level security/i],
   ["billing webhook events unique key", /billing_webhook_events_provider_key_unique_idx/i],
   ["billing webhook frontend grants revoked", /revoke all on public\.billing_webhook_events from public, anon, authenticated/i],
-  ["billing cancel at period end", /cancel_at_period_end boolean not null default false/i]
+  ["billing cancel at period end", /cancel_at_period_end boolean not null default false/i],
+  ["start plan backend authority", /'start', 'Start', 29\.90/i],
+  ["start plan commercial flag disabled", /'start_plan_enabled', false/i],
+  ["start billing feature flags RLS", /alter table public\.app_billing_feature_flags enable row level security/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({

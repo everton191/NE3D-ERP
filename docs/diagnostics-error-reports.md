@@ -2,6 +2,27 @@
 
 Data: 2026-05-29
 
+## Eventos Start - Fase 5A.2
+
+Eventos preparados para ativacao controlada do Start:
+
+- `start_plan_checkout_requested`
+- `start_plan_checkout_created`
+- `start_plan_checkout_failed`
+- `start_plan_payment_pending_real`
+- `start_plan_payment_approved`
+- `start_plan_payment_failed`
+- `start_plan_subscription_created`
+- `start_plan_subscription_cancel_requested`
+- `start_plan_subscription_cancel_at_period_end`
+- `start_plan_subscription_expired`
+- `start_to_pro_upgrade_requested`
+- `start_to_pro_upgrade_approved`
+- `webhook_start_plan_resolved`
+- `webhook_start_plan_resolution_failed`
+
+Esses eventos nao podem salvar token, secret, authorization, dados de cartao, CPF ou payload integral do Mercado Pago.
+
 ## Objetivo
 
 A Fase 6A cria uma base segura para coletar erros tecnicos, relatos manuais, sugestoes, eventos de diagnostico, clusters de bugs e relatorios tecnicos para correcao via Codex.

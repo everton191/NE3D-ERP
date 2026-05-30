@@ -6,6 +6,15 @@ Data: 2026-05-29
 
 A tela de planos consome `getPlanAccessState()` como fonte central de estado. A camada visual nao altera webhook, secrets, Edge Functions nem autoridade remota de cobranca.
 
+## Fase 5A.2 - Start fechado por flag
+
+O card Start continua visivel para comparacao, mas seu CTA depende de `START_PLAN_ENABLED`.
+
+- Com `START_PLAN_ENABLED=false`: badge `EM BREVE`, acao `plan-start-unavailable`, sem checkout funcional.
+- Quando a flag for ativada apos sandbox: badge `MAIS POPULAR`, CTA `Assinar Start`.
+- O card nao pode enviar preco, ID de plano ou ativacao local ao frontend.
+- A identidade visual segue Free verde, Start roxo e Pro preto/dourado.
+
 ## Estados visuais
 
 ### Free

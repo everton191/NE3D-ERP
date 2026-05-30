@@ -151,3 +151,16 @@ O retorno do navegador diferencia `sucesso`, `pendente` e `falha`, mas continua 
 `sucesso` e `pendente` aguardam webhook real. `falha` marca a tentativa local como `rejected`. Timeout ou substituicao de checkout registra `checkout_abandoned` e preserva o plano anterior.
 
 O runner `scripts/mercadopago-sandbox-controlled.js` aceita somente token `TEST-` e exige confirmacao explicita para operacoes sandbox com rede. Detalhes: `docs/checkout-payment-states-sandbox.md`.
+
+## Fase 5A.2 - autoridade Start
+
+O Start ganhou autoridade propria preparada no backend, mas continua fechado por `START_PLAN_ENABLED=false`.
+
+- Slugs comerciais canonicos: `free`, `start`, `pro`.
+- Start: R$ 29,90/mes, ate 300 produtos, publicacao da loja e link compartilhavel.
+- Pro: R$ 59,90/mes, premium preservado, com compatibilidade backend para o slug legado `premium`.
+- O frontend nao ativa Start e nao grava pending real ao abrir checkout.
+- `MERCADO_PAGO_START_PLAN_ID` deve existir apenas no backend.
+- O webhook central resolve Start somente por allowlist de `preapproval_plan_id` e assinatura valida.
+- Cancelamento Start deve marcar `cancelAtPeriodEnd=true` e manter acesso ate `currentPeriodEnd`.
+- Start para Pro deve depender de webhook Pro aprovado.

@@ -73,6 +73,91 @@ const PRO_DEVICE_LIMIT = 4;
 const FREE_CLIENT_LIMIT = null;
 const FREE_PRODUCT_LIMIT = 25;
 const START_PRODUCT_LIMIT = 300;
+const START_MONTHLY_PRICE = 29.9;
+const PRO_MONTHLY_PRICE = 59.9;
+const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
+const PREMIUM_MONTHLY_PRICE = PRO_MONTHLY_PRICE;
+const START_PLAN_ENABLED = false;
+const PLAN_REGISTRY = Object.freeze({
+  free: Object.freeze({
+    slug: "free",
+    name: "Grátis",
+    price: 0,
+    billingVariant: "",
+    limits: Object.freeze({ products: FREE_PRODUCT_LIMIT, storageMb: FREE_BACKUP_LIMIT_MB, devices: FREE_DEVICE_LIMIT, users: 1 }),
+    entitlements: Object.freeze({
+      ads: true,
+      erpBasic: true,
+      storeEditable: true,
+      storePreview: true,
+      publicStore: false,
+      shareLink: false,
+      basicCustomization: false,
+      advancedReports: false,
+      advancedFinance: false,
+      employees: false,
+      multiUser: false,
+      advancedPermissions: false,
+      premiumThemes: false,
+      automations: false,
+      aiFuture: false,
+      googleFuture: false
+    }),
+    upgrades: Object.freeze(["start", "pro"])
+  }),
+  start: Object.freeze({
+    slug: "start",
+    name: "Start",
+    price: START_MONTHLY_PRICE,
+    billingVariant: "start_monthly",
+    limits: Object.freeze({ products: START_PRODUCT_LIMIT, storageMb: START_BACKUP_LIMIT_MB, devices: START_DEVICE_LIMIT, users: 2 }),
+    entitlements: Object.freeze({
+      ads: false,
+      erpBasic: true,
+      storeEditable: true,
+      storePreview: true,
+      publicStore: true,
+      shareLink: true,
+      basicCustomization: true,
+      advancedReports: false,
+      advancedFinance: false,
+      employees: false,
+      multiUser: false,
+      advancedPermissions: false,
+      premiumThemes: false,
+      automations: false,
+      aiFuture: false,
+      googleFuture: false
+    }),
+    upgrades: Object.freeze(["pro"])
+  }),
+  pro: Object.freeze({
+    slug: "pro",
+    name: "Pro",
+    price: PRO_MONTHLY_PRICE,
+    billingVariant: "pro_monthly",
+    limits: Object.freeze({ products: Number.POSITIVE_INFINITY, storageMb: PRO_BACKUP_LIMIT_MB, devices: PRO_DEVICE_LIMIT, users: 5 }),
+    entitlements: Object.freeze({
+      ads: false,
+      erpBasic: true,
+      storeEditable: true,
+      storePreview: true,
+      publicStore: true,
+      shareLink: true,
+      basicCustomization: true,
+      advancedReports: true,
+      advancedFinance: true,
+      employees: true,
+      multiUser: true,
+      advancedPermissions: true,
+      premiumThemes: true,
+      automations: true,
+      aiFuture: false,
+      googleFuture: false
+    }),
+    upgrades: Object.freeze([])
+  })
+});
 const DEFAULT_SAAS_PLANS = [
   { id: "free", slug: "free", name: "Grátis", price: 0, maxUsers: 1, maxOrders: 5, maxClients: FREE_CLIENT_LIMIT, maxProducts: FREE_PRODUCT_LIMIT, maxCalculatorUses: null, maxStorageMb: FREE_BACKUP_LIMIT_MB, maxDevices: FREE_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, allowEmployees: false, allowCustomization: false, allowPublicStore: false, allowAdvancedThemes: false, kind: "free", showsAds: true, sortOrder: 10 },
   { id: "start", slug: "start", name: "Start", price: 29.9, maxUsers: 2, maxOrders: null, maxClients: null, maxProducts: START_PRODUCT_LIMIT, maxCalculatorUses: null, maxStorageMb: START_BACKUP_LIMIT_MB, maxDevices: START_DEVICE_LIMIT, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: false, allowEmployees: false, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: false, kind: "paid", showsAds: false, sortOrder: 20 },
@@ -100,10 +185,6 @@ const PAID_PRICE_TIERS = [
   { limit: 200, price: 24.9 },
   { limit: Infinity, price: 29.9 }
 ];
-const START_MONTHLY_PRICE = 29.9;
-const PRO_MONTHLY_PRICE = 59.9;
-const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
-const PREMIUM_MONTHLY_PRICE = PRO_MONTHLY_PRICE;
 const AD_MIN_INTERVAL_MS = 45 * 60 * 1000;
 const ADSENSE_WEB_DEFAULT_ENABLED = true;
 const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "ca-pub-1056970757696623");
@@ -3660,6 +3741,40 @@ function normalizarSlugPlano(slug = "free") {
   if (["start", "starter", "premium_first_month", "start_monthly"].includes(valor)) return "start";
   if (["pro", "premium", "premium_normal", "premium_monthly", "pro_monthly"].includes(valor)) return "pro";
   return "free";
+}
+
+function normalizePlanSlug(plan = "free") {
+  return normalizarSlugPlano(plan);
+}
+
+function getPlanRegistryEntry(plan = "free") {
+  const slug = normalizarSlugPlano(plan);
+  if (slug === "premium_trial") return PLAN_REGISTRY.pro;
+  return PLAN_REGISTRY[slug] || PLAN_REGISTRY.free;
+}
+
+function getPlanEntitlements(plan = "free") {
+  const entry = getPlanRegistryEntry(plan);
+  return { ...entry.entitlements };
+}
+
+function getPlanLimits(plan = "free") {
+  const entry = getPlanRegistryEntry(plan);
+  return { ...entry.limits };
+}
+
+function canAccessFeature({ plan = "free", featureKey = "" } = {}) {
+  const entitlements = getPlanEntitlements(plan);
+  return entitlements[featureKey] === true;
+}
+
+function getPlanUpgradeOptions(plan = "free") {
+  const entry = getPlanRegistryEntry(plan);
+  return Array.from(entry.upgrades || []);
+}
+
+function isStartPlanCommerciallyEnabled() {
+  return START_PLAN_ENABLED === true;
 }
 
 function isPlanoStartSlug(slug = "free") {
@@ -7412,6 +7527,7 @@ function getPlanAccessState(userSubscription = getAssinaturaSaas(), options = {}
   const isActive = estado.state === PLAN_ACCESS_STATES.ACTIVE || estado.state === PLAN_ACCESS_STATES.TRIAL;
   const isCancelingAtPeriodEnd = isPaid && isActive && cancelAtPeriodEnd;
   const realPendingPayment = temPagamentoPendenteReal(assinatura?.clientId || cliente?.id || billingConfig.clientId, assinatura);
+  const upgradeOptions = getPlanUpgradeOptions(effectivePlan);
   return {
     currentPlan,
     effectivePlan,
@@ -7421,7 +7537,8 @@ function getPlanAccessState(userSubscription = getAssinaturaSaas(), options = {}
     isPaid,
     isActive,
     isCancelingAtPeriodEnd,
-    canUpgrade: effectivePlan === "free" || effectivePlan === "start",
+    canUpgrade: upgradeOptions.length > 0,
+    upgradeOptions,
     canCancelRenewal: isPaid && isActive && !isCancelingAtPeriodEnd,
     canReactivateRenewal: isCancelingAtPeriodEnd,
     canSubscribe: effectivePlan === "free",
@@ -8951,20 +9068,20 @@ function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getSto
 
 function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const plano = normalizarSlugPlano(userPlan || "free");
-  const start = plano === "start";
+  const entitlements = getPlanEntitlements(plano);
+  const limits = getPlanLimits(plano);
   const pro = ["pro", "premium_trial"].includes(plano);
-  const paid = start || pro;
   return {
     enabled: true,
-    publishEnabled: paid,
-    shareEnabled: paid,
-    productLimit: pro ? Number.POSITIVE_INFINITY : start ? START_PRODUCT_LIMIT : FREE_PRODUCT_LIMIT,
-    leadsEnabled: paid,
-    qrCodeEnabled: paid,
-    customThemeEnabled: paid,
+    publishEnabled: entitlements.publicStore === true,
+    shareEnabled: entitlements.shareLink === true,
+    productLimit: pro ? Number.POSITIVE_INFINITY : Number(limits.products || FREE_PRODUCT_LIMIT),
+    leadsEnabled: entitlements.publicStore === true,
+    qrCodeEnabled: entitlements.shareLink === true,
+    customThemeEnabled: entitlements.basicCustomization === true,
     premiumThemeEnabled: pro,
-    metricsEnabled: pro,
-    simplificaBrandingRequired: !paid
+    metricsEnabled: entitlements.advancedReports === true,
+    simplificaBrandingRequired: entitlements.publicStore !== true
   };
 }
 
@@ -27062,6 +27179,7 @@ function renderAssinatura() {
   const resumoBackup = atualizarFlagBackupOverLimit(criarSnapshotBackupUsuarioAtual(), false);
   const sessoesAtivas = saasSessions.filter((sessao) => sessao.clientId === (usuario?.clientId || billingConfig.clientId) && sessao.active !== false).length || 1;
   const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}${resumoBackup.backup_over_limit ? " · somente leitura" : ""}`;
+  const startEnabled = isStartPlanCommerciallyEnabled();
   const planos = [
     {
       slug: "free",
@@ -27087,18 +27205,18 @@ function renderAssinatura() {
       subtitle: "Comece a vender de verdade",
       price: "R$ 29,90",
       period: "/mês",
-      badge: isStartCurrent ? "PLANO ATUAL" : "EM BREVE",
+      badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE",
       allowedTitle: "Libera sua loja online",
       allowed: ["Até 300 produtos", "Pedidos ilimitados", "Loja pública liberada", "Link compartilhável", "Sem anúncios", "Personalização básica", "Banner simples", "Relatórios básicos", "Financeiro básico", "Backup automático", "Remove marca Simplifica 3D"],
       blockedTitle: "Fica para o Pro",
       blocked: ["Analytics avançado", "Multiusuário/admin", "Temas premium", "Automações e integrações futuras"],
       highlights: ["Preview vira loja real online", "Sem anúncios", "Link público para compartilhar"],
       note: "Estrutura comercial preparada. A contratação será liberada após a ativação segura do tier Start no backend.",
-      cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : "Indisponível no momento",
+      cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : startEnabled ? "Assinar Start" : "Indisponível no momento",
       current: isStartCurrent,
-      disabled: true,
-      unavailable: !isStartCurrent && !isProCurrent,
-      action: "start-unavailable"
+      disabled: isStartCurrent || isProCurrent || !startEnabled,
+      unavailable: !isStartCurrent && !isProCurrent && !startEnabled,
+      action: startEnabled ? "start" : "start-unavailable"
     },
     {
       slug: "pro",
@@ -28065,12 +28183,12 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
 
 async function abrirLinkMercadoPago(slug = "pro") {
   const plano = getPlanoSaas(slug);
-  if (plano.slug === "start") {
+  if (plano.slug === "start" && !isStartPlanCommerciallyEnabled()) {
     registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start" });
     mostrarToast("O plano Start será liberado em breve. A contratação segura disponível agora é o Pro.", "info", 6500);
     return;
   }
-  if (plano.slug !== "pro") {
+  if (!["start", "pro"].includes(plano.slug)) {
     trocarTela("assinatura");
     return;
   }
@@ -28082,9 +28200,13 @@ async function abrirLinkMercadoPago(slug = "pro") {
     return;
   }
 
-  registrarEventoPlanoSeguro("plan_checkout_clicked", { plan: plano.slug });
+  const planEvent = plano.slug === "start" ? "start_plan_checkout_requested" : "plan_checkout_clicked";
+  registrarEventoPlanoSeguro(planEvent, { plan: plano.slug });
+  if (plano.slug === "pro" && normalizarSlugPlano(billingConfig.activePlan || billingConfig.planSlug || "free") === "start") {
+    registrarEventoPlanoSeguro("start_to_pro_upgrade_requested", { from: "start", to: "pro" });
+  }
   const confirmou = await solicitarConfirmacaoAcao({
-    titulo: "Assinar plano Pro",
+    titulo: `Assinar plano ${plano.slug === "start" ? "Start" : "Pro"}`,
     mensagem: "Você será direcionado ao pagamento seguro do Mercado Pago. Seu plano será ativado automaticamente após a confirmação.",
     confirmar: "Continuar para pagamento"
   });
@@ -28095,7 +28217,8 @@ async function abrirLinkMercadoPago(slug = "pro") {
     const assinatura = garantirAssinaturaClienteLocal(clientId);
     const billingVariant = plano.slug === "start" ? "start_monthly" : "pro_monthly";
     const planPrice = getPrecoBillingVariant(billingVariant);
-    const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
+    const checkoutFunction = plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment";
+    const dados = await chamarFuncaoSaas(checkoutFunction, {
       clienteId: clientId,
       plan_id: plano.slug,
       billing_variant: billingVariant,
@@ -28106,9 +28229,11 @@ async function abrirLinkMercadoPago(slug = "pro") {
       email: getEmailLicencaAtual()
     });
     if (!dados?.init_point) throw new Error("Link de pagamento não retornado.");
+    if (plano.slug === "start") registrarEventoPlanoSeguro("start_plan_checkout_created", { plan: "start" });
     registrarPagamentoLocalPendente(plano, dados, "payment");
     window.open(dados.init_point, "_blank");
   } catch (erro) {
+    if (plano.slug === "start") registrarEventoPlanoSeguro("start_plan_checkout_failed", { plan: "start", reason: erro?.message || "unknown" });
     registrarDiagnostico("Mercado Pago", "Pagamento não criado", erro.message);
     registrarErroAplicacaoSilencioso("PAYMENT_STATUS_FAILED", erro, "Criar pagamento Mercado Pago", { plano: plano.slug });
     if (billingConfig.mercadoPagoLink) {
@@ -28121,13 +28246,13 @@ async function abrirLinkMercadoPago(slug = "pro") {
 
 async function criarPagamentoUnicoMercadoPago(slug = "pro") {
   const plano = getPlanoSaas(slug);
-  if (plano.slug === "start") {
+  if (plano.slug === "start" && !isStartPlanCommerciallyEnabled()) {
     registrarEventoPlanoSeguro("plan_start_unavailable_clicked", { plan: "start", origin: "single-payment" });
     mostrarToast("O plano Start ainda não está disponível para contratação.", "info", 5500);
     return;
   }
-  if (plano.slug !== "pro") {
-    alert("Pagamento disponível para o plano Pro.");
+  if (!["start", "pro"].includes(plano.slug)) {
+    alert("Pagamento disponível para planos pagos.");
     return;
   }
 
@@ -28142,7 +28267,8 @@ async function criarPagamentoUnicoMercadoPago(slug = "pro") {
     const assinatura = garantirAssinaturaClienteLocal(clientId);
     const billingVariant = plano.slug === "start" ? "start_monthly" : "pro_monthly";
     const planPrice = getPrecoBillingVariant(billingVariant);
-    const dados = await chamarFuncaoSaas("mercadopago-create-payment", {
+    const checkoutFunction = plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment";
+    const dados = await chamarFuncaoSaas(checkoutFunction, {
       clienteId: clientId,
       plan_id: plano.slug,
       billing_variant: billingVariant,

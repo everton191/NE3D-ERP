@@ -28,6 +28,20 @@
     "plan_card_viewed",
     "plan_checkout_clicked",
     "plan_start_unavailable_clicked",
+    "start_plan_checkout_requested",
+    "start_plan_checkout_created",
+    "start_plan_checkout_failed",
+    "start_plan_payment_pending_real",
+    "start_plan_payment_approved",
+    "start_plan_payment_failed",
+    "start_plan_subscription_created",
+    "start_plan_subscription_cancel_requested",
+    "start_plan_subscription_cancel_at_period_end",
+    "start_plan_subscription_expired",
+    "start_to_pro_upgrade_requested",
+    "start_to_pro_upgrade_approved",
+    "webhook_start_plan_resolved",
+    "webhook_start_plan_resolution_failed",
     "payment_pending_real_viewed"
   ]);
   const DIAGNOSTIC_EVENTS = new Set([

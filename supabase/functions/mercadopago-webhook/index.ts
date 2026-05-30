@@ -4,6 +4,7 @@ import {
   buildWebhookEventKey,
   normalizeBillingVariant,
   normalizeRequestedPlan,
+  resolvePlanSlugFromMercadoPagoPlanId,
   sanitizeWebhookPayload,
   verifyMercadoPagoSignature,
   WEBHOOK_TOLERANCE_MS,
@@ -55,7 +56,9 @@ function splitExternalReference(value: unknown) {
   return { clientCodeOrId, planSlug, kind, billingVariant };
 }
 
-function normalizePlanSlug(value: unknown) {
+function normalizePlanSlug(value: unknown, mercadoPagoPlanId?: unknown) {
+  const planFromRemoteId = resolvePlanSlugFromMercadoPagoPlanId(mercadoPagoPlanId);
+  if (planFromRemoteId) return planFromRemoteId;
   return normalizeRequestedPlan(value).backendPlanSlug;
 }
 
@@ -206,7 +209,7 @@ async function logDiagnosticEvent(eventType: string, metadata: Record<string, un
     event_type: eventType,
     screen: "mercadopago-webhook",
     action: "process_webhook",
-    app_version: "fase-5a1",
+    app_version: "fase-5a2",
     platform: "backend",
     severity,
     fingerprint: `mercadopago:${eventType}:${String(metadata.data_id || metadata.event_key || "unknown")}`.slice(0, 240),
@@ -271,8 +274,24 @@ async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<s
   const clientCode = client?.client_code || metadata.client_code || parsed.clientCodeOrId;
   const userId = uuidOrNull(metadata.user_id);
   if (!userId) throw new Error("Webhook sem user_id válido");
-  const planSlug = normalizePlanSlug(metadata.plan_id || metadata.plan_slug || parsed.planSlug);
-  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant);
+  let planSlug = "";
+  try {
+    planSlug = normalizePlanSlug(
+      metadata.plan_id || metadata.plan_slug || parsed.planSlug,
+      metadata.mercado_pago_plan_id || payment.preapproval_plan_id || payment.preapproval_id,
+    );
+  } catch (error) {
+    await logDiagnosticEvent("webhook_start_plan_resolution_failed", {
+      data_id: payment.id,
+      requested_plan: metadata.requested_plan_slug || metadata.plan_id || parsed.planSlug,
+      reason: error instanceof Error ? error.message : "plan_resolution_failed",
+    }, "high", userId).catch(() => {});
+    throw error;
+  }
+  if (planSlug === "start") {
+    await logDiagnosticEvent("webhook_start_plan_resolved", { data_id: payment.id, plan: "start" }, "medium", userId).catch(() => {});
+  }
+  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant, planSlug === "start" ? "start" : "pro");
   const status = normalizePaymentStatus(String(payment.status || ""));
   const amount = Number(payment.transaction_amount || payment.total_paid_amount || 0) || 0;
   const paymentId = String(payment.id || "");
@@ -354,8 +373,24 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
   const clientId = client?.id || null;
   const userId = uuidOrNull(metadata.user_id);
   if (!userId) throw new Error("Webhook de assinatura sem user_id válido");
-  const planSlug = normalizePlanSlug(metadata.plan_id || metadata.plan_slug || parsed.planSlug);
-  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant);
+  let planSlug = "";
+  try {
+    planSlug = normalizePlanSlug(
+      metadata.plan_id || metadata.plan_slug || parsed.planSlug,
+      metadata.mercado_pago_plan_id || preapproval.preapproval_plan_id,
+    );
+  } catch (error) {
+    await logDiagnosticEvent("webhook_start_plan_resolution_failed", {
+      data_id: preapproval.id,
+      requested_plan: metadata.requested_plan_slug || metadata.plan_id || parsed.planSlug,
+      reason: error instanceof Error ? error.message : "plan_resolution_failed",
+    }, "high", userId).catch(() => {});
+    throw error;
+  }
+  if (planSlug === "start") {
+    await logDiagnosticEvent("webhook_start_plan_resolved", { data_id: preapproval.id, plan: "start" }, "medium", userId).catch(() => {});
+  }
+  const billingVariant = normalizeBillingVariant(metadata.billing_variant || parsed.billingVariant, planSlug === "start" ? "start" : "pro");
   const status = normalizeSubscriptionStatus(String(preapproval.status || ""));
   const mpSubscriptionId = String(preapproval.id || "");
 

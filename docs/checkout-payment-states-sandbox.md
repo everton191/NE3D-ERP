@@ -2,6 +2,16 @@
 
 Data: 2026-05-29
 
+## Start na Fase 5A.2
+
+O fluxo Start esta preparado, mas bloqueado por `START_PLAN_ENABLED=false`.
+
+- Checkout Start nao deve aparecer na UI ate a flag ser ativada.
+- Se a flag for ativada, o backend deve usar `MERCADO_PAGO_START_PLAN_ID`.
+- Checkout aberto preserva o plano anterior.
+- Pending real so existe apos transacao remota real.
+- Sandbox Start deve cobrir aprovado, recusado, pending, abandono, duplicidade, assinatura invalida e Start para Pro.
+
 ## Objetivo
 
 A Fase 5C diferencia retorno de checkout, pagamento real e acesso efetivo. Nenhuma URL de retorno do navegador pode liberar plano.

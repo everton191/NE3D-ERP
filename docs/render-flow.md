@@ -2,6 +2,23 @@
 
 Data: 2026-05-27
 
+## Fase 5A.2 - Start
+
+Fluxo preparado e fechado:
+
+```txt
+plans screen
+ └── PLAN_REGISTRY / getPlanAccessState()
+      ├── START_PLAN_ENABLED=false -> card Start Em breve
+      └── START_PLAN_ENABLED=true futuro -> backend checkout
+           └── mercadopago-webhook central
+                └── preapproval_plan_id allowlist
+                     ├── MERCADO_PAGO_START_PLAN_ID -> start
+                     └── MERCADO_PAGO_PRO_PLAN_ID -> pro/premium legado
+```
+
+URL de retorno e checkout aberto nao alteram `effectivePlan`.
+
 Escopo: compreender a renderizacao atual antes de reorganizar arquivos.
 
 ## Fluxo Principal Atual

@@ -1,23 +1,65 @@
 export const WEBHOOK_TOLERANCE_MS = 5 * 60 * 1000;
 
 const BILLING_VARIANTS: Record<string, { id: string; planSlug: string; backendPlanSlug: string; name: string; amount: number }> = {
+  start_monthly: { id: "start_monthly", planSlug: "start", backendPlanSlug: "start", name: "Start", amount: 29.9 },
   premium_first_month: { id: "premium_first_month", planSlug: "pro", backendPlanSlug: "premium", name: "Pro legado", amount: 19.9 },
   premium_monthly: { id: "premium_monthly", planSlug: "pro", backendPlanSlug: "premium", name: "Pro", amount: 59.9 },
 };
+
+function getEnv(name: string) {
+  try {
+    return Deno.env.get(name) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function isTruthyEnv(value: string) {
+  return ["true", "1", "yes", "sim", "on"].includes(String(value || "").toLowerCase().trim());
+}
+
+export function isStartPlanEnabled() {
+  return isTruthyEnv(getEnv("START_PLAN_ENABLED"));
+}
+
+export function getMercadoPagoPlanId(planSlug: string) {
+  const slug = String(planSlug || "").toLowerCase().trim();
+  if (slug === "start") return getEnv("MERCADO_PAGO_START_PLAN_ID").trim();
+  if (slug === "pro" || slug === "premium") {
+    return (getEnv("MERCADO_PAGO_PRO_PLAN_ID") || getEnv("MERCADO_PAGO_PREAPPROVAL_PLAN_ID")).trim();
+  }
+  return "";
+}
+
+export function resolvePlanSlugFromMercadoPagoPlanId(value: unknown) {
+  const planId = String(value || "").trim();
+  if (!planId) return "";
+  const startPlanId = getMercadoPagoPlanId("start");
+  const proPlanId = getMercadoPagoPlanId("pro");
+  if (isStartPlanEnabled() && startPlanId && planId === startPlanId) return "start";
+  if (proPlanId && planId === proPlanId) return "premium";
+  return "";
+}
 
 export function normalizeRequestedPlan(value: unknown) {
   const slug = String(value || "").toLowerCase().replace(/-/g, "_").trim();
   if (["pro", "plus", "premium", "premium_monthly", "pro_monthly"].includes(slug)) {
     return { requestedPlanSlug: "pro", backendPlanSlug: "premium" };
   }
-  if (["start", "starter", "start_monthly", "premium_first_month"].includes(slug)) {
+  if (["start", "starter", "start_monthly"].includes(slug)) {
+    if (isStartPlanEnabled()) return { requestedPlanSlug: "start", backendPlanSlug: "start" };
     throw new Error("Plano Start ainda não está habilitado no backend de cobrança");
   }
+  if (slug === "premium_first_month") return { requestedPlanSlug: "pro", backendPlanSlug: "premium" };
   throw new Error("Plano inválido");
 }
 
 export function normalizeBillingVariant(value: unknown, requestedPlanSlug = "pro") {
   const variant = String(value || "").toLowerCase().replace(/-/g, "_").trim();
+  if (requestedPlanSlug === "start") {
+    if (variant === "start_monthly" || !variant) return "start_monthly";
+    throw new Error("Variante de cobrança inválida para o plano Start");
+  }
   if (variant === "premium_first_month") return "premium_first_month";
   if (variant === "premium_monthly" || variant === "pro_monthly" || (!variant && requestedPlanSlug === "pro")) return "premium_monthly";
   throw new Error("Variante de cobrança inválida");

@@ -551,6 +551,11 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "shouldShowPendingPayment",
   "expiresAt",
   "normalizarSlugPlano",
+  "PLAN_REGISTRY",
+  "START_PLAN_ENABLED",
+  "getPlanEntitlements",
+  "getPlanLimits",
+  "getPlanUpgradeOptions",
   "checkout_opened",
   "setPlansModernTab"
 ].forEach((marker) => assert(app.includes(marker), `marcador de planos/assinatura presente: ${marker}`));
@@ -562,6 +567,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "test:plans-saas-structure",
   "test:plans",
   "test:plans-ui",
+  "test:start-plan",
   "test:project-saneamento"
 ].forEach((script) => assert(Boolean(pkg.scripts?.[script]), `script npm ativo: ${script}`));
 
@@ -571,10 +577,16 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "plan_card_viewed",
   "plan_checkout_clicked",
   "plan_start_unavailable_clicked",
+  "start_plan_checkout_requested",
   "payment_pending_real_viewed",
   "Indisponível no momento",
   "Assinar Pro"
 ].forEach((marker) => assert(app.includes(marker), `fase 5b tela premium de planos presente: ${marker}`));
+assert(read("src/services/diagnosticsService.js").includes("webhook_start_plan_resolution_failed"), "diagnostico Start do webhook presente");
+assert(exists("docs/start-plan-authority.md"), "documentacao de autoridade Start presente");
+assert(exists("docs/plans-entitlements-matrix.md"), "matriz Free/Start/Pro presente");
+assert(exists("scripts/start-plan-remote-controlled.js"), "runner remoto controlado do Start presente");
+assert(exists("supabase/migrations/20260530103000_start_plan_backend_authority.sql"), "migration Start idempotente presente");
 assert(css.includes(".plans-modern-screen.plans-pricing-screen"), "fase 5b workspace dedicado de planos presente");
 assert(css.includes("repeat(auto-fit, minmax(min(100%, 300px), 1fr))"), "fase 5b grid responsivo de planos presente");
 

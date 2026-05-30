@@ -6,6 +6,18 @@ Checkpoint antes da fase: `checkpoint-restructuring-start-20260527`
 
 Objetivo deste arquivo: manter um controle simples, incremental e verificavel da reestruturacao do Simplifica 3D, marcando o que ja existe, o que esta parcial e o que ainda precisa ser feito antes de novas features grandes.
 
+## Fase 5A.2 - Start backend authority
+
+- `[x]` Criar `PLAN_REGISTRY` com Free, Start e Pro.
+- `[x]` Manter `START_PLAN_ENABLED=false`.
+- `[x]` Preparar `MERCADO_PAGO_START_PLAN_ID` somente no backend.
+- `[x]` Manter webhook Mercado Pago unico.
+- `[x]` Criar migration idempotente do Start.
+- `[x]` Criar runner remoto controlado sem `db push` cego.
+- `[x]` Criar `test:start-plan`.
+- `[ ]` Validar sandbox Start com token `TEST-`.
+- `[ ]` Ativar comercialmente Start.
+
 Legenda:
 
 - `[x]` concluido ou ja implementado com evidencia local.
