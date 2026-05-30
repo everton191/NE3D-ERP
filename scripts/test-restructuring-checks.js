@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v120-estavel-20260529-plans-ui-5b"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v121-estavel-20260529-checkout-states-5c"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.16-estavel-plans-ui-5b-20260529"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.16-estavel-checkout-states-5c-20260529"), "index.html usa cache-bust atual");
 [
   "./modules/store-editor/storeEditorRenderer.js",
   "./modules/store-editor/storeEditorTabs.js",
@@ -245,6 +245,17 @@ assert(pkg.scripts && pkg.scripts["supabase:billing-webhook:validate"] === "node
 assert(read("supabase/functions/mercadopago-webhook/index.ts").includes("reserveWebhookEvent"), "webhook reserva evento idempotente");
 assert(read("supabase/functions/mercadopago-cancel-subscription/index.ts").includes("cancel_at_period_end: true"), "cancelamento remoto agenda fim do periodo");
 assert(read("scripts/billing-webhook-remote-controlled.js").includes("billing_webhook_remote_validation_ok"), "validacao remota billing webhook tem marcador de sucesso");
+[
+  "docs/checkout-payment-states-sandbox.md",
+  "scripts/mercadopago-sandbox-controlled.js",
+  "scripts/test-checkout-payment-states.js"
+].forEach((file) => assert(exists(file), `fase 5c checkout sandbox presente: ${file}`));
+assert(pkg.scripts && pkg.scripts["test:checkout-payment-states"] === "node scripts/test-checkout-payment-states.js", "package.json expoe test:checkout-payment-states");
+assert(pkg.scripts && pkg.scripts["mercadopago:sandbox:fixtures"] === "node scripts/mercadopago-sandbox-controlled.js fixtures", "package.json expoe fixtures sandbox seguras");
+assert(app.includes("function normalizarRetornoCheckoutMercadoPago"), "fase 5c diferencia retorno checkout");
+assert(app.includes("function limparParametrosRetornoMercadoPago"), "fase 5c limpa parametros transitorios");
+assert(app.includes('sincronizarLicencaEfetivaSePossivel("payment-return")'), "fase 5c sincroniza licenca apos retorno");
+assert(read("scripts/mercadopago-sandbox-controlled.js").includes('REQUIRED_SANDBOX_TOKEN_PREFIX = "TEST-"'), "runner sandbox bloqueia token produtivo");
 
 [
   "--bg-primary",

@@ -143,3 +143,11 @@ O resumo do Free direciona para `Assinar Pro`. Pagamento pendente visual exige t
 Cancelamento mostra a data final do acesso pago. Reativacao aparece somente quando `canReactivateRenewal = true`.
 
 Detalhes visuais: `docs/plans-premium-ui.md`.
+
+## Fase 5C - Retorno de checkout e sandbox controlado
+
+O retorno do navegador diferencia `sucesso`, `pendente` e `falha`, mas continua sem autoridade para liberar plano. A URL apenas atualiza a tentativa local, limpa parametros transitorios, registra diagnostico e solicita sincronizacao da licenca.
+
+`sucesso` e `pendente` aguardam webhook real. `falha` marca a tentativa local como `rejected`. Timeout ou substituicao de checkout registra `checkout_abandoned` e preserva o plano anterior.
+
+O runner `scripts/mercadopago-sandbox-controlled.js` aceita somente token `TEST-` e exige confirmacao explicita para operacoes sandbox com rede. Detalhes: `docs/checkout-payment-states-sandbox.md`.

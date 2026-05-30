@@ -343,6 +343,17 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Adicionar teste `test:plans` para as regras de assinatura.
 - `[ ]` Validar webhook Mercado Pago em ambiente remoto antes de remover caminhos legados.
 
+## Fase 5C - Checkout e Estados de Pagamento
+
+- `[x]` Diferenciar retorno de checkout aprovado, pendente e falho sem ativar plano por URL.
+- `[x]` Limpar parametros transitorios do Mercado Pago apos retorno.
+- `[x]` Sincronizar licenca online apos retorno sem transformar URL em autoridade.
+- `[x]` Registrar `checkout_opened`, `checkout_abandoned`, `checkout_returned_without_payment` e `payment_failed`.
+- `[x]` Expirar checkout local abandonado preservando o plano anterior.
+- `[x]` Criar runner sandbox controlado que aceita somente token `TEST-`.
+- `[x]` Criar fixtures locais para aprovado, recusado, pendente, abandono e cancelamento.
+- `[~]` Executar sandbox real aprovado, recusado, pendente e cancelamento com credencial TEST dedicada.
+
 ## Fase 6A - Diagnosticos, Bugs, Sugestoes e Relatorio Codex
 
 - `[x]` Criar `src/services/diagnosticsService.js` com fila offline, sanitizacao, fingerprint e envio seguro.

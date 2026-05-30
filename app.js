@@ -90,6 +90,7 @@ const PLAN_ACCESS_STATES = Object.freeze({
 });
 const PLAN_DEBUG_ENABLED = false;
 const LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000;
+const CHECKOUT_SESSION_STORAGE_KEY = "simplifica3d:checkout-session:v1";
 let plansModernTab = "current";
 const planDiagnosticsSeen = new Set();
 // IA local pesada fica preservada como legado, mas desativada no app principal.
@@ -4006,6 +4007,17 @@ function calcularStatusAssinatura(assinatura = getAssinaturaSaas()) {
   return { status: status === "trialing" ? "expired" : "past_due", blockLevel: "total", diasAtraso };
 }
 
+function temTransacaoMercadoPagoReal(registro = {}) {
+  return Boolean(
+    registro.mercadoPagoPaymentId
+    || registro.mercado_pago_payment_id
+    || registro.paymentId
+    || registro.payment_id
+    || registro.mercadoPagoSubscriptionId
+    || registro.mercado_pago_subscription_id
+  );
+}
+
 function limparCheckoutsLocaisExpirados({ force = false } = {}) {
   const agora = Date.now();
   let alterou = false;
@@ -4014,7 +4026,7 @@ function limparCheckoutsLocaisExpirados({ force = false } = {}) {
     return force || !ts || agora - ts > LOCAL_CHECKOUT_PENDING_TTL_MS;
   };
 
-  if (billingConfig.paymentStatus === "pending" && expirado(billingConfig.pendingStartedAt || billingConfig.updatedAt)) {
+  if (billingConfig.paymentStatus === "pending" && !temTransacaoMercadoPagoReal(billingConfig) && expirado(billingConfig.pendingStartedAt || billingConfig.updatedAt)) {
     billingConfig.pendingPlan = "";
     billingConfig.paymentStatus = "none";
     billingConfig.pendingStartedAt = "";
@@ -4022,7 +4034,7 @@ function limparCheckoutsLocaisExpirados({ force = false } = {}) {
   }
 
   saasSubscriptions.forEach((assinatura) => {
-    if (assinatura.paymentStatus !== "pending" || !expirado(assinatura.pendingStartedAt || assinatura.updatedAt || assinatura.createdAt)) return;
+    if (assinatura.paymentStatus !== "pending" || temTransacaoMercadoPagoReal(assinatura) || !expirado(assinatura.pendingStartedAt || assinatura.updatedAt || assinatura.createdAt)) return;
     assinatura.pendingPlan = "";
     assinatura.paymentStatus = "none";
     assinatura.pendingStartedAt = "";
@@ -4036,18 +4048,26 @@ function limparCheckoutsLocaisExpirados({ force = false } = {}) {
 
   saasPayments.forEach((pagamento) => {
     if (!["pending", "checkout_opened"].includes(String(pagamento.status || ""))) return;
+    if (String(pagamento.status || "") === "pending" && temTransacaoMercadoPagoReal(pagamento)) return;
     if (!expirado(pagamento.createdAt || pagamento.updatedAt)) return;
+    const eraCheckoutAberto = String(pagamento.status || "") === "checkout_opened";
     pagamento.status = "expired";
     pagamento.updatedAt = new Date().toISOString();
+    if (eraCheckoutAberto) {
+      registrarEventoPlanoSeguro("checkout_abandoned", {
+        plan: pagamento.planSlug || pagamento.planId || "",
+        reason: force ? "superseded_checkout" : "local_timeout"
+      }, `checkout-abandoned:${pagamento.id}`);
+    }
     alterou = true;
   });
 
   try {
     const storage = window.sessionStorage;
-    const raw = storage?.getItem?.("simplifica3d:checkout-session:v1");
+    const raw = storage?.getItem?.(CHECKOUT_SESSION_STORAGE_KEY);
     if (raw) {
       const sessao = JSON.parse(raw);
-      if (force || expirado(sessao.createdAt)) storage.removeItem("simplifica3d:checkout-session:v1");
+      if (force || expirado(sessao.createdAt)) storage.removeItem(CHECKOUT_SESSION_STORAGE_KEY);
     }
   } catch (_) {}
 
@@ -7345,7 +7365,7 @@ function temPagamentoPendenteReal(clientId = getClientIdAtual(), assinatura = ge
     if (status !== "pending") return false;
     const mesmoCliente = !clientId || String(pagamento.clientId || "") === String(clientId);
     const mesmaAssinatura = !assinaturaId || !pagamento.subscriptionId || String(pagamento.subscriptionId) === assinaturaId;
-    const transacaoReal = Boolean(pagamento.mercadoPagoPaymentId || pagamento.mercado_pago_payment_id || pagamento.paymentId || pagamento.payment_id || pagamento.mercadoPagoSubscriptionId || pagamento.mercado_pago_subscription_id);
+    const transacaoReal = temTransacaoMercadoPagoReal(pagamento);
     return mesmoCliente && mesmaAssinatura && transacaoReal;
   });
 }
@@ -28029,7 +28049,7 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
   billingConfig.lastCheckoutExpiresAt = expiresAt;
   billingConfig.lastCheckoutPrice = planPrice;
   try {
-    window.sessionStorage?.setItem?.("simplifica3d:checkout-session:v1", JSON.stringify({
+    window.sessionStorage?.setItem?.(CHECKOUT_SESSION_STORAGE_KEY, JSON.stringify({
       planSlug: plano.slug,
       billingVariant,
       planPrice,
@@ -28040,6 +28060,7 @@ function registrarPagamentoLocalPendente(plano, dados = {}, tipo = "subscription
   } catch (_) {}
   salvarDados();
   registrarAuditoria("checkout aberto", { tipo, plano: plano.slug, preferenceId: pagamento.preferenceId, subscriptionId: pagamento.mercadoPagoSubscriptionId }, clientId);
+  registrarEventoPlanoSeguro("checkout_opened", { plan: plano.slug, type: tipo });
 }
 
 async function abrirLinkMercadoPago(slug = "pro") {
@@ -38296,12 +38317,91 @@ function iniciarMonitorAtualizacao() {
 
 }
 
+function normalizarRetornoCheckoutMercadoPago(pagamento = "", assinatura = "") {
+  const retorno = String(pagamento || assinatura || "").toLowerCase().trim();
+  if (["sucesso", "success", "approved", "aprovado"].includes(retorno)) return "success";
+  if (["pendente", "pending", "in_process", "inprocess"].includes(retorno)) return "pending";
+  if (["falha", "failure", "failed", "rejected", "recusado", "cancelled", "canceled", "cancelado"].includes(retorno)) return "failed";
+  return "returned";
+}
+
+function getCheckoutSessionLocalSeguro() {
+  try {
+    return JSON.parse(window.sessionStorage?.getItem?.(CHECKOUT_SESSION_STORAGE_KEY) || "null");
+  } catch (_) {
+    return null;
+  }
+}
+
+function limparCheckoutSessionLocal() {
+  try {
+    window.sessionStorage?.removeItem?.(CHECKOUT_SESSION_STORAGE_KEY);
+  } catch (_) {}
+}
+
+function encontrarCheckoutLocalDoRetorno(sessao = getCheckoutSessionLocalSeguro()) {
+  const preferenceId = String(sessao?.preferenceId || "");
+  return saasPayments.find((pagamento) => (
+    String(pagamento.status || "") === "checkout_opened"
+    && (!preferenceId || String(pagamento.preferenceId || "") === preferenceId)
+  )) || null;
+}
+
+function atualizarCheckoutLocalPorRetornoMercadoPago(returnStatus) {
+  const checkout = encontrarCheckoutLocalDoRetorno();
+  if (!checkout) return null;
+  checkout.updatedAt = new Date().toISOString();
+  if (returnStatus === "failed") {
+    checkout.status = "rejected";
+    limparCheckoutSessionLocal();
+  }
+  return checkout;
+}
+
+function limparParametrosRetornoMercadoPago(params) {
+  [
+    "pagamento",
+    "assinatura",
+    "collection_id",
+    "collection_status",
+    "payment_id",
+    "status",
+    "external_reference",
+    "preference_id",
+    "merchant_order_id"
+  ].forEach((key) => params.delete(key));
+  const query = params.toString();
+  const nextUrl = `${location.pathname}${query ? `?${query}` : ""}${location.hash || ""}`;
+  window.history?.replaceState?.({}, document.title, nextUrl);
+}
+
 function processarParametrosAssinaturaUrl() {
   const params = new URLSearchParams(location.search || "");
-  if (params.get("pagamento") || params.get("assinatura")) {
-    telaAtual = "minhaAssinatura";
-    setTimeout(() => alert("Pagamento recebido pelo Mercado Pago. O plano será liberado após confirmação do webhook."), 400);
-  }
+  const pagamento = params.get("pagamento") || "";
+  const assinatura = params.get("assinatura") || "";
+  if (!pagamento && !assinatura) return false;
+
+  const returnStatus = normalizarRetornoCheckoutMercadoPago(pagamento, assinatura);
+  const checkout = atualizarCheckoutLocalPorRetornoMercadoPago(returnStatus);
+  telaAtual = "minhaAssinatura";
+  limparParametrosRetornoMercadoPago(params);
+  salvarDados();
+
+  const mensagens = {
+    success: "Pagamento enviado para confirmação. Seu plano será atualizado automaticamente após o webhook.",
+    pending: "Pagamento em processamento. Seu plano atual continua disponível enquanto aguardamos a confirmação.",
+    failed: "Pagamento não concluído. Seu plano atual foi preservado.",
+    returned: "Retorno do checkout recebido. Seu plano será atualizado apenas após a confirmação do pagamento."
+  };
+  registrarEventoPlanoSeguro(returnStatus === "failed" ? "payment_failed" : "checkout_returned_without_payment", {
+    returnStatus,
+    hasLocalCheckout: Boolean(checkout)
+  });
+  setTimeout(() => {
+    mostrarToast(mensagens[returnStatus], returnStatus === "failed" ? "aviso" : "info", 7000);
+    sincronizarLicencaEfetivaSePossivel("payment-return").catch((erro) => registrarDiagnostico("Mercado Pago", "Licença após retorno não sincronizada", erro.message));
+  }, 400);
+  return true;
 }
 
 function processarRotaPublicaLegal() {

@@ -628,6 +628,21 @@ renderAssinatura()
 
 O workspace de planos limita largura ultrawide, mantem tres cards equilibrados no desktop e uma coluna no mobile. A UI registra eventos seguros de visualizacao e acao sem persistir dados sensiveis.
 
+## Fase 5C - Retorno do checkout
+
+```txt
+Mercado Pago back_url
+ └── processarParametrosAssinaturaUrl()
+      ├── normalizarRetornoCheckoutMercadoPago()
+      ├── atualizarCheckoutLocalPorRetornoMercadoPago()
+      │    └── falha -> checkout local rejected
+      ├── limparParametrosRetornoMercadoPago()
+      ├── checkout_returned_without_payment | payment_failed
+      └── sincronizarLicencaEfetivaSePossivel("payment-return")
+```
+
+A URL nunca define `approved`, nao altera plano e nao libera permissao. Checkouts locais sem webhook expiram como `checkout_abandoned`.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

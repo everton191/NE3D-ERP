@@ -139,3 +139,11 @@ A tela premium de planos foi alinhada com o backend seguro sem alterar Edge Func
 - pagamento pendente visual depende de transacao remota real.
 
 Detalhes: `docs/plans-premium-ui.md`.
+
+## Fase 5C - Estados de checkout e roteiro sandbox
+
+O frontend agora reconcilia retornos `?pagamento=sucesso`, `?pagamento=pendente` e `?pagamento=falha` sem tratar URL como autoridade de pagamento. Sucesso e pendencia aguardam webhook real; falha preserva o plano e encerra a tentativa local.
+
+Checkouts locais expiram em 30 minutos e registram `checkout_abandoned`. O script `scripts/mercadopago-sandbox-controlled.js` prepara testes guiados com credencial `TEST-`, sem reutilizar segredo produtivo e sem executar rede por padrao.
+
+Roteiro detalhado: `docs/checkout-payment-states-sandbox.md`.
