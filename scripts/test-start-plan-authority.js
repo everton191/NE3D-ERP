@@ -59,6 +59,7 @@ assert(shared.includes('getEnv("MERCADO_PAGO_START_PLAN_ID")'), "backend deve le
 assert(shared.includes("start_monthly: { id: \"start_monthly\""), "Start deve ter billing variant proprio");
 assert(shared.includes("Plano Start ainda não está habilitado no backend de cobrança"), "Start deve falhar fechado por padrão");
 assert(shared.includes("resolvePlanSlugFromMercadoPagoPlanId"), "webhook deve resolver plano por preapproval_plan_id allowlist");
+assert(shared.includes('if (startPlanId && planId === startPlanId) return "start"'), "webhook deve reconhecer Start pela allowlist mesmo com checkout publico fechado");
 assert(createPayment.includes("getMercadoPagoPlanId"), "checkout deve resolver plan id no backend");
 assert(createPayment.includes("Plano Start sem MERCADO_PAGO_START_PLAN_ID configurado"), "checkout Start deve exigir plan id backend");
 assert(createSubscription.includes("preapproval_plan_id"), "assinatura deve suportar preapproval_plan_id backend");

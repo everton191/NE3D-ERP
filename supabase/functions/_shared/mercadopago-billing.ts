@@ -36,7 +36,7 @@ export function resolvePlanSlugFromMercadoPagoPlanId(value: unknown) {
   if (!planId) return "";
   const startPlanId = getMercadoPagoPlanId("start");
   const proPlanId = getMercadoPagoPlanId("pro");
-  if (isStartPlanEnabled() && startPlanId && planId === startPlanId) return "start";
+  if (startPlanId && planId === startPlanId) return "start";
   if (proPlanId && planId === proPlanId) return "premium";
   return "";
 }
