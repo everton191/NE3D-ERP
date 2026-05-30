@@ -68,7 +68,7 @@ serve(async (req) => {
 
     const { data: subscription, error } = await supabase
       .from("subscriptions")
-      .select("id, mercado_pago_subscription_id")
+      .select("id, mercado_pago_subscription_id, current_period_end, plan_expires_at, premium_until, expires_at, next_billing_at, proximo_vencimento")
       .eq("client_id", clientId)
       .maybeSingle();
 
@@ -90,27 +90,40 @@ serve(async (req) => {
       throw new Error(mpData.message || `Mercado Pago HTTP ${mpResponse.status}`);
     }
 
-    const { data: freePlan } = await supabase.from("plans").select("id").eq("slug", "free").maybeSingle();
+    const accessEndsAt = subscription.current_period_end
+      || subscription.plan_expires_at
+      || subscription.premium_until
+      || subscription.expires_at
+      || subscription.next_billing_at
+      || subscription.proximo_vencimento
+      || null;
     await supabase.from("subscriptions").update({
-      plan_id: freePlan?.id || null,
-      status: "cancelled",
-      status_assinatura: "cancelled",
+      status: "active",
+      status_assinatura: "canceling",
+      subscription_status: "active",
+      cancel_at_period_end: true,
       cancelled_at: new Date().toISOString(),
-      metadata: { cancel: mpData },
+      metadata: { cancel: mpData, cancel_at_period_end: true, access_ends_at: accessEndsAt },
     }).eq("id", subscription.id);
 
     await supabase.from("clients")
-      .update({ plano_atual: "free", status_assinatura: "cancelled", status: "active" })
+      .update({
+        status_assinatura: "canceling",
+        subscription_status: "canceling",
+        cancel_at_period_end: true,
+        plan_expires_at: accessEndsAt,
+        status: "active",
+      })
       .eq("id", clientId);
 
     await supabase.from("audit_logs").insert({
       user_id: userId,
       client_id: clientId,
       action: "assinatura cancelada",
-      details: { provider: "mercado_pago", subscription_id: mpSubscriptionId },
+      details: { provider: "mercado_pago", subscription_id: mpSubscriptionId, cancel_at_period_end: true, access_ends_at: accessEndsAt },
     });
 
-    return jsonResponse({ ok: true, subscriptionId: mpSubscriptionId });
+    return jsonResponse({ ok: true, subscriptionId: mpSubscriptionId, cancelAtPeriodEnd: true, accessEndsAt });
   } catch (error) {
     return jsonResponse({ ok: false, error: error instanceof Error ? error.message : "Erro desconhecido" }, 400);
   }

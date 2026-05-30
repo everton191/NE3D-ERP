@@ -171,3 +171,15 @@ Validacoes executadas:
 Limite da fase:
 
 - envio manual de feedback com usuario real, acoes de Superadmin e geracao visual de relatorio Codex precisam de sessao autenticada. Sem credenciais nesta execucao, esses pontos ficaram registrados como smoke manual pendente, nao como falha automatica.
+
+## Fase 5A.1 - Diagnosticos do webhook Mercado Pago
+
+O webhook central registra eventos sanitizados em `app_diagnostic_events`:
+
+- `webhook_received`;
+- `webhook_validation_failed`;
+- `webhook_ignored_duplicate`.
+
+O payload persistido passa por sanitizacao no backend. A tabela interna `billing_webhook_events` preserva idempotencia e nao fica acessivel ao frontend.
+
+O smoke remoto permitido usa somente uma notificacao sem assinatura e confirma resposta HTTP `401`. Ele nao cria pagamento, preferencia ou assinatura.

@@ -429,6 +429,18 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Corrigir build para nao publicar `src/integrations/google`.
 - `[x]` Confirmar Google/IA invisiveis no HTML remoto.
 - `[x]` Confirmar diagnosticos remotos com `diagnostics_remote_validation_ok`.
+
+## Fase 5A.1 - Mercado Pago webhook unico
+
+- `[x]` Auditar Edge Functions existentes e manter apenas `mercadopago-webhook` como receptor.
+- `[x]` Validar `x-signature`, `x-request-id`, `data.id`, `ts` e `v1` com HMAC SHA-256.
+- `[x]` Adicionar tolerancia de timestamp e comparacao constante.
+- `[x]` Criar `billing_webhook_events` com chave unica, RLS e acesso exclusivo por `service_role`.
+- `[x]` Sanitizar payload persistido pelo backend.
+- `[x]` Corrigir cancelamento remoto para `cancel_at_period_end=true`, sem downgrade imediato.
+- `[x]` Preservar aliases Pro legados e bloquear Start ate migracao completa da autoridade remota.
+- `[x]` Criar `test:billing-webhook`.
+- `[x]` Criar `supabase:billing-webhook:*` para aplicacao isolada, deploy, validacao e smoke sem cobranca.
 - `[x]` Confirmar Google remoto com `google_integrations_remote_validation_ok`.
 - `[~]` Validacao de usuario comum e Superadmin reais exige login manual/autenticado.
 - `[~]` Loja publica `/ne3d` retornou `Loja em preparacao`; validar com loja publicada antes de release final.

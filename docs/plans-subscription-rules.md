@@ -118,3 +118,18 @@ Ainda nao foi alterado:
 - checkout;
 - aprovacao/cancelamento real de pagamento;
 - tela premium de planos.
+
+## Fase 5A.1 - Webhook unico e ativacao segura
+
+O endpoint `mercadopago-webhook` continua sendo o unico receptor de notificacoes Mercado Pago.
+
+O cancelamento remoto foi alinhado com a regra da Fase 5A:
+
+- nao aplica Free imediatamente;
+- marca `cancel_at_period_end = true`;
+- preserva acesso pago ate o fim do periodo conhecido;
+- limpa a flag quando a autoridade remota expira o plano para Free.
+
+A autoridade remota historica ainda usa `premium` como slug interno do plano pago. A ponte backend resolve aliases Pro de forma controlada. O checkout Start permanece bloqueado com erro explicito ate existir migracao completa do tier remoto, pois mapear Start parcialmente para `premium` liberaria recursos Pro indevidamente.
+
+Detalhes operacionais: `docs/billing-mercado-pago.md`.

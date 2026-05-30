@@ -1,10 +1,19 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildWebhookEventKey,
+  normalizeBillingVariant,
+  normalizeRequestedPlan,
+  sanitizeWebhookPayload,
+  verifyMercadoPagoSignature,
+  WEBHOOK_TOLERANCE_MS,
+} from "../_shared/mercadopago-billing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || "";
 const MERCADOPAGO_WEBHOOK_SECRET = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET") || "";
+const MERCADOPAGO_WEBHOOK_TOLERANCE_MS = Number(Deno.env.get("MERCADOPAGO_WEBHOOK_TOLERANCE_MS") || WEBHOOK_TOLERANCE_MS);
 
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } })
@@ -15,45 +24,6 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
     status,
     headers: { "Content-Type": "application/json" },
   });
-}
-
-function parseSignature(header: string) {
-  return header.split(",").reduce<Record<string, string>>((acc, part) => {
-    const [key, value] = part.split("=");
-    if (key && value) acc[key.trim()] = value.trim();
-    return acc;
-  }, {});
-}
-
-async function hmacSha256Hex(secret: string, manifest: string) {
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(manifest));
-  return Array.from(new Uint8Array(signature))
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function verifyMercadoPagoSignature(req: Request, dataId: string) {
-  if (!MERCADOPAGO_WEBHOOK_SECRET) return false;
-
-  const xSignature = req.headers.get("x-signature") || "";
-  const xRequestId = req.headers.get("x-request-id") || "";
-  const parsed = parseSignature(xSignature);
-  const ts = parsed.ts || "";
-  const v1 = parsed.v1 || "";
-
-  if (!dataId || !xRequestId || !ts || !v1) return false;
-
-  const manifest = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
-  const expected = await hmacSha256Hex(MERCADOPAGO_WEBHOOK_SECRET, manifest);
-  return expected.toLowerCase() === v1.toLowerCase();
 }
 
 function normalizePaymentStatus(status: string) {
@@ -86,14 +56,7 @@ function splitExternalReference(value: unknown) {
 }
 
 function normalizePlanSlug(value: unknown) {
-  const slug = String(value || "premium").toLowerCase().replace(/-/g, "_").trim();
-  if (slug !== "premium") throw new Error("Plano inválido no webhook");
-  return "premium";
-}
-
-function normalizeBillingVariant(value: unknown) {
-  const variant = String(value || "premium_first_month").toLowerCase().replace(/-/g, "_").trim();
-  return variant === "premium_monthly" ? "premium_monthly" : "premium_first_month";
+  return normalizeRequestedPlan(value).backendPlanSlug;
 }
 
 function subscriptionStatusFromPayment(status: string) {
@@ -176,7 +139,7 @@ async function syncClientFromSubscription(clientId: string) {
   if (!supabase) return null;
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("active_plan, plan_code, plan_status, payment_status, subscription_status, status, status_assinatura, plan_price, price_locked, plan_expires_at, premium_until, current_period_end, pending_plan, blocked_at, blocked_reason")
+    .select("active_plan, plan_code, plan_status, payment_status, subscription_status, status, status_assinatura, plan_price, price_locked, plan_expires_at, premium_until, current_period_end, pending_plan, cancel_at_period_end, blocked_at, blocked_reason")
     .eq("client_id", clientId)
     .order("updated_at", { ascending: false })
     .limit(1)
@@ -187,7 +150,9 @@ async function syncClientFromSubscription(clientId: string) {
   const effectivePlan = String(subscription.active_plan || "").toLowerCase() || (subscription.plan_code === "PREMIUM" ? "premium" : "free");
   const effectiveStatus = String(subscription.plan_status || "").toUpperCase();
   const supportStatus = effectiveStatus === "BLOCKED" ? "blocked" : "active";
-  const subscriptionStatus = subscription.subscription_status || subscription.status_assinatura || subscription.status || "free";
+  const subscriptionStatus = subscription.cancel_at_period_end === true
+    ? "canceling"
+    : subscription.subscription_status || subscription.status_assinatura || subscription.status || "free";
   const expiresAt = subscription.premium_until || subscription.plan_expires_at || subscription.current_period_end || null;
 
   await supabase.from("clients")
@@ -196,6 +161,7 @@ async function syncClientFromSubscription(clientId: string) {
       active_plan: effectivePlan,
       plano_atual: effectivePlan,
       pending_plan: subscription.pending_plan || null,
+      cancel_at_period_end: subscription.cancel_at_period_end === true,
       payment_status: subscription.payment_status || "none",
       subscription_status: subscriptionStatus,
       status_assinatura: subscriptionStatus,
@@ -228,9 +194,72 @@ async function logWebhookEvent(data: {
     payment_id: data.paymentId || null,
     client_id: data.clientId || null,
     status: data.status,
-    payload: data.payload,
+    payload: sanitizeWebhookPayload(data.payload),
     error: data.error || null,
   });
+}
+
+async function logDiagnosticEvent(eventType: string, metadata: Record<string, unknown>, severity = "medium", userId?: string | null) {
+  if (!supabase) return;
+  await supabase.from("app_diagnostic_events").insert({
+    user_id: userId || null,
+    event_type: eventType,
+    screen: "mercadopago-webhook",
+    action: "process_webhook",
+    app_version: "fase-5a1",
+    platform: "backend",
+    severity,
+    fingerprint: `mercadopago:${eventType}:${String(metadata.data_id || metadata.event_key || "unknown")}`.slice(0, 240),
+    metadata_json: sanitizeWebhookPayload(metadata),
+  });
+}
+
+async function reserveWebhookEvent(eventKey: string, eventType: string, dataId: string, requestId: string, signatureTs: string, payload: Record<string, unknown>) {
+  if (!supabase) throw new Error("Supabase não configurado");
+  const { error } = await supabase.from("billing_webhook_events").insert({
+    provider: "mercado_pago",
+    event_key: eventKey,
+    event_type: eventType || null,
+    external_id: dataId || null,
+    request_id: requestId || null,
+    signature_ts: signatureTs || null,
+    status: "received",
+    payload: sanitizeWebhookPayload(payload),
+  });
+  if (error?.code === "23505") {
+    const { data: existing, error: selectError } = await supabase.from("billing_webhook_events")
+      .select("status")
+      .eq("provider", "mercado_pago")
+      .eq("event_key", eventKey)
+      .maybeSingle();
+    if (selectError) throw selectError;
+    if (existing?.status !== "error") return false;
+    const { error: retryError } = await supabase.from("billing_webhook_events")
+      .update({
+        status: "received",
+        error: null,
+        payload: sanitizeWebhookPayload(payload),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("provider", "mercado_pago")
+      .eq("event_key", eventKey);
+    if (retryError) throw retryError;
+    return true;
+  }
+  if (error) throw error;
+  return true;
+}
+
+async function finishWebhookEvent(eventKey: string, status: string, error?: string) {
+  if (!supabase) return;
+  await supabase.from("billing_webhook_events")
+    .update({
+      status,
+      error: error || null,
+      processed_at: status === "processed" || status === "ignored" ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("event_key", eventKey);
 }
 
 async function applyPayment(payment: Record<string, unknown>, rawEvent: Record<string, unknown>) {
@@ -335,20 +364,36 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
     await getSubscriptionId(clientId, planSlug, userId, mpSubscriptionId);
 
     if (status === "cancelled") {
+      const accessEndsAt = String(preapproval.next_payment_date || "") || null;
+      const cancellationUpdate: Record<string, unknown> = {
+        user_id: userId,
+        plan_id: planId,
+        status: "active",
+        status_assinatura: "canceling",
+        subscription_status: "active",
+        cancel_at_period_end: true,
+        mercado_pago_subscription_id: mpSubscriptionId,
+        cancelled_at: new Date().toISOString(),
+        metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
+      };
+      if (accessEndsAt) {
+        cancellationUpdate.current_period_end = accessEndsAt;
+        cancellationUpdate.plan_expires_at = accessEndsAt;
+      }
       await supabase.from("subscriptions")
-        .update({
-          user_id: userId,
-          plan_id: planId,
-          status: "cancelled",
-          status_assinatura: "cancelled",
-          mercado_pago_subscription_id: mpSubscriptionId,
-          cancelled_at: new Date().toISOString(),
-          metadata: { preapproval, user_id: userId, plan_id: planSlug, billing_variant: billingVariant },
-        })
+        .update(cancellationUpdate)
         .eq("client_id", clientId);
 
+      const clientCancellationUpdate: Record<string, unknown> = {
+        plano_atual: planSlug,
+        status_assinatura: "canceling",
+        subscription_status: "canceling",
+        cancel_at_period_end: true,
+        status: "active",
+      };
+      if (accessEndsAt) clientCancellationUpdate.plan_expires_at = accessEndsAt;
       await supabase.from("clients")
-        .update({ plano_atual: planSlug, status_assinatura: "cancelled", status: "overdue" })
+        .update(clientCancellationUpdate)
         .eq("id", clientId);
     } else {
       await supabase.from("subscriptions")
@@ -357,6 +402,7 @@ async function applySubscription(preapproval: Record<string, unknown>, rawEvent:
           plan_id: planId,
           status: "pending",
           status_assinatura: "pending",
+          cancel_at_period_end: false,
           billing_variant: billingVariant,
           mercado_pago_subscription_id: mpSubscriptionId,
           proximo_vencimento: String(preapproval.next_payment_date || "") || null,
@@ -393,6 +439,10 @@ function getDataId(url: URL, event: Record<string, unknown>) {
   );
 }
 
+function getSignedDataId(url: URL) {
+  return String(url.searchParams.get("data.id") || url.searchParams.get("id") || "");
+}
+
 serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ ok: false }, 405);
@@ -405,14 +455,24 @@ serve(async (req) => {
   let event: Record<string, unknown> = {};
   let dataId = "";
   let eventType = "";
+  let eventKey = "";
 
   try {
     const url = new URL(req.url);
     event = await req.json().catch(() => ({}));
     dataId = getDataId(url, event);
+    const signedDataId = getSignedDataId(url);
     eventType = String(url.searchParams.get("type") || event.type || event.action || "");
+    const requestId = req.headers.get("x-request-id") || "";
 
-    if (!await verifyMercadoPagoSignature(req, dataId)) {
+    const signature = await verifyMercadoPagoSignature({
+      secret: MERCADOPAGO_WEBHOOK_SECRET,
+      xSignature: req.headers.get("x-signature") || "",
+      xRequestId: requestId,
+      dataId: signedDataId,
+      toleranceMs: MERCADOPAGO_WEBHOOK_TOLERANCE_MS,
+    });
+    if (!signature.ok) {
       await logWebhookEvent({
         eventId: String(event.id || ""),
         eventType,
@@ -420,8 +480,16 @@ serve(async (req) => {
         status: "invalid_signature",
         payload: event,
       });
+      await logDiagnosticEvent("webhook_validation_failed", { data_id: dataId, event_type: eventType, reason: signature.reason }, "high").catch(() => {});
       return jsonResponse({ ok: false }, 401);
     }
+
+    eventKey = buildWebhookEventKey(event, eventType, dataId, requestId);
+    if (!await reserveWebhookEvent(eventKey, eventType, dataId, requestId, signature.ts, event)) {
+      await logDiagnosticEvent("webhook_ignored_duplicate", { data_id: dataId, event_type: eventType, event_key: eventKey }).catch(() => {});
+      return jsonResponse({ ok: true, duplicate: true });
+    }
+    await logDiagnosticEvent("webhook_received", { data_id: dataId, event_type: eventType, event_key: eventKey }).catch(() => {});
 
     await logWebhookEvent({
       eventId: String(event.id || ""),
@@ -441,17 +509,21 @@ serve(async (req) => {
     if (isPayment) {
       const payment = await fetchMercadoPago(`/v1/payments/${encodeURIComponent(dataId)}`);
       await applyPayment(payment, event);
+      await finishWebhookEvent(eventKey, "processed");
       return jsonResponse({ ok: true });
     }
 
     if (isSubscription) {
       const preapproval = await fetchMercadoPago(`/preapproval/${encodeURIComponent(dataId)}`);
       await applySubscription(preapproval, event);
+      await finishWebhookEvent(eventKey, "processed");
       return jsonResponse({ ok: true });
     }
 
+    await finishWebhookEvent(eventKey, "ignored");
     return jsonResponse({ ok: true, ignored: true });
   } catch (error) {
+    if (eventKey) await finishWebhookEvent(eventKey, "error", error instanceof Error ? error.message : "unknown").catch(() => {});
     await logWebhookEvent({
       eventId: String(event.id || ""),
       eventType,
@@ -461,6 +533,6 @@ serve(async (req) => {
       error: error instanceof Error ? error.message : "unknown",
     }).catch(() => {});
 
-    return jsonResponse({ ok: true });
+    return jsonResponse({ ok: false }, 500);
   }
 });

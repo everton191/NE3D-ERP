@@ -586,6 +586,24 @@ Deploy validado:
 - alias `https://erpne3d.vercel.app`;
 - cache `simplifica-3d-v119-estavel-20260529-diagnostics-6b`;
 - diagnostics e Google remoto validados por scripts;
+
+## Fase 5A.1 - Webhook unico Mercado Pago
+
+```txt
+Mercado Pago
+ └── mercadopago-webhook
+      ├── valida x-signature + x-request-id + data.id + ts + v1
+      ├── aplica tolerancia de timestamp e comparacao constante
+      ├── reserva billing_webhook_events.event_key
+      ├── ignora repeticao ja reservada
+      ├── consulta recurso oficial Mercado Pago
+      ├── aplica pagamento ou cancelamento agendado
+      └── registra diagnostico sanitizado
+```
+
+`mercadopago-cancel-subscription` nao aplica downgrade imediato. Ele marca `cancel_at_period_end=true` e mantem o acesso ate a expiracao da autoridade remota.
+
+O slug remoto legado `premium` continua preservado como autoridade paga. Aliases Pro sao resolvidos no backend. Start permanece fechado ate migracao completa do tier remoto.
 - smoke sem login confirmou login por e-mail/senha, ausencia de IA/Google visiveis e rota admin protegida.
 
 Validacao autenticada de usuario comum/Superadmin permanece manual porque exige sessao real.

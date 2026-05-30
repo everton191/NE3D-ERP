@@ -234,6 +234,19 @@ assert(read("scripts/diagnostics-remote-controlled.js").includes("diagnostics_re
 assert(read("scripts/diagnostics-remote-controlled.js").includes("refresh_app_bug_cluster_after_error"), "fase 6c validacao remota confere trigger de cluster");
 
 [
+  "docs/billing-mercado-pago.md",
+  "scripts/test-billing-webhook.js",
+  "scripts/billing-webhook-remote-controlled.js",
+  "supabase/functions/_shared/mercadopago-billing.ts",
+  "supabase/migrations/20260529213000_billing_webhook_hardening.sql"
+].forEach((file) => assert(exists(file), `fase 5a1 billing webhook presente: ${file}`));
+assert(pkg.scripts && pkg.scripts["test:billing-webhook"] === "node scripts/test-billing-webhook.js", "package.json expoe test:billing-webhook");
+assert(pkg.scripts && pkg.scripts["supabase:billing-webhook:validate"] === "node scripts/billing-webhook-remote-controlled.js validate", "package.json expoe validacao remota billing webhook");
+assert(read("supabase/functions/mercadopago-webhook/index.ts").includes("reserveWebhookEvent"), "webhook reserva evento idempotente");
+assert(read("supabase/functions/mercadopago-cancel-subscription/index.ts").includes("cancel_at_period_end: true"), "cancelamento remoto agenda fim do periodo");
+assert(read("scripts/billing-webhook-remote-controlled.js").includes("billing_webhook_remote_validation_ok"), "validacao remota billing webhook tem marcador de sucesso");
+
+[
   "--bg-primary",
   "--bg-secondary",
   "--bg-tertiary",

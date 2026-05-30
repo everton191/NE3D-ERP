@@ -72,7 +72,12 @@ const checks = [
   ["google flags disabled", /google_integrations_enabled[\s\S]*google_auth_enabled[\s\S]*google_calendar_enabled[\s\S]*google_drive_enabled[\s\S]*google_gmail_enabled[\s\S]*google_sheets_enabled/i],
   ["google token placeholder only", /encrypted_token_placeholder text not null default 'not_configured'/i],
   ["google tokens revoke frontend grants", /revoke all on public\.integration_tokens from anon, authenticated/i],
-  ["google tokens service role only", /grant select, insert, update, delete on public\.integration_tokens to service_role/i]
+  ["google tokens service role only", /grant select, insert, update, delete on public\.integration_tokens to service_role/i],
+  ["billing webhook events table", /create table if not exists public\.billing_webhook_events/i],
+  ["billing webhook events RLS", /alter table public\.billing_webhook_events enable row level security/i],
+  ["billing webhook events unique key", /billing_webhook_events_provider_key_unique_idx/i],
+  ["billing webhook frontend grants revoked", /revoke all on public\.billing_webhook_events from public, anon, authenticated/i],
+  ["billing cancel at period end", /cancel_at_period_end boolean not null default false/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({
