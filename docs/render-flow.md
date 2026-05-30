@@ -19,6 +19,19 @@ plans screen
 
 URL de retorno e checkout aberto nao alteram `effectivePlan`.
 
+## Fase 5C.1
+
+Estado remoto validado:
+
+```txt
+Supabase secrets
+ ├── MERCADO_PAGO_START_PLAN_ID -> webhook allowlist start
+ ├── MERCADO_PAGO_PRO_PLAN_ID -> webhook allowlist pro/premium legado
+ └── START_PLAN_ENABLED=false -> checkout publico Start bloqueado
+```
+
+O fluxo de acesso segue dependendo exclusivamente de webhook validado, consulta remota do objeto Mercado Pago, usuario resolvido e evento idempotente.
+
 Escopo: compreender a renderizacao atual antes de reorganizar arquivos.
 
 ## Fluxo Principal Atual

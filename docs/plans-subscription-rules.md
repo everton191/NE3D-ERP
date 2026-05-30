@@ -164,3 +164,15 @@ O Start ganhou autoridade propria preparada no backend, mas continua fechado por
 - O webhook central resolve Start somente por allowlist de `preapproval_plan_id` e assinatura valida.
 - Cancelamento Start deve marcar `cancelAtPeriodEnd=true` e manter acesso ate `currentPeriodEnd`.
 - Start para Pro deve depender de webhook Pro aprovado.
+
+## Fase 5C.1 - checkout controlado
+
+Configuracao remota concluida sem ativar Start comercialmente:
+
+- IDs Start e Pro configurados como secrets backend.
+- Migration Start aplicada isoladamente.
+- Funcoes de billing republicadas.
+- Smokes sem assinatura e com assinatura invalida recusaram corretamente.
+- Retorno de checkout continua sem autoridade para liberar plano.
+- Checkout aberto continua sem criar pending real.
+- Sandbox real permanece pendente por ausencia de token `TEST-` local dedicado.

@@ -15,7 +15,11 @@ Objetivo deste arquivo: manter um controle simples, incremental e verificavel da
 - `[x]` Criar migration idempotente do Start.
 - `[x]` Criar runner remoto controlado sem `db push` cego.
 - `[x]` Criar `test:start-plan`.
-- `[ ]` Validar sandbox Start com token `TEST-`.
+- `[x]` Configurar IDs Start/Pro como Supabase secrets backend.
+- `[x]` Aplicar migration Start isoladamente e validar remoto.
+- `[x]` Republicar apenas funcoes de billing afetadas.
+- `[x]` Executar smokes sem assinatura e assinatura invalida.
+- `[ ]` Validar sandbox Start com token `TEST-` dedicado.
 - `[ ]` Ativar comercialmente Start.
 
 Legenda:

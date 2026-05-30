@@ -32,3 +32,11 @@
 - O Start libera publicacao e link publico, mas nao recebe recursos premium do Pro.
 - O Pro preserva acesso premium atual e nao deve ser reduzido por causa da entrada do Start.
 - Na duvida, manter recurso bloqueado no Start ate decisao explicita.
+
+## Fase 5C.1
+
+Os IDs comerciais Start e Pro foram configurados no backend, mas a matriz nao muda para o usuario final enquanto `START_PLAN_ENABLED=false`.
+
+- Free continua editando loja sem publicar.
+- Start permanece preparado para publicar loja e compartilhar link apos ativacao controlada.
+- Pro continua premium e preservado.

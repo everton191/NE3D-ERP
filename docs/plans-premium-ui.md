@@ -15,6 +15,15 @@ O card Start continua visivel para comparacao, mas seu CTA depende de `START_PLA
 - O card nao pode enviar preco, ID de plano ou ativacao local ao frontend.
 - A identidade visual segue Free verde, Start roxo e Pro preto/dourado.
 
+## Fase 5C.1
+
+Mesmo com IDs remotos configurados no backend, a UI continua bloqueada:
+
+- Start sem CTA publico funcional.
+- Pro preservado.
+- Nenhum ID de plano foi colocado em `app.js`, `index.html` ou `sw.js`.
+- A ativacao comercial depende dos testes sandbox reais e de `START_PLAN_ENABLED=true`.
+
 ## Estados visuais
 
 ### Free

@@ -82,3 +82,18 @@ Estado preservado:
 - Funcoes republicadas: `mercadopago-create-payment`, `mercadopago-create-subscription`, `mercadopago-webhook`.
 - Webhook Start continua no endpoint central, sem rota separada.
 - Checkout Start publico continua bloqueado ate validacao sandbox completa.
+
+## Fase 5C.1 - validacao controlada
+
+Validado em 2026-05-30:
+
+- Secrets backend de Start e Pro existem no projeto Supabase.
+- `START_PLAN_ENABLED` existe e permanece `false`.
+- Migration Start foi reaplicada de forma idempotente e validada com `start_plan_remote_validation_ok`.
+- Edge Functions republicadas: `mercadopago-create-payment`, `mercadopago-create-subscription`, `mercadopago-webhook`.
+- Smoke sem assinatura retornou recusado.
+- Smoke com assinatura invalida retornou recusado.
+- Webhook central reconhece Start e Pro por allowlist de `preapproval_plan_id`.
+- Webhook separado para Start nao existe.
+
+Pendencia: sandbox real com token `TEST-` dedicado nao foi executado porque o token sandbox local nao esta configurado e o valor do secret remoto nao pode ser revelado pela CLI.

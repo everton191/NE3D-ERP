@@ -12,6 +12,19 @@ O Start usa a mesma infraestrutura central do Mercado Pago. Nao existe webhook s
 
 Nao commitar tokens, IDs reais, secrets ou payloads integrais de pagamento.
 
+## Fase 5C.1 - remoto controlado
+
+Em 2026-05-30:
+
+- Secrets de IDs Start e Pro foram configurados no backend.
+- `START_PLAN_ENABLED` permanece `false`.
+- Migration Start foi aplicada isoladamente, sem `supabase db push` geral.
+- Funcoes republicadas: `mercadopago-create-payment`, `mercadopago-create-subscription`, `mercadopago-webhook`.
+- O shared module de billing foi enviado junto das funcoes.
+- Smoke sem assinatura e com assinatura invalida foram recusados.
+
+Nao foi executado pagamento real nem sandbox real sem token `TEST-` local dedicado.
+
 ## Fase 5A.1
 
 Data: 2026-05-29

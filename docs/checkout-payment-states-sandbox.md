@@ -12,6 +12,19 @@ O fluxo Start esta preparado, mas bloqueado por `START_PLAN_ENABLED=false`.
 - Pending real so existe apos transacao remota real.
 - Sandbox Start deve cobrir aprovado, recusado, pending, abandono, duplicidade, assinatura invalida e Start para Pro.
 
+## Fase 5C.1 - sandbox pendente
+
+Os links comerciais foram criados no Mercado Pago e os IDs foram configurados no backend, mas `START_PLAN_ENABLED=false` preserva o bloqueio publico do Start.
+
+Validado sem cobranca real:
+
+- URL de retorno sem webhook continua sem autoridade.
+- Checkout aberto nao altera plano.
+- Smoke de webhook sem assinatura foi recusado.
+- Smoke de webhook com assinatura invalida foi recusado.
+
+Sandbox real aprovado/recusado/pending permanece pendente porque nao ha token `TEST-` local dedicado disponivel para o runner.
+
 ## Objetivo
 
 A Fase 5C diferencia retorno de checkout, pagamento real e acesso efetivo. Nenhuma URL de retorno do navegador pode liberar plano.

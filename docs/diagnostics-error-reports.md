@@ -23,6 +23,15 @@ Eventos preparados para ativacao controlada do Start:
 
 Esses eventos nao podem salvar token, secret, authorization, dados de cartao, CPF ou payload integral do Mercado Pago.
 
+## Fase 5C.1
+
+Smokes remotos sem cobranca confirmaram eventos/fluxos de seguranca:
+
+- webhook sem assinatura recusado;
+- webhook com assinatura invalida recusado;
+- payloads continuam sanitizados pelo service de diagnostico;
+- eventos Start e webhook seguem registrados apenas por nomes e metadados seguros.
+
 ## Objetivo
 
 A Fase 6A cria uma base segura para coletar erros tecnicos, relatos manuais, sugestoes, eventos de diagnostico, clusters de bugs e relatorios tecnicos para correcao via Codex.
