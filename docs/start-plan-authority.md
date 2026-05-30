@@ -69,3 +69,16 @@ Somente alterar `START_PLAN_ENABLED=true` depois de validar:
 - cancelamento ao fim do periodo validado;
 - Start para Pro aprovado;
 - `npm run test:start-plan` passando.
+
+## Fase 5A.21 - IDs remotos configurados
+
+Em 2026-05-30 os IDs comerciais Start e Pro foram configurados como Supabase secrets no backend das Edge Functions.
+
+Estado preservado:
+
+- `START_PLAN_ENABLED=false`.
+- IDs nao documentados em frontend, service worker, HTML, localStorage ou logs.
+- Migration `20260530103000_start_plan_backend_authority.sql` aplicada isoladamente.
+- Funcoes republicadas: `mercadopago-create-payment`, `mercadopago-create-subscription`, `mercadopago-webhook`.
+- Webhook Start continua no endpoint central, sem rota separada.
+- Checkout Start publico continua bloqueado ate validacao sandbox completa.

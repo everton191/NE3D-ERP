@@ -89,6 +89,7 @@
     "test:plans-ui": "node scripts/test-plans-ui.js",
     "test:start-plan": "node scripts/test-start-plan-authority.js",
     "test:billing-webhook": "node scripts/test-billing-webhook.js",
+    "test:checkout-states": "npm run test:checkout-payment-states",
     "test:checkout-payment-states": "node scripts/test-checkout-payment-states.js",
     "mercadopago:sandbox:status": "node scripts/mercadopago-sandbox-controlled.js status",
     "mercadopago:sandbox:fixtures": "node scripts/mercadopago-sandbox-controlled.js fixtures",
