@@ -30,6 +30,8 @@ Mesmo com IDs remotos configurados no backend, a UI continua bloqueada:
 
 - Mostra `Plano atual: Gratis`.
 - Exibe limites e bloqueios explicitamente.
+- Loja Online fica em preview: pode editar e visualizar, mas nao cadastra produtos da loja.
+- Nao publica vitrine, nao gera link publico e nao permite compartilhar loja.
 - Permite contratar somente Pro.
 - Nao oferece cancelamento, downgrade ou retorno para Free.
 
@@ -38,6 +40,7 @@ Mesmo com IDs remotos configurados no backend, a UI continua bloqueada:
 - Permanece visivel como referencia comercial.
 - Mostra badge `EM BREVE`.
 - Exibe CTA `Indisponivel no momento`.
+- Lista apenas recursos do Start, incluindo ate 100 produtos da loja quando a flag comercial for ativada.
 - Nao abre checkout, nao gera pending e nao chama Mercado Pago.
 - Usuarios Start legados continuam reconhecidos sem perder acesso.
 

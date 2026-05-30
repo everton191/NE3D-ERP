@@ -73,6 +73,8 @@ const PRO_DEVICE_LIMIT = 4;
 const FREE_CLIENT_LIMIT = null;
 const FREE_PRODUCT_LIMIT = 25;
 const START_PRODUCT_LIMIT = 300;
+const FREE_STORE_PRODUCT_LIMIT = 0;
+const START_STORE_PRODUCT_LIMIT = 100;
 const START_MONTHLY_PRICE = 29.9;
 const PRO_MONTHLY_PRICE = 59.9;
 const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
@@ -162,7 +164,7 @@ const DEFAULT_SAAS_PLANS = [
   { id: "free", slug: "free", name: "Grátis", price: 0, maxUsers: 1, maxOrders: 5, maxClients: FREE_CLIENT_LIMIT, maxProducts: FREE_PRODUCT_LIMIT, maxCalculatorUses: null, maxStorageMb: FREE_BACKUP_LIMIT_MB, maxDevices: FREE_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: false, allowPermissions: false, allowEmployees: false, allowCustomization: false, allowPublicStore: false, allowAdvancedThemes: false, kind: "free", showsAds: true, sortOrder: 10 },
   { id: "start", slug: "start", name: "Start", price: 29.9, maxUsers: 2, maxOrders: null, maxClients: null, maxProducts: START_PRODUCT_LIMIT, maxCalculatorUses: null, maxStorageMb: START_BACKUP_LIMIT_MB, maxDevices: START_DEVICE_LIMIT, active: true, recommended: true, allowPdf: true, allowReports: true, allowPermissions: false, allowEmployees: false, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: false, kind: "paid", showsAds: false, sortOrder: 20 },
   { id: "pro", slug: "pro", name: "Pro", price: 59.9, maxUsers: 5, maxOrders: null, maxClients: null, maxProducts: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: true, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: true, kind: "paid", showsAds: false, sortOrder: 30 },
-  { id: "premium_trial", slug: "premium_trial", name: "Teste Pro", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxProducts: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: false, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: true, kind: "trial", durationDays: 7, showsAds: false, sortOrder: 40 }
+  { id: "premium_trial", slug: "premium_trial", name: "Pro temporário", price: 0, maxUsers: 5, maxOrders: null, maxClients: null, maxProducts: null, maxCalculatorUses: null, maxStorageMb: PRO_BACKUP_LIMIT_MB, maxDevices: PRO_DEVICE_LIMIT, active: false, recommended: false, allowPdf: true, allowReports: true, allowPermissions: true, allowEmployees: true, allowCustomization: true, allowPublicStore: true, allowAdvancedThemes: true, kind: "trial", durationDays: 7, showsAds: false, sortOrder: 40 }
 ];
 const DEFAULT_TRIAL_DAYS = 7;
 const PLAN_ACCESS_STATES = Object.freeze({
@@ -783,8 +785,8 @@ const assistantResponses = [
   { keywords: ["estoque", "material", "filamento", "resina"], answer: "No Estoque você cadastra materiais por tipo e cor, como PLA Preto ou Resina Transparente. Quando um pedido usa material vinculado por ID, o sistema verifica saldo, baixa automaticamente ao salvar e devolve ao excluir/cancelar." },
   { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
   { keywords: ["backup", "restaurar", "exportar", "supabase", "nuvem", "drive"], answer: "Em Backup você pode sincronizar pelo Supabase, exportar um JSON local ou importar um JSON seguro. A sincronização fica vinculada à conta logada; Google Drive está oculto enquanto não estiver validado." },
-  { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Trial ativo, plano pago e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
-  { keywords: ["plano", "trial", "pago", "vencido", "bloqueado", "premium"], answer: "O Grátis permite testar o ERP e montar a loja em preview. O Start libera loja pública, pedidos ilimitados e remove anúncios. O Pro libera recursos avançados, multiusuário, temas premium e suporte prioritário. Superadmin sempre tem acesso total." },
+  { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Planos pagos e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
+  { keywords: ["plano", "pago", "vencido", "bloqueado", "premium"], answer: "O Grátis permite testar o ERP e montar a loja em preview, sem produtos ou link público da loja. O Start libera loja pública com até 100 produtos, pedidos ilimitados e remove anúncios. O Pro libera recursos avançados, multiusuário, temas premium e suporte prioritário. Superadmin sempre tem acesso total." },
   { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
   { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área Admin para entrar com e-mail e senha. A sessão fica salva até o logout manual enquanto o Supabase conseguir renovar o token. Se aparecer Acesso negado, seu perfil não tem permissão para aquela tela ou o plano não libera o recurso." },
   { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha; com Supabase configurado, o reset usa o fluxo de autenticação online." },
@@ -7647,21 +7649,21 @@ function getPlanoAtual(user = getUsuarioAtual()) {
 
   const planoSaas = getPlanoSaas(estadoPlano.activePlan || "free");
   const descricoes = {
-    [PLAN_ACCESS_STATES.TRIAL]: `${estadoPlano.trialRemainingDays || DEFAULT_TRIAL_DAYS} dia(s) restantes no teste grátis`,
+    [PLAN_ACCESS_STATES.TRIAL]: `${estadoPlano.trialRemainingDays || DEFAULT_TRIAL_DAYS} dia(s) restantes de acesso Pro`,
     [PLAN_ACCESS_STATES.ACTIVE]: estadoPlano.planRemainingDays ? `${estadoPlano.planRemainingDays} dia(s) restantes no plano pago` : "Assinatura paga ativa",
     [PLAN_ACCESS_STATES.PENDING]: "Pagamento pendente. Seu plano atual continua funcionando e o pending não bloqueia o app.",
     [PLAN_ACCESS_STATES.EXPIRED]: "Plano vencido. O app voltou para o Free com anúncios.",
     [PLAN_ACCESS_STATES.FREE]: "Plano Free com anúncios"
   };
   const nomes = {
-    [PLAN_ACCESS_STATES.TRIAL]: "Teste PRO",
+    [PLAN_ACCESS_STATES.TRIAL]: "Pro",
     [PLAN_ACCESS_STATES.ACTIVE]: planoSaas.slug === "start" ? "Start" : "Pro",
     [PLAN_ACCESS_STATES.PENDING]: "Pendente",
     [PLAN_ACCESS_STATES.EXPIRED]: "Expirado",
     [PLAN_ACCESS_STATES.FREE]: "Free"
   };
   const statusUi = {
-    [PLAN_ACCESS_STATES.TRIAL]: "trial",
+    [PLAN_ACCESS_STATES.TRIAL]: "pago",
     [PLAN_ACCESS_STATES.ACTIVE]: "pago",
     [PLAN_ACCESS_STATES.PENDING]: "pendente",
     [PLAN_ACCESS_STATES.EXPIRED]: "expirado",
@@ -9069,13 +9071,13 @@ function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getSto
 function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const plano = normalizarSlugPlano(userPlan || "free");
   const entitlements = getPlanEntitlements(plano);
-  const limits = getPlanLimits(plano);
   const pro = ["pro", "premium_trial"].includes(plano);
+  const start = plano === "start";
   return {
     enabled: true,
     publishEnabled: entitlements.publicStore === true,
     shareEnabled: entitlements.shareLink === true,
-    productLimit: pro ? Number.POSITIVE_INFINITY : Number(limits.products || FREE_PRODUCT_LIMIT),
+    productLimit: pro ? Number.POSITIVE_INFINITY : start ? START_STORE_PRODUCT_LIMIT : FREE_STORE_PRODUCT_LIMIT,
     leadsEnabled: entitlements.publicStore === true,
     qrCodeEnabled: entitlements.shareLink === true,
     customThemeEnabled: entitlements.basicCustomization === true,
@@ -12564,7 +12566,8 @@ function abrirPerfilPremiumPainel(event) {
   if (!popup) return;
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
-  const pro = temAcessoCompleto();
+  const podePersonalizar = PlanService.podeUsarRecurso("personalizacao", usuario);
+  const pro = PlanService.getPolicy(usuario).isPro;
   const empresaLogo = appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || "";
   popup.innerHTML = `
     <div class="modal-backdrop profile-panel-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
@@ -12598,8 +12601,8 @@ function abrirPerfilPremiumPainel(event) {
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('pdf')">
             <strong>PDF</strong><span>${pro ? "Tema, rodapé e assinatura" : "Disponível no PRO"}</span>
           </button>
-          <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('theme')">
-            <strong>Aparência</strong><span>${pro ? "Tema, cores e layout" : "Disponível no PRO"}</span>
+          <button class="profile-option ${podePersonalizar ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('theme')">
+            <strong>Aparência</strong><span>${podePersonalizar ? "Tema, cores e layout" : "Disponível no plano pago"}</span>
           </button>
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('login')">
             <strong>Login visual</strong><span>${pro ? "Fundo e mensagem" : "Disponível no PRO"}</span>
@@ -12630,7 +12633,15 @@ function abrirTrocaContaPerfil() {
 }
 
 function abrirPersonalizacaoDoPerfil(tipo = "all") {
-  if (!temAcessoCompleto() && ["pdf", "theme", "login", "all"].includes(tipo)) {
+  const podePersonalizar = PlanService.podeUsarRecurso("personalizacao");
+  const pro = getPlanPolicy().isPro || isSuperAdmin();
+  if ((tipo === "theme" || tipo === "all") && !podePersonalizar) {
+    fecharPopup();
+    trocarTela("personalizacao");
+    mostrarToast("Modo claro/escuro pode ser ajustado aqui. Identidade avançada fica nos planos pagos.", "info", 3600);
+    return;
+  }
+  if (["pdf", "login"].includes(tipo) && !pro) {
     fecharPopup();
     trocarTela("assinatura");
     mostrarToast("Aparência avançada disponível no PRO.", "info", 3200);
@@ -13539,7 +13550,7 @@ function renderConta() {
         </span>
         <span>
           <strong>${escaparHtml(usuario.nome || usuario.email)}</strong>
-          <small><b class="status-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(planoAtual.slug === "pro" ? "Pro" : planoAtual.slug === "start" ? "Start" : planoAtual.slug === "premium_trial" ? "Trial" : "Grátis")}</b></small>
+          <small><b class="status-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(planoAtual.slug === "pro" || planoAtual.slug === "premium_trial" ? "Pro" : planoAtual.slug === "start" ? "Start" : "Grátis")}</b></small>
           <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</small>
           <small>${escaparHtml(usuario.phone || usuario.telefone || appConfig.companyPhone || "")}</small>
         </span>
@@ -13553,7 +13564,7 @@ function renderConta() {
         </div>
         <div class="profile-plan-summary">
           <div>
-            <h3>${escaparHtml(planoAtual.name || plano.nome || "Plano Free")} <span class="profile-active-dot"></span> <small>${estadoPlano.hasPremium ? "Ativo" : planoSlug === "premium_trial" ? "Trial" : "Free"}</small></h3>
+            <h3>${escaparHtml(planoAtual.name || plano.nome || "Plano Free")} <span class="profile-active-dot"></span> <small>${estadoPlano.hasPremium ? "Ativo" : "Free"}</small></h3>
           </div>
           <div class="profile-plan-split">
             <span><small>Próxima cobrança</small><strong>${escaparHtml(proximaCobranca)}</strong></span>
@@ -14975,11 +14986,12 @@ function getStorefrontAdminViewModel() {
   const hasStoredLeads = storefrontAdminHasStoredValue("simplifica-storefront-leads-preview-v1");
   const hasStoredEvents = storefrontAdminHasStoredValue("simplifica-storefront-events-preview-v1");
   const categories = getStorefrontAdminCategoriesLocal().sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
-  const products = getStorefrontAdminProductsLocal();
+  const rawProducts = getStorefrontAdminProductsLocal();
   const images = getStorefrontAdminImagesLocal();
   const leads = getStorefrontPreviewLeadsLocal();
   const events = getStorefrontPreviewEventsLocal();
   const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+  const products = Number.isFinite(Number(limits.productLimit)) && Number(limits.productLimit) <= 0 ? [] : rawProducts;
   const demo = {
     enabled: demoAllowed && (
       categories.some((item) => item.__demo)
@@ -15205,6 +15217,14 @@ async function excluirCategoriaLojaOnline(id) {
 }
 
 function abrirEditorProdutoLojaOnline(id = "") {
+  const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+  if (Number.isFinite(limits.productLimit) && limits.productLimit <= 0) {
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
+    storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
+    setStorefrontAdminTab("products");
+    mostrarToast("Produtos da loja online ficam disponíveis no Start ou Pro.", "info", 4200);
+    return;
+  }
   if (id) {
     const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(id));
     if (product?.__demo || product?.__template) {
@@ -15244,6 +15264,7 @@ async function salvarProdutoLojaOnline(event) {
     const slug = storefrontAdminSlugify(form?.productSlug?.value || title);
     if (products.some((product) => product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este slug.");
     const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+    if (!id && Number.isFinite(limits.productLimit) && limits.productLimit <= 0) throw new Error("Produtos da loja online ficam disponíveis no Start ou Pro.");
     if (!id && products.length >= limits.productLimit) throw new Error(`Limite de ${limits.productLimit} produto(s) para este plano.`);
     const priceMode = form?.productPriceMode?.value || "fixed";
     const price = Math.max(0, Number(String(form?.productPrice?.value || "0").replace(",", ".")) || 0);
@@ -16209,6 +16230,7 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
       categories: adminVm.categories.filter((cat) => cat.visible !== false),
       products: adminVm.products.filter((product) => product.visible !== false),
       images: adminVm.images || [],
+      limits: adminVm.limits,
       source: "local"
     };
   }
@@ -16224,7 +16246,7 @@ function getStorefrontPublicViewModel() {
   }
   const categories = (fallback.categories || []).filter((cat) => cat.visible !== false).sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
   const products = (fallback.products || []).filter((product) => product.visible !== false);
-  return { ...fallback, route, categories, products, images: fallback.images || [], loading: false };
+  return { ...fallback, route, categories, products, images: fallback.images || [], limits: fallback.limits || getStorefrontLimitsLocal(getPlanoAtual()?.slug), loading: false };
 }
 
 function getStorefrontPublicUrl(route = getStorefrontPublicRoute()) {
@@ -17012,6 +17034,7 @@ function renderStorePublicHeader(vm) {
   const mode = getStorefrontPublicMode(vm);
   const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
   const cart = getStorefrontPublicCartSummary(vm);
+  const shareEnabled = vm?.limits?.shareEnabled !== false;
   const futureActions = mode.admin ? `
         <button class="store-public-icon-action" type="button" aria-label="Busca da loja" title="Buscar" onclick="informarRecursoFuturoLoja('Busca da loja')">${renderUiIcon("search")}<small>Em breve</small></button>
         <button class="store-public-icon-action" type="button" aria-label="Conta do cliente" title="Conta" onclick="informarRecursoFuturoLoja('Conta do cliente')">${renderUiIcon("clientes")}<small>Em breve</small></button>
@@ -17037,7 +17060,7 @@ function renderStorePublicHeader(vm) {
         ${store.whatsapp ? `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">WhatsApp</button>` : ""}
         <button class="store-public-icon-action store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()" aria-label="Abrir carrinho" title="Carrinho">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}</button>
         ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
-        <button class="btn ghost store-public-share-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>
+        ${shareEnabled ? `<button class="btn ghost store-public-share-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>` : ""}
       </nav>
     </header>
   `;
@@ -17118,6 +17141,7 @@ function renderStorePublicProductCard(vm, product = {}) {
   const image = getStorefrontProductImage(product, vm.images);
   const unavailable = String(product.stock_mode || "") === "unavailable";
   const placeholder = renderStoreProductVisualPlaceholder(product);
+  const shareEnabled = vm?.limits?.shareEnabled !== false;
   return `
     <article class="store-public-product-card">
       ${renderStoreAdminControls("product", product, vm)}
@@ -17140,7 +17164,7 @@ function renderStorePublicProductCard(vm, product = {}) {
       <div class="store-public-product-actions">
         <a class="btn ghost" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Detalhes</a>
         <button class="btn secondary" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Adicionar"}</button>
-        ${renderStorefrontShareInlineButton(getStorefrontPublicUrl({ slug: vm.store.slug, view: "product", productSlug: product.slug || product.id }), "Enviar")}
+        ${shareEnabled ? renderStorefrontShareInlineButton(getStorefrontPublicUrl({ slug: vm.store.slug, view: "product", productSlug: product.slug || product.id }), "Enviar") : ""}
       </div>
     </article>
   `;
@@ -17160,6 +17184,8 @@ function renderStoreProductVisualPlaceholder(product = {}) {
 
 function renderStorePublicAddProductCard(vm) {
   if (!getStorefrontPublicMode(vm).admin) return "";
+  const productLimit = Number(vm?.limits?.productLimit);
+  if (Number.isFinite(productLimit) && productLimit <= 0) return "";
   return `
     <article class="store-public-product-card store-public-add-product-card">
       <button type="button" onclick="abrirEditorProdutoLojaOnline()">
@@ -17440,7 +17466,7 @@ function renderStorefrontPublicLegacy() {
     ${pageContent}
     <footer class="store-public-footer store-footer" data-store-section="rodape">
       <span>Loja criada com Simplifica 3D</span>
-      <button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>
+      ${vm?.limits?.shareEnabled !== false ? `<button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>` : ""}
     </footer>
     ${renderStorePublicCartFloating(vm)}
   `;
@@ -18074,6 +18100,10 @@ function abrirWhatsappCompartilhamentoLoja(url = getStorefrontPublicUrl()) {
 function compartilharLojaPublica(url = getStorefrontPublicUrl(), options = {}) {
   const { vm, title, text } = getStorefrontShareContext(url);
   const mode = getStorefrontPublicMode(vm);
+  if ((mode.admin || telaAtual === "lojaOnline" || telaAtual === "lojaAdmin") && vm?.limits?.shareEnabled === false) {
+    mostrarToast("Compartilhamento da loja fica disponível no Start ou Pro.", "info", 4200);
+    return;
+  }
   if ((mode.admin || telaAtual === "lojaOnline" || telaAtual === "lojaAdmin") && !exigirChecklistPublicacaoLoja({ intent: "compartilhar" })) return;
   if (navigator.share) {
     navigator.share({ title, text, url }).then(() => registrarEventoLojaPublica("share_click", { url }, { silent: true })).catch(() => {});
@@ -18544,6 +18574,27 @@ function renderPrecoProdutoLojaOnline(product) {
 }
 
 function renderStorefrontProducts(vm) {
+  const productLimit = Number(vm?.limits?.productLimit);
+  if (Number.isFinite(productLimit) && productLimit <= 0) {
+    return `
+      <section class="card storefront-products-summary store-editor-panel">
+        <div>
+          <span class="status-badge plan-free">Preview grátis</span>
+          <h3>Produtos da loja</h3>
+          <p class="muted">No plano Grátis, a loja fica apenas para editar visual e visualizar preview. Produtos da loja online, link público e compartilhamento entram no Start ou Pro.</p>
+        </div>
+        <div class="store-products-summary-grid">
+          ${renderStoreStatusCard({ label: "Produtos da loja", value: "0", description: "liberados no Grátis", tone: "warning" })}
+          ${renderStoreStatusCard({ label: "Publicação", value: "Preview", description: "sem link público", tone: "neutral" })}
+          ${renderStoreStatusCard({ label: "Upgrade", value: "Start", description: `${START_STORE_PRODUCT_LIMIT} produtos na loja`, tone: "info" })}
+        </div>
+        <div class="plans-state-notice checkout-opened">
+          <strong>Sua loja pode ser preparada em preview.</strong>
+          <span>Para cadastrar produtos da vitrine e compartilhar o link, altere para Start ou Pro.</span>
+        </div>
+      </section>
+    `;
+  }
   const editingId = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.editingProduct) || "";
   const editingSeed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
   const editing = vm.products.find((product) => product.id === editingId) || (editingSeed && typeof editingSeed === "object" ? editingSeed : {});
@@ -21866,7 +21917,7 @@ function renderSuperAdminClientePerfil() {
   const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
   const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
   const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
-  const planoCurto = plano.slug === "pro" ? "PRO" : plano.slug === "start" ? "START" : plano.slug === "premium_trial" ? "TRIAL" : "FREE";
+  const planoCurto = plano.slug === "pro" || plano.slug === "premium_trial" ? "PRO" : plano.slug === "start" ? "START" : "FREE";
   const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
   const emDia = statusPlano === "Em dia";
   const online = cliente.status === "active";
@@ -25091,7 +25142,7 @@ function renderSuperAdminDashboard() {
     { titulo: "Plano Grátis", slug: "free", valor: metricas.porPlano.free, filtro: "free" },
     { titulo: "Plano Start", slug: "start", valor: metricas.porPlano.start, filtro: "start" },
     { titulo: "Plano Pro", slug: "pro", valor: metricas.porPlano.pro, filtro: "pro" },
-    { titulo: "Trial", slug: "premium_trial", valor: metricas.porPlano.trial, filtro: "premium_trial" }
+    { titulo: "Pro temporário", slug: "premium_trial", valor: metricas.porPlano.trial, filtro: "premium_trial" }
   ];
   const kpis = [
     { titulo: "Usuários Totais", valor: metricas.total.toLocaleString("pt-BR"), detalhe: `+${recentes.length} recentes`, classe: "purple", icon: "clientes", tab: "clientes", filtro: "" },
@@ -25139,7 +25190,7 @@ function renderSuperAdminDashboard() {
     <div class="superadmin-plan-grid">
       ${planoCards.map((plano) => `
         <button class="superadmin-plan-card ${classePlanoSaasCompacto(plano.slug)}" onclick="abrirSuperAdminFiltro('clientes', '${plano.filtro}')">
-          <span class="row-title"><strong>${escaparHtml(plano.titulo)}</strong><i>${escaparHtml(plano.slug === "pro" ? "PRO" : plano.slug === "start" ? "START" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i></span>
+          <span class="row-title"><strong>${escaparHtml(plano.titulo)}</strong><i>${escaparHtml(plano.slug === "pro" || plano.slug === "premium_trial" ? "PRO" : plano.slug === "start" ? "START" : "FREE")}</i></span>
           <strong>${Number(plano.valor || 0).toLocaleString("pt-BR")}</strong>
           <span class="muted">usuários</span>
           <small>Ver todos ›</small>
@@ -25160,7 +25211,7 @@ function renderSuperAdminDashboard() {
           <button class="superadmin-recent-row" onclick="abrirPerfilClienteSaas('${escaparAttr(cliente.id)}')">
             <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>
             <strong>${escaparHtml(cliente.name || cliente.email)}</strong>
-            <i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.slug === "pro" ? "PRO" : plano.slug === "start" ? "START" : plano.slug === "premium_trial" ? "TRIAL" : "FREE")}</i>
+            <i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.slug === "pro" || plano.slug === "premium_trial" ? "PRO" : plano.slug === "start" ? "START" : "FREE")}</i>
             <span class="${online ? "sa-online" : "sa-offline"}">${online ? "Online" : "Offline"}</span>
             <span class="${status === "Atrasado" ? "sa-late" : "sa-ok"}">${escaparHtml(status)}</span>
             <small>•••</small>
@@ -25226,7 +25277,7 @@ function renderSuperAdminTrial() {
             <span>${assinatura.expiresAt ? new Date(assinatura.expiresAt).toLocaleDateString("pt-BR") : "-"}</span>
           </div>
         `;
-      }).join("") || `<p class="empty">Nenhum trial ativo.</p>`}
+      }).join("") || `<p class="empty">Nenhum acesso temporário ativo.</p>`}
     </div>
   `;
 }
@@ -25966,7 +26017,7 @@ function renderSuperAdminConfiguracoes() {
     <div class="sync-grid">
       <label class="field"><span>Buscar por e-mail</span><input value="${escaparAttr(window.__superAdminBusca || "")}" oninput="filtrarSuperAdmin(this.value)" placeholder="cliente@email.com"></label>
       <label class="field"><span>E-mail para acesso manual</span><input id="superEmail" type="email" placeholder="cliente@email.com"></label>
-      <label class="field"><span>Tipo de plano</span><select id="superPlanoTipo"><option value="trial">Trial</option><option value="paid">Premium</option><option value="free">Free</option></select></label>
+      <label class="field"><span>Tipo de plano</span><select id="superPlanoTipo"><option value="paid">Premium</option><option value="free">Free</option></select></label>
       <label class="field"><span>Dias</span><input id="superPlanoDias" type="number" min="1" step="1" value="7"></label>
     </div>
     <div class="actions">
@@ -26005,7 +26056,6 @@ function renderSuperAdminConteudo(tab) {
     clientes: renderClientesSaas,
     pagamentos: renderSuperAdminPagamentos,
     planos: renderSuperAdminPlanos,
-    trial: renderSuperAdminTrial,
     logs: renderSuperAdminLogs,
     suporte: renderSuperAdminSuporte,
     relatorios: renderSuperAdminRelatoriosAutomaticos,
@@ -26028,7 +26078,6 @@ function renderSuperAdmin() {
     ["clientes", "Clientes"],
     ["pagamentos", "Pagamentos"],
     ["planos", "Planos"],
-    ["trial", "Trial"],
     ["logs", "Logs"],
     ["suporte", "Suporte"],
     ["relatorios", "Relatórios automáticos"],
@@ -26123,7 +26172,7 @@ async function atualizarUsuariosSuperAdminSupabase() {
 function salvarAcessoSuperAdmin() {
   if (!isSuperAdmin()) return;
   const email = normalizarEmail(document.getElementById("superEmail")?.value || "");
-  const tipo = document.getElementById("superPlanoTipo")?.value || "trial";
+  const tipo = document.getElementById("superPlanoTipo")?.value || "paid";
   const dias = Math.max(1, parseFloat(document.getElementById("superPlanoDias")?.value || 7) || 7);
   if (!email) {
     alert("Informe o e-mail.");
@@ -26483,7 +26532,7 @@ function renderAparenciaConfig() {
           <div class="sync-grid">
             <label class="field">
               <span>Tema</span>
-              <select id="themeConfig" ${acessoMarca ? "" : "disabled"}>
+              <select id="themeConfig" onchange="alterarTemaInterfaceRapido(this.value)" ${acessoMarca ? "" : "disabled"}>
                 <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
                 <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
                 <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
@@ -26643,7 +26692,7 @@ function renderPersonalizacao() {
           <div class="sync-grid">
             <label class="field">
               <span>Tema</span>
-              <select id="themeConfig">
+              <select id="themeConfig" onchange="alterarTemaInterfaceRapido(this.value)">
                 <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
                 <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
                 <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
@@ -26929,7 +26978,7 @@ function renderPersonalizacao() {
       <div class="sync-grid">
         <label class="field">
           <span>Tema</span>
-          <select id="themeConfig" ${acessoMarca ? "" : "disabled"}>
+          <select id="themeConfig" onchange="alterarTemaInterfaceRapido(this.value)" ${acessoMarca ? "" : "disabled"}>
             <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
             <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
             <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
@@ -27045,9 +27094,9 @@ function getResumoPlanoUnico(estadoPlano, precoVigente, superadmin = false) {
     const dias = Math.max(0, Number(estadoPlano.trialRemainingDays || 0));
     return {
       classe: "trial",
-      titulo: "Teste PRO ativo",
-      detalhe: "Você está usando o PRO gratuitamente. Ao final do teste, sua conta volta para o Free se não assinar.",
-      status: "Teste ativo",
+      titulo: "PRO ativo",
+      detalhe: "Acesso PRO temporário identificado. Novas ativações de teste estão desabilitadas.",
+      status: "Ativo",
       dias: dias === 1 ? "1 dia restante" : `${dias} dias restantes`,
       preco: `Depois ${formatarMoeda(precoVigente)}/mês`
     };
@@ -27189,11 +27238,11 @@ function renderAssinatura() {
       period: "/mês",
       badge: "Entrada",
       allowedTitle: "Permitido",
-      allowed: ["Até 25 produtos", "Cadastro de clientes", "Controle simples de pedidos", "Caixa simples", "Histórico básico", "Criar, editar e visualizar loja em preview"],
+      allowed: ["Até 25 produtos no ERP", "Cadastro de clientes", "Controle simples de pedidos", "Caixa simples", "Histórico básico", "Criar, editar e visualizar loja em preview"],
       blockedTitle: "Bloqueado",
-      blocked: ["Não publica vitrine", "Não gera link público", "Não permite compartilhar loja", "Sem personalização avançada"],
+      blocked: ["Sem produtos na loja online", "Não publica vitrine", "Não gera link público", "Não permite compartilhar loja", "Sem personalização avançada"],
       highlights: ["5 pedidos grátis por dia", "+5 pedidos assistindo anúncio", "Máximo 10 pedidos/dia", "Powered by Simplifica 3D"],
-      note: "Sua loja está pronta para ser publicada. Ative um plano pago para liberar seu link público.",
+      note: "Sua loja fica pronta em preview. Start ou Pro liberam produtos da loja, publicação e compartilhamento.",
       cta: isFreeCurrent ? "Plano atual" : "Indisponível durante plano pago",
       current: isFreeCurrent,
       disabled: !isFreeCurrent,
@@ -27207,11 +27256,11 @@ function renderAssinatura() {
       period: "/mês",
       badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE",
       allowedTitle: "Libera sua loja online",
-      allowed: ["Até 300 produtos", "Pedidos ilimitados", "Loja pública liberada", "Link compartilhável", "Sem anúncios", "Personalização básica", "Banner simples", "Relatórios básicos", "Financeiro básico", "Backup automático", "Remove marca Simplifica 3D"],
-      blockedTitle: "Fica para o Pro",
-      blocked: ["Analytics avançado", "Multiusuário/admin", "Temas premium", "Automações e integrações futuras"],
+      allowed: ["Até 100 produtos na loja", "Pedidos ilimitados", "Loja pública liberada", "Link compartilhável", "Sem anúncios", "Personalização básica", "Banner simples", "Relatórios básicos", "Financeiro básico", "Backup automático", "Remove marca Simplifica 3D"],
+      blockedTitle: "",
+      blocked: [],
       highlights: ["Preview vira loja real online", "Sem anúncios", "Link público para compartilhar"],
-      note: "Estrutura comercial preparada. A contratação será liberada após a ativação segura do tier Start no backend.",
+      note: "Agora sua loja sai do preview e vira uma vitrine online real.",
       cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : startEnabled ? "Assinar Start" : "Indisponível no momento",
       current: isStartCurrent,
       disabled: isStartCurrent || isProCurrent || !startEnabled,
@@ -27371,13 +27420,13 @@ function renderModernPlanOption(plan = {}) {
 function renderTrialPremiumAtivoCard(diasTrial = 0) {
   const textoDias = diasTrial === 1 ? "1 dia restante" : `${diasTrial} dias restantes`;
   return `
-    <div class="plan-status-card trial" aria-label="Teste PRO ativo">
+    <div class="plan-status-card trial" aria-label="Acesso PRO ativo">
       <div class="plan-card-top">
-        <span class="plan-badge plan-badge-trial">Teste PRO ativo</span>
+        <span class="plan-badge plan-badge-trial">PRO ativo</span>
         <strong class="plan-days">${textoDias}</strong>
       </div>
-      <h3>Você está testando o PRO gratuitamente</h3>
-      <p>Ao final do período, sua conta volta para o plano gratuito caso você não assine.</p>
+      <h3>Você está com acesso PRO</h3>
+      <p>Ao final do período confirmado, sua conta segue a regra atual da assinatura.</p>
       <div class="actions">
         <button class="btn plan-primary-button" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
         <button class="btn ghost" type="button" data-action="open-screen" data-screen="dashboard">Continuar usando</button>
@@ -27434,7 +27483,7 @@ function renderPlanoSaasCard(plano, options = {}) {
   const preco = isPremium ? Number(options.preco || getPrecoPagoVigenteLocal()) : 0;
   const isPro = plano.slug === "pro" || plano.slug === "premium_trial";
   const beneficios = isPremium
-    ? (isPro ? ["Sem anúncios", "Pedidos ilimitados", "Produtos ilimitados", "Analytics completos", "Multiusuário/admin", "Temas premium"] : ["Sem anúncios", "Pedidos ilimitados", "Até 300 produtos", "Loja pública liberada", "Relatórios básicos", "Backup automático"])
+    ? (isPro ? ["Sem anúncios", "Pedidos ilimitados", "Produtos ilimitados", "Analytics completos", "Multiusuário/admin", "Temas premium"] : ["Sem anúncios", "Pedidos ilimitados", "Até 100 produtos na loja", "Loja pública liberada", "Relatórios básicos", "Backup automático"])
     : [`${FREE_ACTION_CREDIT_LIMIT} ações por ciclo`, "Anúncios leves", "Backup de 50 MB", "2 dispositivos", "Pedidos, clientes, estoque, caixa e calculadora"];
 
   return `
@@ -27450,7 +27499,7 @@ function renderPlanoSaasCard(plano, options = {}) {
         : `<p class="plan-free-copy">Para continuar sem custo, com anúncios leves e recursos básicos.</p>`}
       ${renderPlanBenefitList(beneficios)}
       ${isPremium ? `<p class="muted plan-card-footnote">* O app usa sugestões locais leves por histórico e contexto.</p>` : ""}
-      ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora não cancela o teste atual; o acesso PRO continua normalmente enquanto o pagamento é confirmado.</p>` : ""}
+      ${isPremium && options.isTrial ? `<p class="muted plan-card-note">Assinar agora mantém o acesso PRO normalmente enquanto o pagamento é confirmado.</p>` : ""}
       <div class="actions single">
         ${superadmin
           ? `<button class="btn ghost" type="button" disabled>Não aplicável</button>`
@@ -27941,17 +27990,20 @@ function escolherPlanoSaas(slug = "free") {
 }
 
 function iniciarTesteGratis(slug = "premium_trial") {
+  mostrarToast("A ativação temporária foi removida. Escolha Start ou Pro para liberar recursos pagos.", "info", 5200);
+  trocarTela("assinatura");
+  return;
   const plano = getPlanoSaas(slug);
   const usuario = getUsuarioAtual();
   const email = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || usuarioAtualEmail || "");
   if (!email) {
-    alert("Entre ou crie uma conta antes de iniciar o teste grátis.");
+    alert("Entre ou crie uma conta antes de escolher um plano pago.");
     trocarTela("admin");
     return;
   }
 
   if (billingConfig.trialConsumedAt || getAssinaturaSaas(getClientIdAtual() || billingConfig.clientId)?.trialConsumedAt) {
-    mostrarToast("O teste grátis já foi usado nesta conta.", "info", 6500);
+    mostrarToast("A ativação temporária não está mais disponível nesta conta.", "info", 6500);
     trocarTela("assinatura");
     return;
   }
@@ -28001,8 +28053,8 @@ function iniciarTesteGratis(slug = "premium_trial") {
     billingConfig.planExpiresAt = assinatura.expiresAt;
     if (!registrarDispositivoLicenca(email)) return;
     salvarDados();
-    registrarHistorico("Assinatura", "Teste grátis iniciado");
-    registrarAuditoria("trial iniciado", { plano: plano.slug }, clientId);
+    registrarHistorico("Assinatura", "Acesso temporário iniciado");
+    registrarAuditoria("acesso temporário iniciado", { plano: plano.slug }, clientId);
   }
 
   renderApp();
@@ -28427,7 +28479,7 @@ function abrirDownload(tipo) {
 }
 
 function selecionarCor(cor) {
-  if (!temAcessoCompleto()) {
+  if (!PlanService.podeUsarRecurso("personalizacao")) {
     mostrarToast("Recurso PRO", "warning", 3500);
     return;
   }
@@ -28438,8 +28490,8 @@ function selecionarCor(cor) {
 }
 
 function selecionarPaletaTema(id) {
-  if (!temAcessoCompleto()) {
-    mostrarToast("Recurso PRO", "warning", 3500);
+  if (!PlanService.podeUsarRecurso("personalizacao")) {
+    mostrarToast("Cores personalizadas ficam disponíveis nos planos pagos.", "warning", 3500);
     return;
   }
   const mode = document.getElementById("themeConfig")?.value || appConfig.theme || "dark";
@@ -28464,6 +28516,15 @@ function selecionarPaletaStorefront(id) {
   atualizarStorefrontPreviewAoVivo(form);
 }
 
+function alterarTemaInterfaceRapido(value = "dark") {
+  const tema = ["dark", "light", "auto"].includes(String(value || "")) ? String(value) : "dark";
+  appConfig.theme = tema;
+  aplicarPersonalizacao();
+  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", tema, "primary");
+  const input = document.getElementById("accentColorConfig");
+  if (input) input.value = corAtual;
+}
+
 function atualizarRotuloEscalaInterface(valor) {
   const escala = Math.min(140, Math.max(70, Math.round(Number(valor) || Number(appConfig.uiScale) || 100)));
   const saida = document.getElementById("uiScaleConfigValue");
@@ -28473,7 +28534,7 @@ function atualizarRotuloEscalaInterface(valor) {
 }
 
 function lerPersonalizacaoCampos() {
-  const acessoMarca = temAcessoCompleto();
+  const acessoMarca = PlanService.podeUsarRecurso("personalizacao");
   const el = (id) => document.getElementById(id);
   const texto = (id, fallback = "") => el(id) ? String(el(id).value || "").trim() : String(fallback || "").trim();
   const textoLivre = (id, fallback = "") => el(id) ? String(el(id).value || "") : String(fallback || "");
@@ -28484,9 +28545,7 @@ function lerPersonalizacaoCampos() {
     return Math.min(max, Math.max(min, normalizado));
   };
   const marcado = (id, fallback = false) => el(id) ? !!el(id).checked : !!fallback;
-  const theme = acessoMarca
-    ? (texto("themeConfig", appConfig.theme || "dark") || "dark")
-    : (appConfig.theme || "dark");
+  const theme = texto("themeConfig", appConfig.theme || "dark") || "dark";
   const accentColor = acessoMarca
     ? normalizarCorTemaControlado(texto("accentColorConfig", appConfig.accentColor || "#00BFA6") || "#00BFA6", theme, "primary")
     : normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", theme, "primary");
@@ -29389,7 +29448,7 @@ async function cadastrarClienteSaas() {
         ? "Conta criada. Confirme o e-mail para ativar a sincronização online."
         : local.usuario.supabasePending
           ? "Conta local criada, mas o cadastro online não foi confirmado. Veja Diagnósticos/Supabase."
-        : "Conta criada. Trial Premium liberado por 7 dias.",
+        : "Conta criada no plano Grátis. Escolha Start ou Pro para publicar sua loja.",
       "sucesso",
       6500
     );

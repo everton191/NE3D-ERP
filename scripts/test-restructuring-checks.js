@@ -135,7 +135,7 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v123-estavel-20260530-ui-ux-7b"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v124-estavel-20260530-plan-theme-hotfix"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
 assert(index.includes("1.0.17-rc-ui-ux-7b-20260530"), "index.html usa cache-bust atual");
 [

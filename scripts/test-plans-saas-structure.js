@@ -18,6 +18,8 @@ function includesAll(source, items, label) {
 includesAll(app, [
   "FREE_PRODUCT_LIMIT = 25",
   "START_PRODUCT_LIMIT = 300",
+  "FREE_STORE_PRODUCT_LIMIT = 0",
+  "START_STORE_PRODUCT_LIMIT = 100",
   "START_MONTHLY_PRICE = 29.9",
   "PRO_MONTHLY_PRICE = 59.9",
   "LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000",
@@ -26,7 +28,10 @@ includesAll(app, [
   "5 pedidos grátis por dia",
   "+5 pedidos assistindo anúncio",
   "Máximo 10 pedidos/dia",
+  "Sem produtos na loja online",
   "Não gera link público",
+  "Produtos da loja online ficam disponíveis no Start ou Pro.",
+  "Até 100 produtos na loja",
   "Loja pública liberada",
   "Produtos ilimitados",
   "Valores promocionais de lançamento",
@@ -88,9 +93,9 @@ includesAll(adMob, [
 includesAll(storefrontPlans, [
   "publishEnabled: false",
   "shareEnabled: false",
-  "productLimit: 25",
+  "productLimit: 0",
   "plan === \"start\"",
-  "productLimit: 300",
+  "productLimit: 100",
   "productLimit: Number.POSITIVE_INFINITY",
 ], "limites storefront");
 
