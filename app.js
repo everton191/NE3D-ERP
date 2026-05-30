@@ -29272,16 +29272,21 @@ function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
 
   const toast = document.createElement("div");
   toast.className = "app-toast toast-" + tipoNormalizado;
+  toast.dataset.toastType = tipoNormalizado;
+  toast.dataset.toastCreatedAt = String(agora);
   const icone = tipoNormalizado === "erro" ? "×" : tipoNormalizado === "sucesso" ? "✓" : tipoNormalizado === "loading" ? "•••" : tipoNormalizado === "warning" ? "!" : "i";
   toast.innerHTML = `<span class="toast-icon">${icone}</span><strong>${escaparHtml(texto)}</strong>`;
   area.appendChild(toast);
 
-  if (tipoNormalizado !== "loading") {
-    setTimeout(() => {
-      toast.classList.add("leaving");
-      setTimeout(() => toast.remove(), 240);
-    }, duracao);
-  }
+  const duracaoInformada = Number(duracao);
+  const duracaoSegura = tipoNormalizado === "loading"
+    ? Math.max(6000, Math.min(Number.isFinite(duracaoInformada) ? duracaoInformada : 12000, 15000))
+    : Math.max(1800, Number.isFinite(duracaoInformada) ? duracaoInformada : 4200);
+  toast.__simplificaToastTimer = setTimeout(() => {
+    if (!toast.isConnected) return;
+    toast.classList.add("leaving");
+    setTimeout(() => toast.remove(), 240);
+  }, duracaoSegura);
 
   return toast;
 }

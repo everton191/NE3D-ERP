@@ -20,7 +20,7 @@ if (missingIgnores.length) {
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.17-rc\"",
   "APP_VERSION_CODE = 16",
-  "simplifica-3d-v122-estavel-20260530-release-candidate",
+  "simplifica-3d-v123-estavel-20260530-ui-ux-7b",
   "versionName \"1.0.17-rc\"",
   "versionCode 16",
   "\"version\": \"1.0.17-rc\"",

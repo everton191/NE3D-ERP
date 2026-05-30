@@ -27196,3 +27196,246 @@ body.theme-light .plans-state-notice span{
     width:100%;
   }
 }
+
+/* Fase 7B - polimento visual pre-release: tema claro, pedidos, menu e planos */
+body.theme-light{
+  --phase7b-surface:rgba(255,255,255,.96);
+  --phase7b-surface-soft:rgba(244,248,251,.94);
+  --phase7b-border:rgba(15,23,42,.14);
+  --phase7b-text:#10202b;
+  --phase7b-muted:#475569;
+  --phase7b-shadow:0 16px 38px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.78);
+}
+
+body.theme-light :where(
+  .card,
+  .detail-panel,
+  .modal-card,
+  .popup-box,
+  .orders-screen-card,
+  .orders-pwa-list,
+  .orders-pwa-detail,
+  .order-detail-panel,
+  .order-mini-summary,
+  .order-list-card,
+  .order-item-card,
+  .order-financial-summary,
+  .item-subtotal,
+  .payment-row,
+  .profile-modern-card,
+  .profile-modern-user-card,
+  .plans-current-modern,
+  .plan-modern-option,
+  .plans-help-card,
+  .plan-tier-card,
+  .store-editor-panel,
+  .store-preview-panel,
+  .storefront-admin-card,
+  .superadmin-kpi-card,
+  .superadmin-plan-card,
+  .table-card
+){
+  color:var(--phase7b-text) !important;
+  background:linear-gradient(145deg, var(--phase7b-surface), var(--phase7b-surface-soft)) !important;
+  border-color:var(--phase7b-border) !important;
+  box-shadow:var(--phase7b-shadow);
+}
+
+body.theme-light :where(
+  input,
+  textarea,
+  select,
+  .search-bar,
+  .field input,
+  .field textarea,
+  .field select,
+  .dashboard-search input,
+  .storefront-admin-standalone input,
+  .storefront-admin-standalone textarea,
+  .storefront-admin-standalone select
+){
+  color:var(--phase7b-text) !important;
+  background:#fdfeff !important;
+  border:1px solid var(--phase7b-border) !important;
+  box-shadow:inset 0 1px 0 rgba(15,23,42,.03);
+}
+
+body.theme-light :where(input, textarea)::placeholder{
+  color:#64748b !important;
+  opacity:1;
+}
+
+body.theme-light :where(
+  .muted,
+  small,
+  .field span,
+  .help-text,
+  .hint,
+  .order-card-summary span,
+  .order-detail-items small,
+  .order-financial-summary > div,
+  .plan-modern-body li,
+  .plan-tier-list li,
+  .store-editor-muted,
+  .profile-modern-muted
+){
+  color:var(--phase7b-muted) !important;
+}
+
+body.theme-light :where(
+  .order-detail-hero,
+  .order-detail-total,
+  .order-detail-items .history-item,
+  .order-bottom-bar,
+  .orders-pwa-toolbar,
+  .orders-pwa-filterbar,
+  .order-status-action-strip,
+  .calculator-card,
+  .calc-field-card
+){
+  color:var(--phase7b-text) !important;
+  background:linear-gradient(145deg, rgba(255,255,255,.98), rgba(239,246,249,.94)) !important;
+  border-color:var(--phase7b-border) !important;
+}
+
+body.theme-light :where(.order-chip, .order-filter-chip, .tab-button, .segmented-control button){
+  color:var(--phase7b-text) !important;
+  background:rgba(255,255,255,.88) !important;
+  border-color:var(--phase7b-border) !important;
+}
+
+body.theme-light :where(.order-chip.active, .order-filter-chip.active, .tab-button.active, .segmented-control button.active){
+  color:#075985 !important;
+  background:linear-gradient(135deg, rgba(13,148,136,.16), rgba(59,130,246,.10)) !important;
+  border-color:rgba(13,148,136,.30) !important;
+}
+
+body.theme-light :where(.side-menu, .app-sidebar, .desktop-sidebar){
+  color:var(--phase7b-text);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(13,148,136,.12), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(232,240,245,.95)) !important;
+  border-color:var(--phase7b-border) !important;
+}
+
+body.theme-light .side-nav-button{
+  min-height:44px;
+  gap:10px;
+  border:1px solid transparent;
+}
+
+body.theme-light .side-nav-button span{
+  flex:0 0 34px;
+  width:34px;
+  height:34px;
+  color:var(--color-primary);
+  background:rgba(13,148,136,.12);
+}
+
+body.theme-light .side-nav-button strong{
+  min-width:0;
+  overflow:hidden;
+  color:var(--phase7b-text);
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+body.theme-light .side-nav-button:hover,
+body.theme-light .side-nav-button:focus-visible{
+  background:rgba(13,148,136,.10);
+  border-color:rgba(13,148,136,.24);
+}
+
+body.theme-light .side-nav-button.active{
+  background:linear-gradient(135deg, rgba(13,148,136,.17), rgba(59,130,246,.09)) !important;
+  border-color:rgba(13,148,136,.32) !important;
+}
+
+:where(.avatar-plan-free, .avatar-plan-start, .avatar-plan-pro, .plan-tier-avatar){
+  border-width:2px !important;
+  border-style:solid !important;
+}
+
+body.theme-light :where(.avatar-plan-free, .avatar-plan-start, .avatar-plan-pro){
+  box-shadow:
+    0 10px 26px color-mix(in srgb, var(--avatar-plan-a) 22%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--avatar-plan-a) 10%, transparent),
+    inset 0 1px 0 rgba(255,255,255,.42) !important;
+}
+
+.plan-tier-free .plan-tier-avatar{
+  --avatar-plan-a:#22c55e;
+  --avatar-plan-b:#064e2a;
+}
+
+.plan-tier-start .plan-tier-avatar{
+  --avatar-plan-a:#8b5cf6;
+  --avatar-plan-b:#2e1065;
+}
+
+.plan-tier-pro .plan-tier-avatar{
+  --avatar-plan-a:#f6b51d;
+  --avatar-plan-b:#111317;
+}
+
+.plan-tier-card .plan-tier-list li,
+.plans-current-stats > div,
+.plans-state-notice{
+  overflow-wrap:anywhere;
+}
+
+body.theme-light .plan-tier-free{
+  background:linear-gradient(145deg, rgba(240,253,244,.98), rgba(248,250,252,.96)) !important;
+  border-color:rgba(22,101,52,.24) !important;
+}
+
+body.theme-light .plan-tier-start{
+  background:linear-gradient(145deg, rgba(245,243,255,.98), rgba(248,250,252,.96)) !important;
+  border-color:rgba(91,33,182,.28) !important;
+}
+
+body.theme-light .plan-tier-pro{
+  background:linear-gradient(145deg, rgba(255,251,235,.98), rgba(248,250,252,.96)) !important;
+  border-color:rgba(146,86,4,.34) !important;
+}
+
+body.theme-light .app-toast{
+  color:var(--phase7b-text);
+  background:rgba(255,255,255,.96);
+  border-color:var(--phase7b-border);
+  box-shadow:0 16px 34px rgba(15,23,42,.14);
+}
+
+@media (max-width:420px){
+  body.theme-light :where(.orders-pwa-page, .plans-modern-screen, .storefront-admin-standalone){
+    overflow-x:hidden;
+  }
+
+  .plans-pricing-grid,
+  .orders-pwa-layout,
+  .store-editor-shell{
+    grid-template-columns:minmax(0, 1fr) !important;
+  }
+
+  .plan-tier-card,
+  .orders-screen-card,
+  .order-detail-panel{
+    min-width:0;
+  }
+
+  .order-detail-actions,
+  .plans-current-bottom,
+  .store-editor-actions{
+    grid-template-columns:1fr !important;
+  }
+}
+
+@media (min-width:1024px){
+  body.viewport-desktop :where(.mobile-bottom-nav, .app-bottom-nav, .mobile-drawer){
+    display:none !important;
+  }
+
+  body.viewport-desktop :where(.side-menu, .app-sidebar, .desktop-sidebar){
+    min-width:var(--sidebar-width);
+  }
+}
