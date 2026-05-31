@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v124-estavel-20260530-plan-theme-hotfix";
+const CACHE_NAME = "simplifica-3d-v125-estavel-20260531-percentual-hotfix";
 const APP_FILES = [
   "./",
   "./index.html",

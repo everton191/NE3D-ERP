@@ -6347,6 +6347,29 @@ function numeroMonetarioPedido(valor, fallback = 0) {
   return Number.isFinite(numero) ? numero : fallback;
 }
 
+function normalizarPercentual(valor = 0) {
+  const percentual = Number(valor);
+  return Number.isFinite(percentual) ? Math.max(0, percentual) : 0;
+}
+
+function calcularValorPercentual(valorBase = 0, percentual = 0) {
+  const base = Number(valorBase);
+  if (!Number.isFinite(base)) return 0;
+  return base * (normalizarPercentual(percentual) / 100);
+}
+
+function aplicarPercentualAcrescimo(valorBase = 0, percentual = 0) {
+  const base = Number(valorBase);
+  if (!Number.isFinite(base)) return 0;
+  return base + calcularValorPercentual(base, percentual);
+}
+
+function aplicarPercentualDesconto(valorBase = 0, percentual = 0) {
+  const base = Number(valorBase);
+  if (!Number.isFinite(base)) return 0;
+  return Math.max(0, base - calcularValorPercentual(base, percentual));
+}
+
 function subtotalItensPedido(origem = {}) {
   const itens = Array.isArray(origem) ? origem : normalizarItensPedido(origem);
   return itens.reduce((soma, item) => {
@@ -34891,14 +34914,14 @@ function atualizarTaxaExtraManual() {
   agendarCalculoTempoReal();
 }
 
-function calcularTaxaExtraAplicada(custoBase = 0) {
+function calcularTaxaExtraAplicada(valorComercialBase = 0) {
   const estado = getEstadoTaxaExtraCalculadora();
-  const base = Math.max(0, Number(custoBase) || 0);
+  const base = Math.max(0, Number(valorComercialBase) || 0);
   if (estado.modo === "manual") {
     return { valor: estado.value, rotulo: "R$", modo: "manual" };
   }
   return {
-    valor: base * (estado.percent / 100),
+    valor: calcularValorPercentual(base, estado.percent),
     rotulo: `${Number(estado.percent || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`,
     modo: "percent"
   };
@@ -36681,10 +36704,10 @@ function calcular(opcoes = {}) {
   const energiaC = (consumo / 1000) * tempoCobrado * energia;
   const maquina = tempoCobrado * custoHora;
   const baseProduto = material + energiaC + maquina;
-  const taxaInfo = calcularTaxaExtraAplicada(baseProduto);
+  const lucroProduto = calcularValorPercentual(baseProduto, margem);
+  const valorProduto = aplicarPercentualAcrescimo(baseProduto, margem);
+  const taxaInfo = calcularTaxaExtraAplicada(valorProduto);
   const taxaExtra = taxaInfo.valor;
-  const lucroProduto = baseProduto * (margem / 100);
-  const valorProduto = baseProduto + lucroProduto;
   const totalAntesArredondamento = valorProduto + taxaExtra;
   const arredondamento = Number(appConfig.priceRounding) || 0;
   let preco = totalAntesArredondamento;
@@ -37109,8 +37132,7 @@ function dadosPedidoAtual() {
     itens: itensPedido,
     subtotalItens: subtotal,
     desconto: valorDescontoPedido(pedidoEditando || {}),
-    down_payment: entrada,
-    total: subtotal
+    down_payment: entrada
   });
   return {
     cliente,
