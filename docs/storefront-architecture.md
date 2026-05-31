@@ -211,3 +211,7 @@ O modo administrativo da loja publica agora usa a propria vitrine como superfici
 - contatos: normalizam WhatsApp com DDI brasileiro quando necessario e codificam a mensagem antes de abrir `wa.me`.
 
 O fluxo preserva a persistencia atual de produtos, publicacao e compartilhamento. Nao altera Supabase, RLS, webhooks, pagamentos ou regras comerciais.
+
+### Fase 7C.2 - Mobile nativo
+
+Em telas de ate `860px`, o editor guiado remove a topbar administrativa e a barra extensa de contexto para priorizar a loja real em tela cheia. O rodape passa a ter apenas tres acoes operacionais (`Voltar`, `Link` e `Publicar`), enquanto identidade e produtos ficam acessiveis pelo botao flutuante `Editar` e pelo toque direto na vitrine. O painel inferior usa limite de altura, fechamento explicito e campos com altura minima de toque.

@@ -25619,6 +25619,150 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   }
 }
 
+/* Fase 7C.2: experiencia mobile propria, com preview principal e edicao por toque */
+@media (max-width:860px){
+  .store-public-shell[data-storefront-source="v2"].store-public-admin-mode{
+    width:100%;
+    min-height:100dvh;
+    padding:0;
+    overflow-x:clip;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-visual-editor-main,
+  .store-public-shell[data-storefront-source="v2"] .store-visual-editor-canvas{
+    width:100%;
+    max-width:100%;
+    min-height:100dvh;
+    margin:0;
+    padding:0 0 calc(78px + env(safe-area-inset-bottom));
+    overflow-x:clip;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-visual-editor-topbar,
+  .store-public-shell[data-storefront-source="v2"] .store-context-admin-bar{
+    display:none;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-header{
+    width:100%;
+    min-height:62px;
+    margin:0;
+    padding:10px 14px;
+    border-radius:0;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-banner{
+    width:100%;
+    min-height:clamp(320px, 88vw, 410px);
+    margin:0;
+    border-radius:0 0 22px 22px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-banner-copy{
+    padding:24px 16px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-banner-copy h1{
+    font-size:clamp(28px, 8.2vw, 36px);
+    line-height:1.08;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-section,
+  .store-public-shell[data-storefront-source="v2"] .store-public-category-bar,
+  .store-public-shell[data-storefront-source="v2"] .store-public-promo,
+  .store-public-shell[data-storefront-source="v2"] .store-public-benefits,
+  .store-public-shell[data-storefront-source="v2"] .store-public-testimonials,
+  .store-public-shell[data-storefront-source="v2"] .store-public-contact{
+    width:calc(100% - 24px);
+    margin-inline:12px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-product-grid{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-product-card{
+    width:100%;
+    min-width:0;
+    border-radius:18px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-product-media{
+    min-height:220px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-product-body{
+    padding:14px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-product-title{
+    font-size:17px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-product-actions .btn,
+  .store-public-shell[data-storefront-source="v2"] .store-public-banner .btn{
+    min-height:44px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-context-controls-header{
+    display:none;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-context-controls-card button:not(:first-child),
+  .store-public-shell[data-storefront-source="v2"] .store-context-controls-floating button:not(:first-child){
+    display:none;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-context-controls-card,
+  .store-public-shell[data-storefront-source="v2"] .store-context-controls-floating{
+    top:10px;
+    right:10px;
+    padding:5px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-context-edit-fab{
+    right:14px;
+    left:auto;
+    bottom:calc(80px + env(safe-area-inset-bottom));
+    min-height:52px;
+    padding-inline:18px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-mobile-admin-actions{
+    min-height:58px;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    padding:6px;
+    border-radius:20px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-mobile-admin-actions button{
+    min-height:44px;
+    border-radius:14px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-mobile-admin-actions button:nth-child(2),
+  .store-public-shell[data-storefront-source="v2"] .store-mobile-admin-actions button:nth-child(3){
+    display:none;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-guided-editor-sidebar{
+    bottom:calc(76px + env(safe-area-inset-bottom));
+    max-height:min(66dvh, 590px);
+    padding:14px;
+    border-radius:20px 20px 16px 16px;
+  }
+
+  .store-guided-form :where(input,textarea,select){
+    min-height:44px;
+    font-size:16px;
+  }
+
+  .store-guided-actions .btn{
+    min-height:44px;
+  }
+}
+
 body.theme-light .plans-pricing-screen .plan-tier-button:not(:disabled){
   color:#061016 !important;
   background:linear-gradient(145deg, color-mix(in srgb, var(--plan-accent) 88%, #ffffff), var(--plan-accent)) !important;

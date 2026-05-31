@@ -16652,6 +16652,9 @@ function getStorefrontGuidedSelection() {
 function selecionarItemLojaVisual(type = "overview", id = "") {
   storefrontGuidedSelection = { type: String(type || "overview"), id: String(id || "") };
   storefrontGuidedPanelOpen = true;
+  if (storefrontGuidedSelection.type === "overview" && isMobile()) {
+    mostrarToast("Toque em uma parte da loja para editar.", "info", 2400);
+  }
   renderApp();
   requestAnimationFrame(() => document.querySelector(".store-guided-context-panel")?.focus?.());
 }
