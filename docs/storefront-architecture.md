@@ -198,3 +198,16 @@ Pendencias antes de remover o fallback:
 - repetir a validacao em PWA instalado/celular fisico;
 - validar uma conta de teste real criando e descartando rascunho de produto;
 - manter ao menos mais um ciclo de deploy/cache com fallback preservado.
+
+## Fase 7C - Editor visual guiado
+
+O modo administrativo da loja publica agora usa a propria vitrine como superficie de edicao:
+
+- desktop: painel contextual fixo a esquerda e loja real no centro;
+- mobile: loja real em primeiro plano, botao flutuante `Editar` e painel inferior controlado;
+- clique em produto publicado: abre o painel contextual do item, sem troca silenciosa de rota;
+- edicao detalhada: continua disponivel pelo admin modular para campos avancados;
+- link publico: exibe abrir, copiar e compartilhar conforme a permissao atual do plano;
+- contatos: normalizam WhatsApp com DDI brasileiro quando necessario e codificam a mensagem antes de abrir `wa.me`.
+
+O fluxo preserva a persistencia atual de produtos, publicacao e compartilhamento. Nao altera Supabase, RLS, webhooks, pagamentos ou regras comerciais.
