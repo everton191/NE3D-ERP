@@ -694,6 +694,23 @@ Mercado Pago back_url
 
 A URL nunca define `approved`, nao altera plano e nao libera permissao. Checkouts locais sem webhook expiram como `checkout_abandoned`.
 
+## Fase 7C.5 - Tema claro estavel da Storefront
+
+```txt
+index.html head
+ └── simplifica3d_store_theme
+      └── default light
+           └── html[data-store-theme]
+                ├── Storefront V2 / preview
+                ├── cart drawer global
+                ├── lead modal global
+                └── meta theme-color
+```
+
+`getStorefrontControlledTheme()` normaliza configuracoes legadas `auto` para
+`light`. A opcao escura continua disponivel somente quando selecionada
+explicitamente.
+
 ## Sequencia Segura Para App Shell
 
 1. Criar camada central de `overlay-layer/modal-layer/toast-layer`.

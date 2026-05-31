@@ -234,3 +234,16 @@ A Storefront V2 recebeu uma camada final de composicao sem alterar Supabase, pub
 - editor guiado preservado com sidebar escura no desktop e bottom sheet no mobile.
 
 Os limites visuais passam a ser: titulo do banner `40`, subtitulo `100`, CTA `24`, nome do produto `60` e descricao `180`. Produtos de demonstracao continuam restritos a preview local/staging e nao sao publicados como catalogo real.
+
+### Fase 7C.5 - Autoridade unica do tema da loja
+
+- A vitrine usa `simplifica3d_store_theme` como chave local unica e
+  `data-store-theme` como contrato visual.
+- A ausencia de preferencia e qualquer valor legado `auto` resolvem para
+  `light`; o sistema operacional nao troca silenciosamente o tema da loja.
+- `applyStoreTheme()` sincroniza `html`, `body`, shells montados e
+  `meta[name="theme-color"]`.
+- A loja publica e o preview consomem tokens proprios. O tema operacional do ERP
+  nao decide mais as cores da vitrine.
+- Drawer de carrinho e modal de lead recebem os mesmos tokens pelo atributo no
+  `html`, mesmo quando renderizados fora do shell publico.

@@ -27925,18 +27925,68 @@ body.theme-light .app-toast{
 }
 
 /* Fase 7C.3 - storefront publica premium clara e editor visual equilibrado */
+:root[data-store-theme="light"]{
+  --store-bg:#ffffff;
+  --store-bg-soft:#f7f9fb;
+  --store-surface:#ffffff;
+  --store-surface-strong:#f7f9fb;
+  --store-surface-muted:#eef4f5;
+  --store-card:#ffffff;
+  --store-text:#10212b;
+  --store-text-soft:#213946;
+  --store-muted:#64727c;
+  --store-border:#e2e9ed;
+  --store-border-soft:rgba(16,33,43,.10);
+  --store-header-bg:rgba(255,255,255,.96);
+  --store-input-bg:#ffffff;
+  --store-input-text:#10212b;
+  --store-input-placeholder:#7b8991;
+  --store-chip-bg:#eef7f6;
+  --store-chip-text:#0b746f;
+}
+
+:root[data-store-theme="dark"]{
+  --store-bg:#08131d;
+  --store-bg-soft:#0d1b27;
+  --store-surface:#132430;
+  --store-surface-strong:#172b38;
+  --store-surface-muted:#14383a;
+  --store-card:#132430;
+  --store-text:#f4f8fa;
+  --store-text-soft:#d7e4e8;
+  --store-muted:#a8b6bf;
+  --store-border:rgba(255,255,255,.12);
+  --store-border-soft:rgba(255,255,255,.08);
+  --store-header-bg:rgba(8,19,29,.96);
+  --store-input-bg:#122331;
+  --store-input-text:#f4f8fa;
+  --store-input-placeholder:#91a1aa;
+  --store-chip-bg:#14383a;
+  --store-chip-text:#7ee1da;
+}
+
 .store-public-shell[data-storefront-source="v2"]{
   --store-bg:#f5f8fa;
   --store-bg-soft:#edf3f5;
   --store-surface:#ffffff;
   --store-surface-strong:#f8fbfc;
   --store-surface-muted:#eef5f6;
+  --store-card:#ffffff;
   --store-text:#10212b;
   --store-text-soft:#213946;
   --store-muted:#647783;
   --store-muted-2:#82919a;
   --store-border:rgba(15, 74, 82, .14);
   --store-border-soft:rgba(15, 74, 82, .08);
+  --store-header-bg:rgba(255,255,255,.96);
+  --store-footer-bg:#f7f9fb;
+  --store-input-bg:#ffffff;
+  --store-input-text:#10212b;
+  --store-input-placeholder:#7b8991;
+  --store-chip-bg:#eef7f6;
+  --store-chip-text:#0b746f;
+  --store-banner-base:#ffffff;
+  --store-banner-overlay:linear-gradient(90deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.94) 42%, rgba(255,255,255,.54) 66%, rgba(255,255,255,.12) 100%), linear-gradient(0deg, rgba(238,246,247,.20), transparent 48%);
   --store-radius:12px;
   --store-radius-lg:18px;
   --store-radius-xl:24px;
@@ -27945,6 +27995,32 @@ body.theme-light .app-toast{
   --store-stage-max:min(1460px, calc(100vw - 40px));
   color:var(--store-text);
   background:var(--store-bg);
+}
+
+.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"]{
+  --store-bg:#08131d;
+  --store-bg-soft:#0d1b27;
+  --store-surface:#132430;
+  --store-surface-strong:#172b38;
+  --store-surface-muted:#14383a;
+  --store-card:#132430;
+  --store-text:#f4f8fa;
+  --store-text-soft:#d7e4e8;
+  --store-muted:#a8b6bf;
+  --store-muted-2:#91a1aa;
+  --store-border:rgba(255,255,255,.12);
+  --store-border-soft:rgba(255,255,255,.08);
+  --store-header-bg:rgba(8,19,29,.96);
+  --store-footer-bg:#0d1b27;
+  --store-input-bg:#122331;
+  --store-input-text:#f4f8fa;
+  --store-input-placeholder:#91a1aa;
+  --store-chip-bg:#14383a;
+  --store-chip-text:#7ee1da;
+  --store-banner-base:#0d1b27;
+  --store-banner-overlay:linear-gradient(90deg, rgba(8,19,29,.96) 0%, rgba(8,19,29,.88) 44%, rgba(8,19,29,.42) 72%, rgba(8,19,29,.14) 100%);
+  --store-shadow:0 20px 54px rgba(0,0,0,.34);
+  --store-shadow-soft:0 10px 28px rgba(0,0,0,.24);
 }
 
 .store-public-shell[data-storefront-source="v2"]:not(.store-public-admin-mode){
@@ -27978,7 +28054,7 @@ body.theme-light .app-toast{
   padding:8px 12px;
   border:1px solid var(--store-border-soft);
   border-radius:14px;
-  background:rgba(255,255,255,.96);
+  background:var(--store-header-bg);
   box-shadow:0 6px 18px rgba(16, 52, 61, .05);
 }
 
@@ -28012,9 +28088,7 @@ body.theme-light .app-toast{
   overflow:hidden;
   border:1px solid var(--store-border);
   border-radius:var(--store-radius-lg);
-  background:
-    linear-gradient(90deg, rgba(255,255,255,.98) 0%, rgba(255,255,255,.96) 46%, rgba(255,255,255,.30) 74%, rgba(255,255,255,.08) 100%),
-    var(--store-surface);
+  background:var(--store-banner-base);
   box-shadow:var(--store-shadow-soft);
 }
 
@@ -28024,9 +28098,7 @@ body.theme-light .app-toast{
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-banner::after{
-  background:
-    linear-gradient(90deg, rgba(255,255,255,.97) 0%, rgba(255,255,255,.94) 42%, rgba(255,255,255,.54) 66%, rgba(255,255,255,.12) 100%),
-    linear-gradient(0deg, rgba(238,246,247,.20), transparent 48%);
+  background:var(--store-banner-overlay);
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-hero-device-art{
@@ -28075,7 +28147,7 @@ body.theme-light .app-toast{
   padding:12px 14px;
   border:1px solid var(--store-border-soft);
   border-radius:12px;
-  background:#ffffff;
+  background:var(--store-card);
   box-shadow:0 5px 16px rgba(16, 52, 61, .04);
 }
 
@@ -28099,7 +28171,7 @@ body.theme-light .app-toast{
   padding:10px;
   border:1px solid var(--store-border-soft);
   border-radius:12px;
-  background:#ffffff;
+  background:var(--store-card);
   color:var(--store-text);
   box-shadow:0 5px 14px rgba(16, 52, 61, .035);
 }
@@ -28107,7 +28179,7 @@ body.theme-light .app-toast{
 .store-public-shell[data-storefront-source="v2"] .store-public-category-bar a:hover,
 .store-public-shell[data-storefront-source="v2"] .store-public-category-bar a.active{
   border-color:color-mix(in srgb, var(--store-primary, #078f86) 42%, var(--store-border));
-  background:color-mix(in srgb, var(--store-primary, #078f86) 6%, #ffffff);
+  background:color-mix(in srgb, var(--store-primary, #078f86) 6%, var(--store-card));
   transform:translateY(-2px);
 }
 
@@ -28115,7 +28187,7 @@ body.theme-light .app-toast{
   width:42px;
   height:42px;
   color:var(--store-primary, #078f86);
-  background:color-mix(in srgb, var(--store-primary, #078f86) 9%, #ffffff);
+  background:color-mix(in srgb, var(--store-primary, #078f86) 9%, var(--store-card));
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-category-bar a small{
@@ -28152,7 +28224,7 @@ body.theme-light .app-toast{
   overflow:hidden;
   border:1px solid var(--store-border-soft);
   border-radius:14px;
-  background:#ffffff;
+  background:var(--store-card);
   color:var(--store-text);
   box-shadow:0 8px 22px rgba(16, 52, 61, .06);
 }
@@ -28166,7 +28238,7 @@ body.theme-light .app-toast{
 .store-public-shell[data-storefront-source="v2"] .store-public-product-media{
   min-height:0;
   aspect-ratio:1 / 1;
-  background:#eff5f5;
+  background:var(--store-surface-muted);
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-product-media img{
@@ -28223,7 +28295,7 @@ body.theme-light .app-toast{
   padding:20px;
   border:1px solid var(--store-border-soft);
   border-radius:16px;
-  background:#ffffff;
+  background:var(--store-card);
   box-shadow:var(--store-shadow-soft);
 }
 
@@ -28246,7 +28318,7 @@ body.theme-light .app-toast{
   padding:12px;
   border:1px solid var(--store-border-soft);
   border-radius:12px;
-  background:#fbfdfd;
+  background:var(--store-surface-strong);
   color:var(--store-text);
   text-align:left;
   cursor:pointer;
@@ -28254,7 +28326,7 @@ body.theme-light .app-toast{
 
 .store-public-shell[data-storefront-source="v2"] .store-public-contact-grid button:hover{
   border-color:color-mix(in srgb, var(--store-primary, #078f86) 38%, var(--store-border));
-  background:color-mix(in srgb, var(--store-primary, #078f86) 5%, #ffffff);
+  background:color-mix(in srgb, var(--store-primary, #078f86) 5%, var(--store-card));
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-contact-grid i{
@@ -28291,7 +28363,7 @@ body.theme-light .app-toast{
   padding:14px 16px;
   border:1px solid color-mix(in srgb, var(--store-primary, #078f86) 16%, var(--store-border));
   border-radius:12px;
-  background:color-mix(in srgb, var(--store-primary, #078f86) 5%, #ffffff);
+  background:color-mix(in srgb, var(--store-primary, #078f86) 5%, var(--store-card));
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-contact-cta h2{
@@ -28321,7 +28393,7 @@ body.theme-light .app-toast{
   padding:clamp(16px, 2vw, 26px);
   border:1px solid var(--store-border-soft);
   border-radius:16px;
-  background:#ffffff;
+  background:var(--store-card);
   box-shadow:var(--store-shadow-soft);
 }
 
@@ -28329,7 +28401,7 @@ body.theme-light .app-toast{
   aspect-ratio:1 / 1;
   overflow:hidden;
   border-radius:14px;
-  background:#eff5f5;
+  background:var(--store-surface-muted);
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-main-image img{
@@ -28350,7 +28422,7 @@ body.theme-light .app-toast{
 .store-public-shell[data-storefront-source="v2"] .store-public-spec-grid span,
 .store-public-shell[data-storefront-source="v2"] .store-public-note{
   border-color:var(--store-border-soft);
-  background:#f8fbfc;
+  background:var(--store-surface-strong);
   color:var(--store-text-soft);
 }
 
@@ -28364,7 +28436,7 @@ body.theme-light .app-toast{
   padding:7px 9px;
   border:1px solid color-mix(in srgb, var(--store-primary, #078f86) 20%, var(--store-border));
   border-radius:999px;
-  background:color-mix(in srgb, var(--store-primary, #078f86) 5%, #ffffff);
+  background:var(--store-chip-bg);
   color:var(--store-text-soft);
   font-size:11px;
   font-weight:800;
@@ -28398,6 +28470,55 @@ body.theme-light .app-toast{
 
 .store-public-shell[data-storefront-source="v2"] .store-public-footer{
   color:var(--store-muted);
+  background:var(--store-footer-bg);
+}
+
+.store-public-shell[data-storefront-source="v2"] :where(.btn.ghost,.btn.secondary,.store-public-icon-action,.store-public-menu-toggle){
+  color:var(--store-text-soft);
+  background:var(--store-surface-strong);
+  border-color:var(--store-border);
+}
+
+.store-public-shell[data-storefront-source="v2"] :where(.btn.ghost,.btn.secondary,.store-public-icon-action,.store-public-menu-toggle):hover{
+  color:var(--store-text);
+  background:var(--store-card);
+  border-color:color-mix(in srgb, var(--store-primary, #078f86) 32%, var(--store-border));
+}
+
+:root[data-store-theme] :where(.store-cart-drawer,.store-lead-modal){
+  color:var(--store-text);
+  background:var(--store-card);
+  border-color:var(--store-border);
+}
+
+:root[data-store-theme] :where(.store-cart-item,.store-lead-product-summary){
+  color:var(--store-text);
+  background:var(--store-surface-soft);
+  border-color:var(--store-border);
+}
+
+:root[data-store-theme] :where(.store-cart-item,.store-lead-modal) :where(input,select,textarea){
+  color:var(--store-input-text);
+  background:var(--store-input-bg);
+  border-color:var(--store-border);
+}
+
+:root[data-store-theme] :where(.store-cart-item,.store-lead-modal) :where(input,select,textarea)::placeholder{
+  color:var(--store-input-placeholder);
+}
+
+:root[data-store-theme] .store-cart-item span,
+:root[data-store-theme] .store-cart-total span{
+  color:var(--store-muted);
+}
+
+:root[data-store-theme] .store-cart-stepper button,
+:root[data-store-theme] .store-cart-total strong{
+  color:var(--store-text);
+}
+
+:root[data-store-theme] .store-cart-total{
+  background:color-mix(in srgb, var(--store-primary, #078f86) 8%, var(--store-card));
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-visual-editor-sidebar,
@@ -28531,4 +28652,32 @@ body.theme-light .app-toast{
   .store-public-shell[data-storefront-source="v2"] .store-public-product-grid{
     grid-template-columns:1fr;
   }
+}
+
+/* Storefront dialogs live in the global modal layer, outside the public shell. */
+:root[data-store-theme] body :is(.store-cart-drawer,.store-lead-modal){
+  color:var(--store-text) !important;
+  background:var(--store-card) !important;
+  border-color:var(--store-border) !important;
+}
+
+:root[data-store-theme] body :is(.store-cart-drawer,.store-lead-modal) > :is(.modal-header,.actions){
+  color:var(--store-text) !important;
+  background:var(--store-card) !important;
+  border-color:var(--store-border) !important;
+}
+
+:root[data-store-theme] body .store-cart-drawer :is(.store-cart-items,.store-empty-state),
+:root[data-store-theme] body .store-lead-modal :is(.store-lead-product-summary,.muted){
+  color:var(--store-text) !important;
+}
+
+:root[data-store-theme] body :is(.store-cart-drawer,.store-lead-modal) .muted{
+  color:var(--store-muted) !important;
+}
+
+:root[data-store-theme] body .store-cart-drawer .store-cart-total{
+  color:var(--store-text) !important;
+  background:color-mix(in srgb, var(--store-primary, #078f86) 8%, var(--store-card)) !important;
+  border-color:var(--store-border) !important;
 }

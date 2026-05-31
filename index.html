@@ -6,13 +6,13 @@
 
 <title>Simplifica 3D</title>
 
-<meta name="theme-color" content="#00BFA6">
+<meta name="theme-color" content="#ffffff">
 <meta name="description" content="Loja online e ERP Simplifica 3D para produtos personalizados, impressão 3D e pequenos negócios.">
 <meta name="application-name" content="Simplifica 3D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simplifica 3D">
 
-  <link rel="stylesheet" href="/style.css?v=1.0.23-rc-storefront-premium-20260531">
+  <link rel="stylesheet" href="/style.css?v=1.0.24-rc-storefront-light-theme-20260531">
 <meta property="og:title" content="Simplifica 3D">
 <meta property="og:description" content="Vitrine profissional para produtos personalizados, catálogo e atendimento por WhatsApp.">
 <meta property="og:type" content="website">
@@ -22,6 +22,19 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/assets/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+
+<script>
+  (() => {
+    const storageKey = "simplifica3d_store_theme";
+    let savedTheme = "";
+    try {
+      savedTheme = localStorage.getItem(storageKey) || "";
+    } catch (_) {}
+    const resolvedTheme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
+    document.documentElement.setAttribute("data-store-theme", resolvedTheme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme === "dark" ? "#08131d" : "#ffffff");
+  })();
+</script>
 
 <script src="/assets/vendor/jspdf.umd.min.js"></script>
 <script src="/assets/vendor/qrcode.min.js"></script>
@@ -56,14 +69,14 @@
 <script src="/src/services/adMobService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/adSenseService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
-<script src="/modules/store-editor/storeEditorRenderer.js?v=1.0.23-rc-storefront-premium-20260531"></script>
-<script src="/modules/store-editor/storeEditorTabs.js?v=1.0.23-rc-storefront-premium-20260531"></script>
-<script src="/modules/store-editor/storeEditorPreview.js?v=1.0.23-rc-storefront-premium-20260531"></script>
-<script src="/modules/store-editor/storeEditorProducts.js?v=1.0.23-rc-storefront-premium-20260531"></script>
-  <script src="/app.js?v=1.0.23-rc-storefront-premium-20260531"></script>
+<script src="/modules/store-editor/storeEditorRenderer.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
+<script src="/modules/store-editor/storeEditorTabs.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
+<script src="/modules/store-editor/storeEditorPreview.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
+<script src="/modules/store-editor/storeEditorProducts.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
+  <script src="/app.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.23-rc-storefront-premium-20260531", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=1.0.24-rc-storefront-light-theme-20260531", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>

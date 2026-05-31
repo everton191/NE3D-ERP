@@ -13853,6 +13853,54 @@ const STOREFRONT_ADMIN_KEYS = {
   recovery: "simplifica-storefront-admin-recovery-v1",
   offlineQueue: "simplifica-storefront-admin-offline-queue-v1"
 };
+const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme";
+const STOREFRONT_THEME_COLORS = Object.freeze({
+  light: "#ffffff",
+  dark: "#08131d"
+});
+
+function normalizarTemaLojaOnline(theme = "") {
+  const normalized = String(theme || "").trim().toLowerCase();
+  return normalized === "dark" || normalized === "light" ? normalized : "light";
+}
+
+function getStoreThemeSaved() {
+  try {
+    return normalizarTemaLojaOnline(localStorage.getItem(STOREFRONT_THEME_STORAGE_KEY));
+  } catch (_) {
+    return "light";
+  }
+}
+
+function updateStorefrontThemeColor(theme = "light") {
+  const resolvedTheme = normalizarTemaLojaOnline(theme);
+  const themeMeta = document.querySelector("meta[name='theme-color']");
+  if (themeMeta) themeMeta.setAttribute("content", STOREFRONT_THEME_COLORS[resolvedTheme]);
+  return resolvedTheme;
+}
+
+function applyStoreTheme(theme = "light", { persist = true } = {}) {
+  const resolvedTheme = normalizarTemaLojaOnline(theme);
+  document.documentElement.setAttribute("data-store-theme", resolvedTheme);
+  document.body?.setAttribute("data-store-theme", resolvedTheme);
+  document.querySelectorAll?.(".store-public-shell").forEach((shell) => shell.setAttribute("data-store-theme", resolvedTheme));
+  updateStorefrontThemeColor(resolvedTheme);
+  if (persist) {
+    try {
+      localStorage.setItem(STOREFRONT_THEME_STORAGE_KEY, resolvedTheme);
+    } catch (_) {}
+  }
+  return resolvedTheme;
+}
+
+if (typeof window !== "undefined") {
+  window.SimplificaStoreTheme = Object.freeze({
+    apply: applyStoreTheme,
+    getSaved: getStoreThemeSaved,
+    normalize: normalizarTemaLojaOnline,
+    updateThemeColor: updateStorefrontThemeColor
+  });
+}
 
 const STOREFRONT_ADMIN_TABS = [
   ["overview", "Visão geral"],
@@ -14078,9 +14126,9 @@ function aplicarStorefrontAutosavePayload(draft) {
       banner_url: payload.storeBannerUrl || store.banner_url,
       theme_config: {
         ...(store.theme_config || {}),
-        primary: normalizarCorTemaControlado(payload.storePrimary || store.theme_config?.primary || "#00BFA6", payload.storeThemeMode || store.theme_config?.mode || "auto", "primary"),
-        accent: normalizarCorTemaControlado(payload.storeAccent || store.theme_config?.accent || "#FF8A1F", payload.storeThemeMode || store.theme_config?.mode || "auto", "secondary"),
-        mode: payload.storeThemeMode || store.theme_config?.mode || "auto"
+        primary: normalizarCorTemaControlado(payload.storePrimary || store.theme_config?.primary || "#00BFA6", normalizarTemaLojaOnline(payload.storeThemeMode || store.theme_config?.mode || getStoreThemeSaved()), "primary"),
+        accent: normalizarCorTemaControlado(payload.storeAccent || store.theme_config?.accent || "#FF8A1F", normalizarTemaLojaOnline(payload.storeThemeMode || store.theme_config?.mode || getStoreThemeSaved()), "secondary"),
+        mode: normalizarTemaLojaOnline(payload.storeThemeMode || store.theme_config?.mode || getStoreThemeSaved())
       }
     };
     storefrontAdminSaveStore(next);
@@ -14598,7 +14646,7 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
     theme_config: {
       primary: store.theme_config?.primary || "#00BFA6",
       accent: store.theme_config?.accent || "#FF8A1F",
-      mode: store.theme_config?.mode || "auto"
+      mode: normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved())
     },
     __demo: true
   };
@@ -14619,7 +14667,7 @@ function getStorefrontAdminStoreLocal() {
     whatsapp: "",
     instagram: "",
     active: false,
-    theme_config: { primary: "#00BFA6", accent: "#FF8A1F", mode: "auto" }
+    theme_config: { primary: "#00BFA6", accent: "#FF8A1F", mode: "light" }
   };
   return { ...fallback, ...storefrontAdminRead(STOREFRONT_ADMIN_KEYS.store, fallback), owner_id: ownerId };
 }
@@ -15067,9 +15115,9 @@ async function salvarStorefrontAparencia(event) {
       banner_url: form.storeBannerUrl?.value?.trim() || store.banner_url || "",
       theme_config: {
         ...(store.theme_config || {}),
-        primary: normalizarCorTemaControlado(form.storePrimary?.value || "#00BFA6", form.storeThemeMode?.value || "auto", "primary"),
-        accent: normalizarCorTemaControlado(form.storeAccent?.value || "#FF8A1F", form.storeThemeMode?.value || "auto", "secondary"),
-        mode: form.storeThemeMode?.value || "auto",
+        primary: normalizarCorTemaControlado(form.storePrimary?.value || "#00BFA6", normalizarTemaLojaOnline(form.storeThemeMode?.value || getStoreThemeSaved()), "primary"),
+        accent: normalizarCorTemaControlado(form.storeAccent?.value || "#FF8A1F", normalizarTemaLojaOnline(form.storeThemeMode?.value || getStoreThemeSaved()), "secondary"),
+        mode: normalizarTemaLojaOnline(form.storeThemeMode?.value || getStoreThemeSaved()),
         banner_title: bannerTitle,
         banner_subtitle: bannerSubtitle,
         banner_cta_label: bannerCtaLabel,
@@ -16091,7 +16139,7 @@ function criarStorefrontPreviewVmDoFormulario(form) {
   if (form.storeInstagram) baseStore.instagram = String(form.storeInstagram.value || "").trim();
   if (form.storeLogoUrl) baseStore.logo_url = String(form.storeLogoUrl.value || "").trim();
   if (form.storeBannerUrl) baseStore.banner_url = String(form.storeBannerUrl.value || "").trim();
-  if (form.storeThemeMode) theme.mode = form.storeThemeMode.value || theme.mode || "auto";
+  if (form.storeThemeMode) theme.mode = normalizarTemaLojaOnline(form.storeThemeMode.value || theme.mode || getStoreThemeSaved());
   if (form.storePrimary) theme.primary = normalizarCorTemaControlado(form.storePrimary.value || theme.primary || "#00BFA6", theme.mode, "primary");
   if (form.storeAccent) theme.accent = normalizarCorTemaControlado(form.storeAccent.value || theme.accent || "#FF8A1F", theme.mode, "secondary");
   baseStore.theme_config = theme;
@@ -16620,8 +16668,8 @@ function aplicarStorefrontPresetVisual(id = "minimal") {
     ...store,
     theme_config: {
       ...(store.theme_config || {}),
-      primary: normalizarCorTemaControlado(preset.primary, store.theme_config?.mode || "auto", "primary"),
-      accent: normalizarCorTemaControlado(preset.accent, store.theme_config?.mode || "auto", "secondary"),
+      primary: normalizarCorTemaControlado(preset.primary, normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved()), "primary"),
+      accent: normalizarCorTemaControlado(preset.accent, normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved()), "secondary"),
       template_id: preset.id,
       template_name: preset.title,
       template_tone: preset.tone,
@@ -16720,7 +16768,7 @@ function renderStoreGuidedHiddenAppearanceFields(vm, { banner = false } = {}) {
     <input type="hidden" name="storeInstagram" value="${escaparAttr(store.instagram || "")}">
     ${banner ? `<input type="hidden" name="storeLogoUrl" value="${escaparAttr(store.logo_url || "")}">` : ""}
     ${banner ? "" : `<input type="hidden" name="storeBannerUrl" value="${escaparAttr(store.banner_url || "")}">`}
-    <input type="hidden" name="storeThemeMode" value="${escaparAttr(store.theme_config?.mode || "auto")}">
+    <input type="hidden" name="storeThemeMode" value="${escaparAttr(normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved()))}">
     <input type="hidden" name="storePrimary" value="${escaparAttr(store.theme_config?.primary || "#00BFA6")}">
     <input type="hidden" name="storeAccent" value="${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
     ${banner ? "" : `<input type="hidden" name="storeBannerTitle" value="${escaparAttr(store.theme_config?.banner_title || "")}">`}
@@ -16738,7 +16786,7 @@ function renderStoreGuidedIdentityForm(vm) {
       <label>Descrição<textarea name="storeDescription" rows="3" maxlength="100">${escaparHtml(store.description || "")}</textarea></label>
       <label>Logo da loja<input name="storeLogoUrl" value="${escaparAttr(store.logo_url || "")}" placeholder="URL da imagem"></label>
       <label class="store-guided-upload">Enviar logo<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('logo', this)"><span>JPG, PNG ou WebP</span></label>
-      <div class="store-guided-palette"><strong>Paleta pronta</strong><small>Escolha uma combinação segura para manter contraste e consistência.</small>${renderThemePaletteButtons({ mode: store.theme_config?.mode || "auto", selected: store.theme_config?.primary || "#00BFA6", target: "storefront" })}</div>
+      <div class="store-guided-palette"><strong>Paleta pronta</strong><small>Escolha uma combinação segura para manter contraste e consistência.</small>${renderThemePaletteButtons({ mode: normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved()), selected: store.theme_config?.primary || "#00BFA6", target: "storefront" })}</div>
       ${renderStorefrontUploadStatus()}
       <div class="store-guided-actions"><button class="btn" type="submit">Salvar identidade</button><button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('overview')">Cancelar</button></div>
     </form>
@@ -17494,7 +17542,8 @@ function atualizarSeoLojaPublica(vm, product = null) {
     const description = product?.description || vm.store?.description || "Loja online de produtos e personalizados em impressão 3D.";
     const image = product ? getStorefrontProductImage(product, vm.images || []) : (vm.store?.banner_url || vm.store?.logo_url || "/assets/simplifica-brand-cover.jpg");
     const url = getStorefrontPublicUrl(vm.route);
-    const primary = vm.store?.theme_config?.primary || "#00BFA6";
+    const storefrontTheme = getStorefrontControlledTheme(vm.store?.theme_config || {});
+    updateStorefrontThemeColor(storefrontTheme.mode);
     document.title = title;
     const metas = [
       ["description", description],
@@ -17509,7 +17558,7 @@ function atualizarSeoLojaPublica(vm, product = null) {
       ["twitter:title", title],
       ["twitter:description", description],
       ["twitter:image", image],
-      ["theme-color", primary],
+      ["theme-color", STOREFRONT_THEME_COLORS[storefrontTheme.mode]],
       ["apple-mobile-web-app-title", vm.store?.name || "Simplifica 3D"]
     ];
     metas.forEach(([name, content]) => {
@@ -17590,7 +17639,8 @@ function renderStorefrontView({ mode = "public", source = "", vm = null, options
 }
 
 function addStorefrontV2RootAttributes(html = "", mode = "public") {
-  const sourceAttr = `data-storefront-render="${escaparAttr(mode)}" data-storefront-source="v2"`;
+  const themeAttr = /\bdata-store-theme=/.test(html) ? "" : ` data-store-theme="${escaparAttr(getStoreThemeSaved())}"`;
+  const sourceAttr = `data-storefront-render="${escaparAttr(mode)}" data-storefront-source="v2"${themeAttr}`;
   return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront" ${sourceAttr}`);
 }
 
@@ -17605,6 +17655,7 @@ function renderLojaOnlinePublica() {
 function renderStorefrontPublicLegacy() {
   const vm = getStorefrontPublicViewModel();
   if (!vm.store) {
+    applyStoreTheme("light");
     return `
       <main class="store-public-shell">
         <section class="store-public-not-found">
@@ -17616,6 +17667,8 @@ function renderStorefrontPublicLegacy() {
       </main>
     `;
   }
+  const storefrontTheme = getStorefrontControlledTheme(vm.store.theme_config || {});
+  applyStoreTheme(storefrontTheme.mode);
   const mode = getStorefrontPublicMode(vm);
   if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
     return `
@@ -17678,7 +17731,7 @@ function renderStorefrontPublicLegacy() {
   `;
 
   return `
-    <main class="store-public-shell ${mode.admin ? "store-public-admin-mode" : ""}" style="--store-primary:${escaparAttr(getStorefrontControlledTheme(vm.store.theme_config || {}).primary)};--store-accent:${escaparAttr(getStorefrontControlledTheme(vm.store.theme_config || {}).accent)}">
+    <main class="store-public-shell ${mode.admin ? "store-public-admin-mode" : ""}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
           ${renderStoreVisualEditorSidebar(vm)}
@@ -18687,7 +18740,7 @@ function renderStorefrontOverview(vm, stats) {
 
 function renderStorefrontAppearance(vm) {
   const theme = vm.store.theme_config || {};
-  const themeMode = theme.mode || "auto";
+  const themeMode = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved());
   const primary = normalizarCorTemaControlado(theme.primary || "#00BFA6", themeMode, "primary");
   const accent = normalizarCorTemaControlado(theme.accent || "#FF8A1F", themeMode, "secondary");
   const hasStoredAppearance = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
@@ -18740,7 +18793,7 @@ function renderStorefrontAppearance(vm) {
           </div>
           <div class="form-grid">
           <label>Tema<select name="storeThemeMode">
-            ${["auto", "light", "dark"].map((mode) => `<option value="${mode}" ${String(themeMode) === mode ? "selected" : ""}>${mode === "auto" ? "Automático" : mode === "light" ? "Claro" : "Escuro"}</option>`).join("")}
+            ${["light", "dark"].map((mode) => `<option value="${mode}" ${String(themeMode) === mode ? "selected" : ""}>${mode === "light" ? "Claro" : "Escuro"}</option>`).join("")}
           </select></label>
           <label>Cor principal<input name="storePrimary" value="${escaparAttr(primary)}" readonly></label>
           <label>Cor de destaque<input name="storeAccent" value="${escaparAttr(accent)}" readonly></label>
@@ -18981,7 +19034,7 @@ function renderStorefrontBanner(vm) {
         <input type="hidden" name="storeLogoUrl" value="${escaparAttr(vm.store.logo_url || "")}">
         <input type="hidden" name="storePrimary" value="${escaparAttr(vm.store.theme_config?.primary || "#00BFA6")}">
         <input type="hidden" name="storeAccent" value="${escaparAttr(vm.store.theme_config?.accent || "#FF8A1F")}">
-        <input type="hidden" name="storeThemeMode" value="${escaparAttr(vm.store.theme_config?.mode || "auto")}">
+        <input type="hidden" name="storeThemeMode" value="${escaparAttr(normalizarTemaLojaOnline(vm.store.theme_config?.mode || getStoreThemeSaved()))}">
         <input type="hidden" name="storeDescription" value="${escaparAttr(vm.store.description || "")}">
         <div class="storefront-visual-block">
           <div class="storefront-block-head">
@@ -26623,7 +26676,7 @@ function getCurrentControlledPalette(mode = appConfig.theme || "dark", primary =
 }
 
 function getStorefrontControlledTheme(theme = {}) {
-  const mode = theme.mode || "auto";
+  const mode = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved());
   return {
     ...theme,
     mode,
@@ -28752,7 +28805,7 @@ function selecionarPaletaTema(id) {
 
 function selecionarPaletaStorefront(id) {
   const form = document.getElementById("storefrontAppearanceForm") || document.querySelector(".storefront-form-card form") || document.querySelector(".store-guided-form");
-  const mode = form?.storeThemeMode?.value || "auto";
+  const mode = normalizarTemaLojaOnline(form?.storeThemeMode?.value || getStoreThemeSaved());
   const palette = getThemePalettes(mode).find((item) => item.id === id) || getThemePalettes(mode)[0];
   if (form?.storePrimary) form.storePrimary.value = palette.primary;
   if (form?.storeAccent) form.storeAccent.value = palette.accent || palette.secondary;

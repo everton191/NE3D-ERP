@@ -517,3 +517,16 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Criar `test:storefront-premium-7c3`.
 - `[x]` Atualizar cache PWA para `simplifica-3d-v129-estavel-20260531-storefront-premium`.
 - `[~]` Validar CRUD remoto com conta descartavel antes de publicar produtos reais.
+
+## Fase 7C.5 - Tema Claro Oficial da Loja Online
+
+- `[x]` Criar autoridade unica `applyStoreTheme()` para a Storefront.
+- `[x]` Definir `light` como fallback de usuario novo, PWA e APK.
+- `[x]` Aplicar `data-store-theme` antes do primeiro render em `index.html`.
+- `[x]` Remover modo automatico da configuracao publica da loja.
+- `[x]` Separar o tema publico da vitrine do tema operacional do ERP.
+- `[x]` Migrar carrinho e modal de lead para tokens do tema da loja.
+- `[x]` Atualizar manifest para splash e barra claras.
+- `[x]` Atualizar cache PWA para `simplifica-3d-v130-estavel-20260531-storefront-light-theme`.
+- `[x]` Adicionar `npm run test:storefront-light-theme-stability`.
+- `[~]` Rebuild e promocao publica do APK dependem do smoke Android fisico.
