@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.17-rc\"",
-  "APP_VERSION_CODE = 16",
-  "simplifica-3d-v127-estavel-20260531-store-editor-mobile",
-  "versionName \"1.0.17-rc\"",
-  "versionCode 16",
-  "\"version\": \"1.0.17-rc\"",
-  "\"versionCode\": 16"
+  "APP_VERSION = \"1.0.18-rc\"",
+  "APP_VERSION_CODE = 17",
+  "simplifica-3d-v128-estavel-20260531-store-editor-toolbar",
+  "versionName \"1.0.18-rc\"",
+  "versionCode 17",
+  "\"version\": \"1.0.18-rc\"",
+  "\"versionCode\": 17"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

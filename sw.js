@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v127-estavel-20260531-store-editor-mobile";
+const CACHE_NAME = "simplifica-3d-v128-estavel-20260531-store-editor-toolbar";
 const APP_FILES = [
   "./",
   "./index.html",

@@ -15,7 +15,7 @@ const requiredCss = [
 const requiredApp = [
   "renderStoreVisualMobileActions",
   "setStoreVisualViewport('mobile')",
-  "store-mobile-admin-actions"
+  "store-context-edit-fab"
 ];
 
 const missing = [
@@ -28,4 +28,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront mobile: drawer/sidebar, bottom actions, safe area e viewport revisados.");
+console.log("Storefront mobile: drawer/sidebar, FAB guiado, safe area e viewport revisados.");

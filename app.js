@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.17-rc";
-const APP_VERSION_CODE = 16;
+const APP_VERSION = "1.0.18-rc";
+const APP_VERSION_CODE = 17;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -86,7 +86,7 @@ const PLAN_REGISTRY = Object.freeze({
     name: "Grátis",
     price: 0,
     billingVariant: "",
-    limits: Object.freeze({ products: FREE_PRODUCT_LIMIT, storageMb: FREE_BACKUP_LIMIT_MB, devices: FREE_DEVICE_LIMIT, users: 1 }),
+    limits: Object.freeze({ products: FREE_PRODUCT_LIMIT, storefrontProducts: FREE_STORE_PRODUCT_LIMIT, storageMb: FREE_BACKUP_LIMIT_MB, devices: FREE_DEVICE_LIMIT, users: 1 }),
     entitlements: Object.freeze({
       ads: true,
       erpBasic: true,
@@ -112,7 +112,7 @@ const PLAN_REGISTRY = Object.freeze({
     name: "Start",
     price: START_MONTHLY_PRICE,
     billingVariant: "start_monthly",
-    limits: Object.freeze({ products: START_PRODUCT_LIMIT, storageMb: START_BACKUP_LIMIT_MB, devices: START_DEVICE_LIMIT, users: 2 }),
+    limits: Object.freeze({ products: START_PRODUCT_LIMIT, storefrontProducts: START_STORE_PRODUCT_LIMIT, storageMb: START_BACKUP_LIMIT_MB, devices: START_DEVICE_LIMIT, users: 2 }),
     entitlements: Object.freeze({
       ads: false,
       erpBasic: true,
@@ -138,7 +138,7 @@ const PLAN_REGISTRY = Object.freeze({
     name: "Pro",
     price: PRO_MONTHLY_PRICE,
     billingVariant: "pro_monthly",
-    limits: Object.freeze({ products: Number.POSITIVE_INFINITY, storageMb: PRO_BACKUP_LIMIT_MB, devices: PRO_DEVICE_LIMIT, users: 5 }),
+    limits: Object.freeze({ products: Number.POSITIVE_INFINITY, storefrontProducts: Number.POSITIVE_INFINITY, storageMb: PRO_BACKUP_LIMIT_MB, devices: PRO_DEVICE_LIMIT, users: 5 }),
     entitlements: Object.freeze({
       ads: false,
       erpBasic: true,
@@ -9094,13 +9094,13 @@ function isStorefrontAllowedTestUser(usuario = getUsuarioAtual(), flags = getSto
 function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const plano = normalizarSlugPlano(userPlan || "free");
   const entitlements = getPlanEntitlements(plano);
+  const limits = getPlanLimits(plano);
   const pro = ["pro", "premium_trial"].includes(plano);
-  const start = plano === "start";
   return {
     enabled: true,
     publishEnabled: entitlements.publicStore === true,
     shareEnabled: entitlements.shareLink === true,
-    productLimit: pro ? Number.POSITIVE_INFINITY : start ? START_STORE_PRODUCT_LIMIT : FREE_STORE_PRODUCT_LIMIT,
+    productLimit: limits.storefrontProducts,
     leadsEnabled: entitlements.publicStore === true,
     qrCodeEnabled: entitlements.shareLink === true,
     customThemeEnabled: entitlements.basicCustomization === true,
@@ -15046,8 +15046,12 @@ async function salvarStorefrontAparencia(event) {
   const botao = form.querySelector("button[type='submit']");
   try {
     const store = getStorefrontAdminStoreLocal();
-    const name = form.storeName?.value?.trim();
+    const name = validarTextoVisualLoja(form.storeName ? form.storeName.value : store.name, 50, "nome");
     if (!name) throw new Error("Informe o nome público da loja.");
+    const description = validarTextoVisualLoja(form.storeDescription ? form.storeDescription.value : store.description, 90, "subtítulo");
+    const bannerTitle = validarTextoVisualLoja(form.storeBannerTitle?.value || store.theme_config?.banner_title || "", 40, "título");
+    const bannerSubtitle = validarTextoVisualLoja(form.storeBannerSubtitle?.value || store.theme_config?.banner_subtitle || description, 90, "subtítulo");
+    const bannerCtaLabel = validarTextoVisualLoja(form.storeBannerCtaLabel?.value || store.theme_config?.banner_cta_label || "Ver catálogo", 24, "texto do botão");
     const whatsapp = normalizarWhatsappLojaPublica(form.storeWhatsApp?.value || "");
     if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
     const slug = storefrontAdminSlugify(form.storeSlug?.value || store.slug || name);
@@ -15056,7 +15060,7 @@ async function salvarStorefrontAparencia(event) {
       ...store,
       name,
       slug,
-      description: form.storeDescription?.value?.trim() || "",
+      description,
       whatsapp,
       instagram: form.storeInstagram?.value?.trim() || "",
       logo_url: form.storeLogoUrl?.value?.trim() || store.logo_url || "",
@@ -15066,7 +15070,9 @@ async function salvarStorefrontAparencia(event) {
         primary: normalizarCorTemaControlado(form.storePrimary?.value || "#00BFA6", form.storeThemeMode?.value || "auto", "primary"),
         accent: normalizarCorTemaControlado(form.storeAccent?.value || "#FF8A1F", form.storeThemeMode?.value || "auto", "secondary"),
         mode: form.storeThemeMode?.value || "auto",
-        banner_cta_label: form.storeBannerCtaLabel?.value?.trim() || store.theme_config?.banner_cta_label || "Ver catálogo",
+        banner_title: bannerTitle,
+        banner_subtitle: bannerSubtitle,
+        banner_cta_label: bannerCtaLabel,
         banner_cta_action: form.storeBannerCtaAction?.value || store.theme_config?.banner_cta_action || "catalog"
       }
     };
@@ -15284,8 +15290,9 @@ async function salvarProdutoLojaOnline(event) {
   const products = getStorefrontAdminProductsLocal();
   try {
     const id = form?.productId?.value || "";
-    const title = form?.productTitle?.value?.trim();
+    const title = validarTextoVisualLoja(form?.productTitle?.value, 50, "nome do produto");
     if (!title) throw new Error("Informe o título público do produto.");
+    const description = validarTextoVisualLoja(form?.productDescription?.value, 160, "descrição");
     const slug = storefrontAdminSlugify(form?.productSlug?.value || title);
     if (products.some((product) => product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este slug.");
     const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
@@ -15302,7 +15309,7 @@ async function salvarProdutoLojaOnline(event) {
       erp_product_id: form?.erpProductId?.value?.trim() || null,
       title,
       slug,
-      description: form?.productDescription?.value?.trim() || "",
+      description,
       price,
       compare_price: priceMode === "promo" && compare > price ? compare : null,
       price_mode: priceMode,
@@ -16525,18 +16532,7 @@ function renderStoreAdminFloatingEditor(vm) {
   }
   if (!mode.admin) return "";
   return `
-    <div class="store-context-admin-bar">
-      <div>
-        <strong>Modo admin</strong>
-        <span>Clique em uma parte da loja para editar.</span>
-      </div>
-      <div class="store-context-admin-actions">
-        <button type="button" onclick="abrirStorefrontAdminRoute('overview')">Configurações completas</button>
-        <button type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
-        <a href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Ver como cliente</a>
-      </div>
-    </div>
-    <button class="store-context-edit-fab" type="button" onclick="selecionarItemLojaVisual('overview')">Editar</button>
+    <button class="store-context-edit-fab" type="button" onclick="selecionarItemLojaVisual('overview')">Editar loja</button>
   `;
 }
 
@@ -16649,6 +16645,50 @@ function getStorefrontGuidedSelection() {
     : { type: "overview", id: "" };
 }
 
+function validarTextoVisualLoja(value = "", limit = 0, label = "texto") {
+  const text = String(value || "").trim();
+  if (limit > 0 && text.length > limit) {
+    throw new Error(`Esse ${label} está grande demais para ficar bonito na loja. Use até ${limit} caracteres.`);
+  }
+  return text;
+}
+
+function atualizarPreviewGuiadoLoja(form) {
+  if (!form) return;
+  const setText = (selector, value) => {
+    const target = document.querySelector(selector);
+    if (target && value !== undefined) target.textContent = String(value || "");
+  };
+  const selection = getStorefrontGuidedSelection();
+  if (form.storeName) {
+    const name = String(form.storeName.value || "").trim();
+    setText(".store-public-brand strong", name);
+  }
+  if (form.storeBannerTitle) setText(".store-public-banner-copy h1", form.storeBannerTitle.value);
+  if (form.storeBannerSubtitle) setText(".store-public-banner-copy p", form.storeBannerSubtitle.value);
+  if (form.storeBannerCtaLabel) setText(".store-public-banner-copy .actions .btn", form.storeBannerCtaLabel.value);
+  if (selection.type === "product" && selection.id) {
+    const card = Array.from(document.querySelectorAll("[data-store-product-id]"))
+      .find((item) => String(item.dataset.storeProductId || "") === String(selection.id));
+    if (card) {
+      const titleTarget = card.querySelector(".store-public-product-title");
+      const descriptionTarget = card.querySelector("p");
+      if (titleTarget && form.productTitle) titleTarget.textContent = form.productTitle.value;
+      if (descriptionTarget && form.productDescription) descriptionTarget.textContent = form.productDescription.value;
+      if (form.productPrice) {
+        const price = Math.max(0, Number(String(form.productPrice.value || "0").replace(",", ".")) || 0);
+        const priceTarget = card.querySelector(".store-public-product-bottom strong");
+        if (priceTarget) priceTarget.textContent = formatarMoeda(price);
+      }
+    }
+  }
+}
+
+function atualizarFormularioGuiadoLoja(form, detail = "Alterações em edição") {
+  marcarStorefrontAlteracoesPendentes(detail);
+  atualizarPreviewGuiadoLoja(form);
+}
+
 function selecionarItemLojaVisual(type = "overview", id = "") {
   storefrontGuidedSelection = { type: String(type || "overview"), id: String(id || "") };
   storefrontGuidedPanelOpen = true;
@@ -16682,25 +16722,26 @@ function renderStoreGuidedHiddenAppearanceFields(vm, { banner = false } = {}) {
     ${banner ? `<input type="hidden" name="storeLogoUrl" value="${escaparAttr(store.logo_url || "")}">` : ""}
     ${banner ? "" : `<input type="hidden" name="storeBannerUrl" value="${escaparAttr(store.banner_url || "")}">`}
     <input type="hidden" name="storeThemeMode" value="${escaparAttr(store.theme_config?.mode || "auto")}">
+    <input type="hidden" name="storePrimary" value="${escaparAttr(store.theme_config?.primary || "#00BFA6")}">
+    <input type="hidden" name="storeAccent" value="${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
+    ${banner ? "" : `<input type="hidden" name="storeBannerTitle" value="${escaparAttr(store.theme_config?.banner_title || "")}">`}
+    ${banner ? "" : `<input type="hidden" name="storeBannerSubtitle" value="${escaparAttr(store.theme_config?.banner_subtitle || "")}">`}
   `;
 }
 
 function renderStoreGuidedIdentityForm(vm) {
   const store = vm.store || {};
   return `
-    <form class="store-guided-form" onsubmit="salvarStorefrontAparencia(event)">
+    <form class="store-guided-form" oninput="atualizarFormularioGuiadoLoja(this, 'Identidade em edição')" onsubmit="salvarStorefrontAparencia(event)">
       <header><span>Identidade</span><h2>Marca da loja</h2><p>Edite o essencial. A vitrine ao lado atualiza após salvar.</p></header>
       ${renderStoreGuidedHiddenAppearanceFields(vm)}
-      <label>Nome da loja<input name="storeName" required value="${escaparAttr(store.name || "")}"></label>
-      <label>Descrição<textarea name="storeDescription" rows="3">${escaparHtml(store.description || "")}</textarea></label>
+      <label>Nome da loja<input name="storeName" required maxlength="50" value="${escaparAttr(store.name || "")}"></label>
+      <label>Descrição<textarea name="storeDescription" rows="3" maxlength="90">${escaparHtml(store.description || "")}</textarea></label>
       <label>Logo da loja<input name="storeLogoUrl" value="${escaparAttr(store.logo_url || "")}" placeholder="URL da imagem"></label>
       <label class="store-guided-upload">Enviar logo<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('logo', this)"><span>JPG, PNG ou WebP</span></label>
-      <div class="store-guided-grid">
-        <label>Cor principal<input name="storePrimary" value="${escaparAttr(store.theme_config?.primary || "#00BFA6")}" placeholder="#00BFA6"></label>
-        <label>Cor de destaque<input name="storeAccent" value="${escaparAttr(store.theme_config?.accent || "#FF8A1F")}" placeholder="#FF8A1F"></label>
-      </div>
+      <div class="store-guided-palette"><strong>Paleta pronta</strong><small>Escolha uma combinação segura para manter contraste e consistência.</small>${renderThemePaletteButtons({ mode: store.theme_config?.mode || "auto", selected: store.theme_config?.primary || "#00BFA6", target: "storefront" })}</div>
       ${renderStorefrontUploadStatus()}
-      <div class="store-guided-actions"><button class="btn" type="submit">Salvar identidade</button><button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('overview')">Voltar</button></div>
+      <div class="store-guided-actions"><button class="btn" type="submit">Salvar identidade</button><button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('overview')">Cancelar</button></div>
     </form>
   `;
 }
@@ -16708,19 +16749,17 @@ function renderStoreGuidedIdentityForm(vm) {
 function renderStoreGuidedBannerForm(vm) {
   const store = vm.store || {};
   return `
-    <form class="store-guided-form" onsubmit="salvarStorefrontAparencia(event)">
+    <form class="store-guided-form" oninput="atualizarFormularioGuiadoLoja(this, 'Banner em edição')" onsubmit="salvarStorefrontAparencia(event)">
       <header><span>Banner</span><h2>Primeira impressão</h2><p>Use uma imagem clara e uma chamada curta para o cliente.</p></header>
       ${renderStoreGuidedHiddenAppearanceFields(vm, { banner: true })}
-      <input type="hidden" name="storePrimary" value="${escaparAttr(store.theme_config?.primary || "#00BFA6")}">
-      <input type="hidden" name="storeAccent" value="${escaparAttr(store.theme_config?.accent || "#FF8A1F")}">
-      <label>Título<input name="storeName" required value="${escaparAttr(store.name || "")}"></label>
-      <label>Subtítulo<textarea name="storeDescription" rows="3">${escaparHtml(store.description || "")}</textarea></label>
+      <label>Título<input name="storeBannerTitle" required maxlength="40" value="${escaparAttr(store.theme_config?.banner_title || "Produtos feitos para a sua marca")}"></label>
+      <label>Subtítulo<textarea name="storeBannerSubtitle" rows="3" maxlength="90">${escaparHtml(store.theme_config?.banner_subtitle || store.description || "")}</textarea></label>
       <label>Imagem do banner<input name="storeBannerUrl" value="${escaparAttr(store.banner_url || "")}" placeholder="URL da imagem"></label>
       <label class="store-guided-upload">Enviar banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"><span>Imagem horizontal, JPG, PNG ou WebP</span></label>
-      <label>Texto do botão<input name="storeBannerCtaLabel" value="${escaparAttr(store.theme_config?.banner_cta_label || "Ver catálogo")}"></label>
+      <label>Texto do botão<input name="storeBannerCtaLabel" maxlength="24" value="${escaparAttr(store.theme_config?.banner_cta_label || "Ver catálogo")}"></label>
       <label>Ação do botão<select name="storeBannerCtaAction"><option value="catalog" ${store.theme_config?.banner_cta_action !== "whatsapp" ? "selected" : ""}>Abrir catálogo</option><option value="whatsapp" ${store.theme_config?.banner_cta_action === "whatsapp" ? "selected" : ""}>Abrir WhatsApp</option></select></label>
       ${renderStorefrontUploadStatus()}
-      <div class="store-guided-actions"><button class="btn" type="submit">Salvar banner</button><button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('overview')">Voltar</button></div>
+      <div class="store-guided-actions"><button class="btn" type="submit">Salvar banner</button><button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('overview')">Cancelar</button></div>
     </form>
   `;
 }
@@ -16738,7 +16777,7 @@ function renderStoreGuidedProductForm(vm, product = {}) {
   const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${String(product.category_id || "") === String(cat.id) ? "selected" : ""}>${escaparHtml(cat.name || "Categoria")}</option>`).join("");
   const isTemplate = !!(product.__demo || product.__template);
   return `
-    <form class="store-guided-form" onsubmit="salvarProdutoLojaOnline(event)">
+    <form class="store-guided-form" oninput="atualizarFormularioGuiadoLoja(this, 'Produto em edição')" onsubmit="salvarProdutoLojaOnline(event)">
       <header><span>Produto</span><h2>${escaparHtml(product.title || "Produto")}</h2><p>Edite os dados que aparecem na vitrine.</p></header>
       <input type="hidden" name="productId" value="${escaparAttr(product.id || "")}">
       <input type="hidden" name="productSlug" value="${escaparAttr(product.slug || "")}">
@@ -16751,8 +16790,8 @@ function renderStoreGuidedProductForm(vm, product = {}) {
       <input type="checkbox" hidden name="productShowPrice" ${product.show_price !== false ? "checked" : ""}>
       <input type="checkbox" hidden name="productFeatured" ${product.featured ? "checked" : ""}>
       <input type="checkbox" hidden name="productCustomizable" ${product.is_customizable !== false ? "checked" : ""}>
-      <label>Nome<input name="productTitle" required value="${escaparAttr(product.title || "")}" ${isTemplate ? "disabled" : ""}></label>
-      <label>Descrição<textarea name="productDescription" rows="3" ${isTemplate ? "disabled" : ""}>${escaparHtml(product.description || "")}</textarea></label>
+      <label>Nome<input name="productTitle" required maxlength="50" value="${escaparAttr(product.title || "")}" ${isTemplate ? "disabled" : ""}></label>
+      <label>Descrição<textarea name="productDescription" rows="3" maxlength="160" ${isTemplate ? "disabled" : ""}>${escaparHtml(product.description || "")}</textarea></label>
       <label>Preço<input name="productPrice" inputmode="decimal" value="${escaparAttr(product.price ?? "")}" ${isTemplate ? "disabled" : ""}></label>
       <label>Categoria<select name="productCategory" ${isTemplate ? "disabled" : ""}><option value="">Sem categoria</option>${catOptions}</select></label>
       <label>Disponibilidade<select name="productStockMode" ${isTemplate ? "disabled" : ""}><option value="unlimited" ${(product.stock_mode || "unlimited") === "unlimited" ? "selected" : ""}>Disponível</option><option value="manual" ${product.stock_mode === "manual" ? "selected" : ""}>Estoque manual</option><option value="erp_linked" ${product.stock_mode === "erp_linked" ? "selected" : ""}>Vinculado ao ERP</option><option value="unavailable" ${product.stock_mode === "unavailable" ? "selected" : ""}>Indisponível</option></select></label>
@@ -16855,36 +16894,30 @@ function renderStoreVisualEditorSidebar(vm) {
 }
 
 function renderStoreVisualEditorTopbar(vm) {
+  const dirty = getStorefrontDirtyState();
+  const shareEnabled = vm?.limits?.shareEnabled !== false;
   return `
     <div class="store-visual-editor-topbar">
       <div class="store-visual-top-context">
-        <strong>Editor visual guiado</strong>
-        <span>Clique em uma área da loja e edite pelo painel.</span>
+        <button class="store-visual-back" type="button" onclick="trocarTela('lojaOnline')">‹ Voltar ao painel</button>
+        <div><strong>Editor visual guiado</strong><span>Clique em uma área da loja e edite pelo painel.</span></div>
       </div>
       <div class="store-visual-device-switcher" aria-label="Preview responsivo">
         <button class="active" type="button" onclick="setStoreVisualViewport('desktop')">▣ Desktop</button>
-        <button type="button" onclick="setStoreVisualViewport('tablet')">▯ Tablet</button>
-        <button type="button" onclick="setStoreVisualViewport('mobile')">▯ Mobile</button>
+        <button type="button" onclick="setStoreVisualViewport('mobile')">▯ Celular</button>
       </div>
       <div class="store-visual-top-actions">
-        <a href="${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}" onclick="return navegarLojaPublicaLink(event, this, { forceClient: true })">Visualizar loja</a>
-        <button type="button" onclick="selecionarItemLojaVisual('links')">Link público</button>
-        <button class="publish" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Publicado" : "Publicar"}</button>
+        <span class="store-visual-publish-status ${dirty.dirty ? "is-dirty" : vm.store.active ? "is-online" : "is-draft"}">${dirty.dirty ? "Alterações não publicadas" : vm.store.active ? "Loja publicada" : "Loja não publicada"}</span>
+        <button type="button" onclick="${shareEnabled ? "abrirLojaPublicaOnline()" : "selecionarItemLojaVisual('links')"}">${shareEnabled ? "Abrir loja pública" : "Ver preview"}</button>
+        <button type="button" onclick="copiarLinkLojaOnline()" ${shareEnabled ? "" : "disabled title=\"Link público disponível no Start ou Pro.\""}>Copiar link da loja</button>
+        <button class="publish" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Colocar em rascunho" : "Publicar loja"}</button>
       </div>
     </div>
   `;
 }
 
 function renderStoreVisualMobileActions(vm) {
-  return `
-    <nav class="store-mobile-admin-actions" aria-label="Ações rápidas da edição mobile">
-      <button type="button" onclick="trocarTela('lojaOnline')"><i>‹</i><span>Voltar</span></button>
-      <button type="button" onclick="selecionarItemLojaVisual('identity')"><i>◒</i><span>Aparência</span></button>
-      <button type="button" onclick="selecionarItemLojaVisual('products')"><i>▦</i><span>Produtos</span></button>
-      <button type="button" onclick="selecionarItemLojaVisual('links')"><i>↗</i><span>Link</span></button>
-      <button type="button" class="publish" onclick="alternarStatusLojaOnline()"><i>↗</i><span>${vm.store.active ? "Online" : "Publicar"}</span></button>
-    </nav>
-  `;
+  return "";
 }
 
 function salvarStorefrontMobileRapido() {
@@ -17258,8 +17291,8 @@ function renderStorePublicBanner(vm) {
       ${renderStoreAdminControls("banner", store, vm)}
       <div class="store-public-banner-copy">
         <span>${escaparHtml(eyebrow)}</span>
-        <h1>Produtos que parecem feitos para a sua <mark>marca</mark></h1>
-        <p>${escaparHtml(store.description || "Uma vitrine moderna para produtos personalizados, utilidades criativas e peças sob encomenda.")}</p>
+        <h1>${escaparHtml(store.theme_config?.banner_title || "Produtos feitos para a sua marca")}</h1>
+        <p>${escaparHtml(store.theme_config?.banner_subtitle || store.description || "Uma vitrine moderna para produtos personalizados, utilidades criativas e peças sob encomenda.")}</p>
         <div class="actions">
           <button class="btn" type="button" onclick="${ctaAction}">${escaparHtml(ctaLabel)}</button>
           <button class="btn secondary" type="button" onclick="${whatsappAction}">Falar com a loja</button>
@@ -17319,7 +17352,7 @@ function renderStorePublicProductCard(vm, product = {}) {
     ? `event.preventDefault(); event.stopPropagation(); selecionarItemLojaVisual('product','${escaparAttr(product.id)}'); return false;`
     : "return navegarLojaPublicaLink(event, this, { scrollTop: true })";
   return `
-    <article class="store-public-product-card ${adminMode ? "store-guided-editable" : ""}" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('product','${escaparAttr(product.id)}')"` : ""}>
+    <article class="store-public-product-card ${adminMode ? "store-guided-editable" : ""}" data-store-product-id="${escaparAttr(product.id || "")}" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('product','${escaparAttr(product.id)}')"` : ""}>
       ${renderStoreAdminControls("product", product, vm)}
       <a class="store-public-product-media" href="${storefrontPublicProductUrl(vm, product)}" onclick="${mediaClick}">
         ${image ? `<img loading="lazy" decoding="async" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : placeholder}
@@ -28687,7 +28720,7 @@ function selecionarPaletaTema(id) {
 }
 
 function selecionarPaletaStorefront(id) {
-  const form = document.getElementById("storefrontAppearanceForm") || document.querySelector(".storefront-form-card form");
+  const form = document.getElementById("storefrontAppearanceForm") || document.querySelector(".storefront-form-card form") || document.querySelector(".store-guided-form");
   const mode = form?.storeThemeMode?.value || "auto";
   const palette = getThemePalettes(mode).find((item) => item.id === id) || getThemePalettes(mode)[0];
   if (form?.storePrimary) form.storePrimary.value = palette.primary;
@@ -28697,6 +28730,7 @@ function selecionarPaletaStorefront(id) {
   marcarStorefrontAlteracoesPendentes(`Paleta ${palette.label} selecionada`);
   storefrontScheduleAutosave("appearance", serializeStorefrontForm(form));
   atualizarStorefrontPreviewAoVivo(form);
+  atualizarPreviewGuiadoLoja(form);
 }
 
 function alterarTemaInterfaceRapido(value = "dark") {

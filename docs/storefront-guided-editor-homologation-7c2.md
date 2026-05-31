@@ -6,8 +6,9 @@
 - O editor guiado abriu pela navegacao real do ERP.
 - O preview mobile usa a vitrine como superficie principal.
 - A topbar extensa e a barra contextual ficam ocultas no mobile.
-- O rodape mobile exibe apenas `Voltar`, `Link` e `Online`.
-- O botao flutuante `Editar` abre o bottom sheet dentro da viewport.
+- O rodape mobile legado foi removido.
+- O botao flutuante `Editar loja` abre o bottom sheet dentro da viewport.
+- O botao `Editar loja` fica a esquerda e o carrinho flutuante a direita, sem sobreposicao.
 - O toque no banner abre os campos correspondentes.
 - `Adicionar produto` abre o formulario detalhado.
 - O botao `Editar` de produto existente carregou o item correto.
@@ -24,11 +25,15 @@ Foram exercitados no navegador os tamanhos solicitados:
 - `412px`
 - `430px`
 
-Em todos os tamanhos, o DOM confirmou ausencia de overflow horizontal, painel inferior fechado por padrao e tres acoes visiveis no rodape mobile.
+Em todos os tamanhos, o DOM confirmou ausencia de overflow horizontal, painel inferior fechado por padrao e botao flutuante como unico atalho persistente.
+
+O bottom sheet foi aberto em `390px`, permaneceu dentro da viewport e fechou por acao explicita. O console permaneceu sem erros ou avisos.
 
 ## Desktop
 
-O smoke desktop confirmou topbar do editor ativa, barra contextual ativa, rodape mobile oculto e ausencia de overflow horizontal.
+O smoke desktop confirmou toolbar administrativa unica, barra contextual duplicada removida, rodape legado ausente e ausencia de overflow horizontal.
+
+Foram validados `1366px`, `1440px` e `1920px`. Em todos os tamanhos, o DOM manteve exatamente uma toolbar, nenhum rodape legado e nenhum overflow horizontal.
 
 ## Pendencias de homologacao real
 
@@ -45,4 +50,4 @@ Antes do push condicionado da fase, executar com contas descartaveis:
 
 ## Cache PWA
 
-O cache foi avancado para `simplifica-3d-v127-estavel-20260531-store-editor-mobile` e o cache-bust web para `1.0.21-rc-store-editor-mobile-20260531`.
+O cache foi avancado para `simplifica-3d-v128-estavel-20260531-store-editor-toolbar` e o cache-bust web para `1.0.22-rc-store-editor-toolbar-20260531`.
