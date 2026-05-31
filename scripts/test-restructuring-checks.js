@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v128-estavel-20260531-store-editor-toolbar"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v129-estavel-20260531-storefront-premium"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.22-rc-store-editor-toolbar-20260531"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.23-rc-storefront-premium-20260531"), "index.html usa cache-bust atual");
 assert(app.includes("function selecionarItemLojaVisual"), "fase 7c possui selecao contextual da vitrine real");
 assert(app.includes("function editarProdutoPublicadoLojaOnline"), "fase 7c corrige entrada de edicao do produto publicado");
 assert(css.includes(".store-guided-editor-sidebar.is-open"), "fase 7c possui bottom sheet controlada no mobile");
@@ -565,6 +565,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
 
 [
   "test:storefront-pwa-upgrade",
+  "test:storefront-premium-7c3",
   "test:ui-theme-consistency",
   "test:storefront-desktop-upscale",
   "test:plans-saas-structure",

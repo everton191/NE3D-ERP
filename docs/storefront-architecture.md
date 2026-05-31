@@ -219,3 +219,18 @@ Os limites de produtos da vitrine usam o registry central por `getPlanLimits()`:
 Em telas de ate `860px`, o editor guiado remove a topbar administrativa e a barra extensa de contexto para priorizar a loja real em tela cheia. O rodape legado foi removido: identidade e produtos ficam acessiveis pelo botao flutuante `Editar` e pelo toque direto na vitrine. O painel inferior usa limite de altura, fechamento explicito e campos com altura minima de toque.
 
 No desktop, a vitrine guiada usa uma toolbar administrativa unica, compacta e nomeada. A barra contextual duplicada deixou de ser renderizada e as acoes operacionais ficaram concentradas em `Voltar ao painel`, abertura da loja publica ou preview, copia de link e publicacao controlada pelo plano.
+
+### Fase 7C.3 - Loja publica premium
+
+A Storefront V2 recebeu uma camada final de composicao sem alterar Supabase, publicacao, planos ou checkout:
+
+- loja publica clara por padrao, com fundo branco/cinza suave, texto escuro e acento controlado pelo tema da loja;
+- home reorganizada em banner compacto, beneficios, categorias, produtos e contato;
+- remocao de blocos promocionais genericos da home para reduzir ruido;
+- cards com imagem quadrada, titulo limitado a duas linhas e grid de ate quatro colunas no desktop;
+- contato publico com uma unica grade reutilizavel e um CTA de WhatsApp;
+- pagina de produto com galeria, resumo, especificacoes e chips de personalizacao com wrap seguro;
+- carrinho flutuante reduzido para icone e contador;
+- editor guiado preservado com sidebar escura no desktop e bottom sheet no mobile.
+
+Os limites visuais passam a ser: titulo do banner `40`, subtitulo `100`, CTA `24`, nome do produto `60` e descricao `180`. Produtos de demonstracao continuam restritos a preview local/staging e nao sao publicados como catalogo real.

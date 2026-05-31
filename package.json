@@ -67,6 +67,7 @@
     "test:storefront-performance-lite": "node scripts/test-storefront-performance-lite.js",
     "test:storefront-pwa-upgrade": "node scripts/test-storefront-pwa-upgrade.js",
     "test:storefront-guided-editor": "node scripts/test-storefront-guided-editor.js",
+    "test:storefront-premium-7c3": "node scripts/test-storefront-premium-7c3.js",
     "test:ui-contrast": "node scripts/test-ui-contrast.js",
     "test:ui-overflow": "node scripts/test-ui-overflow.js",
     "test:ui-theme-consistency": "node scripts/test-ui-theme-consistency.js",

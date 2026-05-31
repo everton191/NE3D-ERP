@@ -564,6 +564,27 @@ scripts/diagnostics-remote-controlled.js
 
 O fluxo remoto nao usa `db push` geral porque existem migrations antigas fora de escopo pendentes entre 2026-05-22 e 2026-05-25. A Fase 6C isola diagnosticos para nao misturar storefront, caixa ou financeiro.
 
+## Fase 7C.3 - Fluxo visual da loja publica
+
+`renderStorefrontPublicLegacy()` continua como orquestrador da Storefront V2, sem duplicar render:
+
+```txt
+renderStorefrontView({ mode: "public" })
+ └── renderStorefrontPublicV2()
+      └── renderStorefrontPublicLegacy()
+           ├── renderStorePublicHeader()
+           ├── renderStorePublicBanner()
+           ├── renderStorePublicBenefits()
+           ├── renderStorePublicCategoryBar()
+           ├── renderStorePublicGrid()
+           ├── renderStorePublicHomeContact()
+           │    ├── renderStorePublicContactGrid()
+           │    └── renderStorePublicContactCta()
+           └── renderStorePublicCartFloating()
+```
+
+A pagina dedicada de contato reutiliza a mesma grade e o mesmo CTA. O preview administrativo de contato permanece apenas dentro do editor de contatos, evitando duplicacao na loja publica.
+
 ## Fase 6C.1 - Google Futuro Desativado
 
 ```txt

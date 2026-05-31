@@ -15048,9 +15048,9 @@ async function salvarStorefrontAparencia(event) {
     const store = getStorefrontAdminStoreLocal();
     const name = validarTextoVisualLoja(form.storeName ? form.storeName.value : store.name, 50, "nome");
     if (!name) throw new Error("Informe o nome público da loja.");
-    const description = validarTextoVisualLoja(form.storeDescription ? form.storeDescription.value : store.description, 90, "subtítulo");
+    const description = validarTextoVisualLoja(form.storeDescription ? form.storeDescription.value : store.description, 100, "subtítulo");
     const bannerTitle = validarTextoVisualLoja(form.storeBannerTitle?.value || store.theme_config?.banner_title || "", 40, "título");
-    const bannerSubtitle = validarTextoVisualLoja(form.storeBannerSubtitle?.value || store.theme_config?.banner_subtitle || description, 90, "subtítulo");
+    const bannerSubtitle = validarTextoVisualLoja(form.storeBannerSubtitle?.value || store.theme_config?.banner_subtitle || description, 100, "subtítulo");
     const bannerCtaLabel = validarTextoVisualLoja(form.storeBannerCtaLabel?.value || store.theme_config?.banner_cta_label || "Ver catálogo", 24, "texto do botão");
     const whatsapp = normalizarWhatsappLojaPublica(form.storeWhatsApp?.value || "");
     if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
@@ -15290,9 +15290,9 @@ async function salvarProdutoLojaOnline(event) {
   const products = getStorefrontAdminProductsLocal();
   try {
     const id = form?.productId?.value || "";
-    const title = validarTextoVisualLoja(form?.productTitle?.value, 50, "nome do produto");
+    const title = validarTextoVisualLoja(form?.productTitle?.value, 60, "nome do produto");
     if (!title) throw new Error("Informe o título público do produto.");
-    const description = validarTextoVisualLoja(form?.productDescription?.value, 160, "descrição");
+    const description = validarTextoVisualLoja(form?.productDescription?.value, 180, "descrição");
     const slug = storefrontAdminSlugify(form?.productSlug?.value || title);
     if (products.some((product) => product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este slug.");
     const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
@@ -16431,7 +16431,6 @@ function renderStorePublicCartFloating(vm) {
   return `
     <button class="store-public-floating-cart" type="button" onclick="abrirCarrinhoLojaPublica()" aria-label="Abrir carrinho">
       <span>${renderUiIcon("carrinho")}</span>
-      <strong>Carrinho</strong>
       ${summary.count ? `<em>${summary.count}</em>` : ""}
     </button>
   `;
@@ -16736,7 +16735,7 @@ function renderStoreGuidedIdentityForm(vm) {
       <header><span>Identidade</span><h2>Marca da loja</h2><p>Edite o essencial. A vitrine ao lado atualiza após salvar.</p></header>
       ${renderStoreGuidedHiddenAppearanceFields(vm)}
       <label>Nome da loja<input name="storeName" required maxlength="50" value="${escaparAttr(store.name || "")}"></label>
-      <label>Descrição<textarea name="storeDescription" rows="3" maxlength="90">${escaparHtml(store.description || "")}</textarea></label>
+      <label>Descrição<textarea name="storeDescription" rows="3" maxlength="100">${escaparHtml(store.description || "")}</textarea></label>
       <label>Logo da loja<input name="storeLogoUrl" value="${escaparAttr(store.logo_url || "")}" placeholder="URL da imagem"></label>
       <label class="store-guided-upload">Enviar logo<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('logo', this)"><span>JPG, PNG ou WebP</span></label>
       <div class="store-guided-palette"><strong>Paleta pronta</strong><small>Escolha uma combinação segura para manter contraste e consistência.</small>${renderThemePaletteButtons({ mode: store.theme_config?.mode || "auto", selected: store.theme_config?.primary || "#00BFA6", target: "storefront" })}</div>
@@ -16753,7 +16752,7 @@ function renderStoreGuidedBannerForm(vm) {
       <header><span>Banner</span><h2>Primeira impressão</h2><p>Use uma imagem clara e uma chamada curta para o cliente.</p></header>
       ${renderStoreGuidedHiddenAppearanceFields(vm, { banner: true })}
       <label>Título<input name="storeBannerTitle" required maxlength="40" value="${escaparAttr(store.theme_config?.banner_title || "Produtos feitos para a sua marca")}"></label>
-      <label>Subtítulo<textarea name="storeBannerSubtitle" rows="3" maxlength="90">${escaparHtml(store.theme_config?.banner_subtitle || store.description || "")}</textarea></label>
+      <label>Subtítulo<textarea name="storeBannerSubtitle" rows="3" maxlength="100">${escaparHtml(store.theme_config?.banner_subtitle || store.description || "")}</textarea></label>
       <label>Imagem do banner<input name="storeBannerUrl" value="${escaparAttr(store.banner_url || "")}" placeholder="URL da imagem"></label>
       <label class="store-guided-upload">Enviar banner<input type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"><span>Imagem horizontal, JPG, PNG ou WebP</span></label>
       <label>Texto do botão<input name="storeBannerCtaLabel" maxlength="24" value="${escaparAttr(store.theme_config?.banner_cta_label || "Ver catálogo")}"></label>
@@ -16790,8 +16789,8 @@ function renderStoreGuidedProductForm(vm, product = {}) {
       <input type="checkbox" hidden name="productShowPrice" ${product.show_price !== false ? "checked" : ""}>
       <input type="checkbox" hidden name="productFeatured" ${product.featured ? "checked" : ""}>
       <input type="checkbox" hidden name="productCustomizable" ${product.is_customizable !== false ? "checked" : ""}>
-      <label>Nome<input name="productTitle" required maxlength="50" value="${escaparAttr(product.title || "")}" ${isTemplate ? "disabled" : ""}></label>
-      <label>Descrição<textarea name="productDescription" rows="3" maxlength="160" ${isTemplate ? "disabled" : ""}>${escaparHtml(product.description || "")}</textarea></label>
+      <label>Nome<input name="productTitle" required maxlength="60" value="${escaparAttr(product.title || "")}" ${isTemplate ? "disabled" : ""}></label>
+      <label>Descrição<textarea name="productDescription" rows="3" maxlength="180" ${isTemplate ? "disabled" : ""}>${escaparHtml(product.description || "")}</textarea></label>
       <label>Preço<input name="productPrice" inputmode="decimal" value="${escaparAttr(product.price ?? "")}" ${isTemplate ? "disabled" : ""}></label>
       <label>Categoria<select name="productCategory" ${isTemplate ? "disabled" : ""}><option value="">Sem categoria</option>${catOptions}</select></label>
       <label>Disponibilidade<select name="productStockMode" ${isTemplate ? "disabled" : ""}><option value="unlimited" ${(product.stock_mode || "unlimited") === "unlimited" ? "selected" : ""}>Disponível</option><option value="manual" ${product.stock_mode === "manual" ? "selected" : ""}>Estoque manual</option><option value="erp_linked" ${product.stock_mode === "erp_linked" ? "selected" : ""}>Vinculado ao ERP</option><option value="unavailable" ${product.stock_mode === "unavailable" ? "selected" : ""}>Indisponível</option></select></label>
@@ -17250,7 +17249,7 @@ function renderStorePublicHeader(vm) {
       </nav>
       <nav class="store-public-actions" aria-label="Ações da loja">
         ${futureActions}
-        ${store.whatsapp ? `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">WhatsApp</button>` : ""}
+        ${store.whatsapp ? `<button class="btn secondary store-public-whatsapp-action" type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>` : ""}
         <button class="store-public-icon-action store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()" aria-label="Abrir carrinho" title="Carrinho">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}</button>
         ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
         ${shareEnabled ? `<button class="btn ghost store-public-share-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>` : ""}
@@ -17419,7 +17418,7 @@ function renderStorePublicGrid(vm, products = [], title = "Catálogo", subtitle 
         ${renderStoreAdminControls("catalog", {}, vm)}
       </div>
       <div class="store-public-product-grid store-products">
-        ${products.map((product) => renderStorePublicProductCard(vm, product)).join("") || renderStoreEmptyState({ title: "Nenhum produto publicado ainda", description: "A loja está sendo preparada. Fale pelo WhatsApp para solicitar um orçamento.", icon: "□", action: `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>` })}
+        ${products.map((product) => renderStorePublicProductCard(vm, product)).join("") || renderStoreEmptyState({ title: "Novidades em breve", description: "Estamos preparando nosso catálogo. Fale conosco para solicitar um orçamento.", icon: "□", action: `<button class="btn secondary" type="button" onclick="abrirWhatsappLojaPublica()">Falar com a loja</button>` })}
         ${renderStorePublicAddProductCard(vm)}
       </div>
     </section>
@@ -17456,6 +17455,13 @@ function renderStorePublicProductDetail(vm, product = {}) {
           </div>
           ${product.is_customizable ? `<div class="store-public-note">Produto personalizado. O valor final pode variar conforme tamanho, cor e detalhes combinados com o vendedor.</div>` : ""}
           ${product.public_observations ? `<div class="store-public-note">${escaparHtml(product.public_observations)}</div>` : ""}
+          ${product.is_customizable ? `
+            <div class="store-public-product-options" aria-label="Opções de personalização">
+              <span>Personalizável</span>
+              <span>Acabamento combinado</span>
+              <span>Produção sob consulta</span>
+            </div>
+          ` : ""}
           <div class="actions">
             <button class="btn" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${String(product.stock_mode || "") === "unavailable" ? "disabled" : ""}>Adicionar ao carrinho</button>
             <button class="btn secondary" type="button" onclick="abrirWhatsappProdutoLojaPublica('${escaparAttr(product.id)}')">Pedir pelo WhatsApp</button>
@@ -17645,21 +17651,11 @@ function renderStorefrontPublicLegacy() {
   sincronizarAdminLocalComLojaPublica(vm);
   const homeContent = `
     ${renderStorePublicBanner(vm)}
+    ${renderStorePublicBenefits(vm)}
     ${renderStorePublicCategoryBar(vm)}
     ${featured.length ? renderStorePublicGrid(vm, featured.slice(0, 1), mode.admin ? "Produto exemplo em destaque" : "Produto em destaque", mode.admin ? "Um item pronto para o usuário editar e substituir pelos próprios produtos." : "Seleção especial da loja para orçamento rápido.") : ""}
-    ${renderStorePublicPromoSection(vm)}
     ${renderStorePublicGrid(vm, catalog, category ? category.name : "Catálogo", category ? `Produtos em ${category.name}` : "Escolha um produto e solicite pelo WhatsApp")}
-    ${renderStorePublicBenefits(vm)}
-    ${renderStorePublicTestimonials(vm)}
-    <section class="store-public-contact ${mode.admin ? "store-guided-editable" : ""}" data-store-section="contato" ${mode.admin ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('contacts')"` : ""}>
-      <div>
-        <span>Contato</span>
-        <h2>Pronto para pedir?</h2>
-        <p>Envie sua solicitação e a loja retorna com detalhes de produção, prazo e acabamento.</p>
-      </div>
-      <button class="btn" type="button" onclick="${mode.admin ? "selecionarItemLojaVisual('contacts')" : "abrirWhatsappLojaPublica()"}">Falar no WhatsApp</button>
-      ${renderStoreAdminControls("contacts", {}, vm)}
-    </section>
+    ${renderStorePublicHomeContact(vm)}
   `;
   const pageContent = productDetail ? renderStorePublicProductDetail(vm, productDetail)
     : routeMissing || (vm.route.view === "category" && category ? renderStorePublicCategoryProductsPage(vm, category)
@@ -17770,6 +17766,63 @@ function getStorefrontContactConfig(store = {}) {
   };
 }
 
+function getStorefrontPublicContactItems(vm) {
+  const contact = getStorefrontContactConfig(vm.store || {});
+  return [
+    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", "whatsapp", contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"],
+    ["Instagram", contact.instagram || "Perfil da loja", "instagram", contact.instagram ? `window.open('${escaparAttr(normalizarUrlInstagramLoja(contact.instagram))}', '_blank', 'noopener')` : "informarRecursoFuturoLoja('Instagram da loja')"],
+    ["E-mail", contact.email || "Contato por e-mail", "email", contact.email ? `location.href='mailto:${escaparAttr(contact.email)}'` : "informarRecursoFuturoLoja('E-mail público')"],
+    ["Horário", contact.hours || "Atendimento sob consulta", "agenda", "informarRecursoFuturoLoja('Horário de atendimento')"],
+    ["Endereço", contact.address || "Atendimento online", "empresa", "informarRecursoFuturoLoja('Endereço da loja')"]
+  ];
+}
+
+function renderStorePublicContactGrid(vm) {
+  return `
+    <div class="store-public-contact-grid">
+      ${getStorefrontPublicContactItems(vm).map(([title, desc, icon, action]) => `
+        <button type="button" onclick="${action}">
+          <i>${renderUiIcon(icon)}</i>
+          <strong>${escaparHtml(title)}</strong>
+          <span>${escaparHtml(desc)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderStorePublicContactCta(vm, { home = false } = {}) {
+  const adminMode = getStorefrontPublicMode(vm).admin;
+  return `
+    <aside class="store-public-contact-cta">
+      <div>
+        <span>${home ? "Atendimento" : "Resposta rápida"}</span>
+        <h2>${home ? "Estamos aqui para ajudar" : "Solicite seu orçamento"}</h2>
+        <p>${home ? "Peça orçamento e tire dúvidas com atendimento direto." : "Revise detalhes, personalização e prazo antes de transformar sua escolha em pedido."}</p>
+      </div>
+      <button class="btn" type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : "abrirWhatsappLojaPublica()"}">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>
+    </aside>
+  `;
+}
+
+function renderStorePublicHomeContact(vm) {
+  const adminMode = getStorefrontPublicMode(vm).admin;
+  return `
+    <section class="store-public-contact store-public-contact-home ${adminMode ? "store-guided-editable" : ""}" data-store-section="contato" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('contacts')"` : ""}>
+      <div class="store-public-section-head">
+        <div>
+          <span>Contato</span>
+          <h2>Estamos aqui para ajudar</h2>
+          <p>Fale com a loja e solicite seu orçamento sem compromisso.</p>
+        </div>
+        ${renderStoreAdminControls("contacts", {}, vm)}
+      </div>
+      ${renderStorePublicContactGrid(vm)}
+      ${renderStorePublicContactCta(vm, { home: true })}
+    </section>
+  `;
+}
+
 function renderStoreContactHeroPreview(vm, { compact = false } = {}) {
   const store = vm.store || {};
   const contact = getStorefrontContactConfig(store);
@@ -17793,14 +17846,6 @@ function renderStoreContactHeroPreview(vm, { compact = false } = {}) {
 }
 
 function renderStorePublicContactPage(vm) {
-  const store = vm.store || {};
-  const contact = getStorefrontContactConfig(store);
-  const contacts = [
-    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"],
-    ["Instagram", contact.instagram || "Perfil da loja", contact.instagram ? `window.open('${escaparAttr(normalizarUrlInstagramLoja(contact.instagram))}', '_blank', 'noopener')` : "informarRecursoFuturoLoja('Instagram da loja')"],
-    ["E-mail", contact.email || "Contato por e-mail", contact.email ? `location.href='mailto:${escaparAttr(contact.email)}'` : "informarRecursoFuturoLoja('E-mail publico')"],
-    ["Horário", contact.hours || "Atendimento sob consulta", "informarRecursoFuturoLoja('Horario de atendimento')"]
-  ];
   return `
     ${renderStorePublicInnerHeader(vm, {
       eyebrow: "Atendimento",
@@ -17808,23 +17853,9 @@ function renderStorePublicContactPage(vm) {
       description: "Canais organizados para o cliente pedir orçamento, tirar dúvidas e acompanhar a produção."
     })}
     <section class="store-public-contact-page" data-store-section="contato">
-      ${renderStoreContactHeroPreview(vm)}
       ${renderStoreAdminControls("contacts", {}, vm)}
-      <div class="store-public-contact-grid">
-        ${contacts.map(([title, desc, action]) => `
-          <button type="button" onclick="${action}">
-            <i>${renderUiIcon(title === "WhatsApp" ? "whatsapp" : title === "Instagram" ? "instagram" : title === "E-mail" ? "email" : "agenda")}</i>
-            <strong>${escaparHtml(title)}</strong>
-            <span>${escaparHtml(desc)}</span>
-          </button>
-        `).join("")}
-      </div>
-      <aside>
-        <span>Resposta rápida</span>
-        <h2>Solicite seu orçamento</h2>
-        <p>O atendimento pelo WhatsApp ajuda a revisar detalhes, personalização e prazo antes de transformar em pedido.</p>
-        <button class="btn" type="button" onclick="abrirWhatsappLojaPublica()">Falar no WhatsApp</button>
-      </aside>
+      ${renderStorePublicContactGrid(vm)}
+      ${renderStorePublicContactCta(vm)}
     </section>
   `;
 }
@@ -18678,12 +18709,12 @@ function renderStorefrontAppearance(vm) {
             <div><strong>Identidade da loja</strong><small>Nome, descrição e canais públicos.</small></div>
           </div>
           <div class="form-grid">
-          <label>Nome público<input name="storeName" required value="${escaparAttr(vm.store.name || "")}"></label>
+          <label>Nome público<input name="storeName" required maxlength="50" value="${escaparAttr(vm.store.name || "")}"></label>
           <label>Slug<input name="storeSlug" value="${escaparAttr(vm.store.slug || "")}"></label>
           <label>WhatsApp<input name="storeWhatsApp" inputmode="tel" value="${escaparAttr(vm.store.whatsapp || "")}"></label>
           <label>Instagram<input name="storeInstagram" value="${escaparAttr(vm.store.instagram || "")}"></label>
           </div>
-          <label>Descrição<textarea name="storeDescription" rows="3">${escaparHtml(vm.store.description || "")}</textarea></label>
+          <label>Descrição<textarea name="storeDescription" rows="3" maxlength="100">${escaparHtml(vm.store.description || "")}</textarea></label>
         </div>
         <div class="storefront-visual-block">
           <div class="storefront-block-head">
@@ -18848,7 +18879,7 @@ function renderStorefrontProducts(vm) {
             <div><strong>Dados públicos</strong><small>Informações que o cliente enxerga na vitrine.</small></div>
           </div>
           <div class="form-grid">
-          <label>Título público<input name="productTitle" required value="${escaparAttr(editing.title || "")}"></label>
+          <label>Título público<input name="productTitle" required maxlength="60" value="${escaparAttr(editing.title || "")}"></label>
           <label>Slug<input name="productSlug" value="${escaparAttr(editing.slug || "")}"></label>
           <label>Produto ERP opcional<input name="erpProductId" value="${escaparAttr(editing.erp_product_id || "")}"></label>
           <label>Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
@@ -18880,7 +18911,7 @@ function renderStorefrontProducts(vm) {
           <label class="checkbox-row"><input name="productCustomizable" type="checkbox" ${editing.is_customizable !== false ? "checked" : ""}> Personalizável</label>
           </div>
         </div>
-        <label>Descrição pública<textarea name="productDescription" rows="3">${escaparHtml(editing.description || "")}</textarea></label>
+        <label>Descrição pública<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(editing.description || "")}</textarea></label>
         <label>Observações públicas<textarea name="productObservations" rows="2">${escaparHtml(editing.public_observations || "")}</textarea></label>
         <div class="actions storefront-sticky-actions"><button class="btn" type="submit">${editing.id ? "Salvar produto" : "Criar produto"}</button></div>
       </form>

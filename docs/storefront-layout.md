@@ -97,3 +97,27 @@ O preview agora preserva proporcao de device e evita scroll duplo:
 - `store-preview-device` funciona como moldura;
 - `store-preview-scroll` e o unico scroller interno do preview;
 - tablet/mobile empilham preview em largura total.
+
+## Fase 7C.3 - Composicao publica premium
+
+A loja publica usa uma composicao curta e previsivel:
+
+```txt
+header
+ └── banner compacto
+      └── beneficios
+           └── categorias
+                └── produtos em destaque
+                     └── catalogo
+                          └── contato unico
+                               └── footer
+```
+
+Grid de produtos:
+
+- desktop amplo: `4` colunas;
+- desktop intermediario: `3` colunas;
+- tablet e mobile confortavel: `2` colunas;
+- mobile estreito abaixo de `360px`: `1` coluna.
+
+As imagens dos cards usam proporcao `1 / 1`. O carrinho flutuante usa apenas icone e contador. A pagina de produto empilha a galeria e os dados no mobile sem criar scroll horizontal.

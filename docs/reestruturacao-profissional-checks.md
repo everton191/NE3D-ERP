@@ -501,3 +501,19 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Registrar eventos seguros da tela sem payload sensivel.
 - `[x]` Criar `test:plans-ui`.
 - `[~]` Validacao visual autenticada em navegador deve ser repetida manualmente antes do release.
+
+## Fase 7C.3 - Loja Publica Premium
+
+- `[x]` Criar checkpoint Git antes da alteracao visual.
+- `[x]` Preservar Storefront V2, editor guiado, Supabase, planos, checkout e publicacao.
+- `[x]` Aplicar superficie clara premium apenas na loja publica.
+- `[x]` Manter sidebar e toolbar do editor com contraste operacional escuro.
+- `[x]` Reordenar home para banner, beneficios, categorias, produtos e contato.
+- `[x]` Remover promocao e depoimentos genericos da home sem apagar fallback legado.
+- `[x]` Consolidar grade unica de contatos e CTA unico.
+- `[x]` Reduzir carrinho flutuante para icone e contador.
+- `[x]` Fixar cards com imagem quadrada e titulo em ate duas linhas.
+- `[x]` Ajustar limites: banner `40/100/24`, produto `60/180`.
+- `[x]` Criar `test:storefront-premium-7c3`.
+- `[x]` Atualizar cache PWA para `simplifica-3d-v129-estavel-20260531-storefront-premium`.
+- `[~]` Validar CRUD remoto com conta descartavel antes de publicar produtos reais.

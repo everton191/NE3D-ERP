@@ -6,7 +6,7 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v128-estavel-20260531-store-editor-toolbar",
+  "simplifica-3d-v129-estavel-20260531-storefront-premium",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
   "versionName \"1.0.18-rc\"",
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache v128 e versionamento atualizado presentes.");
+console.log("Storefront PWA upgrade: cache v129 e versionamento atualizado presentes.");

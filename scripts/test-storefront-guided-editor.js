@@ -55,7 +55,7 @@ assert(mobileActions.includes('return "";'), "Rodape antigo do editor guiado dev
 assert(app.includes("Copiar link da loja"), "Toolbar desktop deve nomear claramente a acao de copiar link");
 assert(app.includes("Abrir loja pública"), "Toolbar desktop deve nomear claramente a abertura da loja");
 assert(app.includes('maxlength="50"'), "Campos principais da loja devem possuir limite visual seguro");
-assert(app.includes('maxlength="160"'), "Descricao de produto deve possuir limite visual seguro");
+assert(app.includes('maxlength="180"'), "Descricao de produto deve possuir limite visual seguro");
 assert(app.includes("vm?.limits?.shareEnabled !== false"), "Link guiado respeita regra de compartilhamento do plano");
 assert(app.includes("Produtos da loja online ficam disponíveis no Start ou Pro."), "Produtos da vitrine continuam bloqueados no Gratis");
 const normalizeWhatsapp = new Function(`${extractFunction("normalizarWhatsappLojaPublica")}; return normalizarWhatsappLojaPublica;`)();
@@ -75,7 +75,7 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "font-size:16px;"
 ].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v128-estavel-20260531-store-editor-toolbar"), "Cache PWA da fase 7C.2 nao foi atualizado");
-assert(index.includes("1.0.22-rc-store-editor-toolbar-20260531"), "Cache-bust web da fase 7C.2 nao foi atualizado");
+assert(sw.includes("simplifica-3d-v129-estavel-20260531-storefront-premium"), "Cache PWA da fase 7C.3 nao foi atualizado");
+assert(index.includes("1.0.23-rc-storefront-premium-20260531"), "Cache-bust web da fase 7C.3 nao foi atualizado");
 
-console.log("Storefront guided editor: toolbar unica, preview imediato, bottom sheet mobile, produto publicado e cache PWA validados.");
+console.log("Storefront guided editor: toolbar unica, preview imediato, bottom sheet mobile, produto publicado e cache PWA premium validados.");
