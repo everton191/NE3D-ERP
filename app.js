@@ -15402,7 +15402,129 @@ async function excluirCategoriaLojaOnline(id) {
   }
 }
 
+let storefrontProductMobileStep = 1;
+
+function isStorefrontProductMobileFlow() {
+  return window.innerWidth <= 768;
+}
+
+function getStorefrontProductFormField(form, name) {
+  return form?.elements?.namedItem?.(name) || form?.querySelector?.(`[name="${name}"]`) || null;
+}
+
+function limparErroCampoProdutoLojaOnline(field) {
+  if (!field?.removeAttribute) return;
+  field.removeAttribute("aria-invalid");
+  field.closest("label")?.querySelector(".store-product-field-error")?.remove();
+}
+
+function mostrarErroCampoProdutoLojaOnline(field, message) {
+  if (!field) return false;
+  limparErroCampoProdutoLojaOnline(field);
+  field.setAttribute("aria-invalid", "true");
+  const error = document.createElement("small");
+  error.className = "store-product-field-error";
+  error.textContent = message;
+  field.closest("label")?.append(error);
+  field.focus?.();
+  field.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  mostrarToast(message, "erro", 3400);
+  return false;
+}
+
+function validarEtapaProdutoLojaOnline(step, form = document.getElementById("storefrontProductForm")) {
+  if (!form) return false;
+  if (Number(step) === 1) {
+    const title = getStorefrontProductFormField(form, "productTitle");
+    limparErroCampoProdutoLojaOnline(title);
+    if (!String(title?.value || "").trim()) return mostrarErroCampoProdutoLojaOnline(title, "Informe o título público do produto.");
+  }
+  if (Number(step) === 2) {
+    const price = getStorefrontProductFormField(form, "productPrice");
+    limparErroCampoProdutoLojaOnline(price);
+    const mode = getStorefrontProductFormField(form, "productPriceMode")?.value || "fixed";
+    const value = Number(String(price?.value || "0").replace(",", ".")) || 0;
+    if (mode !== "quote" && value <= 0) return mostrarErroCampoProdutoLojaOnline(price, "Informe um preço válido.");
+  }
+  return true;
+}
+
+function validarTodasEtapasProdutoLojaOnline(form = document.getElementById("storefrontProductForm")) {
+  for (const step of [1, 2, 3, 4]) {
+    if (!validarEtapaProdutoLojaOnline(step, form)) {
+      setStorefrontProductMobileStep(step, { focus: false });
+      return false;
+    }
+  }
+  return true;
+}
+
+function atualizarResumoRevisaoProdutoLojaOnline(form = document.getElementById("storefrontProductForm")) {
+  if (!form) return;
+  const setText = (selector, text) => {
+    const target = form.querySelector(selector);
+    if (target) target.textContent = text;
+  };
+  const category = getStorefrontProductFormField(form, "productCategory")?.selectedOptions?.[0]?.textContent || "Sem categoria";
+  const priceMode = getStorefrontProductFormField(form, "productPriceMode")?.value || "fixed";
+  const price = Number(String(getStorefrontProductFormField(form, "productPrice")?.value || "0").replace(",", ".")) || 0;
+  setText("[data-product-review-title]", getStorefrontProductFormField(form, "productTitle")?.value?.trim() || "Produto sem título");
+  setText("[data-product-review-category]", category);
+  setText("[data-product-review-price]", priceMode === "quote" ? "Sob orçamento" : formatarMoeda(price));
+  setText("[data-product-review-visibility]", getStorefrontProductFormField(form, "productVisible")?.checked ? "Visível na loja ativa" : "Oculto");
+}
+
+function setStorefrontProductMobileStep(step = 1, options = {}) {
+  const form = document.getElementById("storefrontProductForm");
+  storefrontProductMobileStep = Math.max(1, Math.min(4, Number(step) || 1));
+  if (!form) return;
+  form.dataset.productMobileStep = String(storefrontProductMobileStep);
+  form.querySelectorAll(".store-product-form-step").forEach((section) => {
+    const active = Number(section.dataset.productStep) === storefrontProductMobileStep;
+    section.classList.toggle("is-active", active);
+    if (isStorefrontProductMobileFlow()) section.setAttribute("aria-hidden", active ? "false" : "true");
+    else section.removeAttribute("aria-hidden");
+  });
+  form.querySelectorAll(".store-product-step-dot").forEach((dot) => {
+    const dotStep = Number(dot.dataset.productStepDot);
+    dot.classList.toggle("is-active", dotStep === storefrontProductMobileStep);
+    dot.classList.toggle("is-complete", dotStep < storefrontProductMobileStep);
+    if (dotStep === storefrontProductMobileStep) dot.setAttribute("aria-current", "step");
+    else dot.removeAttribute("aria-current");
+  });
+  const titles = ["Dados básicos", "Preço e estoque", "Fotos", "Exibição e revisão"];
+  const status = form.querySelector("[data-product-step-status]");
+  if (status) status.textContent = `Etapa ${storefrontProductMobileStep} de 4 · ${titles[storefrontProductMobileStep - 1]}`;
+  const back = form.querySelector("[data-product-step-back]");
+  if (back) back.textContent = storefrontProductMobileStep === 1 ? "Cancelar" : "Voltar";
+  form.querySelector("[data-product-step-next]")?.toggleAttribute("hidden", storefrontProductMobileStep === 4);
+  form.querySelector("[data-product-step-save]")?.toggleAttribute("hidden", storefrontProductMobileStep !== 4);
+  atualizarResumoRevisaoProdutoLojaOnline(form);
+  if (options.focus !== false) {
+    form.querySelector(`.store-product-form-step[data-product-step="${storefrontProductMobileStep}"] input, .store-product-form-step[data-product-step="${storefrontProductMobileStep}"] select, .store-product-form-step[data-product-step="${storefrontProductMobileStep}"] textarea`)?.focus?.();
+  }
+}
+
+function avancarEtapaProdutoLojaOnline() {
+  const form = document.getElementById("storefrontProductForm");
+  if (!validarEtapaProdutoLojaOnline(storefrontProductMobileStep, form)) return;
+  setStorefrontProductMobileStep(storefrontProductMobileStep + 1);
+}
+
+function voltarEtapaProdutoLojaOnline() {
+  if (storefrontProductMobileStep <= 1) return cancelarEdicaoProdutoLojaOnline();
+  setStorefrontProductMobileStep(storefrontProductMobileStep - 1);
+}
+
+function ajustarQuantidadeProdutoLojaOnline(delta = 0) {
+  const input = document.querySelector("#storefrontProductForm [name='productStockQuantity']");
+  if (!input) return;
+  input.value = String(Math.max(0, (Number(input.value) || 0) + Number(delta || 0)));
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function abrirEditorProdutoLojaOnline(id = "") {
+  storefrontProductMobileStep = 1;
   const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
   if (Number.isFinite(limits.productLimit) && limits.productLimit <= 0) {
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
@@ -15440,46 +15562,55 @@ function abrirEditorProdutoLojaOnline(id = "") {
   setStorefrontAdminTab("products");
 }
 
+function cancelarEdicaoProdutoLojaOnline() {
+  storefrontProductMobileStep = 1;
+  storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
+  storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
+  mostrarToast("Edição do produto cancelada.", "info", 2200);
+  renderApp();
+}
+
 async function salvarProdutoLojaOnline(event) {
   event?.preventDefault?.();
   const form = event?.target;
   const botao = form?.querySelector?.("button[type='submit']");
   const store = getStorefrontAdminStoreLocal();
   const products = getStorefrontAdminProductsLocal();
+  if (isStorefrontProductMobileFlow() && !validarTodasEtapasProdutoLojaOnline(form)) return;
   try {
-    const id = form?.productId?.value || "";
-    const title = validarTextoVisualLoja(form?.productTitle?.value, 60, "nome do produto");
+    const id = getStorefrontProductFormField(form, "productId")?.value || "";
+    const title = validarTextoVisualLoja(getStorefrontProductFormField(form, "productTitle")?.value, 60, "nome do produto");
     if (!title) throw new Error("Informe o título público do produto.");
-    const description = validarTextoVisualLoja(form?.productDescription?.value, 180, "descrição");
-    const slug = storefrontAdminSlugify(form?.productSlug?.value || title);
+    const description = validarTextoVisualLoja(getStorefrontProductFormField(form, "productDescription")?.value, 180, "descrição");
+    const slug = storefrontAdminSlugify(getStorefrontProductFormField(form, "productSlug")?.value || title);
     if (products.some((product) => product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este slug.");
     const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
     if (!id && Number.isFinite(limits.productLimit) && limits.productLimit <= 0) throw new Error("Produtos da loja online ficam disponíveis no Start ou Pro.");
     if (!id && products.length >= limits.productLimit) throw new Error(`Limite de ${limits.productLimit} produto(s) para este plano.`);
-    const priceMode = form?.productPriceMode?.value || "fixed";
-    const price = Math.max(0, Number(String(form?.productPrice?.value || "0").replace(",", ".")) || 0);
-    const compare = Math.max(0, Number(String(form?.productComparePrice?.value || "0").replace(",", ".")) || 0);
+    const priceMode = getStorefrontProductFormField(form, "productPriceMode")?.value || "fixed";
+    const price = Math.max(0, Number(String(getStorefrontProductFormField(form, "productPrice")?.value || "0").replace(",", ".")) || 0);
+    const compare = Math.max(0, Number(String(getStorefrontProductFormField(form, "productComparePrice")?.value || "0").replace(",", ".")) || 0);
     if (priceMode !== "quote" && price <= 0) throw new Error("Informe um preço válido.");
     let nextProduct = {
       id: id || `prod-${Date.now()}`,
       store_id: store.id,
       owner_id: store.owner_id || storefrontAdminCurrentOwnerId(),
-      erp_product_id: form?.erpProductId?.value?.trim() || null,
+      erp_product_id: getStorefrontProductFormField(form, "erpProductId")?.value?.trim() || null,
       title,
       slug,
       description,
       price,
       compare_price: priceMode === "promo" && compare > price ? compare : null,
       price_mode: priceMode,
-      show_price: priceMode !== "quote" && !!form?.productShowPrice?.checked,
-      category_id: form?.productCategory?.value || null,
-      visible: !!form?.productVisible?.checked && store.active === true,
-      featured: !!form?.productFeatured?.checked,
-      is_customizable: !!form?.productCustomizable?.checked,
-      estimated_production_time: form?.productTime?.value?.trim() || "",
-      public_observations: form?.productObservations?.value?.trim() || "",
-      stock_mode: form?.productStockMode?.value || "unlimited",
-      stock_quantity: form?.productStockQuantity?.value ? Math.max(0, Number(form.productStockQuantity.value) || 0) : null
+      show_price: priceMode !== "quote" && !!getStorefrontProductFormField(form, "productShowPrice")?.checked,
+      category_id: getStorefrontProductFormField(form, "productCategory")?.value || null,
+      visible: !!getStorefrontProductFormField(form, "productVisible")?.checked && store.active === true,
+      featured: !!getStorefrontProductFormField(form, "productFeatured")?.checked,
+      is_customizable: !!getStorefrontProductFormField(form, "productCustomizable")?.checked,
+      estimated_production_time: getStorefrontProductFormField(form, "productTime")?.value?.trim() || "",
+      public_observations: getStorefrontProductFormField(form, "productObservations")?.value?.trim() || "",
+      stock_mode: getStorefrontProductFormField(form, "productStockMode")?.value || "unlimited",
+      stock_quantity: getStorefrontProductFormField(form, "productStockQuantity")?.value ? Math.max(0, Number(getStorefrontProductFormField(form, "productStockQuantity").value) || 0) : null
     };
     if (!await requestSensitiveActionConfirmation({
       actionLabel: id ? "editar produto, preço ou publicação da loja" : "criar produto na loja",
@@ -15660,6 +15791,114 @@ function abrirProdutoLojaPublica(productId = "") {
   const store = getStorefrontAdminStoreLocal();
   const url = `${location.origin}${getStorefrontPublicRoutePath({ slug: store.slug || "loja", view: "product", productSlug: product.slug })}`;
   window.open(url, "_blank", "noopener");
+}
+
+function copiarLinkProdutoLojaOnline(productId = "") {
+  const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(productId));
+  if (!product?.slug) return mostrarToast("Produto sem endereço público.", "erro", 3200);
+  const store = getStorefrontAdminStoreLocal();
+  const url = `${location.origin}${getStorefrontPublicRoutePath({ slug: store.slug || "loja", view: "product", productSlug: product.slug })}`;
+  copiarLinkLojaPublica(url);
+}
+
+function abrirSeletorFotoProdutoLojaOnline(productId = "") {
+  closeDrawer();
+  const input = document.getElementById(`storefrontProductPhoto-${storefrontAdminSlugify(productId)}`);
+  if (!input) return mostrarToast("Abra a edição do produto para incluir fotos.", "info", 3000);
+  input.click();
+}
+
+function fecharMenusContextuaisProdutosLoja(except = null) {
+  document.querySelectorAll(".store-admin-more-actions[open]").forEach((menu) => {
+    if (menu !== except) menu.removeAttribute("open");
+  });
+}
+
+function sincronizarMenuContextualProduto(details) {
+  if (!details) return;
+  const summary = details.querySelector("summary");
+  summary?.setAttribute("aria-expanded", details.open ? "true" : "false");
+  details.classList.remove("open-up");
+  if (!details.open) return;
+  fecharMenusContextuaisProdutosLoja(details);
+  requestAnimationFrame(() => {
+    const panel = details.querySelector(".ui-context-menu-panel");
+    const trigger = summary?.getBoundingClientRect?.();
+    const panelHeight = panel?.offsetHeight || 260;
+    if (trigger && trigger.bottom + panelHeight + 16 > window.innerHeight && trigger.top > panelHeight) {
+      details.classList.add("open-up");
+    }
+  });
+}
+
+function executarAcaoProdutoLojaOnline(action, productId = "") {
+  closeDrawer();
+  fecharMenusContextuaisProdutosLoja();
+  if (action === "view") return abrirProdutoLojaPublica(productId);
+  if (action === "duplicate") return duplicarProdutoLojaOnline(productId);
+  if (action === "copy") return copiarLinkProdutoLojaOnline(productId);
+  if (action === "visible") return alternarProdutoLojaOnline(productId, "visible");
+  if (action === "featured") return alternarProdutoLojaOnline(productId, "featured");
+  if (action === "up") return moverProdutoLojaOnline(productId, -1);
+  if (action === "down") return moverProdutoLojaOnline(productId, 1);
+  if (action === "photo") return abrirSeletorFotoProdutoLojaOnline(productId);
+  if (action === "delete") return removerProdutoLojaOnline(productId);
+}
+
+function renderAcoesProdutoLojaOnline(product, options = {}) {
+  const productId = escaparAttr(product.id);
+  const asSheet = options.asSheet === true;
+  const actionClass = asSheet ? "store-product-sheet-action" : "btn ghost";
+  return `
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('view','${productId}')">Visualizar produto</button>
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('duplicate','${productId}')">Duplicar produto</button>
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('visible','${productId}')">${product.visible ? "Ocultar produto" : "Exibir produto"}</button>
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('copy','${productId}')">Copiar link do produto</button>
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('featured','${productId}')">${product.featured ? "Remover destaque" : "Destacar produto"}</button>
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('up','${productId}')">Mover para cima</button>
+    <button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('down','${productId}')">Mover para baixo</button>
+    ${asSheet ? `<button class="${actionClass}" type="button" onclick="executarAcaoProdutoLojaOnline('photo','${productId}')">Adicionar foto</button>` : ""}
+    <button class="${asSheet ? "store-product-sheet-action danger" : "btn danger"}" type="button" onclick="executarAcaoProdutoLojaOnline('delete','${productId}')">Excluir produto</button>
+  `;
+}
+
+function abrirAcoesProdutoLojaOnline(productId = "") {
+  const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(productId));
+  if (!product || product.__demo) return;
+  openDrawer({
+    label: "Ações do produto",
+    content: `
+      <section id="store-product-action-sheet" class="store-product-action-sheet" role="dialog" aria-modal="true" aria-labelledby="store-product-action-sheet-title">
+        <span class="store-product-sheet-handle" aria-hidden="true"></span>
+        <header>
+          <div>
+            <small>Ações do produto</small>
+            <h3 id="store-product-action-sheet-title">${escaparHtml(product.title || "Produto")}</h3>
+          </div>
+          <button class="btn ghost ui-icon-button" type="button" onclick="closeDrawer()" aria-label="Fechar ações do produto" title="Fechar">×</button>
+        </header>
+        <div class="store-product-sheet-actions">
+          ${renderAcoesProdutoLojaOnline(product, { asSheet: true })}
+        </div>
+        <button class="btn secondary store-product-sheet-cancel" type="button" onclick="closeDrawer()">Cancelar</button>
+      </section>
+    `
+  });
+  setTimeout(() => document.querySelector(".store-product-action-sheet button")?.focus?.(), 0);
+}
+
+function configurarMenusContextuaisProdutosLoja() {
+  if (window.__simplificaStoreProductMenusConfigured) return;
+  window.__simplificaStoreProductMenusConfigured = true;
+  document.addEventListener("click", (event) => {
+    const menu = event.target?.closest?.(".store-admin-more-actions");
+    if (!menu) fecharMenusContextuaisProdutosLoja();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    fecharMenusContextuaisProdutosLoja();
+    if (document.querySelector(".store-product-action-sheet")) closeDrawer();
+  });
 }
 
 async function processarImagemProdutoLojaOnline(productId, input) {
@@ -19033,6 +19272,7 @@ function renderStorefrontProducts(vm) {
   const editingId = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.editingProduct) || "";
   const editingSeed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
   const editing = vm.products.find((product) => product.id === editingId) || (editingSeed && typeof editingSeed === "object" ? editingSeed : {});
+  const editingImages = vm.images.filter((image) => String(image.product_id) === String(editing.id || ""));
   const demoProducts = vm.products.filter(storefrontIsDemoProduct);
   const realProducts = vm.products.filter((product) => !storefrontIsDemoProduct(product));
   const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${cat.__template ? "disabled" : ""} ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}${cat.__template ? " (modelo)" : ""}</option>`).join("");
@@ -19063,9 +19303,19 @@ function renderStorefrontProducts(vm) {
         <div><h3>Produtos da loja</h3><p class="muted">Preencha as informações que seus clientes verão na vitrine.</p></div>
         <div class="store-editor-save-inline">${renderStorefrontSaveState(vm)}</div>
       </div>
-      <form id="storefrontProductForm" class="app-form" oninput="marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes'); storefrontScheduleAutosave('product', serializeStorefrontForm(this))" onsubmit="salvarProdutoLojaOnline(event)">
+      <form id="storefrontProductForm" class="app-form store-product-form" data-product-mobile-step="${storefrontProductMobileStep}" oninput="limparErroCampoProdutoLojaOnline(event.target); atualizarResumoRevisaoProdutoLojaOnline(this); marcarStorefrontAlteracoesPendentes('Produto com alterações pendentes'); storefrontScheduleAutosave('product', serializeStorefrontForm(this))" onsubmit="salvarProdutoLojaOnline(event)">
         <input type="hidden" name="productId" value="${escaparAttr(editing.id || "")}">
-        <div class="storefront-visual-block">
+        <header class="store-product-mobile-flow-header">
+          <div>
+            <strong>${editing.id ? "Editar produto" : "Novo produto"}</strong>
+            <span data-product-step-status>Etapa ${storefrontProductMobileStep} de 4 · ${["Dados básicos", "Preço e estoque", "Fotos", "Exibição e revisão"][storefrontProductMobileStep - 1]}</span>
+          </div>
+          <button class="btn ghost" type="button" onclick="cancelarEdicaoProdutoLojaOnline()">Cancelar</button>
+          <div class="store-product-stepper" aria-label="Etapas do produto">
+            ${["Dados", "Preço", "Fotos", "Revisão"].map((label, index) => `<span class="store-product-step-dot ${index + 1 === storefrontProductMobileStep ? "is-active" : index + 1 < storefrontProductMobileStep ? "is-complete" : ""}" data-product-step-dot="${index + 1}" ${index + 1 === storefrontProductMobileStep ? 'aria-current="step"' : ""}><i aria-hidden="true"></i><small>${label}</small></span>`).join("")}
+          </div>
+        </header>
+        <div class="storefront-visual-block store-product-form-step ${storefrontProductMobileStep === 1 ? "is-active" : ""}" data-product-step="1">
           <div class="storefront-block-head">
             <span class="storefront-block-icon">01</span>
             <div><strong>Dados públicos</strong><small>Informações que o cliente enxerga na vitrine.</small></div>
@@ -19076,8 +19326,9 @@ function renderStorefrontProducts(vm) {
           <label>Produto vinculado ao estoque (opcional)<input name="erpProductId" value="${escaparAttr(editing.erp_product_id || "")}"></label>
           <label>Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
           </div>
+          <label>Descrição pública<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(editing.description || "")}</textarea></label>
         </div>
-        <div class="storefront-visual-block">
+        <div class="storefront-visual-block store-product-form-step ${storefrontProductMobileStep === 2 ? "is-active" : ""}" data-product-step="2">
           <div class="storefront-block-head">
             <span class="storefront-block-icon">02</span>
             <div><strong>Preço e estoque</strong><small>Exibição pública sem custo, lucro ou margem interna.</small></div>
@@ -19088,13 +19339,29 @@ function renderStorefrontProducts(vm) {
           <label>Modo de preço<select name="productPriceMode">${["fixed", "from", "quote", "promo"].map((mode) => `<option value="${mode}" ${(editing.price_mode || "fixed") === mode ? "selected" : ""}>${mode === "fixed" ? "Preço fixo" : mode === "from" ? "A partir de" : mode === "quote" ? "Sob orçamento" : "Promoção"}</option>`).join("")}</select></label>
           <label>Prazo estimado<input name="productTime" value="${escaparAttr(editing.estimated_production_time || "")}"></label>
           <label>Estoque<select name="productStockMode">${["unlimited", "manual", "erp_linked", "unavailable"].map((mode) => `<option value="${mode}" ${(editing.stock_mode || "unlimited") === mode ? "selected" : ""}>${mode === "unlimited" ? "Sob encomenda" : mode === "manual" ? "Estoque informado manualmente" : mode === "erp_linked" ? "Vinculado ao estoque" : "Indisponível"}</option>`).join("")}</select></label>
-          <label>Qtd. manual<input name="productStockQuantity" type="number" min="0" value="${escaparAttr(editing.stock_quantity ?? "")}"></label>
+          <label>Qtd. manual
+            <span class="store-product-quantity-control">
+              <button type="button" onclick="ajustarQuantidadeProdutoLojaOnline(-1)" aria-label="Diminuir quantidade">−</button>
+              <input name="productStockQuantity" type="number" inputmode="numeric" step="1" min="0" value="${escaparAttr(editing.stock_quantity ?? "")}">
+              <button type="button" onclick="ajustarQuantidadeProdutoLojaOnline(1)" aria-label="Aumentar quantidade">+</button>
+            </span>
+          </label>
           </div>
         </div>
-        <div class="storefront-visual-block">
+        <div class="storefront-visual-block store-product-form-step ${storefrontProductMobileStep === 3 ? "is-active" : ""}" data-product-step="3">
           <div class="storefront-block-head">
             <span class="storefront-block-icon">03</span>
-            <div><strong>Publicação</strong><small>Controle onde o item aparece na loja.</small></div>
+            <div><strong>Fotos do produto</strong><small>Inclua imagens claras para apresentar o produto na vitrine.</small></div>
+          </div>
+          <div class="store-product-form-photo-grid">
+            ${editingImages.map((image) => `<span class="storefront-thumb"><img src="${escaparAttr(image.image_url)}" alt="${escaparAttr(image.alt_text || editing.title || "Produto")}"><button type="button" onclick="removerImagemProdutoLojaOnline('${escaparAttr(image.id)}')" aria-label="Remover foto">×</button></span>`).join("")}
+            ${editing.id ? `<label class="btn secondary store-product-form-photo-add">Adicionar foto<input type="file" accept="image/*" multiple hidden onchange="processarImagemProdutoLojaOnline('${escaparAttr(editing.id)}', this)"></label>` : `<p class="muted">Salve o produto primeiro para incluir fotos. Depois você poderá adicionar e remover imagens nesta etapa.</p>`}
+          </div>
+        </div>
+        <div class="storefront-visual-block store-product-form-step ${storefrontProductMobileStep === 4 ? "is-active" : ""}" data-product-step="4">
+          <div class="storefront-block-head">
+            <span class="storefront-block-icon">04</span>
+            <div><strong>Exibição e revisão</strong><small>Confira como o produto será apresentado antes de salvar.</small></div>
           </div>
           <div class="form-grid">
           <label class="checkbox-row"><input name="productShowPrice" type="checkbox" ${editing.show_price !== false ? "checked" : ""}> Mostrar preço</label>
@@ -19102,10 +19369,23 @@ function renderStorefrontProducts(vm) {
           <label class="checkbox-row"><input name="productFeatured" type="checkbox" ${editing.featured ? "checked" : ""}> Destaque</label>
           <label class="checkbox-row"><input name="productCustomizable" type="checkbox" ${editing.is_customizable !== false ? "checked" : ""}> Personalizável</label>
           </div>
+          <label>Observações públicas<textarea name="productObservations" rows="2">${escaparHtml(editing.public_observations || "")}</textarea></label>
+          <div class="store-product-review-grid" aria-label="Resumo do produto">
+            <article><small>Produto</small><strong data-product-review-title>${escaparHtml(editing.title || "Produto sem título")}</strong></article>
+            <article><small>Categoria</small><strong data-product-review-category>${escaparHtml(getStorefrontCategoryName(vm, editing.category_id))}</strong></article>
+            <article><small>Preço</small><strong data-product-review-price>${escaparHtml(renderPrecoProdutoLojaOnline(editing))}</strong></article>
+            <article><small>Exibição</small><strong data-product-review-visibility>${editing.visible ? "Visível na loja ativa" : "Oculto"}</strong></article>
+          </div>
         </div>
-        <label>Descrição pública<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(editing.description || "")}</textarea></label>
-        <label>Observações públicas<textarea name="productObservations" rows="2">${escaparHtml(editing.public_observations || "")}</textarea></label>
-        <div class="actions storefront-sticky-actions"><button class="btn" type="submit">${editing.id ? "Salvar produto" : "Criar produto"}</button></div>
+        <div class="actions storefront-sticky-actions store-product-desktop-save-actions">
+          <button class="btn secondary" type="button" onclick="cancelarEdicaoProdutoLojaOnline()">Cancelar</button>
+          <button class="btn" type="submit">${editing.id ? "Salvar alterações" : "Salvar produto"}</button>
+        </div>
+        <div class="store-product-mobile-sticky-actions">
+          <button class="btn secondary" type="button" data-product-step-back onclick="voltarEtapaProdutoLojaOnline()">${storefrontProductMobileStep === 1 ? "Cancelar" : "Voltar"}</button>
+          <button class="btn" type="button" data-product-step-next onclick="avancarEtapaProdutoLojaOnline()" ${storefrontProductMobileStep === 4 ? "hidden" : ""}>Continuar</button>
+          <button class="btn" type="submit" data-product-step-save ${storefrontProductMobileStep === 4 ? "" : "hidden"}>${editing.id ? "Salvar alterações" : "Salvar produto"}</button>
+        </div>
       </form>
     </section>
     <section class="card store-product-list-panel store-editor-panel">
@@ -19116,41 +19396,37 @@ function renderStorefrontProducts(vm) {
         ${vm.products.map((product) => {
           const productImages = vm.images.filter((image) => image.product_id === product.id);
           const image = productImages[0]?.image_url || product.image_url || "";
+          const menuId = `store-product-menu-${storefrontAdminSlugify(product.id)}`;
           return `<article class="store-product-admin-card">
             <div class="store-product-admin-media">${image ? `<img loading="lazy" decoding="async" src="${escaparAttr(image)}" alt="${escaparAttr(product.title)}">` : renderUiIcon("estoque")}</div>
             <div class="store-product-admin-body">
+              <strong class="store-product-admin-title">${escaparHtml(product.title)}</strong>
+              <small class="store-product-admin-summary">${escaparHtml(getStorefrontCategoryName(vm, product.category_id))} • ${escaparHtml(renderPrecoProdutoLojaOnline(product))}</small>
               <div class="store-badge-row">
                 ${product.__demo ? `<span class="status-badge badge-info">Exemplo de produto</span>` : ""}
                 <span class="status-badge ${product.visible ? "badge-success" : ""}">${product.visible ? "visível" : "oculto"}</span>
                 ${product.featured ? `<span class="status-badge">destaque</span>` : ""}
                 ${product.is_customizable ? `<span class="status-badge">personalizado</span>` : ""}
               </div>
-              <strong>${escaparHtml(product.title)}</strong>
               ${product.description ? `<p class="store-product-admin-description">${escaparHtml(product.description)}</p>` : ""}
               ${product.__demo ? `<small class="store-demo-product-note">Substitua por um produto seu. Use o modelo como base para liberar edição completa e publicação.</small>` : ""}
-              <small>${escaparHtml(getStorefrontCategoryName(vm, product.category_id))} • ${escaparHtml(renderPrecoProdutoLojaOnline(product))}</small>
-              <small>${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
-            </div>
-            <div class="store-admin-actions store-admin-actions-primary ui-action-bar">
-              <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar como modelo" : "Editar"}</button>
-              ${product.__demo ? "" : `
-                <details class="store-admin-more-actions ui-context-menu">
-                  <summary class="btn ghost ui-icon-button" aria-label="Mais ações" title="Mais ações"><span aria-hidden="true">⋯</span></summary>
-                  <div class="store-admin-actions ui-context-menu-panel">
-                    <button class="btn ghost" type="button" onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','visible')">${product.visible ? "Ocultar" : "Exibir"}</button>
-                    <button class="btn ghost" type="button" onclick="duplicarProdutoLojaOnline('${escaparAttr(product.id)}')">Duplicar</button>
-                    <button class="btn ghost" type="button" onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','featured')">${product.featured ? "Remover destaque" : "Destacar"}</button>
-                    <button class="btn ghost" type="button" onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', -1)">Subir</button>
-                    <button class="btn ghost" type="button" onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', 1)">Descer</button>
-                    <button class="btn ghost" type="button" onclick="abrirProdutoLojaPublica('${escaparAttr(product.id)}')">Abrir na loja</button>
-                    <button class="btn danger" type="button" onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')">Excluir produto</button>
-                  </div>
-                </details>
-              `}
+              <small class="store-product-admin-stock">${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
+              <div class="store-admin-actions store-admin-actions-primary store-product-card-actions ui-action-bar">
+                <button class="btn secondary store-product-edit-action" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar como modelo" : "Editar"}</button>
+                ${product.__demo ? "" : `
+                  <details class="store-admin-more-actions store-product-desktop-actions ui-context-menu" ontoggle="sincronizarMenuContextualProduto(this)">
+                    <summary class="btn ghost ui-icon-button" aria-label="Mais ações do produto" aria-expanded="false" aria-controls="${escaparAttr(menuId)}" title="Mais ações do produto"><span aria-hidden="true">⋯</span></summary>
+                    <div id="${escaparAttr(menuId)}" class="store-admin-actions ui-context-menu-panel">
+                      ${renderAcoesProdutoLojaOnline(product)}
+                    </div>
+                  </details>
+                  <button class="btn ghost ui-icon-button store-product-mobile-actions" type="button" onclick="abrirAcoesProdutoLojaOnline('${escaparAttr(product.id)}')" aria-label="Mais ações do produto" aria-haspopup="dialog" aria-controls="store-product-action-sheet" title="Mais ações do produto"><span aria-hidden="true">⋯</span></button>
+                `}
+              </div>
             </div>
             <div class="storefront-image-row">
               ${productImages.map((image) => `<span class="storefront-thumb"><img src="${escaparAttr(image.image_url)}" alt="${escaparAttr(image.alt_text || product.title)}"><button type="button" onclick="removerImagemProdutoLojaOnline('${escaparAttr(image.id)}')">×</button></span>`).join("")}
-              <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto seu para incluir fotos.\"" : ""}>Adicionar foto<input type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
+              <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto seu para incluir fotos.\"" : ""}>Adicionar foto<input id="storefrontProductPhoto-${escaparAttr(storefrontAdminSlugify(product.id))}" type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
             </div>
           </article>`;
         }).join("") || (getStoreEditorNamespace()?.products?.renderEmptyState?.({ renderEmptyState: renderStoreEmptyState }) || renderStoreEmptyState({
@@ -39218,6 +39494,7 @@ document.addEventListener("DOMContentLoaded", () => {
   iniciarIntroAbertura();
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();
+  configurarMenusContextuaisProdutosLoja();
   configurarAtalhosOperacionais();
   configurarViewportOperacionalMobile();
   configurarNavegacaoInternaApp();
