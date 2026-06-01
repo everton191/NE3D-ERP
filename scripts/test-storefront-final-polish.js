@@ -27,7 +27,10 @@ function assert(condition, message) {
   '.store-public-shell[data-storefront-source="v2"].store-public-admin-mode .store-public-floating-cart',
   "grid-template-columns:repeat(2, minmax(0, 1fr));",
   "overscroll-behavior:contain;",
-  ".store-public-search:focus-within"
+  ".store-public-search:focus-within",
+  ".store-guided-form > header{\n  position:static;",
+  ".store-guided-upload input{\n  width:100%;",
+  ".store-public-shell[data-storefront-source=\"v2\"] .store-public-brand strong{\n    min-width:0;\n    overflow:hidden;\n    text-overflow:ellipsis;"
 ].forEach((marker) => assert(css.includes(marker), `CSS final da vitrine ausente: ${marker}`));
 
 [

@@ -24,6 +24,8 @@ O editor guiado respeita `data-store-theme="light"` e nao recebe mais tokens esc
 
 - A topbar desktop usa duas opcoes de preview e botoes compactos.
 - O carrinho flutuante fica oculto durante edicao contextual.
+- O cabecalho interno dos formularios guiados isola o estilo global de `header`, evitando grade herdada, campos espremidos e rolagem visual excessiva no painel mobile.
+- A faixa superior da vitrine trunca nomes longos com seguranca em telas estreitas e preserva o botao de menu.
 - Produtos-modelo exibem descricao e orientacao antes da clonagem.
 - Acoes secundarias dos produtos reais ficam agrupadas em `Mais acoes`.
 - Bordas discretas do editor acompanham Free, Start e Pro sem colorir toda a tela.

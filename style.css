@@ -25480,9 +25480,20 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   white-space:nowrap;
 }
 
-.store-guided-form header{
+.store-guided-form > header{
+  position:static;
+  top:auto;
+  z-index:auto;
   display:grid;
+  grid-template-columns:minmax(0, 1fr);
+  align-items:start;
   gap:4px;
+  padding:0;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  text-align:left;
+  backdrop-filter:none;
 }
 
 .store-guided-form label{
@@ -25525,6 +25536,10 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
 }
 
 .store-guided-upload input{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  overflow:hidden;
   padding:0;
   border:0;
   background:transparent;
@@ -25735,6 +25750,24 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
 }
 
 @media (max-width:860px){
+  .store-public-shell[data-storefront-source="v2"] .store-public-brand{
+    min-width:0;
+    overflow:hidden;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-brand strong{
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-public-menu-toggle{
+    flex:none;
+    min-width:0;
+    padding-inline:10px;
+  }
+
   .store-public-shell[data-storefront-source="v2"].store-public-admin-mode{
     width:100%;
     min-height:100dvh;
@@ -25853,6 +25886,7 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   }
 
   .store-guided-form :where(input,textarea,select){
+    max-width:100%;
     min-height:44px;
     font-size:16px;
   }
