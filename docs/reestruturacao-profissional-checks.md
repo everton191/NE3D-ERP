@@ -544,3 +544,15 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Usar bordas discretas do plano Free, Start e Pro no editor.
 - `[x]` Trocar rotulos antigos por `Abrir vitrine` e `Copiar link da vitrine`.
 - `[~]` Gerar e publicar novo APK somente depois do smoke Android fisico.
+
+## Checkpoint Storefront Oficial e Acoes Compactas
+
+- `[x]` Liberar a Storefront V2 como experiencia oficial sem aviso beta no fluxo normal.
+- `[x]` Preservar bloqueio comercial da publicacao no plano Free.
+- `[x]` Trocar textos tecnicos e termos em ingles por linguagem simples em portugues.
+- `[x]` Ocultar nome interno de teste no titulo, metadados e descricao da imagem da vitrine.
+- `[x]` Compactar acoes frequentes e mover operacoes raras para menu contextual.
+- `[x]` Impedir que o cartao de link repita a entrada do proprio admin.
+- `[x]` Atualizar cache PWA para `simplifica-3d-v136-storefront-public-ui-20260601`.
+- `[x]` Criar `npm run test:storefront-public-ui`.
+- `[~]` Publicacao remota de Web/PWA e rebuild do APK permanecem fora deste checkpoint local.

@@ -438,6 +438,21 @@ renderStoreEditorTabContent(...)
 
 O `app.js` nao replica mais `previewTitles` nem a regra completa de preview lateral no fallback. O caminho rico vive em `modules/store-editor`; o fallback local fica propositalmente pequeno para manter operacao basica e rollback.
 
+## Loja publica oficial - 2026-06-01
+
+```txt
+renderApp
+ └── hidratarLojaPublicaSeNecessario
+      └── renderStorefrontView
+           ├── public
+           ├── editor
+           └── preview interno controlado
+```
+
+`renderApp` nao executa mais sincronizacao beta. A tela usa linguagem comercial
+em portugues e a liberacao de publicacao continua limitada pelas permissoes do
+plano.
+
 ## Fase 4H - Fluxo validado
 
 ```txt

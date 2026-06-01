@@ -160,6 +160,15 @@ Se todos existirem, a aba recebe `data-store-editor-renderer="module"` e `data-s
 
 O fallback ainda nao deve ser removido. Ele protege PWA/cache antigo, deploy parcial, falha de script e rollback.
 
+## Loja publica oficial - 2026-06-01
+
+A vitrine deixou de apresentar mensagens beta ao usuario. O render principal nao
+consulta mais `sincronizarStorefrontBetaAccessRemoto(false)`: a liberacao visual
+e oficial, enquanto as permissoes comerciais continuam vindo do plano. Free
+mantem edicao e visualizacao sem produtos publicos, link ou compartilhamento;
+Start e Pro preservam publicacao. Os helpers beta legados continuam no arquivo
+somente para compatibilidade temporaria e rollback.
+
 ## Fase 4G - Reducao segura do app.js
 
 Os modulos do editor agora expoem versao interna:
