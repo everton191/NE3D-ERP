@@ -530,3 +530,17 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Atualizar cache PWA para `simplifica-3d-v130-estavel-20260531-storefront-light-theme`.
 - `[x]` Adicionar `npm run test:storefront-light-theme-stability`.
 - `[~]` Rebuild e promocao publica do APK dependem do smoke Android fisico.
+
+## Checkpoint Storefront Final Polish
+
+- `[x]` Preservar regras comerciais, Supabase, checkout e planos.
+- `[x]` Adicionar retorno interno seguro para vitrine e gesto Android.
+- `[x]` Fechar modal, painel guiado ou menu mobile antes de sair da vitrine.
+- `[x]` Remover tokens escuros incondicionais do editor no tema claro.
+- `[x]` Aplicar tema claro aos modais visuais externos ao shell.
+- `[x]` Compactar toolbar e limitar status de publicacao.
+- `[x]` Ocultar carrinho flutuante durante edicao contextual.
+- `[x]` Organizar produtos-modelo e agrupar acoes secundarias.
+- `[x]` Usar bordas discretas do plano Free, Start e Pro no editor.
+- `[x]` Trocar rotulos antigos por `Abrir vitrine` e `Copiar link da vitrine`.
+- `[~]` Gerar e publicar novo APK somente depois do smoke Android fisico.

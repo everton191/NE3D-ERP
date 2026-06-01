@@ -203,8 +203,8 @@ Pendencias antes de remover o fallback:
 
 O modo administrativo da loja publica agora usa a propria vitrine como superficie de edicao:
 
-- desktop: painel contextual fixo a esquerda e loja real no centro;
-- mobile: loja real em primeiro plano, botao flutuante `Editar` e painel inferior controlado;
+- desktop: painel contextual fixo a esquerda e vitrine no centro;
+- mobile: vitrine em primeiro plano, botao flutuante `Editar` e painel inferior controlado;
 - clique em produto publicado: abre o painel contextual do item, sem troca silenciosa de rota;
 - edicao detalhada: continua disponivel pelo admin modular para campos avancados;
 - link publico: exibe abrir, copiar e compartilhar conforme a permissao atual do plano;
@@ -216,7 +216,7 @@ Os limites de produtos da vitrine usam o registry central por `getPlanLimits()`:
 
 ### Fase 7C.2 - Mobile nativo
 
-Em telas de ate `860px`, o editor guiado remove a topbar administrativa e a barra extensa de contexto para priorizar a loja real em tela cheia. O rodape legado foi removido: identidade e produtos ficam acessiveis pelo botao flutuante `Editar` e pelo toque direto na vitrine. O painel inferior usa limite de altura, fechamento explicito e campos com altura minima de toque.
+Em telas de ate `860px`, o editor guiado remove a topbar administrativa e a barra extensa de contexto para priorizar a vitrine em tela cheia. O rodape legado foi removido: identidade e produtos ficam acessiveis pelo botao flutuante `Editar` e pelo toque direto na vitrine. O painel inferior usa limite de altura, fechamento explicito e campos com altura minima de toque.
 
 No desktop, a vitrine guiada usa uma toolbar administrativa unica, compacta e nomeada. A barra contextual duplicada deixou de ser renderizada e as acoes operacionais ficaram concentradas em `Voltar ao painel`, abertura da loja publica ou preview, copia de link e publicacao controlada pelo plano.
 

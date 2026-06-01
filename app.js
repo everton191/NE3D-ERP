@@ -439,6 +439,7 @@ const telas = {
 let telaAtual = "dashboard";
 let storefrontPublicRouteState = null;
 let storefrontPublicLastPath = "";
+let storefrontPublicInternalHistory = [];
 let storefrontPublicNavigationTimer = null;
 const storefrontPublicScrollPositions = new Map();
 let telaAnterior = "dashboard";
@@ -8439,6 +8440,9 @@ function fecharCamadaAtualSeExistir() {
     fecharPopup();
     return true;
   }
+  if (fecharNavegacaoContextualLojaSeExistir()) {
+    return true;
+  }
   if (sideDrawerOpen || document.querySelector(".side-drawer")) {
     fecharDrawerLateral();
     return true;
@@ -8450,11 +8454,58 @@ function fecharCamadaAtualSeExistir() {
   return false;
 }
 
+function fecharNavegacaoContextualLojaSeExistir() {
+  if (storefrontGuidedPanelOpen || document.querySelector(".store-guided-editor-sidebar.is-open")) {
+    fecharPainelEdicaoGuiadaLoja();
+    return true;
+  }
+  const headerMenu = document.querySelector(".store-public-header.mobile-open");
+  if (headerMenu) {
+    headerMenu.classList.remove("mobile-open");
+    return true;
+  }
+  return false;
+}
+
+function navegarVoltarLojaSeguroInterno() {
+  if (telaAtual === "lojaAdmin") {
+    abrirLojaPublicaAdminContextual({
+      slug: getStorefrontAdminStoreLocal().slug || "ne3d-teste",
+      view: "home"
+    });
+    return true;
+  }
+  if (telaAtual !== "lojaPublica") return false;
+
+  const previousPath = storefrontPublicInternalHistory.pop();
+  if (previousPath) {
+    navegarLojaPublica(previousPath, { replace: true, restoreScroll: true });
+    return true;
+  }
+
+  const route = getStorefrontPublicRoute();
+  if (String(route.view || "home") !== "home") {
+    navegarLojaPublica(getStorefrontPublicRoutePath({ slug: route.slug, view: "home" }), {
+      replace: true,
+      restoreScroll: true
+    });
+    return true;
+  }
+
+  trocarTela("lojaOnline", {
+    resetStack: true,
+    skipStack: true,
+    replaceHistory: true
+  });
+  return true;
+}
+
 function navegarVoltarSeguroInterno() {
   if (fecharCamadaAtualSeExistir()) {
     atualizarHistoricoBrowserApp(true);
     return true;
   }
+  if (navegarVoltarLojaSeguroInterno()) return true;
   if (isDashboardRoute()) return false;
 
   const destinoStack = navigationStack[navigationStack.length - 1];
@@ -8680,6 +8731,9 @@ function configurarNavegacaoInternaApp() {
       salvarScrollLojaPublica();
       storefrontPublicRouteState = publicRoute;
       storefrontPublicLastPath = getStorefrontPublicRoutePath(publicRoute);
+      if (storefrontPublicInternalHistory[storefrontPublicInternalHistory.length - 1] === storefrontPublicLastPath) {
+        storefrontPublicInternalHistory.pop();
+      }
       telaAtual = "lojaPublica";
       marcarLojaPublicaNavegando();
       renderApp();
@@ -14500,7 +14554,7 @@ function renderStorefrontPublishedModal(store = getStorefrontAdminStoreLocal()) 
         <h2>Loja publicada com sucesso</h2>
         <p>Seu link já pode ser compartilhado. A vitrine continua usando a mesma estrutura segura do ERP e você pode voltar para editar quando quiser.</p>
         <div class="store-publication-share-box">
-          <span>Link público</span>
+          <span>Link da vitrine</span>
           <strong>${escaparHtml(shareUrl)}</strong>
         </div>
         <div class="actions">
@@ -16021,7 +16075,7 @@ function renderStorePreviewContainer({ content = "", actions = "", title = "Prev
   const storefrontTheme = getStorefrontControlledTheme(getStorefrontAdminStoreLocal().theme_config || {});
   const previewActions = actions || `
     <button class="btn secondary" type="button" onclick="document.querySelector('.store-preview-container')?.classList.toggle('expanded')">Expandir preview</button>
-    <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+    <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir vitrine</button>
     <button class="btn ghost" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
   `;
   return `
@@ -16153,7 +16207,7 @@ function renderStorefrontPreviewLegacy(vm, options = {}) {
   const visibleProducts = vm.products.filter((product) => product.visible !== false);
   return renderStorePreviewContainer({
     title: options.title || "Preview da vitrine",
-    subtitle: options.subtitle || "Experiência beta: loja real em preview, editor visual ainda bloqueado.",
+    subtitle: options.subtitle || "Experiência beta: vitrine em preview, editor visual ainda bloqueado.",
     source: options.source || "legacy",
     content: `
       ${renderStoreHeader(vm.store)}
@@ -16414,6 +16468,7 @@ function abrirLojaPublicaAdminContextual(route = {}) {
     const publicRoute = parseStorefrontPublicRoute(destino.pathname);
     storefrontPublicRouteState = publicRoute;
     storefrontPublicLastPath = getStorefrontPublicRoutePath(publicRoute);
+    storefrontPublicInternalHistory = [];
     telaAtual = "lojaPublica";
     history.pushState({ simplifica: true, tela: "lojaPublica", loja: publicRoute, admin: true }, document.title, `${destino.pathname}?admin=1`);
     renderApp();
@@ -16935,11 +16990,11 @@ function renderStoreGuidedLinks(vm) {
   const shareEnabled = vm?.limits?.shareEnabled !== false;
   return `
     <section class="store-guided-panel-copy">
-      <span>Link da loja</span><h2>${shareEnabled ? "Loja pronta para compartilhar" : "Preview da sua loja"}</h2>
+      <span>Link da vitrine</span><h2>${shareEnabled ? "Vitrine pronta para compartilhar" : "Preview da sua vitrine"}</h2>
       <p>${shareEnabled ? "Use este endereço para abrir ou enviar sua vitrine." : "No plano Grátis você pode editar e visualizar a vitrine. Publicação e compartilhamento entram no Start ou Pro."}</p>
       <div class="store-guided-link">${escaparHtml(url)}</div>
       <div class="store-guided-actions">
-        ${shareEnabled ? `<button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja</button>` : `<button class="btn secondary" type="button" onclick="fecharPainelEdicaoGuiadaLoja()">Ver preview</button>`}
+        ${shareEnabled ? `<button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir vitrine</button>` : `<button class="btn secondary" type="button" onclick="fecharPainelEdicaoGuiadaLoja()">Ver preview</button>`}
         <button class="btn" type="button" onclick="copiarLinkLojaOnline()" ${shareEnabled ? "" : "disabled"}>Copiar link</button>
         <button class="btn ghost" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')" ${shareEnabled ? "" : "disabled"}>Compartilhar</button>
       </div>
@@ -16957,7 +17012,7 @@ function renderStoreGuidedOverview(vm) {
         <button type="button" onclick="selecionarItemLojaVisual('banner')"><i>◉</i><strong>Banner</strong><small>Imagem e chamada principal</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('products')"><i>▦</i><strong>Produtos</strong><small>Adicionar e organizar vitrine</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('contacts')"><i>☎</i><strong>Contato</strong><small>WhatsApp e redes sociais</small></button>
-        <button type="button" onclick="selecionarItemLojaVisual('links')"><i>↗</i><strong>Link público</strong><small>Abrir e compartilhar loja</small></button>
+        <button type="button" onclick="selecionarItemLojaVisual('links')"><i>↗</i><strong>Link da vitrine</strong><small>Abrir e compartilhar vitrine</small></button>
       </div>
       <button class="btn ghost store-guided-advanced" type="button" onclick="abrirStorefrontAdminRoute('overview')">Abrir configurações detalhadas</button>
     </section>
@@ -17013,8 +17068,8 @@ function renderStoreVisualEditorTopbar(vm) {
       </div>
       <div class="store-visual-top-actions">
         <span class="store-visual-publish-status ${dirty.dirty ? "is-dirty" : vm.store.active ? "is-online" : "is-draft"}">${dirty.dirty ? "Alterações não publicadas" : vm.store.active ? "Loja publicada" : "Loja não publicada"}</span>
-        <button type="button" onclick="${shareEnabled ? "abrirLojaPublicaOnline()" : "selecionarItemLojaVisual('links')"}">${shareEnabled ? "Abrir loja pública" : "Ver preview"}</button>
-        <button type="button" onclick="copiarLinkLojaOnline()" ${shareEnabled ? "" : "disabled title=\"Link público disponível no Start ou Pro.\""}>Copiar link da loja</button>
+        <button type="button" onclick="${shareEnabled ? "abrirLojaPublicaOnline()" : "selecionarItemLojaVisual('links')"}">${shareEnabled ? "Abrir vitrine" : "Ver preview"}</button>
+        <button type="button" onclick="copiarLinkLojaOnline()" ${shareEnabled ? "" : "disabled title=\"Link da vitrine disponível no Start ou Pro.\""}>Copiar link da vitrine</button>
         <button class="publish" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Colocar em rascunho" : "Publicar loja"}</button>
       </div>
     </div>
@@ -17210,7 +17265,7 @@ function abrirStoreVisualPanel(area = "overview") {
       title: "Publicação",
       desc: "Confira se a loja está pronta para compartilhar com clientes.",
       badge: vm.store.active ? "Publicado" : "Rascunho",
-      actions: [["Status", vm.store.active ? "Loja online" : "Loja em rascunho", "settings"], ["Link público", getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }), "qrcode"], ["Compartilhar", "Copiar link ou abrir como cliente", "qrcode"]]
+      actions: [["Status", vm.store.active ? "Loja online" : "Loja em rascunho", "settings"], ["Link da vitrine", getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }), "qrcode"], ["Compartilhar", "Copiar link ou abrir como cliente", "qrcode"]]
     }
   };
   const config = areaConfig[area] || areaConfig.theme;
@@ -17313,7 +17368,7 @@ function abrirStoreContextSheet() {
           <div>
             <span class="status-badge badge-info">Modo admin</span>
             <h2>Editar loja</h2>
-            <p class="muted">Ações rápidas sobre a loja real. Configurações completas continuam no admin avançado.</p>
+            <p class="muted">Ações rápidas sobre a vitrine. Configurações completas continuam no admin avançado.</p>
           </div>
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </div>
@@ -17706,6 +17761,13 @@ function addStorefrontV2RootAttributes(html = "", mode = "public") {
   return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront storefront-theme-v2" ${sourceAttr}`);
 }
 
+function getStorefrontPlanToneClass() {
+  const slug = normalizarSlugPlano(getPlanoAtual()?.slug || "free");
+  if (["pro", "plus", "premium", "premium_trial"].includes(slug)) return "store-plan-pro";
+  if (slug === "start") return "store-plan-start";
+  return "store-plan-free";
+}
+
 function renderStorefrontPublicV2(options = {}) {
   return addStorefrontV2RootAttributes(renderStorefrontPublicLegacy(options), "public");
 }
@@ -17800,7 +17862,7 @@ function renderStorefrontPublicLegacy() {
   `;
 
   return `
-    <main class="store-public-shell storefront-theme-v2 ${mode.admin ? "store-public-admin-mode" : ""}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
+    <main class="store-public-shell storefront-theme-v2 ${mode.admin ? `store-public-admin-mode ${getStorefrontPlanToneClass()}` : ""}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
           ${renderStoreVisualEditorSidebar(vm)}
@@ -18332,8 +18394,14 @@ function navegarLojaPublica(url, options = {}) {
   if (options.forceClient) destino.searchParams.delete("admin");
   else if (getStorefrontPublicMode().admin && !destino.searchParams.has("admin")) destino.searchParams.set("admin", "1");
   salvarScrollLojaPublica();
+  const previousPath = storefrontPublicLastPath || getStorefrontPublicRoutePath(getStorefrontPublicRoute());
+  const nextPath = getStorefrontPublicRoutePath(route);
+  if (!options.replace && previousPath && previousPath !== nextPath) {
+    storefrontPublicInternalHistory.push(previousPath);
+    if (storefrontPublicInternalHistory.length > 24) storefrontPublicInternalHistory.shift();
+  }
   storefrontPublicRouteState = route;
-  storefrontPublicLastPath = getStorefrontPublicRoutePath(route);
+  storefrontPublicLastPath = nextPath;
   telaAtual = "lojaPublica";
   marcarLojaPublicaNavegando();
   const nextUrl = `${destino.pathname}${destino.search || ""}${destino.hash || ""}`;
@@ -18512,9 +18580,9 @@ function renderLojaOnlineHub() {
           <p class="muted">Resumo operacional da vitrine. A edição completa fica no admin separado da loja.</p>
         </div>
         <div class="actions">
-          <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled title=\"Modo admin liberado para usuários autorizados/plano habilitado.\""}>Editar na loja real</button>
+          <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled title=\"Modo admin liberado para usuários autorizados/plano habilitado.\""}>Editar vitrine</button>
           <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link público</button>
-          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Abrir vitrine</button>
         </div>
       </div>
       <div class="storefront-hub-grid">
@@ -18537,7 +18605,7 @@ function renderLojaOnlineHub() {
         <div class="store-qr-layout compact">
           <div id="storefrontHubQr" class="qr-preview" aria-label="QR Code da loja"></div>
           <div class="storefront-hub-actions">
-            <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled"}>Editar na loja real</button>
+            <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled"}>Editar vitrine</button>
             <button class="btn secondary" type="button" onclick="abrirStorefrontAdminRoute()">Configurações completas</button>
             <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')">Compartilhar</button>
             <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
@@ -18610,7 +18678,7 @@ function renderStorefrontEditorActionGroups() {
   return `
     <div class="store-editor-action-groups" aria-label="Ações do editor da loja">
       <div class="store-editor-actions-primary" aria-label="Ações principais">
-        <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+        <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir vitrine</button>
         <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
       </div>
       <div class="store-editor-actions-secondary" aria-label="Ações secundárias">
@@ -18712,7 +18780,7 @@ function renderStorefrontAdminPanelLegacy() {
   const body = renderStoreEditorTabContent(activeTab, bodyContent, vm);
 
   return `
-    <section class="app-page storefront-admin-page store-editor-shell store-editor-zone storefront-theme-v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" data-storefront-render="editor" data-storefront-source="legacy">
+    <section class="app-page storefront-admin-page store-editor-shell store-editor-zone storefront-theme-v2 ${getStorefrontPlanToneClass()}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" data-storefront-render="editor" data-storefront-source="legacy">
       <aside class="store-editor-sidebar" aria-label="Navegação do editor da loja">
         <div class="store-editor-sidebar-card">
           <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
@@ -18780,13 +18848,13 @@ function renderStorefrontOverview(vm, stats) {
         ${noWhatsapp ? `<div class="card alert-card storefront-alert"><strong>WhatsApp não configurado</strong><p class="muted">Configure o número na aba Aparência antes de publicar ou testar a loja.</p></div>` : ""}
         <section class="card storefront-link-card">
           <div class="card-header">
-            <h3>Link público</h3>
+            <h3>Link da vitrine</h3>
             <span class="status-badge">${escaparHtml(vm.store.slug)}</span>
           </div>
           <div class="storefront-link-box"><span>${escaparHtml(stats.linkPublico)}</span></div>
           <div class="actions">
             <button class="btn" type="button" onclick="abrirPainelLojaOnlineAdmin()">Abrir admin da loja</button>
-            <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+            <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir vitrine</button>
             <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
             <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
             <button class="btn secondary" type="button" onclick="setStorefrontAdminTab('qrcode')">Ver QR Code</button>
@@ -19059,21 +19127,29 @@ function renderStorefrontProducts(vm) {
                 ${product.is_customizable ? `<span class="status-badge">personalizado</span>` : ""}
               </div>
               <strong>${escaparHtml(product.title)}</strong>
-              ${product.__demo ? `<small>Substitua por um produto seu.</small>` : ""}
+              ${product.description ? `<p class="store-product-admin-description">${escaparHtml(product.description)}</p>` : ""}
+              ${product.__demo ? `<small class="store-demo-product-note">Substitua por um produto seu. Use o modelo como base para liberar edição completa e publicação.</small>` : ""}
               <small>${escaparHtml(getStorefrontCategoryName(vm, product.category_id))} • ${escaparHtml(renderPrecoProdutoLojaOnline(product))}</small>
               <small>${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
             </div>
-            <div class="store-admin-actions">
+            <div class="store-admin-actions store-admin-actions-primary">
               <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar este exemplo como modelo" : "Editar"}</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera publicação.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','visible')"`}>${product.visible ? "Ocultar" : "Exibir"}</button>
-              <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não pode ser duplicado.\"" : `onclick="duplicarProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Duplicar</button>
-              <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera destaque.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','featured')"`}>${product.featured ? "Remover destaque" : "Destacar"}</button>
-              <button class="btn ghost" type="button" ${product.__demo ? "disabled" : `onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', -1)"`}>Subir</button>
-              <button class="btn ghost" type="button" ${product.__demo ? "disabled" : `onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', 1)"`}>Descer</button>
-              <button class="btn ghost" type="button" onclick="abrirProdutoLojaPublica('${escaparAttr(product.id)}')">Abrir público</button>
-              <button class="btn ghost" type="button" disabled title="Use o cadastro de produto/estoque quando a integração final for ativada.">Gerenciar no catálogo/estoque</button>
-              <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não pode ser removido.\"" : `onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Remover</button>
             </div>
+            ${product.__demo ? "" : `
+              <details class="store-admin-more-actions">
+                <summary>Mais ações</summary>
+                <div class="store-admin-actions">
+                  <button class="btn ghost" type="button" onclick="duplicarProdutoLojaOnline('${escaparAttr(product.id)}')">Duplicar</button>
+                  <button class="btn ghost" type="button" onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','featured')">${product.featured ? "Remover destaque" : "Destacar"}</button>
+                  <button class="btn ghost" type="button" onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', -1)">Subir</button>
+                  <button class="btn ghost" type="button" onclick="moverProdutoLojaOnline('${escaparAttr(product.id)}', 1)">Descer</button>
+                  <button class="btn ghost" type="button" onclick="abrirProdutoLojaPublica('${escaparAttr(product.id)}')">Abrir vitrine</button>
+                  <button class="btn ghost" type="button" disabled title="Use o cadastro de produto/estoque quando a integração final for ativada.">Gerenciar no catálogo/estoque</button>
+                  <button class="btn ghost" type="button" onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')">Remover</button>
+                </div>
+              </details>
+            `}
             <div class="storefront-image-row">
               ${productImages.map((image) => `<span class="storefront-thumb"><img src="${escaparAttr(image.image_url)}" alt="${escaparAttr(image.alt_text || product.title)}"><button type="button" onclick="removerImagemProdutoLojaOnline('${escaparAttr(image.id)}')">×</button></span>`).join("")}
               <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto real para enviar fotos.\"" : ""}>Fotos<input type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
@@ -19216,7 +19292,7 @@ function renderStorefrontQrLink(vm, linkPublico) {
           <div class="storefront-link-box"><span>${escaparHtml(linkPublico)}</span></div>
           <p class="muted">Use este link em redes sociais, etiquetas, embalagens ou atendimento. O acesso administrativo continua protegido por feature flag.</p>
           <div class="actions">
-            <button class="btn" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
+            <button class="btn" type="button" onclick="abrirLojaPublicaOnline()">Abrir vitrine</button>
             <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
             <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
             <button class="btn" type="button" onclick="baixarQrCodeLojaOnline()">Baixar QR Code</button>
@@ -20717,7 +20793,7 @@ function renderDashboardDesktopStorePanel() {
           <small>${produtosVisiveis} produto(s) visíveis • ${leadsNovos} lead(s) novo(s)</small>
         </div>
       </div>
-      <button class="btn secondary" type="button" onclick="abrirLojaPublicaAdminContextual()">Editar loja real</button>
+      <button class="btn secondary" type="button" onclick="abrirLojaPublicaAdminContextual()">Editar vitrine</button>
     </section>
   `;
 }
@@ -27645,7 +27721,7 @@ function renderAssinatura() {
       allowed: ["Até 100 produtos na loja", "Pedidos ilimitados", "Loja pública liberada", "Link compartilhável", "Sem anúncios", "Personalização básica", "Banner simples", "Relatórios básicos", "Financeiro básico", "Backup automático", "Remove marca Simplifica 3D"],
       blockedTitle: "",
       blocked: [],
-      highlights: ["Preview vira loja real online", "Sem anúncios", "Link público para compartilhar"],
+      highlights: ["Preview vira vitrine online", "Sem anúncios", "Link da vitrine para compartilhar"],
       note: "Agora sua loja sai do preview e vira uma vitrine online real.",
       cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : startEnabled ? "Assinar Start" : "Indisponível no momento",
       current: isStartCurrent,

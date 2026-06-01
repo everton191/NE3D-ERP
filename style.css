@@ -28542,8 +28542,8 @@ body.theme-light .app-toast{
   background:color-mix(in srgb, var(--store-primary, #078f86) 8%, var(--store-card));
 }
 
-.store-public-shell[data-storefront-source="v2"] .store-visual-editor-sidebar,
-.store-public-shell[data-storefront-source="v2"] .store-visual-editor-topbar{
+.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"] .store-visual-editor-sidebar,
+.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"] .store-visual-editor-topbar{
   --store-bg:#07131a;
   --store-bg-soft:#0b1a22;
   --store-surface:#10232c;
@@ -28556,7 +28556,7 @@ body.theme-light .app-toast{
   background:#0b1a22;
 }
 
-.store-public-shell[data-storefront-source="v2"] .store-visual-editor-topbar{
+.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"] .store-visual-editor-topbar{
   background:rgba(7, 19, 26, .96);
 }
 
@@ -28746,5 +28746,177 @@ body.theme-light .app-toast{
     min-height:34px;
     padding-inline:9px;
     font-size:11px;
+  }
+}
+
+/* Checkpoint storefront final: tema claro, retorno interno e editor contido em Web/PWA/APK */
+.store-public-shell[data-storefront-source="v2"] .store-visual-device-switcher{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-visual-publish-status{
+  max-width:180px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.store-public-shell[data-storefront-source="v2"].store-public-admin-mode .store-public-floating-cart{
+  display:none;
+}
+
+.store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(.store-visual-editor-sidebar,.store-visual-editor-topbar){
+  color:var(--store-text);
+  background:var(--store-card);
+  border-color:var(--store-border);
+}
+
+.store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-visual-editor-sidebar{
+  box-shadow:10px 0 28px rgba(15, 74, 82, .06);
+}
+
+.store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-visual-editor-topbar{
+  background:rgba(255,255,255,.96);
+  box-shadow:0 8px 22px rgba(15, 74, 82, .06);
+}
+
+:root[data-store-theme="light"] body .store-visual-panel{
+  color:var(--store-text);
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--store-primary, #078f86) 8%, transparent), transparent 34%),
+    var(--store-card);
+  border-color:var(--store-border);
+  box-shadow:0 24px 64px rgba(15, 74, 82, .14);
+}
+
+:root[data-store-theme="light"] body .store-visual-panel :where(h2,strong){
+  color:var(--store-text);
+}
+
+:root[data-store-theme="light"] body .store-visual-panel :where(p,small){
+  color:var(--store-muted);
+}
+
+:root[data-store-theme="light"] body .store-visual-panel-grid button{
+  color:var(--store-text);
+  background:var(--store-surface-strong);
+  border-color:var(--store-border);
+}
+
+:root[data-store-theme="light"] body .store-visual-panel-grid button:hover{
+  background:color-mix(in srgb, var(--store-primary, #078f86) 8%, var(--store-card));
+}
+
+.store-visual-panel{
+  max-height:min(88dvh, 760px);
+  overscroll-behavior:contain;
+}
+
+.store-visual-panel footer,
+.store-contact-admin-actions{
+  position:sticky;
+  bottom:-22px;
+  z-index:2;
+  padding:12px 0 0;
+  background:linear-gradient(180deg, transparent, var(--store-card) 28%);
+}
+
+.store-guided-editor-sidebar{
+  overscroll-behavior:contain;
+  scrollbar-gutter:stable;
+}
+
+.store-public-search{
+  color:var(--store-primary, #078f86);
+  background:var(--store-card);
+  border-color:var(--store-border);
+}
+
+.store-public-search svg{
+  flex:none;
+  color:var(--store-primary, #078f86);
+  stroke-width:2.4;
+}
+
+.store-public-search:focus-within{
+  border-color:color-mix(in srgb, var(--store-primary, #078f86) 62%, var(--store-border));
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--store-primary, #078f86) 14%, transparent);
+}
+
+.store-public-search input::placeholder{
+  color:var(--store-input-placeholder, #7b8991);
+}
+
+.store-public-admin-mode.store-plan-free,
+.storefront-admin-page.store-plan-free{
+  --store-plan-accent:#22c55e;
+}
+
+.store-public-admin-mode.store-plan-start,
+.storefront-admin-page.store-plan-start{
+  --store-plan-accent:#8b5cf6;
+}
+
+.store-public-admin-mode.store-plan-pro,
+.storefront-admin-page.store-plan-pro{
+  --store-plan-accent:#d6a927;
+}
+
+.store-public-admin-mode[class*="store-plan-"] .store-visual-editor-sidebar,
+.storefront-admin-page[class*="store-plan-"] .store-editor-sidebar{
+  border-inline-end:1px solid color-mix(in srgb, var(--store-plan-accent) 34%, var(--store-border));
+  box-shadow:inset 3px 0 color-mix(in srgb, var(--store-plan-accent) 64%, transparent);
+}
+
+.store-product-admin-description{
+  display:-webkit-box;
+  overflow:hidden;
+  margin:0;
+  color:var(--text-secondary, var(--store-muted));
+  font-size:12px;
+  line-height:1.45;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+}
+
+.store-demo-product-note{
+  color:var(--store-primary, #078f86);
+  line-height:1.45;
+}
+
+.store-admin-more-actions{
+  border-top:1px solid var(--border-color, var(--store-border));
+  padding-top:10px;
+}
+
+.store-admin-more-actions summary{
+  color:var(--text-secondary, var(--store-text-soft));
+  font-size:12px;
+  font-weight:850;
+  cursor:pointer;
+}
+
+.store-admin-more-actions[open] summary{
+  margin-bottom:9px;
+}
+
+body[data-ui-profile="android_apk"] .store-guided-editor-sidebar{
+  overscroll-behavior:contain;
+  touch-action:pan-y;
+}
+
+@media (max-width:860px){
+  .store-public-shell[data-storefront-source="v2"] .store-guided-editor-sidebar{
+    max-height:min(68dvh, 600px);
+  }
+}
+
+@media (min-width:861px) and (max-width:1120px){
+  .store-public-shell[data-storefront-source="v2"] .store-visual-publish-status{
+    display:none;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-visual-top-actions button:nth-of-type(2){
+    display:none;
   }
 }
