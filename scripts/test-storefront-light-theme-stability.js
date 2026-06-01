@@ -30,7 +30,7 @@ function assert(condition, message) {
   'document.documentElement.setAttribute("data-store-theme", storeTheme)',
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'erpTheme === "dark" ? "#08131d" : "#ffffff"',
-  "1.0.26-rc-erp-shell-v2-20260531"
+  "1.0.27-rc-visual-blockers-20260531"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -49,6 +49,6 @@ function assert(condition, message) {
 assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
 assert(manifest.includes('"background_color": "#ffffff"'), "Splash PWA ainda nao usa fundo claro");
 assert(manifest.includes('"theme_color": "#ffffff"'), "Manifest PWA ainda nao usa theme-color claro");
-assert(sw.includes("simplifica-3d-v132-erp-shell-v2-20260531"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v133-visual-blockers-20260531"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

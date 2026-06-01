@@ -14553,12 +14553,12 @@ function isStorefrontDemoPreviewAllowed() {
 
 function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
   const commons = {
-    vase: "assets/storefront-demo/vase.jpg?v=20260525",
-    stamp: "assets/storefront-demo/stamp.jpg?v=20260525",
-    box: "assets/storefront-demo/organizer.jpg?v=20260525",
-    figure: "assets/storefront-demo/figure.jpg?v=20260525",
-    miniature: "assets/storefront-demo/miniature.jpg?v=20260525",
-    custom: "assets/storefront-demo/custom-part.jpg?v=20260525"
+    stamp: "assets/storefront/examples/stamp-placeholder.svg?v=20260531",
+    keychain: "assets/storefront/examples/keychain-placeholder.svg?v=20260531",
+    topper: "assets/storefront/examples/cake-topper-placeholder.svg?v=20260531",
+    cutter: "assets/storefront/examples/cutter-placeholder.svg?v=20260531",
+    keepsake: "assets/storefront/examples/keepsake-placeholder.svg?v=20260531",
+    vase: "assets/storefront/examples/vase.jpg?v=20260531"
   };
   if (commons[visual]) return commons[visual];
   const palette = {
@@ -14595,12 +14595,12 @@ function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
 function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   const ownerId = store.owner_id || getStorefrontOwnerIdLocal();
   const demoCategories = [
-    ["Decoração", "◒"],
-    ["Personalizados", "★"],
-    ["Utilidades", "▣"],
-    ["Geek e anime", "✦"],
-    ["Miniaturas", "◎"],
-    ["Sob encomenda", "+"]
+    ["Carimbos", "▣"],
+    ["Chaveiros", "◉"],
+    ["Topos de bolo", "♕"],
+    ["Cortadores", "◇"],
+    ["Lembrancinhas", "★"],
+    ["Decoração", "◒"]
   ].map(([name, icon], index) => ({
     id: `demo-cat-${storefrontAdminSlugify(name)}`,
     store_id: store.id,
@@ -14614,12 +14614,12 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   }));
   const categoryBySlug = (slug) => demoCategories.find((cat) => cat.slug === slug)?.id || demoCategories[0]?.id || null;
   const demoProducts = [
-    ["Vaso decorativo 3D", "decoracao", 64.9, true, "2 a 4 dias úteis", "vase", "Peça decorativa com acabamento limpo para compor ambientes, mesas e estantes."],
-    ["Carimbo personalizado", "personalizados", 39.9, false, "2 a 4 dias úteis", "stamp", "Modelo sob medida para marca, papelaria, embalagens e presentes personalizados."],
-    ["Organizador modular", "utilidades", 54.9, false, "1 a 3 dias úteis", "box", "Organizador prático para escritório, bancada de produção ou itens do dia a dia."],
-    ["Action figure custom", "geek-e-anime", 129.9, false, "5 a 8 dias úteis", "figure", "Miniatura personalizada para coleção, decoração ou presente criativo."],
-    ["Miniatura colecionável", "miniaturas", 79.9, false, "3 a 6 dias úteis", "miniature", "Modelo em escala com visual detalhado para colecionadores e projetos especiais."],
-    ["Peça sob encomenda", "sob-encomenda", 18.5, false, "Sob consulta", "custom", "Produção personalizada conforme medidas, referência e necessidade do cliente."]
+    ["Carimbo personalizado", "carimbos", 19.9, true, "2 a 4 dias úteis", "stamp", "Produzido sob encomenda para doces, biscuit e identidade da sua marca."],
+    ["Chaveiro personalizado", "chaveiros", 24.9, false, "2 a 4 dias úteis", "keychain", "Peça leve com argola, pronta para personalizar com nome, tema ou logotipo."],
+    ["Topo de bolo personalizado", "topos-de-bolo", 29.9, false, "3 a 5 dias úteis", "topper", "Modelo decorativo para festas, nomes e datas especiais."],
+    ["Cortador para confeitaria", "cortadores", 18.9, false, "2 a 4 dias úteis", "cutter", "Cortador temático para biscoitos, massas e trabalhos artesanais."],
+    ["Lembrancinha personalizada", "lembrancinhas", 14.9, false, "3 a 6 dias úteis", "keepsake", "Pequena peça sob medida para eventos, brindes e presentes."],
+    ["Decoração impressa em 3D", "decoracao", 64.9, false, "2 a 4 dias úteis", "vase", "Vaso decorativo impresso em 3D para mesas, estantes e ambientes criativos."]
   ].map(([title, categorySlug, price, featured, time, visual, description]) => ({
     id: `demo-prod-${storefrontAdminSlugify(title)}`,
     store_id: store.id,
@@ -14630,7 +14630,7 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
     description,
     price,
     compare_price: null,
-    price_mode: categorySlug === "personalizados" && title === "Brinde personalizado" ? "from" : "fixed",
+    price_mode: "fixed",
     show_price: true,
     category_id: categoryBySlug(categorySlug),
     visible: true,
@@ -14723,15 +14723,15 @@ function getStorefrontDefaultSlugLocal() {
 function getStorefrontAdminCategoriesLocal() {
   const store = getStorefrontAdminStoreLocal();
   const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.categories, null);
-  if (Array.isArray(saved)) return saved;
-  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData(store).categories : getStorefrontDefaultCategories(store);
+  if (Array.isArray(saved) && saved.length) return saved;
+  return getStorefrontDemoPreviewData(store).categories;
 }
 
 function getStorefrontAdminProductsLocal() {
   const store = getStorefrontAdminStoreLocal();
   const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.products, null);
-  if (Array.isArray(saved)) return saved;
-  return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData(store).products : [];
+  if (Array.isArray(saved) && saved.some((product) => !storefrontIsDemoProduct(product))) return saved;
+  return getStorefrontDemoPreviewData(store).products;
 }
 
 function getStorefrontAdminImagesLocal() {
@@ -15089,14 +15089,16 @@ function getStorefrontAdminViewModel() {
   const leads = getStorefrontPreviewLeadsLocal();
   const events = getStorefrontPreviewEventsLocal();
   const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
-  const products = Number.isFinite(Number(limits.productLimit)) && Number(limits.productLimit) <= 0 ? [] : rawProducts;
+  const products = Number.isFinite(Number(limits.productLimit)) && Number(limits.productLimit) <= 0
+    ? rawProducts.filter(storefrontIsDemoProduct)
+    : rawProducts;
   const demo = {
-    enabled: demoAllowed && (
+    enabled: (
       categories.some((item) => item.__demo)
       || products.some((item) => item.__demo)
-      || leads.some((item) => item.__demo)
-      || events.some((item) => item.__demo)
-      || store.__demo
+      || (demoAllowed && leads.some((item) => item.__demo))
+      || (demoAllowed && events.some((item) => item.__demo))
+      || (demoAllowed && store.__demo)
     ),
     store: demoAllowed && !hasStoredStore,
     categories: demoAllowed && !hasStoredCategories,
@@ -15334,18 +15336,21 @@ function abrirEditorProdutoLojaOnline(id = "") {
   if (id) {
     const product = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(id));
     if (product?.__demo || product?.__template) {
+      if (!window.confirm("Usar este exemplo como modelo? Revise foto, nome, descrição e preço antes de salvar. O produto será criado como rascunho e não será publicado automaticamente.")) return;
       const seed = {
         ...product,
         id: "",
         slug: "",
-        visible: getStorefrontAdminStoreLocal().active === true,
+        category_id: null,
+        image_url: "",
+        visible: false,
         __demo: false,
         __template: false,
         public_observations: ""
       };
       storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, seed);
       storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
-      mostrarToast("Use este exemplo como base para criar seu produto real.", "info", 3200);
+      mostrarToast("Modelo carregado como rascunho. Revise foto, nome, descrição e preço.", "info", 4200);
     } else {
       storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.editingProduct, id);
       storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
@@ -15990,13 +15995,14 @@ function renderStoreStatusCard({ label = "", value = "", description = "", tone 
 }
 
 function renderStorePreviewContainer({ content = "", actions = "", title = "Preview da loja", subtitle = "Estrutura preparada para o futuro editor visual.", source = "legacy" } = {}) {
+  const storefrontTheme = getStorefrontControlledTheme(getStorefrontAdminStoreLocal().theme_config || {});
   const previewActions = actions || `
     <button class="btn secondary" type="button" onclick="document.querySelector('.store-preview-container')?.classList.toggle('expanded')">Expandir preview</button>
     <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja pública</button>
     <button class="btn ghost" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
   `;
   return `
-    <section class="store-preview-container store-preview-panel store-preview-zone" data-storefront-live-preview data-storefront-render="preview" data-storefront-source="${escaparAttr(source)}">
+    <section class="store-preview-container store-preview-panel store-preview-zone storefront-preview storefront-theme-v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" data-storefront-live-preview data-storefront-render="preview" data-storefront-source="${escaparAttr(source)}">
       <div class="store-preview-toolbar">
         <div>
           <strong>${escaparHtml(title)}</strong>
@@ -16032,14 +16038,14 @@ function getStorefrontProductTypeLabel(product = {}) {
 }
 
 function renderStoreProductCard(product = {}, images = [], categories = []) {
-  const image = images.find((item) => item.product_id === product.id)?.image_url || "";
+  const image = images.find((item) => item.product_id === product.id)?.image_url || product.image_url || "";
   const categoryName = categories.find((cat) => String(cat.id) === String(product.category_id))?.name || "Produto 3D";
   const typeLabel = getStorefrontProductTypeLabel(product);
   const time = product.estimated_production_time || (product.is_customizable ? "Sob consulta" : "Pronto para orçamento");
   return `
     <article class="store-product-card editable-product-card" data-editor-ready="future">
       <div class="store-product-media">
-        ${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : renderUiIcon("estoque")}
+        ${image ? `<img loading="lazy" decoding="async" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : renderUiIcon("estoque")}
         <span class="store-product-floating-badge">${product.featured ? "Destaque" : product.__demo ? "Demo" : typeLabel}</span>
       </div>
       <div class="store-product-copy">
@@ -17437,17 +17443,20 @@ function renderStorePublicProductCard(vm, product = {}) {
           <span>${escaparHtml(storefrontPublicCategoryName(vm, product))}</span>
           ${renderStoreStatusBadge(product)}
         </div>
+        ${adminMode && product.__demo ? `<div class="store-demo-product-note"><b>Exemplo de produto</b><span>Substitua por um produto seu</span></div>` : ""}
         <a class="store-public-product-title" href="${storefrontPublicProductUrl(vm, product)}" onclick="${mediaClick}">${escaparHtml(product.title || "Produto da loja")}</a>
         <p>${escaparHtml(product.description || "Produto público preparado para orçamento.")}</p>
         <div class="store-public-product-bottom">
-          <strong>${escaparHtml(renderPrecoProdutoLojaOnline(product))}</strong>
+          <strong>${escaparHtml(product.__demo ? `Preço demonstrativo: ${renderPrecoProdutoLojaOnline(product)}` : renderPrecoProdutoLojaOnline(product))}</strong>
           <small>${escaparHtml(product.estimated_production_time || "Prazo sob consulta")}</small>
         </div>
       </div>
       <div class="store-public-product-actions">
-        <a class="btn ghost" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Detalhes</a>
-        <button class="btn secondary" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Adicionar"}</button>
-        ${shareEnabled ? renderStorefrontShareInlineButton(getStorefrontPublicUrl({ slug: vm.store.slug, view: "product", productSlug: product.slug || product.id }), "Enviar") : ""}
+        ${adminMode && product.__demo
+          ? `<button class="btn secondary store-demo-use-model" type="button" onclick="event.stopPropagation(); abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">Usar este exemplo como modelo</button>`
+          : `<a class="btn ghost" href="${storefrontPublicProductUrl(vm, product)}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Detalhes</a>
+             <button class="btn secondary" type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${escaparAttr(product.id)}')" ${unavailable ? "disabled" : ""}>${unavailable ? "Indisponível" : "Adicionar"}</button>
+             ${shareEnabled ? renderStorefrontShareInlineButton(getStorefrontPublicUrl({ slug: vm.store.slug, view: "product", productSlug: product.slug || product.id }), "Enviar") : ""}`}
       </div>
     </article>
   `;
@@ -17680,7 +17689,7 @@ function renderLojaOnlinePublica() {
 }
 
 function renderStorefrontPublicLegacy() {
-  const vm = getStorefrontPublicViewModel();
+  let vm = getStorefrontPublicViewModel();
   if (!vm.store) {
     applyStoreTheme("light", { persist: false });
     return `
@@ -17697,6 +17706,13 @@ function renderStorefrontPublicLegacy() {
   const storefrontTheme = getStorefrontControlledTheme(vm.store.theme_config || {});
   applyStoreTheme(storefrontTheme.preference);
   const mode = getStorefrontPublicMode(vm);
+  if (!mode.admin) {
+    vm = {
+      ...vm,
+      categories: vm.categories.filter((category) => !category.__demo && !category.__template),
+      products: vm.products.filter((product) => !storefrontIsDemoProduct(product))
+    };
+  }
   if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
     return `
       <main class="store-public-shell">
@@ -18650,6 +18666,7 @@ function renderStoreEditorTabContent(tab = "overview", content = "", vm = {}) {
 function renderStorefrontAdminPanelLegacy() {
   if (!canUseStorefrontLocal()) return renderAcessoNegado();
   const vm = getStorefrontAdminViewModel();
+  const storefrontTheme = getStorefrontControlledTheme(vm.store.theme_config || {});
   const activeTab = getStorefrontAdminTab();
   const linkPublico = getStorefrontPublicUrlLocal();
   const novos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
@@ -18669,7 +18686,7 @@ function renderStorefrontAdminPanelLegacy() {
   const body = renderStoreEditorTabContent(activeTab, bodyContent, vm);
 
   return `
-    <section class="app-page storefront-admin-page store-editor-shell store-editor-zone" data-storefront-render="editor" data-storefront-source="legacy">
+    <section class="app-page storefront-admin-page store-editor-shell store-editor-zone storefront-theme-v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" data-storefront-render="editor" data-storefront-source="legacy">
       <aside class="store-editor-sidebar" aria-label="Navegação do editor da loja">
         <div class="store-editor-sidebar-card">
           <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Ativa" : "Inativa"}</span>
@@ -18923,11 +18940,13 @@ function renderStorefrontProducts(vm) {
   const editingId = storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.editingProduct) || "";
   const editingSeed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
   const editing = vm.products.find((product) => product.id === editingId) || (editingSeed && typeof editingSeed === "object" ? editingSeed : {});
+  const demoProducts = vm.products.filter(storefrontIsDemoProduct);
+  const realProducts = vm.products.filter((product) => !storefrontIsDemoProduct(product));
   const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${cat.__template ? "disabled" : ""} ${editing.category_id === cat.id ? "selected" : ""}>${escaparHtml(cat.name)}${cat.__template ? " (template)" : ""}</option>`).join("");
-  const productStats = getStoreEditorNamespace()?.products?.getStats?.(vm) || {
-    total: vm.products.length,
-    visible: vm.products.filter((product) => product.visible !== false).length,
-    featured: vm.products.filter((product) => product.featured).length
+  const productStats = getStoreEditorNamespace()?.products?.getStats?.({ ...vm, products: realProducts }) || {
+    total: realProducts.length,
+    visible: realProducts.filter((product) => product.visible !== false).length,
+    featured: realProducts.filter((product) => product.featured).length
   };
   return `
     <section class="card storefront-products-summary store-editor-panel">
@@ -18997,27 +19016,29 @@ function renderStorefrontProducts(vm) {
       </form>
     </section>
     <section class="card store-product-list-panel store-editor-panel">
-      <div class="card-header"><h3>Produtos publicados</h3><span class="status-badge">${vm.products.length} produto(s)</span></div>
+      <div class="card-header"><h3>${demoProducts.length && !realProducts.length ? "Sua vitrine começa aqui" : "Produtos da vitrine"}</h3><span class="status-badge">${realProducts.length} produto(s)</span></div>
+      ${demoProducts.length ? `<div class="plans-state-notice checkout-opened"><strong>Use um exemplo como ponto de partida ou cadastre seu primeiro produto.</strong><span>Os exemplos abaixo não são produtos reais e nunca são publicados automaticamente.</span></div>` : ""}
       ${renderStorefrontUploadStatus()}
       <div class="store-product-admin-grid">
         ${vm.products.map((product) => {
           const productImages = vm.images.filter((image) => image.product_id === product.id);
-          const image = productImages[0]?.image_url || "";
+          const image = productImages[0]?.image_url || product.image_url || "";
           return `<article class="store-product-admin-card">
-            <div class="store-product-admin-media">${image ? `<img src="${escaparAttr(image)}" alt="${escaparAttr(product.title)}">` : renderUiIcon("estoque")}</div>
+            <div class="store-product-admin-media">${image ? `<img loading="lazy" decoding="async" src="${escaparAttr(image)}" alt="${escaparAttr(product.title)}">` : renderUiIcon("estoque")}</div>
             <div class="store-product-admin-body">
               <div class="store-badge-row">
-                ${product.__demo ? `<span class="status-badge badge-info">demonstração</span>` : ""}
+                ${product.__demo ? `<span class="status-badge badge-info">Exemplo de produto</span>` : ""}
                 <span class="status-badge ${product.visible ? "badge-success" : ""}">${product.visible ? "visível" : "oculto"}</span>
                 ${product.featured ? `<span class="status-badge">destaque</span>` : ""}
                 ${product.is_customizable ? `<span class="status-badge">personalizado</span>` : ""}
               </div>
               <strong>${escaparHtml(product.title)}</strong>
+              ${product.__demo ? `<small>Substitua por um produto seu.</small>` : ""}
               <small>${escaparHtml(getStorefrontCategoryName(vm, product.category_id))} • ${escaparHtml(renderPrecoProdutoLojaOnline(product))}</small>
               <small>${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
             </div>
             <div class="store-admin-actions">
-              <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar como base" : "Editar"}</button>
+              <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar este exemplo como modelo" : "Editar"}</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera publicação.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','visible')"`}>${product.visible ? "Ocultar" : "Exibir"}</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não pode ser duplicado.\"" : `onclick="duplicarProdutoLojaOnline('${escaparAttr(product.id)}')"`}>Duplicar</button>
               <button class="btn ghost" type="button" ${product.__demo ? "disabled title=\"Produto demonstrativo não altera destaque.\"" : `onclick="alternarProdutoLojaOnline('${escaparAttr(product.id)}','featured')"`}>${product.featured ? "Remover destaque" : "Destacar"}</button>
@@ -27632,7 +27653,7 @@ function renderAssinatura() {
   const planoAtualLista = planos.find((plano) => plano.current) || planos.find((plano) => plano.slug === planoAtual.slug) || planos[0];
 
   return `
-    <section class="plans-modern-screen plans-pricing-screen">
+    <section class="plans-modern-screen plans-pricing-screen s3d-plans-v2">
       <div class="plans-modern-header">
         <button class="icon-action-button" type="button" onclick="trocarTela('conta')" title="Voltar">${renderUiIcon("back")}</button>
         <h2>Planos</h2>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder de topo de bolo personalizado impresso em 3D</title>
+  <desc id="desc">Ilustracao local provisoria de um topo de bolo com texto decorativo.</desc>
+  <rect width="720" height="720" fill="#fff8ef"/>
+  <circle cx="586" cy="120" r="124" fill="#ffe7bf"/>
+  <path d="M270 458V252M450 458V252" stroke="#8c5f2d" stroke-width="18" stroke-linecap="round"/>
+  <path d="M222 260c80-122 220-122 286 0-74 44-212 44-286 0Z" fill="#ef8a00"/>
+  <text x="268" y="254" fill="#fff" font-family="Arial, sans-serif" font-size="42" font-weight="700">Festa</text>
+  <ellipse cx="360" cy="488" rx="220" ry="46" fill="#f1d8b4"/>
+  <text x="44" y="634" fill="#10212b" font-family="Arial, sans-serif" font-size="36" font-weight="700">Topo de bolo personalizado</text>
+  <text x="44" y="674" fill="#64727c" font-family="Arial, sans-serif" font-size="24">Placeholder local para substituir por foto real</text>
+</svg>

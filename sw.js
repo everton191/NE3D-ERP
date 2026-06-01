@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v132-erp-shell-v2-20260531";
+const CACHE_NAME = "simplifica-3d-v133-visual-blockers-20260531";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -23,6 +23,12 @@ const APP_FILES = [
   "./assets/icon-512.png",
   "./assets/apple-touch-icon.png",
   "./assets/intro.mp4",
+  "./assets/storefront/examples/stamp-placeholder.svg",
+  "./assets/storefront/examples/keychain-placeholder.svg",
+  "./assets/storefront/examples/cake-topper-placeholder.svg",
+  "./assets/storefront/examples/cutter-placeholder.svg",
+  "./assets/storefront/examples/keepsake-placeholder.svg",
+  "./assets/storefront/examples/vase.jpg",
   "./manifest.webmanifest",
   "./icon.svg",
   "./ads.txt"

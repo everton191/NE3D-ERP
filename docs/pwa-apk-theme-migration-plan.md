@@ -5,6 +5,7 @@
 - Cache PWA anterior: `simplifica-3d-v130-estavel-20260531-storefront-light-theme`
 - Cache PWA da fundacao dos lotes 0-3: `simplifica-3d-v131-design-system-v2-foundation-20260531`
 - Cache PWA dos lotes 4A/4B: `simplifica-3d-v132-erp-shell-v2-20260531`
+- Cache PWA da correcao visual 7D.1: `simplifica-3d-v133-visual-blockers-20260531`
 - APK atual: `1.0.18-rc`
 - Android `versionCode`: `17`
 - Manifest PWA: fundo e tema base `#ffffff`
@@ -28,6 +29,10 @@ Somente depois da revisao visual Web:
 4. validar `theme-color` dinamico;
 5. validar ausencia de loop de atualizacao;
 6. criar `test:pwa-cache-integrity`.
+
+A fase 7D.1 atualiza o cache local para homologacao, mas nao publica PWA nem
+gera APK. A promocao continua bloqueada ate revisar Loja Online e Planos com
+sessao autenticada em claro e escuro.
 
 ## Aprovacao APK futura
 

@@ -72,6 +72,8 @@
     "test:design-system-v2": "node scripts/test-design-system-v2.js",
     "test:erp-theme-v2": "node scripts/test-erp-theme-v2.js",
     "test:storefront-theme-v2": "node scripts/test-storefront-theme-v2.js",
+    "test:storefront-demo-products": "node scripts/test-storefront-demo-products.js",
+    "test:plans-theme-v2": "node scripts/test-plans-theme-v2.js",
     "test:theme-isolation": "node scripts/test-theme-isolation.js",
     "test:layout-overflow-v2": "node scripts/test-layout-overflow-v2.js",
     "test:erp-shell-v2": "node scripts/test-erp-shell-v2.js",

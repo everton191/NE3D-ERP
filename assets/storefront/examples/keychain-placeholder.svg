@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder de chaveiro personalizado impresso em 3D</title>
+  <desc id="desc">Ilustracao local provisoria de um chaveiro com argola.</desc>
+  <rect width="720" height="720" fill="#f4f7fb"/>
+  <circle cx="516" cy="216" r="112" fill="none" stroke="#10212b" stroke-width="32"/>
+  <circle cx="516" cy="216" r="64" fill="#f4f7fb" stroke="#ccd8dd" stroke-width="10"/>
+  <path d="M450 292 374 368" stroke="#10212b" stroke-width="30" stroke-linecap="round"/>
+  <rect x="162" y="342" width="282" height="174" rx="52" fill="#7257c8" transform="rotate(-8 303 429)"/>
+  <path d="M224 430h150" stroke="#fff" stroke-width="18" stroke-linecap="round" opacity=".82"/>
+  <text x="44" y="634" fill="#10212b" font-family="Arial, sans-serif" font-size="36" font-weight="700">Chaveiro personalizado</text>
+  <text x="44" y="674" fill="#64727c" font-family="Arial, sans-serif" font-size="24">Placeholder local para substituir por foto real</text>
+</svg>

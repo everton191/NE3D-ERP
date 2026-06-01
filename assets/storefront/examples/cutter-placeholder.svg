@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 720" role="img" aria-labelledby="title desc">
+  <title id="title">Placeholder de cortador para confeitaria impresso em 3D</title>
+  <desc id="desc">Ilustracao local provisoria de um cortador em formato de estrela.</desc>
+  <rect width="720" height="720" fill="#f3f8f8"/>
+  <circle cx="124" cy="112" r="112" fill="#e0f1ef"/>
+  <path d="m360 176 54 110 122 18-88 86 21 121-109-57-109 57 21-121-88-86 122-18Z" fill="none" stroke="#0f8f88" stroke-width="34" stroke-linejoin="round"/>
+  <path d="m360 228 38 78 86 13-62 60 15 85-77-40-77 40 15-85-62-60 86-13Z" fill="#d8eeeb"/>
+  <text x="44" y="634" fill="#10212b" font-family="Arial, sans-serif" font-size="36" font-weight="700">Cortador para confeitaria</text>
+  <text x="44" y="674" fill="#64727c" font-family="Arial, sans-serif" font-size="24">Placeholder local para substituir por foto real</text>
+</svg>

@@ -20,7 +20,7 @@ if (missingIgnores.length) {
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.18-rc\"",
   "APP_VERSION_CODE = 17",
-  "simplifica-3d-v132-erp-shell-v2-20260531",
+  "simplifica-3d-v133-visual-blockers-20260531",
   "versionName \"1.0.18-rc\"",
   "versionCode 17",
   "\"version\": \"1.0.18-rc\"",

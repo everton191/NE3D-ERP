@@ -13,6 +13,9 @@ Fase 7D, lotes 4A e 4B. A migracao permanece aditiva e reversivel: as classes hi
 | Sidebar desktop e drawer | `.s3d-sidebar`, `.s3d-nav-item` | `.side-menu`, `.side-nav-button`, `.side-drawer` | Rotas, permissoes e gesto mobile permanecem iguais | Nao | Apos homologacao de navegacao |
 | Bottom navigation | `.s3d-bottom-nav`, `.s3d-nav-item` | `.mobile-bottom-nav`, `.mobile-bottom-nav-button` | Navegacao e safe-area existentes seguem ativos | Nao | Apos validacao Android |
 | Dashboard | `.s3d-dashboard`, `.s3d-page`, `.s3d-card` | `.dashboard-*`, `.desktop-dashboard-*`, `.card` | Cards e analytics existentes nao devem ser reescritos nesta fase | Nao | Lote de polimento do dashboard |
+| Loja publica | `.storefront-theme-v2`, `.store-layout-zone`, `.layout-storefront` | `.store-public-*` | Preservar render atual e assumir tokens apenas no shell marcado | Nao | Apos homologacao da loja |
+| Editor e preview da loja | `.storefront-theme-v2`, `.store-editor-zone`, `.store-preview-zone` | `.storefront-admin-*`, `.store-preview-*` | Isolar contraste e responsividade sem alterar handlers | Nao | Apos homologacao autenticada |
+| Tela de Planos | `.s3d-plans-v2` | `.plans-modern-screen`, `.plan-tier-*` | Vencer hotfix escuro legado no tema claro sem tocar em regras comerciais | Nao | Apos homologacao claro/escuro |
 
 ## Riscos catalogados
 
@@ -22,6 +25,8 @@ Fase 7D, lotes 4A e 4B. A migracao permanece aditiva e reversivel: as classes hi
 - O CSS V2 foi carregado depois do legado para assumir somente as superficies marcadas.
 - A rota direta `/store-admin/ne3d` continua exigindo rewrite SPA e permanece no backlog da Loja Online.
 - A barra nativa Android continua com cores escuras fixas e permanece planejada para o Lote 9.
+- Os modelos da loja sao exemplos locais filtrados da vitrine publica e nao equivalem a produtos reais.
+- Cinco categorias demonstrativas ainda usam placeholders locais ate haver fotos licenciadas adequadas.
 
 ## Regra de limpeza
 
