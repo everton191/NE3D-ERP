@@ -6,13 +6,13 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v134-theme-default-light-20260601",
+  "simplifica-3d-v135-storefront-demo-photos-20260601",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.18-rc\"",
-  "versionCode 17",
-  "APP_VERSION = \"1.0.18-rc\"",
-  "APP_VERSION_CODE = 17"
+  "versionName \"1.0.19-rc\"",
+  "versionCode 18",
+  "APP_VERSION = \"1.0.19-rc\"",
+  "APP_VERSION_CODE = 18"
 ];
 
 const sources = [sw, manifest, gradle, app].join("\n");
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache v134 e versionamento atualizado presentes.");
+console.log("Storefront PWA upgrade: cache v135 e versionamento atualizado presentes.");

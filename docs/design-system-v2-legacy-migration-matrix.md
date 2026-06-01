@@ -26,7 +26,7 @@ Fase 7D, lotes 4A e 4B. A migracao permanece aditiva e reversivel: as classes hi
 - A rota direta `/store-admin/ne3d` continua exigindo rewrite SPA e permanece no backlog da Loja Online.
 - A barra nativa Android continua com cores escuras fixas e permanece planejada para o Lote 9.
 - Os modelos da loja sao exemplos locais filtrados da vitrine publica e nao equivalem a produtos reais.
-- Cinco categorias demonstrativas ainda usam placeholders locais ate haver fotos licenciadas adequadas.
+- As seis categorias demonstrativas usam fotos locais com atribuicao documentada em `assets/storefront-demo/ATTRIBUTION.md`.
 
 ## Regra de limpeza
 

@@ -110,8 +110,8 @@ const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
   "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.18-rc"/.test(app), "app.js esta na versao 1.0.18-rc");
-assert(/const APP_VERSION_CODE = 17/.test(app), "app.js possui versionCode 17");
+assert(/const APP_VERSION = "1\.0\.19-rc"/.test(app), "app.js esta na versao 1.0.19-rc");
+assert(/const APP_VERSION_CODE = 18/.test(app), "app.js possui versionCode 18");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v134-theme-default-light-20260601"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v135-storefront-demo-photos-20260601"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.28-rc-theme-default-light-20260601"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.29-rc-storefront-demo-photos-20260601"), "index.html usa cache-bust atual");
 assert(pkg.scripts && pkg.scripts["test:layout-overflow-v2"] === "node scripts/test-layout-overflow-v2.js", "package.json expoe test:layout-overflow-v2");
 assert(pkg.scripts && pkg.scripts["test:erp-shell-v2"] === "node scripts/test-erp-shell-v2.js", "package.json expoe test:erp-shell-v2");
 assert(app.includes("function selecionarItemLojaVisual"), "fase 7c possui selecao contextual da vitrine real");

@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.18-rc";
-const APP_VERSION_CODE = 17;
+const APP_VERSION = "1.0.19-rc";
+const APP_VERSION_CODE = 18;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -14553,12 +14553,12 @@ function isStorefrontDemoPreviewAllowed() {
 
 function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
   const commons = {
-    stamp: "assets/storefront/examples/stamp-placeholder.svg?v=20260531",
-    keychain: "assets/storefront/examples/keychain-placeholder.svg?v=20260531",
-    topper: "assets/storefront/examples/cake-topper-placeholder.svg?v=20260531",
-    cutter: "assets/storefront/examples/cutter-placeholder.svg?v=20260531",
-    keepsake: "assets/storefront/examples/keepsake-placeholder.svg?v=20260531",
-    vase: "assets/storefront/examples/vase.jpg?v=20260531"
+    stamp: "assets/storefront-demo/stamp.jpg?v=20260601",
+    keychain: "assets/storefront-demo/custom-part.jpg?v=20260601",
+    topper: "assets/storefront-demo/figure.jpg?v=20260601",
+    cutter: "assets/storefront-demo/organizer.jpg?v=20260601",
+    keepsake: "assets/storefront-demo/miniature.jpg?v=20260601",
+    vase: "assets/storefront-demo/vase.jpg?v=20260601"
   };
   if (commons[visual]) return commons[visual];
   const palette = {
@@ -14590,6 +14590,10 @@ function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
     <text x="42" y="394" fill="#f8fbff" font-family="Inter, Arial, sans-serif" font-size="28" font-weight="800">${safeTitle}</text>
   </svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getStorefrontDemoBannerImage() {
+  return "assets/storefront-demo/custom-part.jpg?v=20260601";
 }
 
 function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
@@ -15083,8 +15087,27 @@ function getStorefrontAdminViewModel() {
   const hasStoredProducts = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.products);
   const hasStoredLeads = storefrontAdminHasStoredValue("simplifica-storefront-leads-preview-v1");
   const hasStoredEvents = storefrontAdminHasStoredValue("simplifica-storefront-events-preview-v1");
-  const categories = getStorefrontAdminCategoriesLocal().sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
-  const rawProducts = getStorefrontAdminProductsLocal();
+  const storedCategories = getStorefrontAdminCategoriesLocal();
+  const storedProducts = getStorefrontAdminProductsLocal();
+  const storedCategoryBySlug = new Map(storedCategories.map((category) => [String(category.slug || ""), category.id]));
+  const storedProductKeys = new Set(storedProducts.flatMap((product) => [String(product.id || ""), String(product.slug || "")]).filter(Boolean));
+  const demoCategorySlugById = new Map((demoPreview?.categories || []).map((category) => [String(category.id), String(category.slug || "")]));
+  const useDemoCategories = demoAllowed && demoPreview.categories.length > 0;
+  const useDemoProducts = demoAllowed && demoPreview.products.length > 0;
+  const demoCategories = useDemoCategories
+    ? demoPreview.categories.filter((category) => !storedCategoryBySlug.has(String(category.slug || "")))
+    : [];
+  const demoProducts = useDemoProducts
+    ? demoPreview.products.filter((product) => !storedProductKeys.has(String(product.id || "")) && !storedProductKeys.has(String(product.slug || ""))).map((product) => {
+      const demoCategorySlug = demoCategorySlugById.get(String(product.category_id || ""));
+      return {
+        ...product,
+        category_id: storedCategoryBySlug.get(demoCategorySlug) || product.category_id
+      };
+    })
+    : [];
+  const categories = [...storedCategories, ...demoCategories].sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
+  const rawProducts = [...storedProducts, ...demoProducts];
   const images = getStorefrontAdminImagesLocal();
   const leads = getStorefrontPreviewLeadsLocal();
   const events = getStorefrontPreviewEventsLocal();
@@ -15101,8 +15124,8 @@ function getStorefrontAdminViewModel() {
       || (demoAllowed && store.__demo)
     ),
     store: demoAllowed && !hasStoredStore,
-    categories: demoAllowed && !hasStoredCategories,
-    products: demoAllowed && !hasStoredProducts,
+    categories: demoAllowed && (!hasStoredCategories || useDemoCategories),
+    products: demoAllowed && (!hasStoredProducts || useDemoProducts),
     leads: demoAllowed && !hasStoredLeads,
     events: demoAllowed && !hasStoredEvents
   };
@@ -16361,7 +16384,9 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
 function getStorefrontPublicViewModel() {
   const route = getStorefrontPublicRoute();
   const cached = getStorefrontPublicCache(route.slug);
-  const fallback = cached || getStorefrontPublicFallback(route.slug);
+  const adminRequested = new URLSearchParams(location.search || "").get("admin") === "1";
+  const adminFallback = adminRequested ? getStorefrontPublicFallback(route.slug) : null;
+  const fallback = adminFallback || cached || getStorefrontPublicFallback(route.slug);
   if (!fallback?.store) {
     return { route, store: null, categories: [], products: [], images: [], loading: true, source: "empty" };
   }
@@ -17358,6 +17383,7 @@ function renderStorePublicBanner(vm) {
   const theme = getStorefrontControlledTheme(store.theme_config || {});
   const visibleCount = vm.products.length;
   const mode = getStorefrontPublicMode(vm);
+  const visualBanner = store.banner_url || (mode.admin && vm.demo?.products ? getStorefrontDemoBannerImage() : "");
   const eyebrow = mode.admin ? "Loja pronta para personalizar" : "Vitrine oficial";
   const whatsappAction = mode.admin ? "selecionarItemLojaVisual('contacts')" : "abrirWhatsappLojaPublica()";
   const ctaLabel = store.theme_config?.banner_cta_label || "Ver catálogo";
@@ -17366,8 +17392,8 @@ function renderStorePublicBanner(vm) {
     : "document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })";
   return `
     <section class="store-public-banner store-content ${mode.admin ? "store-guided-editable" : ""}" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}" ${mode.admin ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('banner')"` : ""}>
-      ${store.banner_url ? `<img src="${escaparAttr(store.banner_url)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
-      ${store.banner_url ? "" : renderStoreHeroDeviceArt(store)}
+      ${visualBanner ? `<img src="${escaparAttr(visualBanner)}" alt="Banner ${escaparAttr(store.name || "Loja")}">` : ""}
+      ${visualBanner ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
       <div class="store-public-banner-copy">
         <span>${escaparHtml(eyebrow)}</span>
@@ -17764,7 +17790,7 @@ function renderStorefrontPublicLegacy() {
     ${renderStorePublicHeader(vm)}
     ${renderStorefrontConnectionBadge()}
     ${renderStoreAdminFloatingEditor(vm)}
-    ${vm.store.__demo && mode.admin ? `<div class="store-public-demo-notice">Pré-visualização da loja: substitua os exemplos pelos seus produtos.</div>` : ""}
+    ${(vm.store.__demo || vm.demo?.enabled) && mode.admin ? `<div class="store-public-demo-notice">Pré-visualização da loja: substitua os exemplos pelos seus produtos.</div>` : ""}
     ${pageContent}
     <footer class="store-public-footer store-footer" data-store-section="rodape">
       <span>Loja criada com Simplifica 3D</span>

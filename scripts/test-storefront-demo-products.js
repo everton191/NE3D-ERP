@@ -8,18 +8,21 @@ const css = fs.readFileSync(path.join(root, "themes", "base", "design-system-v2.
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 [
-  ["Carimbo personalizado", "stamp-placeholder.svg"],
-  ["Chaveiro personalizado", "keychain-placeholder.svg"],
-  ["Topo de bolo personalizado", "cake-topper-placeholder.svg"],
-  ["Cortador para confeitaria", "cutter-placeholder.svg"],
-  ["Lembrancinha personalizada", "keepsake-placeholder.svg"],
+  ["Carimbo personalizado", "stamp.jpg"],
+  ["Chaveiro personalizado", "custom-part.jpg"],
+  ["Topo de bolo personalizado", "figure.jpg"],
+  ["Cortador para confeitaria", "organizer.jpg"],
+  ["Lembrancinha personalizada", "miniature.jpg"],
   ["Decoração impressa em 3D", "vase.jpg"]
 ].forEach(([name, file]) => {
   assert(app.includes(name), `modelo demonstrativo ausente: ${name}`);
-  assert(fs.existsSync(path.join(root, "assets", "storefront", "examples", file)), `asset local ausente: ${file}`);
-  assert(sw.includes(`./assets/storefront/examples/${file}`), `asset nao precacheado: ${file}`);
+  assert(fs.existsSync(path.join(root, "assets", "storefront-demo", file)), `asset local ausente: ${file}`);
+  assert(sw.includes(`./assets/storefront-demo/${file}`), `asset nao precacheado: ${file}`);
 });
 
+assert(app.includes("const rawProducts = [...storedProducts, ...demoProducts]"), "editor deve somar modelos fotograficos sem persistir dados ficticios");
+assert(app.includes("getStorefrontDemoBannerImage()"), "preview vazio deve receber banner fotografico local");
+assert(app.includes("const fallback = adminFallback || cached || getStorefrontPublicFallback(route.slug)"), "modo admin deve priorizar preview local sobre cache publico vazio");
 assert(app.includes("products: vm.products.filter((product) => !storefrontIsDemoProduct(product))"), "loja publica deve filtrar produtos demonstrativos");
 assert(app.includes("categories: vm.categories.filter((category) => !category.__demo && !category.__template)"), "loja publica deve filtrar categorias demonstrativas");
 assert(app.includes("Usar este exemplo como modelo"), "editor deve explicar que o exemplo cria um modelo");
@@ -31,4 +34,4 @@ assert(app.includes("Substitua por um produto seu."), "cada modelo deve explicar
 assert(css.includes(".store-demo-product-note"), "produto demonstrativo deve ter aviso visual isolado");
 assert(css.includes(".store-demo-use-model"), "CTA demonstrativo deve possuir estilo isolado");
 
-console.log("Storefront demo products: exemplos locais, filtro publico e CTA de modelo validados.");
+console.log("Storefront demo products: fotos locais, preview vazio, filtro publico e CTA de modelo validados.");

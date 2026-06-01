@@ -6,7 +6,7 @@
 - Base: `d6cb8da104b343a95d1c3682cfe0a59026b51389`
 - Rollback: `checkpoint-before-phase-7d-design-system-v2-20260531`
 - Cache PWA anterior: `simplifica-3d-v130-estavel-20260531-storefront-light-theme`
-- APK atual: `1.0.18-rc`
+- APK atual: `1.0.19-rc`
 - Android `versionCode`: `17`
 
 ## Mapa atual

@@ -10,12 +10,16 @@ filtrados da loja publica.
 
 | Modelo | Asset | Estado |
 | --- | --- | --- |
-| Carimbo personalizado | `assets/storefront/examples/stamp-placeholder.svg` | Placeholder local |
-| Chaveiro personalizado | `assets/storefront/examples/keychain-placeholder.svg` | Placeholder local |
-| Topo de bolo personalizado | `assets/storefront/examples/cake-topper-placeholder.svg` | Placeholder local |
-| Cortador para confeitaria | `assets/storefront/examples/cutter-placeholder.svg` | Placeholder local |
-| Lembrancinha personalizada | `assets/storefront/examples/keepsake-placeholder.svg` | Placeholder local |
-| Decoracao impressa em 3D | `assets/storefront/examples/vase.jpg` | Imagem local reutilizada do acervo existente |
+| Carimbo personalizado | `assets/storefront-demo/stamp.jpg` | Foto local demonstrativa |
+| Chaveiro personalizado | `assets/storefront-demo/custom-part.jpg` | Foto local demonstrativa |
+| Topo de bolo personalizado | `assets/storefront-demo/figure.jpg` | Foto local demonstrativa |
+| Cortador para confeitaria | `assets/storefront-demo/organizer.jpg` | Foto local demonstrativa |
+| Lembrancinha personalizada | `assets/storefront-demo/miniature.jpg` | Foto local demonstrativa |
+| Decoracao impressa em 3D | `assets/storefront-demo/vase.jpg` | Foto local demonstrativa |
+
+O editor vazio usa essas fotos somente como referencia visual local. Os produtos
+continuam marcados como demonstracao, nao sao persistidos automaticamente e sao
+filtrados quando a vitrine e aberta sem contexto administrativo.
 
 ## Fotos ainda necessarias
 

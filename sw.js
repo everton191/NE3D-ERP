@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v134-theme-default-light-20260601";
+const CACHE_NAME = "simplifica-3d-v135-storefront-demo-photos-20260601";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -23,12 +23,12 @@ const APP_FILES = [
   "./assets/icon-512.png",
   "./assets/apple-touch-icon.png",
   "./assets/intro.mp4",
-  "./assets/storefront/examples/stamp-placeholder.svg",
-  "./assets/storefront/examples/keychain-placeholder.svg",
-  "./assets/storefront/examples/cake-topper-placeholder.svg",
-  "./assets/storefront/examples/cutter-placeholder.svg",
-  "./assets/storefront/examples/keepsake-placeholder.svg",
-  "./assets/storefront/examples/vase.jpg",
+  "./assets/storefront-demo/stamp.jpg",
+  "./assets/storefront-demo/custom-part.jpg",
+  "./assets/storefront-demo/figure.jpg",
+  "./assets/storefront-demo/organizer.jpg",
+  "./assets/storefront-demo/miniature.jpg",
+  "./assets/storefront-demo/vase.jpg",
   "./manifest.webmanifest",
   "./icon.svg",
   "./ads.txt"

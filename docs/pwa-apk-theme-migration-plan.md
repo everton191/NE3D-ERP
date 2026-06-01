@@ -7,7 +7,8 @@
 - Cache PWA dos lotes 4A/4B: `simplifica-3d-v132-erp-shell-v2-20260531`
 - Cache PWA da correcao visual 7D.1: `simplifica-3d-v133-visual-blockers-20260531`
 - Cache PWA da auditoria de tema 7D.2: `simplifica-3d-v134-theme-default-light-20260601`
-- APK atual: `1.0.18-rc`
+- Cache PWA dos exemplos fotograficos e contencao do editor 7D.3: `simplifica-3d-v135-storefront-demo-photos-20260601`
+- APK atual: `1.0.19-rc`
 - Android `versionCode`: `17`
 - Manifest PWA: fundo e tema base `#ffffff`
 

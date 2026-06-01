@@ -28702,3 +28702,49 @@ body.theme-light .app-toast{
   background:color-mix(in srgb, var(--store-primary, #078f86) 8%, var(--store-card)) !important;
   border-color:var(--store-border) !important;
 }
+
+/* Fase 7D.3: editor guiado contido em paineis laterais e desktops compactos */
+.store-public-shell[data-storefront-source="v2"].store-public-admin-mode,
+.store-public-shell[data-storefront-source="v2"] .store-visual-editor-frame,
+.store-public-shell[data-storefront-source="v2"] .store-visual-editor-main,
+.store-public-shell[data-storefront-source="v2"] .store-visual-editor-canvas{
+  min-width:0;
+  max-width:100%;
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-visual-editor-canvas{
+  overflow-x:clip;
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-visual-top-actions{
+  min-width:0;
+  flex-wrap:wrap;
+  row-gap:6px;
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-visual-top-actions :where(button,a){
+  max-width:100%;
+  white-space:normal;
+  text-align:center;
+}
+
+@media (min-width:861px) and (max-width:1320px){
+  .store-public-shell[data-storefront-source="v2"] .store-visual-editor-frame{
+    grid-template-columns:clamp(232px, 20vw, 270px) minmax(0, 1fr);
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-visual-editor-topbar{
+    grid-template-columns:minmax(148px, 1fr) auto minmax(0, 1.7fr);
+    gap:8px;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-visual-top-context span{
+    display:none;
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-visual-top-actions :where(button,a){
+    min-height:34px;
+    padding-inline:9px;
+    font-size:11px;
+  }
+}

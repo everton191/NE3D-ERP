@@ -27,7 +27,7 @@ Objetivo deste arquivo: manter um controle simples, incremental e verificavel da
 - `[x]` Auditar arquivos antigos e arquivar docs historicos da Storefront.
 - `[x]` Auditar migrations locais/remotas sem `db push` geral.
 - `[x]` Atualizar PWA para cache v122.
-- `[x]` Atualizar web/APK para `1.0.18-rc` e versionCode `17`.
+- `[x]` Atualizar web/APK para `1.0.19-rc` e versionCode `18`.
 - `[x]` Publicar web/PWA em Vercel.
 - `[x]` Bloquear rotas publicas internas de Google/IA.
 - `[x]` Gerar APK debug atualizado.

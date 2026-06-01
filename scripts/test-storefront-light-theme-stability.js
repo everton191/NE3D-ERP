@@ -32,7 +32,7 @@ function assert(condition, message) {
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#ffffff"',
-  "1.0.28-rc-theme-default-light-20260601"
+  "1.0.29-rc-storefront-demo-photos-20260601"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -56,6 +56,6 @@ assert(designSystemV2.includes(".storefront-theme-v2 .store-public-connection-ba
 assert(designSystemV2.includes("position:static"), "Badge online V2 nao deve flutuar sobre conteudo");
 assert(manifest.includes('"background_color": "#ffffff"'), "Splash PWA ainda nao usa fundo claro");
 assert(manifest.includes('"theme_color": "#ffffff"'), "Manifest PWA ainda nao usa theme-color claro");
-assert(sw.includes("simplifica-3d-v134-theme-default-light-20260601"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v135-storefront-demo-photos-20260601"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");
