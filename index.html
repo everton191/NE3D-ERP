@@ -12,7 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simplifica 3D">
 
-  <link rel="stylesheet" href="/style.css?v=1.0.24-rc-storefront-light-theme-20260531">
+  <link rel="stylesheet" href="/style.css?v=1.0.25-rc-design-system-v2-foundation-20260531">
+  <link rel="stylesheet" href="/themes/base/design-system-v2.css?v=1.0.25-rc-design-system-v2-foundation-20260531">
 <meta property="og:title" content="Simplifica 3D">
 <meta property="og:description" content="Vitrine profissional para produtos personalizados, catálogo e atendimento por WhatsApp.">
 <meta property="og:type" content="website">
@@ -25,14 +26,35 @@
 
 <script>
   (() => {
-    const storageKey = "simplifica3d_store_theme";
-    let savedTheme = "";
-    try {
-      savedTheme = localStorage.getItem(storageKey) || "";
-    } catch (_) {}
-    const resolvedTheme = savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light";
-    document.documentElement.setAttribute("data-store-theme", resolvedTheme);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolvedTheme === "dark" ? "#08131d" : "#ffffff");
+    const allowed = ["light", "system", "dark"];
+    const erpKey = "simplifica3d_erp_theme_preference";
+    const storeKey = "simplifica3d_store_theme_preference";
+    const legacyStoreKey = "simplifica3d_store_theme";
+    const getPreference = (key, legacyKey = "") => {
+      let value = "";
+      try {
+        value = localStorage.getItem(key) || (legacyKey ? localStorage.getItem(legacyKey) : "") || "";
+      } catch (_) {}
+      if (value === "auto") return "system";
+      return allowed.includes(value) ? value : "system";
+    };
+    const resolve = (preference) => {
+      if (preference === "light" || preference === "dark") return preference;
+      try {
+        return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+      } catch (_) {
+        return "light";
+      }
+    };
+    const erpPreference = getPreference(erpKey);
+    const storePreference = getPreference(storeKey, legacyStoreKey);
+    const erpTheme = resolve(erpPreference);
+    const storeTheme = resolve(storePreference);
+    document.documentElement.setAttribute("data-erp-theme", erpTheme);
+    document.documentElement.setAttribute("data-erp-theme-preference", erpPreference);
+    document.documentElement.setAttribute("data-store-theme", storeTheme);
+    document.documentElement.setAttribute("data-store-theme-preference", storePreference);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", erpTheme === "dark" ? "#08131d" : "#ffffff");
   })();
 </script>
 
@@ -49,7 +71,7 @@
   <span class="header-spacer" aria-hidden="true"></span>
 </header>
 
-<div id="app-shell" class="app-shell" data-shell-version="2a">
+<div id="app-shell" class="app-shell erp-shell erp-theme-v2" data-shell-version="2a">
   <aside id="app-sidebar" class="app-shell-slot app-sidebar-slot" aria-hidden="true"></aside>
   <header id="app-topbar" class="app-shell-slot app-topbar-slot" aria-hidden="true"></header>
   <main id="app-content" class="app-content-shell">
@@ -66,17 +88,18 @@
 
 <script src="/src/services/errorTelemetry.js?v=telemetry-20260504"></script>
 <script src="/src/services/diagnosticsService.js?v=fase-7b-ui-ux-20260530"></script>
+<script src="/src/services/themeAuthorityV2.js?v=1.0.25-rc-design-system-v2-foundation-20260531"></script>
 <script src="/src/services/adMobService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/adSenseService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
-<script src="/modules/store-editor/storeEditorRenderer.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
-<script src="/modules/store-editor/storeEditorTabs.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
-<script src="/modules/store-editor/storeEditorPreview.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
-<script src="/modules/store-editor/storeEditorProducts.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
-  <script src="/app.js?v=1.0.24-rc-storefront-light-theme-20260531"></script>
+<script src="/modules/store-editor/storeEditorRenderer.js?v=1.0.25-rc-design-system-v2-foundation-20260531"></script>
+<script src="/modules/store-editor/storeEditorTabs.js?v=1.0.25-rc-design-system-v2-foundation-20260531"></script>
+<script src="/modules/store-editor/storeEditorPreview.js?v=1.0.25-rc-design-system-v2-foundation-20260531"></script>
+<script src="/modules/store-editor/storeEditorProducts.js?v=1.0.25-rc-design-system-v2-foundation-20260531"></script>
+  <script src="/app.js?v=1.0.25-rc-design-system-v2-foundation-20260531"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.24-rc-storefront-light-theme-20260531", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=1.0.25-rc-design-system-v2-foundation-20260531", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>

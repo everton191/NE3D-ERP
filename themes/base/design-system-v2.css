@@ -1,0 +1,118 @@
+/*
+ * Simplifica 3D Design System V2
+ * Foundation only: tokens, theme shells and safe media defaults.
+ * Legacy component selectors remain active until their controlled migration.
+ */
+:root{
+  --s3d-font-sans:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --s3d-space-1:4px;
+  --s3d-space-2:8px;
+  --s3d-space-3:12px;
+  --s3d-space-4:16px;
+  --s3d-space-5:20px;
+  --s3d-space-6:24px;
+  --s3d-space-8:32px;
+  --s3d-space-10:40px;
+  --s3d-space-12:48px;
+  --s3d-radius-sm:10px;
+  --s3d-radius-md:14px;
+  --s3d-radius-lg:20px;
+  --s3d-radius-xl:28px;
+  --s3d-shadow-sm:0 4px 14px rgba(16,33,43,.06);
+  --s3d-shadow-md:0 12px 30px rgba(16,33,43,.08);
+  --s3d-shadow-lg:0 20px 48px rgba(16,33,43,.12);
+  --s3d-touch-min:44px;
+  --s3d-transition-fast:160ms ease;
+  --s3d-transition-normal:240ms ease;
+  --s3d-brand-teal:#0f8f88;
+  --s3d-brand-teal-hover:#0b746f;
+  --s3d-brand-teal-soft:#e7f6f4;
+  --s3d-brand-orange:#ef8a00;
+  --s3d-success:#2b8a62;
+  --s3d-warning:#d98000;
+  --s3d-danger:#c84b4b;
+}
+
+*,
+*::before,
+*::after{
+  box-sizing:border-box;
+}
+
+img,
+video,
+canvas,
+svg{
+  max-width:100%;
+  height:auto;
+}
+
+.erp-theme-v2[data-erp-theme="light"]{
+  --erp-bg:#f4f7f9;
+  --erp-surface:#ffffff;
+  --erp-surface-soft:#eef4f5;
+  --erp-card:#ffffff;
+  --erp-text:#10212b;
+  --erp-text-muted:#64727c;
+  --erp-border:#e2e9ed;
+  --erp-accent:var(--s3d-brand-teal);
+  --erp-accent-hover:var(--s3d-brand-teal-hover);
+  --erp-input-bg:#ffffff;
+  --erp-input-text:#10212b;
+  --erp-placeholder:#829099;
+  --erp-header-bg:rgba(255,255,255,.96);
+  --erp-sidebar-bg:#ffffff;
+  --erp-sidebar-active:#e7f6f4;
+}
+
+.erp-theme-v2[data-erp-theme="dark"]{
+  --erp-bg:#08131d;
+  --erp-surface:#0d1b27;
+  --erp-surface-soft:#122331;
+  --erp-card:#132430;
+  --erp-text:#f4f8fa;
+  --erp-text-muted:#a8b6bf;
+  --erp-border:rgba(255,255,255,.12);
+  --erp-accent:#22b8ad;
+  --erp-accent-hover:#3bcac0;
+  --erp-input-bg:#122331;
+  --erp-input-text:#f4f8fa;
+  --erp-placeholder:#91a1aa;
+  --erp-header-bg:rgba(8,19,29,.96);
+  --erp-sidebar-bg:#0d1b27;
+  --erp-sidebar-active:#14383a;
+}
+
+.storefront-theme-v2[data-store-theme="light"]{
+  --store-bg:#ffffff;
+  --store-surface:#f7f9fb;
+  --store-surface-soft:#eef4f5;
+  --store-card:#ffffff;
+  --store-text:#10212b;
+  --store-muted:#64727c;
+  --store-border:#e2e9ed;
+  --store-primary:var(--s3d-brand-teal);
+  --store-accent:var(--s3d-brand-orange);
+  --store-input-bg:#ffffff;
+  --store-input-text:#10212b;
+  --store-input-placeholder:#87949b;
+  --store-header-bg:rgba(255,255,255,.96);
+  --store-footer-bg:#f7f9fb;
+}
+
+.storefront-theme-v2[data-store-theme="dark"]{
+  --store-bg:#08131d;
+  --store-surface:#0d1b27;
+  --store-surface-soft:#122331;
+  --store-card:#132430;
+  --store-text:#f4f8fa;
+  --store-muted:#a8b6bf;
+  --store-border:rgba(255,255,255,.12);
+  --store-primary:#22b8ad;
+  --store-accent:#f4a340;
+  --store-input-bg:#122331;
+  --store-input-text:#f4f8fa;
+  --store-input-placeholder:#91a1aa;
+  --store-header-bg:rgba(8,19,29,.96);
+  --store-footer-bg:#0d1b27;
+}

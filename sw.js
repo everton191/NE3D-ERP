@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v130-estavel-20260531-storefront-light-theme";
+const CACHE_NAME = "simplifica-3d-v131-design-system-v2-foundation-20260531";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_FILES = [
   "./app.js",
   "./src/services/errorTelemetry.js",
   "./src/services/diagnosticsService.js",
+  "./src/services/themeAuthorityV2.js",
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
@@ -13,6 +14,7 @@ const APP_FILES = [
   "./modules/store-editor/storeEditorTabs.js",
   "./modules/store-editor/storeEditorPreview.js",
   "./modules/store-editor/storeEditorProducts.js",
+  "./themes/base/design-system-v2.css",
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",
   "./assets/simplifica-cover.svg",
@@ -57,11 +59,13 @@ self.addEventListener("fetch", (event) => {
     "/index.html",
     "/app.js",
     "/style.css",
+    "/themes/base/design-system-v2.css",
     "/sw.js",
     "/modules/store-editor/storeEditorRenderer.js",
     "/modules/store-editor/storeEditorTabs.js",
     "/modules/store-editor/storeEditorPreview.js",
     "/modules/store-editor/storeEditorProducts.js",
+    "/src/services/themeAuthorityV2.js",
     "/assets/intro.mp4"
   ].includes(url.pathname);
 

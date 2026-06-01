@@ -11,24 +11,26 @@ function assert(condition, message) {
 }
 
 [
-  'const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme"',
+  'const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme_preference"',
+  'const STOREFRONT_THEME_LEGACY_STORAGE_KEY = "simplifica3d_store_theme"',
   "function normalizarTemaLojaOnline",
   "function getStoreThemeSaved",
   "function updateStorefrontThemeColor",
   "function applyStoreTheme",
   "window.SimplificaStoreTheme = Object.freeze",
-  'return normalized === "dark" || normalized === "light" ? normalized : "light"',
-  'data-store-theme="${escaparAttr(storefrontTheme.mode)}"',
+  'return window.SimplificaThemeAuthorityV2?.normalizePreference?.(theme, "system")',
+  'data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}"',
   'mode: "light"',
-  '${["light", "dark"].map'
+  '${["light", "system", "dark"].map'
 ].forEach((marker) => assert(app.includes(marker), `Autoridade de tema da loja ausente: ${marker}`));
 
 [
-  'localStorage.getItem(storageKey)',
-  'savedTheme === "dark" || savedTheme === "light" ? savedTheme : "light"',
-  'document.documentElement.setAttribute("data-store-theme", resolvedTheme)',
-  'resolvedTheme === "dark" ? "#08131d" : "#ffffff"',
-  "1.0.24-rc-storefront-light-theme-20260531"
+  'const storeKey = "simplifica3d_store_theme_preference"',
+  'const legacyStoreKey = "simplifica3d_store_theme"',
+  'document.documentElement.setAttribute("data-store-theme", storeTheme)',
+  'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
+  'erpTheme === "dark" ? "#08131d" : "#ffffff"',
+  "1.0.25-rc-design-system-v2-foundation-20260531"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -44,9 +46,9 @@ function assert(condition, message) {
   "background:var(--store-header-bg)"
 ].forEach((marker) => assert(css.includes(marker), `Token claro ou componente migrado ausente: ${marker}`));
 
-assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece modo automatico dependente do sistema operacional");
+assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
 assert(manifest.includes('"background_color": "#ffffff"'), "Splash PWA ainda nao usa fundo claro");
 assert(manifest.includes('"theme_color": "#ffffff"'), "Manifest PWA ainda nao usa theme-color claro");
-assert(sw.includes("simplifica-3d-v130-estavel-20260531-storefront-light-theme"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v131-design-system-v2-foundation-20260531"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

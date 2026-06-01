@@ -32,12 +32,23 @@ if (fs.existsSync(path.join(root, "assets"))) {
 const publicSrcFiles = [
   "src/services/errorTelemetry.js",
   "src/services/diagnosticsService.js",
+  "src/services/themeAuthorityV2.js",
   "src/services/adMobService.js",
   "src/services/adSenseService.js",
   "src/services/monetizationLimits.js"
 ];
 
 publicSrcFiles.forEach((relativePath) => {
+  if (fs.existsSync(path.join(root, relativePath))) {
+    copyFile(relativePath);
+  }
+});
+
+const publicThemeFiles = [
+  "themes/base/design-system-v2.css"
+];
+
+publicThemeFiles.forEach((relativePath) => {
   if (fs.existsSync(path.join(root, relativePath))) {
     copyFile(relativePath);
   }

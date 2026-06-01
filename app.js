@@ -669,14 +669,14 @@ let appConfig = carregarObjeto("appConfig", {
   pdfSecondaryColor: "#00d8c8",
   pdfHeaderText: "",
   brandWatermarkEnabled: true,
-  theme: "dark",
+  theme: "system",
   accentColor: "#00BFA6",
   appearanceSettings: {
     primary_color: "#00BFA6",
     secondary_color: "#ff941c",
     pdf_background: "",
     logo_url: "",
-    theme_mode: "dark",
+    theme_mode: "system",
     glass_effect: true,
     custom_pdf_enabled: false
   },
@@ -8073,11 +8073,12 @@ function detectarNivelMovimento() {
 
 function aplicarPersonalizacao() {
   const root = document.documentElement;
-  const temaClaro = appConfig.theme === "light";
-  const temaAuto = appConfig.theme === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
-  const usarClaro = temaClaro || temaAuto;
-  const cor = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "dark", "primary");
-  const paletaTema = getCurrentControlledPalette(appConfig.theme || "dark", cor);
+  const temaPreferido = normalizarPreferenciaTemaInterface(appConfig.theme);
+  const temaResolvido = window.SimplificaThemeAuthorityV2?.applyErpTheme?.(temaPreferido)?.resolved || getEffectiveThemeMode(temaPreferido);
+  const usarClaro = temaResolvido === "light";
+  appConfig.theme = temaPreferido;
+  const cor = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", temaPreferido, "primary");
+  const paletaTema = getCurrentControlledPalette(temaPreferido, cor);
   const escala = calcularEscalaInterface();
   const densidade = appConfig.interfaceDensity || (appConfig.compactMode ? "compact" : "default");
   const densityScale = densidade === "compact" ? 0.88 : densidade === "comfortable" ? 1.12 : 1;
@@ -8245,6 +8246,7 @@ function aplicarPersonalizacao() {
   document.body.dataset.motion = detectarNivelMovimento();
   document.body.dataset.theme = usarClaro ? "light" : "dark";
   document.body.classList.toggle("theme-light", usarClaro);
+  document.body.classList.toggle("theme-dark", !usarClaro);
 
   const nome = appConfig.appName || SYSTEM_NAME;
   document.title = nome;
@@ -8261,8 +8263,14 @@ function aplicarPersonalizacao() {
 
   const themeMeta = document.querySelector("meta[name='theme-color']");
   if (themeMeta) {
-    themeMeta.setAttribute("content", cor);
+    window.SimplificaThemeAuthorityV2?.updateThemeColor?.(temaResolvido);
+    if (!window.SimplificaThemeAuthorityV2) themeMeta.setAttribute("content", temaResolvido === "dark" ? "#08131d" : "#ffffff");
   }
+}
+
+if (!window.__simplificaThemeSystemListenerConfigured) {
+  window.__simplificaThemeSystemListenerConfigured = true;
+  window.addEventListener("simplifica-theme-system-change", () => aplicarPersonalizacao());
 }
 
 function capturarScrollInterface() {
@@ -13853,41 +13861,59 @@ const STOREFRONT_ADMIN_KEYS = {
   recovery: "simplifica-storefront-admin-recovery-v1",
   offlineQueue: "simplifica-storefront-admin-offline-queue-v1"
 };
-const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme";
+const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme_preference";
+const STOREFRONT_THEME_LEGACY_STORAGE_KEY = "simplifica3d_store_theme";
 const STOREFRONT_THEME_COLORS = Object.freeze({
   light: "#ffffff",
   dark: "#08131d"
 });
 
 function normalizarTemaLojaOnline(theme = "") {
-  const normalized = String(theme || "").trim().toLowerCase();
-  return normalized === "dark" || normalized === "light" ? normalized : "light";
+  return window.SimplificaThemeAuthorityV2?.normalizePreference?.(theme, "system")
+    || normalizarPreferenciaTemaInterface(theme);
 }
 
 function getStoreThemeSaved() {
+  if (window.SimplificaThemeAuthorityV2?.getSavedStoreThemePreference) {
+    return window.SimplificaThemeAuthorityV2.getSavedStoreThemePreference();
+  }
   try {
-    return normalizarTemaLojaOnline(localStorage.getItem(STOREFRONT_THEME_STORAGE_KEY));
+    return normalizarTemaLojaOnline(localStorage.getItem(STOREFRONT_THEME_STORAGE_KEY) || localStorage.getItem(STOREFRONT_THEME_LEGACY_STORAGE_KEY));
   } catch (_) {
-    return "light";
+    return "system";
   }
 }
 
 function updateStorefrontThemeColor(theme = "light") {
-  const resolvedTheme = normalizarTemaLojaOnline(theme);
+  const resolvedTheme = getEffectiveThemeMode(theme);
+  if (window.SimplificaThemeAuthorityV2?.updateThemeColor) {
+    return window.SimplificaThemeAuthorityV2.updateThemeColor(resolvedTheme);
+  }
   const themeMeta = document.querySelector("meta[name='theme-color']");
   if (themeMeta) themeMeta.setAttribute("content", STOREFRONT_THEME_COLORS[resolvedTheme]);
   return resolvedTheme;
 }
 
-function applyStoreTheme(theme = "light", { persist = true } = {}) {
-  const resolvedTheme = normalizarTemaLojaOnline(theme);
+function applyStoreTheme(theme = "system", { persist = true } = {}) {
+  const preference = normalizarTemaLojaOnline(theme);
+  if (window.SimplificaThemeAuthorityV2?.applyStoreTheme) {
+    return window.SimplificaThemeAuthorityV2.applyStoreTheme(preference, { persist }).resolved;
+  }
+  const resolvedTheme = getEffectiveThemeMode(preference);
   document.documentElement.setAttribute("data-store-theme", resolvedTheme);
+  document.documentElement.setAttribute("data-store-theme-preference", preference);
   document.body?.setAttribute("data-store-theme", resolvedTheme);
-  document.querySelectorAll?.(".store-public-shell").forEach((shell) => shell.setAttribute("data-store-theme", resolvedTheme));
+  document.body?.setAttribute("data-store-theme-preference", preference);
+  document.querySelectorAll?.(".store-public-shell").forEach((shell) => {
+    shell.classList.add("storefront-theme-v2");
+    shell.setAttribute("data-store-theme", resolvedTheme);
+    shell.setAttribute("data-store-theme-preference", preference);
+  });
   updateStorefrontThemeColor(resolvedTheme);
   if (persist) {
     try {
-      localStorage.setItem(STOREFRONT_THEME_STORAGE_KEY, resolvedTheme);
+      localStorage.setItem(STOREFRONT_THEME_STORAGE_KEY, preference);
+      localStorage.setItem(STOREFRONT_THEME_LEGACY_STORAGE_KEY, resolvedTheme);
     } catch (_) {}
   }
   return resolvedTheme;
@@ -13898,6 +13924,7 @@ if (typeof window !== "undefined") {
     apply: applyStoreTheme,
     getSaved: getStoreThemeSaved,
     normalize: normalizarTemaLojaOnline,
+    resolve: getEffectiveThemeMode,
     updateThemeColor: updateStorefrontThemeColor
   });
 }
@@ -17639,9 +17666,9 @@ function renderStorefrontView({ mode = "public", source = "", vm = null, options
 }
 
 function addStorefrontV2RootAttributes(html = "", mode = "public") {
-  const themeAttr = /\bdata-store-theme=/.test(html) ? "" : ` data-store-theme="${escaparAttr(getStoreThemeSaved())}"`;
+  const themeAttr = /\bdata-store-theme=/.test(html) ? "" : ` data-store-theme="${escaparAttr(getEffectiveThemeMode(getStoreThemeSaved()))}" data-store-theme-preference="${escaparAttr(getStoreThemeSaved())}"`;
   const sourceAttr = `data-storefront-render="${escaparAttr(mode)}" data-storefront-source="v2"${themeAttr}`;
-  return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront" ${sourceAttr}`);
+  return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront storefront-theme-v2" ${sourceAttr}`);
 }
 
 function renderStorefrontPublicV2(options = {}) {
@@ -17655,7 +17682,7 @@ function renderLojaOnlinePublica() {
 function renderStorefrontPublicLegacy() {
   const vm = getStorefrontPublicViewModel();
   if (!vm.store) {
-    applyStoreTheme("light");
+    applyStoreTheme("light", { persist: false });
     return `
       <main class="store-public-shell">
         <section class="store-public-not-found">
@@ -17668,7 +17695,7 @@ function renderStorefrontPublicLegacy() {
     `;
   }
   const storefrontTheme = getStorefrontControlledTheme(vm.store.theme_config || {});
-  applyStoreTheme(storefrontTheme.mode);
+  applyStoreTheme(storefrontTheme.preference);
   const mode = getStorefrontPublicMode(vm);
   if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
     return `
@@ -17731,7 +17758,7 @@ function renderStorefrontPublicLegacy() {
   `;
 
   return `
-    <main class="store-public-shell ${mode.admin ? "store-public-admin-mode" : ""}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
+    <main class="store-public-shell storefront-theme-v2 ${mode.admin ? "store-public-admin-mode" : ""}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
           ${renderStoreVisualEditorSidebar(vm)}
@@ -18793,7 +18820,7 @@ function renderStorefrontAppearance(vm) {
           </div>
           <div class="form-grid">
           <label>Tema<select name="storeThemeMode">
-            ${["light", "dark"].map((mode) => `<option value="${mode}" ${String(themeMode) === mode ? "selected" : ""}>${mode === "light" ? "Claro" : "Escuro"}</option>`).join("")}
+            ${["light", "system", "dark"].map((mode) => `<option value="${mode}" ${String(themeMode) === mode ? "selected" : ""}>${mode === "light" ? "Claro" : mode === "system" ? "Seguir sistema" : "Escuro"}</option>`).join("")}
           </select></label>
           <label>Cor principal<input name="storePrimary" value="${escaparAttr(primary)}" readonly></label>
           <label>Cor de destaque<input name="storeAccent" value="${escaparAttr(accent)}" readonly></label>
@@ -26556,7 +26583,7 @@ function desbloquearRelatoriosComAnuncio() {
 }
 
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
-  const themeMode = origem.theme_mode || appConfig.theme || "dark";
+  const themeMode = normalizarPreferenciaTemaInterface(origem.theme_mode || appConfig.theme || "system");
   return {
     primary_color: normalizarCorTemaControlado(origem.primary_color || appConfig.accentColor || "#00BFA6", themeMode, "primary"),
     secondary_color: normalizarCorTemaControlado(origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8", themeMode, "secondary"),
@@ -26640,11 +26667,21 @@ function normalizarPdfTheme(valor = appConfig.pdfTheme || appConfig.pdfStyle || 
   return PDF_THEME_PRESETS[tema] ? tema : "modern_dark";
 }
 
-function getEffectiveThemeMode(mode = appConfig.theme || "dark") {
-  if (mode === "auto" && window.matchMedia) {
-    return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+function normalizarPreferenciaTemaInterface(mode = "system") {
+  const normalized = String(mode || "").trim().toLowerCase();
+  if (normalized === "auto") return "system";
+  return ["light", "system", "dark"].includes(normalized) ? normalized : "system";
+}
+
+function getEffectiveThemeMode(mode = appConfig.theme || "system") {
+  const preference = normalizarPreferenciaTemaInterface(mode);
+  if (window.SimplificaThemeAuthorityV2?.resolveTheme) {
+    return window.SimplificaThemeAuthorityV2.resolveTheme(preference);
   }
-  return mode === "light" ? "light" : "dark";
+  if (preference === "system" && window.matchMedia) {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return preference === "dark" ? "dark" : "light";
 }
 
 function getThemePalettes(mode = appConfig.theme || "dark") {
@@ -26676,9 +26713,11 @@ function getCurrentControlledPalette(mode = appConfig.theme || "dark", primary =
 }
 
 function getStorefrontControlledTheme(theme = {}) {
-  const mode = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved());
+  const preference = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved());
+  const mode = getEffectiveThemeMode(preference);
   return {
     ...theme,
+    preference,
     mode,
     primary: normalizarCorTemaControlado(theme.primary || "#00BFA6", mode, "primary"),
     accent: normalizarCorTemaControlado(theme.accent || "#FF8A1F", mode, "secondary")
@@ -26835,7 +26874,7 @@ function renderAparenciaConfig() {
               <select id="themeConfig" onchange="alterarTemaInterfaceRapido(this.value)" ${acessoMarca ? "" : "disabled"}>
                 <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
                 <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
-                <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
+                <option value="system" ${normalizarPreferenciaTemaInterface(appConfig.theme) === "system" ? "selected" : ""}>Seguir sistema</option>
               </select>
             </label>
             <label class="field"><span>Cor principal</span><input id="accentColorConfig" value="${escaparAttr(corAtual)}" readonly ${acessoMarca ? "" : "disabled"}></label>
@@ -26995,7 +27034,7 @@ function renderPersonalizacao() {
               <select id="themeConfig" onchange="alterarTemaInterfaceRapido(this.value)">
                 <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
                 <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
-                <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
+                <option value="system" ${normalizarPreferenciaTemaInterface(appConfig.theme) === "system" ? "selected" : ""}>Seguir sistema</option>
               </select>
             </label>
             <label class="field">
@@ -27281,7 +27320,7 @@ function renderPersonalizacao() {
           <select id="themeConfig" onchange="alterarTemaInterfaceRapido(this.value)" ${acessoMarca ? "" : "disabled"}>
             <option value="dark" ${appConfig.theme === "dark" ? "selected" : ""}>Escuro</option>
             <option value="light" ${appConfig.theme === "light" ? "selected" : ""}>Claro</option>
-            <option value="auto" ${appConfig.theme === "auto" ? "selected" : ""}>Automático</option>
+            <option value="system" ${normalizarPreferenciaTemaInterface(appConfig.theme) === "system" ? "selected" : ""}>Seguir sistema</option>
           </select>
         </label>
         <label class="field">
@@ -28817,9 +28856,10 @@ function selecionarPaletaStorefront(id) {
   atualizarPreviewGuiadoLoja(form);
 }
 
-function alterarTemaInterfaceRapido(value = "dark") {
-  const tema = ["dark", "light", "auto"].includes(String(value || "")) ? String(value) : "dark";
+function alterarTemaInterfaceRapido(value = "system") {
+  const tema = normalizarPreferenciaTemaInterface(value);
   appConfig.theme = tema;
+  window.SimplificaThemeAuthorityV2?.applyErpTheme?.(tema);
   aplicarPersonalizacao();
   const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", tema, "primary");
   const input = document.getElementById("accentColorConfig");
@@ -29259,7 +29299,7 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   const usarTexto = (valor) => (typeof valor === "string" && valor.trim() ? valor.trim() : "");
   const themeModeRemoto = usarTexto(settings.theme_mode);
   const proximo = {
-    theme: ["dark", "light", "auto"].includes(themeModeRemoto) ? themeModeRemoto : appConfig.theme,
+    theme: ["dark", "light", "auto", "system"].includes(themeModeRemoto) ? normalizarPreferenciaTemaInterface(themeModeRemoto) : appConfig.theme,
     accentColor: usarTexto(linha.theme_color) || usarTexto(settings.primary_color) || appConfig.accentColor,
     pdfBackgroundDataUrl: usarTexto(linha.background_image) || usarTexto(settings.pdf_background) || appConfig.pdfBackgroundDataUrl,
     loginBackgroundDataUrl: usarTexto(linha.login_background) || usarTexto(settings.login_background) || appConfig.loginBackgroundDataUrl,
@@ -29478,7 +29518,7 @@ function restaurarPersonalizacaoPadrao() {
     pdfSecondaryColor: "#00d8c8",
     pdfHeaderText: "",
     brandWatermarkEnabled: true,
-    theme: "dark",
+    theme: "system",
     accentColor: "#00BFA6",
     appearanceSettings: normalizarAppearanceSettings({
       primary_color: "#00BFA6",
@@ -29488,7 +29528,7 @@ function restaurarPersonalizacaoPadrao() {
       profile_photo: "",
       company_logo: "",
       login_background: "",
-      theme_mode: "dark",
+      theme_mode: "system",
       glass_effect: true,
       custom_pdf_enabled: false
     }),
