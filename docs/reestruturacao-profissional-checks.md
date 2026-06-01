@@ -553,6 +553,6 @@ Nao incluir automaticamente em commits de reestruturacao sem revisao:
 - `[x]` Ocultar nome interno de teste no titulo, metadados e descricao da imagem da vitrine.
 - `[x]` Compactar acoes frequentes e mover operacoes raras para menu contextual.
 - `[x]` Impedir que o cartao de link repita a entrada do proprio admin.
-- `[x]` Atualizar cache PWA para `simplifica-3d-v136-storefront-public-ui-20260601`.
+- `[x]` Atualizar cache PWA para `simplifica-3d-v137-light-theme-banner-actions-20260601`.
 - `[x]` Criar `npm run test:storefront-public-ui`.
 - `[~]` Publicacao remota de Web/PWA e rebuild do APK permanecem fora deste checkpoint local.

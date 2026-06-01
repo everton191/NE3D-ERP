@@ -21,7 +21,7 @@ checkout, planos ou publicacao remota.
   mobile.
 - O editor de produtos quebra o aviso e o cabecalho de salvamento em telas de
   `320px`, sem criar overflow horizontal.
-- O cache local avanca para `simplifica-3d-v136-storefront-public-ui-20260601`.
+- O cache local avanca para `simplifica-3d-v137-light-theme-banner-actions-20260601`.
 
 ## Validacao
 

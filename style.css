@@ -29502,3 +29502,151 @@ body[data-ui-profile="android_apk"] .store-guided-editor-sidebar{
     display:none;
   }
 }
+
+/* Checkpoint 2026-06-01 - auditoria pesada do tema claro da loja.
+   Mantem a imagem real do banner com cor preservada e usa protecao local apenas
+   atras do texto, evitando a aparencia cinzenta causada por overlays globais. */
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"],
+.store-public-shell[data-storefront-source="v2"][data-store-theme="light"]{
+  --store-bg:#f3f7f9;
+  --store-bg-soft:#edf3f6;
+  --store-surface:#fbfdfe;
+  --store-surface-strong:#f6fafb;
+  --store-card:#ffffff;
+  --store-text:#0b1d27;
+  --store-text-soft:#1f3743;
+  --store-muted:#566a76;
+  --store-border:rgba(11, 46, 56, .16);
+  --store-border-soft:rgba(11, 46, 56, .10);
+  --store-header-bg:rgba(255,255,255,.94);
+  --store-banner-overlay:linear-gradient(90deg, rgba(255,255,255,.58) 0%, rgba(255,255,255,.24) 34%, rgba(255,255,255,.05) 62%, rgba(255,255,255,0) 100%);
+  color:var(--store-text);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"].store-public-admin-mode,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-visual-editor-frame,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-visual-editor-canvas{
+  background:linear-gradient(180deg, #eef5f7 0%, #f7fafb 100%);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .store-public-header,
+  .store-public-category-bar a,
+  .store-public-product-card,
+  .store-public-contact,
+  .store-public-inner-head,
+  .store-public-benefits article,
+  .store-visual-editor-sidebar,
+  .store-visual-editor-topbar,
+  .store-editor-shell,
+  .store-editor-sidebar,
+  .store-editor-workspace,
+  .store-editor-panel,
+  .store-preview-panel,
+  .store-preview-device,
+  .store-product-admin-card,
+  .store-status-card
+){
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(247,251,252,.94));
+  border-color:var(--store-border);
+  color:var(--store-text);
+  box-shadow:0 14px 36px rgba(13, 45, 55, .08);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .store-public-banner-copy h1,
+  .store-public-brand strong,
+  .store-public-section-head h2,
+  .store-public-product-card strong,
+  .store-editor-title h2,
+  .store-editor-panel h3,
+  .store-product-admin-title,
+  .store-status-card strong
+){
+  color:var(--store-text);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .store-public-banner-copy p,
+  .store-public-section-head p,
+  .store-public-product-card p,
+  .store-editor-title p,
+  .store-editor-panel .muted,
+  .store-product-admin-summary,
+  .store-product-admin-stock,
+  .store-status-card span
+){
+  color:var(--store-muted);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner{
+  background:#101820;
+  border-color:rgba(11, 46, 56, .14);
+  box-shadow:0 18px 46px rgba(13, 45, 55, .12);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img){
+  background:#05090d;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image > img,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img) > img{
+  opacity:1 !important;
+  filter:none !important;
+  mix-blend-mode:normal !important;
+  object-position:center;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image::after,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img)::after{
+  background:
+    linear-gradient(90deg, rgba(246,251,252,.50) 0%, rgba(246,251,252,.22) 32%, rgba(246,251,252,.04) 62%, rgba(246,251,252,0) 100%),
+    linear-gradient(0deg, rgba(11,29,39,.18), rgba(11,29,39,0) 42%);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image .store-public-banner-copy,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img) .store-public-banner-copy{
+  width:min(580px, calc(100% - 28px));
+  margin:clamp(14px, 2.4vw, 28px);
+  padding:clamp(20px, 3vw, 42px);
+  border:1px solid rgba(255,255,255,.64);
+  border-radius:var(--store-radius-lg, 18px);
+  background:rgba(255,255,255,.74);
+  box-shadow:0 18px 44px rgba(6,22,32,.14);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image .store-public-banner-copy h1,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image .store-public-banner-copy p,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img) .store-public-banner-copy h1,
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img) .store-public-banner-copy p{
+  text-shadow:none;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(input,select,textarea){
+  background:#ffffff;
+  border-color:rgba(11,46,56,.18);
+  color:var(--store-text);
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(input,select,textarea)::placeholder{
+  color:#70818a;
+}
+
+@media (max-width: 767px){
+  body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image::after,
+  body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img)::after{
+    background:linear-gradient(0deg, rgba(246,251,252,.72) 0%, rgba(246,251,252,.18) 54%, rgba(246,251,252,0) 100%);
+  }
+
+  body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image .store-public-banner-copy,
+  body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img) .store-public-banner-copy{
+    align-self:end;
+    width:calc(100% - 20px);
+    margin:10px;
+    padding:18px;
+    background:rgba(255,255,255,.82);
+  }
+}

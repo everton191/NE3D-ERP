@@ -17691,7 +17691,7 @@ function renderStorePublicBanner(vm) {
     ? "abrirWhatsappLojaPublica()"
     : "document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })";
   return `
-    <section class="store-public-banner store-content ${mode.admin ? "store-guided-editable" : ""}" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}" ${mode.admin ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('banner')"` : ""}>
+    <section class="store-public-banner store-content ${visualBanner ? "store-banner-has-image" : ""} ${mode.admin ? "store-guided-editable" : ""}" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}" ${mode.admin ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('banner')"` : ""}>
       ${visualBanner ? `<img src="${escaparAttr(visualBanner)}" alt="Banner ${escaparAttr(getStorefrontDisplayName(store))}">` : ""}
       ${visualBanner ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
@@ -18108,7 +18108,7 @@ function renderStorefrontPublicLegacy() {
   `;
 
   return `
-    <main class="store-public-shell storefront-theme-v2 ${mode.admin ? `store-public-admin-mode ${getStorefrontPlanToneClass()}` : ""}" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
+    <main class="store-public-shell storefront-theme-v2 ${mode.admin ? `store-public-admin-mode ${getStorefrontPlanToneClass()}` : ""}" data-storefront-source="v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
           ${renderStoreVisualEditorSidebar(vm)}

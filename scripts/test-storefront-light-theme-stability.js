@@ -20,7 +20,9 @@ function assert(condition, message) {
   "function applyStoreTheme",
   "window.SimplificaStoreTheme = Object.freeze",
   'return window.SimplificaThemeAuthorityV2?.normalizePreference?.(theme, "light")',
+  'data-storefront-source="v2"',
   'data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}"',
+  'store-banner-has-image',
   'mode: "light"',
   '${["light", "system", "dark"].map'
 ].forEach((marker) => assert(app.includes(marker), `Autoridade de tema da loja ausente: ${marker}`));
@@ -32,7 +34,7 @@ function assert(condition, message) {
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#ffffff"',
-  "1.0.30-rc-storefront-public-ui-20260601"
+  "1.0.31-rc-light-theme-banner-actions-20260601"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -45,7 +47,13 @@ function assert(condition, message) {
   ":root[data-store-theme] :where(.store-cart-drawer,.store-lead-modal)",
   ":root[data-store-theme] body :is(.store-cart-drawer,.store-lead-modal)",
   "background:var(--store-card)",
-  "background:var(--store-header-bg)"
+  "background:var(--store-header-bg)",
+  ".store-public-banner.store-banner-has-image > img",
+  ".store-public-banner:has(> img) > img",
+  "filter:none !important",
+  "mix-blend-mode:normal !important",
+  "Checkpoint 2026-06-01 - auditoria pesada do tema claro da loja",
+  ".store-public-banner.store-banner-has-image .store-public-banner-copy"
 ].forEach((marker) => assert(css.includes(marker), `Token claro ou componente migrado ausente: ${marker}`));
 
 assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
@@ -56,6 +64,6 @@ assert(designSystemV2.includes(".storefront-theme-v2 .store-public-connection-ba
 assert(designSystemV2.includes("position:static"), "Badge online V2 nao deve flutuar sobre conteudo");
 assert(manifest.includes('"background_color": "#ffffff"'), "Splash PWA ainda nao usa fundo claro");
 assert(manifest.includes('"theme_color": "#ffffff"'), "Manifest PWA ainda nao usa theme-color claro");
-assert(sw.includes("simplifica-3d-v136-storefront-public-ui-20260601"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v137-light-theme-banner-actions-20260601"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");
