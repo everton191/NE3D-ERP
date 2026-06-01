@@ -3,7 +3,8 @@
 ## Estado registrado
 
 - Cache PWA anterior: `simplifica-3d-v130-estavel-20260531-storefront-light-theme`
-- Cache PWA desta fundacao: `simplifica-3d-v131-design-system-v2-foundation-20260531`
+- Cache PWA da fundacao dos lotes 0-3: `simplifica-3d-v131-design-system-v2-foundation-20260531`
+- Cache PWA dos lotes 4A/4B: `simplifica-3d-v132-erp-shell-v2-20260531`
 - APK atual: `1.0.18-rc`
 - Android `versionCode`: `17`
 - Manifest PWA: fundo e tema base `#ffffff`

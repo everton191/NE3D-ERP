@@ -9167,9 +9167,9 @@ function renderDesktop() {
   }
   const classeMenu = appConfig.sidebarCollapsed ? " sidebar-collapsed" : "";
   return `
-    <div class="desktop-shell${classeMenu}">
+    <div class="desktop-shell s3d-shell${classeMenu}">
       ${renderMenuLateral()}
-      <main class="desktop-main app-content">
+      <main class="desktop-main app-content s3d-shell-main">
         ${renderTopbar()}
         ${renderDesktopConteudo()}
       </main>
@@ -9207,7 +9207,7 @@ function renderTopbar() {
   const titulo = getTituloTelaDesktop(telaAtual);
   const subtitulo = getSubtituloTelaDesktop(telaAtual);
   return `
-    <section class="topbar app-topbar">
+    <section class="topbar app-topbar s3d-toolbar s3d-header">
       <div>
         <strong>${escaparHtml(titulo)}</strong>
         <span class="muted">${escaparHtml(subtitulo)}</span>
@@ -9606,7 +9606,7 @@ function renderOnboarding() {
   ];
 
   return `
-    <section class="card onboarding-card">
+    <section class="card onboarding-card s3d-card s3d-onboarding">
       <div class="card-header">
         <h2>Introdução</h2>
         <span class="status-badge">Simplifica 3D</span>
@@ -12434,7 +12434,7 @@ function renderMenuLateral() {
   const grupos = getMenuGroups();
 
   return `
-    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
+    <aside class="side-menu app-sidebar desktop-sidebar s3d-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
       ${renderCabecalhoMenuLateral({ recolhido })}
       ${grupos.map(renderGrupoMenuLateral).join("")}
     </aside>
@@ -12794,7 +12794,7 @@ function getMenuGroups() {
 
 function renderBotaoLateral(item) {
   return `
-    <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
+    <button class="side-nav-button s3d-nav-item" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
       <span>${renderUiIcon(item.tela, item.icone)}</span>
       <strong>${item.texto}</strong>
     </button>
@@ -12829,7 +12829,7 @@ function renderDrawerLateral({ progress = 1, dragging = false } = {}) {
   const progresso = Math.min(1, Math.max(0, Number(progress) || 0));
   return `
     <div class="side-drawer-backdrop ${dragging ? "is-dragging" : ""}" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" style="--drawer-progress:${progresso}">
-      <aside class="side-menu side-drawer mobile-drawer" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
+      <aside class="side-menu side-drawer mobile-drawer s3d-sidebar" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
         ${renderCabecalhoMenuLateral({ drawer: true })}
         ${renderPerfilMenuLateral()}
         ${grupos.map((grupo) => `
@@ -13085,7 +13085,7 @@ function renderMobile() {
 
   return `
     ${renderDrawerGestureRail()}
-    <div class="mobile-home app-page">
+    <div class="mobile-home app-page s3d-page s3d-mobile-page">
       ${renderAtualizacaoAndroidDownload()}
       ${home}
     </div>
@@ -13119,9 +13119,9 @@ function renderMobileBottomNav() {
   const itens = getMobileBottomNavItems();
   if (!itens.length || !getUsuarioAtual()) return "";
   return `
-    <nav class="mobile-bottom-nav app-bottom-navigation" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
+    <nav class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
-        <button class="mobile-bottom-nav-button ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="navegarMenuPrincipal('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
+        <button class="mobile-bottom-nav-button s3d-nav-item ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="navegarMenuPrincipal('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
           <span>${renderUiIcon(item.tela, item.icone)}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
@@ -13257,7 +13257,7 @@ function renderDashboardHomeHeader() {
   const usuario = getUsuarioAtual();
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
   return `
-    <section class="dashboard-home-header">
+    <section class="dashboard-home-header s3d-toolbar s3d-header">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <div class="dashboard-greeting">
         <h1>Olá, ${escaparHtml(nome)}!</h1>
@@ -20707,7 +20707,7 @@ function renderDashboardQuickActionsPanel() {
     acoes.push({ id: "loja_online", label: "Gerenciar loja", tela: "lojaOnline", iconKey: "lojaOnline" });
   }
   return `
-    <section class="dashboard-actions-panel desktop-dashboard-actions">
+    <section class="dashboard-actions-panel desktop-dashboard-actions s3d-card">
       <div class="quick-actions-header">
         <h2>Ações rápidas</h2>
         <button class="text-link quick-customize-link" type="button" onclick="abrirPersonalizarAtalhos()">Personalizar ${renderUiIcon("preferencias")}</button>
@@ -20728,7 +20728,7 @@ function renderDashboardQuickActionsPanel() {
 function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
   const lojaCard = renderDashboardDesktopStorePanel();
   return `
-    <section class="dashboard-page dashboard-pro premium-dashboard dashboard-control-center">
+    <section class="dashboard-page dashboard-pro premium-dashboard dashboard-control-center s3d-page s3d-dashboard">
       <div class="dashboard-metrics-section">
         ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
       </div>
@@ -20757,7 +20757,7 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
 
 function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
   return `
-    <section class="dashboard-pro premium-dashboard dashboard-apk-simple">
+    <section class="dashboard-pro premium-dashboard dashboard-apk-simple s3d-page s3d-dashboard">
       ${renderDashboardHomeHeader()}
       ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
@@ -24693,8 +24693,8 @@ function trocarAbaAuth(tab) {
 function renderAuthPublica() {
   const tab = getAuthTabAtual();
   return `
-    <section class="auth-page" aria-label="Acesso ao Simplifica 3D">
-      <div class="auth-card">
+    <section class="auth-page s3d-page s3d-auth-page" aria-label="Acesso ao Simplifica 3D">
+      <div class="auth-card s3d-card s3d-auth-card">
         <div class="auth-brand">
           ${renderMarcaOficialProjeto("auth-logo", "Simplifica 3D", "icon")}
           <div>
@@ -24703,7 +24703,7 @@ function renderAuthPublica() {
           </div>
         </div>
 
-        <div class="auth-tabs" role="tablist" aria-label="Escolha o fluxo de autenticação">
+        <div class="auth-tabs s3d-segmented" role="tablist" aria-label="Escolha o fluxo de autenticação">
           <button type="button" class="${tab === "signin" ? "active" : ""}" role="tab" aria-selected="${tab === "signin"}" onclick="trocarAbaAuth('signin')">Entrar</button>
           <button type="button" class="${tab === "signup" ? "active" : ""}" role="tab" aria-selected="${tab === "signup"}" onclick="trocarAbaAuth('signup')">Criar conta</button>
         </div>
@@ -24719,17 +24719,17 @@ function renderAuthPublica() {
 
 function renderAuthEntrar() {
   return `
-    <form class="auth-form" onsubmit="event.preventDefault(); loginUsuario();">
-      <label class="field auth-field">
+    <form class="auth-form s3d-form" onsubmit="event.preventDefault(); loginUsuario();">
+      <label class="field auth-field s3d-field">
         <span>Email</span>
-        <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || "")}" placeholder="seu@email.com" autocomplete="username">
+        <input id="usuarioLoginEmail" class="s3d-input" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || "")}" placeholder="seu@email.com" autocomplete="username">
       </label>
 
-      <label class="field auth-field">
+      <label class="field auth-field s3d-field">
         <span>Senha</span>
         <div class="password-row auth-password-row">
-          <input id="usuarioLoginSenha" type="password" placeholder="Sua senha" autocomplete="current-password">
-          <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <input id="usuarioLoginSenha" class="s3d-input" type="password" placeholder="Sua senha" autocomplete="current-password">
+          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
       </label>
 
@@ -24738,7 +24738,7 @@ function renderAuthEntrar() {
         <span>Manter-me conectado</span>
       </label>
 
-      <button id="loginUsuarioBtn" class="btn auth-primary" type="submit">Entrar</button>
+      <button id="loginUsuarioBtn" class="btn auth-primary s3d-button s3d-button-primary" type="submit">Entrar</button>
 
       <div class="auth-link-row">
         <button class="inline-link auth-link" type="button" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
@@ -24755,37 +24755,37 @@ function renderAuthEntrar() {
 
 function renderAuthCriarConta() {
   return `
-    <form class="auth-form auth-signup-form" onsubmit="event.preventDefault(); cadastrarClienteSaas();">
-      <label class="field auth-field">
+    <form class="auth-form auth-signup-form s3d-form" onsubmit="event.preventDefault(); cadastrarClienteSaas();">
+      <label class="field auth-field s3d-field">
         <span>Nome completo</span>
-        <input id="signupNome" placeholder="Seu nome" autocomplete="name">
+        <input id="signupNome" class="s3d-input" placeholder="Seu nome" autocomplete="name">
       </label>
-      <label class="field auth-field">
+      <label class="field auth-field s3d-field">
         <span>Email</span>
-        <input id="signupEmail" type="email" placeholder="seu@email.com" autocomplete="email">
+        <input id="signupEmail" class="s3d-input" type="email" placeholder="seu@email.com" autocomplete="email">
       </label>
-      <label class="field auth-field">
+      <label class="field auth-field s3d-field">
         <span>Senha</span>
         <div class="password-row auth-password-row">
-          <input id="signupSenha" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('signupSenha', this)">
-          <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <input id="signupSenha" class="s3d-input" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('signupSenha', this)">
+          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
         <small class="password-strength" data-strength-for="signupSenha">Digite uma senha forte</small>
       </label>
-      <label class="field auth-field">
+      <label class="field auth-field s3d-field">
         <span>Confirmar senha</span>
         <div class="password-row auth-password-row">
-          <input id="signupConfirmarSenha" type="password" autocomplete="new-password">
-          <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <input id="signupConfirmarSenha" class="s3d-input" type="password" autocomplete="new-password">
+          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
       </label>
-      <label class="field auth-field">
+      <label class="field auth-field s3d-field">
         <span>Nome do negócio</span>
-        <input id="signupNegocio" placeholder="Ex.: Minha Impressão 3D">
+        <input id="signupNegocio" class="s3d-input" placeholder="Ex.: Minha Impressão 3D">
       </label>
-      <label class="field auth-field">
+      <label class="field auth-field s3d-field">
         <span>Telefone opcional</span>
-        <input id="signupTelefone" inputmode="tel" placeholder="+5585999999999" autocomplete="tel">
+        <input id="signupTelefone" class="s3d-input" inputmode="tel" placeholder="+5585999999999" autocomplete="tel">
       </label>
 
       <label class="auth-checkline auth-terms-row">
@@ -24798,7 +24798,7 @@ function renderAuthCriarConta() {
         </span>
       </label>
 
-      <button id="signupBtn" class="btn auth-primary" type="submit">Criar conta</button>
+      <button id="signupBtn" class="btn auth-primary s3d-button s3d-button-primary" type="submit">Criar conta</button>
 
       <p class="auth-footer-text">
         Já tem conta?

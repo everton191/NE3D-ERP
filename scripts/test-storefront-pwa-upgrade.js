@@ -6,7 +6,7 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v131-design-system-v2-foundation-20260531",
+  "simplifica-3d-v132-erp-shell-v2-20260531",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
   "versionName \"1.0.18-rc\"",
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache v131 e versionamento atualizado presentes.");
+console.log("Storefront PWA upgrade: cache v132 e versionamento atualizado presentes.");

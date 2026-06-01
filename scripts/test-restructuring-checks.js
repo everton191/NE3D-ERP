@@ -135,9 +135,11 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v131-design-system-v2-foundation-20260531"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v132-erp-shell-v2-20260531"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.25-rc-design-system-v2-foundation-20260531"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.26-rc-erp-shell-v2-20260531"), "index.html usa cache-bust atual");
+assert(pkg.scripts && pkg.scripts["test:layout-overflow-v2"] === "node scripts/test-layout-overflow-v2.js", "package.json expoe test:layout-overflow-v2");
+assert(pkg.scripts && pkg.scripts["test:erp-shell-v2"] === "node scripts/test-erp-shell-v2.js", "package.json expoe test:erp-shell-v2");
 assert(app.includes("function selecionarItemLojaVisual"), "fase 7c possui selecao contextual da vitrine real");
 assert(app.includes("function editarProdutoPublicadoLojaOnline"), "fase 7c corrige entrada de edicao do produto publicado");
 assert(css.includes(".store-guided-editor-sidebar.is-open"), "fase 7c possui bottom sheet controlada no mobile");
