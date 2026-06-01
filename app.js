@@ -669,14 +669,14 @@ let appConfig = carregarObjeto("appConfig", {
   pdfSecondaryColor: "#00d8c8",
   pdfHeaderText: "",
   brandWatermarkEnabled: true,
-  theme: "system",
+  theme: "light",
   accentColor: "#00BFA6",
   appearanceSettings: {
     primary_color: "#00BFA6",
     secondary_color: "#ff941c",
     pdf_background: "",
     logo_url: "",
-    theme_mode: "system",
+    theme_mode: "light",
     glass_effect: true,
     custom_pdf_enabled: false
   },
@@ -13869,7 +13869,7 @@ const STOREFRONT_THEME_COLORS = Object.freeze({
 });
 
 function normalizarTemaLojaOnline(theme = "") {
-  return window.SimplificaThemeAuthorityV2?.normalizePreference?.(theme, "system")
+  return window.SimplificaThemeAuthorityV2?.normalizePreference?.(theme, "light")
     || normalizarPreferenciaTemaInterface(theme);
 }
 
@@ -13880,7 +13880,7 @@ function getStoreThemeSaved() {
   try {
     return normalizarTemaLojaOnline(localStorage.getItem(STOREFRONT_THEME_STORAGE_KEY) || localStorage.getItem(STOREFRONT_THEME_LEGACY_STORAGE_KEY));
   } catch (_) {
-    return "system";
+    return "light";
   }
 }
 
@@ -13894,7 +13894,7 @@ function updateStorefrontThemeColor(theme = "light") {
   return resolvedTheme;
 }
 
-function applyStoreTheme(theme = "system", { persist = true } = {}) {
+function applyStoreTheme(theme = "light", { persist = true } = {}) {
   const preference = normalizarTemaLojaOnline(theme);
   if (window.SimplificaThemeAuthorityV2?.applyStoreTheme) {
     return window.SimplificaThemeAuthorityV2.applyStoreTheme(preference, { persist }).resolved;
@@ -26604,7 +26604,7 @@ function desbloquearRelatoriosComAnuncio() {
 }
 
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
-  const themeMode = normalizarPreferenciaTemaInterface(origem.theme_mode || appConfig.theme || "system");
+  const themeMode = normalizarPreferenciaTemaInterface(origem.theme_mode || appConfig.theme || "light");
   return {
     primary_color: normalizarCorTemaControlado(origem.primary_color || appConfig.accentColor || "#00BFA6", themeMode, "primary"),
     secondary_color: normalizarCorTemaControlado(origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8", themeMode, "secondary"),
@@ -26688,13 +26688,13 @@ function normalizarPdfTheme(valor = appConfig.pdfTheme || appConfig.pdfStyle || 
   return PDF_THEME_PRESETS[tema] ? tema : "modern_dark";
 }
 
-function normalizarPreferenciaTemaInterface(mode = "system") {
+function normalizarPreferenciaTemaInterface(mode = "light") {
   const normalized = String(mode || "").trim().toLowerCase();
   if (normalized === "auto") return "system";
-  return ["light", "system", "dark"].includes(normalized) ? normalized : "system";
+  return ["light", "system", "dark"].includes(normalized) ? normalized : "light";
 }
 
-function getEffectiveThemeMode(mode = appConfig.theme || "system") {
+function getEffectiveThemeMode(mode = appConfig.theme || "light") {
   const preference = normalizarPreferenciaTemaInterface(mode);
   if (window.SimplificaThemeAuthorityV2?.resolveTheme) {
     return window.SimplificaThemeAuthorityV2.resolveTheme(preference);
@@ -26705,11 +26705,11 @@ function getEffectiveThemeMode(mode = appConfig.theme || "system") {
   return preference === "dark" ? "dark" : "light";
 }
 
-function getThemePalettes(mode = appConfig.theme || "dark") {
+function getThemePalettes(mode = appConfig.theme || "light") {
   return getEffectiveThemeMode(mode) === "light" ? THEME_LIGHT_PALETTES : THEME_DARK_PALETTES;
 }
 
-function getThemePaletteByColor(color, mode = appConfig.theme || "dark") {
+function getThemePaletteByColor(color, mode = appConfig.theme || "light") {
   const normalized = limitarCorPdf(color || "").toUpperCase();
   return getThemePalettes(mode).find((palette) => (
     String(palette.primary).toUpperCase() === normalized
@@ -26718,7 +26718,7 @@ function getThemePaletteByColor(color, mode = appConfig.theme || "dark") {
   ));
 }
 
-function normalizarCorTemaControlado(color, mode = appConfig.theme || "dark", kind = "primary") {
+function normalizarCorTemaControlado(color, mode = appConfig.theme || "light", kind = "primary") {
   const palettes = getThemePalettes(mode);
   const fallback = palettes.find((palette) => String(palette.primary).toUpperCase() === String(appConfig.accentColor || "").toUpperCase()) || palettes[0];
   const normalized = limitarCorPdf(color || "", fallback[kind] || fallback.primary).toUpperCase();
@@ -26727,7 +26727,7 @@ function normalizarCorTemaControlado(color, mode = appConfig.theme || "dark", ki
   return String((fallback && (fallback[kind] || fallback.primary)) || palettes[0].primary).toUpperCase();
 }
 
-function getCurrentControlledPalette(mode = appConfig.theme || "dark", primary = appConfig.accentColor || "") {
+function getCurrentControlledPalette(mode = appConfig.theme || "light", primary = appConfig.accentColor || "") {
   const palettes = getThemePalettes(mode);
   return palettes.find((palette) => String(palette.primary).toUpperCase() === normalizarCorTemaControlado(primary, mode, "primary"))
     || palettes[0];
@@ -26745,7 +26745,7 @@ function getStorefrontControlledTheme(theme = {}) {
   };
 }
 
-function renderThemePaletteButtons({ mode = appConfig.theme || "dark", selected = appConfig.accentColor || "", target = "app" } = {}) {
+function renderThemePaletteButtons({ mode = appConfig.theme || "light", selected = appConfig.accentColor || "", target = "app" } = {}) {
   const active = normalizarCorTemaControlado(selected, mode, "primary");
   return `
     <div class="theme-palette-grid" data-theme-palette="${escaparAttr(target)}">
@@ -26878,7 +26878,7 @@ function renderEmpresaConfig() {
 
 function renderAparenciaConfig() {
   const acessoMarca = true;
-  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "dark", "primary");
+  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "light", "primary");
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   return `
     <section class="card organized-page settings-page">
@@ -26908,7 +26908,7 @@ function renderAparenciaConfig() {
               </select>
             </label>
           </div>
-          ${acessoMarca ? renderThemePaletteButtons({ mode: appConfig.theme || "dark", selected: corAtual, target: "app" }) : `<p class="muted">Personalização de tema disponível no PRO.</p>`}
+          ${acessoMarca ? renderThemePaletteButtons({ mode: appConfig.theme || "light", selected: corAtual, target: "app" }) : `<p class="muted">Personalização de tema disponível no PRO.</p>`}
         ` })}
         ${renderUiSection({ id: "aparencia-layout", title: "Layout", subtitle: "Densidade, escala e tamanho dos cards", icon: "▦", group: "aparencia", content: `
           <div class="sync-grid">
@@ -27029,7 +27029,7 @@ function renderPdfConfig() {
 }
 
 function renderPersonalizacao() {
-  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "dark", "primary");
+  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "light", "primary");
   const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
   const temaPdfAtual = normalizarPdfTheme();
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
@@ -27071,7 +27071,7 @@ function renderPersonalizacao() {
               </select>
             </label>
           </div>
-          ${renderThemePaletteButtons({ mode: appConfig.theme || "dark", selected: corAtual, target: "app" })}
+          ${renderThemePaletteButtons({ mode: appConfig.theme || "light", selected: corAtual, target: "app" })}
         ` })}
         ${renderUiSection({ id: "aparencia-layout", title: "Layout e escala", subtitle: "Densidade, cards e proporção da interface", icon: "▦", group: "aparencia", content: `
           <div class="sync-grid">
@@ -27350,7 +27350,7 @@ function renderPersonalizacao() {
         </label>
       </div>
 
-      ${acessoMarca ? renderThemePaletteButtons({ mode: appConfig.theme || "dark", selected: corAtual, target: "app" }) : ""}
+      ${acessoMarca ? renderThemePaletteButtons({ mode: appConfig.theme || "light", selected: corAtual, target: "app" }) : ""}
       <label class="checkbox-row">
         <input id="compactModeConfig" type="checkbox" ${appConfig.compactMode ? "checked" : ""}>
         <span>Modo compacto</span>
@@ -28845,7 +28845,7 @@ function selecionarCor(cor) {
   }
   const input = document.getElementById("accentColorConfig");
   if (input) {
-    input.value = normalizarCorTemaControlado(cor, document.getElementById("themeConfig")?.value || appConfig.theme || "dark", "primary");
+    input.value = normalizarCorTemaControlado(cor, document.getElementById("themeConfig")?.value || appConfig.theme || "light", "primary");
   }
 }
 
@@ -28854,7 +28854,7 @@ function selecionarPaletaTema(id) {
     mostrarToast("Cores personalizadas ficam disponíveis nos planos pagos.", "warning", 3500);
     return;
   }
-  const mode = document.getElementById("themeConfig")?.value || appConfig.theme || "dark";
+  const mode = document.getElementById("themeConfig")?.value || appConfig.theme || "light";
   const palette = getThemePalettes(mode).find((item) => item.id === id) || getThemePalettes(mode)[0];
   const input = document.getElementById("accentColorConfig");
   if (input) input.value = palette.primary;
@@ -28907,7 +28907,7 @@ function lerPersonalizacaoCampos() {
     return Math.min(max, Math.max(min, normalizado));
   };
   const marcado = (id, fallback = false) => el(id) ? !!el(id).checked : !!fallback;
-  const theme = texto("themeConfig", appConfig.theme || "dark") || "dark";
+  const theme = texto("themeConfig", appConfig.theme || "light") || "light";
   const accentColor = acessoMarca
     ? normalizarCorTemaControlado(texto("accentColorConfig", appConfig.accentColor || "#00BFA6") || "#00BFA6", theme, "primary")
     : normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", theme, "primary");
@@ -29402,7 +29402,7 @@ async function sincronizarPersonalizacaoInicialSilencioso() {
 }
 
 function salvarPreferenciasBasicasFree() {
-  appConfig.theme = document.getElementById("themeConfig")?.value || appConfig.theme || "dark";
+  appConfig.theme = document.getElementById("themeConfig")?.value || appConfig.theme || "light";
   appConfig.motionLevel = document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium";
   appConfig.compactMode = !!document.getElementById("compactModeConfig")?.checked;
   appConfig.showBrandInHeader = !!document.getElementById("showBrandInHeaderConfig")?.checked;
@@ -29539,7 +29539,7 @@ function restaurarPersonalizacaoPadrao() {
     pdfSecondaryColor: "#00d8c8",
     pdfHeaderText: "",
     brandWatermarkEnabled: true,
-    theme: "system",
+    theme: "light",
     accentColor: "#00BFA6",
     appearanceSettings: normalizarAppearanceSettings({
       primary_color: "#00BFA6",
@@ -29549,7 +29549,7 @@ function restaurarPersonalizacaoPadrao() {
       profile_photo: "",
       company_logo: "",
       login_background: "",
-      theme_mode: "system",
+      theme_mode: "light",
       glass_effect: true,
       custom_pdf_enabled: false
     }),

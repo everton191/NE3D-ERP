@@ -7,13 +7,13 @@
   const ALLOWED_THEME_PREFERENCES = Object.freeze(["light", "system", "dark"]);
   const THEME_COLORS = Object.freeze({ light: "#ffffff", dark: "#08131d" });
 
-  function normalizePreference(value, fallback = "system") {
+  function normalizePreference(value, fallback = "light") {
     const normalized = String(value || "").trim().toLowerCase();
     if (normalized === "auto") return "system";
     return ALLOWED_THEME_PREFERENCES.includes(normalized) ? normalized : fallback;
   }
 
-  function resolveTheme(preference = "system") {
+  function resolveTheme(preference = "light") {
     const normalized = normalizePreference(preference);
     if (normalized === "light" || normalized === "dark") return normalized;
     try {

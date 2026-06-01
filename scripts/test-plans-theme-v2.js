@@ -18,5 +18,8 @@ assert(app.includes("const START_PLAN_ENABLED = false"), "Start deve permanecer 
 
 assert(css.includes("grid-template-columns:repeat(3, minmax(0, 1fr))"), "desktop deve manter tres planos proporcionais");
 assert(css.includes("grid-template-columns:1fr"), "mobile deve empilhar planos");
+assert(css.includes(".s3d-plans-v2 .plan-tier-free"), "Free claro deve manter identidade verde");
+assert(css.includes(".s3d-plans-v2 .plan-tier-start"), "Start claro deve manter identidade roxa");
+assert(css.includes("background:var(--plan-accent, var(--s3d-brand-teal))"), "CTA claro deve acompanhar a cor do plano");
 
 console.log("Plans theme V2: autoridade isolada, contraste claro e responsividade validados.");

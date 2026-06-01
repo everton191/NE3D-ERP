@@ -239,8 +239,9 @@ Os limites visuais passam a ser: titulo do banner `40`, subtitulo `100`, CTA `24
 
 - A vitrine usa `simplifica3d_store_theme` como chave local unica e
   `data-store-theme` como contrato visual.
-- A ausencia de preferencia e qualquer valor legado `auto` resolvem para
-  `light`; o sistema operacional nao troca silenciosamente o tema da loja.
+- A ausencia de preferencia resolve para `light`. Valores legados `auto`
+  migram para `system`; o sistema operacional so troca o tema quando essa
+  preferencia tiver sido escolhida pelo usuario.
 - `applyStoreTheme()` sincroniza `html`, `body`, shells montados e
   `meta[name="theme-color"]`.
 - A loja publica e o preview consomem tokens proprios. O tema operacional do ERP

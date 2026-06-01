@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.27-rc-visual-blockers-20260531"
+  "1.0.28-rc-theme-default-light-20260601"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));

@@ -24031,9 +24031,12 @@ body.theme-light .store-hero-device-art{
   }
 
   .store-public-connection-badge{
-    left:12px;
+    position:static;
+    width:max-content;
+    margin:12px 12px 0;
+    left:auto;
     right:auto;
-    bottom:calc(78px + env(safe-area-inset-bottom));
+    bottom:auto;
     max-width:calc(100vw - 24px);
   }
 
@@ -26043,6 +26046,24 @@ body.app-shell-ready #app-content{
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;
   scrollbar-gutter:stable;
+}
+
+/* O shell controla viewport e scroll. No tema claro ele nao pode herdar o
+   tratamento de vidro dos cards, pois backdrop-filter muda a referencia de
+   elementos fixed como a navegacao inferior mobile. */
+body.theme-light.app-shell-ready #app-shell,
+body.theme-light.app-shell-ready #app-content{
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  box-shadow:none;
+}
+
+body.theme-light.app-shell-ready #app-shell{
+  background:var(--bg-primary);
+}
+
+body.theme-light.app-shell-ready #app-content{
+  background:transparent;
 }
 
 body.app-shell-ready.app-layer-open #app-content{

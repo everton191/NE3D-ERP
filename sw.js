@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v133-visual-blockers-20260531";
+const CACHE_NAME = "simplifica-3d-v134-theme-default-light-20260601";
 const APP_FILES = [
   "./",
   "./index.html",

@@ -78,7 +78,9 @@ function createThemeSandbox({ dark = false, matchMediaAvailable = true } = {}) {
 const claro = createThemeSandbox({ dark: false });
 assert(claro.api.resolveTheme("system") === "light", "system claro deve resolver light");
 assert(claro.api.resolveTheme("auto") === "light", "auto legado deve migrar para system claro");
-assert(claro.api.normalizePreference("valor-invalido") === "system", "valor invalido deve cair em system");
+assert(claro.api.normalizePreference("valor-invalido") === "light", "valor invalido deve cair no padrao claro");
+assert(claro.api.getSavedErpThemePreference() === "light", "ERP sem preferencia salva deve iniciar claro");
+assert(claro.api.getSavedStoreThemePreference() === "light", "loja sem preferencia salva deve iniciar clara");
 assert(claro.api.resolveTheme("dark") === "dark", "dark manual deve prevalecer em sistema claro");
 
 const escuro = createThemeSandbox({ dark: true });

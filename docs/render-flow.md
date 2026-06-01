@@ -707,9 +707,10 @@ index.html head
                 └── meta theme-color
 ```
 
-`getStorefrontControlledTheme()` normaliza configuracoes legadas `auto` para
-`light`. A opcao escura continua disponivel somente quando selecionada
-explicitamente.
+`getStorefrontControlledTheme()` inicia em `light` quando nao ha preferencia
+salva. Configuracoes legadas `auto` migram para `system`: o sistema operacional
+so passa a decidir o tema quando o usuario escolhe explicitamente
+`Seguir sistema`. A opcao escura manual continua disponivel.
 
 ## Sequencia Segura Para App Shell
 
