@@ -9205,7 +9205,7 @@ async function sincronizarStorefrontBetaAccessRemoto(force = false) {
       setStorefrontBetaAccessCache({ enabled: false, allowed: false, schemaMissing: true });
       return;
     }
-    if (force) mostrarToast("Não foi possível validar o beta da Loja Online agora.", "erro", 3600);
+    if (force) mostrarToast("Não foi possível validar o acesso da Loja Online agora.", "erro", 3600);
     console.warn("[Storefront admin] beta access check failed", error);
   }
 }
@@ -19223,7 +19223,7 @@ function renderStorefrontCategories(vm) {
             </div>
           </div>
           <div class="store-admin-meta">
-            ${cat.__demo || cat.__template ? `<span class="status-badge badge-info">${cat.__template ? "template" : "demonstração"}</span>` : ""}
+            ${cat.__demo || cat.__template ? `<span class="status-badge badge-info">${cat.__template ? "modelo" : "demonstração"}</span>` : ""}
             <span class="status-badge ${cat.visible ? "badge-success" : ""}">${cat.visible ? "visível" : "oculta"}</span>
             <span class="status-badge">${vm.products.filter((product) => String(product.category_id || "") === String(cat.id)).length} produto(s)</span>
             <span class="muted">Reorganizar em fase futura</span>
@@ -21058,12 +21058,12 @@ function renderDashboardDesktopStorePanel() {
     <section class="card desktop-dashboard-card store-summary-card">
       <div class="card-header">
         <h2>${renderUiIcon("lojaOnline")} Loja Online</h2>
-        <span class="status-badge badge-info">Beta</span>
+        <span class="status-badge badge-info">Loja</span>
       </div>
       <div class="dashboard-store-preview">
         <span>${renderUiIcon("lojaOnline")}</span>
         <div>
-          <strong>${vm.store.active ? "Loja ativa no beta" : "Loja em preparação"}</strong>
+          <strong>${vm.store.active ? "Loja ativa" : "Loja em preparação"}</strong>
           <small>${produtosVisiveis} produto(s) visíveis • ${leadsNovos} lead(s) novo(s)</small>
         </div>
       </div>
@@ -28318,7 +28318,7 @@ function renderSobre() {
     <section class="card about-card">
       <div class="card-header">
         <h2>Sobre</h2>
-        <span class="status-badge">v1.0-beta</span>
+        <span class="status-badge">v1.0</span>
       </div>
       <div class="about-brand">
         ${renderMarcaProjeto("about-logo", "Logo Simplifica 3D")}
