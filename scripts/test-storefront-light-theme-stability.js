@@ -36,7 +36,7 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#f2f5f4"',
-  "1.0.33-rc-store-light-overflow-20260601"
+  "1.0.34-rc-store-banner-color-20260602"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -60,9 +60,19 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
   ".store-public-banner.store-banner-has-image .store-public-banner-copy",
   "Hotfix 2026-06-01 - loja clara sem estouro lateral no editor guiado",
   'body.theme-light .store-public-shell[data-storefront-source="v2"]:not([data-store-theme="dark"])',
+  ".store-public-banner.store-banner-has-image::before",
+  ".store-public-banner.store-banner-has-image::after",
+  "content:none !important",
+  "display:none !important",
+  "body.theme-light .store-banner-section img",
   "grid-template-columns:repeat(2, minmax(0, 1fr))",
   "overflow-x:hidden"
 ].forEach((marker) => assert(css.includes(marker), `Token claro ou componente migrado ausente: ${marker}`));
+
+[
+  'const userBanner = String(store.banner_url || "").trim()',
+  'const visualBanner = userBanner || (mode.admin ? getStorefrontDemoBannerImage() : "")'
+].forEach((marker) => assert(app.includes(marker), `Fallback visual do banner ausente: ${marker}`));
 
 assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
 assert(css.includes("body.theme-light.app-shell-ready #app-shell"), "Shell claro do ERP deve neutralizar vidro herdado");
@@ -86,6 +96,6 @@ function getBlock(source, startMarker, endMarker) {
 
 assert(manifest.includes('"background_color": "#f2f5f4"'), "Splash PWA ainda nao usa fundo claro suave");
 assert(manifest.includes('"theme_color": "#f2f5f4"'), "Manifest PWA ainda nao usa theme-color claro suave");
-assert(sw.includes("simplifica-3d-v139-store-light-overflow-20260601"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v140-store-banner-color-20260602"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

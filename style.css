@@ -29610,6 +29610,8 @@ body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-the
 
 body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image::after,
 body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img)::after{
+  content:none !important;
+  display:none !important;
   opacity:0 !important;
   background:transparent !important;
   background-image:none !important;
@@ -29686,6 +29688,47 @@ body.theme-light .store-public-shell[data-storefront-source="v2"]:not([data-stor
   color:var(--store-text);
   background-color:var(--store-bg);
   background-image:none;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner.store-banner-has-image,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner:has(> img){
+  isolation:isolate;
+  background:transparent !important;
+  background-image:none !important;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner.store-banner-has-image::before,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner.store-banner-has-image::after,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner:has(> img)::before,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner:has(> img)::after{
+  content:none !important;
+  display:none !important;
+  opacity:0 !important;
+  background:transparent !important;
+  background-image:none !important;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner.store-banner-has-image > img,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner:has(> img) > img{
+  z-index:0;
+  opacity:1 !important;
+  filter:none !important;
+  mix-blend-mode:normal !important;
+  transform:none !important;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner.store-banner-has-image .store-public-banner-copy,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner:has(> img) .store-public-banner-copy,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner.store-banner-has-image .store-context-controls-header,
+body.theme-light .store-public-shell[data-storefront-source="v2"] .store-public-banner:has(> img) .store-context-controls-header{
+  position:relative;
+  z-index:2;
+}
+
+body.theme-light .store-banner-section img{
+  opacity:1 !important;
+  filter:none !important;
+  mix-blend-mode:normal !important;
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-category-bar{

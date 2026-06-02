@@ -75,7 +75,7 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "font-size:16px;"
 ].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v139-store-light-overflow-20260601"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.33-rc-store-light-overflow-20260601"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v140-store-banner-color-20260602"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.34-rc-store-banner-color-20260602"), "Cache-bust web da loja publica nao foi atualizado");
 
 console.log("Storefront guided editor: toolbar unica, preview imediato, bottom sheet mobile, produto publicado e cache PWA premium validados.");

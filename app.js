@@ -17683,7 +17683,8 @@ function renderStorePublicBanner(vm) {
   const theme = getStorefrontControlledTheme(store.theme_config || {});
   const visibleCount = vm.products.length;
   const mode = getStorefrontPublicMode(vm);
-  const visualBanner = store.banner_url || (mode.admin && vm.demo?.products ? getStorefrontDemoBannerImage() : "");
+  const userBanner = String(store.banner_url || "").trim();
+  const visualBanner = userBanner || (mode.admin ? getStorefrontDemoBannerImage() : "");
   const eyebrow = mode.admin ? "Loja pronta para personalizar" : "Vitrine oficial";
   const whatsappAction = mode.admin ? "selecionarItemLojaVisual('contacts')" : "abrirWhatsappLojaPublica()";
   const ctaLabel = store.theme_config?.banner_cta_label || "Ver catálogo";
