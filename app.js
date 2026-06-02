@@ -8101,47 +8101,47 @@ function aplicarPersonalizacao() {
 
   root.style.setProperty("--primary", cor);
   root.style.setProperty("--primary-2", cor);
-  root.style.setProperty("--bg", usarClaro ? "#EEF3F7" : "#0c1118");
-  root.style.setProperty("--panel", usarClaro ? "#F8FAFC" : "#171d26");
-  root.style.setProperty("--panel-2", usarClaro ? "#E6EDF3" : "#202832");
-  root.style.setProperty("--chrome", usarClaro ? "#F8FAFC" : "#070b11");
-  root.style.setProperty("--line", usarClaro ? "#C8D3DE" : "#303946");
-  root.style.setProperty("--text", usarClaro ? "#10202B" : "#f5f7fb");
-  root.style.setProperty("--muted", usarClaro ? "#526170" : "#aeb8c6");
-  root.style.setProperty("--input-bg", usarClaro ? "#FDFEFF" : "#111822");
-  root.style.setProperty("--input-text", usarClaro ? "#10202B" : "#f5f7fb");
-  root.style.setProperty("--input-placeholder", usarClaro ? "#667485" : "#95a0ae");
-  root.style.setProperty("--result-bg", usarClaro ? "#F8FAFC" : "#111822");
-  root.style.setProperty("--surface", usarClaro ? "#F8FAFC" : "#151d27");
-  root.style.setProperty("--surface-2", usarClaro ? "#E6EDF3" : "#202832");
+  root.style.setProperty("--bg", usarClaro ? "#f2f5f4" : "#0c1118");
+  root.style.setProperty("--panel", usarClaro ? "#fcfdfc" : "#171d26");
+  root.style.setProperty("--panel-2", usarClaro ? "#eef2f1" : "#202832");
+  root.style.setProperty("--chrome", usarClaro ? "#f8faf9" : "#070b11");
+  root.style.setProperty("--line", usarClaro ? "#d5dedb" : "#303946");
+  root.style.setProperty("--text", usarClaro ? "#1f2d2b" : "#f5f7fb");
+  root.style.setProperty("--muted", usarClaro ? "#5d6d69" : "#aeb8c6");
+  root.style.setProperty("--input-bg", usarClaro ? "#f8faf9" : "#111822");
+  root.style.setProperty("--input-text", usarClaro ? "#1f2d2b" : "#f5f7fb");
+  root.style.setProperty("--input-placeholder", usarClaro ? "#71817e" : "#95a0ae");
+  root.style.setProperty("--result-bg", usarClaro ? "#fcfdfc" : "#111822");
+  root.style.setProperty("--surface", usarClaro ? "#fcfdfc" : "#151d27");
+  root.style.setProperty("--surface-2", usarClaro ? "#eef2f1" : "#202832");
   root.style.setProperty("--glass-bg", usarClaro
-    ? "linear-gradient(145deg, rgba(248,250,252,.94), rgba(230,237,243,.82))"
+    ? "#fcfdfc"
     : "linear-gradient(145deg, rgba(23,31,42,.88), rgba(9,15,24,.90))");
   root.style.setProperty("--glass-bg-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(253,254,255,.96), rgba(224,233,240,.88))"
+    ? "#ffffff"
     : "linear-gradient(145deg, rgba(28,40,54,.94), rgba(8,15,24,.96))");
-  root.style.setProperty("--glass-border", usarClaro ? "rgba(183,197,211,.86)" : "rgba(255,255,255,.13)");
-  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.78)" : "rgba(255,255,255,.08)");
-  root.style.setProperty("--glass-blur", usarClaro ? "8px" : "8px");
+  root.style.setProperty("--glass-border", usarClaro ? "#d5dedb" : "rgba(255,255,255,.13)");
+  root.style.setProperty("--glass-highlight", usarClaro ? "rgba(255,255,255,.42)" : "rgba(255,255,255,.08)");
+  root.style.setProperty("--glass-blur", usarClaro ? "0px" : "8px");
   root.style.setProperty("--card-gradient", usarClaro
-    ? "linear-gradient(145deg, rgba(248,250,252,.96), rgba(228,236,243,.84))"
+    ? "#fcfdfc"
     : "linear-gradient(145deg, rgba(23,31,42,.88), rgba(9,15,24,.90))");
   root.style.setProperty("--card-gradient-strong", usarClaro
-    ? "linear-gradient(145deg, rgba(253,254,255,.98), rgba(224,233,240,.90))"
+    ? "#ffffff"
     : "linear-gradient(145deg, rgba(28,40,54,.94), rgba(8,15,24,.96))");
   root.style.setProperty("--card-border", "var(--glass-border)");
-  root.style.setProperty("--shadow", usarClaro ? "0 18px 40px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.72)" : "0 18px 38px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05)");
-  root.style.setProperty("--shadow-soft", usarClaro ? "0 9px 22px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.68)" : "0 10px 22px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.04)");
-  root.style.setProperty("--color-background", usarClaro ? "#EEF3F7" : "#0c1118");
-  root.style.setProperty("--color-background-secondary", usarClaro ? "#E6EDF3" : "#111a25");
-  root.style.setProperty("--color-surface", usarClaro ? "#F8FAFC" : "#151d27");
-  root.style.setProperty("--color-surface-soft", usarClaro ? "#E6EDF3" : "#202832");
-  root.style.setProperty("--color-card", usarClaro ? "#F8FAFC" : "#151d27");
-  root.style.setProperty("--color-card-glass", usarClaro ? "rgba(248,250,252,.84)" : "rgba(23,31,42,.86)");
-  root.style.setProperty("--color-modal", usarClaro ? "rgba(253,254,255,.98)" : "rgba(18,27,38,.97)");
-  root.style.setProperty("--color-input", usarClaro ? "#FDFEFF" : "#111822");
-  root.style.setProperty("--color-border", usarClaro ? "#C8D3DE" : "rgba(255,255,255,.13)");
-  root.style.setProperty("--color-divider", usarClaro ? "rgba(183,197,211,.88)" : "rgba(255,255,255,.11)");
+  root.style.setProperty("--shadow", usarClaro ? "0 12px 28px rgba(20,40,36,.08)" : "0 18px 38px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.05)");
+  root.style.setProperty("--shadow-soft", usarClaro ? "0 6px 18px rgba(20,40,36,.06)" : "0 10px 22px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--color-background", usarClaro ? "#f2f5f4" : "#0c1118");
+  root.style.setProperty("--color-background-secondary", usarClaro ? "#f4f6f5" : "#111a25");
+  root.style.setProperty("--color-surface", usarClaro ? "#fcfdfc" : "#151d27");
+  root.style.setProperty("--color-surface-soft", usarClaro ? "#eef2f1" : "#202832");
+  root.style.setProperty("--color-card", usarClaro ? "#fcfdfc" : "#151d27");
+  root.style.setProperty("--color-card-glass", usarClaro ? "#fcfdfc" : "rgba(23,31,42,.86)");
+  root.style.setProperty("--color-modal", usarClaro ? "#ffffff" : "rgba(18,27,38,.97)");
+  root.style.setProperty("--color-input", usarClaro ? "#f8faf9" : "#111822");
+  root.style.setProperty("--color-border", usarClaro ? "#d5dedb" : "rgba(255,255,255,.13)");
+  root.style.setProperty("--color-divider", usarClaro ? "#dfe6e4" : "rgba(255,255,255,.11)");
   root.style.setProperty("--color-primary", cor);
   root.style.setProperty("--color-primary-hover", usarClaro ? "#009B87" : "#12b8b2");
   root.style.setProperty("--color-secondary", paletaTema.secondary || (usarClaro ? "#2563EB" : "#0EA5A3"));
@@ -8150,43 +8150,43 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--color-warning", paletaTema.warning || (usarClaro ? "#B45309" : "#F59E0B"));
   root.style.setProperty("--color-success", paletaTema.success || (usarClaro ? "#15803D" : "#45E08F"));
   root.style.setProperty("--color-info", usarClaro ? "#0284c7" : "#38bdf8");
-  root.style.setProperty("--color-text-primary", usarClaro ? "#10202B" : "#f5f7fb");
-  root.style.setProperty("--color-text-secondary", usarClaro ? "#344454" : "#dbe7ef");
-  root.style.setProperty("--color-text-muted", usarClaro ? "#526170" : "#aeb8c6");
-  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(52,68,84,.58)" : "rgba(179,187,200,.58)");
-  root.style.setProperty("--color-icon-primary", usarClaro ? "#10202B" : "#c9fffb");
-  root.style.setProperty("--color-icon-secondary", usarClaro ? "#344454" : "#b8c6d2");
-  root.style.setProperty("--color-navbar", usarClaro ? "#F8FAFC" : "rgba(7,13,20,.86)");
-  root.style.setProperty("--color-bottom-navigation", usarClaro ? "#F8FAFC" : "rgba(7,13,20,.82)");
+  root.style.setProperty("--color-text-primary", usarClaro ? "#1f2d2b" : "#f5f7fb");
+  root.style.setProperty("--color-text-secondary", usarClaro ? "#52635f" : "#dbe7ef");
+  root.style.setProperty("--color-text-muted", usarClaro ? "#71817e" : "#aeb8c6");
+  root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(82,99,95,.58)" : "rgba(179,187,200,.58)");
+  root.style.setProperty("--color-icon-primary", usarClaro ? "#1f2d2b" : "#c9fffb");
+  root.style.setProperty("--color-icon-secondary", usarClaro ? "#52635f" : "#b8c6d2");
+  root.style.setProperty("--color-navbar", usarClaro ? "#f8faf9" : "rgba(7,13,20,.86)");
+  root.style.setProperty("--color-bottom-navigation", usarClaro ? "#f8faf9" : "rgba(7,13,20,.82)");
   root.style.setProperty("--color-overlay", usarClaro ? "rgba(15,23,42,.32)" : "rgba(2,6,12,.66)");
   root.style.setProperty("--color-backdrop", usarClaro ? "rgba(15,23,42,.24)" : "rgba(2,6,12,.56)");
-  root.style.setProperty("--background-primary", usarClaro ? "#EEF3F7" : "#0c1118");
-  root.style.setProperty("--background-secondary", usarClaro ? "#E6EDF3" : "#111a25");
-  root.style.setProperty("--bg-primary", usarClaro ? "#EEF3F7" : "#0c1118");
-  root.style.setProperty("--bg-secondary", usarClaro ? "#E6EDF3" : "#111a25");
-  root.style.setProperty("--surface-primary", usarClaro ? "#F8FAFC" : "#151d27");
-  root.style.setProperty("--surface-secondary", usarClaro ? "#E6EDF3" : "#202832");
-  root.style.setProperty("--surface-hover", usarClaro ? "#EAF1F6" : "#1e2936");
-  root.style.setProperty("--sidebar-bg", usarClaro ? "#F8FAFC" : "#101923");
-  root.style.setProperty("--header-bg", usarClaro ? "#F8FAFC" : "#0d141d");
-  root.style.setProperty("--card-bg", usarClaro ? "#F8FAFC" : "#151d27");
-  root.style.setProperty("--card-hover", usarClaro ? "#EAF1F6" : "#1e2936");
-  root.style.setProperty("--border-soft", usarClaro ? "#C8D3DE" : "rgba(255,255,255,.13)");
-  root.style.setProperty("--border-strong", usarClaro ? "#AEBECD" : "rgba(255,255,255,.22)");
-  root.style.setProperty("--text-primary", usarClaro ? "#10202B" : "#f5f7fb");
-  root.style.setProperty("--text-secondary", usarClaro ? "#344454" : "#dbe7ef");
-  root.style.setProperty("--text-muted", usarClaro ? "#526170" : "#aeb8c6");
+  root.style.setProperty("--background-primary", usarClaro ? "#f2f5f4" : "#0c1118");
+  root.style.setProperty("--background-secondary", usarClaro ? "#f4f6f5" : "#111a25");
+  root.style.setProperty("--bg-primary", usarClaro ? "#f2f5f4" : "#0c1118");
+  root.style.setProperty("--bg-secondary", usarClaro ? "#f4f6f5" : "#111a25");
+  root.style.setProperty("--surface-primary", usarClaro ? "#fcfdfc" : "#151d27");
+  root.style.setProperty("--surface-secondary", usarClaro ? "#eef2f1" : "#202832");
+  root.style.setProperty("--surface-hover", usarClaro ? "#f1f5f4" : "#1e2936");
+  root.style.setProperty("--sidebar-bg", usarClaro ? "#f8faf9" : "#101923");
+  root.style.setProperty("--header-bg", usarClaro ? "#f8faf9" : "#0d141d");
+  root.style.setProperty("--card-bg", usarClaro ? "#fcfdfc" : "#151d27");
+  root.style.setProperty("--card-hover", usarClaro ? "#f1f5f4" : "#1e2936");
+  root.style.setProperty("--border-soft", usarClaro ? "#dfe6e4" : "rgba(255,255,255,.13)");
+  root.style.setProperty("--border-strong", usarClaro ? "#d5dedb" : "rgba(255,255,255,.22)");
+  root.style.setProperty("--text-primary", usarClaro ? "#1f2d2b" : "#f5f7fb");
+  root.style.setProperty("--text-secondary", usarClaro ? "#52635f" : "#dbe7ef");
+  root.style.setProperty("--text-muted", usarClaro ? "#71817e" : "#aeb8c6");
   root.style.setProperty("--accent-primary", cor);
   root.style.setProperty("--accent-secondary", paletaTema.accent || paletaTema.secondary || (usarClaro ? "#C2410C" : "#F59E0B"));
   root.style.setProperty("--success", paletaTema.success || (usarClaro ? "#15803D" : "#45E08F"));
   root.style.setProperty("--warning", paletaTema.warning || (usarClaro ? "#B45309" : "#F59E0B"));
   root.style.setProperty("--danger", paletaTema.danger || (usarClaro ? "#B91C1C" : "#F87171"));
-  root.style.setProperty("--effect-shadow-sm", usarClaro ? "0 7px 18px rgba(15,23,42,.09), inset 0 1px 0 rgba(255,255,255,.64)" : "0 8px 18px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.04)");
+  root.style.setProperty("--effect-shadow-sm", usarClaro ? "0 4px 14px rgba(20,40,36,.06)" : "0 8px 18px rgba(0,0,0,.20), inset 0 1px 0 rgba(255,255,255,.04)");
   root.style.setProperty("--effect-shadow-md", "var(--shadow-soft)");
   root.style.setProperty("--effect-shadow-lg", "var(--shadow)");
-  root.style.setProperty("--effect-shadow-xl", usarClaro ? "0 28px 70px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.92)" : "0 26px 72px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06)");
-  root.style.setProperty("--effect-glow-primary", usarClaro ? "0 0 0 1px rgba(0,191,166,.14), 0 14px 28px rgba(0,191,166,.08)" : "0 0 0 1px rgba(13,189,184,.16), 0 16px 36px rgba(13,189,184,.16)");
-  root.style.setProperty("--effect-glow-accent", usarClaro ? "0 0 0 1px rgba(255,138,31,.14), 0 14px 28px rgba(255,138,31,.08)" : "0 0 0 1px rgba(255,148,28,.16), 0 16px 36px rgba(255,148,28,.12)");
+  root.style.setProperty("--effect-shadow-xl", usarClaro ? "0 18px 48px rgba(20,40,36,.12)" : "0 26px 72px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06)");
+  root.style.setProperty("--effect-glow-primary", usarClaro ? "0 0 0 1px rgba(0,143,134,.16)" : "0 0 0 1px rgba(13,189,184,.16), 0 16px 36px rgba(13,189,184,.16)");
+  root.style.setProperty("--effect-glow-accent", usarClaro ? "0 0 0 1px rgba(255,138,31,.14)" : "0 0 0 1px rgba(255,148,28,.16), 0 16px 36px rgba(255,148,28,.12)");
   root.style.setProperty("--chart-line", usarClaro ? "#00BFA6" : "#14d6c6");
   root.style.setProperty("--chart-fill", usarClaro ? "rgba(0,191,166,.13)" : "rgba(20,214,198,.18)");
   root.style.setProperty("--chart-grid", usarClaro ? "rgba(15,23,42,.10)" : "rgba(148,163,184,.14)");
@@ -8194,7 +8194,7 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--chart-tooltip-bg", usarClaro ? "rgba(255,255,255,.98)" : "rgba(8,13,20,.94)");
   root.style.setProperty("--chart-tooltip-text", usarClaro ? "#111827" : "#f5f7fb");
   root.style.setProperty("--app-body-background", usarClaro
-    ? "linear-gradient(180deg, #EEF3F7 0%, #E6EDF3 54%, #DDE7EE 100%)"
+    ? "#f2f5f4"
     : "radial-gradient(circle at 18% 0%, rgba(13,189,184,.13), transparent 33%), radial-gradient(circle at 88% 12%, rgba(255,148,28,.08), transparent 30%), linear-gradient(180deg, #0f1a25 0%, var(--bg) 48%, #070b11 100%)");
   root.style.setProperty("--ui-scale", escala.toFixed(2));
   root.style.setProperty("--font-scale", escala.toFixed(2));

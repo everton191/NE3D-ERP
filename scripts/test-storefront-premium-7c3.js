@@ -64,7 +64,7 @@ assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.adm
 
 [
   "Fase 7C.3 - storefront publica premium clara",
-  "--store-bg:#f5f8fa",
+  "--store-bg:#f2f5f4",
   "grid-template-columns:repeat(4, minmax(0, 1fr))",
   "aspect-ratio:1 / 1",
   ".store-public-product-options",
@@ -73,7 +73,7 @@ assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.adm
   "@media (max-width:359px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS premium 7C.3 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v137-light-theme-banner-actions-20260601"), "Cache PWA premium ausente");
-assert(index.includes("1.0.31-rc-light-theme-banner-actions-20260601"), "Cache-bust premium ausente");
+assert(sw.includes("simplifica-3d-v138-soft-light-no-gradient-20260601"), "Cache PWA premium ausente");
+assert(index.includes("1.0.32-rc-soft-light-no-gradient-20260601"), "Cache-bust premium ausente");
 
 console.log("Storefront premium 7C.3: composicao clara, contato unico, cards responsivos, detalhe e cache validados.");
