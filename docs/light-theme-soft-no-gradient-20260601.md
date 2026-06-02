@@ -35,8 +35,8 @@ Quando nao ha imagem:
 
 ## PWA e APK
 
-- Cache PWA local atualizado para `simplifica-3d-v138-soft-light-no-gradient-20260601`.
-- Cache-bust web atualizado para `1.0.32-rc-soft-light-no-gradient-20260601`.
+- Cache PWA local atualizado para `simplifica-3d-v139-store-light-overflow-20260601`.
+- Cache-bust web atualizado para `1.0.33-rc-store-light-overflow-20260601`.
 - Nenhuma publicacao foi feita.
 - O APK usa a camada Web corrigida em uma futura recompilacao, mas nao foi recompilado nesta etapa.
 

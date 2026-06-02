@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v138-soft-light-no-gradient-20260601";
+const CACHE_NAME = "simplifica-3d-v139-store-light-overflow-20260601";
 const APP_FILES = [
   "./",
   "./index.html",

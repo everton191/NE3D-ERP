@@ -13919,7 +13919,7 @@ const STOREFRONT_ADMIN_KEYS = {
 const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme_preference";
 const STOREFRONT_THEME_LEGACY_STORAGE_KEY = "simplifica3d_store_theme";
 const STOREFRONT_THEME_COLORS = Object.freeze({
-  light: "#ffffff",
+  light: "#f2f5f4",
   dark: "#08131d"
 });
 

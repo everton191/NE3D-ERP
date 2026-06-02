@@ -27,6 +27,8 @@ function assert(condition, message) {
   '${["light", "system", "dark"].map'
 ].forEach((marker) => assert(app.includes(marker), `Autoridade de tema da loja ausente: ${marker}`));
 
+assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o fundo suave, nao branco puro");
+
 [
   'const storeKey = "simplifica3d_store_theme_preference"',
   'const legacyStoreKey = "simplifica3d_store_theme"',
@@ -34,7 +36,7 @@ function assert(condition, message) {
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#f2f5f4"',
-  "1.0.32-rc-soft-light-no-gradient-20260601"
+  "1.0.33-rc-store-light-overflow-20260601"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -55,7 +57,11 @@ function assert(condition, message) {
   "mix-blend-mode:normal !important",
   "background-image:none !important",
   "Checkpoint 2026-06-01 - auditoria pesada do tema claro da loja",
-  ".store-public-banner.store-banner-has-image .store-public-banner-copy"
+  ".store-public-banner.store-banner-has-image .store-public-banner-copy",
+  "Hotfix 2026-06-01 - loja clara sem estouro lateral no editor guiado",
+  'body.theme-light .store-public-shell[data-storefront-source="v2"]:not([data-store-theme="dark"])',
+  "grid-template-columns:repeat(2, minmax(0, 1fr))",
+  "overflow-x:hidden"
 ].forEach((marker) => assert(css.includes(marker), `Token claro ou componente migrado ausente: ${marker}`));
 
 assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
@@ -80,6 +86,6 @@ function getBlock(source, startMarker, endMarker) {
 
 assert(manifest.includes('"background_color": "#f2f5f4"'), "Splash PWA ainda nao usa fundo claro suave");
 assert(manifest.includes('"theme_color": "#f2f5f4"'), "Manifest PWA ainda nao usa theme-color claro suave");
-assert(sw.includes("simplifica-3d-v138-soft-light-no-gradient-20260601"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v139-store-light-overflow-20260601"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

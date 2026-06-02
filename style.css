@@ -29664,3 +29664,68 @@ body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-the
     background-image:none;
   }
 }
+
+/* Hotfix 2026-06-01 - loja clara sem estouro lateral no editor guiado.
+   A barra de categorias antiga usava 6 colunas fixas; no mobile/editor isso
+   vazava para fora da vitrine. Mantemos a loja clara contida mesmo quando o
+   atributo data-store-theme ainda nao foi aplicado no primeiro render. */
+body.theme-light .store-public-shell[data-storefront-source="v2"]:not([data-store-theme="dark"]){
+  --store-bg:#f2f5f4;
+  --store-bg-soft:#f4f6f5;
+  --store-surface:#fcfdfc;
+  --store-surface-strong:#ffffff;
+  --store-card:#fcfdfc;
+  --store-text:#1f2d2b;
+  --store-text-soft:#52635f;
+  --store-muted:#71817e;
+  --store-border:rgba(11, 46, 56, .16);
+  --store-border-soft:rgba(11, 46, 56, .10);
+  --store-header-bg:rgba(248,250,249,.96);
+  --store-input-bg:#f8faf9;
+  --store-banner-overlay:none;
+  color:var(--store-text);
+  background-color:var(--store-bg);
+  background-image:none;
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-public-category-bar{
+  box-sizing:border-box;
+  width:min(var(--store-stage-max, 100%), 100%);
+  min-width:0;
+  max-width:100%;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(118px, 1fr));
+  overflow-x:hidden;
+  overflow-y:visible;
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-public-category-bar a{
+  box-sizing:border-box;
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+}
+
+.store-public-shell[data-storefront-source="v2"] .store-public-category-bar a :where(strong, small){
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+@media (max-width: 860px){
+  .store-public-shell[data-storefront-source="v2"] .store-public-category-bar{
+    width:calc(100% - 24px) !important;
+    margin-inline:12px !important;
+    padding-inline:0 !important;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:9px;
+  }
+}
+
+@media (max-width: 359px){
+  .store-public-shell[data-storefront-source="v2"] .store-public-category-bar{
+    grid-template-columns:1fr;
+  }
+}
