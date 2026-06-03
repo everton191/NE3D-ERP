@@ -11887,6 +11887,21 @@ body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .dashboard-se
   height:38px;
 }
 
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-search.search-compact.is-expanded,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-search.search-compact:focus-within,
+body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-search.search-compact.is-expanded,
+body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-search.search-compact:focus-within,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .dashboard-search.search-compact.is-expanded,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .dashboard-search.search-compact:focus-within{
+  width:min(320px, calc(100vw - 108px));
+  min-width:min(220px, calc(100vw - 108px));
+  max-width:min(320px, calc(100vw - 108px));
+  padding:0 10px;
+  border-color:var(--card-border);
+  background:var(--surface-elevated);
+  box-shadow:var(--shadow-soft);
+}
+
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .search-ai-button,
 body[data-ui-profile="android_apk"] .dashboard-home-header .search-ai-button,
 body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header .search-ai-button{
@@ -14587,6 +14602,15 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
 .reports-header-actions{
   justify-content:flex-end;
 }
+.reports-header-actions .reports-search-compact{
+  flex:0 1 48px;
+}
+.reports-header-actions .reports-search-compact.is-expanded,
+.reports-header-actions .reports-search-compact:focus-within{
+  flex-basis:min(280px, 36vw);
+  width:min(280px, 36vw);
+  max-width:min(280px, 36vw);
+}
 .reports-bell{
   position:relative;
 }
@@ -15086,6 +15110,12 @@ body[data-ui-profile="web_pwa"] .reports-quick-grid{
   }
   .reports-header-actions{
     gap:7px;
+  }
+  .reports-header-actions .reports-search-compact.is-expanded,
+  .reports-header-actions .reports-search-compact:focus-within{
+    flex-basis:min(230px, calc(100vw - 156px));
+    width:min(230px, calc(100vw - 156px));
+    max-width:min(230px, calc(100vw - 156px));
   }
   .reports-filter-button{
     width:44px;

@@ -9400,21 +9400,40 @@ function buscarGlobal(event, valor) {
   alert("Nada encontrado para: " + valor);
 }
 
-function expandirBuscaGlobal(elemento) {
-  const label = elemento?.closest?.(".search-compact") || elemento;
+function ativarBuscaCompacta(label) {
   if (!label) return;
   label.classList.add("is-expanded");
-  setTimeout(() => label.querySelector?.("input")?.focus(), 30);
+  const input = label.querySelector?.("input");
+  setTimeout(() => {
+    try {
+      input?.focus?.({ preventScroll: true });
+    } catch (erro) {
+      input?.focus?.();
+    }
+  }, 30);
+  return !!input;
+}
+
+function expandirBuscaGlobal(elemento) {
+  const label = elemento?.closest?.(".search-compact") || elemento;
+  ativarBuscaCompacta(label);
+}
+
+function encontrarBuscaCompactaPreferencial(botao) {
+  const buscaLocal = botao?.closest?.(".search-compact");
+  if (buscaLocal) return buscaLocal;
+
+  const escopo = botao?.closest?.(".reports-header, .dashboard-home-header, .desktop-dashboard-hero, .topbar, header");
+  const buscaDoEscopo = escopo?.querySelector?.(".search-compact");
+  if (buscaDoEscopo) return buscaDoEscopo;
+
+  return document.querySelector(".topbar-search.search-compact, .dashboard-search.search-compact");
 }
 
 function abrirBuscaAssistente(event, botao) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
-  const label = botao?.closest?.(".search-compact");
-  if (!label) return;
-  label.classList.add("is-expanded");
-  const input = label.querySelector("input");
-  setTimeout(() => input?.focus(), 20);
+  ativarBuscaCompacta(encontrarBuscaCompactaPreferencial(botao));
 }
 
 function recolherBuscaGlobal(input) {
@@ -24106,7 +24125,10 @@ function renderRelatorios() {
           </div>
         </div>
         <div class="reports-header-actions">
-          <button class="icon-action-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar">${renderUiIcon("search")}</button>
+          <label class="dashboard-search search-compact reports-search-compact" onclick="expandirBuscaGlobal(this)">
+            <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+            <input placeholder="Buscar relatórios..." aria-label="Buscar relatórios" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this)">
+          </label>
           <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}<span>7</span></button>
           <button class="btn reports-filter-button" type="button" onclick="abrirFiltrosRelatorios()">${renderUiIcon("preferencias")} <span>Filtros</span></button>
         </div>
