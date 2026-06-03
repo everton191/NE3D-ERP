@@ -59,6 +59,10 @@ assert(app.includes("Abrir vitrine"), "Toolbar desktop deve nomear claramente a 
 assert(app.includes('maxlength="50"'), "Campos principais da loja devem possuir limite visual seguro");
 assert(app.includes('maxlength="180"'), "Descricao de produto deve possuir limite visual seguro");
 assert(app.includes("vm?.limits?.shareEnabled !== false"), "Link guiado respeita regra de compartilhamento do plano");
+assert(app.includes("const START_PLAN_ENABLED = false"), "Homologacao da loja nao pode ativar checkout Start");
+assert(app.includes("const STOREFRONT_REAL_TEST_FULL_ACCESS = true"), "Homologacao real da loja deve ficar explicita");
+assert(app.includes("function isStorefrontRealTestFullAccessEnabled"), "Liberacao da loja deve usar helper controlado");
+assert(app.includes("testMode: true"), "Limites da loja em homologacao devem marcar testMode");
 assert(app.includes("Produtos da loja online ficam disponíveis no Start ou Pro."), "Produtos da vitrine continuam bloqueados no Gratis");
 const normalizeWhatsapp = new Function(`${extractFunction("normalizarWhatsappLojaPublica")}; return normalizarWhatsappLojaPublica;`)();
 assert(normalizeWhatsapp("(85) 99999-9999") === "5585999999999", "WhatsApp da loja deve receber DDI brasileiro quando necessario");
@@ -77,8 +81,8 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "font-size:16px;"
 ].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v142-store-editor-pt-cache-20260603"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.36-rc-store-editor-pt-cache-20260603"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v143-storefront-full-test-20260603"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.37-rc-storefront-full-test-20260603"), "Cache-bust web da loja publica nao foi atualizado");
 [
   "Preview do catálogo",
   "Preview das categorias",

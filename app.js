@@ -80,6 +80,9 @@ const PRO_MONTHLY_PRICE = 59.9;
 const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
 const PREMIUM_MONTHLY_PRICE = PRO_MONTHLY_PRICE;
 const START_PLAN_ENABLED = false;
+// Homologacao da loja: libera publicacao, compartilhamento e recursos visuais
+// da vitrine sem ativar Start, checkout ou regras de cobranca.
+const STOREFRONT_REAL_TEST_FULL_ACCESS = true;
 const PLAN_REGISTRY = Object.freeze({
   free: Object.freeze({
     slug: "free",
@@ -3778,6 +3781,10 @@ function getPlanUpgradeOptions(plan = "free") {
 
 function isStartPlanCommerciallyEnabled() {
   return START_PLAN_ENABLED === true;
+}
+
+function isStorefrontRealTestFullAccessEnabled() {
+  return STOREFRONT_REAL_TEST_FULL_ACCESS === true;
 }
 
 function isPlanoStartSlug(slug = "free") {
@@ -9159,6 +9166,21 @@ function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const entitlements = getPlanEntitlements(plano);
   const limits = getPlanLimits(plano);
   const pro = ["pro", "premium_trial"].includes(plano);
+  if (isStorefrontRealTestFullAccessEnabled()) {
+    return {
+      enabled: true,
+      publishEnabled: true,
+      shareEnabled: true,
+      productLimit: Number.POSITIVE_INFINITY,
+      leadsEnabled: true,
+      qrCodeEnabled: true,
+      customThemeEnabled: true,
+      premiumThemeEnabled: true,
+      metricsEnabled: true,
+      simplificaBrandingRequired: false,
+      testMode: true
+    };
+  }
   return {
     enabled: true,
     publishEnabled: entitlements.publicStore === true,
@@ -14569,7 +14591,7 @@ function renderStorefrontPublishedModal(store = getStorefrontAdminStoreLocal()) 
 
 function exigirChecklistPublicacaoLoja({ intent = "publicar", silent = false } = {}) {
   const policy = getPlanPolicy();
-  if (!policy.publicStore) {
+  if (!policy.publicStore && !isStorefrontRealTestFullAccessEnabled()) {
     if (!silent) {
       const mensagem = intent === "compartilhar"
         ? "O link público e o compartilhamento da loja ficam disponíveis no plano Start ou Pro."

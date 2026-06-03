@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v142-store-editor-pt-cache-20260603"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v143-storefront-full-test-20260603"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.36-rc-store-editor-pt-cache-20260603"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.37-rc-storefront-full-test-20260603"), "index.html usa cache-bust atual");
 assert(pkg.scripts && pkg.scripts["test:layout-overflow-v2"] === "node scripts/test-layout-overflow-v2.js", "package.json expoe test:layout-overflow-v2");
 assert(pkg.scripts && pkg.scripts["test:erp-shell-v2"] === "node scripts/test-erp-shell-v2.js", "package.json expoe test:erp-shell-v2");
 assert(pkg.scripts && pkg.scripts["test:storefront-public-ui"] === "node scripts/test-storefront-public-ui.js", "package.json expoe test:storefront-public-ui");
