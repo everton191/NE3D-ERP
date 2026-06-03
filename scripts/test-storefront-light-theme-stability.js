@@ -36,7 +36,7 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#f2f5f4"',
-  "1.0.34-rc-store-banner-color-20260602"
+  "1.0.35-rc-light-theme-cleanup-20260602"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -74,6 +74,12 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
   'const visualBanner = userBanner || (mode.admin ? getStorefrontDemoBannerImage() : "")'
 ].forEach((marker) => assert(app.includes(marker), `Fallback visual do banner ausente: ${marker}`));
 
+[
+  "radial-gradient(circle at 78% 38%",
+  "linear-gradient(135deg, #f6fbfc 0%, #edf6f8 48%, #dfecef 100%)",
+  "linear-gradient(90deg, rgba(246,251,252,.92) 0%, rgba(238,247,249,.74) 48%, rgba(226,238,242,.18) 100%)"
+].forEach((legacyGradient) => assert(!css.includes(legacyGradient), `Gradiente legado do tema claro ainda ativo: ${legacyGradient}`));
+
 assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
 assert(css.includes("body.theme-light.app-shell-ready #app-shell"), "Shell claro do ERP deve neutralizar vidro herdado");
 assert(css.includes("body.theme-light.app-shell-ready #app-content"), "Conteudo claro do ERP deve neutralizar vidro herdado");
@@ -96,6 +102,6 @@ function getBlock(source, startMarker, endMarker) {
 
 assert(manifest.includes('"background_color": "#f2f5f4"'), "Splash PWA ainda nao usa fundo claro suave");
 assert(manifest.includes('"theme_color": "#f2f5f4"'), "Manifest PWA ainda nao usa theme-color claro suave");
-assert(sw.includes("simplifica-3d-v140-store-banner-color-20260602"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v141-light-theme-cleanup-20260602"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

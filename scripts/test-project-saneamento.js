@@ -20,7 +20,7 @@ if (missingIgnores.length) {
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.19-rc\"",
   "APP_VERSION_CODE = 18",
-  "simplifica-3d-v140-store-banner-color-20260602",
+  "simplifica-3d-v141-light-theme-cleanup-20260602",
   "versionName \"1.0.19-rc\"",
   "versionCode 18",
   "\"version\": \"1.0.19-rc\"",

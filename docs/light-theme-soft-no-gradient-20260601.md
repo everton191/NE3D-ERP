@@ -35,8 +35,8 @@ Quando nao ha imagem:
 
 ## PWA e APK
 
-- Cache PWA local atualizado para `simplifica-3d-v140-store-banner-color-20260602`.
-- Cache-bust web atualizado para `1.0.34-rc-store-banner-color-20260602`.
+- Cache PWA local atualizado para `simplifica-3d-v141-light-theme-cleanup-20260602`.
+- Cache-bust web atualizado para `1.0.35-rc-light-theme-cleanup-20260602`.
 - Nenhuma publicacao foi feita.
 - O APK usa a camada Web corrigida em uma futura recompilacao, mas nao foi recompilado nesta etapa.
 

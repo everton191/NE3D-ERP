@@ -23782,7 +23782,7 @@ body.theme-light .store-visual-device-switcher button:hover{
 
 body.theme-light .store-visual-sidebar-footer{
   border-top-color:var(--store-border);
-  background:linear-gradient(180deg, transparent, rgba(246,250,252,.98) 18%);
+  background:var(--store-surface);
 }
 
 body.theme-light .store-public-header .store-context-controls-header{
@@ -23801,9 +23801,7 @@ body.theme-light :where(.store-public-header,.store-public-product-card,.store-p
 }
 
 body.theme-light .store-public-banner{
-  background:
-    radial-gradient(circle at 78% 38%, color-mix(in srgb, var(--store-primary, var(--color-primary)) 12%, transparent), transparent 28%),
-    linear-gradient(135deg, #f6fbfc 0%, #edf6f8 48%, #dfecef 100%);
+  background:var(--store-banner-base, #f8faf9);
   border-color:var(--store-border);
 }
 
@@ -23815,8 +23813,7 @@ body.theme-light .store-public-contact,
 body.theme-light .store-public-product-hero,
 body.theme-light .store-public-inner-head,
 body.theme-light .store-public-promo{
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,252,.92));
+  background:var(--store-card, #ffffff);
 }
 
 body.theme-light .store-public-main-nav a,
@@ -23854,9 +23851,11 @@ body.theme-light .store-public-banner-copy p{
 }
 
 body.theme-light .store-public-banner::after{
-  background:
-    linear-gradient(90deg, rgba(246,251,252,.92) 0%, rgba(238,247,249,.74) 48%, rgba(226,238,242,.18) 100%),
-    linear-gradient(0deg, rgba(226,238,242,.22), transparent 48%);
+  content:none;
+  display:none;
+  opacity:0;
+  background:none;
+  background-image:none;
 }
 
 body.theme-light .store-hero-device-art{

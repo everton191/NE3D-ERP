@@ -17118,6 +17118,14 @@ function editarProdutoPublicadoLojaOnline(id = "") {
   abrirEditorProdutoLojaOnline(id);
 }
 
+if (typeof window !== "undefined") {
+  Object.assign(window, {
+    selecionarItemLojaVisual,
+    fecharPainelEdicaoGuiadaLoja,
+    editarProdutoPublicadoLojaOnline
+  });
+}
+
 function renderStoreGuidedHiddenAppearanceFields(vm, { banner = false } = {}) {
   const store = vm.store || {};
   return `

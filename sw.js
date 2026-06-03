@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v140-store-banner-color-20260602";
+const CACHE_NAME = "simplifica-3d-v141-light-theme-cleanup-20260602";
 const APP_FILES = [
   "./",
   "./index.html",
