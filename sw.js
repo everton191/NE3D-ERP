@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v141-light-theme-cleanup-20260602";
+const CACHE_NAME = "simplifica-3d-v142-store-editor-pt-cache-20260603";
 const APP_FILES = [
   "./",
   "./index.html",

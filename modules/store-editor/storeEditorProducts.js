@@ -13,7 +13,7 @@
   function renderEmptyState({ renderEmptyState } = {}) {
     const payload = {
       title: "Nenhum produto",
-      description: "Crie o primeiro item da vitrine para testar preview, publicação e link público.",
+      description: "Crie o primeiro item da vitrine para testar visualização, publicação e link público.",
       icon: "▣",
       action: `<button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button>`
     };

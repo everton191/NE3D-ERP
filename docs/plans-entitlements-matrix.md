@@ -11,7 +11,7 @@
 | PDF | Basico | Basico | Completo |
 | WhatsApp/orcamento | Basico | Basico | Completo |
 | Loja editavel | Sim | Sim | Sim |
-| Preview da loja | Sim | Sim | Sim |
+| Prévia da loja | Sim | Sim | Sim |
 | Publicacao da loja | Nao | Sim | Sim |
 | Link compartilhavel | Nao | Sim | Sim |
 | Produtos da loja | Ate 25 | Ate 300 | Ilimitado |

@@ -77,7 +77,16 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "font-size:16px;"
 ].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v141-light-theme-cleanup-20260602"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.35-rc-light-theme-cleanup-20260602"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v142-store-editor-pt-cache-20260603"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.36-rc-store-editor-pt-cache-20260603"), "Cache-bust web da loja publica nao foi atualizado");
+[
+  "Preview do catálogo",
+  "Preview das categorias",
+  "Preview compartilhável",
+  "Preview de publicação",
+  "Preview da experiência"
+].forEach((marker) => assert(!fs.readFileSync("modules/store-editor/storeEditorTabs.js", "utf8").includes(marker), `Modulo de abas nao deve exibir texto em ingles: ${marker}`));
+assert(!fs.readFileSync("modules/store-editor/storeEditorPreview.js", "utf8").includes("Preview da loja"), "Fallback de visualizacao deve estar em portugues");
+assert(!fs.readFileSync("modules/store-editor/storeEditorProducts.js", "utf8").includes("testar preview"), "Estado vazio de produtos deve estar em portugues");
 
 console.log("Storefront guided editor: toolbar unica, preview imediato, bottom sheet mobile, produto publicado e cache PWA premium validados.");

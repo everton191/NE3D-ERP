@@ -8,7 +8,7 @@
     if (hasInlinePreview || typeof renderPreview !== "function") return "";
     const copy = typeof tabs.getPreviewCopy === "function"
       ? tabs.getPreviewCopy(safeTab)
-      : { title: "Preview da loja", subtitle: "Visual isolado do editor administrativo." };
+      : { title: "Visualização da loja", subtitle: "Visual isolado do editor administrativo." };
     return renderPreview(vm, copy);
   }
 

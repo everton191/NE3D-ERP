@@ -26,6 +26,7 @@ assert(!renderApp.includes("sincronizarStorefrontBetaAccessRemoto(false)"), "ren
 ].forEach((label) => assert(!app.includes(label), `interface ainda contem rotulo tecnico: ${label}`));
 assert(app.includes("Modelos para começar"), "aviso de modelos deve usar linguagem comercial");
 assert(app.includes("Visualização da vitrine"), "visualizacao deve estar em portugues");
+assert(app.includes("Visualização da sua vitrine"), "rotulo de visualizacao da loja deve estar em portugues");
 assert(app.includes("Vinculado ao estoque"), "modo de estoque deve estar em portugues");
 assert(!app.includes("Vinculado ao ERP"), "interface nao deve expor nomenclatura interna do estoque");
 assert(app.includes("Contatos/Pedidos"), "aba de contatos nao deve usar lead em ingles");
@@ -38,7 +39,7 @@ assert(css.includes(".ui-context-menu"), "menu contextual reutilizavel ausente")
 assert(css.includes("grid-template-columns:112px minmax(0, 1fr);"), "cards administrativos desktop devem ser compactos");
 assert(css.includes("grid-template-columns:72px minmax(0, 1fr);"), "cards administrativos mobile devem caber na viewport");
 assert(css.includes("grid-template-columns:64px minmax(0, 1fr);"), "cards administrativos mobile estreitos devem manter leitura");
-assert(index.includes("1.0.35-rc-light-theme-cleanup-20260602"), "cache-bust web oficial ausente");
-assert(sw.includes("simplifica-3d-v141-light-theme-cleanup-20260602"), "cache PWA oficial ausente");
+assert(index.includes("1.0.36-rc-store-editor-pt-cache-20260603"), "cache-bust web oficial ausente");
+assert(sw.includes("simplifica-3d-v142-store-editor-pt-cache-20260603"), "cache PWA oficial ausente");
 
 console.log("Storefront public UI: loja oficial, textos em portugues e acoes compactas validados.");

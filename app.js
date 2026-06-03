@@ -19185,10 +19185,10 @@ function renderStorefrontAppearance(vm) {
           </div>
           ${renderThemePaletteButtons({ mode: themeMode, selected: primary, target: "storefront" })}
         </div>
-        <p class="muted">Preview local é temporário. Upload concluído só aparece como salvo quando o Storage retorna URL pública.</p>
+        <p class="muted">Visualização local é temporária. A imagem só aparece como salva quando o envio terminar.</p>
         <div class="actions storefront-sticky-actions"><button class="btn" type="submit">Salvar aparência</button></div>
       </form>
-      ${renderStorefrontPreview(vm, { title: "Preview em tempo real", subtitle: "As alterações aparecem aqui antes de salvar." })}
+      ${renderStorefrontPreview(vm, { title: "Visualização em tempo real", subtitle: "As alterações aparecem aqui antes de salvar." })}
     </div>
   `;
 }
