@@ -16031,6 +16031,25 @@ textarea[aria-invalid="true"]{
   padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-xl));
 }
 
+body.mobile-mode :where(
+  .storefront-admin-page,
+  .store-public-shell[data-storefront-source="v2"],
+  .store-public-main
+){
+  padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl));
+}
+
+body.mobile-mode .store-public-menu-toggle{
+  width:52px;
+  min-width:52px;
+  padding-inline:0;
+  justify-content:center;
+}
+
+body.mobile-mode .store-public-menu-toggle span{
+  display:none;
+}
+
 .mobile-bottom-nav{
   min-height:var(--size-bottom-nav-height);
   background:var(--color-bottom-navigation);
@@ -23906,7 +23925,9 @@ body.theme-light .store-public-banner::after{
 }
 
 body.theme-light .store-hero-device-art{
-  opacity:.42;
+  opacity:.74;
+  filter:none;
+  mix-blend-mode:normal;
 }
 
 @media (max-width: 1100px){
@@ -28758,6 +28779,12 @@ body.theme-light .app-toast{
 
 .store-public-shell[data-storefront-source="v2"] .store-hero-device-art{
   opacity:.42;
+}
+
+body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-hero-device-art{
+  opacity:.74;
+  filter:none;
+  mix-blend-mode:normal;
 }
 
 .store-public-shell[data-storefront-source="v2"] .store-public-banner-copy{

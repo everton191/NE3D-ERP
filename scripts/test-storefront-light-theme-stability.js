@@ -65,6 +65,12 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
   "content:none !important",
   "display:none !important",
   "body.theme-light .store-banner-section img",
+  'body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-theme="light"] .store-hero-device-art',
+  "opacity:.74",
+  "body.mobile-mode :where(",
+  ".storefront-admin-page,",
+  ".store-public-main",
+  "padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl))",
   "grid-template-columns:repeat(2, minmax(0, 1fr))",
   "overflow-x:hidden"
 ].forEach((marker) => assert(css.includes(marker), `Token claro ou componente migrado ausente: ${marker}`));

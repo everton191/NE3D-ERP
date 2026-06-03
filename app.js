@@ -17692,7 +17692,7 @@ function renderStorePublicHeader(vm) {
         ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="${escaparAttr(getStorefrontDisplayName(store))}">` : renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
         <strong>${escaparHtml(getStorefrontDisplayName(store))}</strong>
       </a>
-      <button class="store-public-menu-toggle" type="button" aria-label="Abrir menu da loja" onclick="this.closest('.store-public-header')?.classList.toggle('mobile-open')">${renderUiIcon("menu")}<span>Menu</span></button>
+      <button class="store-public-menu-toggle" type="button" aria-label="Abrir menu da loja" aria-expanded="false" onclick="const header=this.closest('.store-public-header'); const opened=!!header?.classList.toggle('mobile-open'); this.setAttribute('aria-expanded', opened ? 'true' : 'false');">${renderUiIcon("menu")}<span>Menu</span></button>
       ${renderStoreAdminControls("header", store, vm)}
       <nav class="store-public-main-nav" aria-label="Navegação da loja">
         <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">Início</a>
@@ -17798,6 +17798,13 @@ function renderStorefrontShareInlineButton(url = getStorefrontPublicUrl(), label
   return `<button class="btn ghost store-public-share-inline" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')">${escaparHtml(label)}</button>`;
 }
 
+function sanitizarTextoPublicoLoja(value = "", fallback = "Produto personalizado sob encomenda.") {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/produto\s+interno|teste\s+interno|valida[cç][aã]o|debug/i.test(text)) return fallback;
+  return text;
+}
+
 function renderStorePublicProductCard(vm, product = {}) {
   const image = getStorefrontProductImage(product, vm.images);
   const unavailable = String(product.stock_mode || "") === "unavailable";
@@ -17821,7 +17828,7 @@ function renderStorePublicProductCard(vm, product = {}) {
         </div>
         ${adminMode && product.__demo ? `<div class="store-demo-product-note"><b>Exemplo de produto</b><span>Substitua por um produto seu</span></div>` : ""}
         <a class="store-public-product-title" href="${storefrontPublicProductUrl(vm, product)}" onclick="${mediaClick}">${escaparHtml(product.title || "Produto da loja")}</a>
-        <p>${escaparHtml(product.description || "Produto público preparado para orçamento.")}</p>
+        <p>${escaparHtml(sanitizarTextoPublicoLoja(product.description, "Produto personalizado sob encomenda.") || "Produto público preparado para orçamento.")}</p>
         <div class="store-public-product-bottom">
           <strong>${escaparHtml(product.__demo ? `Preço demonstrativo: ${renderPrecoProdutoLojaOnline(product)}` : renderPrecoProdutoLojaOnline(product))}</strong>
           <small>${escaparHtml(product.estimated_production_time || "Prazo sob consulta")}</small>
@@ -17907,7 +17914,7 @@ function renderStorePublicProductDetail(vm, product = {}) {
             <strong>${escaparHtml(renderPrecoProdutoLojaOnline(product))}</strong>
             ${renderStoreStatusBadge(product)}
           </div>
-          <p>${escaparHtml(product.description || "Produto preparado para orçamento pela loja.")}</p>
+          <p>${escaparHtml(sanitizarTextoPublicoLoja(product.description, "Produto preparado para orçamento pela loja.") || "Produto preparado para orçamento pela loja.")}</p>
           <div class="store-public-spec-grid">
             <span><small>Prazo</small><strong>${escaparHtml(product.estimated_production_time || "Sob consulta")}</strong></span>
             <span><small>Tipo</small><strong>${escaparHtml(getStorefrontProductTypeLabel(product))}</strong></span>
@@ -19376,7 +19383,7 @@ function renderStorefrontProducts(vm) {
           <label>Produto vinculado ao estoque (opcional)<input name="erpProductId" value="${escaparAttr(editing.erp_product_id || "")}"></label>
           <label>Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
           </div>
-          <label>Descrição pública<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(editing.description || "")}</textarea></label>
+          <label>Descrição pública<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(sanitizarTextoPublicoLoja(editing.description || "", ""))}</textarea></label>
         </div>
         <div class="storefront-visual-block store-product-form-step ${storefrontProductMobileStep === 2 ? "is-active" : ""}" data-product-step="2">
           <div class="storefront-block-head">
@@ -19458,7 +19465,7 @@ function renderStorefrontProducts(vm) {
                 ${product.featured ? `<span class="status-badge">destaque</span>` : ""}
                 ${product.is_customizable ? `<span class="status-badge">personalizado</span>` : ""}
               </div>
-              ${product.description ? `<p class="store-product-admin-description">${escaparHtml(product.description)}</p>` : ""}
+              ${product.description ? `<p class="store-product-admin-description">${escaparHtml(sanitizarTextoPublicoLoja(product.description))}</p>` : ""}
               ${product.__demo ? `<small class="store-demo-product-note">Substitua por um produto seu. Use o modelo como base para liberar edição completa e publicação.</small>` : ""}
               <small class="store-product-admin-stock">${escaparHtml(getStorefrontStockLabel(product))} • ${productImages.length} foto(s)</small>
               <div class="store-admin-actions store-admin-actions-primary store-product-card-actions ui-action-bar">

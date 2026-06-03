@@ -33,6 +33,7 @@ function extractFunction(name) {
   "function validarTextoVisualLoja",
   "function atualizarPreviewGuiadoLoja",
   "function normalizarWhatsappLojaPublica",
+  "function sanitizarTextoPublicoLoja",
   "Object.assign(window, {\n    selecionarItemLojaVisual",
   "fecharPainelEdicaoGuiadaLoja,\n    editarProdutoPublicadoLojaOnline",
   'data-guided-selection="${escaparAttr(selection.type)}"',
@@ -40,6 +41,7 @@ function extractFunction(name) {
   'editarProdutoPublicadoLojaOnline(\'${id}\')',
   "encodeURIComponent(texto)"
 ].forEach((marker) => assert(app.includes(marker), `Editor guiado incompleto: ${marker}`));
+assert(app.includes('aria-expanded="false" onclick="const header=this.closest'), "Menu publico mobile deve atualizar aria-expanded");
 
 [
   ".store-guided-editor-sidebar",
@@ -64,6 +66,8 @@ assert(app.includes("const STOREFRONT_REAL_TEST_FULL_ACCESS = true"), "Homologac
 assert(app.includes("function isStorefrontRealTestFullAccessEnabled"), "Liberacao da loja deve usar helper controlado");
 assert(app.includes("testMode: true"), "Limites da loja em homologacao devem marcar testMode");
 assert(app.includes("Produtos da loja online ficam disponíveis no Start ou Pro."), "Produtos da loja continuam protegidos no Gratis");
+assert(app.includes("sanitizarTextoPublicoLoja(product.description"), "Descricoes internas de produto devem ser saneadas antes de aparecer");
+assert(app.includes("Produto personalizado sob encomenda."), "Fallback comercial de produto deve existir");
 const normalizeWhatsapp = new Function(`${extractFunction("normalizarWhatsappLojaPublica")}; return normalizarWhatsappLojaPublica;`)();
 assert(normalizeWhatsapp("(85) 99999-9999") === "5585999999999", "WhatsApp da loja deve receber DDI brasileiro quando necessario");
 assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp da loja nao deve duplicar DDI existente");
@@ -80,6 +84,12 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "min-height:44px;",
   "font-size:16px;"
 ].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
+[
+  "body.mobile-mode .store-public-menu-toggle",
+  "width:52px",
+  "body.mobile-mode .store-public-menu-toggle span",
+  "display:none"
+].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
 
 assert(sw.includes("simplifica-3d-v143-storefront-full-test-20260603"), "Cache PWA da loja publica nao foi atualizado");
 assert(index.includes("1.0.37-rc-storefront-full-test-20260603"), "Cache-bust web da loja publica nao foi atualizado");
