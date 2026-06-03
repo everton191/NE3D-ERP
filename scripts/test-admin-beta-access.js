@@ -10,7 +10,7 @@ const requiredApp = [
   "function getStorefrontCompatibleAdminSlugs",
   "getStorefrontCompatibleAdminSlugs(adminSlug).has(targetSlug)",
   "Entre para editar esta loja",
-  "No plano Grátis você pode montar e visualizar a vitrine",
+  "No plano Grátis você pode montar e visualizar a loja",
   "Entrar no ERP"
 ];
 

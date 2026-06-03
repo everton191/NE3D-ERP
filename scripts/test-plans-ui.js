@@ -31,7 +31,7 @@ assert(!render.includes("Voltar para Grátis"), "Free nao pode oferecer voltar p
 assert(!render.includes("Cancelar plano Free"), "Free nao pode oferecer cancelamento");
 assert(app.includes("const START_PLAN_ENABLED = false"), "Start deve permanecer desligado por flag");
 assert(render.includes('badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE"'), "Start bloqueado deve mostrar Em breve");
-assert(render.includes('cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : startEnabled ? "Assinar Start" : "Indisponível no momento"'), "Start bloqueado deve ter CTA indisponivel");
+assert(render.includes('cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : "Assinar Start"'), "Start deve manter CTA comercial mesmo quando a contratacao estiver protegida");
 assert(render.includes('action: startEnabled ? "start" : "start-unavailable"'), "Start bloqueado deve usar acao segura sem checkout");
 assert(app.includes("plan-start-unavailable"), "acao Start indisponivel deve ser observavel sem cobrar");
 assert(!render.includes('data-action=\\"open-payment\\" data-slug=\\"start\\"'), "tela moderna nao pode abrir checkout Start");
@@ -65,6 +65,21 @@ assert(css.includes("@media (min-width:1024px)"), "desktop deve possuir breakpoi
 assert(css.includes("@media (max-width:767px)"), "mobile deve possuir breakpoint oficial");
 assert(css.includes("body.theme-light .plans-state-notice"), "avisos devem permanecer legiveis no tema claro");
 assert(css.includes(".plan-tier-button.is-unavailable"), "CTA Start indisponivel deve possuir estilo controlado");
+
+[
+  "Sem produtos na loja online",
+  "Não publica loja",
+  "Não gera link público",
+  "Não permite compartilhar loja",
+  "Sem personalização avançada",
+  "Indisponível no momento",
+  "entitlement",
+  "feature flag",
+  "billing state",
+  "plano_real",
+  "loja_real",
+  "Editar loja real"
+].forEach((label) => assert(!render.includes(label), `card de planos nao deve exibir termo tecnico ou negativo: ${label}`));
 
 [
   "Start bloqueado",

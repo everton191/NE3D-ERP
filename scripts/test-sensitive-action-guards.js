@@ -38,7 +38,11 @@ const missingProtection = protectedFunctions.filter((name) => !getFunctionBody(n
 const requiredSnippets = [
   "Fase atual: editor liberado para qualquer usuário autenticado.",
   "if (!botao.dataset.textoOriginal) botao.dataset.textoOriginal = botao.textContent;",
-  "delete botao.dataset.textoOriginal;"
+  "delete botao.dataset.textoOriginal;",
+  "data-preserve-focus=\"true\"",
+  "enterkeyhint=\"done\"",
+  "validatePassword: async",
+  "Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro."
 ];
 
 const missingSnippets = requiredSnippets.filter((snippet) => !app.includes(snippet));
@@ -46,7 +50,9 @@ const missingSnippets = requiredSnippets.filter((snippet) => !app.includes(snipp
 const cssSnippets = [
   ".cash-cancel-modal :where(input, textarea, select)",
   ".password-confirm-card :where(input, textarea, select)",
-  "-webkit-text-fill-color"
+  "-webkit-text-fill-color",
+  ".password-confirm-card .actions",
+  "position:sticky"
 ];
 
 const missingCss = cssSnippets.filter((snippet) => !css.includes(snippet));

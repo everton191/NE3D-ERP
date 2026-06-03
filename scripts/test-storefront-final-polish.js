@@ -36,12 +36,11 @@ function assert(condition, message) {
 [
   "Editar loja real",
   "Editar na loja real",
-  "Abrir loja real",
-  "Copiar link da loja",
-  "Abrir loja pública"
+  "Abrir loja real"
 ].forEach((legacyLabel) => assert(!app.includes(legacyLabel), `Rotulo legado ainda visivel: ${legacyLabel}`));
 
-assert(app.includes("Copiar link da vitrine"), "Toolbar deve expor Copiar link da vitrine");
-assert(app.includes("Abrir vitrine"), "Toolbar deve expor Abrir vitrine");
+assert(app.includes("Copiar link da loja"), "Toolbar deve expor Copiar link da loja");
+assert(app.includes("Abrir loja"), "Toolbar deve expor Abrir loja");
+assert(!app.includes("vitrine"), "Interface deve manter o termo Loja sem misturar rotulos antigos");
 
 console.log("Storefront final polish: retorno interno, tema claro, perfil APK, toolbar e modelos de produto validados.");

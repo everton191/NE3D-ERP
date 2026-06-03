@@ -19,14 +19,14 @@ assert(!renderApp.includes("sincronizarStorefrontBetaAccessRemoto(false)"), "ren
   "Beta fechado",
   "Experiência beta",
   "Editor visual futuro",
-  "Preview da sua vitrine",
+  "Preview da sua loja",
   "Ver preview",
   "Demonstração visual",
   "Crop guiado + compressão leve"
 ].forEach((label) => assert(!app.includes(label), `interface ainda contem rotulo tecnico: ${label}`));
 assert(app.includes("Modelos para começar"), "aviso de modelos deve usar linguagem comercial");
-assert(app.includes("Visualização da vitrine"), "visualizacao deve estar em portugues");
-assert(app.includes("Visualização da sua vitrine"), "rotulo de visualizacao da loja deve estar em portugues");
+assert(app.includes("Visualização da loja"), "visualizacao deve estar em portugues");
+assert(app.includes("Visualização da sua loja"), "rotulo de visualizacao da loja deve estar em portugues");
 assert(app.includes("Vinculado ao estoque"), "modo de estoque deve estar em portugues");
 assert(!app.includes("Vinculado ao ERP"), "interface nao deve expor nomenclatura interna do estoque");
 assert(app.includes("Contatos/Pedidos"), "aba de contatos nao deve usar lead em ingles");

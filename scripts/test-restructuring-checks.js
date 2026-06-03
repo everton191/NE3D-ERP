@@ -143,7 +143,7 @@ assert(pkg.scripts && pkg.scripts["test:erp-shell-v2"] === "node scripts/test-er
 assert(pkg.scripts && pkg.scripts["test:storefront-public-ui"] === "node scripts/test-storefront-public-ui.js", "package.json expoe test:storefront-public-ui");
 assert(app.includes("const STOREFRONT_PUBLIC_RELEASE = true;"), "loja publica V2 esta oficializada sem porta beta");
 assert(!getFunctionBody(app, "renderApp").includes("sincronizarStorefrontBetaAccessRemoto(false)"), "render principal nao consulta acesso beta legado");
-assert(app.includes("function selecionarItemLojaVisual"), "fase 7c possui selecao contextual da vitrine real");
+assert(app.includes("function selecionarItemLojaVisual"), "fase 7c possui selecao contextual da loja publica");
 assert(app.includes("function editarProdutoPublicadoLojaOnline"), "fase 7c corrige entrada de edicao do produto publicado");
 assert(css.includes(".store-guided-editor-sidebar.is-open"), "fase 7c possui bottom sheet controlada no mobile");
 [
@@ -595,7 +595,7 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "plan_start_unavailable_clicked",
   "start_plan_checkout_requested",
   "payment_pending_real_viewed",
-  "Indisponível no momento",
+  "Assinar Start",
   "Assinar Pro"
 ].forEach((marker) => assert(app.includes(marker), `fase 5b tela premium de planos presente: ${marker}`));
 assert(read("src/services/diagnosticsService.js").includes("webhook_start_plan_resolution_failed"), "diagnostico Start do webhook presente");

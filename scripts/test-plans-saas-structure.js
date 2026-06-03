@@ -25,15 +25,17 @@ includesAll(app, [
   "LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000",
   "slug: \"start\"",
   "slug: \"pro\"",
-  "5 pedidos grátis por dia",
-  "+5 pedidos assistindo anúncio",
-  "Máximo 10 pedidos/dia",
-  "Sem produtos na loja online",
-  "Não gera link público",
+  "Até 5 pedidos por dia",
+  "Anúncios para liberar ações extras",
+  "Editar loja",
+  "Visualizar loja",
   "Produtos da loja online ficam disponíveis no Start ou Pro.",
   "Até 100 produtos na loja",
   "Loja pública liberada",
-  "Produtos ilimitados",
+  "Relatórios completos",
+  "Funcionários e permissões",
+  "Personalização avançada",
+  "Backup maior",
   "Valores promocionais de lançamento",
   "plan-start-unavailable",
   "data-slug=\"pro\"",
@@ -62,6 +64,16 @@ includesAll(app, [
   "O link público e o compartilhamento da loja ficam disponíveis no plano Start ou Pro.",
   "Sua loja pode ser editada no plano Grátis",
 ], "bloqueio de publicacao gratis");
+
+[
+  "Sem produtos na loja online",
+  "Não gera link público",
+  "Não permite compartilhar loja",
+  "Sem personalização avançada",
+  "Editar loja real",
+  "loja_real",
+  "plano_real"
+].forEach((label) => assert(!app.includes(label), `texto tecnico/negativo nao deve aparecer: ${label}`));
 
 includesAll(css, [
   ".plans-pricing-grid",

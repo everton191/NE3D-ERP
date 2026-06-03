@@ -35,7 +35,7 @@ function bodyOfFunction(source, name) {
 const renderAssinatura = bodyOfFunction(app, "renderAssinatura");
 assert(!renderAssinatura.includes("Voltar para Grátis"), "tela de planos nao deve oferecer voltar para Free");
 assert(renderAssinatura.includes("EM BREVE"), "Start deve aparecer como indisponivel ate autoridade backend propria");
-assert(renderAssinatura.includes("Indisponível no momento"), "Start nao deve expor CTA funcional");
+assert(renderAssinatura.includes("Assinar Start"), "Start deve manter CTA comercial amigavel");
 assert(renderAssinatura.includes("Assinar Pro"), "Free deve mostrar assinatura Pro");
 assert(renderAssinatura.includes("Upgrade para Pro"), "Start deve permitir upgrade para Pro");
 assert(renderAssinatura.includes("Cancelar renovação"), "plano pago deve permitir cancelar renovacao");

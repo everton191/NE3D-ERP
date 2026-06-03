@@ -10353,6 +10353,23 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
   max-width:420px;
 }
 
+.password-confirm-card .actions{
+  position:sticky;
+  bottom:0;
+  z-index:1;
+  padding-top:var(--space-sm, 8px);
+  background:linear-gradient(180deg, transparent, var(--card-bg, var(--surface-primary, #ffffff)) 28%);
+}
+
+.password-confirm-card .auth-inline-feedback{
+  min-height:1.35em;
+}
+
+.password-confirm-card .btn[type="submit"],
+.auth-card #localUnlockBtn{
+  min-height:44px;
+}
+
 .password-confirm-card :where(input, textarea, select),
 .cash-cancel-modal :where(input, textarea, select),
 .cash-edit-modal :where(input, textarea, select){
@@ -25381,7 +25398,7 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   border-color:rgba(31,45,43,.14) !important;
 }
 
-/* Fase 7C: editor guiado sobre a vitrine real */
+/* Fase 7C: editor guiado sobre a loja pública */
 .store-guided-editor-sidebar{
   width:100%;
   max-width:330px;
@@ -29668,7 +29685,7 @@ body.theme-light .store-public-shell[data-storefront-source="v2"][data-store-the
 
 /* Hotfix 2026-06-01 - loja clara sem estouro lateral no editor guiado.
    A barra de categorias antiga usava 6 colunas fixas; no mobile/editor isso
-   vazava para fora da vitrine. Mantemos a loja clara contida mesmo quando o
+   vazava para fora da loja. Mantemos a loja clara contida mesmo quando o
    atributo data-store-theme ainda nao foi aplicado no primeiro render. */
 body.theme-light .store-public-shell[data-storefront-source="v2"]:not([data-store-theme="dark"]){
   --store-bg:#f2f5f4;
