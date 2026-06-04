@@ -36,7 +36,7 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
   'document.documentElement.setAttribute("data-store-theme-preference", storePreference)',
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#f2f5f4"',
-  "1.0.38-rc-pwa-apk-navigation-20260604"
+  "1.0.39-rc-pwa-apk-nav-adjust-20260604"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap claro antecipado ausente: ${marker}`));
 
 [
@@ -108,6 +108,6 @@ function getBlock(source, startMarker, endMarker) {
 
 assert(manifest.includes('"background_color": "#f2f5f4"'), "Splash PWA ainda nao usa fundo claro suave");
 assert(manifest.includes('"theme_color": "#f2f5f4"'), "Manifest PWA ainda nao usa theme-color claro suave");
-assert(sw.includes("simplifica-3d-v144-pwa-apk-navigation-20260604"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v145-pwa-apk-nav-adjust-20260604"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

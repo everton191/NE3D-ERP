@@ -29847,10 +29847,10 @@ body.theme-light .store-banner-section img{
   }
 }
 
-/* Hotfix PWA/APK 2026-06-04: protege a barra inferior em Android com navegacao por botoes. */
+/* Hotfix PWA/APK 2026-06-04: usa a area util do Android sem duplicar o inset da barra do sistema. */
 body[data-ui-profile="android_apk"]{
-  --android-navigation-safe-bottom:max(0px, var(--android-system-bottom-inset, 0px));
-  --size-bottom-nav-height:calc(72px + var(--android-navigation-safe-bottom));
+  --android-navigation-safe-bottom:0px;
+  --size-bottom-nav-height:72px;
   --bottom-nav-height:var(--size-bottom-nav-height);
 }
 
@@ -29861,11 +29861,11 @@ body[data-ui-profile="android_apk"].mobile-mode :where(
   .store-public-shell[data-storefront-source="v2"],
   .store-public-main
 ){
-  padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl) + var(--android-navigation-safe-bottom)) !important;
-  scroll-padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl) + var(--android-navigation-safe-bottom));
+  padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl)) !important;
+  scroll-padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl));
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .mobile-bottom-nav,
 body[data-ui-profile="android_apk"] .mobile-bottom-nav{
-  bottom:calc(8px + var(--android-navigation-safe-bottom)) !important;
+  bottom:8px !important;
 }

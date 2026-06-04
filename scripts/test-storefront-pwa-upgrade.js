@@ -6,13 +6,13 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v144-pwa-apk-navigation-20260604",
+  "simplifica-3d-v145-pwa-apk-nav-adjust-20260604",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.21-rc\"",
-  "versionCode 20",
-  "APP_VERSION = \"1.0.21-rc\"",
-  "APP_VERSION_CODE = 20"
+  "versionName \"1.0.22-rc\"",
+  "versionCode 21",
+  "APP_VERSION = \"1.0.22-rc\"",
+  "APP_VERSION_CODE = 21"
 ];
 
 const sources = [sw, manifest, gradle, app].join("\n");
@@ -23,4 +23,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront PWA upgrade: cache v144 e versionamento atualizado presentes.");
+console.log("Storefront PWA upgrade: cache v145 e versionamento atualizado presentes.");

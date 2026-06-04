@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.38-rc-pwa-apk-navigation-20260604"
+  "1.0.39-rc-pwa-apk-nav-adjust-20260604"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));

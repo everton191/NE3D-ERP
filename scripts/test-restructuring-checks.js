@@ -110,8 +110,8 @@ const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
   "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.21-rc"/.test(app), "app.js esta na versao 1.0.21-rc");
-assert(/const APP_VERSION_CODE = 20/.test(app), "app.js possui versionCode 20");
+assert(/const APP_VERSION = "1\.0\.22-rc"/.test(app), "app.js esta na versao 1.0.22-rc");
+assert(/const APP_VERSION_CODE = 21/.test(app), "app.js possui versionCode 21");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
@@ -135,12 +135,12 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v144-pwa-apk-navigation-20260604"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v145-pwa-apk-nav-adjust-20260604"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.38-rc-pwa-apk-navigation-20260604"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.39-rc-pwa-apk-nav-adjust-20260604"), "index.html usa cache-bust atual");
 assert(css.includes("--android-navigation-safe-bottom"), "CSS protege barra de navegacao Android");
-assert(css.includes("--android-system-bottom-inset"), "CSS consome inset nativo Android");
 assert(read("android/app/src/main/java/br/com/ne3d/erp/MainActivity.java").includes("syncSystemInsetsToWebView"), "Android envia insets da barra para o WebView");
+assert(css.includes("bottom:8px !important"), "Bottom nav do APK fica no rodape da area util");
 assert(pkg.scripts && pkg.scripts["test:layout-overflow-v2"] === "node scripts/test-layout-overflow-v2.js", "package.json expoe test:layout-overflow-v2");
 assert(pkg.scripts && pkg.scripts["test:erp-shell-v2"] === "node scripts/test-erp-shell-v2.js", "package.json expoe test:erp-shell-v2");
 assert(pkg.scripts && pkg.scripts["test:storefront-public-ui"] === "node scripts/test-storefront-public-ui.js", "package.json expoe test:storefront-public-ui");

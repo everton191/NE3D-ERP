@@ -73,7 +73,7 @@ assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.adm
   "@media (max-width:359px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS premium 7C.3 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v144-pwa-apk-navigation-20260604"), "Cache PWA premium ausente");
-assert(index.includes("1.0.38-rc-pwa-apk-navigation-20260604"), "Cache-bust premium ausente");
+assert(sw.includes("simplifica-3d-v145-pwa-apk-nav-adjust-20260604"), "Cache PWA premium ausente");
+assert(index.includes("1.0.39-rc-pwa-apk-nav-adjust-20260604"), "Cache-bust premium ausente");
 
 console.log("Storefront premium 7C.3: composicao clara, contato unico, cards responsivos, detalhe e cache validados.");

@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.21-rc";
-const APP_VERSION_CODE = 20;
+const APP_VERSION = "1.0.22-rc";
+const APP_VERSION_CODE = 21;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -5154,7 +5154,7 @@ function getPlatformAdapter() {
     safeAreaInsets: {
       top: "env(safe-area-inset-top)",
       right: "env(safe-area-inset-right)",
-      bottom: isAPK ? "max(env(safe-area-inset-bottom), var(--android-navigation-safe-bottom, 0px))" : "env(safe-area-inset-bottom)",
+      bottom: "env(safe-area-inset-bottom)",
       left: "env(safe-area-inset-left)"
     }
   };
