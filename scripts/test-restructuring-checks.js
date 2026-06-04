@@ -110,8 +110,8 @@ const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
   "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.19-rc"/.test(app), "app.js esta na versao 1.0.19-rc");
-assert(/const APP_VERSION_CODE = 18/.test(app), "app.js possui versionCode 18");
+assert(/const APP_VERSION = "1\.0\.20-rc"/.test(app), "app.js esta na versao 1.0.20-rc");
+assert(/const APP_VERSION_CODE = 19/.test(app), "app.js possui versionCode 19");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
