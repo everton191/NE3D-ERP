@@ -221,7 +221,8 @@ body[data-ui-profile="web_pwa"]{
   --font-weight-bold:900;
   --size-button-height:var(--control-height);
   --size-input-height:var(--control-height);
-  --size-bottom-nav-height:calc(72px + env(safe-area-inset-bottom));
+  --android-navigation-safe-bottom:0px;
+  --size-bottom-nav-height:calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
   --bottom-nav-height:var(--size-bottom-nav-height);
   --topbar-height:64px;
   --size-page-max-width:var(--desktop-max-width);
@@ -29844,4 +29845,27 @@ body.theme-light .store-banner-section img{
   .store-public-shell[data-storefront-source="v2"] .store-public-category-bar{
     grid-template-columns:1fr;
   }
+}
+
+/* Hotfix PWA/APK 2026-06-04: protege a barra inferior em Android com navegacao por botoes. */
+body[data-ui-profile="android_apk"]{
+  --android-navigation-safe-bottom:max(0px, var(--android-system-bottom-inset, 0px));
+  --size-bottom-nav-height:calc(72px + var(--android-navigation-safe-bottom));
+  --bottom-nav-height:var(--size-bottom-nav-height);
+}
+
+body[data-ui-profile="android_apk"].mobile-mode :where(
+  #app-content,
+  .mobile-panel-content,
+  .storefront-admin-page,
+  .store-public-shell[data-storefront-source="v2"],
+  .store-public-main
+){
+  padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl) + var(--android-navigation-safe-bottom)) !important;
+  scroll-padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl) + var(--android-navigation-safe-bottom));
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .mobile-bottom-nav,
+body[data-ui-profile="android_apk"] .mobile-bottom-nav{
+  bottom:calc(8px + var(--android-navigation-safe-bottom)) !important;
 }

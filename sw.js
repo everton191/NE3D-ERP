@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v143-storefront-full-test-20260603";
+const CACHE_NAME = "simplifica-3d-v144-pwa-apk-navigation-20260604";
 const APP_FILES = [
   "./",
   "./index.html",

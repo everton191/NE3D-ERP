@@ -8,15 +8,25 @@ import android.view.Window;
 import android.view.WindowInsetsController;
 import android.webkit.WebView;
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private int lastStatusInsetTop = 0;
+    private int lastNavigationInsetRight = 0;
+    private int lastNavigationInsetBottom = 0;
+    private int lastNavigationInsetLeft = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         registerPlugin(SimplificaFilesPlugin.class);
         registerPlugin(SimplificaBiometricPlugin.class);
         super.onCreate(savedInstanceState);
         applySimplificaSystemBars();
+        setupSimplificaSystemInsets();
         setupAndroidBackDispatch();
     }
 
@@ -24,6 +34,7 @@ public class MainActivity extends BridgeActivity {
     public void onResume() {
         super.onResume();
         applySimplificaSystemBars();
+        syncSystemInsetsToWebView();
     }
 
     private void setupAndroidBackDispatch() {
@@ -46,6 +57,7 @@ public class MainActivity extends BridgeActivity {
 
     private void applySimplificaSystemBars() {
         Window window = getWindow();
+        WindowCompat.setDecorFitsSystemWindows(window, true);
         window.setStatusBarColor(Color.parseColor("#02080D"));
         window.setNavigationBarColor(Color.parseColor("#02080D"));
         window.getDecorView().setBackgroundColor(Color.parseColor("#02080D"));
@@ -67,5 +79,37 @@ public class MainActivity extends BridgeActivity {
                 );
             }
         }
+    }
+
+    private void setupSimplificaSystemInsets() {
+        View decorView = getWindow().getDecorView();
+        ViewCompat.setOnApplyWindowInsetsListener(decorView, (view, insets) -> {
+            Insets navigationInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars());
+            Insets statusInsets = insets.getInsets(WindowInsetsCompat.Type.statusBars());
+            lastStatusInsetTop = statusInsets.top;
+            lastNavigationInsetRight = navigationInsets.right;
+            lastNavigationInsetBottom = navigationInsets.bottom;
+            lastNavigationInsetLeft = navigationInsets.left;
+            syncSystemInsetsToWebView();
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(decorView);
+    }
+
+    private void syncSystemInsetsToWebView() {
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        final int top = Math.max(0, lastStatusInsetTop);
+        final int right = Math.max(0, lastNavigationInsetRight);
+        final int bottom = Math.max(0, lastNavigationInsetBottom);
+        final int left = Math.max(0, lastNavigationInsetLeft);
+        webView.post(() -> webView.evaluateJavascript(
+            "document.documentElement.style.setProperty('--android-system-top-inset','" + top + "px');"
+                + "document.documentElement.style.setProperty('--android-system-right-inset','" + right + "px');"
+                + "document.documentElement.style.setProperty('--android-system-bottom-inset','" + bottom + "px');"
+                + "document.documentElement.style.setProperty('--android-system-left-inset','" + left + "px');"
+                + "document.body && document.body.classList.add('android-system-insets-ready');",
+            null
+        ));
     }
 }

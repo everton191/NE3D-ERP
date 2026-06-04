@@ -4,7 +4,7 @@ const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
 const required = [
-  "APP_VERSION = \"1.0.19-rc\"",
+  "APP_VERSION = \"1.0.21-rc\"",
   "storefrontScheduleAutosave",
   "renderStorefrontRecoveryNotice",
   "abrirCropImagemLojaOnline",
