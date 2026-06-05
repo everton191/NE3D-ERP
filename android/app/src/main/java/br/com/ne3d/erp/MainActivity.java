@@ -99,16 +99,18 @@ public class MainActivity extends BridgeActivity {
     private void syncSystemInsetsToWebView() {
         WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView == null) return;
-        final int top = Math.max(0, lastStatusInsetTop);
-        final int right = Math.max(0, lastNavigationInsetRight);
-        final int bottom = Math.max(0, lastNavigationInsetBottom);
-        final int left = Math.max(0, lastNavigationInsetLeft);
+        final float density = Math.max(1f, getResources().getDisplayMetrics().density);
+        final int top = Math.round(Math.max(0, lastStatusInsetTop) / density);
+        final int right = Math.round(Math.max(0, lastNavigationInsetRight) / density);
+        final int bottom = Math.round(Math.max(0, lastNavigationInsetBottom) / density);
+        final int left = Math.round(Math.max(0, lastNavigationInsetLeft) / density);
         webView.post(() -> webView.evaluateJavascript(
             "document.documentElement.style.setProperty('--android-system-top-inset','" + top + "px');"
                 + "document.documentElement.style.setProperty('--android-system-right-inset','" + right + "px');"
                 + "document.documentElement.style.setProperty('--android-system-bottom-inset','" + bottom + "px');"
                 + "document.documentElement.style.setProperty('--android-system-left-inset','" + left + "px');"
-                + "document.body && document.body.classList.add('android-system-insets-ready');",
+                + "document.body && document.body.classList.add('android-system-insets-ready');"
+                + "window.dispatchEvent && window.dispatchEvent(new CustomEvent('simplifica-native-insets-change',{detail:{top:" + top + ",right:" + right + ",bottom:" + bottom + ",left:" + left + "}}));",
             null
         ));
     }

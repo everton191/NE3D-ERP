@@ -39,7 +39,7 @@ assert(css.includes(".ui-context-menu"), "menu contextual reutilizavel ausente")
 assert(css.includes("grid-template-columns:112px minmax(0, 1fr);"), "cards administrativos desktop devem ser compactos");
 assert(css.includes("grid-template-columns:72px minmax(0, 1fr);"), "cards administrativos mobile devem caber na viewport");
 assert(css.includes("grid-template-columns:64px minmax(0, 1fr);"), "cards administrativos mobile estreitos devem manter leitura");
-assert(index.includes("1.0.39-rc-pwa-apk-nav-adjust-20260604"), "cache-bust web oficial ausente");
-assert(sw.includes("simplifica-3d-v145-pwa-apk-nav-adjust-20260604"), "cache PWA oficial ausente");
+assert(index.includes("1.0.40-rc-safe-area-android-20260605"), "cache-bust web oficial ausente");
+assert(sw.includes("simplifica-3d-v146-safe-area-android-20260605"), "cache PWA oficial ausente");
 
 console.log("Storefront public UI: loja oficial, textos em portugues e acoes compactas validados.");

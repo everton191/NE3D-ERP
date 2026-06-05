@@ -90,6 +90,7 @@
     "test:sensitive-action-guards": "node scripts/test-sensitive-action-guards.js",
     "test:quick-order-multiselect": "node scripts/test-quick-order-multiselect.js",
     "test:ui-responsive-balance": "node scripts/test-ui-responsive-balance.js",
+    "test:safe-area-manager": "node scripts/test-safe-area-manager.js",
     "test:ultrawide-layout": "node scripts/test-ultrawide-layout.js",
     "test:project-saneamento": "node scripts/test-project-saneamento.js",
     "test:restructuring-checks": "node scripts/test-restructuring-checks.js",

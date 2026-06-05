@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.22-rc";
-const APP_VERSION_CODE = 21;
+const APP_VERSION = "1.0.23-rc";
+const APP_VERSION_CODE = 22;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -5160,6 +5160,19 @@ function getPlatformAdapter() {
   };
 }
 
+function getManagedSafeAreaInsets() {
+  const safeArea = window.safeArea && typeof window.safeArea === "object" ? window.safeArea : null;
+  if (!safeArea) return null;
+  const px = (value) => `${Math.max(0, Math.round(Number(value) || 0))}px`;
+  return {
+    top: px(safeArea.top),
+    right: px(safeArea.right),
+    bottom: px(safeArea.bottom),
+    left: px(safeArea.left),
+    keyboard: px(safeArea.keyboardHeight)
+  };
+}
+
 function getLimitesDispositivos() {
   const limitePlano = getSessionLimitPlano();
   return {
@@ -8232,10 +8245,12 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--desktop-card-min", `${cardMin}px`);
   root.style.setProperty("--desktop-max-width", `${maxWidth}px`);
   root.style.setProperty("--desktop-sidebar-width", `${Math.round(230 * Math.min(1.05, Math.max(0.92, escala)))}px`);
-  root.style.setProperty("--safe-area-inset-top", platformAdapter.safeAreaInsets.top);
-  root.style.setProperty("--safe-area-inset-right", platformAdapter.safeAreaInsets.right);
-  root.style.setProperty("--safe-area-inset-bottom", platformAdapter.safeAreaInsets.bottom);
-  root.style.setProperty("--safe-area-inset-left", platformAdapter.safeAreaInsets.left);
+  const safeAreaInsets = getManagedSafeAreaInsets();
+  root.style.setProperty("--safe-area-inset-top", safeAreaInsets?.top || platformAdapter.safeAreaInsets.top);
+  root.style.setProperty("--safe-area-inset-right", safeAreaInsets?.right || platformAdapter.safeAreaInsets.right);
+  root.style.setProperty("--safe-area-inset-bottom", safeAreaInsets?.bottom || platformAdapter.safeAreaInsets.bottom);
+  root.style.setProperty("--safe-area-inset-left", safeAreaInsets?.left || platformAdapter.safeAreaInsets.left);
+  root.style.setProperty("--keyboard-inset", safeAreaInsets?.keyboard || "0px");
   root.style.setProperty("--login-background-image", appConfig.loginBackgroundDataUrl ? `url("${String(appConfig.loginBackgroundDataUrl).replace(/"/g, "%22")}")` : "none");
 
   const uiProfile = platformAdapter.id;
@@ -9002,10 +9017,13 @@ function renderApp() {
   applyViewportModeClasses(document.body);
   if (window.__simplificaLocalLockActive && getUsuarioAtual()) {
     aplicarPersonalizacao();
-    app.innerHTML = renderTravaLocal();
-    renderCalculadoraFlutuante();
-    sincronizarBannersSeNecessario();
-    setTimeout(() => document.getElementById("localUnlockPassword")?.focus(), 80);
+    const inputExistente = document.getElementById("localUnlockPassword");
+    if (!inputExistente || !app.querySelector(".auth-card")) {
+      app.innerHTML = renderTravaLocal();
+      renderCalculadoraFlutuante();
+      sincronizarBannersSeNecessario();
+    }
+    focarCampoSenha(document.getElementById("localUnlockPassword"), false);
     return;
   }
   if (!getUsuarioAtual() && !adminLogado && !isTelaPublica(telaAtual)) {
@@ -29321,6 +29339,7 @@ function alterarTemaInterfaceRapido(value = "system") {
   const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", tema, "primary");
   const input = document.getElementById("accentColorConfig");
   if (input) input.value = corAtual;
+  mostrarToast(`Tema ${tema === "system" ? "automático" : tema === "dark" ? "escuro" : "claro"} aplicado.`, "sucesso", 1800);
 }
 
 function atualizarRotuloEscalaInterface(valor) {

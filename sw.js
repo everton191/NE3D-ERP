@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v145-pwa-apk-nav-adjust-20260604";
+const CACHE_NAME = "simplifica-3d-v146-safe-area-android-20260605";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_FILES = [
   "./app.js",
   "./src/services/errorTelemetry.js",
   "./src/services/diagnosticsService.js",
+  "./src/services/safeAreaManager.js",
   "./src/services/themeAuthorityV2.js",
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
@@ -72,6 +73,7 @@ self.addEventListener("fetch", (event) => {
     "/modules/store-editor/storeEditorPreview.js",
     "/modules/store-editor/storeEditorProducts.js",
     "/src/services/themeAuthorityV2.js",
+    "/src/services/safeAreaManager.js",
     "/assets/intro.mp4"
   ].includes(url.pathname);
 

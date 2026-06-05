@@ -222,7 +222,9 @@ body[data-ui-profile="web_pwa"]{
   --size-button-height:var(--control-height);
   --size-input-height:var(--control-height);
   --android-navigation-safe-bottom:0px;
-  --size-bottom-nav-height:calc(72px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
+  --safe-area-bottom-offset:0px;
+  --keyboard-inset:0px;
+  --size-bottom-nav-height:calc(72px + var(--safe-area-inset-bottom, 0px));
   --bottom-nav-height:var(--size-bottom-nav-height);
   --topbar-height:64px;
   --size-page-max-width:var(--desktop-max-width);
@@ -29847,25 +29849,66 @@ body.theme-light .store-banner-section img{
   }
 }
 
-/* Hotfix PWA/APK 2026-06-04: usa a area util do Android sem duplicar o inset da barra do sistema. */
-body[data-ui-profile="android_apk"]{
-  --android-navigation-safe-bottom:0px;
-  --size-bottom-nav-height:72px;
+/* Safe Area 2026-06-05: autoridade unica para barras inferiores, PWA e APK. */
+:root{
+  --safe-area-bottom-offset:var(--safe-area-inset-bottom, 0px);
+  --keyboard-inset:0px;
+  --bottom-nav-visual-gap:7px;
+}
+
+body.mobile-mode,
+body[data-ui-profile="android_apk"],
+body[data-ui-profile="web_pwa"]{
+  --android-navigation-safe-bottom:var(--safe-area-bottom-offset);
+  --size-bottom-nav-height:50px;
   --bottom-nav-height:var(--size-bottom-nav-height);
 }
 
-body[data-ui-profile="android_apk"].mobile-mode :where(
+body.mobile-mode :where(
   #app-content,
   .mobile-panel-content,
   .storefront-admin-page,
   .store-public-shell[data-storefront-source="v2"],
   .store-public-main
 ){
-  padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl)) !important;
-  scroll-padding-bottom:calc(var(--size-bottom-nav-height) + var(--space-2xl));
+  padding-bottom:calc(var(--size-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--space-2xl)) !important;
+  scroll-padding-bottom:calc(var(--size-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--space-2xl));
 }
 
-body[data-ui-profile="android_apk"].mobile-mode .mobile-bottom-nav,
-body[data-ui-profile="android_apk"] .mobile-bottom-nav{
-  bottom:8px !important;
+body.mobile-mode .mobile-bottom-nav,
+body[data-ui-profile="android_apk"] .mobile-bottom-nav,
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-bottom-nav{
+  bottom:calc(var(--bottom-nav-visual-gap) + var(--safe-area-bottom-offset)) !important;
+}
+
+body.keyboard-visible.mobile-mode .mobile-bottom-nav{
+  transform:translateY(calc(100% + var(--safe-area-bottom-offset) + 18px));
+  pointer-events:none;
+}
+
+.toast-area{
+  bottom:calc(16px + var(--safe-area-bottom-offset)) !important;
+}
+
+.assistant-fab,
+.store-context-edit-fab{
+  bottom:calc(18px + var(--safe-area-bottom-offset)) !important;
+}
+
+body.mobile-mode .assistant-fab,
+body.mobile-mode .store-context-edit-fab{
+  bottom:calc(var(--size-bottom-nav-height) + var(--safe-area-bottom-offset) + 12px) !important;
+}
+
+.assistant-panel{
+  bottom:calc(8px + var(--safe-area-bottom-offset)) !important;
+}
+
+.store-context-sheet,
+.store-product-action-sheet{
+  padding-bottom:calc(var(--space-md) + var(--safe-area-bottom-offset)) !important;
+}
+
+body.keyboard-visible :where(.assistant-panel,.store-context-sheet,.store-product-action-sheet){
+  bottom:var(--keyboard-inset, 0px) !important;
 }
