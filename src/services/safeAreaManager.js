@@ -1,7 +1,6 @@
 (function initSimplificaSafeAreaManager(global) {
   "use strict";
 
-  const MIN_SYSTEM_NAV_BOTTOM = 24;
   const KEYBOARD_THRESHOLD = 120;
   const DEFAULT_SAFE_AREA = Object.freeze({
     top: 0,
@@ -10,6 +9,7 @@
     left: 0,
     keyboardHeight: 0,
     visualViewportHeight: 0,
+    viewportHeight: 0,
     source: "initial"
   });
 
@@ -55,12 +55,6 @@
     return toNumber(computed?.[name]);
   }
 
-  function readCssVar(name) {
-    const root = global.document?.documentElement;
-    if (!root) return 0;
-    return toNumber(global.getComputedStyle?.(root)?.getPropertyValue(name));
-  }
-
   function getKeyboardHeight() {
     const viewport = global.visualViewport;
     if (!viewport) return 0;
@@ -70,27 +64,22 @@
     return hidden >= KEYBOARD_THRESHOLD ? hidden : 0;
   }
 
-  function getSystemBottomInset() {
-    const nativeBottom = readCssVar("--android-system-bottom-inset");
-    return nativeBottom >= MIN_SYSTEM_NAV_BOTTOM ? nativeBottom : 0;
-  }
-
   function computeSafeArea() {
     const envTop = readProbeInset("top");
     const envRight = readProbeInset("right");
     const envBottom = readProbeInset("bottom");
     const envLeft = readProbeInset("left");
     const keyboardHeight = getKeyboardHeight();
-    const systemBottom = getSystemBottomInset();
-    const bottom = Math.max(envBottom, systemBottom);
+    const viewportHeight = Math.round(Number(global.visualViewport?.height || global.innerHeight || 0));
     return {
       top: envTop,
       right: envRight,
-      bottom,
+      bottom: envBottom,
       left: envLeft,
       keyboardHeight,
-      visualViewportHeight: Math.round(Number(global.visualViewport?.height || global.innerHeight || 0)),
-      source: systemBottom > envBottom ? "android-window-insets" : "css-env"
+      visualViewportHeight: viewportHeight,
+      viewportHeight,
+      source: "css-env"
     };
   }
 
@@ -98,7 +87,7 @@
     const doc = global.document;
     const root = doc?.documentElement;
     if (!root) return;
-    const changed = ["top", "right", "bottom", "left", "keyboardHeight", "source"].some((key) => state[key] !== next[key]);
+    const changed = ["top", "right", "bottom", "left", "keyboardHeight", "viewportHeight", "source"].some((key) => state[key] !== next[key]);
     Object.assign(state, next);
     global.safeArea = state;
 
@@ -107,6 +96,9 @@
     root.style.setProperty("--safe-area-inset-bottom", `${state.bottom}px`);
     root.style.setProperty("--safe-area-inset-left", `${state.left}px`);
     root.style.setProperty("--safe-area-bottom-offset", `${state.bottom}px`);
+    root.style.setProperty("--app-safe-top", `${state.top}px`);
+    root.style.setProperty("--app-safe-bottom", `${state.bottom}px`);
+    root.style.setProperty("--viewport-height", `${state.viewportHeight}px`);
     root.style.setProperty("--keyboard-inset", `${state.keyboardHeight}px`);
     root.dataset.safeAreaBottom = String(state.bottom);
     root.dataset.safeAreaSource = state.source;

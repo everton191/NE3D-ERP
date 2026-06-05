@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v146-safe-area-android-20260605";
+const CACHE_NAME = "simplifica-3d-v147-app-safe-bottom-20260605";
 const APP_FILES = [
   "./",
   "./index.html",

@@ -91,8 +91,8 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "display:none"
 ].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v146-safe-area-android-20260605"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.40-rc-safe-area-android-20260605"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v147-app-safe-bottom-20260605"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.41-rc-app-safe-bottom-20260605"), "Cache-bust web da loja publica nao foi atualizado");
 [
   "Preview do catálogo",
   "Preview das categorias",

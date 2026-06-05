@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.23-rc";
-const APP_VERSION_CODE = 22;
+const APP_VERSION = "1.0.24-rc";
+const APP_VERSION_CODE = 23;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -5169,7 +5169,8 @@ function getManagedSafeAreaInsets() {
     right: px(safeArea.right),
     bottom: px(safeArea.bottom),
     left: px(safeArea.left),
-    keyboard: px(safeArea.keyboardHeight)
+    keyboard: px(safeArea.keyboardHeight),
+    viewportHeight: px(safeArea.viewportHeight || safeArea.visualViewportHeight || window.innerHeight)
   };
 }
 
@@ -8250,6 +8251,8 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--safe-area-inset-right", safeAreaInsets?.right || platformAdapter.safeAreaInsets.right);
   root.style.setProperty("--safe-area-inset-bottom", safeAreaInsets?.bottom || platformAdapter.safeAreaInsets.bottom);
   root.style.setProperty("--safe-area-inset-left", safeAreaInsets?.left || platformAdapter.safeAreaInsets.left);
+  root.style.setProperty("--app-safe-bottom", safeAreaInsets?.bottom || "env(safe-area-inset-bottom, 0px)");
+  root.style.setProperty("--viewport-height", safeAreaInsets?.viewportHeight || `${window.visualViewport?.height || window.innerHeight}px`);
   root.style.setProperty("--keyboard-inset", safeAreaInsets?.keyboard || "0px");
   root.style.setProperty("--login-background-image", appConfig.loginBackgroundDataUrl ? `url("${String(appConfig.loginBackgroundDataUrl).replace(/"/g, "%22")}")` : "none");
 

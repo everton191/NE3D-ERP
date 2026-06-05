@@ -222,9 +222,10 @@ body[data-ui-profile="web_pwa"]{
   --size-button-height:var(--control-height);
   --size-input-height:var(--control-height);
   --android-navigation-safe-bottom:0px;
-  --safe-area-bottom-offset:0px;
+  --app-safe-bottom:env(safe-area-inset-bottom, 0px);
+  --safe-area-bottom-offset:var(--app-safe-bottom);
   --keyboard-inset:0px;
-  --size-bottom-nav-height:calc(72px + var(--safe-area-inset-bottom, 0px));
+  --size-bottom-nav-height:72px;
   --bottom-nav-height:var(--size-bottom-nav-height);
   --topbar-height:64px;
   --size-page-max-width:var(--desktop-max-width);
@@ -29851,62 +29852,69 @@ body.theme-light .store-banner-section img{
 
 /* Safe Area 2026-06-05: autoridade unica para barras inferiores, PWA e APK. */
 :root{
-  --safe-area-bottom-offset:var(--safe-area-inset-bottom, 0px);
+  --app-safe-bottom:env(safe-area-inset-bottom, 0px);
+  --safe-area-bottom-offset:var(--app-safe-bottom);
   --keyboard-inset:0px;
-  --bottom-nav-visual-gap:7px;
+  --bottom-nav-height:72px;
 }
 
 body.mobile-mode,
 body[data-ui-profile="android_apk"],
 body[data-ui-profile="web_pwa"]{
-  --android-navigation-safe-bottom:var(--safe-area-bottom-offset);
-  --size-bottom-nav-height:50px;
-  --bottom-nav-height:var(--size-bottom-nav-height);
+  --android-navigation-safe-bottom:var(--app-safe-bottom);
+  --size-bottom-nav-height:var(--bottom-nav-height);
 }
 
 body.mobile-mode :where(
   #app-content,
   .mobile-panel-content,
+  .page-content,
+  .main-content,
   .storefront-admin-page,
   .store-public-shell[data-storefront-source="v2"],
-  .store-public-main
+  .store-public-main,
+  .store-content,
+  .editor-content
 ){
-  padding-bottom:calc(var(--size-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--space-2xl)) !important;
-  scroll-padding-bottom:calc(var(--size-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--space-2xl));
+  padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px) !important;
+  scroll-padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px);
 }
 
 body.mobile-mode .mobile-bottom-nav,
 body[data-ui-profile="android_apk"] .mobile-bottom-nav,
-body[data-ui-profile="web_pwa"].mobile-mode .mobile-bottom-nav{
-  bottom:calc(var(--bottom-nav-visual-gap) + var(--safe-area-bottom-offset)) !important;
+body[data-ui-profile="web_pwa"].mobile-mode .mobile-bottom-nav,
+.bottom-nav,
+.app-bottom-nav,
+.store-bottom-bar,
+.editor-bottom-actions{
+  bottom:0 !important;
+  padding-bottom:var(--app-safe-bottom) !important;
 }
 
 body.keyboard-visible.mobile-mode .mobile-bottom-nav{
-  transform:translateY(calc(100% + var(--safe-area-bottom-offset) + 18px));
+  transform:translateY(calc(100% + var(--app-safe-bottom) + 16px));
   pointer-events:none;
 }
 
-.toast-area{
-  bottom:calc(16px + var(--safe-area-bottom-offset)) !important;
-}
-
+.floating-actions,
+.fab-container,
+.toast-bottom,
+.modal-bottom,
+.toast-area,
 .assistant-fab,
 .store-context-edit-fab{
-  bottom:calc(18px + var(--safe-area-bottom-offset)) !important;
+  bottom:calc(var(--app-safe-bottom) + 16px) !important;
 }
 
-body.mobile-mode .assistant-fab,
-body.mobile-mode .store-context-edit-fab{
-  bottom:calc(var(--size-bottom-nav-height) + var(--safe-area-bottom-offset) + 12px) !important;
-}
-
-.assistant-panel{
-  bottom:calc(8px + var(--safe-area-bottom-offset)) !important;
+.assistant-panel,
+.bottom-sheet{
+  bottom:var(--app-safe-bottom) !important;
 }
 
 .store-context-sheet,
 .store-product-action-sheet{
-  padding-bottom:calc(var(--space-md) + var(--safe-area-bottom-offset)) !important;
+  bottom:var(--app-safe-bottom) !important;
+  padding-bottom:calc(var(--space-md) + var(--app-safe-bottom)) !important;
 }
 
 body.keyboard-visible :where(.assistant-panel,.store-context-sheet,.store-product-action-sheet){

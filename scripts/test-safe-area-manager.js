@@ -24,10 +24,14 @@ const prepareWeb = read("scripts/prepare-web.js");
   "visualViewport",
   "orientationchange",
   "simplifica-native-insets-change",
+  "--viewport-height",
+  "--app-safe-bottom",
   "--safe-area-inset-bottom",
-  "--keyboard-inset",
-  "MIN_SYSTEM_NAV_BOTTOM"
+  "--keyboard-inset"
 ].forEach((marker) => assert(safeArea.includes(marker), `safeAreaManager incompleto: ${marker}`));
+
+assert(!safeArea.includes("MIN_SYSTEM_NAV_BOTTOM"), "safeAreaManager nao deve usar margem minima fixa de Android");
+assert(!safeArea.includes("getSystemBottomInset"), "safeAreaManager nao deve somar inset nativo como altura de UI");
 
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1, "index.html nao carrega safeAreaManager");
 assert(index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager deve carregar antes do app.js");
@@ -43,14 +47,20 @@ assert(mainActivity.includes("getDisplayMetrics().density"), "MainActivity deve 
 assert(mainActivity.includes("simplifica-native-insets-change"), "MainActivity nao dispara evento de insets");
 
 [
-  "--safe-area-bottom-offset",
-  "bottom:calc(var(--bottom-nav-visual-gap) + var(--safe-area-bottom-offset)) !important",
+  "--app-safe-bottom",
+  "--bottom-nav-height:72px",
+  "bottom:0 !important",
+  "padding-bottom:var(--app-safe-bottom) !important",
+  "bottom:calc(var(--app-safe-bottom) + 16px) !important",
+  "padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px) !important",
   "body.keyboard-visible.mobile-mode .mobile-bottom-nav",
   ".toast-area",
   ".store-context-edit-fab",
   ".store-product-action-sheet"
 ].forEach((marker) => assert(css.includes(marker), `CSS safe area incompleto: ${marker}`));
 
+assert(!css.includes("--bottom-nav-visual-gap"), "Bottom nav nao deve usar gap visual fixo");
+assert(!css.includes("bottom:calc(var(--bottom-nav-visual-gap)"), "Bottom nav nao deve ser elevada por gap fixo");
 assert(!css.includes("bottom:8px !important;\n}"), "Bottom nav nao deve voltar para margem fixa de 8px");
 
 console.log("Safe area manager: PWA/APK, bottom nav, teclado e desbloqueio validados.");
