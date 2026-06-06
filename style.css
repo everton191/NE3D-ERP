@@ -27048,6 +27048,10 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
   right:0;
   top:calc(100% + var(--space-xs));
   min-width:210px;
+  max-width:min(320px, calc(100vw - 24px));
+  max-height:calc(var(--app-viewport-height, 100dvh) - var(--app-safe-bottom, 0px) - 24px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
   display:grid;
   gap:var(--space-xs);
   padding:var(--space-sm);
@@ -27062,6 +27066,23 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .app-page,
   width:100%;
   justify-content:flex-start;
   text-align:left;
+}
+
+.ui-context-menu-panel :where(button,a,[role="menuitem"]){
+  min-height:44px;
+}
+
+@media (hover:none), (pointer:coarse){
+  .ui-context-menu-panel{
+    position:fixed;
+    top:auto;
+    right:12px;
+    bottom:calc(var(--app-safe-bottom, 0px) + 12px);
+    left:12px;
+    width:auto;
+    max-height:calc(var(--app-viewport-height, 100dvh) - var(--app-safe-bottom, 0px) - 16px);
+    scroll-padding-bottom:var(--app-safe-bottom, 0px);
+  }
 }
 
 .store-editor-actions-primary,

@@ -79,6 +79,7 @@
     "test:plans-theme-v2": "node scripts/test-plans-theme-v2.js",
     "test:theme-isolation": "node scripts/test-theme-isolation.js",
     "test:light-theme-no-gradient": "node scripts/test-light-theme-no-gradient.js",
+    "test:context-menu-contract": "node scripts/test-context-menu-contract.js",
     "test:layout-overflow-v2": "node scripts/test-layout-overflow-v2.js",
     "test:erp-shell-v2": "node scripts/test-erp-shell-v2.js",
     "test:ui-contrast": "node scripts/test-ui-contrast.js",

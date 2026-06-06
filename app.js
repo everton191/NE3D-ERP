@@ -8465,6 +8465,9 @@ function fecharCamadaAtualSeExistir() {
     fecharPopup();
     return true;
   }
+  if (fecharMenusContextuaisUi()) {
+    return true;
+  }
   if (fecharNavegacaoContextualLojaSeExistir()) {
     return true;
   }
@@ -8558,6 +8561,7 @@ function atualizarHistoricoBrowserApp(replace = false) {
 }
 
 function trocarTela(tela, opcoes = {}) {
+  fecharMenusContextuaisUi();
   if (!telas[tela]) {
     tela = "dashboard";
   }
@@ -15868,15 +15872,76 @@ function abrirSeletorFotoProdutoLojaOnline(productId = "") {
 }
 
 function fecharMenusContextuaisProdutosLoja(except = null) {
-  document.querySelectorAll(".store-admin-more-actions[open]").forEach((menu) => {
-    if (menu !== except) menu.removeAttribute("open");
+  fecharMenusContextuaisUi(except);
+}
+
+function getUiContextMenuTimers() {
+  if (!window.__simplificaUiContextMenuTimers) window.__simplificaUiContextMenuTimers = new WeakMap();
+  return window.__simplificaUiContextMenuTimers;
+}
+
+function limparTimerMenuContextualUi(details) {
+  const timers = getUiContextMenuTimers();
+  const timer = timers.get(details);
+  if (timer) clearTimeout(timer);
+  timers.delete(details);
+}
+
+function sincronizarAcessibilidadeMenuContextualUi(details) {
+  if (!details?.matches?.(".ui-context-menu")) return;
+  const summary = details.querySelector(":scope > summary");
+  const panel = details.querySelector(":scope > .ui-context-menu-panel");
+  if (!summary || !panel) return;
+  if (!panel.id) {
+    window.__simplificaUiContextMenuId = Number(window.__simplificaUiContextMenuId || 0) + 1;
+    panel.id = `ui-context-menu-${window.__simplificaUiContextMenuId}`;
+  }
+  summary.setAttribute("aria-expanded", details.open ? "true" : "false");
+  summary.setAttribute("aria-controls", panel.id);
+  summary.setAttribute("aria-haspopup", "menu");
+  panel.setAttribute("role", "menu");
+  panel.querySelectorAll("button,a").forEach((item) => item.setAttribute("role", "menuitem"));
+}
+
+function abrirMenuContextualUi(details, delay = 0) {
+  if (!details?.matches?.(".ui-context-menu")) return;
+  limparTimerMenuContextualUi(details);
+  const abrir = () => {
+    fecharMenusContextuaisUi(details);
+    details.open = true;
+    sincronizarAcessibilidadeMenuContextualUi(details);
+  };
+  if (!delay) return abrir();
+  getUiContextMenuTimers().set(details, setTimeout(abrir, delay));
+}
+
+function fecharMenuContextualUi(details, delay = 0, devolverFoco = false) {
+  if (!details?.matches?.(".ui-context-menu")) return;
+  limparTimerMenuContextualUi(details);
+  const fechar = () => {
+    if (delay && (details.matches(":hover") || details.contains(document.activeElement))) return;
+    details.open = false;
+    sincronizarAcessibilidadeMenuContextualUi(details);
+    if (devolverFoco) details.querySelector(":scope > summary")?.focus?.();
+  };
+  if (!delay) return fechar();
+  getUiContextMenuTimers().set(details, setTimeout(fechar, delay));
+}
+
+function fecharMenusContextuaisUi(except = null) {
+  let fechou = false;
+  document.querySelectorAll(".ui-context-menu[open]").forEach((menu) => {
+    if (menu === except) return;
+    fechou = true;
+    fecharMenuContextualUi(menu);
   });
+  return fechou;
 }
 
 function sincronizarMenuContextualProduto(details) {
   if (!details) return;
-  const summary = details.querySelector("summary");
-  summary?.setAttribute("aria-expanded", details.open ? "true" : "false");
+  sincronizarAcessibilidadeMenuContextualUi(details);
+  const summary = details.querySelector(":scope > summary");
   details.classList.remove("open-up");
   if (!details.open) return;
   fecharMenusContextuaisProdutosLoja(details);
@@ -15949,15 +16014,46 @@ function abrirAcoesProdutoLojaOnline(productId = "") {
 function configurarMenusContextuaisProdutosLoja() {
   if (window.__simplificaStoreProductMenusConfigured) return;
   window.__simplificaStoreProductMenusConfigured = true;
+  const desktopHover = () => window.matchMedia?.("(hover: hover) and (pointer: fine)")?.matches === true;
+  document.addEventListener("toggle", (event) => {
+    const menu = event.target?.closest?.(".ui-context-menu");
+    if (menu) sincronizarAcessibilidadeMenuContextualUi(menu);
+  }, true);
   document.addEventListener("click", (event) => {
-    const menu = event.target?.closest?.(".store-admin-more-actions");
-    if (!menu) fecharMenusContextuaisProdutosLoja();
+    const menu = event.target?.closest?.(".ui-context-menu");
+    if (!menu) fecharMenusContextuaisUi();
+  });
+  document.addEventListener("pointerover", (event) => {
+    if (!desktopHover()) return;
+    const menu = event.target?.closest?.(".ui-context-menu");
+    if (!menu || menu.contains(event.relatedTarget)) return;
+    abrirMenuContextualUi(menu, 100);
+  });
+  document.addEventListener("pointerout", (event) => {
+    if (!desktopHover()) return;
+    const menu = event.target?.closest?.(".ui-context-menu");
+    if (!menu || menu.contains(event.relatedTarget)) return;
+    fecharMenuContextualUi(menu, 180);
+  });
+  document.addEventListener("focusin", (event) => {
+    const menu = event.target?.closest?.(".ui-context-menu");
+    if (menu) abrirMenuContextualUi(menu);
+  });
+  document.addEventListener("focusout", (event) => {
+    const menu = event.target?.closest?.(".ui-context-menu");
+    if (!menu || menu.contains(event.relatedTarget)) return;
+    fecharMenuContextualUi(menu, 180);
   });
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
-    fecharMenusContextuaisProdutosLoja();
+    const aberto = document.querySelector(".ui-context-menu[open]");
+    if (aberto) {
+      event.preventDefault();
+      fecharMenuContextualUi(aberto, 0, true);
+    }
     if (document.querySelector(".store-product-action-sheet")) closeDrawer();
   });
+  document.querySelectorAll(".ui-context-menu").forEach(sincronizarAcessibilidadeMenuContextualUi);
 }
 
 async function processarImagemProdutoLojaOnline(productId, input) {
@@ -19005,8 +19101,8 @@ function renderStorefrontEditorActionGroups() {
         <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
       </div>
       <details class="store-editor-more-actions ui-context-menu">
-        <summary class="btn secondary ui-icon-button" aria-label="Mais ações" title="Mais ações"><span aria-hidden="true">⋯</span></summary>
-        <div class="store-editor-more-menu ui-context-menu-panel">
+        <summary class="btn secondary ui-icon-button" aria-label="Mais ações" aria-expanded="false" aria-controls="store-editor-more-menu" aria-haspopup="menu" title="Mais ações"><span aria-hidden="true">⋯</span></summary>
+        <div id="store-editor-more-menu" class="store-editor-more-menu ui-context-menu-panel" role="menu">
           <button class="btn secondary" type="button" onclick="sincronizarLojaOnlineAdminRemoto(true)">Sincronizar</button>
           <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
           <button class="btn secondary" type="button" onclick="trocarTela('lojaOnline')">Voltar ao resumo da loja</button>
@@ -19167,8 +19263,8 @@ function renderStorefrontOverview(vm, stats) {
             <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja</button>
             <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
             <details class="ui-context-menu">
-              <summary class="btn ghost ui-icon-button" aria-label="Mais ações" title="Mais ações"><span aria-hidden="true">⋯</span></summary>
-              <div class="ui-context-menu-panel">
+              <summary class="btn ghost ui-icon-button" aria-label="Mais ações" aria-expanded="false" aria-controls="store-overview-more-menu" aria-haspopup="menu" title="Mais ações"><span aria-hidden="true">⋯</span></summary>
+              <div id="store-overview-more-menu" class="ui-context-menu-panel" role="menu">
                 <button type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
                 <button type="button" onclick="setStorefrontAdminTab('qrcode')">Ver QR Code</button>
                 <button type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Desativar loja" : "Ativar loja"}</button>
@@ -19492,8 +19588,8 @@ function renderStorefrontProducts(vm) {
                 <button class="btn secondary store-product-edit-action" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">${product.__demo ? "Usar como modelo" : "Editar"}</button>
                 ${product.__demo ? "" : `
                   <details class="store-admin-more-actions store-product-desktop-actions ui-context-menu" ontoggle="sincronizarMenuContextualProduto(this)">
-                    <summary class="btn ghost ui-icon-button" aria-label="Mais ações do produto" aria-expanded="false" aria-controls="${escaparAttr(menuId)}" title="Mais ações do produto"><span aria-hidden="true">⋯</span></summary>
-                    <div id="${escaparAttr(menuId)}" class="store-admin-actions ui-context-menu-panel">
+                    <summary class="btn ghost ui-icon-button" aria-label="Mais ações do produto" aria-expanded="false" aria-controls="${escaparAttr(menuId)}" aria-haspopup="menu" title="Mais ações do produto"><span aria-hidden="true">⋯</span></summary>
+                    <div id="${escaparAttr(menuId)}" class="store-admin-actions ui-context-menu-panel" role="menu">
                       ${renderAcoesProdutoLojaOnline(product)}
                     </div>
                   </details>
