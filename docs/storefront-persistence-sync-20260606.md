@@ -10,7 +10,9 @@
 - cache da loja publica podia continuar exibindo uma versao anterior depois de
   uma alteracao no editor;
 - falhas temporarias de rede em loja, categorias e produtos nao preservavam de
-  forma uniforme a operacao para uma tentativa posterior.
+  forma uniforme a operacao para uma tentativa posterior;
+- uma copia local sem o ID remoto podia tentar recriar a loja e falhar na
+  restricao global `stores_public_slug_unique`.
 
 ## Contrato atual
 
@@ -24,6 +26,10 @@
    formulario local marcado como alterado.
 6. Mudancas em loja, categorias, produtos e imagens invalidam o cache publico
    local da respectiva loja.
+7. Antes de criar uma loja remota, o app recupera a loja ja pertencente ao
+   usuario. Se o endereco inicial pertencer a outra loja, a primeira criacao
+   recebe um sufixo estavel do proprietario. Alteracoes manuais para enderecos
+   ocupados sao recusadas com mensagem amigavel e nao entram em repeticao.
 
 ## Operacoes cobertas pela fila
 

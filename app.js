@@ -15462,10 +15462,45 @@ function storefrontAdminSaveStore(store) {
   });
 }
 
+function storefrontIsPublicSlugConflict(error) {
+  const details = error?.details?.response || error?.details || "";
+  const message = `${error?.message || error || ""} ${typeof details === "string" ? details : JSON.stringify(details)}`;
+  return /stores_public_slug_unique|duplicate key value.*slug|slug.*already exists/i.test(message);
+}
+
+function storefrontBuildOwnedSlugCandidate(slug = "loja", attempt = 0) {
+  const base = storefrontAdminSlugify(slug || "loja") || "loja";
+  const ownerSuffix = storefrontAdminSlugify(storefrontAdminCurrentOwnerId()).slice(0, 8) || "online";
+  return storefrontAdminSlugify(`${base}-${ownerSuffix}${attempt > 0 ? `-${attempt + 1}` : ""}`);
+}
+
+async function storefrontAdminFindRemoteStoreByOwner() {
+  const owner = encodeURIComponent(storefrontAdminCurrentOwnerId());
+  if (!owner) return null;
+  const rows = await storefrontAdminRequest(`/rest/v1/stores?select=*&owner_id=eq.${owner}&limit=1`);
+  return rows?.[0] || null;
+}
+
+function storefrontAdminAdoptRemoteStore(remoteStore) {
+  storefrontAdminSaveStore(remoteStore);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, getStorefrontAdminCategoriesLocal().map((category) => ({ ...category, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, getStorefrontAdminProductsLocal().map((product) => ({ ...product, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
+  return remoteStore;
+}
+
+async function storefrontAdminPatchStoreRemote(storeId, payload) {
+  const rows = await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(storeId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify(payload)
+  });
+  return rows?.[0] || { ...payload, id: storeId };
+}
+
 async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStoreLocal()) {
   const payload = {
     owner_id: syncConfig.supabaseUserId,
-    slug: store.slug,
+    slug: storefrontAdminSlugify(store.slug || store.name || getStorefrontDefaultSlugLocal()),
     name: store.name,
     description: store.description,
     logo_url: storefrontImagemRemotaOuNull(store.logo_url),
@@ -15476,26 +15511,38 @@ async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStore
     theme_config: store.theme_config || {}
   };
   if (storefrontAdminIsLocalId(store.id, "store-")) {
-    const rows = await storefrontAdminRequest("/rest/v1/stores?on_conflict=owner_id,slug", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify(payload)
-    });
-    if (rows?.[0]) {
-      const remoteStore = rows[0];
-      storefrontAdminSaveStore(remoteStore);
-      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, getStorefrontAdminCategoriesLocal().map((category) => ({ ...category, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
-      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, getStorefrontAdminProductsLocal().map((product) => ({ ...product, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
-      return remoteStore;
+    const ownedStore = await storefrontAdminFindRemoteStoreByOwner();
+    if (ownedStore?.id) {
+      const remoteStore = await storefrontAdminPatchStoreRemote(ownedStore.id, { ...payload, slug: ownedStore.slug });
+      return storefrontAdminAdoptRemoteStore(remoteStore);
     }
-    return store;
+    for (let attempt = -1; attempt < 4; attempt += 1) {
+      const candidatePayload = {
+        ...payload,
+        slug: attempt < 0 ? payload.slug : storefrontBuildOwnedSlugCandidate(payload.slug, attempt)
+      };
+      try {
+        const rows = await storefrontAdminRequest("/rest/v1/stores", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify(candidatePayload)
+        });
+        if (rows?.[0]) return storefrontAdminAdoptRemoteStore(rows[0]);
+      } catch (error) {
+        if (!storefrontIsPublicSlugConflict(error)) throw error;
+        const remoteCreatedByAnotherSession = await storefrontAdminFindRemoteStoreByOwner();
+        if (remoteCreatedByAnotherSession?.id) {
+          const remoteStore = await storefrontAdminPatchStoreRemote(remoteCreatedByAnotherSession.id, {
+            ...payload,
+            slug: remoteCreatedByAnotherSession.slug
+          });
+          return storefrontAdminAdoptRemoteStore(remoteStore);
+        }
+      }
+    }
+    throw new Error("Não foi possível reservar um endereço público exclusivo para esta loja.");
   }
-  await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(store.id)}`, {
-    method: "PATCH",
-    headers: { Prefer: "return=minimal" },
-    body: JSON.stringify(payload)
-  });
-  return store;
+  return storefrontAdminPatchStoreRemote(store.id, payload);
 }
 
 async function salvarStorefrontAparencia(event) {
@@ -15550,6 +15597,10 @@ async function salvarStorefrontAparencia(event) {
       try {
         await storefrontAdminPersistStoreRemote(next);
       } catch (syncError) {
+        if (storefrontIsPublicSlugConflict(syncError)) {
+          storefrontAdminSaveStore(store);
+          throw new Error("Este endereço da loja já está em uso. Escolha outro endereço e tente novamente.");
+        }
         syncPending = true;
         storefrontQueuePendingAction("store-upsert", next);
         registrarStorefrontDebugLeve("persistencia_falhou", "Aparência salva localmente e aguardando sincronização.", { message: syncError?.message || String(syncError) });
