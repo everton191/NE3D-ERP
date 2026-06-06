@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v148-store-safe-area-theme-20260605";
+const CACHE_NAME = "simplifica-3d-v149-light-theme-no-gradient-20260606";
 const APP_FILES = [
   "./",
   "./index.html",

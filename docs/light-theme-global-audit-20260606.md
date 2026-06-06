@@ -56,3 +56,41 @@ O teste `test:light-theme-no-gradient` verifica:
 - ausencia de gradientes nos planos claros;
 - camada final sem gradientes e suporte a movimento reduzido.
 
+## Componentes e telas revisados
+
+- Shell do ERP, sidebar, topbar e barra inferior.
+- Cards, botoes, inputs, badges, tabelas, modais, drawers e popups.
+- Login, cadastro e onboarding por meio dos contratos compartilhados.
+- Dashboard, pedidos, clientes, estoque, caixa, relatorios, perfil,
+  configuracoes e Super Admin por meio das superficies compartilhadas.
+- Planos Free, Start e Pro, mantendo identidade e regras comerciais.
+- Loja publica, editor, preview, banner, produtos, categorias, carrinho,
+  modais e bottom sheets.
+
+## Menus
+
+- O menu lateral continua expandindo seus grupos sem criar um sistema
+  concorrente.
+- Menus contextuais de produtos ja possuem `aria-expanded`, fechamento por
+  clique externo, tecla Escape e bottom sheet para toque.
+- Popups existentes foram refinados visualmente sem alterar navegacao ou
+  criar layout shift.
+
+## Validacoes executadas
+
+- Sintaxe de `app.js` e do novo teste.
+- Tema, contraste, Design System V2 e isolamento ERP/Loja.
+- Loja publica, editor guiado, acoes mobile e PWA.
+- Overflow, responsividade, mobile, ultrawide e reestruturacao.
+- `npm run build:web`.
+- `npm run android:apk`.
+- `git diff --check`.
+
+## Limitacoes e riscos restantes
+
+- A ferramenta do navegador lateral bloqueou a inspecao da URL local por
+  politica de seguranca. A homologacao visual manual nas larguras solicitadas
+  e em aparelhos Android reais permanece obrigatoria.
+- Gradientes do tema escuro, graficos de dados e emails Supabase foram
+  preservados intencionalmente.
+- O APK foi gerado apenas localmente. Nao houve deploy, push ou publicacao.

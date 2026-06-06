@@ -30148,7 +30148,7 @@ body.theme-light :where(
   -webkit-backdrop-filter:none;
 }
 
-body.theme-light :where(.modal-card,.popup-box,.dropdown-menu,.context-menu,.action-menu,.profile-menu,.notification-menu,.bottom-sheet,.drawer-panel){
+body.theme-light :where(.modal-card,.popup-box,.dropdown-menu,.context-menu,.action-menu,.profile-menu,.topbar-profile-menu,.notification-menu,.ui-context-menu-panel,.bottom-sheet,.drawer-panel){
   color:var(--text-primary);
   background-color:var(--surface-elevated) !important;
   background-image:none !important;
@@ -30159,7 +30159,7 @@ body.theme-light :where(.modal-card,.popup-box,.dropdown-menu,.context-menu,.act
   -webkit-backdrop-filter:none;
 }
 
-body.theme-light :where(.btn-primary,.btn.primary,.app-button.primary,.button-primary){
+body.theme-light :where(.btn-primary,.btn.primary,.ds-button.primary,.app-button.primary,.button-primary){
   color:#ffffff !important;
   background-color:var(--accent-primary) !important;
   background-image:none !important;
@@ -30167,12 +30167,12 @@ body.theme-light :where(.btn-primary,.btn.primary,.app-button.primary,.button-pr
   box-shadow:none;
 }
 
-body.theme-light :where(.btn-primary,.btn.primary,.app-button.primary,.button-primary):hover{
+body.theme-light :where(.btn-primary,.btn.primary,.ds-button.primary,.app-button.primary,.button-primary):hover{
   background-color:var(--accent-primary-hover) !important;
   border-color:var(--accent-primary-hover) !important;
 }
 
-body.theme-light :where(.btn-primary,.btn.primary,.app-button.primary,.button-primary):active{
+body.theme-light :where(.btn-primary,.btn.primary,.ds-button.primary,.app-button.primary,.button-primary):active{
   background-color:var(--accent-primary-active) !important;
   border-color:var(--accent-primary-active) !important;
 }
@@ -30244,6 +30244,12 @@ body.theme-light :where(.badge,.status-badge,.chip,.tab-button,.segmented-contro
   background-image:none !important;
   box-shadow:none;
   filter:none;
+}
+
+body.theme-light :where(.ds-skeleton,.app-skeleton){
+  background:var(--surface-secondary) !important;
+  background-image:none !important;
+  animation:none;
 }
 
 body.theme-light :where(.login-screen,.auth-screen,.onboarding-screen,.login-card,.auth-card,.onboarding-card){
