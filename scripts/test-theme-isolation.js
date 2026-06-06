@@ -12,7 +12,8 @@ assert(service.includes('ERP_THEME_KEY = "simplifica3d_erp_theme_preference"'), 
 assert(service.includes('STORE_THEME_KEY = "simplifica3d_store_theme_preference"'), "Chave Storefront V2 ausente");
 assert(!service.includes('ERP_THEME_KEY = "simplifica3d_store_theme_preference"'), "ERP reutiliza indevidamente a chave da loja");
 assert(index.indexOf("data-erp-theme") < index.indexOf("/app.js?v="), "Bootstrap ERP ocorre tarde demais");
-assert(index.indexOf("data-store-theme") < index.indexOf("/app.js?v="), "Bootstrap Storefront ocorre tarde demais");
+assert(!index.includes('document.documentElement.setAttribute("data-store-theme"'), "Bootstrap global nao deve aplicar tema da loja no html");
+assert(service.includes('querySelectorAll?.(".storefront-root,.store-public-shell,.storefront-theme-v2,.store-cart-backdrop,.store-lead-backdrop")'), "Tema da loja deve aplicar somente nos roots da storefront");
 assert(index.indexOf("/src/services/themeAuthorityV2.js") < index.indexOf("/app.js?v="), "Servico de tema carrega depois do app");
 assert(sw.includes('"./src/services/themeAuthorityV2.js"'), "Servico de tema nao entra no cache PWA");
 

@@ -21,9 +21,9 @@ function assert(condition, message) {
 ].forEach((marker) => assert(app.includes(marker) || css.includes(marker), `Polimento final ausente: ${marker}`));
 
 [
-  '.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"] .store-visual-editor-sidebar',
-  '.store-public-shell[data-storefront-source="v2"][data-store-theme="light"] :where(.store-visual-editor-sidebar,.store-visual-editor-topbar)',
-  ':root[data-store-theme="light"] body .store-visual-panel',
+  '.storefront-root[data-storefront-source="v2"][data-store-theme="dark"] .store-visual-editor-sidebar',
+  '.storefront-root[data-storefront-source="v2"][data-store-theme="light"] :where(.store-visual-editor-sidebar,.store-visual-editor-topbar)',
+  '.storefront-root[data-store-theme="light"] .store-visual-panel',
   '.store-public-shell[data-storefront-source="v2"].store-public-admin-mode .store-public-floating-cart',
   "grid-template-columns:repeat(2, minmax(0, 1fr));",
   "overscroll-behavior:contain;",

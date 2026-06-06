@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.24-rc";
-const APP_VERSION_CODE = 23;
+const APP_VERSION = "1.0.25-rc";
+const APP_VERSION_CODE = 24;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -14017,11 +14017,8 @@ function applyStoreTheme(theme = "light", { persist = true } = {}) {
     return window.SimplificaThemeAuthorityV2.applyStoreTheme(preference, { persist }).resolved;
   }
   const resolvedTheme = getEffectiveThemeMode(preference);
-  document.documentElement.setAttribute("data-store-theme", resolvedTheme);
-  document.documentElement.setAttribute("data-store-theme-preference", preference);
-  document.body?.setAttribute("data-store-theme", resolvedTheme);
-  document.body?.setAttribute("data-store-theme-preference", preference);
-  document.querySelectorAll?.(".store-public-shell").forEach((shell) => {
+  document.querySelectorAll?.(".storefront-root,.store-public-shell,.store-cart-backdrop,.store-lead-backdrop").forEach((shell) => {
+    shell.classList.add("storefront-root");
     shell.classList.add("storefront-theme-v2");
     shell.setAttribute("data-store-theme", resolvedTheme);
     shell.setAttribute("data-store-theme-preference", preference);
@@ -18082,7 +18079,7 @@ function renderStorefrontView({ mode = "public", source = "", vm = null, options
 function addStorefrontV2RootAttributes(html = "", mode = "public") {
   const themeAttr = /\bdata-store-theme=/.test(html) ? "" : ` data-store-theme="${escaparAttr(getEffectiveThemeMode(getStoreThemeSaved()))}" data-store-theme-preference="${escaparAttr(getStoreThemeSaved())}"`;
   const sourceAttr = `data-storefront-render="${escaparAttr(mode)}" data-storefront-source="v2"${themeAttr}`;
-  return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront storefront-theme-v2" ${sourceAttr}`);
+  return String(html || "").replace(/<main class="([^"]*store-public-shell[^"]*)"/, `<main class="$1 store-layout-zone layout-storefront storefront-root storefront-theme-v2" ${sourceAttr}`);
 }
 
 function getStorefrontPlanToneClass() {
@@ -18105,7 +18102,7 @@ function renderStorefrontPublicLegacy() {
   if (!vm.store) {
     applyStoreTheme("light", { persist: false });
     return `
-      <main class="store-public-shell">
+      <main class="store-public-shell storefront-root storefront-theme-v2" data-store-theme="light" data-store-theme-preference="light">
         <section class="store-public-not-found">
           ${renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
           <h1>Loja não encontrada</h1>
@@ -18127,7 +18124,7 @@ function renderStorefrontPublicLegacy() {
   }
   if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
     return `
-      <main class="store-public-shell">
+      <main class="store-public-shell storefront-root storefront-theme-v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}">
         <section class="store-public-not-found">
           <h1>Loja em preparação</h1>
           <p>Esta Loja ainda não foi ativada pelo vendedor.</p>
@@ -18186,7 +18183,7 @@ function renderStorefrontPublicLegacy() {
   `;
 
   return `
-    <main class="store-public-shell storefront-theme-v2 ${mode.admin ? `store-public-admin-mode ${getStorefrontPlanToneClass()}` : ""}" data-storefront-source="v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
+    <main class="store-public-shell storefront-root storefront-theme-v2 ${mode.admin ? `store-public-admin-mode ${getStorefrontPlanToneClass()}` : ""}" data-storefront-source="v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" style="--store-primary:${escaparAttr(storefrontTheme.primary)};--store-accent:${escaparAttr(storefrontTheme.accent)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())}">
           ${renderStoreVisualEditorSidebar(vm)}
@@ -18460,6 +18457,7 @@ function montarMensagemCarrinhoLojaPublica(vm, summary, lead = {}) {
 function abrirCarrinhoLojaPublica() {
   const vm = getStorefrontPublicViewModel();
   const summary = getStorefrontPublicCartSummary(vm);
+  const storefrontTheme = getStorefrontControlledTheme(vm.store?.theme_config || {});
   const popup = document.getElementById("popup");
   if (!popup) return;
   const renderCartThumb = (product) => {
@@ -18467,7 +18465,7 @@ function abrirCarrinhoLojaPublica() {
     return `<div class="store-cart-thumb">${url ? `<img src="${escaparAttr(url)}" loading="lazy" decoding="async" alt="${escaparAttr(product.title || "Produto")}">` : renderUiIcon("estoque")}</div>`;
   };
   popup.innerHTML = `
-    <div class="modal-backdrop store-cart-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-cart-backdrop storefront-root storefront-theme-v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" role="dialog" aria-modal="true">
       <form class="modal-card store-cart-drawer" onsubmit="enviarCarrinhoLojaPublica(event)">
         <div class="modal-header">
           <div>
@@ -18519,10 +18517,11 @@ function abrirCarrinhoLojaPublica() {
 function abrirStoreLeadModal(productId = "") {
   const { vm, product } = getStorefrontPublicVmProduto(productId);
   if (!product) return mostrarToast("Produto não encontrado na loja.", "erro", 3200);
+  const storefrontTheme = getStorefrontControlledTheme(vm.store?.theme_config || {});
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-lead-backdrop storefront-root storefront-theme-v2" data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}" role="dialog" aria-modal="true">
       <form class="modal-card store-lead-modal" onsubmit="enviarLeadLojaPublica(event)">
         <div class="modal-header">
           <div>

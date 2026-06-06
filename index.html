@@ -12,8 +12,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simplifica 3D">
 
-  <link rel="stylesheet" href="/style.css?v=1.0.41-rc-app-safe-bottom-20260605">
-  <link rel="stylesheet" href="/themes/base/design-system-v2.css?v=1.0.41-rc-app-safe-bottom-20260605">
+  <link rel="stylesheet" href="/style.css?v=1.0.42-rc-store-safe-area-theme-20260605">
+  <link rel="stylesheet" href="/themes/base/design-system-v2.css?v=1.0.42-rc-store-safe-area-theme-20260605">
 <meta property="og:title" content="Simplifica 3D">
 <meta property="og:description" content="Vitrine profissional para produtos personalizados, catálogo e atendimento por WhatsApp.">
 <meta property="og:type" content="website">
@@ -28,12 +28,10 @@
   (() => {
     const allowed = ["light", "system", "dark"];
     const erpKey = "simplifica3d_erp_theme_preference";
-    const storeKey = "simplifica3d_store_theme_preference";
-    const legacyStoreKey = "simplifica3d_store_theme";
-    const getPreference = (key, legacyKey = "") => {
+    const getPreference = (key) => {
       let value = "";
       try {
-        value = localStorage.getItem(key) || (legacyKey ? localStorage.getItem(legacyKey) : "") || "";
+        value = localStorage.getItem(key) || "";
       } catch (_) {}
       if (value === "auto") return "system";
       return allowed.includes(value) ? value : "light";
@@ -47,13 +45,9 @@
       }
     };
     const erpPreference = getPreference(erpKey);
-    const storePreference = getPreference(storeKey, legacyStoreKey);
     const erpTheme = resolve(erpPreference);
-    const storeTheme = resolve(storePreference);
     document.documentElement.setAttribute("data-erp-theme", erpTheme);
     document.documentElement.setAttribute("data-erp-theme-preference", erpPreference);
-    document.documentElement.setAttribute("data-store-theme", storeTheme);
-    document.documentElement.setAttribute("data-store-theme-preference", storePreference);
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", erpTheme === "dark" ? "#08131d" : "#f2f5f4");
   })();
 </script>
@@ -88,19 +82,19 @@
 
 <script src="/src/services/errorTelemetry.js?v=telemetry-20260504"></script>
 <script src="/src/services/diagnosticsService.js?v=fase-7b-ui-ux-20260530"></script>
-<script src="/src/services/safeAreaManager.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
-<script src="/src/services/themeAuthorityV2.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
+<script src="/src/services/safeAreaManager.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
+<script src="/src/services/themeAuthorityV2.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
 <script src="/src/services/adMobService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/adSenseService.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
-<script src="/modules/store-editor/storeEditorRenderer.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
-<script src="/modules/store-editor/storeEditorTabs.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
-<script src="/modules/store-editor/storeEditorPreview.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
-<script src="/modules/store-editor/storeEditorProducts.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
-  <script src="/app.js?v=1.0.41-rc-app-safe-bottom-20260605"></script>
+<script src="/modules/store-editor/storeEditorRenderer.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
+<script src="/modules/store-editor/storeEditorTabs.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
+<script src="/modules/store-editor/storeEditorPreview.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
+<script src="/modules/store-editor/storeEditorProducts.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
+  <script src="/app.js?v=1.0.42-rc-store-safe-area-theme-20260605"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.41-rc-app-safe-bottom-20260605", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=1.0.42-rc-store-safe-area-theme-20260605", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>

@@ -56,7 +56,15 @@ assert(mainActivity.includes("simplifica-native-insets-change"), "MainActivity n
   "body.keyboard-visible.mobile-mode .mobile-bottom-nav",
   ".toast-area",
   ".store-context-edit-fab",
-  ".store-product-action-sheet"
+  ".store-product-action-sheet",
+  ".storefront-root",
+  ".storefront-bottom-bar",
+  ".store-cart-bar",
+  ".store-public-product-actions",
+  ".store-public-floating-cart",
+  ".store-cart-drawer",
+  ".store-lead-modal",
+  "padding-bottom:calc(var(--app-safe-bottom) + 96px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS safe area incompleto: ${marker}`));
 
 assert(!css.includes("--bottom-nav-visual-gap"), "Bottom nav nao deve usar gap visual fixo");

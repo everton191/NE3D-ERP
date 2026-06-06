@@ -75,16 +75,11 @@
   function applyStoreTheme(preference = getSavedStoreThemePreference(), options = {}) {
     const normalized = normalizePreference(preference);
     const resolved = resolveTheme(normalized);
-    const root = global.document?.documentElement;
-    const body = global.document?.body;
     const targets = options.target
       ? [options.target]
-      : Array.from(global.document?.querySelectorAll?.(".store-public-shell,.storefront-theme-v2") || []);
-    root?.setAttribute("data-store-theme", resolved);
-    root?.setAttribute("data-store-theme-preference", normalized);
-    body?.setAttribute("data-store-theme", resolved);
-    body?.setAttribute("data-store-theme-preference", normalized);
+      : Array.from(global.document?.querySelectorAll?.(".storefront-root,.store-public-shell,.storefront-theme-v2,.store-cart-backdrop,.store-lead-backdrop") || []);
     targets.forEach((target) => {
+      target?.classList?.add("storefront-root");
       target?.classList?.add("storefront-theme-v2");
       target?.setAttribute?.("data-store-theme", resolved);
       target?.setAttribute?.("data-store-theme-preference", normalized);

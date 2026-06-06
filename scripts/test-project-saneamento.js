@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.24-rc\"",
-  "APP_VERSION_CODE = 23",
-  "simplifica-3d-v147-app-safe-bottom-20260605",
-  "versionName \"1.0.24-rc\"",
-  "versionCode 23",
-  "\"version\": \"1.0.24-rc\"",
-  "\"versionCode\": 23"
+  "APP_VERSION = \"1.0.25-rc\"",
+  "APP_VERSION_CODE = 24",
+  "simplifica-3d-v148-store-safe-area-theme-20260605",
+  "versionName \"1.0.25-rc\"",
+  "versionCode 24",
+  "\"version\": \"1.0.25-rc\"",
+  "\"versionCode\": 24"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");
