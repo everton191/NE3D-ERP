@@ -73,7 +73,7 @@ assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.adm
   "@media (max-width:359px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS premium 7C.3 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v150-context-menu-contract-20260606"), "Cache PWA premium ausente");
-assert(index.includes("1.0.44-rc-context-menu-contract-20260606"), "Cache-bust premium ausente");
+assert(sw.includes("simplifica-3d-v151-storefront-persistence-sync-20260606"), "Cache PWA premium ausente");
+assert(index.includes("1.0.45-rc-storefront-persistence-sync-20260606"), "Cache-bust premium ausente");
 
 console.log("Storefront premium 7C.3: composicao clara, contato unico, cards responsivos, detalhe e cache validados.");

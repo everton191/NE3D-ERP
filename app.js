@@ -14124,7 +14124,21 @@ function storefrontAdminHasStoredValue(key) {
 
 function storefrontAdminWrite(key, value) {
   try {
+    let previousStoreSlug = "";
+    if (key === STOREFRONT_ADMIN_KEYS.store) {
+      try {
+        previousStoreSlug = JSON.parse(storefrontAdminStorageGet(key) || "null")?.slug || "";
+      } catch (_) {}
+    }
     storefrontAdminStorageSet(key, JSON.stringify(value));
+    if ([STOREFRONT_ADMIN_KEYS.store, STOREFRONT_ADMIN_KEYS.categories, STOREFRONT_ADMIN_KEYS.products, STOREFRONT_ADMIN_KEYS.images].includes(key)) {
+      const currentStoreSlug = key === STOREFRONT_ADMIN_KEYS.store
+        ? value?.slug
+        : JSON.parse(storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.store) || "null")?.slug;
+      [previousStoreSlug, currentStoreSlug].filter(Boolean).forEach((slug) => {
+        localStorage.removeItem(`${STOREFRONT_PUBLIC_CACHE_PREFIX}${storefrontAdminSlugify(slug)}`);
+      });
+    }
   } catch (_) {}
 }
 
@@ -14349,28 +14363,203 @@ function renderStorefrontRecoveryNotice() {
 }
 
 function storefrontQueuePendingAction(type = "draft", payload = {}) {
+  if (["category-upsert", "category-order", "product-upsert", "product-image-upload", "store-image-upload"].includes(type)) {
+    const store = getStorefrontAdminStoreLocal();
+    if (storefrontAdminIsLocalId(store.id, "store-")) storefrontQueuePendingAction("store-upsert", store);
+  }
+  if (type === "product-image-upload") {
+    const image = getStorefrontAdminImagesLocal().find((entry) => String(entry.id) === String(payload?.id));
+    const product = image ? getStorefrontAdminProductsLocal().find((entry) => String(entry.id) === String(image.product_id)) : null;
+    if (product && storefrontAdminIsLocalId(product.id, "prod-")) storefrontQueuePendingAction("product-upsert", product);
+  }
   const queue = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.offlineQueue, []);
   const next = Array.isArray(queue) ? queue : [];
-  next.unshift({
+  const entityId = String(payload?.id || payload?.store_id || payload?.entityId || "");
+  const dedupeKey = `${type}:${entityId}`;
+  const counterpart = type === "category-delete"
+    ? `category-upsert:${entityId}`
+    : type === "product-delete"
+      ? `product-upsert:${entityId}`
+      : type === "image-delete"
+        ? `product-image-upload:${entityId}`
+        : "";
+  const filtered = next.filter((item) => ![dedupeKey, counterpart].includes(String(item?.dedupeKey || "")));
+  if ((type === "category-delete" && storefrontAdminIsLocalId(entityId, "cat-")) || (type === "product-delete" && storefrontAdminIsLocalId(entityId, "prod-"))) {
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, filtered.slice(0, 60));
+    return;
+  }
+  if (type === "image-delete" && storefrontAdminIsLocalId(entityId, "img-")) {
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, filtered.slice(0, 60));
+    return;
+  }
+  filtered.unshift({
     id: `store-queue-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     type,
     payload,
+    dedupeKey,
     status: navigator.onLine ? "pending" : "offline",
     createdAt: new Date().toISOString(),
     appVersion: APP_VERSION
   });
-  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, next.slice(0, 30));
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, filtered.slice(0, 60));
 }
 
-function storefrontFlushPendingQueue() {
+function getStorefrontPendingQueue() {
   const queue = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.offlineQueue, []);
-  if (!Array.isArray(queue) || !queue.length) return;
-  const pending = queue.filter((item) => item.status !== "completed");
-  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, pending.map((item) => ({
-    ...item,
-    status: navigator.onLine ? "waiting-sync" : "offline",
-    lastAttemptAt: new Date().toISOString()
-  })).slice(0, 30));
+  return Array.isArray(queue) ? queue.filter((item) => item?.status !== "completed") : [];
+}
+
+let storefrontPendingQueueFlushPromise = null;
+
+async function storefrontPersistPendingAction(item = {}) {
+  const payload = item.payload && typeof item.payload === "object" ? item.payload : {};
+  if (String(item.type || "").startsWith("autosave:") || item.type === "session-offline-recovery") return;
+  if (item.type === "store-upsert") {
+    await storefrontAdminPersistStoreRemote(payload);
+    return;
+  }
+  if (item.type === "store-status") {
+    const store = getStorefrontAdminStoreLocal();
+    if (storefrontAdminIsLocalId(store.id, "store-")) {
+      await storefrontAdminPersistStoreRemote({ ...store, active: payload.active === true });
+      return;
+    }
+    await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(store.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ active: payload.active === true })
+    });
+    return;
+  }
+  if (item.type === "category-upsert") {
+    const store = storefrontAdminRequireRemoteStore();
+    const saved = await storefrontAdminUpsertCategory({ ...payload, store_id: store.id, owner_id: storefrontAdminCurrentOwnerId() });
+    const categories = getStorefrontAdminCategoriesLocal().map((category) => String(category.id) === String(payload.id) ? { ...category, ...saved } : category);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, categories);
+    if (saved?.id && String(saved.id) !== String(payload.id)) {
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, getStorefrontAdminProductsLocal().map((product) => String(product.category_id || "") === String(payload.id) ? { ...product, category_id: saved.id } : product));
+    }
+    return;
+  }
+  if (item.type === "category-delete") {
+    if (!storefrontAdminIsLocalId(payload.id, "cat-")) {
+      await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(payload.id)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" }
+      });
+    }
+    return;
+  }
+  if (item.type === "category-order") {
+    await Promise.all((Array.isArray(payload.items) ? payload.items : [])
+      .filter((category) => !storefrontAdminIsLocalId(category.id, "cat-"))
+      .map((category) => storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(category.id)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ order_index: Number(category.order_index || 0) })
+      })));
+    return;
+  }
+  if (item.type === "product-upsert") {
+    const store = storefrontAdminRequireRemoteStore();
+    const currentProduct = getStorefrontAdminProductsLocal().find((product) => String(product.id) === String(payload.id) || String(product.slug) === String(payload.slug));
+    const saved = await storefrontAdminUpsertProduct({ ...payload, ...(currentProduct || {}), store_id: store.id, owner_id: storefrontAdminCurrentOwnerId() });
+    const products = getStorefrontAdminProductsLocal().map((product) => String(product.id) === String(payload.id) ? { ...product, ...saved } : product);
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, products);
+    if (saved?.id && String(saved.id) !== String(payload.id)) {
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().map((image) => String(image.product_id || "") === String(payload.id) ? { ...image, product_id: saved.id, store_id: store.id, owner_id: storefrontAdminCurrentOwnerId() } : image));
+    }
+    return;
+  }
+  if (item.type === "product-delete") {
+    if (!storefrontAdminIsLocalId(payload.id, "prod-")) {
+      await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(payload.id)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" }
+      });
+    }
+    return;
+  }
+  if (item.type === "store-image-upload") {
+    const store = storefrontAdminRequireRemoteStore();
+    const field = payload.tipo === "logo" ? "logo_url" : "banner_url";
+    const dataUrl = String(store[field] || "");
+    if (!dataUrl.startsWith("data:")) return;
+    const file = await storefrontDataUrlToFile(dataUrl, payload.fileName || `${payload.tipo || "imagem"}-loja.webp`);
+    const url = await uploadStorefrontAsset(file, { tipo: payload.tipo === "logo" ? "logo" : "banner" });
+    const next = { ...store, [field]: url };
+    storefrontAdminSaveStore(next);
+    await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(store.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ [field]: url })
+    });
+    return;
+  }
+  if (item.type === "product-image-upload") {
+    const image = getStorefrontAdminImagesLocal().find((entry) => String(entry.id) === String(payload.id));
+    if (!image || !String(image.image_url || "").startsWith("data:")) return;
+    const product = getStorefrontAdminProductsLocal().find((entry) => String(entry.id) === String(image.product_id));
+    if (!product || storefrontAdminIsLocalId(product.id, "prod-")) throw new Error("Produto ainda aguarda sincronização.");
+    const file = await storefrontDataUrlToFile(image.image_url, payload.fileName || `${image.alt_text || "produto"}.webp`);
+    const url = await uploadStorefrontAsset(file, { tipo: "produto", productId: product.id });
+    const rows = await storefrontAdminRequest("/rest/v1/store_product_images", {
+      method: "POST",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({
+        product_id: product.id,
+        store_id: product.store_id,
+        owner_id: storefrontAdminCurrentOwnerId(),
+        image_url: url,
+        alt_text: image.alt_text || null,
+        order_index: Number(image.order_index || 0)
+      })
+    });
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().map((entry) => String(entry.id) === String(image.id) ? { ...entry, ...(rows?.[0] || {}), image_url: url, product_id: product.id } : entry));
+    return;
+  }
+  if (item.type === "image-delete") {
+    if (!storefrontAdminIsLocalId(payload.id, "img-")) {
+      await storefrontAdminRequest(`/rest/v1/store_product_images?id=eq.${encodeURIComponent(payload.id)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" }
+      });
+    }
+    return;
+  }
+  throw new Error(`Ação pendente da loja não reconhecida: ${item.type || "sem tipo"}`);
+}
+
+async function storefrontFlushPendingQueue({ notify = false } = {}) {
+  if (storefrontPendingQueueFlushPromise) return storefrontPendingQueueFlushPromise;
+  storefrontPendingQueueFlushPromise = (async () => {
+    const queue = getStorefrontPendingQueue();
+    if (!queue.length || !storefrontAdminRemoteReady()) return { completed: 0, pending: queue.length };
+    const remaining = [];
+    let completed = 0;
+    for (const item of [...queue].reverse()) {
+      try {
+        await storefrontPersistPendingAction(item);
+        completed += 1;
+      } catch (error) {
+        remaining.unshift({
+          ...item,
+          status: navigator.onLine ? "waiting-sync" : "offline",
+          attempts: Number(item.attempts || 0) + 1,
+          lastAttemptAt: new Date().toISOString(),
+          lastError: String(error?.message || error || "").slice(0, 300)
+        });
+      }
+    }
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.offlineQueue, remaining.slice(0, 60));
+    if (completed) storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.lastRemoteSync, "0");
+    if (notify && completed) mostrarToast(`${completed} alteração(ões) da loja sincronizada(s).`, "sucesso", 2800);
+    if (notify && remaining.length) mostrarToast(`${remaining.length} alteração(ões) da loja ainda aguardam sincronização.`, "aviso", 3600);
+    return { completed, pending: remaining.length };
+  })().finally(() => {
+    storefrontPendingQueueFlushPromise = null;
+  });
+  return storefrontPendingQueueFlushPromise;
 }
 
 function storefrontIsDefaultText(value = "", defaults = []) {
@@ -14845,14 +15034,14 @@ function getStorefrontDefaultSlugLocal() {
 function getStorefrontAdminCategoriesLocal() {
   const store = getStorefrontAdminStoreLocal();
   const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.categories, null);
-  if (Array.isArray(saved) && saved.length) return saved;
+  if (Array.isArray(saved)) return saved;
   return getStorefrontDemoPreviewData(store).categories;
 }
 
 function getStorefrontAdminProductsLocal() {
   const store = getStorefrontAdminStoreLocal();
   const saved = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.products, null);
-  if (Array.isArray(saved) && saved.some((product) => !storefrontIsDemoProduct(product))) return saved;
+  if (Array.isArray(saved)) return saved;
   return getStorefrontDemoPreviewData(store).products;
 }
 
@@ -15149,6 +15338,13 @@ function lerArquivoComoDataUrl(file) {
   });
 }
 
+async function storefrontDataUrlToFile(dataUrl = "", fileName = "storefront-image.webp") {
+  const response = await fetch(String(dataUrl || ""));
+  if (!response.ok) throw new Error("Não foi possível recuperar a imagem salva neste aparelho.");
+  const blob = await response.blob();
+  return new File([blob], fileName, { type: blob.type || "image/webp" });
+}
+
 async function prepararStorefrontImagemPreview(file, tipo = "produto") {
   const blob = await compressStorefrontImage(file, tipo).catch(() => file);
   return lerArquivoComoDataUrl(blob);
@@ -15162,6 +15358,15 @@ function storefrontImagemRemotaOuNull(value = "") {
 
 async function sincronizarLojaOnlineAdminRemoto(force = false) {
   if (!canUseStorefrontLocal() || !storefrontAdminRemoteReady()) return;
+  const pendingBeforeSync = getStorefrontPendingQueue();
+  if (pendingBeforeSync.length) {
+    const flush = await storefrontFlushPendingQueue({ notify: force });
+    if (flush.pending) return;
+  }
+  if (getStorefrontDirtyState().dirty) {
+    if (force) mostrarToast("Salve ou descarte as alterações locais antes de baixar dados da loja.", "aviso", 3600);
+    return;
+  }
   const lastSync = Number(storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.lastRemoteSync) || 0);
   if (!force && Date.now() - lastSync < 120000) return;
   try {
@@ -15257,6 +15462,42 @@ function storefrontAdminSaveStore(store) {
   });
 }
 
+async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStoreLocal()) {
+  const payload = {
+    owner_id: syncConfig.supabaseUserId,
+    slug: store.slug,
+    name: store.name,
+    description: store.description,
+    logo_url: storefrontImagemRemotaOuNull(store.logo_url),
+    banner_url: storefrontImagemRemotaOuNull(store.banner_url),
+    whatsapp: store.whatsapp || null,
+    instagram: store.instagram || null,
+    active: store.active === true,
+    theme_config: store.theme_config || {}
+  };
+  if (storefrontAdminIsLocalId(store.id, "store-")) {
+    const rows = await storefrontAdminRequest("/rest/v1/stores?on_conflict=owner_id,slug", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify(payload)
+    });
+    if (rows?.[0]) {
+      const remoteStore = rows[0];
+      storefrontAdminSaveStore(remoteStore);
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, getStorefrontAdminCategoriesLocal().map((category) => ({ ...category, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, getStorefrontAdminProductsLocal().map((product) => ({ ...product, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
+      return remoteStore;
+    }
+    return store;
+  }
+  await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(store.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify(payload)
+  });
+  return store;
+}
+
 async function salvarStorefrontAparencia(event) {
   event?.preventDefault?.();
   const form = event?.target || document.getElementById("storefrontAppearanceForm");
@@ -15304,38 +15545,23 @@ async function salvarStorefrontAparencia(event) {
     })) return;
     setBotaoLoading(botao, true, "Salvando...");
     storefrontAdminSaveStore(next);
+    let syncPending = false;
     if (storefrontAdminRemoteReady()) {
-      const payload = {
-        owner_id: syncConfig.supabaseUserId,
-        slug: next.slug,
-        name: next.name,
-        description: next.description,
-        logo_url: storefrontImagemRemotaOuNull(next.logo_url),
-        banner_url: storefrontImagemRemotaOuNull(next.banner_url),
-        whatsapp: next.whatsapp || null,
-        instagram: next.instagram || null,
-        active: next.active === true,
-        theme_config: next.theme_config || {}
-      };
-      if (String(next.id || "").startsWith("store-")) {
-        const rows = await storefrontAdminRequest("/rest/v1/stores?on_conflict=owner_id,slug", {
-          method: "POST",
-          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-          body: JSON.stringify(payload)
-        });
-        if (rows?.[0]) storefrontAdminSaveStore(rows[0]);
-      } else {
-        await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
-          method: "PATCH",
-          headers: { Prefer: "return=minimal" },
-          body: JSON.stringify(payload)
-        });
+      try {
+        await storefrontAdminPersistStoreRemote(next);
+      } catch (syncError) {
+        syncPending = true;
+        storefrontQueuePendingAction("store-upsert", next);
+        registrarStorefrontDebugLeve("persistencia_falhou", "Aparência salva localmente e aguardando sincronização.", { message: syncError?.message || String(syncError) });
       }
+    } else {
+      syncPending = true;
+      storefrontQueuePendingAction("store-upsert", next);
     }
-    limparStorefrontAlteracoesPendentes("Aparência salva");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Aparência salva neste aparelho; sincronização pendente" : "Aparência salva");
     clearStorefrontUploadStatus();
     registrarStorefrontActivity("Aparência atualizada", "Nome, cores, links ou imagens da loja foram salvos.");
-    mostrarToast("Aparência da loja salva.", "sucesso", 2800);
+    mostrarToast(syncPending ? "Aparência salva neste aparelho. Sincronização pendente." : "Aparência da loja salva.", syncPending ? "aviso" : "sucesso", 3200);
     renderApp();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar a aparência.", "erro", 4200);
@@ -15362,6 +15588,7 @@ async function alternarStatusLojaOnline() {
   })) return;
   const next = { ...store, active: !store.active };
   storefrontAdminSaveStore(next);
+  let syncPending = false;
   try {
     if (storefrontAdminRemoteReady() && next.id && !String(next.id).startsWith("store-")) {
       await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
@@ -15369,18 +15596,25 @@ async function alternarStatusLojaOnline() {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ active: next.active === true })
       });
+    } else {
+      syncPending = true;
+      storefrontQueuePendingAction("store-status", { id: next.id, active: next.active === true });
     }
-    limparStorefrontAlteracoesPendentes(next.active ? "Loja publicada" : "Loja em rascunho");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Status salvo neste aparelho; sincronização pendente" : (next.active ? "Loja publicada" : "Loja em rascunho"));
     registrarStorefrontActivity(next.active ? "Loja publicada" : "Loja colocada em rascunho", next.slug || "loja");
-    if (next.active) {
+    if (next.active && !syncPending) {
       const popup = document.getElementById("popup");
       if (popup) popup.innerHTML = renderStorefrontPublishedModal(next);
       mostrarToast("Loja publicada com sucesso.", "sucesso", 2600);
+    } else if (syncPending) {
+      mostrarToast("Status salvo neste aparelho. A publicação será concluída ao sincronizar.", "aviso", 3800);
     } else {
       mostrarToast("Loja colocada em rascunho.", "sucesso", 2600);
     }
   } catch (error) {
-    mostrarToast("Status salvo localmente, mas não sincronizado.", "erro", 3200);
+    syncPending = true;
+    storefrontQueuePendingAction("store-status", { id: next.id, active: next.active === true });
+    mostrarToast("Status salvo neste aparelho e aguardando sincronização.", "aviso", 3600);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao sincronizar status da loja.", { message: error?.message || String(error) });
   }
   renderApp();
@@ -15415,16 +15649,28 @@ async function salvarCategoriaLojaOnline(event) {
       order_index: Number(form?.categoryOrder?.value || categories.length + 1),
       visible: !!form?.categoryVisible?.checked
     };
-    if (storefrontAdminRemoteReady()) {
-      storefrontAdminRequireRemoteStore();
-      nextCategory = await storefrontAdminUpsertCategory(nextCategory);
-    }
-    const next = id ? categories.map((cat) => cat.id === id ? { ...cat, ...nextCategory } : cat) : [...categories, nextCategory];
+    let next = id ? categories.map((cat) => cat.id === id ? { ...cat, ...nextCategory } : cat) : [...categories, nextCategory];
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, next);
+    let syncPending = false;
+    if (storefrontAdminRemoteReady()) {
+      try {
+        storefrontAdminRequireRemoteStore();
+        nextCategory = await storefrontAdminUpsertCategory(nextCategory);
+        next = id ? next.map((cat) => String(cat.id) === String(id) ? { ...cat, ...nextCategory } : cat) : next.map((cat) => String(cat.id) === String(nextCategory.id) || String(cat.slug) === String(nextCategory.slug) ? { ...cat, ...nextCategory } : cat);
+        storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, next);
+      } catch (syncError) {
+        syncPending = true;
+        storefrontQueuePendingAction("category-upsert", nextCategory);
+        registrarStorefrontDebugLeve("persistencia_falhou", "Categoria salva localmente e aguardando sincronização.", { message: syncError?.message || String(syncError) });
+      }
+    } else {
+      syncPending = true;
+      storefrontQueuePendingAction("category-upsert", nextCategory);
+    }
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingCategory);
-    limparStorefrontAlteracoesPendentes("Categoria salva");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Categoria salva neste aparelho; sincronização pendente" : "Categoria salva");
     registrarStorefrontActivity(id ? "Categoria atualizada" : "Categoria criada", nextCategory.name);
-    mostrarToast("Categoria salva.", "sucesso");
+    mostrarToast(syncPending ? "Categoria salva neste aparelho. Sincronização pendente." : "Categoria salva.", syncPending ? "aviso" : "sucesso", 3200);
     renderApp();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar a categoria.", "erro", 4200);
@@ -15447,21 +15693,25 @@ async function excluirCategoriaLojaOnline(id) {
     perigo: true,
     exigirConfirmacaoVisual: true
   })) return;
+  const categories = getStorefrontAdminCategoriesLocal().filter((cat) => cat.id !== id);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, categories);
   try {
     if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "cat-")) {
       await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
         headers: { Prefer: "return=minimal" }
       });
+    } else {
+      storefrontQueuePendingAction("category-delete", { id });
     }
-    const categories = getStorefrontAdminCategoriesLocal().filter((cat) => cat.id !== id);
-    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, categories);
     registrarStorefrontActivity("Categoria removida", "Categoria sem produtos vinculados.");
     mostrarToast("Categoria removida.", "sucesso");
     renderApp();
   } catch (error) {
-    mostrarToast("Não foi possível remover a categoria.", "erro", 3600);
-    console.error("[Storefront admin] excluir categoria", error);
+    storefrontQueuePendingAction("category-delete", { id });
+    registrarStorefrontDebugLeve("persistencia_falhou", "Categoria removida localmente e aguardando sincronização.", { message: error?.message || String(error) });
+    mostrarToast("Categoria removida neste aparelho. Sincronização pendente.", "aviso", 3600);
+    renderApp();
   }
 }
 
@@ -15686,17 +15936,29 @@ async function salvarProdutoLojaOnline(event) {
       exigirConfirmacaoVisual: true
     })) return;
     setBotaoLoading(botao, true, "Salvando...");
-    if (storefrontAdminRemoteReady()) {
-      storefrontAdminRequireRemoteStore();
-      nextProduct = await storefrontAdminUpsertProduct(nextProduct);
-    }
-    const next = id ? products.map((product) => product.id === id ? { ...product, ...nextProduct } : product) : [...products, nextProduct];
+    let next = id ? products.map((product) => product.id === id ? { ...product, ...nextProduct } : product) : [...products, nextProduct];
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
+    let syncPending = false;
+    if (storefrontAdminRemoteReady()) {
+      try {
+        storefrontAdminRequireRemoteStore();
+        nextProduct = await storefrontAdminUpsertProduct(nextProduct);
+        next = id ? next.map((product) => String(product.id) === String(id) ? { ...product, ...nextProduct } : product) : next.map((product) => String(product.id) === String(nextProduct.id) || String(product.slug) === String(nextProduct.slug) ? { ...product, ...nextProduct } : product);
+        storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
+      } catch (syncError) {
+        syncPending = true;
+        storefrontQueuePendingAction("product-upsert", nextProduct);
+        registrarStorefrontDebugLeve("persistencia_falhou", "Produto salvo localmente e aguardando sincronização.", { message: syncError?.message || String(syncError) });
+      }
+    } else {
+      syncPending = true;
+      storefrontQueuePendingAction("product-upsert", nextProduct);
+    }
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
-    limparStorefrontAlteracoesPendentes("Produto salvo");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Produto salvo neste aparelho; sincronização pendente" : "Produto salvo");
     registrarStorefrontActivity(id ? "Produto atualizado" : "Produto criado", nextProduct.title);
-    mostrarToast(nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto.", "sucesso");
+    mostrarToast(syncPending ? "Produto salvo neste aparelho. Sincronização pendente." : (nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto."), syncPending ? "aviso" : "sucesso", 3400);
     renderApp();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar o produto.", "erro", 4200);
@@ -15727,6 +15989,7 @@ async function alternarProdutoLojaOnline(id, field) {
     changed = { ...product, [field]: !product[field] };
     return changed;
   });
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, products);
   try {
     if (changed && storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "prod-")) {
       await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(id)}`, {
@@ -15734,13 +15997,16 @@ async function alternarProdutoLojaOnline(id, field) {
         headers: { Prefer: "return=minimal" },
         body: JSON.stringify({ [field]: changed[field] })
       });
+    } else if (changed) {
+      storefrontQueuePendingAction("product-upsert", changed);
     }
-    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, products);
     if (changed) registrarStorefrontActivity(field === "visible" ? (changed.visible ? "Produto publicado" : "Produto ocultado") : "Destaque atualizado", changed.title || "Produto");
     renderApp();
   } catch (error) {
-    mostrarToast("Não foi possível atualizar o produto.", "erro", 3600);
-    console.error("[Storefront admin] alternar produto", error);
+    if (changed) storefrontQueuePendingAction("product-upsert", changed);
+    registrarStorefrontDebugLeve("persistencia_falhou", "Produto atualizado localmente e aguardando sincronização.", { message: error?.message || String(error) });
+    mostrarToast("Produto atualizado neste aparelho. Sincronização pendente.", "aviso", 3600);
+    renderApp();
   }
 }
 
@@ -15754,15 +16020,19 @@ async function removerProdutoLojaOnline(id) {
     perigo: true,
     exigirConfirmacaoVisual: true
   })) return;
+  const nextProducts = getStorefrontAdminProductsLocal().filter((product) => product.id !== id);
+  const nextImages = getStorefrontAdminImagesLocal().filter((image) => image.product_id !== id);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, nextProducts);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, nextImages);
   try {
     if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "prod-")) {
       await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
         headers: { Prefer: "return=minimal" }
       });
+    } else {
+      storefrontQueuePendingAction("product-delete", { id });
     }
-    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, getStorefrontAdminProductsLocal().filter((product) => product.id !== id));
-    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().filter((image) => image.product_id !== id));
     if (getStorefrontGuidedSelection().type === "product" && String(getStorefrontGuidedSelection().id) === String(id)) {
       storefrontGuidedSelection = { type: "products", id: "" };
     }
@@ -15770,8 +16040,10 @@ async function removerProdutoLojaOnline(id) {
     mostrarToast("Produto removido da loja.", "sucesso");
     renderApp();
   } catch (error) {
-    mostrarToast("Não foi possível remover o produto.", "erro", 3600);
-    console.error("[Storefront admin] remover produto", error);
+    storefrontQueuePendingAction("product-delete", { id });
+    registrarStorefrontDebugLeve("persistencia_falhou", "Produto removido localmente e aguardando sincronização.", { message: error?.message || String(error) });
+    mostrarToast("Produto removido neste aparelho. Sincronização pendente.", "aviso", 3600);
+    renderApp();
   }
 }
 
@@ -15811,11 +16083,14 @@ async function moverCategoriaLojaOnline(id, direction = 0) {
           headers: { Prefer: "return=minimal" },
           body: JSON.stringify({ order_index: Number(cat.order_index || 0) })
         })));
+    } else {
+      storefrontQueuePendingAction("category-order", { entityId: "all", items: normalized });
     }
     limparStorefrontAlteracoesPendentes("Ordem de categorias salva");
     registrarStorefrontActivity("Categoria reorganizada", item.name || "Categoria da loja");
     mostrarToast("Ordem de categorias atualizada.", "sucesso", 2400);
   } catch (error) {
+    storefrontQueuePendingAction("category-order", { entityId: "all", items: normalized });
     marcarStorefrontAlteracoesPendentes("Ordem de categorias pendente de sincronização");
     registrarStorefrontDebugLeve("save_falhou", "Falha ao persistir ordem de categorias.", { message: error?.message || String(error) });
     mostrarToast("Ordem atualizada localmente. Sincronização pendente.", "aviso", 3600);
@@ -16114,7 +16389,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
       }
       const dataUrl = await prepararStorefrontImagemPreview(file, "produto");
       const next = getStorefrontAdminImagesLocal();
-      next.push({
+      const localImage = {
         id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
         product_id: productId,
         store_id: getStorefrontAdminStoreLocal().id,
@@ -16122,8 +16397,10 @@ async function processarImagemProdutoLojaOnline(productId, input) {
         image_url: dataUrl,
         alt_text: file.name.replace(/\.[^.]+$/, ""),
         order_index: next.filter((image) => image.product_id === productId).length
-      });
+      };
+      next.push(localImage);
       storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+      storefrontQueuePendingAction("product-image-upload", { id: localImage.id, fileName: file.name });
       setStorefrontUploadStatus({
         type: "warning",
         title: "Foto salva neste aparelho",
@@ -16138,7 +16415,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
         try {
           const dataUrl = await prepararStorefrontImagemPreview(file, "produto");
           const next = getStorefrontAdminImagesLocal();
-          next.push({
+          const localImage = {
             id: `img-${Date.now()}-${Math.random().toString(16).slice(2)}`,
             product_id: productId,
             store_id: getStorefrontAdminStoreLocal().id,
@@ -16146,8 +16423,10 @@ async function processarImagemProdutoLojaOnline(productId, input) {
             image_url: dataUrl,
             alt_text: file.name.replace(/\.[^.]+$/, ""),
             order_index: next.filter((image) => image.product_id === productId).length
-          });
+          };
+          next.push(localImage);
           storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+          storefrontQueuePendingAction("product-image-upload", { id: localImage.id, fileName: file.name });
           setStorefrontUploadStatus({
             type: "warning",
             title: "Foto salva localmente",
@@ -16333,6 +16612,7 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
         const field = tipo === "logo" ? "logo_url" : "banner_url";
         const next = { ...getStorefrontAdminStoreLocal(), [field]: dataUrl };
         storefrontAdminSaveStore(next);
+        storefrontQueuePendingAction("store-image-upload", { id: next.id, tipo, fileName: file.name });
         limparStorefrontAlteracoesPendentes(tipo === "logo" ? "Logo salva localmente" : "Banner salvo localmente");
         setStorefrontUploadStatus({
           type: "warning",
@@ -16364,19 +16644,23 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
 }
 
 async function removerImagemProdutoLojaOnline(id) {
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().filter((image) => image.id !== id));
   try {
     if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(id, "img-")) {
       await storefrontAdminRequest(`/rest/v1/store_product_images?id=eq.${encodeURIComponent(id)}`, {
         method: "DELETE",
         headers: { Prefer: "return=minimal" }
       });
+    } else {
+      storefrontQueuePendingAction("image-delete", { id });
     }
-    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().filter((image) => image.id !== id));
     registrarStorefrontActivity("Imagem removida", "Galeria do produto atualizada.");
     renderApp();
   } catch (error) {
-    mostrarToast("Não foi possível remover a imagem.", "erro", 3600);
-    console.error("[Storefront admin] remover imagem", error);
+    storefrontQueuePendingAction("image-delete", { id });
+    registrarStorefrontDebugLeve("persistencia_falhou", "Imagem removida localmente e aguardando sincronização.", { message: error?.message || String(error) });
+    mostrarToast("Imagem removida neste aparelho. Sincronização pendente.", "aviso", 3600);
+    renderApp();
   }
 }
 
@@ -39692,7 +39976,12 @@ window.addEventListener("online", () => {
   atualizarIndicadorSincronizacao("syncing", "Reconectando");
   atualizarStorefrontConnectionBadge();
   mostrarToast("Conexão restaurada. Sincronizando alterações pendentes.", "info", 3200);
-  storefrontFlushPendingQueue();
+  storefrontFlushPendingQueue({ notify: true })
+    .then((result) => {
+      if (!result?.pending) return sincronizarLojaOnlineAdminRemoto(false);
+      return null;
+    })
+    .catch((erro) => registrarDiagnostico("Storefront", "Fila da loja não sincronizada", erro.message));
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
   sincronizarAlteracoesLocaisSilencioso("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
 });

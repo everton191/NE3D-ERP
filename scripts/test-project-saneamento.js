@@ -20,7 +20,7 @@ if (missingIgnores.length) {
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.25-rc\"",
   "APP_VERSION_CODE = 24",
-  "simplifica-3d-v150-context-menu-contract-20260606",
+  "simplifica-3d-v151-storefront-persistence-sync-20260606",
   "versionName \"1.0.25-rc\"",
   "versionCode 24",
   "\"version\": \"1.0.25-rc\"",
