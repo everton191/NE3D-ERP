@@ -18939,9 +18939,9 @@ function renderStorePublicCategoryProductsPage(vm, category) {
 function getStorefrontContactConfig(store = {}) {
   const contact = store.contact_config || store.theme_config?.contact || {};
   return {
-    whatsapp: String(store.whatsapp || contact.whatsapp || "").trim(),
-    instagram: String(store.instagram || contact.instagram || "").trim(),
-    email: String(store.email || contact.email || "").trim(),
+    whatsapp: String(store.whatsapp || contact.whatsapp || appConfig.whatsappNumber || "").trim(),
+    instagram: String(store.instagram || contact.instagram || appConfig.companyInstagram || "").trim(),
+    email: String(store.email || contact.email || appConfig.companyEmail || "").trim(),
     facebook: String(contact.facebook || "").trim(),
     address: String(contact.address || "").trim(),
     hours: String(store.opening_hours || contact.hours || "").trim(),
@@ -18951,10 +18951,11 @@ function getStorefrontContactConfig(store = {}) {
 
 function getStorefrontPublicContactItems(vm) {
   const contact = getStorefrontContactConfig(vm.store || {});
+  const adminMode = getStorefrontPublicMode(vm).admin;
   return [
-    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", "whatsapp", contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"],
-    ["Instagram", contact.instagram || "Perfil da loja", "instagram", contact.instagram ? `window.open('${escaparAttr(normalizarUrlInstagramLoja(contact.instagram))}', '_blank', 'noopener')` : "informarRecursoFuturoLoja('Instagram da loja')"],
-    ["E-mail", contact.email || "Contato por e-mail", "email", contact.email ? `location.href='mailto:${escaparAttr(contact.email)}'` : "informarRecursoFuturoLoja('E-mail público')"],
+    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", "whatsapp", contact.whatsapp ? "abrirWhatsappLojaPublica()" : (adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('WhatsApp da loja')")],
+    ["Instagram", contact.instagram || "Perfil da loja", "instagram", contact.instagram ? "abrirInstagramLojaPublica()" : (adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('Instagram da loja')")],
+    ["E-mail", contact.email || "Contato por e-mail", "email", contact.email ? "abrirEmailLojaPublica()" : (adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('E-mail público')")],
     ["Horário", contact.hours || "Atendimento sob consulta", "agenda", "informarRecursoFuturoLoja('Horário de atendimento')"],
     ["Endereço", contact.address || "Atendimento online", "empresa", "informarRecursoFuturoLoja('Endereço da loja')"]
   ];
@@ -18976,6 +18977,7 @@ function renderStorePublicContactGrid(vm) {
 
 function renderStorePublicContactCta(vm, { home = false } = {}) {
   const adminMode = getStorefrontPublicMode(vm).admin;
+  const contact = getStorefrontContactConfig(vm.store || {});
   return `
     <aside class="store-public-contact-cta">
       <div>
@@ -18983,7 +18985,7 @@ function renderStorePublicContactCta(vm, { home = false } = {}) {
         <h2>${home ? "Estamos aqui para ajudar" : "Solicite seu orçamento"}</h2>
         <p>${home ? "Peça orçamento e tire dúvidas com atendimento direto." : "Revise detalhes, personalização e prazo antes de transformar sua escolha em pedido."}</p>
       </div>
-      <button class="btn" type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : "abrirWhatsappLojaPublica()"}">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>
+      <button class="btn" type="button" onclick="${contact.whatsapp ? "abrirWhatsappLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>
     </aside>
   `;
 }
@@ -19019,9 +19021,9 @@ function renderStoreContactHeroPreview(vm, { compact = false } = {}) {
         <p>Peça orçamento, tire dúvidas sobre personalização e combine prazos com atendimento direto.</p>
       </div>
       <div class="store-public-contact-mini-grid">
-        <button type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<strong>WhatsApp</strong><small>${escaparHtml(contact.whatsapp || "Adicionar número")}</small></button>
-        <button type="button" onclick="${contact.email ? `location.href='mailto:${escaparAttr(contact.email)}'` : "informarRecursoFuturoLoja('E-mail público')"}">${renderUiIcon("email")}<strong>E-mail</strong><small>${escaparHtml(contact.email || "Adicionar e-mail")}</small></button>
-        <button type="button" onclick="${contact.instagram ? `window.open('${escaparAttr(normalizarUrlInstagramLoja(contact.instagram))}', '_blank', 'noopener')` : "informarRecursoFuturoLoja('Instagram da loja')"}">${renderUiIcon("instagram")}<strong>Instagram</strong><small>${escaparHtml(contact.instagram || "Adicionar perfil")}</small></button>
+        <button type="button" onclick="${contact.whatsapp ? "abrirWhatsappLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<strong>WhatsApp</strong><small>${escaparHtml(contact.whatsapp || "Adicionar número")}</small></button>
+        <button type="button" onclick="${contact.email ? "abrirEmailLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('E-mail público')"}">${renderUiIcon("email")}<strong>E-mail</strong><small>${escaparHtml(contact.email || "Adicionar e-mail")}</small></button>
+        <button type="button" onclick="${contact.instagram ? "abrirInstagramLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('Instagram da loja')"}">${renderUiIcon("instagram")}<strong>Instagram</strong><small>${escaparHtml(contact.instagram || "Adicionar perfil")}</small></button>
         <button type="button">${renderUiIcon("agenda")}<strong>Endereço</strong><small>${escaparHtml(contact.address || "Atendimento online")}</small></button>
       </div>
     </aside>
@@ -19452,12 +19454,30 @@ function navegarLojaPublicaLink(event, element, options = {}) {
 
 function abrirWhatsappLojaPublica(mensagem = "") {
   const vm = getStorefrontPublicViewModel();
-  const phone = normalizarWhatsappLojaPublica(vm.store?.whatsapp || appConfig.whatsappNumber || "");
+  const contact = getStorefrontContactConfig(vm.store || {});
+  const phone = normalizarWhatsappLojaPublica(contact.whatsapp || "");
   if (!phone) return mostrarToast("WhatsApp da loja ainda não foi configurado.", "erro", 3600);
-  const configuredMessage = getStorefrontContactConfig(vm.store || {}).whatsapp_message;
+  const configuredMessage = contact.whatsapp_message;
   const texto = mensagem || `${configuredMessage || `Olá! Vim pela loja ${vm.store?.name || "Simplifica 3D"}.`}\n${getStorefrontPublicUrl(vm.route)}`;
   registrarEventoLojaPublica("whatsapp_click", { source: "storefront-public" }, { silent: true });
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+}
+
+function abrirInstagramLojaPublica() {
+  const vm = getStorefrontPublicViewModel();
+  const contact = getStorefrontContactConfig(vm.store || {});
+  const instagram = contact.instagram || appConfig.companyInstagram || "";
+  if (!String(instagram || "").trim()) return mostrarToast("Instagram da loja ainda não foi configurado.", "erro", 3600);
+  registrarEventoLojaPublica("instagram_click", { source: "storefront-public" }, { silent: true });
+  window.open(normalizarUrlInstagramLoja(instagram), "_blank", "noopener");
+}
+
+function abrirEmailLojaPublica() {
+  const vm = getStorefrontPublicViewModel();
+  const contact = getStorefrontContactConfig(vm.store || {});
+  const email = String(contact.email || appConfig.companyEmail || "").trim();
+  if (!email) return mostrarToast("E-mail da loja ainda não foi configurado.", "erro", 3600);
+  location.href = `mailto:${email}`;
 }
 
 function abrirWhatsappProdutoLojaPublica(productId = "") {
@@ -19465,6 +19485,15 @@ function abrirWhatsappProdutoLojaPublica(productId = "") {
   if (!product) return mostrarToast("Produto não encontrado.", "erro", 3200);
   registrarEventoLojaPublica("whatsapp_click", { product_id: product.id }, { silent: true });
   abrirWhatsappLojaPublica(montarMensagemProdutoLojaPublica(product, vm));
+}
+
+if (typeof window !== "undefined") {
+  Object.assign(window, {
+    abrirWhatsappLojaPublica,
+    abrirInstagramLojaPublica,
+    abrirEmailLojaPublica,
+    abrirWhatsappProdutoLojaPublica
+  });
 }
 
 function getStorefrontShareContext(url = getStorefrontPublicUrl()) {
