@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v152-storefront-slug-conflict-20260606";
+const CACHE_NAME = "simplifica-3d-v153-storefront-idempotency-20260606";
 const APP_FILES = [
   "./",
   "./index.html",

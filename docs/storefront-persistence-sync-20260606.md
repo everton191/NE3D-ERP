@@ -28,8 +28,19 @@
    local da respectiva loja.
 7. Antes de criar uma loja remota, o app recupera a loja ja pertencente ao
    usuario. Se o endereco inicial pertencer a outra loja, a primeira criacao
-   recebe um sufixo estavel do proprietario. Alteracoes manuais para enderecos
-   ocupados sao recusadas com mensagem amigavel e nao entram em repeticao.
+   recebe um sufixo estavel do proprietario. O editor comum apenas exibe esse
+   endereco e nao permite altera-lo.
+8. O endereco publico e criado somente no primeiro INSERT. Edicoes de banner,
+   tema, contatos, configuracoes, publicacao e recuperacao de rascunho enviam
+   apenas campos mutaveis por UPDATE.
+9. Categorias e produtos sao localizados primeiro por ID e depois por
+   `store_id + slug`; retries e conflitos reconciliam o registro existente antes
+   de qualquer novo INSERT.
+10. Salvamentos e uploads possuem trava por operacao para impedir duplo toque,
+    reenvio simultaneo e duplicacao durante re-renderizacao.
+11. O modelo atual concentra contatos e tema em `stores.theme_config`; nao
+    existem tabelas separadas `store_contacts`, `store_theme` ou
+    `store_sections` nesta versao.
 
 ## Operacoes cobertas pela fila
 

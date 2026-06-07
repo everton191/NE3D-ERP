@@ -14277,7 +14277,7 @@ function aplicarStorefrontAutosavePayload(draft) {
     const next = {
       ...store,
       name: payload.storeName?.trim?.() || store.name,
-      slug: storefrontAdminSlugify(payload.storeSlug || store.slug || payload.storeName || store.name),
+      slug: store.slug || getStorefrontDefaultSlugLocal(),
       description: payload.storeDescription ?? store.description,
       whatsapp: String(payload.storeWhatsApp || store.whatsapp || "").replace(/\D/g, ""),
       instagram: payload.storeInstagram ?? store.instagram,
@@ -14420,15 +14420,7 @@ async function storefrontPersistPendingAction(item = {}) {
   }
   if (item.type === "store-status") {
     const store = getStorefrontAdminStoreLocal();
-    if (storefrontAdminIsLocalId(store.id, "store-")) {
-      await storefrontAdminPersistStoreRemote({ ...store, active: payload.active === true });
-      return;
-    }
-    await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(store.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ active: payload.active === true })
-    });
+    await storefrontAdminPersistStoreRemote({ ...store, active: payload.active === true });
     return;
   }
   if (item.type === "category-upsert") {
@@ -14486,14 +14478,13 @@ async function storefrontPersistPendingAction(item = {}) {
     const dataUrl = String(store[field] || "");
     if (!dataUrl.startsWith("data:")) return;
     const file = await storefrontDataUrlToFile(dataUrl, payload.fileName || `${payload.tipo || "imagem"}-loja.webp`);
-    const url = await uploadStorefrontAsset(file, { tipo: payload.tipo === "logo" ? "logo" : "banner" });
+    const url = await uploadStorefrontAsset(file, {
+      tipo: payload.tipo === "logo" ? "logo" : "banner",
+      assetKey: `${store.id}-${payload.tipo || "imagem"}`
+    });
     const next = { ...store, [field]: url };
     storefrontAdminSaveStore(next);
-    await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(store.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ [field]: url })
-    });
+    await storefrontAdminPersistStoreRemote(next);
     return;
   }
   if (item.type === "product-image-upload") {
@@ -14502,7 +14493,13 @@ async function storefrontPersistPendingAction(item = {}) {
     const product = getStorefrontAdminProductsLocal().find((entry) => String(entry.id) === String(image.product_id));
     if (!product || storefrontAdminIsLocalId(product.id, "prod-")) throw new Error("Produto ainda aguarda sincronização.");
     const file = await storefrontDataUrlToFile(image.image_url, payload.fileName || `${image.alt_text || "produto"}.webp`);
-    const url = await uploadStorefrontAsset(file, { tipo: "produto", productId: product.id });
+    const existingPath = `/rest/v1/store_product_images?select=*&product_id=eq.${encodeURIComponent(product.id)}&order_index=eq.${encodeURIComponent(Number(image.order_index || 0))}&alt_text=eq.${encodeURIComponent(image.alt_text || "")}&limit=1`;
+    const existingRows = await storefrontAdminRequest(existingPath);
+    if (existingRows?.[0]) {
+      storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, getStorefrontAdminImagesLocal().map((entry) => String(entry.id) === String(image.id) ? { ...entry, ...existingRows[0] } : entry));
+      return;
+    }
+    const url = await uploadStorefrontAsset(file, { tipo: "produto", productId: product.id, assetKey: image.id });
     const rows = await storefrontAdminRequest("/rest/v1/store_product_images", {
       method: "POST",
       headers: { Prefer: "return=representation" },
@@ -15129,6 +15126,21 @@ async function storefrontAdminRequest(path, options = {}) {
   return requisicaoSupabase(path, { ...options, telemetry: false });
 }
 
+const storefrontActiveOperations = new Set();
+
+function storefrontBeginOperation(key = "storefront-save") {
+  if (storefrontActiveOperations.has(key)) {
+    mostrarToast("Esta alteração já está sendo salva.", "info", 2200);
+    return false;
+  }
+  storefrontActiveOperations.add(key);
+  return true;
+}
+
+function storefrontEndOperation(key = "storefront-save") {
+  storefrontActiveOperations.delete(key);
+}
+
 function storefrontAdminIsLocalId(id, prefix = "") {
   const value = String(id || "");
   return !value || value.startsWith(prefix) || /^(cat|prod|img|store|draft)-/.test(value);
@@ -15156,20 +15168,37 @@ async function storefrontAdminUpsertCategory(category) {
     order_index: Number(category.order_index || 0),
     visible: category.visible !== false
   };
-  if (storefrontAdminIsLocalId(category.id, "cat-")) {
-    const rows = await storefrontAdminRequest("/rest/v1/store_categories", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(payload)
-    });
-    return rows?.[0] || category;
+  const storeId = encodeURIComponent(payload.store_id);
+  const slug = encodeURIComponent(payload.slug);
+  const findExisting = async () => {
+    if (category.id && !storefrontAdminIsLocalId(category.id, "cat-")) {
+      const byId = await storefrontAdminRequest(`/rest/v1/store_categories?select=*&id=eq.${encodeURIComponent(category.id)}&store_id=eq.${storeId}&limit=1`);
+      if (byId?.[0]) return byId[0];
+    }
+    const rows = await storefrontAdminRequest(`/rest/v1/store_categories?select=*&store_id=eq.${storeId}&slug=eq.${slug}&limit=1`);
+    return rows?.[0] || null;
+  };
+  let remoteId = (await findExisting())?.id || "";
+  if (!remoteId) {
+    try {
+      const rows = await storefrontAdminRequest("/rest/v1/store_categories", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(payload)
+      });
+      return rows?.[0] || category;
+    } catch (error) {
+      const existing = await findExisting();
+      if (!existing?.id) throw error;
+      remoteId = existing.id;
+    }
   }
-  await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(category.id)}`, {
+  const rows = await storefrontAdminRequest(`/rest/v1/store_categories?id=eq.${encodeURIComponent(remoteId)}`, {
     method: "PATCH",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: "return=representation" },
     body: JSON.stringify(payload)
   });
-  return category;
+  return rows?.[0] || { ...category, ...payload, id: remoteId };
 }
 
 async function storefrontAdminUpsertProduct(product) {
@@ -15193,20 +15222,37 @@ async function storefrontAdminUpsertProduct(product) {
     show_price: product.show_price !== false,
     public_observations: product.public_observations || null
   };
-  if (storefrontAdminIsLocalId(product.id, "prod-")) {
-    const rows = await storefrontAdminRequest("/rest/v1/store_products", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify(payload)
-    });
-    return rows?.[0] || product;
+  const storeId = encodeURIComponent(payload.store_id);
+  const slug = encodeURIComponent(payload.slug);
+  const findExisting = async () => {
+    if (product.id && !storefrontAdminIsLocalId(product.id, "prod-")) {
+      const byId = await storefrontAdminRequest(`/rest/v1/store_products?select=*&id=eq.${encodeURIComponent(product.id)}&store_id=eq.${storeId}&limit=1`);
+      if (byId?.[0]) return byId[0];
+    }
+    const rows = await storefrontAdminRequest(`/rest/v1/store_products?select=*&store_id=eq.${storeId}&slug=eq.${slug}&limit=1`);
+    return rows?.[0] || null;
+  };
+  let remoteId = (await findExisting())?.id || "";
+  if (!remoteId) {
+    try {
+      const rows = await storefrontAdminRequest("/rest/v1/store_products", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(payload)
+      });
+      return rows?.[0] || product;
+    } catch (error) {
+      const existing = await findExisting();
+      if (!existing?.id) throw error;
+      remoteId = existing.id;
+    }
   }
-  await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(product.id)}`, {
+  const rows = await storefrontAdminRequest(`/rest/v1/store_products?id=eq.${encodeURIComponent(remoteId)}`, {
     method: "PATCH",
-    headers: { Prefer: "return=minimal" },
+    headers: { Prefer: "return=representation" },
     body: JSON.stringify(payload)
   });
-  return product;
+  return rows?.[0] || { ...product, ...payload, id: remoteId };
 }
 
 function validarArquivoStorefrontImagem(file, tipo = "produto") {
@@ -15272,7 +15318,7 @@ function compressStorefrontImageWithHtmlCanvas(file, maxSide = 1200, quality = 0
   });
 }
 
-async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } = {}) {
+async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", assetKey = "" } = {}) {
   const store = storefrontAdminRequireRemoteStore();
   const blob = await compressStorefrontImage(file, tipo);
   validarArquivoStorefrontImagem(blob, tipo);
@@ -15281,7 +15327,9 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } 
   const storeId = segmentoStorageSeguro(store.id, "store");
   const ext = extensaoImagemBlob(blob.type || file.type || "image/webp");
   const safeName = segmentoStorageSeguro((file.name || tipo).replace(/\.[^.]+$/, ""), tipo);
-  const unique = `${Date.now()}-${Math.random().toString(16).slice(2)}-${safeName}.${ext}`;
+  const unique = assetKey
+    ? `${segmentoStorageSeguro(assetKey, tipo)}-${safeName}.${ext}`
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}-${safeName}.${ext}`;
   const path = tipo === "logo"
     ? `${owner}/${storeId}/logo/${unique}`
     : tipo === "banner"
@@ -15298,7 +15346,7 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "" } 
     method: "POST",
     headers: cabecalhosSupabase(true, {
       "Content-Type": blob.type || "image/webp",
-      "x-upsert": "false"
+      "x-upsert": assetKey ? "true" : "false"
     }),
     body: blob
   });
@@ -15481,6 +15529,14 @@ async function storefrontAdminFindRemoteStoreByOwner() {
   return rows?.[0] || null;
 }
 
+async function storefrontAdminFindRemoteStore(store = {}) {
+  if (store?.id && !storefrontAdminIsLocalId(store.id, "store-")) {
+    const rows = await storefrontAdminRequest(`/rest/v1/stores?select=*&id=eq.${encodeURIComponent(store.id)}&owner_id=eq.${encodeURIComponent(storefrontAdminCurrentOwnerId())}&limit=1`);
+    if (rows?.[0]) return rows[0];
+  }
+  return storefrontAdminFindRemoteStoreByOwner();
+}
+
 function storefrontAdminAdoptRemoteStore(remoteStore) {
   storefrontAdminSaveStore(remoteStore);
   storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.categories, getStorefrontAdminCategoriesLocal().map((category) => ({ ...category, store_id: remoteStore.id, owner_id: remoteStore.owner_id })));
@@ -15498,9 +15554,7 @@ async function storefrontAdminPatchStoreRemote(storeId, payload) {
 }
 
 async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStoreLocal()) {
-  const payload = {
-    owner_id: syncConfig.supabaseUserId,
-    slug: storefrontAdminSlugify(store.slug || store.name || getStorefrontDefaultSlugLocal()),
+  const mutablePayload = {
     name: store.name,
     description: store.description,
     logo_url: storefrontImagemRemotaOuNull(store.logo_url),
@@ -15510,45 +15564,43 @@ async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStore
     active: store.active === true,
     theme_config: store.theme_config || {}
   };
-  if (storefrontAdminIsLocalId(store.id, "store-")) {
-    const ownedStore = await storefrontAdminFindRemoteStoreByOwner();
-    if (ownedStore?.id) {
-      const remoteStore = await storefrontAdminPatchStoreRemote(ownedStore.id, { ...payload, slug: ownedStore.slug });
-      return storefrontAdminAdoptRemoteStore(remoteStore);
-    }
-    for (let attempt = -1; attempt < 4; attempt += 1) {
-      const candidatePayload = {
-        ...payload,
-        slug: attempt < 0 ? payload.slug : storefrontBuildOwnedSlugCandidate(payload.slug, attempt)
-      };
-      try {
-        const rows = await storefrontAdminRequest("/rest/v1/stores", {
-          method: "POST",
-          headers: { Prefer: "return=representation" },
-          body: JSON.stringify(candidatePayload)
-        });
-        if (rows?.[0]) return storefrontAdminAdoptRemoteStore(rows[0]);
-      } catch (error) {
-        if (!storefrontIsPublicSlugConflict(error)) throw error;
-        const remoteCreatedByAnotherSession = await storefrontAdminFindRemoteStoreByOwner();
-        if (remoteCreatedByAnotherSession?.id) {
-          const remoteStore = await storefrontAdminPatchStoreRemote(remoteCreatedByAnotherSession.id, {
-            ...payload,
-            slug: remoteCreatedByAnotherSession.slug
-          });
-          return storefrontAdminAdoptRemoteStore(remoteStore);
-        }
+  const existingStore = await storefrontAdminFindRemoteStore(store);
+  if (existingStore?.id) {
+    const remoteStore = await storefrontAdminPatchStoreRemote(existingStore.id, mutablePayload);
+    return storefrontAdminAdoptRemoteStore({ ...existingStore, ...remoteStore, slug: existingStore.slug });
+  }
+  const initialSlug = storefrontAdminSlugify(store.slug || store.name || getStorefrontDefaultSlugLocal());
+  for (let attempt = -1; attempt < 4; attempt += 1) {
+    const createPayload = {
+      owner_id: syncConfig.supabaseUserId,
+      slug: attempt < 0 ? initialSlug : storefrontBuildOwnedSlugCandidate(initialSlug, attempt),
+      ...mutablePayload
+    };
+    try {
+      const rows = await storefrontAdminRequest("/rest/v1/stores", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify(createPayload)
+      });
+      if (rows?.[0]) return storefrontAdminAdoptRemoteStore(rows[0]);
+    } catch (error) {
+      if (!storefrontIsPublicSlugConflict(error)) throw error;
+      const remoteCreatedByAnotherSession = await storefrontAdminFindRemoteStoreByOwner();
+      if (remoteCreatedByAnotherSession?.id) {
+        const remoteStore = await storefrontAdminPatchStoreRemote(remoteCreatedByAnotherSession.id, mutablePayload);
+        mostrarToast("A sincronização foi concluída sem duplicar informações.", "sucesso", 2800);
+        return storefrontAdminAdoptRemoteStore({ ...remoteCreatedByAnotherSession, ...remoteStore, slug: remoteCreatedByAnotherSession.slug });
       }
     }
-    throw new Error("Não foi possível reservar um endereço público exclusivo para esta loja.");
   }
-  return storefrontAdminPatchStoreRemote(store.id, payload);
+  throw new Error("Não foi possível concluir a criação da loja agora. Tente sincronizar novamente.");
 }
 
 async function salvarStorefrontAparencia(event) {
   event?.preventDefault?.();
   const form = event?.target || document.getElementById("storefrontAppearanceForm");
   if (!form) return;
+  if (!storefrontBeginOperation("storefront-appearance-save")) return;
   const botao = form.querySelector("button[type='submit']");
   try {
     const store = getStorefrontAdminStoreLocal();
@@ -15560,8 +15612,7 @@ async function salvarStorefrontAparencia(event) {
     const bannerCtaLabel = validarTextoVisualLoja(form.storeBannerCtaLabel?.value || store.theme_config?.banner_cta_label || "Ver catálogo", 24, "texto do botão");
     const whatsapp = normalizarWhatsappLojaPublica(form.storeWhatsApp?.value || "");
     if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
-    const slug = storefrontAdminSlugify(form.storeSlug?.value || store.slug || name);
-    if (!slug) throw new Error("Informe um slug válido.");
+    const slug = store.slug || getStorefrontDefaultSlugLocal();
     const next = {
       ...store,
       name,
@@ -15583,9 +15634,9 @@ async function salvarStorefrontAparencia(event) {
       }
     };
     if (!await requestSensitiveActionConfirmation({
-      actionLabel: "alterar identidade visual e link da loja",
+      actionLabel: "alterar identidade visual da loja",
       titulo: "Autorizar identidade da loja",
-      mensagem: "Confirme sua senha antes de alterar nome, slug, logo, banner, cores ou identidade pública da loja.",
+      mensagem: "Confirme sua senha antes de alterar nome, logo, banner, cores ou identidade pública da loja.",
       confirmar: "Autorizar alteração",
       cancelar: "Cancelar",
       exigirConfirmacaoVisual: true
@@ -15597,10 +15648,6 @@ async function salvarStorefrontAparencia(event) {
       try {
         await storefrontAdminPersistStoreRemote(next);
       } catch (syncError) {
-        if (storefrontIsPublicSlugConflict(syncError)) {
-          storefrontAdminSaveStore(store);
-          throw new Error("Este endereço da loja já está em uso. Escolha outro endereço e tente novamente.");
-        }
         syncPending = true;
         storefrontQueuePendingAction("store-upsert", next);
         registrarStorefrontDebugLeve("persistencia_falhou", "Aparência salva localmente e aguardando sincronização.", { message: syncError?.message || String(syncError) });
@@ -15620,10 +15667,13 @@ async function salvarStorefrontAparencia(event) {
     console.error("[Storefront admin] salvar aparência", error);
   } finally {
     setBotaoLoading(botao, false);
+    storefrontEndOperation("storefront-appearance-save");
   }
 }
 
 async function alternarStatusLojaOnline() {
+  if (!storefrontBeginOperation("storefront-status-save")) return;
+  try {
   const store = getStorefrontAdminStoreLocal();
   if (!store.active && !exigirChecklistPublicacaoLoja({ intent: "publicar" })) return;
   if (!await requestSensitiveActionConfirmation({
@@ -15641,12 +15691,8 @@ async function alternarStatusLojaOnline() {
   storefrontAdminSaveStore(next);
   let syncPending = false;
   try {
-    if (storefrontAdminRemoteReady() && next.id && !String(next.id).startsWith("store-")) {
-      await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({ active: next.active === true })
-      });
+    if (storefrontAdminRemoteReady()) {
+      await storefrontAdminPersistStoreRemote(next);
     } else {
       syncPending = true;
       storefrontQueuePendingAction("store-status", { id: next.id, active: next.active === true });
@@ -15669,6 +15715,9 @@ async function alternarStatusLojaOnline() {
     registrarStorefrontDebugLeve("save_falhou", "Falha ao sincronizar status da loja.", { message: error?.message || String(error) });
   }
   renderApp();
+  } finally {
+    storefrontEndOperation("storefront-status-save");
+  }
 }
 
 function abrirEditorCategoriaLojaOnline(id = "") {
@@ -15680,6 +15729,7 @@ function abrirEditorCategoriaLojaOnline(id = "") {
 async function salvarCategoriaLojaOnline(event) {
   event?.preventDefault?.();
   const form = event?.target;
+  if (!storefrontBeginOperation("storefront-category-save")) return;
   const botao = form?.querySelector?.("button[type='submit']");
   setBotaoLoading(botao, true, "Salvando...");
   const store = getStorefrontAdminStoreLocal();
@@ -15729,6 +15779,7 @@ async function salvarCategoriaLojaOnline(event) {
     console.error("[Storefront admin] salvar categoria", error);
   } finally {
     setBotaoLoading(botao, false);
+    storefrontEndOperation("storefront-category-save");
   }
 }
 
@@ -15941,6 +15992,7 @@ async function salvarProdutoLojaOnline(event) {
   const store = getStorefrontAdminStoreLocal();
   const products = getStorefrontAdminProductsLocal();
   if (isStorefrontProductMobileFlow() && !validarTodasEtapasProdutoLojaOnline(form)) return;
+  if (!storefrontBeginOperation("storefront-product-save")) return;
   try {
     const id = getStorefrontProductFormField(form, "productId")?.value || "";
     const title = validarTextoVisualLoja(getStorefrontProductFormField(form, "productTitle")?.value, 60, "nome do produto");
@@ -16017,6 +16069,7 @@ async function salvarProdutoLojaOnline(event) {
     console.error("[Storefront admin] salvar produto", error);
   } finally {
     setBotaoLoading(botao, false);
+    storefrontEndOperation("storefront-product-save");
   }
 }
 
@@ -16398,6 +16451,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
     input.value = "";
     return mostrarToast(`Limite de ${maxImages} foto(s) por produto neste plano.`, "erro", 4200);
   }
+  if (!storefrontBeginOperation(`storefront-product-image:${productId}`)) return;
   for (const file of files.slice(0, maxImages - atuais)) {
     try {
       validarArquivoStorefrontImagem(file, "produto");
@@ -16504,6 +16558,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
   }
   input.value = "";
   renderApp();
+  storefrontEndOperation(`storefront-product-image:${productId}`);
 }
 
 function getStorefrontCropConfig(tipo = "banner") {
@@ -16627,6 +16682,7 @@ async function processarImagemLojaOnline(tipo, input) {
 
 async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
   if (!file) return;
+  if (!storefrontBeginOperation(`storefront-store-image:${tipo}`)) return;
   try {
     setStorefrontUploadStatus({
       type: "info",
@@ -16641,11 +16697,7 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
     const field = tipo === "logo" ? "logo_url" : "banner_url";
     const next = { ...store, [field]: url };
     storefrontAdminSaveStore(next);
-    await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
-      method: "PATCH",
-      headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ [field]: url })
-    });
+    await storefrontAdminPersistStoreRemote(next);
     limparStorefrontAlteracoesPendentes(tipo === "logo" ? "Logo salva" : "Banner salvo");
     setStorefrontUploadStatus({
       type: "success",
@@ -16691,6 +16743,7 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
     renderApp();
   } finally {
     if (input) input.value = "";
+    storefrontEndOperation(`storefront-store-image:${tipo}`);
   }
 }
 
@@ -16978,7 +17031,6 @@ function criarStorefrontPreviewVmDoFormulario(form) {
   const baseStore = { ...vm.store };
   const theme = { ...(baseStore.theme_config || {}) };
   if (form.storeName) baseStore.name = String(form.storeName.value || "").trim() || baseStore.name;
-  if (form.storeSlug) baseStore.slug = storefrontAdminSlugify(form.storeSlug.value || baseStore.slug || "");
   if (form.storeDescription) baseStore.description = String(form.storeDescription.value || "").trim();
   if (form.storeWhatsApp) baseStore.whatsapp = String(form.storeWhatsApp.value || "").replace(/\D/g, "");
   if (form.storeInstagram) baseStore.instagram = String(form.storeInstagram.value || "").trim();
@@ -17896,6 +17948,7 @@ async function salvarStorefrontContatos(event) {
   event?.preventDefault?.();
   const form = event?.target || document.getElementById("storeContactAdminForm");
   if (!form) return;
+  if (!storefrontBeginOperation("storefront-contacts-save")) return;
   const botao = form.querySelector("button[type='submit']");
   try {
     const store = getStorefrontAdminStoreLocal();
@@ -17929,20 +17982,22 @@ async function salvarStorefrontContatos(event) {
     })) return;
     setBotaoLoading(botao, true, "Salvando...");
     storefrontAdminSaveStore(next);
-    if (storefrontAdminRemoteReady() && next.id && !storefrontAdminIsLocalId(next.id, "store-")) {
-      await storefrontAdminRequest(`/rest/v1/stores?id=eq.${encodeURIComponent(next.id)}`, {
-        method: "PATCH",
-        headers: { Prefer: "return=minimal" },
-        body: JSON.stringify({
-          whatsapp: contact.whatsapp || null,
-          instagram: contact.instagram || null,
-          theme_config: next.theme_config || {}
-        })
-      });
+    let syncPending = false;
+    if (storefrontAdminRemoteReady()) {
+      try {
+        await storefrontAdminPersistStoreRemote(next);
+      } catch (syncError) {
+        syncPending = true;
+        storefrontQueuePendingAction("store-upsert", next);
+        registrarStorefrontDebugLeve("persistencia_falhou", "Contatos salvos localmente e aguardando sincronização.", { message: syncError?.message || String(syncError) });
+      }
+    } else {
+      syncPending = true;
+      storefrontQueuePendingAction("store-upsert", next);
     }
-    limparStorefrontAlteracoesPendentes("Contatos salvos");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Contatos salvos neste aparelho; sincronização pendente" : "Contatos salvos");
     registrarStorefrontActivity("Contatos atualizados", "Canais de atendimento da loja foram salvos.");
-    mostrarToast("Contatos da loja salvos.", "sucesso", 2600);
+    mostrarToast(syncPending ? "Contatos salvos neste aparelho. Sincronização pendente." : "Contatos da loja salvos.", syncPending ? "aviso" : "sucesso", 3000);
     fecharPopup();
     renderApp();
   } catch (error) {
@@ -17950,6 +18005,7 @@ async function salvarStorefrontContatos(event) {
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar contatos da loja.", { message: error?.message || String(error) });
   } finally {
     setBotaoLoading(botao, false);
+    storefrontEndOperation("storefront-contacts-save");
   }
 }
 
@@ -19647,7 +19703,7 @@ function renderStorefrontAppearance(vm) {
           </div>
           <div class="form-grid">
           <label>Nome público<input name="storeName" required maxlength="50" value="${escaparAttr(vm.store.name || "")}"></label>
-          <label>Slug<input name="storeSlug" value="${escaparAttr(vm.store.slug || "")}"></label>
+          <label>Endereço público<input value="${escaparAttr(vm.store.slug || "")}" readonly aria-readonly="true" title="O endereço público permanece fixo para evitar links quebrados."></label>
           <label>WhatsApp<input name="storeWhatsApp" inputmode="tel" value="${escaparAttr(vm.store.whatsapp || "")}"></label>
           <label>Instagram<input name="storeInstagram" value="${escaparAttr(vm.store.instagram || "")}"></label>
           </div>

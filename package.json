@@ -61,6 +61,7 @@
     "test:storefront-mobile-resilience": "node scripts/test-storefront-mobile-resilience.js",
     "test:storefront-offline-recovery": "node scripts/test-storefront-offline-recovery.js",
     "test:storefront-persistence-sync": "node scripts/test-storefront-persistence-sync.js",
+    "test:storefront-idempotency": "node scripts/test-storefront-idempotency.js",
     "test:storefront-publish-validation": "node scripts/test-storefront-publish-validation.js",
     "test:storefront-share-links": "node scripts/test-storefront-share-links.js",
     "test:storefront-og-meta": "node scripts/test-storefront-og-meta.js",
