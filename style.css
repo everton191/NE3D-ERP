@@ -30367,6 +30367,15 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   grid-template-columns:clamp(320px, 26vw, 380px) minmax(0, 1fr);
 }
 
+.store-public-shell[data-storefront-source="v2"].store-public-admin-mode .store-visual-editor-canvas{
+  padding-bottom:clamp(220px, 45vh, 480px);
+}
+
+.store-public-shell[data-storefront-source="v2"].store-public-admin-mode{
+  overflow-x:clip;
+  overflow-y:visible;
+}
+
 .store-public-shell[data-storefront-source="v2"] .store-public-product-grid{
   grid-template-columns:repeat(4, minmax(240px, 1fr));
 }
@@ -30411,6 +30420,13 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 .store-guided-product-photo{
   display:grid;
   gap:8px;
+}
+
+@media (min-width:1181px){
+  .store-public-shell[data-storefront-source="v2"] .store-visual-editor-frame{
+    overflow-x:clip;
+    overflow-y:visible;
+  }
 }
 
 .store-guided-product-photo img{
@@ -30563,7 +30579,7 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   }
 
   .store-public-admin-mode .store-visual-editor-canvas{
-    padding-bottom:calc(78px + var(--app-safe-bottom));
+    padding-bottom:calc(44vh + 78px + var(--app-safe-bottom));
   }
 
   .store-unsaved-actions{

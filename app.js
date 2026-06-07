@@ -17701,6 +17701,43 @@ function restaurarExemplosLojaVisual() {
   renderApp();
 }
 
+function alinharSelecaoLojaVisual() {
+  const scroller = document.getElementById(APP_LAYER_IDS.content);
+  const candidates = Array.from(document.querySelectorAll(".store-guided-selected"));
+  if (!scroller || !candidates.length) return;
+
+  const scrollerRect = scroller.getBoundingClientRect();
+  const visibleCenter = scrollerRect.top + (scroller.clientHeight / 2);
+  const target = candidates.reduce((closest, candidate) => {
+    const rect = candidate.getBoundingClientRect();
+    const distance = Math.abs((rect.top + (rect.height / 2)) - visibleCenter);
+    return !closest || distance < closest.distance ? { candidate, distance } : closest;
+  }, null)?.candidate;
+  if (!target) return;
+
+  const targetRect = target.getBoundingClientRect();
+  const topbar = document.querySelector(".store-visual-editor-topbar");
+  const topbarHeight = Math.max(0, Number(topbar?.getBoundingClientRect().height) || 0);
+  const mobilePanel = isMobile() && storefrontGuidedPanelOpen
+    ? document.querySelector(".store-guided-editor-sidebar.is-open")
+    : null;
+  const mobilePanelHeight = Math.min(scroller.clientHeight * 0.42, Number(mobilePanel?.getBoundingClientRect().height) || 0);
+  const visibleTop = scrollerRect.top + topbarHeight;
+  const visibleHeight = Math.max(180, scroller.clientHeight - topbarHeight - mobilePanelHeight);
+  const targetHeight = Math.min(targetRect.height, visibleHeight * 0.78);
+  const desiredTop = visibleTop + Math.max(16, (visibleHeight - targetHeight) / 2);
+  const nextTop = Math.max(0, Math.min(
+    scroller.scrollHeight - scroller.clientHeight,
+    scroller.scrollTop + targetRect.top - desiredTop
+  ));
+
+  try {
+    scroller.scrollTo({ top: nextTop, behavior: "smooth" });
+  } catch (_) {
+    scroller.scrollTop = nextTop;
+  }
+}
+
 function selecionarItemLojaVisual(type = "overview", id = "") {
   const nextSelection = { type: String(type || "overview"), id: String(id || "") };
   const current = getStorefrontGuidedSelection();
@@ -17719,6 +17756,8 @@ function selecionarItemLojaVisual(type = "overview", id = "") {
       } catch (_) {
         panel?.focus?.();
       }
+      requestAnimationFrame(() => requestAnimationFrame(alinharSelecaoLojaVisual));
+      window.setTimeout(alinharSelecaoLojaVisual, 180);
     });
   };
   if (changed) storefrontFlushAutosaveNow();
@@ -17748,6 +17787,7 @@ function editarProdutoPublicadoLojaOnline(id = "") {
 if (typeof window !== "undefined") {
   Object.assign(window, {
     selecionarItemLojaVisual,
+    alinharSelecaoLojaVisual,
     fecharPainelEdicaoGuiadaLoja,
     editarProdutoPublicadoLojaOnline
   });
