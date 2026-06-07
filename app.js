@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.25-rc";
-const APP_VERSION_CODE = 24;
+const APP_VERSION = "1.0.26-rc";
+const APP_VERSION_CODE = 25;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -8495,7 +8495,12 @@ function fecharNavegacaoContextualLojaSeExistir() {
   return false;
 }
 
-function navegarVoltarLojaSeguroInterno() {
+function navegarVoltarLojaSeguroInterno(ignoreDirty = false) {
+  const editingStorefront = telaAtual === "lojaAdmin" || (telaAtual === "lojaPublica" && getStorefrontPublicMode().admin);
+  if (!ignoreDirty && editingStorefront && getStorefrontDirtyState().dirty) {
+    solicitarNavegacaoSeguraLoja(() => navegarVoltarLojaSeguroInterno(true));
+    return true;
+  }
   if (telaAtual === "lojaAdmin") {
     abrirLojaPublicaAdminContextual({
       slug: getStorefrontAdminStoreLocal().slug || "ne3d-teste",
@@ -13980,7 +13985,8 @@ const STOREFRONT_ADMIN_KEYS = {
   editorMode: "simplifica-storefront-admin-editor-mode-v1",
   autosave: "simplifica-storefront-admin-autosave-v1",
   recovery: "simplifica-storefront-admin-recovery-v1",
-  offlineQueue: "simplifica-storefront-admin-offline-queue-v1"
+  offlineQueue: "simplifica-storefront-admin-offline-queue-v1",
+  dismissedExamples: "simplifica-storefront-admin-dismissed-examples-v1"
 };
 const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme_preference";
 const STOREFRONT_THEME_LEGACY_STORAGE_KEY = "simplifica3d_store_theme";
@@ -14199,6 +14205,77 @@ function getStorefrontDirtyState() {
   } catch (_) {
     return { dirty: false };
   }
+}
+
+let storefrontPendingNavigationAction = null;
+
+function concluirNavegacaoPendenteLoja() {
+  const action = storefrontPendingNavigationAction;
+  storefrontPendingNavigationAction = null;
+  if (typeof action === "function") action();
+}
+
+function renderStorefrontUnsavedChangesModal() {
+  return `
+    <div class="modal-backdrop store-unsaved-backdrop" role="dialog" aria-modal="true" aria-labelledby="store-unsaved-title">
+      <section class="modal-card store-unsaved-modal">
+        <div class="modal-header">
+          <div>
+            <span class="status-badge badge-warning">Alterações não salvas</span>
+            <h2 id="store-unsaved-title">Deseja sair sem salvar?</h2>
+            <p class="muted">Você tem alterações não salvas nesta parte da loja.</p>
+          </div>
+          <button class="icon-button" type="button" onclick="cancelarNavegacaoPendenteLoja()" title="Fechar">✕</button>
+        </div>
+        <div class="store-unsaved-actions">
+          <button class="btn secondary" type="button" onclick="cancelarNavegacaoPendenteLoja()">Continuar editando</button>
+          <button class="btn" type="button" onclick="salvarENavegarLoja()">Salvar e sair</button>
+          <button class="btn ghost danger" type="button" onclick="descartarENavegarLoja()">Sair sem salvar</button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function solicitarNavegacaoSeguraLoja(action) {
+  if (typeof action !== "function") return false;
+  if (!getStorefrontDirtyState().dirty) {
+    action();
+    return true;
+  }
+  storefrontPendingNavigationAction = action;
+  const popup = document.getElementById("popup");
+  if (popup) popup.innerHTML = renderStorefrontUnsavedChangesModal();
+  else if (window.confirm("Você tem alterações não salvas. Deseja sair sem salvar?")) descartarENavegarLoja();
+  return false;
+}
+
+function cancelarNavegacaoPendenteLoja() {
+  storefrontPendingNavigationAction = null;
+  fecharPopup();
+}
+
+function descartarENavegarLoja() {
+  limparStorefrontAlteracoesPendentes("Alterações descartadas");
+  fecharPopup();
+  concluirNavegacaoPendenteLoja();
+}
+
+function salvarEdicaoVisualAtualLoja() {
+  const form = document.querySelector(".store-guided-context-panel .store-guided-form");
+  if (form?.requestSubmit) {
+    form.requestSubmit();
+    return true;
+  }
+  limparStorefrontAlteracoesPendentes("Alterações salvas");
+  mostrarToast("Alterações salvas.", "sucesso", 2200);
+  renderApp();
+  return false;
+}
+
+function salvarENavegarLoja() {
+  fecharPopup();
+  if (!salvarEdicaoVisualAtualLoja()) concluirNavegacaoPendenteLoja();
 }
 
 let storefrontAutosaveTimer = null;
@@ -14903,12 +14980,12 @@ function getStorefrontDemoBannerImage() {
 function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   const ownerId = store.owner_id || getStorefrontOwnerIdLocal();
   const demoCategories = [
-    ["Carimbos", "▣"],
-    ["Chaveiros", "◉"],
-    ["Topos de bolo", "♕"],
-    ["Cortadores", "◇"],
-    ["Lembrancinhas", "★"],
-    ["Decoração", "◒"]
+    ["Peças técnicas", "▣"],
+    ["Protótipos", "◉"],
+    ["Miniaturas", "♕"],
+    ["Modelos orgânicos", "◇"],
+    ["Maquetes", "▱"],
+    ["Decoração", "◇"]
   ].map(([name, icon], index) => ({
     id: `demo-cat-${storefrontAdminSlugify(name)}`,
     store_id: store.id,
@@ -14922,12 +14999,12 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   }));
   const categoryBySlug = (slug) => demoCategories.find((cat) => cat.slug === slug)?.id || demoCategories[0]?.id || null;
   const demoProducts = [
-    ["Carimbo personalizado", "carimbos", 19.9, true, "2 a 4 dias úteis", "stamp", "Produzido sob encomenda para doces, biscuit e identidade da sua marca."],
-    ["Chaveiro personalizado", "chaveiros", 24.9, false, "2 a 4 dias úteis", "keychain", "Peça leve com argola, pronta para personalizar com nome, tema ou logotipo."],
-    ["Topo de bolo personalizado", "topos-de-bolo", 29.9, false, "3 a 5 dias úteis", "topper", "Modelo decorativo para festas, nomes e datas especiais."],
-    ["Cortador para confeitaria", "cortadores", 18.9, false, "2 a 4 dias úteis", "cutter", "Cortador temático para biscoitos, massas e trabalhos artesanais."],
-    ["Lembrancinha personalizada", "lembrancinhas", 14.9, false, "3 a 6 dias úteis", "keepsake", "Pequena peça sob medida para eventos, brindes e presentes."],
-    ["Decoração impressa em 3D", "decoracao", 64.9, false, "2 a 4 dias úteis", "vase", "Vaso decorativo impresso em 3D para mesas, estantes e ambientes criativos."]
+    ["Peça técnica flexível", "pecas-tecnicas", 39.9, true, "Prazo sob consulta", "stamp", "Exemplo de estrutura técnica impressa para testes, encaixes e aplicações especiais."],
+    ["Protótipo funcional", "prototipos", 54.9, false, "Prazo sob consulta", "keychain", "Modelo funcional para validar forma, encaixe e montagem antes da produção final."],
+    ["Miniatura personalizada", "miniaturas", 69.9, false, "3 a 7 dias úteis", "topper", "Miniatura detalhada para coleção, presente ou projeto criativo."],
+    ["Modelo orgânico", "modelos-organicos", 44.9, false, "Prazo sob consulta", "cutter", "Forma orgânica impressa para estudo, apresentação ou desenvolvimento de produto."],
+    ["Maquete arquitetônica", "maquetes", 149.9, false, "Prazo sob consulta", "keepsake", "Maquete física para apresentar volumes, fachadas e detalhes de um projeto."],
+    ["Vaso decorativo", "decoracao", 34.9, false, "2 a 4 dias úteis", "vase", "Vaso decorativo impresso em 3D para mesas, estantes e ambientes criativos."]
   ].map(([title, categorySlug, price, featured, time, visual, description]) => ({
     id: `demo-prod-${storefrontAdminSlugify(title)}`,
     store_id: store.id,
@@ -14981,7 +15058,9 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
     theme_config: {
       primary: store.theme_config?.primary || "#00BFA6",
       accent: store.theme_config?.accent || "#FF8A1F",
-      mode: normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved())
+      mode: normalizarTemaLojaOnline(store.theme_config?.mode || getStoreThemeSaved()),
+      template_id: store.theme_config?.template_id || "impressao-3d",
+      template_name: store.theme_config?.template_name || "Impressão 3D"
     },
     __demo: true
   };
@@ -15460,16 +15539,17 @@ function getStorefrontAdminViewModel() {
   const hasStoredEvents = storefrontAdminHasStoredValue("simplifica-storefront-events-preview-v1");
   const storedCategories = getStorefrontAdminCategoriesLocal();
   const storedProducts = getStorefrontAdminProductsLocal();
+  const dismissedExamples = new Set(storefrontAdminRead(STOREFRONT_ADMIN_KEYS.dismissedExamples, []));
   const storedCategoryBySlug = new Map(storedCategories.map((category) => [String(category.slug || ""), category.id]));
   const storedProductKeys = new Set(storedProducts.flatMap((product) => [String(product.id || ""), String(product.slug || "")]).filter(Boolean));
   const demoCategorySlugById = new Map((demoPreview?.categories || []).map((category) => [String(category.id), String(category.slug || "")]));
   const useDemoCategories = demoAllowed && demoPreview.categories.length > 0;
   const useDemoProducts = demoAllowed && demoPreview.products.length > 0;
   const demoCategories = useDemoCategories
-    ? demoPreview.categories.filter((category) => !storedCategoryBySlug.has(String(category.slug || "")))
+    ? demoPreview.categories.filter((category) => !dismissedExamples.has(String(category.id)) && !storedCategoryBySlug.has(String(category.slug || "")))
     : [];
   const demoProducts = useDemoProducts
-    ? demoPreview.products.filter((product) => !storedProductKeys.has(String(product.id || "")) && !storedProductKeys.has(String(product.slug || ""))).map((product) => {
+    ? demoPreview.products.filter((product) => !dismissedExamples.has(String(product.id)) && !storedProductKeys.has(String(product.id || "")) && !storedProductKeys.has(String(product.slug || ""))).map((product) => {
       const demoCategorySlug = demoCategorySlugById.get(String(product.category_id || ""));
       return {
         ...product,
@@ -15661,6 +15741,7 @@ async function salvarStorefrontAparencia(event) {
     registrarStorefrontActivity("Aparência atualizada", "Nome, cores, links ou imagens da loja foram salvos.");
     mostrarToast(syncPending ? "Aparência salva neste aparelho. Sincronização pendente." : "Aparência da loja salva.", syncPending ? "aviso" : "sucesso", 3200);
     renderApp();
+    concluirNavegacaoPendenteLoja();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar a aparência.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar aparência da loja.", { message: error?.message || String(error) });
@@ -15739,7 +15820,7 @@ async function salvarCategoriaLojaOnline(event) {
     const name = form?.categoryName?.value?.trim();
     if (!name) throw new Error("Informe o nome da categoria.");
     const slug = storefrontAdminSlugify(form?.categorySlug?.value || name);
-    if (categories.some((cat) => cat.slug === slug && cat.id !== id)) throw new Error("Já existe categoria com este slug.");
+    if (categories.some((cat) => !cat.__demo && !cat.__template && cat.slug === slug && cat.id !== id)) throw new Error("Já existe categoria com este nome.");
     let nextCategory = {
       id: id || `cat-${Date.now()}`,
       store_id: store.id,
@@ -15770,9 +15851,11 @@ async function salvarCategoriaLojaOnline(event) {
     }
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingCategory);
     limparStorefrontAlteracoesPendentes(syncPending ? "Categoria salva neste aparelho; sincronização pendente" : "Categoria salva");
+    storefrontGuidedSelection = { type: "category", id: String(nextCategory.id || "") };
     registrarStorefrontActivity(id ? "Categoria atualizada" : "Categoria criada", nextCategory.name);
     mostrarToast(syncPending ? "Categoria salva neste aparelho. Sincronização pendente." : "Categoria salva.", syncPending ? "aviso" : "sucesso", 3200);
     renderApp();
+    concluirNavegacaoPendenteLoja();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar a categoria.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar categoria da loja.", { message: error?.message || String(error) });
@@ -15995,11 +16078,12 @@ async function salvarProdutoLojaOnline(event) {
   if (!storefrontBeginOperation("storefront-product-save")) return;
   try {
     const id = getStorefrontProductFormField(form, "productId")?.value || "";
+    const templateSourceId = getStorefrontProductFormField(form, "productTemplateSourceId")?.value || "";
     const title = validarTextoVisualLoja(getStorefrontProductFormField(form, "productTitle")?.value, 60, "nome do produto");
     if (!title) throw new Error("Informe o título público do produto.");
     const description = validarTextoVisualLoja(getStorefrontProductFormField(form, "productDescription")?.value, 180, "descrição");
     const slug = storefrontAdminSlugify(getStorefrontProductFormField(form, "productSlug")?.value || title);
-    if (products.some((product) => product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este slug.");
+    if (products.some((product) => !storefrontIsDemoProduct(product) && product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este nome.");
     const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
     if (!id && Number.isFinite(limits.productLimit) && limits.productLimit <= 0) throw new Error("Produtos da loja online ficam disponíveis no Start ou Pro.");
     if (!id && products.length >= limits.productLimit) throw new Error(`Limite de ${limits.productLimit} produto(s) para este plano.`);
@@ -16019,7 +16103,7 @@ async function salvarProdutoLojaOnline(event) {
       compare_price: priceMode === "promo" && compare > price ? compare : null,
       price_mode: priceMode,
       show_price: priceMode !== "quote" && !!getStorefrontProductFormField(form, "productShowPrice")?.checked,
-      category_id: getStorefrontProductFormField(form, "productCategory")?.value || null,
+      category_id: templateSourceId ? null : (getStorefrontProductFormField(form, "productCategory")?.value || null),
       visible: !!getStorefrontProductFormField(form, "productVisible")?.checked && store.active === true,
       featured: !!getStorefrontProductFormField(form, "productFeatured")?.checked,
       is_customizable: !!getStorefrontProductFormField(form, "productCustomizable")?.checked,
@@ -16060,9 +16144,11 @@ async function salvarProdutoLojaOnline(event) {
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
     limparStorefrontAlteracoesPendentes(syncPending ? "Produto salvo neste aparelho; sincronização pendente" : "Produto salvo");
+    storefrontGuidedSelection = { type: "product", id: String(nextProduct.id || "") };
     registrarStorefrontActivity(id ? "Produto atualizado" : "Produto criado", nextProduct.title);
     mostrarToast(syncPending ? "Produto salvo neste aparelho. Sincronização pendente." : (nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto."), syncPending ? "aviso" : "sucesso", 3400);
     renderApp();
+    concluirNavegacaoPendenteLoja();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar o produto.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar produto da loja.", { message: error?.message || String(error) });
@@ -17403,59 +17489,8 @@ function renderInlineStoreAd() {
 
 function renderStoreAdminControls(type = "", data = {}, vm = getStorefrontPublicViewModel()) {
   if (!getStorefrontPublicMode(vm).admin) return "";
-  const id = escaparAttr(data.id || "");
-  const tabByType = {
-    header: "appearance",
-    banner: "banner",
-    category: "categories",
-    categories: "categories",
-    product: "products",
-    catalog: "products"
-  };
-  const advancedTab = tabByType[type] || "overview";
-  const advanced = `<button type="button" onclick="abrirStorefrontAdminRoute('${advancedTab}')">Editar detalhes</button>`;
-  if (type === "header") {
-    return `<div class="store-context-controls store-context-controls-header">
-      <button type="button" onclick="selecionarItemLojaVisual('identity')">Editar identidade</button>
-      <button type="button" onclick="selecionarItemLojaVisual('contacts')">Editar contato</button>
-      ${advanced}
-    </div>`;
-  }
-  if (type === "banner") {
-    return `<div class="store-context-controls store-context-controls-floating">
-      <button type="button" onclick="selecionarItemLojaVisual('banner')">Editar banner</button>
-      <button type="button" onclick="alternarStatusLojaOnline()">Publicar</button>
-    </div>`;
-  }
-  if (type === "categories") {
-    return `<div class="store-context-controls store-context-controls-section">
-      <button type="button" onclick="setStorefrontAdminTab('categories'); abrirStorefrontAdminRoute('categories')">Nova categoria</button>
-      ${advanced}
-    </div>`;
-  }
-  if (type === "category") {
-    return `<span class="store-context-mini" onclick="event.preventDefault(); event.stopPropagation(); abrirEditorCategoriaLojaOnline('${id}')">Editar</span>`;
-  }
-  if (type === "product") {
-    const product = data || {};
-    return `<div class="store-context-controls store-context-controls-card">
-      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); editarProdutoPublicadoLojaOnline('${id}')">Editar</button>
-      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); alternarProdutoLojaOnline('${id}', 'visible')">${product.visible === false ? "Publicar" : "Ocultar"}</button>
-      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); alternarProdutoLojaOnline('${id}', 'featured')">${product.featured ? "Remover destaque" : "Destacar"}</button>
-      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); duplicarProdutoLojaOnline('${id}')">Duplicar</button>
-    </div>`;
-  }
-  if (type === "catalog") {
-    return `<div class="store-context-controls store-context-controls-section">
-      <button type="button" onclick="abrirEditorProdutoLojaOnline()">Novo produto</button>
-      ${advanced}
-    </div>`;
-  }
-  if (type === "contacts") {
-    return `<div class="store-context-controls store-context-controls-floating">
-      <button type="button" onclick="selecionarItemLojaVisual('contacts')">Editar contato</button>
-    </div>`;
-  }
+  void type;
+  void data;
   return "";
 }
 
@@ -17530,11 +17565,11 @@ function renderStorefrontReadinessMini(vm) {
   return `
     <section class="store-readiness-mini" aria-label="Progresso da loja">
       <div>
-        <span>Loja pronta</span>
+        <span>Sua loja está</span>
         <strong>${percent}%</strong>
       </div>
       <i aria-hidden="true"><b style="width:${percent}%"></b></i>
-      <small>${next ? `Próximo passo: ${escaparHtml(next.title)}` : "Tudo pronto para publicar com segurança."}</small>
+      <small>${next ? `Próximo passo: ${escaparHtml(next.title)}` : "Sua loja está pronta para publicar."}</small>
     </section>
   `;
 }
@@ -17636,19 +17671,51 @@ function atualizarFormularioGuiadoLoja(form, detail = "Alterações em edição"
   atualizarPreviewGuiadoLoja(form);
 }
 
-function selecionarItemLojaVisual(type = "overview", id = "") {
-  storefrontGuidedSelection = { type: String(type || "overview"), id: String(id || "") };
-  storefrontGuidedPanelOpen = true;
-  if (storefrontGuidedSelection.type === "overview" && isMobile()) {
-    mostrarToast("Toque em uma parte da loja para editar.", "info", 2400);
-  }
+function ocultarExemploLojaVisual(id = "") {
+  const exampleId = String(id || "").trim();
+  if (!exampleId) return;
+  const dismissed = new Set(storefrontAdminRead(STOREFRONT_ADMIN_KEYS.dismissedExamples, []));
+  dismissed.add(exampleId);
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.dismissedExamples, Array.from(dismissed));
+  storefrontGuidedSelection = { type: "overview", id: "" };
+  limparStorefrontAlteracoesPendentes("Exemplo removido");
+  mostrarToast("Item de exemplo removido da sua preparação.", "sucesso", 2600);
   renderApp();
-  requestAnimationFrame(() => document.querySelector(".store-guided-context-panel")?.focus?.());
+}
+
+function restaurarExemplosLojaVisual() {
+  storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.dismissedExamples);
+  storefrontGuidedSelection = { type: "overview", id: "" };
+  mostrarToast("Exemplos de Impressão 3D restaurados.", "sucesso", 2600);
+  renderApp();
+}
+
+function selecionarItemLojaVisual(type = "overview", id = "") {
+  const nextSelection = { type: String(type || "overview"), id: String(id || "") };
+  const current = getStorefrontGuidedSelection();
+  const changed = current.type !== nextSelection.type || current.id !== nextSelection.id;
+  const select = () => {
+    storefrontGuidedSelection = nextSelection;
+    storefrontGuidedPanelOpen = true;
+    if (storefrontGuidedSelection.type === "overview" && isMobile()) {
+      mostrarToast("Toque em uma parte da loja para editar.", "info", 2400);
+    }
+    renderApp();
+    requestAnimationFrame(() => document.querySelector(".store-guided-context-panel")?.focus?.());
+  };
+  if (changed) solicitarNavegacaoSeguraLoja(select);
+  else select();
 }
 
 function fecharPainelEdicaoGuiadaLoja() {
-  storefrontGuidedPanelOpen = false;
-  renderApp();
+  solicitarNavegacaoSeguraLoja(() => {
+    storefrontGuidedPanelOpen = false;
+    renderApp();
+  });
+}
+
+function voltarPainelLojaVisual() {
+  solicitarNavegacaoSeguraLoja(() => trocarTela("lojaOnline"));
 }
 
 function editarProdutoPublicadoLojaOnline(id = "") {
@@ -17725,17 +17792,21 @@ function renderStoreGuidedProductForm(vm, product = {}) {
       <section class="store-guided-panel-copy">
         <span>Produtos</span><h2>Produtos da loja</h2>
         <p>Selecione um produto na loja ou adicione um novo item.</p>
-        <div class="store-guided-actions"><button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button><button class="btn secondary" type="button" onclick="abrirStorefrontAdminRoute('products')">Organizar produtos</button></div>
+        <div class="store-guided-actions"><button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline()">Adicionar produto</button></div>
       </section>
     `;
   }
-  const catOptions = vm.categories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${String(product.category_id || "") === String(cat.id) ? "selected" : ""}>${escaparHtml(cat.name || "Categoria")}</option>`).join("");
+  const realCategories = vm.categories.filter((cat) => !cat.__demo && !cat.__template);
+  const catOptions = realCategories.map((cat) => `<option value="${escaparAttr(cat.id)}" ${String(product.category_id || "") === String(cat.id) ? "selected" : ""}>${escaparHtml(cat.name || "Categoria")}</option>`).join("");
   const isTemplate = !!(product.__demo || product.__template);
+  const productId = isTemplate ? "" : product.id || "";
+  const productImage = getStorefrontProductImage(product, vm.images || []);
   return `
     <form class="store-guided-form" oninput="atualizarFormularioGuiadoLoja(this, 'Produto em edição')" onsubmit="salvarProdutoLojaOnline(event)">
       <header><span>Produto</span><h2>${escaparHtml(product.title || "Produto")}</h2><p>Edite os dados que aparecem na loja.</p></header>
-      <input type="hidden" name="productId" value="${escaparAttr(product.id || "")}">
-      <input type="hidden" name="productSlug" value="${escaparAttr(product.slug || "")}">
+      <input type="hidden" name="productId" value="${escaparAttr(productId)}">
+      <input type="hidden" name="productTemplateSourceId" value="${escaparAttr(isTemplate ? product.id : "")}">
+      <input type="hidden" name="productSlug" value="${escaparAttr(isTemplate ? "" : product.slug || "")}">
       <input type="hidden" name="erpProductId" value="${escaparAttr(product.erp_product_id || "")}">
       <input type="hidden" name="productComparePrice" value="${escaparAttr(product.compare_price ?? "")}">
       <input type="hidden" name="productPriceMode" value="${escaparAttr(product.price_mode || "fixed")}">
@@ -17745,19 +17816,39 @@ function renderStoreGuidedProductForm(vm, product = {}) {
       <input type="checkbox" hidden name="productShowPrice" ${product.show_price !== false ? "checked" : ""}>
       <input type="checkbox" hidden name="productFeatured" ${product.featured ? "checked" : ""}>
       <input type="checkbox" hidden name="productCustomizable" ${product.is_customizable !== false ? "checked" : ""}>
-      <label>Nome<input name="productTitle" required maxlength="60" value="${escaparAttr(product.title || "")}" ${isTemplate ? "disabled" : ""}></label>
-      <label>Descrição<textarea name="productDescription" rows="3" maxlength="180" ${isTemplate ? "disabled" : ""}>${escaparHtml(product.description || "")}</textarea></label>
-      <label>Preço<input name="productPrice" inputmode="decimal" value="${escaparAttr(product.price ?? "")}" ${isTemplate ? "disabled" : ""}></label>
-      <label>Categoria<select name="productCategory" ${isTemplate ? "disabled" : ""}><option value="">Sem categoria</option>${catOptions}</select></label>
-      <label>Disponibilidade<select name="productStockMode" ${isTemplate ? "disabled" : ""}><option value="unlimited" ${(product.stock_mode || "unlimited") === "unlimited" ? "selected" : ""}>Disponível</option><option value="manual" ${product.stock_mode === "manual" ? "selected" : ""}>Estoque manual</option><option value="erp_linked" ${product.stock_mode === "erp_linked" ? "selected" : ""}>Vinculado ao estoque</option><option value="unavailable" ${product.stock_mode === "unavailable" ? "selected" : ""}>Indisponível</option></select></label>
-      <label class="checkbox-row"><input name="productVisible" type="checkbox" ${product.visible ? "checked" : ""} ${isTemplate ? "disabled" : ""}> Exibir na loja</label>
-      ${isTemplate ? `<p class="store-guided-hint">Este é um produto de exemplo. Use a edição completa para criar um item real a partir dele.</p>` : `
+      ${productImage ? `<div class="store-guided-product-photo"><img src="${escaparAttr(productImage)}" alt="${escaparAttr(product.title || "Produto")}"><span>${isTemplate ? "Foto de exemplo. Troque após salvar o seu produto." : "Foto atual do produto"}</span></div>` : ""}
+      <label>Nome<input name="productTitle" required maxlength="60" value="${escaparAttr(product.title || "")}"></label>
+      <label>Descrição<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(product.description || "")}</textarea></label>
+      <label>Valor<input name="productPrice" inputmode="decimal" value="${escaparAttr(product.price ?? "")}"></label>
+      <label>Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
+      <input type="hidden" name="productStockMode" value="${escaparAttr(product.stock_mode || "unlimited")}">
+      <label class="checkbox-row"><input name="productVisible" type="checkbox" ${!isTemplate && product.visible ? "checked" : ""}> Mostrar na loja</label>
+      ${isTemplate ? `<p class="store-guided-hint"><strong>Item de exemplo.</strong> Edite os dados e salve para criar seu produto sem duplicar o modelo. Depois, troque a foto antes de publicar.</p>` : `
         <label class="store-guided-upload">Adicionar foto<input type="file" accept="image/*" onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"><span>Imagem do produto</span></label>
       `}
       <div class="store-guided-actions">
-        ${isTemplate ? `<button class="btn" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">Usar como base</button>` : `<button class="btn" type="submit">Salvar produto</button>`}
-        <button class="btn secondary" type="button" onclick="abrirEditorProdutoLojaOnline('${escaparAttr(product.id)}')">Edição completa</button>
-        ${isTemplate ? "" : `<button class="btn ghost" type="button" onclick="duplicarProdutoLojaOnline('${escaparAttr(product.id)}')">Duplicar</button><button class="btn ghost danger" type="button" onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')">Excluir</button>`}
+        <button class="btn" type="submit">${isTemplate ? "Criar meu produto" : "Salvar produto"}</button>
+        ${isTemplate ? `<button class="btn ghost danger" type="button" onclick="ocultarExemploLojaVisual('${escaparAttr(product.id)}')">Excluir exemplo</button>` : `<button class="btn ghost danger" type="button" onclick="removerProdutoLojaOnline('${escaparAttr(product.id)}')">Excluir</button>`}
+      </div>
+    </form>
+  `;
+}
+
+function renderStoreGuidedCategoryForm(vm, category = {}) {
+  const isTemplate = !!(category.__demo || category.__template);
+  return `
+    <form class="store-guided-form" oninput="atualizarFormularioGuiadoLoja(this, 'Categoria em edição')" onsubmit="salvarCategoriaLojaOnline(event)">
+      <header><span>Categoria</span><h2>${escaparHtml(category.name || "Nova categoria")}</h2><p>Defina apenas o nome e a visibilidade. A organização é automática.</p></header>
+      <input type="hidden" name="categoryId" value="${escaparAttr(isTemplate ? "" : category.id || "")}">
+      <input type="hidden" name="categorySlug" value="${escaparAttr(isTemplate ? "" : category.slug || "")}">
+      <input type="hidden" name="categoryOrder" value="${escaparAttr(category.order_index || vm.categories.length + 1)}">
+      <label>Nome da categoria<input name="categoryName" required maxlength="40" value="${escaparAttr(category.name || "")}"></label>
+      <label>Ícone<input name="categoryIcon" maxlength="4" value="${escaparAttr(category.icon || "▦")}" placeholder="▦"></label>
+      <label class="checkbox-row"><input name="categoryVisible" type="checkbox" ${category.visible !== false ? "checked" : ""}> Mostrar na loja</label>
+      ${isTemplate ? `<p class="store-guided-hint"><strong>Categoria de exemplo.</strong> Edite o nome e salve para criar uma categoria sua.</p>` : ""}
+      <div class="store-guided-actions">
+        <button class="btn" type="submit">${isTemplate ? "Criar minha categoria" : "Salvar categoria"}</button>
+        ${isTemplate ? `<button class="btn ghost danger" type="button" onclick="ocultarExemploLojaVisual('${escaparAttr(category.id)}')">Excluir exemplo</button>` : category.id ? `<button class="btn ghost danger" type="button" onclick="excluirCategoriaLojaOnline('${escaparAttr(category.id)}')">Excluir</button>` : ""}
       </div>
     </form>
   `;
@@ -17790,8 +17881,7 @@ function renderStoreGuidedLinks(vm) {
       <div class="store-guided-link">${escaparHtml(url)}</div>
       <div class="store-guided-actions">
         ${shareEnabled ? `<button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja</button>` : `<button class="btn secondary" type="button" onclick="fecharPainelEdicaoGuiadaLoja()">Ver loja</button>`}
-        <button class="btn" type="button" onclick="copiarLinkLojaOnline()" ${shareEnabled ? "" : "disabled"}>Copiar link</button>
-        <button class="btn ghost" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')" ${shareEnabled ? "" : "disabled"}>Compartilhar</button>
+        <button class="btn" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
       </div>
     </section>
   `;
@@ -17802,14 +17892,15 @@ function renderStoreGuidedOverview(vm) {
     <section class="store-guided-panel-copy">
       <span>Editor guiado</span><h2>Clique na loja para editar</h2>
       <p>Escolha uma área da loja ou use um atalho abaixo.</p>
+      ${renderStorefrontReadinessMini(vm)}
       <div class="store-guided-shortcuts">
         <button type="button" onclick="selecionarItemLojaVisual('identity')"><i>▣</i><strong>Identidade</strong><small>Nome, descrição e logo</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('banner')"><i>◉</i><strong>Banner</strong><small>Imagem e chamada principal</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('products')"><i>▦</i><strong>Produtos</strong><small>Adicionar e organizar loja</small></button>
+        <button type="button" onclick="selecionarItemLojaVisual('categories')"><i>◇</i><strong>Categorias</strong><small>Nome e visibilidade</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('contacts')"><i>☎</i><strong>Contato</strong><small>WhatsApp e redes sociais</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('links')"><i>↗</i><strong>Link da loja</strong><small>Abrir e compartilhar loja</small></button>
       </div>
-      <button class="btn ghost store-guided-advanced" type="button" onclick="abrirStorefrontAdminRoute('overview')">Abrir configurações detalhadas</button>
     </section>
   `;
 }
@@ -17821,6 +17912,11 @@ function renderStoreGuidedContextPanel(vm) {
   if (selection.type === "contacts") return renderStoreGuidedContactsForm(vm);
   if (selection.type === "links") return renderStoreGuidedLinks(vm);
   if (selection.type === "products") return renderStoreGuidedProductForm(vm);
+  if (selection.type === "categories") return renderStoreGuidedCategoryForm(vm);
+  if (selection.type === "category") {
+    const category = vm.categories.find((item) => String(item.id) === String(selection.id));
+    return renderStoreGuidedCategoryForm(vm, category || {});
+  }
   if (selection.type === "product") {
     const product = vm.products.find((item) => String(item.id) === String(selection.id));
     return renderStoreGuidedProductForm(vm, product || {});
@@ -17833,7 +17929,7 @@ function renderStoreVisualEditorSidebar(vm) {
   return `
     <aside class="store-visual-editor-sidebar store-guided-editor-sidebar ${storefrontGuidedPanelOpen ? "is-open" : ""}" aria-label="Editor guiado da loja" data-guided-selection="${escaparAttr(selection.type)}">
       <div class="store-visual-editor-brand">
-        <button type="button" aria-label="Voltar ao ERP" onclick="trocarTela('lojaOnline')">‹</button>
+        <button type="button" aria-label="Voltar ao ERP" onclick="voltarPainelLojaVisual()">‹</button>
         <strong>${escaparHtml(getStorefrontDisplayName(vm.store))}</strong>
         <button class="store-guided-close" type="button" aria-label="Fechar painel" onclick="fecharPainelEdicaoGuiadaLoja()">×</button>
       </div>
@@ -17854,7 +17950,7 @@ function renderStoreVisualEditorTopbar(vm) {
   return `
     <div class="store-visual-editor-topbar">
       <div class="store-visual-top-context">
-        <button class="store-visual-back" type="button" onclick="trocarTela('lojaOnline')">‹ Voltar ao painel</button>
+        <button class="store-visual-back" type="button" onclick="voltarPainelLojaVisual()">‹ Voltar ao painel</button>
         <div><strong>Editor visual guiado</strong><span>Clique em uma área da loja e edite pelo painel.</span></div>
       </div>
       <div class="store-visual-device-switcher" aria-label="Visualização responsiva">
@@ -17863,16 +17959,38 @@ function renderStoreVisualEditorTopbar(vm) {
       </div>
       <div class="store-visual-top-actions">
         <span class="store-visual-publish-status ${dirty.dirty ? "is-dirty" : vm.store.active ? "is-online" : "is-draft"}">${dirty.dirty ? "Alterações não publicadas" : vm.store.active ? "Loja publicada" : "Loja não publicada"}</span>
-        <button type="button" onclick="${shareEnabled ? "abrirLojaPublicaOnline()" : "selecionarItemLojaVisual('links')"}">${shareEnabled ? "Abrir loja" : "Ver loja"}</button>
-        <button type="button" onclick="copiarLinkLojaOnline()" ${shareEnabled ? "" : "disabled title=\"Link da loja disponível no Start ou Pro.\""}>Copiar link da loja</button>
+        <button type="button" onclick="salvarEdicaoVisualAtualLoja()">Salvar</button>
+        <button type="button" onclick="${shareEnabled ? "abrirLojaPublicaOnline()" : "selecionarItemLojaVisual('links')"}">Ver como cliente</button>
         <button class="publish" type="button" onclick="alternarStatusLojaOnline()">${vm.store.active ? "Colocar em rascunho" : "Publicar loja"}</button>
+        <details class="store-visual-more-actions ui-context-menu">
+          <summary aria-label="Mais ações" aria-expanded="false" aria-controls="store-visual-more-menu" aria-haspopup="menu">Mais</summary>
+          <div id="store-visual-more-menu" class="ui-context-menu-panel" role="menu">
+            <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
+            <button type="button" onclick="restaurarExemplosLojaVisual()">Restaurar exemplos</button>
+            <button type="button" onclick="selecionarItemLojaVisual('overview')">Ajuda para editar</button>
+          </div>
+        </details>
       </div>
     </div>
   `;
 }
 
 function renderStoreVisualMobileActions(vm) {
-  return "";
+  const shareEnabled = vm?.limits?.shareEnabled !== false;
+  return `
+    <nav class="store-visual-mobile-actions" aria-label="Ações do editor">
+      <button type="button" onclick="voltarPainelLojaVisual()">Voltar</button>
+      <button class="primary" type="button" onclick="salvarEdicaoVisualAtualLoja()">Salvar</button>
+      <details class="ui-context-menu">
+        <summary aria-label="Mais ações" aria-expanded="false" aria-controls="store-visual-mobile-more-menu" aria-haspopup="menu">Mais</summary>
+        <div id="store-visual-mobile-more-menu" class="ui-context-menu-panel" role="menu">
+          <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
+          <button type="button" onclick="restaurarExemplosLojaVisual()">Restaurar exemplos</button>
+          <button type="button" onclick="selecionarItemLojaVisual('overview')">Ajuda para editar</button>
+        </div>
+      </details>
+    </nav>
+  `;
 }
 
 function salvarStorefrontMobileRapido() {
@@ -18000,6 +18118,7 @@ async function salvarStorefrontContatos(event) {
     mostrarToast(syncPending ? "Contatos salvos neste aparelho. Sincronização pendente." : "Contatos da loja salvos.", syncPending ? "aviso" : "sucesso", 3000);
     fecharPopup();
     renderApp();
+    concluirNavegacaoPendenteLoja();
   } catch (error) {
     mostrarToast(error?.message || "Não foi possível salvar os contatos.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar contatos da loja.", { message: error?.message || String(error) });
@@ -18184,6 +18303,26 @@ function abrirStoreContextSheet() {
   `;
 }
 
+function renderStorePublicMainNav(vm) {
+  const mode = getStorefrontPublicMode(vm);
+  const categoryLinks = vm.categories
+    .filter((category) => category.visible !== false)
+    .slice(0, 5)
+    .map((category) => {
+      const click = mode.admin
+        ? `event.preventDefault(); selecionarItemLojaVisual('category','${escaparAttr(category.id)}'); return false;`
+        : "return navegarLojaPublicaLink(event, this, { scrollTop: true })";
+      return `<a href="${storefrontPublicCategoryUrl(vm, category)}" onclick="${click}">${escaparHtml(category.name || "Categoria")}</a>`;
+    })
+    .join("");
+  return `
+    <nav class="store-public-main-nav" aria-label="Navegação da loja">
+      ${categoryLinks || `<a href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Produtos</a>`}
+      <a href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "contato" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Contato</a>
+    </nav>
+  `;
+}
+
 function renderStorePublicHeader(vm) {
   const store = vm.store;
   const mode = getStorefrontPublicMode(vm);
@@ -18192,21 +18331,14 @@ function renderStorePublicHeader(vm) {
   const shareEnabled = vm?.limits?.shareEnabled !== false;
   const futureActions = "";
   return `
-    <header class="store-public-header store-header" data-store-section="header">
-      <a class="store-public-brand" href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)" aria-label="${escaparAttr(getStorefrontDisplayName(store))}">
+    <header class="store-public-header store-header ${mode.admin ? "store-guided-editable" : ""} ${mode.admin && getStorefrontGuidedSelection().type === "identity" ? "store-guided-selected" : ""}" data-store-section="header">
+      <a class="store-public-brand" href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="${mode.admin ? "event.preventDefault(); selecionarItemLojaVisual('identity'); return false;" : "return navegarLojaPublicaLink(event, this)"}" aria-label="${escaparAttr(getStorefrontDisplayName(store))}">
         ${store.logo_url ? `<img src="${escaparAttr(store.logo_url)}" alt="${escaparAttr(getStorefrontDisplayName(store))}">` : renderMarcaOficialProjeto("store-public-logo", "Simplifica 3D", "icon")}
         <strong>${escaparHtml(getStorefrontDisplayName(store))}</strong>
       </a>
       <button class="store-public-menu-toggle" type="button" aria-label="Abrir menu da loja" aria-expanded="false" onclick="const header=this.closest('.store-public-header'); const opened=!!header?.classList.toggle('mobile-open'); this.setAttribute('aria-expanded', opened ? 'true' : 'false');">${renderUiIcon("menu")}<span>Menu</span></button>
       ${renderStoreAdminControls("header", store, vm)}
-      <nav class="store-public-main-nav" aria-label="Navegação da loja">
-        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">Início</a>
-        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "categorias" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Categorias</a>
-        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Produtos</a>
-        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Personalizados</a>
-        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "sobre" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Sobre nós</a>
-        <a href="${getStorefrontPublicRoutePath({ slug: store.slug, view: "contato" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">Contato</a>
-      </nav>
+      ${renderStorePublicMainNav(vm)}
       <nav class="store-public-actions" aria-label="Ações da loja">
         ${futureActions}
         ${store.whatsapp ? `<button class="btn secondary store-public-whatsapp-action" type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>` : ""}
@@ -18246,7 +18378,7 @@ function renderStorePublicBanner(vm) {
     ? "abrirWhatsappLojaPublica()"
     : "document.getElementById('catalogo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })";
   return `
-    <section class="store-public-banner store-content ${visualBanner ? "store-banner-has-image" : ""} ${mode.admin ? "store-guided-editable" : ""}" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}" ${mode.admin ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('banner')"` : ""}>
+    <section class="store-public-banner store-content ${visualBanner ? "store-banner-has-image" : ""} ${mode.admin ? "store-guided-editable" : ""} ${mode.admin && getStorefrontGuidedSelection().type === "banner" ? "store-guided-selected" : ""}" data-store-section="banner" style="--store-primary:${escaparAttr(theme.primary)};--store-accent:${escaparAttr(theme.accent)}" ${mode.admin ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('banner')"` : ""}>
       ${visualBanner ? `<img src="${escaparAttr(visualBanner)}" alt="Banner ${escaparAttr(getStorefrontDisplayName(store))}">` : ""}
       ${visualBanner ? "" : renderStoreHeroDeviceArt(store)}
       ${renderStoreAdminControls("banner", store, vm)}
@@ -18279,6 +18411,7 @@ function renderStoreHeroDeviceArt(store = {}) {
 
 function renderStorePublicCategoryBar(vm) {
   const active = vm.route.view === "category" ? vm.route.categorySlug : "";
+  const adminMode = getStorefrontPublicMode(vm).admin;
   return `
     <section class="store-public-category-bar store-filters" data-store-section="categorias" data-allow-horizontal-scroll>
       <a class="${!active ? "active" : ""}" href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this)">
@@ -18287,7 +18420,7 @@ function renderStorePublicCategoryBar(vm) {
         <small>${vm.products.length} produtos</small>
       </a>
       ${vm.categories.map((cat) => `
-        <a class="${String(cat.slug) === String(active) ? "active" : ""}" href="${storefrontPublicCategoryUrl(vm, cat)}" onclick="return navegarLojaPublicaLink(event, this)">
+        <a class="${String(cat.slug) === String(active) ? "active" : ""} ${adminMode && getStorefrontGuidedSelection().type === "category" && String(getStorefrontGuidedSelection().id) === String(cat.id) ? "store-guided-selected" : ""}" href="${storefrontPublicCategoryUrl(vm, cat)}" onclick="${adminMode ? `event.preventDefault(); selecionarItemLojaVisual('category','${escaparAttr(cat.id)}'); return false;` : "return navegarLojaPublicaLink(event, this)"}">
           <span class="store-category-visual">${escaparHtml(cat.icon || "▦")}</span>
           <strong>${escaparHtml(cat.name)}</strong>
           <small>${vm.products.filter((product) => String(product.category_id) === String(cat.id)).length} produtos</small>
@@ -18320,7 +18453,7 @@ function renderStorePublicProductCard(vm, product = {}) {
     ? `event.preventDefault(); event.stopPropagation(); selecionarItemLojaVisual('product','${escaparAttr(product.id)}'); return false;`
     : "return navegarLojaPublicaLink(event, this, { scrollTop: true })";
   return `
-    <article class="store-public-product-card ${adminMode ? "store-guided-editable" : ""}" data-store-product-id="${escaparAttr(product.id || "")}" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('product','${escaparAttr(product.id)}')"` : ""}>
+    <article class="store-public-product-card ${adminMode ? "store-guided-editable" : ""} ${adminMode && getStorefrontGuidedSelection().type === "product" && String(getStorefrontGuidedSelection().id) === String(product.id) ? "store-guided-selected" : ""}" data-store-product-id="${escaparAttr(product.id || "")}" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('product','${escaparAttr(product.id)}')"` : ""}>
       ${renderStoreAdminControls("product", product, vm)}
       <a class="store-public-product-media" href="${storefrontPublicProductUrl(vm, product)}" onclick="${mediaClick}">
         ${image ? `<img loading="lazy" decoding="async" src="${escaparAttr(image)}" alt="${escaparAttr(product.title || "Produto")}">` : placeholder}
@@ -18331,7 +18464,7 @@ function renderStorePublicProductCard(vm, product = {}) {
           <span>${escaparHtml(storefrontPublicCategoryName(vm, product))}</span>
           ${renderStoreStatusBadge(product)}
         </div>
-        ${adminMode && product.__demo ? `<div class="store-demo-product-note"><b>Exemplo de produto</b><span>Substitua por um produto seu</span></div>` : ""}
+        ${adminMode && product.__demo ? `<div class="store-demo-product-note"><b>Item de exemplo</b><span>Edite ou exclua antes de publicar.</span></div>` : ""}
         <a class="store-public-product-title" href="${storefrontPublicProductUrl(vm, product)}" onclick="${mediaClick}">${escaparHtml(product.title || "Produto da loja")}</a>
         <p>${escaparHtml(sanitizarTextoPublicoLoja(product.description, "Produto personalizado sob encomenda.") || "Produto público preparado para orçamento.")}</p>
         <div class="store-public-product-bottom">
@@ -18664,7 +18797,7 @@ function renderStorefrontPublicLegacy() {
     ${pageContent}
     <footer class="store-public-footer store-footer" data-store-section="rodape">
       <span>Loja criada com Simplifica 3D</span>
-      ${vm?.limits?.shareEnabled !== false ? `<button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar link</button>` : ""}
+      ${vm?.limits?.shareEnabled !== false ? `<button class="btn ghost compact-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl())}')">Compartilhar loja</button>` : ""}
     </footer>
     ${renderStorePublicCartFloating(vm)}
   `;
@@ -18800,7 +18933,7 @@ function renderStorePublicContactCta(vm, { home = false } = {}) {
 function renderStorePublicHomeContact(vm) {
   const adminMode = getStorefrontPublicMode(vm).admin;
   return `
-    <section class="store-public-contact store-public-contact-home ${adminMode ? "store-guided-editable" : ""}" data-store-section="contato" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('contacts')"` : ""}>
+    <section class="store-public-contact store-public-contact-home ${adminMode ? "store-guided-editable" : ""} ${adminMode && getStorefrontGuidedSelection().type === "contacts" ? "store-guided-selected" : ""}" data-store-section="contato" ${adminMode ? `onclick="if (!event.target.closest('a,button,input,select,textarea,label')) selecionarItemLojaVisual('contacts')"` : ""}>
       <div class="store-public-section-head">
         <div>
           <span>Contato</span>
@@ -19198,6 +19331,10 @@ function restaurarScrollLojaPublica(path = getStorefrontPublicRoutePath(), fallb
 }
 
 function navegarLojaPublica(url, options = {}) {
+  if (!options.ignoreDirty && getStorefrontPublicMode().admin && getStorefrontDirtyState().dirty) {
+    solicitarNavegacaoSeguraLoja(() => navegarLojaPublica(url, { ...options, ignoreDirty: true }));
+    return false;
+  }
   const destino = new URL(url, location.origin);
   const route = parseStorefrontPublicRoute(destino.pathname);
   if (!route) return false;
@@ -19354,11 +19491,8 @@ function compartilharLojaPublica(url = getStorefrontPublicUrl(), options = {}) {
     navigator.share({ title, text, url }).then(() => registrarEventoLojaPublica("share_click", { url }, { silent: true })).catch(() => {});
     return;
   }
-  if (!options.forceNative) {
-    abrirPreviewCompartilhamentoLoja(url);
-    return;
-  }
   copiarLinkLojaPublica(url);
+  if (!options.forceNative) mostrarToast("Compartilhamento indisponível neste navegador. O link foi copiado.", "info", 3000);
 }
 
 function getStorefrontCategoryName(vm, categoryId) {
@@ -19391,8 +19525,8 @@ function renderLojaOnlineHub() {
         </div>
         <div class="actions">
           <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled title=\"Edição liberada para usuários autorizados.\""}>Editar loja</button>
-          <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link público</button>
-          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja</button>
+          <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')">Compartilhar loja</button>
+          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
         </div>
       </div>
       <div class="storefront-hub-grid">
@@ -19414,13 +19548,7 @@ function renderLojaOnlineHub() {
         <div class="storefront-link-box"><span>${escaparHtml(linkPublico)}</span></div>
         <div class="store-qr-layout compact">
           <div id="storefrontHubQr" class="qr-preview" aria-label="QR Code da loja"></div>
-          <div class="storefront-hub-actions">
-            <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled"}>Editar loja</button>
-            <button class="btn secondary" type="button" onclick="abrirStorefrontAdminRoute()">Configurações completas</button>
-            <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')">Compartilhar</button>
-            <button class="btn secondary" type="button" onclick="copiarLinkLojaOnline()">Copiar link</button>
-            <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
-          </div>
+          <p class="muted">O link e o QR Code permanecem disponíveis aqui para consulta. Use “Compartilhar loja” no topo para enviar aos clientes.</p>
         </div>
       </section>
       <section class="card storefront-hub-card">

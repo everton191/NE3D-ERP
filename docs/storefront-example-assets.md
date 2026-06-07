@@ -10,22 +10,22 @@ filtrados da loja publica.
 
 | Modelo | Asset | Estado |
 | --- | --- | --- |
-| Carimbo personalizado | `assets/storefront-demo/stamp.jpg` | Foto local demonstrativa |
-| Chaveiro personalizado | `assets/storefront-demo/custom-part.jpg` | Foto local demonstrativa |
-| Topo de bolo personalizado | `assets/storefront-demo/figure.jpg` | Foto local demonstrativa |
-| Cortador para confeitaria | `assets/storefront-demo/organizer.jpg` | Foto local demonstrativa |
-| Lembrancinha personalizada | `assets/storefront-demo/miniature.jpg` | Foto local demonstrativa |
-| Decoracao impressa em 3D | `assets/storefront-demo/vase.jpg` | Foto local demonstrativa |
+| Peça técnica flexível | `assets/storefront-demo/stamp.jpg` | Foto local demonstrativa coerente |
+| Protótipo funcional | `assets/storefront-demo/custom-part.jpg` | Foto local demonstrativa coerente |
+| Miniatura personalizada | `assets/storefront-demo/figure.jpg` | Foto local demonstrativa coerente |
+| Modelo orgânico | `assets/storefront-demo/organizer.jpg` | Foto local demonstrativa coerente |
+| Maquete arquitetônica | `assets/storefront-demo/miniature.jpg` | Foto local demonstrativa coerente |
+| Vaso decorativo | `assets/storefront-demo/vase.jpg` | Foto local demonstrativa coerente |
 
 O editor vazio usa essas fotos somente como referencia visual local. Os produtos
 continuam marcados como demonstracao, nao sao persistidos automaticamente e sao
 filtrados quando a vitrine e aberta sem contexto administrativo.
 
-## Fotos ainda necessarias
+## Revisao visual
 
-Substituir os cinco placeholders acima somente por fotos licenciadas e
-semanticamente adequadas. Nao usar URLs externas temporarias, imagens remotas
-sem licenca confirmada ou uma foto generica para categorias diferentes.
+Os nomes e descricoes dos exemplos foram alinhados ao conteudo real das fotos.
+Nao usar URLs externas temporarias, imagens remotas sem licenca confirmada ou
+uma foto generica para anunciar um produto diferente.
 
 ## Comportamento seguro
 

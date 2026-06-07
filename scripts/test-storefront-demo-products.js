@@ -8,12 +8,12 @@ const css = fs.readFileSync(path.join(root, "themes", "base", "design-system-v2.
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 [
-  ["Carimbo personalizado", "stamp.jpg"],
-  ["Chaveiro personalizado", "custom-part.jpg"],
-  ["Topo de bolo personalizado", "figure.jpg"],
-  ["Cortador para confeitaria", "organizer.jpg"],
-  ["Lembrancinha personalizada", "miniature.jpg"],
-  ["Decoração impressa em 3D", "vase.jpg"]
+  ["Peça técnica flexível", "stamp.jpg"],
+  ["Protótipo funcional", "custom-part.jpg"],
+  ["Miniatura personalizada", "figure.jpg"],
+  ["Modelo orgânico", "organizer.jpg"],
+  ["Maquete arquitetônica", "miniature.jpg"],
+  ["Vaso decorativo", "vase.jpg"]
 ].forEach(([name, file]) => {
   assert(app.includes(name), `modelo demonstrativo ausente: ${name}`);
   assert(fs.existsSync(path.join(root, "assets", "storefront-demo", file)), `asset local ausente: ${file}`);

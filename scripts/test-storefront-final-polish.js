@@ -39,7 +39,7 @@ function assert(condition, message) {
   "Abrir loja real"
 ].forEach((legacyLabel) => assert(!app.includes(legacyLabel), `Rotulo legado ainda visivel: ${legacyLabel}`));
 
-assert(app.includes("Copiar link da loja"), "Toolbar deve expor Copiar link da loja");
+assert(app.includes("Compartilhar loja"), "Toolbar deve expor uma unica acao de compartilhamento");
 assert(app.includes("Abrir loja"), "Toolbar deve expor Abrir loja");
 assert(!app.includes("vitrine"), "Interface deve manter o termo Loja sem misturar rotulos antigos");
 

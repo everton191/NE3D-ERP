@@ -6,8 +6,8 @@ const css = fs.readFileSync("style.css", "utf8");
 const cssChecks = [
   "--store-stage-max",
   "--store-shadow-soft",
-  "body.theme-light .store-public-shell",
-  "body:not(.theme-light) .store-public-shell",
+  '.store-public-shell[data-storefront-source="v2"][data-store-theme="light"]',
+  '.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"]',
   ".store-public-product-card:hover",
   ".store-public-banner",
   ".store-public-header",

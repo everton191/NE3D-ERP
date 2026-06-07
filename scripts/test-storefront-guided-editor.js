@@ -38,7 +38,7 @@ function extractFunction(name) {
   "fecharPainelEdicaoGuiadaLoja,\n    editarProdutoPublicadoLojaOnline",
   'data-guided-selection="${escaparAttr(selection.type)}"',
   'data-store-section="contato"',
-  'editarProdutoPublicadoLojaOnline(\'${id}\')',
+  "selecionarItemLojaVisual('product','${escaparAttr(product.id)}')",
   "encodeURIComponent(texto)"
 ].forEach((marker) => assert(app.includes(marker), `Editor guiado incompleto: ${marker}`));
 assert(app.includes('aria-expanded="false" onclick="const header=this.closest'), "Menu publico mobile deve atualizar aria-expanded");
@@ -55,9 +55,9 @@ assert(app.includes('aria-expanded="false" onclick="const header=this.closest'),
 const floatingEditor = extractFunction("renderStoreAdminFloatingEditor");
 const mobileActions = extractFunction("renderStoreVisualMobileActions");
 assert(!floatingEditor.includes("store-context-admin-bar"), "Editor guiado nao deve renderizar barra contextual duplicada");
-assert(mobileActions.includes('return "";'), "Rodape antigo do editor guiado deve permanecer removido");
-assert(app.includes("Copiar link da loja"), "Toolbar desktop deve nomear claramente a acao de copiar link");
-assert(app.includes("Abrir loja"), "Toolbar desktop deve nomear claramente a abertura da loja");
+assert(mobileActions.includes("store-visual-mobile-actions"), "Editor guiado deve renderizar barra mobile compacta");
+assert(app.includes("Compartilhar loja"), "Toolbar deve expor uma unica acao amigavel de compartilhamento");
+assert(app.includes("Ver como cliente"), "Toolbar desktop deve nomear claramente a abertura da loja");
 assert(app.includes('maxlength="50"'), "Campos principais da loja devem possuir limite visual seguro");
 assert(app.includes('maxlength="180"'), "Descricao de produto deve possuir limite visual seguro");
 assert(app.includes("vm?.limits?.shareEnabled !== false"), "Link guiado respeita regra de compartilhamento do plano");
@@ -91,8 +91,8 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "display:none"
 ].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v153-storefront-idempotency-20260606"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.47-rc-storefront-idempotency-20260606"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v154-storefront-visual-simple-20260606"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.48-rc-storefront-visual-simple-20260606"), "Cache-bust web da loja publica nao foi atualizado");
 [
   "Preview do catálogo",
   "Preview das categorias",
