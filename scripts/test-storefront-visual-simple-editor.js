@@ -13,6 +13,11 @@ function assert(condition, message) {
   "function renderStorefrontUnsavedChangesModal",
   "function solicitarNavegacaoSeguraLoja",
   "function salvarEdicaoVisualAtualLoja",
+  '"#app-content"',
+  "renderizarPreservandoScroll();",
+  "focus?.({ preventScroll: true })",
+  "if (changed) storefrontFlushAutosaveNow();",
+  "let storefrontDirtyRuntime = false",
   "function ocultarExemploLojaVisual",
   "function restaurarExemplosLojaVisual",
   "productTemplateSourceId",
@@ -26,6 +31,7 @@ function assert(condition, message) {
 
 [
   ".store-guided-selected",
+  'content:"Editando agora"',
   ".store-guided-product-photo",
   ".store-visual-mobile-actions",
   "grid-template-columns:clamp(320px, 26vw, 380px)",

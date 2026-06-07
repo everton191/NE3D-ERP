@@ -8313,9 +8313,12 @@ function capturarScrollInterface() {
 
   registrar(document.scrollingElement || document.documentElement, "__page");
   [
+    "#app-content",
     ".mobile-home",
     ".mobile-panel-content",
     ".desktop-main",
+    ".store-visual-editor-main",
+    ".store-visual-editor-canvas",
     ".side-drawer",
     ".profile-premium-panel",
     ".popup-box",
@@ -14176,6 +14179,7 @@ function registrarStorefrontActivity(title, description = "") {
 }
 
 function marcarStorefrontAlteracoesPendentes(detail = "Edição em andamento") {
+  storefrontDirtyRuntime = true;
   try {
     storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.dirty, JSON.stringify({
       dirty: true,
@@ -14188,6 +14192,7 @@ function marcarStorefrontAlteracoesPendentes(detail = "Edição em andamento") {
 }
 
 function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
+  storefrontDirtyRuntime = false;
   try {
     storefrontAdminStorageSet(STOREFRONT_ADMIN_KEYS.dirty, JSON.stringify({
       dirty: false,
@@ -14198,10 +14203,16 @@ function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
   } catch (_) {}
 }
 
+let storefrontDirtyRuntime = false;
+
 function getStorefrontDirtyState() {
   try {
     const saved = JSON.parse(storefrontAdminStorageGet(STOREFRONT_ADMIN_KEYS.dirty) || "null");
-    return saved && typeof saved === "object" ? saved : { dirty: false };
+    if (!saved || typeof saved !== "object") return { dirty: false };
+    const recoverableDraft = !!getStorefrontAutosaveDraft();
+    return saved.dirty && !storefrontDirtyRuntime && !recoverableDraft
+      ? { ...saved, dirty: false, detail: "Nenhuma alteração pendente nesta sessão" }
+      : saved;
   } catch (_) {
     return { dirty: false };
   }
@@ -17700,11 +17711,18 @@ function selecionarItemLojaVisual(type = "overview", id = "") {
     if (storefrontGuidedSelection.type === "overview" && isMobile()) {
       mostrarToast("Toque em uma parte da loja para editar.", "info", 2400);
     }
-    renderApp();
-    requestAnimationFrame(() => document.querySelector(".store-guided-context-panel")?.focus?.());
+    renderizarPreservandoScroll();
+    requestAnimationFrame(() => {
+      const panel = document.querySelector(".store-guided-context-panel");
+      try {
+        panel?.focus?.({ preventScroll: true });
+      } catch (_) {
+        panel?.focus?.();
+      }
+    });
   };
-  if (changed) solicitarNavegacaoSeguraLoja(select);
-  else select();
+  if (changed) storefrontFlushAutosaveNow();
+  select();
 }
 
 function fecharPainelEdicaoGuiadaLoja() {
