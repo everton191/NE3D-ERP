@@ -21106,6 +21106,22 @@ body[data-ui-profile="android_apk"]:has(.store-public-shell){
   background:rgba(255,255,255,.045);
 }
 
+.store-readiness-mini-button{
+  width:100%;
+  appearance:none;
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 24%, var(--store-border));
+  color:inherit;
+  text-align:left;
+  cursor:pointer;
+}
+
+.store-readiness-mini-button:hover,
+.store-readiness-mini-button:focus-visible{
+  transform:translateY(-1px);
+  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 40%, var(--store-border));
+  outline:0;
+}
+
 .store-readiness-mini strong{
   font-size:22px;
 }

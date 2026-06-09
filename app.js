@@ -17676,19 +17676,17 @@ function renderStorefrontSimpleOnboarding(vm) {
 }
 
 function renderStorefrontReadinessMini(vm) {
-  const checklist = getStorefrontPublicationChecklist(vm);
-  const completed = checklist.required.filter((item) => item.done).length;
-  const percent = Math.round((completed / Math.max(1, checklist.required.length)) * 100);
-  const next = checklist.missing[0] || checklist.recommended[0];
+  const completion = getStorefrontCompletion(vm);
+  const next = completion.items.find((item) => item.status !== "done");
   return `
-    <section class="store-readiness-mini" aria-label="Progresso da loja">
+    <button class="store-readiness-mini store-readiness-mini-button" type="button" onclick="abrirChecklistGuiadoLoja()" aria-label="Abrir checklist da loja">
       <div>
         <span>Sua loja está</span>
-        <strong>${percent}%</strong>
+        <strong>${completion.completionPercent}%</strong>
       </div>
-      <i aria-hidden="true"><b style="width:${percent}%"></b></i>
+      <i aria-hidden="true"><b style="width:${completion.completionPercent}%"></b></i>
       <small>${next ? `Próximo passo: ${escaparHtml(next.title)}` : "Sua loja está pronta para publicar."}</small>
-    </section>
+    </button>
   `;
 }
 
@@ -17787,6 +17785,50 @@ function atualizarPreviewGuiadoLoja(form) {
 function atualizarFormularioGuiadoLoja(form, detail = "Alterações em edição") {
   marcarStorefrontAlteracoesPendentes(detail);
   atualizarPreviewGuiadoLoja(form);
+}
+
+function resolveStorefrontEditorTarget(target = {}) {
+  const panel = String(target.panel || target.area || "overview");
+  const entityId = String(target.entityId || "");
+  const entityType = String(target.entityType || "");
+  if (panel === "identity" || panel === "appearance") return { type: "identity", id: "" };
+  if (panel === "banner") return { type: "banner", id: "" };
+  if (panel === "contacts") return { type: "contacts", id: "" };
+  if (panel === "categories") return entityId ? { type: "category", id: entityId } : { type: "categories", id: "" };
+  if (panel === "product" || entityType === "product") return entityId ? { type: "product", id: entityId } : { type: "products", id: "" };
+  if (panel === "products") return { type: "products", id: "" };
+  if (panel === "links" || panel === "publish") return { type: "links", id: "" };
+  return { type: panel || "overview", id: entityId };
+}
+
+function focusStorefrontEditorTarget(fieldId = "") {
+  const safeId = String(fieldId || "").trim();
+  if (!safeId) return;
+  const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(safeId) : safeId.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+  const field = document.querySelector(`#${escaped}, [name="${safeId.replace(/"/g, '\\"')}"]`);
+  if (!field) return;
+  try {
+    field.focus?.({ preventScroll: true });
+  } catch (_) {
+    field.focus?.();
+  }
+  field.scrollIntoView?.({ block: "center", behavior: "smooth" });
+}
+
+function navigateToStorefrontEditorTarget(target = {}) {
+  const next = resolveStorefrontEditorTarget(target);
+  selecionarItemLojaVisual(next.type, next.id);
+  window.setTimeout(() => focusStorefrontEditorTarget(target.fieldId), 220);
+}
+
+function navigateToStorefrontCompletionItem(itemId = "") {
+  const item = getStorefrontCompletion(getStorefrontPublicViewModel()).items.find((entry) => String(entry.id) === String(itemId));
+  if (!item) return selecionarItemLojaVisual("overview");
+  navigateToStorefrontEditorTarget(item.target || { panel: item.area });
+}
+
+function abrirChecklistGuiadoLoja() {
+  selecionarItemLojaVisual("checklist");
 }
 
 function ocultarExemploLojaVisual(id = "") {
@@ -17895,6 +17937,9 @@ if (typeof window !== "undefined") {
   Object.assign(window, {
     selecionarItemLojaVisual,
     alinharSelecaoLojaVisual,
+    abrirChecklistGuiadoLoja,
+    navigateToStorefrontEditorTarget,
+    navigateToStorefrontCompletionItem,
     fecharPainelEdicaoGuiadaLoja,
     editarProdutoPublicadoLojaOnline
   });
@@ -18052,6 +18097,39 @@ function renderStoreGuidedLinks(vm) {
   `;
 }
 
+function renderStoreGuidedChecklistPanel(vm) {
+  const completion = getStorefrontCompletion(vm);
+  const requiredPending = completion.items.filter((item) => item.severity === "required" && item.status !== "done");
+  const recommendedPending = completion.items.filter((item) => item.severity === "recommended" && item.status !== "done");
+  const doneItems = completion.items.filter((item) => item.status === "done").length;
+  const renderItem = (item) => `
+    <button type="button" class="${item.done ? "done" : "pending"}" onclick="navigateToStorefrontCompletionItem('${escaparAttr(item.id)}')">
+      <i>${item.done ? "✓" : item.severity === "required" ? "!" : "○"}</i>
+      <span><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.done ? "Tudo certo." : item.description)}</small></span>
+    </button>
+  `;
+  return `
+    <section class="store-guided-panel-copy store-guided-checklist-panel">
+      <span>Checklist da loja</span><h2>${completion.completionPercent}% pronta</h2>
+      <p>${completion.requiredPendingCount ? `Faltam ${completion.requiredPendingCount} ajuste(s) obrigatório(s).` : "Os ajustes obrigatórios estão concluídos."}</p>
+      <div class="store-publication-progress">
+        <div><strong>${doneItems}/${completion.items.length} itens</strong><span>${completion.recommendedPendingCount} recomendação(ões)</span></div>
+        <i aria-hidden="true"><b style="width:${completion.completionPercent}%"></b></i>
+      </div>
+      <div class="store-publication-check-list">
+        ${(requiredPending.length ? requiredPending : completion.items.filter((item) => item.severity === "required")).map(renderItem).join("")}
+      </div>
+      ${recommendedPending.length ? `
+        <details class="store-publication-recommended" open>
+          <summary>Melhorias recomendadas</summary>
+          <div class="store-publication-check-list">${recommendedPending.map(renderItem).join("")}</div>
+        </details>
+      ` : ""}
+      <div class="store-guided-actions"><button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('overview')">Voltar</button></div>
+    </section>
+  `;
+}
+
 function renderStoreGuidedOverview(vm) {
   return `
     <section class="store-guided-panel-copy">
@@ -18072,6 +18150,7 @@ function renderStoreGuidedOverview(vm) {
 
 function renderStoreGuidedContextPanel(vm) {
   const selection = getStorefrontGuidedSelection();
+  if (selection.type === "checklist") return renderStoreGuidedChecklistPanel(vm);
   if (selection.type === "identity") return renderStoreGuidedIdentityForm(vm);
   if (selection.type === "banner") return renderStoreGuidedBannerForm(vm);
   if (selection.type === "contacts") return renderStoreGuidedContactsForm(vm);
