@@ -14670,7 +14670,43 @@ function storefrontIsDemoProduct(product = {}) {
   );
 }
 
-function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
+function createStorefrontCompletionItem({
+  id,
+  type = "storefront",
+  entityType = "storefront",
+  entityId = null,
+  severity = "required",
+  done = false,
+  title = "",
+  description = "",
+  actionLabel = "Corrigir",
+  area = "appearance",
+  target = {}
+} = {}) {
+  const status = done ? "done" : "pending";
+  return {
+    id,
+    type,
+    entityType,
+    entityId,
+    severity,
+    status,
+    done: status === "done",
+    title,
+    description,
+    actionLabel,
+    area,
+    target: {
+      panel: target.panel || area,
+      step: target.step || "",
+      fieldId: target.fieldId || "",
+      entityType,
+      entityId
+    }
+  };
+}
+
+function getStorefrontCompletion(vm = getStorefrontAdminViewModel()) {
   const store = vm.store || {};
   const contact = getStorefrontContactConfig(store);
   const theme = store.theme_config || {};
@@ -14690,106 +14726,154 @@ function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
       "Sua loja de impressão 3D integrada ao ERP."
   ]);
   const required = [
-    {
+    createStorefrontCompletionItem({
       id: "store-name",
+      type: "identity",
       title: "Nome da loja",
       description: genericStoreName ? "Troque o nome padrão pelo nome público da sua marca." : "Informe o nome público da loja.",
+      actionLabel: "Editar nome",
       area: "appearance",
+      target: { panel: "identity", step: "store-name", fieldId: "storeName" },
       done: !!String(store.name || "").trim() && !genericStoreName
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-logo",
+      type: "identity",
       title: "Logo personalizada",
       description: "Adicione uma logo própria para a loja representar sua marca.",
+      actionLabel: "Adicionar logo",
       area: "appearance",
+      target: { panel: "identity", step: "store-logo", fieldId: "storeLogoUrl" },
       done: !storefrontIsDemoImage(store.logo_url)
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-banner",
+      type: "banner",
       title: "Banner principal personalizado",
       description: "Substitua o banner padrão por uma imagem da marca, produto ou loja.",
+      actionLabel: "Editar banner",
       area: "banner",
+      target: { panel: "banner", step: "store-banner", fieldId: "storeBannerUrl" },
       done: !storefrontIsDemoImage(store.banner_url)
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-whatsapp",
+      type: "contact",
       title: "WhatsApp de contato",
       description: "Configure o WhatsApp para clientes solicitarem orçamento.",
+      actionLabel: "Adicionar contato",
       area: "contacts",
+      target: { panel: "contacts", step: "whatsapp", fieldId: "storeWhatsApp" },
       done: String(contact.whatsapp || "").replace(/\D/g, "").length >= 10
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-social",
+      type: "contact",
       title: "E-mail ou rede social",
       description: "Adicione e-mail, Instagram ou Facebook para dar confiança ao cliente.",
+      actionLabel: "Adicionar canal",
       area: "contacts",
+      target: { panel: "contacts", step: "social", fieldId: "storeInstagram" },
       done: !!(contact.email || contact.instagram || contact.facebook)
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-products",
+      type: "product",
       title: "Produto real publicado",
       description: demoProducts.length ? "Substitua os produtos de exemplo por pelo menos 1 produto real." : "Adicione pelo menos 1 produto real visível.",
+      actionLabel: "Adicionar produto",
       area: "products",
+      target: { panel: "products", step: "product-list", fieldId: "storefrontProductForm" },
       done: realProducts.length >= 1
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-product-prices",
+      type: "product",
       title: "Preços dos produtos válidos",
       description: invalidPriceProducts.length ? `Corrija ${invalidPriceProducts.length} produto(s) com preço zerado ou inválido.` : "Produtos com preço exibido precisam ter valor maior que zero.",
+      actionLabel: "Corrigir preço",
       area: "products",
+      entityType: "product",
+      entityId: invalidPriceProducts[0]?.id || null,
+      target: { panel: "product", step: "price", fieldId: "productPrice" },
       done: invalidPriceProducts.length === 0
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-categories",
+      type: "category",
       title: "Categorias válidas",
       description: "Crie ou confirme categorias reais para organizar a loja.",
+      actionLabel: "Editar categorias",
       area: "categories",
+      target: { panel: "categories", step: "category-list", fieldId: "storeCategoryName" },
       done: validCategories.length >= 1
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-description",
+      type: "identity",
       title: "Descrição da loja",
       description: "Escreva uma descrição curta que represente a marca e o tipo de produto.",
+      actionLabel: "Editar descrição",
       area: "appearance",
+      target: { panel: "identity", step: "store-description", fieldId: "storeDescription" },
       done: !!String(store.description || "").trim() && !genericDescription
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-primary-color",
+      type: "theme",
       title: "Cor principal definida",
       description: "Escolha uma cor principal para padronizar botões e destaques.",
+      actionLabel: "Escolher cor",
       area: "appearance",
+      target: { panel: "identity", step: "store-theme", fieldId: "storePrimary" },
       done: !!String(theme.primary || "").trim()
-    }
+    })
   ];
   const warnings = [
-    {
+    createStorefrontCompletionItem({
       id: "store-favicon",
+      severity: "recommended",
+      type: "identity",
       title: "Favicon/ícone da loja",
       description: "Recomendado para reforçar a marca quando a loja for compartilhada.",
+      actionLabel: "Adicionar ícone",
       area: "appearance",
+      target: { panel: "identity", step: "store-favicon", fieldId: "storeFaviconUrl" },
       done: !!(store.favicon_url || theme.favicon_url || store.logo_url)
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-hours",
+      severity: "recommended",
+      type: "contact",
       title: "Horário de atendimento",
       description: "Opcional, mas ajuda o cliente a entender quando será respondido.",
+      actionLabel: "Adicionar horário",
       area: "contacts",
+      target: { panel: "contacts", step: "hours", fieldId: "storeHours" },
       done: !!contact.hours
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-address",
+      severity: "recommended",
+      type: "contact",
       title: "Endereço ou atendimento online",
       description: "Opcional, útil para lojas com retirada local ou região definida.",
+      actionLabel: "Adicionar endereço",
       area: "contacts",
+      target: { panel: "contacts", step: "address", fieldId: "storeAddress" },
       done: !!contact.address
-    },
-    {
+    }),
+    createStorefrontCompletionItem({
       id: "store-images",
+      severity: "recommended",
+      type: "product",
       title: "Imagens dos produtos",
       description: "Use fotos reais para melhorar a percepção profissional da loja.",
+      actionLabel: "Revisar fotos",
       area: "products",
+      target: { panel: "products", step: "photos", fieldId: "storefrontProductForm" },
       done: realProducts.every((product) => !storefrontIsDemoImage(getStorefrontProductImage(product, vm.images || [])))
-    }
+    })
   ];
   const demoItems = [
     demoProducts.length ? `${demoProducts.length} produto(s) de exemplo` : "",
@@ -14798,13 +14882,36 @@ function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
     (vm.categories || []).some((cat) => cat.__demo || cat.__template) ? "categorias de modelo" : "",
     genericDescription ? "texto genérico da loja" : ""
   ].filter(Boolean);
+  const items = [...required, ...warnings];
+  const requiredDone = required.filter((item) => item.done).length;
+  const recommendedDone = warnings.filter((item) => item.done).length;
+  const completionPercent = Math.round((requiredDone / Math.max(1, required.length)) * 100);
+  const overallPercent = Math.round(((requiredDone * 2) + recommendedDone) / Math.max(1, (required.length * 2) + warnings.length) * 100);
+  return {
+    completionPercent,
+    overallPercent,
+    requiredPendingCount: required.filter((item) => !item.done).length,
+    recommendedPendingCount: warnings.filter((item) => !item.done).length,
+    canPublish: required.every((item) => item.done) && !demoItems.length,
+    items,
+    required,
+    recommendedItems: warnings,
+    demoItems
+  };
+}
+
+function getStorefrontPublicationChecklist(vm = getStorefrontAdminViewModel()) {
+  const completion = getStorefrontCompletion(vm);
+  const required = completion.required;
+  const warnings = completion.recommendedItems;
   return {
     required,
     warnings,
-    demoItems,
+    demoItems: completion.demoItems,
     missing: required.filter((item) => !item.done),
     recommended: warnings.filter((item) => !item.done),
-    ready: required.every((item) => item.done) && !demoItems.length
+    ready: completion.canPublish,
+    completion
   };
 }
 

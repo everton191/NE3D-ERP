@@ -3,7 +3,17 @@ const fs = require("fs");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
+  "getStorefrontCompletion",
+  "createStorefrontCompletionItem",
+  "completionPercent",
+  "requiredPendingCount",
+  "recommendedPendingCount",
+  "canPublish",
+  "severity = \"required\"",
+  "severity: \"recommended\"",
+  "target: { panel:",
   "getStorefrontPublicationChecklist",
+  "completion",
   "store-logo",
   "store-banner",
   "store-whatsapp",
@@ -22,4 +32,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log("Storefront publish validation: checklist obrigatorio e bloqueios presentes.");
+console.log("Storefront publish validation: motor central, checklist obrigatorio e bloqueios presentes.");
