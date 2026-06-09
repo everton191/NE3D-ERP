@@ -21879,7 +21879,7 @@ body.storefront-public-navigating .store-public-shell{
   position:fixed;
   left:clamp(14px, 3vw, 34px);
   bottom:clamp(14px, 3vw, 28px);
-  z-index:20;
+  z-index:84;
   min-height:54px;
   padding:0 18px;
   border:1px solid color-mix(in srgb, var(--store-accent, var(--color-accent)) 34%, var(--color-border));
@@ -21889,6 +21889,11 @@ body.storefront-public-navigating .store-public-shell{
   box-shadow:0 18px 42px rgba(0,0,0,.22);
   font-weight:950;
   cursor:pointer;
+}
+
+.store-public-shell[data-storefront-source="v2"]:has(.store-guided-editor-sidebar.is-open) .store-context-edit-fab{
+  opacity:0;
+  pointer-events:none;
 }
 
 .store-context-denied{
@@ -30366,6 +30371,18 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 .storefront-root[data-store-theme="light"] :where(.store-public-banner,.store-banner-section)::after{
   background-image:none !important;
   filter:none !important;
+}
+
+@media (max-width:860px){
+  .store-public-shell[data-storefront-source="v2"] .store-context-edit-fab{
+    bottom:calc(var(--bottom-nav-height, 72px) + var(--app-safe-bottom, 0px) + 16px) !important;
+    z-index:calc(var(--z-drawer, 500) + 1);
+  }
+
+  .store-public-shell[data-storefront-source="v2"] .store-guided-editor-sidebar{
+    bottom:calc(var(--bottom-nav-height, 72px) + var(--app-safe-bottom, 0px) + 8px) !important;
+    max-height:min(52dvh, 520px) !important;
+  }
 }
 
 .storefront-root[data-store-theme="light"] :where(.store-public-banner,.store-banner-section) img{

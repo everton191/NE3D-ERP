@@ -69,6 +69,7 @@
     "test:storefront-performance-lite": "node scripts/test-storefront-performance-lite.js",
     "test:storefront-pwa-upgrade": "node scripts/test-storefront-pwa-upgrade.js",
     "test:storefront-guided-editor": "node scripts/test-storefront-guided-editor.js",
+    "test:storefront-contextual-mobile-flow": "node scripts/test-storefront-contextual-mobile-flow.js",
     "test:storefront-visual-simple-editor": "node scripts/test-storefront-visual-simple-editor.js",
     "test:storefront-premium-7c3": "node scripts/test-storefront-premium-7c3.js",
     "test:storefront-light-theme-stability": "node scripts/test-storefront-light-theme-stability.js",

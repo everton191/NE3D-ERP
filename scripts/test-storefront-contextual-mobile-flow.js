@@ -1,0 +1,101 @@
+const fs = require("fs");
+
+const app = fs.readFileSync("app.js", "utf8");
+const css = fs.readFileSync("style.css", "utf8");
+
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
+
+function extractFunction(name) {
+  const start = app.indexOf(`function ${name}`);
+  assert(start >= 0, `Funcao ausente: ${name}`);
+  const signatureEnd = app.indexOf(") {", start);
+  const braceStart = signatureEnd >= 0 ? signatureEnd + 2 : app.indexOf("{", start);
+  let depth = 0;
+  for (let index = braceStart; index < app.length; index += 1) {
+    if (app[index] === "{") depth += 1;
+    if (app[index] === "}") depth -= 1;
+    if (depth === 0) return app.slice(start, index + 1);
+  }
+  throw new Error(`Funcao incompleta: ${name}`);
+}
+
+[
+  "function getStorefrontContextualEditorState",
+  "function setStorefrontContextualEditorState",
+  "function isStorefrontContextualEditorRoute",
+  "function selecionarItemLojaVisual",
+  "function fecharPainelEdicaoGuiadaLoja",
+  "function voltarPainelLojaVisual",
+  "function abrirLojaPublicaAdminContextual",
+  "function renderStoreVisualEditorSidebar",
+  "function renderStoreVisualMobileActions",
+  "function renderStoreGuidedChecklistPanel",
+  "function navigateToStorefrontCompletionItem"
+].forEach((marker) => assert(app.includes(marker), `Contrato contextual ausente: ${marker}`));
+
+const openAdmin = extractFunction("abrirLojaPublicaAdminContextual");
+assert(openAdmin.includes('setStorefrontContextualEditorState({ type: "overview", id: "", panelOpen: false }, { flushAutosave: false })'), "Abrir /admin=1 deve iniciar como vitrine sem painel aberto");
+assert(openAdmin.includes('history.pushState({ simplifica: true, tela: "lojaPublica", loja: publicRoute, admin: true }'), "Rota admin contextual deve permanecer como lojaPublica com admin=1");
+assert(!openAdmin.includes('trocarTela("lojaOnline"'), "Abrir admin contextual nao pode redirecionar para resumo da loja");
+
+const selectVisual = extractFunction("selecionarItemLojaVisual");
+assert(selectVisual.includes("setStorefrontContextualEditorState({ type, id, panelOpen: true })"), "Selecao contextual deve usar autoridade central e abrir painel");
+assert(selectVisual.includes("renderizarPreservandoScroll()"), "Selecao contextual deve preservar a vitrine durante render");
+assert(selectVisual.includes("alinharSelecaoLojaVisual"), "Selecao contextual deve centralizar o item editado");
+
+const closePanel = extractFunction("fecharPainelEdicaoGuiadaLoja");
+assert(closePanel.includes("panelOpen: false"), "Fechar painel deve apenas fechar o contexto interno");
+assert(!closePanel.includes('trocarTela("lojaOnline"'), "Fechar painel nao deve voltar para resumo da loja");
+
+const backPanel = extractFunction("voltarPainelLojaVisual");
+assert(backPanel.includes("isStorefrontContextualEditorRoute() && storefrontGuidedPanelOpen"), "Voltar deve fechar primeiro o painel contextual aberto");
+assert(backPanel.includes("fecharPainelEdicaoGuiadaLoja();"), "Voltar interno deve reaproveitar fechamento seguro do painel");
+assert(backPanel.includes('trocarTela("lojaOnline")'), "Voltar sem contexto ainda pode retornar ao resumo da loja");
+
+[
+  'onclick="abrirChecklistGuiadoLoja()"',
+  "navigateToStorefrontCompletionItem",
+  "getStorefrontCompletion(vm)",
+  "getStorefrontPublicationChecklist",
+  "completion",
+  "canPublish"
+].forEach((marker) => assert(app.includes(marker), `Checklist contextual desacoplado do motor central: ${marker}`));
+
+[
+  'data-store-section="banner"',
+  "selecionarItemLojaVisual('banner')",
+  "selecionarItemLojaVisual('identity')",
+  "selecionarItemLojaVisual('contacts')",
+  "selecionarItemLojaVisual('category','${escaparAttr(cat.id)}')",
+  "selecionarItemLojaVisual('product','${escaparAttr(product.id)}')",
+  "adminMode ? \"selecionarItemLojaVisual('contacts')\"",
+  "mode.admin ? \"selecionarItemLojaVisual('contacts')\""
+].forEach((marker) => assert(app.includes(marker), `Clique contextual nao mapeado: ${marker}`));
+
+[
+  ".store-guided-editor-sidebar.is-open",
+  "bottom:var(--app-safe-bottom) !important",
+  ".store-context-edit-fab",
+  "z-index:84",
+  ":has(.store-guided-editor-sidebar.is-open) .store-context-edit-fab",
+  "@media (max-width:860px)",
+  "position:fixed",
+  "bottom:calc(var(--bottom-nav-height, 72px) + var(--app-safe-bottom, 0px) + 16px) !important",
+  "bottom:calc(var(--bottom-nav-height, 72px) + var(--app-safe-bottom, 0px) + 8px) !important",
+  "max-height:min(52dvh, 520px) !important",
+  "max-height:min(68dvh, 600px)",
+  "padding-bottom:calc(44vh + 78px + var(--app-safe-bottom))"
+].forEach((marker) => assert(css.includes(marker), `Contrato mobile contextual ausente: ${marker}`));
+
+const contextualRender = [
+  extractFunction("renderStoreVisualEditorSidebar"),
+  extractFunction("renderStoreVisualEditorTopbar"),
+  extractFunction("renderStoreVisualMobileActions"),
+  extractFunction("renderStoreGuidedContextPanel")
+].join("\n");
+assert(!contextualRender.includes("entitlement"), "Fluxo contextual nao deve expor termo tecnico entitlement");
+assert(!contextualRender.includes("loja real"), "Fluxo contextual nao deve reintroduzir texto loja real");
+
+console.log("Storefront contextual mobile flow: rota admin, painel, checklist, contatos, voltar e safe area validados por contrato.");

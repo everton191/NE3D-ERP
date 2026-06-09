@@ -17460,6 +17460,7 @@ function abrirLojaPublicaAdminContextual(route = {}) {
     storefrontPublicRouteState = publicRoute;
     storefrontPublicLastPath = getStorefrontPublicRoutePath(publicRoute);
     storefrontPublicInternalHistory = [];
+    setStorefrontContextualEditorState({ type: "overview", id: "", panelOpen: false }, { flushAutosave: false });
     telaAtual = "lojaPublica";
     history.pushState({ simplifica: true, tela: "lojaPublica", loja: publicRoute, admin: true }, document.title, `${destino.pathname}?admin=1`);
     renderApp();
@@ -17743,6 +17744,39 @@ function getStorefrontGuidedSelection() {
     : { type: "overview", id: "" };
 }
 
+function getStorefrontContextualEditorState() {
+  const vm = getStorefrontPublicViewModel();
+  const mode = getStorefrontPublicMode(vm);
+  return {
+    route: getStorefrontPublicRoute(),
+    mode: mode.admin ? "editor" : mode.requested ? "admin-preview" : "client",
+    adminRequested: mode.requested,
+    admin: mode.admin,
+    readonly: mode.readonly,
+    panelOpen: !!storefrontGuidedPanelOpen,
+    selection: getStorefrontGuidedSelection(),
+    dirty: getStorefrontDirtyState().dirty
+  };
+}
+
+function setStorefrontContextualEditorState(patch = {}, options = {}) {
+  const current = getStorefrontGuidedSelection();
+  const nextSelection = {
+    type: String(patch.selection?.type || patch.type || current.type || "overview"),
+    id: String(patch.selection?.id ?? patch.id ?? current.id ?? "")
+  };
+  const changed = current.type !== nextSelection.type || current.id !== nextSelection.id;
+  if (changed && options.flushAutosave !== false) storefrontFlushAutosaveNow();
+  storefrontGuidedSelection = nextSelection;
+  storefrontGuidedPanelOpen = patch.panelOpen !== undefined ? !!patch.panelOpen : true;
+  return { changed, state: getStorefrontContextualEditorState() };
+}
+
+function isStorefrontContextualEditorRoute() {
+  const state = getStorefrontContextualEditorState();
+  return telaAtual === "lojaPublica" && state.adminRequested;
+}
+
 function validarTextoVisualLoja(value = "", limit = 0, label = "texto") {
   const text = String(value || "").trim();
   if (limit > 0 && text.length > limit) {
@@ -17837,7 +17871,7 @@ function ocultarExemploLojaVisual(id = "") {
   const dismissed = new Set(storefrontAdminRead(STOREFRONT_ADMIN_KEYS.dismissedExamples, []));
   dismissed.add(exampleId);
   storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.dismissedExamples, Array.from(dismissed));
-  storefrontGuidedSelection = { type: "overview", id: "" };
+  setStorefrontContextualEditorState({ type: "overview", id: "", panelOpen: false }, { flushAutosave: false });
   limparStorefrontAlteracoesPendentes("Exemplo removido");
   mostrarToast("Item de exemplo removido da sua preparação.", "sucesso", 2600);
   renderApp();
@@ -17845,7 +17879,7 @@ function ocultarExemploLojaVisual(id = "") {
 
 function restaurarExemplosLojaVisual() {
   storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.dismissedExamples);
-  storefrontGuidedSelection = { type: "overview", id: "" };
+  setStorefrontContextualEditorState({ type: "overview", id: "", panelOpen: false }, { flushAutosave: false });
   mostrarToast("Exemplos de Impressão 3D restaurados.", "sucesso", 2600);
   renderApp();
 }
@@ -17888,13 +17922,9 @@ function alinharSelecaoLojaVisual() {
 }
 
 function selecionarItemLojaVisual(type = "overview", id = "") {
-  const nextSelection = { type: String(type || "overview"), id: String(id || "") };
-  const current = getStorefrontGuidedSelection();
-  const changed = current.type !== nextSelection.type || current.id !== nextSelection.id;
   const select = () => {
-    storefrontGuidedSelection = nextSelection;
-    storefrontGuidedPanelOpen = true;
-    if (storefrontGuidedSelection.type === "overview" && isMobile()) {
+    setStorefrontContextualEditorState({ type, id, panelOpen: true });
+    if (getStorefrontGuidedSelection().type === "overview" && isMobile()) {
       mostrarToast("Toque em uma parte da loja para editar.", "info", 2400);
     }
     renderizarPreservandoScroll();
@@ -17909,18 +17939,21 @@ function selecionarItemLojaVisual(type = "overview", id = "") {
       window.setTimeout(alinharSelecaoLojaVisual, 180);
     });
   };
-  if (changed) storefrontFlushAutosaveNow();
   select();
 }
 
 function fecharPainelEdicaoGuiadaLoja() {
   solicitarNavegacaoSeguraLoja(() => {
-    storefrontGuidedPanelOpen = false;
+    setStorefrontContextualEditorState({ selection: getStorefrontGuidedSelection(), panelOpen: false }, { flushAutosave: false });
     renderApp();
   });
 }
 
 function voltarPainelLojaVisual() {
+  if (isStorefrontContextualEditorRoute() && storefrontGuidedPanelOpen) {
+    fecharPainelEdicaoGuiadaLoja();
+    return;
+  }
   solicitarNavegacaoSeguraLoja(() => trocarTela("lojaOnline"));
 }
 
@@ -18585,9 +18618,11 @@ function renderStorePublicHeader(vm) {
       ${renderStorePublicMainNav(vm)}
       <nav class="store-public-actions" aria-label="Ações da loja">
         ${futureActions}
-        ${store.whatsapp ? `<button class="btn secondary store-public-whatsapp-action" type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>` : ""}
+        ${store.whatsapp ? `<button class="btn secondary store-public-whatsapp-action" type="button" onclick="${mode.admin ? "selecionarItemLojaVisual('contacts')" : "abrirWhatsappLojaPublica()"}">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>` : ""}
         <button class="store-public-icon-action store-public-cart-button" type="button" onclick="abrirCarrinhoLojaPublica()" aria-label="Abrir carrinho" title="Carrinho">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}</button>
-        ${store.instagram ? `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>` : ""}
+        ${store.instagram ? (mode.admin
+          ? `<button class="btn ghost" type="button" onclick="selecionarItemLojaVisual('contacts')">Instagram</button>`
+          : `<a class="btn ghost" href="${escaparAttr(normalizarUrlInstagramLoja(store.instagram))}" target="_blank" rel="noopener">Instagram</a>`) : ""}
         ${shareEnabled ? `<button class="btn ghost store-public-share-action" type="button" onclick="compartilharLojaPublica('${escaparAttr(shareUrl)}')">Compartilhar</button>` : ""}
       </nav>
     </header>
@@ -19139,9 +19174,9 @@ function getStorefrontPublicContactItems(vm) {
   const contact = getStorefrontContactConfig(vm.store || {});
   const adminMode = getStorefrontPublicMode(vm).admin;
   return [
-    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", "whatsapp", contact.whatsapp ? "abrirWhatsappLojaPublica()" : (adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('WhatsApp da loja')")],
-    ["Instagram", contact.instagram || "Perfil da loja", "instagram", contact.instagram ? "abrirInstagramLojaPublica()" : (adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('Instagram da loja')")],
-    ["E-mail", contact.email || "Contato por e-mail", "email", contact.email ? "abrirEmailLojaPublica()" : (adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('E-mail público')")],
+    ["WhatsApp", contact.whatsapp || "Atendimento pelo WhatsApp", "whatsapp", adminMode ? "selecionarItemLojaVisual('contacts')" : contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"],
+    ["Instagram", contact.instagram || "Perfil da loja", "instagram", adminMode ? "selecionarItemLojaVisual('contacts')" : contact.instagram ? "abrirInstagramLojaPublica()" : "informarRecursoFuturoLoja('Instagram da loja')"],
+    ["E-mail", contact.email || "Contato por e-mail", "email", adminMode ? "selecionarItemLojaVisual('contacts')" : contact.email ? "abrirEmailLojaPublica()" : "informarRecursoFuturoLoja('E-mail público')"],
     ["Horário", contact.hours || "Atendimento sob consulta", "agenda", "informarRecursoFuturoLoja('Horário de atendimento')"],
     ["Endereço", contact.address || "Atendimento online", "empresa", "informarRecursoFuturoLoja('Endereço da loja')"]
   ];
@@ -19171,7 +19206,7 @@ function renderStorePublicContactCta(vm, { home = false } = {}) {
         <h2>${home ? "Estamos aqui para ajudar" : "Solicite seu orçamento"}</h2>
         <p>${home ? "Peça orçamento e tire dúvidas com atendimento direto." : "Revise detalhes, personalização e prazo antes de transformar sua escolha em pedido."}</p>
       </div>
-      <button class="btn" type="button" onclick="${contact.whatsapp ? "abrirWhatsappLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>
+      <button class="btn" type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>
     </aside>
   `;
 }
@@ -19207,9 +19242,9 @@ function renderStoreContactHeroPreview(vm, { compact = false } = {}) {
         <p>Peça orçamento, tire dúvidas sobre personalização e combine prazos com atendimento direto.</p>
       </div>
       <div class="store-public-contact-mini-grid">
-        <button type="button" onclick="${contact.whatsapp ? "abrirWhatsappLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<strong>WhatsApp</strong><small>${escaparHtml(contact.whatsapp || "Adicionar número")}</small></button>
-        <button type="button" onclick="${contact.email ? "abrirEmailLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('E-mail público')"}">${renderUiIcon("email")}<strong>E-mail</strong><small>${escaparHtml(contact.email || "Adicionar e-mail")}</small></button>
-        <button type="button" onclick="${contact.instagram ? "abrirInstagramLojaPublica()" : adminMode ? "selecionarItemLojaVisual('contacts')" : "informarRecursoFuturoLoja('Instagram da loja')"}">${renderUiIcon("instagram")}<strong>Instagram</strong><small>${escaparHtml(contact.instagram || "Adicionar perfil")}</small></button>
+        <button type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : contact.whatsapp ? "abrirWhatsappLojaPublica()" : "informarRecursoFuturoLoja('WhatsApp da loja')"}">${renderUiIcon("whatsapp")}<strong>WhatsApp</strong><small>${escaparHtml(contact.whatsapp || "Adicionar número")}</small></button>
+        <button type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : contact.email ? "abrirEmailLojaPublica()" : "informarRecursoFuturoLoja('E-mail público')"}">${renderUiIcon("email")}<strong>E-mail</strong><small>${escaparHtml(contact.email || "Adicionar e-mail")}</small></button>
+        <button type="button" onclick="${adminMode ? "selecionarItemLojaVisual('contacts')" : contact.instagram ? "abrirInstagramLojaPublica()" : "informarRecursoFuturoLoja('Instagram da loja')"}">${renderUiIcon("instagram")}<strong>Instagram</strong><small>${escaparHtml(contact.instagram || "Adicionar perfil")}</small></button>
         <button type="button">${renderUiIcon("agenda")}<strong>Endereço</strong><small>${escaparHtml(contact.address || "Atendimento online")}</small></button>
       </div>
     </aside>
