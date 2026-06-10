@@ -8757,6 +8757,7 @@ function configurarNavegacaoInternaApp() {
   window.__simplificaNavigationConfigured = true;
   atualizarHistoricoBrowserApp(true);
   window.addEventListener("popstate", (event) => {
+    if (fecharPainelGuiadoLojaPorHistorico()) return;
     const adminRoute = parseStorefrontAdminRoute(location.pathname);
     if (adminRoute) {
       telaAtual = "lojaAdmin";
@@ -17737,6 +17738,7 @@ function aplicarStorefrontPresetVisual(id = "minimal") {
 
 let storefrontGuidedSelection = { type: "overview", id: "" };
 let storefrontGuidedPanelOpen = false;
+let storefrontGuidedHistoryStateActive = false;
 
 function getStorefrontGuidedSelection() {
   return storefrontGuidedSelection && typeof storefrontGuidedSelection === "object"
@@ -17761,6 +17763,7 @@ function getStorefrontContextualEditorState() {
 
 function setStorefrontContextualEditorState(patch = {}, options = {}) {
   const current = getStorefrontGuidedSelection();
+  const wasPanelOpen = !!storefrontGuidedPanelOpen;
   const nextSelection = {
     type: String(patch.selection?.type || patch.type || current.type || "overview"),
     id: String(patch.selection?.id ?? patch.id ?? current.id ?? "")
@@ -17769,12 +17772,54 @@ function setStorefrontContextualEditorState(patch = {}, options = {}) {
   if (changed && options.flushAutosave !== false) storefrontFlushAutosaveNow();
   storefrontGuidedSelection = nextSelection;
   storefrontGuidedPanelOpen = patch.panelOpen !== undefined ? !!patch.panelOpen : true;
+  sincronizarHistoricoPainelGuiadoLoja({
+    open: storefrontGuidedPanelOpen,
+    wasOpen: wasPanelOpen,
+    syncHistory: options.syncHistory !== false
+  });
   return { changed, state: getStorefrontContextualEditorState() };
 }
 
 function isStorefrontContextualEditorRoute() {
   const state = getStorefrontContextualEditorState();
   return telaAtual === "lojaPublica" && state.adminRequested;
+}
+
+function sincronizarHistoricoPainelGuiadoLoja({ open = false, wasOpen = false, syncHistory = true } = {}) {
+  if (!syncHistory || typeof window === "undefined" || !window.history || !isStorefrontContextualEditorRoute()) return;
+  if (open && !wasOpen && !storefrontGuidedHistoryStateActive) {
+    try {
+      const route = getStorefrontPublicRoute();
+      window.history.pushState({
+        simplifica: true,
+        tela: "lojaPublica",
+        loja: route.slug,
+        admin: true,
+        storefrontGuidedPanel: true
+      }, document.title, window.location.href);
+      storefrontGuidedHistoryStateActive = true;
+    } catch (_) {}
+    return;
+  }
+  if (!open && wasOpen && storefrontGuidedHistoryStateActive) {
+    try {
+      const route = getStorefrontPublicRoute();
+      window.history.replaceState({
+        simplifica: true,
+        tela: "lojaPublica",
+        loja: route.slug,
+        admin: true
+      }, document.title, window.location.href);
+    } catch (_) {}
+    storefrontGuidedHistoryStateActive = false;
+  }
+}
+
+function fecharPainelGuiadoLojaPorHistorico() {
+  if (!isStorefrontContextualEditorRoute() || !storefrontGuidedPanelOpen) return false;
+  storefrontGuidedHistoryStateActive = false;
+  fecharPainelEdicaoGuiadaLoja({ syncHistory: false });
+  return true;
 }
 
 function validarTextoVisualLoja(value = "", limit = 0, label = "texto") {
@@ -17942,9 +17987,12 @@ function selecionarItemLojaVisual(type = "overview", id = "") {
   select();
 }
 
-function fecharPainelEdicaoGuiadaLoja() {
+function fecharPainelEdicaoGuiadaLoja(options = {}) {
   solicitarNavegacaoSeguraLoja(() => {
-    setStorefrontContextualEditorState({ selection: getStorefrontGuidedSelection(), panelOpen: false }, { flushAutosave: false });
+    setStorefrontContextualEditorState({ selection: getStorefrontGuidedSelection(), panelOpen: false }, {
+      flushAutosave: false,
+      syncHistory: options.syncHistory !== false
+    });
     renderApp();
   });
 }

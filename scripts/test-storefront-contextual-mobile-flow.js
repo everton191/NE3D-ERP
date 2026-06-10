@@ -25,6 +25,8 @@ function extractFunction(name) {
   "function getStorefrontContextualEditorState",
   "function setStorefrontContextualEditorState",
   "function isStorefrontContextualEditorRoute",
+  "function sincronizarHistoricoPainelGuiadoLoja",
+  "function fecharPainelGuiadoLojaPorHistorico",
   "function selecionarItemLojaVisual",
   "function fecharPainelEdicaoGuiadaLoja",
   "function voltarPainelLojaVisual",
@@ -45,8 +47,22 @@ assert(selectVisual.includes("setStorefrontContextualEditorState({ type, id, pan
 assert(selectVisual.includes("renderizarPreservandoScroll()"), "Selecao contextual deve preservar a vitrine durante render");
 assert(selectVisual.includes("alinharSelecaoLojaVisual"), "Selecao contextual deve centralizar o item editado");
 
+const contextualState = extractFunction("setStorefrontContextualEditorState");
+assert(contextualState.includes("wasPanelOpen"), "Estado contextual deve saber quando o painel acabou de abrir");
+assert(contextualState.includes("sincronizarHistoricoPainelGuiadoLoja"), "Abertura do painel deve sincronizar historico interno");
+
+const historySync = extractFunction("sincronizarHistoricoPainelGuiadoLoja");
+assert(historySync.includes("window.history.pushState"), "Painel guiado mobile deve criar entrada de historico para o botao Voltar");
+assert(historySync.includes("storefrontGuidedPanel: true"), "Historico do painel deve ser identificavel");
+assert(historySync.includes("window.history.replaceState"), "Fechamento manual do painel deve limpar o marcador de historico");
+
+const historyClose = extractFunction("fecharPainelGuiadoLojaPorHistorico");
+assert(historyClose.includes("fecharPainelEdicaoGuiadaLoja({ syncHistory: false })"), "Popstate deve fechar painel sem recriar historico");
+assert(app.includes("if (fecharPainelGuiadoLojaPorHistorico()) return;"), "Popstate deve fechar painel contextual antes de renderizar/voltar rota");
+
 const closePanel = extractFunction("fecharPainelEdicaoGuiadaLoja");
 assert(closePanel.includes("panelOpen: false"), "Fechar painel deve apenas fechar o contexto interno");
+assert(closePanel.includes("syncHistory: options.syncHistory !== false"), "Fechar painel deve permitir origem historico sem loop");
 assert(!closePanel.includes('trocarTela("lojaOnline"'), "Fechar painel nao deve voltar para resumo da loja");
 
 const backPanel = extractFunction("voltarPainelLojaVisual");
