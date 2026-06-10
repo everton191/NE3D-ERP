@@ -25525,6 +25525,18 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   line-height:1.45;
 }
 
+.store-guided-target-hint{
+  margin:0;
+  padding:10px 12px;
+  border:1px solid color-mix(in srgb, var(--store-primary, var(--color-primary)) 34%, var(--store-border));
+  border-radius:12px;
+  background:color-mix(in srgb, var(--store-primary, var(--color-primary)) 9%, var(--store-surface));
+  color:var(--store-text);
+  font-size:12px;
+  font-weight:750;
+  line-height:1.45;
+}
+
 .store-guided-shortcuts{
   display:grid;
   gap:8px;
@@ -25599,6 +25611,12 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   color:var(--store-text-soft);
   font-size:12px;
   font-weight:850;
+}
+
+.store-guided-target-field{
+  border-radius:12px;
+  outline:2px solid color-mix(in srgb, var(--store-primary, var(--color-primary)) 55%, transparent);
+  outline-offset:3px;
 }
 
 .store-guided-form :where(input,textarea,select){
@@ -30480,6 +30498,81 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 .store-visual-mobile-actions :where(button,summary){
   min-height:42px;
   max-height:44px;
+}
+
+/* Hotfix loja 2026-06-10: banner claro sem efeito cinza/gradiente residual. */
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner{
+  background:#fcfdfc !important;
+  background-image:none !important;
+  color:var(--store-text, #183136);
+}
+
+.storefront-root[data-storefront-source="v2"]{
+  max-width:100%;
+  overflow-x:clip;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image,
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img){
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner::before,
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner::after,
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image::before,
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner.store-banner-has-image::after,
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img)::before,
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:has(> img)::after{
+  content:none !important;
+  display:none !important;
+  opacity:0 !important;
+  background:none !important;
+  background-image:none !important;
+  filter:none !important;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner > img{
+  opacity:1 !important;
+  filter:none !important;
+  mix-blend-mode:normal !important;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:not(.store-banner-has-image):not(:has(> img)) .store-hero-device-art{
+  opacity:.18 !important;
+  filter:none !important;
+  mix-blend-mode:normal !important;
+}
+
+@media (max-width:767px){
+  .storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner{
+    min-height:280px !important;
+    max-height:none !important;
+    height:auto !important;
+    aspect-ratio:auto !important;
+  }
+
+  .storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner-copy{
+    width:100%;
+    max-width:none;
+    gap:14px;
+    padding:18px;
+  }
+
+  .storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner-copy h1{
+    font-size:clamp(1.75rem, 7.2vw, 2.2rem) !important;
+    line-height:1.08;
+  }
+
+  .storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner-copy p{
+    font-size:1rem;
+    line-height:1.5;
+  }
+
+  .storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner:not(.store-banner-has-image):not(:has(> img)) .store-hero-device-art{
+    display:none !important;
+  }
 }
 
 .store-visual-more-actions{

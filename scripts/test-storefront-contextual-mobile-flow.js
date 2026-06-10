@@ -43,9 +43,11 @@ assert(openAdmin.includes('history.pushState({ simplifica: true, tela: "lojaPubl
 assert(!openAdmin.includes('trocarTela("lojaOnline"'), "Abrir admin contextual nao pode redirecionar para resumo da loja");
 
 const selectVisual = extractFunction("selecionarItemLojaVisual");
-assert(selectVisual.includes("setStorefrontContextualEditorState({ type, id, panelOpen: true })"), "Selecao contextual deve usar autoridade central e abrir painel");
+assert(selectVisual.includes("normalizeStorefrontGuidedSelection({ type, id, ...options }"), "Selecao contextual deve normalizar entidade, campo e etapa");
+assert(selectVisual.includes("setStorefrontContextualEditorState({ selection: nextSelection, panelOpen: true })"), "Selecao contextual deve usar autoridade central e abrir painel");
 assert(selectVisual.includes("renderizarPreservandoScroll()"), "Selecao contextual deve preservar a vitrine durante render");
 assert(selectVisual.includes("alinharSelecaoLojaVisual"), "Selecao contextual deve centralizar o item editado");
+assert(selectVisual.includes("selection.targetField"), "Selecao contextual deve focar campo especifico quando houver alvo");
 
 const contextualState = extractFunction("setStorefrontContextualEditorState");
 assert(contextualState.includes("wasPanelOpen"), "Estado contextual deve saber quando o painel acabou de abrir");
@@ -81,13 +83,14 @@ assert(backPanel.includes('trocarTela("lojaOnline")'), "Voltar sem contexto aind
 
 [
   'data-store-section="banner"',
-  "selecionarItemLojaVisual('banner')",
-  "selecionarItemLojaVisual('identity')",
-  "selecionarItemLojaVisual('contacts')",
-  "selecionarItemLojaVisual('category','${escaparAttr(cat.id)}')",
-  "selecionarItemLojaVisual('product','${escaparAttr(product.id)}')",
-  "adminMode ? \"selecionarItemLojaVisual('contacts')\"",
-  "mode.admin ? \"selecionarItemLojaVisual('contacts')\""
+  "targetSection: 'banner'",
+  "targetSection: 'logo'",
+  "targetSection: 'contacts'",
+  "targetField: 'categoryName'",
+  'editProductTarget("price", "productPrice"',
+  'editProductTarget("photos", "productPhoto"',
+  "targetField: 'whatsapp'",
+  "targetField: 'instagram'"
 ].forEach((marker) => assert(app.includes(marker), `Clique contextual nao mapeado: ${marker}`));
 
 [

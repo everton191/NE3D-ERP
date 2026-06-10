@@ -75,6 +75,7 @@
     "test:storefront-light-theme-stability": "node scripts/test-storefront-light-theme-stability.js",
     "test:storefront-final-polish": "node scripts/test-storefront-final-polish.js",
     "test:storefront-public-ui": "node scripts/test-storefront-public-ui.js",
+    "test:storefront-image-optimization": "node scripts/test-storefront-image-optimization.js",
     "test:storefront-mobile-actions": "node scripts/test-storefront-mobile-actions.js",
     "test:design-system-v2": "node scripts/test-design-system-v2.js",
     "test:erp-theme-v2": "node scripts/test-erp-theme-v2.js",

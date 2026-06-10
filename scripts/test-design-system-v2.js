@@ -24,7 +24,7 @@ function assert(condition, message) {
   "img,\nvideo,\ncanvas,\nsvg"
 ].forEach((marker) => assert(css.includes(marker), `Fundacao DS V2 ausente: ${marker}`));
 
-assert(index.includes("/themes/base/design-system-v2.css?v=1.0.52-rc-storefront-contact-actions-20260607"), "CSS V2 nao carrega no HTML");
+assert(index.includes("/themes/base/design-system-v2.css?v=1.0.54-rc-banner-light-20260610"), "CSS V2 nao carrega no HTML");
 assert(prepare.includes('"themes/base/design-system-v2.css"'), "Build nao copia CSS V2");
 assert(sw.includes('"./themes/base/design-system-v2.css"'), "PWA nao precacheia CSS V2");
 

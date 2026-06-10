@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.52-rc-storefront-contact-actions-20260607"
+  "1.0.54-rc-banner-light-20260610"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));

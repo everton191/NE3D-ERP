@@ -45,7 +45,11 @@ function extractFunction(name) {
   'selection.type === "checklist"',
   'data-guided-selection="${escaparAttr(selection.type)}"',
   'data-store-section="contato"',
-  "selecionarItemLojaVisual('product','${escaparAttr(product.id)}')",
+  "selecionarItemLojaVisual('product','${escaparAttr(product.id)}', {",
+  'editProductTarget("price", "productPrice"',
+  'editProductTarget("photos", "productPhoto"',
+  "store-guided-target-hint",
+  "store-guided-target-field",
   "encodeURIComponent(texto)"
 ].forEach((marker) => assert(app.includes(marker), `Editor guiado incompleto: ${marker}`));
 assert(app.includes('aria-expanded="false" onclick="const header=this.closest'), "Menu publico mobile deve atualizar aria-expanded");
@@ -99,8 +103,8 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "display:none"
 ].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v158-storefront-contact-actions-20260607"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.52-rc-storefront-contact-actions-20260607"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v160-banner-light-20260610"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.54-rc-banner-light-20260610"), "Cache-bust web da loja publica nao foi atualizado");
 [
   "Preview do catálogo",
   "Preview das categorias",
