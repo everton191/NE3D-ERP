@@ -25649,6 +25649,21 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   cursor:pointer;
 }
 
+.store-guided-upload-button{
+  display:grid;
+  gap:5px;
+  min-height:48px;
+  place-items:center;
+  color:#ffffff;
+  background:var(--store-primary, #078f86);
+  border-style:solid;
+  border-color:var(--store-primary, #078f86);
+  font-size:14px;
+  font-weight:900;
+  text-align:center;
+  box-shadow:0 10px 22px rgba(20,127,120,.16);
+}
+
 .store-guided-upload input{
   width:100%;
   max-width:100%;
@@ -25659,9 +25674,22 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   background:transparent;
 }
 
+.store-guided-upload input[type="file"]{
+  position:absolute;
+  width:1px;
+  height:1px;
+  opacity:0;
+  pointer-events:none;
+}
+
 .store-guided-upload span{
   color:var(--store-muted);
   font-size:11px;
+}
+
+.store-guided-upload-button span{
+  color:rgba(255,255,255,.86);
+  font-weight:700;
 }
 
 .store-guided-actions{
@@ -30444,6 +30472,8 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 
 .store-guided-selected{
   position:relative;
+  scroll-margin-top:88px;
+  scroll-margin-bottom:calc(44vh + 110px + var(--app-safe-bottom, 0px));
   outline:3px solid var(--store-primary, #078f86);
   outline-offset:3px;
   box-shadow:0 0 0 6px color-mix(in srgb, var(--store-primary, #078f86) 18%, transparent), var(--store-shadow-soft) !important;
@@ -30493,6 +30523,18 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   font-size:12px;
 }
 
+.store-guided-photo-note{
+  margin:0;
+  padding:10px 12px;
+  color:var(--store-text);
+  background:var(--store-primary-soft, color-mix(in srgb, var(--store-primary, #078f86) 10%, var(--store-surface)));
+  border:1px solid color-mix(in srgb, var(--store-primary, #078f86) 28%, var(--store-border));
+  border-radius:12px;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.4;
+}
+
 .store-guided-actions :where(.btn,button),
 .store-visual-top-actions :where(button,summary),
 .store-visual-mobile-actions :where(button,summary){
@@ -30501,6 +30543,75 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 }
 
 /* Hotfix loja 2026-06-10: banner claro sem efeito cinza/gradiente residual. */
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"],
+.store-public-shell[data-storefront-source="v2"][data-store-theme="light"]{
+  --store-primary:#147f78 !important;
+  --store-primary-hover:#106f69 !important;
+  --store-primary-soft:#e9f7f5 !important;
+  --store-button-bg:#147f78 !important;
+  --store-button-hover:#106f69 !important;
+  --store-button-shadow:0 10px 22px rgba(20,127,120,.16) !important;
+  --store-border:rgba(35,78,86,.16);
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .btn.ghost,
+  .btn.secondary,
+  .store-public-icon-action,
+  .store-public-menu-toggle,
+  .store-visual-top-actions button,
+  .store-visual-top-actions a,
+  .store-visual-mobile-actions button,
+  .store-context-edit-fab,
+  .store-public-product-actions .btn.ghost,
+  .store-public-product-actions .btn.secondary
+){
+  background:#ffffff !important;
+  border-color:#d6e3e3 !important;
+  color:#183136 !important;
+  box-shadow:0 8px 18px rgba(18,46,58,.08) !important;
+  backdrop-filter:none !important;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .btn.ghost,
+  .btn.secondary,
+  .store-public-icon-action,
+  .store-public-menu-toggle,
+  .store-visual-top-actions button,
+  .store-visual-top-actions a,
+  .store-visual-mobile-actions button,
+  .store-context-edit-fab,
+  .store-public-product-actions .btn.ghost,
+  .store-public-product-actions .btn.secondary
+):hover{
+  background:#f4faf9 !important;
+  border-color:#bfd7d6 !important;
+  color:#10282d !important;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .btn:not(.ghost):not(.secondary),
+  .store-public-whatsapp-action,
+  .store-public-contact-cta,
+  .store-public-product-actions .btn:not(.ghost):not(.secondary)
+){
+  background:#147f78 !important;
+  border-color:#147f78 !important;
+  color:#ffffff !important;
+  box-shadow:0 10px 22px rgba(20,127,120,.16) !important;
+}
+
+.storefront-root[data-storefront-source="v2"][data-store-theme="light"] :where(
+  .btn:not(.ghost):not(.secondary),
+  .store-public-whatsapp-action,
+  .store-public-contact-cta,
+  .store-public-product-actions .btn:not(.ghost):not(.secondary)
+):hover{
+  background:#106f69 !important;
+  border-color:#106f69 !important;
+}
+
 .storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-public-banner{
   background:#fcfdfc !important;
   background-image:none !important;
@@ -30698,10 +30809,14 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   }
 
   .store-visual-mobile-actions .ui-context-menu-panel{
+    position:absolute;
+    top:auto;
     right:0;
     bottom:calc(100% + 8px);
     left:auto;
+    width:min(240px, calc(100vw - 24px));
     min-width:190px;
+    max-height:min(360px, calc(var(--app-viewport-height, 100dvh) - var(--app-safe-bottom, 0px) - 120px));
   }
 
   .store-public-admin-mode .store-visual-editor-canvas{

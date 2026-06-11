@@ -16542,9 +16542,62 @@ function copiarLinkProdutoLojaOnline(productId = "") {
 
 function abrirSeletorFotoProdutoLojaOnline(productId = "") {
   closeDrawer();
-  const input = document.getElementById(`storefrontProductPhoto-${storefrontAdminSlugify(productId)}`);
+  const slug = storefrontAdminSlugify(productId);
+  const input = document.getElementById(`storefrontProductPhoto-${slug}`)
+    || document.querySelector(`[data-storefront-product-photo="${String(productId || "").replace(/"/g, '\\"')}"]`)
+    || document.querySelector(`input[name="productPhoto"]`);
   if (!input) return mostrarToast("Abra a edição do produto para incluir fotos.", "info", 3000);
   input.click();
+}
+
+async function processarImagemExemploLojaOnline(productId, input) {
+  const file = Array.from(input?.files || [])[0];
+  if (!file || !productId) return;
+  try {
+    setStorefrontUploadStatus({
+      type: "info",
+      title: "Preparando foto",
+      message: "Ajustando a imagem do exemplo para o preview da loja."
+    });
+    const preparedFile = await otimizarArquivoStorefrontImagem(file, "produto");
+    const dataUrl = await lerArquivoComoDataUrl(preparedFile);
+    const current = getStorefrontAdminImagesLocal();
+    const withoutPrevious = current.filter((image) => String(image.product_id) !== String(productId) || !String(image.id || "").startsWith("demo-img-"));
+    const next = [
+      ...withoutPrevious,
+      {
+        id: `demo-img-${storefrontAdminSlugify(productId)}`,
+        product_id: productId,
+        store_id: getStorefrontAdminStoreLocal().id,
+        owner_id: getStorefrontAdminStoreLocal().owner_id,
+        image_url: dataUrl,
+        alt_text: file.name.replace(/\.[^.]+$/, "") || "Foto do exemplo",
+        order_index: -1,
+        local_demo_override: true
+      }
+    ];
+    storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+    marcarStorefrontAlteracoesPendentes("Foto do exemplo atualizada");
+    setStorefrontUploadStatus({
+      type: "success",
+      title: "Foto do exemplo atualizada",
+      message: "A imagem foi aplicada no preview deste aparelho.",
+      detail: `${file.name} · ${Math.max(1, Math.round(preparedFile.size / 1024))} KB`
+    });
+    registrarStorefrontActivity("Foto de exemplo atualizada", file.name);
+    mostrarToast("Foto do exemplo atualizada.", "sucesso", 2600);
+  } catch (error) {
+    setStorefrontUploadStatus({
+      type: "error",
+      title: "Falha ao trocar foto",
+      message: error?.message || "Não foi possível usar esta imagem.",
+      detail: "Escolha JPG, PNG ou WebP em tamanho adequado."
+    });
+    mostrarToast(error?.message || "Não foi possível trocar a foto do exemplo.", "erro", 4200);
+  } finally {
+    if (input) input.value = "";
+    renderApp();
+  }
 }
 
 function fecharMenusContextuaisProdutosLoja(except = null) {
@@ -16612,6 +16665,17 @@ function fecharMenusContextuaisUi(except = null) {
     fecharMenuContextualUi(menu);
   });
   return fechou;
+}
+
+function alternarMenuContextualUi(details, event = null) {
+  if (!details?.matches?.(".ui-context-menu")) return;
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  if (details.open) {
+    fecharMenuContextualUi(details);
+  } else {
+    abrirMenuContextualUi(details);
+  }
 }
 
 function sincronizarMenuContextualProduto(details) {
@@ -16713,7 +16777,10 @@ function configurarMenusContextuaisProdutosLoja() {
   });
   document.addEventListener("focusin", (event) => {
     const menu = event.target?.closest?.(".ui-context-menu");
-    if (menu) abrirMenuContextualUi(menu);
+    if (!menu) return;
+    const isSummary = event.target?.matches?.("summary");
+    if (isSummary && !desktopHover()) return;
+    abrirMenuContextualUi(menu);
   });
   document.addEventListener("focusout", (event) => {
     const menu = event.target?.closest?.(".ui-context-menu");
@@ -17566,7 +17633,10 @@ function abrirLojaPublicaAdminContextual(route = {}) {
 }
 
 function getStorefrontProductImage(product = {}, images = []) {
-  return images.find((item) => String(item.product_id) === String(product.id))?.image_url || product.image_url || product.images?.[0] || "";
+  const gallery = images
+    .filter((item) => String(item.product_id) === String(product.id))
+    .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
+  return gallery.find((item) => item.image_url)?.image_url || product.image_url || product.images?.[0] || "";
 }
 
 function getStorefrontProductImages(product = {}, images = []) {
@@ -18076,11 +18146,13 @@ function alinharSelecaoLojaVisual() {
   const mobilePanel = isMobile() && storefrontGuidedPanelOpen
     ? document.querySelector(".store-guided-editor-sidebar.is-open")
     : null;
-  const mobilePanelHeight = Math.min(scroller.clientHeight * 0.42, Number(mobilePanel?.getBoundingClientRect().height) || 0);
+  const mobileActions = isMobile() ? document.querySelector(".store-visual-mobile-actions") : null;
+  const mobilePanelHeight = Math.min(scroller.clientHeight * 0.72, Number(mobilePanel?.getBoundingClientRect().height) || 0);
+  const mobileActionsHeight = Math.min(scroller.clientHeight * 0.18, Number(mobileActions?.getBoundingClientRect().height) || 0);
   const visibleTop = scrollerRect.top + topbarHeight;
-  const visibleHeight = Math.max(180, scroller.clientHeight - topbarHeight - mobilePanelHeight);
+  const visibleHeight = Math.max(132, scroller.clientHeight - topbarHeight - mobilePanelHeight - mobileActionsHeight - 14);
   const targetHeight = Math.min(targetRect.height, visibleHeight * 0.78);
-  const desiredTop = visibleTop + Math.max(16, (visibleHeight - targetHeight) / 2);
+  const desiredTop = visibleTop + Math.max(12, (visibleHeight - targetHeight) / 2);
   const nextTop = Math.max(0, Math.min(
     scroller.scrollHeight - scroller.clientHeight,
     scroller.scrollTop + targetRect.top - desiredTop
@@ -18146,6 +18218,8 @@ function editarProdutoPublicadoLojaOnline(id = "") {
 
 if (typeof window !== "undefined") {
   Object.assign(window, {
+    alternarMenuContextualUi,
+    processarImagemExemploLojaOnline,
     selecionarItemLojaVisual,
     alinharSelecaoLojaVisual,
     abrirChecklistGuiadoLoja,
@@ -18268,15 +18342,18 @@ function renderStoreGuidedProductForm(vm, product = {}) {
       <input type="checkbox" hidden name="productShowPrice" ${product.show_price !== false ? "checked" : ""}>
       <input type="checkbox" hidden name="productFeatured" ${product.featured ? "checked" : ""}>
       <input type="checkbox" hidden name="productCustomizable" ${product.is_customizable !== false ? "checked" : ""}>
-      ${productImage ? `<div class="store-guided-product-photo${storeGuidedTargetClass("photos", "productPhoto")}"><img src="${escaparAttr(productImage)}" alt="${escaparAttr(product.title || "Produto")}"><span>${isTemplate ? "Foto de exemplo. Troque após salvar o seu produto." : "Foto atual do produto"}</span></div>` : ""}
+      ${productImage ? `<p class="store-guided-photo-note${storeGuidedTargetClass("photos", "productPhoto")}">Foto atual visível no produto selecionado.</p>` : ""}
       <label class="${storeGuidedTargetClass("basic", "productTitle")}">Nome<input name="productTitle" required maxlength="60" value="${escaparAttr(product.title || "")}"></label>
       <label class="${storeGuidedTargetClass("basic", "productDescription")}">Descrição<textarea name="productDescription" rows="3" maxlength="180">${escaparHtml(product.description || "")}</textarea></label>
       <label class="${storeGuidedTargetClass("price", "productPrice")}">Valor<input name="productPrice" inputmode="decimal" value="${escaparAttr(product.price ?? "")}"></label>
       <label class="${storeGuidedTargetClass("category", "productCategory")}">Categoria<select name="productCategory"><option value="">Sem categoria</option>${catOptions}</select></label>
       <input type="hidden" name="productStockMode" value="${escaparAttr(product.stock_mode || "unlimited")}">
       <label class="checkbox-row"><input name="productVisible" type="checkbox" ${!isTemplate && product.visible ? "checked" : ""}> Mostrar na loja</label>
-      ${isTemplate ? `<p class="store-guided-hint"><strong>Item de exemplo.</strong> Edite os dados e salve para criar seu produto sem duplicar o modelo. Depois, troque a foto antes de publicar.</p>` : `
-        ${product.id ? `<label class="store-guided-upload${storeGuidedTargetClass("photos", "productPhoto")}">Adicionar foto<input name="productPhoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"><span>Imagem do produto. O app ajusta tamanho e peso automaticamente.</span></label>` : `<p class="store-guided-hint">Salve o produto uma vez para liberar o envio de fotos.</p>`}
+      ${isTemplate ? `
+        <p class="store-guided-hint"><strong>Item de exemplo.</strong> Você pode trocar a foto para combinar com a sua loja. Ao salvar, ele vira um produto seu.</p>
+        <label class="store-guided-upload store-guided-upload-button${storeGuidedTargetClass("photos", "productPhoto")}" role="button" tabindex="0">Trocar foto do exemplo<input id="storefrontProductPhoto-${escaparAttr(storefrontAdminSlugify(product.id))}" data-storefront-product-photo="${escaparAttr(product.id)}" name="productPhoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemExemploLojaOnline('${escaparAttr(product.id)}', this)"><span>A imagem aparece no produto selecionado, sem duplicar prévia no painel.</span></label>
+      ` : `
+        ${product.id ? `<label class="store-guided-upload store-guided-upload-button${storeGuidedTargetClass("photos", "productPhoto")}" role="button" tabindex="0">${productImage ? "Trocar foto" : "Adicionar foto"}<input id="storefrontProductPhoto-${escaparAttr(storefrontAdminSlugify(product.id))}" data-storefront-product-photo="${escaparAttr(product.id)}" name="productPhoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"><span>A imagem será ajustada automaticamente, sem criar outra prévia no painel.</span></label>` : `<p class="store-guided-hint">Salve o produto uma vez para liberar o envio de fotos.</p>`}
       `}
       <div class="store-guided-actions">
         <button class="btn" type="submit">${isTemplate || !product.id ? "Criar meu produto" : "Salvar produto"}</button>
@@ -18470,7 +18547,7 @@ function renderStoreVisualMobileActions(vm) {
       <button type="button" onclick="voltarPainelLojaVisual()">Voltar</button>
       <button class="primary" type="button" onclick="salvarEdicaoVisualAtualLoja()">Salvar</button>
       <details class="ui-context-menu">
-        <summary aria-label="Mais ações" aria-expanded="false" aria-controls="store-visual-mobile-more-menu" aria-haspopup="menu">Mais</summary>
+        <summary aria-label="Mais ações" aria-expanded="false" aria-controls="store-visual-mobile-more-menu" aria-haspopup="menu" onclick="alternarMenuContextualUi(this.closest('.ui-context-menu'), event)">Mais</summary>
         <div id="store-visual-mobile-more-menu" class="ui-context-menu-panel" role="menu">
           <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
           <button type="button" onclick="restaurarExemplosLojaVisual()">Restaurar exemplos</button>
@@ -20642,7 +20719,7 @@ function renderStorefrontProducts(vm) {
             </div>
             <div class="storefront-image-row">
               ${productImages.map((image) => `<span class="storefront-thumb"><img src="${escaparAttr(image.image_url)}" alt="${escaparAttr(image.alt_text || product.title)}"><button type="button" onclick="removerImagemProdutoLojaOnline('${escaparAttr(image.id)}')">×</button></span>`).join("")}
-              <label class="btn secondary ${product.__demo ? "disabled" : ""}" ${product.__demo ? "title=\"Crie um produto seu para incluir fotos.\"" : ""}>Adicionar foto<input id="storefrontProductPhoto-${escaparAttr(storefrontAdminSlugify(product.id))}" type="file" accept="image/*" multiple hidden ${product.__demo ? "disabled" : `onchange="processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)"`}></label>
+              <label class="btn secondary">${product.__demo ? "Trocar foto do exemplo" : "Adicionar foto"}<input id="storefrontProductPhoto-${escaparAttr(storefrontAdminSlugify(product.id))}" type="file" accept="image/*" multiple hidden onchange="${product.__demo ? `processarImagemExemploLojaOnline('${escaparAttr(product.id)}', this)` : `processarImagemProdutoLojaOnline('${escaparAttr(product.id)}', this)`}"></label>
             </div>
           </article>`;
         }).join("") || (getStoreEditorNamespace()?.products?.renderEmptyState?.({ renderEmptyState: renderStoreEmptyState }) || renderStoreEmptyState({
@@ -40796,6 +40873,20 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("pointercancel", finalizarJanelaDashboard);
   document.addEventListener("pointercancel", finalizarCalculadora);
 });
+
+if (typeof window !== "undefined") {
+  Object.assign(window, {
+    alternarMenuContextualUi,
+    processarImagemExemploLojaOnline,
+    selecionarItemLojaVisual,
+    alinharSelecaoLojaVisual,
+    abrirChecklistGuiadoLoja,
+    navigateToStorefrontEditorTarget,
+    navigateToStorefrontCompletionItem,
+    fecharPainelEdicaoGuiadaLoja,
+    editarProdutoPublicadoLojaOnline
+  });
+}
 
 window.addEventListener("error", (event) => {
   registrarDiagnostico("erro", event.message || "Erro de execução", `${event.filename || ""}:${event.lineno || ""}:${event.colno || ""}`);

@@ -19,6 +19,9 @@ function assert(condition, message) {
   'document.addEventListener("pointerout"',
   'document.addEventListener("keydown"',
   'event.key !== "Escape"',
+  'if (isSummary && !desktopHover()) return;',
+  "function alternarMenuContextualUi",
+  "alternarMenuContextualUi(this.closest('.ui-context-menu'), event)",
   "fecharMenusContextuaisUi();",
   'summary.setAttribute("aria-expanded"',
   'summary.setAttribute("aria-controls"',
@@ -42,7 +45,9 @@ assert(
   "overscroll-behavior:contain",
   "min-height:44px",
   "var(--app-safe-bottom, 0px)",
-  "bottom:calc(var(--app-safe-bottom, 0px) + 12px)"
+  "bottom:calc(var(--app-safe-bottom, 0px) + 12px)",
+  ".store-visual-mobile-actions .ui-context-menu-panel",
+  "bottom:calc(100% + 8px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS de popup ausente: ${marker}`));
 
 console.log("Context menu contract: hover/focus/touch, acessibilidade, back e safe area verificados.");

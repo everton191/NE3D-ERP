@@ -95,9 +95,9 @@ svg{
   --store-text-soft:#829099;
   --store-border:#e2e9ed;
   --store-border-strong:#ccd8dd;
-  --store-primary:var(--s3d-brand-teal);
-  --store-primary-hover:var(--s3d-brand-teal-hover);
-  --store-primary-soft:#e7f6f4;
+  --store-primary:#147f78;
+  --store-primary-hover:#106f69;
+  --store-primary-soft:#e9f7f5;
   --store-accent:var(--s3d-brand-orange);
   --store-input-bg:#ffffff;
   --store-input-text:#10212b;

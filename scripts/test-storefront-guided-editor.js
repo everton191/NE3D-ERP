@@ -38,7 +38,9 @@ function extractFunction(name) {
   "function atualizarPreviewGuiadoLoja",
   "function normalizarWhatsappLojaPublica",
   "function sanitizarTextoPublicoLoja",
-  "Object.assign(window, {\n    selecionarItemLojaVisual",
+  "Object.assign(window, {\n    alternarMenuContextualUi",
+  "selecionarItemLojaVisual,",
+  "processarImagemExemploLojaOnline,",
   "navigateToStorefrontCompletionItem,\n    fecharPainelEdicaoGuiadaLoja",
   "store-readiness-mini-button",
   'onclick="abrirChecklistGuiadoLoja()"',
@@ -48,6 +50,11 @@ function extractFunction(name) {
   "selecionarItemLojaVisual('product','${escaparAttr(product.id)}', {",
   'editProductTarget("price", "productPrice"',
   'editProductTarget("photos", "productPhoto"',
+  "store-guided-photo-note",
+  "store-guided-upload-button",
+  "data-storefront-product-photo",
+  "processarImagemExemploLojaOnline",
+  "Trocar foto do exemplo",
   "store-guided-target-hint",
   "store-guided-target-field",
   "encodeURIComponent(texto)"
@@ -94,7 +101,13 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "--store-stage-max:min(100%, 1760px);",
   "grid-template-columns:1fr;",
   "min-height:44px;",
-  "font-size:16px;"
+  "font-size:16px;",
+  "scroll-margin-bottom:calc(44vh + 110px + var(--app-safe-bottom, 0px))",
+  ".store-guided-photo-note",
+  ".store-guided-upload-button",
+  ".store-guided-upload input[type=\"file\"]",
+  "position:absolute;",
+  ".store-visual-mobile-actions .ui-context-menu-panel"
 ].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
 [
   "body.mobile-mode .store-public-menu-toggle",
@@ -103,8 +116,8 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "display:none"
 ].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v160-banner-light-20260610"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.54-rc-banner-light-20260610"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v161-soft-light-store-20260610"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.55-rc-soft-light-store-20260610"), "Cache-bust web da loja publica nao foi atualizado");
 [
   "Preview do catálogo",
   "Preview das categorias",

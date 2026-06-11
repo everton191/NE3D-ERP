@@ -26,6 +26,10 @@ assert(app.includes("const fallback = adminFallback || cached || getStorefrontPu
 assert(app.includes("products: vm.products.filter((product) => !storefrontIsDemoProduct(product))"), "loja publica deve filtrar produtos demonstrativos");
 assert(app.includes("categories: vm.categories.filter((category) => !category.__demo && !category.__template)"), "loja publica deve filtrar categorias demonstrativas");
 assert(app.includes("Usar este exemplo como modelo"), "editor deve explicar que o exemplo cria um modelo");
+assert(app.includes("function processarImagemExemploLojaOnline"), "editor deve permitir trocar foto de exemplo sem criar produto real");
+assert(app.includes("Trocar foto do exemplo"), "produto demonstrativo deve oferecer troca de foto amigavel");
+assert(app.includes("local_demo_override"), "foto de exemplo deve ficar marcada como substituicao local");
+assert(app.includes("sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0))"), "foto customizada do exemplo deve ter prioridade no preview");
 assert(app.includes("O produto será criado como rascunho e não será publicado automaticamente."), "modelo deve permanecer rascunho invisivel");
 assert(app.includes('category_id: null'), "modelo nao pode persistir categoria demonstrativa");
 assert(app.includes('image_url: ""'), "modelo deve solicitar revisao da foto antes de salvar");
