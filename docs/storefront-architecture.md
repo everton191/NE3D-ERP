@@ -4,6 +4,23 @@ Data: 2026-05-27
 
 Escopo: desacoplamento arquitetural inicial. Esta fase nao move a logica critica da loja.
 
+## Checkpoint Loja V3 / Editor V3 - 2026-06-11
+
+A Loja V3 saiu da fundacao tecnica e recebeu a primeira implementacao visual aprovada sobre a estrutura Storefront V2 existente. O contrato atual adiciona:
+
+- marcador `data-storefront-version="storefront-v3-editor-v3-approved"`;
+- tema claro obrigatorio e isolado da loja;
+- paleta aprovada da vitrine sem herdar tema escuro do ERP;
+- pagamento online explicitamente desativado;
+- checkout em modo WhatsApp/orcamento;
+- rotas publicas atuais preservadas;
+- Home publica V3 com faixa de beneficios, busca, categorias, banner amplo, produtos e bottom nav mobile;
+- Editor V3 mobile com etapas guiadas de produto: Basico, Preco/Estoque, Imagens e Publicacao;
+- preview compacto fixo do item editado no painel guiado;
+- carrinho publico como orcamento/pedido em revisao, com rascunho best-effort em `store_order_drafts`.
+
+Nao houve alteracao de banco, slug, plano, webhook, checkout Mercado Pago ou regra comercial nesta etapa.
+
 ## Modulos
 
 ```txt

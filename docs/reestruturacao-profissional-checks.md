@@ -6,6 +6,21 @@ Checkpoint antes da fase: `checkpoint-restructuring-start-20260527`
 
 Objetivo deste arquivo: manter um controle simples, incremental e verificavel da reestruturacao do Simplifica 3D, marcando o que ja existe, o que esta parcial e o que ainda precisa ser feito antes de novas features grandes.
 
+## Loja V3 / Editor V3 - fundacao 2026-06-11
+
+- `[x]` Criar marcador interno `storefront-v3-editor-v3-approved`.
+- `[x]` Forcar loja publica/editor em tema claro isolado.
+- `[x]` Aplicar paleta clara aprovada da loja.
+- `[x]` Manter pagamento online desativado e observavel.
+- `[x]` Preservar rotas, slugs, planos e banco.
+- `[x]` Criar `test:storefront-v3-foundation`.
+- `[x]` Criar alias `test:storefront-v3-approved`.
+- `[x]` Reconstruir Home publica V3 com busca, categorias, banner amplo, produtos e bottom nav mobile.
+- `[x]` Criar Editor V3 mobile em etapas de produto com preview compacto fixo.
+- `[x]` Registrar carrinho como orcamento/pedido em revisao antes do WhatsApp, com fallback local.
+- `[~]` Integracao profunda com estoque/pedidos reais ainda depende de fase propria e validacao remota com RLS.
+- `[~]` Homologacao fisica Android/PWA/APK segue pendente.
+
 ## Fase 5A.2 - Start backend authority
 
 - `[x]` Criar `PLAN_REGISTRY` com Free, Start e Pro.

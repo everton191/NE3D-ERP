@@ -6,13 +6,13 @@ const gradle = fs.readFileSync("android/app/build.gradle", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const required = [
-  "simplifica-3d-v161-soft-light-store-20260610",
+  "simplifica-3d-v165-store-v3-examples-20260611",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.27-rc\"",
-  "versionCode 26",
-  "APP_VERSION = \"1.0.27-rc\"",
-  "APP_VERSION_CODE = 26"
+  "versionName \"1.0.28-rc\"",
+  "versionCode 27",
+  "APP_VERSION = \"1.0.28-rc\"",
+  "APP_VERSION_CODE = 27"
 ];
 
 const sources = [sw, manifest, gradle, app].join("\n");

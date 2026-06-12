@@ -1,8 +1,9 @@
-const CACHE_NAME = "simplifica-3d-v161-soft-light-store-20260610";
+const CACHE_NAME = "simplifica-3d-v165-store-v3-examples-20260611";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
+  "./storefront-v3.css",
   "./app.js",
   "./src/services/errorTelemetry.js",
   "./src/services/diagnosticsService.js",
@@ -66,6 +67,7 @@ self.addEventListener("fetch", (event) => {
     "/index.html",
     "/app.js",
     "/style.css",
+    "/storefront-v3.css",
     "/themes/base/design-system-v2.css",
     "/sw.js",
     "/modules/store-editor/storeEditorRenderer.js",

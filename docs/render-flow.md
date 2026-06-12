@@ -2,6 +2,34 @@
 
 Data: 2026-05-27
 
+## Checkpoint Loja V3 / Editor V3 - 2026-06-11
+
+Fluxo visual preparado:
+
+```txt
+renderStorefrontView()
+ └── renderStorefrontPublicV2()
+      └── renderStorefrontPublicLegacy()
+           ├── tema controlado por getStorefrontControlledTheme()
+           │    └── sempre light na loja V3
+           ├── data-storefront-version=storefront-v3-editor-v3-approved
+           ├── data-online-payment-enabled=false
+           ├── home publica V3
+           │    ├── faixa informativa
+           │    ├── busca local
+           │    ├── banner amplo
+           │    ├── categorias/produtos
+           │    └── bottom nav mobile
+           ├── editor guiado V3
+           │    ├── preview compacto fixo
+           │    └── etapas Basico/Preco/Imagens/Publicacao
+           └── carrinho/modal
+                ├── data-checkout-mode=whatsapp
+                └── registrarPedidoRascunhoLojaPublica() best-effort
+```
+
+O ERP continua com tema proprio. A loja publica nao herda tema escuro do ERP, e pagamento online permanece desligado ate fase futura especifica.
+
 ## Fase 5A.2 - Start
 
 Fluxo preparado e fechado:

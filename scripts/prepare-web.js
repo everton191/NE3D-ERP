@@ -6,6 +6,7 @@ const dist = path.join(root, "dist");
 const files = [
   "index.html",
   "style.css",
+  "storefront-v3.css",
   "app.js",
   "sw.js",
   "manifest.webmanifest",
