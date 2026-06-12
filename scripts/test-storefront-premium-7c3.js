@@ -38,7 +38,7 @@ function extractFunction(name) {
   "function renderStorePublicContactGrid",
   "function renderStorePublicContactCta",
   "Novidades em breve",
-  "Estamos preparando nosso catálogo",
+  "Estamos preparando produtos especiais",
   'maxlength="100"',
   'maxlength="60"',
   'maxlength="180"',
@@ -46,18 +46,18 @@ function extractFunction(name) {
   "store-public-whatsapp-action"
 ].forEach((marker) => assert(app.includes(marker), `Storefront premium incompleta: ${marker}`));
 
-const publicRender = extractFunction("renderStorefrontPublicLegacy");
-const bannerIndex = publicRender.indexOf("${renderStorePublicBanner(vm)}");
-const benefitsIndex = publicRender.indexOf("${renderStorePublicBenefits(vm)}");
-const categoriesIndex = publicRender.indexOf("${renderStorePublicCategoryBar(vm)}");
-const contactIndex = publicRender.indexOf("${renderStorePublicHomeContact(vm)}");
+const publicRender = extractFunction("renderStorefrontV3Home");
+const bannerIndex = publicRender.indexOf("${renderStorefrontV3Hero(vm)}");
+const benefitsIndex = publicRender.indexOf("${renderStorefrontV3Benefits()}");
+const categoriesIndex = publicRender.indexOf("${renderStorefrontV3Categories(vm)}");
+const contactIndex = publicRender.indexOf("${renderStorefrontV3Contact(vm)}");
 assert(bannerIndex >= 0 && benefitsIndex > bannerIndex && categoriesIndex > benefitsIndex && contactIndex > categoriesIndex, "Home premium deve seguir banner, beneficios, categorias e contato");
 assert(!publicRender.includes("${renderStorePublicTestimonials(vm)}"), "Home premium nao deve renderizar depoimentos genericos");
 assert(!publicRender.includes("${renderStorePublicPromoSection(vm)}"), "Home premium nao deve renderizar promocao redundante");
 
-const contactPage = extractFunction("renderStorePublicContactPage");
-assert(contactPage.includes("${renderStorePublicContactGrid(vm)}"), "Contato publico deve usar grade unica");
-assert(contactPage.includes("${renderStorePublicContactCta(vm)}"), "Contato publico deve usar CTA unico");
+const contactPage = extractFunction("renderStorefrontV3Contact");
+assert(contactPage.includes("storefront-v3__contact-grid"), "Contato publico deve usar grade unica");
+assert(contactPage.includes("abrirWhatsappLojaPublica()"), "Contato publico deve usar CTA de WhatsApp unico");
 assert(!contactPage.includes("renderStoreContactHeroPreview"), "Contato publico nao deve duplicar preview administrativo");
 assert(extractFunction("renderStoreAdminControls").includes('if (!getStorefrontPublicMode(vm).admin) return "";'), "Controles admin devem permanecer bloqueados na visao publica");
 assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.admin) return "";'), "Editor flutuante nao pode vazar para cliente");
@@ -73,7 +73,7 @@ assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.adm
   "@media (max-width:359px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS premium 7C.3 ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v165-store-v3-examples-20260611"), "Cache PWA premium ausente");
-assert(index.includes("1.0.59-store-v3-examples-20260611"), "Cache-bust premium ausente");
+assert(sw.includes("simplifica-3d-v167-store-v3-theme-isolation-20260612"), "Cache PWA premium ausente");
+assert(index.includes("1.0.61-store-v3-theme-isolation-20260612"), "Cache-bust premium ausente");
 
 console.log("Storefront premium 7C.3: composicao clara, contato unico, cards responsivos, detalhe e cache validados.");

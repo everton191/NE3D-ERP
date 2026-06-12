@@ -163,6 +163,13 @@ assert(!leadModalBlock.includes("storefront-theme-v2"), "Solicitacao de produto 
   ".store-guided-step-pane",
   ".store-guided-step-actions",
   ".store-guided-product-checklist",
+  ".storefront-v3-host--admin,",
+  ".store-guided-editor-sidebar.is-open,",
+  ".store-guided-v3-product-form{",
+  "--input-bg:#ffffff",
+  ".store-guided-editor-sidebar.is-open :where(button,input,textarea,select)",
+  "background-image:none",
+  ".store-guided-step-actions .btn.primary",
   ".storefront-v3-host--admin .store-visual-editor-frame:has(.store-guided-editor-sidebar.is-open) .store-visual-editor-main",
   ".storefront-v3-host--admin .store-visual-editor-topbar",
   ".storefront-v3-host--admin .store-visual-editor-frame:has(.store-guided-editor-sidebar.is-open) .store-visual-mobile-actions",
@@ -188,9 +195,9 @@ assert(!leadModalBlock.includes("storefront-theme-v2"), "Solicitacao de produto 
   "Pagar agora"
 ].forEach((forbidden) => assert(!storefrontBlock.includes(forbidden), `Pagamento online foi ativado indevidamente na loja: ${forbidden}`));
 
-assert(index.includes("1.0.59-store-v3-examples-20260611"), "Cache-bust Web/PWA V3 ausente no index");
-assert(sw.includes("simplifica-3d-v165-store-v3-examples-20260611"), "Cache V3 ausente no service worker");
-assert(index.includes("/storefront-v3.css?v=1.0.59-store-v3-examples-20260611"), "CSS isolado da Loja V3 nao carrega no HTML");
+assert(index.includes("1.0.61-store-v3-theme-isolation-20260612"), "Cache-bust Web/PWA V3 ausente no index");
+assert(sw.includes("simplifica-3d-v167-store-v3-theme-isolation-20260612"), "Cache V3 ausente no service worker");
+assert(index.includes("/storefront-v3.css?v=1.0.61-store-v3-theme-isolation-20260612"), "CSS isolado da Loja V3 nao carrega no HTML");
 assert(sw.includes("./storefront-v3.css"), "CSS isolado da Loja V3 nao entra no PWA");
 [
   "hero-3d-products.jpg",
@@ -209,6 +216,11 @@ assert(sw.includes("./storefront-v3.css"), "CSS isolado da Loja V3 nao entra no 
 ].forEach((file) => assert(fs.existsSync(`assets/storefront-v3/examples/${file}`), `Imagem exemplo V3 ausente: ${file}`));
 assert(!app.includes("Tênis Casual Masculino"), "Exemplo de sapato do mockup do editor nao deve entrar na loja");
 [
+  ".storefront-v3-host,",
+  ".storefront-v3__modal-backdrop{",
+  "color-scheme:light",
+  "--bg-primary:#ffffff",
+  "--input-bg:#ffffff",
   ".storefront-v3{",
   ".storefront-v3__header",
   ".storefront-v3__hero",
@@ -219,6 +231,7 @@ assert(!app.includes("Tênis Casual Masculino"), "Exemplo de sapato do mockup do
   ".storefront-v3__modal-backdrop",
   ".storefront-v3__cart-panel",
   ".storefront-v3__lead-panel",
+  "background-image:none",
   "grid-template-columns:repeat(2, minmax(0, 1fr))"
 ].forEach((marker) => assert(v3css.includes(marker), `CSS V3 isolado ausente: ${marker}`));
 assert(!/linear-gradient|radial-gradient|conic-gradient/.test(v3css), "CSS isolado da Loja V3 nao deve conter gradientes herdados");

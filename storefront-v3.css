@@ -1,4 +1,24 @@
-/* Loja Publica V3 - interface isolada, sem herdar DOM/CSS visual da Loja V2. */
+/* Loja Publica V3 - interface isolada, sem herdar DOM/CSS visual da Loja V2 ou do ERP. */
+.storefront-v3-host,
+.storefront-v3__modal-backdrop{
+  color-scheme:light;
+  --bg-primary:#ffffff;
+  --bg-secondary:#f3f7f7;
+  --bg-tertiary:#eef5f5;
+  --card-bg:#ffffff;
+  --card-bg-hover:#f7fbfb;
+  --text-primary:#1f2d2f;
+  --text-secondary:#405b5f;
+  --text-muted:#667a7d;
+  --border-primary:#dde7e8;
+  --border-secondary:#cfe0e2;
+  --accent-primary:#2f6f73;
+  --accent-secondary:#4d9ca2;
+  --input-bg:#ffffff;
+  --input-border:#dde7e8;
+  --input-text:#1f2d2f;
+}
+
 .storefront-v3{
   --store-v3-primary:#2F6F73;
   --store-v3-primary-hover:#3B848A;
@@ -9,6 +29,8 @@
   --store-v3-text:#1F2D2F;
   --store-v3-text-muted:#667A7D;
   --store-v3-shadow:0 16px 38px rgba(22,61,66,.08);
+  color-scheme:light;
+  isolation:isolate;
   min-height:100dvh;
   padding:12px 0 calc(24px + var(--app-safe-bottom, 0px));
   color:var(--store-v3-text);
@@ -24,6 +46,16 @@
 
 .storefront-v3 :where(a,button,input){
   font:inherit;
+}
+
+.storefront-v3 :where(button,input,textarea,select),
+.storefront-v3__modal-backdrop :where(button,input,textarea,select){
+  appearance:none;
+  -webkit-appearance:none;
+  color-scheme:light;
+  background-image:none;
+  text-shadow:none;
+  letter-spacing:0;
 }
 
 .storefront-v3 :where(button,a){
@@ -598,6 +630,11 @@
   padding:20px;
   background:rgba(15,32,36,.28);
   backdrop-filter:blur(10px);
+}
+
+.storefront-v3__modal-backdrop,
+.storefront-v3__modal-backdrop *{
+  box-sizing:border-box;
 }
 
 .storefront-v3__cart-panel,

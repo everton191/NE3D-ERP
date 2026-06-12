@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v166-editor-v3-version-20260612";
+const CACHE_NAME = "simplifica-3d-v167-store-v3-theme-isolation-20260612";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -25,12 +25,19 @@ const APP_FILES = [
   "./assets/icon-512.png",
   "./assets/apple-touch-icon.png",
   "./assets/intro.mp4",
-  "./assets/storefront-demo/stamp.jpg",
-  "./assets/storefront-demo/custom-part.jpg",
-  "./assets/storefront-demo/figure.jpg",
-  "./assets/storefront-demo/organizer.jpg",
-  "./assets/storefront-demo/miniature.jpg",
-  "./assets/storefront-demo/vase.jpg",
+  "./assets/storefront-v3/examples/hero-3d-products.jpg",
+  "./assets/storefront-v3/examples/category-decoracao.jpg",
+  "./assets/storefront-v3/examples/category-colecionaveis.jpg",
+  "./assets/storefront-v3/examples/category-acessorios.jpg",
+  "./assets/storefront-v3/examples/category-utilidades.jpg",
+  "./assets/storefront-v3/examples/category-chaveiros.jpg",
+  "./assets/storefront-v3/examples/category-pecas-tecnicas.jpg",
+  "./assets/storefront-v3/examples/product-dino.jpg",
+  "./assets/storefront-v3/examples/product-eiffel.jpg",
+  "./assets/storefront-v3/examples/product-support.jpg",
+  "./assets/storefront-v3/examples/product-vase.jpg",
+  "./assets/storefront-v3/examples/product-keychain.jpg",
+  "./assets/storefront-v3/examples/product-dragon.jpg",
   "./manifest.webmanifest",
   "./icon.svg",
   "./ads.txt"

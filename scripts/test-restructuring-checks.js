@@ -110,8 +110,8 @@ const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
   "modules/store-preview/contract.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.28-rc"/.test(app), "app.js esta na versao 1.0.28-rc");
-assert(/const APP_VERSION_CODE = 27/.test(app), "app.js possui versionCode 27");
+assert(/const APP_VERSION = "1\.0\.30-rc"/.test(app), "app.js esta na versao 1.0.30-rc");
+assert(/const APP_VERSION_CODE = 29/.test(app), "app.js possui versionCode 29");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v165-store-v3-examples-20260611"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v167-store-v3-theme-isolation-20260612"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.59-store-v3-examples-20260611"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.61-store-v3-theme-isolation-20260612"), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1 && index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager carrega antes do app");
 assert(sw.includes("./src/services/safeAreaManager.js"), "safeAreaManager entra no precache PWA");

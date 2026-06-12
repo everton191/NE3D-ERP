@@ -8,16 +8,16 @@ const css = fs.readFileSync(path.join(root, "themes", "base", "design-system-v2.
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 [
-  ["Peça técnica flexível", "stamp.jpg"],
-  ["Protótipo funcional", "custom-part.jpg"],
-  ["Miniatura personalizada", "figure.jpg"],
-  ["Modelo orgânico", "organizer.jpg"],
-  ["Maquete arquitetônica", "miniature.jpg"],
-  ["Vaso decorativo", "vase.jpg"]
+  ["Dinossauro Flex", "product-dino.jpg"],
+  ["Luminária Eiffel", "product-eiffel.jpg"],
+  ["Suporte de Celular", "product-support.jpg"],
+  ["Vaso Geométrico", "product-vase.jpg"],
+  ["Chaveiro Personalizado", "product-keychain.jpg"],
+  ["Dragão Articulado", "product-dragon.jpg"]
 ].forEach(([name, file]) => {
   assert(app.includes(name), `modelo demonstrativo ausente: ${name}`);
-  assert(fs.existsSync(path.join(root, "assets", "storefront-demo", file)), `asset local ausente: ${file}`);
-  assert(sw.includes(`./assets/storefront-demo/${file}`), `asset nao precacheado: ${file}`);
+  assert(fs.existsSync(path.join(root, "assets", "storefront-v3", "examples", file)), `asset local ausente: ${file}`);
+  assert(sw.includes(`./assets/storefront-v3/examples/${file}`), `asset nao precacheado: ${file}`);
 });
 
 assert(app.includes("const rawProducts = [...storedProducts, ...demoProducts]"), "editor deve somar modelos fotograficos sem persistir dados ficticios");

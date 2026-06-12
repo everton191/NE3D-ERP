@@ -31226,6 +31226,40 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   padding-bottom:96px;
 }
 
+.storefront-v3-host--admin,
+.store-guided-editor-sidebar.is-open,
+.store-guided-v3-product-form{
+  color-scheme:light;
+  --store-v3-primary:#2f6f73;
+  --store-v3-primary-hover:#3b848a;
+  --store-v3-active:#4d9ca2;
+  --store-v3-accent:#e0a243;
+  --store-v3-bg:#ffffff;
+  --store-v3-soft:#f3f7f7;
+  --store-v3-line:#dde7e8;
+  --store-v3-ink:#1f2d2f;
+  --store-v3-muted:#667a7d;
+  --bg-primary:#ffffff;
+  --bg-secondary:#f3f7f7;
+  --card-bg:#ffffff;
+  --text-primary:#1f2d2f;
+  --text-secondary:#405b5f;
+  --text-muted:#667a7d;
+  --border-primary:#dde7e8;
+  --accent-primary:#2f6f73;
+  --input-bg:#ffffff;
+  --input-text:#1f2d2f;
+  --input-border:#dde7e8;
+}
+
+.store-guided-editor-sidebar.is-open :where(button,input,textarea,select),
+.store-guided-v3-product-form :where(button,input,textarea,select){
+  color-scheme:light;
+  background-image:none;
+  text-shadow:none;
+  letter-spacing:0;
+}
+
 .store-guided-v3-sticky-head{
   position:sticky;
   top:0;
@@ -31433,6 +31467,17 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 
 .store-guided-step-actions .btn{
   min-height:44px;
+  background:#ffffff;
+  color:var(--store-v3-primary, #2f6f73);
+  border:1px solid var(--store-v3-line, #dde7e8);
+  box-shadow:none;
+}
+
+.store-guided-step-actions .btn.primary,
+.store-guided-step-actions .btn:not(.secondary):not(.ghost){
+  color:#ffffff;
+  background:var(--store-v3-primary, #2f6f73);
+  border-color:var(--store-v3-primary, #2f6f73);
 }
 
 .store-guided-product-checklist{

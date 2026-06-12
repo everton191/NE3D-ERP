@@ -32,7 +32,7 @@ assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o 
 [
   'return allowed.includes(value) ? value : "light"',
   'erpTheme === "dark" ? "#08131d" : "#f2f5f4"',
-  "1.0.59-store-v3-examples-20260611"
+  "1.0.61-store-v3-theme-isolation-20260612"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap ERP antecipado ausente: ${marker}`));
 assert(!index.includes('document.documentElement.setAttribute("data-store-theme"'), "Tema da loja nao deve ser aplicado no html pelo bootstrap");
 assert(app.includes('document.querySelectorAll?.(".storefront-root,.store-public-shell,.store-cart-backdrop,.store-lead-backdrop")'), "Tema da loja deve aplicar somente em roots da storefront");
@@ -110,6 +110,6 @@ function getBlock(source, startMarker, endMarker) {
 
 assert(manifest.includes('"background_color": "#f2f5f4"'), "Splash PWA ainda nao usa fundo claro suave");
 assert(manifest.includes('"theme_color": "#f2f5f4"'), "Manifest PWA ainda nao usa theme-color claro suave");
-assert(sw.includes("simplifica-3d-v165-store-v3-examples-20260611"), "Cache PWA do tema claro nao foi atualizado");
+assert(sw.includes("simplifica-3d-v167-store-v3-theme-isolation-20260612"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");
