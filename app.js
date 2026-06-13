@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.33-rc";
-const APP_VERSION_CODE = 32;
+const APP_VERSION = "1.0.34-rc";
+const APP_VERSION_CODE = 33;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -8760,7 +8760,10 @@ function configurarNavegacaoInternaApp() {
     if (fecharPainelGuiadoLojaPorHistorico()) return;
     const adminRoute = parseStorefrontAdminRoute(location.pathname);
     if (adminRoute) {
-      telaAtual = "lojaAdmin";
+      storefrontPublicRouteState = getStorefrontPublicRouteFromAdminRoute(adminRoute);
+      storefrontPublicLastPath = getStorefrontPublicRoutePath(storefrontPublicRouteState);
+      storefrontGuidedHistoryStateActive = false;
+      telaAtual = "lojaPublica";
       renderApp();
       return;
     }
@@ -13997,7 +14000,7 @@ const STOREFRONT_ADMIN_KEYS = {
 const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme_preference";
 const STOREFRONT_THEME_LEGACY_STORAGE_KEY = "simplifica3d_store_theme";
 const STOREFRONT_THEME_COLORS = Object.freeze({
-  light: "#f2f5f4",
+  light: "#ffffff",
   dark: "#08131d"
 });
 const STOREFRONT_V3_VERSION = "storefront-v3-editor-v3-approved";
@@ -14046,7 +14049,23 @@ function getStoreThemeSaved() {
   }
 }
 
+function isStorefrontAdminContextRoute(pathname = location.pathname) {
+  return !!parseStorefrontAdminRoute(pathname);
+}
+
+function isStorefrontForcedLightContext(pathname = location.pathname) {
+  return isStorefrontAdminContextRoute(pathname) || !!parseStorefrontPublicRoute(pathname) || telaAtual === "lojaPublica";
+}
+
 function updateStorefrontThemeColor(theme = "light") {
+  if (isStorefrontForcedLightContext()) {
+    if (window.SimplificaThemeAuthorityV2?.updateThemeColor) {
+      window.SimplificaThemeAuthorityV2.updateThemeColor("light");
+    }
+    const forcedThemeMeta = document.querySelector("meta[name='theme-color']");
+    if (forcedThemeMeta) forcedThemeMeta.setAttribute("content", "#ffffff");
+    return "light";
+  }
   const resolvedTheme = getEffectiveThemeMode(theme);
   if (window.SimplificaThemeAuthorityV2?.updateThemeColor) {
     return window.SimplificaThemeAuthorityV2.updateThemeColor(resolvedTheme);
@@ -17557,6 +17576,19 @@ function parseStorefrontAdminRoute(pathname = location.pathname) {
   };
 }
 
+function getStorefrontPublicRouteFromAdminRoute(pathname = location.pathname) {
+  const adminRoute = typeof pathname === "string" || pathname === undefined
+    ? parseStorefrontAdminRoute(pathname)
+    : pathname;
+  if (!adminRoute?.slug) return null;
+  return {
+    slug: adminRoute.slug,
+    view: "home",
+    productSlug: "",
+    categorySlug: ""
+  };
+}
+
 function getStorefrontAdminRoutePath(slug = getStorefrontAdminStoreLocal().slug || "ne3d-teste") {
   return `/store-admin/${encodeURIComponent(storefrontAdminSlugify(slug || "loja"))}`;
 }
@@ -17621,7 +17653,7 @@ function isStorefrontOwnerForSlug(slug = getStorefrontPublicRoute().slug, vm = n
 
 function getStorefrontPublicMode(vm = null) {
   const params = new URLSearchParams(location.search || "");
-  const requested = params.get("admin") === "1";
+  const requested = params.get("admin") === "1" || isStorefrontAdminContextRoute();
   const route = vm?.route || getStorefrontPublicRoute();
   const owner = requested && isStorefrontOwnerForSlug(route.slug, vm);
   if (requested && !owner) {
@@ -17680,11 +17712,10 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
   const slugAtual = String(slug || "").toLowerCase();
   const slugCompat = getStorefrontCompatibleAdminSlugs(adminSlug);
   if (slugCompat.has(slugAtual)) {
-    const localDemoPermitido = isStorefrontDemoPreviewAllowed();
     const store = {
       ...adminVm.store,
       slug: slug || adminVm.store.slug || "ne3d-teste",
-      active: adminVm.store.active === true || localDemoPermitido,
+      active: adminVm.store.active === true,
       __demo: adminVm.demo?.enabled === true || adminVm.store.__demo === true
     };
     return {
@@ -17702,7 +17733,7 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
 function getStorefrontPublicViewModel() {
   const route = getStorefrontPublicRoute();
   const cached = getStorefrontPublicCache(route.slug);
-  const adminRequested = new URLSearchParams(location.search || "").get("admin") === "1";
+  const adminRequested = new URLSearchParams(location.search || "").get("admin") === "1" || isStorefrontAdminContextRoute();
   const adminFallback = adminRequested ? getStorefrontPublicFallback(route.slug) : null;
   const fallback = adminFallback || cached || getStorefrontPublicFallback(route.slug);
   if (!fallback?.store) {
@@ -18348,7 +18379,7 @@ function atualizarPreviewGuiadoLoja(form) {
   if (form.storeBannerCtaLabel) setText(".store-public-banner-copy .actions .btn", form.storeBannerCtaLabel.value);
   if (form.storeBannerTitle) setText(".storefront-v3__hero h1", form.storeBannerTitle.value);
   if (form.storeBannerSubtitle) setText(".storefront-v3__hero p", form.storeBannerSubtitle.value);
-  if (form.storeBannerCtaLabel) setText(".storefront-v3__hero .storefront-v3__button--primary", form.storeBannerCtaLabel.value);
+  if (form.storeBannerCtaLabel) setText(".storefront-v3__hero button", form.storeBannerCtaLabel.value);
   if (selection.type === "product" && selection.id) {
     const card = Array.from(document.querySelectorAll("[data-store-product-id]"))
       .find((item) => String(item.dataset.storeProductId || "") === String(selection.id));
@@ -19026,14 +19057,25 @@ function renderStoreGuidedContactsForm(vm) {
 function renderStoreGuidedLinks(vm) {
   const url = getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" });
   const shareEnabled = vm?.limits?.shareEnabled !== false;
+  const shareAvailable = shareEnabled && vm.store.active === true;
+  const title = shareAvailable
+    ? "Loja pronta para compartilhar"
+    : shareEnabled
+      ? "Visualização da sua loja"
+      : "Visualização da sua loja";
+  const description = shareAvailable
+    ? "Use este endereço para abrir ou enviar sua loja."
+    : shareEnabled
+      ? "A loja ainda está em rascunho. Você pode revisar a visualização agora e publicar quando estiver tudo certo."
+      : "No plano Grátis você pode editar e visualizar a loja. Publicação e compartilhamento entram no Start ou Pro.";
   return `
     <section class="store-guided-panel-copy">
-      <span>Link da loja</span><h2>${shareEnabled ? "Loja pronta para compartilhar" : "Visualização da sua loja"}</h2>
-      <p>${shareEnabled ? "Use este endereço para abrir ou enviar sua loja." : "No plano Grátis você pode editar e visualizar a loja. Publicação e compartilhamento entram no Start ou Pro."}</p>
+      <span>Link da loja</span><h2>${title}</h2>
+      <p>${description}</p>
       <div class="store-guided-link">${escaparHtml(url)}</div>
       <div class="store-guided-actions">
-        ${shareEnabled ? `<button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja</button>` : `<button class="btn secondary" type="button" onclick="fecharPainelEdicaoGuiadaLoja()">Ver loja</button>`}
-        <button class="btn" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
+        <button class="btn secondary" type="button" onclick="abrirLojaPublicaOnline()">Abrir loja</button>
+        <button class="btn" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')" ${shareAvailable ? "" : "disabled"}>Compartilhar loja</button>
       </div>
     </section>
   `;
@@ -19142,6 +19184,7 @@ function renderStoreVisualEditorSidebar(vm) {
 function renderStoreVisualEditorTopbar(vm) {
   const dirty = getStorefrontDirtyState();
   const shareEnabled = vm?.limits?.shareEnabled !== false;
+  const shareAvailable = shareEnabled && vm.store.active === true;
   return `
     <div class="store-visual-editor-topbar">
       <div class="store-visual-top-context">
@@ -19160,7 +19203,7 @@ function renderStoreVisualEditorTopbar(vm) {
         <details class="store-visual-more-actions ui-context-menu">
           <summary aria-label="Mais ações" aria-expanded="false" aria-controls="store-visual-more-menu" aria-haspopup="menu">Mais</summary>
           <div id="store-visual-more-menu" class="ui-context-menu-panel" role="menu">
-            <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
+            <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareAvailable ? "" : "disabled"}>Compartilhar loja</button>
             <button type="button" onclick="restaurarExemplosLojaVisual()">Restaurar exemplos</button>
             <button type="button" onclick="selecionarItemLojaVisual('overview')">Ajuda para editar</button>
           </div>
@@ -19172,6 +19215,7 @@ function renderStoreVisualEditorTopbar(vm) {
 
 function renderStoreVisualMobileActions(vm) {
   const shareEnabled = vm?.limits?.shareEnabled !== false;
+  const shareAvailable = shareEnabled && vm.store.active === true;
   return `
     <nav class="store-visual-mobile-actions" aria-label="Ações do editor">
       <button type="button" onclick="voltarPainelLojaVisual()">Voltar</button>
@@ -19179,7 +19223,7 @@ function renderStoreVisualMobileActions(vm) {
       <details class="ui-context-menu">
         <summary aria-label="Mais ações" aria-expanded="false" aria-controls="store-visual-mobile-more-menu" aria-haspopup="menu" onclick="alternarMenuContextualUi(this.closest('.ui-context-menu'), event)">Mais</summary>
         <div id="store-visual-mobile-more-menu" class="ui-context-menu-panel" role="menu">
-          <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareEnabled ? "" : "disabled"}>Compartilhar loja</button>
+          <button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: vm.store.slug, view: "home" }))}')" ${shareAvailable ? "" : "disabled"}>Compartilhar loja</button>
           <button type="button" onclick="restaurarExemplosLojaVisual()">Restaurar exemplos</button>
           <button type="button" onclick="selecionarItemLojaVisual('overview')">Ajuda para editar</button>
         </div>
@@ -20343,9 +20387,9 @@ function renderStorefrontPublicLegacy() {
   const mobileGuidedEditorOnly = mode.admin && isMobile() && storefrontGuidedPanelOpen;
 
   return `
-    <main class="storefront-v3-host ${mode.admin ? `storefront-v3-host--admin ${getStorefrontPlanToneClass()}` : ""}" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
+    <main class="storefront-v3-host ${mode.admin ? `storefront-v3-host--admin store-admin-v3 ${getStorefrontPlanToneClass()}` : ""}" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
       ${mode.admin ? `
-        <div class="store-visual-editor-frame ${mobileGuidedEditorOnly ? "store-editor-v3-mobile store-editor-mobile-v3-only" : "store-editor-v3-desktop"} store-editor-mode-${escaparAttr(getStorefrontEditorMode())}" data-store-editor-theme="light" data-editor-mobile-v3-only="${mobileGuidedEditorOnly ? "true" : "false"}">
+        <div class="store-visual-editor-frame store-editor-v3 ${mobileGuidedEditorOnly ? "store-editor-v3-mobile store-editor-mobile-v3-only" : "store-editor-v3-desktop"} store-editor-mode-${escaparAttr(getStorefrontEditorMode())}" data-store-editor-theme="light" data-editor-mobile-v3-only="${mobileGuidedEditorOnly ? "true" : "false"}">
           ${renderStoreVisualEditorSidebar(vm)}
           ${mobileGuidedEditorOnly ? "" : `
             <section class="store-visual-editor-main">
@@ -21451,11 +21495,12 @@ function renderStorefrontAdminPanel() {
 }
 
 function renderStorefrontAdminStandalone() {
-  return `
-    <main class="storefront-admin-standalone layout-editor" data-store-admin-context="standalone">
-      ${renderStorefrontAdminPanel()}
-    </main>
-  `;
+  const adminRoute = parseStorefrontAdminRoute(location.pathname);
+  if (adminRoute?.slug) {
+    storefrontPublicRouteState = getStorefrontPublicRouteFromAdminRoute(adminRoute);
+    storefrontPublicLastPath = getStorefrontPublicRoutePath(storefrontPublicRouteState);
+  }
+  return renderLojaOnlinePublica();
 }
 
 function renderStorefrontOverview(vm, stats) {
@@ -41788,7 +41833,10 @@ function processarParametrosAssinaturaUrl() {
 function processarRotaPublicaLegal() {
   const adminRoute = parseStorefrontAdminRoute(location.pathname);
   if (adminRoute) {
-    telaAtual = "lojaAdmin";
+    storefrontPublicRouteState = getStorefrontPublicRouteFromAdminRoute(adminRoute);
+    storefrontPublicLastPath = getStorefrontPublicRoutePath(storefrontPublicRouteState);
+    storefrontGuidedHistoryStateActive = false;
+    telaAtual = "lojaPublica";
     return;
   }
   const publicRoute = parseStorefrontPublicRoute(location.pathname);

@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.33-rc\"",
-  "APP_VERSION_CODE = 32",
-  "simplifica-3d-v170-storefront-icons-20260613",
-  "versionName \"1.0.33-rc\"",
-  "versionCode 32",
-  "\"version\": \"1.0.33-rc\"",
-  "\"versionCode\": 32"
+  "APP_VERSION = \"1.0.34-rc\"",
+  "APP_VERSION_CODE = 33",
+  "simplifica-3d-v171-storefront-admin-v3-20260613",
+  "versionName \"1.0.34-rc\"",
+  "versionCode 33",
+  "\"version\": \"1.0.34-rc\"",
+  "\"versionCode\": 33"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

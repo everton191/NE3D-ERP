@@ -58,14 +58,14 @@ public class MainActivity extends BridgeActivity {
     private void applySimplificaSystemBars() {
         Window window = getWindow();
         WindowCompat.setDecorFitsSystemWindows(window, true);
-        window.setStatusBarColor(Color.parseColor("#02080D"));
-        window.setNavigationBarColor(Color.parseColor("#02080D"));
-        window.getDecorView().setBackgroundColor(Color.parseColor("#02080D"));
+        window.setStatusBarColor(Color.parseColor("#FFFFFF"));
+        window.setNavigationBarColor(Color.parseColor("#FFFFFF"));
+        window.getDecorView().setBackgroundColor(Color.parseColor("#FFFFFF"));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int flags = window.getDecorView().getSystemUiVisibility();
-            flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             }
             window.getDecorView().setSystemUiVisibility(flags);
         }
@@ -73,7 +73,8 @@ public class MainActivity extends BridgeActivity {
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
                 controller.setSystemBarsAppearance(
-                    0,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
                     WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
                         | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
                 );
@@ -105,12 +106,17 @@ public class MainActivity extends BridgeActivity {
         final int bottom = Math.round(Math.max(0, lastNavigationInsetBottom) / density);
         final int left = Math.round(Math.max(0, lastNavigationInsetLeft) / density);
         webView.post(() -> webView.evaluateJavascript(
-            "document.documentElement.style.setProperty('--android-system-top-inset','" + top + "px');"
-                + "document.documentElement.style.setProperty('--android-system-right-inset','" + right + "px');"
-                + "document.documentElement.style.setProperty('--android-system-bottom-inset','" + bottom + "px');"
-                + "document.documentElement.style.setProperty('--android-system-left-inset','" + left + "px');"
-                + "document.body && document.body.classList.add('android-system-insets-ready');"
-                + "window.dispatchEvent && window.dispatchEvent(new CustomEvent('simplifica-native-insets-change',{detail:{top:" + top + ",right:" + right + ",bottom:" + bottom + ",left:" + left + "}}));",
+            "(function(){"
+                + "var root=document.documentElement;"
+                + "if(!root){return false;}"
+                + "root.style.setProperty('--android-system-top-inset','" + top + "px');"
+                + "root.style.setProperty('--android-system-right-inset','" + right + "px');"
+                + "root.style.setProperty('--android-system-bottom-inset','" + bottom + "px');"
+                + "root.style.setProperty('--android-system-left-inset','" + left + "px');"
+                + "if(document.body){document.body.classList.add('android-system-insets-ready');}"
+                + "if(window.dispatchEvent){window.dispatchEvent(new CustomEvent('simplifica-native-insets-change',{detail:{top:" + top + ",right:" + right + ",bottom:" + bottom + ",left:" + left + "}}));}"
+                + "return true;"
+                + "})();",
             null
         ));
     }

@@ -195,9 +195,9 @@ assert(!leadModalBlock.includes("storefront-theme-v2"), "Solicitacao de produto 
   "Pagar agora"
 ].forEach((forbidden) => assert(!storefrontBlock.includes(forbidden), `Pagamento online foi ativado indevidamente na loja: ${forbidden}`));
 
-assert(index.includes("1.0.64-storefront-icons-20260613"), "Cache-bust Web/PWA V3 ausente no index");
-assert(sw.includes("simplifica-3d-v170-storefront-icons-20260613"), "Cache V3 ausente no service worker");
-assert(index.includes("/storefront-v3.css?v=1.0.64-storefront-icons-20260613"), "CSS isolado da Loja V3 nao carrega no HTML");
+assert(index.includes("1.0.65-storefront-admin-v3-20260613"), "Cache-bust Web/PWA V3 ausente no index");
+assert(sw.includes("simplifica-3d-v171-storefront-admin-v3-20260613"), "Cache V3 ausente no service worker");
+assert(index.includes("/storefront-v3.css?v=1.0.65-storefront-admin-v3-20260613"), "CSS isolado da Loja V3 nao carrega no HTML");
 assert(sw.includes("./storefront-v3.css"), "CSS isolado da Loja V3 nao entra no PWA");
 [
   "hero-3d-products.jpg",

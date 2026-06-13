@@ -1,5 +1,7 @@
 /* Loja Publica V3 - interface isolada, sem herdar DOM/CSS visual da Loja V2 ou do ERP. */
 .storefront-v3-host,
+.store-admin-v3,
+.store-editor-v3,
 .storefront-v3__modal-backdrop{
   color-scheme:light;
   --bg-primary:#ffffff;
