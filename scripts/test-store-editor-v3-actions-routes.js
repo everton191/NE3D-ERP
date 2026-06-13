@@ -19,6 +19,8 @@ function assert(condition, message) {
   'onclick="marcarStorefrontAlteracoesPendentes(\'Rascunho do produto atualizado\')"',
   'onclick="setStorefrontGuidedProductStep(${safeStep + 1})"',
   'mode.admin ? "" : renderStorefrontV3BottomNav(vm)',
+  'store-editor-v3-preview" data-storefront-theme="light"',
+  "store-editor-v3-portal",
   "renderStoreGuidedCategoryIconPicker",
   "renderStoreEditorSwitch({",
   'targetSection: "basic"',

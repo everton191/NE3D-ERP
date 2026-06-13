@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.30-rc";
-const APP_VERSION_CODE = 29;
+const APP_VERSION = "1.0.33-rc";
+const APP_VERSION_CODE = 32;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -14225,6 +14225,11 @@ function marcarStorefrontAlteracoesPendentes(detail = "Edição em andamento") {
   } catch (_) {}
   const target = document.querySelector("[data-storefront-save-state]");
   if (target) target.innerHTML = renderStorefrontSaveState(getStorefrontAdminViewModel(), { inline: true });
+  const reviewAction = document.querySelector("[data-storefront-review-action]");
+  if (reviewAction) {
+    reviewAction.hidden = false;
+    reviewAction.querySelector("span").textContent = detail;
+  }
 }
 
 function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
@@ -14237,6 +14242,8 @@ function limparStorefrontAlteracoesPendentes(detail = "Alterações salvas") {
     }));
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.autosave);
   } catch (_) {}
+  const reviewAction = document.querySelector("[data-storefront-review-action]");
+  if (reviewAction) reviewAction.hidden = true;
 }
 
 let storefrontDirtyRuntime = false;
@@ -14264,7 +14271,7 @@ function concluirNavegacaoPendenteLoja() {
 
 function renderStorefrontUnsavedChangesModal() {
   return `
-    <div class="modal-backdrop store-unsaved-backdrop" role="dialog" aria-modal="true" aria-labelledby="store-unsaved-title">
+    <div class="modal-backdrop store-unsaved-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true" aria-labelledby="store-unsaved-title">
       <section class="modal-card store-unsaved-modal">
         <div class="modal-header">
           <div>
@@ -14975,7 +14982,7 @@ function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPubl
     settings: "Ir para configurações"
   }[primaryArea] || "Corrigir agora";
   return `
-    <div class="modal-backdrop store-publication-check-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-publication-check-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
       <section class="modal-card store-publication-check-modal">
         <div class="modal-header">
           <div>
@@ -15029,7 +15036,7 @@ function renderStorefrontPublicationChecklistModal(checklist = getStorefrontPubl
 function renderStorefrontPublishedModal(store = getStorefrontAdminStoreLocal()) {
   const shareUrl = getStorefrontPublicUrl({ slug: store.slug, view: "home" });
   return `
-    <div class="modal-backdrop store-publication-check-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-publication-check-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
       <section class="modal-card store-publication-check-modal store-publication-success-modal">
         <div class="store-publication-success-mark">✓</div>
         <h2>Loja publicada com sucesso</h2>
@@ -17782,8 +17789,14 @@ function getStorefrontUiMode(vm = getStorefrontPublicViewModel()) {
       return "edit-category";
     case "banner":
       return "edit-banner";
+    case "identity":
+      return "edit-identity";
     case "contacts":
       return "edit-contact";
+    case "links":
+      return "edit-settings";
+    case "checklist":
+      return "publish";
     default:
       return "guided";
   }
@@ -18011,21 +18024,6 @@ function renderStorefrontSimpleOnboarding(vm) {
       </div>
       ${categories.length ? "" : `<p>As categorias base ja aparecem no template para evitar uma loja vazia.</p>`}
     </section>
-  `;
-}
-
-function renderStorefrontReadinessMini(vm) {
-  const completion = getStorefrontCompletion(vm);
-  const next = completion.items.find((item) => item.status !== "done");
-  return `
-    <button class="store-readiness-mini store-readiness-mini-button" type="button" onclick="abrirChecklistGuiadoLoja()" aria-label="Abrir checklist da loja">
-      <div>
-        <span>Sua loja está</span>
-        <strong>${completion.completionPercent}%</strong>
-      </div>
-      <i aria-hidden="true"><b style="width:${completion.completionPercent}%"></b></i>
-      <small>${next ? `Próximo passo: ${escaparHtml(next.title)}` : "Sua loja está pronta para publicar."}</small>
-    </button>
   `;
 }
 
@@ -18348,6 +18346,9 @@ function atualizarPreviewGuiadoLoja(form) {
   if (form.storeBannerTitle) setText(".store-public-banner-copy h1", form.storeBannerTitle.value);
   if (form.storeBannerSubtitle) setText(".store-public-banner-copy p", form.storeBannerSubtitle.value);
   if (form.storeBannerCtaLabel) setText(".store-public-banner-copy .actions .btn", form.storeBannerCtaLabel.value);
+  if (form.storeBannerTitle) setText(".storefront-v3__hero h1", form.storeBannerTitle.value);
+  if (form.storeBannerSubtitle) setText(".storefront-v3__hero p", form.storeBannerSubtitle.value);
+  if (form.storeBannerCtaLabel) setText(".storefront-v3__hero .storefront-v3__button--primary", form.storeBannerCtaLabel.value);
   if (selection.type === "product" && selection.id) {
     const card = Array.from(document.querySelectorAll("[data-store-product-id]"))
       .find((item) => String(item.dataset.storeProductId || "") === String(selection.id));
@@ -18645,15 +18646,20 @@ function renderStoreGuidedIdentityForm(vm) {
 
 function renderStoreGuidedBannerForm(vm) {
   const store = vm.store || {};
+  const bannerImage = store.banner_url || getStorefrontDemoBannerImage();
   return `
     <form class="store-guided-form" oninput="atualizarFormularioGuiadoLoja(this, 'Banner em edição')" onsubmit="salvarStorefrontAparencia(event)">
       <header><span>Banner</span><h2>Primeira impressão</h2><p>Use uma imagem clara e uma chamada curta para o cliente.</p></header>
       ${renderStoreGuidedTargetHint("Ajuste a imagem, chamada principal e botões do banner.")}
       ${renderStoreGuidedHiddenAppearanceFields(vm, { banner: true })}
+      <figure class="store-guided-banner-preview">
+        ${renderStorefrontResponsiveImage(bannerImage, { alt: "Prévia do banner da loja", title: store.theme_config?.banner_title || "Banner da loja", kind: "banner" })}
+        <figcaption><strong>Imagem atual</strong><span>Confira o enquadramento antes de salvar.</span></figcaption>
+      </figure>
       <label class="${storeGuidedTargetClass("banner", "storeBannerTitle")}">Título<input name="storeBannerTitle" required maxlength="40" value="${escaparAttr(store.theme_config?.banner_title || "Produtos feitos para a sua marca")}"></label>
       <label class="${storeGuidedTargetClass("banner", "storeBannerSubtitle")}">Subtítulo<textarea name="storeBannerSubtitle" rows="3" maxlength="100">${escaparHtml(store.theme_config?.banner_subtitle || store.description || "")}</textarea></label>
-      <label class="${storeGuidedTargetClass("banner", "storeBannerUrl")}">Imagem do banner<input name="storeBannerUrl" value="${escaparAttr(store.banner_url || "")}" placeholder="URL da imagem"></label>
       <label class="store-guided-upload${storeGuidedTargetClass("banner", "storeBannerFile")}">Enviar banner<input name="storeBannerFile" type="file" accept="image/jpeg,image/png,image/webp" onchange="processarImagemLojaOnline('banner', this)"><span>Imagem horizontal. O app recorta e otimiza automaticamente.</span></label>
+      <label class="${storeGuidedTargetClass("banner", "storeBannerUrl")}">Ou informe um link de imagem<input name="storeBannerUrl" value="${escaparAttr(store.banner_url || "")}" placeholder="https://..."></label>
       <label class="${storeGuidedTargetClass("banner", "storeBannerCtaLabel")}">Texto do botão<input name="storeBannerCtaLabel" maxlength="24" value="${escaparAttr(store.theme_config?.banner_cta_label || "Ver catálogo")}"></label>
       <label class="${storeGuidedTargetClass("banner", "storeBannerCtaAction")}">Ação do botão<select name="storeBannerCtaAction"><option value="catalog" ${store.theme_config?.banner_cta_action !== "whatsapp" ? "selected" : ""}>Abrir catálogo</option><option value="whatsapp" ${store.theme_config?.banner_cta_action === "whatsapp" ? "selected" : ""}>Abrir WhatsApp</option></select></label>
       ${renderStorefrontUploadStatus()}
@@ -19005,9 +19011,9 @@ function renderStoreGuidedContactsForm(vm) {
     <form class="store-guided-form" id="storeContactGuidedForm" onsubmit="salvarStorefrontContatos(event)">
       <header><span>Contato</span><h2>Canais da loja</h2><p>O WhatsApp recebe DDI automaticamente quando necessário.</p></header>
       ${renderStoreGuidedTargetHint("Revise os canais que o cliente usa para falar com a loja.")}
+      <input type="hidden" name="facebook" value="${escaparAttr(contact.facebook || "")}">
       <label class="${storeGuidedTargetClass("contacts", "whatsapp")}">WhatsApp<input name="whatsapp" inputmode="tel" value="${escaparAttr(contact.whatsapp || "")}" placeholder="+55 DDD número"></label>
       <label class="${storeGuidedTargetClass("contacts", "instagram")}">Instagram<input name="instagram" value="${escaparAttr(contact.instagram || "")}" placeholder="@sualoja"></label>
-      <label class="${storeGuidedTargetClass("contacts", "facebook")}">Facebook<input name="facebook" value="${escaparAttr(contact.facebook || "")}" placeholder="/sualoja"></label>
       <label class="${storeGuidedTargetClass("contacts", "email")}">E-mail<input name="email" type="email" value="${escaparAttr(contact.email || "")}" placeholder="contato@sualoja.com"></label>
       <label class="${storeGuidedTargetClass("contacts", "address")}">Endereço<input name="address" value="${escaparAttr(contact.address || "")}" placeholder="Rua, número, cidade"></label>
       <label class="${storeGuidedTargetClass("contacts", "hours")}">Horário<textarea name="hours" rows="2">${escaparHtml(contact.hours || "")}</textarea></label>
@@ -19071,7 +19077,6 @@ function renderStoreGuidedOverview(vm) {
     <section class="store-guided-panel-copy">
       <span>Editor guiado</span><h2>Clique na loja para editar</h2>
       <p>Escolha uma área da loja ou use um atalho abaixo.</p>
-      ${renderStorefrontReadinessMini(vm)}
       <div class="store-guided-shortcuts">
         <button type="button" onclick="selecionarItemLojaVisual('identity')"><i>▣</i><strong>Identidade</strong><small>Nome, descrição e logo</small></button>
         <button type="button" onclick="selecionarItemLojaVisual('banner')"><i>◉</i><strong>Banner</strong><small>Imagem e chamada principal</small></button>
@@ -19108,9 +19113,10 @@ function renderStoreVisualEditorSidebar(vm) {
   const selection = getStorefrontGuidedSelection();
   const mobileV3Only = isMobile() && storefrontGuidedPanelOpen;
   const uiMode = getStorefrontUiMode(vm);
+  const editorSurfaceClass = mobileV3Only ? "store-editor-v3-mobile" : "store-editor-v3-desktop";
   const hideFooter = mobileV3Only && ["edit-product", "edit-category"].includes(uiMode);
   return `
-    <aside class="store-visual-editor-sidebar store-guided-editor-sidebar ${storefrontGuidedPanelOpen ? "is-open" : ""}" aria-label="Editor guiado da loja" data-guided-selection="${escaparAttr(selection.type)}" data-store-ui-mode="${escaparAttr(uiMode)}">
+    <aside class="store-visual-editor-sidebar store-guided-editor-sidebar ${editorSurfaceClass} ${storefrontGuidedPanelOpen ? "is-open" : ""}" aria-label="Editor guiado da loja" data-store-editor-theme="light" data-guided-selection="${escaparAttr(selection.type)}" data-store-ui-mode="${escaparAttr(uiMode)}">
       ${mobileV3Only ? "" : `
         <div class="store-visual-editor-brand">
           <button type="button" aria-label="Voltar ao ERP" onclick="voltarPainelLojaVisual()">‹</button>
@@ -19124,6 +19130,10 @@ function renderStoreVisualEditorSidebar(vm) {
       <div class="store-guided-sidebar-footer" ${hideFooter ? "hidden" : ""}>
         ${renderStorefrontSaveState({ ...vm, store: vm.store })}
         <span class="storefront-autosave-indicator" data-storefront-autosave-indicator></span>
+        <button class="store-guided-review-action" type="button" data-storefront-review-action onclick="abrirChecklistGuiadoLoja()" ${getStorefrontDirtyState().dirty ? "" : "hidden"}>
+          <strong>Revisar e salvar</strong>
+          <span>Alterações em edição</span>
+        </button>
       </div>
     </aside>
   `;
@@ -19216,7 +19226,7 @@ function informarRecursoFuturoLoja(label = "Este recurso") {
 function renderStoreVisualContactsPanel(vm) {
   const contact = getStorefrontContactConfig(vm.store || {});
   return `
-    <div class="modal-backdrop store-visual-panel-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-visual-panel-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
       <section class="store-visual-panel store-visual-panel-wide">
         <header>
           <div>
@@ -19373,7 +19383,7 @@ function abrirStoreVisualPanel(area = "overview") {
   };
   const config = areaConfig[area] || areaConfig.theme;
   popup.innerHTML = `
-    <div class="modal-backdrop store-visual-panel-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-visual-panel-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
       <section class="store-visual-panel">
         <header>
           <div>
@@ -19465,7 +19475,7 @@ function abrirStoreContextSheet() {
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
-    <div class="modal-backdrop store-context-sheet-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-context-sheet-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
       <div class="modal-card store-context-sheet">
         <div class="modal-header">
           <div>
@@ -19551,7 +19561,7 @@ function renderStorePublicBottomNav(vm) {
       <a href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("home")}<span>Início</span></a>
       <a href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "categorias" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("categoria")}<span>Categorias</span></a>
       <a href="${getStorefrontPublicRoutePath({ slug: vm.store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("estoque")}<span>Produtos</span></a>
-      <button type="button" onclick="abrirCarrinhoLojaPublica()">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}<span>Carrinho</span></button>
+      <button type="button" onclick="abrirCarrinhoLojaPublica()">${renderUiIcon("orcamento")}${cart.count ? `<em>${cart.count}</em>` : ""}<span>Orçamento</span></button>
       <button type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>WhatsApp</span></button>
     </nav>
   `;
@@ -19683,6 +19693,28 @@ function renderStorefrontShareInlineButton(url = getStorefrontPublicUrl(), label
   return `<button class="btn ghost store-public-share-inline" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}')">${escaparHtml(label)}</button>`;
 }
 
+function renderStorefrontV3HeaderMenu(vm) {
+  const store = vm.store || {};
+  const slug = store.slug || vm.route?.slug || "";
+  const contact = getStorefrontContactConfig(store);
+  const closeMenu = "this.closest('details')?.removeAttribute('open')";
+  return `
+    <details class="storefront-v3__menu ui-context-menu">
+      <summary aria-label="Abrir menu da loja" aria-expanded="false" aria-controls="storefront-v3-header-menu" aria-haspopup="menu" onclick="alternarMenuContextualUi(this.closest('.ui-context-menu'), event)">
+        <i class="storefront-v3__menu-icon" aria-hidden="true">☰</i><span>Menu</span>
+      </summary>
+      <nav class="storefront-v3__menu-panel ui-context-menu-panel" id="storefront-v3-header-menu" role="menu" aria-label="Menu da loja">
+        <a role="menuitem" aria-label="Início" href="${getStorefrontPublicRoutePath({ slug, view: "home" })}" onclick="${closeMenu}; return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("home")}<span>Início</span></a>
+        <a role="menuitem" aria-label="Categorias" href="${getStorefrontPublicRoutePath({ slug, view: "categorias" })}" onclick="${closeMenu}; return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("categoria")}<span>Categorias</span></a>
+        <a role="menuitem" aria-label="Produtos" href="${getStorefrontPublicRoutePath({ slug, view: "produtos" })}" onclick="${closeMenu}; return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("estoque")}<span>Produtos</span></a>
+        <button role="menuitem" aria-label="Contato" type="button" onclick="${closeMenu}; document.getElementById('storefront-v3-contact')?.scrollIntoView({ behavior: 'smooth', block: 'start' })">${renderUiIcon("empresa")}<span>Contato</span></button>
+        <button role="menuitem" aria-label="Carrinho" type="button" onclick="${closeMenu}; abrirCarrinhoLojaPublica()">${renderUiIcon("carrinho")}<span>Carrinho</span></button>
+        ${contact.whatsapp ? `<button role="menuitem" aria-label="WhatsApp" type="button" onclick="${closeMenu}; abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>WhatsApp</span></button>` : ""}
+      </nav>
+    </details>
+  `;
+}
+
 function renderStorefrontV3Root(vm, content = "") {
   const store = vm.store || {};
   const mode = getStorefrontPublicMode(vm);
@@ -19691,7 +19723,7 @@ function renderStorefrontV3Root(vm, content = "") {
     ? `<button class="storefront-v3__whatsapp" type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>`
     : "";
   return `
-    <div class="storefront-v3" data-storefront-version="v3" data-store-theme="light" data-online-payment-enabled="false">
+    <div class="storefront-v3" data-storefront-version="v3" data-storefront-theme="light" data-store-theme="light" data-online-payment-enabled="false">
       ${mode.admin ? renderStoreAdminFloatingEditor(vm) : ""}
       ${mode.admin && (store.__demo || vm.demo?.enabled) ? `<div class="storefront-v3__demo-note">Visualização de exemplo. Cadastre seus produtos para substituir este conteúdo.</div>` : ""}
       <header class="storefront-v3__header" data-store-v3-section="header">
@@ -19705,7 +19737,7 @@ function renderStorefrontV3Root(vm, content = "") {
           ${renderUiIcon("search")}
         </label>
         <nav class="storefront-v3__actions" aria-label="Ações da loja">
-          <button type="button" onclick="document.getElementById('storefront-v3-categories')?.scrollIntoView({ behavior: 'smooth', block: 'start' })"><i class="storefront-v3__menu-icon" aria-hidden="true">☰</i><span>Categorias</span></button>
+          ${renderStorefrontV3HeaderMenu(vm)}
           <button type="button" onclick="abrirCarrinhoLojaPublica()">${renderUiIcon("carrinho")}<span>Carrinho</span>${cart.count ? `<em>${cart.count}</em>` : ""}</button>
           ${vm?.limits?.shareEnabled !== false ? `<button type="button" onclick="compartilharLojaPublica('${escaparAttr(getStorefrontPublicUrl({ slug: store.slug, view: "home" }))}')">${renderUiIcon("share")}<span>Compartilhar</span></button>` : ""}
           ${contactCta}
@@ -19730,8 +19762,7 @@ function renderStorefrontV3BottomNav(vm) {
     <nav class="storefront-v3__bottom-nav" aria-label="Navegação inferior da loja">
       <a href="${getStorefrontPublicRoutePath({ slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("home")}<span>Início</span></a>
       <a href="${getStorefrontPublicRoutePath({ slug, view: "categorias" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("categoria")}<span>Categorias</span></a>
-      <a href="${getStorefrontPublicRoutePath({ slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event, this, { scrollTop: true })">${renderUiIcon("estoque")}<span>Produtos</span></a>
-      <button type="button" onclick="abrirCarrinhoLojaPublica()">${renderUiIcon("carrinho")}${cart.count ? `<em>${cart.count}</em>` : ""}<span>Carrinho</span></button>
+      <button type="button" onclick="abrirCarrinhoLojaPublica()">${renderUiIcon("orcamento")}${cart.count ? `<em>${cart.count}</em>` : ""}<span>Orçamento</span></button>
       <button type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>WhatsApp</span></button>
     </nav>
   `;
@@ -19896,18 +19927,26 @@ function renderStorefrontV3CategoryPage(vm, category = {}) {
 
 function renderStorefrontV3Contact(vm) {
   const store = vm.store || {};
+  const contact = getStorefrontContactConfig(store);
+  const adminMode = getStorefrontPublicMode(vm).admin;
   const contacts = [
-    ["whatsapp", "WhatsApp", store.whatsapp || "Atendimento direto"],
-    ["instagram", "Instagram", store.instagram || "Siga nossa loja"],
-    ["email", "E-mail", store.email || "Resposta em breve"],
-    ["clock", "Horário", store.opening_hours || "Sob consulta"],
-    ["map-pin", "Endereço", store.address || "Atendimento online"]
-  ];
+    ["whatsapp", "WhatsApp", contact.whatsapp],
+    ["instagram", "Instagram", contact.instagram],
+    ["email", "E-mail", contact.email],
+    ["clock", "Horário", contact.hours],
+    ["map-pin", "Endereço", contact.address]
+  ].filter(([, , text]) => String(text || "").trim());
+  const contactContent = contacts.length
+    ? `<div class="storefront-v3__contact-grid">${contacts.map(([icon, title, text]) => `<article>${renderUiIcon(icon)}<strong>${title}</strong><span>${escaparHtml(text)}</span></article>`).join("")}</div>`
+    : adminMode
+      ? `<button class="storefront-v3__contact-empty" type="button" onclick="selecionarItemLojaVisual('contacts')">Adicionar canais de contato</button>`
+      : "";
+  if (!contacts.length && !adminMode) return "";
   return `
     <section class="storefront-v3__contact" id="storefront-v3-contact">
       <div><h2>Estamos aqui para ajudar</h2><p>Fale com a loja e solicite seu orçamento sem compromisso.</p></div>
-      <div class="storefront-v3__contact-grid">${contacts.map(([icon, title, text]) => `<article>${renderUiIcon(icon)}<strong>${title}</strong><span>${escaparHtml(text)}</span></article>`).join("")}</div>
-      <button type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")} Falar no WhatsApp</button>
+      ${contactContent}
+      ${contact.whatsapp ? `<button type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")} Falar no WhatsApp</button>` : ""}
     </section>
   `;
 }
@@ -20218,7 +20257,7 @@ function renderStorefrontPublicLegacy() {
     applyStoreTheme("light", { persist: false });
     return `
       <main class="storefront-v3-host" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
-        <div class="storefront-v3" data-storefront-version="v3" data-store-theme="light" data-online-payment-enabled="false">
+        <div class="storefront-v3" data-storefront-version="v3" data-storefront-theme="light" data-store-theme="light" data-online-payment-enabled="false">
           ${renderStorefrontV3EmptyState("Loja não encontrada", "Esta Loja ainda não está ativa ou o link informado não existe.", "Voltar ao Simplifica 3D", "location.href='/'")}
         </div>
       </main>
@@ -20306,12 +20345,12 @@ function renderStorefrontPublicLegacy() {
   return `
     <main class="storefront-v3-host ${mode.admin ? `storefront-v3-host--admin ${getStorefrontPlanToneClass()}` : ""}" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
       ${mode.admin ? `
-        <div class="store-visual-editor-frame store-editor-mode-${escaparAttr(getStorefrontEditorMode())} ${mobileGuidedEditorOnly ? "store-editor-mobile-v3-only" : ""}" data-editor-mobile-v3-only="${mobileGuidedEditorOnly ? "true" : "false"}">
+        <div class="store-visual-editor-frame ${mobileGuidedEditorOnly ? "store-editor-v3-mobile store-editor-mobile-v3-only" : "store-editor-v3-desktop"} store-editor-mode-${escaparAttr(getStorefrontEditorMode())}" data-store-editor-theme="light" data-editor-mobile-v3-only="${mobileGuidedEditorOnly ? "true" : "false"}">
           ${renderStoreVisualEditorSidebar(vm)}
           ${mobileGuidedEditorOnly ? "" : `
             <section class="store-visual-editor-main">
               ${renderStoreVisualEditorTopbar(vm)}
-              <div class="store-visual-editor-canvas">${storeContent}</div>
+              <div class="store-visual-editor-canvas store-editor-v3-preview" data-storefront-theme="light">${storeContent}</div>
               ${renderStoreVisualMobileActions(vm)}
             </section>
           `}
@@ -21065,7 +21104,7 @@ function abrirPreviewCompartilhamentoLoja(url = getStorefrontPublicUrl()) {
   const popup = document.getElementById("popup");
   if (!popup) return prompt("Copie o link:", url);
   popup.innerHTML = `
-    <div class="modal-backdrop store-share-preview-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-backdrop store-share-preview-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
       <section class="modal-card store-share-preview-modal">
         <div class="modal-header">
           <div>
@@ -24430,8 +24469,11 @@ function renderUiIcon(tipo = "", fallback = "") {
   const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"`;
   const icones = {
     dashboard: `<svg ${attrs}><path d="M4 13h7V4H4z"/><path d="M13 20h7V4h-7z"/><path d="M4 20h7v-5H4z"/></svg>`,
+    home: `<svg ${attrs}><path d="m3 11 9-8 9 8"/><path d="M5 10v11h14V10"/><path d="M9 21v-7h6v7"/></svg>`,
+    categoria: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>`,
     calculadora: `<svg ${attrs}><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8"/><path d="M8 11h.1M12 11h.1M16 11h.1M8 15h.1M12 15h.1M16 15h.1"/></svg>`,
     pedido: `<svg ${attrs}><path d="M6 3h12v18H6z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>`,
+    orcamento: `<svg ${attrs}><path d="M7 3h10l3 3v15H7z"/><path d="M17 3v4h4"/><path d="M10 11h7"/><path d="M10 15h7"/><path d="M10 19h4"/><path d="M4 7v12"/></svg>`,
     pedidos: `<svg ${attrs}><path d="M7 3h10v4H7z"/><path d="M5 7h14v14H5z"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>`,
     producao: `<svg ${attrs}><path d="M7 8V4h10v4"/><path d="M5 8h14v8H5z"/><path d="M8 16h8v4H8z"/><path d="M9 11h6"/></svg>`,
     estoque: `<svg ${attrs}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5"/><path d="M12 12v9"/></svg>`,
@@ -24439,6 +24481,13 @@ function renderUiIcon(tipo = "", fallback = "") {
     caixa: `<svg ${attrs}><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/><path d="M12 10v7"/></svg>`,
     relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
     carrinho: `<svg ${attrs}><path d="M6 6h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>`,
+    entrega: `<svg ${attrs}><path d="M3 6h11v11H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>`,
+    share: `<svg ${attrs}><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5"/><path d="m8.2 13.2 7.6 4.5"/></svg>`,
+    time: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+    clock: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+    "map-pin": `<svg ${attrs}><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>`,
+    print: `<svg ${attrs}><path d="M7 8V3h10v5"/><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/></svg>`,
+    lojaonline: `<svg ${attrs}><path d="M4 10v10h16V10"/><path d="M3 10h18l-2-6H5z"/><path d="M8 20v-6h8v6"/><path d="M6 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg>`,
     estrela: `<svg ${attrs}><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.8 1-6.1-4.4-4.3 6.1-.9Z"/></svg>`,
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.3 8.6c.3 2.9 2.1 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1 .5"/><path d="m8.4 7.2.9 1.4"/></svg>`,
     search: `<svg ${attrs}><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>`,

@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v167-store-v3-theme-isolation-20260612";
+const CACHE_NAME = "simplifica-3d-v170-storefront-icons-20260613";
 const APP_FILES = [
   "./",
   "./index.html",

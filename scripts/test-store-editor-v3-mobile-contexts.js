@@ -12,7 +12,12 @@ function assert(condition, message) {
   'return "guided";',
   'return "edit-product";',
   'return "edit-category";',
+  'return "edit-identity";',
+  'return "edit-settings";',
+  'return "publish";',
   'const hideFooter = mobileV3Only && ["edit-product", "edit-category"].includes(uiMode);',
+  'const editorSurfaceClass = mobileV3Only ? "store-editor-v3-mobile" : "store-editor-v3-desktop";',
+  'data-store-editor-theme="light"',
   'data-guided-selection="${escaparAttr(selection.type)}" data-store-ui-mode="${escaparAttr(uiMode)}"',
   '<div class="store-guided-sidebar-footer" ${hideFooter ? "hidden" : ""}>'
 ].forEach((marker) => assert(app.includes(marker), `Contexto mobile ausente em app.js: ${marker}`));

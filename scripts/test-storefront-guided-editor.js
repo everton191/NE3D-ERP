@@ -42,7 +42,9 @@ function extractFunction(name) {
   "selecionarItemLojaVisual,",
   "processarImagemExemploLojaOnline,",
   "navigateToStorefrontCompletionItem,\n    fecharPainelEdicaoGuiadaLoja",
-  "store-readiness-mini-button",
+  "store-guided-review-action",
+  "data-storefront-review-action",
+  "store-guided-banner-preview",
   'onclick="abrirChecklistGuiadoLoja()"',
   'selection.type === "checklist"',
   'data-guided-selection="${escaparAttr(selection.type)}"',
@@ -66,10 +68,18 @@ assert(app.includes('aria-expanded="false" onclick="const header=this.closest'),
   ".store-guided-context-panel",
   ".store-guided-editor-sidebar.is-open",
   ".store-guided-editable",
-  ".store-readiness-mini-button",
+  ".store-guided-review-action",
+  ".store-guided-banner-preview",
   "@media (min-width:1024px)",
   "@media (max-width:860px)"
 ].forEach((marker) => assert(css.includes(marker), `CSS guiado ausente: ${marker}`));
+
+const guidedOverview = extractFunction("renderStoreGuidedOverview");
+const guidedContacts = extractFunction("renderStoreGuidedContactsForm");
+assert(!guidedOverview.includes("renderStorefrontReadinessMini"), "Checklist nao deve ficar exposto permanentemente no topo do editor");
+assert(!app.includes("function renderStorefrontReadinessMini"), "Checklist mini antigo deve ser removido quando nao estiver em uso");
+assert(!guidedContacts.includes('>Facebook<input'), "Contato guiado nao deve repetir canal sem uso na loja publica");
+assert(guidedContacts.includes('type="hidden" name="facebook"'), "Contato legado deve ser preservado sem aparecer no editor guiado");
 
 const floatingEditor = extractFunction("renderStoreAdminFloatingEditor");
 const mobileActions = extractFunction("renderStoreVisualMobileActions");
@@ -116,8 +126,8 @@ assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp d
   "display:none"
 ].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
 
-assert(sw.includes("simplifica-3d-v167-store-v3-theme-isolation-20260612"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.61-store-v3-theme-isolation-20260612"), "Cache-bust web da loja publica nao foi atualizado");
+assert(sw.includes("simplifica-3d-v170-storefront-icons-20260613"), "Cache PWA da loja publica nao foi atualizado");
+assert(index.includes("1.0.64-storefront-icons-20260613"), "Cache-bust web da loja publica nao foi atualizado");
 [
   "Preview do catálogo",
   "Preview das categorias",

@@ -174,7 +174,7 @@ assert(!leadModalBlock.includes("storefront-theme-v2"), "Solicitacao de produto 
   ".storefront-v3-host--admin .store-visual-editor-topbar",
   ".storefront-v3-host--admin .store-visual-editor-frame:has(.store-guided-editor-sidebar.is-open) .store-visual-mobile-actions",
   ".store-guided-editor-sidebar.is-open .store-guided-v3-product-form",
-  "scroll-padding-bottom:calc(116px + var(--app-safe-bottom, 0px))"
+  "scroll-padding-bottom:calc(124px + var(--store-editor-v3-keyboard-inset, 0px) + var(--app-safe-bottom, 0px))"
 ].forEach((marker) => assert(css.includes(marker), `Paleta V3 ausente no CSS: ${marker}`));
 
 [
@@ -195,9 +195,9 @@ assert(!leadModalBlock.includes("storefront-theme-v2"), "Solicitacao de produto 
   "Pagar agora"
 ].forEach((forbidden) => assert(!storefrontBlock.includes(forbidden), `Pagamento online foi ativado indevidamente na loja: ${forbidden}`));
 
-assert(index.includes("1.0.61-store-v3-theme-isolation-20260612"), "Cache-bust Web/PWA V3 ausente no index");
-assert(sw.includes("simplifica-3d-v167-store-v3-theme-isolation-20260612"), "Cache V3 ausente no service worker");
-assert(index.includes("/storefront-v3.css?v=1.0.61-store-v3-theme-isolation-20260612"), "CSS isolado da Loja V3 nao carrega no HTML");
+assert(index.includes("1.0.64-storefront-icons-20260613"), "Cache-bust Web/PWA V3 ausente no index");
+assert(sw.includes("simplifica-3d-v170-storefront-icons-20260613"), "Cache V3 ausente no service worker");
+assert(index.includes("/storefront-v3.css?v=1.0.64-storefront-icons-20260613"), "CSS isolado da Loja V3 nao carrega no HTML");
 assert(sw.includes("./storefront-v3.css"), "CSS isolado da Loja V3 nao entra no PWA");
 [
   "hero-3d-products.jpg",

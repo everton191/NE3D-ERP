@@ -21101,31 +21101,6 @@ body[data-ui-profile="android_apk"]:has(.store-public-shell){
   transform:translateY(-1px);
 }
 
-.store-readiness-mini{
-  margin:4px 0 2px;
-  background:rgba(255,255,255,.045);
-}
-
-.store-readiness-mini-button{
-  width:100%;
-  appearance:none;
-  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 24%, var(--store-border));
-  color:inherit;
-  text-align:left;
-  cursor:pointer;
-}
-
-.store-readiness-mini-button:hover,
-.store-readiness-mini-button:focus-visible{
-  transform:translateY(-1px);
-  border-color:color-mix(in srgb, var(--store-primary, var(--color-primary)) 40%, var(--store-border));
-  outline:0;
-}
-
-.store-readiness-mini strong{
-  font-size:22px;
-}
-
 .store-template-panel{
   display:grid;
   gap:10px;
@@ -23198,8 +23173,7 @@ body.storefront-public-navigating .store-public-shell{
   line-height:1.55;
 }
 
-.store-publication-progress,
-.store-readiness-mini{
+.store-publication-progress{
   display:grid;
   gap:10px;
   padding:14px;
@@ -23210,37 +23184,31 @@ body.storefront-public-navigating .store-public-shell{
     color-mix(in srgb, var(--store-surface) 84%, transparent);
 }
 
-.store-publication-progress div,
-.store-readiness-mini div{
+.store-publication-progress div{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
 }
 
-.store-publication-progress strong,
-.store-readiness-mini strong{
+.store-publication-progress strong{
   color:var(--store-text);
 }
 
-.store-publication-progress span,
-.store-readiness-mini span,
-.store-readiness-mini small{
+.store-publication-progress span{
   color:var(--store-muted);
   font-size:12px;
   font-weight:800;
 }
 
-.store-publication-progress i,
-.store-readiness-mini i{
+.store-publication-progress i{
   height:8px;
   overflow:hidden;
   border-radius:999px;
   background:rgba(255,255,255,.08);
 }
 
-.store-publication-progress b,
-.store-readiness-mini b{
+.store-publication-progress b{
   display:block;
   height:100%;
   border-radius:inherit;
@@ -23835,8 +23803,7 @@ body.storefront-public-navigating .store-public-shell{
 .storefront-root[data-store-theme="light"] .store-template-grid button,
 .storefront-root[data-store-theme="light"] .store-simple-onboarding,
 .storefront-root[data-store-theme="light"] .store-simple-step-list button,
-.storefront-root[data-store-theme="light"] .store-visual-device-switcher button,
-.storefront-root[data-store-theme="light"] .store-readiness-mini{
+.storefront-root[data-store-theme="light"] .store-visual-device-switcher button{
   background:rgba(255,255,255,.72);
   border-color:var(--store-border);
   color:var(--store-text-soft);
@@ -25377,10 +25344,6 @@ body.theme-light[data-ui-profile="web_pwa"] .side-nav-button.active{
   font-size:clamp(12px, .78vw, 14px);
 }
 
-.store-public-shell[data-storefront-source="v2"] .store-readiness-mini strong{
-  font-size:clamp(17px, 1.4vw, 22px);
-}
-
 .store-public-shell[data-storefront-source="v2"] .store-mobile-admin-actions{
   max-height:74px;
 }
@@ -25720,6 +25683,72 @@ body.theme-light .plans-pricing-screen .plan-tier-highlights b{
   gap:8px;
   padding-top:12px;
   border-top:1px solid var(--store-border);
+}
+
+.store-guided-review-action{
+  width:100%;
+  min-height:48px;
+  display:grid;
+  gap:2px;
+  padding:9px 12px;
+  border:1px solid color-mix(in srgb, var(--store-primary, #2f6f73) 34%, var(--store-border));
+  border-radius:12px;
+  background:var(--store-primary, #2f6f73);
+  color:#ffffff;
+  text-align:left;
+  cursor:pointer;
+}
+
+.store-guided-review-action[hidden]{
+  display:none !important;
+}
+
+.store-guided-review-action strong,
+.store-guided-review-action span{
+  color:inherit;
+}
+
+.store-guided-review-action span{
+  overflow:hidden;
+  font-size:11px;
+  font-weight:700;
+  opacity:.84;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.store-guided-banner-preview{
+  min-width:0;
+  margin:0;
+  overflow:hidden;
+  border:1px solid var(--store-border);
+  border-radius:14px;
+  background:var(--store-surface, #ffffff);
+}
+
+.store-guided-banner-preview img{
+  display:block;
+  width:100%;
+  aspect-ratio:16 / 7;
+  object-fit:cover;
+  background:#eef4f4;
+}
+
+.store-guided-banner-preview figcaption{
+  display:grid;
+  gap:2px;
+  padding:9px 11px;
+  border-top:1px solid var(--store-border);
+}
+
+.store-guided-banner-preview strong{
+  color:var(--store-text);
+  font-size:12px;
+}
+
+.store-guided-banner-preview span{
+  color:var(--store-muted);
+  font-size:11px;
 }
 
 .store-guided-editable{
@@ -31227,6 +31256,10 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
 }
 
 .storefront-v3-host--admin,
+.store-editor-v3-mobile,
+.store-editor-v3-desktop,
+.store-editor-v3-preview,
+.store-editor-v3-portal,
 .store-guided-editor-sidebar.is-open,
 .store-guided-v3-product-form{
   color-scheme:light;
@@ -31252,6 +31285,9 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   --input-border:#dde7e8;
 }
 
+.store-editor-v3-mobile :where(button,input,textarea,select),
+.store-editor-v3-desktop :where(button,input,textarea,select),
+.store-editor-v3-portal :where(button,input,textarea,select),
 .store-guided-editor-sidebar.is-open :where(button,input,textarea,select),
 .store-guided-v3-product-form :where(button,input,textarea,select){
   color-scheme:light;
@@ -31265,13 +31301,44 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   box-shadow:none;
 }
 
+.store-editor-v3-mobile :where(input,textarea,select,button),
+.store-editor-v3-desktop :where(input,textarea,select,button),
+.store-editor-v3-portal :where(input,textarea,select,button),
 .store-guided-editor-sidebar.is-open :where(input,textarea,select,button){
   font:inherit;
 }
 
+.store-editor-v3-mobile :where(input,textarea)::placeholder,
+.store-editor-v3-desktop :where(input,textarea)::placeholder,
+.store-editor-v3-portal :where(input,textarea)::placeholder,
 .store-guided-editor-sidebar.is-open :where(input,textarea)::placeholder{
   color:var(--store-v3-muted, #667a7d);
   opacity:1;
+}
+
+.store-editor-v3-mobile :where(.store-guided-panel-copy,.store-guided-form,.store-guided-checklist-panel,.store-publication-progress,.store-publication-recommended,.store-guided-banner-preview),
+.store-editor-v3-desktop :where(.store-guided-panel-copy,.store-guided-form,.store-guided-checklist-panel,.store-publication-progress,.store-publication-recommended,.store-guided-banner-preview),
+.store-editor-v3-portal :where(.store-guided-panel-copy,.store-guided-form,.store-guided-checklist-panel,.store-publication-progress,.store-publication-recommended,.store-guided-banner-preview){
+  color:var(--store-v3-ink, #1f2d2f);
+  background-color:#ffffff;
+  background-image:none;
+  border-color:var(--store-v3-line, #dde7e8);
+  box-shadow:none;
+}
+
+.store-editor-v3-mobile .store-publication-progress i,
+.store-editor-v3-desktop .store-publication-progress i,
+.store-editor-v3-portal .store-publication-progress i{
+  background:#e8efef;
+}
+
+.store-editor-v3-mobile :where(.store-publication-check-list button,.store-guided-shortcuts button),
+.store-editor-v3-desktop :where(.store-publication-check-list button,.store-guided-shortcuts button),
+.store-editor-v3-portal :where(.store-publication-check-list button,.store-guided-shortcuts button){
+  color:var(--store-v3-ink, #1f2d2f);
+  background:#ffffff;
+  background-image:none;
+  border-color:var(--store-v3-line, #dde7e8);
 }
 
 .store-guided-v3-sticky-head{
@@ -32180,8 +32247,11 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
     max-width:none !important;
     height:var(--app-viewport-height, 100dvh) !important;
     max-height:none !important;
+    box-sizing:border-box;
+    margin:0 !important;
     padding:10px 12px 0;
     background:#ffffff !important;
+    background-image:none !important;
     border:0 !important;
     border-radius:0 !important;
     box-shadow:none !important;
@@ -32196,7 +32266,48 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
     display:grid;
     grid-template-rows:minmax(0, 1fr);
     min-height:0;
+    min-width:0;
+    background:#fafcfc;
+    background-image:none !important;
     overflow:hidden;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-list-screen,
+  .store-guided-editor-sidebar.is-open .store-guided-admin-list,
+  .store-guided-editor-sidebar.is-open .store-guided-admin-card{
+    width:100%;
+    min-width:0;
+    max-width:100%;
+    box-sizing:border-box;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-list-head,
+  .store-guided-editor-sidebar.is-open .store-guided-v3-sticky-head{
+    color:var(--store-v3-ink, #1f2d2f) !important;
+    background:#ffffff !important;
+    background-image:none !important;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-list-head :where(h2,p,span),
+  .store-guided-editor-sidebar.is-open .store-guided-v3-sticky-head :where(h2,p,span){
+    color:inherit !important;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-admin-list,
+  .store-guided-editor-sidebar.is-open .store-guided-admin-card{
+    background-image:none !important;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-admin-card{
+    grid-template-columns:minmax(0, 1fr);
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-admin-side{
+    grid-auto-flow:column;
+    align-items:center;
+    justify-content:start;
+    justify-items:start;
+    align-content:center;
   }
 
   .store-guided-editor-sidebar.is-open .store-guided-v3-product-form{
@@ -32236,6 +32347,47 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
   .store-guided-editor-sidebar.is-open .store-guided-form :where(input,textarea,select){
     min-height:46px;
     font-size:16px;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-checklist-panel{
+    align-content:start;
+    overflow:auto;
+    padding:12px 2px calc(18px + var(--app-safe-bottom, 0px));
+  }
+
+  .store-guided-editor-sidebar.is-open .store-publication-check-list{
+    gap:7px;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-publication-check-list button{
+    min-height:54px;
+    grid-template-columns:28px minmax(0, 1fr);
+    gap:9px;
+    padding:9px;
+    border-radius:12px;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-publication-check-list i{
+    width:28px;
+    height:28px;
+    border-radius:9px;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-actions{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-actions .btn{
+    width:100%;
+    min-width:0;
+    min-height:44px;
+    max-height:none;
+    white-space:normal;
+  }
+
+  .store-guided-editor-sidebar.is-open .store-guided-banner-preview img{
+    max-height:180px;
   }
 
   .store-guided-compact-preview{
