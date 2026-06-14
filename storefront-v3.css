@@ -1234,3 +1234,138 @@
     grid-template-columns:1fr;
   }
 }
+
+/* Tema escuro da vitrine publica V3. O editor administrativo permanece claro. */
+.storefront-v3-host[data-store-theme="dark"],
+.storefront-v3[data-store-theme="dark"],
+.storefront-v3__modal-backdrop[data-store-theme="dark"]{
+  color-scheme:dark;
+  --bg-primary:#07131a;
+  --bg-secondary:#0b1b23;
+  --bg-tertiary:#10252d;
+  --card-bg:#0e2029;
+  --card-bg-hover:#132b35;
+  --text-primary:#f3f8f8;
+  --text-secondary:#c7d8da;
+  --text-muted:#9fb4b8;
+  --border-primary:#29434a;
+  --border-secondary:#36545c;
+  --input-bg:#0b1b23;
+  --input-border:#36545c;
+  --input-text:#f3f8f8;
+}
+
+.storefront-v3[data-store-theme="dark"]{
+  --store-v3-primary:#67c3c8;
+  --store-v3-primary-hover:#82d4d8;
+  --store-v3-active:#4d9ca2;
+  --store-v3-bg:#07131a;
+  --store-v3-bg-soft:#0b1b23;
+  --store-v3-border:#29434a;
+  --store-v3-text:#f3f8f8;
+  --store-v3-text-muted:#a9bec1;
+  --store-v3-shadow:0 18px 42px rgba(0,0,0,.32);
+  background:var(--store-v3-bg);
+}
+
+.storefront-v3[data-store-theme="dark"] :where(
+  .storefront-v3__demo-note,
+  .storefront-v3__header,
+  .storefront-v3__hero,
+  .storefront-v3__benefits,
+  .storefront-v3__benefits article,
+  .storefront-v3__category-card,
+  .storefront-v3__product-card,
+  .storefront-v3__product-info,
+  .storefront-v3__empty-state,
+  .storefront-v3__contact,
+  .storefront-v3__contact-grid article,
+  .storefront-v3__footer,
+  .storefront-v3__bottom-nav,
+  .storefront-v3__menu-panel
+){
+  color:var(--store-v3-text) !important;
+  background-color:#0e2029 !important;
+  background-image:none !important;
+  border-color:var(--store-v3-border) !important;
+}
+
+.storefront-v3[data-store-theme="dark"] :where(
+  .storefront-v3__brand small,
+  .storefront-v3__section-head p,
+  .storefront-v3__product-body small,
+  .storefront-v3__contact span,
+  .storefront-v3__benefits small,
+  .storefront-v3__product-info p
+){
+  color:var(--store-v3-text-muted) !important;
+}
+
+.storefront-v3[data-store-theme="dark"] :where(input,textarea,select){
+  color:var(--store-v3-text) !important;
+  background-color:#0b1b23 !important;
+  background-image:none !important;
+  border-color:var(--store-v3-border) !important;
+}
+
+.storefront-v3[data-store-theme="dark"] :where(input,textarea)::placeholder{
+  color:#91a9ad;
+  opacity:1;
+}
+
+.storefront-v3[data-store-theme="dark"] :where(
+  .storefront-v3__actions button,
+  .storefront-v3__menu > summary,
+  .storefront-v3__button-secondary,
+  .storefront-v3__button-ghost
+){
+  color:var(--store-v3-text) !important;
+  background-color:#10252d !important;
+  background-image:none !important;
+  border-color:var(--store-v3-border) !important;
+}
+
+.storefront-v3[data-store-theme="dark"] .storefront-v3__hero-copy{
+  color:var(--store-v3-text) !important;
+  background-color:rgba(7,19,26,.88) !important;
+  background-image:none !important;
+  border-color:var(--store-v3-border) !important;
+}
+
+.storefront-v3[data-store-theme="dark"] :where(img,.storefront-v3__hero-media img,.storefront-v3__product-media img){
+  filter:none;
+  opacity:1;
+  mix-blend-mode:normal;
+}
+
+.storefront-v3__modal-backdrop[data-store-theme="dark"]{
+  background:rgba(1,8,12,.76);
+}
+
+.storefront-v3__modal-backdrop[data-store-theme="dark"] :where(
+  .storefront-v3__cart-panel,
+  .storefront-v3__lead-panel,
+  .storefront-v3__cart-item,
+  .storefront-v3__cart-total,
+  .storefront-v3__lead-summary
+){
+  color:var(--text-primary) !important;
+  background-color:var(--card-bg) !important;
+  background-image:none !important;
+  border-color:var(--border-primary) !important;
+}
+
+.storefront-v3__modal-backdrop[data-store-theme="dark"] :where(
+  input,
+  textarea,
+  select,
+  .storefront-v3__icon-button,
+  .storefront-v3__button-secondary,
+  .storefront-v3__button-ghost,
+  .storefront-v3__cart-stepper button
+){
+  color:var(--text-primary) !important;
+  background-color:var(--input-bg) !important;
+  background-image:none !important;
+  border-color:var(--input-border) !important;
+}

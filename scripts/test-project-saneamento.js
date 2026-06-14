@@ -20,7 +20,7 @@ if (missingIgnores.length) {
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.34-rc\"",
   "APP_VERSION_CODE = 33",
-  "simplifica-3d-v171-storefront-admin-v3-20260613",
+  "simplifica-3d-v172-storefront-dark-v3-20260613",
   "versionName \"1.0.34-rc\"",
   "versionCode 33",
   "\"version\": \"1.0.34-rc\"",

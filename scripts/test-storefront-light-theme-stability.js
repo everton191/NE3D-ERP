@@ -27,12 +27,12 @@ function assert(condition, message) {
   '${["light", "system", "dark"].map'
 ].forEach((marker) => assert(app.includes(marker), `Autoridade de tema da loja ausente: ${marker}`));
 
-assert(app.includes('light: "#f2f5f4"'), "Theme-color claro da loja deve usar o fundo suave, nao branco puro");
+assert(app.includes('light: "#ffffff"'), "Theme-color claro da loja deve permanecer claro e consistente");
 
 [
   'return allowed.includes(value) ? value : "light"',
-  'erpTheme === "dark" ? "#08131d" : "#f2f5f4"',
-  "1.0.65-storefront-admin-v3-20260613"
+  'document.querySelector(\'meta[name="theme-color"]\')?.setAttribute("content", "#ffffff")',
+  "1.0.66-storefront-dark-v3-20260613"
 ].forEach((marker) => assert(index.includes(marker), `Bootstrap ERP antecipado ausente: ${marker}`));
 assert(!index.includes('document.documentElement.setAttribute("data-store-theme"'), "Tema da loja nao deve ser aplicado no html pelo bootstrap");
 assert(app.includes('document.querySelectorAll?.(".storefront-root,.store-public-shell,.store-cart-backdrop,.store-lead-backdrop")'), "Tema da loja deve aplicar somente em roots da storefront");
@@ -108,8 +108,8 @@ function getBlock(source, startMarker, endMarker) {
   getBlock(css, ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] .store-public-banner.store-banner-has-image .store-public-banner-copy", ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] .store-public-banner.store-banner-has-image .store-public-banner-copy h1")
 ].forEach((block, index) => assert(!/linear-gradient|radial-gradient/.test(block), `Gradiente decorativo ainda existe no bloco claro ${index + 1}`));
 
-assert(manifest.includes('"background_color": "#f2f5f4"'), "Splash PWA ainda nao usa fundo claro suave");
-assert(manifest.includes('"theme_color": "#f2f5f4"'), "Manifest PWA ainda nao usa theme-color claro suave");
-assert(sw.includes("simplifica-3d-v171-storefront-admin-v3-20260613"), "Cache PWA do tema claro nao foi atualizado");
+assert(manifest.includes('"background_color": "#ffffff"'), "Splash PWA ainda nao usa fundo claro consistente");
+assert(manifest.includes('"theme_color": "#ffffff"'), "Manifest PWA ainda nao usa theme-color claro consistente");
+assert(sw.includes("simplifica-3d-v172-storefront-dark-v3-20260613"), "Cache PWA do tema claro nao foi atualizado");
 
 console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");

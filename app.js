@@ -8288,7 +8288,8 @@ function aplicarPersonalizacao() {
   }
 
   const themeMeta = document.querySelector("meta[name='theme-color']");
-  if (themeMeta) {
+  const publicStorefrontActive = !!document.querySelector(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3");
+  if (themeMeta && !publicStorefrontActive) {
     window.SimplificaThemeAuthorityV2?.updateThemeColor?.(temaResolvido);
     if (!window.SimplificaThemeAuthorityV2) themeMeta.setAttribute("content", temaResolvido === "dark" ? "#08131d" : "#ffffff");
   }
@@ -14054,7 +14055,8 @@ function isStorefrontAdminContextRoute(pathname = location.pathname) {
 }
 
 function isStorefrontForcedLightContext(pathname = location.pathname) {
-  return isStorefrontAdminContextRoute(pathname) || !!parseStorefrontPublicRoute(pathname) || telaAtual === "lojaPublica";
+  const params = new URLSearchParams(location.search || "");
+  return isStorefrontAdminContextRoute(pathname) || params.get("admin") === "1";
 }
 
 function updateStorefrontThemeColor(theme = "light") {
@@ -19762,12 +19764,14 @@ function renderStorefrontV3HeaderMenu(vm) {
 function renderStorefrontV3Root(vm, content = "") {
   const store = vm.store || {};
   const mode = getStorefrontPublicMode(vm);
+  const storefrontTheme = getStorefrontControlledTheme(store.theme_config || {});
+  const renderedTheme = mode.admin ? STOREFRONT_V3_LIGHT_THEME : storefrontTheme;
   const cart = getStorefrontPublicCartSummary(vm);
   const contactCta = store.whatsapp
     ? `<button class="storefront-v3__whatsapp" type="button" onclick="abrirWhatsappLojaPublica()">${renderUiIcon("whatsapp")}<span>Falar no WhatsApp</span></button>`
     : "";
   return `
-    <div class="storefront-v3" data-storefront-version="v3" data-storefront-theme="light" data-store-theme="light" data-online-payment-enabled="false">
+    <div class="storefront-v3" data-storefront-version="v3" data-storefront-theme="${escaparAttr(renderedTheme.mode)}" data-store-theme="${escaparAttr(renderedTheme.mode)}" data-store-theme-preference="${escaparAttr(renderedTheme.preference)}" data-online-payment-enabled="false">
       ${mode.admin ? renderStoreAdminFloatingEditor(vm) : ""}
       ${mode.admin && (store.__demo || vm.demo?.enabled) ? `<div class="storefront-v3__demo-note">Visualização de exemplo. Cadastre seus produtos para substituir este conteúdo.</div>` : ""}
       <header class="storefront-v3__header" data-store-v3-section="header">
@@ -20179,7 +20183,7 @@ function atualizarSeoLojaPublica(vm, product = null) {
     const image = product ? getStorefrontProductImage(product, vm.images || []) : (vm.store?.banner_url || vm.store?.logo_url || "/assets/simplifica-brand-cover.jpg");
     const url = getStorefrontPublicUrl(vm.route);
     const storefrontTheme = getStorefrontControlledTheme(vm.store?.theme_config || {});
-    updateStorefrontThemeColor(STOREFRONT_V3_LIGHT_THEME.mode);
+    updateStorefrontThemeColor(storefrontTheme.mode);
     document.title = title;
     const metas = [
       ["description", description],
@@ -20194,7 +20198,7 @@ function atualizarSeoLojaPublica(vm, product = null) {
       ["twitter:title", title],
       ["twitter:description", description],
       ["twitter:image", image],
-      ["theme-color", STOREFRONT_THEME_COLORS[STOREFRONT_V3_LIGHT_THEME.mode]],
+      ["theme-color", STOREFRONT_THEME_COLORS[storefrontTheme.mode]],
       ["apple-mobile-web-app-title", storeDisplayName || "Simplifica 3D"]
     ];
     metas.forEach(([name, content]) => {
@@ -20298,18 +20302,20 @@ function renderLojaOnlinePublica() {
 function renderStorefrontPublicLegacy() {
   let vm = getStorefrontPublicViewModel();
   if (!vm.store) {
-    applyStoreTheme("light", { persist: false });
+    const fallbackTheme = getStorefrontControlledTheme({ mode: getStoreThemeSaved() });
+    applyStoreTheme(fallbackTheme.preference, { persist: false });
     return `
-      <main class="storefront-v3-host" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
-        <div class="storefront-v3" data-storefront-version="v3" data-storefront-theme="light" data-store-theme="light" data-online-payment-enabled="false">
+      <main class="storefront-v3-host" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="${escaparAttr(fallbackTheme.mode)}" data-store-theme-preference="${escaparAttr(fallbackTheme.preference)}">
+        <div class="storefront-v3" data-storefront-version="v3" data-storefront-theme="${escaparAttr(fallbackTheme.mode)}" data-store-theme="${escaparAttr(fallbackTheme.mode)}" data-store-theme-preference="${escaparAttr(fallbackTheme.preference)}" data-online-payment-enabled="false">
           ${renderStorefrontV3EmptyState("Loja não encontrada", "Esta Loja ainda não está ativa ou o link informado não existe.", "Voltar ao Simplifica 3D", "location.href='/'")}
         </div>
       </main>
     `;
   }
   const storefrontTheme = getStorefrontControlledTheme(vm.store.theme_config || {});
-  applyStoreTheme(storefrontTheme.preference);
   const mode = getStorefrontPublicMode(vm);
+  const renderedTheme = mode.admin ? STOREFRONT_V3_LIGHT_THEME : storefrontTheme;
+  applyStoreTheme(renderedTheme.preference, { persist: false });
   if (!mode.admin) {
     vm = {
       ...vm,
@@ -20348,8 +20354,8 @@ function renderStorefrontPublicLegacy() {
   }
   if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
     return `
-      <main class="storefront-v3-host" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
-        <div class="storefront-v3" data-storefront-version="v3" data-store-theme="light" data-online-payment-enabled="false">
+      <main class="storefront-v3-host" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="${escaparAttr(renderedTheme.mode)}" data-store-theme-preference="${escaparAttr(renderedTheme.preference)}">
+        <div class="storefront-v3" data-storefront-version="v3" data-store-theme="${escaparAttr(renderedTheme.mode)}" data-store-theme="${escaparAttr(renderedTheme.mode)}" data-store-theme-preference="${escaparAttr(renderedTheme.preference)}" data-online-payment-enabled="false">
           ${renderStorefrontV3EmptyState("Loja em preparação", "Esta Loja ainda não foi ativada pelo vendedor.", "Voltar", "location.href='/'")}
         </div>
       </main>
@@ -20387,7 +20393,7 @@ function renderStorefrontPublicLegacy() {
   const mobileGuidedEditorOnly = mode.admin && isMobile() && storefrontGuidedPanelOpen;
 
   return `
-    <main class="storefront-v3-host ${mode.admin ? `storefront-v3-host--admin store-admin-v3 ${getStorefrontPlanToneClass()}` : ""}" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
+    <main class="storefront-v3-host ${mode.admin ? `storefront-v3-host--admin store-admin-v3 ${getStorefrontPlanToneClass()}` : ""}" data-storefront-version="${escaparAttr(STOREFRONT_V3_VERSION)}" data-online-payment-enabled="false" data-store-theme="${escaparAttr(renderedTheme.mode)}" data-store-theme-preference="${escaparAttr(renderedTheme.preference)}">
       ${mode.admin ? `
         <div class="store-visual-editor-frame store-editor-v3 ${mobileGuidedEditorOnly ? "store-editor-v3-mobile store-editor-mobile-v3-only" : "store-editor-v3-desktop"} store-editor-mode-${escaparAttr(getStorefrontEditorMode())}" data-store-editor-theme="light" data-editor-mobile-v3-only="${mobileGuidedEditorOnly ? "true" : "false"}">
           ${renderStoreVisualEditorSidebar(vm)}
@@ -29562,8 +29568,8 @@ function getCurrentControlledPalette(mode = appConfig.theme || "light", primary 
 }
 
 function getStorefrontControlledTheme(theme = {}) {
-  const preference = STOREFRONT_V3_LIGHT_THEME.preference;
-  const mode = STOREFRONT_V3_LIGHT_THEME.mode;
+  const preference = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved());
+  const mode = getEffectiveThemeMode(preference);
   return {
     ...theme,
     preference,

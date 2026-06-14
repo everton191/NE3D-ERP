@@ -68,7 +68,8 @@
     target?.setAttribute?.("data-erp-theme", resolved);
     target?.setAttribute?.("data-erp-theme-preference", normalized);
     if (options.persist !== false) writeStorage(ERP_THEME_KEY, normalized);
-    if (options.updateThemeColor !== false) updateThemeColor(resolved);
+    const publicStorefrontActive = !!global.document?.querySelector?.(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3");
+    if (options.updateThemeColor !== false && !publicStorefrontActive) updateThemeColor(resolved);
     return { preference: normalized, resolved };
   }
 
@@ -77,7 +78,7 @@
     const resolved = resolveTheme(normalized);
     const targets = options.target
       ? [options.target]
-      : Array.from(global.document?.querySelectorAll?.(".storefront-root,.store-public-shell,.storefront-theme-v2,.store-cart-backdrop,.store-lead-backdrop") || []);
+      : Array.from(global.document?.querySelectorAll?.(".storefront-root,.store-public-shell,.storefront-theme-v2,.storefront-v3-host,.storefront-v3,.storefront-v3__modal-backdrop,.store-cart-backdrop,.store-lead-backdrop") || []);
     targets.forEach((target) => {
       target?.classList?.add("storefront-root");
       target?.classList?.add("storefront-theme-v2");

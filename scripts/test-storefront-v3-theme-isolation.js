@@ -38,11 +38,25 @@ function assert(condition, message) {
 ].forEach((marker) => assert(css.includes(marker), `Isolamento visual ausente em style.css: ${marker}`));
 
 const storefrontCss = fs.readFileSync("storefront-v3.css", "utf8");
+const themeAuthority = fs.readFileSync("src/services/themeAuthorityV2.js", "utf8");
 [
   ".storefront-v3__category-card",
   ".storefront-v3__product-card",
   "background-image:none !important",
-  "backdrop-filter:none !important"
+  "backdrop-filter:none !important",
+  '.storefront-v3[data-store-theme="dark"]',
+  '.storefront-v3__modal-backdrop[data-store-theme="dark"]',
+  "--store-v3-bg:#07131a"
 ].forEach((marker) => assert(storefrontCss.includes(marker), `Isolamento publico V3 ausente em storefront-v3.css: ${marker}`));
+
+[
+  "const renderedTheme = mode.admin ? STOREFRONT_V3_LIGHT_THEME : storefrontTheme",
+  'data-storefront-theme="${escaparAttr(renderedTheme.mode)}"',
+  "updateStorefrontThemeColor(storefrontTheme.mode)",
+  "const preference = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved())",
+  'document.querySelector(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3")'
+].forEach((marker) => assert(app.includes(marker), `Tema escuro publico V3 ausente em app.js: ${marker}`));
+
+assert(themeAuthority.includes(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3"), "Tema do ERP ainda pode sobrescrever o theme-color da loja publica");
 
 console.log("Storefront V3 theme isolation: tema, escopo do editor mobile e catalogos dedicados validados.");
