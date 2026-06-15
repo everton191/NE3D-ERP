@@ -585,6 +585,7 @@
         margin: 0
       });
       bannerShowing = true;
+      global.document?.body?.classList.add("native-ad-banner-visible");
       const state = getState();
       state.bannerVisible = true;
       state.bannerScreen = normalizePlan(context.screenName || context.screen || "");
@@ -600,6 +601,7 @@
 
   async function hideBanner() {
     const plugin = config.getPlugin();
+    global.document?.body?.classList.remove("native-ad-banner-visible");
     const state = getState();
     state.bannerVisible = false;
     state.bannerScreen = "";

@@ -25,7 +25,7 @@ function assert(condition, message) {
 
 [...styles, ...renderers].forEach((file) => {
   assert(fs.existsSync(file), `Arquivo rebuilt ausente: ${file}`);
-  assert(index.includes(`/${file}?v=1.0.68-storefront-editor-actions-20260614`), `Arquivo nao carregado: ${file}`);
+  assert(index.includes(`/${file}?v=1.0.69-mobile-fixes-ads-space-20260615`), `Arquivo nao carregado: ${file}`);
   assert(prepare.includes(`"${file}"`), `Arquivo nao publicado no dist: ${file}`);
   assert(sw.includes(`./${file}`), `Arquivo nao publicado no PWA: ${file}`);
 });

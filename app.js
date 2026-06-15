@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.35-rc";
-const APP_VERSION_CODE = 34;
+const APP_VERSION = "1.0.36-rc";
+const APP_VERSION_CODE = 35;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -29792,8 +29792,8 @@ async function salvarAssetSupabaseSilencioso(dataUrl, tipo) {
   if (!blob) return dataUrl;
   const companyId = billingConfig.companyId || getUsuarioAtual()?.companyId || getUsuarioAtual()?.company_id || syncConfig.supabaseUserId;
   const nome = [
-    segmentoStorageSeguro(companyId, "empresa"),
     segmentoStorageSeguro(syncConfig.supabaseUserId, "usuario"),
+    segmentoStorageSeguro(companyId, "empresa"),
     segmentoStorageSeguro(tipo, "imagem"),
     `${Date.now()}.${extensaoImagemBlob(blob.type)}`
   ].join("/");

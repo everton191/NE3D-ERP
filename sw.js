@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v175-storefront-editor-actions-android-back-20260614";
+const CACHE_NAME = "simplifica-3d-v176-mobile-fixes-ads-space-20260615";
 const APP_FILES = [
   "./",
   "./index.html",

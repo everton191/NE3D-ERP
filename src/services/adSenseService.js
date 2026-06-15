@@ -77,6 +77,7 @@
   function hideBanner(reason = "hidden") {
     const container = global.document?.getElementById(config.containerId || DEFAULT_CONTAINER_ID);
     const wasVisible = container?.classList.contains("visible") === true;
+    global.document?.body?.classList.remove("web-ad-banner-visible");
     if (container) {
       container.classList.remove("visible");
       container.innerHTML = "";
@@ -188,6 +189,7 @@
       renderedKey = key;
       lastRenderAt = now;
       container.classList.add("visible");
+      global.document?.body?.classList.add("web-ad-banner-visible");
       return { shown: true, reason: "RENDERED" };
     } catch (error) {
       hideBanner("SCRIPT_ERROR");

@@ -8331,6 +8331,19 @@ body.theme-light .calc-material-select option{
   display:block;
 }
 
+body.web-ad-banner-visible #app-content{
+  padding-bottom:132px;
+}
+
+body.web-ad-banner-visible{
+  --content-ad-banner-space:82px;
+}
+
+body.native-ad-banner-visible{
+  --content-ad-banner-space:60px;
+  --native-ad-banner-space:60px;
+}
+
 .web-adsense-slot ins{
   width:100%;
   min-height:60px;
@@ -30037,6 +30050,8 @@ body[data-ui-profile="android_apk"] .store-guided-editor-sidebar{
   --safe-area-bottom-offset:var(--app-safe-bottom);
   --keyboard-inset:0px;
   --bottom-nav-height:72px;
+  --content-ad-banner-space:0px;
+  --native-ad-banner-space:0px;
 }
 
 body.mobile-mode,
@@ -30057,8 +30072,8 @@ body.mobile-mode :where(
   .store-content,
   .editor-content
 ){
-  padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px) !important;
-  scroll-padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px);
+  padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + var(--content-ad-banner-space) + 16px) !important;
+  scroll-padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + var(--content-ad-banner-space) + 16px);
 }
 
 body.mobile-mode .mobile-bottom-nav,
@@ -30068,7 +30083,7 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-bottom-nav,
 .app-bottom-nav,
 .store-bottom-bar,
 .editor-bottom-actions{
-  bottom:0 !important;
+  bottom:var(--native-ad-banner-space) !important;
   padding-bottom:var(--app-safe-bottom) !important;
 }
 
