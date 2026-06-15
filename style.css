@@ -13408,7 +13408,7 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
   .admin-user-row .row-actions,
   .client-admin-row .row-actions,
   .superadmin-row .row-actions{
-    grid-template-columns:repeat(3, minmax(0, 1fr));
+    grid-template-columns:repeat(2, minmax(0, 1fr));
   }
 
   .clients-saas-panel .sync-grid{
@@ -16364,6 +16364,70 @@ body.theme-light .statement-row{
   color:var(--color-text-primary);
   border-color:var(--color-border);
   box-shadow:var(--effect-shadow-md);
+}
+
+body.theme-light .superadmin-panel :where(.superadmin-titlebar,.superadmin-tabs,.superadmin-overview-card,.superadmin-profile-card,.superadmin-profile-status-grid,.user-row,.sync-grid,.history-list){
+  color:var(--color-text-primary);
+  background:var(--color-surface) !important;
+  background-image:none !important;
+  border-color:var(--color-border) !important;
+  box-shadow:var(--effect-shadow-sm);
+}
+
+body.theme-light .superadmin-panel :where(.superadmin-profile-row span,.superadmin-profile-row strong,.superadmin-status-legend strong,.profile-action-row){
+  color:var(--color-text-primary);
+}
+
+body.theme-light .superadmin-panel :where(.muted,.superadmin-profile-status-grid small,.superadmin-profile-row small){
+  color:var(--color-text-muted);
+}
+
+.superadmin-row{
+  min-width:0;
+}
+
+.superadmin-row > div:first-child,
+.superadmin-row .row-actions{
+  min-width:0;
+}
+
+.superadmin-row .row-actions .btn{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+@media (max-width:640px){
+  .superadmin-row .row-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+/* Super Admin claro: superfície final sem herdar painéis escuros ou estourar ações. */
+body.theme-light .superadmin-panel :where(
+  .superadmin-overview-card,
+  .superadmin-profile-card,
+  .superadmin-profile-status-grid,
+  .superadmin-kpi-card,
+  .superadmin-plan-card,
+  .superadmin-recent-row,
+  .user-row
+){
+  color:var(--color-text-primary) !important;
+  background:var(--color-surface) !important;
+  background-image:none !important;
+  border-color:var(--color-border) !important;
+}
+
+body.theme-light .superadmin-panel :where(.profile-status-icon,.superadmin-kpi-icon,.superadmin-crown){
+  background:color-mix(in srgb,var(--color-accent) 10%,var(--color-surface)) !important;
+  background-image:none !important;
+  border-color:color-mix(in srgb,var(--color-accent) 28%,var(--color-border)) !important;
+}
+
+.superadmin-row .row-actions{
+  grid-template-columns:repeat(2,minmax(0,1fr));
 }
 
 body.theme-light .reports-title-row p,

@@ -1,0 +1,137 @@
+/* Componentes-base exclusivos da Loja V3 rebuilt. */
+.storefront-app *,
+.storefront-editor *,
+.storefront-modal *{box-sizing:border-box}
+
+.storefront-app .sr-only,
+.storefront-editor .sr-only,
+.storefront-modal .sr-only{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+}
+
+.storefront-app :where(button,a,input,textarea,select),
+.storefront-editor :where(button,a,input,textarea,select),
+.storefront-modal :where(button,a,input,textarea,select){font:inherit;letter-spacing:0}
+
+.storefront-app :where(button,.store-ui-button,.btn),
+.storefront-editor :where(button,.store-ui-button,.btn),
+.storefront-modal :where(button,.store-ui-button,.btn){
+  min-height:var(--store-button-height-md);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:var(--store-space-2);
+  padding:0 var(--store-space-4);
+  color:#fff;
+  background:var(--store-primary);
+  background-image:none;
+  border:1px solid var(--store-primary);
+  border-radius:var(--store-radius-sm);
+  box-shadow:none;
+  font-weight:800;
+  text-decoration:none;
+  cursor:pointer;
+  transition:background var(--store-transition),border-color var(--store-transition),transform var(--store-transition);
+  touch-action:manipulation;
+}
+
+.storefront-app :where(button,.store-ui-button,.btn):active,
+.storefront-editor :where(button,.store-ui-button,.btn):active,
+.storefront-modal :where(button,.store-ui-button,.btn):active{transform:scale(.98)}
+
+.storefront-app :where(.secondary,.ghost,.store-ui-button--secondary,.store-ui-button--ghost),
+.storefront-editor :where(.secondary,.ghost,.store-ui-button--secondary,.store-ui-button--ghost),
+.storefront-modal :where(.secondary,.ghost,.store-ui-button--secondary,.store-ui-button--ghost){
+  color:var(--store-primary);
+  background:var(--store-surface);
+  border-color:var(--store-border);
+}
+
+.storefront-app :where(.danger,.store-ui-button--danger),
+.storefront-editor :where(.danger,.store-ui-button--danger),
+.storefront-modal :where(.danger,.store-ui-button--danger){color:#fff;background:var(--store-danger);border-color:var(--store-danger)}
+
+.storefront-app :where(.store-ui-icon-button,.icon-button),
+.storefront-editor :where(.store-ui-icon-button,.icon-button),
+.storefront-modal :where(.store-ui-icon-button,.icon-button){
+  width:var(--store-button-height-md);
+  min-width:var(--store-button-height-md);
+  height:var(--store-button-height-md);
+  min-height:var(--store-button-height-md);
+  padding:0;
+  color:var(--store-text);
+  background:var(--store-surface);
+  border-color:var(--store-border);
+  border-radius:50%;
+}
+
+.storefront-app :where(button,.store-ui-button,.btn,.store-ui-icon-button,.icon-button) > svg,
+.storefront-editor :where(button,.store-ui-button,.btn,.store-ui-icon-button,.icon-button) > svg,
+.storefront-modal :where(button,.store-ui-button,.btn,.store-ui-icon-button,.icon-button) > svg{
+  width:var(--store-icon-size-sm);
+  height:var(--store-icon-size-sm);
+  flex:0 0 var(--store-icon-size-sm);
+  color:currentColor;
+}
+
+.storefront-app :where(.store-ui-icon-button,.icon-button) > svg,
+.storefront-editor :where(.store-ui-icon-button,.icon-button) > svg,
+.storefront-modal :where(.store-ui-icon-button,.icon-button) > svg{
+  width:var(--store-icon-size-md);
+  height:var(--store-icon-size-md);
+  flex-basis:var(--store-icon-size-md);
+  color:var(--store-icon-strong);
+}
+
+.storefront-app :where(input,textarea,select),
+.storefront-editor :where(input,textarea,select),
+.storefront-modal :where(input,textarea,select){
+  width:100%;
+  min-height:var(--store-input-height);
+  padding:10px 12px;
+  color:var(--store-text);
+  background:var(--store-surface);
+  background-image:none;
+  border:1px solid var(--store-border);
+  border-radius:var(--store-radius-sm);
+  outline:none;
+}
+
+.storefront-app :where(input,textarea,select):focus,
+.storefront-editor :where(input,textarea,select):focus,
+.storefront-modal :where(input,textarea,select):focus{border-color:var(--store-primary);box-shadow:0 0 0 3px var(--store-primary-soft)}
+
+.storefront-app .store-ui-card,
+.storefront-editor .store-ui-card,
+.storefront-modal .store-ui-card{
+  color:var(--store-text);
+  background:var(--store-surface);
+  background-image:none;
+  border:1px solid var(--store-border);
+  border-radius:var(--store-radius-md);
+  box-shadow:var(--store-shadow-soft);
+}
+
+.store-ui-upload{
+  position:relative;
+  min-height:var(--store-button-height-lg);
+  display:grid;
+  place-items:center;
+  gap:4px;
+  padding:var(--store-space-3);
+  color:var(--store-primary);
+  background:var(--store-primary-soft);
+  border:1px dashed var(--store-primary);
+  border-radius:var(--store-radius-sm);
+  text-align:center;
+  cursor:pointer;
+}
+.store-ui-upload input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}

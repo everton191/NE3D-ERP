@@ -6,7 +6,6 @@ const dist = path.join(root, "dist");
 const files = [
   "index.html",
   "style.css",
-  "storefront-v3.css",
   "app.js",
   "sw.js",
   "manifest.webmanifest",
@@ -37,7 +36,12 @@ const publicSrcFiles = [
   "src/services/themeAuthorityV2.js",
   "src/services/adMobService.js",
   "src/services/adSenseService.js",
-  "src/services/monetizationLimits.js"
+  "src/services/monetizationLimits.js",
+  "src/storefront/styles/tokens.css",
+  "src/storefront/styles/components.css",
+  "src/storefront/styles/layouts.css",
+  "src/storefront/renderers/publicV3.js",
+  "src/storefront/renderers/editorV3.js"
 ];
 
 publicSrcFiles.forEach((relativePath) => {
@@ -57,7 +61,6 @@ publicThemeFiles.forEach((relativePath) => {
 });
 
 const publicModuleDirs = [
-  "modules/store-editor",
   "modules/store-preview",
   "modules/storefront"
 ];

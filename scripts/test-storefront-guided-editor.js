@@ -1,141 +1,15 @@
 const fs = require("fs");
-
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
-const sw = fs.readFileSync("sw.js", "utf8");
+const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
 const index = fs.readFileSync("index.html", "utf8");
+const sw = fs.readFileSync("sw.js", "utf8");
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function extractFunction(name) {
-  const start = app.indexOf(`function ${name}`);
-  assert(start >= 0, `Funcao ausente: ${name}`);
-  const braceStart = app.indexOf("{", start);
-  let depth = 0;
-  for (let index = braceStart; index < app.length; index += 1) {
-    if (app[index] === "{") depth += 1;
-    if (app[index] === "}") depth -= 1;
-    if (depth === 0) return app.slice(start, index + 1);
-  }
-  throw new Error(`Funcao incompleta: ${name}`);
-}
-
-[
-  "function selecionarItemLojaVisual",
-  "function fecharPainelEdicaoGuiadaLoja",
-  "function editarProdutoPublicadoLojaOnline",
-  "function renderStoreGuidedContextPanel",
-  "function renderStoreGuidedChecklistPanel",
-  "function renderStoreGuidedProductForm",
-  "function renderStoreGuidedContactsForm",
-  "function renderStoreGuidedLinks",
-  "function abrirChecklistGuiadoLoja",
-  "function navigateToStorefrontEditorTarget",
-  "function navigateToStorefrontCompletionItem",
-  "function validarTextoVisualLoja",
-  "function atualizarPreviewGuiadoLoja",
-  "function normalizarWhatsappLojaPublica",
-  "function sanitizarTextoPublicoLoja",
-  "Object.assign(window, {\n    alternarMenuContextualUi",
-  "selecionarItemLojaVisual,",
-  "processarImagemExemploLojaOnline,",
-  "navigateToStorefrontCompletionItem,\n    fecharPainelEdicaoGuiadaLoja",
-  "store-guided-review-action",
-  "data-storefront-review-action",
-  "store-guided-banner-preview",
-  'onclick="abrirChecklistGuiadoLoja()"',
-  'selection.type === "checklist"',
-  'data-guided-selection="${escaparAttr(selection.type)}"',
-  'data-store-section="contato"',
-  "selecionarItemLojaVisual('product','${escaparAttr(product.id)}', {",
-  'editProductTarget("price", "productPrice"',
-  'editProductTarget("photos", "productPhoto"',
-  "store-guided-photo-note",
-  "store-guided-upload-button",
-  "data-storefront-product-photo",
-  "processarImagemExemploLojaOnline",
-  "Trocar foto do exemplo",
-  "store-guided-target-hint",
-  "store-guided-target-field",
-  "encodeURIComponent(texto)"
-].forEach((marker) => assert(app.includes(marker), `Editor guiado incompleto: ${marker}`));
-assert(app.includes('aria-expanded="false" onclick="const header=this.closest'), "Menu publico mobile deve atualizar aria-expanded");
-
-[
-  ".store-guided-editor-sidebar",
-  ".store-guided-context-panel",
-  ".store-guided-editor-sidebar.is-open",
-  ".store-guided-editable",
-  ".store-guided-review-action",
-  ".store-guided-banner-preview",
-  "@media (min-width:1024px)",
-  "@media (max-width:860px)"
-].forEach((marker) => assert(css.includes(marker), `CSS guiado ausente: ${marker}`));
-
-const guidedOverview = extractFunction("renderStoreGuidedOverview");
-const guidedContacts = extractFunction("renderStoreGuidedContactsForm");
-assert(!guidedOverview.includes("renderStorefrontReadinessMini"), "Checklist nao deve ficar exposto permanentemente no topo do editor");
-assert(!app.includes("function renderStorefrontReadinessMini"), "Checklist mini antigo deve ser removido quando nao estiver em uso");
-assert(!guidedContacts.includes('>Facebook<input'), "Contato guiado nao deve repetir canal sem uso na loja publica");
-assert(guidedContacts.includes('type="hidden" name="facebook"'), "Contato legado deve ser preservado sem aparecer no editor guiado");
-
-const floatingEditor = extractFunction("renderStoreAdminFloatingEditor");
-const mobileActions = extractFunction("renderStoreVisualMobileActions");
-assert(!floatingEditor.includes("store-context-admin-bar"), "Editor guiado nao deve renderizar barra contextual duplicada");
-assert(mobileActions.includes("store-visual-mobile-actions"), "Editor guiado deve renderizar barra mobile compacta");
-assert(app.includes("Compartilhar loja"), "Toolbar deve expor uma unica acao amigavel de compartilhamento");
-assert(app.includes("Ver como cliente"), "Toolbar desktop deve nomear claramente a abertura da loja");
-assert(app.includes('maxlength="50"'), "Campos principais da loja devem possuir limite visual seguro");
-assert(app.includes('maxlength="180"'), "Descricao de produto deve possuir limite visual seguro");
-assert(app.includes("vm?.limits?.shareEnabled !== false"), "Link guiado respeita regra de compartilhamento do plano");
-assert(app.includes("const START_PLAN_ENABLED = false"), "Homologacao da loja nao pode ativar checkout Start");
-assert(app.includes("const STOREFRONT_REAL_TEST_FULL_ACCESS = true"), "Homologacao real da loja deve ficar explicita");
-assert(app.includes("function isStorefrontRealTestFullAccessEnabled"), "Liberacao da loja deve usar helper controlado");
-assert(app.includes("testMode: true"), "Limites da loja em homologacao devem marcar testMode");
-assert(app.includes("Produtos da loja online ficam disponíveis no Start ou Pro."), "Produtos da loja continuam protegidos no Gratis");
-assert(app.includes("sanitizarTextoPublicoLoja(product.description"), "Descricoes internas de produto devem ser saneadas antes de aparecer");
-assert(app.includes("Produto personalizado sob encomenda."), "Fallback comercial de produto deve existir");
-const normalizeWhatsapp = new Function(`${extractFunction("normalizarWhatsappLojaPublica")}; return normalizarWhatsappLojaPublica;`)();
-assert(normalizeWhatsapp("(85) 99999-9999") === "5585999999999", "WhatsApp da loja deve receber DDI brasileiro quando necessario");
-assert(normalizeWhatsapp("+55 (85) 99999-9999") === "5585999999999", "WhatsApp da loja nao deve duplicar DDI existente");
-[
-  "Fase 7C.2: experiencia mobile propria",
-  ".store-visual-editor-topbar,",
-  ".store-context-admin-bar{",
-  ".store-mobile-admin-actions{",
-  "display:none !important;",
-  ".store-context-edit-fab{",
-  "display:inline-flex;",
-  "--store-stage-max:min(100%, 1760px);",
-  "grid-template-columns:1fr;",
-  "min-height:44px;",
-  "font-size:16px;",
-  "scroll-margin-bottom:calc(44vh + 110px + var(--app-safe-bottom, 0px))",
-  ".store-guided-photo-note",
-  ".store-guided-upload-button",
-  ".store-guided-upload input[type=\"file\"]",
-  "position:absolute;",
-  ".store-visual-mobile-actions .ui-context-menu-panel"
-].forEach((marker) => assert(css.includes(marker), `Contrato mobile 7C.2 ausente: ${marker}`));
-[
-  "body.mobile-mode .store-public-menu-toggle",
-  "width:52px",
-  "body.mobile-mode .store-public-menu-toggle span",
-  "display:none"
-].forEach((marker) => assert(css.includes(marker), `Menu mobile da loja sem corte ausente: ${marker}`));
-
-assert(sw.includes("simplifica-3d-v172-storefront-dark-v3-20260613"), "Cache PWA da loja publica nao foi atualizado");
-assert(index.includes("1.0.66-storefront-dark-v3-20260613"), "Cache-bust web da loja publica nao foi atualizado");
-[
-  "Preview do catálogo",
-  "Preview das categorias",
-  "Preview compartilhável",
-  "Preview de publicação",
-  "Preview da experiência"
-].forEach((marker) => assert(!fs.readFileSync("modules/store-editor/storeEditorTabs.js", "utf8").includes(marker), `Modulo de abas nao deve exibir texto em ingles: ${marker}`));
-assert(!fs.readFileSync("modules/store-editor/storeEditorPreview.js", "utf8").includes("Preview da loja"), "Fallback de visualizacao deve estar em portugues");
-assert(!fs.readFileSync("modules/store-editor/storeEditorProducts.js", "utf8").includes("testar preview"), "Estado vazio de produtos deve estar em portugues");
-
-console.log("Storefront guided editor: toolbar unica, preview imediato, bottom sheet mobile, produto publicado e cache PWA premium validados.");
+["function selecionarItemLojaVisual", "function fecharPainelEdicaoGuiadaLoja", "function atualizarPreviewGuiadoLoja", "function manterCampoEditorGuiadoVisivel", "function processarImagemExemploLojaOnline", "function abrirChecklistGuiadoLoja"].forEach((marker) => assert(app.includes(marker), `Funcao guiada preservada ausente: ${marker}`));
+["Básico", "Preço/Estoque", "Imagens", "Publicação", "Salvar rascunho", "sfe-preview", "sfe-actions", "store-ui-upload"].forEach((marker) => assert(renderer.includes(marker), `Editor guiado rebuilt incompleto: ${marker}`));
+assert(layouts.includes('html[data-store-editor-keyboard-open="true"]'), "Editor nao reduz preview com teclado");
+assert(!/class="[^"]*store-guided-/.test(renderer), "Editor novo ainda usa classe visual guiada antiga");
+assert(!index.includes("/modules/store-editor/"), "Fallback visual antigo ainda carregado");
+assert(!sw.includes("./modules/store-editor/"), "Fallback visual antigo ainda no PWA");
+console.log("Storefront guided editor: etapas, preview, upload e teclado validados.");

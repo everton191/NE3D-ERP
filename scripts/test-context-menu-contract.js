@@ -4,6 +4,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const publicRenderer = fs.readFileSync(path.join(root, "src/storefront/renderers/publicV3.js"), "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -19,9 +20,8 @@ function assert(condition, message) {
   'document.addEventListener("pointerout"',
   'document.addEventListener("keydown"',
   'event.key !== "Escape"',
-  'if (isSummary && !desktopHover()) return;',
+  "if (isSummary) return;",
   "function alternarMenuContextualUi",
-  "alternarMenuContextualUi(this.closest('.ui-context-menu'), event)",
   "fecharMenusContextuaisUi();",
   'summary.setAttribute("aria-expanded"',
   'summary.setAttribute("aria-controls"',
@@ -29,6 +29,10 @@ function assert(condition, message) {
   'panel.setAttribute("role", "menu")',
   'item.setAttribute("role", "menuitem")'
 ].forEach((marker) => assert(app.includes(marker), `Contrato de menu ausente: ${marker}`));
+
+assert(publicRenderer.includes('<details class="sfv3-menu ui-context-menu">'), "Menu publico V3 nao usa details nativo.");
+assert(publicRenderer.includes('aria-haspopup="menu"'), "Menu publico V3 perdeu contrato acessivel.");
+assert(!publicRenderer.includes("alternarMenuContextualUi(this.closest('.ui-context-menu'), event)"), "Menu publico V3 voltou a alternar duas vezes no clique.");
 
 assert(
   app.indexOf("if (fecharMenusContextuaisUi())") < app.indexOf("if (fecharNavegacaoContextualLojaSeExistir())"),

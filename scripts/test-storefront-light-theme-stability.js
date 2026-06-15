@@ -1,115 +1,17 @@
 const fs = require("fs");
-
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
-const designSystemV2 = fs.readFileSync("themes/base/design-system-v2.css", "utf8");
 const index = fs.readFileSync("index.html", "utf8");
 const manifest = fs.readFileSync("manifest.webmanifest", "utf8");
 const sw = fs.readFileSync("sw.js", "utf8");
+const visualCss = ["tokens.css", "components.css", "layouts.css"].map((file) => fs.readFileSync(`src/storefront/styles/${file}`, "utf8")).join("\n");
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-[
-  'const STOREFRONT_THEME_STORAGE_KEY = "simplifica3d_store_theme_preference"',
-  'const STOREFRONT_THEME_LEGACY_STORAGE_KEY = "simplifica3d_store_theme"',
-  "function normalizarTemaLojaOnline",
-  "function getStoreThemeSaved",
-  "function updateStorefrontThemeColor",
-  "function applyStoreTheme",
-  "window.SimplificaStoreTheme = Object.freeze",
-  'return window.SimplificaThemeAuthorityV2?.normalizePreference?.(theme, "light")',
-  'data-storefront-source="v2"',
-  'data-store-theme="${escaparAttr(storefrontTheme.mode)}" data-store-theme-preference="${escaparAttr(storefrontTheme.preference)}"',
-  'store-banner-has-image',
-  'mode: "light"',
-  '${["light", "system", "dark"].map'
-].forEach((marker) => assert(app.includes(marker), `Autoridade de tema da loja ausente: ${marker}`));
-
-assert(app.includes('light: "#ffffff"'), "Theme-color claro da loja deve permanecer claro e consistente");
-
-[
-  'return allowed.includes(value) ? value : "light"',
-  'document.querySelector(\'meta[name="theme-color"]\')?.setAttribute("content", "#ffffff")',
-  "1.0.66-storefront-dark-v3-20260613"
-].forEach((marker) => assert(index.includes(marker), `Bootstrap ERP antecipado ausente: ${marker}`));
-assert(!index.includes('document.documentElement.setAttribute("data-store-theme"'), "Tema da loja nao deve ser aplicado no html pelo bootstrap");
-assert(app.includes('document.querySelectorAll?.(".storefront-root,.store-public-shell,.store-cart-backdrop,.store-lead-backdrop")'), "Tema da loja deve aplicar somente em roots da storefront");
-
-[
-  '.storefront-root[data-store-theme="light"]',
-  '.storefront-root[data-store-theme="dark"]',
-  '.store-public-shell[data-storefront-source="v2"][data-store-theme="dark"]',
-  "--store-card:#fcfdfc",
-  "--store-input-bg:#f8faf9",
-  "--store-input-placeholder:#7b8991",
-  "--store-banner-overlay:none",
-  ".storefront-root[data-store-theme] :where(.store-cart-drawer,.store-lead-modal)",
-  ".storefront-root[data-store-theme] :is(.store-cart-drawer,.store-lead-modal)",
-  "background:var(--store-card)",
-  "background:var(--store-header-bg)",
-  ".store-public-banner.store-banner-has-image > img",
-  ".store-public-banner:has(> img) > img",
-  "filter:none !important",
-  "mix-blend-mode:normal !important",
-  "background-image:none !important",
-  "Checkpoint 2026-06-01 - auditoria pesada do tema claro da loja",
-  ".store-public-banner.store-banner-has-image .store-public-banner-copy",
-  "Hotfix 2026-06-01 - loja clara sem estouro lateral no editor guiado",
-  '.storefront-root[data-storefront-source="v2"]:not([data-store-theme="dark"])',
-  ".store-public-banner.store-banner-has-image::before",
-  ".store-public-banner.store-banner-has-image::after",
-  "content:none !important",
-  "display:none !important",
-  '.storefront-root[data-store-theme="light"] .store-banner-section img',
-  '.storefront-root[data-storefront-source="v2"][data-store-theme="light"] .store-hero-device-art',
-  "--store-primary:#2f6f73 !important",
-  "--store-button-bg:#2f6f73 !important",
-  "background:#ffffff !important",
-  "backdrop-filter:none !important",
-  "opacity:.74",
-  "body.mobile-mode :where(",
-  ".storefront-admin-page,",
-  ".store-public-main",
-  "padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px)",
-  "grid-template-columns:repeat(2, minmax(0, 1fr))",
-  "overflow-x:hidden"
-].forEach((marker) => assert(css.includes(marker), `Token claro ou componente migrado ausente: ${marker}`));
-
-[
-  'const userBanner = String(store.banner_url || "").trim()',
-  'const visualBanner = userBanner || getStorefrontDemoBannerImage()'
-].forEach((marker) => assert(app.includes(marker), `Fallback visual do banner ausente: ${marker}`));
-
-[
-  "radial-gradient(circle at 78% 38%",
-  "linear-gradient(135deg, #f6fbfc 0%, #edf6f8 48%, #dfecef 100%)",
-  "linear-gradient(90deg, rgba(246,251,252,.92) 0%, rgba(238,247,249,.74) 48%, rgba(226,238,242,.18) 100%)"
-].forEach((legacyGradient) => assert(!css.includes(legacyGradient), `Gradiente legado do tema claro ainda ativo: ${legacyGradient}`));
-
-assert(!app.includes('${["auto", "light", "dark"].map'), "Loja ainda oferece valor legado auto");
-assert(css.includes("body.theme-light.app-shell-ready #app-shell"), "Shell claro do ERP deve neutralizar vidro herdado");
-assert(css.includes("body.theme-light.app-shell-ready #app-content"), "Conteudo claro do ERP deve neutralizar vidro herdado");
-assert(designSystemV2.includes(".storefront-theme-v2.store-public-shell"), "Shell publico V2 deve possuir isolamento estrutural");
-assert(designSystemV2.includes(".storefront-theme-v2 .store-public-connection-badge"), "Badge online V2 deve possuir contrato proprio");
-assert(designSystemV2.includes("position:static"), "Badge online V2 nao deve flutuar sobre conteudo");
-function getBlock(source, startMarker, endMarker) {
-  const start = source.indexOf(startMarker);
-  assert(start >= 0, `Bloco nao encontrado: ${startMarker}`);
-  const end = endMarker ? source.indexOf(endMarker, start + startMarker.length) : -1;
-  return source.slice(start, end > start ? end : source.length);
-}
-
-[
-  getBlock(css, "body.theme-light :where(.card,.app-card,.modal-card", "body.theme-light :where(.card,.app-card,.modal-card,.popup-box,.ui-section,.technical-glass-panel,.dashboard-chart-card,.reports-panel,.settings-group) :where"),
-  getBlock(css, ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] :where(", ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] :where(\n  .store-public-banner-copy h1"),
-  getBlock(css, ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] .store-public-banner.store-banner-has-image::after", ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] .store-public-banner.store-banner-has-image .store-public-banner-copy"),
-  getBlock(css, ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] .store-public-banner.store-banner-has-image .store-public-banner-copy", ".storefront-root[data-storefront-source=\"v2\"][data-store-theme=\"light\"] .store-public-banner.store-banner-has-image .store-public-banner-copy h1")
-].forEach((block, index) => assert(!/linear-gradient|radial-gradient/.test(block), `Gradiente decorativo ainda existe no bloco claro ${index + 1}`));
-
-assert(manifest.includes('"background_color": "#ffffff"'), "Splash PWA ainda nao usa fundo claro consistente");
-assert(manifest.includes('"theme_color": "#ffffff"'), "Manifest PWA ainda nao usa theme-color claro consistente");
-assert(sw.includes("simplifica-3d-v172-storefront-dark-v3-20260613"), "Cache PWA do tema claro nao foi atualizado");
-
-console.log("Storefront light theme stability: padrao claro, persistencia, tokens, drawers globais, manifest e cache validados.");
+assert(app.includes('function applyStoreTheme(theme = "light"'), "Aplicacao light-only ausente");
+assert(!app.includes('${["light", "system", "dark"].map'), "Editor ainda oferece tema escuro/sistema");
+assert(!/linear-gradient|radial-gradient|conic-gradient/.test(visualCss), "Gradiente visual ainda existe no rebuilt");
+assert(index.includes("1.0.68-storefront-editor-actions-20260614"), "Cache-bust rebuilt ausente");
+assert(sw.includes("simplifica-3d-v175-storefront-editor-actions-android-back-20260614"), "Cache PWA rebuilt ausente");
+assert(manifest.includes('"background_color": "#ffffff"'), "PWA nao possui fundo claro");
+assert(manifest.includes('"theme_color": "#ffffff"'), "PWA nao possui theme-color claro");
+assert(!fs.existsSync("storefront-v3.css"), "Folha visual antiga ainda existe");
+console.log("Storefront light theme stability: light-only, sem gradientes e com PWA versionado.");

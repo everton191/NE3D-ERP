@@ -12,7 +12,7 @@ const required = [
   "descartarStorefrontAutosaveLocal",
   "window.addEventListener(\"online\"",
   "window.addEventListener(\"offline\"",
-  "simplifica-3d-v172-storefront-dark-v3-20260613"
+  "simplifica-3d-v175-storefront-editor-actions-android-back-20260614"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !sw.includes(item));

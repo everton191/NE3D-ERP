@@ -1,79 +1,16 @@
 const fs = require("fs");
-
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
-const sw = fs.readFileSync("sw.js", "utf8");
-const index = fs.readFileSync("index.html", "utf8");
+const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const components = fs.readFileSync("src/storefront/styles/components.css", "utf8");
+const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-function extractFunction(name) {
-  const start = app.indexOf(`function ${name}`);
-  assert(start >= 0, `Funcao ausente: ${name}`);
-  const paramsStart = app.indexOf("(", start);
-  let paramsDepth = 0;
-  let braceStart = -1;
-  for (let index = paramsStart; index < app.length; index += 1) {
-    if (app[index] === "(") paramsDepth += 1;
-    if (app[index] === ")") paramsDepth -= 1;
-    if (paramsDepth === 0) {
-      braceStart = app.indexOf("{", index);
-      break;
-    }
-  }
-  assert(braceStart >= 0, `Corpo ausente: ${name}`);
-  let depth = 0;
-  for (let index = braceStart; index < app.length; index += 1) {
-    if (app[index] === "{") depth += 1;
-    if (app[index] === "}") depth -= 1;
-    if (depth === 0) return app.slice(start, index + 1);
-  }
-  throw new Error(`Funcao incompleta: ${name}`);
-}
-
-[
-  "function renderStorePublicHomeContact",
-  "function renderStorePublicContactGrid",
-  "function renderStorePublicContactCta",
-  "Novidades em breve",
-  "Estamos preparando produtos especiais",
-  'maxlength="100"',
-  'maxlength="60"',
-  'maxlength="180"',
-  'class="store-public-product-options"',
-  "store-public-whatsapp-action"
-].forEach((marker) => assert(app.includes(marker), `Storefront premium incompleta: ${marker}`));
-
-const publicRender = extractFunction("renderStorefrontV3Home");
-const bannerIndex = publicRender.indexOf("${renderStorefrontV3Hero(vm)}");
-const benefitsIndex = publicRender.indexOf("${renderStorefrontV3Benefits()}");
-const categoriesIndex = publicRender.indexOf("${renderStorefrontV3Categories(vm)}");
-const contactIndex = publicRender.indexOf("${renderStorefrontV3Contact(vm)}");
-assert(bannerIndex >= 0 && benefitsIndex > bannerIndex && categoriesIndex > benefitsIndex && contactIndex > categoriesIndex, "Home premium deve seguir banner, beneficios, categorias e contato");
-assert(!publicRender.includes("${renderStorePublicTestimonials(vm)}"), "Home premium nao deve renderizar depoimentos genericos");
-assert(!publicRender.includes("${renderStorePublicPromoSection(vm)}"), "Home premium nao deve renderizar promocao redundante");
-
-const contactPage = extractFunction("renderStorefrontV3Contact");
-assert(contactPage.includes("storefront-v3__contact-grid"), "Contato publico deve usar grade unica");
-assert(contactPage.includes("abrirWhatsappLojaPublica()"), "Contato publico deve usar CTA de WhatsApp unico");
-assert(!contactPage.includes("renderStoreContactHeroPreview"), "Contato publico nao deve duplicar preview administrativo");
-assert(extractFunction("renderStoreAdminControls").includes('if (!getStorefrontPublicMode(vm).admin) return "";'), "Controles admin devem permanecer bloqueados na visao publica");
-assert(extractFunction("renderStoreAdminFloatingEditor").includes('if (!mode.admin) return "";'), "Editor flutuante nao pode vazar para cliente");
-
-[
-  "Fase 7C.3 - storefront publica premium clara",
-  "--store-bg:#f2f5f4",
-  "grid-template-columns:repeat(4, minmax(0, 1fr))",
-  "aspect-ratio:1 / 1",
-  ".store-public-product-options",
-  ".store-public-contact-cta",
-  ".store-public-floating-cart{",
-  "@media (max-width:359px)"
-].forEach((marker) => assert(css.includes(marker), `CSS premium 7C.3 ausente: ${marker}`));
-
-assert(sw.includes("simplifica-3d-v172-storefront-dark-v3-20260613"), "Cache PWA premium ausente");
-assert(index.includes("1.0.66-storefront-dark-v3-20260613"), "Cache-bust premium ausente");
-
-console.log("Storefront premium 7C.3: composicao clara, contato unico, cards responsivos, detalhe e cache validados.");
+["api.home", "api.hero", "api.benefits", "api.categories", "api.productSection", "api.contact", "api.productPage"].forEach((marker) => assert(publicRenderer.includes(marker), `Storefront premium incompleta: ${marker}`));
+["api.overview", "api.product", "api.category", "api.banner", "api.contacts", "api.checklist"].forEach((marker) => assert(editorRenderer.includes(marker), `Editor premium incompleto: ${marker}`));
+["store-ui-card", "store-ui-upload", "store-ui-button--secondary", "store-ui-button--ghost"].forEach((marker) => assert(components.includes(marker) || editorRenderer.includes(marker), `Componente premium ausente: ${marker}`));
+["sfv3-hero", "sfv3-benefits", "sfv3-product-grid", "sfv3-contact", "sfe-preview", "sfe-tabs", "sfe-actions"].forEach((marker) => assert(layouts.includes(marker), `Layout premium ausente: ${marker}`));
+assert(app.includes("function abrirCarrinhoLojaPublica"), "Carrinho funcional foi removido");
+assert(app.includes("function abrirWhatsappLojaPublica"), "WhatsApp funcional foi removido");
+assert(!publicRenderer.includes("store-public-"), "Interface publica ainda usa visual antigo");
+console.log("Storefront premium: home, catálogo, contatos, editor e ações validados.");

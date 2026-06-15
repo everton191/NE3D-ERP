@@ -29,4 +29,12 @@ if (app.includes('type="color" value="${escaparAttr(corAtual)}"') || app.include
   throw new Error("Color picker livre ainda esta exposto em areas principais de tema.");
 }
 
+if (!css.includes("body.theme-light .superadmin-panel :where(") || !css.includes(".superadmin-row .row-actions")) {
+  throw new Error("Super Admin claro deve manter superfícies legíveis e ações responsivas.");
+}
+
+if ((app.match(/timeoutMs: 12000/g) || []).length < 3) {
+  throw new Error("Salvamento remoto de personalização deve possuir timeout de segurança.");
+}
+
 console.log("UI theme consistency: tema claro/escuro e paletas guiadas verificados.");

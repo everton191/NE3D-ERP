@@ -1,62 +1,15 @@
 const fs = require("fs");
-
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
+const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const css = ["tokens.css", "components.css", "layouts.css"].map((file) => fs.readFileSync(`src/storefront/styles/${file}`, "utf8")).join("\n");
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-[
-  "function getStorefrontUiMode",
-  "catalog-products",
-  "catalog-categories",
-  'mode.admin ? "" : renderStorefrontV3BottomNav(vm)',
-  "renderStoreEditorSwitch",
-  "renderStoreGuidedCategoryIconPicker",
-  "store-editor-v3-mobile",
-  "store-editor-v3-desktop",
-  "store-editor-v3-preview",
-  "store-editor-v3-portal"
-].forEach((marker) => assert(app.includes(marker), `Contrato V3 ausente em app.js: ${marker}`));
-
-[
-  "--store-editor-v3-keyboard-inset",
-  "data-store-editor-keyboard-open",
-  ".store-editor-v3-switch",
-  ".store-guided-category-form",
-  ".store-guided-list-screen",
-  "position:fixed !important",
-  "margin:0 !important",
-  "background-image:none !important",
-  ".store-guided-editor-sidebar.is-open .store-guided-list-head",
-  ".store-guided-editor-sidebar.is-open .store-guided-v3-sticky-head",
-  "background:#ffffff !important",
-  ".store-guided-editor-sidebar.is-open .store-guided-admin-card",
-  "grid-template-columns:minmax(0, 1fr)",
-  ".store-guided-editor-sidebar.is-open :where(input,textarea)::placeholder"
-].forEach((marker) => assert(css.includes(marker), `Isolamento visual ausente em style.css: ${marker}`));
-
-const storefrontCss = fs.readFileSync("storefront-v3.css", "utf8");
-const themeAuthority = fs.readFileSync("src/services/themeAuthorityV2.js", "utf8");
-[
-  ".storefront-v3__category-card",
-  ".storefront-v3__product-card",
-  "background-image:none !important",
-  "backdrop-filter:none !important",
-  '.storefront-v3[data-store-theme="dark"]',
-  '.storefront-v3__modal-backdrop[data-store-theme="dark"]',
-  "--store-v3-bg:#07131a"
-].forEach((marker) => assert(storefrontCss.includes(marker), `Isolamento publico V3 ausente em storefront-v3.css: ${marker}`));
-
-[
-  "const renderedTheme = mode.admin ? STOREFRONT_V3_LIGHT_THEME : storefrontTheme",
-  'data-storefront-theme="${escaparAttr(renderedTheme.mode)}"',
-  "updateStorefrontThemeColor(storefrontTheme.mode)",
-  "const preference = normalizarTemaLojaOnline(theme.mode || getStoreThemeSaved())",
-  'document.querySelector(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3")'
-].forEach((marker) => assert(app.includes(marker), `Tema escuro publico V3 ausente em app.js: ${marker}`));
-
-assert(themeAuthority.includes(".storefront-v3-host:not(.storefront-v3-host--admin) .storefront-v3"), "Tema do ERP ainda pode sobrescrever o theme-color da loja publica");
-
-console.log("Storefront V3 theme isolation: tema, escopo do editor mobile e catalogos dedicados validados.");
+["function normalizarTemaLojaOnline", 'return "light";', "function getStoreThemeSaved", "data-store-theme=\"light\""].forEach((marker) => assert(app.includes(marker) || publicRenderer.includes(marker) || editorRenderer.includes(marker), `Contrato light-only ausente: ${marker}`));
+assert(publicRenderer.includes("storefront-app storefront-public storefront-v3 sfv3"), "Raiz publica isolada ausente");
+assert(editorRenderer.includes("storefront-editor storefront-mobile-editor sfe-shell"), "Raiz editor isolada ausente");
+assert(!/\[data-store-theme=["']dark["']\]|prefers-color-scheme\s*:\s*dark/.test(css + publicRenderer + editorRenderer), "Loja/editor ainda possuem dark mode");
+assert(!/linear-gradient|radial-gradient|conic-gradient/.test(css), "Camada rebuilt nao deve usar gradientes");
+assert(!publicRenderer.includes("data-theme"), "Renderer publico nao pode herdar tema ERP");
+assert(!editorRenderer.includes("data-theme"), "Renderer editor nao pode herdar tema ERP");
+console.log("Storefront V3 theme isolation: loja e editor light-only isolados do ERP.");

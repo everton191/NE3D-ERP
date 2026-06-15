@@ -1,34 +1,22 @@
 const fs = require("fs");
-
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
+const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-[
-  'return "preview";',
-  'return "guided";',
-  'return "edit-product";',
-  'return "edit-category";',
-  'return "edit-identity";',
-  'return "edit-settings";',
-  'return "publish";',
-  'const hideFooter = mobileV3Only && ["edit-product", "edit-category"].includes(uiMode);',
-  'const editorSurfaceClass = mobileV3Only ? "store-editor-v3-mobile" : "store-editor-v3-desktop";',
-  'data-store-editor-theme="light"',
-  'data-guided-selection="${escaparAttr(selection.type)}" data-store-ui-mode="${escaparAttr(uiMode)}"',
-  '<div class="store-guided-sidebar-footer" ${hideFooter ? "hidden" : ""}>'
-].forEach((marker) => assert(app.includes(marker), `Contexto mobile ausente em app.js: ${marker}`));
-
-[
-  ".store-guided-editor-sidebar.is-open{",
-  "grid-template-rows:auto minmax(0, 1fr) auto;",
-  ".store-guided-editor-sidebar.is-open .store-guided-context-panel{",
-  "grid-template-rows:minmax(0, 1fr);",
-  ".storefront-v3-host--admin .store-visual-editor-frame:has(.store-guided-editor-sidebar.is-open) .store-visual-editor-main",
-  ".storefront-v3-host--admin .store-visual-editor-frame:has(.store-guided-editor-sidebar.is-open) .store-visual-mobile-actions"
-].forEach((marker) => assert(css.includes(marker), `Contexto mobile ausente em style.css: ${marker}`));
-
-console.log("Store editor V3 mobile contexts: modos, footer contextual e overlay mobile validados.");
+["api.overview", "api.products", "api.categories", "api.product", "api.category", "api.banner", "api.contacts", "api.checklist"].forEach((marker) => assert(renderer.includes(marker), `Contexto editor ausente: ${marker}`));
+["sfe-shell--mobile", "sfe-scroll", "sfe-preview", "sfe-tabs", "sfe-fields", "sfe-actions"].forEach((marker) => assert(renderer.includes(marker) || layouts.includes(marker), `Contexto mobile ausente: ${marker}`));
+["name=\"whatsapp\"", "name=\"instagram\"", "name=\"tiktok\"", "name=\"email\""].forEach((marker) => assert(renderer.includes(marker), `Campo de contato ausente: ${marker}`));
+assert(renderer.includes("Deixe vazio o canal que não deseja mostrar na loja."), "Editor deve explicar que canais vazios ficam ocultos");
+assert(renderer.includes('class="sfe-list__add"'), "Acao Adicionar do catalogo deve usar variante compacta");
+assert(renderer.includes("filter((item) => !item.done)"), "Checklist de publicacao deve mostrar somente pendencias");
+assert(renderer.includes("Pendências para publicar"), "Checklist deve usar titulo claro para pendencias");
+assert(renderer.includes("sfe-publication-link") && renderer.includes("checklistTarget(item)"), "Pendencias devem direcionar para a area correta");
+assert(renderer.includes('["categoria", "Categorias"]') && renderer.includes("${icon(name)}"), "Categorias devem usar pacote interno de icones SVG");
+const categoryIconBlock = renderer.slice(renderer.indexOf("const categoryIcons"), renderer.indexOf("const categoryIcon ="));
+assert((categoryIconBlock.match(/\[\"[^\"]+\",\s*\"[^\"]+\"\]/g) || []).length >= 50, "Seletor de categorias deve oferecer pelo menos 50 icones");
+assert(layouts.includes(".sfe-list__header") && layouts.includes("background-image:none"), "Cabecalho de lista deve bloquear tema escuro herdado");
+assert(layouts.includes(".sfe-overview > header{display:grid"), "Cabecalho das telas do editor deve neutralizar regra global legada");
+assert(app.includes("storefrontGuidedPanelOpen"), "Estado de painel guiado ausente");
+assert(!renderer.includes("store-guided-editor-sidebar"), "Sidebar visual antiga ainda existe");
+console.log("Store editor V3 mobile contexts: selecao, formularios e shell mobile validados.");

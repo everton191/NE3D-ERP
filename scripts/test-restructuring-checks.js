@@ -58,10 +58,9 @@ const sw = read("sw.js");
 const index = read("index.html");
 const prepareWeb = read("scripts/prepare-web.js");
 const pkg = JSON.parse(read("package.json"));
-const storeEditorRenderer = read("modules/store-editor/storeEditorRenderer.js");
-const storeEditorTabs = read("modules/store-editor/storeEditorTabs.js");
-const storeEditorPreview = read("modules/store-editor/storeEditorPreview.js");
-const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
+const storefrontPublicV3 = read("src/storefront/renderers/publicV3.js");
+const storefrontEditorV3 = read("src/storefront/renderers/editorV3.js");
+const storefrontLayoutsV3 = read("src/storefront/styles/layouts.css");
 
 [
   "docs/reestruturacao-profissional-checks.md",
@@ -102,16 +101,17 @@ const storeEditorProducts = read("modules/store-editor/storeEditorProducts.js");
   "modules/storefront/contract.css",
   "modules/store-editor/README.md",
   "modules/store-editor/contract.css",
-  "modules/store-editor/storeEditorRenderer.js",
-  "modules/store-editor/storeEditorTabs.js",
-  "modules/store-editor/storeEditorPreview.js",
-  "modules/store-editor/storeEditorProducts.js",
   "modules/store-preview/README.md",
-  "modules/store-preview/contract.css"
+  "modules/store-preview/contract.css",
+  "src/storefront/renderers/publicV3.js",
+  "src/storefront/renderers/editorV3.js",
+  "src/storefront/styles/tokens.css",
+  "src/storefront/styles/components.css",
+  "src/storefront/styles/layouts.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.34-rc"/.test(app), "app.js esta na versao 1.0.34-rc");
-assert(/const APP_VERSION_CODE = 33/.test(app), "app.js possui versionCode 33");
+assert(/const APP_VERSION = "1\.0\.35-rc"/.test(app), "app.js esta na versao 1.0.35-rc");
+assert(/const APP_VERSION_CODE = 34/.test(app), "app.js possui versionCode 34");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
@@ -135,9 +135,9 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v172-storefront-dark-v3-20260613"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v175-storefront-editor-actions-android-back-20260614"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.66-storefront-dark-v3-20260613"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.68-storefront-editor-actions-20260614"), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1 && index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager carrega antes do app");
 assert(sw.includes("./src/services/safeAreaManager.js"), "safeAreaManager entra no precache PWA");
@@ -153,13 +153,14 @@ assert(app.includes("const STOREFRONT_PUBLIC_RELEASE = true;"), "loja publica V2
 assert(!getFunctionBody(app, "renderApp").includes("sincronizarStorefrontBetaAccessRemoto(false)"), "render principal nao consulta acesso beta legado");
 assert(app.includes("function selecionarItemLojaVisual"), "fase 7c possui selecao contextual da loja publica");
 assert(app.includes("function editarProdutoPublicadoLojaOnline"), "fase 7c corrige entrada de edicao do produto publicado");
-assert(css.includes(".store-guided-editor-sidebar.is-open"), "fase 7c possui bottom sheet controlada no mobile");
+assert(storefrontLayoutsV3.includes(".sfe-shell--mobile"), "editor rebuilt possui shell mobile controlada");
 [
-  "./modules/store-editor/storeEditorRenderer.js",
-  "./modules/store-editor/storeEditorTabs.js",
-  "./modules/store-editor/storeEditorPreview.js",
-  "./modules/store-editor/storeEditorProducts.js"
-].forEach((marker) => assert(sw.includes(marker), `fase 4f modulo entra no precache PWA: ${marker}`));
+  "./src/storefront/renderers/publicV3.js",
+  "./src/storefront/renderers/editorV3.js",
+  "./src/storefront/styles/tokens.css",
+  "./src/storefront/styles/components.css",
+  "./src/storefront/styles/layouts.css"
+].forEach((marker) => assert(sw.includes(marker), `rebuild visual entra no precache PWA: ${marker}`));
 
 [
   "src/services/aiService.js",
@@ -348,30 +349,27 @@ assert(read("scripts/mercadopago-sandbox-controlled.js").includes('REQUIRED_SAND
   "contain:layout paint"
 ].forEach((selector) => assert(css.includes(selector), `contrato modular da storefront presente: ${selector}`));
 [
-  "const enableStorefrontV2",
   "function renderStorefrontView",
-  "mode = \"public\"",
-  "source = \"legacy\"",
-  "renderStorefrontPublicV2",
-  "renderStorefrontPublicLegacy",
-  "renderStorefrontPreviewLegacy",
-  "renderStorefrontAdminPanelLegacy",
-  "data-storefront-render",
-  "data-storefront-source",
-  "store-public-header store-header",
-  "store-public-product-grid store-products",
-  "storefront-admin-page store-editor-shell store-editor-zone"
-].forEach((marker) => assert(app.includes(marker), `migracao storefront v2 presente: ${marker}`));
-assert(app.includes("storefront-v3__footer"), "loja publica V3 possui rodape isolado");
+  "function renderStorefrontPublicV3Rebuilt",
+  "function getStorefrontEditorVisualV3",
+  "renderStorefrontView({ mode: \"editor\" })",
+  "renderStorefrontView({ mode: \"public\" })"
+].forEach((marker) => assert(app.includes(marker), `orquestracao storefront rebuilt presente: ${marker}`));
 [
-  "Hotfix 4B.1 - escala responsiva controlada da Storefront V2",
-  ".store-public-shell[data-storefront-source=\"v2\"]",
-  "--store-stage-max:clamp(1120px, 84vw, 1440px)",
-  ".store-public-shell[data-storefront-source=\"v2\"] .store-public-banner-copy h1",
-  ".store-public-shell[data-storefront-source=\"v2\"] .store-mobile-admin-actions",
-  "@media (min-width:1024px)",
-  "@media (min-width:1920px)"
-].forEach((marker) => assert(css.includes(marker), `hotfix escala storefront v2 presente: ${marker}`));
+  "sfv3-header",
+  "sfv3-hero",
+  "sfv3-product-card",
+  "sfv3-bottom-nav"
+].forEach((marker) => assert(storefrontPublicV3.includes(marker), `componente publico rebuilt presente: ${marker}`));
+[
+  "sfe-shell",
+  "sfe-preview",
+  "sfe-tabs",
+  "sfe-actions"
+].forEach((marker) => assert(storefrontEditorV3.includes(marker), `componente editor rebuilt presente: ${marker}`));
+assert(!app.includes("renderStorefrontPublicV2"), "renderer publico V2 removido");
+assert(!app.includes("renderStorefrontEditorV2"), "renderer editor V2 removido");
+assert(!exists("storefront-v3.css"), "folha visual antiga removida");
 [
   "Hotfix global - escala visual segura do ERP e Storefront",
   "html{\n  font-size:16px;",
@@ -417,123 +415,35 @@ assert(app.includes("storefront-v3__footer"), "loja publica V3 possui rodape iso
   "side-menu side-drawer mobile-drawer"
 ].forEach((marker) => assert(app.includes(marker), `separacao sidebar/drawer presente: ${marker}`));
 [
-  "products:new",
-  "product:${product.id}",
-  "fecharPopup(); abrirEditorProdutoLojaOnline()",
-  "abrirEditorProdutoLojaOnline('${escaparAttr(action.slice(8))}')"
-].forEach((marker) => assert(app.includes(marker), `atalho de produtos da loja abre editor correto: ${marker}`));
+  "abrirNovoProdutoGuiadoLoja()",
+  "openStorefrontGuidedCatalogItem(",
+  "api.product",
+  "api.products"
+].forEach((marker) => assert(storefrontEditorV3.includes(marker), `atalho de produtos rebuilt abre editor correto: ${marker}`));
 [
-  "Hotfix menu loja - evita sobreposicao dos links no editor",
-  "@media (max-width: 1180px)",
-  "@media (max-width: 1360px)",
-  ".store-public-shell .store-public-header .store-public-menu-toggle",
-  ".store-public-shell.store-public-admin-mode .store-public-header .store-public-menu-toggle",
-  ".store-public-shell .store-public-header.mobile-open .store-public-main-nav",
-  ".store-public-shell .store-public-header.mobile-open .store-public-actions"
-].forEach((marker) => assert(css.includes(marker), `hotfix menu loja presente: ${marker}`));
+  "sfv3-menu",
+  "sfv3-menu__panel",
+  "sfv3-header",
+  "sfv3-header__actions"
+].forEach((marker) => assert(storefrontPublicV3.includes(marker), `menu rebuilt presente: ${marker}`));
 [
-  "Fase 4C - editor profissional da loja",
-  ".store-editor-shell",
-  ".store-editor-sidebar",
-  ".store-editor-workspace",
-  ".store-editor-header",
-  ".store-editor-main",
-  ".store-editor-sections",
-  ".store-preview-panel"
-].forEach((marker) => assert(css.includes(marker), `fase 4c editor profissional presente no CSS: ${marker}`));
-[
-  "function renderStorefrontEditorActionGroups",
-  "function renderStoreEditorTabContent",
-  "store-editor-tab-panel",
-  "has-inline-preview",
-  "store-editor-shell store-editor-zone",
-  "store-editor-sidebar",
-  "store-editor-workspace",
-  "store-editor-main",
-  "store-editor-sections",
-  "store-preview-container store-preview-panel store-preview-zone"
-].forEach((marker) => assert(app.includes(marker), `fase 4c editor profissional presente no app: ${marker}`));
-[
-  "Fase 4D - refinamento e migracao do editor da loja",
-  ".store-editor-tab-panel",
-  ".store-editor-tab-panel.has-preview-panel",
-  ".store-editor-tab-main",
-  ".store-products-summary",
-  ".store-products-summary-grid",
-  ".store-product-editor-panel",
-  ".store-product-list-panel",
-  ".store-preview-panel .store-preview-device",
-  ".store-preview-panel .store-preview-scroll"
-].forEach((marker) => assert(css.includes(marker), `fase 4d refinamento do editor presente no CSS: ${marker}`));
-[
-  "storefrontProductForm",
-  "store-products-summary",
-  "store-product-editor-panel",
-  "store-product-list-panel",
-  "Adicionar produto",
-  "renderStoreEditorTabContent(activeTab, bodyContent, vm)"
-].forEach((marker) => assert(app.includes(marker), `fase 4d refinamento do editor presente no app: ${marker}`));
-[
-  "SimplificaStoreEditor",
-  "getStoreEditorNamespace",
-  "isStoreEditorModuleReady",
-  "logStoreEditorModuleFallback",
-  "renderer.renderTabContent",
-  "renderStorefrontView({ mode: \"editor\" })",
-  "renderStorefrontView({ mode: \"public\" })"
-].forEach((marker) => assert(app.includes(marker), `fase 4e app.js continua orquestrando com modulo: ${marker}`));
-[
-  "/modules/store-editor/storeEditorTabs.js",
-  "/modules/store-editor/storeEditorPreview.js",
-  "/modules/store-editor/storeEditorProducts.js",
-  "/modules/store-editor/storeEditorRenderer.js"
-].forEach((marker) => assert(index.includes(marker), `fase 4e modulo carregado antes do app: ${marker}`));
+  "api.product",
+  "api.category",
+  "api.banner",
+  "api.contacts",
+  "api.checklist",
+  "sfe-product-form",
+  "sfe-preview",
+  "sfe-actions"
+].forEach((marker) => assert(storefrontEditorV3.includes(marker), `editor rebuilt presente: ${marker}`));
 assertOrdered(index, [
-  "/modules/store-editor/storeEditorRenderer.js",
-  "/modules/store-editor/storeEditorTabs.js",
-  "/modules/store-editor/storeEditorPreview.js",
-  "/modules/store-editor/storeEditorProducts.js",
+  "/src/storefront/renderers/publicV3.js",
+  "/src/storefront/renderers/editorV3.js",
   "/app.js"
-], "fase 4e ordem de scripts antes do app.js");
-[
-  "modules/store-editor",
-  "modules/store-preview",
-  "modules/storefront"
-].forEach((marker) => assert(prepareWeb.includes(marker), `fase 4e build copia modulo publico: ${marker}`));
-[
-  "renderTabContent",
-  "store-editor-tab-panel",
-  "has-preview-panel",
-  "has-inline-preview",
-  "store-editor-tab-main",
-  "data-store-editor-renderer=\"module\"",
-  "data-store-editor-modules-ready=\"true\"",
-  "data-store-editor-module-version",
-  "moduleVersion = \"store-editor-4g\"",
-  "isStoreEditorModuleReady"
-].forEach((marker) => assert(storeEditorRenderer.includes(marker), `fase 4e renderer preserva contrato: ${marker}`));
-assert(app.includes("data-store-editor-renderer=\"fallback\""), "fase 4f fallback legado continua identificavel");
-assert(app.includes("data-store-editor-modules-ready=\"false\""), "fase 4f fallback marca modulos indisponiveis");
-assert(app.includes("data-store-editor-module-version=\"app-fallback-4g\""), "fase 4g fallback possui versao diagnostica");
-assert(app.includes("[StoreEditorModules] módulos incompletos, usando fallback local"), "fase 4f fallback possui log debug controlado");
-assert(app.includes("FALLBACK_REQUIRED Fase 4G"), "fase 4g fallback minimo classificado");
-assert(app.includes("store-editor-fallback-minimal"), "fase 4g fallback minimo aplicado");
-assert(!getFunctionBody(app, "renderStoreEditorTabContent").includes("previewTitles"), "fase 4g remove duplicacao de titulos de preview do fallback");
-[
-  "sanitizeTab",
-  "hasInlinePreview",
-  "getPreviewCopy"
-].forEach((marker) => assert(storeEditorTabs.includes(marker), `fase 4e tabs helper presente: ${marker}`));
-[
-  "renderPreviewForTab",
-  "store-preview-device",
-  "store-preview-scroll"
-].forEach((marker) => assert(`${storeEditorPreview}\n${app}`.includes(marker), `fase 4e preview preservado: ${marker}`));
-[
-  "getStats",
-  "renderEmptyState",
-  "storefrontProductForm"
-].forEach((marker) => assert(`${storeEditorProducts}\n${app}`.includes(marker), `fase 4e produtos preservados: ${marker}`));
+], "renderers rebuilt carregam antes do app.js");
+assert(!index.includes("/modules/store-editor/"), "ponte visual antiga nao carrega no HTML");
+assert(!prepareWeb.includes('"modules/store-editor"'), "ponte visual antiga nao entra no dist");
+assert(!sw.includes("./modules/store-editor/"), "ponte visual antiga nao entra no PWA");
 [
   "--interaction-hover-lift",
   "--interaction-active-scale",
@@ -616,7 +526,7 @@ assert(css.includes("repeat(auto-fit, minmax(min(100%, 300px), 1fr))"), "fase 5b
 
 warn(css.includes("--z-sidebar"), "tokens de z-index formalizados para a Fase 2A");
 warn(exists("modules/storefront/README.md"), "pasta modules agora expoe apenas contratos seguros da storefront");
-warn(app.includes("enableStorefrontV2") || app.includes("enableNewStorefront") || app.includes("enableNewPlans"), "feature flags oficiais formalizadas");
+assert(!app.includes("enableStorefrontV2"), "loja rebuilt nao depende de feature flag visual V2");
 
 if (process.exitCode) {
   process.exit(process.exitCode);

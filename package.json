@@ -78,6 +78,7 @@
     "test:storefront-v3-foundation": "node scripts/test-storefront-v3-foundation.js",
     "test:storefront-v3-approved": "node scripts/test-storefront-v3-foundation.js",
     "test:storefront-v3-theme-isolation": "node scripts/test-storefront-v3-theme-isolation.js",
+    "test:storefront-visual-rebuild": "node scripts/test-storefront-visual-rebuild.js",
     "test:store-editor-v3-mobile-contexts": "node scripts/test-store-editor-v3-mobile-contexts.js",
     "test:store-editor-v3-keyboard-layout": "node scripts/test-store-editor-v3-keyboard-layout.js",
     "test:store-editor-v3-actions-routes": "node scripts/test-store-editor-v3-actions-routes.js",
