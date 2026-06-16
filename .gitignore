@@ -13,6 +13,7 @@ dist/
 backups/
 rollback/
 storefront-preview/
+artifacts/
 scripts/backup-supabase-public-rest.js
 /.env
 /.env.*
