@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.69-mobile-fixes-ads-space-20260615"
+  "1.0.70-storefront-sponsored-cards-20260615"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));

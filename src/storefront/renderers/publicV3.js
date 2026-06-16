@@ -106,7 +106,7 @@
     const mode = modeOf(vm);
     const src = call("getStorefrontCategoryVisualImage", category);
     const click = mode.admin ? edit("category", category.id, "category", "categoryName", "category-card") : "return navegarLojaPublicaLink(event,this,{scrollTop:true})";
-    return `<a class="store-ui-card sfv3-category-card" href="${categoryUrl(vm, category)}" onclick="${click}">${src ? image(src, { alt: category.name || "Categoria", kind: "category" }) : categoryIcon(category)}<span><strong>${esc(category.name || "Categoria")}</strong><small>${Number(category.product_count || 0)} produtos</small></span></a>`;
+    return `<a class="store-ui-card sfv3-category-card" data-store-category-id="${attr(category.id || "")}" href="${categoryUrl(vm, category)}" onclick="${click}">${src ? image(src, { alt: category.name || "Categoria", kind: "category" }) : categoryIcon(category)}<span><strong>${esc(category.name || "Categoria")}</strong><small>${Number(category.product_count || 0)} produtos</small></span></a>`;
   };
 
   api.categories = function categories(vm) {
@@ -120,8 +120,26 @@
     return `<article class="store-ui-card sfv3-product-card" data-store-product-id="${attr(product.id || "")}"><a class="sfv3-product-card__media" href="${url}" onclick="${click}">${image(productImage(vm, product), { alt: product.title || "Produto", kind: "product" })}${product.featured ? "<em>Destaque</em>" : ""}</a><div><a href="${url}" onclick="${click}"><strong>${esc(product.title || "Produto")}</strong></a><small>${esc(call("getStorefrontCategoryName", vm, product.category_id) || "Personalizado")}</small><b>${product.show_price === false ? "Sob orçamento" : money(product.price)}</b><button type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${attr(product.id)}')">${icon("carrinho")}<span>Adicionar</span></button></div></article>`;
   };
 
+  api.sponsoredCard = function sponsoredCard(index = 0) {
+    return `<aside class="store-ui-card sfv3-sponsored-card" data-store-ad-slot="product-grid" data-store-ad-index="${attr(index)}" aria-label="Conteúdo patrocinado"><span class="sfv3-sponsored-card__label">Patrocinado</span><div class="sfv3-sponsored-card__body" data-store-ad-body><small>Carregando anúncio</small></div></aside>`;
+  };
+
+  api.productGridItems = function productGridItems(vm, products = []) {
+    if (modeOf(vm).admin) return products.map((product) => api.productCard(vm, product)).join("");
+    const items = [];
+    let adCount = 0;
+    products.forEach((product, index) => {
+      items.push(api.productCard(vm, product));
+      if ((index + 1) % 6 === 0 && adCount < 3) {
+        adCount += 1;
+        items.push(api.sponsoredCard(adCount));
+      }
+    });
+    return items.join("");
+  };
+
   api.productSection = function productSection(vm, products = [], title = "Produtos", subtitle = "") {
-    return `<section class="sfv3-section" id="sfv3-products"><header><span><h2>${esc(title)}</h2>${subtitle ? `<p>${esc(subtitle)}</p>` : ""}</span><a href="${route({ slug: vm.store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event,this,{scrollTop:true})">Ver todos</a></header><div class="sfv3-product-grid">${products.map((product) => api.productCard(vm, product)).join("") || api.emptyState("Nenhum produto", "A loja ainda está preparando o catálogo.")}</div></section>`;
+    return `<section class="sfv3-section" id="sfv3-products"><header><span><h2>${esc(title)}</h2>${subtitle ? `<p>${esc(subtitle)}</p>` : ""}</span><a href="${route({ slug: vm.store.slug, view: "produtos" })}" onclick="return navegarLojaPublicaLink(event,this,{scrollTop:true})">Ver todos</a></header><div class="sfv3-product-grid">${api.productGridItems(vm, products) || api.emptyState("Nenhum produto", "A loja ainda está preparando o catálogo.")}</div></section>`;
   };
 
   api.home = function home(vm) {

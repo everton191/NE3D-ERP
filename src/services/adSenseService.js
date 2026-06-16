@@ -3,6 +3,8 @@
 
   const ALLOWED_SCREENS = new Set(["dashboard", "relatorios", "estoque"]);
   const DEFAULT_CONTAINER_ID = "webAdSenseSlot";
+  const STOREFRONT_SLOT_SELECTOR = '[data-store-ad-slot="product-grid"]';
+  const MAX_STOREFRONT_SLOTS = 3;
 
   const config = {
     enabled: false,
@@ -198,6 +200,56 @@
     }
   }
 
+  function hideStorefrontSlots(reason = "hidden") {
+    global.document?.querySelectorAll(STOREFRONT_SLOT_SELECTOR).forEach((container) => {
+      container.hidden = true;
+      container.dataset.adState = reason;
+      const body = container.querySelector("[data-store-ad-body]");
+      if (body) body.innerHTML = "";
+    });
+  }
+
+  async function syncStorefrontCards(context = {}) {
+    const containers = [...(global.document?.querySelectorAll(STOREFRONT_SLOT_SELECTOR) || [])];
+    if (!containers.length) return { shown: 0, reason: "NO_SLOTS" };
+    const publisherId = sanitizePublisherId(config.publisherId);
+    const slot = sanitizeSlot(config.bannerSlot);
+    if (!config.enabled || !canRunInCurrentRuntime() || !publisherId || !slot || context.isAdmin) {
+      hideStorefrontSlots(context.isAdmin ? "ADMIN_PREVIEW" : "NOT_ELIGIBLE");
+      return { shown: 0, reason: context.isAdmin ? "ADMIN_PREVIEW" : "NOT_ELIGIBLE" };
+    }
+
+    const targets = containers.slice(0, MAX_STOREFRONT_SLOTS);
+    containers.slice(MAX_STOREFRONT_SLOTS).forEach((container) => { container.hidden = true; });
+    try {
+      await ensureScript();
+      let shown = 0;
+      targets.forEach((container) => {
+        if (container.dataset.adState === "rendered") return;
+        const body = container.querySelector("[data-store-ad-body]");
+        if (!body) return;
+        body.innerHTML = `
+          <ins class="adsbygoogle"
+            style="display:block"
+            data-ad-client="${publisherId}"
+            data-ad-slot="${slot}"
+            data-ad-format="auto"
+            data-full-width-responsive="true"></ins>
+        `;
+        container.hidden = false;
+        container.dataset.adState = "rendered";
+        global.adsbygoogle = global.adsbygoogle || [];
+        global.adsbygoogle.push({});
+        shown += 1;
+      });
+      return { shown, reason: shown ? "RENDERED" : "UNCHANGED" };
+    } catch (error) {
+      hideStorefrontSlots("SCRIPT_ERROR");
+      report("ADSENSE_STOREFRONT_FAILED", { message: error?.message || String(error) });
+      return { shown: 0, reason: "SCRIPT_ERROR" };
+    }
+  }
+
   function configure(options = {}) {
     Object.assign(config, options || {});
     config.publisherId = sanitizePublisherId(config.publisherId || global.__ADSENSE_PUBLISHER_ID__ || "");
@@ -209,8 +261,10 @@
     ALLOWED_SCREENS,
     configure,
     hideBanner,
+    hideStorefrontSlots,
     isEligible,
     syncBannerForScreen,
+    syncStorefrontCards,
     sanitizePublisherId,
     sanitizeSlot
   };

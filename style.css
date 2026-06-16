@@ -22449,6 +22449,7 @@ body.storefront-public-navigating .store-public-shell{
   gap:8px;
 }
 
+
 .store-public-contact-preview span{
   width:max-content;
   color:var(--store-primary, var(--color-primary));
@@ -32577,5 +32578,96 @@ body.theme-light .plans-pricing-screen .plan-tier-pro{ background-color:#faf6eb 
     animation-iteration-count:1 !important;
     transition-duration:.01ms !important;
     scroll-behavior:auto !important;
+  }
+}
+
+/* Ajuste local: botoes da tela de pedidos em mobile mais compactos. */
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) :where(.btn,button.btn,.compact-action){
+  min-height:34px;
+  padding:0 9px;
+  border-radius:11px;
+  font-size:12px;
+  line-height:1.1;
+}
+
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .card-header{
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+}
+
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .card-header .icon-button{
+  width:36px;
+  min-width:36px;
+  height:36px;
+  min-height:36px;
+}
+
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .filter-chip-row,
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .pagination-actions{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:6px;
+}
+
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .filter-chip-row .btn,
+body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .pagination-actions .btn{
+  min-height:30px;
+  padding:0 8px;
+  font-size:11px;
+}
+
+body.mobile-mode .order-detail-actions{
+  grid-template-columns:repeat(5,minmax(44px,1fr))!important;
+  gap:5px;
+}
+
+body.mobile-mode .order-detail-actions .action-tile{
+  min-height:42px;
+  padding:4px 3px;
+  border-radius:10px;
+}
+
+body.mobile-mode .order-detail-actions .action-symbol{
+  width:22px;
+  height:22px;
+  border-radius:8px;
+}
+
+body.mobile-mode .order-detail-actions .action-symbol svg{
+  width:15px;
+  height:15px;
+}
+
+body.mobile-mode .order-detail-actions .action-tile small{
+  font-size:9px;
+  line-height:1;
+}
+
+body.mobile-mode .order-status-action-strip{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:5px;
+}
+
+body.mobile-mode .order-status-action-strip button{
+  min-height:32px;
+  padding:0 5px;
+  border-radius:10px;
+  font-size:10.5px;
+  line-height:1.05;
+}
+
+body.mobile-mode .compact-danger-action{
+  width:100%;
+  min-width:0;
+  min-height:34px;
+  justify-self:stretch;
+  font-size:12px;
+}
+
+@media(max-width:360px){
+  body.mobile-mode .order-status-action-strip{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
   }
 }

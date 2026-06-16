@@ -75,6 +75,7 @@
     "test:storefront-light-theme-stability": "node scripts/test-storefront-light-theme-stability.js",
     "test:storefront-final-polish": "node scripts/test-storefront-final-polish.js",
     "test:storefront-public-ui": "node scripts/test-storefront-public-ui.js",
+    "test:storefront-sponsored-cards": "node scripts/test-storefront-sponsored-cards.js",
     "test:storefront-v3-foundation": "node scripts/test-storefront-v3-foundation.js",
     "test:storefront-v3-approved": "node scripts/test-storefront-v3-foundation.js",
     "test:storefront-v3-theme-isolation": "node scripts/test-storefront-v3-theme-isolation.js",

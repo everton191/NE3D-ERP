@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.36-rc";
-const APP_VERSION_CODE = 35;
+const APP_VERSION = "1.0.37-rc";
+const APP_VERSION_CODE = 36;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -2379,6 +2379,18 @@ function sincronizarBannerAdSense() {
     if (resultado?.catch) resultado.catch(() => {});
   } catch (erro) {
     registrarErroAplicacaoSilencioso("ADSENSE_BANNER_SYNC_FAILED", erro, "Banner AdSense", { tela: telaAtual });
+  }
+}
+
+function sincronizarAnunciosLojaPublica() {
+  try {
+    const vm = telaAtual === "lojaPublica" ? getStorefrontPublicViewModel() : null;
+    const resultado = window.AdSenseService?.syncStorefrontCards?.({
+      isAdmin: vm ? getStorefrontPublicMode(vm).admin : false
+    });
+    if (resultado?.catch) resultado.catch(() => {});
+  } catch (erro) {
+    registrarErroAplicacaoSilencioso("ADSENSE_STOREFRONT_SYNC_FAILED", erro, "Anúncios da loja", { tela: telaAtual });
   }
 }
 
@@ -8433,6 +8445,7 @@ function renderizarStatusSyncSeVisivel() {
 }
 
 function sincronizarBannersSeNecessario(force = false) {
+  sincronizarAnunciosLojaPublica();
   const agora = Date.now();
   const chave = `${telaAtual}:${getPlanoAtual().status}:${isMobile() ? "m" : "d"}`;
   if (!force && window.__simplificaBannerSyncKey === chave && agora - Number(window.__simplificaBannerSyncAt || 0) < 1500) return;
@@ -9022,7 +9035,11 @@ if (typeof window !== "undefined") {
     showToast,
     hideToast,
     showOverlay,
-    hideOverlay
+    hideOverlay,
+    ativarBuscaCompacta,
+    expandirBuscaGlobal,
+    abrirBuscaAssistente,
+    recolherBuscaGlobal
   });
 }
 
@@ -9330,7 +9347,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(subtitulo)}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
@@ -9443,7 +9460,13 @@ function buscarGlobal(event, valor) {
 function ativarBuscaCompacta(label) {
   if (!label) return;
   label.classList.add("is-expanded");
+  label.classList.add("expanded");
   const input = label.querySelector?.("input");
+  try {
+    input?.focus?.({ preventScroll: true });
+  } catch (erro) {
+    input?.focus?.();
+  }
   setTimeout(() => {
     try {
       input?.focus?.({ preventScroll: true });
@@ -9482,6 +9505,7 @@ function recolherBuscaGlobal(input) {
   setTimeout(() => {
     if (document.activeElement === input || String(input.value || "").trim()) return;
     label.classList.remove("is-expanded");
+    label.classList.remove("expanded");
   }, 140);
 }
 
@@ -13403,7 +13427,7 @@ function renderDashboardHomeHeader() {
       </div>
       <div class="dashboard-header-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-          <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
         <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
@@ -14330,15 +14354,27 @@ function salvarEdicaoVisualAtualLoja() {
     form.requestSubmit();
     return true;
   }
-  limparStorefrontAlteracoesPendentes("Alterações salvas");
-  mostrarToast("Alterações salvas.", "sucesso", 2200);
-  renderApp();
+  mostrarToast("Abra uma parte editável da loja antes de salvar.", "aviso", 2600);
   return false;
 }
 
 function salvarENavegarLoja() {
   fecharPopup();
-  if (!salvarEdicaoVisualAtualLoja()) concluirNavegacaoPendenteLoja();
+  if (!salvarEdicaoVisualAtualLoja() && !getStorefrontDirtyState().dirty) concluirNavegacaoPendenteLoja();
+}
+
+function salvarRascunhoProdutoGuiadoLoja(form) {
+  const target = form || document.getElementById("storefrontProductForm");
+  if (!target) return false;
+  const visible = getStorefrontProductFormField(target, "productVisible");
+  const featuredVisible = getStorefrontProductFormField(target, "productFeaturedVisible");
+  const featured = getStorefrontProductFormField(target, "productFeatured");
+  if (visible) visible.checked = false;
+  if (featuredVisible) featuredVisible.checked = false;
+  if (featured) featured.checked = false;
+  if (target.requestSubmit) target.requestSubmit();
+  else salvarProdutoLojaOnline({ preventDefault() {}, target });
+  return true;
 }
 
 let storefrontAutosaveTimer = null;
@@ -18166,6 +18202,29 @@ function restoreStorefrontGuidedCatalogState(kind = "products") {
   });
 }
 
+function destacarAlvoEdicaoGuiadaLoja() {
+  document.querySelectorAll(".storefront-guided-editing-target").forEach((node) => {
+    node.classList.remove("storefront-guided-editing-target");
+    node.removeAttribute("data-store-editing-label");
+  });
+  const selection = getStorefrontGuidedSelection();
+  const escapedId = typeof CSS !== "undefined" && CSS.escape
+    ? CSS.escape(String(selection.id || ""))
+    : String(selection.id || "").replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+  const candidates = [];
+  if (selection.type === "product" && selection.id) candidates.push(`[data-store-product-id="${escapedId}"]`);
+  if (selection.type === "category" && selection.id) candidates.push(`[data-store-category-id="${escapedId}"]`);
+  if (selection.type === "banner") candidates.push(".sfv3-hero");
+  if (selection.type === "identity") candidates.push(".sfv3-brand");
+  if (selection.type === "contacts") candidates.push(".sfv3-contact");
+  if (selection.type === "products") candidates.push(".sfv3-product-grid");
+  if (selection.type === "categories") candidates.push(".sfv3-category-grid", ".sfv3-category-list");
+  const target = candidates.length ? document.querySelector(candidates.join(",")) : null;
+  if (!target) return;
+  target.classList.add("storefront-guided-editing-target");
+  target.setAttribute("data-store-editing-label", "Em edicao");
+}
+
 function setStorefrontGuidedCatalogQuery(kind = "products", value = "") {
   patchStorefrontGuidedCatalogState(kind, { query: String(value || ""), scrollTop: 0 });
   renderizarPreservandoScroll();
@@ -18505,7 +18564,9 @@ function selecionarItemLojaVisual(type = "overview", id = "", options = {}) {
       const selection = getStorefrontGuidedSelection();
       if (selection.targetField) window.setTimeout(() => focusStorefrontEditorTarget(selection.targetField), 80);
       requestAnimationFrame(() => requestAnimationFrame(alinharSelecaoLojaVisual));
+      requestAnimationFrame(() => requestAnimationFrame(destacarAlvoEdicaoGuiadaLoja));
       window.setTimeout(alinharSelecaoLojaVisual, 180);
+      window.setTimeout(destacarAlvoEdicaoGuiadaLoja, 180);
     });
   };
   select();
@@ -18529,6 +18590,7 @@ function setStorefrontGuidedProductStep(step = 1) {
   requestAnimationFrame(() => {
     focusStorefrontEditorTarget(nextStep === 2 ? "productPrice" : nextStep === 3 ? "productPhoto" : nextStep === 4 ? "productVisible" : "productTitle");
     requestAnimationFrame(alinharSelecaoLojaVisual);
+    requestAnimationFrame(destacarAlvoEdicaoGuiadaLoja);
   });
 }
 
@@ -18581,7 +18643,9 @@ if (typeof window !== "undefined") {
     processarImagemExemploLojaOnline,
     selecionarItemLojaVisual,
     setStorefrontGuidedProductStep,
+    salvarRascunhoProdutoGuiadoLoja,
     manterCampoEditorGuiadoVisivel,
+    destacarAlvoEdicaoGuiadaLoja,
     alinharSelecaoLojaVisual,
     abrirChecklistGuiadoLoja,
     navigateToStorefrontEditorTarget,
@@ -20605,7 +20669,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
     </div>
@@ -21083,7 +21147,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
       </div>
       <div class="desktop-dashboard-hero-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-          <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input placeholder="Buscar..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
         <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
@@ -24260,7 +24324,7 @@ function renderRelatorios() {
         </div>
         <div class="reports-header-actions">
           <label class="dashboard-search search-compact reports-search-compact" onclick="expandirBuscaGlobal(this)">
-            <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+            <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
             <input placeholder="Buscar relatórios..." aria-label="Buscar relatórios" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this)">
           </label>
           <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}<span>7</span></button>
@@ -35905,7 +35969,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
               <span class="muted">${lista.length} registro(s)</span>
             </div>
             <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-              <button class="search-ai-button" type="button" onclick="abrirBuscaAssistente(event, this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+              <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
               <input placeholder="Buscar pedido..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
             </label>
           </div>
