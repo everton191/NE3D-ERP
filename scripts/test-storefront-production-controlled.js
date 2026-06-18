@@ -13,10 +13,14 @@ async function runQuery(sql) {
   fs.mkdirSync(tmpDir, { recursive: true });
   const filePath = path.join(tmpDir, `production-test-query-${Date.now()}-${Math.random().toString(16).slice(2)}.sql`);
   fs.writeFileSync(filePath, sql, "utf8");
-  const result = spawnSync("npx", ["supabase", "db", "query", "--linked", "-f", filePath, "-o", "json"], {
+  const command = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
+  const args = process.platform === "win32"
+    ? ["/d", "/s", "/c", "npx.cmd", "supabase", "db", "query", "--linked", "-f", filePath, "-o", "json"]
+    : ["supabase", "db", "query", "--linked", "-f", filePath, "-o", "json"];
+  const result = spawnSync(command, args, {
     cwd: root,
     encoding: "utf8",
-    shell: process.platform === "win32",
+    shell: false,
   });
   try {
     fs.unlinkSync(filePath);

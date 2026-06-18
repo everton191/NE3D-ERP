@@ -57,10 +57,14 @@ function assertLinkedToStaging(env = loadStagingEnv()) {
 
 function run(command, args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const windowsCommand = process.platform === "win32";
+    const normalizedCommand = windowsCommand ? ({ npx: "npx.cmd", npm: "npm.cmd" }[command] || command) : command;
+    const executable = windowsCommand ? (process.env.ComSpec || "cmd.exe") : normalizedCommand;
+    const commandArgs = windowsCommand ? ["/d", "/s", "/c", normalizedCommand, ...args] : args;
+    const child = spawn(executable, commandArgs, {
       cwd: ROOT,
       stdio: "inherit",
-      shell: process.platform === "win32",
+      shell: false,
       ...options,
     });
     child.on("exit", (code) => {

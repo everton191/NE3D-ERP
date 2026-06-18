@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.37-rc";
-const APP_VERSION_CODE = 36;
+const APP_VERSION = "1.0.38-rc";
+const APP_VERSION_CODE = 37;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -6330,6 +6330,10 @@ function iniciarIntroAbertura() {
   overlay.className = "intro-overlay";
   overlay.setAttribute("role", "presentation");
   overlay.innerHTML = `
+    <div class="intro-test-banner" role="status">
+      <strong>Versão em testes</strong>
+      <span>Estamos validando os últimos ajustes antes do lançamento oficial.</span>
+    </div>
     <div class="intro-video-frame" style="aspect-ratio:${escaparAttr(INTRO_VIDEO_ASPECT_RATIO)};width:${escaparAttr(INTRO_VIDEO_FRAME_WIDTH)};height:${escaparAttr(INTRO_VIDEO_FRAME_HEIGHT)};">
       <video class="intro-video" src="${escaparAttr(INTRO_VIDEO_SRC)}" poster="${escaparAttr(PROJECT_COVER_IMAGE)}" autoplay muted playsinline webkit-playsinline preload="auto" style="width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center;background:#051c26;"></video>
     </div>
@@ -25746,6 +25750,94 @@ async function confirmarBiometriaSeDisponivel(mensagem = "Use digital, rosto ou 
   }
 }
 
+const SENSITIVE_ACTION_PIN_STORAGE_PREFIX = "simplificaSensitiveActionPin:";
+
+function normalizarPinAcoesSensiveis(config = {}) {
+  const origem = config && typeof config === "object" && !Array.isArray(config) ? config : {};
+  return {
+    hash: String(origem.hash || ""),
+    owner: String(origem.owner || ""),
+    updatedAt: String(origem.updatedAt || "")
+  };
+}
+
+function getDonoPinAcoesSensiveis() {
+  const usuario = getUsuarioAtual();
+  return String(usuario?.id || syncConfig.supabaseUserId || normalizarEmail(usuario?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "")).trim();
+}
+
+function getChavePinAcoesSensiveis() {
+  const owner = getDonoPinAcoesSensiveis();
+  return owner ? `${SENSITIVE_ACTION_PIN_STORAGE_PREFIX}${owner}` : "";
+}
+
+function getPinAcoesSensiveisConfig() {
+  const chave = getChavePinAcoesSensiveis();
+  return chave ? normalizarPinAcoesSensiveis(carregarObjeto(chave, {})) : normalizarPinAcoesSensiveis();
+}
+
+function pinAcoesSensiveisAtivo() {
+  const config = getPinAcoesSensiveisConfig();
+  const owner = getDonoPinAcoesSensiveis();
+  return !!(config.hash && owner && config.owner === owner);
+}
+
+async function validarPinAcoesSensiveis(pin) {
+  if (!pinAcoesSensiveisAtivo() || !/^\d{4,12}$/.test(String(pin || ""))) return false;
+  return verificarHashSenha(String(pin), getPinAcoesSensiveisConfig().hash);
+}
+
+async function salvarPinAcoesSensiveis() {
+  const pin = String(document.getElementById("sensitiveActionPinConfig")?.value || "").trim();
+  const confirmarPin = String(document.getElementById("sensitiveActionPinConfirmConfig")?.value || "").trim();
+  if (!/^\d{4,12}$/.test(pin)) {
+    mostrarToast("O PIN deve ter de 4 a 12 dígitos numéricos.", "erro", 3800);
+    return;
+  }
+  if (pin !== confirmarPin) {
+    mostrarToast("A confirmação do PIN não confere.", "erro", 3400);
+    return;
+  }
+
+  const autorizado = await requestSensitiveActionConfirmation({
+    actionLabel: pinAcoesSensiveisAtivo() ? "alterar o PIN de segurança" : "criar o PIN de segurança",
+    permitirPin: false
+  });
+  if (!autorizado) return;
+
+  const chave = getChavePinAcoesSensiveis();
+  if (!chave) {
+    mostrarToast("Não foi possível vincular o PIN à conta atual.", "erro", 3600);
+    return;
+  }
+  salvarJsonLocalSeMudou(chave, {
+    hash: await gerarHashSenha(pin),
+    owner: getDonoPinAcoesSensiveis(),
+    updatedAt: new Date().toISOString()
+  });
+  registrarSeguranca("PIN de ações importantes configurado", "sucesso", "PIN vinculado à conta atual");
+  mostrarToast("PIN salvo. Ele já pode autorizar alterações importantes no computador.", "sucesso", 4200);
+  renderApp();
+}
+
+async function removerPinAcoesSensiveis() {
+  if (!pinAcoesSensiveisAtivo()) return;
+  const autorizado = await requestSensitiveActionConfirmation({
+    actionLabel: "remover o PIN de segurança",
+    permitirPin: false
+  });
+  if (!autorizado) return;
+
+  const chave = getChavePinAcoesSensiveis();
+  if (chave) {
+    localStorage.removeItem(chave);
+    localStorageWriteCache.delete(chave);
+  }
+  registrarSeguranca("PIN de ações importantes removido", "sucesso");
+  mostrarToast("PIN removido. As confirmações no computador voltarão a usar a senha.", "sucesso", 3800);
+  renderApp();
+}
+
 async function alternarBiometriaSeguranca(ativar = null) {
   const desejaAtivar = ativar === null ? !!document.getElementById("biometricEnabledConfig")?.checked : !!ativar;
   if (desejaAtivar) {
@@ -25921,6 +26013,26 @@ function renderSeguranca() {
       </div>
 
       <div class="danger-zone">
+        <h2 class="section-title">PIN para alterações importantes</h2>
+        <p class="muted">No computador, use um PIN numérico curto para autorizar edições protegidas do ERP e da loja. A senha da conta continua igual e ainda é usada para entrar no aplicativo.</p>
+        <div class="form-grid">
+          <label class="field">
+            <span>${pinAcoesSensiveisAtivo() ? "Novo PIN" : "Criar PIN"}</span>
+            <input id="sensitiveActionPinConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="new-password" placeholder="Mínimo de 4 dígitos">
+          </label>
+          <label class="field">
+            <span>Confirmar PIN</span>
+            <input id="sensitiveActionPinConfirmConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="new-password" placeholder="Repita o PIN">
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="salvarPinAcoesSensiveis()">${pinAcoesSensiveisAtivo() ? "Alterar PIN" : "Ativar PIN"}</button>
+          ${pinAcoesSensiveisAtivo() ? `<button class="btn ghost" onclick="removerPinAcoesSensiveis()">Remover PIN</button>` : ""}
+        </div>
+        <p class="muted">${pinAcoesSensiveisAtivo() ? "PIN ativo para esta conta." : "PIN ainda não configurado."} Para criar, trocar ou remover o PIN, o sistema exige a senha da conta ou a confirmação nativa do aparelho.</p>
+      </div>
+
+      <div class="danger-zone">
         <h2 class="section-title">Biometria e permissões</h2>
         <label class="checkbox-row">
           <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
@@ -25930,7 +26042,7 @@ function renderSeguranca() {
           <button class="btn ghost" onclick="verificarPermissoesDispositivo()">Verificar permissões do aparelho</button>
           <button class="btn ghost" onclick="entrarComCredencialSalva()">Testar senha salva/digital</button>
         </div>
-        <p class="muted">O Android não permite que o app leia o MAC real do aparelho. Para controle de uso, o Simplifica 3D usa um ID de dispositivo local, tipo de acesso e sessão vinculada ao e-mail do plano.</p>
+        <p class="muted">No app Android, alterações importantes usam a proteção nativa já cadastrada no aparelho: digital, rosto, PIN, padrão ou senha. O Android não permite que o app leia o MAC real; para controle de uso, o Simplifica 3D usa um ID local, tipo de acesso e sessão vinculada ao e-mail do plano.</p>
       </div>
 
       <h2 class="section-title">Logs de segurança</h2>
@@ -34387,7 +34499,16 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
       return;
     }
     const validatePassword = typeof options.validatePassword === "function" ? options.validatePassword : null;
+    const usarPin = options.credentialType === "pin";
     const invalidMessage = options.invalidMessage || "Senha incorreta. Confira e tente novamente.";
+    const inputLabel = usarPin ? "PIN" : "Senha";
+    const inputType = "password";
+    const inputMode = usarPin ? "numeric" : "text";
+    const autocomplete = usarPin ? "one-time-code" : "current-password";
+    const inputAttrs = usarPin ? `pattern="[0-9]*" minlength="4" maxlength="12"` : "";
+    const helperText = usarPin
+      ? "Digite seu PIN de segurança. O campo permanece aberto se houver erro."
+      : "Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro.";
 
     popup.innerHTML = `
       <div class="modal-backdrop" role="dialog" aria-modal="true">
@@ -34396,16 +34517,17 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
             <h2>Confirmar autorização</h2>
             <button class="icon-button" type="button" id="adminPasswordCancelTop" title="Fechar">✕</button>
           </div>
-          <p class="muted">Para ${escaparHtml(actionLabel)}, confirme sua senha de administrador.</p>
+          <p class="muted">Para ${escaparHtml(actionLabel)}, confirme ${usarPin ? "seu PIN de segurança" : "sua senha do aplicativo"}.</p>
           <label class="field">
-            <span>Senha</span>
+            <span>${inputLabel}</span>
             <div class="password-row auth-password-row">
-              <input id="adminPasswordConfirmInput" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" inputmode="text" enterkeyhint="done" data-preserve-focus="true" required autofocus>
-              <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+              <input id="adminPasswordConfirmInput" type="${inputType}" autocomplete="${autocomplete}" autocapitalize="none" spellcheck="false" inputmode="${inputMode}" enterkeyhint="done" data-preserve-focus="true" ${inputAttrs} required autofocus>
+              <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar ${usarPin ? "PIN" : "senha"}">👁</button>
             </div>
           </label>
-          <p class="muted auth-inline-feedback" id="adminPasswordFeedback">Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro.</p>
+          <p class="muted auth-inline-feedback" id="adminPasswordFeedback">${helperText}</p>
           <div class="actions">
+            ${usarPin && options.allowPasswordFallback ? `<button class="btn ghost" type="button" id="adminUsePasswordInstead">Usar senha do aplicativo</button>` : ""}
             <button class="btn ghost" type="button" id="adminPasswordCancel">Cancelar</button>
             <button class="btn" type="submit" id="adminPasswordConfirmBtn">Desbloquear</button>
           </div>
@@ -34424,7 +34546,12 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
       const botao = document.getElementById("adminPasswordConfirmBtn");
       const senha = input?.value || "";
       if (!String(senha).trim()) {
-        if (feedback) feedback.textContent = "Informe sua senha para continuar.";
+        if (feedback) feedback.textContent = usarPin ? "Informe seu PIN para continuar." : "Informe sua senha para continuar.";
+        focarCampoSenha(input);
+        return;
+      }
+      if (usarPin && !/^\d{4,12}$/.test(String(senha))) {
+        if (feedback) feedback.textContent = "O PIN deve ter de 4 a 12 dígitos numéricos.";
         focarCampoSenha(input);
         return;
       }
@@ -34459,6 +34586,7 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
         focarCampoSenha(input);
       }
     });
+    document.getElementById("adminUsePasswordInstead")?.addEventListener("click", () => finalizar("__USE_APP_PASSWORD__"), { once: true });
     document.getElementById("adminPasswordCancel")?.addEventListener("click", () => finalizar(null), { once: true });
     document.getElementById("adminPasswordCancelTop")?.addEventListener("click", () => finalizar(null), { once: true });
     popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
@@ -34501,7 +34629,8 @@ async function requestSensitiveActionConfirmation({
   confirmar = "Confirmar",
   cancelar = "Cancelar",
   perigo = false,
-  exigirConfirmacaoVisual = false
+  exigirConfirmacaoVisual = false,
+  permitirPin = true
 } = {}) {
   const acao = String(actionLabel || "continuar").trim() || "continuar";
 
@@ -34528,7 +34657,40 @@ async function requestSensitiveActionConfirmation({
     return true;
   }
   if (biometria.disponivel && !biometria.ok) {
-    mostrarToast("Biometria cancelada. Confirme com sua senha.", "info", 3200);
+    if (isAndroidNativeApp()) {
+      mostrarToast("Confirmação do aparelho cancelada. Ação não autorizada.", "info", 3200);
+      registrarAuditoria("acao_sensivel_cancelada", { action: acao, etapa: "credencial_dispositivo" });
+      registrarSeguranca("acao_sensivel_cancelada", "erro", acao);
+      return false;
+    }
+    mostrarToast("Biometria cancelada. Confirme com seu PIN ou senha.", "info", 3200);
+  }
+
+  if (permitirPin && pinAcoesSensiveisAtivo() && !isAndroidNativeApp()) {
+    const pin = await solicitarSenhaConfirmacaoAdmin(acao, {
+      credentialType: "pin",
+      allowPasswordFallback: true,
+      invalidMessage: "PIN incorreto. Alteração não autorizada.",
+      validatePassword: async (pinDigitado) => {
+        const ok = await validarPinAcoesSensiveis(pinDigitado);
+        if (ok) return { ok: true };
+        registrarAuditoria("pin_admin_falhou", { action: acao });
+        registrarSeguranca("pin_admin_falhou", "erro", acao);
+        return { ok: false, message: "PIN incorreto. Confira e tente novamente." };
+      }
+    });
+    if (pin === null) {
+      mostrarToast("Confirmação cancelada.", "info", 2600);
+      registrarAuditoria("acao_sensivel_cancelada", { action: acao, etapa: "pin" });
+      registrarSeguranca("acao_sensivel_cancelada", "erro", acao);
+      return false;
+    }
+    if (pin !== "__USE_APP_PASSWORD__") {
+      registrarAuditoria("pin_admin_validado", { action: acao });
+      registrarSeguranca("pin_admin_validado", "sucesso", acao);
+      mostrarToast("Autorizado com PIN.", "sucesso", 2200);
+      return true;
+    }
   }
 
   const senha = await solicitarSenhaConfirmacaoAdmin(acao, {

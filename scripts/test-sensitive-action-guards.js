@@ -42,7 +42,12 @@ const requiredSnippets = [
   "data-preserve-focus=\"true\"",
   "enterkeyhint=\"done\"",
   "validatePassword: async",
-  "Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro."
+  "Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro.",
+  "SENSITIVE_ACTION_PIN_STORAGE_PREFIX",
+  "O PIN deve ter de 4 a 12 dígitos numéricos.",
+  "Usar senha do aplicativo",
+  "isAndroidNativeApp()",
+  "pin_admin_validado"
 ];
 
 const missingSnippets = requiredSnippets.filter((snippet) => !app.includes(snippet));

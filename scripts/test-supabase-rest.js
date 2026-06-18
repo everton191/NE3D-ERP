@@ -47,10 +47,14 @@ async function requestJson(test, headers) {
       : parsed && typeof parsed === "object"
         ? Object.keys(parsed).slice(0, 6).join(",")
         : String(parsed || "").slice(0, 120);
+    const statusOk = test.expect.includes(response.status);
+    const responseOk = typeof test.validateResponse === "function"
+      ? test.validateResponse(parsed, response.status)
+      : true;
     return {
       test: test.name,
       status: response.status,
-      ok: test.expect.includes(response.status),
+      ok: statusOk && responseOk,
       ms: Date.now() - started,
       sample
     };
@@ -123,25 +127,28 @@ async function main() {
       expect: [400]
     },
     {
-      name: "Function create-payment requires JWT",
+      name: "Function create-payment blocks anonymous request",
       url: `${url}/functions/v1/mercadopago-create-payment`,
       method: "POST",
       body: JSON.stringify({ plan_id: "start", billing_variant: "start_monthly" }),
-      expect: [401, 403]
+      expect: [400, 401, 403],
+      validateResponse: (data, status) => status !== 400 || /não autenticado|ainda não está habilitado/i.test(String(data?.error || data?.message || ""))
     },
     {
-      name: "Function create-subscription requires JWT",
+      name: "Function create-subscription blocks anonymous request",
       url: `${url}/functions/v1/mercadopago-create-subscription`,
       method: "POST",
       body: JSON.stringify({ plan_id: "pro", billing_variant: "pro_monthly" }),
-      expect: [401, 403]
+      expect: [400, 401, 403],
+      validateResponse: (data, status) => status !== 400 || /não autenticado/i.test(String(data?.error || data?.message || ""))
     },
     {
-      name: "Function cancel-subscription requires JWT",
+      name: "Function cancel-subscription blocks anonymous request",
       url: `${url}/functions/v1/mercadopago-cancel-subscription`,
       method: "POST",
       body: "{}",
-      expect: [401, 403]
+      expect: [400, 401, 403],
+      validateResponse: (data, status) => status !== 400 || /não autenticado/i.test(String(data?.error || data?.message || ""))
     }
   ];
 

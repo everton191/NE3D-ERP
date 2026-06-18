@@ -16,5 +16,5 @@ assert(renderer.includes('["tiktok", "TikTok", contact.tiktok]'), "TikTok preenc
 assert(app.includes("function configurarNavegacaoLojaPublica"), "Navegacao publica central ausente");
 assert(!renderer.includes("store-public-"), "Renderer publico ainda usa classes V2");
 assert(index.includes("1.0.70-storefront-sponsored-cards-20260615"), "Cache-bust web ausente");
-assert(sw.includes("simplifica-3d-v177-storefront-sponsored-cards-20260615"), "Cache PWA ausente");
+assert(sw.includes("simplifica-3d-v178-security-pin-release-20260617"), "Cache PWA ausente");
 console.log("Storefront public UI: raiz, menu, rotas e componentes V3 validados.");

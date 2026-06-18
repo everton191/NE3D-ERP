@@ -110,8 +110,11 @@ const storefrontLayoutsV3 = read("src/storefront/styles/layouts.css");
   "src/storefront/styles/layouts.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.37-rc"/.test(app), "app.js esta na versao 1.0.37-rc");
-assert(/const APP_VERSION_CODE = 36/.test(app), "app.js possui versionCode 36");
+assert(/const APP_VERSION = "1\.0\.38-rc"/.test(app), "app.js esta na versao 1.0.38-rc");
+assert(/const APP_VERSION_CODE = 37/.test(app), "app.js possui versionCode 37");
+assert(app.includes("intro-test-banner") && app.includes("Versão em testes"), "abertura identifica a versao de testes");
+assert(css.includes(".intro-test-banner"), "aviso de testes possui layout responsivo");
+assert(/\.intro-test-banner\s*\{[\s\S]*?left:50%;[\s\S]*?transform:translateX\(-50%\);/.test(css), "aviso de testes permanece centralizado na viewport");
 assert(index.includes('id="app-shell"'), "index.html monta app-shell");
 assert(index.includes('id="app-content"'), "index.html monta app-content");
 assert(index.includes('id="overlay-layer"'), "index.html monta overlay-layer");
@@ -135,7 +138,7 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v177-storefront-sponsored-cards-20260615"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v178-security-pin-release-20260617"), "service worker possui cache versionado atual");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
 assert(index.includes("1.0.70-storefront-sponsored-cards-20260615"), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");

@@ -52,7 +52,7 @@ assert(mainActivity.includes("simplifica-native-insets-change"), "MainActivity n
   "bottom:0 !important",
   "padding-bottom:var(--app-safe-bottom) !important",
   "bottom:calc(var(--app-safe-bottom) + 16px) !important",
-  "padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + 16px) !important",
+  "padding-bottom:calc(var(--bottom-nav-height) + var(--app-safe-bottom) + var(--content-ad-banner-space) + 16px) !important",
   "body.keyboard-visible.mobile-mode .mobile-bottom-nav",
   ".toast-area",
   ".store-context-edit-fab",

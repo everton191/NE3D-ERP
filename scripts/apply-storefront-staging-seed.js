@@ -11,11 +11,19 @@ const {
 
 const USER_A_EMAIL = "storefront-user-a@simplifica3d-staging.local";
 const USER_B_EMAIL = "storefront-user-b@simplifica3d-staging.local";
-const DEFAULT_PASSWORD = "Simplifica3D-Staging-2026!";
 
 function required(env, key) {
   const value = String(env[key] || "").trim();
   if (!value) throw new Error(`${key} nao configurado em .env.staging.`);
+  return value;
+}
+
+function requiredStagingPassword(env, key) {
+  const value = required(env, key);
+  if (value.length < 16) throw new Error(`${key} deve ter pelo menos 16 caracteres.`);
+  if (!/[A-Z]/.test(value) || !/[a-z]/.test(value) || !/\d/.test(value) || !/[^A-Za-z0-9]/.test(value)) {
+    throw new Error(`${key} deve combinar maiuscula, minuscula, numero e simbolo.`);
+  }
   return value;
 }
 
@@ -72,8 +80,9 @@ async function main() {
 
   const url = required(env, "VITE_SUPABASE_URL_STAGING").replace(/\/+$/, "");
   const serviceRole = required(env, "SUPABASE_SERVICE_ROLE_STAGING");
-  const passwordA = String(env.STAGING_USER_A_PASSWORD || DEFAULT_PASSWORD);
-  const passwordB = String(env.STAGING_USER_B_PASSWORD || DEFAULT_PASSWORD);
+  const passwordA = requiredStagingPassword(env, "STAGING_USER_A_PASSWORD");
+  const passwordB = requiredStagingPassword(env, "STAGING_USER_B_PASSWORD");
+  if (passwordA === passwordB) throw new Error("Os usuarios de staging devem usar senhas diferentes.");
 
   const userAId = await ensureUser(url, serviceRole, USER_A_EMAIL, passwordA);
   const userBId = await ensureUser(url, serviceRole, USER_B_EMAIL, passwordB);

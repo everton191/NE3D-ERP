@@ -53,7 +53,7 @@ async function supabaseRequest(config, method, endpoint, body, prefer = "return=
 async function registerError(config, payload) {
   const result = await supabaseRequest(config, "POST", "/rest/v1/rpc/register_app_error", payload);
   if (!result.ok) {
-    throw new Error(`register_app_error falhou com HTTP ${result.status}`);
+    throw new Error(`register_app_error falhou com HTTP ${result.status}: ${JSON.stringify(result.data)}`);
   }
   return result.data;
 }
