@@ -45,6 +45,8 @@ assert(cancel.includes("cancel_at_period_end: true"), "cancelamento remoto deve 
 assert(cancel.includes('status_assinatura: "canceling"'), "cancelamento remoto deve preservar acesso com estado canceling");
 assert(shared.includes('["pro", "plus", "premium", "premium_monthly", "pro_monthly"]'), "aliases Pro legados devem ser controlados");
 assert(shared.includes("Plano Start ainda não está habilitado no backend de cobrança"), "Start deve falhar fechado ate migracao da autoridade");
+assert(shared.includes('if (startPlanId && planId === startPlanId) return "start"'), "webhook deve mapear o ID Mercado Pago do Start");
+assert(shared.includes('if (proPlanId && planId === proPlanId) return "premium"'), "webhook deve mapear o ID Mercado Pago do Pro pelo alias compativel");
 assert(createPayment.includes("normalizeRequestedPlan"), "checkout deve resolver plano no backend");
 assert(createPayment.includes('action: "checkout aberto"'), "preferencia deve registrar checkout aberto sem pagamento real");
 assert(!createPayment.includes('status: "pending",\n      external_reference: externalReference'), "preferencia aberta nao deve inserir pagamento pending");

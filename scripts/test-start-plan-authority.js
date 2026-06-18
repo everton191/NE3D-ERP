@@ -31,7 +31,7 @@ const renderPlans = bodyOfFunction(app, "renderAssinatura");
 const openPayment = bodyOfFunction(app, "abrirLinkMercadoPago");
 const storefrontLimits = bodyOfFunction(app, "getStorefrontLimitsLocal");
 
-assert(app.includes("const START_PLAN_ENABLED = false"), "Start deve permanecer comercialmente desligado no frontend");
+assert(app.includes("const START_PLAN_ENABLED = true"), "Start deve estar comercialmente ativo no frontend");
 assert(app.includes("const PLAN_REGISTRY = Object.freeze"), "registry central de planos deve existir");
 assert(app.includes("slug: \"start\""), "slug start deve existir no registry/frontend");
 assert(app.includes("price: START_MONTHLY_PRICE"), "Start deve usar preco central R$ 29,90");
@@ -46,12 +46,12 @@ assert(app.includes("const upgradeOptions = getPlanUpgradeOptions(effectivePlan)
 assert(app.includes('isPaid = ["start", "pro"].includes(effectivePlan)'), "getPlanAccessState deve reconhecer Start como pago");
 assert(storefrontLimits.includes("getPlanEntitlements"), "limites da loja devem usar entitlements centrais");
 assert(storefrontLimits.includes("getPlanLimits"), "limites da loja devem usar limites centrais");
-assert(renderPlans.includes('badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE"'), "Start desligado deve aparecer como Em breve");
+assert(renderPlans.includes('badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE"'), "badge Start deve depender da flag comercial");
 assert(renderPlans.includes('action: startEnabled ? "start" : "start-unavailable"'), "CTA Start deve depender da flag");
 assert(openPayment.includes('plano.slug === "start" && !isStartPlanCommerciallyEnabled()'), "checkout Start deve ficar bloqueado enquanto flag false");
 assert(openPayment.includes("start_plan_checkout_requested"), "tentativa Start futura deve ser diagnosticada");
 assert(openPayment.includes('plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment"'), "Start futuro deve usar criacao de assinatura pelo backend");
-assert(!renderPlans.includes('data-action=\\"open-payment\\" data-slug=\\"start\\"'), "render inicial nao pode expor checkout Start diretamente");
+assert(renderPlans.includes('action: startEnabled ? "start" : "start-unavailable"'), "render deve encaminhar Start ativo ao checkout");
 
 assert(shared.includes("export function isStartPlanEnabled"), "backend deve ter gate START_PLAN_ENABLED");
 assert(shared.includes('getEnv("START_PLAN_ENABLED")'), "backend deve ler START_PLAN_ENABLED somente no backend");
@@ -88,6 +88,8 @@ assert(!fs.existsSync(path.join(root, "supabase/functions/mercadopago-start-webh
 assert(migration.includes("insert into public.plans"), "migration deve preparar planos");
 assert(migration.includes("'start', 'Start', 29.90"), "migration deve criar/atualizar Start");
 assert(migration.includes("'start_plan_enabled', false"), "migration deve manter Start desligado por flag");
+assert(read("supabase/migrations/20260618031500_activate_canonical_commercial_plans.sql").includes("when slug in ('free', 'start', 'pro') then true"), "migration comercial deve ativar somente os tres planos canonicos");
+assert(read("supabase/migrations/20260618031500_activate_canonical_commercial_plans.sql").includes("set enabled = true"), "migration comercial deve ativar Start e IDs de cobranca");
 assert(migration.includes("alter table public.app_billing_feature_flags enable row level security"), "feature flags devem ter RLS");
 assert(!/using\s*\(\s*true\s*\)/i.test(migration), "migration nao pode criar policy aberta");
 assert(!/with check\s*\(\s*true\s*\)/i.test(migration), "migration nao pode criar policy aberta de escrita");

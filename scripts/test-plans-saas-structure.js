@@ -40,7 +40,8 @@ includesAll(app, [
   "plan-start-unavailable",
   "data-slug=\"pro\"",
 ], "app.js estrutura de planos");
-assert(!app.includes("data-action=\\\"open-payment\\\" data-slug=\\\"start\\\""), "Start bloqueado nao deve expor checkout funcional");
+assert(app.includes("const START_PLAN_ENABLED = true"), "Start deve estar ativo na matriz comercial");
+assert(app.includes('plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment"'), "Start deve usar checkout de assinatura");
 
 includesAll(app, [
   "const slugNormalizado = normalizarSlugPlano(slug || \"free\")",

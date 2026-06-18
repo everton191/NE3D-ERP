@@ -135,3 +135,15 @@
   cursor:pointer;
 }
 .store-ui-upload input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.store-ui-upload button{
+  appearance:none;
+  padding:0;
+  color:inherit;
+  background:transparent;
+  border:0;
+  font:inherit;
+  font-weight:800;
+  cursor:pointer;
+}
+.store-ui-upload button::after{content:"";position:absolute;inset:0}
+.store-ui-upload button:focus-visible{outline:2px solid currentColor;outline-offset:4px}

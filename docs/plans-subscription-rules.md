@@ -130,13 +130,13 @@ O cancelamento remoto foi alinhado com a regra da Fase 5A:
 - preserva acesso pago ate o fim do periodo conhecido;
 - limpa a flag quando a autoridade remota expira o plano para Free.
 
-A autoridade remota historica ainda usa `premium` como slug interno do plano pago. A ponte backend resolve aliases Pro de forma controlada. O checkout Start permanece bloqueado com erro explicito ate existir migracao completa do tier remoto, pois mapear Start parcialmente para `premium` liberaria recursos Pro indevidamente.
+A autoridade remota historica ainda aceita `premium` como alias interno do Pro. A matriz comercial publica usa somente `free`, `start` e `pro`, preservando os aliases antigos apenas para assinaturas existentes.
 
 Detalhes operacionais: `docs/billing-mercado-pago.md`.
 
 ## Fase 5B - Tela premium e estados corretos
 
-A tela premium usa `getPlanAccessState()` como contrato central. O plano Start permanece visivel como referencia comercial, mas seu CTA fica indisponivel ate existir tier remoto isolado. O Pro e o unico plano pago contratavel nesta fase.
+A tela premium usa `getPlanAccessState()` como contrato central. Free, Start e Pro ficam ativos; Start e Pro usam o webhook central e so liberam acesso depois da confirmacao remota.
 
 O resumo do Free direciona para `Assinar Pro`. Pagamento pendente visual exige transacao real. Checkout aberto ou abandonado nao altera o plano efetivo e nao bloqueia a interface.
 
@@ -154,12 +154,12 @@ O runner `scripts/mercadopago-sandbox-controlled.js` aceita somente token `TEST-
 
 ## Fase 5A.2 - autoridade Start
 
-O Start ganhou autoridade propria preparada no backend, mas continua fechado por `START_PLAN_ENABLED=false`.
+O Start possui autoridade propria no backend e fica ativo com `START_PLAN_ENABLED=true`.
 
 - Slugs comerciais canonicos: `free`, `start`, `pro`.
 - Start: R$ 29,90/mes, ate 300 produtos, publicacao da loja e link compartilhavel.
 - Pro: R$ 59,90/mes, premium preservado, com compatibilidade backend para o slug legado `premium`.
-- O frontend nao ativa Start e nao grava pending real ao abrir checkout.
+- O frontend abre o checkout Start, mas nao grava pending real nem ativa acesso antes do webhook.
 - `MERCADO_PAGO_START_PLAN_ID` deve existir apenas no backend.
 - O webhook central resolve Start somente por allowlist de `preapproval_plan_id` e assinatura valida.
 - Cancelamento Start deve marcar `cancelAtPeriodEnd=true` e manter acesso ate `currentPeriodEnd`.
@@ -167,7 +167,7 @@ O Start ganhou autoridade propria preparada no backend, mas continua fechado por
 
 ## Fase 5C.1 - checkout controlado
 
-Configuracao remota concluida sem ativar Start comercialmente:
+Configuracao remota concluida para ativar Start comercialmente:
 
 - IDs Start e Pro configurados como secrets backend.
 - Migration Start aplicada isoladamente.

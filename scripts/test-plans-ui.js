@@ -29,19 +29,18 @@ const access = bodyOfFunction(app, "getPlanAccessState");
 
 assert(!render.includes("Voltar para Grátis"), "Free nao pode oferecer voltar para Gratis");
 assert(!render.includes("Cancelar plano Free"), "Free nao pode oferecer cancelamento");
-assert(app.includes("const START_PLAN_ENABLED = false"), "Start deve permanecer desligado por flag");
-assert(render.includes('badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE"'), "Start bloqueado deve mostrar Em breve");
-assert(render.includes('cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : "Assinar Start"'), "Start deve manter CTA comercial mesmo quando a contratacao estiver protegida");
-assert(render.includes('action: startEnabled ? "start" : "start-unavailable"'), "Start bloqueado deve usar acao segura sem checkout");
-assert(app.includes("plan-start-unavailable"), "acao Start indisponivel deve ser observavel sem cobrar");
-assert(!render.includes('data-action=\\"open-payment\\" data-slug=\\"start\\"'), "tela moderna nao pode abrir checkout Start");
+assert(app.includes("const START_PLAN_ENABLED = true"), "Start deve permanecer ativo por flag");
+assert(render.includes('badge: isStartCurrent ? "PLANO ATUAL" : startEnabled ? "MAIS POPULAR" : "EM BREVE"'), "Start ativo deve mostrar Mais popular");
+assert(render.includes('cta: isStartCurrent ? "Plano atual" : isProCurrent ? "Incluído no Pro" : "Assinar Start"'), "Start deve manter CTA comercial");
+assert(render.includes('action: startEnabled ? "start" : "start-unavailable"'), "Start ativo deve encaminhar ao checkout");
+assert(checkout.includes('plano.slug === "start" ? "mercadopago-create-subscription" : "mercadopago-create-payment"'), "checkout Start deve usar assinatura recorrente");
 assert(render.includes('"Assinar Pro"'), "Pro deve possuir CTA funcional");
 assert(render.includes('data-action=\\"open-payment\\" data-slug=\\"pro\\"'), "resumo Free deve direcionar para Pro");
 assert(render.includes("isProCurrent"), "Pro ativo deve ser derivado do helper central");
 assert(render.includes("renderPlanPaymentNotice(accessState, checkoutState)"), "estado visual de pagamento deve depender do helper");
 assert(app.includes("canReactivateRenewal"), "helper central deve expor reativacao valida");
 assert(app.includes("shouldShowPendingPayment: estado.pending === true && realPendingPayment"), "pending visual exige transacao real");
-assert(app.includes('plano.slug === "start" && !isStartPlanCommerciallyEnabled()'), "checkout deve bloquear Start de forma controlada");
+assert(app.includes('plano.slug === "start" && !isStartPlanCommerciallyEnabled()'), "checkout deve manter fallback seguro se a flag for desligada");
 assert(app.includes("Você será direcionado ao pagamento seguro do Mercado Pago"), "checkout Pro deve confirmar redirecionamento seguro");
 assert(cancel.includes("Seu plano"), "cancelamento deve explicar permanencia do plano");
 assert(cancel.includes("Depois disso, sua conta voltará ao plano Free"), "cancelamento deve explicar retorno futuro ao Free");
@@ -82,8 +81,8 @@ assert(css.includes(".plan-tier-button.is-unavailable"), "CTA Start indisponivel
 ].forEach((label) => assert(!render.includes(label), `card de planos nao deve exibir termo tecnico ou negativo: ${label}`));
 
 [
-  "Start bloqueado",
-  "Pro produtivo",
+  "Start ativo",
+  "Pro ativo",
   "Pagamento pendente real",
   "Checkout abandonado",
   "Tema claro e escuro",

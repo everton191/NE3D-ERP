@@ -32,6 +32,8 @@ declare
   v_start_count integer;
   v_start_price numeric;
   v_start_enabled boolean;
+  v_active_commercial_plans text[];
+  v_configured_ids integer;
   v_open_policies integer;
   v_frontend_grants integer;
 begin
@@ -54,8 +56,30 @@ begin
   from public.app_billing_feature_flags
   where feature_key = 'start_plan_enabled';
 
-  if coalesce(v_start_enabled, true) is not false then
-    raise exception 'Start plan validation failed. start_plan_enabled must remain false.';
+  if coalesce(v_start_enabled, false) is not true then
+    raise exception 'Start plan validation failed. start_plan_enabled must be true.';
+  end if;
+
+  select array_agg(slug order by sort_order, slug)
+    into v_active_commercial_plans
+  from public.plans
+  where active is true;
+
+  if v_active_commercial_plans is distinct from array['free', 'start', 'pro']::text[] then
+    raise exception 'Commercial plan validation failed. active=%', v_active_commercial_plans;
+  end if;
+
+  select count(*)
+    into v_configured_ids
+  from public.app_billing_feature_flags
+  where feature_key in (
+      'mercado_pago_start_plan_id_configured',
+      'mercado_pago_pro_plan_id_configured'
+    )
+    and enabled is true;
+
+  if v_configured_ids <> 2 then
+    raise exception 'Billing plan ID validation failed. configured=%', v_configured_ids;
   end if;
 
   select count(*)

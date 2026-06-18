@@ -7,7 +7,7 @@ const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "themes", "base", "design-system-v2.css"), "utf8");
 
 assert(app.includes("plans-modern-screen plans-pricing-screen s3d-plans-v2"), "tela de planos deve possuir autoridade V2 isolada");
-assert(app.includes("const START_PLAN_ENABLED = false"), "Start deve permanecer comercialmente bloqueado");
+assert(app.includes("const START_PLAN_ENABLED = true"), "Start deve permanecer comercialmente ativo");
 [
   '.erp-theme-v2[data-erp-theme="light"] .s3d-plans-v2',
   '.erp-theme-v2[data-erp-theme="dark"] .s3d-plans-v2',

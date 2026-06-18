@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.38-rc";
-const APP_VERSION_CODE = 37;
+const APP_VERSION = "1.0.39-rc";
+const APP_VERSION_CODE = 38;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -78,9 +78,9 @@ const START_MONTHLY_PRICE = 29.9;
 const PRO_MONTHLY_PRICE = 59.9;
 const PREMIUM_FIRST_MONTH_PRICE = START_MONTHLY_PRICE;
 const PREMIUM_MONTHLY_PRICE = PRO_MONTHLY_PRICE;
-const START_PLAN_ENABLED = false;
+const START_PLAN_ENABLED = true;
 // Homologacao da loja: libera publicacao, compartilhamento e recursos visuais
-// da loja sem ativar Start, checkout ou regras de cobranca.
+// sem conceder plano por estado local nem contornar a autoridade de cobranca.
 const STOREFRONT_REAL_TEST_FULL_ACCESS = true;
 const PLAN_REGISTRY = Object.freeze({
   free: Object.freeze({
@@ -16710,6 +16710,16 @@ function abrirSeletorFotoProdutoLojaOnline(productId = "") {
   input.click();
 }
 
+function abrirSeletorImagemStorefront(input) {
+  if (!input || input.type !== "file") {
+    mostrarToast("Não foi possível abrir a seleção de imagem.", "erro", 3200);
+    return false;
+  }
+  input.value = "";
+  input.click();
+  return true;
+}
+
 async function processarImagemExemploLojaOnline(productId, input) {
   const file = Array.from(input?.files || [])[0];
   if (!file || !productId) return;
@@ -16970,7 +16980,12 @@ async function processarImagemProdutoLojaOnline(productId, input) {
   const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
   const maxImages = limits.customThemeEnabled ? 5 : 1;
   const images = getStorefrontAdminImagesLocal();
-  const atuais = images.filter((image) => image.product_id === productId).length;
+  const productImages = images
+    .filter((image) => String(image.product_id) === String(productId))
+    .sort((left, right) => Number(left.order_index || 0) - Number(right.order_index || 0));
+  const replaceExisting = input?.dataset?.replaceImage === "true" && productImages.length > 0;
+  const replacementTarget = replaceExisting ? productImages[0] : null;
+  const atuais = productImages.length - (replacementTarget ? 1 : 0);
   if (atuais + files.length > maxImages) {
     input.value = "";
     return mostrarToast(`Limite de ${maxImages} foto(s) por produto neste plano.`, "erro", 4200);
@@ -16982,7 +16997,9 @@ async function processarImagemProdutoLojaOnline(productId, input) {
       if (storefrontAdminRemoteReady() && !storefrontAdminIsLocalId(productId, "prod-")) {
         const url = await uploadStorefrontAsset(preparedFile, { tipo: "produto", productId });
         const store = getStorefrontAdminStoreLocal();
-        const order = getStorefrontAdminImagesLocal().filter((image) => image.product_id === productId).length;
+        const order = replacementTarget
+          ? Number(replacementTarget.order_index || 0)
+          : getStorefrontAdminImagesLocal().filter((image) => String(image.product_id) === String(productId)).length;
         const rows = await storefrontAdminRequest("/rest/v1/store_product_images", {
           method: "POST",
           headers: { Prefer: "return=representation" },
@@ -17006,6 +17023,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
           order_index: order
         });
         storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+        if (replacementTarget) await removerImagemProdutoLojaOnline(replacementTarget.id);
         setStorefrontUploadStatus({
           type: "success",
           title: "Foto enviada",
@@ -17025,10 +17043,13 @@ async function processarImagemProdutoLojaOnline(productId, input) {
         owner_id: getStorefrontAdminStoreLocal().owner_id,
         image_url: dataUrl,
         alt_text: file.name.replace(/\.[^.]+$/, ""),
-        order_index: next.filter((image) => image.product_id === productId).length
+        order_index: replacementTarget
+          ? Number(replacementTarget.order_index || 0)
+          : next.filter((image) => String(image.product_id) === String(productId)).length
       };
       next.push(localImage);
       storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+      if (replacementTarget) await removerImagemProdutoLojaOnline(replacementTarget.id);
       storefrontQueuePendingAction("product-image-upload", { id: localImage.id, fileName: file.name });
       setStorefrontUploadStatus({
         type: "warning",
@@ -17052,10 +17073,13 @@ async function processarImagemProdutoLojaOnline(productId, input) {
             owner_id: getStorefrontAdminStoreLocal().owner_id,
             image_url: dataUrl,
             alt_text: file.name.replace(/\.[^.]+$/, ""),
-            order_index: next.filter((image) => image.product_id === productId).length
+            order_index: replacementTarget
+              ? Number(replacementTarget.order_index || 0)
+              : next.filter((image) => String(image.product_id) === String(productId)).length
           };
           next.push(localImage);
           storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.images, next);
+          if (replacementTarget) await removerImagemProdutoLojaOnline(replacementTarget.id);
           storefrontQueuePendingAction("product-image-upload", { id: localImage.id, fileName: file.name });
           setStorefrontUploadStatus({
             type: "warning",

@@ -6,23 +6,24 @@ Data: 2026-05-29
 
 A tela de planos consome `getPlanAccessState()` como fonte central de estado. A camada visual nao altera webhook, secrets, Edge Functions nem autoridade remota de cobranca.
 
-## Fase 5A.2 - Start fechado por flag
+## Matriz comercial ativa
 
 O card Start continua visivel para comparacao, mas seu CTA depende de `START_PLAN_ENABLED`.
 
-- Com `START_PLAN_ENABLED=false`: badge `EM BREVE`, acao `plan-start-unavailable`, sem checkout funcional.
-- Quando a flag for ativada apos sandbox: badge `MAIS POPULAR`, CTA `Assinar Start`.
+- Com `START_PLAN_ENABLED=true`: badge `MAIS POPULAR`, CTA `Assinar Start`.
+- O fallback `START_PLAN_ENABLED=false` permanece apenas para desligamento emergencial.
 - O card nao pode enviar preco, ID de plano ou ativacao local ao frontend.
 - A identidade visual segue Free verde, Start roxo e Pro preto/dourado.
 
 ## Fase 5C.1
 
-Mesmo com IDs remotos configurados no backend, a UI continua bloqueada:
+Com os IDs remotos configurados no backend, a UI oferece os tres planos comerciais:
 
-- Start sem CTA publico funcional.
-- Pro preservado.
+- Free ativo.
+- Start ativo com assinatura recorrente.
+- Pro ativo.
 - Nenhum ID de plano foi colocado em `app.js`, `index.html` ou `sw.js`.
-- A ativacao comercial depende dos testes sandbox reais e de `START_PLAN_ENABLED=true`.
+- A ativacao efetiva continua dependendo de webhook assinado e pagamento confirmado.
 
 ## Estados visuais
 
@@ -32,21 +33,19 @@ Mesmo com IDs remotos configurados no backend, a UI continua bloqueada:
 - Exibe limites e bloqueios explicitamente.
 - Loja Online fica em preview: pode editar e visualizar, mas nao cadastra produtos da loja.
 - Nao publica vitrine, nao gera link publico e nao permite compartilhar loja.
-- Permite contratar somente Pro.
+- Permite contratar Start ou Pro.
 - Nao oferece cancelamento, downgrade ou retorno para Free.
 
-### Start bloqueado
+### Start ativo
 
-- Permanece visivel como referencia comercial.
-- Mostra badge `EM BREVE`.
-- Exibe CTA `Indisponivel no momento`.
-- Lista apenas recursos do Start, incluindo ate 100 produtos da loja quando a flag comercial for ativada.
-- Nao abre checkout, nao gera pending e nao chama Mercado Pago.
+- Mostra badge `MAIS POPULAR`.
+- Exibe CTA `Assinar Start`.
+- Lista os recursos do Start, incluindo ate 100 produtos da loja.
+- Abre a assinatura recorrente pelo backend e aguarda confirmacao do webhook.
 - Usuarios Start legados continuam reconhecidos sem perder acesso.
 
-### Pro produtivo
+### Pro ativo
 
-- E o unico plano pago contratavel nesta fase.
 - O CTA `Assinar Pro` abre confirmacao antes do redirecionamento seguro ao Mercado Pago.
 - O plano so muda depois de confirmacao real processada pelo webhook.
 

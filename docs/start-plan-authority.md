@@ -2,13 +2,13 @@
 
 ## Estado da fase 5A.2
 
-O plano Start tem autoridade preparada no backend, mas permanece comercialmente desativado por padrao.
+O plano Start tem autoridade propria no backend e esta comercialmente ativo.
 
 Gates obrigatorios:
 
-- `START_PLAN_ENABLED=false` por padrao.
+- `START_PLAN_ENABLED=true` em producao.
 - `MERCADO_PAGO_START_PLAN_ID` deve existir somente no backend.
-- O frontend nao ativa Start sozinho.
+- O frontend oferece Start, mas nao concede acesso sozinho.
 - URL de retorno nao ativa plano.
 - Checkout aberto nao altera plano nem cria pending fantasma.
 - Webhook central `mercadopago-webhook` continua sendo o unico endpoint Mercado Pago.
@@ -60,7 +60,7 @@ Sandbox aceita somente token `TEST-`. Token `APP_USR-` e bloqueado nesta fase.
 
 ## Criterios para ativar
 
-Somente alterar `START_PLAN_ENABLED=true` depois de validar:
+Para manter `START_PLAN_ENABLED=true`, validar:
 
 - migration aplicada;
 - `MERCADO_PAGO_START_PLAN_ID` configurado no backend;
@@ -76,12 +76,12 @@ Em 2026-05-30 os IDs comerciais Start e Pro foram configurados como Supabase sec
 
 Estado preservado:
 
-- `START_PLAN_ENABLED=false`.
+- `START_PLAN_ENABLED=true`.
 - IDs nao documentados em frontend, service worker, HTML, localStorage ou logs.
 - Migration `20260530103000_start_plan_backend_authority.sql` aplicada isoladamente.
 - Funcoes republicadas: `mercadopago-create-payment`, `mercadopago-create-subscription`, `mercadopago-webhook`.
 - Webhook Start continua no endpoint central, sem rota separada.
-- Checkout Start publico continua bloqueado ate validacao sandbox completa.
+- Checkout Start publico usa assinatura recorrente e permanece dependente do webhook assinado.
 
 ## Fase 5C.1 - validacao controlada
 

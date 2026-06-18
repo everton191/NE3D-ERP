@@ -87,7 +87,10 @@ const checks = [
   ["billing cancel at period end", /cancel_at_period_end boolean not null default false/i],
   ["start plan backend authority", /'start', 'Start', 29\.90/i],
   ["start plan commercial flag disabled", /'start_plan_enabled', false/i],
-  ["start billing feature flags RLS", /alter table public\.app_billing_feature_flags enable row level security/i]
+  ["start billing feature flags RLS", /alter table public\.app_billing_feature_flags enable row level security/i],
+  ["canonical commercial plans active", /when slug in \('free', 'start', 'pro'\) then true/i],
+  ["legacy commercial plans hidden", /where slug in \('free', 'start', 'pro', 'premium', 'premium_trial'\)/i],
+  ["start plan commercial flag enabled", /commercial_status":"active"/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({
