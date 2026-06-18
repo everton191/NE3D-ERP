@@ -1,4 +1,5 @@
 const fs = require("fs");
+const vm = require("vm");
 const app = fs.readFileSync("app.js", "utf8");
 const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
@@ -11,4 +12,35 @@ assert(!/sfe-desktop-topbar[\s\S]*?<nav>/.test(renderer), "Topbar desktop nao de
 assert(app.includes("function renderStorefrontView"), "Orquestrador de modos ausente");
 assert(app.includes('renderMode === "editor"'), "Rota editor nao e decidida pelo orquestrador");
 assert(!app.includes("renderStorefrontEditorV2"), "Rota editor antiga ainda existe");
+
+const browserWindow = {
+  escaparHtml: (value) => String(value ?? ""),
+  escaparAttr: (value) => String(value ?? "").replace(/"/g, "&quot;"),
+  renderStorefrontResponsiveImage: (src) => `<img src="${String(src || "")}">`,
+  renderUiIcon: (name) => `<i>${name}</i>`,
+  getStorefrontGuidedSelection: () => ({ type: "product", id: "produto-1", currentStep: 3 }),
+  getStorefrontGuidedCatalogState: () => ({}),
+  getStorefrontContactConfig: () => ({}),
+  getStorefrontProductImage: () => "https://example.invalid/produto.webp",
+  storefrontAdminSlugify: (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+  getStorefrontDemoProductImage: () => "https://example.invalid/fallback.webp",
+  getStorefrontCategoryName: () => "Sem categoria"
+};
+browserWindow.window = browserWindow;
+vm.runInNewContext(renderer, browserWindow);
+const editor = browserWindow.SimplificaStorefrontVisualV3.editor;
+const sampleVm = {
+  store: { active: true },
+  products: [{ id: "produto-1", title: "Produto teste", visible: true }],
+  categories: [],
+  images: [{ id: "imagem-1", product_id: "produto-1", image_url: "https://example.invalid/produto.webp", order_index: 0 }]
+};
+const desktopMarkup = editor.sidebar(sampleVm, { mobile: false, uiMode: "product" });
+const mobileMarkup = editor.sidebar(sampleVm, { mobile: true, uiMode: "product" });
+[desktopMarkup, mobileMarkup].forEach((markup, index) => {
+  assert(markup.includes('id="storefrontProductPhoto-produto-1"'), `input de foto ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('data-storefront-product-photo="produto-1"'), `marcador de foto ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('data-replace-image="true"'), `troca de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes("abrirSeletorImagemStorefront"), `botao de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
+});
 console.log("Store editor V3 actions and routes: fluxos administrativos validados.");
