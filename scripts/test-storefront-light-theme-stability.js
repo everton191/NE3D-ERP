@@ -9,8 +9,8 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
 assert(app.includes('function applyStoreTheme(theme = "light"'), "Aplicacao light-only ausente");
 assert(!app.includes('${["light", "system", "dark"].map'), "Editor ainda oferece tema escuro/sistema");
 assert(!/linear-gradient|radial-gradient|conic-gradient/.test(visualCss), "Gradiente visual ainda existe no rebuilt");
-assert(index.includes("1.0.70-storefront-sponsored-cards-20260615"), "Cache-bust rebuilt ausente");
-assert(sw.includes("simplifica-3d-v177-storefront-sponsored-cards-20260615"), "Cache PWA rebuilt ausente");
+assert(index.includes("1.0.40-rc-storefront-product-data-20260620"), "Cache-bust rebuilt ausente");
+assert(sw.includes("simplifica-3d-v180-storefront-product-data-20260620"), "Cache PWA rebuilt ausente");
 assert(manifest.includes('"background_color": "#ffffff"'), "PWA nao possui fundo claro");
 assert(manifest.includes('"theme_color": "#ffffff"'), "PWA nao possui theme-color claro");
 assert(!fs.existsSync("storefront-v3.css"), "Folha visual antiga ainda existe");

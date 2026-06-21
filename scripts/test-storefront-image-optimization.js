@@ -1,6 +1,7 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -35,7 +36,7 @@ function assert(condition, message) {
   "lerArquivoComoDataUrl(preparedFile)",
   "Imagem ajustada",
   "accept=\"image/jpeg,image/png,image/webp\""
-].forEach((marker) => assert(app.includes(marker), `Uso do arquivo otimizado ausente: ${marker}`));
+].forEach((marker) => assert(app.includes(marker) || renderer.includes(marker), `Uso do arquivo otimizado ausente: ${marker}`));
 
 assert(!app.includes("Imagem muito grande. Use até 3 MB."), "Upload da loja nao deve falhar apenas pelo limite antigo de 3 MB antes de otimizar");
 assert(!app.includes("Imagem muito grande. Use logo até 1 MB."), "Logo nao deve falhar pelo limite antigo de 1 MB antes de otimizar");

@@ -2,6 +2,8 @@ const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
+const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -79,19 +81,19 @@ assert(backPanel.includes('trocarTela("lojaOnline")'), "Voltar sem contexto aind
   "getStorefrontPublicationChecklist",
   "completion",
   "canPublish"
-].forEach((marker) => assert(app.includes(marker), `Checklist contextual desacoplado do motor central: ${marker}`));
+].forEach((marker) => assert(app.includes(marker) || renderer.includes(marker), `Checklist contextual desacoplado do motor central: ${marker}`));
 
 [
-  'data-store-section="banner"',
-  "targetSection: 'banner'",
-  "targetSection: 'logo'",
-  "targetSection: 'contacts'",
-  "targetField: 'categoryName'",
-  'editProductTarget("price", "productPrice"',
-  'editProductTarget("photos", "productPhoto"',
-  "targetField: 'whatsapp'",
-  "targetField: 'instagram'"
-].forEach((marker) => assert(app.includes(marker), `Clique contextual nao mapeado: ${marker}`));
+  'edit("banner", "", "banner", "storeBannerTitle", "hero")',
+  'edit("identity", "", "logo", "storeLogoUrl", "brand")',
+  'edit("contacts", "", "contacts", "whatsapp", "contact")',
+  'edit("category", category.id, "category", "categoryName", "category-card")',
+  'edit("product", product.id, "basic", "productTitle", "product-card")',
+  'name="productPrice"',
+  'name="productPhotoGallery"',
+  'name="whatsapp"',
+  'name="instagram"'
+].forEach((marker) => assert(app.includes(marker) || renderer.includes(marker) || publicRenderer.includes(marker), `Clique contextual nao mapeado: ${marker}`));
 
 [
   ".store-guided-editor-sidebar.is-open",

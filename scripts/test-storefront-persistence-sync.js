@@ -6,6 +6,7 @@ const required = [
   "function getStorefrontPendingQueue()",
   "async function storefrontPersistPendingAction",
   "async function storefrontFlushPendingQueue",
+  "function confirmarStorefrontSalvamentoLocal",
   "storefrontPendingQueueFlushPromise",
   "storefrontQueuePendingAction(\"store-upsert\"",
   "storefrontQueuePendingAction(\"store-status\"",
@@ -41,7 +42,9 @@ if (missing.length) {
 
 const forbidden = [
   "if (Array.isArray(saved) && saved.length) return saved;",
-  "if (Array.isArray(saved) && saved.some((product) => !storefrontIsDemoProduct(product))) return saved;"
+  "if (Array.isArray(saved) && saved.some((product) => !storefrontIsDemoProduct(product))) return saved;",
+  "Produto salvo neste aparelho. Sincronização pendente.",
+  "Contatos salvos neste aparelho. Sincronização pendente."
 ];
 
 const foundForbidden = forbidden.filter((marker) => app.includes(marker));

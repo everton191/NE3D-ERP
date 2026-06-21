@@ -2,45 +2,54 @@ const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
+const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
+const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
 
-function assert(condition, message) {
+const assert = (condition, message) => {
   if (!condition) throw new Error(message);
-}
+};
 
 [
   "let storefrontPublicInternalHistory = []",
   "function fecharNavegacaoContextualLojaSeExistir",
   "function navegarVoltarLojaSeguroInterno",
   "storefrontPublicInternalHistory.push(previousPath)",
-  'body[data-ui-profile="android_apk"] .store-guided-editor-sidebar',
-  ".store-public-admin-mode.store-plan-free",
-  ".store-public-admin-mode.store-plan-start",
-  ".store-public-admin-mode.store-plan-pro",
-  ".store-admin-more-actions",
-  "Substitua por um produto seu. Use o modelo como base para liberar edição completa e publicação."
-].forEach((marker) => assert(app.includes(marker) || css.includes(marker), `Polimento final ausente: ${marker}`));
+  "Modelo carregado como rascunho. Revise foto, nome, descrição e preço."
+].forEach((marker) => assert(app.includes(marker), `Polimento funcional ausente: ${marker}`));
 
 [
-  '.storefront-root[data-storefront-source="v2"][data-store-theme="dark"] .store-visual-editor-sidebar',
-  '.storefront-root[data-storefront-source="v2"][data-store-theme="light"] :where(.store-visual-editor-sidebar,.store-visual-editor-topbar)',
-  '.storefront-root[data-store-theme="light"] .store-visual-panel',
-  '.store-public-shell[data-storefront-source="v2"].store-public-admin-mode .store-public-floating-cart',
-  "grid-template-columns:repeat(2, minmax(0, 1fr));",
-  "overscroll-behavior:contain;",
-  ".store-public-search:focus-within",
-  ".store-guided-form > header{\n  position:static;",
-  ".store-guided-upload input{\n  width:100%;",
-  ".store-public-shell[data-storefront-source=\"v2\"] .store-public-brand strong{\n    min-width:0;\n    overflow:hidden;\n    text-overflow:ellipsis;"
-].forEach((marker) => assert(css.includes(marker), `CSS final da vitrine ausente: ${marker}`));
+  "storefront-v3",
+  'data-store-theme="light"',
+  "api.headerMenu",
+  "api.productPage",
+  "api.contact",
+  "sfv3-product-gallery",
+  "Compartilhar categoria"
+].forEach((marker) => assert(publicRenderer.includes(marker), `Polimento público V3 ausente: ${marker}`));
 
 [
-  "Editar loja real",
-  "Editar na loja real",
-  "Abrir loja real"
-].forEach((legacyLabel) => assert(!app.includes(legacyLabel), `Rotulo legado ainda visivel: ${legacyLabel}`));
+  "sfe-form",
+  "sfe-tabs",
+  "sfe-actions",
+  "Adicionar mais fotos",
+  "WhatsApp da loja"
+].forEach((marker) => assert(editorRenderer.includes(marker), `Polimento do editor V3 ausente: ${marker}`));
 
-assert(app.includes("Compartilhar loja"), "Toolbar deve expor uma unica acao de compartilhamento");
-assert(app.includes("Abrir loja"), "Toolbar deve expor Abrir loja");
-assert(!app.includes("vitrine"), "Interface deve manter o termo Loja sem misturar rotulos antigos");
+[
+  ".sfv3-product-grid",
+  ".sfv3-bottom-nav",
+  ".sfe-fields",
+  ".sfe-image-gallery",
+  ".sfv3-contact-card",
+  "overflow:auto",
+  "var(--app-safe-bottom"
+].forEach((marker) => assert(layouts.includes(marker), `CSS final V3 ausente: ${marker}`));
 
-console.log("Storefront final polish: retorno interno, tema claro, perfil APK, toolbar e modelos de produto validados.");
+assert(css.includes('body[data-ui-profile="android_apk"]'), "Perfil Android deve continuar isolado");
+
+["Editar loja real", "Editar na loja real", "Abrir loja real"].forEach((legacyLabel) => {
+  assert(!app.includes(legacyLabel) && !publicRenderer.includes(legacyLabel) && !editorRenderer.includes(legacyLabel), `Rótulo legado ainda visível: ${legacyLabel}`);
+});
+
+console.log("Storefront final polish: navegação, tema claro, galeria, contatos e editor V3 validados.");

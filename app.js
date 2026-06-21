@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.39-rc";
-const APP_VERSION_CODE = 38;
+const APP_VERSION = "1.0.40-rc";
+const APP_VERSION_CODE = 39;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -14367,6 +14367,10 @@ function salvarENavegarLoja() {
   if (!salvarEdicaoVisualAtualLoja() && !getStorefrontDirtyState().dirty) concluirNavegacaoPendenteLoja();
 }
 
+function abrirContatosProdutoLoja() {
+  return solicitarNavegacaoSeguraLoja(() => abrirStoreVisualPanel("contacts"));
+}
+
 function salvarRascunhoProdutoGuiadoLoja(form) {
   const target = form || document.getElementById("storefrontProductForm");
   if (!target) return false;
@@ -14428,7 +14432,7 @@ function storefrontScheduleAutosave(scope = "general", payload = {}) {
 }
 
 function storefrontFlushAutosaveNow() {
-  const form = document.querySelector("#storefrontAppearanceForm, .storefront-form-card form, form.app-form");
+  const form = document.querySelector("#storefrontAppearanceForm, .storefront-form-card form, form.app-form, .sfe-form");
   if (!form) return;
   if (!getStorefrontDirtyState().dirty) return;
   const route = parseStorefrontPublicRoute(location.pathname);
@@ -14477,6 +14481,7 @@ function aplicarStorefrontAutosavePayload(draft) {
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, {
       id: payload.productId || "",
       title: payload.productTitle || "",
+      short_description: payload.productShortDescription || "",
       slug: payload.productSlug || "",
       erp_product_id: payload.erpProductId || "",
       category_id: payload.productCategory || "",
@@ -14737,6 +14742,18 @@ async function storefrontFlushPendingQueue({ notify = false } = {}) {
     storefrontPendingQueueFlushPromise = null;
   });
   return storefrontPendingQueueFlushPromise;
+}
+
+function confirmarStorefrontSalvamentoLocal(mensagem = "Alterações salvas neste aparelho.") {
+  mostrarToast(`${mensagem} A atualização online será feita automaticamente.`, "sucesso", 3800);
+  if (!estaOnline()) return;
+  window.setTimeout(() => {
+    storefrontFlushPendingQueue({ notify: false }).catch((error) => {
+      registrarStorefrontDebugLeve("sincronizacao_automatica_falhou", "A loja continuará tentando sincronizar.", {
+        message: error?.message || String(error)
+      });
+    });
+  }, 1200);
 }
 
 function storefrontIsDefaultText(value = "", defaults = []) {
@@ -15536,6 +15553,7 @@ async function storefrontAdminUpsertProduct(product) {
     erp_product_id: product.erp_product_id || null,
     title: product.title,
     slug: product.slug,
+    short_description: product.short_description || "",
     description: product.description || "",
     price: Number(product.price || 0),
     compare_price: product.compare_price || null,
@@ -16077,10 +16095,11 @@ async function salvarStorefrontAparencia(event) {
       syncPending = true;
       storefrontQueuePendingAction("store-upsert", next);
     }
-    limparStorefrontAlteracoesPendentes(syncPending ? "Aparência salva neste aparelho; sincronização pendente" : "Aparência salva");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Aparência salva; atualização online automática" : "Aparência salva");
     clearStorefrontUploadStatus();
     registrarStorefrontActivity("Aparência atualizada", "Nome, cores, links ou imagens da loja foram salvos.");
-    mostrarToast(syncPending ? "Aparência salva neste aparelho. Sincronização pendente." : "Aparência da loja salva.", syncPending ? "aviso" : "sucesso", 3200);
+    if (syncPending) confirmarStorefrontSalvamentoLocal("Aparência salva neste aparelho.");
+    else mostrarToast("Aparência da loja salva.", "sucesso", 3200);
     renderApp();
     concluirNavegacaoPendenteLoja();
   } catch (error) {
@@ -16119,21 +16138,22 @@ async function alternarStatusLojaOnline() {
       syncPending = true;
       storefrontQueuePendingAction("store-status", { id: next.id, active: next.active === true });
     }
-    limparStorefrontAlteracoesPendentes(syncPending ? "Status salvo neste aparelho; sincronização pendente" : (next.active ? "Loja publicada" : "Loja em rascunho"));
+    limparStorefrontAlteracoesPendentes(syncPending ? "Status salvo; atualização online automática" : (next.active ? "Loja publicada" : "Loja em rascunho"));
     registrarStorefrontActivity(next.active ? "Loja publicada" : "Loja colocada em rascunho", next.slug || "loja");
     if (next.active && !syncPending) {
       const popup = document.getElementById("popup");
       if (popup) popup.innerHTML = renderStorefrontPublishedModal(next);
       mostrarToast("Loja publicada com sucesso.", "sucesso", 2600);
     } else if (syncPending) {
-      mostrarToast("Status salvo neste aparelho. A publicação será concluída ao sincronizar.", "aviso", 3800);
+      confirmarStorefrontSalvamentoLocal(next.active ? "Solicitação de publicação salva neste aparelho." : "Alteração de status salva neste aparelho.");
     } else {
       mostrarToast("Loja colocada em rascunho.", "sucesso", 2600);
     }
   } catch (error) {
     syncPending = true;
     storefrontQueuePendingAction("store-status", { id: next.id, active: next.active === true });
-    mostrarToast("Status salvo neste aparelho e aguardando sincronização.", "aviso", 3600);
+    limparStorefrontAlteracoesPendentes("Status salvo; atualização online automática");
+    confirmarStorefrontSalvamentoLocal(next.active ? "Solicitação de publicação salva neste aparelho." : "Alteração de status salva neste aparelho.");
     registrarStorefrontDebugLeve("save_falhou", "Falha ao sincronizar status da loja.", { message: error?.message || String(error) });
   }
   renderApp();
@@ -16192,7 +16212,7 @@ async function salvarCategoriaLojaOnline(event) {
       storefrontQueuePendingAction("category-upsert", nextCategory);
     }
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingCategory);
-    limparStorefrontAlteracoesPendentes(syncPending ? "Categoria salva neste aparelho; sincronização pendente" : "Categoria salva");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Categoria salva; atualização online automática" : "Categoria salva");
     if (telaAtual === "lojaPublica" && isMobile()) {
       shouldRestoreCatalog = true;
       returnToStorefrontGuidedCatalog("categories", {
@@ -16203,7 +16223,8 @@ async function salvarCategoriaLojaOnline(event) {
       storefrontGuidedSelection = { type: "category", id: String(nextCategory.id || "") };
     }
     registrarStorefrontActivity(id ? "Categoria atualizada" : "Categoria criada", nextCategory.name);
-    mostrarToast(syncPending ? "Categoria salva neste aparelho. Sincronização pendente." : "Categoria salva.", syncPending ? "aviso" : "sucesso", 3200);
+    if (syncPending) confirmarStorefrontSalvamentoLocal("Categoria salva neste aparelho.");
+    else mostrarToast("Categoria salva.", "sucesso", 3200);
     renderApp();
     if (shouldRestoreCatalog) restoreStorefrontGuidedCatalogState("categories");
     concluirNavegacaoPendenteLoja();
@@ -16252,7 +16273,7 @@ async function excluirCategoriaLojaOnline(id) {
   } catch (error) {
     storefrontQueuePendingAction("category-delete", { id });
     registrarStorefrontDebugLeve("persistencia_falhou", "Categoria removida localmente e aguardando sincronização.", { message: error?.message || String(error) });
-    mostrarToast("Categoria removida neste aparelho. Sincronização pendente.", "aviso", 3600);
+    confirmarStorefrontSalvamentoLocal("Categoria removida neste aparelho.");
     renderApp();
   }
 }
@@ -16296,10 +16317,14 @@ function validarEtapaProdutoLojaOnline(step, form = document.getElementById("sto
   }
   if (Number(step) === 2) {
     const price = getStorefrontProductFormField(form, "productPrice");
+    const compare = getStorefrontProductFormField(form, "productComparePriceVisible");
     limparErroCampoProdutoLojaOnline(price);
+    limparErroCampoProdutoLojaOnline(compare);
     const mode = getStorefrontProductFormField(form, "productPriceMode")?.value || "fixed";
     const value = Number(String(price?.value || "0").replace(",", ".")) || 0;
+    const compareValue = Number(String(compare?.value || "0").replace(",", ".")) || 0;
     if (mode !== "quote" && value <= 0) return mostrarErroCampoProdutoLojaOnline(price, "Informe um preço válido.");
+    if (mode === "promo" && compareValue <= value) return mostrarErroCampoProdutoLojaOnline(compare, "O preço anterior deve ser maior que o preço atual.");
   }
   return true;
 }
@@ -16439,15 +16464,21 @@ async function salvarProdutoLojaOnline(event) {
     const templateSourceId = getStorefrontProductFormField(form, "productTemplateSourceId")?.value || "";
     const title = validarTextoVisualLoja(getStorefrontProductFormField(form, "productTitle")?.value, 60, "nome do produto");
     if (!title) throw new Error("Informe o título público do produto.");
+    const shortDescription = validarTextoVisualLoja(getStorefrontProductFormField(form, "productShortDescription")?.value, 100, "descrição curta");
     const description = validarTextoVisualLoja(getStorefrontProductFormField(form, "productDescription")?.value, 180, "descrição");
     const slug = storefrontAdminSlugify(getStorefrontProductFormField(form, "productSlug")?.value || title);
     if (products.some((product) => !storefrontIsDemoProduct(product) && product.slug === slug && product.id !== id)) throw new Error("Já existe produto com este nome.");
     const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
     if (!id && Number.isFinite(limits.productLimit) && limits.productLimit <= 0) throw new Error("Produtos da loja online ficam disponíveis no Start ou Pro.");
     if (!id && products.length >= limits.productLimit) throw new Error(`Limite de ${limits.productLimit} produto(s) para este plano.`);
-    const priceMode = getStorefrontProductFormField(form, "productPriceMode")?.value || "fixed";
+    const selectedPriceMode = getStorefrontProductFormField(form, "productPriceMode")?.value || "fixed";
     const price = Math.max(0, Number(String(getStorefrontProductFormField(form, "productPrice")?.value || "0").replace(",", ".")) || 0);
     const compare = Math.max(0, Number(String(getStorefrontProductFormField(form, "productComparePrice")?.value || "0").replace(",", ".")) || 0);
+    if (selectedPriceMode === "promo" && compare <= price) throw new Error("O preço anterior deve ser maior que o preço atual.");
+    const priceMode = selectedPriceMode === "quote" ? "quote" : compare > price ? "promo" : "fixed";
+    const selectedStockMode = getStorefrontProductFormField(form, "productStockMode")?.value || "unlimited";
+    const stockMode = ["unlimited", "manual", "unavailable"].includes(selectedStockMode) ? selectedStockMode : "unlimited";
+    const stockQuantityValue = getStorefrontProductFormField(form, "productStockQuantity")?.value;
     if (priceMode !== "quote" && price <= 0) throw new Error("Informe um preço válido.");
     let nextProduct = {
       id: id || `prod-${Date.now()}`,
@@ -16455,20 +16486,21 @@ async function salvarProdutoLojaOnline(event) {
       owner_id: store.owner_id || storefrontAdminCurrentOwnerId(),
       erp_product_id: getStorefrontProductFormField(form, "erpProductId")?.value?.trim() || null,
       title,
+      short_description: shortDescription,
       slug,
       description,
       price,
       compare_price: priceMode === "promo" && compare > price ? compare : null,
       price_mode: priceMode,
-      show_price: priceMode !== "quote" && !!getStorefrontProductFormField(form, "productShowPrice")?.checked,
+      show_price: priceMode !== "quote",
       category_id: templateSourceId ? null : (getStorefrontProductFormField(form, "productCategory")?.value || null),
       visible: !!getStorefrontProductFormField(form, "productVisible")?.checked && store.active === true,
       featured: !!getStorefrontProductFormField(form, "productFeatured")?.checked,
       is_customizable: !!getStorefrontProductFormField(form, "productCustomizable")?.checked,
       estimated_production_time: getStorefrontProductFormField(form, "productTime")?.value?.trim() || "",
       public_observations: getStorefrontProductFormField(form, "productObservations")?.value?.trim() || "",
-      stock_mode: getStorefrontProductFormField(form, "productStockMode")?.value || "unlimited",
-      stock_quantity: getStorefrontProductFormField(form, "productStockQuantity")?.value ? Math.max(0, Number(getStorefrontProductFormField(form, "productStockQuantity").value) || 0) : null
+      stock_mode: stockMode,
+      stock_quantity: stockMode === "manual" && stockQuantityValue !== "" ? Math.max(0, Number(stockQuantityValue) || 0) : null
     };
     if (!await requestSensitiveActionConfirmation({
       actionLabel: id ? "editar produto, preço ou publicação da loja" : "criar produto na loja",
@@ -16501,7 +16533,7 @@ async function salvarProdutoLojaOnline(event) {
     }
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
-    limparStorefrontAlteracoesPendentes(syncPending ? "Produto salvo neste aparelho; sincronização pendente" : "Produto salvo");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Produto salvo; atualização online automática" : "Produto salvo");
     if (telaAtual === "lojaPublica" && isMobile()) {
       shouldRestoreCatalog = true;
       returnToStorefrontGuidedCatalog("products", {
@@ -16512,7 +16544,8 @@ async function salvarProdutoLojaOnline(event) {
       storefrontGuidedSelection = { type: "product", id: String(nextProduct.id || "") };
     }
     registrarStorefrontActivity(id ? "Produto atualizado" : "Produto criado", nextProduct.title);
-    mostrarToast(syncPending ? "Produto salvo neste aparelho. Sincronização pendente." : (nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto."), syncPending ? "aviso" : "sucesso", 3400);
+    if (syncPending) confirmarStorefrontSalvamentoLocal("Produto salvo neste aparelho.");
+    else mostrarToast(nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto.", "sucesso", 3400);
     renderApp();
     if (shouldRestoreCatalog) restoreStorefrontGuidedCatalogState("products");
     concluirNavegacaoPendenteLoja();
@@ -16562,7 +16595,7 @@ async function alternarProdutoLojaOnline(id, field) {
   } catch (error) {
     if (changed) storefrontQueuePendingAction("product-upsert", changed);
     registrarStorefrontDebugLeve("persistencia_falhou", "Produto atualizado localmente e aguardando sincronização.", { message: error?.message || String(error) });
-    mostrarToast("Produto atualizado neste aparelho. Sincronização pendente.", "aviso", 3600);
+    confirmarStorefrontSalvamentoLocal("Produto atualizado neste aparelho.");
     renderApp();
   }
 }
@@ -16602,7 +16635,7 @@ async function removerProdutoLojaOnline(id) {
   } catch (error) {
     storefrontQueuePendingAction("product-delete", { id });
     registrarStorefrontDebugLeve("persistencia_falhou", "Produto removido localmente e aguardando sincronização.", { message: error?.message || String(error) });
-    mostrarToast("Produto removido neste aparelho. Sincronização pendente.", "aviso", 3600);
+    confirmarStorefrontSalvamentoLocal("Produto removido neste aparelho.");
     renderApp();
   }
 }
@@ -16651,9 +16684,9 @@ async function moverCategoriaLojaOnline(id, direction = 0) {
     mostrarToast("Ordem de categorias atualizada.", "sucesso", 2400);
   } catch (error) {
     storefrontQueuePendingAction("category-order", { entityId: "all", items: normalized });
-    marcarStorefrontAlteracoesPendentes("Ordem de categorias pendente de sincronização");
+    limparStorefrontAlteracoesPendentes("Ordem salva; atualização online automática");
     registrarStorefrontDebugLeve("save_falhou", "Falha ao persistir ordem de categorias.", { message: error?.message || String(error) });
-    mostrarToast("Ordem atualizada localmente. Sincronização pendente.", "aviso", 3600);
+    confirmarStorefrontSalvamentoLocal("Ordem atualizada neste aparelho.");
   }
   renderApp();
 }
@@ -17052,13 +17085,13 @@ async function processarImagemProdutoLojaOnline(productId, input) {
       if (replacementTarget) await removerImagemProdutoLojaOnline(replacementTarget.id);
       storefrontQueuePendingAction("product-image-upload", { id: localImage.id, fileName: file.name });
       setStorefrontUploadStatus({
-        type: "warning",
+        type: "success",
         title: "Foto salva neste aparelho",
-        message: "Imagem ajustada temporariamente. Sincronize a loja para concluir o envio.",
+        message: "Imagem ajustada. A atualização online será feita automaticamente.",
         detail: `${file.name} · ${Math.max(1, Math.round(preparedFile.size / 1024))} KB`
       });
       registrarStorefrontActivity("Foto de produto adicionada", file.name);
-      mostrarToast("Imagem preparada neste aparelho.", "info", 3200);
+      confirmarStorefrontSalvamentoLocal("Foto salva neste aparelho.");
       renderApp();
     } catch (error) {
       if (storefrontUploadPodeUsarFallbackLocal(error)) {
@@ -17082,13 +17115,13 @@ async function processarImagemProdutoLojaOnline(productId, input) {
           if (replacementTarget) await removerImagemProdutoLojaOnline(replacementTarget.id);
           storefrontQueuePendingAction("product-image-upload", { id: localImage.id, fileName: file.name });
           setStorefrontUploadStatus({
-            type: "warning",
+            type: "success",
             title: "Foto salva localmente",
-            message: "Não foi possível enviar a imagem agora. Uma cópia temporária foi mantida neste aparelho.",
-            detail: "Tente sincronizar novamente quando a conexão estiver estável."
+            message: "A imagem foi preservada e será atualizada online automaticamente.",
+            detail: `${file.name} · ${Math.max(1, Math.round(preparedFile.size / 1024))} KB`
           });
           registrarStorefrontActivity("Foto de produto salva localmente", file.name);
-          mostrarToast("Foto mantida neste aparelho. Tente sincronizar novamente.", "aviso", 4200);
+          confirmarStorefrontSalvamentoLocal("Foto salva neste aparelho.");
           continue;
         } catch (fallbackError) {
           registrarStorefrontDebugLeve("persistencia_falhou", "Fallback local de foto de produto falhou.", { message: fallbackError?.message || String(fallbackError) });
@@ -17313,7 +17346,7 @@ async function removerImagemProdutoLojaOnline(id) {
   } catch (error) {
     storefrontQueuePendingAction("image-delete", { id });
     registrarStorefrontDebugLeve("persistencia_falhou", "Imagem removida localmente e aguardando sincronização.", { message: error?.message || String(error) });
-    mostrarToast("Imagem removida neste aparelho. Sincronização pendente.", "aviso", 3600);
+    confirmarStorefrontSalvamentoLocal("Imagem removida neste aparelho.");
     renderApp();
   }
 }
@@ -17843,6 +17876,21 @@ function getStorefrontProductImages(product = {}, images = []) {
   if (product.image_url) gallery.unshift(product.image_url);
   if (Array.isArray(product.images)) gallery.push(...product.images.filter(Boolean));
   return [...new Set(gallery)];
+}
+
+function selecionarImagemProdutoLojaPublica(button) {
+  const gallery = button?.closest?.(".sfv3-product-gallery");
+  const main = gallery?.querySelector?.("[data-storefront-product-main]");
+  const url = String(button?.dataset?.imageSrc || "");
+  if (!main || !url) return false;
+  main.src = url;
+  main.dataset.storeImageHandled = "false";
+  gallery.querySelectorAll(".sfv3-product-gallery__thumb").forEach((item) => {
+    const selected = item === button;
+    item.classList.toggle("is-active", selected);
+    item.setAttribute("aria-pressed", selected ? "true" : "false");
+  });
+  return true;
 }
 
 function storefrontPublicCategoryName(vm, product = {}) {
@@ -18462,6 +18510,16 @@ function atualizarPreviewGuiadoLoja(form) {
 
 function atualizarFormularioGuiadoLoja(form, detail = "Alterações em edição") {
   marcarStorefrontAlteracoesPendentes(detail);
+  const scope = form?.id === "storefrontProductForm"
+    ? "product"
+    : form?.id === "storeContactAdminForm"
+      ? "contacts"
+      : String(detail || "").toLowerCase().includes("categoria")
+        ? "category"
+        : String(detail || "").toLowerCase().includes("banner")
+          ? "banner"
+          : "appearance";
+  storefrontScheduleAutosave(scope, serializeStorefrontForm(form));
   atualizarPreviewGuiadoLoja(form);
 }
 
@@ -18814,9 +18872,10 @@ async function salvarStorefrontContatos(event) {
       syncPending = true;
       storefrontQueuePendingAction("store-upsert", next);
     }
-    limparStorefrontAlteracoesPendentes(syncPending ? "Contatos salvos neste aparelho; sincronização pendente" : "Contatos salvos");
+    limparStorefrontAlteracoesPendentes(syncPending ? "Contatos salvos; atualização online automática" : "Contatos salvos");
     registrarStorefrontActivity("Contatos atualizados", "Canais de atendimento da loja foram salvos.");
-    mostrarToast(syncPending ? "Contatos salvos neste aparelho. Sincronização pendente." : "Contatos da loja salvos.", syncPending ? "aviso" : "sucesso", 3000);
+    if (syncPending) confirmarStorefrontSalvamentoLocal("Contatos salvos neste aparelho.");
+    else mostrarToast("Contatos da loja salvos.", "sucesso", 3000);
     fecharPopup();
     renderApp();
     concluirNavegacaoPendenteLoja();
@@ -19585,6 +19644,18 @@ function abrirInstagramLojaPublica() {
   window.open(normalizarUrlInstagramLoja(instagram), "_blank", "noopener");
 }
 
+function abrirTikTokLojaPublica() {
+  const vm = getStorefrontPublicViewModel();
+  const contact = getStorefrontContactConfig(vm.store || {});
+  const value = String(contact.tiktok || "").trim();
+  if (!value) return mostrarToast("TikTok da loja ainda não foi configurado.", "erro", 3600);
+  const url = /^https?:\/\//i.test(value)
+    ? value
+    : `https://www.tiktok.com/@${value.replace(/^@+/, "").replace(/^.*tiktok\.com\/@?/i, "")}`;
+  registrarEventoLojaPublica("tiktok_click", { source: "storefront-public" }, { silent: true });
+  window.open(url, "_blank", "noopener");
+}
+
 function abrirEmailLojaPublica() {
   const vm = getStorefrontPublicViewModel();
   const contact = getStorefrontContactConfig(vm.store || {});
@@ -19612,6 +19683,7 @@ if (typeof window !== "undefined") {
   Object.assign(window, {
     abrirWhatsappLojaPublica,
     abrirInstagramLojaPublica,
+    abrirTikTokLojaPublica,
     abrirEmailLojaPublica,
     abrirWhatsappProdutoLojaPublica,
     filtrarProdutosLojaPublica

@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.39-rc\"",
-  "APP_VERSION_CODE = 38",
-  "simplifica-3d-v179-plans-active-20260618",
-  "versionName \"1.0.39-rc\"",
-  "versionCode 38",
-  "\"version\": \"1.0.39-rc\"",
-  "\"versionCode\": 38"
+  "APP_VERSION = \"1.0.40-rc\"",
+  "APP_VERSION_CODE = 39",
+  "simplifica-3d-v180-storefront-product-data-20260620",
+  "versionName \"1.0.40-rc\"",
+  "versionCode 39",
+  "\"version\": \"1.0.40-rc\"",
+  "\"versionCode\": 39"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

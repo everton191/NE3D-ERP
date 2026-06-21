@@ -43,6 +43,7 @@ export type StorefrontProductRecord = {
   erp_product_id?: string | null;
   title: string;
   slug: string;
+  short_description?: string | null;
   description?: string | null;
   price: number;
   compare_price?: number | null;

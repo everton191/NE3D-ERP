@@ -7,6 +7,8 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
 ["abrirNovoProdutoGuiadoLoja()", "abrirNovaCategoriaGuiadaLoja()", "openStorefrontGuidedCatalogItem", "setStorefrontGuidedProductStep", "voltarFormularioGuiadoProdutoLoja()", "salvarProdutoLojaOnline(event)", "salvarCategoriaLojaOnline(event)", "salvarStorefrontAparencia(event)", "salvarStorefrontContatos(event)", "abrirChecklistGuiadoLoja()"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Acao/rota V3 ausente: ${marker}`));
 ["sfe-sidebar-actions", "voltarPainelLojaVisual()", "salvarEdicaoVisualAtualLoja()", "abrirLojaPublicaOnline()", "alternarStatusLojaOnline()"].forEach((marker) => assert(renderer.includes(marker), `Ação lateral PWA ausente: ${marker}`));
 ["abrirSeletorImagemStorefront", "storefrontLogoPhoto", "storefrontBannerPhoto", "data-storefront-product-photo", "data-replace-image"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Controle de troca de imagem ausente: ${marker}`));
+["WhatsApp da loja", "abrirContatosProdutoLoja()", "sfe-contact-shortcut"].forEach((marker) => assert(renderer.includes(marker), `Atalho de WhatsApp no produto ausente: ${marker}`));
+assert(app.includes('function abrirContatosProdutoLoja()'), "Atalho de WhatsApp deve preservar alteracoes nao salvas");
 assert(app.includes("const replacementTarget = replaceExisting ? productImages[0] : null"), "troca de foto deve substituir a imagem principal sem consumir nova cota");
 assert(!/sfe-desktop-topbar[\s\S]*?<nav>/.test(renderer), "Topbar desktop nao deve voltar a concentrar ações do editor");
 assert(app.includes("function renderStorefrontView"), "Orquestrador de modos ausente");
@@ -38,9 +40,13 @@ const sampleVm = {
 const desktopMarkup = editor.sidebar(sampleVm, { mobile: false, uiMode: "product" });
 const mobileMarkup = editor.sidebar(sampleVm, { mobile: true, uiMode: "product" });
 [desktopMarkup, mobileMarkup].forEach((markup, index) => {
-  assert(markup.includes('id="storefrontProductPhoto-produto-1"'), `input de foto ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('id="storefrontProductPhotoMain-produto-1"'), `troca da foto principal ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('id="storefrontProductPhotoGallery-produto-1"'), `inclusao de galeria ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('name="productPhotoGallery"'), `campo de galeria ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes("multiple"), `selecao multipla de fotos ausente no shell ${index ? "mobile" : "desktop"}`);
   assert(markup.includes('data-storefront-product-photo="produto-1"'), `marcador de foto ausente no shell ${index ? "mobile" : "desktop"}`);
   assert(markup.includes('data-replace-image="true"'), `troca de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('data-replace-image="false"'), `adicao sem substituir imagem ausente no shell ${index ? "mobile" : "desktop"}`);
   assert(markup.includes("abrirSeletorImagemStorefront"), `botao de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
 });
 console.log("Store editor V3 actions and routes: fluxos administrativos validados.");

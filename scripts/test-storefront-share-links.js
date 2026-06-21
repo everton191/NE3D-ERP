@@ -1,12 +1,14 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const renderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
 
 const required = [
   "getStorefrontShareContext",
   "abrirPreviewCompartilhamentoLoja",
   "abrirWhatsappCompartilhamentoLoja",
   "abrirInstagramLojaPublica",
+  "abrirTikTokLojaPublica",
   "abrirEmailLojaPublica",
   "Object.assign(window,",
   "abrirWhatsappProdutoLojaPublica",
@@ -15,14 +17,14 @@ const required = [
   "appConfig.companyInstagram",
   "appConfig.companyEmail",
   "navigator.share",
-  "store-public-share-inline",
   "Compartilhar categoria",
   "view: \"product\"",
-  "contact.instagram ? \"abrirInstagramLojaPublica()\"",
-  "contact.whatsapp ? \"abrirWhatsappLojaPublica()\""
+  "abrirInstagramLojaPublica()",
+  "abrirWhatsappLojaPublica()",
+  "abrirTikTokLojaPublica()"
 ];
 
-const missing = required.filter((item) => !app.includes(item));
+const missing = required.filter((item) => !app.includes(item) && !renderer.includes(item));
 
 if (missing.length) {
   console.error("Compartilhamento da loja incompleto:", missing.join(", "));

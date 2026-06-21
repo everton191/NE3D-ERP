@@ -1,74 +1,53 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
+const editor = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const storefront = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
+const components = fs.readFileSync("src/storefront/styles/components.css", "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 [
-  "function abrirAcoesProdutoLojaOnline",
-  "function renderAcoesProdutoLojaOnline",
-  "function executarAcaoProdutoLojaOnline",
-  "function fecharMenusContextuaisProdutosLoja",
-  "function sincronizarMenuContextualProduto",
-  "function configurarMenusContextuaisProdutosLoja",
-  "function copiarLinkProdutoLojaOnline",
-  "function abrirSeletorFotoProdutoLojaOnline",
-  "function cancelarEdicaoProdutoLojaOnline",
-  "function validarEtapaProdutoLojaOnline",
-  "function validarTodasEtapasProdutoLojaOnline",
-  "function setStorefrontProductMobileStep",
-  "function avancarEtapaProdutoLojaOnline",
-  "function voltarEtapaProdutoLojaOnline",
-  "function ajustarQuantidadeProdutoLojaOnline",
-  "function atualizarResumoRevisaoProdutoLojaOnline",
-  'class="btn ghost ui-icon-button store-product-mobile-actions"',
-  'class="store-admin-more-actions store-product-desktop-actions ui-context-menu"',
-  'class="app-form store-product-form"',
-  'class="store-product-mobile-flow-header"',
-  'class="store-product-stepper"',
-  'data-product-step="1"',
-  'data-product-step="2"',
-  'data-product-step="3"',
-  'data-product-step="4"',
-  'data-product-step-next',
-  'data-product-step-save',
-  'inputmode="decimal"',
-  'inputmode="numeric"',
-  'aria-label="Diminuir quantidade"',
-  'aria-label="Aumentar quantidade"',
-  'aria-label="Mais ações do produto"',
-  'aria-controls="store-product-action-sheet"',
-  'aria-modal="true"',
-  'onclick="closeDrawer()">Cancelar</button>',
-  'onclick="cancelarEdicaoProdutoLojaOnline()">Cancelar</button>',
-  '${editing.id ? "Salvar alterações" : "Salvar produto"}'
-].forEach((marker) => assert(app.includes(marker), `Acoes mobile da loja incompletas: ${marker}`));
+  'class="sfe-actions',
+  "sfe-action-back",
+  "Salvar rascunho",
+  "Próximo",
+  "Publicar",
+  'class="sfe-mobile-actions"',
+  "voltarPainelLojaVisual()",
+  "salvarEdicaoVisualAtualLoja()",
+  "abrirLojaPublicaOnline()",
+  'id="storefrontProductForm"',
+  'data-guided-product-step="${step}"',
+  "processarImagemProdutoLojaOnline(",
+  'label: "Adicionar mais fotos"',
+  "multiple: true",
+  "removerImagemProdutoLojaOnline(",
+].forEach((marker) => assert(editor.includes(marker), `Ação mobile V3 ausente: ${marker}`));
 
 [
-  ".store-product-action-sheet{",
-  ".store-product-sheet-actions{",
-  ".store-product-sheet-action{",
-  ".store-product-mobile-actions{",
-  ".store-product-mobile-flow-header,",
-  ".store-product-mobile-sticky-actions{",
-  ".store-product-form-step.is-active{",
-  ".store-product-stepper{",
-  ".store-product-quantity-control{",
-  ".store-product-form-step :where(input, select, textarea){",
-  "min-height:48px;",
-  ".store-product-desktop-actions{",
-  ".store-admin-more-actions.open-up .ui-context-menu-panel{",
-  "padding:var(--space-sm) var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom));",
-  "grid-template-columns:72px minmax(0, 1fr);",
-  "@media (max-width: 359px){",
-  "grid-template-columns:64px minmax(0, 1fr);"
-].forEach((marker) => assert(css.includes(marker), `CSS de acoes mobile da loja ausente: ${marker}`));
+  'class="sfv3-bottom-nav"',
+  "adicionarProdutoCarrinhoLojaPublica(",
+  "abrirCarrinhoLojaPublica()",
+  "abrirWhatsappLojaPublica()",
+  "selecionarImagemProdutoLojaPublica(this)",
+  "navegarLojaPublicaLink(event,this",
+].forEach((marker) => assert(storefront.includes(marker), `Ação pública V3 ausente: ${marker}`));
 
-assert(app.includes("openDrawer({"), "Bottom sheet mobile deve usar drawer-layer oficial");
-assert(app.includes('showOverlay(null, { closeAction: config.closable === false ? "" : "closeDrawer()" })'), "Drawer deve manter overlay com fechamento externo");
-assert(!app.includes('aria-label="Mais ações" title="Mais ações"><span aria-hidden="true">⋯</span></summary>\n                  <div class="store-admin-actions ui-context-menu-panel">\n                    <button class="btn ghost" type="button" onclick="alternarProdutoLojaOnline'), "Menu legado estreito do produto nao deve voltar");
+[
+  ".sfe-actions{position:sticky;bottom:0;",
+  "calc(8px + var(--app-safe-bottom,0px))",
+  ".sfv3-bottom-nav{position:fixed;right:0;bottom:0;left:0;",
+  "calc(5px + var(--app-safe-bottom,0px))",
+  'html[data-store-editor-keyboard-open="true"] .sfe-actions',
+  "@media(max-width:560px)",
+].forEach((marker) => assert(layouts.includes(marker), `Layout mobile V3 ausente: ${marker}`));
 
-console.log("Storefront mobile actions: cards compactos, dropdown desktop e bottom sheet mobile validados.");
+assert(components.includes(".storefront-editor :where(button,.store-ui-button,.btn)"), "Botões do editor não usam o componente-base");
+assert(app.includes("function alinharSelecaoLojaVisual"), "Alinhamento contextual da edição ausente");
+assert(!editor.includes("store-product-mobile-actions"), "Classe visual V2 não deve retornar ao editor V3");
+
+console.log("Storefront mobile actions: editor V3, galeria, carrinho, navegação e safe area validados.");

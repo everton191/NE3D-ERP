@@ -11,6 +11,7 @@
   const image = (src, options) => call("renderStorefrontResponsiveImage", src, options);
   const storeName = (store) => call("getStorefrontDisplayName", store) || "Minha Loja";
   const productImage = (vm, product) => call("getStorefrontProductImage", product, vm.images || []);
+  const productImages = (vm, product) => call("getStorefrontProductImages", product, vm.images || []) || [];
   const productUrl = (vm, product) => call("storefrontPublicProductUrl", vm, product);
   const categoryUrl = (vm, category) => call("storefrontPublicCategoryUrl", vm, category);
   const money = (value) => call("formatarMoeda", Number(value || 0));
@@ -148,7 +149,10 @@
   };
 
   api.productPage = function productPage(vm, product = {}) {
-    return `<section class="sfv3-product-page"><a class="sfv3-back" href="${route({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event,this,{scrollTop:true})">← Voltar</a><div class="sfv3-product-page__media">${image(productImage(vm, product), { alt: product.title || "Produto", kind: "product" })}</div><div class="sfv3-product-page__info"><small>${esc(call("getStorefrontCategoryName", vm, product.category_id) || "Personalizado")}</small><h1>${esc(product.title || "Produto")}</h1><strong>${product.show_price === false ? "Sob orçamento" : money(product.price)}</strong><p>${esc(product.description || product.short_description || "Produto preparado para orçamento.")}</p><button type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${attr(product.id)}')">${icon("carrinho")} Adicionar ao orçamento</button></div></section>`;
+    const gallery = productImages(vm, product);
+    const mainImage = gallery[0] || productImage(vm, product);
+    const price = product.show_price === false || product.price_mode === "quote" ? "Sob orçamento" : money(product.price);
+    return `<section class="sfv3-product-page"><a class="sfv3-back" href="${route({ slug: vm.store.slug, view: "home" })}" onclick="return navegarLojaPublicaLink(event,this,{scrollTop:true})">← Voltar</a><div class="sfv3-product-page__media sfv3-product-gallery">${image(mainImage, { alt: product.title || "Produto", kind: "product", className: "sfv3-product-gallery__main" }).replace("<img ", '<img data-storefront-product-main ')}${gallery.length > 1 ? `<div class="sfv3-product-gallery__thumbs" aria-label="Fotos do produto">${gallery.map((url, index) => `<button type="button" class="sfv3-product-gallery__thumb ${index === 0 ? "is-active" : ""}" aria-label="Ver foto ${index + 1}" aria-pressed="${index === 0 ? "true" : "false"}" data-image-src="${attr(url)}" onclick="selecionarImagemProdutoLojaPublica(this)">${image(url, { alt: `${product.title || "Produto"} - foto ${index + 1}`, kind: "product" })}</button>`).join("")}</div>` : ""}</div><div class="sfv3-product-page__info"><small>${esc(call("getStorefrontCategoryName", vm, product.category_id) || "Personalizado")}</small><h1>${esc(product.title || "Produto")}</h1>${product.short_description ? `<p class="sfv3-product-page__summary">${esc(product.short_description)}</p>` : ""}<strong>${price}</strong>${product.compare_price && Number(product.compare_price) > Number(product.price) && product.show_price !== false ? `<del>${money(product.compare_price)}</del>` : ""}<p>${esc(product.description || product.short_description || "Produto preparado para orçamento.")}</p><button type="button" onclick="adicionarProdutoCarrinhoLojaPublica('${attr(product.id)}')">${icon("carrinho")} Adicionar ao orçamento</button></div></section>`;
   };
 
   api.categoriesPage = function categoriesPage(vm) {
@@ -157,14 +161,15 @@
 
   api.categoryPage = function categoryPage(vm, category = {}) {
     const products = (vm.products || []).filter((product) => String(product.category_id) === String(category.id));
-    return api.productSection(vm, products, category.name || "Categoria", `${products.length} produtos encontrados`);
+    return `<div class="sfv3-category-heading"><div><h1>${esc(category.name || "Categoria")}</h1><p>${products.length} produtos encontrados</p></div><button class="store-ui-button--ghost" type="button" onclick="compartilharLojaPublica('${attr(categoryUrl(vm, category))}')">${icon("share")} Compartilhar categoria</button></div>${api.productSection(vm, products, "Produtos")}`;
   };
 
   api.contact = function contact(vm) {
     const contact = call("getStorefrontContactConfig", vm.store || {}) || {};
     const mode = modeOf(vm);
     const entries = [["whatsapp", "WhatsApp", contact.whatsapp], ["instagram", "Instagram", contact.instagram], ["tiktok", "TikTok", contact.tiktok], ["email", "E-mail", contact.email], ["map-pin", "Endereço", contact.address]].filter((item) => item[2]);
-    return `<section class="sfv3-contact" id="sfv3-contact" ${mode.admin ? `onclick="${edit("contacts", "", "contacts", "whatsapp", "contact")}"` : ""}><header><h2>Estamos aqui para ajudar</h2><p>Fale com a loja e solicite seu orçamento.</p></header><div>${entries.map(([i, t, v]) => `<article>${icon(i)}<strong>${t}</strong><span>${esc(v)}</span></article>`).join("") || `<p>Os canais de contato serão exibidos aqui.</p>`}</div>${contact.whatsapp ? `<button type="button" onclick="event.stopPropagation(); abrirWhatsappLojaPublica()">${icon("whatsapp")} Falar no WhatsApp</button>` : ""}</section>`;
+    const actions = { whatsapp: "abrirWhatsappLojaPublica()", instagram: "abrirInstagramLojaPublica()", tiktok: "abrirTikTokLojaPublica()", email: "abrirEmailLojaPublica()" };
+    return `<section class="sfv3-contact" id="sfv3-contact" ${mode.admin ? `onclick="${edit("contacts", "", "contacts", "whatsapp", "contact")}"` : ""}><header><h2>Estamos aqui para ajudar</h2><p>Fale com a loja e solicite seu orçamento.</p></header><div>${entries.map(([i, t, v]) => actions[i] ? `<button class="sfv3-contact-card" type="button" onclick="event.stopPropagation();${actions[i]}">${icon(i)}<strong>${t}</strong><span>${esc(v)}</span></button>` : `<article class="sfv3-contact-card">${icon(i)}<strong>${t}</strong><span>${esc(v)}</span></article>`).join("") || `<p>Os canais de contato serão exibidos aqui.</p>`}</div>${contact.whatsapp ? `<button type="button" onclick="event.stopPropagation(); abrirWhatsappLojaPublica()">${icon("whatsapp")} Falar no WhatsApp</button>` : ""}</section>`;
   };
 
   api.emptyState = function emptyState(title = "Nada por aqui", description = "", label = "Ver catálogo", action = "location.href='/'") {
