@@ -4,6 +4,7 @@ const vm = require("vm");
 const app = fs.readFileSync("app.js", "utf8");
 const index = fs.readFileSync("index.html", "utf8");
 const service = fs.readFileSync("src/services/themeAuthorityV2.js", "utf8");
+const designSystem = fs.readFileSync("themes/base/design-system-v2.css", "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -32,6 +33,15 @@ function assert(condition, message) {
   'document.body.classList.toggle("theme-dark", !usarClaro)',
   '<option value="system" ${normalizarPreferenciaTemaInterface(appConfig.theme) === "system" ? "selected" : ""}>Seguir sistema</option>'
 ].forEach((marker) => assert(app.includes(marker), `Integracao ERP V2 ausente: ${marker}`));
+
+[
+  ".erp-theme-v2 .s3d-auth-card .auth-link-row",
+  "grid-template-columns:repeat(2,minmax(0,1fr))",
+  ".erp-theme-v2 .s3d-auth-card .auth-link-row .auth-link",
+  "text-decoration:none",
+  ".erp-theme-v2 .s3d-auth-card .auth-footer-text .auth-link",
+  "grid-template-columns:1fr"
+].forEach((marker) => assert(designSystem.includes(marker), `Ajuste visual da autenticacao ausente: ${marker}`));
 
 function createThemeSandbox({ dark = false, matchMediaAvailable = true } = {}) {
   const storage = new Map();

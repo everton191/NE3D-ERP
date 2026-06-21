@@ -365,6 +365,39 @@ svg{
   color:var(--erp-accent);
 }
 
+.erp-theme-v2 .s3d-auth-card .auth-link-row{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:var(--s3d-space-2);
+}
+
+.erp-theme-v2 .s3d-auth-card .auth-link-row .auth-link{
+  width:100%;
+  min-height:40px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:var(--s3d-space-2) var(--s3d-space-3);
+  border:1px solid var(--erp-border);
+  border-radius:var(--s3d-radius-sm);
+  background:var(--erp-surface-soft);
+  box-shadow:none;
+  text-align:center;
+  text-decoration:none;
+}
+
+.erp-theme-v2 .s3d-auth-card .auth-footer-text .auth-link,
+.erp-theme-v2 .s3d-auth-card .auth-terms-row .auth-link{
+  min-height:32px;
+  display:inline-flex;
+  align-items:center;
+  padding:var(--s3d-space-1);
+  background:transparent;
+  border:0;
+  box-shadow:none;
+  text-decoration:none;
+}
+
 body.auth-screen-active #app-shell.erp-theme-v2{
   background:var(--erp-bg);
 }
@@ -444,6 +477,10 @@ body.auth-screen-active #app-shell.erp-theme-v2 #app{
   .erp-theme-v2 .s3d-onboarding{
     padding:var(--s3d-space-4);
     border-radius:var(--s3d-radius-md);
+  }
+
+  .erp-theme-v2 .s3d-auth-card .auth-link-row{
+    grid-template-columns:1fr;
   }
 
   .erp-theme-v2 .s3d-mobile-page{

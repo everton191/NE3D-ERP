@@ -12,7 +12,7 @@ const required = [
   "descartarStorefrontAutosaveLocal",
   "window.addEventListener(\"online\"",
   "window.addEventListener(\"offline\"",
-  "simplifica-3d-v180-storefront-product-data-20260620"
+  "simplifica-3d-v181-mobile-auth-audit-20260621"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !sw.includes(item));

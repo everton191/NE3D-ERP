@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v180-storefront-product-data-20260620";
+const CACHE_NAME = "simplifica-3d-v181-mobile-auth-audit-20260621";
 const APP_FILES = [
   "./",
   "./index.html",
