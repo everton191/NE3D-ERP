@@ -12,6 +12,8 @@ assert(renderer.includes("navegarLojaPublicaLink"), "Rotas publicas nao usam nav
 assert(renderer.includes("event.stopPropagation();abrirCarrinhoLojaPublica()"), "CTA de orcamento deve abrir carrinho sem depender de link externo ou acionar editor do banner");
 assert(app.includes("function renderPrecoProdutoLojaOnline"), "Carrinho deve possuir formatador de preco");
 assert(app.includes("function validarWhatsappLojaPublica"), "Envio de orcamento deve validar contato antes de registrar pedido");
+assert(!app.includes("normalizarWhatsappLojaPublica"), "Loja ainda referencia normalizador de WhatsApp removido");
+assert(app.includes("normalizarTelefoneWhatsapp(form.whatsapp?.value || \"\")"), "Contatos da loja devem reutilizar o normalizador compartilhado");
 assert(renderer.includes('["tiktok", "TikTok", contact.tiktok]'), "TikTok preenchido deve aparecer entre os contatos publicos");
 assert(app.includes("function configurarNavegacaoLojaPublica"), "Navegacao publica central ausente");
 assert(!renderer.includes("store-public-"), "Renderer publico ainda usa classes V2");

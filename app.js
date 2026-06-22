@@ -16128,7 +16128,7 @@ async function salvarStorefrontAparencia(event) {
     const bannerTitle = validarTextoVisualLoja(form.storeBannerTitle?.value || store.theme_config?.banner_title || "", 40, "título");
     const bannerSubtitle = validarTextoVisualLoja(form.storeBannerSubtitle?.value || store.theme_config?.banner_subtitle || description, 100, "subtítulo");
     const bannerCtaLabel = validarTextoVisualLoja(form.storeBannerCtaLabel?.value || store.theme_config?.banner_cta_label || "Ver catálogo", 24, "texto do botão");
-    const whatsapp = normalizarWhatsappLojaPublica(form.storeWhatsApp?.value || "");
+    const whatsapp = normalizarTelefoneWhatsapp(form.storeWhatsApp?.value || "");
     if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
     const slug = store.slug || getStorefrontDefaultSlugLocal();
     const next = {
@@ -18961,7 +18961,7 @@ async function salvarStorefrontContatos(event) {
   const botao = form.querySelector("button[type='submit']");
   try {
     const store = getStorefrontAdminStoreLocal();
-    const whatsapp = normalizarWhatsappLojaPublica(form.whatsapp?.value || "");
+    const whatsapp = normalizarTelefoneWhatsapp(form.whatsapp?.value || "");
     if (whatsapp && whatsapp.length < 10) throw new Error("Informe um WhatsApp válido com DDD.");
     const contact = {
       whatsapp,
@@ -19320,7 +19320,7 @@ function renderPrecoProdutoLojaOnline(product = {}) {
 
 function validarWhatsappLojaPublica(vm = getStorefrontPublicViewModel()) {
   const contact = getStorefrontContactConfig(vm.store || {});
-  if (normalizarWhatsappLojaPublica(contact.whatsapp || "")) return true;
+  if (normalizarTelefoneWhatsapp(contact.whatsapp || "")) return true;
   const adminMode = getStorefrontPublicMode(vm).admin;
   mostrarToast(adminMode ? "Adicione o WhatsApp em Contatos antes de receber orçamentos." : "Esta loja ainda está configurando o atendimento por WhatsApp.", "aviso", 4200);
   if (adminMode) selecionarItemLojaVisual("contacts");
@@ -19760,7 +19760,7 @@ function navegarLojaPublicaLink(event, element, options = {}) {
 function abrirWhatsappLojaPublica(mensagem = "") {
   const vm = getStorefrontPublicViewModel();
   const contact = getStorefrontContactConfig(vm.store || {});
-  const phone = normalizarWhatsappLojaPublica(contact.whatsapp || "");
+  const phone = normalizarTelefoneWhatsapp(contact.whatsapp || "");
   if (!phone) return validarWhatsappLojaPublica(vm);
   const configuredMessage = contact.whatsapp_message;
   const texto = mensagem || `${configuredMessage || `Olá! Vim pela loja ${vm.store?.name || "Simplifica 3D"}.`}\n${getStorefrontPublicUrl(vm.route)}`;
