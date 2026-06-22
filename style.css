@@ -18048,11 +18048,33 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .side-brand{
 
 .side-section-header i{
   font-style:normal;
-  transition:transform .18s ease;
 }
 
 .side-section.is-closed .side-section-header i{
-  transform:rotate(-90deg);
+  transform:none;
+}
+
+.expand-toggle-indicator{
+  width:22px;
+  height:22px;
+  display:grid;
+  place-items:center;
+  flex:0 0 22px;
+  color:currentColor;
+  border:1px solid color-mix(in srgb, currentColor 24%, transparent);
+  border-radius:7px;
+  font-size:0;
+  line-height:1;
+}
+
+.expand-toggle-indicator::before{
+  content:"−";
+  font-size:16px;
+  font-weight:900;
+}
+
+[aria-expanded="false"] > .expand-toggle-indicator::before{
+  content:"+";
 }
 
 .side-section-items{

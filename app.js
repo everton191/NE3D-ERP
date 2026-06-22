@@ -12667,7 +12667,7 @@ function renderGrupoMenuLateral(grupo) {
     <div class="side-section ${aberto ? "is-open" : "is-closed"}" data-menu-group="${escaparAttr(id)}">
       <button class="side-section-header" type="button" onclick="alternarGrupoMenuLateral('${escaparAttr(id)}')" aria-expanded="${aberto}">
         <span>${escaparHtml(grupo.titulo)}</span>
-        <i aria-hidden="true">⌄</i>
+        <i class="expand-toggle-indicator" aria-hidden="true"></i>
       </button>
       <div class="side-section-items">
         ${grupo.itens.map(renderBotaoLateral).join("")}
@@ -36753,7 +36753,7 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
     <div class="calc-summary-card">
       <div class="calc-summary-head">
         <strong>${renderUiIcon("calculadora")} Resumo do cálculo</strong>
-        <button class="icon-button" type="button" onclick="alternarResumoCalculadora()" title="Recolher/expandir">⌃</button>
+        <button class="icon-button expand-toggle-button" type="button" onclick="alternarResumoCalculadora(this)" title="Recolher ou expandir" aria-expanded="true" aria-controls="calcSummaryLines"><span class="expand-toggle-indicator" aria-hidden="true"></span></button>
       </div>
       <div class="calc-summary-lines" id="calcSummaryLines">
         <span>Custo do material</span><strong>${formatarMoeda(calculo.custoMaterial)}</strong>
@@ -38175,8 +38175,11 @@ function aplicarTaxaRapidaCalculadora(valor = 0) {
   selecionarTaxaExtraPercentual(valor);
 }
 
-function alternarResumoCalculadora() {
-  document.getElementById("calcSummaryLines")?.classList.toggle("is-collapsed");
+function alternarResumoCalculadora(button = null) {
+  const lines = document.getElementById("calcSummaryLines");
+  if (!lines) return;
+  const collapsed = lines.classList.toggle("is-collapsed");
+  button?.setAttribute?.("aria-expanded", String(!collapsed));
 }
 
 function agendarCalculoTempoReal() {
