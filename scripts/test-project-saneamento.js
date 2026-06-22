@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.42-rc\"",
-  "APP_VERSION_CODE = 41",
-  "simplifica-3d-v183-perceived-performance-android-20260621",
-  "versionName \"1.0.42-rc\"",
-  "versionCode 41",
-  "\"version\": \"1.0.42-rc\"",
-  "\"versionCode\": 41"
+  "APP_VERSION = \"1.0.43-rc\"",
+  "APP_VERSION_CODE = 42",
+  "simplifica-3d-v184-security-mobile-release-20260622",
+  "versionName \"1.0.43-rc\"",
+  "versionCode 42",
+  "\"version\": \"1.0.43-rc\"",
+  "\"versionCode\": 42"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

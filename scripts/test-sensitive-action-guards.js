@@ -45,9 +45,24 @@ const requiredSnippets = [
   "Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro.",
   "SENSITIVE_ACTION_PIN_STORAGE_PREFIX",
   "O PIN deve ter de 4 a 12 dígitos numéricos.",
+  "renderConfiguracaoPinAcoesSensiveis()",
+  "Segurança da conta",
+  "PIN de alterações importantes e senha de acesso",
+  "SENSITIVE_ACTION_PIN_MAX_ATTEMPTS",
+  "Muitas tentativas incorretas.",
+  "Escolha um PIN menos previsível.",
+  "A nova senha deve ser diferente da senha atual.",
+  "MANUAL_HELP_ASSISTANT_ENABLED",
+  "como fazer um pedido",
+  "podeMostrarAssistenteAjuda()",
   "Usar senha do aplicativo",
   "isAndroidNativeApp()",
-  "pin_admin_validado"
+  "pin_admin_validado",
+  "data-preserve-focus-key=\"pedidos-busca\"",
+  "data-preserve-focus-key=\"clientes-busca\"",
+  "data-preserve-focus-key=\"estoque-busca\"",
+  "capturarFocoInterface()",
+  "restaurarFocoInterface(foco)"
 ];
 
 const missingSnippets = requiredSnippets.filter((snippet) => !app.includes(snippet));

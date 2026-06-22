@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.42-rc";
-const APP_VERSION_CODE = 41;
+const APP_VERSION = "1.0.43-rc";
+const APP_VERSION_CODE = 42;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -184,6 +184,7 @@ let plansModernTab = "current";
 const planDiagnosticsSeen = new Set();
 // IA local pesada fica preservada como legado, mas desativada no app principal.
 const HEAVY_AI_FEATURE_ENABLED = false;
+const MANUAL_HELP_ASSISTANT_ENABLED = true;
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
   { limit: 200, price: 24.9 },
@@ -8371,8 +8372,39 @@ function restaurarScrollInterface(snapshot = []) {
 
 function renderizarPreservandoScroll() {
   const snapshot = capturarScrollInterface();
+  const foco = capturarFocoInterface();
   renderApp();
   restaurarScrollInterface(snapshot);
+  restaurarFocoInterface(foco);
+}
+
+function capturarFocoInterface() {
+  const ativo = document.activeElement;
+  if (!ativo || !["INPUT", "TEXTAREA", "SELECT"].includes(ativo.tagName)) return null;
+  const chave = String(ativo.dataset?.preserveFocusKey || ativo.id || "");
+  if (!chave) return null;
+  return {
+    chave,
+    porData: !!ativo.dataset?.preserveFocusKey,
+    inicio: typeof ativo.selectionStart === "number" ? ativo.selectionStart : null,
+    fim: typeof ativo.selectionEnd === "number" ? ativo.selectionEnd : null
+  };
+}
+
+function restaurarFocoInterface(snapshot) {
+  if (!snapshot?.chave) return;
+  requestAnimationFrame(() => {
+    const seletor = snapshot.porData
+      ? `[data-preserve-focus-key="${CSS.escape(snapshot.chave)}"]`
+      : `#${CSS.escape(snapshot.chave)}`;
+    const campo = document.querySelector(seletor);
+    if (!campo) return;
+    campo.focus({ preventScroll: true });
+    if (snapshot.inicio !== null && typeof campo.setSelectionRange === "function") {
+      const limite = String(campo.value || "").length;
+      campo.setSelectionRange(Math.min(snapshot.inicio, limite), Math.min(snapshot.fim ?? snapshot.inicio, limite));
+    }
+  });
 }
 
 function resetarScrollTelaAtiva() {
@@ -9083,7 +9115,7 @@ function renderApp() {
   document.body.classList.toggle("tablet-mode", viewportMode === "tablet");
   document.body.classList.toggle("desktop-mode", viewportMode === "desktop");
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
-  app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (HEAVY_AI_FEATURE_ENABLED && podeMostrarControlesFlutuantes() ? renderAssistenteVirtual() : "");
+  app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
   atualizarMenu();
   ajustarJanelasDashboardAoWorkspace(false);
   renderCalculadoraFlutuante();
@@ -9097,6 +9129,10 @@ function renderApp() {
 
 function podeMostrarControlesFlutuantes() {
   return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding" && telaAtual !== "dashboard";
+}
+
+function podeMostrarAssistenteAjuda() {
+  return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding";
 }
 
 const STOREFRONT_BETA_ACCESS_KEY = "simplifica-storefront-beta-access-v1";
@@ -9441,6 +9477,11 @@ function buscarGlobal(event, valor) {
   const termo = valorOriginal.toLowerCase();
   if (!termo) return;
 
+  if (deveDirecionarBuscaParaAssistente(valorOriginal)) {
+    abrirAssistenteComPergunta(valorOriginal);
+    return;
+  }
+
   const pedido = pedidos.find((item) => clienteDoPedido(item).toLowerCase().includes(termo) || String(item.id).includes(termo));
   if (pedido) {
     visualizarPedido(pedido.id);
@@ -9453,12 +9494,7 @@ function buscarGlobal(event, valor) {
     return;
   }
 
-  if (HEAVY_AI_FEATURE_ENABLED && deveDirecionarBuscaParaAssistente(valorOriginal)) {
-    abrirAssistenteComPergunta(valorOriginal);
-    return;
-  }
-
-  alert("Nada encontrado para: " + valor);
+  mostrarToast(`Nada encontrado para “${valorOriginal}”. Tente uma pergunta, como “como fazer um pedido”.`, "info", 4800);
 }
 
 function ativarBuscaCompacta(label) {
@@ -11914,7 +11950,7 @@ function abrirModalIALocalNaoConfigurada(origem = "assistente") {
 }
 
 function deveDirecionarBuscaParaAssistente(termo = "") {
-  if (!HEAVY_AI_FEATURE_ENABLED) return false;
+  if (!MANUAL_HELP_ASSISTANT_ENABLED) return false;
   const texto = String(termo || "").trim();
   if (!texto) return false;
   return texto.includes("?") || /^(como|por que|porque|qual|quais|sugere|sugerir|me ajuda|ajuda|ia\b)/i.test(texto);
@@ -12100,14 +12136,16 @@ async function enviarMensagemAssistente(event) {
 }
 
 function renderAssistenteVirtual() {
-  if (!HEAVY_AI_FEATURE_ENABLED) return "";
-  if (!podeMostrarControlesFlutuantes()) return "";
+  if (!MANUAL_HELP_ASSISTANT_ENABLED) return "";
+  if (!podeMostrarAssistenteAjuda()) return "";
   const modoDisponivel = getAssistenteModoDisponivel();
 
   if (!assistantOpen) {
-    if (!podeExibirAssistenteIAOffline()) return "";
     if (!isAndroidNativeApp()) {
       return `<button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('basic')" title="Abrir Assistente Inteligente" aria-label="Abrir Assistente Inteligente">${renderAssistantFabContent("Ajuda", false)}</button>`;
+    }
+    if (!HEAVY_AI_FEATURE_ENABLED) {
+      return `<button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('basic')" title="Abrir ajuda do sistema" aria-label="Abrir ajuda do sistema">${renderAssistantFabContent("Ajuda", false)}</button>`;
     }
     const pronto = iaLocalEstaPronta();
     const acessoPro = podeUsarAssistenteIAOfflinePro();
@@ -13508,8 +13546,16 @@ function renderPedidosRecentesDashboard() {
           const status = pedido.status || "aberto";
           const tone = classeStatusPedido(status).replace("order-status-", "");
           return `
-            <button class="dashboard-order-row order-card-tone-${escaparAttr(tone)}" type="button" onclick="visualizarPedido(${Number(pedido.id)})">
-              <span class="dashboard-order-avatar">${escaparHtml(getUserInitials(cliente))}</span>
+            <button class="dashboard-order-row order-card-tone-${escaparAttr(tone)}"
+              type="button"
+              title="Toque para abrir. Toque longo para editar ou ver mais ações."
+              onpointerdown="iniciarToqueLongoPedido(event, ${Number(pedido.id)})"
+              onpointermove="atualizarToqueLongoPedido(event, ${Number(pedido.id)})"
+              onpointerup="finalizarToqueLongoPedido(event, ${Number(pedido.id)})"
+              onpointercancel="cancelarToqueLongoPedido(${Number(pedido.id)}, true)"
+              onpointerleave="cancelarToqueLongoPedido(${Number(pedido.id)}, event.pointerType !== 'mouse')"
+              oncontextmenu="abrirMenuContextualPedido(event, ${Number(pedido.id)})"
+              onclick="acionarToquePedido(event, ${Number(pedido.id)})">
               <span class="dashboard-order-main">
                 <strong>${escaparHtml(cliente)}</strong>
                 <small>${itens.length} item(ns)${prazo ? ` • Prazo: ${escaparHtml(prazo)}` : ""}</small>
@@ -13518,7 +13564,6 @@ function renderPedidosRecentesDashboard() {
                 <strong>${formatarMoeda(totalPedido(pedido))}</strong>
                 <small>${escaparHtml(labelStatusPedido(status))}</small>
               </span>
-              <span class="dashboard-order-arrow">›</span>
             </button>
           `;
         }).join("")}
@@ -22287,7 +22332,7 @@ function renderEstoque() {
       ${podeOperar ? "" : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; alterações voltam após regularização.</p>`}
       <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-        <input value="${escaparAttr(buscaEstoque)}" placeholder="Buscar itens..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)">
+        <input data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar itens..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
       </label>
       ${renderEstoqueStatusChips(materiaisNormalizados, filtroEstoque)}
       <div class="metrics">
@@ -22362,6 +22407,8 @@ function renderListaPedidos() {
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
   const filtroCliente = String(window.__pedidosFiltroCliente || "");
+  const buscaPedidos = String(window.__pedidosBusca || "");
+  const termoBuscaPedidos = normalizarSugestaoClienteTexto(buscaPedidos);
   const periodoHoje = criarIntervaloPeriodoLocal("hoje");
   const listaPorOrigem = filtroDashboard === "abertos"
     ? pedidos.filter((pedido) => !pedidoJaCancelado(pedido) && !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto")))
@@ -22379,7 +22426,16 @@ function renderListaPedidos() {
       : filtroAtivo === "atrasados"
         ? listaBaseInicial.filter(pedidoEstaAtrasado)
         : listaBaseInicial.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === filtroAtivo);
-  const lista = [...listaBase].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+  const listaFiltrada = termoBuscaPedidos
+    ? listaBase.filter((pedido) => {
+        const itens = normalizarItensPedido(pedido)
+          .map((item) => `${item.nome || item.descricao || ""} ${item.materialNome || ""}`)
+          .join(" ");
+        const texto = `${pedido.id || ""} ${clienteDoPedido(pedido)} ${telefoneDoPedido(pedido)} ${pedido.status || ""} ${itens}`;
+        return normalizarSugestaoClienteTexto(texto).includes(termoBuscaPedidos);
+      })
+    : listaBase;
+  const lista = [...listaFiltrada].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
   const limitePedidos = Math.max(LIST_PAGE_SIZE, Number(window.__pedidosLimite) || LIST_PAGE_SIZE);
   const listaPaginada = lista.slice(0, limitePedidos);
   const pedidoSelecionado = pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId));
@@ -22393,8 +22449,19 @@ function renderListaPedidos() {
         const prazo = pedido.prazo || pedido.dataPrazo || pedido.data || "";
         const telefone = telefoneDoPedido(pedido);
         return `
-          <div class="list-row clickable-row order-list-card smart-order-row order-card-tone-${escaparAttr(classeStatusPedido(status).replace("order-status-", ""))}" onclick="visualizarPedido(${id})">
-            <span class="smart-order-icon">${renderUiIcon("pedido")}</span>
+          <div class="list-row clickable-row order-list-card smart-order-row order-card-tone-${escaparAttr(classeStatusPedido(status).replace("order-status-", ""))}"
+            role="button"
+            tabindex="0"
+            aria-label="Abrir pedido ${escaparAttr(String(pedido.id))} de ${escaparAttr(clienteDoPedido(pedido))}. Toque longo para mais ações."
+            title="Toque para abrir. Toque longo para editar ou ver mais ações."
+            onpointerdown="iniciarToqueLongoPedido(event, ${id})"
+            onpointermove="atualizarToqueLongoPedido(event, ${id})"
+            onpointerup="finalizarToqueLongoPedido(event, ${id})"
+            onpointercancel="cancelarToqueLongoPedido(${id}, true)"
+            onpointerleave="cancelarToqueLongoPedido(${id}, event.pointerType !== 'mouse')"
+            oncontextmenu="abrirMenuContextualPedido(event, ${id})"
+            onclick="acionarToquePedido(event, ${id})"
+            onkeydown="acionarPedidoPorTeclado(event, ${id})">
             <div class="smart-order-main">
               <div class="smart-order-head">
                 <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
@@ -22409,12 +22476,11 @@ function renderListaPedidos() {
             </div>
             <div class="smart-order-side">
               <strong>${formatarMoeda(total)}</strong>
-              <button class="icon-action-button smart-order-open" type="button" onclick="event.stopPropagation(); visualizarPedido(${id})" title="Abrir pedido">${renderUiIcon("view")}</button>
             </div>
           </div>
         `;
       }).join("")
-    : `<p class="empty">Nenhum pedido fechado ainda.</p>`;
+    : `<p class="empty">${termoBuscaPedidos ? "Nenhum pedido encontrado." : "Nenhum pedido fechado ainda."}</p>`;
   const paginacao = lista.length > listaPaginada.length
     ? `<div class="actions pagination-actions"><span class="muted">Mostrando ${listaPaginada.length} de ${lista.length}</span><button class="btn ghost" onclick="carregarMaisPedidos()">Carregar mais</button></div>`
     : "";
@@ -22442,12 +22508,106 @@ function renderListaPedidos() {
       </div>
       ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
+      <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
+        <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
+        <input data-preserve-focus-key="pedidos-busca" value="${escaparAttr(buscaPedidos)}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
+      </label>
       ${renderPedidoStatusChips(listaBaseInicial, filtroAtivo)}
       ${detalhe}
       ${linhas}
       ${paginacao}
     </section>
   `;
+}
+
+let toqueLongoPedidoEstado = null;
+let toquePedidoSuprimidoAte = 0;
+let toquePedidoSuprimidoId = "";
+
+function limparToqueLongoPedido() {
+  if (toqueLongoPedidoEstado?.timer) clearTimeout(toqueLongoPedidoEstado.timer);
+  toqueLongoPedidoEstado = null;
+}
+
+function iniciarToqueLongoPedido(event, id) {
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  limparToqueLongoPedido();
+  toqueLongoPedidoEstado = {
+    id: String(id),
+    pointerId: event.pointerId,
+    x: Number(event.clientX) || 0,
+    y: Number(event.clientY) || 0,
+    acionado: false,
+    timer: setTimeout(() => {
+      if (!toqueLongoPedidoEstado || toqueLongoPedidoEstado.id !== String(id)) return;
+      toqueLongoPedidoEstado.acionado = true;
+      toquePedidoSuprimidoId = String(id);
+      toquePedidoSuprimidoAte = Date.now() + 900;
+      navigator.vibrate?.(35);
+      abrirMaisOpcoesPedido(Number(id));
+    }, 560)
+  };
+}
+
+function atualizarToqueLongoPedido(event, id) {
+  const estado = toqueLongoPedidoEstado;
+  if (!estado || estado.id !== String(id) || estado.pointerId !== event.pointerId) return;
+  const dx = (Number(event.clientX) || 0) - estado.x;
+  const dy = (Number(event.clientY) || 0) - estado.y;
+  if (Math.hypot(dx, dy) > 8) {
+    toquePedidoSuprimidoId = String(id);
+    toquePedidoSuprimidoAte = Date.now() + 700;
+    limparToqueLongoPedido();
+  }
+}
+
+function finalizarToqueLongoPedido(event, id) {
+  const estado = toqueLongoPedidoEstado;
+  if (!estado || estado.id !== String(id) || estado.pointerId !== event.pointerId) return;
+  if (estado.acionado) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  limparToqueLongoPedido();
+}
+
+function cancelarToqueLongoPedido(id, suprimirClique = false) {
+  if (toqueLongoPedidoEstado?.id !== String(id)) return;
+  if (suprimirClique) {
+    toquePedidoSuprimidoId = String(id);
+    toquePedidoSuprimidoAte = Date.now() + 700;
+  }
+  limparToqueLongoPedido();
+}
+
+function acionarToquePedido(event, id) {
+  if (toquePedidoSuprimidoId === String(id) && toquePedidoSuprimidoAte > Date.now()) {
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
+  visualizarPedido(Number(id));
+}
+
+function abrirMenuContextualPedido(event, id) {
+  event.preventDefault();
+  event.stopPropagation();
+  limparToqueLongoPedido();
+  toquePedidoSuprimidoId = String(id);
+  toquePedidoSuprimidoAte = Date.now() + 500;
+  abrirMaisOpcoesPedido(Number(id));
+}
+
+function acionarPedidoPorTeclado(event, id) {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    visualizarPedido(Number(id));
+    return;
+  }
+  if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+    event.preventDefault();
+    abrirMaisOpcoesPedido(Number(id));
+  }
 }
 
 function renderAcaoPedidoCompacta(icone, label, onclick, variante = "") {
@@ -22616,7 +22776,6 @@ function renderDetalhePedido(pedido) {
       <div class="history-list order-detail-items">
         ${itens.map((item) => `
           <div class="history-item premium-order-item">
-            <span class="item-cube-icon">▧</span>
             <div>
               <strong>${escaparHtml(item.nome)}</strong>
               <span class="muted">Qtd ${item.qtd} • ${escaparHtml(item.tipoImpressao)} • ${Number(item.tempoHoras || 0).toFixed(2)}h</span>
@@ -22800,7 +22959,7 @@ function renderClientesOperacionais() {
       </div>
       <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-        <input value="${escaparAttr(busca)}" placeholder="Buscar cliente ou WhatsApp..." oninput="window.__clientesBusca=this.value; agendarRenderizacaoPreservandoScroll(180)">
+        <input data-preserve-focus-key="clientes-busca" value="${escaparAttr(busca)}" placeholder="Buscar cliente ou WhatsApp..." oninput="window.__clientesBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
       </label>
       <div class="clients-compact-metrics">
         <div class="metric"><span>Clientes</span><strong>${totalClientes}</strong></div>
@@ -25436,31 +25595,64 @@ function renderConfig() {
         <span>Restaurar backup JSON local</span>
         <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
       </label>`;
-  const securityContent = whatsapp2FABackendDisponivel()
+  const accountSecurityContent = usuario
     ? `
-      <label class="checkbox-row">
-        <input id="twoFactorEnabled" type="checkbox" ${appConfig.twoFactorEnabled ? "checked" : ""}>
-        <span>Ativar verificação em duas etapas pelo WhatsApp</span>
-      </label>
-      <div class="sync-grid">
-        <label class="field">
-          <span>WhatsApp da verificação</span>
-          <input id="twoFactorWhatsapp" value="${escaparAttr(appConfig.twoFactorWhatsapp || appConfig.whatsappNumber || "")}" placeholder="Ex.: +5585999999999">
-        </label>
-        <label class="field">
-          <span>Proteger</span>
-          <select id="twoFactorScope">
-            <option value="admin" ${appConfig.twoFactorScope !== "todos" ? "selected" : ""}>Admins</option>
-            <option value="todos" ${appConfig.twoFactorScope === "todos" ? "selected" : ""}>Todos os usuários</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Lembrar neste aparelho por minutos</span>
-          <input id="twoFactorRememberMinutes" type="number" min="1" step="1" value="${Number(appConfig.twoFactorRememberMinutes) || 60}">
-        </label>
+      <div class="account-security-panel">
+        <header class="security-page-header">
+          <div>
+            <h2>Segurança da conta</h2>
+            <p>Gerencie seu PIN, sua senha e a sessão deste aparelho.</p>
+          </div>
+          <span class="security-auth-badge">${renderUiIcon("seguranca")} Autenticada</span>
+        </header>
+        <details class="security-summary-card security-mobile-card" open>
+          <summary class="security-mobile-card-summary">
+            <span class="security-summary-icon">${renderUiIcon("conta")}</span>
+            <span><strong>Resumo da conta</strong></span>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-overview security-mobile-card-body">
+            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("conta")}</span><span><small>Conta conectada</small><strong>${escaparHtml(emailConta || "Conta local")}</strong></span></div>
+            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("seguranca")}</span><span><small>Status da sessão</small><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Autenticada" : "Local"}</strong></span></div>
+            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("time")}</span><span><small>Última sincronização</small><strong>${ultimaSync ? new Date(ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong></span></div>
+            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("backup")}</span><span><small>Backup usado</small><strong>${resumoBackupPlano.usedMb.toFixed(resumoBackupPlano.usedMb >= 10 ? 0 : 1)} MB / ${resumoBackupPlano.limitMb >= 1024 ? "1 GB" : `${resumoBackupPlano.limitMb} MB`}</strong></span></div>
+          </div>
+        </details>
+        <div class="security-main-grid">
+        <details class="settings-group security-settings-card security-pin-card security-mobile-card">
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon security-card-icon-warning">🔒</span>
+            <div><h3>PIN de ações importantes</h3><small>Use o PIN para proteger alterações críticas.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body">${renderConfiguracaoPinAcoesSensiveis()}</div>
+        </details>
+        <details class="settings-group security-settings-card security-password-card security-mobile-card">
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon">${renderUiIcon("config")}</span>
+            <div><h3>Alterar senha da conta</h3><small>Atualize sua senha de acesso.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
+        </details>
       </div>
-      <div class="actions"><button class="btn" onclick="salvarConfigSync()">Salvar segurança</button></div>`
-    : `<p class="muted">2FA WhatsApp desativado temporariamente neste ambiente.</p>`;
+      <details class="settings-group security-settings-card security-session-card security-mobile-card">
+        <summary class="security-card-heading security-mobile-card-summary">
+          <span class="security-card-icon">${renderUiIcon("dashboard")}</span>
+          <div><h3>Sessão neste aparelho</h3><small>Gerencie sua sessão atual neste dispositivo.</small></div>
+          <span class="security-mobile-chevron">›</span>
+        </summary>
+        <div class="security-session-row security-mobile-card-body">
+          <label class="checkbox-row">
+            <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
+            <span><strong>Manter login neste aparelho</strong><small>Evita que você precise entrar novamente neste dispositivo.</small></span>
+          </label>
+          <button class="btn danger security-logout-button" type="button" onclick="logoutUsuario()">Sair e limpar sessão</button>
+        </div>
+      </details>
+      </div>
+    `
+    : `<p class="muted">Entre na sua conta para configurar PIN, alterar a senha e revisar as opções de segurança.</p>`;
   const updatesContent = `
     <label class="checkbox-row">
       <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
@@ -25505,8 +25697,9 @@ function renderConfig() {
       </div>
       <p class="muted">Comportamento interno do app: backup, sincronização, atualizações, cache e documentos do sistema.</p>
       <div class="settings-accordion-list">
-        ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta, sync, exportação e importação", icon: "☁", content: backupContent, open: true, group: "config" })}
+        ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta, sync, exportação e importação", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
         ${telaAtual === "config" ? `
+          ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: true, group: "config" })}
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
           ${renderUiSection({ id: "sistema", title: "Cache, offline e suporte", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
         ` : ""}
@@ -25941,6 +26134,9 @@ async function confirmarBiometriaSeDisponivel(mensagem = "Use digital, rosto ou 
 }
 
 const SENSITIVE_ACTION_PIN_STORAGE_PREFIX = "simplificaSensitiveActionPin:";
+const SENSITIVE_ACTION_PIN_ATTEMPTS_KEY = "simplificaSensitiveActionPinAttempts";
+const SENSITIVE_ACTION_PIN_MAX_ATTEMPTS = 5;
+const SENSITIVE_ACTION_PIN_LOCK_MS = 60 * 1000;
 
 function normalizarPinAcoesSensiveis(config = {}) {
   const origem = config && typeof config === "object" && !Array.isArray(config) ? config : {};
@@ -25972,28 +26168,82 @@ function pinAcoesSensiveisAtivo() {
   return !!(config.hash && owner && config.owner === owner);
 }
 
+function getTentativasPinAcoesSensiveis() {
+  try {
+    const estado = JSON.parse(sessionStorage.getItem(SENSITIVE_ACTION_PIN_ATTEMPTS_KEY) || "{}");
+    return {
+      count: Math.max(0, Number(estado.count) || 0),
+      lockedUntil: Math.max(0, Number(estado.lockedUntil) || 0)
+    };
+  } catch (_) {
+    return { count: 0, lockedUntil: 0 };
+  }
+}
+
+function registrarTentativaPinAcoesSensiveis(ok) {
+  if (ok) {
+    sessionStorage.removeItem(SENSITIVE_ACTION_PIN_ATTEMPTS_KEY);
+    return;
+  }
+  const atual = getTentativasPinAcoesSensiveis();
+  const count = atual.lockedUntil > Date.now() ? atual.count : atual.count + 1;
+  const lockedUntil = count >= SENSITIVE_ACTION_PIN_MAX_ATTEMPTS ? Date.now() + SENSITIVE_ACTION_PIN_LOCK_MS : 0;
+  sessionStorage.setItem(SENSITIVE_ACTION_PIN_ATTEMPTS_KEY, JSON.stringify({ count: lockedUntil ? 0 : count, lockedUntil }));
+}
+
 async function validarPinAcoesSensiveis(pin) {
   if (!pinAcoesSensiveisAtivo() || !/^\d{4,12}$/.test(String(pin || ""))) return false;
-  return verificarHashSenha(String(pin), getPinAcoesSensiveisConfig().hash);
+  const tentativas = getTentativasPinAcoesSensiveis();
+  if (tentativas.lockedUntil > Date.now()) {
+    const segundos = Math.max(1, Math.ceil((tentativas.lockedUntil - Date.now()) / 1000));
+    throw new Error(`Muitas tentativas incorretas. Aguarde ${segundos} segundos.`);
+  }
+  const ok = await verificarHashSenha(String(pin), getPinAcoesSensiveisConfig().hash);
+  registrarTentativaPinAcoesSensiveis(ok);
+  return ok;
 }
 
 async function salvarPinAcoesSensiveis() {
   const pin = String(document.getElementById("sensitiveActionPinConfig")?.value || "").trim();
   const confirmarPin = String(document.getElementById("sensitiveActionPinConfirmConfig")?.value || "").trim();
+  const pinAtual = String(document.getElementById("sensitiveActionPinCurrentConfig")?.value || "").trim();
   if (!/^\d{4,12}$/.test(pin)) {
     mostrarToast("O PIN deve ter de 4 a 12 dígitos numéricos.", "erro", 3800);
+    return;
+  }
+  if (/^(\d)\1+$/.test(pin) || ["1234", "4321", "0123", "9876"].includes(pin)) {
+    mostrarToast("Escolha um PIN menos previsível.", "erro", 3600);
     return;
   }
   if (pin !== confirmarPin) {
     mostrarToast("A confirmação do PIN não confere.", "erro", 3400);
     return;
   }
-
-  const autorizado = await requestSensitiveActionConfirmation({
-    actionLabel: pinAcoesSensiveisAtivo() ? "alterar o PIN de segurança" : "criar o PIN de segurança",
-    permitirPin: false
-  });
-  if (!autorizado) return;
+  if (pinAcoesSensiveisAtivo()) {
+    if (!pinAtual) {
+      mostrarToast("Informe o PIN atual para continuar.", "erro", 3400);
+      return;
+    }
+    try {
+      if (!await validarPinAcoesSensiveis(pinAtual)) {
+        mostrarToast("O PIN atual está incorreto.", "erro", 3400);
+        return;
+      }
+    } catch (erro) {
+      mostrarToast(erro.message || "Não foi possível validar o PIN atual.", "erro", 4200);
+      return;
+    }
+    if (await verificarHashSenha(pin, getPinAcoesSensiveisConfig().hash)) {
+      mostrarToast("O novo PIN deve ser diferente do PIN atual.", "aviso", 3600);
+      return;
+    }
+  } else {
+    const autorizado = await requestSensitiveActionConfirmation({
+      actionLabel: "criar o PIN de segurança",
+      permitirPin: false
+    });
+    if (!autorizado) return;
+  }
 
   const chave = getChavePinAcoesSensiveis();
   if (!chave) {
@@ -26114,7 +26364,7 @@ function renderTrocaSenhaObrigatoria() {
   `;
 }
 
-function renderFormularioAlterarSenha(obrigatoria = false) {
+function renderFormularioAlterarSenha(obrigatoria = false, { mostrarCancelar = true } = {}) {
   return `
     <div class="password-change-form">
       <div class="sync-grid">
@@ -26143,9 +26393,34 @@ function renderFormularioAlterarSenha(obrigatoria = false) {
       </div>
       <div class="actions">
         <button id="alterarSenhaBtn" class="btn" onclick="alterarSenhaAtual(${obrigatoria ? "true" : "false"}, this)">Salvar nova senha</button>
-        ${obrigatoria ? "" : `<button class="btn ghost" onclick="voltarTela()">Cancelar</button>`}
+        ${obrigatoria || !mostrarCancelar ? "" : `<button class="btn ghost" onclick="voltarTela()">Cancelar</button>`}
       </div>
     </div>
+  `;
+}
+
+function renderConfiguracaoPinAcoesSensiveis() {
+  return `
+    <div class="form-grid security-pin-fields">
+      ${pinAcoesSensiveisAtivo() ? `
+      <label class="field security-pin-current">
+        <span>PIN atual</span>
+        <input id="sensitiveActionPinCurrentConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="current-password" placeholder="Digite o PIN atual">
+      </label>` : ""}
+      <label class="field">
+        <span>${pinAcoesSensiveisAtivo() ? "Novo PIN" : "Criar PIN"}</span>
+        <input id="sensitiveActionPinConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="new-password" placeholder="Mínimo de 4 dígitos">
+      </label>
+      <label class="field">
+        <span>${pinAcoesSensiveisAtivo() ? "Repetir novo PIN" : "Confirmar PIN"}</span>
+        <input id="sensitiveActionPinConfirmConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="new-password" placeholder="Repita o PIN">
+      </label>
+    </div>
+    <div class="actions security-card-actions">
+      <button class="btn" type="button" onclick="salvarPinAcoesSensiveis()">${pinAcoesSensiveisAtivo() ? "Atualizar PIN" : "Ativar PIN"}</button>
+      ${pinAcoesSensiveisAtivo() ? `<button class="btn danger" type="button" onclick="removerPinAcoesSensiveis()">Remover PIN</button>` : ""}
+    </div>
+    ${pinAcoesSensiveisAtivo() ? "" : `<p class="muted security-status-note">O PIN será usado somente para confirmar alterações importantes. Sua senha de entrada não muda.</p>`}
   `;
 }
 
@@ -26186,7 +26461,7 @@ function renderSeguranca() {
 
       <div class="danger-zone">
         <h2 class="section-title">Alterar senha</h2>
-        ${renderFormularioAlterarSenha(false)}
+        ${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}
       </div>
 
       <div class="danger-zone">
@@ -26204,22 +26479,7 @@ function renderSeguranca() {
 
       <div class="danger-zone">
         <h2 class="section-title">PIN para alterações importantes</h2>
-        <p class="muted">No computador, use um PIN numérico curto para autorizar edições protegidas do ERP e da loja. A senha da conta continua igual e ainda é usada para entrar no aplicativo.</p>
-        <div class="form-grid">
-          <label class="field">
-            <span>${pinAcoesSensiveisAtivo() ? "Novo PIN" : "Criar PIN"}</span>
-            <input id="sensitiveActionPinConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="new-password" placeholder="Mínimo de 4 dígitos">
-          </label>
-          <label class="field">
-            <span>Confirmar PIN</span>
-            <input id="sensitiveActionPinConfirmConfig" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="12" autocomplete="new-password" placeholder="Repita o PIN">
-          </label>
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="salvarPinAcoesSensiveis()">${pinAcoesSensiveisAtivo() ? "Alterar PIN" : "Ativar PIN"}</button>
-          ${pinAcoesSensiveisAtivo() ? `<button class="btn ghost" onclick="removerPinAcoesSensiveis()">Remover PIN</button>` : ""}
-        </div>
-        <p class="muted">${pinAcoesSensiveisAtivo() ? "PIN ativo para esta conta." : "PIN ainda não configurado."} Para criar, trocar ou remover o PIN, o sistema exige a senha da conta ou a confirmação nativa do aparelho.</p>
+        ${renderConfiguracaoPinAcoesSensiveis()}
       </div>
 
       <div class="danger-zone">
@@ -33392,6 +33652,10 @@ async function sincronizarSupabase() {
     renderizarStatusSyncSeVisivel();
     return;
   }
+  if (nova === atual) {
+    alert("A nova senha deve ser diferente da senha atual.");
+    return;
+  }
 
   const telasCarregando = ["dashboard", "pedidos", "clientes", "estoque", "relatorios", "loja", "produtos"];
   telasCarregando.forEach((tela) => window.SmartLoader?.setScreenLoading?.(tela, true));
@@ -34974,8 +35238,12 @@ async function requestSensitiveActionConfirmation({
       allowPasswordFallback: true,
       invalidMessage: "PIN incorreto. Alteração não autorizada.",
       validatePassword: async (pinDigitado) => {
-        const ok = await validarPinAcoesSensiveis(pinDigitado);
-        if (ok) return { ok: true };
+        try {
+          const ok = await validarPinAcoesSensiveis(pinDigitado);
+          if (ok) return { ok: true };
+        } catch (erro) {
+          return { ok: false, message: erro.message || "PIN temporariamente bloqueado." };
+        }
         registrarAuditoria("pin_admin_falhou", { action: acao });
         registrarSeguranca("pin_admin_falhou", "erro", acao);
         return { ok: false, message: "PIN incorreto. Confira e tente novamente." };
@@ -36434,7 +36702,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
             </div>
             <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
               <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-              <input placeholder="Buscar pedido..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+              <input data-preserve-focus-key="pedidos-busca" value="${escaparAttr(String(window.__pedidosBusca || ""))}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
             </label>
           </div>
         ${(filtroDashboard || filtroCliente) ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroCliente ? escaparHtml(filtroCliente) : filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; window.__pedidosFiltroCliente=''; renderApp()">Ver todos</button></div>` : ""}

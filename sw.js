@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v183-perceived-performance-android-20260621";
+const CACHE_NAME = "simplifica-3d-v184-security-mobile-release-20260622";
 const APP_FILES = [
   "./",
   "./index.html",
