@@ -5,7 +5,7 @@ const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8")
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
 ["abrirNovoProdutoGuiadoLoja()", "abrirNovaCategoriaGuiadaLoja()", "openStorefrontGuidedCatalogItem", "setStorefrontGuidedProductStep", "voltarFormularioGuiadoProdutoLoja()", "salvarProdutoLojaOnline(event)", "salvarCategoriaLojaOnline(event)", "salvarStorefrontAparencia(event)", "salvarStorefrontContatos(event)", "abrirChecklistGuiadoLoja()"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Acao/rota V3 ausente: ${marker}`));
-["sfe-sidebar-actions", "voltarPainelLojaVisual()", "salvarEdicaoVisualAtualLoja()", "abrirLojaPublicaOnline()", "alternarStatusLojaOnline()"].forEach((marker) => assert(renderer.includes(marker), `Ação lateral PWA ausente: ${marker}`));
+["sfe-sidebar-actions", "voltarPainelLojaVisual(event)", "salvarEdicaoVisualAtualLoja()", "abrirLojaPublicaOnline()", "alternarStatusLojaOnline()"].forEach((marker) => assert(renderer.includes(marker), `Ação lateral PWA ausente: ${marker}`));
 ["abrirSeletorImagemStorefront", "storefrontLogoPhoto", "storefrontBannerPhoto", "data-storefront-product-photo", "data-replace-image"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Controle de troca de imagem ausente: ${marker}`));
 ["WhatsApp da loja", "abrirContatosProdutoLoja()", "sfe-contact-shortcut"].forEach((marker) => assert(renderer.includes(marker), `Atalho de WhatsApp no produto ausente: ${marker}`));
 assert(app.includes('function abrirContatosProdutoLoja()'), "Atalho de WhatsApp deve preservar alteracoes nao salvas");

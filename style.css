@@ -6008,13 +6008,34 @@ body.auth-screen-active #app{
 }
 
 .ui-section-chevron{
+  width:28px;
+  height:28px;
+  display:grid;
+  place-items:center;
+  flex:0 0 28px;
   color:var(--muted);
-  font-size:20px;
-  transition:transform .22s var(--ease);
+  font-size:0;
+  border:1px solid color-mix(in srgb, var(--line) 82%, var(--primary) 18%);
+  border-radius:9px;
+  background:color-mix(in srgb, var(--surface) 86%, var(--primary) 14%);
+  transition:color .18s var(--ease),border-color .18s var(--ease),background .18s var(--ease);
+}
+
+.ui-section-chevron::before{
+  content:"+";
+  font-size:18px;
+  font-weight:800;
+  line-height:1;
 }
 
 .ui-section[open] .ui-section-chevron{
-  transform:rotate(180deg);
+  color:var(--primary-strong);
+  border-color:color-mix(in srgb, var(--primary) 42%, var(--line));
+  background:color-mix(in srgb, var(--primary) 14%, var(--surface));
+}
+
+.ui-section[open] .ui-section-chevron::before{
+  content:"−";
 }
 
 .ui-section-body{

@@ -17,7 +17,7 @@ function assert(condition, message) {
   "Próximo",
   "Publicar",
   'class="sfe-mobile-actions"',
-  "voltarPainelLojaVisual()",
+  "voltarPainelLojaVisual(event)",
   "salvarEdicaoVisualAtualLoja()",
   "abrirLojaPublicaOnline()",
   'id="storefrontProductForm"',
@@ -48,6 +48,8 @@ function assert(condition, message) {
 
 assert(components.includes(".storefront-editor :where(button,.store-ui-button,.btn)"), "Botões do editor não usam o componente-base");
 assert(app.includes("function alinharSelecaoLojaVisual"), "Alinhamento contextual da edição ausente");
+assert(editor.includes('event.preventDefault();event.stopPropagation();'), "Voltar do editor deve impedir clique atravessando para a prévia");
+assert(!editor.includes(">‹</button>"), "Editor ainda usa seta textual fora do padrão");
 assert(!editor.includes("store-product-mobile-actions"), "Classe visual V2 não deve retornar ao editor V3");
 
 console.log("Storefront mobile actions: editor V3, galeria, carrinho, navegação e safe area validados.");

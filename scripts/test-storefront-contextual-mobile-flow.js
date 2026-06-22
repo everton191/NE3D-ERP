@@ -66,11 +66,13 @@ assert(app.includes("if (fecharPainelGuiadoLojaPorHistorico()) return;"), "Popst
 
 const closePanel = extractFunction("fecharPainelEdicaoGuiadaLoja");
 assert(closePanel.includes("panelOpen: false"), "Fechar painel deve apenas fechar o contexto interno");
+assert(closePanel.includes('selection: { type: "overview"'), "Fechar painel deve neutralizar a seleção para evitar reabertura por clique atravessado");
 assert(closePanel.includes("syncHistory: options.syncHistory !== false"), "Fechar painel deve permitir origem historico sem loop");
 assert(!closePanel.includes('trocarTela("lojaOnline"'), "Fechar painel nao deve voltar para resumo da loja");
 
 const backPanel = extractFunction("voltarPainelLojaVisual");
 assert(backPanel.includes("isStorefrontContextualEditorRoute() && storefrontGuidedPanelOpen"), "Voltar deve fechar primeiro o painel contextual aberto");
+assert(backPanel.includes("event?.stopPropagation?.()"), "Voltar deve bloquear propagacao para a vitrine clicavel");
 assert(backPanel.includes("fecharPainelEdicaoGuiadaLoja();"), "Voltar interno deve reaproveitar fechamento seguro do painel");
 assert(backPanel.includes('trocarTela("lojaOnline")'), "Voltar sem contexto ainda pode retornar ao resumo da loja");
 

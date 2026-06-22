@@ -187,6 +187,7 @@ body:has(.sfv3-host) #app-content{
 .storefront-guided-editing-target{position:relative;border-color:color-mix(in srgb,var(--store-success) 58%,var(--store-border))!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--store-success) 32%,transparent),0 18px 42px color-mix(in srgb,var(--store-success) 22%,transparent)!important}
 .storefront-guided-editing-target::after{content:attr(data-store-editing-label);position:absolute;top:10px;right:10px;z-index:8;padding:5px 8px;color:#fff;background:var(--store-success);border-radius:999px;font-size:10px;font-weight:900;text-transform:uppercase;pointer-events:none}
 .sfe-header button svg,.sfe-tabs button svg,.sfe-actions button svg{width:var(--store-icon-size-sm);height:var(--store-icon-size-sm);flex:none}
+.sfe-header .sfe-header-back,.sfe-header .sfe-header-more{width:40px;min-width:40px;height:40px;min-height:40px;border-radius:var(--store-radius-sm)}
 .sfe-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));overflow:hidden;border-bottom:1px solid var(--store-border)}
 .sfe-tabs button{min-width:0;min-height:40px;padding:4px;color:var(--store-text-muted);background:transparent;border:0;border-bottom:2px solid transparent;border-radius:0;font-size:10px;line-height:1.2;white-space:normal}
 .sfe-tabs button.active{color:var(--store-primary);border-bottom-color:var(--store-primary)}
@@ -203,7 +204,7 @@ body:has(.sfv3-host) #app-content{
 .sfe-actions{position:sticky;bottom:0;z-index:35;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px var(--store-space-3) calc(8px + var(--app-safe-bottom,0px));background:var(--store-surface);border-top:1px solid var(--store-border)}
 .sfe-actions--two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .sfe-actions button{min-height:38px!important;padding:0 var(--store-space-2)!important;font-size:var(--store-font-xs)!important;line-height:1.2}
-.sfe-actions .sfe-action-back{color:var(--store-text-muted);background:transparent;border-color:transparent}
+.sfe-actions .sfe-action-back{display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--store-primary);background:var(--store-surface);border-color:var(--store-border)}
 .sfe-actions .store-ui-button--secondary{color:var(--store-primary);background:var(--store-primary-soft);border-color:transparent}
 .sfe-actions .sfe-action-primary{box-shadow:0 3px 8px color-mix(in srgb,var(--store-primary) 22%,transparent)}
 .sfe-image-editor{padding:var(--store-space-3)}

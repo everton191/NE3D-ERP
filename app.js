@@ -18828,7 +18828,10 @@ function manterCampoEditorGuiadoVisivel(event) {
 
 function fecharPainelEdicaoGuiadaLoja(options = {}) {
   solicitarNavegacaoSeguraLoja(() => {
-    setStorefrontContextualEditorState({ selection: getStorefrontGuidedSelection(), panelOpen: false }, {
+    setStorefrontContextualEditorState({
+      selection: { type: "overview", id: "", entityType: "store", entityId: "", targetSection: "", targetField: "" },
+      panelOpen: false
+    }, {
       flushAutosave: false,
       syncHistory: options.syncHistory !== false
     });
@@ -18836,7 +18839,9 @@ function fecharPainelEdicaoGuiadaLoja(options = {}) {
   });
 }
 
-function voltarPainelLojaVisual() {
+function voltarPainelLojaVisual(event = null) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
   if (isStorefrontContextualEditorRoute() && storefrontGuidedPanelOpen) {
     fecharPainelEdicaoGuiadaLoja();
     return;
