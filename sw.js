@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v181-mobile-auth-audit-20260621";
+const CACHE_NAME = "simplifica-3d-v183-perceived-performance-android-20260621";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ const APP_FILES = [
   "./app.js",
   "./src/services/errorTelemetry.js",
   "./src/services/diagnosticsService.js",
+  "./src/services/smartLoaderService.js",
   "./src/services/safeAreaManager.js",
   "./src/services/themeAuthorityV2.js",
   "./src/services/adMobService.js",
@@ -83,6 +84,7 @@ self.addEventListener("fetch", (event) => {
     "/sw.js",
     "/src/services/themeAuthorityV2.js",
     "/src/services/safeAreaManager.js",
+    "/src/services/smartLoaderService.js",
     "/assets/intro.mp4"
   ].includes(url.pathname);
 

@@ -111,6 +111,7 @@
     "test:ui-overflow": "node scripts/test-ui-overflow.js",
     "test:ui-theme-consistency": "node scripts/test-ui-theme-consistency.js",
     "test:mobile-visual-stability": "node scripts/test-mobile-visual-stability.js",
+    "test:perceived-performance": "node scripts/test-perceived-performance.js",
     "test:storefront-visual-balance": "node scripts/test-storefront-visual-balance.js",
     "test:storefront-desktop-upscale": "node scripts/test-storefront-desktop-upscale.js",
     "test:admin-beta-access": "node scripts/test-admin-beta-access.js",

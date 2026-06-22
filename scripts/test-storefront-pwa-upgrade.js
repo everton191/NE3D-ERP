@@ -9,13 +9,13 @@ const adSense = fs.readFileSync("src/services/adSenseService.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
 const required = [
-  "simplifica-3d-v181-mobile-auth-audit-20260621",
+  "simplifica-3d-v183-perceived-performance-android-20260621",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.41-rc\"",
-  "versionCode 40",
-  "APP_VERSION = \"1.0.41-rc\"",
-  "APP_VERSION_CODE = 40",
+  "versionName \"1.0.42-rc\"",
+  "versionCode 41",
+  "APP_VERSION = \"1.0.42-rc\"",
+  "APP_VERSION_CODE = 41",
   "\"@capacitor/app\"",
   "web-ad-banner-visible",
   "body.web-ad-banner-visible #app-content"

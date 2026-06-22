@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.41-rc\"",
-  "APP_VERSION_CODE = 40",
-  "simplifica-3d-v181-mobile-auth-audit-20260621",
-  "versionName \"1.0.41-rc\"",
-  "versionCode 40",
-  "\"version\": \"1.0.41-rc\"",
-  "\"versionCode\": 40"
+  "APP_VERSION = \"1.0.42-rc\"",
+  "APP_VERSION_CODE = 41",
+  "simplifica-3d-v183-perceived-performance-android-20260621",
+  "versionName \"1.0.42-rc\"",
+  "versionCode 41",
+  "\"version\": \"1.0.42-rc\"",
+  "\"versionCode\": 41"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

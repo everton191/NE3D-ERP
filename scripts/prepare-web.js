@@ -32,6 +32,7 @@ if (fs.existsSync(path.join(root, "assets"))) {
 const publicSrcFiles = [
   "src/services/errorTelemetry.js",
   "src/services/diagnosticsService.js",
+  "src/services/smartLoaderService.js",
   "src/services/safeAreaManager.js",
   "src/services/themeAuthorityV2.js",
   "src/services/googleMotionEnhancer.js",

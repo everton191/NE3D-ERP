@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.41-rc";
-const APP_VERSION_CODE = 40;
+const APP_VERSION = "1.0.42-rc";
+const APP_VERSION_CODE = 41;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -15760,6 +15760,14 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", a
   const store = storefrontAdminRequireRemoteStore();
   const blob = await compressStorefrontImage(file, tipo);
   validarArquivoStorefrontImagem(blob, tipo);
+  const operacaoUX = iniciarOperacaoUX({
+    name: "upload-storefront-image",
+    title: "Enviando imagem",
+    message: "Preparando arquivo otimizado...",
+    context: `loja:${tipo}`,
+    steps: ["Preparando imagem", "Enviando arquivo", "Confirmando endereço público"],
+    progress: 15
+  });
   const base = normalizarUrlSupabase();
   const owner = segmentoStorageSeguro(storefrontAdminCurrentOwnerId(), "owner");
   const storeId = segmentoStorageSeguro(store.id, "store");
@@ -15780,14 +15788,28 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", a
     size: blob.size,
     mime: blob.type || file.type || ""
   });
-  const resposta = await fetch(`${base}/storage/v1/object/storefront-assets/${path}`, {
-    method: "POST",
-    headers: cabecalhosSupabase(true, {
-      "Content-Type": blob.type || "image/webp",
-      "x-upsert": assetKey ? "true" : "false"
-    }),
-    body: blob
+  atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Enviando imagem para a loja...", progress: 30 });
+  atualizarUploadOperacaoUX(operacaoUX, {
+    current: 1,
+    total: 1,
+    loaded: 0,
+    totalBytes: blob.size,
+    label: "Enviando imagem 1 de 1"
   });
+  let resposta;
+  try {
+    resposta = await fetch(`${base}/storage/v1/object/storefront-assets/${path}`, {
+      method: "POST",
+      headers: cabecalhosSupabase(true, {
+        "Content-Type": blob.type || "image/webp",
+        "x-upsert": assetKey ? "true" : "false"
+      }),
+      body: blob
+    });
+  } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao enviar");
+    throw error;
+  }
   if (!resposta.ok) {
     const text = await resposta.text().catch(() => "");
     registrarStorefrontDebugLeve("upload_falhou", "Falha ao enviar imagem da Loja Online.", {
@@ -15798,8 +15820,18 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", a
       store_id: store.id,
       response: text.slice(0, 600)
     });
+    falharOperacaoUX(operacaoUX, text || "Falha no upload", "Erro ao enviar");
     throw new Error(text || "Erro ao enviar imagem. Tente novamente.");
   }
+  atualizarUploadOperacaoUX(operacaoUX, {
+    current: 1,
+    total: 1,
+    loaded: blob.size,
+    totalBytes: blob.size,
+    progress: 100,
+    label: "Imagem enviada"
+  });
+  atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Imagem disponível na loja.", progress: 100 });
   const url = `${base}/storage/v1/object/public/storefront-assets/${path}`;
   registrarStorefrontDebugLeve("upload_concluido", "Upload Storefront concluído.", {
     bucket: "storefront-assets",
@@ -15807,6 +15839,7 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", a
     tipo,
     url
   });
+  concluirOperacaoUX(operacaoUX, "Imagem enviada");
   return url;
 }
 
@@ -16041,6 +16074,7 @@ async function salvarStorefrontAparencia(event) {
   if (!form) return;
   if (!storefrontBeginOperation("storefront-appearance-save")) return;
   const botao = form.querySelector("button[type='submit']");
+  let operacaoUX = "";
   try {
     const store = getStorefrontAdminStoreLocal();
     const name = validarTextoVisualLoja(form.storeName ? form.storeName.value : store.name, 50, "nome");
@@ -16081,10 +16115,20 @@ async function salvarStorefrontAparencia(event) {
       exigirConfirmacaoVisual: true
     })) return;
     setBotaoLoading(botao, true, "Salvando...");
+    operacaoUX = iniciarOperacaoUX({
+      name: "save-storefront-settings",
+      title: "Salvando loja",
+      message: "Validando identidade e contatos...",
+      context: "loja-aparencia",
+      steps: ["Validando dados", "Salvando configurações", "Atualizando loja", "Finalizando"],
+      progress: 15
+    });
     storefrontAdminSaveStore(next);
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Salvando configurações...", progress: 45 });
     let syncPending = false;
     if (storefrontAdminRemoteReady()) {
       try {
+        atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Atualizando loja online...", progress: 70 });
         await storefrontAdminPersistStoreRemote(next);
       } catch (syncError) {
         syncPending = true;
@@ -16100,9 +16144,12 @@ async function salvarStorefrontAparencia(event) {
     registrarStorefrontActivity("Aparência atualizada", "Nome, cores, links ou imagens da loja foram salvos.");
     if (syncPending) confirmarStorefrontSalvamentoLocal("Aparência salva neste aparelho.");
     else mostrarToast("Aparência da loja salva.", "sucesso", 3200);
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Configurações salvas.", progress: 100 });
+    concluirOperacaoUX(operacaoUX, "Loja salva");
     renderApp();
     concluirNavegacaoPendenteLoja();
   } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
     mostrarToast(error?.message || "Não foi possível salvar a aparência.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar aparência da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar aparência", error);
@@ -16114,6 +16161,7 @@ async function salvarStorefrontAparencia(event) {
 
 async function alternarStatusLojaOnline() {
   if (!storefrontBeginOperation("storefront-status-save")) return;
+  let operacaoUX = "";
   try {
   const store = getStorefrontAdminStoreLocal();
   if (!store.active && !exigirChecklistPublicacaoLoja({ intent: "publicar" })) return;
@@ -16128,11 +16176,28 @@ async function alternarStatusLojaOnline() {
     perigo: store.active,
     exigirConfirmacaoVisual: true
   })) return;
+  operacaoUX = iniciarOperacaoUX({
+    name: "storefront-publish",
+    title: store.active ? "Atualizando publicação" : "Publicando loja",
+    message: "Validando informações da loja...",
+    context: "loja-online",
+    steps: [
+      "Validando logo e banner",
+      "Validando contatos",
+      "Validando produtos",
+      "Atualizando catálogo",
+      "Finalizando"
+    ],
+    progress: 10
+  });
+  atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Validando contatos...", progress: 25 });
   const next = { ...store, active: !store.active };
   storefrontAdminSaveStore(next);
+  atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Validando produtos...", progress: 45 });
   let syncPending = false;
   try {
     if (storefrontAdminRemoteReady()) {
+      atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Atualizando catálogo online...", progress: 65 });
       await storefrontAdminPersistStoreRemote(next);
     } else {
       syncPending = true;
@@ -16156,8 +16221,14 @@ async function alternarStatusLojaOnline() {
     confirmarStorefrontSalvamentoLocal(next.active ? "Solicitação de publicação salva neste aparelho." : "Alteração de status salva neste aparelho.");
     registrarStorefrontDebugLeve("save_falhou", "Falha ao sincronizar status da loja.", { message: error?.message || String(error) });
   }
+  atualizarOperacaoUX(operacaoUX, { stepIndex: 4, message: "Finalizando publicação...", progress: 100 });
   renderApp();
+  } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Não foi possível concluir");
+    mostrarToast("Não foi possível atualizar a publicação agora.", "erro", 4200);
+    registrarStorefrontDebugLeve("save_falhou", "Falha inesperada ao atualizar publicação.", { message: error?.message || String(error) });
   } finally {
+    concluirOperacaoUX(operacaoUX, "Loja atualizada");
     storefrontEndOperation("storefront-status-save");
   }
 }
@@ -16457,6 +16528,7 @@ async function salvarProdutoLojaOnline(event) {
   const store = getStorefrontAdminStoreLocal();
   const products = getStorefrontAdminProductsLocal();
   let shouldRestoreCatalog = false;
+  let operacaoUX = "";
   if (isStorefrontProductMobileFlow() && !validarTodasEtapasProdutoLojaOnline(form)) return;
   if (!storefrontBeginOperation("storefront-product-save")) return;
   try {
@@ -16513,12 +16585,22 @@ async function salvarProdutoLojaOnline(event) {
       exigirConfirmacaoVisual: true
     })) return;
     setBotaoLoading(botao, true, "Salvando...");
+    operacaoUX = iniciarOperacaoUX({
+      name: "save-storefront-product",
+      title: "Salvando produto",
+      message: "Validando informações...",
+      context: "loja-produtos",
+      steps: ["Validando dados", "Salvando produto", "Atualizando catálogo", "Finalizando"],
+      progress: 15
+    });
     let next = id ? products.map((product) => product.id === id ? { ...product, ...nextProduct } : product) : [...products, nextProduct];
     storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Salvando produto...", progress: 40 });
     let syncPending = false;
     if (storefrontAdminRemoteReady()) {
       try {
         storefrontAdminRequireRemoteStore();
+        atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Atualizando catálogo online...", progress: 70 });
         nextProduct = await storefrontAdminUpsertProduct(nextProduct);
         next = id ? next.map((product) => String(product.id) === String(id) ? { ...product, ...nextProduct } : product) : next.map((product) => String(product.id) === String(nextProduct.id) || String(product.slug) === String(nextProduct.slug) ? { ...product, ...nextProduct } : product);
         storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.products, next);
@@ -16546,10 +16628,13 @@ async function salvarProdutoLojaOnline(event) {
     registrarStorefrontActivity(id ? "Produto atualizado" : "Produto criado", nextProduct.title);
     if (syncPending) confirmarStorefrontSalvamentoLocal("Produto salvo neste aparelho.");
     else mostrarToast(nextProduct.visible ? "Produto publicado na loja." : "Produto salvo como oculto.", "sucesso", 3400);
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Produto salvo.", progress: 100 });
+    concluirOperacaoUX(operacaoUX, "Produto salvo");
     renderApp();
     if (shouldRestoreCatalog) restoreStorefrontGuidedCatalogState("products");
     concluirNavegacaoPendenteLoja();
   } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
     mostrarToast(error?.message || "Não foi possível salvar o produto.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar produto da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar produto", error);
@@ -18758,7 +18843,10 @@ function renderStoreGuidedIdentityForm(vm) { return getStorefrontEditorVisualV3(
 function renderStoreGuidedBannerForm(vm) { return getStorefrontEditorVisualV3().banner(vm); }
 function renderStoreGuidedProductForm(vm, product = {}) { return getStorefrontEditorVisualV3().product(vm, product); }
 function renderStoreGuidedCategoryForm(vm, category = {}) { return getStorefrontEditorVisualV3().category(vm, category); }
-function renderStoreGuidedProductsList(vm) { return getStorefrontEditorVisualV3().products(vm); }
+function renderStoreGuidedProductsList(vm) {
+  if (telaComCarregamentoUX("produtos")) return renderSmartScreenSkeleton("produtos");
+  return getStorefrontEditorVisualV3().products(vm);
+}
 function renderStoreGuidedCategoriesList(vm) { return getStorefrontEditorVisualV3().categories(vm); }
 function renderStoreGuidedContactsForm(vm) { return getStorefrontEditorVisualV3().contacts(vm); }
 function renderStoreGuidedLinks(vm) { return getStorefrontEditorVisualV3().links(vm); }
@@ -19789,6 +19877,7 @@ function getStorefrontStockLabel(product = {}) {
 }
 
 function renderLojaOnlineHub() {
+  if (telaComCarregamentoUX("loja")) return renderSmartScreenSkeleton("loja");
   const vm = getStorefrontAdminViewModel();
   const linkPublico = getStorefrontPublicUrlLocal();
   const novos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
@@ -21493,6 +21582,7 @@ function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
 }
 
 function renderDashboard() {
+  if (telaComCarregamentoUX("dashboard")) return renderSmartScreenSkeleton("dashboard");
   const totaisCaixa = calcularTotaisCaixa();
   const stats = getDashboardStats();
   const plano = getPlanoAtual();
@@ -22138,6 +22228,7 @@ function focarCadastroRapidoEstoque() {
 }
 
 function renderEstoque() {
+  if (telaComCarregamentoUX("estoque")) return renderSmartScreenSkeleton("estoque");
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const materiaisNormalizados = normalizarEstoque();
   const filtroEstoque = getEstoqueFiltroAtivo();
@@ -22267,6 +22358,7 @@ function renderEstoque() {
 }
 
 function renderListaPedidos() {
+  if (telaComCarregamentoUX("pedidos")) return renderSmartScreenSkeleton("pedidos");
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
   const filtroCliente = String(window.__pedidosFiltroCliente || "");
@@ -22659,6 +22751,7 @@ function renderProducao() {
 }
 
 function renderClientes() {
+  if (telaComCarregamentoUX("clientes")) return renderSmartScreenSkeleton("clientes");
   if (isSuperAdmin()) return renderClientesSaas();
   return renderClientesOperacionais();
 }
@@ -24379,6 +24472,7 @@ function exportarResumoRelatorios() {
 }
 
 function renderRelatorios() {
+  if (telaComCarregamentoUX("relatorios")) return renderSmartScreenSkeleton("relatorios");
   if (!planoPermiteRecurso("reports")) {
     return `
       <section class="card">
@@ -30459,9 +30553,45 @@ function podeUsarAdminLocalManutencao() {
   return isAmbienteLocal() && !isAndroid();
 }
 
+function iniciarOperacaoUX(opcoes = {}) {
+  return window.SmartLoader?.start?.(opcoes) || "";
+}
+
+function atualizarOperacaoUX(id, atualizacao = {}) {
+  if (id) window.SmartLoader?.update?.(id, atualizacao);
+}
+
+function atualizarUploadOperacaoUX(id, atualizacao = {}) {
+  if (id) window.SmartLoader?.updateUpload?.(id, atualizacao);
+}
+
+function concluirOperacaoUX(id, mensagem = "") {
+  if (id) window.SmartLoader?.success?.(id, mensagem);
+}
+
+function falharOperacaoUX(id, erro, mensagem = "") {
+  if (id) window.SmartLoader?.error?.(id, erro, mensagem);
+}
+
+function renderSmartScreenSkeleton(tela = "dashboard") {
+  return window.SmartLoader?.skeleton?.(tela) || `
+    <section class="card" aria-busy="true">
+      <p class="muted">Carregando dados...</p>
+    </section>
+  `;
+}
+
+function telaComCarregamentoUX(tela = "") {
+  return window.SmartLoader?.isScreenLoading?.(tela) === true;
+}
+
 function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...") {
   const botao = typeof idOuBotao === "string" ? document.getElementById(idOuBotao) : idOuBotao;
   if (!botao) return;
+  if (window.SmartLoader?.setButtonState) {
+    window.SmartLoader.setButtonState(botao, carregando ? "loading" : "idle", textoCarregando);
+    return;
+  }
   if (carregando) {
     if (!botao.dataset.textoOriginal) botao.dataset.textoOriginal = botao.textContent;
     botao.textContent = textoCarregando;
@@ -30472,6 +30602,22 @@ function setBotaoLoading(idOuBotao, carregando, textoCarregando = "Entrando...")
     botao.disabled = false;
   }
 }
+
+window.addEventListener("smartloader:performance", (event) => {
+  const detail = event?.detail || {};
+  const elapsed = Math.max(0, Number(detail.elapsedMs || 0));
+  const tipo = detail.level === "error" ? "Performance crítica" : "Performance";
+  registrarDiagnostico(
+    tipo,
+    `${detail.message || "Operação lenta"}: ${detail.name || "operação"}`,
+    JSON.stringify({
+      contexto: detail.context || "",
+      duracao_ms: elapsed,
+      limite_ms: Number(detail.thresholdMs || 0)
+    }),
+    { silent: true }
+  );
+});
 
 function normalizarTipoToast(tipo = "info") {
   const valor = String(tipo || "info").toLowerCase();
@@ -30640,8 +30786,18 @@ async function cadastrarClienteSaas() {
   }
 
   setBotaoLoading("signupBtn", true, "Criando...");
+  const operacaoUX = iniciarOperacaoUX({
+    name: "signup",
+    title: "Criando sua conta",
+    message: "Validando dados...",
+    context: "cadastro",
+    steps: ["Validando dados", "Criando conta", "Preparando acesso", "Finalizando"],
+    progress: 15
+  });
   try {
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Criando conta com segurança...", progress: 40 });
     const local = await AuthService.signupSaas({ nome, email, senha, negocio, telefone });
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Preparando seu acesso...", progress: 75 });
     salvarDados();
     registrarHistorico("Conta", "Conta SaaS criada: " + email);
     registrarSeguranca("Criação usuário", "sucesso", "Cadastro inicial", email);
@@ -30655,8 +30811,11 @@ async function cadastrarClienteSaas() {
       "sucesso",
       6500
     );
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Conta pronta.", progress: 100 });
+    concluirOperacaoUX(operacaoUX, "Conta criada");
     concluirLoginUsuario(local.usuario);
   } catch (erro) {
+    falharOperacaoUX(operacaoUX, erro, "Erro ao criar conta");
     ErrorService.notify(erro, { area: "Autenticação", action: "Cadastro SaaS", userMessage: "Não foi possível criar a conta." });
   } finally {
     setBotaoLoading("signupBtn", false);
@@ -30681,19 +30840,34 @@ async function loginUsuario() {
   if (loginEstaBloqueado(email)) return;
 
   setBotaoLoading("loginUsuarioBtn", true);
+  const operacaoUX = iniciarOperacaoUX({
+    name: "login",
+    title: "Entrando",
+    message: "Validando seus dados...",
+    context: "login",
+    steps: ["Validando dados", "Confirmando acesso", "Carregando ambiente", "Finalizando"],
+    progress: 15
+  });
   try {
     const { usuario, source } = await AuthService.login(email, senha);
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Acesso confirmado.", progress: 50 });
     if (source === "supabase") mostrarToast("Login conectado ao Supabase.", "sucesso");
 
     if (precisa2FA(usuario)) {
+      atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Preparando verificação adicional...", progress: 85 });
+      concluirOperacaoUX(operacaoUX, "Verificação necessária");
       iniciarVerificacao2FA("usuario", usuario);
       return;
     }
 
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Carregando seu ambiente...", progress: 80 });
     limparFalhasLogin(email);
     oferecerSalvarCredencialNavegador(email, senha);
     concluirLoginUsuario(usuario);
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Acesso concluído.", progress: 100 });
+    concluirOperacaoUX(operacaoUX, "Acesso liberado");
   } catch (erro) {
+    falharOperacaoUX(operacaoUX, erro, "Erro ao entrar");
     ErrorService.notify(erro, { area: "Autenticação", action: "Login", userMessage: "Usuário ou senha inválidos." });
   } finally {
     setBotaoLoading("loginUsuarioBtn", false);
@@ -33219,6 +33393,23 @@ async function sincronizarSupabase() {
     return;
   }
 
+  const telasCarregando = ["dashboard", "pedidos", "clientes", "estoque", "relatorios", "loja", "produtos"];
+  telasCarregando.forEach((tela) => window.SmartLoader?.setScreenLoading?.(tela, true));
+  const operacaoUX = iniciarOperacaoUX({
+    name: "supabase-sync",
+    title: "Sincronizando dados",
+    message: "Validando sua conta...",
+    context: telaAtual || "erp",
+    steps: [
+      "Validando conta",
+      "Enviando alterações",
+      "Atualizando dados",
+      "Conferindo pendências",
+      "Finalizando"
+    ],
+    progress: 5
+  });
+  renderizarPreservandoScroll();
   try {
     syncConfig.autoBackupStatus = "Sincronizando...";
     salvarDados();
@@ -33226,20 +33417,31 @@ async function sincronizarSupabase() {
     renderizarStatusSyncSeVisivel();
     mostrarToast("Sincronizando...", "info", 1800);
     await salvarPerfilSupabase();
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Enviando alterações locais...", progress: 25 });
     const preDownload = await aplicarBackupRemotoAntesDeUploadSeNecessario("sync-manual");
     await sincronizarFilaOfflinePendente("sync-manual");
-    if (!await salvarBackupSupabase()) return;
+    if (!await salvarBackupSupabase()) {
+      concluirOperacaoUX(operacaoUX, "Sincronização pausada");
+      return;
+    }
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Atualizando dados deste aparelho...", progress: 55 });
     const remoto = preDownload.remoto || await obterBackupSupabase();
     if (remoto) {
       aplicarBackup(remoto, "mesclar");
     }
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Conferindo alterações pendentes...", progress: 75 });
     await sincronizarFilaOfflinePendente("sync-manual-pos-merge");
-    if (!await salvarBackupSupabase()) return;
+    if (!await salvarBackupSupabase()) {
+      concluirOperacaoUX(operacaoUX, "Sincronização pausada");
+      return;
+    }
     marcarSincronizacaoVisual("sync-manual");
     syncConfig.autoBackupStatus = "Sincronizado";
     salvarDados();
     registrarHistorico("Supabase", remoto ? "Dados mesclados e enviados" : "Backup inicial criado");
     atualizarIndicadorSincronizacao("success", "Salvo");
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 4, message: "Sincronização concluída.", progress: 100 });
+    concluirOperacaoUX(operacaoUX, "Dados sincronizados");
     mostrarToast("Dados sincronizados", "sucesso", 2800);
     renderizarStatusSyncSeVisivel();
   } catch (erro) {
@@ -33248,8 +33450,12 @@ async function sincronizarSupabase() {
     console.warn("[Sync/Supabase] Falha ao sincronizar", erro);
     registrarErroAplicacaoSilencioso("SUPABASE_SYNC_FAILED", erro, "Sincronizar Supabase");
     atualizarIndicadorSincronizacao("error", "Offline");
+    falharOperacaoUX(operacaoUX, erro, "Erro ao sincronizar");
     mostrarToast("Erro de conexão", "erro", 5000);
     renderizarStatusSyncSeVisivel();
+  } finally {
+    telasCarregando.forEach((tela) => window.SmartLoader?.setScreenLoading?.(tela, false));
+    renderizarPreservandoScroll();
   }
 }
 
@@ -37161,6 +37367,7 @@ async function salvarPedidoRapidoOperacional(event) {
     return;
   }
   quickOrderSaveLock = true;
+  let operacaoUX = "";
   try {
     sincronizarPedidoRapidoOperacional();
     salvarRascunhoPedidoRapidoLocal({ force: true });
@@ -37179,9 +37386,29 @@ async function salvarPedidoRapidoOperacional(event) {
       focarCampoOperacional("quickItemNome");
       return;
     }
+    operacaoUX = iniciarOperacaoUX({
+      name: "save-order",
+      title: "Salvando pedido",
+      message: "Validando itens e totais...",
+      context: "pedidos",
+      button: event?.submitter || event?.target?.querySelector?.("button[type='submit']"),
+      buttonLoadingText: "Salvando...",
+      buttonSuccessText: "Pedido salvo",
+      buttonErrorText: "Tentar novamente",
+      steps: ["Validando dados", "Salvando pedido", "Atualizando caixa e estoque", "Finalizando"],
+      progress: 15
+    });
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Salvando pedido...", progress: 45 });
     await fecharPedido();
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Atualizando dados relacionados...", progress: 80 });
     if (!pedidoEditando && !itensPedido.length && !clientePedido) fecharPopup();
     else atualizarPedidoRapidoOperacional();
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Pedido salvo.", progress: 100 });
+    concluirOperacaoUX(operacaoUX, "Pedido salvo");
+  } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
+    mostrarToast("Não foi possível salvar o pedido agora.", "erro", 4200);
+    registrarDiagnostico("Pedidos", "Falha ao salvar pedido", error?.message || String(error), { silent: true });
   } finally {
     quickOrderSaveLock = false;
   }
@@ -37261,6 +37488,7 @@ async function salvarCaixaRapidoOperacional(event) {
     return;
   }
   quickCashSaveLock = true;
+  let operacaoUX = "";
   try {
     const tipo = document.getElementById("caixaTipo")?.value || "entrada";
     const valor = numeroMonetarioPedido(document.getElementById("caixaValor")?.value, 0);
@@ -37275,11 +37503,30 @@ async function salvarCaixaRapidoOperacional(event) {
       focarCampoOperacional("caixaDescricao");
       return;
     }
+    operacaoUX = iniciarOperacaoUX({
+      name: "save-cash-entry",
+      title: "Salvando movimento",
+      message: "Validando lançamento do caixa...",
+      context: "caixa",
+      button: event?.submitter || event?.target?.querySelector?.("button[type='submit']"),
+      buttonLoadingText: "Salvando...",
+      buttonSuccessText: "Movimento salvo",
+      buttonErrorText: "Tentar novamente",
+      progress: 30
+    });
     const totalAntes = caixa.length;
     await adicionarMovimentoCaixa();
     if (caixa.length > totalAntes) {
       fecharPopup();
+      atualizarOperacaoUX(operacaoUX, { message: "Movimento registrado.", progress: 100 });
+      concluirOperacaoUX(operacaoUX, "Movimento salvo");
+    } else {
+      concluirOperacaoUX(operacaoUX, "Nenhuma alteração");
     }
+  } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
+    mostrarToast("Não foi possível registrar o movimento agora.", "erro", 4200);
+    registrarDiagnostico("Caixa", "Falha ao salvar movimento", error?.message || String(error), { silent: true });
   } finally {
     quickCashSaveLock = false;
   }
@@ -37337,6 +37584,7 @@ async function salvarEstoqueRapidoOperacional(event) {
     return;
   }
   quickStockSaveLock = true;
+  let operacaoUX = "";
   try {
     const qtd = numeroMonetarioPedido(document.getElementById("matQtd")?.value, 0);
     if (qtd <= 0) {
@@ -37344,12 +37592,31 @@ async function salvarEstoqueRapidoOperacional(event) {
       focarCampoOperacional("matQtd");
       return;
     }
+    operacaoUX = iniciarOperacaoUX({
+      name: "save-inventory",
+      title: "Atualizando estoque",
+      message: "Validando material e quantidade...",
+      context: "estoque",
+      button: event?.submitter || event?.target?.querySelector?.("button[type='submit']"),
+      buttonLoadingText: "Atualizando...",
+      buttonSuccessText: "Estoque atualizado",
+      buttonErrorText: "Tentar novamente",
+      progress: 35
+    });
     const estadoAntes = JSON.stringify(normalizarEstoque());
     await addMaterial();
     if (JSON.stringify(normalizarEstoque()) !== estadoAntes) {
       fecharPopup();
+      atualizarOperacaoUX(operacaoUX, { message: "Estoque atualizado.", progress: 100 });
+      concluirOperacaoUX(operacaoUX, "Estoque atualizado");
       mostrarToast("Estoque atualizado.", "sucesso", 2600);
+    } else {
+      concluirOperacaoUX(operacaoUX, "Nenhuma alteração");
     }
+  } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao atualizar");
+    mostrarToast("Não foi possível atualizar o estoque agora.", "erro", 4200);
+    registrarDiagnostico("Estoque", "Falha ao atualizar estoque", error?.message || String(error), { silent: true });
   } finally {
     quickStockSaveLock = false;
   }
@@ -38076,7 +38343,7 @@ async function gerarPdfCalculadora() {
   if (!ultimoCalculo) calcular();
   const adicionado = await adicionarItem();
   if (!adicionado) return;
-  setTimeout(() => gerarPDF(), 50);
+  return gerarPDF();
 }
 
 function fecharPopup() {
@@ -39112,6 +39379,18 @@ async function gerarPDF(opcoes = {}) {
     return;
   }
 
+  const operacaoUX = iniciarOperacaoUX({
+    name: "generate-pdf",
+    title: deveImprimir ? "Preparando impressão" : "Gerando PDF",
+    message: "Preparando dados...",
+    context: "pedidos",
+    button: opcoes?.button || null,
+    buttonLoadingText: deveImprimir ? "Preparando..." : "Gerando PDF...",
+    buttonSuccessText: deveImprimir ? "Enviado" : "PDF gerado",
+    buttonErrorText: "Tentar novamente",
+    steps: ["Preparando dados", "Montando relatório", "Gerando PDF", deveImprimir ? "Enviando para impressão" : "Finalizando download"],
+    progress: 10
+  });
   const dados = dadosPedidoAtual();
   const { cliente, total } = dados;
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -39127,6 +39406,7 @@ async function gerarPDF(opcoes = {}) {
   window.__simplificaExportandoPdf = true;
   try {
     const marcaPdf = await obterMarcaPdfDataUrl();
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Montando relatório...", progress: 30 });
     const telefoneCliente = formatarTelefonePdf(await obterTelefoneWhatsappPedido(pedidoEditando));
     const emailCliente = dados.email || (pedidoEditando ? emailDoPedido(pedidoEditando) : "");
     const taxaExtraComercial = Math.max(0, Number(pedidoEditando?.taxaExtra || pedidoEditando?.extraFee || 0) || 0);
@@ -39330,14 +39610,28 @@ async function gerarPDF(opcoes = {}) {
       desenharRodapeComercialPdf(doc, { largura, altura, margem, tema, empresa, pagina, totalPaginas });
     }
 
+    atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Gerando arquivo PDF...", progress: 75 });
     const nomeArquivo = nomeArquivoPdfPedido(pedidoId, cliente, agoraPdf);
     registrarHistorico(deveImprimir ? "Impressão" : "PDF", `${tipoDoc} ${numeroDoc} gerado para ${cliente}`);
+    atualizarOperacaoUX(operacaoUX, {
+      stepIndex: 3,
+      message: deveImprimir ? "Enviando para impressão..." : "Finalizando download...",
+      progress: 90
+    });
     const concluiu = deveImprimir
       ? await imprimirOuOferecerPdf(doc, nomeArquivo, `${tipoDoc} ${cliente}`)
       : await salvarOuCompartilharPdf(doc, nomeArquivo, `${tipoDoc} ${cliente}`);
     if (concluiu) {
+      atualizarOperacaoUX(operacaoUX, { message: "Documento concluído.", progress: 100 });
+      concluirOperacaoUX(operacaoUX, deveImprimir ? "Enviado" : "PDF gerado");
       mostrarToast(deveImprimir ? `${tipoDoc} enviado para impressão.` : `${tipoDoc} gerado com visual profissional.`, "sucesso", 3200);
+    } else {
+      falharOperacaoUX(operacaoUX, "Ação não concluída", "Não concluído");
     }
+  } catch (error) {
+    falharOperacaoUX(operacaoUX, error, "Erro ao gerar PDF");
+    mostrarToast("Não foi possível gerar o documento agora.", "erro", 4200);
+    registrarDiagnostico("PDF", "Falha ao gerar documento", error?.message || String(error), { silent: true });
   } finally {
     window.__simplificaExportandoPdf = false;
   }
