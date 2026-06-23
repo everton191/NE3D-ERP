@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v185-category-images-smart-ranking-release-20260622";
+const CACHE_NAME = "simplifica-3d-v186-mobile-render-stability-20260623";
 const APP_FILES = [
   "./",
   "./index.html",

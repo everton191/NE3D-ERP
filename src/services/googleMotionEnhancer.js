@@ -41,9 +41,15 @@
 
   function markReady() {
     doc.documentElement.dataset.gxmMotion = "ready";
-    doc.documentElement.dataset.gxmForceMotion = "on";
+    delete doc.documentElement.dataset.gxmForceMotion;
     doc.body?.classList?.add("gxm-motion-ready");
-    doc.body?.classList?.add("gxm-force-motion");
+    doc.body?.classList?.remove("gxm-force-motion");
+  }
+
+  function shouldAnimateScreen() {
+    if (prefersReducedMotion()) return false;
+    const mobile = doc.body?.classList?.contains("mobile-mode") || global.matchMedia?.("(max-width: 900px)")?.matches;
+    return !mobile || doc.body?.dataset?.motion === "high";
   }
 
   function addRipple(target, event) {
@@ -63,6 +69,7 @@
     if (!node || (!options.force && node.dataset.gxmSeen === "true")) return;
     node.dataset.gxmSeen = "true";
     node.classList.remove("gxm-enter");
+    if (!shouldAnimateScreen()) return;
     void node.offsetWidth;
     node.classList.add("gxm-enter");
     global.setTimeout(() => node.classList.remove("gxm-enter"), 700);
@@ -97,7 +104,7 @@
   }
 
   function triggerScreenSwap() {
-    if (prefersReducedMotion()) return;
+    if (!shouldAnimateScreen()) return;
     const node = getCurrentScreenNode();
     if (!node) return;
     node.classList.remove("gxm-screen-swap");

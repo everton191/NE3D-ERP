@@ -381,6 +381,9 @@ deno_version = 2
 [functions.mercadopago-webhook]
 verify_jwt = false
 
+[functions.message-notification-relay]
+verify_jwt = false
+
 [functions.mercadopago-create-payment]
 verify_jwt = true
 

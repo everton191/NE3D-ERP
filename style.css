@@ -6426,6 +6426,20 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
     gap:10px;
   }
 
+  body.mobile-mode .settings-accordion-list .ui-section[data-accordion-group="aparencia"]:first-child{
+    display:block;
+  }
+
+  body.mobile-mode .settings-accordion-list .ui-section[data-accordion-group="aparencia"][open]{
+    grid-column:1 / -1;
+    width:100%;
+    min-width:0;
+  }
+
+  body.mobile-mode .settings-accordion-list .ui-section[data-accordion-group="aparencia"][open] > .ui-section-body{
+    min-width:0;
+  }
+
   body.mobile-mode .settings-accordion-list .ui-section[data-ui-section="seguranca-conta"]{
     grid-column:1 / -1;
     border:0;
@@ -6619,6 +6633,32 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   }
 }
 
+@media(max-width:900px){
+  body.gxm-motion-ready.mobile-mode:not([data-motion="high"]) :where(
+    #app-content,.app-content-shell,.app-page,.s3d-page,.desktop-main,.desktop-focus,
+    .mobile-home,.mobile-panel,.mobile-panel-content,.storefront-editor,.motion-stagger-item
+  ){
+    animation:none !important;
+    opacity:1 !important;
+    transform:none !important;
+    filter:none !important;
+    will-change:auto !important;
+  }
+
+  body.mobile-mode:not([data-motion="high"]).motion-forward :where(.mobile-home,.mobile-panel,.mobile-panel-content),
+  body.mobile-mode:not([data-motion="high"]).motion-back :where(.mobile-home,.mobile-panel,.mobile-panel-content),
+  body.mobile-mode:not([data-motion="high"]).motion-refresh :where(.mobile-home,.mobile-panel,.mobile-panel-content){
+    animation:mobileStableScreenFade 190ms ease-out both !important;
+    filter:none !important;
+    transform:none;
+  }
+}
+
+@keyframes mobileStableScreenFade{
+  from{opacity:.96}
+  to{opacity:1}
+}
+
 body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
   grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -6654,7 +6694,7 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
 }
 
 .storefront-admin-tabs .tab{
-  border:1px solid var(--border);
+  border:1px solid var(--border-primary);
   background:var(--surface);
   color:var(--text-secondary);
   border-radius:var(--radius-pill);
@@ -6737,7 +6777,7 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
   border-radius:var(--radius-card);
   border:1px solid var(--border);
   overflow:hidden;
-  background:var(--surface-soft);
+  background:var(--surface-2);
 }
 
 .storefront-thumb img{
@@ -9863,6 +9903,33 @@ body[data-ui-profile="web_pwa"] .dashboard-control-center{
   position:relative;
 }
 
+.dashboard-message-button{
+  position:relative;
+  border-radius:50%;
+}
+
+.notification-count.message-count{
+  background:#7c3aed;
+}
+
+.notification-count{
+  position:absolute;
+  top:5px;
+  right:5px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  display:grid;
+  place-items:center;
+  border:2px solid #0b1620;
+  border-radius:999px;
+  color:#fff;
+  background:#ef4444;
+  font-size:10px;
+  font-weight:800;
+  line-height:1;
+}
+
 .notification-dot{
   position:absolute;
   top:10px;
@@ -10897,6 +10964,206 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
 
 .password-confirm-card{
   max-width:420px;
+}
+
+.notification-center{
+  width:min(680px, calc(100vw - 28px));
+  max-height:min(760px, calc(100vh - 32px));
+  overflow:auto;
+}
+
+.notification-center .modal-header{
+  align-items:flex-start;
+}
+
+.notification-center .modal-header h2,
+.notification-center .modal-header p{
+  margin:0;
+}
+
+.notification-center .modal-header p{
+  margin-top:5px;
+}
+
+.notification-center-list{
+  display:grid;
+  gap:10px;
+}
+
+.notification-center-item,
+.message-channel-item{
+  display:grid;
+  grid-template-columns:44px minmax(0, 1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:14px;
+  border:1px solid var(--border-primary);
+  border-radius:16px;
+  background:var(--surface-2);
+}
+
+.notification-center-item.tone-danger{border-color:rgba(239,68,68,.36)}
+.notification-center-item.tone-warning{border-color:rgba(245,158,11,.38)}
+
+.notification-center-icon{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  color:var(--primary);
+  background:color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+.notification-center-icon svg,
+.message-setting-card > span svg{
+  width:22px;
+  height:22px;
+}
+
+.notification-center-item div,
+.message-channel-item div{
+  display:grid;
+  gap:4px;
+  min-width:0;
+}
+
+.notification-center-item small,
+.message-channel-item small,
+.message-channel-item em{
+  color:var(--text-muted);
+  font-size:12px;
+  font-style:normal;
+  overflow-wrap:anywhere;
+}
+
+.notification-center-empty{
+  min-height:190px;
+  display:grid;
+  place-items:center;
+  align-content:center;
+  gap:9px;
+  text-align:center;
+  color:var(--text-muted);
+}
+
+.notification-center-empty svg{width:34px;height:34px;color:var(--primary)}
+
+.message-integration-notice{
+  display:grid;
+  gap:5px;
+  margin:0 0 14px;
+  padding:13px 15px;
+  border:1px solid rgba(245,158,11,.32);
+  border-radius:14px;
+  background:rgba(245,158,11,.08);
+}
+
+.message-integration-notice span{color:var(--text-muted);font-size:13px}
+.message-integration-notice.compact{margin:12px 0}
+
+.system-log-summary{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:8px;
+  margin:12px 0;
+}
+
+.log-filter{
+  display:grid;
+  gap:3px;
+  padding:11px;
+  color:var(--text);
+  border:1px solid var(--border-primary);
+  border-radius:12px;
+  background:var(--surface-2);
+  text-align:left;
+}
+
+.log-filter.active{outline:2px solid color-mix(in srgb, var(--primary) 55%, transparent)}
+.log-filter.log-error strong{color:#ef4444}
+.log-filter.log-pending strong{color:#f59e0b}
+.log-filter.log-success strong{color:#22c55e}
+.log-filter span{color:var(--text-muted);font-size:11px}
+
+.system-log-list{
+  display:grid;
+  gap:8px;
+  max-height:420px;
+  overflow:auto;
+}
+
+.system-log-entry{
+  display:grid;
+  grid-template-columns:5px minmax(0, 1fr);
+  gap:11px;
+  padding:11px 12px;
+  border:1px solid var(--border-primary);
+  border-radius:12px;
+  background:var(--surface-2);
+}
+
+.system-log-marker{border-radius:999px;background:#64748b}
+.system-log-entry.log-error .system-log-marker{background:#ef4444}
+.system-log-entry.log-pending .system-log-marker{background:#f59e0b}
+.system-log-entry.log-success .system-log-marker{background:#22c55e}
+.system-log-entry div{display:grid;gap:4px;min-width:0}
+.system-log-entry small,.system-log-entry p{margin:0;color:var(--text-muted);font-size:11px;overflow-wrap:anywhere}
+
+.message-settings-grid{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:10px;
+}
+
+.message-setting-card{
+  display:grid;
+  grid-template-columns:38px minmax(0, 1fr);
+  gap:9px;
+  align-items:center;
+  padding:12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:var(--surface-soft);
+}
+
+.message-setting-card > span{width:36px;height:36px;display:grid;place-items:center;color:var(--primary)}
+.message-setting-card div{display:grid;gap:2px}
+.message-setting-card small,.message-setting-card em{color:var(--text-muted);font-size:11px;font-style:normal}
+.message-setting-card em{grid-column:1 / -1}
+
+.message-relay-channels{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:8px;
+  margin:12px 0;
+}
+
+.message-relay-channels .checkbox-row{
+  margin:0;
+  padding:10px 12px;
+  border:1px solid var(--border-primary);
+  border-radius:12px;
+  background:var(--surface-2);
+}
+
+.message-notification-item .btn{
+  min-width:96px;
+}
+
+.settings-suggestion-list{display:grid;gap:8px;margin:12px 0}
+.settings-suggestion-list > div{display:flex;justify-content:space-between;gap:12px;padding:11px 12px;border:1px solid var(--border-primary);border-radius:12px;background:var(--surface-2)}
+.settings-suggestion-list span{color:var(--text-muted);font-size:12px}
+
+@media (max-width:720px){
+  .dashboard-header-actions{gap:5px}
+  .dashboard-message-button,
+  .dashboard-notification-button{width:42px!important;min-width:42px!important;height:42px!important;min-height:42px!important}
+  .notification-center-item,.message-channel-item{grid-template-columns:40px minmax(0, 1fr)}
+  .notification-center-item .btn,.message-channel-item .status-badge{grid-column:2;width:max-content;max-width:100%}
+  .system-log-summary{grid-template-columns:repeat(2, minmax(0, 1fr))}
+  .message-settings-grid{grid-template-columns:1fr}
+  .message-relay-channels{grid-template-columns:1fr}
 }
 
 .password-confirm-card .actions{

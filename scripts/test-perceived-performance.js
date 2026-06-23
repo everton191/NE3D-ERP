@@ -50,7 +50,7 @@ assert(index.indexOf("smartLoaderService.js") < index.indexOf("app.js"), "SmartL
 assert(index.includes('id="smart-loader-layer"'), "camada global do SmartLoader existe");
 assert(prepareWeb.includes(servicePath), "build copia o SmartLoader para dist");
 assert(sw.includes("./src/services/smartLoaderService.js"), "PWA pré-carrega o SmartLoader");
-assert(sw.includes("simplifica-3d-v185-category-images-smart-ranking-release-20260622"), "cache PWA foi atualizado");
+assert(sw.includes("simplifica-3d-v186-mobile-render-stability-20260623"), "cache PWA foi atualizado");
 
 [
   "uploadStorefrontAsset",

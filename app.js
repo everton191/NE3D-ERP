@@ -432,7 +432,7 @@ const telas = {
   lojaAdmin: "Admin da Loja",
   superadmin: "Super Admin",
   onboarding: "Introdução",
-  feedback: "Bugs e sugestões",
+  feedback: "Sugestões de melhorias",
   sobre: "Sobre",
   privacy: "Política de Privacidade",
   terms: "Termos de Uso",
@@ -575,6 +575,9 @@ let orcamentos = carregarLista("orcamentos");
 let historico = carregarLista("historico");
 let diagnostics = carregarLista("diagnostics");
 let sugestoes = carregarLista("sugestoes");
+let syncedMessageNotifications = [];
+let messageNotificationLoadState = "idle";
+let androidMessageRelayStatus = { supported: false, permissionGranted: false, enabled: false };
 let appErrorLogsRemotos = [];
 let appFeedbackReportsRemotos = [];
 let appSuggestionsRemotas = [];
@@ -5623,7 +5626,10 @@ function montarConfigRealtimeUsuario(userId) {
       { event: "INSERT", schema: "public", table: "subscriptions", filter: filtroUsuario },
       { event: "UPDATE", schema: "public", table: "subscriptions", filter: filtroUsuario },
       { event: "INSERT", schema: "public", table: "payments", filter: filtroUsuario },
-      { event: "UPDATE", schema: "public", table: "payments", filter: filtroUsuario }
+      { event: "UPDATE", schema: "public", table: "payments", filter: filtroUsuario },
+      { event: "INSERT", schema: "public", table: "user_message_notifications", filter: filtroUsuario },
+      { event: "UPDATE", schema: "public", table: "user_message_notifications", filter: filtroUsuario },
+      { event: "DELETE", schema: "public", table: "user_message_notifications", filter: filtroUsuario }
     ],
     private: false
   };
@@ -5750,7 +5756,9 @@ async function iniciarRealtimeSyncUsuario(motivo = "manual") {
     }, { joinRef: null });
     iniciarHeartbeatRealtime();
     agendarPollingSyncTempoReal(`realtime:${motivo}`);
-    debugInfo("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records", "subscriptions", "payments"] });
+    debugInfo("[Realtime][join]", { motivo, auth_uid: userId, tables: ["erp_backups", "erp_records", "subscriptions", "payments", "user_message_notifications"] });
+    carregarNotificacoesMensagensRemotas(true).catch(() => {});
+    sincronizarRelayNotificacoesAndroid().catch(() => {});
   };
 
   socket.onmessage = (event) => {
@@ -5886,7 +5894,7 @@ function tratarMensagemRealtimeSupabase(raw) {
 }
 
 function tratarEventoRealtimeSupabase(evento) {
-  if (!["erp_backups", "erp_records", "subscriptions", "payments"].includes(evento.table)) return;
+  if (!["erp_backups", "erp_records", "subscriptions", "payments", "user_message_notifications"].includes(evento.table)) return;
   if (!eventoRealtimePertenceAoUsuario(evento)) return;
   if (eventoRealtimeEhDesteDispositivo(evento)) return;
 
@@ -5999,6 +6007,10 @@ async function processarMudancaRealtimeSupabase(evento) {
   if (realtimeSyncState.applying || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
   realtimeSyncState.applying = true;
   try {
+    if (evento.table === "user_message_notifications") {
+      aplicarEventoNotificacaoMensagemRealtime(evento);
+      return true;
+    }
     if (["subscriptions", "payments"].includes(evento.table)) {
       return await processarMudancaBillingRealtimeSupabase(evento);
     }
@@ -8450,6 +8462,7 @@ function iniciarTransicaoNavegacao(tipo = "forward") {
 
 function aplicarMotionSequenciado() {
   if (typeof document === "undefined") return;
+  if (isMobile() && document.body.dataset.motion !== "high") return;
   const animar = document.body.classList.contains("motion-forward")
     || document.body.classList.contains("motion-back")
     || window.__simplificaMotionPrimed !== true;
@@ -9420,7 +9433,7 @@ function getTituloTelaDesktop(tela = telaAtual) {
     conta: "Perfil",
     usuarios: "Usuários",
     superadmin: "Superadmin",
-    feedback: "Ajuda",
+    feedback: "Sugestões",
     sobre: "Sobre"
   };
   return mapa[tela] || appConfig.appName || SYSTEM_NAME;
@@ -13473,7 +13486,7 @@ function renderDashboardHomeHeader() {
           <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
-        <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
+        ${renderDashboardCommunicationActions()}
         ${renderDashboardProfileButton(usuario)}
       </div>
     </section>
@@ -13977,6 +13990,218 @@ function getStorefrontPreviewLeadsLocal() {
   const saved = storefrontAdminRead("simplifica-storefront-leads-preview-v1", null);
   if (Array.isArray(saved)) return saved;
   return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData().leads : [];
+}
+
+function getOperationalNotifications() {
+  const atrasados = getPedidosAtrasadosDashboard();
+  const materiais = normalizarEstoque().filter((material) => ["low", "critical"].includes(material.stock_status));
+  const notificacoes = [];
+  if (atrasados.length) {
+    notificacoes.push({
+      id: "late-orders",
+      tone: "danger",
+      icon: "pedidos",
+      title: `${atrasados.length} pedido${atrasados.length === 1 ? " atrasado" : "s atrasados"}`,
+      description: "Revise os prazos e atualize a produção ou a entrega.",
+      action: "fecharPopup();window.__pedidosFiltroDashboard='atrasados';trocarTela('pedidos')",
+      actionLabel: "Ver pedidos"
+    });
+  }
+  const criticos = materiais.filter((material) => material.stock_status === "critical");
+  const baixos = materiais.filter((material) => material.stock_status === "low");
+  if (criticos.length) {
+    notificacoes.push({
+      id: "critical-stock",
+      tone: "danger",
+      icon: "estoque",
+      title: `${criticos.length} material${criticos.length === 1 ? " em nível crítico" : "ais em nível crítico"}`,
+      description: criticos.slice(0, 3).map((item) => item.nome).join(", "),
+      action: "fecharPopup();trocarTela('estoque')",
+      actionLabel: "Abrir estoque"
+    });
+  }
+  if (baixos.length) {
+    notificacoes.push({
+      id: "low-stock",
+      tone: "warning",
+      icon: "estoque",
+      title: `${baixos.length} material${baixos.length === 1 ? " com estoque baixo" : "ais com estoque baixo"}`,
+      description: baixos.slice(0, 3).map((item) => item.nome).join(", "),
+      action: "fecharPopup();trocarTela('estoque')",
+      actionLabel: "Conferir"
+    });
+  }
+  if (pendingSync.length) {
+    notificacoes.push({
+      id: "pending-sync",
+      tone: "warning",
+      icon: "backup",
+      title: `${pendingSync.length} alteração${pendingSync.length === 1 ? " aguardando" : "ões aguardando"} envio`,
+      description: "Os dados continuam salvos neste aparelho e serão enviados quando houver conexão.",
+      action: "fecharPopup();trocarTela('config')",
+      actionLabel: "Ver sincronização"
+    });
+  }
+  return notificacoes;
+}
+
+function renderDashboardCommunicationActions() {
+  const total = getOperationalNotifications().length;
+  const mensagens = syncedMessageNotifications.length;
+  return `
+    <button class="icon-button dashboard-message-button" type="button" onclick="abrirCentralMensagens()" title="Mensagens dos canais" aria-label="Abrir mensagens dos canais">${renderUiIcon("feedback")}${mensagens ? `<span class="notification-count message-count">${Math.min(mensagens, 9)}</span>` : ""}</button>
+    <button class="icon-button dashboard-notification-button" type="button" onclick="abrirNotificacoesOperacionais()" title="Notificações do sistema" aria-label="Abrir notificações do sistema">${renderUiIcon("bell")}${total ? `<span class="notification-count">${Math.min(total, 9)}</span>` : ""}</button>
+  `;
+}
+
+function abrirNotificacoesOperacionais() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const notificacoes = getOperationalNotifications();
+  popup.innerHTML = `
+    <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card notification-center modal-enter" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div><h2>Notificações</h2><p class="muted">Alertas que precisam da sua atenção.</p></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">×</button>
+        </div>
+        <div class="notification-center-list">
+          ${notificacoes.map((item) => `
+            <article class="notification-center-item tone-${escaparAttr(item.tone)}">
+              <span class="notification-center-icon">${renderUiIcon(item.icon)}</span>
+              <div><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.description)}</small></div>
+              <button class="btn ghost" type="button" onclick="${item.action}">${escaparHtml(item.actionLabel)}</button>
+            </article>
+          `).join("") || `<div class="notification-center-empty">${renderUiIcon("bell")}<strong>Tudo em dia</strong><span>Não há pedidos atrasados, estoque baixo ou sincronizações pendentes.</span></div>`}
+        </div>
+      </section>
+    </div>`;
+}
+
+function getExternalMessageChannelStatus() {
+  const store = getStorefrontAdminStoreLocal();
+  const contact = getStorefrontContactConfig(store);
+  return [
+    { id: "whatsapp", label: "WhatsApp", configured: !!normalizarTelefoneWhatsapp(contact.whatsapp || appConfig.whatsappNumber), value: contact.whatsapp || appConfig.whatsappNumber || "", supported: true },
+    { id: "instagram", label: "Instagram", configured: !!String(contact.instagram || appConfig.companyInstagram || "").trim(), value: contact.instagram || appConfig.companyInstagram || "", supported: true },
+    { id: "tiktok", label: "TikTok", configured: !!String(contact.tiktok || "").trim(), value: contact.tiktok || "", supported: false }
+  ];
+}
+
+function normalizarNotificacaoMensagem(item = {}) {
+  const source = ["whatsapp", "instagram", "tiktok"].includes(String(item.source || "").toLowerCase())
+    ? String(item.source).toLowerCase()
+    : "whatsapp";
+  return {
+    id: String(item.id || ""),
+    user_id: String(item.user_id || ""),
+    device_id: String(item.device_id || ""),
+    source,
+    sender_name: String(item.sender_name || "").slice(0, 120),
+    event_key: String(item.event_key || ""),
+    received_at: item.received_at || item.created_at || new Date().toISOString(),
+    read_at: item.read_at || null
+  };
+}
+
+async function carregarNotificacoesMensagensRemotas(silent = false) {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return [];
+  if (messageNotificationLoadState === "loading") return syncedMessageNotifications;
+  messageNotificationLoadState = "loading";
+  try {
+    const now = encodeURIComponent(new Date().toISOString());
+    const rows = await requisicaoSupabase(`/rest/v1/user_message_notifications?select=id,user_id,device_id,source,sender_name,event_key,received_at,read_at&user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&expires_at=gt.${now}&read_at=is.null&order=received_at.desc&limit=60`, { method: "GET", timeoutMs: 12000 });
+    syncedMessageNotifications = (Array.isArray(rows) ? rows : []).map(normalizarNotificacaoMensagem);
+    messageNotificationLoadState = "ready";
+    if (!silent && document.getElementById("popup")?.querySelector(".message-center")) renderCentralMensagensPopup();
+    return syncedMessageNotifications;
+  } catch (erro) {
+    messageNotificationLoadState = "error";
+    if (!silent) mostrarToast("Não foi possível atualizar os avisos de mensagens.", "aviso", 3200);
+    registrarDiagnostico("Mensagens", "Avisos sincronizados não carregados", erro.message || erro, { silent: true });
+    return syncedMessageNotifications;
+  }
+}
+
+function aplicarEventoNotificacaoMensagemRealtime(evento = {}) {
+  const record = evento.record && Object.keys(evento.record).length ? evento.record : evento.old_record || {};
+  const id = String(record.id || "");
+  if (!id) return false;
+  const tipo = String(evento.type || "").toUpperCase();
+  if (tipo === "DELETE" || record.read_at) {
+    syncedMessageNotifications = syncedMessageNotifications.filter((item) => item.id !== id);
+  } else {
+    const item = normalizarNotificacaoMensagem(record);
+    syncedMessageNotifications = [item, ...syncedMessageNotifications.filter((atual) => atual.id !== item.id)].slice(0, 60);
+    if (String(item.device_id) !== String(deviceId) && tipo === "INSERT") {
+      const origem = { whatsapp: "WhatsApp", instagram: "Instagram", tiktok: "TikTok" }[item.source] || "aplicativo";
+      mostrarToast(item.sender_name ? `${item.sender_name} enviou uma mensagem no ${origem}.` : `Nova mensagem no ${origem}.`, "info", 4200);
+    }
+  }
+  if (document.getElementById("popup")?.querySelector(".message-center")) renderCentralMensagensPopup();
+  if (["dashboard", "config"].includes(telaAtual)) agendarRenderizacaoPreservandoScroll(100);
+  return true;
+}
+
+async function removerNotificacaoMensagem(id = "") {
+  const target = syncedMessageNotifications.find((item) => item.id === String(id));
+  if (!target || !syncConfig.supabaseAccessToken) return;
+  syncedMessageNotifications = syncedMessageNotifications.filter((item) => item.id !== target.id);
+  renderCentralMensagensPopup();
+  try {
+    await requisicaoSupabase(`/rest/v1/user_message_notifications?id=eq.${encodeURIComponent(target.id)}&user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  } catch (erro) {
+    mostrarToast("Não foi possível remover este aviso.", "aviso", 2800);
+    await carregarNotificacoesMensagensRemotas(true);
+    renderCentralMensagensPopup();
+  }
+}
+
+async function limparNotificacoesMensagens() {
+  if (!syncedMessageNotifications.length || !syncConfig.supabaseAccessToken) return;
+  const anteriores = syncedMessageNotifications;
+  syncedMessageNotifications = [];
+  renderCentralMensagensPopup();
+  try {
+    await requisicaoSupabase(`/rest/v1/user_message_notifications?user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  } catch (erro) {
+    syncedMessageNotifications = anteriores;
+    renderCentralMensagensPopup();
+    mostrarToast("Não foi possível limpar os avisos.", "aviso", 2800);
+  }
+}
+
+function renderCentralMensagensPopup() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const labels = { whatsapp: "WhatsApp", instagram: "Instagram", tiktok: "TikTok" };
+  popup.innerHTML = `
+    <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card notification-center message-center modal-enter" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div><h2>Avisos de mensagens</h2><p class="muted">Somente origem, nome disponível e horário. O conteúdo não é armazenado.</p></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">×</button>
+        </div>
+        <div class="notification-center-list">
+          ${syncedMessageNotifications.map((item) => `
+            <article class="message-channel-item message-notification-item">
+              <span class="notification-center-icon channel-${escaparAttr(item.source)}">${renderUiIcon(item.source)}</span>
+              <div>
+                <strong>${item.sender_name ? `${escaparHtml(item.sender_name)} enviou uma mensagem` : "Nova mensagem"}</strong>
+                <small>${escaparHtml(labels[item.source] || item.source)} • ${new Date(item.received_at).toLocaleString("pt-BR")}</small>
+              </div>
+              <button class="btn ghost" type="button" onclick="removerNotificacaoMensagem('${escaparAttr(item.id)}')">Dispensar</button>
+            </article>
+          `).join("") || `<div class="notification-center-empty">${renderUiIcon("feedback")}<strong>${messageNotificationLoadState === "loading" ? "Atualizando..." : "Nenhuma mensagem nova"}</strong><span>Os avisos desaparecem quando a notificação é lida ou removida no celular.</span></div>`}
+        </div>
+        <div class="actions">${syncedMessageNotifications.length ? `<button class="btn ghost" type="button" onclick="limparNotificacoesMensagens()">Limpar avisos</button>` : ""}<button class="btn secondary" type="button" onclick="fecharPopup();trocarTela('config')">Configurar celular</button></div>
+      </section>
+    </div>`;
+}
+
+async function abrirCentralMensagens() {
+  renderCentralMensagensPopup();
+  await carregarNotificacoesMensagensRemotas(false);
 }
 
 function getStorefrontPreviewEventsLocal() {
@@ -21494,7 +21719,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
           <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input placeholder="Buscar..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
         </label>
-        <button class="icon-button dashboard-notification-button" type="button" onclick="trocarTela('feedback')" title="Avisos">${renderUiIcon("feedback")}<span class="notification-dot"></span></button>
+        ${renderDashboardCommunicationActions()}
         ${renderDashboardProfileButton(usuario)}
       </div>
     </header>
@@ -25649,6 +25874,187 @@ function sincronizarAcordeaoUi(elemento) {
   });
 }
 
+function classificarLogSistema(item = {}) {
+  const texto = `${item.tipo || ""} ${item.mensagem || ""} ${item.detalhes || ""}`.toLowerCase();
+  if (/erro|falha|fatal|crash|rejeitad|negad|inválid|invalid/.test(texto)) return "error";
+  if (/pendent|aguard|fila|offline|aviso|warning|atenção|atencao/.test(texto)) return "pending";
+  if (/sucesso|conclu|sincronizad|salvo|ok|processad|autenticad/.test(texto)) return "success";
+  return "info";
+}
+
+function renderLogSistemaConfig() {
+  const filtro = String(window.__systemLogFilter || "all");
+  const registros = diagnostics
+    .map((item) => ({ ...item, status: classificarLogSistema(item) }))
+    .filter((item) => filtro === "all" || item.status === filtro)
+    .slice(0, 60);
+  const totais = diagnostics.reduce((acc, item) => {
+    const status = classificarLogSistema(item);
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, { error: 0, pending: 0, success: 0, info: 0 });
+  return `
+    <p class="muted">Os registros técnicos ficam guardados aqui e não aparecem no sininho.</p>
+    <div class="system-log-summary">
+      <button type="button" class="log-filter ${filtro === "all" ? "active" : ""}" onclick="filtrarLogSistema('all')"><strong>${diagnostics.length}</strong><span>Todos</span></button>
+      <button type="button" class="log-filter log-error ${filtro === "error" ? "active" : ""}" onclick="filtrarLogSistema('error')"><strong>${totais.error}</strong><span>Erros</span></button>
+      <button type="button" class="log-filter log-pending ${filtro === "pending" ? "active" : ""}" onclick="filtrarLogSistema('pending')"><strong>${totais.pending}</strong><span>Pendentes</span></button>
+      <button type="button" class="log-filter log-success ${filtro === "success" ? "active" : ""}" onclick="filtrarLogSistema('success')"><strong>${totais.success}</strong><span>Concluídos</span></button>
+    </div>
+    <div class="system-log-list">
+      ${registros.map((item) => `
+        <article class="system-log-entry log-${escaparAttr(item.status)}">
+          <span class="system-log-marker" aria-hidden="true"></span>
+          <div><strong>${escaparHtml(item.mensagem || item.tipo || "Registro do sistema")}</strong><small>${escaparHtml(item.tipo || "Sistema")} • ${new Date(item.data || Date.now()).toLocaleString("pt-BR")}</small>${item.detalhes ? `<p>${escaparHtml(item.detalhes)}</p>` : ""}</div>
+        </article>
+      `).join("") || `<p class="empty">Nenhum registro nesta categoria.</p>`}
+    </div>
+    <div class="actions"><button class="btn danger" type="button" onclick="limparDiagnosticos()">Limpar registros</button></div>`;
+}
+
+function filtrarLogSistema(filtro = "all") {
+  window.__systemLogFilter = ["error", "pending", "success", "info"].includes(filtro) ? filtro : "all";
+  renderApp();
+  requestAnimationFrame(() => document.querySelector('[data-ui-section="logs-sistema"]')?.setAttribute("open", ""));
+}
+
+function getMessageRelayLocalPreferences() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("simplifica_message_relay_preferences_v1") || "{}");
+    return {
+      enabled: saved.enabled === true,
+      whatsapp: saved.whatsapp !== false,
+      instagram: saved.instagram !== false,
+      tiktok: saved.tiktok !== false
+    };
+  } catch (_) {
+    return { enabled: false, whatsapp: true, instagram: true, tiktok: true };
+  }
+}
+
+function getMessageRelayPlugin() {
+  return window.Capacitor?.Plugins?.SimplificaNotifications || null;
+}
+
+async function sincronizarRelayNotificacoesAndroid() {
+  if (!isAndroidNativeApp()) return false;
+  const plugin = getMessageRelayPlugin();
+  if (!plugin) return false;
+  const preferences = getMessageRelayLocalPreferences();
+  try {
+    if (preferences.enabled && syncConfig.supabaseAccessToken && syncConfig.supabaseUserId) {
+      const currentStatus = await plugin.getStatus();
+      let deviceToken = "";
+      if (!currentStatus.registered) {
+        const registration = await requisicaoSupabase("/rest/v1/rpc/register_message_notification_device", {
+          method: "POST",
+          body: JSON.stringify({ p_device_id: deviceId })
+        });
+        deviceToken = String(Array.isArray(registration) ? registration[0]?.device_token : registration?.device_token || "");
+        if (!deviceToken) throw new Error("Credencial do aparelho não foi criada.");
+      }
+      androidMessageRelayStatus = await plugin.configure({
+        ...preferences,
+        relayUrl: `${normalizarUrlSupabase()}/functions/v1/message-notification-relay`,
+        anonKey: syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY,
+        deviceToken,
+        deviceId
+      });
+      await plugin.flushPending();
+    } else {
+      androidMessageRelayStatus = await plugin.getStatus();
+    }
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Mensagens", "Relé Android não configurado", erro.message || erro, { silent: true });
+    return false;
+  }
+}
+
+async function desconectarRelayNotificacoesAndroid() {
+  const plugin = getMessageRelayPlugin();
+  if (!plugin) return;
+  try {
+    await plugin.configure({ enabled: false, whatsapp: true, instagram: true, tiktok: true });
+    if (syncConfig.supabaseAccessToken && syncConfig.supabaseUserId) {
+      await requisicaoSupabase(`/rest/v1/user_message_notification_devices?user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&device_id=eq.${encodeURIComponent(deviceId)}`, {
+        method: "DELETE",
+        headers: { Prefer: "return=minimal" },
+        timeoutMs: 8000
+      }).catch(() => {});
+    }
+    androidMessageRelayStatus = { supported: true, permissionGranted: false, enabled: false };
+  } catch (_) {}
+}
+
+async function abrirPermissaoRelayNotificacoes() {
+  const plugin = getMessageRelayPlugin();
+  if (!isAndroidNativeApp() || !plugin) {
+    mostrarToast("A captura de avisos está disponível somente no APK Android.", "info", 3800);
+    return;
+  }
+  await plugin.openNotificationAccessSettings();
+}
+
+async function salvarPreferenciasRelayNotificacoes() {
+  const preferences = {
+    enabled: !!document.getElementById("messageRelayEnabled")?.checked,
+    whatsapp: !!document.getElementById("messageRelayWhatsapp")?.checked,
+    instagram: !!document.getElementById("messageRelayInstagram")?.checked,
+    tiktok: !!document.getElementById("messageRelayTiktok")?.checked
+  };
+  if (preferences.enabled && (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId)) {
+    mostrarToast("Entre na mesma conta no APK antes de ativar a sincronização.", "aviso", 4200);
+    return;
+  }
+  localStorage.setItem("simplifica_message_relay_preferences_v1", JSON.stringify(preferences));
+  const configurado = await sincronizarRelayNotificacoesAndroid();
+  if (preferences.enabled && !configurado) {
+    mostrarToast("Não foi possível registrar este celular para sincronizar os avisos.", "erro", 4600);
+    return;
+  }
+  if (preferences.enabled && !androidMessageRelayStatus.permissionGranted) {
+    mostrarToast("Agora permita o acesso às notificações nas configurações do Android.", "aviso", 4600);
+  } else {
+    mostrarToast(preferences.enabled ? "Avisos de mensagens ativados neste celular." : "Avisos de mensagens desativados.", "sucesso", 3200);
+  }
+  renderApp();
+}
+
+function renderCanaisMensagensConfig() {
+  const preferences = getMessageRelayLocalPreferences();
+  const android = isAndroidNativeApp();
+  const permissionLabel = androidMessageRelayStatus.permissionGranted ? "Permitido" : "Permissão necessária";
+  return `
+    <p class="muted">O APK pode identificar apenas o aplicativo, o nome exibido e o horário. O conteúdo da mensagem nunca é lido ou enviado.</p>
+    ${android ? `
+      <div class="message-integration-notice compact"><strong>Acesso às notificações: ${escaparHtml(permissionLabel)}</strong><span>Quando a notificação for aberta ou removida no celular, ela também desaparecerá do computador.</span></div>
+      <label class="checkbox-row"><input id="messageRelayEnabled" type="checkbox" ${preferences.enabled ? "checked" : ""}><span><strong>Sincronizar avisos deste celular</strong><small>Usa a mesma conta do ERP e funciona enquanto o celular estiver conectado.</small></span></label>
+      <div class="message-relay-channels">
+        <label class="checkbox-row"><input id="messageRelayWhatsapp" type="checkbox" ${preferences.whatsapp ? "checked" : ""}><span>WhatsApp</span></label>
+        <label class="checkbox-row"><input id="messageRelayInstagram" type="checkbox" ${preferences.instagram ? "checked" : ""}><span>Instagram</span></label>
+        <label class="checkbox-row"><input id="messageRelayTiktok" type="checkbox" ${preferences.tiktok ? "checked" : ""}><span>TikTok</span></label>
+      </div>
+      <div class="actions"><button class="btn secondary" type="button" onclick="abrirPermissaoRelayNotificacoes()">Permitir no Android</button><button class="btn" type="button" onclick="salvarPreferenciasRelayNotificacoes()">Salvar avisos</button></div>
+    ` : `<div class="message-integration-notice compact"><strong>Recebimento no computador</strong><span>Os avisos aparecerão aqui quando um celular Android conectado à mesma conta estiver autorizado.</span></div>`}
+    <div class="message-settings-grid">
+      ${["whatsapp", "instagram", "tiktok"].map((id) => `<div class="message-setting-card"><span>${renderUiIcon(id)}</span><div><strong>${escaparHtml({ whatsapp: "WhatsApp", instagram: "Instagram", tiktok: "TikTok" }[id])}</strong><small>Aviso sem conteúdo</small></div><em>${android ? (preferences[id] ? "Selecionado" : "Desativado") : "Recebido do celular"}</em></div>`).join("")}
+    </div>
+    <div class="actions"><button class="btn secondary" type="button" onclick="abrirCentralMensagens()">Ver avisos de mensagens</button></div>`;
+}
+
+function renderSugestoesMelhoriasConfig() {
+  const maisPedidas = [...sugestoes]
+    .sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0))
+    .slice(0, 3);
+  return `
+    <p class="muted">Envie ideias e acompanhe as melhorias mais pedidas sem misturar com as notificações do sistema.</p>
+    <div class="settings-suggestion-list">
+      ${maisPedidas.map((item) => `<div><strong>${escaparHtml(item.titulo)}</strong><span>${Number(item.votos) || 1} ocorrência(s)</span></div>`).join("") || `<p class="empty">Nenhuma sugestão registrada ainda.</p>`}
+    </div>
+    <div class="actions"><button class="btn secondary" type="button" onclick="trocarTela('feedback')">Abrir sugestões de melhorias</button></div>`;
+}
+
 function renderConfig() {
   const usuario = getUsuarioAtual();
   const emailConta = normalizarEmail(usuario?.email || syncConfig.supabaseEmail || billingConfig.licenseEmail || "");
@@ -25799,6 +26205,10 @@ function renderConfig() {
       </div>
     </div>`;
 
+  const messageChannelsContent = renderCanaisMensagensConfig();
+  const suggestionsContent = renderSugestoesMelhoriasConfig();
+  const systemLogsContent = renderLogSistemaConfig();
+
   return `
     <section class="card organized-page settings-page">
       <div class="card-header">
@@ -25811,6 +26221,9 @@ function renderConfig() {
         ${telaAtual === "config" ? `
           ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: true, group: "config" })}
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
+          ${renderUiSection({ id: "canais-mensagens", title: "Mensagens e canais", subtitle: "WhatsApp, Instagram e TikTok cadastrados", icon: "✉", content: messageChannelsContent, group: "config" })}
+          ${renderUiSection({ id: "sugestoes-melhorias", title: "Sugestões de melhorias", subtitle: "Envie ideias e acompanhe pedidos", icon: "💡", content: suggestionsContent, group: "config" })}
+          ${renderUiSection({ id: "logs-sistema", title: "Log do sistema", subtitle: "Erros, pendências e operações concluídas", icon: "☷", content: systemLogsContent, group: "config" })}
           ${renderUiSection({ id: "sistema", title: "Cache, offline e suporte", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
         ` : ""}
       </div>
@@ -29289,14 +29702,7 @@ function renderDocumentoLegalPage(tipo = "termos") {
 }
 
 function renderFeedback() {
-  const podeVerDiagnosticos = isSuperAdmin() || (adminLogado && !getUsuarioAtual());
   const feedbackStatus = window.__feedbackManualStatus || {};
-  const eventosRecentes = historico.slice(0, 20).map((item) => `
-    <div class="history-item">
-      <strong>${escaparHtml(item.acao)}</strong>
-      <span class="muted">${new Date(item.data || Date.now()).toLocaleString("pt-BR")} • ${escaparHtml(item.detalhes || "")}</span>
-    </div>
-  `).join("") || `<p class="empty">Nenhuma mensagem recente.</p>`;
   const sugestoesOrdenadas = [...sugestoes].sort((a, b) => (Number(b.votos) || 0) - (Number(a.votos) || 0) || Date.parse(b.atualizadoEm || 0) - Date.parse(a.atualizadoEm || 0));
   const listaSugestoes = sugestoesOrdenadas.slice(0, 20).map((item, indice) => `
     <div class="suggestion-item">
@@ -29308,30 +29714,16 @@ function renderFeedback() {
     </div>
   `).join("") || `<p class="empty">Nenhuma sugestão registrada ainda.</p>`;
 
-  const listaErros = diagnostics.slice(0, 25).map((item) => `
-    <div class="history-item">
-      <strong>${escaparHtml(item.tipo)} • ${escaparHtml(item.mensagem)}</strong>
-      <span class="muted">${new Date(item.data).toLocaleString("pt-BR")} • Tela: ${escaparHtml(item.tela || "-")} • ${escaparHtml(item.versao || "")}</span>
-      ${item.detalhes ? `<span class="muted">${escaparHtml(item.detalhes)}</span>` : ""}
-    </div>
-  `).join("") || `<p class="empty">Nenhum erro local registrado.</p>`;
-
   return `
     <section class="card">
       <div class="card-header">
-        <h2>💡 Bugs e sugestões</h2>
-      <span class="status-badge">${podeVerDiagnosticos ? (appConfig.telemetryEnabled === false ? "Pausado" : "Local") : "Sugestões"}</span>
+        <h2>💡 Sugestões de melhorias</h2>
+        <span class="status-badge">Ideias</span>
       </div>
-      <p class="muted">Sugestões ajudam a priorizar as próximas funções do app.</p>
+      <p class="muted">Envie uma ideia ou relate um problema. Os registros técnicos ficam separados no Log do sistema.</p>
       <div class="actions">
         <button class="btn secondary" onclick="registrarSugestaoNfe()">Quero emissão de NF-e</button>
       </div>
-
-      ${podeVerDiagnosticos ? `<label class="checkbox-row">
-        <input id="telemetryEnabledConfig" type="checkbox" ${appConfig.telemetryEnabled !== false ? "checked" : ""}>
-        <span>Registrar erros locais do funcionamento</span>
-      </label>
-      <button class="btn ghost" onclick="salvarFeedbackConfig()">Salvar configuração</button>` : ""}
 
       <div class="danger-zone">
         <h2 class="section-title">Ajuda e Feedback</h2>
@@ -29368,21 +29760,6 @@ function renderFeedback() {
         ${listaSugestoes}
       </div>
 
-      <h2 class="section-title">Mensagens recentes</h2>
-      <div class="history-list">
-        ${eventosRecentes}
-      </div>
-
-      ${podeVerDiagnosticos ? `<div class="danger-zone">
-        <h2 class="section-title">Erros recentes</h2>
-        <div class="actions">
-          <button class="btn ghost" onclick="registrarDiagnosticoManual()">Registrar teste</button>
-          <button class="btn danger" onclick="limparDiagnosticos()">Limpar erros</button>
-        </div>
-        <div class="history-list">
-          ${listaErros}
-        </div>
-      </div>` : ""}
     </section>
   `;
 }
@@ -31347,6 +31724,7 @@ function logoutUsuario() {
   const escopoAtual = getEscopoDadosAtual();
   if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);
   pararRealtimeSyncUsuario("logout");
+  desconectarRelayNotificacoesAndroid().catch(() => {});
   usuarioAtualEmail = "";
   adminLogado = false;
   window.__simplificaLocalLockActive = false;
@@ -32964,6 +33342,7 @@ function salvarSessaoSupabase(dados, email) {
   ativarEscopoDadosUsuarioAtual("supabase-session", { persistir: false });
   salvarSessaoSensivelSupabase();
   salvarDados();
+  sincronizarRelayNotificacoesAndroid().catch(() => {});
   return true;
 }
 
@@ -33596,6 +33975,7 @@ function sairSupabase() {
   const escopoAtual = getEscopoDadosAtual();
   if (escopoAtual) salvarCacheDadosUsuario(escopoAtual);
   pararRealtimeSyncUsuario("sair-supabase");
+  desconectarRelayNotificacoesAndroid().catch(() => {});
   limparSessaoSensivelSupabase();
   syncConfig.supabaseUserId = "";
   syncConfig.supabaseEmail = "";
@@ -40699,6 +41079,10 @@ document.addEventListener("visibilitychange", () => {
     assistantRuntimeReady = false;
     try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   } else if (document.visibilityState === "visible") {
+    sincronizarRelayNotificacoesAndroid().then(() => {
+      if (telaAtual === "config") agendarRenderizacaoPreservandoScroll(80);
+    }).catch(() => {});
+    carregarNotificacoesMensagensRemotas(true).catch(() => {});
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
     sincronizarAlteracoesLocaisSilencioso("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
     aquecerIALocalEmSegundoPlano("visible");

@@ -20,7 +20,7 @@ if (missingIgnores.length) {
 const requiredVersionSignals = [
   "APP_VERSION = \"1.0.44-rc\"",
   "APP_VERSION_CODE = 43",
-  "simplifica-3d-v185-category-images-smart-ranking-release-20260622",
+  "simplifica-3d-v186-mobile-render-stability-20260623",
   "versionName \"1.0.44-rc\"",
   "versionCode 43",
   "\"version\": \"1.0.44-rc\"",
