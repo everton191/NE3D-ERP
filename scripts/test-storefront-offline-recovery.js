@@ -12,7 +12,7 @@ const required = [
   "descartarStorefrontAutosaveLocal",
   "window.addEventListener(\"online\"",
   "window.addEventListener(\"offline\"",
-  "simplifica-3d-v184-security-mobile-release-20260622"
+  "simplifica-3d-v185-category-images-smart-ranking-release-20260622"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !sw.includes(item));

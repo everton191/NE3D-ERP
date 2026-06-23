@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.43-rc";
-const APP_VERSION_CODE = 42;
+const APP_VERSION = "1.0.44-rc";
+const APP_VERSION_CODE = 43;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -444,6 +444,7 @@ let storefrontPublicRouteState = null;
 let storefrontPublicLastPath = "";
 let storefrontPublicInternalHistory = [];
 let storefrontPublicNavigationTimer = null;
+let storefrontPublicLastProductView = { key: "", at: 0 };
 const storefrontPublicScrollPositions = new Map();
 let telaAnterior = "dashboard";
 let navigationStack = [];
@@ -15282,6 +15283,16 @@ function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+function getStorefrontCategoryVisualImage(category = {}, store = null) {
+  const currentStore = store
+    || (telaAtual === "lojaPublica" ? getStorefrontPublicViewModel()?.store : getStorefrontAdminStoreLocal())
+    || {};
+  const categoryImages = currentStore?.theme_config?.category_images || {};
+  const id = String(category?.id || "");
+  const slug = String(category?.slug || "");
+  return String(category?.image_url || categoryImages[id] || categoryImages[slug] || "").trim();
+}
+
 function getStorefrontDemoBannerImage() {
   return STOREFRONT_V3_EXAMPLE_ASSETS.hero;
 }
@@ -15801,7 +15812,7 @@ function compressStorefrontImageWithHtmlCanvas(file, maxSide = 1200, quality = 0
   });
 }
 
-async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", assetKey = "" } = {}) {
+async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", categoryId = "", assetKey = "" } = {}) {
   const store = storefrontAdminRequireRemoteStore();
   const blob = await compressStorefrontImage(file, tipo);
   validarArquivoStorefrontImagem(blob, tipo);
@@ -15825,6 +15836,8 @@ async function uploadStorefrontAsset(file, { tipo = "produto", productId = "", a
     ? `${owner}/${storeId}/logo/${unique}`
     : tipo === "banner"
       ? `${owner}/${storeId}/banner/${unique}`
+      : tipo === "categoria"
+        ? `${owner}/${storeId}/categories/${segmentoStorageSeguro(categoryId, "category")}/${unique}`
       : `${owner}/${storeId}/products/${segmentoStorageSeguro(productId, "product")}/${unique}`;
   registrarStorefrontDebugLeve("upload_iniciado", "Upload Storefront iniciado.", {
     bucket: "storefront-assets",
@@ -16000,9 +16013,11 @@ function getStorefrontAdminViewModel() {
   const leads = getStorefrontPreviewLeadsLocal();
   const events = getStorefrontPreviewEventsLocal();
   const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
-  const products = Number.isFinite(Number(limits.productLimit)) && Number(limits.productLimit) <= 0
+  const availableProducts = Number.isFinite(Number(limits.productLimit)) && Number(limits.productLimit) <= 0
     ? rawProducts.filter(storefrontIsDemoProduct)
     : rawProducts;
+  const productRanking = getStorefrontProductRankingFromEvents(events);
+  const products = ordenarProdutosLojaInteligente(availableProducts, productRanking);
   const demo = {
     enabled: (
       categories.some((item) => item.__demo)
@@ -16017,7 +16032,7 @@ function getStorefrontAdminViewModel() {
     leads: demoAllowed && !hasStoredLeads,
     events: demoAllowed && !hasStoredEvents
   };
-  return { store, categories, products, images, leads, events, limits, demo };
+  return { store, categories, products, images, leads, events, productRanking, limits, demo };
 }
 
 function storefrontAdminSaveStore(store) {
@@ -16883,6 +16898,17 @@ function abrirSeletorImagemStorefront(input) {
   return true;
 }
 
+async function processarImagemCategoriaLojaOnline(categoryId, input) {
+  const category = getStorefrontAdminCategoriesLocal().find((item) => String(item.id) === String(categoryId));
+  if (!category || storefrontAdminIsLocalId(category.id, "cat-")) {
+    input && (input.value = "");
+    mostrarToast("Salve a categoria antes de adicionar a foto.", "aviso", 3600);
+    return;
+  }
+  input.dataset.categoryId = String(category.id);
+  await abrirCropImagemLojaOnline("categoria", input);
+}
+
 async function processarImagemExemploLojaOnline(productId, input) {
   const file = Array.from(input?.files || [])[0];
   if (!file || !productId) return;
@@ -17275,6 +17301,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
 
 function getStorefrontCropConfig(tipo = "banner") {
   if (tipo === "logo") return { aspect: 1, width: 720, height: 720, title: "Ajustar logo", help: "Use enquadramento quadrado para a marca aparecer bem na loja e no ícone." };
+  if (tipo === "categoria") return { aspect: 1, width: 900, height: 900, title: "Ajustar foto da categoria", help: "Use enquadramento quadrado para a categoria aparecer bem no celular e no computador." };
   return { aspect: 16 / 9, width: 1600, height: 900, title: "Ajustar banner", help: "Use enquadramento 16:9 para evitar cortes no celular e no computador." };
 }
 
@@ -17395,17 +17422,45 @@ async function processarImagemLojaOnline(tipo, input) {
 async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
   if (!file) return;
   if (!storefrontBeginOperation(`storefront-store-image:${tipo}`)) return;
+  const isCategory = tipo === "categoria";
   try {
     setStorefrontUploadStatus({
       type: "info",
-      title: tipo === "logo" ? "Enviando logo" : "Enviando banner",
+      title: tipo === "logo" ? "Enviando logo" : isCategory ? "Enviando foto da categoria" : "Enviando banner",
       message: "Validando arquivo e otimizando a imagem."
     });
     const preparedFile = await otimizarArquivoStorefrontImagem(file, tipo);
     const store = getStorefrontAdminStoreLocal();
     if (!storefrontAdminRemoteReady()) throw new Error("Conecte sua conta para concluir o envio da imagem.");
     if (!store?.id || storefrontAdminIsLocalId(store.id, "store-")) throw new Error("Salve a aparência da loja antes de enviar imagens.");
-    const url = await uploadStorefrontAsset(preparedFile, { tipo });
+    const categoryId = String(input?.dataset?.categoryId || "");
+    const category = isCategory
+      ? getStorefrontAdminCategoriesLocal().find((item) => String(item.id) === categoryId)
+      : null;
+    if (isCategory && !category) throw new Error("Não foi possível localizar a categoria selecionada.");
+    const url = await uploadStorefrontAsset(preparedFile, { tipo, categoryId, assetKey: isCategory ? categoryId : "" });
+    if (isCategory) {
+      const categoryImages = { ...(store.theme_config?.category_images || {}) };
+      categoryImages[categoryId] = url;
+      if (category.slug) categoryImages[String(category.slug)] = url;
+      const next = {
+        ...store,
+        theme_config: { ...(store.theme_config || {}), category_images: categoryImages }
+      };
+      storefrontAdminSaveStore(next);
+      await storefrontAdminPersistStoreRemote(next);
+      limparStorefrontAlteracoesPendentes("Foto da categoria salva");
+      setStorefrontUploadStatus({
+        type: "success",
+        title: "Foto da categoria enviada",
+        message: "Imagem ajustada e salva com segurança na loja.",
+        detail: `${file.name} · ${Math.max(1, Math.round(preparedFile.size / 1024))} KB`
+      });
+      registrarStorefrontActivity("Foto da categoria atualizada", category.name || file.name);
+      mostrarToast("Foto da categoria enviada.", "sucesso", 2600);
+      renderApp();
+      return;
+    }
     const field = tipo === "logo" ? "logo_url" : "banner_url";
     const next = { ...store, [field]: url };
     storefrontAdminSaveStore(next);
@@ -17421,7 +17476,7 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
     mostrarToast(tipo === "logo" ? "Logo enviado." : "Banner enviado.", "sucesso", 2600);
     renderApp();
   } catch (error) {
-    if (storefrontUploadPodeUsarFallbackLocal(error)) {
+    if (!isCategory && storefrontUploadPodeUsarFallbackLocal(error)) {
       try {
         const preparedFile = await otimizarArquivoStorefrontImagem(file, tipo);
         const dataUrl = await lerArquivoComoDataUrl(preparedFile);
@@ -17446,7 +17501,7 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
     }
     setStorefrontUploadStatus({
       type: "error",
-      title: tipo === "logo" ? "Falha ao enviar logo" : "Falha ao enviar banner",
+      title: tipo === "logo" ? "Falha ao enviar logo" : isCategory ? "Falha ao enviar foto da categoria" : "Falha ao enviar banner",
       message: error?.message || "Erro ao enviar imagem. Tente novamente.",
       detail: "Confira sua conexão, o tamanho do arquivo e tente novamente."
     });
@@ -17939,11 +17994,38 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
       categories: adminVm.categories.filter((cat) => cat.visible !== false),
       products: adminVm.products.filter((product) => product.visible !== false),
       images: adminVm.images || [],
+      productRanking: adminVm.productRanking || [],
       limits: adminVm.limits,
       source: "local"
     };
   }
   return null;
+}
+
+function getStorefrontProductRankingFromEvents(events = []) {
+  const ranking = new Map();
+  const weights = { product_view: 1, whatsapp_click: 3, add_to_cart: 5, lead_created: 9, remove_from_cart: -2 };
+  (Array.isArray(events) ? events : []).forEach((event) => {
+    const productId = String(event?.product_id || event?.metadata_json?.product_id || "");
+    if (!productId || !Object.prototype.hasOwnProperty.call(weights, event?.event_type)) return;
+    const current = ranking.get(productId) || { product_id: productId, smart_score: 0 };
+    current.smart_score += weights[event.event_type];
+    ranking.set(productId, current);
+  });
+  return Array.from(ranking.values());
+}
+
+function ordenarProdutosLojaInteligente(products = [], ranking = []) {
+  const scores = new Map((Array.isArray(ranking) ? ranking : []).map((item) => [String(item.product_id || ""), Number(item.smart_score || 0)]));
+  return (Array.isArray(products) ? products : [])
+    .map((product, index) => ({ product, index }))
+    .sort((a, b) => {
+      const featured = Number(b.product?.featured === true) - Number(a.product?.featured === true);
+      if (featured) return featured;
+      const score = (scores.get(String(b.product?.id || "")) || 0) - (scores.get(String(a.product?.id || "")) || 0);
+      return score || a.index - b.index;
+    })
+    .map(({ product }) => product);
 }
 
 function getStorefrontPublicViewModel() {
@@ -17956,7 +18038,10 @@ function getStorefrontPublicViewModel() {
     return { route, store: null, categories: [], products: [], images: [], loading: true, source: "empty" };
   }
   const categories = (fallback.categories || []).filter((cat) => cat.visible !== false).sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
-  const products = (fallback.products || []).filter((product) => product.visible !== false);
+  const products = ordenarProdutosLojaInteligente(
+    (fallback.products || []).filter((product) => product.visible !== false),
+    fallback.productRanking || []
+  );
   return { ...fallback, route, categories, products, images: fallback.images || [], limits: fallback.limits || getStorefrontLimitsLocal(getPlanoAtual()?.slug), loading: false };
 }
 
@@ -18862,6 +18947,8 @@ if (typeof window !== "undefined") {
   Object.assign(window, {
     alternarMenuContextualUi,
     processarImagemExemploLojaOnline,
+    processarImagemCategoriaLojaOnline,
+    getStorefrontCategoryVisualImage,
     selecionarItemLojaVisual,
     setStorefrontGuidedProductStep,
     salvarRascunhoProdutoGuiadoLoja,
@@ -19283,13 +19370,18 @@ async function hidratarLojaPublicaSeNecessario() {
     const store = Array.isArray(stores) ? stores[0] : null;
     if (!store?.id) return;
     const storeId = encodeURIComponent(store.id);
-    const [categories, products, images] = await Promise.all([
+    const [categories, products, images, productRanking] = await Promise.all([
       storefrontPublicRequest(`/rest/v1/store_categories?select=*&store_id=eq.${storeId}&visible=eq.true&order=order_index.asc`),
       storefrontPublicRequest(`/rest/v1/store_products?select=*&store_id=eq.${storeId}&visible=eq.true&order=featured.desc,updated_at.desc`),
-      storefrontPublicRequest(`/rest/v1/store_product_images?select=*&store_id=eq.${storeId}&order=order_index.asc`)
+      storefrontPublicRequest(`/rest/v1/store_product_images?select=*&store_id=eq.${storeId}&order=order_index.asc`),
+      storefrontPublicRequest("/rest/v1/rpc/get_storefront_product_ranking", {
+        method: "POST",
+        body: JSON.stringify({ p_store_id: store.id })
+      }).catch(() => [])
     ]);
-    setStorefrontPublicCache(route.slug, { store, categories: categories || [], products: products || [], images: images || [], source: "supabase" });
+    setStorefrontPublicCache(route.slug, { store, categories: categories || [], products: products || [], images: images || [], productRanking: productRanking || [], source: "supabase" });
     registrarEventoLojaPublica("store_view", { slug: route.slug }, { silent: true });
+    registrarVisualizacaoProdutoLojaPublica(route);
     renderApp();
   } catch (error) {
     console.warn("[Storefront public] hydrate failed", error);
@@ -19494,7 +19586,9 @@ async function enviarCarrinhoLojaPublica(event) {
   try {
     const savedLead = await registrarLeadCarrinhoLojaPublica(vm, summary, { ...lead, whatsapp_message });
     await registrarPedidoRascunhoLojaPublica(vm, summary, { ...lead, whatsapp_message }, savedLead, "cart");
-    registrarEventoLojaPublica("lead_created", { source: "cart" }, { silent: true });
+    summary.items.forEach((item) => {
+      if (item?.product?.id) registrarEventoLojaPublica("lead_created", { source: "cart", product_id: item.product.id }, { silent: true });
+    });
     setStorefrontPublicCart([]);
     fecharPopup();
     abrirWhatsappLojaPublica(whatsapp_message);
@@ -19771,6 +19865,17 @@ function abrirWhatsappLojaPublica(mensagem = "") {
   const texto = mensagem || `${configuredMessage || `Olá! Vim pela loja ${vm.store?.name || "Simplifica 3D"}.`}\n${getStorefrontPublicUrl(vm.route)}`;
   registrarEventoLojaPublica("whatsapp_click", { source: "storefront-public" }, { silent: true });
   window.open(`https://wa.me/${phone}?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+}
+
+function registrarVisualizacaoProdutoLojaPublica(route = getStorefrontPublicRoute()) {
+  if (route.view !== "product" || !route.productSlug) return;
+  const product = getStorefrontPublicViewModel().products.find((item) => String(item.slug || "") === String(route.productSlug));
+  if (!product?.id) return;
+  const key = `${route.slug}:${product.id}`;
+  const now = Date.now();
+  if (storefrontPublicLastProductView.key === key && now - storefrontPublicLastProductView.at < 1800) return;
+  storefrontPublicLastProductView = { key, at: now };
+  registrarEventoLojaPublica("product_view", { product_id: product.id }, { silent: true });
 }
 
 function abrirInstagramLojaPublica() {
@@ -26263,6 +26368,7 @@ async function salvarPinAcoesSensiveis() {
   registrarSeguranca("PIN de ações importantes configurado", "sucesso", "PIN vinculado à conta atual");
   mostrarToast("PIN salvo. Ele já pode autorizar alterações importantes no computador.", "sucesso", 4200);
   renderApp();
+  registrarVisualizacaoProdutoLojaPublica(route);
 }
 
 async function removerPinAcoesSensiveis() {
@@ -40669,6 +40775,8 @@ if (typeof window !== "undefined") {
   Object.assign(window, {
     alternarMenuContextualUi,
     processarImagemExemploLojaOnline,
+    processarImagemCategoriaLojaOnline,
+    getStorefrontCategoryVisualImage,
     selecionarItemLojaVisual,
     alinharSelecaoLojaVisual,
     abrirChecklistGuiadoLoja,

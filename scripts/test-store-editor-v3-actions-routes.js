@@ -6,7 +6,10 @@ const assert = (condition, message) => { if (!condition) throw new Error(message
 
 ["abrirNovoProdutoGuiadoLoja()", "abrirNovaCategoriaGuiadaLoja()", "openStorefrontGuidedCatalogItem", "setStorefrontGuidedProductStep", "voltarFormularioGuiadoProdutoLoja()", "salvarProdutoLojaOnline(event)", "salvarCategoriaLojaOnline(event)", "salvarStorefrontAparencia(event)", "salvarStorefrontContatos(event)", "abrirChecklistGuiadoLoja()"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Acao/rota V3 ausente: ${marker}`));
 ["sfe-sidebar-actions", "voltarPainelLojaVisual(event)", "salvarEdicaoVisualAtualLoja()", "abrirLojaPublicaOnline()", "alternarStatusLojaOnline()"].forEach((marker) => assert(renderer.includes(marker), `Ação lateral PWA ausente: ${marker}`));
-["abrirSeletorImagemStorefront", "storefrontLogoPhoto", "storefrontBannerPhoto", "data-storefront-product-photo", "data-replace-image"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Controle de troca de imagem ausente: ${marker}`));
+["abrirSeletorImagemStorefront", "storefrontLogoPhoto", "storefrontBannerPhoto", "storefrontCategoryPhoto", "processarImagemCategoriaLojaOnline", "data-storefront-product-photo", "data-replace-image"].forEach((marker) => assert(renderer.includes(marker) || app.includes(marker), `Controle de troca de imagem ausente: ${marker}`));
+assert(!renderer.includes("<label>Link da imagem"), "Link técnico do banner não pode ficar editável");
+assert(!renderer.includes("<label>Logo da loja<input"), "Link técnico da logo não pode ficar editável");
+assert(renderer.includes('type="hidden" name="categoryImageUrl"'), "URL da categoria deve permanecer interna");
 ["WhatsApp da loja", "abrirContatosProdutoLoja()", "sfe-contact-shortcut"].forEach((marker) => assert(renderer.includes(marker), `Atalho de WhatsApp no produto ausente: ${marker}`));
 assert(app.includes('function abrirContatosProdutoLoja()'), "Atalho de WhatsApp deve preservar alteracoes nao salvas");
 assert(app.includes("const replacementTarget = replaceExisting ? productImages[0] : null"), "troca de foto deve substituir a imagem principal sem consumir nova cota");

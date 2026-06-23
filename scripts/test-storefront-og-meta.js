@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.43-rc-security-mobile-release-20260622"
+  "1.0.44-rc-category-images-smart-ranking-release-20260622"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));
