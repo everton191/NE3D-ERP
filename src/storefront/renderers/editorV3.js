@@ -103,7 +103,7 @@
   const uploadControl = ({ id, label, help, onchange, dataAttributes = "", multiple = false }) => `
     <div class="store-ui-upload">
       <button type="button" onclick="abrirSeletorImagemStorefront(document.getElementById('${attr(id)}'))">${esc(label)}</button>
-      <input id="${attr(id)}" type="file" accept="image/jpeg,image/png,image/webp" ${multiple ? "multiple" : ""} ${dataAttributes} onchange="${onchange}">
+      <input id="${attr(id)}" type="file" accept="image/jpeg,image/png,image/webp" hidden ${multiple ? "multiple" : ""} ${dataAttributes} onchange="${onchange}">
       <span>${esc(help)}</span>
     </div>`;
 
