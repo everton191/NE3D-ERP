@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v193-settings-submenu-align-20260625";
+const CACHE_NAME = "simplifica-3d-v194-settings-security-menu-20260625";
 const APP_FILES = [
   "./",
   "./index.html",

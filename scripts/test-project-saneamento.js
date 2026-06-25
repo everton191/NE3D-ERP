@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.51-rc\"",
-  "APP_VERSION_CODE = 50",
-  "simplifica-3d-v193-settings-submenu-align-20260625",
-  "versionName \"1.0.51-rc\"",
-  "versionCode 50",
-  "\"version\": \"1.0.51-rc\"",
-  "\"versionCode\": 50"
+  "APP_VERSION = \"1.0.52-rc\"",
+  "APP_VERSION_CODE = 51",
+  "simplifica-3d-v194-settings-security-menu-20260625",
+  "versionName \"1.0.52-rc\"",
+  "versionCode 51",
+  "\"version\": \"1.0.52-rc\"",
+  "\"versionCode\": 51"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

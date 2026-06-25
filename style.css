@@ -34713,3 +34713,7 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accord
   top:0 !important;
   overflow:auto !important;
 }
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list > .ui-section[data-ui-section="seguranca-conta"][open] > summary{
+  display:grid !important;
+}
