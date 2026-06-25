@@ -34625,3 +34625,91 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > .desktop-focus
   height:calc(100dvh - 172px) !important;
   align-self:start !important;
 }
+
+/* Normalização final dos submenus de Configurações no PWA desktop.
+   Mantém todas as guias com a mesma geometria: lista encostada à esquerda
+   e conteúdo aberto imediatamente à direita, sem centralização intermediária. */
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main:has(.settings-accordion-list){
+  padding:0 !important;
+  gap:0 !important;
+  overflow:hidden !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > :where(.desktop-focus,.settings-page,.organized-page,.app-page):has(.settings-accordion-list){
+  width:100% !important;
+  max-width:none !important;
+  height:100dvh !important;
+  min-height:0 !important;
+  justify-self:stretch !important;
+  align-self:stretch !important;
+  margin:0 !important;
+  padding:14px 18px 14px 0 !important;
+  overflow:hidden !important;
+  border-radius:0 !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > .desktop-focus:has(.settings-accordion-list) > :where(.settings-page,.organized-page,.app-page){
+  width:100% !important;
+  max-width:none !important;
+  height:100% !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  border:0 !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main :where(.settings-page,.organized-page,.app-page):has(.settings-accordion-list) > :where(.card-header,.app-header,p.muted,.actions.single){
+  margin-left:18px !important;
+  margin-right:18px !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list{
+  width:100% !important;
+  max-width:none !important;
+  height:calc(100dvh - 148px) !important;
+  min-height:0 !important;
+  margin:0 !important;
+  display:grid !important;
+  grid-template-columns:clamp(250px, 18vw, 320px) minmax(0, 1fr) !important;
+  grid-auto-rows:min-content !important;
+  align-items:start !important;
+  align-content:start !important;
+  column-gap:0 !important;
+  overflow:hidden !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list > .ui-section{
+  display:contents !important;
+  grid-column:auto !important;
+  width:auto !important;
+  max-width:none !important;
+  min-width:0 !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list > .ui-section > summary{
+  grid-column:1 !important;
+  width:auto !important;
+  max-width:none !important;
+  margin:0 10px 8px 0 !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list > .ui-section:not([open]) > .ui-section-body{
+  display:none !important;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list > .ui-section[open] > .ui-section-body{
+  grid-column:2 !important;
+  grid-row:1 / span 60 !important;
+  align-self:start !important;
+  justify-self:stretch !important;
+  width:100% !important;
+  max-width:none !important;
+  min-width:0 !important;
+  height:calc(100dvh - 172px) !important;
+  max-height:calc(100dvh - 172px) !important;
+  top:0 !important;
+  overflow:auto !important;
+}

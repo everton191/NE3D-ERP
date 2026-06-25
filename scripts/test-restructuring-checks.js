@@ -110,8 +110,8 @@ const storefrontLayoutsV3 = read("src/storefront/styles/layouts.css");
   "src/storefront/styles/layouts.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.50-rc"/.test(app), "app.js esta na versao 1.0.50-rc");
-assert(/const APP_VERSION_CODE = 49/.test(app), "app.js possui versionCode 49");
+assert(/const APP_VERSION = "1\.0\.51-rc"/.test(app), "app.js esta na versao 1.0.51-rc");
+assert(/const APP_VERSION_CODE = 50/.test(app), "app.js possui versionCode 50");
 assert(app.includes("intro-test-banner") && app.includes("Versão em testes"), "abertura identifica a versao de testes");
 assert(css.includes(".intro-test-banner"), "aviso de testes possui layout responsivo");
 assert(/\.intro-test-banner\s*\{[\s\S]*?left:50%;[\s\S]*?transform:translateX\(-50%\);/.test(css), "aviso de testes permanece centralizado na viewport");
@@ -138,14 +138,14 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v192-settings-pane-wrapper-20260625"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v193-settings-submenu-align-20260625"), "service worker possui cache versionado atual");
 assert(exists("src/services/smartLoaderService.js"), "camada global de desempenho percebido existe");
 assert(index.includes('id="smart-loader-layer"'), "index.html monta smart-loader-layer");
 assert(index.indexOf("smartLoaderService.js") < index.indexOf("/app.js"), "SmartLoader carrega antes do app.js");
 assert(sw.includes("./src/services/smartLoaderService.js"), "SmartLoader entra no precache PWA");
 assert(read("package.json").includes('"test:perceived-performance"'), "package.json expoe teste de desempenho percebido");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.50-rc-settings-pane-wrapper-20260625"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.51-rc-settings-submenu-align-20260625"), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1 && index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager carrega antes do app");
 assert(sw.includes("./src/services/safeAreaManager.js"), "safeAreaManager entra no precache PWA");
