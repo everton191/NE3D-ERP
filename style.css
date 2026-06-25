@@ -876,8 +876,10 @@ body.motion-back .mobile-home{
 .intro-skip{
   left:50%;
   right:auto;
-  bottom:max(16px, env(safe-area-inset-bottom, 0px));
+  position:fixed;
+  bottom:max(28px, calc(env(safe-area-inset-bottom, 0px) + 18px));
   transform:translateX(-50%);
+  z-index:calc(var(--z-critical, 1000) + 2);
 }
 
 .intro-play:focus-visible,
@@ -6126,11 +6128,18 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
 }
 
 .security-page-header{
+  position:relative;
+  top:auto;
+  z-index:auto;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:20px;
   padding:4px 4px 2px;
+  border:0;
+  background:transparent;
+  box-shadow:none;
+  backdrop-filter:none;
 }
 
 .security-page-header h2{
@@ -18359,6 +18368,26 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > :not(.app-topb
   justify-self:center;
 }
 
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main:has(> .settings-page){
+  padding:0 0 0 0;
+  gap:0;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > .settings-page{
+  width:100%;
+  max-width:none;
+  min-height:100dvh;
+  justify-self:stretch;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+}
+
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > .settings-page > .card-header,
+body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main > .settings-page > p.muted{
+  margin-right:clamp(16px, 2vw, 28px);
+}
+
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-focus{
   width:min(100%, var(--desktop-content-max));
 }
@@ -19191,10 +19220,11 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .settings-accordion-list{
   grid-template-columns:minmax(260px, 320px) minmax(0, 1fr);
   align-items:start;
   column-gap:0;
-  min-height:min(72dvh, 720px);
+  height:calc(100dvh - 148px);
+  min-height:560px;
   padding:12px;
   border:1px solid var(--color-border);
-  border-radius:var(--radius-modal);
+  border-radius:0 var(--radius-modal) var(--radius-modal) 0;
   background:
     linear-gradient(90deg, color-mix(in srgb, var(--color-navbar) 94%, transparent) 0 320px, transparent 320px),
     color-mix(in srgb, var(--color-surface) 94%, transparent);
@@ -19267,16 +19297,18 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .settings-accordion-list > .ui
 }
 
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .settings-accordion-list > .ui-section[open] > .ui-section-body{
-  position:relative;
+  position:sticky;
+  top:12px;
   grid-column:2;
-  grid-row:1 / span 20;
+  grid-row:1 / -1;
   display:grid;
   align-content:start;
   gap:14px;
   min-width:0;
   width:100%;
   max-width:100%;
-  max-height:calc(min(72dvh, 720px) - 24px);
+  height:calc(100dvh - 172px);
+  max-height:none;
   overflow:auto;
   padding:16px 16px 16px 18px;
   border-left:1px solid var(--color-border);

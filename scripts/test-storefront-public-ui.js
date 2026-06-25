@@ -17,6 +17,6 @@ assert(app.includes("normalizarTelefoneWhatsapp(form.whatsapp?.value || \"\")"),
 assert(renderer.includes('["tiktok", "TikTok", contact.tiktok]'), "TikTok preenchido deve aparecer entre os contatos publicos");
 assert(app.includes("function configurarNavegacaoLojaPublica"), "Navegacao publica central ausente");
 assert(!renderer.includes("store-public-"), "Renderer publico ainda usa classes V2");
-assert(index.includes("1.0.47-rc-pwa-split-pane-20260625"), "Cache-bust web ausente");
-assert(sw.includes("simplifica-3d-v189-pwa-split-pane-20260625"), "Cache PWA ausente");
+assert(index.includes("1.0.48-rc-settings-pane-fit-20260625"), "Cache-bust web ausente");
+assert(sw.includes("simplifica-3d-v190-settings-pane-fit-20260625"), "Cache PWA ausente");
 console.log("Storefront public UI: raiz, menu, rotas e componentes V3 validados.");

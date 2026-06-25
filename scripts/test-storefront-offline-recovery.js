@@ -12,7 +12,7 @@ const required = [
   "descartarStorefrontAutosaveLocal",
   "window.addEventListener(\"online\"",
   "window.addEventListener(\"offline\"",
-  "simplifica-3d-v189-pwa-split-pane-20260625"
+  "simplifica-3d-v190-settings-pane-fit-20260625"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !sw.includes(item));
