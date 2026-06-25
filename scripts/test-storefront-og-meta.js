@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.49-rc-settings-pane-adjacent-20260625"
+  "1.0.50-rc-settings-pane-wrapper-20260625"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));

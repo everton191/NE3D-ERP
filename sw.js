@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v191-settings-pane-adjacent-20260625";
+const CACHE_NAME = "simplifica-3d-v192-settings-pane-wrapper-20260625";
 const APP_FILES = [
   "./",
   "./index.html",
