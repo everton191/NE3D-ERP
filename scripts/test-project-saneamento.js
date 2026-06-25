@@ -18,13 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.46-rc\"",
-  "APP_VERSION_CODE = 45",
-  "simplifica-3d-v188-ui-density-motion-20260625",
-  "versionName \"1.0.46-rc\"",
-  "versionCode 45",
-  "\"version\": \"1.0.46-rc\"",
-  "\"versionCode\": 45"
+  "APP_VERSION = \"1.0.47-rc\"",
+  "APP_VERSION_CODE = 46",
+  "simplifica-3d-v189-pwa-split-pane-20260625",
+  "versionName \"1.0.47-rc\"",
+  "versionCode 46",
+  "\"version\": \"1.0.47-rc\"",
+  "\"versionCode\": 46"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

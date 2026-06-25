@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.46-rc-ui-density-motion-20260625"
+  "1.0.47-rc-pwa-split-pane-20260625"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));

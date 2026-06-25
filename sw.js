@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v188-ui-density-motion-20260625";
+const CACHE_NAME = "simplifica-3d-v189-pwa-split-pane-20260625";
 const APP_FILES = [
   "./",
   "./index.html",

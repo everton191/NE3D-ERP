@@ -9,13 +9,13 @@ const adSense = fs.readFileSync("src/services/adSenseService.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
 const required = [
-  "simplifica-3d-v188-ui-density-motion-20260625",
+  "simplifica-3d-v189-pwa-split-pane-20260625",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.46-rc\"",
-  "versionCode 45",
-  "APP_VERSION = \"1.0.46-rc\"",
-  "APP_VERSION_CODE = 45",
+  "versionName \"1.0.47-rc\"",
+  "versionCode 46",
+  "APP_VERSION = \"1.0.47-rc\"",
+  "APP_VERSION_CODE = 46",
   "\"@capacitor/app\"",
   "web-ad-banner-visible",
   "body.web-ad-banner-visible #app-content"
