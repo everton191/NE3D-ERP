@@ -50,7 +50,7 @@ assert(index.indexOf("smartLoaderService.js") < index.indexOf("app.js"), "SmartL
 assert(index.includes('id="smart-loader-layer"'), "camada global do SmartLoader existe");
 assert(prepareWeb.includes(servicePath), "build copia o SmartLoader para dist");
 assert(sw.includes("./src/services/smartLoaderService.js"), "PWA pré-carrega o SmartLoader");
-assert(sw.includes("simplifica-3d-v186-mobile-render-stability-20260623"), "cache PWA foi atualizado");
+assert(sw.includes("simplifica-3d-v188-ui-density-motion-20260625"), "cache PWA foi atualizado");
 
 [
   "uploadStorefrontAsset",
@@ -74,6 +74,8 @@ assert(sw.includes("simplifica-3d-v186-mobile-render-stability-20260623"), "cach
 assert(css.includes(".smart-loader-panel"), "painel contextual possui estilo global");
 assert(css.includes(".smart-skeleton-screen"), "skeleton possui estilo global");
 assert(css.includes("@media(max-width:767px)"), "feedback possui adaptação mobile");
+assert(css.includes("width:min(300px,calc(100vw - 16px))"), "painel de carregamento mobile usa largura compacta");
+assert(css.includes("max-height:min(42dvh,320px)"), "painel de carregamento mobile limita a altura");
 assert(!css.slice(css.indexOf("/* Perceived performance")).includes("linear-gradient"), "camada nova não introduz gradiente visual");
 assert(!/function gerarPdfCalculadora[\s\S]{0,260}setTimeout/.test(app), "geração de PDF não usa atraso artificial");
 assert(/function renderStoreGuidedProductsList[\s\S]{0,260}renderSmartScreenSkeleton\(\"produtos\"\)/.test(app), "catálogo de produtos usa skeleton real");

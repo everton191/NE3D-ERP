@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.44-rc";
-const APP_VERSION_CODE = 43;
+const APP_VERSION = "1.0.46-rc";
+const APP_VERSION_CODE = 45;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -5143,6 +5143,12 @@ function isWebPwaProfile() {
   return getUiProfile() === "web_pwa";
 }
 
+function isPwaSettingsSplitPane(elemento = null) {
+  return isWebPwaProfile()
+    && !isMobile()
+    && !!elemento?.closest?.(".settings-accordion-list");
+}
+
 function detectarTipoDispositivo() {
   const agente = navigator.userAgent || "";
   if (/Android|iPhone|iPad|iPod|Mobile/i.test(agente) || isMobile()) return "mobile";
@@ -8460,6 +8466,20 @@ function iniciarTransicaoNavegacao(tipo = "forward") {
   }, 520);
 }
 
+function renderAppComTransicaoNavegacao(tipo = "forward") {
+  iniciarTransicaoNavegacao(tipo);
+  const reduzirMovimento = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  if (reduzirMovimento || typeof document.startViewTransition !== "function") {
+    renderApp();
+    return;
+  }
+  document.documentElement.dataset.navDirection = tipo;
+  const transicao = document.startViewTransition(() => renderApp());
+  transicao.finished.finally(() => {
+    delete document.documentElement.dataset.navDirection;
+  });
+}
+
 function aplicarMotionSequenciado() {
   if (typeof document === "undefined") return;
   if (isMobile() && document.body.dataset.motion !== "high") return;
@@ -8526,6 +8546,9 @@ function isDashboardRoute(tela = telaAtual) {
 }
 
 function fecharCamadaAtualSeExistir() {
+  if (fecharSubmenuConfiguracaoAtivo()) {
+    return true;
+  }
   const popup = document.getElementById("popup");
   if (popup && popup.innerHTML.trim()) {
     fecharPopup();
@@ -8676,8 +8699,8 @@ function trocarTela(tela, opcoes = {}) {
       atualizarHistoricoBrowserApp(!!opcoes.replaceHistory);
     }
   }
-  if (mudouTela) iniciarTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
-  renderApp();
+  if (mudouTela) renderAppComTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
+  else renderApp();
   if (mudouTela) resetarScrollTelaAtiva();
 }
 
@@ -8688,9 +8711,8 @@ function voltarTela() {
   const atual = telaAtual;
   telaAtual = destino;
   telaAnterior = navigationStack[navigationStack.length - 1] || getParentScreenForBack(destino);
-  iniciarTransicaoNavegacao("back");
   atualizarHistoricoBrowserApp(true);
-  renderApp();
+  renderAppComTransicaoNavegacao("back");
   if (atual !== destino) resetarScrollTelaAtiva();
 }
 
@@ -8698,9 +8720,8 @@ function voltarInicio() {
   telaAnterior = telaAtual;
   navigationStack = [];
   telaAtual = "dashboard";
-  iniciarTransicaoNavegacao("back");
   atualizarHistoricoBrowserApp(true);
-  renderApp();
+  renderAppComTransicaoNavegacao("back");
 }
 
 async function lidarComVoltarSistema(event = null) {
@@ -9103,6 +9124,7 @@ function renderApp() {
   ensureAppShellLayers();
   const app = document.getElementById("app");
   if (!app) return;
+  garantirSubmenusMobileComoTelas();
   applyViewportModeClasses(document.body);
   if (window.__simplificaLocalLockActive && getUsuarioAtual()) {
     aplicarPersonalizacao();
@@ -14062,8 +14084,8 @@ function abrirNotificacoesOperacionais() {
     <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card notification-center modal-enter" onclick="event.stopPropagation()">
         <div class="modal-header">
-          <div><h2>Notificações</h2><p class="muted">Alertas que precisam da sua atenção.</p></div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">×</button>
+          <div><h2>Notificações</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar notificações">×</button>
         </div>
         <div class="notification-center-list">
           ${notificacoes.map((item) => `
@@ -14072,7 +14094,7 @@ function abrirNotificacoesOperacionais() {
               <div><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.description)}</small></div>
               <button class="btn ghost" type="button" onclick="${item.action}">${escaparHtml(item.actionLabel)}</button>
             </article>
-          `).join("") || `<div class="notification-center-empty">${renderUiIcon("bell")}<strong>Tudo em dia</strong><span>Não há pedidos atrasados, estoque baixo ou sincronizações pendentes.</span></div>`}
+          `).join("") || `<div class="notification-center-empty">${renderUiIcon("bell")}<strong>Tudo em dia</strong></div>`}
         </div>
       </section>
     </div>`;
@@ -14179,22 +14201,22 @@ function renderCentralMensagensPopup() {
     <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card notification-center message-center modal-enter" onclick="event.stopPropagation()">
         <div class="modal-header">
-          <div><h2>Avisos de mensagens</h2><p class="muted">Somente origem, nome disponível e horário. O conteúdo não é armazenado.</p></div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">×</button>
+          <div><h2>Mensagens</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar mensagens">×</button>
         </div>
         <div class="notification-center-list">
           ${syncedMessageNotifications.map((item) => `
             <article class="message-channel-item message-notification-item">
               <span class="notification-center-icon channel-${escaparAttr(item.source)}">${renderUiIcon(item.source)}</span>
               <div>
-                <strong>${item.sender_name ? `${escaparHtml(item.sender_name)} enviou uma mensagem` : "Nova mensagem"}</strong>
+                <strong>${item.sender_name ? escaparHtml(item.sender_name) : escaparHtml(labels[item.source] || "Nova mensagem")}</strong>
                 <small>${escaparHtml(labels[item.source] || item.source)} • ${new Date(item.received_at).toLocaleString("pt-BR")}</small>
               </div>
               <button class="btn ghost" type="button" onclick="removerNotificacaoMensagem('${escaparAttr(item.id)}')">Dispensar</button>
             </article>
-          `).join("") || `<div class="notification-center-empty">${renderUiIcon("feedback")}<strong>${messageNotificationLoadState === "loading" ? "Atualizando..." : "Nenhuma mensagem nova"}</strong><span>Os avisos desaparecem quando a notificação é lida ou removida no celular.</span></div>`}
+          `).join("") || `<div class="notification-center-empty">${renderUiIcon("feedback")}<strong>${messageNotificationLoadState === "loading" ? "Atualizando..." : "Nenhuma mensagem nova"}</strong></div>`}
         </div>
-        <div class="actions">${syncedMessageNotifications.length ? `<button class="btn ghost" type="button" onclick="limparNotificacoesMensagens()">Limpar avisos</button>` : ""}<button class="btn secondary" type="button" onclick="fecharPopup();trocarTela('config')">Configurar celular</button></div>
+        <div class="actions">${syncedMessageNotifications.length ? `<button class="btn ghost" type="button" onclick="limparNotificacoesMensagens()">Limpar mensagens</button>` : ""}<button class="btn secondary" type="button" onclick="fecharPopup();trocarTela('config')">Configurar celular</button></div>
       </section>
     </div>`;
 }
@@ -23474,6 +23496,18 @@ function classePlanoSaasCompacto(planoSlug = "free") {
   return "plan-free";
 }
 
+function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "Mais ações") {
+  if (!conteudo) return "";
+  return `
+    <details class="ui-context-menu superadmin-action-menu" onclick="event.stopPropagation()">
+      <summary class="btn secondary superadmin-action-menu-trigger">
+        <span>${escaparHtml(rotulo)}</span><span aria-hidden="true">⌄</span>
+      </summary>
+      <div class="ui-context-menu-panel superadmin-action-menu-panel">${conteudo}</div>
+    </details>
+  `;
+}
+
 function renderLinhaClienteSaas(cliente) {
   const assinatura = getAssinaturaSaas(cliente.id);
   const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
@@ -23497,15 +23531,17 @@ function renderLinhaClienteSaas(cliente) {
         <span>${new Date(cliente.createdAt).toLocaleDateString("pt-BR")}</span>
       </div>
       <div class="row-actions">
-        <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar</button>
-        <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
-        <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Plano</button>
-        <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">+ dias</button>
-        <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Teste off" : "Teste"}</button>
-        <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar</button>
-        <button class="btn ghost" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar</button>
-        <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anon.</button>
-        ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir teste</button>` : ""}
+        <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar cliente</button>
+        <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar acesso" : "Bloquear acesso"}</button>
+        ${renderMenuAcoesSuperadmin(`
+          <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Alterar plano</button>
+          <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">Adicionar dias ao acesso</button>
+          <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Desativar usuário de teste" : "Marcar como usuário de teste"}</button>
+          <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar dados do cliente</button>
+          <button class="btn warning" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar cliente</button>
+          <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar dados pessoais</button>
+          ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
+        `)}
       </div>
     </div>
   `;
@@ -25824,8 +25860,8 @@ function renderUiTabs(group, tabs = [], active = "") {
 
 function renderUiSection({ id = "", title = "", subtitle = "", icon = "", content = "", open = false, group = "" } = {}) {
   return `
-    <details class="ui-section app-section" data-ui-section="${escaparAttr(id)}" data-accordion-group="${escaparAttr(group)}" ${open ? "open" : ""} ontoggle="sincronizarAcordeaoUi(this)">
-      <summary>
+    <details class="ui-section app-section" data-ui-section="${escaparAttr(id)}" data-accordion-group="${escaparAttr(group)}" ${open && !isMobile() ? "open" : ""} ontoggle="sincronizarAcordeaoUi(this)">
+      <summary onclick="abrirSubmenuConfiguracao(event, this.parentElement)">
         <span class="ui-section-icon" aria-hidden="true">${icon || "▦"}</span>
         <span class="ui-section-title">
           <strong>${escaparHtml(title)}</strong>
@@ -25840,6 +25876,77 @@ function renderUiSection({ id = "", title = "", subtitle = "", icon = "", conten
 
 function renderAppSection(options = {}) {
   return renderUiSection(options);
+}
+
+function garantirSubmenusMobileComoTelas() {
+  if (window.__simplificaSubmenuMobileListener) return;
+  window.__simplificaSubmenuMobileListener = true;
+  document.addEventListener("click", (event) => {
+    const summary = event.target?.closest?.(".settings-accordion-list > .ui-section > summary");
+    if (!summary) return;
+    const section = summary.parentElement;
+    if (isMobile()) {
+      abrirSubmenuConfiguracao(event, section);
+      return;
+    }
+    if (isPwaSettingsSplitPane(section) && section.open) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+}
+
+function abrirSubmenuConfiguracao(event, section) {
+  if (!isMobile() || !section?.classList?.contains("ui-section")) return;
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  if (section.classList.contains("ui-subscreen-active")) {
+    fecharSubmenuConfiguracao(section);
+    return;
+  }
+  document.querySelectorAll(".ui-section.ui-subscreen-active").forEach((item) => fecharSubmenuConfiguracao(item, true));
+  section.dataset.previousOpen = "false";
+  section.dataset.previousScroll = String(document.querySelector(".mobile-panel-content")?.scrollTop || 0);
+  const placeholder = document.createComment(`submenu-${section.dataset.uiSection || "config"}`);
+  section.parentNode?.insertBefore(placeholder, section);
+  window.__settingsSubscreenMount = {
+    section,
+    placeholder
+  };
+  section.open = true;
+  section.classList.add("ui-subscreen-active");
+  document.body.classList.add("settings-subscreen-open");
+  document.body.appendChild(section);
+  requestAnimationFrame(() => section.classList.add("is-visible"));
+}
+
+function fecharSubmenuConfiguracao(section = document.querySelector(".ui-section.ui-subscreen-active"), immediate = false) {
+  if (!section?.classList?.contains("ui-subscreen-active")) return false;
+  const finalizar = () => {
+    const scrollAnterior = Number(section.dataset.previousScroll) || 0;
+    section.classList.remove("ui-subscreen-active", "is-visible");
+    section.open = section.dataset.previousOpen === "true";
+    delete section.dataset.previousOpen;
+    delete section.dataset.previousScroll;
+    if (!document.querySelector(".ui-section.ui-subscreen-active")) {
+      document.body.classList.remove("settings-subscreen-open");
+    }
+    const montagem = window.__settingsSubscreenMount;
+    if (montagem?.section === section && montagem.placeholder?.parentNode) {
+      montagem.placeholder.parentNode.replaceChild(section, montagem.placeholder);
+    }
+    window.__settingsSubscreenMount = null;
+    const painel = document.querySelector(".mobile-panel-content");
+    if (painel) painel.scrollTop = scrollAnterior;
+  };
+  section.classList.remove("is-visible");
+  if (immediate) finalizar();
+  else setTimeout(finalizar, 240);
+  return true;
+}
+
+function fecharSubmenuConfiguracaoAtivo() {
+  return fecharSubmenuConfiguracao();
 }
 
 function renderAppModal({ title = "", content = "", actions = "", size = "medium", extraClass = "" } = {}) {
@@ -25865,7 +25972,8 @@ function renderAppFormGroup({ label = "", id = "", type = "text", value = "", pl
 }
 
 function sincronizarAcordeaoUi(elemento) {
-  if (!elemento?.open || !isMobile()) return;
+  if (!elemento?.open) return;
+  if (!isMobile() && !isPwaSettingsSplitPane(elemento)) return;
   const grupo = elemento.dataset.accordionGroup || "";
   if (!grupo) return;
   const seletorGrupo = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(grupo) : String(grupo).replace(/"/g, '\\"');
@@ -26026,21 +26134,20 @@ function renderCanaisMensagensConfig() {
   const android = isAndroidNativeApp();
   const permissionLabel = androidMessageRelayStatus.permissionGranted ? "Permitido" : "Permissão necessária";
   return `
-    <p class="muted">O APK pode identificar apenas o aplicativo, o nome exibido e o horário. O conteúdo da mensagem nunca é lido ou enviado.</p>
     ${android ? `
-      <div class="message-integration-notice compact"><strong>Acesso às notificações: ${escaparHtml(permissionLabel)}</strong><span>Quando a notificação for aberta ou removida no celular, ela também desaparecerá do computador.</span></div>
-      <label class="checkbox-row"><input id="messageRelayEnabled" type="checkbox" ${preferences.enabled ? "checked" : ""}><span><strong>Sincronizar avisos deste celular</strong><small>Usa a mesma conta do ERP e funciona enquanto o celular estiver conectado.</small></span></label>
+      <div class="message-integration-notice compact"><strong>Acesso às notificações</strong><span>${escaparHtml(permissionLabel)}</span></div>
+      <label class="checkbox-row"><input id="messageRelayEnabled" type="checkbox" ${preferences.enabled ? "checked" : ""}><span><strong>Sincronizar mensagens deste celular</strong></span></label>
       <div class="message-relay-channels">
         <label class="checkbox-row"><input id="messageRelayWhatsapp" type="checkbox" ${preferences.whatsapp ? "checked" : ""}><span>WhatsApp</span></label>
         <label class="checkbox-row"><input id="messageRelayInstagram" type="checkbox" ${preferences.instagram ? "checked" : ""}><span>Instagram</span></label>
         <label class="checkbox-row"><input id="messageRelayTiktok" type="checkbox" ${preferences.tiktok ? "checked" : ""}><span>TikTok</span></label>
       </div>
       <div class="actions"><button class="btn secondary" type="button" onclick="abrirPermissaoRelayNotificacoes()">Permitir no Android</button><button class="btn" type="button" onclick="salvarPreferenciasRelayNotificacoes()">Salvar avisos</button></div>
-    ` : `<div class="message-integration-notice compact"><strong>Recebimento no computador</strong><span>Os avisos aparecerão aqui quando um celular Android conectado à mesma conta estiver autorizado.</span></div>`}
+    ` : ""}
     <div class="message-settings-grid">
-      ${["whatsapp", "instagram", "tiktok"].map((id) => `<div class="message-setting-card"><span>${renderUiIcon(id)}</span><div><strong>${escaparHtml({ whatsapp: "WhatsApp", instagram: "Instagram", tiktok: "TikTok" }[id])}</strong><small>Aviso sem conteúdo</small></div><em>${android ? (preferences[id] ? "Selecionado" : "Desativado") : "Recebido do celular"}</em></div>`).join("")}
+      ${["whatsapp", "instagram", "tiktok"].map((id) => `<div class="message-setting-card"><span>${renderUiIcon(id)}</span><div><strong>${escaparHtml({ whatsapp: "WhatsApp", instagram: "Instagram", tiktok: "TikTok" }[id])}</strong></div><em>${android ? (preferences[id] ? "Ativo" : "Desativado") : "Celular"}</em></div>`).join("")}
     </div>
-    <div class="actions"><button class="btn secondary" type="button" onclick="abrirCentralMensagens()">Ver avisos de mensagens</button></div>`;
+    <div class="actions"><button class="btn secondary" type="button" onclick="abrirCentralMensagens()">Ver mensagens</button></div>`;
 }
 
 function renderSugestoesMelhoriasConfig() {
@@ -26208,6 +26315,7 @@ function renderConfig() {
   const messageChannelsContent = renderCanaisMensagensConfig();
   const suggestionsContent = renderSugestoesMelhoriasConfig();
   const systemLogsContent = renderLogSistemaConfig();
+  const usarPainelDuploPwa = isWebPwaProfile() && !isMobile();
 
   return `
     <section class="card organized-page settings-page">
@@ -26219,9 +26327,9 @@ function renderConfig() {
       <div class="settings-accordion-list">
         ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta, sync, exportação e importação", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
         ${telaAtual === "config" ? `
-          ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: true, group: "config" })}
+          ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: !isMobile() && !usarPainelDuploPwa, group: "config" })}
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
-          ${renderUiSection({ id: "canais-mensagens", title: "Mensagens e canais", subtitle: "WhatsApp, Instagram e TikTok cadastrados", icon: "✉", content: messageChannelsContent, group: "config" })}
+          ${renderUiSection({ id: "canais-mensagens", title: "Mensagens", subtitle: "Origens e celular conectado", icon: "✉", content: messageChannelsContent, group: "config" })}
           ${renderUiSection({ id: "sugestoes-melhorias", title: "Sugestões de melhorias", subtitle: "Envie ideias e acompanhe pedidos", icon: "💡", content: suggestionsContent, group: "config" })}
           ${renderUiSection({ id: "logs-sistema", title: "Log do sistema", subtitle: "Erros, pendências e operações concluídas", icon: "☷", content: systemLogsContent, group: "config" })}
           ${renderUiSection({ id: "sistema", title: "Cache, offline e suporte", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
@@ -26959,68 +27067,87 @@ function renderSeguranca() {
   `).join("") || `<p class="empty">Nenhum log de segurança registrado.</p>`;
 
   return `
-    <section class="card">
-      <div class="card-header">
-        <h2>🔒 Segurança</h2>
-        <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${usuario.ativo === false ? "Inativo" : "Ativo"}</span>
-      </div>
-      <div class="admin-grid">
-        <div class="metric">
-          <span>Conta</span>
-          <strong>${escaparHtml(usuario.email)}</strong>
+    <section class="card security-page">
+      <header class="security-page-header">
+        <div>
+          <h2>Segurança</h2>
+          <p>Senha, PIN e proteção deste aparelho em um só lugar.</p>
         </div>
-        <div class="metric">
-          <span>Perfil</span>
-          <strong>${escaparHtml(usuario.papel)}</strong>
-        </div>
-        <div class="metric">
-          <span>Último acesso</span>
-          <strong>${usuario.lastLoginAt ? new Date(usuario.lastLoginAt).toLocaleString("pt-BR") : "Não registrado"}</strong>
-        </div>
-        <div class="metric">
-          <span>Sessão</span>
-          <strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong>
-        </div>
+        <span class="security-auth-badge ${usuarioEstaBloqueado(usuario) ? "is-danger" : ""}">${renderUiIcon("seguranca")} ${usuario.ativo === false ? "Inativa" : "Protegida"}</span>
+      </header>
+
+      <div class="security-overview security-page-overview">
+        <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("conta")}</span><span><small>Conta</small><strong>${escaparHtml(usuario.email)}</strong></span></div>
+        <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("seguranca")}</span><span><small>Perfil</small><strong>${escaparHtml(usuario.papel)}</strong></span></div>
+        <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("time")}</span><span><small>Último acesso</small><strong>${usuario.lastLoginAt ? new Date(usuario.lastLoginAt).toLocaleString("pt-BR") : "Não registrado"}</strong></span></div>
+        <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("dashboard")}</span><span><small>Sessão</small><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong></span></div>
       </div>
 
-      <div class="danger-zone">
-        <h2 class="section-title">Alterar senha</h2>
-        ${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}
-      </div>
+      <div class="security-page-sections">
+        <details class="settings-group security-settings-card security-mobile-card" open>
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon">${renderUiIcon("config")}</span>
+            <div><h3>Alterar senha</h3><small>Atualize a senha usada para entrar na conta.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
+        </details>
 
-      <div class="danger-zone">
-        <h2 class="section-title">Sessão</h2>
-        <p class="muted">Ao sair, tokens temporários e dados sensíveis da sessão são limpos deste aparelho. Se a opção de manter sessão estiver ativa, o app preserva o login sem salvar a senha.</p>
-        <label class="checkbox-row">
-          <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
-          <span>Manter login neste aparelho</span>
-        </label>
-        <div class="actions">
-          <button class="btn warning" onclick="logoutUsuario()">Sair com segurança</button>
-          <button class="btn ghost" onclick="sairSupabase()">Encerrar Supabase</button>
-        </div>
-      </div>
+        <details class="settings-group security-settings-card security-mobile-card">
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon security-card-icon-warning">🔒</span>
+            <div><h3>PIN de ações importantes</h3><small>Confirme alterações críticas sem repetir a senha longa.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body">${renderConfiguracaoPinAcoesSensiveis()}</div>
+        </details>
 
-      <div class="danger-zone">
-        <h2 class="section-title">PIN para alterações importantes</h2>
-        ${renderConfiguracaoPinAcoesSensiveis()}
-      </div>
+        <details class="settings-group security-settings-card security-mobile-card">
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon">${renderUiIcon("dashboard")}</span>
+            <div><h3>Sessão neste aparelho</h3><small>Controle o login salvo e encerre a sessão com segurança.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body security-page-card-content">
+            <label class="checkbox-row">
+              <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
+              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha.</small></span>
+            </label>
+            <div class="actions security-page-actions">
+              <button class="btn warning" onclick="logoutUsuario()">Sair com segurança</button>
+              <button class="btn ghost" onclick="sairSupabase()">Encerrar conexão</button>
+            </div>
+          </div>
+        </details>
 
-      <div class="danger-zone">
-        <h2 class="section-title">Biometria e permissões</h2>
-        <label class="checkbox-row">
-          <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
-          <span>Usar digital, rosto ou padrão para abrir dados neste aparelho</span>
-        </label>
-        <div class="actions">
-          <button class="btn ghost" onclick="verificarPermissoesDispositivo()">Verificar permissões do aparelho</button>
-          <button class="btn ghost" onclick="entrarComCredencialSalva()">Testar senha salva/digital</button>
-        </div>
-        <p class="muted">No app Android, alterações importantes usam a proteção nativa já cadastrada no aparelho: digital, rosto, PIN, padrão ou senha. O Android não permite que o app leia o MAC real; para controle de uso, o Simplifica 3D usa um ID local, tipo de acesso e sessão vinculada ao e-mail do plano.</p>
-      </div>
+        <details class="settings-group security-settings-card security-mobile-card">
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon">${renderUiIcon("seguranca")}</span>
+            <div><h3>Biometria e permissões</h3><small>Use a proteção nativa configurada no celular.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body security-page-card-content">
+            <label class="checkbox-row">
+              <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
+              <span><strong>Usar proteção do aparelho</strong><small>Digital, rosto, PIN, padrão ou senha do Android.</small></span>
+            </label>
+            <div class="actions security-page-actions">
+              <button class="btn ghost" onclick="verificarPermissoesDispositivo()">Verificar permissões</button>
+              <button class="btn ghost" onclick="entrarComCredencialSalva()">Testar desbloqueio</button>
+            </div>
+            <p class="muted security-page-note">O Simplifica 3D usa um identificador local e a sessão vinculada ao e-mail do plano; o Android não permite que aplicativos leiam o MAC real.</p>
+          </div>
+        </details>
 
-      <h2 class="section-title">Logs de segurança</h2>
-      <div class="history-list">${logs}</div>
+        <details class="settings-group security-settings-card security-mobile-card security-logs-card">
+          <summary class="security-card-heading security-mobile-card-summary">
+            <span class="security-card-icon">${renderUiIcon("history")}</span>
+            <div><h3>Atividade de segurança</h3><small>Últimos acessos e alterações protegidas.</small></div>
+            <span class="security-mobile-chevron">›</span>
+          </summary>
+          <div class="security-mobile-card-body"><div class="history-list">${logs}</div></div>
+        </details>
+      </div>
     </section>
   `;
 }
@@ -27853,10 +27980,12 @@ function renderSuperAdminRelatoriosAutomaticos() {
           <span>${escaparHtml(item.status || "new")}</span>
           <span class="row-actions">
             <button class="btn ghost" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'reviewing')">Analisar</button>
-            <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Corrigido</button>
-            <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
-            <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Crítico</button>
-            <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Nota</button>
+            <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Marcar corrigido</button>
+            ${renderMenuAcoesSuperadmin(`
+              <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar relatório</button>
+              <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Marcar como crítico</button>
+              <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Adicionar nota administrativa</button>
+            `)}
           </span>
         </div>
       `).join("") || `<p class="empty">Nenhum relatório automático encontrado.</p>`}
@@ -27928,8 +28057,10 @@ function renderSuperAdminFeedbackReports() {
           <div class="row-actions">
             <button class="btn ghost" onclick="atualizarStatusSugestaoApp('${escaparAttr(item.id)}', 'reviewing')">Analisar</button>
             <button class="btn secondary" onclick="atualizarStatusSugestaoApp('${escaparAttr(item.id)}', 'planned')">Planejar</button>
-            <button class="btn secondary" onclick="atualizarStatusSugestaoApp('${escaparAttr(item.id)}', 'done')">Concluída</button>
-            <button class="btn warning" onclick="atualizarStatusSugestaoApp('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
+            ${renderMenuAcoesSuperadmin(`
+              <button class="btn secondary" onclick="atualizarStatusSugestaoApp('${escaparAttr(item.id)}', 'done')">Marcar como concluída</button>
+              <button class="btn warning" onclick="atualizarStatusSugestaoApp('${escaparAttr(item.id)}', 'ignored')">Ignorar sugestão</button>
+            `)}
           </div>
         </div>
       `).join("") || `<p class="empty">Nenhuma sugestão encontrada.</p>`}
@@ -27943,10 +28074,12 @@ function renderSuperAdminFeedbackReports() {
           <span>${escaparHtml(item.description || "")}</span>
           <div class="row-actions">
             <button class="btn ghost" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'reviewing')">Analisar</button>
-            <button class="btn secondary" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'fixed')">Corrigido</button>
-            <button class="btn warning" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
-            <button class="btn ghost" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'closed')">Fechar</button>
-            <button class="btn ghost" onclick="atualizarNotaAdminFeedback('${escaparAttr(item.id)}')">Nota</button>
+            <button class="btn secondary" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'fixed')">Marcar corrigido</button>
+            ${renderMenuAcoesSuperadmin(`
+              <button class="btn warning" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'ignored')">Ignorar feedback</button>
+              <button class="btn ghost" onclick="atualizarStatusFeedbackReport('${escaparAttr(item.id)}', 'closed')">Fechar feedback</button>
+              <button class="btn ghost" onclick="atualizarNotaAdminFeedback('${escaparAttr(item.id)}')">Adicionar nota administrativa</button>
+            `)}
           </div>
         </div>
       `).join("") || `<p class="empty">Nenhum feedback encontrado.</p>`}
@@ -28030,12 +28163,14 @@ function renderSuperAdminDiagnosticos() {
           <span>${escaparHtml(item.app_version || "-")}</span>
           <span>${escaparHtml(item.platform || "-")}</span>
           <span class="row-actions">
-            <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'bug')">Codex</button>
-            <button class="btn ghost" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'investigating')">Investigando</button>
-            <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Fixed</button>
-            <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
-            <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Crítico</button>
-            <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Nota</button>
+            ${renderMenuAcoesSuperadmin(`
+              <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'bug')">Gerar relatório para Codex</button>
+              <button class="btn ghost" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'investigating')">Marcar como investigando</button>
+              <button class="btn secondary" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'fixed')">Marcar como corrigido</button>
+              <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar ocorrência</button>
+              <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Marcar como crítico</button>
+              <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Adicionar nota administrativa</button>
+            `, "Ações do bug")}
           </span>
         </div>
       `).join("") || `<p class="empty">Nenhum bug carregado.</p>`}
@@ -28056,12 +28191,14 @@ function renderSuperAdminDiagnosticos() {
           <strong>${escaparHtml(item.title || item.fingerprint || "Cluster")}</strong>
           <span class="muted">${Number(item.occurrence_count) || 0} ocorrências • ${Number(item.affected_users_count) || 0} usuários • ${escaparHtml(item.status || "new")} • ${escaparHtml(item.severity || "low")}</span>
           <div class="row-actions">
-            <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'cluster')">Gerar relatório técnico</button>
-            <button class="btn ghost" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'investigating')">Investigando</button>
-            <button class="btn secondary" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'fixed')">Fixed</button>
-            <button class="btn warning" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'ignored')">Ignorar</button>
-            <button class="btn ghost" onclick="atualizarSeveridadeClusterDiagnostico('${escaparAttr(item.id)}', 'critical')">Crítico</button>
-            <button class="btn ghost" onclick="atualizarNotaAdminCluster('${escaparAttr(item.id)}')">Nota</button>
+            ${renderMenuAcoesSuperadmin(`
+              <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico('${escaparAttr(item.id)}', 'cluster')">Gerar relatório técnico</button>
+              <button class="btn ghost" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'investigating')">Marcar como investigando</button>
+              <button class="btn secondary" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'fixed')">Marcar como corrigido</button>
+              <button class="btn warning" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'ignored')">Ignorar cluster</button>
+              <button class="btn ghost" onclick="atualizarSeveridadeClusterDiagnostico('${escaparAttr(item.id)}', 'critical')">Marcar como crítico</button>
+              <button class="btn ghost" onclick="atualizarNotaAdminCluster('${escaparAttr(item.id)}')">Adicionar nota administrativa</button>
+            `, "Ações do cluster")}
           </div>
         </div>
       `).join("") || `<p class="empty">Nenhum cluster carregado.</p>`}
@@ -28099,8 +28236,8 @@ function renderSuperAdminConfiguracoes() {
             </div>
             <span class="status-badge ${classeStatusPlano(status)}">${escaparHtml(status)}</span>
             <div class="row-actions">
-              <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 7)">+7</button>
-              <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 30)">+30</button>
+              <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 7)">Adicionar 7 dias</button>
+              <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 30)">Adicionar 30 dias</button>
               <button class="btn warning" onclick="alternarBloqueioUsuario('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>${usuario.bloqueado ? "Desbloquear" : "Bloquear"}</button>
               <button class="btn danger" onclick="excluirUsuarioSuperAdmin('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>Excluir</button>
             </div>
@@ -28151,12 +28288,12 @@ function renderSuperAdmin() {
     return `
       <section class="superadmin-panel superadmin-profile-panel">
         <div class="superadmin-titlebar">
-          <button class="icon-action-button" type="button" onclick="voltarClientesSaas()" title="Voltar">${renderUiIcon("back")}</button>
+          <button class="icon-action-button" type="button" onclick="voltarClientesSaas()" title="Voltar" aria-label="Voltar para clientes">${renderUiIcon("back")}</button>
           <div class="superadmin-brand">
             <span class="superadmin-crown">${renderUiIcon("superadmin")}</span>
             <strong>SuperAdmin</strong>
           </div>
-          <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Avisos">${renderUiIcon("bell")}</button>
+          <button class="icon-action-button superadmin-feedback-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Sugestões e feedback" aria-label="Abrir sugestões e feedback">${renderUiIcon("bell")}<span>Feedback</span></button>
         </div>
         <div class="superadmin-content">${renderSuperAdminConteudo(tab)}</div>
       </section>
@@ -28166,24 +28303,24 @@ function renderSuperAdmin() {
   return `
     <section class="superadmin-panel">
       <div class="superadmin-titlebar">
-        <button class="icon-action-button" type="button" onclick="abrirMenuPopup()" title="Menu">${renderUiIcon("menu")}</button>
+        <button class="icon-action-button" type="button" onclick="abrirMenuPopup()" title="Menu" aria-label="Abrir menu principal">${renderUiIcon("menu")}</button>
         <div class="superadmin-brand">
           <span class="superadmin-crown">${renderUiIcon("superadmin")}</span>
           <strong>SuperAdmin</strong>
         </div>
-        <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Avisos">${renderUiIcon("bell")}</button>
+        <button class="icon-action-button superadmin-feedback-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Sugestões e feedback" aria-label="Abrir sugestões e feedback">${renderUiIcon("bell")}<span>Feedback</span></button>
       </div>
       <div class="superadmin-hero">
         <div>
           <h2>Olá, SuperAdmin 👑</h2>
           <p class="muted">Aqui está o resumo geral da plataforma.</p>
         </div>
-        <button class="btn ghost superadmin-date-filter" type="button">
+        <span class="status-badge superadmin-date-filter" aria-label="Período exibido">
           ${renderUiIcon("agenda")} Hoje
-        </button>
+        </span>
       </div>
-      <div class="superadmin-tabs">
-        ${abas.map(([id, label]) => `<button class="tab-button ${tab === id ? "active" : ""}" onclick="trocarAbaSuperAdmin('${id}')">${label}</button>`).join("")}
+      <div class="superadmin-tabs" role="tablist" aria-label="Áreas do Superadmin">
+        ${abas.map(([id, label]) => `<button class="tab-button ${tab === id ? "active" : ""}" type="button" role="tab" aria-selected="${tab === id}" onclick="trocarAbaSuperAdmin('${id}')">${label}</button>`).join("")}
       </div>
       <div class="superadmin-content">${renderSuperAdminConteudo(tab)}</div>
     </section>

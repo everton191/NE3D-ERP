@@ -431,6 +431,33 @@ body.gxm-motion-ready .gxm-screen-swap{
 }
 
 @media (max-width:720px){
+  :root{
+    --gxm-fast:140ms;
+    --gxm-mid:220ms;
+    --gxm-slow:300ms;
+  }
+
+  body.gxm-motion-ready :where(.btn,.icon-button,.header-menu-button,.side-nav-button,.mobile-bottom-nav-button,.menu-button,.ui-tab,.store-ui-button,.store-ui-icon-button,button):where(:hover,:focus-visible),
+  body.gxm-motion-ready :where(.card,.kpi-card,.plan-card,.chart-card,.order-list-card,.order-item-card,.store-ui-card,.sfv3-product-card,.sfv3-category-card,.sfe-list-card):where(:hover,:focus-within){
+    transform:none;
+    box-shadow:none;
+  }
+
+  body.gxm-motion-ready :where(.btn,.icon-button,.header-menu-button,.side-nav-button,.mobile-bottom-nav-button,.menu-button,.ui-tab,.store-ui-button,.store-ui-icon-button,button):active{
+    transform:scale(.98);
+  }
+
+  body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor,.app-content-shell).gxm-enter,
+  body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor):not(.gxm-seen),
+  body.gxm-motion-ready .gxm-screen-swap{
+    animation:gxm-screen-in-mobile 280ms var(--gxm-ease-emphasis) both !important;
+  }
+
+  body.gxm-motion-ready :where(.sfv3-product-card,.sfv3-category-card,.sfv3-sponsored-card,.sfe-list-card,.sfe-overview .store-ui-card){
+    animation-duration:260ms;
+    animation-delay:0ms !important;
+  }
+
   body.gxm-motion-ready .app-modal-layer.is-active{
     align-items:flex-end;
     padding:0;
@@ -442,8 +469,16 @@ body.gxm-motion-ready .gxm-screen-swap{
     animation:gxm-bottom-sheet-in var(--gxm-slow) var(--gxm-ease-emphasis) both;
   }
 
-  body.gxm-motion-ready :where(.card,.kpi-card,.plan-card,.chart-card,.order-list-card,.order-item-card,.store-ui-card,.sfv3-product-card,.sfv3-category-card,.sfe-list-card):where(:hover,:focus-within){
-    transform:translateY(-2px) scale(1.005);
+}
+
+@keyframes gxm-screen-in-mobile{
+  from{
+    opacity:0;
+    transform:translate3d(0,12px,0) scale(.99);
+  }
+  to{
+    opacity:1;
+    transform:translate3d(0,0,0) scale(1);
   }
 }
 

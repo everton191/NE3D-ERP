@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v186-mobile-render-stability-20260623";
+const CACHE_NAME = "simplifica-3d-v188-ui-density-motion-20260625";
 const APP_FILES = [
   "./",
   "./index.html",
