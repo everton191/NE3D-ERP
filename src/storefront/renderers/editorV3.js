@@ -207,8 +207,28 @@
 
   api.sidebar = function sidebar(vm, state = {}) {
     const sel = selection();
-    const desktopActions = state.mobile ? "" : `<nav class="sfe-sidebar-actions" aria-label="Ações do editor"><button class="store-ui-button--ghost sfe-sidebar-back" type="button" onclick="voltarPainelLojaVisual(event)">${icon("back")}<span>Voltar</span></button><button type="button" onclick="salvarEdicaoVisualAtualLoja()">${icon("backup")}<span>Salvar</span></button><button class="store-ui-button--secondary" type="button" onclick="abrirLojaPublicaOnline()">${icon("view")}<span>Ver como cliente</span></button><button class="sfe-sidebar-publish" type="button" onclick="alternarStatusLojaOnline()">${icon(vm.store.active ? "view" : "share")}<span>${vm.store.active ? "Colocar em rascunho" : "Publicar"}</span></button></nav>`;
-    return `<aside class="storefront-editor storefront-mobile-editor sfe-shell ${state.mobile ? "sfe-shell--mobile" : "sfe-shell--desktop"}" aria-label="Editor da loja" data-store-editor-theme="light" data-store-ui-mode="${attr(state.uiMode || "overview")}" data-store-selected-type="${attr(sel.type || "overview")}" data-store-selected-id="${attr(sel.id || "")}"><div class="sfe-scroll">${api.context(vm)}</div>${state.dirty ? `<button class="sfe-review" type="button" onclick="abrirChecklistGuiadoLoja()">Revisar e salvar</button>` : ""}${desktopActions}</aside>`;
+    const completion = call("getStorefrontCompletion", vm) || { completionPercent: 0, items: [] };
+    const pending = (completion.items || []).filter((item) => !item.done);
+    const planAllowsPublish = vm.limits?.publishEnabled !== false;
+    const canPublish = vm.store.active || (planAllowsPublish && pending.length === 0);
+    const publishLabel = vm.store.active
+      ? "Colocar em rascunho"
+      : !planAllowsPublish
+        ? "Plano Start/Pro"
+        : pending.length
+          ? "Concluir guia"
+          : "Publicar";
+    const publishTitle = vm.store.active
+      ? "Retirar a loja do ar"
+      : !planAllowsPublish
+        ? "Publicação liberada no plano correspondente"
+        : pending.length
+          ? "Conclua as pendências antes de publicar"
+          : "Publicar loja";
+    const publishAction = canPublish ? "alternarStatusLojaOnline()" : "abrirChecklistGuiadoLoja()";
+    const assistedHint = state.assisted ? `<div class="sfe-assisted-hint"><strong>Edição guiada</strong><small>Use as etapas e salve como rascunho. O botão publicar libera quando o guia estiver completo.</small></div>` : "";
+    const desktopActions = state.mobile ? "" : `<nav class="sfe-sidebar-actions" aria-label="Ações do editor"><button class="store-ui-button--ghost sfe-sidebar-back" type="button" onclick="voltarPainelLojaVisual(event)">${icon("back")}<span>Voltar</span></button><button type="button" onclick="salvarEdicaoVisualAtualLoja()">${icon("backup")}<span>Salvar</span></button><button class="store-ui-button--secondary" type="button" onclick="abrirLojaPublicaOnline()">${icon("view")}<span>Ver como cliente</span></button><button class="store-ui-button--secondary" type="button" onclick="abrirChecklistGuiadoLoja()">${icon("seguranca")}<span>Revisar</span></button><button class="sfe-sidebar-publish" type="button" onclick="${publishAction}" ${canPublish ? "" : "disabled"} title="${attr(publishTitle)}">${icon(vm.store.active ? "view" : "share")}<span>${esc(publishLabel)}</span></button></nav>`;
+    return `<aside class="storefront-editor storefront-mobile-editor sfe-shell ${state.mobile ? "sfe-shell--mobile" : "sfe-shell--desktop"} ${state.assisted ? "sfe-shell--guided-pwa" : ""}" aria-label="Editor da loja" data-store-editor-theme="light" data-store-ui-mode="${attr(state.uiMode || "overview")}" data-store-selected-type="${attr(sel.type || "overview")}" data-store-selected-id="${attr(sel.id || "")}">${assistedHint}<div class="sfe-scroll">${api.context(vm)}</div>${state.dirty ? `<button class="sfe-review" type="button" onclick="abrirChecklistGuiadoLoja()">Revisar e salvar</button>` : ""}${desktopActions}</aside>`;
   };
 
   api.topbar = function topbar(vm, state = {}) {

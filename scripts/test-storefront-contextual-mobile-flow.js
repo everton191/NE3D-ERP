@@ -40,7 +40,8 @@ function extractFunction(name) {
 ].forEach((marker) => assert(app.includes(marker), `Contrato contextual ausente: ${marker}`));
 
 const openAdmin = extractFunction("abrirLojaPublicaAdminContextual");
-assert(openAdmin.includes('setStorefrontContextualEditorState({ type: "overview", id: "", panelOpen: false }, { flushAutosave: false })'), "Abrir /admin=1 deve iniciar como vitrine sem painel aberto");
+assert(openAdmin.includes("const abrirGuiaPwa = isWebPwaProfile() && !isMobile()"), "Abrir /admin=1 deve abrir guia automaticamente apenas no PWA desktop");
+assert(openAdmin.includes("panelOpen: abrirGuiaPwa"), "PWA desktop deve iniciar com painel guiado aberto e mobile/APK devem preservar vitrine inicial");
 assert(openAdmin.includes('history.pushState({ simplifica: true, tela: "lojaPublica", loja: publicRoute, admin: true }'), "Rota admin contextual deve permanecer como lojaPublica com admin=1");
 assert(!openAdmin.includes('trocarTela("lojaOnline"'), "Abrir admin contextual nao pode redirecionar para resumo da loja");
 

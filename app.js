@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.53-rc";
-const APP_VERSION_CODE = 52;
+const APP_VERSION = "1.0.54-rc";
+const APP_VERSION_CODE = 53;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -4887,7 +4887,7 @@ function renderAdminSobDemanda(mensagem = "Configure um administrador para conti
           <span>Senha</span>
           <div class="password-row">
             <input id="adminDemandaSenha" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('adminDemandaSenha', this)">
-            <button class="icon-button" type="button" onclick="alternarSenhaVisivel('adminDemandaSenha')" title="Mostrar/ocultar senha">👁</button>
+            <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel('adminDemandaSenha')" title="Mostrar/ocultar senha">👁</button>
           </div>
           <small class="password-strength" data-strength-for="adminDemandaSenha">Digite uma senha forte</small>
         </label>
@@ -6328,6 +6328,9 @@ function renderMarcaOficialProjeto(classe = "brand-logo", alt = "Simplifica 3D",
 function finalizarIntroAbertura(overlay) {
   if (!overlay || overlay.dataset.done === "true") return;
   overlay.dataset.done = "true";
+  try {
+    sessionStorage.setItem("simplificaIntroAberturaConcluida", APP_VERSION || "1");
+  } catch (_) {}
   overlay.classList.add("is-hidden");
   setTimeout(() => overlay.remove(), 420);
 }
@@ -6357,6 +6360,9 @@ function iniciarIntroAbertura() {
   if (!INTRO_VIDEO_SRC || !document.body) return;
   if (parseStorefrontPublicRoute(location.pathname)) return;
   if (document.getElementById("introOverlay")) return;
+  try {
+    if (sessionStorage.getItem("simplificaIntroAberturaConcluida")) return;
+  } catch (_) {}
 
   const overlay = document.createElement("div");
   overlay.id = "introOverlay";
@@ -6402,15 +6408,22 @@ function iniciarIntroAbertura() {
   video?.addEventListener("ended", concluir, { once: true });
   video?.addEventListener("error", (erro) => {
     debugLog("Intro: video indisponivel, seguindo para o app.", erro);
-    setTimeout(concluir, 1200);
+    setTimeout(concluir, 700);
   }, { once: true });
   video?.addEventListener("loadeddata", () => tentarReproduzirIntro(video, overlay), { once: true });
+  video?.addEventListener("playing", () => {
+    overlay.dataset.videoStarted = "true";
+  }, { once: true });
   play?.addEventListener("click", () => tentarReproduzirIntro(video, overlay));
   skip?.addEventListener("click", concluir);
   document.body.appendChild(overlay);
 
   requestAnimationFrame(() => tentarReproduzirIntro(video, overlay));
 
+  setTimeout(() => {
+    if (overlay.dataset.done === "true" || overlay.dataset.videoStarted === "true") return;
+    if (document.visibilityState === "hidden") concluir();
+  }, 2600);
   setTimeout(concluir, 14000);
 }
 
@@ -13894,10 +13907,10 @@ function renderConta() {
       <div class="profile-modern-header">
         <span></span>
         <h2>Meu Perfil</h2>
-        <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}</button>
+        <button class="icon-action-button" type="button" onclick="abrirNotificacoesOperacionais()" title="Notificações">${renderUiIcon("bell")}</button>
       </div>
 
-      <button class="profile-modern-user-card" type="button" onclick="abrirFotoPerfilUsuario()">
+      <button class="profile-modern-user-card" type="button" onclick="abrirDadosPessoaisUsuario()">
         <span class="profile-modern-avatar ${escaparAttr(getAvatarPlanoClasseUsuario(usuario))}">
           ${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : `<i>${escaparHtml(getUserInitials(usuario.nome || usuario.email))}</i>`}
           <em>${renderUiIcon("edit")}</em>
@@ -13908,7 +13921,7 @@ function renderConta() {
           <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</small>
           <small>${escaparHtml(usuario.phone || usuario.telefone || appConfig.companyPhone || "")}</small>
         </span>
-        <span class="profile-row-arrow">›</span>
+        <span class="profile-row-arrow">Editar</span>
       </button>
 
       <section class="profile-modern-card">
@@ -13941,7 +13954,7 @@ function renderConta() {
       </section>
 
       <section class="profile-modern-card profile-list-card">
-        <h3>Usuário</h3>
+        <h3>Conta</h3>
         <div class="profile-inline-edit-card">
           <div class="profile-section-title compact">
             <strong>Editar perfil</strong>
@@ -13962,23 +13975,31 @@ function renderConta() {
             <button class="btn secondary" type="button" onclick="abrirDadosPessoaisUsuario()">Abrir edição completa</button>
           </div>
         </div>
-        <button class="profile-list-row" type="button" onclick="abrirFotoPerfilUsuario()">${renderUiIcon("conta")} <span>Foto do perfil</span><b>›</b></button>
-        <button class="profile-list-row" type="button" onclick="abrirDadosPessoaisUsuario()">${renderUiIcon("clientes")} <span>Dados pessoais</span><b>›</b></button>
-        ${renderProfileMenuRow("seguranca", "Segurança da conta", "seguranca")}
-        ${renderProfileMenuRow("bell", "Notificações", "feedback")}
-        ${renderProfileMenuRow("preferencias", "Sessão e preferências", "config")}
+        <button class="profile-list-row" type="button" onclick="abrirFotoPerfilUsuario()">${renderUiIcon("conta")} <span>Alterar foto do perfil</span><b>›</b></button>
+        <button class="profile-list-row" type="button" onclick="abrirSegurancaPerfil()">${renderUiIcon("seguranca")} <span>Segurança da conta</span><b>›</b></button>
+        <button class="profile-list-row" type="button" onclick="abrirNotificacoesOperacionais()">${renderUiIcon("bell")} <span>Notificações do sistema</span><b>›</b></button>
       </section>
 
       <section class="profile-modern-card profile-list-card">
-        <h3>Pagamentos</h3>
-        ${renderProfileMenuRow("assinatura", "Histórico de pagamentos", "minhaAssinatura")}
-        ${renderProfileMenuRow("pdf", "Métodos de pagamento", "assinatura")}
+        <h3>Preferências</h3>
+        ${renderProfileMenuRow("preferencias", "Configurações do sistema", "config")}
+        ${renderProfileMenuRow("personalizacao", "Aparência do app", "personalizacao")}
       </section>
 
       <section class="profile-modern-card profile-list-card">
-        <h3>Suporte</h3>
-        ${renderProfileMenuRow("sobre", "Central de ajuda", "feedback")}
-        ${renderProfileMenuRow("feedback", "Falar com suporte", "feedback")}
+        <h3>Assinatura</h3>
+        ${renderProfileMenuRow("assinatura", "Planos e forma de pagamento", "assinatura")}
+        ${renderProfileMenuRow("relatorios", "Histórico e uso da assinatura", "minhaAssinatura")}
+      </section>
+
+      <section class="profile-modern-card profile-list-card">
+        <h3>Ajuda</h3>
+        ${renderProfileMenuRow("sobre", "Sobre o Simplifica 3D", "sobre")}
+        ${renderProfileMenuRow("feedback", "Enviar sugestão ou suporte", "feedback")}
+      </section>
+
+      <section class="profile-modern-card profile-list-card">
+        <h3>Sessão</h3>
         <button class="profile-list-row danger" type="button" onclick="logoutUsuario()">${renderUiIcon("back")} <span>Sair ou trocar de conta</span><b>›</b></button>
       </section>
     </section>
@@ -13999,6 +14020,21 @@ function renderProfileUsageTile(icon, label, value, percent = 0) {
 
 function renderProfileMenuRow(icon, label, tela) {
   return `<button class="profile-list-row" type="button" onclick="trocarTela('${escaparAttr(tela)}')">${renderUiIcon(icon)} <span>${escaparHtml(label)}</span><b>›</b></button>`;
+}
+
+function abrirSegurancaPerfil() {
+  window.__configSectionToOpen = "seguranca-conta";
+  trocarTela("config");
+  setTimeout(() => {
+    const section = document.querySelector('[data-ui-section="seguranca-conta"]');
+    if (!section) return;
+    section.setAttribute("open", "");
+    if (isMobile()) {
+      abrirSubmenuConfiguracao(null, section);
+    } else {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, 80);
 }
 
 function abrirDadosPessoaisUsuario() {
@@ -14090,6 +14126,36 @@ function getStorefrontPreviewLeadsLocal() {
   return isStorefrontDemoPreviewAllowed() ? getStorefrontDemoPreviewData().leads : [];
 }
 
+function getOperationalNotificationSeenKey() {
+  return `simplifica-operational-notifications-seen:${getStorefrontScopedOwnerId()}`;
+}
+
+function getOperationalNotificationSignature(item = {}) {
+  return [
+    item.id || "notification",
+    Number(item.count) || 1,
+    item.title || "",
+    item.description || ""
+  ].join("|");
+}
+
+function getSeenOperationalNotifications() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(getOperationalNotificationSeenKey()) || "[]");
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function markOperationalNotificationsSeen(notificacoes = getOperationalNotifications()) {
+  const signatures = notificacoes.map(getOperationalNotificationSignature).filter(Boolean);
+  try {
+    localStorage.setItem(getOperationalNotificationSeenKey(), JSON.stringify(signatures.slice(0, 80)));
+  } catch (_) {}
+  atualizarMenu();
+}
+
 function getOperationalNotifications() {
   const atrasados = getPedidosAtrasadosDashboard();
   const materiais = normalizarEstoque().filter((material) => ["low", "critical"].includes(material.stock_status));
@@ -14159,7 +14225,10 @@ function getOperationalNotifications() {
 }
 
 function renderDashboardCommunicationActions() {
-  const total = getOperationalNotifications().reduce((soma, item) => soma + (Number(item.count) || 1), 0);
+  const vistos = getSeenOperationalNotifications();
+  const total = getOperationalNotifications()
+    .filter((item) => !vistos.has(getOperationalNotificationSignature(item)))
+    .reduce((soma, item) => soma + (Number(item.count) || 1), 0);
   return `
     <button class="icon-button dashboard-notification-button" type="button" onclick="abrirNotificacoesOperacionais()" title="Notificações do sistema" aria-label="Abrir notificações do sistema">${renderUiIcon("bell")}${total ? `<span class="notification-count">${Math.min(total, 9)}</span>` : ""}</button>
   `;
@@ -14170,6 +14239,7 @@ async function abrirNotificacoesOperacionais() {
   const popup = document.getElementById("popup");
   if (!popup) return;
   const notificacoes = getOperationalNotifications();
+  markOperationalNotificationsSeen(notificacoes);
   popup.innerHTML = `
     <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card notification-center modal-enter" onclick="event.stopPropagation()">
@@ -16656,7 +16726,7 @@ async function salvarCategoriaLojaOnline(event) {
     }
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingCategory);
     limparStorefrontAlteracoesPendentes(syncPending ? "Categoria salva; atualização online automática" : "Categoria salva");
-    if (telaAtual === "lojaPublica" && isMobile()) {
+    if (telaAtual === "lojaPublica" && (isMobile() || isWebPwaProfile())) {
       shouldRestoreCatalog = true;
       returnToStorefrontGuidedCatalog("categories", {
         highlightId: String(nextCategory.id || ""),
@@ -16938,7 +17008,7 @@ async function salvarProdutoLojaOnline(event) {
       price_mode: priceMode,
       show_price: priceMode !== "quote",
       category_id: templateSourceId ? null : (getStorefrontProductFormField(form, "productCategory")?.value || null),
-      visible: !!getStorefrontProductFormField(form, "productVisible")?.checked && store.active === true,
+      visible: !!getStorefrontProductFormField(form, "productVisible")?.checked,
       featured: !!getStorefrontProductFormField(form, "productFeatured")?.checked,
       is_customizable: !!getStorefrontProductFormField(form, "productCustomizable")?.checked,
       estimated_production_time: getStorefrontProductFormField(form, "productTime")?.value?.trim() || "",
@@ -16988,7 +17058,7 @@ async function salvarProdutoLojaOnline(event) {
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProduct);
     storefrontAdminStorageRemove(STOREFRONT_ADMIN_KEYS.editingProductSeed);
     limparStorefrontAlteracoesPendentes(syncPending ? "Produto salvo; atualização online automática" : "Produto salvo");
-    if (telaAtual === "lojaPublica" && isMobile()) {
+    if (telaAtual === "lojaPublica" && (isMobile() || isWebPwaProfile())) {
       shouldRestoreCatalog = true;
       returnToStorefrontGuidedCatalog("products", {
         highlightId: String(nextProduct.id || ""),
@@ -18295,6 +18365,7 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
   const slugAtual = String(slug || "").toLowerCase();
   const slugCompat = getStorefrontCompatibleAdminSlugs(adminSlug);
   if (slugCompat.has(slugAtual)) {
+    const adminRequested = new URLSearchParams(location.search || "").get("admin") === "1" || isStorefrontAdminContextRoute();
     const store = {
       ...adminVm.store,
       slug: slug || adminVm.store.slug || "ne3d-teste",
@@ -18303,8 +18374,8 @@ function getStorefrontPublicFallback(slug = getStorefrontPublicRoute().slug) {
     };
     return {
       store,
-      categories: adminVm.categories.filter((cat) => cat.visible !== false),
-      products: adminVm.products.filter((product) => product.visible !== false),
+      categories: adminRequested ? adminVm.categories : adminVm.categories.filter((cat) => cat.visible !== false),
+      products: adminRequested ? adminVm.products : adminVm.products.filter((product) => product.visible !== false),
       images: adminVm.images || [],
       productRanking: adminVm.productRanking || [],
       limits: adminVm.limits,
@@ -18349,9 +18420,13 @@ function getStorefrontPublicViewModel() {
   if (!fallback?.store) {
     return { route, store: null, categories: [], products: [], images: [], loading: true, source: "empty" };
   }
-  const categories = (fallback.categories || []).filter((cat) => cat.visible !== false).sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
+  const modeProbe = getStorefrontPublicMode({ store: fallback.store, route, source: fallback.source });
+  const includeHiddenForAdmin = adminRequested && modeProbe.admin;
+  const categories = (fallback.categories || [])
+    .filter((cat) => includeHiddenForAdmin || cat.visible !== false)
+    .sort((a, b) => Number(a.order_index || 0) - Number(b.order_index || 0));
   const products = ordenarProdutosLojaInteligente(
-    (fallback.products || []).filter((product) => product.visible !== false),
+    (fallback.products || []).filter((product) => includeHiddenForAdmin || product.visible !== false),
     fallback.productRanking || []
   );
   return { ...fallback, route, categories, products, images: fallback.images || [], limits: fallback.limits || getStorefrontLimitsLocal(getPlanoAtual()?.slug), loading: false };
@@ -18377,7 +18452,13 @@ function abrirLojaPublicaAdminContextual(route = {}) {
     storefrontPublicRouteState = publicRoute;
     storefrontPublicLastPath = getStorefrontPublicRoutePath(publicRoute);
     storefrontPublicInternalHistory = [];
-    setStorefrontContextualEditorState({ type: "overview", id: "", panelOpen: false }, { flushAutosave: false });
+    const abrirGuiaPwa = isWebPwaProfile() && !isMobile();
+    setStorefrontContextualEditorState({
+      type: "overview",
+      id: "",
+      panelOpen: abrirGuiaPwa,
+      source: abrirGuiaPwa ? "pwa-guided-entry" : "admin-entry"
+    }, { flushAutosave: false });
     telaAtual = "lojaPublica";
     history.pushState({ simplifica: true, tela: "lojaPublica", loja: publicRoute, admin: true }, document.title, `${destino.pathname}?admin=1`);
     renderApp();
@@ -19303,7 +19384,12 @@ function renderStoreGuidedChecklistPanel(vm) { return getStorefrontEditorVisualV
 function renderStoreGuidedOverview(vm) { return getStorefrontEditorVisualV3().overview(vm); }
 function renderStoreGuidedContextPanel(vm) { return getStorefrontEditorVisualV3().context(vm); }
 function renderStoreVisualEditorSidebar(vm) {
-  return getStorefrontEditorVisualV3().sidebar(vm, { mobile: isMobile() && storefrontGuidedPanelOpen, uiMode: getStorefrontUiMode(vm), dirty: getStorefrontDirtyState().dirty });
+  return getStorefrontEditorVisualV3().sidebar(vm, {
+    mobile: isMobile() && storefrontGuidedPanelOpen,
+    assisted: isWebPwaProfile() && !isMobile(),
+    uiMode: getStorefrontUiMode(vm),
+    dirty: getStorefrontDirtyState().dirty
+  });
 }
 function renderStoreVisualEditorTopbar(vm) { return getStorefrontEditorVisualV3().topbar(vm, { dirty: getStorefrontDirtyState().dirty }); }
 function renderStoreVisualMobileActions(vm) { return getStorefrontEditorVisualV3().mobileActions(vm); }
@@ -26659,7 +26745,7 @@ function renderAdmin() {
             <span>Senha inicial</span>
             <div class="password-row">
               <input id="novoUsuarioSenha" type="password" placeholder="Senha temporária" oninput="renderIndicadorForcaSenha('novoUsuarioSenha')">
-              <button class="icon-button" type="button" onclick="alternarSenhaVisivel('novoUsuarioSenha')" title="Mostrar/ocultar senha">👁</button>
+              <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel('novoUsuarioSenha')" title="Mostrar/ocultar senha">👁</button>
             </div>
             <small class="password-strength" data-strength-for="novoUsuarioSenha">Digite uma senha forte</small>
           </label>
@@ -27067,14 +27153,14 @@ function renderFormularioAlterarSenha(obrigatoria = false, { mostrarCancelar = t
           <span>Senha atual</span>
           <div class="password-row">
             <input id="senhaAtualUsuario" data-password-field="atual" type="password" autocomplete="current-password">
-            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+            <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
           </div>
         </label>
         <label class="field">
           <span>Nova senha</span>
           <div class="password-row">
             <input id="novaSenhaUsuario" data-password-field="nova" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('novaSenhaUsuario', this)">
-            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+            <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
           </div>
           <small class="password-strength" data-strength-for="novaSenhaUsuario">Digite uma senha forte</small>
         </label>
@@ -27082,7 +27168,7 @@ function renderFormularioAlterarSenha(obrigatoria = false, { mostrarCancelar = t
           <span>Confirmar nova senha</span>
           <div class="password-row">
             <input id="confirmarNovaSenhaUsuario" data-password-field="confirmar" type="password" autocomplete="new-password">
-            <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+            <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
           </div>
         </label>
       </div>

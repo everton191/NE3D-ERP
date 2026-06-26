@@ -12,7 +12,7 @@ const required = [
   "theme-color",
   "canonical",
   "apple-touch-icon",
-  "1.0.53-rc-auth-gesture-release-20260625"
+  "1.0.54-rc-store-guided-draft-release-20260626"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));
