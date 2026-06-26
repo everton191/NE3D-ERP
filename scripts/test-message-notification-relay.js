@@ -24,12 +24,11 @@ const checks = [
   ["DELETE chega pelo Realtime", migration.includes("replica identity full") && app.includes('{ event: "DELETE", schema: "public", table: "user_message_notifications"')],
   ["função relay valida token do aparelho", relay.includes("x-simplifica-device-token") && relay.includes("token_hash") && relay.includes("INVALID_DEVICE_TOKEN")],
   ["conteúdo da mensagem não existe no payload", !migration.includes("message_content") && !relay.includes("message_content") && !listener.includes("message_content")],
-  ["interface permite ativar por canal", ["messageRelayWhatsapp", "messageRelayInstagram", "messageRelayTiktok"].every((value) => app.includes(value))],
-  ["central permite dispensar aviso", app.includes("removerNotificacaoMensagem") && app.includes("limparNotificacoesMensagens")]
+  ["relé legado não aparece nas configurações", !app.includes("Origens e celular conectado") && !app.includes("dashboard-message-button")],
+  ["central antiga redireciona para notificações", app.includes("async function abrirCentralMensagens()") && app.includes("await abrirNotificacoesOperacionais();")]
 ];
 
 const failed = checks.filter(([, ok]) => !ok);
 checks.forEach(([label, ok]) => console.log(`${ok ? "OK" : "FALHA"}: ${label}`));
 if (failed.length) process.exit(1);
 console.log("Message notification relay tests passed.");
-

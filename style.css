@@ -874,12 +874,26 @@ body.motion-back .mobile-home{
 }
 
 .intro-skip{
-  left:50%;
+  inset-inline:auto;
+  left:50vw;
   right:auto;
   position:fixed;
+  width:max-content;
   bottom:max(28px, calc(env(safe-area-inset-bottom, 0px) + 18px));
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   transform:translateX(-50%);
   z-index:calc(var(--z-critical, 1000) + 2);
+}
+
+body[data-ui-profile="android_apk"] .intro-skip{
+  inset-inline:auto !important;
+  left:50vw !important;
+  right:auto !important;
+  width:max-content !important;
+  bottom:max(30px, calc(var(--app-safe-bottom, 0px) + 18px)) !important;
+  transform:translate3d(-50%, 0, 0) !important;
 }
 
 .intro-play:focus-visible,
@@ -1289,11 +1303,11 @@ header h1{
 }
 
 .side-profile-card{
-  min-height:84px;
+  min-height:94px;
   display:grid;
-  grid-template-columns:46px minmax(0, 1fr);
-  gap:10px;
-  align-items:center;
+  grid-template-columns:46px minmax(0, 1fr) auto;
+  gap:10px 12px;
+  align-items:start;
   position:relative;
   overflow:hidden;
   padding:11px;
@@ -1344,6 +1358,7 @@ header h1{
   min-width:0;
   display:grid;
   gap:3px;
+  align-self:center;
 }
 
 .side-profile-meta strong,
@@ -1354,10 +1369,40 @@ header h1{
 }
 
 .side-profile-card .status-badge{
-  grid-column:2;
-  justify-self:start;
+  min-width:0;
   min-height:24px;
   padding:3px 8px;
+}
+
+.side-profile-account{
+  grid-column:3;
+  grid-row:1;
+  min-width:74px;
+  display:grid;
+  justify-items:end;
+  gap:5px;
+  align-self:start;
+  position:relative;
+  z-index:1;
+}
+
+.side-account-type{
+  max-width:104px;
+  min-height:22px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:3px 8px;
+  border-radius:999px;
+  color:var(--text);
+  font-size:10px;
+  font-weight:800;
+  line-height:1;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.075);
 }
 
 .side-section{
@@ -1379,6 +1424,7 @@ header h1{
 .side-menu.is-collapsed .side-brand-logo,
 .side-menu.is-collapsed .side-profile-meta,
 .side-menu.is-collapsed .side-profile-card .status-badge,
+.side-menu.is-collapsed .side-profile-account,
 .side-menu.is-collapsed .side-plan-pill,
 .side-menu.is-collapsed .side-section > span,
 .side-menu.is-collapsed .side-nav-button strong{
@@ -1693,6 +1739,12 @@ header h1{
   background:rgba(255,255,255,.08);
 }
 
+.menu-handle-icon{
+  width:18px;
+  height:18px;
+  display:block;
+}
+
 .dashboard-search-row{
   display:grid;
   grid-template-columns:1fr;
@@ -1737,15 +1789,22 @@ header h1{
 
 .mobile-mode .dashboard-menu-trigger{
   display:flex;
-  width:44px;
-  min-width:44px;
-  height:44px;
-  min-height:44px;
-  border-radius:16px;
+  width:40px;
+  min-width:40px;
+  height:40px;
+  min-height:40px;
+  border-radius:14px;
   background:rgba(8,13,20,.68);
   border:1px solid var(--glass-border);
   box-shadow:var(--shadow-soft);
   backdrop-filter:blur(12px);
+}
+
+.dashboard-menu-trigger .menu-handle-icon,
+.home-menu-button .menu-handle-icon,
+.mobile-panel-menu-button .menu-handle-icon{
+  width:16px;
+  height:16px;
 }
 
 .dashboard-search input{
@@ -5598,6 +5657,19 @@ body.auth-screen-active #app{
   font-size:var(--font-sm);
 }
 
+.auth-account-hint{
+  grid-column:1 / -1;
+  width:max-content;
+  max-width:100%;
+  padding:4px 9px;
+  border:1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius:999px;
+  color:var(--muted);
+  background:color-mix(in srgb, var(--surface) 72%, transparent);
+  font-size:12px;
+  font-weight:700;
+}
+
 .auth-tabs{
   min-height:46px;
   display:grid;
@@ -6488,6 +6560,116 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   background:rgba(255,93,99,.08);
 }
 
+.pdf-model-preview{
+  width:100%;
+  min-width:0;
+  padding:14px;
+  border:1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius:16px;
+  background:color-mix(in srgb, var(--surface) 94%, var(--primary) 6%);
+}
+
+.pdf-model-preview-page{
+  max-width:520px;
+  min-height:300px;
+  margin:0 auto;
+  padding:18px;
+  display:grid;
+  gap:14px;
+  color:var(--pdf-preview-text);
+  background:var(--pdf-preview-bg);
+  border:1px solid color-mix(in srgb, var(--pdf-preview-line) 46%, transparent);
+  border-radius:10px;
+  box-shadow:0 18px 44px rgba(0,0,0,.18);
+}
+
+.pdf-model-preview-page header,
+.pdf-model-preview-page footer,
+.pdf-model-preview-meta,
+.pdf-model-preview-table{
+  background:var(--pdf-preview-panel);
+  border:1px solid color-mix(in srgb, var(--pdf-preview-line) 40%, transparent);
+  border-radius:8px;
+}
+
+.pdf-model-preview-page header{
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr) auto;
+  gap:10px;
+  align-items:center;
+  padding:12px;
+}
+
+.pdf-model-preview-page :where(strong,b){
+  color:var(--pdf-preview-text);
+}
+
+.pdf-model-preview-page :where(small,span,p){
+  color:var(--pdf-preview-muted);
+}
+
+.pdf-model-preview-page em{
+  color:var(--pdf-preview-line);
+  font-style:normal;
+  font-size:11px;
+  font-weight:800;
+}
+
+.pdf-model-preview-logo{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:8px;
+  color:var(--pdf-preview-text);
+  background:color-mix(in srgb, var(--pdf-preview-line) 28%, transparent);
+  font-weight:900;
+  overflow:hidden;
+}
+
+.pdf-model-preview-logo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+.pdf-model-preview-meta{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:4px 10px;
+  padding:10px 12px;
+}
+
+.pdf-model-preview-table{
+  display:grid;
+  overflow:hidden;
+}
+
+.pdf-model-preview-table > div{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) 52px 86px;
+  gap:8px;
+  padding:9px 12px;
+  border-bottom:1px solid color-mix(in srgb, var(--pdf-preview-line) 25%, transparent);
+}
+
+.pdf-model-preview-table > div:last-child{
+  border-bottom:0;
+}
+
+.pdf-model-preview-page p{
+  margin:0;
+  line-height:1.45;
+}
+
+.pdf-model-preview-page footer{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  padding:10px 12px;
+}
+
 body.theme-light .security-page :where(.security-overview,.security-settings-card){
   border-color:rgba(23,48,66,.12);
   background:#fff;
@@ -6732,6 +6914,7 @@ body.theme-light .security-page .security-overview{
   body.mobile-mode .security-page{
     padding:12px;
     border-radius:16px;
+    overflow:visible;
   }
 
   body.mobile-mode .security-page-sections{
@@ -6774,7 +6957,31 @@ body.theme-light .security-page .security-overview{
 
   body.mobile-mode .security-page .history-list{
     min-width:0;
-    overflow:hidden;
+    overflow:visible;
+  }
+
+  body.mobile-mode .pdf-model-preview{
+    padding:10px;
+    border-radius:12px;
+  }
+
+  body.mobile-mode .pdf-model-preview-page{
+    min-height:260px;
+    padding:12px;
+    gap:10px;
+  }
+
+  body.mobile-mode .pdf-model-preview-page header{
+    grid-template-columns:auto minmax(0, 1fr);
+  }
+
+  body.mobile-mode .pdf-model-preview-page header em{
+    grid-column:1 / -1;
+  }
+
+  body.mobile-mode .pdf-model-preview-table > div{
+    grid-template-columns:minmax(0, 1fr) 42px 74px;
+    font-size:11px;
   }
 
   .mobile-mode .assistant-fab{
@@ -7031,19 +7238,22 @@ body[data-ui-profile="web_pwa"] .ui-section-body .sync-grid{
 .auth-card .auth-password-row input{
   width:100%;
   min-width:0;
-  padding-right:56px;
+  padding-right:48px;
 }
 
 .auth-card .auth-password-row .icon-button{
   position:absolute;
-  right:0;
-  top:0;
+  right:6px;
+  top:50%;
   z-index:2;
-  width:46px;
-  min-width:46px;
-  height:46px;
-  min-height:46px;
-  background:rgba(7,59,75,.62);
+  width:36px;
+  min-width:36px;
+  height:36px;
+  min-height:36px;
+  transform:translateY(-50%);
+  background:transparent;
+  border:0;
+  box-shadow:none;
 }
 
 .password-strength{
@@ -8678,14 +8888,15 @@ body.theme-light .calc-material-select option{
 @media(max-width:767px){
   body.auth-screen-active #app{
     padding:14px;
-    align-items:start;
+    align-items:center;
   }
 
   .auth-desktop-main,
   .mobile-auth-shell,
   .auth-page{
     min-height:calc(100dvh - 28px);
-    align-items:start;
+    align-items:center;
+    place-items:center;
   }
 
   .auth-card{
@@ -9756,7 +9967,7 @@ body[data-motion="low"]{
 
 .side-profile-card.premium-profile-trigger{
   min-height:98px;
-  grid-template-columns:58px minmax(0, 1fr);
+  grid-template-columns:58px minmax(0, 1fr) auto;
   padding:10px;
   border-radius:18px;
   box-shadow:0 14px 28px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.055);
@@ -9777,22 +9988,78 @@ body[data-motion="low"]{
   opacity:.82;
 }
 
+.side-profile-card.premium-profile-trigger .side-profile-account{
+  min-width:82px;
+}
+
 .drawer-gesture-rail{
   position:fixed;
-  left:18px;
+  left:28px;
   top:calc(74px + env(safe-area-inset-top));
   bottom:calc(108px + env(safe-area-inset-bottom));
   z-index:34;
-  width:26px;
+  width:18px;
   border-radius:999px;
   touch-action:pan-y;
-  background:linear-gradient(180deg, rgba(134,240,255,.10), rgba(255,148,28,.07));
-  opacity:.18;
+  background:linear-gradient(180deg, rgba(134,240,255,.08), rgba(255,148,28,.05));
+  opacity:.10;
   pointer-events:none;
 }
 
 .drawer-gesture-rail:active{
   opacity:.42;
+}
+
+.drawer-gesture-hint{
+  --drawer-hint-progress:0;
+  --drawer-hint-hue:142;
+  --drawer-hint-alpha:.10;
+  position:fixed;
+  left:0;
+  top:0;
+  bottom:0;
+  z-index:calc(var(--z-drawer) - 1);
+  width:min(46vw, 180px);
+  pointer-events:none;
+  opacity:0;
+  transform:translateX(-18px);
+  transition:opacity 120ms ease, transform 120ms ease;
+}
+
+.drawer-gesture-hint::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(ellipse at left center,
+      hsla(var(--drawer-hint-hue), 78%, 58%, var(--drawer-hint-alpha)) 0%,
+      hsla(var(--drawer-hint-hue), 78%, 58%, calc(var(--drawer-hint-alpha) * .58)) 28%,
+      transparent 72%);
+  filter:blur(10px);
+  transform:scaleX(calc(.55 + var(--drawer-hint-progress) * .7));
+  transform-origin:left center;
+}
+
+.drawer-gesture-hint::after{
+  content:"";
+  position:absolute;
+  left:24px;
+  top:calc(50% - 40px);
+  width:4px;
+  height:80px;
+  border-radius:999px;
+  background:hsla(var(--drawer-hint-hue), 78%, 58%, calc(var(--drawer-hint-alpha) * 1.55));
+  box-shadow:0 0 20px hsla(var(--drawer-hint-hue), 78%, 58%, calc(var(--drawer-hint-alpha) * 1.6));
+  opacity:.62;
+}
+
+.drawer-gesture-hint.is-active{
+  opacity:1;
+  transform:translateX(0);
+}
+
+.drawer-gesture-hint.is-ready::after{
+  opacity:.82;
 }
 
 .dashboard-pro{
@@ -9911,9 +10178,9 @@ body[data-motion="low"]{
 
 @media(max-width:520px){
   .drawer-gesture-rail{
-    left:18px;
-    width:22px;
-    opacity:.12;
+    left:28px;
+    width:16px;
+    opacity:.08;
   }
 
   .analytics-kpi{
@@ -11658,7 +11925,7 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple{
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header,
 body[data-ui-profile="android_apk"] .dashboard-home-header{
-  grid-template-columns:44px minmax(0, 1fr) 100px;
+  grid-template-columns:38px minmax(0, 1fr) 100px;
   gap:9px;
 }
 
@@ -11695,6 +11962,23 @@ body[data-ui-profile="android_apk"] .dashboard-notification-button{
   min-height:44px;
 }
 
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-menu-trigger,
+body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-menu-trigger{
+  width:36px;
+  min-width:36px;
+  height:36px;
+  min-height:36px;
+  border-radius:12px;
+  background:color-mix(in srgb, var(--surface) 78%, transparent);
+  box-shadow:0 8px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.52);
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-menu-trigger .menu-handle-icon,
+body[data-ui-profile="android_apk"] .dashboard-home-header .dashboard-menu-trigger .menu-handle-icon{
+  width:15px;
+  height:15px;
+}
+
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-main-summary,
 body[data-ui-profile="android_apk"] .dashboard-main-summary{
   grid-template-columns:42px minmax(0, 1fr) 106px;
@@ -11706,8 +11990,8 @@ body[data-ui-profile="android_apk"] .dashboard-main-summary{
 
 body[data-ui-profile="android_apk"].mobile-mode .summary-star,
 body[data-ui-profile="android_apk"] .summary-star{
-  width:38px;
-  height:38px;
+  width:34px;
+  height:34px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-main-summary strong,
@@ -11765,15 +12049,15 @@ body[data-ui-profile="android_apk"] .quick-action{
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-action span,
 body[data-ui-profile="android_apk"] .quick-action span{
-  width:34px;
-  height:34px;
-  border-radius:12px;
+  width:31px;
+  height:31px;
+  border-radius:11px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-action svg,
 body[data-ui-profile="android_apk"] .quick-action svg{
-  width:19px;
-  height:19px;
+  width:18px;
+  height:18px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-action strong,
@@ -11837,8 +12121,8 @@ body[data-ui-profile="android_apk"] .mobile-bottom-nav-button{
 
 body[data-ui-profile="android_apk"].mobile-mode .mobile-bottom-nav-button span,
 body[data-ui-profile="android_apk"] .mobile-bottom-nav-button span{
-  width:29px;
-  height:25px;
+  width:26px;
+  height:23px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .mobile-bottom-nav-button small,
@@ -29307,6 +29591,15 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(input,select,textarea,.
   font-size:var(--font-md);
 }
 
+.auth-password-row .password-visibility-button,
+.password-confirm-card .auth-password-row .password-visibility-button{
+  color:var(--primary);
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  backdrop-filter:none !important;
+}
+
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.card,.app-card,.ds-card,.ui-section,.panel-card,.desktop-dashboard-card){
   padding:var(--space-lg);
 }
@@ -34315,6 +34608,8 @@ body.mobile-mode .assistant-fab-icon{
   body.mobile-mode .settings-page .settings-accordion-list > .ui-section[data-ui-section="seguranca-conta"] > .ui-section-body{
     padding:0;
     background:transparent;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
   }
 
   body.theme-light.mobile-mode .settings-page .settings-accordion-list{
@@ -34406,13 +34701,11 @@ body.mobile-mode .assistant-fab-icon{
     .settings-group,
     .security-settings-card,
     .security-summary-card,
-    .message-setting-card,
     .settings-suggestion-list > div,
     .brand-preview,
     .info-card,
     .update-download-card,
-    .message-integration-notice,
-    .message-relay-channels .checkbox-row
+    .pdf-model-preview
   ){
     min-width:0;
     border:0;
@@ -34451,7 +34744,6 @@ body.mobile-mode .assistant-fab-icon{
   }
 
   body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body .message-settings-grid,
-  body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body .message-relay-channels,
   body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body .settings-suggestion-list{
     grid-template-columns:1fr;
     gap:0;
@@ -34462,12 +34754,12 @@ body.mobile-mode .assistant-fab-icon{
     background:color-mix(in srgb, var(--surface) 96%, transparent);
   }
 
-  body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(.message-setting-card,.settings-suggestion-list > div,.message-relay-channels .checkbox-row){
+  body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(.message-setting-card,.settings-suggestion-list > div){
     padding:11px 12px;
     border-bottom:1px solid color-mix(in srgb, var(--line) 86%, transparent);
   }
 
-  body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(.message-setting-card:last-child,.settings-suggestion-list > div:last-child,.message-relay-channels .checkbox-row:last-child){
+  body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(.message-setting-card:last-child,.settings-suggestion-list > div:last-child){
     border-bottom:0;
   }
 
@@ -34475,6 +34767,7 @@ body.mobile-mode .assistant-fab-icon{
     border:0;
     background:transparent;
     box-shadow:none;
+    overflow:visible;
   }
 
   body.mobile-mode .security-page-sections{
@@ -34716,4 +35009,21 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accord
 
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accordion-list > .ui-section[data-ui-section="seguranca-conta"][open] > summary{
   display:grid !important;
+}
+
+.password-row.auth-password-row .password-visibility-button,
+.password-row.auth-password-row .password-visibility-button:hover,
+.password-row.auth-password-row .password-visibility-button:focus,
+.password-row.auth-password-row .password-visibility-button:active{
+  color:var(--primary) !important;
+  background:transparent !important;
+  background-color:transparent !important;
+  background-image:none !important;
+  border-color:transparent !important;
+  box-shadow:none !important;
+  filter:none !important;
+}
+
+.password-row.auth-password-row .password-visibility-button::after{
+  content:none !important;
 }

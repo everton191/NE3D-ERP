@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v194-settings-security-menu-20260625";
+const CACHE_NAME = "simplifica-3d-v195-auth-gesture-release-20260625";
 const APP_FILES = [
   "./",
   "./index.html",

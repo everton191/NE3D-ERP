@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.52-rc";
-const APP_VERSION_CODE = 51;
+const APP_VERSION = "1.0.53-rc";
+const APP_VERSION_CODE = 52;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -361,7 +361,9 @@ const REALTIME_SYNC_DEBOUNCE_MS = 1200;
 const REALTIME_FALLBACK_FOREGROUND_MS = 15 * 1000;
 const REALTIME_FALLBACK_BACKGROUND_MS = 60 * 1000;
 const REALTIME_SYNC_ENABLED = false;
-const DRAWER_EDGE_SWIPE_ENABLED = false;
+const DRAWER_EDGE_SWIPE_ENABLED = true;
+const DRAWER_NATIVE_BACK_GUARD_PX = 28;
+const DRAWER_GESTURE_OPEN_THRESHOLD = 0.5;
 const DASHBOARD_RECENT_ACTIVITY_MS = 2 * 60 * 1000;
 const TOAST_DEBOUNCE_MS = 4500;
 const SYNCABLE_COLLECTIONS = Object.freeze(["pedidos", "estoque", "caixa", "clientes"]);
@@ -3273,6 +3275,8 @@ function focarCampoSenha(inputOrId, selecionar = false) {
 }
 
 function renderTravaLocal() {
+  const emailTrava = normalizarEmail(getUsuarioAtual()?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+  const dicaEmail = emailTrava ? `Conta ${mascararEmailAcesso(emailTrava)}` : "Conta deste dispositivo";
   return `
     <main class="auth-desktop-main">
       <section class="card auth-card">
@@ -3280,13 +3284,14 @@ function renderTravaLocal() {
           <img class="auth-logo" src="${escaparAttr(getMarcaProjetoSrc("icon"))}" alt="Simplifica 3D">
           <h1>Simplifica 3D</h1>
           <p>Confirme sua senha para continuar usando este dispositivo.</p>
+          <small class="auth-account-hint">${escaparHtml(dicaEmail)}</small>
         </div>
         <form class="auth-form" onsubmit="desbloquearTravaLocalFormulario(event)">
           <label class="field auth-field">
             <span>Senha da conta</span>
             <div class="password-row auth-password-row">
               <input id="localUnlockPassword" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" inputmode="text" enterkeyhint="done" data-preserve-focus="true" placeholder="Sua senha" required autofocus>
-              <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+              <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
             </div>
           </label>
           <p class="muted auth-inline-feedback" id="localUnlockFeedback">Digite a senha usada nesta conta. O teclado permanece aberto se houver erro.</p>
@@ -3763,6 +3768,14 @@ function normalizarSlugPlano(slug = "free") {
   if (["start", "starter", "premium_first_month", "start_monthly"].includes(valor)) return "start";
   if (["pro", "premium", "premium_normal", "premium_monthly", "pro_monthly"].includes(valor)) return "pro";
   return "free";
+}
+
+function mascararEmailAcesso(email) {
+  const texto = normalizarEmail(email);
+  const [local = "", dominio = ""] = texto.split("@");
+  if (!local || !dominio) return texto;
+  const inicio = local.slice(0, Math.min(3, local.length));
+  return `${inicio}${local.length > 3 ? "..." : ""}@${dominio}`;
 }
 
 function normalizePlanSlug(plan = "free") {
@@ -6365,6 +6378,13 @@ function iniciarIntroAbertura() {
   const play = overlay.querySelector(".intro-play");
   const skip = overlay.querySelector(".intro-skip");
   const concluir = () => finalizarIntroAbertura(overlay);
+
+  if (skip) {
+    skip.style.setProperty("position", "fixed", "important");
+    skip.style.setProperty("left", "50vw", "important");
+    skip.style.setProperty("right", "auto", "important");
+    skip.style.setProperty("transform", "translate3d(-50%, 0, 0)", "important");
+  }
 
   if (video) {
     Object.assign(video.style, {
@@ -12715,11 +12735,11 @@ function renderGrupoMenuLateral(grupo) {
 function renderCabecalhoMenuLateral({ recolhido = false, drawer = false } = {}) {
   const tituloBotao = drawer ? "Fechar menu" : (recolhido ? "Mostrar menu" : "Esconder menu");
   const acaoBotao = drawer ? "fecharDrawerLateral()" : "alternarMenuLateral()";
-  const iconeBotao = drawer ? "✕" : "☰";
+  const iconeBotao = drawer ? "✕" : renderMenuHandleIcon();
 
   return `
     <div class="side-brand side-brand-official ${drawer ? "drawer-brand" : ""}">
-      <button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}">${iconeBotao}</button>
+      <button class="icon-button side-menu-toggle" onclick="${acaoBotao}" title="${tituloBotao}" aria-label="${escaparAttr(tituloBotao)}">${iconeBotao}</button>
       ${renderMarcaOficialProjeto("side-brand-mark", "Simplifica 3D", "icon")}
       <span class="side-brand-copy">
         <strong>SIMPLIFICA 3D</strong>
@@ -12735,6 +12755,13 @@ function renderPerfilMenuLateral() {
   const nome = appConfig.businessName || usuario?.nome || usuario?.email || "Perfil";
   const email = usuario?.email || syncConfig.supabaseEmail || "Conta ativa";
   const status = licencaEfetivaBloqueada(usuario) ? "Bloqueado" : plano.nome || "Free";
+  const tipoConta = isSuperAdmin(usuario)
+    ? "Superadmin"
+    : usuario?.papel === "admin"
+      ? "Administrador"
+      : usuario?.papel === "visualizador"
+        ? "Visualizador"
+        : "Operador";
   const empresaLogo = appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || "";
 
   return `
@@ -12753,13 +12780,20 @@ function renderPerfilMenuLateral() {
       <span class="side-profile-meta">
         <strong>${escaparHtml(nome)}</strong>
         <small>${escaparHtml(usuario?.nome || email)}</small>
-        <small class="side-profile-status">Usuário e assinatura</small>
+        <small class="side-profile-status">${escaparHtml(email)}</small>
       </span>
-      <button class="status-badge profile-plan-link ${classeStatusPlano(plano.status)}" type="button" onclick="event.stopPropagation(); abrirTelaPlanosPerfil()">
-        ${escaparHtml(status)}
-      </button>
+      <div class="side-profile-account">
+        <span class="side-account-type">${escaparHtml(tipoConta)}</span>
+        <button class="status-badge profile-plan-link ${classeStatusPlano(plano.status)}" type="button" onclick="event.stopPropagation(); abrirTelaPlanosPerfil()">
+          ${escaparHtml(status)}
+        </button>
+      </div>
     </div>
   `;
+}
+
+function renderMenuHandleIcon() {
+  return `<svg class="menu-handle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="6.5" r="1.9" fill="currentColor"/><circle cx="12" cy="12" r="1.9" fill="currentColor"/><circle cx="12" cy="17.5" r="1.9" fill="currentColor"/></svg>`;
 }
 
 function abrirUsuarioMenuLateral(event) {
@@ -13085,6 +13119,7 @@ function abrirDrawerLateral(origem = "menu", progress = 1, dragging = false) {
   if (!getUsuarioAtual()) return;
   sideDrawerOpen = true;
   sideDrawerProgress = Math.min(1, Math.max(0, Number(progress) || 0));
+  if (!dragging) ocultarSombraGestoDrawer();
   openDrawer({
     content: renderDrawerLateral({ progress: sideDrawerProgress, dragging }),
     label: "Menu do aplicativo",
@@ -13095,6 +13130,7 @@ function abrirDrawerLateral(origem = "menu", progress = 1, dragging = false) {
 }
 
 function fecharDrawerLateral() {
+  ocultarSombraGestoDrawer();
   closeDrawer();
 }
 
@@ -13119,11 +13155,44 @@ function alvoInterativoDrawer(event) {
   return !!alvo?.closest?.("input, textarea, select, button, a, .calc-widget-window, .modal-card");
 }
 
+function getDrawerGestureHint() {
+  let hint = document.getElementById("drawerGestureHint");
+  if (hint) return hint;
+  hint = document.createElement("div");
+  hint.id = "drawerGestureHint";
+  hint.className = "drawer-gesture-hint";
+  hint.setAttribute("aria-hidden", "true");
+  document.body.appendChild(hint);
+  return hint;
+}
+
+function atualizarSombraGestoDrawer(progresso = 0, ativo = true) {
+  if (!DRAWER_EDGE_SWIPE_ENABLED || !isMobile()) return;
+  const hint = getDrawerGestureHint();
+  const valor = Math.min(1, Math.max(0, Number(progresso) || 0));
+  const ratio = Math.min(1, valor / DRAWER_GESTURE_OPEN_THRESHOLD);
+  const hue = Math.round(142 - (ratio * 102));
+  const intensity = Math.min(1, Math.max(.18, ratio));
+  hint.style.setProperty("--drawer-hint-progress", valor.toFixed(3));
+  hint.style.setProperty("--drawer-hint-hue", String(hue));
+  hint.style.setProperty("--drawer-hint-alpha", String((.08 + intensity * .14).toFixed(3)));
+  hint.classList.toggle("is-active", !!ativo);
+  hint.classList.toggle("is-ready", valor >= DRAWER_GESTURE_OPEN_THRESHOLD);
+}
+
+function ocultarSombraGestoDrawer() {
+  const hint = document.getElementById("drawerGestureHint");
+  if (!hint) return;
+  hint.classList.remove("is-active", "is-ready");
+  hint.style.setProperty("--drawer-hint-progress", "0");
+}
+
 function atualizarProgressoDrawer(progresso) {
   const drawerLayer = getAppLayer("drawer");
   if (!drawerLayer) return;
   const valor = Math.min(1, Math.max(0, progresso));
   sideDrawerProgress = valor;
+  atualizarSombraGestoDrawer(valor, true);
   if (!drawerLayer.querySelector(".side-drawer")) {
     abrirDrawerLateral("gesture", valor, true);
     return;
@@ -13142,8 +13211,10 @@ function iniciarGestoDrawerLateral(event) {
   const drawerAberto = !!document.querySelector(".side-drawer");
   const rail = !!event.target?.closest?.(".drawer-gesture-rail");
   const largura = window.innerWidth || 360;
-  // A zona começa alguns pixels depois da borda real para não disputar com o gesto nativo "voltar" do Android.
-  const zonaSegura = event.clientX >= 18 && event.clientX <= Math.min(86, Math.max(42, largura * 0.22));
+  // A borda real fica livre para o gesto nativo de voltar do Android; o menu começa mais para dentro.
+  const limiteInicial = DRAWER_NATIVE_BACK_GUARD_PX;
+  const limiteFinal = Math.min(104, Math.max(58, largura * 0.26));
+  const zonaSegura = event.clientX >= limiteInicial && event.clientX <= limiteFinal;
   if (!drawerAberto && ((!rail && !zonaSegura) || alvoInterativoDrawer(event))) return;
 
   sideDrawerGesture = {
@@ -13166,6 +13237,7 @@ function moverGestoDrawerLateral(event) {
     const aberturaValida = sideDrawerGesture.mode === "open" ? dx > 0 : dx < 0;
     if (!aberturaValida || Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.45) return;
     sideDrawerGesture.active = true;
+    atualizarSombraGestoDrawer(0.08, true);
     try {
       event.target?.setPointerCapture?.(event.pointerId);
     } catch (erro) {
@@ -13182,8 +13254,12 @@ function finalizarGestoDrawerLateral(event) {
   if (!sideDrawerGesture || event.pointerId !== sideDrawerGesture.pointerId) return;
   const gesto = sideDrawerGesture;
   sideDrawerGesture = null;
-  if (!gesto.active) return;
-  const abrir = sideDrawerProgress > 0.3 && gesto.mode === "open" || sideDrawerProgress > 0.7 && gesto.mode === "close";
+  if (!gesto.active) {
+    ocultarSombraGestoDrawer();
+    return;
+  }
+  const abrir = sideDrawerProgress >= DRAWER_GESTURE_OPEN_THRESHOLD && gesto.mode === "open" || sideDrawerProgress > 0.7 && gesto.mode === "close";
+  ocultarSombraGestoDrawer();
   if (abrir) abrirDrawerLateral("gesture");
   else fecharDrawerLateral();
 }
@@ -13386,7 +13462,7 @@ function renderPainelMobile(tela) {
       <div class="mobile-panel-bar app-header">
         <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
-        ${tela === "mais" ? `<span class="mobile-panel-spacer" aria-hidden="true"></span>` : `<button class="icon-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>`}
+        ${tela === "mais" ? `<span class="mobile-panel-spacer" aria-hidden="true"></span>` : `<button class="icon-button mobile-panel-menu-button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>`}
       </div>
       <div class="mobile-panel-content app-content">
         ${renderTela(tela)}
@@ -13498,7 +13574,7 @@ function renderDashboardHomeHeader() {
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
   return `
     <section class="dashboard-home-header s3d-toolbar s3d-header">
-      <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+      <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <div class="dashboard-greeting">
         <h1>Olá, ${escaparHtml(nome)}!</h1>
         <p>Aqui está o resumo do seu negócio hoje.</p>
@@ -14017,7 +14093,22 @@ function getStorefrontPreviewLeadsLocal() {
 function getOperationalNotifications() {
   const atrasados = getPedidosAtrasadosDashboard();
   const materiais = normalizarEstoque().filter((material) => ["low", "critical"].includes(material.stock_status));
+  const leadsLoja = getStorefrontPreviewLeadsLocal()
+    .filter((lead) => String(lead.status || "novo") === "novo")
+    .slice(0, 9);
   const notificacoes = [];
+  if (leadsLoja.length) {
+    notificacoes.push({
+      id: "storefront-orders",
+      count: leadsLoja.length,
+      tone: "info",
+      icon: "lojaOnline",
+      title: `${leadsLoja.length} pedido${leadsLoja.length === 1 ? "" : "s"} da loja aguardando`,
+      description: leadsLoja.slice(0, 3).map((lead) => lead.customer_name || "Cliente da loja").join(", "),
+      action: "fecharPopup();trocarTela('lojaAdmin')",
+      actionLabel: "Abrir loja"
+    });
+  }
   if (atrasados.length) {
     notificacoes.push({
       id: "late-orders",
@@ -14068,15 +14159,14 @@ function getOperationalNotifications() {
 }
 
 function renderDashboardCommunicationActions() {
-  const total = getOperationalNotifications().length;
-  const mensagens = syncedMessageNotifications.length;
+  const total = getOperationalNotifications().reduce((soma, item) => soma + (Number(item.count) || 1), 0);
   return `
-    <button class="icon-button dashboard-message-button" type="button" onclick="abrirCentralMensagens()" title="Mensagens dos canais" aria-label="Abrir mensagens dos canais">${renderUiIcon("feedback")}${mensagens ? `<span class="notification-count message-count">${Math.min(mensagens, 9)}</span>` : ""}</button>
     <button class="icon-button dashboard-notification-button" type="button" onclick="abrirNotificacoesOperacionais()" title="Notificações do sistema" aria-label="Abrir notificações do sistema">${renderUiIcon("bell")}${total ? `<span class="notification-count">${Math.min(total, 9)}</span>` : ""}</button>
   `;
 }
 
-function abrirNotificacoesOperacionais() {
+async function abrirNotificacoesOperacionais() {
+  await sincronizarLojaOnlineAdminRemoto(false).catch(() => {});
   const popup = document.getElementById("popup");
   if (!popup) return;
   const notificacoes = getOperationalNotifications();
@@ -14194,36 +14284,11 @@ async function limparNotificacoesMensagens() {
 }
 
 function renderCentralMensagensPopup() {
-  const popup = document.getElementById("popup");
-  if (!popup) return;
-  const labels = { whatsapp: "WhatsApp", instagram: "Instagram", tiktok: "TikTok" };
-  popup.innerHTML = `
-    <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
-      <section class="modal-card notification-center message-center modal-enter" onclick="event.stopPropagation()">
-        <div class="modal-header">
-          <div><h2>Mensagens</h2></div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar mensagens">×</button>
-        </div>
-        <div class="notification-center-list">
-          ${syncedMessageNotifications.map((item) => `
-            <article class="message-channel-item message-notification-item">
-              <span class="notification-center-icon channel-${escaparAttr(item.source)}">${renderUiIcon(item.source)}</span>
-              <div>
-                <strong>${item.sender_name ? escaparHtml(item.sender_name) : escaparHtml(labels[item.source] || "Nova mensagem")}</strong>
-                <small>${escaparHtml(labels[item.source] || item.source)} • ${new Date(item.received_at).toLocaleString("pt-BR")}</small>
-              </div>
-              <button class="btn ghost" type="button" onclick="removerNotificacaoMensagem('${escaparAttr(item.id)}')">Dispensar</button>
-            </article>
-          `).join("") || `<div class="notification-center-empty">${renderUiIcon("feedback")}<strong>${messageNotificationLoadState === "loading" ? "Atualizando..." : "Nenhuma mensagem nova"}</strong></div>`}
-        </div>
-        <div class="actions">${syncedMessageNotifications.length ? `<button class="btn ghost" type="button" onclick="limparNotificacoesMensagens()">Limpar mensagens</button>` : ""}<button class="btn secondary" type="button" onclick="fecharPopup();trocarTela('config')">Configurar celular</button></div>
-      </section>
-    </div>`;
+  abrirNotificacoesOperacionais();
 }
 
 async function abrirCentralMensagens() {
-  renderCentralMensagensPopup();
-  await carregarNotificacoesMensagensRemotas(false);
+  await abrirNotificacoesOperacionais();
 }
 
 function getStorefrontPreviewEventsLocal() {
@@ -21249,7 +21314,7 @@ function renderDashboardPremiumHeader(plano) {
           <strong>${escaparHtml(statusAssinatura)}</strong>
         </div>
         ${renderDashboardAvatar(usuario)}
-        <button class="icon-button home-menu-button" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+        <button class="icon-button home-menu-button" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       </div>
     </section>
   `;
@@ -21258,7 +21323,7 @@ function renderDashboardPremiumHeader(plano) {
 function renderDashboardSearch() {
   return `
     <div class="dashboard-search-row">
-      <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
+      <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
         <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
@@ -26312,7 +26377,6 @@ function renderConfig() {
       </div>
     </div>`;
 
-  const messageChannelsContent = renderCanaisMensagensConfig();
   const suggestionsContent = renderSugestoesMelhoriasConfig();
   const systemLogsContent = renderLogSistemaConfig();
   const usarPainelDuploPwa = isWebPwaProfile() && !isMobile();
@@ -26329,7 +26393,6 @@ function renderConfig() {
         ${telaAtual === "config" ? `
           ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: !isMobile() && !usarPainelDuploPwa, group: "config" })}
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
-          ${renderUiSection({ id: "canais-mensagens", title: "Mensagens", subtitle: "Origens e celular conectado", icon: "✉", content: messageChannelsContent, group: "config" })}
           ${renderUiSection({ id: "sugestoes-melhorias", title: "Sugestões de melhorias", subtitle: "Envie ideias e acompanhe pedidos", icon: "💡", content: suggestionsContent, group: "config" })}
           ${renderUiSection({ id: "logs-sistema", title: "Log do sistema", subtitle: "Erros, pendências e operações concluídas", icon: "☷", content: systemLogsContent, group: "config" })}
           ${renderUiSection({ id: "sistema", title: "Cache, offline e suporte", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
@@ -26395,7 +26458,7 @@ function renderAuthEntrar() {
         <span>Senha</span>
         <div class="password-row auth-password-row">
           <input id="usuarioLoginSenha" class="s3d-input" type="password" placeholder="Sua senha" autocomplete="current-password">
-          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
       </label>
 
@@ -26434,7 +26497,7 @@ function renderAuthCriarConta() {
         <span>Senha</span>
         <div class="password-row auth-password-row">
           <input id="signupSenha" class="s3d-input" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('signupSenha', this)">
-          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
         <small class="password-strength" data-strength-for="signupSenha">Digite uma senha forte</small>
       </label>
@@ -26442,7 +26505,7 @@ function renderAuthCriarConta() {
         <span>Confirmar senha</span>
         <div class="password-row auth-password-row">
           <input id="signupConfirmarSenha" class="s3d-input" type="password" autocomplete="new-password">
-          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
       </label>
       <label class="field auth-field s3d-field">
@@ -28618,6 +28681,41 @@ function limitarCorPdf(valor, fallback = "#00d8c8") {
   return /^#[0-9a-f]{6}$/i.test(texto) ? texto : fallback;
 }
 
+function renderPdfModeloPreview() {
+  const temaId = normalizarPdfTheme();
+  const tema = PDF_THEME_PRESETS[temaId] || PDF_THEME_PRESETS.modern_dark;
+  const corLinha = limitarCorPdf(appConfig.pdfSecondaryColor || tema.line, tema.line);
+  const empresa = appConfig.businessName || "Minha empresa 3D";
+  const subtitulo = appConfig.pdfHeaderText || "Impressão 3D";
+  const mensagem = appConfig.pdfDefaultMessage || "Peças produzidas com impressão 3D de alta qualidade.";
+  const assinatura = appConfig.pdfSignature || appConfig.documentFooter || "Qualquer dúvida, estamos à disposição.";
+  return `
+    <div class="pdf-model-preview" style="--pdf-preview-bg:${escaparAttr(tema.background)};--pdf-preview-panel:${escaparAttr(tema.panel)};--pdf-preview-line:${escaparAttr(corLinha)};--pdf-preview-text:${escaparAttr(tema.text)};--pdf-preview-muted:${escaparAttr(tema.muted)}">
+      <div class="pdf-model-preview-page">
+        <header>
+          <span class="pdf-model-preview-logo">${appConfig.companyLogoDataUrl ? `<img src="${escaparAttr(appConfig.companyLogoDataUrl)}" alt="Logo da empresa">` : "S3D"}</span>
+          <div>
+            <strong>${escaparHtml(empresa)}</strong>
+            <small>${escaparHtml(subtitulo)}</small>
+          </div>
+          <em>ORCAMENTO</em>
+        </header>
+        <div class="pdf-model-preview-meta">
+          <span>Cliente</span><b>Cliente exemplo</b>
+          <span>Validade</span><b>${Number(appConfig.quoteValidityDays) || 7} dias</b>
+        </div>
+        <div class="pdf-model-preview-table">
+          <div><b>Item</b><b>Qtd.</b><b>Total</b></div>
+          <div><span>Peça 3D personalizada</span><span>1</span><span>R$ 120,00</span></div>
+          <div><span>Acabamento</span><span>1</span><span>R$ 30,00</span></div>
+        </div>
+        <p>${escaparHtml(mensagem)}</p>
+        <footer><span>${escaparHtml(assinatura)}</span><strong>R$ 150,00</strong></footer>
+      </div>
+    </div>
+  `;
+}
+
 function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
   return `
     <div class="actions">
@@ -28633,6 +28731,7 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
   const temaPdfAtual = normalizarPdfTheme();
   const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
   return `
+    ${renderUiSection({ id: `${group}-pdf-preview`, title: "Prévia do modelo", subtitle: "Como o orçamento abre para o cliente", icon: "▣", open: true, group, content: renderPdfModeloPreview() })}
     ${renderUiSection({ id: `${group}-pdf-tema`, title: "PDF", subtitle: "Tema e identidade do orçamento", icon: "▣", open, group, content: `
       <div class="sync-grid">
         <label class="field">
@@ -28651,6 +28750,9 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <label class="field"><span>Subtítulo da empresa no PDF</span><input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
         <label class="field"><span>Validade padrão (dias)</span><input id="quoteValidityDaysConfig" type="number" min="1" max="90" step="1" value="${Number(appConfig.quoteValidityDays) || 7}"></label>
         <label class="field"><span>Forma de pagamento</span><input id="paymentTermsConfig" value="${escaparAttr(appConfig.paymentTerms || "")}" placeholder="PIX / Transferência"></label>
+        <label class="field"><span>Prazo padrão</span><input id="productionDeadlineTextConfig" value="${escaparAttr(appConfig.productionDeadlineText || "")}" placeholder="Até 5 dias úteis"></label>
+        <label class="field"><span>Mensagem padrão</span><textarea id="pdfDefaultMessageConfig" rows="2" maxlength="220" placeholder="Peças produzidas com impressão 3D de alta qualidade.">${escaparHtml(appConfig.pdfDefaultMessage || "")}</textarea></label>
+        <label class="field"><span>Observação padrão</span><textarea id="pdfDefaultNotesConfig" rows="3" maxlength="420" placeholder="Condições, prazos e orientações comerciais.">${escaparHtml(appConfig.pdfDefaultNotes || "")}</textarea></label>
       </div>
     ` })}
     ${renderUiSection({ id: `${group}-pdf-rodape`, title: "Rodapé e Pix do PDF", subtitle: "Assinatura, instrução Pix e marca d'água", icon: "☷", group, content: `
@@ -28712,13 +28814,6 @@ function renderEmpresaConfig() {
             <label class="field"><span>Nome do recebedor Pix</span><input id="pixReceiverNameConfig" maxlength="25" value="${escaparAttr(appConfig.pixReceiverName || "")}" placeholder="Nome ou empresa"></label>
             <label class="field"><span>Cidade do Pix</span><input id="pixCityConfig" maxlength="15" value="${escaparAttr(appConfig.pixCity || "")}" placeholder="Cidade"></label>
             <label class="field"><span>Descrição Pix</span><input id="pixDescriptionConfig" maxlength="40" value="${escaparAttr(appConfig.pixDescription || "Pedido Simplifica 3D")}"></label>
-          </div>
-        ` })}
-        ${renderUiSection({ id: "empresa-padroes", title: "Padrões comerciais", subtitle: "Mensagem, observação e prazo usados nos documentos", icon: "☰", group: "empresa", content: `
-          <div class="sync-grid">
-            <label class="field"><span>Mensagem padrão</span><textarea id="pdfDefaultMessageConfig" rows="2" maxlength="220" placeholder="Peças produzidas com impressão 3D de alta qualidade.">${escaparHtml(appConfig.pdfDefaultMessage || "")}</textarea></label>
-            <label class="field"><span>Observação padrão</span><textarea id="pdfDefaultNotesConfig" rows="3" maxlength="420" placeholder="Condições, prazos e orientações comerciais.">${escaparHtml(appConfig.pdfDefaultNotes || "")}</textarea></label>
-            <label class="field"><span>Prazo padrão</span><input id="productionDeadlineTextConfig" value="${escaparAttr(appConfig.productionDeadlineText || "")}" placeholder="Até 5 dias úteis"></label>
           </div>
         ` })}
         ${renderPdfSettingsSections({ group: "empresa" })}
@@ -35703,6 +35798,8 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
     const helperText = usarPin
       ? "Digite seu PIN de segurança. O campo permanece aberto se houver erro."
       : "Digite sua senha e toque em confirmar. O campo permanece aberto se houver erro.";
+    const emailConfirmacao = normalizarEmail(getUsuarioAtual()?.email || usuarioAtualEmail || syncConfig.supabaseEmail || "");
+    const dicaEmailConfirmacao = emailConfirmacao ? `Conta ${mascararEmailAcesso(emailConfirmacao)}` : "";
 
     popup.innerHTML = `
       <div class="modal-backdrop" role="dialog" aria-modal="true">
@@ -35712,11 +35809,12 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
             <button class="icon-button" type="button" id="adminPasswordCancelTop" title="Fechar">✕</button>
           </div>
           <p class="muted">Para ${escaparHtml(actionLabel)}, confirme ${usarPin ? "seu PIN de segurança" : "sua senha do aplicativo"}.</p>
+          ${dicaEmailConfirmacao ? `<small class="auth-account-hint">${escaparHtml(dicaEmailConfirmacao)}</small>` : ""}
           <label class="field">
             <span>${inputLabel}</span>
             <div class="password-row auth-password-row">
               <input id="adminPasswordConfirmInput" type="${inputType}" autocomplete="${autocomplete}" autocapitalize="none" spellcheck="false" inputmode="${inputMode}" enterkeyhint="done" data-preserve-focus="true" ${inputAttrs} required autofocus>
-              <button class="icon-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar ${usarPin ? "PIN" : "senha"}">👁</button>
+              <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar ${usarPin ? "PIN" : "senha"}">👁</button>
             </div>
           </label>
           <p class="muted auth-inline-feedback" id="adminPasswordFeedback">${helperText}</p>

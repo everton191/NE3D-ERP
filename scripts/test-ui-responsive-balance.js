@@ -35,12 +35,15 @@ if (missingSuperadmin.length) {
 }
 
 const requiredNotifications = [
-  "<h2>Mensagens</h2>",
-  "Configurar celular",
   "<h2>Notificações</h2>",
-  "Origens e celular conectado"
+  "pedido${leadsLoja.length === 1 ? \"\" : \"s\"} da loja aguardando",
+  "trocarTela('lojaAdmin')"
 ];
 const forbiddenNotificationContext = [
+  "dashboard-message-button",
+  "Origens e celular conectado",
+  "Configurar celular",
+  "<h2>Mensagens</h2>",
   "Somente origem, nome disponível e horário",
   "Alertas que precisam da sua atenção",
   "Os avisos desaparecem quando a notificação é lida",
@@ -62,7 +65,7 @@ const requiredMobileOrganization = [
   "function isPwaSettingsSplitPane",
   "body[data-ui-profile=\"web_pwa\"]:not(.mobile-mode) .settings-accordion-list > .ui-section[open] > .ui-section-body",
   ".settings-page .settings-accordion-list > .ui-section:not(.ui-subscreen-active) > .ui-section-body",
-  ".intro-skip{\n  left:50%;",
+  ".intro-skip{\n  inset-inline:auto;\n  left:50vw;",
   "function abrirSubmenuConfiguracao",
   "function fecharSubmenuConfiguracaoAtivo",
   "function renderAppComTransicaoNavegacao",
