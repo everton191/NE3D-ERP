@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v196-store-guided-draft-release-20260626";
+const CACHE_NAME = "simplifica-3d-v198-release-20260626";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -14,10 +14,12 @@ const APP_FILES = [
   "./src/services/smartLoaderService.js",
   "./src/services/safeAreaManager.js",
   "./src/services/themeAuthorityV2.js",
+  "./src/services/googleMotionEnhancer.js",
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
   "./themes/base/design-system-v2.css",
+  "./src/styles/google-expressive-motion.css",
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",
   "./assets/simplifica-cover.svg",

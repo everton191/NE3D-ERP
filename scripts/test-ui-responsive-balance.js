@@ -72,6 +72,9 @@ const requiredMobileOrganization = [
   ".settings-accordion-list > .ui-section > summary .ui-section-chevron{\n    display:none;",
   "body.mobile-mode .expand-toggle-indicator{\n    display:none;",
   ".ui-section.ui-subscreen-active > .ui-section-body :where(\n    .settings-group,",
+  "body[data-ui-profile=\"android_apk\"].mobile-mode .ui-section.ui-subscreen-active > .ui-section-body",
+  "body[data-ui-profile=\"android_apk\"].mobile-mode .profile-usage-grid",
+  "security-password-card security-mobile-card\" name=\"account-security\"",
   "body.mobile-mode .security-page .security-settings-card{\n    border:0;",
   "systemViewOverFade"
 ];

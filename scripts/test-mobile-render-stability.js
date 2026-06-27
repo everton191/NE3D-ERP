@@ -3,6 +3,7 @@ const fs = require("fs");
 const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 const motion = fs.readFileSync("src/services/googleMotionEnhancer.js", "utf8");
+const motionCss = fs.readFileSync("src/styles/google-expressive-motion.css", "utf8");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -18,5 +19,8 @@ assert(app.includes('isMobile() && document.body.dataset.motion !== "high"'), "S
 assert(motion.includes("function shouldAnimateScreen()"), "Controle de animacao por dispositivo ausente");
 assert(motion.includes('doc.body?.classList?.remove("gxm-force-motion")'), "Movimento continua forcado contra preferencia do dispositivo");
 assert(!motion.includes('classList?.add("gxm-force-motion")'), "Movimento forcado ainda e ativado");
+assert(motion.includes("options.initial"), "Primeira abertura deve marcar telas sem animar");
+assert(!/:not\(\.gxm-seen\)\s*\{/.test(motionCss), "Primeira abertura nao pode depender de animacao por :not(.gxm-seen)");
+assert(motionCss.includes("gxm-pwa-fade-lift"), "PWA deve usar transicao suave sem piscar");
 
 console.log("Mobile render stability tests passed.");

@@ -9,7 +9,7 @@ const adSense = fs.readFileSync("src/services/adSenseService.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
 const required = [
-  "simplifica-3d-v196-store-guided-draft-release-20260626",
+  "simplifica-3d-v197-pwa-motion-smooth-20260626",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
   "versionName \"1.0.54-rc\"",

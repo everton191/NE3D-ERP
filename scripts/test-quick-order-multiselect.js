@@ -20,6 +20,16 @@ const requiredApp = [
   "quick-order-item-select",
   "order-item-multi-select",
   "quickOrderBulkQty",
+  "quickItemPeso",
+  "pesoGramas",
+  "materialGramsTotal: Math.max(0, Number(quickOrderItemDraft.pesoGramas) || 0)",
+  "Tempo de impressão (h)",
+  "Peso (g)",
+  "function renderComandosPedidoRapidoPwa()",
+  "function gerenciarDirecionaisPwa(event, { editavel = false } = {})",
+  "quick-order-command-panel",
+  "Navegar telas",
+  "Menu lateral",
   "orderBulkQty",
   "Aplicar qtd",
   "window.__pedidoItensSelecionados = []",
@@ -35,7 +45,12 @@ const requiredCss = [
   ".quick-order-bulk-actions",
   ".order-bulk-actions",
   ".bulk-qty-field",
-  "grid-template-columns:repeat(2, minmax(0, 1fr));"
+  "grid-template-columns:repeat(2, minmax(0, 1fr));",
+  'body[data-ui-profile="web_pwa"] .operational-drawer > .modal-header',
+  "top:auto !important",
+  "margin:0 !important",
+  ".quick-item-grid .quick-item-name",
+  ".quick-item-grid .quick-item-half"
 ];
 
 const forbiddenApp = [
@@ -46,6 +61,10 @@ const forbiddenApp = [
   "duplicarItemPedido(",
   "async function duplicarItemPedido",
   "Repetir último",
+  "operational-shortcuts",
+  "Enter adiciona item",
+  "Ctrl+Enter salva",
+  "Esc fecha",
   "Duplicar pedido\", classe"
 ];
 

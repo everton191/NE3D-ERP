@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.54-rc";
-const APP_VERSION_CODE = 53;
+const APP_VERSION = "1.0.55-rc";
+const APP_VERSION_CODE = 54;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -468,7 +468,8 @@ let quickOrderItemDraft = {
   nome: "",
   qtd: "1",
   valor: "",
-  tempoHoras: ""
+  tempoHoras: "",
+  pesoGramas: ""
 };
 let quickOrderLastItem = null;
 let quickOrderStatusDraft = "";
@@ -10820,7 +10821,7 @@ function renderAssistenteInteligenteProConfig() {
           <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Disponível no Plano Pro</button>
         </div>
       `}
-      <p class="muted">Instalação automática com o modelo configurado para este APK. O app baixa, valida, testa o runtime e só marca como pronta se responder no teste interno.</p>
+      <p class="muted">A instalação é automática e a IA só fica disponível depois que o aparelho concluir a verificação.</p>
       <label class="toggle-row">
         <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)" ${acessoProIA ? "" : "disabled"}>
         <span>Ativar IA Local</span>
@@ -10828,7 +10829,6 @@ function renderAssistenteInteligenteProConfig() {
       <div class="sync-grid">
         <div class="metric"><span>Modelo</span><strong>${escaparHtml(modeloLocal?.model || "Qwen2.5 1.5B Q8_0")}</strong></div>
         <div class="metric"><span>Status</span><strong>${escaparHtml(statusTexto)}</strong></div>
-        <div class="metric"><span>Runtime</span><strong>${assistantRuntimeReady ? "Carregado" : pronto ? "Hibernado" : "Aguardando"}</strong></div>
         <div class="metric"><span>Instalação</span><strong>Automática</strong></div>
       </div>
       ${progress.active ? `
@@ -10842,7 +10842,7 @@ function renderAssistenteInteligenteProConfig() {
       ` : ""}
       <div class="actions">
         <button class="btn" type="button" onclick="${acessoProIA ? (pronto ? `abrirModeloIAOffline('${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}')` : "instalarIARecomendadaAutomaticamente()") : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Abrir IA" : "Instalar IA automaticamente") : "Disponível no Plano Pro"}</button>
-        <button class="btn secondary" type="button" onclick="${acessoProIA ? "atualizarDiagnosticoRuntimeIA(true)" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Diagnóstico</button>
+        <button class="btn secondary" type="button" onclick="${acessoProIA ? "atualizarDiagnosticoRuntimeIA(true)" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Verificar aparelho</button>
         <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA && pronto ? "" : "disabled"}>Parar IA Local</button>
       </div>
       ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
@@ -13318,6 +13318,46 @@ function salvarFluxoOperacionalAtivo(event = null) {
   return false;
 }
 
+function getItensNavegacaoTecladoPwa() {
+  if (!isWebPwaProfile() || isMobile() || !getUsuarioAtual()) return [];
+  if (isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return [];
+  return getItensMenuPopup().filter((item) => item?.tela && canAccessScreen(item.tela));
+}
+
+function focoEstaNoMenuPrincipal(elemento) {
+  return !!elemento?.closest?.(".side-menu, .mobile-bottom-nav");
+}
+
+function navegarPwaPorDirecional(delta = 1) {
+  const itens = getItensNavegacaoTecladoPwa();
+  if (!itens.length) return false;
+  const indiceAtual = Math.max(0, itens.findIndex((item) => item.tela === telaAtual));
+  const proximoIndice = (indiceAtual + delta + itens.length) % itens.length;
+  const destino = itens[proximoIndice]?.tela;
+  if (!destino || destino === telaAtual) return false;
+  navegarMenuPrincipal(destino);
+  setTimeout(() => {
+    const seletorTela = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(destino) : String(destino).replace(/["\\]/g, "\\$&");
+    document.querySelector(`.side-nav-button[data-tela="${seletorTela}"], .mobile-bottom-nav-button[data-tela="${seletorTela}"]`)?.focus?.({ preventScroll: true });
+  }, 80);
+  return true;
+}
+
+function gerenciarDirecionaisPwa(event, { editavel = false } = {}) {
+  if (!isWebPwaProfile() || isMobile() || editavel || event.altKey || event.ctrlKey || event.metaKey) return false;
+  if (document.querySelector(".modal-backdrop, .drawer-backdrop, .side-drawer, .quick-order-drawer, .ui-context-menu[open]")) return false;
+  const key = String(event.key || "");
+  if (key === "ArrowLeft" || key === "ArrowRight") {
+    event.preventDefault();
+    return navegarPwaPorDirecional(key === "ArrowRight" ? 1 : -1);
+  }
+  if ((key === "ArrowUp" || key === "ArrowDown") && focoEstaNoMenuPrincipal(event.target)) {
+    event.preventDefault();
+    return navegarPwaPorDirecional(key === "ArrowDown" ? 1 : -1);
+  }
+  return false;
+}
+
 function configurarAtalhosOperacionais() {
   if (window.__simplificaOperationalShortcutsConfigured) return;
   window.__simplificaOperationalShortcutsConfigured = true;
@@ -13325,6 +13365,8 @@ function configurarAtalhosOperacionais() {
     const key = String(event.key || "").toLowerCase();
     const ctrl = event.ctrlKey || event.metaKey;
     const editavel = elementoEditavelOperacional(event.target);
+
+    if (gerenciarDirecionaisPwa(event, { editavel })) return;
 
     if (key === "escape" && fecharCamadaAtualSeExistir()) {
       event.preventDefault();
@@ -14811,6 +14853,57 @@ function salvarRascunhoProdutoGuiadoLoja(form) {
   if (target.requestSubmit) target.requestSubmit();
   else salvarProdutoLojaOnline({ preventDefault() {}, target });
   return true;
+}
+
+function getRascunhoProdutoGuiadoDoFormulario(form = document.getElementById("storefrontProductForm")) {
+  if (!form) return null;
+  const get = (name) => getStorefrontProductFormField(form, name);
+  const selectedPriceMode = get("productPriceMode")?.value || "fixed";
+  const price = Math.max(0, Number(String(get("productPrice")?.value || "0").replace(",", ".")) || 0);
+  const compare = Math.max(0, Number(String((get("productComparePrice")?.value || get("productComparePriceVisible")?.value || "0")).replace(",", ".")) || 0);
+  const stockMode = get("productStockMode")?.value || "unlimited";
+  const stockQuantityValue = get("productStockQuantity")?.value || get("productStockQuantityVisible")?.value || "";
+  const priceMode = selectedPriceMode === "quote" ? "quote" : compare > price ? "promo" : "fixed";
+  return {
+    id: get("productId")?.value || "",
+    title: String(get("productTitle")?.value || "").trim(),
+    short_description: String(get("productShortDescription")?.value || "").trim(),
+    description: String(get("productDescription")?.value || "").trim(),
+    slug: get("productSlug")?.value || "",
+    erp_product_id: String(get("erpProductId")?.value || "").trim() || null,
+    category_id: get("productCategory")?.value || null,
+    price,
+    compare_price: priceMode === "promo" && compare > price ? compare : null,
+    price_mode: priceMode,
+    show_price: !!get("productShowPrice")?.checked,
+    visible: !!get("productVisible")?.checked,
+    featured: !!(get("productFeaturedVisible")?.checked || get("productFeatured")?.checked),
+    is_customizable: !!get("productCustomizable")?.checked,
+    estimated_production_time: String(get("productTime")?.value || "").trim(),
+    public_observations: String((get("productObservations")?.value || get("productObservationsVisible")?.value || "")).trim(),
+    stock_mode: ["unlimited", "manual", "unavailable"].includes(stockMode) ? stockMode : "unlimited",
+    stock_quantity: stockMode === "manual" && stockQuantityValue !== "" ? Math.max(0, Number(stockQuantityValue) || 0) : null
+  };
+}
+
+function preservarRascunhoProdutoGuiadoAtual() {
+  const draft = getRascunhoProdutoGuiadoDoFormulario();
+  if (!draft) return null;
+  storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, draft);
+  storefrontScheduleAutosave("product", serializeStorefrontForm(document.getElementById("storefrontProductForm")));
+  return draft;
+}
+
+function getStorefrontGuidedProductDraft(product = {}) {
+  const seed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null);
+  if (!seed || typeof seed !== "object") return product || {};
+  const selection = getStorefrontGuidedSelection();
+  const selectedId = String(selection.id || "");
+  const seedId = String(seed.id || "");
+  const productId = String(product?.id || "");
+  if (selectedId && seedId && seedId !== selectedId) return product || {};
+  if (selectedId && productId && productId !== selectedId) return product || {};
+  return { ...(product || {}), ...seed, __demo: false, __template: false };
 }
 
 let storefrontAutosaveTimer = null;
@@ -19270,6 +19363,7 @@ function setStorefrontGuidedProductStep(step = 1) {
   const current = getStorefrontGuidedSelection();
   const nextStep = Math.max(1, Math.min(4, Number(step) || 1));
   const targetSection = STOREFRONT_V3_PRODUCT_STEPS.find((item) => item.step === nextStep)?.key || "basic";
+  if (current.type === "product") preservarRascunhoProdutoGuiadoAtual();
   setStorefrontContextualEditorState({
     selection: {
       ...current,
@@ -19344,6 +19438,7 @@ if (typeof window !== "undefined") {
     getStorefrontCategoryVisualImage,
     selecionarItemLojaVisual,
     setStorefrontGuidedProductStep,
+    getStorefrontGuidedProductDraft,
     salvarRascunhoProdutoGuiadoLoja,
     manterCampoEditorGuiadoVisivel,
     destacarAlvoEdicaoGuiadaLoja,
@@ -20665,13 +20760,13 @@ function renderAtualizacaoAndroidDownload() {
   return `
     <section class="update-download-card${destaque}">
       <div>
-        <span>Atualização do APK</span>
+        <span>Atualização disponível</span>
         <strong>${appConfig.updateAvailableVersion ? `Versão ${escaparHtml(versao)} disponível` : "Baixar versão mais recente"}</strong>
         <small>${escaparHtml(status)}</small>
       </div>
       <div class="update-download-actions">
         <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar</button>
-        <button class="btn" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
+        <button class="btn" onclick="baixarAtualizacaoAndroid(true)">Atualizar agora</button>
       </div>
     </section>
   `;
@@ -26355,10 +26450,10 @@ function renderConfig() {
       </div>`
     : `
       ${backupAviso}
-      <p class="muted">Entre ou crie uma conta para sincronizar dados entre Android, Windows e navegador. O Free continua funcional com sync limitada.</p>
+      <p class="muted">Entre ou crie uma conta para manter seus dados protegidos e disponíveis em outros dispositivos.</p>
       <div class="admin-grid">
-        <div class="metric"><span>Free</span><strong>Sync limitada</strong></div>
-        <div class="metric"><span>Premium</span><strong>Sync ampliada</strong></div>
+        <div class="metric"><span>Free</span><strong>Cópia básica</strong></div>
+        <div class="metric"><span>Premium</span><strong>Cópia ampliada</strong></div>
       </div>
       <div class="actions">
         <button class="btn" onclick="trocarTela('admin')">Entrar ou criar conta</button>
@@ -26366,7 +26461,7 @@ function renderConfig() {
         <button class="btn ghost" onclick="voltarTela()">Voltar</button>
       </div>
       <label class="field">
-        <span>Restaurar backup JSON local</span>
+        <span>Restaurar arquivo de backup</span>
         <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
       </label>`;
   const accountSecurityContent = usuario
@@ -26379,7 +26474,7 @@ function renderConfig() {
           </div>
           <span class="security-auth-badge">${renderUiIcon("seguranca")} Autenticada</span>
         </header>
-        <details class="security-summary-card security-mobile-card" open>
+        <details class="security-summary-card security-mobile-card" name="account-security" open>
           <summary class="security-mobile-card-summary">
             <span class="security-summary-icon">${renderUiIcon("conta")}</span>
             <span><strong>Resumo da conta</strong></span>
@@ -26393,7 +26488,7 @@ function renderConfig() {
           </div>
         </details>
         <div class="security-main-grid">
-        <details class="settings-group security-settings-card security-pin-card security-mobile-card">
+        <details class="settings-group security-settings-card security-pin-card security-mobile-card" name="account-security">
           <summary class="security-card-heading security-mobile-card-summary">
             <span class="security-card-icon security-card-icon-warning">🔒</span>
             <div><h3>PIN de ações importantes</h3><small>Use o PIN para proteger alterações críticas.</small></div>
@@ -26401,7 +26496,7 @@ function renderConfig() {
           </summary>
           <div class="security-mobile-card-body">${renderConfiguracaoPinAcoesSensiveis()}</div>
         </details>
-        <details class="settings-group security-settings-card security-password-card security-mobile-card">
+        <details class="settings-group security-settings-card security-password-card security-mobile-card" name="account-security">
           <summary class="security-card-heading security-mobile-card-summary">
             <span class="security-card-icon">${renderUiIcon("config")}</span>
             <div><h3>Alterar senha da conta</h3><small>Atualize sua senha de acesso.</small></div>
@@ -26410,7 +26505,7 @@ function renderConfig() {
           <div class="security-mobile-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
         </details>
       </div>
-      <details class="settings-group security-settings-card security-session-card security-mobile-card">
+      <details class="settings-group security-settings-card security-session-card security-mobile-card" name="account-security">
         <summary class="security-card-heading security-mobile-card-summary">
           <span class="security-card-icon">${renderUiIcon("dashboard")}</span>
           <div><h3>Sessão neste aparelho</h3><small>Gerencie sua sessão atual neste dispositivo.</small></div>
@@ -26435,18 +26530,13 @@ function renderConfig() {
     <div class="sync-grid">
       <div class="metric"><span>Versão instalada</span><strong>${escaparHtml(APP_VERSION)}</strong></div>
       <div class="metric"><span>Status</span><strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong></div>
-      <div class="metric"><span>Versão disponível</span><strong>${escaparHtml(appConfig.updateAvailableVersion || "Nenhuma")}</strong></div>
-      <label class="field">
-        <span>Checar a cada minutos</span>
-        <input id="updateCheckInterval" type="number" min="5" step="1" value="${Number(appConfig.updateCheckInterval) || 30}">
-      </label>
-      <div class="metric"><span>Última checagem</span><strong>${appConfig.updateLastCheck ? new Date(appConfig.updateLastCheck).toLocaleString("pt-BR") : "Nunca"}</strong></div>
+      ${appConfig.updateAvailableVersion ? `<div class="metric"><span>Nova versão</span><strong>${escaparHtml(appConfig.updateAvailableVersion)}</strong></div>` : ""}
     </div>
     <div class="actions">
-      <button class="btn" onclick="salvarConfigSync()">Salvar atualizações</button>
       <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
-      <button class="btn ghost" onclick="aplicarAtualizacaoAgora()">Aplicar agora</button>
-      <button class="btn ghost" onclick="baixarAtualizacaoAndroid(true)">Baixar APK</button>
+      ${isAndroid()
+        ? `<button class="btn" onclick="baixarAtualizacaoAndroid(true)">Baixar e instalar</button>`
+        : `<button class="btn" onclick="aplicarAtualizacaoAgora()">Atualizar agora</button>`}
     </div>`;
   const systemContent = `
     <div class="settings-group">
@@ -26464,7 +26554,8 @@ function renderConfig() {
     </div>`;
 
   const suggestionsContent = renderSugestoesMelhoriasConfig();
-  const systemLogsContent = renderLogSistemaConfig();
+  const mostrarLogsSistema = isSuperAdmin() || APP_DEBUG_MODE;
+  const systemLogsContent = mostrarLogsSistema ? renderLogSistemaConfig() : "";
   const usarPainelDuploPwa = isWebPwaProfile() && !isMobile();
 
   return `
@@ -26473,15 +26564,15 @@ function renderConfig() {
         <h2>Sistema</h2>
         <span class="status-badge">${escaparHtml(status)}</span>
       </div>
-      <p class="muted">Comportamento interno do app: backup, sincronização, atualizações, cache e documentos do sistema.</p>
+      <p class="muted">Gerencie seus dados, segurança, atualizações e documentos.</p>
       <div class="settings-accordion-list">
-        ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta, sync, exportação e importação", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
+        ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta e cópias de segurança", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
         ${telaAtual === "config" ? `
           ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: !isMobile() && !usarPainelDuploPwa, group: "config" })}
-          ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão do app, APK e checagem automática", icon: "↻", content: updatesContent, group: "config" })}
+          ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão e atualização automática", icon: "↻", content: updatesContent, group: "config" })}
           ${renderUiSection({ id: "sugestoes-melhorias", title: "Sugestões de melhorias", subtitle: "Envie ideias e acompanhe pedidos", icon: "💡", content: suggestionsContent, group: "config" })}
-          ${renderUiSection({ id: "logs-sistema", title: "Log do sistema", subtitle: "Erros, pendências e operações concluídas", icon: "☷", content: systemLogsContent, group: "config" })}
-          ${renderUiSection({ id: "sistema", title: "Cache, offline e suporte", subtitle: "Introdução, documentos e informações legais", icon: "⚙", content: systemContent, group: "config" })}
+          ${mostrarLogsSistema ? renderUiSection({ id: "logs-sistema", title: "Diagnóstico", subtitle: "Informações para suporte técnico", icon: "☷", content: systemLogsContent, group: "config" }) : ""}
+          ${renderUiSection({ id: "sistema", title: "Ajuda e documentos", subtitle: "Introdução, privacidade e termos", icon: "⚙", content: systemContent, group: "config" })}
         ` : ""}
       </div>
       <div class="actions single">
@@ -30038,7 +30129,7 @@ function renderFeedback() {
         <h2>💡 Sugestões de melhorias</h2>
         <span class="status-badge">Ideias</span>
       </div>
-      <p class="muted">Envie uma ideia ou relate um problema. Os registros técnicos ficam separados no Log do sistema.</p>
+      <p class="muted">Envie uma ideia ou relate um problema. As informações necessárias para o suporte são anexadas automaticamente.</p>
       <div class="actions">
         <button class="btn secondary" onclick="registrarSugestaoNfe()">Quero emissão de NF-e</button>
       </div>
@@ -36618,7 +36709,7 @@ async function fecharPedido() {
     observacaoPedido = "";
     prazoPedido = "";
     entradaPedido = 0;
-    quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+    quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
     quickOrderStatusDraft = "";
     quickOrderPaymentMethodDraft = "pix";
     selectedCustomerSuggestion = null;
@@ -37810,7 +37901,7 @@ function acionarAtalhoRapido(id) {
 }
 
 function pedidoRapidoTemRascunho() {
-  const temItemEmDigitacao = !!(quickOrderItemDraft.nome || quickOrderItemDraft.valor || quickOrderItemDraft.tempoHoras);
+  const temItemEmDigitacao = !!(quickOrderItemDraft.nome || quickOrderItemDraft.valor || quickOrderItemDraft.tempoHoras || quickOrderItemDraft.pesoGramas);
   return !!(clientePedido || clienteTelefonePedido || clienteEmailPedido || observacaoPedido || prazoPedido || entradaPedido || itensPedido.length || pedidoEditando || temItemEmDigitacao);
 }
 
@@ -37853,7 +37944,8 @@ function rascunhoPedidoRapidoTemConteudo(snapshot) {
     (Array.isArray(snapshot.itens) && snapshot.itens.length) ||
     itemDraft.nome ||
     itemDraft.valor ||
-    itemDraft.tempoHoras
+    itemDraft.tempoHoras ||
+    itemDraft.pesoGramas
   );
 }
 
@@ -37913,7 +38005,8 @@ function aplicarRascunhoPedidoRapidoLocal(snapshot) {
     nome: String(snapshot.itemDraft?.nome || ""),
     qtd: String(snapshot.itemDraft?.qtd || "1"),
     valor: String(snapshot.itemDraft?.valor || ""),
-    tempoHoras: String(snapshot.itemDraft?.tempoHoras || "")
+    tempoHoras: String(snapshot.itemDraft?.tempoHoras || ""),
+    pesoGramas: String(snapshot.itemDraft?.pesoGramas || "")
   };
   quickOrderLastItem = snapshot.lastItem || quickOrderLastItem;
   quickOrderStatusDraft = String(snapshot.status || "");
@@ -37992,7 +38085,7 @@ async function limparRascunhoPedidoRapido() {
   pedidoEditandoOriginal = null;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
-  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
   quickOrderStatusDraft = "";
   quickOrderPaymentMethodDraft = "pix";
   window.__pedidoItemSelecionado = null;
@@ -38014,7 +38107,8 @@ function sincronizarItemRapidoDraft() {
     nome: String(nomeCampo.value || "").trim(),
     qtd: String(document.getElementById("quickItemQtd")?.value || "1"),
     valor: String(document.getElementById("quickItemValor")?.value || ""),
-    tempoHoras: String(document.getElementById("quickItemTempo")?.value || "")
+    tempoHoras: String(document.getElementById("quickItemTempo")?.value || ""),
+    pesoGramas: String(document.getElementById("quickItemPeso")?.value || "")
   };
 }
 
@@ -38041,7 +38135,7 @@ function focarCampoOperacional(id) {
 }
 
 function focoProximoCampoOperacional(id) {
-  const ordem = ["clienteNome", "clienteTelefone", "quickItemNome", "quickItemQtd", "quickItemValor", "quickItemTempo", "pedidoEntrada"];
+  const ordem = ["clienteNome", "clienteTelefone", "quickItemNome", "quickItemQtd", "quickItemValor", "quickItemTempo", "quickItemPeso", "pedidoEntrada"];
   const atual = ordem.indexOf(id);
   const proximo = ordem[atual + 1] || "quickItemNome";
   focarCampoOperacional(proximo);
@@ -38063,7 +38157,7 @@ function gerenciarTecladoPedidoRapido(event) {
   }
   if (event.key !== "Enter" || event.shiftKey) return;
   if (alvo?.tagName === "TEXTAREA") return;
-  if (["quickItemNome", "quickItemQtd", "quickItemValor", "quickItemTempo"].includes(id)) {
+  if (["quickItemNome", "quickItemQtd", "quickItemValor", "quickItemTempo", "quickItemPeso"].includes(id)) {
     event.preventDefault();
     fecharSugestoesClientePedido();
     adicionarItemRapidoOperacional(event).then((ok) => {
@@ -38096,6 +38190,22 @@ function renderPedidoRapidoTimeline(status = "aberto") {
         </span>
       `).join("")}
     </div>
+  `;
+}
+
+function renderComandosPedidoRapidoPwa() {
+  if (!isWebPwaProfile() || isMobile()) return "";
+  return `
+    <aside class="quick-order-command-panel" aria-label="Comandos rápidos">
+      <strong>Comandos rápidos</strong>
+      <ul>
+        <li><kbd>Enter</kbd><span>Adicionar item</span></li>
+        <li><kbd>Ctrl</kbd><b>+</b><kbd>Enter</kbd><span>Salvar pedido</span></li>
+        <li><kbd>Esc</kbd><span>Fechar</span></li>
+        <li><kbd>←</kbd><b>/</b><kbd>→</kbd><span>Navegar telas</span></li>
+        <li><kbd>↑</kbd><b>/</b><kbd>↓</kbd><span>Menu lateral</span></li>
+      </ul>
+    </aside>
   `;
 }
 
@@ -38137,7 +38247,7 @@ function renderPedidoRapidoOperacional() {
           </label>
           <div>
             <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
-            <small>Qtd ${Number(item.qtd) || 1} • ${formatarMoeda(Number(item.valor) || 0)} un. • ${Number(item.tempoHoras || 0).toFixed(2)}h</small>
+            <small>Qtd ${Number(item.qtd) || 1} • ${formatarMoeda(Number(item.valor) || 0)} un. • ${Number(item.tempoHoras || 0).toFixed(2)}h${Number(item.materialGramsTotal || 0) > 0 ? ` • ${Number(item.materialGramsTotal).toFixed(1)} g` : ""}</small>
           </div>
           <b>${formatarMoeda(Number(item.total) || 0)}</b>
           <button class="icon-action-button danger" type="button" onclick="removerItemRapidoOperacional(${index})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
@@ -38155,11 +38265,6 @@ function renderPedidoRapidoOperacional() {
           <div>
             <h2>${pedidoEditando ? "Editar pedido rápido" : "Pedido rápido"}</h2>
             <p class="muted">Cliente, item, entrada e status em um fluxo contínuo.</p>
-            <div class="operational-shortcuts">
-              <span>Enter adiciona item</span>
-              <span>Ctrl+Enter salva</span>
-              <span>Esc fecha</span>
-            </div>
           </div>
           <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
         </div>
@@ -38193,7 +38298,7 @@ function renderPedidoRapidoOperacional() {
                 <strong>Adicionar item</strong>
               </div>
               <div class="quick-item-grid">
-                <label class="field">
+                <label class="field quick-item-name">
                   <span>Item</span>
                   <input id="quickItemNome" value="${escaparAttr(quickOrderItemDraft.nome)}" placeholder="Ex.: suporte personalizado" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
                 </label>
@@ -38205,9 +38310,13 @@ function renderPedidoRapidoOperacional() {
                   <span>Valor un.</span>
                   <input id="quickItemValor" type="number" min="0" step="0.01" value="${escaparAttr(quickOrderItemDraft.valor)}" placeholder="0,00" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
                 </label>
-                <label class="field">
-                  <span>Horas</span>
+                <label class="field quick-item-half">
+                  <span>Tempo de impressão (h)</span>
                   <input id="quickItemTempo" type="number" min="0" step="0.01" value="${escaparAttr(quickOrderItemDraft.tempoHoras)}" placeholder="0" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
+                </label>
+                <label class="field quick-item-half">
+                  <span>Peso (g)</span>
+                  <input id="quickItemPeso" type="number" min="0" step="0.1" value="${escaparAttr(quickOrderItemDraft.pesoGramas)}" placeholder="0" onfocus="fecharSugestoesClientePedido()" oninput="sincronizarItemRapidoDraft()">
                 </label>
               </div>
               <div class="actions quick-order-inline-actions">
@@ -38252,6 +38361,7 @@ function renderPedidoRapidoOperacional() {
           </form>
 
           <aside class="quick-order-summary">
+            ${renderComandosPedidoRapidoPwa()}
             <div>
               <span class="status-badge ${classeStatusPedido(statusAtual)}">${escaparHtml(labelStatusPedido(statusAtual))}</span>
               <h3>Resumo operacional</h3>
@@ -38292,7 +38402,7 @@ function abrirPedidoRapidoOperacional({ reset = false } = {}) {
     observacaoPedido = "";
     prazoPedido = "";
     entradaPedido = 0;
-    quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+    quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
     quickOrderStatusDraft = "";
     quickOrderPaymentMethodDraft = "pix";
     selectedCustomerSuggestion = null;
@@ -38348,6 +38458,7 @@ async function adicionarItemRapidoOperacional(event = null, { silent = false } =
     qtd: Math.max(1, Number(quickOrderItemDraft.qtd) || 1),
     valor: numeroMonetarioPedido(valorCampo, 0),
     tempoHoras: Math.max(0, Number(quickOrderItemDraft.tempoHoras) || 0),
+    materialGramsTotal: Math.max(0, Number(quickOrderItemDraft.pesoGramas) || 0),
     materiais: []
   };
   item.total = item.valor * item.qtd;
@@ -38360,7 +38471,7 @@ async function adicionarItemRapidoOperacional(event = null, { silent = false } =
   itensPedido.push({ ...validacao.item, id: validacao.item.id || "item-" + Date.now().toString(36) });
   window.__pedidoItemSelecionado = itensPedido.length - 1;
   quickOrderLastItem = JSON.parse(JSON.stringify(validacao.item));
-  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "" };
+  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
   registrarEventoUsoLocal("item_adicionado", { produto: validacao.item.nome, modo: "pedido_rapido" });
   if (!silent) mostrarToast("Item adicionado ao pedido rápido.", "sucesso", 2200);
   atualizarPedidoRapidoOperacional({ syncItemDraft: false });
@@ -40883,17 +40994,46 @@ function getAndroidManifestUrls() {
   ].filter(Boolean).filter((url, index, lista) => lista.indexOf(url) === index);
 }
 
-function abrirDownloadAtualizacaoAndroid(url) {
+function getPluginAtualizacaoAndroid() {
+  if (!isAndroid()) return null;
+  return window.Capacitor?.Plugins?.SimplificaUpdate || null;
+}
+
+async function abrirDownloadAtualizacaoAndroid(url) {
   const destino = url || appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
   if (!destino) {
     alert("Link do APK não configurado.");
     return;
   }
 
+  const plugin = getPluginAtualizacaoAndroid();
+  if (plugin?.downloadAndInstall) {
+    salvarStatusAtualizacao("Baixando atualização dentro do aplicativo");
+    mostrarToast("Baixando atualização com segurança...", "info", 3600);
+    try {
+      const resultado = await plugin.downloadAndInstall({
+        url: destino,
+        versionCode: Number(appConfig.updateAvailableCode || 0)
+      });
+      if (resultado?.permissionRequired) {
+        salvarStatusAtualizacao("Autorize a instalação e toque em baixar novamente");
+        mostrarToast("Autorize este aplicativo a instalar a atualização e depois toque em baixar novamente.", "info", 6200);
+        return resultado;
+      }
+      salvarStatusAtualizacao("Instalador da atualização aberto");
+      return resultado;
+    } catch (erro) {
+      salvarStatusAtualizacao("Erro ao baixar atualização no aplicativo");
+      alert("Não foi possível preparar a atualização: " + (erro?.message || erro));
+      return { error: true };
+    }
+  }
+
   const janela = window.open(destino, "_blank");
   if (!janela) {
     window.location.href = destino;
   }
+  return { browserOpened: true };
 }
 
 async function buscarManifestAtualizacaoAndroid() {
@@ -40999,7 +41139,7 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
         appConfig.updateAutoDownloadedKey = autoDownloadKey;
         salvarDados();
         mostrarToast(`Baixando atualização ${appConfig.updateAvailableVersion}...`, "info", 3600);
-        setTimeout(() => abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl), 500);
+        setTimeout(() => void abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl), 500);
       }
 
       if (forcarAviso) {
@@ -41035,8 +41175,8 @@ async function baixarAtualizacaoAndroid(forcarBusca = false) {
         appConfig.updateAvailableCode = 0;
         salvarStatusAtualizacao("Sistema atualizado");
       }
-      abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl);
-      if (appConfig.updateAvailableVersion) {
+      const resultadoDownload = await abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl);
+      if (appConfig.updateAvailableVersion && !resultadoDownload?.permissionRequired && !resultadoDownload?.error) {
         appConfig.updateDismissedVersion = appConfig.updateAvailableVersion;
         appConfig.updateDismissedCode = appConfig.updateAvailableCode || 0;
         appConfig.updateAvailableVersion = "";
@@ -41050,7 +41190,7 @@ async function baixarAtualizacaoAndroid(forcarBusca = false) {
     }
   }
 
-  abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL);
+  await abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL);
 }
 
 function intervaloAtualizacaoMs() {
@@ -41483,6 +41623,7 @@ if (typeof window !== "undefined") {
     processarImagemCategoriaLojaOnline,
     getStorefrontCategoryVisualImage,
     selecionarItemLojaVisual,
+    getStorefrontGuidedProductDraft,
     alinharSelecaoLojaVisual,
     abrirChecklistGuiadoLoja,
     navigateToStorefrontEditorTarget,

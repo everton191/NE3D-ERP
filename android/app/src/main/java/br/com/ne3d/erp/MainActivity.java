@@ -25,6 +25,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaFilesPlugin.class);
         registerPlugin(SimplificaBiometricPlugin.class);
         registerPlugin(SimplificaNotificationsPlugin.class);
+        registerPlugin(SimplificaUpdatePlugin.class);
         super.onCreate(savedInstanceState);
         applySimplificaSystemBars();
         setupSimplificaSystemInsets();

@@ -15382,6 +15382,53 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
   }
 }
 
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-screen{
+  gap:10px;
+  padding-bottom:calc(76px + var(--app-safe-bottom, 0px));
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card{
+  grid-template-columns:64px minmax(0, 1fr) auto;
+  gap:10px;
+  min-height:94px;
+  padding:12px;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-avatar{
+  width:60px;
+  height:60px;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card > span:nth-child(2){
+  min-width:0;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card strong,
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card small{
+  overflow-wrap:anywhere;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card strong{
+  font-size:16px;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-modern-card{
+  padding:12px;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-list-card{
+  padding:0;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-usage-grid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+}
+
+body[data-ui-profile="android_apk"].mobile-mode .profile-usage-tile{
+  min-height:82px;
+}
+
 @media (max-width: 390px){
   .profile-usage-grid{
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -20755,15 +20802,26 @@ body[data-ui-profile="web_pwa"] .operational-drawer{
 }
 
 body[data-ui-profile="web_pwa"] .operational-drawer > .modal-header{
+  position:relative !important;
+  top:auto !important;
+  box-sizing:border-box;
+  width:100%;
+  margin:0 !important;
   padding:16px;
 }
 
 .quick-order-layout{
   min-height:0;
+  height:100%;
+  max-height:100%;
   display:grid;
   grid-template-columns:minmax(0, 1.25fr) minmax(320px, .75fr);
   gap:16px;
-  overflow:auto;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
   padding:16px;
 }
 
@@ -20783,26 +20841,6 @@ body[data-ui-profile="web_pwa"] .operational-drawer > .modal-header{
   border-radius:var(--radius-card);
   background:color-mix(in srgb, var(--color-surface) 54%, transparent);
   box-shadow:var(--effect-shadow-sm);
-}
-
-.operational-shortcuts{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  margin-top:8px;
-}
-
-.operational-shortcuts span{
-  min-height:24px;
-  display:inline-flex;
-  align-items:center;
-  padding:3px 8px;
-  border:1px solid color-mix(in srgb, var(--color-primary) 16%, var(--color-border));
-  border-radius:999px;
-  background:color-mix(in srgb, var(--color-primary) 8%, transparent);
-  color:var(--color-text-muted);
-  font-size:11px;
-  font-weight:800;
 }
 
 .quick-order-drawer .customer-suggestion-box{
@@ -20833,8 +20871,13 @@ body[data-ui-profile="web_pwa"] .operational-drawer > .modal-header{
 .quick-item-grid,
 .quick-operation-grid{
   display:grid;
-  grid-template-columns:minmax(180px, 1.4fr) repeat(3, minmax(96px, .6fr));
+  grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:10px;
+}
+
+.quick-item-grid .quick-item-name,
+.quick-item-grid .quick-item-half{
+  grid-column:span 2;
 }
 
 .quick-operation-grid{
@@ -20860,6 +20903,58 @@ body[data-ui-profile="web_pwa"] .operational-drawer > .modal-header{
 .quick-order-summary h3{
   margin:8px 0 2px;
   color:var(--color-text-primary);
+}
+
+.quick-order-command-panel{
+  display:grid;
+  gap:10px;
+  padding:12px;
+  border:1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+  border-radius:var(--radius-card);
+  background:color-mix(in srgb, var(--color-primary) 7%, var(--color-surface));
+}
+
+.quick-order-command-panel > strong{
+  color:var(--color-text-primary);
+  font-size:13px;
+}
+
+.quick-order-command-panel ul{
+  display:grid;
+  gap:7px;
+  margin:0;
+  padding:0;
+  list-style:none;
+}
+
+.quick-order-command-panel li{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  color:var(--color-text-muted);
+  font-size:12px;
+}
+
+.quick-order-command-panel li span{
+  margin-left:auto;
+  text-align:right;
+}
+
+.quick-order-command-panel kbd{
+  min-width:34px;
+  padding:4px 6px;
+  border:1px solid var(--color-border);
+  border-bottom-width:2px;
+  border-radius:6px;
+  background:var(--color-surface);
+  color:var(--color-text-primary);
+  font:700 11px/1 system-ui, sans-serif;
+  text-align:center;
+}
+
+.quick-order-command-panel b{
+  color:var(--color-text-muted);
+  font-size:10px;
 }
 
 .quick-order-items{
@@ -21106,6 +21201,8 @@ body.theme-light :where(.quick-order-section,.quick-order-summary,.quick-order-i
 
   .operational-drawer > .modal-header{
     box-sizing:border-box;
+    width:100%;
+    margin:0 !important;
     padding:18px max(22px, env(safe-area-inset-right)) 14px max(22px, env(safe-area-inset-left)) !important;
   }
 
@@ -21145,7 +21242,18 @@ body.theme-light :where(.quick-order-section,.quick-order-summary,.quick-order-i
     height:40px;
   }
 
-  .quick-item-grid,
+  .quick-item-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .quick-item-grid .quick-item-name{
+    grid-column:1 / -1;
+  }
+
+  .quick-item-grid .quick-item-half{
+    grid-column:auto;
+  }
+
   .quick-order-final-actions{
     grid-template-columns:1fr;
   }
@@ -21162,6 +21270,35 @@ body.theme-light :where(.quick-order-section,.quick-order-summary,.quick-order-i
     backdrop-filter:blur(14px);
     -webkit-backdrop-filter:blur(14px);
   }
+}
+
+/* Autoridade de rolagem para telas fixas e fluxos operacionais mobile. */
+body.mobile-mode.app-shell-ready .mobile-panel{
+  width:100%;
+  height:var(--app-viewport-height, 100dvh);
+  min-height:0;
+  max-height:var(--app-viewport-height, 100dvh);
+  overflow:hidden;
+}
+
+body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{
+  flex:1 1 auto;
+  min-height:0;
+  height:auto;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
+}
+
+body.mobile-mode .operational-drawer > :where(.quick-order-layout,.quick-operation-layout){
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
 }
 
 /* Storefront admin visual organization - fase 2 */
@@ -34701,12 +34838,28 @@ body.mobile-mode .assistant-fab-icon{
     display:grid !important;
     align-content:start;
     gap:12px;
+    width:100%;
+    height:100%;
     min-height:0;
     padding:14px 14px calc(28px + var(--app-safe-bottom, 0px));
     overflow-x:hidden;
     overflow-y:auto;
     overscroll-behavior:contain;
+    touch-action:pan-y;
     background:var(--bg);
+  }
+
+  body[data-ui-profile="android_apk"].mobile-mode .ui-section.ui-subscreen-active{
+    height:100dvh;
+    max-height:100dvh;
+  }
+
+  body[data-ui-profile="android_apk"].mobile-mode .ui-section.ui-subscreen-active > .ui-section-body{
+    max-height:calc(100dvh - 56px - var(--app-safe-top, 0px));
+  }
+
+  body[data-ui-profile="android_apk"].mobile-mode .account-security-panel{
+    overflow:visible;
   }
 
   body.mobile-mode .ui-section.ui-subscreen-active > .ui-section-body :where(

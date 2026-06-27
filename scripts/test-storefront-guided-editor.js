@@ -6,8 +6,9 @@ const index = fs.readFileSync("index.html", "utf8");
 const sw = fs.readFileSync("sw.js", "utf8");
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
-["function selecionarItemLojaVisual", "function fecharPainelEdicaoGuiadaLoja", "function atualizarPreviewGuiadoLoja", "function manterCampoEditorGuiadoVisivel", "function processarImagemExemploLojaOnline", "function abrirChecklistGuiadoLoja"].forEach((marker) => assert(app.includes(marker), `Funcao guiada preservada ausente: ${marker}`));
+["function selecionarItemLojaVisual", "function fecharPainelEdicaoGuiadaLoja", "function atualizarPreviewGuiadoLoja", "function manterCampoEditorGuiadoVisivel", "function processarImagemExemploLojaOnline", "function abrirChecklistGuiadoLoja", "function preservarRascunhoProdutoGuiadoAtual", "function getStorefrontGuidedProductDraft"].forEach((marker) => assert(app.includes(marker), `Funcao guiada preservada ausente: ${marker}`));
 ["Básico", "Preço/Estoque", "Imagens", "Publicação", "Salvar rascunho", "sfe-preview", "sfe-actions", "store-ui-upload"].forEach((marker) => assert(renderer.includes(marker), `Editor guiado rebuilt incompleto: ${marker}`));
+assert(renderer.includes("getStorefrontGuidedProductDraft"), "Editor deve preservar rascunho ao trocar etapa do produto");
 assert(layouts.includes('html[data-store-editor-keyboard-open="true"]'), "Editor nao reduz preview com teclado");
 assert(!/class="[^"]*store-guided-/.test(renderer), "Editor novo ainda usa classe visual guiada antiga");
 assert(!index.includes("/modules/store-editor/"), "Fallback visual antigo ainda carregado");

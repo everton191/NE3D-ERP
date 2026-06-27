@@ -200,7 +200,7 @@
     if (sel.type === "checklist") return api.checklist(vm);
     if (sel.type === "products") return api.products(vm);
     if (sel.type === "categories") return api.categories(vm);
-    if (sel.type === "product") return api.product(vm, (vm.products || []).find((item) => String(item.id) === String(sel.id)) || {});
+    if (sel.type === "product") return api.product(vm, call("getStorefrontGuidedProductDraft", (vm.products || []).find((item) => String(item.id) === String(sel.id)) || {}));
     if (sel.type === "category") return api.category(vm, (vm.categories || []).find((item) => String(item.id) === String(sel.id)) || {});
     return api.overview(vm);
   };

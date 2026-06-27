@@ -10,9 +10,9 @@
   --gxm-state-layer:color-mix(in srgb, var(--gxm-primary) 14%, transparent);
   --gxm-ease:cubic-bezier(.2,0,0,1);
   --gxm-ease-emphasis:cubic-bezier(.05,.7,.1,1);
-  --gxm-fast:180ms;
-  --gxm-mid:360ms;
-  --gxm-slow:520ms;
+  --gxm-fast:150ms;
+  --gxm-mid:240ms;
+  --gxm-slow:320ms;
 }
 
 html{
@@ -92,8 +92,7 @@ body.gxm-motion-ready :where(.btn,.store-ui-button,.side-nav-button,.mobile-bott
   z-index:1;
 }
 
-body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor,.app-content-shell).gxm-enter,
-body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor):not(.gxm-seen){
+body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor,.app-content-shell).gxm-enter{
   animation:gxm-screen-in var(--gxm-slow) var(--gxm-ease-emphasis) both;
 }
 
@@ -293,8 +292,8 @@ body.gxm-motion-ready .gxm-pulse{
 }
 
 body.gxm-motion-ready .gxm-screen-swap{
-  animation:gxm-screen-in 680ms var(--gxm-ease-emphasis) both!important;
-  will-change:transform,opacity,filter;
+  animation:gxm-screen-in var(--gxm-slow) var(--gxm-ease-emphasis) both!important;
+  will-change:transform,opacity;
 }
 
 @keyframes gxm-ripple{
@@ -307,18 +306,15 @@ body.gxm-motion-ready .gxm-screen-swap{
 @keyframes gxm-screen-in{
   from{
     opacity:0;
-    transform:translate3d(0,36px,0) scale(.955);
-    filter:blur(12px) saturate(.9);
+    transform:translate3d(0,12px,0) scale(.992);
   }
-  58%{
+  62%{
     opacity:1;
-    transform:translate3d(0,-3px,0) scale(1.006);
-    filter:blur(0) saturate(1.03);
+    transform:translate3d(0,-1px,0) scale(1.001);
   }
   to{
     opacity:1;
     transform:translate3d(0,0,0) scale(1);
-    filter:blur(0) saturate(1);
   }
 }
 
@@ -341,13 +337,11 @@ body.gxm-motion-ready .gxm-screen-swap{
 @keyframes gxm-modal-in{
   from{
     opacity:0;
-    transform:translateY(26px) scale(.94);
-    filter:blur(8px);
+    transform:translateY(14px) scale(.99);
   }
   to{
     opacity:1;
     transform:translateY(0) scale(1);
-    filter:blur(0);
   }
 }
 
@@ -420,13 +414,67 @@ body.gxm-motion-ready .gxm-screen-swap{
 @keyframes gxm-hero-media-in{
   from{
     opacity:0;
-    transform:translateX(38px) scale(.94) rotate(-1deg);
-    filter:blur(10px);
+    transform:translateX(14px) scale(.99);
   }
   to{
     opacity:1;
-    transform:translateX(0) scale(1) rotate(0);
-    filter:blur(0);
+    transform:translateX(0) scale(1);
+  }
+}
+
+body[data-ui-profile="web_pwa"].gxm-motion-ready[data-motion="medium"] :where(
+  .desktop-main,
+  .desktop-focus,
+  .mobile-home,
+  .mobile-panel-content,
+  .storefront-editor,
+  .app-content-shell,
+  .sfv3-hero,
+  .sfv3-hero__media
+).gxm-enter,
+body[data-ui-profile="web_pwa"].gxm-motion-ready[data-motion="medium"] .gxm-screen-swap{
+  animation:gxm-pwa-fade-lift 190ms var(--gxm-ease) both!important;
+  will-change:transform,opacity;
+}
+
+body[data-ui-profile="web_pwa"].gxm-motion-ready[data-motion="low"] :where(
+  .desktop-main,
+  .desktop-focus,
+  .mobile-home,
+  .mobile-panel-content,
+  .storefront-editor,
+  .app-content-shell,
+  .sfv3-hero,
+  .sfv3-hero__media
+).gxm-enter,
+body[data-ui-profile="web_pwa"].gxm-motion-ready[data-motion="low"] .gxm-screen-swap{
+  animation:none!important;
+  will-change:auto;
+}
+
+body[data-ui-profile="web_pwa"].gxm-motion-ready:not([data-motion="high"]) .gxm-ripple{
+  display:none!important;
+}
+
+body[data-ui-profile="web_pwa"].gxm-motion-ready:not([data-motion="high"]) :where(
+  .sfv3-product-card,
+  .sfv3-category-card,
+  .sfv3-sponsored-card,
+  .sfe-list-card,
+  .sfe-overview .store-ui-card
+){
+  animation-duration:180ms;
+  animation-delay:0ms!important;
+}
+
+@keyframes gxm-pwa-fade-lift{
+  from{
+    opacity:.94;
+    transform:translate3d(0,6px,0);
+  }
+  to{
+    opacity:1;
+    transform:translate3d(0,0,0);
   }
 }
 

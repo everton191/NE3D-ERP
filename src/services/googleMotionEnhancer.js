@@ -48,12 +48,16 @@
 
   function shouldAnimateScreen() {
     if (prefersReducedMotion()) return false;
+    const pwa = doc.body?.dataset?.uiProfile === "web_pwa";
+    if (pwa && doc.body?.dataset?.motion === "low") return false;
     const mobile = doc.body?.classList?.contains("mobile-mode") || global.matchMedia?.("(max-width: 900px)")?.matches;
     return !mobile || doc.body?.dataset?.motion === "high";
   }
 
   function addRipple(target, event) {
     if (prefersReducedMotion() || !target || target.disabled) return;
+    const pwa = doc.body?.dataset?.uiProfile === "web_pwa";
+    if (pwa && doc.body?.dataset?.motion !== "high") return;
     const rect = target.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
 
@@ -69,14 +73,15 @@
     if (!node || (!options.force && node.dataset.gxmSeen === "true")) return;
     node.dataset.gxmSeen = "true";
     node.classList.remove("gxm-enter");
+    if (options.initial) return;
     if (!shouldAnimateScreen()) return;
     void node.offsetWidth;
     node.classList.add("gxm-enter");
     global.setTimeout(() => node.classList.remove("gxm-enter"), 700);
   }
 
-  function markCurrentScreens(root = doc) {
-    root.querySelectorAll?.(screenSelector)?.forEach(markScreen);
+  function markCurrentScreens(root = doc, options = {}) {
+    root.querySelectorAll?.(screenSelector)?.forEach((node) => markScreen(node, options));
   }
 
   function observeScreens() {
@@ -198,12 +203,12 @@
   if (doc.readyState === "loading") {
     doc.addEventListener("DOMContentLoaded", () => {
       markReady();
-      markCurrentScreens();
+      markCurrentScreens(doc, { initial: true });
       observeScreens();
     }, { once: true });
   } else {
     markReady();
-    markCurrentScreens();
+    markCurrentScreens(doc, { initial: true });
     observeScreens();
   }
 })(window);
