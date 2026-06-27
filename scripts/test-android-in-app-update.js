@@ -25,6 +25,10 @@ const checks = [
   ["ponte Capacitor usada pelo app", app.includes("Capacitor?.Plugins?.SimplificaUpdate")],
   ["download e instalação nativos", updatePlugin.includes("downloadAndInstall") && updatePlugin.includes("Intent.ACTION_VIEW")],
   ["download exige HTTPS", updatePlugin.includes('downloadUrl.startsWith("https://")')],
+  ["versão atual não abre instalador", updatePlugin.includes("versionCode <= currentVersionCode") && updatePlugin.includes('result.put("upToDate", true)')],
+  ["versionCode atual vem do pacote instalado", updatePlugin.includes("getPackageInfo") && updatePlugin.includes("getLongVersionCode")],
+  ["app informa versão mais recente sem instalar", app.includes("Você já está na versão mais recente.") && app.includes("return { upToDate: true };")],
+  ["PWA Android mostra APK sem comparar com versão web", app.includes("!isAndroidNativeApp()") && app.includes("APK Android disponível") && app.includes("Baixar APK")],
   ["permissão de instalação declarada", manifest.includes("android.permission.REQUEST_INSTALL_PACKAGES")],
   ["APK compartilhado via FileProvider", updatePlugin.includes("FileProvider.getUriForFile") && filePaths.includes("external-files-path")],
   ["autorização do Android tratada", updatePlugin.includes("ACTION_MANAGE_UNKNOWN_APP_SOURCES") && app.includes("permissionRequired")]

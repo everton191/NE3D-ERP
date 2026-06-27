@@ -1,6 +1,7 @@
 package br.com.ne3d.erp;
 
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -32,6 +33,15 @@ public class SimplificaUpdatePlugin extends Plugin {
         int versionCode = call.getInt("versionCode", 0);
         if (!downloadUrl.startsWith("https://")) {
             call.reject("O endereço da atualização precisa usar HTTPS.");
+            return;
+        }
+        int currentVersionCode = getCurrentVersionCode();
+        if (versionCode > 0 && currentVersionCode > 0 && versionCode <= currentVersionCode) {
+            JSObject result = new JSObject();
+            result.put("upToDate", true);
+            result.put("currentVersionCode", currentVersionCode);
+            result.put("requestedVersionCode", versionCode);
+            call.resolve(result);
             return;
         }
 
@@ -137,5 +147,17 @@ public class SimplificaUpdatePlugin extends Plugin {
 
     private String value(String input) {
         return input == null ? "" : input.trim();
+    }
+
+    private int getCurrentVersionCode() {
+        try {
+            PackageInfo info = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return (int) info.getLongVersionCode();
+            }
+            return info.versionCode;
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 }

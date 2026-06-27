@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.55-rc";
-const APP_VERSION_CODE = 54;
+const APP_VERSION = "1.0.56-rc";
+const APP_VERSION_CODE = 55;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -20743,6 +20743,7 @@ async function removerFotoPerfilUsuario() {
 
 function renderAtualizacaoAndroidDownload() {
   if (!isAndroid() || !appConfig.updateAvailableVersion) return "";
+  const nativeAndroid = isAndroidNativeApp();
   const manifestLocal = {
     version: appConfig.updateAvailableVersion,
     versionCode: Number(appConfig.updateAvailableCode || 0) || 0
@@ -20756,17 +20757,19 @@ function renderAtualizacaoAndroidDownload() {
   const versao = appConfig.updateAvailableVersion || "mais recente";
   const status = appConfig.updateStatus || "Checagem automática ativa";
   const destaque = appConfig.updateAvailableVersion ? " update-available" : "";
+  const titulo = nativeAndroid ? "Atualização disponível" : "APK Android disponível";
+  const acao = nativeAndroid ? "Atualizar agora" : "Baixar APK";
 
   return `
     <section class="update-download-card${destaque}">
       <div>
-        <span>Atualização disponível</span>
+        <span>${titulo}</span>
         <strong>${appConfig.updateAvailableVersion ? `Versão ${escaparHtml(versao)} disponível` : "Baixar versão mais recente"}</strong>
         <small>${escaparHtml(status)}</small>
       </div>
       <div class="update-download-actions">
         <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar</button>
-        <button class="btn" onclick="baixarAtualizacaoAndroid(true)">Atualizar agora</button>
+        <button class="btn" onclick="baixarAtualizacaoAndroid(true)">${acao}</button>
       </div>
     </section>
   `;
@@ -41005,6 +41008,14 @@ async function abrirDownloadAtualizacaoAndroid(url) {
     alert("Link do APK não configurado.");
     return;
   }
+  if (isAndroidNativeApp() && Number(appConfig.updateAvailableCode || 0) > 0 && Number(appConfig.updateAvailableCode || 0) <= APP_VERSION_CODE) {
+    appConfig.updateAvailableVersion = "";
+    appConfig.updateAvailableCode = 0;
+    salvarStatusAtualizacao("Sistema atualizado");
+    mostrarToast("Você já está na versão mais recente.", "info", 3200);
+    renderizarPreservandoScroll();
+    return { upToDate: true };
+  }
 
   const plugin = getPluginAtualizacaoAndroid();
   if (plugin?.downloadAndInstall) {
@@ -41015,6 +41026,14 @@ async function abrirDownloadAtualizacaoAndroid(url) {
         url: destino,
         versionCode: Number(appConfig.updateAvailableCode || 0)
       });
+      if (resultado?.upToDate) {
+        appConfig.updateAvailableVersion = "";
+        appConfig.updateAvailableCode = 0;
+        salvarStatusAtualizacao("Sistema atualizado");
+        mostrarToast("Você já está na versão mais recente.", "info", 3200);
+        renderizarPreservandoScroll();
+        return resultado;
+      }
       if (resultado?.permissionRequired) {
         salvarStatusAtualizacao("Autorize a instalação e toque em baixar novamente");
         mostrarToast("Autorize este aplicativo a instalar a atualização e depois toque em baixar novamente.", "info", 6200);
@@ -41095,6 +41114,9 @@ function getManifestAndroidVersionName(manifest = {}) {
 function existeAtualizacaoAndroid(manifest) {
   const versionCodeRemoto = getManifestAndroidVersionCode(manifest);
   const versionNameRemoto = getManifestAndroidVersionName(manifest);
+  if (isAndroid() && !isAndroidNativeApp()) {
+    return !!getAndroidDownloadUrl(manifest) && (!!versionCodeRemoto || !!versionNameRemoto);
+  }
   if (versionCodeRemoto && APP_VERSION_CODE) return versionCodeRemoto > APP_VERSION_CODE;
   return !!versionNameRemoto && compararVersoesApp(versionNameRemoto, APP_VERSION) > 0;
 }
@@ -41152,7 +41174,7 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
     appConfig.updateAvailableCode = 0;
     appConfig.updateAutoDownloadedKey = "";
     salvarStatusAtualizacao("Sistema atualizado");
-    if (forcarAviso) mostrarToast("Nenhuma atualização nova encontrada.", "info", 3200);
+    if (forcarAviso) mostrarToast("Você já está na versão mais recente.", "info", 3200);
     return true;
   } catch (erro) {
     salvarStatusAtualizacao("Erro ao checar APK no GitHub");
@@ -41174,6 +41196,10 @@ async function baixarAtualizacaoAndroid(forcarBusca = false) {
         appConfig.updateAvailableVersion = "";
         appConfig.updateAvailableCode = 0;
         salvarStatusAtualizacao("Sistema atualizado");
+        salvarDados();
+        mostrarToast("Você já está na versão mais recente.", "info", 3200);
+        renderizarPreservandoScroll();
+        return { upToDate: true };
       }
       const resultadoDownload = await abrirDownloadAtualizacaoAndroid(appConfig.updateDownloadUrl);
       if (appConfig.updateAvailableVersion && !resultadoDownload?.permissionRequired && !resultadoDownload?.error) {
