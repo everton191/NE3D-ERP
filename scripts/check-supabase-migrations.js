@@ -90,7 +90,22 @@ const checks = [
   ["start billing feature flags RLS", /alter table public\.app_billing_feature_flags enable row level security/i],
   ["canonical commercial plans active", /when slug in \('free', 'start', 'pro'\) then true/i],
   ["legacy commercial plans hidden", /where slug in \('free', 'start', 'pro', 'premium', 'premium_trial'\)/i],
-  ["start plan commercial flag enabled", /commercial_status":"active"/i]
+  ["start plan commercial flag enabled", /commercial_status":"active"/i],
+  ["plan card stats table", /create table if not exists public\.plan_card_stats/i],
+  ["plan features table", /create table if not exists public\.plan_features/i],
+  ["plan prices table", /create table if not exists public\.plan_prices/i],
+  ["checkout sessions table", /create table if not exists public\.checkout_sessions/i],
+  ["payment transactions table", /create table if not exists public\.payment_transactions/i],
+  ["generic webhook events table", /create table if not exists public\.webhook_events/i],
+  ["company plan overrides table", /create table if not exists public\.company_plan_overrides/i],
+  ["plan change schedules table", /create table if not exists public\.plan_change_schedules/i],
+  ["company plan usage table", /create table if not exists public\.company_plan_usage/i],
+  ["plan persistence frontend grants revoked", /revoke all on public\.plan_prices from public, anon, authenticated/i],
+  ["plan persistence service role only", /grant select, insert, update, delete on public\.payment_transactions to service_role/i],
+  ["plan persistence checkout disconnected seed", /checkout_connected":false/i],
+  ["superadmin plan catalog RPC", /create or replace function public\.get_superadmin_plan_catalog\(\)/i],
+  ["superadmin plan catalog RPC guard", /if not public\.erp_is_superadmin\(\) then/i],
+  ["superadmin plan catalog RPC frontend grants", /grant execute on function public\.get_superadmin_plan_catalog\(\) to authenticated/i]
 ];
 
 const results = checks.map(([check, pattern]) => ({

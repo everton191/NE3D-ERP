@@ -181,6 +181,9 @@ const PLAN_DEBUG_ENABLED = false;
 const LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000;
 const CHECKOUT_SESSION_STORAGE_KEY = "simplifica3d:checkout-session:v1";
 let plansModernTab = "current";
+let plansPresentationSelectedSlug = "start";
+let plansCarouselScrollTimer = null;
+let superAdminPlanCatalogRemoteState = { status: "idle", message: "", updatedAt: "", data: null };
 const planDiagnosticsSeen = new Set();
 // IA local pesada fica preservada como legado, mas desativada no app principal.
 const HEAVY_AI_FEATURE_ENABLED = false;
@@ -1364,36 +1367,20 @@ function registrarFluxoSalvamento(area = "Salvamento", action = "Salvar", payloa
 const PlanService = {
   getPolicy(usuario = getUsuarioAtual()) {
     const acesso = getPlanAccessState(getAssinaturaSaas(usuario?.clientId || billingConfig.clientId || ""), { user: usuario, source: "plan-policy" });
-    const slug = isSuperAdmin(usuario) ? "pro" : normalizarSlugPlano(acesso.effectivePlan || "free");
-    const start = slug === "start";
-    const pro = isSuperAdmin(usuario) || slug === "pro" || slug === "premium_trial";
-    const paid = start || pro;
+    const contrato = getPlanCapabilityContract(isSuperAdmin(usuario) ? "pro" : acesso.effectivePlan || "free");
+    const entitlements = contrato.entitlements || {};
     return {
-      slug: paid ? (pro ? "pro" : "start") : "free",
-      name: paid ? (pro ? "Pro" : "Start") : "Grátis",
-      isPro: pro,
-      isStart: start,
-      isPaid: paid,
-      isFree: !paid,
-      adsEnabled: !paid,
-      actionCreditLimit: paid ? Number.POSITIVE_INFINITY : FREE_ACTION_CREDIT_LIMIT,
-      actionAdBonusLimit: FREE_ACTION_AD_BONUS_LIMIT,
-      actionDailyMax: paid ? Number.POSITIVE_INFINITY : FREE_ACTION_DAILY_MAX,
-      actionFallbackMinutes: FREE_ACTION_FALLBACK_UNLOCK_MINUTES,
-      backupLimitMb: pro ? PRO_BACKUP_LIMIT_MB : start ? START_BACKUP_LIMIT_MB : FREE_BACKUP_LIMIT_MB,
-      maxDevices: pro ? PRO_DEVICE_LIMIT : start ? START_DEVICE_LIMIT : FREE_DEVICE_LIMIT,
-      productLimit: pro ? null : start ? START_PRODUCT_LIMIT : FREE_PRODUCT_LIMIT,
-      employees: pro,
-      reports: paid,
-      advancedReports: pro,
-      customization: paid,
-      visualIdentity: paid,
-      customThemes: pro,
-      publicStore: paid,
-      shareStore: paid,
-      prioritySync: pro,
-      expandedRecovery: pro,
-      backupLabel: pro ? "1 GB" : start ? "256 MB" : "50 MB"
+      ...contrato,
+      employees: entitlements.employees === true,
+      reports: contrato.isPaid,
+      advancedReports: entitlements.advancedReports === true,
+      customization: entitlements.basicCustomization === true,
+      visualIdentity: entitlements.basicCustomization === true,
+      customThemes: entitlements.premiumThemes === true,
+      publicStore: entitlements.publicStore === true,
+      shareStore: entitlements.shareLink === true,
+      prioritySync: contrato.isPro,
+      expandedRecovery: contrato.isPro
     };
   },
   podeUsarRecurso(recurso, usuario = getUsuarioAtual()) {
@@ -3809,6 +3796,39 @@ function getPlanUpgradeOptions(plan = "free") {
   return Array.from(entry.upgrades || []);
 }
 
+function getPlanCapabilityContract(plan = "free") {
+  const entry = getPlanRegistryEntry(plan);
+  const slug = entry.slug || "free";
+  const entitlements = getPlanEntitlements(slug);
+  const limits = getPlanLimits(slug);
+  const isPro = slug === "pro";
+  const isStart = slug === "start";
+  const isPaid = isStart || isPro;
+  return {
+    slug,
+    name: entry.name || (isPro ? "Pro" : isStart ? "Start" : "Grátis"),
+    price: Number(entry.price || 0) || 0,
+    billingVariant: entry.billingVariant || "",
+    isPro,
+    isStart,
+    isPaid,
+    isFree: !isPaid,
+    entitlements,
+    limits,
+    upgrades: getPlanUpgradeOptions(slug),
+    adsEnabled: entitlements.ads === true,
+    actionCreditLimit: isPaid ? Number.POSITIVE_INFINITY : FREE_ACTION_CREDIT_LIMIT,
+    actionAdBonusLimit: FREE_ACTION_AD_BONUS_LIMIT,
+    actionDailyMax: isPaid ? Number.POSITIVE_INFINITY : FREE_ACTION_DAILY_MAX,
+    actionFallbackMinutes: FREE_ACTION_FALLBACK_UNLOCK_MINUTES,
+    backupLimitMb: Number(limits.storageMb || FREE_BACKUP_LIMIT_MB) || FREE_BACKUP_LIMIT_MB,
+    maxDevices: Number(limits.devices || FREE_DEVICE_LIMIT) || FREE_DEVICE_LIMIT,
+    productLimit: Number.isFinite(limits.products) ? limits.products : null,
+    storefrontProductLimit: Number.isFinite(limits.storefrontProducts) ? limits.storefrontProducts : Number.POSITIVE_INFINITY,
+    backupLabel: `${Number(limits.storageMb || FREE_BACKUP_LIMIT_MB) >= 1024 ? "1 GB" : `${Number(limits.storageMb || FREE_BACKUP_LIMIT_MB)} MB`}`
+  };
+}
+
 function isStartPlanCommerciallyEnabled() {
   return START_PLAN_ENABLED === true;
 }
@@ -4829,11 +4849,55 @@ limparDadosComerciaisBootstrapCliente();
 garantirEstruturaSaasLocal();
 salvarDados();
 
-function getUsuarioAtual() {
+const SUPERADMIN_MAINTENANCE_SESSION_KEY = "simplificaSuperadminMaintenanceSession";
+
+function getUsuarioSessaoReal() {
   const emailAtual = normalizarEmail(usuarioAtualEmail);
   if (!emailAtual) return null;
   usuarios = normalizarUsuarios(usuarios);
   return usuarios.find((usuario) => usuario.email === emailAtual && usuario.ativo) || null;
+}
+
+function getSessaoManutencaoSuperadmin() {
+  try {
+    const raw = sessionStorage.getItem(SUPERADMIN_MAINTENANCE_SESSION_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return window.__superadminMaintenanceSession || null;
+  }
+}
+
+function setSessaoManutencaoSuperadmin(sessao = null) {
+  window.__superadminMaintenanceSession = sessao || null;
+  try {
+    if (sessao) sessionStorage.setItem(SUPERADMIN_MAINTENANCE_SESSION_KEY, JSON.stringify(sessao));
+    else sessionStorage.removeItem(SUPERADMIN_MAINTENANCE_SESSION_KEY);
+  } catch (_) {}
+}
+
+function getUsuarioManutencaoSuperadmin() {
+  const sessao = getSessaoManutencaoSuperadmin();
+  const superadminReal = getUsuarioSessaoReal();
+  if (!sessao || !superadminReal || superadminReal.papel !== "superadmin") return null;
+  if (normalizarEmail(sessao.superadminEmail) !== normalizarEmail(superadminReal.email)) return null;
+  usuarios = normalizarUsuarios(usuarios);
+  const alvo = usuarios.find((usuario) => String(usuario.id || "") === String(sessao.targetUserId || "") && usuario.ativo !== false);
+  if (!alvo || alvo.papel === "superadmin") return null;
+  return {
+    ...alvo,
+    papel: "admin",
+    superadminMaintenance: true,
+    maintenanceSuperadminEmail: superadminReal.email,
+    maintenanceStartedAt: sessao.startedAt || ""
+  };
+}
+
+function isModoManutencaoSuperadminAtivo() {
+  return !!getUsuarioManutencaoSuperadmin();
+}
+
+function getUsuarioAtual() {
+  return getUsuarioManutencaoSuperadmin() || getUsuarioSessaoReal();
 }
 
 function isDono() {
@@ -6360,6 +6424,7 @@ function tentarReproduzirIntro(video, overlay) {
 function iniciarIntroAbertura() {
   if (!INTRO_VIDEO_SRC || !document.body) return;
   if (parseStorefrontPublicRoute(location.pathname)) return;
+  if (isSuperAdminRoute(location.pathname)) return;
   if (document.getElementById("introOverlay")) return;
   try {
     if (sessionStorage.getItem("simplificaIntroAberturaConcluida")) return;
@@ -8688,10 +8753,87 @@ function atualizarHistoricoBrowserApp(replace = false) {
   } catch (_) {}
 }
 
+function isModoErpSuperadminAtivo() {
+  if (!isSuperAdmin(getUsuarioSessaoReal())) return false;
+  try {
+    return sessionStorage.getItem("simplificaSuperadminErpMode") === "true";
+  } catch (_) {
+    return window.__superAdminErpMode === true;
+  }
+}
+
+function setModoErpSuperadmin(ativo) {
+  window.__superAdminErpMode = ativo === true;
+  try {
+    if (ativo) sessionStorage.setItem("simplificaSuperadminErpMode", "true");
+    else sessionStorage.removeItem("simplificaSuperadminErpMode");
+  } catch (_) {}
+}
+
+function entrarModoErpSuperadmin() {
+  if (!isSuperAdmin(getUsuarioSessaoReal())) return;
+  setSessaoManutencaoSuperadmin(null);
+  setModoErpSuperadmin(true);
+  trocarTela("dashboard", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
+}
+
+function voltarModoSuperadmin() {
+  setSessaoManutencaoSuperadmin(null);
+  setModoErpSuperadmin(false);
+  window.__superAdminTab = normalizarAbaSuperAdmin(window.__superAdminTab || "dashboard");
+  trocarTela("superadmin", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
+}
+
+function entrarManutencaoClienteSaas(clientId) {
+  const superadminReal = getUsuarioSessaoReal();
+  if (!isSuperAdmin(superadminReal)) {
+    mostrarToast("Entre como superadmin para abrir manutenção.", "erro", 4200);
+    return;
+  }
+  const cliente = saasClients.find((item) => String(item.id) === String(clientId));
+  if (!cliente) {
+    mostrarToast("Cliente não encontrado.", "erro", 3600);
+    return;
+  }
+  usuarios = normalizarUsuarios(usuarios);
+  const usuariosCliente = getUsuariosDoCliente(cliente.id).filter((usuario) => usuario.ativo !== false && usuario.papel !== "superadmin");
+  const usuarioAlvo = usuariosCliente.find((usuario) => usuario.papel === "admin") || usuariosCliente[0];
+  if (!usuarioAlvo) {
+    mostrarToast("Este cliente ainda não tem usuário ativo para manutenção.", "aviso", 5200);
+    return;
+  }
+  const nomeCliente = cliente.name || usuarioAlvo.nome || usuarioAlvo.email || "cliente";
+  const confirmado = confirm(`Abrir manutenção no ERP de ${nomeCliente}?\n\nSua sessão de superadmin será mantida e o login do cliente não será salvo neste aparelho.`);
+  if (!confirmado) return;
+  setSessaoManutencaoSuperadmin({
+    superadminEmail: superadminReal.email,
+    targetUserId: usuarioAlvo.id,
+    targetEmail: usuarioAlvo.email,
+    clientId: cliente.id,
+    startedAt: new Date().toISOString()
+  });
+  setModoErpSuperadmin(false);
+  registrarAuditoria("manutenção superadmin iniciada", { targetEmail: usuarioAlvo.email }, cliente.id);
+  mostrarToast("Modo manutenção aberto. A sessão do cliente não foi gravada.", "sucesso", 5200);
+  trocarTela("dashboard", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
+}
+
+function sairManutencaoSuperadmin() {
+  const sessao = getSessaoManutencaoSuperadmin();
+  setSessaoManutencaoSuperadmin(null);
+  setModoErpSuperadmin(false);
+  if (sessao?.clientId) registrarAuditoria("manutenção superadmin encerrada", { targetEmail: sessao.targetEmail || "" }, sessao.clientId);
+  mostrarToast("Manutenção encerrada. Você voltou para o painel Superadmin.", "info", 4200);
+  voltarModoSuperadmin();
+}
+
 function trocarTela(tela, opcoes = {}) {
   fecharMenusContextuaisUi();
   if (!telas[tela]) {
     tela = "dashboard";
+  }
+  if (tela === "superadmin" && isSuperAdmin()) {
+    setModoErpSuperadmin(false);
   }
 
   if (!canAccessScreen(tela)) {
@@ -9174,6 +9316,11 @@ function renderApp() {
   if (!getUsuarioAtual() && !adminLogado && !isTelaPublica(telaAtual)) {
     telaAtual = "admin";
   }
+  if (getUsuarioAtual() && isSuperAdmin() && !isModoErpSuperadminAtivo() && !["superadmin", "admin", "privacy", "terms", "sobre"].includes(telaAtual)) {
+    telaAnterior = "superadmin";
+    telaAtual = "superadmin";
+    window.__superAdminTab = normalizarAbaSuperAdmin(window.__superAdminTab || "dashboard");
+  }
   if (telaAtual === "dashboard" && deveMostrarOnboarding()) {
     telaAtual = "onboarding";
   }
@@ -9185,16 +9332,19 @@ function renderApp() {
   document.body.classList.toggle("tablet-mode", viewportMode === "tablet");
   document.body.classList.toggle("desktop-mode", viewportMode === "desktop");
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
+  const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
   app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
   atualizarMenu();
-  ajustarJanelasDashboardAoWorkspace(false);
-  renderCalculadoraFlutuante();
-  sincronizarBannersSeNecessario();
-  hidratarLojaPublicaSeNecessario();
-  preencherImpressoras();
-  preencherMateriaisCalculadora();
+  if (!modoSuperadminIsolado) {
+    ajustarJanelasDashboardAoWorkspace(false);
+    renderCalculadoraFlutuante();
+    sincronizarBannersSeNecessario();
+    hidratarLojaPublicaSeNecessario();
+    preencherImpressoras();
+    preencherMateriaisCalculadora();
+  }
   aplicarMotionSequenciado();
-  hidratarLojaOnlineAdmin();
+  if (!modoSuperadminIsolado) hidratarLojaOnlineAdmin();
 }
 
 function podeMostrarControlesFlutuantes() {
@@ -9202,6 +9352,7 @@ function podeMostrarControlesFlutuantes() {
 }
 
 function podeMostrarAssistenteAjuda() {
+  if (isSuperAdmin() && telaAtual === "superadmin") return false;
   return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding";
 }
 
@@ -9409,12 +9560,16 @@ function renderDesktop() {
   if (!getUsuarioAtual() && telaAtual === "admin") {
     return `<main class="auth-desktop-main">${renderAdmin()}</main>`;
   }
+  if (telaAtual === "superadmin" && isSuperAdmin()) {
+    return `<main class="superadmin-only-main app-content">${renderTela("superadmin")}</main>`;
+  }
   const classeMenu = appConfig.sidebarCollapsed ? " sidebar-collapsed" : "";
   return `
     <div class="desktop-shell s3d-shell${classeMenu}">
       ${renderMenuLateral()}
       <main class="desktop-main app-content s3d-shell-main">
         ${renderTopbar()}
+        ${renderSuperAdminMaintenanceBanner()}
         ${renderDesktopConteudo()}
       </main>
     </div>
@@ -9461,6 +9616,8 @@ function renderTopbar() {
         <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
       </label>
       <div class="topbar-user">
+        ${isModoManutencaoSuperadminAtivo() ? `<button class="btn secondary superadmin-return-button" type="button" onclick="sairManutencaoSuperadmin()">${renderUiIcon("superadmin")} Encerrar manutenção</button>` : ""}
+        ${isModoErpSuperadminAtivo() ? `<button class="btn secondary superadmin-return-button" type="button" onclick="voltarModoSuperadmin()">${renderUiIcon("superadmin")} Voltar ao Superadmin</button>` : ""}
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
         <button class="topbar-avatar-button" type="button" data-action="open-user-menu" onclick="abrirMenuUsuarioTopo(event)" title="Perfil" style="pointer-events:auto;">
           ${renderUsuarioAvatar(usuario, "topbar-avatar")}
@@ -9624,13 +9781,16 @@ function isTelaPublica(tela) {
 }
 
 function canAccessScreen(tela, usuario = getUsuarioAtual()) {
+  if (usuario && isSuperAdmin(usuario)) {
+    if (isModoErpSuperadminAtivo()) return true;
+    return tela === "superadmin" || tela === "admin" || tela === "acessoNegado" || ["privacy", "terms", "sobre"].includes(tela);
+  }
   if (isTelaPublica(tela)) return true;
   if (tela === "lojaOnline") return !!usuario;
   if (tela === "lojaAdmin") return canUseStorefrontLocal(usuario);
   if (adminLogado && !usuario) return tela !== "superadmin";
   if (!usuario) return false;
   if (tela === "onboarding") return !isSuperAdmin(usuario);
-  if (isSuperAdmin(usuario)) return true;
   if (licencaEfetivaBloqueada(usuario)) return false;
 
   const permissoes = {
@@ -12805,6 +12965,21 @@ function renderPerfilMenuLateral() {
   `;
 }
 
+function renderSuperAdminMaintenanceBanner() {
+  const sessao = getSessaoManutencaoSuperadmin();
+  const usuario = getUsuarioManutencaoSuperadmin();
+  if (!sessao || !usuario) return "";
+  return `
+    <div class="superadmin-maintenance-banner" role="status">
+      <div>
+        <strong>Manutenção Superadmin ativa</strong>
+        <span>Você está editando o ERP de ${escaparHtml(usuario.nome || usuario.email || "cliente")} sem salvar login como cliente neste aparelho.</span>
+      </div>
+      <button class="btn secondary" type="button" onclick="sairManutencaoSuperadmin()">${renderUiIcon("superadmin")} Voltar ao Superadmin</button>
+    </div>
+  `;
+}
+
 function renderMenuHandleIcon() {
   return `<svg class="menu-handle-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="6.5" r="1.9" fill="currentColor"/><circle cx="12" cy="12" r="1.9" fill="currentColor"/><circle cx="12" cy="17.5" r="1.9" fill="currentColor"/></svg>`;
 }
@@ -13442,6 +13617,9 @@ function renderMobile() {
   if (!getUsuarioAtual() && telaAtual === "admin") {
     return `<div class="mobile-auth-shell">${renderAdmin()}</div>`;
   }
+  if (telaAtual === "superadmin" && isSuperAdmin()) {
+    return `<main class="superadmin-mobile-only app-page">${renderTela("superadmin")}</main>`;
+  }
 
   if (getUsuarioAtual()?.mustChangePassword) {
     return `
@@ -13452,16 +13630,18 @@ function renderMobile() {
   }
 
   const painelAberto = telaAtual !== "dashboard";
+  const telaSubstituiNavMobile = telaAtual === "superadmin";
   const home = canAccessScreen("dashboard") ? renderDashboard(true) : renderAcessoNegado();
 
   return `
+    ${renderSuperAdminMaintenanceBanner()}
     ${renderDrawerGestureRail()}
-    <div class="mobile-home app-page s3d-page s3d-mobile-page">
+    <div class="mobile-home app-page s3d-page s3d-mobile-page ${telaSubstituiNavMobile ? "mobile-home-underlay-hidden" : ""}" ${telaSubstituiNavMobile ? "aria-hidden=\"true\"" : ""}>
       ${renderAtualizacaoAndroidDownload()}
       ${home}
     </div>
     ${painelAberto ? renderPainelMobile(telaAtual) : ""}
-    ${renderMobileBottomNav()}
+    ${telaSubstituiNavMobile ? "" : renderMobileBottomNav()}
   `;
 }
 
@@ -18343,7 +18523,7 @@ function parseStorefrontPublicRoute(pathname = location.pathname) {
   const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
   const simpleViews = new Set(["produtos", "categorias", "contato", "sobre"]);
   if (partes[0] !== "loja") {
-    const reserved = new Set(["store-admin", "admin", "privacy", "privacidade", "terms", "termos", "api", "assets", "dist", "index.html"]);
+    const reserved = new Set(["store-admin", "admin", "superadmin", "privacy", "privacidade", "terms", "termos", "api", "assets", "dist", "index.html"]);
     if (partes.length && !reserved.has(String(partes[0] || "").toLowerCase())) {
       return {
         slug: decodeURIComponent(partes[0] || ""),
@@ -18361,6 +18541,26 @@ function parseStorefrontPublicRoute(pathname = location.pathname) {
     productSlug: partes[2] === "produto" ? decodeURIComponent(partes[3] || "") : "",
     categorySlug: partes[2] === "categoria" ? decodeURIComponent(partes[3] || "") : ""
   };
+}
+
+function isSuperAdminRoute(pathname = location.pathname) {
+  const partes = String(pathname || "").replace(/\/+$/, "").split("/").filter(Boolean);
+  return partes.length === 1 && String(partes[0] || "").toLowerCase() === "superadmin";
+}
+
+function processarRotaSuperadminInicial() {
+  if (!isSuperAdminRoute(location.pathname)) return false;
+  if (!getUsuarioAtual() && !adminLogado) {
+    telaAtual = "admin";
+    return true;
+  }
+  if (!isSuperAdmin()) {
+    telaAtual = "acessoNegado";
+    return true;
+  }
+  telaAtual = "superadmin";
+  window.__superAdminTab = normalizarAbaSuperAdmin(window.__superAdminTab || "dashboard");
+  return true;
 }
 
 function getStorefrontPublicRoutePath(route = getStorefrontPublicRoute()) {
@@ -23605,12 +23805,26 @@ function normalizarTextoBusca(valor = "") {
 function clientePassaFiltrosSaas(cliente, filtros = window.__clientesSaasFiltros || {}) {
   if (normalizarEmail(cliente.email) === SUPERADMIN_BOOTSTRAP_EMAIL) return false;
   if (cliente.archivedAt) return false;
+  const termoGeral = normalizarTextoBusca(filtros.busca || "");
   const termoNome = String(filtros.nome || "").toLowerCase();
   const termoEmail = String(filtros.email || "").toLowerCase();
   const plano = String(filtros.plano || "");
   const status = String(filtros.status || "");
   const assinatura = getAssinaturaSaas(cliente.id);
   const planoCliente = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+  if (termoGeral) {
+    const alvo = normalizarTextoBusca([
+      cliente.name,
+      cliente.email,
+      cliente.phone,
+      cliente.whatsapp,
+      cliente.clientCode,
+      cliente.slug,
+      planoCliente.name,
+      planoCliente.slug
+    ].filter(Boolean).join(" "));
+    if (!alvo.includes(termoGeral)) return false;
+  }
   if (termoNome && !normalizarTextoBusca(cliente.name).includes(normalizarTextoBusca(termoNome))) return false;
   if (termoEmail && !normalizarTextoBusca(cliente.email).includes(normalizarTextoBusca(termoEmail))) return false;
   if (plano && planoCliente.slug !== plano) return false;
@@ -23745,6 +23959,43 @@ function classePlanoSaasCompacto(planoSlug = "free") {
   return "plan-free";
 }
 
+function getResumoEmpresaSaas(cliente) {
+  const assinatura = getAssinaturaSaas(cliente.id);
+  const usuarios = getUsuariosDoCliente(cliente.id);
+  const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+  const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
+  const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
+  const vencimento = assinatura?.currentPeriodEnd || assinatura?.planExpiresAt || assinatura?.expiresAt || cliente.planExpiresAt || "";
+  const ultimoAcesso = cliente.lastAccessAt || usuarios[0]?.lastLoginAt || usuarios[0]?.ultimoAcesso || "";
+  const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
+  return {
+    assinatura,
+    usuarios,
+    plano,
+    pagamentos,
+    pagamentosAprovados,
+    vencimento,
+    ultimoAcesso,
+    statusPlano,
+    online: cliente.status === "active",
+    teste: !!cliente.isTestUser,
+    responsavel: usuarios[0] || {}
+  };
+}
+
+function renderSuperAdminMetricCard(rotulo, valor, detalhe = "", icon = "dashboard", classe = "") {
+  return `
+    <div class="superadmin-company-metric ${escaparAttr(classe)}">
+      <span>${renderUiIcon(icon)}</span>
+      <div>
+        <small>${escaparHtml(rotulo)}</small>
+        <strong>${escaparHtml(String(valor ?? "-"))}</strong>
+        ${detalhe ? `<em>${escaparHtml(detalhe)}</em>` : ""}
+      </div>
+    </div>
+  `;
+}
+
 function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "Mais ações") {
   if (!conteudo) return "";
   return `
@@ -23758,26 +24009,44 @@ function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "Mais ações") {
 }
 
 function renderLinhaClienteSaas(cliente) {
-  const assinatura = getAssinaturaSaas(cliente.id);
-  const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
-  const usuarioPrincipal = getUsuariosDoCliente(cliente.id)[0];
+  const resumo = getResumoEmpresaSaas(cliente);
+  const assinatura = resumo.assinatura;
+  const plano = resumo.plano;
+  const usuarioPrincipal = resumo.responsavel;
   const clienteIdAttr = escaparAttr(cliente.id);
   const selecionado = String(window.__clienteSaasSelecionadoId || "") === String(cliente.id);
   const badgeTeste = cliente.isTestUser ? `<span class="status-badge badge-teste">Teste</span>` : "";
+  const statusFinanceiro = resumo.statusPlano;
+  const dataVencimento = assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-";
+  const ultimoAcesso = resumo.ultimoAcesso ? new Date(resumo.ultimoAcesso).toLocaleDateString("pt-BR") : "sem acesso";
+  const dataCadastro = cliente.createdAt ? new Date(cliente.createdAt).toLocaleDateString("pt-BR") : "-";
   return `
     <div class="client-admin-row ${selecionado ? "selected" : ""}" data-client-row="saas" data-client-id="${clienteIdAttr}" role="button" tabindex="0" aria-selected="${selecionado ? "true" : "false"}" onpointerdown="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" onpointermove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" onpointercancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchstart="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchmove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" ontouchcancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" onclick="selecionarResultadoClienteSaas(event, '${clienteIdAttr}')" onkeydown="acionarClienteSaasPorTeclado(event, '${clienteIdAttr}')">
       <div class="client-admin-main">
+        <small>Empresa</small>
         <strong>${escaparHtml(cliente.name)}</strong>
         <span class="muted">${escaparHtml(cliente.email)}${cliente.phone ? " • " + escaparHtml(cliente.phone) : ""}</span>
-        <span class="muted">ID: ${escaparHtml(cliente.clientCode || cliente.id)} • expira: ${assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-"}</span>
-        <span class="muted client-admin-tech">user_id: ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")} • pending: ${escaparHtml(assinatura?.pendingPlan || cliente.pendingPlan || "-")}</span>
+        <span class="muted client-admin-tech">ID ${escaparHtml(cliente.clientCode || cliente.id)} • user_id ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")}</span>
       </div>
-      <span class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.name)}</span>
-      <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
-      ${badgeTeste}
+      <div class="client-admin-plan">
+        <small>Plano</small>
+        <span class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.name)}</span>
+        <em>${escaparHtml(assinatura?.pendingPlan || cliente.pendingPlan || "sem troca pendente")}</em>
+      </div>
+      <div class="client-admin-status">
+        <small>Status</small>
+        <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
+        ${badgeTeste}
+      </div>
+      <div class="client-admin-billing">
+        <small>Assinatura</small>
+        <strong>${escaparHtml(statusFinanceiro)}</strong>
+        <span class="muted">vence ${escaparHtml(dataVencimento)}</span>
+      </div>
       <div class="client-meta">
-        <span>${cliente.lastAccessAt ? new Date(cliente.lastAccessAt).toLocaleDateString("pt-BR") : "sem acesso"}</span>
-        <span>${new Date(cliente.createdAt).toLocaleDateString("pt-BR")}</span>
+        <small>Atividade</small>
+        <span>${escaparHtml(ultimoAcesso)}</span>
+        <span>cad. ${escaparHtml(dataCadastro)}</span>
       </div>
       <div class="row-actions">
         <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar cliente</button>
@@ -23813,7 +24082,17 @@ function renderListaClientesSaasConteudo(totalClientes) {
   const estadoRemoto = renderEstadoClientesSaasRemoto(totalClientes, listaFiltrada.length);
   const vazioFiltro = `<p id="clientesSaasFiltroVazio" class="empty" ${listaFiltrada.length === 0 && totalClientes > 0 ? "" : "hidden"}>Nenhum cliente corresponde aos filtros atuais.</p>`;
   const linhas = paginaInfo.itens.map(renderLinhaClienteSaas).join("");
-  return `${estadoRemoto}${linhas}${vazioFiltro}${renderPaginacaoClientesSaas(paginaInfo)}`;
+  const cabecalho = listaFiltrada.length ? `
+    <div class="client-admin-table-head" aria-hidden="true">
+      <span>Empresa</span>
+      <span>Plano</span>
+      <span>Status</span>
+      <span>Assinatura</span>
+      <span>Atividade</span>
+      <span>Ações</span>
+    </div>
+  ` : "";
+  return `${estadoRemoto}${cabecalho}${linhas}${vazioFiltro}${renderPaginacaoClientesSaas(paginaInfo)}`;
 }
 
 function formatarDataPerfilSaas(valor, fallback = "-") {
@@ -23844,6 +24123,261 @@ function renderSuperAdminProfileRow(label, value, options = {}) {
   `;
 }
 
+function getSuperAdminCompanyProfileTabs() {
+  return [
+    { id: "resumo", label: "Resumo" },
+    { id: "assinatura", label: "Assinatura" },
+    { id: "limites", label: "Limites" },
+    { id: "loja", label: "Loja" },
+    { id: "financeiro", label: "Financeiro" },
+    { id: "logs", label: "Logs" },
+    { id: "suporte", label: "Suporte" }
+  ];
+}
+
+function normalizarAbaPerfilEmpresaSaas(tab = "resumo") {
+  const id = String(tab || "resumo").toLowerCase();
+  return getSuperAdminCompanyProfileTabs().some((item) => item.id === id) ? id : "resumo";
+}
+
+function trocarAbaPerfilEmpresaSaas(tab) {
+  fecharTecladoBuscaClientesSaas();
+  window.__superAdminCompanyProfileTab = normalizarAbaPerfilEmpresaSaas(tab);
+  renderApp();
+}
+
+function renderSuperAdminCompanyTabs(tab = "resumo") {
+  const ativa = normalizarAbaPerfilEmpresaSaas(tab);
+  return `
+    <div class="superadmin-company-tabs" role="tablist" aria-label="Áreas da empresa">
+      ${getSuperAdminCompanyProfileTabs().map((item) => `
+        <button class="${ativa === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${ativa === item.id ? "true" : "false"}" onclick="trocarAbaPerfilEmpresaSaas('${item.id}')">${escaparHtml(item.label)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSuperAdminEmptyCard(titulo, texto) {
+  return `
+    <div class="superadmin-profile-card superadmin-profile-empty-card">
+      <h3>${escaparHtml(titulo)}</h3>
+      <p class="empty">${escaparHtml(texto)}</p>
+    </div>
+  `;
+}
+
+function renderSuperAdminCompanyPaymentList(pagamentos = []) {
+  if (!pagamentos.length) return renderSuperAdminEmptyCard("Financeiro", "Nenhum pagamento registrado para esta empresa.");
+  return `
+    <div class="superadmin-profile-card">
+      <h3>Pagamentos recentes</h3>
+      <div class="superadmin-profile-list">
+        ${pagamentos.slice(0, 8).map((pagamento) => `
+          <div class="superadmin-profile-list-row">
+            <div>
+              <strong>${escaparHtml(pagamento.description || pagamento.planSlug || pagamento.planId || "Pagamento")}</strong>
+              <span>${escaparHtml(formatarDataPerfilSaas(pagamento.createdAt || pagamento.created_at || pagamento.updatedAt || ""))}</span>
+            </div>
+            <span class="status-badge ${pagamento.status === "approved" ? "badge-ativo" : pagamento.status === "pending" ? "badge-warning" : "badge-danger"}">${escaparHtml(pagamento.status || "pendente")}</span>
+            <strong>${formatarMoeda(Number(pagamento.amount ?? pagamento.valor ?? pagamento.price ?? 0) || 0)}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSuperAdminCompanyLogList(cliente) {
+  const id = String(cliente?.id || "");
+  const logs = [
+    ...auditLogs.filter((log) => String(log.clientId || "") === id),
+    ...securityLogs.filter((log) => String(log.clientId || "") === id)
+  ].sort((a, b) => Date.parse(b.at || b.createdAt || 0) - Date.parse(a.at || a.createdAt || 0));
+  if (!logs.length) return renderSuperAdminEmptyCard("Logs", "Nenhum log local vinculado diretamente a esta empresa.");
+  return `
+    <div class="superadmin-profile-card">
+      <h3>Logs e auditoria</h3>
+      <div class="superadmin-profile-list">
+        ${logs.slice(0, 10).map((log) => `
+          <div class="superadmin-profile-list-row">
+            <div>
+              <strong>${escaparHtml(log.acao || log.action || "Evento")}</strong>
+              <span>${escaparHtml(log.usuarioEmail || log.usuario || log.resultado || "")}</span>
+            </div>
+            <span>${escaparHtml(formatarDataPerfilSaas(log.at || log.createdAt || ""))}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderSuperAdminCompanyTabPanel(tab, dados) {
+  const {
+    cliente,
+    assinatura,
+    usuariosCliente,
+    usuarioPrincipal,
+    plano,
+    pagamentos,
+    pagamentosAprovados,
+    planoCurto,
+    statusPlano,
+    emDia,
+    criadoEm,
+    ultimoAcesso,
+    vencimento,
+    proximaCobranca,
+    acessoMes,
+    acessoPercentual
+  } = dados;
+  const idAttr = escaparAttr(cliente.id);
+  const limits = getPlanLimits(plano.slug || "free");
+  const entitlements = getPlanEntitlements(plano.slug || "free");
+  const loja = getStorefrontLimitsLocal(plano.slug || "free");
+  const simNao = (valor) => valor ? "Sim" : "Não";
+  const limite = (valor) => Number.isFinite(Number(valor)) ? String(valor) : "Ilimitado";
+  const tabAtiva = normalizarAbaPerfilEmpresaSaas(tab);
+
+  if (tabAtiva === "assinatura") {
+    return `
+      <div class="superadmin-company-tab-panel">
+        <div class="superadmin-profile-card">
+          <h3>Assinatura</h3>
+          ${renderSuperAdminProfileRow("Plano atual", plano.name, { badge: planoCurto, badgeClass: classePlanoSaasCompacto(plano.slug) })}
+          ${renderSuperAdminProfileRow("Status do plano", statusPlano, { badgeClass: emDia ? "badge-ativo" : "badge-danger" })}
+          ${renderSuperAdminProfileRow("Plano pendente", assinatura?.pendingPlan || cliente.pendingPlan || "-")}
+          ${renderSuperAdminProfileRow("Próxima cobrança", formatarDataPerfilSaas(proximaCobranca))}
+          ${renderSuperAdminProfileRow("Vencimento do plano", formatarDataPerfilSaas(vencimento))}
+          ${renderSuperAdminProfileRow("Preço mensal", formatarMoeda(Number(plano.price || assinatura?.planPrice || cliente.planPrice || 0)))}
+        </div>
+        <div class="superadmin-profile-card superadmin-profile-actions-card">
+          <h3>Ações da assinatura</h3>
+          <button class="profile-action-row" onclick="alterarPlanoClienteSaas('${idAttr}')">${renderUiIcon("assinatura")} <span>Alterar plano</span></button>
+          <button class="profile-action-row" onclick="liberarDiasManualClienteSaas('${idAttr}')">${renderUiIcon("agenda")} <span>Adicionar dias ao acesso</span></button>
+          <button class="profile-action-row warning" onclick="alterarStatusClienteSaas('${idAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${renderUiIcon("seguranca")} <span>${cliente.status === "blocked" ? "Reativar acesso" : "Suspender acesso"}</span></button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabAtiva === "limites") {
+    return `
+      <div class="superadmin-company-tab-panel">
+        <div class="superadmin-profile-card">
+          <h3>Limites do plano</h3>
+          ${renderSuperAdminProfileRow("Produtos ERP", limite(limits.products))}
+          ${renderSuperAdminProfileRow("Produtos loja", limite(limits.storefrontProducts))}
+          ${renderSuperAdminProfileRow("Armazenamento", `${limite(limits.storageMb)} MB`)}
+          ${renderSuperAdminProfileRow("Dispositivos", limite(limits.devices))}
+          ${renderSuperAdminProfileRow("Usuários", limite(limits.users))}
+        </div>
+        <div class="superadmin-profile-card">
+          <h3>Recursos liberados</h3>
+          ${renderSuperAdminProfileRow("Relatórios avançados", simNao(entitlements.advancedReports))}
+          ${renderSuperAdminProfileRow("Permissões avançadas", simNao(entitlements.advancedPermissions))}
+          ${renderSuperAdminProfileRow("Funcionários", simNao(entitlements.employees))}
+          ${renderSuperAdminProfileRow("Anúncios no plano", simNao(entitlements.ads))}
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabAtiva === "loja") {
+    return `
+      <div class="superadmin-company-tab-panel">
+        <div class="superadmin-profile-card">
+          <h3>Loja pública</h3>
+          ${renderSuperAdminProfileRow("Editor habilitado", simNao(loja.enabled))}
+          ${renderSuperAdminProfileRow("Publicação", simNao(loja.publishEnabled))}
+          ${renderSuperAdminProfileRow("Link/QR Code", simNao(loja.shareEnabled || loja.qrCodeEnabled))}
+          ${renderSuperAdminProfileRow("Contatos da loja", simNao(loja.leadsEnabled))}
+          ${renderSuperAdminProfileRow("Marca Simplifica", loja.simplificaBrandingRequired ? "Obrigatória" : "Opcional")}
+          ${renderSuperAdminProfileRow("Produtos permitidos", limite(loja.productLimit))}
+        </div>
+        <div class="superadmin-profile-card superadmin-profile-actions-card">
+          <h3>Suporte da loja</h3>
+          <button class="profile-action-row" onclick="trocarAbaSuperAdmin('lojas')">${renderUiIcon("lojaOnline")} <span>Ver mapa global de lojas</span></button>
+          <button class="profile-action-row" onclick="editarClienteSaas('${idAttr}')">${renderUiIcon("edit")} <span>Revisar cadastro da empresa</span></button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabAtiva === "financeiro") {
+    return `
+      <div class="superadmin-company-tab-panel">
+        <div class="superadmin-profile-card">
+          <h3>Resumo financeiro</h3>
+          ${renderSuperAdminProfileRow("Pagamentos aprovados", String(pagamentosAprovados.length))}
+          ${renderSuperAdminProfileRow("Pagamentos totais", String(pagamentos.length))}
+          ${renderSuperAdminProfileRow("Status assinatura", statusPlano)}
+          ${renderSuperAdminProfileRow("Próxima cobrança", formatarDataPerfilSaas(proximaCobranca))}
+        </div>
+        ${renderSuperAdminCompanyPaymentList(pagamentos)}
+      </div>
+    `;
+  }
+
+  if (tabAtiva === "logs") {
+    return `<div class="superadmin-company-tab-panel">${renderSuperAdminCompanyLogList(cliente)}</div>`;
+  }
+
+  if (tabAtiva === "suporte") {
+    return `
+      <div class="superadmin-company-tab-panel">
+        <div class="superadmin-profile-card">
+          <h3>Suporte</h3>
+          ${renderSuperAdminProfileRow("Nome completo", cliente.name || usuarioPrincipal.nome || "-")}
+          ${renderSuperAdminProfileRow("E-mail", cliente.email || usuarioPrincipal.email || "-")}
+          ${renderSuperAdminProfileRow("Telefone", cliente.phone || usuarioPrincipal.phone || "-")}
+          ${renderSuperAdminProfileRow("Usuários vinculados", String(usuariosCliente.length || 1))}
+          ${renderSuperAdminProfileRow("Último acesso", ultimoAcesso ? formatarDataPerfilSaas(ultimoAcesso, "Agora") : "Sem acesso")}
+        </div>
+        <div class="superadmin-profile-card superadmin-profile-actions-card">
+          <h3>Ações de suporte</h3>
+          <button class="profile-action-row highlight" onclick="entrarManutencaoClienteSaas('${idAttr}')">${renderUiIcon("dashboard")} <span>Abrir ERP em manutenção</span></button>
+          <button class="profile-action-row" onclick="editarClienteSaas('${idAttr}')">${renderUiIcon("edit")} <span>Editar empresa</span></button>
+          <button class="profile-action-row" onclick="exportarClienteSaas('${idAttr}')">${renderUiIcon("backup")} <span>Exportar dados</span></button>
+          <button class="profile-action-row" onclick="alternarUsuarioTesteSaas('${idAttr}')">${renderUiIcon("clientes")} <span>${cliente.isTestUser ? "Desativar usuário de teste" : "Marcar como usuário de teste"}</span></button>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="superadmin-company-tab-panel">
+      <div class="superadmin-profile-card">
+        <h3>Resumo da conta</h3>
+        ${renderSuperAdminProfileRow("Plano atual", plano.name, { badge: planoCurto, badgeClass: classePlanoSaasCompacto(plano.slug) })}
+        ${renderSuperAdminProfileRow("Status do plano", statusPlano, { badgeClass: emDia ? "badge-ativo" : "badge-danger" })}
+        ${renderSuperAdminProfileRow("Próxima cobrança", formatarDataPerfilSaas(proximaCobranca))}
+        ${renderSuperAdminProfileRow("Vencimento do plano", formatarDataPerfilSaas(vencimento))}
+        ${renderSuperAdminProfileRow("Pagamentos", String(pagamentosAprovados.length || pagamentos.length || 0))}
+        ${renderSuperAdminProfileRow("Convites realizados", String(Math.max(0, usuariosCliente.length - 1)))}
+      </div>
+      <div class="superadmin-profile-card">
+        <h3>Uso da conta</h3>
+        <div class="superadmin-profile-row progress-row">
+          <span>Acessos no mês</span>
+          <strong>${acessoMes}</strong>
+          <i class="profile-mini-progress"><em style="width:${acessoPercentual}%"></em></i>
+          <small>${acessoPercentual}%</small>
+        </div>
+        ${renderSuperAdminProfileRow("Último acesso", ultimoAcesso ? formatarDataPerfilSaas(ultimoAcesso, "Agora") : "Agora")}
+        ${renderSuperAdminProfileRow("Dispositivos ativos", String(Math.max(1, Number(cliente.deviceCount || cliente.dispositivosAtivos || usuariosCliente.length || 1))))}
+      </div>
+      <div class="superadmin-profile-card">
+        <h3>Informações pessoais</h3>
+        ${renderSuperAdminProfileRow("Nome completo", cliente.name || usuarioPrincipal.nome || "-")}
+        ${renderSuperAdminProfileRow("E-mail", cliente.email || usuarioPrincipal.email || "-")}
+        ${renderSuperAdminProfileRow("Telefone", cliente.phone || usuarioPrincipal.phone || "-")}
+        ${renderSuperAdminProfileRow("Alterar senha", "", { onclick: usuariosCliente[0]?.id ? `redefinirSenhaUsuario('${escaparAttr(usuariosCliente[0].id)}')` : "" })}
+      </div>
+    </div>
+  `;
+}
+
 function renderSuperAdminClientePerfil() {
   const id = window.__clienteSaasPerfilId || window.__clienteSaasSelecionadoId || "";
   const cliente = getClienteSaasPorId(id);
@@ -23855,12 +24389,13 @@ function renderSuperAdminClientePerfil() {
       </section>
     `;
   }
-  const assinatura = getAssinaturaSaas(cliente.id);
-  const usuariosCliente = getUsuariosDoCliente(cliente.id);
-  const usuarioPrincipal = usuariosCliente[0] || {};
-  const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
-  const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
-  const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
+  const resumo = getResumoEmpresaSaas(cliente);
+  const assinatura = resumo.assinatura;
+  const usuariosCliente = resumo.usuarios;
+  const usuarioPrincipal = resumo.responsavel;
+  const plano = resumo.plano;
+  const pagamentos = resumo.pagamentos;
+  const pagamentosAprovados = resumo.pagamentosAprovados;
   const planoCurto = plano.slug === "pro" || plano.slug === "premium_trial" ? "PRO" : plano.slug === "start" ? "START" : "FREE";
   const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
   const emDia = statusPlano === "Em dia";
@@ -23871,6 +24406,25 @@ function renderSuperAdminClientePerfil() {
   const proximaCobranca = assinatura?.nextBillingAt || assinatura?.proximoVencimento || "";
   const acessoMes = Math.max(1, pagamentos.length + usuariosCliente.length);
   const acessoPercentual = Math.min(100, Math.max(8, acessoMes * 8));
+  const tabAtiva = normalizarAbaPerfilEmpresaSaas(window.__superAdminCompanyProfileTab || "resumo");
+  const dadosPerfil = {
+    cliente,
+    assinatura,
+    usuariosCliente,
+    usuarioPrincipal,
+    plano,
+    pagamentos,
+    pagamentosAprovados,
+    planoCurto,
+    statusPlano,
+    emDia,
+    criadoEm,
+    ultimoAcesso,
+    vencimento,
+    proximaCobranca,
+    acessoMes,
+    acessoPercentual
+  };
   return `
     <section class="superadmin-profile-screen">
       <div class="superadmin-profile-hero">
@@ -23885,6 +24439,11 @@ function renderSuperAdminClientePerfil() {
           <p class="muted">${escaparHtml(cliente.email || usuarioPrincipal.email || "-")}</p>
           <span class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(planoCurto)}</span>
         </div>
+        <div class="superadmin-profile-hero-actions">
+          <button class="btn primary" onclick="entrarManutencaoClienteSaas('${escaparAttr(cliente.id)}')">${renderUiIcon("dashboard")} Manutenção</button>
+          <button class="btn secondary" onclick="editarClienteSaas('${escaparAttr(cliente.id)}')">${renderUiIcon("edit")} Editar</button>
+          <button class="btn ghost" onclick="exportarClienteSaas('${escaparAttr(cliente.id)}')">${renderUiIcon("backup")} Exportar</button>
+        </div>
       </div>
 
       <div class="superadmin-profile-status-grid">
@@ -23894,35 +24453,8 @@ function renderSuperAdminClientePerfil() {
         <div><span class="profile-status-icon">${renderUiIcon("clientes")}</span><strong>ID Usuário</strong><small>#${escaparHtml(cliente.clientCode || String(cliente.id).slice(0, 6))}</small></div>
       </div>
 
-      <div class="superadmin-profile-card">
-        <h3>Resumo da conta</h3>
-        ${renderSuperAdminProfileRow("Plano atual", plano.name, { badge: planoCurto, badgeClass: classePlanoSaasCompacto(plano.slug) })}
-        ${renderSuperAdminProfileRow("Status do plano", statusPlano, { badgeClass: emDia ? "badge-ativo" : "badge-danger" })}
-        ${renderSuperAdminProfileRow("Próxima cobrança", formatarDataPerfilSaas(proximaCobranca))}
-        ${renderSuperAdminProfileRow("Vencimento do plano", formatarDataPerfilSaas(vencimento))}
-        ${renderSuperAdminProfileRow("Pagamentos", String(pagamentosAprovados.length || pagamentos.length || 0))}
-        ${renderSuperAdminProfileRow("Convites realizados", String(Math.max(0, usuariosCliente.length - 1)))}
-      </div>
-
-      <div class="superadmin-profile-card">
-        <h3>Uso da conta</h3>
-        <div class="superadmin-profile-row progress-row">
-          <span>Acessos no mês</span>
-          <strong>${acessoMes}</strong>
-          <i class="profile-mini-progress"><em style="width:${acessoPercentual}%"></em></i>
-          <small>${acessoPercentual}%</small>
-        </div>
-        ${renderSuperAdminProfileRow("Último acesso", ultimoAcesso ? formatarDataPerfilSaas(ultimoAcesso, "Agora") : "Agora")}
-        ${renderSuperAdminProfileRow("Dispositivos ativos", String(Math.max(1, Number(cliente.deviceCount || cliente.dispositivosAtivos || usuariosCliente.length || 1))))}
-      </div>
-
-      <div class="superadmin-profile-card">
-        <h3>Informações pessoais</h3>
-        ${renderSuperAdminProfileRow("Nome completo", cliente.name || usuarioPrincipal.nome || "-")}
-        ${renderSuperAdminProfileRow("E-mail", cliente.email || usuarioPrincipal.email || "-")}
-        ${renderSuperAdminProfileRow("Telefone", cliente.phone || usuarioPrincipal.phone || "-")}
-        ${renderSuperAdminProfileRow("Alterar senha", "", { onclick: usuariosCliente[0]?.id ? `redefinirSenhaUsuario('${escaparAttr(usuariosCliente[0].id)}')` : "" })}
-      </div>
+      ${renderSuperAdminCompanyTabs(tabAtiva)}
+      ${renderSuperAdminCompanyTabPanel(tabAtiva, dadosPerfil)}
 
       <div class="superadmin-profile-card superadmin-profile-actions-card">
         <h3>Ações</h3>
@@ -23931,9 +24463,13 @@ function renderSuperAdminClientePerfil() {
         <button class="profile-action-row" onclick="exportarClienteSaas('${escaparAttr(cliente.id)}')">${renderUiIcon("backup")} <span>Exportar dados</span></button>
       </div>
 
-      <button class="superadmin-profile-danger" onclick="${cliente.isTestUser ? `excluirUsuarioTesteSaas('${escaparAttr(cliente.id)}')` : `anonimizarClienteSaas('${escaparAttr(cliente.id)}')`}">
-        ${cliente.isTestUser ? "Excluir usuário permanentemente" : "Anonimizar usuário"}
-      </button>
+      <div class="superadmin-profile-card superadmin-profile-danger-zone">
+        <h3>Zona de risco</h3>
+        <p class="muted">${cliente.isTestUser ? "Exclusão permanente deve ser usada apenas para usuários de teste criados em validação." : "Anonimização remove dados pessoais e deve ser usada somente quando houver solicitação ou necessidade administrativa."}</p>
+        <button class="superadmin-profile-danger" onclick="${cliente.isTestUser ? `excluirUsuarioTesteSaas('${escaparAttr(cliente.id)}')` : `anonimizarClienteSaas('${escaparAttr(cliente.id)}')`}">
+          ${cliente.isTestUser ? "Excluir usuário de teste permanentemente" : "Anonimizar dados pessoais"}
+        </button>
+      </div>
     </section>
   `;
 }
@@ -23944,23 +24480,34 @@ function renderClientesSaas() {
   const total = clientesVisiveis.length;
   const ativos = clientesVisiveis.filter((cliente) => cliente.status === "active").length;
   const atrasados = clientesVisiveis.filter((cliente) => cliente.status === "overdue").length;
+  const bloqueados = clientesVisiveis.filter((cliente) => cliente.status === "blocked").length;
   const inativos = clientesVisiveis.filter((cliente) => cliente.status === "inactive").length;
+  const pagantes = clientesVisiveis.filter((cliente) => {
+    const assinatura = getAssinaturaSaas(cliente.id);
+    const plano = normalizarSlugPlano(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+    return plano !== "free";
+  }).length;
+  const comTeste = clientesVisiveis.filter((cliente) => cliente.isTestUser).length;
   const filtros = window.__clientesSaasFiltros || {};
   const linhas = renderListaClientesSaasConteudo(total);
 
   return `
     <section class="card clients-saas-panel">
-      <div class="card-header">
-        <h2>${renderUiIcon("clientes")} Clientes SaaS</h2>
-        <span class="status-badge badge-superadmin">${ativos} ativos</span>
+      <div class="superadmin-company-head">
+        <div>
+          <span class="eyebrow">Gestão SaaS</span>
+          <h2>${renderUiIcon("clientes")} Empresas</h2>
+          <p class="muted">Acompanhe clientes, assinatura, acesso e ações administrativas sem sair do modo plataforma.</p>
+        </div>
+        <span class="status-badge badge-superadmin">${ativos} ativas</span>
       </div>
-      <div class="metrics clients-compact-metrics">
-        <div class="metric"><span>Total</span><strong>${total}</strong></div>
-        <div class="metric"><span>Ativos</span><strong>${ativos}</strong></div>
-        <div class="metric"><span>Atrasados</span><strong>${atrasados}</strong></div>
-        <div class="metric"><span>Inativos</span><strong>${inativos}</strong></div>
+      <div class="superadmin-company-metrics">
+        ${renderSuperAdminMetricCard("Total", total, `${pagantes} pagantes`, "clientes")}
+        ${renderSuperAdminMetricCard("Ativas", ativos, "com acesso liberado", "dashboard", "success")}
+        ${renderSuperAdminMetricCard("Atenção", atrasados + bloqueados, `${atrasados} atrasadas / ${bloqueados} bloqueadas`, "seguranca", atrasados || bloqueados ? "warning" : "")}
+        ${renderSuperAdminMetricCard("Inativas", inativos, `${comTeste} usuários de teste`, "history")}
       </div>
-      <div class="sync-grid">
+      <div class="superadmin-company-toolbar">
         <label class="field">
           <span>Nome</span>
           <input id="clientesSaasFiltroNome" value="${escaparAttr(filtros.nome || "")}" oninput="filtrarClientesSaas('nome', this.value)" placeholder="empresa" autocomplete="off">
@@ -23984,7 +24531,7 @@ function renderClientesSaas() {
           </select>
         </label>
       </div>
-      <div class="actions admin-action-grid compact-action-grid">
+      <div class="actions admin-action-grid compact-action-grid superadmin-company-actions">
         <button class="btn secondary" onclick="atualizarClientesSaasRemoto()">Atualizar Supabase</button>
         <button class="btn secondary" onclick="marcarClientesInativosAcao()">Marcar inativos &gt;90 dias</button>
         <button class="btn ghost" onclick="exportarClientesSaas()">Exportar dados</button>
@@ -27606,7 +28153,7 @@ function renderSuperAdminDashboard() {
         </div>
         <div class="superadmin-status-legend">
           ${segmentos.map((item) => `
-            <button onclick="abrirSuperAdminFiltro('${item.classe === "late" ? "clientesStatus" : "clientes"}', '${item.classe === "late" ? "overdue" : ""}')">
+            <button onclick="${item.classe === "online" ? "abrirSuperAdminFiltro('clientesStatus', 'active')" : item.classe === "offline" ? "abrirSuperAdminFiltro('clientesStatus', 'inactive')" : item.classe === "late" ? "abrirSuperAdminFiltro('clientesStatus', 'overdue')" : "abrirSuperAdminFiltro('pagamentos', 'approved')"}">
               <i style="background:${item.cor}"></i>
               <span>${escaparHtml(item.label)}</span>
               <strong>${Number(item.valor || 0).toLocaleString("pt-BR")} (${Math.round((Number(item.valor) || 0) / total * 100)}%)</strong>
@@ -27679,17 +28226,155 @@ function renderSuperAdminPagamentos() {
   `;
 }
 
-function renderSuperAdminPlanos() {
+async function carregarCatalogoPlanosSuperadminRemoto({ feedback = true } = {}) {
+  if (!isSuperAdmin()) return null;
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
+    superAdminPlanCatalogRemoteState = {
+      status: "missing-token",
+      message: "Entre com a conta Supabase do superadmin para carregar o catálogo remoto.",
+      updatedAt: "",
+      data: null
+    };
+    if (feedback) mostrarToast(superAdminPlanCatalogRemoteState.message, "info", 5200);
+    renderApp();
+    return null;
+  }
+  superAdminPlanCatalogRemoteState = {
+    ...superAdminPlanCatalogRemoteState,
+    status: "loading",
+    message: "Carregando catálogo remoto de planos..."
+  };
+  renderApp();
+  try {
+    const data = await requisicaoSupabase("/rest/v1/rpc/get_superadmin_plan_catalog", {
+      method: "POST",
+      body: JSON.stringify({})
+    });
+    superAdminPlanCatalogRemoteState = {
+      status: "success",
+      message: "Catálogo remoto carregado.",
+      updatedAt: new Date().toISOString(),
+      data: data && typeof data === "object" ? data : null
+    };
+    if (feedback) mostrarToast("Catálogo remoto de planos atualizado.", "sucesso", 3600);
+    renderApp();
+    return data;
+  } catch (erro) {
+    superAdminPlanCatalogRemoteState = {
+      status: "error",
+      message: ErrorService.toAppError(erro).userMessage || "Não foi possível carregar o catálogo remoto de planos.",
+      updatedAt: "",
+      data: null
+    };
+    registrarDiagnostico("Superadmin Planos", "Catálogo remoto não carregado", erro.message || String(erro));
+    registrarErroAplicacaoSilencioso("LOAD_PLAN_CATALOG_FAILED", erro, "Carregar catálogo remoto de planos");
+    if (feedback) mostrarToast(superAdminPlanCatalogRemoteState.message, "erro", 5200);
+    renderApp();
+    return null;
+  }
+}
+
+function renderSuperAdminPlanCatalogRemote() {
+  const estado = superAdminPlanCatalogRemoteState || {};
+  const catalogo = estado.data || {};
+  const planos = Array.isArray(catalogo.plans) ? catalogo.plans : [];
+  const metrics = catalogo.metrics || {};
   return `
-    <div class="comparison-grid">
-      ${garantirPlanosSaas().filter((plano) => ["free", "start", "pro"].includes(plano.slug)).map((plano) => `
-        <div class="plan-card ${plano.recommended ? "featured" : ""}">
-          <div class="row-title"><strong>${escaparHtml(plano.name)}</strong><span>${formatarMoeda(plano.price)}</span></div>
-          <p class="muted">${plano.maxUsers} usuário(s) • ${plano.maxOrders || "pedidos ilimitados"} • ${plano.maxCalculatorUses || "calculadora ilimitada"}</p>
-          <span class="status-badge ${plano.active ? "badge-ativo" : "badge-danger"}">${plano.active ? "ativo" : "inativo"}</span>
+    <div class="superadmin-plan-remote-panel">
+      <div class="row-title">
+        <div>
+          <span class="eyebrow">Online</span>
+          <strong>Catálogo de planos</strong>
+          <small>${escaparHtml(estado.message || "Atualize para comparar os planos salvos online com os cards desta tela.")}</small>
+        </div>
+        <button class="btn ghost" type="button" onclick="carregarCatalogoPlanosSuperadminRemoto()">${renderUiIcon("sync")} ${estado.status === "loading" ? "Carregando..." : "Atualizar"}</button>
+      </div>
+      ${estado.updatedAt ? `<p class="muted">Atualizado em ${new Date(estado.updatedAt).toLocaleString("pt-BR")}</p>` : ""}
+      ${planos.length ? `
+        <div class="superadmin-plan-remote-metrics">
+          <span><small>Sessões de compra</small><b>${Number(metrics.checkout_sessions || 0)}</b></span>
+          <span><small>Transações</small><b>${Number(metrics.payment_transactions || 0)}</b></span>
+          <span><small>Eventos recebidos</small><b>${Number(metrics.webhook_events || 0)}</b></span>
+          <span><small>Ajustes por cliente</small><b>${Number(metrics.company_overrides || 0)}</b></span>
+        </div>
+        <div class="superadmin-plan-remote-list">
+          ${planos.map((plano) => {
+            const prices = Array.isArray(plano.prices) ? plano.prices : [];
+            const features = Array.isArray(plano.features) ? plano.features : [];
+            const stats = Array.isArray(plano.card_stats) ? plano.card_stats : [];
+            const activePrice = prices.find((price) => price.active) || prices[0] || {};
+            return `
+              <div class="superadmin-plan-remote-card plan-tier-${escaparAttr(plano.slug || "free")}">
+                <div class="row-title">
+                  <div>
+                    <strong>${escaparHtml(plano.name || plano.slug || "Plano")}</strong>
+                    <small>${escaparHtml(plano.display_headline || plano.display_subtitle || "Sem texto remoto definido")}</small>
+                  </div>
+                  <span class="status-badge ${plano.active ? "badge-ativo" : "badge-danger"}">${plano.active ? "ativo" : "inativo"}</span>
+                </div>
+                <div class="superadmin-plan-remote-price">
+                  <b>${formatarMoeda(Number(activePrice.amount ?? plano.price ?? 0) || 0)}</b>
+                  <small>${escaparHtml(activePrice.price_key || "preço padrão")}</small>
+                </div>
+                <div class="superadmin-plan-remote-counts">
+                  <span>${features.filter((item) => item.active !== false).length} recursos</span>
+                  <span>${stats.filter((item) => item.active !== false).length} indicadores</span>
+                  <span>${prices.length} preço(s)</span>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      ` : `<p class="empty">Catálogo remoto ainda não carregado nesta sessão.</p>`}
+    </div>
+  `;
+}
+
+if (typeof window !== "undefined") {
+  window.carregarCatalogoPlanosSuperadminRemoto = carregarCatalogoPlanosSuperadminRemoto;
+}
+
+function renderSuperAdminPlanos() {
+  const planos = getPlanPresentationData();
+  const clientesPorPlano = planos.reduce((acc, plano) => {
+    acc[plano.slug] = saasSubscriptions.filter((assinatura) => normalizarSlugPlano(assinatura.planSlug || "free") === plano.slug && assinatura.status !== "cancelled").length;
+    return acc;
+  }, {});
+  return `
+    <div class="superadmin-plan-safe-note">
+      <strong>Edição visual dos planos</strong>
+      <span>Use esta área para ajustar textos, preços exibidos e cards de venda sem alterar cobranças ou assinaturas ativas.</span>
+    </div>
+    ${renderSuperAdminPlanCatalogRemote()}
+    <div class="superadmin-plan-grid">
+      ${planos.map((plano) => `
+        <div class="superadmin-plan-card plan-tier-${escaparAttr(plano.slug)}">
+          <div class="row-title">
+            <div>
+              <span class="eyebrow">${escaparHtml(plano.badge || "Plano")}</span>
+              <strong>${escaparHtml(plano.name)}</strong>
+              <small>${escaparHtml(plano.headline || plano.subtitle || "")}</small>
+            </div>
+            <span class="status-badge ${plano.isActive ? "badge-ativo" : "badge-danger"}">${plano.isActive ? "ativo" : "inativo"}</span>
+          </div>
+          <div class="superadmin-plan-price">
+            <strong>${escaparHtml(plano.priceLabel || "R$ 0")}</strong>
+            <span>${escaparHtml(plano.period || "/mês")}</span>
+          </div>
+          <div class="superadmin-plan-stats">
+            <span><small>Assinaturas locais</small><b>${clientesPorPlano[plano.slug] || 0}</b></span>
+            <span><small>Itens do card</small><b>${(plano.features || []).length}</b></span>
+            <span><small>Indicadores</small><b>${(plano.miniStats || []).length}</b></span>
+          </div>
+          <p class="muted">${escaparHtml(plano.description || "")}</p>
+          <div class="superadmin-plan-actions">
+            <button class="btn ghost" type="button" onclick="editarPlanoApresentacaoSuperadmin('${escaparAttr(plano.slug)}')">${renderUiIcon("editar")} Editar textos</button>
+            <button class="btn ghost" type="button" onclick="editarPrecoExibidoPlanoSuperadmin('${escaparAttr(plano.slug)}')">${renderUiIcon("assinatura")} Preço exibido</button>
+          </div>
         </div>
       `).join("")}
     </div>
+    ${renderPlanFeatureMatrix(planos)}
   `;
 }
 
@@ -28455,6 +29140,7 @@ function renderSuperAdminConfiguracoes() {
   const termo = String(window.__superAdminBusca || "").toLowerCase();
   const lista = usuarios.filter((usuario) => !termo || usuario.email.includes(termo) || usuario.nome.toLowerCase().includes(termo));
   return `
+    ${renderSuperAdminAtalhosSecundarios()}
     <div class="sync-grid">
       <label class="field"><span>Buscar por e-mail</span><input value="${escaparAttr(window.__superAdminBusca || "")}" oninput="filtrarSuperAdmin(this.value)" placeholder="cliente@email.com"></label>
       <label class="field"><span>E-mail para acesso manual</span><input id="superEmail" type="email" placeholder="cliente@email.com"></label>
@@ -28491,21 +29177,415 @@ function renderSuperAdminConfiguracoes() {
   `;
 }
 
+function renderSuperAdminManutencao() {
+  const termo = normalizarTextoBusca(window.__superAdminBuscaGlobal || window.__clientesSaasFiltros?.busca || "");
+  const empresas = getEmpresasSaasOperacionais()
+    .map((cliente) => {
+      const resumo = getResumoEmpresaSaas(cliente);
+      const usuarioAdmin = resumo.usuarios.find((usuario) => usuario.papel === "admin" && usuario.ativo !== false) || resumo.responsavel || resumo.usuarios[0] || {};
+      return { cliente, resumo, usuarioAdmin };
+    })
+    .filter(({ cliente, resumo, usuarioAdmin }) => {
+      if (!termo) return true;
+      const alvo = normalizarTextoBusca([
+        cliente.name,
+        cliente.email,
+        cliente.clientCode,
+        resumo.plano?.name,
+        usuarioAdmin.nome,
+        usuarioAdmin.email
+      ].filter(Boolean).join(" "));
+      return alvo.includes(termo);
+    });
+  return `
+    <div class="superadmin-maintenance-console">
+      <div class="superadmin-maintenance-hero">
+        <div>
+          <span class="eyebrow">Acesso tecnico</span>
+          <h3>Modo manutencao de clientes</h3>
+          <p>Entre no ERP de uma empresa para suporte sem trocar ou salvar o login do cliente neste aparelho.</p>
+        </div>
+        <button class="btn secondary" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} Entrar no ERP como Superadmin</button>
+      </div>
+      <div class="superadmin-ads-rule">
+        <span>${renderUiIcon("seguranca")}</span>
+        <strong>Sessao temporaria</strong>
+        <small>Ao abrir manutencao, sua conta Superadmin continua autenticada e o ERP usa o escopo do cliente apenas ate voltar ao painel.</small>
+      </div>
+      <div class="superadmin-maintenance-list">
+        ${empresas.slice(0, 20).map(({ cliente, resumo, usuarioAdmin }) => {
+          const clienteIdAttr = escaparAttr(cliente.id);
+          return `
+            <div class="superadmin-maintenance-row">
+              <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email || usuarioAdmin.email))}</span>
+              <div>
+                <strong>${escaparHtml(cliente.name || usuarioAdmin.nome || cliente.email || "Empresa")}</strong>
+                <small>${escaparHtml(usuarioAdmin.email || cliente.email || "-")}</small>
+              </div>
+              <span class="status-badge ${classePlanoSaasCompacto(resumo.plano.slug)}">${escaparHtml(resumo.plano.name)}</span>
+              <span class="status-badge ${cliente.status === "active" ? "badge-ativo" : "badge-warning"}">${escaparHtml(cliente.status || "active")}</span>
+              <div class="row-actions">
+                <button class="btn secondary" type="button" onclick="entrarManutencaoClienteSaas('${clienteIdAttr}')">${renderUiIcon("dashboard")} Abrir ERP</button>
+                <button class="btn ghost" type="button" onclick="abrirPerfilClienteSaas('${clienteIdAttr}')">Perfil</button>
+              </div>
+            </div>
+          `;
+        }).join("") || `<p class="empty">Nenhuma empresa encontrada para manutencao.</p>`}
+      </div>
+    </div>
+  `;
+}
+
 function renderSuperAdminConteudo(tab) {
+  const aba = normalizarAbaSuperAdmin(tab);
   const mapa = {
     dashboard: renderSuperAdminDashboard,
     clientes: renderClientesSaas,
+    empresas: renderClientesSaas,
     pagamentos: renderSuperAdminPagamentos,
+    assinaturas: renderSuperAdminPagamentos,
     planos: renderSuperAdminPlanos,
+    lojas: renderSuperAdminLojas,
+    anuncios: renderSuperAdminAnuncios,
     logs: renderSuperAdminLogs,
     suporte: renderSuperAdminSuporte,
+    manutencao: renderSuperAdminManutencao,
     relatorios: renderSuperAdminRelatoriosAutomaticos,
     diagnosticos: renderSuperAdminDiagnosticos,
+    sistema: renderSuperAdminSistema,
     feedbacks: renderSuperAdminFeedbackReports,
     configuracoes: renderSuperAdminConfiguracoes,
     clientePerfil: renderSuperAdminClientePerfil
   };
-  return (mapa[tab] || mapa.dashboard)();
+  return (mapa[aba] || mapa.dashboard)();
+}
+
+function normalizarAbaSuperAdmin(tab = "dashboard") {
+  const valor = String(tab || "dashboard");
+  const aliases = {
+    empresas: "clientes",
+    assinaturas: "pagamentos",
+    usuarios: "manutencao",
+    sistema: "diagnosticos"
+  };
+  return aliases[valor] || valor;
+}
+
+function getSuperAdminNavigationSections() {
+  return [
+    { id: "dashboard", label: "Visao geral", short: "Inicio", icon: "dashboard", description: "Resumo da plataforma" },
+    { id: "clientes", label: "Empresas", short: "Empresas", icon: "clientes", description: "Clientes SaaS e empresas" },
+    { id: "planos", label: "Planos", short: "Planos", icon: "assinatura", description: "Regras e limites por plano" },
+    { id: "pagamentos", label: "Assinaturas", short: "Assinaturas", icon: "caixa", description: "Pagamentos e status financeiro" },
+    { id: "lojas", label: "Lojas publicas", short: "Lojas", icon: "lojaOnline", description: "Publicacao e checklist das lojas" },
+    { id: "anuncios", label: "Anuncios e limites", short: "Anuncios", icon: "tag", description: "Controles do plano gratis" },
+    { id: "configuracoes", label: "Configuracoes", short: "Config", icon: "config", description: "Parametros da plataforma" },
+    { id: "manutencao", label: "Manutencao", short: "Manut.", icon: "superadmin", description: "Acesso tecnico temporario" },
+    { id: "logs", label: "Logs e auditoria", short: "Logs", icon: "history", description: "Acoes importantes" },
+    { id: "suporte", label: "Suporte", short: "Suporte", icon: "feedback", description: "Atendimento interno" },
+    { id: "diagnosticos", label: "Sistema e status", short: "Sistema", icon: "seguranca", description: "Diagnosticos tecnicos" }
+  ];
+}
+
+function getSuperAdminSection(tab = "dashboard") {
+  const aba = normalizarAbaSuperAdmin(tab);
+  return getSuperAdminNavigationSections().find((item) => item.id === aba) || getSuperAdminNavigationSections()[0];
+}
+
+function renderSuperAdminSidebar(tab = "dashboard") {
+  const aba = normalizarAbaSuperAdmin(tab);
+  return `
+    <aside class="superadmin-platform-sidebar" aria-label="Navegacao Superadmin">
+      <div class="superadmin-platform-brand">
+        <span>${renderUiIcon("superadmin")}</span>
+        <div>
+          <strong>Simplifica 3D</strong>
+          <small>Modo Plataforma</small>
+        </div>
+      </div>
+      <nav class="superadmin-platform-nav">
+        ${getSuperAdminNavigationSections().map((item) => `
+          <button class="superadmin-platform-nav-item ${aba === item.id ? "active" : ""}" type="button" onclick="trocarAbaSuperAdmin('${item.id}')">
+            <span>${renderUiIcon(item.icon)}</span>
+            <strong>${escaparHtml(item.label)}</strong>
+            <small>${escaparHtml(item.description)}</small>
+          </button>
+        `).join("")}
+      </nav>
+      <div class="superadmin-sidebar-actions" aria-label="Acessos operacionais">
+        <button class="superadmin-sidebar-action primary" type="button" onclick="entrarModoErpSuperadmin()">
+          <span>${renderUiIcon("dashboard")}</span>
+          <strong>Entrar no ERP</strong>
+          <small>Abre o ERP com sua conta Superadmin</small>
+        </button>
+        <button class="superadmin-sidebar-action" type="button" onclick="trocarAbaSuperAdmin('manutencao')">
+          <span>${renderUiIcon("clientes")}</span>
+          <strong>Modo manutencao</strong>
+          <small>Acessar cliente sem salvar login</small>
+        </button>
+      </div>
+    </aside>
+  `;
+}
+
+function renderSuperAdminAtalhosSecundarios() {
+  const atalhos = [
+    { id: "pagamentos", label: "Assinaturas", desc: "Pagamentos e status", icon: "caixa" },
+    { id: "lojas", label: "Lojas publicas", desc: "Mapa de publicacao", icon: "lojaOnline" },
+    { id: "anuncios", label: "Anuncios", desc: "Limites do gratis", icon: "tag" },
+    { id: "manutencao", label: "Manutencao", desc: "Acesso temporario", icon: "superadmin" },
+    { id: "logs", label: "Logs", desc: "Auditoria local", icon: "history" },
+    { id: "suporte", label: "Suporte", desc: "Chamados e erros", icon: "feedback" }
+  ];
+  return `
+    <div class="superadmin-secondary-shortcuts" aria-label="Atalhos Superadmin">
+      ${atalhos.map((item) => `
+        <button type="button" onclick="trocarAbaSuperAdmin('${item.id}')">
+          <span>${renderUiIcon(item.icon)}</span>
+          <strong>${escaparHtml(item.label)}</strong>
+          <small>${escaparHtml(item.desc)}</small>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSuperAdminMobileNav(tab = "dashboard") {
+  const aba = normalizarAbaSuperAdmin(tab);
+  const itens = [
+    getSuperAdminSection("dashboard"),
+    getSuperAdminSection("clientes"),
+    getSuperAdminSection("planos"),
+    getSuperAdminSection("manutencao"),
+    { id: "configuracoes", short: "Mais", icon: "menu", label: "Mais" }
+  ];
+  return `
+    <nav class="superadmin-platform-mobile-nav" aria-label="Navegacao Superadmin mobile">
+      ${itens.map((item) => `
+        <button class="${aba === item.id ? "active" : ""}" type="button" onclick="trocarAbaSuperAdmin('${item.id}')">
+          <span>${renderUiIcon(item.icon)}</span>
+          <strong>${escaparHtml(item.short || item.label)}</strong>
+        </button>
+      `).join("")}
+    </nav>
+  `;
+}
+
+function renderSuperAdminTopbar(tab = "dashboard") {
+  const secao = getSuperAdminSection(tab);
+  const usuario = getUsuarioAtual();
+  const buscaAtual = String(window.__superAdminBuscaGlobal || "");
+  return `
+    <header class="superadmin-platform-topbar">
+      <div class="superadmin-platform-page-title">
+        <span class="superadmin-platform-mark">${renderUiIcon(secao.icon)}</span>
+        <div>
+          <small>Superadmin</small>
+          <h2>${escaparHtml(secao.label)}</h2>
+        </div>
+        <em>Modo Plataforma</em>
+      </div>
+      <label class="superadmin-platform-search">
+        ${renderUiIcon("search")}
+        <input type="search" placeholder="Buscar empresa, e-mail, plano ou alerta" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" oninput="filtrarBuscaSuperadmin(this.value)" onkeydown="fecharBuscaSuperadminAoEnviar(event)" value="${escaparAttr(buscaAtual)}">
+        <button class="superadmin-platform-search-clear" type="button" onclick="limparBuscaSuperadmin(event)" aria-label="Limpar busca" title="Limpar busca">×</button>
+      </label>
+      <div class="superadmin-platform-actions">
+        <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('diagnosticos')" title="Status do sistema">${renderUiIcon("bell")}</button>
+        <button class="btn secondary superadmin-platform-erp" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} <span>Acessar ERP</span></button>
+        <span class="superadmin-platform-user">${renderUsuarioAvatar(usuario, "superadmin-platform-avatar")}<strong>${escaparHtml(usuario?.nome || "Superadmin")}</strong></span>
+      </div>
+    </header>
+  `;
+}
+
+function renderSuperAdminPageHeader(tab = "dashboard") {
+  const secao = getSuperAdminSection(tab);
+  return `
+    <div class="superadmin-platform-section-header">
+      <div>
+        <span class="eyebrow">Painel interno da plataforma</span>
+        <h1>${escaparHtml(secao.label)}</h1>
+        <p>${escaparHtml(secao.description)}. Dados globais, acoes administrativas e indicadores do Simplifica 3D.</p>
+      </div>
+      <span class="status-badge badge-superadmin">Acesso restrito</span>
+    </div>
+  `;
+}
+
+function getEmpresasSaasOperacionais() {
+  return saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt);
+}
+
+function getResumoLojaSuperadmin(cliente) {
+  const assinatura = getAssinaturaSaas(cliente.id);
+  const plano = normalizarSlugPlano(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+  const limites = getStorefrontLimitsLocal(plano);
+  return {
+    cliente,
+    plano: getPlanoSaas(plano),
+    limites,
+    publicada: limites.publishEnabled === true && cliente.status === "active",
+    compartilhamento: limites.shareEnabled === true,
+    produtos: Number.isFinite(limites.productLimit) ? limites.productLimit : "Ilimitado",
+    branding: limites.simplificaBrandingRequired === true ? "Obrigatorio" : "Livre",
+    status: cliente.status === "active" ? "Pronta para publicar" : "Revisar acesso"
+  };
+}
+
+function renderLinhaLojaSuperadmin(resumo) {
+  const clienteIdAttr = escaparAttr(resumo.cliente.id);
+  return `
+    <div class="superadmin-store-row">
+      <div>
+        <small>Empresa</small>
+        <strong>${escaparHtml(resumo.cliente.name || resumo.cliente.email || "Empresa")}</strong>
+        <span>${escaparHtml(resumo.cliente.email || "-")}</span>
+      </div>
+      <div>
+        <small>Plano</small>
+        <span class="status-badge ${classePlanoSaasCompacto(resumo.plano.slug)}">${escaparHtml(resumo.plano.name)}</span>
+      </div>
+      <div>
+        <small>Produtos loja</small>
+        <strong>${escaparHtml(String(resumo.produtos))}</strong>
+        <span>${resumo.limites.leadsEnabled ? "Contatos liberados" : "Contato limitado"}</span>
+      </div>
+      <div>
+        <small>Publicacao</small>
+        <span class="status-badge ${resumo.publicada ? "badge-ativo" : "badge-warning"}">${resumo.publicada ? "Habilitada" : "Pendente"}</span>
+        <span>${escaparHtml(resumo.branding)}</span>
+      </div>
+      <div class="row-actions">
+        <button class="btn ghost" onclick="abrirPerfilClienteSaas('${clienteIdAttr}')">Abrir perfil</button>
+        <button class="btn secondary" onclick="editarClienteSaas('${clienteIdAttr}')">Editar cadastro</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderSuperAdminLojas() {
+  const empresas = getEmpresasSaasOperacionais();
+  const resumos = empresas.map(getResumoLojaSuperadmin);
+  const habilitadas = resumos.filter((item) => item.limites.enabled).length;
+  const publicaveis = resumos.filter((item) => item.publicada).length;
+  const comLink = resumos.filter((item) => item.compartilhamento).length;
+  const brandingObrigatorio = resumos.filter((item) => item.limites.simplificaBrandingRequired).length;
+  const linhas = resumos.slice(0, 8).map(renderLinhaLojaSuperadmin).join("");
+  return `
+    <div class="superadmin-store-admin">
+      <div class="superadmin-store-hero">
+        <div>
+          <span class="eyebrow">Loja publica</span>
+          <h3>Mapa de publicacao das empresas</h3>
+          <p>Visao global por plano, limite de produtos, compartilhamento e obrigatoriedade da marca Simplifica.</p>
+        </div>
+        <button class="btn secondary" onclick="trocarAbaSuperAdmin('clientes')">${renderUiIcon("clientes")} Ver empresas</button>
+      </div>
+      <div class="superadmin-placeholder-grid">
+        <div><small>Empresas mapeadas</small><strong>${empresas.length}</strong></div>
+        <div><small>Loja habilitada</small><strong>${habilitadas}</strong></div>
+        <div><small>Publicaveis hoje</small><strong>${publicaveis}</strong></div>
+        <div><small>Link/QR liberado</small><strong>${comLink}</strong></div>
+        <div><small>Com marca obrigatoria</small><strong>${brandingObrigatorio}</strong></div>
+        <div><small>Origem dos dados</small><strong>Planos SaaS</strong></div>
+      </div>
+      <div class="superadmin-store-checklist">
+        <h4>Checklist operacional</h4>
+        <div><span>${renderUiIcon("check")}</span><strong>Planos pagos liberam loja publica</strong><small>Start e Pro podem publicar, compartilhar link e receber contatos.</small></div>
+        <div><span>${renderUiIcon("check")}</span><strong>Plano gratis fica identificado</strong><small>Loja permanece com marca obrigatoria quando o direito de publicacao nao esta liberado.</small></div>
+        <div><span>${renderUiIcon("seguranca")}</span><strong>Controle por empresa preservado</strong><small>Esta tela le os direitos globais, sem alterar loja, produtos ou pedidos.</small></div>
+      </div>
+      <div class="superadmin-store-list">
+        ${linhas || `<p class="empty">Nenhuma empresa cadastrada para mapear lojas.</p>`}
+      </div>
+    </div>
+  `;
+}
+
+function renderSuperAdminAnuncios() {
+  const empresas = getEmpresasSaasOperacionais();
+  const freeClients = empresas.filter((cliente) => normalizarSlugPlano(getAssinaturaSaas(cliente.id)?.activePlan || cliente.planoAtual || "free") === "free").length;
+  const pagantes = Math.max(0, empresas.length - freeClients);
+  const adsConfig = appConfig || {};
+  const adsAtivo = adsConfig.adsenseWebEnabled === true;
+  return `
+    <div class="superadmin-ads-admin">
+      <div class="superadmin-store-hero">
+        <div>
+          <span class="eyebrow">Monetizacao do gratis</span>
+          <h3>Anuncios e limites do plano Free</h3>
+          <p>Resumo dos limites diarios, bonus por anuncio e configuracao web sem alterar regras de cobrança.</p>
+        </div>
+        <span class="status-badge ${adsAtivo ? "badge-ativo" : "badge-warning"}">${adsAtivo ? "AdSense ativo" : "AdSense inativo"}</span>
+      </div>
+      <div class="superadmin-placeholder-grid">
+        <div><small>Empresas gratis</small><strong>${freeClients}</strong></div>
+        <div><small>Empresas pagas</small><strong>${pagantes}</strong></div>
+        <div><small>Acoes gratis/dia</small><strong>${FREE_ACTION_CREDIT_LIMIT}</strong></div>
+        <div><small>Bonus por anuncio</small><strong>${FREE_ACTION_AD_BONUS_LIMIT}</strong></div>
+        <div><small>Maximo diario</small><strong>${FREE_ACTION_DAILY_MAX}</strong></div>
+        <div><small>Plano com anuncios</small><strong>Free</strong></div>
+      </div>
+      <div class="superadmin-ads-grid">
+        <div class="superadmin-ads-card">
+          <h4>Configuração web</h4>
+          ${renderSuperAdminProfileRow("Publisher", adsConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID || "-")}
+          ${renderSuperAdminProfileRow("Banner slot", adsConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT || "-")}
+          ${renderSuperAdminProfileRow("Status", adsAtivo ? "Ativo" : "Inativo")}
+        </div>
+        <div class="superadmin-ads-card">
+          <h4>Regras preservadas</h4>
+          <p class="muted">As empresas pagas continuam sem anuncios. O plano gratis mantém limite base diário e pode receber bonus quando a liberação por anuncio estiver habilitada no fluxo existente.</p>
+          <div class="superadmin-ads-rule"><span>${renderUiIcon("seguranca")}</span><strong>Sem alteração de billing</strong><small>A tela apenas consolida leitura administrativa.</small></div>
+          <div class="superadmin-ads-rule"><span>${renderUiIcon("clientes")}</span><strong>Impacto estimado</strong><small>${freeClients} empresa${freeClients === 1 ? "" : "s"} no plano gratis.</small></div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSuperAdminSistema() {
+  return renderSuperAdminDiagnosticos();
+}
+
+function filtrarBuscaSuperadmin(valor) {
+  const busca = String(valor || "");
+  window.__superAdminBuscaGlobal = busca;
+  window.__clientesSaasFiltros = {
+    ...(window.__clientesSaasFiltros || {}),
+    busca
+  };
+  window.__clientesSaasPagina = 1;
+  if (normalizarAbaSuperAdmin(window.__superAdminTab || "") === "clientes") aplicarFiltroClientesSaasNaTela();
+}
+
+function fecharBuscaSuperadminAoEnviar(event) {
+  if (!event || (event.key !== "Enter" && event.key !== "Escape")) return;
+  event.preventDefault();
+  fecharTecladoBuscaClientesSaas();
+}
+
+function limparBuscaSuperadmin(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  window.__superAdminBuscaGlobal = "";
+  window.__clientesSaasFiltros = {
+    ...(window.__clientesSaasFiltros || {}),
+    busca: ""
+  };
+  window.__clientesSaasPagina = 1;
+  document.querySelectorAll(".superadmin-platform-search input").forEach((input) => {
+    input.value = "";
+    input.blur();
+  });
+  if (normalizarAbaSuperAdmin(window.__superAdminTab || "") === "clientes") aplicarFiltroClientesSaasNaTela();
+}
+
+function voltarSuperAdminParaErp() {
+  fecharTecladoBuscaClientesSaas();
+  window.__superAdminTab = "dashboard";
+  trocarTela("dashboard", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
 }
 
 function renderSuperAdmin() {
@@ -28513,65 +29593,44 @@ function renderSuperAdmin() {
     return renderBloqueioPlano("Super Admin");
   }
 
-  const tab = window.__superAdminTab || "dashboard";
-  const abas = [
-    ["dashboard", "Dashboard"],
-    ["clientes", "Clientes"],
-    ["pagamentos", "Pagamentos"],
-    ["planos", "Planos"],
-    ["logs", "Logs"],
-    ["suporte", "Suporte"],
-    ["relatorios", "Relatórios automáticos"],
-    ["diagnosticos", "Relatórios e Diagnóstico"],
-    ["feedbacks", "Sugestões e Feedback"],
-    ["configuracoes", "Configurações"]
-  ];
+  const tab = normalizarAbaSuperAdmin(window.__superAdminTab || "dashboard");
 
   if (tab === "clientePerfil") {
     return `
-      <section class="superadmin-panel superadmin-profile-panel">
-        <div class="superadmin-titlebar">
-          <button class="icon-action-button" type="button" onclick="voltarClientesSaas()" title="Voltar" aria-label="Voltar para clientes">${renderUiIcon("back")}</button>
-          <div class="superadmin-brand">
-            <span class="superadmin-crown">${renderUiIcon("superadmin")}</span>
-            <strong>SuperAdmin</strong>
+      <section class="superadmin-platform-shell superadmin-platform-profile-shell">
+        ${renderSuperAdminSidebar("clientes")}
+        <div class="superadmin-platform-main">
+          ${renderSuperAdminTopbar("clientes")}
+          <div class="superadmin-platform-content superadmin-profile-panel">
+            <button class="btn ghost superadmin-platform-inline-back" type="button" onclick="voltarClientesSaas()">${renderUiIcon("back")} Voltar para empresas</button>
+            ${renderSuperAdminConteudo(tab)}
           </div>
-          <button class="icon-action-button superadmin-feedback-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Sugestões e feedback" aria-label="Abrir sugestões e feedback">${renderUiIcon("bell")}<span>Feedback</span></button>
         </div>
-        <div class="superadmin-content">${renderSuperAdminConteudo(tab)}</div>
       </section>
+      ${renderSuperAdminMobileNav("clientes")}
     `;
   }
 
   return `
-    <section class="superadmin-panel">
-      <div class="superadmin-titlebar">
-        <button class="icon-action-button" type="button" onclick="abrirMenuPopup()" title="Menu" aria-label="Abrir menu principal">${renderUiIcon("menu")}</button>
-        <div class="superadmin-brand">
-          <span class="superadmin-crown">${renderUiIcon("superadmin")}</span>
-          <strong>SuperAdmin</strong>
-        </div>
-        <button class="icon-action-button superadmin-feedback-button" type="button" onclick="trocarAbaSuperAdmin('feedbacks')" title="Sugestões e feedback" aria-label="Abrir sugestões e feedback">${renderUiIcon("bell")}<span>Feedback</span></button>
+    <section class="superadmin-platform-shell">
+      ${renderSuperAdminSidebar(tab)}
+      <div class="superadmin-platform-main">
+        ${renderSuperAdminTopbar(tab)}
+        <main class="superadmin-platform-content">
+          ${renderSuperAdminPageHeader(tab)}
+          <div class="superadmin-platform-module superadmin-panel">
+            ${renderSuperAdminConteudo(tab)}
+          </div>
+        </main>
       </div>
-      <div class="superadmin-hero">
-        <div>
-          <h2>Olá, SuperAdmin 👑</h2>
-          <p class="muted">Aqui está o resumo geral da plataforma.</p>
-        </div>
-        <span class="status-badge superadmin-date-filter" aria-label="Período exibido">
-          ${renderUiIcon("agenda")} Hoje
-        </span>
-      </div>
-      <div class="superadmin-tabs" role="tablist" aria-label="Áreas do Superadmin">
-        ${abas.map(([id, label]) => `<button class="tab-button ${tab === id ? "active" : ""}" type="button" role="tab" aria-selected="${tab === id}" onclick="trocarAbaSuperAdmin('${id}')">${label}</button>`).join("")}
-      </div>
-      <div class="superadmin-content">${renderSuperAdminConteudo(tab)}</div>
     </section>
+    ${renderSuperAdminMobileNav(tab)}
   `;
 }
 
 function trocarAbaSuperAdmin(tab) {
-  window.__superAdminTab = tab || "dashboard";
+  fecharTecladoBuscaClientesSaas();
+  window.__superAdminTab = normalizarAbaSuperAdmin(tab || "dashboard");
   renderApp();
 }
 
@@ -29689,6 +30748,369 @@ function renderPlanPaymentNotice(accessState, checkoutState) {
   `;
 }
 
+function getPlanPresentationDefaults() {
+  return [
+    {
+      slug: "free",
+      name: "Grátis",
+      headline: "Comece organizando sua operação",
+      subtitle: "Ideal para organizar e testar o sistema",
+      description: "Use o sistema para controlar pedidos, caixa simples, estoque básico e preparar sua loja antes de publicar.",
+      presentation: "Organização inicial",
+      badge: "COMECE AGORA",
+      tone: "green",
+      ctaLabel: "Começar grátis",
+      priceLabel: "R$ 0",
+      period: "/mês",
+      visualLabel: "Com anúncios",
+      miniStats: [
+        { label: "Pedidos hoje", value: "5/5", icon: "pedido" },
+        { label: "Caixa", value: "R$ 0,00", icon: "caixa" },
+        { label: "Estoque", value: "Básico", icon: "estoque" },
+        { label: "Loja", value: "Em preparação", icon: "lojaOnline" }
+      ],
+      features: ["Até 5 pedidos por dia", "Controle básico de pedidos", "Caixa simples", "Estoque básico", "Editar loja", "Visualizar loja", "Anúncios para liberar ações extras"],
+      highlights: ["R$ 0 por mês", "Comece agora", "Loja em preparação"],
+      warning: "A publicação da loja virtual fica disponível nos planos Start e Pro.",
+      detailsTitle: "Você começa com organização",
+      beforeLabel: "Loja em preparação",
+      afterLabel: "ERP organizado para vender melhor"
+    },
+    {
+      slug: "start",
+      name: "Start",
+      headline: "Publique sua vitrine online",
+      subtitle: "Conecte e venda com sua loja pública",
+      description: "Exponha seus produtos com fotos, preços e categorias em um link próprio para divulgar no WhatsApp, Instagram e redes sociais.",
+      presentation: "Vitrine online",
+      badge: "MAIS ESCOLHIDO",
+      tone: "purple",
+      ctaLabel: "Escolher Start",
+      priceLabel: "R$ 29,90",
+      period: "/mês",
+      visualLabel: "Sem anúncios",
+      miniStats: [
+        { label: "Loja virtual", value: "Publicada", icon: "lojaOnline" },
+        { label: "Produtos", value: "Até 100", icon: "estoque" },
+        { label: "Link", value: "Para divulgar", icon: "share" },
+        { label: "Pedidos", value: "Mais por dia", icon: "pedido" }
+      ],
+      features: ["Loja virtual publicada", "Link para compartilhar", "Até 100 produtos na loja", "Produtos com fotos e preços", "Categorias organizadas", "Sem anúncios", "Mais pedidos por dia", "Recursos intermediários"],
+      highlights: ["Link público", "Até 100 produtos", "Sem anúncios"],
+      highlight: "Ideal para quem quer transformar produtos cadastrados em uma vitrine online compartilhável.",
+      detailsTitle: "Com o Start você libera a vitrine",
+      beforeLabel: "Loja em preparação",
+      afterLabel: "Vitrine online publicada"
+    },
+    {
+      slug: "pro",
+      name: "Pro",
+      headline: "Gestão profissional para escalar",
+      subtitle: "Para operação profissional e crescimento sem limites",
+      description: "Tenha uma loja virtual completa, relatórios, funcionários, permissões, backup maior e controle avançado da operação.",
+      presentation: "Crescimento profissional",
+      badge: "PROFISSIONAL",
+      tone: "gold",
+      ctaLabel: "Escolher Pro",
+      priceLabel: "R$ 59,90",
+      period: "/mês",
+      visualLabel: "Sem anúncios",
+      miniStats: [
+        { label: "Receita", value: "+142%", icon: "caixa" },
+        { label: "Pedidos", value: "1.248", icon: "pedido" },
+        { label: "Desempenho", value: "98%", icon: "relatorios" },
+        { label: "Backup", value: "Avançado", icon: "backup" }
+      ],
+      features: ["Loja virtual completa", "Relatórios completos", "Mais telas simultâneas", "Funcionários e permissões", "Personalização avançada", "Backup maior", "Recursos avançados", "Suporte prioritário"],
+      highlights: ["Relatórios completos", "Até 4 telas", "Backup avançado"],
+      highlight: "Para quem quer vender mais, acompanhar resultados e gerenciar a operação com mais segurança.",
+      detailsTitle: "Com o Pro você escala a operação",
+      beforeLabel: "Gestão básica",
+      afterLabel: "Operação profissional com controle avançado"
+    }
+  ];
+}
+
+function getPlanPresentationOverrides() {
+  try {
+    const raw = localStorage.getItem("simplificaPlanPresentationOverrides");
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function salvarPlanPresentationOverrides(overrides = {}) {
+  try {
+    localStorage.setItem("simplificaPlanPresentationOverrides", JSON.stringify(overrides || {}));
+  } catch (_) {}
+}
+
+function getPlanPresentationData() {
+  const overrides = getPlanPresentationOverrides();
+  return getPlanPresentationDefaults().map((base, index) => {
+    const plano = getPlanoSaas(base.slug);
+    const override = overrides[base.slug] || {};
+    const priceValue = Number(override.price ?? plano.price ?? 0);
+    const priceLabel = override.priceLabel || (priceValue > 0 ? formatarMoeda(priceValue) : "R$ 0");
+    return {
+      ...base,
+      ...override,
+      slug: base.slug,
+      name: override.name || plano.name || base.name,
+      priceLabel,
+      sortOrder: Number(override.sortOrder || plano.sortOrder || (index + 1) * 10),
+      isPublic: override.isPublic !== false,
+      isActive: override.isActive !== false && plano.active !== false
+    };
+  }).filter((plan) => plan.isPublic && plan.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function selecionarPlanoApresentacao(slug = "start") {
+  plansPresentationSelectedSlug = normalizarSlugPlano(slug || "start");
+  renderApp();
+  focarPlanoApresentacaoSelecionado(plansPresentationSelectedSlug);
+}
+
+function focarPlanoApresentacaoSelecionado(slug = plansPresentationSelectedSlug) {
+  if (typeof document === "undefined") return;
+  setTimeout(() => {
+    const card = document.querySelector(`.plans-pricing-grid.plans-carousel .plan-tier-card[data-plan-slug="${escaparAttr(normalizarSlugPlano(slug || "start"))}"]`);
+    if (!card || typeof card.scrollIntoView !== "function") return;
+    card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, 60);
+}
+
+function sincronizarPlanoApresentacaoPorScroll(container) {
+  if (!container || typeof document === "undefined") return;
+  clearTimeout(plansCarouselScrollTimer);
+  plansCarouselScrollTimer = setTimeout(() => {
+    const cards = Array.from(container.querySelectorAll(".plan-tier-card[data-plan-slug]"));
+    if (!cards.length) return;
+    const center = container.scrollLeft + (container.clientWidth / 2);
+    const nearest = cards.reduce((winner, card) => {
+      const cardCenter = card.offsetLeft + (card.offsetWidth / 2);
+      const distance = Math.abs(cardCenter - center);
+      return !winner || distance < winner.distance ? { card, distance } : winner;
+    }, null)?.card;
+    const slug = normalizarSlugPlano(nearest?.dataset?.planSlug || "");
+    if (!slug || slug === plansPresentationSelectedSlug) return;
+    plansPresentationSelectedSlug = slug;
+    renderApp();
+    focarPlanoApresentacaoSelecionado(slug);
+  }, 150);
+}
+
+function moverPlanoApresentacaoInterativo(event) {
+  const card = event?.currentTarget;
+  if (!card || typeof card.getBoundingClientRect !== "function") return;
+  const rect = card.getBoundingClientRect();
+  const pointer = event.touches?.[0] || event;
+  const x = Math.max(0, Math.min(100, ((pointer.clientX - rect.left) / Math.max(rect.width, 1)) * 100));
+  const y = Math.max(0, Math.min(100, ((pointer.clientY - rect.top) / Math.max(rect.height, 1)) * 100));
+  card.style.setProperty("--plan-pointer-x", `${x.toFixed(1)}%`);
+  card.style.setProperty("--plan-pointer-y", `${y.toFixed(1)}%`);
+}
+
+function resetarPlanoApresentacaoInterativo(event) {
+  const card = event?.currentTarget;
+  if (!card) return;
+  card.style.removeProperty("--plan-pointer-x");
+  card.style.removeProperty("--plan-pointer-y");
+}
+
+function editarPlanoApresentacaoSuperadmin(slug) {
+  if (!isSuperAdmin()) return;
+  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  if (!plan) return;
+  const headline = prompt("Título comercial do card", plan.headline || "");
+  if (headline === null) return;
+  const description = prompt("Descrição comercial", plan.description || "");
+  if (description === null) return;
+  const badge = prompt("Selo/badge", plan.badge || "");
+  if (badge === null) return;
+  const ctaLabel = prompt("Texto do botão", plan.ctaLabel || "");
+  if (ctaLabel === null) return;
+  const overrides = getPlanPresentationOverrides();
+  overrides[slug] = {
+    ...(overrides[slug] || {}),
+    headline: headline.trim() || plan.headline,
+    description: description.trim() || plan.description,
+    badge: badge.trim() || plan.badge,
+    ctaLabel: ctaLabel.trim() || plan.ctaLabel,
+    updatedAt: new Date().toISOString()
+  };
+  salvarPlanPresentationOverrides(overrides);
+  registrarAuditoria("plano apresentação alterado", { slug }, getClientIdAtual());
+  mostrarToast("Apresentação do plano atualizada.", "sucesso", 3600);
+  renderApp();
+}
+
+function editarPrecoExibidoPlanoSuperadmin(slug) {
+  if (!isSuperAdmin()) return;
+  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  if (!plan) return;
+  const valor = prompt("Preço exibido no card. Isto não altera cobrança real.", plan.priceLabel || "");
+  if (valor === null) return;
+  const mercadoPagoId = prompt("ID Mercado Pago para referência futura", plan.mercadoPagoPlanId || "");
+  if (mercadoPagoId === null) return;
+  const overrides = getPlanPresentationOverrides();
+  overrides[slug] = {
+    ...(overrides[slug] || {}),
+    priceLabel: valor.trim() || plan.priceLabel,
+    mercadoPagoPlanId: mercadoPagoId.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  salvarPlanPresentationOverrides(overrides);
+  registrarAuditoria("plano preço exibido alterado", { slug, billingSafeMode: true }, getClientIdAtual());
+  mostrarToast("Preço exibido salvo em modo seguro. Checkout real não foi alterado.", "info", 5200);
+  renderApp();
+}
+
+function renderPlanMiniDashboard(plan = {}) {
+  const stats = Array.isArray(plan.miniStats) ? plan.miniStats : [];
+  if (!stats.length) return "";
+  return `
+    <div class="plan-mini-dashboard" aria-label="Indicadores do plano ${escaparAttr(plan.name || "")}">
+      ${stats.slice(0, 4).map((stat, index) => `
+        <span class="plan-mini-stat">
+          <small>${escaparHtml(stat.label || "")}</small>
+          <strong>${escaparHtml(stat.value || "")}</strong>
+          <i aria-hidden="true" style="--bar-a:${Math.min(92, 34 + (index * 13))}%;--bar-b:${Math.min(96, 48 + (index * 11))}%"></i>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderPlanFeatureList(features = [], className = "allowed") {
+  const lista = Array.isArray(features) ? features : [];
+  if (!lista.length) return "";
+  return `
+    <ul class="plan-tier-list ${escaparAttr(className)}">
+      ${lista.map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
+    </ul>
+  `;
+}
+
+function renderPlanMobileTabs(planos = [], selectedSlug = "start") {
+  return `
+    <div class="plan-mobile-tabs" role="tablist" aria-label="Planos disponíveis">
+      ${planos.map((plan) => {
+        const slug = normalizarSlugPlano(plan.slug || "free");
+        return `<button type="button" class="${slug === selectedSlug ? "active" : ""}" onclick="selecionarPlanoApresentacao('${escaparAttr(slug)}')" aria-selected="${slug === selectedSlug}">${escaparHtml(plan.name || slug)}</button>`;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderPlanTrustBar() {
+  const itens = [
+    { title: "Segurança", text: "Dados protegidos" },
+    { title: "Pagamento", text: "Ambiente seguro" },
+    { title: "Cancele", text: "Quando quiser" }
+  ];
+  return `
+    <div class="plan-trust-bar" aria-label="Garantias dos planos">
+      ${itens.map((item) => `
+        <span>
+          <strong>${escaparHtml(item.title)}</strong>
+          <small>${escaparHtml(item.text)}</small>
+        </span>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderPlanSelectedDetails(plan = {}, currentPlan = {}) {
+  if (!plan?.slug) return "";
+  const comparacao = [
+    { label: "Antes", value: plan.beforeLabel || "Plano atual" },
+    { label: "Depois", value: plan.afterLabel || "Mais recursos liberados" },
+    { label: "Status", value: plan.current ? "Esse é seu plano atual" : currentPlan?.slug === plan.slug ? "Esse é seu plano atual" : "Disponível para escolha" }
+  ];
+  return `
+    <div class="plan-selected-details plan-tier-${escaparAttr(plan.slug)}">
+      <div>
+        <span class="eyebrow">Plano selecionado</span>
+        <h3>${escaparHtml(plan.detailsTitle || plan.headline || plan.name || "Plano")}</h3>
+        <p>${escaparHtml(plan.description || plan.note || "")}</p>
+      </div>
+      <div class="plan-selected-steps">
+        ${comparacao.map((item) => `
+          <span>
+            <small>${escaparHtml(item.label)}</small>
+            <strong>${escaparHtml(item.value)}</strong>
+          </span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPlanCardBrochure(plan = {}, currentPlan = {}) {
+  if (!plan?.slug) return "";
+  const comparacao = [
+    { label: "Antes", value: plan.beforeLabel || currentPlan?.name || "Plano atual" },
+    { label: "Depois", value: plan.afterLabel || plan.headline || "Mais recursos liberados" },
+    { label: "Status", value: plan.current || currentPlan?.slug === plan.slug ? "Esse é seu plano atual" : "Disponível para escolha" }
+  ];
+  const garantias = [
+    { title: "Segurança", text: "Dados protegidos" },
+    { title: "Pagamento", text: "Ambiente seguro" },
+    { title: "Cancele", text: "Quando quiser" }
+  ];
+  const vantagens = (plan.highlights || plan.allowed || plan.features || []).slice(0, 3);
+  return `
+    <div class="plan-card-brochure" aria-label="Resumo promocional do plano ${escaparAttr(plan.name || "")}">
+      <div class="plan-card-brochure-glow" aria-hidden="true"></div>
+      <div class="plan-card-brochure-grid">
+        ${comparacao.map((item) => `
+          <span>
+            <small>${escaparHtml(item.label)}</small>
+            <strong>${escaparHtml(item.value)}</strong>
+          </span>
+        `).join("")}
+      </div>
+      <div class="plan-card-brochure-strip">
+        ${vantagens.map((item) => `<b>${escaparHtml(item)}</b>`).join("")}
+      </div>
+      <div class="plan-card-brochure-trust">
+        ${garantias.map((item) => `
+          <span>
+            <strong>${escaparHtml(item.title)}</strong>
+            <small>${escaparHtml(item.text)}</small>
+          </span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderPlanFeatureMatrix(planos = []) {
+  const recursos = ["Loja virtual", "Produtos", "Anúncios", "Relatórios", "Backup"];
+  return `
+    <div class="plan-feature-matrix">
+      <div class="row-title">
+        <div>
+          <span class="eyebrow">Comparação rápida</span>
+          <h3>O que muda em cada plano</h3>
+        </div>
+      </div>
+      <div class="plan-feature-matrix-grid">
+        ${recursos.map((recurso) => `
+          <span class="matrix-label">${escaparHtml(recurso)}</span>
+          ${planos.map((plan) => {
+            const texto = (plan.features || plan.allowed || []).find((feature) => normalizarTextoBusca(feature).includes(normalizarTextoBusca(recurso))) || (plan.highlights || [])[0] || "-";
+            return `<span class="matrix-value plan-tier-${escaparAttr(plan.slug)}">${escaparHtml(texto)}</span>`;
+          }).join("")}
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderAssinatura() {
   verificarVencimentoPlanoLocal(false);
   const usuario = getUsuarioAtual();
@@ -29716,7 +31138,7 @@ function renderAssinatura() {
   const sessoesAtivas = saasSessions.filter((sessao) => sessao.clientId === (usuario?.clientId || billingConfig.clientId) && sessao.active !== false).length || 1;
   const textoBackup = `${resumoBackup.usedMb.toFixed(resumoBackup.usedMb >= 10 ? 0 : 1)} MB / ${policy.backupLabel}${resumoBackup.backup_over_limit ? " · somente leitura" : ""}`;
   const startEnabled = isStartPlanCommerciallyEnabled();
-  const planos = [
+  let planos = [
     {
       slug: "free",
       name: "Grátis",
@@ -29773,11 +31195,33 @@ function renderAssinatura() {
       action: "pro"
     }
   ];
+  const apresentacoes = getPlanPresentationData();
+  const apresentacaoPorSlug = Object.fromEntries(apresentacoes.map((plan) => [plan.slug, plan]));
+  planos = planos.map((plano) => {
+    const apresentacao = apresentacaoPorSlug[plano.slug] || {};
+    return {
+      ...plano,
+      ...apresentacao,
+      badge: plano.badge || apresentacao.badge,
+      cta: plano.cta || apresentacao.ctaLabel,
+      current: plano.current,
+      disabled: plano.disabled,
+      unavailable: plano.unavailable,
+      action: plano.action,
+      allowed: apresentacao.features || plano.allowed,
+      note: apresentacao.warning || apresentacao.highlight || plano.note,
+      price: apresentacao.priceLabel || plano.price,
+      period: apresentacao.period || plano.period,
+      highlights: apresentacao.highlights || plano.highlights
+    };
+  });
   registrarEventoPlanoSeguro("plans_screen_opened", { effectivePlan: accessState.effectivePlan }, "plans-screen-opened");
   planos.forEach((plano) => registrarEventoPlanoSeguro("plan_card_viewed", { plan: plano.slug, current: plano.current === true }, `plan-card-viewed:${plano.slug}`));
   if (accessState.shouldShowPendingPayment) registrarEventoPlanoSeguro("payment_pending_real_viewed", { effectivePlan: accessState.effectivePlan }, "payment-pending-real-viewed");
   const abaPlanos = plansModernTab === "all" ? "all" : "current";
   const planoAtualLista = planos.find((plano) => plano.current) || planos.find((plano) => plano.slug === planoAtual.slug) || planos[0];
+  const selectedSlug = planos.some((plano) => plano.slug === plansPresentationSelectedSlug) ? plansPresentationSelectedSlug : (planoAtualLista?.slug || "start");
+  const planoSelecionado = planos.find((plano) => plano.slug === selectedSlug) || planos[0];
 
   return `
     <section class="plans-modern-screen plans-pricing-screen s3d-plans-v2">
@@ -29837,9 +31281,12 @@ function renderAssinatura() {
       </div>`}
 
       ${abaPlanos === "all" ? renderPlanPaymentNotice(accessState, checkoutState) : ""}
-      ${abaPlanos === "all" ? `<div class="plans-pricing-grid">
-        ${planos.map(renderModernPlanOption).join("")}
-      </div>` : ""}
+      ${abaPlanos === "all" ? `
+      ${renderPlanMobileTabs(planos, selectedSlug)}
+      <div class="plans-pricing-grid plans-carousel" aria-label="Cards de planos" onscroll="sincronizarPlanoApresentacaoPorScroll(this)">
+        ${planos.map((plan) => renderModernPlanOption(plan, planoAtualLista)).join("")}
+      </div>
+      ` : ""}
 
       <button class="plans-help-card" type="button" onclick="trocarTela('feedback')">
         ${renderUiIcon("feedback")}
@@ -29855,10 +31302,11 @@ function setPlansModernTab(tab = "current") {
   renderApp();
 }
 
-function renderModernPlanOption(plan = {}) {
+function renderModernPlanOption(plan = {}, currentPlan = {}) {
   const slug = normalizarSlugPlano(plan.slug || "free");
   const short = slug === "pro" ? "PRO" : slug === "start" ? "START" : "GRÁTIS";
   const disabled = plan.current || (plan.disabled && !plan.unavailable);
+  const selected = plansPresentationSelectedSlug === slug;
   const click = plan.unavailable
     ? `data-action="plan-start-unavailable"`
     : disabled
@@ -29868,37 +31316,39 @@ function renderModernPlanOption(plan = {}) {
       : plan.action
         ? `onclick="trocarTela('${escaparAttr(plan.action)}')"`
         : "";
+  const priceText = String(plan.price || plan.priceLabel || "R$ 0");
+  const mainPrice = priceText.replace(/^R\$\s*/, "");
   return `
-    <article class="plan-modern-option plan-tier-card plan-tier-${escaparAttr(slug)} ${plan.current ? "current" : ""} ${plan.disabled ? "disabled" : ""}" tabindex="0">
+    <article class="plan-modern-option plan-tier-card plan-tier-${escaparAttr(slug)} ${plan.current ? "current" : ""} ${plan.disabled ? "disabled" : ""} ${selected ? "is-selected" : ""}" tabindex="0" data-plan-slug="${escaparAttr(slug)}" onclick="if(!event.target.closest('button,a,[data-action]')) selecionarPlanoApresentacao('${escaparAttr(slug)}')" onpointermove="moverPlanoApresentacaoInterativo(event)" onpointerleave="resetarPlanoApresentacaoInterativo(event)" ontouchmove="moverPlanoApresentacaoInterativo(event)">
       ${plan.current ? `<span class="plan-current-ribbon">Atual</span>` : ""}
       ${plan.badge ? `<span class="plan-tier-badge">${escaparHtml(plan.badge)}</span>` : ""}
       <div class="row-title">
         <span class="plan-tier-avatar">${short.charAt(0)}</span>
         <div>
           <h3>${escaparHtml(plan.name)}</h3>
-          <p class="muted">${escaparHtml(plan.subtitle)}</p>
+          <p class="muted">${escaparHtml(plan.subtitle || plan.headline || "")}</p>
         </div>
         <span class="plan-modern-badge ${classePlanoSaasCompacto(slug)}">${escaparHtml(short)}</span>
       </div>
-      <div class="plan-tier-price"><small>R$</small><strong>${escaparHtml(plan.price.replace(/^R\$\s*/, ""))}</strong><span>${escaparHtml(plan.period)}</span></div>
+      ${renderPlanMiniDashboard(plan)}
+      <p class="plan-tier-description">${escaparHtml(plan.description || plan.presentation || "")}</p>
+      <div class="plan-tier-price"><small>R$</small><strong>${escaparHtml(mainPrice)}</strong><span>${escaparHtml(plan.period || "/mês")}</span></div>
+      ${plan.visualLabel ? `<span class="plan-visual-label">${escaparHtml(plan.visualLabel)}</span>` : ""}
       <div class="plan-tier-highlights">
         ${(plan.highlights || []).map((item) => `<b>${escaparHtml(item)}</b>`).join("")}
       </div>
       <div class="plan-tier-section">
         <strong>${escaparHtml(plan.allowedTitle || "Inclui")}</strong>
-        <ul class="plan-tier-list allowed">
-          ${(plan.allowed || []).map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
-        </ul>
+        ${renderPlanFeatureList(plan.allowed || plan.features, "allowed")}
       </div>
       ${plan.blocked?.length ? `
         <div class="plan-tier-section blocked">
           <strong>${escaparHtml(plan.blockedTitle || "Bloqueado")}</strong>
-          <ul class="plan-tier-list blocked">
-            ${plan.blocked.map((feature) => `<li>${escaparHtml(feature)}</li>`).join("")}
-          </ul>
+          ${renderPlanFeatureList(plan.blocked, "blocked")}
         </div>
       ` : ""}
       <div class="plan-tier-note">${escaparHtml(plan.note || "")}</div>
+      ${selected ? renderPlanCardBrochure(plan, currentPlan) : ""}
       <button class="btn plan-tier-button ${plan.unavailable ? "is-unavailable" : ""}" type="button" ${click} ${disabled ? "disabled" : ""} ${plan.unavailable ? "aria-disabled=\"true\"" : ""}>${escaparHtml(plan.cta || "Escolher plano")}</button>
     </article>
   `;
@@ -32048,6 +33498,7 @@ function concluirLoginUsuario(usuario) {
   if (usuario.companyId) billingConfig.companyId = usuario.companyId;
   if (usuario.papel !== "superadmin" && !registrarDispositivoLicenca(usuario.email)) return;
   if (!registrarSessaoSaasLocal(usuario)) return;
+  setSessaoManutencaoSuperadmin(null);
   usuarioAtualEmail = usuario.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   salvarCacheSessaoLocal();
@@ -32076,6 +33527,7 @@ function concluirLoginUsuario(usuario) {
   oferecerAtivarBiometriaAposLogin();
   reconciliarOnboardingConcluido(usuario);
   if (isSuperAdmin(usuario)) {
+    setModoErpSuperadmin(false);
     telaAnterior = telaAtual;
     telaAtual = "superadmin";
     window.__superAdminTab = window.__superAdminTab || "dashboard";
@@ -41618,6 +43070,7 @@ document.addEventListener("DOMContentLoaded", () => {
   processarRetornoOAuthSupabase().then(async (processou) => {
     if (!processou) {
       await restaurarCacheSessaoLocal();
+      processarRotaSuperadminInicial();
       if (!getUsuarioAtual() && !adminLogado && telaAtual === "dashboard") {
         telaAtual = "admin";
       }
