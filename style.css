@@ -15186,7 +15186,7 @@ body.mobile-mode .mobile-panel:has(.superadmin-platform-shell) .mobile-panel-men
   min-width:0;
   min-height:76px;
   display:grid;
-  grid-template-columns:minmax(230px, .9fr) minmax(220px, 1.1fr) auto;
+  grid-template-columns:minmax(230px, .9fr) minmax(220px, 1.1fr) auto auto;
   align-items:center;
   gap:14px;
   padding:14px 18px;
@@ -37937,4 +37937,1799 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
     radial-gradient(circle at 88% 15%, rgba(245,158,11,.28), transparent 32%),
     linear-gradient(145deg, rgba(30,19,5,.98), rgba(55,34,8,.96) 58%, rgba(73,43,6,.94)) !important;
   border-color:rgba(245,158,11,.5) !important;
+}
+
+@media(max-width:760px){
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-row{
+    min-height:42px;
+    grid-template-columns:30px minmax(0, 1fr) auto;
+    padding:7px 8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-row em,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-row em,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-row em{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-row{
+    min-height:40px;
+    grid-template-columns:30px minmax(0, 1fr) auto;
+    padding:7px 8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-row > span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-row > span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-row > span{
+    width:30px;
+    height:30px;
+    border-radius:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .plan-feature-matrix .row-title,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .plan-feature-matrix .row-title,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .plan-feature-matrix .row-title{
+    margin-bottom:4px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .plan-feature-matrix-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .plan-feature-matrix-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .plan-feature-matrix-grid{
+    min-width:0 !important;
+    grid-template-columns:1fr !important;
+    gap:5px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .matrix-label,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .matrix-label,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .matrix-label{
+    padding:7px 8px;
+    border-radius:10px;
+    font-size:11px;
+    font-weight:900;
+    background:#eef6ff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .matrix-value,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .matrix-value,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .matrix-value{
+    min-height:0;
+    padding:7px 8px;
+    border-radius:10px;
+    font-size:10px;
+    line-height:1.25;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .plan-feature-matrix,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .plan-feature-matrix,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .plan-feature-matrix{
+    max-height:280px;
+    overflow:auto;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-card,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-card{
+    gap:7px;
+    padding:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-card .row-title,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-card .row-title,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-card .row-title,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-card .row-title,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-card .row-title,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-card .row-title{
+    gap:6px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-card .row-title .muted,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-card .row-title .muted,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-card .row-title .muted,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-card .row-title .muted,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-card .row-title .muted,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-card .row-title .muted{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-list,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-list,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-list,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-list,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-list,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-list{
+    gap:5px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-row{
+    min-height:36px;
+    padding:5px 7px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .client-admin-row:has(.superadmin-action-menu[open]),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row:has(.superadmin-action-menu[open]),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .client-admin-row:has(.superadmin-action-menu[open]){
+    z-index:3000;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-panel,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-panel,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-panel{
+    min-width:min(238px, calc(100vw - 34px));
+    right:0;
+    z-index:3100;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:6px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary span{
+    min-height:48px;
+    padding:7px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary strong{
+    font-size:14px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row{
+    grid-template-columns:34px minmax(0, 1fr) auto !important;
+    align-items:center;
+    gap:6px;
+    padding:7px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:first-of-type,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:first-of-type,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:first-of-type{
+    grid-column:3;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:nth-of-type(2),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:nth-of-type(2),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:nth-of-type(2){
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .row-actions,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .row-actions,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .row-actions{
+    grid-column:1 / -1;
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Superadmin mobile: proporcao final mais baixa dos cards do dashboard. */
+@media(max-width:760px){
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card{
+    flex:0 0 clamp(118px, 39vw, 134px) !important;
+    max-width:clamp(118px, 39vw, 134px) !important;
+    min-height:82px !important;
+    height:82px !important;
+    grid-template-columns:24px minmax(0, 1fr) !important;
+    grid-template-rows:auto auto auto !important;
+    align-content:center !important;
+    padding:7px !important;
+    gap:0 6px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon{
+    width:28px !important;
+    height:28px !important;
+    border-radius:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon svg,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon svg,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon svg{
+    width:14px !important;
+    height:14px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small{
+    font-size:8px !important;
+    line-height:1.05 !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong{
+    font-size:16px !important;
+    line-height:1 !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card:nth-child(2) strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card:nth-child(2) strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card:nth-child(2) strong{
+    font-size:14px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small{
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-overview-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-overview-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-overview-card{
+    padding:9px !important;
+    gap:7px !important;
+    border-radius:12px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar{
+    padding:14px 12px 8px !important;
+    gap:7px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2{
+    font-size:22px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em{
+    min-height:22px !important;
+    padding:0 8px !important;
+    font-size:9px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search{
+    min-height:32px !important;
+    height:32px !important;
+    border-radius:9px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search input,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search input,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search input{
+    font-size:10px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-erp,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp{
+    height:32px !important;
+    min-height:32px !important;
+    font-size:10px !important;
+    border-radius:9px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-content,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-content,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-content{
+    padding:8px 12px 88px !important;
+    gap:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-overview-body,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-overview-body,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-overview-body{
+    grid-template-columns:88px minmax(0, 1fr) !important;
+    gap:9px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-donut,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-donut,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-donut{
+    width:88px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-donut strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-donut strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-donut strong{
+    font-size:16px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-status-legend button,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-status-legend button,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-status-legend button{
+    min-height:23px !important;
+    gap:5px !important;
+    font-size:10px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo{
+    gap:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-row{
+    min-height:32px !important;
+    padding:4px 6px !important;
+    border-radius:9px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-row > span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-row > span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-row > span{
+    width:26px !important;
+    height:26px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-row strong,
+  body.mobile-mode .superadmin-mobile-only .superadmin-system-row strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-row strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-system-row strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-row strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-system-row strong{
+    font-size:11px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search{
+    min-height:38px !important;
+    height:38px !important;
+    grid-template-columns:18px minmax(0, 1fr) 24px !important;
+    gap:6px !important;
+    padding:0 9px !important;
+    border-radius:10px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search svg,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search svg,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search svg{
+    width:16px !important;
+    height:16px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search input,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search input,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search input{
+    font-size:12px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search-clear,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search-clear,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search-clear{
+    width:24px !important;
+    min-width:24px !important;
+    height:24px !important;
+    font-size:16px !important;
+    border-radius:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-erp,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp{
+    height:38px !important;
+    min-height:38px !important;
+    border-radius:10px !important;
+    font-size:12px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-actions .icon-action-button,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-actions .icon-action-button,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-actions .icon-action-button{
+    width:34px !important;
+    min-width:34px !important;
+    height:34px !important;
+    min-height:34px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-avatar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-avatar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-avatar{
+    width:34px !important;
+    height:34px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-company-toolbar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar{
+    gap:6px !important;
+    padding:6px !important;
+    border-radius:10px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-company-toolbar .field,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar .field,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar .field{
+    gap:2px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-company-toolbar .field span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar .field span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar .field span{
+    font-size:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-company-toolbar input,
+  body.mobile-mode .superadmin-mobile-only .superadmin-company-toolbar select,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar input,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar select,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar input,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-toolbar select{
+    min-height:30px !important;
+    height:30px !important;
+    padding:0 8px !important;
+    border-radius:8px !important;
+    font-size:10px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.btn, button.btn, .profile-action-row, .superadmin-profile-danger),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.btn, button.btn, .profile-action-row, .superadmin-profile-danger),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.btn, button.btn, .profile-action-row, .superadmin-profile-danger){
+    min-height:30px !important;
+    padding:0 8px !important;
+    border-radius:9px !important;
+    font-size:10px !important;
+    line-height:1.1 !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.btn svg, button.btn svg, .profile-action-row svg),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.btn svg, button.btn svg, .profile-action-row svg),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.btn svg, button.btn svg, .profile-action-row svg){
+    width:14px !important;
+    height:14px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn,
+  body.mobile-mode .superadmin-mobile-only .client-admin-row .row-actions .btn,
+  body.mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-trigger,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row .row-actions .btn,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-trigger,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .client-admin-row .row-actions .btn,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-trigger{
+    min-height:26px !important;
+    height:26px !important;
+    padding:0 4px !important;
+    font-size:8.5px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    display:flex !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    overscroll-behavior-x:contain !important;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-x !important;
+    scroll-snap-type:x mandatory !important;
+    scroll-padding-inline:0;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card{
+    flex:0 0 clamp(118px, 42vw, 142px) !important;
+    max-width:clamp(118px, 42vw, 142px) !important;
+    scroll-snap-align:start !important;
+    scroll-snap-stop:always;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-grid .superadmin-plan-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid .superadmin-plan-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid .superadmin-plan-card{
+    flex:0 0 min(88vw, 316px) !important;
+    max-width:min(88vw, 316px) !important;
+    scroll-snap-align:center !important;
+    scroll-snap-stop:always;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-overview-card,.superadmin-dashboard-duo,.superadmin-attention-card,.superadmin-system-card,.clients-saas-panel,.superadmin-maintenance-console),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-overview-card,.superadmin-dashboard-duo,.superadmin-attention-card,.superadmin-system-card,.clients-saas-panel,.superadmin-maintenance-console),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-overview-card,.superadmin-dashboard-duo,.superadmin-attention-card,.superadmin-system-card,.clients-saas-panel,.superadmin-maintenance-console){
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+  }
+}
+
+/* Superadmin Clientes: cards compactos e ações mobile em grade. */
+.superadmin-platform-shell .client-admin-row{
+  overflow:visible !important;
+  position:relative;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:14px;
+  box-shadow:0 6px 16px rgba(15,23,42,.05);
+}
+
+.superadmin-platform-shell .client-admin-row:has(.superadmin-action-menu[open]){
+  z-index:1200;
+}
+
+.superadmin-platform-shell .client-admin-row:hover,
+.superadmin-platform-shell .client-admin-row.selected{
+  box-shadow:0 10px 24px rgba(15,92,100,.10);
+}
+
+.superadmin-platform-shell .client-admin-main,
+.superadmin-platform-shell .client-admin-plan,
+.superadmin-platform-shell .client-admin-status,
+.superadmin-platform-shell .client-admin-billing,
+.superadmin-platform-shell .client-meta{
+  gap:2px;
+}
+
+.superadmin-platform-shell .client-admin-main strong,
+.superadmin-platform-shell .client-admin-billing strong{
+  font-size:14px;
+  line-height:1.2;
+}
+
+.superadmin-platform-shell .client-admin-row small,
+.superadmin-platform-shell .client-admin-row .muted,
+.superadmin-platform-shell .client-meta span,
+.superadmin-platform-shell .client-admin-plan em{
+  font-size:10px;
+  line-height:1.25;
+}
+
+.superadmin-platform-shell .client-admin-tech{
+  display:none;
+}
+
+.superadmin-platform-shell .client-admin-row .row-actions{
+  position:relative;
+  z-index:5;
+  display:grid !important;
+  grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+  gap:6px;
+  align-items:stretch;
+}
+
+.superadmin-platform-shell .client-admin-row .row-actions .btn,
+.superadmin-platform-shell .client-admin-row .superadmin-action-menu-trigger{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:34px !important;
+  padding:0 8px !important;
+  border-radius:10px !important;
+  font-size:11px !important;
+  line-height:1.1;
+}
+
+.superadmin-platform-shell .client-admin-row .superadmin-action-menu{
+  position:relative;
+  z-index:1300;
+}
+
+.superadmin-platform-shell .client-admin-row .superadmin-action-menu-trigger{
+  justify-content:center;
+}
+
+.superadmin-platform-shell .client-admin-row .superadmin-action-menu-trigger span:first-child{
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.superadmin-platform-shell .client-admin-row .superadmin-action-menu-panel{
+  right:0;
+  z-index:1400;
+  box-shadow:0 20px 44px rgba(15,23,42,.24);
+}
+
+.superadmin-platform-shell .clients-saas-panel,
+.superadmin-platform-shell #clientesSaasLista{
+  overflow:visible;
+}
+
+.superadmin-dashboard-duo{
+  display:grid;
+  grid-template-columns:minmax(0, 1.15fr) minmax(280px, .85fr);
+  gap:12px;
+}
+
+.superadmin-attention-list,
+.superadmin-system-list{
+  display:grid;
+  gap:8px;
+}
+
+.superadmin-attention-row,
+.superadmin-system-row{
+  min-width:0;
+  min-height:46px;
+  display:grid;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border:1px solid var(--sa-border);
+  border-radius:12px;
+  color:var(--sa-text);
+  background:#fff;
+  text-align:left;
+}
+
+.superadmin-attention-row{
+  grid-template-columns:34px minmax(0, 1fr) auto auto;
+}
+
+.superadmin-system-row{
+  grid-template-columns:34px minmax(0, 1fr) auto;
+}
+
+.superadmin-attention-row strong,
+.superadmin-system-row strong{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.superadmin-system-row > span{
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:11px;
+  color:var(--sa-secondary);
+  background:#eaf2ff;
+}
+
+.superadmin-system-row svg{
+  width:18px;
+  height:18px;
+}
+
+.superadmin-maintenance-summary{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:8px;
+}
+
+.superadmin-maintenance-summary span{
+  min-height:58px;
+  display:grid;
+  align-content:center;
+  gap:2px;
+  padding:10px;
+  border:1px solid var(--sa-border);
+  border-radius:12px;
+  background:#fff;
+}
+
+.superadmin-maintenance-summary small,
+.superadmin-maintenance-summary strong{
+  display:block;
+}
+
+.superadmin-maintenance-summary strong{
+  color:var(--sa-text);
+  font-size:18px;
+}
+
+.superadmin-platform-shell .superadmin-company-metric{
+  min-height:76px;
+  grid-template-columns:36px minmax(0, 1fr);
+  gap:9px;
+  padding:10px;
+  border-radius:13px;
+}
+
+.superadmin-platform-shell .superadmin-company-metric > span{
+  width:36px;
+  height:36px;
+  border-radius:12px;
+}
+
+.superadmin-platform-shell .superadmin-company-metric strong{
+  font-size:22px;
+}
+
+@media(max-width:1020px){
+  .superadmin-platform-shell .client-admin-row{
+    grid-template-columns:minmax(0, 1.15fr) minmax(92px, .72fr) minmax(86px, .6fr) minmax(96px, .7fr);
+  }
+
+  .superadmin-platform-shell .client-admin-main{
+    grid-column:1 / -1;
+  }
+
+  .superadmin-platform-shell .client-meta{
+    display:none;
+  }
+
+  .superadmin-platform-shell .client-admin-row .row-actions{
+    grid-column:1 / -1;
+  }
+}
+
+@media(max-width:760px){
+  .superadmin-platform-shell .clients-saas-panel{
+    gap:9px;
+    padding:8px;
+    border-radius:14px;
+    box-shadow:0 8px 22px rgba(15,23,42,.055);
+  }
+
+  .superadmin-company-head{
+    gap:6px;
+  }
+
+  .superadmin-company-head .eyebrow,
+  .superadmin-company-head p{
+    display:none;
+  }
+
+  .superadmin-company-head h2{
+    margin:0;
+    font-size:18px;
+    line-height:1.15;
+  }
+
+  .superadmin-company-head h2 svg{
+    width:18px;
+    height:18px;
+  }
+
+  .superadmin-company-head .status-badge{
+    min-height:24px;
+    padding:4px 8px;
+    font-size:10px;
+  }
+
+  .superadmin-company-metrics,
+  .superadmin-company-toolbar{
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+    gap:7px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-metric{
+    min-height:0;
+    grid-template-columns:30px minmax(0, 1fr);
+    align-items:start;
+    gap:7px;
+    padding:8px;
+    border-radius:12px;
+    background:#fff;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  .superadmin-platform-shell .superadmin-company-metric > span{
+    width:30px;
+    height:30px;
+    border-radius:10px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-metric svg{
+    width:16px;
+    height:16px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-metric small{
+    font-size:9px;
+    line-height:1.15;
+  }
+
+  .superadmin-platform-shell .superadmin-company-metric strong{
+    margin-top:2px;
+    font-size:18px;
+    line-height:1;
+  }
+
+  .superadmin-platform-shell .superadmin-company-metric em{
+    margin-top:2px;
+    font-size:9px;
+    line-height:1.15;
+  }
+
+  .superadmin-platform-shell .superadmin-company-toolbar{
+    padding:8px;
+    border-radius:12px;
+    background:#fff;
+  }
+
+  .superadmin-platform-shell .superadmin-company-toolbar .field{
+    gap:3px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-toolbar .field span{
+    font-size:9px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-toolbar input,
+  .superadmin-platform-shell .superadmin-company-toolbar select{
+    min-height:36px;
+    border-radius:10px;
+    font-size:12px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-actions{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:6px;
+  }
+
+  .superadmin-platform-shell .superadmin-company-actions .btn{
+    min-width:0;
+    min-height:34px;
+    padding-inline:6px;
+    border-radius:10px;
+    font-size:10px;
+    line-height:1.1;
+  }
+
+  .superadmin-platform-shell .client-admin-row{
+    grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+    gap:5px 6px;
+    padding:7px;
+    border-radius:12px;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  .superadmin-platform-shell .client-admin-main,
+  .superadmin-platform-shell .client-admin-row .row-actions{
+    grid-column:1 / -1;
+  }
+
+  .superadmin-platform-shell .client-admin-main{
+    grid-template-columns:minmax(0, 1fr);
+    gap:1px;
+  }
+
+  .superadmin-platform-shell .client-admin-main strong,
+  .superadmin-platform-shell .client-admin-billing strong{
+    font-size:12px;
+  }
+
+  .superadmin-platform-shell .client-admin-row small,
+  .superadmin-platform-shell .client-admin-row .muted,
+  .superadmin-platform-shell .client-meta span,
+  .superadmin-platform-shell .client-admin-plan em{
+    font-size:8px;
+  }
+
+  .superadmin-platform-shell .client-admin-status .status-badge,
+  .superadmin-platform-shell .client-admin-plan .status-badge{
+    min-height:18px;
+    max-width:100%;
+    padding:2px 5px;
+    font-size:8px;
+  }
+
+  .superadmin-platform-shell .client-admin-row .row-actions{
+    grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+    gap:5px;
+  }
+
+  .superadmin-platform-shell .client-admin-row .row-actions .btn,
+  .superadmin-platform-shell .client-admin-row .superadmin-action-menu-trigger{
+    min-height:28px !important;
+    padding-inline:4px !important;
+    border-radius:9px !important;
+    font-size:8.5px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell{
+    background:#f6f9fc;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar{
+    padding:10px 12px;
+    gap:8px;
+    background:#fff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2{
+    font-size:20px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search{
+    min-height:40px;
+    border-radius:12px;
+    background:#fff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-content,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-content,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-content{
+    gap:10px;
+    padding:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-section-header,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header{
+    padding:10px 12px;
+    border-radius:14px;
+    box-shadow:0 5px 14px rgba(15,23,42,.05);
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-section-header .eyebrow,
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-section-header p,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header .eyebrow,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header p,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header .eyebrow,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header p{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-section-header h1,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header h1,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-section-header h1{
+    margin:0;
+    font-size:20px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card{
+    min-height:96px;
+    grid-template-columns:32px minmax(0, 1fr);
+    grid-template-areas:"icon label" "icon value" "icon detail";
+    align-content:center;
+    gap:2px 8px;
+    padding:10px;
+    border-radius:13px;
+    background:#fff;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card .superadmin-kpi-icon{
+    grid-area:icon;
+    width:32px;
+    height:32px;
+    border-radius:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon){
+    grid-area:label;
+    min-width:0;
+    overflow:hidden;
+    font-size:10px;
+    font-weight:900;
+    line-height:1.15;
+    text-overflow:ellipsis;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong{
+    grid-area:value;
+    font-size:22px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small{
+    grid-area:detail;
+    min-width:0;
+    overflow:hidden;
+    font-size:10px;
+    line-height:1.15;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-overview-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-overview-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-overview-card{
+    gap:10px;
+    padding:12px;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-overview-body,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-overview-body,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-overview-body{
+    grid-template-columns:112px minmax(0, 1fr);
+    gap:12px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-donut,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-donut,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-donut{
+    width:112px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-donut strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-donut strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-donut strong{
+    font-size:20px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-status-legend,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-status-legend,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-status-legend{
+    gap:5px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-status-legend button,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-status-legend button,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-status-legend button{
+    min-height:28px;
+    gap:7px;
+    font-size:11px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-card{
+    min-height:0;
+    padding:10px;
+    border-radius:13px;
+    background:#fff;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-grid .superadmin-plan-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid .superadmin-plan-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-grid .superadmin-plan-card{
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title{
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title .eyebrow,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title .eyebrow,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title .eyebrow{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title strong{
+    font-size:15px;
+    line-height:1.15;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-card .row-title small{
+    max-height:16px;
+    overflow:hidden;
+    font-size:11px;
+    line-height:1.25;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-price,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-price,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-price{
+    margin:6px 0;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-price strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-price strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-price strong{
+    font-size:22px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-stats,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats{
+    grid-template-columns:repeat(3, minmax(0, 1fr)) !important;
+    gap:5px;
+    margin-bottom:6px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-stats span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats span{
+    padding:6px;
+    border-radius:9px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-stats small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats small{
+    font-size:8px;
+    line-height:1.12;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-stats b,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats b,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-stats b{
+    font-size:13px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-card > p.muted,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-card > p.muted,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-card > p.muted{
+    max-height:16px;
+    overflow:hidden;
+    margin:0;
+    font-size:11px;
+    line-height:1.35;
+    white-space:nowrap;
+    text-overflow:ellipsis;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-actions,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-actions,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-actions{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:6px;
+    margin-top:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-actions .btn,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-actions .btn,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-actions .btn{
+    min-width:0;
+    min-height:32px;
+    padding-inline:6px;
+    border-radius:9px;
+    font-size:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-remote-panel,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-remote-panel,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-remote-panel{
+    margin-bottom:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-remote-metrics,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-remote-metrics,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-remote-metrics,
+  body.mobile-mode .superadmin-mobile-only .superadmin-plan-remote-list,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-plan-remote-list,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-plan-remote-list{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:7px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .plan-feature-matrix,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .plan-feature-matrix,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .plan-feature-matrix{
+    padding:10px;
+    border-radius:14px;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-recent-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-recent-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-recent-row{
+    min-height:48px;
+    padding:7px 9px;
+    border-radius:12px;
+    background:#fff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-module-placeholder,.superadmin-store-hero,.superadmin-store-checklist,.superadmin-store-list,.superadmin-ads-card,.superadmin-plan-safe-note,.superadmin-plan-remote-panel,.superadmin-profile-card,.superadmin-profile-status-grid,.history-list,.payment-table,.sync-grid),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-module-placeholder,.superadmin-store-hero,.superadmin-store-checklist,.superadmin-store-list,.superadmin-ads-card,.superadmin-plan-safe-note,.superadmin-plan-remote-panel,.superadmin-profile-card,.superadmin-profile-status-grid,.history-list,.payment-table,.sync-grid),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-module-placeholder,.superadmin-store-hero,.superadmin-store-checklist,.superadmin-store-list,.superadmin-ads-card,.superadmin-plan-safe-note,.superadmin-plan-remote-panel,.superadmin-profile-card,.superadmin-profile-status-grid,.history-list,.payment-table,.sync-grid){
+    gap:8px;
+    padding:10px;
+    border-radius:14px;
+    background:#fff;
+    box-shadow:0 5px 14px rgba(15,23,42,.055);
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-store-admin,.superadmin-ads-admin,.superadmin-maintenance-console,.superadmin-profile-screen),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-admin,.superadmin-ads-admin,.superadmin-maintenance-console,.superadmin-profile-screen),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-admin,.superadmin-ads-admin,.superadmin-maintenance-console,.superadmin-profile-screen){
+    gap:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid div,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid div,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid div{
+    min-height:70px;
+    padding:9px;
+    border-radius:12px;
+    background:#fff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-placeholder-grid strong{
+    font-size:18px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero,.superadmin-maintenance-hero),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero,.superadmin-maintenance-hero),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero,.superadmin-maintenance-hero){
+    gap:8px;
+    padding:10px;
+    border-radius:14px;
+    background:#fff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero h3,.superadmin-maintenance-hero h3,.superadmin-module-placeholder h3,.superadmin-profile-card h3,.superadmin-ads-card h4,.superadmin-store-checklist h4),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero h3,.superadmin-maintenance-hero h3,.superadmin-module-placeholder h3,.superadmin-profile-card h3,.superadmin-ads-card h4,.superadmin-store-checklist h4),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero h3,.superadmin-maintenance-hero h3,.superadmin-module-placeholder h3,.superadmin-profile-card h3,.superadmin-ads-card h4,.superadmin-store-checklist h4){
+    margin:0;
+    font-size:17px;
+    line-height:1.18;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero p,.superadmin-maintenance-hero p,.superadmin-module-placeholder p,.superadmin-ads-card p),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero p,.superadmin-maintenance-hero p,.superadmin-module-placeholder p,.superadmin-ads-card p),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-hero p,.superadmin-maintenance-hero p,.superadmin-module-placeholder p,.superadmin-ads-card p){
+    font-size:12px;
+    line-height:1.35;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row,.superadmin-store-row,.superadmin-maintenance-row,.superadmin-profile-list-row,.superadmin-profile-row,.history-item),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row,.superadmin-store-row,.superadmin-maintenance-row,.superadmin-profile-list-row,.superadmin-profile-row,.history-item),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row,.superadmin-store-row,.superadmin-maintenance-row,.superadmin-profile-list-row,.superadmin-profile-row,.history-item){
+    min-height:46px;
+    gap:7px;
+    padding:8px;
+    border-radius:12px;
+    background:#fff;
+    box-shadow:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row strong,.superadmin-store-row strong,.superadmin-maintenance-row strong,.superadmin-profile-list-row strong,.superadmin-profile-row strong,.history-item strong),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row strong,.superadmin-store-row strong,.superadmin-maintenance-row strong,.superadmin-profile-list-row strong,.superadmin-profile-row strong,.history-item strong),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row strong,.superadmin-store-row strong,.superadmin-maintenance-row strong,.superadmin-profile-list-row strong,.superadmin-profile-row strong,.history-item strong){
+    font-size:13px;
+    line-height:1.2;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row span,.payment-row small,.superadmin-store-row span,.superadmin-store-row small,.superadmin-maintenance-row small,.superadmin-profile-list-row span,.superadmin-profile-row span,.history-item span,.history-item small),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row span,.payment-row small,.superadmin-store-row span,.superadmin-store-row small,.superadmin-maintenance-row small,.superadmin-profile-list-row span,.superadmin-profile-row span,.history-item span,.history-item small),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row span,.payment-row small,.superadmin-store-row span,.superadmin-store-row small,.superadmin-maintenance-row small,.superadmin-profile-list-row span,.superadmin-profile-row span,.history-item span,.history-item small){
+    font-size:11px;
+    line-height:1.25;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-store-checklist > div,.superadmin-ads-rule),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-checklist > div,.superadmin-ads-rule),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-checklist > div,.superadmin-ads-rule){
+    min-height:50px;
+    grid-template-columns:30px minmax(0, 1fr);
+    padding:8px;
+    border-radius:12px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-store-checklist > div > span,.superadmin-ads-rule > span),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-checklist > div > span,.superadmin-ads-rule > span),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-store-checklist > div > span,.superadmin-ads-rule > span){
+    width:30px;
+    height:30px;
+    border-radius:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row.table-head),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row.table-head),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row.table-head){
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row,.superadmin-store-row,.superadmin-maintenance-row),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row,.superadmin-store-row,.superadmin-maintenance-row),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row,.superadmin-store-row,.superadmin-maintenance-row){
+    grid-template-columns:minmax(0, 1fr);
+    align-items:start;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row .row-actions,.superadmin-store-row .row-actions,.superadmin-maintenance-row .row-actions),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row .row-actions,.superadmin-store-row .row-actions,.superadmin-maintenance-row .row-actions),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row .row-actions,.superadmin-store-row .row-actions,.superadmin-maintenance-row .row-actions){
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:6px;
+    width:100%;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.payment-row .btn,.superadmin-store-row .btn,.superadmin-maintenance-row .btn,.profile-action-row,.superadmin-profile-danger),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.payment-row .btn,.superadmin-store-row .btn,.superadmin-maintenance-row .btn,.profile-action-row,.superadmin-profile-danger),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.payment-row .btn,.superadmin-store-row .btn,.superadmin-maintenance-row .btn,.profile-action-row,.superadmin-profile-danger){
+    min-height:34px;
+    padding-inline:8px;
+    border-radius:10px;
+    font-size:11px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-profile-hero,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-profile-hero,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-profile-hero{
+    grid-template-columns:54px minmax(0, 1fr);
+    gap:10px;
+    padding:10px;
+    border-radius:14px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-profile-avatar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-profile-avatar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-profile-avatar{
+    width:54px;
+    height:54px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-profile-status-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-profile-status-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-profile-status-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-store-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-store-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-store-row{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:6px;
+    padding:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-store-row > div:first-child,
+  body.mobile-mode .superadmin-mobile-only .superadmin-store-row .row-actions,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-store-row > div:first-child,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-store-row .row-actions,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-store-row > div:first-child,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-store-row .row-actions{
+    grid-column:1 / -1;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-store-row > div,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-store-row > div,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-store-row > div{
+    gap:2px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-store-row .status-badge,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-store-row .status-badge,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-store-row .status-badge{
+    min-height:18px;
+    padding:2px 5px;
+    font-size:8px;
+  }
+}
+
+/* Superadmin mobile final: ajustes de proporcao e menus acima dos cards. */
+@media(max-width:760px){
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell{
+    background:#f7f9fc !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar{
+    grid-template-columns:minmax(0, 1fr) auto !important;
+    gap:10px;
+    padding:18px 14px 10px !important;
+    background:#fff !important;
+    border-bottom:0;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title{
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:7px 9px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-mark,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-mark,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-mark{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title small{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2{
+    font-size:22px !important;
+    line-height:1;
+    letter-spacing:0;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em{
+    display:inline-flex !important;
+    min-height:22px;
+    padding:3px 9px;
+    font-size:10px;
+    color:#05708a;
+    background:#e6f8fb;
+    border:1px solid #b9ebf4;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-search,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-search{
+    grid-column:1 / -1;
+    order:3;
+    min-height:36px !important;
+    height:36px !important;
+    padding:0 8px !important;
+    border-radius:12px !important;
+    background:#fff !important;
+    box-shadow:0 3px 10px rgba(15,23,42,.045);
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-actions,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-actions,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-actions{
+    display:grid;
+    grid-template-columns:auto auto;
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-actions .icon-action-button,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-actions .icon-action-button,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-actions .icon-action-button{
+    width:34px;
+    min-width:34px;
+    height:34px;
+    min-height:34px;
+    border-radius:50%;
+    background:#fff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-user,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-user,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-user{
+    display:flex;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-user strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-user strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-user strong{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-erp,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp{
+    grid-column:1 / -1;
+    width:100%;
+    min-width:0;
+    height:34px;
+    min-height:34px;
+    border-radius:12px;
+    justify-content:center;
+    order:4;
+    font-size:11px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-erp span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-erp span{
+    display:inline !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-content,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-content,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-content{
+    padding:8px 12px 88px !important;
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid{
+    display:flex !important;
+    gap:8px;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    overflow-x:auto !important;
+    overflow-y:hidden !important;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    padding:2px 0 6px;
+    scroll-snap-type:x mandatory;
+    scrollbar-width:none;
+    touch-action:pan-x !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-grid::-webkit-scrollbar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid::-webkit-scrollbar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid::-webkit-scrollbar{
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card{
+    flex:0 0 clamp(118px, 39vw, 134px) !important;
+    max-width:clamp(118px, 39vw, 134px) !important;
+    min-height:82px !important;
+    height:82px !important;
+    grid-template-columns:24px minmax(0, 1fr);
+    grid-template-rows:auto auto auto;
+    align-content:center;
+    gap:0 6px;
+    padding:7px !important;
+    border-radius:12px !important;
+    scroll-snap-align:start;
+    touch-action:pan-x !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card strong{
+    font-size:16px !important;
+    line-height:1.05;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card:nth-child(2) strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card:nth-child(2) strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card:nth-child(2) strong{
+    font-size:14px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card > span:not(.superadmin-kpi-icon){
+    font-size:8px !important;
+    line-height:1.12;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-card small{
+    grid-column:2;
+    font-size:7px !important;
+    line-height:1.1;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head,
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid,
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid + .superadmin-section-head,
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid + .superadmin-section-head + .superadmin-recent-list,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid + .superadmin-section-head,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid + .superadmin-section-head + .superadmin-recent-list,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid + .superadmin-section-head,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo + .superadmin-section-head + .superadmin-plan-grid + .superadmin-section-head + .superadmin-recent-list{
+    display:none !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-dashboard-duo{
+    grid-template-columns:1fr !important;
+    gap:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card){
+    padding:10px !important;
+    gap:7px !important;
+    border-radius:12px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .row-title,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .row-title,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .row-title{
+    align-items:center !important;
+    gap:6px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .row-title strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .row-title strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .row-title strong{
+    font-size:15px;
+    line-height:1.15;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .inline-link,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .inline-link,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-card,.superadmin-system-card) .inline-link{
+    min-height:22px;
+    padding:0 4px;
+    font-size:10px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-list,.superadmin-system-list),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-list,.superadmin-system-list),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-list,.superadmin-system-list){
+    gap:4px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-attention-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-attention-row{
+    min-height:36px !important;
+    grid-template-columns:28px minmax(0, 1fr) auto !important;
+    padding:5px 6px !important;
+    gap:6px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-user-avatar,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-user-avatar,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-user-avatar{
+    width:26px !important;
+    min-width:26px !important;
+    height:26px !important;
+    font-size:11px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-row,.superadmin-system-row) strong,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-row,.superadmin-system-row) strong,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-row,.superadmin-system-row) strong{
+    font-size:11px;
+    line-height:1.15;
+  }
+
+  body.mobile-mode .superadmin-mobile-only :where(.superadmin-attention-row,.superadmin-system-row) .status-badge,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-row,.superadmin-system-row) .status-badge,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only :where(.superadmin-attention-row,.superadmin-system-row) .status-badge{
+    min-height:18px;
+    padding:2px 5px;
+    font-size:8px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .plan-feature-matrix-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .plan-feature-matrix-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .plan-feature-matrix-grid{
+    min-width:0 !important;
+    grid-template-columns:1fr !important;
+    gap:5px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .matrix-label,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .matrix-label,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .matrix-label,
+  body.mobile-mode .superadmin-mobile-only .matrix-value,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .matrix-value,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .matrix-value{
+    min-height:0;
+    padding:7px 8px;
+    border-radius:10px;
+    font-size:10px;
+    line-height:1.25;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .matrix-label,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .matrix-label,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .matrix-label{
+    font-size:11px;
+    font-weight:900;
+    background:#eef6ff;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .client-admin-row:has(.superadmin-action-menu[open]),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row:has(.superadmin-action-menu[open]),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .client-admin-row:has(.superadmin-action-menu[open]){
+    z-index:3000 !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-panel,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-panel,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-panel{
+    min-width:min(238px, calc(100vw - 34px));
+    right:0;
+    z-index:3100 !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary{
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:6px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary span,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary span,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-summary span{
+    min-height:48px;
+    padding:7px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row{
+    grid-template-columns:34px minmax(0, 1fr) auto !important;
+    align-items:center;
+    gap:6px;
+    padding:7px;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:nth-of-type(2),
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:nth-of-type(2),
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .status-badge:nth-of-type(2){
+    display:none;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .row-actions,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .row-actions,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-maintenance-row .row-actions{
+    grid-column:1 / -1;
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+  }
 }

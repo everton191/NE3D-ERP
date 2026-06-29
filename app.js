@@ -24049,17 +24049,17 @@ function renderLinhaClienteSaas(cliente) {
         <span>cad. ${escaparHtml(dataCadastro)}</span>
       </div>
       <div class="row-actions">
-        <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar cliente</button>
-        <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar acesso" : "Bloquear acesso"}</button>
+        <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar</button>
+        <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Plano</button>
+        <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
         ${renderMenuAcoesSuperadmin(`
-          <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Alterar plano</button>
           <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">Adicionar dias ao acesso</button>
           <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Desativar usuário de teste" : "Marcar como usuário de teste"}</button>
           <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar dados do cliente</button>
           <button class="btn warning" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar cliente</button>
           <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar dados pessoais</button>
           ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
-        `)}
+        `, "Mais")}
       </div>
     </div>
   `;
@@ -28099,6 +28099,9 @@ function renderSuperAdminDashboard() {
   const total = Math.max(metricas.total, 1);
   const offline = Math.max(metricas.total - metricas.ativos, 0);
   const emDia = Math.max(0, metricas.total - metricas.vencidos);
+  const receitaMensal = saasPayments
+    .filter((pagamento) => pagamento.status === "approved")
+    .reduce((soma, pagamento) => soma + (Number(pagamento.amount) || 0), 0);
   const segmentos = [
     { label: "Online", valor: metricas.ativos, cor: "#22d861", classe: "online" },
     { label: "Offline", valor: offline, cor: "#78849f", classe: "offline" },
@@ -28122,11 +28125,20 @@ function renderSuperAdminDashboard() {
     { titulo: "Plano Pro", slug: "pro", valor: metricas.porPlano.pro, filtro: "pro" },
     { titulo: "Pro temporário", slug: "premium_trial", valor: metricas.porPlano.trial, filtro: "premium_trial" }
   ];
+  const empresasAtencao = getEmpresasSaasOperacionais()
+    .filter((cliente) => ["overdue", "blocked", "inactive"].includes(cliente.status) || getStatusPlanoClienteSaas(cliente, getAssinaturaSaas(cliente.id)) !== "Em dia")
+    .slice(0, 4);
+  const statusSistema = [
+    { label: "Banco de dados", status: "Operacional", icon: "database" },
+    { label: "Storage", status: "Operacional", icon: "backup" },
+    { label: "Backup automático", status: "Operacional", icon: "history" },
+    { label: "PWA / Aplicativo", status: "Operacional", icon: "mobile" }
+  ];
   const kpis = [
-    { titulo: "Usuários Totais", valor: metricas.total.toLocaleString("pt-BR"), detalhe: `+${recentes.length} recentes`, classe: "purple", icon: "clientes", tab: "clientes", filtro: "" },
-    { titulo: "Online", valor: metricas.ativos.toLocaleString("pt-BR"), detalhe: `${Math.round(metricas.ativos / total * 100)}% do total`, classe: "green", icon: "usuarios", tab: "clientesStatus", filtro: "active" },
-    { titulo: "Em dia", valor: emDia.toLocaleString("pt-BR"), detalhe: `${Math.round(emDia / total * 100)}% do total`, classe: "amber", icon: "assinatura", tab: "pagamentos", filtro: "approved" },
-    { titulo: "Atrasados", valor: metricas.vencidos.toLocaleString("pt-BR"), detalhe: `${Math.round(metricas.vencidos / total * 100)}% do total`, classe: "red", icon: "seguranca", tab: "clientesStatus", filtro: "overdue" }
+    { titulo: "Empresas ativas", valor: metricas.ativos.toLocaleString("pt-BR"), detalhe: `${Math.round(metricas.ativos / total * 100)}% do total`, classe: "purple", icon: "clientes", tab: "clientesStatus", filtro: "active" },
+    { titulo: "Receita mensal", valor: formatarMoeda(receitaMensal), detalhe: "pagamentos aprovados", classe: "green", icon: "caixa", tab: "pagamentos", filtro: "approved" },
+    { titulo: "Assinaturas em dia", valor: emDia.toLocaleString("pt-BR"), detalhe: `${Math.round(emDia / total * 100)}% do total`, classe: "amber", icon: "assinatura", tab: "pagamentos", filtro: "approved" },
+    { titulo: "Com atenção", valor: String(metricas.vencidos + offline), detalhe: `${metricas.vencidos} atrasados`, classe: "red", icon: "seguranca", tab: "clientesStatus", filtro: "overdue" }
   ];
   return `
     <div class="superadmin-kpi-grid">
@@ -28157,6 +28169,48 @@ function renderSuperAdminDashboard() {
               <i style="background:${item.cor}"></i>
               <span>${escaparHtml(item.label)}</span>
               <strong>${Number(item.valor || 0).toLocaleString("pt-BR")} (${Math.round((Number(item.valor) || 0) / total * 100)}%)</strong>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    </div>
+    <div class="superadmin-dashboard-duo">
+      <div class="superadmin-overview-card superadmin-attention-card">
+        <div class="row-title">
+          <div>
+            <strong>Empresas com atenção</strong>
+            <span class="muted">Clientes para revisar primeiro</span>
+          </div>
+          <button class="inline-link" type="button" onclick="abrirSuperAdminFiltro('clientes', '')">Ver todas</button>
+        </div>
+        <div class="superadmin-attention-list">
+          ${empresasAtencao.map((cliente) => {
+            const resumo = getResumoEmpresaSaas(cliente);
+            return `
+              <button class="superadmin-attention-row" type="button" onclick="abrirPerfilClienteSaas('${escaparAttr(cliente.id)}')">
+                <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>
+                <strong>${escaparHtml(cliente.name || cliente.email || "Empresa")}</strong>
+                <i class="status-badge ${classePlanoSaasCompacto(resumo.plano.slug)}">${escaparHtml(resumo.plano.name)}</i>
+                <em class="status-badge ${cliente.status === "active" ? "badge-ativo" : "badge-warning"}">${escaparHtml(rotuloStatusCliente(cliente.status || "active"))}</em>
+              </button>
+            `;
+          }).join("") || `<p class="empty">Nenhuma empresa crítica agora.</p>`}
+        </div>
+      </div>
+      <div class="superadmin-overview-card superadmin-system-card">
+        <div class="row-title">
+          <div>
+            <strong>Status do sistema</strong>
+            <span class="muted">Serviços principais</span>
+          </div>
+          <button class="inline-link" type="button" onclick="trocarAbaSuperAdmin('diagnosticos')">Histórico</button>
+        </div>
+        <div class="superadmin-system-list">
+          ${statusSistema.map((item) => `
+            <button class="superadmin-system-row" type="button" onclick="trocarAbaSuperAdmin('diagnosticos')">
+              <span>${renderUiIcon(item.icon)}</span>
+              <strong>${escaparHtml(item.label)}</strong>
+              <em class="status-badge badge-ativo">${escaparHtml(item.status)}</em>
             </button>
           `).join("")}
         </div>
@@ -29179,7 +29233,8 @@ function renderSuperAdminConfiguracoes() {
 
 function renderSuperAdminManutencao() {
   const termo = normalizarTextoBusca(window.__superAdminBuscaGlobal || window.__clientesSaasFiltros?.busca || "");
-  const empresas = getEmpresasSaasOperacionais()
+  const empresasBase = getEmpresasSaasOperacionais();
+  const empresas = empresasBase
     .map((cliente) => {
       const resumo = getResumoEmpresaSaas(cliente);
       const usuarioAdmin = resumo.usuarios.find((usuario) => usuario.papel === "admin" && usuario.ativo !== false) || resumo.responsavel || resumo.usuarios[0] || {};
@@ -29206,6 +29261,11 @@ function renderSuperAdminManutencao() {
           <p>Entre no ERP de uma empresa para suporte sem trocar ou salvar o login do cliente neste aparelho.</p>
         </div>
         <button class="btn secondary" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} Entrar no ERP como Superadmin</button>
+      </div>
+      <div class="superadmin-maintenance-summary">
+        <span><small>Empresas</small><strong>${empresasBase.length}</strong></span>
+        <span><small>Filtradas</small><strong>${empresas.length}</strong></span>
+        <span><small>Modo</small><strong>Temporário</strong></span>
       </div>
       <div class="superadmin-ads-rule">
         <span>${renderUiIcon("seguranca")}</span>
@@ -29380,8 +29440,8 @@ function renderSuperAdminTopbar(tab = "dashboard") {
       <div class="superadmin-platform-page-title">
         <span class="superadmin-platform-mark">${renderUiIcon(secao.icon)}</span>
         <div>
-          <small>Superadmin</small>
-          <h2>${escaparHtml(secao.label)}</h2>
+          <small>${escaparHtml(secao.label)}</small>
+          <h2>Superadmin</h2>
         </div>
         <em>Modo Plataforma</em>
       </div>
@@ -29390,9 +29450,9 @@ function renderSuperAdminTopbar(tab = "dashboard") {
         <input type="search" placeholder="Buscar empresa, e-mail, plano ou alerta" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" oninput="filtrarBuscaSuperadmin(this.value)" onkeydown="fecharBuscaSuperadminAoEnviar(event)" value="${escaparAttr(buscaAtual)}">
         <button class="superadmin-platform-search-clear" type="button" onclick="limparBuscaSuperadmin(event)" aria-label="Limpar busca" title="Limpar busca">×</button>
       </label>
+      <button class="btn secondary superadmin-platform-erp" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} <span>Voltar para ERP</span></button>
       <div class="superadmin-platform-actions">
         <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('diagnosticos')" title="Status do sistema">${renderUiIcon("bell")}</button>
-        <button class="btn secondary superadmin-platform-erp" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} <span>Acessar ERP</span></button>
         <span class="superadmin-platform-user">${renderUsuarioAvatar(usuario, "superadmin-platform-avatar")}<strong>${escaparHtml(usuario?.nome || "Superadmin")}</strong></span>
       </div>
     </header>
@@ -29617,7 +29677,6 @@ function renderSuperAdmin() {
       <div class="superadmin-platform-main">
         ${renderSuperAdminTopbar(tab)}
         <main class="superadmin-platform-content">
-          ${renderSuperAdminPageHeader(tab)}
           <div class="superadmin-platform-module superadmin-panel">
             ${renderSuperAdminConteudo(tab)}
           </div>

@@ -100,6 +100,13 @@ assert.match(bodyOf("selecionarResultadoClienteSaas"), /selecaoClienteSaasFoiArr
 assert.match(source, /onpointermove="atualizarMovimentoClienteSaas/, "linha de cliente deve rastrear movimento pointer");
 assert.match(source, /ontouchmove="atualizarMovimentoClienteSaas/, "linha de cliente deve rastrear movimento touch");
 assert.match(styleSource, /\.client-admin-row\{[\s\S]*touch-action:pan-y;/, "linha de cliente deve permitir rolagem vertical no mobile");
+assert.match(styleSource, /\.superadmin-platform-shell \.client-admin-row\{[\s\S]*overflow:visible !important;/, "Superadmin Clientes nao deve cortar o menu Mais");
+assert.match(styleSource, /\.superadmin-platform-shell \.client-admin-row \.row-actions\{[\s\S]*grid-template-columns:repeat\(4, minmax\(0, 1fr\)\) !important;/, "Superadmin Clientes deve usar 4 acoes compactas");
+assert.match(source, /renderMenuAcoesSuperadmin\(`[\s\S]*`, "Mais"\)/, "acao Mais deve ter rotulo curto e visivel");
+assert.match(styleSource, /body\.mobile-mode \.superadmin-mobile-only :where\(\.superadmin-module-placeholder,[\s\S]*\.superadmin-profile-status-grid,[\s\S]*\.sync-grid\)/, "telas secundarias do Superadmin devem compartilhar cards compactos no mobile");
+assert.match(styleSource, /body\.mobile-mode \.superadmin-mobile-only :where\(\.payment-row,\.superadmin-store-row,\.superadmin-maintenance-row\)[\s\S]*grid-template-columns:minmax\(0, 1fr\);/, "listas secundarias do Superadmin devem virar cards compactos no mobile");
+assert.match(styleSource, /body\.mobile-mode \.superadmin-mobile-only \.superadmin-kpi-grid,[\s\S]*touch-action:pan-x !important;/, "cards do Superadmin mobile devem aceitar arrasto horizontal");
+assert.match(styleSource, /body\.mobile-mode \.superadmin-mobile-only \.superadmin-kpi-card[\s\S]*flex:0 0 clamp\(118px, 39vw, 134px\) !important;/, "cards do Superadmin mobile devem ajustar largura ao viewport");
 
 const gestureSandbox = {
   window: {},
