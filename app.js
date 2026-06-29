@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.57-rc";
-const APP_VERSION_CODE = 56;
+const APP_VERSION = "1.0.58-rc";
+const APP_VERSION_CODE = 57;
 const APP_SHELL_VERSION = "2a";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
