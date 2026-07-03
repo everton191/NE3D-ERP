@@ -36,6 +36,7 @@ const publicSrcFiles = [
   "src/services/safeAreaManager.js",
   "src/services/themeAuthorityV2.js",
   "src/services/googleMotionEnhancer.js",
+  "src/services/printerMonitoringService.js",
   "src/services/adMobService.js",
   "src/services/adSenseService.js",
   "src/services/monetizationLimits.js",

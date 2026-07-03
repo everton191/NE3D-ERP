@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v205-release-1-0-58-20260628";
+const CACHE_NAME = "simplifica-3d-v209-mobile-ui-scroll-20260703";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -15,6 +15,7 @@ const APP_FILES = [
   "./src/services/safeAreaManager.js",
   "./src/services/themeAuthorityV2.js",
   "./src/services/googleMotionEnhancer.js",
+  "./src/services/printerMonitoringService.js",
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
@@ -87,6 +88,7 @@ self.addEventListener("fetch", (event) => {
     "/src/services/themeAuthorityV2.js",
     "/src/services/safeAreaManager.js",
     "/src/services/smartLoaderService.js",
+    "/src/services/printerMonitoringService.js",
     "/assets/intro.mp4"
   ].includes(url.pathname);
 

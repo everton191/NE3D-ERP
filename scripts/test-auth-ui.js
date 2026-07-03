@@ -6,7 +6,8 @@ const app = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
 const css = fs.readFileSync(path.join(__dirname, "..", "style.css"), "utf8");
 
 function extractFunction(source, name) {
-  const start = source.indexOf(`function ${name}`);
+  const match = new RegExp(`function\\s+${name}\\s*\\(`).exec(source);
+  const start = match?.index ?? -1;
   assert.notEqual(start, -1, `${name} deve existir`);
   const open = source.indexOf("{", start);
   let depth = 0;
@@ -38,8 +39,6 @@ for (const id of ["usuarioLoginEmail", "usuarioLoginSenha", "signupNome", "signu
 for (const forbidden of [
   "Acesso local",
   "Entrar manutenção local",
-  "Login com Google",
-  "renderGoogleAuthButton",
   "entrarComCredencialSalva",
   "adminSenha",
   "loginAdminBtn",
@@ -47,6 +46,10 @@ for (const forbidden of [
 ]) {
   assert.doesNotMatch(authCode, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), `auth publico nao deve conter ${forbidden}`);
 }
+
+assert.match(authEntrar, /renderGoogleAuthButton\("Entrar com Google"\)/, "auth publico deve oferecer login Google");
+assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "login Google deve usar gate explicito");
+assert.doesNotMatch(app, /GOCSPX-|external_google_secret|client_secret\s*[:=]/i, "frontend nao deve conter segredo Google");
 
 assert.match(renderApp, /MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda\(\) \? renderAssistenteVirtual\(\) : ""/, "ajuda manual deve usar o gate autenticado");
 assert.match(renderAssistente, /if \(!MANUAL_HELP_ASSISTANT_ENABLED\) return "";/, "ajuda manual deve respeitar seu sinal dedicado");

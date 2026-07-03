@@ -62,8 +62,8 @@ assert(!app.includes("billingConfig.pendingPlan = plano.slug"), "checkout nao de
 assert(!app.includes("billingConfig.monthlyPrice = planPrice"), "checkout nao deve alterar preco mensal antes do pagamento aprovado");
 
 includesAll(app, [
-  "O link público e o compartilhamento da loja ficam disponíveis no plano Start ou Pro.",
-  "Sua loja pode ser editada no plano Grátis",
+  "O link público e o compartilhamento da loja ficam disponíveis nos planos Start e Pro ativos.",
+  "Sua loja está salva, mas a publicação pública está disponível apenas nos planos Start e Pro.",
 ], "bloqueio de publicacao gratis");
 
 [

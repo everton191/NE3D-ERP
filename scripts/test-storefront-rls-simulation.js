@@ -100,9 +100,10 @@ const users = {
 };
 
 const stores = [
-  { id: "store-a", owner_id: users.a, slug: "ne3d-teste", active: true },
-  { id: "store-b", owner_id: users.b, slug: "maker-teste", active: true },
-  { id: "store-a-hidden", owner_id: users.a, slug: "ne3d-inativa", active: false },
+  { id: "store-a", owner_id: users.a, slug: "ne3d-teste", active: true, publication_status: "published" },
+  { id: "store-b", owner_id: users.b, slug: "maker-teste", active: true, publication_status: "published" },
+  { id: "store-a-hidden", owner_id: users.a, slug: "ne3d-inativa", active: false, publication_status: "unpublished" },
+  { id: "store-a-suspended", owner_id: users.a, slug: "ne3d-suspensa", active: true, publication_status: "suspended_payment" },
 ];
 
 const categories = [
@@ -163,7 +164,7 @@ function ownerCanRead(record, userId) {
 }
 
 function publicCanReadStore(store) {
-  return store.active === true;
+  return store.active === true && store.publication_status === "published";
 }
 
 function publicCanReadCategory(category) {
@@ -213,6 +214,7 @@ const assertions = [
   ["usuario B nao ve loja A privada", ownerCanRead(stores[0], users.b) === false],
   ["publico ve loja ativa", publicCanReadStore(stores[0]) === true],
   ["publico nao ve loja inativa", publicCanReadStore(stores[2]) === false],
+  ["publico nao ve loja suspensa por plano", publicCanReadStore(stores[3]) === false],
   ["publico ve categoria visivel", publicCanReadCategory(categories[0]) === true],
   ["publico nao ve categoria invisivel", publicCanReadCategory(categories[1]) === false],
   ["publico ve produto visivel", publicCanReadProduct(products[0]) === true],

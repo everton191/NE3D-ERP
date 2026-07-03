@@ -35,6 +35,18 @@ if (!app.includes("abrirMaisOpcoesPedido(Number(id))")) {
 if (!app.includes("Math.hypot(dx, dy) > 8")) {
   throw new Error("Rolagem deve cancelar o toque longo do pedido.");
 }
+if (!app.includes("mobile-assistant-nav-button")) {
+  throw new Error("Assistente deve estar integrado a navegacao inferior no mobile.");
+}
+if (!/body\.mobile-mode \.assistant-fab\s*\{[\s\S]*?display:none !important;/.test(css)) {
+  throw new Error("Botao flutuante do assistente deve ficar oculto no mobile.");
+}
+if (!app.includes("const PRINTER_FEATURE_ENABLED = false")) {
+  throw new Error("Impressoras devem permanecer desativadas nesta fase.");
+}
+if (app.includes('tela: "impressoras", icone: "impressoras", texto: "Impressoras 3D"')) {
+  throw new Error("Menu Mais do mobile não deve expor impressoras enquanto o recurso estiver desativado.");
+}
 if (!app.includes("toquePedidoSuprimidoAte = Date.now() + 700")) {
   throw new Error("Rolagem deve suprimir o clique residual que abriria o pedido.");
 }

@@ -7,6 +7,8 @@ Data: 2026-05-27
 Todo componente novo deve:
 
 - usar tokens de `docs/theme-tokens.md`;
+- seguir `docs/ui-component-standards.md` para botoes, cards, fontes, icones e scroll;
+- consultar `docs/icon-system-registry.md` antes de escolher ou criar icone;
 - usar spacing oficial;
 - usar radius oficial;
 - usar shadows oficiais;

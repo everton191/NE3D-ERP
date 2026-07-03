@@ -15,7 +15,7 @@ const requiredApp = [
   "Navegar telas",
   "Menu lateral",
   "const mostrarLogsSistema = isSuperAdmin() || APP_DEBUG_MODE;",
-  "Gerencie seus dados, segurança, atualizações e documentos.",
+  "Informações do aplicativo, sincronização, atualizações e documentos.",
   "Conta e cópias de segurança",
   "Ajuda e documentos",
   "Baixar e instalar",

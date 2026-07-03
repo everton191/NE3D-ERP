@@ -31,6 +31,21 @@
   --s3d-success:#2b8a62;
   --s3d-warning:#d98000;
   --s3d-danger:#c84b4b;
+  --s3d-button-primary-bg:var(--color-primary, var(--s3d-brand-teal));
+  --s3d-button-primary-text:#ffffff;
+  --s3d-button-primary-border:color-mix(in srgb, var(--color-primary, var(--s3d-brand-teal)) 52%, transparent);
+  --s3d-button-secondary-bg:color-mix(in srgb, var(--color-primary, var(--s3d-brand-teal)) 12%, transparent);
+  --s3d-button-secondary-text:var(--color-text-primary, #10212b);
+  --s3d-button-secondary-border:color-mix(in srgb, var(--color-primary, var(--s3d-brand-teal)) 38%, var(--color-border, #dce4e4));
+  --s3d-button-ghost-bg:transparent;
+  --s3d-button-ghost-text:var(--color-text-secondary, #596b6d);
+  --s3d-button-ghost-border:var(--color-border, #dce4e4);
+  --s3d-button-danger-bg:color-mix(in srgb, var(--color-danger, var(--s3d-danger)) 14%, transparent);
+  --s3d-button-danger-text:var(--color-danger, var(--s3d-danger));
+  --s3d-button-danger-border:color-mix(in srgb, var(--color-danger, var(--s3d-danger)) 48%, var(--color-border, #dce4e4));
+  --s3d-button-success-bg:var(--color-success, var(--s3d-success));
+  --s3d-button-success-text:#ffffff;
+  --s3d-button-success-border:color-mix(in srgb, var(--color-success, var(--s3d-success)) 52%, transparent);
 }
 
 *,
@@ -904,6 +919,15 @@ body.auth-screen-active #app-shell.erp-theme-v2 #app{
 
 .erp-theme-v2 .s3d-plans-v2 .plans-pricing-grid{
   grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.erp-theme-v2 .s3d-button.theme-mode-toggle{
+  width:34px;
+  height:34px;
+  min-width:34px;
+  min-height:34px;
+  max-width:34px;
+  max-height:34px;
 }
 
 @media (min-width:768px) and (max-width:1180px){

@@ -25,8 +25,8 @@ const requiredSuperadmin = [
   "function renderMenuAcoesSuperadmin",
   "Adicionar dias ao acesso",
   "Anonimizar dados pessoais",
-  "aria-label=\"Abrir menu principal\"",
-  "role=\"tablist\" aria-label=\"Áreas do Superadmin\""
+  "role=\"tablist\" aria-label=\"Áreas do Superadmin\"",
+  "role=\"tablist\" aria-label=\"Navegação Superadmin mobile\""
 ];
 const missingSuperadmin = requiredSuperadmin.filter((snippet) => !app.includes(snippet));
 if (missingSuperadmin.length) {
@@ -74,7 +74,7 @@ const requiredMobileOrganization = [
   ".ui-section.ui-subscreen-active > .ui-section-body :where(\n    .settings-group,",
   "body[data-ui-profile=\"android_apk\"].mobile-mode .ui-section.ui-subscreen-active > .ui-section-body",
   "body[data-ui-profile=\"android_apk\"].mobile-mode .profile-usage-grid",
-  "security-password-card security-mobile-card\" name=\"account-security\"",
+  "settings-group security-settings-card security-mobile-card",
   "body.mobile-mode .security-page .security-settings-card{\n    border:0;",
   "systemViewOverFade"
 ];

@@ -2,9 +2,9 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.58-rc";
-const APP_VERSION_CODE = 57;
-const APP_SHELL_VERSION = "2a";
+const APP_VERSION = "1.0.61-rc";
+const APP_VERSION_CODE = 60;
+const APP_SHELL_VERSION = "2j";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
   sidebar: "app-sidebar",
@@ -30,6 +30,7 @@ const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d-everton191s-projects.vercel.app");
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
+const GOOGLE_AUTH_ENABLED = true;
 const SUPABASE_REQUEST_TIMEOUT_MS = 25000;
 const SUPPORT_EMAIL = "simplifica3d.app@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
@@ -42,8 +43,8 @@ const APP_DEBUG_MODE = (() => {
   }
 })();
 const THEME_LIGHT_PALETTES = Object.freeze([
-  { id: "soft-teal", label: "Soft Teal", primary: "#0F766E", secondary: "#C2410C", surface: "#F8FAFC", hover: "#EAF1F6", border: "#C8D3DE", text: "#10202B", accent: "#C2410C", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
-  { id: "petroleo", label: "Petróleo", primary: "#073B4B", secondary: "#D97706", surface: "#F8FAFC", hover: "#E8F0F4", border: "#C1CDD8", text: "#10202B", accent: "#D97706", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
+  { id: "soft-teal", label: "Ciano Simplifica", primary: "#72E6E8", primaryHover: "#45CDD0", secondary: "#C2410C", surface: "#F8FAFC", hover: "#E1F8F8", border: "#A7E4E5", text: "#10202B", accent: "#C2410C", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
+  { id: "petroleo", label: "Azul Oceano", primary: "#34778C", primaryHover: "#2A6577", secondary: "#D97706", surface: "#F8FAFC", hover: "#E4EFF2", border: "#ACC9D0", text: "#10202B", accent: "#D97706", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
   { id: "minimal-blue", label: "Minimal Blue", primary: "#2563EB", secondary: "#C2410C", surface: "#F8FAFC", hover: "#EAF0FA", border: "#C8D3DE", text: "#10202B", accent: "#C2410C", success: "#15803D", warning: "#B45309", danger: "#B91C1C" },
   { id: "light-graphite", label: "Light Graphite", primary: "#475569", secondary: "#0F766E", surface: "#F8FAFC", hover: "#E7EDF3", border: "#C5D0DB", text: "#10202B", accent: "#0F766E", success: "#15803D", warning: "#B45309", danger: "#B91C1C" }
 ]);
@@ -59,6 +60,9 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
+const PRINTER_FEATURE_ENABLED = false;
+const PERSONALIZATION_SCREEN_ENABLED = false;
+const ERP_THEME_PREFERENCE_STORAGE_KEY = "simplifica3d:erp-theme-preference";
 const FREE_ACTION_CREDIT_LIMIT = 5;
 const FREE_ACTION_AD_BONUS_LIMIT = 5;
 const FREE_ACTION_DAILY_MAX = FREE_ACTION_CREDIT_LIMIT + FREE_ACTION_AD_BONUS_LIMIT;
@@ -176,6 +180,14 @@ const PLAN_ACCESS_STATES = Object.freeze({
   PENDING: "PENDING",
   EXPIRED: "EXPIRED",
   BLOCKED: "BLOCKED"
+});
+const STOREFRONT_PUBLICATION_STATUS = Object.freeze({
+  DRAFT: "draft",
+  PUBLISHED: "published",
+  UNPUBLISHED: "unpublished",
+  SUSPENDED_PLAN: "suspended_plan",
+  SUSPENDED_PAYMENT: "suspended_payment",
+  ARCHIVED: "archived"
 });
 const PLAN_DEBUG_ENABLED = false;
 const LOCAL_CHECKOUT_PENDING_TTL_MS = 30 * 60 * 1000;
@@ -409,40 +421,370 @@ const QUICK_ACTIONS_CATALOG = Object.freeze([
   { id: "pdf", label: "PDF", iconKey: "pdf", requiresOrder: true, customAction: "pdf" }
 ]);
 
-const telas = {
-  dashboard: "Início",
-  calculadora: "Calculadora 3D",
-  pedido: "Novo pedido",
-  producao: "Produção",
-  estoque: "Estoque",
-  pedidos: "Pedidos",
-  clientes: "Clientes",
-  caixa: "Caixa",
-  relatorios: "Relatórios",
-  config: "Sistema",
-  empresa: "Empresa",
-  backup: "Sistema",
-  preferencias: "Calculadora",
-  personalizacao: "Aparência",
-  pdf: "PDF",
-  mais: "Mais",
-  conta: "Usuário",
-  assinatura: "Plano",
-  minhaAssinatura: "Minha Assinatura",
-  usuarios: "Usuários",
-  seguranca: "Segurança",
-  planos: "Planos",
-  admin: "Admin",
-  lojaOnline: "Loja Online",
-  lojaAdmin: "Admin da Loja",
-  superadmin: "Super Admin",
-  onboarding: "Introdução",
-  feedback: "Sugestões de melhorias",
-  sobre: "Sobre",
-  privacy: "Política de Privacidade",
-  terms: "Termos de Uso",
-  acessoNegado: "Acesso negado"
-};
+const INTERFACE_MODES = Object.freeze({
+  SIMPLIFICA: "simplifica",
+  PROFISSIONAL: "profissional"
+});
+const INTERFACE_MODE_VALUES = Object.freeze({
+  SIMPLE: "simple",
+  ADVANCED: "advanced"
+});
+const INTERFACE_MODE_STORAGE_KEY = "simplifica_interface_mode";
+const INTERFACE_MODE_LEGACY_STORAGE_KEY = "simplifica3d:interface_mode";
+const INTERFACE_MODE_LABELS = Object.freeze({
+  simplifica: "Modo simples",
+  profissional: "Modo avançado"
+});
+const PLAN_RANK = Object.freeze({ free: 0, start: 1, pro: 2, premium: 2 });
+const FEATURE_ACCESS_STATES = Object.freeze({
+  ENABLED: "enabled",
+  LOCKED_BY_PLAN: "locked_by_plan",
+  HIDDEN_BY_MODE: "hidden_by_mode",
+  BLOCKED_BY_ROLE: "blocked_by_role",
+  DISABLED_BY_STATUS: "disabled_by_status",
+  LIMIT_REACHED: "limit_reached"
+});
+const FEATURE_ACCESS_ROLES = Object.freeze({
+  ALL: ["owner", "admin", "manager", "cashier", "production", "sales", "viewer"],
+  OPERATORS: ["owner", "admin", "manager"],
+  BASIC_ORDERS: ["owner", "admin", "manager", "cashier", "production", "sales", "viewer"],
+  BASIC_CALCULATOR: ["owner", "admin", "manager", "production", "sales"],
+  STOCK: ["owner", "admin", "manager", "production", "sales", "viewer"],
+  CASHIER: ["owner", "admin", "manager", "cashier", "sales"],
+  SETTINGS: ["owner", "admin", "manager"],
+  OWNER_ONLY: ["owner"]
+});
+const FEATURE_MATRIX = Object.freeze({
+  dashboardBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["dashboard"] },
+  ordersBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["pedido", "pedidos"] },
+  calculatorBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["calculadora"] },
+  productsAndStockBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["estoque"] },
+  cashBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["caixa"] },
+  storeSimple: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["lojaOnline", "lojaAdmin"] },
+  settingsBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["config", "conta", "seguranca", "feedback", "sobre"] },
+  companyAdministration: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["administracao"] },
+  clientsAdvanced: { simplifica: false, profissional: true, requiredPlan: "free", screens: ["clientes"] },
+  productionAdvanced: { simplifica: false, profissional: true, requiredPlan: "start", screens: ["producao"] },
+  printersBasic: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["impressoras"] },
+  reportsAdvanced: { simplifica: true, profissional: true, requiredPlan: "pro", screens: ["relatorios"] },
+  companySettingsAdvanced: { simplifica: false, profissional: true, requiredPlan: "free", screens: ["empresa"] },
+  calculatorSettingsAdvanced: { simplifica: false, profissional: true, requiredPlan: "free", screens: ["preferencias"] },
+  appearanceSettingsAdvanced: { simplifica: false, profissional: true, requiredPlan: "start", screens: ["personalizacao", "pdf"] },
+  usersAdvanced: { simplifica: false, profissional: true, requiredPlan: "pro", screens: ["usuarios"] },
+  subscriptionScreens: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["assinatura", "minhaAssinatura", "planos"] },
+  adminScreens: { simplifica: true, profissional: true, requiredPlan: "free", screens: ["admin", "onboarding", "privacy", "terms", "acessoNegado", "lojaPublica", "superadmin"] }
+});
+const FEATURE_ACCESS_REGISTRY = Object.freeze({
+  basic_dashboard: { label: "Dashboard simples", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.ALL, screens: ["dashboard"], requiresActivePlan: false },
+  advanced_dashboard: { label: "Dashboard avançado", requiredPlan: "pro", modes: ["profissional"], roles: ["owner", "admin", "manager", "viewer"], screens: ["dashboard"] },
+  basic_calculator: { label: "Calculadora básica", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.BASIC_CALCULATOR, screens: ["calculadora"], requiresActivePlan: false },
+  professional_calculator: { label: "Calculadora profissional", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "production", "sales"], screens: ["preferencias"] },
+  calculator_settings: { label: "Configurações da calculadora", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.SETTINGS, screens: ["preferencias"] },
+  basic_orders: { label: "Pedidos básicos", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.BASIC_ORDERS, screens: ["pedido", "pedidos"], requiresActivePlan: false },
+  advanced_orders: { label: "Pedidos avançados", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"] },
+  basic_products: { label: "Produtos básicos", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "sales", "production", "viewer"], screens: ["estoque"], requiresActivePlan: false },
+  advanced_products: { label: "Produtos avançados", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "sales"] },
+  basic_stock: { label: "Estoque básico", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.STOCK, screens: ["estoque"], requiresActivePlan: false },
+  spool_stock: { label: "Estoque por rolo", requiredPlan: "pro", partialPlan: "start", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.STOCK, screens: ["estoque"] },
+  stock_settings: { label: "Configurações de estoque", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.SETTINGS },
+  simple_cashier: { label: "Caixa simples", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.CASHIER, screens: ["caixa"], requiresActivePlan: false },
+  advanced_cashier: { label: "Caixa avançado", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "cashier"], screens: ["caixa"] },
+  basic_store: { label: "Loja simples", requiredPlan: "start", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "sales", "viewer"], screens: ["lojaOnline", "lojaAdmin"] },
+  advanced_store: { label: "Loja avançada", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "sales"], screens: ["lojaAdmin"] },
+  simple_production: { label: "Produção simples", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"], screens: ["producao"], requiresActivePlan: false },
+  advanced_production: { label: "Produção avançada", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "production"], screens: ["producao"] },
+  machines_assets: { label: "Máquinas e ativos", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "production"] },
+  printer_registry: { label: "Cadastro de impressoras", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"], screens: ["impressoras"], requiresActivePlan: false },
+  printer_monitoring: { label: "Monitoramento de impressoras", requiredPlan: "pro", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"] },
+  printer_remote_control: { label: "Controle remoto de impressoras", requiredPlan: "pro", modes: ["profissional"], roles: ["owner", "admin"], strongConfirmation: true, future: true },
+  simple_reports: { label: "Relatórios simples", requiredPlan: "start", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "cashier", "production", "sales", "viewer"], screens: ["relatorios"] },
+  advanced_reports: { label: "Relatórios avançados", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "cashier", "production", "sales", "viewer"], screens: ["relatorios"] },
+  employees_management: { label: "Funcionários e permissões", requiredPlan: "pro", modes: ["profissional"], roles: ["owner", "admin"], screens: ["usuarios"] },
+  basic_account_security: { label: "Conta e segurança básica", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.ALL, screens: ["conta", "seguranca"], requiresActivePlan: false },
+  advanced_account_security: { label: "Segurança avançada", requiredPlan: "pro", partialPlan: "start", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.ALL, screens: ["seguranca"] },
+  account_deletion: { label: "Exclusão de conta", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.OWNER_ONLY, screens: ["seguranca"], strongConfirmation: true },
+  theme_settings: { label: "Configurações de tema", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.SETTINGS, screens: ["personalizacao"] }
+});
+
+const UI_BUTTON_RELATIONS = Object.freeze({
+  primary: Object.freeze({ className: "primary", tokenSet: "action-primary", tokens: ["--s3d-button-primary-bg", "--s3d-button-primary-text", "--s3d-button-primary-border"] }),
+  secondary: Object.freeze({ className: "secondary", tokenSet: "action-secondary", tokens: ["--s3d-button-secondary-bg", "--s3d-button-secondary-text", "--s3d-button-secondary-border"] }),
+  ghost: Object.freeze({ className: "ghost", tokenSet: "action-ghost", tokens: ["--s3d-button-ghost-bg", "--s3d-button-ghost-text", "--s3d-button-ghost-border"] }),
+  outline: Object.freeze({ className: "outline", tokenSet: "action-outline", tokens: ["--s3d-button-ghost-bg", "--s3d-button-secondary-text", "--s3d-button-secondary-border"] }),
+  danger: Object.freeze({ className: "danger", tokenSet: "action-danger", tokens: ["--s3d-button-danger-bg", "--s3d-button-danger-text", "--s3d-button-danger-border"] }),
+  success: Object.freeze({ className: "success", tokenSet: "action-success", tokens: ["--s3d-button-success-bg", "--s3d-button-success-text", "--s3d-button-success-border"] })
+});
+
+const UI_ICON_TOKEN_REGISTRY = Object.freeze({
+  dashboard: Object.freeze({ label: "Home", lucide: "LayoutDashboard", group: "principal" }),
+  pedidos: Object.freeze({ label: "Pedidos", lucide: "ClipboardList", group: "principal" }),
+  pedido: Object.freeze({ label: "Novo pedido", lucide: "FileText", group: "principal" }),
+  producao: Object.freeze({ label: "Produção", lucide: "PrinterCheck", group: "principal" }),
+  impressoras: Object.freeze({ label: "Impressoras", lucide: "PrinterCog", group: "operation" }),
+  caixa: Object.freeze({ label: "Caixa", lucide: "WalletCards", group: "principal" }),
+  clientes: Object.freeze({ label: "Clientes", lucide: "UsersRound", group: "principal" }),
+  estoque: Object.freeze({ label: "Estoque", lucide: "PackageOpen", group: "principal" }),
+  financeiro: Object.freeze({ label: "Financeiro", lucide: "CircleDollarSign", group: "principal" }),
+  relatorios: Object.freeze({ label: "Relatórios", lucide: "ChartNoAxesColumn", group: "principal" }),
+  lojaonline: Object.freeze({ label: "Loja online", lucide: "Store", group: "principal" }),
+  config: Object.freeze({ label: "Ajustes", lucide: "Settings", group: "principal" }),
+  calculadora: Object.freeze({ label: "Calculadora 3D", lucide: "Calculator", group: "operation" }),
+  preferencias: Object.freeze({ label: "Preferências", lucide: "SlidersHorizontal", group: "settings" }),
+  empresa: Object.freeze({ label: "Dados da empresa", lucide: "Building2", group: "admin" }),
+  assinatura: Object.freeze({ label: "Plano e assinatura", lucide: "CreditCard", group: "admin" }),
+  usuarios: Object.freeze({ label: "Funcionários", lucide: "UserRoundCog", group: "admin" }),
+  seguranca: Object.freeze({ label: "Permissões", lucide: "ShieldCheck", group: "admin" }),
+  cargo: Object.freeze({ label: "Cargos e funções", lucide: "UserCheck", group: "admin" }),
+  gruposAcesso: Object.freeze({ label: "Grupos de acesso", lucide: "UsersRoundCog", group: "admin" }),
+  departamentos: Object.freeze({ label: "Departamentos", lucide: "GitBranch", group: "admin" }),
+  politicas: Object.freeze({ label: "Políticas de acesso", lucide: "FileShield", group: "admin" }),
+  sessoes: Object.freeze({ label: "Sessões ativas", lucide: "MonitorSmartphone", group: "admin" }),
+  historico: Object.freeze({ label: "Histórico de acessos", lucide: "History", group: "admin" }),
+  logs: Object.freeze({ label: "Logs e auditoria", lucide: "FileClock", group: "admin" }),
+  loginSeguranca: Object.freeze({ label: "Segurança e login", lucide: "LockKeyhole", group: "admin" }),
+  autenticacao2fa: Object.freeze({ label: "Autenticação 2FA", lucide: "KeyRound", group: "admin" }),
+  recuperacaoSenha: Object.freeze({ label: "Recuperação de senha", lucide: "MailQuestion", group: "admin" }),
+  dispositivos: Object.freeze({ label: "Dispositivos", lucide: "Devices", group: "admin" }),
+  catalogo: Object.freeze({ label: "Catálogo da loja", lucide: "ShoppingBag", group: "operation" }),
+  tag: Object.freeze({ label: "Categorias e tags", lucide: "Tags", group: "operation" }),
+  produtosLoja: Object.freeze({ label: "Produtos da loja", lucide: "PackageSearch", group: "operation" }),
+  carrinho: Object.freeze({ label: "Pedidos da loja", lucide: "ShoppingCart", group: "operation" }),
+  cupom: Object.freeze({ label: "Cupons e descontos", lucide: "BadgePercent", group: "operation" }),
+  estrela: Object.freeze({ label: "Avaliações", lucide: "Star", group: "operation" }),
+  imagem: Object.freeze({ label: "Banner e aparência", lucide: "Image", group: "operation" }),
+  mensagens: Object.freeze({ label: "Canais de atendimento", lucide: "MessagesSquare", group: "operation" }),
+  movimentacoes: Object.freeze({ label: "Movimentações", lucide: "ArrowUpDown", group: "operation" }),
+  sangria: Object.freeze({ label: "Sangria e suprimento", lucide: "HandCoins", group: "operation" }),
+  fechamento: Object.freeze({ label: "Fechamento de caixa", lucide: "Lock", group: "operation" }),
+  conciliacao: Object.freeze({ label: "Conciliação", lucide: "CheckCircle2", group: "operation" }),
+  grupoClientes: Object.freeze({ label: "Grupos de clientes", lucide: "Users", group: "operation" }),
+  tagCliente: Object.freeze({ label: "Tags de clientes", lucide: "Bookmark", group: "operation" }),
+  listaPrecos: Object.freeze({ label: "Lista de preços", lucide: "ListChecks", group: "operation" }),
+  filaImpressao: Object.freeze({ label: "Fila de impressão", lucide: "ListOrdered", group: "operation" }),
+  statusProducao: Object.freeze({ label: "Status de produção", lucide: "Activity", group: "operation" }),
+  entrega: Object.freeze({ label: "Entregas e envios", lucide: "Truck", group: "operation" }),
+  produtos: Object.freeze({ label: "Produtos e materiais", lucide: "Boxes", group: "operation" }),
+  estoqueMovimento: Object.freeze({ label: "Movimentações de estoque", lucide: "ArrowLeftRight", group: "operation" }),
+  alerta: Object.freeze({ label: "Alertas de estoque", lucide: "AlertTriangle", group: "operation" }),
+  aparencia: Object.freeze({ label: "Aparência do sistema", lucide: "Palette", group: "settings" }),
+  tema: Object.freeze({ label: "Temas e cores", lucide: "Paintbrush2", group: "settings" }),
+  bell: Object.freeze({ label: "Notificações", lucide: "BellRing", group: "settings" }),
+  email: Object.freeze({ label: "E-mail", lucide: "AtSign", group: "settings" }),
+  integracoes: Object.freeze({ label: "Integrações", lucide: "Cable", group: "settings" }),
+  whatsapp: Object.freeze({ label: "WhatsApp", lucide: "MessageCircle", group: "settings" }),
+  contatoGoogle: Object.freeze({ label: "Google / Contatos", lucide: "UserRoundPlus", group: "settings" }),
+  backup: Object.freeze({ label: "Backup da empresa", lucide: "CloudUpload", group: "settings" }),
+  importar: Object.freeze({ label: "Importar dados", lucide: "Upload", group: "settings" }),
+  exportar: Object.freeze({ label: "Exportar dados", lucide: "Download", group: "settings" }),
+  database: Object.freeze({ label: "Banco de dados", lucide: "Database", group: "settings" }),
+  statusSistema: Object.freeze({ label: "Status do sistema", lucide: "Server", group: "settings" }),
+  ajuda: Object.freeze({ label: "Central de ajuda", lucide: "CircleHelp", group: "settings" }),
+  feedback: Object.freeze({ label: "Ajuda e suporte", lucide: "LifeBuoy", group: "settings" }),
+  conta: Object.freeze({ label: "Meu perfil", lucide: "UserRound", group: "account" }),
+  search: Object.freeze({ label: "Pesquisar", lucide: "Search", group: "system" }),
+  admin: Object.freeze({ label: "Admin", lucide: "ShieldUser", group: "admin" }),
+  agenda: Object.freeze({ label: "Agenda", lucide: "CalendarDays", group: "system" }),
+  back: Object.freeze({ label: "Voltar", lucide: "ArrowLeft", group: "system" }),
+  check: Object.freeze({ label: "Confirmar", lucide: "Check", group: "system" }),
+  edit: Object.freeze({ label: "Editar", lucide: "Pencil", group: "system" }),
+  menu: Object.freeze({ label: "Menu", lucide: "Menu", group: "system" }),
+  pdf: Object.freeze({ label: "PDF", lucide: "FileDown", group: "system" }),
+  plus: Object.freeze({ label: "Adicionar", lucide: "Plus", group: "system" }),
+  print: Object.freeze({ label: "Imprimir", lucide: "Printer", group: "system" }),
+  refresh: Object.freeze({ label: "Atualizar", lucide: "RefreshCw", group: "system" }),
+  time: Object.freeze({ label: "Horário", lucide: "Clock", group: "system" }),
+  trash: Object.freeze({ label: "Excluir", lucide: "Trash2", group: "system" }),
+  tutorial: Object.freeze({ label: "Tutoriais", lucide: "BookOpen", group: "settings" }),
+  atalhos: Object.freeze({ label: "Atalhos do teclado", lucide: "Keyboard", group: "settings" }),
+  suporte: Object.freeze({ label: "Fale com o suporte", lucide: "Headphones", group: "settings" }),
+  sobre: Object.freeze({ label: "Sobre o sistema", lucide: "Info", group: "settings" }),
+  superadmin: Object.freeze({ label: "Super Admin", lucide: "Crown", group: "platform" })
+});
+
+const UI_ICON_ALIASES = Object.freeze({
+  inicio: "dashboard",
+  administracao: "empresa",
+  minhaassinatura: "assinatura",
+  lojaadmin: "lojaonline",
+  lojaonline: "lojaonline",
+  preferencias: "preferencias",
+  personalizacao: "aparencia",
+  home: "dashboard",
+  layoutdashboard: "dashboard",
+  clipboardlist: "pedidos",
+  printer: "producao",
+  printericon: "impressoras",
+  printercheck: "producaoCheck",
+  walletcards: "caixa",
+  usersround: "clientes",
+  packageopen: "estoque",
+  circledollarsign: "financeiro",
+  chartnoaxescolumn: "relatorios",
+  store: "lojaonline",
+  settings: "config",
+  settings2: "config",
+  slidershorizontal: "preferencias",
+  building2: "empresa",
+  creditcard: "assinatura",
+  userroundcog: "usuarios",
+  usercheck: "cargo",
+  usersroundcog: "gruposAcesso",
+  shieldcheck: "seguranca",
+  shielduser: "admin",
+  gitbranch: "departamentos",
+  fileshield: "politicas",
+  monitorsmartphone: "sessoes",
+  history: "historico",
+  fileclock: "logs",
+  lockkeyhole: "loginSeguranca",
+  keyround: "autenticacao2fa",
+  mailquestion: "recuperacaoSenha",
+  devices: "dispositivos",
+  shoppingbag: "catalogo",
+  tags: "tag",
+  packagesearch: "produtosLoja",
+  shoppingcart: "carrinho",
+  badgepercent: "cupom",
+  star: "estrela",
+  image: "imagem",
+  messagesquare: "mensagens",
+  arrowupdown: "movimentacoes",
+  arrowleftright: "estoqueMovimento",
+  handcoins: "sangria",
+  lock: "fechamento",
+  checkcircle2: "conciliacao",
+  users: "grupoClientes",
+  bookmark: "tagCliente",
+  listchecks: "listaPrecos",
+  filetext: "orcamento",
+  listordered: "filaImpressao",
+  activity: "statusProducao",
+  truck: "entrega",
+  boxes: "produtos",
+  alerttriangle: "alerta",
+  palette: "aparencia",
+  paintbrush2: "tema",
+  bellring: "bell",
+  mail: "email",
+  cable: "integracoes",
+  messagecircle: "whatsapp",
+  atsign: "email",
+  userroundplus: "contatoGoogle",
+  cloudupload: "backup",
+  upload: "importar",
+  download: "exportar",
+  database: "database",
+  server: "statusSistema",
+  circlehelp: "ajuda",
+  bookopen: "tutorial",
+  keyboard: "atalhos",
+  headphones: "suporte",
+  info: "sobre",
+  search: "search",
+  editar: "edit",
+  sync: "refresh",
+  refreshcw: "refresh",
+  calendar: "agenda",
+  calendardays: "agenda",
+  arrowleft: "back",
+  pencil: "edit",
+  trash2: "trash",
+  check: "check",
+  plus: "plus"
+});
+
+function normalizeUiIconKey(value = "") {
+  return String(value || "").toLowerCase().replace(/[\s_-]+/g, "");
+}
+
+function getCanonicalUiIconKey(value = "", fallback = "dashboard") {
+  const rawValue = String(value || "");
+  const rawFallback = String(fallback || "dashboard");
+  const directValue = rawValue.toLowerCase();
+  const normalizedValue = normalizeUiIconKey(rawValue);
+  const directFallback = rawFallback.toLowerCase();
+  const normalizedFallback = normalizeUiIconKey(rawFallback);
+  return UI_ICON_ALIASES[normalizedValue]
+    || (UI_ICON_TOKEN_REGISTRY[rawValue] ? rawValue : "")
+    || (UI_ICON_TOKEN_REGISTRY[directValue] ? directValue : "")
+    || (UI_ICON_TOKEN_REGISTRY[normalizedValue] ? normalizedValue : "")
+    || UI_ICON_ALIASES[normalizedFallback]
+    || (UI_ICON_TOKEN_REGISTRY[directFallback] ? directFallback : "")
+    || "dashboard";
+}
+
+const UI_SCREEN_RELATIONS = Object.freeze({
+  dashboard: Object.freeze({ label: "Início", icon: "dashboard", tokenSet: "workspace" }),
+  calculadora: Object.freeze({ label: "Calculadora 3D", icon: "calculadora", tokenSet: "operation" }),
+  pedido: Object.freeze({ label: "Novo pedido", icon: "pedido", tokenSet: "operation" }),
+  producao: Object.freeze({ label: "Produção", icon: "producao", tokenSet: "operation" }),
+  impressoras: Object.freeze({ label: "Impressoras", icon: "impressoras", tokenSet: "operation" }),
+  estoque: Object.freeze({ label: "Estoque", icon: "estoque", tokenSet: "operation" }),
+  pedidos: Object.freeze({ label: "Pedidos", icon: "pedidos", tokenSet: "operation" }),
+  clientes: Object.freeze({ label: "Clientes", icon: "clientes", tokenSet: "operation" }),
+  caixa: Object.freeze({ label: "Caixa", icon: "caixa", tokenSet: "finance" }),
+  relatorios: Object.freeze({ label: "Relatórios", icon: "relatorios", tokenSet: "reports" }),
+  config: Object.freeze({ label: "Sistema", icon: "config", tokenSet: "settings" }),
+  empresa: Object.freeze({ label: "Empresa", icon: "empresa", tokenSet: "settings" }),
+  administracao: Object.freeze({ label: "Administração", icon: "departamentos", tokenSet: "settings" }),
+  backup: Object.freeze({ label: "Sistema", icon: "backup", tokenSet: "settings" }),
+  preferencias: Object.freeze({ label: "Calculadora", icon: "preferencias", tokenSet: "settings" }),
+  personalizacao: Object.freeze({ label: "Aparência", icon: "aparencia", tokenSet: "settings" }),
+  pdf: Object.freeze({ label: "PDF", icon: "pdf", tokenSet: "settings" }),
+  mais: Object.freeze({ label: "Mais", icon: "more", tokenSet: "navigation" }),
+  conta: Object.freeze({ label: "Usuário", icon: "conta", tokenSet: "account" }),
+  assinatura: Object.freeze({ label: "Plano", icon: "assinatura", tokenSet: "account" }),
+  minhaAssinatura: Object.freeze({ label: "Minha Assinatura", icon: "financeiro", tokenSet: "account" }),
+  usuarios: Object.freeze({ label: "Usuários", icon: "usuarios", tokenSet: "security" }),
+  seguranca: Object.freeze({ label: "Segurança", icon: "seguranca", tokenSet: "security" }),
+  planos: Object.freeze({ label: "Planos", icon: "listaPrecos", tokenSet: "account" }),
+  admin: Object.freeze({ label: "Admin", icon: "admin", tokenSet: "security" }),
+  lojaOnline: Object.freeze({ label: "Loja Online", icon: "lojaonline", tokenSet: "storefront" }),
+  lojaAdmin: Object.freeze({ label: "Admin da Loja", icon: "catalogo", tokenSet: "storefront" }),
+  superadmin: Object.freeze({ label: "Super Admin", icon: "superadmin", tokenSet: "platform" }),
+  onboarding: Object.freeze({ label: "Introdução", icon: "home", tokenSet: "public" }),
+  feedback: Object.freeze({ label: "Sugestões de melhorias", icon: "feedback", tokenSet: "support" }),
+  sobre: Object.freeze({ label: "Sobre", icon: "sobre", tokenSet: "public" }),
+  privacy: Object.freeze({ label: "Política de Privacidade", icon: "politicas", tokenSet: "public" }),
+  terms: Object.freeze({ label: "Termos de Uso", icon: "orcamento", tokenSet: "public" }),
+  acessoNegado: Object.freeze({ label: "Acesso negado", icon: "fechamento", tokenSet: "security" })
+});
+
+const telas = Object.freeze(Object.fromEntries(
+  Object.entries(UI_SCREEN_RELATIONS).map(([id, relation]) => [id, relation.label])
+));
+
+const NAVIGATION_AUDIT_REGISTRY = Object.freeze({
+  dashboard: Object.freeze({ label: "Início", category: "principal", component: "renderDashboard", status: "active", permission: "basic_dashboard", desktop: true, mobile: true }),
+  pedidos: Object.freeze({ label: "Pedidos", category: "operacional", component: "renderListaPedidos", status: "active", permission: "basic_orders", desktop: true, mobile: true }),
+  pedido: Object.freeze({ label: "Novo pedido", category: "operacional", component: "renderPedido", status: "active", permission: "basic_orders", desktop: true, mobile: false }),
+  clientes: Object.freeze({ label: "Clientes", category: "operacional", component: "renderClientes", status: "active", permission: "basic_customers", desktop: true, mobile: false }),
+  calculadora: Object.freeze({ label: "Calculadora", category: "operacional", component: "renderCalculadoraTela", status: "active", permission: "basic_calculator", desktop: true, mobile: true }),
+  estoque: Object.freeze({ label: "Estoque", category: "estoque", component: "renderEstoque", status: "active", permission: "basic_stock", desktop: true, mobile: false }),
+  caixa: Object.freeze({ label: "Caixa", category: "caixa", component: "renderCaixa", status: "active", permission: "simple_cashier", desktop: true, mobile: false }),
+  lojaOnline: Object.freeze({ label: "Loja Online", category: "loja", component: "renderLojaOnlineHub", status: "active", permission: "basic_store", desktop: true, mobile: true }),
+  relatorios: Object.freeze({ label: "Relatórios", category: "operacional", component: "renderRelatorios", status: "active", permission: "simple_reports", desktop: true, mobile: false }),
+  conta: Object.freeze({ label: "Perfil", category: "perfil", component: "renderConta", status: "active", permission: "basic_account_security", desktop: false, mobile: false }),
+  seguranca: Object.freeze({ label: "Segurança da conta", category: "perfil", component: "renderSeguranca", status: "active", permission: "basic_account_security", desktop: true, mobile: false }),
+  administracao: Object.freeze({ label: "Administração da empresa", category: "administracao", component: "renderAdministracaoEmpresa", status: "active", permission: "company_admin", desktop: true, mobile: false }),
+  usuarios: Object.freeze({ label: "Funcionários e permissões", category: "administracao", component: "renderAdmin", status: "active", permission: "employees_management", desktop: false, mobile: false }),
+  config: Object.freeze({ label: "Sistema", category: "sistema", component: "renderConfig", status: "active", permission: "settingsBasic", desktop: true, mobile: false }),
+  feedback: Object.freeze({ label: "Ajuda e suporte", category: "sistema", component: "renderFeedback", status: "active", permission: "support", desktop: true, mobile: true }),
+  sobre: Object.freeze({ label: "Sobre", category: "sistema", component: "renderSobre", status: "active", permission: "public", desktop: true, mobile: false }),
+  superadmin: Object.freeze({ label: "Superadmin", category: "superadmin", component: "renderSuperAdmin", status: "restricted", permission: "superadmin", desktop: true, mobile: false })
+});
+
+function getUiScreenRelation(screen = "") {
+  return UI_SCREEN_RELATIONS[String(screen || "")] || null;
+}
+
+function getNavigationAuditEntry(screen = "") {
+  return NAVIGATION_AUDIT_REGISTRY[String(screen || "")] || null;
+}
+
+function getUiButtonRelation(variant = "primary") {
+  return UI_BUTTON_RELATIONS[String(variant || "primary")] || UI_BUTTON_RELATIONS.primary;
+}
 
 let telaAtual = "dashboard";
 let storefrontPublicRouteState = null;
@@ -508,6 +850,7 @@ let resizeTimer = null;
 let adminLogado = sessionStorage.getItem("adminLogado") === "sim";
 let usuarioAtualEmail = sessionStorage.getItem("usuarioAtualEmail") || "";
 let twoFactorPending = null;
+let accountSecurityState = { loaded: false, loading: false, settings: null, deletion: null, events: [], company: null, role: "" };
 let updateTimer = null;
 let dashboardWindowAction = null;
 let dashboardPeriod = localStorage.getItem("dashboardPeriod") || "day";
@@ -636,8 +979,9 @@ let syncConfig = carregarObjeto("syncConfig", {
   supabaseTokenExpiresAt: 0,
   supabaseLastLogin: "",
   supabaseLastSync: "",
-  supabaseGoogleOAuthEnabled: false
+  supabaseGoogleOAuthEnabled: GOOGLE_AUTH_ENABLED
 });
+syncConfig.supabaseGoogleOAuthEnabled = GOOGLE_AUTH_ENABLED;
 if (!ENABLE_GOOGLE_DRIVE_BACKUP && syncConfig.autoBackupTarget === "drive") {
   syncConfig.autoBackupTarget = "supabase";
 }
@@ -684,9 +1028,9 @@ let appConfig = carregarObjeto("appConfig", {
   pdfHeaderText: "",
   brandWatermarkEnabled: true,
   theme: "light",
-  accentColor: "#00BFA6",
+  accentColor: "#72E6E8",
   appearanceSettings: {
-    primary_color: "#00BFA6",
+    primary_color: "#72E6E8",
     secondary_color: "#ff941c",
     pdf_background: "",
     logo_url: "",
@@ -696,6 +1040,7 @@ let appConfig = carregarObjeto("appConfig", {
   },
   compactMode: false,
   interfaceDensity: "default",
+  interfaceMode: "simplifica",
   motionLevel: "medium",
   showBrandInHeader: true,
   defaultMargin: 100,
@@ -789,6 +1134,237 @@ let appConfig = carregarObjeto("appConfig", {
 if (appConfig.sidebarCollapsed === true && appConfig.sidebarPreferenceSet !== true) {
   appConfig.sidebarCollapsed = false;
 }
+appConfig.theme = normalizarPreferenciaTemaInterface(localStorage.getItem(ERP_THEME_PREFERENCE_STORAGE_KEY) || appConfig.theme);
+
+function normalizarInterfaceMode(value = "") {
+  const mode = String(value || "").trim().toLowerCase();
+  return [INTERFACE_MODES.PROFISSIONAL, INTERFACE_MODE_VALUES.ADVANCED].includes(mode)
+    ? INTERFACE_MODES.PROFISSIONAL
+    : INTERFACE_MODES.SIMPLIFICA;
+}
+
+function getInterfaceModeStorageValue() {
+  return localStorage.getItem(INTERFACE_MODE_STORAGE_KEY)
+    || localStorage.getItem(INTERFACE_MODE_LEGACY_STORAGE_KEY)
+    || "";
+}
+
+function resolverInterfaceModePreferida(fallback = appConfig?.interfaceMode) {
+  return normalizarInterfaceMode(getInterfaceModeStorageValue() || fallback || INTERFACE_MODES.SIMPLIFICA);
+}
+
+function serializeInterfaceMode(mode = getInterfaceMode()) {
+  return normalizarInterfaceMode(mode) === INTERFACE_MODES.PROFISSIONAL
+    ? INTERFACE_MODE_VALUES.ADVANCED
+    : INTERFACE_MODE_VALUES.SIMPLE;
+}
+
+appConfig.interfaceMode = normalizarInterfaceMode(
+  getInterfaceModeStorageValue() || appConfig.interfaceMode
+);
+localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
+localStorage.removeItem(INTERFACE_MODE_LEGACY_STORAGE_KEY);
+
+function getInterfaceMode() {
+  appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
+  return appConfig.interfaceMode;
+}
+
+function isSimplificaMode() {
+  return getInterfaceMode() === INTERFACE_MODES.SIMPLIFICA;
+}
+
+function isProfissionalMode() {
+  return getInterfaceMode() === INTERFACE_MODES.PROFISSIONAL;
+}
+
+function getInterfaceModeLabel(mode = getInterfaceMode()) {
+  return INTERFACE_MODE_LABELS[normalizarInterfaceMode(mode)] || INTERFACE_MODE_LABELS.simplifica;
+}
+
+function setInterfaceMode(mode, { render = true, notify = true } = {}) {
+  const next = normalizarInterfaceMode(mode);
+  const changed = getInterfaceMode() !== next;
+  appConfig.interfaceMode = next;
+  localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(next));
+  if (!isScreenVisibleInCurrentMode(telaAtual, next)) {
+    telaAtual = "dashboard";
+  }
+  salvarDados();
+  salvarPreferenciaModoInterfaceRemota(next);
+  if (notify && changed) {
+    mostrarToast(`${getInterfaceModeLabel(next)} ativado. Os dados foram preservados.`, "sucesso", 3200);
+  }
+  if (render) renderizarPreservandoScroll();
+  return next;
+}
+
+function alternarInterfaceMode(mode) {
+  setInterfaceMode(mode);
+}
+
+const interfaceModePreferenceState = {
+  loading: false,
+  loadedUserId: "",
+  saving: false,
+  pendingMode: ""
+};
+
+async function salvarPreferenciaModoInterfaceRemota(mode = getInterfaceMode()) {
+  const userId = String(syncConfig.supabaseUserId || getUsuarioAtual()?.supabaseUserId || "").trim();
+  const serializedMode = serializeInterfaceMode(mode);
+  if (!userId || !syncConfig.supabaseAccessToken || !estaOnline()) return false;
+  if (interfaceModePreferenceState.saving) {
+    interfaceModePreferenceState.pendingMode = serializedMode;
+    return false;
+  }
+  interfaceModePreferenceState.saving = true;
+  try {
+    await requisicaoSupabase("/rest/v1/user_preferences?on_conflict=user_id", {
+      method: "POST",
+      telemetry: false,
+      timeoutMs: 12000,
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        user_id: userId,
+        interface_mode: serializedMode,
+        updated_at: new Date().toISOString()
+      })
+    });
+    interfaceModePreferenceState.loadedUserId = userId;
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Preferências", "Modo de uso salvo apenas neste aparelho", erro.message, { silent: true });
+    return false;
+  } finally {
+    interfaceModePreferenceState.saving = false;
+    const pendingMode = interfaceModePreferenceState.pendingMode;
+    interfaceModePreferenceState.pendingMode = "";
+    if (pendingMode && pendingMode !== serializedMode) {
+      setTimeout(() => salvarPreferenciaModoInterfaceRemota(pendingMode), 0);
+    }
+  }
+}
+
+async function sincronizarPreferenciaModoInterface() {
+  const userId = String(syncConfig.supabaseUserId || getUsuarioAtual()?.supabaseUserId || "").trim();
+  if (!userId || !syncConfig.supabaseAccessToken || !estaOnline()) return false;
+  if (interfaceModePreferenceState.loading || interfaceModePreferenceState.loadedUserId === userId) return true;
+  interfaceModePreferenceState.loading = true;
+  try {
+    const rows = await requisicaoSupabase(`/rest/v1/user_preferences?select=interface_mode,updated_at&user_id=eq.${encodeURIComponent(userId)}&limit=1`, {
+      method: "GET",
+      telemetry: false,
+      timeoutMs: 12000
+    });
+    const remoteMode = rows?.[0]?.interface_mode;
+    if (remoteMode && serializeInterfaceMode(getInterfaceMode()) !== remoteMode) {
+      setInterfaceMode(remoteMode, { render: true, notify: false });
+    } else if (!remoteMode) {
+      await salvarPreferenciaModoInterfaceRemota(getInterfaceMode());
+    }
+    interfaceModePreferenceState.loadedUserId = userId;
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Preferências", "Modo de uso remoto indisponível", erro.message, { silent: true });
+    return false;
+  } finally {
+    interfaceModePreferenceState.loading = false;
+  }
+}
+
+function abrirSeletorModoInterface() {
+  const mode = getInterfaceMode();
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop interface-mode-backdrop" role="dialog" aria-modal="true" aria-labelledby="interfaceModeTitle" onclick="fecharPopup()">
+      <section class="modal-card interface-mode-modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div><span class="eyebrow">Preferência pessoal</span><h2 id="interfaceModeTitle">Modo de uso</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
+        </div>
+        <p class="muted">Escolha o nível de detalhes da interface. Isso não altera seu plano nem suas permissões.</p>
+        <div class="interface-mode-options" role="radiogroup" aria-label="Modo da interface">
+          <button class="interface-mode-option ${mode === "simplifica" ? "active" : ""}" type="button" role="radio" aria-checked="${mode === "simplifica"}" onclick="selecionarModoInterface('simple')">
+            <span class="interface-mode-option-icon" aria-hidden="true">${renderUiIcon("home")}</span>
+            <span><strong>Usar modo simples</strong><small>Menus reduzidos e fluxos diretos</small></span>
+            <span class="interface-mode-option-check" aria-hidden="true">✓</span>
+          </button>
+          <button class="interface-mode-option ${mode === "profissional" ? "active" : ""}" type="button" role="radio" aria-checked="${mode === "profissional"}" onclick="selecionarModoInterface('advanced')">
+            <span class="interface-mode-option-icon" aria-hidden="true">${renderUiIcon("config")}</span>
+            <span><strong>Usar modo avançado</strong><small>Mais filtros, detalhes e ações permitidas</small></span>
+            <span class="interface-mode-option-check" aria-hidden="true">✓</span>
+          </button>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function selecionarModoInterface(mode) {
+  fecharPopup();
+  setInterfaceMode(mode);
+}
+
+function getFeatureEntry(featureKey = "") {
+  return FEATURE_MATRIX[String(featureKey || "")] || null;
+}
+
+function getFeatureEntryForScreen(screen = "") {
+  return Object.values(FEATURE_MATRIX).find((entry) => Array.isArray(entry.screens) && entry.screens.includes(screen)) || null;
+}
+
+function getCurrentPlanSlug(usuario = getUsuarioAtual()) {
+  const assinatura = getAssinaturaSaas?.(usuario?.clientId || billingConfig.clientId || "") || {};
+  return normalizarSlugPlano(assinatura.activePlan || assinatura.planSlug || billingConfig.activePlan || billingConfig.planSlug || usuario?.planSlug || "free");
+}
+
+function isPlanAtLeast(current = "free", required = "free") {
+  const atual = PLAN_RANK[normalizarSlugPlano(current)] ?? 0;
+  const necessario = PLAN_RANK[normalizarSlugPlano(required)] ?? 0;
+  return atual >= necessario;
+}
+
+function isFeatureVisibleByMode(featureKey = "", mode = getInterfaceMode()) {
+  const entry = getFeatureEntry(featureKey);
+  if (!entry) return true;
+  return entry[normalizarInterfaceMode(mode)] !== false;
+}
+
+function isFeatureLockedByPlan(featureKey = "", usuario = getUsuarioAtual()) {
+  const entry = getFeatureEntry(featureKey);
+  if (!entry || !entry.requiredPlan || entry.requiredPlan === "free" || isSuperAdmin(usuario)) return false;
+  return !isPlanAtLeast(getCurrentPlanSlug(usuario), entry.requiredPlan);
+}
+
+function isAdvancedFeatureVisible(featureKey = "", options = {}) {
+  return isFeatureVisibleByMode(featureKey, options.mode || getInterfaceMode()) && !isFeatureLockedByPlan(featureKey, options.usuario || getUsuarioAtual());
+}
+
+function isScreenVisibleInCurrentMode(screen = "", mode = getInterfaceMode()) {
+  const entry = getFeatureEntryForScreen(screen);
+  if (!entry) return true;
+  return entry[normalizarInterfaceMode(mode)] !== false;
+}
+
+function showInSimplifica(screenOrFeature = "") {
+  const entry = getFeatureEntry(screenOrFeature) || getFeatureEntryForScreen(screenOrFeature);
+  return entry ? entry.simplifica !== false : true;
+}
+
+function showInProfissional(screenOrFeature = "") {
+  const entry = getFeatureEntry(screenOrFeature) || getFeatureEntryForScreen(screenOrFeature);
+  return entry ? entry.profissional !== false : true;
+}
+
+function shouldShowMenuItem(item = {}, mode = getInterfaceMode()) {
+  if (!item?.tela) return true;
+  if (item.tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false;
+  if (item.alwaysVisible) return true;
+  if (!isScreenVisibleInCurrentMode(item.tela, mode)) return false;
+  return true;
+}
 
 const assistantResponses = [
   { keywords: ["criar pedido", "novo pedido", "montar pedido"], answer: "Para criar um pedido, abra Novo pedido, informe cliente e WhatsApp, adicione itens pela calculadora ou manualmente, revise o total e toque em Salvar." },
@@ -804,7 +1380,7 @@ const assistantResponses = [
   { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
   { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área de acesso para entrar com e-mail e senha. Sua sessão permanece ativa até você sair da conta. Se aparecer Acesso negado, confirme se o seu perfil ou plano libera aquela tela." },
   { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha para receber as instruções de recuperação." },
-  { keywords: ["usuario", "usuário", "usuarios", "usuários", "permissao", "permissão", "perfil"], answer: "Admin e superadmin podem criar usuários. Os perfis são superadmin, admin, operador e visualizador. Operador trabalha na operação; visualizador consulta; admin gerencia usuários e dados; superadmin acessa tudo." },
+  { keywords: ["usuario", "usuário", "usuarios", "usuários", "permissao", "permissão", "perfil"], answer: "Dono e admin gerenciam usuários. Os perfis operacionais são gerente, caixa, produção, vendas e visualizador; cada função aparece conforme plano, modo e permissão." },
   { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Em pedidos com entrada/sinal, o app lança somente o valor recebido e mantém o restante como saldo a receber." },
   { keywords: ["producao", "produção", "impressao", "impressão"], answer: "A tela Produção acompanha pedidos em aberto ou em andamento. Atualize o status para organizar o fluxo de impressão, entrega e finalização." }
 ];
@@ -1192,7 +1768,11 @@ const StateStore = {
       case "loginAttempts": loginAttempts = valor && typeof valor === "object" && !Array.isArray(valor) ? valor : {}; break;
       case "usuarios": usuarios = normalizarUsuarios(valor); break;
       case "syncConfig": syncConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...syncConfig, ...valor } : syncConfig; break;
-      case "appConfig": appConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...appConfig, ...valor } : appConfig; break;
+      case "appConfig":
+        appConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...appConfig, ...valor } : appConfig;
+        appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
+        localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
+        break;
       case "billingConfig": billingConfig = valor && typeof valor === "object" && !Array.isArray(valor) ? { ...billingConfig, ...valor } : billingConfig; break;
       case "usuarioAtualEmail":
         usuarioAtualEmail = normalizarEmail(valor || "");
@@ -1920,6 +2500,53 @@ const InventoryService = {
   getMateriais() {
     return normalizarEstoque();
   },
+  getMovementHistory() {
+    return (Array.isArray(historico) ? historico : [])
+      .filter((item) => String(item.acao || "").toLowerCase() === "estoque" || item.metadata?.area === "stock")
+      .filter((item) => item.metadata?.movement_type || /estoque|material/i.test(`${item.detalhes || ""}`));
+  },
+  hasMovementKey(idempotencyKey = "") {
+    const key = String(idempotencyKey || "").trim();
+    if (!key) return false;
+    return this.getMovementHistory().some((item) => String(item.metadata?.idempotency_key || "") === key);
+  },
+  createMovementMetadata({
+    movementType = "adjust",
+    material = {},
+    quantity = 0,
+    before = 0,
+    after = 0,
+    reason = "",
+    orderId = "",
+    orderItemId = "",
+    spoolId = "",
+    reversalOfMovementId = "",
+    idempotencyKey = ""
+  } = {}) {
+    return {
+      area: "stock",
+      movement_type: movementType,
+      material_id: String(material.id || ""),
+      material_name: String(material.nome || material.name || ""),
+      material_type: String(material.tipo || ""),
+      material_color: String(material.cor || ""),
+      quantity: Number(quantity) || 0,
+      unit: material.unidade || material.unit || "kg",
+      before_quantity: Number(before) || 0,
+      after_quantity: Number(after) || 0,
+      order_id: orderId ? String(orderId) : "",
+      order_item_id: orderItemId ? String(orderItemId) : "",
+      spool_id: spoolId ? String(spoolId) : "",
+      reversal_of_movement_id: reversalOfMovementId ? String(reversalOfMovementId) : "",
+      idempotency_key: String(idempotencyKey || ""),
+      reason: String(reason || "").trim(),
+      user_id: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "",
+      user_email: normalizarEmail(getUsuarioAtual()?.email || usuarioAtualEmail || "")
+    };
+  },
+  recordMovement(detalhes, metadata = {}) {
+    registrarHistorico("Estoque", detalhes, metadata);
+  },
   addMaterial({ tipo, cor, qtd }) {
     const tipoNormalizado = String(tipo || "PLA").trim() || "PLA";
     const corNormalizada = String(cor || "").trim();
@@ -1953,7 +2580,16 @@ const InventoryService = {
         last_restock_at: agora
       }))];
     StateStore.set("estoque", proximo, { persistir: true });
-    registrarHistorico("Estoque", (indice >= 0 ? "Reposição de estoque: " : "Material adicionado: ") + nome + " (" + quantidade + " kg)");
+    const materialRegistrado = indice >= 0 ? proximo[indice] : proximo[proximo.length - 1];
+    this.recordMovement((indice >= 0 ? "Reposição de estoque: " : "Material adicionado: ") + nome + " (" + quantidade + " kg)", this.createMovementMetadata({
+      movementType: indice >= 0 ? "entrada" : "entrada_inicial",
+      material: materialRegistrado,
+      quantity: quantidade,
+      before: indice >= 0 ? Math.max(0, Number(atual[indice]?.qtd) || 0) : 0,
+      after: Math.max(0, Number(materialRegistrado?.qtd) || 0),
+      reason: indice >= 0 ? "Reposição" : "Entrada inicial",
+      idempotencyKey: `stock_entry:${materialRegistrado?.id || nome}:${Date.now()}`
+    }));
     return proximo;
   },
   updateMaterial(indice, dados = {}) {
@@ -1969,6 +2605,15 @@ const InventoryService = {
     const tipo = inferirTipoMaterial(nomeInformado || material.nome);
     const cor = String(dados.cor ?? material.cor ?? "").trim();
     const qtd = this.parseNumberStrict(dados.qtd ?? material.qtd, "quantidade em kg", { min: 0 });
+    const qtdAntes = Math.max(0, Number(material.qtd) || 0);
+    const mudouQuantidade = Math.abs(qtd - qtdAntes) > 0.000001;
+    const motivo = String(dados.motivo || dados.reason || "").trim();
+    if (mudouQuantidade && !motivo) {
+      throw new AppError("Motivo obrigatório", {
+        code: "INVENTORY_ADJUST_REASON_REQUIRED",
+        userMessage: "Informe o motivo do ajuste de peso."
+      });
+    }
     const nome = nomeInformado || [tipo, cor].filter(Boolean).join(" ");
     const atualizado = prepararRegistroOnline(normalizarMaterialEstoque({
       ...material,
@@ -1982,7 +2627,15 @@ const InventoryService = {
     }));
     const proximo = atual.map((item, i) => i === Number(indice) ? atualizado : item);
     StateStore.set("estoque", proximo, { persistir: true });
-    registrarHistorico("Estoque", "Material editado: " + atualizado.nome);
+    this.recordMovement((mudouQuantidade ? "Ajuste de estoque: " : "Material editado: ") + atualizado.nome, this.createMovementMetadata({
+      movementType: mudouQuantidade ? "ajuste_manual" : "edicao",
+      material: atualizado,
+      quantity: qtd - qtdAntes,
+      before: qtdAntes,
+      after: qtd,
+      reason: motivo || "Edição cadastral",
+      idempotencyKey: `stock_adjust:${atualizado.id}:${Date.now()}`
+    }));
     return atualizado;
   },
   removeMaterial(indice) {
@@ -1990,7 +2643,15 @@ const InventoryService = {
     if (!atual[Number(indice)]) return atual;
     const proximo = atual.filter((_, i) => i !== Number(indice));
     StateStore.set("estoque", proximo, { persistir: true });
-    registrarHistorico("Estoque", "Material removido");
+    this.recordMovement("Material removido", this.createMovementMetadata({
+      movementType: "descarte",
+      material: atual[Number(indice)],
+      quantity: Number(atual[Number(indice)]?.qtd) || 0,
+      before: Number(atual[Number(indice)]?.qtd) || 0,
+      after: 0,
+      reason: "Remoção manual",
+      idempotencyKey: `stock_remove:${atual[Number(indice)]?.id || indice}:${Date.now()}`
+    }));
     return proximo;
   },
   validateStockDiff(diff = []) {
@@ -2007,7 +2668,7 @@ const InventoryService = {
     });
     return faltas;
   },
-  applyDiff(diff = [], motivo = "pedido") {
+  applyDiff(diff = [], motivo = "pedido", options = {}) {
     const atual = normalizarEstoque();
     const movimentos = [];
     const proximo = atual.map((material) => {
@@ -2015,9 +2676,32 @@ const InventoryService = {
       if (!item) return material;
       const consumo = this.parseNumberStrict(item.kg, "consumo de material", { min: null });
       const saldoAtual = this.parseNumberStrict(material.qtd, "saldo do material", { min: 0 });
+      const motivoNormalizado = String(motivo || "").toLowerCase();
+      const movementType = options.movementType || (motivoNormalizado.includes("edição") || motivoNormalizado.includes("edicao")
+        ? (consumo >= 0 ? "baixa_edicao_pedido" : "devolucao_edicao_pedido")
+        : consumo >= 0 ? "baixa_pedido" : "devolucao_cancelamento");
+      const idempotencyKey = options.idempotencyPrefix
+        ? `${options.idempotencyPrefix}:${item.orderItemId || "item"}:${material.id}:${Math.abs(consumo).toFixed(6)}`
+        : "";
+      if (idempotencyKey && this.hasMovementKey(idempotencyKey)) return material;
       const saldoNovo = Math.max(0, saldoAtual - consumo);
       const tipoMovimento = consumo >= 0 ? "saída" : "entrada";
-      movimentos.push(`${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(consumo).toFixed(3)} kg)`);
+      movimentos.push({
+        detalhes: `${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(consumo).toFixed(3)} kg)`,
+        metadata: this.createMovementMetadata({
+          movementType,
+          material,
+          quantity: consumo,
+          before: saldoAtual,
+          after: saldoNovo,
+          reason: motivo,
+          orderId: options.orderId || "",
+          orderItemId: item.orderItemId || "",
+          spoolId: item.spoolId || "",
+          reversalOfMovementId: options.reversalOfMovementId || "",
+          idempotencyKey
+        })
+      });
       return prepararRegistroOnline(normalizarMaterialEstoque({
         ...material,
         qtd: saldoNovo,
@@ -2027,8 +2711,53 @@ const InventoryService = {
       }));
     });
     StateStore.set("estoque", proximo, { persistir: true });
-    movimentos.forEach((movimento) => registrarHistorico("Estoque", movimento));
+    movimentos.forEach((movimento) => this.recordMovement(movimento.detalhes, movimento.metadata));
     return proximo;
+  },
+  registerManualOutput(indice, quantidade, motivo = "", observacao = "") {
+    const atual = normalizarEstoque();
+    const material = atual[Number(indice)];
+    if (!material) {
+      throw new AppError("Material não encontrado", {
+        code: "INVENTORY_NOT_FOUND",
+        userMessage: "Material não encontrado no estoque."
+      });
+    }
+    const qty = this.parseNumberStrict(quantidade, "quantidade de saída", { min: 0, allowZero: false });
+    const reason = String(motivo || "").trim();
+    if (!reason) {
+      throw new AppError("Motivo obrigatório", {
+        code: "INVENTORY_OUTPUT_REASON_REQUIRED",
+        userMessage: "Informe o motivo da saída."
+      });
+    }
+    const saldoAtual = this.parseNumberStrict(material.qtd, "saldo do material", { min: 0 });
+    if (qty > saldoAtual + 0.000001) {
+      throw new AppError("Saldo insuficiente", {
+        code: "INVENTORY_OUTPUT_OVER_BALANCE",
+        userMessage: `Saldo insuficiente. Disponível: ${saldoAtual.toFixed(3)} ${material.unidade || "kg"}.`
+      });
+    }
+    const saldoNovo = Math.max(0, saldoAtual - qty);
+    const atualizado = prepararRegistroOnline(normalizarMaterialEstoque({
+      ...material,
+      qtd: saldoNovo,
+      current_quantity: saldoNovo,
+      quantity_base: Math.max(Number(material.quantity_base) || 0, saldoAtual),
+      atualizadoEm: new Date().toISOString()
+    }));
+    const proximo = atual.map((item, i) => i === Number(indice) ? atualizado : item);
+    StateStore.set("estoque", proximo, { persistir: true });
+    this.recordMovement(`Saída manual: ${material.nome} (-${qty.toFixed(3)} ${material.unidade || "kg"})`, this.createMovementMetadata({
+      movementType: "saida_manual",
+      material: atualizado,
+      quantity: qty,
+      before: saldoAtual,
+      after: saldoNovo,
+      reason: observacao ? `${reason} - ${observacao}` : reason,
+      idempotencyKey: `stock_manual_output:${material.id}:${Date.now()}`
+    }));
+    return atualizado;
   }
 };
 
@@ -2284,6 +3013,20 @@ const printers = {
   "Elegoo Neptune 4": { tipo: "FDM", consumo: 180, custo: 1.9 }
 };
 
+const printerMonitoringState = {
+  scope: "",
+  loaded: false,
+  loading: false,
+  error: "",
+  items: [],
+  brands: [],
+  models: [],
+  connectors: [],
+  agents: [],
+  access: {},
+  history: {}
+};
+
 const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
 const MATERIAL_ADD_OPTION = "__add_material__";
 const MATERIAL_COLOR_PALETTE = [
@@ -2463,9 +3206,13 @@ function aplicarCacheDadosUsuario(cache) {
   saasPayments = Array.isArray(data.saasPayments) ? data.saasPayments : [];
   saasSessions = Array.isArray(data.saasSessions) ? data.saasSessions : [];
   appConfig = data.appConfig && typeof data.appConfig === "object" ? { ...appConfig, ...data.appConfig } : appConfig;
+  appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
+  appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
+  localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
   billingConfig = data.billingConfig && typeof data.billingConfig === "object" ? { ...billingConfig, ...data.billingConfig } : billingConfig;
   usageCounters = data.usageCounters && typeof data.usageCounters === "object" ? data.usageCounters : {};
   usageLearning = normalizarUsoInteligente(data.usageLearning || {});
+  restringirDadosSaasAoEscopoAtual();
 }
 
 function limparDadosOperacionaisLocais() {
@@ -3493,13 +4240,14 @@ async function restaurarCacheSessaoLocal() {
   }
 }
 
-function registrarHistorico(acao, detalhes = "") {
+function registrarHistorico(acao, detalhes = "", metadata = {}) {
   historico.unshift({
     id: Date.now(),
     acao,
     detalhes,
     data: new Date().toISOString(),
-    dispositivo: syncConfig.deviceName || deviceId
+    dispositivo: syncConfig.deviceName || deviceId,
+    ...(metadata && typeof metadata === "object" && Object.keys(metadata).length ? { metadata } : {})
   });
 
   historico = historico.slice(0, 250);
@@ -3625,13 +4373,13 @@ function emailValido(email) {
 
 function normalizarPapel(papel) {
   const alvo = String(papel || "").toLowerCase();
-  if (alvo === "owner" || alvo === "dono") return "user";
-  if (alvo === "attendant") return "operador";
-  if (alvo === "production") return "operador";
-  if (alvo === "finance") return "admin";
-  if (alvo === "read_only") return "visualizador";
-  if (alvo === "user" || alvo === "usuario" || alvo === "usuário") return "user";
-  return ["superadmin", "admin", "user", "operador", "visualizador"].includes(alvo) ? alvo : "user";
+  if (["owner", "dono", "user", "usuario", "usuário"].includes(alvo)) return "owner";
+  if (["manager", "gerente", "supervisor"].includes(alvo)) return "manager";
+  if (["cashier", "caixa", "finance"].includes(alvo)) return "cashier";
+  if (["production", "producao", "produção"].includes(alvo)) return "production";
+  if (["sales", "vendas", "attendant", "operador"].includes(alvo)) return "sales";
+  if (["viewer", "visualizador", "read_only"].includes(alvo)) return "viewer";
+  return ["superadmin", "admin", "owner", "manager", "cashier", "production", "sales", "viewer"].includes(alvo) ? alvo : "owner";
 }
 
 function normalizarUsuario(usuario) {
@@ -3642,8 +4390,8 @@ function normalizarUsuario(usuario) {
 
   return {
     id: usuario?.id || criarIdUsuario(),
-    clientId: usuario?.clientId || usuario?.client_id || billingConfig.clientId || "",
-    companyId: usuario?.companyId || usuario?.company_id || billingConfig.companyId || "",
+    clientId: usuario?.clientId || usuario?.client_id || "",
+    companyId: usuario?.companyId || usuario?.company_id || "",
     nome: String(usuario?.nome || usuario?.name || usuario?.display_name || email.split("@")[0] || "Usuário").trim(),
     email,
     senha: String(usuario?.senha || ""),
@@ -3786,9 +4534,66 @@ function getPlanLimits(plan = "free") {
   return { ...entry.limits };
 }
 
-function canAccessFeature({ plan = "free", featureKey = "" } = {}) {
-  const entitlements = getPlanEntitlements(plan);
-  return entitlements[featureKey] === true;
+function getUserAccessRole(usuario = getUsuarioAtual()) {
+  if (isSuperAdmin(usuario)) return "superadmin";
+  return normalizarPapel(usuario?.papel || usuario?.role || "owner");
+}
+
+function getFeatureAccessRule(feature = "") {
+  return FEATURE_ACCESS_REGISTRY[String(feature || "")] || null;
+}
+
+function getFeatureForScreen(screen = "") {
+  const tela = String(screen || "");
+  const entry = Object.entries(FEATURE_ACCESS_REGISTRY).find(([, rule]) => Array.isArray(rule.screens) && rule.screens.includes(tela));
+  return entry ? entry[0] : "";
+}
+
+function formatFeatureAccessMessage(rule = {}, state = FEATURE_ACCESS_STATES.ENABLED) {
+  const label = rule.label || "Recurso";
+  if (state === FEATURE_ACCESS_STATES.LOCKED_BY_PLAN) return `${label} está disponível no plano ${String(rule.requiredPlan || "Pro").toUpperCase()}.`;
+  if (state === FEATURE_ACCESS_STATES.HIDDEN_BY_MODE) return `${label} está disponível no Modo Profissional.`;
+  if (state === FEATURE_ACCESS_STATES.BLOCKED_BY_ROLE) return "Seu usuário não tem permissão para acessar essa função.";
+  if (state === FEATURE_ACCESS_STATES.DISABLED_BY_STATUS) return "Regularize seu plano para continuar usando este recurso.";
+  if (state === FEATURE_ACCESS_STATES.LIMIT_REACHED) return "Você atingiu o limite do seu plano.";
+  return "Recurso liberado.";
+}
+
+function canAccessFeature(options = {}) {
+  const feature = options.feature || options.featureKey || "";
+  if (!feature && options.featureKey) {
+    const entitlements = getPlanEntitlements(options.plan || "free");
+    return entitlements[options.featureKey] === true;
+  }
+  const rule = getFeatureAccessRule(feature);
+  if (!rule) {
+    return { allowed: true, state: FEATURE_ACCESS_STATES.ENABLED, feature, message: "Recurso liberado." };
+  }
+  const usuario = options.usuario || options.user || getUsuarioAtual();
+  if (isSuperAdmin(usuario)) {
+    return { allowed: true, state: FEATURE_ACCESS_STATES.ENABLED, feature, requiredPlan: rule.requiredPlan || "free", message: "Recurso liberado para superadmin." };
+  }
+  const plan = normalizarSlugPlano(options.plan || getCurrentPlanSlug(usuario));
+  const mode = normalizarInterfaceMode(options.mode || getInterfaceMode());
+  const role = getUserAccessRole(usuario);
+  let state = FEATURE_ACCESS_STATES.ENABLED;
+  if (rule.requiresActivePlan !== false && licencaEfetivaBloqueada(usuario)) state = FEATURE_ACCESS_STATES.DISABLED_BY_STATUS;
+  else if (Array.isArray(rule.modes) && !rule.modes.includes(mode)) state = FEATURE_ACCESS_STATES.HIDDEN_BY_MODE;
+  else if (!isPlanAtLeast(plan, rule.requiredPlan || "free")) state = FEATURE_ACCESS_STATES.LOCKED_BY_PLAN;
+  else if (Array.isArray(rule.roles) && !rule.roles.includes(role)) state = FEATURE_ACCESS_STATES.BLOCKED_BY_ROLE;
+  return {
+    allowed: state === FEATURE_ACCESS_STATES.ENABLED,
+    state,
+    feature,
+    label: rule.label || feature,
+    requiredPlan: rule.requiredPlan || "free",
+    partialPlan: rule.partialPlan || "",
+    mode,
+    role,
+    strongConfirmation: rule.strongConfirmation === true,
+    future: rule.future === true,
+    message: formatFeatureAccessMessage(rule, state)
+  };
 }
 
 function getPlanUpgradeOptions(plan = "free") {
@@ -4148,6 +4953,28 @@ function getClientIdAtual(usuario = getUsuarioAtual()) {
   return usuario?.clientId || billingConfig.clientId || "";
 }
 
+function registroSaasPertenceAoEscopoAtual(registro = {}, usuario = getUsuarioAtual()) {
+  if (!registro || typeof registro !== "object") return false;
+  if (isSuperAdmin(usuario)) return true;
+
+  const clientId = String(getClientIdAtual(usuario) || "").trim();
+  const companyId = String(usuario?.companyId || usuario?.company_id || billingConfig.companyId || "").trim();
+  const registroClientId = String(registro.clientId || registro.client_id || registro.clienteId || registro.cliente_id || registro.id || "").trim();
+  const registroCompanyId = String(registro.companyId || registro.company_id || registro.empresaId || registro.empresa_id || "").trim();
+
+  if (companyId && registroCompanyId) return registroCompanyId === companyId;
+  if (clientId && registroClientId) return registroClientId === clientId;
+  return false;
+}
+
+function restringirDadosSaasAoEscopoAtual(usuario = getUsuarioAtual()) {
+  if (isSuperAdmin(usuario)) return;
+  saasClients = saasClients.filter((item) => registroSaasPertenceAoEscopoAtual(item, usuario));
+  saasSubscriptions = saasSubscriptions.filter((item) => registroSaasPertenceAoEscopoAtual(item, usuario));
+  saasPayments = saasPayments.filter((item) => registroSaasPertenceAoEscopoAtual(item, usuario));
+  saasSessions = saasSessions.filter((item) => registroSaasPertenceAoEscopoAtual(item, usuario));
+}
+
 function getClienteSaasAtual() {
   const clientId = getClientIdAtual();
   return saasClients.find((cliente) => String(cliente.id) === String(clientId)) || null;
@@ -4251,9 +5078,25 @@ function limparCheckoutsLocaisExpirados({ force = false } = {}) {
 
 function getUsuariosDoCliente(clientId = getClientIdAtual()) {
   usuarios = normalizarUsuarios(usuarios);
+  const usuarioAtual = getUsuarioAtual();
+  const clientIdAtual = String(getClientIdAtual(usuarioAtual) || billingConfig.clientId || "").trim();
+  const companyIdAtual = String(usuarioAtual?.companyId || usuarioAtual?.company_id || billingConfig.companyId || "").trim();
+  const clientIdAlvo = String(clientId || "").trim();
+  const escopoAtual = !clientIdAlvo || clientIdAlvo === clientIdAtual;
+  const emailProprietario = normalizarEmail(
+    usuarioAtual?.email || billingConfig.licenseEmail || billingConfig.ownerEmail || ""
+  );
+
   return usuarios.filter((usuario) => {
-    if (!clientId) return !usuario.clientId;
-    return usuario.clientId === clientId || (!usuario.clientId && normalizarEmail(usuario.email) === normalizarEmail(billingConfig.licenseEmail));
+    const usuarioClientId = String(usuario.clientId || "").trim();
+    const usuarioCompanyId = String(usuario.companyId || usuario.company_id || "").trim();
+    if (clientIdAlvo && usuarioClientId) return usuarioClientId === clientIdAlvo;
+    if (escopoAtual && companyIdAtual && usuarioCompanyId) return usuarioCompanyId === companyIdAtual;
+    return escopoAtual
+      && !usuarioClientId
+      && !usuarioCompanyId
+      && !!emailProprietario
+      && normalizarEmail(usuario.email) === emailProprietario;
   });
 }
 
@@ -4920,11 +5763,11 @@ function isSuperAdminPrincipal(usuario) {
 
 function isAdminCliente() {
   const usuario = getUsuarioAtual();
-  return usuario?.papel === "admin" || usuario?.papel === "superadmin";
+  return ["owner", "admin", "superadmin"].includes(usuario?.papel);
 }
 
 function podeGerenciarUsuarios() {
-  return adminLogado || isSuperAdmin() || (isAdminCliente() && PlanService.podeUsarRecurso("employees"));
+  return !contaPendenteExclusao() && (adminLogado || isSuperAdmin() || (isAdminCliente() && PlanService.podeUsarRecurso("employees")));
 }
 
 function existeAdminCliente(clientId = getClientIdAtual()) {
@@ -5040,83 +5883,69 @@ function exigirAdminParaAcao() {
   return false;
 }
 
-function obterWhatsapp2FA() {
-  return normalizarTelefoneWhatsapp(appConfig.twoFactorWhatsapp || appConfig.whatsappNumber || "");
-}
-
-function doisFatoresValido() {
-  const validade = Number(sessionStorage.getItem("twoFactorValidUntil") || 0);
-  return validade > Date.now();
-}
-
 function whatsapp2FABackendDisponivel() {
-  return WHATSAPP_2FA_BACKEND_ENABLED === true;
+  return false;
 }
 
-function registrar2FADesativadoTemporariamente(motivo = "backend indisponível") {
-  if (sessionStorage.getItem("twoFactorWhatsappDisabledNotice") === "sim") return;
-  sessionStorage.setItem("twoFactorWhatsappDisabledNotice", "sim");
-  registrarHistorico("Segurança", "2FA WhatsApp desativado temporariamente");
-  registrarSeguranca("2FA WhatsApp desativado temporariamente", "sucesso", motivo, getUsuarioAtual()?.email || syncConfig.supabaseEmail || "login");
+function mensagemErroSegurancaConta(codigo = "") {
+  return ({
+    EMAIL_DELIVERY_FAILED: "Não foi possível enviar o código por e-mail.",
+    RESEND_TOO_SOON: "Aguarde 60 segundos antes de solicitar outro código.",
+    INVALID_OR_EXPIRED_CODE: "Código inválido ou expirado.",
+    CODE_EXPIRED: "Código expirado.",
+    TOO_MANY_ATTEMPTS: "Muitas tentativas. Solicite um novo código.",
+    OWNER_REQUIRED: "Somente o proprietário pode realizar esta ação.",
+    PENDING_DELETION: "Esta ação está bloqueada enquanto a conta aguarda exclusão.",
+    UNAUTHENTICATED: "Sua sessão expirou. Entre novamente."
+  })[String(codigo || "")] || String(codigo || "Não foi possível concluir a ação.");
 }
 
-function precisa2FA(usuario = null) {
-  if (!appConfig.twoFactorEnabled || doisFatoresValido()) return false;
-  if (!whatsapp2FABackendDisponivel()) {
-    registrar2FADesativadoTemporariamente("2FA WhatsApp exige backend, armazenamento temporário e provedor oficial.");
-    return false;
+async function accountSecurityRequest(action, payload = {}) {
+  if (!syncConfig.supabaseAccessToken) throw new Error("UNAUTHENTICATED");
+  const resposta = await fetch(`${normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL)}/functions/v1/account-security`, {
+    method: "POST",
+    headers: {
+      apikey: syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY,
+      Authorization: `Bearer ${syncConfig.supabaseAccessToken}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ action, ...payload })
+  });
+  const data = await resposta.json().catch(() => ({}));
+  if (!resposta.ok || data?.ok !== true) throw new Error(data?.error || `HTTP_${resposta.status}`);
+  return data.data;
+}
+
+async function carregarSegurancaConta(force = false) {
+  if (!syncConfig.supabaseAccessToken || accountSecurityState.loading || (accountSecurityState.loaded && !force)) return accountSecurityState;
+  accountSecurityState.loading = true;
+  try {
+    const data = await accountSecurityRequest("status");
+    accountSecurityState = { ...accountSecurityState, ...data, loaded: true, loading: false };
+  } catch (erro) {
+    accountSecurityState.loading = false;
+    accountSecurityState.error = mensagemErroSegurancaConta(erro?.message);
   }
-  if (!obterWhatsapp2FA()) return false;
-  if (appConfig.twoFactorScope === "todos") return true;
-  return !usuario || ["superadmin", "admin"].includes(usuario.papel);
+  return accountSecurityState;
 }
 
-function gerarCodigo2FA() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function abrirWhats2FA() {
-  if (!twoFactorPending) return;
-  if (!whatsapp2FABackendDisponivel()) {
-    registrar2FADesativadoTemporariamente("Tentativa de abrir WhatsApp 2FA sem backend.");
-    alert("2FA WhatsApp desativado temporariamente. Entre com e-mail e senha.");
-    return;
-  }
-
-  const numero = obterWhatsapp2FA();
-  if (!numero) {
-    alert("Configure o WhatsApp da verificação em duas etapas.");
-    return;
-  }
-
-  const mensagem = [
-    `${appConfig.appName || SYSTEM_NAME} - verificação em duas etapas`,
-    `Código: ${twoFactorPending.codigo}`,
-    `Acesso: ${twoFactorPending.nome || "Admin"}`,
-    "Se você não pediu esse acesso, ignore esta mensagem."
-  ].join("\n");
-
-  window.open("https://wa.me/" + numero + "?text=" + encodeURIComponent(mensagem), "_blank");
-}
-
-function iniciarVerificacao2FA(tipo, usuario = null) {
-  if (!whatsapp2FABackendDisponivel()) {
-    registrar2FADesativadoTemporariamente("Fluxo 2FA solicitado sem backend real.");
-    return false;
-  }
+async function preparar2FAAposPrimeiroFator(usuario) {
+  const state = await carregarSegurancaConta(true);
+  if (!state.settings?.two_factor_enabled || state.mfa_session_verified) return false;
+  const challenge = await accountSecurityRequest("request_2fa_login");
   twoFactorPending = {
-    tipo,
-    email: usuario?.email || "",
-    nome: usuario?.nome || (tipo === "admin" ? "Admin local" : "Usuário"),
-    codigo: gerarCodigo2FA(),
-    expiraEm: Date.now() + 5 * 60 * 1000
+    tipo: "usuario",
+    purpose: "login",
+    email: usuario?.email || syncConfig.supabaseEmail || "",
+    usuario,
+    challengeId: challenge.id,
+    expiraEm: Date.parse(challenge.expires_at)
   };
-  abrirWhats2FA();
   renderApp();
   return true;
 }
 
-function confirmarCodigo2FA() {
+async function confirmarCodigo2FA() {
   if (!twoFactorPending) {
     alert("Nenhuma verificação pendente.");
     return;
@@ -5129,60 +5958,164 @@ function confirmarCodigo2FA() {
     return;
   }
 
-  const codigo = (document.getElementById("twoFactorCode")?.value || "").trim();
-  if (codigo !== twoFactorPending.codigo) {
-    alert("Código incorreto.");
-    return;
+  const codigo = (document.getElementById("twoFactorCode")?.value || "").replace(/\D/g, "").slice(0, 6);
+  if (codigo.length !== 6) return mostrarToast("Digite os 6 dígitos do código.", "aviso");
+  try {
+    const pendente = twoFactorPending;
+    const data = await accountSecurityRequest("verify_2fa", { challenge_id: pendente.challengeId, code: codigo });
+    if (!salvarSessaoSupabase(data.session, pendente.email)) throw new Error("INVALID_VERIFIED_SESSION");
+    twoFactorPending = null;
+    accountSecurityState.loaded = false;
+    concluirLoginUsuario(pendente.usuario);
+  } catch (erro) {
+    mostrarToast(mensagemErroSegurancaConta(erro?.message), "erro", 5500);
   }
-
-  const lembrarMinutos = Math.max(1, Number(appConfig.twoFactorRememberMinutes) || 60);
-  sessionStorage.setItem("twoFactorValidUntil", String(Date.now() + lembrarMinutos * 60 * 1000));
-
-  const pendente = twoFactorPending;
-  twoFactorPending = null;
-
-  if (pendente.tipo === "admin") {
-    concluirLoginAdmin();
-    return;
-  }
-
-  const usuario = normalizarUsuarios(usuarios).find((item) => item.email === pendente.email && item.ativo);
-  if (!usuario) {
-    alert("Usuário não encontrado.");
-    renderApp();
-    return;
-  }
-
-  concluirLoginUsuario(usuario);
 }
 
 function cancelar2FA() {
   twoFactorPending = null;
+  limparSessaoSensivelSupabase();
   renderApp();
 }
 
 function renderVerificacao2FA() {
   if (!twoFactorPending) return "";
-  if (!whatsapp2FABackendDisponivel()) {
-    twoFactorPending = null;
-    return "";
-  }
-
   return `
     <div class="danger-zone">
       <h2 class="section-title">Verificação em duas etapas</h2>
-      <p class="muted">Enviamos um código para o WhatsApp configurado. Digite o código para concluir o acesso.</p>
+      <p class="muted">Enviamos um código de segurança para seu e-mail. Digite o código para continuar.</p>
       <label class="field">
         <span>Código recebido</span>
-        <input id="twoFactorCode" inputmode="numeric" maxlength="6" placeholder="000000">
+        <input id="twoFactorCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
       </label>
       <div class="actions">
         <button class="btn" onclick="confirmarCodigo2FA()">Confirmar código</button>
-        <button class="btn ghost" onclick="abrirWhats2FA()">Reenviar WhatsApp</button>
         <button class="btn ghost" onclick="cancelar2FA()">Cancelar</button>
       </div>
     </div>
   `;
+}
+
+function abrirModalCodigoSeguranca({ title, action, challenge, reason = "" }) {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card security-code-modal" id="securityCodeForm" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2>${escaparHtml(title)}</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">Enviamos um código de 6 dígitos para seu e-mail.</p>
+        <label class="field"><span>Código</span><input id="securityActionCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000" required></label>
+        <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Confirmar</button></div>
+      </form>
+    </div>`;
+  document.getElementById("securityCodeForm")?.addEventListener("submit", (event) => confirmarAcaoSegurancaConta(event, { action, challengeId: challenge.id, reason }));
+  setTimeout(() => document.getElementById("securityActionCode")?.focus(), 80);
+}
+
+async function solicitarCodigoSegurancaConta(requestAction, confirmAction, title, reason = "") {
+  try {
+    const challenge = await accountSecurityRequest(requestAction);
+    abrirModalCodigoSeguranca({ title, action: confirmAction, challenge, reason });
+  } catch (erro) {
+    mostrarToast(mensagemErroSegurancaConta(erro?.message), "erro", 6000);
+  }
+}
+
+async function confirmarAcaoSegurancaConta(event, { action, challengeId, reason = "" }) {
+  event.preventDefault();
+  const code = (document.getElementById("securityActionCode")?.value || "").replace(/\D/g, "").slice(0, 6);
+  if (code.length !== 6) return mostrarToast("Digite os 6 dígitos do código.", "aviso");
+  const button = event.currentTarget?.querySelector('button[type="submit"]');
+  if (button) button.disabled = true;
+  try {
+    const data = await accountSecurityRequest(action, { challenge_id: challengeId, code, reason });
+    if (data?.session) salvarSessaoSupabase(data.session, syncConfig.supabaseEmail || getUsuarioAtual()?.email || "");
+    fecharPopup();
+    await carregarSegurancaConta(true);
+    renderApp();
+    const messages = {
+      verify_2fa: data?.purpose === "disable_2fa" ? "Autenticação em dois fatores desativada." : "Autenticação em dois fatores ativada com sucesso.",
+      confirm_account_deletion: "Conta marcada para exclusão com carência de 15 dias.",
+      confirm_cancel_deletion: "A exclusão da conta foi cancelada."
+    };
+    mostrarToast(messages[action] || "Confirmação concluída.", "sucesso", 6000);
+  } catch (erro) {
+    mostrarToast(mensagemErroSegurancaConta(erro?.message), "erro", 6000);
+    if (button) button.disabled = false;
+  }
+}
+
+function solicitarAtivacao2FAEmail() {
+  return solicitarCodigoSegurancaConta("request_2fa_enable", "verify_2fa", "Ativar 2FA por e-mail");
+}
+
+function solicitarDesativacao2FAEmail() {
+  return solicitarCodigoSegurancaConta("request_2fa_disable", "verify_2fa", "Desativar 2FA");
+}
+
+function solicitarExclusaoConta() {
+  if (!confirm("Solicitar exclusão desta conta? A exclusão permanente será agendada para 15 dias.")) return;
+  return solicitarCodigoSegurancaConta("request_account_deletion", "confirm_account_deletion", "Confirmar exclusão da conta");
+}
+
+function cancelarExclusaoConta() {
+  return solicitarCodigoSegurancaConta("request_cancel_deletion", "confirm_cancel_deletion", "Cancelar exclusão da conta");
+}
+
+async function exportarDadosContaSeguro() {
+  try {
+    const data = await accountSecurityRequest("export_account_data");
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `simplifica-conta-${hojeIsoData()}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    mostrarToast("Dados da conta exportados.", "sucesso");
+  } catch (erro) {
+    mostrarToast(mensagemErroSegurancaConta(erro?.message), "erro", 6000);
+  }
+}
+
+function renderSegurancaContaOnline() {
+  if (accountSecurityState.loading && !accountSecurityState.loaded) return `<p class="muted">Carregando segurança da conta...</p>`;
+  if (accountSecurityState.error && !accountSecurityState.loaded) return `<p class="feedback-status error">${escaparHtml(accountSecurityState.error)}</p>`;
+  const settings = accountSecurityState.settings || {};
+  const twoFactor = settings.two_factor_enabled === true;
+  const deletion = accountSecurityState.deletion;
+  const owner = accountSecurityState.role === "owner";
+  const events = (accountSecurityState.events || []).slice(0, 8);
+  return `
+    <div class="security-online-grid">
+      <section class="security-settings-card">
+        <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("seguranca")}</span><div><h3>Autenticação em dois fatores</h3><small>Canal: E-mail</small></div><span class="status-badge ${twoFactor ? "badge-ativo" : ""}">${twoFactor ? "Ativado" : "Desativado"}</span></div>
+        <div class="actions">${twoFactor ? `<button class="btn ghost" type="button" onclick="solicitarDesativacao2FAEmail()">Desativar 2FA</button>` : `<button class="btn" type="button" onclick="solicitarAtivacao2FAEmail()">Ativar 2FA por e-mail</button>`}</div>
+      </section>
+      <section class="security-settings-card">
+        <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("conta")}</span><div><h3>Login com Google</h3><small>Conectado pelo Supabase Auth</small></div><span class="status-badge badge-ativo">Disponível</span></div>
+      </section>
+      <section class="security-settings-card">
+        <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("backup")}</span><div><h3>Exportar dados</h3><small>Gera uma cópia dos dados da conta.</small></div></div>
+        <div class="actions"><button class="btn secondary" type="button" onclick="exportarDadosContaSeguro()">Exportar dados</button></div>
+      </section>
+      ${owner ? `<section class="security-settings-card danger-zone account-danger-zone">
+        <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("trash")}</span><div><h3>Zona de perigo</h3><small>Exclusão com prazo de arrependimento de 15 dias.</small></div></div>
+        ${deletion?.status === "confirmed"
+          ? `<p>Exclusão agendada para <strong>${escaparHtml(new Date(deletion.scheduled_delete_at).toLocaleDateString("pt-BR"))}</strong>.</p><div class="actions"><button class="btn secondary" type="button" onclick="cancelarExclusaoConta()">Cancelar exclusão</button></div>`
+          : `<div class="actions"><button class="btn danger" type="button" onclick="solicitarExclusaoConta()">Solicitar exclusão da conta</button></div>`}
+      </section>` : ""}
+    </div>
+    <section class="security-settings-card"><h3>Histórico de segurança</h3><div class="history-list">${events.length ? events.map((item) => `<div class="history-item"><strong>${escaparHtml(item.message || item.event_type)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}</span></div>`).join("") : `<p class="empty">Nenhum evento registrado.</p>`}</div></section>`;
+}
+
+function contaPendenteExclusao() {
+  return accountSecurityState.company?.deletion_status === "pending_deletion" || accountSecurityState.deletion?.status === "confirmed";
+}
+
+function renderAccountDeletionBanner() {
+  if (!contaPendenteExclusao()) return "";
+  const date = accountSecurityState.deletion?.scheduled_delete_at || accountSecurityState.company?.deletion_scheduled_at;
+  return `<div class="account-deletion-banner" role="status"><strong>Conta marcada para exclusão${date ? ` em ${escaparHtml(new Date(date).toLocaleDateString("pt-BR"))}` : ""}.</strong><button class="btn secondary" type="button" onclick="cancelarExclusaoConta()">Cancelar exclusão</button></div>`;
 }
 
 function isMobile() {
@@ -6077,7 +7010,7 @@ async function processarMudancaBillingRealtimeSupabase(evento) {
   const licenca = await consultarLicencaSupabaseSilencioso({ motivo: `realtime-${evento.table}` });
   if (isSuperAdmin() && ["clientes", "superadmin", "admin"].includes(telaAtual)) {
     await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false }).catch((erro) => {
-      registrarDiagnostico("Realtime", "Clientes SaaS não atualizados via billing", erro.message || erro);
+      registrarDiagnostico("Realtime", "Empresas SaaS não atualizadas via billing", erro.message || erro);
     });
   }
   if (licenca && document.visibilityState !== "hidden") {
@@ -6350,7 +7283,7 @@ function renderDispositivosLicenca() {
 }
 
 function podeGerenciarComercial() {
-  return isSuperAdmin() || isAdminCliente() || (adminLogado && !getUsuarioAtual());
+  return !contaPendenteExclusao() && (isSuperAdmin() || isAdminCliente() || (adminLogado && !getUsuarioAtual()));
 }
 
 function formatarMoeda(valor) {
@@ -6952,6 +7885,25 @@ function resolverStatusEstoque(percentual = 0, material = {}) {
 function labelStatusEstoque(status = "normal") {
   const mapa = { normal: "Normal", low: "Baixo", critical: "Crítico" };
   return mapa[String(status || "normal")] || "Normal";
+}
+
+function getThemePreferenceLabel(theme = appConfig.theme) {
+  const preference = normalizarPreferenciaTemaInterface(theme);
+  if (preference === "dark") return "Escuro";
+  if (preference === "light") return "Claro";
+  return "Automático";
+}
+
+function usuarioPodeVerCustosEstoque(usuario = getUsuarioAtual()) {
+  return ["owner", "admin", "manager", "superadmin"].includes(getUserAccessRole(usuario));
+}
+
+function calcularCustoKgMaterialEstoque(material = {}) {
+  const custoKg = Number(material.precoKg || material.preco_por_kg || material.pricePerKg || material.custoKg || material.costPerKg) || 0;
+  if (custoKg > 0) return custoKg;
+  const valorTotal = Number(material.valorTotal || material.valor_total || material.custoTotal || material.costTotal || material.precoPago || material.preco_pago) || 0;
+  const base = Math.max(0, Number(material.quantity_base ?? material.initial_quantity ?? material.qtd) || 0);
+  return valorTotal > 0 && base > 0 ? valorTotal / base : 0;
 }
 
 function normalizarMaterialEstoque(material = {}) {
@@ -7731,6 +8683,80 @@ function getPlanAccessState(userSubscription = getAssinaturaSaas(), options = {}
   };
 }
 
+function getStorefrontPublicationAccess(usuario = getUsuarioAtual(), options = {}) {
+  if (isSuperAdmin(usuario)) {
+    return {
+      canEdit: true,
+      canPublish: true,
+      canShare: true,
+      effectivePlan: "pro",
+      status: STOREFRONT_PUBLICATION_STATUS.PUBLISHED,
+      reason: "superadmin",
+      publicMessage: "",
+      internalMessage: "Superadmin pode publicar e revisar lojas.",
+      accessEndsAt: ""
+    };
+  }
+  const accessState = getPlanAccessState(options.subscription === undefined ? getAssinaturaSaas(usuario?.clientId || billingConfig.clientId || "") : options.subscription, {
+    user: usuario,
+    client: options.client,
+    source: options.source || "storefront-publication-access",
+    now: options.now
+  });
+  const effectivePlan = normalizarSlugPlano(accessState.effectivePlan || "free");
+  const paidPlan = ["start", "pro"].includes(effectivePlan);
+  const paidActive = paidPlan && accessState.isActive === true;
+  const paymentInactive = [PLAN_ACCESS_STATES.EXPIRED, PLAN_ACCESS_STATES.BLOCKED].includes(accessState.state);
+  const canPublish = paidActive;
+  const status = canPublish
+    ? STOREFRONT_PUBLICATION_STATUS.PUBLISHED
+    : paymentInactive
+      ? STOREFRONT_PUBLICATION_STATUS.SUSPENDED_PAYMENT
+      : STOREFRONT_PUBLICATION_STATUS.SUSPENDED_PLAN;
+  const accessEndsAt = accessState.accessEndsAt || "";
+  const cancelingMessage = accessState.isCancelingAtPeriodEnd && accessEndsAt
+    ? `Sua loja ficará publicada até ${new Date(accessEndsAt).toLocaleDateString("pt-BR")}.`
+    : "";
+  return {
+    canEdit: !!usuario,
+    canPublish,
+    canShare: canPublish,
+    effectivePlan,
+    status,
+    reason: canPublish ? (accessState.isCancelingAtPeriodEnd ? "canceling_period_active" : "paid_active") : (paymentInactive ? "subscription_inactive" : "plan_required"),
+    publicMessage: "Loja temporariamente indisponível.",
+    internalMessage: canPublish
+      ? (cancelingMessage || "Sua loja pode ser publicada nos planos Start e Pro ativos.")
+      : paymentInactive
+        ? "Sua loja está desativada porque a assinatura não está ativa."
+        : "Sua loja está salva, mas a publicação pública está disponível apenas nos planos Start e Pro.",
+    accessEndsAt,
+    accessState
+  };
+}
+
+function getStorefrontPublicationStatus(store = {}, access = getStorefrontPublicationAccess()) {
+  const raw = String(store.publication_status || store.publicationStatus || store.status || "").toLowerCase().trim();
+  if (raw === STOREFRONT_PUBLICATION_STATUS.PUBLISHED && store.active !== true) return STOREFRONT_PUBLICATION_STATUS.UNPUBLISHED;
+  if (store.active === true && access.canPublish) return STOREFRONT_PUBLICATION_STATUS.PUBLISHED;
+  if (store.active === true && !access.canPublish) return access.status;
+  if (Object.values(STOREFRONT_PUBLICATION_STATUS).includes(raw)) return raw;
+  return STOREFRONT_PUBLICATION_STATUS.DRAFT;
+}
+
+function isStorefrontPubliclyAccessible(store = {}, access = getStorefrontPublicationAccess()) {
+  const status = getStorefrontPublicationStatus(store, access);
+  return store?.active === true
+    && access.canPublish === true
+    && status === STOREFRONT_PUBLICATION_STATUS.PUBLISHED;
+}
+
+function isStorefrontRemotePubliclyAccessible(store = {}) {
+  const status = String(store.publication_status || store.publicationStatus || store.status || "").toLowerCase().trim();
+  return store?.active === true
+    && status === STOREFRONT_PUBLICATION_STATUS.PUBLISHED;
+}
+
 function logEstadoPlanoDebug(snapshot = {}) {
   if (!PLAN_DEBUG_ENABLED || typeof console === "undefined") return;
   const holder = typeof window !== "undefined" ? window : globalThis;
@@ -8233,8 +9259,12 @@ function aplicarPersonalizacao() {
   const temaResolvido = window.SimplificaThemeAuthorityV2?.applyErpTheme?.(temaPreferido)?.resolved || getEffectiveThemeMode(temaPreferido);
   const usarClaro = temaResolvido === "light";
   appConfig.theme = temaPreferido;
-  const cor = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", temaPreferido, "primary");
+  const cor = normalizarCorTemaControlado(appConfig.accentColor || "#72E6E8", temaPreferido, "primary");
   const paletaTema = getCurrentControlledPalette(temaPreferido, cor);
+  if (String(appConfig.accentColor || "").toUpperCase() !== cor) {
+    appConfig.accentColor = cor;
+    salvarJsonLocalSeMudou("appConfig", appConfig);
+  }
   const escala = calcularEscalaInterface();
   const densidade = appConfig.interfaceDensity || (appConfig.compactMode ? "compact" : "default");
   const densityScale = densidade === "compact" ? 0.88 : densidade === "comfortable" ? 1.12 : 1;
@@ -8298,7 +9328,7 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--color-border", usarClaro ? "#d5dedb" : "rgba(255,255,255,.13)");
   root.style.setProperty("--color-divider", usarClaro ? "#dfe6e4" : "rgba(255,255,255,.11)");
   root.style.setProperty("--color-primary", cor);
-  root.style.setProperty("--color-primary-hover", usarClaro ? "#009B87" : "#12b8b2");
+  root.style.setProperty("--color-primary-hover", paletaTema.primaryHover || (usarClaro ? "#276E7B" : "#12b8b2"));
   root.style.setProperty("--color-secondary", paletaTema.secondary || (usarClaro ? "#2563EB" : "#0EA5A3"));
   root.style.setProperty("--color-accent", paletaTema.accent || paletaTema.secondary || (usarClaro ? "#C2410C" : "#F59E0B"));
   root.style.setProperty("--color-danger", paletaTema.danger || (usarClaro ? "#B91C1C" : "#F87171"));
@@ -8332,7 +9362,11 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--text-secondary", usarClaro ? "#52635f" : "#dbe7ef");
   root.style.setProperty("--text-muted", usarClaro ? "#71817e" : "#aeb8c6");
   root.style.setProperty("--accent-primary", cor);
+  root.style.setProperty("--accent-primary-hover", paletaTema.primaryHover || cor);
   root.style.setProperty("--accent-secondary", paletaTema.accent || paletaTema.secondary || (usarClaro ? "#C2410C" : "#F59E0B"));
+  root.style.setProperty("--accent-soft", paletaTema.hover || (usarClaro ? "#E3F1F3" : "#1E2936"));
+  root.style.setProperty("--accent-border", paletaTema.border || (usarClaro ? "#A8CBD1" : "rgba(255,255,255,.13)"));
+  root.style.setProperty("--accent-muted", paletaTema.border || (usarClaro ? "#6598A1" : "#526A72"));
   root.style.setProperty("--success", paletaTema.success || (usarClaro ? "#15803D" : "#45E08F"));
   root.style.setProperty("--warning", paletaTema.warning || (usarClaro ? "#B45309" : "#F59E0B"));
   root.style.setProperty("--danger", paletaTema.danger || (usarClaro ? "#B91C1C" : "#F87171"));
@@ -8342,7 +9376,7 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--effect-shadow-xl", usarClaro ? "0 18px 48px rgba(20,40,36,.12)" : "0 26px 72px rgba(0,0,0,.44), inset 0 1px 0 rgba(255,255,255,.06)");
   root.style.setProperty("--effect-glow-primary", usarClaro ? "0 0 0 1px rgba(0,143,134,.16)" : "0 0 0 1px rgba(13,189,184,.16), 0 16px 36px rgba(13,189,184,.16)");
   root.style.setProperty("--effect-glow-accent", usarClaro ? "0 0 0 1px rgba(255,138,31,.14)" : "0 0 0 1px rgba(255,148,28,.16), 0 16px 36px rgba(255,148,28,.12)");
-  root.style.setProperty("--chart-line", usarClaro ? "#00BFA6" : "#14d6c6");
+  root.style.setProperty("--chart-line", usarClaro ? "#72E6E8" : "#14d6c6");
   root.style.setProperty("--chart-fill", usarClaro ? "rgba(0,191,166,.13)" : "rgba(20,214,198,.18)");
   root.style.setProperty("--chart-grid", usarClaro ? "rgba(15,23,42,.10)" : "rgba(148,163,184,.14)");
   root.style.setProperty("--chart-axis", usarClaro ? "#64748b" : "rgba(203,213,225,.76)");
@@ -8598,6 +9632,9 @@ function aplicarMotionSequenciado() {
     ".order-item-card",
     ".chart-card",
     ".plan-card",
+    ".dashboard-simplifica-metric",
+    ".dashboard-simplifica-actions",
+    ".dashboard-simplifica-grid > .card",
     ".mobile-panel-content > .card",
     ".desktop-focus > .card",
     ".desktop-main > .card"
@@ -9286,7 +10323,9 @@ if (typeof window !== "undefined") {
     ativarBuscaCompacta,
     expandirBuscaGlobal,
     abrirBuscaAssistente,
-    recolherBuscaGlobal
+    recolherBuscaGlobal,
+    alternarInterfaceMode,
+    setInterfaceMode
   });
 }
 
@@ -9331,9 +10370,13 @@ function renderApp() {
   document.body.classList.toggle("mobile-mode", mobile);
   document.body.classList.toggle("tablet-mode", viewportMode === "tablet");
   document.body.classList.toggle("desktop-mode", viewportMode === "desktop");
+  document.body.dataset.interfaceMode = getInterfaceMode();
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
+  document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
   app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
+  configurarAcoesCadastroImpressora();
+  configurarAcoesPerfil();
   atualizarMenu();
   if (!modoSuperadminIsolado) {
     ajustarJanelasDashboardAoWorkspace(false);
@@ -9342,6 +10385,12 @@ function renderApp() {
     hidratarLojaPublicaSeNecessario();
     preencherImpressoras();
     preencherMateriaisCalculadora();
+    if (["impressoras", "calculadora", "producao"].includes(telaAtual)) {
+      setTimeout(() => hidratarImpressorasSeNecessario(false), 0);
+    }
+    if (getUsuarioAtual() && syncConfig.supabaseAccessToken && interfaceModePreferenceState.loadedUserId !== syncConfig.supabaseUserId) {
+      setTimeout(() => sincronizarPreferenciaModoInterface(), 0);
+    }
   }
   aplicarMotionSequenciado();
   if (!modoSuperadminIsolado) hidratarLojaOnlineAdmin();
@@ -9484,6 +10533,7 @@ function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   const entitlements = getPlanEntitlements(plano);
   const limits = getPlanLimits(plano);
   const pro = ["pro", "premium_trial"].includes(plano);
+  const publicationAccess = getStorefrontPublicationAccess();
   if (isStorefrontRealTestFullAccessEnabled()) {
     return {
       enabled: true,
@@ -9501,16 +10551,48 @@ function getStorefrontLimitsLocal(userPlan = getPlanoAtual()?.slug || "free") {
   }
   return {
     enabled: true,
-    publishEnabled: entitlements.publicStore === true,
-    shareEnabled: entitlements.shareLink === true,
+    publishEnabled: entitlements.publicStore === true && publicationAccess.canPublish === true,
+    shareEnabled: entitlements.shareLink === true && publicationAccess.canShare === true,
     productLimit: limits.storefrontProducts,
-    leadsEnabled: entitlements.publicStore === true,
-    qrCodeEnabled: entitlements.shareLink === true,
+    leadsEnabled: entitlements.publicStore === true && publicationAccess.canPublish === true,
+    qrCodeEnabled: entitlements.shareLink === true && publicationAccess.canShare === true,
     customThemeEnabled: entitlements.basicCustomization === true,
     premiumThemeEnabled: pro,
     metricsEnabled: entitlements.advancedReports === true,
-    simplificaBrandingRequired: entitlements.publicStore !== true
+    simplificaBrandingRequired: entitlements.publicStore !== true,
+    publicationAccess
   };
+}
+
+function aplicarRegraPublicacaoLojaLocal({ silent = true } = {}) {
+  const store = getStorefrontAdminStoreLocal();
+  const access = getStorefrontPublicationAccess();
+  const currentStatus = getStorefrontPublicationStatus(store, access);
+  if (store.active !== true || isStorefrontPubliclyAccessible(store, access)) {
+    if (currentStatus && store.publication_status !== currentStatus && !store.__demo) {
+      storefrontAdminSaveStore({ ...store, publication_status: currentStatus });
+    }
+    return { changed: false, store, access, status: currentStatus };
+  }
+  const suspendedAt = new Date().toISOString();
+  const next = {
+    ...store,
+    active: false,
+    publication_status: access.status,
+    publicationSuspendedReason: access.reason,
+    publication_suspended_reason: access.reason,
+    publicationSuspendedAt: suspendedAt,
+    publication_suspended_at: suspendedAt
+  };
+  storefrontAdminSaveStore(next);
+  registrarStorefrontActivity(
+    access.status === STOREFRONT_PUBLICATION_STATUS.SUSPENDED_PAYMENT
+      ? "Loja desativada por assinatura inativa"
+      : "Loja desativada por alteração de plano",
+    next.slug || "loja"
+  );
+  if (!silent) mostrarToast(access.internalMessage, "info", 5200);
+  return { changed: true, store: next, access, status: access.status };
 }
 
 function canAccessStorefrontAdmin(usuario = getUsuarioAtual(), plan = getPlanoAtual(usuario), flags = getStorefrontRuntimeFlags()) {
@@ -9570,6 +10652,7 @@ function renderDesktop() {
       <main class="desktop-main app-content s3d-shell-main">
         ${renderTopbar()}
         ${renderSuperAdminMaintenanceBanner()}
+        ${renderAccountDeletionBanner()}
         ${renderDesktopConteudo()}
       </main>
     </div>
@@ -9585,7 +10668,7 @@ function renderDesktopConteudo() {
     return `<div class="desktop-focus app-page">${renderTrocaSenhaObrigatoria()}</div>`;
   }
 
-  const configuracoes = ["config", "backup", "personalizacao", "empresa", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "lojaOnline", "lojaAdmin", "superadmin", "privacy", "terms", "acessoNegado"];
+  const configuracoes = ["config", "backup", "personalizacao", "empresa", "administracao", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "lojaOnline", "lojaAdmin", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
@@ -9634,16 +10717,19 @@ function getTituloTelaDesktop(tela = telaAtual) {
     pedido: "Novo pedido",
     pedidos: "Pedidos",
     producao: "Produção",
+    impressoras: "Impressoras",
     clientes: "Clientes",
     estoque: "Estoque",
     caixa: "Caixa",
     relatorios: "Relatórios",
     lojaOnline: "Loja Online",
     empresa: "Empresa",
+    administracao: "Administração da empresa",
     personalizacao: "Aparência",
     preferencias: "Calculadora",
     config: "Configurações",
     conta: "Perfil",
+    seguranca: "Segurança e conta",
     usuarios: "Usuários",
     superadmin: "Superadmin",
     feedback: "Sugestões",
@@ -9657,15 +10743,18 @@ function getSubtituloTelaDesktop(tela = telaAtual) {
     dashboard: "Resumo operacional do Simplifica 3D",
     pedidos: "Acompanhe, filtre e atualize pedidos",
     pedido: "Crie um pedido para revisão e orçamento",
+    impressoras: "Status, custos e vínculos das impressoras 3D",
     clientes: "Base de contatos e histórico comercial",
     estoque: "Materiais, entradas, saídas e alertas",
     caixa: "Fluxo financeiro e movimentações",
     relatorios: "Indicadores, gráficos e períodos",
     lojaOnline: "Loja pública, produtos, contatos e QR Code",
     empresa: "Identidade comercial e dados da empresa",
+    administracao: "Configurações, equipe e operação da empresa",
     personalizacao: "Tema, densidade e aparência do app",
     preferencias: "Parâmetros da calculadora 3D",
-    config: "Sistema, sincronização e segurança"
+    config: "Sistema, sincronização e diagnóstico",
+    seguranca: "Senha, 2FA, dados e exclusão da conta"
   };
   return mapa[tela] || appConfig.businessName || "Gestão para impressão 3D";
 }
@@ -9689,9 +10778,17 @@ function abrirMenuUsuarioTopo(event) {
           </div>
           <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome || "Free")}</span>
         </div>
-        <button type="button" onclick="fecharPopup(); trocarTela('conta')">${renderUiIcon("conta")} <span>Perfil</span></button>
-        <button type="button" onclick="fecharPopup(); trocarTela('empresa')">${renderUiIcon("empresa")} <span>Empresa</span></button>
-        <button type="button" onclick="fecharPopup(); abrirTelaPlanosPerfil()">${renderUiIcon("assinatura")} <span>Plano</span></button>
+        <div class="topbar-profile-context">
+          <span><small>Empresa atual</small><strong>${escaparHtml(appConfig.businessName || "Minha empresa")}</strong></span>
+          <span><small>Perfil</small><strong>${escaparHtml(getUserAccessRole(usuario))}</strong></span>
+        </div>
+        <button type="button" onclick="fecharPopup(); trocarTela('conta')">${renderUiIcon("conta")} <span>Meu perfil</span></button>
+        <button type="button" onclick="fecharPopup(); abrirSeletorModoInterface()">${renderUiIcon("config")} <span>Modo de uso</span><small>${escaparHtml(isSimplificaMode() ? "Simples" : "Avançado")}</small></button>
+        <button type="button" onclick="fecharPopup(); abrirSeletorTemaRapido()">${renderUiIcon("aparencia")} <span>Tema</span><small>${escaparHtml(getThemePreferenceLabel(appConfig.theme))}</small></button>
+        <button type="button" onclick="fecharPopup(); trocarTela('seguranca')">${renderUiIcon("seguranca")} <span>Segurança da conta</span></button>
+        <button type="button" onclick="fecharPopup(); abrirNotificacoesOperacionais()">${renderUiIcon("bell")} <span>Notificações</span></button>
+        ${podeAcessarAdministracaoEmpresa(usuario) ? `<button type="button" onclick="fecharPopup(); trocarTela('administracao')">${renderUiIcon("empresa")} <span>Administração da empresa</span></button>` : ""}
+        ${isSuperAdmin(usuario) ? `<button type="button" onclick="fecharPopup(); trocarTela('superadmin')">${renderUiIcon("superadmin")} <span>Superadmin</span></button>` : ""}
         <button class="danger" type="button" onclick="logoutUsuario()">${renderUiIcon("back")} <span>Sair</span></button>
       </section>
     </div>
@@ -9780,7 +10877,22 @@ function isTelaPublica(tela) {
   return ["calculadora", "admin", "assinatura", "minhaAssinatura", "planos", "sobre", "privacy", "terms", "acessoNegado", "lojaPublica"].includes(tela);
 }
 
+function podeAcessarAdministracaoEmpresa(usuario = getUsuarioAtual()) {
+  if (!usuario) return false;
+  if (isSuperAdmin(usuario) && isModoErpSuperadminAtivo()) return true;
+  const role = getUserAccessRole(usuario);
+  const permissions = Array.isArray(usuario.permissions)
+    ? usuario.permissions
+    : Array.isArray(usuario.permissoes)
+      ? usuario.permissoes
+      : [];
+  return ["owner", "admin"].includes(role)
+    || permissions.some((item) => ["manage_company", "company_admin", "administracao_empresa"].includes(String(item || "").toLowerCase()));
+}
+
 function canAccessScreen(tela, usuario = getUsuarioAtual()) {
+  if (tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false;
+  if (tela === "personalizacao" && !PERSONALIZATION_SCREEN_ENABLED) return false;
   if (usuario && isSuperAdmin(usuario)) {
     if (isModoErpSuperadminAtivo()) return true;
     return tela === "superadmin" || tela === "admin" || tela === "acessoNegado" || ["privacy", "terms", "sobre"].includes(tela);
@@ -9788,19 +10900,31 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
   if (isTelaPublica(tela)) return true;
   if (tela === "lojaOnline") return !!usuario;
   if (tela === "lojaAdmin") return canUseStorefrontLocal(usuario);
+  if (tela === "administracao") return podeAcessarAdministracaoEmpresa(usuario);
   if (adminLogado && !usuario) return tela !== "superadmin";
   if (!usuario) return false;
   if (tela === "onboarding") return !isSuperAdmin(usuario);
   if (licencaEfetivaBloqueada(usuario)) return false;
 
   const permissoes = {
-    admin: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
-    user: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
-    operador: ["dashboard", "pedido", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
-    visualizador: ["dashboard", "pedidos", "producao", "estoque", "clientes", "caixa", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
+    owner: ["dashboard", "pedido", "pedidos", "producao", "impressoras", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "administracao", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
+    admin: ["dashboard", "pedido", "pedidos", "producao", "impressoras", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "administracao", "preferencias", "personalizacao", "pdf", "mais", "conta", "usuarios", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
+    manager: ["dashboard", "pedido", "pedidos", "producao", "impressoras", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "preferencias", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
+    cashier: ["dashboard", "pedidos", "caixa", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    production: ["dashboard", "pedidos", "producao", "impressoras", "estoque", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    sales: ["dashboard", "pedido", "pedidos", "impressoras", "clientes", "estoque", "lojaOnline", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    viewer: ["dashboard", "pedidos", "producao", "impressoras", "estoque", "clientes", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    user: ["dashboard", "pedido", "pedidos", "producao", "impressoras", "estoque", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "mais", "conta", "seguranca", "feedback", "onboarding", "lojaOnline", "lojaAdmin"],
+    operador: ["dashboard", "pedido", "pedidos", "producao", "impressoras", "estoque", "clientes", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"],
+    visualizador: ["dashboard", "pedidos", "producao", "impressoras", "estoque", "clientes", "relatorios", "backup", "mais", "conta", "seguranca", "feedback", "onboarding"]
   };
-
-  return (permissoes[usuario.papel] || []).includes(tela);
+  const papel = getUserAccessRole(usuario);
+  const permitidoPorPapel = (permissoes[papel] || permissoes[usuario.papel] || []).includes(tela);
+  if (!permitidoPorPapel) return false;
+  const feature = getFeatureForScreen(tela);
+  if (!feature) return true;
+  const acesso = canAccessFeature({ feature, usuario });
+  return acesso.allowed || acesso.state === FEATURE_ACCESS_STATES.HIDDEN_BY_MODE;
 }
 
 function renderAcessoNegado() {
@@ -13057,7 +14181,6 @@ function abrirPerfilPremiumPainel(event) {
   if (!popup) return;
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual(usuario);
-  const podePersonalizar = PlanService.podeUsarRecurso("personalizacao", usuario);
   const pro = PlanService.getPolicy(usuario).isPro;
   const empresaLogo = appConfig.companyLogoDataUrl || appConfig.brandLogoDataUrl || "";
   popup.innerHTML = `
@@ -13092,16 +14215,12 @@ function abrirPerfilPremiumPainel(event) {
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('pdf')">
             <strong>PDF</strong><span>${pro ? "Tema, rodapé e assinatura" : "Disponível no PRO"}</span>
           </button>
-          <button class="profile-option ${podePersonalizar ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('theme')">
-            <strong>Aparência</strong><span>${podePersonalizar ? "Tema, cores e layout" : "Disponível no plano pago"}</span>
-          </button>
           <button class="profile-option ${pro ? "" : "locked"}" type="button" onclick="abrirPersonalizacaoDoPerfil('login')">
             <strong>Login visual</strong><span>${pro ? "Fundo e mensagem" : "Disponível no PRO"}</span>
           </button>
         </div>
         <div class="actions">
           <button class="btn secondary" type="button" onclick="abrirTelaPlanosPerfil()">Ver planos</button>
-          <button class="btn" type="button" onclick="abrirPersonalizacaoDoPerfil('all')">Abrir aparência</button>
         </div>
         <div class="profile-account-actions">
           <button class="btn ghost" type="button" onclick="abrirTrocaContaPerfil()">Trocar conta</button>
@@ -13193,14 +14312,16 @@ function selecionarUsuarioPerfil(id) {
 
 function getMenuGroups() {
   const lojaOnlineItem = getUsuarioAtual() ? [{ tela: "lojaOnline", icone: "🛍️", texto: "Loja Online" }] : [];
+  const modo = getInterfaceMode();
   const grupos = [
     {
       titulo: "Principal",
       itens: [
-        { tela: "dashboard", icone: "📊", texto: "Dashboard" },
+        { tela: "dashboard", icone: "📊", texto: isSimplificaMode() ? "Início" : "Dashboard" },
         { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-        { tela: "clientes", icone: "👥", texto: isSuperAdmin() ? "Clientes SaaS" : "Clientes" },
-        { tela: "estoque", icone: "📦", texto: "Estoque" },
+        { tela: "clientes", icone: "👥", texto: "Clientes" },
+        { tela: "calculadora", icone: "🧮", texto: isSimplificaMode() ? "Calculadora" : "Calculadora 3D" },
+        { tela: "estoque", icone: "📦", texto: isSimplificaMode() ? "Produtos/Estoque" : "Estoque" },
         { tela: "caixa", icone: "💰", texto: "Caixa" },
         { tela: "relatorios", icone: "📈", texto: "Relatórios" },
         ...lojaOnlineItem
@@ -13210,15 +14331,20 @@ function getMenuGroups() {
       titulo: "Operação",
       itens: [
         { tela: "pedido", icone: "🧾", texto: "Novo pedido" },
-        { tela: "producao", icone: "🖨️", texto: "Produção" },
-        { tela: "calculadora", icone: "🧮", texto: "Calculadora 3D" }
+        { tela: "producao", icone: "🖨️", texto: "Produção" }
+      ]
+    },
+    {
+      titulo: "Perfil",
+      itens: [
+        { tela: "conta", icone: "👤", texto: "Meu perfil" },
+        { tela: "seguranca", icone: "🔒", texto: "Segurança e conta" }
       ]
     },
     {
       titulo: "Configurações",
       itens: [
-        { tela: "empresa", icone: "🏢", texto: "Empresa" },
-        { tela: "personalizacao", icone: "🎨", texto: "Aparência" },
+        { tela: "administracao", icone: "🏢", texto: "Administração" },
         { tela: "preferencias", icone: "🎛️", texto: "Calculadora" },
         { tela: "config", icone: "⚙️", texto: "Sistema" },
         { tela: "feedback", icone: "💡", texto: "Ajuda" },
@@ -13226,16 +14352,6 @@ function getMenuGroups() {
       ]
     }
   ];
-
-  const usuarioMenu = getUsuarioAtual();
-  if (!usuarioMenu || podeGerenciarUsuarios()) {
-    grupos.push({
-      titulo: "Admin",
-      itens: [
-        { tela: "usuarios", icone: "🔐", texto: "Usuários" }
-      ]
-    });
-  }
 
   if (isSuperAdmin()) {
     grupos.push({
@@ -13248,14 +14364,16 @@ function getMenuGroups() {
 
   return grupos.map((grupo) => ({
     ...grupo,
-    itens: grupo.itens.filter((item) => canAccessScreen(item.tela))
+    itens: grupo.itens.filter((item) => shouldShowMenuItem(item, modo) && canAccessScreen(item.tela))
   })).filter((grupo) => grupo.itens.length);
 }
 
 function renderBotaoLateral(item) {
+  const relacao = getUiScreenRelation(item.tela);
+  const iconKey = relacao?.icon || item.icone || item.tela;
   return `
     <button class="side-nav-button s3d-nav-item" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
-      <span>${renderUiIcon(item.tela, item.icone)}</span>
+      <span>${renderUiIcon(iconKey, item.tela)}</span>
       <strong>${item.texto}</strong>
     </button>
   `;
@@ -13630,11 +14748,12 @@ function renderMobile() {
   }
 
   const painelAberto = telaAtual !== "dashboard";
-  const telaSubstituiNavMobile = telaAtual === "superadmin";
+  const telaSubstituiNavMobile = telaAtual === "superadmin" || (!getUsuarioAtual() && isTelaPublica(telaAtual));
   const home = canAccessScreen("dashboard") ? renderDashboard(true) : renderAcessoNegado();
 
   return `
     ${renderSuperAdminMaintenanceBanner()}
+    ${renderAccountDeletionBanner()}
     ${renderDrawerGestureRail()}
     <div class="mobile-home app-page s3d-page s3d-mobile-page ${telaSubstituiNavMobile ? "mobile-home-underlay-hidden" : ""}" ${telaSubstituiNavMobile ? "aria-hidden=\"true\"" : ""}>
       ${renderAtualizacaoAndroidDownload()}
@@ -13645,6 +14764,10 @@ function renderMobile() {
   `;
 }
 
+function renderMobileQuickControls() {
+  return "";
+}
+
 function renderDrawerGestureRail() {
   if (!DRAWER_EDGE_SWIPE_ENABLED) return "";
   if (!getUsuarioAtual() || isTelaPublica(telaAtual) || window.__simplificaLocalLockActive) return "";
@@ -13652,12 +14775,20 @@ function renderDrawerGestureRail() {
 }
 
 function getMobileBottomNavItems() {
-  return [
+  const itensSimplifica = [
+    { tela: "dashboard", icone: "⌂", texto: "Início" },
+    { tela: "pedidos", icone: "📋", texto: "Pedidos" },
+    { tela: "calculadora", icone: "🧮", texto: "Calcular" },
+    { tela: "lojaOnline", icone: "🛍️", texto: "Loja" }
+  ];
+  const itensProfissional = [
     { tela: "dashboard", icone: "⌂", texto: "Home" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "producao", icone: "🖨️", texto: "Produção" },
     { tela: "caixa", icone: "💰", texto: "Caixa" }
-  ].filter((item) => canAccessScreen(item.tela));
+  ];
+  return (isSimplificaMode() ? itensSimplifica : itensProfissional)
+    .filter((item) => shouldShowMenuItem(item) && canAccessScreen(item.tela));
 }
 
 function getMobileBottomNavActive() {
@@ -13668,15 +14799,23 @@ function getMobileBottomNavActive() {
 function renderMobileBottomNav() {
   const ativo = getMobileBottomNavActive();
   const itens = getMobileBottomNavItems();
+  const mostrarAssistente = MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda();
+  const totalItens = itens.length + (mostrarAssistente ? 1 : 0);
   if (!itens.length || !getUsuarioAtual()) return "";
   return `
-    <nav class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
+    <nav class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${totalItens}, minmax(0, 1fr))">
       ${itens.map((item) => `
         <button class="mobile-bottom-nav-button s3d-nav-item ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="navegarMenuPrincipal('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
-          <span>${renderUiIcon(item.tela, item.icone)}</span>
+          <span>${renderUiIcon(getUiScreenRelation(item.tela)?.icon || item.tela, item.icone)}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
       `).join("")}
+      ${mostrarAssistente ? `
+        <button class="mobile-bottom-nav-button mobile-assistant-nav-button s3d-nav-item ${assistantOpen && !assistantMinimized ? "active" : ""}" type="button" onclick="abrirAssistente('basic')" aria-label="Abrir assistente">
+          <span>${renderUiIcon("feedback")}</span>
+          <small>Ajuda</small>
+        </button>
+      ` : ""}
     </nav>
   `;
 }
@@ -13692,12 +14831,15 @@ function renderPainelMobile(tela) {
     `;
   }
   const classePainel = tela === "pedido" ? " mobile-panel-order" : "";
+  const exibirMenuPainel = !["mais", "acessoNegado", "planos", "assinatura", "minhaAssinatura", "privacy", "terms", "sobre"].includes(tela);
   return `
     <section class="mobile-panel${classePainel}" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
       <div class="mobile-panel-bar app-header">
         <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
-        ${tela === "mais" ? `<span class="mobile-panel-spacer" aria-hidden="true"></span>` : `<button class="icon-button mobile-panel-menu-button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>`}
+        <div class="mobile-panel-actions">
+          ${exibirMenuPainel ? `<button class="icon-button mobile-panel-menu-button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>` : ""}
+        </div>
       </div>
       <div class="mobile-panel-content app-content">
         ${renderTela(tela)}
@@ -13716,12 +14858,16 @@ function renderTela(tela) {
       return renderMais();
     case "conta":
       return renderConta();
+    case "administracao":
+      return renderAdministracaoEmpresa();
     case "calculadora":
       return renderCalculadoraTela();
     case "pedido":
       return renderPedido();
     case "producao":
       return renderProducao();
+    case "impressoras":
+      return renderImpressoras();
     case "estoque":
       return renderEstoque();
     case "pedidos":
@@ -13757,7 +14903,7 @@ function renderTela(tela) {
     case "terms":
       return renderDocumentoLegalPage("termos");
     case "seguranca":
-      return renderConta();
+      return renderSeguranca();
     case "onboarding":
       return renderOnboarding();
     case "acessoNegado":
@@ -14024,6 +15170,7 @@ function renderMais() {
   const usuario = getUsuarioAtual();
   const plano = getPlanoAtual();
   const fotoPerfilAtual = appConfig.profilePhotoDataUrl || usuario?.avatarUrl || usuario?.avatar_url || "";
+  const modo = getInterfaceMode();
   const grupos = [
     {
       titulo: "Principal",
@@ -14033,16 +15180,27 @@ function renderMais() {
         { tela: "caixa", icone: "caixa", texto: "Caixa" },
         { tela: "estoque", icone: "estoque", texto: "Produtos" },
         { tela: "clientes", icone: "clientes", texto: "Clientes" },
-        { tela: "assinatura", icone: "assinatura", texto: "Planos", badge: "Novo" },
         { tela: "relatorios", icone: "relatorios", texto: "Relatórios" }
+      ]
+    },
+    {
+      titulo: "Operação",
+      itens: [
+        { tela: "calculadora", icone: "calculadora", texto: "Calculadora" },
+        { tela: "producao", icone: "producao", texto: "Produção" }
+      ]
+    },
+    {
+      titulo: "Perfil",
+      itens: [
+        { tela: "conta", icone: "conta", texto: "Meu perfil" },
+        { tela: "seguranca", icone: "seguranca", texto: "Segurança e conta" }
       ]
     },
     {
       titulo: "Configurações",
       itens: [
-        { tela: "conta", icone: "conta", texto: "Meu perfil" },
-        { tela: "empresa", icone: "empresa", texto: "Empresa" },
-        { tela: "personalizacao", icone: "aparencia", texto: "Aparência" },
+        { tela: "administracao", icone: "empresa", texto: "Administração" },
         { tela: "config", icone: "config", texto: "Sistema" }
       ]
     },
@@ -14054,15 +15212,14 @@ function renderMais() {
       ]
     },
     {
-      titulo: "Admin",
+      titulo: "Superadmin",
       itens: [
-        { tela: "usuarios", icone: "usuarios", texto: "Admin" },
         { tela: "superadmin", icone: "superadmin", texto: "Superadmin" }
       ]
     }
   ].map((grupo) => ({
     ...grupo,
-    itens: grupo.itens.filter((item) => canAccessScreen(item.tela))
+    itens: grupo.itens.filter((item) => shouldShowMenuItem(item, modo) && canAccessScreen(item.tela))
   })).filter((grupo) => grupo.itens.length);
 
   return `
@@ -14103,26 +15260,179 @@ function renderMais() {
   `;
 }
 
+function getSecaoAdministracaoEmpresa() {
+  const secao = String(window.__adminCompanySection || "home");
+  return ["home", "funcionarios", "permissoes", "caixa", "estoque", "loja", "backup", "logs"].includes(secao) ? secao : "home";
+}
+
+function abrirSecaoAdministracaoEmpresa(secao = "home") {
+  window.__adminCompanySection = secao;
+  trocarTela("administracao");
+}
+
+function renderPermissoesEmpresaMvp() {
+  const roles = [
+    { id: "owner", label: "Dono", permissions: ["Tudo da empresa", "Plano e cobrança", "Funcionários", "Permissões críticas"] },
+    { id: "admin", label: "Administrador", permissions: ["Configurações da empresa", "Funcionários", "Pedidos", "Caixa", "Estoque"] },
+    { id: "manager", label: "Gerência", permissions: ["Pedidos", "Clientes", "Relatórios", "Estoque", "Caixa"] },
+    { id: "sales", label: "Atendimento", permissions: ["Pedidos", "Clientes", "Loja", "Consulta de estoque"] },
+    { id: "production", label: "Produção", permissions: ["Pedidos", "Produção", "Estoque"] },
+    { id: "cashier", label: "Caixa", permissions: ["Caixa", "Recebimentos", "Movimentações"] },
+    { id: "viewer", label: "Visualização", permissions: ["Consulta de pedidos", "Consulta de relatórios permitidos"] }
+  ];
+  return `
+    <div class="administration-subpage">
+      <div class="card-header">
+        <div><h3>Permissões por cargo</h3><p class="muted">MVP de consulta. Edição granular fica registrada como próxima etapa segura.</p></div>
+        ${renderAppButton({ label: "Funcionários", variant: "secondary", action: "abrirSecaoAdministracaoEmpresa('funcionarios')" })}
+      </div>
+      <div class="administration-module-list">
+        ${roles.map((role) => `
+          <div class="administration-module-row static">
+            <span class="administration-module-icon">${renderUiIcon(role.id === "owner" || role.id === "admin" ? "seguranca" : "usuarios")}</span>
+            <span><strong>${escaparHtml(role.label)}</strong><small>${role.permissions.map((permission) => escaparHtml(permission)).join(" • ")}</small></span>
+            <span class="status-badge">${escaparHtml(role.id)}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderConfiguracoesEstoqueAdministracao() {
+  const materiais = normalizarEstoque();
+  const low = materiais[0]?.low_stock_threshold ?? 30;
+  const critical = materiais[0]?.critical_stock_threshold ?? 10;
+  return `
+    <div class="administration-subpage">
+      <div class="card-header">
+        <div><h3>Configurações de estoque</h3><p class="muted">Regras simples usadas pelos alertas e pela lista de compras.</p></div>
+        ${renderAppButton({ label: "Abrir estoque", variant: "secondary", action: "trocarTela('estoque')" })}
+      </div>
+      <div class="sync-grid">
+        <label class="field"><span>Alerta baixo (%)</span><input id="adminStockLowThreshold" type="number" min="1" max="95" value="${escaparAttr(low)}"></label>
+        <label class="field"><span>Alerta crítico (%)</span><input id="adminStockCriticalThreshold" type="number" min="1" max="90" value="${escaparAttr(critical)}"></label>
+      </div>
+      <div class="actions">
+        ${renderAppButton({ label: "Salvar regras de estoque", variant: "primary", action: "salvarConfiguracoesEstoqueAdministracao()" })}
+      </div>
+      <p class="muted">Rolos e baixa automática continuam preparados para fase futura; esta tela não ativa impressoras nem G-code.</p>
+    </div>
+  `;
+}
+
+function salvarConfiguracoesEstoqueAdministracao() {
+  const low = Math.max(1, Math.min(95, Number(document.getElementById("adminStockLowThreshold")?.value) || 30));
+  const critical = Math.max(1, Math.min(90, Number(document.getElementById("adminStockCriticalThreshold")?.value) || 10));
+  if (critical >= low) {
+    mostrarToast("O alerta crítico precisa ser menor que o alerta baixo.", "warning", 3600);
+    return;
+  }
+  estoque = normalizarEstoque().map((material) => normalizarMaterialEstoque({
+    ...material,
+    low_stock_threshold: low,
+    critical_stock_threshold: critical,
+    atualizadoEm: new Date().toISOString()
+  }));
+  salvarDados();
+  agendarSyncSilenciosoDados("configuracoes-estoque");
+  mostrarToast("Regras de estoque salvas.", "sucesso", 2600);
+  renderizarPreservandoScroll();
+}
+
+function renderConfiguracoesCaixaAdministracao() {
+  const metodos = getPaymentMethodsConfig();
+  return `
+    <div class="administration-subpage">
+      <div class="card-header">
+        <div><h3>Configurações do caixa</h3><p class="muted">Formas de pagamento usadas nos pedidos e nas movimentações.</p></div>
+        ${renderAppButton({ label: "Abrir caixa", variant: "secondary", action: "trocarTela('caixa')" })}
+      </div>
+      <div class="administration-module-list">
+        ${metodos.map((metodo) => `
+          <label class="administration-module-row static">
+            <span class="administration-module-icon">${renderUiIcon("caixa")}</span>
+            <span><strong>${escaparHtml(metodo.name)}</strong><small>${escaparHtml(metodo.type || metodo.id)}</small></span>
+            <input type="checkbox" data-admin-payment-method="${escaparAttr(metodo.id)}" ${metodo.active !== false ? "checked" : ""}>
+          </label>
+        `).join("")}
+      </div>
+      <div class="actions">
+        ${renderAppButton({ label: "Salvar formas de pagamento", variant: "primary", action: "salvarConfiguracoesCaixaAdministracao()" })}
+      </div>
+    </div>
+  `;
+}
+
+function salvarConfiguracoesCaixaAdministracao() {
+  const ativos = new Set(Array.from(document.querySelectorAll("[data-admin-payment-method]:checked")).map((item) => item.getAttribute("data-admin-payment-method")));
+  appConfig.paymentMethods = getPaymentMethodsConfig().map((metodo) => ({ ...metodo, active: ativos.has(String(metodo.id)) }));
+  salvarDados();
+  mostrarToast("Formas de pagamento salvas.", "sucesso", 2600);
+  renderizarPreservandoScroll();
+}
+
+function renderSubsecaoAdministracaoEmpresa(secao, usuario) {
+  if (secao === "funcionarios") return `<div class="administration-subpage">${renderGestaoFuncionariosAdmin(usuario)}</div>`;
+  if (secao === "permissoes") return renderPermissoesEmpresaMvp();
+  if (secao === "estoque") return renderConfiguracoesEstoqueAdministracao();
+  if (secao === "caixa") return renderConfiguracoesCaixaAdministracao();
+  if (secao === "loja") return `<div class="administration-subpage"><div class="card-header"><div><h3>Loja online</h3><p class="muted">Editor e publicação da loja já existem no módulo Loja Online.</p></div>${renderAppButton({ label: "Abrir loja", variant: "primary", action: "trocarTela('lojaOnline')" })}</div></div>`;
+  if (secao === "backup") return `<div class="administration-subpage"><div class="card-header"><div><h3>Backup da empresa</h3><p class="muted">Sincronização, exportação e restauração ficam no Sistema.</p></div>${renderAppButton({ label: "Abrir backup", variant: "primary", action: "trocarTela('config')" })}</div></div>`;
+  if (secao === "logs") return `<div class="administration-subpage"><div class="card-header"><div><h3>Logs e relatórios</h3><p class="muted">Indicadores permitidos continuam no módulo Relatórios.</p></div>${renderAppButton({ label: "Abrir relatórios", variant: "primary", action: "trocarTela('relatorios')" })}</div></div>`;
+  return "";
+}
+
+function renderAdministracaoEmpresa() {
+  const usuario = getUsuarioAtual();
+  if (!podeAcessarAdministracaoEmpresa(usuario)) {
+    return `
+      <section class="card access-denied">
+        <h2>Administração restrita</h2>
+        <p>Somente o dono, um administrador ou alguém com permissão específica pode administrar a empresa.</p>
+        ${renderAppButton({ label: "Voltar ao início", variant: "secondary", action: "trocarTela('dashboard')" })}
+      </section>
+    `;
+  }
+  const secao = getSecaoAdministracaoEmpresa();
+  const modules = [
+    { action: "trocarTela('empresa')", icon: "empresa", title: "Dados da empresa", description: "Nome, documento, logo, endereço e contatos.", visible: canAccessScreen("empresa", usuario) },
+    { action: "trocarTela('assinatura')", icon: "assinatura", title: "Plano e assinatura", description: "Plano atual, cobrança e formas de pagamento.", visible: canAccessScreen("assinatura", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('funcionarios')", icon: "usuarios", title: "Funcionários", description: "Equipe, cargos, acessos e limites do plano.", visible: canAccessScreen("usuarios", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('permissoes')", icon: "seguranca", title: "Permissões", description: "Consulta de permissões por cargo.", visible: canAccessScreen("usuarios", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('loja')", icon: "lojaOnline", title: "Loja online", description: "Catálogo, publicação e canais de atendimento.", visible: canAccessScreen("lojaOnline", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('caixa')", icon: "caixa", title: "Configurações do caixa", description: "Formas de pagamento e operação financeira.", visible: canAccessScreen("caixa", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('estoque')", icon: "estoque", title: "Configurações de estoque", description: "Alertas, mínimos e regras seguras.", visible: canAccessScreen("estoque", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('backup')", icon: "backup", title: "Backup da empresa", description: "Cópias, sincronização e continuidade dos dados.", visible: canAccessScreen("config", usuario) },
+    { action: "abrirSecaoAdministracaoEmpresa('logs')", icon: "relatorios", title: "Logs e relatórios", description: "Atividade da empresa e indicadores permitidos.", visible: canAccessScreen("relatorios", usuario) }
+  ].filter((item) => item.visible);
+  return `
+    <section class="organized-page administration-page">
+      ${renderAppHeader({
+        title: "Administração da empresa",
+        subtitle: "Configurações da empresa separadas do seu perfil pessoal."
+      })}
+      <div class="administration-summary">
+        <span>${renderUiIcon("empresa")}</span>
+        <div><strong>${escaparHtml(appConfig.businessName || "Minha empresa")}</strong><small>${escaparHtml(getUserAccessRole(usuario))}</small></div>
+        ${secao !== "home" ? renderAppButton({ label: "Voltar", variant: "secondary", action: "abrirSecaoAdministracaoEmpresa('home')" }) : ""}
+      </div>
+      ${secao !== "home" ? renderSubsecaoAdministracaoEmpresa(secao, usuario) : `<div class="administration-module-list">
+        ${modules.map((item) => `
+          <button class="administration-module-row" type="button" onclick="${escaparAttr(item.action)}">
+            <span class="administration-module-icon">${renderUiIcon(item.icon)}</span>
+            <span><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.description)}</small></span>
+            <b aria-hidden="true">›</b>
+          </button>
+        `).join("")}
+      </div>`}
+    </section>
+  `;
+}
+
 function renderConta() {
   const usuario = getUsuarioAtual();
   if (!usuario) return renderAcessoNegado();
-  const plano = getPlanoAtual();
-  const estadoPlano = resolverEstadoPlano(usuario, { source: "profile-screen" });
-  const planoSlug = estadoPlano.state === PLAN_ACCESS_STATES.TRIAL
-    ? "premium_trial"
-    : estadoPlano.hasPremium
-      ? normalizarSlugPlano(estadoPlano.activePlan || "pro")
-      : "free";
-  const planoAtual = getPlanoSaas(planoSlug);
-  const preco = getPrecoPagoVigenteLocal();
-  const vencimento = estadoPlano.planExpiresAt || usuario.planExpiresAt || billingConfig.paidUntil || "";
-  const proximaCobranca = vencimento ? new Date(vencimento).toLocaleDateString("pt-BR") : "-";
-  const usuariosAtivos = Math.max(1, getUsuariosDoCliente().filter((item) => item.ativo !== false && !item.bloqueado).length || 1);
-  const maxUsuarios = estadoPlano.hasPremium ? 10 : 5;
-  const maxProjetos = estadoPlano.hasPremium ? 30 : 10;
-  const pedidosUsados = pedidos.length;
-  const relatoriosUsados = Math.min(100, Math.max(0, historico.filter((item) => /relat/i.test(item.acao || "")).length || pedidosUsados * 2));
-  const armazenamentoPercentual = Math.min(100, Math.max(8, Math.round(JSON.stringify({ pedidos, estoque, caixa }).length / 5000)));
   const fotoPerfilAtual = appConfig.profilePhotoDataUrl || usuario.avatarUrl || usuario.avatar_url || "";
   return `
     <section class="profile-modern-screen">
@@ -14139,41 +15449,11 @@ function renderConta() {
         </span>
         <span>
           <strong>${escaparHtml(usuario.nome || usuario.email)}</strong>
-          <small><b class="status-badge ${classePlanoSaasCompacto(planoAtual.slug)}">${escaparHtml(planoAtual.slug === "pro" || planoAtual.slug === "premium_trial" ? "Pro" : planoAtual.slug === "start" ? "Start" : "Grátis")}</b></small>
           <small>${escaparHtml(usuario.email || syncConfig.supabaseEmail || "-")}</small>
           <small>${escaparHtml(usuario.phone || usuario.telefone || appConfig.companyPhone || "")}</small>
         </span>
         <span class="profile-row-arrow">Editar</span>
       </button>
-
-      <section class="profile-modern-card">
-        <div class="profile-section-title">
-          <strong>${renderUiIcon("assinatura")} Meu plano</strong>
-          <button class="inline-link" type="button" onclick="trocarTela('assinatura')">Ver detalhes</button>
-        </div>
-        <div class="profile-plan-summary">
-          <div>
-            <h3>${escaparHtml(planoAtual.name || plano.nome || "Plano Free")} <span class="profile-active-dot"></span> <small>${estadoPlano.hasPremium ? "Ativo" : "Free"}</small></h3>
-          </div>
-          <div class="profile-plan-split">
-            <span><small>Próxima cobrança</small><strong>${escaparHtml(proximaCobranca)}</strong></span>
-            <span><small>Valor</small><strong>${estadoPlano.hasPremium ? `${formatarMoeda(preco)}/mês` : "Grátis"}</strong></span>
-          </div>
-        </div>
-      </section>
-
-      <section class="profile-modern-card">
-        <div class="profile-section-title">
-          <strong>Uso do plano</strong>
-          <button class="inline-link" type="button" onclick="trocarTela('minhaAssinatura')">Ver uso</button>
-        </div>
-        <div class="profile-usage-grid">
-          ${renderProfileUsageTile("clientes", "Usuários", `${usuariosAtivos}/${maxUsuarios}`, Math.min(100, usuariosAtivos / maxUsuarios * 100))}
-          ${renderProfileUsageTile("pedido", "Projetos", `${pedidosUsados}/${maxProjetos}`, Math.min(100, pedidosUsados / maxProjetos * 100))}
-          ${renderProfileUsageTile("relatorios", "Relatórios", `${relatoriosUsados}/100`, Math.min(100, relatoriosUsados))}
-          ${renderProfileUsageTile("assinatura", "Armazenamento", `${(armazenamentoPercentual / 20).toFixed(1)}/5 GB`, armazenamentoPercentual)}
-        </div>
-      </section>
 
       <section class="profile-modern-card profile-list-card">
         <h3>Conta</h3>
@@ -14193,25 +15473,19 @@ function renderConta() {
             </label>
           </div>
           <div class="profile-inline-actions">
-            <button class="btn" type="button" onclick="salvarDadosPessoaisUsuario({ inline: true })">Salvar Perfil</button>
-            <button class="btn secondary" type="button" onclick="abrirDadosPessoaisUsuario()">Abrir edição completa</button>
+            ${renderAppButton({ label: "Salvar perfil", variant: "primary", action: "salvarDadosPessoaisUsuario({ inline: true })" })}
+            ${renderAppButton({ label: "Edição completa", variant: "secondary", action: "abrirDadosPessoaisUsuario()" })}
           </div>
         </div>
-        <button class="profile-list-row" type="button" onclick="abrirFotoPerfilUsuario()">${renderUiIcon("conta")} <span>Alterar foto do perfil</span><b>›</b></button>
-        <button class="profile-list-row" type="button" onclick="abrirSegurancaPerfil()">${renderUiIcon("seguranca")} <span>Segurança da conta</span><b>›</b></button>
-        <button class="profile-list-row" type="button" onclick="abrirNotificacoesOperacionais()">${renderUiIcon("bell")} <span>Notificações do sistema</span><b>›</b></button>
+        <button class="profile-list-row" type="button" data-profile-action="photo">${renderUiIcon("conta")} <span>Alterar foto do perfil</span><b>›</b></button>
+        <button class="profile-list-row" type="button" data-profile-action="security">${renderUiIcon("seguranca")} <span>Segurança, dados e exclusão da conta</span><b>›</b></button>
       </section>
 
-      <section class="profile-modern-card profile-list-card">
-        <h3>Preferências</h3>
-        ${renderProfileMenuRow("preferencias", "Configurações do sistema", "config")}
-        ${renderProfileMenuRow("personalizacao", "Aparência do app", "personalizacao")}
-      </section>
-
-      <section class="profile-modern-card profile-list-card">
-        <h3>Assinatura</h3>
-        ${renderProfileMenuRow("assinatura", "Planos e forma de pagamento", "assinatura")}
-        ${renderProfileMenuRow("relatorios", "Histórico e uso da assinatura", "minhaAssinatura")}
+      <section class="profile-modern-card profile-list-card profile-interface-preferences">
+        <h3>Preferências da interface</h3>
+        <button class="profile-list-row compact" type="button" onclick="abrirSeletorTemaRapido()">${renderUiIcon("aparencia")} <span><strong>Tema do ERP</strong><small>${escaparHtml(getThemePreferenceLabel(appConfig.theme))}</small></span><b>Alterar</b></button>
+        <button class="profile-list-row compact" type="button" onclick="abrirSeletorModoInterface()">${renderUiIcon("config")} <span><strong>Modo de uso</strong><small>${escaparHtml(isSimplificaMode() ? "Simples" : "Avançado")}</small></span><b>Alterar</b></button>
+        <button class="profile-list-row" type="button" data-profile-action="notifications">${renderUiIcon("bell")} <span>Notificações pessoais</span><b>›</b></button>
       </section>
 
       <section class="profile-modern-card profile-list-card">
@@ -14222,7 +15496,7 @@ function renderConta() {
 
       <section class="profile-modern-card profile-list-card">
         <h3>Sessão</h3>
-        <button class="profile-list-row danger" type="button" onclick="logoutUsuario()">${renderUiIcon("back")} <span>Sair ou trocar de conta</span><b>›</b></button>
+        <button class="profile-list-row danger" type="button" data-profile-action="logout">${renderUiIcon("back")} <span>Sair ou trocar de conta</span><b>›</b></button>
       </section>
     </section>
   `;
@@ -14241,22 +15515,34 @@ function renderProfileUsageTile(icon, label, value, percent = 0) {
 }
 
 function renderProfileMenuRow(icon, label, tela) {
-  return `<button class="profile-list-row" type="button" onclick="trocarTela('${escaparAttr(tela)}')">${renderUiIcon(icon)} <span>${escaparHtml(label)}</span><b>›</b></button>`;
+  return `<button class="profile-list-row" type="button" data-profile-screen="${escaparAttr(tela)}">${renderUiIcon(icon)} <span>${escaparHtml(label)}</span><b>›</b></button>`;
 }
 
 function abrirSegurancaPerfil() {
-  window.__configSectionToOpen = "seguranca-conta";
-  trocarTela("config");
-  setTimeout(() => {
-    const section = document.querySelector('[data-ui-section="seguranca-conta"]');
-    if (!section) return;
-    section.setAttribute("open", "");
-    if (isMobile()) {
-      abrirSubmenuConfiguracao(null, section);
-    } else {
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, 80);
+  trocarTela("seguranca");
+}
+
+function configurarAcoesPerfil() {
+  document.querySelectorAll("[data-profile-screen]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      trocarTela(button.dataset.profileScreen || "conta");
+    }, true);
+  });
+  const actions = {
+    photo: abrirFotoPerfilUsuario,
+    security: abrirSegurancaPerfil,
+    notifications: abrirNotificacoesOperacionais,
+    logout: logoutUsuario
+  };
+  document.querySelectorAll("[data-profile-action]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      actions[button.dataset.profileAction]?.();
+    }, true);
+  });
 }
 
 function abrirDadosPessoaisUsuario() {
@@ -15822,14 +17108,16 @@ function renderStorefrontPublishedModal(store = getStorefrontAdminStoreLocal()) 
 }
 
 function exigirChecklistPublicacaoLoja({ intent = "publicar", silent = false } = {}) {
-  const policy = getPlanPolicy();
-  if (!policy.publicStore && !isStorefrontRealTestFullAccessEnabled()) {
+  const publicationAccess = getStorefrontPublicationAccess();
+  if (!publicationAccess.canPublish && !isStorefrontRealTestFullAccessEnabled()) {
     if (!silent) {
       const mensagem = intent === "compartilhar"
-        ? "O link público e o compartilhamento da loja ficam disponíveis no plano Start ou Pro."
-        : "Sua loja pode ser editada no plano Grátis, mas a publicação pública fica disponível no Start ou Pro.";
+        ? "O link público e o compartilhamento da loja ficam disponíveis nos planos Start e Pro ativos."
+        : publicationAccess.reason === "subscription_inactive"
+          ? "Regularize sua assinatura para publicar a loja novamente."
+          : "Publicação da loja disponível nos planos Start e Pro.";
       if (typeof mostrarModalLimitePlano === "function") {
-        mostrarModalLimitePlano(`${mensagem}<br><br><strong>Sua loja está pronta para ser publicada.</strong><br>Ative um plano pago para liberar o link público, remover a marca Simplifica 3D e compartilhar sua loja.`);
+        mostrarModalLimitePlano(`${mensagem}<br><br><strong>Seus produtos e configurações continuam salvos.</strong><br>Você pode editar e visualizar a loja internamente, mas o link público fica bloqueado até o plano permitir publicação.`);
       } else {
         mostrarToast(mensagem, "aviso", 5200);
       }
@@ -16058,9 +17346,11 @@ function getStorefrontAdminStoreLocal() {
     whatsapp: "",
     instagram: "",
     active: false,
+    publication_status: STOREFRONT_PUBLICATION_STATUS.DRAFT,
     theme_config: { primary: "#00BFA6", accent: "#FF8A1F", mode: "light" }
   };
-  return { ...fallback, ...storefrontAdminRead(STOREFRONT_ADMIN_KEYS.store, fallback), owner_id: ownerId };
+  const store = { ...fallback, ...storefrontAdminRead(STOREFRONT_ADMIN_KEYS.store, fallback), owner_id: ownerId };
+  return { ...store, publication_status: getStorefrontPublicationStatus(store) };
 }
 
 function getStorefrontDefaultSlugLocal() {
@@ -16633,6 +17923,7 @@ async function sincronizarLojaOnlineAdminRemoto(force = false) {
 }
 
 function getStorefrontAdminViewModel() {
+  aplicarRegraPublicacaoLojaLocal({ silent: true });
   const baseStore = getStorefrontAdminStoreLocal();
   const demoAllowed = isStorefrontDemoPreviewAllowed();
   const hasStoredStore = storefrontAdminHasStoredValue(STOREFRONT_ADMIN_KEYS.store);
@@ -16691,8 +17982,12 @@ function getStorefrontAdminViewModel() {
 }
 
 function storefrontAdminSaveStore(store) {
+  const access = getStorefrontPublicationAccess();
+  const normalizedStatus = getStorefrontPublicationStatus(store, access);
   storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.store, {
     ...store,
+    active: isStorefrontPubliclyAccessible(store, access) ? store.active === true : false,
+    publication_status: normalizedStatus,
     updatedAt: new Date().toISOString()
   });
 }
@@ -16701,6 +17996,23 @@ function storefrontIsPublicSlugConflict(error) {
   const details = error?.details?.response || error?.details || "";
   const message = `${error?.message || error || ""} ${typeof details === "string" ? details : JSON.stringify(details)}`;
   return /stores_public_slug_unique|duplicate key value.*slug|slug.*already exists/i.test(message);
+}
+
+function storefrontIsPublicationSchemaMissing(error) {
+  const details = error?.details?.response || error?.details || "";
+  const message = `${error?.message || error || ""} ${typeof details === "string" ? details : JSON.stringify(details)}`;
+  return /publication_status|publication_suspended_reason|publication_suspended_at/i.test(message)
+    && /column|schema cache|could not find|unknown/i.test(message);
+}
+
+function storefrontWithoutPublicationColumns(payload = {}) {
+  const {
+    publication_status: _publicationStatus,
+    publication_suspended_reason: _publicationSuspendedReason,
+    publication_suspended_at: _publicationSuspendedAt,
+    ...legacyPayload
+  } = payload;
+  return legacyPayload;
 }
 
 function storefrontBuildOwnedSlugCandidate(slug = "loja", attempt = 0) {
@@ -16741,6 +18053,8 @@ async function storefrontAdminPatchStoreRemote(storeId, payload) {
 }
 
 async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStoreLocal()) {
+  const access = getStorefrontPublicationAccess();
+  const publicActive = isStorefrontPubliclyAccessible(store, access);
   const mutablePayload = {
     name: store.name,
     description: store.description,
@@ -16748,12 +18062,21 @@ async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStore
     banner_url: storefrontImagemRemotaOuNull(store.banner_url),
     whatsapp: store.whatsapp || null,
     instagram: store.instagram || null,
-    active: store.active === true,
+    active: publicActive,
+    publication_status: getStorefrontPublicationStatus({ ...store, active: publicActive }, access),
+    publication_suspended_reason: publicActive ? null : (store.publication_suspended_reason || store.publicationSuspendedReason || access.reason || null),
+    publication_suspended_at: publicActive ? null : (store.publication_suspended_at || store.publicationSuspendedAt || new Date().toISOString()),
     theme_config: store.theme_config || {}
   };
   const existingStore = await storefrontAdminFindRemoteStore(store);
   if (existingStore?.id) {
-    const remoteStore = await storefrontAdminPatchStoreRemote(existingStore.id, mutablePayload);
+    let remoteStore = null;
+    try {
+      remoteStore = await storefrontAdminPatchStoreRemote(existingStore.id, mutablePayload);
+    } catch (error) {
+      if (!storefrontIsPublicationSchemaMissing(error)) throw error;
+      remoteStore = await storefrontAdminPatchStoreRemote(existingStore.id, storefrontWithoutPublicationColumns(mutablePayload));
+    }
     return storefrontAdminAdoptRemoteStore({ ...existingStore, ...remoteStore, slug: existingStore.slug });
   }
   const initialSlug = storefrontAdminSlugify(store.slug || store.name || getStorefrontDefaultSlugLocal());
@@ -16764,17 +18087,33 @@ async function storefrontAdminPersistStoreRemote(store = getStorefrontAdminStore
       ...mutablePayload
     };
     try {
-      const rows = await storefrontAdminRequest("/rest/v1/stores", {
-        method: "POST",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify(createPayload)
-      });
+      let rows = null;
+      try {
+        rows = await storefrontAdminRequest("/rest/v1/stores", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify(createPayload)
+        });
+      } catch (error) {
+        if (!storefrontIsPublicationSchemaMissing(error)) throw error;
+        rows = await storefrontAdminRequest("/rest/v1/stores", {
+          method: "POST",
+          headers: { Prefer: "return=representation" },
+          body: JSON.stringify(storefrontWithoutPublicationColumns(createPayload))
+        });
+      }
       if (rows?.[0]) return storefrontAdminAdoptRemoteStore(rows[0]);
     } catch (error) {
       if (!storefrontIsPublicSlugConflict(error)) throw error;
       const remoteCreatedByAnotherSession = await storefrontAdminFindRemoteStoreByOwner();
       if (remoteCreatedByAnotherSession?.id) {
-        const remoteStore = await storefrontAdminPatchStoreRemote(remoteCreatedByAnotherSession.id, mutablePayload);
+        let remoteStore = null;
+        try {
+          remoteStore = await storefrontAdminPatchStoreRemote(remoteCreatedByAnotherSession.id, mutablePayload);
+        } catch (patchError) {
+          if (!storefrontIsPublicationSchemaMissing(patchError)) throw patchError;
+          remoteStore = await storefrontAdminPatchStoreRemote(remoteCreatedByAnotherSession.id, storefrontWithoutPublicationColumns(mutablePayload));
+        }
         mostrarToast("A sincronização foi concluída sem duplicar informações.", "sucesso", 2800);
         return storefrontAdminAdoptRemoteStore({ ...remoteCreatedByAnotherSession, ...remoteStore, slug: remoteCreatedByAnotherSession.slug });
       }
@@ -16879,6 +18218,11 @@ async function alternarStatusLojaOnline() {
   let operacaoUX = "";
   try {
   const store = getStorefrontAdminStoreLocal();
+  const publicationAccess = getStorefrontPublicationAccess();
+  if (!store.active && !publicationAccess.canPublish && !isStorefrontRealTestFullAccessEnabled()) {
+    exigirChecklistPublicacaoLoja({ intent: "publicar" });
+    return;
+  }
   if (!store.active && !exigirChecklistPublicacaoLoja({ intent: "publicar" })) return;
   if (!await requestSensitiveActionConfirmation({
     actionLabel: store.active ? "colocar loja em rascunho" : "publicar loja",
@@ -16906,7 +18250,14 @@ async function alternarStatusLojaOnline() {
     progress: 10
   });
   atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Validando contatos...", progress: 25 });
-  const next = { ...store, active: !store.active };
+  const nextActive = !store.active;
+  const next = {
+    ...store,
+    active: nextActive,
+    publication_status: nextActive ? STOREFRONT_PUBLICATION_STATUS.PUBLISHED : STOREFRONT_PUBLICATION_STATUS.UNPUBLISHED,
+    publication_suspended_reason: null,
+    publication_suspended_at: null
+  };
   storefrontAdminSaveStore(next);
   atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Validando produtos...", progress: 45 });
   let syncPending = false;
@@ -19633,6 +20984,10 @@ function editarProdutoPublicadoLojaOnline(id = "") {
 if (typeof window !== "undefined") {
   Object.assign(window, {
     alternarMenuContextualUi,
+    abrirCadastroImpressora,
+    atualizarMarcaCadastroImpressora,
+    atualizarCamposConectorImpressora,
+    testarConexaoCadastroImpressora,
     processarImagemExemploLojaOnline,
     processarImagemCategoriaLojaOnline,
     getStorefrontCategoryVisualImage,
@@ -19960,6 +21315,10 @@ function renderStorefrontPublicV3Rebuilt() {
   const mode = getStorefrontPublicMode(vm);
   const renderedTheme = STOREFRONT_V3_LIGHT_THEME;
   applyStoreTheme("light", { persist: false });
+  const publicationAccess = getStorefrontPublicationAccess();
+  const publicAllowed = String(vm.source || "") === "local"
+    ? isStorefrontPubliclyAccessible(vm.store, publicationAccess)
+    : isStorefrontRemotePubliclyAccessible(vm.store);
   if (!mode.admin) {
     vm = {
       ...vm,
@@ -19996,11 +21355,11 @@ function renderStorefrontPublicV3Rebuilt() {
       }
     };
   }
-  if (vm.store.active !== true && !vm.store.__demo && !mode.admin) {
+  if (!publicAllowed && !vm.store.__demo && !mode.admin) {
     return `
       <main class="storefront-app storefront-public sfv3-host" data-storefront-version="v3-rebuilt" data-online-payment-enabled="false" data-store-theme="light" data-store-theme-preference="light">
         <div class="storefront-app storefront-public sfv3" data-storefront-version="v3-rebuilt" data-store-theme="light" data-store-theme-preference="light" data-online-payment-enabled="false">
-          ${renderStorefrontV3EmptyState("Loja em preparação", "Esta Loja ainda não foi ativada pelo vendedor.", "Voltar", "location.href='/'")}
+          ${renderStorefrontV3EmptyState("Loja temporariamente indisponível", "A loja não está disponível para acesso público no momento.", "Voltar", "location.href='/'")}
         </div>
       </main>
     `;
@@ -20726,7 +22085,10 @@ function getStorefrontStockLabel(product = {}) {
 
 function renderLojaOnlineHub() {
   if (telaComCarregamentoUX("loja")) return renderSmartScreenSkeleton("loja");
+  const publicationRule = aplicarRegraPublicacaoLojaLocal({ silent: true });
   const vm = getStorefrontAdminViewModel();
+  const publicationAccess = publicationRule.access || getStorefrontPublicationAccess();
+  const publicActive = isStorefrontPubliclyAccessible(vm.store, publicationAccess);
   const linkPublico = getStorefrontPublicUrlLocal();
   const novos = vm.leads.filter((lead) => String(lead.status || "novo") === "novo").length;
   const whatsapp = vm.events.filter((event) => event.event_type === "whatsapp_click").length;
@@ -20737,19 +22099,23 @@ function renderLojaOnlineHub() {
     <section class="app-page storefront-hub-page">
       <div class="app-header storefront-hub-header">
         <div>
-          <span class="status-badge ${vm.store.active ? "badge-success" : "badge-warning"}">${vm.store.active ? "Loja ativa" : "Loja inativa"}</span>
+          <span class="status-badge ${publicActive ? "badge-success" : "badge-warning"}">${publicActive ? "Loja ativa" : "Loja inativa"}</span>
           <h2>Loja Online</h2>
           <p class="muted">Acompanhe a sua loja, organize produtos e compartilhe a loja com seus clientes.</p>
         </div>
         <div class="actions">
           <button class="btn" type="button" onclick="abrirLojaPublicaAdminContextual()" ${podeAdministrar ? "" : "disabled title=\"Edição liberada para usuários autorizados.\""}>Editar loja</button>
-          <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')">Compartilhar loja</button>
-          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()">Ver como cliente</button>
+          <button class="btn secondary" type="button" onclick="compartilharLojaPublica('${escaparAttr(linkPublico)}')" ${publicationAccess.canShare ? "" : "disabled title=\"Publicação disponível nos planos Start e Pro ativos.\""}>Compartilhar loja</button>
+          <button class="btn ghost" type="button" onclick="abrirLojaPublicaOnline()" ${publicActive ? "" : "disabled title=\"Publique a loja para abrir o link público.\""}>Ver como cliente</button>
         </div>
+      </div>
+      <div class="storefront-plan-notice ${publicationAccess.canPublish ? "is-ready" : "is-blocked"}">
+        <strong>${escaparHtml(publicationAccess.canPublish ? "Publicação disponível" : "Publicação bloqueada")}</strong>
+        <span>${escaparHtml(publicationAccess.internalMessage)}</span>
       </div>
       <div class="storefront-hub-grid">
         ${[
-          { label: "Status", value: vm.store.active ? "Publicado" : "Rascunho", description: vm.store.slug || "endereço pendente", tone: vm.store.active ? "success" : "warning" },
+          { label: "Status", value: publicActive ? "Publicado" : "Rascunho", description: vm.store.slug || "endereço pendente", tone: publicActive ? "success" : "warning" },
           { label: "Produtos visíveis", value: published, description: `${vm.products.length} no catálogo`, tone: "neutral" },
           { label: "Novos contatos", value: novos, description: `${vm.leads.length} recebidos`, tone: novos ? "info" : "neutral" },
           { label: "Visitas", value: visitas, description: `${whatsapp} clique(s) no WhatsApp`, tone: "neutral" }
@@ -22060,10 +23426,10 @@ function renderDashboardAnalyticSections(analytics) {
 
 function getDashboardKpiCards(stats, totaisCaixa) {
   return [
-    { iconKey: "caixa", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa", state: "teal" },
-    { iconKey: "pedidos", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje", state: "neutral" },
+    { iconKey: "financeiro", titulo: "Faturamento do dia", valor: formatarMoeda(stats.faturamentoDia), badge: "Hoje", tela: "caixa", state: "teal" },
+    { iconKey: "pedido", titulo: "Pedidos do dia", valor: stats.pedidosHoje, badge: "Operação", tela: "pedidos", filtro: "hoje", state: "neutral" },
     { iconKey: "pedidos", titulo: "Pedidos em aberto", valor: stats.pedidosAbertos, badge: stats.pedidosAbertos ? "Ação" : "OK", tela: "pedidos", filtro: "abertos", state: stats.pedidosAbertos ? "orange" : "green" },
-    { iconKey: "producao", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao", state: "teal" },
+    { iconKey: "statusProducao", titulo: "Produções ativas", valor: stats.producoesAtivas, badge: "Produção", tela: "producao", state: "teal" },
     { iconKey: "estoque", titulo: "Estoque baixo", valor: stats.estoqueBaixo, badge: stats.estoqueBaixo ? "Atenção" : "OK", tela: "estoque", state: stats.estoqueBaixo ? "orange" : "green" },
     { iconKey: "relatorios", titulo: "Lucro estimado", valor: formatarMoeda(stats.lucroEstimado), badge: "Margem", tela: "relatorios", state: "green" },
     { iconKey: "clientes", titulo: "Clientes", valor: stats.clientesAtivos, badge: "Carteira", tela: "clientes", state: "neutral" },
@@ -22168,7 +23534,7 @@ function renderDashboardDesktopMetricRow(stats, totaisCaixa) {
   return `
     <div class="dashboard-metrics-grid desktop-dashboard-metrics">
       ${renderDashboardDesktopMetricCard({ titulo: "Pedidos hoje", valor: String(stats.pedidosHoje || 0), detalhe: `${formatarMoeda(stats.faturamentoDia)} faturados`, trend: variacaoPedidosHoje.texto, trendState: variacaoPedidosHoje.estado, iconKey: "pedidos", tela: "pedidos", filtro: "hoje", state: "teal" })}
-      ${renderDashboardDesktopMetricCard({ titulo: "Faturamento hoje", valor: formatarMoeda(stats.faturamentoDia), detalhe: `${stats.pedidosHoje || 0} pedido(s)`, trend: variacaoFaturamentoHoje.texto, trendState: variacaoFaturamentoHoje.estado, iconKey: "caixa", tela: "caixa", filtro: "hoje", state: "purple" })}
+      ${renderDashboardDesktopMetricCard({ titulo: "Faturamento hoje", valor: formatarMoeda(stats.faturamentoDia), detalhe: `${stats.pedidosHoje || 0} pedido(s)`, trend: variacaoFaturamentoHoje.texto, trendState: variacaoFaturamentoHoje.estado, iconKey: "financeiro", tela: "caixa", filtro: "hoje", state: "purple" })}
       ${renderDashboardDesktopMetricCard({ titulo: "Pedidos mês", valor: String(mes.pedidos || 0), detalhe: `${stats.pedidosAbertos || 0} em aberto`, trend: variacaoPedidosMes.texto, trendState: variacaoPedidosMes.estado, iconKey: "pedido", tela: "pedidos", filtro: "mes", state: "orange" })}
       ${renderDashboardDesktopMetricCard({ titulo: "Faturamento mês", valor: formatarMoeda(mes.faturamento), detalhe: `${formatarMoeda(stats.lucroEstimado)} lucro estimado`, trend: variacaoFaturamentoMes.texto, trendState: variacaoFaturamentoMes.estado, iconKey: "relatorios", tela: "relatorios", state: "green" })}
       ${renderDashboardDesktopMetricCard({ titulo: "Clientes ativos", valor: String(stats.clientesAtivos || 0), detalhe: `${stats.pedidosConcluidos || 0} concluído(s) hoje`, trend: "Carteira ativa", trendState: "positive", iconKey: "clientes", tela: "clientes", state: "blue" })}
@@ -22423,11 +23789,112 @@ function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
       ${renderDashboardHomeHeader()}
       ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
+      ${renderDashboardMobileAdvancedPanel(stats, totaisCaixa)}
       ${renderPedidosRecentesDashboard()}
       ${renderResumoDiaDashboard(stats, totaisCaixa, analytics)}
       ${renderInsightSmartDashboard(stats)}
       ${renderContinuarDeOndeParouDashboard()}
       ${renderDashboardOnboardingCard()}
+    </section>
+  `;
+}
+
+function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisCaixa = calcularTotaisCaixa()) {
+  if (!isProfissionalMode()) return "";
+  const itens = [
+    { tela: "producao", icon: "producao", label: "Produção", detail: `${stats.producoesAtivas || 0} em produção`, live: [`Abertos ${stats.pedidosAbertos || 0}`, `Prontos ${stats.pedidosConcluidos || 0}`] },
+    { tela: "caixa", icon: "caixa", label: "Caixa", detail: formatarMoeda(totaisCaixa.saldo), live: [`Entradas ${formatarMoeda(totaisCaixa.entradas)}`, `Saídas ${formatarMoeda(totaisCaixa.saidas)}`, `Lucro ${formatarMoeda(stats.lucroDiaEstimado || 0)}`] },
+    { tela: "relatorios", icon: "relatorios", label: "Relatórios", detail: formatarMoeda(stats.faturamentoDia || 0), live: [`Lucro ${formatarMoeda(stats.lucroEstimado || 0)}`, `Ticket ${formatarMoeda(stats.pedidosHoje ? (stats.faturamentoDia || 0) / stats.pedidosHoje : 0)}`] },
+    { tela: "estoque", icon: "estoque", label: "Estoque", detail: stats.estoqueBaixo ? `${stats.estoqueBaixo} alerta(s)` : "OK", live: [`Materiais ${stats.totalMateriais || 0}`, `Consumo ${(Number(stats.consumoHojeKg) || 0).toFixed(3)} kg`] },
+    { tela: "administracao", icon: "empresa", label: "Administração", detail: "Empresa", live: [`Clientes ${stats.clientesAtivos || 0}`, `Pedidos ${stats.totalPedidosFinanceiro || pedidos.length || 0}`] }
+  ].filter((item) => canAccessScreen(item.tela));
+  if (!itens.length) return "";
+  return `
+    <section class="card dashboard-mobile-advanced-panel">
+      <div class="card-header">
+        <h2>Operação avançada</h2>
+        <span class="status-badge">Avançado</span>
+      </div>
+      <div class="dashboard-mobile-advanced-grid">
+        ${itens.map((item) => `
+          <button class="dashboard-mobile-advanced-card s3d-card" type="button" onclick="trocarTela('${escaparAttr(item.tela)}')" data-ui-token-set="dashboard-advanced">
+            <span class="dashboard-mobile-advanced-icon">${renderUiIcon(item.icon)}</span>
+            <span class="dashboard-mobile-advanced-copy">
+              <strong>${escaparHtml(item.label)}</strong>
+              <small>${escaparHtml(item.detail)}</small>
+              <span class="dashboard-live-values" aria-hidden="true">
+                ${[item.detail, ...(item.live || [])].slice(0, 3).map((value) => `<em>${escaparHtml(value)}</em>`).join("")}
+              </span>
+            </span>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderDashboardSimplifica({ stats, totaisCaixa }) {
+  const pedidosProntos = pedidos.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === "prontos").length;
+  const loja = canUseStorefrontLocal() ? getStorefrontAdminViewModel() : null;
+  const lojaPublicada = loja?.store?.active === true;
+  const produtosVisiveis = loja ? loja.products.filter((product) => product.visible).length : 0;
+  const alertaEstoque = stats.estoqueBaixo
+    ? `${stats.estoqueBaixo} item(ns) com estoque baixo.`
+    : "Estoque sem alertas críticos.";
+  const alertaLoja = loja
+    ? lojaPublicada
+      ? `${produtosVisiveis} produto(s) visíveis na loja.`
+      : "Sua loja ainda não foi publicada."
+    : "Loja disponível após entrar na conta.";
+  const cards = [
+    { label: "Vendas hoje", value: formatarMoeda(stats.faturamentoDia), icon: "caixa", action: "trocarTela('caixa')" },
+    { label: "Pedidos pendentes", value: String(stats.pedidosAbertos || 0), icon: "pedidos", action: "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')" },
+    { label: "Pedidos prontos", value: String(pedidosProntos || 0), icon: "pedido", action: "window.__pedidosFiltroDashboard='prontos';trocarTela('pedidos')" },
+    { label: "Caixa atual", value: formatarMoeda(totaisCaixa.saldo), icon: "caixa", action: "trocarTela('caixa')" }
+  ];
+  return `
+    <section class="dashboard-simplifica s3d-page s3d-dashboard" data-interface-mode="simplifica">
+      <header class="dashboard-simplifica-header">
+        <div>
+          <h1>Início</h1>
+          <p>Resumo de vendas, pedidos e caixa.</p>
+        </div>
+      </header>
+      <div class="dashboard-simplifica-metrics">
+        ${cards.map((card) => `
+          <button class="metric dashboard-simplifica-metric" type="button" onclick="${card.action}">
+            <span>${renderUiIcon(card.icon)}</span>
+            <small>${escaparHtml(card.label)}</small>
+            <strong>${escaparHtml(card.value)}</strong>
+          </button>
+        `).join("")}
+      </div>
+      <section class="card dashboard-simplifica-actions">
+        <div class="card-header">
+          <h2>Ações rápidas</h2>
+          <span class="status-badge">Essencial</span>
+        </div>
+        <div class="actions">
+          <button class="btn" type="button" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Novo pedido</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('calculadora')">${renderUiIcon("calculadora")} Calcular preço</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('estoque')">${renderUiIcon("estoque")} Adicionar produto/material</button>
+          <button class="btn ghost" type="button" onclick="trocarTela('lojaOnline')">${renderUiIcon("lojaOnline")} Minha loja</button>
+        </div>
+      </section>
+      <div class="dashboard-simplifica-grid">
+        <section class="card">
+          <div class="card-header">
+            <h2>Alertas simples</h2>
+            <span class="status-badge ${stats.estoqueBaixo ? "badge-alerta" : "badge-ativo"}">${stats.estoqueBaixo ? "Atenção" : "OK"}</span>
+          </div>
+          <div class="dashboard-simple-alerts">
+            <button type="button" onclick="trocarTela('pedidos')"><strong>${stats.pedidosAbertos ? "Você tem pedidos pendentes." : "Nenhum pedido pendente."}</strong><small>${stats.pedidosAbertos || 0} em aberto</small></button>
+            <button type="button" onclick="trocarTela('estoque')"><strong>${escaparHtml(alertaEstoque)}</strong><small>Confira materiais e produtos</small></button>
+            <button type="button" onclick="trocarTela('lojaOnline')"><strong>${escaparHtml(alertaLoja)}</strong><small>Publicação e produtos visíveis</small></button>
+          </div>
+        </section>
+        ${renderPedidosRecentesDashboard()}
+      </div>
     </section>
   `;
 }
@@ -22441,6 +23908,7 @@ function renderDashboard() {
   agendarAnalyticsDashboard(analytics);
   const cards = getDashboardKpiCards(stats, totaisCaixa);
   const payload = { stats, totaisCaixa, plano, analytics, cards };
+  if (isSimplificaMode()) return renderDashboardSimplifica(payload);
   return isWebPwaProfile() && !isMobile() ? renderDashboardPwaTechnical(payload) : renderDashboardApkSimple(payload);
 }
 
@@ -23052,7 +24520,8 @@ function renderEstoqueDetalheSelecionado(materiaisNormalizados = estoque, podeOp
         <div class="stock-detail-actions">
           <button class="btn" type="button" data-action="stock-restock" data-index="${indice}">${renderUiIcon("plus")} Repor estoque</button>
           <button class="btn secondary" type="button" onclick="trocarUiTab('estoque','historico')">${renderUiIcon("backup")} Movimentações</button>
-          <button class="btn secondary" type="button" data-action="stock-edit" data-index="${indice}">${renderUiIcon("edit")} Ajustes</button>
+          <button class="btn secondary" type="button" data-action="stock-output" data-index="${indice}">${renderUiIcon("back")} Saída</button>
+          <button class="btn secondary" type="button" data-action="stock-edit" data-index="${indice}">${renderUiIcon("edit")} Ajustar</button>
           <button class="btn danger" type="button" data-action="stock-remove" data-index="${indice}">${renderUiIcon("trash")} Excluir</button>
         </div>
       ` : ""}
@@ -23078,9 +24547,65 @@ function focarCadastroRapidoEstoque() {
   }, 120);
 }
 
+function renderEstoqueRolosPreview(materiais = []) {
+  const filamentos = materiais
+    .filter((material) => /pla|petg|abs|asa|tpu|filamento|fdm/i.test(`${material.tipo || ""} ${material.nome || ""}`))
+    .slice(0, 4);
+  if (!filamentos.length) return "";
+  return `
+    <div class="settings-group stock-roll-preview">
+      <h3>Rolos de filamento</h3>
+      <p class="muted">Prévia visual para consumo por rolo. A baixa automática por rolo será ativada quando a regra estiver pronta.</p>
+      <div class="sync-grid">
+        ${filamentos.map((material) => {
+          const saldoKg = Math.max(0, Number(material.qtd) || 0);
+          const rolosFechados = Math.floor(saldoKg);
+          const roloAbertoGramas = Math.round((saldoKg - rolosFechados) * 1000);
+          const statusAberto = roloAbertoGramas > 0 ? `${roloAbertoGramas} g no rolo aberto` : "sem rolo aberto";
+          return `
+            <div class="metric stock-roll-card">
+              <span>${escaparHtml(material.nome || "Filamento")}</span>
+              <strong>${rolosFechados} rolo(s) fechado(s)</strong>
+              <small>${escaparHtml(statusAberto)}</small>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderListaComprasEstoque(materiais = []) {
+  const itens = materiais
+    .map((material) => {
+      const minimo = Math.max(0, Number(material.min_stock ?? material.minStock ?? material.estoqueMinimo ?? material.quantity_base) || 0);
+      const atual = Math.max(0, Number(material.qtd) || 0);
+      const ideal = Math.max(minimo, Number(material.ideal_stock ?? material.idealStock ?? material.quantity_base) || minimo || atual);
+      const sugestao = Math.max(0, ideal - atual);
+      return { material, minimo, atual, ideal, sugestao };
+    })
+    .filter((item) => item.sugestao > 0 || ["low", "critical"].includes(item.material.stock_status))
+    .slice(0, 8);
+  if (!itens.length) return `<p class="empty">Lista de compras vazia. O estoque está dentro do mínimo configurado.</p>`;
+  return `
+    <div class="stock-purchase-list">
+      ${itens.map(({ material, atual, minimo, ideal, sugestao }) => `
+        <div class="stock-purchase-row">
+          <div class="row-title">
+            <strong>${escaparHtml(material.nome)}</strong>
+            <span class="muted">${escaparHtml(material.cor || "Sem cor definida")} • atual ${atual.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")} • mínimo ${minimo.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</span>
+          </div>
+          <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : "badge-alerta"}">Comprar ${(sugestao || ideal).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderEstoque() {
   if (telaComCarregamentoUX("estoque")) return renderSmartScreenSkeleton("estoque");
   const podeOperar = permitirVisualizacaoOperacionalBasica();
+  const podeVerCustos = usuarioPodeVerCustosEstoque();
   const materiaisNormalizados = normalizarEstoque();
   const filtroEstoque = getEstoqueFiltroAtivo();
   const buscaEstoque = String(window.__estoqueBusca || "");
@@ -23088,7 +24613,7 @@ function renderEstoque() {
   const estoqueTabs = [
     { id: "materiais", label: "Materiais", icon: "▦" },
     { id: "alertas", label: "Alertas", icon: "!" },
-    { id: "historico", label: "Histórico", icon: "↻" }
+    ...(isContextAdvancedVisible("estoque") ? [{ id: "historico", label: "Histórico", icon: "↻" }] : [])
   ];
   const estoqueTab = estoqueTabs.some((tab) => tab.id === getUiTab("estoque", "")) ? getUiTab("estoque") : "materiais";
   const materiaisBaixos = materiaisNormalizados.filter((material) => material.stock_status === "low" || material.stock_status === "critical");
@@ -23096,7 +24621,7 @@ function renderEstoque() {
   const itensCriticos = materiaisNormalizados.filter((material) => material.stock_status === "critical").length;
   const valorTotalEstoque = materiaisNormalizados.reduce((soma, material) => {
     const valorRegistrado = Number(material.valorTotal || material.valor_total || material.custoTotal || material.costTotal) || 0;
-    const custoKg = Number(material.precoKg || material.preco_por_kg || material.pricePerKg || material.custoKg || material.costPerKg) || 0;
+    const custoKg = calcularCustoKgMaterialEstoque(material);
     return soma + (valorRegistrado || (Number(material.qtd) || 0) * custoKg);
   }, 0);
   const historicoEstoque = historico
@@ -23128,9 +24653,10 @@ function renderEstoque() {
       <div class="card-header stock-page-header">
         <div>
           <h2>Estoque</h2>
-          <p class="muted">Controle de materiais e produtos</p>
+          <p class="muted">${isSimplificaMode() ? "Veja o saldo, cadastre material e acompanhe alertas." : "Controle de materiais, produtos e movimentações."}</p>
         </div>
         <div class="stock-header-actions">
+          ${renderContextualAdvancedToggle("estoque")}
           <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Alertas">${renderUiIcon("bell")}</button>
           ${podeOperar ? `<button class="icon-action-button primary" type="button" onclick="focarCadastroRapidoEstoque()" title="Adicionar item">${renderUiIcon("plus")}</button>` : ""}
         </div>
@@ -23140,13 +24666,14 @@ function renderEstoque() {
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
         <input data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar itens..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
       </label>
-      ${renderEstoqueStatusChips(materiaisNormalizados, filtroEstoque)}
+      ${isContextAdvancedVisible("estoque") ? renderEstoqueStatusChips(materiaisNormalizados, filtroEstoque) : ""}
       <div class="metrics">
         <div class="metric"><span>Total de itens</span><strong>${materiaisNormalizados.length}</strong></div>
         <div class="metric"><span>Estoque baixo</span><strong>${itensBaixos}</strong></div>
         <div class="metric"><span>Itens críticos</span><strong>${itensCriticos}</strong></div>
-        <div class="metric"><span>Valor total</span><strong>${formatarMoeda(valorTotalEstoque)}</strong></div>
+        ${podeVerCustos ? `<div class="metric"><span>Valor total</span><strong>${formatarMoeda(valorTotalEstoque)}</strong></div>` : `<div class="metric"><span>Custos</span><strong>restrito</strong></div>`}
       </div>
+      ${isContextAdvancedVisible("estoque") ? renderEstoqueRolosPreview(materiaisNormalizados) : ""}
       ${renderUiTabs("estoque", estoqueTabs, estoqueTab)}
       <div class="ui-tab-panel">
         ${estoqueTab === "materiais" ? `
@@ -23190,6 +24717,10 @@ function renderEstoque() {
                 <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : "badge-alerta"}">${material.stock_status === "critical" ? "Crítico" : "Repor"}</span>
               </div>
             `).join("") : `<p class="empty">Nenhum alerta de estoque baixo.</p>`}
+          </div>
+          <div class="settings-group">
+            <h3>Lista de compras</h3>
+            ${renderListaComprasEstoque(materiaisNormalizados)}
           </div>
         ` : ""}
         ${estoqueTab === "historico" ? `
@@ -23310,7 +24841,7 @@ function renderListaPedidos() {
     <section class="card orders-screen-card">
       <div class="card-header">
         <h2>${renderUiIcon("pedidos")} Pedidos</h2>
-        ${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
+        <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
       </div>
       ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
@@ -23318,7 +24849,7 @@ function renderListaPedidos() {
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
         <input data-preserve-focus-key="pedidos-busca" value="${escaparAttr(buscaPedidos)}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
       </label>
-      ${renderPedidoStatusChips(listaBaseInicial, filtroAtivo)}
+      ${isContextAdvancedVisible("pedidos") ? renderPedidoStatusChips(listaBaseInicial, filtroAtivo) : ""}
       ${detalhe}
       ${linhas}
       ${paginacao}
@@ -23454,21 +24985,25 @@ function renderIconeAcaoPedido(icone, label = "") {
 }
 
 function renderUiIcon(tipo = "", fallback = "") {
-  const chave = String(tipo || fallback || "").toLowerCase();
+  const chave = getCanonicalUiIconKey(tipo, fallback);
+  const fallbackKey = getCanonicalUiIconKey(fallback, "dashboard");
   const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"`;
   const icones = {
-    dashboard: `<svg ${attrs}><path d="M4 13h7V4H4z"/><path d="M13 20h7V4h-7z"/><path d="M4 20h7v-5H4z"/></svg>`,
-    home: `<svg ${attrs}><path d="m3 11 9-8 9 8"/><path d="M5 10v11h14V10"/><path d="M9 21v-7h6v7"/></svg>`,
+    dashboard: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>`,
+    home: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>`,
     categoria: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>`,
     calculadora: `<svg ${attrs}><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8"/><path d="M8 11h.1M12 11h.1M16 11h.1M8 15h.1M12 15h.1M16 15h.1"/></svg>`,
-    pedido: `<svg ${attrs}><path d="M6 3h12v18H6z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></svg>`,
+    pedido: `<svg ${attrs}><path d="M7 3h10l3 3v15H7z"/><path d="M17 3v4h4"/><path d="M10 11h7"/><path d="M10 15h7"/><path d="M10 19h4"/><path d="M4 7v12"/></svg>`,
     orcamento: `<svg ${attrs}><path d="M7 3h10l3 3v15H7z"/><path d="M17 3v4h4"/><path d="M10 11h7"/><path d="M10 15h7"/><path d="M10 19h4"/><path d="M4 7v12"/></svg>`,
-    pedidos: `<svg ${attrs}><path d="M7 3h10v4H7z"/><path d="M5 7h14v14H5z"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>`,
-    producao: `<svg ${attrs}><path d="M7 8V4h10v4"/><path d="M5 8h14v8H5z"/><path d="M8 16h8v4H8z"/><path d="M9 11h6"/></svg>`,
-    estoque: `<svg ${attrs}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5"/><path d="M12 12v9"/></svg>`,
-    clientes: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><path d="M20 20v-1.5a3 3 0 0 0-2.2-2.9"/><path d="M4 20v-1.5a3 3 0 0 1 2.2-2.9"/></svg>`,
-    caixa: `<svg ${attrs}><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/><path d="M12 10v7"/></svg>`,
-    relatorios: `<svg ${attrs}><path d="M5 19V5"/><path d="M5 19h14"/><path d="M9 15v-4"/><path d="M13 15V8"/><path d="M17 15v-6"/></svg>`,
+    pedidos: `<svg ${attrs}><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path d="M8 12h8"/><path d="M8 16h6"/></svg>`,
+    producao: `<svg ${attrs}><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="m9 18 2 2 4-4"/></svg>`,
+    producaoCheck: `<svg ${attrs}><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="m9 18 2 2 4-4"/></svg>`,
+    impressoras: `<svg ${attrs}><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M8 17h8"/></svg>`,
+    estoque: `<svg ${attrs}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5"/><path d="M12 12v9"/><path d="m8 5.5 8 4.5"/></svg>`,
+    clientes: `<svg ${attrs}><path d="M17 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="11" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg>`,
+    caixa: `<svg ${attrs}><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M7 10h10"/><path d="M7 14h6"/><path d="M17 14h.1"/><path d="M7 6V4h10v2"/></svg>`,
+    financeiro: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 7v10"/><path d="M15 9.5A3 3 0 0 0 12 8c-1.7 0-3 1-3 2.3 0 3.2 6 1.4 6 4.7 0 1.3-1.3 2.3-3 2.3a3.4 3.4 0 0 1-3.2-1.8"/></svg>`,
+    relatorios: `<svg ${attrs}><path d="M4 19V5"/><path d="M8 17V9"/><path d="M12 17V5"/><path d="M16 17v-7"/><path d="M20 17V7"/></svg>`,
     carrinho: `<svg ${attrs}><path d="M6 6h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>`,
     entrega: `<svg ${attrs}><path d="M3 6h11v11H3z"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>`,
     share: `<svg ${attrs}><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5"/><path d="m8.2 13.2 7.6 4.5"/></svg>`,
@@ -23499,6 +25034,8 @@ function renderUiIcon(tipo = "", fallback = "") {
     search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
     view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
     plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
+    check: `<svg ${attrs}><path d="m5 12 4 4L19 6"/></svg>`,
+    refresh: `<svg ${attrs}><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/></svg>`,
     back: `<svg ${attrs}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`,
     menu: `<svg ${attrs}><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>`,
     bell: `<svg ${attrs}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>`,
@@ -23517,9 +25054,49 @@ function renderUiIcon(tipo = "", fallback = "") {
     decoracao: `<svg ${attrs}><path d="M8 3h8l-1 5a5 5 0 0 1 3 5v8H6v-8a5 5 0 0 1 3-5Z"/><path d="M7 14h10"/></svg>`,
     lampada: `<svg ${attrs}><path d="M9 18h6M10 22h4"/><path d="M8 14a7 7 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4Z"/></svg>`,
     camera: `<svg ${attrs}><path d="M4 7h4l2-3h4l2 3h4v13H4Z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    cargo: `<svg ${attrs}><circle cx="9" cy="8" r="4"/><path d="M3 21a6 6 0 0 1 12 0"/><path d="m16 11 2 2 4-5"/></svg>`,
+    gruposAcesso: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><circle cx="18" cy="8" r="2"/><path d="M20 14h2M21 13v2"/></svg>`,
+    departamentos: `<svg ${attrs}><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M8 6h8"/><path d="M6 8v8"/><path d="M18 8v4"/><path d="M18 12h-5"/></svg>`,
+    politicas: `<svg ${attrs}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h5"/><path d="M12 18s4-2 4-5v-2l-4-1.5L8 11v2c0 3 4 5 4 5Z"/></svg>`,
+    sessoes: `<svg ${attrs}><rect x="3" y="4" width="12" height="15" rx="2"/><path d="M7 19h4"/><rect x="17" y="8" width="4" height="10" rx="1"/><path d="M19 18h.1"/></svg>`,
+    historico: `<svg ${attrs}><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg>`,
+    logs: `<svg ${attrs}><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h5"/><circle cx="12" cy="15" r="3"/><path d="M12 12v3l2 1"/></svg>`,
+    loginSeguranca: `<svg ${attrs}><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 15v2"/></svg>`,
+    autenticacao2fa: `<svg ${attrs}><circle cx="8" cy="8" r="4"/><path d="m11 11 9 9"/><path d="M16 16h3v3"/></svg>`,
+    recuperacaoSenha: `<svg ${attrs}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 8 9 6 9-6"/><path d="M12 18v.1"/><path d="M12 15a2 2 0 1 0-2-2"/></svg>`,
+    dispositivos: `<svg ${attrs}><rect x="3" y="4" width="13" height="10" rx="2"/><rect x="18" y="9" width="3" height="9" rx="1"/><path d="M8 18h4"/><path d="M10 14v4"/></svg>`,
+    catalogo: `<svg ${attrs}><path d="M6 7h12l1 14H5Z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>`,
+    produtosLoja: `<svg ${attrs}><path d="m12 3 7 4v8l-7 4-7-4V7Z"/><path d="m5 7 7 4 7-4"/><path d="M12 11v8"/><circle cx="18" cy="18" r="3"/><path d="m16.8 18 1 1 1.6-2"/></svg>`,
+    cupom: `<svg ${attrs}><path d="M4 9V6a2 2 0 0 1 2-2h3a3 3 0 0 0 6 0h3a2 2 0 0 1 2 2v3a3 3 0 0 0 0 6v3a2 2 0 0 1-2 2h-3a3 3 0 0 0-6 0H6a2 2 0 0 1-2-2v-3a3 3 0 0 0 0-6Z"/><path d="m9 15 6-6"/><path d="M9 9h.1M15 15h.1"/></svg>`,
+    imagem: `<svg ${attrs}><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-5 4 4 2-2 5 5"/></svg>`,
+    mensagens: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/></svg>`,
+    movimentacoes: `<svg ${attrs}><path d="M7 3v18"/><path d="m3 7 4-4 4 4"/><path d="M17 21V3"/><path d="m13 17 4 4 4-4"/></svg>`,
+    sangria: `<svg ${attrs}><path d="M5 12h5l2 2h7a2 2 0 0 1 0 4h-8l-4-2H5"/><path d="M5 10v8"/><circle cx="15" cy="7" r="3"/><path d="M15 5v4"/></svg>`,
+    fechamento: `<svg ${attrs}><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>`,
+    conciliacao: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>`,
+    grupoClientes: `<svg ${attrs}><path d="M17 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="11" cy="7" r="4"/><path d="M19 8v6"/><path d="M16 11h6"/></svg>`,
+    tagCliente: `<svg ${attrs}><path d="M7 4h10v17l-5-3-5 3Z"/></svg>`,
+    listaPrecos: `<svg ${attrs}><path d="m8 6 1 1 2-2"/><path d="M13 6h7"/><path d="m8 12 1 1 2-2"/><path d="M13 12h7"/><path d="m8 18 1 1 2-2"/><path d="M13 18h7"/><path d="M4 6h.1M4 12h.1M4 18h.1"/></svg>`,
+    filaImpressao: `<svg ${attrs}><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><path d="M4 6h.1M4 12h.1M4 18h.1"/></svg>`,
+    statusProducao: `<svg ${attrs}><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>`,
+    produtos: `<svg ${attrs}><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>`,
+    estoqueMovimento: `<svg ${attrs}><path d="M17 7H3"/><path d="m7 3-4 4 4 4"/><path d="M7 17h14"/><path d="m17 13 4 4-4 4"/></svg>`,
+    alerta: `<svg ${attrs}><path d="m12 3 10 18H2Z"/><path d="M12 9v5"/><path d="M12 17h.1"/></svg>`,
+    tema: `<svg ${attrs}><path d="M4 20 16.5 7.5a2.1 2.1 0 0 1 3 3L7 23H4Z"/><path d="m14 10 3 3"/><path d="M5 19h4"/></svg>`,
+    integracoes: `<svg ${attrs}><path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.2 1.2"/><path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.2-1.2"/></svg>`,
+    contatoGoogle: `<svg ${attrs}><circle cx="10" cy="8" r="4"/><path d="M3 21a7 7 0 0 1 14 0"/><path d="M19 8v6"/><path d="M16 11h6"/></svg>`,
+    importar: `<svg ${attrs}><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>`,
+    exportar: `<svg ${attrs}><path d="M12 21V9"/><path d="m7 16 5 5 5-5"/><path d="M5 3h14"/></svg>`,
+    database: `<svg ${attrs}><ellipse cx="12" cy="5" rx="7" ry="3"/><path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5"/><path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg>`,
+    statusSistema: `<svg ${attrs}><rect x="4" y="4" width="16" height="6" rx="1.5"/><rect x="4" y="14" width="16" height="6" rx="1.5"/><path d="M8 7h.1M8 17h.1M12 7h4M12 17h4"/></svg>`,
+    ajuda: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 1 1 4.3 2c-1 .7-1.8 1.3-1.8 2.8"/><path d="M12 17h.1"/></svg>`,
+    tutorial: `<svg ${attrs}><path d="M4 5a3 3 0 0 1 3-2h5v17H7a3 3 0 0 0-3 2Z"/><path d="M20 5a3 3 0 0 0-3-2h-5v17h5a3 3 0 0 1 3 2Z"/></svg>`,
+    atalhos: `<svg ${attrs}><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h.1M11 9h.1M15 9h.1M19 9h.1M7 13h.1M11 13h.1M15 13h.1M9 17h6"/></svg>`,
+    suporte: `<svg ${attrs}><path d="M4 13v-1a8 8 0 0 1 16 0v1"/><path d="M4 13a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2v1Z"/><path d="M20 13a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2v1Z"/><path d="M14 19h2a4 4 0 0 0 4-4"/></svg>`,
+    admin: `<svg ${attrs}><path d="M12 22s7-3.6 7-9V6l-7-3-7 3v7c0 5.4 7 9 7 9Z"/><circle cx="12" cy="10" r="2.5"/><path d="M8.5 16a3.8 3.8 0 0 1 7 0"/></svg>`,
     superadmin: `<svg ${attrs}><path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5Z"/><path d="M9 12l2 2 4-5"/></svg>`
   };
-  return icones[chave] || icones[fallback] || icones.dashboard;
+  return icones[chave] || icones[fallbackKey] || icones.dashboard;
 }
 
 function renderDetalhePedido(pedido) {
@@ -23685,6 +25262,653 @@ function carregarMaisPedidos() {
   renderApp();
 }
 
+function getPrinterMonitoringService() {
+  return window.PrinterMonitoringService || null;
+}
+
+function getPrinterBackendConfig() {
+  return {
+    url: syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL,
+    anonKey: syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY,
+    accessToken: syncConfig.supabaseAccessToken || ""
+  };
+}
+
+async function printerBackendRequest(action, payload = {}) {
+  const service = getPrinterMonitoringService();
+  if (!service) throw new Error("Serviço de impressoras indisponível.");
+  return service.request(getPrinterBackendConfig(), action, {
+    company_id: getUsuarioAtual()?.companyId || billingConfig.companyId || "",
+    interface_mode: getInterfaceMode(),
+    ...payload
+  });
+}
+
+function getPrinterRole() {
+  return getUserAccessRole(getUsuarioAtual());
+}
+
+function podeGerenciarImpressoras() {
+  return isSuperAdmin() || ["owner", "admin"].includes(getPrinterRole());
+}
+
+function podeOperarImpressoras() {
+  return isSuperAdmin() || ["owner", "admin", "manager", "production"].includes(getPrinterRole());
+}
+
+function getImpressorasAtivas() {
+  const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
+  if (printerMonitoringState.scope && printerMonitoringState.scope !== scope) return [];
+  return (Array.isArray(printerMonitoringState.items) ? printerMonitoringState.items : []).filter((item) => item?.active !== false);
+}
+
+function sincronizarImpressorasComCalculadora() {
+  getImpressorasAtivas().forEach((item) => {
+    const nome = String(item.name || item.custom_model || "").trim();
+    if (!nome) return;
+    printers[nome] = {
+      tipo: String(item.printer_type || "fdm").toLowerCase() === "resin" ? "RESINA" : "FDM",
+      consumo: Number(item.power_watts) || 0,
+      custo: Number(item.hourly_cost) || 0,
+      registeredPrinterId: item.id
+    };
+  });
+}
+
+async function hidratarImpressorasSeNecessario(forcar = false) {
+  if (!syncConfig.supabaseAccessToken || !getUsuarioAtual()) return;
+  const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
+  if (printerMonitoringState.scope !== scope) {
+    printerMonitoringState.scope = scope;
+    printerMonitoringState.loaded = false;
+    printerMonitoringState.error = "";
+    printerMonitoringState.items = [];
+    printerMonitoringState.brands = [];
+    printerMonitoringState.models = [];
+    printerMonitoringState.connectors = [];
+    printerMonitoringState.agents = [];
+    printerMonitoringState.access = {};
+    printerMonitoringState.history = {};
+  }
+  if (printerMonitoringState.loading || (printerMonitoringState.loaded && !forcar)) return;
+  printerMonitoringState.loading = true;
+  printerMonitoringState.error = "";
+  if (telaAtual === "impressoras") renderizarPreservandoScroll();
+  try {
+    const workspace = await printerBackendRequest("list");
+    const currentScope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
+    if (currentScope !== scope) return;
+    printerMonitoringState.items = Array.isArray(workspace?.printers) ? workspace.printers : [];
+    printerMonitoringState.brands = Array.isArray(workspace?.brands) ? workspace.brands : [];
+    printerMonitoringState.models = Array.isArray(workspace?.models) ? workspace.models : [];
+    printerMonitoringState.connectors = Array.isArray(workspace?.connectors) ? workspace.connectors : [];
+    printerMonitoringState.agents = Array.isArray(workspace?.agents) ? workspace.agents : [];
+    printerMonitoringState.access = workspace?.access || {};
+    printerMonitoringState.loaded = true;
+    sincronizarImpressorasComCalculadora();
+  } catch (erro) {
+    printerMonitoringState.error = getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message || "Não foi possível carregar as impressoras.";
+  } finally {
+    printerMonitoringState.loading = false;
+    if (telaAtual === "impressoras" || telaAtual === "calculadora") renderizarPreservandoScroll();
+  }
+}
+
+function getPrinterCurrentStatus(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  return String(latest.normalized_state || (impressora.connector_type === "manual" ? impressora.manual_status : "") || "unknown").toLowerCase();
+}
+
+function getPrinterDisplayBrand(impressora = {}) {
+  return impressora.printer_brands?.name || impressora.custom_brand || "Sem marca";
+}
+
+function getPrinterDisplayModel(impressora = {}) {
+  return impressora.printer_models?.name || impressora.custom_model || "Modelo não informado";
+}
+
+function getPrinterConnectorLabel(value = "") {
+  return getPrinterMonitoringService()?.connector(value)?.name || String(value || "Manual");
+}
+
+function renderPrinterStatusBadge(impressora = {}) {
+  const state = getPrinterCurrentStatus(impressora);
+  const config = getPrinterMonitoringService()?.status(state) || { label: state, tone: "muted" };
+  return `<span class="printer-status-badge status-${escaparAttr(config.tone)}"><i aria-hidden="true"></i>${escaparHtml(config.label)}</span>`;
+}
+
+function formatarTemperaturaImpressora(valor) {
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? `${numero.toFixed(0)} °C` : "—";
+}
+
+function getPedidoVinculadoImpressora(impressora = {}) {
+  const link = impressora.active_order_link;
+  if (!link?.order_id) return null;
+  return pedidos.find((pedido) => String(pedido.id) === String(link.order_id)) || { id: link.order_id };
+}
+
+function renderResumoImpressoraSimplifica(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const pedido = getPedidoVinculadoImpressora(impressora);
+  return `
+    <article class="printer-summary-row">
+      <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
+      <span class="printer-summary-main">
+        <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
+        <small>${renderPrinterStatusBadge(impressora)}${pedido ? ` Pedido #${escaparHtml(pedido.id)}` : " Sem pedido vinculado"}</small>
+      </span>
+      ${Number.isFinite(Number(latest.progress_percent)) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>—</strong>`}
+    </article>
+  `;
+}
+
+function renderCardImpressora(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const automatico = String(impressora.connector_type || "manual") !== "manual";
+  const pedido = getPedidoVinculadoImpressora(impressora);
+  const podeGerenciar = podeGerenciarImpressoras();
+  const podeOperar = podeOperarImpressoras();
+  const podeMonitorar = canAccessFeature({ feature: "printer_monitoring" }).allowed;
+  const progresso = Number(latest.progress_percent);
+  const atualizado = latest.created_at || impressora.last_seen_at || impressora.updated_at;
+  return `
+    <article class="printer-card" data-printer-id="${escaparAttr(impressora.id)}">
+      <header class="printer-card-header">
+        <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
+        <div>
+          <h3>${escaparHtml(impressora.name || "Impressora")}</h3>
+          <p>${escaparHtml(getPrinterDisplayBrand(impressora))} · ${escaparHtml(getPrinterDisplayModel(impressora))} · ${escaparHtml(getPrinterConnectorLabel(impressora.connector_type))}</p>
+        </div>
+        ${renderPrinterStatusBadge(impressora)}
+      </header>
+      ${Number.isFinite(progresso) ? `<div class="printer-progress"><i style="--progress:${Math.max(0, Math.min(100, progresso))}%"></i><span>${Math.round(progresso)}%</span></div>` : ""}
+      <div class="printer-metrics">
+        <div><span>Bico</span><strong>${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong></div>
+        <div><span>Mesa</span><strong>${formatarTemperaturaImpressora(latest.bed_temp)}</strong></div>
+        <div><span>Tempo restante</span><strong>${escaparHtml(getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")}</strong></div>
+        <div><span>Pedido</span><strong>${pedido ? `#${escaparHtml(pedido.id)}` : "Nenhum"}</strong></div>
+      </div>
+      <div class="printer-card-meta">
+        <span>${impressora.connection_status === "connected" ? "Conectada" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
+        <span>${atualizado ? `Atualizada ${escaparHtml(formatarDataHora(atualizado))}` : "Sem atualização automática"}</span>
+        ${latest.current_file ? `<span class="printer-current-file">${escaparHtml(latest.current_file)}</span>` : ""}
+      </div>
+      ${automatico && !podeMonitorar ? `<p class="printer-plan-note">A leitura automática está disponível no plano Pro.</p>` : ""}
+      <div class="printer-card-actions">
+        ${automatico && podeMonitorar ? `<button class="btn secondary" type="button" onclick="atualizarStatusImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar status</button>` : ""}
+        ${!automatico && podeOperar ? `<button class="btn secondary" type="button" onclick="abrirStatusManualImpressora('${escaparAttr(impressora.id)}')">Atualizar status</button>` : ""}
+        ${podeOperar ? `<button class="btn ghost" type="button" onclick="abrirVinculoPedidoImpressora('${escaparAttr(impressora.id)}')">Vincular pedido</button>` : ""}
+        <button class="icon-button" type="button" onclick="abrirHistoricoImpressora('${escaparAttr(impressora.id)}')" title="Histórico">${renderUiIcon("agenda")}</button>
+        ${podeGerenciar ? `<button class="icon-button" type="button" data-action="printer-edit" data-printer-id="${escaparAttr(impressora.id)}" title="Editar">${renderUiIcon("edit")}</button>` : ""}
+        ${podeGerenciar ? `<button class="icon-button danger" type="button" onclick="desativarImpressora('${escaparAttr(impressora.id)}')" title="Desativar">${renderUiIcon("trash")}</button>` : ""}
+      </div>
+    </article>
+  `;
+}
+
+function renderImpressoras() {
+  const items = getImpressorasAtivas();
+  const podeGerenciar = podeGerenciarImpressoras();
+  const plano = normalizarSlugPlano(getCurrentPlanSlug());
+  const automaticas = items.filter((item) => item.connector_type !== "manual").length;
+  const imprimindo = items.filter((item) => getPrinterCurrentStatus(item) === "printing").length;
+  const comErro = items.filter((item) => ["error", "offline"].includes(getPrinterCurrentStatus(item))).length;
+
+  if (printerMonitoringState.loading && !printerMonitoringState.loaded) {
+    return `<section class="card printer-screen"><div class="printer-loading">${renderUiIcon("impressoras")}<strong>Carregando impressoras...</strong></div></section>`;
+  }
+
+  if (isSimplificaMode()) {
+    return `
+      <section class="card printer-screen printer-screen-simple">
+        <div class="card-header">
+          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Impressoras</h2></div>
+          ${podeGerenciar ? renderAppButton({ label: "Adicionar", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
+        </div>
+        ${printerMonitoringState.error ? `<p class="printer-error">${escaparHtml(printerMonitoringState.error)}</p>` : ""}
+        <div class="printer-summary-list">
+          ${items.length ? items.map(renderResumoImpressoraSimplifica).join("") : `<p class="empty">Nenhuma impressora cadastrada.</p>`}
+        </div>
+        <p class="muted">Detalhes de conexão, custos e histórico completo ficam no Modo Profissional.</p>
+      </section>
+    `;
+  }
+
+  return `
+    <section class="printer-screen">
+      <header class="printer-page-header">
+        <div>
+          <span class="eyebrow">Máquinas e impressoras</span>
+          <h2>Monitoramento somente leitura</h2>
+          <p>Consulte estado, progresso, temperaturas, custos e pedidos sem enviar comandos à impressora.</p>
+        </div>
+        <div class="actions">
+          ${plano === "pro" && podeGerenciar ? `<button class="btn ghost" type="button" onclick="abrirAgentesLocais()">Agente local</button>` : ""}
+          ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", attrs: 'data-action="printer-add"' }) : ""}
+        </div>
+      </header>
+      ${printerMonitoringState.error ? `<div class="printer-error"><span>${escaparHtml(printerMonitoringState.error)}</span><button class="btn ghost" onclick="hidratarImpressorasSeNecessario(true)">Tentar novamente</button></div>` : ""}
+      <div class="printer-overview">
+        <div class="metric"><span>Cadastradas</span><strong>${items.length}</strong></div>
+        <div class="metric"><span>Imprimindo</span><strong>${imprimindo}</strong></div>
+        <div class="metric"><span>Automáticas</span><strong>${automaticas}</strong></div>
+        <div class="metric ${comErro ? "metric-warning" : ""}"><span>Alertas</span><strong>${comErro}</strong></div>
+      </div>
+      <div class="printer-grid">
+        ${items.length ? items.map(renderCardImpressora).join("") : `
+          <div class="printer-empty">
+            ${renderUiIcon("impressoras")}
+            <strong>Cadastre sua primeira impressora</strong>
+            <p>Free permite 1 manual, Start até 3 manuais e Pro libera conectores automáticos.</p>
+            ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", attrs: 'data-action="printer-add"' }) : ""}
+          </div>
+        `}
+      </div>
+    </section>
+  `;
+}
+
+function getPrinterById(id) {
+  return getImpressorasAtivas().find((item) => String(item.id) === String(id)) || null;
+}
+
+function configurarAcoesCadastroImpressora() {
+  document.querySelectorAll('[data-action="printer-add"], [data-action="printer-edit"]').forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      abrirCadastroImpressora(button.dataset.action === "printer-edit" ? button.dataset.printerId || "" : "");
+    });
+  });
+}
+
+function getPrinterBrandOptions(selectedId = "", customBrand = "") {
+  const rows = printerMonitoringState.brands.length
+    ? printerMonitoringState.brands
+    : (getPrinterMonitoringService()?.BRANDS || []).map((item) => ({ id: "", slug: item.slug, name: item.name }));
+  return rows.map((brand) => `<option value="${escaparAttr(brand.id || brand.slug)}" data-brand-id="${escaparAttr(brand.id || "")}" data-brand-name="${escaparAttr(brand.name)}" ${String(selectedId || customBrand).toLowerCase() === String(brand.id || brand.name).toLowerCase() ? "selected" : ""}>${escaparHtml(brand.name)}</option>`).join("");
+}
+
+function getPrinterModelOptions(brandId = "", selectedId = "", customModel = "") {
+  const models = printerMonitoringState.models.filter((model) => !brandId || String(model.brand_id) === String(brandId));
+  const options = models.map((model) => `<option value="${escaparAttr(model.id)}" data-brand-id="${escaparAttr(model.brand_id)}" data-model-name="${escaparAttr(model.name)}" ${String(selectedId) === String(model.id) ? "selected" : ""}>${escaparHtml(model.name)}</option>`).join("");
+  return `<option value="">Digitar modelo</option>${options}${customModel && !selectedId ? `<option value="" selected>Modelo personalizado: ${escaparHtml(customModel)}</option>` : ""}`;
+}
+
+function getPrinterModelSuggestionOptions() {
+  const names = new Set();
+  (printerMonitoringState.models || []).forEach((model) => {
+    const name = String(model?.name || "").trim();
+    if (name) names.add(name);
+  });
+  (getPrinterMonitoringService()?.BRANDS || []).forEach((brand) => {
+    (brand.models || []).forEach((model) => {
+      const name = String(model || "").trim();
+      if (name) names.add(name);
+    });
+  });
+  return Array.from(names).sort((a, b) => a.localeCompare(b, "pt-BR"))
+    .map((name) => `<option value="${escaparAttr(name)}"></option>`)
+    .join("");
+}
+
+function abrirCadastroImpressora(id = "") {
+  if (!podeGerenciarImpressoras()) {
+    mostrarToast("Seu perfil não pode configurar impressoras.", "aviso");
+    return;
+  }
+  const impressora = id ? getPrinterById(id) : {};
+  const pro = isPlanAtLeast(getCurrentPlanSlug(), "pro");
+  const brandId = impressora?.brand_id || "";
+  const automatico = String(impressora?.connector_type || "manual") !== "manual";
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-modal-backdrop" id="printerModalBackdrop" role="dialog" aria-modal="true">
+      <form class="modal-card printer-wizard printer-form-simple" id="printerForm">
+        <div class="modal-header">
+          <div><span class="eyebrow">${id ? "Editar" : "Nova"} impressora</span><h2>${id ? escaparHtml(impressora.name) : "Adicionar impressora"}</h2></div>
+          <button class="icon-button" id="printerCloseButton" type="button" title="Fechar">✕</button>
+        </div>
+        <input type="hidden" id="printerId" value="${escaparAttr(id)}">
+        <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
+
+        <div class="printer-simple-fields">
+          <label class="field field-wide"><span>Nome da impressora</span><input id="printerName" required maxlength="120" value="${escaparAttr(impressora?.name || "")}" placeholder="Ex.: Ender da produção" autofocus></label>
+          <label class="field"><span>Modelo</span><input id="printerCustomModel" list="printerModelSuggestions" maxlength="120" value="${escaparAttr(getPrinterDisplayModel(impressora) === "Modelo não informado" ? "" : getPrinterDisplayModel(impressora))}" placeholder="Ex.: Ender 3 V2"><datalist id="printerModelSuggestions">${getPrinterModelSuggestionOptions()}</datalist></label>
+          <label class="field"><span>Tipo</span><select id="printerType">${[["fdm","FDM"],["resin","Resina"],["other","Outro"]].map(([value,label]) => `<option value="${value}" ${String(impressora?.printer_type || "fdm") === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label class="field"><span>Localização</span><input id="printerLocation" maxlength="160" value="${escaparAttr(impressora?.location || "")}" placeholder="Ex.: Bancada 2"></label>
+          <label class="field"><span>Status inicial</span><select id="printerManualStatus">${["idle","printing","paused","finished","maintenance"].map((state) => `<option value="${state}" ${String(impressora?.manual_status || "idle") === state ? "selected" : ""}>${escaparHtml(getPrinterMonitoringService()?.status(state)?.label || state)}</option>`).join("")}</select></label>
+        </div>
+
+        <details class="printer-advanced-settings" ${automatico ? "open" : ""}>
+          <summary>
+            <span>${renderUiIcon("config")}</span>
+            <strong>Configuração avançada</strong>
+            <small>Marca, conexão automática e custos</small>
+          </summary>
+          <div class="printer-advanced-content">
+            <section>
+              <h3>Identificação</h3>
+              <div class="form-grid">
+                <label class="field"><span>Marca</span><select id="printerBrand"><option value="">Outra / personalizada</option>${getPrinterBrandOptions(brandId, impressora?.custom_brand)}</select></label>
+                <label class="field"><span>Marca personalizada</span><input id="printerCustomBrand" maxlength="120" value="${escaparAttr(impressora?.custom_brand || "")}" placeholder="Se não estiver na lista"></label>
+              </div>
+            </section>
+
+            <section>
+              <h3>Leitura automática</h3>
+              <label class="field"><span>Conexão</span>
+                <select id="printerConnector">
+                  ${(getPrinterMonitoringService()?.CONNECTORS || []).map((connector) => `<option value="${connector.key}" ${String(impressora?.connector_type || "manual") === connector.key ? "selected" : ""} ${connector.automatic && !pro ? "disabled" : ""}>${escaparHtml(connector.name)}${connector.automatic && !pro ? " · Pro" : ""}</option>`).join("")}
+                </select>
+              </label>
+              <div id="printerAutomaticFields">
+                <label class="field"><span>Modo de conexão</span><select id="printerConnectionMode">
+                  <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
+                  <option value="browser_local" ${impressora?.connection_mode === "browser_local" ? "selected" : ""}>Navegador na mesma rede</option>
+                  <option value="cloud_supported" ${impressora?.connection_mode === "cloud_supported" ? "selected" : ""}>Gateway HTTPS</option>
+                </select></label>
+                <label class="field" id="printerAgentField"><span>Agente responsável</span><select id="printerAgentId"><option value="">Selecione um agente</option>${(printerMonitoringState.agents || []).map((agent) => `<option value="${escaparAttr(agent.id)}" ${String(impressora?.active_agent_id || "") === String(agent.id) ? "selected" : ""}>${escaparHtml(agent.name)} · ${escaparHtml(agent.status)}</option>`).join("")}</select></label>
+                <div class="form-grid">
+                  <label class="field"><span>IP ou URL</span><input id="printerHost" value="${escaparAttr(impressora?.host || "")}" placeholder="192.168.1.50"></label>
+                  <label class="field"><span>Porta</span><input id="printerPort" type="number" min="1" max="65535" value="${escaparAttr(impressora?.port || "")}" placeholder="80"></label>
+                  <label class="field"><span>Token / API Key</span><input id="printerApiToken" type="password" autocomplete="new-password" placeholder="${impressora?.credentials_configured ? "Configurado · deixe vazio para manter" : "Opcional"}"></label>
+                  <label class="field"><span>Usuário</span><input id="printerUsername" autocomplete="off" placeholder="Quando exigido"></label>
+                  <label class="field"><span>Senha</span><input id="printerPassword" type="password" autocomplete="new-password" placeholder="Quando exigida"></label>
+                </div>
+                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} Somente leitura. Nenhum comando será enviado à impressora.</div>
+                <div class="actions">${renderAppButton({ label: "Testar conexão", variant: "secondary", attrs: 'id="printerConnectionTestButton"' })}<span class="muted" id="printerConnectionTestResult"></span></div>
+              </div>
+              <div id="printerManualFields" hidden></div>
+            </section>
+
+            <section>
+              <h3>Custos opcionais</h3>
+              <div class="form-grid">
+                <label class="field"><span>Custo por hora</span><input id="printerHourlyCost" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.hourly_cost || "")}" placeholder="0,00"></label>
+                <label class="field"><span>Potência em watts</span><input id="printerPowerWatts" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.power_watts || "")}" placeholder="Ex.: 250"></label>
+                <label class="field"><span>Valor da impressora</span><input id="printerPurchasePrice" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.purchase_price || "")}" placeholder="0,00"></label>
+                <label class="field"><span>Data de compra</span><input id="printerPurchaseDate" type="date" value="${escaparAttr(impressora?.purchase_date || "")}"></label>
+                <label class="field"><span>Vida útil (meses)</span><input id="printerLifetime" type="number" min="0" step="1" value="${escaparAttr(impressora?.estimated_lifetime_months || "")}"></label>
+                <label class="field"><span>Manutenção mensal</span><input id="printerMaintenanceCost" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.monthly_maintenance_cost || "")}"></label>
+              </div>
+              <label class="field"><span>Observações</span><textarea id="printerNotes" maxlength="2000" placeholder="Manutenção ou uso">${escaparHtml(impressora?.notes || "")}</textarea></label>
+            </section>
+          </div>
+        </details>
+
+        <div class="printer-wizard-actions">
+          ${renderAppButton({ label: "Cancelar", variant: "ghost", attrs: 'id="printerCancelButton"' })}
+          ${renderAppButton({ label: id ? "Salvar alterações" : "Adicionar impressora", icon: renderUiIcon(id ? "edit" : "plus"), variant: "primary", type: "submit", attrs: 'id="printerSaveButton"' })}
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById("printerForm")?.addEventListener("submit", salvarCadastroImpressora);
+  document.getElementById("printerCloseButton")?.addEventListener("click", fecharPopup);
+  document.getElementById("printerCancelButton")?.addEventListener("click", fecharPopup);
+  document.getElementById("printerBrand")?.addEventListener("change", atualizarMarcaCadastroImpressora);
+  document.getElementById("printerConnector")?.addEventListener("change", atualizarCamposConectorImpressora);
+  document.getElementById("printerConnectionMode")?.addEventListener("change", atualizarCamposConectorImpressora);
+  document.getElementById("printerConnectionTestButton")?.addEventListener("click", testarConexaoCadastroImpressora);
+  document.getElementById("printerModalBackdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) fecharPopup();
+  });
+  atualizarCamposConectorImpressora();
+}
+
+function atualizarMarcaCadastroImpressora() {
+  const brand = document.getElementById("printerBrand");
+  const brandName = brand?.selectedOptions?.[0]?.dataset?.brandName || "";
+  const customBrand = document.getElementById("printerCustomBrand");
+  if (customBrand && brandName) customBrand.value = brandName;
+}
+
+function atualizarCamposConectorImpressora() {
+  const connector = document.getElementById("printerConnector")?.value || "manual";
+  const automatic = connector !== "manual";
+  const connectionMode = document.getElementById("printerConnectionMode")?.value || "local_agent";
+  document.getElementById("printerAutomaticFields")?.toggleAttribute("hidden", !automatic);
+  document.getElementById("printerManualFields")?.toggleAttribute("hidden", automatic);
+  document.getElementById("printerAgentField")?.toggleAttribute("hidden", !automatic || connectionMode !== "local_agent");
+  const testButton = document.getElementById("printerConnectionTestButton");
+  if (testButton) {
+    testButton.disabled = connectionMode === "local_agent";
+    testButton.textContent = connectionMode === "browser_local" ? "Testar nesta rede" : connectionMode === "local_agent" ? "Status recebido pelo agente" : "Testar gateway de leitura";
+  }
+}
+
+async function testarConexaoCadastroImpressora() {
+  const mode = document.getElementById("printerConnectionMode")?.value || "local_agent";
+  const result = document.getElementById("printerConnectionTestResult");
+  const button = document.getElementById("printerConnectionTestButton");
+  if (mode === "local_agent") return;
+  if (button) button.disabled = true;
+  if (result) result.textContent = "Testando...";
+  try {
+    if (mode === "browser_local") {
+      const response = await getPrinterMonitoringService().testBrowserLocal({
+        connectorType: document.getElementById("printerConnector")?.value,
+        host: document.getElementById("printerHost")?.value,
+        port: document.getElementById("printerPort")?.value,
+        apiToken: document.getElementById("printerApiToken")?.value,
+        username: document.getElementById("printerUsername")?.value,
+        password: document.getElementById("printerPassword")?.value
+      });
+      if (result) result.textContent = `Conectado · ${getPrinterMonitoringService()?.status(response.state)?.label || response.state}`;
+      return;
+    }
+    const printerId = document.getElementById("printerId")?.value || "";
+    if (!printerId) throw new Error("Salve a impressora antes de testar o gateway.");
+    await printerBackendRequest("test_connection", { printer_id: printerId });
+    if (result) result.textContent = "Conectado em modo somente leitura.";
+  } catch (erro) {
+    if (result) result.textContent = getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function valorOpcionalNumero(id) {
+  const valor = document.getElementById(id)?.value;
+  return String(valor || "").trim() ? Number(valor) : null;
+}
+
+async function salvarCadastroImpressora(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const save = document.getElementById("printerSaveButton");
+  if (!form?.reportValidity?.()) return;
+  const brandOption = document.getElementById("printerBrand")?.selectedOptions?.[0];
+  const modelOption = document.getElementById("printerModel")?.selectedOptions?.[0];
+  const connector = document.getElementById("printerConnector")?.value || "manual";
+  const payload = {
+    id: document.getElementById("printerId")?.value || "",
+    name: document.getElementById("printerName")?.value || "",
+    brand_id: brandOption?.dataset?.brandId || null,
+    model_id: document.getElementById("printerModel")?.value || null,
+    custom_brand: document.getElementById("printerCustomBrand")?.value || brandOption?.dataset?.brandName || "",
+    custom_model: document.getElementById("printerCustomModel")?.value || modelOption?.dataset?.modelName || "",
+    printer_type: document.getElementById("printerType")?.value || "fdm",
+    location: document.getElementById("printerLocation")?.value || "",
+    notes: document.getElementById("printerNotes")?.value || "",
+    connector_type: connector,
+    connection_mode: connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "local_agent",
+    agent_id: document.getElementById("printerAgentId")?.value || null,
+    host: document.getElementById("printerHost")?.value || "",
+    port: valorOpcionalNumero("printerPort"),
+    api_token: document.getElementById("printerApiToken")?.value || "",
+    username: document.getElementById("printerUsername")?.value || "",
+    password: document.getElementById("printerPassword")?.value || "",
+    manual_status: document.getElementById("printerManualStatus")?.value || "idle",
+    hourly_cost: valorOpcionalNumero("printerHourlyCost"),
+    power_watts: valorOpcionalNumero("printerPowerWatts"),
+    purchase_price: valorOpcionalNumero("printerPurchasePrice"),
+    purchase_date: document.getElementById("printerPurchaseDate")?.value || null,
+    estimated_lifetime_months: valorOpcionalNumero("printerLifetime"),
+    monthly_maintenance_cost: valorOpcionalNumero("printerMaintenanceCost")
+  };
+  if (save) save.disabled = true;
+  try {
+    const saved = await printerBackendRequest("save", { printer: payload });
+    if (saved?.id) {
+      const index = printerMonitoringState.items.findIndex((item) => String(item.id) === String(saved.id));
+      if (index >= 0) printerMonitoringState.items[index] = { ...printerMonitoringState.items[index], ...saved };
+      else printerMonitoringState.items.unshift(saved);
+      printerMonitoringState.loaded = true;
+      sincronizarImpressorasComCalculadora();
+    }
+    fecharPopup();
+    await hidratarImpressorasSeNecessario(true);
+    mostrarToast(payload.id ? "Impressora atualizada." : "Impressora adicionada.", "sucesso", 3400);
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+    if (save) save.disabled = false;
+  }
+}
+
+async function atualizarStatusImpressora(id) {
+  try {
+    mostrarToast("Consultando status da impressora...", "info", 2200);
+    await printerBackendRequest("fetch_status", { printer_id: id });
+    await hidratarImpressorasSeNecessario(true);
+    mostrarToast("Status atualizado.", "sucesso", 3000);
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+  }
+}
+
+function abrirStatusManualImpressora(id) {
+  const impressora = getPrinterById(id);
+  if (!impressora || !podeOperarImpressoras()) return;
+  const popup = document.getElementById("popup");
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card" id="printerManualStatusForm" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2>Status de ${escaparHtml(impressora.name)}</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <label class="field"><span>Status manual</span><select id="printerManualStatusUpdate">${["idle","printing","paused","finished","error","offline","maintenance"].map((state) => `<option value="${state}" ${getPrinterCurrentStatus(impressora) === state ? "selected" : ""}>${escaparHtml(getPrinterMonitoringService()?.status(state)?.label || state)}</option>`).join("")}</select></label>
+        <p class="muted">Esta alteração registra um snapshot manual e não envia comandos à impressora.</p>
+        <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar status</button></div>
+      </form>
+    </div>`;
+  document.getElementById("printerManualStatusForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await printerBackendRequest("manual_status", { printer_id: id, state: document.getElementById("printerManualStatusUpdate")?.value });
+      fecharPopup();
+      await hidratarImpressorasSeNecessario(true);
+      mostrarToast("Status manual atualizado.", "sucesso");
+    } catch (erro) {
+      mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+    }
+  });
+}
+
+function abrirVinculoPedidoImpressora(id) {
+  const impressora = getPrinterById(id);
+  if (!impressora || !podeOperarImpressoras()) return;
+  const atual = impressora.active_order_link?.order_id || "";
+  const ativos = pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "").toLowerCase()));
+  const popup = document.getElementById("popup");
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card" id="printerOrderLinkForm" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2>Vincular pedido</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">${escaparHtml(impressora.name)} · ${escaparHtml(getPrinterMonitoringService()?.status(getPrinterCurrentStatus(impressora))?.label || "")}</p>
+        <label class="field"><span>Pedido</span><select id="printerOrderId"><option value="">Sem pedido vinculado</option>${ativos.map((pedido) => `<option value="${escaparAttr(pedido.id)}" ${String(atual) === String(pedido.id) ? "selected" : ""}>#${escaparHtml(pedido.id)} · ${escaparHtml(clienteDoPedido(pedido))}</option>`).join("")}</select></label>
+        <label class="field"><span>Observações</span><textarea id="printerOrderNotes" maxlength="1000"></textarea></label>
+        <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar vínculo</button></div>
+      </form>
+    </div>`;
+  document.getElementById("printerOrderLinkForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await printerBackendRequest("link_order", {
+        printer_id: id,
+        order_id: document.getElementById("printerOrderId")?.value || "",
+        notes: document.getElementById("printerOrderNotes")?.value || ""
+      });
+      fecharPopup();
+      await hidratarImpressorasSeNecessario(true);
+      mostrarToast("Vínculo do pedido atualizado.", "sucesso");
+    } catch (erro) {
+      mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+    }
+  });
+}
+
+async function abrirHistoricoImpressora(id) {
+  const impressora = getPrinterById(id);
+  if (!impressora) return;
+  const popup = document.getElementById("popup");
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()"><section class="modal-card printer-history-modal" onclick="event.stopPropagation()"><div class="modal-header"><h2>Histórico de ${escaparHtml(impressora.name)}</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div><p class="muted">Carregando eventos e snapshots...</p></section></div>`;
+  try {
+    const data = await printerBackendRequest("history", { printer_id: id });
+    const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
+    const events = Array.isArray(data?.events) ? data.events : [];
+    const modal = document.querySelector(".printer-history-modal");
+    if (!modal) return;
+    modal.innerHTML = `
+      <div class="modal-header"><h2>Histórico de ${escaparHtml(impressora.name)}</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+      <div class="printer-history-grid">
+        <section><h3>Snapshots</h3>${snapshots.length ? snapshots.map((item) => `<div class="history-item"><strong>${escaparHtml(getPrinterMonitoringService()?.status(item.normalized_state)?.label || item.normalized_state)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}${Number.isFinite(Number(item.progress_percent)) ? ` · ${Math.round(Number(item.progress_percent))}%` : ""}</span></div>`).join("") : `<p class="empty">Sem snapshots.</p>`}</section>
+        <section><h3>Eventos</h3>${events.length ? events.map((item) => `<div class="history-item"><strong>${escaparHtml(item.message || item.event_type)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}</span></div>`).join("") : `<p class="empty">Sem eventos.</p>`}</section>
+      </div>`;
+  } catch (erro) {
+    const modal = document.querySelector(".printer-history-modal");
+    if (modal) modal.insertAdjacentHTML("beforeend", `<p class="printer-error">${escaparHtml(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message)}</p>`);
+  }
+}
+
+async function desativarImpressora(id) {
+  const impressora = getPrinterById(id);
+  if (!impressora || !podeGerenciarImpressoras()) return;
+  if (!confirm(`Desativar ${impressora.name}? As credenciais de conexão serão removidas.`)) return;
+  try {
+    await printerBackendRequest("disable", { printer_id: id });
+    await hidratarImpressorasSeNecessario(true);
+    mostrarToast("Impressora desativada.", "sucesso");
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+  }
+}
+
+function abrirAgentesLocais() {
+  if (!podeGerenciarImpressoras()) return;
+  const popup = document.getElementById("popup");
+  const agents = printerMonitoringState.agents || [];
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2>Simplifica Local Agent</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">O agente consulta impressoras na rede local e envia somente snapshots. Ele não recebe comandos.</p>
+        <div class="history-list">${agents.length ? agents.map((agent) => `<div class="history-item"><strong>${escaparHtml(agent.name)}</strong><span>${escaparHtml(agent.status)}${agent.last_seen_at ? ` · ${escaparHtml(formatarDataHora(agent.last_seen_at))}` : ""}</span></div>`).join("") : `<p class="empty">Nenhum agente criado.</p>`}</div>
+        <div class="actions"><button class="btn" type="button" onclick="criarAgenteLocal()">Criar agente</button></div>
+      </section>
+    </div>`;
+}
+
+async function criarAgenteLocal() {
+  try {
+    const data = await printerBackendRequest("create_agent", { name: "Simplifica Local Agent" });
+    const popup = document.getElementById("popup");
+    popup.innerHTML = `
+      <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+        <section class="modal-card" onclick="event.stopPropagation()">
+          <div class="modal-header"><h2>Credenciais do agente</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+          <p class="printer-read-only-notice">Estas credenciais aparecem uma única vez. Guarde-as no computador que executará o agente.</p>
+          <div class="metric"><span>Código de pareamento</span><strong>${escaparHtml(data.pairing_code)}</strong></div>
+          <label class="field"><span>Token do agente</span><textarea readonly>${escaparHtml(data.agent_token)}</textarea></label>
+          <div class="actions"><button class="btn" onclick="fecharPopup();hidratarImpressorasSeNecessario(true)">Concluir</button></div>
+        </section>
+      </div>`;
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+  }
+}
+
 function renderProducao() {
   if (!temAcessoCompleto()) return renderBloqueioPlano("Produção");
   const producoes = pedidos.filter((pedido) => ["aberto", "producao", "pausado"].includes(String(pedido.status || "aberto")));
@@ -23708,16 +25932,24 @@ function renderProducao() {
     <section class="card">
       <div class="card-header">
         <h2>🖨️ Produção</h2>
-        <span class="status-badge">${producoes.length} ativa(s)</span>
+        <div class="actions">
+          <span class="status-badge">${producoes.length} ativa(s)</span>
+          <button class="btn ghost compact-action" type="button" onclick="trocarTela('impressoras')">${renderUiIcon("impressoras")} Impressoras</button>
+        </div>
       </div>
       ${linhas}
     </section>
+    ${getImpressorasAtivas().length ? `
+      <section class="card production-printer-strip">
+        <div class="card-header"><h2>Impressoras</h2><span class="status-badge">${getImpressorasAtivas().length}</span></div>
+        <div class="printer-summary-list">${getImpressorasAtivas().slice(0, 5).map(renderResumoImpressoraSimplifica).join("")}</div>
+      </section>
+    ` : ""}
   `;
 }
 
 function renderClientes() {
   if (telaComCarregamentoUX("clientes")) return renderSmartScreenSkeleton("clientes");
-  if (isSuperAdmin()) return renderClientesSaas();
   return renderClientesOperacionais();
 }
 
@@ -23879,7 +26111,7 @@ function classificarFalhaClientesSaasRemoto(erro) {
   if (status === 401 || /jwt|token|unauthorized|session/i.test(mensagem)) {
     return {
       status: "auth-error",
-      message: "Sessão Supabase expirada. Faça login novamente para carregar clientes remotos.",
+      message: "Sessão Supabase expirada. Faça login novamente para carregar empresas.",
       detail: "AUTH",
       log: { code: "AUTH", status, route, message: mensagem.slice(0, 160) }
     };
@@ -23903,10 +26135,10 @@ function classificarFalhaClientesSaasRemoto(erro) {
 function renderEstadoClientesSaasRemoto(totalClientes, totalFiltrado) {
   const estado = saasClientsRemoteState || {};
   if (estado.status === "loading") {
-    return `<div class="saas-sync-state info">Carregando clientes do Supabase...</div>`;
+    return `<div class="saas-sync-state info">Carregando empresas do Supabase...</div>`;
   }
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
-    return `<div class="saas-sync-state warning">Entre com a conta Supabase do superadmin para carregar clientes remotos.</div>`;
+    return `<div class="saas-sync-state warning">Entre com a conta Supabase do Superadmin para carregar empresas.</div>`;
   }
   if (estado.status === "auth-error") {
     return `<div class="saas-sync-state warning">${escaparHtml(estado.message)}</div>`;
@@ -23921,7 +26153,7 @@ function renderEstadoClientesSaasRemoto(totalClientes, totalFiltrado) {
     return `<p class="empty">Nenhum cliente cadastrado.</p>`;
   }
   if (estado.status === "success" && estado.updatedAt) {
-    return `<div class="saas-sync-state success">Clientes remotos atualizados.</div>`;
+    return `<div class="saas-sync-state success">Empresas atualizadas.</div>`;
   }
   return "";
 }
@@ -24055,8 +26287,8 @@ function renderLinhaClienteSaas(cliente) {
         ${renderMenuAcoesSuperadmin(`
           <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">Adicionar dias ao acesso</button>
           <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Desativar usuário de teste" : "Marcar como usuário de teste"}</button>
-          <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar dados do cliente</button>
-          <button class="btn warning" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar cliente</button>
+          <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar dados da empresa</button>
+          <button class="btn warning" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar empresa</button>
           <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar dados pessoais</button>
           ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
         `, "Mais")}
@@ -24080,7 +26312,7 @@ function renderListaClientesSaasConteudo(totalClientes) {
   const listaFiltrada = getClientesSaasFiltrados();
   const paginaInfo = getClientesSaasPagina(listaFiltrada);
   const estadoRemoto = renderEstadoClientesSaasRemoto(totalClientes, listaFiltrada.length);
-  const vazioFiltro = `<p id="clientesSaasFiltroVazio" class="empty" ${listaFiltrada.length === 0 && totalClientes > 0 ? "" : "hidden"}>Nenhum cliente corresponde aos filtros atuais.</p>`;
+  const vazioFiltro = `<p id="clientesSaasFiltroVazio" class="empty" ${listaFiltrada.length === 0 && totalClientes > 0 ? "" : "hidden"}>Nenhuma empresa corresponde aos filtros atuais.</p>`;
   const linhas = paginaInfo.itens.map(renderLinhaClienteSaas).join("");
   const cabecalho = listaFiltrada.length ? `
     <div class="client-admin-table-head" aria-hidden="true">
@@ -24475,6 +26707,7 @@ function renderSuperAdminClientePerfil() {
 }
 
 function renderClientesSaas() {
+  if (!isSuperAdmin()) return renderClientesOperacionais();
   garantirEstruturaSaasLocal();
   const clientesVisiveis = saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt);
   const total = clientesVisiveis.length;
@@ -24497,7 +26730,7 @@ function renderClientesSaas() {
         <div>
           <span class="eyebrow">Gestão SaaS</span>
           <h2>${renderUiIcon("clientes")} Empresas</h2>
-          <p class="muted">Acompanhe clientes, assinatura, acesso e ações administrativas sem sair do modo plataforma.</p>
+          <p class="muted">Acompanhe empresas, assinaturas, acessos e ações administrativas sem sair do modo plataforma.</p>
         </div>
         <span class="status-badge badge-superadmin">${ativos} ativas</span>
       </div>
@@ -25082,7 +27315,7 @@ async function liberarDiasManualClienteSaas(id) {
 
   const motivo = await solicitarEntradaTexto({
     titulo: "Motivo da liberação",
-    mensagem: "Use algo como PIX manual, suporte, cortesia ou recuperação webhook.",
+    mensagem: "Use algo como PIX manual, suporte, cortesia ou recuperação de pagamento.",
     valor: "PIX manual",
     obrigatorio: true
   });
@@ -25825,13 +28058,14 @@ function renderRelatorios() {
   const seriesFaturamento = series.map((item) => Number(item.sales) || 0);
   const seriesPedidos = series.map((item) => Number(item.orders) || 0);
   const seriesLucro = series.map((item) => Number(item.profit) || 0);
+  const advancedReportsContext = isContextAdvancedVisible("relatorios");
   const periodos = [
     { id: "hoje", label: "Hoje" },
     { id: "semana", label: "Semana" },
     { id: "mes", label: "Este mês" },
     { id: "mes-passado", label: "Mês passado" },
     { id: "personalizado", label: "Personalizado", icon: "agenda" }
-  ];
+  ].filter((periodo) => advancedReportsContext || ["hoje", "semana", "mes"].includes(periodo.id));
   return `
     <section class="reports-page organized-page">
       <header class="reports-header">
@@ -25848,40 +28082,52 @@ function renderRelatorios() {
             <input placeholder="Buscar relatórios..." aria-label="Buscar relatórios" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this)">
           </label>
           <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}<span>7</span></button>
-          <button class="btn reports-filter-button" type="button" onclick="abrirFiltrosRelatorios()">${renderUiIcon("preferencias")} <span>Filtros</span></button>
+          ${renderContextualAdvancedToggle("relatorios")}
+          ${advancedReportsContext ? `<button class="btn reports-filter-button" type="button" onclick="abrirFiltrosRelatorios()">${renderUiIcon("preferencias")} <span>Filtros</span></button>` : ""}
         </div>
       </header>
 
-      <div class="reports-period-tabs" role="tablist" aria-label="Período dos relatórios">
-        ${periodos.map((periodo) => `
-          <button class="reports-period-chip ${periodoAtivo === periodo.id ? "active" : ""}" type="button" role="tab" aria-selected="${periodoAtivo === periodo.id}" onclick="selecionarPeriodoRelatorios('${escaparAttr(periodo.id)}')">
-            ${periodo.icon ? renderUiIcon(periodo.icon) : ""}
-            <span>${escaparHtml(periodo.label)}</span>
-          </button>
-        `).join("")}
-      </div>
-      ${periodoAtivo === "personalizado" ? `
-        <div class="period-custom-bar reports-custom-period">
-          <label class="field">
-            <span>Data inicial</span>
-            <input id="relatoriosDataInicio" type="date" value="${escaparAttr(periodoCustomizado.inicio)}">
-          </label>
-          <label class="field">
-            <span>Data final</span>
-            <input id="relatoriosDataFim" type="date" value="${escaparAttr(periodoCustomizado.fim)}">
-          </label>
-          <button class="btn secondary" type="button" onclick="aplicarPeriodoPersonalizadoRelatorios()">Aplicar período</button>
-        </div>
-      ` : ""}
+      <div class="reports-screen-flow" aria-label="Telas dos relatórios">
+        <section class="reports-panel reports-overview-panel">
+          <div class="reports-period-tabs" role="tablist" aria-label="Período dos relatórios">
+            ${periodos.map((periodo) => `
+              <button class="reports-period-chip ${periodoAtivo === periodo.id ? "active" : ""}" type="button" role="tab" aria-selected="${periodoAtivo === periodo.id}" onclick="selecionarPeriodoRelatorios('${escaparAttr(periodo.id)}')">
+                ${periodo.icon ? renderUiIcon(periodo.icon) : ""}
+                <span>${escaparHtml(periodo.label)}</span>
+              </button>
+            `).join("")}
+          </div>
+          ${periodoAtivo === "personalizado" ? `
+            <div class="period-custom-bar reports-custom-period">
+              <label class="field">
+                <span>Data inicial</span>
+                <input id="relatoriosDataInicio" type="date" value="${escaparAttr(periodoCustomizado.inicio)}">
+              </label>
+              <label class="field">
+                <span>Data final</span>
+                <input id="relatoriosDataFim" type="date" value="${escaparAttr(periodoCustomizado.fim)}">
+              </label>
+              <button class="btn secondary" type="button" onclick="aplicarPeriodoPersonalizadoRelatorios()">Aplicar período</button>
+            </div>
+          ` : ""}
+        </section>
 
-      <div class="reports-kpi-grid">
-        ${renderRelatorioKpiCard({ titulo: "Faturamento", valor: formatarMoeda(agregado.atual.total_sales), delta: agregado.comparacoes.faturamento, icon: "caixa", estado: "teal", series: seriesFaturamento })}
-        ${renderRelatorioKpiCard({ titulo: "Pedidos", valor: String(agregado.atual.total_orders || 0), delta: agregado.comparacoes.pedidos, icon: "pedidos", estado: "blue", series: seriesPedidos })}
-        ${renderRelatorioKpiCard({ titulo: "Ticket médio", valor: formatarMoeda(ticketMedio), delta: agregado.comparacoes.ticket, icon: "assinatura", estado: "purple", series: seriesFaturamento })}
-        ${renderRelatorioKpiCard({ titulo: "Lucro líquido", valor: formatarMoeda(agregado.atual.total_profit), delta: agregado.comparacoes.lucro, icon: "relatorios", estado: "orange", series: seriesLucro })}
-      </div>
+        <section class="reports-panel reports-kpi-slide">
+          ${renderRelatorioKpiCard({ titulo: "Faturamento", valor: formatarMoeda(agregado.atual.total_sales), delta: agregado.comparacoes.faturamento, icon: "caixa", estado: "teal", series: seriesFaturamento })}
+        </section>
 
-      <div class="reports-main-grid">
+        <section class="reports-panel reports-kpi-slide">
+          ${renderRelatorioKpiCard({ titulo: "Pedidos", valor: String(agregado.atual.total_orders || 0), delta: agregado.comparacoes.pedidos, icon: "pedidos", estado: "blue", series: seriesPedidos })}
+        </section>
+
+        <section class="reports-panel reports-kpi-slide">
+          ${renderRelatorioKpiCard({ titulo: "Ticket médio", valor: formatarMoeda(ticketMedio), delta: agregado.comparacoes.ticket, icon: "assinatura", estado: "purple", series: seriesFaturamento })}
+        </section>
+
+        <section class="reports-panel reports-kpi-slide">
+          ${renderRelatorioKpiCard({ titulo: "Lucro líquido", valor: formatarMoeda(agregado.atual.total_profit), delta: agregado.comparacoes.lucro, icon: "relatorios", estado: "orange", series: seriesLucro })}
+        </section>
+
         <section class="reports-panel reports-chart-panel">
           <div class="reports-panel-header">
             <div>
@@ -25900,31 +28146,30 @@ function renderRelatorios() {
           </div>
           ${renderRelatorioDonut(categorias)}
         </section>
+        <section class="reports-panel reports-quick-panel">
+          <div class="reports-panel-header">
+            <h3>Relatórios rápidos</h3>
+            <button class="text-link" type="button" onclick="mostrarToast('Todos os relatórios rápidos ficam nesta área.', 'info')">Ver todos ›</button>
+          </div>
+          <div class="reports-quick-grid">
+            ${renderRelatorioQuickTile({ titulo: "Pedidos", subtitulo: "Pedidos e orçamentos", icon: "pedidos", tela: "pedidos", estado: "teal", action: "abrirRelatorioVendas()" })}
+            ${renderRelatorioQuickTile({ titulo: "Caixa", subtitulo: "Faturamento, entradas e saídas", icon: "caixa", tela: "caixa", estado: "blue" })}
+            ${renderRelatorioQuickTile({ titulo: "Clientes", subtitulo: "Novos clientes e recorrência", icon: "clientes", tela: "clientes", estado: "purple" })}
+            ${renderRelatorioQuickTile({ titulo: "Produtos", subtitulo: "Mais vendidos e estoque", icon: "estoque", tela: "estoque", estado: "orange" })}
+            ${renderRelatorioQuickTile({ titulo: "Desempenho", subtitulo: "Análise geral do negócio", icon: "relatorios", tela: "relatorios", estado: "green" })}
+          </div>
+        </section>
+
+        <section class="reports-panel reports-summary-panel">
+          <div class="reports-panel-header">
+            <h3>Resumo por períodos</h3>
+            <button class="btn ghost" type="button" onclick="exportarResumoRelatorios()">${renderUiIcon("backup")} Exportar</button>
+          </div>
+          <div class="reports-period-table">
+            ${getResumoPeriodosRelatorios().map((linha) => renderResumoPeriodoRelatorios(linha.label, linha.sublabel, linha.info)).join("")}
+          </div>
+        </section>
       </div>
-
-      <section class="reports-panel reports-quick-panel">
-        <div class="reports-panel-header">
-          <h3>Relatórios rápidos</h3>
-          <button class="text-link" type="button" onclick="mostrarToast('Todos os relatórios rápidos ficam nesta área.', 'info')">Ver todos ›</button>
-        </div>
-        <div class="reports-quick-grid">
-          ${renderRelatorioQuickTile({ titulo: "Pedidos", subtitulo: "Pedidos e orçamentos", icon: "pedidos", tela: "pedidos", estado: "teal", action: "abrirRelatorioVendas()" })}
-          ${renderRelatorioQuickTile({ titulo: "Caixa", subtitulo: "Faturamento, entradas e saídas", icon: "caixa", tela: "caixa", estado: "blue" })}
-          ${renderRelatorioQuickTile({ titulo: "Clientes", subtitulo: "Novos clientes e recorrência", icon: "clientes", tela: "clientes", estado: "purple" })}
-          ${renderRelatorioQuickTile({ titulo: "Produtos", subtitulo: "Mais vendidos e estoque", icon: "estoque", tela: "estoque", estado: "orange" })}
-          ${renderRelatorioQuickTile({ titulo: "Desempenho", subtitulo: "Análise geral do negócio", icon: "relatorios", tela: "relatorios", estado: "green" })}
-        </div>
-      </section>
-
-      <section class="reports-panel reports-summary-panel">
-        <div class="reports-panel-header">
-          <h3>Resumo por períodos</h3>
-          <button class="btn ghost" type="button" onclick="exportarResumoRelatorios()">${renderUiIcon("backup")} Exportar</button>
-        </div>
-        <div class="reports-period-table">
-          ${getResumoPeriodosRelatorios().map((linha) => renderResumoPeriodoRelatorios(linha.label, linha.sublabel, linha.info)).join("")}
-        </div>
-      </section>
 
       ${podeOperar ? "" : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Regularizar plano</button></div>`}
     </section>
@@ -25941,6 +28186,7 @@ function trocarFiltroCaixa(filtro = "todos") {
 }
 
 function getCaixaViewAtiva() {
+  if (!isContextAdvancedVisible("caixa")) return "movimentos";
   const salvo = getUiTab("caixaView", "movimentos");
   return ["movimentos", "extrato"].includes(salvo) ? salvo : "movimentos";
 }
@@ -25986,6 +28232,7 @@ function filtrarMovimentosCaixaPorPeriodo(movimentos = caixa, info = getInfoPeri
 }
 
 function renderCaixaViewTabs(ativo = getCaixaViewAtiva()) {
+  if (!isContextAdvancedVisible("caixa")) return "";
   const abas = [
     { id: "movimentos", label: "Movimentos", icon: "caixa" },
     { id: "extrato", label: "Extrato", icon: "relatorios" }
@@ -26122,6 +28369,374 @@ function filtrarMovimentosCaixa(movimentos = caixa, filtro = "todos", info = nul
   return base;
 }
 
+function getBuscaCaixa() {
+  return String(window.__caixaBusca || "");
+}
+
+function atualizarBuscaCaixa(valor = "") {
+  window.__caixaBusca = String(valor || "");
+  renderizarPreservandoScroll();
+}
+
+function movimentoCaixaTextoBusca(movimento = {}) {
+  const pedido = encontrarPedidoPorMovimentoCaixa(movimento);
+  return normalizarTextoBusca([
+    getResumoMetodoMovimentoCaixa(movimento),
+    descricaoCaixa(movimento),
+    movimento.tipo,
+    movimento.status,
+    movimento.origem,
+    movimento.source,
+    movimento.responsavel,
+    movimento.userName,
+    movimento.usuario,
+    movimento.cliente,
+    movimento.customer,
+    pedido?.id,
+    pedido ? clienteDoPedido(pedido) : "",
+    movimento.valor
+  ].filter(Boolean).join(" "));
+}
+
+function filtrarMovimentosCaixaPorBusca(movimentos = [], busca = getBuscaCaixa()) {
+  const termo = normalizarTextoBusca(busca || "");
+  if (!termo) return movimentos;
+  return movimentos.filter((movimento) => movimentoCaixaTextoBusca(movimento).includes(termo));
+}
+
+function renderCaixaBuscaTopo() {
+  const busca = getBuscaCaixa();
+  return `
+    <label class="cash-top-search" aria-label="Pesquisar movimentações do caixa">
+      ${renderUiIcon("search")}
+      <input value="${escaparAttr(busca)}" placeholder="Pesquisar movimentações" oninput="atualizarBuscaCaixa(this.value)">
+    </label>
+  `;
+}
+
+function renderResumoCaixaPrincipal(totais = calcularTotaisCaixa(), movimentos = []) {
+  const ultima = movimentos.length
+    ? [...movimentos].sort((a, b) => (obterDataMovimentoCaixa(b)?.getTime?.() || 0) - (obterDataMovimentoCaixa(a)?.getTime?.() || 0))[0]
+    : null;
+  const cards = [
+    { label: "Saldo", valor: formatarMoeda(totais.saldo), icon: "caixa", tone: totais.saldo < 0 ? "danger" : "success" },
+    { label: "Entradas", valor: formatarMoeda(totais.entradas), icon: "pedidos", tone: "success" },
+    { label: "Saídas", valor: formatarMoeda(totais.saidas), icon: "estoque", tone: "danger" },
+    { label: "Movimentos", valor: String(movimentos.length), icon: "relatorios", tone: "neutral" },
+    { label: "Último", valor: ultima ? formatarMoeda(ultima.valor) : "Sem movimento", icon: "agenda", tone: "neutral" }
+  ];
+  return `
+    <div class="cash-main-summary" aria-label="Resumo principal do caixa">
+      ${cards.map((card) => `
+        <div class="metric cash-main-summary-card cash-main-summary-${escaparAttr(card.tone)}">
+          <span>${renderUiIcon(card.icon)} ${escaparHtml(card.label)}</span>
+          <strong>${escaparHtml(card.valor)}</strong>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function getTotaisCaixaPorForma(movimentos = caixa) {
+  const totais = {};
+  movimentos.forEach((movimento) => {
+    if (movimentoCaixaCancelado(movimento) || String(movimento.tipo || "").toLowerCase() === "saida") return;
+    const metodo = getMetodoPagamentoMovimento(movimento);
+    totais[metodo.id] = (totais[metodo.id] || 0) + (Number(movimento.valor) || 0);
+  });
+  return totais;
+}
+
+function getIconeMetodoPagamentoCaixa(metodo = {}) {
+  const tipo = String(metodo.type || metodo.id || "").toLowerCase();
+  if (tipo.includes("pix")) return "lojaOnline";
+  if (tipo.includes("credit") || tipo.includes("credito") || tipo.includes("debit") || tipo.includes("debito")) return "assinatura";
+  if (tipo.includes("cash") || tipo.includes("dinheiro")) return "caixa";
+  return "caixa";
+}
+
+function irParaSlideCaixa(indice = 0) {
+  const flow = document.querySelector(".cash-mobile-flow");
+  if (!flow) return false;
+  const alvo = flow.children[Math.max(0, Math.min(Number(indice) || 0, flow.children.length - 1))];
+  if (!alvo) return false;
+  flow.scrollTo({ left: alvo.offsetLeft, behavior: "smooth" });
+  return true;
+}
+
+function getCardCaixaAtivo() {
+  return String(window.__caixaCardAtivo || "");
+}
+
+function abrirCardCaixaRapido(tipo = "venda") {
+  window.__caixaCardAtivo = String(tipo || "venda");
+  renderizarPreservandoScroll();
+  if (["venda", "sangria", "suprimento"].includes(String(tipo))) {
+    setTimeout(() => prepararAcaoCaixaRapida(tipo), 120);
+  }
+}
+
+function fecharCardCaixaRapido() {
+  window.__caixaCardAtivo = "";
+  renderizarPreservandoScroll();
+}
+
+function prepararAcaoCaixaRapida(tipo = "venda") {
+  const preset = getPresetAcaoCaixaRapida(tipo);
+  const campoTipo = document.getElementById("caixaTipo");
+  const campoDescricao = document.getElementById("caixaDescricao");
+  const campoValor = document.getElementById("caixaValor");
+  if (campoTipo) campoTipo.value = preset.tipo;
+  if (campoDescricao) campoDescricao.value = preset.descricao;
+  campoValor?.focus?.();
+}
+
+function renderCaixaHero(totais = calcularTotaisCaixa(), movimentos = []) {
+  const sessao = getSessaoCaixaAtual();
+  const abertaEm = sessao ? new Date(sessao.openedAt || sessao.opened_at || Date.now()) : null;
+  const aberturaLabel = abertaEm ? abertaEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "--:--";
+  const saldoInicial = Number(sessao?.openingBalance ?? sessao?.opening_balance ?? 0) || 0;
+  return `
+    <section class="cash-hero-card">
+      <div class="cash-hero-icon">${renderUiIcon("caixa")}</div>
+      <div class="cash-hero-main">
+        <div class="cash-hero-title-row">
+          <div>
+            <h3>${sessao ? "Caixa aberto" : "Caixa fechado"}</h3>
+            <p><span class="cash-status-dot ${sessao ? "open" : "closed"}"></span>${sessao ? `Aberto desde ${aberturaLabel}` : "Aguardando abertura"}</p>
+          </div>
+          ${sessao ? `<button class="btn cash-hero-action" type="button" onclick="fecharSessaoCaixaBasica()">Fechar caixa</button>` : `<button class="btn cash-hero-action" type="button" onclick="abrirSessaoCaixaManual()">Abrir caixa</button>`}
+        </div>
+        <div class="cash-hero-stats">
+          <span><small>Abertura</small><strong>${escaparHtml(aberturaLabel)}</strong></span>
+          <span><small>Saldo inicial</small><strong>${formatarMoeda(saldoInicial)}</strong></span>
+          <span class="cash-hero-balance"><small>Saldo atual</small><strong>${formatarMoeda(totais.saldo)}</strong></span>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderCaixaAcoesRapidas() {
+  const acoes = [
+    { id: "venda", label: "Nova venda", icon: "carrinho", action: "abrirCardCaixaRapido('venda')" },
+    { id: "sangria", label: "Sangria", icon: "sangria", action: "abrirCardCaixaRapido('sangria')" },
+    { id: "suprimento", label: "Suprimento", icon: "sangria", action: "abrirCardCaixaRapido('suprimento')" },
+    { id: "recebimentos", label: "Recebimentos", icon: "assinatura", action: "abrirCardCaixaRapido('recebimentos')" }
+  ];
+  const ativo = getCardCaixaAtivo();
+  return `
+    <section class="cash-section cash-quick-actions-section">
+      <div class="cash-section-head">
+        <h3>Ações rápidas</h3>
+        <button class="btn ghost cash-personalize-button" type="button" onclick="mostrarToast('Personalização do caixa será ajustada nas preferências.', 'info')">Personalizar ${renderUiIcon("preferencias")}</button>
+      </div>
+      <div class="cash-quick-actions-grid">
+        ${acoes.map((acao, index) => `
+          <button class="cash-quick-action ${ativo === acao.id || (!ativo && index === 0) ? "active" : ""}" type="button" onclick="${acao.action}">
+            <span>${renderUiIcon(acao.icon)}</span>
+            <strong>${escaparHtml(acao.label)}</strong>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function getPresetAcaoCaixaRapida(tipo = "venda") {
+  const presets = {
+    venda: { tipo: "entrada", descricao: "Venda balcão" },
+    sangria: { tipo: "saida", descricao: "Sangria / retirada" },
+    suprimento: { tipo: "entrada", descricao: "Suprimento de caixa" }
+  };
+  return presets[tipo] || presets.venda;
+}
+
+function renderFormularioMovimentoCaixaRapido(podeOperar = true, tipoAtivo = getCardCaixaAtivo() || "venda") {
+  if (!podeOperar) {
+    return `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`;
+  }
+  const preset = getPresetAcaoCaixaRapida(tipoAtivo);
+  return `
+    <div class="cash-quick-form-grid">
+      <label class="field">
+        <span>Tipo</span>
+        <select id="caixaTipo">
+          <option value="entrada" ${preset.tipo === "entrada" ? "selected" : ""}>Entrada</option>
+          <option value="saida" ${preset.tipo === "saida" ? "selected" : ""}>Saída</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Forma</span>
+        <select id="caixaMetodoPagamento">
+          ${renderOpcoesMetodoPagamentoCaixa("pix")}
+        </select>
+      </label>
+      <label class="field">
+        <span>Valor</span>
+        <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00">
+      </label>
+      <label class="field">
+        <span>Descrição</span>
+        <input id="caixaDescricao" value="${escaparAttr(preset.descricao)}" placeholder="Ex.: Venda balcão">
+      </label>
+    </div>
+    <div class="actions cash-quick-form-actions">
+      <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>
+      <button class="btn ghost" type="button" onclick="fecharCardCaixaRapido()">Cancelar</button>
+    </div>
+  `;
+}
+
+function renderCardCaixaAberto(podeOperar = true, movimentos = [], linhas = "", totais = calcularTotaisCaixa()) {
+  const ativo = getCardCaixaAtivo();
+  if (!ativo) return "";
+  const titulos = {
+    venda: ["Nova venda", "Registre uma entrada rápida no caixa."],
+    sangria: ["Sangria", "Registre uma retirada ou saída de caixa."],
+    suprimento: ["Suprimento", "Registre uma entrada de reforço no caixa."],
+    recebimentos: ["Recebimentos", "Veja o resumo por forma de pagamento."],
+    historico: ["Movimentações", "Consulte e pesquise os últimos lançamentos."],
+    resumo: ["Resumo do dia", "Acompanhe entradas, saídas e saldo."]
+  };
+  const [titulo, subtitulo] = titulos[ativo] || titulos.venda;
+  let conteudo = renderFormularioMovimentoCaixaRapido(podeOperar, ativo);
+  if (ativo === "recebimentos") {
+    conteudo = `${renderCaixaFormasPagamento(movimentos)}<div class="actions"><button class="btn" type="button" onclick="trocarAbaCaixa('extrato')">Abrir extrato</button><button class="btn ghost" type="button" onclick="fecharCardCaixaRapido()">Fechar</button></div>`;
+  } else if (ativo === "historico") {
+    conteudo = `${renderCaixaBuscaTopo()}<div class="cash-movement-history">${linhas}</div>`;
+  } else if (ativo === "resumo") {
+    conteudo = `${renderResumoCaixaPrincipal(totais, movimentos)}<div class="actions"><button class="btn" type="button" onclick="trocarAbaCaixa('extrato')">Abrir extrato</button><button class="btn ghost" type="button" onclick="fecharCardCaixaRapido()">Fechar</button></div>`;
+  }
+  return `
+    <section class="cash-section cash-open-action-card">
+      <div class="cash-section-head">
+        <div>
+          <h3>${escaparHtml(titulo)}</h3>
+          <p class="muted">${escaparHtml(subtitulo)}</p>
+        </div>
+        <button class="icon-action-button" type="button" onclick="fecharCardCaixaRapido()" title="Fechar">${renderUiIcon("back")}</button>
+      </div>
+      ${conteudo}
+    </section>
+  `;
+}
+
+function renderCaixaMovimentosRecentes(movimentos = []) {
+  const recentes = [...movimentos]
+    .sort((a, b) => (obterDataMovimentoCaixa(b)?.getTime?.() || 0) - (obterDataMovimentoCaixa(a)?.getTime?.() || 0))
+    .slice(0, 4);
+  return `
+    <section class="cash-section cash-recent-section">
+      <div class="cash-section-head">
+        <h3>Movimentações recentes</h3>
+        <button class="btn ghost" type="button" onclick="abrirCardCaixaRapido('historico')">Ver todas ›</button>
+      </div>
+      <div class="cash-recent-list">
+        ${recentes.length ? recentes.map((movimento) => {
+          const saida = String(movimento.tipo || "").toLowerCase() === "saida";
+          const cancelado = movimentoCaixaCancelado(movimento);
+          const data = obterDataMovimentoCaixa(movimento);
+          const valor = Number(movimento.valor) || 0;
+          const classe = cancelado ? "neutral" : saida ? "out" : "in";
+          return `
+            <button class="cash-recent-row cash-recent-${classe}" type="button" onclick="abrirCardCaixaRapido('historico')">
+              <span class="cash-recent-icon">${renderUiIcon(saida ? "backup" : "sincronizar")}</span>
+              <span class="cash-recent-copy">
+                <strong>${escaparHtml(descricaoCaixa(movimento))}</strong>
+                <small>${data ? data.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "Sem data"}</small>
+              </span>
+              <span class="cash-recent-value">
+                <strong>${saida ? "-" : "+"} ${formatarMoeda(valor)}</strong>
+                <small>${saida ? "Saída" : "Entrada"}</small>
+              </span>
+            </button>
+          `;
+        }).join("") : `<p class="empty">Nenhuma movimentação recente.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderCaixaResumoDia(totais = calcularTotaisCaixa()) {
+  const entradasSerie = [0, 15, 18, 16, 23, 22, 28, Math.max(30, totais.entradas || 0)];
+  const saidasSerie = [0, 8, 12, 10, 16, 13, 12, Math.max(14, totais.saidas || 0)];
+  const saldoSerie = [0, 12, 20, 18, 24, 23, 30, Math.max(32, Math.abs(totais.saldo) || 0)];
+  const cards = [
+    { label: "Entradas", valor: formatarMoeda(totais.entradas), series: entradasSerie, tone: "green" },
+    { label: "Saídas", valor: formatarMoeda(totais.saidas), series: saidasSerie, tone: "pink" },
+    { label: "Saldo", valor: formatarMoeda(totais.saldo), series: saldoSerie, tone: "blue" }
+  ];
+  return `
+    <section class="cash-section cash-day-section">
+      <div class="cash-section-head">
+        <h3>Resumo do dia</h3>
+        <button class="btn ghost" type="button" onclick="abrirCardCaixaRapido('resumo')">Detalhes</button>
+      </div>
+      <div class="cash-day-grid">
+        ${cards.map((card) => `
+          <button class="cash-day-card cash-day-${escaparAttr(card.tone)}" type="button" onclick="abrirCardCaixaRapido('resumo')">
+            <span>${escaparHtml(card.label)}</span>
+            <strong>${escaparHtml(card.valor)}</strong>
+            ${renderMiniSparklineDashboard(card.series, card.tone === "pink" ? "orange" : card.tone)}
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCaixaFormasPagamento(movimentos = []) {
+  const totaisForma = getTotaisCaixaPorForma(movimentos);
+  return `
+    <section class="cash-section cash-payment-section">
+      <div class="cash-section-head">
+        <h3>Formas de pagamento</h3>
+        <button class="btn ghost" type="button" onclick="trocarAbaCaixa('extrato')">Ver todas ›</button>
+      </div>
+      <div class="cash-payment-cards">
+        ${getMetodosPagamentoCaixa().map((metodo) => `
+          <button class="cash-payment-card" type="button" onclick="trocarAbaCaixa('extrato')">
+            <span>${renderUiIcon(getIconeMetodoPagamentoCaixa(metodo))}</span>
+            <strong>${escaparHtml(metodo.name)}</strong>
+            <small>${formatarMoeda(totaisForma[metodo.id] || 0)}</small>
+          </button>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderCaixaMobileTopbar() {
+  const usuario = getUsuarioAtual();
+  const nome = usuario?.empresa || usuario?.nome || usuario?.email?.split("@")[0] || "Simplifica";
+  return `
+    <div class="cash-mobile-topbar">
+      <button class="icon-button cash-mobile-menu-button" type="button" onclick="abrirMenuPopup()" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
+      <div>
+        <h2>Olá, ${escaparHtml(nome)}!</h2>
+        <p>Aqui está o resumo do seu caixa hoje.</p>
+      </div>
+      <button class="icon-button cash-mobile-search-button" type="button" onclick="document.querySelector('.cash-top-search input, .topbar-search input, input[type=&quot;search&quot;]')?.focus?.()" aria-label="Pesquisar">${renderUiIcon("search")}</button>
+      <button class="icon-button cash-mobile-bell-button" type="button" onclick="mostrarToast('Notificações do caixa em breve.', 'info', 2200)" aria-label="Notificações">${renderUiIcon("bell")}</button>
+    </div>
+  `;
+}
+
+function renderCaixaOverview(totais = calcularTotaisCaixa(), movimentos = [], podeOperar = true, linhas = "") {
+  return `
+    <div class="cash-experience">
+      ${renderCaixaMobileTopbar()}
+      ${renderCaixaHero(totais, movimentos)}
+      ${renderCaixaAcoesRapidas()}
+      ${renderCardCaixaAberto(podeOperar, movimentos, linhas, totais)}
+      ${renderCaixaMovimentosRecentes(movimentos)}
+      ${renderCaixaResumoDia(totais)}
+      ${renderCaixaFormasPagamento(movimentos)}
+    </div>
+  `;
+}
+
 function classificarOrigemMovimentoCaixa(movimento = {}) {
   if (movimentoCaixaCancelado(movimento)) return "cancelamento";
   const texto = normalizarTextoBusca(`${movimento.origem || ""} ${movimento.source || ""} ${descricaoCaixa(movimento)} ${movimento.status || ""}`);
@@ -26200,6 +28815,7 @@ function filtrarExtratoFinanceiro(itens = getMovimentosExtratoFinanceiro(), info
   const tipo = String(filtros.tipo || "todos");
   const pedidoBusca = normalizarTextoBusca(filtros.pedido || "");
   const clienteBusca = normalizarTextoBusca(filtros.cliente || "");
+  const buscaCaixa = normalizarTextoBusca(getBuscaCaixa());
   return itens.filter((item) => {
     if (!dataDentroIntervalo(item.data, info.start, info.end)) return false;
     if (tipo !== "todos") {
@@ -26208,6 +28824,7 @@ function filtrarExtratoFinanceiro(itens = getMovimentosExtratoFinanceiro(), info
     }
     if (pedidoBusca && !normalizarTextoBusca(`${item.pedidoId || ""} ${item.descricao || ""}`).includes(pedidoBusca)) return false;
     if (clienteBusca && !normalizarTextoBusca(`${item.cliente || ""} ${item.descricao || ""}`).includes(clienteBusca)) return false;
+    if (buscaCaixa && !normalizarTextoBusca(`${item.descricao || ""} ${item.origem || ""} ${item.cliente || ""} ${item.pedidoId || ""} ${item.responsavel || ""} ${item.status || ""} ${item.valor || ""}`).includes(buscaCaixa)) return false;
     return true;
   });
 }
@@ -26352,10 +28969,18 @@ function renderExtratoFinanceiro() {
           <button class="btn ghost" type="button" onclick="compartilharExtratoFinanceiro()">${renderUiIcon("whatsapp")} Compartilhar</button>
         </div>
       </div>
-      ${renderFiltrosExtratoFinanceiro(filtros)}
-      ${renderResumoCardsExtrato(resumo)}
-      <div class="statement-list">
-        ${itens.length ? [...itens].reverse().map(renderLinhaExtratoFinanceiro).join("") : `<p class="empty">Nenhuma movimentação no período selecionado.</p>`}
+      <div class="statement-mobile-flow" aria-label="Telas do extrato financeiro">
+        <section class="statement-mobile-slide">
+          ${renderFiltrosExtratoFinanceiro(filtros)}
+        </section>
+        <section class="statement-mobile-slide">
+          ${renderResumoCardsExtrato(resumo)}
+        </section>
+        <section class="statement-mobile-slide statement-history-slide">
+          <div class="statement-list">
+            ${itens.length ? [...itens].reverse().map(renderLinhaExtratoFinanceiro).join("") : `<p class="empty">Nenhuma movimentação no período selecionado.</p>`}
+          </div>
+        </section>
       </div>
     </section>
   `;
@@ -26464,7 +29089,7 @@ function renderCaixa() {
   const movimentosPeriodo = filtrarMovimentosCaixaPorPeriodo(caixa, infoPeriodoCaixa);
   const totais = calcularTotaisCaixaPeriodo(infoPeriodoCaixa.start, infoPeriodoCaixa.end);
   const filtroCaixa = getCaixaFiltroAtivo();
-  const movimentosFiltrados = filtrarMovimentosCaixa(movimentosPeriodo, filtroCaixa);
+  const movimentosFiltrados = filtrarMovimentosCaixaPorBusca(filtrarMovimentosCaixa(movimentosPeriodo, filtroCaixa));
   const linhas = movimentosFiltrados.length
     ? [...movimentosFiltrados].reverse().map((movimento) => {
         const indice = caixa.indexOf(movimento);
@@ -26491,57 +29116,16 @@ function renderCaixa() {
     : `<p class="empty">Nenhum movimento neste filtro.</p>`;
 
   return `
-    <section class="card">
-      <div class="card-header">
+    <section class="card cash-screen-card">
+      <div class="card-header cash-screen-header">
         <h2>${renderUiIcon("caixa")} Caixa</h2>
-        <strong>${formatarMoeda(totais.saldo)}</strong>
+        <div class="actions compact-actions">${renderContextualAdvancedToggle("caixa")}<strong>${formatarMoeda(totais.saldo)}</strong></div>
       </div>
-      ${renderStatusSessaoCaixaSimples()}
       ${renderCaixaViewTabs(caixaView)}
-      ${renderCaixaPeriodoChips(periodoCaixa)}
-      <div class="metrics">
-        <div class="metric">
-          <span>Entradas</span>
-          <strong>${formatarMoeda(totais.entradas)}</strong>
-        </div>
-        <div class="metric">
-          <span>Saídas</span>
-          <strong>${formatarMoeda(totais.saidas)}</strong>
-        </div>
-        <div class="metric">
-          <span>Cancelados</span>
-          <strong>${Number(totais.cancelados || 0)}</strong>
-        </div>
-      </div>
+      ${isContextAdvancedVisible("caixa") ? renderCaixaPeriodoChips(periodoCaixa) : ""}
       ${caixaView === "extrato" ? renderExtratoFinanceiro() : `
-        ${renderCaixaFiltroChips(movimentosPeriodo, filtroCaixa)}
-        ${podeOperar ? `
-        <label class="field">
-          <span>Tipo</span>
-          <select id="caixaTipo">
-            <option value="entrada">Entrada</option>
-            <option value="saida">Saída</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Forma</span>
-          <select id="caixaMetodoPagamento">
-            ${renderOpcoesMetodoPagamentoCaixa("pix")}
-          </select>
-        </label>
-        <label class="field">
-          <span>Valor</span>
-          <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00">
-        </label>
-        <label class="field">
-          <span>Descrição</span>
-          <input id="caixaDescricao" placeholder="Ex.: 2 reais caneta">
-        </label>
-        <div class="actions">
-          <button class="btn" onclick="adicionarMovimentoCaixa()">Lançar movimento</button>
-          <button class="btn ghost" type="button" onclick="document.getElementById('caixaTipo').value='saida';document.getElementById('caixaDescricao').value='Sangria / retirada';document.getElementById('caixaValor')?.focus()">Sangria / retirada</button>
-        </div>` : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; lançamentos voltam após regularização.</p><div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
-        ${linhas}
+        ${isContextAdvancedVisible("caixa") ? renderCaixaFiltroChips(movimentosPeriodo, filtroCaixa) : ""}
+        ${renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas)}
       `}
     </section>
   `;
@@ -26586,9 +29170,58 @@ function appClasseBase(base = "", variantes = []) {
 }
 
 function renderAppButton({ label = "", icon = "", variant = "primary", action = "", type = "button", extraClass = "", attrs = "" } = {}) {
-  const classes = appClasseBase(`btn app-button ${variant || "primary"}`, extraClass);
+  const relation = getUiButtonRelation(variant);
+  const classes = appClasseBase(`btn app-button s3d-button ${relation.className}`, extraClass);
   const onclick = action ? ` onclick="${action}"` : "";
-  return `<button class="${classes}" type="${escaparAttr(type)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
+  return `<button class="${classes}" type="${escaparAttr(type)}" data-ui-variant="${escaparAttr(relation.className)}" data-ui-token-set="${escaparAttr(relation.tokenSet)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
+}
+
+function renderThemeModeButton(extraClass = "") {
+  const preference = normalizarPreferenciaTemaInterface(appConfig.theme);
+  const relation = getUiButtonRelation("secondary");
+  const label = preference === "system" ? "Tema automático" : preference === "dark" ? "Tema escuro" : "Tema claro";
+  return `
+    <button class="${appClasseBase(`icon-button s3d-button theme-mode-toggle ${relation.className}`, extraClass)}"
+      type="button"
+      data-theme-mode-toggle
+      data-theme-preference="${escaparAttr(preference)}"
+      data-ui-variant="${escaparAttr(relation.className)}"
+      data-ui-token-set="${escaparAttr(relation.tokenSet)}"
+      onpointerdown="iniciarPressTema(event)"
+      onpointerup="finalizarPressTema(event)"
+      onpointercancel="cancelarPressTema(this)"
+      onpointerleave="cancelarPressTema(this)"
+      onclick="alternarTemaInterfacePorClique(event)"
+      title="${escaparAttr(label)}. Clique para alternar; segure para escolher."
+      aria-label="${escaparAttr(label)}. Clique para alternar; segure para escolher.">
+      <span class="theme-mode-disc" aria-hidden="true"></span>
+    </button>
+  `;
+}
+
+function isContextAdvancedVisible(screen = telaAtual) {
+  if (isProfissionalMode()) return true;
+  return window.__contextAdvancedOptions?.[String(screen || "")] === true;
+}
+
+function alternarOpcoesAvancadasContextuais(screen = telaAtual) {
+  const key = String(screen || telaAtual);
+  window.__contextAdvancedOptions = window.__contextAdvancedOptions || {};
+  window.__contextAdvancedOptions[key] = !isContextAdvancedVisible(key);
+  renderizarPreservandoScroll();
+}
+
+function renderContextualAdvancedToggle(screen = telaAtual) {
+  if (isProfissionalMode()) return "";
+  const expanded = isContextAdvancedVisible(screen);
+  return renderAppButton({
+    label: expanded ? "Ocultar opções avançadas" : "Mostrar mais opções",
+    icon: renderUiIcon("config"),
+    variant: "ghost",
+    action: `alternarOpcoesAvancadasContextuais('${escaparAttr(screen)}')`,
+    extraClass: "context-advanced-toggle",
+    attrs: `aria-expanded="${expanded}"`
+  });
 }
 
 function renderAppBadge(label = "", variant = "neutral", extraClass = "") {
@@ -27014,64 +29647,6 @@ function renderConfig() {
         <span>Restaurar arquivo de backup</span>
         <input class="file-input" type="file" accept="application/json" onchange="importarBackup(this.files[0])">
       </label>`;
-  const accountSecurityContent = usuario
-    ? `
-      <div class="account-security-panel">
-        <header class="security-page-header">
-          <div>
-            <h2>Segurança da conta</h2>
-            <p>Gerencie seu PIN, sua senha e a sessão deste aparelho.</p>
-          </div>
-          <span class="security-auth-badge">${renderUiIcon("seguranca")} Autenticada</span>
-        </header>
-        <details class="security-summary-card security-mobile-card" name="account-security" open>
-          <summary class="security-mobile-card-summary">
-            <span class="security-summary-icon">${renderUiIcon("conta")}</span>
-            <span><strong>Resumo da conta</strong></span>
-            <span class="security-mobile-chevron">›</span>
-          </summary>
-          <div class="security-overview security-mobile-card-body">
-            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("conta")}</span><span><small>Conta conectada</small><strong>${escaparHtml(emailConta || "Conta local")}</strong></span></div>
-            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("seguranca")}</span><span><small>Status da sessão</small><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Autenticada" : "Local"}</strong></span></div>
-            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("time")}</span><span><small>Última sincronização</small><strong>${ultimaSync ? new Date(ultimaSync).toLocaleString("pt-BR") : "Nunca"}</strong></span></div>
-            <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("backup")}</span><span><small>Backup usado</small><strong>${resumoBackupPlano.usedMb.toFixed(resumoBackupPlano.usedMb >= 10 ? 0 : 1)} MB / ${resumoBackupPlano.limitMb >= 1024 ? "1 GB" : `${resumoBackupPlano.limitMb} MB`}</strong></span></div>
-          </div>
-        </details>
-        <div class="security-main-grid">
-        <details class="settings-group security-settings-card security-pin-card security-mobile-card" name="account-security">
-          <summary class="security-card-heading security-mobile-card-summary">
-            <span class="security-card-icon security-card-icon-warning">🔒</span>
-            <div><h3>PIN de ações importantes</h3><small>Use o PIN para proteger alterações críticas.</small></div>
-            <span class="security-mobile-chevron">›</span>
-          </summary>
-          <div class="security-mobile-card-body">${renderConfiguracaoPinAcoesSensiveis()}</div>
-        </details>
-        <details class="settings-group security-settings-card security-password-card security-mobile-card" name="account-security">
-          <summary class="security-card-heading security-mobile-card-summary">
-            <span class="security-card-icon">${renderUiIcon("config")}</span>
-            <div><h3>Alterar senha da conta</h3><small>Atualize sua senha de acesso.</small></div>
-            <span class="security-mobile-chevron">›</span>
-          </summary>
-          <div class="security-mobile-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
-        </details>
-      </div>
-      <details class="settings-group security-settings-card security-session-card security-mobile-card" name="account-security">
-        <summary class="security-card-heading security-mobile-card-summary">
-          <span class="security-card-icon">${renderUiIcon("dashboard")}</span>
-          <div><h3>Sessão neste aparelho</h3><small>Gerencie sua sessão atual neste dispositivo.</small></div>
-          <span class="security-mobile-chevron">›</span>
-        </summary>
-        <div class="security-session-row security-mobile-card-body">
-          <label class="checkbox-row">
-            <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
-            <span><strong>Manter login neste aparelho</strong><small>Evita que você precise entrar novamente neste dispositivo.</small></span>
-          </label>
-          <button class="btn danger security-logout-button" type="button" onclick="logoutUsuario()">Sair e limpar sessão</button>
-        </div>
-      </details>
-      </div>
-    `
-    : `<p class="muted">Entre na sua conta para configurar PIN, alterar a senha e revisar as opções de segurança.</p>`;
   const updatesContent = `
     <label class="checkbox-row">
       <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
@@ -27100,13 +29675,11 @@ function renderConfig() {
         <button class="btn ghost" onclick="trocarTela('privacy')">Política de Privacidade</button>
         <button class="btn ghost" onclick="trocarTela('terms')">Termos de Uso</button>
         <button class="btn ghost" onclick="trocarTela('sobre')">Sobre e licenças</button>
+        <button class="btn ghost" onclick="trocarTela('feedback')">Ajuda e suporte</button>
       </div>
     </div>`;
-
-  const suggestionsContent = renderSugestoesMelhoriasConfig();
   const mostrarLogsSistema = isSuperAdmin() || APP_DEBUG_MODE;
   const systemLogsContent = mostrarLogsSistema ? renderLogSistemaConfig() : "";
-  const usarPainelDuploPwa = isWebPwaProfile() && !isMobile();
 
   return `
     <section class="card organized-page settings-page">
@@ -27114,13 +29687,11 @@ function renderConfig() {
         <h2>Sistema</h2>
         <span class="status-badge">${escaparHtml(status)}</span>
       </div>
-      <p class="muted">Gerencie seus dados, segurança, atualizações e documentos.</p>
+      <p class="muted">Informações do aplicativo, sincronização, atualizações e documentos.</p>
       <div class="settings-accordion-list">
         ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta e cópias de segurança", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
         ${telaAtual === "config" ? `
-          ${renderUiSection({ id: "seguranca-conta", title: "Segurança da conta", subtitle: "PIN de alterações importantes e senha de acesso", icon: "🔒", content: accountSecurityContent, open: !isMobile() && !usarPainelDuploPwa, group: "config" })}
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão e atualização automática", icon: "↻", content: updatesContent, group: "config" })}
-          ${renderUiSection({ id: "sugestoes-melhorias", title: "Sugestões de melhorias", subtitle: "Envie ideias e acompanhe pedidos", icon: "💡", content: suggestionsContent, group: "config" })}
           ${mostrarLogsSistema ? renderUiSection({ id: "logs-sistema", title: "Diagnóstico", subtitle: "Informações para suporte técnico", icon: "☷", content: systemLogsContent, group: "config" }) : ""}
           ${renderUiSection({ id: "sistema", title: "Ajuda e documentos", subtitle: "Introdução, privacidade e termos", icon: "⚙", content: systemContent, group: "config" })}
         ` : ""}
@@ -27195,6 +29766,7 @@ function renderAuthEntrar() {
       </label>
 
       <button id="loginUsuarioBtn" class="btn auth-primary s3d-button s3d-button-primary" type="submit">Entrar</button>
+      ${renderGoogleAuthButton("Entrar com Google")}
 
       <div class="auth-link-row">
         <button class="inline-link auth-link" type="button" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
@@ -27264,32 +29836,81 @@ function renderAuthCriarConta() {
   `;
 }
 
-function renderAdmin() {
-  const usuarioAtual = getUsuarioAtual();
-  const podeAdmin = podeGerenciarUsuarios();
+function planoAtualPermiteFuncionarios(usuario = getUsuarioAtual()) {
+  const plano = getCurrentPlanSlug(usuario);
+  return getPlanEntitlements(plano).employees === true;
+}
 
-  if (usuarioAtual && isAdminCliente() && !PlanService.podeUsarRecurso("employees")) {
+function renderGestaoFuncionariosAdmin(usuarioAtual = getUsuarioAtual()) {
+  if (!planoAtualPermiteFuncionarios(usuarioAtual)) {
+    const plano = getPlanoAtual(usuarioAtual);
     return `
-      <section class="card">
-        <div class="card-header">
-          <h2>Funcionários</h2>
-          <span class="status-badge badge-warning">PRO</span>
-        </div>
-        <p class="muted">No Free você continua com pedidos, clientes, estoque, caixa e calculadora. A criação e gestão de funcionários fica disponível no PRO.</p>
-        <div class="metrics">
-          <div class="metric"><span>Plano atual</span><strong>FREE</strong></div>
-          <div class="metric"><span>Dispositivos</span><strong>${FREE_DEVICE_LIMIT}</strong></div>
-          <div class="metric"><span>Backup</span><strong>${FREE_BACKUP_LIMIT_MB} MB</strong></div>
-        </div>
-        <div class="actions">
-          <button class="btn" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
-          <button class="btn ghost" type="button" onclick="trocarTela('dashboard')">Continuar no Free</button>
-        </div>
-      </section>
+      <div class="admin-plan-lock">
+        <span class="status-badge badge-warning">${escaparHtml(plano.nome || "Plano atual")}</span>
+        <strong>Funcionários disponíveis no plano Pro</strong>
+        <p class="muted">A conta principal continua ativa. O plano Pro libera a criação e a gestão dos funcionários do ERP.</p>
+        <button class="btn secondary" type="button" data-action="open-payment" data-slug="pro">Ver plano Pro</button>
+      </div>
     `;
   }
 
-  if (!podeAdmin) {
+  return `
+    <div class="admin-employee-form">
+      <h3>Adicionar funcionário</h3>
+      <div class="sync-grid">
+        <label class="field">
+          <span>Nome</span>
+          <input id="novoUsuarioNome" placeholder="Nome do funcionário">
+        </label>
+        <label class="field">
+          <span>E-mail</span>
+          <input id="novoUsuarioEmail" type="email" placeholder="funcionario@email.com">
+        </label>
+        <label class="field">
+          <span>Telefone opcional</span>
+          <input id="novoUsuarioTelefone" inputmode="tel" placeholder="5585999999999">
+        </label>
+        <label class="field">
+          <span>Senha inicial</span>
+          <div class="password-row">
+            <input id="novoUsuarioSenha" type="password" placeholder="Senha temporária" oninput="renderIndicadorForcaSenha('novoUsuarioSenha')">
+            <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel('novoUsuarioSenha')" title="Mostrar/ocultar senha">👁</button>
+          </div>
+          <small class="password-strength" data-strength-for="novoUsuarioSenha">Digite uma senha forte</small>
+        </label>
+        <label class="field">
+          <span>Função</span>
+          <select id="novoUsuarioPapel">
+            <option value="sales" selected>Atendimento e vendas</option>
+            <option value="production">Produção</option>
+            <option value="cashier">Caixa</option>
+            <option value="manager">Gerência</option>
+            <option value="admin">Administrador</option>
+            <option value="viewer">Somente visualização</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Status</span>
+          <select id="novoUsuarioStatus">
+            <option value="ativo" selected>Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn secondary" onclick="adicionarUsuario()">${renderUiIcon("usuarios")} Adicionar funcionário</button>
+      </div>
+    </div>
+    ${renderUsuariosAdmin()}
+  `;
+}
+
+function renderAdmin() {
+  const usuarioAtual = getUsuarioAtual();
+  const podeAdmin = podeGerenciarUsuarios();
+  const podeAbrirConfiguracoesAdmin = !!usuarioAtual && isAdminCliente();
+
+  if (!podeAdmin && !podeAbrirConfiguracoesAdmin) {
     if (usuarioAtual && !existeAdminCliente()) {
       return `
         <section class="card">
@@ -27319,153 +29940,56 @@ function renderAdmin() {
     return renderAuthPublica();
   }
 
-  const totais = calcularTotaisCaixa();
-  const ultimosEventos = historico.slice(0, 12).map((item) => `
-    <div class="history-item">
-      <strong>${escaparHtml(item.acao)}</strong>
-      <span class="muted">${new Date(item.data).toLocaleString("pt-BR")} • ${escaparHtml(item.detalhes || "")}</span>
-    </div>
-  `).join("") || `<p class="empty">Nenhum histórico registrado ainda.</p>`;
   const perfilAtual = usuarioAtual ? `${usuarioAtual.nome} (${usuarioAtual.papel})` : "Admin local";
-  const podeComercial = podeGerenciarComercial();
 
   return `
-      <section class="card admin-modern-panel">
+      <section class="card admin-modern-panel admin-settings-panel">
         <div class="card-header">
-          <h2>${renderUiIcon("seguranca")} Admin</h2>
-          <button class="icon-button" onclick="logoutAdmin()" title="Sair">↩</button>
+          <div>
+            <h2>${renderUiIcon("seguranca")} Configurações do Admin</h2>
+            <p class="muted">${escaparHtml(perfilAtual)}</p>
+          </div>
+          <button class="icon-button" onclick="voltarTela()" title="Voltar">↩</button>
         </div>
-          <p class="muted">Logado como ${escaparHtml(perfilAtual)}. Admin gerencia usuários, configurações e ações administrativas do cliente.</p>
-
-      <div class="admin-grid">
-        <div class="metric">
-          <span>Pedidos</span>
-          <strong>${pedidos.length}</strong>
-        </div>
-        <div class="metric">
-          <span>Materiais</span>
-          <strong>${estoque.length}</strong>
-        </div>
-        <div class="metric">
-          <span>Entradas</span>
-          <strong>${formatarMoeda(totais.entradas)}</strong>
-        </div>
-        <div class="metric">
-          <span>Saídas</span>
-          <strong>${formatarMoeda(totais.saidas)}</strong>
-        </div>
-      </div>
-
-      <div class="actions admin-action-grid">
-        <button class="btn secondary" onclick="exportarBackup()">${renderUiIcon("backup")} Exportar</button>
-        <button class="btn ghost" onclick="trocarTela('config')">${renderUiIcon("config")} Nuvem</button>
-        <button class="btn ghost" onclick="trocarTela('assinatura')">${renderUiIcon("assinatura")} Planos</button>
-        <button class="btn ghost" onclick="sincronizarNuvem()">${renderUiIcon("backup")} Sincronizar</button>
-        <button class="btn warning" onclick="limparPedidoAtual()">${renderUiIcon("trash")} Limpar pedido</button>
-      </div>
-
-      <div class="danger-zone">
-        <h2 class="section-title">Usuários</h2>
-        <p class="muted">Cadastre admins apenas quando precisar de ações administrativas. Usuários comuns continuam usando o app sem virar admin automaticamente.</p>
-
-        <h2 class="section-title">Adicionar usuário</h2>
-        <div class="sync-grid">
-          <label class="field">
-            <span>Nome</span>
-            <input id="novoUsuarioNome" placeholder="Nome do usuário">
-          </label>
-          <label class="field">
-            <span>E-mail</span>
-            <input id="novoUsuarioEmail" type="email" placeholder="usuario@email.com">
-          </label>
-          <label class="field">
-            <span>Telefone opcional</span>
-            <input id="novoUsuarioTelefone" inputmode="tel" placeholder="5585999999999">
-          </label>
-          <label class="field">
-            <span>Senha inicial</span>
-            <div class="password-row">
-              <input id="novoUsuarioSenha" type="password" placeholder="Senha temporária" oninput="renderIndicadorForcaSenha('novoUsuarioSenha')">
-              <button class="icon-button password-visibility-button" type="button" onclick="alternarSenhaVisivel('novoUsuarioSenha')" title="Mostrar/ocultar senha">👁</button>
+        <div class="admin-settings-content">
+          <section class="admin-settings-section">
+            <div class="admin-settings-heading">
+              <span>${renderUiIcon("seguranca")}</span>
+              <div>
+                <h3>Trocar senha</h3>
+                <p class="muted">Altere a senha usada pela sua própria conta.</p>
+              </div>
             </div>
-            <small class="password-strength" data-strength-for="novoUsuarioSenha">Digite uma senha forte</small>
-          </label>
-          <label class="field">
-            <span>Função</span>
-            <select id="novoUsuarioPapel">
-              ${isSuperAdmin(usuarioAtual) ? `<option value="superadmin">Super Admin</option>` : ""}
-              <option value="admin">Admin</option>
-              <option value="user" selected>Usuário</option>
-              <option value="operador">Operador</option>
-              <option value="visualizador">Visualizador</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Status</span>
-            <select id="novoUsuarioStatus">
-              <option value="ativo" selected>Ativo</option>
-              <option value="inativo">Inativo</option>
-            </select>
-          </label>
-        </div>
-        <div class="actions admin-action-grid">
-          <button class="btn secondary" onclick="adicionarUsuario()">${renderUiIcon("usuarios")} Adicionar usuário</button>
-        </div>
-        ${renderUsuariosAdmin()}
-      </div>
+            ${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}
+          </section>
 
-      ${podeComercial ? `<div class="danger-zone">
-        <h2 class="section-title">Comercial</h2>
-        <div class="sync-grid">
-          <label class="field">
-            <span>Dias grátis</span>
-            <input id="trialDaysAdmin" type="number" min="1" step="1" value="${Number(billingConfig.trialDays) || 7}">
-          </label>
-          <label class="field">
-            <span>Preço mensal</span>
-            <input id="monthlyPriceAdmin" type="number" min="0" step="0.01" value="${Number(billingConfig.monthlyPrice) || 19.9}">
-          </label>
-          <label class="field">
-            <span>Celulares por licença</span>
-            <input id="mobileLimitAdmin" type="number" min="1" step="1" value="${getLimitesDispositivos().mobile}">
-          </label>
-          <label class="field">
-            <span>Windows/navegador por licença</span>
-            <input id="desktopLimitAdmin" type="number" min="1" step="1" value="${getLimitesDispositivos().desktop}">
-          </label>
+          <section class="admin-settings-section">
+            <div class="admin-settings-heading">
+              <span>${renderUiIcon("usuarios")}</span>
+              <div>
+                <h3>Funcionários do ERP</h3>
+                <p class="muted">Apenas funcionários criados por esta empresa aparecem aqui.</p>
+              </div>
+            </div>
+            ${renderGestaoFuncionariosAdmin(usuarioAtual)}
+          </section>
         </div>
-        <label class="field">
-          <span>Link do plano Mercado Pago</span>
-          <input id="mercadoPagoLinkAdmin" value="${escaparAttr(billingConfig.mercadoPagoLink)}" placeholder="https://www.mercadopago.com.br/subscriptions/...">
-        </label>
-        <label class="field">
-          <span>Link Android APK</span>
-          <input id="androidDownloadUrlAdmin" value="${escaparAttr(billingConfig.androidDownloadUrl)}" placeholder="https://.../erp3d.apk">
-        </label>
-        <label class="field">
-          <span>Link Windows/navegador</span>
-          <input id="windowsWebUrlAdmin" value="${escaparAttr(billingConfig.windowsWebUrl || billingConfig.windowsDownloadUrl || "")}" placeholder="https://seu-app.vercel.app">
-        </label>
-        <div class="actions admin-action-grid">
-          <button class="btn" onclick="salvarConfigComercial()">${renderUiIcon("edit")} Salvar comercial</button>
-          <button class="btn secondary" onclick="ativarLicencaLocal()">${renderUiIcon("seguranca")} Ativar completo</button>
-          <button class="btn ghost" onclick="voltarParaGratis()">${renderUiIcon("assinatura")} Voltar grátis</button>
-        </div>
-      </div>` : ""}
-
-      <h2 class="section-title">Histórico</h2>
-      <div class="history-list">
-        ${ultimosEventos}
-      </div>
     </section>
   `;
 }
 
 function renderUsuariosAdmin() {
   usuarios = normalizarUsuarios(usuarios);
-  const lista = isSuperAdmin()
-    ? usuarios
-    : getUsuariosDoCliente().filter((usuario) => usuario.papel !== "superadmin");
+  const papeisFuncionarios = new Set(["admin", "manager", "cashier", "production", "sales", "viewer"]);
+  const rotulosPapel = {
+    admin: "Administrador",
+    manager: "Gerência",
+    cashier: "Caixa",
+    production: "Produção",
+    sales: "Atendimento",
+    viewer: "Visualização"
+  };
+  const lista = getUsuariosDoCliente().filter((usuario) => papeisFuncionarios.has(usuario.papel));
   if (!lista.length) {
     return `<p class="empty">Nenhum usuário cadastrado ainda.</p>`;
   }
@@ -27478,7 +30002,7 @@ function renderUsuariosAdmin() {
             <strong>${escaparHtml(usuario.nome)}</strong>
             <span class="muted">${escaparHtml(usuario.email)}${usuario.phone ? " • " + escaparHtml(usuario.phone) : ""}</span>
           </div>
-          <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${escaparHtml(usuario.papel)} • ${usuario.ativo === false ? "inativo" : "ativo"}</span>
+          <span class="status-badge ${usuarioEstaBloqueado(usuario) ? "badge-danger" : "badge-ativo"}">${escaparHtml(rotulosPapel[usuario.papel] || usuario.papel)} • ${usuario.ativo === false ? "inativo" : "ativo"}</span>
           <div class="row-actions">
             <button class="btn ghost" onclick="redefinirSenhaUsuario('${escaparAttr(usuario.id)}')">${renderUiIcon("seguranca")} Senha</button>
             <button class="btn warning" onclick="alternarStatusUsuario('${escaparAttr(usuario.id)}')">${usuario.ativo === false ? "Reativar" : "Desativar"}</button>
@@ -27491,10 +30015,10 @@ function renderUsuariosAdmin() {
 }
 
 function renderGoogleAuthButton(rotulo = "Login com Google") {
-  if (!syncConfig.supabaseGoogleOAuthEnabled) {
+  if (!GOOGLE_AUTH_ENABLED) {
     return `<button class="btn secondary" type="button" disabled title="Ative o provedor Google no Supabase e marque a opção em Backup e sincronização">${escaparHtml(rotulo)} indisponível</button>`;
   }
-  return `<button class="btn secondary" type="button" data-action="login-google">${escaparHtml(rotulo)}</button>`;
+  return `<button class="btn secondary auth-google-button" type="button" data-action="login-google">${escaparHtml(rotulo)}</button>`;
 }
 
 function alternarSenhaVisivel(idOuBotao) {
@@ -27849,6 +30373,11 @@ function renderConfiguracaoPinAcoesSensiveis() {
 function renderSeguranca() {
   const usuario = getUsuarioAtual();
   if (!usuario) return renderAcessoNegado();
+  if (syncConfig.supabaseAccessToken && !accountSecurityState.loaded && !accountSecurityState.loading) {
+    setTimeout(() => carregarSegurancaConta().then(() => {
+      if (telaAtual === "seguranca") renderApp();
+    }), 0);
+  }
   const logs = securityLogs.slice(0, 18).map((log) => `
     <div class="history-item">
       <strong>${escaparHtml(log.acao)} • ${escaparHtml(log.resultado)}</strong>
@@ -27938,6 +30467,13 @@ function renderSeguranca() {
           <div class="security-mobile-card-body"><div class="history-list">${logs}</div></div>
         </details>
       </div>
+      <section class="security-account-online-section">
+        <div class="security-section-title">
+          <div><h3>Conta online</h3><p>2FA, exportação de dados e exclusão da conta.</p></div>
+          <span class="status-badge">${accountSecurityState.loaded ? "Atualizado" : "Verificando"}</span>
+        </div>
+        ${renderSegurancaContaOnline()}
+      </section>
     </section>
   `;
 }
@@ -29257,7 +31793,7 @@ function renderSuperAdminManutencao() {
       <div class="superadmin-maintenance-hero">
         <div>
           <span class="eyebrow">Acesso tecnico</span>
-          <h3>Modo manutencao de clientes</h3>
+          <h3>Modo manutencao de empresas</h3>
           <p>Entre no ERP de uma empresa para suporte sem trocar ou salvar o login do cliente neste aparelho.</p>
         </div>
         <button class="btn secondary" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} Entrar no ERP como Superadmin</button>
@@ -29334,7 +31870,7 @@ function normalizarAbaSuperAdmin(tab = "dashboard") {
 function getSuperAdminNavigationSections() {
   return [
     { id: "dashboard", label: "Visao geral", short: "Inicio", icon: "dashboard", description: "Resumo da plataforma" },
-    { id: "clientes", label: "Empresas", short: "Empresas", icon: "clientes", description: "Clientes SaaS e empresas" },
+    { id: "clientes", label: "Empresas", short: "Empresas", icon: "clientes", description: "Empresas cadastradas no SaaS" },
     { id: "planos", label: "Planos", short: "Planos", icon: "assinatura", description: "Regras e limites por plano" },
     { id: "pagamentos", label: "Assinaturas", short: "Assinaturas", icon: "caixa", description: "Pagamentos e status financeiro" },
     { id: "lojas", label: "Lojas publicas", short: "Lojas", icon: "lojaOnline", description: "Publicacao e checklist das lojas" },
@@ -29363,9 +31899,9 @@ function renderSuperAdminSidebar(tab = "dashboard") {
           <small>Modo Plataforma</small>
         </div>
       </div>
-      <nav class="superadmin-platform-nav">
+      <nav class="superadmin-platform-nav" role="tablist" aria-label="Áreas do Superadmin">
         ${getSuperAdminNavigationSections().map((item) => `
-          <button class="superadmin-platform-nav-item ${aba === item.id ? "active" : ""}" type="button" onclick="trocarAbaSuperAdmin('${item.id}')">
+          <button class="superadmin-platform-nav-item ${aba === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${aba === item.id ? "true" : "false"}" onclick="trocarAbaSuperAdmin('${item.id}')">
             <span>${renderUiIcon(item.icon)}</span>
             <strong>${escaparHtml(item.label)}</strong>
             <small>${escaparHtml(item.description)}</small>
@@ -29420,9 +31956,9 @@ function renderSuperAdminMobileNav(tab = "dashboard") {
     { id: "configuracoes", short: "Mais", icon: "menu", label: "Mais" }
   ];
   return `
-    <nav class="superadmin-platform-mobile-nav" aria-label="Navegacao Superadmin mobile">
+    <nav class="superadmin-platform-mobile-nav" role="tablist" aria-label="Navegação Superadmin mobile">
       ${itens.map((item) => `
-        <button class="${aba === item.id ? "active" : ""}" type="button" onclick="trocarAbaSuperAdmin('${item.id}')">
+        <button class="${aba === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${aba === item.id ? "true" : "false"}" onclick="trocarAbaSuperAdmin('${item.id}')">
           <span>${renderUiIcon(item.icon)}</span>
           <strong>${escaparHtml(item.short || item.label)}</strong>
         </button>
@@ -29474,6 +32010,7 @@ function renderSuperAdminPageHeader(tab = "dashboard") {
 }
 
 function getEmpresasSaasOperacionais() {
+  if (!isSuperAdmin()) return [];
   return saasClients.filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt);
 }
 
@@ -29817,7 +32354,7 @@ function desbloquearRelatoriosComAnuncio() {
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
   const themeMode = normalizarPreferenciaTemaInterface(origem.theme_mode || appConfig.theme || "light");
   return {
-    primary_color: normalizarCorTemaControlado(origem.primary_color || appConfig.accentColor || "#00BFA6", themeMode, "primary"),
+    primary_color: normalizarCorTemaControlado(origem.primary_color || appConfig.accentColor || "#72E6E8", themeMode, "primary"),
     secondary_color: normalizarCorTemaControlado(origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8", themeMode, "secondary"),
     pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
     logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
@@ -29933,7 +32470,10 @@ function normalizarCorTemaControlado(color, mode = appConfig.theme || "light", k
   const palettes = getThemePalettes(mode);
   const fallback = palettes.find((palette) => String(palette.primary).toUpperCase() === String(appConfig.accentColor || "").toUpperCase()) || palettes[0];
   const normalized = limitarCorPdf(color || "", fallback[kind] || fallback.primary).toUpperCase();
-  const allowed = palettes.flatMap((palette) => [palette.primary, palette.secondary, palette.accent]).map((item) => String(item).toUpperCase());
+  const allowed = palettes
+    .flatMap((palette) => kind === "primary" ? [palette.primary] : [palette[kind], palette.secondary, palette.accent])
+    .filter(Boolean)
+    .map((item) => String(item).toUpperCase());
   if (allowed.includes(normalized)) return normalized;
   return String((fallback && (fallback[kind] || fallback.primary)) || palettes[0].primary).toUpperCase();
 }
@@ -30196,6 +32736,7 @@ function renderAparenciaConfig() {
 
 function renderCalculadoraConfigPage() {
   const materiais = normalizarEstoque();
+  const margemAtual = Number(appConfig.defaultMargin) || 100;
   return `
     <section class="card organized-page settings-page">
       <div class="card-header">
@@ -30239,8 +32780,15 @@ function renderCalculadoraConfigPage() {
           </div>
         ` })}
         ${renderUiSection({ id: "calc-margens", title: "Margens e regras", subtitle: "Margem, tempo mínimo e arredondamento", icon: "%", group: "calc", content: `
+          <div class="settings-group calc-margin-presets">
+            <h3>Presets rápidos</h3>
+            <div class="actions">
+              ${[30, 50, 100].map((valor) => `<button class="btn ${margemAtual === valor ? "" : "secondary"}" type="button" onclick="selecionarPresetMargemCalculadora(${valor})">${valor}%</button>`).join("")}
+            </div>
+            <p class="muted">Use 30% para preço competitivo, 50% para margem equilibrada ou 100% para margem tradicional do Simplifica.</p>
+          </div>
           <div class="sync-grid">
-            <label class="field"><span>Margem padrão (%)</span><input id="defaultMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.defaultMargin) || 100}"></label>
+            <label class="field"><span>Margem padrão (%)</span><input id="defaultMarginConfig" type="number" min="0" step="1" value="${margemAtual}"></label>
             <label class="field"><span>Margem mínima recomendada (%)</span><input id="minimumRecommendedMarginConfig" type="number" min="0" step="1" value="${Number(appConfig.minimumRecommendedMargin) || 60}"></label>
             <label class="field"><span>Tempo mínimo cobrado (h)</span><input id="minimumChargedHoursConfig" type="number" min="0" step="0.1" value="${Number(appConfig.minimumChargedHours) || 0}"></label>
             <label class="field">
@@ -30805,6 +33353,16 @@ function renderPlanPaymentNotice(accessState, checkoutState) {
       <span>${escaparHtml(checkoutState.message)}</span>
     </div>
   `;
+}
+
+function selecionarPresetMargemCalculadora(valor) {
+  const margem = Math.max(0, Math.round(Number(valor) || 0));
+  const campo = document.getElementById("defaultMarginConfig");
+  if (campo) campo.value = String(margem);
+  appConfig.defaultMargin = margem;
+  salvarDados();
+  mostrarToast(`Margem padrão ajustada para ${margem}%.`, "sucesso", 2600);
+  renderizarPreservandoScroll();
 }
 
 function getPlanPresentationDefaults() {
@@ -31538,7 +34096,7 @@ function renderMinhaAssinatura() {
         <h2>💳 Minha Assinatura</h2>
         <span class="status-badge ${classeStatusPlano(status.status)}">${escaparHtml(status.nome)}</span>
       </div>
-      <p class="muted">Os dados técnicos ficam aqui como histórico interno. O plano só é liberado após confirmação real do webhook Mercado Pago.</p>
+      <p class="muted">Seu plano só é liberado após a confirmação real do pagamento pelo Mercado Pago.</p>
 
       <div class="metrics">
         <div class="metric"><span>Cliente ID</span><strong>${escaparHtml(cliente?.clientCode || billingConfig.clientId || "não vinculado")}</strong></div>
@@ -32480,12 +35038,102 @@ function selecionarPaletaStorefront(id) {
 function alterarTemaInterfaceRapido(value = "system") {
   const tema = normalizarPreferenciaTemaInterface(value);
   appConfig.theme = tema;
+  localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, tema);
   window.SimplificaThemeAuthorityV2?.applyErpTheme?.(tema);
   aplicarPersonalizacao();
-  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", tema, "primary");
+  salvarDados();
+  const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#72E6E8", tema, "primary");
   const input = document.getElementById("accentColorConfig");
   if (input) input.value = corAtual;
+  document.querySelectorAll("[data-theme-mode-toggle]").forEach((button) => {
+    const label = tema === "system" ? "Tema automático" : tema === "dark" ? "Tema escuro" : "Tema claro";
+    button.dataset.themePreference = tema;
+    button.title = `${label}. Clique para alternar; segure para escolher.`;
+    button.setAttribute("aria-label", `${label}. Clique para alternar; segure para escolher.`);
+  });
   mostrarToast(`Tema ${tema === "system" ? "automático" : tema === "dark" ? "escuro" : "claro"} aplicado.`, "sucesso", 1800);
+}
+
+function alternarTemaInterface() {
+  const atual = normalizarPreferenciaTemaInterface(appConfig.theme);
+  const ordem = ["light", "dark", "system"];
+  const proximo = ordem[(ordem.indexOf(atual) + 1) % ordem.length];
+  alterarTemaInterfaceRapido(proximo);
+}
+
+let themePressState = null;
+
+function iniciarPressTema(event) {
+  cancelarPressTema(event.currentTarget);
+  themePressState = {
+    target: event.currentTarget,
+    triggered: false,
+    timer: setTimeout(() => {
+      if (!themePressState) return;
+      themePressState.triggered = true;
+      window.__themeLongPressLock = Date.now();
+      abrirSeletorTemaRapido();
+    }, 520)
+  };
+  event.currentTarget?.classList.add("is-pressing");
+}
+
+function finalizarPressTema(event) {
+  const triggered = themePressState?.triggered === true;
+  cancelarPressTema(event.currentTarget);
+  if (triggered) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}
+
+function cancelarPressTema(button = themePressState?.target) {
+  if (themePressState?.timer) clearTimeout(themePressState.timer);
+  themePressState = null;
+  button?.classList?.remove("is-pressing");
+}
+
+function alternarTemaInterfacePorClique(event) {
+  if (Date.now() - Number(window.__themeLongPressLock || 0) < 700) {
+    event?.preventDefault?.();
+    return;
+  }
+  alternarTemaInterface();
+}
+
+function abrirSeletorTemaRapido() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const atual = normalizarPreferenciaTemaInterface(appConfig.theme);
+  const options = [
+    { id: "light", label: "Claro", description: "Interface clara e limpa" },
+    { id: "dark", label: "Escuro", description: "Interface escura para pouca luz" },
+    { id: "system", label: "Automático", description: "Segue o tema do aparelho" }
+  ];
+  popup.innerHTML = `
+    <div class="modal-backdrop theme-selector-backdrop" role="dialog" aria-modal="true" aria-labelledby="themeSelectorTitle" onclick="fecharPopup()">
+      <section class="modal-card theme-selector-modal" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div><span class="eyebrow">Tema do ERP</span><h2 id="themeSelectorTitle">Escolher tema</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
+        </div>
+        <div class="theme-selector-options">
+          ${options.map((option) => `
+            <button class="theme-selector-option ${atual === option.id ? "active" : ""}" type="button" onclick="selecionarTemaRapido('${option.id}')">
+              <span class="theme-mode-disc" aria-hidden="true"></span>
+              <span><strong>${option.label}</strong><small>${option.description}</small></span>
+              <b aria-hidden="true">${atual === option.id ? "✓" : ""}</b>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function selecionarTemaRapido(theme = "system") {
+  fecharPopup();
+  alterarTemaInterfaceRapido(theme);
 }
 
 function atualizarRotuloEscalaInterface(valor) {
@@ -32555,6 +35203,7 @@ function lerPersonalizacaoCampos() {
     pdfHeaderText,
     customLoginMessage,
     motionLevel: texto("motionLevelConfig", appConfig.motionLevel || "medium") || "medium",
+    interfaceMode: getInterfaceMode(),
     appearanceSettings: normalizarAppearanceSettings({
       ...(appConfig.appearanceSettings || {}),
       primary_color: accentColor,
@@ -32892,7 +35541,7 @@ async function salvarPersonalizacaoRemotaSilencioso() {
         body: JSON.stringify({
           user_id: userId,
           company_id: companyId,
-          theme_color: appConfig.accentColor || "#00BFA6",
+          theme_color: appConfig.accentColor || "#72E6E8",
           secondary_color: settings.secondary_color || "#ff941c",
           background_image: appConfig.pdfBackgroundDataUrl || "",
           login_background: appConfig.loginBackgroundDataUrl || "",
@@ -32922,7 +35571,7 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   if (!linha || typeof linha !== "object") return false;
   const settings = linha.settings && typeof linha.settings === "object" ? linha.settings : {};
   const usarTexto = (valor) => (typeof valor === "string" && valor.trim() ? valor.trim() : "");
-  const themeModeRemoto = usarTexto(settings.theme_mode);
+  const themeModeRemoto = usarTexto(localStorage.getItem(ERP_THEME_PREFERENCE_STORAGE_KEY)) || usarTexto(settings.theme_mode);
   const proximo = {
     theme: ["dark", "light", "auto", "system"].includes(themeModeRemoto) ? normalizarPreferenciaTemaInterface(themeModeRemoto) : appConfig.theme,
     accentColor: usarTexto(linha.theme_color) || usarTexto(settings.primary_color) || appConfig.accentColor,
@@ -32972,6 +35621,7 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
     appearanceSettings,
     customizationSyncPending: false
   };
+  appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
   aplicarPersonalizacao();
   salvarDados();
   return true;
@@ -33062,6 +35712,7 @@ async function salvarPersonalizacao() {
         login_background: fundoLogin
       })
     };
+    appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
     const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
     appConfig.customizationSyncPending = !remotoOk;
     salvarDados();
@@ -33109,6 +35760,7 @@ function removerFundoPdf() {
 
 function restaurarPersonalizacaoPadrao() {
   if (!confirm("Restaurar a personalização padrão do app?")) return;
+  const interfaceModeAtual = resolverInterfaceModePreferida(appConfig.interfaceMode);
   appConfig = {
     appName: SYSTEM_NAME,
     businessName: "Minha empresa 3D",
@@ -33144,9 +35796,9 @@ function restaurarPersonalizacaoPadrao() {
     pdfHeaderText: "",
     brandWatermarkEnabled: true,
     theme: "light",
-    accentColor: "#00BFA6",
+    accentColor: "#72E6E8",
     appearanceSettings: normalizarAppearanceSettings({
-      primary_color: "#00BFA6",
+      primary_color: "#72E6E8",
       secondary_color: "#00d8c8",
       pdf_background: "",
       logo_url: "",
@@ -33160,6 +35812,7 @@ function restaurarPersonalizacaoPadrao() {
     motionLevel: "medium",
     compactMode: false,
     interfaceDensity: "default",
+    interfaceMode: "simplifica",
     smartSuggestionsEnabled: appConfig.smartSuggestionsEnabled !== false,
     smartSuggestionsDismissedAt: appConfig.smartSuggestionsDismissedAt || "",
     showBrandInHeader: true,
@@ -33208,6 +35861,9 @@ function restaurarPersonalizacaoPadrao() {
       windows: JSON.parse(JSON.stringify(dashboardDefaultWindows))
     }
   };
+  appConfig.interfaceMode = interfaceModeAtual;
+  localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
+  localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
   salvarDados();
   registrarHistorico("Personalização", "Preferências restauradas");
   renderizarPreservandoScroll();
@@ -33522,10 +36178,9 @@ async function loginUsuario() {
     atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Acesso confirmado.", progress: 50 });
     if (source === "supabase") mostrarToast("Login conectado ao Supabase.", "sucesso");
 
-    if (precisa2FA(usuario)) {
+    if (await preparar2FAAposPrimeiroFator(usuario)) {
       atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Preparando verificação adicional...", progress: 85 });
       concluirOperacaoUX(operacaoUX, "Verificação necessária");
-      iniciarVerificacao2FA("usuario", usuario);
       return;
     }
 
@@ -33602,6 +36257,7 @@ function concluirLoginUsuario(usuario) {
 function executarPosLoginAssincrono(usuario) {
   const tarefas = [
     ["Cadastro SaaS pós-login", () => garantirCadastroSaasOnlineAposLogin(usuario)],
+    ["Segurança da conta", () => carregarSegurancaConta(true).then(() => renderApp())],
     ["Toque de acesso Supabase", () => tocarAcessoClienteSupabaseSilencioso()],
     ["Licença Supabase", () => consultarLicencaSupabaseSilencioso()],
     ["Carga SaaS Supabase", () => carregarSaasSupabaseSilencioso()],
@@ -33649,6 +36305,7 @@ function logoutUsuario() {
   pararRealtimeSyncUsuario("logout");
   desconectarRelayNotificacoesAndroid().catch(() => {});
   usuarioAtualEmail = "";
+  accountSecurityState = { loaded: false, loading: false, settings: null, deletion: null, events: [], company: null, role: "" };
   adminLogado = false;
   window.__simplificaLocalLockActive = false;
   localLockModalOpen = false;
@@ -33711,12 +36368,16 @@ function loginComoDono() {
 
 async function adicionarUsuario() {
   if (!exigirAdminParaAcao()) return;
+  if (!planoAtualPermiteFuncionarios()) {
+    mostrarModalLimitePlano("A criação de funcionários está disponível no plano Pro.");
+    return;
+  }
 
   const nome = (document.getElementById("novoUsuarioNome")?.value || "").trim();
   const email = normalizarEmail(document.getElementById("novoUsuarioEmail")?.value || "");
   const phone = normalizePhoneBR(document.getElementById("novoUsuarioTelefone")?.value || "");
   const senha = document.getElementById("novoUsuarioSenha")?.value || "";
-  const papel = normalizarPapel(document.getElementById("novoUsuarioPapel")?.value || "operador");
+  const papel = normalizarPapel(document.getElementById("novoUsuarioPapel")?.value || "sales");
   const ativo = (document.getElementById("novoUsuarioStatus")?.value || "ativo") === "ativo";
 
   if (!nome || !email || !senha) {
@@ -33728,7 +36389,13 @@ async function adicionarUsuario() {
     return;
   }
 
-  const usuarioExistente = usuarios.find((usuario) => usuario.email === email);
+  usuarios = normalizarUsuarios(usuarios);
+  const usuarioGlobal = usuarios.find((usuario) => usuario.email === email);
+  const usuarioExistente = getUsuariosDoCliente().find((usuario) => usuario.email === email);
+  if (usuarioGlobal && !usuarioExistente) {
+    alert("Este e-mail já pertence a outra conta.");
+    return;
+  }
   if (!usuarioExistente && limiteUsuariosAtingido()) {
     mostrarModalLimitePlano("Você atingiu o limite de usuários do seu plano. Faça upgrade para continuar.");
     return;
@@ -33740,8 +36407,8 @@ async function adicionarUsuario() {
     return;
   }
 
-  if (papel === "superadmin" && !isSuperAdmin()) {
-    alert("Somente um superadmin pode criar outro superadmin.");
+  if (["superadmin", "owner"].includes(papel)) {
+    alert("Use uma função de funcionário para este acesso.");
     return;
   }
 
@@ -33764,10 +36431,12 @@ async function adicionarUsuario() {
     existente.ativo = ativo;
     existente.bloqueado = !ativo;
     existente.clientId = existente.clientId || getClientIdAtual();
+    existente.companyId = existente.companyId || getUsuarioAtual()?.companyId || billingConfig.companyId || "";
   } else {
     const novo = normalizarUsuario({
       id: criarIdUsuario(),
       clientId: getClientIdAtual(),
+      companyId: getUsuarioAtual()?.companyId || billingConfig.companyId || "",
       nome: nome || email.split("@")[0],
       email,
       phone,
@@ -33794,8 +36463,11 @@ function removerUsuario(id) {
   }
 
   usuarios = normalizarUsuarios(usuarios);
-  const usuario = usuarios.find((item) => String(item.id) === String(id));
-  if (!usuario) return;
+  const usuario = getUsuariosDoCliente().find((item) => String(item.id) === String(id));
+  if (!usuario) {
+    alert("Usuário fora da empresa atual.");
+    return;
+  }
 
   if (isSuperAdminPrincipal(usuario)) {
     alert("O superadmin principal não pode ser removido.");
@@ -33827,7 +36499,7 @@ async function redefinirSenhaUsuario(id) {
     return;
   }
   usuarios = normalizarUsuarios(usuarios);
-  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  const usuario = getUsuariosDoCliente().find((item) => String(item.id) === String(id));
   if (!usuario || isSuperAdminPrincipal(usuario) && !isSuperAdmin()) {
     alert("Acesso negado");
     return;
@@ -33858,7 +36530,7 @@ function alternarStatusUsuario(id) {
     return;
   }
   usuarios = normalizarUsuarios(usuarios);
-  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  const usuario = getUsuariosDoCliente().find((item) => String(item.id) === String(id));
   if (!usuario || isSuperAdminPrincipal(usuario)) {
     alert("O superadmin principal não pode ser desativado.");
     return;
@@ -34053,6 +36725,7 @@ function salvarConfigSync() {
       ...appConfig,
       ...lerConfigAppCampos()
     };
+    appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
     const memoriaIA = AiUsageMemoryManager.load();
     memoriaIA.enabled = appConfig.aiUsageMemoryEnabled !== false;
     AiUsageMemoryManager.updateUserAiProfile(memoriaIA);
@@ -34190,7 +36863,6 @@ function registroPertenceAoEscopoBackup(registro, escopo, permitirLegado = true)
   if (!alvos.length) return permitirLegado;
 
   const campos = [
-    "id",
     "owner_id",
     "ownerId",
     "owner_user_id",
@@ -34218,6 +36890,9 @@ function registroPertenceAoEscopoBackup(registro, escopo, permitirLegado = true)
     if (campo.toLowerCase().includes("email") && escopo.email && normalizarEmail(registro[campo]) === escopo.email) return true;
   }
 
+  const idRegistro = valorEscopoNormalizado(registro.id);
+  const idsDoEscopo = [escopo.clientId, escopo.companyId, escopo.userId].map(valorEscopoNormalizado).filter(Boolean);
+  if (idRegistro && idsDoEscopo.includes(idRegistro)) return true;
   return possuiVinculo ? false : permitirLegado;
 }
 
@@ -34462,6 +37137,8 @@ function aplicarBackup(dados, modo = "substituir") {
     ...appConfig,
     ...backup.appConfig
   };
+  appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
+  localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
   appConfig.companySetupCompleted = companySetupCompletedAntesBackup || appConfig.companySetupCompleted === true;
   appConfig.appearanceSettings = normalizarAppearanceSettings(appConfig.appearanceSettings || {});
 
@@ -34501,6 +37178,7 @@ function aplicarBackup(dados, modo = "substituir") {
   };
 
   atribuirDonoRemotoDadosLocais();
+  restringirDadosSaasAoEscopoAtual();
   reconciliarOnboardingConcluido();
   dataScopeChangedOnCurrentSession = false;
   atualizarFlagBackupOverLimit(criarSnapshotBackupUsuarioAtual(), false);
@@ -34738,17 +37416,17 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) {
     definirEstadoClientesSaasRemoto({
       status: "missing-token",
-      message: "Entre com a conta Supabase do superadmin para carregar clientes remotos.",
+      message: "Entre com a conta Supabase do Superadmin para carregar empresas.",
       detail: "NO_ACCESS_TOKEN"
     });
     logSuperadminSupabaseDebug("clientes não carregados", { code: "NO_ACCESS_TOKEN" });
-    if (feedback) mostrarToast("Entre com a conta Supabase do superadmin para carregar clientes remotos.", "info", 6500);
+    if (feedback) mostrarToast("Entre com a conta Supabase do Superadmin para carregar empresas.", "info", 6500);
     if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
     return { ok: false, code: "NO_ACCESS_TOKEN" };
   }
   definirEstadoClientesSaasRemoto({
     status: "loading",
-    message: "Carregando clientes do Supabase...",
+    message: "Carregando empresas do Supabase...",
     detail: ""
   });
   if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
@@ -34775,6 +37453,7 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
     saasPayments = mesclarListaPorId(saasPayments, pagamentosOnline, normalizarPagamentoSaas);
     saasPlans = mesclarListaPorId(saasPlans, planosOnline, normalizarPlanoSaas);
     usuarios = mesclarUsuariosSupabase(usuarios, [...perfisOnline, ...perfisErpOnline]);
+    restringirDadosSaasAoEscopoAtual();
     StateStore.set("usuarios", usuarios);
     salvarDados();
     if (avisosPermissao.some((aviso) => aviso.status === "permission-error")) {
@@ -34786,11 +37465,11 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
     } else {
       definirEstadoClientesSaasRemoto({
         status: "success",
-        message: "Clientes remotos atualizados.",
+        message: "Empresas atualizadas.",
         detail: ""
       });
     }
-    if (feedback) mostrarToast("Clientes Supabase atualizados.", "sucesso", 4000);
+    if (feedback) mostrarToast("Empresas Supabase atualizadas.", "sucesso", 4000);
     if (renderizar && telaAtual === "clientes" && isSuperAdmin()) renderApp();
     return { ok: true, clientes: Array.isArray(clientesOnline) ? clientesOnline.length : 0 };
   } catch (erro) {
@@ -35818,7 +38497,7 @@ function abrirModalRedefinicaoSenhaSupabase() {
 function loginGoogleSupabase() {
   syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
   syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
-  if (!syncConfig.supabaseGoogleOAuthEnabled) {
+  if (!GOOGLE_AUTH_ENABLED) {
     mostrarToast("Login Google desativado até o provedor ser habilitado no Supabase.", "erro", 7000);
     registrarDiagnostico("Supabase", "Login Google bloqueado localmente", "Provider desativado na configuração do app");
     return;
@@ -35879,7 +38558,7 @@ async function processarRetornoOAuthSupabase() {
     sessionStorage.removeItem("supabaseOAuthProvider");
     sessionStorage.removeItem("supabaseOAuthRedirectTo");
     limparParametrosOAuthSupabase();
-    if (usuario) concluirLoginUsuario(usuario);
+    if (usuario && !await preparar2FAAposPrimeiroFator(usuario)) concluirLoginUsuario(usuario);
     if (tipoRetorno === "recovery") {
       setTimeout(abrirModalRedefinicaoSenhaSupabase, 250);
     } else if (["signup", "email", "email_change"].includes(tipoRetorno)) {
@@ -35900,6 +38579,7 @@ function sairSupabase() {
   pararRealtimeSyncUsuario("sair-supabase");
   desconectarRelayNotificacoesAndroid().catch(() => {});
   limparSessaoSensivelSupabase();
+  accountSecurityState = { loaded: false, loading: false, settings: null, deletion: null, events: [], company: null, role: "" };
   syncConfig.supabaseUserId = "";
   syncConfig.supabaseEmail = "";
   scopedDataCacheReady = false;
@@ -38021,19 +40701,38 @@ function aplicarDiffEstoque(diff, motivo = "pedido") {
   }
 }
 
+function aplicarDiffEstoqueComControle(diff, motivo = "pedido", options = {}) {
+  try {
+    InventoryService.applyDiff(diff, motivo, options);
+    return true;
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Aplicar movimentação controlada" });
+    return false;
+  }
+}
+
 function aplicarEstoquePedido(pedidoNovo, pedidoAntigo = null) {
-  const diff = diffConsumoPedido(pedidoNovo, pedidoAntigo);
+  const diff = diffConsumoPedido(pedidoNovo, pedidoAntigo).map((item) => ({ ...item, orderItemId: item.materialId }));
   const faltas = validarSaldoEstoque(diff);
   if (faltas.length) {
     alert("Estoque insuficiente:\n" + faltas.join("\n"));
     return false;
   }
-  return aplicarDiffEstoque(diff, pedidoAntigo ? "edição de pedido" : "pedido");
+  return aplicarDiffEstoqueComControle(diff, pedidoAntigo ? "edição de pedido" : "pedido", pedidoAntigo ? {
+    orderId: pedidoNovo?.id || ""
+  } : {
+    orderId: pedidoNovo?.id || "",
+    idempotencyPrefix: `order_material_deduction:${pedidoNovo?.id || "novo"}`
+  });
 }
 
 function devolverEstoquePedido(pedido, motivo = "cancelamento") {
-  const diff = diffConsumoPedido({ itens: [] }, pedido);
-  aplicarDiffEstoque(diff, motivo);
+  if (pedido?.stock_returned_at || pedido?.estoqueDevolvidoEm) return false;
+  const diff = diffConsumoPedido({ itens: [] }, pedido).map((item) => ({ ...item, orderItemId: item.materialId }));
+  return aplicarDiffEstoqueComControle(diff, motivo, {
+    orderId: pedido?.id || "",
+    idempotencyPrefix: `order_material_return:${pedido?.id || "sem-id"}`
+  });
 }
 
 async function fecharPedido() {
@@ -38379,6 +41078,10 @@ function mostrarModalEdicaoMaterial(indice, material) {
           <input id="stockEditQty" type="number" min="0" step="0.001" value="${escaparAttr(material.qtd)}">
         </label>
         <label class="field">
+          <span>Motivo do ajuste</span>
+          <input id="stockEditReason" placeholder="Obrigatório se alterar o peso">
+        </label>
+        <label class="field">
           <span>Cor</span>
           <input id="stockEditColor" value="${escaparAttr(material.cor || "")}" readonly>
           ${renderPaletaCoresMaterial("stockEditColor", material.cor || "")}
@@ -38399,13 +41102,90 @@ async function salvarEdicaoMaterialEstoque(indice) {
     InventoryService.updateMaterial(indice, {
       nome: document.getElementById("stockEditName")?.value || "",
       qtd: document.getElementById("stockEditQty")?.value,
-      cor: document.getElementById("stockEditColor")?.value || ""
+      cor: document.getElementById("stockEditColor")?.value || "",
+      motivo: document.getElementById("stockEditReason")?.value || ""
     });
     fecharPopup();
     agendarSyncSilenciosoDados("estoque-editado");
     renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Editar material" });
+  }
+}
+
+function abrirSaidaManualEstoque(indice) {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
+  normalizarEstoque();
+  const material = estoque[indice];
+  if (!material) return;
+  const unidade = material.unidade || "kg";
+  const atual = Number(material.qtd) || 0;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-restock-cancel">
+      <form class="modal-card stock-restock-modal" id="stockOutputForm">
+        <div class="modal-header">
+          <h2>Registrar saída</h2>
+          <button class="icon-button" type="button" data-action="stock-restock-cancel" title="Fechar">✕</button>
+        </div>
+        <div class="stock-restock-item">
+          <strong>${escaparHtml(material.nome)}</strong>
+          <span>Disponível: ${atual.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(unidade)}</span>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Quantidade de saída</span>
+            <input id="stockOutputQty" type="number" min="0.001" max="${escaparAttr(atual)}" step="0.001" placeholder="Ex.: 0.050" required>
+          </label>
+          <label class="field">
+            <span>Motivo</span>
+            <select id="stockOutputReason" required>
+              <option value="">Selecione</option>
+              <option>Teste</option>
+              <option>Perda</option>
+              <option>Peça com falha</option>
+              <option>Amostra</option>
+              <option>Uso interno</option>
+              <option>Descarte</option>
+              <option>Correção</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Observação opcional</span>
+            <input id="stockOutputObs" placeholder="Ex.: ajuste após pesagem">
+          </label>
+        </div>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="stock-restock-cancel">Cancelar</button>
+          <button class="btn" type="submit">Confirmar saída</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById("stockOutputForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    confirmarSaidaManualEstoque(indice);
+  });
+  setTimeout(() => document.getElementById("stockOutputQty")?.focus(), 80);
+}
+
+async function confirmarSaidaManualEstoque(indice) {
+  try {
+    if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
+    InventoryService.registerManualOutput(
+      indice,
+      document.getElementById("stockOutputQty")?.value,
+      document.getElementById("stockOutputReason")?.value,
+      document.getElementById("stockOutputObs")?.value
+    );
+    agendarSyncSilenciosoDados("estoque-saida-manual");
+    fecharPopup();
+    window.__estoqueSelecionadoId = String(estoque[indice]?.id || "");
+    renderizarPreservandoScroll();
+    mostrarToast("Saída registrada.", "sucesso", 2600);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Registrar saída manual" });
   }
 }
 
@@ -38500,7 +41280,15 @@ async function confirmarReposicaoEstoque(indice) {
   }));
   salvarDados();
   agendarSyncSilenciosoDados("estoque-reposicao");
-  registrarHistorico("Estoque", `Reposição de estoque: ${material.nome} +${quantidade} ${material.unidade || "kg"}${observacao ? " - " + observacao : ""}`);
+  InventoryService.recordMovement(`Reposição de estoque: ${material.nome} +${quantidade} ${material.unidade || "kg"}${observacao ? " - " + observacao : ""}`, InventoryService.createMovementMetadata({
+    movementType: "entrada",
+    material: estoque[indice],
+    quantity: quantidade,
+    before: atual,
+    after: novoTotal,
+    reason: observacao || "Reposição",
+    idempotencyKey: `stock_restock:${material.id}:${Date.now()}`
+  }));
   fecharPopup();
   window.__estoqueSelecionadoId = String(estoque[indice]?.id || "");
   renderizarPreservandoScroll();
@@ -39108,7 +41896,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
           <h2>Pedidos e orçamentos</h2>
           <p class="muted">Lista, detalhes e ações em painéis separados para evitar mistura com a Home.</p>
         </div>
-        ${podeOperar ? `<button class="btn" type="button" data-action="open-quick-order">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}
+        <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="btn" type="button" data-action="open-quick-order">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
       </header>
       <div class="orders-pwa-layout">
         <section class="orders-pwa-list card">
@@ -39124,7 +41912,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
           </div>
         ${(filtroDashboard || filtroCliente) ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroCliente ? escaparHtml(filtroCliente) : filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; window.__pedidosFiltroCliente=''; renderApp()">Ver todos</button></div>` : ""}
           ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
-          ${renderPedidoStatusChips(listaBaseInicial, filtroAtivo)}
+          ${isContextAdvancedVisible("pedidos") ? renderPedidoStatusChips(listaBaseInicial, filtroAtivo) : ""}
           <div class="orders-pwa-list-scroll">${linhas}</div>
           ${paginacao}
         </section>
@@ -39221,7 +42009,7 @@ function renderCalculadoraConteudo() {
         <button class="btn ghost" type="button" onclick="limparCalculo()">Limpar</button>
       </div>
       <input id="printerType" type="hidden" value="${escaparAttr(config.printerType)}">
-      <select id="printer" hidden></select>
+      ${isProfissionalMode() ? `<label class="field calc-printer-selector"><span>Impressora</span><select id="printer"></select><small>Usa potência e custo por hora do cadastro.</small></label>` : `<select id="printer" hidden></select>`}
       <input id="filamento" type="hidden" value="${escaparAttr(config.filamento)}">
       <input id="energia" type="hidden" value="${escaparAttr(config.energia)}">
       <input id="consumo" type="hidden" value="${escaparAttr(config.consumo)}">
@@ -39300,6 +42088,7 @@ function getQuickActionById(id) {
 function quickActionDisponivel(acao = {}) {
   if (!acao || QUICK_ACTIONS_DANGEROUS.has(acao.id)) return false;
   if (acao.requiresOrder && !pedidos.length) return false;
+  if (acao.tela && !shouldShowMenuItem(acao)) return false;
   if (acao.tela && !canAccessScreen(acao.tela)) return false;
   return true;
 }
@@ -41212,6 +44001,12 @@ function configurarEventListenersArquitetura() {
     if (!elemento) return;
     const acao = elemento.dataset.action;
 
+    if (acao === "printer-add" || acao === "printer-edit") {
+      event.preventDefault();
+      abrirCadastroImpressora(acao === "printer-edit" ? elemento.dataset.printerId || "" : "");
+      return;
+    }
+
     if (["plan-modal-close", "stock-edit-cancel", "stock-restock-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
@@ -41346,6 +44141,12 @@ function configurarEventListenersArquitetura() {
     if (acao === "stock-restock") {
       event.preventDefault();
       abrirReposicaoEstoque(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "stock-output") {
+      event.preventDefault();
+      abrirSaidaManualEstoque(Number(elemento.dataset.index));
       return;
     }
 
@@ -42804,6 +45605,7 @@ function verificarAtualizacaoManual() {
     ...appConfig,
     ...lerConfigAppCampos()
   };
+  appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
   salvarDados();
   verificarAtualizacao(true);
 }
@@ -42928,7 +45730,7 @@ function processarParametrosAssinaturaUrl() {
   salvarDados();
 
   const mensagens = {
-    success: "Pagamento enviado para confirmação. Seu plano será atualizado automaticamente após o webhook.",
+    success: "Pagamento enviado para confirmação. Seu plano será atualizado automaticamente após a confirmação do Mercado Pago.",
     pending: "Pagamento em processamento. Seu plano atual continua disponível enquanto aguardamos a confirmação.",
     failed: "Pagamento não concluído. Seu plano atual foi preservado.",
     returned: "Retorno do checkout recebido. Seu plano será atualizado apenas após a confirmação do pagamento."

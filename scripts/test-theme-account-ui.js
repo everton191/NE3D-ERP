@@ -1,0 +1,33 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+const root = path.resolve(__dirname, "..");
+const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const style = fs.readFileSync(path.join(root, "style.css"), "utf8");
+
+assert.ok(app.includes("const PRINTER_FEATURE_ENABLED = false"), "impressoras devem permanecer desativadas nesta fase");
+assert.ok(app.includes('if (tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false'), "acesso direto a impressoras deve estar bloqueado");
+assert.ok(app.includes("function renderThemeModeButton"), "controle único de tema deve existir");
+assert.ok(app.includes('data-theme-mode-toggle'), "controle de tema deve ter contrato estável");
+assert.ok(app.includes('data-ui-token-set="${escaparAttr(relation.tokenSet)}"'), "controle de tema deve usar tokens do registro");
+assert.ok(app.includes('const ordem = ["light", "dark", "system"]'), "tema deve alternar entre claro, escuro e automático");
+assert.ok(app.includes('ERP_THEME_PREFERENCE_STORAGE_KEY = "simplifica3d:erp-theme-preference"'), "preferência de tema deve ter armazenamento próprio");
+assert.ok(app.includes("localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, tema)"), "troca de tema deve persistir no aparelho");
+assert.ok(app.includes("salvarDados();"), "troca de tema deve ser persistida");
+assert.ok(style.includes(".theme-mode-disc"), "ícone circular de duas cores deve existir");
+assert.ok(app.includes("function abrirSeletorTemaRapido"), "pressionar o tema deve abrir seletor direto");
+assert.ok(app.includes("onpointerdown=\"iniciarPressTema(event)\""), "botão de tema deve reconhecer pressão longa");
+assert.ok(app.includes('primary: "#72E6E8"'), "tema claro deve usar #72e6e8 como cor principal");
+assert.ok(style.includes("--accent-primary:#72e6e8"), "tokens claros devem usar a nova cor principal");
+assert.ok(style.includes("--s3d-button-secondary-bg"), "controle de tema deve consumir tokens de botão");
+assert.ok(app.includes("Segurança, dados e exclusão da conta"), "perfil deve encaminhar para segurança e exclusão");
+assert.match(app, /function abrirSegurancaPerfil\(\)\s*\{\s*trocarTela\("seguranca"\)/, "atalho do perfil deve abrir a tela dedicada de segurança");
+assert.ok(app.includes('data-profile-action="security"'), "ação de segurança do perfil deve usar ligação declarativa");
+assert.ok(app.includes("function configurarAcoesPerfil"), "ações do perfil devem ser vinculadas após cada renderização");
+assert.ok(app.includes('<section class="security-account-online-section">'), "tela dedicada deve exibir segurança online");
+assert.ok(app.includes("Solicitar exclusão da conta"), "exclusão de conta deve permanecer disponível na segurança");
+assert.ok(app.includes("Ativar 2FA por e-mail"), "2FA por e-mail deve permanecer disponível");
+assert.doesNotMatch(app, /renderProfileMenuRow\("personalizacao",\s*"Aparência do app"/, "perfil não deve duplicar o seletor de tema");
+
+console.log("theme_account_ui_tests_ok");

@@ -13,8 +13,8 @@ function assert(condition, message) {
 [
   "--bg-app:#f2f5f5",
   "--surface-primary:#fafcfc",
-  "--accent-primary:#4f7f83",
-  "--accent-soft:#e5eff0",
+  "--accent-primary:#72e6e8",
+  "--accent-soft:#e1f8f8",
   "--shadow-soft:0 4px 14px rgba(31,51,53,.07)"
 ].forEach((token) => assert(lightTokens.includes(token), `Token claro ausente: ${token}`));
 
@@ -25,6 +25,15 @@ assert(
 assert(
   !/body:not\(\.theme-light\)[^,{]*\.(?:store-|storefront-)/.test(style),
   "Fallback escuro do ERP ainda controla seletor da loja."
+);
+assert(
+  /root\.style\.setProperty\("--accent-border", paletaTema\.border/.test(fs.readFileSync(path.join(root, "app.js"), "utf8")),
+  "Aplicacao do tema deve propagar a borda da paleta para os tokens ativos."
+);
+assert(
+  /body\.theme-light\[data-ui-profile="web_pwa"\][\s\S]*?scrollbar-color:var\(--accent-border/.test(style)
+    && /::-webkit-scrollbar-thumb\{[\s\S]*?background:var\(--accent-border/.test(style),
+  "Barra de rolagem do tema claro deve usar tokens claros da paleta."
 );
 
 const checkpoint = style.slice(style.indexOf("/* Checkpoint tema claro 2026-06-06"));

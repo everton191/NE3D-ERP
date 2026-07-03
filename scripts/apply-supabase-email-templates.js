@@ -23,6 +23,8 @@ function buildPayload() {
       "http://127.0.0.1:*/**",
       "http://localhost:*/**"
     ].join(","),
+    mailer_otp_exp: 600,
+    mailer_otp_length: 6,
     mailer_subjects_confirmation: "Confirme sua conta no Simplifica 3D",
     mailer_templates_confirmation_content: readTemplate("confirmation.html"),
     mailer_subjects_recovery: "Recuperação de senha - Simplifica 3D",

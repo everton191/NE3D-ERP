@@ -110,8 +110,8 @@ const storefrontLayoutsV3 = read("src/storefront/styles/layouts.css");
   "src/storefront/styles/layouts.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.54-rc"/.test(app), "app.js esta na versao 1.0.54-rc");
-assert(/const APP_VERSION_CODE = 53/.test(app), "app.js possui versionCode 53");
+assert(/const APP_VERSION = "1\.0\.61-rc"/.test(app), "app.js esta na versao 1.0.61-rc");
+assert(/const APP_VERSION_CODE = 60/.test(app), "app.js possui versionCode 60");
 assert(app.includes("intro-test-banner") && app.includes("Versão em testes"), "abertura identifica a versao de testes");
 assert(css.includes(".intro-test-banner"), "aviso de testes possui layout responsivo");
 assert(/\.intro-test-banner\s*\{[\s\S]*?left:50%;[\s\S]*?transform:translateX\(-50%\);/.test(css), "aviso de testes permanece centralizado na viewport");
@@ -138,14 +138,14 @@ assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), 
 });
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(css), "CSS nao usa z-index 9999/10000 hardcoded fora dos tokens");
 assert(!/z-index\s*:\s*(9999|10000)\s*;/.test(app), "app.js nao usa z-index 9999/10000 inline hardcoded");
-assert(sw.includes("simplifica-3d-v197-pwa-motion-smooth-20260626"), "service worker possui cache versionado atual");
+assert(sw.includes("simplifica-3d-v209-mobile-ui-scroll-20260703"), "service worker possui cache versionado atual");
 assert(exists("src/services/smartLoaderService.js"), "camada global de desempenho percebido existe");
 assert(index.includes('id="smart-loader-layer"'), "index.html monta smart-loader-layer");
 assert(index.indexOf("smartLoaderService.js") < index.indexOf("/app.js"), "SmartLoader carrega antes do app.js");
 assert(sw.includes("./src/services/smartLoaderService.js"), "SmartLoader entra no precache PWA");
 assert(read("package.json").includes('"test:perceived-performance"'), "package.json expoe teste de desempenho percebido");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(index.includes("1.0.54-rc-pwa-motion-smooth-20260626"), "index.html usa cache-bust atual");
+assert(index.includes("1.0.61-rc-mobile-ui-scroll-20260703"), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1 && index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager carrega antes do app");
 assert(sw.includes("./src/services/safeAreaManager.js"), "safeAreaManager entra no precache PWA");
@@ -251,7 +251,7 @@ assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService 
   "atualizarNotaAdminCluster",
   "renderSuperAdminDiagnosticos",
   "gerarRelatorioCodexDiagnostico",
-  "Relatórios e Diagnóstico"
+  "Relatórios para Codex"
 ].forEach((marker) => assert(app.includes(marker), `fase 6a marker presente: ${marker}`));
 assert(read("supabase/migrations/20260529173500_diagnostics_validation_hardening.sql").includes("refresh_app_bug_cluster_from_error"), "fase 6b clusters recebem trigger de atualizacao");
 assert(read("supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql").includes("add column if not exists message text"), "fase 6c migration de feedback e idempotente para coluna message");

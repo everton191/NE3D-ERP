@@ -20,7 +20,7 @@ function assert(condition, message) {
 
 assert(!css.includes("width:100vw"), "Design System V2 nao deve usar width:100vw");
 assert(app.includes('class="desktop-shell s3d-shell${classeMenu}"'), "Shell desktop nao recebeu classe V2");
-assert(app.includes('class="mobile-home app-page s3d-page s3d-mobile-page"'), "Pagina mobile nao recebeu protecao V2");
+assert(/class="mobile-home app-page s3d-page s3d-mobile-page(?:\s|\$\{)/.test(app), "Pagina mobile nao recebeu protecao V2");
 assert(app.includes('class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav"'), "Bottom navigation nao recebeu contrato V2");
 
 console.log("Layout overflow V2: shell, mobile, safe-area e largura minima verificados.");
