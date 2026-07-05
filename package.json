@@ -192,7 +192,7 @@
     "android:add": "npm run build:web && cap add android",
     "android:sync": "node scripts/prepare-web.js --without-downloads && cap sync android",
     "android:open": "npm run android:sync && cap open android",
-    "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug && cd .. && npm run android:apk:copy",
+    "android:apk": "npm run android:sync && cd android && gradlew.bat :app:clean assembleDebug && cd .. && npm run android:apk:copy",
     "android:apk:copy": "node scripts/copy-android-apk.js"
   },
   "dependencies": {
