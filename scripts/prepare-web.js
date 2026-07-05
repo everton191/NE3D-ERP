@@ -25,6 +25,17 @@ fs.mkdirSync(dist, { recursive: true });
 
 files.forEach(copyFile);
 
+const publicDownloadFiles = [
+  "downloads/update.json",
+  "downloads/NE3D-ERP.apk"
+];
+
+publicDownloadFiles.forEach((relativePath) => {
+  if (fs.existsSync(path.join(root, relativePath))) {
+    copyFile(relativePath);
+  }
+});
+
 if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
 }
