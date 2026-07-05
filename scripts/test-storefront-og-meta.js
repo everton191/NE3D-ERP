@@ -11,14 +11,15 @@ const required = [
   "twitter:card",
   "theme-color",
   "canonical",
-  "apple-touch-icon",
-  "1.0.54-rc-pwa-motion-smooth-20260626"
+  "apple-touch-icon"
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !html.includes(item));
+const hasAppVersion = /app\.js\?v=[^"]+/.test(html);
 
-if (missing.length) {
-  console.error("Open Graph/SEO basico incompleto:", missing.join(", "));
+if (missing.length || !hasAppVersion) {
+  const failures = [...missing, ...(!hasAppVersion ? ["app.js versionado"] : [])];
+  console.error("Open Graph/SEO basico incompleto:", failures.join(", "));
   process.exit(1);
 }
 

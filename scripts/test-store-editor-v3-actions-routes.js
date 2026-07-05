@@ -25,8 +25,10 @@ const browserWindow = {
   renderUiIcon: (name) => `<i>${name}</i>`,
   getStorefrontGuidedSelection: () => ({ type: "product", id: "produto-1", currentStep: 3 }),
   getStorefrontGuidedCatalogState: () => ({}),
+  getStorefrontGuidedProductDraft: (product) => product,
   getStorefrontContactConfig: () => ({}),
   getStorefrontProductImage: () => "https://example.invalid/produto.webp",
+  getStorefrontProductImages: (_product, images) => (images || []).map((item) => item.image_url),
   storefrontAdminSlugify: (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "-"),
   getStorefrontDemoProductImage: () => "https://example.invalid/fallback.webp",
   getStorefrontCategoryName: () => "Sem categoria"

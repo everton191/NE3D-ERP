@@ -21,16 +21,25 @@ function required(env, key) {
 }
 
 async function request({ url, key, bearer = key, method = "GET", path, body, expected = [200], headers = {} }) {
-  const response = await fetch(`${url}${path}`, {
-    method,
-    headers: {
-      apikey: key,
-      Authorization: `Bearer ${bearer}`,
-      "Content-Type": "application/json",
-      ...headers,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(`${url}${path}`, {
+      method,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${bearer}`,
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (error) {
+    const code = String(error?.cause?.code || "");
+    if (["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT"].includes(code)) {
+      skip(`staging indisponivel na rede (${code}).`);
+    }
+    throw error;
+  }
   const text = await response.text();
   let parsed = null;
   try {

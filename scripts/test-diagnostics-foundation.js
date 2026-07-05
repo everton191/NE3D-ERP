@@ -226,7 +226,7 @@ async function run() {
     "atualizarNotaAdminCluster",
     "renderSuperAdminDiagnosticos",
     "gerarRelatorioCodexDiagnostico",
-    "Relatórios e Diagnóstico"
+    "Sistema e status"
   ].forEach((marker) => assert(app.includes(marker), `app deve integrar ${marker}`));
 
   assert(app.includes("Obrigado! Seu relato foi enviado e será analisado."), "feedback deve mostrar mensagem final amigavel");

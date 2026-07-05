@@ -26,12 +26,20 @@ Classes base:
 
 Tamanhos:
 
-| Contexto | Altura minima | Icone |
-| --- | --- | --- |
-| Botao comum desktop | `40px` a `44px` | `18px` |
-| Botao comum mobile | `42px` a `48px` | `18px` |
-| Botao compacto | `34px` a `38px` | `16px` a `18px` |
-| Botao so de icone | `36px` a `42px` | `20px` |
+| Contexto | `data-ui-size` | Desktop | Mobile | Icone |
+| --- | --- | --- | --- | --- |
+| Compacto | `compact` | `36px` | `34px` | `16px` a `18px` |
+| Padrao | `standard` | `40px` | `40px` | `18px` |
+| Destaque | `large` | `44px` | `44px` | `18px` a `20px` |
+| Somente icone | `standard` | `40px` | `40px` | `20px` |
+
+Uso obrigatorio em componente novo:
+
+```html
+<button class="btn s3d-button" data-ui-size="standard">Salvar</button>
+```
+
+Em JavaScript, preferir `renderAppButton({ size: "standard" })`. O registro oficial fica em `UI_COMPONENT_SIZE_RELATIONS`.
 
 Regras:
 
@@ -55,11 +63,19 @@ Classes base:
 
 Tamanhos:
 
-| Contexto | Padding | Radius | Icone |
+| Contexto | `data-ui-size` | Altura desktop/mobile | Padding desktop/mobile |
 | --- | --- | --- | --- |
-| Card comum | `var(--card-padding)` | `var(--radius)` | `20px` a `22px` |
-| KPI compacto | `var(--space-3)` a `var(--space-4)` | `8px` a `16px` | `20px` a `22px` |
-| Acao rapida | `var(--space-2)` a `var(--space-3)` | `8px` a `16px` | `18px` a `22px` |
+| Compacto / linha | `compact` | `56px / 52px` | `8px / 7px` |
+| Padrao | `standard` | `72px / 64px` | `12px / 10px` |
+| Destaque | `large` | `96px / 84px` | `16px / 12px` |
+
+Uso obrigatorio em card novo:
+
+```html
+<article class="card s3d-card" data-ui-size="standard">...</article>
+```
+
+Cards com conteudo dinamico usam `min-height`, nunca `height` fixa. Excecao: atalhos/KPIs de formato fechado e testado.
 
 Regras:
 
@@ -117,9 +133,11 @@ Contrato:
 
 - O scroll principal do app fica em `#app-content`, `.app-content-shell` ou `.mobile-panel-content`.
 - Telas internas usam `overflow-y:visible`, exceto listas longas declaradas.
+- Uma tela interna nao pode combinar `overflow-x:hidden` com `overflow-y:visible`; essa combinacao vira `overflow-y:auto` e pode capturar a roda do mouse. Use `overflow-x:clip`.
 - Listas longas usam wrapper proprio com `overflow-y:auto` e `scroll-padding-bottom`.
 - No mobile, sempre manter `-webkit-overflow-scrolling:touch`.
 - Nao usar `touch-action:none` em tela ou card; reservar para gesto especifico.
+- O mesmo container deve responder a roda do mouse, touchpad e toque. Nao considerar o teste concluido apenas porque a barra lateral pode ser arrastada.
 
 Checklist para nova tela:
 
@@ -137,3 +155,4 @@ Checklist para nova tela:
 4. Conferir fonte pelos tokens.
 5. Conferir scroll no desktop e mobile.
 6. Rodar `node --check app.js`, `npm run build:web` e teste visual relacionado.
+7. Confirmar os tamanhos pelo `data-ui-size`; nao criar altura local sem registrar uma nova variante.

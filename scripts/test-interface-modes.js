@@ -34,20 +34,25 @@ function assert(condition, message) {
 
 assert(app.includes("shouldShowMenuItem(item, modo) && canAccessScreen(item.tela)"), "Menu lateral deve filtrar por modo e permissao");
 assert(app.includes("isSimplificaMode() ? itensSimplifica : itensProfissional"), "Bottom nav deve alternar por modo");
+assert(app.includes('{ acao: "abrirMenuPopup()", iconKey: "plus", icone: "+", texto: "Mais" }'), "Bottom nav simples deve abrir o menu pelo botao Mais");
+assert(!app.includes('{ tela: "lojaOnline", icone: "🛍️", texto: "Loja" }'), "Bottom nav simples nao deve fixar Loja");
 assert(app.includes("function abrirSeletorModoInterface()"), "Perfil deve abrir seletor de modo");
+assert(app.includes('function renderDashboardInterfaceModeButton() {\n  if (!isSimplificaMode()) return "";'), "Engrenagem rápida deve aparecer somente na Home simples");
 assert(app.includes("selecionarModoInterface('simple')"), "Seletor deve expor Modo simples");
 assert(app.includes("selecionarModoInterface('advanced')"), "Seletor deve expor Modo avancado");
 assert(app.includes('profile-list-row compact" type="button" onclick="abrirSeletorModoInterface()"'), "Perfil deve usar botao discreto para o modo");
 assert(app.includes("Preferências da interface"), "Perfil deve agrupar tema e modo em preferências da interface");
 assert(!app.includes("settings-mode-trigger"), "Configuracoes nao devem duplicar o modo de uso");
 assert(app.includes('const INTERFACE_MODE_STORAGE_KEY = "simplifica_interface_mode"'), "Modo deve usar a chave local solicitada");
+assert(app.includes('const INTERFACE_MODE_UPDATED_AT_STORAGE_KEY = "simplifica_interface_mode_updated_at"'), "Modo deve registrar quando a preferencia local foi alterada");
+assert(app.includes("if (localTime > remoteTime)"), "Preferencia remota antiga nao deve sobrescrever escolha local recente");
 assert(app.includes("localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode))"), "Restauracao/importacao deve persistir simple/advanced");
 assert(app.includes("function sincronizarPreferenciaModoInterface()"), "Modo deve sincronizar com preferencia remota");
 assert(app.includes('/rest/v1/user_preferences?on_conflict=user_id'), "Modo deve salvar em user_preferences");
 assert(app.includes("function renderDashboardSimplifica"), "Modo Simplifica deve ter dashboard simples dedicado");
 assert(app.includes("if (isSimplificaMode()) return renderDashboardSimplifica(payload);"), "Dashboard deve escolher a versao Simplifica");
 assert(app.includes('if (!isContextAdvancedVisible("caixa")) return "movimentos";'), "Caixa simplificado deve evitar extrato avancado");
-assert(app.includes('...(isContextAdvancedVisible("estoque") ? [{ id: "historico"'), "Historico do estoque deve respeitar opcoes contextuais");
+assert(app.includes('class="stock-item-menu"') && app.includes('data-action="stock-edit"'), "Acoes avancadas do estoque devem ficar no menu contextual de tres pontos");
 assert(app.includes("function renderContextualAdvancedToggle"), "Telas principais devem permitir mostrar mais opcoes sem trocar o modo global");
 assert(app.includes("function selecionarPresetMargemCalculadora"), "Calculadora deve ter presets de margem no front-end");
 assert(app.includes("[30, 50, 100].map"), "Presets de margem 30/50/100 devem existir");

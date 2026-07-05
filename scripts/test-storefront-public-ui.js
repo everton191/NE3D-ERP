@@ -17,6 +17,6 @@ assert(app.includes("normalizarTelefoneWhatsapp(form.whatsapp?.value || \"\")"),
 assert(renderer.includes('["tiktok", "TikTok", contact.tiktok]'), "TikTok preenchido deve aparecer entre os contatos publicos");
 assert(app.includes("function configurarNavegacaoLojaPublica"), "Navegacao publica central ausente");
 assert(!renderer.includes("store-public-"), "Renderer publico ainda usa classes V2");
-assert(index.includes("store-categories-vertical-card-20260628"), "Cache-bust web ausente");
-assert(sw.includes("simplifica-3d-v205-release-1-0-58-20260628"), "Cache PWA ausente");
+assert(/\/app\.js\?v=[^"]+/.test(index), "Cache-bust web ausente");
+assert(/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw), "Cache PWA ausente");
 console.log("Storefront public UI: raiz, menu, rotas e componentes V3 validados.");

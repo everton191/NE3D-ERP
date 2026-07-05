@@ -2,9 +2,9 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.61-rc";
-const APP_VERSION_CODE = 60;
-const APP_SHELL_VERSION = "2j";
+const APP_VERSION = "1.0.62-rc";
+const APP_VERSION_CODE = 61;
+const APP_SHELL_VERSION = "2v";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
   sidebar: "app-sidebar",
@@ -325,6 +325,9 @@ const USER_SCOPED_LIST_KEYS = Object.freeze([
   "pedidos",
   "orcamentos",
   "historico",
+  "productionJobs",
+  "productionPrinters",
+  "productionEvents",
   "diagnostics",
   "sugestoes",
   "securityLogs",
@@ -431,6 +434,7 @@ const INTERFACE_MODE_VALUES = Object.freeze({
 });
 const INTERFACE_MODE_STORAGE_KEY = "simplifica_interface_mode";
 const INTERFACE_MODE_LEGACY_STORAGE_KEY = "simplifica3d:interface_mode";
+const INTERFACE_MODE_UPDATED_AT_STORAGE_KEY = "simplifica_interface_mode_updated_at";
 const INTERFACE_MODE_LABELS = Object.freeze({
   simplifica: "Modo simples",
   profissional: "Modo avançado"
@@ -515,6 +519,19 @@ const UI_BUTTON_RELATIONS = Object.freeze({
   success: Object.freeze({ className: "success", tokenSet: "action-success", tokens: ["--s3d-button-success-bg", "--s3d-button-success-text", "--s3d-button-success-border"] })
 });
 
+const UI_COMPONENT_SIZE_RELATIONS = Object.freeze({
+  button: Object.freeze({
+    compact: Object.freeze({ tokenSet: "button-compact", height: "--s3d-button-height-compact" }),
+    standard: Object.freeze({ tokenSet: "button-standard", height: "--s3d-button-height-standard" }),
+    large: Object.freeze({ tokenSet: "button-large", height: "--s3d-button-height-large" })
+  }),
+  card: Object.freeze({
+    compact: Object.freeze({ tokenSet: "card-compact", minHeight: "--s3d-card-min-height-compact", padding: "--s3d-card-padding-compact" }),
+    standard: Object.freeze({ tokenSet: "card-standard", minHeight: "--s3d-card-min-height-standard", padding: "--s3d-card-padding-standard" }),
+    large: Object.freeze({ tokenSet: "card-large", minHeight: "--s3d-card-min-height-large", padding: "--s3d-card-padding-large" })
+  })
+});
+
 const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   dashboard: Object.freeze({ label: "Home", lucide: "LayoutDashboard", group: "principal" }),
   pedidos: Object.freeze({ label: "Pedidos", lucide: "ClipboardList", group: "principal" }),
@@ -564,6 +581,12 @@ const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   statusProducao: Object.freeze({ label: "Status de produção", lucide: "Activity", group: "operation" }),
   entrega: Object.freeze({ label: "Entregas e envios", lucide: "Truck", group: "operation" }),
   produtos: Object.freeze({ label: "Produtos e materiais", lucide: "Boxes", group: "operation" }),
+  filamento: Object.freeze({ label: "Filamento", lucide: "Cable", group: "operation" }),
+  resina: Object.freeze({ label: "Resina", lucide: "Container", group: "operation" }),
+  embalagem: Object.freeze({ label: "Embalagem", lucide: "ShoppingBag", group: "operation" }),
+  folha: Object.freeze({ label: "Folhas e papéis", lucide: "Files", group: "operation" }),
+  acessorio: Object.freeze({ label: "Acessório", lucide: "BadgePlus", group: "operation" }),
+  ferramenta: Object.freeze({ label: "Ferramenta", lucide: "Wrench", group: "operation" }),
   estoqueMovimento: Object.freeze({ label: "Movimentações de estoque", lucide: "ArrowLeftRight", group: "operation" }),
   alerta: Object.freeze({ label: "Alertas de estoque", lucide: "AlertTriangle", group: "operation" }),
   aparencia: Object.freeze({ label: "Aparência do sistema", lucide: "Palette", group: "settings" }),
@@ -590,6 +613,9 @@ const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   menu: Object.freeze({ label: "Menu", lucide: "Menu", group: "system" }),
   pdf: Object.freeze({ label: "PDF", lucide: "FileDown", group: "system" }),
   plus: Object.freeze({ label: "Adicionar", lucide: "Plus", group: "system" }),
+  more: Object.freeze({ label: "Mais ações", lucide: "EllipsisVertical", group: "system" }),
+  down: Object.freeze({ label: "Expandir", lucide: "ChevronDown", group: "system" }),
+  up: Object.freeze({ label: "Recolher", lucide: "ChevronUp", group: "system" }),
   print: Object.freeze({ label: "Imprimir", lucide: "Printer", group: "system" }),
   refresh: Object.freeze({ label: "Atualizar", lucide: "RefreshCw", group: "system" }),
   time: Object.freeze({ label: "Horário", lucide: "Clock", group: "system" }),
@@ -661,6 +687,19 @@ const UI_ICON_ALIASES = Object.freeze({
   activity: "statusProducao",
   truck: "entrega",
   boxes: "produtos",
+  filamento: "filamento",
+  spool: "filamento",
+  container: "resina",
+  resina: "resina",
+  embalagem: "embalagem",
+  sacola: "embalagem",
+  files: "folha",
+  folha: "folha",
+  papel: "folha",
+  badgeplus: "acessorio",
+  acessorio: "acessorio",
+  wrench: "ferramenta",
+  ferramenta: "ferramenta",
   alerttriangle: "alerta",
   palette: "aparencia",
   paintbrush2: "tema",
@@ -690,7 +729,13 @@ const UI_ICON_ALIASES = Object.freeze({
   pencil: "edit",
   trash2: "trash",
   check: "check",
-  plus: "plus"
+  plus: "plus",
+  ellipsisvertical: "more",
+  more: "more",
+  chevrondown: "down",
+  down: "down",
+  chevronup: "up",
+  up: "up"
 });
 
 function normalizeUiIconKey(value = "") {
@@ -784,6 +829,11 @@ function getNavigationAuditEntry(screen = "") {
 
 function getUiButtonRelation(variant = "primary") {
   return UI_BUTTON_RELATIONS[String(variant || "primary")] || UI_BUTTON_RELATIONS.primary;
+}
+
+function getUiComponentSizeRelation(component = "button", size = "standard") {
+  const componentRelations = UI_COMPONENT_SIZE_RELATIONS[String(component || "button")] || UI_COMPONENT_SIZE_RELATIONS.button;
+  return componentRelations[String(size || "standard")] || componentRelations.standard;
 }
 
 let telaAtual = "dashboard";
@@ -922,6 +972,9 @@ let caixa = carregarLista("caixa");
 let pedidos = carregarLista("pedidos");
 let orcamentos = carregarLista("orcamentos");
 let historico = carregarLista("historico");
+let productionJobs = carregarLista("productionJobs");
+let productionPrinters = carregarLista("productionPrinters");
+let productionEvents = carregarLista("productionEvents");
 let diagnostics = carregarLista("diagnostics");
 let sugestoes = carregarLista("sugestoes");
 let syncedMessageNotifications = [];
@@ -1182,16 +1235,18 @@ function getInterfaceModeLabel(mode = getInterfaceMode()) {
   return INTERFACE_MODE_LABELS[normalizarInterfaceMode(mode)] || INTERFACE_MODE_LABELS.simplifica;
 }
 
-function setInterfaceMode(mode, { render = true, notify = true } = {}) {
+function setInterfaceMode(mode, { render = true, notify = true, persistRemote = true, updatedAt = "" } = {}) {
   const next = normalizarInterfaceMode(mode);
   const changed = getInterfaceMode() !== next;
+  const preferenceUpdatedAt = String(updatedAt || new Date().toISOString());
   appConfig.interfaceMode = next;
   localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(next));
+  localStorage.setItem(INTERFACE_MODE_UPDATED_AT_STORAGE_KEY, preferenceUpdatedAt);
   if (!isScreenVisibleInCurrentMode(telaAtual, next)) {
     telaAtual = "dashboard";
   }
   salvarDados();
-  salvarPreferenciaModoInterfaceRemota(next);
+  if (persistRemote) salvarPreferenciaModoInterfaceRemota(next, preferenceUpdatedAt);
   if (notify && changed) {
     mostrarToast(`${getInterfaceModeLabel(next)} ativado. Os dados foram preservados.`, "sucesso", 3200);
   }
@@ -1210,7 +1265,7 @@ const interfaceModePreferenceState = {
   pendingMode: ""
 };
 
-async function salvarPreferenciaModoInterfaceRemota(mode = getInterfaceMode()) {
+async function salvarPreferenciaModoInterfaceRemota(mode = getInterfaceMode(), updatedAt = localStorage.getItem(INTERFACE_MODE_UPDATED_AT_STORAGE_KEY) || new Date().toISOString()) {
   const userId = String(syncConfig.supabaseUserId || getUsuarioAtual()?.supabaseUserId || "").trim();
   const serializedMode = serializeInterfaceMode(mode);
   if (!userId || !syncConfig.supabaseAccessToken || !estaOnline()) return false;
@@ -1228,7 +1283,7 @@ async function salvarPreferenciaModoInterfaceRemota(mode = getInterfaceMode()) {
       body: JSON.stringify({
         user_id: userId,
         interface_mode: serializedMode,
-        updated_at: new Date().toISOString()
+        updated_at: updatedAt
       })
     });
     interfaceModePreferenceState.loadedUserId = userId;
@@ -1258,10 +1313,27 @@ async function sincronizarPreferenciaModoInterface() {
       timeoutMs: 12000
     });
     const remoteMode = rows?.[0]?.interface_mode;
+    const remoteUpdatedAt = String(rows?.[0]?.updated_at || "");
+    const localUpdatedAt = String(localStorage.getItem(INTERFACE_MODE_UPDATED_AT_STORAGE_KEY) || "");
+    const remoteTime = Date.parse(remoteUpdatedAt) || 0;
+    const localTime = Date.parse(localUpdatedAt) || 0;
     if (remoteMode && serializeInterfaceMode(getInterfaceMode()) !== remoteMode) {
-      setInterfaceMode(remoteMode, { render: true, notify: false });
+      if (localTime > remoteTime) {
+        await salvarPreferenciaModoInterfaceRemota(getInterfaceMode(), localUpdatedAt);
+      } else {
+        setInterfaceMode(remoteMode, {
+          render: true,
+          notify: false,
+          persistRemote: false,
+          updatedAt: remoteUpdatedAt || new Date().toISOString()
+        });
+      }
+    } else if (remoteMode && remoteUpdatedAt && remoteTime > localTime) {
+      localStorage.setItem(INTERFACE_MODE_UPDATED_AT_STORAGE_KEY, remoteUpdatedAt);
     } else if (!remoteMode) {
-      await salvarPreferenciaModoInterfaceRemota(getInterfaceMode());
+      const nextUpdatedAt = localUpdatedAt || new Date().toISOString();
+      localStorage.setItem(INTERFACE_MODE_UPDATED_AT_STORAGE_KEY, nextUpdatedAt);
+      await salvarPreferenciaModoInterfaceRemota(getInterfaceMode(), nextUpdatedAt);
     }
     interfaceModePreferenceState.loadedUserId = userId;
     return true;
@@ -1722,6 +1794,9 @@ const StateStore = {
       pedidos,
       orcamentos,
       historico,
+      productionJobs,
+      productionPrinters,
+      productionEvents,
       diagnostics,
       sugestoes,
       securityLogs,
@@ -1752,6 +1827,9 @@ const StateStore = {
       case "pedidos": pedidos = Array.isArray(valor) ? valor : []; break;
       case "orcamentos": orcamentos = Array.isArray(valor) ? valor : []; break;
       case "historico": historico = Array.isArray(valor) ? valor : []; break;
+      case "productionJobs": productionJobs = Array.isArray(valor) ? valor : []; break;
+      case "productionPrinters": productionPrinters = Array.isArray(valor) ? valor : []; break;
+      case "productionEvents": productionEvents = Array.isArray(valor) ? valor : []; break;
       case "diagnostics": diagnostics = Array.isArray(valor) ? valor : []; break;
       case "sugestoes": sugestoes = Array.isArray(valor) ? valor : []; break;
       case "securityLogs": securityLogs = Array.isArray(valor) ? valor : []; break;
@@ -2547,14 +2625,17 @@ const InventoryService = {
   recordMovement(detalhes, metadata = {}) {
     registrarHistorico("Estoque", detalhes, metadata);
   },
-  addMaterial({ tipo, cor, qtd }) {
+  addMaterial({ nome: nomeInformado = "", categoria = "", tipoItem = "", unidade = "kg", qtd, estoqueMinimo = 0, custoUnitario = 0, fornecedor = "", observacoes = "", ativo = true, tipo, cor, isBatchControlled = false, batchControlType = "", inventoryBatches = [] }) {
     const tipoNormalizado = String(tipo || "PLA").trim() || "PLA";
     const corNormalizada = String(cor || "").trim();
-    const nome = [tipoNormalizado, corNormalizada].filter(Boolean).join(" ");
-    const quantidade = this.parseNumberStrict(qtd, "quantidade em kg", { min: 0, allowZero: false });
+    const nome = String(nomeInformado || [tipoNormalizado, corNormalizada].filter(Boolean).join(" ")).trim();
+    const unidadeNormalizada = STOCK_CONTROL_UNITS.some((item) => item.value === String(unidade)) ? String(unidade) : "kg";
+    const quantidade = this.parseNumberStrict(qtd, `quantidade em ${unidadeNormalizada}`, { min: 0 });
     const atual = normalizarEstoque();
     const agora = new Date().toISOString();
-    const indice = atual.findIndex((material) => material.tipo === tipoNormalizado && String(material.cor || "").toLowerCase() === corNormalizada.toLowerCase());
+    const indice = atual.findIndex((material) => nomeInformado
+      ? String(material.nome || "").toLowerCase() === nome.toLowerCase() && String(material.unidade || material.unit || "kg") === unidadeNormalizada
+      : material.tipo === tipoNormalizado && String(material.cor || "").toLowerCase() === corNormalizada.toLowerCase());
     const proximo = indice >= 0
       ? atual.map((material, i) => i === indice
         ? prepararRegistroOnline(normalizarMaterialEstoque({
@@ -2573,6 +2654,18 @@ const InventoryService = {
         nome,
         tipo: tipoNormalizado,
         cor: corNormalizada,
+        categoria: String(categoria || tipoNormalizado).trim(),
+        tipoItem: String(tipoItem || (["PLA", "PETG", "TPU", "RESINA"].includes(tipoNormalizado.toUpperCase()) ? "Item de produção 3D" : "Matéria-prima")).trim(),
+        unidade: unidadeNormalizada,
+        unit: unidadeNormalizada,
+        estoqueMinimo: Math.max(0, Number(estoqueMinimo) || 0),
+        custoUnitario: Math.max(0, Number(custoUnitario) || 0),
+        fornecedor: String(fornecedor || "").trim(),
+        observacoes: String(observacoes || "").trim(),
+        ativo: ativo !== false,
+        is_batch_controlled: !!isBatchControlled,
+        batch_control_type: batchControlType || (isBatchControlled ? "rolo" : ""),
+        inventory_batches: Array.isArray(inventoryBatches) ? inventoryBatches : [],
         qtd: quantidade,
         initial_quantity: quantidade,
         current_quantity: quantidade,
@@ -2581,7 +2674,7 @@ const InventoryService = {
       }))];
     StateStore.set("estoque", proximo, { persistir: true });
     const materialRegistrado = indice >= 0 ? proximo[indice] : proximo[proximo.length - 1];
-    this.recordMovement((indice >= 0 ? "Reposição de estoque: " : "Material adicionado: ") + nome + " (" + quantidade + " kg)", this.createMovementMetadata({
+    this.recordMovement((indice >= 0 ? "Reposição de estoque: " : "Material adicionado: ") + nome + ` (${quantidade} ${unidadeNormalizada})`, this.createMovementMetadata({
       movementType: indice >= 0 ? "entrada" : "entrada_inicial",
       material: materialRegistrado,
       quantity: quantidade,
@@ -2611,7 +2704,7 @@ const InventoryService = {
     if (mudouQuantidade && !motivo) {
       throw new AppError("Motivo obrigatório", {
         code: "INVENTORY_ADJUST_REASON_REQUIRED",
-        userMessage: "Informe o motivo do ajuste de peso."
+        userMessage: "Informe o motivo do ajuste de quantidade."
       });
     }
     const nome = nomeInformado || [tipo, cor].filter(Boolean).join(" ");
@@ -2620,6 +2713,18 @@ const InventoryService = {
       nome,
       tipo,
       cor,
+      categoria: String(dados.categoria ?? material.categoria ?? tipo).trim(),
+      tipoItem: String(dados.tipoItem ?? material.tipoItem ?? material.item_type ?? "Matéria-prima").trim(),
+      unidade: String(dados.unidade ?? material.unidade ?? "un"),
+      unit: String(dados.unidade ?? material.unidade ?? "un"),
+      estoqueMinimo: Math.max(0, Number(dados.estoqueMinimo ?? material.estoqueMinimo ?? material.min_stock) || 0),
+      custoUnitario: Math.max(0, Number(dados.custoUnitario ?? material.custoUnitario ?? material.unit_cost) || 0),
+      fornecedor: String(dados.fornecedor ?? material.fornecedor ?? "").trim(),
+      observacoes: String(dados.observacoes ?? material.observacoes ?? "").trim(),
+      ativo: dados.ativo === undefined ? material.ativo !== false : dados.ativo !== false,
+      is_batch_controlled: dados.isBatchControlled === undefined ? materialUsaControleLote(material) : !!dados.isBatchControlled,
+      batch_control_type: String(dados.batchControlType ?? material.batch_control_type ?? "").trim(),
+      inventory_batches: Array.isArray(dados.inventoryBatches) ? dados.inventoryBatches : normalizarLotesEstoque(material),
       qtd,
       current_quantity: qtd,
       quantity_base: Math.max(qtd, Number(material.quantity_base) || 0),
@@ -2635,6 +2740,38 @@ const InventoryService = {
       after: qtd,
       reason: motivo || "Edição cadastral",
       idempotencyKey: `stock_adjust:${atualizado.id}:${Date.now()}`
+    }));
+    return atualizado;
+  },
+  updateBatches(indice, batches = [], reason = "Atualização de rolo/lote") {
+    const atual = normalizarEstoque();
+    const material = atual[Number(indice)];
+    if (!material) {
+      throw new AppError("Material não encontrado", {
+        code: "INVENTORY_NOT_FOUND",
+        userMessage: "Material não encontrado no estoque."
+      });
+    }
+    const saldoAntes = Math.max(0, Number(material.qtd) || 0);
+    const lotes = (Array.isArray(batches) ? batches : []).map((lote) => normalizarLoteEstoque(lote, material));
+    const atualizado = prepararRegistroOnline(normalizarMaterialEstoque({
+      ...material,
+      is_batch_controlled: true,
+      batch_control_type: material.batch_control_type || lotes[0]?.batch_type || "rolo",
+      inventory_batches: lotes,
+      batches: lotes,
+      atualizadoEm: new Date().toISOString()
+    }));
+    const proximo = atual.map((item, i) => i === Number(indice) ? atualizado : item);
+    StateStore.set("estoque", proximo, { persistir: true });
+    this.recordMovement(`${reason}: ${atualizado.nome}`, this.createMovementMetadata({
+      movementType: "edicao_lote",
+      material: atualizado,
+      quantity: (Number(atualizado.qtd) || 0) - saldoAntes,
+      before: saldoAntes,
+      after: Number(atualizado.qtd) || 0,
+      reason,
+      idempotencyKey: `stock_batch:${atualizado.id}:${Date.now()}`
     }));
     return atualizado;
   },
@@ -2658,12 +2795,23 @@ const InventoryService = {
     const faltas = [];
     const materiais = normalizarEstoque();
     diff.forEach((item) => {
-      const consumo = this.parseNumberStrict(item.kg, "consumo de material", { min: null });
+      const consumo = this.parseNumberStrict(item.quantidade ?? item.kg, "consumo de material", { min: null });
       if (consumo <= 0) return;
       const material = materiais.find((entrada) => String(entrada.id) === String(item.materialId));
       const saldo = material ? this.parseNumberStrict(material.qtd, "saldo do material", { min: 0 }) : 0;
+      if (
+        material
+        && consumo > 0
+        && materialUsaControleLote(material)
+        && normalizarLotesEstoque(material).length
+        && !STOCK_ROLL_AUTO_CONSUMPTION_ENABLED
+      ) {
+        faltas.push(`A baixa por rolo de ${material.nome} ainda está em simulação. Revise os rolos no pedido antes de confirmar a produção.`);
+        return;
+      }
       if (!material || saldo + 0.000001 < consumo) {
-        faltas.push(`${material?.nome || "Material"}: precisa ${consumo.toFixed(3)} kg, saldo ${saldo.toFixed(3)} kg`);
+        const unidade = material?.unidade || "un";
+        faltas.push(`Estoque insuficiente para ${material?.nome || "Material"}. Disponível: ${saldo.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${unidade}. Necessário: ${consumo.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${unidade}.`);
       }
     });
     return faltas;
@@ -2674,8 +2822,19 @@ const InventoryService = {
     const proximo = atual.map((material) => {
       const item = diff.find((entrada) => String(entrada.materialId) === String(material.id));
       if (!item) return material;
-      const consumo = this.parseNumberStrict(item.kg, "consumo de material", { min: null });
+      const consumo = this.parseNumberStrict(item.quantidade ?? item.kg, "consumo de material", { min: null });
       const saldoAtual = this.parseNumberStrict(material.qtd, "saldo do material", { min: 0 });
+      if (
+        consumo > 0
+        && materialUsaControleLote(material)
+        && normalizarLotesEstoque(material).length
+        && !STOCK_ROLL_AUTO_CONSUMPTION_ENABLED
+      ) {
+        throw new AppError("Baixa por rolo indisponível", {
+          code: "INVENTORY_BATCH_AUTO_CONSUMPTION_DISABLED",
+          userMessage: `A baixa por rolo de ${material.nome} ainda está em simulação e não alterou o estoque.`
+        });
+      }
       const motivoNormalizado = String(motivo || "").toLowerCase();
       const movementType = options.movementType || (motivoNormalizado.includes("edição") || motivoNormalizado.includes("edicao")
         ? (consumo >= 0 ? "baixa_edicao_pedido" : "devolucao_edicao_pedido")
@@ -2687,7 +2846,7 @@ const InventoryService = {
       const saldoNovo = Math.max(0, saldoAtual - consumo);
       const tipoMovimento = consumo >= 0 ? "saída" : "entrada";
       movimentos.push({
-        detalhes: `${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(consumo).toFixed(3)} kg)`,
+        detalhes: `${tipoMovimento} por ${motivo}: ${material.nome} (${Math.abs(consumo).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${material.unidade || "un"})`,
         metadata: this.createMovementMetadata({
           movementType,
           material,
@@ -3028,6 +3187,36 @@ const printerMonitoringState = {
 };
 
 const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
+const STOCK_ITEM_TYPES = Object.freeze([
+  "Produto pronto",
+  "Matéria-prima",
+  "Acessório",
+  "Consumível",
+  "Ferramenta",
+  "Item de produção 3D",
+  "Item de artesanato"
+]);
+const STOCK_CONTROL_UNITS = Object.freeze([
+  { value: "un", label: "Unidade" },
+  { value: "g", label: "Gramas" },
+  { value: "kg", label: "Quilogramas" },
+  { value: "ml", label: "Mililitros" },
+  { value: "l", label: "Litros" },
+  { value: "m", label: "Metros" },
+  { value: "cm", label: "Centímetros" },
+  { value: "folha", label: "Folhas" },
+  { value: "rolo", label: "Rolos" },
+  { value: "pacote", label: "Pacotes" },
+  { value: "kit", label: "Kits" }
+]);
+const STOCK_BATCH_CONTROL_TYPES = Object.freeze([
+  { value: "rolo", label: "Rolo" },
+  { value: "lote", label: "Lote" },
+  { value: "frasco", label: "Frasco" },
+  { value: "pacote", label: "Pacote" }
+]);
+const STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED = true;
+const STOCK_ROLL_AUTO_CONSUMPTION_ENABLED = false;
 const MATERIAL_ADD_OPTION = "__add_material__";
 const MATERIAL_COLOR_PALETTE = [
   { nome: "Preto", cor: "#111827" },
@@ -3167,6 +3356,9 @@ function criarSnapshotDadosUsuario(escopo = getEscopoDadosAtual()) {
       pedidos,
       orcamentos,
       historico,
+      productionJobs,
+      productionPrinters,
+      productionEvents,
       diagnostics,
       sugestoes,
       securityLogs,
@@ -3197,6 +3389,9 @@ function aplicarCacheDadosUsuario(cache) {
   pedidos = Array.isArray(data.pedidos) ? data.pedidos : [];
   orcamentos = Array.isArray(data.orcamentos) ? data.orcamentos : [];
   historico = Array.isArray(data.historico) ? data.historico : [];
+  productionJobs = Array.isArray(data.productionJobs) ? data.productionJobs : [];
+  productionPrinters = Array.isArray(data.productionPrinters) ? data.productionPrinters : [];
+  productionEvents = Array.isArray(data.productionEvents) ? data.productionEvents : [];
   diagnostics = Array.isArray(data.diagnostics) ? data.diagnostics : [];
   sugestoes = Array.isArray(data.sugestoes) ? data.sugestoes : [];
   securityLogs = Array.isArray(data.securityLogs) ? data.securityLogs : [];
@@ -3221,6 +3416,9 @@ function limparDadosOperacionaisLocais() {
   pedidos = [];
   orcamentos = [];
   historico = [];
+  productionJobs = [];
+  productionPrinters = [];
+  productionEvents = [];
   diagnostics = [];
   sugestoes = [];
   securityLogs = [];
@@ -3262,12 +3460,12 @@ function listaTemDadosOperacionais(lista) {
 }
 
 function possuiDadosOperacionaisLocais() {
-  return [estoque, pedidos, caixa, orcamentos].some(listaTemDadosOperacionais);
+  return [estoque, pedidos, caixa, orcamentos, productionJobs, productionPrinters].some(listaTemDadosOperacionais);
 }
 
 function cacheTemDadosOperacionais(cache) {
   const data = cache?.data && typeof cache.data === "object" ? cache.data : {};
-  return [data.estoque, data.pedidos, data.caixa, data.orcamentos].some(listaTemDadosOperacionais);
+  return [data.estoque, data.pedidos, data.caixa, data.orcamentos, data.productionJobs, data.productionPrinters].some(listaTemDadosOperacionais);
 }
 
 function backupTemDadosOperacionais(dados) {
@@ -3299,6 +3497,9 @@ function atribuirDonoRemotoDadosLocais(escopo = getEscopoDadosAtual()) {
   caixa = atribuirDonoRemotoLista(caixa, escopo);
   pedidos = atribuirDonoRemotoLista(pedidos, escopo);
   orcamentos = atribuirDonoRemotoLista(orcamentos, escopo);
+  productionJobs = atribuirDonoRemotoLista(productionJobs, escopo);
+  productionPrinters = atribuirDonoRemotoLista(productionPrinters, escopo);
+  productionEvents = atribuirDonoRemotoLista(productionEvents, escopo);
 }
 
 function marcarRegistroAlteradoParaSync(registro = {}, campos = {}) {
@@ -3361,7 +3562,10 @@ function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
   }
   atualizarIndicadorSincronizacao("syncing", "Salvando");
   return sincronizarSupabaseSilencioso()
-    .then((ok) => {
+    .then(async (ok) => {
+      await sincronizarProducaoManualSupabaseSilencioso().catch((erro) => {
+        registrarDiagnostico("produção", `Sync direto após ${motivo} falhou`, erro.message);
+      });
       atualizarIndicadorSincronizacao(ok ? "success" : "pending", ok ? "Salvo" : "Na fila");
       return ok;
     })
@@ -3568,6 +3772,9 @@ function salvarDados() {
     salvarJsonLocalSeMudou("pedidos", pedidos);
     salvarJsonLocalSeMudou("orcamentos", orcamentos);
     salvarJsonLocalSeMudou("historico", historico);
+    salvarJsonLocalSeMudou("productionJobs", productionJobs);
+    salvarJsonLocalSeMudou("productionPrinters", productionPrinters);
+    salvarJsonLocalSeMudou("productionEvents", productionEvents);
     salvarJsonLocalSeMudou("diagnostics", diagnostics);
     salvarJsonLocalSeMudou("sugestoes", sugestoes);
     salvarJsonLocalSeMudou("securityLogs", securityLogs);
@@ -5887,6 +6094,23 @@ function whatsapp2FABackendDisponivel() {
   return false;
 }
 
+function precisa2FA() {
+  if (!whatsapp2FABackendDisponivel()) return false;
+  return Boolean(appConfig.twoFactorEnabled);
+}
+
+function iniciarVerificacao2FA() {
+  if (!whatsapp2FABackendDisponivel()) {
+    twoFactorPending = null;
+    return false;
+  }
+  return false;
+}
+
+function abrirWhats2FA() {
+  if (!whatsapp2FABackendDisponivel()) return;
+}
+
 function mensagemErroSegurancaConta(codigo = "") {
   return ({
     EMAIL_DELIVERY_FAILED: "Não foi possível enviar o código por e-mail.",
@@ -7875,6 +8099,13 @@ function calcularPercentualEstoque(atual = 0, base = 0) {
 }
 
 function resolverStatusEstoque(percentual = 0, material = {}) {
+  const saldo = Math.max(0, Number(material.current_quantity ?? material.qtd) || 0);
+  const minimo = Math.max(0, Number(material.estoqueMinimo ?? material.min_stock ?? material.minStock) || 0);
+  if (minimo > 0) {
+    if (saldo <= 0) return "critical";
+    if (saldo <= minimo) return "low";
+    return "normal";
+  }
   const critical = Number(material.critical_stock_threshold ?? material.criticalStockThreshold ?? 10) || 10;
   const low = Number(material.low_stock_threshold ?? material.lowStockThreshold ?? 30) || 30;
   if (percentual <= critical) return "critical";
@@ -7906,12 +8137,63 @@ function calcularCustoKgMaterialEstoque(material = {}) {
   return valorTotal > 0 && base > 0 ? valorTotal / base : 0;
 }
 
+function normalizarLoteEstoque(lote = {}, material = {}) {
+  const unidade = lote.unit || lote.unidade || material.unidade || material.unit || "g";
+  const initial = Math.max(0, Number(lote.initial_quantity ?? lote.initialQuantity ?? lote.quantidadeInicial ?? lote.qtdInicial ?? lote.current_quantity ?? lote.currentQuantity ?? lote.qtd) || 0);
+  const current = Math.max(0, Number(lote.current_quantity ?? lote.currentQuantity ?? lote.saldoAtual ?? lote.qtdAtual ?? lote.qtd ?? initial) || 0);
+  const tipo = String(lote.batch_type || lote.batchType || lote.tipo || material.batch_control_type || "rolo").trim() || "rolo";
+  const statusRaw = String(lote.status || (current <= 0 ? "esgotado" : "fechado")).trim().toLowerCase();
+  const status = ["fechado", "em_uso", "esgotado", "inativo"].includes(statusRaw) ? statusRaw : "fechado";
+  return {
+    ...lote,
+    id: lote.id || "batch-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+    inventory_item_id: lote.inventory_item_id || lote.inventoryItemId || material.id || "",
+    batch_code: String(lote.batch_code || lote.batchCode || lote.codigo || lote.code || "").trim(),
+    batch_type: tipo,
+    initial_quantity: initial,
+    current_quantity: current,
+    unit: unidade,
+    cost_total: Math.max(0, Number(lote.cost_total ?? lote.costTotal ?? lote.custoTotal) || 0),
+    cost_per_unit: Math.max(0, Number(lote.cost_per_unit ?? lote.costPerUnit ?? lote.custoUnitario) || 0),
+    purchase_date: lote.purchase_date || lote.purchaseDate || "",
+    opened_at: lote.opened_at || lote.openedAt || "",
+    status,
+    notes: String(lote.notes || lote.observacoes || "").trim(),
+    created_at: lote.created_at || lote.createdAt || new Date().toISOString(),
+    updated_at: lote.updated_at || lote.updatedAt || new Date().toISOString()
+  };
+}
+
+function normalizarLotesEstoque(material = {}) {
+  const lotes = Array.isArray(material.inventory_batches) ? material.inventory_batches
+    : Array.isArray(material.batches) ? material.batches
+      : Array.isArray(material.rolos) ? material.rolos
+        : [];
+  return lotes.map((lote) => normalizarLoteEstoque(lote, material));
+}
+
+function materialUsaControleLote(material = {}) {
+  return !!(material.is_batch_controlled || material.batch_controlled || material.controlaRolo || material.controlaLote);
+}
+
+function calcularSaldoLotesEstoque(lotes = [], unidade = "un") {
+  return lotes
+    .filter((lote) => !["inativo", "esgotado"].includes(String(lote.status || "").toLowerCase()))
+    .filter((lote) => !lote.unit || !unidade || String(lote.unit) === String(unidade))
+    .reduce((soma, lote) => soma + (Number(lote.current_quantity) || 0), 0);
+}
+
 function normalizarMaterialEstoque(material = {}) {
   const tipo = material.tipo || inferirTipoMaterial(material.nome);
   const cor = String(material.cor || "").trim();
   const nomeBase = String(material.nome || [tipo, cor].filter(Boolean).join(" ") || tipo).trim();
   const unidade = material.unit || material.unidade || "kg";
-  const saldoAtual = Math.max(0, Number(material.current_quantity ?? material.currentQuantity ?? material.qtd) || 0);
+  const inventoryBatches = normalizarLotesEstoque({ ...material, nome: nomeBase, tipo, unidade });
+  const isBatchControlled = materialUsaControleLote(material);
+  const saldoLotes = isBatchControlled ? calcularSaldoLotesEstoque(inventoryBatches, unidade) : 0;
+  const saldoAtual = isBatchControlled && inventoryBatches.length
+    ? saldoLotes
+    : Math.max(0, Number(material.current_quantity ?? material.currentQuantity ?? material.qtd) || 0);
   const baseInformada = Number(material.quantity_base ?? material.quantityBase ?? material.initial_quantity ?? material.initialQuantity) || 0;
   const basePadrao = String(unidade).toLowerCase() === "kg" ? Math.max(1, saldoAtual) : Math.max(1, saldoAtual);
   const base = Math.max(saldoAtual, baseInformada || basePadrao);
@@ -7926,6 +8208,20 @@ function normalizarMaterialEstoque(material = {}) {
     qtd: saldoAtual,
     unidade,
     unit: unidade,
+    categoria: String(material.categoria || material.category || tipo || "Geral").trim(),
+    tipoItem: String(material.tipoItem || material.item_type || material.itemType || (["PLA", "PETG", "TPU", "RESINA"].includes(String(tipo).toUpperCase()) ? "Item de produção 3D" : "Matéria-prima")).trim(),
+    item_type: String(material.tipoItem || material.item_type || material.itemType || (["PLA", "PETG", "TPU", "RESINA"].includes(String(tipo).toUpperCase()) ? "Item de produção 3D" : "Matéria-prima")).trim(),
+    estoqueMinimo: Math.max(0, Number(material.estoqueMinimo ?? material.min_stock ?? material.minStock) || 0),
+    min_stock: Math.max(0, Number(material.estoqueMinimo ?? material.min_stock ?? material.minStock) || 0),
+    custoUnitario: Math.max(0, Number(material.custoUnitario ?? material.unit_cost ?? material.unitCost ?? material.precoKg ?? material.custoKg) || 0),
+    unit_cost: Math.max(0, Number(material.custoUnitario ?? material.unit_cost ?? material.unitCost ?? material.precoKg ?? material.custoKg) || 0),
+    fornecedor: String(material.fornecedor || material.supplier || "").trim(),
+    observacoes: String(material.observacoes || material.observacao || material.notes || "").trim(),
+    ativo: material.ativo !== false && material.active !== false,
+    is_batch_controlled: isBatchControlled,
+    batch_control_type: String(material.batch_control_type || material.batchControlType || material.tipoControleLote || (isBatchControlled ? "rolo" : "")).trim(),
+    inventory_batches: inventoryBatches,
+    batches: inventoryBatches,
     initial_quantity: Math.max(0, Number(material.initial_quantity ?? material.initialQuantity ?? base) || 0),
     current_quantity: saldoAtual,
     quantity_base: base,
@@ -7957,17 +8253,30 @@ function getMaterialEstoque(materialId) {
 function getMateriaisItem(item = {}) {
   if (Array.isArray(item.materiais) && item.materiais.length) {
     return item.materiais
-      .map((material) => ({
-        materialId: material.materialId || material.id || "",
-        nome: material.nome || getMaterialEstoque(material.materialId || material.id)?.nome || "",
-        gramas: Math.max(0, Number(material.gramas) || 0)
-      }))
-      .filter((material) => material.materialId && material.gramas > 0);
+      .map((material) => {
+        const materialId = material.materialId || material.id || "";
+        const estoqueItem = getMaterialEstoque(materialId);
+        const unidade = String(material.unidade || material.unit || estoqueItem?.unidade || "kg");
+        const gramasLegado = Math.max(0, Number(material.gramas) || 0);
+        const quantidadeInformada = Math.max(0, Number(material.quantidade ?? material.quantity) || 0);
+        const quantidade = quantidadeInformada || (unidade === "kg" ? gramasLegado / 1000 : unidade === "g" ? gramasLegado : gramasLegado);
+        return {
+          materialId,
+          nome: material.nome || estoqueItem?.nome || "",
+          quantidade,
+          unidade,
+          gramas: gramasLegado || (unidade === "kg" ? quantidade * 1000 : unidade === "g" ? quantidade : 0)
+        };
+      })
+      .filter((material) => material.materialId && material.quantidade > 0);
   }
 
   const materialId = item.materialId || "";
   const gramas = Math.max(0, Number(item.materialGramsTotal ?? item.materialGrams) || 0);
-  return materialId && gramas > 0 ? [{ materialId, nome: getMaterialEstoque(materialId)?.nome || "", gramas }] : [];
+  const estoqueItem = getMaterialEstoque(materialId);
+  const unidade = String(estoqueItem?.unidade || "kg");
+  const quantidade = unidade === "kg" ? gramas / 1000 : unidade === "g" ? gramas : gramas;
+  return materialId && quantidade > 0 ? [{ materialId, nome: estoqueItem?.nome || "", quantidade, unidade, gramas }] : [];
 }
 
 function normalizarItemPedido(item = {}) {
@@ -8099,8 +8408,8 @@ function calcularConsumoMateriais(itens = []) {
   const consumo = new Map();
   normalizarItensPedido(itens).forEach((item) => {
     getMateriaisItem(item).forEach((material) => {
-      const kg = material.gramas / 1000;
-      consumo.set(material.materialId, (consumo.get(material.materialId) || 0) + kg);
+      const quantidade = Math.max(0, Number(material.quantidade) || 0);
+      consumo.set(material.materialId, (consumo.get(material.materialId) || 0) + quantidade);
     });
   });
   return consumo;
@@ -8118,7 +8427,7 @@ function movimentoCaixaCancelado(movimento = {}) {
   return !!(movimento.cancelado || movimento.cancelled || movimento.canceladoEm || movimento.cancelled_at || String(movimento.status || "").toLowerCase() === "cancelado");
 }
 
-function getMetodosPagamentoCaixa() {
+function getPaymentMethodsConfig() {
   const padrao = [
     { id: "dinheiro", name: "Dinheiro", type: "cash", active: true },
     { id: "pix", name: "PIX", type: "pix", active: true },
@@ -8132,8 +8441,11 @@ function getMetodosPagamentoCaixa() {
       name: String(metodo.name || metodo.nome || metodo.id || "Outro").trim(),
       type: String(metodo.type || metodo.tipo || metodo.id || "other").trim().toLowerCase(),
       active: metodo.active !== false && metodo.ativo !== false
-    }))
-    .filter((metodo) => metodo.active);
+    }));
+}
+
+function getMetodosPagamentoCaixa() {
+  return getPaymentMethodsConfig().filter((metodo) => metodo.active);
 }
 
 function normalizarMetodoPagamentoCaixa(valor = "") {
@@ -10335,6 +10647,28 @@ function atualizarMenu() {
   });
 }
 
+function renderizarFabEstoqueGlobal() {
+  const layer = document.getElementById(APP_LAYER_IDS.overlay);
+  if (!layer) return;
+  layer.querySelector("[data-stock-fab-layer]")?.remove();
+  if (telaAtual !== "estoque" || !document.body.classList.contains("mobile-mode") || !permitirVisualizacaoOperacionalBasica()) return;
+  const fabLayer = document.createElement("div");
+  fabLayer.className = "stock-fab-layer";
+  fabLayer.dataset.stockFabLayer = "true";
+  fabLayer.innerHTML = `<button class="stock-add-fab" type="button" onclick="abrirCadastroItemEstoque()" title="Adicionar item" aria-label="Adicionar item">${renderUiIcon("plus")}</button>`;
+  layer.appendChild(fabLayer);
+}
+
+function configurarFechamentoMenusEstoque() {
+  if (window.__stockOutsideMenuHandlerReady) return;
+  window.__stockOutsideMenuHandlerReady = true;
+  document.addEventListener("pointerdown", (event) => {
+    document.querySelectorAll(".stock-item-menu[open]").forEach((menu) => {
+      if (!menu.contains(event.target)) menu.removeAttribute("open");
+    });
+  }, { passive: true });
+}
+
 function renderApp() {
   ensureAppShellLayers();
   const app = document.getElementById("app");
@@ -10375,6 +10709,8 @@ function renderApp() {
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
   app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
+  renderizarFabEstoqueGlobal();
+  configurarFechamentoMenusEstoque();
   configurarAcoesCadastroImpressora();
   configurarAcoesPerfil();
   atualizarMenu();
@@ -14779,7 +15115,7 @@ function getMobileBottomNavItems() {
     { tela: "dashboard", icone: "⌂", texto: "Início" },
     { tela: "pedidos", icone: "📋", texto: "Pedidos" },
     { tela: "calculadora", icone: "🧮", texto: "Calcular" },
-    { tela: "lojaOnline", icone: "🛍️", texto: "Loja" }
+    { acao: "abrirMenuPopup()", iconKey: "plus", icone: "+", texto: "Mais" }
   ];
   const itensProfissional = [
     { tela: "dashboard", icone: "⌂", texto: "Home" },
@@ -14788,7 +15124,7 @@ function getMobileBottomNavItems() {
     { tela: "caixa", icone: "💰", texto: "Caixa" }
   ];
   return (isSimplificaMode() ? itensSimplifica : itensProfissional)
-    .filter((item) => shouldShowMenuItem(item) && canAccessScreen(item.tela));
+    .filter((item) => shouldShowMenuItem(item) && (!item.tela || canAccessScreen(item.tela)));
 }
 
 function getMobileBottomNavActive() {
@@ -14799,32 +15135,43 @@ function getMobileBottomNavActive() {
 function renderMobileBottomNav() {
   const ativo = getMobileBottomNavActive();
   const itens = getMobileBottomNavItems();
-  const mostrarAssistente = MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda();
-  const totalItens = itens.length + (mostrarAssistente ? 1 : 0);
   if (!itens.length || !getUsuarioAtual()) return "";
   return `
-    <nav class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${totalItens}, minmax(0, 1fr))">
+    <nav class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
-        <button class="mobile-bottom-nav-button s3d-nav-item ${ativo === item.tela ? "active" : ""}" data-tela="${item.tela}" type="button" onclick="navegarMenuPrincipal('${item.tela}')" aria-label="${escaparAttr(item.texto)}">
-          <span>${renderUiIcon(getUiScreenRelation(item.tela)?.icon || item.tela, item.icone)}</span>
+        <button class="mobile-bottom-nav-button s3d-nav-item ${item.tela && ativo === item.tela ? "active" : ""}" ${item.tela ? `data-tela="${item.tela}"` : `data-nav-action="more"`} type="button" onclick="${item.acao || `navegarMenuPrincipal('${item.tela}')`}" aria-label="${escaparAttr(item.texto)}">
+          <span>${renderUiIcon(item.iconKey || getUiScreenRelation(item.tela)?.icon || item.tela, item.icone)}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
       `).join("")}
-      ${mostrarAssistente ? `
-        <button class="mobile-bottom-nav-button mobile-assistant-nav-button s3d-nav-item ${assistantOpen && !assistantMinimized ? "active" : ""}" type="button" onclick="abrirAssistente('basic')" aria-label="Abrir assistente">
-          <span>${renderUiIcon("feedback")}</span>
-          <small>Ajuda</small>
-        </button>
-      ` : ""}
     </nav>
   `;
+}
+
+function gerenciarScrollContainerTeclado(event) {
+  if (!event || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.target?.closest?.("input, textarea, select, button, a, [contenteditable='true']")) return;
+  const container = event.currentTarget;
+  if (!container || container.scrollHeight <= container.clientHeight) return;
+  const pageStep = Math.max(160, Math.round(container.clientHeight * 0.82));
+  const key = String(event.key || "");
+  let nextTop = null;
+  if (key === "PageDown" || (key === " " && !event.shiftKey)) nextTop = container.scrollTop + pageStep;
+  if (key === "PageUp" || (key === " " && event.shiftKey)) nextTop = container.scrollTop - pageStep;
+  if (key === "ArrowDown") nextTop = container.scrollTop + 48;
+  if (key === "ArrowUp") nextTop = container.scrollTop - 48;
+  if (key === "Home") nextTop = 0;
+  if (key === "End") nextTop = container.scrollHeight;
+  if (nextTop === null) return;
+  event.preventDefault();
+  container.scrollTo({ top: nextTop, behavior: "smooth" });
 }
 
 function renderPainelMobile(tela) {
   if (tela === "calculadora") {
     return `
       <section class="mobile-panel mobile-panel-calculator" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
-        <div class="mobile-panel-content app-content calculator-panel-content">
+        <div class="mobile-panel-content app-content calculator-panel-content" tabindex="0" onkeydown="gerenciarScrollContainerTeclado(event)">
           ${renderTela(tela)}
         </div>
       </section>
@@ -14841,7 +15188,7 @@ function renderPainelMobile(tela) {
           ${exibirMenuPainel ? `<button class="icon-button mobile-panel-menu-button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>` : ""}
         </div>
       </div>
-      <div class="mobile-panel-content app-content">
+      <div class="mobile-panel-content app-content" tabindex="0" onkeydown="gerenciarScrollContainerTeclado(event)">
         ${renderTela(tela)}
       </div>
     </section>
@@ -14961,6 +15308,7 @@ function renderDashboardHomeHeader() {
         <p>Aqui está o resumo do seu negócio hoje.</p>
       </div>
       <div class="dashboard-header-actions">
+        ${renderDashboardInterfaceModeButton()}
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
           <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
@@ -14969,6 +15317,15 @@ function renderDashboardHomeHeader() {
         ${renderDashboardProfileButton(usuario)}
       </div>
     </section>
+  `;
+}
+
+function renderDashboardInterfaceModeButton() {
+  if (!isSimplificaMode()) return "";
+  return `
+    <button class="icon-button dashboard-interface-mode-button" type="button" onclick="abrirSeletorModoInterface()" title="Selecionar modo de uso" aria-label="Selecionar modo de uso. Modo atual: simples">
+      ${renderUiIcon("config")}
+    </button>
   `;
 }
 
@@ -15400,11 +15757,11 @@ function renderAdministracaoEmpresa() {
     { action: "trocarTela('assinatura')", icon: "assinatura", title: "Plano e assinatura", description: "Plano atual, cobrança e formas de pagamento.", visible: canAccessScreen("assinatura", usuario) },
     { action: "abrirSecaoAdministracaoEmpresa('funcionarios')", icon: "usuarios", title: "Funcionários", description: "Equipe, cargos, acessos e limites do plano.", visible: canAccessScreen("usuarios", usuario) },
     { action: "abrirSecaoAdministracaoEmpresa('permissoes')", icon: "seguranca", title: "Permissões", description: "Consulta de permissões por cargo.", visible: canAccessScreen("usuarios", usuario) },
-    { action: "abrirSecaoAdministracaoEmpresa('loja')", icon: "lojaOnline", title: "Loja online", description: "Catálogo, publicação e canais de atendimento.", visible: canAccessScreen("lojaOnline", usuario) },
+    { action: "trocarTela('lojaOnline')", icon: "lojaOnline", title: "Loja online", description: "Catálogo, publicação e canais de atendimento.", visible: canAccessScreen("lojaOnline", usuario) },
     { action: "abrirSecaoAdministracaoEmpresa('caixa')", icon: "caixa", title: "Configurações do caixa", description: "Formas de pagamento e operação financeira.", visible: canAccessScreen("caixa", usuario) },
     { action: "abrirSecaoAdministracaoEmpresa('estoque')", icon: "estoque", title: "Configurações de estoque", description: "Alertas, mínimos e regras seguras.", visible: canAccessScreen("estoque", usuario) },
-    { action: "abrirSecaoAdministracaoEmpresa('backup')", icon: "backup", title: "Backup da empresa", description: "Cópias, sincronização e continuidade dos dados.", visible: canAccessScreen("config", usuario) },
-    { action: "abrirSecaoAdministracaoEmpresa('logs')", icon: "relatorios", title: "Logs e relatórios", description: "Atividade da empresa e indicadores permitidos.", visible: canAccessScreen("relatorios", usuario) }
+    { action: "trocarTela('config')", icon: "backup", title: "Backup da empresa", description: "Cópias, sincronização e continuidade dos dados.", visible: canAccessScreen("config", usuario) },
+    { action: "trocarTela('relatorios')", icon: "relatorios", title: "Logs e relatórios", description: "Atividade da empresa e indicadores permitidos.", visible: canAccessScreen("relatorios", usuario) }
   ].filter((item) => item.visible);
   return `
     <section class="organized-page administration-page">
@@ -23859,6 +24216,9 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
           <h1>Início</h1>
           <p>Resumo de vendas, pedidos e caixa.</p>
         </div>
+        <div class="dashboard-simplifica-header-actions">
+          ${renderDashboardInterfaceModeButton()}
+        </div>
       </header>
       <div class="dashboard-simplifica-metrics">
         ${cards.map((card) => `
@@ -24129,10 +24489,6 @@ function renderPedido() {
               </label>
             </div>
             <div class="order-material-compact">
-              <div class="order-material-head">
-                <span>${renderChipsMaterialPedido(item)}</span>
-                <button class="btn ghost" type="button" onclick="adicionarMaterialProduto(${i})">+ material</button>
-              </div>
               ${renderMateriaisItemPedido(item, i)}
             </div>
             <div class="order-item-actions">
@@ -24394,15 +24750,98 @@ function renderMaterialOptions(selectedId = "", opcoes = {}) {
   if (!materiais.length) return adicionar + vazio + `<option value="" disabled>Nenhum material cadastrado</option>`;
   return adicionar + vazio + materiais.map((material) => `
     <option value="${escaparAttr(material.id)}" ${String(material.id) === String(selectedId) ? "selected" : ""}>
-      ${escaparHtml(material.nome)} (${Number(material.qtd).toFixed(3)} kg)
+      ${escaparHtml(material.nome)} (${Number(material.qtd).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")})
     </option>
   `).join("");
 }
 
+function getIconeMaterialEstoque(material = {}) {
+  const texto = normalizarTextoBusca(`${material.nome || ""} ${material.tipo || ""} ${material.categoria || ""} ${material.tipoItem || material.item_type || ""} ${material.unidade || ""}`);
+  if (/filamento|pla|petg|abs|asa|tpu|rolo/.test(texto)) return "filamento";
+  if (/resina|frasco|tinta|cola|liquido|liquido|ml|litro/.test(texto)) return "resina";
+  if (/sacola|embalagem|pacote|caixa|bag/.test(texto)) return "embalagem";
+  if (/folha|papel|adesivo|etiqueta|cartolina/.test(texto)) return "folha";
+  if (/ferramenta|pincel|espátula|espatula|alicate/.test(texto)) return "ferramenta";
+  if (/tag|nfc|pingente|argola|chaveiro|acessorio|acessório/.test(texto)) return "acessorio";
+  return "estoque";
+}
+
+function formatarQuantidadeEstoque(valor = 0, unidade = "un") {
+  return `${(Number(valor) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${unidade || "un"}`;
+}
+
+function calcularPreviaConsumoPorRolo(material = {}, quantidadeNecessaria = 0, unidade = "") {
+  const necessario = Math.max(0, Number(quantidadeNecessaria) || 0);
+  const unidadeControle = unidade || material.unidade || material.unit || "un";
+  const lotes = normalizarLotesEstoque(material)
+    .filter((lote) => String(lote.unit || unidadeControle) === String(unidadeControle))
+    .filter((lote) => !["inativo", "esgotado"].includes(String(lote.status || "").toLowerCase()))
+    .sort((a, b) => {
+      const saldoA = Math.max(0, Number(a.current_quantity) || 0);
+      const saldoB = Math.max(0, Number(b.current_quantity) || 0);
+      return saldoA - saldoB || String(a.purchase_date || a.created_at || "").localeCompare(String(b.purchase_date || b.created_at || ""));
+    });
+  let restante = necessario;
+  const sugestoes = lotes.map((lote) => {
+    const saldo = Math.max(0, Number(lote.current_quantity) || 0);
+    const consumir = Math.min(saldo, restante);
+    restante = Math.max(0, restante - consumir);
+    return {
+      lote,
+      quantidade: consumir,
+      saldoAtual: saldo,
+      saldoSimulado: Math.max(0, saldo - consumir)
+    };
+  }).filter((item) => item.quantidade > 0);
+  const disponivel = lotes.reduce((soma, lote) => soma + (Number(lote.current_quantity) || 0), 0);
+  return {
+    enabled: STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED && materialUsaControleLote(material),
+    automaticoAtivo: STOCK_ROLL_AUTO_CONSUMPTION_ENABLED,
+    necessario,
+    disponivel,
+    unidade: unidadeControle,
+    sugestoes,
+    falta: Math.max(0, necessario - disponivel)
+  };
+}
+
+function renderPreviaConsumoPorRoloPedido(estoqueItem = {}, quantidade = 0, unidade = "") {
+  if (!STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED || !materialUsaControleLote(estoqueItem)) return "";
+  const previa = calcularPreviaConsumoPorRolo(estoqueItem, quantidade, unidade);
+  const tipo = estoqueItem.batch_control_type || "rolo";
+  return `
+    <div class="stock-batch-preview">
+      <div class="stock-batch-preview-head">
+        <strong>Prévia de consumo por ${escaparHtml(tipo)}</strong>
+        <span class="status-badge badge-alerta">Sem baixa automática</span>
+      </div>
+      <small>Simulação visual. Nenhum saldo de rolo/lote será alterado nesta etapa.</small>
+      ${previa.falta > 0 ? `<p class="stock-batch-warning">Estoque insuficiente. Disponível: ${formatarQuantidadeEstoque(previa.disponivel, previa.unidade)}. Necessário: ${formatarQuantidadeEstoque(previa.necessario, previa.unidade)}.</p>` : ""}
+      <div class="stock-batch-preview-list">
+        ${previa.sugestoes.length ? previa.sugestoes.map(({ lote, quantidade: consumir, saldoAtual, saldoSimulado }) => `
+          <div class="stock-batch-preview-row">
+            <span>${escaparHtml(lote.batch_code || `${tipo} ${lote.id}`)}</span>
+            <strong>${formatarQuantidadeEstoque(consumir, previa.unidade)}</strong>
+            <small>${formatarQuantidadeEstoque(saldoAtual, previa.unidade)} → ${formatarQuantidadeEstoque(saldoSimulado, previa.unidade)}</small>
+          </div>
+        `).join("") : `<p class="empty">Nenhum ${escaparHtml(tipo)} ativo para simular.</p>`}
+      </div>
+    </div>
+  `;
+}
+
 function renderMateriaisItemPedido(item, itemIndex) {
   const materiais = getMateriaisItem(item);
-  const linhas = materiais.length ? materiais : [{ materialId: "", gramas: 0 }];
-  return linhas.map((material, materialIndex) => `
+  const linhas = materiais.length ? materiais : [{ materialId: "", quantidade: 0, unidade: "" }];
+  return `
+    <div class="order-stock-materials-title">
+      <div><strong>Materiais do estoque</strong><small>Adicione somente o que será realmente consumido neste pedido.</small></div>
+      <button class="btn ghost" type="button" onclick="adicionarMaterialProduto(${itemIndex})">${renderUiIcon("plus")} Adicionar material</button>
+    </div>
+    ${linhas.map((material, materialIndex) => {
+      const estoqueItem = getMaterialEstoque(material.materialId);
+      const unidade = material.unidade || estoqueItem?.unidade || "un";
+      return `
     <div class="material-line">
       <label class="field compact-field">
         <span>Material</span>
@@ -24411,17 +24850,20 @@ function renderMateriaisItemPedido(item, itemIndex) {
         </select>
       </label>
       <label class="field compact-field">
-        <span>Gramas</span>
-        <input type="number" min="0" step="0.1" value="${Number(material.gramas) || 0}" onchange="editarGramasItem(${itemIndex}, ${materialIndex}, this.value)">
+        <span>Quantidade</span>
+        <input type="number" min="0" step="0.001" value="${Number(material.quantidade) || 0}" onchange="editarQuantidadeMaterialItem(${itemIndex}, ${materialIndex}, this.value)">
       </label>
+      <span class="material-unit-badge">${escaparHtml(unidade)}</span>
       <button class="icon-button danger" onclick="removerMaterialProduto(${itemIndex}, ${materialIndex})" title="Remover material">×</button>
     </div>
-  `).join("");
+    ${estoqueItem ? renderPreviaConsumoPorRoloPedido(estoqueItem, Number(material.quantidade) || 0, unidade) : ""}
+  `;
+    }).join("")}`;
 }
 
 function getEstoqueFiltroAtivo() {
   const salvo = getUiTab("estoqueStatus", "todos");
-  return ["todos", "normal", "low", "critical"].includes(salvo) ? salvo : "todos";
+  return ["todos", "low", "sem_estoque"].includes(salvo) ? salvo : "todos";
 }
 
 function trocarFiltroEstoque(filtro = "todos") {
@@ -24438,19 +24880,19 @@ function renderEstoqueStatusChips(materiais = estoque, ativo = "todos") {
   const contadores = materiais.reduce((acc, material) => {
     const normalizado = normalizarMaterialEstoque(material);
     acc.todos += 1;
-    acc[normalizado.stock_status] = (acc[normalizado.stock_status] || 0) + 1;
+    if (normalizado.stock_status === "low") acc.low += 1;
+    if ((Number(normalizado.qtd) || 0) <= 0) acc.sem_estoque += 1;
     return acc;
-  }, { todos: 0, normal: 0, low: 0, critical: 0 });
+  }, { todos: 0, low: 0, sem_estoque: 0 });
   const itens = [
     { id: "todos", label: "Todos" },
-    { id: "normal", label: "Normal" },
     { id: "low", label: "Baixo" },
-    { id: "critical", label: "Crítico" }
+    { id: "sem_estoque", label: "Sem estoque" }
   ];
   return `
     <div class="order-filter-chips stock-filter-chips" role="tablist" aria-label="Filtrar estoque">
       ${itens.map((item) => `
-        <button class="order-filter-chip ${ativo === item.id ? "active" : ""} ${item.id === "critical" ? "danger" : item.id === "low" ? "warning" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroEstoque('${escaparAttr(item.id)}')">
+        <button class="order-filter-chip ${ativo === item.id ? "active" : ""} ${item.id !== "todos" ? "warning" : ""}" type="button" role="tab" aria-selected="${ativo === item.id}" onclick="trocarFiltroEstoque('${escaparAttr(item.id)}')">
           <span>${escaparHtml(item.label)}</span>
           <strong>${Number(contadores[item.id] || 0)}</strong>
         </button>
@@ -24463,11 +24905,18 @@ function filtrarMateriaisEstoque(materiais = estoque, filtro = "todos", busca = 
   const termo = normalizarSugestaoClienteTexto(busca || "");
   return materiais.filter((material) => {
     const normalizado = normalizarMaterialEstoque(material);
-    const texto = normalizarSugestaoClienteTexto(`${normalizado.nome} ${normalizado.tipo} ${normalizado.cor} ${normalizado.id}`);
+    const texto = normalizarSugestaoClienteTexto(`${normalizado.nome} ${normalizado.tipo} ${normalizado.tipoItem} ${normalizado.categoria} ${normalizado.cor} ${normalizado.id}`);
     const passaBusca = !termo || texto.includes(termo);
-    const passaFiltro = filtro === "todos" || normalizado.stock_status === filtro;
+    const passaFiltro = filtro === "todos"
+      || (filtro === "low" && normalizado.stock_status === "low")
+      || (filtro === "sem_estoque" && (Number(normalizado.qtd) || 0) <= 0);
     return passaBusca && passaFiltro;
   });
+}
+
+function alternarListaCompletaEstoque() {
+  window.__estoqueListaExpandida = window.__estoqueListaExpandida !== true;
+  renderizarPreservandoScroll();
 }
 
 function getMaterialEstoquePorIndiceOuId(referencia) {
@@ -24484,6 +24933,41 @@ function selecionarMaterialEstoque(referencia) {
   if (!material) return;
   window.__estoqueSelecionadoId = String(material.id);
   trocarUiTab("estoque", "materiais");
+}
+
+function renderRolosLotesMaterialEstoque(material = {}, indice = -1, podeOperar = false) {
+  if (!materialUsaControleLote(material)) return "";
+  const tipo = material.batch_control_type || "rolo";
+  const lotes = normalizarLotesEstoque(material);
+  return `
+    <div class="stock-batch-section">
+      <div class="stock-batch-section-head">
+        <div>
+          <strong>Rolos / lotes</strong>
+          <small>Total disponível: ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")}</small>
+        </div>
+        ${podeOperar ? `<button class="btn ghost" type="button" data-action="stock-batch-add" data-index="${indice}">${renderUiIcon("plus")} Adicionar ${escaparHtml(tipo)}</button>` : ""}
+      </div>
+      <div class="stock-batch-list">
+        ${lotes.length ? lotes.map((lote, loteIndex) => `
+          <div class="stock-batch-row">
+            <span class="stock-type-icon">${renderUiIcon(getIconeMaterialEstoque(material))}</span>
+            <div class="row-title">
+              <strong>${escaparHtml(lote.batch_code || `${tipo} ${loteIndex + 1}`)}</strong>
+              <span class="muted">${formatarQuantidadeEstoque(lote.current_quantity, lote.unit)} de ${formatarQuantidadeEstoque(lote.initial_quantity, lote.unit)} • ${escaparHtml(lote.status || "fechado")}</span>
+            </div>
+            ${podeOperar ? `
+              <div class="stock-row-quick-actions">
+                ${lote.status !== "em_uso" ? `<button class="icon-action-button" type="button" data-action="stock-batch-use" data-index="${indice}" data-batch-index="${loteIndex}" title="Marcar em uso">${renderUiIcon("check")}</button>` : ""}
+                <button class="icon-action-button" type="button" data-action="stock-batch-edit" data-index="${indice}" data-batch-index="${loteIndex}" title="Editar ${escaparAttr(tipo)}">${renderUiIcon("edit")}</button>
+                <button class="icon-action-button danger" type="button" data-action="stock-batch-disable" data-index="${indice}" data-batch-index="${loteIndex}" title="Inativar">${renderUiIcon("trash")}</button>
+              </div>
+            ` : ""}
+          </div>
+        `).join("") : `<p class="empty">Nenhum ${escaparHtml(tipo)} cadastrado.</p>`}
+      </div>
+    </div>
+  `;
 }
 
 function renderEstoqueDetalheSelecionado(materiaisNormalizados = estoque, podeOperar = false) {
@@ -24532,19 +25016,13 @@ function renderEstoqueDetalheSelecionado(materiaisNormalizados = estoque, podeOp
           <b>›</b>
         </button>
       ` : ""}
+      ${renderRolosLotesMaterialEstoque(material, indice, podeOperar)}
     </section>
   `;
 }
 
 function focarCadastroRapidoEstoque() {
-  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
-  window.__simplificaUiTabs.estoque = "materiais";
-  renderizarPreservandoScroll();
-  setTimeout(() => {
-    const campo = document.getElementById("matTipo");
-    campo?.scrollIntoView({ behavior: "smooth", block: "center" });
-    campo?.focus();
-  }, 120);
+  abrirCadastroItemEstoque();
 }
 
 function renderEstoqueRolosPreview(materiais = []) {
@@ -24610,131 +25088,106 @@ function renderEstoque() {
   const filtroEstoque = getEstoqueFiltroAtivo();
   const buscaEstoque = String(window.__estoqueBusca || "");
   const materiaisFiltrados = filtrarMateriaisEstoque(materiaisNormalizados, filtroEstoque, buscaEstoque);
-  const estoqueTabs = [
-    { id: "materiais", label: "Materiais", icon: "▦" },
-    { id: "alertas", label: "Alertas", icon: "!" },
-    ...(isContextAdvancedVisible("estoque") ? [{ id: "historico", label: "Histórico", icon: "↻" }] : [])
-  ];
-  const estoqueTab = estoqueTabs.some((tab) => tab.id === getUiTab("estoque", "")) ? getUiTab("estoque") : "materiais";
-  const materiaisBaixos = materiaisNormalizados.filter((material) => material.stock_status === "low" || material.stock_status === "critical");
+  const listaExpandida = window.__estoqueListaExpandida === true || buscaEstoque.trim().length > 0;
+  const limiteLista = 6;
+  const materiaisExibidos = listaExpandida ? materiaisFiltrados : materiaisFiltrados.slice(0, limiteLista);
   const itensBaixos = materiaisNormalizados.filter((material) => material.stock_status === "low").length;
   const itensCriticos = materiaisNormalizados.filter((material) => material.stock_status === "critical").length;
+  const itensSemEstoque = materiaisNormalizados.filter((material) => (Number(material.qtd) || 0) <= 0).length;
   const valorTotalEstoque = materiaisNormalizados.reduce((soma, material) => {
     const valorRegistrado = Number(material.valorTotal || material.valor_total || material.custoTotal || material.costTotal) || 0;
     const custoKg = calcularCustoKgMaterialEstoque(material);
     return soma + (valorRegistrado || (Number(material.qtd) || 0) * custoKg);
   }, 0);
-  const historicoEstoque = historico
-    .filter((item) => /estoque|material/i.test(`${item.acao || ""} ${item.detalhes || ""}`))
-    .slice(0, 12);
-  const linhas = materiaisFiltrados.length
-    ? materiaisFiltrados.map((material) => {
+  const linhas = materiaisExibidos.length
+    ? materiaisExibidos.map((material) => {
         const indice = materiaisNormalizados.findIndex((item) => String(item.id) === String(material.id));
         const percentual = Number(material.remaining_percent) || 0;
+        const statusLabel = material.stock_status === "critical" ? "Sem estoque" : labelStatusEstoque(material.stock_status);
+        const preco = Math.max(0, Number(material.custoUnitario || material.unit_cost) || calcularCustoKgMaterialEstoque(material));
         return `
-        <div class="stock-row smart-stock-row ${classeStatusEstoque(material.stock_status)} ${String(window.__estoqueSelecionadoId || "") === String(material.id) ? "selected" : ""}">
-          <button class="row-title stock-row-main-button" type="button" data-action="stock-view" data-index="${indice}">
-            <strong>${escaparHtml(material.nome)}</strong>
-            <span class="muted">${escaparHtml(material.tipo || inferirTipoMaterial(material.nome))}${material.cor ? " • " + escaparHtml(material.cor) : ""} • ${(Number(material.qtd) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")} de ${(Number(material.quantity_base) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")}</span>
-            <div class="stock-percent-track"><i style="width:${Math.max(3, Math.min(100, percentual))}%"></i></div>
-          </button>
-          <div class="stock-percent-box">
-            <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : material.stock_status === "low" ? "badge-alerta" : "badge-ativo"}">${escaparHtml(labelStatusEstoque(material.stock_status))}</span>
-            <strong>${percentual}%</strong>
+          <div class="stock-row smart-stock-row ${classeStatusEstoque(material.stock_status)} ${String(window.__estoqueSelecionadoId || "") === String(material.id) ? "selected" : ""}">
+            <span class="stock-type-icon">${renderUiIcon(getIconeMaterialEstoque(material))}</span>
+            <button class="row-title stock-row-main-button" type="button" data-action="stock-view" data-index="${indice}">
+              <strong>${escaparHtml(material.nome)}</strong>
+              <span class="muted">${escaparHtml(material.categoria || material.tipo || "Geral")} • ${escaparHtml(material.tipoItem || material.item_type || "Material")}</span>
+              <span class="muted">Estoque: ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")} <b>|</b> Disp.: ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")}</span>
+            </button>
+            <div class="stock-percent-box">
+              <strong>${podeVerCustos && preco ? formatarMoeda(preco) : `${percentual}%`}</strong>
+              <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : material.stock_status === "low" ? "badge-alerta" : "badge-ativo"}">${escaparHtml(statusLabel)}</span>
+            </div>
+            <details class="stock-item-menu">
+              <summary class="icon-action-button" title="Ações de ${escaparAttr(material.nome)}" aria-label="Ações de ${escaparAttr(material.nome)}">${renderUiIcon("more")}</summary>
+              <div class="stock-item-menu-popover">
+                <button type="button" data-action="stock-view" data-index="${indice}">${renderUiIcon("search")} Ver detalhes</button>
+                <button type="button" data-action="stock-restock" data-index="${indice}">${renderUiIcon("upload")} Registrar entrada</button>
+                <button type="button" data-action="stock-output" data-index="${indice}">${renderUiIcon("download")} Registrar saída</button>
+                <button type="button" data-action="stock-edit" data-index="${indice}">${renderUiIcon("edit")} Editar item</button>
+                <button class="danger" type="button" data-action="stock-remove" data-index="${indice}">${renderUiIcon("trash")} Excluir</button>
+              </div>
+            </details>
           </div>
-          <button class="icon-action-button stock-row-chevron" type="button" data-action="stock-view" data-index="${indice}" title="Ver detalhes">›</button>
-        </div>
-      `;
+        `;
       }).join("")
-    : `<p class="empty">Nenhum material neste filtro.</p>`;
+    : `<p class="empty">Nenhum item encontrado.</p>`;
 
   return `
     <section class="card organized-page stock-page">
       <div class="card-header stock-page-header">
         <div>
           <h2>Estoque</h2>
-          <p class="muted">${isSimplificaMode() ? "Veja o saldo, cadastre material e acompanhe alertas." : "Controle de materiais, produtos e movimentações."}</p>
+          <p class="muted">${materiaisNormalizados.length} item(ns) cadastrados</p>
         </div>
         <div class="stock-header-actions">
-          ${renderContextualAdvancedToggle("estoque")}
           <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Alertas">${renderUiIcon("bell")}</button>
-          ${podeOperar ? `<button class="icon-action-button primary" type="button" onclick="focarCadastroRapidoEstoque()" title="Adicionar item">${renderUiIcon("plus")}</button>` : ""}
         </div>
       </div>
-      ${podeOperar ? "" : `<p class="muted">Seu acesso está bloqueado. Visualização liberada; alterações voltam após regularização.</p>`}
-      <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
-        <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-        <input data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar itens..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
-      </label>
-      ${isContextAdvancedVisible("estoque") ? renderEstoqueStatusChips(materiaisNormalizados, filtroEstoque) : ""}
-      <div class="metrics">
-        <div class="metric"><span>Total de itens</span><strong>${materiaisNormalizados.length}</strong></div>
-        <div class="metric"><span>Estoque baixo</span><strong>${itensBaixos}</strong></div>
-        <div class="metric"><span>Itens críticos</span><strong>${itensCriticos}</strong></div>
-        ${podeVerCustos ? `<div class="metric"><span>Valor total</span><strong>${formatarMoeda(valorTotalEstoque)}</strong></div>` : `<div class="metric"><span>Custos</span><strong>restrito</strong></div>`}
+      <div class="stock-summary-grid">
+        <button class="stock-summary-card" type="button" onclick="trocarFiltroEstoque('todos')">
+          <span>Itens cadastrados</span>
+          <strong>${materiaisNormalizados.length}</strong>
+          <small>Total de itens</small>
+          <i>${renderUiIcon("estoque")}</i>
+        </button>
+        <button class="stock-summary-card" type="button" onclick="trocarFiltroEstoque('todos')">
+          <span>Valor do estoque</span>
+          <strong>${podeVerCustos ? formatarMoeda(valorTotalEstoque) : "Restrito"}</strong>
+          <small>Valor total</small>
+          <i>${renderUiIcon("financeiro")}</i>
+        </button>
+        <button class="stock-summary-card" type="button" onclick="trocarFiltroEstoque('low')">
+          <span>Estoque baixo</span>
+          <strong>${itensBaixos + itensCriticos}</strong>
+          <small>Itens</small>
+          <i class="warn">${renderUiIcon("alerta")}</i>
+        </button>
+        <button class="stock-summary-card" type="button" onclick="trocarFiltroEstoque('sem_estoque')">
+          <span>Sem estoque</span>
+          <strong>${itensSemEstoque}</strong>
+          <small>Itens</small>
+          <i class="danger">${renderUiIcon("trash")}</i>
+        </button>
       </div>
-      ${isContextAdvancedVisible("estoque") ? renderEstoqueRolosPreview(materiaisNormalizados) : ""}
-      ${renderUiTabs("estoque", estoqueTabs, estoqueTab)}
-      <div class="ui-tab-panel">
-        ${estoqueTab === "materiais" ? `
-          ${renderEstoqueDetalheSelecionado(materiaisNormalizados, podeOperar)}
-          <div class="settings-group">
-            <h3>Itens do estoque</h3>
-            ${linhas}
-          </div>
-          <div class="settings-group" id="cadastroRapidoEstoque">
-            <h3>Cadastro rápido</h3>
-            ${podeOperar ? `
-            <div class="sync-grid">
-              <label class="field">
-                <span>Tipo de material</span>
-                <select id="matTipo">
-                  ${tiposMaterial.map((tipo) => `<option value="${tipo}">${tipo}</option>`).join("")}
-                </select>
-              </label>
-              <label class="field">
-                <span>Cor do material</span>
-                <input id="matCor" placeholder="Escolha na paleta" readonly>
-                ${renderPaletaCoresMaterial("matCor")}
-              </label>
-              <label class="field">
-                <span>Quantidade em kg</span>
-                <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5">
-              </label>
-            </div>
-            <div class="actions"><button class="btn" type="button" data-action="stock-add">${renderUiIcon("plus")} Adicionar item ao estoque</button></div>` : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Pagar agora</button></div>`}
-          </div>
-        ` : ""}
-        ${estoqueTab === "alertas" ? `
-          <div class="settings-group">
-            <h3>Alertas de estoque</h3>
-            ${materiaisBaixos.length ? materiaisBaixos.map((material) => `
-              <div class="stock-row stock-alert-row">
-                <div class="row-title">
-                  <strong>${escaparHtml(material.nome)}</strong>
-                  <span class="muted">${(Number(material.qtd) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${escaparHtml(material.unidade || "kg")} disponíveis • ${Number(material.remaining_percent || 0)}% restante</span>
-                </div>
-                <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : "badge-alerta"}">${material.stock_status === "critical" ? "Crítico" : "Repor"}</span>
-              </div>
-            `).join("") : `<p class="empty">Nenhum alerta de estoque baixo.</p>`}
-          </div>
-          <div class="settings-group">
-            <h3>Lista de compras</h3>
-            ${renderListaComprasEstoque(materiaisNormalizados)}
-          </div>
-        ` : ""}
-        ${estoqueTab === "historico" ? `
-          <div class="settings-group">
-            <h3>Histórico do estoque</h3>
-            ${historicoEstoque.length ? historicoEstoque.map((item) => `
-              <div class="history-item">
-                <strong>${escaparHtml(item.acao || "Estoque")}</strong>
-                <span class="muted">${item.data ? new Date(item.data).toLocaleString("pt-BR") : ""} • ${escaparHtml(item.detalhes || "")}</span>
-              </div>
-            `).join("") : `<p class="empty">Nenhum movimento de estoque registrado.</p>`}
-          </div>
-        ` : ""}
+      ${podeOperar ? "" : `<p class="muted">Visualização liberada; alterações voltam após regularização.</p>`}
+      ${renderEstoqueStatusChips(materiaisNormalizados, filtroEstoque)}
+      <div class="stock-search-row">
+        <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
+          <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
+          <input data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar item, código ou descrição..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
+        </label>
+        <button class="icon-action-button" type="button" onclick="trocarFiltroEstoque('low')" title="Filtrar alertas">${renderUiIcon("alerta")}</button>
       </div>
+      ${renderEstoqueDetalheSelecionado(materiaisNormalizados, podeOperar)}
+      <div class="stock-list">
+        ${linhas}
+      </div>
+      ${materiaisFiltrados.length > limiteLista && !buscaEstoque.trim() ? `
+        <button class="stock-list-toggle" type="button" onclick="alternarListaCompletaEstoque()" aria-expanded="${listaExpandida}">
+          ${renderUiIcon(listaExpandida ? "up" : "down")}
+          <span>${listaExpandida ? "Mostrar menos" : `Ver todos os ${materiaisFiltrados.length} itens`}</span>
+        </button>
+      ` : ""}
     </section>
   `;
 }
@@ -25000,6 +25453,12 @@ function renderUiIcon(tipo = "", fallback = "") {
     producaoCheck: `<svg ${attrs}><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="m9 18 2 2 4-4"/></svg>`,
     impressoras: `<svg ${attrs}><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M8 17h8"/></svg>`,
     estoque: `<svg ${attrs}><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5"/><path d="M12 12v9"/><path d="m8 5.5 8 4.5"/></svg>`,
+    filamento: `<svg ${attrs}><path d="M8 6h8"/><path d="M8 18h8"/><path d="M9 6a7 7 0 0 0 0 12"/><path d="M15 6a7 7 0 0 1 0 12"/><path d="M8.5 10h7"/><path d="M8.5 14h7"/><path d="M17 12h2.5"/></svg>`,
+    resina: `<svg ${attrs}><path d="M9 3h6"/><path d="M10 3v5l-3 3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9l-3-3V3"/><path d="M8 14h8"/><path d="M11 17h2"/></svg>`,
+    embalagem: `<svg ${attrs}><path d="M7 8V6a5 5 0 0 1 10 0v2"/><path d="M5 8h14l1 13H4Z"/><path d="M9 12h6"/></svg>`,
+    folha: `<svg ${attrs}><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4"/><path d="M9 12h6"/><path d="M9 16h5"/><path d="M4 6v15"/></svg>`,
+    acessorio: `<svg ${attrs}><circle cx="9" cy="9" r="4"/><path d="m12 12 7 7"/><path d="M16 15h4v4"/><path d="M7 9h4"/><path d="M9 7v4"/></svg>`,
+    ferramenta: `<svg ${attrs}><path d="M14.7 6.3a4 4 0 0 0 4.9 5L11 20a2 2 0 0 1-3-3l8.7-8.6a4 4 0 0 1-2-2.1Z"/><path d="M5 12 3 10l4-4 2 2"/></svg>`,
     clientes: `<svg ${attrs}><path d="M17 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="11" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></svg>`,
     caixa: `<svg ${attrs}><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M7 10h10"/><path d="M7 14h6"/><path d="M17 14h.1"/><path d="M7 6V4h10v2"/></svg>`,
     financeiro: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 7v10"/><path d="M15 9.5A3 3 0 0 0 12 8c-1.7 0-3 1-3 2.3 0 3.2 6 1.4 6 4.7 0 1.3-1.3 2.3-3 2.3a3.4 3.4 0 0 1-3.2-1.8"/></svg>`,
@@ -25034,6 +25493,9 @@ function renderUiIcon(tipo = "", fallback = "") {
     search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
     view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
     plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
+    more: `<svg ${attrs}><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg>`,
+    down: `<svg ${attrs}><path d="m6 9 6 6 6-6"/></svg>`,
+    up: `<svg ${attrs}><path d="m6 15 6-6 6 6"/></svg>`,
     check: `<svg ${attrs}><path d="m5 12 4 4L19 6"/></svg>`,
     refresh: `<svg ${attrs}><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/></svg>`,
     back: `<svg ${attrs}><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`,
@@ -25150,7 +25612,7 @@ function renderDetalhePedido(pedido) {
         </div>
       ` : `
         <div class="order-status-action-strip">
-          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'producao')">Produção</button>
+          <button type="button" onclick="abrirLiberacaoProducao(${Number(pedido.id)})">Liberar para produção</button>
           <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'pronto')">Pronto</button>
           <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'entregue')">Entregue</button>
           <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'pago')">Pago</button>
@@ -25909,42 +26371,853 @@ async function criarAgenteLocal() {
   }
 }
 
+const PRODUCTION_STATUS_META = Object.freeze({
+  novo_pedido: { label: "Novo pedido", group: "preparacao" },
+  em_analise: { label: "Em análise", group: "preparacao" },
+  pendente: { label: "Pendente", group: "pendencias" },
+  liberado_para_producao: { label: "Liberado", group: "fila" },
+  na_fila: { label: "Na fila", group: "fila" },
+  proximo: { label: "Próximo", group: "fila" },
+  aguardando_impressora: { label: "Aguardando impressora", group: "fila" },
+  em_impressao: { label: "Em impressão", group: "impressao" },
+  pausado: { label: "Pausado", group: "impressao" },
+  falhou: { label: "Falhou", group: "pendencias" },
+  reimpressao_necessaria: { label: "Reimpressão necessária", group: "pendencias" },
+  pos_processamento: { label: "Pós-processamento", group: "finalizacao" },
+  controle_qualidade: { label: "Controle de qualidade", group: "finalizacao" },
+  pronto_para_entrega: { label: "Pronto para entrega", group: "prontos" },
+  entregue: { label: "Entregue", group: "prontos" },
+  cancelado: { label: "Cancelado", group: "prontos" }
+});
+
+const PRODUCTION_PENDING_REASONS = Object.freeze({
+  aguardando_pagamento: "Aguardando pagamento",
+  aguardando_arquivo: "Aguardando arquivo",
+  aguardando_cliente: "Aguardando cliente",
+  aguardando_material: "Aguardando material",
+  aguardando_cor: "Aguardando cor",
+  aguardando_aprovacao: "Aguardando aprovação",
+  aguardando_conferencia: "Aguardando conferência",
+  outro: "Outro"
+});
+
+const PRODUCTION_PRINTER_STATUS = Object.freeze({
+  disponivel: "Disponível",
+  ocupada: "Ocupada",
+  manutencao: "Em manutenção",
+  pausada: "Pausada",
+  inativa: "Inativa"
+});
+
+function getProductionCompanyId() {
+  const usuario = getUsuarioAtual();
+  return String(usuario?.companyId || usuario?.company_id || billingConfig.companyId || getClientIdAtual(usuario) || "");
+}
+
+function getProductionStatusLabel(status = "novo_pedido") {
+  return PRODUCTION_STATUS_META[status]?.label || "Em análise";
+}
+
+function getProductionTab() {
+  const tab = String(window.__productionTab || "fila");
+  return ["fila", "proximos", "impressao", "pendencias", "impressoras", "prontos"].includes(tab) ? tab : "fila";
+}
+
+function trocarAbaProducao(tab = "fila") {
+  window.__productionTab = tab;
+  renderizarPreservandoScroll();
+}
+
+function registrarEventoProducao(jobId, eventType, oldStatus = "", newStatus = "", note = "") {
+  productionEvents.push({
+    id: gerarUuidProducao(),
+    companyId: getProductionCompanyId(),
+    company_id: getProductionCompanyId(),
+    productionJobId: jobId,
+    production_job_id: jobId,
+    eventType,
+    event_type: eventType,
+    oldStatus,
+    old_status: oldStatus,
+    newStatus,
+    new_status: newStatus,
+    note: String(note || "").trim(),
+    createdBy: getUsuarioAtual()?.email || "",
+    created_at: new Date().toISOString()
+  });
+  productionEvents = productionEvents.slice(-800);
+}
+
+function gerarUuidProducao() {
+  try {
+    if (crypto?.randomUUID) return crypto.randomUUID();
+  } catch (_) {}
+  const bytes = Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.map((value) => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+function normalizarIdsProducaoParaSupabase() {
+  const printerIds = new Map();
+  productionPrinters.forEach((printer) => {
+    const anterior = String(printer.id || "");
+    const atual = pareceUuid(anterior) ? anterior : gerarUuidProducao();
+    printer.id = atual;
+    if (anterior && anterior !== atual) printerIds.set(anterior, atual);
+  });
+
+  const jobIds = new Map();
+  productionJobs.forEach((job) => {
+    const anterior = String(job.id || "");
+    const atual = pareceUuid(anterior) ? anterior : gerarUuidProducao();
+    job.id = atual;
+    if (anterior && anterior !== atual) jobIds.set(anterior, atual);
+  });
+
+  productionJobs.forEach((job) => {
+    const printerId = String(job.printerId || job.printer_id || "");
+    const parentId = String(job.parentJobId || job.parent_job_id || "");
+    if (printerIds.has(printerId)) job.printerId = job.printer_id = printerIds.get(printerId);
+    if (jobIds.has(parentId)) job.parentJobId = job.parent_job_id = jobIds.get(parentId);
+  });
+
+  productionEvents.forEach((event) => {
+    const jobId = String(event.productionJobId || event.production_job_id || "");
+    event.id = pareceUuid(event.id) ? event.id : gerarUuidProducao();
+    if (jobIds.has(jobId)) event.productionJobId = event.production_job_id = jobIds.get(jobId);
+  });
+}
+
+function extrairDimensoesMesaProducao(valor = "") {
+  const dimensoes = String(valor || "").replace(",", ".").match(/\d+(?:\.\d+)?/g) || [];
+  return {
+    x: dimensoes[0] ? Number(dimensoes[0]) : null,
+    y: dimensoes[1] ? Number(dimensoes[1]) : null,
+    z: dimensoes[2] ? Number(dimensoes[2]) : null
+  };
+}
+
+function payloadImpressoraProducao(printer, companyId) {
+  const mesa = extrairDimensoesMesaProducao(printer.bedSize || printer.bed_size || "");
+  return {
+    id: printer.id,
+    company_id: companyId,
+    name: String(printer.name || "").trim(),
+    description: String(printer.description || "").trim() || null,
+    printer_type: printer.printerType || printer.printer_type || "fdm",
+    nozzle_size: String(printer.nozzleSize || printer.nozzle_size || "").trim() || null,
+    bed_size_x: mesa.x,
+    bed_size_y: mesa.y,
+    bed_size_z: mesa.z,
+    supported_materials: Array.isArray(printer.supportedMaterials) ? printer.supportedMaterials : [],
+    status: printer.status || "disponivel",
+    is_active: printer.isActive !== false && printer.is_active !== false,
+    notes: String(printer.notes || "").trim() || null,
+    created_by: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    updated_by: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    created_at: printer.created_at || new Date().toISOString(),
+    updated_at: printer.updated_at || new Date().toISOString()
+  };
+}
+
+function payloadTarefaProducao(job, companyId) {
+  const printerId = job.printerId || job.printer_id || null;
+  const parentId = job.parentJobId || job.parent_job_id || null;
+  return {
+    id: job.id,
+    company_id: companyId,
+    order_id: String(job.orderId || job.order_id || ""),
+    item_index: Math.max(0, Number(job.itemIndex ?? job.item_index) || 0),
+    item_name: String(job.itemName || job.item_name || "Item de produção"),
+    quantity: Math.max(0.001, Number(job.quantity) || 1),
+    production_code: String(job.productionCode || job.production_code || ""),
+    status: job.status || "novo_pedido",
+    printer_id: pareceUuid(printerId) ? printerId : null,
+    parent_job_id: pareceUuid(parentId) ? parentId : null,
+    material: String(job.material || "").trim() || null,
+    color: String(job.color || "").trim() || null,
+    filament_weight_grams: Number(job.filamentWeightGrams ?? job.filament_weight_grams) || null,
+    estimated_print_time_minutes: Number(job.estimatedPrintTimeMinutes ?? job.estimated_print_time_minutes) || null,
+    actual_print_time_minutes: Number(job.actualPrintTimeMinutes ?? job.actual_print_time_minutes) || null,
+    priority: job.priority || "normal",
+    priority_reason: String(job.priorityReason || job.priority_reason || "").trim() || null,
+    blocked_reason: String(job.blockedReason || job.blocked_reason || "").trim() || null,
+    queue_position: Number(job.queuePosition ?? job.queue_position) || null,
+    due_date: job.dueDate || job.due_date || null,
+    production_notes: String(job.productionNotes || job.production_notes || "").trim() || null,
+    released_at: job.releasedAt || job.released_at || null,
+    assigned_at: job.assignedAt || job.assigned_at || null,
+    started_at: job.started_at || null,
+    paused_at: job.paused_at || null,
+    finished_at: job.finished_at || null,
+    failed_at: job.failed_at || null,
+    created_by: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    updated_by: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    created_at: job.created_at || new Date().toISOString(),
+    updated_at: job.updated_at || new Date().toISOString()
+  };
+}
+
+function payloadEventoProducao(event, companyId) {
+  return {
+    id: event.id,
+    company_id: companyId,
+    production_job_id: event.productionJobId || event.production_job_id,
+    order_id: String(event.orderId || event.order_id || getProductionJob(event.productionJobId || event.production_job_id)?.orderId || "") || null,
+    event_type: event.eventType || event.event_type || "atualizacao",
+    old_status: String(event.oldStatus || event.old_status || "").trim() || null,
+    new_status: String(event.newStatus || event.new_status || "").trim() || null,
+    note: String(event.note || "").trim() || null,
+    created_by: pareceUuid(syncConfig.supabaseUserId) ? syncConfig.supabaseUserId : null,
+    created_at: event.created_at || new Date().toISOString()
+  };
+}
+
+async function sincronizarProducaoManualSupabaseSilencioso() {
+  const companyId = getProductionCompanyId();
+  if (!pareceUuid(companyId) || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  normalizarIdsProducaoParaSupabase();
+  salvarDados();
+  const headers = { Prefer: "resolution=merge-duplicates,return=minimal" };
+  if (productionPrinters.length) {
+    await requisicaoSupabase("/rest/v1/production_printers?on_conflict=id", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(productionPrinters.map((printer) => payloadImpressoraProducao(printer, companyId))),
+      telemetry: false
+    });
+  }
+  if (productionJobs.length) {
+    await requisicaoSupabase("/rest/v1/production_jobs?on_conflict=id", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(productionJobs.map((job) => payloadTarefaProducao(job, companyId))),
+      telemetry: false
+    });
+  }
+  if (productionEvents.length) {
+    await requisicaoSupabase("/rest/v1/production_events?on_conflict=id", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(productionEvents.map((event) => payloadEventoProducao(event, companyId))),
+      telemetry: false
+    });
+  }
+  return true;
+}
+
+function mapearImpressoraProducaoRemota(printer = {}) {
+  return {
+    ...printer,
+    companyId: printer.company_id,
+    printerType: printer.printer_type,
+    nozzleSize: printer.nozzle_size,
+    bedSize: [printer.bed_size_x, printer.bed_size_y, printer.bed_size_z].filter((value) => value != null).join(" × "),
+    supportedMaterials: printer.supported_materials || [],
+    isActive: printer.is_active
+  };
+}
+
+function mapearTarefaProducaoRemota(job = {}) {
+  return {
+    ...job,
+    companyId: job.company_id,
+    orderId: job.order_id,
+    itemIndex: job.item_index,
+    itemName: job.item_name,
+    productionCode: job.production_code,
+    printerId: job.printer_id || "",
+    parentJobId: job.parent_job_id || "",
+    filamentWeightGrams: job.filament_weight_grams,
+    estimatedPrintTimeMinutes: job.estimated_print_time_minutes,
+    actualPrintTimeMinutes: job.actual_print_time_minutes,
+    priorityReason: job.priority_reason,
+    blockedReason: job.blocked_reason,
+    queuePosition: job.queue_position,
+    dueDate: job.due_date,
+    productionNotes: job.production_notes,
+    releasedAt: job.released_at,
+    assignedAt: job.assigned_at
+  };
+}
+
+function mapearEventoProducaoRemoto(event = {}) {
+  return {
+    ...event,
+    companyId: event.company_id,
+    productionJobId: event.production_job_id,
+    orderId: event.order_id,
+    eventType: event.event_type,
+    oldStatus: event.old_status,
+    newStatus: event.new_status
+  };
+}
+
+async function carregarProducaoManualSupabaseSilencioso() {
+  const companyId = getProductionCompanyId();
+  if (!pareceUuid(companyId) || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  const filtro = `company_id=eq.${encodeURIComponent(companyId)}`;
+  const [printers, jobs, events] = await Promise.all([
+    requisicaoSupabase(`/rest/v1/production_printers?${filtro}&order=updated_at.asc`, { telemetry: false }),
+    requisicaoSupabase(`/rest/v1/production_jobs?${filtro}&order=updated_at.asc`, { telemetry: false }),
+    requisicaoSupabase(`/rest/v1/production_events?${filtro}&order=created_at.asc&limit=800`, { telemetry: false })
+  ]);
+  productionPrinters = mesclarListas(productionPrinters, (printers || []).map(mapearImpressoraProducaoRemota)).slice(-100);
+  productionJobs = mesclarListas(productionJobs, (jobs || []).map(mapearTarefaProducaoRemota)).slice(-1000);
+  productionEvents = mesclarListas(productionEvents, (events || []).map(mapearEventoProducaoRemoto)).slice(-800);
+  salvarDados();
+  return true;
+}
+
+function salvarProducaoManual(motivo = "producao-manual") {
+  salvarDados();
+  agendarSyncSilenciosoDados(motivo);
+  if (typeof window !== "undefined") {
+    clearTimeout(window.__productionRemoteSyncTimer);
+    window.__productionRemoteSyncTimer = setTimeout(() => {
+      sincronizarProducaoManualSupabaseSilencioso().catch((erro) => {
+        registrarDiagnostico("produção", "Sincronização da produção manual falhou", erro.message);
+      });
+    }, 900);
+  }
+}
+
+function getProductionPrinter(id = "") {
+  return productionPrinters.find((printer) => String(printer.id) === String(id)) || null;
+}
+
+function getProductionJob(id = "") {
+  return productionJobs.find((job) => String(job.id) === String(id)) || null;
+}
+
+function getProductionOrder(job = {}) {
+  return pedidos.find((pedido) => String(pedido.id) === String(job.orderId || job.order_id)) || null;
+}
+
+function getProductionPrinterLabel(id = "") {
+  return getProductionPrinter(id)?.name || "Sem impressora";
+}
+
+function getProductionCodeSequence(date = hojeIsoData()) {
+  const prefix = `PROD-${String(date).replaceAll("-", "-")}-`;
+  return productionJobs.filter((job) => String(job.productionCode || job.production_code || "").startsWith(prefix)).length + 1;
+}
+
+function gerarCodigoProducao(date = hojeIsoData()) {
+  return `PROD-${date}-${String(getProductionCodeSequence(date)).padStart(3, "0")}`;
+}
+
+function getProductionItemMaterial(item = {}) {
+  const materialLink = getMateriaisItem(item)[0] || {};
+  const material = getMaterialEstoque(materialLink.materialId) || {};
+  return {
+    name: materialLink.nome || material.nome || "",
+    color: materialLink.cor || material.cor || item.cor || "",
+    grams: Number(materialLink.gramas || materialLink.quantidade || item.pesoGramas || item.gramas || 0) || 0
+  };
+}
+
+function validarPedidoParaProducao(pedido = {}) {
+  const faltas = [];
+  const itens = normalizarItensPedido(pedido);
+  if (!String(clienteDoPedido(pedido) || "").trim()) faltas.push("cliente");
+  if (!itens.length) faltas.push("item");
+  if (itens.some((item) => (Number(item.qtd) || 0) <= 0)) faltas.push("quantidade");
+  if (!String(pedido.prazo || pedido.dataPrazo || "").trim()) faltas.push("prazo de entrega");
+  if (itens.some((item) => {
+    const exigeMaterial = /fdm|resina|impress/i.test(String(item.tipoImpressao || item.tipo || ""));
+    return exigeMaterial && !getProductionItemMaterial(item).name;
+  })) faltas.push("material");
+  return faltas;
+}
+
+function pedidoTemPagamentoLiberadoProducao(pedido = {}) {
+  const financeiro = calcularResumoFinanceiroPedido(pedido);
+  return ["pago", "paid", "confirmado"].includes(String(pedido.statusPagamento || pedido.payment_status || pedido.status || "").toLowerCase())
+    || financeiro.restante <= 0
+    || pedido.productionPaymentAuthorized === true;
+}
+
+function abrirLiberacaoProducao(id) {
+  const pedido = pedidos.find((item) => String(item.id) === String(id));
+  if (!pedido) return;
+  const faltas = validarPedidoParaProducao(pedido);
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card production-release-modal" onsubmit="confirmarLiberacaoProducao(event,'${escaparAttr(pedido.id)}')" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div><span class="eyebrow">Pedido #${escaparHtml(pedido.id)}</span><h2>Liberar para produção</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        ${faltas.length ? `<p class="production-validation-error">Este pedido ainda não pode entrar na produção. Falta definir: ${escaparHtml(faltas.join(", "))}.</p>` : ""}
+        <div class="production-check-list">
+          <label><input id="productionPaymentAuthorized" type="checkbox" ${pedidoTemPagamentoLiberadoProducao(pedido) ? "checked" : ""}> <span>Pagamento confirmado ou autorizado</span></label>
+          <label><input id="productionFileChecked" type="checkbox"> <span>Arquivo/modelo conferido, quando aplicável</span></label>
+          <label><input id="productionMaterialSeparated" type="checkbox"> <span>Material disponível ou separado</span></label>
+        </div>
+        <label class="field"><span>Observação de produção</span><textarea id="productionReleaseNotes" rows="2" placeholder="Acabamento, orientação ou cuidado especial"></textarea></label>
+        <label class="field"><span>Se ainda não estiver pronto, enviar para</span><select id="productionPendingReason">${Object.entries(PRODUCTION_PENDING_REASONS).map(([value, label]) => `<option value="${value}">${escaparHtml(label)}</option>`).join("")}</select></label>
+        <div class="actions production-modal-actions">
+          <button class="btn secondary" type="button" onclick="enviarPedidoPendenciaProducao('${escaparAttr(pedido.id)}')">Marcar pendente</button>
+          <button class="btn" type="submit" ${faltas.length ? "disabled" : ""}>Liberar para produção</button>
+        </div>
+      </form>
+    </div>`;
+}
+
+function enviarPedidoPendenciaProducao(orderId) {
+  const pedido = pedidos.find((item) => String(item.id) === String(orderId));
+  if (!pedido) return;
+  const motivo = document.getElementById("productionPendingReason")?.value || "outro";
+  const agora = new Date().toISOString();
+  const existente = productionJobs.find((job) => String(job.orderId) === String(orderId));
+  if (existente) {
+    const antigo = existente.status;
+    Object.assign(existente, { status: "pendente", blockedReason: motivo, blocked_reason: motivo, updated_at: agora });
+    registrarEventoProducao(existente.id, "pendencia_registrada", antigo, "pendente", PRODUCTION_PENDING_REASONS[motivo]);
+  } else {
+    const jobId = gerarUuidProducao();
+    productionJobs.push({
+      id: jobId,
+      companyId: getProductionCompanyId(),
+      company_id: getProductionCompanyId(),
+      orderId: pedido.id,
+      order_id: String(pedido.id),
+      itemIndex: 0,
+      itemName: normalizarItensPedido(pedido)[0]?.nome || "Pedido em preparação",
+      quantity: 1,
+      customer: clienteDoPedido(pedido),
+      dueDate: pedido.prazo || pedido.dataPrazo || "",
+      status: "pendente",
+      blockedReason: motivo,
+      blocked_reason: motivo,
+      priority: "normal",
+      created_at: agora,
+      updated_at: agora
+    });
+    registrarEventoProducao(jobId, "pendencia_registrada", "", "pendente", PRODUCTION_PENDING_REASONS[motivo]);
+  }
+  pedido.productionStatus = "pendente";
+  pedido.production_status = "pendente";
+  salvarProducaoManual("producao-pendente");
+  fecharPopup();
+  trocarTela("producao");
+}
+
+function confirmarLiberacaoProducao(event, orderId) {
+  event?.preventDefault?.();
+  const pedido = pedidos.find((item) => String(item.id) === String(orderId));
+  if (!pedido) return false;
+  const faltas = validarPedidoParaProducao(pedido);
+  const pagamento = document.getElementById("productionPaymentAuthorized")?.checked === true;
+  const arquivo = document.getElementById("productionFileChecked")?.checked === true;
+  const materialSeparado = document.getElementById("productionMaterialSeparated")?.checked === true;
+  const notas = String(document.getElementById("productionReleaseNotes")?.value || "").trim();
+  if (faltas.length || !pagamento || !arquivo || !materialSeparado) {
+    mostrarToast(`Revise antes de liberar: ${[...faltas, !pagamento ? "pagamento" : "", !arquivo ? "arquivo" : "", !materialSeparado ? "material separado" : ""].filter(Boolean).join(", ")}.`, "aviso", 4200);
+    return false;
+  }
+  const agora = new Date().toISOString();
+  const itens = normalizarItensPedido(pedido);
+  const ativos = productionJobs.filter((job) => String(job.orderId) === String(pedido.id) && job.status !== "cancelado");
+  itens.forEach((item, itemIndex) => {
+    if (ativos.some((job) => Number(job.itemIndex) === itemIndex && !["pendente", "novo_pedido"].includes(job.status))) return;
+    const material = getProductionItemMaterial(item);
+    const jobId = gerarUuidProducao();
+    const productionCode = gerarCodigoProducao();
+    productionJobs.push({
+      id: jobId,
+      companyId: getProductionCompanyId(),
+      company_id: getProductionCompanyId(),
+      orderId: pedido.id,
+      order_id: String(pedido.id),
+      itemIndex,
+      item_index: itemIndex,
+      itemName: item.nome || `Item ${itemIndex + 1}`,
+      item_name: item.nome || `Item ${itemIndex + 1}`,
+      quantity: Math.max(1, Number(item.qtd) || 1),
+      customer: clienteDoPedido(pedido),
+      material: material.name,
+      color: material.color,
+      filamentWeightGrams: material.grams,
+      filament_weight_grams: material.grams,
+      estimatedPrintTimeMinutes: Math.round((Number(item.tempoHoras) || 0) * 60),
+      estimated_print_time_minutes: Math.round((Number(item.tempoHoras) || 0) * 60),
+      dueDate: pedido.prazo || pedido.dataPrazo || "",
+      due_date: pedido.prazo || pedido.dataPrazo || "",
+      productionCode,
+      production_code: productionCode,
+      queuePosition: productionJobs.filter((job) => ["liberado_para_producao", "na_fila", "proximo", "aguardando_impressora"].includes(job.status)).length + 1,
+      status: "na_fila",
+      priority: "normal",
+      productionNotes: notas,
+      production_notes: notas,
+      releasedAt: agora,
+      released_at: agora,
+      created_at: agora,
+      updated_at: agora
+    });
+    registrarEventoProducao(jobId, "liberado_para_producao", "", "na_fila", notas);
+  });
+  const pedidoAtualizado = { ...pedido, status: "producao" };
+  if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return false;
+  marcarRegistroLocalAlteradoParaSync(pedido, {
+    status: "producao",
+    productionStatus: "na_fila",
+    production_status: "na_fila",
+    productionPaymentAuthorized: true,
+    productionReleasedAt: agora,
+    production_released_at: agora,
+    stock_deducted_at: pedidoAtualizado.stock_deducted_at || "",
+    estoqueBaixadoEm: pedidoAtualizado.estoqueBaixadoEm || ""
+  });
+  salvarProducaoManual("pedido-liberado-producao");
+  fecharPopup();
+  trocarTela("producao");
+  mostrarToast("Pedido liberado e tarefas adicionadas à fila.", "sucesso", 3200);
+  return true;
+}
+
+function compararTarefasProducao(a = {}, b = {}) {
+  const hoje = hojeIsoData();
+  const amanha = new Date(`${hoje}T12:00:00`);
+  amanha.setDate(amanha.getDate() + 1);
+  const amanhaIso = amanha.toISOString().slice(0, 10);
+  const pesoPrazo = (job) => {
+    const due = String(job.dueDate || job.due_date || "");
+    if (due && due < hoje) return 0;
+    if (due === hoje) return 1;
+    if (due === amanhaIso) return 2;
+    return 5;
+  };
+  const prioridade = { urgente: 0, alta: 1, normal: 2 };
+  return pesoPrazo(a) - pesoPrazo(b)
+    || (prioridade[a.priority] ?? 2) - (prioridade[b.priority] ?? 2)
+    || String(a.releasedAt || a.released_at || a.created_at || "").localeCompare(String(b.releasedAt || b.released_at || b.created_at || ""));
+}
+
+function reordenarFilaProducao() {
+  const fila = productionJobs.filter((job) => ["liberado_para_producao", "na_fila", "proximo", "aguardando_impressora"].includes(job.status)).sort(compararTarefasProducao);
+  fila.forEach((job, index) => {
+    job.queuePosition = index + 1;
+    job.queue_position = index + 1;
+    if (index === 0 && job.status === "na_fila") job.status = "proximo";
+    else if (index > 0 && job.status === "proximo") job.status = "na_fila";
+  });
+  return fila;
+}
+
+function alterarPrioridadeTarefaProducao(jobId, priority = "normal") {
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  let reason = "";
+  if (priority !== "normal") {
+    reason = String(prompt("Informe a justificativa da prioridade:") || "").trim();
+    if (!reason) {
+      mostrarToast("A prioridade só pode ser alterada com justificativa.", "aviso");
+      renderizarPreservandoScroll();
+      return;
+    }
+  }
+  const old = job.priority || "normal";
+  job.priority = priority;
+  job.priorityReason = reason;
+  job.priority_reason = reason;
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, "prioridade_alterada", old, priority, reason);
+  reordenarFilaProducao();
+  salvarProducaoManual("prioridade-producao");
+  renderizarPreservandoScroll();
+}
+
+function atribuirImpressoraTarefa(jobId, printerId = "") {
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  const old = job.printerId || "";
+  job.printerId = printerId;
+  job.printer_id = printerId || null;
+  job.assignedAt = printerId ? new Date().toISOString() : "";
+  job.assigned_at = job.assignedAt;
+  if (!printerId && job.status === "em_impressao") job.status = "aguardando_impressora";
+  registrarEventoProducao(job.id, "impressora_atribuida", old, printerId, getProductionPrinterLabel(printerId));
+  salvarProducaoManual("impressora-atribuida");
+  renderizarPreservandoScroll();
+}
+
+function atualizarPedidoQuandoProducaoPronta(orderId) {
+  const jobs = productionJobs.filter((job) => String(job.orderId) === String(orderId) && job.status !== "cancelado");
+  if (!jobs.length || jobs.some((job) => !["pronto_para_entrega", "entregue"].includes(job.status))) return;
+  const pedido = pedidos.find((item) => String(item.id) === String(orderId));
+  if (!pedido) return;
+  marcarRegistroLocalAlteradoParaSync(pedido, { status: "pronto", productionStatus: "pronto_para_entrega", production_status: "pronto_para_entrega" });
+}
+
+function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
+  const job = getProductionJob(jobId);
+  if (!job || !PRODUCTION_STATUS_META[status]) return false;
+  if (status === "em_impressao" && !job.printerId) {
+    mostrarToast("Selecione uma impressora antes de iniciar a impressão.", "aviso", 3200);
+    renderizarPreservandoScroll();
+    return false;
+  }
+  let note = "";
+  if (status === "falhou") {
+    note = String(prompt("Informe o motivo da falha:") || "").trim();
+    if (!note) {
+      mostrarToast("Informe o motivo da falha.", "aviso");
+      renderizarPreservandoScroll();
+      return false;
+    }
+  }
+  const old = job.status || "novo_pedido";
+  const agora = new Date().toISOString();
+  job.status = status;
+  job.updated_at = agora;
+  if (status === "em_impressao") job.started_at = job.started_at || agora;
+  if (status === "pausado") job.paused_at = agora;
+  if (status === "falhou") {
+    job.failed_at = agora;
+    job.failureReason = note;
+    job.failure_reason = note;
+  }
+  if (["pos_processamento", "controle_qualidade", "pronto_para_entrega"].includes(status)) job.finished_at = job.finished_at || agora;
+  const printer = getProductionPrinter(job.printerId);
+  if (printer && status === "em_impressao") printer.status = "ocupada";
+  if (printer && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "falhou", "pausado"].includes(status)) {
+    if (confirm("Deseja liberar a impressora agora?")) printer.status = "disponivel";
+  }
+  registrarEventoProducao(job.id, "status_alterado", old, status, note);
+  atualizarPedidoQuandoProducaoPronta(job.orderId);
+  reordenarFilaProducao();
+  salvarProducaoManual("status-producao");
+  renderizarPreservandoScroll();
+  return true;
+}
+
+function criarReimpressaoProducao(jobId) {
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  const novoId = gerarUuidProducao();
+  const agora = new Date().toISOString();
+  const productionCode = gerarCodigoProducao();
+  productionJobs.push({
+    ...job,
+    id: novoId,
+    parentJobId: job.id,
+    parent_job_id: job.id,
+    productionCode,
+    production_code: productionCode,
+    status: "na_fila",
+    printerId: "",
+    printer_id: null,
+    priority: "alta",
+    priorityReason: "Reimpressão por falha",
+    priority_reason: "Reimpressão por falha",
+    releasedAt: agora,
+    released_at: agora,
+    created_at: agora,
+    updated_at: agora
+  });
+  job.status = "falhou";
+  registrarEventoProducao(job.id, "reimpressao_criada", job.status, "falhou", `Nova tarefa ${novoId}`);
+  registrarEventoProducao(novoId, "reimpressao_criada", "", "na_fila", `Origem ${job.id}`);
+  reordenarFilaProducao();
+  salvarProducaoManual("reimpressao-criada");
+  renderizarPreservandoScroll();
+}
+
+function avaliarQualidadeProducao(jobId, result = "aprovado") {
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  if (result === "aprovado") atualizarStatusTarefaProducao(jobId, "pronto_para_entrega");
+  if (result === "ajuste") atualizarStatusTarefaProducao(jobId, "pos_processamento");
+  if (result === "reimpressao") criarReimpressaoProducao(jobId);
+}
+
+function abrirCadastroImpressoraProducao(id = "") {
+  const printer = getProductionPrinter(id) || {};
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card production-printer-modal" onsubmit="salvarImpressoraProducao(event,'${escaparAttr(id)}')" onclick="event.stopPropagation()">
+        <div class="modal-header"><h2>${id ? "Editar" : "Adicionar"} impressora</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">Cadastro manual. O sistema não envia comandos para a impressora.</p>
+        <div class="production-form-grid">
+          <label class="field"><span>Nome</span><input id="productionPrinterName" required maxlength="120" value="${escaparAttr(printer.name || "")}" placeholder="Ex.: Ender 3"></label>
+          <label class="field"><span>Tipo</span><select id="productionPrinterType">${[["fdm","FDM"],["resina","Resina"],["outro","Outro"]].map(([value,label]) => `<option value="${value}" ${printer.printerType === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label class="field"><span>Bico</span><input id="productionPrinterNozzle" value="${escaparAttr(printer.nozzleSize || "")}" placeholder="0,4 mm"></label>
+          <label class="field"><span>Mesa (X × Y × Z)</span><input id="productionPrinterBed" value="${escaparAttr(printer.bedSize || "")}" placeholder="220 × 220 × 250 mm"></label>
+          <label class="field"><span>Materiais compatíveis</span><input id="productionPrinterMaterials" value="${escaparAttr((printer.supportedMaterials || []).join(", "))}" placeholder="PLA, PETG, ABS"></label>
+          <label class="field"><span>Status</span><select id="productionPrinterStatus">${Object.entries(PRODUCTION_PRINTER_STATUS).map(([value,label]) => `<option value="${value}" ${String(printer.status || "disponivel") === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label class="field production-field-wide"><span>Observações</span><textarea id="productionPrinterNotes" rows="2">${escaparHtml(printer.notes || "")}</textarea></label>
+        </div>
+        <div class="actions production-modal-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar impressora</button></div>
+      </form>
+    </div>`;
+}
+
+function salvarImpressoraProducao(event, id = "") {
+  event?.preventDefault?.();
+  const name = String(document.getElementById("productionPrinterName")?.value || "").trim();
+  if (!name) return false;
+  const agora = new Date().toISOString();
+  const data = {
+    name,
+    description: "",
+    printerType: document.getElementById("productionPrinterType")?.value || "fdm",
+    printer_type: document.getElementById("productionPrinterType")?.value || "fdm",
+    nozzleSize: String(document.getElementById("productionPrinterNozzle")?.value || "").trim(),
+    bedSize: String(document.getElementById("productionPrinterBed")?.value || "").trim(),
+    supportedMaterials: String(document.getElementById("productionPrinterMaterials")?.value || "").split(",").map((item) => item.trim()).filter(Boolean),
+    status: document.getElementById("productionPrinterStatus")?.value || "disponivel",
+    notes: String(document.getElementById("productionPrinterNotes")?.value || "").trim(),
+    isActive: true,
+    is_active: true,
+    updated_at: agora
+  };
+  const existente = getProductionPrinter(id);
+  if (existente) Object.assign(existente, data);
+  else productionPrinters.push({ id: gerarUuidProducao(), companyId: getProductionCompanyId(), company_id: getProductionCompanyId(), ...data, created_at: agora });
+  salvarProducaoManual("impressora-manual");
+  fecharPopup();
+  window.__productionTab = "impressoras";
+  renderizarPreservandoScroll();
+  return true;
+}
+
+function alterarStatusImpressoraProducao(id, status = "disponivel") {
+  const printer = getProductionPrinter(id);
+  if (!printer || !PRODUCTION_PRINTER_STATUS[status]) return;
+  printer.status = status;
+  printer.updated_at = new Date().toISOString();
+  salvarProducaoManual("status-impressora-manual");
+  renderizarPreservandoScroll();
+}
+
+function desativarImpressoraProducao(id) {
+  const printer = getProductionPrinter(id);
+  if (!printer || !confirm(`Desativar ${printer.name}?`)) return;
+  printer.status = "inativa";
+  printer.isActive = false;
+  printer.is_active = false;
+  printer.updated_at = new Date().toISOString();
+  salvarProducaoManual("impressora-manual-desativada");
+  renderizarPreservandoScroll();
+}
+
+function renderProductionPrinterOptions(selected = "") {
+  const items = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa");
+  return `<option value="">Selecione</option>${items.map((printer) => `<option value="${escaparAttr(printer.id)}" ${String(selected) === String(printer.id) ? "selected" : ""}>${escaparHtml(printer.name)} · ${escaparHtml(PRODUCTION_PRINTER_STATUS[printer.status] || "Disponível")}</option>`).join("")}`;
+}
+
+function renderTarefaProducao(job = {}) {
+  const order = getProductionOrder(job);
+  const priority = job.priority || "normal";
+  const events = productionEvents.filter((event) => String(event.productionJobId || event.production_job_id) === String(job.id)).slice(-4).reverse();
+  return `
+    <article class="production-job-card production-status-${escaparAttr(job.status || "novo_pedido")}">
+      <div class="production-job-head">
+        <div>
+          <span class="production-queue-number">${job.queuePosition ? `#${job.queuePosition}` : "—"}</span>
+          <div><strong>${escaparHtml(job.itemName || "Item")}</strong><small>${escaparHtml(job.productionCode || `Pedido #${job.orderId}`)} · ${escaparHtml(job.customer || clienteDoPedido(order || {}))}</small></div>
+        </div>
+        <span class="status-badge production-badge-${escaparAttr(PRODUCTION_STATUS_META[job.status]?.group || "preparacao")}">${escaparHtml(getProductionStatusLabel(job.status))}</span>
+      </div>
+      <div class="production-job-meta">
+        <span><small>Material</small><strong>${escaparHtml(job.material || "Não informado")}${job.color ? ` · ${escaparHtml(job.color)}` : ""}</strong></span>
+        <span><small>Quantidade</small><strong>${Number(job.quantity) || 1}</strong></span>
+        <span><small>Tempo</small><strong>${job.estimatedPrintTimeMinutes ? `${job.estimatedPrintTimeMinutes} min` : "Não informado"}</strong></span>
+        <span><small>Prazo</small><strong>${escaparHtml(job.dueDate || "Sem prazo")}</strong></span>
+      </div>
+      ${job.blockedReason ? `<p class="production-pending-note">${escaparHtml(PRODUCTION_PENDING_REASONS[job.blockedReason] || job.blockedReason)}</p>` : ""}
+      <div class="production-job-controls">
+        <label><span>Status</span><select onchange="atualizarStatusTarefaProducao('${escaparAttr(job.id)}',this.value)">${Object.entries(PRODUCTION_STATUS_META).map(([value,meta]) => `<option value="${value}" ${job.status === value ? "selected" : ""}>${escaparHtml(meta.label)}</option>`).join("")}</select></label>
+        <label><span>Impressora</span><select onchange="atribuirImpressoraTarefa('${escaparAttr(job.id)}',this.value)">${renderProductionPrinterOptions(job.printerId)}</select></label>
+        <label><span>Prioridade</span><select onchange="alterarPrioridadeTarefaProducao('${escaparAttr(job.id)}',this.value)">${[["normal","Normal"],["alta","Alta"],["urgente","Urgente"]].map(([value,label]) => `<option value="${value}" ${priority === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+      </div>
+      <div class="production-job-actions">
+        <button class="btn secondary" type="button" onclick="visualizarPedido(${Number(job.orderId)})">Ver pedido</button>
+        ${job.status === "falhou" || job.status === "reimpressao_necessaria" ? `<button class="btn" type="button" onclick="criarReimpressaoProducao('${escaparAttr(job.id)}')">Criar reimpressão</button>` : ""}
+        ${job.status === "controle_qualidade" ? `<button class="btn" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','aprovado')">Aprovar</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','ajuste')">Precisa ajuste</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','reimpressao')">Reimprimir</button>` : ""}
+      </div>
+      ${events.length ? `<details class="production-history"><summary>Histórico recente</summary>${events.map((event) => `<p><strong>${escaparHtml(getProductionStatusLabel(event.newStatus || event.new_status))}</strong><span>${escaparHtml(event.note || "")}</span><small>${formatarDataHora(event.created_at)}</small></p>`).join("")}</details>` : ""}
+    </article>
+  `;
+}
+
+function renderImpressorasProducao() {
+  const printers = productionPrinters.filter((printer) => printer.isActive !== false || printer.status !== "inativa");
+  return `
+    <div class="production-printer-toolbar">
+      <p>As impressoras são controladas manualmente. O sistema organiza a fila e os status, mas não inicia impressões automaticamente.</p>
+      <button class="btn" type="button" onclick="abrirCadastroImpressoraProducao()">${renderUiIcon("plus")} Adicionar impressora</button>
+    </div>
+    <div class="production-printer-grid">
+      ${printers.length ? printers.map((printer) => {
+        const current = productionJobs.find((job) => String(job.printerId) === String(printer.id) && job.status === "em_impressao");
+        const next = reordenarFilaProducao().find((job) => !job.printerId || String(job.printerId) === String(printer.id));
+        return `<article class="production-printer-card">
+          <div class="production-printer-head"><span>${renderUiIcon("impressoras")}</span><div><strong>${escaparHtml(printer.name)}</strong><small>${escaparHtml(printer.printerType || "FDM")} · ${escaparHtml(PRODUCTION_PRINTER_STATUS[printer.status] || "Disponível")}</small></div></div>
+          <div class="production-printer-current"><span><small>Em execução</small><strong>${escaparHtml(current?.itemName || "Nenhuma tarefa")}</strong></span><span><small>Próxima sugerida</small><strong>${escaparHtml(next?.itemName || "Sem sugestão")}</strong></span></div>
+          <div class="production-printer-actions">
+            <select onchange="alterarStatusImpressoraProducao('${escaparAttr(printer.id)}',this.value)">${Object.entries(PRODUCTION_PRINTER_STATUS).map(([value,label]) => `<option value="${value}" ${printer.status === value ? "selected" : ""}>${label}</option>`).join("")}</select>
+            <button class="icon-action-button" type="button" onclick="abrirCadastroImpressoraProducao('${escaparAttr(printer.id)}')" title="Editar">${renderUiIcon("edit")}</button>
+            <button class="icon-action-button danger" type="button" onclick="desativarImpressoraProducao('${escaparAttr(printer.id)}')" title="Desativar">${renderUiIcon("trash")}</button>
+          </div>
+        </article>`;
+      }).join("") : `<p class="empty">Nenhuma impressora manual cadastrada.</p>`}
+    </div>`;
+}
+
+function getTarefasProducaoPorAba(tab = getProductionTab()) {
+  reordenarFilaProducao();
+  const busca = normalizarTextoBusca(window.__productionSearch || "");
+  const printerFilter = String(window.__productionPrinterFilter || "");
+  let jobs = [...productionJobs];
+  if (tab === "fila") jobs = jobs.filter((job) => ["liberado_para_producao", "na_fila", "proximo", "aguardando_impressora"].includes(job.status));
+  if (tab === "proximos") jobs = jobs.filter((job) => ["proximo", "na_fila"].includes(job.status)).sort(compararTarefasProducao).slice(0, 5);
+  if (tab === "impressao") jobs = jobs.filter((job) => ["em_impressao", "pausado", "pos_processamento", "controle_qualidade"].includes(job.status));
+  if (tab === "pendencias") jobs = jobs.filter((job) => ["pendente", "falhou", "reimpressao_necessaria"].includes(job.status));
+  if (tab === "prontos") jobs = jobs.filter((job) => ["pronto_para_entrega", "entregue"].includes(job.status));
+  if (printerFilter) jobs = jobs.filter((job) => String(job.printerId || "") === printerFilter);
+  if (busca) jobs = jobs.filter((job) => normalizarTextoBusca(`${job.productionCode} ${job.orderId} ${job.customer} ${job.itemName} ${job.material} ${job.color}`).includes(busca));
+  return jobs.sort(compararTarefasProducao);
+}
+
 function renderProducao() {
   if (!temAcessoCompleto()) return renderBloqueioPlano("Produção");
-  const producoes = pedidos.filter((pedido) => ["aberto", "producao", "pausado"].includes(String(pedido.status || "aberto")));
-  const linhas = producoes.length ? producoes.map((pedido) => `
-    <div class="list-row">
-      <div class="row-title">
-        <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
-        <span class="muted">${normalizarItensPedido(pedido).length} produto(s) • ${formatarMoeda(totalPedido(pedido))}</span>
-      </div>
-      <label class="field compact-field">
-        <span>Status</span>
-        <select onchange="alterarStatusPedido(${Number(pedido.id)}, this.value)">
-          ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${String(pedido.status || "aberto") === status ? "selected" : ""}>${status}</option>`).join("")}
-        </select>
-      </label>
-      <button class="btn ghost" onclick="visualizarPedido(${Number(pedido.id)})">Ver pedido</button>
-    </div>
-  `).join("") : `<p class="empty">Nenhuma produção ativa.</p>`;
-
+  const tab = getProductionTab();
+  const tabs = [
+    ["fila", "Fila"],
+    ["proximos", "Próximos"],
+    ["impressao", "Em impressão"],
+    ["pendencias", "Pendências"],
+    ["impressoras", "Impressoras"],
+    ["prontos", "Prontos"]
+  ];
+  const jobs = tab === "impressoras" ? [] : getTarefasProducaoPorAba(tab);
   return `
-    <section class="card">
-      <div class="card-header">
-        <h2>🖨️ Produção</h2>
-        <div class="actions">
-          <span class="status-badge">${producoes.length} ativa(s)</span>
-          <button class="btn ghost compact-action" type="button" onclick="trocarTela('impressoras')">${renderUiIcon("impressoras")} Impressoras</button>
-        </div>
+    <section class="card organized-page production-page">
+      <div class="card-header production-page-header">
+        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Fila manual por item, sem automação de impressoras.</p></div>
+        <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
       </div>
-      ${linhas}
+      <div class="production-tabs" role="tablist">
+        ${tabs.map(([value,label]) => `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')">${escaparHtml(label)}</button>`).join("")}
+      </div>
+      ${tab === "impressoras" ? renderImpressorasProducao() : `
+        <div class="production-filter-bar">
+          <label class="production-search">${renderUiIcon("search")}<input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
+          <select aria-label="Filtrar por impressora" onchange="window.__productionPrinterFilter=this.value;renderizarPreservandoScroll()">${renderProductionPrinterOptions(window.__productionPrinterFilter || "")}</select>
+        </div>
+        <div class="production-job-list">${jobs.length ? jobs.map(renderTarefaProducao).join("") : `<p class="empty">Nenhuma tarefa nesta etapa.</p>`}</div>
+      `}
     </section>
-    ${getImpressorasAtivas().length ? `
-      <section class="card production-printer-strip">
-        <div class="card-header"><h2>Impressoras</h2><span class="status-badge">${getImpressorasAtivas().length}</span></div>
-        <div class="printer-summary-list">${getImpressorasAtivas().slice(0, 5).map(renderResumoImpressoraSimplifica).join("")}</div>
-      </section>
-    ` : ""}
   `;
 }
 
@@ -28081,9 +29354,7 @@ function renderRelatorios() {
             <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
             <input placeholder="Buscar relatórios..." aria-label="Buscar relatórios" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this)">
           </label>
-          <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Notificações">${renderUiIcon("bell")}<span>7</span></button>
-          ${renderContextualAdvancedToggle("relatorios")}
-          ${advancedReportsContext ? `<button class="btn reports-filter-button" type="button" onclick="abrirFiltrosRelatorios()">${renderUiIcon("preferencias")} <span>Filtros</span></button>` : ""}
+          <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Abrir sugestões" aria-label="Abrir sugestões">${renderUiIcon("bell")}${sugestoes.length ? `<span>${Math.min(99, sugestoes.length)}</span>` : ""}</button>
         </div>
       </header>
 
@@ -28529,7 +29800,6 @@ function renderCaixaAcoesRapidas() {
     <section class="cash-section cash-quick-actions-section">
       <div class="cash-section-head">
         <h3>Ações rápidas</h3>
-        <button class="btn ghost cash-personalize-button" type="button" onclick="mostrarToast('Personalização do caixa será ajustada nas preferências.', 'info')">Personalizar ${renderUiIcon("preferencias")}</button>
       </div>
       <div class="cash-quick-actions-grid">
         ${acoes.map((acao, index) => `
@@ -28717,8 +29987,7 @@ function renderCaixaMobileTopbar() {
         <h2>Olá, ${escaparHtml(nome)}!</h2>
         <p>Aqui está o resumo do seu caixa hoje.</p>
       </div>
-      <button class="icon-button cash-mobile-search-button" type="button" onclick="document.querySelector('.cash-top-search input, .topbar-search input, input[type=&quot;search&quot;]')?.focus?.()" aria-label="Pesquisar">${renderUiIcon("search")}</button>
-      <button class="icon-button cash-mobile-bell-button" type="button" onclick="mostrarToast('Notificações do caixa em breve.', 'info', 2200)" aria-label="Notificações">${renderUiIcon("bell")}</button>
+      <button class="icon-button cash-mobile-search-button" type="button" onclick="abrirCardCaixaRapido('historico');setTimeout(()=>document.querySelector('.cash-top-search input')?.focus?.(),120)" aria-label="Pesquisar">${renderUiIcon("search")}</button>
     </div>
   `;
 }
@@ -28966,7 +30235,7 @@ function renderExtratoFinanceiro() {
         <div class="actions statement-actions">
           <button class="btn ghost" type="button" onclick="exportarExtratoFinanceiro('pdf')">${renderUiIcon("pdf")} PDF</button>
           <button class="btn ghost" type="button" onclick="exportarExtratoFinanceiro('print')">${renderUiIcon("print")} Imprimir</button>
-          <button class="btn ghost" type="button" onclick="compartilharExtratoFinanceiro()">${renderUiIcon("whatsapp")} Compartilhar</button>
+          <button class="btn ghost" type="button" onclick="compartilharExtratoFinanceiro()">${renderUiIcon("whatsapp")} WhatsApp</button>
         </div>
       </div>
       <div class="statement-mobile-flow" aria-label="Telas do extrato financeiro">
@@ -29169,11 +30438,12 @@ function appClasseBase(base = "", variantes = []) {
   return classes.join(" ");
 }
 
-function renderAppButton({ label = "", icon = "", variant = "primary", action = "", type = "button", extraClass = "", attrs = "" } = {}) {
+function renderAppButton({ label = "", icon = "", variant = "primary", size = "standard", action = "", type = "button", extraClass = "", attrs = "" } = {}) {
   const relation = getUiButtonRelation(variant);
+  const sizeRelation = getUiComponentSizeRelation("button", size);
   const classes = appClasseBase(`btn app-button s3d-button ${relation.className}`, extraClass);
   const onclick = action ? ` onclick="${action}"` : "";
-  return `<button class="${classes}" type="${escaparAttr(type)}" data-ui-variant="${escaparAttr(relation.className)}" data-ui-token-set="${escaparAttr(relation.tokenSet)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
+  return `<button class="${classes}" type="${escaparAttr(type)}" data-ui-variant="${escaparAttr(relation.className)}" data-ui-size="${escaparAttr(size)}" data-ui-token-set="${escaparAttr(relation.tokenSet)} ${escaparAttr(sizeRelation.tokenSet)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
 }
 
 function renderThemeModeButton(extraClass = "") {
@@ -36261,6 +37531,7 @@ function executarPosLoginAssincrono(usuario) {
     ["Toque de acesso Supabase", () => tocarAcessoClienteSupabaseSilencioso()],
     ["Licença Supabase", () => consultarLicencaSupabaseSilencioso()],
     ["Carga SaaS Supabase", () => carregarSaasSupabaseSilencioso()],
+    ["Produção manual Supabase", () => carregarProducaoManualSupabaseSilencioso().then(() => renderizarPreservandoScroll())],
     ["Sessão SaaS Supabase", () => registrarSessaoSaasOnlineSilencioso(usuario)]
   ];
   tarefas.forEach(([nome, tarefa]) => {
@@ -36794,6 +38065,9 @@ function criarSnapshotBackup() {
       clientesOperacionais,
       orcamentos,
       historico,
+      productionJobs,
+      productionPrinters,
+      productionEvents,
       securityLogs,
       auditLogs,
       diagnostics,
@@ -37056,6 +38330,9 @@ function normalizarBackup(dados) {
     clientesOperacionais: Array.isArray(origem.clientesOperacionais) ? origem.clientesOperacionais : [],
     orcamentos: Array.isArray(origem.orcamentos) ? origem.orcamentos : [],
     historico: Array.isArray(origem.historico) ? origem.historico : [],
+    productionJobs: Array.isArray(origem.productionJobs) ? origem.productionJobs : [],
+    productionPrinters: Array.isArray(origem.productionPrinters) ? origem.productionPrinters : [],
+    productionEvents: Array.isArray(origem.productionEvents) ? origem.productionEvents : [],
     securityLogs: Array.isArray(origem.securityLogs) ? origem.securityLogs : [],
     auditLogs: Array.isArray(origem.auditLogs) ? origem.auditLogs : [],
     diagnostics: Array.isArray(origem.diagnostics) ? origem.diagnostics : [],
@@ -37095,6 +38372,9 @@ function aplicarBackup(dados, modo = "substituir") {
     backup.caixa = filtrarListaEscopoBackup(backup.caixa, escopoAtual, true);
     backup.pedidos = filtrarListaEscopoBackup(backup.pedidos, escopoAtual, true);
     backup.orcamentos = filtrarListaEscopoBackup(backup.orcamentos, escopoAtual, true);
+    backup.productionJobs = filtrarListaEscopoBackup(backup.productionJobs, escopoAtual, true);
+    backup.productionPrinters = filtrarListaEscopoBackup(backup.productionPrinters, escopoAtual, true);
+    backup.productionEvents = filtrarListaEscopoBackup(backup.productionEvents, escopoAtual, true);
   }
 
   if (modo === "mesclar") {
@@ -37103,6 +38383,9 @@ function aplicarBackup(dados, modo = "substituir") {
     pedidos = mesclarListas(pedidos, backup.pedidos);
     orcamentos = mesclarListas(orcamentos, backup.orcamentos).slice(0, 100);
     historico = mesclarListas(historico, backup.historico).slice(0, 250);
+    productionJobs = mesclarListas(productionJobs, backup.productionJobs).slice(0, 1000);
+    productionPrinters = mesclarListas(productionPrinters, backup.productionPrinters).slice(0, 100);
+    productionEvents = mesclarListas(productionEvents, backup.productionEvents).slice(0, 2000);
     securityLogs = mesclarListas(securityLogs, backup.securityLogs).slice(0, 300);
     auditLogs = mesclarListas(auditLogs, backup.auditLogs).slice(0, 500);
     diagnostics = mesclarListas(diagnostics, backup.diagnostics).slice(0, 150);
@@ -37120,6 +38403,9 @@ function aplicarBackup(dados, modo = "substituir") {
     pedidos = backup.pedidos;
     orcamentos = backup.orcamentos.slice(0, 100);
     historico = backup.historico.slice(0, 250);
+    productionJobs = backup.productionJobs.slice(0, 1000);
+    productionPrinters = backup.productionPrinters.slice(0, 100);
+    productionEvents = backup.productionEvents.slice(0, 2000);
     securityLogs = backup.securityLogs.slice(0, 300);
     auditLogs = backup.auditLogs.slice(0, 500);
     diagnostics = backup.diagnostics.slice(0, 150);
@@ -39958,14 +41244,9 @@ async function confirmCalculatorResult() {
     return false;
   }
   const nome = String(document.getElementById("nomeItem")?.value || "").trim() || `Item ${ultimoCalculo.materialNome || "3D"}`;
-  let qtd = 1;
-  try {
-    qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
-  } catch (erro) {
-    ErrorService.notify(erro, { area: "Calculadora", action: "Adicionar item" });
-    return false;
-  }
+  const qtd = Math.max(1, Number(ultimoCalculo.qtd) || 1);
   const valorManual = numeroCalculadora(document.getElementById("valorManualItem")?.value, ultimoCalculo.preco, 0);
+  const observacoesCalculo = String(document.getElementById("observacoesCalculo")?.value || "").trim();
   const titulo = calculadoraModoPedido || telaAtual === "pedido" ? "Adicionar item ao pedido" : "Criar pedido com este item";
   const mensagem = calculadoraModoPedido || telaAtual === "pedido"
     ? `Deseja adicionar "${nome}" ao pedido por ${formatarMoeda(valorManual)} cada?`
@@ -39983,10 +41264,11 @@ async function confirmCalculatorResult() {
     tipoImpressao: ultimoCalculo.tipoImpressao,
     impressora: ultimoCalculo.printer,
     tempoHoras: ultimoCalculo.tempo,
-    materialId: ultimoCalculo.materialId,
+    tempoMinutos: Math.round((Number(ultimoCalculo.tempo) || 0) * 60),
+    materialId: "",
     material: ultimoCalculo.materialNome,
     materialGramsTotal: ultimoCalculo.peso,
-    materiais: ultimoCalculo.materialId ? [{ materialId: ultimoCalculo.materialId, nome: ultimoCalculo.materialNome, gramas: ultimoCalculo.peso }] : [],
+    materiais: [],
     custoMaterial: ultimoCalculo.custoMaterial,
     custoEnergia: ultimoCalculo.custoEnergia,
     custoTotal: ultimoCalculo.custoTotal,
@@ -39994,6 +41276,15 @@ async function confirmCalculatorResult() {
     lucroProduto: ultimoCalculo.lucroProduto,
     valorProduto: ultimoCalculo.valorProduto,
     taxaExtra: ultimoCalculo.taxaExtra,
+    calculoOrigem: {
+      pesoInformado: ultimoCalculo.peso,
+      tempoHoras: ultimoCalculo.tempo,
+      valorTotalCalculado: ultimoCalculo.totalFinal,
+      quantidadeLote: qtd,
+      valorUnitarioCalculado: ultimoCalculo.preco,
+      observacoes: observacoesCalculo
+    },
+    observacoesCalculo,
     qtd,
     valor: valorManual,
     total: valorManual * qtd
@@ -40020,26 +41311,36 @@ function editarMaterialItem(itemIndex, materialIndex, materialId) {
     ...(materiais[materialIndex] || {}),
     materialId,
     nome: material?.nome || "",
-    gramas: Number(materiais[materialIndex]?.gramas) || 0
+    quantidade: Number(materiais[materialIndex]?.quantidade) || 0,
+    unidade: material?.unidade || "un",
+    gramas: 0
   };
   renderizarPreservandoScroll();
 }
 
-function editarGramasItem(itemIndex, materialIndex, gramas) {
+function editarQuantidadeMaterialItem(itemIndex, materialIndex, quantidade) {
   const materiais = garantirMateriaisItem(itemIndex);
   try {
+    const estoqueItem = getMaterialEstoque(materiais[materialIndex]?.materialId);
     materiais[materialIndex] = {
       ...(materiais[materialIndex] || {}),
-      gramas: InventoryService.parseNumberStrict(gramas, "gramas", { min: 0 })
+      quantidade: InventoryService.parseNumberStrict(quantidade, "quantidade usada", { min: 0 }),
+      unidade: estoqueItem?.unidade || materiais[materialIndex]?.unidade || "un",
+      gramas: 0
     };
   } catch (erro) {
-    ErrorService.notify(erro, { area: "Estoque", action: "Editar gramas" });
+    ErrorService.notify(erro, { area: "Estoque", action: "Editar quantidade usada" });
   }
+}
+
+function editarGramasItem(itemIndex, materialIndex, gramas) {
+  return editarQuantidadeMaterialItem(itemIndex, materialIndex, gramas);
 }
 
 function adicionarMaterialProduto(itemIndex) {
   const materiais = garantirMateriaisItem(itemIndex);
-  materiais.push({ materialId: normalizarEstoque()[0]?.id || "", gramas: 0 });
+  const primeiro = normalizarEstoque()[0];
+  materiais.push({ materialId: primeiro?.id || "", nome: primeiro?.nome || "", quantidade: 0, unidade: primeiro?.unidade || "un", gramas: 0 });
   renderizarPreservandoScroll();
 }
 
@@ -40488,6 +41789,14 @@ function pedidoPossuiConsumoEstoque(pedido) {
   return calcularConsumoMateriais(pedido?.itens || []).size > 0;
 }
 
+function statusPedidoConsomeEstoque(status = "") {
+  return /confirm|aprov|produ[cç][aã]o|em_producao|final|conclu|entreg|pago/i.test(String(status || ""));
+}
+
+function pedidoEstoqueFoiBaixado(pedido = {}) {
+  return !!(pedido.stock_deducted_at || pedido.estoqueBaixadoEm || statusPedidoConsomeEstoque(pedido.status));
+}
+
 function movimentoCaixaPertenceAoPedido(movimento, pedido) {
   if (!movimento || !pedido) return false;
   const id = Number(pedido.id);
@@ -40648,7 +41957,7 @@ async function requestOrderDelete(orderId) {
     if (!continuar) return;
 
     let devolverEstoque = false;
-    if (pedidoPossuiConsumoEstoque(pedido) && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm) {
+    if (pedidoPossuiConsumoEstoque(pedido) && pedidoEstoqueFoiBaixado(pedido) && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm) {
       devolverEstoque = await solicitarConfirmacaoAcao({
         titulo: "Devolver estoque",
         mensagem: "Deseja devolver os materiais deste pedido ao estoque?",
@@ -40673,13 +41982,13 @@ function removerPedido(id) {
 
 // Baixa de estoque por diferença: evita descontar duas vezes ao editar e devolve no cancelamento.
 function diffConsumoPedido(pedidoNovo, pedidoAntigo = null) {
-  const novo = calcularConsumoMateriais(pedidoNovo?.itens || []);
-  const antigo = calcularConsumoMateriais(pedidoAntigo?.itens || []);
+  const novo = statusPedidoConsomeEstoque(pedidoNovo?.status) ? calcularConsumoMateriais(pedidoNovo?.itens || []) : new Map();
+  const antigo = pedidoAntigo && pedidoEstoqueFoiBaixado(pedidoAntigo) ? calcularConsumoMateriais(pedidoAntigo?.itens || []) : new Map();
   const ids = new Set([...novo.keys(), ...antigo.keys()]);
   return Array.from(ids).map((materialId) => ({
     materialId,
-    kg: (novo.get(materialId) || 0) - (antigo.get(materialId) || 0)
-  })).filter((item) => Math.abs(item.kg) > 0.000001);
+    quantidade: (novo.get(materialId) || 0) - (antigo.get(materialId) || 0)
+  })).filter((item) => Math.abs(item.quantidade) > 0.000001);
 }
 
 function validarSaldoEstoque(diff) {
@@ -40718,12 +42027,22 @@ function aplicarEstoquePedido(pedidoNovo, pedidoAntigo = null) {
     alert("Estoque insuficiente:\n" + faltas.join("\n"));
     return false;
   }
-  return aplicarDiffEstoqueComControle(diff, pedidoAntigo ? "edição de pedido" : "pedido", pedidoAntigo ? {
+  const aplicado = aplicarDiffEstoqueComControle(diff, pedidoAntigo ? "edição de pedido" : "pedido", pedidoAntigo ? {
     orderId: pedidoNovo?.id || ""
   } : {
     orderId: pedidoNovo?.id || "",
     idempotencyPrefix: `order_material_deduction:${pedidoNovo?.id || "novo"}`
   });
+  if (aplicado) {
+    if (statusPedidoConsomeEstoque(pedidoNovo?.status) && pedidoPossuiConsumoEstoque(pedidoNovo)) {
+      pedidoNovo.stock_deducted_at = pedidoNovo.stock_deducted_at || new Date().toISOString();
+      pedidoNovo.estoqueBaixadoEm = pedidoNovo.estoqueBaixadoEm || pedidoNovo.stock_deducted_at;
+    } else {
+      pedidoNovo.stock_deducted_at = "";
+      pedidoNovo.estoqueBaixadoEm = "";
+    }
+  }
+  return aplicado;
 }
 
 function devolverEstoquePedido(pedido, motivo = "cancelamento") {
@@ -40967,7 +42286,7 @@ function descreverAlteracoesPedido(pedidoNovo, pedidoAntigo = {}) {
     valor: Number(item.valor) || 0,
     total: Number(item.total) || 0,
     tempoHoras: Number(item.tempoHoras) || 0,
-    materiais: getMateriaisItem(item).map((mat) => ({ materialId: mat.materialId || "", gramas: Number(mat.gramas) || 0 }))
+    materiais: getMateriaisItem(item).map((mat) => ({ materialId: mat.materialId || "", quantidade: Number(mat.quantidade) || 0, unidade: mat.unidade || "" }))
   });
   return {
     adicionados: novos.slice(antigos.length).map((item) => item.nome || "Item"),
@@ -41026,7 +42345,13 @@ async function alterarStatusPedido(id, status) {
     return;
   }
   if (/final|conclu|entreg|pago|produção|producao/i.test(String(status || "")) && !await consumirCreditoAcaoFree("finalizar_pedido", "finalizar pedido")) return;
-  marcarRegistroLocalAlteradoParaSync(pedido, { status: status || "aberto" });
+  const pedidoAtualizado = { ...pedido, status: status || "aberto" };
+  if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
+  marcarRegistroLocalAlteradoParaSync(pedido, {
+    status: pedidoAtualizado.status,
+    stock_deducted_at: pedidoAtualizado.stock_deducted_at || "",
+    estoqueBaixadoEm: pedidoAtualizado.estoqueBaixadoEm || ""
+  });
   salvarDados();
   agendarSyncSilenciosoDados("status-pedido");
   registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
@@ -41034,17 +42359,114 @@ async function alterarStatusPedido(id, status) {
   renderizarPreservandoScroll();
 }
 
+function alternarControleLoteEstoqueCadastro() {
+  const ativo = document.getElementById("matBatchControlled")?.checked === true;
+  const campo = document.getElementById("matBatchTypeField");
+  const seletor = document.getElementById("matBatchType");
+  if (campo) campo.hidden = !ativo;
+  if (seletor) seletor.disabled = !ativo;
+}
+
+function abrirCadastroItemEstoque() {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel">
+      <form class="modal-card stock-item-modal" id="stockAddForm">
+        <div class="modal-header">
+          <h2>${renderUiIcon("plus")} Novo item</h2>
+          <button class="icon-button" type="button" data-action="stock-add-cancel" title="Fechar">✕</button>
+        </div>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Nome</span>
+            <input id="matNome" placeholder="Ex.: Filamento PLA Preto 1kg" required>
+          </label>
+          <label class="field">
+            <span>Tipo do item</span>
+            <select id="matItemType">${STOCK_ITEM_TYPES.map((tipo) => `<option value="${escaparAttr(tipo)}">${escaparHtml(tipo)}</option>`).join("")}</select>
+          </label>
+          <label class="field">
+            <span>Categoria</span>
+            <input id="matTipo" value="Geral" placeholder="Ex.: Filamentos, embalagens, folhas">
+          </label>
+          <label class="field">
+            <span>Unidade de controle</span>
+            <select id="matUnidade">${STOCK_CONTROL_UNITS.map((unidade) => `<option value="${escaparAttr(unidade.value)}">${escaparHtml(unidade.label)}</option>`).join("")}</select>
+          </label>
+          <label class="field">
+            <span>Quantidade atual</span>
+            <input id="matQtd" type="number" min="0" step="0.001" value="0">
+          </label>
+          <label class="field">
+            <span>Estoque mínimo</span>
+            <input id="matMinimo" type="number" min="0" step="0.001" value="0">
+          </label>
+          <label class="field">
+            <span>Custo por unidade/medida</span>
+            <input id="matCusto" type="number" min="0" step="0.01" value="0">
+          </label>
+          <label class="field">
+            <span>Fornecedor opcional</span>
+            <input id="matFornecedor">
+          </label>
+        </div>
+        <label class="checkbox-row stock-batch-toggle">
+          <input id="matBatchControlled" type="checkbox" onchange="alternarControleLoteEstoqueCadastro()">
+          <span><strong>Controlar por rolo ou lote</strong><small>Use para filamentos, resinas, frascos ou pacotes individuais.</small></span>
+        </label>
+        <label class="field" id="matBatchTypeField" hidden>
+          <span>Tipo de controle</span>
+          <select id="matBatchType" disabled>${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}">${escaparHtml(tipo.label)}</option>`).join("")}</select>
+        </label>
+        <label class="field">
+          <span>Observações</span>
+          <textarea id="matObservacoes" rows="2"></textarea>
+        </label>
+        <input id="matAtivo" type="hidden" value="true">
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="stock-add-cancel">Cancelar</button>
+          <button class="btn" type="submit">${renderUiIcon("plus")} Adicionar item</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById("stockAddForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    addMaterial();
+  });
+  setTimeout(() => document.getElementById("matNome")?.focus(), 60);
+}
+
 async function addMaterial() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
-  const tipo = document.getElementById("matTipo")?.value || "PLA";
-  const cor = (document.getElementById("matCor")?.value || "").trim();
+  const nome = String(document.getElementById("matNome")?.value || "").trim();
+  const tipo = String(document.getElementById("matTipo")?.value || "Geral").trim();
   const qtd = document.getElementById("matQtd")?.value;
 
   try {
+    if (!nome) throw new AppError("Nome obrigatório", { code: "INVENTORY_NAME_REQUIRED", userMessage: "Informe o nome do item." });
     if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
-    InventoryService.addMaterial({ tipo, cor, qtd });
-    registrarEventoUsoLocal("material_usado", { materialNome: [tipo, cor].filter(Boolean).join(" "), materialId: tipo, cor });
+    InventoryService.addMaterial({
+      nome,
+      categoria: tipo,
+      tipo,
+      tipoItem: document.getElementById("matItemType")?.value || "Matéria-prima",
+      unidade: document.getElementById("matUnidade")?.value || "un",
+      qtd,
+      estoqueMinimo: document.getElementById("matMinimo")?.value || 0,
+      custoUnitario: document.getElementById("matCusto")?.value || 0,
+      fornecedor: document.getElementById("matFornecedor")?.value || "",
+      observacoes: document.getElementById("matObservacoes")?.value || "",
+      ativo: document.getElementById("matAtivo")?.value !== "false",
+      isBatchControlled: document.getElementById("matBatchControlled")?.checked === true,
+      batchControlType: document.getElementById("matBatchType")?.value || "rolo",
+      cor: ""
+    });
+    registrarEventoUsoLocal("material_usado", { materialNome: nome, materialId: tipo, cor: "" });
     agendarSyncSilenciosoDados("estoque-adicionado");
+    fecharPopup();
     renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Adicionar material" });
@@ -41074,17 +42496,52 @@ function mostrarModalEdicaoMaterial(indice, material) {
           <input id="stockEditName" value="${escaparAttr(material.nome)}">
         </label>
         <label class="field">
-          <span>Quantidade em kg</span>
+          <span>Tipo do item</span>
+          <select id="stockEditItemType">${STOCK_ITEM_TYPES.map((tipo) => `<option value="${escaparAttr(tipo)}" ${tipo === material.tipoItem ? "selected" : ""}>${escaparHtml(tipo)}</option>`).join("")}</select>
+        </label>
+        <label class="field">
+          <span>Categoria</span>
+          <input id="stockEditCategory" value="${escaparAttr(material.categoria || material.tipo || "")}">
+        </label>
+        <label class="field">
+          <span>Unidade de controle</span>
+          <select id="stockEditUnit">${STOCK_CONTROL_UNITS.map((unidade) => `<option value="${escaparAttr(unidade.value)}" ${unidade.value === material.unidade ? "selected" : ""}>${escaparHtml(unidade.label)}</option>`).join("")}</select>
+        </label>
+        <label class="field">
+          <span>Quantidade atual</span>
           <input id="stockEditQty" type="number" min="0" step="0.001" value="${escaparAttr(material.qtd)}">
         </label>
         <label class="field">
-          <span>Motivo do ajuste</span>
-          <input id="stockEditReason" placeholder="Obrigatório se alterar o peso">
+          <span>Estoque mínimo</span>
+          <input id="stockEditMin" type="number" min="0" step="0.001" value="${escaparAttr(material.estoqueMinimo || 0)}">
         </label>
         <label class="field">
-          <span>Cor</span>
-          <input id="stockEditColor" value="${escaparAttr(material.cor || "")}" readonly>
-          ${renderPaletaCoresMaterial("stockEditColor", material.cor || "")}
+          <span>Custo por unidade/medida</span>
+          <input id="stockEditCost" type="number" min="0" step="0.01" value="${escaparAttr(material.custoUnitario || 0)}">
+        </label>
+        <label class="checkbox-row stock-batch-toggle">
+          <input id="stockEditBatchControlled" type="checkbox" ${materialUsaControleLote(material) ? "checked" : ""} onchange="document.getElementById('stockEditBatchTypeField').hidden=!this.checked">
+          <span><strong>Controlar por rolo ou lote</strong><small>A quantidade passa a ser a soma dos recipientes ativos.</small></span>
+        </label>
+        <label class="field" id="stockEditBatchTypeField" ${materialUsaControleLote(material) ? "" : "hidden"}>
+          <span>Tipo de controle</span>
+          <select id="stockEditBatchType">${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}" ${tipo.value === material.batch_control_type ? "selected" : ""}>${escaparHtml(tipo.label)}</option>`).join("")}</select>
+        </label>
+        <label class="field">
+          <span>Motivo do ajuste</span>
+          <input id="stockEditReason" placeholder="Obrigatório se alterar a quantidade">
+        </label>
+        <label class="field">
+          <span>Fornecedor opcional</span>
+          <input id="stockEditSupplier" value="${escaparAttr(material.fornecedor || "")}">
+        </label>
+        <label class="field">
+          <span>Observações</span>
+          <input id="stockEditNotes" value="${escaparAttr(material.observacoes || "")}">
+        </label>
+        <label class="field">
+          <span>Status</span>
+          <select id="stockEditActive"><option value="true" ${material.ativo !== false ? "selected" : ""}>Ativo</option><option value="false" ${material.ativo === false ? "selected" : ""}>Inativo</option></select>
         </label>
         <div class="actions">
           <button class="btn ghost" type="button" data-action="stock-edit-cancel">Cancelar</button>
@@ -41102,7 +42559,17 @@ async function salvarEdicaoMaterialEstoque(indice) {
     InventoryService.updateMaterial(indice, {
       nome: document.getElementById("stockEditName")?.value || "",
       qtd: document.getElementById("stockEditQty")?.value,
-      cor: document.getElementById("stockEditColor")?.value || "",
+      categoria: document.getElementById("stockEditCategory")?.value || "",
+      tipoItem: document.getElementById("stockEditItemType")?.value || "Matéria-prima",
+      unidade: document.getElementById("stockEditUnit")?.value || "un",
+      estoqueMinimo: document.getElementById("stockEditMin")?.value || 0,
+      custoUnitario: document.getElementById("stockEditCost")?.value || 0,
+      fornecedor: document.getElementById("stockEditSupplier")?.value || "",
+      observacoes: document.getElementById("stockEditNotes")?.value || "",
+      ativo: document.getElementById("stockEditActive")?.value !== "false",
+      isBatchControlled: document.getElementById("stockEditBatchControlled")?.checked === true,
+      batchControlType: document.getElementById("stockEditBatchType")?.value || "rolo",
+      cor: "",
       motivo: document.getElementById("stockEditReason")?.value || ""
     });
     fecharPopup();
@@ -41111,6 +42578,148 @@ async function salvarEdicaoMaterialEstoque(indice) {
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Editar material" });
   }
+}
+
+function abrirCadastroLoteEstoque(indice, loteIndex = -1) {
+  normalizarEstoque();
+  const material = estoque[Number(indice)];
+  if (!material || !materialUsaControleLote(material)) return;
+  const lotes = normalizarLotesEstoque(material);
+  const existente = loteIndex >= 0 ? lotes[Number(loteIndex)] : null;
+  const tipoPadrao = existente?.batch_type || material.batch_control_type || "rolo";
+  const unidade = existente?.unit || material.unidade || "g";
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-batch-cancel">
+      <form class="modal-card stock-item-modal" id="stockBatchForm">
+        <div class="modal-header">
+          <h2>${renderUiIcon(getIconeMaterialEstoque(material))} ${existente ? "Editar" : "Adicionar"} ${escaparHtml(tipoPadrao)}</h2>
+          <button class="icon-button" type="button" data-action="stock-batch-cancel" title="Fechar">✕</button>
+        </div>
+        <p class="muted">${escaparHtml(material.nome)}. Este cadastro não realiza baixa de estoque.</p>
+        <div class="sync-grid">
+          <label class="field">
+            <span>Código</span>
+            <input id="stockBatchCode" value="${escaparAttr(existente?.batch_code || "")}" placeholder="Ex.: PLA-PRETO-001">
+          </label>
+          <label class="field">
+            <span>Tipo</span>
+            <select id="stockBatchType">${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}" ${tipo.value === tipoPadrao ? "selected" : ""}>${escaparHtml(tipo.label)}</option>`).join("")}</select>
+          </label>
+          <label class="field">
+            <span>Quantidade inicial</span>
+            <input id="stockBatchInitial" type="number" min="0" step="0.01" value="${escaparAttr(existente?.initial_quantity ?? 0)}" required>
+          </label>
+          <label class="field">
+            <span>Saldo atual</span>
+            <input id="stockBatchCurrent" type="number" min="0" step="0.01" value="${escaparAttr(existente?.current_quantity ?? 0)}" required>
+          </label>
+          <label class="field">
+            <span>Unidade</span>
+            <select id="stockBatchUnit">${STOCK_CONTROL_UNITS.map((item) => `<option value="${escaparAttr(item.value)}" ${item.value === unidade ? "selected" : ""}>${escaparHtml(item.label)}</option>`).join("")}</select>
+          </label>
+          <label class="field">
+            <span>Status</span>
+            <select id="stockBatchStatus">
+              ${[
+                ["fechado", "Fechado"],
+                ["em_uso", "Em uso"],
+                ["esgotado", "Esgotado"],
+                ["inativo", "Inativo"]
+              ].map(([valor, label]) => `<option value="${valor}" ${valor === existente?.status ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+          </label>
+          <label class="field">
+            <span>Custo total</span>
+            <input id="stockBatchCost" type="number" min="0" step="0.01" value="${escaparAttr(existente?.cost_total ?? 0)}">
+          </label>
+          <label class="field">
+            <span>Data da compra</span>
+            <input id="stockBatchPurchaseDate" type="date" value="${escaparAttr(existente?.purchase_date || "")}">
+          </label>
+        </div>
+        <label class="field">
+          <span>Observações</span>
+          <textarea id="stockBatchNotes" rows="2">${escaparHtml(existente?.notes || "")}</textarea>
+        </label>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-action="stock-batch-cancel">Cancelar</button>
+          <button class="btn" type="submit">${renderUiIcon("check")} Salvar</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.getElementById("stockBatchForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    salvarLoteEstoque(Number(indice), Number(loteIndex));
+  });
+  setTimeout(() => document.getElementById("stockBatchCode")?.focus(), 60);
+}
+
+async function salvarLoteEstoque(indice, loteIndex = -1) {
+  try {
+    if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
+    const material = normalizarEstoque()[Number(indice)];
+    if (!material) return;
+    const initial = InventoryService.parseNumberStrict(document.getElementById("stockBatchInitial")?.value, "quantidade inicial", { min: 0 });
+    const current = InventoryService.parseNumberStrict(document.getElementById("stockBatchCurrent")?.value, "saldo atual", { min: 0 });
+    if (current > initial + 0.000001) {
+      throw new AppError("Saldo maior que a quantidade inicial", {
+        code: "INVENTORY_BATCH_BALANCE_INVALID",
+        userMessage: "O saldo atual não pode ser maior que a quantidade inicial."
+      });
+    }
+    const lotes = normalizarLotesEstoque(material);
+    const anterior = loteIndex >= 0 ? lotes[Number(loteIndex)] : null;
+    const statusSelecionado = document.getElementById("stockBatchStatus")?.value || (current <= 0 ? "esgotado" : "fechado");
+    const lote = normalizarLoteEstoque({
+      ...anterior,
+      id: anterior?.id,
+      batch_code: document.getElementById("stockBatchCode")?.value || "",
+      batch_type: document.getElementById("stockBatchType")?.value || material.batch_control_type || "rolo",
+      initial_quantity: initial,
+      current_quantity: current,
+      unit: document.getElementById("stockBatchUnit")?.value || material.unidade || "g",
+      cost_total: document.getElementById("stockBatchCost")?.value || 0,
+      purchase_date: document.getElementById("stockBatchPurchaseDate")?.value || "",
+      status: current <= 0 ? "esgotado" : statusSelecionado,
+      opened_at: statusSelecionado === "em_uso" ? (anterior?.opened_at || new Date().toISOString()) : anterior?.opened_at || "",
+      notes: document.getElementById("stockBatchNotes")?.value || "",
+      updated_at: new Date().toISOString()
+    }, material);
+    const proximos = loteIndex >= 0
+      ? lotes.map((item, i) => i === Number(loteIndex) ? lote : (lote.status === "em_uso" && item.status === "em_uso" ? { ...item, status: "fechado" } : item))
+      : [...lotes.map((item) => lote.status === "em_uso" && item.status === "em_uso" ? { ...item, status: "fechado" } : item), lote];
+    InventoryService.updateBatches(indice, proximos, anterior ? "Rolo/lote editado" : "Rolo/lote adicionado");
+    fecharPopup();
+    window.__estoqueSelecionadoId = String(material.id);
+    agendarSyncSilenciosoDados("estoque-lote-editado");
+    renderizarPreservandoScroll();
+    mostrarToast(anterior ? "Rolo/lote atualizado." : "Rolo/lote adicionado.", "sucesso", 2600);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Salvar rolo/lote" });
+  }
+}
+
+function atualizarStatusLoteEstoque(indice, loteIndex, status) {
+  const material = normalizarEstoque()[Number(indice)];
+  if (!material) return;
+  const lotes = normalizarLotesEstoque(material);
+  if (!lotes[Number(loteIndex)]) return;
+  const proximos = lotes.map((lote, i) => {
+    if (i === Number(loteIndex)) {
+      return {
+        ...lote,
+        status,
+        opened_at: status === "em_uso" ? (lote.opened_at || new Date().toISOString()) : lote.opened_at,
+        updated_at: new Date().toISOString()
+      };
+    }
+    return status === "em_uso" && lote.status === "em_uso" ? { ...lote, status: "fechado", updated_at: new Date().toISOString() } : lote;
+  });
+  InventoryService.updateBatches(indice, proximos, status === "em_uso" ? "Rolo/lote marcado em uso" : "Rolo/lote inativado");
+  renderizarPreservandoScroll();
 }
 
 function abrirSaidaManualEstoque(indice) {
@@ -41696,6 +43305,7 @@ function getConfiguracaoCalculadora() {
     printerModel: modeloValido,
     materialId: materialIdValido,
     peso: "",
+    tempoMinutos: "",
     filamento: salvo.filamento ?? appConfig.defaultFilamentCost ?? 150,
     tempo: "",
     quantidade: salvo.quantidade ?? 1,
@@ -41722,6 +43332,7 @@ function salvarConfiguracaoCalculadora(persistir = true) {
     peso: "",
     filamento: numeroCalculadora(valorCampoCalculadora("filamento", atual.filamento), atual.filamento),
     tempo: "",
+    tempoMinutos: "",
     quantidade: numeroCalculadora(valorCampoCalculadora("quantidade", atual.quantidade), atual.quantidade, 1),
     energia: numeroCalculadora(valorCampoCalculadora("energia", atual.energia), atual.energia),
     consumo: numeroCalculadora(valorCampoCalculadora("consumo", atual.consumo), atual.consumo),
@@ -41944,6 +43555,8 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
   const taxaExtra = Math.max(0, Number(calculo.taxaExtra) || 0);
   const totalFinal = Math.max(0, Number(calculo.totalFinal ?? calculo.precoTotal) || 0);
   const ajusteArredondamento = Math.max(0, Number(calculo.ajusteArredondamento) || 0);
+  const quantidadeLote = Math.max(1, Number(calculo.qtd) || 1);
+  const valorUnitario = Math.max(0, Number(calculo.preco) || totalFinal);
   const status = valorProduto < baseProduto
     ? "Preço abaixo do custo estimado"
     : margem < margemMinima
@@ -41963,13 +43576,14 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
         <span>Valor do produto</span><strong>${formatarMoeda(valorProduto)}</strong>
         ${taxaExtra > 0 ? `<span>Taxa extra${calculo.taxaExtraRotulo ? ` (${escaparHtml(calculo.taxaExtraRotulo)})` : ""}</span><strong>${formatarMoeda(taxaExtra)}</strong>` : ""}
         ${ajusteArredondamento > 0 ? `<span>Arredondamento</span><strong>${formatarMoeda(ajusteArredondamento)}</strong>` : ""}
+        ${calculo.impressaoLote ? `<span>Quantidade no lote</span><strong>${quantidadeLote} un.</strong><span>Valor unitário calculado</span><strong>${formatarMoeda(valorUnitario)}</strong>` : ""}
       </div>
       <label class="field inline-result-field">
-        <span>Valor unitário ajustável</span>
+        <span>${calculo.impressaoLote ? "Valor unitário ajustável" : "Preço final ajustável"}</span>
         <input id="valorManualItem" type="number" min="0" step="0.01" value="${(Number(calculo.preco) || 0).toFixed(2)}">
       </label>
       <div class="calc-final-row">
-        <span>Total final</span>
+        <span>${calculo.impressaoLote ? "Valor total do lote" : "Total final"}</span>
         <strong>${formatarMoeda(totalFinal)}</strong>
       </div>
       <small class="calc-margin-status">${escaparHtml(status)}</small>
@@ -41977,12 +43591,49 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
   `;
 }
 
+function formatarTempoCalculadora(horas = 0, minutos = 0) {
+  const h = Math.max(0, Math.floor(Number(horas) || 0));
+  const m = Math.max(0, Math.min(59, Math.floor(Number(minutos) || 0)));
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+function sincronizarTempoFormatadoCalculadora(valor = "") {
+  const texto = String(valor || "").trim().replace(/[hH]/g, ":").replace(/\s+/g, "");
+  const partes = texto.split(":");
+  const horas = Math.max(0, Number.parseInt(partes[0] || "0", 10) || 0);
+  const minutos = partes.length > 1 ? Number.parseInt(partes[1] || "0", 10) : 0;
+  if (!Number.isFinite(minutos) || minutos < 0 || minutos > 59) return false;
+  const campoHoras = document.getElementById("tempo");
+  const campoMinutos = document.getElementById("tempoMinutos");
+  if (campoHoras) campoHoras.value = String(horas);
+  if (campoMinutos) campoMinutos.value = String(minutos);
+  agendarCalculoTempoReal();
+  return true;
+}
+
+function normalizarCampoTempoCalculadora() {
+  const campo = document.getElementById("tempoFormato");
+  if (!campo) return;
+  if (!sincronizarTempoFormatadoCalculadora(campo.value)) {
+    campo.value = formatarTempoCalculadora(
+      document.getElementById("tempo")?.value,
+      document.getElementById("tempoMinutos")?.value
+    );
+    mostrarToast("Use o formato horas:minutos, por exemplo 3:47.", "aviso", 2800);
+    return;
+  }
+  campo.value = formatarTempoCalculadora(
+    document.getElementById("tempo")?.value,
+    document.getElementById("tempoMinutos")?.value
+  );
+}
+
 function renderCalculadoraConteudo() {
   const config = getConfiguracaoCalculadora();
   const perfil = obterPerfilAtivoCalculadora(config);
   const taxaEstado = getEstadoTaxaExtraCalculadora();
   const emPedido = calculadoraModoPedido === true;
-  const acaoPrincipal = emPedido ? "Adicionar ao pedido" : "Criar pedido com este item";
+  const acaoPrincipal = emPedido ? "Adicionar ao pedido" : "Gerar pedido com este cálculo";
   const subtituloAcao = emPedido ? "e continuar" : "abrir pedido";
   return `
     <div class="calc-toolbar">
@@ -42024,13 +43675,10 @@ function renderCalculadoraConteudo() {
         </label>
         <label class="field calc-field-card">
           <span>Tempo de impressão</span>
-          <input id="tempo" type="number" min="0" step="0.01" placeholder="Ex.: 5.5" value="${escaparAttr(config.tempo)}" oninput="agendarCalculoTempoReal()">
-          <i>h</i>
-        </label>
-        <label class="field calc-field-card">
-          <span>Quantidade</span>
-          <input id="quantidade" type="number" min="1" step="1" value="${escaparAttr(config.quantidade)}" oninput="agendarCalculoTempoReal()">
-          <i>un</i>
+          <input id="tempoFormato" type="text" inputmode="numeric" placeholder="Ex.: 3:47" value="${escaparAttr(formatarTempoCalculadora(config.tempo, config.tempoMinutos))}" oninput="sincronizarTempoFormatadoCalculadora(this.value)" onblur="normalizarCampoTempoCalculadora()">
+          <input id="tempo" type="hidden" value="${escaparAttr(config.tempo)}">
+          <input id="tempoMinutos" type="hidden" value="${escaparAttr(config.tempoMinutos)}">
+          <i>h:min</i>
         </label>
         <label class="field calc-field-card">
           <span>Material</span>
@@ -42042,6 +43690,18 @@ function renderCalculadoraConteudo() {
           <i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i>
         </label>
       </div>
+      <label class="calc-batch-toggle">
+        <input id="impressaoLote" type="checkbox" onchange="alternarImpressaoLote(this.checked)">
+        <span><strong>Impressão em lote</strong><small>Ativar somente para este cálculo</small></span>
+      </label>
+      <div class="calc-batch-fields" id="calcBatchFields" hidden>
+        <label class="field calc-field-card">
+          <span>Unidades no lote</span>
+          <input id="quantidade" type="number" min="1" step="1" value="${escaparAttr(config.quantidade)}" oninput="agendarCalculoTempoReal()">
+          <i>un</i>
+        </label>
+        <small>O peso e o tempo representam o lote completo. O sistema divide apenas o valor total pela quantidade.</small>
+      </div>
       <div class="calc-quick-fees">
         ${[0, 5, 10, 15].map((valor) => `<button type="button" class="${taxaEstado.modo === "percent" && taxaEstado.percent === valor ? "active" : ""}" data-extra-fee-mode="percent" data-extra-fee-percent="${valor}" onclick="selecionarTaxaExtraPercentual(${valor})">${valor}%</button>`).join("")}
         <button type="button" class="${taxaEstado.modo === "manual" ? "active" : ""}" data-extra-fee-mode="manual" onclick="selecionarTaxaExtraManual()">Personalizado</button>
@@ -42049,6 +43709,10 @@ function renderCalculadoraConteudo() {
       <label class="field">
         <span>Nome do item</span>
         <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" oninput="salvarConfiguracaoCalculadora(false)">
+      </label>
+      <label class="field">
+        <span>Observações do cálculo</span>
+        <textarea id="observacoesCalculo" rows="2" placeholder="Detalhes opcionais para enviar ao pedido"></textarea>
       </label>
     </section>
 
@@ -43167,7 +44831,7 @@ function renderSugestaoFixarAtalho() {
   return `
     <div class="quick-suggestion-card">
       <div>
-        <span>Sugestão discreta</span>
+                      <span>Sugestão</span>
         <strong>Você usa bastante ${escaparHtml(acao.label)}. Deseja fixar nos atalhos?</strong>
       </div>
       <div class="quick-suggestion-actions">
@@ -43585,7 +45249,7 @@ function preencherMateriaisCalculadora() {
   const configuracao = getConfiguracaoCalculadora();
   const valorAtual = select.value || configuracao.materialId || "";
   const materialSelecionado = getMaterialEstoque(valorAtual) ? valorAtual : "";
-  select.innerHTML = renderMaterialOptions(materialSelecionado, { emptyLabel: "Sem vínculo com estoque", includeAdd: true });
+  select.innerHTML = renderMaterialOptions(materialSelecionado, { emptyLabel: "Material não selecionado", includeAdd: false });
   select.value = materialSelecionado;
 }
 
@@ -43677,12 +45341,22 @@ function salvarMaterialCalculadoraRapido() {
   }
 }
 
+function alternarImpressaoLote(ativo = false) {
+  const campos = document.getElementById("calcBatchFields");
+  const quantidade = document.getElementById("quantidade");
+  if (campos) campos.hidden = !ativo;
+  if (!ativo && quantidade) quantidade.value = "1";
+  ultimoCalculo = null;
+  agendarCalculoTempoReal();
+}
+
 function calcular(opcoes = {}) {
   const silent = opcoes.silent === true;
   const skipUsage = opcoes.skipUsage === true;
   const pesoRaw = document.getElementById("peso")?.value;
   const tempoRaw = document.getElementById("tempo")?.value;
-  if (silent && (!String(pesoRaw || "").trim() || !String(tempoRaw || "").trim())) {
+  const tempoMinutosRaw = document.getElementById("tempoMinutos")?.value;
+  if (silent && (!String(pesoRaw || "").trim() || (!String(tempoRaw || "").trim() && !String(tempoMinutosRaw || "").trim()))) {
     ultimoCalculo = null;
     const resultadoVazio = document.getElementById("res");
     if (resultadoVazio) resultadoVazio.innerHTML = renderResumoCalculo(null);
@@ -43703,6 +45377,7 @@ function calcular(opcoes = {}) {
   let peso;
   let filamento;
   let tempo;
+  let tempoMinutos;
   let qtd;
   let energia;
   let consumo;
@@ -43711,8 +45386,14 @@ function calcular(opcoes = {}) {
   try {
     peso = InventoryService.parseNumberStrict(document.getElementById("peso")?.value, "peso em gramas", { min: 0 });
     filamento = InventoryService.parseNumberStrict(document.getElementById("filamento")?.value, "custo do material", { min: 0 });
-    tempo = InventoryService.parseNumberStrict(document.getElementById("tempo")?.value, "tempo de impressão", { min: 0 });
-    qtd = InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade", { min: 1 });
+    const tempoHoras = InventoryService.parseNumberStrict(document.getElementById("tempo")?.value || 0, "horas de impressão", { min: 0 });
+    tempoMinutos = InventoryService.parseNumberStrict(document.getElementById("tempoMinutos")?.value || 0, "minutos de impressão", { min: 0 });
+    if (tempoMinutos > 59) throw new Error("Informe os minutos entre 0 e 59.");
+    tempo = tempoHoras + (tempoMinutos / 60);
+    const impressaoLote = document.getElementById("impressaoLote")?.checked === true;
+    qtd = impressaoLote
+      ? InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade do lote", { min: 1 })
+      : 1;
     energia = InventoryService.parseNumberStrict(document.getElementById("energia")?.value, "custo de energia", { min: 0 });
     consumo = InventoryService.parseNumberStrict(document.getElementById("consumo")?.value, "consumo elétrico", { min: 0 });
     custoHora = InventoryService.parseNumberStrict(document.getElementById("custoHora")?.value, "custo por hora", { min: 0 });
@@ -43772,8 +45453,11 @@ function calcular(opcoes = {}) {
     totalFinal: preco,
     ajusteArredondamento,
     qtd,
+    impressaoLote: document.getElementById("impressaoLote")?.checked === true,
     peso,
     tempo,
+    tempoHorasInformadas: Math.floor(tempo),
+    tempoMinutos: Math.round(tempoMinutos),
     tempoCobrado,
     printer,
     tipoImpressao,
@@ -43792,7 +45476,7 @@ function calcular(opcoes = {}) {
 
 function limparCalculo() {
   ultimoCalculo = null;
-  ["peso", "tempo", "taxaExtra", "nomeItem"].forEach((id) => {
+  ["peso", "tempo", "tempoMinutos", "tempoFormato", "taxaExtra", "nomeItem", "observacoesCalculo"].forEach((id) => {
     const campo = document.getElementById(id);
     if (campo) campo.value = "";
   });
@@ -43801,6 +45485,10 @@ function limparCalculo() {
   appConfig.calcExtraFeeValue = 0;
   const quantidade = document.getElementById("quantidade");
   if (quantidade) quantidade.value = "1";
+  const impressaoLote = document.getElementById("impressaoLote");
+  if (impressaoLote) impressaoLote.checked = false;
+  const camposLote = document.getElementById("calcBatchFields");
+  if (camposLote) camposLote.hidden = true;
   const resultado = document.getElementById("res");
   if (resultado) resultado.innerHTML = renderResumoCalculo(null);
   atualizarVisualTaxaExtraCalculadora();
@@ -44007,7 +45695,7 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
-    if (["plan-modal-close", "stock-edit-cancel", "stock-restock-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -44159,6 +45847,30 @@ function configurarEventListenersArquitetura() {
     if (acao === "stock-remove") {
       event.preventDefault();
       removerMaterial(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "stock-batch-add") {
+      event.preventDefault();
+      abrirCadastroLoteEstoque(Number(elemento.dataset.index));
+      return;
+    }
+
+    if (acao === "stock-batch-edit") {
+      event.preventDefault();
+      abrirCadastroLoteEstoque(Number(elemento.dataset.index), Number(elemento.dataset.batchIndex));
+      return;
+    }
+
+    if (acao === "stock-batch-use") {
+      event.preventDefault();
+      atualizarStatusLoteEstoque(Number(elemento.dataset.index), Number(elemento.dataset.batchIndex), "em_uso");
+      return;
+    }
+
+    if (acao === "stock-batch-disable") {
+      event.preventDefault();
+      atualizarStatusLoteEstoque(Number(elemento.dataset.index), Number(elemento.dataset.batchIndex), "inativo");
       return;
     }
 

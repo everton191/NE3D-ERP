@@ -11,11 +11,13 @@ const required = [
   "restaurarStorefrontAutosaveLocal",
   "descartarStorefrontAutosaveLocal",
   "window.addEventListener(\"online\"",
-  "window.addEventListener(\"offline\"",
-  "simplifica-3d-v197-pwa-motion-smooth-20260626"
+  "window.addEventListener(\"offline\""
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !sw.includes(item));
+if (!/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw)) {
+  missing.push("cache PWA versionado");
+}
 
 if (missing.length) {
   console.error("Recovery/offline incompleto:", missing.join(", "));

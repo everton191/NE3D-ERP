@@ -166,6 +166,10 @@ Contratos:
 
 Regras:
 
+- botoes novos usam `.s3d-button` com `data-ui-size="compact|standard|large"`;
+- cards novos usam `.s3d-card` com `data-ui-size="compact|standard|large"`;
+- os tamanhos oficiais ficam em `UI_COMPONENT_SIZE_RELATIONS` e nos tokens `--s3d-button-*` / `--s3d-card-*`;
+- mobile e desktop usam os mesmos nomes de variante, mudando apenas os valores dos tokens;
 - cards e grids usam `clamp()` apenas em gaps, nao em fonte fluida;
 - botoes mantem area minima de toque;
 - empty states usam texto curto e CTA claro;

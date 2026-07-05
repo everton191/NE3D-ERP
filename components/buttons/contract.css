@@ -17,6 +17,15 @@
   transition:transform .18s var(--motion-ease), box-shadow .18s var(--motion-ease), border-color .18s var(--motion-ease), background .18s var(--motion-ease);
 }
 
+.s3d-button{
+  min-width:0;
+  min-height:var(--s3d-button-height-standard);
+  padding-inline:var(--s3d-button-padding-inline);
+}
+
+.s3d-button[data-ui-size="compact"]{ min-height:var(--s3d-button-height-compact); }
+.s3d-button[data-ui-size="large"]{ min-height:var(--s3d-button-height-large); }
+
 .ds-button.primary,
 .app-button.primary{
   border-color:color-mix(in srgb, var(--accent-primary) 62%, var(--border-primary));

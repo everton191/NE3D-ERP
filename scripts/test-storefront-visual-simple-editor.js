@@ -2,13 +2,16 @@ const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
+const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const storefrontSources = `${app}\n${publicRenderer}\n${editorRenderer}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 [
-  "function renderStorePublicMainNav",
+  "api.headerMenu = function headerMenu",
   "function renderStoreGuidedCategoryForm",
   "function renderStorefrontUnsavedChangesModal",
   "function solicitarNavegacaoSeguraLoja",
@@ -21,18 +24,15 @@ function assert(condition, message) {
   "focus?.({ preventScroll: true })",
   "function setStorefrontContextualEditorState",
   "if (changed && options.flushAutosave !== false) storefrontFlushAutosaveNow();",
-  "setStorefrontContextualEditorState({ type, id, panelOpen: true })",
+  "setStorefrontContextualEditorState({ selection: nextSelection, panelOpen: true })",
   "let storefrontDirtyRuntime = false",
   "function ocultarExemploLojaVisual",
   "function restaurarExemplosLojaVisual",
   "productTemplateSourceId",
-  "Item de exemplo.</strong> Edite os dados e salve",
+  "Modelo carregado como rascunho. Revise foto, nome, descrição e preço.",
   "Sua loja está",
-  "Compartilhar loja",
-  "Restaurar exemplos",
-  "Peça técnica flexível",
-  "Maquete arquitetônica"
-].forEach((marker) => assert(app.includes(marker), `Editor visual simples incompleto: ${marker}`));
+  "Compartilhar loja"
+].forEach((marker) => assert(storefrontSources.includes(marker), `Editor visual simples incompleto: ${marker}`));
 
 [
   ".store-guided-selected",

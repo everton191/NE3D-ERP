@@ -11,6 +11,9 @@ const requiredApp = [
   "function navegarPwaPorDirecional(delta = 1)",
   'if (!isWebPwaProfile() || isMobile()) return "";',
   "quick-order-command-panel",
+  'class="mobile-panel-content app-content" tabindex="0"',
+  "function gerenciarScrollContainerTeclado(event)",
+  'onkeydown="gerenciarScrollContainerTeclado(event)"',
   "Comandos rápidos",
   "Navegar telas",
   "Menu lateral",
@@ -28,6 +31,9 @@ const requiredCss = [
   "overflow-y:auto !important;",
   ".quick-order-layout{\n  min-height:0;\n  height:100%;",
   "touch-action:pan-y;",
+  "overflow-x:clip !important;",
+  "overscroll-behavior-y:auto !important;",
+  ".reports-kpi-slide{",
   ".quick-order-command-panel{"
 ];
 

@@ -35,11 +35,11 @@ if (!app.includes("abrirMaisOpcoesPedido(Number(id))")) {
 if (!app.includes("Math.hypot(dx, dy) > 8")) {
   throw new Error("Rolagem deve cancelar o toque longo do pedido.");
 }
-if (!app.includes("mobile-assistant-nav-button")) {
-  throw new Error("Assistente deve estar integrado a navegacao inferior no mobile.");
+if (!app.includes("assistant-fab assistant-fab-open")) {
+  throw new Error("Assistente deve manter a bolinha flutuante no mobile.");
 }
-if (!/body\.mobile-mode \.assistant-fab\s*\{[\s\S]*?display:none !important;/.test(css)) {
-  throw new Error("Botao flutuante do assistente deve ficar oculto no mobile.");
+if (!/body\.mobile-mode \.assistant-fab\s*\{[\s\S]*?display:inline-flex !important;[\s\S]*?position:fixed !important;/.test(css)) {
+  throw new Error("Bolinha flutuante do assistente deve permanecer fixa e visivel no mobile.");
 }
 if (!app.includes("const PRINTER_FEATURE_ENABLED = false")) {
   throw new Error("Impressoras devem permanecer desativadas nesta fase.");
@@ -67,6 +67,33 @@ if (!pedidosRecentes.includes("iniciarToqueLongoPedido(event")) {
 }
 if (app.includes('class="item-cube-icon"')) {
   throw new Error("Detalhe do pedido nao deve reservar quadrado decorativo para foto do item.");
+}
+if (!app.includes("<span>Sugestão</span>") || app.includes("<span>Sugestão discreta</span>")) {
+  throw new Error("Card inteligente da Home deve usar apenas o rotulo Sugestão.");
+}
+if (!css.includes(".dashboard-search.search-compact .search-ai-button") ||
+    !css.includes("body.theme-light .cash-top-search input")) {
+  throw new Error("Pesquisas devem manter um unico fundo, sem botao ou campo interno duplicado.");
+}
+if (!css.includes("height: 60px !important") ||
+    !css.includes("body.mobile-mode .dashboard-mobile-advanced-panel")) {
+  throw new Error("Cards da operacao avancada devem manter densidade compacta no mobile.");
+}
+if (!/body\.mobile-mode \.mobile-bottom-nav\s*\{[\s\S]*?display:\s*grid !important;[\s\S]*?z-index:\s*80 !important;/.test(css)) {
+  throw new Error("Navegacao inferior deve permanecer visivel, fixa e acima do conteudo mobile.");
+}
+const inicioProducao = app.indexOf("function renderProducao()");
+const fimProducao = app.indexOf("function renderClientes()", inicioProducao);
+const producao = app.slice(inicioProducao, fimProducao);
+if (producao.includes("trocarTela('impressoras')") ||
+    producao.includes("getImpressorasAtivas()") ||
+    !app.includes("As impressoras são controladas manualmente.")) {
+  throw new Error("Producao deve permitir apenas impressoras manuais, sem reativar monitoramento automatico.");
+}
+if (!app.includes(`{ action: "trocarTela('lojaOnline')", icon: "lojaOnline", title: "Loja online"`) ||
+    !app.includes(`{ action: "trocarTela('config')", icon: "backup", title: "Backup da empresa"`) ||
+    !app.includes(`{ action: "trocarTela('relatorios')", icon: "relatorios", title: "Logs e relatórios"`)) {
+  throw new Error("Administracao deve abrir diretamente os modulos funcionais existentes.");
 }
 
 console.log("Mobile visual stability: viewport, safe-area, touch e menu mobile verificados.");

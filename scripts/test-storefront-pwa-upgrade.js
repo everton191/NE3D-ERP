@@ -9,13 +9,8 @@ const adSense = fs.readFileSync("src/services/adSenseService.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
 const required = [
-  "simplifica-3d-v205-release-1-0-58-20260628",
   "event.request.mode === \"navigate\"",
   "display\": \"standalone\"",
-  "versionName \"1.0.58-rc\"",
-  "versionCode 57",
-  "APP_VERSION = \"1.0.58-rc\"",
-  "APP_VERSION_CODE = 57",
   "\"@capacitor/app\"",
   "web-ad-banner-visible",
   "body.web-ad-banner-visible #app-content"
@@ -23,6 +18,13 @@ const required = [
 
 const sources = [sw, manifest, gradle, app, packageJson, adSense, css].join("\n");
 const missing = required.filter((item) => !sources.includes(item));
+const appVersion = app.match(/const APP_VERSION = "([^"]+)"/)?.[1];
+const appVersionCode = Number(app.match(/const APP_VERSION_CODE = (\d+)/)?.[1]);
+const gradleVersion = gradle.match(/versionName "([^"]+)"/)?.[1];
+const gradleVersionCode = Number(gradle.match(/versionCode (\d+)/)?.[1]);
+if (!/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw)) missing.push("cache PWA versionado");
+if (!appVersion || appVersion !== gradleVersion) missing.push("versionName alinhado");
+if (!appVersionCode || appVersionCode !== gradleVersionCode) missing.push("versionCode alinhado");
 
 if (missing.length) {
   console.error("PWA/APK upgrade incompleto:", missing.join(", "));

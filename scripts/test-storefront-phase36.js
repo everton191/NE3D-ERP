@@ -4,7 +4,6 @@ const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 
 const required = [
-  "APP_VERSION = \"1.0.28-rc\"",
   "storefrontScheduleAutosave",
   "renderStorefrontRecoveryNotice",
   "abrirCropImagemLojaOnline",
@@ -16,6 +15,9 @@ const required = [
 ];
 
 const missing = required.filter((item) => !app.includes(item) && !css.includes(item));
+if (!/const APP_VERSION = "\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?";/i.test(app)) {
+  missing.unshift("APP_VERSION versionada");
+}
 
 if (missing.length) {
   console.error("Fase 3.6 incompleta:", missing.join(", "));

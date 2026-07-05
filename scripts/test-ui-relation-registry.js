@@ -6,6 +6,7 @@ const style = fs.readFileSync("style.css", "utf8");
 const designSystem = fs.readFileSync("themes/base/design-system-v2.css", "utf8");
 
 assert.ok(app.includes("const UI_BUTTON_RELATIONS = Object.freeze"), "Registro de variantes de botão ausente.");
+assert.ok(app.includes("const UI_COMPONENT_SIZE_RELATIONS = Object.freeze"), "Registro de tamanhos de botão e card ausente.");
 assert.ok(app.includes("const UI_SCREEN_RELATIONS = Object.freeze"), "Registro de telas ausente.");
 assert.ok(
   app.includes("const telas = Object.freeze(Object.fromEntries("),
@@ -13,6 +14,7 @@ assert.ok(
 );
 assert.ok(
   app.includes('data-ui-variant="${escaparAttr(relation.className)}"')
+    && app.includes('data-ui-size="${escaparAttr(size)}"')
     && app.includes('data-ui-token-set="${escaparAttr(relation.tokenSet)}"'),
   "Botão-base deve declarar sua variante e conjunto de tokens."
 );
@@ -44,5 +46,17 @@ screenEntries.forEach(([, screen, relation]) => {
   '.app-button[data-ui-variant="danger"]',
   '.app-button[data-ui-variant="success"]'
 ].forEach((selector) => assert.ok(style.includes(selector), `Relação visual ausente: ${selector}`));
+
+[
+  "--s3d-button-height-compact",
+  "--s3d-button-height-standard",
+  "--s3d-button-height-large",
+  "--s3d-card-min-height-compact",
+  "--s3d-card-min-height-standard",
+  "--s3d-card-min-height-large"
+].forEach((token) => assert.ok(style.includes(token), `Token de tamanho ausente: ${token}`));
+
+assert.ok(style.includes('.s3d-button[data-ui-size="compact"]'), "Contrato de botão compacto ausente.");
+assert.ok(style.includes('.s3d-card[data-ui-size="large"]'), "Contrato de card grande ausente.");
 
 console.log("UI relation registry: telas, botões e tokens estão vinculados.");

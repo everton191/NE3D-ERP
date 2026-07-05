@@ -28,7 +28,7 @@ includes("data-action=\"stock-output\"", "Botao de saida manual deve estar ligad
 includes("abrirSaidaManualEstoque(Number(elemento.dataset.index))", "Dispatcher deve tratar botao de saida.");
 includes("function renderListaComprasEstoque", "Alertas devem incluir lista de compras.");
 includes("usuarioPodeVerCustosEstoque", "Custos devem respeitar papel do usuario.");
-includes("Custos</span><strong>restrito", "Tela deve esconder custos de usuario sem permissao.");
+includes('podeVerCustos ? formatarMoeda(valorTotalEstoque) : "Restrito"', "Tela deve esconder o valor total do estoque de usuario sem permissao.");
 
 assert.ok(css.includes(".stock-purchase-row"), "CSS da lista de compras deve existir.");
 assert.ok(css.includes(".stock-purchase-row .status-badge"), "Lista de compras deve controlar badge no mobile.");

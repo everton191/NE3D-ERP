@@ -149,6 +149,8 @@
     "test:quick-order-multiselect": "node scripts/test-quick-order-multiselect.js",
     "test:interface-modes": "node scripts/test-interface-modes.js",
     "test:stock-stage-1": "node scripts/test-stock-stage-1.js",
+    "test:stock-batch-compact-ui": "node scripts/test-stock-batch-compact-ui.js",
+    "test:order-stock-calculator-flow": "node scripts/test-order-stock-calculator-flow.js",
     "test:navigation-stage-1": "node scripts/test-navigation-stage-1.js",
     "test:visual-polish-stage": "node scripts/test-visual-polish-stage.js",
     "test:user-facing-technical-copy": "node scripts/test-user-facing-technical-copy.js",

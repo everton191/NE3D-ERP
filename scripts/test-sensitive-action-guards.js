@@ -47,7 +47,7 @@ const requiredSnippets = [
   "O PIN deve ter de 4 a 12 dígitos numéricos.",
   "renderConfiguracaoPinAcoesSensiveis()",
   "Segurança da conta",
-  "PIN de alterações importantes e senha de acesso",
+  "PIN de ações importantes",
   "SENSITIVE_ACTION_PIN_MAX_ATTEMPTS",
   "Muitas tentativas incorretas.",
   "Escolha um PIN menos previsível.",

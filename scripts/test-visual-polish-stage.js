@@ -18,6 +18,7 @@ function sectionBetween(startMarker, endMarker) {
 const dashboardSimplifica = sectionBetween("function renderDashboardSimplifica", "function renderDashboard()");
 const profileMenu = sectionBetween("function abrirMenuUsuarioTopo", "function buscarGlobal");
 const profileScreen = sectionBetween("function renderConta()", "function renderProfileUsageTile");
+const reportsScreen = sectionBetween("function renderRelatorios()", "function getCaixaFiltroAtivo()");
 
 assert.ok(dashboardSimplifica.includes("<h1>Início</h1>"), "Home deve manter título direto");
 assert.ok(dashboardSimplifica.includes("Resumo de vendas, pedidos e caixa."), "Home deve manter subtítulo operacional");
@@ -27,9 +28,9 @@ assert.doesNotMatch(dashboardSimplifica, /Você está usando o Modo Simples/, "H
 assert.doesNotMatch(dashboardSimplifica, /trocarTela\('config'\)/, "Home não deve ter botão grande de Configurações no topo");
 assert.doesNotMatch(dashboardSimplifica, /Modo Simplifica/, "Home não deve exibir banner/cabeçalho de modo");
 
-assert.doesNotMatch(profileMenu, /abrirSeletorModoInterface/, "Avatar não deve abrir modo de uso direto");
-assert.doesNotMatch(profileMenu, /abrirSeletorTemaRapido/, "Avatar não deve abrir tema direto");
-assert.doesNotMatch(profileMenu, /Modo atual/, "Avatar não deve exibir modo atual");
+assert.match(profileMenu, /abrirSeletorModoInterface/, "Menu do perfil deve permitir trocar o modo de uso");
+assert.match(profileMenu, /abrirSeletorTemaRapido/, "Menu do perfil deve permitir trocar o tema");
+assert.match(profileMenu, /Modo de uso/, "Menu do perfil deve exibir a preferência de modo");
 assert.ok(profileMenu.includes("Meu perfil"), "Avatar deve manter Meu perfil");
 assert.ok(profileMenu.includes("Segurança da conta"), "Avatar deve manter Segurança da conta");
 assert.ok(profileMenu.includes("Notificações"), "Avatar deve manter Notificações");
@@ -40,9 +41,16 @@ assert.ok(profileScreen.includes("<strong>Modo de uso</strong>"), "Perfil deve e
 assert.ok(profileScreen.includes('profile-list-row compact'), "Preferências devem usar linhas compactas");
 assert.doesNotMatch(profileScreen, /Plano e assinatura|Funcionários|Mercado Pago|Webhooks|Superadmin/, "Perfil não deve misturar administração da empresa");
 
+assert.match(reportsScreen, /title="Abrir sugestões"/, "Sino dos relatórios deve abrir Sugestões");
+assert.match(reportsScreen, /onclick="trocarTela\('feedback'\)"/, "Sino deve navegar para a tela de Sugestões");
+assert.doesNotMatch(reportsScreen, /renderContextualAdvancedToggle\("relatorios"\)/, "Relatórios não deve repetir configuração avançada no cabeçalho");
+assert.doesNotMatch(reportsScreen, /reports-filter-button/, "Relatórios não deve repetir botão de filtros no cabeçalho");
+
 assert.doesNotMatch(css, /\.simple-mode-notice/, "CSS não deve manter card de modo da Home");
 assert.ok(css.includes("padding-bottom: calc(80px + env(safe-area-inset-bottom))"), "Mobile deve reservar espaço para bottom navigation");
 assert.ok(css.includes(".profile-interface-preferences .profile-list-row.compact"), "Perfil deve ter acabamento compacto para preferências");
+assert.ok(css.includes("body.mobile-mode .reports-kpi-slide .reports-kpi-card"), "Cards dos relatórios devem possuir contrato móvel compacto");
+assert.ok(css.includes("body.mobile-mode .reports-summary-panel"), "Resumo dos relatórios deve possuir contrato móvel compacto");
 assert.doesNotMatch(app, /Função Simplifica|Itens básicos|Coming soon|Lorem ipsum|Página exemplo|Módulo teste/, "Interface não deve expor textos de teste conhecidos");
 
 assert.ok(doc.includes("Home compacta"), "documento deve registrar revisão da Home");

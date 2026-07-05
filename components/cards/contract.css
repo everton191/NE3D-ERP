@@ -9,6 +9,23 @@
   padding:var(--space-lg);
 }
 
+.s3d-card{
+  min-width:0;
+  min-height:var(--s3d-card-min-height-standard);
+  max-width:100%;
+  padding:var(--s3d-card-padding-standard);
+}
+
+.s3d-card[data-ui-size="compact"]{
+  min-height:var(--s3d-card-min-height-compact);
+  padding:var(--s3d-card-padding-compact);
+}
+
+.s3d-card[data-ui-size="large"]{
+  min-height:var(--s3d-card-min-height-large);
+  padding:var(--s3d-card-padding-large);
+}
+
 .ds-card.elevated,
 .app-card.elevated{
   box-shadow:var(--shadow-lg);

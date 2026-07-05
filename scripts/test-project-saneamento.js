@@ -18,17 +18,19 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.61-rc\"",
-  "APP_VERSION_CODE = 60",
-  "simplifica-3d-v209-mobile-ui-scroll-20260703",
-  "versionName \"1.0.61-rc\"",
-  "versionCode 60",
-  "\"version\": \"1.0.61-rc\"",
-  "\"versionCode\": 60"
+  "APP_VERSION = \"1.0.62-rc\"",
+  "APP_VERSION_CODE = 61",
+  "versionName \"1.0.62-rc\"",
+  "versionCode 61",
+  "\"version\": \"1.0.62-rc\"",
+  "\"versionCode\": 61"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");
 const missingSignals = requiredVersionSignals.filter((item) => !sources.includes(item));
+if (!/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw)) {
+  missingSignals.push("cache PWA versionado");
+}
 if (missingSignals.length) {
   throw new Error(`PWA/APK fora da versao consolidada: ${missingSignals.join(", ")}`);
 }
