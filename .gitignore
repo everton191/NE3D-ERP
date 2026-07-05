@@ -14,6 +14,7 @@ backups/
 rollback/
 storefront-preview/
 artifacts/
+android/signing/*.keystore
 scripts/backup-supabase-public-rest.js
 /.env
 /.env.*
