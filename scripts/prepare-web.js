@@ -3,6 +3,7 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist");
+const includeReleaseDownloads = !process.argv.includes("--without-downloads");
 const files = [
   "index.html",
   "style.css",
@@ -30,11 +31,13 @@ const publicDownloadFiles = [
   "downloads/NE3D-ERP.apk"
 ];
 
-publicDownloadFiles.forEach((relativePath) => {
-  if (fs.existsSync(path.join(root, relativePath))) {
-    copyFile(relativePath);
-  }
-});
+if (includeReleaseDownloads) {
+  publicDownloadFiles.forEach((relativePath) => {
+    if (fs.existsSync(path.join(root, relativePath))) {
+      copyFile(relativePath);
+    }
+  });
+}
 
 if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
