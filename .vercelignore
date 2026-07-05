@@ -1,7 +1,6 @@
 android
 downloads/*
 !downloads/update.json
-!downloads/NE3D-ERP.apk
 node_modules
 .git
 dist
@@ -9,6 +8,7 @@ build
 coverage
 artifacts
 *.apk
+!downloads/NE3D-ERP.apk
 *.aab
 *.keystore
 *.jks
