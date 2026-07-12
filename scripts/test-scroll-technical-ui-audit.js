@@ -34,7 +34,14 @@ const requiredCss = [
   "overflow-x:clip !important;",
   "overscroll-behavior-y:auto !important;",
   ".reports-kpi-slide{",
-  ".quick-order-command-panel{"
+  ".quick-order-command-panel{",
+  "Central responsive layout authority: one vertical scroll owner per screen.",
+  "body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) #app-content .mobile-panel-content",
+  "body :where(.side-menu, .app-sidebar, .desktop-sidebar)::-webkit-scrollbar",
+  ".stock-list,\n.smart-stock-row {\n  overflow: visible !important;",
+  ".smart-stock-row:has(.stock-item-menu[open])",
+  "body[data-ui-profile=\"web_pwa\"]:not(.mobile-mode) .metric-card.desktop-dashboard-metric",
+  "min-height: 104px !important;"
 ];
 
 const forbidden = [

@@ -21,11 +21,11 @@ const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
   "updateBatches(indice, batches = []",
   "function calcularPreviaConsumoPorRolo",
   "saldoA - saldoB",
-  "STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED = true",
-  "STOCK_ROLL_AUTO_CONSUMPTION_ENABLED = false",
+  "STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED = RUNTIME_FEATURES.stockRollsEnabled !== false",
+  "STOCK_ROLL_AUTO_CONSUMPTION_ENABLED = RUNTIME_FEATURES.stockRollAutoConsumptionEnabled === true",
   "INVENTORY_BATCH_AUTO_CONSUMPTION_DISABLED",
   "A baixa por rolo de",
-  'isBatchControlled: document.getElementById("matBatchControlled")?.checked === true'
+  'isBatchControlled: podeUsarControleRolosEstoque() && document.getElementById("matBatchControlled")?.checked === true'
 ].forEach((marker) => assert.ok(app.includes(marker), `Contrato de estoque ausente: ${marker}`));
 
 [

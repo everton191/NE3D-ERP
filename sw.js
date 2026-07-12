@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v247-font-contrast-arm64-20260712";
+const CACHE_NAME = "simplifica-3d-v248-admin-pdf-contacts-20260712";
 const APP_FILES = [
   "./",
   "./index.html",

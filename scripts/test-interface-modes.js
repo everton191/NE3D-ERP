@@ -67,6 +67,8 @@ assert(css.includes(".account-security-roadmap"), "CSS deve contemplar seguranca
 assert(css.includes("body.theme-light :where(.calc-modern-screen,.calc-input-panel"), "Tema claro deve reforcar superficies solidas nos pontos desfocados");
 assert(css.includes("backdrop-filter:none !important"), "Tema claro deve remover blur residual de componentes operacionais");
 assert(css.includes(".interface-mode-modal"), "Seletor de modo deve ter modal proprio");
+assert(css.includes(".interface-mode-backdrop {\n    align-items:center;"), "Seletor de modo mobile deve ficar centralizado");
+assert(css.includes("width:min(420px, calc(100vw - 24px));"), "Modal mobile de modo deve respeitar a viewport");
 assert(css.includes("body.theme-light .interface-mode-option"), "Seletor de modo deve ter contraste no tema claro");
 assert(!app.includes("Ativar modo avançado"), "Home nao deve exibir troca global de modo");
 assert(!app.includes("Você está usando o Modo Simples"), "Home nao deve exibir aviso de modo simples");

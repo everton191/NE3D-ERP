@@ -122,11 +122,12 @@
   };
 
   api.sponsoredCard = function sponsoredCard(index = 0) {
+    if (global.__SIMPLIFICA_RUNTIME_FEATURES__?.adsEnabled === false) return "";
     return `<aside class="store-ui-card sfv3-sponsored-card" data-store-ad-slot="product-grid" data-store-ad-index="${attr(index)}" aria-label="Conteúdo patrocinado"><span class="sfv3-sponsored-card__label">Patrocinado</span><div class="sfv3-sponsored-card__body" data-store-ad-body><small>Carregando anúncio</small></div></aside>`;
   };
 
   api.productGridItems = function productGridItems(vm, products = []) {
-    if (modeOf(vm).admin) return products.map((product) => api.productCard(vm, product)).join("");
+    if (modeOf(vm).admin || global.__SIMPLIFICA_RUNTIME_FEATURES__?.adsEnabled === false) return products.map((product) => api.productCard(vm, product)).join("");
     const items = [];
     let adCount = 0;
     products.forEach((product, index) => {

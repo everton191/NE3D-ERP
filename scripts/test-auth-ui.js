@@ -28,7 +28,7 @@ const podeMostrarAssistente = extractFunction(app, "podeMostrarAssistenteAjuda")
 const renderCalculadora = extractFunction(app, "renderCalculadoraFlutuante");
 const authCode = [authPublica, authEntrar, authCriarConta].join("\n");
 
-for (const text of ["Entrar", "Criar conta", "Organize seus pedidos sem complicação", "Manter-me conectado", "Esqueci minha senha", "Ver planos e benefícios"]) {
+for (const text of ["Entrar", "Criar conta", "Organize seus pedidos sem complicação", "Salvar e-mail e senha neste navegador", "Esqueci minha senha", "Ver planos e benefícios"]) {
   assert.match(authCode, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `auth deve conter ${text}`);
 }
 

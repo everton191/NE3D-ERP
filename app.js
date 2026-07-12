@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.2";
-const APP_VERSION_CODE = 3;
+const APP_VERSION = "1.0.3";
+const APP_VERSION_CODE = 4;
 const APP_RELEASE_NOTES = Object.freeze([
   "O controle de materiais ficou mais organizado nos planos Start e Pro.",
   "Os anúncios estão pausados enquanto melhoramos a experiência do aplicativo.",
@@ -902,7 +902,7 @@ let customerSuggestionState = {
   suggestions: [],
   loading: false,
   error: "",
-  phoneContactsEnabled: false,
+  phoneContactsEnabled: true,
   searchToken: 0
 };
 let customerSuggestionDebounceTimer = null;
@@ -1096,8 +1096,8 @@ let appConfig = carregarObjeto("appConfig", {
   loginBackgroundDataUrl: "",
   customLoginMessage: "",
   pdfBackgroundDataUrl: "",
-  pdfTheme: "modern_dark",
-  pdfStyle: "modern_dark",
+  pdfTheme: "clean_white",
+  pdfStyle: "clean_white",
   pdfSecondaryColor: "#00d8c8",
   pdfHeaderText: "",
   brandWatermarkEnabled: true,
@@ -27781,7 +27781,7 @@ function renderLinhaClienteSaas(cliente) {
   const badgeTeste = cliente.isTestUser ? `<span class="status-badge badge-teste">Teste</span>` : "";
   const statusFinanceiro = resumo.statusPlano;
   const dataVencimento = assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-";
-  const ultimoAcesso = resumo.ultimoAcesso ? new Date(resumo.ultimoAcesso).toLocaleDateString("pt-BR") : "sem acesso";
+  const ultimoAcesso = resumo.ultimoAcesso ? new Date(resumo.ultimoAcesso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem acesso";
   const dataCadastro = cliente.createdAt ? new Date(cliente.createdAt).toLocaleDateString("pt-BR") : "-";
   return `
     <div class="client-admin-row ${selecionado ? "selected" : ""}" data-client-row="saas" data-client-id="${clienteIdAttr}" role="button" tabindex="0" aria-selected="${selecionado ? "true" : "false"}" onpointerdown="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" onpointermove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" onpointercancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchstart="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchmove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" ontouchcancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" onclick="selecionarResultadoClienteSaas(event, '${clienteIdAttr}')" onkeydown="acionarClienteSaasPorTeclado(event, '${clienteIdAttr}')">
@@ -33987,11 +33987,10 @@ const PDF_THEME_PRESETS = Object.freeze({
   }
 });
 
-function normalizarPdfTheme(valor = appConfig.pdfTheme || appConfig.pdfStyle || "modern_dark") {
+function normalizarPdfTheme(valor = appConfig.pdfTheme || appConfig.pdfStyle || "clean_white") {
   const tema = String(valor || "").trim().toLowerCase();
-  if (tema === "brand") return "modern_dark";
-  if (tema === "clean") return "clean_white";
-  return PDF_THEME_PRESETS[tema] ? tema : "modern_dark";
+  if (["brand", "clean", "modern_dark", "neon_dark", "compact_business"].includes(tema)) return "clean_white";
+  return "clean_white";
 }
 
 function normalizarPreferenciaTemaInterface(mode = "light") {
@@ -34133,7 +34132,7 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <label class="field">
           <span>Tema do PDF</span>
           <select id="pdfThemeConfig">
-            ${Object.entries(PDF_THEME_PRESETS).map(([id, tema]) => `<option value="${id}" ${temaPdfAtual === id ? "selected" : ""}>${escaparHtml(tema.label)}</option>`).join("")}
+            <option value="clean_white" selected>Novo padrão claro</option>
           </select>
         </label>
         <label class="field"><span>Cor secundária do PDF</span><input id="pdfSecondaryColorConfig" type="color" value="${escaparAttr(corSecundariaAtual)}"></label>

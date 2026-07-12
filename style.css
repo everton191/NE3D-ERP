@@ -47251,3 +47251,25 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
 ){
   color:#ffffff;
 }
+
+/* Superadmin must never widen the ERP viewport; internal tables wrap instead. */
+.superadmin-platform-shell,
+.superadmin-platform-shell :where(.admin-modern-panel,.clients-saas-panel,.superadmin-panel,.client-admin-row,.admin-user-row){
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+
+.superadmin-platform-shell :where(.client-admin-row,.admin-user-row){
+  overflow-wrap:anywhere;
+}
+
+@media(max-width:1100px){
+  .superadmin-platform-shell .client-admin-row{
+    grid-template-columns:minmax(0,1fr) minmax(110px,.45fr);
+  }
+  .superadmin-platform-shell .client-admin-row > :not(.client-admin-main):not(.row-actions){
+    min-width:0;
+  }
+}

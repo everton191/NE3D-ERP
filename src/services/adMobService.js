@@ -1,8 +1,8 @@
 (function (global) {
   "use strict";
 
-  const ADS_PRODUCTION_ENABLED = true;
-  const REWARDED_PRODUCTION_ENABLED = true;
+  const ADS_PRODUCTION_ENABLED = global.__SIMPLIFICA_RUNTIME_FEATURES__?.adsEnabled !== false;
+  const REWARDED_PRODUCTION_ENABLED = global.__SIMPLIFICA_RUNTIME_FEATURES__?.adsEnabled !== false;
   const ADMOB_REAL_APP_ID = "ca-app-pub-1056970757696623~2135021978";
   const ADMOB_REAL_BANNER_ID = "ca-app-pub-1056970757696623/1101141905";
   const ADMOB_REAL_INTERSTITIAL_ID = "ca-app-pub-1056970757696623/7662680829";
