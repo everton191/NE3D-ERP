@@ -8,6 +8,8 @@ assert(index.includes('["localhost", "127.0.0.1", "[::1]"]'),'rota V3 nao esta b
 assert(app.includes('window.UiV3Dev?.isRoute'),'bootstrap ERP nao desvia a rota tecnica');
 assert(build.includes('"styles/ui-v3", "src/ui-v3"'),'build nao copia a fundacao V3');
 assert(dev.includes("link.disabled=true"),'rota tecnica nao isola CSS legado');
+assert(dev.includes("root.className='ui3-app-root'"),'laboratorio deve declarar raiz de shell completo');
+assert(read('styles/ui-v3/viewport.css').includes('[data-ui-version="v3"].ui3-real-screen'),'viewport deve distinguir tela embutida do shell completo');
 const components=read('src/ui-v3/layout/components.js')+read('src/ui-v3/components/components.js')+read('src/ui-v3/forms/components.js')+read('src/ui-v3/navigation/components.js')+read('src/ui-v3/overlays/controller.js');
 ['AppShell','ContentScroller','PageContainer','PageHeader','PageSection','ResponsiveGrid','GridItem','ContentStack','SettingsList','SettingsRow','Card','FormField','Button','Dialog','BottomSheet','Drawer','ConfirmationDialog','StickyActionBar','BottomNavigation','DangerZone','ScrollableTableArea','ChartContainer'].forEach(contract=>assert(components.includes(contract),`Contrato ausente: ${contract}`));
 const tokens=read('styles/ui-v3/tokens.css'),grid=read('styles/ui-v3/grid.css'),overlay=read('src/ui-v3/overlays/controller.js'),keyboard=read('src/ui-v3/hooks/keyboard.js');

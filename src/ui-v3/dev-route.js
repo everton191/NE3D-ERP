@@ -8,7 +8,7 @@
     document.getElementById('app-shell')?.remove();
     document.getElementById('floatingCalculator')?.remove();
     document.getElementById('popup')?.remove();
-    const root=document.createElement('div');root.dataset.uiVersion='v3';root.dataset.ui3DevRoute='true';
+    const root=document.createElement('div');root.className='ui3-app-root';root.dataset.uiVersion='v3';root.dataset.ui3DevRoute='true';
     const U=global.UiV3;
     const button=(label,action,variant='secondary')=>U.Button({label,action,variant});
     const cards=[1,2,3].map((n)=>U.GridItem(U.Card({title:`Card ${n}`,content:`<p>Altura coerente e conteúdo que pode crescer sem quebrar a coluna.</p>`}),{span:4})).join('');

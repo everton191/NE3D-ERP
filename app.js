@@ -1368,17 +1368,10 @@ async function sincronizarPreferenciaModoInterface() {
 
 function abrirSeletorModoInterface() {
   const mode = getInterfaceMode();
-  const popup = document.getElementById("popup");
-  if (!popup) return;
-  popup.innerHTML = `
-    <div class="modal-backdrop interface-mode-backdrop" role="dialog" aria-modal="true" aria-labelledby="interfaceModeTitle" onclick="fecharPopup()">
-      <section class="modal-card interface-mode-modal" onclick="event.stopPropagation()">
-        <div class="modal-header">
-          <div><span class="eyebrow">Preferência pessoal</span><h2 id="interfaceModeTitle">Modo de uso</h2></div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
-        </div>
-        <p class="muted">Escolha o nível de detalhes da interface. Isso não altera seu plano nem suas permissões.</p>
-        <div class="interface-mode-options" role="radiogroup" aria-label="Modo da interface">
+  if (window.UiV3?.Dialog) {
+    window.UiV3.Dialog({ title: "Modo de uso", content: `
+        <p>Escolha o nível de detalhes da interface. Isso não altera seu plano nem suas permissões.</p>
+        <div class="ui3-settings-list" role="radiogroup" aria-label="Modo da interface">
           <button class="interface-mode-option ${mode === "simplifica" ? "active" : ""}" type="button" role="radio" aria-checked="${mode === "simplifica"}" onclick="selecionarModoInterface('simple')">
             <span class="interface-mode-option-icon" aria-hidden="true">${renderUiIcon("home")}</span>
             <span><strong>Usar modo simples</strong><small>Menus reduzidos e fluxos diretos</small></span>
@@ -1390,13 +1383,12 @@ function abrirSeletorModoInterface() {
             <span class="interface-mode-option-check" aria-hidden="true">✓</span>
           </button>
         </div>
-      </section>
-    </div>
-  `;
+    ` });
+  }
 }
 
 function selecionarModoInterface(mode) {
-  fecharPopup();
+  window.UiV3?.closeOverlay?.();
   setInterfaceMode(mode);
 }
 
@@ -6393,25 +6385,25 @@ function renderSegurancaContaOnline() {
   const events = (accountSecurityState.events || []).slice(0, 8);
   return `
     <div class="security-online-grid">
-      <section class="security-settings-card">
+      <section class="ui3-security-card">
         <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("seguranca")}</span><div><h3>Autenticação em dois fatores</h3><small>Canal: E-mail</small></div><span class="status-badge ${twoFactor ? "badge-ativo" : ""}">${twoFactor ? "Ativado" : "Desativado"}</span></div>
         <div class="actions">${twoFactor ? `<button class="btn ghost" type="button" onclick="solicitarDesativacao2FAEmail()">Desativar 2FA</button>` : `<button class="btn" type="button" onclick="solicitarAtivacao2FAEmail()">Ativar 2FA por e-mail</button>`}</div>
       </section>
-      <section class="security-settings-card">
+      <section class="ui3-security-card">
         <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("conta")}</span><div><h3>Login com Google</h3><small>Conectado pelo Supabase Auth</small></div><span class="status-badge badge-ativo">Disponível</span></div>
       </section>
-      <section class="security-settings-card">
+      <section class="ui3-security-card">
         <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("backup")}</span><div><h3>Exportar dados</h3><small>Gera uma cópia dos dados da conta.</small></div></div>
         <div class="actions"><button class="btn secondary" type="button" onclick="exportarDadosContaSeguro()">Exportar dados</button></div>
       </section>
-      ${owner ? `<section class="security-settings-card danger-zone account-danger-zone">
+      ${owner ? `<section class="ui3-security-card ui3-danger-zone account-danger-zone">
         <div class="security-card-heading"><span class="security-card-icon">${renderUiIcon("trash")}</span><div><h3>Zona de perigo</h3><small>Exclusão com prazo de arrependimento de 15 dias.</small></div></div>
         ${deletion?.status === "confirmed"
           ? `<p>Exclusão agendada para <strong>${escaparHtml(new Date(deletion.scheduled_delete_at).toLocaleDateString("pt-BR"))}</strong>.</p><div class="actions"><button class="btn secondary" type="button" onclick="cancelarExclusaoConta()">Cancelar exclusão</button></div>`
           : `<div class="actions"><button class="btn danger" type="button" onclick="solicitarExclusaoConta()">Solicitar exclusão da conta</button></div>`}
       </section>` : ""}
     </div>
-    <section class="security-settings-card"><h3>Histórico de segurança</h3><div class="history-list">${events.length ? events.map((item) => `<div class="history-item"><strong>${escaparHtml(item.message || item.event_type)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}</span></div>`).join("") : `<p class="empty">Nenhum evento registrado.</p>`}</div></section>`;
+    <section class="ui3-security-card"><h3>Histórico de segurança</h3><div class="history-list">${events.length ? events.map((item) => `<div class="history-item"><strong>${escaparHtml(item.message || item.event_type)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}</span></div>`).join("") : `<p class="empty">Nenhum evento registrado.</p>`}</div></section>`;
 }
 
 function contaPendenteExclusao() {
@@ -16008,14 +16000,14 @@ function renderConta() {
   if (!usuario) return renderAcessoNegado();
   const fotoPerfilAtual = appConfig.profilePhotoDataUrl || usuario.avatarUrl || usuario.avatar_url || "";
   return `
-    <section class="profile-modern-screen">
-      <div class="profile-modern-header">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="conta">
+      <div class="ui3-page-header ui3-profile-header">
         <span></span>
         <h2>Meu Perfil</h2>
         <button class="icon-action-button" type="button" onclick="abrirNotificacoesOperacionais()" title="Notificações">${renderUiIcon("bell")}</button>
       </div>
 
-      <button class="profile-modern-user-card" type="button" onclick="abrirDadosPessoaisUsuario()">
+      <button class="ui3-profile-hero" type="button" onclick="abrirDadosPessoaisUsuario()">
         <span class="profile-modern-avatar ${escaparAttr(getAvatarPlanoClasseUsuario(usuario))}">
           ${fotoPerfilAtual ? `<img src="${escaparAttr(fotoPerfilAtual)}" alt="Foto do usuário">` : `<i>${escaparHtml(getUserInitials(usuario.nome || usuario.email))}</i>`}
           <em>${renderUiIcon("edit")}</em>
@@ -16028,7 +16020,7 @@ function renderConta() {
         <span class="profile-row-arrow">Editar</span>
       </button>
 
-      <section class="profile-modern-card profile-list-card">
+      <section class="ui3-section ui3-profile-section">
         <h3>Conta</h3>
         <div class="profile-inline-edit-card">
           <div class="profile-section-title compact">
@@ -16050,26 +16042,26 @@ function renderConta() {
             ${renderAppButton({ label: "Edição completa", variant: "secondary", action: "abrirDadosPessoaisUsuario()" })}
           </div>
         </div>
-        <button class="profile-list-row" type="button" data-profile-action="photo">${renderUiIcon("conta")} <span>Alterar foto do perfil</span><b>›</b></button>
-        <button class="profile-list-row" type="button" data-profile-action="security">${renderUiIcon("seguranca")} <span>Segurança, dados e exclusão da conta</span><b>›</b></button>
+        <div class="ui3-settings-list"><button class="ui3-settings-row" type="button" data-profile-action="photo"><span class="ui3-settings-row__icon">${renderUiIcon("conta")}</span><span>Alterar foto do perfil</span><b>›</b></button>
+        <button class="ui3-settings-row" type="button" data-profile-action="security"><span class="ui3-settings-row__icon">${renderUiIcon("seguranca")}</span><span>Segurança, dados e exclusão da conta</span><b>›</b></button></div>
       </section>
 
-      <section class="profile-modern-card profile-list-card profile-interface-preferences">
+      <section class="ui3-section ui3-profile-section profile-interface-preferences">
         <h3>Preferências da interface</h3>
-        <button class="profile-list-row compact" type="button" onclick="abrirSeletorTemaRapido()">${renderUiIcon("aparencia")} <span><strong>Tema do ERP</strong><small>${escaparHtml(getThemePreferenceLabel(appConfig.theme))}</small></span><b>Alterar</b></button>
-        <button class="profile-list-row compact" type="button" onclick="abrirSeletorModoInterface()">${renderUiIcon("config")} <span><strong>Modo de uso</strong><small>${escaparHtml(isSimplificaMode() ? "Simples" : "Avançado")}</small></span><b>Alterar</b></button>
-        <button class="profile-list-row" type="button" data-profile-action="notifications">${renderUiIcon("bell")} <span>Notificações pessoais</span><b>›</b></button>
+        <div class="ui3-settings-list"><button class="ui3-settings-row" type="button" onclick="abrirSeletorTemaRapido()"><span class="ui3-settings-row__icon">${renderUiIcon("aparencia")}</span><span><strong>Tema do ERP</strong><small>${escaparHtml(getThemePreferenceLabel(appConfig.theme))}</small></span><b>Alterar</b></button>
+        <button class="ui3-settings-row" type="button" onclick="abrirSeletorModoInterface()"><span class="ui3-settings-row__icon">${renderUiIcon("config")}</span><span><strong>Modo de uso</strong><small>${escaparHtml(isSimplificaMode() ? "Simples" : "Avançado")}</small></span><b>Alterar</b></button>
+        <button class="ui3-settings-row" type="button" data-profile-action="notifications"><span class="ui3-settings-row__icon">${renderUiIcon("bell")}</span><span>Notificações pessoais</span><b>›</b></button></div>
       </section>
 
-      <section class="profile-modern-card profile-list-card">
+      <section class="ui3-section ui3-profile-section">
         <h3>Ajuda</h3>
         ${renderProfileMenuRow("sobre", "Sobre o Simplifica 3D", "sobre")}
         ${renderProfileMenuRow("feedback", "Enviar sugestão ou suporte", "feedback")}
       </section>
 
-      <section class="profile-modern-card profile-list-card">
+      <section class="ui3-section ui3-profile-section ui3-session-zone">
         <h3>Sessão</h3>
-        <button class="profile-list-row danger" type="button" data-profile-action="logout">${renderUiIcon("back")} <span>Sair ou trocar de conta</span><b>›</b></button>
+        <button class="ui3-settings-row" type="button" data-profile-action="logout"><span class="ui3-settings-row__icon">${renderUiIcon("back")}</span><span>Sair ou trocar de conta</span><b>›</b></button>
       </section>
     </section>
   `;
@@ -16088,7 +16080,7 @@ function renderProfileUsageTile(icon, label, value, percent = 0) {
 }
 
 function renderProfileMenuRow(icon, label, tela) {
-  return `<button class="profile-list-row" type="button" data-profile-screen="${escaparAttr(tela)}">${renderUiIcon(icon)} <span>${escaparHtml(label)}</span><b>›</b></button>`;
+  return `<button class="ui3-settings-row" type="button" data-profile-screen="${escaparAttr(tela)}"><span class="ui3-settings-row__icon">${renderUiIcon(icon)}</span><span>${escaparHtml(label)}</span><b>›</b></button>`;
 }
 
 function abrirSegurancaPerfil() {
@@ -31939,8 +31931,8 @@ function renderSeguranca() {
   `).join("") || `<p class="empty">Nenhum log de segurança registrado.</p>`;
 
   return `
-    <section class="card security-page">
-      <header class="security-page-header">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="seguranca">
+      <header class="ui3-page-header ui3-security-header">
         <div>
           <h2>Segurança</h2>
           <p>Senha, PIN e proteção deste aparelho em um só lugar.</p>
@@ -31948,39 +31940,39 @@ function renderSeguranca() {
         <span class="security-auth-badge ${usuarioEstaBloqueado(usuario) ? "is-danger" : ""}">${renderUiIcon("seguranca")} ${usuario.ativo === false ? "Inativa" : "Protegida"}</span>
       </header>
 
-      <div class="security-overview security-page-overview">
+      <div class="ui3-grid ui3-security-overview">
         <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("conta")}</span><span><small>Conta</small><strong>${escaparHtml(usuario.email)}</strong></span></div>
         <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("seguranca")}</span><span><small>Perfil</small><strong>${escaparHtml(usuario.papel)}</strong></span></div>
         <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("time")}</span><span><small>Último acesso</small><strong>${usuario.lastLoginAt ? new Date(usuario.lastLoginAt).toLocaleString("pt-BR") : "Não registrado"}</strong></span></div>
         <div class="security-summary-item"><span class="security-summary-icon">${renderUiIcon("dashboard")}</span><span><small>Sessão</small><strong>${sessionStorage.getItem("usuarioAtualEmail") ? "Ativa" : "Local"}</strong></span></div>
       </div>
 
-      <div class="security-page-sections">
-        <details class="settings-group security-settings-card security-mobile-card" open>
-          <summary class="security-card-heading security-mobile-card-summary">
+      <div class="ui3-stack ui3-gap-3 ui3-security-sections">
+        <details class="ui3-security-card" open>
+          <summary class="ui3-security-card-heading">
             <span class="security-card-icon">${renderUiIcon("config")}</span>
             <div><h3>Alterar senha</h3><small>Atualize a senha usada para entrar na conta.</small></div>
             <span class="security-mobile-chevron">›</span>
           </summary>
-          <div class="security-mobile-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
+          <div class="ui3-security-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
         </details>
 
-        <details class="settings-group security-settings-card security-mobile-card">
-          <summary class="security-card-heading security-mobile-card-summary">
+        <details class="ui3-security-card">
+          <summary class="ui3-security-card-heading">
             <span class="security-card-icon security-card-icon-warning">${renderUiIcon("seguranca")}</span>
             <div><h3>PIN de ações importantes</h3><small>Confirme alterações críticas sem repetir a senha longa.</small></div>
             <span class="security-mobile-chevron">›</span>
           </summary>
-          <div class="security-mobile-card-body">${renderConfiguracaoPinAcoesSensiveis()}</div>
+          <div class="ui3-security-card-body">${renderConfiguracaoPinAcoesSensiveis()}</div>
         </details>
 
-        <details class="settings-group security-settings-card security-mobile-card">
-          <summary class="security-card-heading security-mobile-card-summary">
+        <details class="ui3-security-card">
+          <summary class="ui3-security-card-heading">
             <span class="security-card-icon">${renderUiIcon("dashboard")}</span>
             <div><h3>Sessão neste aparelho</h3><small>Controle o login salvo e encerre a sessão com segurança.</small></div>
             <span class="security-mobile-chevron">›</span>
           </summary>
-          <div class="security-mobile-card-body security-page-card-content">
+          <div class="ui3-security-card-body">
             <label class="checkbox-row">
               <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
               <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha.</small></span>
@@ -31992,13 +31984,13 @@ function renderSeguranca() {
           </div>
         </details>
 
-        <details class="settings-group security-settings-card security-mobile-card">
-          <summary class="security-card-heading security-mobile-card-summary">
+        <details class="ui3-security-card">
+          <summary class="ui3-security-card-heading">
             <span class="security-card-icon">${renderUiIcon("seguranca")}</span>
             <div><h3>Biometria e permissões</h3><small>Use a proteção nativa configurada no celular.</small></div>
             <span class="security-mobile-chevron">›</span>
           </summary>
-          <div class="security-mobile-card-body security-page-card-content">
+          <div class="ui3-security-card-body">
             <label class="checkbox-row">
               <input id="biometricEnabledConfig" type="checkbox" ${appConfig.biometricEnabled ? "checked" : ""} onchange="alternarBiometriaSeguranca()">
               <span><strong>Usar proteção do aparelho</strong><small>Digital, rosto, PIN, padrão ou senha do Android.</small></span>
@@ -32011,16 +32003,16 @@ function renderSeguranca() {
           </div>
         </details>
 
-        <details class="settings-group security-settings-card security-mobile-card security-logs-card">
-          <summary class="security-card-heading security-mobile-card-summary">
+        <details class="ui3-security-card ui3-security-logs-card">
+          <summary class="ui3-security-card-heading">
             <span class="security-card-icon">${renderUiIcon("history")}</span>
             <div><h3>Atividade de segurança</h3><small>Últimos acessos e alterações protegidas.</small></div>
             <span class="security-mobile-chevron">›</span>
           </summary>
-          <div class="security-mobile-card-body"><div class="history-list">${logs}</div></div>
+          <div class="ui3-security-card-body"><div class="history-list">${logs}</div></div>
         </details>
       </div>
-      <section class="security-account-online-section">
+      <section class="ui3-danger-zone security-account-online-section">
         <div class="security-section-title">
           <div><h3>Conta online</h3><p>2FA, exportação de dados e exclusão da conta.</p></div>
           <span class="status-badge">${accountSecurityState.loaded ? "Atualizado" : "Verificando"}</span>

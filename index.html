@@ -18,23 +18,22 @@
   <link rel="stylesheet" href="/src/storefront/styles/components.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/layouts.css?v=store-categories-vertical-card-20260628">
   <link rel="stylesheet" href="/src/styles/google-expressive-motion.css?v=1.0.57-rc-plans-release-20260628">
+  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=stage3-screen-migration">
+  <script src="/src/ui-v3/components/foundation.js"></script>
+  <script src="/src/ui-v3/layout/components.js"></script>
+  <script src="/src/ui-v3/components/components.js"></script>
+  <script src="/src/ui-v3/forms/components.js"></script>
+  <script src="/src/ui-v3/navigation/components.js"></script>
+  <script src="/src/ui-v3/feedback/components.js"></script>
+  <script src="/src/ui-v3/overlays/controller.js"></script>
+  <script src="/src/ui-v3/hooks/keyboard.js"></script>
+  <script src="/src/ui-v3/dev-route.js"></script>
   <script>
     (() => {
       const local = ["localhost", "127.0.0.1", "[::1]"].includes(location.hostname);
       const uiV3Route = location.pathname.replace(/\/+$/, "").toLowerCase() === "/dev/ui-v3";
       if (!local || !uiV3Route) return;
-      document.write('<link rel="stylesheet" href="/styles/ui-v3/index.css">');
-      [
-        "/src/ui-v3/components/foundation.js",
-        "/src/ui-v3/layout/components.js",
-        "/src/ui-v3/components/components.js",
-        "/src/ui-v3/forms/components.js",
-        "/src/ui-v3/navigation/components.js",
-        "/src/ui-v3/feedback/components.js",
-        "/src/ui-v3/overlays/controller.js",
-        "/src/ui-v3/hooks/keyboard.js",
-        "/src/ui-v3/dev-route.js"
-      ].forEach((src) => document.write(`<script src="${src}"><\/script>`));
+      document.documentElement.dataset.uiV3DevRoute = "true";
     })();
   </script>
 <meta property="og:title" content="Simplifica 3D">

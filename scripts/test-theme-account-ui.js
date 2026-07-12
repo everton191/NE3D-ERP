@@ -26,7 +26,10 @@ assert.ok(app.includes("Segurança, dados e exclusão da conta"), "perfil deve e
 assert.match(app, /function abrirSegurancaPerfil\(\)\s*\{\s*trocarTela\("seguranca"\)/, "atalho do perfil deve abrir a tela dedicada de segurança");
 assert.ok(app.includes('data-profile-action="security"'), "ação de segurança do perfil deve usar ligação declarativa");
 assert.ok(app.includes("function configurarAcoesPerfil"), "ações do perfil devem ser vinculadas após cada renderização");
-assert.ok(app.includes('<section class="security-account-online-section">'), "tela dedicada deve exibir segurança online");
+assert.match(app, /<section class="[^"]*security-account-online-section[^"]*">/, "tela dedicada deve exibir segurança online");
+assert.ok(app.includes('data-ui3-screen="seguranca"'), "segurança deve consumir a raiz UI V3");
+assert.ok(app.includes('data-ui3-screen="conta"'), "conta deve consumir a raiz UI V3");
+assert.ok(app.includes("window.UiV3.Dialog"), "modo de uso deve abrir no Dialog oficial");
 assert.ok(app.includes("Solicitar exclusão da conta"), "exclusão de conta deve permanecer disponível na segurança");
 assert.ok(app.includes("Ativar 2FA por e-mail"), "2FA por e-mail deve permanecer disponível");
 assert.doesNotMatch(app, /renderProfileMenuRow\("personalizacao",\s*"Aparência do app"/, "perfil não deve duplicar o seletor de tema");
