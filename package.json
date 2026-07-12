@@ -7,6 +7,8 @@
     "build": "npm run build:web",
     "vercel-build": "npm run build:web",
     "build:web": "node scripts/prepare-web.js",
+    "lint": "node --check app.js",
+    "typecheck": "tsc -p tsconfig.ui-v3.json",
     "supabase:help": "supabase --help",
     "supabase:login": "supabase login",
     "supabase:link": "supabase link --project-ref qsufnnivlgdidmjuaprb",
