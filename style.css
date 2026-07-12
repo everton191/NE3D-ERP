@@ -837,31 +837,6 @@ body.mobile-mode .mobile-panel-order .mobile-panel-content{
   padding:10px 10px calc(178px + env(safe-area-inset-bottom));
 }
 
-body.mobile-mode .mobile-panel .order-edit-screen,
-body[data-ui-profile="android_apk"] .mobile-panel .order-edit-screen,
-body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel .order-edit-screen{
-  overflow:visible;
-  min-height:auto;
-  gap:8px;
-  padding:10px;
-  padding-bottom:calc(156px + env(safe-area-inset-bottom));
-  border-radius:20px;
-}
-
-body.mobile-mode .order-edit-screen .card-header,
-body[data-ui-profile="android_apk"] .order-edit-screen .card-header,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .card-header{
-  padding-bottom:7px;
-  margin-bottom:0;
-}
-
-body.mobile-mode .order-edit-screen .card-header h2,
-body[data-ui-profile="android_apk"] .order-edit-screen .card-header h2,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .card-header h2{
-  font-size:22px;
-  line-height:1.08;
-}
-
 body.mobile-mode .order-mini-summary,
 body[data-ui-profile="android_apk"] .order-mini-summary,
 body[data-ui-profile="web_pwa"].mobile-mode .order-mini-summary{
@@ -887,42 +862,6 @@ body[data-ui-profile="android_apk"] .order-mini-summary span,
 body[data-ui-profile="web_pwa"].mobile-mode .order-mini-summary span{
   font-size:11px;
   line-height:1.16;
-}
-
-body.mobile-mode .order-edit-screen .order-status-badge,
-body[data-ui-profile="android_apk"] .order-edit-screen .order-status-badge,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .order-status-badge{
-  min-height:25px;
-  padding:0 8px;
-  font-size:11px;
-}
-
-body.mobile-mode .order-edit-screen .ui-tabs,
-body[data-ui-profile="android_apk"] .order-edit-screen .ui-tabs,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .ui-tabs{
-  display:grid;
-  grid-template-columns:repeat(4, minmax(0, 1fr));
-  gap:6px;
-  overflow:visible;
-  padding:0 0 4px;
-}
-
-body.mobile-mode .order-edit-screen .ui-tab,
-body[data-ui-profile="android_apk"] .order-edit-screen .ui-tab,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .ui-tab{
-  min-width:0;
-  min-height:36px;
-  padding:0 5px;
-  border-radius:13px;
-  gap:4px;
-  font-size:11px;
-  line-height:1;
-}
-
-body.mobile-mode .order-edit-screen .ui-tab span[aria-hidden="true"],
-body[data-ui-profile="android_apk"] .order-edit-screen .ui-tab span[aria-hidden="true"],
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .ui-tab span[aria-hidden="true"]{
-  display:none;
 }
 
 body.mobile-mode .order-step-panel,
@@ -961,98 +900,6 @@ body[data-ui-profile="android_apk"] .order-item-edit-grid,
 body[data-ui-profile="web_pwa"].mobile-mode .order-summary-grid,
 body[data-ui-profile="web_pwa"].mobile-mode .order-item-edit-grid{
   gap:8px;
-}
-
-body.mobile-mode .order-edit-screen .field,
-body[data-ui-profile="android_apk"] .order-edit-screen .field,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .field{
-  gap:4px;
-  margin-bottom:5px;
-}
-
-body.mobile-mode .order-edit-screen .field span,
-body[data-ui-profile="android_apk"] .order-edit-screen .field span,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen .field span{
-  font-size:12px;
-  line-height:1.15;
-}
-
-body.mobile-mode .order-edit-screen input,
-body.mobile-mode .order-edit-screen select,
-body.mobile-mode .order-edit-screen textarea,
-body[data-ui-profile="android_apk"] .order-edit-screen input,
-body[data-ui-profile="android_apk"] .order-edit-screen select,
-body[data-ui-profile="android_apk"] .order-edit-screen textarea,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen input,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen select,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen textarea{
-  min-height:44px;
-  padding:8px 10px;
-  border-radius:14px;
-  font-size:15px;
-  line-height:1.15;
-}
-
-body.mobile-mode .order-edit-screen textarea,
-body[data-ui-profile="android_apk"] .order-edit-screen textarea,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen textarea{
-  min-height:74px;
-}
-
-body.mobile-mode .order-edit-screen input[type="date"],
-body[data-ui-profile="android_apk"] .order-edit-screen input[type="date"],
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen input[type="date"]{
-  -webkit-appearance:none;
-  appearance:none;
-  position:relative;
-  padding-right:38px;
-}
-
-body.mobile-mode .order-edit-screen input[type="date"]::-webkit-calendar-picker-indicator,
-body[data-ui-profile="android_apk"] .order-edit-screen input[type="date"]::-webkit-calendar-picker-indicator,
-body[data-ui-profile="web_pwa"].mobile-mode .order-edit-screen input[type="date"]::-webkit-calendar-picker-indicator{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  margin:0;
-  padding:0;
-  opacity:0;
-}
-
-body.mobile-mode .order-bottom-bar,
-body[data-ui-profile="android_apk"] .order-bottom-bar,
-body[data-ui-profile="web_pwa"].mobile-mode .order-bottom-bar{
-  left:12px;
-  right:12px;
-  bottom:calc(76px + env(safe-area-inset-bottom));
-  z-index:53;
-  grid-template-columns:minmax(0, 1fr) auto;
-  padding:8px;
-  border-radius:17px;
-}
-
-body.mobile-mode .order-bottom-bar .btn,
-body[data-ui-profile="android_apk"] .order-bottom-bar .btn,
-body[data-ui-profile="web_pwa"].mobile-mode .order-bottom-bar .btn{
-  min-width:0;
-  min-height:38px;
-  padding:0 10px;
-  font-size:12px;
-  border-radius:13px;
-}
-
-body.mobile-mode .order-bottom-bar .btn.secondary,
-body[data-ui-profile="android_apk"] .order-bottom-bar .btn.secondary,
-body[data-ui-profile="web_pwa"].mobile-mode .order-bottom-bar .btn.secondary{
-  display:none;
-}
-
-body.mobile-mode .order-bottom-bar strong,
-body[data-ui-profile="android_apk"] .order-bottom-bar strong,
-body[data-ui-profile="web_pwa"].mobile-mode .order-bottom-bar strong{
-  font-size:17px;
-  line-height:1.05;
 }
 
 body{
@@ -4080,21 +3927,6 @@ body.theme-light .cash-session-panel{
   grid-column:1 / -1;
 }
 
-.order-edit-screen{
-  min-height:min(760px, calc(100dvh - 110px));
-}
-
-.mobile-panel .order-edit-screen{
-  min-height:calc(100dvh - 96px);
-  padding-bottom:calc(var(--floating-button-size) + 28px);
-}
-
-.order-flow-screen{
-  display:grid;
-  gap:12px;
-  padding-bottom:calc(86px + env(safe-area-inset-bottom));
-}
-
 .order-edit-header{
   margin-bottom:0;
 }
@@ -4976,49 +4808,6 @@ body.theme-light .cash-session-panel{
 .duplicate-item-preview span{
   color:var(--muted);
   font-size:var(--font-sm);
-}
-
-.order-bottom-bar{
-  position:sticky;
-  bottom:calc(8px + env(safe-area-inset-bottom));
-  z-index:20;
-  display:grid;
-  grid-template-columns:minmax(0, 1fr) auto auto;
-  align-items:center;
-  gap:8px;
-  padding:10px;
-  border:1px solid rgba(13,189,184,.24);
-  border-radius:20px;
-  background:linear-gradient(145deg, rgba(8,15,23,.88), rgba(7,53,58,.86));
-  box-shadow:0 14px 34px rgba(0,0,0,.36);
-  backdrop-filter:blur(10px);
-}
-
-.order-bottom-bar span{
-  display:block;
-  color:var(--muted);
-  font-size:var(--font-xs);
-}
-
-.order-bottom-bar strong{
-  display:block;
-  font-size:var(--font-lg);
-}
-
-.order-bottom-bar small{
-  display:block;
-  color:var(--muted);
-  font-size:var(--font-xs);
-}
-
-.order-bottom-bar em{
-  color:var(--text);
-  font-style:normal;
-}
-
-.order-bottom-bar .btn{
-  width:auto;
-  min-width:92px;
 }
 
 .order-financial-summary{
@@ -9771,10 +9560,6 @@ body.theme-light .calc-material-select option{
     width:100%;
   }
 
-  .order-flow-screen{
-    padding-bottom:calc(138px + env(safe-area-inset-bottom));
-  }
-
   .order-mini-summary{
     top:calc(var(--mobile-header-height) + 6px);
     align-items:flex-start;
@@ -9828,19 +9613,6 @@ body.theme-light .calc-material-select option{
     align-items:center;
     flex-direction:row;
     justify-content:flex-end;
-  }
-
-  .order-bottom-bar{
-    position:fixed;
-    left:10px;
-    right:10px;
-    bottom:calc(82px + env(safe-area-inset-bottom));
-    grid-template-columns:minmax(0, 1fr) auto auto;
-  }
-
-  .order-bottom-bar .btn{
-    min-width:74px;
-    padding:0 10px;
   }
 
   .order-detail-actions{
@@ -17546,27 +17318,10 @@ body[data-ui-profile="android_apk"].mobile-mode .profile-usage-tile{
   font-size:13px;
 }
 .cash-cancel-summary small{ color:rgba(148,163,184,.78); }
-.stock-page-header{
-  align-items:center;
-  gap:12px;
-}
-.stock-page-header h2{
-  margin:0;
-}
 .stock-header-actions{
   display:flex;
   align-items:center;
   gap:8px;
-}
-.stock-page .metrics{
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-}
-.stock-page .metric{
-  min-height:74px;
-  padding:10px 11px;
-}
-.stock-page .metric strong{
-  font-size:17px;
 }
 .stock-search-field{
   margin:8px 0 10px;
@@ -17942,10 +17697,6 @@ body[data-ui-profile="android_apk"].mobile-mode .profile-usage-tile{
 .menu-plan-footnote{
   margin:2px 4px 0;
   font-size:12px;
-}
-.clients-compact-screen{
-  display:grid;
-  gap:10px;
 }
 .client-compact-row{
   width:100%;
@@ -21714,15 +21465,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .pwa-page-header h1{
   line-height:1.05;
 }
 
-body[data-ui-profile="web_pwa"]:not(.mobile-mode) .clients-compact-screen{
-  padding:18px;
-}
-
-body[data-ui-profile="web_pwa"]:not(.mobile-mode) .clients-compact-screen .card-header{
-  padding-bottom:12px;
-  border-bottom:1px solid var(--color-divider);
-}
-
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .clients-compact-metrics,
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-page-caixa .metrics,
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-page-estoque .metrics{
@@ -21858,18 +21600,6 @@ body.theme-light[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.desktop-pa
 
 body.theme-light[data-ui-profile="web_pwa"]:not(.mobile-mode) :where(.reports-title-row p,.reports-kpi-copy small,.reports-kpi-copy em,.client-compact-main small,.cash-row-date,.field span){
   color:var(--color-text-muted);
-}
-
-body[data-ui-profile="web_pwa"]:not(.mobile-mode) .clients-compact-screen .clients-compact-metrics{
-  display:grid !important;
-  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)) !important;
-  gap:10px !important;
-  align-items:stretch;
-}
-
-body[data-ui-profile="web_pwa"]:not(.mobile-mode) .clients-compact-screen .clients-compact-metrics > .metric{
-  width:auto !important;
-  min-width:0;
 }
 
 /* ERP/PWA modal and form audit - fase 1.6 */
@@ -42374,10 +42104,6 @@ body.mobile-mode :where(
 }
 
 @media (max-width: 767px){
-  body.mobile-mode .stock-page{
-    padding:10px !important;
-    padding-bottom:90px !important;
-  }
 
   body.mobile-mode .stock-summary-grid{
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -43696,10 +43422,6 @@ body.theme-light .stock-add-fab {
     height: 23px !important;
   }
 
-  body.mobile-mode:has(.stock-page) .assistant-fab {
-    bottom: calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 76px) !important;
-  }
-
   body.mobile-mode .cash-open-action-card .actions,
   body.mobile-mode .statement-actions {
     display: grid !important;
@@ -43714,28 +43436,6 @@ body.theme-light .stock-add-fab {
     padding: 7px 10px !important;
     font-size: 11px !important;
   }
-}
-
-/* Manual production queue. */
-.production-page {
-  display: grid;
-  gap: 12px;
-  overflow: hidden;
-}
-
-.production-page-header {
-  align-items: flex-start;
-}
-
-.production-page-header h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.production-page-header h2 svg {
-  width: 21px;
-  height: 21px;
 }
 
 .production-tabs {
@@ -44090,19 +43790,6 @@ body.theme-light .production-search input {
 }
 
 @media (max-width: 767px) {
-  body.mobile-mode .production-page {
-    gap: 8px;
-    padding: 9px !important;
-    padding-bottom: calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 18px) !important;
-  }
-
-  body.mobile-mode .production-page-header h2 {
-    font-size: 16px;
-  }
-
-  body.mobile-mode .production-page-header p {
-    font-size: 10px;
-  }
 
   body.mobile-mode .production-tabs {
     width: 100%;
@@ -44564,11 +44251,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .reports-quick-tile {
     line-height: 1.15 !important;
   }
 
-  body[data-ui-profile="web_pwa"].mobile-mode .stock-page {
-    padding: 8px !important;
-    padding-bottom: calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 18px) !important;
-  }
-
   body[data-ui-profile="web_pwa"].mobile-mode .stock-summary-grid {
     gap: 6px !important;
   }
@@ -44631,10 +44313,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .reports-quick-tile {
   body[data-ui-profile="web_pwa"].mobile-mode .stock-row-main-button .muted,
   body[data-ui-profile="web_pwa"].mobile-mode .stock-percent-box .status-badge {
     font-size: 8.5px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .production-page {
-    padding: 8px !important;
   }
 
   body[data-ui-profile="web_pwa"].mobile-mode .production-filter-bar {

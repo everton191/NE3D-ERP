@@ -1,7 +1,9 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
+const css = ["style.css", "styles/ui-v3/screens/operational.css"]
+  .map((file) => fs.readFileSync(file, "utf8"))
+  .join("\n");
 const migration = fs.readFileSync("supabase/migrations/20260704170000_manual_production_foundation.sql", "utf8");
 
 const appMarkers = [
@@ -57,7 +59,7 @@ const cssMarkers = [
   ".production-job-controls",
   ".stock-row-main-button",
   "body.theme-light .stock-add-fab",
-  "body.mobile-mode:has(.stock-page) .assistant-fab"
+  'body.mobile-mode:has([data-ui-version="v3"][data-ui3-screen="estoque"]) .assistant-fab'
 ];
 const missingCss = cssMarkers.filter((marker) => !css.includes(marker));
 if (missingCss.length) {
