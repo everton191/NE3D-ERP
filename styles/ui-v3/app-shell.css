@@ -4,5 +4,5 @@
 body.ui3-route-active{height:100vh;height:100dvh;overflow:hidden}
 #app-shell.ui3-app-shell-host{height:100vh;height:100dvh;min-height:0;overflow:hidden}
 #app-shell.ui3-app-shell-host>#app-content.ui3-content-scroller{min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scroll-padding-bottom:calc(var(--ui3-bottom-nav-height) + var(--ui3-safe-bottom) + var(--ui3-keyboard-inset) + var(--ui3-space-5));-webkit-overflow-scrolling:touch}
-body.ui3-route-active.mobile-mode .mobile-panel{position:relative!important;inset:auto!important;min-height:100%!important;height:auto!important;max-height:none!important;overflow:visible!important}
-body.ui3-route-active.mobile-mode .mobile-panel>.mobile-panel-content{min-height:0!important;height:auto!important;max-height:none!important;overflow:visible!important;overscroll-behavior:initial!important;touch-action:auto!important}
+body.ui3-route-active.mobile-mode .mobile-panel{position:relative;inset:auto;min-height:100%;height:auto;max-height:none;overflow:visible}
+body.ui3-route-active.mobile-mode .mobile-panel>.mobile-panel-content{min-height:0;height:auto;max-height:none;overflow:visible;overscroll-behavior:initial;touch-action:auto}

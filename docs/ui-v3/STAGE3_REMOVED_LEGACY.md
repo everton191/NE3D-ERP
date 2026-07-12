@@ -13,5 +13,4 @@ Foram removidas 295 regras e 1.714 linhas de `style.css` por raízes comprovadam
 
 Componentes visuais substituídos: raízes antigas de página, barras estruturais antigas e backdrops específicos. O `#popup` permanece somente para rotas não incluídas e compatibilidade não visual; telas migradas promovem o conteúdo para Dialog/Drawer V3 e deixam o nó vazio.
 
-Arquivos removidos: 0. Imports removidos: 0. Breakpoint eliminado: `1500px`. Ocorrências de `!important` eliminadas no saldo: 138. Seletores duplicados exatos eliminados no saldo: 26.
-
+Arquivos removidos: 0. Imports removidos: 0. Breakpoint eliminado: `1500px`. Ocorrências de `!important` eliminadas no saldo: 150. Seletores duplicados exatos eliminados no saldo: 26.
