@@ -605,6 +605,7 @@ textarea,
   body.mobile-mode .mobile-panel-calculator :is(.calc-active-profile small,.calc-active-profile em,.calc-smart-tip small,.calc-batch-summary span,.calc-batch-summary small){color:#64727c !important}
   body.mobile-mode .mobile-panel-calculator .calc-printer-art{background:#edf7f6 !important;color:#007f76 !important}
   body.mobile-mode .mobile-panel-calculator :is(input,select){background:#fff !important;color:#14212b !important;border-color:#cfdadd !important}
+  body.mobile-mode .mobile-panel-calculator :is(h1,h2,h3,strong,label,.calc-section-title,.calc-option-header span){color:#14212b !important}
 }
 
 .calc-time-card,
