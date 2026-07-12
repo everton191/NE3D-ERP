@@ -3955,18 +3955,6 @@ body.theme-light .cash-session-panel{
     linear-gradient(145deg, rgba(17,28,39,.94), rgba(8,15,23,.92));
 }
 
-.orders-screen-card .card-header h2{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-
-.orders-screen-card .card-header h2 svg{
-  width:20px;
-  height:20px;
-  color:#5eead4;
-}
-
 .smart-order-row{
   grid-template-columns:minmax(0, 1fr) auto;
   align-items:center;

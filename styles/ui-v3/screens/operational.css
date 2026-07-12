@@ -1,8 +1,11 @@
-[data-ui-version="v3"].ui3-order-editor,[data-ui-version="v3"].ui3-stock,[data-ui-version="v3"].ui3-production,[data-ui-version="v3"].ui3-clients{max-width:var(--ui3-page-max);margin-inline:auto}
+[data-ui-version="v3"].ui3-order-editor,[data-ui-version="v3"].ui3-orders,[data-ui-version="v3"].ui3-stock,[data-ui-version="v3"].ui3-production,[data-ui-version="v3"].ui3-clients{max-width:var(--ui3-page-max);margin-inline:auto}
 [data-ui-version="v3"] .order-summary-grid,[data-ui-version="v3"] .order-item-edit-grid,[data-ui-version="v3"] .stock-summary-grid,[data-ui-version="v3"] .production-filter-bar,[data-ui-version="v3"] .clients-filter-bar{display:grid;grid-template-columns:repeat(var(--ui3-grid-columns),minmax(0,1fr));gap:var(--ui3-grid-gap)}
 [data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:span min(4,var(--ui3-grid-columns))}[data-ui-version="v3"] :where(.order-observation-field,.customer-field){grid-column:1/-1}
 [data-ui-version="v3"] .ui3-order-final-bar{bottom:0;padding-bottom:calc(var(--ui3-space-3) + var(--ui3-safe-bottom));display:grid;grid-template-columns:minmax(0,1fr) auto auto}
 [data-ui-version="v3"] .order-tab-panel,[data-ui-version="v3"] .order-step-panel{min-width:0}[data-ui-version="v3"] .order-financial-summary>div{display:grid;grid-template-columns:minmax(0,1fr) max-content;align-items:center;gap:var(--ui3-space-3)}
 [data-ui-version="v3"] :where(.stock-row,.production-job-card,.client-compact-row){min-width:0;max-width:100%}
+[data-ui-version="v3"] .orders-pwa-layout{display:grid;grid-template-columns:repeat(var(--ui3-grid-columns),minmax(0,1fr));gap:var(--ui3-grid-gap)}
+[data-ui-version="v3"] .orders-pwa-list{grid-column:span min(5,var(--ui3-grid-columns));min-width:0}
+[data-ui-version="v3"] .orders-pwa-detail{grid-column:span min(7,var(--ui3-grid-columns));min-width:0}
 body.mobile-mode:has([data-ui-version="v3"][data-ui3-screen="estoque"]) .assistant-fab{display:none}
-@media(max-width:767px){[data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:1/-1}[data-ui-version="v3"] .ui3-order-final-bar{grid-template-columns:1fr 1fr}[data-ui-version="v3"] .ui3-order-final-bar>div{grid-column:1/-1}}
+@media(max-width:767px){[data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:1/-1}[data-ui-version="v3"] .ui3-order-final-bar{grid-template-columns:1fr 1fr}[data-ui-version="v3"] .ui3-order-final-bar>div{grid-column:1/-1}[data-ui-version="v3"] :where(.orders-pwa-list,.orders-pwa-detail){grid-column:1/-1}}

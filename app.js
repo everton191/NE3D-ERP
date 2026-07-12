@@ -25531,7 +25531,7 @@ function renderListaPedidos() {
   }
 
   return `
-    <section class="card orders-screen-card">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders" data-ui-version="v3" data-ui3-screen="pedidos">
       <div class="card-header">
         <h2>${renderUiIcon("pedidos")} Pedidos</h2>
         <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
@@ -43868,7 +43868,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
     </div>
   `;
   return `
-    <section class="orders-pwa-page">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders orders-pwa-page" data-ui-version="v3" data-ui3-screen="pedidos">
       <header class="pwa-page-header">
         <div>
           <span class="eyebrow">Pedidos</span>
