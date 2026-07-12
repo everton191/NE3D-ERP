@@ -30633,7 +30633,7 @@ function renderCaixa() {
     : `<p class="empty">Nenhum movimento neste filtro.</p>`;
 
   return `
-    <section class="card cash-screen-card">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-cash-screen" data-ui-version="v3" data-ui3-screen="caixa">
       <div class="card-header cash-screen-header">
         <h2>${renderUiIcon("caixa")} Caixa</h2>
         <div class="actions compact-actions">${renderContextualAdvancedToggle("caixa")}<strong>${formatarMoeda(totais.saldo)}</strong></div>
