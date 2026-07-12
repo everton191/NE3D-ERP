@@ -36624,21 +36624,16 @@ function alternarTemaInterfacePorClique(event) {
 }
 
 function abrirSeletorTemaRapido() {
-  const popup = document.getElementById("popup");
-  if (!popup) return;
+  if (!window.UiV3?.Dialog) return;
   const atual = normalizarPreferenciaTemaInterface(appConfig.theme);
   const options = [
     { id: "light", label: "Claro", description: "Interface clara e limpa" },
     { id: "dark", label: "Escuro", description: "Interface escura para pouca luz" },
     { id: "system", label: "Automático", description: "Segue o tema do aparelho" }
   ];
-  popup.innerHTML = `
-    <div class="modal-backdrop theme-selector-backdrop" role="dialog" aria-modal="true" aria-labelledby="themeSelectorTitle" onclick="fecharPopup()">
-      <section class="modal-card theme-selector-modal" onclick="event.stopPropagation()">
-        <div class="modal-header">
-          <div><span class="eyebrow">Tema do ERP</span><h2 id="themeSelectorTitle">Escolher tema</h2></div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
-        </div>
+  window.UiV3.Dialog({ title: "Escolher tema", content: `
+      <section class="theme-selector-modal">
+        <span class="eyebrow">Tema do ERP</span>
         <div class="theme-selector-options">
           ${options.map((option) => `
             <button class="theme-selector-option ${atual === option.id ? "active" : ""}" type="button" onclick="selecionarTemaRapido('${option.id}')">
@@ -36649,12 +36644,11 @@ function abrirSeletorTemaRapido() {
           `).join("")}
         </div>
       </section>
-    </div>
-  `;
+  ` });
 }
 
 function selecionarTemaRapido(theme = "system") {
-  fecharPopup();
+  window.UiV3?.closeOverlay?.();
   alterarTemaInterfaceRapido(theme);
 }
 

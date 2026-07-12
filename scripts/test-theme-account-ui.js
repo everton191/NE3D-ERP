@@ -18,6 +18,8 @@ assert.ok(app.includes("localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, t
 assert.ok(app.includes("salvarDados();"), "troca de tema deve ser persistida");
 assert.ok(style.includes(".theme-mode-disc"), "ícone circular de duas cores deve existir");
 assert.ok(app.includes("function abrirSeletorTemaRapido"), "pressionar o tema deve abrir seletor direto");
+const themeDialog = app.slice(app.indexOf("function abrirSeletorTemaRapido"), app.indexOf("function selecionarTemaRapido"));
+assert.ok(themeDialog.includes("window.UiV3.Dialog") && !themeDialog.includes('getElementById("popup")'), "seletor de tema deve usar Portal V3");
 assert.ok(app.includes("onpointerdown=\"iniciarPressTema(event)\""), "botão de tema deve reconhecer pressão longa");
 assert.ok(app.includes('primary: "#72E6E8"'), "tema claro deve usar #72e6e8 como cor principal");
 assert.ok(lightTokens.includes("--accent-primary:#72e6e8"), "tokens claros devem usar a nova cor principal");
