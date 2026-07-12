@@ -10610,6 +10610,22 @@ function criarAppShellSlot(tag, id, className, hidden = false) {
   return el;
 }
 
+function sincronizarShellUiV3() {
+  const app = document.getElementById("app");
+  const shell = document.getElementById(APP_LAYER_IDS.shell);
+  const content = document.getElementById(APP_LAYER_IDS.content);
+  const active = !!app?.querySelector?.('[data-ui-version="v3"].ui3-real-screen');
+  document.body?.classList.toggle("ui3-route-active", active);
+  shell?.classList.toggle("ui3-app-shell-host", active);
+  content?.classList.toggle("ui3-content-scroller", active);
+  if (active) {
+    shell.dataset.uiVersion = "v3";
+    content.dataset.uiScrollOwner = "app-content";
+  } else if (shell) {
+    delete shell.dataset.uiVersion;
+  }
+}
+
 function garantirFilhoAppShell(shell, tag, id, className, hidden = false) {
   let el = document.getElementById(id);
   if (!el) {
@@ -10798,6 +10814,7 @@ function renderApp() {
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
   app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
+  sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
   configurarFechamentoMenusEstoque();
   configurarAcoesCadastroImpressora();
