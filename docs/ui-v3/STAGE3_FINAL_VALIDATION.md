@@ -2,6 +2,8 @@
 
 ## Comandos aprovados
 
+- `npm run lint`
+- `npm run typecheck`
 - `npm run test:ui-v3-foundation`
 - `npm run test:ui-v3-reading`
 - `npm run test:ui-v3-operational`
@@ -12,7 +14,7 @@
 - `node scripts/test-manual-production-ui.js`
 - `npm run build`
 
-O projeto não declara scripts globais `lint` ou `typecheck`; por isso não há aprovação fictícia desses comandos. `git diff --check` foi usado para whitespace/sintaxe de patch e os testes Node validaram imports, marcadores e contratos.
+O lint executa a validação sintática do monólito e o typecheck usa `tsconfig.ui-v3.json`, isolado das tipagens Node incompatíveis que já existiam no projeto. `git diff --check` também foi aprovado.
 
 ## Critérios
 
