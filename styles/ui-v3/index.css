@@ -1,7 +1,7 @@
 @import url("./tokens.css");
 @import url("./reset.css");
 @import url("./viewport.css");
-@import url("./app-shell.css");
+@import url("./app-shell.css?v=stage3-scroll-owner");
 @import url("./layout.css");
 @import url("./grid.css");
 @import url("./spacing.css");

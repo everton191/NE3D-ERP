@@ -23302,7 +23302,7 @@ body.mobile-mode.app-shell-ready .mobile-panel{
   overflow:hidden;
 }
 
-body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{
+body.mobile-mode.app-shell-ready:not(.ui3-route-active):not(.settings-subscreen-open) .mobile-panel-content{
   flex:1 1 auto;
   min-height:0;
   height:auto;
@@ -44971,7 +44971,7 @@ body[data-ui-profile="android_apk"] .desktop-shell{
 
   /* Routed mobile panels own the viewport. Their content is the only vertical
      scroll area, so the last action remains reachable above bottom navigation. */
-  body.mobile-mode #app > .mobile-panel:has(> .mobile-panel-content){
+  body.mobile-mode:not(.ui3-route-active) #app > .mobile-panel:has(> .mobile-panel-content){
     position:fixed !important;
     inset:0 !important;
     min-height:100vh !important;
@@ -44982,7 +44982,7 @@ body[data-ui-profile="android_apk"] .desktop-shell{
     overflow:hidden !important;
   }
 
-  body.mobile-mode #app > .mobile-panel:has(> .mobile-panel-content) > .mobile-panel-content{
+  body.mobile-mode:not(.ui3-route-active) #app > .mobile-panel:has(> .mobile-panel-content) > .mobile-panel-content{
     flex:1 1 auto !important;
     min-height:0 !important;
     height:auto !important;
