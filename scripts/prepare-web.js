@@ -85,6 +85,15 @@ const publicModuleDirs = [
   "modules/storefront"
 ];
 
+// UI V3 ships as an isolated foundation. Its technical route only mounts on localhost.
+const uiV3Dirs = ["styles/ui-v3", "src/ui-v3"];
+uiV3Dirs.forEach((relativePath) => {
+  const source = path.join(root, relativePath);
+  if (fs.existsSync(source)) {
+    fs.cpSync(source, path.join(dist, relativePath), { recursive: true });
+  }
+});
+
 publicModuleDirs.forEach((relativePath) => {
   const source = path.join(root, relativePath);
   if (fs.existsSync(source)) {

@@ -1,0 +1,18 @@
+const fs=require('fs');const assert=require('assert');
+const read=(file)=>fs.readFileSync(file,'utf8');
+const index=read('index.html'),app=read('app.js'),build=read('scripts/prepare-web.js'),dev=read('src/ui-v3/dev-route.js');
+const cssFiles=['tokens','reset','viewport','app-shell','layout','grid','spacing','typography','surfaces','cards','forms','buttons','lists','navigation','overlays','keyboard','tables','feedback','utilities'];
+cssFiles.forEach(name=>assert(fs.existsSync(`styles/ui-v3/${name}.css`),`CSS V3 ausente: ${name}`));
+assert(index.includes('/styles/ui-v3/index.css'),'loader V3 ausente');
+assert(index.includes('["localhost", "127.0.0.1", "[::1]"]'),'rota V3 nao esta bloqueada por host local');
+assert(app.includes('window.UiV3Dev?.isRoute'),'bootstrap ERP nao desvia a rota tecnica');
+assert(build.includes('"styles/ui-v3", "src/ui-v3"'),'build nao copia a fundacao V3');
+assert(dev.includes("link.disabled=true"),'rota tecnica nao isola CSS legado');
+const components=read('src/ui-v3/layout/components.js')+read('src/ui-v3/components/components.js')+read('src/ui-v3/forms/components.js')+read('src/ui-v3/navigation/components.js')+read('src/ui-v3/overlays/controller.js');
+['AppShell','ContentScroller','PageContainer','PageHeader','PageSection','ResponsiveGrid','GridItem','ContentStack','SettingsList','SettingsRow','Card','FormField','Button','Dialog','BottomSheet','Drawer','ConfirmationDialog','StickyActionBar','BottomNavigation','DangerZone','ScrollableTableArea','ChartContainer'].forEach(contract=>assert(components.includes(contract),`Contrato ausente: ${contract}`));
+const tokens=read('styles/ui-v3/tokens.css'),grid=read('styles/ui-v3/grid.css'),overlay=read('src/ui-v3/overlays/controller.js'),keyboard=read('src/ui-v3/hooks/keyboard.js');
+assert(tokens.includes('--ui3-grid-columns:4')&&tokens.includes('--ui3-grid-columns:8')&&tokens.includes('--ui3-grid-columns:12'),'grid 4/8/12 ausente');
+assert(grid.includes('minmax(0,1fr)'),'grid sem protecao min-width');
+assert(overlay.includes("event.key==='Escape'")&&overlay.includes('opener?.focus'),'overlay sem Escape/restauracao');
+assert(keyboard.includes('visualViewport')&&keyboard.includes('lastScrollAt'),'teclado sem autoridade central/debounce');
+console.log('UI V3 foundation: isolamento, contratos, grid, overlays e teclado validados.');

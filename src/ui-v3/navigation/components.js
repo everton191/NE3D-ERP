@@ -1,0 +1,1 @@
+(function({component}){Object.assign(window.UiV3,{BottomNavigation:(items)=>component("nav","ui3-bottom-nav",items.map(({label,action})=>`<button type="button" data-ui3-action="${action}">${label}</button>`).join(""),{"aria-label":"Navegação principal"})});})(window.UiV3);

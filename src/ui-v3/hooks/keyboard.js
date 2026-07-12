@@ -1,0 +1,6 @@
+(function initUiV3Keyboard(global){
+  let frame=0,lastScrollAt=0;const viewport=visualViewport;
+  function sync(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{const root=document.querySelector('[data-ui-version="v3"]');if(!root)return;const inset=viewport?Math.max(0,innerHeight-viewport.height-viewport.offsetTop):0;root.style.setProperty('--ui3-keyboard-inset',`${Math.round(inset)}px`);root.dataset.keyboardOpen=String(inset>120)})}
+  function keepVisible(event){const target=event.target;if(!target.matches('input,select,textarea'))return;const now=Date.now();if(now-lastScrollAt<300)return;lastScrollAt=now;requestAnimationFrame(()=>{const scroller=target.closest('.ui3-content-scroller,.ui3-dialog,.ui3-sheet,.ui3-drawer');if(!scroller)return;const rect=target.getBoundingClientRect(),limit=(viewport?.height||innerHeight)-24;if(rect.bottom>limit||rect.top<24)target.scrollIntoView({block:'nearest',behavior:'auto'})})}
+  viewport?.addEventListener('resize',sync,{passive:true});viewport?.addEventListener('scroll',sync,{passive:true});addEventListener('resize',sync,{passive:true});document.addEventListener('focusin',keepVisible);sync();global.UiV3Keyboard={sync};
+})(window);

@@ -1,0 +1,2 @@
+[data-ui-version="v3"] h1{font-size:clamp(1.65rem,4vw,2.4rem);line-height:1.1}[data-ui-version="v3"] h2{font-size:clamp(1.2rem,3vw,1.55rem)}[data-ui-version="v3"] p,[data-ui-version="v3"] small{color:var(--ui3-muted);line-height:1.5;overflow-wrap:anywhere}
+[data-ui-version="v3"][data-font-scale="large"]{font-size:125%}

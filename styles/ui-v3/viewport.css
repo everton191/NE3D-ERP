@@ -1,0 +1,2 @@
+html:has(>[data-ui-version="v3"]),body:has(>[data-ui-version="v3"]){height:100%;margin:0;overflow:hidden}
+[data-ui-version="v3"]{width:100%;height:100vh;height:100dvh;min-height:0;overflow:hidden;position:fixed;inset:0;display:flex}

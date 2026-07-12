@@ -1,0 +1,4 @@
+[data-ui-version="v3"],[data-ui-version="v3"] *{box-sizing:border-box;min-width:0}
+[data-ui-version="v3"] :where(h1,h2,h3,p,ul,ol,figure){margin:0}
+[data-ui-version="v3"] :where(button,input,select,textarea){font:inherit}
+[data-ui-version="v3"] :where(button,[href],input,select,textarea,[tabindex]):focus-visible{outline:3px solid color-mix(in srgb,var(--ui3-focus) 45%,transparent);outline-offset:2px}

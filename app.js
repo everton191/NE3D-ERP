@@ -48135,6 +48135,10 @@ window.addEventListener("offline", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (window.UiV3Dev?.isRoute) {
+    window.UiV3Dev.mount();
+    return;
+  }
   configurarTelemetriaErros();
   configurarMonetizacaoAds();
   ensureAppShellLayers();
