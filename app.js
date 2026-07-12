@@ -14790,6 +14790,7 @@ function abrirPerfilPremiumPainel(event) {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Perfil e conta" });
 }
 
 function abrirTrocaContaPerfil() {
@@ -14853,6 +14854,7 @@ function abrirSeletorUsuariosPerfil(perfis = getUsuariosContaAtiva()) {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Trocar usuário" });
 }
 
 function selecionarUsuarioPerfil(id) {
@@ -16164,6 +16166,7 @@ function abrirDadosPessoaisUsuario() {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Dados pessoais" });
 }
 
 function salvarDadosPessoaisUsuario(options = {}) {
@@ -22828,6 +22831,7 @@ function abrirFotoPerfilUsuario() {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Foto do perfil" });
 }
 
 async function salvarFotoPerfilUsuario(input) {
@@ -22862,7 +22866,12 @@ async function salvarFotoPerfilUsuario(input) {
 }
 
 async function removerFotoPerfilUsuario() {
-  if (!confirm("Remover a foto do perfil?")) return;
+  if (!await solicitarConfirmacaoAcao({
+    titulo: "Remover foto do perfil",
+    mensagem: "Deseja remover a foto do perfil?",
+    confirmar: "Remover foto",
+    perigo: true
+  })) return;
   appConfig.profilePhotoDataUrl = "";
   appConfig.appearanceSettings = normalizarAppearanceSettings({
     ...(appConfig.appearanceSettings || {}),
@@ -45981,7 +45990,22 @@ async function gerarPdfCalculadora() {
   return gerarPDF();
 }
 
+function promoverPopupParaDialogUiV3(popup, options = {}) {
+  if (!popup || !window.UiV3?.Dialog || !document.querySelector('[data-ui-version="v3"].ui3-real-screen')) return popup;
+  const card = popup.querySelector(".modal-card");
+  if (!card) return popup;
+  const title = options.title || card.querySelector(".modal-header h2")?.textContent?.trim() || "Janela";
+  const content = card.cloneNode(true);
+  content.querySelector(".modal-header")?.remove();
+  content.classList.remove("modal-card");
+  content.classList.add("ui3-stack");
+  const overlay = window.UiV3.Dialog({ title, content: content.outerHTML, onClose: options.onClose });
+  if (overlay) popup.innerHTML = "";
+  return overlay || popup;
+}
+
 function fecharPopup() {
+  window.UiV3?.closeOverlay?.();
   closeModal();
   closeDrawer();
   hideOverlay();

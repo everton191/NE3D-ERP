@@ -27,6 +27,15 @@ assert.ok(style.includes("--s3d-button-secondary-bg"), "controle de tema deve co
 assert.ok(app.includes("Segurança, dados e exclusão da conta"), "perfil deve encaminhar para segurança e exclusão");
 assert.match(app, /function abrirSegurancaPerfil\(\)\s*\{\s*trocarTela\("seguranca"\)/, "atalho do perfil deve abrir a tela dedicada de segurança");
 assert.ok(app.includes('data-profile-action="security"'), "ação de segurança do perfil deve usar ligação declarativa");
+for (const [start, end, label] of [
+  ["function abrirPerfilPremiumPainel", "function abrirTrocaContaPerfil", "painel de perfil"],
+  ["function abrirSeletorUsuariosPerfil", "function selecionarUsuarioPerfil", "troca de usuário"],
+  ["function abrirDadosPessoaisUsuario", "function salvarDadosPessoaisUsuario", "dados pessoais"],
+  ["function abrirFotoPerfilUsuario", "async function salvarFotoPerfilUsuario", "foto do perfil"]
+]) {
+  const flow = app.slice(app.indexOf(start), app.indexOf(end));
+  assert.ok(flow.includes("promoverPopupParaDialogUiV3"), `${label} deve ser promovido ao Portal V3`);
+}
 assert.ok(app.includes("function configurarAcoesPerfil"), "ações do perfil devem ser vinculadas após cada renderização");
 assert.match(app, /<section class="[^"]*security-account-online-section[^"]*">/, "tela dedicada deve exibir segurança online");
 assert.ok(app.includes('data-ui3-screen="seguranca"'), "segurança deve consumir a raiz UI V3");
