@@ -540,23 +540,6 @@ body[data-ui-profile="web_pwa"].gxm-motion-ready:not([data-motion="high"]) :wher
     transition-duration:1ms!important;
   }
 
-  body.gxm-force-motion :where(.btn,.icon-button,.header-menu-button,.side-nav-button,.mobile-bottom-nav-button,.menu-button,.ui-tab,.store-ui-button,.store-ui-icon-button,button,input,textarea,select){
-    transition:
-      transform var(--gxm-fast) var(--gxm-ease),
-      box-shadow var(--gxm-fast) var(--gxm-ease),
-      background-color var(--gxm-fast) var(--gxm-ease),
-      border-color var(--gxm-fast) var(--gxm-ease),
-      color var(--gxm-fast) var(--gxm-ease)!important;
-  }
-
-  body.gxm-force-motion :where(.card,.kpi-card,.plan-card,.chart-card,.order-list-card,.order-item-card,.modal-card,.store-ui-card,.sfv3-product-card,.sfv3-category-card,.sfe-list-card){
-    transition:
-      transform var(--gxm-mid) var(--gxm-ease-emphasis),
-      box-shadow var(--gxm-mid) var(--gxm-ease),
-      border-color var(--gxm-mid) var(--gxm-ease),
-      background-color var(--gxm-mid) var(--gxm-ease)!important;
-  }
-
   body.gxm-force-motion :where(#app-content,.app-content-shell,.app-page,.s3d-page,.storefront-app,.storefront-editor,.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.sfv3-product-card,.sfv3-category-card,.sfv3-sponsored-card,.sfe-list-card,.sfe-overview .store-ui-card,.sfv3-hero,.sfv3-hero__media){
     animation-duration:var(--gxm-slow)!important;
     animation-iteration-count:1!important;
