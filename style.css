@@ -584,6 +584,29 @@ textarea,
   }
 }
 
+/* Approved calculator canvas: one white screen, independent from the app's dark shell. */
+@media(max-width:767px){
+  body.mobile-mode .mobile-panel-calculator,
+  body.mobile-mode .mobile-panel-calculator .calculator-panel-content,
+  body.mobile-mode .mobile-panel-calculator .calc-modern-screen{
+    background:#fff !important;
+    color:#14212b !important;
+  }
+
+  body.mobile-mode .mobile-panel-calculator :is(.calc-active-profile,.calc-smart-tip,.calc-input-panel,.calc-summary-card,.calc-secondary-actions){
+    background:transparent !important;
+    color:#14212b !important;
+    border-width:0 0 1px !important;
+    border-radius:0 !important;
+    border-color:#e1e8ea !important;
+    box-shadow:none !important;
+  }
+
+  body.mobile-mode .mobile-panel-calculator :is(.calc-active-profile small,.calc-active-profile em,.calc-smart-tip small,.calc-batch-summary span,.calc-batch-summary small){color:#64727c !important}
+  body.mobile-mode .mobile-panel-calculator .calc-printer-art{background:#edf7f6 !important;color:#007f76 !important}
+  body.mobile-mode .mobile-panel-calculator :is(input,select){background:#fff !important;color:#14212b !important;border-color:#cfdadd !important}
+}
+
 .calc-time-card,
 .calc-extra-fee-card{
   min-height:96px;
