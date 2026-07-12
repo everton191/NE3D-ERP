@@ -40,7 +40,7 @@ assert(app.includes("function abrirSeletorModoInterface()"), "Perfil deve abrir 
 assert(app.includes('function renderDashboardInterfaceModeButton() {\n  if (!isSimplificaMode()) return "";'), "Engrenagem rápida deve aparecer somente na Home simples");
 assert(app.includes("selecionarModoInterface('simple')"), "Seletor deve expor Modo simples");
 assert(app.includes("selecionarModoInterface('advanced')"), "Seletor deve expor Modo avancado");
-assert(app.includes('profile-list-row compact" type="button" onclick="abrirSeletorModoInterface()"'), "Perfil deve usar botao discreto para o modo");
+assert(app.includes('class="ui3-settings-row" type="button" onclick="abrirSeletorModoInterface()"'), "Perfil deve usar SettingsRow V3 para o modo");
 assert(app.includes("Preferências da interface"), "Perfil deve agrupar tema e modo em preferências da interface");
 assert(!app.includes("settings-mode-trigger"), "Configuracoes nao devem duplicar o modo de uso");
 assert(app.includes('const INTERFACE_MODE_STORAGE_KEY = "simplifica_interface_mode"'), "Modo deve usar a chave local solicitada");
@@ -57,7 +57,7 @@ assert(app.includes("function renderContextualAdvancedToggle"), "Telas principai
 assert(app.includes("function selecionarPresetMargemCalculadora"), "Calculadora deve ter presets de margem no front-end");
 assert(app.includes("[30, 50, 100].map"), "Presets de margem 30/50/100 devem existir");
 assert(app.includes("function renderEstoqueRolosPreview"), "Estoque deve ter previa visual de rolos");
-assert(app.includes("<section class=\"security-account-online-section\">"), "Seguranca deve manter area online dedicada");
+assert(app.includes("security-account-online-section"), "Seguranca deve manter area online dedicada");
 assert(app.includes("Ativar 2FA por e-mail"), "Seguranca deve manter 2FA por e-mail");
 assert(app.includes("Solicitar exclusão da conta"), "Seguranca deve manter exclusao de conta");
 assert(app.includes("document.body.dataset.interfaceMode = getInterfaceMode();"), "Body deve receber o modo atual para ajustes visuais");
@@ -66,10 +66,8 @@ assert(css.includes(".stock-roll-preview"), "CSS deve contemplar previa de rolos
 assert(css.includes(".account-security-roadmap"), "CSS deve contemplar seguranca futura");
 assert(css.includes("body.theme-light :where(.calc-modern-screen,.calc-input-panel"), "Tema claro deve reforcar superficies solidas nos pontos desfocados");
 assert(css.includes("backdrop-filter:none !important"), "Tema claro deve remover blur residual de componentes operacionais");
-assert(css.includes(".interface-mode-modal"), "Seletor de modo deve ter modal proprio");
-assert(css.includes(".interface-mode-backdrop {\n    align-items:center;"), "Seletor de modo mobile deve ficar centralizado");
-assert(css.includes("width:min(420px, calc(100vw - 24px));"), "Modal mobile de modo deve respeitar a viewport");
-assert(css.includes("body.theme-light .interface-mode-option"), "Seletor de modo deve ter contraste no tema claro");
+assert(app.includes("window.UiV3.Dialog({ title: \"Modo de uso\""), "Seletor de modo deve usar Dialog V3 centralizado");
+assert(!app.includes("interface-mode-backdrop"), "Seletor de modo nao deve manter backdrop legado");
 assert(!app.includes("Ativar modo avançado"), "Home nao deve exibir troca global de modo");
 assert(!app.includes("Você está usando o Modo Simples"), "Home nao deve exibir aviso de modo simples");
 assert(!css.includes(".simple-mode-notice"), "Home nao deve manter CSS de card de modo");

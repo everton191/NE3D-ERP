@@ -7174,31 +7174,6 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   display:none;
 }
 
-.security-page-header{
-  position:relative;
-  top:auto;
-  z-index:auto;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:20px;
-  padding:4px 4px 2px;
-  border:0;
-  background:transparent;
-  box-shadow:none;
-  backdrop-filter:none;
-}
-
-.security-page-header h2{
-  margin:0;
-  font-size:clamp(22px, 2vw, 30px);
-}
-
-.security-page-header p{
-  margin:5px 0 0;
-  color:var(--muted);
-}
-
 .security-auth-badge{
   min-height:38px;
   display:inline-flex;
@@ -7227,37 +7202,12 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   background:linear-gradient(145deg, rgba(255,255,255,.045), rgba(0,216,200,.02));
 }
 
-.security-mobile-card > summary{
-  list-style:none;
-}
-
-.security-mobile-card > summary::-webkit-details-marker{
-  display:none;
-}
-
-.security-mobile-card-summary{
-  cursor:pointer;
-}
-
 .security-mobile-chevron{
   display:none;
   margin-left:auto;
   color:var(--muted);
   font-size:24px;
   transition:transform .2s var(--ease);
-}
-
-.security-mobile-card[open] > summary .security-mobile-chevron{
-  transform:rotate(90deg);
-}
-
-.security-overview{
-  display:grid;
-  grid-template-columns:repeat(4, minmax(0, 1fr));
-  gap:0;
-  padding:10px;
-  border-radius:14px;
-  background:rgba(0,0,0,.13);
 }
 
 .security-summary-item{
@@ -7307,13 +7257,6 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:14px;
-}
-
-.security-settings-card{
-  gap:14px;
-  padding:18px;
-  border-color:color-mix(in srgb, var(--line) 72%, var(--primary) 28%);
-  background:linear-gradient(145deg, rgba(255,255,255,.05), rgba(0,216,200,.025));
 }
 
 .security-session-card{
@@ -7452,43 +7395,8 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   line-height:1.45;
 }
 
-.security-page{
-  width:100%;
-  min-width:0;
-  overflow:hidden;
-}
-
 .security-page :where(*, *::before, *::after){
   box-sizing:border-box;
-}
-
-.security-page-overview{
-  margin-top:2px;
-}
-
-.security-page-sections{
-  min-width:0;
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:14px;
-}
-
-.security-page-sections > :first-child,
-.security-page-sections > .security-logs-card{
-  grid-column:1 / -1;
-}
-
-.security-page .security-settings-card{
-  min-width:0;
-  overflow:hidden;
-}
-
-.security-page .security-mobile-card-summary{
-  min-width:0;
-}
-
-.security-page .security-mobile-card-summary > div{
-  min-width:0;
 }
 
 .security-page .security-mobile-card-summary :where(h3,small),
@@ -7497,36 +7405,6 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
 .security-page .history-item :where(strong,span){
   min-width:0;
   overflow-wrap:anywhere;
-}
-
-.security-page-card-content{
-  display:grid;
-  gap:14px;
-}
-
-.security-page-card-content .checkbox-row > span{
-  display:grid;
-  gap:4px;
-}
-
-.security-page-card-content .checkbox-row small{
-  color:var(--muted);
-  font-weight:400;
-}
-
-.security-page-actions{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-}
-
-.security-page-actions .btn{
-  width:100%;
-  min-width:0;
-}
-
-.security-page-note{
-  margin:0;
-  line-height:1.5;
 }
 
 .security-auth-badge.is-danger{
@@ -7645,15 +7523,6 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   padding:10px 12px;
 }
 
-body.theme-light .security-page :where(.security-overview,.security-settings-card){
-  border-color:rgba(23,48,66,.12);
-  background:#fff;
-}
-
-body.theme-light .security-page .security-overview{
-  background:#f4f8fa;
-}
-
 @media(max-width:900px){
   body.mobile-mode .settings-page{
     gap:10px;
@@ -7701,10 +7570,6 @@ body.theme-light .security-page .security-overview{
     padding:0;
   }
 
-  body.mobile-mode .account-security-panel > .security-page-header{
-    display:none;
-  }
-
   body.mobile-mode .settings-accordion-list .ui-section[data-ui-section="seguranca-conta"],
   body.mobile-mode .settings-accordion-list .ui-section[data-ui-section="seguranca-conta"] > .ui-section-body,
   body.mobile-mode .account-security-panel{
@@ -7750,18 +7615,6 @@ body.theme-light .security-page .security-overview{
     gap:10px;
   }
 
-  .security-page-header{
-    padding:2px 4px 6px;
-  }
-
-  .security-page-header h2{
-    font-size:18px;
-  }
-
-  .security-page-header p{
-    font-size:11px;
-  }
-
   .security-auth-badge{
     min-height:32px;
     padding:0 11px;
@@ -7776,51 +7629,8 @@ body.theme-light .security-page .security-overview{
     overflow:hidden;
   }
 
-  .security-mobile-card-summary{
-    min-height:60px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:11px 12px;
-  }
-
-  .security-mobile-card-summary .security-card-icon,
-  .security-mobile-card-summary .security-summary-icon{
-    width:36px;
-    height:36px;
-    flex-basis:36px;
-  }
-
-  .security-mobile-card-summary h3,
-  .security-mobile-card-summary strong{
-    font-size:13px;
-  }
-
-  .security-mobile-card-summary small{
-    font-size:10px;
-  }
-
   .security-mobile-chevron{
     display:inline-flex;
-  }
-
-  .security-mobile-card-body{
-    padding:0 12px 12px;
-  }
-
-  body.mobile-mode .security-mobile-card:not([open]) > .security-mobile-card-body{
-    display:none !important;
-  }
-
-  .security-summary-card > .security-mobile-card-body{
-    padding-top:0;
-  }
-
-  .security-overview{
-    gap:0;
-    padding:0;
-    background:rgba(0,0,0,.10);
-    border-radius:10px;
   }
 
   .security-summary-item{
@@ -7884,55 +7694,6 @@ body.theme-light .security-page .security-overview{
 
   .security-logout-button{
     min-width:0;
-  }
-
-  body.mobile-mode .security-page{
-    padding:12px;
-    border-radius:16px;
-    overflow:visible;
-  }
-
-  body.mobile-mode .security-page-sections{
-    grid-template-columns:1fr;
-    gap:10px;
-  }
-
-  body.mobile-mode .security-page-sections > :first-child,
-  body.mobile-mode .security-page-sections > .security-logs-card{
-    grid-column:auto;
-  }
-
-  body.mobile-mode .security-page-overview{
-    grid-template-columns:repeat(2, minmax(0, 1fr));
-    overflow:hidden;
-  }
-
-  body.mobile-mode .security-page-overview .security-summary-item{
-    border-right:0;
-    border-bottom:1px solid rgba(255,255,255,.07);
-  }
-
-  body.mobile-mode .security-page-overview .security-summary-item:nth-last-child(-n + 2){
-    border-bottom:0;
-  }
-
-  body.mobile-mode .security-page .password-row{
-    width:100%;
-    min-width:0;
-  }
-
-  body.mobile-mode .security-page .password-row input{
-    width:100%;
-    min-width:0;
-  }
-
-  body.mobile-mode .security-page-actions{
-    grid-template-columns:1fr;
-  }
-
-  body.mobile-mode .security-page .history-list{
-    min-width:0;
-    overflow:visible;
   }
 
   body.mobile-mode .pdf-model-preview{
@@ -12444,30 +12205,6 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
   max-width:420px;
 }
 
-.notification-center{
-  width:min(680px, calc(100vw - 28px));
-  max-height:min(760px, calc(100vh - 32px));
-  overflow:auto;
-}
-
-.notification-center .modal-header{
-  align-items:flex-start;
-}
-
-.notification-center .modal-header h2,
-.notification-center .modal-header p{
-  margin:0;
-}
-
-.notification-center .modal-header p{
-  margin-top:5px;
-}
-
-.notification-center-list{
-  display:grid;
-  gap:10px;
-}
-
 .notification-center-item,
 .message-channel-item{
   display:grid;
@@ -12478,19 +12215,6 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
   border:1px solid var(--border-primary);
   border-radius:16px;
   background:var(--surface-2);
-}
-
-.notification-center-item.tone-danger{border-color:rgba(239,68,68,.36)}
-.notification-center-item.tone-warning{border-color:rgba(245,158,11,.38)}
-
-.notification-center-icon{
-  width:42px;
-  height:42px;
-  display:grid;
-  place-items:center;
-  border-radius:13px;
-  color:var(--primary);
-  background:color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .notification-center-icon svg,
@@ -12514,18 +12238,6 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple .technical-glass-panel
   font-style:normal;
   overflow-wrap:anywhere;
 }
-
-.notification-center-empty{
-  min-height:190px;
-  display:grid;
-  place-items:center;
-  align-content:center;
-  gap:9px;
-  text-align:center;
-  color:var(--text-muted);
-}
-
-.notification-center-empty svg{width:34px;height:34px;color:var(--primary)}
 
 .message-integration-notice{
   display:grid;
@@ -16919,35 +16631,6 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   display:grid;
 }
 
-.superadmin-profile-list-row{
-  min-width:0;
-  min-height:54px;
-  display:grid;
-  grid-template-columns:minmax(0, 1fr) auto auto;
-  align-items:center;
-  gap:10px;
-  padding:10px 16px;
-  border-top:1px solid var(--sa-border);
-}
-
-.superadmin-profile-list-row:first-child{
-  border-top:0;
-}
-
-.superadmin-profile-list-row > div{
-  min-width:0;
-  display:grid;
-  gap:3px;
-}
-
-.superadmin-profile-list-row strong,
-.superadmin-profile-list-row span{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-
 .superadmin-store-admin,
 .superadmin-ads-admin{
   display:grid;
@@ -17287,11 +16970,6 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
     margin-inline:-2px;
   }
 
-  .superadmin-profile-list-row{
-    grid-template-columns:1fr;
-    align-items:start;
-  }
-
   .superadmin-store-hero{
     flex-direction:column;
     padding:14px;
@@ -17415,17 +17093,6 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   box-shadow:var(--shadow-soft), inset 0 1px 0 rgba(255,255,255,.04);
 }
 
-.profile-modern-user-card{
-  display:grid;
-  grid-template-columns:92px minmax(0, 1fr) auto;
-  align-items:center;
-  gap:16px;
-  min-height:122px;
-  padding:16px;
-  color:var(--text);
-  text-align:left;
-}
-
 .profile-modern-avatar{
   position:relative;
   width:84px;
@@ -17468,39 +17135,9 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   height:14px;
 }
 
-.profile-modern-user-card strong{
-  display:block;
-  margin-bottom:4px;
-  font-size:18px;
-}
-
-.profile-modern-user-card small{
-  display:block;
-  margin-top:3px;
-  color:var(--muted);
-  font-size:var(--font-sm);
-}
-
-.profile-modern-user-card .profile-row-arrow{
-  align-self:center;
-  padding:6px 9px;
-  border-radius:999px;
-  background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.10);
-  color:#cbd5e1;
-  font-size:var(--font-xs);
-  font-weight:800;
-  line-height:1;
-}
-
 .profile-modern-card{
   overflow:hidden;
   padding:16px;
-}
-
-.profile-list-card{
-  display:grid;
-  gap:10px;
 }
 
 .profile-inline-edit-card{
@@ -17532,21 +17169,6 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
 .profile-inline-actions .btn{
   min-width:150px;
   flex:1 1 150px;
-}
-
-.profile-list-row{
-  min-width:0;
-  width:100%;
-  display:grid;
-  grid-template-columns:24px minmax(0, 1fr) auto;
-  align-items:center;
-  gap:10px;
-}
-
-.profile-list-row span{
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
 }
 
 .profile-section-title{
@@ -17655,46 +17277,6 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   height:100%;
   border-radius:inherit;
   background:linear-gradient(90deg, #9b6cff, #6737ff);
-}
-
-.profile-list-card{
-  padding:0;
-}
-
-.profile-list-card h3{
-  margin:0;
-  padding:14px 16px;
-  font-size:var(--font-md);
-}
-
-.profile-list-row{
-  min-height:48px;
-  display:grid;
-  grid-template-columns:24px minmax(0, 1fr) 18px;
-  align-items:center;
-  gap:12px;
-  width:100%;
-  padding:0 16px;
-  color:#edf3ff;
-  background:transparent;
-  border:0;
-  border-top:1px solid rgba(255,255,255,.06);
-  text-align:left;
-}
-
-.profile-list-row svg{
-  width:20px;
-  height:20px;
-  color:#aeb8cc;
-}
-
-.profile-list-row b{
-  color:#aeb8cc;
-  font-size:22px;
-}
-
-.profile-list-row.danger{
-  color:#ff777f;
 }
 
 .plans-modern-tabs{
@@ -17916,12 +17498,6 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
     gap:13px;
   }
 
-  .profile-modern-user-card{
-    grid-template-columns:82px minmax(0, 1fr) 16px;
-    min-height:112px;
-    padding:14px;
-  }
-
   .profile-modern-avatar{
     width:76px;
     height:76px;
@@ -17989,42 +17565,13 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   }
 }
 
-body[data-ui-profile="android_apk"].mobile-mode .profile-modern-screen{
-  gap:10px;
-  padding-bottom:calc(76px + var(--app-safe-bottom, 0px));
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card{
-  grid-template-columns:64px minmax(0, 1fr) auto;
-  gap:10px;
-  min-height:94px;
-  padding:12px;
-}
-
 body[data-ui-profile="android_apk"].mobile-mode .profile-modern-avatar{
   width:60px;
   height:60px;
 }
 
-body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card > span:nth-child(2){
-  min-width:0;
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card strong,
-body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card small{
-  overflow-wrap:anywhere;
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .profile-modern-user-card strong{
-  font-size:16px;
-}
-
 body[data-ui-profile="android_apk"].mobile-mode .profile-modern-card{
   padding:12px;
-}
-
-body[data-ui-profile="android_apk"].mobile-mode .profile-list-card{
-  padding:0;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .profile-usage-grid{
@@ -27222,7 +26769,6 @@ body.storefront-public-navigating .store-public-shell{
   gap:8px;
 }
 
-
 .store-public-contact-preview span{
   width:max-content;
   color:var(--store-primary, var(--color-primary));
@@ -29458,17 +29004,6 @@ body.storefront-public-navigating .store-public-shell{
     min-height:38px;
     padding-inline:10px;
   }
-}
-
-/* Stabilization: profile and standalone store admin */
-.profile-modern-screen{
-  min-height:0;
-  overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
-}
-
-.profile-modern-user-card{
-  overflow:hidden;
 }
 
 .profile-modern-avatar{
@@ -39415,33 +38950,6 @@ body.mobile-mode .assistant-fab-icon{
     border-bottom:0;
   }
 
-  body.mobile-mode .security-page{
-    border:0;
-    background:transparent;
-    box-shadow:none;
-    overflow:visible;
-  }
-
-  body.mobile-mode .security-page-sections{
-    gap:0;
-    border:1px solid color-mix(in srgb, var(--line) 86%, transparent);
-    border-radius:14px;
-    overflow:hidden;
-    background:var(--surface);
-  }
-
-  body.mobile-mode .security-page .security-settings-card{
-    border:0;
-    border-bottom:1px solid color-mix(in srgb, var(--line) 86%, transparent);
-    border-radius:0;
-    background:transparent;
-    box-shadow:none;
-  }
-
-  body.mobile-mode .security-page .security-settings-card:last-child{
-    border-bottom:0;
-  }
-
   body.settings-subscreen-open.mobile-mode :where(.mobile-bottom-nav,.assistant-fab){
     pointer-events:none;
   }
@@ -39713,14 +39221,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main .settings-accord
   display:grid !important;
 }
 
-.interface-mode-modal{
-  width:min(420px, calc(100vw - 32px));
-  border-radius:8px;
-  background:var(--surface) !important;
-  backdrop-filter:none !important;
-  -webkit-backdrop-filter:none !important;
-}
-
 .interface-mode-options{
   display:grid;
   gap:8px;
@@ -39900,16 +39400,6 @@ body.theme-light .admin-settings-section{
   body.mobile-mode .admin-settings-section .sync-grid{
     grid-template-columns:1fr;
   }
-}
-
-.security-online-grid .security-settings-card,
-.account-security-panel > .security-settings-card{
-  display:grid;
-  gap:12px;
-  padding:12px;
-  border:1px solid var(--line);
-  border-radius:8px;
-  background:var(--surface);
 }
 
 .security-online-grid .security-card-heading{
@@ -42936,27 +42426,6 @@ body.theme-light .reports-filter-button {
   overflow-wrap: anywhere;
 }
 
-.profile-interface-preferences .profile-list-row.compact {
-  min-height: 48px;
-  padding-block: var(--space-sm);
-}
-
-.profile-interface-preferences .profile-list-row.compact span {
-  display: grid;
-  gap: 2px;
-}
-
-.profile-interface-preferences .profile-list-row.compact small {
-  color: var(--text-muted);
-  font-size: var(--font-xs);
-}
-
-.profile-interface-preferences .profile-list-row.compact b {
-  min-width: max-content;
-  color: var(--accent-text);
-  font-size: var(--font-xs);
-}
-
 .storefront-plan-notice {
   display: grid;
   gap: 2px;
@@ -43002,19 +42471,6 @@ body.theme-light .reports-filter-button {
 }
 
 @media (max-width: 767px) {
-  .interface-mode-backdrop {
-    align-items:center;
-    justify-content:center;
-    padding:12px;
-  }
-
-  .interface-mode-modal {
-    width:min(420px, calc(100vw - 24px));
-    max-height:min(82dvh, 680px);
-    margin:auto;
-    overflow-y:auto;
-    border-radius:8px;
-  }
 
   .theme-selector-backdrop {
     align-items: flex-end;
@@ -44274,16 +43730,6 @@ body.mobile-mode :where(
     font-size:20px !important;
   }
 
-  body.mobile-mode .profile-modern-user-card strong{
-    font-size:15px !important;
-  }
-
-  body.mobile-mode .profile-modern-user-card small,
-  body.mobile-mode .profile-list-row,
-  body.mobile-mode .profile-interface-preferences .profile-list-row.compact small{
-    font-size:12px !important;
-  }
-
   body.mobile-mode .profile-list-card h3,
   body.mobile-mode .security-card-heading h3,
   body.mobile-mode .security-mobile-card-summary h3,
@@ -44301,35 +43747,6 @@ body.mobile-mode :where(
 
 /* Mobile profile scroll contract: profile content must always be vertically reachable. */
 @media (max-width: 767px){
-  body.mobile-mode:has(.profile-modern-screen) .mobile-panel{
-    min-height:0 !important;
-    overflow-x:hidden !important;
-    overflow-y:hidden !important;
-    overscroll-behavior-y:contain !important;
-    touch-action:pan-y !important;
-    -webkit-overflow-scrolling:touch !important;
-  }
-
-  body.mobile-mode:has(.profile-modern-screen) .mobile-panel-content{
-    min-height:0 !important;
-    height:100% !important;
-    max-height:100% !important;
-    overflow-x:hidden !important;
-    overflow-y:auto !important;
-    overscroll-behavior-y:contain !important;
-    touch-action:pan-y !important;
-    -webkit-overflow-scrolling:touch !important;
-  }
-
-  body.mobile-mode .profile-modern-screen{
-    min-height:0 !important;
-    max-height:none !important;
-    overflow-x:clip !important;
-    overflow-y:visible !important;
-    overscroll-behavior-y:auto !important;
-    touch-action:auto !important;
-    padding-bottom:calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 28px) !important;
-  }
 
   body.mobile-mode .profile-modern-card,
   body.mobile-mode .profile-list-card,
@@ -45894,21 +45311,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .reports-quick-tile {
     font-size: 10px !important;
   }
 
-  body[data-ui-profile="web_pwa"].mobile-mode .profile-modern-screen {
-    width: 100% !important;
-    max-width: 560px !important;
-    gap: 8px !important;
-    padding-inline: 8px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .profile-modern-user-card {
-    min-height: 82px !important;
-    grid-template-columns: 52px minmax(0, 1fr) auto !important;
-    gap: 9px !important;
-    padding: 9px !important;
-    border-radius: 12px !important;
-  }
-
   body[data-ui-profile="web_pwa"].mobile-mode .profile-modern-avatar {
     width: 52px !important;
     height: 52px !important;
@@ -45918,29 +45320,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .reports-quick-tile {
   body[data-ui-profile="web_pwa"].mobile-mode .profile-inline-edit-card {
     padding: 10px !important;
     border-radius: 12px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .profile-list-card {
-    gap: 0 !important;
-    border-radius: 12px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .profile-list-card h3 {
-    padding: 9px 11px !important;
-    font-size: 13px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .profile-list-row {
-    min-height: 42px !important;
-    grid-template-columns: 20px minmax(0, 1fr) 16px !important;
-    gap: 8px !important;
-    padding: 0 11px !important;
-    font-size: 11px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .profile-list-row svg {
-    width: 17px !important;
-    height: 17px !important;
   }
 
   body[data-ui-profile="web_pwa"].mobile-mode .profile-inline-grid {

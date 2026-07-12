@@ -35,7 +35,7 @@ if (missingSuperadmin.length) {
 }
 
 const requiredNotifications = [
-  "<h2>Notificações</h2>",
+  "window.UiV3?.Dialog?.({ title: \"Notificações\"",
   "pedido${leadsLoja.length === 1 ? \"\" : \"s\"} da loja aguardando",
   "trocarTela('lojaAdmin')"
 ];
@@ -74,8 +74,8 @@ const requiredMobileOrganization = [
   ".ui-section.ui-subscreen-active > .ui-section-body :where(\n    .settings-group,",
   "body[data-ui-profile=\"android_apk\"].mobile-mode .ui-section.ui-subscreen-active > .ui-section-body",
   "body[data-ui-profile=\"android_apk\"].mobile-mode .profile-usage-grid",
-  "settings-group security-settings-card security-mobile-card",
-  "body.mobile-mode .security-page .security-settings-card{\n    border:0;",
+  "data-ui3-screen=\"seguranca\"",
+  "class=\"ui3-security-card\"",
   "systemViewOverFade"
 ];
 if (requiredMobileOrganization.some((snippet) => !(app + css).includes(snippet))) {
