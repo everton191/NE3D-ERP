@@ -13,6 +13,14 @@ for(const [start,end,label] of [
   ['function abrirReposicaoEstoque','async function confirmarReposicaoEstoque','reposicao de estoque']
   ,['function abrirCaixaRapidoOperacional','async function salvarCaixaRapidoOperacional','lancamento rapido do caixa']
   ,['function abrirEstoqueRapidoOperacional','async function salvarEstoqueRapidoOperacional','entrada rapida de estoque']
+  ,['function abrirCadastroImpressora','function atualizarMarcaCadastroImpressora','cadastro de impressora monitorada']
+  ,['function abrirStatusManualImpressora','function abrirVinculoPedidoImpressora','status de impressora']
+  ,['function abrirVinculoPedidoImpressora','async function abrirHistoricoImpressora','vinculo de pedido e impressora']
+  ,['async function abrirHistoricoImpressora','function abrirAgentesLocais','historico de impressora']
+  ,['function abrirAgentesLocais','async function criarAgenteLocal','agentes locais']
+  ,['async function criarAgenteLocal','const PRODUCTION_STATUS_META','credenciais de agente']
+  ,['function abrirLiberacaoProducao','async function confirmarLiberacaoProducao','liberacao de producao']
+  ,['function abrirCadastroImpressoraProducao','function salvarImpressoraProducao','cadastro de impressora da producao']
 ]){const flow=app.slice(app.indexOf(start),app.indexOf(end));assert.ok(flow.includes('promoverPopupParaDialogUiV3'),`${label} nao usa Portal V3`)}
 assert.ok(app.includes('kind: "drawer"'),'acoes rapidas devem usar Drawer V3 explicito');
 const quickOrderDrawer=app.slice(app.indexOf('function montarPedidoRapidoNoDrawerUiV3'),app.indexOf('function abrirPedidoRapidoOperacional'));

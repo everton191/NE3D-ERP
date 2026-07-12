@@ -25952,6 +25952,7 @@ function solicitarEscolhaPedido({ titulo = "Opções", mensagem = "", opcoes = [
         </section>
       </div>
     `;
+    promoverPopupParaDialogUiV3(popup, { title: titulo, onClose: () => window[nomeCallback]?.("") });
   });
 }
 
@@ -26349,6 +26350,7 @@ function abrirCadastroImpressora(id = "") {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Cadastrar impressora" });
   document.getElementById("printerForm")?.addEventListener("submit", salvarCadastroImpressora);
   document.getElementById("printerCloseButton")?.addEventListener("click", fecharPopup);
   document.getElementById("printerCancelButton")?.addEventListener("click", fecharPopup);
@@ -26496,6 +26498,7 @@ function abrirStatusManualImpressora(id) {
         <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar status</button></div>
       </form>
     </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Atualizar status da impressora" });
   document.getElementById("printerManualStatusForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
@@ -26525,6 +26528,7 @@ function abrirVinculoPedidoImpressora(id) {
         <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar vínculo</button></div>
       </form>
     </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Vincular pedido à impressora" });
   document.getElementById("printerOrderLinkForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     try {
@@ -26547,6 +26551,7 @@ async function abrirHistoricoImpressora(id) {
   if (!impressora) return;
   const popup = document.getElementById("popup");
   popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()"><section class="modal-card printer-history-modal" onclick="event.stopPropagation()"><div class="modal-header"><h2>Histórico de ${escaparHtml(impressora.name)}</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div><p class="muted">Carregando eventos e snapshots...</p></section></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: `Histórico de ${impressora.name}` });
   try {
     const data = await printerBackendRequest("history", { printer_id: id });
     const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : [];
@@ -26591,6 +26596,7 @@ function abrirAgentesLocais() {
         <div class="actions"><button class="btn" type="button" onclick="criarAgenteLocal()">Criar agente</button></div>
       </section>
     </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Simplifica Local Agent" });
 }
 
 async function criarAgenteLocal() {
@@ -26607,6 +26613,7 @@ async function criarAgenteLocal() {
           <div class="actions"><button class="btn" onclick="fecharPopup();hidratarImpressorasSeNecessario(true)">Concluir</button></div>
         </section>
       </div>`;
+    promoverPopupParaDialogUiV3(popup, { title: "Credenciais do agente" });
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
   }
@@ -27008,6 +27015,7 @@ function abrirLiberacaoProducao(id) {
         </div>
       </form>
     </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Liberar para produção" });
 }
 
 function enviarPedidoPendenciaProducao(orderId) {
@@ -27300,6 +27308,7 @@ function abrirCadastroImpressoraProducao(id = "") {
         <div class="actions production-modal-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar impressora</button></div>
       </form>
     </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: printerId ? "Editar impressora" : "Cadastrar impressora" });
 }
 
 function salvarImpressoraProducao(event, id = "") {
