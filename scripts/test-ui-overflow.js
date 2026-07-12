@@ -27,7 +27,7 @@ if (!css.includes(".dashboard-home-header .dashboard-search.search-compact.is-ex
   throw new Error("Busca compacta do dashboard mobile nao possui regra expandida.");
 }
 
-if (!css.includes(".reports-header-actions .reports-search-compact.is-expanded")) {
+if (!css.includes(".search-compact.is-expanded") || !css.includes(".search-compact:focus-within")) {
   throw new Error("Busca compacta de relatorios nao possui regra expandida.");
 }
 

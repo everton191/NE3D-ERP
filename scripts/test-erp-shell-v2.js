@@ -16,8 +16,8 @@ function assert(condition, message) {
   'class="side-menu app-sidebar desktop-sidebar s3d-sidebar',
   'class="side-nav-button s3d-nav-item"',
   'class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav"',
-  'class="dashboard-page dashboard-pro premium-dashboard dashboard-control-center s3d-page s3d-dashboard"',
-  'class="dashboard-pro premium-dashboard dashboard-apk-simple s3d-page s3d-dashboard"',
+  'data-ui3-screen="dashboard"',
+  'ui3-dashboard',
   'class="auth-page s3d-page s3d-auth-page"',
   'class="auth-card s3d-card s3d-auth-card"',
   'class="card onboarding-card s3d-card s3d-onboarding"'
