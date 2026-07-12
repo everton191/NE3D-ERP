@@ -43422,16 +43422,10 @@ async function editarMovimentoCaixa(i) {
   }
   if (!await requestSensitiveActionConfirmation({ actionLabel: "editar movimento do caixa" })) return;
 
-  const popup = document.getElementById("popup");
-  if (!popup) return;
+  if (!window.UiV3?.Dialog) return;
   const tipoAtual = String(movimento.tipo || "entrada").toLowerCase() === "saida" ? "saida" : "entrada";
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true">
-      <form class="modal-card cash-edit-modal" id="cashEditForm">
-        <div class="modal-header">
-          <h2>${renderUiIcon("caixa")} Editar movimento</h2>
-          <button class="icon-button" type="button" data-action="cash-edit-cancel" title="Fechar">✕</button>
-        </div>
+  const overlay = window.UiV3.Dialog({ title: "Editar movimento", content: `
+      <form class="ui3-stack cash-edit-modal" id="cashEditForm">
         <p class="muted">Revise entrada ou saída antes de salvar. Esta ação fica protegida por biometria ou senha.</p>
         <div class="form-grid">
           <label class="field">
@@ -43455,11 +43449,11 @@ async function editarMovimentoCaixa(i) {
           <button class="btn" type="submit">${renderIconeAcaoPedido("✎", "Editar")} Salvar alteração</button>
         </div>
       </form>
-    </div>
-  `;
+  ` });
+  if (!overlay) return;
 
-  const cancelar = () => fecharPopup();
-  popup.querySelectorAll('[data-action="cash-edit-cancel"]').forEach((botao) => {
+  const cancelar = () => window.UiV3.closeOverlay();
+  overlay.querySelectorAll('[data-action="cash-edit-cancel"]').forEach((botao) => {
     botao.addEventListener("click", cancelar, { once: true });
   });
   document.getElementById("cashEditForm")?.addEventListener("submit", async (event) => {
@@ -43492,7 +43486,7 @@ async function editarMovimentoCaixa(i) {
     salvarDados();
     agendarSyncSilenciosoDados("caixa-editado");
     registrarHistorico("Caixa", "Movimento editado: " + formatarMoeda(valor) + " - " + (descricao || "Movimento manual"));
-    fecharPopup();
+    window.UiV3.closeOverlay();
     renderApp();
     mostrarToast("Movimento atualizado.", "sucesso", 2600);
   }, { once: true });
@@ -43507,16 +43501,10 @@ async function removerMovimentoCaixa(i) {
     mostrarToast("Este movimento já está cancelado.", "info", 2600);
     return;
   }
-  const popup = document.getElementById("popup");
-  if (!popup) return;
+  if (!window.UiV3?.Dialog) return;
   const tipo = String(movimento.tipo || "entrada").toLowerCase() === "saida" ? "Saída" : "Entrada";
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true">
-      <form class="modal-card cash-cancel-modal" id="cashCancelForm">
-        <div class="modal-header">
-          <h2>${renderUiIcon("trash")} Cancelar movimentação</h2>
-          <button class="icon-button" type="button" id="cashCancelClose" title="Fechar">✕</button>
-        </div>
+  const overlay = window.UiV3.Dialog({ title: "Cancelar movimentação", content: `
+      <form class="ui3-stack cash-cancel-modal" id="cashCancelForm">
         <div class="danger-auth-card">
           <strong>Atenção!</strong>
           <span>Essa ação não pode ser desfeita. O movimento será marcado como cancelado e não entrará mais no total.</span>
@@ -43537,14 +43525,11 @@ async function removerMovimentoCaixa(i) {
           <button class="btn danger" type="submit">Confirmar cancelamento</button>
         </div>
       </form>
-    </div>
-  `;
-  const cancelar = () => fecharPopup();
+  ` });
+  if (!overlay) return;
+  const cancelar = () => window.UiV3.closeOverlay();
   document.getElementById("cashCancelClose")?.addEventListener("click", cancelar, { once: true });
   document.getElementById("cashCancelBack")?.addEventListener("click", cancelar, { once: true });
-  popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
-    if (event.target === event.currentTarget) event.preventDefault();
-  });
   document.getElementById("cashCancelForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const motivo = String(document.getElementById("cashCancelReason")?.value || "").trim();
@@ -43576,7 +43561,7 @@ async function removerMovimentoCaixa(i) {
     agendarSyncSilenciosoDados("caixa-cancelado");
     registrarHistorico("Caixa", "Movimento cancelado: " + resumo);
     registrarAuditoria("caixa_movimento_cancelado", { tipo, valor: movimento.valor, motivo });
-    fecharPopup();
+    window.UiV3.closeOverlay();
     renderApp();
     mostrarToast("Movimento cancelado.", "sucesso", 2600);
   });
@@ -46020,6 +46005,31 @@ function solicitarConfirmacaoAcao({
   perigo = false
 } = {}) {
   return new Promise((resolve) => {
+    if (window.UiV3?.Dialog && document.querySelector('[data-ui-version="v3"].ui3-real-screen')) {
+      let settled = false;
+      const finalizar = (valor) => {
+        if (settled) return;
+        settled = true;
+        window.UiV3.closeOverlay();
+        resolve(valor);
+      };
+      const overlay = window.UiV3.Dialog({
+        title: escaparHtml(titulo),
+        onClose: () => finalizar(false),
+        content: `
+          <p>${escaparHtml(mensagem)}</p>
+          <div class="ui3-sticky-actions">
+            <button class="ui3-button" data-variant="secondary" type="button" data-confirm-cancel>${escaparHtml(cancelar)}</button>
+            <button class="ui3-button" data-variant="${perigo ? "danger" : "primary"}" type="button" data-confirm-ok>${escaparHtml(confirmar)}</button>
+          </div>
+        `
+      });
+      if (overlay) {
+        overlay.querySelector("[data-confirm-ok]")?.addEventListener("click", () => finalizar(true), { once: true });
+        overlay.querySelector("[data-confirm-cancel]")?.addEventListener("click", () => finalizar(false), { once: true });
+        return;
+      }
+    }
     const popup = document.getElementById("popup");
     if (!popup) {
       resolve(window.confirm(mensagem));

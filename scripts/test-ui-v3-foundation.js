@@ -18,5 +18,6 @@ const tokens=read('styles/ui-v3/tokens.css'),grid=read('styles/ui-v3/grid.css'),
 assert(tokens.includes('--ui3-grid-columns:4')&&tokens.includes('--ui3-grid-columns:8')&&tokens.includes('--ui3-grid-columns:12'),'grid 4/8/12 ausente');
 assert(grid.includes('minmax(0,1fr)'),'grid sem protecao min-width');
 assert(overlay.includes("event.key==='Escape'")&&overlay.includes('opener?.focus'),'overlay sem Escape/restauracao');
+assert(overlay.includes("onClose=handleClose")&&overlay.includes("callback?.(reason)"),'overlay sem retorno central de cancelamento');
 assert(keyboard.includes('visualViewport')&&keyboard.includes('lastScrollAt'),'teclado sem autoridade central/debounce');
 console.log('UI V3 foundation: isolamento, contratos, grid, overlays e teclado validados.');
