@@ -44690,13 +44690,13 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .insights-card .dashboard-insi
 
 @media (max-width: 640px) {
 
-  .reports-screen-flow > .reports-panel,
-  body .reports-page .reports-screen-flow > .reports-kpi-slide,
-  .reports-chart-panel,
-  .reports-category-panel,
-  .reports-overview-panel,
-  .reports-quick-panel,
-  .reports-summary-panel {
+  body:not(.ui3-route-active) .reports-screen-flow > .reports-panel,
+  body:not(.ui3-route-active) .reports-page .reports-screen-flow > .reports-kpi-slide,
+  body:not(.ui3-route-active) .reports-chart-panel,
+  body:not(.ui3-route-active) .reports-category-panel,
+  body:not(.ui3-route-active) .reports-overview-panel,
+  body:not(.ui3-route-active) .reports-quick-panel,
+  body:not(.ui3-route-active) .reports-summary-panel {
     grid-column: 1 !important;
     width: 100% !important;
     height: auto !important;
