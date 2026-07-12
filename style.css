@@ -47191,4 +47191,11 @@ body.theme-light .calc-printer-art{
   body.mobile-mode .mobile-panel-calculator :is(.calc-active-profile small,.calc-active-profile em,.calc-smart-tip small,.calc-batch-summary span,.calc-batch-summary small){color:#64727c !important}
   body.mobile-mode .mobile-panel-calculator .calc-printer-art{background:#edf7f6 !important;color:#007f76 !important}
   body.mobile-mode .mobile-panel-calculator :is(input,select){background:#fff !important;color:#14212b !important;border-color:#cfdadd !important}
+  body.mobile-mode .mobile-panel-calculator .calc-option-fields,
+  body.mobile-mode .mobile-panel-calculator .calc-segmented{background:#f4f7f7 !important;color:#14212b !important;border-color:#d7e1e3 !important}
+  body.mobile-mode .mobile-panel-calculator :is(.calc-option-header,.calc-option-header span,.calc-option-header strong,.calc-option-fields,.calc-stepper-row,.calc-fee-stepper,.calc-segmented span){color:#14212b !important}
+  body.mobile-mode .mobile-panel-calculator .calc-option-header small,
+  body.mobile-mode .mobile-panel-calculator .calc-fee-stepper i{color:#64727c !important}
+  body.mobile-mode .mobile-panel-calculator .calc-stepper-row button,
+  body.mobile-mode .mobile-panel-calculator .calc-fee-stepper button{background:#fff !important;color:#007f76 !important;border-color:#cfdadd !important}
 }
