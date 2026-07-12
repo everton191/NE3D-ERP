@@ -24312,17 +24312,17 @@ function renderDashboardQuickActionsPanel() {
 function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, cards }) {
   const lojaCard = renderDashboardDesktopStorePanel();
   return `
-    <section class="dashboard-page dashboard-pro premium-dashboard dashboard-control-center s3d-page s3d-dashboard">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-dashboard" data-ui-version="v3" data-ui3-screen="dashboard">
       <div class="dashboard-metrics-section">
         ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
       </div>
       ${renderDashboardQuickActionsPanel()}
-      <div class="dashboard-main-grid">
+      <div class="ui3-grid ui3-dashboard-main-grid">
         <div class="recent-orders-card">${renderPedidosRecentesDashboard()}</div>
         <div class="revenue-card">${renderDashboardComboChart(analytics)}${renderDashboardAnalyticsHero(analytics)}</div>
         <div class="insights-card">${renderDashboardInsights(analytics)}</div>
       </div>
-      <div class="dashboard-bottom-grid ${lojaCard ? "has-store-card" : "no-store-card"}">
+      <div class="ui3-grid ui3-dashboard-bottom-grid ${lojaCard ? "has-store-card" : "no-store-card"}">
         <div class="inventory-card">${renderDashboardDesktopStockPanel(stats)}</div>
         <div class="production-card">${renderDashboardDesktopProductionPanel()}</div>
         <div>${renderDashboardDesktopCashPanel(totaisCaixa)}</div>
@@ -24330,7 +24330,7 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         ${lojaCard ? `<div>${lojaCard}</div>` : ""}
         ${renderDashboardAdCard(plano)}
       </div>
-      <div class="dashboard-secondary-grid">
+      <div class="ui3-grid ui3-dashboard-secondary-grid">
         ${renderDashboardAnalyticSections(analytics)}
         ${renderDashboardDesktopContinuityPanel()}
       </div>
@@ -24341,7 +24341,7 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
 
 function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
   return `
-    <section class="dashboard-pro premium-dashboard dashboard-apk-simple s3d-page s3d-dashboard">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-dashboard" data-ui-version="v3" data-ui3-screen="dashboard">
       ${renderDashboardHomeHeader()}
       ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
@@ -24418,7 +24418,7 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
     { label: "Caixa atual", value: formatarMoeda(totaisCaixa.saldo), icon: "caixa", action: "trocarTela('caixa')" }
   ];
   return `
-    <section class="dashboard-simplifica s3d-page s3d-dashboard" data-interface-mode="simplifica">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-dashboard ui3-dashboard-simple" data-ui-version="v3" data-ui3-screen="dashboard" data-interface-mode="simplifica">
       <header class="dashboard-simplifica-header">
         <div>
           <h1>Início</h1>
@@ -24428,7 +24428,7 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
           ${renderDashboardInterfaceModeButton()}
         </div>
       </header>
-      <div class="dashboard-simplifica-metrics">
+      <div class="ui3-grid ui3-dashboard-metrics">
         ${cards.map((card) => `
           <button class="metric dashboard-simplifica-metric" type="button" onclick="${card.action}">
             <span>${renderUiIcon(card.icon)}</span>
@@ -24449,7 +24449,7 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
           <button class="btn ghost" type="button" onclick="trocarTela('lojaOnline')">${renderUiIcon("lojaOnline")} Minha loja</button>
         </div>
       </section>
-      <div class="dashboard-simplifica-grid${alertas.length ? "" : " dashboard-simplifica-grid-single"}">
+      <div class="ui3-grid ui3-dashboard-content-grid">
         ${alertas.length ? `
           <section class="card">
             <div class="card-header">
@@ -29588,8 +29588,8 @@ function renderRelatorios() {
     { id: "personalizado", label: "Personalizado", icon: "agenda" }
   ].filter((periodo) => advancedReportsContext || ["hoje", "semana", "mes"].includes(periodo.id));
   return `
-    <section class="reports-page organized-page">
-      <header class="reports-header">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-reports" data-ui-version="v3" data-ui3-screen="relatorios">
+      <header class="ui3-page-header ui3-reports-header">
         <div class="reports-title-row">
           <button class="icon-action-button" type="button" onclick="abrirMenuLateral()" title="Menu">${renderUiIcon("menu")}</button>
           <div>
@@ -29606,7 +29606,7 @@ function renderRelatorios() {
         </div>
       </header>
 
-      <div class="reports-screen-flow" aria-label="Telas dos relatórios">
+      <div class="ui3-grid ui3-reports-grid" aria-label="Telas dos relatórios">
         <section class="reports-panel reports-overview-panel">
           <div class="reports-period-tabs" role="tablist" aria-label="Período dos relatórios">
             ${periodos.map((periodo) => `
@@ -29647,7 +29647,7 @@ function renderRelatorios() {
           ${renderRelatorioKpiCard({ titulo: "Lucro líquido", valor: formatarMoeda(agregado.atual.total_profit), delta: agregado.comparacoes.lucro, icon: "relatorios", estado: "orange", series: seriesLucro })}
         </section>
 
-        <section class="reports-panel reports-chart-panel">
+        <section class="ui3-card ui3-chart-container reports-chart-panel">
           <div class="reports-panel-header">
             <div>
               <h3>Faturamento ao longo do tempo</h3>
@@ -29659,7 +29659,7 @@ function renderRelatorios() {
           ${renderRelatorioLineChart(series)}
         </section>
 
-        <section class="reports-panel reports-category-panel">
+        <section class="ui3-card ui3-chart-container reports-category-panel">
           <div class="reports-panel-header">
             <h3>Faturamento por categoria</h3>
           </div>
@@ -29684,7 +29684,7 @@ function renderRelatorios() {
             <h3>Resumo por períodos</h3>
             <button class="btn ghost" type="button" onclick="exportarResumoRelatorios()">${renderUiIcon("backup")} Exportar</button>
           </div>
-          <div class="reports-period-table">
+          <div class="ui3-table-scroll reports-period-table">
             ${getResumoPeriodosRelatorios().map((linha) => renderResumoPeriodoRelatorios(linha.label, linha.sublabel, linha.info)).join("")}
           </div>
         </section>

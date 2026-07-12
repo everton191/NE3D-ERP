@@ -4,6 +4,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const uiV3Scroll = fs.readFileSync(path.join(root, "styles", "ui-v3", "app-shell.css"), "utf8");
 
 const requiredApp = [
   "function renderComandosPedidoRapidoPwa()",
@@ -32,7 +33,7 @@ const requiredCss = [
   ".quick-order-layout{\n  min-height:0;\n  height:100%;",
   "touch-action:pan-y;",
   "overflow-x:clip !important;",
-  "overscroll-behavior-y:auto !important;",
+  "overscroll-behavior:contain;",
   ".reports-kpi-slide{",
   ".quick-order-command-panel{",
   "Central responsive layout authority: one vertical scroll owner per screen.",
@@ -59,7 +60,7 @@ const forbidden = [
 
 const missing = [
   ...requiredApp.filter((snippet) => !app.includes(snippet)),
-  ...requiredCss.filter((snippet) => !css.includes(snippet)),
+  ...requiredCss.filter((snippet) => !(css + uiV3Scroll).includes(snippet)),
   ...forbidden.filter((snippet) => app.includes(snippet) || css.includes(snippet)).map((snippet) => `conteúdo antigo ainda presente: ${snippet}`)
 ];
 
