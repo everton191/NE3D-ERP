@@ -1,0 +1,3 @@
+const fs=require('node:fs');const assert=require('node:assert/strict');const app=fs.readFileSync('app.js','utf8');
+['pedido','clientes','producao','estoque'].forEach(screen=>assert.ok(app.includes(`data-ui3-screen="${screen}"`),`${screen} sem raiz V3`));
+assert.match(app,/pedidoTab === "itens" \? renderAcaoPedidoCompacta\("✚", "Manual"/,'Manual nao condicionado a Itens');assert.match(app,/pedidoTab === "itens" \? renderAcaoPedidoCompacta\("calculadora", "Calcular"/,'Calcular nao condicionado a Itens');assert.ok(app.includes('ui3-sticky-actions ui3-order-final-bar'),'Barra final nao usa StickyActionBar');console.log('UI V3 operational: Pedido, Clientes, Producao e Estoque validados.');

@@ -24723,7 +24723,7 @@ function renderPedido() {
       </div>`;
 
   return `
-    <section class="card order-edit-screen order-flow-screen">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-order-editor" data-ui-version="v3" data-ui3-screen="pedido">
       <div class="card-header order-edit-header">
         <h2>${titulo}</h2>
         ${pedidoEditando ? `<button class="icon-button" onclick="cancelarEdicaoPedido()" title="Cancelar edição">↩</button>` : ""}
@@ -24848,7 +24848,7 @@ function renderPedido() {
       </section>` : ""}
       </div>
 
-      <div class="order-bottom-bar">
+      <div class="ui3-sticky-actions ui3-order-final-bar">
         <div>
           <span>Total</span>
           <strong data-order-total>${formatarMoeda(resumoFinanceiro.total)}</strong>
@@ -24858,9 +24858,9 @@ function renderPedido() {
         <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${pedidoSalvando ? "Salvando pedido..." : botao}</button>
       </div>
 
-      <div class="order-secondary-actions">
-        ${renderAcaoPedidoCompacta("✚", "Manual", "return abrirItemManualPedido(event)")}
-        ${renderAcaoPedidoCompacta("calculadora", "Calcular", "openCalculatorForOrder()")}
+      <div class="order-secondary-actions" data-order-item-actions ${pedidoTab === "itens" ? "" : "hidden"}>
+        ${pedidoTab === "itens" ? renderAcaoPedidoCompacta("✚", "Manual", "return abrirItemManualPedido(event)") : ""}
+        ${pedidoTab === "itens" ? renderAcaoPedidoCompacta("calculadora", "Calcular", "openCalculatorForOrder()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("⎙", "Imprimir", "imprimirPedidoAtual()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
@@ -25347,7 +25347,7 @@ function renderEstoque() {
     : `<p class="empty">Nenhum item encontrado.</p>`;
 
   return `
-    <section class="card organized-page stock-page">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-stock" data-ui-version="v3" data-ui3-screen="estoque">
       <div class="card-header stock-page-header">
         <div>
           <h2>Estoque</h2>
@@ -27417,7 +27417,7 @@ function renderProducao() {
   ];
   const jobs = tab === "impressoras" ? [] : getTarefasProducaoPorAba(tab);
   return `
-    <section class="card organized-page production-page">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-production" data-ui-version="v3" data-ui3-screen="producao">
       <div class="card-header production-page-header">
         <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Fila manual por item, sem automação de impressoras.</p></div>
         <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
@@ -27478,7 +27478,7 @@ function renderClientesOperacionais() {
   `).join("") : `<p class="empty">${termo ? "Nenhum cliente encontrado." : "Clientes aparecem automaticamente a partir dos pedidos."}</p>`;
 
   return `
-    <section class="card clients-compact-screen">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-clients" data-ui-version="v3" data-ui3-screen="clientes">
       <div class="card-header">
         <h2>${renderUiIcon("clientes")} Clientes</h2>
         <span class="status-badge">${totalClientes}</span>

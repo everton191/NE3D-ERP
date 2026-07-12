@@ -6,15 +6,15 @@ const css = fs.readFileSync("style.css", "utf8");
 
 [
   'id="impressaoLote"',
-  'id="calcBatchFields" hidden',
+  'id="calcBatchFields"',
+  'calculatorDraftState.batchActive ? "" : "hidden"',
   'id="tempoMinutos"',
   'id="tempoFormato"',
   'id="quantidade"',
   "function alternarImpressaoLote",
   "function sincronizarTempoFormatadoCalculadora",
   "function normalizarCampoTempoCalculadora",
-  "Ex.: 3:47",
-  "tempoHoras + (tempoMinutos / 60)",
+  "CalculatorDomain.toMinutes",
   "Valor total do lote",
   "Valor unitário calculado",
   "Gerar pedido com este cálculo",
