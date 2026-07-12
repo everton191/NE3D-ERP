@@ -42202,30 +42202,6 @@ body.mobile-mode :where(
 }
 
 @media (max-width: 767px){
-  body.mobile-mode .mobile-panel:has(.cash-screen-card) .mobile-panel-bar{
-    display:none !important;
-  }
-
-  body.mobile-mode .mobile-panel:has(.cash-screen-card) .mobile-panel-content{
-    padding:calc(env(safe-area-inset-top, 0px) + 10px) 12px calc(var(--bottom-nav-height, 72px) + env(safe-area-inset-bottom, 0px) + 16px) !important;
-    background:var(--color-background, #f7fafb) !important;
-  }
-
-  body.mobile-mode .cash-screen-card{
-    padding:0 !important;
-    border:0 !important;
-    border-radius:0 !important;
-    background:transparent !important;
-    box-shadow:none !important;
-    overflow:visible !important;
-  }
-
-  body.mobile-mode .cash-screen-card:has(.cash-experience) > .cash-screen-header,
-  body.mobile-mode .cash-screen-card:has(.cash-experience) > .cash-view-tabs,
-  body.mobile-mode .cash-screen-card:has(.cash-experience) > .cash-period-tabs,
-  body.mobile-mode .cash-screen-card:has(.cash-experience) > .cash-filter-chips{
-    display:none !important;
-  }
 
   body.mobile-mode .cash-experience{
     gap:12px !important;
@@ -44409,13 +44385,6 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .reports-quick-tile {
   body[data-ui-profile="web_pwa"].mobile-mode .profile-inline-grid {
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 7px !important;
-  }
-
-  body[data-ui-profile="web_pwa"].mobile-mode .cash-screen-card {
-    padding: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
   }
 }
 
