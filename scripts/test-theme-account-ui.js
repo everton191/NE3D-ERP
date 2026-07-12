@@ -44,6 +44,10 @@ assert.ok(app.includes("window.UiV3.Dialog"), "modo de uso deve abrir no Dialog 
 assert.ok(app.includes('data-ui3-screen="config"'), "configurações deve consumir a raiz UI V3");
 assert.ok(app.includes('data-ui3-screen="empresa"'), "empresa deve consumir a raiz UI V3");
 assert.ok(app.includes('data-ui3-screen="aparencia"'), "aparência deve consumir a raiz UI V3");
+assert.ok(app.includes("function renderTelaComUiV3"), "rotas secundárias de configurações devem consumir PageContainer V3");
+for (const route of ["mais", "administracao", "backup", "preferencias", "personalizacao", "pdf", "usuarios", "ajuda", "sobre"]) {
+  assert.ok(app.includes(`"${route}"`), `${route} deve estar no limite migrado V3`);
+}
 assert.match(app, /function abrirNotificacoesOperacionais[\s\S]*?window\.UiV3\?\.Dialog/, "notificações deve usar Dialog oficial");
 assert.ok(app.includes("Solicitar exclusão da conta"), "exclusão de conta deve permanecer disponível na segurança");
 assert.ok(app.includes("Ativar 2FA por e-mail"), "2FA por e-mail deve permanecer disponível");

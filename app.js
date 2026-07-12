@@ -11118,11 +11118,11 @@ function renderDesktopConteudo() {
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
   if (configuracoes.includes(telaAtual)) {
-    return `<div class="desktop-focus app-page">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
+    return `<div class="desktop-focus app-page">${atualizacaoAndroid}${renderTelaComUiV3(telaAtual)}</div>`;
   }
 
   if (telaAtual !== "dashboard") {
-    return `<div class="desktop-focus app-page desktop-page-${escaparAttr(telaAtual)}">${atualizacaoAndroid}${renderTela(telaAtual)}</div>`;
+    return `<div class="desktop-focus app-page desktop-page-${escaparAttr(telaAtual)}">${atualizacaoAndroid}${renderTelaComUiV3(telaAtual)}</div>`;
   }
 
   return `${atualizacaoAndroid}${renderDashboard()}`;
@@ -15399,7 +15399,7 @@ function renderPainelMobile(tela) {
     return `
       <section class="mobile-panel mobile-panel-calculator" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
         <div class="mobile-panel-content app-content calculator-panel-content" tabindex="0" onkeydown="gerenciarScrollContainerTeclado(event)">
-          ${renderTela(tela)}
+          ${renderTelaComUiV3(tela)}
         </div>
       </section>
     `;
@@ -15416,10 +15416,20 @@ function renderPainelMobile(tela) {
         </div>
       </div>
       <div class="mobile-panel-content app-content" tabindex="0" onkeydown="gerenciarScrollContainerTeclado(event)">
-        ${renderTela(tela)}
+        ${renderTelaComUiV3(tela)}
       </div>
     </section>
   `;
+}
+
+function renderTelaComUiV3(tela) {
+  const html = renderTela(tela);
+  const rotasMigradas = new Set([
+    "mais", "conta", "administracao", "pedido", "producao", "estoque", "pedidos", "clientes", "caixa", "relatorios",
+    "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "seguranca", "usuarios", "ajuda", "sobre"
+  ]);
+  if (!rotasMigradas.has(tela) || String(html).includes('data-ui-version="v3"')) return html;
+  return `<section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-generic-screen" data-ui-version="v3" data-ui3-screen="${escaparAttr(tela)}">${html}</section>`;
 }
 
 function renderTela(tela) {
