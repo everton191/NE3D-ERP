@@ -44492,8 +44492,7 @@ async function limparRascunhoPedidoRapido() {
       perigo: true
     });
     if (!continuar) {
-      const popup = document.getElementById("popup");
-      if (popup) popup.innerHTML = renderPedidoRapidoOperacional();
+      montarPedidoRapidoNoDrawerUiV3();
       return;
     }
   }
@@ -44514,9 +44513,8 @@ async function limparRascunhoPedidoRapido() {
   window.__pedidoItemSelecionado = null;
   window.__pedidoRapidoItensSelecionados = [];
   limparRascunhoPedidoRapidoLocal();
-  const popup = document.getElementById("popup");
-  if (popup) {
-    popup.innerHTML = renderPedidoRapidoOperacional();
+  if (document.getElementById("popup")) {
+    montarPedidoRapidoNoDrawerUiV3();
     focarCampoOperacional("clienteNome");
   } else {
     atualizarPedidoRapidoOperacional({ syncItemDraft: false });
@@ -44811,6 +44809,13 @@ function renderPedidoRapidoOperacional() {
   `;
 }
 
+function montarPedidoRapidoNoDrawerUiV3({ historyEntry = true } = {}) {
+  const popup = document.getElementById("popup");
+  if (!popup) return null;
+  popup.innerHTML = renderPedidoRapidoOperacional();
+  return promoverPopupParaDialogUiV3(popup, { title: "Pedido rápido", kind: "drawer", historyEntry });
+}
+
 function abrirPedidoRapidoOperacional({ reset = false } = {}) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para criar pedidos.")) return;
   if (!reset) restaurarRascunhoPedidoRapidoSeDisponivel();
@@ -44833,23 +44838,19 @@ function abrirPedidoRapidoOperacional({ reset = false } = {}) {
     window.__pedidoRapidoItensSelecionados = [];
     customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   }
-  const popup = document.getElementById("popup");
-  if (!popup) return;
-  popup.innerHTML = renderPedidoRapidoOperacional();
+  if (!montarPedidoRapidoNoDrawerUiV3()) return;
   setTimeout(() => document.getElementById("clienteNome")?.focus(), 80);
 }
 
 function atualizarPedidoRapidoOperacional(options = {}) {
-  const popup = document.getElementById("popup");
-  if (!popup?.querySelector(".quick-order-drawer")) return;
+  if (!document.querySelector(".quick-order-drawer")) return;
   sincronizarPedidoRapidoOperacional(options);
-  popup.innerHTML = renderPedidoRapidoOperacional();
+  montarPedidoRapidoNoDrawerUiV3({ historyEntry: false });
 }
 
 function atualizarPedidoRapidoResumo() {
   sincronizarPedidoRapidoOperacional();
-  const popup = document.getElementById("popup");
-  const alvo = popup?.querySelector("[data-quick-order-summary]");
+  const alvo = document.querySelector(".quick-order-drawer [data-quick-order-summary]");
   if (!alvo) return;
   const subtotal = normalizarItensPedido(itensPedido).reduce((soma, item) => soma + (Number(item.total) || 0), 0);
   const resumo = calcularResumoFinanceiroPedido({
@@ -46019,7 +46020,7 @@ function promoverPopupParaDialogUiV3(popup, options = {}) {
   content.classList.remove("modal-card");
   content.classList.add("ui3-stack");
   const component = options.kind === "drawer" ? window.UiV3.Drawer : options.kind === "sheet" ? window.UiV3.BottomSheet : window.UiV3.Dialog;
-  const overlay = component({ title, content: content.outerHTML, onClose: options.onClose });
+  const overlay = component({ title, content: content.outerHTML, onClose: options.onClose, historyEntry: options.historyEntry !== false });
   if (overlay) popup.innerHTML = "";
   return overlay || popup;
 }

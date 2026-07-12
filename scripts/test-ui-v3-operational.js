@@ -15,4 +15,7 @@ for(const [start,end,label] of [
   ,['function abrirEstoqueRapidoOperacional','async function salvarEstoqueRapidoOperacional','entrada rapida de estoque']
 ]){const flow=app.slice(app.indexOf(start),app.indexOf(end));assert.ok(flow.includes('promoverPopupParaDialogUiV3'),`${label} nao usa Portal V3`)}
 assert.ok(app.includes('kind: "drawer"'),'acoes rapidas devem usar Drawer V3 explicito');
+const quickOrderDrawer=app.slice(app.indexOf('function montarPedidoRapidoNoDrawerUiV3'),app.indexOf('function abrirPedidoRapidoOperacional'));
+assert.ok(quickOrderDrawer.includes('kind: "drawer"'),'Pedido rapido deve usar Drawer V3');
+assert.ok(app.includes('montarPedidoRapidoNoDrawerUiV3({ historyEntry: false })'),'atualizacao do Pedido rapido nao deve empilhar historico');
 console.log('UI V3 operational: Pedido, Clientes, Producao e Estoque validados.');
