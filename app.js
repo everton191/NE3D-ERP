@@ -41426,17 +41426,23 @@ function solicitarDecisaoItemDuplicado(item, existente) {
         </div>
       </div>
     `;
-    popup.querySelectorAll("[data-dup-action]").forEach((botao) => {
+    let settled = false;
+    const finalizar = (valor) => {
+      if (settled) return;
+      settled = true;
+      fecharPopup();
+      resolve(valor);
+    };
+    const host = promoverPopupParaDialogUiV3(popup, { title: "Item já existe", onClose: () => finalizar(null) });
+    host.querySelectorAll("[data-dup-action]").forEach((botao) => {
       botao.addEventListener("click", () => {
         const action = botao.dataset.dupAction || "cancel";
-        fecharPopup();
-        resolve(action === "increment" || action === "separate" ? action : null);
+        finalizar(action === "increment" || action === "separate" ? action : null);
       }, { once: true });
     });
-    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
       if (event.target === event.currentTarget) {
-        fecharPopup();
-        resolve(null);
+        finalizar(null);
       }
     }, { once: true });
   });
@@ -41721,9 +41727,10 @@ function adicionarProdutoManual() {
       </form>
     </div>
   `;
+  const host = promoverPopupParaDialogUiV3(popup, { title: "Adicionar item manual" });
   const cancelar = () => fecharPopup();
-  popup.querySelectorAll("[data-manual-item-cancel]").forEach((el) => el.addEventListener("click", cancelar, { once: true }));
-  popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+  host.querySelectorAll("[data-manual-item-cancel]").forEach((el) => el.addEventListener("click", cancelar, { once: true }));
+  host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
     if (event.target === event.currentTarget) cancelar();
   });
   document.getElementById("manualOrderItemForm")?.addEventListener("submit", async (event) => {
@@ -41807,10 +41814,14 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
       </div>
     `;
 
+    let settled = false;
     const finalizar = (valor) => {
+      if (settled) return;
+      settled = true;
       fecharPopup();
       resolve(valor);
     };
+    const host = promoverPopupParaDialogUiV3(popup, { title: "Confirmar autorização", onClose: () => finalizar(null) });
     document.getElementById("adminPasswordConfirmForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const input = document.getElementById("adminPasswordConfirmInput");
@@ -41861,7 +41872,7 @@ async function solicitarSenhaConfirmacaoAdmin(actionLabel = "continuar", options
     document.getElementById("adminUsePasswordInstead")?.addEventListener("click", () => finalizar("__USE_APP_PASSWORD__"), { once: true });
     document.getElementById("adminPasswordCancel")?.addEventListener("click", () => finalizar(null), { once: true });
     document.getElementById("adminPasswordCancelTop")?.addEventListener("click", () => finalizar(null), { once: true });
-    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
       if (event.target === event.currentTarget) {
         event.preventDefault();
         focarCampoSenha("adminPasswordConfirmInput");
@@ -42636,6 +42647,7 @@ function abrirRevisaoAlteracoesPedido(pedidoNovo, pedidoAntigo = {}) {
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Revisar alterações" });
 }
 
 function confirmarRevisaoAlteracoesPedido() {
@@ -42742,6 +42754,7 @@ function abrirCadastroItemEstoque() {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Adicionar item ao estoque" });
   document.getElementById("stockAddForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     addMaterial();
@@ -42861,6 +42874,7 @@ function mostrarModalEdicaoMaterial(indice, material) {
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Editar item do estoque" });
   setTimeout(() => document.getElementById("stockEditName")?.focus(), 50);
 }
 
@@ -42985,6 +42999,7 @@ function abrirCadastroLoteEstoque(indice, loteIndex = -1) {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: anterior ? "Editar rolo/lote" : "Adicionar rolo/lote" });
   document.getElementById("stockBatchForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     salvarLoteEstoque(Number(indice), Number(loteIndex));
@@ -43132,6 +43147,7 @@ function abrirSaidaManualEstoque(indice) {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Registrar saída manual" });
   document.getElementById("stockOutputForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     confirmarSaidaManualEstoque(indice);
@@ -43201,6 +43217,7 @@ function abrirReposicaoEstoque(indice) {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Repor estoque" });
   const qtyInput = document.getElementById("stockRestockQty");
   const atualizarPreview = () => {
     const entrada = Number(String(qtyInput?.value || "0").replace(",", ".")) || 0;
@@ -45075,6 +45092,7 @@ function abrirCaixaRapidoOperacional(tipoInicial = "entrada") {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Lançamento rápido", kind: "drawer" });
   setTimeout(() => document.getElementById("caixaValor")?.focus(), 80);
 }
 
@@ -45171,6 +45189,7 @@ function abrirEstoqueRapidoOperacional() {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Entrada rápida no estoque", kind: "drawer" });
   setTimeout(() => document.getElementById("matQtd")?.focus(), 80);
 }
 
@@ -45999,7 +46018,8 @@ function promoverPopupParaDialogUiV3(popup, options = {}) {
   content.querySelector(".modal-header")?.remove();
   content.classList.remove("modal-card");
   content.classList.add("ui3-stack");
-  const overlay = window.UiV3.Dialog({ title, content: content.outerHTML, onClose: options.onClose });
+  const component = options.kind === "drawer" ? window.UiV3.Drawer : options.kind === "sheet" ? window.UiV3.BottomSheet : window.UiV3.Dialog;
+  const overlay = component({ title, content: content.outerHTML, onClose: options.onClose });
   if (overlay) popup.innerHTML = "";
   return overlay || popup;
 }
