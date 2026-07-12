@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.1";
-const APP_VERSION_CODE = 2;
+const APP_VERSION = "1.0.2";
+const APP_VERSION_CODE = 3;
 const APP_RELEASE_NOTES = Object.freeze([
   "O controle de materiais ficou mais organizado nos planos Start e Pro.",
   "Os anúncios estão pausados enquanto melhoramos a experiência do aplicativo.",
@@ -9692,10 +9692,10 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--panel-2", usarClaro ? "#eef2f1" : "#202832");
   root.style.setProperty("--chrome", usarClaro ? "#f8faf9" : "#070b11");
   root.style.setProperty("--line", usarClaro ? "#d5dedb" : "#303946");
-  root.style.setProperty("--text", usarClaro ? "#1f2d2b" : "#f5f7fb");
-  root.style.setProperty("--muted", usarClaro ? "#5d6d69" : "#aeb8c6");
+  root.style.setProperty("--text", usarClaro ? "#000000" : "#ffffff");
+  root.style.setProperty("--muted", usarClaro ? "#000000" : "#dbe7ef");
   root.style.setProperty("--input-bg", usarClaro ? "#f8faf9" : "#111822");
-  root.style.setProperty("--input-text", usarClaro ? "#1f2d2b" : "#f5f7fb");
+  root.style.setProperty("--input-text", usarClaro ? "#000000" : "#ffffff");
   root.style.setProperty("--input-placeholder", usarClaro ? "#71817e" : "#95a0ae");
   root.style.setProperty("--result-bg", usarClaro ? "#fcfdfc" : "#111822");
   root.style.setProperty("--surface", usarClaro ? "#fcfdfc" : "#151d27");
@@ -9736,9 +9736,9 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--color-warning", paletaTema.warning || (usarClaro ? "#B45309" : "#F59E0B"));
   root.style.setProperty("--color-success", paletaTema.success || (usarClaro ? "#15803D" : "#45E08F"));
   root.style.setProperty("--color-info", usarClaro ? "#0284c7" : "#38bdf8");
-  root.style.setProperty("--color-text-primary", usarClaro ? "#1f2d2b" : "#f5f7fb");
-  root.style.setProperty("--color-text-secondary", usarClaro ? "#52635f" : "#dbe7ef");
-  root.style.setProperty("--color-text-muted", usarClaro ? "#71817e" : "#aeb8c6");
+  root.style.setProperty("--color-text-primary", usarClaro ? "#000000" : "#ffffff");
+  root.style.setProperty("--color-text-secondary", usarClaro ? "#000000" : "#dbe7ef");
+  root.style.setProperty("--color-text-muted", usarClaro ? "#000000" : "#dbe7ef");
   root.style.setProperty("--color-text-disabled", usarClaro ? "rgba(82,99,95,.58)" : "rgba(179,187,200,.58)");
   root.style.setProperty("--color-icon-primary", usarClaro ? "#1f2d2b" : "#c9fffb");
   root.style.setProperty("--color-icon-secondary", usarClaro ? "#52635f" : "#b8c6d2");
@@ -9759,9 +9759,9 @@ function aplicarPersonalizacao() {
   root.style.setProperty("--card-hover", usarClaro ? "#f1f5f4" : "#1e2936");
   root.style.setProperty("--border-soft", usarClaro ? "#dfe6e4" : "rgba(255,255,255,.13)");
   root.style.setProperty("--border-strong", usarClaro ? "#d5dedb" : "rgba(255,255,255,.22)");
-  root.style.setProperty("--text-primary", usarClaro ? "#1f2d2b" : "#f5f7fb");
-  root.style.setProperty("--text-secondary", usarClaro ? "#52635f" : "#dbe7ef");
-  root.style.setProperty("--text-muted", usarClaro ? "#71817e" : "#aeb8c6");
+  root.style.setProperty("--text-primary", usarClaro ? "#000000" : "#ffffff");
+  root.style.setProperty("--text-secondary", usarClaro ? "#000000" : "#dbe7ef");
+  root.style.setProperty("--text-muted", usarClaro ? "#000000" : "#dbe7ef");
   root.style.setProperty("--accent-primary", cor);
   root.style.setProperty("--accent-primary-hover", paletaTema.primaryHover || cor);
   root.style.setProperty("--accent-secondary", paletaTema.accent || paletaTema.secondary || (usarClaro ? "#C2410C" : "#F59E0B"));

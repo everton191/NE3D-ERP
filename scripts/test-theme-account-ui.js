@@ -5,6 +5,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const style = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const lightTokens = fs.readFileSync(path.join(root, "themes", "light", "tokens.css"), "utf8");
 
 assert.ok(app.includes("const PRINTER_FEATURE_ENABLED = false"), "impressoras devem permanecer desativadas nesta fase");
 assert.ok(app.includes('if (tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false'), "acesso direto a impressoras deve estar bloqueado");
@@ -19,7 +20,7 @@ assert.ok(style.includes(".theme-mode-disc"), "ícone circular de duas cores dev
 assert.ok(app.includes("function abrirSeletorTemaRapido"), "pressionar o tema deve abrir seletor direto");
 assert.ok(app.includes("onpointerdown=\"iniciarPressTema(event)\""), "botão de tema deve reconhecer pressão longa");
 assert.ok(app.includes('primary: "#72E6E8"'), "tema claro deve usar #72e6e8 como cor principal");
-assert.ok(style.includes("--accent-primary:#72e6e8"), "tokens claros devem usar a nova cor principal");
+assert.ok(lightTokens.includes("--accent-primary:#72e6e8"), "tokens claros devem usar a nova cor principal");
 assert.ok(style.includes("--s3d-button-secondary-bg"), "controle de tema deve consumir tokens de botão");
 assert.ok(app.includes("Segurança, dados e exclusão da conta"), "perfil deve encaminhar para segurança e exclusão");
 assert.match(app, /function abrirSegurancaPerfil\(\)\s*\{\s*trocarTela\("seguranca"\)/, "atalho do perfil deve abrir a tela dedicada de segurança");

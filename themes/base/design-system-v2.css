@@ -67,13 +67,13 @@ svg{
   --erp-surface:#ffffff;
   --erp-surface-soft:#eef4f5;
   --erp-card:#ffffff;
-  --erp-text:#10212b;
-  --erp-text-muted:#64727c;
+  --erp-text:#000000;
+  --erp-text-muted:#000000;
   --erp-border:#e2e9ed;
   --erp-accent:var(--s3d-brand-teal);
   --erp-accent-hover:var(--s3d-brand-teal-hover);
   --erp-input-bg:#ffffff;
-  --erp-input-text:#10212b;
+  --erp-input-text:#000000;
   --erp-placeholder:#829099;
   --erp-header-bg:rgba(255,255,255,.96);
   --erp-sidebar-bg:#ffffff;

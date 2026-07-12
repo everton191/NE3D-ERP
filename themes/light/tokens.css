@@ -13,9 +13,9 @@ body.theme-light{
   --surface-tertiary:#e9eeee;
   --surface-elevated:#ffffff;
   --surface-input:#f6f9f9;
-  --text-primary:#263537;
-  --text-secondary:#596b6d;
-  --text-muted:#7b8b8d;
+  --text-primary:#000000;
+  --text-secondary:#000000;
+  --text-muted:#000000;
   --text-disabled:#9ca9aa;
   --border-primary:#dce4e4;
   --border-secondary:#cdd8d8;

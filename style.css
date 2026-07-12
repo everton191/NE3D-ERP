@@ -47199,3 +47199,55 @@ body.theme-light .calc-printer-art{
   body.mobile-mode .mobile-panel-calculator .calc-stepper-row button,
   body.mobile-mode .mobile-panel-calculator .calc-fee-stepper button{background:#fff !important;color:#007f76 !important;border-color:#cfdadd !important}
 }
+
+/* Final ERP typography authority: keep storefront theme tokens isolated. */
+body.theme-light:not(.visitor-public-screen){
+  --text:#000000;
+  --color-text-primary:#000000;
+  --color-text-secondary:#000000;
+  --color-text-muted:#000000;
+  --text-primary:#000000;
+  --text-secondary:#000000;
+  --text-muted:#000000;
+  --input-text:#000000;
+}
+
+body.theme-light:not(.visitor-public-screen) :where(
+  .btn.secondary,.btn.ghost,.app-button.secondary,.app-button.ghost,
+  .icon-button,.icon-action-button,.tab-button,.menu-button,
+  .side-nav-button,.mobile-bottom-nav-button
+){
+  color:#000000 !important;
+}
+
+body.theme-light:not(.visitor-public-screen) :where(
+  .btn-primary,.btn.primary,.ds-button.primary,.app-button.primary,.button-primary,
+  .s3d-button-primary,.btn.danger,.app-button.danger
+){
+  color:#ffffff !important;
+}
+
+body.theme-light:not(.visitor-public-screen) :where(
+  .btn-primary,.btn.primary,.ds-button.primary,.app-button.primary,.button-primary,
+  .s3d-button-primary,.btn.danger,.app-button.danger
+) :where(span,strong,small,svg){
+  color:currentColor !important;
+}
+
+body:not(.theme-light):not(.visitor-public-screen){
+  --text:#ffffff;
+  --color-text-primary:#ffffff;
+  --color-text-secondary:#dbe7ef;
+  --color-text-muted:#dbe7ef;
+  --text-primary:#ffffff;
+  --text-secondary:#dbe7ef;
+  --text-muted:#dbe7ef;
+  --input-text:#ffffff;
+}
+
+body:not(.theme-light):not(.visitor-public-screen) :where(
+  .btn,.app-button,.ds-button,.s3d-button,.icon-button,.icon-action-button,
+  .tab-button,.menu-button,.side-nav-button,.mobile-bottom-nav-button
+){
+  color:#ffffff;
+}
