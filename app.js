@@ -16309,28 +16309,19 @@ function renderDashboardCommunicationActions() {
 
 async function abrirNotificacoesOperacionais() {
   await sincronizarLojaOnlineAdminRemoto(false).catch(() => {});
-  const popup = document.getElementById("popup");
-  if (!popup) return;
   const notificacoes = getOperationalNotifications();
   markOperationalNotificationsSeen(notificacoes);
-  popup.innerHTML = `
-    <div class="modal-backdrop notification-center-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
-      <section class="modal-card notification-center modal-enter" onclick="event.stopPropagation()">
-        <div class="modal-header">
-          <div><h2>Notificações</h2></div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar notificações">×</button>
-        </div>
-        <div class="notification-center-list">
+  window.UiV3?.Dialog?.({ title: "Notificações", content: `
+        <div class="ui3-settings-list ui3-notification-list">
           ${notificacoes.map((item) => `
-            <article class="notification-center-item tone-${escaparAttr(item.tone)}">
-              <span class="notification-center-icon">${renderUiIcon(item.icon)}</span>
+            <article class="ui3-settings-row tone-${escaparAttr(item.tone)}">
+              <span class="ui3-settings-row__icon">${renderUiIcon(item.icon)}</span>
               <div><strong>${escaparHtml(item.title)}</strong><small>${escaparHtml(item.description)}</small></div>
-              <button class="btn ghost" type="button" onclick="${item.action}">${escaparHtml(item.actionLabel)}</button>
+              <button class="ui3-button" data-variant="secondary" type="button" onclick="window.UiV3.closeOverlay();${item.action.replace(/fecharPopup\(\);?/g, "")}">${escaparHtml(item.actionLabel)}</button>
             </article>
-          `).join("") || `<div class="notification-center-empty">${renderUiIcon("bell")}<strong>Tudo em dia</strong></div>`}
+          `).join("") || `<div class="ui3-state">${renderUiIcon("bell")}<strong>Tudo em dia</strong></div>`}
         </div>
-      </section>
-    </div>`;
+  ` });
 }
 
 function getExternalMessageChannelStatus() {
@@ -31209,7 +31200,7 @@ function renderConfig() {
   const systemLogsContent = mostrarLogsSistema ? renderLogSistemaConfig() : "";
 
   return `
-    <section class="card organized-page settings-page">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="config">
       <div class="card-header">
         <h2>Sistema</h2>
         <span class="status-badge">${escaparHtml(status)}</span>
@@ -34125,7 +34116,7 @@ function renderEmpresaConfig() {
   const marcaAtual = getMarcaProjetoSrc("icon");
   const logoEmpresaAtual = appConfig.companyLogoDataUrl || "";
   return `
-    <section class="card organized-page settings-page">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="empresa">
       <div class="card-header">
         <h2>Empresa</h2>
         <span class="status-badge">Comercial</span>
@@ -34182,7 +34173,7 @@ function renderAparenciaConfig() {
   const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#00BFA6", appConfig.theme || "light", "primary");
   const resolucaoAtual = `${window.innerWidth || 0} x ${window.innerHeight || 0}`;
   return `
-    <section class="card organized-page settings-page">
+    <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="aparencia">
       <div class="card-header">
         <h2>Aparência</h2>
         <span class="status-badge">Interface</span>

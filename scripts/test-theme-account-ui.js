@@ -30,6 +30,10 @@ assert.match(app, /<section class="[^"]*security-account-online-section[^"]*">/,
 assert.ok(app.includes('data-ui3-screen="seguranca"'), "segurança deve consumir a raiz UI V3");
 assert.ok(app.includes('data-ui3-screen="conta"'), "conta deve consumir a raiz UI V3");
 assert.ok(app.includes("window.UiV3.Dialog"), "modo de uso deve abrir no Dialog oficial");
+assert.ok(app.includes('data-ui3-screen="config"'), "configurações deve consumir a raiz UI V3");
+assert.ok(app.includes('data-ui3-screen="empresa"'), "empresa deve consumir a raiz UI V3");
+assert.ok(app.includes('data-ui3-screen="aparencia"'), "aparência deve consumir a raiz UI V3");
+assert.match(app, /function abrirNotificacoesOperacionais[\s\S]*?window\.UiV3\?\.Dialog/, "notificações deve usar Dialog oficial");
 assert.ok(app.includes("Solicitar exclusão da conta"), "exclusão de conta deve permanecer disponível na segurança");
 assert.ok(app.includes("Ativar 2FA por e-mail"), "2FA por e-mail deve permanecer disponível");
 assert.doesNotMatch(app, /renderProfileMenuRow\("personalizacao",\s*"Aparência do app"/, "perfil não deve duplicar o seletor de tema");
