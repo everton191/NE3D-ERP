@@ -2,8 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.0";
-const APP_VERSION_CODE = 1;
+const APP_VERSION = "1.0.1";
+const APP_VERSION_CODE = 2;
+const APP_RELEASE_NOTES = Object.freeze([
+  "O controle de materiais ficou mais organizado nos planos Start e Pro.",
+  "Os anúncios estão pausados enquanto melhoramos a experiência do aplicativo.",
+  "A administração agora mostra os cadastros mais recentes e o último acesso de cada empresa.",
+  "Melhoramos a rolagem das telas e o acesso rápido pelo celular."
+]);
+const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
 const APP_LAYER_IDS = Object.freeze({
   shell: "app-shell",
@@ -206,7 +213,9 @@ const PAID_PRICE_TIERS = [
   { limit: Infinity, price: 29.9 }
 ];
 const AD_MIN_INTERVAL_MS = 45 * 60 * 1000;
-const ADSENSE_WEB_DEFAULT_ENABLED = true;
+const RUNTIME_FEATURES = Object.freeze(globalThis?.__SIMPLIFICA_RUNTIME_FEATURES__ || {});
+const ADS_ENABLED = RUNTIME_FEATURES.adsEnabled === true;
+const ADSENSE_WEB_DEFAULT_ENABLED = ADS_ENABLED;
 const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "ca-pub-1056970757696623");
 const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "3186212257");
 const BILLING_VARIANTS = {
@@ -393,8 +402,11 @@ const ANDROID_PUBLIC_REPO = "everton191/NE3D-ERP.apk";
 const ANDROID_RELEASES_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/NE3D-ERP.apk`;
 const ANDROID_UPDATE_MANIFEST_URL = `https://raw.githubusercontent.com/${ANDROID_PUBLIC_REPO}/main/update.json`;
 const ANDROID_UPDATE_MANIFEST_FALLBACK_URLS = [
-  "https://raw.githubusercontent.com/everton191/NE3D-ERP/main/downloads/update.json"
+  "https://erpne3d.vercel.app/downloads/update.json"
 ];
+const ANDROID_UPDATE_LINE_STORAGE_KEY = "simplifica3d:android-update-line";
+const ANDROID_UPDATE_LINE_ID = "package-1";
+const BROWSER_LOGIN_EMAIL_STORAGE_KEY = "simplifica3d:saved-login-email";
 const USAGE_LEARNING_KEY = "usageLearning";
 const AI_USAGE_MEMORY_PREFIX = "aiUsageMemory";
 const USAGE_LEARNING_ALLOWED_EVENTS = new Set([
@@ -489,7 +501,7 @@ const FEATURE_ACCESS_REGISTRY = Object.freeze({
   basic_products: { label: "Produtos básicos", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "sales", "production", "viewer"], screens: ["estoque"], requiresActivePlan: false },
   advanced_products: { label: "Produtos avançados", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "sales"] },
   basic_stock: { label: "Estoque básico", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.STOCK, screens: ["estoque"], requiresActivePlan: false },
-  spool_stock: { label: "Estoque por rolo", requiredPlan: "pro", partialPlan: "start", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.STOCK, screens: ["estoque"] },
+  spool_stock: { label: "Estoque por rolo", requiredPlan: "start", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.STOCK, screens: ["estoque"] },
   stock_settings: { label: "Configurações de estoque", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.SETTINGS },
   simple_cashier: { label: "Caixa simples", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: FEATURE_ACCESS_ROLES.CASHIER, screens: ["caixa"], requiresActivePlan: false },
   advanced_cashier: { label: "Caixa avançado", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "cashier"], screens: ["caixa"] },
@@ -771,7 +783,7 @@ const UI_SCREEN_RELATIONS = Object.freeze({
   relatorios: Object.freeze({ label: "Relatórios", icon: "relatorios", tokenSet: "reports" }),
   config: Object.freeze({ label: "Sistema", icon: "config", tokenSet: "settings" }),
   empresa: Object.freeze({ label: "Empresa", icon: "empresa", tokenSet: "settings" }),
-  administracao: Object.freeze({ label: "Administração", icon: "departamentos", tokenSet: "settings" }),
+  administracao: Object.freeze({ label: "Administração", icon: "empresa", tokenSet: "settings" }),
   backup: Object.freeze({ label: "Sistema", icon: "backup", tokenSet: "settings" }),
   preferencias: Object.freeze({ label: "Calculadora", icon: "preferencias", tokenSet: "settings" }),
   personalizacao: Object.freeze({ label: "Aparência", icon: "aparencia", tokenSet: "settings" }),
@@ -855,6 +867,15 @@ let itensPedido = [];
 let clientePedido = "";
 let clienteTelefonePedido = "";
 let clienteEmailPedido = "";
+let calculatorDraftState = {
+  peso: "",
+  tempo: "0",
+  tempoMinutos: "0",
+  batchActive: false,
+  quantity: 2,
+  batchMode: "per_piece",
+  extraFeeActive: false
+};
 let observacaoPedido = "";
 let prazoPedido = "";
 let entradaPedido = 0;
@@ -2240,6 +2261,12 @@ function getUsuarioMonetizacao() {
 
 function configurarMonetizacaoAds() {
   try {
+    if (!ADS_ENABLED) {
+      window.AdMobService?.hideBanner?.("RUNTIME_DISABLED");
+      window.AdSenseService?.hideBanner?.("RUNTIME_DISABLED");
+      window.AdSenseService?.hideStorefrontSlots?.("RUNTIME_DISABLED");
+      return;
+    }
     window.AdMobService?.configure?.({
       isPremiumResolver: () => canUsePremiumFeatures(),
       shouldShowAdsResolver: (user, context) => shouldShowAds(user, context),
@@ -2278,6 +2305,7 @@ function contextoInterstitialSeguro(actionName = "") {
 }
 
 function shouldShowAds(user = getUsuarioMonetizacao(), context = contextoInterstitialSeguro()) {
+  if (!ADS_ENABLED) return false;
   if (isSuperAdmin() || adminLogado) return false;
   if (window.AdMobService?.hasTemporaryUnlock?.("ad_free") || window.MonetizationLimits?.hasUnlock?.("ad_free", user || getUsuarioAtual())) return false;
   const estadoPlano = resolverEstadoPlano(user || getUsuarioAtual(), { source: "shouldShowAds" });
@@ -2322,6 +2350,7 @@ function minutosRestantesFallbackAcoes(usuario = getUsuarioMonetizacao()) {
 }
 
 async function tentarLiberarCreditosAcaoPorAnuncio(actionName = "free_action_limit") {
+  if (!ADS_ENABLED) return true;
   const usuario = getUsuarioMonetizacao();
   try {
     const contexto = {
@@ -2354,6 +2383,7 @@ async function tentarLiberarCreditosAcaoPorAnuncio(actionName = "free_action_lim
 }
 
 async function consumirCreditoAcaoFree(actionType, label = "ação") {
+  if (!ADS_ENABLED) return true;
   const monetizacao = window.MonetizationLimits;
   const usuario = getUsuarioMonetizacao();
   if (!monetizacao || getPlanPolicy().isPro || !monetizacao.shouldCountAction?.(actionType)) return true;
@@ -2380,6 +2410,10 @@ async function consumirCreditoAcaoFree(actionType, label = "ação") {
 
 function sincronizarBannerAdMob() {
   try {
+    if (!ADS_ENABLED) {
+      window.AdMobService?.hideBanner?.("RUNTIME_DISABLED");
+      return;
+    }
     const contexto = { ...contextoInterstitialSeguro("screen_view"), adType: "banner" };
     const resultado = window.AdMobService?.syncBannerForScreen?.(getUsuarioMonetizacao(), contexto);
     if (resultado?.catch) resultado.catch(() => {});
@@ -2390,6 +2424,7 @@ function sincronizarBannerAdMob() {
 
 function agendarPreloadRewardedAds(origem = "app") {
   try {
+    if (!ADS_ENABLED) return;
     if (!window.AdMobService?.preloadRewardedAd) return;
     window.clearTimeout?.(window.__rewardedPreloadTimer);
     window.__rewardedPreloadTimer = window.setTimeout(() => {
@@ -2452,6 +2487,10 @@ async function atualizarBotaoRewardedModal(botao, rewardType) {
 
 function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = "" } = {}) {
   return new Promise((resolve) => {
+    if (!ADS_ENABLED) {
+      resolve(false);
+      return;
+    }
     const popup = document.getElementById("popup");
     if (!popup) {
       alert(texto || "Assine o Premium para continuar.");
@@ -3215,8 +3254,8 @@ const STOCK_BATCH_CONTROL_TYPES = Object.freeze([
   { value: "frasco", label: "Frasco" },
   { value: "pacote", label: "Pacote" }
 ]);
-const STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED = true;
-const STOCK_ROLL_AUTO_CONSUMPTION_ENABLED = false;
+const STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED = RUNTIME_FEATURES.stockRollsEnabled !== false;
+const STOCK_ROLL_AUTO_CONSUMPTION_ENABLED = RUNTIME_FEATURES.stockRollAutoConsumptionEnabled === true;
 const MATERIAL_ADD_OPTION = "__add_material__";
 const MATERIAL_COLOR_PALETTE = [
   { nome: "Preto", cor: "#111827" },
@@ -3240,11 +3279,11 @@ const moeda = new Intl.NumberFormat("pt-BR", {
 });
 
 const dashboardWidgets = [
-  { id: "dashboard", titulo: "Resumo", icone: "📊" },
-  { id: "pedido", titulo: "Novo pedido", icone: "📦" },
-  { id: "estoque", titulo: "Estoque", icone: "📦" },
-  { id: "pedidos", titulo: "Pedidos", icone: "📋" },
-  { id: "caixa", titulo: "Caixa", icone: "💰" }
+  { id: "dashboard", titulo: "Resumo", icone: "dashboard" },
+  { id: "pedido", titulo: "Novo pedido", icone: "pedido" },
+  { id: "estoque", titulo: "Estoque", icone: "estoque" },
+  { id: "pedidos", titulo: "Pedidos", icone: "pedidos" },
+  { id: "caixa", titulo: "Caixa", icone: "caixa" }
 ];
 
 const dashboardDefaultSizes = {
@@ -3292,6 +3331,11 @@ function carregarObjeto(chave, fallback = {}) {
 
 function sincronizarBannerAdSense() {
   try {
+    if (!ADS_ENABLED) {
+      window.AdSenseService?.hideBanner?.("RUNTIME_DISABLED");
+      window.AdSenseService?.hideStorefrontSlots?.("RUNTIME_DISABLED");
+      return;
+    }
     window.AdSenseService?.configure?.({
       enabled: !isAndroidNativeApp() && ADSENSE_WEB_DEFAULT_ENABLED !== false,
       publisherId: appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
@@ -3311,6 +3355,10 @@ function sincronizarBannerAdSense() {
 
 function sincronizarAnunciosLojaPublica() {
   try {
+    if (!ADS_ENABLED) {
+      window.AdSenseService?.hideStorefrontSlots?.("RUNTIME_DISABLED");
+      return;
+    }
     const vm = telaAtual === "lojaPublica" ? getStorefrontPublicViewModel() : null;
     const resultado = window.AdSenseService?.syncStorefrontCards?.({
       isAdmin: vm ? getStorefrontPublicMode(vm).admin : false
@@ -4239,6 +4287,7 @@ function renderTravaLocal() {
           <p class="muted auth-inline-feedback" id="localUnlockFeedback">Digite a senha usada nesta conta. O teclado permanece aberto se houver erro.</p>
           <div class="actions">
             <button id="localUnlockBtn" class="btn" type="submit">Desbloquear</button>
+            ${appConfig.biometricEnabled && isAndroid() ? `<button class="btn secondary s3d-button" data-ui-component="Button" type="button" onclick="tentarDesbloqueioLocalComBiometria()">Usar biometria</button>` : ""}
             <button class="btn ghost" type="button" onclick="logoutUsuario()">Sair</button>
           </div>
         </form>
@@ -4306,6 +4355,24 @@ async function concluirDesbloqueioLocalComSenha(senha) {
   }
 }
 
+async function tentarDesbloqueioLocalComBiometria({ silencioso = false } = {}) {
+  if (!window.__simplificaLocalLockActive || !appConfig.biometricEnabled || !isAndroid()) return false;
+  const biometria = await confirmarBiometriaSeDisponivel("Use digital, rosto ou padrão para entrar no Simplifica 3D.");
+  if (!biometria.disponivel || !biometria.ok) {
+    if (!silencioso) {
+      const feedback = document.getElementById("localUnlockFeedback");
+      if (feedback) feedback.textContent = "Biometria não confirmada. Digite sua senha para continuar.";
+      focarCampoSenha("localUnlockPassword");
+    }
+    return false;
+  }
+  desativarTravaLocal("biometric");
+  fecharPopup();
+  mostrarToast("Dispositivo desbloqueado.", "sucesso", 2600);
+  renderApp();
+  return true;
+}
+
 async function desbloquearTravaLocalFormulario(event) {
   event?.preventDefault?.();
   if (localLockModalOpen) return;
@@ -4351,6 +4418,10 @@ async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
   if (!precisaDesbloqueioLocal()) return true;
   ativarTravaLocal(motivo);
   debugInfo("[Auth][local-lock]", { motivo, auth_uid: syncConfig.supabaseUserId || "", last_unlock_at: localStorage.getItem(LOCAL_UNLOCK_KEY) || "" });
+  if (appConfig.biometricEnabled && isAndroid()) {
+    const desbloqueado = await tentarDesbloqueioLocalComBiometria({ silencioso: true });
+    if (desbloqueado) return true;
+  }
   return false;
 }
 
@@ -4801,6 +4872,17 @@ function canAccessFeature(options = {}) {
     future: rule.future === true,
     message: formatFeatureAccessMessage(rule, state)
   };
+}
+
+function podeUsarControleRolosEstoque(usuario = getUsuarioAtual()) {
+  if (RUNTIME_FEATURES.stockRollsEnabled === false) return false;
+  return canAccessFeature({ feature: "spool_stock", usuario }).allowed === true;
+}
+
+function exigirControleRolosEstoque() {
+  if (podeUsarControleRolosEstoque()) return true;
+  mostrarToast("O controle por rolos está disponível nos planos Start e Pro.", "info", 4200);
+  return false;
 }
 
 function getPlanUpgradeOptions(plan = "free") {
@@ -7929,8 +8011,9 @@ const CustomerSuggestionManager = {
   },
   async searchPhoneContacts(query) {
     const plugin = getAIPlugin();
-    if (!plugin?.searchPhoneContacts) return [];
-    if (normalizarSugestaoClienteTexto(query).length < 2 && normalizarTelefoneBusca(query).length < 2) return [];
+    if (!plugin?.searchPhoneContacts) {
+      throw new Error("A agenda do telefone está disponível somente no aplicativo Android instalado.");
+    }
     const result = await promiseComTimeout(
       plugin.searchPhoneContacts({ query, limit: 8 }),
       14000,
@@ -8017,10 +8100,11 @@ function labelOrigemSugestaoCliente(source = "") {
 
 function renderCustomerSuggestions() {
   const query = String(customerSuggestionState.query || clientePedido || "").trim();
+  const podeAbrirAgenda = !!getAIPlugin()?.searchPhoneContacts;
   const selectedBadge = selectedCustomerSuggestion ? `
     <span class="selected-customer-badge">${escaparHtml(labelOrigemSugestaoCliente(selectedCustomerSuggestion.source))}</span>
   ` : "";
-  if (query.length < 2 && !selectedBadge) return "";
+  if (query.length < 2 && !selectedBadge && !podeAbrirAgenda) return "";
   const linhas = customerSuggestionState.suggestions.length ? customerSuggestionState.suggestions.map((item, index) => `
     <button class="customer-suggestion-item" type="button" onclick="selecionarSugestaoCliente(${index})">
       <span>
@@ -8034,7 +8118,7 @@ function renderCustomerSuggestions() {
     <div class="customer-suggestion-box">
       <div class="customer-suggestion-toolbar">
         <span id="selectedCustomerBadgeContainer">${selectedBadge}</span>
-        <button class="text-link" type="button" onclick="buscarSugestoesContatosTelefone()">Buscar nos contatos</button>
+        ${podeAbrirAgenda ? `<button class="text-link" type="button" onclick="buscarSugestoesContatosTelefone()">Abrir contatos do telefone</button>` : ""}
       </div>
       ${customerSuggestionState.loading ? `<div class="customer-suggestion-loading">Buscando...</div>` : ""}
       ${linhas || (!customerSuggestionState.loading && query.length >= 2 ? `<div class="customer-suggestion-empty">Nenhum cliente encontrado. <button class="text-link" type="button" onclick="cadastrarNovoClientePedido()">Cadastrar novo</button></div>` : "")}
@@ -8149,14 +8233,19 @@ function normalizarLoteEstoque(lote = {}, material = {}) {
     id: lote.id || "batch-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
     inventory_item_id: lote.inventory_item_id || lote.inventoryItemId || material.id || "",
     batch_code: String(lote.batch_code || lote.batchCode || lote.codigo || lote.code || "").trim(),
+    manufacturer_lot: String(lote.manufacturer_lot || lote.manufacturerLot || lote.loteFabricante || "").trim(),
+    location_id: String(lote.location_id || lote.locationId || lote.localizacao || "").trim(),
+    qr_code: String(lote.qr_code || lote.qrCode || "").trim(),
     batch_type: tipo,
     initial_quantity: initial,
     current_quantity: current,
     unit: unidade,
     cost_total: Math.max(0, Number(lote.cost_total ?? lote.costTotal ?? lote.custoTotal) || 0),
     cost_per_unit: Math.max(0, Number(lote.cost_per_unit ?? lote.costPerUnit ?? lote.custoUnitario) || 0),
+    spool_tare_weight_g: Math.max(0, Number(lote.spool_tare_weight_g ?? lote.spoolTareWeightG ?? lote.taraCarretel) || 0),
     purchase_date: lote.purchase_date || lote.purchaseDate || "",
     opened_at: lote.opened_at || lote.openedAt || "",
+    last_weighed_at: lote.last_weighed_at || lote.lastWeighedAt || "",
     status,
     notes: String(lote.notes || lote.observacoes || "").trim(),
     created_at: lote.created_at || lote.createdAt || new Date().toISOString(),
@@ -9963,6 +10052,12 @@ function renderizarStatusSyncSeVisivel() {
 }
 
 function sincronizarBannersSeNecessario(force = false) {
+  if (!ADS_ENABLED) {
+    window.AdMobService?.hideBanner?.("RUNTIME_DISABLED");
+    window.AdSenseService?.hideBanner?.("RUNTIME_DISABLED");
+    window.AdSenseService?.hideStorefrontSlots?.("RUNTIME_DISABLED");
+    return;
+  }
   sincronizarAnunciosLojaPublica();
   const agora = Date.now();
   const chave = `${telaAtual}:${getPlanoAtual().status}:${isMobile() ? "m" : "d"}`;
@@ -10494,6 +10589,7 @@ function ensureAppShellLayers() {
     const content = document.createElement("main");
     content.id = APP_LAYER_IDS.content;
     content.className = "app-content-shell";
+    content.dataset.uiScrollOwner = "app-content";
     shell.appendChild(criarAppShellSlot("aside", APP_LAYER_IDS.sidebar, "app-shell-slot app-sidebar-slot"));
     shell.appendChild(criarAppShellSlot("header", APP_LAYER_IDS.topbar, "app-shell-slot app-topbar-slot"));
     shell.appendChild(content);
@@ -10504,6 +10600,7 @@ function ensureAppShellLayers() {
   garantirFilhoAppShell(shell, "aside", APP_LAYER_IDS.sidebar, "app-shell-slot app-sidebar-slot", true);
   garantirFilhoAppShell(shell, "header", APP_LAYER_IDS.topbar, "app-shell-slot app-topbar-slot", true);
   const content = garantirFilhoAppShell(shell, "main", APP_LAYER_IDS.content, "app-content-shell", false);
+  if (content) content.dataset.uiScrollOwner = "app-content";
   if (app && content && app.parentElement !== content) content.appendChild(app);
   garantirFilhoAppShell(shell, "div", APP_LAYER_IDS.overlay, "app-layer app-overlay-layer", false);
   garantirFilhoAppShell(shell, "div", APP_LAYER_IDS.drawer, "app-layer app-drawer-layer", false);
@@ -10721,6 +10818,10 @@ function renderApp() {
     hidratarLojaPublicaSeNecessario();
     preencherImpressoras();
     preencherMateriaisCalculadora();
+    if (telaAtual === "calculadora") {
+      atualizarVisualTaxaExtraCalculadora();
+      atualizarResumoLoteCalculadora();
+    }
     if (["impressoras", "calculadora", "producao"].includes(telaAtual)) {
       setTimeout(() => hidratarImpressorasSeNecessario(false), 0);
     }
@@ -11032,7 +11133,7 @@ function renderTopbar() {
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
         <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-        <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
       <div class="topbar-user">
         ${isModoManutencaoSuperadminAtivo() ? `<button class="btn secondary superadmin-return-button" type="button" onclick="sairManutencaoSuperadmin()">${renderUiIcon("superadmin")} Encerrar manutenção</button>` : ""}
@@ -11157,6 +11258,121 @@ function buscarGlobal(event, valor) {
   mostrarToast(`Nada encontrado para “${valorOriginal}”. Tente uma pergunta, como “como fazer um pedido”.`, "info", 4800);
 }
 
+function normalizarItemAutocompletePesquisa(item = {}) {
+  const label = String(item.label || item.nome || item.title || "").trim();
+  if (!label) return null;
+  return {
+    label,
+    detail: String(item.detail || item.detalhe || "").trim(),
+    value: String(item.value || label).trim(),
+    action: typeof item.action === "function" ? item.action : null
+  };
+}
+
+function opcoesAutocompletePesquisa(contexto = "global") {
+  const itensPedidoBusca = pedidos.map((pedido) => ({
+    label: `${clienteDoPedido(pedido)} · Pedido #${pedido.id}`,
+    value: clienteDoPedido(pedido),
+    detail: formatarMoeda(totalPedido(pedido)),
+    action: () => visualizarPedido(pedido.id)
+  }));
+  const itensEstoqueBusca = normalizarEstoque().map((item) => ({
+    label: item.nome || item.descricao || "Material",
+    value: item.nome || item.descricao || "",
+    detail: [item.codigo, item.cor, item.tipo].filter(Boolean).join(" · "),
+    action: () => trocarTela("estoque")
+  }));
+  const itensClientesBusca = coletarClientesAppParaSugestao().map((cliente) => ({
+    label: cliente.name || "Cliente",
+    value: cliente.name || "",
+    detail: cliente.phone || cliente.email || ""
+  }));
+  const itensCaixaBusca = caixa.map((movimento) => ({
+    label: descricaoCaixa(movimento) || getResumoMetodoMovimentoCaixa(movimento) || "Movimentação",
+    value: descricaoCaixa(movimento) || clienteDoPedido(encontrarPedidoPorMovimentoCaixa(movimento) || {}) || "",
+    detail: formatarMoeda(Number(movimento.valor) || 0)
+  }));
+  const itensRelatoriosBusca = ["Vendas", "Pedidos", "Caixa", "Estoque", "Clientes", "Produção", "Financeiro"]
+    .map((label) => ({ label, value: label, detail: "Relatório" }));
+  const mapa = {
+    global: [...itensPedidoBusca, ...itensClientesBusca, ...itensEstoqueBusca],
+    pedidos: itensPedidoBusca,
+    estoque: itensEstoqueBusca,
+    clientes: itensClientesBusca,
+    caixa: itensCaixaBusca,
+    relatorios: itensRelatoriosBusca,
+    superadmin: (Array.isArray(saasClients) ? saasClients : []).map((cliente) => ({
+      label: cliente.name || cliente.nome || cliente.businessName || cliente.email || "Empresa",
+      value: cliente.name || cliente.nome || cliente.businessName || cliente.email || "",
+      detail: [cliente.email, cliente.plan || cliente.plano].filter(Boolean).join(" · ")
+    }))
+  };
+  return (mapa[contexto] || mapa.global).map(normalizarItemAutocompletePesquisa).filter(Boolean);
+}
+
+function fecharAutocompletePesquisa(input = null) {
+  const host = input?.closest?.("label") || input?.parentElement;
+  host?.querySelector?.(".search-autocomplete-panel")?.remove();
+}
+
+function agendarFechamentoAutocompletePesquisa(input) {
+  setTimeout(() => {
+    if (!input?.closest?.("label")?.contains?.(document.activeElement)) fecharAutocompletePesquisa(input);
+  }, 180);
+}
+
+function selecionarAutocompletePesquisa(input, index) {
+  const contexto = input?.dataset?.searchContext || "global";
+  const termo = normalizarTextoBusca(input?.value || "");
+  const opcoes = opcoesAutocompletePesquisa(contexto)
+    .filter((item) => normalizarTextoBusca(`${item.label} ${item.detail} ${item.value}`).includes(termo))
+    .slice(0, 8);
+  const item = opcoes[Number(index)];
+  if (!item || !input) return;
+  input.value = item.value;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  fecharAutocompletePesquisa(input);
+  if (item.action) item.action();
+}
+
+function atualizarAutocompletePesquisa(input) {
+  if (!input) return;
+  fecharAutocompletePesquisa(input);
+  const termo = normalizarTextoBusca(input.value || "");
+  if (!termo) return;
+  const contexto = input.dataset.searchContext || "global";
+  const opcoes = opcoesAutocompletePesquisa(contexto)
+    .filter((item) => normalizarTextoBusca(`${item.label} ${item.detail} ${item.value}`).includes(termo))
+    .slice(0, 8);
+  if (!opcoes.length) return;
+  const host = input.closest("label") || input.parentElement;
+  if (!host) return;
+  host.classList.add("search-autocomplete-host");
+  const panel = document.createElement("div");
+  panel.className = "search-autocomplete-panel";
+  panel.setAttribute("role", "listbox");
+  panel.innerHTML = opcoes.map((item, index) => `
+    <button type="button" role="option" onpointerdown="event.preventDefault();selecionarAutocompletePesquisa(this.closest('.search-autocomplete-panel').parentElement.querySelector('input'),${index})">
+      <strong>${escaparHtml(item.label)}</strong>
+      ${item.detail ? `<small>${escaparHtml(item.detail)}</small>` : ""}
+    </button>
+  `).join("");
+  host.appendChild(panel);
+}
+
+function reabrirAutocompletePesquisaAposRender(input, delay = 220) {
+  const context = input?.dataset?.searchContext || "";
+  const focusKey = input?.dataset?.preserveFocusKey || "";
+  const value = String(input?.value || "");
+  setTimeout(() => {
+    const selector = focusKey
+      ? `input[data-preserve-focus-key="${focusKey}"]`
+      : context ? `input[data-search-context="${context}"]` : "";
+    const atual = selector ? Array.from(document.querySelectorAll(selector)).find((item) => String(item.value || "") === value) : null;
+    if (atual && document.activeElement === atual) atualizarAutocompletePesquisa(atual);
+  }, Math.max(0, Number(delay) || 0));
+}
+
 function ativarBuscaCompacta(label) {
   if (!label) return;
   label.classList.add("is-expanded");
@@ -11267,7 +11483,7 @@ function renderAcessoNegado() {
   return `
     <section class="card">
       <div class="card-header">
-        <h2>🔒 Acesso negado</h2>
+        <h2>${renderUiIcon("seguranca")} Acesso negado</h2>
         <span class="status-badge badge-danger">Restrito</span>
       </div>
       <p class="muted">Você precisa entrar com uma conta autorizada ou seu perfil não tem permissão para esta área.</p>
@@ -14647,44 +14863,44 @@ function selecionarUsuarioPerfil(id) {
 }
 
 function getMenuGroups() {
-  const lojaOnlineItem = getUsuarioAtual() ? [{ tela: "lojaOnline", icone: "🛍️", texto: "Loja Online" }] : [];
+  const lojaOnlineItem = getUsuarioAtual() ? [{ tela: "lojaOnline", icone: "lojaonline", texto: "Loja Online" }] : [];
   const modo = getInterfaceMode();
   const grupos = [
     {
       titulo: "Principal",
       itens: [
-        { tela: "dashboard", icone: "📊", texto: isSimplificaMode() ? "Início" : "Dashboard" },
-        { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-        { tela: "clientes", icone: "👥", texto: "Clientes" },
-        { tela: "calculadora", icone: "🧮", texto: isSimplificaMode() ? "Calculadora" : "Calculadora 3D" },
-        { tela: "estoque", icone: "📦", texto: isSimplificaMode() ? "Produtos/Estoque" : "Estoque" },
-        { tela: "caixa", icone: "💰", texto: "Caixa" },
-        { tela: "relatorios", icone: "📈", texto: "Relatórios" },
+        { tela: "dashboard", icone: "dashboard", texto: isSimplificaMode() ? "Início" : "Dashboard" },
+        { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
+        { tela: "clientes", icone: "clientes", texto: "Clientes" },
+        { tela: "calculadora", icone: "calculadora", texto: isSimplificaMode() ? "Calculadora" : "Calculadora 3D" },
+        { tela: "estoque", icone: "estoque", texto: isSimplificaMode() ? "Produtos/Estoque" : "Estoque" },
+        { tela: "caixa", icone: "caixa", texto: "Caixa" },
+        { tela: "relatorios", icone: "relatorios", texto: "Relatórios" },
         ...lojaOnlineItem
       ]
     },
     {
       titulo: "Operação",
       itens: [
-        { tela: "pedido", icone: "🧾", texto: "Novo pedido" },
-        { tela: "producao", icone: "🖨️", texto: "Produção" }
+        { tela: "pedido", icone: "pedido", texto: "Novo pedido" },
+        { tela: "producao", icone: "producao", texto: "Produção" }
       ]
     },
     {
       titulo: "Perfil",
       itens: [
-        { tela: "conta", icone: "👤", texto: "Meu perfil" },
-        { tela: "seguranca", icone: "🔒", texto: "Segurança e conta" }
+        { tela: "conta", icone: "conta", texto: "Meu perfil" },
+        { tela: "seguranca", icone: "seguranca", texto: "Segurança e conta" }
       ]
     },
     {
       titulo: "Configurações",
       itens: [
-        { tela: "administracao", icone: "🏢", texto: "Administração" },
-        { tela: "preferencias", icone: "🎛️", texto: "Calculadora" },
-        { tela: "config", icone: "⚙️", texto: "Sistema" },
-        { tela: "feedback", icone: "💡", texto: "Ajuda" },
-        { tela: "sobre", icone: "ℹ️", texto: "Sobre" }
+        { tela: "administracao", icone: "empresa", texto: "Administração" },
+        { tela: "preferencias", icone: "preferencias", texto: "Calculadora" },
+        { tela: "config", icone: "config", texto: "Sistema" },
+        { tela: "feedback", icone: "feedback", texto: "Ajuda" },
+        { tela: "sobre", icone: "sobre", texto: "Sobre" }
       ]
     }
   ];
@@ -14693,7 +14909,7 @@ function getMenuGroups() {
     grupos.push({
       titulo: "Super Admin",
       itens: [
-        { tela: "superadmin", icone: "🛡️", texto: "Super Admin" }
+        { tela: "superadmin", icone: "superadmin", texto: "Super Admin" }
       ]
     });
   }
@@ -15113,15 +15329,15 @@ function renderDrawerGestureRail() {
 function getMobileBottomNavItems() {
   const itensSimplifica = [
     { tela: "dashboard", icone: "⌂", texto: "Início" },
-    { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-    { tela: "calculadora", icone: "🧮", texto: "Calcular" },
+    { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
+    { tela: "calculadora", icone: "calculadora", texto: "Calcular" },
     { acao: "abrirMenuPopup()", iconKey: "plus", icone: "+", texto: "Mais" }
   ];
   const itensProfissional = [
     { tela: "dashboard", icone: "⌂", texto: "Home" },
-    { tela: "pedidos", icone: "📋", texto: "Pedidos" },
-    { tela: "producao", icone: "🖨️", texto: "Produção" },
-    { tela: "caixa", icone: "💰", texto: "Caixa" }
+    { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
+    { tela: "producao", icone: "producao", texto: "Produção" },
+    { tela: "caixa", icone: "caixa", texto: "Caixa" }
   ];
   return (isSimplificaMode() ? itensSimplifica : itensProfissional)
     .filter((item) => shouldShowMenuItem(item) && (!item.tela || canAccessScreen(item.tela)));
@@ -15311,7 +15527,7 @@ function renderDashboardHomeHeader() {
         ${renderDashboardInterfaceModeButton()}
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
           <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-          <input placeholder="Buscar no app..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+          <input data-search-context="global" placeholder="Buscar no app..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
         ${renderDashboardProfileButton(usuario)}
@@ -23433,7 +23649,7 @@ function renderDashboardSearch() {
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
         <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-        <input placeholder="Buscar pedidos, clientes, materiais ou valores..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+        <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
     </div>
   `;
@@ -23911,7 +24127,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
       <div class="desktop-dashboard-hero-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
           <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-          <input placeholder="Buscar..." onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this)">
+          <input data-search-context="global" placeholder="Buscar..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
         ${renderDashboardProfileButton(usuario)}
@@ -24195,14 +24411,23 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
   const loja = canUseStorefrontLocal() ? getStorefrontAdminViewModel() : null;
   const lojaPublicada = loja?.store?.active === true;
   const produtosVisiveis = loja ? loja.products.filter((product) => product.visible).length : 0;
-  const alertaEstoque = stats.estoqueBaixo
-    ? `${stats.estoqueBaixo} item(ns) com estoque baixo.`
-    : "Estoque sem alertas críticos.";
-  const alertaLoja = loja
-    ? lojaPublicada
-      ? `${produtosVisiveis} produto(s) visíveis na loja.`
-      : "Sua loja ainda não foi publicada."
-    : "Loja disponível após entrar na conta.";
+  const alertas = [
+    stats.pedidosAbertos > 0 ? {
+      action: "trocarTela('pedidos')",
+      title: "Você tem pedidos pendentes.",
+      detail: `${stats.pedidosAbertos} em aberto`
+    } : null,
+    stats.estoqueBaixo > 0 ? {
+      action: "trocarTela('estoque')",
+      title: `${stats.estoqueBaixo} item(ns) com estoque baixo.`,
+      detail: "Confira materiais e produtos"
+    } : null,
+    loja && !lojaPublicada ? {
+      action: "trocarTela('lojaOnline')",
+      title: "Sua loja ainda não foi publicada.",
+      detail: `${produtosVisiveis} produto(s) visíveis`
+    } : null
+  ].filter(Boolean);
   const cards = [
     { label: "Vendas hoje", value: formatarMoeda(stats.faturamentoDia), icon: "caixa", action: "trocarTela('caixa')" },
     { label: "Pedidos pendentes", value: String(stats.pedidosAbertos || 0), icon: "pedidos", action: "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')" },
@@ -24241,18 +24466,23 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
           <button class="btn ghost" type="button" onclick="trocarTela('lojaOnline')">${renderUiIcon("lojaOnline")} Minha loja</button>
         </div>
       </section>
-      <div class="dashboard-simplifica-grid">
-        <section class="card">
-          <div class="card-header">
-            <h2>Alertas simples</h2>
-            <span class="status-badge ${stats.estoqueBaixo ? "badge-alerta" : "badge-ativo"}">${stats.estoqueBaixo ? "Atenção" : "OK"}</span>
-          </div>
-          <div class="dashboard-simple-alerts">
-            <button type="button" onclick="trocarTela('pedidos')"><strong>${stats.pedidosAbertos ? "Você tem pedidos pendentes." : "Nenhum pedido pendente."}</strong><small>${stats.pedidosAbertos || 0} em aberto</small></button>
-            <button type="button" onclick="trocarTela('estoque')"><strong>${escaparHtml(alertaEstoque)}</strong><small>Confira materiais e produtos</small></button>
-            <button type="button" onclick="trocarTela('lojaOnline')"><strong>${escaparHtml(alertaLoja)}</strong><small>Publicação e produtos visíveis</small></button>
-          </div>
-        </section>
+      <div class="dashboard-simplifica-grid${alertas.length ? "" : " dashboard-simplifica-grid-single"}">
+        ${alertas.length ? `
+          <section class="card">
+            <div class="card-header">
+              <h2>Alertas</h2>
+              <span class="status-badge badge-alerta">Atenção</span>
+            </div>
+            <div class="dashboard-simple-alerts">
+              ${alertas.map((alerta) => `
+                <button type="button" onclick="${alerta.action}">
+                  <strong>${escaparHtml(alerta.title)}</strong>
+                  <small>${escaparHtml(alerta.detail)}</small>
+                </button>
+              `).join("")}
+            </div>
+          </section>
+        ` : ""}
         ${renderPedidosRecentesDashboard()}
       </div>
     </section>
@@ -24647,7 +24877,7 @@ function renderPedido() {
 
       <div class="order-secondary-actions">
         ${renderAcaoPedidoCompacta("✚", "Manual", "return abrirItemManualPedido(event)")}
-        ${renderAcaoPedidoCompacta("🧮", "Calcular", "openCalculatorForOrder()")}
+        ${renderAcaoPedidoCompacta("calculadora", "Calcular", "openCalculatorForOrder()")}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("▣", "PDF", "gerarPDF()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("⎙", "Imprimir", "imprimirPedidoAtual()") : ""}
         ${itensPedido.length && pedidoTab !== "financeiro" ? renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()") : ""}
@@ -24795,7 +25025,7 @@ function calcularPreviaConsumoPorRolo(material = {}, quantidadeNecessaria = 0, u
   }).filter((item) => item.quantidade > 0);
   const disponivel = lotes.reduce((soma, lote) => soma + (Number(lote.current_quantity) || 0), 0);
   return {
-    enabled: STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED && materialUsaControleLote(material),
+    enabled: STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED && podeUsarControleRolosEstoque() && materialUsaControleLote(material),
     automaticoAtivo: STOCK_ROLL_AUTO_CONSUMPTION_ENABLED,
     necessario,
     disponivel,
@@ -24806,7 +25036,7 @@ function calcularPreviaConsumoPorRolo(material = {}, quantidadeNecessaria = 0, u
 }
 
 function renderPreviaConsumoPorRoloPedido(estoqueItem = {}, quantidade = 0, unidade = "") {
-  if (!STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED || !materialUsaControleLote(estoqueItem)) return "";
+  if (!STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED || !podeUsarControleRolosEstoque() || !materialUsaControleLote(estoqueItem)) return "";
   const previa = calcularPreviaConsumoPorRolo(estoqueItem, quantidade, unidade);
   const tipo = estoqueItem.batch_control_type || "rolo";
   return `
@@ -24937,6 +25167,7 @@ function selecionarMaterialEstoque(referencia) {
 
 function renderRolosLotesMaterialEstoque(material = {}, indice = -1, podeOperar = false) {
   if (!materialUsaControleLote(material)) return "";
+  if (!podeUsarControleRolosEstoque()) return `<p class="muted">Controle por rolos disponível nos planos Start e Pro. Os dados existentes foram preservados.</p>`;
   const tipo = material.batch_control_type || "rolo";
   const lotes = normalizarLotesEstoque(material);
   return `
@@ -24954,7 +25185,7 @@ function renderRolosLotesMaterialEstoque(material = {}, indice = -1, podeOperar 
             <span class="stock-type-icon">${renderUiIcon(getIconeMaterialEstoque(material))}</span>
             <div class="row-title">
               <strong>${escaparHtml(lote.batch_code || `${tipo} ${loteIndex + 1}`)}</strong>
-              <span class="muted">${formatarQuantidadeEstoque(lote.current_quantity, lote.unit)} de ${formatarQuantidadeEstoque(lote.initial_quantity, lote.unit)} • ${escaparHtml(lote.status || "fechado")}</span>
+              <span class="muted">${formatarQuantidadeEstoque(lote.current_quantity, lote.unit)} de ${formatarQuantidadeEstoque(lote.initial_quantity, lote.unit)} • ${escaparHtml(lote.status || "fechado")}${lote.manufacturer_lot ? ` • lote ${escaparHtml(lote.manufacturer_lot)}` : ""}${lote.location_id ? ` • ${escaparHtml(lote.location_id)}` : ""}</span>
             </div>
             ${podeOperar ? `
               <div class="stock-row-quick-actions">
@@ -25174,7 +25405,7 @@ function renderEstoque() {
       <div class="stock-search-row">
         <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
           <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-          <input data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar item, código ou descrição..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
+          <input data-search-context="estoque" data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar item, código ou descrição..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
         </label>
         <button class="icon-action-button" type="button" onclick="trocarFiltroEstoque('low')" title="Filtrar alertas">${renderUiIcon("alerta")}</button>
       </div>
@@ -25300,7 +25531,7 @@ function renderListaPedidos() {
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
       <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-        <input data-preserve-focus-key="pedidos-busca" value="${escaparAttr(buscaPedidos)}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
+        <input data-search-context="pedidos" data-preserve-focus-key="pedidos-busca" value="${escaparAttr(buscaPedidos)}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
       </label>
       ${isContextAdvancedVisible("pedidos") ? renderPedidoStatusChips(listaBaseInicial, filtroAtivo) : ""}
       ${detalhe}
@@ -25573,8 +25804,8 @@ function renderDetalhePedido(pedido) {
         <div>
           <span class="eyebrow">Pedido</span>
           <h2>#${escaparHtml(pedido.id)}</h2>
-          <p class="muted">👤 ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
-          ${data ? `<p class="muted">📅 ${escaparHtml(data)}</p>` : ""}
+          <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
+          ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
         </div>
         <span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span>
       </div>
@@ -25601,6 +25832,7 @@ function renderDetalhePedido(pedido) {
       ${itens.length ? `<div class="compact-action-grid order-detail-actions">
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
+        ${resumoFinanceiro.restante > 0 && appConfig.pixKey ? renderAcaoPedidoCompacta("pix", "Copiar Pix", `copiarPixCopiaEColaPedido(${Number(pedido.id)})`) : ""}
         ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${Number(pedido.id)})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
@@ -27270,7 +27502,7 @@ function renderClientesOperacionais() {
       </div>
       <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-        <input data-preserve-focus-key="clientes-busca" value="${escaparAttr(busca)}" placeholder="Buscar cliente ou WhatsApp..." oninput="window.__clientesBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
+        <input data-search-context="clientes" data-preserve-focus-key="clientes-busca" value="${escaparAttr(busca)}" placeholder="Buscar cliente ou WhatsApp..." oninput="window.__clientesBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
       </label>
       <div class="clients-compact-metrics">
         <div class="metric"><span>Clientes</span><strong>${totalClientes}</strong></div>
@@ -27471,7 +27703,8 @@ function getResumoEmpresaSaas(cliente) {
   const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
   const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
   const vencimento = assinatura?.currentPeriodEnd || assinatura?.planExpiresAt || assinatura?.expiresAt || cliente.planExpiresAt || "";
-  const ultimoAcesso = cliente.lastAccessAt || usuarios[0]?.lastLoginAt || usuarios[0]?.ultimoAcesso || "";
+  const atividade = getAtividadeEmpresaSaas(cliente, usuarios);
+  const ultimoAcesso = atividade.lastSeenAt;
   const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
   return {
     assinatura,
@@ -27482,9 +27715,34 @@ function getResumoEmpresaSaas(cliente) {
     vencimento,
     ultimoAcesso,
     statusPlano,
-    online: cliente.status === "active",
+    online: atividade.online,
+    atividade,
     teste: !!cliente.isTestUser,
     responsavel: usuarios[0] || {}
+  };
+}
+
+function getAtividadeEmpresaSaas(cliente = {}, usuariosCliente = getUsuariosDoCliente(cliente.id)) {
+  const sessoes = (Array.isArray(saasSessions) ? saasSessions : [])
+    .map(normalizarSessaoSaas)
+    .filter((sessao) => String(sessao.clientId || "") === String(cliente.id || ""));
+  const candidatos = [
+    cliente.lastAccessAt,
+    cliente.last_access_at,
+    ...usuariosCliente.flatMap((usuario) => [usuario.lastActivityAt, usuario.lastLoginAt, usuario.ultimoAcesso]),
+    ...sessoes.flatMap((sessao) => [sessao.lastSeenAt, sessao.updatedAt, sessao.startedAt])
+  ];
+  const lastSeenAt = candidatos
+    .map((valor) => ({ valor, timestamp: Date.parse(valor || 0) || 0 }))
+    .filter((item) => item.timestamp > 0)
+    .sort((a, b) => b.timestamp - a.timestamp)[0]?.valor || "";
+  const janelaOnlineMs = 5 * 60 * 1000;
+  const online = sessoes.some((sessao) => sessao.active === true && Date.now() - (Date.parse(sessao.lastSeenAt || 0) || 0) <= janelaOnlineMs);
+  return {
+    lastSeenAt,
+    online,
+    activeSessions: sessoes.filter((sessao) => sessao.active === true).length,
+    sessionCount: sessoes.length
   };
 }
 
@@ -29084,9 +29342,17 @@ function renderRelatorioLineChart(series = []) {
   const dados = Array.isArray(series) && series.length ? series : [];
   const vendas = dados.map((item) => Number(item.sales) || 0);
   const temDado = vendas.some((valor) => valor > 0);
-  const curvaReferencia = [1200, 2200, 3800, 2100, 3500, 4100, 6400, 5400, 4600, 3300, 5900, 7100];
-  const valores = temDado ? vendas : (dados.length ? dados.map((_, index) => curvaReferencia[index % curvaReferencia.length]) : curvaReferencia);
-  const labels = dados.length ? dados.map((item, index) => item.label || String(index + 1)) : ["01/05", "04/05", "08/05", "11/05", "15/05", "18/05", "22/05", "25/05", "28/05", "31/05", "03/06", "06/06"];
+  if (!temDado) {
+    return `
+      <div class="reports-chart-empty" role="status">
+        <span>${renderUiIcon("relatorios")}</span>
+        <strong>Sem movimentação neste período</strong>
+        <small>O gráfico será exibido quando houver vendas registradas.</small>
+      </div>
+    `;
+  }
+  const valores = vendas;
+  const labels = dados.map((item, index) => item.label || String(index + 1));
   const width = 640;
   const height = 260;
   const padding = { top: 22, right: 24, bottom: 44, left: 48 };
@@ -29117,10 +29383,9 @@ function renderRelatorioLineChart(series = []) {
       </g>
       <polygon class="reports-line-area" points="${area}"></polygon>
       <polyline class="reports-line-stroke" points="${polyline}"></polyline>
-      ${pontos.map((ponto, index) => `<circle class="reports-line-dot" cx="${ponto.x.toFixed(1)}" cy="${ponto.y.toFixed(1)}" r="5"><title>${temDado ? `${escaparHtml(labels[index] || "")}: ${formatarMoeda(ponto.valor)}` : `${escaparHtml(labels[index] || "")}: sem movimentação`}</title></circle>`).join("")}
+      ${pontos.map((ponto, index) => `<circle class="reports-line-dot" cx="${ponto.x.toFixed(1)}" cy="${ponto.y.toFixed(1)}" r="5"><title>${escaparHtml(labels[index] || "")}: ${formatarMoeda(ponto.valor)}</title></circle>`).join("")}
       ${pontos.map((ponto, index) => index % labelStep === 0 || index === pontos.length - 1 ? `<text class="reports-axis-label" x="${ponto.x.toFixed(1)}" y="${height - 14}" text-anchor="middle">${escaparHtml(labels[index] || "")}</text>` : "").join("")}
     </svg>
-    ${temDado ? "" : `<p class="reports-chart-note">Sem movimentação no período. A curva mostra apenas o espaço reservado do gráfico.</p>`}
   `;
 }
 
@@ -29309,7 +29574,7 @@ function renderRelatorios() {
     return `
       <section class="card">
         <div class="card-header">
-          <h2>📈 Relatórios avançados</h2>
+          <h2>${renderUiIcon("relatorios")} Relatórios avançados</h2>
           <span class="status-badge">PRO</span>
         </div>
         <p class="muted">O Free mantém dashboard e dados básicos. Relatórios completos, comparativos e exportações ficam disponíveis no PRO.</p>
@@ -29352,7 +29617,7 @@ function renderRelatorios() {
         <div class="reports-header-actions">
           <label class="dashboard-search search-compact reports-search-compact" onclick="expandirBuscaGlobal(this)">
             <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-            <input placeholder="Buscar relatórios..." aria-label="Buscar relatórios" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this)">
+            <input data-search-context="relatorios" placeholder="Buscar relatórios..." aria-label="Buscar relatórios" oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
           </label>
           <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Abrir sugestões" aria-label="Abrir sugestões">${renderUiIcon("bell")}${sugestoes.length ? `<span>${Math.min(99, sugestoes.length)}</span>` : ""}</button>
         </div>
@@ -29680,7 +29945,7 @@ function renderCaixaBuscaTopo() {
   return `
     <label class="cash-top-search" aria-label="Pesquisar movimentações do caixa">
       ${renderUiIcon("search")}
-      <input value="${escaparAttr(busca)}" placeholder="Pesquisar movimentações" oninput="atualizarBuscaCaixa(this.value)">
+      <input data-search-context="caixa" data-preserve-focus-key="caixa-busca" value="${escaparAttr(busca)}" placeholder="Pesquisar movimentações" oninput="atualizarBuscaCaixa(this.value); reabrirAutocompletePesquisaAposRender(this,30)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
     </label>
   `;
 }
@@ -30405,12 +30670,12 @@ function renderBloqueioPlano(recurso) {
   return `
     <section class="card">
       <div class="card-header">
-        <h2>🔒 ${escaparHtml(recurso)}</h2>
+        <h2>${renderUiIcon("seguranca")} ${escaparHtml(recurso)}</h2>
         <span class="status-badge ${classeStatusPlano(plano.status)}">${escaparHtml(plano.nome)}</span>
       </div>
       <p class="muted">${plano.blockLevel === "total" ? "Seu plano está inativo. Regularize para continuar." : escaparHtml(plano.descricao)}</p>
       <div class="actions">
-        <button class="btn secondary" onclick="abrirCalculadora()">🧮 Abrir calculadora</button>
+        <button class="btn secondary" onclick="abrirCalculadora()">${renderUiIcon("calculadora")} Abrir calculadora</button>
         <button class="btn ghost" onclick="trocarTela('assinatura')">Ver planos</button>
         <button class="btn" type="button" data-action="open-payment">Pagar agora</button>
       </div>
@@ -30963,7 +31228,7 @@ function renderConfig() {
         ${telaAtual === "config" ? `
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão e atualização automática", icon: "↻", content: updatesContent, group: "config" })}
           ${mostrarLogsSistema ? renderUiSection({ id: "logs-sistema", title: "Diagnóstico", subtitle: "Informações para suporte técnico", icon: "☷", content: systemLogsContent, group: "config" }) : ""}
-          ${renderUiSection({ id: "sistema", title: "Ajuda e documentos", subtitle: "Introdução, privacidade e termos", icon: "⚙", content: systemContent, group: "config" })}
+          ${renderUiSection({ id: "sistema", title: "Ajuda e documentos", subtitle: "Introdução, privacidade e termos", icon: "config", content: systemContent, group: "config" })}
         ` : ""}
       </div>
       <div class="actions single">
@@ -31015,11 +31280,12 @@ function renderAuthPublica() {
 }
 
 function renderAuthEntrar() {
+  const emailSalvoNoNavegador = carregarEmailLoginSalvo();
   return `
     <form class="auth-form s3d-form" onsubmit="event.preventDefault(); loginUsuario();">
       <label class="field auth-field s3d-field">
         <span>Email</span>
-        <input id="usuarioLoginEmail" class="s3d-input" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || "")}" placeholder="seu@email.com" autocomplete="username">
+        <input id="usuarioLoginEmail" class="s3d-input" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || emailSalvoNoNavegador)}" placeholder="seu@email.com" autocomplete="username">
       </label>
 
       <label class="field auth-field s3d-field">
@@ -31032,7 +31298,7 @@ function renderAuthEntrar() {
 
       <label class="auth-checkline">
         <input id="lembrarSenhaNavegador" type="checkbox" ${appConfig.browserPasswordSaveOffer !== false ? "checked" : ""}>
-        <span>Manter-me conectado</span>
+        <span>Salvar e-mail e senha neste navegador</span>
       </label>
 
       <button id="loginUsuarioBtn" class="btn auth-primary s3d-button s3d-button-primary" type="submit">Entrar</button>
@@ -31309,10 +31575,27 @@ function alternarSenhaVisivel(idOuBotao) {
   input.focus();
 }
 
+function carregarEmailLoginSalvo() {
+  try {
+    return String(localStorage.getItem(BROWSER_LOGIN_EMAIL_STORAGE_KEY) || "").trim();
+  } catch (_) {
+    return "";
+  }
+}
+
 async function oferecerSalvarCredencialNavegador(email, senha) {
   appConfig.browserPasswordSaveOffer = document.getElementById("lembrarSenhaNavegador") ? !!document.getElementById("lembrarSenhaNavegador")?.checked : appConfig.browserPasswordSaveOffer !== false;
   salvarDados();
-  if (appConfig.browserPasswordSaveOffer === false || !email || !senha) return;
+  try {
+    if (appConfig.browserPasswordSaveOffer === false) {
+      localStorage.removeItem(BROWSER_LOGIN_EMAIL_STORAGE_KEY);
+      return;
+    }
+    if (email) localStorage.setItem(BROWSER_LOGIN_EMAIL_STORAGE_KEY, email);
+  } catch (_) {
+    // O navegador pode bloquear o armazenamento; o login continua normalmente.
+  }
+  if (!email || !senha) return;
   try {
     if ("PasswordCredential" in window && navigator.credentials?.store) {
       const credencial = new PasswordCredential({
@@ -31684,7 +31967,7 @@ function renderSeguranca() {
 
         <details class="settings-group security-settings-card security-mobile-card">
           <summary class="security-card-heading security-mobile-card-summary">
-            <span class="security-card-icon security-card-icon-warning">🔒</span>
+            <span class="security-card-icon security-card-icon-warning">${renderUiIcon("seguranca")}</span>
             <div><h3>PIN de ações importantes</h3><small>Confirme alterações críticas sem repetir a senha longa.</small></div>
             <span class="security-mobile-chevron">›</span>
           </summary>
@@ -31921,10 +32204,10 @@ function renderSuperAdminDashboard() {
     acumulado = fim;
     return `${segmento.cor} ${inicio.toFixed(2)}% ${fim.toFixed(2)}%`;
   }).join(", ");
-  const recentes = saasClients
+  const cadastrosRecentes = saasClients
     .filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt)
-    .sort((a, b) => (Date.parse(b.lastAccessAt || b.updatedAt || b.createdAt || 0) || 0) - (Date.parse(a.lastAccessAt || a.updatedAt || a.createdAt || 0) || 0))
-    .slice(0, 5);
+    .sort((a, b) => (Date.parse(b.createdAt || b.criadoEm || 0) || 0) - (Date.parse(a.createdAt || a.criadoEm || 0) || 0))
+    .slice(0, 6);
   const planoCards = [
     { titulo: "Plano Grátis", slug: "free", valor: metricas.porPlano.free, filtro: "free" },
     { titulo: "Plano Start", slug: "start", valor: metricas.porPlano.start, filtro: "start" },
@@ -32023,39 +32306,40 @@ function renderSuperAdminDashboard() {
       </div>
     </div>
     <div class="superadmin-section-head">
-      <h3>Usuários por plano</h3>
+      <h3>Empresas por plano</h3>
     </div>
     <div class="superadmin-plan-grid">
       ${planoCards.map((plano) => `
         <button class="superadmin-plan-card ${classePlanoSaasCompacto(plano.slug)}" onclick="abrirSuperAdminFiltro('clientes', '${plano.filtro}')">
           <span class="row-title"><strong>${escaparHtml(plano.titulo)}</strong><i>${escaparHtml(plano.slug === "pro" || plano.slug === "premium_trial" ? "PRO" : plano.slug === "start" ? "START" : "FREE")}</i></span>
           <strong>${Number(plano.valor || 0).toLocaleString("pt-BR")}</strong>
-          <span class="muted">usuários</span>
+          <span class="muted">empresas</span>
           <small>Ver todos ›</small>
         </button>
       `).join("")}
     </div>
     <div class="superadmin-section-head">
-      <h3>Usuários recentes</h3>
+      <h3>Cadastros recentes</h3>
       <button class="inline-link" onclick="abrirSuperAdminFiltro('clientes', '')">Ver todos</button>
     </div>
     <div class="superadmin-recent-list">
-      ${recentes.map((cliente) => {
+      ${cadastrosRecentes.map((cliente) => {
         const assinatura = getAssinaturaSaas(cliente.id);
         const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
         const status = cliente.status === "overdue" || cliente.status === "blocked" ? "Atrasado" : cliente.status === "inactive" ? "Offline" : "Em dia";
-        const online = cliente.status === "active";
+        const atividade = getAtividadeEmpresaSaas(cliente);
+        const cadastro = Date.parse(cliente.createdAt || cliente.criadoEm || 0) ? new Date(cliente.createdAt || cliente.criadoEm).toLocaleDateString("pt-BR") : "sem data";
         return `
           <button class="superadmin-recent-row" onclick="abrirPerfilClienteSaas('${escaparAttr(cliente.id)}')">
             <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>
             <strong>${escaparHtml(cliente.name || cliente.email)}</strong>
             <i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.slug === "pro" || plano.slug === "premium_trial" ? "PRO" : plano.slug === "start" ? "START" : "FREE")}</i>
-            <span class="${online ? "sa-online" : "sa-offline"}">${online ? "Online" : "Offline"}</span>
+            <span class="${atividade.online ? "sa-online" : "sa-offline"}">${atividade.online ? "Online agora" : formatarTempoRelativo(atividade.lastSeenAt)}</span>
             <span class="${status === "Atrasado" ? "sa-late" : "sa-ok"}">${escaparHtml(status)}</span>
-            <small>•••</small>
+            <small>Cadastro ${escaparHtml(cadastro)}</small>
           </button>
         `;
-      }).join("") || `<p class="empty">Nenhum usuário recente encontrado.</p>`}
+      }).join("") || `<p class="empty">Nenhuma empresa recente encontrada.</p>`}
     </div>
   `;
 }
@@ -33253,7 +33537,7 @@ function renderSuperAdminTopbar(tab = "dashboard") {
       </div>
       <label class="superadmin-platform-search">
         ${renderUiIcon("search")}
-        <input type="search" placeholder="Buscar empresa, e-mail, plano ou alerta" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" oninput="filtrarBuscaSuperadmin(this.value)" onkeydown="fecharBuscaSuperadminAoEnviar(event)" value="${escaparAttr(buscaAtual)}">
+        <input data-search-context="superadmin" type="search" placeholder="Buscar empresa, e-mail, plano ou alerta" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" oninput="filtrarBuscaSuperadmin(this.value); atualizarAutocompletePesquisa(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" onkeydown="fecharBuscaSuperadminAoEnviar(event)" value="${escaparAttr(buscaAtual)}">
         <button class="superadmin-platform-search-clear" type="button" onclick="limparBuscaSuperadmin(event)" aria-label="Limpar busca" title="Limpar busca">×</button>
       </label>
       <button class="btn secondary superadmin-platform-erp" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} <span>Voltar para ERP</span></button>
@@ -33612,6 +33896,10 @@ function excluirUsuarioSuperAdmin(id) {
 }
 
 function desbloquearRelatoriosComAnuncio() {
+  if (!ADS_ENABLED) {
+    mostrarToast("Relatórios avançados estão disponíveis no plano Pro.", "info", 4200);
+    return;
+  }
   mostrarModalDesbloqueioAnuncio({
     tipo: "reports",
     titulo: "Relatórios avançados",
@@ -33886,7 +34174,7 @@ function renderEmpresaConfig() {
       </div>
       <p class="muted">Identidade comercial usada em pedidos, orçamentos, WhatsApp e PDF. Aparência e sistema ficam em menus separados.</p>
       <div class="settings-accordion-list">
-        ${renderUiSection({ id: "empresa-dados", title: "Dados comerciais", subtitle: "Nome, logo e documentação", icon: "🏢", open: true, group: "empresa", content: `
+        ${renderUiSection({ id: "empresa-dados", title: "Dados comerciais", subtitle: "Nome, logo e documentação", icon: "empresa", open: true, group: "empresa", content: `
           <div class="brand-preview compact">
             <img id="companyLogoPreview" src="${escaparAttr(logoEmpresaAtual || marcaAtual)}" alt="Logo da empresa">
             <div>
@@ -34183,7 +34471,7 @@ function renderPersonalizacao() {
       <div class="settings-accordion-list">
       <details class="ui-section" data-ui-section="empresa" data-accordion-group="personalizacao" open ontoggle="sincronizarAcordeaoUi(this)">
         <summary>
-          <span class="ui-section-icon" aria-hidden="true">🏢</span>
+          <span class="ui-section-icon" aria-hidden="true">${renderUiIcon("empresa")}</span>
           <span class="ui-section-title"><strong>Empresa</strong><small>Dados comerciais, contatos e endereço</small></span>
           <span class="ui-section-chevron" aria-hidden="true">⌄</span>
         </summary>
@@ -34451,7 +34739,7 @@ function renderPersonalizacao() {
 
       <details class="ui-section" data-ui-section="sistema" data-accordion-group="personalizacao" ontoggle="sincronizarAcordeaoUi(this)">
         <summary>
-          <span class="ui-section-icon" aria-hidden="true">⚙</span>
+          <span class="ui-section-icon" aria-hidden="true">${renderUiIcon("config")}</span>
           <span class="ui-section-title"><strong>Sistema</strong><small>Tela, resolução e sugestões locais</small></span>
           <span class="ui-section-chevron" aria-hidden="true">⌄</span>
         </summary>
@@ -35466,7 +35754,7 @@ function renderFeedback() {
   return `
     <section class="card">
       <div class="card-header">
-        <h2>💡 Sugestões de melhorias</h2>
+        <h2>${renderUiIcon("feedback")} Sugestões de melhorias</h2>
         <span class="status-badge">Ideias</span>
       </div>
       <p class="muted">Envie uma ideia ou relate um problema. As informações necessárias para o suporte são anexadas automaticamente.</p>
@@ -37539,6 +37827,46 @@ function executarPosLoginAssincrono(usuario) {
       .then(tarefa)
       .catch((erro) => ErrorService.capture(erro, { area: "Pós-login", action: nome, silent: true }));
   });
+  setTimeout(mostrarResumoAtualizacaoUmaVez, 900);
+}
+
+function getVersaoResumoAtualizacaoVista() {
+  try {
+    return String(localStorage.getItem(APP_RELEASE_NOTES_STORAGE_KEY) || "");
+  } catch (_) {
+    return "";
+  }
+}
+
+function marcarResumoAtualizacaoVisto() {
+  try {
+    localStorage.setItem(APP_RELEASE_NOTES_STORAGE_KEY, APP_VERSION);
+  } catch (_) {}
+  fecharPopup();
+}
+
+function mostrarResumoAtualizacaoUmaVez() {
+  if (!getUsuarioAtual() || !Array.isArray(APP_RELEASE_NOTES) || !APP_RELEASE_NOTES.length) return false;
+  if (getVersaoResumoAtualizacaoVista() === APP_VERSION) return false;
+  const popup = document.getElementById("popup");
+  if (!popup || popup.innerHTML.trim()) return false;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releaseNotesTitle">
+      <section class="modal-card release-notes-modal s3d-card" data-ui-component="Card">
+        <div class="modal-header">
+          <div><span class="eyebrow">Versão ${escaparHtml(APP_VERSION)}</span><h2 id="releaseNotesTitle">O que mudou</h2></div>
+          <button class="icon-button s3d-button" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()" title="Fechar">✕</button>
+        </div>
+        <ul class="release-notes-list">
+          ${APP_RELEASE_NOTES.map((nota) => `<li><span>${renderUiIcon("check")}</span><p>${escaparHtml(nota)}</p></li>`).join("")}
+        </ul>
+        <div class="actions">
+          <button class="btn s3d-button" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()">Entendi</button>
+        </div>
+      </section>
+    </div>
+  `;
+  return true;
 }
 
 function sincronizarAposLogin() {
@@ -38726,18 +39054,20 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
       logSuperadminSupabaseDebug(`${nome} não carregados`, classificado.log);
       return [];
     });
-    const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline, perfisOnline, perfisErpOnline] = await Promise.all([
+    const [clientesOnline, assinaturasOnline, pagamentosOnline, planosOnline, perfisOnline, perfisErpOnline, sessoesOnline] = await Promise.all([
       requisicaoSupabase(`/rest/v1/clients?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`),
       requisicaoSupabase(`/rest/v1/subscriptions?select=*,plans(*)&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`),
       requisicaoSupabase(`/rest/v1/payments?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`),
       requisicaoSupabase("/rest/v1/plans?select=*&order=price.asc"),
       carregarPerfis(`/rest/v1/profiles?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`, "profiles"),
-      carregarPerfis(`/rest/v1/erp_profiles?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`, "erp_profiles")
+      carregarPerfis(`/rest/v1/erp_profiles?select=*&order=created_at.desc&limit=${SUPERADMIN_PAGE_SIZE}`, "erp_profiles"),
+      carregarPerfis(`/rest/v1/saas_sessions?select=*&order=last_seen_at.desc&limit=200`, "saas_sessions")
     ]);
     saasClients = mesclarListaPorId(saasClients, clientesOnline, normalizarClienteSaas);
     saasSubscriptions = mesclarListaPorId(saasSubscriptions, assinaturasOnline, normalizarAssinaturaSaas);
     saasPayments = mesclarListaPorId(saasPayments, pagamentosOnline, normalizarPagamentoSaas);
     saasPlans = mesclarListaPorId(saasPlans, planosOnline, normalizarPlanoSaas);
+    saasSessions = mesclarListaPorId(saasSessions, sessoesOnline, normalizarSessaoSaas);
     usuarios = mesclarUsuariosSupabase(usuarios, [...perfisOnline, ...perfisErpOnline]);
     restringirDadosSaasAoEscopoAtual();
     StateStore.set("usuarios", usuarios);
@@ -40713,10 +41043,6 @@ async function executarBuscaSugestoesCliente(query, { incluirContatos = false, t
 
 async function buscarSugestoesContatosTelefone() {
   const query = String(document.getElementById("clienteNome")?.value || clientePedido || "").trim();
-  if (normalizarSugestaoClienteTexto(query).length < 2 && normalizarTelefoneBusca(query).length < 2) {
-    mostrarToast("Digite pelo menos 2 caracteres para buscar contatos.", "aviso");
-    return;
-  }
   customerSuggestionState.loading = true;
   customerSuggestionState.error = "";
   renderizarSugestoesClientePedido();
@@ -41276,11 +41602,26 @@ async function confirmCalculatorResult() {
     lucroProduto: ultimoCalculo.lucroProduto,
     valorProduto: ultimoCalculo.valorProduto,
     taxaExtra: ultimoCalculo.taxaExtra,
+    loteAtivo: ultimoCalculo.impressaoLote === true,
+    modoLote: ultimoCalculo.modoLote || "per_piece",
+    pesoInformado: ultimoCalculo.pesoInformado ?? ultimoCalculo.peso,
+    pesoTotal: ultimoCalculo.pesoTotal ?? ultimoCalculo.peso,
+    tempoInformadoMinutos: ultimoCalculo.tempoInformadoMinutos ?? Math.round((Number(ultimoCalculo.tempo) || 0) * 60),
+    tempoTotalMinutos: ultimoCalculo.tempoTotalMinutos ?? Math.round((Number(ultimoCalculo.tempo) || 0) * 60),
+    taxaExtraAtiva: ultimoCalculo.taxaExtra > 0,
+    tipoTaxaExtra: ultimoCalculo.taxaExtraMode === "manual" ? "fixed" : "percent",
     calculoOrigem: {
       pesoInformado: ultimoCalculo.peso,
       tempoHoras: ultimoCalculo.tempo,
       valorTotalCalculado: ultimoCalculo.totalFinal,
       quantidadeLote: qtd,
+      loteAtivo: ultimoCalculo.impressaoLote === true,
+      modoLote: ultimoCalculo.modoLote || "per_piece",
+      pesoTotal: ultimoCalculo.pesoTotal ?? ultimoCalculo.peso,
+      tempoInformadoMinutos: ultimoCalculo.tempoInformadoMinutos,
+      tempoTotalMinutos: ultimoCalculo.tempoTotalMinutos,
+      taxaExtraAtiva: ultimoCalculo.taxaExtra > 0,
+      tipoTaxaExtra: ultimoCalculo.taxaExtraMode === "manual" ? "fixed" : "percent",
       valorUnitarioCalculado: ultimoCalculo.preco,
       observacoes: observacoesCalculo
     },
@@ -42360,6 +42701,7 @@ async function alterarStatusPedido(id, status) {
 }
 
 function alternarControleLoteEstoqueCadastro() {
+  if (!podeUsarControleRolosEstoque()) return;
   const ativo = document.getElementById("matBatchControlled")?.checked === true;
   const campo = document.getElementById("matBatchTypeField");
   const seletor = document.getElementById("matBatchType");
@@ -42371,6 +42713,7 @@ function abrirCadastroItemEstoque() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   const popup = document.getElementById("popup");
   if (!popup) return;
+  const podeControlarRolos = podeUsarControleRolosEstoque();
   popup.innerHTML = `
     <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel">
       <form class="modal-card stock-item-modal" id="stockAddForm">
@@ -42412,14 +42755,14 @@ function abrirCadastroItemEstoque() {
             <input id="matFornecedor">
           </label>
         </div>
-        <label class="checkbox-row stock-batch-toggle">
+        ${podeControlarRolos ? `<label class="checkbox-row stock-batch-toggle">
           <input id="matBatchControlled" type="checkbox" onchange="alternarControleLoteEstoqueCadastro()">
           <span><strong>Controlar por rolo ou lote</strong><small>Use para filamentos, resinas, frascos ou pacotes individuais.</small></span>
         </label>
         <label class="field" id="matBatchTypeField" hidden>
           <span>Tipo de controle</span>
           <select id="matBatchType" disabled>${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}">${escaparHtml(tipo.label)}</option>`).join("")}</select>
-        </label>
+        </label>` : ""}
         <label class="field">
           <span>Observações</span>
           <textarea id="matObservacoes" rows="2"></textarea>
@@ -42460,7 +42803,7 @@ async function addMaterial() {
       fornecedor: document.getElementById("matFornecedor")?.value || "",
       observacoes: document.getElementById("matObservacoes")?.value || "",
       ativo: document.getElementById("matAtivo")?.value !== "false",
-      isBatchControlled: document.getElementById("matBatchControlled")?.checked === true,
+      isBatchControlled: podeUsarControleRolosEstoque() && document.getElementById("matBatchControlled")?.checked === true,
       batchControlType: document.getElementById("matBatchType")?.value || "rolo",
       cor: ""
     });
@@ -42484,6 +42827,7 @@ function editarMaterial(i) {
 function mostrarModalEdicaoMaterial(indice, material) {
   const popup = document.getElementById("popup");
   if (!popup) return;
+  const podeControlarRolos = podeUsarControleRolosEstoque();
   popup.innerHTML = `
     <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-edit-cancel">
       <div class="modal-card">
@@ -42519,14 +42863,14 @@ function mostrarModalEdicaoMaterial(indice, material) {
           <span>Custo por unidade/medida</span>
           <input id="stockEditCost" type="number" min="0" step="0.01" value="${escaparAttr(material.custoUnitario || 0)}">
         </label>
-        <label class="checkbox-row stock-batch-toggle">
+        ${podeControlarRolos ? `<label class="checkbox-row stock-batch-toggle">
           <input id="stockEditBatchControlled" type="checkbox" ${materialUsaControleLote(material) ? "checked" : ""} onchange="document.getElementById('stockEditBatchTypeField').hidden=!this.checked">
           <span><strong>Controlar por rolo ou lote</strong><small>A quantidade passa a ser a soma dos recipientes ativos.</small></span>
         </label>
         <label class="field" id="stockEditBatchTypeField" ${materialUsaControleLote(material) ? "" : "hidden"}>
           <span>Tipo de controle</span>
           <select id="stockEditBatchType">${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}" ${tipo.value === material.batch_control_type ? "selected" : ""}>${escaparHtml(tipo.label)}</option>`).join("")}</select>
-        </label>
+        </label>` : ""}
         <label class="field">
           <span>Motivo do ajuste</span>
           <input id="stockEditReason" placeholder="Obrigatório se alterar a quantidade">
@@ -42556,6 +42900,8 @@ function mostrarModalEdicaoMaterial(indice, material) {
 async function salvarEdicaoMaterialEstoque(indice) {
   try {
     if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
+    const materialAtual = normalizarEstoque()[Number(indice)];
+    const podeControlarRolos = podeUsarControleRolosEstoque();
     InventoryService.updateMaterial(indice, {
       nome: document.getElementById("stockEditName")?.value || "",
       qtd: document.getElementById("stockEditQty")?.value,
@@ -42567,8 +42913,8 @@ async function salvarEdicaoMaterialEstoque(indice) {
       fornecedor: document.getElementById("stockEditSupplier")?.value || "",
       observacoes: document.getElementById("stockEditNotes")?.value || "",
       ativo: document.getElementById("stockEditActive")?.value !== "false",
-      isBatchControlled: document.getElementById("stockEditBatchControlled")?.checked === true,
-      batchControlType: document.getElementById("stockEditBatchType")?.value || "rolo",
+      isBatchControlled: podeControlarRolos ? document.getElementById("stockEditBatchControlled")?.checked === true : materialUsaControleLote(materialAtual),
+      batchControlType: podeControlarRolos ? document.getElementById("stockEditBatchType")?.value || "rolo" : materialAtual?.batch_control_type || "rolo",
       cor: "",
       motivo: document.getElementById("stockEditReason")?.value || ""
     });
@@ -42580,7 +42926,17 @@ async function salvarEdicaoMaterialEstoque(indice) {
   }
 }
 
+function codigoLoteEstoqueEmUso(codigo = "", materialIndex = -1, loteIndex = -1) {
+  const alvo = String(codigo || "").trim().toLowerCase();
+  if (!alvo) return false;
+  return normalizarEstoque().some((material, indiceAtual) => normalizarLotesEstoque(material).some((lote, loteAtual) => {
+    if (indiceAtual === Number(materialIndex) && loteAtual === Number(loteIndex)) return false;
+    return String(lote.batch_code || "").trim().toLowerCase() === alvo;
+  }));
+}
+
 function abrirCadastroLoteEstoque(indice, loteIndex = -1) {
+  if (!exigirControleRolosEstoque()) return;
   normalizarEstoque();
   const material = estoque[Number(indice)];
   if (!material || !materialUsaControleLote(material)) return;
@@ -42602,6 +42958,14 @@ function abrirCadastroLoteEstoque(indice, loteIndex = -1) {
           <label class="field">
             <span>Código</span>
             <input id="stockBatchCode" value="${escaparAttr(existente?.batch_code || "")}" placeholder="Ex.: PLA-PRETO-001">
+          </label>
+          <label class="field">
+            <span>Lote do fabricante</span>
+            <input class="ds-input" data-ui-component="Input" id="stockBatchManufacturerLot" value="${escaparAttr(existente?.manufacturer_lot || "")}" placeholder="Opcional">
+          </label>
+          <label class="field">
+            <span>Localização</span>
+            <input class="ds-input" data-ui-component="Input" id="stockBatchLocation" value="${escaparAttr(existente?.location_id || "")}" placeholder="Ex.: Prateleira A2">
           </label>
           <label class="field">
             <span>Tipo</span>
@@ -42635,6 +42999,10 @@ function abrirCadastroLoteEstoque(indice, loteIndex = -1) {
             <input id="stockBatchCost" type="number" min="0" step="0.01" value="${escaparAttr(existente?.cost_total ?? 0)}">
           </label>
           <label class="field">
+            <span>Tara do carretel (g)</span>
+            <input class="ds-input" data-ui-component="Input" id="stockBatchTare" type="number" min="0" step="0.01" value="${escaparAttr(existente?.spool_tare_weight_g ?? 0)}">
+          </label>
+          <label class="field">
             <span>Data da compra</span>
             <input id="stockBatchPurchaseDate" type="date" value="${escaparAttr(existente?.purchase_date || "")}">
           </label>
@@ -42659,11 +43027,18 @@ function abrirCadastroLoteEstoque(indice, loteIndex = -1) {
 
 async function salvarLoteEstoque(indice, loteIndex = -1) {
   try {
+    if (!exigirControleRolosEstoque()) return;
     if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
     const material = normalizarEstoque()[Number(indice)];
     if (!material) return;
     const initial = InventoryService.parseNumberStrict(document.getElementById("stockBatchInitial")?.value, "quantidade inicial", { min: 0 });
     const current = InventoryService.parseNumberStrict(document.getElementById("stockBatchCurrent")?.value, "saldo atual", { min: 0 });
+    if (initial <= 0) {
+      throw new AppError("Peso inicial inválido", {
+        code: "INVENTORY_BATCH_INITIAL_WEIGHT_INVALID",
+        userMessage: "Informe uma quantidade inicial maior que zero."
+      });
+    }
     if (current > initial + 0.000001) {
       throw new AppError("Saldo maior que a quantidade inicial", {
         code: "INVENTORY_BATCH_BALANCE_INVALID",
@@ -42672,19 +43047,36 @@ async function salvarLoteEstoque(indice, loteIndex = -1) {
     }
     const lotes = normalizarLotesEstoque(material);
     const anterior = loteIndex >= 0 ? lotes[Number(loteIndex)] : null;
+    const codigo = String(document.getElementById("stockBatchCode")?.value || "").trim();
+    if (!codigo) {
+      throw new AppError("Código do rolo obrigatório", {
+        code: "INVENTORY_BATCH_CODE_REQUIRED",
+        userMessage: "Informe um código único para identificar o rolo ou lote."
+      });
+    }
+    if (codigoLoteEstoqueEmUso(codigo, indice, loteIndex)) {
+      throw new AppError("Código do rolo duplicado", {
+        code: "INVENTORY_BATCH_CODE_DUPLICATE",
+        userMessage: "Este código já identifica outro rolo ou lote."
+      });
+    }
     const statusSelecionado = document.getElementById("stockBatchStatus")?.value || (current <= 0 ? "esgotado" : "fechado");
     const lote = normalizarLoteEstoque({
       ...anterior,
       id: anterior?.id,
-      batch_code: document.getElementById("stockBatchCode")?.value || "",
+      batch_code: codigo,
+      manufacturer_lot: document.getElementById("stockBatchManufacturerLot")?.value || "",
+      location_id: document.getElementById("stockBatchLocation")?.value || "",
       batch_type: document.getElementById("stockBatchType")?.value || material.batch_control_type || "rolo",
       initial_quantity: initial,
       current_quantity: current,
       unit: document.getElementById("stockBatchUnit")?.value || material.unidade || "g",
       cost_total: document.getElementById("stockBatchCost")?.value || 0,
+      spool_tare_weight_g: document.getElementById("stockBatchTare")?.value || 0,
       purchase_date: document.getElementById("stockBatchPurchaseDate")?.value || "",
       status: current <= 0 ? "esgotado" : statusSelecionado,
       opened_at: statusSelecionado === "em_uso" ? (anterior?.opened_at || new Date().toISOString()) : anterior?.opened_at || "",
+      last_weighed_at: !anterior || Number(anterior.current_quantity) !== current ? new Date().toISOString() : anterior.last_weighed_at || "",
       notes: document.getElementById("stockBatchNotes")?.value || "",
       updated_at: new Date().toISOString()
     }, material);
@@ -42703,6 +43095,7 @@ async function salvarLoteEstoque(indice, loteIndex = -1) {
 }
 
 function atualizarStatusLoteEstoque(indice, loteIndex, status) {
+  if (!exigirControleRolosEstoque()) return;
   const material = normalizarEstoque()[Number(indice)];
   if (!material) return;
   const lotes = normalizarLotesEstoque(material);
@@ -43304,11 +43697,11 @@ function getConfiguracaoCalculadora() {
     printerType: tipo,
     printerModel: modeloValido,
     materialId: materialIdValido,
-    peso: "",
-    tempoMinutos: "",
+    peso: calculatorDraftState.peso,
+    tempoMinutos: calculatorDraftState.tempoMinutos,
     filamento: salvo.filamento ?? appConfig.defaultFilamentCost ?? 150,
-    tempo: "",
-    quantidade: salvo.quantidade ?? 1,
+    tempo: calculatorDraftState.tempo,
+    quantidade: calculatorDraftState.quantity || salvo.quantidade || 2,
     energia: salvo.energia ?? appConfig.defaultEnergy ?? 0.85,
     consumo: salvo.consumo ?? impressora.consumo ?? "",
     custoHora: salvo.custoHora ?? impressora.custo ?? "",
@@ -43328,7 +43721,7 @@ function salvarConfiguracaoCalculadora(persistir = true) {
   const proxima = {
     printerType: tipo,
     printerModel: printer,
-    materialId: document.getElementById("calcMaterial")?.value || "",
+    materialId: "",
     peso: "",
     filamento: numeroCalculadora(valorCampoCalculadora("filamento", atual.filamento), atual.filamento),
     tempo: "",
@@ -43344,7 +43737,6 @@ function salvarConfiguracaoCalculadora(persistir = true) {
   appConfig.calculatorDefaults = proxima;
   appConfig.defaultPrinterType = proxima.printerType;
   appConfig.defaultPrinterModel = proxima.printerModel;
-  appConfig.defaultMaterial = proxima.materialId;
   appConfig.defaultFilamentCost = proxima.filamento;
   appConfig.defaultEnergy = proxima.energia;
   appConfig.defaultMargin = proxima.margem;
@@ -43375,22 +43767,11 @@ function obterPerfilAtivoCalculadora(config = getConfiguracaoCalculadora()) {
 
 function renderDicaSmartCalculadora(config = getConfiguracaoCalculadora()) {
   if (!sugestoesInteligentesAtivas() || usageLearning?.dismissed?.calcSmartTip === hojeIsoData()) return "";
-  const materialFrequente = valorFrequenteUso("material_usado", "materialNome", 40);
   const impressoraFrequente = valorFrequenteUso("impressora_usada", "impressora", 40);
-  const materialAtual = getMaterialEstoque(config.materialId)?.nome || "";
-  const estoqueBaixo = normalizarEstoque().find((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg);
   let texto = "";
   let acao = "";
   let label = "";
-  if (estoqueBaixo) {
-    texto = `${estoqueBaixo.nome} está abaixo do mínimo`;
-    acao = "trocarTela('estoque')";
-    label = "Ver estoque";
-  } else if (materialFrequente && materialFrequente !== materialAtual) {
-    texto = `Você costuma usar ${materialFrequente}`;
-    acao = "aplicarMaterialFrequenteCalculadora()";
-    label = "Usar novamente";
-  } else if (impressoraFrequente && impressoraFrequente !== config.printerModel) {
+  if (impressoraFrequente && impressoraFrequente !== config.printerModel) {
     texto = `Você costuma usar ${impressoraFrequente}`;
     acao = `aplicarPerfilCalculadora('${escaparAttr(impressoraFrequente)}')`;
     label = "Aplicar perfil";
@@ -43399,7 +43780,7 @@ function renderDicaSmartCalculadora(config = getConfiguracaoCalculadora()) {
     acao = "abrirConfiguracoesCalculadora()";
     label = "Ajustar margem";
   } else {
-    texto = "Use peso, tempo e material para ver o valor em tempo real";
+    texto = "Use peso e tempo para ver o valor em tempo real";
     acao = "agendarCalculoTempoReal()";
     label = "Atualizar";
   }
@@ -43431,15 +43812,24 @@ function atualizarVisualTaxaExtraCalculadora(opcoes = {}) {
   const estado = getEstadoTaxaExtraCalculadora();
   const campo = document.getElementById("taxaExtra");
   const unidade = document.getElementById("taxaExtraUnit");
+  const slider = document.getElementById("taxaExtraPercentRange");
+  const personalizada = document.querySelector(".calc-custom-fee-toggle input");
   if (campo) {
     const preservarDigitacao = opcoes.preservarDigitacao === true || (estado.modo === "manual" && document.activeElement === campo);
     if (!preservarDigitacao) {
       campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2) : "";
     }
-    campo.readOnly = estado.modo !== "manual";
+    campo.readOnly = false;
+    campo.max = estado.modo === "manual" ? "" : "100";
+    campo.step = estado.modo === "manual" ? "0.01" : "1";
     campo.classList.toggle("is-manual-fee", estado.modo === "manual");
   }
   if (unidade) unidade.textContent = estado.modo === "manual" ? "R$" : "%";
+  if (slider) {
+    slider.value = String(estado.percent);
+    slider.disabled = estado.modo === "manual";
+  }
+  if (personalizada) personalizada.checked = estado.modo === "manual";
   document.querySelectorAll("[data-extra-fee-mode]").forEach((botao) => {
     const modoBotao = botao.getAttribute("data-extra-fee-mode");
     const percentBotao = Number(botao.getAttribute("data-extra-fee-percent") || 0);
@@ -43518,7 +43908,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
             </div>
             <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
               <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-              <input data-preserve-focus-key="pedidos-busca" value="${escaparAttr(String(window.__pedidosBusca || ""))}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180)" autocomplete="off">
+              <input data-search-context="pedidos" data-preserve-focus-key="pedidos-busca" value="${escaparAttr(String(window.__pedidosBusca || ""))}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
             </label>
           </div>
         ${(filtroDashboard || filtroCliente) ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroCliente ? escaparHtml(filtroCliente) : filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; window.__pedidosFiltroCliente=''; renderApp()">Ver todos</button></div>` : ""}
@@ -43569,6 +43959,9 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
         <button class="icon-button expand-toggle-button" type="button" onclick="alternarResumoCalculadora(this)" title="Recolher ou expandir" aria-expanded="true" aria-controls="calcSummaryLines"><span class="expand-toggle-indicator" aria-hidden="true"></span></button>
       </div>
       <div class="calc-summary-lines" id="calcSummaryLines">
+        <span>Peso total</span><strong>${Number((calculo.pesoTotal ?? calculo.peso) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g</strong>
+        <span>Tempo de máquina</span><strong>${CalculatorDomain.formatMinutes(calculo.tempoTotalMinutos ?? Math.round((Number(calculo.tempo) || 0) * 60)).label}</strong>
+        ${calculo.impressaoLote ? `<span>Quantidade</span><strong>${quantidadeLote} un.</strong><span>Modo do lote</span><strong>${calculo.modoLote === "whole_batch" ? "Lote inteiro" : "Dados por peça"}</strong>` : ""}
         <span>Custo do material</span><strong>${formatarMoeda(calculo.custoMaterial)}</strong>
         <span>Custo de impressão</span><strong>${formatarMoeda((Number(calculo.custoEnergia) || 0) + (Number(calculo.custoMaquina) || 0))}</strong>
         <span>Base do produto</span><strong>${formatarMoeda(baseProduto)}</strong>
@@ -43628,6 +44021,96 @@ function normalizarCampoTempoCalculadora() {
   );
 }
 
+function sincronizarTempoSeparadoCalculadora() {
+  const campoHoras = document.getElementById("tempo");
+  const campoMinutos = document.getElementById("tempoMinutos");
+  const campoFormato = document.getElementById("tempoFormato");
+  const totalMinutos = CalculatorDomain.toMinutes(campoHoras?.value, campoMinutos?.value);
+  const normalizado = CalculatorDomain.formatMinutes(totalMinutos);
+  const horas = normalizado.hours;
+  const minutos = normalizado.minutes;
+  if (campoHoras && String(campoHoras.value) !== String(horas)) campoHoras.value = String(horas);
+  if (campoMinutos && String(campoMinutos.value) !== String(minutos)) campoMinutos.value = String(minutos);
+  if (campoFormato) campoFormato.value = formatarTempoCalculadora(horas, minutos);
+  calculatorDraftState.tempo = String(horas);
+  calculatorDraftState.tempoMinutos = String(minutos);
+  agendarCalculoTempoReal();
+}
+
+function getModoLoteCalculadora() {
+  const modo = document.querySelector('input[name="calcBatchMode"]:checked')?.value === "whole_batch" ? "whole_batch" : "per_piece";
+  calculatorDraftState.batchMode = modo;
+  return modo;
+}
+
+function ajustarQuantidadeLoteCalculadora(delta = 0) {
+  const campo = document.getElementById("quantidade");
+  if (!campo) return;
+  campo.value = String(Math.max(2, Math.min(999, Math.floor(Number(campo.value) || 2) + Number(delta || 0))));
+  calculatorDraftState.quantity = Number(campo.value);
+  atualizarResumoLoteCalculadora();
+  agendarCalculoTempoReal();
+}
+
+function atualizarResumoLoteCalculadora() {
+  const alvo = document.getElementById("calcBatchSummary");
+  if (!alvo) return;
+  const ativo = document.getElementById("impressaoLote")?.checked === true;
+  const quantidade = ativo ? Math.max(2, Math.min(999, Math.floor(Number(document.getElementById("quantidade")?.value) || 2))) : 1;
+  const modo = getModoLoteCalculadora();
+  const peso = Math.max(0, numeroCalculadora(document.getElementById("peso")?.value, 0, 0));
+  const tempoMinutos = CalculatorDomain.toMinutes(document.getElementById("tempo")?.value, document.getElementById("tempoMinutos")?.value);
+  const multiplicador = ativo && modo === "per_piece" ? quantidade : 1;
+  const pesoTotal = peso * multiplicador;
+  const tempoTotal = tempoMinutos * multiplicador;
+  alvo.innerHTML = `<strong>Resumo do lote</strong><span>${quantidade} unidades · ${modo === "per_piece" ? "Dados por peça" : "Dados do lote inteiro"}</span><small>${peso > 0 ? `${pesoTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g` : "Aguardando peso"} · ${tempoMinutos > 0 ? CalculatorDomain.formatMinutes(tempoTotal).label : "Aguardando tempo"}</small>`;
+}
+
+function alternarTaxaExtraAtiva(ativa = false) {
+  calculatorDraftState.extraFeeActive = ativa === true;
+  const campos = document.getElementById("calcExtraFeeFields");
+  if (campos) campos.hidden = !ativa;
+  if (!ativa) {
+    appConfig.calcExtraFeePercent = 0;
+    appConfig.calcExtraFeeValue = 0;
+  }
+  atualizarVisualTaxaExtraCalculadora();
+  agendarCalculoTempoReal();
+}
+
+function selecionarTipoTaxaExtraCalculadora(tipo = "percent") {
+  appConfig.calcExtraFeeMode = tipo === "fixed" ? "manual" : "percent";
+  salvarDados();
+  atualizarVisualTaxaExtraCalculadora();
+  agendarCalculoTempoReal();
+}
+
+function atualizarTaxaExtraControle(valor = 0) {
+  const estado = getEstadoTaxaExtraCalculadora();
+  const numero = Math.max(0, numeroCalculadora(valor, 0, 0));
+  if (estado.modo === "manual") {
+    appConfig.calcExtraFeeValue = numero;
+  } else {
+    appConfig.calcExtraFeePercent = Math.min(100, numero);
+  }
+  salvarDados();
+  atualizarVisualTaxaExtraCalculadora({ preservarDigitacao: true });
+  agendarCalculoTempoReal();
+}
+
+function atualizarTaxaExtraPeloSlider(valor = 0) {
+  appConfig.calcExtraFeeMode = "percent";
+  appConfig.calcExtraFeePercent = Math.max(0, Math.min(100, Number(valor) || 0));
+  salvarDados();
+  atualizarVisualTaxaExtraCalculadora();
+  agendarCalculoTempoReal();
+}
+
+function alternarTaxaExtraPersonalizada(ativada = false) {
+  if (ativada) selecionarTaxaExtraManual();
+  else selecionarTaxaExtraPercentual(Number(appConfig.calcExtraFeePercent) || 0);
+}
+
 function renderCalculadoraConteudo() {
   const config = getConfiguracaoCalculadora();
   const perfil = obterPerfilAtivoCalculadora(config);
@@ -43647,7 +44130,7 @@ function renderCalculadoraConteudo() {
       <div>
         <span>Perfil ativo</span>
         <strong>${escaparHtml(perfil.nome)}</strong>
-        <small>${escaparHtml(perfil.materialNome)} • ${escaparHtml(perfil.camada)} • ${escaparHtml(perfil.bico)}</small>
+        <small>${escaparHtml(perfil.camada)} • ${escaparHtml(perfil.bico)}</small>
         <em>${escaparHtml(perfil.ultimoUso)}</em>
       </div>
     </section>
@@ -43668,43 +44151,47 @@ function renderCalculadoraConteudo() {
       <input id="margem" type="hidden" value="${escaparAttr(config.margem)}">
 
       <div class="calc-modern-grid">
-        <label class="field calc-field-card">
+        <label class="field calc-field-card wide calc-weight-card">
           <span>Peso da peça (g)</span>
-          <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 120" value="${escaparAttr(config.peso)}" oninput="agendarCalculoTempoReal()">
+          <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 120" value="${escaparAttr(config.peso)}" oninput="calculatorDraftState.peso=this.value;agendarCalculoTempoReal()">
           <i>g</i>
         </label>
-        <label class="field calc-field-card">
+        <div class="field calc-field-card wide calc-time-card">
           <span>Tempo de impressão</span>
-          <input id="tempoFormato" type="text" inputmode="numeric" placeholder="Ex.: 3:47" value="${escaparAttr(formatarTempoCalculadora(config.tempo, config.tempoMinutos))}" oninput="sincronizarTempoFormatadoCalculadora(this.value)" onblur="normalizarCampoTempoCalculadora()">
-          <input id="tempo" type="hidden" value="${escaparAttr(config.tempo)}">
-          <input id="tempoMinutos" type="hidden" value="${escaparAttr(config.tempoMinutos)}">
-          <i>h:min</i>
-        </label>
-        <label class="field calc-field-card">
-          <span>Material</span>
-          <select id="calcMaterial" class="calc-material-select" onchange="alterarMaterialCalculadora(this.value);agendarCalculoTempoReal()"></select>
-        </label>
-        <label class="field calc-field-card wide">
-          <span>Taxa extra</span>
-          <input id="taxaExtra" type="number" min="0" step="0.01" placeholder="0,00" value="${escaparAttr(valorExibidoTaxaExtraCalculadora(taxaEstado) || "")}" ${taxaEstado.modo === "manual" ? "" : "readonly"} oninput="atualizarTaxaExtraManual()">
-          <i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i>
-        </label>
-      </div>
-      <label class="calc-batch-toggle">
-        <input id="impressaoLote" type="checkbox" onchange="alternarImpressaoLote(this.checked)">
-        <span><strong>Impressão em lote</strong><small>Ativar somente para este cálculo</small></span>
-      </label>
-      <div class="calc-batch-fields" id="calcBatchFields" hidden>
-        <label class="field calc-field-card">
-          <span>Unidades no lote</span>
-          <input id="quantidade" type="number" min="1" step="1" value="${escaparAttr(config.quantidade)}" oninput="agendarCalculoTempoReal()">
-          <i>un</i>
-        </label>
-        <small>O peso e o tempo representam o lote completo. O sistema divide apenas o valor total pela quantidade.</small>
-      </div>
-      <div class="calc-quick-fees">
-        ${[0, 5, 10, 15].map((valor) => `<button type="button" class="${taxaEstado.modo === "percent" && taxaEstado.percent === valor ? "active" : ""}" data-extra-fee-mode="percent" data-extra-fee-percent="${valor}" onclick="selecionarTaxaExtraPercentual(${valor})">${valor}%</button>`).join("")}
-        <button type="button" class="${taxaEstado.modo === "manual" ? "active" : ""}" data-extra-fee-mode="manual" onclick="selecionarTaxaExtraManual()">Personalizado</button>
+          <div class="calc-time-split" role="group" aria-label="Tempo de impressão em horas e minutos">
+            <label><input id="tempo" type="number" inputmode="numeric" min="0" step="1" value="${escaparAttr(config.tempo || "0")}" oninput="sincronizarTempoSeparadoCalculadora()"><small>horas</small></label>
+            <b aria-hidden="true">:</b>
+            <label><input id="tempoMinutos" type="number" inputmode="numeric" min="0" max="59" step="1" value="${escaparAttr(config.tempoMinutos || "0")}" oninput="sincronizarTempoSeparadoCalculadora()"><small>min</small></label>
+          </div>
+          <input id="tempoFormato" type="hidden" value="${escaparAttr(formatarTempoCalculadora(config.tempo, config.tempoMinutos))}">
+        </div>
+        <section class="calc-option-block wide" data-calc-option="batch">
+          <label class="calc-option-header">
+            <input id="impressaoLote" type="checkbox" ${calculatorDraftState.batchActive ? "checked" : ""} onchange="alternarImpressaoLote(this.checked)">
+            <span><strong>Calcular várias peças</strong><small>Define quantidade e consumo total do lote.</small></span>
+          </label>
+          <div class="calc-option-fields" id="calcBatchFields" ${calculatorDraftState.batchActive ? "" : "hidden"}>
+            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" min="2" max="999" step="1" value="${Math.max(2, Number(calculatorDraftState.quantity) || 2)}" oninput="calculatorDraftState.quantity=Math.max(2,Math.min(999,Math.floor(Number(this.value)||2)));atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
+            <div class="calc-segmented" role="radiogroup" aria-label="Interpretação dos dados do lote">
+              <label><input type="radio" name="calcBatchMode" value="per_piece" ${calculatorDraftState.batchMode !== "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='per_piece';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Dados por peça</span></label>
+              <label><input type="radio" name="calcBatchMode" value="whole_batch" ${calculatorDraftState.batchMode === "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='whole_batch';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Lote inteiro</span></label>
+            </div>
+            <div id="calcBatchSummary" class="calc-batch-summary"><strong>Resumo do lote</strong><span>Preencha os dados da impressão.</span></div>
+          </div>
+        </section>
+        <section class="calc-option-block wide" data-calc-option="extra-fee">
+          <label class="calc-option-header">
+            <input id="taxaExtraAtiva" type="checkbox" ${calculatorDraftState.extraFeeActive ? "checked" : ""} onchange="alternarTaxaExtraAtiva(this.checked)">
+            <span><strong>Adicionar taxa extra</strong><small>Acréscimo para acabamento, urgência ou complexidade.</small></span>
+          </label>
+          <div class="calc-option-fields" id="calcExtraFeeFields" ${calculatorDraftState.extraFeeActive ? "" : "hidden"}>
+            <div class="calc-segmented" role="radiogroup" aria-label="Tipo da taxa extra">
+              <label><input type="radio" name="calcExtraFeeType" value="percent" ${taxaEstado.modo === "percent" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('percent')"><span>Percentual (%)</span></label>
+              <label><input type="radio" name="calcExtraFeeType" value="fixed" ${taxaEstado.modo === "manual" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('fixed')"><span>Valor fixo (R$)</span></label>
+            </div>
+            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, Number(document.getElementById('taxaExtra').value || 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="number" min="0" ${taxaEstado.modo === "manual" ? 'step="0.01"' : 'max="100" step="1"'} value="${escaparAttr(valorExibidoTaxaExtraCalculadora(taxaEstado) || 0)}" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(Number(document.getElementById('taxaExtra').value || 0) + 1)" aria-label="Aumentar taxa">+</button></div>
+          </div>
+        </section>
       </div>
       <label class="field">
         <span>Nome do item</span>
@@ -45345,8 +45832,11 @@ function alternarImpressaoLote(ativo = false) {
   const campos = document.getElementById("calcBatchFields");
   const quantidade = document.getElementById("quantidade");
   if (campos) campos.hidden = !ativo;
-  if (!ativo && quantidade) quantidade.value = "1";
+  if (quantidade) quantidade.value = ativo ? String(Math.max(2, Number(quantidade.value) || 2)) : "1";
+  calculatorDraftState.batchActive = ativo === true;
+  calculatorDraftState.quantity = ativo ? Math.max(2, Number(quantidade?.value) || 2) : 2;
   ultimoCalculo = null;
+  atualizarResumoLoteCalculadora();
   agendarCalculoTempoReal();
 }
 
@@ -45363,7 +45853,7 @@ function calcular(opcoes = {}) {
     return false;
   }
   const usuarioMonetizacao = getUsuarioMonetizacao();
-  if (!skipUsage && window.MonetizationLimits && !window.MonetizationLimits.canUseCalculator(usuarioMonetizacao)) {
+  if (ADS_ENABLED && !skipUsage && window.MonetizationLimits && !window.MonetizationLimits.canUseCalculator(usuarioMonetizacao)) {
     mostrarModalDesbloqueioAnuncio({
       tipo: "calculator",
       titulo: "Limite diário da calculadora",
@@ -45388,11 +45878,13 @@ function calcular(opcoes = {}) {
     filamento = InventoryService.parseNumberStrict(document.getElementById("filamento")?.value, "custo do material", { min: 0 });
     const tempoHoras = InventoryService.parseNumberStrict(document.getElementById("tempo")?.value || 0, "horas de impressão", { min: 0 });
     tempoMinutos = InventoryService.parseNumberStrict(document.getElementById("tempoMinutos")?.value || 0, "minutos de impressão", { min: 0 });
-    if (tempoMinutos > 59) throw new Error("Informe os minutos entre 0 e 59.");
-    tempo = tempoHoras + (tempoMinutos / 60);
+    const tempoTotalInformadoMinutos = CalculatorDomain.toMinutes(tempoHoras, tempoMinutos);
+    const tempoNormalizado = CalculatorDomain.formatMinutes(tempoTotalInformadoMinutos);
+    tempoMinutos = tempoNormalizado.minutes;
+    tempo = tempoTotalInformadoMinutos / 60;
     const impressaoLote = document.getElementById("impressaoLote")?.checked === true;
     qtd = impressaoLote
-      ? InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade do lote", { min: 1 })
+      ? InventoryService.parseNumberStrict(document.getElementById("quantidade")?.value, "quantidade do lote", { min: 2 })
       : 1;
     energia = InventoryService.parseNumberStrict(document.getElementById("energia")?.value, "custo de energia", { min: 0 });
     consumo = InventoryService.parseNumberStrict(document.getElementById("consumo")?.value, "consumo elétrico", { min: 0 });
@@ -45404,39 +45896,48 @@ function calcular(opcoes = {}) {
   }
   const printer = document.getElementById("printer")?.value || appConfig.defaultPrinterModel || "";
   const tipoImpressao = printers[printer]?.tipo || document.getElementById("printerType")?.value || "FDM";
-  const materialId = document.getElementById("calcMaterial")?.value || "";
-  const materialEstoque = getMaterialEstoque(materialId);
+  const materialId = "";
+  const materialEstoque = null;
   if (!skipUsage) {
     registrarEventoUsoLocal("impressora_usada", { impressora: printer, margem, peso, tempo });
-    if (materialId) registrarEventoUsoLocal("material_usado", {
-      materialId,
-      materialNome: materialEstoque?.nome || "",
-      cor: materialEstoque?.cor || "",
-      margem,
-      peso,
-      tempo
-    });
   }
 
-  const tempoCobrado = Math.max(tempo, Number(appConfig.minimumChargedHours) || 0);
-  const material = (peso / 1000) * filamento;
-  const energiaC = (consumo / 1000) * tempoCobrado * energia;
-  const maquina = tempoCobrado * custoHora;
-  const baseProduto = material + energiaC + maquina;
-  const lucroProduto = calcularValorPercentual(baseProduto, margem);
-  const valorProduto = aplicarPercentualAcrescimo(baseProduto, margem);
-  const taxaInfo = calcularTaxaExtraAplicada(valorProduto);
-  const taxaExtra = taxaInfo.valor;
-  const totalAntesArredondamento = valorProduto + taxaExtra;
-  const arredondamento = Number(appConfig.priceRounding) || 0;
-  let preco = totalAntesArredondamento;
-  if (arredondamento > 0) preco = Math.ceil(preco / arredondamento) * arredondamento;
-  const ajusteArredondamento = Math.max(0, preco - totalAntesArredondamento);
+  const impressaoLote = document.getElementById("impressaoLote")?.checked === true;
+  const taxaAtiva = document.getElementById("taxaExtraAtiva")?.checked === true;
+  const dominio = CalculatorDomain.calculate({
+    weightGrams: peso,
+    timeMinutes: Math.round(tempo * 60),
+    batchActive: impressaoLote,
+    quantity: qtd,
+    batchMode: getModoLoteCalculadora(),
+    materialPricePerKg: filamento,
+    energyPricePerKwh: energia,
+    powerWatts: consumo,
+    machineCostPerHour: custoHora,
+    minimumChargedHours: Number(appConfig.minimumChargedHours) || 0,
+    markupPercent: margem,
+    extraFeeEnabled: taxaAtiva,
+    extraFeeType: getEstadoTaxaExtraCalculadora().modo === "manual" ? "fixed" : "percent",
+    extraFeePercent: getEstadoTaxaExtraCalculadora().percent,
+    extraFeeFixed: getEstadoTaxaExtraCalculadora().value,
+    roundingStep: Number(appConfig.priceRounding) || 0
+  });
+  const tempoCobrado = dominio.chargedHours;
+  const material = dominio.materialCost;
+  const energiaC = dominio.energyCost;
+  const maquina = dominio.machineCost;
+  const baseProduto = dominio.baseCost;
+  const lucroProduto = dominio.profitAmount;
+  const valorProduto = dominio.subtotalBase;
+  const taxaExtra = dominio.extraFeeAmount;
+  const preco = dominio.totalPrice;
+  const ajusteArredondamento = dominio.roundingAdjustment;
+  const taxaInfo = { modo: dominio.extraFeeType === "fixed" ? "manual" : "percent", rotulo: dominio.extraFeeType === "fixed" ? "R$" : `${dominio.extraFeePercent}%` };
   salvarConfiguracaoCalculadora(!silent && !skipUsage);
 
   ultimoCalculo = {
-    preco: preco / qtd,
-    custo: baseProduto / qtd,
+    preco: dominio.unitPrice,
+    custo: baseProduto / dominio.quantity,
     custoMaterial: material,
     custoEnergia: energiaC,
     custoMaquina: maquina,
@@ -45452,12 +45953,17 @@ function calcular(opcoes = {}) {
     precoTotal: preco,
     totalFinal: preco,
     ajusteArredondamento,
-    qtd,
-    impressaoLote: document.getElementById("impressaoLote")?.checked === true,
-    peso,
-    tempo,
+    qtd: dominio.quantity,
+    impressaoLote: dominio.batchActive,
+    modoLote: dominio.batchMode,
+    pesoInformado: dominio.informedWeightGrams,
+    pesoTotal: dominio.totalWeightGrams,
+    peso: dominio.totalWeightGrams,
+    tempoInformadoMinutos: dominio.informedTimeMinutes,
+    tempoTotalMinutos: dominio.totalTimeMinutes,
+    tempo: dominio.totalTimeHours,
     tempoHorasInformadas: Math.floor(tempo),
-    tempoMinutos: Math.round(tempoMinutos),
+    tempoMinutos: dominio.totalTimeMinutes % 60,
     tempoCobrado,
     printer,
     tipoImpressao,
@@ -45476,6 +45982,7 @@ function calcular(opcoes = {}) {
 
 function limparCalculo() {
   ultimoCalculo = null;
+  calculatorDraftState = { peso: "", tempo: "0", tempoMinutos: "0", batchActive: false, quantity: 2, batchMode: "per_piece", extraFeeActive: false };
   ["peso", "tempo", "tempoMinutos", "tempoFormato", "taxaExtra", "nomeItem", "observacoesCalculo"].forEach((id) => {
     const campo = document.getElementById(id);
     if (campo) campo.value = "";
@@ -46058,7 +46565,8 @@ function crc16Pix(payload) {
 
 function gerarPayloadPix(valor, cliente = "") {
   const chave = String(appConfig.pixKey || "").trim();
-  if (!chave) return "";
+  const valorNumerico = Number(valor) || 0;
+  if (!chave || valorNumerico <= 0) return "";
 
   const recebedor = normalizarCampoPix(appConfig.pixReceiverName || appConfig.businessName || appConfig.appName || SYSTEM_NAME, 25) || SYSTEM_NAME;
   const cidade = normalizarCampoPix(appConfig.pixCity || "FORTALEZA", 15) || "FORTALEZA";
@@ -46071,13 +46579,31 @@ function gerarPayloadPix(valor, cliente = "") {
     campoEmv("26", merchantAccount),
     campoEmv("52", "0000"),
     campoEmv("53", "986"),
-    campoEmv("54", (Number(valor) || 0).toFixed(2)),
+    campoEmv("54", valorNumerico.toFixed(2)),
     campoEmv("58", "BR"),
     campoEmv("59", recebedor),
     campoEmv("60", cidade),
     campoEmv("62", adicionais)
   ].join("") + "6304";
   return base + crc16Pix(base);
+}
+
+async function copiarPixCopiaEColaPedido(id) {
+  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  if (!pedido) return mostrarToast("Pedido não encontrado.", "erro");
+  const resumo = calcularResumoFinanceiroPedido(pedido);
+  if (resumo.restante <= 0) return mostrarToast("Este pedido não possui saldo pendente para Pix.", "info");
+
+  const payload = gerarPayloadPix(resumo.restante, clienteDoPedido(pedido));
+  if (!payload) return mostrarToast("Configure uma chave Pix antes de copiar.", "aviso");
+
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API indisponível");
+    await navigator.clipboard.writeText(payload);
+    mostrarToast(`Pix de ${formatarMoeda(resumo.restante)} copiado.`, "sucesso");
+  } catch (_) {
+    window.prompt("Copie o código Pix abaixo:", payload);
+  }
 }
 
 function gerarQrPixDataUrl(payload) {
@@ -47015,10 +47541,27 @@ function getAndroidDownloadUrl(manifest = {}) {
 
 function getAndroidManifestUrls() {
   return [
-    appConfig.updateManifestUrl,
     ANDROID_UPDATE_MANIFEST_URL,
     ...ANDROID_UPDATE_MANIFEST_FALLBACK_URLS
   ].filter(Boolean).filter((url, index, lista) => lista.indexOf(url) === index);
+}
+
+function garantirLinhaAtualizacaoAndroidAtual() {
+  try {
+    if (localStorage.getItem(ANDROID_UPDATE_LINE_STORAGE_KEY) === ANDROID_UPDATE_LINE_ID) return false;
+    appConfig.updateAvailableVersion = "";
+    appConfig.updateAvailableCode = 0;
+    appConfig.updateDownloadUrl = "";
+    appConfig.updateDismissedVersion = "";
+    appConfig.updateDismissedCode = 0;
+    appConfig.updateManifestUrl = "";
+    localStorage.setItem(ANDROID_UPDATE_LINE_STORAGE_KEY, ANDROID_UPDATE_LINE_ID);
+    salvarDados();
+    return true;
+  } catch (_) {
+    // A verificação remota ainda funciona quando o armazenamento está indisponível.
+    return false;
+  }
 }
 
 function getPluginAtualizacaoAndroid() {
@@ -47136,6 +47679,7 @@ function getManifestAndroidVersionName(manifest = {}) {
 }
 
 function existeAtualizacaoAndroid(manifest) {
+  if (garantirLinhaAtualizacaoAndroidAtual()) return false;
   const versionCodeRemoto = getManifestAndroidVersionCode(manifest);
   const versionNameRemoto = getManifestAndroidVersionName(manifest);
   if (isAndroid() && !isAndroidNativeApp()) {
@@ -47648,6 +48192,7 @@ document.addEventListener("DOMContentLoaded", () => {
         telaAtual = "admin";
       }
       renderApp();
+      if (getUsuarioAtual()) setTimeout(mostrarResumoAtualizacaoUmaVez, 900);
       recuperarPedidoRapidoAposReabertura();
       aquecerIALocalEmSegundoPlano("startup");
     }

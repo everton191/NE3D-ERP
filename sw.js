@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v231-package-1-20260705";
+const CACHE_NAME = "simplifica-3d-v246-calculator-batch-20260711";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const APP_FILES = [
   "./src/storefront/renderers/publicV3.js",
   "./src/storefront/renderers/editorV3.js",
   "./app.js",
+  "./src/config/runtimeFeatures.js",
   "./src/services/errorTelemetry.js",
   "./src/services/diagnosticsService.js",
   "./src/services/smartLoaderService.js",
@@ -19,6 +20,7 @@ const APP_FILES = [
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
+  "./src/services/calculatorDomain.js",
   "./themes/base/design-system-v2.css",
   "./src/styles/google-expressive-motion.css",
   "./assets/vendor/jspdf.umd.min.js",

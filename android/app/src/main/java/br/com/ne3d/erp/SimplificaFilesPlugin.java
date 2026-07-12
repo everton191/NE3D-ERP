@@ -952,15 +952,6 @@ public class SimplificaFilesPlugin extends Plugin {
     private void searchPhoneContactsGranted(PluginCall call) {
         final String query = call.getString("query", "");
         final int limit = Math.max(1, Math.min(call.getData().optInt("limit", 8), 12));
-        if (query == null || (normalizeContactText(query).length() < 2 && normalizeContactPhone(query).length() < 2)) {
-            JSObject result = new JSObject();
-            result.put("ok", true);
-            result.put("granted", true);
-            result.put("contacts", new JSArray());
-            call.resolve(result);
-            return;
-        }
-
         runWithPluginTimeout(call, 12000L, "Busca de contatos demorou demais.", () -> {
             JSArray contacts = queryPhoneContacts(query, limit);
             JSObject result = new JSObject();
@@ -1000,9 +991,10 @@ public class SimplificaFilesPlugin extends Plugin {
                 String number = numberIndex >= 0 ? cursor.getString(numberIndex) : "";
                 String normalizedName = normalizeContactText(name);
                 String normalizedPhone = normalizeContactPhone(number);
+                boolean listAll = normalizedQuery.isEmpty() && queryPhone.isEmpty();
                 boolean matchesName = !normalizedQuery.isEmpty() && normalizedName.contains(normalizedQuery);
                 boolean matchesPhone = queryPhone.length() >= 2 && normalizedPhone.contains(queryPhone);
-                if (!matchesName && !matchesPhone) continue;
+                if (!listAll && !matchesName && !matchesPhone) continue;
 
                 String key = contactId == null || contactId.isEmpty() ? normalizedName + "|" + normalizedPhone : contactId;
                 JSObject item = byContact.get(key);

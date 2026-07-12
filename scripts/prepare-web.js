@@ -44,6 +44,7 @@ if (fs.existsSync(path.join(root, "assets"))) {
 }
 
 const publicSrcFiles = [
+  "src/config/runtimeFeatures.js",
   "src/services/errorTelemetry.js",
   "src/services/diagnosticsService.js",
   "src/services/smartLoaderService.js",
@@ -54,6 +55,7 @@ const publicSrcFiles = [
   "src/services/adMobService.js",
   "src/services/adSenseService.js",
   "src/services/monetizationLimits.js",
+  "src/services/calculatorDomain.js",
   "src/styles/google-expressive-motion.css",
   "src/storefront/styles/tokens.css",
   "src/storefront/styles/components.css",
