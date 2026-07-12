@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.3";
-const APP_VERSION_CODE = 4;
+const APP_VERSION = "1.0.4";
+const APP_VERSION_CODE = 5;
 const APP_RELEASE_NOTES = Object.freeze([
   "O controle de materiais ficou mais organizado nos planos Start e Pro.",
   "Os anúncios estão pausados enquanto melhoramos a experiência do aplicativo.",
@@ -33941,19 +33941,8 @@ function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {
 }
 
 const PDF_THEME_PRESETS = Object.freeze({
-  modern_dark: {
-    label: "Modern Dark",
-    background: "#06131b",
-    panel: "#0a2230",
-    panelAlt: "#071a26",
-    line: "#0bb8b1",
-    text: "#f5fbff",
-    muted: "#b8c6d4",
-    headerText: "#ffffff",
-    tableStripe: "#0c2838"
-  },
   clean_white: {
-    label: "Clean White",
+    label: "Novo padrão claro",
     background: "#f7fafc",
     panel: "#ffffff",
     panelAlt: "#eef6f8",
@@ -33962,28 +33951,6 @@ const PDF_THEME_PRESETS = Object.freeze({
     muted: "#526173",
     headerText: "#10202c",
     tableStripe: "#f1f7f8"
-  },
-  compact_business: {
-    label: "Compact Business",
-    background: "#f2f5f7",
-    panel: "#ffffff",
-    panelAlt: "#e8eef2",
-    line: "#073b4b",
-    text: "#111827",
-    muted: "#4b5563",
-    headerText: "#111827",
-    tableStripe: "#edf2f5"
-  },
-  neon_dark: {
-    label: "Neon Dark",
-    background: "#030b12",
-    panel: "#071724",
-    panelAlt: "#06111d",
-    line: "#00d8c8",
-    text: "#f8fdff",
-    muted: "#aab8c6",
-    headerText: "#ffffff",
-    tableStripe: "#092235"
   }
 });
 
@@ -34078,7 +34045,7 @@ function limitarCorPdf(valor, fallback = "#00d8c8") {
 
 function renderPdfModeloPreview() {
   const temaId = normalizarPdfTheme();
-  const tema = PDF_THEME_PRESETS[temaId] || PDF_THEME_PRESETS.modern_dark;
+  const tema = PDF_THEME_PRESETS[temaId] || PDF_THEME_PRESETS.clean_white;
   const corLinha = limitarCorPdf(appConfig.pdfSecondaryColor || tema.line, tema.line);
   const empresa = appConfig.businessName || "Minha empresa 3D";
   const subtitulo = appConfig.pdfHeaderText || "Impressão 3D";
@@ -34593,9 +34560,7 @@ function renderPersonalizacao() {
           <label class="field">
             <span>Tema do PDF</span>
             <select id="pdfThemeConfig">
-              ${Object.entries(PDF_THEME_PRESETS).map(([id, tema]) => `
-                <option value="${id}" ${temaPdfAtual === id ? "selected" : ""}>${escaparHtml(tema.label)}</option>
-              `).join("")}
+              <option value="clean_white" selected>Novo padrão claro</option>
             </select>
           </label>
           <label class="field">
@@ -46933,7 +46898,7 @@ function setFontePdf(doc, tamanho, estilo = "normal") {
 
 function getPdfThemeConfig() {
   const id = normalizarPdfTheme();
-  const base = PDF_THEME_PRESETS[id] || PDF_THEME_PRESETS.modern_dark;
+  const base = PDF_THEME_PRESETS[id] || PDF_THEME_PRESETS.clean_white;
   const principal = limitarCorPdf(appConfig.accentColor || base.line || "#00d8c8", base.line || "#00d8c8");
   const secundaria = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || base.line || "#00d8c8", base.line || "#00d8c8");
   return { id, ...base, primary: principal, secondary: secundaria };
