@@ -23322,6 +23322,99 @@ body.mobile-mode .operational-drawer > :where(.quick-order-layout,.quick-operati
   touch-action:pan-y;
 }
 
+/* Pedido mobile: uma unica camada visual e acoes sem cobrir o formulario. */
+body.mobile-mode .ui3-order-editor > .order-edit-header,
+body[data-ui-profile="android_apk"] .ui3-order-editor > .order-edit-header,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-editor > .order-edit-header{
+  display:none;
+}
+
+body.mobile-mode .ui3-order-editor > .ui-tabs,
+body[data-ui-profile="android_apk"] .ui3-order-editor > .ui-tabs,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-editor > .ui-tabs{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:5px;
+  width:100%;
+  overflow:visible;
+  padding:2px 0 6px;
+}
+
+body.mobile-mode .ui3-order-editor > .ui-tabs .ui-tab,
+body[data-ui-profile="android_apk"] .ui3-order-editor > .ui-tabs .ui-tab,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-editor > .ui-tabs .ui-tab{
+  min-width:0;
+  min-height:44px;
+  gap:3px;
+  padding:5px 3px;
+  font-size:11px;
+  line-height:1.05;
+  white-space:normal;
+  text-align:center;
+}
+
+body.mobile-mode .ui3-order-final-bar,
+body[data-ui-profile="android_apk"] .ui3-order-final-bar,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-final-bar{
+  position:relative;
+  bottom:auto;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(96px, 1fr));
+  gap:8px;
+  width:100%;
+  padding:10px;
+  border:1px solid var(--ui3-border, var(--color-border));
+  border-radius:16px;
+}
+
+body.mobile-mode .ui3-order-final-bar > div,
+body[data-ui-profile="android_apk"] .ui3-order-final-bar > div,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-final-bar > div{
+  grid-column:1 / -1;
+}
+
+body.mobile-mode .ui3-order-final-bar .btn,
+body[data-ui-profile="android_apk"] .ui3-order-final-bar .btn,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-final-bar .btn{
+  width:100%;
+  min-width:0;
+  min-height:46px;
+  margin:0;
+}
+
+body.mobile-mode .quick-order-final-actions,
+body[data-ui-profile="android_apk"] .quick-order-final-actions,
+body[data-ui-profile="web_pwa"].mobile-mode .quick-order-final-actions{
+  position:relative;
+  bottom:auto;
+  grid-template-columns:1fr;
+}
+
+body.mobile-mode .quick-order-layout,
+body[data-ui-profile="android_apk"] .quick-order-layout,
+body[data-ui-profile="web_pwa"].mobile-mode .quick-order-layout{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+}
+
+body.mobile-mode .quick-order-form,
+body[data-ui-profile="android_apk"] .quick-order-form,
+body[data-ui-profile="web_pwa"].mobile-mode .quick-order-form{
+  order:1;
+  flex:0 0 auto;
+}
+
+body.mobile-mode .quick-order-summary,
+body[data-ui-profile="android_apk"] .quick-order-summary,
+body[data-ui-profile="web_pwa"].mobile-mode .quick-order-summary{
+  position:static !important;
+  inset:auto !important;
+  order:2;
+  flex:0 0 auto;
+  margin-top:4px;
+}
+
 /* Storefront admin visual organization - fase 2 */
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .storefront-admin-page{
   align-content:start;

@@ -2,10 +2,12 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.12";
-const APP_VERSION_CODE = 13;
+const APP_VERSION = "1.0.13";
+const APP_VERSION_CODE = 14;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Correções de interface e melhorias de desempenho."
+  "Criação de pedidos unificada na Home e na guia Pedidos.",
+  "Novo fluxo por etapas com Voltar, Próximo e finalização no Financeiro.",
+  "Correção de sobreposição no mobile e melhor comportamento com o teclado aberto."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -24726,6 +24728,9 @@ function renderPedido() {
     { id: "financeiro", label: "Financeiro", icon: "R$" }
   ];
   const pedidoTab = pedidoTabs.some((tab) => tab.id === getUiTab("pedidoEditor", "")) ? getUiTab("pedidoEditor") : (itensPedido.length ? "itens" : "cliente");
+  const pedidoTabIndex = Math.max(0, pedidoTabs.findIndex((tab) => tab.id === pedidoTab));
+  const pedidoTabAnterior = pedidoTabs[pedidoTabIndex - 1] || null;
+  const pedidoTabProxima = pedidoTabs[pedidoTabIndex + 1] || null;
   const itensSelecionadosPedido = getItensPedidoSelecionados();
   const totalSelecionadoPedido = itensSelecionadosPedido.reduce((soma, index) => soma + (Number(itensPedido[index]?.total) || 0), 0);
   const barraSelecaoPedido = itensPedido.length ? `
@@ -24944,8 +24949,11 @@ function renderPedido() {
           <strong data-order-total>${formatarMoeda(resumoFinanceiro.total)}</strong>
           ${resumoFinanceiro.entrada > 0 ? `<small>Restante: <em data-order-remaining>${formatarMoeda(resumoFinanceiro.restante)}</em></small>` : ""}
         </div>
-        <button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" onclick="iniciarAdicionarItemPedido()">${renderIconeAcaoPedido("✚", "Adicionar item")} Item</button>
-        <button class="btn" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${pedidoSalvando ? "Salvando pedido..." : botao}</button>
+        ${pedidoTabAnterior ? `<button class="btn ghost" type="button" onclick="navegarEtapaPedido('${escaparAttr(pedidoTabAnterior.id)}')">← Voltar</button>` : ""}
+        ${pedidoTab === "itens" ? `<button class="btn secondary ${destacarAdicionarItem ? "smart-highlight" : ""}" type="button" onclick="iniciarAdicionarItemPedido()">${renderIconeAcaoPedido("✚", "Adicionar item")} Adicionar item</button>` : ""}
+        ${pedidoTabProxima
+          ? `<button class="btn" type="button" onclick="avancarEtapaPedido('${escaparAttr(pedidoTab)}','${escaparAttr(pedidoTabProxima.id)}')">Próximo →</button>`
+          : `<button class="btn" type="button" onclick="fecharPedido()" ${pedidoSalvando ? "disabled" : ""}>${pedidoSalvando ? "Salvando pedido..." : botao}</button>`}
       </div>
 
       <div class="order-secondary-actions" data-order-item-actions ${pedidoTab === "itens" ? "" : "hidden"}>
@@ -25596,7 +25604,7 @@ function renderListaPedidos() {
 
   const modoSimples = isSimplificaMode();
   const acaoNovoPedido = podeOperar
-    ? `<button class="btn primary ui3-simple-orders-new" type="button" data-action="open-quick-order">${renderUiIcon("pedido")} Novo pedido</button>`
+    ? `<button class="btn primary ui3-simple-orders-new" type="button" data-action="open-order-editor">${renderUiIcon("pedido")} Novo pedido</button>`
     : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`;
 
   return `
@@ -25605,7 +25613,7 @@ function renderListaPedidos() {
         ? `<div class="ui3-simple-orders-toolbar">${acaoNovoPedido}</div>`
         : `<div class="card-header">
             <h2>${renderUiIcon("pedidos")} Pedidos</h2>
-            <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
+            <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="icon-button" type="button" data-action="open-order-editor" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
           </div>`}
       ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
@@ -30813,6 +30821,22 @@ function trocarUiTab(group, tab) {
   window.__simplificaUiTabs = window.__simplificaUiTabs || {};
   window.__simplificaUiTabs[group] = String(tab || "");
   renderizarPreservandoScroll();
+}
+
+function navegarEtapaPedido(tab) {
+  trocarUiTab("pedidoEditor", tab);
+  requestAnimationFrame(() => {
+    document.querySelector('.ui3-order-editor .ui-tab.active')?.focus?.({ preventScroll: true });
+  });
+}
+
+function avancarEtapaPedido(etapaAtual, proximaEtapa) {
+  if (etapaAtual === "itens" && !itensPedido.length) {
+    mostrarToast("Adicione pelo menos um item antes de continuar.", "aviso", 3200);
+    iniciarAdicionarItemPedido();
+    return;
+  }
+  navegarEtapaPedido(proximaEtapa);
 }
 
 function appClasseBase(base = "", variantes = []) {
@@ -43979,7 +44003,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
           <h2>Pedidos e orçamentos</h2>
           <p class="muted">Lista, detalhes e ações em painéis separados para evitar mistura com a Home.</p>
         </div>
-        <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="btn" type="button" data-action="open-quick-order">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
+        <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="btn" type="button" data-action="open-order-editor">${renderUiIcon("pedido")} Novo pedido</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
       </header>
       <div class="orders-pwa-layout">
         <section class="orders-pwa-list card">
@@ -44429,7 +44453,7 @@ function acionarAtalhoRapido(id) {
     return;
   }
   if (acao.id === "novo_pedido") {
-    abrirPedidoRapidoOperacional();
+    abrirEditorCompletoNovoPedido();
     return;
   }
   trocarTela(acao.tela || "dashboard");
@@ -44897,8 +44921,8 @@ function renderPedidoRapidoOperacional() {
             ${renderComandosPedidoRapidoPwa()}
             <div>
               <span class="status-badge ${classeStatusPedido(statusAtual)}">${escaparHtml(labelStatusPedido(statusAtual))}</span>
-              <h3>Resumo operacional</h3>
-            <p class="muted">Revise tudo sem perder o contexto do dashboard.</p>
+              <h3>Revisão final</h3>
+            <p class="muted">Confira os itens e valores antes de salvar o pedido.</p>
           </div>
           ${renderPedidoRapidoTimeline(statusAtual)}
           ${barraSelecaoPedidoRapido}
@@ -45146,7 +45170,17 @@ function continuarPedidoRapidoOperacional() {
   fecharPopup();
   window.__simplificaUiTabs = window.__simplificaUiTabs || {};
   window.__simplificaUiTabs.pedidoEditor = itensPedido.length ? "itens" : "cliente";
-  trocarTela("pedido");
+  // Aguarda a retirada completa do drawer antes de montar o editor mobile.
+  // Isso impede que as duas telas disputem a mesma viewport durante a troca.
+  requestAnimationFrame(() => trocarTela("pedido"));
+}
+
+function abrirEditorCompletoNovoPedido() {
+  if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para criar pedidos.")) return;
+  fecharPopup();
+  window.__simplificaUiTabs = window.__simplificaUiTabs || {};
+  window.__simplificaUiTabs.pedidoEditor = itensPedido.length ? "itens" : "cliente";
+  requestAnimationFrame(() => trocarTela("pedido"));
 }
 
 function abrirCalculadoraPedidoRapido() {
@@ -46355,10 +46389,10 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
-    if (acao === "open-quick-order") {
+    if (acao === "open-order-editor") {
       event.preventDefault();
       event.stopPropagation();
-      abrirPedidoRapidoOperacional();
+      abrirEditorCompletoNovoPedido();
       return;
     }
 
