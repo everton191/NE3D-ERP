@@ -2,13 +2,10 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.4";
-const APP_VERSION_CODE = 5;
+const APP_VERSION = "1.0.5";
+const APP_VERSION_CODE = 6;
 const APP_RELEASE_NOTES = Object.freeze([
-  "O controle de materiais ficou mais organizado nos planos Start e Pro.",
-  "Os anúncios estão pausados enquanto melhoramos a experiência do aplicativo.",
-  "A administração agora mostra os cadastros mais recentes e o último acesso de cada empresa.",
-  "Melhoramos a rolagem das telas e o acesso rápido pelo celular."
+  "Correções de interface e melhorias de desempenho."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";

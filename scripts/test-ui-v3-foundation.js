@@ -23,6 +23,7 @@ assert(read('styles/ui-v3/screens/reading.css').includes('.dashboard-sparkline{d
 assert(read('styles/ui-v3/screens/reading.css').includes('.ui3-reports-header .reports-title-row{display:none}') && read('styles/ui-v3/screens/reading.css').includes('.reports-period-tabs{display:flex'),'Relatorios mobile ainda duplica cabecalho ou empilha periodos');
 assert(read('style.css').includes('grid-column:auto !important;'),'acoes rapidas do Caixa continuam ocupando linhas inteiras');
 assert(read('styles/ui-v3/screens/finance.css').includes('>.cash-screen-header{display:none}') && app.includes('renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas, controlesCaixa)'),'Caixa mobile ainda duplica resumo ou mostra filtros antes do saldo');
+assert(read('styles/ui-v3/screens/finance.css').includes('.ui3-cash-screen{padding-top:var(--ui3-space-3)}'),'Caixa mobile ainda deixa espaco excessivo antes da saudacao');
 assert(read('style.css').includes('padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top, 0px)) + 18px'),'regra final do Superadmin ignora a barra de status');
 assert(read('style.css').includes('padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top'),'Calculadora nao usa a safe area V3 no mobile');
 assert(read('style.css').includes('overflow-y:visible !important;') && read('style.css').includes('overscroll-behavior:initial'),'Calculadora ainda mantem um segundo proprietario de scroll');
