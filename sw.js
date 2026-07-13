@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v268-1.0.12-orders-no-popup-20260713";
+const CACHE_NAME = "simplifica-3d-v271-1.0.12-dark-calculator-contrast2-20260713";
 const APP_FILES = [
   "./",
   "./index.html",

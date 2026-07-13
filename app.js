@@ -1367,17 +1367,17 @@ async function sincronizarPreferenciaModoInterface() {
 function abrirSeletorModoInterface() {
   const mode = getInterfaceMode();
   if (window.UiV3?.Dialog) {
-    window.UiV3.Dialog({ title: "Modo de uso", content: `
-        <p>Escolha o nível de detalhes da interface. Isso não altera seu plano nem suas permissões.</p>
+    window.UiV3.Dialog({ title: "Escolher versão da interface", content: `
+        <p>Escolha entre a versão simples e a completa. Isso não altera seu plano nem suas permissões.</p>
         <div class="ui3-settings-list" role="radiogroup" aria-label="Modo da interface">
           <button class="interface-mode-option ${mode === "simplifica" ? "active" : ""}" type="button" role="radio" aria-checked="${mode === "simplifica"}" onclick="selecionarModoInterface('simple')">
             <span class="interface-mode-option-icon" aria-hidden="true">${renderUiIcon("home")}</span>
-            <span><strong>Usar modo simples</strong><small>Menus reduzidos e fluxos diretos</small></span>
+            <span><strong>Versão simples</strong><small>Menus reduzidos e fluxos diretos</small></span>
             <span class="interface-mode-option-check" aria-hidden="true">✓</span>
           </button>
           <button class="interface-mode-option ${mode === "profissional" ? "active" : ""}" type="button" role="radio" aria-checked="${mode === "profissional"}" onclick="selecionarModoInterface('advanced')">
             <span class="interface-mode-option-icon" aria-hidden="true">${renderUiIcon("config")}</span>
-            <span><strong>Usar modo avançado</strong><small>Mais filtros, detalhes e ações permitidas</small></span>
+            <span><strong>Versão completa</strong><small>Mais filtros, detalhes e ações permitidas</small></span>
             <span class="interface-mode-option-check" aria-hidden="true">✓</span>
           </button>
         </div>
@@ -15595,7 +15595,7 @@ function renderDashboardHomeHeader() {
 function renderDashboardInterfaceModeButton() {
   if (!isSimplificaMode()) return "";
   return `
-    <button class="icon-button dashboard-interface-mode-button" type="button" onclick="abrirSeletorModoInterface()" title="Selecionar modo de uso" aria-label="Selecionar modo de uso. Modo atual: simples">
+    <button class="icon-button dashboard-interface-mode-button" type="button" onclick="abrirSeletorModoInterface()" title="Escolher versão da interface" aria-label="Escolher versão da interface. Versão atual: simples">
       ${renderUiIcon("config")}
     </button>
   `;
@@ -16036,7 +16036,7 @@ function renderAdministracaoEmpresa() {
     { action: "trocarTela('relatorios')", icon: "relatorios", title: "Logs e relatórios", description: "Atividade da empresa e indicadores permitidos.", visible: canAccessScreen("relatorios", usuario) }
   ].filter((item) => item.visible);
   return `
-    <section class="organized-page administration-page">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-administration administration-page" data-ui-version="v3" data-ui3-screen="administracao">
       ${renderAppHeader({
         title: "Administração da empresa",
         subtitle: "Configurações da empresa separadas do seu perfil pessoal."
@@ -24478,6 +24478,8 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
 }
 
 function renderDashboardSimplifica({ stats, totaisCaixa }) {
+  const usuario = getUsuarioAtual();
+  const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
   const pedidosProntos = pedidos.filter((pedido) => normalizarStatusPedidoFiltro(pedido) === "prontos").length;
   const loja = canUseStorefrontLocal() ? getStorefrontAdminViewModel() : null;
   const lojaPublicada = loja?.store?.active === true;
@@ -24507,15 +24509,15 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
   ];
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-dashboard ui3-dashboard-simple" data-ui-version="v3" data-ui3-screen="dashboard" data-interface-mode="simplifica">
-      <header class="dashboard-simplifica-header">
-        <div>
-          <h1>Início</h1>
-          <p>Resumo de vendas, pedidos e caixa.</p>
+      <div class="dashboard-simplifica-header" role="region" aria-label="Boas-vindas">
+        <div class="dashboard-simplifica-welcome">
+          ${renderDashboardProfileButton(usuario)}
+          <div>
+            <h1>Olá, ${escaparHtml(nome)}!</h1>
+            <p>Bem-vindo. Aqui está o resumo do seu negócio hoje.</p>
+          </div>
         </div>
-        <div class="dashboard-simplifica-header-actions">
-          ${renderDashboardInterfaceModeButton()}
-        </div>
-      </header>
+      </div>
       <div class="ui3-grid ui3-dashboard-metrics">
         ${cards.map((card) => `
           <button class="metric dashboard-simplifica-metric" type="button" onclick="${card.action}">
@@ -26737,7 +26739,7 @@ function getProductionStatusLabel(status = "novo_pedido") {
 
 function getProductionTab() {
   const tab = String(window.__productionTab || "fila");
-  return ["fila", "proximos", "impressao", "pendencias", "impressoras", "prontos"].includes(tab) ? tab : "fila";
+  return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "impressoras"].includes(tab) ? tab : "fila";
 }
 
 function trocarAbaProducao(tab = "fila") {
@@ -27497,12 +27499,29 @@ function getTarefasProducaoPorAba(tab = getProductionTab()) {
   reordenarFilaProducao();
   const busca = normalizarTextoBusca(window.__productionSearch || "");
   const printerFilter = String(window.__productionPrinterFilter || "");
-  let jobs = [...productionJobs];
+  const periodo = ["semana", "mes", "ano", "todos"].includes(String(window.__productionPeriod || "semana"))
+    ? String(window.__productionPeriod || "semana")
+    : "semana";
+  const agora = new Date();
+  const inicioPeriodo = new Date(agora);
+  inicioPeriodo.setHours(0, 0, 0, 0);
+  if (periodo === "semana") inicioPeriodo.setDate(inicioPeriodo.getDate() - ((inicioPeriodo.getDay() + 6) % 7));
+  if (periodo === "mes") inicioPeriodo.setDate(1);
+  if (periodo === "ano") inicioPeriodo.setMonth(0, 1);
+  let jobs = productionJobs.filter((job) => {
+    if (periodo === "todos") return true;
+    const pedido = getProductionOrder(job);
+    const valorData = job.updated_at || job.updatedAt || job.created_at || job.createdAt || pedido?.updated_at || pedido?.updatedAt || pedido?.criadoEm || pedido?.createdAt || pedido?.data;
+    if (!valorData) return true;
+    const data = new Date(valorData);
+    return Number.isNaN(data.getTime()) || data >= inicioPeriodo;
+  });
   if (tab === "fila") jobs = jobs.filter((job) => ["liberado_para_producao", "na_fila", "proximo", "aguardando_impressora"].includes(job.status));
-  if (tab === "proximos") jobs = jobs.filter((job) => ["proximo", "na_fila"].includes(job.status)).sort(compararTarefasProducao).slice(0, 5);
   if (tab === "impressao") jobs = jobs.filter((job) => ["em_impressao", "pausado", "pos_processamento", "controle_qualidade"].includes(job.status));
   if (tab === "pendencias") jobs = jobs.filter((job) => ["pendente", "falhou", "reimpressao_necessaria"].includes(job.status));
-  if (tab === "prontos") jobs = jobs.filter((job) => ["pronto_para_entrega", "entregue"].includes(job.status));
+  if (tab === "prontos") jobs = jobs.filter((job) => job.status === "pronto_para_entrega");
+  if (tab === "entregues") jobs = jobs.filter((job) => job.status === "entregue");
+  if (tab === "pagos") jobs = jobs.filter((job) => calcularResumoFinanceiroPedido(getProductionOrder(job) || {}).statusFinanceiro === "pago_total");
   if (printerFilter) jobs = jobs.filter((job) => String(job.printerId || "") === printerFilter);
   if (busca) jobs = jobs.filter((job) => normalizarTextoBusca(`${job.productionCode} ${job.orderId} ${job.customer} ${job.itemName} ${job.material} ${job.color}`).includes(busca));
   return jobs.sort(compararTarefasProducao);
@@ -27513,11 +27532,12 @@ function renderProducao() {
   const tab = getProductionTab();
   const tabs = [
     ["fila", "Fila"],
-    ["proximos", "Próximos"],
     ["impressao", "Em impressão"],
     ["pendencias", "Pendências"],
-    ["impressoras", "Impressoras"],
-    ["prontos", "Prontos"]
+    ["prontos", "Prontos"],
+    ["entregues", "Entregues"],
+    ["pagos", "Pagos"],
+    ["impressoras", "Impressoras"]
   ];
   const jobs = tab === "impressoras" ? [] : getTarefasProducaoPorAba(tab);
   return `
@@ -27527,12 +27547,23 @@ function renderProducao() {
         <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
       </div>
       <div class="production-tabs" role="tablist">
-        ${tabs.map(([value,label]) => `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')">${escaparHtml(label)}</button>`).join("")}
+        ${tabs.map(([value,label]) => {
+          const quantidade = value === "impressoras"
+            ? productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length
+            : getTarefasProducaoPorAba(value).length;
+          return `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')"><span>${escaparHtml(label)}</span><strong>${quantidade}</strong></button>`;
+        }).join("")}
       </div>
       ${tab === "impressoras" ? renderImpressorasProducao() : `
         <div class="production-filter-bar">
           <label class="production-search">${renderUiIcon("search")}<input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
           <select aria-label="Filtrar por impressora" onchange="window.__productionPrinterFilter=this.value;renderizarPreservandoScroll()">${renderProductionPrinterOptions(window.__productionPrinterFilter || "")}</select>
+          <select aria-label="Filtrar período da produção" onchange="window.__productionPeriod=this.value;renderizarPreservandoScroll()">
+            <option value="semana" ${(window.__productionPeriod || "semana") === "semana" ? "selected" : ""}>Esta semana</option>
+            <option value="mes" ${window.__productionPeriod === "mes" ? "selected" : ""}>Este mês</option>
+            <option value="ano" ${window.__productionPeriod === "ano" ? "selected" : ""}>Este ano</option>
+            <option value="todos" ${window.__productionPeriod === "todos" ? "selected" : ""}>Todo o período</option>
+          </select>
         </div>
         <div class="production-job-list">${jobs.length ? jobs.map(renderTarefaProducao).join("") : `<p class="empty">Nenhuma tarefa nesta etapa.</p>`}</div>
       `}
@@ -35807,7 +35838,7 @@ function renderFeedback() {
 
   return `
     <section class="card">
-      <div class="card-header">
+      <div class="ui3-page-header company-page-header">
         <h2>${renderUiIcon("feedback")} Sugestões de melhorias</h2>
         <span class="status-badge">Ideias</span>
       </div>
@@ -44186,7 +44217,6 @@ function renderCalculadoraConteudo() {
       </div>
     </section>
 
-    ${renderDicaSmartCalculadora(config)}
 
     <section class="calc-input-panel">
       <div class="calc-section-title">

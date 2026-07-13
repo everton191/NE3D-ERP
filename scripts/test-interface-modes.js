@@ -66,7 +66,7 @@ assert(css.includes(".stock-roll-preview"), "CSS deve contemplar previa de rolos
 assert(css.includes(".account-security-roadmap"), "CSS deve contemplar seguranca futura");
 assert(css.includes("body.theme-light :where(.calc-modern-screen,.calc-input-panel"), "Tema claro deve reforcar superficies solidas nos pontos desfocados");
 assert(css.includes("backdrop-filter:none !important"), "Tema claro deve remover blur residual de componentes operacionais");
-assert(app.includes("window.UiV3.Dialog({ title: \"Modo de uso\""), "Seletor de modo deve usar Dialog V3 centralizado");
+assert(app.includes("window.UiV3.Dialog({ title: \"Escolher versão da interface\""), "Seletor de versão deve usar Dialog V3 centralizado");
 assert(!app.includes("interface-mode-backdrop"), "Seletor de modo nao deve manter backdrop legado");
 assert(!app.includes("Ativar modo avançado"), "Home nao deve exibir troca global de modo");
 assert(!app.includes("Você está usando o Modo Simples"), "Home nao deve exibir aviso de modo simples");
