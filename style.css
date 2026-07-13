@@ -1089,7 +1089,7 @@ body.motion-back .mobile-home{
 
 .intro-test-banner{
   position:absolute;
-  top:max(12px, env(safe-area-inset-top, 0px));
+  top:max(12px, var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
   left:50%;
   transform:translateX(-50%);
   z-index:2;
@@ -10509,7 +10509,7 @@ body[data-motion="low"]{
 .drawer-gesture-rail{
   position:fixed;
   left:28px;
-  top:calc(74px + env(safe-area-inset-top));
+  top:calc(74px + var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
   bottom:calc(108px + env(safe-area-inset-bottom));
   z-index:34;
   width:18px;
@@ -20749,7 +20749,7 @@ body.theme-light .calc-save-action{
   .app-modal,
   .popup-box{
     width:100%;
-    max-height:calc(100dvh - var(--space-lg) - env(safe-area-inset-top));
+    max-height:calc(100dvh - var(--space-lg) - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)));
     border-radius:var(--radius-modal) var(--radius-modal) calc(var(--radius-modal) * .72) calc(var(--radius-modal) * .72);
   }
 
@@ -30050,7 +30050,7 @@ body.app-shell-ready .app-toast-layer{
 }
 
 body.app-shell-ready .app-drawer-layer .side-drawer{
-  max-height:calc(var(--app-viewport-height, 100dvh) - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+  max-height:calc(var(--app-viewport-height, 100dvh) - max(16px, var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) - max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))));
   overflow-y:auto;
   overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;

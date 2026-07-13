@@ -15,7 +15,9 @@ assert(dev.includes("root.className='ui3-app-root'"),'laboratorio deve declarar 
 assert(read('styles/ui-v3/viewport.css').includes('[data-ui-version="v3"].ui3-real-screen'),'viewport deve distinguir tela embutida do shell completo');
 assert(read('styles/ui-v3/tokens.css').includes('--android-system-top-inset'),'safe area V3 nao considera o inset nativo Android');
 assert(read('styles/ui-v3/layout.css').includes('var(--ui3-safe-top)'),'PageContainer nao reserva a barra de status');
+assert(read('styles/ui-v3/screens/superadmin.css').includes('calc(var(--ui3-space-3) + var(--ui3-safe-top))'),'Superadmin nao reserva a barra de status no mobile');
 assert(read('src/services/safeAreaManager.js').includes('readNativeInset'),'gerenciador de safe area ignora insets nativos');
+assert(read('style.css').includes('var(--safe-area-inset-top, env(safe-area-inset-top, 0px))'),'telas legadas ainda ignoram o inset nativo Android');
 assert(read('styles/ui-v3/index.css').includes('./screens/calculator.css'),'Calculadora sem modulo V3');
 assert(read('styles/ui-v3/index.css').includes('./screens/superadmin.css'),'Superadmin sem modulo V3');
 const components=read('src/ui-v3/layout/components.js')+read('src/ui-v3/components/components.js')+read('src/ui-v3/forms/components.js')+read('src/ui-v3/navigation/components.js')+read('src/ui-v3/overlays/controller.js');
