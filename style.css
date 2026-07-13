@@ -45628,6 +45628,20 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
     scroll-padding-bottom:calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 24px);
   }
 
+  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content > :where(.ui3-real-screen,.settings-page,.organized-page,.app-page,.dashboard-page,.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen){
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    min-height:0 !important;
+    height:auto !important;
+    box-sizing:border-box !important;
+  }
+
+  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content :where(.ui3-page,.ui3-section,.ui3-surface,.ui3-card,.reports-panel,.profile-inline-grid,.sync-grid,.settings-accordion-list){
+    min-width:0;
+    max-width:100%;
+  }
+
   body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-calculator .calculator-panel-content{
     overflow-y:auto !important;
   }

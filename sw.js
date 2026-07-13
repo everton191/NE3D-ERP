@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v254-mobile-routes-scroll-20260713";
+const CACHE_NAME = "simplifica-3d-v255-passive-assistant-20260713";
 const APP_FILES = [
   "./",
   "./index.html",
