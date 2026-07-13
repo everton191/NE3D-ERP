@@ -45547,6 +45547,62 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
   color:#ffffff;
 }
 
+/* Mobile viewport authority: screens and overlays cannot exceed the device bounds. */
+@media(max-width:767px){
+  html,
+  body,
+  #app-shell,
+  #app-content,
+  #app{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100vw !important;
+    box-sizing:border-box;
+  }
+
+  #app-shell{
+    height:100dvh !important;
+    max-height:100dvh !important;
+  }
+
+  #app-content{
+    height:100% !important;
+    max-height:100% !important;
+    overflow-x:clip !important;
+  }
+
+  .ui3-real-screen,
+  .mobile-panel,
+  .mobile-panel-content{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
+  }
+
+  [data-ui-version="v3"] .ui3-portal{
+    position:fixed !important;
+    inset:0 !important;
+    width:100vw !important;
+    height:100dvh !important;
+    max-width:100vw !important;
+    max-height:100dvh !important;
+  }
+
+  [data-ui-version="v3"] .ui3-drawer-portal{
+    justify-items:stretch !important;
+  }
+
+  [data-ui-version="v3"] .ui3-drawer{
+    width:100% !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    height:100% !important;
+    max-height:100% !important;
+    box-sizing:border-box !important;
+  }
+}
+
 /* Mobile routed panels use one vertical scroll owner. */
 @media(max-width:767px){
   body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel{
