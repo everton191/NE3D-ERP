@@ -19,5 +19,7 @@
 @import url("./utilities.css");
 @import url("./screens/settings.css");
 @import url("./screens/reading.css");
+@import url("./screens/calculator.css");
+@import url("./screens/superadmin.css");
 @import url("./screens/operational.css");
 @import url("./screens/finance.css");

@@ -15438,7 +15438,7 @@ function renderTelaComUiV3(tela) {
   const html = renderTela(tela);
   const rotasMigradas = new Set([
     "mais", "conta", "administracao", "pedido", "producao", "estoque", "pedidos", "clientes", "caixa", "relatorios",
-    "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "seguranca", "usuarios", "ajuda", "sobre"
+    "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "seguranca", "usuarios", "ajuda", "sobre", "superadmin"
   ]);
   if (!rotasMigradas.has(tela) || String(html).includes('data-ui-version="v3"')) return html;
   return `<section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-generic-screen" data-ui-version="v3" data-ui3-screen="${escaparAttr(tela)}">${html}</section>`;
@@ -15532,7 +15532,7 @@ function renderAcoesRapidas() {
           Personalizar ${renderUiIcon("preferencias")}
         </button>
       </div>
-      <div class="quick-actions">
+      <div class="quick-actions ui3-dashboard-quick-actions">
         ${acoes.map((acao) => `
           <button class="quick-action ${acao.primary ? "primary" : ""} ${normalizarUsoInteligente(usageLearning).shortcutPins.includes(acao.id) ? "pinned" : ""}" type="button" onclick="acionarAtalhoRapido('${escaparAttr(acao.id)}')">
             <span>${renderUiIcon(acao.iconKey || acao.tela)}</span>
@@ -24490,11 +24490,11 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
           <h2>Ações rápidas</h2>
           <span class="status-badge">Essencial</span>
         </div>
-        <div class="actions">
+        <div class="actions ui3-simple-actions-grid">
           <button class="btn" type="button" onclick="trocarTela('pedido')">${renderUiIcon("pedido")} Novo pedido</button>
-          <button class="btn secondary" type="button" onclick="trocarTela('calculadora')">${renderUiIcon("calculadora")} Calcular preço</button>
-          <button class="btn secondary" type="button" onclick="trocarTela('estoque')">${renderUiIcon("estoque")} Adicionar produto/material</button>
-          <button class="btn ghost" type="button" onclick="trocarTela('lojaOnline')">${renderUiIcon("lojaOnline")} Minha loja</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('calculadora')">${renderUiIcon("calculadora")} Calcular</button>
+          <button class="btn secondary" type="button" onclick="trocarTela('estoque')">${renderUiIcon("estoque")} Estoque</button>
+          <button class="btn ghost" type="button" onclick="trocarTela('lojaOnline')">${renderUiIcon("lojaOnline")} Loja</button>
         </div>
       </section>
       <div class="ui3-grid ui3-dashboard-content-grid">
@@ -33788,7 +33788,7 @@ function renderSuperAdmin() {
 
   if (tab === "clientePerfil") {
     return `
-      <section class="superadmin-platform-shell superadmin-platform-profile-shell">
+      <section class="ui3-real-screen ui3-superadmin superadmin-platform-shell superadmin-platform-profile-shell" data-ui-version="v3" data-ui3-screen="superadmin">
         ${renderSuperAdminSidebar("clientes")}
         <div class="superadmin-platform-main">
           ${renderSuperAdminTopbar("clientes")}
@@ -33803,7 +33803,7 @@ function renderSuperAdmin() {
   }
 
   return `
-    <section class="superadmin-platform-shell">
+    <section class="ui3-real-screen ui3-superadmin superadmin-platform-shell" data-ui-version="v3" data-ui3-screen="superadmin">
       ${renderSuperAdminSidebar(tab)}
       <div class="superadmin-platform-main">
         ${renderSuperAdminTopbar(tab)}
@@ -45578,7 +45578,7 @@ function duplicarCalculoAtual() {
 
 function renderCalculadoraTela() {
   return `
-    <section class="card calc-main-card calc-modern-screen">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-calculator calc-main-card calc-modern-screen" data-ui-version="v3" data-ui3-screen="calculadora">
       ${renderCalculadoraConteudo()}
     </section>
   `;

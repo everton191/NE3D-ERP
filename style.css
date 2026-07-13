@@ -45166,34 +45166,6 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
   display:grid !important;
 }
 
-/* Calculator batch revision: one clear print-data flow, no nested cards. */
-.mobile-panel-calculator .calc-modern-grid{
-  grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
-  gap:10px !important;
-}
-
-.mobile-panel-calculator .calc-modern-grid > .wide,
-.mobile-panel-calculator .calc-modern-grid > .calc-weight-card,
-.mobile-panel-calculator .calc-modern-grid > .calc-time-card{
-  grid-column:1 / -1 !important;
-}
-
-.mobile-panel-calculator .calc-modern-grid > .calc-field-card{
-  min-height:0 !important;
-  padding:12px !important;
-}
-
-.mobile-panel-calculator .calc-weight-card input{
-  width:100%;
-  min-height:48px !important;
-  height:48px !important;
-}
-
-.mobile-panel-calculator .calc-time-split input{
-  height:48px;
-  font-size:22px;
-}
-
 .calc-option-block{
   min-width:0;
   border-top:1px solid var(--border-primary);

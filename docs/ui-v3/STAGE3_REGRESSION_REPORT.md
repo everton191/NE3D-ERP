@@ -12,6 +12,9 @@
 - Listagem/detalhes de Pedidos não tinham raiz V3 apesar de o editor já estar migrado; as variantes mobile e PWA receberam PageContainer e grid oficial.
 - Formulários de Perfil, Pedido, Produção, Estoque e Caixa ainda escreviam visualmente em `#popup`; agora são promovidos para Dialog/Drawer Portal e o nó legado fica vazio.
 - O projeto não tinha gate reproduzível de typecheck para a UI V3 e o TypeScript instalado era incompatível com as tipagens Node atuais; foi criado `tsconfig.ui-v3.json` isolado, corrigindo tipagens DOM reais da fundação.
+- A Calculadora não possuía raiz V3 e uma regra tardia fazia os quatro controles principais ocuparem quatro linhas. A tela agora usa `ui3-calculator`, o grid oficial e preserva duas colunas compactas; ao expandir lote ou taxa, somente o bloco ativo ocupa a largura total.
+- Dashboard, Relatórios e modo Simples tinham cartões empilhados por uma regra genérica mobile. Os quatro indicadores/atalhos essenciais agora ocupam as quatro colunas do contrato V3, sem adicionar patch ao final de `style.css`.
+- O Superadmin permanecia fora do AppShell V3. A raiz `ui3-superadmin` passa a usar o proprietário oficial de rolagem, grid 4/8/12 e áreas internas compactas no mobile, preservando todas as ações e permissões existentes.
 
 ## Verificação visual real
 

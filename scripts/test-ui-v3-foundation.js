@@ -13,6 +13,8 @@ assert(build.includes('"styles/ui-v3", "src/ui-v3"'),'build nao copia a fundacao
 assert(dev.includes("link.disabled=true"),'rota tecnica nao isola CSS legado');
 assert(dev.includes("root.className='ui3-app-root'"),'laboratorio deve declarar raiz de shell completo');
 assert(read('styles/ui-v3/viewport.css').includes('[data-ui-version="v3"].ui3-real-screen'),'viewport deve distinguir tela embutida do shell completo');
+assert(read('styles/ui-v3/index.css').includes('./screens/calculator.css'),'Calculadora sem modulo V3');
+assert(read('styles/ui-v3/index.css').includes('./screens/superadmin.css'),'Superadmin sem modulo V3');
 const components=read('src/ui-v3/layout/components.js')+read('src/ui-v3/components/components.js')+read('src/ui-v3/forms/components.js')+read('src/ui-v3/navigation/components.js')+read('src/ui-v3/overlays/controller.js');
 ['AppShell','ContentScroller','PageContainer','PageHeader','PageSection','ResponsiveGrid','GridItem','ContentStack','SettingsList','SettingsRow','Card','FormField','Button','Dialog','BottomSheet','Drawer','ConfirmationDialog','StickyActionBar','BottomNavigation','DangerZone','ScrollableTableArea','ChartContainer'].forEach(contract=>assert(components.includes(contract),`Contrato ausente: ${contract}`));
 const tokens=read('styles/ui-v3/tokens.css'),grid=read('styles/ui-v3/grid.css'),overlay=read('src/ui-v3/overlays/controller.js'),keyboard=read('src/ui-v3/hooks/keyboard.js');
@@ -21,4 +23,6 @@ assert(grid.includes('minmax(0,1fr)'),'grid sem protecao min-width');
 assert(overlay.includes("event.key==='Escape'")&&overlay.includes('opener?.focus'),'overlay sem Escape/restauracao');
 assert(overlay.includes("onClose=handleClose")&&overlay.includes("callback?.(reason)"),'overlay sem retorno central de cancelamento');
 assert(keyboard.includes('visualViewport')&&keyboard.includes('lastScrollAt'),'teclado sem autoridade central/debounce');
+assert(app.includes('data-ui3-screen="calculadora"'),'Calculadora sem raiz V3');
+assert(app.includes('data-ui3-screen="superadmin"'),'Superadmin sem raiz V3');
 console.log('UI V3 foundation: isolamento, contratos, grid, overlays e teclado validados.');

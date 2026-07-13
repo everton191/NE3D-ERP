@@ -1,0 +1,6 @@
+[data-ui-version="v3"].ui3-calculator{max-width:var(--ui3-page-max);margin-inline:auto;min-width:0}
+[data-ui-version="v3"].ui3-calculator .calc-modern-grid{display:grid;grid-template-columns:repeat(var(--ui3-grid-columns),minmax(0,1fr));gap:var(--ui3-grid-gap)}
+[data-ui-version="v3"].ui3-calculator .calc-modern-grid>:is(.calc-field-card.wide,.calc-option-block.wide){grid-column:span min(6,var(--ui3-grid-columns));min-width:0}
+[data-ui-version="v3"].ui3-calculator .calc-modern-grid>.calc-option-block:has(input:checked){grid-column:1/-1}
+[data-ui-version="v3"].ui3-calculator .calc-input-panel,[data-ui-version="v3"].ui3-calculator .calc-option-block{min-width:0}
+@media(max-width:767px){[data-ui-version="v3"].ui3-calculator{padding-bottom:calc(var(--ui3-space-6) + var(--ui3-bottom-nav-height) + var(--ui3-safe-bottom))}[data-ui-version="v3"].ui3-calculator .calc-modern-grid>:is(.calc-field-card.wide,.calc-option-block.wide){grid-column:span 2}[data-ui-version="v3"].ui3-calculator .calc-modern-grid>.calc-option-block:has(input:checked){grid-column:1/-1}[data-ui-version="v3"].ui3-calculator .calc-field-card{padding:var(--ui3-space-3);min-height:0}[data-ui-version="v3"].ui3-calculator .calc-option-header{min-height:56px}}
