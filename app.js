@@ -46138,6 +46138,7 @@ function limparCalculo() {
 }
 
 async function adicionarItem() {
+  if (!ultimoCalculo && !calcular()) return false;
   return confirmCalculatorResult();
 }
 

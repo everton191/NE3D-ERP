@@ -45547,6 +45547,30 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
   color:#ffffff;
 }
 
+/* Mobile routed panels use one vertical scroll owner. */
+@media(max-width:767px){
+  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel{
+    min-height:100dvh !important;
+    overflow:hidden !important;
+  }
+
+  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{
+    min-height:0 !important;
+    height:100dvh !important;
+    max-height:100dvh !important;
+    overflow-x:clip !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain;
+    touch-action:pan-y;
+    -webkit-overflow-scrolling:touch;
+    scroll-padding-bottom:calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 24px);
+  }
+
+  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-calculator .calculator-panel-content{
+    overflow-y:auto !important;
+  }
+}
+
 /* Superadmin must never widen the ERP viewport; internal tables wrap instead. */
 .superadmin-platform-shell,
 .superadmin-platform-shell :where(.admin-modern-panel,.clients-saas-panel,.superadmin-panel,.client-admin-row,.admin-user-row){
