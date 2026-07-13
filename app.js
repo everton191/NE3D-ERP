@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.8";
-const APP_VERSION_CODE = 9;
+const APP_VERSION = "1.0.9";
+const APP_VERSION_CODE = 10;
 const APP_RELEASE_NOTES = Object.freeze([
   "Correções de interface e melhorias de desempenho."
 ]);

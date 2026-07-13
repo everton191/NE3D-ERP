@@ -29,6 +29,8 @@ const requiredApp = [
 const requiredCss = [
   "body.mobile-mode.app-shell-ready .mobile-panel{",
   "body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{",
+  "body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel{\n    position:fixed !important;",
+  "height:100dvh !important;",
   "overflow-y:auto !important;",
   ".quick-order-layout{\n  min-height:0;\n  height:100%;",
   "touch-action:pan-y;",
