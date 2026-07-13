@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.11";
-const APP_VERSION_CODE = 12;
+const APP_VERSION = "1.0.12";
+const APP_VERSION_CODE = 13;
 const APP_RELEASE_NOTES = Object.freeze([
   "Correções de interface e melhorias de desempenho."
 ]);
@@ -37875,7 +37875,6 @@ function executarPosLoginAssincrono(usuario) {
       .then(tarefa)
       .catch((erro) => ErrorService.capture(erro, { area: "Pós-login", action: nome, silent: true }));
   });
-  setTimeout(mostrarResumoAtualizacaoUmaVez, 900);
 }
 
 function getVersaoResumoAtualizacaoVista() {
@@ -48300,7 +48299,6 @@ document.addEventListener("DOMContentLoaded", () => {
         telaAtual = "admin";
       }
       renderApp();
-      if (getUsuarioAtual()) setTimeout(mostrarResumoAtualizacaoUmaVez, 900);
       recuperarPedidoRapidoAposReabertura();
       aquecerIALocalEmSegundoPlano("startup");
     }
