@@ -45606,14 +45606,18 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
 /* Mobile routed panels use one vertical scroll owner. */
 @media(max-width:767px){
   body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel{
-    min-height:100dvh !important;
+    min-height:100% !important;
+    height:100% !important;
+    max-height:100% !important;
+    display:grid !important;
+    grid-template-rows:auto minmax(0, 1fr);
     overflow:hidden !important;
   }
 
   body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{
     min-height:0 !important;
-    height:100dvh !important;
-    max-height:100dvh !important;
+    height:auto !important;
+    max-height:none !important;
     overflow-x:clip !important;
     overflow-y:auto !important;
     overscroll-behavior:contain;
@@ -45624,6 +45628,10 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
 
   body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-calculator .calculator-panel-content{
     overflow-y:auto !important;
+  }
+
+  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-calculator{
+    grid-template-rows:minmax(0, 1fr);
   }
 }
 
