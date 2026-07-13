@@ -25667,12 +25667,19 @@ function renderListaPedidos() {
     });
   }
 
+  const modoSimples = isSimplificaMode();
+  const acaoNovoPedido = podeOperar
+    ? `<button class="btn primary ui3-simple-orders-new" type="button" data-action="open-quick-order">${renderUiIcon("pedido")} Novo pedido</button>`
+    : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`;
+
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders" data-ui-version="v3" data-ui3-screen="pedidos">
-      <div class="card-header">
-        <h2>${renderUiIcon("pedidos")} Pedidos</h2>
-        <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
-      </div>
+      ${modoSimples
+        ? `<div class="ui3-simple-orders-toolbar">${acaoNovoPedido}</div>`
+        : `<div class="card-header">
+            <h2>${renderUiIcon("pedidos")} Pedidos</h2>
+            <div class="actions compact-actions">${renderContextualAdvancedToggle("pedidos")}${podeOperar ? `<button class="icon-button" type="button" data-action="open-quick-order" title="Novo pedido">${renderUiIcon("plus")}</button>` : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`}</div>
+          </div>`}
       ${filtroDashboard ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; renderApp()">Ver todos</button></div>` : ""}
       ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
       <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">

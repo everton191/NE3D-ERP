@@ -7,5 +7,7 @@
 [data-ui-version="v3"] .orders-pwa-layout{display:grid;grid-template-columns:repeat(var(--ui3-grid-columns),minmax(0,1fr));gap:var(--ui3-grid-gap)}
 [data-ui-version="v3"] .orders-pwa-list{grid-column:span min(5,var(--ui3-grid-columns));min-width:0}
 [data-ui-version="v3"] .orders-pwa-detail{grid-column:span min(7,var(--ui3-grid-columns));min-width:0}
+[data-ui-version="v3"] .ui3-simple-orders-toolbar{display:flex;justify-content:flex-end;min-width:0}
+[data-ui-version="v3"] .ui3-simple-orders-new{display:inline-flex;align-items:center;gap:var(--ui3-space-2);white-space:nowrap}
 body.mobile-mode:has([data-ui-version="v3"][data-ui3-screen="estoque"]) .assistant-fab{display:none}
-@media(max-width:767px){[data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:1/-1}[data-ui-version="v3"] .ui3-order-final-bar{grid-template-columns:1fr 1fr}[data-ui-version="v3"] .ui3-order-final-bar>div{grid-column:1/-1}[data-ui-version="v3"] :where(.orders-pwa-list,.orders-pwa-detail){grid-column:1/-1}}
+@media(max-width:767px){[data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:1/-1}[data-ui-version="v3"] .ui3-order-final-bar{grid-template-columns:1fr 1fr}[data-ui-version="v3"] .ui3-order-final-bar>div{grid-column:1/-1}[data-ui-version="v3"] :where(.orders-pwa-list,.orders-pwa-detail){grid-column:1/-1}[data-ui-version="v3"] .ui3-simple-orders-toolbar{justify-content:stretch}[data-ui-version="v3"] .ui3-simple-orders-new{justify-content:center;width:100%}}
