@@ -72,7 +72,7 @@ const lastLegacyVisibleOverflow = uiV3Scroll.lastIndexOf("overflow:visible");
 if (mobileScrollAuthority < 0 || mobileScrollAuthority < lastLegacyVisibleOverflow) {
   missing.push("a autoridade final de scroll mobile deve permanecer depois das regras legadas com overflow visível");
 }
-if (!serviceWorker.includes("1.0.13-order-wizard-20260713")) {
+if (!serviceWorker.includes("1.0.14-order-finance-materials-20260713")) {
   missing.push("o cache do service worker precisa acompanhar a autoridade de scroll mobile");
 }
 if (!uiV3LegacyBridge.includes("V3 compatibility bridge") || !uiV3LegacyBridge.includes("body.app-shell-ready")) {

@@ -155,6 +155,7 @@
     "test:stock-stage-1": "node scripts/test-stock-stage-1.js",
     "test:stock-batch-compact-ui": "node scripts/test-stock-batch-compact-ui.js",
     "test:order-stock-calculator-flow": "node scripts/test-order-stock-calculator-flow.js",
+    "test:order-editing-pdf": "node scripts/test-order-editing-pdf.js",
     "test:navigation-stage-1": "node scripts/test-navigation-stage-1.js",
     "test:visual-polish-stage": "node scripts/test-visual-polish-stage.js",
     "test:user-facing-technical-copy": "node scripts/test-user-facing-technical-copy.js",

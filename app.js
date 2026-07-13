@@ -2,12 +2,12 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.13";
-const APP_VERSION_CODE = 14;
+const APP_VERSION = "1.0.14";
+const APP_VERSION_CODE = 15;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Criação de pedidos unificada na Home e na guia Pedidos.",
-  "Novo fluxo por etapas com Voltar, Próximo e finalização no Financeiro.",
-  "Correção de sobreposição no mobile e melhor comportamento com o teclado aberto."
+  "Pedidos com valor final editável e desconto fixo ou percentual.",
+  "Materiais do estoque adicionados por uma janela simples, com quantidade, valor automático e baixa por item.",
+  "PDF, PIX, navegação da Home, tema inicial e layout mobile corrigidos."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -878,6 +878,9 @@ let calculatorDraftState = {
 let observacaoPedido = "";
 let prazoPedido = "";
 let entradaPedido = 0;
+let descontoPedido = 0;
+let descontoTipoPedido = "fixo";
+let descontoPercentualPedido = 0;
 let selectedCustomerSuggestion = null;
 let quickOrderItemDraft = {
   nome: "",
@@ -2589,7 +2592,7 @@ const InventoryService = {
         userMessage: `Informe ${campo}.`
       });
     }
-    const numero = Number(String(valor).replace(",", "."));
+    const numero = numeroMonetarioPedido(valor, NaN);
     if (!Number.isFinite(numero) || Number.isNaN(numero)) {
       throw new AppError("Valor Inválido", {
         code: "VALIDATION_INVALID_NUMBER",
@@ -8352,6 +8355,7 @@ function getMateriaisItem(item = {}) {
           nome: material.nome || estoqueItem?.nome || "",
           quantidade,
           unidade,
+          valorUnitario: Math.max(0, numeroMonetarioPedido(material.valorUnitario ?? material.unitValue, 0)),
           gramas: gramasLegado || (unidade === "kg" ? quantidade * 1000 : unidade === "g" ? quantidade : 0)
         };
       })
@@ -10405,6 +10409,7 @@ async function handleAndroidBackPress(opcoes = {}) {
   }
 
   atualizarHistoricoBrowserApp(true);
+  if (!isAndroidNativeApp()) return true;
   const confirmou = await solicitarConfirmacaoSaidaAndroid();
   if (!confirmou) {
     lastDashboardBackPromptAt = Date.now();
@@ -24707,7 +24712,7 @@ function renderPedido() {
     window.__pedidoItemSelecionado = 0;
   }
   const total = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-  const descontoAtual = valorDescontoPedido(pedidoEditando || {});
+  const descontoAtual = Math.max(0, numeroMonetarioPedido(descontoPedido, valorDescontoPedido(pedidoEditando || {})));
   const resumoFinanceiro = calcularResumoFinanceiroPedido({
     itens: itensPedido,
     subtotalItens: total,
@@ -24732,43 +24737,27 @@ function renderPedido() {
   const pedidoTabAnterior = pedidoTabs[pedidoTabIndex - 1] || null;
   const pedidoTabProxima = pedidoTabs[pedidoTabIndex + 1] || null;
   const itensSelecionadosPedido = getItensPedidoSelecionados();
-  const totalSelecionadoPedido = itensSelecionadosPedido.reduce((soma, index) => soma + (Number(itensPedido[index]?.total) || 0), 0);
-  const barraSelecaoPedido = itensPedido.length ? `
-    <div class="order-bulkbar ${itensSelecionadosPedido.length ? "is-active" : ""}">
-      <div>
-        <strong>${itensSelecionadosPedido.length ? `${itensSelecionadosPedido.length} selecionado${itensSelecionadosPedido.length > 1 ? "s" : ""}` : "Seleção múltipla"}</strong>
-        <small>${itensSelecionadosPedido.length ? `Total selecionado: ${formatarMoeda(totalSelecionadoPedido)}` : "Marque itens para alterar quantidade ou remover em lote."}</small>
-      </div>
-      <div class="order-bulk-actions">
-        <button class="btn ghost" type="button" onclick="selecionarTodosItensPedido()">Todos</button>
-        <button class="btn ghost" type="button" onclick="limparSelecaoItensPedido()" ${itensSelecionadosPedido.length ? "" : "disabled"}>Limpar</button>
-        <label class="bulk-qty-field">
-          <span>Qtd</span>
-          <input id="orderBulkQty" type="number" min="1" step="1" value="1" ${itensSelecionadosPedido.length ? "" : "disabled"}>
-        </label>
-        <button class="btn secondary" type="button" onclick="aplicarQuantidadeItensSelecionadosPedido()" ${itensSelecionadosPedido.length ? "" : "disabled"}>Aplicar qtd</button>
-        <button class="btn danger" type="button" onclick="removerItensSelecionadosPedido()" ${itensSelecionadosPedido.length ? "" : "disabled"}>${renderIconeAcaoPedido("🗑", "Excluir")} Remover</button>
-      </div>
-    </div>
-  ` : "";
 
   const itensHtml = itensPedido.length
     ? itensPedido.map((item, i) => `
         <details class="order-item-card ${Number(window.__pedidoItemSelecionado) === i ? "selected" : ""} ${isItemPedidoSelecionado(i) ? "is-multi-selected" : ""}" data-order-item-index="${i}" ${itensPedido.length === 1 || Number(window.__pedidoItemSelecionado) === i ? "open" : ""}>
           <summary class="order-item-summary" onclick="selecionarItemPedido(${i})">
-            <label class="order-item-multi-select" title="Selecionar item ${i + 1}" onclick="event.preventDefault();event.stopPropagation();alternarSelecaoItemPedido(${i})">
-              <input type="checkbox" ${isItemPedidoSelecionado(i) ? "checked" : ""} tabindex="-1">
-              <span>${isItemPedidoSelecionado(i) ? "✓" : i + 1}</span>
-            </label>
+            <span class="order-item-multi-select" aria-hidden="true"><span>${i + 1}</span></span>
             <span class="order-item-main">
               <strong>${escaparHtml(item.nome || "Item do pedido")}</strong>
               <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
             </span>
             <span class="order-item-total" data-item-total-index="${i}">${formatarMoeda(Number(item.total) || 0)}</span>
-            <span class="order-item-inline-actions" aria-label="Ações do item">
-              <button class="icon-action-button order-edit-inline" type="button" onclick="event.preventDefault();event.stopPropagation();selecionarItemPedido(${i})" title="Editar item">${renderIconeAcaoPedido("✎", "Editar")}</button>
-              <button class="icon-action-button danger order-remove-inline" type="button" onclick="event.preventDefault();event.stopPropagation();removerItem(${i})" title="Remover item">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
-            </span>
+            <details class="stock-item-menu" onclick="event.stopPropagation()">
+              <summary class="icon-action-button" title="Ações do item" aria-label="Ações do item">${renderUiIcon("more")}</summary>
+              <div class="stock-item-menu-popover">
+                <button type="button" onclick="selecionarItemPedido(${i})">${renderUiIcon("edit")} Editar item</button>
+                <button type="button" onclick="alternarSelecaoItemPedido(${i})">${renderUiIcon(isItemPedidoSelecionado(i) ? "check" : "plus")} ${isItemPedidoSelecionado(i) ? "Retirar da seleção" : "Selecionar para ação em lote"}</button>
+                ${itensSelecionadosPedido.length ? `<button type="button" onclick="definirQuantidadeItensSelecionadosPedido()">${renderUiIcon("edit")} Alterar quantidade dos selecionados</button>` : ""}
+                <button type="button" onclick="removerItem(${i})">${renderUiIcon("trash")} Excluir item</button>
+                ${itensSelecionadosPedido.length > 1 ? `<button type="button" onclick="removerItensSelecionadosPedido()">${renderUiIcon("trash")} Excluir selecionados</button>` : ""}
+              </div>
+            </details>
           </summary>
           <div class="order-item-details">
             <div class="order-item-edit-grid">
@@ -24782,18 +24771,7 @@ function renderPedido() {
               </label>
               <label class="field compact-field">
                 <span>Valor unitário</span>
-                <input type="number" min="0" step="0.01" value="${(Number(item.valor) || 0).toFixed(2)}" onchange="editarPreco(${i}, this.value)">
-              </label>
-              <label class="field compact-field">
-                <span>Horas</span>
-                <input type="number" min="0" step="0.01" value="${Number(item.tempoHoras) || 0}" onchange="editarTempoItem(${i}, this.value)">
-              </label>
-              <label class="field compact-field">
-                <span>Tipo</span>
-                <select onchange="editarTipoImpressaoItem(${i}, this.value)">
-                  <option value="FDM" ${item.tipoImpressao !== "RESINA" ? "selected" : ""}>FDM</option>
-                  <option value="RESINA" ${item.tipoImpressao === "RESINA" ? "selected" : ""}>RESINA</option>
-                </select>
+                <input type="text" inputmode="decimal" value="${escaparAttr((Number(item.valor) || 0).toFixed(2).replace('.', ','))}" placeholder="0,00" onchange="editarPreco(${i}, this.value)">
               </label>
             </div>
             <div class="order-material-compact">
@@ -24864,7 +24842,7 @@ function renderPedido() {
           </label>
           <label class="field compact-field">
             <span>Entrada / sinal</span>
-            <input id="pedidoEntrada" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor)}" oninput="atualizarEntradaPedido(this.value)">
+            <input id="pedidoEntrada" type="text" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor.replace('.', ','))}" oninput="atualizarEntradaPedido(this.value)">
           </label>
           <label class="field order-observation-field">
             <span>Observação</span>
@@ -24881,16 +24859,6 @@ function renderPedido() {
           <strong>Itens</strong>
           <small>${itensPedido.length} item(ns)</small>
         </div>
-        ${itensPedido.length ? `
-          <div class="order-selection-toolbar">
-            <span data-selected-item-label>${Number.isInteger(Number(window.__pedidoItemSelecionado)) && itensPedido[Number(window.__pedidoItemSelecionado)] ? `Item ${Number(window.__pedidoItemSelecionado) + 1} selecionado` : "Selecione um item para editar ou excluir"}</span>
-            <div>
-              <button class="icon-action-button" type="button" onclick="selecionarItemPedido(Number(window.__pedidoItemSelecionado) || 0)" title="Editar selecionado">${renderIconeAcaoPedido("✎", "Editar")}</button>
-              <button class="icon-action-button danger" type="button" onclick="removerItemSelecionadoPedido()" title="Excluir selecionado">${renderIconeAcaoPedido("🗑", "Excluir")}</button>
-            </div>
-          </div>
-          ${barraSelecaoPedido}
-        ` : ""}
         <div class="order-items-list">${itensHtml}</div>
       </section>` : ""}
 
@@ -24924,11 +24892,29 @@ function renderPedido() {
         </div>
         <label class="field compact-field order-down-payment-field">
           <span>Entrada / sinal</span>
-          <input id="pedidoEntrada" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor)}" oninput="atualizarEntradaPedido(this.value)">
+          <input id="pedidoEntrada" type="text" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor.replace('.', ','))}" oninput="atualizarEntradaPedido(this.value)">
+        </label>
+        <div class="order-item-edit-grid">
+          <label class="field compact-field">
+            <span>Tipo de desconto</span>
+            <select id="pedidoDescontoTipo" onchange="atualizarTipoDescontoPedido(this.value)">
+              <option value="fixo" ${descontoTipoPedido !== "porcentagem" ? "selected" : ""}>Valor fixo (R$)</option>
+              <option value="porcentagem" ${descontoTipoPedido === "porcentagem" ? "selected" : ""}>Porcentagem (%)</option>
+            </select>
+          </label>
+          <label class="field compact-field">
+            <span>${descontoTipoPedido === "porcentagem" ? "Desconto (%)" : "Desconto (R$)"}</span>
+            <input id="pedidoDesconto" type="text" inputmode="decimal" placeholder="0,00" value="${descontoTipoPedido === "porcentagem" ? (descontoPercentualPedido > 0 ? escaparAttr(descontoPercentualPedido.toFixed(2).replace('.', ',')) : '') : (descontoAtual > 0 ? escaparAttr(descontoAtual.toFixed(2).replace('.', ',')) : '')}" oninput="atualizarDescontoPedido(this.value)">
+          </label>
+        </div>
+        <label class="field compact-field order-down-payment-field">
+          <span>Valor final do pedido</span>
+          <input id="pedidoValorFinal" type="text" inputmode="decimal" value="${escaparAttr(resumoFinanceiro.total.toFixed(2).replace('.', ','))}" oninput="atualizarValorFinalPedido(this.value)">
+          <small>Ao reduzir o valor final, o desconto é calculado automaticamente.</small>
         </label>
         <div class="order-financial-summary">
           <div><span>Subtotal dos itens</span><strong>${formatarMoeda(resumoFinanceiro.subtotal)}</strong></div>
-          ${resumoFinanceiro.desconto > 0 ? `<div><span>Desconto</span><strong>${formatarMoeda(resumoFinanceiro.desconto)}</strong></div>` : ""}
+          <div><span>Desconto</span><strong data-order-discount>${formatarMoeda(resumoFinanceiro.desconto)}</strong></div>
           <div><span>Total do pedido</span><strong data-order-total>${formatarMoeda(resumoFinanceiro.total)}</strong></div>
           <div><span>Entrada paga</span><strong data-order-down-payment>${formatarMoeda(resumoFinanceiro.entrada)}</strong></div>
           <div><span>Valor restante</span><strong data-order-remaining>${formatarMoeda(resumoFinanceiro.restante)}</strong></div>
@@ -25143,33 +25129,32 @@ function renderPreviaConsumoPorRoloPedido(estoqueItem = {}, quantidade = 0, unid
 
 function renderMateriaisItemPedido(item, itemIndex) {
   const materiais = getMateriaisItem(item);
-  const linhas = materiais.length ? materiais : [{ materialId: "", quantidade: 0, unidade: "" }];
   return `
     <div class="order-stock-materials-title">
-      <div><strong>Materiais do estoque</strong><small>Adicione somente o que será realmente consumido neste pedido.</small></div>
-      <button class="btn ghost" type="button" onclick="adicionarMaterialProduto(${itemIndex})">${renderUiIcon("plus")} Adicionar material</button>
+      <div><strong>Materiais e itens do estoque</strong><small>Adicione filamentos, cores, pingentes, sacolas e outros itens.</small></div>
+      <button class="btn ghost" type="button" onclick="adicionarMaterialProduto(${itemIndex})" ${materiais.length >= 4 ? "disabled" : ""}>${renderUiIcon("plus")} Adicionar material</button>
     </div>
-    ${linhas.map((material, materialIndex) => {
+    ${materiais.length ? materiais.slice(0, 4).map((material, materialIndex) => {
       const estoqueItem = getMaterialEstoque(material.materialId);
       const unidade = material.unidade || estoqueItem?.unidade || "un";
       return `
     <div class="material-line">
-      <label class="field compact-field">
-        <span>Material</span>
-        <select onchange="editarMaterialItem(${itemIndex}, ${materialIndex}, this.value)">
-          ${renderMaterialOptions(material.materialId)}
-        </select>
-      </label>
-      <label class="field compact-field">
-        <span>Quantidade</span>
-        <input type="number" min="0" step="0.001" value="${Number(material.quantidade) || 0}" onchange="editarQuantidadeMaterialItem(${itemIndex}, ${materialIndex}, this.value)">
-      </label>
-      <span class="material-unit-badge">${escaparHtml(unidade)}</span>
-      <button class="icon-button danger" onclick="removerMaterialProduto(${itemIndex}, ${materialIndex})" title="Remover material">×</button>
+      <div class="row-title">
+        <strong>${escaparHtml(estoqueItem?.nome || material.nome || "Item do estoque")}</strong>
+        <span class="muted">${formatarQuantidadeEstoque(material.quantidade, unidade)} • ${formatarMoeda(Number(material.valorUnitario) || 0)} por ${escaparHtml(unidade)}</span>
+      </div>
+      <strong>${formatarMoeda((Number(material.quantidade) || 0) * (Number(material.valorUnitario) || 0))}</strong>
+      <details class="stock-item-menu">
+        <summary class="icon-action-button" title="Ações do material" aria-label="Ações do material">${renderUiIcon("more")}</summary>
+        <div class="stock-item-menu-popover">
+          <button type="button" onclick="abrirPopupMaterialPedido(${itemIndex}, ${materialIndex})">${renderUiIcon("edit")} Editar</button>
+          <button type="button" onclick="removerMaterialProduto(${itemIndex}, ${materialIndex})">${renderUiIcon("trash")} Excluir</button>
+        </div>
+      </details>
     </div>
     ${estoqueItem ? renderPreviaConsumoPorRoloPedido(estoqueItem, Number(material.quantidade) || 0, unidade) : ""}
   `;
-    }).join("")}`;
+    }).join("") : `<p class="empty">Nenhum material adicionado.</p>`}`;
 }
 
 function getEstoqueFiltroAtivo() {
@@ -34081,6 +34066,10 @@ function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {
     pdf_default_message: origem.pdf_default_message || appConfig.pdfDefaultMessage || "",
     pdf_default_notes: origem.pdf_default_notes || appConfig.pdfDefaultNotes || "",
     pdf_signature: origem.pdf_signature || appConfig.pdfSignature || appConfig.documentFooter || "",
+    pix_key: origem.pix_key || appConfig.pixKey || "",
+    pix_receiver_name: origem.pix_receiver_name || appConfig.pixReceiverName || "",
+    pix_city: origem.pix_city || appConfig.pixCity || "",
+    pix_description: origem.pix_description || appConfig.pixDescription || "Pedido Simplifica 3D",
     pix_instruction: origem.pix_instruction || appConfig.pixInstruction || ""
   };
 }
@@ -36883,6 +36872,10 @@ function lerPersonalizacaoCampos() {
       pdf_default_message: textoLivre("pdfDefaultMessageConfig", appConfig.pdfDefaultMessage || ""),
       pdf_default_notes: textoLivre("pdfDefaultNotesConfig", appConfig.pdfDefaultNotes || ""),
       pdf_signature: assinaturaPdf,
+      pix_key: texto("pixKeyConfig", appConfig.pixKey || ""),
+      pix_receiver_name: texto("pixReceiverNameConfig", appConfig.pixReceiverName || ""),
+      pix_city: texto("pixCityConfig", appConfig.pixCity || ""),
+      pix_description: texto("pixDescriptionConfig", appConfig.pixDescription || "Pedido Simplifica 3D"),
       pix_instruction: texto("pixInstructionConfig", appConfig.pixInstruction || ""),
       pdf_background: appConfig.pdfBackgroundDataUrl || "",
       logo_url: appConfig.brandLogoDataUrl || "",
@@ -37259,6 +37252,10 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
     pdfDefaultNotes: usarTexto(settings.pdf_default_notes) || appConfig.pdfDefaultNotes,
     pdfSignature: usarTexto(settings.pdf_signature) || appConfig.pdfSignature || appConfig.documentFooter,
     documentFooter: usarTexto(settings.pdf_signature) || appConfig.documentFooter,
+    pixKey: usarTexto(linha.pix_key) || usarTexto(settings.pix_key) || appConfig.pixKey,
+    pixReceiverName: usarTexto(linha.pix_receiver_name) || usarTexto(settings.pix_receiver_name) || appConfig.pixReceiverName,
+    pixCity: usarTexto(linha.pix_city) || usarTexto(settings.pix_city) || appConfig.pixCity,
+    pixDescription: usarTexto(linha.pix_description) || usarTexto(settings.pix_description) || appConfig.pixDescription,
     pixInstruction: usarTexto(settings.pix_instruction) || appConfig.pixInstruction
   };
   const appearanceSettings = normalizarAppearanceSettings({
@@ -41073,6 +41070,9 @@ function zerarDadosAdmin() {
   observacaoPedido = "";
   prazoPedido = "";
   entradaPedido = 0;
+  descontoPedido = 0;
+  descontoTipoPedido = "fixo";
+  descontoPercentualPedido = 0;
   selectedCustomerSuggestion = null;
   pedidoEditando = null;
   registrarHistorico("Admin", "Dados locais zerados");
@@ -41116,6 +41116,39 @@ function atualizarPrazoPedido(valor) {
 
 function atualizarEntradaPedido(valor) {
   entradaPedido = Math.max(0, numeroMonetarioPedido(valor, 0));
+  atualizarResumoPedidoSemRender();
+}
+
+function atualizarDescontoPedido(valor) {
+  const informado = Math.max(0, numeroMonetarioPedido(valor, 0));
+  if (descontoTipoPedido === "porcentagem") {
+    descontoPercentualPedido = Math.min(100, informado);
+    descontoPedido = totalItensPedidoAtual() * descontoPercentualPedido / 100;
+  } else {
+    descontoPercentualPedido = 0;
+    descontoPedido = informado;
+  }
+  atualizarResumoPedidoSemRender();
+}
+
+function atualizarTipoDescontoPedido(tipo = "fixo") {
+  descontoTipoPedido = tipo === "porcentagem" ? "porcentagem" : "fixo";
+  descontoPercentualPedido = descontoTipoPedido === "porcentagem" && totalItensPedidoAtual() > 0
+    ? Math.min(100, descontoPedido / totalItensPedidoAtual() * 100)
+    : 0;
+  renderizarPreservandoScroll();
+}
+
+function atualizarValorFinalPedido(valor) {
+  const subtotal = totalItensPedidoAtual();
+  const valorFinal = Math.max(0, numeroMonetarioPedido(valor, subtotal));
+  descontoPedido = Math.max(0, subtotal - Math.min(subtotal, valorFinal));
+  descontoTipoPedido = "fixo";
+  descontoPercentualPedido = 0;
+  const tipoInput = document.getElementById("pedidoDescontoTipo");
+  if (tipoInput) tipoInput.value = "fixo";
+  const descontoInput = document.getElementById("pedidoDesconto");
+  if (descontoInput) descontoInput.value = descontoPedido > 0 ? descontoPedido.toFixed(2).replace(".", ",") : "";
   atualizarResumoPedidoSemRender();
 }
 
@@ -41210,7 +41243,7 @@ function atualizarResumoPedidoSemRender(itemIndex = null) {
   const resumo = calcularResumoFinanceiroPedido({
     itens: itensPedido,
     subtotalItens: totalItensPedidoAtual(),
-    desconto: valorDescontoPedido(pedidoEditando || {}),
+    desconto: descontoPedido,
     down_payment: entradaPedido
   });
   const totalFormatado = formatarMoeda(resumo.total);
@@ -41220,6 +41253,12 @@ function atualizarResumoPedidoSemRender(itemIndex = null) {
   });
   document.querySelectorAll("[data-order-down-payment]").forEach((elemento) => {
     elemento.textContent = formatarMoeda(resumo.entrada);
+    marcarValorAtualizado(elemento);
+  });
+  const valorFinalInput = document.getElementById("pedidoValorFinal");
+  if (valorFinalInput && document.activeElement !== valorFinalInput) valorFinalInput.value = resumo.total.toFixed(2).replace(".", ",");
+  document.querySelectorAll("[data-order-discount]").forEach((elemento) => {
+    elemento.textContent = formatarMoeda(resumo.desconto);
     marcarValorAtualizado(elemento);
   });
   document.querySelectorAll("[data-order-remaining]").forEach((elemento) => {
@@ -41459,9 +41498,9 @@ function limparSelecaoItensPedido() {
   renderizarPreservandoScroll();
 }
 
-function aplicarQuantidadeItensSelecionadosPedido() {
+function aplicarQuantidadeItensSelecionadosPedido(quantidadeInformada = null) {
   const selecionados = getItensPedidoSelecionados();
-  const quantidade = Math.max(1, Number(document.getElementById("orderBulkQty")?.value) || 1);
+  const quantidade = Math.max(1, Number(quantidadeInformada ?? document.getElementById("orderBulkQty")?.value) || 1);
   if (!selecionados.length) return;
   selecionados.forEach((index) => {
     const item = itensPedido[index];
@@ -41471,6 +41510,14 @@ function aplicarQuantidadeItensSelecionadosPedido() {
   });
   mostrarToast(`Quantidade ${quantidade} aplicada a ${selecionados.length} item${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
   renderizarPreservandoScroll();
+}
+
+function definirQuantidadeItensSelecionadosPedido() {
+  const selecionados = getItensPedidoSelecionados();
+  if (!selecionados.length) return;
+  const resposta = window.prompt(`Nova quantidade para ${selecionados.length} item${selecionados.length > 1 ? "s" : ""} selecionado${selecionados.length > 1 ? "s" : ""}:`, "1");
+  if (resposta === null) return;
+  aplicarQuantidadeItensSelecionadosPedido(resposta);
 }
 
 async function removerItensSelecionadosPedido() {
@@ -41758,29 +41805,68 @@ function garantirMateriaisItem(i) {
 function editarMaterialItem(itemIndex, materialIndex, materialId) {
   const materiais = garantirMateriaisItem(itemIndex);
   const material = getMaterialEstoque(materialId);
+  const anterior = materiais[materialIndex] || {};
+  const quantidadePadrao = material ? (["kg", "g", "ml", "l", "m", "cm"].includes(String(material.unidade)) ? 0.001 : 1) : 0;
   materiais[materialIndex] = {
-    ...(materiais[materialIndex] || {}),
+    ...anterior,
     materialId,
     nome: material?.nome || "",
-    quantidade: Number(materiais[materialIndex]?.quantidade) || 0,
+    quantidade: Number(anterior.quantidade) || quantidadePadrao,
     unidade: material?.unidade || "un",
+    valorUnitario: Math.max(0, Number(anterior.valorUnitario) || Number(material?.custoUnitario || material?.unit_cost) || 0),
     gramas: 0
   };
+  ajustarTotalPorMaterialPedido(itemIndex, anterior, materiais[materialIndex]);
   renderizarPreservandoScroll();
+}
+
+function selecionarMaterialPedidoPorPesquisa(itemIndex, materialIndex, termo = "") {
+  const busca = normalizarTextoBusca(termo);
+  const material = normalizarEstoque().find((item) => normalizarTextoBusca(item.nome) === busca || String(item.id) === String(termo));
+  if (!material) {
+    mostrarToast("Selecione um item cadastrado na lista do estoque.", "info", 3200);
+    renderizarPreservandoScroll();
+    return;
+  }
+  editarMaterialItem(itemIndex, materialIndex, material.id);
+}
+
+function ajustarTotalPorMaterialPedido(itemIndex, anterior = {}, atual = {}) {
+  const item = itensPedido[itemIndex];
+  if (!item) return;
+  const totalAnterior = (Number(anterior.quantidade) || 0) * (Number(anterior.valorUnitario) || 0);
+  const totalAtual = (Number(atual.quantidade) || 0) * (Number(atual.valorUnitario) || 0);
+  item.total = Math.max(0, (Number(item.total) || 0) + totalAtual - totalAnterior);
+  item.valor = item.total / Math.max(1, Number(item.qtd) || 1);
+  atualizarResumoPedidoSemRender(itemIndex);
 }
 
 function editarQuantidadeMaterialItem(itemIndex, materialIndex, quantidade) {
   const materiais = garantirMateriaisItem(itemIndex);
   try {
     const estoqueItem = getMaterialEstoque(materiais[materialIndex]?.materialId);
+    const anterior = { ...(materiais[materialIndex] || {}) };
     materiais[materialIndex] = {
-      ...(materiais[materialIndex] || {}),
+      ...anterior,
       quantidade: InventoryService.parseNumberStrict(quantidade, "quantidade usada", { min: 0 }),
       unidade: estoqueItem?.unidade || materiais[materialIndex]?.unidade || "un",
       gramas: 0
     };
+    ajustarTotalPorMaterialPedido(itemIndex, anterior, materiais[materialIndex]);
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Editar quantidade usada" });
+  }
+}
+
+function editarValorMaterialItem(itemIndex, materialIndex, valor) {
+  const materiais = garantirMateriaisItem(itemIndex);
+  if (!materiais[materialIndex]) return;
+  try {
+    const anterior = { ...materiais[materialIndex] };
+    materiais[materialIndex].valorUnitario = InventoryService.parseNumberStrict(valor, "valor adicional", { min: 0 });
+    ajustarTotalPorMaterialPedido(itemIndex, anterior, materiais[materialIndex]);
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Pedido", action: "Editar valor do item de estoque" });
   }
 }
 
@@ -41790,14 +41876,89 @@ function editarGramasItem(itemIndex, materialIndex, gramas) {
 
 function adicionarMaterialProduto(itemIndex) {
   const materiais = garantirMateriaisItem(itemIndex);
-  const primeiro = normalizarEstoque()[0];
-  materiais.push({ materialId: primeiro?.id || "", nome: primeiro?.nome || "", quantidade: 0, unidade: primeiro?.unidade || "un", gramas: 0 });
-  renderizarPreservandoScroll();
+  if (materiais.length >= 4) {
+    mostrarToast("É possível adicionar até 4 materiais por item.", "info", 3200);
+    return;
+  }
+  abrirPopupMaterialPedido(itemIndex);
+}
+
+function preencherMaterialPedidoPopup(termo = "") {
+  const busca = normalizarTextoBusca(termo);
+  const material = normalizarEstoque().find((item) => normalizarTextoBusca(item.nome) === busca || String(item.id) === String(termo));
+  if (!material) return;
+  const unidade = document.getElementById("pedidoMaterialUnidade");
+  if (unidade) unidade.textContent = material.unidade || "un";
+}
+
+function abrirPopupMaterialPedido(itemIndex, materialIndex = null) {
+  const materiais = garantirMateriaisItem(itemIndex);
+  const editando = Number.isInteger(Number(materialIndex)) && materiais[Number(materialIndex)];
+  const indice = editando ? Number(materialIndex) : materiais.length;
+  if (!editando && materiais.length >= 4) {
+    mostrarToast("É possível adicionar até 4 materiais por item.", "info", 3200);
+    return;
+  }
+  const atual = editando ? materiais[indice] : {};
+  const estoqueAtual = getMaterialEstoque(atual.materialId);
+  const opcoes = normalizarEstoque().map((material) => `<option value="${escaparAttr(material.nome)}">${escaparHtml(material.categoria || material.tipoItem || material.tipo || "Estoque")} • ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")}</option>`).join("");
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card order-material-picker" id="pedidoMaterialForm">
+        <div class="modal-header">
+          <h2>${editando ? "Editar material" : "Adicionar material"}</h2>
+          <button class="icon-button" type="button" data-material-cancel title="Fechar">✕</button>
+        </div>
+        <label class="field">
+          <span>Pesquisar no estoque</span>
+          <input id="pedidoMaterialBusca" type="search" list="pedidoMaterialOpcoes" value="${escaparAttr(estoqueAtual?.nome || atual.nome || "")}" placeholder="Ex.: PLA vermelho, pingente, sacola" onchange="preencherMaterialPedidoPopup(this.value)" required>
+          <datalist id="pedidoMaterialOpcoes">${opcoes}</datalist>
+        </label>
+        <label class="field compact-field">
+          <span>Quantidade (<b id="pedidoMaterialUnidade">${escaparHtml(atual.unidade || estoqueAtual?.unidade || "un")}</b>)</span>
+          <input id="pedidoMaterialQuantidade" type="text" inputmode="decimal" value="${escaparAttr(String(Number(atual.quantidade) || 1).replace(".", ","))}" required>
+        </label>
+        <div class="actions">
+          <button class="btn ghost" type="button" data-material-cancel>Voltar</button>
+          <button class="btn" type="submit">OK</button>
+        </div>
+      </form>
+    </div>`;
+  const host = promoverPopupParaDialogUiV3(popup, { title: editando ? "Editar material" : "Adicionar material" });
+  const cancelar = () => fecharPopup();
+  host.querySelectorAll("[data-material-cancel]").forEach((el) => el.addEventListener("click", cancelar, { once: true }));
+  document.getElementById("pedidoMaterialForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const termo = String(document.getElementById("pedidoMaterialBusca")?.value || "");
+    const busca = normalizarTextoBusca(termo);
+    const material = normalizarEstoque().find((item) => normalizarTextoBusca(item.nome) === busca || String(item.id) === termo);
+    if (!material) {
+      mostrarToast("Selecione um item cadastrado no estoque.", "info", 3200);
+      return;
+    }
+    try {
+      const anterior = editando ? { ...materiais[indice] } : {};
+      const quantidade = InventoryService.parseNumberStrict(document.getElementById("pedidoMaterialQuantidade")?.value, "quantidade", { min: 0.000001 });
+      const valorUnitario = Math.max(0, Number(material.custoUnitario || material.unit_cost) || 0);
+      const novo = { materialId: material.id, nome: material.nome, quantidade, unidade: material.unidade || "un", valorUnitario, gramas: 0 };
+      materiais[indice] = novo;
+      ajustarTotalPorMaterialPedido(itemIndex, anterior, novo);
+      fecharPopup();
+      renderizarPreservandoScroll();
+    } catch (erro) {
+      ErrorService.notify(erro, { area: "Pedido", action: editando ? "Editar material" : "Adicionar material" });
+    }
+  }, { once: true });
+  setTimeout(() => document.getElementById("pedidoMaterialBusca")?.focus(), 80);
 }
 
 function removerMaterialProduto(itemIndex, materialIndex) {
   const materiais = garantirMateriaisItem(itemIndex);
-  materiais.splice(materialIndex, 1);
+  const anterior = { ...(materiais[materialIndex] || {}) };
+  if (materiais[materialIndex]) materiais.splice(materialIndex, 1);
+  ajustarTotalPorMaterialPedido(itemIndex, anterior, {});
   renderizarPreservandoScroll();
 }
 
@@ -41845,18 +42006,10 @@ function adicionarProdutoManual() {
             <input id="manualItemQtd" type="number" min="1" step="1" value="1" required>
           </label>
           <label class="field compact-field">
-            <span>Valor unitário</span>
-            <input id="manualItemValor" type="number" min="0.01" step="0.01" placeholder="0,00" required>
-          </label>
-          <label class="field compact-field">
-            <span>Horas</span>
-            <input id="manualItemTempo" type="number" min="0" step="0.01" placeholder="0">
+            <span>Valor unitário (R$)</span>
+            <input id="manualItemValor" type="text" inputmode="decimal" placeholder="0,00" required>
           </label>
         </div>
-        <label class="field">
-          <span>Observação do item</span>
-          <textarea id="manualItemObs" rows="2" placeholder="Opcional"></textarea>
-        </label>
         <div class="actions">
           <button class="btn ghost" type="button" data-manual-item-cancel>Cancelar</button>
           <button class="btn" type="submit">Adicionar item</button>
@@ -41875,11 +42028,9 @@ function adicionarProdutoManual() {
     event.stopPropagation();
     let qtd = 1;
     let valor = 0;
-    let tempo = 0;
     try {
       qtd = InventoryService.parseNumberStrict(document.getElementById("manualItemQtd")?.value, "quantidade", { min: 1 });
       valor = InventoryService.parseNumberStrict(document.getElementById("manualItemValor")?.value, "valor unitário", { min: 0.01 });
-      tempo = InventoryService.parseNumberStrict(document.getElementById("manualItemTempo")?.value || 0, "horas", { min: 0 });
     } catch (erro) {
       ErrorService.notify(erro, { area: "Pedido", action: "Adicionar item manual" });
       return;
@@ -41890,8 +42041,8 @@ function adicionarProdutoManual() {
       qtd,
       valor,
       total: valor * qtd,
-      tempoHoras: tempo,
-      observacao: String(document.getElementById("manualItemObs")?.value || "").trim(),
+      tempoHoras: 0,
+      observacao: "",
       materiais: []
     };
     fecharPopup();
@@ -42211,6 +42362,11 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     observacaoPedido = pedido.observacao || pedido.observacoes || "";
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
     entradaPedido = valorEntradaPedido(pedido);
+    descontoPedido = valorDescontoPedido(pedido);
+    descontoTipoPedido = pedido.descontoTipo === "porcentagem" ? "porcentagem" : "fixo";
+    descontoPercentualPedido = descontoTipoPedido === "porcentagem"
+      ? Math.max(0, numeroMonetarioPedido(pedido.descontoPercentual, 0))
+      : 0;
     quickOrderPaymentMethodDraft = normalizarMetodoPagamentoCaixa(pedido.paymentMethodId || pedido.payment_method_id || pedido.paymentMethod || "pix").id;
     selectedCustomerSuggestion = null;
     customerSuggestionState = { ...customerSuggestionState, query: clientePedido, suggestions: [], loading: false, error: "" };
@@ -42234,6 +42390,9 @@ function cancelarEdicaoPedido() {
   observacaoPedido = "";
   prazoPedido = "";
   entradaPedido = 0;
+  descontoPedido = 0;
+  descontoTipoPedido = "fixo";
+  descontoPercentualPedido = 0;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   window.__pedidoItensSelecionados = [];
@@ -42568,7 +42727,9 @@ async function fecharPedido() {
     const resumoFinanceiro = calcularResumoFinanceiroPedido({
       itens: itensPedido,
       subtotalItens: subtotal,
-      desconto: valorDescontoPedido(pedidoEditando || {}),
+      desconto: descontoPedido,
+      descontoTipo: descontoTipoPedido,
+      descontoPercentual: descontoPercentualPedido,
       down_payment: headerPedido.down_payment
     });
     const total = resumoFinanceiro.total;
@@ -42697,6 +42858,9 @@ async function fecharPedido() {
     observacaoPedido = "";
     prazoPedido = "";
     entradaPedido = 0;
+    descontoPedido = 0;
+    descontoTipoPedido = "fixo";
+    descontoPercentualPedido = 0;
     quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
     quickOrderStatusDraft = "";
     quickOrderPaymentMethodDraft = "pix";
@@ -43777,7 +43941,7 @@ function normalizarTipoImpressoraCalculadora(tipo = "FDM") {
 
 function numeroCalculadora(valor, fallback = 0, minimo = 0) {
   if (valor === "" || valor === null || valor === undefined) return fallback;
-  const numero = Number(String(valor).replace(",", "."));
+  const numero = numeroMonetarioPedido(valor, NaN);
   return Number.isFinite(numero) ? Math.max(minimo, numero) : fallback;
 }
 
@@ -43923,7 +44087,7 @@ function atualizarVisualTaxaExtraCalculadora(opcoes = {}) {
   if (campo) {
     const preservarDigitacao = opcoes.preservarDigitacao === true || (estado.modo === "manual" && document.activeElement === campo);
     if (!preservarDigitacao) {
-      campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2) : "";
+      campo.value = valorExibidoTaxaExtraCalculadora(estado) ? Number(valorExibidoTaxaExtraCalculadora(estado)).toFixed(2).replace(".", ",") : "";
     }
     campo.readOnly = false;
     campo.max = estado.modo === "manual" ? "" : "100";
@@ -44079,7 +44243,7 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
       </div>
       <label class="field inline-result-field">
         <span>${calculo.impressaoLote ? "Valor unitário ajustável" : "Preço final ajustável"}</span>
-        <input id="valorManualItem" type="number" min="0" step="0.01" value="${(Number(calculo.preco) || 0).toFixed(2)}">
+        <input id="valorManualItem" type="text" inputmode="decimal" value="${escaparAttr((Number(calculo.preco) || 0).toFixed(2).replace('.', ','))}" placeholder="0,00">
       </label>
       <div class="calc-final-row">
         <span>${calculo.impressaoLote ? "Valor total do lote" : "Total final"}</span>
@@ -44294,7 +44458,7 @@ function renderCalculadoraConteudo() {
               <label><input type="radio" name="calcExtraFeeType" value="percent" ${taxaEstado.modo === "percent" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('percent')"><span>Percentual (%)</span></label>
               <label><input type="radio" name="calcExtraFeeType" value="fixed" ${taxaEstado.modo === "manual" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('fixed')"><span>Valor fixo (R$)</span></label>
             </div>
-            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, Number(document.getElementById('taxaExtra').value || 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="number" min="0" ${taxaEstado.modo === "manual" ? 'step="0.01"' : 'max="100" step="1"'} value="${escaparAttr(valorExibidoTaxaExtraCalculadora(taxaEstado) || 0)}" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(Number(document.getElementById('taxaExtra').value || 0) + 1)" aria-label="Aumentar taxa">+</button></div>
+            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" value="${escaparAttr(String(valorExibidoTaxaExtraCalculadora(taxaEstado) || 0).replace('.', ','))}" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) + 1)" aria-label="Aumentar taxa">+</button></div>
           </div>
         </section>
       </div>
@@ -44639,6 +44803,7 @@ async function limparRascunhoPedidoRapido() {
   observacaoPedido = "";
   prazoPedido = "";
   entradaPedido = 0;
+  descontoPedido = 0;
   pedidoEditando = null;
   pedidoEditandoOriginal = null;
   selectedCustomerSuggestion = null;
@@ -44771,7 +44936,7 @@ function renderPedidoRapidoOperacional() {
   const resumo = calcularResumoFinanceiroPedido({
     itens: itensPedido,
     subtotalItens: total,
-    desconto: valorDescontoPedido(pedidoEditando || {}),
+    desconto: descontoPedido,
     down_payment: entradaPedido
   });
   const statusAtual = pedidoEditando?.status || document.getElementById("pedidoStatus")?.value || quickOrderStatusDraft || "aberto";
@@ -44966,6 +45131,7 @@ function abrirPedidoRapidoOperacional({ reset = false } = {}) {
     observacaoPedido = "";
     prazoPedido = "";
     entradaPedido = 0;
+    descontoPedido = 0;
     quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
     quickOrderStatusDraft = "";
     quickOrderPaymentMethodDraft = "pix";
@@ -44992,7 +45158,7 @@ function atualizarPedidoRapidoResumo() {
   const resumo = calcularResumoFinanceiroPedido({
     itens: itensPedido,
     subtotalItens: subtotal,
-    desconto: valorDescontoPedido(pedidoEditando || {}),
+    desconto: descontoPedido,
     down_payment: entradaPedido
   });
   alvo.innerHTML = `
@@ -46567,7 +46733,7 @@ function dadosPedidoAtual() {
   const resumo = calcularResumoFinanceiroPedido({
     itens: itensPedido,
     subtotalItens: subtotal,
-    desconto: valorDescontoPedido(pedidoEditando || {}),
+    desconto: descontoPedido,
     down_payment: entrada
   });
   return {
@@ -47156,7 +47322,7 @@ function textoMaterialPdf(item = {}) {
     item.cor || material?.cor || materialPrincipal.cor,
     item.impressora || item.printer || item.printerModel
   ].map((valor) => String(valor || "").trim()).filter(Boolean);
-  return partes.length ? partes.join(" • ") : "Material não informado";
+  return partes.length ? partes.join(" • ") : "-";
 }
 
 function desenharFundoComercialPdf(doc, largura, altura, tema) {
@@ -47263,10 +47429,14 @@ function desenharRodapeComercialPdf(doc, contexto) {
   desenharCartaoPdf(doc, margem, altura - 22, largura - margem * 2, 12, tema, tema.panelAlt);
   setTextPdf(doc, tema.text, "#f5fbff");
   setFontePdf(doc, 9, "bold");
-  doc.text(appConfig.documentFooter || "Obrigado pela preferência!", margem + 6, altura - 15);
-  setTextPdf(doc, tema.muted, "#b8c6d4");
-  setFontePdf(doc, 7.5);
-  doc.text(appConfig.pdfSignature || "Qualquer dúvida, estamos à disposição.", margem + 6, altura - 10.5);
+  const rodape = String(appConfig.documentFooter || "Obrigado pela preferência!").trim();
+  const assinatura = String(appConfig.pdfSignature || "Qualquer dúvida, estamos à disposição.").trim();
+  doc.text(rodape, margem + 6, altura - 15);
+  if (assinatura && assinatura.toLocaleLowerCase("pt-BR") !== rodape.toLocaleLowerCase("pt-BR")) {
+    setTextPdf(doc, tema.muted, "#b8c6d4");
+    setFontePdf(doc, 7.5);
+    doc.text(assinatura, margem + 6, altura - 10.5);
+  }
   const contato = empresa.instagram || empresa.whatsapp || empresa.email || empresa.site || "";
   if (contato) doc.text(contato, largura - margem - 6, altura - 14, { align: "right" });
   doc.text(`Página ${pagina}/${totalPaginas}`, largura - margem - 6, altura - 9.5, { align: "right" });
@@ -47326,15 +47496,9 @@ async function gerarPDF(opcoes = {}) {
     const taxaExtraComercial = Math.max(0, Number(pedidoEditando?.taxaExtra || pedidoEditando?.extraFee || 0) || 0);
     const itensClientePdf = embutirTaxaExtraNosItensCliente(itensValidos, taxaExtraComercial);
     const resumoItens = itensClientePdf.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-    const descontoComercial = Math.max(0, Number(pedidoEditando?.desconto || pedidoEditando?.discount || 0) || 0);
-    const totalPedidoInformado = numeroMonetarioPedido(
-      pedidoEditando?.total ?? pedidoEditando?.valor ?? pedidoEditando?.totalPedido ?? total,
-      NaN
-    );
+    const descontoComercial = Math.max(0, numeroMonetarioPedido(descontoPedido, valorDescontoPedido(pedidoEditando || {})));
     const totalCalculadoCliente = Math.max(0, resumoItens - descontoComercial);
-    const totalComercialBase = Number.isFinite(totalPedidoInformado) && totalPedidoInformado > 0
-      ? Math.max(totalPedidoInformado, totalCalculadoCliente)
-      : totalCalculadoCliente;
+    const totalComercialBase = totalCalculadoCliente;
     const resumoFinanceiroPdf = calcularResumoFinanceiroPedido({
       itens: itensClientePdf,
       subtotalItens: resumoItens,
@@ -47382,9 +47546,9 @@ async function gerarPDF(opcoes = {}) {
       setTextPdf(doc, tema.secondary, "#00d8c8");
       setFontePdf(doc, 7, "bold");
       doc.text("ITEM", margem + 4, y);
-      doc.text("DESCRIÇÃO", margem + 35, y);
-      doc.text("MATERIAL", margem + 92, y);
-      doc.text("QTD.", largura - margem - 68, y, { align: "right" });
+      doc.text("DESCRIÇÃO", margem + 28, y);
+      doc.text("MATERIAL", margem + 90, y);
+      doc.text("QTD.", largura - margem - 55, y, { align: "right" });
       doc.text("VALOR UNIT.", largura - margem - 34, y, { align: "right" });
       doc.text("SUBTOTAL", largura - margem - 4, y, { align: "right" });
       setDrawPdf(doc, tema.line, "#0bb8b1");
@@ -47406,9 +47570,9 @@ async function gerarPDF(opcoes = {}) {
 
     desenharTabelaCabecalho();
     itensClientePdf.forEach((item, indice) => {
-      const nomeLinhas = doc.splitTextToSize(String(item.nome || "Item"), 48).slice(0, 2);
+      const nomeLinhas = doc.splitTextToSize(String(item.nome || "Item"), 54).slice(0, 2);
       const obs = String(item.observacao || item.descricao || "").trim();
-      const materialLinhas = doc.splitTextToSize(textoMaterialPdf(item), 38).slice(0, 2);
+      const materialLinhas = doc.splitTextToSize(textoMaterialPdf(item), 28).slice(0, 2);
       const alturaLinha = Math.max(14, nomeLinhas.length * 4.4 + (obs ? 4.2 : 0) + 5, materialLinhas.length * 4.4 + 5);
       if (y + alturaLinha > altura - 34) novaPagina();
       if (indice % 2 === 1) {
@@ -47418,18 +47582,18 @@ async function gerarPDF(opcoes = {}) {
       setTextPdf(doc, tema.text, "#f5fbff");
       setFontePdf(doc, 9, "bold");
       doc.text(String(indice + 1).padStart(2, "0"), margem + 4, y);
-      doc.text(nomeLinhas, margem + 35, y);
+      doc.text(nomeLinhas, margem + 28, y);
       if (obs) {
         setTextPdf(doc, tema.muted, "#b8c6d4");
         setFontePdf(doc, 7.5);
-        doc.text(doc.splitTextToSize(obs, 48).slice(0, 1), margem + 35, y + 8.8);
+        doc.text(doc.splitTextToSize(obs, 54).slice(0, 1), margem + 28, y + 8.8);
       }
       setTextPdf(doc, tema.muted, "#b8c6d4");
       setFontePdf(doc, 8);
-      doc.text(materialLinhas, margem + 92, y);
+      doc.text(materialLinhas, margem + 90, y);
       setTextPdf(doc, tema.text, "#f5fbff");
       setFontePdf(doc, 8.5);
-      doc.text(String(item.qtd || 1), largura - margem - 68, y, { align: "right" });
+      doc.text(String(item.qtd || 1), largura - margem - 55, y, { align: "right" });
       doc.text(formatarMoeda(item.valor || 0), largura - margem - 34, y, { align: "right" });
       doc.text(formatarMoeda(item.total || 0), largura - margem - 4, y, { align: "right" });
       setDrawPdf(doc, tema.line, "#0bb8b1");
@@ -47493,7 +47657,12 @@ async function gerarPDF(opcoes = {}) {
     y += resumoAltura + 8;
     const valorPix = resumoFinanceiroPdf.entrada > 0 ? resumoFinanceiroPdf.restante : totalComercial;
     const payloadPix = valorPix > 0 ? gerarPayloadPix(valorPix, cliente) : "";
-    if (payloadPix && y <= altura - 58) {
+    if (payloadPix) {
+      if (y > altura - 58) {
+        doc.addPage();
+        desenharFundoComercialPdf(doc, largura, altura, tema);
+        y = 18;
+      }
       const qrData = gerarQrPixDataUrl(payloadPix);
       desenharCartaoPdf(doc, margem, y, largura - margem * 2, 44, tema);
       setTextPdf(doc, tema.secondary, "#00d8c8");
@@ -47581,6 +47750,7 @@ async function gerarDocumentoPedidoSalvo(id, opcoes = {}) {
     observacaoPedido = pedido.observacao || pedido.observacoes || "";
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
     entradaPedido = valorEntradaPedido(pedido);
+    descontoPedido = valorDescontoPedido(pedido);
     pedidoEditando = pedido;
     await gerarPDF(opcoes);
   } finally {
@@ -47624,6 +47794,7 @@ function limparPedidoAtual() {
   observacaoPedido = "";
   prazoPedido = "";
   entradaPedido = 0;
+  descontoPedido = 0;
   selectedCustomerSuggestion = null;
   customerSuggestionState = { ...customerSuggestionState, query: "", suggestions: [], loading: false, error: "" };
   pedidoEditando = null;

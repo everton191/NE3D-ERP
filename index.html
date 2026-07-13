@@ -11,8 +11,34 @@
 <meta name="application-name" content="Simplifica 3D">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simplifica 3D">
+<script>
+  (() => {
+    const allowed = ["light", "system", "dark"];
+    const erpKey = "simplifica3d_erp_theme_preference";
+    let preference = "";
+    try {
+      preference = localStorage.getItem(erpKey) || "";
+    } catch (_) {}
+    if (preference === "auto") preference = "system";
+    if (!allowed.includes(preference)) preference = "light";
+    let theme = preference;
+    if (theme === "system") {
+      try {
+        theme = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
+      } catch (_) {
+        theme = "light";
+      }
+    }
+    document.documentElement.setAttribute("data-erp-theme", theme);
+    document.documentElement.setAttribute("data-erp-theme-preference", preference);
+    document.documentElement.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
+    document.documentElement.style.colorScheme = theme;
+    document.documentElement.style.backgroundColor = theme === "dark" ? "#08131d" : "#ffffff";
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#08131d" : "#ffffff");
+  })();
+</script>
 
-  <link rel="stylesheet" href="/style.css?v=1.0.13-order-wizard-20260713">
+  <link rel="stylesheet" href="/style.css?v=1.0.14-order-finance-materials-20260713">
   <link rel="stylesheet" href="/src/storefront/styles/tokens.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/components.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/layouts.css?v=store-categories-vertical-card-20260628">
@@ -45,40 +71,20 @@
 <link rel="icon" href="/assets/icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 
-<script>
-  (() => {
-    const allowed = ["light", "system", "dark"];
-    const erpKey = "simplifica3d_erp_theme_preference";
-    const getPreference = (key) => {
-      let value = "";
-      try {
-        value = localStorage.getItem(key) || "";
-      } catch (_) {}
-      if (value === "auto") return "system";
-      return allowed.includes(value) ? value : "light";
-    };
-    const resolve = (preference) => {
-      if (preference === "light" || preference === "dark") return preference;
-      try {
-        return window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ? "dark" : "light";
-      } catch (_) {
-        return "light";
-      }
-    };
-    const erpPreference = getPreference(erpKey);
-    const erpTheme = resolve(erpPreference);
-    document.documentElement.setAttribute("data-erp-theme", erpTheme);
-    document.documentElement.setAttribute("data-erp-theme-preference", erpPreference);
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#ffffff");
-  })();
-</script>
-
 <script src="/assets/vendor/jspdf.umd.min.js"></script>
 <script src="/assets/vendor/qrcode.min.js"></script>
 
 </head>
 
 <body>
+<script>
+  (() => {
+    const theme = document.documentElement.getAttribute("data-erp-theme") === "dark" ? "dark" : "light";
+    document.body.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
+    document.body.setAttribute("data-erp-theme", theme);
+    document.body.style.colorScheme = theme;
+  })();
+</script>
 
 <header aria-hidden="true">
   <button class="header-menu-button" onclick="abrirMenuPopup()" title="Abrir menu">☰</button>
@@ -116,7 +122,7 @@
 <script src="/src/services/adSenseService.js?v=1.0.17-mobile-fixes-ads-space-20260615"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/calculatorDomain.js?v=calculator-domain-20260711"></script>
-  <script src="/app.js?v=1.0.13-order-wizard-20260713"></script>
+  <script src="/app.js?v=1.0.14-order-finance-materials-20260713"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
     navigator.serviceWorker.register("/sw.js?v=v3-only-runtime-20260713", { updateViaCache: "none" }).catch(() => {});

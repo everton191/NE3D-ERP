@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v272-1.0.13-order-wizard-20260713";
+const CACHE_NAME = "simplifica-3d-v273-1.0.14-order-finance-materials-20260713";
 const APP_FILES = [
   "./",
   "./index.html",
