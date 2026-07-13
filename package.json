@@ -156,6 +156,8 @@
     "test:sensitive-action-guards": "node scripts/test-sensitive-action-guards.js",
     "test:quick-order-multiselect": "node scripts/test-quick-order-multiselect.js",
     "test:interface-modes": "node scripts/test-interface-modes.js",
+    "test:assistant-pet": "node scripts/test-assistant-pet.js",
+    "test:onboarding-core-guide": "node scripts/test-onboarding-core-guide.js",
     "test:stock-stage-1": "node scripts/test-stock-stage-1.js",
     "test:stock-batch-compact-ui": "node scripts/test-stock-batch-compact-ui.js",
     "test:order-stock-calculator-flow": "node scripts/test-order-stock-calculator-flow.js",

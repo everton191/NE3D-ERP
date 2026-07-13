@@ -15,6 +15,8 @@
 - A Calculadora não possuía raiz V3 e uma regra tardia fazia os quatro controles principais ocuparem quatro linhas. A tela agora usa `ui3-calculator`, o grid oficial e preserva duas colunas compactas; ao expandir lote ou taxa, somente o bloco ativo ocupa a largura total.
 - Dashboard, Relatórios e modo Simples tinham cartões empilhados por uma regra genérica mobile. Os quatro indicadores/atalhos essenciais agora ocupam as quatro colunas do contrato V3, sem adicionar patch ao final de `style.css`.
 - O Superadmin permanecia fora do AppShell V3. A raiz `ui3-superadmin` passa a usar o proprietário oficial de rolagem, grid 4/8/12 e áreas internas compactas no mobile, preservando todas as ações e permissões existentes.
+- O botão circular do assistente foi substituído por um pet de rolinho de filamento com animação sutil. As dicas são curtas, calculadas somente a partir do histórico local já registrado e podem ser desativadas em Personalização; nesse modo o pet continua abrindo o assistente.
+- O primeiro acesso agora apresenta um roteiro opcional de Pedido, Calculadora, Estoque e Caixa. Cada módulo pode ser aberto pelo próprio card e fica marcado como visto; o usuário ainda pode seguir ou pular sem bloqueio.
 
 ## Verificação visual real
 

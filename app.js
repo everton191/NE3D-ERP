@@ -1128,6 +1128,7 @@ let appConfig = carregarObjeto("appConfig", {
   defaultPrintType: "",
   defaultMaterial: "",
   companySetupCompleted: false,
+  onboardingGuidedModules: [],
   defaultPrinterModel: "Ender 3",
   defaultResinCost: 180,
   minimumRecommendedMargin: 60,
@@ -1138,6 +1139,7 @@ let appConfig = carregarObjeto("appConfig", {
   defaultQualityPreset: "0.20mm padrão",
   calculatorDefaults: {},
   smartSuggestionsEnabled: true,
+  assistantPetTipsEnabled: true,
   aiUsageMemoryEnabled: true,
   smartSuggestionsDismissedAt: "",
   screenFit: "auto",
@@ -11643,8 +11645,23 @@ function abrirPrimeiroPedidoOnboarding() {
   trocarTela("pedido");
 }
 
+function getModulosGuiadosOnboarding() {
+  const permitidos = ["pedido", "calculadora", "estoque", "caixa"];
+  const itens = Array.isArray(appConfig.onboardingGuidedModules) ? appConfig.onboardingGuidedModules : [];
+  return itens.map(String).filter((item, index) => permitidos.includes(item) && itens.indexOf(item) === index);
+}
+
+function abrirModuloGuiadoOnboarding(tela) {
+  const permitidos = ["pedido", "calculadora", "estoque", "caixa"];
+  if (!permitidos.includes(String(tela))) return;
+  appConfig.onboardingGuidedModules = [...getModulosGuiadosOnboarding(), tela].filter((item, index, lista) => lista.indexOf(item) === index);
+  salvarOnboardingLocal(3, false);
+  trocarTela(tela);
+}
+
 function finalizarOnboarding(abrirPedido = false) {
   appConfig.onboardingFirstOrderPending = false;
+  appConfig.onboardingGuidedModules = [];
   salvarOnboardingLocal(4, true);
   mostrarToast("Pronto! Seu sistema está configurado.", "sucesso");
   trocarTela(abrirPedido ? "pedido" : "dashboard");
@@ -11659,6 +11676,7 @@ function reiniciarOnboarding() {
   usuario.onboardingCompleted = false;
   usuario.onboardingStep = 0;
   appConfig.companySetupCompleted = false;
+  appConfig.onboardingGuidedModules = [];
   registrarOnboardingConcluidoLocalmente(usuario, false);
   salvarDados();
   persistirOnboardingSupabaseSilencioso(usuario).catch((erro) => registrarDiagnostico("Onboarding", "Reset não sincronizado", erro.message || erro));
@@ -11680,6 +11698,7 @@ function renderOnboarding() {
   const step = etapaOnboardingAtual(usuario);
   const tipoAtual = appConfig.defaultPrintType || "";
   const materialAtual = appConfig.defaultMaterial || "";
+  const modulosGuiados = getModulosGuiadosOnboarding();
   const botoesPular = `<button class="btn ghost" onclick="finalizarOnboarding(false)">Pular e ir para o painel</button>`;
 
   const telasOnboarding = [
@@ -11711,11 +11730,19 @@ function renderOnboarding() {
       </div>
     `,
     `
-      <h2>Primeiro pedido</h2>
-      <p class="muted">Agora vamos criar seu primeiro pedido para você entender como o sistema funciona.</p>
+      <h2>Conheça o essencial</h2>
+      <p class="muted">Abra cada área quando quiser. O roteiro continua disponível até você finalizar.</p>
+      <div class="onboarding-module-guide" aria-label="Roteiro de funções principais">
+        ${[
+          { id: "pedido", icon: "pedido", title: "Pedido", text: "Crie orçamento, itens e acompanhe o status." },
+          { id: "calculadora", icon: "calculadora", title: "Calculadora", text: "Use peso e tempo para formar o preço." },
+          { id: "estoque", icon: "estoque", title: "Estoque", text: "Cadastre materiais e veja o saldo disponível." },
+          { id: "caixa", icon: "caixa", title: "Caixa", text: "Registre entradas e saídas do dia." }
+        ].map((modulo) => `<button class="${modulosGuiados.includes(modulo.id) ? "seen" : ""}" type="button" onclick="abrirModuloGuiadoOnboarding('${modulo.id}')"><span>${renderUiIcon(modulo.icon)}</span><strong>${escaparHtml(modulo.title)}</strong><small>${escaparHtml(modulo.text)}</small>${modulosGuiados.includes(modulo.id) ? `<em>Visto</em>` : ""}</button>`).join("")}
+      </div>
       <div class="actions">
-        <button class="btn" onclick="abrirPrimeiroPedidoOnboarding()">Criar primeiro pedido</button>
-        <button class="btn secondary" onclick="avancarOnboarding(4)">Pular e ir para a finalização</button>
+        <button class="btn" onclick="avancarOnboarding(4)">Continuar</button>
+        <button class="btn secondary" onclick="abrirModuloGuiadoOnboarding('pedido')">Criar primeiro pedido</button>
       </div>
     `,
     `
@@ -12279,13 +12306,44 @@ function getAssistenteLabelPrincipal() {
   return "Assistente Inteligente";
 }
 
+function dicasDoPetAssistenteAtivas() {
+  return appConfig.assistantPetTipsEnabled !== false;
+}
+
+function desativarDicasDoPetAssistente(event) {
+  event?.preventDefault?.();
+  event?.stopPropagation?.();
+  appConfig.assistantPetTipsEnabled = false;
+  salvarDados();
+  renderApp();
+}
+
+function getDicaContextualDoPetAssistente() {
+  if (!dicasDoPetAssistenteAtivas()) return null;
+  const eventos = normalizarUsoInteligente(usageLearning).events.slice(-80);
+  const aberturas = (tela) => eventos.filter((evento) => evento.tipo === "tela_aberta" && evento.tela === tela).length;
+  if (aberturas("calculadora") >= 3) return "Você usa bastante a Calculadora. Salve um item para reutilizar depois.";
+  if (aberturas("estoque") >= 2) return "No Estoque, confira os materiais com saldo baixo antes de produzir.";
+  if (aberturas("pedidos") >= 2) return "Nos Pedidos, use os filtros para encontrar os que aguardam ação.";
+  if (aberturas("relatorios") >= 2) return "Nos Relatórios, altere o período para comparar melhor suas vendas.";
+  return "Sabia que você pode ir ao seu perfil e trocar o tema da interface?";
+}
+
+function renderDicaDoPetAssistente() {
+  const dica = getDicaContextualDoPetAssistente();
+  if (!dica) return "";
+  return `<div class="assistant-pet-tip" role="status"><button type="button" onclick="abrirAssistente('basic')"><span>${escaparHtml(dica)}</span></button><button class="assistant-pet-tip-close" type="button" onclick="desativarDicasDoPetAssistente(event)" title="Desativar mensagens do pet" aria-label="Desativar mensagens do pet">×</button></div>`;
+}
+
 function renderAssistantFabContent(label = "Assistente", pro = false) {
   return `
-    <span class="assistant-fab-icon ${pro ? "pro" : ""}" aria-hidden="true">
-      <span></span>
-    </span>
+    <span class="assistant-fab-icon assistant-pet ${pro ? "pro" : ""}" aria-hidden="true"><img src="/assets/assistant/filament-pet.png" alt=""></span>
     <span>${escaparHtml(label)}</span>
   `;
+}
+
+function renderLancadorPetAssistente({ action, title, label = "Ajuda", pro = false } = {}) {
+  return `<div class="assistant-pet-dock">${renderDicaDoPetAssistente()}<button class="assistant-fab assistant-fab-open ${pro ? "ai-local-fab" : ""}" onclick="${action}" title="${escaparAttr(title)}" aria-label="${escaparAttr(title)}">${renderAssistantFabContent(label, pro)}</button></div>`;
 }
 
 function registrarFalhaIALocal(action, erro, extra = {}) {
@@ -14068,25 +14126,23 @@ function renderAssistenteVirtual() {
 
   if (!assistantOpen) {
     if (!isAndroidNativeApp()) {
-      return `<button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('basic')" title="Abrir Assistente Inteligente" aria-label="Abrir Assistente Inteligente">${renderAssistantFabContent("Ajuda", false)}</button>`;
+      return renderLancadorPetAssistente({ action: "abrirAssistente('basic')", title: "Abrir Assistente Inteligente" });
     }
     if (!HEAVY_AI_FEATURE_ENABLED) {
-      return `<button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('basic')" title="Abrir ajuda do sistema" aria-label="Abrir ajuda do sistema">${renderAssistantFabContent("Ajuda", false)}</button>`;
+      return renderLancadorPetAssistente({ action: "abrirAssistente('basic')", title: "Abrir ajuda do sistema" });
     }
     const pronto = iaLocalEstaPronta();
     const acessoPro = podeUsarAssistenteIAOfflinePro();
     const acao = pronto ? `abrirAssistente('pro')` : acessoPro ? "instalarIARecomendadaAutomaticamente()" : `trocarTela('assinatura')`;
     const titulo = pronto ? "Abrir IA Local" : acessoPro ? "Instalar IA Local automaticamente" : "IA Local exclusiva do Plano Pro";
-    return `<button class="assistant-fab ai-local-fab" onclick="${acao}" title="${titulo}" aria-label="${titulo}">${renderAssistantFabContent("IA", true)}</button>`;
+    return renderLancadorPetAssistente({ action: acao, title: titulo, label: "IA", pro: true });
   }
 
   if (assistantMinimized) {
     if (assistantMode !== "pro") return "";
     const label = assistantMode === "pro" ? "IA" : "Assistente";
     return `
-      <button class="assistant-fab assistant-fab-open" onclick="abrirAssistente('${escaparAttr(assistantMode || modoDisponivel)}')" title="Abrir assistente">
-        ${renderAssistantFabContent(label, assistantMode === "pro")}
-      </button>
+      ${renderLancadorPetAssistente({ action: `abrirAssistente('${escaparAttr(assistantMode || modoDisponivel)}')`, title: "Abrir assistente", label, pro: assistantMode === "pro" })}
     `;
   }
 
@@ -34781,6 +34837,10 @@ function renderPersonalizacao() {
         <input id="smartSuggestionsEnabledConfig" type="checkbox" ${appConfig.smartSuggestionsEnabled !== false ? "checked" : ""}>
         <span>Sugestões inteligentes locais</span>
       </label>
+      <label class="checkbox-row">
+        <input id="assistantPetTipsEnabledConfig" type="checkbox" ${appConfig.assistantPetTipsEnabled !== false ? "checked" : ""}>
+        <span>Mensagens curtas do pet assistente</span>
+      </label>
         </div>
       </details>
       </div>
@@ -36792,6 +36852,7 @@ function lerPersonalizacaoCampos() {
       ? texto("interfaceDensityConfig", appConfig.interfaceDensity || "default")
       : "default",
     smartSuggestionsEnabled: marcado("smartSuggestionsEnabledConfig", appConfig.smartSuggestionsEnabled !== false),
+    assistantPetTipsEnabled: marcado("assistantPetTipsEnabledConfig", appConfig.assistantPetTipsEnabled !== false),
     showBrandInHeader: marcado("showBrandInHeaderConfig", !!appConfig.showBrandInHeader),
     defaultMargin: numero("defaultMarginConfig", appConfig.defaultMargin || 100, { min: 0 }),
     defaultEnergy: numero("defaultEnergyConfig", appConfig.defaultEnergy || 0.85, { min: 0 }),
