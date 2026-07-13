@@ -37460,6 +37460,58 @@ body.mobile-mode .compact-danger-action{
   font-size:12px;
 }
 
+/* Responsive correction for the current UI v3 calculator and orders routes. */
+.ui3-calculator.calc-main-card{
+  width:min(100%, 1080px);
+  max-width:1080px;
+  min-height:calc(var(--app-viewport-height, 100dvh) - 96px);
+  margin-inline:auto;
+}
+
+@media(max-width:767px){
+  body.mobile-mode #app-content:has(.ui3-calculator),
+  body.mobile-mode .calculator-panel-content{
+    overflow-x:hidden !important;
+    overflow-y:auto !important;
+    overscroll-behavior-y:contain;
+    touch-action:pan-y !important;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  body.mobile-mode .ui3-calculator.calc-modern-screen{
+    width:100% !important;
+    max-width:none !important;
+    min-height:calc(var(--app-viewport-height, 100dvh) - var(--layout-bottom-nav-height) - var(--safe-area-bottom-offset)) !important;
+    height:auto !important;
+    overflow:visible !important;
+    padding-inline:16px !important;
+    padding-bottom:calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 28px) !important;
+  }
+
+  body.mobile-mode .ui3-orders{
+    width:100% !important;
+    max-width:none !important;
+    min-width:0 !important;
+    padding-inline:16px !important;
+  }
+
+  body.mobile-mode .ui3-orders :where(.dashboard-search,.stock-search-field,.list-row,.smart-order-main,.smart-order-side){
+    min-width:0;
+    max-width:100%;
+  }
+
+  body.mobile-mode .ui3-orders .smart-order-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    width:100%;
+  }
+
+  body.mobile-mode .ui3-orders :where(.btn,button.btn,.compact-action){
+    min-height:40px;
+    padding-inline:12px;
+    font-size:13px;
+  }
+}
+
 @media(max-width:360px){
   body.mobile-mode .order-status-action-strip{
     grid-template-columns:repeat(2,minmax(0,1fr))!important;
