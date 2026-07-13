@@ -2509,10 +2509,14 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
       </div>
     `;
 
+    let settled = false;
     const finalizar = (valor) => {
+      if (settled) return;
+      settled = true;
       fecharPopup();
       resolve(valor);
     };
+    const host = promoverPopupParaDialogUiV3(popup, { title: titulo || "Recurso do plano", onClose: () => finalizar(false) });
     const assistir = async () => {
       const botao = document.getElementById("rewardAdWatch");
       setBotaoLoading(botao, true, "Carregando...");
@@ -2571,7 +2575,7 @@ function mostrarModalDesbloqueioAnuncio({ tipo = "orders", titulo = "", texto = 
     }, { once: true });
     document.getElementById("rewardAdCancel")?.addEventListener("click", () => finalizar(false), { once: true });
     document.getElementById("rewardAdCancelTop")?.addEventListener("click", () => finalizar(false), { once: true });
-    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
       if (event.target === event.currentTarget) finalizar(false);
     });
   });
@@ -6105,6 +6109,7 @@ function mostrarAdminSobDemanda() {
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Configurar administrador" });
 }
 
 async function criarAdminSobDemanda() {
@@ -6306,6 +6311,7 @@ function abrirModalCodigoSeguranca({ title, action, challenge, reason = "" }) {
         <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Confirmar</button></div>
       </form>
     </div>`;
+  promoverPopupParaDialogUiV3(popup, { title });
   document.getElementById("securityCodeForm")?.addEventListener("submit", (event) => confirmarAcaoSegurancaConta(event, { action, challengeId: challenge.id, reason }));
   setTimeout(() => document.getElementById("securityActionCode")?.focus(), 80);
 }
@@ -9370,6 +9376,7 @@ function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Limite do plano" });
   registrarAuditoria("tentativa", { motivo: "limite_plano", mensagem });
 }
 
@@ -11239,6 +11246,7 @@ function abrirMenuUsuarioTopo(event) {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Perfil e conta", kind: "drawer", cardSelector: ".topbar-profile-menu" });
 }
 
 function buscarGlobal(event, valor) {
@@ -13261,6 +13269,7 @@ async function abrirWizardIAProLocal() {
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Preparando IA Local" });
   try {
     const analise = await analisarDispositivoParaIA();
     definirIAConfig({ lastDeviceProfile: analise.perfil.label }, true);
@@ -13284,6 +13293,7 @@ async function abrirWizardIAProLocal() {
         </div>
       </div>
     `;
+    promoverPopupParaDialogUiV3(popup, { title: `Modo ${analise.perfil.label}` });
   } catch (erro) {
     registrarFalhaIALocal("wizard_analyze", erro);
     mostrarToast("Não foi possível analisar o aparelho agora.", "erro", 5000);
@@ -13837,6 +13847,7 @@ function mostrarSugestoesIACalculadora(sugestoes = [], detalhesMotor = "Assisten
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Sugestões com IA" });
 }
 
 function abrirModalIALocalNaoConfigurada(origem = "assistente") {
@@ -13861,6 +13872,7 @@ function abrirModalIALocalNaoConfigurada(origem = "assistente") {
       </div>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "IA local não configurada" });
 }
 
 function deveDirecionarBuscaParaAssistente(termo = "") {
@@ -37852,6 +37864,7 @@ function mostrarResumoAtualizacaoUmaVez() {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "O que mudou" });
   return true;
 }
 
@@ -40053,6 +40066,7 @@ function abrirModalRedefinicaoSenhaSupabase() {
       </form>
     </div>
   `;
+  const host = promoverPopupParaDialogUiV3(popup, { title: "Redefinir senha" });
   const form = document.getElementById("supabaseRecoveryPasswordForm");
   const senhaInput = document.getElementById("supabaseRecoveryPassword");
   const confirmarInput = document.getElementById("supabaseRecoveryPasswordConfirm");
@@ -40060,7 +40074,7 @@ function abrirModalRedefinicaoSenhaSupabase() {
   const cancelar = () => fecharPopup();
   document.getElementById("supabaseRecoveryClose")?.addEventListener("click", cancelar, { once: true });
   document.getElementById("supabaseRecoveryCancel")?.addEventListener("click", cancelar, { once: true });
-  popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+  host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
     if (event.target === event.currentTarget) cancelar();
   });
   form?.addEventListener("submit", async (event) => {
@@ -45352,6 +45366,7 @@ function abrirPersonalizarAtalhos() {
       </section>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Personalizar atalhos" });
 }
 
 function aplicarMaterialFrequenteCalculadora() {
@@ -45493,6 +45508,7 @@ function abrirConfiguracoesCalculadora() {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Configurações da Calculadora" });
   document.getElementById("calculatorSettingsForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     salvarConfiguracoesCalculadoraAvancadas(true);
@@ -45780,6 +45796,7 @@ function abrirCadastroMaterialCalculadora() {
       </form>
     </div>
   `;
+  promoverPopupParaDialogUiV3(popup, { title: "Cadastrar material" });
   document.getElementById("calcMaterialQuickForm")?.addEventListener("submit", (event) => {
     event.preventDefault();
     salvarMaterialCalculadoraRapido();
@@ -46031,7 +46048,7 @@ async function gerarPdfCalculadora() {
 
 function promoverPopupParaDialogUiV3(popup, options = {}) {
   if (!popup || !window.UiV3?.Dialog || !document.querySelector('[data-ui-version="v3"].ui3-real-screen')) return popup;
-  const card = popup.querySelector(".modal-card");
+  const card = popup.querySelector(options.cardSelector || ".modal-card");
   if (!card) return popup;
   const title = options.title || card.querySelector(".modal-header h2")?.textContent?.trim() || "Janela";
   const content = card.cloneNode(true);
@@ -46200,20 +46217,24 @@ function solicitarEntradaTexto({ titulo = "Informe os dados", mensagem = "", val
       </div>
     `;
 
+    let settled = false;
+    const finalizar = (resultado) => {
+      if (settled) return;
+      settled = true;
+      fecharPopup();
+      resolve(resultado);
+    };
+    const host = promoverPopupParaDialogUiV3(popup, { title: titulo, onClose: () => finalizar(null) });
     const form = document.getElementById("controlledPromptForm");
     const input = document.getElementById(idInput);
-    const cancelar = () => {
-      fecharPopup();
-      resolve(null);
-    };
+    const cancelar = () => finalizar(null);
     form?.addEventListener("submit", (event) => {
       event.preventDefault();
-      fecharPopup();
-      resolve(input?.value ?? "");
+      finalizar(input?.value ?? "");
     }, { once: true });
     document.getElementById("controlledPromptCancel")?.addEventListener("click", cancelar, { once: true });
     document.getElementById("controlledPromptCancelTop")?.addEventListener("click", cancelar, { once: true });
-    popup.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
+    host.querySelector(".modal-backdrop")?.addEventListener("click", (event) => {
       if (event.target === event.currentTarget) cancelar();
     });
     setTimeout(() => input?.focus(), 50);

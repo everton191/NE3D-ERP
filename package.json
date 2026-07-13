@@ -173,6 +173,7 @@
     "test:ui-v3-reading": "node scripts/test-ui-v3-reading.js",
     "test:ui-v3-operational": "node scripts/test-ui-v3-operational.js",
     "test:ui-v3-finance": "node scripts/test-ui-v3-finance.js",
+    "test:ui-v3-legacy-boundary": "node scripts/test-ui-v3-legacy-boundary.js",
     "test:scroll-technical-ui-audit": "node scripts/test-scroll-technical-ui-audit.js",
     "test:ux-reference-checklist": "node scripts/test-ux-reference-checklist.js",
     "test:market-benchmark-structure": "node scripts/test-market-benchmark-structure.js",
