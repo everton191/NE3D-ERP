@@ -11225,7 +11225,7 @@ body[data-ui-profile="android_apk"] .mobile-bottom-nav-button.active span{
   overflow-x:hidden;
   border:0;
   border-radius:0;
-  padding:18px 14px calc(18px + env(safe-area-inset-bottom));
+  padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) + 18px) 14px calc(18px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   background:
     radial-gradient(circle at 12% 0%, rgba(13,189,184,.16), transparent 34%),
     radial-gradient(circle at 84% 18%, rgba(255,148,28,.07), transparent 28%),
@@ -12276,7 +12276,7 @@ body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple{
   gap:11px;
   padding:
-    calc(var(--safe-area-inset-top, env(safe-area-inset-top)) + 8px)
+    calc(var(--ui3-safe-top, var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) + 8px)
     12px
     calc(76px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }
@@ -12763,7 +12763,7 @@ body[data-ui-profile="android_apk"] .dashboard-apk-simple,
 body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple{
   gap:9px;
   padding:
-    calc(var(--safe-area-inset-top, env(safe-area-inset-top)) + 6px)
+    calc(var(--ui3-safe-top, var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) + 6px)
     10px
     calc(68px + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }
@@ -15883,8 +15883,8 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   grid-template-columns:repeat(5, minmax(0, 1fr));
   gap:4px;
   padding:6px 8px calc(6px + env(safe-area-inset-bottom));
-  background:rgba(255,255,255,.96);
-  border-top:1px solid var(--sa-border);
+  background:color-mix(in srgb, var(--surface) 96%, transparent);
+  border-top:1px solid var(--line);
   box-shadow:0 -12px 30px rgba(15,23,42,.14);
   transform:translateZ(0);
 }
@@ -15921,7 +15921,7 @@ body.mobile-mode .superadmin-mobile-only .superadmin-platform-mobile-nav button.
 body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-mobile-nav button.active,
 body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-mobile-nav button.active{
   color:var(--sa-primary);
-  background:#dff7f3;
+  background:color-mix(in srgb, var(--primary) 16%, var(--surface));
 }
 
 body.mobile-mode .superadmin-mobile-only .superadmin-platform-mobile-nav strong,
@@ -16621,8 +16621,8 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
     grid-template-columns:repeat(5, minmax(0, 1fr));
     gap:4px;
     padding:6px 8px calc(6px + env(safe-area-inset-bottom));
-    background:rgba(255,255,255,.94);
-    border-top:1px solid var(--sa-border);
+    background:color-mix(in srgb, var(--surface) 94%, transparent);
+    border-top:1px solid var(--line);
     box-shadow:0 -12px 30px rgba(15,23,42,.12);
   }
 
@@ -16640,7 +16640,7 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
 
   .superadmin-platform-mobile-nav button.active{
     color:var(--sa-primary);
-    background:#dff7f3;
+    background:color-mix(in srgb, var(--primary) 16%, var(--surface));
   }
 
   .superadmin-platform-mobile-nav strong{
@@ -39635,15 +39635,15 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
   body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
   body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell{
-    background:#f6f9fc;
+    background:var(--ui3-bg);
   }
 
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
   body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
   body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar{
-    padding:10px 12px;
+    padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top, 0px)) + 10px) 12px 10px;
     gap:8px;
-    background:#fff;
+    background:var(--ui3-surface);
   }
 
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title h2,
@@ -40146,7 +40146,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
   body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell,
   body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-shell{
-    background:#f7f9fc !important;
+    background:var(--ui3-bg) !important;
   }
 
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-topbar,
@@ -40154,8 +40154,8 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-topbar{
     grid-template-columns:minmax(0, 1fr) auto !important;
     gap:10px;
-    padding:18px 14px 10px !important;
-    background:#fff !important;
+    padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top, 0px)) + 18px) 14px 10px !important;
+    background:var(--ui3-surface) !important;
     border-bottom:0;
   }
 
@@ -40208,7 +40208,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
     height:36px !important;
     padding:0 8px !important;
     border-radius:12px !important;
-    background:#fff !important;
+    background:var(--ui3-surface) !important;
     box-shadow:0 3px 10px rgba(15,23,42,.045);
   }
 
@@ -40228,7 +40228,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
     height:34px;
     min-height:34px;
     border-radius:50%;
-    background:#fff;
+    background:var(--ui3-surface);
   }
 
   body.mobile-mode .superadmin-mobile-only .superadmin-platform-user,
@@ -43016,6 +43016,10 @@ body.mobile-mode :where(
   }
 
   body.mobile-mode .cash-quick-action{
+    width:auto !important;
+    max-width:none !important;
+    grid-column:auto !important;
+    flex-basis:auto !important;
     min-height:60px !important;
     height:60px !important;
     padding:6px 4px !important;
@@ -45305,7 +45309,7 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
     max-height:none !important;
     overflow:visible !important;
     border-radius:0 !important;
-    padding:14px 12px calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 24px) !important;
+    padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top, env(safe-area-inset-top, 0px))) + 14px) 12px calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 24px) !important;
   }
 
   .mobile-panel-calculator .calc-modern-grid{gap:8px !important}
@@ -45391,19 +45395,19 @@ body.theme-light .calc-printer-art{
   }
 
   body.mobile-mode .mobile-panel-calculator .calculator-panel-content{
-    height:100dvh !important;
-    max-height:100dvh !important;
-    overflow:hidden !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:visible !important;
   }
 
   body.mobile-mode .mobile-panel-calculator .calc-modern-screen{
     background:#071218 !important;
-    height:100% !important;
-    min-height:100% !important;
-    max-height:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:none !important;
     overflow-x:hidden !important;
-    overflow-y:auto !important;
-    overscroll-behavior:contain;
+    overflow-y:visible !important;
+    overscroll-behavior:initial;
     -webkit-overflow-scrolling:touch;
     padding-bottom:calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 24px) !important;
   }
@@ -45411,14 +45415,14 @@ body.theme-light .calc-printer-art{
 
 /* Final mobile calculator contrast override: must stay after legacy dark rules. */
 @media(max-width:767px){
-  body.mobile-mode .mobile-panel-calculator,
-  body.mobile-mode .mobile-panel-calculator .calculator-panel-content,
-  body.mobile-mode .mobile-panel-calculator .calc-modern-screen{
+  body.theme-light.mobile-mode .mobile-panel-calculator,
+  body.theme-light.mobile-mode .mobile-panel-calculator .calculator-panel-content,
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-modern-screen{
     background:#fff !important;
     color:#14212b !important;
   }
 
-  body.mobile-mode .mobile-panel-calculator :is(.calc-active-profile,.calc-smart-tip,.calc-input-panel,.calc-summary-card,.calc-secondary-actions){
+  body.theme-light.mobile-mode .mobile-panel-calculator :is(.calc-active-profile,.calc-smart-tip,.calc-input-panel,.calc-summary-card,.calc-secondary-actions){
     background:transparent !important;
     color:#14212b !important;
     border-width:0 0 1px !important;
@@ -45427,16 +45431,16 @@ body.theme-light .calc-printer-art{
     box-shadow:none !important;
   }
 
-  body.mobile-mode .mobile-panel-calculator :is(.calc-active-profile small,.calc-active-profile em,.calc-smart-tip small,.calc-batch-summary span,.calc-batch-summary small){color:#64727c !important}
-  body.mobile-mode .mobile-panel-calculator .calc-printer-art{background:#edf7f6 !important;color:#007f76 !important}
-  body.mobile-mode .mobile-panel-calculator :is(input,select){background:#fff !important;color:#14212b !important;border-color:#cfdadd !important}
-  body.mobile-mode .mobile-panel-calculator .calc-option-fields,
-  body.mobile-mode .mobile-panel-calculator .calc-segmented{background:#f4f7f7 !important;color:#14212b !important;border-color:#d7e1e3 !important}
-  body.mobile-mode .mobile-panel-calculator :is(.calc-option-header,.calc-option-header span,.calc-option-header strong,.calc-option-fields,.calc-stepper-row,.calc-fee-stepper,.calc-segmented span){color:#14212b !important}
-  body.mobile-mode .mobile-panel-calculator .calc-option-header small,
-  body.mobile-mode .mobile-panel-calculator .calc-fee-stepper i{color:#64727c !important}
-  body.mobile-mode .mobile-panel-calculator .calc-stepper-row button,
-  body.mobile-mode .mobile-panel-calculator .calc-fee-stepper button{background:#fff !important;color:#007f76 !important;border-color:#cfdadd !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator :is(.calc-active-profile small,.calc-active-profile em,.calc-smart-tip small,.calc-batch-summary span,.calc-batch-summary small){color:#64727c !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-printer-art{background:#edf7f6 !important;color:#007f76 !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator :is(input,select){background:#fff !important;color:#14212b !important;border-color:#cfdadd !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-option-fields,
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-segmented{background:#f4f7f7 !important;color:#14212b !important;border-color:#d7e1e3 !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator :is(.calc-option-header,.calc-option-header span,.calc-option-header strong,.calc-option-fields,.calc-stepper-row,.calc-fee-stepper,.calc-segmented span){color:#14212b !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-option-header small,
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-fee-stepper i{color:#64727c !important}
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-stepper-row button,
+  body.theme-light.mobile-mode .mobile-panel-calculator .calc-fee-stepper button{background:#fff !important;color:#007f76 !important;border-color:#cfdadd !important}
 }
 
 /* Final ERP typography authority: keep storefront theme tokens isolated. */
