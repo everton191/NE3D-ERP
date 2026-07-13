@@ -937,6 +937,9 @@ let sessionTimer = null;
 let sessionWarned = false;
 let assistantOpen = false;
 let assistantMinimized = false;
+let assistantPetMenuOpen = false;
+let assistantPetLongPressTimer = null;
+let assistantPetLongPressTriggered = false;
 let assistantMessages = [];
 let assistantGenerating = false;
 let assistantMode = "basic";
@@ -12318,6 +12321,42 @@ function desativarDicasDoPetAssistente(event) {
   renderApp();
 }
 
+function alternarDicasDoPetAssistente(ativas) {
+  appConfig.assistantPetTipsEnabled = ativas === true;
+  assistantPetMenuOpen = false;
+  salvarDados();
+  renderApp();
+}
+
+function iniciarToqueLongoPetAssistente(event) {
+  if (event?.button !== undefined && event.button !== 0) return;
+  clearTimeout(assistantPetLongPressTimer);
+  assistantPetLongPressTriggered = false;
+  assistantPetLongPressTimer = setTimeout(() => {
+    assistantPetLongPressTriggered = true;
+    assistantPetMenuOpen = true;
+    try { navigator.vibrate?.(18); } catch (_) {}
+    renderApp();
+  }, 650);
+}
+
+function finalizarToqueLongoPetAssistente() {
+  clearTimeout(assistantPetLongPressTimer);
+  assistantPetLongPressTimer = null;
+}
+
+function consumirCliqueLongoPetAssistente() {
+  if (!assistantPetLongPressTriggered) return false;
+  assistantPetLongPressTriggered = false;
+  return true;
+}
+
+function renderMenuDoPetAssistente() {
+  if (!assistantPetMenuOpen) return "";
+  const dicasAtivas = dicasDoPetAssistenteAtivas();
+  return `<div class="assistant-pet-menu" role="menu"><strong>Dicas do pet</strong><button type="button" onclick="alternarDicasDoPetAssistente(${dicasAtivas ? "false" : "true"})">${dicasAtivas ? "Desligar dicas" : "Ligar dicas"}</button></div>`;
+}
+
 function getDicaContextualDoPetAssistente() {
   if (!dicasDoPetAssistenteAtivas()) return null;
   const eventos = normalizarUsoInteligente(usageLearning).events.slice(-80);
@@ -12343,7 +12382,7 @@ function renderAssistantFabContent(label = "Assistente", pro = false) {
 }
 
 function renderLancadorPetAssistente({ action, title, label = "Ajuda", pro = false } = {}) {
-  return `<div class="assistant-pet-dock">${renderDicaDoPetAssistente()}<button class="assistant-fab assistant-fab-open ${pro ? "ai-local-fab" : ""}" onclick="${action}" title="${escaparAttr(title)}" aria-label="${escaparAttr(title)}">${renderAssistantFabContent(label, pro)}</button></div>`;
+  return `<div class="assistant-pet-dock">${renderDicaDoPetAssistente()}${renderMenuDoPetAssistente()}<button class="assistant-fab assistant-fab-open ${pro ? "ai-local-fab" : ""}" onpointerdown="iniciarToqueLongoPetAssistente(event)" onpointerup="finalizarToqueLongoPetAssistente()" onpointercancel="finalizarToqueLongoPetAssistente()" onpointerleave="finalizarToqueLongoPetAssistente()" oncontextmenu="event.preventDefault();assistantPetMenuOpen=true;renderApp()" onclick="if(!consumirCliqueLongoPetAssistente()){${action}}" title="${escaparAttr(title)}. Toque e segure para opções de dicas." aria-label="${escaparAttr(title)}. Toque e segure para opções de dicas.">${renderAssistantFabContent(label, pro)}</button></div>`;
 }
 
 function registrarFalhaIALocal(action, erro, extra = {}) {

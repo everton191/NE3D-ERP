@@ -10,6 +10,7 @@ assert(app.includes("assistantPetTipsEnabled"), "preferencia para mensagens do p
 assert(app.includes("getDicaContextualDoPetAssistente"), "dicas contextuais do pet ausentes");
 assert(app.includes("normalizarUsoInteligente(usageLearning).events"), "pet nao usa somente o historico local existente");
 assert(app.includes("desativarDicasDoPetAssistente"), "nao ha opcao para deixar somente o pet");
+assert(app.includes("iniciarToqueLongoPetAssistente") && app.includes("Desligar dicas"), "toque longo para desligar dicas ausente");
 assert(app.includes('/assets/assistant/filament-pet.png'), "avatar do pet nao esta conectado ao assistente");
 assert(css.includes("assistant-pet-bob") && css.includes("prefers-reduced-motion"), "animacao do pet nao respeita reducao de movimento");
 assert(build.includes('path.join(root, "assets")'), "build nao copia o mascote");
