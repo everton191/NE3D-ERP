@@ -2,4 +2,5 @@
 [data-ui-version="v3"] :where(.cash-main-summary,.cash-quick-actions-grid,.cash-quick-form-grid,.cash-day-grid,.cash-payment-cards){display:grid;grid-template-columns:repeat(var(--ui3-grid-columns),minmax(0,1fr));gap:var(--ui3-grid-gap)}
 [data-ui-version="v3"] :where(.cash-main-summary-card,.cash-quick-action,.cash-day-card,.cash-payment-card){grid-column:span min(4,var(--ui3-grid-columns));min-width:0}
 [data-ui-version="v3"] :where(.cash-row,.cash-recent-row){min-width:0;max-width:100%}
+@media(max-width:767px){[data-ui-version="v3"]>.cash-screen-header{display:none}[data-ui-version="v3"] .cash-experience{display:grid;gap:var(--ui3-space-3)}[data-ui-version="v3"] .cash-hero{margin:0}}
 @media(max-width:767px){[data-ui-version="v3"] :where(.cash-main-summary-card,.cash-quick-action,.cash-day-card,.cash-payment-card){grid-column:1/-1}}

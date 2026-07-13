@@ -30419,11 +30419,12 @@ function renderCaixaMobileTopbar() {
   `;
 }
 
-function renderCaixaOverview(totais = calcularTotaisCaixa(), movimentos = [], podeOperar = true, linhas = "") {
+function renderCaixaOverview(totais = calcularTotaisCaixa(), movimentos = [], podeOperar = true, linhas = "", controles = "") {
   return `
     <div class="cash-experience">
       ${renderCaixaMobileTopbar()}
       ${renderCaixaHero(totais, movimentos)}
+      ${controles}
       ${renderCaixaAcoesRapidas()}
       ${renderCardCaixaAberto(podeOperar, movimentos, linhas, totais)}
       ${renderCaixaMovimentosRecentes(movimentos)}
@@ -30810,6 +30811,11 @@ function renderCaixa() {
         `;
       }).join("")
     : `<p class="empty">Nenhum movimento neste filtro.</p>`;
+  const controlesCaixa = `
+    ${renderCaixaViewTabs(caixaView)}
+    ${isContextAdvancedVisible("caixa") ? renderCaixaPeriodoChips(periodoCaixa) : ""}
+    ${caixaView !== "extrato" && isContextAdvancedVisible("caixa") ? renderCaixaFiltroChips(movimentosPeriodo, filtroCaixa) : ""}
+  `;
 
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-cash-screen" data-ui-version="v3" data-ui3-screen="caixa">
@@ -30817,11 +30823,8 @@ function renderCaixa() {
         <h2>${renderUiIcon("caixa")} Caixa</h2>
         <div class="actions compact-actions">${renderContextualAdvancedToggle("caixa")}<strong>${formatarMoeda(totais.saldo)}</strong></div>
       </div>
-      ${renderCaixaViewTabs(caixaView)}
-      ${isContextAdvancedVisible("caixa") ? renderCaixaPeriodoChips(periodoCaixa) : ""}
-      ${caixaView === "extrato" ? renderExtratoFinanceiro() : `
-        ${isContextAdvancedVisible("caixa") ? renderCaixaFiltroChips(movimentosPeriodo, filtroCaixa) : ""}
-        ${renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas)}
+      ${caixaView === "extrato" ? `${controlesCaixa}${renderExtratoFinanceiro()}` : `
+        ${renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas, controlesCaixa)}
       `}
     </section>
   `;
