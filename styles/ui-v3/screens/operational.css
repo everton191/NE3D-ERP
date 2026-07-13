@@ -7,7 +7,19 @@
 [data-ui-version="v3"] .orders-pwa-layout{display:grid;grid-template-columns:repeat(var(--ui3-grid-columns),minmax(0,1fr));gap:var(--ui3-grid-gap)}
 [data-ui-version="v3"] .orders-pwa-list{grid-column:span min(5,var(--ui3-grid-columns));min-width:0}
 [data-ui-version="v3"] .orders-pwa-detail{grid-column:span min(7,var(--ui3-grid-columns));min-width:0}
-[data-ui-version="v3"] .ui3-simple-orders-toolbar{display:flex;justify-content:flex-end;min-width:0}
-[data-ui-version="v3"] .ui3-simple-orders-new{display:inline-flex;align-items:center;gap:var(--ui3-space-2);white-space:nowrap}
+[data-ui-version="v3"] .order-detail-hero-actions{display:flex;align-items:center;justify-content:flex-end;gap:var(--ui3-space-2)}
+[data-ui-version="v3"] .order-detail-close{flex:0 0 auto}
+@media(min-width:768px){[data-ui-version="v3"].orders-pwa-page{min-height:calc(100dvh - var(--ui3-safe-top) - 2 * var(--ui3-space-4))}[data-ui-version="v3"] .orders-pwa-layout{min-height:0;grid-template-columns:repeat(12,minmax(0,1fr));align-items:stretch}[data-ui-version="v3"] .orders-pwa-list{grid-column:span 8;display:flex;min-height:0;flex-direction:column}[data-ui-version="v3"] .orders-pwa-detail{grid-column:span 4;min-height:0;max-height:none;position:relative;top:auto}[data-ui-version="v3"] .orders-pwa-list-scroll{flex:1 1 auto;min-height:0;max-height:none}}
+[data-ui-version="v3"] .ui3-simple-orders-toolbar{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:var(--ui3-space-2);min-width:0}
+[data-ui-version="v3"] .ui3-simple-orders-new{width:auto;max-width:100%;display:inline-flex;align-items:center;justify-content:center;gap:var(--ui3-space-2);padding-inline:var(--ui3-space-4);white-space:nowrap}
+[data-ui-version="v3"] .ui3-production{align-content:start}
+[data-ui-version="v3"] .production-page-header{min-height:0;display:flex;align-items:flex-start;justify-content:space-between;gap:var(--ui3-space-3);padding:0;background:transparent;border:0;box-shadow:none}
+[data-ui-version="v3"] .production-page-header>div{min-width:0;display:grid;gap:var(--ui3-space-1)}
+[data-ui-version="v3"] .production-page-header :where(h2,p){margin:0}
+[data-ui-version="v3"] .production-tabs{display:flex;gap:var(--ui3-space-2);overflow-x:auto;padding:var(--ui3-space-1);background:var(--ui3-surface);border:1px solid var(--ui3-border);border-radius:var(--ui3-radius-md);scrollbar-width:none}
+[data-ui-version="v3"] .production-tabs::-webkit-scrollbar{display:none}
+[data-ui-version="v3"] .production-tabs button{flex:0 0 auto;min-height:40px;padding-inline:var(--ui3-space-3)}
+[data-ui-version="v3"] .production-job-list{display:grid;gap:var(--ui3-space-3)}
 body.mobile-mode:has([data-ui-version="v3"][data-ui3-screen="estoque"]) .assistant-fab{display:none}
-@media(max-width:767px){[data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:1/-1}[data-ui-version="v3"] .ui3-order-final-bar{grid-template-columns:1fr 1fr}[data-ui-version="v3"] .ui3-order-final-bar>div{grid-column:1/-1}[data-ui-version="v3"] :where(.orders-pwa-list,.orders-pwa-detail){grid-column:1/-1}[data-ui-version="v3"] .ui3-simple-orders-toolbar{justify-content:stretch}[data-ui-version="v3"] .ui3-simple-orders-new{justify-content:center;width:100%}}
+@media(max-width:767px){[data-ui-version="v3"] :where(.ui3-orders,.orders-pwa-page,.orders-pwa-layout,.orders-pwa-list,.orders-pwa-detail,.order-detail-panel){width:100%;min-width:0;max-width:100%;margin-inline:auto;box-sizing:border-box}[data-ui-version="v3"] :where(.order-summary-grid,.order-item-edit-grid)>*{grid-column:1/-1}[data-ui-version="v3"] .ui3-order-final-bar{grid-template-columns:1fr 1fr}[data-ui-version="v3"] .ui3-order-final-bar>div{grid-column:1/-1}[data-ui-version="v3"] :where(.orders-pwa-list,.orders-pwa-detail){grid-column:1/-1}[data-ui-version="v3"] .ui3-simple-orders-toolbar{justify-content:flex-end}[data-ui-version="v3"] .ui3-simple-orders-new{width:auto;min-height:42px}[data-ui-version="v3"] .production-page-header{align-items:center}[data-ui-version="v3"] .production-page-header p{display:none}[data-ui-version="v3"] .production-filter-bar>*{grid-column:1/-1}}
+@media(max-width:767px){[data-ui-version="v3"].ui3-orders-has-detail>:not(.order-detail-panel){display:none}[data-ui-version="v3"].ui3-orders-has-detail{gap:0}[data-ui-version="v3"].ui3-orders-has-detail>.order-detail-panel{display:block;min-height:100%;padding-bottom:calc(var(--ui3-bottom-nav-height) + var(--ui3-safe-bottom) + var(--ui3-space-4))}}

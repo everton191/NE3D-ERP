@@ -1,0 +1,31 @@
+/* V3 compatibility bridge: shared theme primitives for migrated and legacy screens. */
+body.app-shell-ready{
+  --ui3-bg:var(--color-background,var(--bg,#f4f7f8));
+  --ui3-surface:var(--color-surface,var(--surface,#fff));
+  --ui3-surface-muted:var(--color-surface-soft,var(--panel,#edf3f4));
+  --ui3-border:var(--color-border,var(--line,#cfdbde));
+  --ui3-text:var(--color-text-primary,var(--text,#14212b));
+  --ui3-muted:var(--color-text-muted,var(--muted,#5d6c74));
+  --ui3-primary:var(--color-primary,var(--primary,#007f76));
+  --ui3-system-radius:var(--ui3-radius-lg,18px);
+  --ui3-system-shadow:var(--effect-shadow-sm,var(--ui3-shadow,0 12px 30px rgba(20,33,43,.12)));
+  color:var(--ui3-text);
+  background:var(--ui3-bg);
+  font-family:var(--ui3-font-family);
+  font-size:var(--ui3-font-size-md);
+  line-height:var(--ui3-line-height-body);
+}
+
+body.app-shell-ready :where(h1,h2,h3,h4,h5,h6,strong,.title,.section-title){
+  font-family:var(--ui3-font-family);
+  line-height:var(--ui3-line-height-title);
+}
+
+body.app-shell-ready :where(#app-shell,#app-content,.mobile-panel,.mobile-panel-content,.dashboard-apk-simple,.app-page,.organized-page,.settings-page,.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen){
+  color:var(--ui3-text);
+  background-color:var(--ui3-bg);
+}
+
+body.app-shell-ready :where(.muted,small,.field-hint,.helper-text){
+  color:var(--ui3-muted);
+}

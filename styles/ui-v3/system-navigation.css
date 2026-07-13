@@ -1,0 +1,51 @@
+body.app-shell-ready :where(.topbar,.app-topbar,.mobile-panel-bar,.dashboard-home-header){
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+  background-color:var(--ui3-surface);
+}
+
+body.app-shell-ready :where(.dashboard-header-actions,.app-header-actions,.mobile-panel-actions){
+  display:flex;
+  align-items:center;
+  gap:var(--ui3-space-2);
+}
+
+body.app-shell-ready :where(.mobile-bottom-nav,.bottom-nav){
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+  background:var(--ui3-surface);
+  box-shadow:var(--ui3-system-shadow);
+}
+
+body.app-shell-ready :where(.mobile-bottom-nav-button,.bottom-nav-button){
+  color:var(--ui3-muted);
+  font-family:var(--ui3-font-family);
+}
+
+body.app-shell-ready :where(.mobile-bottom-nav-button,.bottom-nav-button).active{
+  color:var(--ui3-primary);
+}
+
+body.app-shell-ready :where(.side-menu,.app-sidebar,.desktop-sidebar,.side-drawer){
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+  background-color:var(--ui3-surface);
+}
+
+body.app-shell-ready :where(.side-menu button,.app-sidebar button,.desktop-sidebar button,.side-drawer button){
+  color:inherit;
+  font-family:var(--ui3-font-family);
+}
+
+body.app-shell-ready :where(.side-menu button,.app-sidebar button,.desktop-sidebar button,.side-drawer button).active{
+  color:var(--ui3-primary);
+  background-color:color-mix(in srgb,var(--ui3-primary) 12%,var(--ui3-surface));
+}
+
+@media(max-width:767px){
+  body.mobile-mode.app-shell-ready :where(.dashboard-home-header,.mobile-panel-bar){
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+}

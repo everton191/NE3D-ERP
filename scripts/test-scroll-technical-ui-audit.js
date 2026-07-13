@@ -5,6 +5,8 @@ const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const uiV3Scroll = fs.readFileSync(path.join(root, "styles", "ui-v3", "app-shell.css"), "utf8");
+const uiV3LegacyBridge = fs.readFileSync(path.join(root, "styles", "ui-v3", "legacy-bridge.css"), "utf8");
+const serviceWorker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
 const requiredApp = [
   "function renderComandosPedidoRapidoPwa()",
@@ -28,9 +30,7 @@ const requiredApp = [
 
 const requiredCss = [
   "body.mobile-mode.app-shell-ready .mobile-panel{",
-  "body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{",
-  "body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel{\n    position:fixed !important;",
-  "height:100dvh !important;",
+  "#app-shell.ui3-app-shell-host>#app-content.ui3-content-scroller",
   "overflow-y:auto !important;",
   ".quick-order-layout{\n  min-height:0;\n  height:100%;",
   "touch-action:pan-y;",
@@ -39,7 +39,7 @@ const requiredCss = [
   ".reports-kpi-slide{",
   ".quick-order-command-panel{",
   "Central responsive layout authority: one vertical scroll owner per screen.",
-  "body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) #app-content .mobile-panel-content",
+  "Mobile routed screens share one bounded vertical scroll owner.",
   "body :where(.side-menu, .app-sidebar, .desktop-sidebar)::-webkit-scrollbar",
   ".stock-list,\n.smart-stock-row {\n  overflow: visible !important;",
   ".smart-stock-row:has(.stock-item-menu[open])",
@@ -57,7 +57,8 @@ const forbidden = [
   'title: "Cache, offline e suporte"',
   "Checar a cada minutos",
   "Baixar APK</button>",
-  "Os registros técnicos ficam separados no Log do sistema."
+  "Os registros técnicos ficam separados no Log do sistema.",
+  ".mobile-home,\n  .mobile-panel,\n  .mobile-panel-content"
 ];
 
 const missing = [
@@ -65,6 +66,18 @@ const missing = [
   ...requiredCss.filter((snippet) => !(css + uiV3Scroll).includes(snippet)),
   ...forbidden.filter((snippet) => app.includes(snippet) || css.includes(snippet)).map((snippet) => `conteúdo antigo ainda presente: ${snippet}`)
 ];
+
+const mobileScrollAuthority = uiV3Scroll.lastIndexOf("Mobile routed screens share one bounded vertical scroll owner.");
+const lastLegacyVisibleOverflow = uiV3Scroll.lastIndexOf("overflow:visible");
+if (mobileScrollAuthority < 0 || mobileScrollAuthority < lastLegacyVisibleOverflow) {
+  missing.push("a autoridade final de scroll mobile deve permanecer depois das regras legadas com overflow visível");
+}
+if (!serviceWorker.includes("1.0.11-full-height-orders-20260713")) {
+  missing.push("o cache do service worker precisa acompanhar a autoridade de scroll mobile");
+}
+if (!uiV3LegacyBridge.includes("V3 compatibility bridge") || !uiV3LegacyBridge.includes("body.app-shell-ready")) {
+  missing.push("a ponte de tema V3 precisa cobrir as telas legadas do shell");
+}
 
 if (missing.length) {
   console.error("Auditoria de scroll e mensagens técnicas incompleta:", missing);

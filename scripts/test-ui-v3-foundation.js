@@ -8,7 +8,7 @@ assert(index.includes('["localhost", "127.0.0.1", "[::1]"]'),'rota V3 nao esta b
 assert(app.includes('window.UiV3Dev?.isRoute'),'bootstrap ERP nao desvia a rota tecnica');
 assert(app.includes('function sincronizarShellUiV3'),'rotas reais nao promovem o shell ao contrato V3');
 assert(app.includes('content?.classList.toggle("ui3-content-scroller", active)'),'#app-content nao e o scroller oficial das rotas V3');
-assert(read('styles/ui-v3/app-shell.css').includes('body.ui3-route-active.mobile-mode .mobile-panel>.mobile-panel-content'),'painel mobile ainda pode disputar a rolagem V3');
+assert(read('styles/ui-v3/app-shell.css').includes('body.mobile-mode.app-shell-ready .mobile-panel>.mobile-panel-content'),'painel mobile ainda pode disputar a rolagem V3');
 assert(build.includes('"styles/ui-v3", "src/ui-v3"'),'build nao copia a fundacao V3');
 assert(dev.includes("link.disabled=true"),'rota tecnica nao isola CSS legado');
 assert(dev.includes("root.className='ui3-app-root'"),'laboratorio deve declarar raiz de shell completo');

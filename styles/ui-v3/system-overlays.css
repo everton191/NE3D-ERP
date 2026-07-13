@@ -1,0 +1,48 @@
+body.app-shell-ready :where(.modal-backdrop,.popup-backdrop,.drawer-backdrop,.overlay-backdrop){
+  background:rgba(10,20,28,.48);
+  backdrop-filter:blur(4px);
+  -webkit-backdrop-filter:blur(4px);
+}
+
+body.app-shell-ready :where(.modal-card,.popup-box,.dialog-card,.drawer,.side-drawer,.sheet,.bottom-sheet){
+  max-width:min(100%,calc(100vw - 2 * var(--ui3-space-4)));
+  max-height:calc(100dvh - var(--ui3-safe-top) - var(--ui3-safe-bottom) - 2 * var(--ui3-space-4));
+  color:var(--ui3-text);
+  background-color:var(--ui3-surface);
+  border-color:var(--ui3-border);
+  border-radius:var(--ui3-radius-lg);
+  box-shadow:var(--ui3-shadow);
+}
+
+body.app-shell-ready :where(.modal-body,.popup-content,.dialog-body,.drawer-content,.sheet-content){
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+}
+
+body.app-shell-ready :where(.modal-header,.popup-header,.dialog-header,.drawer-header,.sheet-header){
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+  background-color:var(--ui3-surface);
+}
+
+body.app-shell-ready :where(.context-menu,.dropdown-menu,.popover,.stock-item-menu-popover){
+  color:var(--ui3-text);
+  background-color:var(--ui3-surface);
+  border-color:var(--ui3-border);
+  border-radius:var(--ui3-radius-md);
+  box-shadow:var(--ui3-shadow);
+}
+
+body.app-shell-ready :where(.profile-panel-backdrop,.profile-switch-backdrop,.profile-photo-modal-backdrop){display:grid;place-items:center;padding:var(--ui3-space-4)}
+body.app-shell-ready :where(.profile-premium-panel,.profile-switch-panel,.profile-photo-modal){position:relative;inset:auto;right:auto;left:auto;margin:auto;max-width:min(720px,calc(100vw - 2 * var(--ui3-space-4)))}
+
+@media(max-width:767px){
+  body.mobile-mode.app-shell-ready :where(.modal-card,.popup-box,.dialog-card,.sheet,.bottom-sheet){
+    max-width:100%;
+  }
+  body.mobile-mode.app-shell-ready .topbar-profile-backdrop{display:grid;place-items:start center;padding:calc(var(--ui3-safe-top) + var(--ui3-space-5)) var(--ui3-space-3) var(--ui3-space-3)}
+  body.mobile-mode.app-shell-ready .topbar-profile-menu{position:relative;inset:auto;right:auto;left:auto;top:auto;width:min(100%,360px);margin:0 auto}
+}

@@ -49,7 +49,7 @@ const publicSrcFiles = [
   "src/services/diagnosticsService.js",
   "src/services/smartLoaderService.js",
   "src/services/safeAreaManager.js",
-  "src/services/themeAuthorityV2.js",
+  "src/services/themeAuthorityV3.js",
   "src/services/googleMotionEnhancer.js",
   "src/services/printerMonitoringService.js",
   "src/services/adMobService.js",
@@ -71,7 +71,6 @@ publicSrcFiles.forEach((relativePath) => {
 });
 
 const publicThemeFiles = [
-  "themes/base/design-system-v2.css"
 ];
 
 publicThemeFiles.forEach((relativePath) => {

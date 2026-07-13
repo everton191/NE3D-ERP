@@ -1,0 +1,19 @@
+:root{
+  --ui3-font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --ui3-font-size-xs:12px;
+  --ui3-font-size-sm:14px;
+  --ui3-font-size-md:16px;
+  --ui3-font-size-lg:20px;
+  --ui3-font-size-xl:24px;
+  --ui3-font-weight-regular:400;
+  --ui3-font-weight-medium:600;
+  --ui3-font-weight-strong:800;
+  --ui3-line-height-body:1.45;
+  --ui3-line-height-title:1.15;
+  --ui3-card-min-height-compact:56px;
+  --ui3-card-min-height-standard:72px;
+  --ui3-card-min-height-large:96px;
+  --ui3-card-padding-compact:8px;
+  --ui3-card-padding-standard:12px;
+  --ui3-card-padding-large:16px;
+}

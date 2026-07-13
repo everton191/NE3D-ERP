@@ -1,0 +1,50 @@
+body.app-shell-ready :where(button,.btn,.app-button,.icon-button){
+  font-family:var(--ui3-font-family);
+  border-color:var(--ui3-border);
+}
+
+body.app-shell-ready :where(.btn,.app-button):not(.danger):not(.error):not(.warning):not(.success){
+  min-height:var(--ui3-control-height);
+  border-radius:var(--ui3-radius-md);
+}
+
+body.app-shell-ready :where(.btn.primary,.app-button.primary,.primary-action){
+  color:#fff;
+  background:var(--ui3-primary);
+  border-color:var(--ui3-primary);
+}
+
+body.app-shell-ready :where(.btn.secondary,.btn.ghost,.app-button.secondary,.app-button.ghost){
+  color:var(--ui3-text);
+  background:var(--ui3-surface);
+  border-color:var(--ui3-border);
+}
+
+body.app-shell-ready :where(input,select,textarea,.input,.select){
+  min-width:0;
+  color:var(--ui3-text);
+  background:var(--ui3-surface);
+  border-color:var(--ui3-border);
+  border-radius:var(--ui3-radius-md);
+  font-family:var(--ui3-font-family);
+}
+
+body.app-shell-ready :where(input,select):not([type="checkbox"]):not([type="radio"]):not([type="range"]){
+  min-height:var(--ui3-control-height);
+}
+
+body.app-shell-ready :where(input,select,textarea,button,.btn,.app-button):focus-visible{
+  outline:3px solid color-mix(in srgb,var(--ui3-focus) 32%,transparent);
+  outline-offset:2px;
+}
+
+body.app-shell-ready :where(label,.field-label,.form-label){
+  color:var(--ui3-text);
+  font-family:var(--ui3-font-family);
+  font-weight:var(--ui3-font-weight-medium);
+}
+
+body.app-shell-ready :where(.field-hint,.form-hint,.helper-text,.validation-hint){
+  color:var(--ui3-muted);
+  font-size:var(--ui3-font-size-sm);
+}

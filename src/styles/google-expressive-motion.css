@@ -540,7 +540,7 @@ body[data-ui-profile="web_pwa"].gxm-motion-ready:not([data-motion="high"]) :wher
     transition-duration:1ms!important;
   }
 
-  body.gxm-force-motion :where(#app-content,.app-content-shell,.app-page,.s3d-page,.storefront-app,.storefront-editor,.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.sfv3-product-card,.sfv3-category-card,.sfv3-sponsored-card,.sfe-list-card,.sfe-overview .store-ui-card,.sfv3-hero,.sfv3-hero__media){
+  body.gxm-force-motion :where(#app-content,.app-content-shell,.app-page,.ui3-page,.storefront-app,.storefront-editor,.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.sfv3-product-card,.sfv3-category-card,.sfv3-sponsored-card,.sfe-list-card,.sfe-overview .store-ui-card,.sfv3-hero,.sfv3-hero__media){
     animation-duration:var(--gxm-slow)!important;
     animation-iteration-count:1!important;
   }

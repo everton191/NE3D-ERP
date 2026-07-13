@@ -1,0 +1,39 @@
+body.app-shell-ready :where(.app-page,.organized-page,.settings-page,.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen,.superadmin-platform-shell){
+  width:100%;
+  min-width:0;
+  max-width:var(--ui3-page-max);
+  margin-inline:auto;
+  color:var(--ui3-text);
+  background-color:var(--ui3-bg);
+  font-family:var(--ui3-font-family);
+}
+
+body.app-shell-ready :where(.app-page,.organized-page,.settings-page,.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen) :where(.page-header,.screen-header,.section-header,.card-header){
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+}
+
+body.app-shell-ready :where(.settings-page,.administration-page,.superadmin-platform-shell) :where(.settings-section,.admin-section,.superadmin-section,.admin-modern-panel){
+  min-width:0;
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+  background-color:var(--ui3-surface);
+}
+
+body.app-shell-ready :where(.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen) :where(.summary-grid,.metrics-grid,.content-grid,.ui3-grid){
+  min-width:0;
+  max-width:100%;
+}
+
+body.app-shell-ready .superadmin-platform-shell :where(.client-admin-row,.admin-user-row,.admin-modern-panel){
+  min-width:0;
+  max-width:100%;
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+}
+
+@media(max-width:767px){
+  body.mobile-mode.app-shell-ready :where(.app-page,.organized-page,.settings-page,.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen,.superadmin-platform-shell){
+    max-width:100%;
+  }
+}

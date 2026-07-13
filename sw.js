@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v255-passive-assistant-20260713";
+const CACHE_NAME = "simplifica-3d-v267-1.0.11-full-height-orders-20260713";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -14,14 +14,13 @@ const APP_FILES = [
   "./src/services/diagnosticsService.js",
   "./src/services/smartLoaderService.js",
   "./src/services/safeAreaManager.js",
-  "./src/services/themeAuthorityV2.js",
+  "./src/services/themeAuthorityV3.js",
   "./src/services/googleMotionEnhancer.js",
   "./src/services/printerMonitoringService.js",
   "./src/services/adMobService.js",
   "./src/services/adSenseService.js",
   "./src/services/monetizationLimits.js",
   "./src/services/calculatorDomain.js",
-  "./themes/base/design-system-v2.css",
   "./src/styles/google-expressive-motion.css",
   "./assets/vendor/jspdf.umd.min.js",
   "./assets/vendor/qrcode.min.js",
@@ -85,9 +84,8 @@ self.addEventListener("fetch", (event) => {
     "/src/storefront/styles/layouts.css",
     "/src/storefront/renderers/publicV3.js",
     "/src/storefront/renderers/editorV3.js",
-    "/themes/base/design-system-v2.css",
     "/sw.js",
-    "/src/services/themeAuthorityV2.js",
+    "/src/services/themeAuthorityV3.js",
     "/src/services/safeAreaManager.js",
     "/src/services/smartLoaderService.js",
     "/src/services/printerMonitoringService.js",

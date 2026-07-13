@@ -12,13 +12,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Simplifica 3D">
 
-  <link rel="stylesheet" href="/style.css?v=1.0.10-passive-assistant-20260713">
-  <link rel="stylesheet" href="/themes/base/design-system-v2.css?v=1.0.61-rc-stock-order-batch-b-20260703">
+  <link rel="stylesheet" href="/style.css?v=1.0.11-v3-full-height-orders-20260713">
   <link rel="stylesheet" href="/src/storefront/styles/tokens.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/components.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/layouts.css?v=store-categories-vertical-card-20260628">
   <link rel="stylesheet" href="/src/styles/google-expressive-motion.css?v=1.0.57-rc-plans-release-20260628">
-  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=stage3-screen-migration">
+  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=v3-screen-polish-20260713">
   <script src="/src/ui-v3/components/foundation.js"></script>
   <script src="/src/ui-v3/layout/components.js"></script>
   <script src="/src/ui-v3/components/components.js"></script>
@@ -87,7 +86,7 @@
   <span class="header-spacer" aria-hidden="true"></span>
 </header>
 
-<div id="app-shell" class="app-shell erp-shell erp-theme-v2" data-shell-version="2a">
+<div id="app-shell" class="app-shell erp-shell erp-theme-v3" data-shell-version="3">
   <aside id="app-sidebar" class="app-shell-slot app-sidebar-slot" aria-hidden="true"></aside>
   <header id="app-topbar" class="app-shell-slot app-topbar-slot" aria-hidden="true"></header>
   <main id="app-content" class="app-content-shell" data-ui-scroll-owner="app-content" tabindex="0" onkeydown="gerenciarScrollContainerTeclado(event)">
@@ -107,7 +106,7 @@
 <script src="/src/services/diagnosticsService.js?v=fase-7b-ui-ux-20260530"></script>
 <script src="/src/services/smartLoaderService.js?v=1.0.57-rc-plans-release-20260628"></script>
 <script src="/src/services/safeAreaManager.js?v=1.0.57-rc-plans-release-20260628"></script>
-<script src="/src/services/themeAuthorityV2.js?v=1.0.57-rc-plans-release-20260628"></script>
+<script src="/src/services/themeAuthorityV3.js?v=theme-v3-only-20260713"></script>
 <script src="/src/services/googleMotionEnhancer.js?v=1.0.57-rc-plans-release-20260628"></script>
 <script src="/src/services/printerMonitoringService.js?v=printer-monitor-simple-20260701"></script>
 <script src="/src/storefront/renderers/publicV3.js?v=1.0.57-rc-plans-release-20260628"></script>
@@ -117,10 +116,10 @@
 <script src="/src/services/adSenseService.js?v=1.0.17-mobile-fixes-ads-space-20260615"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/calculatorDomain.js?v=calculator-domain-20260711"></script>
-  <script src="/app.js?v=1.0.5-ui-v3-stage3-20260712"></script>
+  <script src="/app.js?v=v3-screen-polish-20260713"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.5-ui-v3-stage3-20260712", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=v3-only-runtime-20260713", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>

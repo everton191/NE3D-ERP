@@ -1,7 +1,8 @@
+@import url("./system-tokens.css?v=global-typography-20260713");
 @import url("./tokens.css");
 @import url("./reset.css");
 @import url("./viewport.css");
-@import url("./app-shell.css?v=stage3-scroll-owner-2");
+@import url("./app-shell.css?v=unified-system-authority-20260713");
 @import url("./layout.css");
 @import url("./grid.css");
 @import url("./spacing.css");
@@ -20,7 +21,14 @@
 @import url("./utilities.css");
 @import url("./screens/settings.css");
 @import url("./screens/reading.css");
-@import url("./screens/calculator.css");
+@import url("./screens/calculator.css?v=sticky-safe-area-20260713");
 @import url("./screens/superadmin.css");
 @import url("./screens/operational.css");
 @import url("./screens/finance.css");
+@import url("./screens/plans.css?v=plans-v3-20260713");
+@import url("./legacy-bridge.css?v=unified-system-authority-20260713");
+@import url("./system-navigation.css?v=unified-navigation-20260713");
+@import url("./system-controls.css?v=unified-controls-20260713");
+@import url("./system-content.css?v=unified-content-20260713");
+@import url("./system-overlays.css?v=unified-overlays-20260713");
+@import url("./system-screens.css?v=unified-screens-20260713");

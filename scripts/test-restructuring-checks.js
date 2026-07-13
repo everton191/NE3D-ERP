@@ -154,8 +154,8 @@ assert(css.includes("bottom:0 !important"), "Bottom nav principal nao deve somar
 assert(css.includes("padding-bottom:var(--app-safe-bottom) !important"), "Bottom nav principal usa padding seguro");
 assert(css.includes("bottom:calc(var(--app-safe-bottom) + 16px) !important"), "Elementos inferiores flutuantes usam safe area central");
 assert(read("android/app/src/main/java/br/com/ne3d/erp/MainActivity.java").includes("simplifica-native-insets-change"), "Android notifica mudanca de insets para o WebView");
-assert(pkg.scripts && pkg.scripts["test:layout-overflow-v2"] === "node scripts/test-layout-overflow-v2.js", "package.json expoe test:layout-overflow-v2");
-assert(pkg.scripts && pkg.scripts["test:erp-shell-v2"] === "node scripts/test-erp-shell-v2.js", "package.json expoe test:erp-shell-v2");
+assert(pkg.scripts && pkg.scripts["test:ui-v3-foundation"] === "node scripts/test-ui-v3-foundation.js", "package.json expoe test:ui-v3-foundation");
+assert(pkg.scripts && pkg.scripts["test:ui-v3-system-authority"] === "node scripts/test-ui-v3-system-authority.js", "package.json expoe test:ui-v3-system-authority");
 assert(pkg.scripts && pkg.scripts["test:storefront-public-ui"] === "node scripts/test-storefront-public-ui.js", "package.json expoe test:storefront-public-ui");
 assert(app.includes("const STOREFRONT_PUBLIC_RELEASE = true;"), "loja publica V2 esta oficializada sem porta beta");
 assert(!getFunctionBody(app, "renderApp").includes("sincronizarStorefrontBetaAccessRemoto(false)"), "render principal nao consulta acesso beta legado");
@@ -498,11 +498,9 @@ assert(exists("src/storefront/plans/storefrontPlanRules.ts"), "regras de planos 
   "test:storefront-pwa-upgrade",
   "test:storefront-premium-7c3",
   "test:storefront-light-theme-stability",
-  "test:design-system-v2",
-  "test:erp-theme-v2",
-  "test:storefront-theme-v2",
   "test:storefront-demo-products",
-  "test:plans-theme-v2",
+  "test:ui-v3-system-authority",
+  "test:storefront-v3-theme-isolation",
   "test:theme-isolation",
   "test:ui-theme-consistency",
   "test:storefront-desktop-upscale",

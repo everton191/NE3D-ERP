@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.10";
-const APP_VERSION_CODE = 11;
+const APP_VERSION = "1.0.11";
+const APP_VERSION_CODE = 12;
 const APP_RELEASE_NOTES = Object.freeze([
   "Correções de interface e melhorias de desempenho."
 ]);
@@ -520,24 +520,24 @@ const FEATURE_ACCESS_REGISTRY = Object.freeze({
 });
 
 const UI_BUTTON_RELATIONS = Object.freeze({
-  primary: Object.freeze({ className: "primary", tokenSet: "action-primary", tokens: ["--s3d-button-primary-bg", "--s3d-button-primary-text", "--s3d-button-primary-border"] }),
-  secondary: Object.freeze({ className: "secondary", tokenSet: "action-secondary", tokens: ["--s3d-button-secondary-bg", "--s3d-button-secondary-text", "--s3d-button-secondary-border"] }),
-  ghost: Object.freeze({ className: "ghost", tokenSet: "action-ghost", tokens: ["--s3d-button-ghost-bg", "--s3d-button-ghost-text", "--s3d-button-ghost-border"] }),
-  outline: Object.freeze({ className: "outline", tokenSet: "action-outline", tokens: ["--s3d-button-ghost-bg", "--s3d-button-secondary-text", "--s3d-button-secondary-border"] }),
-  danger: Object.freeze({ className: "danger", tokenSet: "action-danger", tokens: ["--s3d-button-danger-bg", "--s3d-button-danger-text", "--s3d-button-danger-border"] }),
-  success: Object.freeze({ className: "success", tokenSet: "action-success", tokens: ["--s3d-button-success-bg", "--s3d-button-success-text", "--s3d-button-success-border"] })
+  primary: Object.freeze({ className: "primary", tokenSet: "action-primary", tokens: ["--ui3-primary", "--ui3-surface", "--ui3-primary"] }),
+  secondary: Object.freeze({ className: "secondary", tokenSet: "action-secondary", tokens: ["--ui3-surface", "--ui3-text", "--ui3-border"] }),
+  ghost: Object.freeze({ className: "ghost", tokenSet: "action-ghost", tokens: ["transparent", "--ui3-text", "--ui3-border"] }),
+  outline: Object.freeze({ className: "outline", tokenSet: "action-outline", tokens: ["transparent", "--ui3-text", "--ui3-border"] }),
+  danger: Object.freeze({ className: "danger", tokenSet: "action-danger", tokens: ["--ui3-danger", "--ui3-surface", "--ui3-danger"] }),
+  success: Object.freeze({ className: "success", tokenSet: "action-success", tokens: ["--color-success", "--ui3-surface", "--color-success"] })
 });
 
 const UI_COMPONENT_SIZE_RELATIONS = Object.freeze({
   button: Object.freeze({
-    compact: Object.freeze({ tokenSet: "button-compact", height: "--s3d-button-height-compact" }),
-    standard: Object.freeze({ tokenSet: "button-standard", height: "--s3d-button-height-standard" }),
-    large: Object.freeze({ tokenSet: "button-large", height: "--s3d-button-height-large" })
+    compact: Object.freeze({ tokenSet: "button-compact", height: "--ui3-control-height" }),
+    standard: Object.freeze({ tokenSet: "button-standard", height: "--ui3-control-height" }),
+    large: Object.freeze({ tokenSet: "button-large", height: "--ui3-control-height" })
   }),
   card: Object.freeze({
-    compact: Object.freeze({ tokenSet: "card-compact", minHeight: "--s3d-card-min-height-compact", padding: "--s3d-card-padding-compact" }),
-    standard: Object.freeze({ tokenSet: "card-standard", minHeight: "--s3d-card-min-height-standard", padding: "--s3d-card-padding-standard" }),
-    large: Object.freeze({ tokenSet: "card-large", minHeight: "--s3d-card-min-height-large", padding: "--s3d-card-padding-large" })
+    compact: Object.freeze({ tokenSet: "card-compact", minHeight: "--ui3-card-min-height-compact", padding: "--ui3-card-padding-compact" }),
+    standard: Object.freeze({ tokenSet: "card-standard", minHeight: "--ui3-card-min-height-standard", padding: "--ui3-card-padding-standard" }),
+    large: Object.freeze({ tokenSet: "card-large", minHeight: "--ui3-card-min-height-large", padding: "--ui3-card-padding-large" })
   })
 });
 
@@ -4281,7 +4281,7 @@ function renderTravaLocal() {
           <p class="muted auth-inline-feedback" id="localUnlockFeedback">Digite a senha usada nesta conta. O teclado permanece aberto se houver erro.</p>
           <div class="actions">
             <button id="localUnlockBtn" class="btn" type="submit">Desbloquear</button>
-            ${appConfig.biometricEnabled && isAndroid() ? `<button class="btn secondary s3d-button" data-ui-component="Button" type="button" onclick="tentarDesbloqueioLocalComBiometria()">Usar biometria</button>` : ""}
+            ${appConfig.biometricEnabled && isAndroid() ? `<button class="btn secondary" data-ui-component="Button" type="button" onclick="tentarDesbloqueioLocalComBiometria()">Usar biometria</button>` : ""}
             <button class="btn ghost" type="button" onclick="logoutUsuario()">Sair</button>
           </div>
         </form>
@@ -9654,7 +9654,7 @@ function detectarNivelMovimento() {
 function aplicarPersonalizacao() {
   const root = document.documentElement;
   const temaPreferido = normalizarPreferenciaTemaInterface(appConfig.theme);
-  const temaResolvido = window.SimplificaThemeAuthorityV2?.applyErpTheme?.(temaPreferido)?.resolved || getEffectiveThemeMode(temaPreferido);
+  const temaResolvido = window.SimplificaThemeAuthorityV3?.applyErpTheme?.(temaPreferido)?.resolved || getEffectiveThemeMode(temaPreferido);
   const usarClaro = temaResolvido === "light";
   appConfig.theme = temaPreferido;
   const cor = normalizarCorTemaControlado(appConfig.accentColor || "#72E6E8", temaPreferido, "primary");
@@ -9856,8 +9856,8 @@ function aplicarPersonalizacao() {
   const themeMeta = document.querySelector("meta[name='theme-color']");
   const publicStorefrontActive = !!document.querySelector(".sfv3-host:not(.sfe-host) .sfv3");
   if (themeMeta && !publicStorefrontActive) {
-    window.SimplificaThemeAuthorityV2?.updateThemeColor?.(temaResolvido);
-    if (!window.SimplificaThemeAuthorityV2) themeMeta.setAttribute("content", temaResolvido === "dark" ? "#08131d" : "#ffffff");
+    window.SimplificaThemeAuthorityV3?.updateThemeColor?.(temaResolvido);
+    if (!window.SimplificaThemeAuthorityV3) themeMeta.setAttribute("content", temaResolvido === "dark" ? "#08131d" : "#ffffff");
   }
 }
 
@@ -10006,7 +10006,7 @@ function renderAppComTransicaoNavegacao(tipo = "forward") {
   }
   document.documentElement.dataset.navDirection = tipo;
   const transicao = document.startViewTransition(() => renderApp());
-  transicao.finished.finally(() => {
+  transicao.finished.catch(() => {}).finally(() => {
     delete document.documentElement.dataset.navDirection;
   });
 }
@@ -11098,9 +11098,9 @@ function renderDesktop() {
   }
   const classeMenu = appConfig.sidebarCollapsed ? " sidebar-collapsed" : "";
   return `
-    <div class="desktop-shell s3d-shell${classeMenu}">
+    <div class="desktop-shell${classeMenu}">
       ${renderMenuLateral()}
-      <main class="desktop-main app-content s3d-shell-main">
+      <main class="desktop-main app-content">
         ${renderTopbar()}
         ${renderSuperAdminMaintenanceBanner()}
         ${renderAccountDeletionBanner()}
@@ -11140,7 +11140,7 @@ function renderTopbar() {
   const titulo = getTituloTelaDesktop(telaAtual);
   const subtitulo = getSubtituloTelaDesktop(telaAtual);
   return `
-    <section class="topbar app-topbar s3d-toolbar s3d-header">
+    <section class="topbar app-topbar">
       <div>
         <strong>${escaparHtml(titulo)}</strong>
         <span class="muted">${escaparHtml(subtitulo)}</span>
@@ -11752,7 +11752,7 @@ function renderOnboarding() {
   ];
 
   return `
-    <section class="card onboarding-card s3d-card s3d-onboarding">
+    <section class="card onboarding-card">
       <div class="card-header">
         <h2>Introdução</h2>
         <span class="status-badge">Simplifica 3D</span>
@@ -14585,7 +14585,7 @@ function renderMenuLateral() {
   const grupos = getMenuGroups();
 
   return `
-    <aside class="side-menu app-sidebar desktop-sidebar s3d-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
+    <aside class="side-menu app-sidebar desktop-sidebar ${recolhido ? "is-collapsed" : ""}" aria-label="Menu lateral">
       ${renderCabecalhoMenuLateral({ recolhido })}
       ${grupos.map(renderGrupoMenuLateral).join("")}
     </aside>
@@ -14970,7 +14970,7 @@ function renderBotaoLateral(item) {
   const relacao = getUiScreenRelation(item.tela);
   const iconKey = relacao?.icon || item.icone || item.tela;
   return `
-    <button class="side-nav-button s3d-nav-item" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
+    <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
       <span>${renderUiIcon(iconKey, item.tela)}</span>
       <strong>${item.texto}</strong>
     </button>
@@ -15005,7 +15005,7 @@ function renderDrawerLateral({ progress = 1, dragging = false } = {}) {
   const progresso = Math.min(1, Math.max(0, Number(progress) || 0));
   return `
     <div class="side-drawer-backdrop ${dragging ? "is-dragging" : ""}" role="dialog" aria-modal="true" aria-label="Menu do aplicativo" style="--drawer-progress:${progresso}">
-      <aside class="side-menu side-drawer mobile-drawer s3d-sidebar" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
+      <aside class="side-menu side-drawer mobile-drawer" onclick="event.stopPropagation()" style="--drawer-progress:${progresso}; transform:translate3d(${((progresso - 1) * 100).toFixed(1)}%,0,0)">
         ${renderCabecalhoMenuLateral({ drawer: true })}
         ${renderPerfilMenuLateral()}
         ${grupos.map((grupo) => `
@@ -15353,7 +15353,7 @@ function renderMobile() {
     ${renderSuperAdminMaintenanceBanner()}
     ${renderAccountDeletionBanner()}
     ${renderDrawerGestureRail()}
-    <div class="mobile-home app-page s3d-page s3d-mobile-page ${telaSubstituiNavMobile ? "mobile-home-underlay-hidden" : ""}" ${telaSubstituiNavMobile ? "aria-hidden=\"true\"" : ""}>
+    <div class="mobile-home app-page ${telaSubstituiNavMobile ? "mobile-home-underlay-hidden" : ""}" ${telaSubstituiNavMobile ? "aria-hidden=\"true\"" : ""}>
       ${renderAtualizacaoAndroidDownload()}
       ${home}
     </div>
@@ -15399,9 +15399,9 @@ function renderMobileBottomNav() {
   const itens = getMobileBottomNavItems();
   if (!itens.length || !getUsuarioAtual()) return "";
   return `
-    <nav class="mobile-bottom-nav app-bottom-navigation s3d-bottom-nav" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
+    <nav class="mobile-bottom-nav app-bottom-navigation" aria-label="Navegação principal" style="grid-template-columns:repeat(${itens.length}, minmax(0, 1fr))">
       ${itens.map((item) => `
-        <button class="mobile-bottom-nav-button s3d-nav-item ${item.tela && ativo === item.tela ? "active" : ""}" ${item.tela ? `data-tela="${item.tela}"` : `data-nav-action="more"`} type="button" onclick="${item.acao || `navegarMenuPrincipal('${item.tela}')`}" aria-label="${escaparAttr(item.texto)}">
+        <button class="mobile-bottom-nav-button ${item.tela && ativo === item.tela ? "active" : ""}" ${item.tela ? `data-tela="${item.tela}"` : `data-nav-action="more"`} type="button" onclick="${item.acao || `navegarMenuPrincipal('${item.tela}')`}" aria-label="${escaparAttr(item.texto)}">
           <span>${renderUiIcon(item.iconKey || getUiScreenRelation(item.tela)?.icon || item.tela, item.icone)}</span>
           <small>${escaparHtml(item.texto)}</small>
         </button>
@@ -15573,7 +15573,7 @@ function renderDashboardHomeHeader() {
   const usuario = getUsuarioAtual();
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
   return `
-    <section class="dashboard-home-header s3d-toolbar s3d-header">
+    <section class="dashboard-home-header">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <div class="dashboard-greeting">
         <h1>Olá, ${escaparHtml(nome)}!</h1>
@@ -16639,16 +16639,16 @@ function isStorefrontForcedLightContext(pathname = location.pathname) {
 
 function updateStorefrontThemeColor(theme = "light") {
   if (isStorefrontForcedLightContext()) {
-    if (window.SimplificaThemeAuthorityV2?.updateThemeColor) {
-      window.SimplificaThemeAuthorityV2.updateThemeColor("light");
+    if (window.SimplificaThemeAuthorityV3?.updateThemeColor) {
+      window.SimplificaThemeAuthorityV3.updateThemeColor("light");
     }
     const forcedThemeMeta = document.querySelector("meta[name='theme-color']");
     if (forcedThemeMeta) forcedThemeMeta.setAttribute("content", "#ffffff");
     return "light";
   }
   const resolvedTheme = getEffectiveThemeMode(theme);
-  if (window.SimplificaThemeAuthorityV2?.updateThemeColor) {
-    return window.SimplificaThemeAuthorityV2.updateThemeColor(resolvedTheme);
+  if (window.SimplificaThemeAuthorityV3?.updateThemeColor) {
+    return window.SimplificaThemeAuthorityV3.updateThemeColor(resolvedTheme);
   }
   const themeMeta = document.querySelector("meta[name='theme-color']");
   if (themeMeta) themeMeta.setAttribute("content", STOREFRONT_THEME_COLORS[resolvedTheme]);
@@ -21593,6 +21593,23 @@ function voltarPainelLojaVisual(event = null) {
   solicitarNavegacaoSeguraLoja(() => trocarTela("lojaOnline"));
 }
 
+function configurarTecladoEditorLojaV3() {
+  if (window.__storefrontEditorKeyboardV3Configured) return;
+  window.__storefrontEditorKeyboardV3Configured = true;
+  document.addEventListener("keydown", (event) => {
+    const editorAtivo = document.querySelector(".sfe-shell, .sfe-form, .storefront-editor");
+    if (!editorAtivo) return;
+    const alvoEditavel = elementoEditavelOperacional(event.target);
+    const voltar = event.key === "Escape" || (event.altKey && event.key === "ArrowLeft");
+    if (!voltar || (alvoEditavel && event.key !== "Escape")) return;
+    event.preventDefault();
+    event.stopPropagation();
+    voltarPainelLojaVisual(event);
+  }, true);
+}
+
+configurarTecladoEditorLojaV3();
+
 function editarProdutoPublicadoLojaOnline(id = "") {
   const vm = getStorefrontPublicViewModel();
   if (telaAtual === "lojaPublica" && getStorefrontPublicMode(vm).admin) {
@@ -24362,7 +24379,7 @@ function renderDashboardQuickActionsPanel() {
     acoes.push({ id: "loja_online", label: "Gerenciar loja", tela: "lojaOnline", iconKey: "lojaOnline" });
   }
   return `
-    <section class="dashboard-actions-panel desktop-dashboard-actions s3d-card">
+    <section class="dashboard-actions-panel desktop-dashboard-actions card">
       <div class="quick-actions-header">
         <h2>Ações rápidas</h2>
         <button class="text-link quick-customize-link" type="button" onclick="abrirPersonalizarAtalhos()">Personalizar ${renderUiIcon("preferencias")}</button>
@@ -24444,7 +24461,7 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
       </div>
       <div class="dashboard-mobile-advanced-grid">
         ${itens.map((item) => `
-          <button class="dashboard-mobile-advanced-card s3d-card" type="button" onclick="trocarTela('${escaparAttr(item.tela)}')" data-ui-token-set="dashboard-advanced">
+          <button class="dashboard-mobile-advanced-card card" type="button" onclick="trocarTela('${escaparAttr(item.tela)}')" data-ui-token-set="dashboard-advanced">
             <span class="dashboard-mobile-advanced-icon">${renderUiIcon(item.icon)}</span>
             <span class="dashboard-mobile-advanced-copy">
               <strong>${escaparHtml(item.label)}</strong>
@@ -25581,7 +25598,7 @@ function renderListaPedidos() {
     : `<button class="btn ghost" onclick="trocarTela('assinatura')">Pagar agora</button>`;
 
   return `
-    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders" data-ui-version="v3" data-ui3-screen="pedidos">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders ${pedidoSelecionado ? "ui3-orders-has-detail" : ""}" data-ui-version="v3" data-ui3-screen="pedidos">
       ${modoSimples
         ? `<div class="ui3-simple-orders-toolbar">${acaoNovoPedido}</div>`
         : `<div class="card-header">
@@ -25594,7 +25611,7 @@ function renderListaPedidos() {
         <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
         <input data-search-context="pedidos" data-preserve-focus-key="pedidos-busca" value="${escaparAttr(buscaPedidos)}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
       </label>
-      ${isContextAdvancedVisible("pedidos") ? renderPedidoStatusChips(listaBaseInicial, filtroAtivo) : ""}
+      ${(isMobile() || isContextAdvancedVisible("pedidos")) ? renderPedidoStatusChips(listaBaseInicial, filtroAtivo) : ""}
       ${detalhe}
       ${linhas}
       ${paginacao}
@@ -25868,7 +25885,7 @@ function renderDetalhePedido(pedido) {
           <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
           ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
         </div>
-        <span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span>
+        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="icon-action-button order-detail-close" type="button" onclick="pedidoVisualizandoId=null;renderizarPreservandoScroll()" title="Fechar detalhes" aria-label="Fechar detalhes">${renderUiIcon("close")}</button></div>
       </div>
       <div class="order-detail-total">
         <div>
@@ -30779,7 +30796,7 @@ function appClasseBase(base = "", variantes = []) {
 function renderAppButton({ label = "", icon = "", variant = "primary", size = "standard", action = "", type = "button", extraClass = "", attrs = "" } = {}) {
   const relation = getUiButtonRelation(variant);
   const sizeRelation = getUiComponentSizeRelation("button", size);
-  const classes = appClasseBase(`btn app-button s3d-button ${relation.className}`, extraClass);
+  const classes = appClasseBase(`btn app-button ${relation.className}`, extraClass);
   const onclick = action ? ` onclick="${action}"` : "";
   return `<button class="${classes}" type="${escaparAttr(type)}" data-ui-variant="${escaparAttr(relation.className)}" data-ui-size="${escaparAttr(size)}" data-ui-token-set="${escaparAttr(relation.tokenSet)} ${escaparAttr(sizeRelation.tokenSet)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
 }
@@ -30789,7 +30806,7 @@ function renderThemeModeButton(extraClass = "") {
   const relation = getUiButtonRelation("secondary");
   const label = preference === "system" ? "Tema automático" : preference === "dark" ? "Tema escuro" : "Tema claro";
   return `
-    <button class="${appClasseBase(`icon-button s3d-button theme-mode-toggle ${relation.className}`, extraClass)}"
+    <button class="${appClasseBase(`icon-button theme-mode-toggle ${relation.className}`, extraClass)}"
       type="button"
       data-theme-mode-toggle
       data-theme-preference="${escaparAttr(preference)}"
@@ -31328,8 +31345,8 @@ function trocarAbaAuth(tab) {
 function renderAuthPublica() {
   const tab = getAuthTabAtual();
   return `
-    <section class="auth-page s3d-page s3d-auth-page" aria-label="Acesso ao Simplifica 3D">
-      <div class="auth-card s3d-card s3d-auth-card">
+    <section class="auth-page" aria-label="Acesso ao Simplifica 3D">
+      <div class="auth-card card">
         <div class="auth-brand">
           ${renderMarcaOficialProjeto("auth-logo", "Simplifica 3D", "icon")}
           <div>
@@ -31338,7 +31355,7 @@ function renderAuthPublica() {
           </div>
         </div>
 
-        <div class="auth-tabs s3d-segmented" role="tablist" aria-label="Escolha o fluxo de autenticação">
+        <div class="auth-tabs" role="tablist" aria-label="Escolha o fluxo de autenticação">
           <button type="button" class="${tab === "signin" ? "active" : ""}" role="tab" aria-selected="${tab === "signin"}" onclick="trocarAbaAuth('signin')">Entrar</button>
           <button type="button" class="${tab === "signup" ? "active" : ""}" role="tab" aria-selected="${tab === "signup"}" onclick="trocarAbaAuth('signup')">Criar conta</button>
         </div>
@@ -31355,17 +31372,17 @@ function renderAuthPublica() {
 function renderAuthEntrar() {
   const emailSalvoNoNavegador = carregarEmailLoginSalvo();
   return `
-    <form class="auth-form s3d-form" onsubmit="event.preventDefault(); loginUsuario();">
-      <label class="field auth-field s3d-field">
+    <form class="auth-form" onsubmit="event.preventDefault(); loginUsuario();">
+      <label class="field auth-field">
         <span>Email</span>
-        <input id="usuarioLoginEmail" class="s3d-input" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || emailSalvoNoNavegador)}" placeholder="seu@email.com" autocomplete="username">
+        <input id="usuarioLoginEmail" type="email" value="${escaparAttr(usuarioAtualEmail || syncConfig.supabaseEmail || emailSalvoNoNavegador)}" placeholder="seu@email.com" autocomplete="username">
       </label>
 
-      <label class="field auth-field s3d-field">
+      <label class="field auth-field">
         <span>Senha</span>
         <div class="password-row auth-password-row">
-          <input id="usuarioLoginSenha" class="s3d-input" type="password" placeholder="Sua senha" autocomplete="current-password">
-          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <input id="usuarioLoginSenha" type="password" placeholder="Sua senha" autocomplete="current-password">
+          <button class="icon-button secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
       </label>
 
@@ -31374,7 +31391,7 @@ function renderAuthEntrar() {
         <span>Salvar e-mail e senha neste navegador</span>
       </label>
 
-      <button id="loginUsuarioBtn" class="btn auth-primary s3d-button s3d-button-primary" type="submit">Entrar</button>
+      <button id="loginUsuarioBtn" class="btn auth-primary primary" type="submit">Entrar</button>
       ${renderGoogleAuthButton("Entrar com Google")}
 
       <div class="auth-link-row">
@@ -31392,37 +31409,37 @@ function renderAuthEntrar() {
 
 function renderAuthCriarConta() {
   return `
-    <form class="auth-form auth-signup-form s3d-form" onsubmit="event.preventDefault(); cadastrarClienteSaas();">
-      <label class="field auth-field s3d-field">
+    <form class="auth-form auth-signup-form" onsubmit="event.preventDefault(); cadastrarClienteSaas();">
+      <label class="field auth-field">
         <span>Nome completo</span>
-        <input id="signupNome" class="s3d-input" placeholder="Seu nome" autocomplete="name">
+        <input id="signupNome" placeholder="Seu nome" autocomplete="name">
       </label>
-      <label class="field auth-field s3d-field">
+      <label class="field auth-field">
         <span>Email</span>
-        <input id="signupEmail" class="s3d-input" type="email" placeholder="seu@email.com" autocomplete="email">
+        <input id="signupEmail" type="email" placeholder="seu@email.com" autocomplete="email">
       </label>
-      <label class="field auth-field s3d-field">
+      <label class="field auth-field">
         <span>Senha</span>
         <div class="password-row auth-password-row">
-          <input id="signupSenha" class="s3d-input" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('signupSenha', this)">
-          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <input id="signupSenha" type="password" autocomplete="new-password" oninput="renderIndicadorForcaSenha('signupSenha', this)">
+          <button class="icon-button secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
         <small class="password-strength" data-strength-for="signupSenha">Digite uma senha forte</small>
       </label>
-      <label class="field auth-field s3d-field">
+      <label class="field auth-field">
         <span>Confirmar senha</span>
         <div class="password-row auth-password-row">
-          <input id="signupConfirmarSenha" class="s3d-input" type="password" autocomplete="new-password">
-          <button class="icon-button s3d-button s3d-icon-button s3d-button-secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
+          <input id="signupConfirmarSenha" type="password" autocomplete="new-password">
+          <button class="icon-button secondary password-visibility-button" type="button" onclick="alternarSenhaVisivel(this)" title="Mostrar/ocultar senha">👁</button>
         </div>
       </label>
-      <label class="field auth-field s3d-field">
+      <label class="field auth-field">
         <span>Nome do negócio</span>
-        <input id="signupNegocio" class="s3d-input" placeholder="Ex.: Minha Impressão 3D">
+        <input id="signupNegocio" placeholder="Ex.: Minha Impressão 3D">
       </label>
-      <label class="field auth-field s3d-field">
+      <label class="field auth-field">
         <span>Telefone opcional</span>
-        <input id="signupTelefone" class="s3d-input" inputmode="tel" placeholder="+5585999999999" autocomplete="tel">
+        <input id="signupTelefone" inputmode="tel" placeholder="+5585999999999" autocomplete="tel">
       </label>
 
       <label class="auth-checkline auth-terms-row">
@@ -31435,7 +31452,7 @@ function renderAuthCriarConta() {
         </span>
       </label>
 
-      <button id="signupBtn" class="btn auth-primary s3d-button s3d-button-primary" type="submit">Criar conta</button>
+      <button id="signupBtn" class="btn auth-primary primary" type="submit">Criar conta</button>
 
       <p class="auth-footer-text">
         Já tem conta?
@@ -34041,8 +34058,8 @@ function normalizarPreferenciaTemaInterface(mode = "light") {
 
 function getEffectiveThemeMode(mode = appConfig.theme || "light") {
   const preference = normalizarPreferenciaTemaInterface(mode);
-  if (window.SimplificaThemeAuthorityV2?.resolveTheme) {
-    return window.SimplificaThemeAuthorityV2.resolveTheme(preference);
+  if (window.SimplificaThemeAuthorityV3?.resolveTheme) {
+    return window.SimplificaThemeAuthorityV3.resolveTheme(preference);
   }
   if (preference === "system" && window.matchMedia) {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
@@ -35436,7 +35453,7 @@ function renderAssinatura() {
   const planoSelecionado = planos.find((plano) => plano.slug === selectedSlug) || planos[0];
 
   return `
-    <section class="plans-modern-screen plans-pricing-screen s3d-plans-v2">
+    <section class="plans-modern-screen plans-pricing-screen ui3-plans">
       <div class="plans-modern-header">
         <button class="icon-action-button" type="button" onclick="trocarTela('conta')" title="Voltar">${renderUiIcon("back")}</button>
         <h2>Planos</h2>
@@ -36634,7 +36651,7 @@ function alterarTemaInterfaceRapido(value = "system") {
   const tema = normalizarPreferenciaTemaInterface(value);
   appConfig.theme = tema;
   localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, tema);
-  window.SimplificaThemeAuthorityV2?.applyErpTheme?.(tema);
+  window.SimplificaThemeAuthorityV3?.applyErpTheme?.(tema);
   aplicarPersonalizacao();
   salvarDados();
   const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#72E6E8", tema, "primary");
@@ -37883,16 +37900,16 @@ function mostrarResumoAtualizacaoUmaVez() {
   if (!popup || popup.innerHTML.trim()) return false;
   popup.innerHTML = `
     <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releaseNotesTitle">
-      <section class="modal-card release-notes-modal s3d-card" data-ui-component="Card">
+      <section class="modal-card release-notes-modal" data-ui-component="Card">
         <div class="modal-header">
           <div><span class="eyebrow">Versão ${escaparHtml(APP_VERSION)}</span><h2 id="releaseNotesTitle">O que mudou</h2></div>
-          <button class="icon-button s3d-button" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()" title="Fechar">✕</button>
+          <button class="icon-button" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()" title="Fechar">✕</button>
         </div>
         <ul class="release-notes-list">
           ${APP_RELEASE_NOTES.map((nota) => `<li><span>${renderUiIcon("check")}</span><p>${escaparHtml(nota)}</p></li>`).join("")}
         </ul>
         <div class="actions">
-          <button class="btn s3d-button" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()">Entendi</button>
+          <button class="btn" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()">Entendi</button>
         </div>
       </section>
     </div>
@@ -44157,7 +44174,7 @@ function renderCalculadoraConteudo() {
     <div class="calc-toolbar">
       <button class="icon-button" type="button" onclick="voltarTela()" title="Voltar">‹</button>
       <strong>Calculadora</strong>
-      <button class="btn ghost" type="button" onclick="abrirConfiguracoesCalculadora()">${renderUiIcon("config")} Configurações</button>
+      <button class="icon-button" type="button" onclick="abrirConfiguracoesCalculadora()" title="Configurações" aria-label="Configurações">${renderUiIcon("config")}</button>
     </div>
 
     <section class="calc-active-profile">

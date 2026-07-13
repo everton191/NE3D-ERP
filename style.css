@@ -38724,6 +38724,38 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .sfe-assisted-hint small{
   content:none !important;
 }
 
+@media(max-width:767px){
+  .password-row,
+  .auth-password-row{
+    position:relative !important;
+    display:block !important;
+    width:100% !important;
+    min-width:0 !important;
+  }
+
+  .password-row > input,
+  .auth-password-row > input{
+    width:100% !important;
+    min-width:0 !important;
+    padding-right:52px !important;
+  }
+
+  .password-row > .password-visibility-button,
+  .auth-password-row > .password-visibility-button{
+    position:absolute !important;
+    right:8px !important;
+    top:50% !important;
+    z-index:2;
+    width:36px !important;
+    min-width:36px !important;
+    height:36px !important;
+    min-height:36px !important;
+    margin:0 !important;
+    padding:0 !important;
+    transform:translateY(-50%) !important;
+  }
+}
+
 /* PL-01 visual guard: plano promocional no PWA, sobrescreve fundos antigos dos cards. */
 body.theme-light .plans-pricing-screen .plans-pricing-grid .plan-tier-free{
   background:
@@ -44600,32 +44632,6 @@ body :where(.side-menu, .app-sidebar, .desktop-sidebar)::-webkit-scrollbar {
   overflow-y: visible !important;
 }
 
-body.mobile-mode .mobile-panel {
-  min-height: 100% !important;
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-}
-
-body.mobile-mode .mobile-panel-content {
-  min-height: 0 !important;
-  height: auto !important;
-  max-height: none !important;
-  overflow-x: clip !important;
-  overflow-y: visible !important;
-  padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 24px) !important;
-}
-
-body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) #app-content .mobile-panel-content {
-  min-height: 0 !important;
-  height: auto !important;
-  max-height: none !important;
-  overflow-x: clip !important;
-  overflow-y: visible !important;
-  overscroll-behavior-y: auto !important;
-  touch-action: pan-y !important;
-}
-
 body.mobile-mode #app-content {
   scroll-padding-bottom: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
 }
@@ -44770,8 +44776,7 @@ body[data-ui-profile="web_pwa"]:not(.mobile-mode) .insights-card .dashboard-insi
 }
 
 /* Final theme authority. Keep this after legacy compatibility rules. */
-body:not(.theme-light),
-.erp-theme-v2[data-erp-theme="dark"] {
+body:not(.theme-light) {
   --primary:#2faaa3;
   --color-primary:#2faaa3;
   --accent-primary:#2faaa3;
@@ -44783,89 +44788,7 @@ body:not(.theme-light),
   --accent-border:#2d6666;
   --accent-muted:#78aaa7;
   --accent-text:#8bd2cd;
-  --s3d-button-primary-bg:#147f78;
-  --s3d-button-primary-text:#ffffff;
   --effect-glow-primary:0 0 0 transparent;
-}
-
-.s3d-plans-v2 .plan-tier-free { --plan-accent:#3f8f69 !important; }
-.s3d-plans-v2 .plan-tier-start { --plan-accent:#6f66a6 !important; }
-.s3d-plans-v2 .plan-tier-pro { --plan-accent:#9b7628 !important; }
-.s3d-plans-v2 .plan-tier-card::after { display:none !important; }
-
-body.theme-light .s3d-plans-v2 .plan-tier-card,
-.erp-theme-v2[data-erp-theme="light"] .s3d-plans-v2 .plan-tier-card {
-  color:#1f2d2b !important;
-  background:#ffffff !important;
-  background-image:none !important;
-  border-color:color-mix(in srgb, var(--plan-accent) 34%, #cfdad8) !important;
-  box-shadow:0 6px 18px rgba(31,45,43,.08) !important;
-}
-
-body.theme-light .s3d-plans-v2 .plan-tier-card.current,
-.erp-theme-v2[data-erp-theme="light"] .s3d-plans-v2 .plan-tier-card.current {
-  border-color:var(--plan-accent) !important;
-  box-shadow:0 8px 22px rgba(31,45,43,.12) !important;
-}
-
-body.theme-light .s3d-plans-v2 .plan-tier-card :where(p,small,span,.muted,.plan-tier-list.blocked li),
-.erp-theme-v2[data-erp-theme="light"] .s3d-plans-v2 .plan-tier-card :where(p,small,span,.muted,.plan-tier-list.blocked li) {
-  color:#52635f !important;
-  opacity:1 !important;
-}
-
-body.theme-light .s3d-plans-v2 .plan-tier-highlights b,
-.erp-theme-v2[data-erp-theme="light"] .s3d-plans-v2 .plan-tier-highlights b {
-  color:#263532 !important;
-  background:#f3f7f6 !important;
-  border-color:#d6e0de !important;
-}
-
-body.theme-light .s3d-plans-v2 .plan-tier-note,
-.erp-theme-v2[data-erp-theme="light"] .s3d-plans-v2 .plan-tier-note {
-  color:#344743 !important;
-  background:color-mix(in srgb, var(--plan-accent) 7%, #ffffff) !important;
-  border-color:color-mix(in srgb, var(--plan-accent) 26%, #d6e0de) !important;
-}
-
-.s3d-plans-v2 .plan-tier-button:not(:disabled) {
-  color:#ffffff !important;
-  background:#0f766e !important;
-  border-color:#0f766e !important;
-}
-
-.s3d-plans-v2 .plan-tier-button:not(:disabled):hover {
-  background:#0b625d !important;
-  border-color:#0b625d !important;
-}
-
-body:not(.theme-light) .s3d-plans-v2 .plan-tier-card,
-.erp-theme-v2[data-erp-theme="dark"] .s3d-plans-v2 .plan-tier-card {
-  color:#f4f8fa !important;
-  background:#132430 !important;
-  background-image:none !important;
-  border-color:color-mix(in srgb, var(--plan-accent) 42%, #40515c) !important;
-  box-shadow:0 8px 22px rgba(0,0,0,.24) !important;
-}
-
-body:not(.theme-light) .s3d-plans-v2 .plan-tier-card :where(p,small,span,.muted,.plan-tier-list.blocked li),
-.erp-theme-v2[data-erp-theme="dark"] .s3d-plans-v2 .plan-tier-card :where(p,small,span,.muted,.plan-tier-list.blocked li) {
-  color:#b7c4cb !important;
-  opacity:1 !important;
-}
-
-body:not(.theme-light) .s3d-plans-v2 .plan-tier-highlights b,
-.erp-theme-v2[data-erp-theme="dark"] .s3d-plans-v2 .plan-tier-highlights b {
-  color:#eef5f6 !important;
-  background:#172b38 !important;
-  border-color:#344955 !important;
-}
-
-body:not(.theme-light) .s3d-plans-v2 .plan-tier-note,
-.erp-theme-v2[data-erp-theme="dark"] .s3d-plans-v2 .plan-tier-note {
-  color:#dbe7e9 !important;
-  background:#172b38 !important;
-  border-color:color-mix(in srgb, var(--plan-accent) 30%, #40515c) !important;
 }
 
 /* Final lateral-fit authority for shared ERP screens. */
@@ -44937,9 +44860,7 @@ body:not(.mobile-mode) .assistant-fab {
   .profile-modern-screen,
   .clients-compact-screen,
   .desktop-focus,
-  .mobile-home,
-  .mobile-panel,
-  .mobile-panel-content
+  .mobile-home
 ) {
   width:100% !important;
   min-width:0 !important;
@@ -44991,22 +44912,6 @@ body:not(.mobile-mode) .assistant-fab {
     overflow:visible !important;
   }
 
-  body.mobile-mode .mobile-panel:has(> .mobile-panel-content) {
-    position:relative !important;
-    inset:auto !important;
-    min-height:100% !important;
-    height:auto !important;
-    max-height:none !important;
-    overflow:visible !important;
-  }
-
-  body.mobile-mode .mobile-panel:has(> .mobile-panel-content) > .mobile-panel-content {
-    flex:0 0 auto !important;
-    min-height:0 !important;
-    height:auto !important;
-    max-height:none !important;
-    overflow:visible !important;
-  }
 }
 
 /* Phase 1 final guard: later profile rules cannot remove the shell contract. */
@@ -45446,12 +45351,6 @@ body.theme-light .calc-printer-art{
     background:#071218 !important;
   }
 
-  body.mobile-mode .mobile-panel-calculator .calculator-panel-content{
-    height:auto !important;
-    max-height:none !important;
-    overflow:visible !important;
-  }
-
   body.mobile-mode .mobile-panel-calculator .calc-modern-screen{
     background:#071218 !important;
     height:auto !important;
@@ -45600,54 +45499,6 @@ body:not(.theme-light):not(.visitor-public-screen) :where(
     height:100% !important;
     max-height:100% !important;
     box-sizing:border-box !important;
-  }
-}
-
-/* Mobile routed panels use one vertical scroll owner. */
-@media(max-width:767px){
-  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel{
-    position:fixed !important;
-    inset:0 !important;
-    min-height:100dvh !important;
-    height:100dvh !important;
-    max-height:100dvh !important;
-    display:grid !important;
-    grid-template-rows:auto minmax(0, 1fr);
-    overflow:hidden !important;
-  }
-
-  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content{
-    min-height:0 !important;
-    height:auto !important;
-    max-height:none !important;
-    overflow-x:clip !important;
-    overflow-y:auto !important;
-    overscroll-behavior:contain;
-    touch-action:pan-y;
-    -webkit-overflow-scrolling:touch;
-    scroll-padding-bottom:calc(var(--layout-bottom-nav-height) + var(--safe-area-bottom-offset) + var(--keyboard-inset) + 24px);
-  }
-
-  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content > :where(.ui3-real-screen,.settings-page,.organized-page,.app-page,.dashboard-page,.reports-page,.stock-page,.cash-page,.production-page,.clients-compact-screen){
-    width:100% !important;
-    min-width:0 !important;
-    max-width:100% !important;
-    min-height:0 !important;
-    height:auto !important;
-    box-sizing:border-box !important;
-  }
-
-  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-content :where(.ui3-page,.ui3-section,.ui3-surface,.ui3-card,.reports-panel,.profile-inline-grid,.sync-grid,.settings-accordion-list){
-    min-width:0;
-    max-width:100%;
-  }
-
-  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-calculator .calculator-panel-content{
-    overflow-y:auto !important;
-  }
-
-  body.mobile-mode.app-shell-ready:not(.settings-subscreen-open) .mobile-panel-calculator{
-    grid-template-rows:minmax(0, 1fr);
   }
 }
 

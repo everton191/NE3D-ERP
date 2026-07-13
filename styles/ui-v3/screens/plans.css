@@ -1,0 +1,17 @@
+.ui3-plans{width:min(100%,var(--ui3-page-max));max-width:var(--ui3-page-max);color:var(--ui3-text);background:var(--ui3-bg)}
+.ui3-plans :where(.plans-pricing-hero>div:first-child,.plans-pricing-note,.plans-current-modern,.plans-help-card,.plans-current-compact){color:var(--ui3-text);background:var(--ui3-surface)!important;border-color:var(--ui3-border)!important;box-shadow:var(--ui3-system-shadow)}
+.ui3-plans .plans-pricing-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ui3-plans .plan-tier-free{--plan-accent:#3f8f69}
+.ui3-plans .plan-tier-start{--plan-accent:#6f66a6}
+.ui3-plans .plan-tier-pro{--plan-accent:#9b7628}
+.ui3-plans .plan-tier-card{color:var(--ui3-text)!important;background:color-mix(in srgb,var(--plan-accent) 7%,var(--ui3-surface))!important;border-color:color-mix(in srgb,var(--plan-accent) 52%,var(--ui3-border))!important;box-shadow:var(--ui3-shadow)!important}
+.ui3-plans .plan-tier-card :where(h1,h2,h3,h4,strong,b,.row-title,.plan-tier-section>strong,.plan-tier-price,.plan-tier-price small,.plan-tier-price span,.plan-tier-list li,.plan-tier-note,.plan-tier-badge){color:var(--ui3-text)!important}
+.ui3-plans .plan-tier-card :where(p,small,span,.muted,.plan-tier-list.blocked li){color:var(--ui3-muted)!important}
+.ui3-plans :where(.plan-tier-section,.plan-tier-highlights b){border-color:var(--ui3-border)}
+.ui3-plans .plan-tier-highlights b{color:var(--ui3-text)!important;background:var(--ui3-surface-muted)!important}
+.ui3-plans .plan-tier-note{color:var(--ui3-text)!important;background:color-mix(in srgb,var(--plan-accent) 10%,var(--ui3-surface))!important;border-color:color-mix(in srgb,var(--plan-accent) 34%,var(--ui3-border))!important}
+.ui3-plans .plan-tier-button:not(:disabled){color:#fff!important;background:var(--plan-accent,var(--ui3-primary))!important;border-color:var(--plan-accent,var(--ui3-primary))!important}
+.ui3-plans :where(.plan-tier-card.current .plan-tier-button,.plan-tier-button:disabled){color:var(--ui3-muted)!important;background:var(--ui3-surface-muted)!important;border-color:var(--ui3-border)!important}
+body:not(.theme-light) .ui3-plans .plan-tier-card{background:color-mix(in srgb,var(--plan-accent) 10%,var(--ui3-surface))!important}
+@media(min-width:768px) and (max-width:1180px){.ui3-plans .plans-pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:767px){.ui3-plans .plans-pricing-grid{grid-template-columns:1fr}}

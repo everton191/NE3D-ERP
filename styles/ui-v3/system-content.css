@@ -1,0 +1,48 @@
+body.app-shell-ready :where(.card,.app-card,.ui-section,.reports-panel,.settings-accordion-item,.sync-card,.dashboard-card,.metric-card):not(.success):not(.warning):not(.danger):not(.error){
+  color:var(--ui3-text);
+  background-color:var(--ui3-surface);
+  border-color:var(--ui3-border);
+  border-radius:var(--ui3-system-radius);
+}
+
+body.app-shell-ready :where(.list,.app-list,.profile-list,.settings-list,.orders-list){
+  color:var(--ui3-text);
+}
+
+body.app-shell-ready :where(.list-row,.app-list-row,.profile-list-row,.settings-row,.order-row){
+  color:var(--ui3-text);
+  background-color:var(--ui3-surface);
+  border-color:var(--ui3-border);
+}
+
+body.app-shell-ready :where(table,.data-table,.app-table){
+  width:100%;
+  color:var(--ui3-text);
+  background-color:var(--ui3-surface);
+  border-color:var(--ui3-border);
+}
+
+body.app-shell-ready :where(th,.data-table th,.app-table th){
+  color:var(--ui3-muted);
+  background-color:var(--ui3-surface-muted);
+  border-color:var(--ui3-border);
+  font-family:var(--ui3-font-family);
+  font-weight:var(--ui3-font-weight-medium);
+}
+
+body.app-shell-ready :where(td,.data-table td,.app-table td){
+  color:var(--ui3-text);
+  border-color:var(--ui3-border);
+}
+
+body.app-shell-ready :where(.divider,hr){
+  border-color:var(--ui3-border);
+}
+
+@media(max-width:767px){
+  body.mobile-mode.app-shell-ready :where(.table-scroll,.data-table-wrap,.app-table-wrap){
+    max-width:100%;
+    overflow-x:auto;
+    overscroll-behavior-x:contain;
+  }
+}
