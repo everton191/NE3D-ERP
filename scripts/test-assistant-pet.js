@@ -8,6 +8,8 @@ const build = fs.readFileSync("scripts/prepare-web.js", "utf8");
 assert(fs.existsSync("assets/assistant/filament-pet.png"), "mascote de filamento ausente");
 assert(app.includes("assistantPetTipsEnabled"), "preferencia para mensagens do pet ausente");
 assert(app.includes("getDicaContextualDoPetAssistente"), "dicas contextuais do pet ausentes");
+assert(app.includes("calculadora") && app.includes("avancarDicaDoPetAssistente"), "dicas alternadas da Calculadora ausentes");
+assert(!app.includes('title: "Abrir Assistente Inteligente"'), "lancador comum ainda abre assistente inteligente");
 assert(app.includes("normalizarUsoInteligente(usageLearning).events"), "pet nao usa somente o historico local existente");
 assert(app.includes("desativarDicasDoPetAssistente"), "nao ha opcao para deixar somente o pet");
 assert(app.includes("iniciarToqueLongoPetAssistente") && app.includes("Desligar dicas"), "toque longo para desligar dicas ausente");

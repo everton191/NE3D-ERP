@@ -55,6 +55,12 @@
     return toNumber(computed?.[name]);
   }
 
+  function readNativeInset(name) {
+    const root = global.document?.documentElement;
+    if (!root || !global.getComputedStyle) return 0;
+    return toNumber(global.getComputedStyle(root).getPropertyValue(`--android-system-${name}-inset`));
+  }
+
   function getKeyboardHeight() {
     const viewport = global.visualViewport;
     if (!viewport) return 0;
@@ -65,10 +71,10 @@
   }
 
   function computeSafeArea() {
-    const envTop = readProbeInset("top");
-    const envRight = readProbeInset("right");
-    const envBottom = readProbeInset("bottom");
-    const envLeft = readProbeInset("left");
+    const envTop = Math.max(readProbeInset("top"), readNativeInset("top"));
+    const envRight = Math.max(readProbeInset("right"), readNativeInset("right"));
+    const envBottom = Math.max(readProbeInset("bottom"), readNativeInset("bottom"));
+    const envLeft = Math.max(readProbeInset("left"), readNativeInset("left"));
     const keyboardHeight = getKeyboardHeight();
     const viewportHeight = Math.round(Number(global.visualViewport?.height || global.innerHeight || 0));
     return {

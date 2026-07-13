@@ -937,6 +937,7 @@ let sessionTimer = null;
 let sessionWarned = false;
 let assistantOpen = false;
 let assistantMinimized = false;
+let assistantPetTipIndex = 0;
 let assistantPetMenuOpen = false;
 let assistantPetLongPressTimer = null;
 let assistantPetLongPressTriggered = false;
@@ -12361,17 +12362,36 @@ function getDicaContextualDoPetAssistente() {
   if (!dicasDoPetAssistenteAtivas()) return null;
   const eventos = normalizarUsoInteligente(usageLearning).events.slice(-80);
   const aberturas = (tela) => eventos.filter((evento) => evento.tipo === "tela_aberta" && evento.tela === tela).length;
-  if (aberturas("calculadora") >= 3) return "Você usa bastante a Calculadora. Salve um item para reutilizar depois.";
-  if (aberturas("estoque") >= 2) return "No Estoque, confira os materiais com saldo baixo antes de produzir.";
-  if (aberturas("pedidos") >= 2) return "Nos Pedidos, use os filtros para encontrar os que aguardam ação.";
-  if (aberturas("relatorios") >= 2) return "Nos Relatórios, altere o período para comparar melhor suas vendas.";
-  return "Sabia que você pode ir ao seu perfil e trocar o tema da interface?";
+  const dicasPorTela = {
+    calculadora: [
+      "Na Calculadora, salve um item para reutilizar depois.",
+      "Confira o material e a margem antes de finalizar o cálculo.",
+      "Use os campos de medidas para manter o orçamento bem detalhado.",
+      "Você pode revisar os custos antes de transformar o cálculo em pedido."
+    ],
+    estoque: ["No Estoque, confira os materiais com saldo baixo antes de produzir."],
+    pedidos: ["Nos Pedidos, use os filtros para encontrar os que aguardam ação."],
+    relatorios: ["Nos Relatórios, altere o período para comparar melhor suas vendas."],
+    geral: ["Sabia que você pode ir ao seu perfil e trocar o tema da interface?"]
+  };
+  const chave = telaAtual === "calculadora" ? "calculadora"
+    : aberturas("estoque") >= 2 ? "estoque"
+      : aberturas("pedidos") >= 2 ? "pedidos"
+        : aberturas("relatorios") >= 2 ? "relatorios" : "geral";
+  const dicas = dicasPorTela[chave];
+  return dicas[assistantPetTipIndex % dicas.length];
+}
+
+function avancarDicaDoPetAssistente(event) {
+  event?.preventDefault?.();
+  assistantPetTipIndex += 1;
+  renderApp();
 }
 
 function renderDicaDoPetAssistente() {
   const dica = getDicaContextualDoPetAssistente();
   if (!dica) return "";
-  return `<div class="assistant-pet-tip" role="status"><button type="button" onclick="abrirAssistente('basic')"><span>${escaparHtml(dica)}</span></button><button class="assistant-pet-tip-close" type="button" onclick="desativarDicasDoPetAssistente(event)" title="Desativar mensagens do pet" aria-label="Desativar mensagens do pet">×</button></div>`;
+  return `<div class="assistant-pet-tip" role="status"><button type="button" onclick="avancarDicaDoPetAssistente(event)" title="Ver próxima dica"><span>${escaparHtml(dica)}</span></button><button class="assistant-pet-tip-close" type="button" onclick="desativarDicasDoPetAssistente(event)" title="Desativar mensagens do pet" aria-label="Desativar mensagens do pet">×</button></div>`;
 }
 
 function renderAssistantFabContent(label = "Assistente", pro = false) {
@@ -12381,7 +12401,7 @@ function renderAssistantFabContent(label = "Assistente", pro = false) {
   `;
 }
 
-function renderLancadorPetAssistente({ action, title, label = "Ajuda", pro = false } = {}) {
+function renderLancadorPetAssistente({ action = "avancarDicaDoPetAssistente(event)", title = "Ver próxima dica", label = "Dicas", pro = false } = {}) {
   return `<div class="assistant-pet-dock">${renderDicaDoPetAssistente()}${renderMenuDoPetAssistente()}<button class="assistant-fab assistant-fab-open ${pro ? "ai-local-fab" : ""}" onpointerdown="iniciarToqueLongoPetAssistente(event)" onpointerup="finalizarToqueLongoPetAssistente()" onpointercancel="finalizarToqueLongoPetAssistente()" onpointerleave="finalizarToqueLongoPetAssistente()" oncontextmenu="event.preventDefault();assistantPetMenuOpen=true;renderApp()" onclick="if(!consumirCliqueLongoPetAssistente()){${action}}" title="${escaparAttr(title)}. Toque e segure para opções de dicas." aria-label="${escaparAttr(title)}. Toque e segure para opções de dicas.">${renderAssistantFabContent(label, pro)}</button></div>`;
 }
 
@@ -14165,10 +14185,10 @@ function renderAssistenteVirtual() {
 
   if (!assistantOpen) {
     if (!isAndroidNativeApp()) {
-      return renderLancadorPetAssistente({ action: "abrirAssistente('basic')", title: "Abrir Assistente Inteligente" });
+      return renderLancadorPetAssistente();
     }
     if (!HEAVY_AI_FEATURE_ENABLED) {
-      return renderLancadorPetAssistente({ action: "abrirAssistente('basic')", title: "Abrir ajuda do sistema" });
+      return renderLancadorPetAssistente();
     }
     const pronto = iaLocalEstaPronta();
     const acessoPro = podeUsarAssistenteIAOfflinePro();

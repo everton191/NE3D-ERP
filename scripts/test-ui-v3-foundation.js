@@ -13,6 +13,9 @@ assert(build.includes('"styles/ui-v3", "src/ui-v3"'),'build nao copia a fundacao
 assert(dev.includes("link.disabled=true"),'rota tecnica nao isola CSS legado');
 assert(dev.includes("root.className='ui3-app-root'"),'laboratorio deve declarar raiz de shell completo');
 assert(read('styles/ui-v3/viewport.css').includes('[data-ui-version="v3"].ui3-real-screen'),'viewport deve distinguir tela embutida do shell completo');
+assert(read('styles/ui-v3/tokens.css').includes('--android-system-top-inset'),'safe area V3 nao considera o inset nativo Android');
+assert(read('styles/ui-v3/layout.css').includes('var(--ui3-safe-top)'),'PageContainer nao reserva a barra de status');
+assert(read('src/services/safeAreaManager.js').includes('readNativeInset'),'gerenciador de safe area ignora insets nativos');
 assert(read('styles/ui-v3/index.css').includes('./screens/calculator.css'),'Calculadora sem modulo V3');
 assert(read('styles/ui-v3/index.css').includes('./screens/superadmin.css'),'Superadmin sem modulo V3');
 const components=read('src/ui-v3/layout/components.js')+read('src/ui-v3/components/components.js')+read('src/ui-v3/forms/components.js')+read('src/ui-v3/navigation/components.js')+read('src/ui-v3/overlays/controller.js');
