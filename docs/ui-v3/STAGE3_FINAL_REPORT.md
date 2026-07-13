@@ -8,6 +8,7 @@ Branch: `codex/ui-v3-screen-migration-stage3`. Deploy realizado: **NÃO**.
 - Rotas selecionadas usam PageContainer/limite V3 e o grid oficial quando estrutural.
 - `#app-content` é o único scroller vertical nas rotas V3, inclusive no painel mobile.
 - Dialog, Drawer e BottomSheet mantêm papéis distintos; confirmações e formulários migrados usam Portal.
+- O popup visual legado ficou limitado aos fallbacks isolados da Loja/Superadmin; um teste de fronteira bloqueia novos consumidores ERP.
 - Manual/Calcular são montados apenas em Itens.
 - Safe area, StickyActionBar e contrato central de teclado permanecem compartilhados.
 - Regras de negócio, cálculos, autenticação, Supabase, planos e integrações não foram modificados.

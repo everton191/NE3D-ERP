@@ -8,6 +8,7 @@
 - `npm run test:ui-v3-reading`
 - `npm run test:ui-v3-operational`
 - `npm run test:ui-v3-finance`
+- `npm run test:ui-v3-legacy-boundary`
 - `npm run test:order-stock-calculator-flow`
 - `npm run test:stock-stage-1`
 - `npm run test:stock-batch-compact-ui`
