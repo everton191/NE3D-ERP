@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v278-1.0.15-release-stock-superadmin-20260715";
+const CACHE_NAME = "simplifica-3d-v297-mobile-ui-superadmin-20260715";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -79,6 +79,11 @@ self.addEventListener("fetch", (event) => {
     "/index.html",
     "/app.js",
     "/style.css",
+    "/styles/ui-v3/index.css",
+    "/styles/ui-v3/screens/operational.css",
+    "/styles/ui-v3/screens/finance.css",
+    "/styles/ui-v3/screens/settings.css",
+    "/styles/ui-v3/screens/reading.css",
     "/src/storefront/styles/tokens.css",
     "/src/storefront/styles/components.css",
     "/src/storefront/styles/layouts.css",

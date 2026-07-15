@@ -19,12 +19,12 @@
 @import url("./feedback.css");
 @import url("./components/onboarding-guide.css");
 @import url("./utilities.css");
-@import url("./screens/settings.css");
-@import url("./screens/reading.css");
+@import url("./screens/settings.css?v=company-actions-20260715");
+@import url("./screens/reading.css?v=dashboard-deduplicated-20260715");
 @import url("./screens/calculator.css?v=dark-contrast2-20260713");
 @import url("./screens/superadmin.css");
-@import url("./screens/operational.css");
-@import url("./screens/finance.css");
+@import url("./screens/operational.css?v=production-tabs-rows-20260715");
+@import url("./screens/finance.css?v=cash-actions-columns-fields-rows-20260715");
 @import url("./screens/plans.css?v=plans-v3-20260713");
 @import url("./legacy-bridge.css?v=unified-system-authority-20260713");
 @import url("./system-navigation.css?v=unified-navigation-20260713");

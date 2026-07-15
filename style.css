@@ -4488,6 +4488,13 @@ body.theme-light .cash-session-panel{
   gap:8px;
 }
 
+.customer-phone-contacts-button{
+  flex:0 0 auto;
+  width:auto;
+  min-width:0;
+  white-space:nowrap;
+}
+
 .selected-customer-badge{
   display:inline-flex;
   align-items:center;
@@ -4533,6 +4540,13 @@ body.theme-light .cash-session-panel{
   display:grid;
   gap:2px;
   min-width:0;
+  flex:1 1 auto;
+}
+
+.customer-suggestion-item strong{
+  min-width:0;
+  overflow-wrap:anywhere;
+  word-break:normal;
 }
 
 .customer-suggestion-item small,
@@ -4552,6 +4566,47 @@ body.theme-light .cash-session-panel{
 
 .customer-suggestion-error{
   color:#ffb5b5;
+}
+
+[data-ui-version="v3"] .company-settings-summary{
+  min-width:0;
+}
+
+[data-ui-version="v3"] .settings-section-save{
+  justify-content:flex-end;
+  padding-top:12px;
+  margin-top:4px;
+  border-top:1px solid var(--ui3-border, var(--color-border));
+}
+
+[data-ui-version="v3"] .settings-section-save .btn{
+  min-width:120px;
+}
+
+[data-ui-version="v3"] .ui-section.is-editing{
+  border-color:color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+}
+
+@media (max-width:600px){
+  .customer-suggestion-item{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:4px;
+  }
+
+  .customer-suggestion-item em{
+    white-space:normal;
+  }
+
+  [data-ui-version="v3"] .settings-section-save{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+
+  [data-ui-version="v3"] .settings-section-save .btn{
+    width:100%;
+    min-width:0;
+  }
 }
 
 .order-note-preview{

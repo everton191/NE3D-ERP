@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.15";
-const APP_VERSION_CODE = 16;
+const APP_VERSION = "1.0.16";
+const APP_VERSION_CODE = 17;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Superadmin reorganizado com diagnósticos da versão atual, atividade de clientes e controle claro de períodos Pro.",
@@ -878,6 +878,7 @@ let calculatorDraftState = {
 };
 let observacaoPedido = "";
 let prazoPedido = "";
+let statusPedido = "";
 let entradaPedido = 0;
 let descontoPedido = 0;
 let descontoTipoPedido = "fixo";
@@ -1244,6 +1245,9 @@ localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfi
 localStorage.removeItem(INTERFACE_MODE_LEGACY_STORAGE_KEY);
 
 function getInterfaceMode() {
+  if (isSuperAdmin(getUsuarioSessaoReal?.()) && !isModoManutencaoSuperadminAtivo?.()) {
+    return INTERFACE_MODES.PROFISSIONAL;
+  }
   appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
   return appConfig.interfaceMode;
 }
@@ -1905,6 +1909,7 @@ const StateStore = {
       ? lista.map((item) => {
         if (item.email !== email) return item;
         const combinado = { ...item, ...usuario };
+        if (item.papel === "superadmin" || usuario.papel === "superadmin" || usuario.role === "superadmin") combinado.papel = "superadmin";
         combinado.onboardingCompleted = item.onboardingCompleted === true || usuario.onboardingCompleted === true;
         combinado.onboardingStep = combinado.onboardingCompleted ? 4 : Math.max(Number(item.onboardingStep) || 0, Number(usuario.onboardingStep) || 0);
         return normalizarUsuario(combinado);
@@ -2227,6 +2232,22 @@ function flushPendingErrorLogs() {
 
 function getUsuarioMonetizacao() {
   const usuario = getUsuarioAtual() || {};
+  if (isSuperAdmin(usuario)) {
+    return {
+      ...usuario,
+      isPremium: true,
+      completo: true,
+      planState: PLAN_ACCESS_STATES.ACTIVE,
+      planStatus: "superadmin",
+      planId: "superadmin",
+      planSlug: "pro",
+      activePlan: "pro",
+      paymentStatus: "internal",
+      subscriptionStatus: "active",
+      status: "active",
+      email: usuario.email || ""
+    };
+  }
   const assinatura = getAssinaturaSaas(usuario.clientId || billingConfig.clientId || "") || {};
   const plano = getPlanoAtual(usuario);
   const estadoPlano = resolverEstadoPlano(usuario, { subscription: assinatura || undefined, source: "monetization-user" });
@@ -5257,6 +5278,7 @@ function getPlanoSaas(slug = billingConfig.planSlug || "free") {
 }
 
 function getClientIdAtual(usuario = getUsuarioAtual()) {
+  if (isSuperAdmin(getUsuarioSessaoReal()) && !isModoManutencaoSuperadminAtivo()) return "";
   return usuario?.clientId || billingConfig.clientId || "";
 }
 
@@ -6005,7 +6027,10 @@ function getUsuarioSessaoReal() {
   const emailAtual = normalizarEmail(usuarioAtualEmail);
   if (!emailAtual) return null;
   usuarios = normalizarUsuarios(usuarios);
-  return usuarios.find((usuario) => usuario.email === emailAtual && usuario.ativo) || null;
+  const usuario = usuarios.find((item) => item.email === emailAtual && item.ativo) || null;
+  if (!usuario) return null;
+  const sessaoSuperadmin = sessionStorage.getItem("simplificaSuperadminAuthenticated") === "true";
+  return sessaoSuperadmin ? { ...usuario, papel: "superadmin", clientId: "", companyId: "" } : usuario;
 }
 
 function getSessaoManutencaoSuperadmin() {
@@ -6047,6 +6072,7 @@ function isModoManutencaoSuperadminAtivo() {
 }
 
 function getUsuarioAtual() {
+  if (telaAtual === "superadmin") return getUsuarioSessaoReal();
   return getUsuarioManutencaoSuperadmin() || getUsuarioSessaoReal();
 }
 
@@ -8138,7 +8164,7 @@ function renderCustomerSuggestions() {
     <div class="customer-suggestion-box">
       <div class="customer-suggestion-toolbar">
         <span id="selectedCustomerBadgeContainer">${selectedBadge}</span>
-        ${podeAbrirAgenda ? `<button class="text-link" type="button" onclick="buscarSugestoesContatosTelefone()">Abrir contatos do telefone</button>` : ""}
+        ${podeAbrirAgenda ? `<button class="text-link customer-phone-contacts-button" type="button" onclick="buscarSugestoesContatosTelefone()" aria-label="Abrir contatos do telefone">Contatos</button>` : ""}
       </div>
       ${customerSuggestionState.loading ? `<div class="customer-suggestion-loading">Buscando...</div>` : ""}
       ${linhas || (!customerSuggestionState.loading && query.length >= 2 ? `<div class="customer-suggestion-empty">Nenhum cliente encontrado. <button class="text-link" type="button" onclick="cadastrarNovoClientePedido()">Cadastrar novo</button></div>` : "")}
@@ -10084,17 +10110,9 @@ function iniciarTransicaoNavegacao(tipo = "forward") {
 }
 
 function renderAppComTransicaoNavegacao(tipo = "forward") {
-  iniciarTransicaoNavegacao(tipo);
-  const reduzirMovimento = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  if (reduzirMovimento || typeof document.startViewTransition !== "function") {
-    renderApp();
-    return;
-  }
-  document.documentElement.dataset.navDirection = tipo;
-  const transicao = document.startViewTransition(() => renderApp());
-  transicao.finished.catch(() => {}).finally(() => {
-    delete document.documentElement.dataset.navDirection;
-  });
+  document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
+  delete document.documentElement.dataset.navDirection;
+  renderApp();
 }
 
 function aplicarMotionSequenciado() {
@@ -10300,6 +10318,8 @@ function setModoErpSuperadmin(ativo) {
 function entrarModoErpSuperadmin() {
   if (!isSuperAdmin(getUsuarioSessaoReal())) return;
   setSessaoManutencaoSuperadmin(null);
+  billingConfig.clientId = "";
+  billingConfig.companyId = "";
   setModoErpSuperadmin(true);
   trocarTela("dashboard", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
 }
@@ -10359,7 +10379,8 @@ function trocarTela(tela, opcoes = {}) {
   if (!telas[tela]) {
     tela = "dashboard";
   }
-  if (tela === "superadmin" && isSuperAdmin()) {
+  if (tela === "superadmin" && isSuperAdmin(getUsuarioSessaoReal())) {
+    setSessaoManutencaoSuperadmin(null);
     setModoErpSuperadmin(false);
   }
 
@@ -15165,7 +15186,7 @@ function abrirTelaMenuLateral(tela) {
 function navegarMenuPrincipal(tela) {
   fecharPopup();
   fecharDrawerLateral();
-  trocarTela(tela, { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
+  trocarTela(tela);
 }
 
 function getItensMenuPopup() {
@@ -24274,24 +24295,13 @@ function renderDashboardInsights(analytics) {
 function renderDashboardAnalyticSections(analytics) {
   const ticketMedio = analytics.total_orders ? analytics.total_sales / analytics.total_orders : 0;
   return `
-    <div class="analytics-sections">
+    <div class="analytics-sections dashboard-complementary-indicators">
       <section class="analytics-module">
-        <span class="eyebrow">Financeiro</span>
-        <div class="metric"><span>Faturamento</span><strong>${formatarMoeda(analytics.total_sales)}</strong></div>
-        <div class="metric"><span>Lucro</span><strong>${formatarMoeda(analytics.total_profit)}</strong></div>
-        <div class="metric"><span>Saldo</span><strong>${formatarMoeda(analytics.cash_balance)}</strong></div>
-      </section>
-      <section class="analytics-module">
-        <span class="eyebrow">Produção</span>
+        <span class="eyebrow">Indicadores complementares</span>
+        <div class="metric"><span>Ticket médio</span><strong>${formatarMoeda(ticketMedio)}</strong></div>
         <div class="metric"><span>Horas impressas</span><strong>${Number(analytics.printer_hours || 0).toFixed(1)} h</strong></div>
         <div class="metric"><span>Material</span><strong>${formatarMoeda(analytics.material_cost)}</strong></div>
         <div class="metric"><span>Energia</span><strong>${formatarMoeda(analytics.energy_cost)}</strong></div>
-      </section>
-      <section class="analytics-module">
-        <span class="eyebrow">Comercial</span>
-        <div class="metric"><span>Pedidos</span><strong>${analytics.total_orders || 0}</strong></div>
-        <div class="metric"><span>Ticket médio</span><strong>${formatarMoeda(ticketMedio)}</strong></div>
-        <div class="metric"><span>Clientes</span><strong>${getDashboardStats().clientesAtivos}</strong></div>
       </section>
     </div>
   `;
@@ -24418,11 +24428,12 @@ function renderDashboardDesktopMetricRow(stats, totaisCaixa) {
 function renderDashboardDesktopHeader(plano, analytics) {
   const usuario = getUsuarioAtual();
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
+  const contextoInterno = isSuperAdmin(getUsuarioSessaoReal()) && isModoErpSuperadminAtivo() && !isModoManutencaoSuperadminAtivo();
   return `
     <header class="desktop-dashboard-hero">
       <div>
         <h1>Olá, ${escaparHtml(nome)}! <span aria-hidden="true">👋</span></h1>
-        <p>Aqui está o resumo do seu negócio hoje.</p>
+        <p>${contextoInterno ? "Sistema interno do Super Admin, sem vínculo com empresa ou plano comercial." : "Aqui está o resumo do seu negócio hoje."}</p>
       </div>
       <div class="desktop-dashboard-hero-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
@@ -24533,26 +24544,6 @@ function renderDashboardDesktopCashPanel(totaisCaixa = calcularTotaisCaixa()) {
   `;
 }
 
-function renderDashboardDesktopShortcutsPanel() {
-  const acoes = getAtalhosRapidosOrdenados(4);
-  return `
-    <section class="card desktop-dashboard-card shortcuts-card">
-      <div class="card-header">
-        <h2>${renderUiIcon("preferencias")} Atalhos personalizados</h2>
-        <button class="text-link" type="button" onclick="abrirPersonalizarAtalhos()">Editar</button>
-      </div>
-      <div class="dashboard-shortcut-grid">
-        ${acoes.map((acao) => `
-          <button type="button" onclick="acionarAtalhoRapido('${escaparAttr(acao.id)}')">
-            <span>${renderUiIcon(acao.iconKey || acao.tela)}</span>
-            <strong>${escaparHtml(acao.label)}</strong>
-          </button>
-        `).join("")}
-      </div>
-    </section>
-  `;
-}
-
 function renderDashboardDesktopStorePanel() {
   if (!canUseStorefrontLocal()) return "";
   const vm = getStorefrontAdminViewModel();
@@ -24636,14 +24627,13 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
       ${renderDashboardQuickActionsPanel()}
       <div class="ui3-grid ui3-dashboard-main-grid">
         <div class="recent-orders-card">${renderPedidosRecentesDashboard()}</div>
-        <div class="revenue-card">${renderDashboardComboChart(analytics)}${renderDashboardAnalyticsHero(analytics)}</div>
+        <div class="revenue-card">${renderDashboardComboChart(analytics)}</div>
         <div class="insights-card">${renderDashboardInsights(analytics)}</div>
       </div>
       <div class="ui3-grid ui3-dashboard-bottom-grid ${lojaCard ? "has-store-card" : "no-store-card"}">
         <div class="inventory-card">${renderDashboardDesktopStockPanel(stats)}</div>
         <div class="production-card">${renderDashboardDesktopProductionPanel()}</div>
         <div>${renderDashboardDesktopCashPanel(totaisCaixa)}</div>
-        <div>${renderDashboardDesktopShortcutsPanel()}</div>
         ${lojaCard ? `<div>${lojaCard}</div>` : ""}
         ${renderDashboardAdCard(plano)}
       </div>
@@ -24976,11 +24966,10 @@ function renderPedido() {
     down_payment: entradaPedido
   });
   const entradaCampoValor = resumoFinanceiro.entrada > 0 ? resumoFinanceiro.entrada.toFixed(2) : "";
-  const statusAtual = pedidoEditando?.status || "aberto";
+  const statusAtual = statusPedido || pedidoEditando?.status || "aberto";
   const clienteResumo = clientePedido || clienteDoPedido(pedidoEditando || {}) || "Cliente não informado";
   const observacaoAtual = observacaoPedido || pedidoEditando?.observacao || pedidoEditando?.observacoes || "";
   const prazoAtual = prazoPedido || pedidoEditando?.prazo || pedidoEditando?.dataPrazo || "";
-  const observacaoCurta = observacaoAtual || "";
   const destacarAdicionarItem = pedidoEditando && sugestoesInteligentesAtivas() && contarEventosUso("item_adicionado", 20) >= 3;
   const pedidoTabs = [
     { id: "cliente", label: "Cliente", icon: "◉" },
@@ -25072,7 +25061,7 @@ function renderPedido() {
           <span>1</span>
           <strong>Cliente</strong>
         </div>
-        <div class="order-summary-grid">
+        <div class="order-summary-grid order-customer-grid">
           <label class="field customer-field">
             <span>Cliente</span>
             <input id="clienteNome" placeholder="Nome do cliente" value="${escaparAttr(clientePedido)}" oninput="atualizarClientePedido(this.value)" autocomplete="off">
@@ -25086,27 +25075,7 @@ function renderPedido() {
             <span>E-mail</span>
             <input id="clienteEmail" inputmode="email" placeholder="cliente@email.com" value="${escaparAttr(clienteEmailPedido)}" oninput="atualizarEmailClientePedido(this.value)">
           </label>
-          <label class="field">
-            <span>Prazo/data</span>
-            <input id="pedidoPrazo" type="date" value="${escaparAttr(prazoAtual)}" oninput="atualizarPrazoPedido(this.value)">
-          </label>
-          <label class="field compact-field">
-            <span>Status</span>
-            <select id="pedidoStatus">
-              ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
-            </select>
-          </label>
-          <label class="field compact-field">
-            <span>Entrada / sinal</span>
-            <input id="pedidoEntrada" type="text" inputmode="decimal" placeholder="0,00" value="${escaparAttr(entradaCampoValor.replace('.', ','))}" oninput="atualizarEntradaPedido(this.value)">
-          </label>
-          <label class="field order-observation-field">
-            <span>Observação</span>
-            <textarea id="pedidoObservacao" rows="2" placeholder="Ex.: cor, acabamento, prazo combinado" oninput="atualizarObservacaoPedido(this.value)">${escaparHtml(observacaoAtual)}</textarea>
-          </label>
         </div>
-        <p class="order-finance-warning" data-order-down-payment-warning ${resumoFinanceiro.entradaMaiorQueTotal ? "" : "hidden"}>A entrada é maior que o total do pedido</p>
-        ${observacaoCurta ? `<p class="order-note-preview">${escaparHtml(String(observacaoCurta).slice(0, 120))}</p>` : ""}
       </section>` : ""}
 
       ${pedidoTab === "itens" ? `<section class="order-step-panel">
@@ -25130,7 +25099,7 @@ function renderPedido() {
           </label>
           <label class="field compact-field">
             <span>Status</span>
-            <select id="pedidoStatus">
+            <select id="pedidoStatus" onchange="atualizarStatusPedido(this.value)">
               ${["aberto", "producao", "pausado", "entregue", "cancelado"].map((status) => `<option value="${status}" ${statusAtual === status ? "selected" : ""}>${labelStatusPedido(status)}</option>`).join("")}
             </select>
           </label>
@@ -27811,6 +27780,26 @@ function renderImpressorasProducao() {
     </div>`;
 }
 
+function renderPerfilImpressoraProducao() {
+  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa");
+  const emUso = impressorasAtivas.find((printer) => printer.status === "ocupada") || impressorasAtivas[0];
+  if (!emUso) {
+    return `<section class="calc-active-profile production-active-printer">
+      <div class="calc-printer-art">${renderUiIcon("producao")}</div>
+      <div><span>Impressora ativa</span><strong>Nenhuma cadastrada</strong><small>Cadastre o modelo para acompanhar o status.</small></div>
+      <button class="btn secondary" type="button" onclick="trocarAbaProducao('impressoras')">Cadastrar</button>
+    </section>`;
+  }
+  const modelo = emUso.name || "Impressora 3D";
+  const tipo = String(emUso.printerType || emUso.printer_type || "FDM").toUpperCase();
+  const status = PRODUCTION_PRINTER_STATUS[emUso.status] || "Disponível";
+  return `<section class="calc-active-profile production-active-printer">
+    <div class="calc-printer-art">${renderUiIcon("producao")}</div>
+    <div><span>Impressora ativa</span><strong>${escaparHtml(modelo)}</strong><small>Modelo: ${escaparHtml(tipo)}${emUso.nozzleSize ? ` · Bico ${escaparHtml(emUso.nozzleSize)}` : ""}</small></div>
+    <span class="status-badge production-printer-profile-status">${escaparHtml(status)}</span>
+  </section>`;
+}
+
 function getTarefasProducaoPorAba(tab = getProductionTab()) {
   reordenarFilaProducao();
   const busca = normalizarTextoBusca(window.__productionSearch || "");
@@ -27862,6 +27851,7 @@ function renderProducao() {
         <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Fila manual por item, sem automação de impressoras.</p></div>
         <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
       </div>
+      ${renderPerfilImpressoraProducao()}
       <div class="production-tabs" role="tablist">
         ${tabs.map(([value,label]) => {
           const quantidade = value === "impressoras"
@@ -33958,7 +33948,7 @@ function renderSuperAdminManutencao() {
           <h3>Modo manutencao de empresas</h3>
           <p>Entre no ERP de uma empresa para suporte sem trocar ou salvar o login do cliente neste aparelho.</p>
         </div>
-        <button class="btn secondary" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} Entrar no ERP como Superadmin</button>
+        <button class="btn secondary" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} Abrir sistema interno</button>
       </div>
       <div class="superadmin-maintenance-summary">
         <span><small>Empresas</small><strong>${empresasBase.length}</strong></span>
@@ -34173,8 +34163,8 @@ function renderSuperAdminSidebar(tab = "dashboard") {
       <div class="superadmin-sidebar-actions" aria-label="Acessos operacionais">
         <button class="superadmin-sidebar-action primary" type="button" onclick="entrarModoErpSuperadmin()">
           <span>${renderUiIcon("dashboard")}</span>
-          <strong>Entrar no ERP</strong>
-          <small>Abre o ERP com sua conta Superadmin</small>
+          <strong>Sistema interno</strong>
+          <small>Acesso completo sem empresa vinculada</small>
         </button>
         <button class="superadmin-sidebar-action" type="button" onclick="trocarAbaSuperAdmin('manutencao')">
           <span>${renderUiIcon("clientes")}</span>
@@ -34285,7 +34275,7 @@ function renderSuperAdminTopbar(tab = "dashboard") {
         <input data-search-context="superadmin" type="search" placeholder="Buscar empresa, e-mail, plano ou alerta" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" oninput="filtrarBuscaSuperadmin(this.value); atualizarAutocompletePesquisa(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" onkeydown="fecharBuscaSuperadminAoEnviar(event)" value="${escaparAttr(buscaAtual)}">
         <button class="superadmin-platform-search-clear" type="button" onclick="limparBuscaSuperadmin(event)" aria-label="Limpar busca" title="Limpar busca">×</button>
       </label>
-      <button class="btn secondary superadmin-platform-erp" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} <span>Voltar para ERP</span></button>
+      <button class="btn secondary superadmin-platform-erp" type="button" onclick="entrarModoErpSuperadmin()">${renderUiIcon("dashboard")} <span>Sistema interno</span></button>
       <div class="superadmin-platform-actions">
         <button class="icon-action-button" type="button" onclick="trocarAbaSuperAdmin('diagnosticos')" title="Status do sistema">${renderUiIcon("bell")}</button>
         <span class="superadmin-platform-user">${renderUsuarioAvatar(usuario, "superadmin-platform-avatar")}<strong>${escaparHtml(usuario?.nome || "Superadmin")}</strong></span>
@@ -34910,6 +34900,22 @@ function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
   `;
 }
 
+function renderAcaoSalvarSecaoEmpresa(secao = "", rotulo = "Salvar alterações") {
+  return `<div class="actions settings-section-save">
+    ${renderAppButton({ label: "Editar", variant: "secondary", action: `editarSecaoEmpresa('${escaparAttr(secao)}')` })}
+    ${renderAppButton({ label: rotulo, variant: "primary", action: "salvarPersonalizacao()" })}
+  </div>`;
+}
+
+function editarSecaoEmpresa(secao = "") {
+  const painel = document.querySelector(`[data-ui-section="${CSS.escape(String(secao || ""))}"]`);
+  if (!painel) return;
+  painel.open = true;
+  painel.classList.add("is-editing");
+  const campo = painel.querySelector("input:not([disabled]), textarea:not([disabled]), select:not([disabled])");
+  campo?.focus?.({ preventScroll: false });
+}
+
 function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
   const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
   const temaPdfAtual = normalizarPdfTheme();
@@ -34928,6 +34934,7 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <div class="metric"><span>Logo</span><strong>Usa Empresa</strong></div>
         <div class="metric"><span>Pix</span><strong>Usa Empresa</strong></div>
       </div>
+      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf-tema`, "Salvar PDF")}
     ` })}
     ${renderUiSection({ id: `${group}-pdf-cabecalho`, title: "Cabeçalho do PDF", subtitle: "Subtítulo, validade e pagamento", icon: "⌂", group, content: `
       <div class="sync-grid">
@@ -34938,6 +34945,7 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <label class="field"><span>Mensagem padrão</span><textarea id="pdfDefaultMessageConfig" rows="2" maxlength="220" placeholder="Peças produzidas com impressão 3D de alta qualidade.">${escaparHtml(appConfig.pdfDefaultMessage || "")}</textarea></label>
         <label class="field"><span>Observação padrão</span><textarea id="pdfDefaultNotesConfig" rows="3" maxlength="420" placeholder="Condições, prazos e orientações comerciais.">${escaparHtml(appConfig.pdfDefaultNotes || "")}</textarea></label>
       </div>
+      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf-cabecalho`, "Salvar cabeçalho")}
     ` })}
     ${renderUiSection({ id: `${group}-pdf-rodape`, title: "Rodapé e Pix do PDF", subtitle: "Assinatura, instrução Pix e marca d'água", icon: "☷", group, content: `
       <div class="sync-grid">
@@ -34947,6 +34955,7 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <div class="metric"><span>Fundo personalizado</span><strong>${pdfBgAtual ? "Salvo" : "Padrão"}</strong></div>
       </div>
       ${appConfig.pdfBackgroundDataUrl ? `<button class="btn ghost" type="button" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
+      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf-rodape`, "Salvar rodapé e Pix")}
     ` })}
   `;
 }
@@ -34956,11 +34965,12 @@ function renderEmpresaConfig() {
   const logoEmpresaAtual = appConfig.companyLogoDataUrl || "";
   return `
     <section class="ui3-real-screen ui3-settings-screen ui3-page ui3-stack ui3-gap-5" data-ui-version="v3" data-ui3-screen="empresa">
-      <div class="card-header">
-        <h2>Empresa</h2>
+      ${renderAppHeader({ title: "Empresa", subtitle: "Identidade comercial usada em pedidos, orçamentos, WhatsApp e PDF." })}
+      <div class="administration-summary company-settings-summary">
+        <span>${renderUiIcon("empresa")}</span>
+        <div><strong>${escaparHtml(appConfig.businessName || "Minha empresa 3D")}</strong><small>Dados comerciais e documentos</small></div>
         <span class="status-badge">Comercial</span>
       </div>
-      <p class="muted">Identidade comercial usada em pedidos, orçamentos, WhatsApp e PDF. Aparência e sistema ficam em menus separados.</p>
       <div class="settings-accordion-list">
         ${renderUiSection({ id: "empresa-dados", title: "Dados comerciais", subtitle: "Nome, logo e documentação", icon: "empresa", open: true, group: "empresa", content: `
           <div class="brand-preview compact">
@@ -34976,6 +34986,7 @@ function renderEmpresaConfig() {
             <label class="field"><span>CNPJ</span><input id="companyCnpjConfig" value="${escaparAttr(appConfig.companyCnpj || "")}" placeholder="00.000.000/0001-00"></label>
             <label class="field"><span>Nome do app nesta conta</span><input id="appNameConfig" value="${escaparAttr(appConfig.appName)}" placeholder="Simplifica 3D"></label>
           </div>
+          ${renderAcaoSalvarSecaoEmpresa("empresa-dados", "Salvar dados comerciais")}
         ` })}
         ${renderUiSection({ id: "empresa-contatos", title: "Contatos", subtitle: "WhatsApp, telefone, e-mail e Instagram", icon: "☎", group: "empresa", content: `
           <div class="sync-grid">
@@ -34985,12 +34996,14 @@ function renderEmpresaConfig() {
             <label class="field"><span>Instagram</span><input id="companyInstagramConfig" value="${escaparAttr(appConfig.companyInstagram || "")}" placeholder="@suaempresa"></label>
             <label class="field"><span>Site</span><input id="companyWebsiteConfig" value="${escaparAttr(appConfig.companyWebsite || "")}" placeholder="www.suaempresa.com.br"></label>
           </div>
+          ${renderAcaoSalvarSecaoEmpresa("empresa-contatos", "Salvar contatos")}
         ` })}
         ${renderUiSection({ id: "empresa-endereco", title: "Endereço", subtitle: "Localização comercial", icon: "⌖", group: "empresa", content: `
           <div class="sync-grid">
             <label class="field"><span>Endereço</span><input id="companyAddressConfig" value="${escaparAttr(appConfig.companyAddress || "")}" placeholder="Rua, número e bairro"></label>
             <label class="field"><span>Cidade/Estado</span><input id="companyCityStateConfig" value="${escaparAttr(appConfig.companyCityState || "")}" placeholder="São Paulo - SP"></label>
           </div>
+          ${renderAcaoSalvarSecaoEmpresa("empresa-endereco", "Salvar endereço")}
         ` })}
         ${renderUiSection({ id: "empresa-pix", title: "Pix", subtitle: "Dados comerciais de recebimento", icon: "◇", group: "empresa", content: `
           <div class="sync-grid">
@@ -34999,6 +35012,7 @@ function renderEmpresaConfig() {
             <label class="field"><span>Cidade do Pix</span><input id="pixCityConfig" maxlength="15" value="${escaparAttr(appConfig.pixCity || "")}" placeholder="Cidade"></label>
             <label class="field"><span>Descrição Pix</span><input id="pixDescriptionConfig" maxlength="40" value="${escaparAttr(appConfig.pixDescription || "Pedido Simplifica 3D")}"></label>
           </div>
+          ${renderAcaoSalvarSecaoEmpresa("empresa-pix", "Salvar Pix")}
         ` })}
         ${renderPdfSettingsSections({ group: "empresa" })}
       </div>
@@ -38554,13 +38568,20 @@ function concluirLoginUsuario(usuario) {
     alert("Este usuário está bloqueado. Fale com o administrador.");
     return;
   }
-  if (usuario.clientId) billingConfig.clientId = usuario.clientId;
-  if (usuario.companyId) billingConfig.companyId = usuario.companyId;
+  if (isSuperAdmin(usuario)) {
+    billingConfig.clientId = "";
+    billingConfig.companyId = "";
+  } else {
+    if (usuario.clientId) billingConfig.clientId = usuario.clientId;
+    if (usuario.companyId) billingConfig.companyId = usuario.companyId;
+  }
   if (usuario.papel !== "superadmin" && !registrarDispositivoLicenca(usuario.email)) return;
   if (!registrarSessaoSaasLocal(usuario)) return;
   setSessaoManutencaoSuperadmin(null);
   usuarioAtualEmail = usuario.email;
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
+  if (isSuperAdmin(usuario)) sessionStorage.setItem("simplificaSuperadminAuthenticated", "true");
+  else sessionStorage.removeItem("simplificaSuperadminAuthenticated");
   salvarCacheSessaoLocal();
   desativarTravaLocal("login");
   adminLogado = false;
@@ -38697,6 +38718,7 @@ function logoutUsuario() {
   window.__simplificaLocalLockActive = false;
   localLockModalOpen = false;
   sessionStorage.removeItem("usuarioAtualEmail");
+  sessionStorage.removeItem("simplificaSuperadminAuthenticated");
   sessionStorage.removeItem("adminLogado");
   sessionStorage.removeItem("sessionLastActivity");
   limparSessaoSensivelSupabase();
@@ -41841,6 +41863,10 @@ function atualizarPrazoPedido(valor) {
   prazoPedido = String(valor || "");
 }
 
+function atualizarStatusPedido(valor) {
+  statusPedido = String(valor || "aberto");
+}
+
 function atualizarEntradaPedido(valor) {
   entradaPedido = Math.max(0, numeroMonetarioPedido(valor, 0));
   atualizarResumoPedidoSemRender();
@@ -42306,7 +42332,7 @@ function createOrderHeader() {
     payment_method_id: metodoPagamento.id,
     paymentMethod: metodoPagamento.name,
     payment_method_type: metodoPagamento.type,
-    status: document.getElementById("pedidoStatus")?.value || pedidoEditando?.status || "aberto"
+    status: document.getElementById("pedidoStatus")?.value || statusPedido || pedidoEditando?.status || "aberto"
   };
 }
 
@@ -43088,6 +43114,7 @@ function abrirPedidoParaEdicaoAutorizada(id) {
     clienteEmailPedido = emailDoPedido(pedido);
     observacaoPedido = pedido.observacao || pedido.observacoes || "";
     prazoPedido = pedido.prazo || pedido.dataPrazo || "";
+    statusPedido = pedido.status || "aberto";
     entradaPedido = valorEntradaPedido(pedido);
     descontoPedido = valorDescontoPedido(pedido);
     descontoTipoPedido = pedido.descontoTipo === "porcentagem" ? "porcentagem" : "fixo";
@@ -43116,6 +43143,7 @@ function cancelarEdicaoPedido() {
   clienteEmailPedido = "";
   observacaoPedido = "";
   prazoPedido = "";
+  statusPedido = "";
   entradaPedido = 0;
   descontoPedido = 0;
   descontoTipoPedido = "fixo";
@@ -43589,6 +43617,7 @@ async function fecharPedido() {
     clienteEmailPedido = "";
     observacaoPedido = "";
     prazoPedido = "";
+    statusPedido = "";
     entradaPedido = 0;
     descontoPedido = 0;
     descontoTipoPedido = "fixo";

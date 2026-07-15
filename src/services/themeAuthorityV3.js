@@ -1,7 +1,8 @@
 (function initSimplificaThemeAuthorityV3(global) {
   "use strict";
 
-  const ERP_THEME_KEY = "simplifica3d_erp_theme_preference";
+  const ERP_THEME_KEY = "simplifica3d:erp-theme-preference";
+  const LEGACY_ERP_THEME_KEY = "simplifica3d_erp_theme_preference";
   const STORE_THEME_KEY = "simplifica3d_store_theme_preference";
   const LEGACY_STORE_THEME_KEY = "simplifica3d_store_theme";
   const ALLOWED_THEME_PREFERENCES = Object.freeze(["light", "system", "dark"]);
@@ -38,7 +39,9 @@
   }
 
   function getSavedErpThemePreference() {
-    return normalizePreference(readStorage(ERP_THEME_KEY));
+    const preference = readStorage(ERP_THEME_KEY) || readStorage(LEGACY_ERP_THEME_KEY);
+    if (preference) writeStorage(ERP_THEME_KEY, preference);
+    return normalizePreference(preference);
   }
 
   function getSavedStoreThemePreference() {
@@ -60,10 +63,17 @@
     const target = options.target || global.document?.querySelector?.("#app-shell");
     root?.setAttribute("data-erp-theme", resolved);
     root?.setAttribute("data-erp-theme-preference", normalized);
+    root?.classList?.toggle("theme-light", resolved === "light");
+    root?.classList?.toggle("theme-dark", resolved === "dark");
+    if (root?.style) {
+      root.style.colorScheme = resolved;
+      root.style.backgroundColor = THEME_COLORS[resolved];
+    }
     body?.setAttribute("data-erp-theme", resolved);
     body?.setAttribute("data-erp-theme-preference", normalized);
     body?.classList?.toggle("theme-light", resolved === "light");
     body?.classList?.toggle("theme-dark", resolved === "dark");
+    if (body?.style) body.style.colorScheme = resolved;
     target?.classList?.add("erp-theme-v3");
     target?.setAttribute?.("data-erp-theme", resolved);
     target?.setAttribute?.("data-erp-theme-preference", normalized);
@@ -106,6 +116,7 @@
 
   global.SimplificaThemeAuthorityV3 = Object.freeze({
     ERP_THEME_KEY,
+    LEGACY_ERP_THEME_KEY,
     STORE_THEME_KEY,
     LEGACY_STORE_THEME_KEY,
     ALLOWED_THEME_PREFERENCES,

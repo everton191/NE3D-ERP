@@ -14,10 +14,12 @@
 <script>
   (() => {
     const allowed = ["light", "system", "dark"];
-    const erpKey = "simplifica3d_erp_theme_preference";
+    const erpKey = "simplifica3d:erp-theme-preference";
+    const legacyErpKey = "simplifica3d_erp_theme_preference";
     let preference = "";
     try {
-      preference = localStorage.getItem(erpKey) || "";
+      preference = localStorage.getItem(erpKey) || localStorage.getItem(legacyErpKey) || "";
+      if (preference) localStorage.setItem(erpKey, preference);
     } catch (_) {}
     if (preference === "auto") preference = "system";
     if (!allowed.includes(preference)) preference = "light";
@@ -38,12 +40,12 @@
   })();
 </script>
 
-  <link rel="stylesheet" href="/style.css?v=1.0.15-release-stock-superadmin-20260715">
+  <link rel="stylesheet" href="/style.css?v=1.0.16-mobile-ui-superadmin-20260715">
   <link rel="stylesheet" href="/src/storefront/styles/tokens.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/components.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/layouts.css?v=store-categories-vertical-card-20260628">
   <link rel="stylesheet" href="/src/styles/google-expressive-motion.css?v=1.0.57-rc-plans-release-20260628">
-  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=v3-dark-calculator-contrast2-20260713">
+  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=v3-dashboard-deduplicated-20260715">
   <script src="/src/ui-v3/components/foundation.js"></script>
   <script src="/src/ui-v3/layout/components.js"></script>
   <script src="/src/ui-v3/components/components.js"></script>
@@ -112,7 +114,7 @@
 <script src="/src/services/diagnosticsService.js?v=fase-7b-ui-ux-20260530"></script>
 <script src="/src/services/smartLoaderService.js?v=1.0.57-rc-plans-release-20260628"></script>
 <script src="/src/services/safeAreaManager.js?v=1.0.57-rc-plans-release-20260628"></script>
-<script src="/src/services/themeAuthorityV3.js?v=theme-v3-only-20260713"></script>
+<script src="/src/services/themeAuthorityV3.js?v=theme-key-unified-20260715"></script>
 <script src="/src/services/googleMotionEnhancer.js?v=1.0.57-rc-plans-release-20260628"></script>
 <script src="/src/services/printerMonitoringService.js?v=printer-monitor-simple-20260701"></script>
 <script src="/src/storefront/renderers/publicV3.js?v=1.0.57-rc-plans-release-20260628"></script>
@@ -122,10 +124,10 @@
 <script src="/src/services/adSenseService.js?v=1.0.17-mobile-fixes-ads-space-20260615"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/calculatorDomain.js?v=calculator-domain-20260711"></script>
-  <script src="/app.js?v=1.0.15-release-stock-superadmin-20260715"></script>
+  <script src="/app.js?v=1.0.16-mobile-ui-superadmin-20260715"></script>
 <script>
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=release-stock-superadmin-20260715", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=mobile-ui-superadmin-20260715", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>
