@@ -51,6 +51,19 @@ assert(!app.includes("assinatura.paymentStatus = \"pending\""), "checkout aberto
 assert(!app.includes("billingConfig.paymentStatus = \"pending\""), "checkout aberto nao deve virar pagamento pendente global");
 
 assert(app.includes("function reativarRenovacaoAssinaturaCliente"), "reativacao de renovacao deve existir");
+assert(app.includes("assinatura.premiumUntil || assinatura.premium_until || assinatura.planExpiresAt"), "validade manual premium_until deve alimentar o vencimento exibido");
+assert(app.includes("const planoComVencimento") && app.includes("const vencimentoRegistrado = planoComVencimento"), "card pago deve consolidar a validade sem reaproveitar data antiga no Free");
+assert(app.includes('const plano = acessoVencido ? getPlanoSaas("free") : planoRegistrado'), "plano vencido deve voltar ao Free na apresentacao atual");
+assert(app.includes("O banco não confirmou a data final do acesso"), "liberacao manual deve exigir confirmacao remota do vencimento");
+assert(app.includes("Premium liberado até"), "sucesso deve informar a validade confirmada pelo banco");
+assert(app.includes("deveEspelharLicencaNoCadastro"), "acesso irrestrito do superadmin nao pode alterar o plano comercial exibido da empresa");
+assert(app.includes("function mesclarAssinaturasPorCliente"), "assinatura remota deve substituir cache antigo pelo cliente");
+assert(app.includes("saasSubscriptions = mesclarAssinaturasPorCliente"), "sincronizacao deve evitar assinatura duplicada por empresa");
+assert(app.includes("function getApresentacaoPlanoEmpresaSaas"), "card deve centralizar a apresentacao da validade do plano");
+assert(app.includes("depois volta ao Free"), "card deve explicar o retorno ao Free no fim do acesso temporario");
+assert(app.includes("async function ajustarDiasUsuario"), "atalho de dias do usuario deve salvar de forma assincrona no banco");
+assert(app.includes('chamarSuperadminUpdateSubscription(clienteId, "ACTIVATE_PREMIUM_MANUAL"'), "atalho de dias deve usar a RPC protegida");
+assert(app.includes("O banco não confirmou a nova data de vencimento"), "atalho de dias deve exigir confirmacao remota da validade");
 assert(pkg.scripts && pkg.scripts["test:plans"], "package.json deve expor test:plans");
 
 [

@@ -29,9 +29,28 @@ includes("abrirSaidaManualEstoque(Number(elemento.dataset.index))", "Dispatcher 
 includes("function renderListaComprasEstoque", "Alertas devem incluir lista de compras.");
 includes("usuarioPodeVerCustosEstoque", "Custos devem respeitar papel do usuario.");
 includes('podeVerCustos ? formatarMoeda(valorTotalEstoque) : "Restrito"', "Tela deve esconder o valor total do estoque de usuario sem permissao.");
+includes("function renderCadastroItemEstoqueWizard", "Cadastro de estoque deve usar fluxo em etapas.");
+includes('["Item", "Valores", "Revisão"]', "Cadastro deve apresentar tres etapas claras.");
+includes("STOCK_ITEM_ICON_OPTIONS", "Cadastro deve oferecer icones variados para o item.");
+includes("async function otimizarFotoItemEstoque", "Foto do item deve ser compactada antes de salvar.");
+includes("STOCK_ITEM_PHOTO_MAX_BYTES", "Foto do item deve possuir limite de armazenamento.");
+includes("function iniciarArrastoFabEstoque", "Botao flutuante do estoque deve ser arrastavel.");
+includes('onpointerdown="iniciarArrastoFabEstoque(event)"', "Botao flutuante deve ligar o gesto de arrasto.");
+includes("function garantirCodigosNumericosEstoque", "Itens devem receber codigo numerico interno estavel.");
+includes('padStart(4, "0")', "Codigo do estoque deve possuir leitura visual padronizada.");
+includes("function encontrarItemEstoqueDuplicado", "Cadastro deve impedir produto duplicado.");
+includes("Este produto já está cadastrado", "Wizard deve avisar quando o produto ja existir.");
+includes("Código de barras ou identificador QR (opcional)", "Cadastro deve deixar base pronta para barras e QR.");
+includes("function encontrarMaterialEstoquePorIdentificador", "Estoque deve possuir resolucao centralizada para leitor futuro.");
+includes("Buscar por nome, #código ou barras/QR", "Busca deve aceitar codigo interno e externo.");
+includes("function ordenarMateriaisEstoque", "Lista deve poder ser ordenada por codigo, nome e saldo.");
 
 assert.ok(css.includes(".stock-purchase-row"), "CSS da lista de compras deve existir.");
 assert.ok(css.includes(".stock-purchase-row .status-badge"), "Lista de compras deve controlar badge no mobile.");
+assert.ok(css.includes(".stock-wizard-progress"), "Progresso visual do cadastro em etapas deve existir.");
+assert.ok(css.includes(".stock-fab-layer .stock-add-fab.is-dragging"), "Botao arrastavel deve fornecer retorno visual.");
+assert.ok(css.includes(".stock-code-badge"), "Codigo deve ficar visivel sem poluir o card.");
+assert.ok(css.includes(".stock-duplicate-warning"), "Aviso de duplicidade deve ter contraste proprio.");
 assert.ok(audit.includes("Não foi criada tabela nova nem módulo paralelo de estoque."), "Auditoria deve registrar preservacao da estrutura atual.");
 assert.ok(audit.includes("Não foi ativado consumo automático por rolo."), "Auditoria deve registrar que rolos automaticos continuam futuros.");
 

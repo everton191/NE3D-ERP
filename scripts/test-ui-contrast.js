@@ -45,4 +45,8 @@ if (/--color-background", usarClaro \? "[^"]+" : "#000/i.test(app)) {
   throw new Error("Tema escuro nao deve usar preto puro como fundo principal.");
 }
 
+if (!css.includes('body:not(.theme-light) :where(.superadmin-only-main,.superadmin-mobile-only) .superadmin-platform-profile-shell')) {
+  throw new Error("Perfil de empresa do Superadmin nao possui autoridade de contraste escuro.");
+}
+
 console.log("UI contrast: tokens, paletas controladas e fundos premium verificados.");

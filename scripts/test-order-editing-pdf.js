@@ -17,7 +17,14 @@ const app = fs.readFileSync("app.js", "utf8");
   'return partes.length ? partes.join(" • ") : "-";',
   'pix_key: origem.pix_key || appConfig.pixKey || ""',
   'pixKey: usarTexto(linha.pix_key) || usarTexto(settings.pix_key) || appConfig.pixKey',
-  'const totalComercialBase = totalCalculadoCliente;'
+  'const totalComercialBase = totalCalculadoCliente;',
+  'function garantirNumeracaoSequencialPedidos',
+  'function getNumeroSequencialPedido',
+  'function getProximoNumeroSequencialPedido',
+  'numeroPedido: numeroPedidoOperacional',
+  'class="smart-order-number">Pedido',
+  'class="smart-order-contact-name"',
+  '<h2>Pedido ${escaparHtml(getNumeroSequencialPedido(pedido))}</h2>'
 ].forEach((marker) => assert.ok(app.includes(marker), `Correção de pedido/PDF ausente: ${marker}`));
 
 assert.ok(!app.includes('id="manualItemTempo"'), "Item manual não deve solicitar tempo de impressão.");

@@ -10,6 +10,7 @@ const webhook = read("supabase/functions/mercadopago-webhook/index.ts");
 const shared = read("supabase/functions/_shared/mercadopago-billing.ts");
 const cancel = read("supabase/functions/mercadopago-cancel-subscription/index.ts");
 const createPayment = read("supabase/functions/mercadopago-create-payment/index.ts");
+const createSubscription = read("supabase/functions/mercadopago-create-subscription/index.ts");
 const migration = read("supabase/migrations/20260529213000_billing_webhook_hardening.sql");
 const diagnostics = read("src/services/diagnosticsService.js");
 const functionsDir = path.join(root, "supabase", "functions");
@@ -50,6 +51,11 @@ assert(shared.includes('if (proPlanId && planId === proPlanId) return "premium"'
 assert(createPayment.includes("normalizeRequestedPlan"), "checkout deve resolver plano no backend");
 assert(createPayment.includes('action: "checkout aberto"'), "preferencia deve registrar checkout aberto sem pagamento real");
 assert(!createPayment.includes('status: "pending",\n      external_reference: externalReference'), "preferencia aberta nao deve inserir pagamento pending");
+for (const checkoutSource of [createPayment, createSubscription]) {
+  assert(checkoutSource.includes('requestedId !== linkedClientId'), "checkout deve impedir cliente arbitrario para usuario comum");
+  assert(!checkoutSource.includes('erpProfile?.client_id || requestedClientId'), "checkout nao pode usar cliente enviado pelo navegador como fallback");
+  assert(!checkoutSource.includes('req.headers.get("origin")'), "URL de retorno nao pode confiar na origem enviada pelo navegador");
+}
 assert(diagnostics.includes('"webhook_received"'), "diagnosticos devem aceitar webhook_received");
 assert(diagnostics.includes('"webhook_validation_failed"'), "diagnosticos devem aceitar webhook_validation_failed");
 assert(diagnostics.includes('"webhook_ignored_duplicate"'), "diagnosticos devem aceitar webhook_ignored_duplicate");

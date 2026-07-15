@@ -25,6 +25,26 @@ assert.ok(app.includes('primary: "#72E6E8"'), "tema claro deve usar #72e6e8 como
 assert.ok(lightTokens.includes("--accent-primary:#72e6e8"), "tokens claros devem usar a nova cor principal");
 assert.ok(style.includes("--s3d-button-secondary-bg"), "controle de tema deve consumir tokens de botão");
 assert.ok(app.includes("Segurança, dados e exclusão da conta"), "perfil deve encaminhar para segurança e exclusão");
+assert.ok(app.includes("async function salvarPerfilUsuarioRemoto"), "perfil deve possuir sincronizacao remota explicita");
+assert.ok(app.includes("/rest/v1/profiles?user_id=eq."), "nome e telefone devem sincronizar com profiles");
+assert.ok(app.includes("/rest/v1/erp_profiles?id=eq."), "nome e telefone devem sincronizar com erp_profiles");
+assert.ok(app.includes("/rest/v1/user_profiles?on_conflict=user_id"), "identidade e foto devem sincronizar com user_profiles");
+assert.ok(app.includes("async function salvarDadosPessoaisUsuario"), "salvamento de dados pessoais deve aguardar a sincronizacao");
+assert.ok(app.includes("Escolher e salvar foto"), "acao de foto deve deixar claro que a imagem sera salva");
+assert.ok(app.includes("select=display_name,profile_photo,updated_at"), "carregamento do perfil deve recuperar identidade e foto remotas");
+assert.ok(app.includes("function getAtividadeUsuarioSuperadmin"), "lista de usuarios deve consolidar o ultimo acesso");
+assert.ok(app.includes("Sem acesso registrado"), "usuario sem atividade deve ser identificado sem inventar acesso");
+assert.ok(app.includes("const resumoEmpresa = clienteUsuario ? getResumoEmpresaSaas(clienteUsuario) : null"), "card de usuario deve usar o plano efetivo da empresa");
+assert.ok(app.includes("normalizarEmail(cliente.email) === normalizarEmail(usuario.email)"), "card de usuario legado deve localizar a empresa pelo e-mail");
+assert.ok(app.includes("depois volta ao Free"), "card de usuario deve informar o retorno ao Free");
+assert.ok(app.includes("function agendarSincronizacaoSaasSuperadmin"), "Superadmin deve atualizar assinaturas ao abrir o painel");
+assert.ok(app.includes("function abrirWidgetModuloSuperadmin"), "Widgets operacionais devem abrir suas telas de detalhe");
+assert.ok(app.includes('label: "Bugs"') && app.includes('label: "Melhorias"') && app.includes('label: "Diagnósticos"') && app.includes('label: "Manutenção"'), "Mais deve priorizar os quatro widgets operacionais");
+assert.ok(app.includes("sugestoes: renderSuperAdminFeedbackReports"), "Widget de melhorias deve abrir a tela correta");
+assert.ok(!app.includes('class="superadmin-secondary-shortcuts"'), "Carrossel horizontal antigo do Superadmin deve ser removido");
+assert.ok(app.includes("ajustarDiasUsuario('${escaparAttr(usuario.id)}', 7)") && app.includes("ajustarDiasUsuario('${escaparAttr(usuario.id)}', 15)") && app.includes("ajustarDiasUsuario('${escaparAttr(usuario.id)}', 30)"), "Menu do usuario deve reunir opcoes de 7, 15 e 30 dias");
+assert.ok(app.includes("Abrir ajustes da conta"), "Menu do usuario deve abrir os ajustes completos da conta");
+assert.ok(style.includes(".superadmin-module-widgets") && style.includes("grid-template-columns:repeat(2,minmax(0,1fr))"), "Widgets do Superadmin devem formar grade mobile sem trilho horizontal");
 assert.match(app, /function abrirSegurancaPerfil\(\)\s*\{\s*trocarTela\("seguranca"\)/, "atalho do perfil deve abrir a tela dedicada de segurança");
 assert.ok(app.includes('data-profile-action="security"'), "ação de segurança do perfil deve usar ligação declarativa");
 for (const [start, end, label] of [

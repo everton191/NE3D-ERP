@@ -36,10 +36,9 @@ function webhookUrl() {
 }
 
 function getPublicOrigin(req: Request) {
-  const candidates = [APP_PUBLIC_URL, req.headers.get("origin"), DEFAULT_APP_PUBLIC_URL]
-    .map((value) => String(value || "").trim().replace(/\/+$/, ""));
-  const origin = candidates.find((value) => /^https?:\/\//i.test(value));
-  return origin || DEFAULT_APP_PUBLIC_URL;
+  void req;
+  const configuredOrigin = String(APP_PUBLIC_URL || "").trim().replace(/\/+$/, "");
+  return /^https:\/\//i.test(configuredOrigin) ? configuredOrigin : DEFAULT_APP_PUBLIC_URL;
 }
 
 function backUrls(req: Request) {
@@ -70,9 +69,12 @@ async function getCurrentContext(req: Request, requestedClientId?: string) {
     .maybeSingle();
 
   const isSuperadmin = profile?.role === "superadmin" || erpProfile?.role === "superadmin";
-  const clientId = isSuperadmin && requestedClientId
-    ? requestedClientId
-    : (profile?.client_id || erpProfile?.client_id || requestedClientId || "");
+  const linkedClientId = String(profile?.client_id || erpProfile?.client_id || "").trim();
+  const requestedId = String(requestedClientId || "").trim();
+  if (!isSuperadmin && requestedId && requestedId !== linkedClientId) {
+    throw new Error("Cliente informado não pertence ao usuário autenticado");
+  }
+  const clientId = isSuperadmin && requestedId ? requestedId : linkedClientId;
 
   if (!clientId) throw new Error("Cliente não vinculado");
 

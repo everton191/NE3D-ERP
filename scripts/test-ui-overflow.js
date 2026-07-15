@@ -39,4 +39,12 @@ if (!app.includes("reports-search-compact") || !app.includes("aria-label=\"Busca
   throw new Error("Relatorios deve renderizar campo de busca compacto, nao apenas icone.");
 }
 
+if (!css.includes(".superadmin-platform-profile-shell .superadmin-profile-screen") || !css.includes("overflow-wrap:anywhere")) {
+  throw new Error("Perfil de empresa do Superadmin deve conter textos e largura no mobile.");
+}
+
+if (!css.includes(".smart-order-head .smart-order-contact-name") || !css.includes("grid-column:1 / -1")) {
+  throw new Error("Nome do contato do pedido deve ocupar a linha inteira do cabecalho.");
+}
+
 console.log("UI overflow: protecoes de largura, scroll e grids responsivos verificadas.");

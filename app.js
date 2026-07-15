@@ -2,12 +2,13 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.14";
-const APP_VERSION_CODE = 15;
+const APP_VERSION = "1.0.15";
+const APP_VERSION_CODE = 16;
+const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Pedidos com valor final editável e desconto fixo ou percentual.",
-  "Materiais do estoque adicionados por uma janela simples, com quantidade, valor automático e baixa por item.",
-  "PDF, PIX, navegação da Home, tema inicial e layout mobile corrigidos."
+  "Superadmin reorganizado com diagnósticos da versão atual, atividade de clientes e controle claro de períodos Pro.",
+  "Pedidos numerados, compartilhamento por WhatsApp com resumo e PIX, além de PDF mais limpo para baixar.",
+  "Estoque com cadastro em três etapas, código numérico, busca, bloqueio de duplicados e fotos compactadas."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -2663,7 +2664,7 @@ const InventoryService = {
   recordMovement(detalhes, metadata = {}) {
     registrarHistorico("Estoque", detalhes, metadata);
   },
-  addMaterial({ nome: nomeInformado = "", categoria = "", tipoItem = "", unidade = "kg", qtd, estoqueMinimo = 0, custoUnitario = 0, fornecedor = "", observacoes = "", ativo = true, tipo, cor, isBatchControlled = false, batchControlType = "", inventoryBatches = [] }) {
+  addMaterial({ nome: nomeInformado = "", categoria = "", tipoItem = "", unidade = "kg", qtd, estoqueMinimo = 0, custoUnitario = 0, fornecedor = "", observacoes = "", ativo = true, tipo, cor, icone = "", foto = "", codigoExterno = "", isBatchControlled = false, batchControlType = "", inventoryBatches = [] }) {
     const tipoNormalizado = String(tipo || "PLA").trim() || "PLA";
     const corNormalizada = String(cor || "").trim();
     const nome = String(nomeInformado || [tipoNormalizado, corNormalizada].filter(Boolean).join(" ")).trim();
@@ -2689,6 +2690,7 @@ const InventoryService = {
         : material)
       : [...atual, prepararRegistroOnline(normalizarMaterialEstoque({
         id: Date.now(),
+        codigoEstoque: getProximoCodigoMaterialEstoque(atual),
         nome,
         tipo: tipoNormalizado,
         cor: corNormalizada,
@@ -2700,6 +2702,9 @@ const InventoryService = {
         custoUnitario: Math.max(0, Number(custoUnitario) || 0),
         fornecedor: String(fornecedor || "").trim(),
         observacoes: String(observacoes || "").trim(),
+        icone: String(icone || "").trim(),
+        foto: String(foto || "").trim(),
+        codigoExterno: String(codigoExterno || "").trim(),
         ativo: ativo !== false,
         is_batch_controlled: !!isBatchControlled,
         batch_control_type: batchControlType || (isBatchControlled ? "rolo" : ""),
@@ -2759,6 +2764,8 @@ const InventoryService = {
       custoUnitario: Math.max(0, Number(dados.custoUnitario ?? material.custoUnitario ?? material.unit_cost) || 0),
       fornecedor: String(dados.fornecedor ?? material.fornecedor ?? "").trim(),
       observacoes: String(dados.observacoes ?? material.observacoes ?? "").trim(),
+      icone: String(dados.icone ?? material.icone ?? material.icon ?? "").trim(),
+      foto: String(dados.foto ?? material.foto ?? material.imageDataUrl ?? material.image_url ?? "").trim(),
       ativo: dados.ativo === undefined ? material.ativo !== false : dados.ativo !== false,
       is_batch_controlled: dados.isBatchControlled === undefined ? materialUsaControleLote(material) : !!dados.isBatchControlled,
       batch_control_type: String(dados.batchControlType ?? material.batch_control_type ?? "").trim(),
@@ -3234,6 +3241,18 @@ const STOCK_ITEM_TYPES = Object.freeze([
   "Item de produção 3D",
   "Item de artesanato"
 ]);
+const STOCK_ITEM_ICON_OPTIONS = Object.freeze([
+  { value: "estoque", label: "Produto" },
+  { value: "filamento", label: "Filamento" },
+  { value: "resina", label: "Resina" },
+  { value: "embalagem", label: "Embalagem" },
+  { value: "folha", label: "Folha" },
+  { value: "ferramenta", label: "Ferramenta" },
+  { value: "acessorio", label: "Acessório" },
+  { value: "financeiro", label: "Valor" }
+]);
+const STOCK_ITEM_PHOTO_MAX_BYTES = 140 * 1024;
+const STOCK_FAB_POSITION_KEY = "simplifica_stock_fab_position_v1";
 const STOCK_CONTROL_UNITS = Object.freeze([
   { value: "un", label: "Unidade" },
   { value: "g", label: "Gramas" },
@@ -4691,7 +4710,7 @@ function normalizarUsuario(usuario) {
     supabaseLastSyncAt: usuario?.supabaseLastSyncAt || usuario?.updated_at || "",
     criadoEm: usuario?.criadoEm || usuario?.created_at || new Date().toISOString(),
     atualizadoEm: usuario?.atualizadoEm || usuario?.updated_at || usuario?.criadoEm || new Date().toISOString(),
-    lastLoginAt: usuario?.lastLoginAt || "",
+    lastLoginAt: usuario?.lastLoginAt || usuario?.last_login_at || usuario?.last_sign_in_at || usuario?.ultimoAcesso || "",
     passwordUpdatedAt: usuario?.passwordUpdatedAt || "",
     failedLoginCount: Math.max(0, Number(usuario?.failedLoginCount) || 0)
   };
@@ -5129,7 +5148,7 @@ function normalizarAssinaturaSaas(assinatura = {}) {
   const cancelAtPeriodEnd = normalizarBooleanoPlano(assinatura.cancelAtPeriodEnd ?? assinatura.cancel_at_period_end);
   const subscriptionStatus = normalizarStatusAssinaturaDefinitivo(assinatura.subscriptionStatus || assinatura.subscription_status || (cancelAtPeriodEnd && isPlanoPagoSlug(activePlan) ? "canceling" : activePlan === "premium_trial" ? "trialing" : isPlanoPagoSlug(activePlan) ? "active" : "free"));
   const currentPeriodStart = assinatura.currentPeriodStart || assinatura.current_period_start || assinatura.startedAt || assinatura.started_at || assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || assinatura.createdAt || assinatura.created_at || new Date().toISOString();
-  const currentPeriodEnd = assinatura.planExpiresAt || assinatura.plan_expires_at || assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || assinatura.trialEndAt || assinatura.trial_end_at || "";
+  const currentPeriodEnd = assinatura.premiumUntil || assinatura.premium_until || assinatura.planExpiresAt || assinatura.plan_expires_at || assinatura.currentPeriodEnd || assinatura.current_period_end || assinatura.expiresAt || assinatura.expires_at || assinatura.nextBillingAt || assinatura.next_billing_at || assinatura.proximoVencimento || assinatura.proximo_vencimento || assinatura.trialEndAt || assinatura.trial_end_at || "";
   const trialStartedAt = assinatura.trialStartedAt || assinatura.trial_started_at || assinatura.trialStartAt || assinatura.trial_start_at || (activePlan === "premium_trial" ? currentPeriodStart : "");
   const trialExpiresAt = assinatura.trialExpiresAt || assinatura.trial_expires_at || assinatura.trialEndAt || assinatura.trial_end_at || (activePlan === "premium_trial" ? currentPeriodEnd : "");
   const isTrialActive = (assinatura.isTrialActive === true || assinatura.is_trial_active === true || activePlan === "premium_trial") && !!trialExpiresAt && getRemainingDays(trialExpiresAt) > 0;
@@ -8273,6 +8292,45 @@ function calcularSaldoLotesEstoque(lotes = [], unidade = "un") {
     .reduce((soma, lote) => soma + (Number(lote.current_quantity) || 0), 0);
 }
 
+function getCodigoNumericoMaterialEstoque(material = {}) {
+  const codigo = Number(material.codigoEstoque ?? material.stock_code ?? material.codigo ?? 0);
+  return Number.isInteger(codigo) && codigo > 0 ? codigo : 0;
+}
+
+function formatarCodigoMaterialEstoque(materialOuCodigo = 0) {
+  const codigo = typeof materialOuCodigo === "object"
+    ? getCodigoNumericoMaterialEstoque(materialOuCodigo)
+    : Math.floor(Number(materialOuCodigo) || 0);
+  return codigo > 0 ? `#${String(codigo).padStart(4, "0")}` : "#----";
+}
+
+function getProximoCodigoMaterialEstoque(lista = estoque) {
+  return (Array.isArray(lista) ? lista : []).reduce((maior, material) => Math.max(maior, getCodigoNumericoMaterialEstoque(material)), 0) + 1;
+}
+
+function garantirCodigosNumericosEstoque(lista = []) {
+  const usados = new Set();
+  let proximo = getProximoCodigoMaterialEstoque(lista);
+  let mudou = false;
+  const itens = (Array.isArray(lista) ? lista : []).map((material) => {
+    let codigo = getCodigoNumericoMaterialEstoque(material);
+    if (!codigo || usados.has(codigo)) {
+      while (usados.has(proximo)) proximo += 1;
+      codigo = proximo;
+      proximo += 1;
+      mudou = true;
+    }
+    usados.add(codigo);
+    if (material.codigoEstoque !== codigo || material.stock_code !== codigo) mudou = true;
+    return { ...material, codigoEstoque: codigo, stock_code: codigo };
+  });
+  return { itens, mudou };
+}
+
+function getCodigoExternoMaterialEstoque(material = {}) {
+  return String(material.codigoExterno || material.external_code || material.barcode || material.qr_code || "").trim();
+}
+
 function normalizarMaterialEstoque(material = {}) {
   const tipo = material.tipo || inferirTipoMaterial(material.nome);
   const cor = String(material.cor || "").trim();
@@ -8292,6 +8350,10 @@ function normalizarMaterialEstoque(material = {}) {
   return {
     ...material,
     id: material.id || "mat-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+    codigoEstoque: getCodigoNumericoMaterialEstoque(material),
+    stock_code: getCodigoNumericoMaterialEstoque(material),
+    codigoExterno: getCodigoExternoMaterialEstoque(material),
+    external_code: getCodigoExternoMaterialEstoque(material),
     nome: nomeBase,
     tipo,
     cor,
@@ -8307,6 +8369,8 @@ function normalizarMaterialEstoque(material = {}) {
     unit_cost: Math.max(0, Number(material.custoUnitario ?? material.unit_cost ?? material.unitCost ?? material.precoKg ?? material.custoKg) || 0),
     fornecedor: String(material.fornecedor || material.supplier || "").trim(),
     observacoes: String(material.observacoes || material.observacao || material.notes || "").trim(),
+    icone: String(material.icone || material.icon || "").trim(),
+    foto: String(material.foto || material.imageDataUrl || material.image_url || "").trim(),
     ativo: material.ativo !== false && material.active !== false,
     is_batch_controlled: isBatchControlled,
     batch_control_type: String(material.batch_control_type || material.batchControlType || material.tipoControleLote || (isBatchControlled ? "rolo" : "")).trim(),
@@ -8327,13 +8391,29 @@ function normalizarMaterialEstoque(material = {}) {
 
 function normalizarEstoque() {
   let mudou = false;
-  estoque = (Array.isArray(estoque) ? estoque : []).map((material) => {
+  const normalizados = (Array.isArray(estoque) ? estoque : []).map((material) => {
     const normalizado = normalizarMaterialEstoque(material);
-    if (!material.id || !material.tipo || material.qtd !== normalizado.qtd || material.quantity_base !== normalizado.quantity_base || material.remaining_percent !== normalizado.remaining_percent || material.stock_status !== normalizado.stock_status) mudou = true;
+    if (!material.id || !material.tipo || material.qtd !== normalizado.qtd || material.quantity_base !== normalizado.quantity_base || material.remaining_percent !== normalizado.remaining_percent || material.stock_status !== normalizado.stock_status || getCodigoExternoMaterialEstoque(material) !== normalizado.codigoExterno) mudou = true;
     return normalizado;
   });
+  const codificados = garantirCodigosNumericosEstoque(normalizados);
+  estoque = codificados.itens;
+  mudou = mudou || codificados.mudou;
   if (mudou) salvarDados();
   return estoque;
+}
+
+function encontrarMaterialEstoquePorIdentificador(identificador = "") {
+  const valor = String(identificador || "").trim();
+  if (!valor) return null;
+  const semPrefixo = valor.replace(/^#/, "");
+  const codigoNumerico = /^\d+$/.test(semPrefixo) ? Number(semPrefixo) : 0;
+  const chave = normalizarSugestaoClienteTexto(valor);
+  return normalizarEstoque().find((material) => {
+    if (codigoNumerico && getCodigoNumericoMaterialEstoque(material) === codigoNumerico) return true;
+    const externo = getCodigoExternoMaterialEstoque(material);
+    return externo && normalizarSugestaoClienteTexto(externo) === chave;
+  }) || null;
 }
 
 function getMaterialEstoque(materialId) {
@@ -10764,6 +10844,91 @@ function atualizarMenu() {
   });
 }
 
+function carregarPosicaoFabEstoque() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(STOCK_FAB_POSITION_KEY) || "null");
+    return Number.isFinite(Number(salvo?.x)) && Number.isFinite(Number(salvo?.y))
+      ? { x: Number(salvo.x), y: Number(salvo.y) }
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function limitarPosicaoFabEstoque(x = 0, y = 0, botao = null) {
+  const largura = Math.max(48, Number(botao?.offsetWidth) || 50);
+  const altura = Math.max(48, Number(botao?.offsetHeight) || 50);
+  const margem = 10;
+  const limiteInferior = Math.max(margem, window.innerHeight - altura - 88 - margem);
+  return {
+    x: Math.max(margem, Math.min(window.innerWidth - largura - margem, Number(x) || margem)),
+    y: Math.max(margem, Math.min(limiteInferior, Number(y) || margem))
+  };
+}
+
+function aplicarPosicaoFabEstoque(botao, posicao = carregarPosicaoFabEstoque()) {
+  if (!botao || !posicao) return;
+  const limitada = limitarPosicaoFabEstoque(posicao.x, posicao.y, botao);
+  botao.classList.add("is-positioned");
+  botao.style.setProperty("left", `${limitada.x}px`, "important");
+  botao.style.setProperty("top", `${limitada.y}px`, "important");
+  botao.style.setProperty("right", "auto", "important");
+  botao.style.setProperty("bottom", "auto", "important");
+}
+
+function salvarPosicaoFabEstoque(posicao) {
+  try {
+    localStorage.setItem(STOCK_FAB_POSITION_KEY, JSON.stringify(posicao));
+  } catch (_) {
+    // A posição é apenas uma preferência visual; o botão continua funcional sem persistência.
+  }
+}
+
+function iniciarArrastoFabEstoque(event) {
+  const botao = event?.currentTarget;
+  if (!botao || (event.pointerType === "mouse" && event.button !== 0)) return;
+  const inicio = botao.getBoundingClientRect();
+  const origem = { x: event.clientX, y: event.clientY, left: inicio.left, top: inicio.top };
+  let moveu = false;
+  botao.setPointerCapture?.(event.pointerId);
+  botao.classList.add("is-dragging");
+
+  const mover = (movimento) => {
+    const deltaX = movimento.clientX - origem.x;
+    const deltaY = movimento.clientY - origem.y;
+    if (!moveu && Math.hypot(deltaX, deltaY) < 6) return;
+    moveu = true;
+    movimento.preventDefault();
+    aplicarPosicaoFabEstoque(botao, { x: origem.left + deltaX, y: origem.top + deltaY });
+  };
+  const finalizar = () => {
+    window.removeEventListener("pointermove", mover);
+    window.removeEventListener("pointerup", finalizar);
+    window.removeEventListener("pointercancel", finalizar);
+    botao.classList.remove("is-dragging");
+    if (!moveu) return;
+    const retangulo = botao.getBoundingClientRect();
+    const posicao = limitarPosicaoFabEstoque(retangulo.left, retangulo.top, botao);
+    salvarPosicaoFabEstoque(posicao);
+    botao.dataset.dragged = "true";
+    window.setTimeout(() => delete botao.dataset.dragged, 350);
+  };
+  window.addEventListener("pointermove", mover, { passive: false });
+  window.addEventListener("pointerup", finalizar, { once: true });
+  window.addEventListener("pointercancel", finalizar, { once: true });
+}
+
+function acionarFabEstoque(event) {
+  const botao = event?.currentTarget;
+  if (botao?.dataset.dragged === "true") {
+    event.preventDefault();
+    event.stopPropagation();
+    delete botao.dataset.dragged;
+    return;
+  }
+  abrirCadastroItemEstoque();
+}
+
 function renderizarFabEstoqueGlobal() {
   const layer = document.getElementById(APP_LAYER_IDS.overlay);
   if (!layer) return;
@@ -10772,8 +10937,9 @@ function renderizarFabEstoqueGlobal() {
   const fabLayer = document.createElement("div");
   fabLayer.className = "stock-fab-layer";
   fabLayer.dataset.stockFabLayer = "true";
-  fabLayer.innerHTML = `<button class="stock-add-fab" type="button" onclick="abrirCadastroItemEstoque()" title="Adicionar item" aria-label="Adicionar item">${renderUiIcon("plus")}</button>`;
+  fabLayer.innerHTML = `<button class="stock-add-fab" type="button" onclick="acionarFabEstoque(event)" onpointerdown="iniciarArrastoFabEstoque(event)" title="Toque para adicionar ou arraste para mover" aria-label="Adicionar item; arraste para mover">${renderUiIcon("plus")}</button>`;
   layer.appendChild(fabLayer);
+  window.requestAnimationFrame(() => aplicarPosicaoFabEstoque(fabLayer.querySelector(".stock-add-fab")));
 }
 
 function configurarFechamentoMenusEstoque() {
@@ -15687,7 +15853,7 @@ function renderPedidosRecentesDashboard() {
               onclick="acionarToquePedido(event, ${Number(pedido.id)})">
               <span class="dashboard-order-main">
                 <strong>${escaparHtml(cliente)}</strong>
-                <small>${itens.length} item(ns)${prazo ? ` • Prazo: ${escaparHtml(prazo)}` : ""}</small>
+                <small>Pedido ${escaparHtml(getNumeroSequencialPedido(pedido))} • ${itens.length} item(ns)${prazo ? ` • Prazo: ${escaparHtml(prazo)}` : ""}</small>
               </span>
               <span class="dashboard-order-total">
                 <strong>${formatarMoeda(totalPedido(pedido))}</strong>
@@ -16221,7 +16387,45 @@ function abrirDadosPessoaisUsuario() {
   promoverPopupParaDialogUiV3(popup, { title: "Dados pessoais" });
 }
 
-function salvarDadosPessoaisUsuario(options = {}) {
+async function salvarPerfilUsuarioRemoto({ usuario = getUsuarioAtual(), nome = "", telefone = "", foto = "" } = {}) {
+  if (!usuario || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
+  const userId = String(syncConfig.supabaseUserId);
+  const atualizadoEm = new Date().toISOString();
+  const nomeFinal = String(nome || usuario.nome || "").trim();
+  const telefoneFinal = String(telefone || usuario.phone || usuario.telefone || "").trim();
+  const fotoFinal = String(foto || usuario.avatarUrl || usuario.avatar_url || appConfig.profilePhotoDataUrl || "").trim();
+
+  const resultados = await Promise.allSettled([
+    requisicaoSupabase(`/rest/v1/profiles?user_id=eq.${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      telemetry: false,
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ name: nomeFinal, phone: telefoneFinal || null, updated_at: atualizadoEm })
+    }),
+    requisicaoSupabase(`/rest/v1/erp_profiles?id=eq.${encodeURIComponent(userId)}`, {
+      method: "PATCH",
+      telemetry: false,
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ display_name: nomeFinal, phone: telefoneFinal || null, updated_at: atualizadoEm })
+    }),
+    requisicaoSupabase("/rest/v1/user_profiles?on_conflict=user_id", {
+      method: "POST",
+      telemetry: false,
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ user_id: userId, display_name: nomeFinal, profile_photo: fotoFinal, updated_at: atualizadoEm })
+    })
+  ]);
+
+  const dadosPessoaisOk = resultados[0].status === "fulfilled" || resultados[1].status === "fulfilled";
+  const identidadeOk = resultados[2].status === "fulfilled";
+  const falhas = resultados.filter((resultado) => resultado.status === "rejected");
+  if (falhas.length) {
+    registrarDiagnostico("Perfil", "Sincronização parcial do perfil", falhas.map((falha) => falha.reason?.message || String(falha.reason || "falha")).join(" | "));
+  }
+  return dadosPessoaisOk && identidadeOk;
+}
+
+async function salvarDadosPessoaisUsuario(options = {}) {
   const usuario = getUsuarioAtual();
   if (!usuario) return;
   const inline = options?.inline === true;
@@ -16252,11 +16456,19 @@ function salvarDadosPessoaisUsuario(options = {}) {
       usuarioAtualEmail = atualizado.email;
       sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
     }
+    const remotoOk = await salvarPerfilUsuarioRemoto({
+      usuario: atualizado || usuario,
+      nome,
+      telefone,
+      foto: appConfig.profilePhotoDataUrl || atualizado?.avatarUrl || atualizado?.avatar_url || ""
+    });
     salvarDados();
-    registrarFluxoSalvamento("Perfil", "Salvar dados pessoais", { id, email, campos: ["nome", "telefone"] });
+    registrarFluxoSalvamento("Perfil", "Salvar dados pessoais", { id, email, remotoOk, campos: ["nome", "telefone"] });
     if (!inline) fecharPopup();
     renderApp();
-    mostrarToast("Dados do usuário atualizados.", "sucesso", 2600);
+    mostrarToast(remotoOk
+      ? "Perfil salvo e sincronizado."
+      : "Perfil salvo neste aparelho. A nuvem será sincronizada quando estiver disponível.", remotoOk ? "sucesso" : "warning", 3800);
   } catch (erro) {
     registrarFluxoSalvamento("Perfil", "Salvar dados pessoais", { email: usuario.email || "" }, erro);
     ErrorService.notify(erro, { area: "Perfil", action: "Salvar dados pessoais", errorKey: "SAVE_PROFILE_FAILED" });
@@ -22892,11 +23104,11 @@ function abrirFotoPerfilUsuario() {
         </div>
         <input id="profilePhotoUserFile" class="file-input" type="file" accept="image/*" onchange="salvarFotoPerfilUsuario(this)">
         <div class="actions">
-          <button class="btn" type="button" onclick="document.getElementById('profilePhotoUserFile')?.click()">Trocar foto</button>
+          <button class="btn" type="button" onclick="document.getElementById('profilePhotoUserFile')?.click()">Escolher e salvar foto</button>
           ${temFoto ? `<button class="btn danger" type="button" onclick="removerFotoPerfilUsuario()">Remover</button>` : ""}
           <button class="btn ghost" type="button" onclick="fecharPopup()">Fechar</button>
         </div>
-        <p class="muted">A foto fica vinculada ao usuário e aparece no app. A aparência geral continua no menu Aparência.</p>
+        <p class="muted">Ao escolher a imagem, ela é otimizada, salva e sincronizada automaticamente com este perfil.</p>
       </section>
     </div>
   `;
@@ -22921,9 +23133,15 @@ async function salvarFotoPerfilUsuario(input) {
       usuario.avatarUrl = appConfig.profilePhotoDataUrl;
       usuario.avatar_url = appConfig.profilePhotoDataUrl;
     }
-    appConfig.customizationSyncPending = !(await salvarPersonalizacaoRemotaSilencioso());
+    const [personalizacaoOk, perfilOk] = await Promise.all([
+      salvarPersonalizacaoRemotaSilencioso(),
+      salvarPerfilUsuarioRemoto({ usuario, foto: appConfig.profilePhotoDataUrl })
+    ]);
+    appConfig.customizationSyncPending = !personalizacaoOk;
     salvarDados();
-    mostrarToast("Foto do perfil atualizada.", "sucesso", 2600);
+    mostrarToast(perfilOk
+      ? "Foto do perfil salva e sincronizada."
+      : "Foto salva neste aparelho. A nuvem será sincronizada quando estiver disponível.", perfilOk ? "sucesso" : "warning", 3600);
     renderApp();
     abrirFotoPerfilUsuario();
   } catch (erro) {
@@ -22951,9 +23169,13 @@ async function removerFotoPerfilUsuario() {
     usuario.avatarUrl = "";
     usuario.avatar_url = "";
   }
-  appConfig.customizationSyncPending = !(await salvarPersonalizacaoRemotaSilencioso());
+  const [personalizacaoOk, perfilOk] = await Promise.all([
+    salvarPersonalizacaoRemotaSilencioso(),
+    salvarPerfilUsuarioRemoto({ usuario, foto: "" })
+  ]);
+  appConfig.customizationSyncPending = !personalizacaoOk;
   salvarDados();
-  mostrarToast("Foto do perfil removida.", "sucesso", 2400);
+  mostrarToast(perfilOk ? "Foto removida e perfil sincronizado." : "Foto removida neste aparelho.", perfilOk ? "sucesso" : "warning", 3000);
   renderApp();
   abrirFotoPerfilUsuario();
 }
@@ -24261,7 +24483,7 @@ function renderDashboardDesktopStockPanel(stats) {
         <h2>${renderUiIcon("estoque")} Estoque</h2>
         <div class="operational-card-actions">
           <span class="status-badge ${stats.estoqueBaixo ? "badge-alerta" : "badge-ativo"}">${stats.estoqueBaixo ? `${stats.estoqueBaixo} baixo(s)` : "OK"}</span>
-          <button class="text-link" type="button" onclick="abrirEstoqueRapidoOperacional()">Entrada rápida</button>
+          <button class="text-link" type="button" onclick="abrirCadastroItemEstoque()">Adicionar item</button>
         </div>
       </div>
       <div class="dashboard-compact-list">
@@ -24618,6 +24840,40 @@ function normalizarStatusPedidoFiltro(pedido = {}) {
   if (["pronto", "prontos"].includes(status)) return "prontos";
   if (["producao", "produção"].includes(status)) return "producao";
   return "pendentes";
+}
+
+function garantirNumeracaoSequencialPedidos(lista = pedidos) {
+  const registros = (Array.isArray(lista) ? lista : []).filter(Boolean);
+  const usados = new Set(registros
+    .map((pedido) => Math.floor(Number(pedido.numeroPedido || pedido.numero_pedido) || 0))
+    .filter((numero) => numero > 0));
+  let proximo = 1;
+  [...registros]
+    .sort((a, b) => {
+      const dataA = Date.parse(a.criadoEm || a.createdAt || a.created_at || 0) || Number(a.id) || 0;
+      const dataB = Date.parse(b.criadoEm || b.createdAt || b.created_at || 0) || Number(b.id) || 0;
+      return dataA - dataB;
+    })
+    .forEach((pedido) => {
+      const atual = Math.floor(Number(pedido.numeroPedido || pedido.numero_pedido) || 0);
+      if (atual > 0) return;
+      while (usados.has(proximo)) proximo += 1;
+      pedido.numeroPedido = proximo;
+      pedido.numero_pedido = proximo;
+      usados.add(proximo);
+      proximo += 1;
+    });
+  return registros;
+}
+
+function getNumeroSequencialPedido(pedido = {}) {
+  garantirNumeracaoSequencialPedidos();
+  return Math.max(1, Math.floor(Number(pedido.numeroPedido || pedido.numero_pedido) || 1));
+}
+
+function getProximoNumeroSequencialPedido() {
+  garantirNumeracaoSequencialPedidos();
+  return pedidos.reduce((maior, pedido) => Math.max(maior, Number(pedido.numeroPedido || pedido.numero_pedido) || 0), 0) + 1;
 }
 
 function pedidoEhHoje(pedido = {}) {
@@ -25053,6 +25309,8 @@ function renderMaterialOptions(selectedId = "", opcoes = {}) {
 }
 
 function getIconeMaterialEstoque(material = {}) {
+  const iconeEscolhido = String(material.icone || material.icon || "").trim();
+  if (STOCK_ITEM_ICON_OPTIONS.some((opcao) => opcao.value === iconeEscolhido)) return iconeEscolhido;
   const texto = normalizarTextoBusca(`${material.nome || ""} ${material.tipo || ""} ${material.categoria || ""} ${material.tipoItem || material.item_type || ""} ${material.unidade || ""}`);
   if (/filamento|pla|petg|abs|asa|tpu|rolo/.test(texto)) return "filamento";
   if (/resina|frasco|tinta|cola|liquido|liquido|ml|litro/.test(texto)) return "resina";
@@ -25061,6 +25319,18 @@ function getIconeMaterialEstoque(material = {}) {
   if (/ferramenta|pincel|espátula|espatula|alicate/.test(texto)) return "ferramenta";
   if (/tag|nfc|pingente|argola|chaveiro|acessorio|acessório/.test(texto)) return "acessorio";
   return "estoque";
+}
+
+function getFotoMaterialEstoque(material = {}) {
+  const foto = String(material.foto || material.imageDataUrl || material.image_url || "").trim();
+  return /^(data:image\/(?:webp|jpe?g|png);base64,|https?:\/\/)/i.test(foto) ? foto : "";
+}
+
+function renderMidiaMaterialEstoque(material = {}, classe = "stock-type-icon") {
+  const foto = getFotoMaterialEstoque(material);
+  return `<span class="${escaparAttr(classe)} ${foto ? "has-photo" : ""}">${foto
+    ? `<img src="${escaparAttr(foto)}" alt="Foto de ${escaparAttr(material.nome || "item do estoque")}" loading="lazy" decoding="async">`
+    : renderUiIcon(getIconeMaterialEstoque(material))}</span>`;
 }
 
 function formatarQuantidadeEstoque(valor = 0, unidade = "un") {
@@ -25199,15 +25469,64 @@ function renderEstoqueStatusChips(materiais = estoque, ativo = "todos") {
 
 function filtrarMateriaisEstoque(materiais = estoque, filtro = "todos", busca = "") {
   const termo = normalizarSugestaoClienteTexto(busca || "");
+  const buscaSemPrefixo = String(busca || "").trim().replace(/^#/, "");
+  const codigoBusca = /^\d+$/.test(buscaSemPrefixo) ? Number(buscaSemPrefixo) : 0;
   return materiais.filter((material) => {
     const normalizado = normalizarMaterialEstoque(material);
-    const texto = normalizarSugestaoClienteTexto(`${normalizado.nome} ${normalizado.tipo} ${normalizado.tipoItem} ${normalizado.categoria} ${normalizado.cor} ${normalizado.id}`);
-    const passaBusca = !termo || texto.includes(termo);
+    const codigo = getCodigoNumericoMaterialEstoque(normalizado);
+    const codigoExterno = getCodigoExternoMaterialEstoque(normalizado);
+    const texto = normalizarSugestaoClienteTexto(`${formatarCodigoMaterialEstoque(codigo)} ${codigo} ${codigoExterno} ${normalizado.nome} ${normalizado.tipo} ${normalizado.tipoItem} ${normalizado.categoria} ${normalizado.cor} ${normalizado.id}`);
+    const passaBusca = !termo || texto.includes(termo) || (codigoBusca > 0 && codigo === codigoBusca);
     const passaFiltro = filtro === "todos"
       || (filtro === "low" && normalizado.stock_status === "low")
       || (filtro === "sem_estoque" && (Number(normalizado.qtd) || 0) <= 0);
     return passaBusca && passaFiltro;
   });
+}
+
+function getOrdenacaoEstoqueAtiva() {
+  const ordenacao = String(window.__estoqueOrdenacao || "codigo");
+  return ["codigo", "nome", "baixo", "recente"].includes(ordenacao) ? ordenacao : "codigo";
+}
+
+function trocarOrdenacaoEstoque(ordenacao = "codigo") {
+  window.__estoqueOrdenacao = ["codigo", "nome", "baixo", "recente"].includes(String(ordenacao)) ? String(ordenacao) : "codigo";
+  renderizarPreservandoScroll();
+}
+
+function ordenarMateriaisEstoque(materiais = [], ordenacao = getOrdenacaoEstoqueAtiva()) {
+  const lista = [...(Array.isArray(materiais) ? materiais : [])];
+  const porCodigo = (a, b) => getCodigoNumericoMaterialEstoque(a) - getCodigoNumericoMaterialEstoque(b);
+  if (ordenacao === "nome") return lista.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR") || porCodigo(a, b));
+  if (ordenacao === "baixo") return lista.sort((a, b) => (Number(a.qtd) || 0) - (Number(b.qtd) || 0) || porCodigo(a, b));
+  if (ordenacao === "recente") return lista.sort((a, b) => String(b.atualizadoEm || b.updated_at || b.last_restock_at || "").localeCompare(String(a.atualizadoEm || a.updated_at || a.last_restock_at || "")) || porCodigo(a, b));
+  return lista.sort(porCodigo);
+}
+
+function normalizarChaveProdutoEstoque(valor = "") {
+  return normalizarSugestaoClienteTexto(valor).replace(/\s+/g, " ").trim();
+}
+
+function encontrarItemEstoqueDuplicado({ nome = "", codigoExterno = "", ignorarId = "" } = {}) {
+  const chaveNome = normalizarChaveProdutoEstoque(nome);
+  const chaveExterna = normalizarChaveProdutoEstoque(codigoExterno);
+  return normalizarEstoque().find((material) => {
+    if (ignorarId && String(material.id) === String(ignorarId)) return false;
+    const mesmoNome = chaveNome && normalizarChaveProdutoEstoque(material.nome) === chaveNome;
+    const externoExistente = normalizarChaveProdutoEstoque(getCodigoExternoMaterialEstoque(material));
+    return mesmoNome || (chaveExterna && externoExistente === chaveExterna);
+  }) || null;
+}
+
+function abrirItemEstoqueExistente(materialId = "") {
+  const material = getMaterialEstoque(materialId);
+  if (!material) return;
+  window.__stockItemWizard = null;
+  window.__estoqueSelecionadoId = String(material.id);
+  window.__estoqueBusca = formatarCodigoMaterialEstoque(material);
+  fecharPopup();
+  if (telaAtual !== "estoque") trocarTela("estoque");
+  else renderizarPreservandoScroll();
 }
 
 function alternarListaCompletaEstoque() {
@@ -25248,7 +25567,7 @@ function renderRolosLotesMaterialEstoque(material = {}, indice = -1, podeOperar 
       <div class="stock-batch-list">
         ${lotes.length ? lotes.map((lote, loteIndex) => `
           <div class="stock-batch-row">
-            <span class="stock-type-icon">${renderUiIcon(getIconeMaterialEstoque(material))}</span>
+            ${renderMidiaMaterialEstoque(material)}
             <div class="row-title">
               <strong>${escaparHtml(lote.batch_code || `${tipo} ${loteIndex + 1}`)}</strong>
               <span class="muted">${formatarQuantidadeEstoque(lote.current_quantity, lote.unit)} de ${formatarQuantidadeEstoque(lote.initial_quantity, lote.unit)} • ${escaparHtml(lote.status || "fechado")}${lote.manufacturer_lot ? ` • lote ${escaparHtml(lote.manufacturer_lot)}` : ""}${lote.location_id ? ` • ${escaparHtml(lote.location_id)}` : ""}</span>
@@ -25283,7 +25602,7 @@ function renderEstoqueDetalheSelecionado(materiaisNormalizados = estoque, podeOp
         <button class="icon-action-button" type="button" onclick="window.__estoqueSelecionadoId=''; renderizarPreservandoScroll()" title="Voltar">${renderUiIcon("back")}</button>
         <div>
           <strong>${escaparHtml(material.nome)}</strong>
-          <small>${escaparHtml(inferirTipoMaterial(material.nome) || material.tipo || "Material")}${material.cor ? " • " + escaparHtml(material.cor) : ""}</small>
+          <small>${escaparHtml(formatarCodigoMaterialEstoque(material))} • ${escaparHtml(inferirTipoMaterial(material.nome) || material.tipo || "Material")}${material.cor ? " • " + escaparHtml(material.cor) : ""}</small>
         </div>
         <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : material.stock_status === "low" ? "badge-alerta" : "badge-ativo"}">${escaparHtml(status)}</span>
       </div>
@@ -25384,7 +25703,8 @@ function renderEstoque() {
   const materiaisNormalizados = normalizarEstoque();
   const filtroEstoque = getEstoqueFiltroAtivo();
   const buscaEstoque = String(window.__estoqueBusca || "");
-  const materiaisFiltrados = filtrarMateriaisEstoque(materiaisNormalizados, filtroEstoque, buscaEstoque);
+  const ordenacaoEstoque = getOrdenacaoEstoqueAtiva();
+  const materiaisFiltrados = ordenarMateriaisEstoque(filtrarMateriaisEstoque(materiaisNormalizados, filtroEstoque, buscaEstoque), ordenacaoEstoque);
   const listaExpandida = window.__estoqueListaExpandida === true || buscaEstoque.trim().length > 0;
   const limiteLista = 6;
   const materiaisExibidos = listaExpandida ? materiaisFiltrados : materiaisFiltrados.slice(0, limiteLista);
@@ -25404,11 +25724,11 @@ function renderEstoque() {
         const preco = Math.max(0, Number(material.custoUnitario || material.unit_cost) || calcularCustoKgMaterialEstoque(material));
         return `
           <div class="stock-row smart-stock-row ${classeStatusEstoque(material.stock_status)} ${String(window.__estoqueSelecionadoId || "") === String(material.id) ? "selected" : ""}">
-            <span class="stock-type-icon">${renderUiIcon(getIconeMaterialEstoque(material))}</span>
+            ${renderMidiaMaterialEstoque(material)}
             <button class="row-title stock-row-main-button" type="button" data-action="stock-view" data-index="${indice}">
-              <strong>${escaparHtml(material.nome)}</strong>
+              <span class="stock-row-title-line"><strong>${escaparHtml(material.nome)}</strong><b class="stock-code-badge">${escaparHtml(formatarCodigoMaterialEstoque(material))}</b></span>
               <span class="muted">${escaparHtml(material.categoria || material.tipo || "Geral")} • ${escaparHtml(material.tipoItem || material.item_type || "Material")}</span>
-              <span class="muted">Estoque: ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")} <b>|</b> Disp.: ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")}</span>
+              <span class="muted">Estoque: ${formatarQuantidadeEstoque(material.qtd, material.unidade || "un")}${getCodigoExternoMaterialEstoque(material) ? ` <b>|</b> Externo: ${escaparHtml(getCodigoExternoMaterialEstoque(material))}` : ""}</span>
             </button>
             <div class="stock-percent-box">
               <strong>${podeVerCustos && preco ? formatarMoeda(preco) : `${percentual}%`}</strong>
@@ -25437,6 +25757,7 @@ function renderEstoque() {
           <p class="muted">${materiaisNormalizados.length} item(ns) cadastrados</p>
         </div>
         <div class="stock-header-actions">
+          ${podeOperar ? `<button class="btn stock-add-header" type="button" onclick="abrirCadastroItemEstoque()">${renderUiIcon("plus")} Novo item</button>` : ""}
           <button class="icon-action-button" type="button" onclick="trocarTela('feedback')" title="Alertas">${renderUiIcon("bell")}</button>
         </div>
       </div>
@@ -25471,8 +25792,9 @@ function renderEstoque() {
       <div class="stock-search-row">
         <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
           <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-          <input data-search-context="estoque" data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar item, código ou descrição..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
+          <input data-search-context="estoque" data-preserve-focus-key="estoque-busca" value="${escaparAttr(buscaEstoque)}" placeholder="Buscar por nome, #código ou barras/QR..." oninput="window.__estoqueBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
         </label>
+        <label class="stock-sort-field" title="Ordenar itens"><span>Ordenar</span><select onchange="trocarOrdenacaoEstoque(this.value)"><option value="codigo" ${ordenacaoEstoque === "codigo" ? "selected" : ""}>Código</option><option value="nome" ${ordenacaoEstoque === "nome" ? "selected" : ""}>Nome</option><option value="baixo" ${ordenacaoEstoque === "baixo" ? "selected" : ""}>Menor estoque</option><option value="recente" ${ordenacaoEstoque === "recente" ? "selected" : ""}>Recentes</option></select></label>
         <button class="icon-action-button" type="button" onclick="trocarFiltroEstoque('low')" title="Filtrar alertas">${renderUiIcon("alerta")}</button>
       </div>
       ${renderEstoqueDetalheSelecionado(materiaisNormalizados, podeOperar)}
@@ -25530,6 +25852,7 @@ function renderListaPedidos() {
   const linhas = lista.length
     ? listaPaginada.map((pedido) => {
         const id = Number(pedido.id);
+        const numeroPedido = getNumeroSequencialPedido(pedido);
         const itens = Array.isArray(pedido.itens) ? pedido.itens.length : 1;
         const status = pedido.status || "aberto";
         const total = totalPedido(pedido);
@@ -25539,7 +25862,7 @@ function renderListaPedidos() {
           <div class="list-row clickable-row order-list-card smart-order-row order-card-tone-${escaparAttr(classeStatusPedido(status).replace("order-status-", ""))}"
             role="button"
             tabindex="0"
-            aria-label="Abrir pedido ${escaparAttr(String(pedido.id))} de ${escaparAttr(clienteDoPedido(pedido))}. Toque longo para mais ações."
+            aria-label="Abrir Pedido ${escaparAttr(String(numeroPedido))} de ${escaparAttr(clienteDoPedido(pedido))}. Toque longo para mais ações."
             title="Toque para abrir. Toque longo para editar ou ver mais ações."
             onpointerdown="iniciarToqueLongoPedido(event, ${id})"
             onpointermove="atualizarToqueLongoPedido(event, ${id})"
@@ -25551,11 +25874,11 @@ function renderListaPedidos() {
             onkeydown="acionarPedidoPorTeclado(event, ${id})">
             <div class="smart-order-main">
               <div class="smart-order-head">
-                <strong>${escaparHtml(clienteDoPedido(pedido))}</strong>
+                <span class="smart-order-number">Pedido ${escaparHtml(numeroPedido)}</span>
                 <span class="order-status-badge ${classeStatusPedido(status)}">${escaparHtml(labelStatusPedido(status))}</span>
+                <strong class="smart-order-contact-name">${escaparHtml(clienteDoPedido(pedido))}</strong>
               </div>
               <div class="smart-order-meta">
-                <span>#${escaparHtml(pedido.id)}</span>
                 <span>${itens} item(ns)</span>
                 ${prazo ? `<span>Prazo: ${escaparHtml(prazo)}</span>` : ""}
                 ${telefone ? `<span>${escaparHtml(telefone)}</span>` : ""}
@@ -25876,7 +26199,7 @@ function renderDetalhePedido(pedido) {
       <div class="order-detail-hero">
         <div>
           <span class="eyebrow">Pedido</span>
-          <h2>#${escaparHtml(pedido.id)}</h2>
+          <h2>Pedido ${escaparHtml(getNumeroSequencialPedido(pedido))}</h2>
           <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
           ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
         </div>
@@ -27810,20 +28133,30 @@ function classePlanoSaasCompacto(planoSlug = "free") {
 function getResumoEmpresaSaas(cliente) {
   const assinatura = getAssinaturaSaas(cliente.id);
   const usuarios = getUsuariosDoCliente(cliente.id);
-  const plano = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
+  const planoRegistrado = getPlanoSaas(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
   const pagamentos = saasPayments.filter((pagamento) => pagamento.clientId === cliente.id);
   const pagamentosAprovados = pagamentos.filter((pagamento) => pagamento.status === "approved");
-  const vencimento = assinatura?.currentPeriodEnd || assinatura?.planExpiresAt || assinatura?.expiresAt || cliente.planExpiresAt || "";
+  const planoComVencimento = ["start", "pro", "premium_trial"].includes(planoRegistrado.slug);
+  const vencimentoRegistrado = planoComVencimento
+    ? (assinatura?.currentPeriodEnd || assinatura?.planExpiresAt || assinatura?.expiresAt || cliente.planExpiresAt || "")
+    : "";
+  const acessoVencido = planoComVencimento
+    && getTimestampPlano(vencimentoRegistrado) > 0
+    && getTimestampPlano(vencimentoRegistrado) <= Date.now();
+  const plano = acessoVencido ? getPlanoSaas("free") : planoRegistrado;
+  const vencimento = acessoVencido ? "" : vencimentoRegistrado;
   const atividade = getAtividadeEmpresaSaas(cliente, usuarios);
   const ultimoAcesso = atividade.lastSeenAt;
-  const statusPlano = getStatusPlanoClienteSaas(cliente, assinatura);
+  const statusPlano = acessoVencido ? "Acesso encerrado" : getStatusPlanoClienteSaas(cliente, assinatura);
   return {
     assinatura,
     usuarios,
     plano,
+    planoRegistrado,
     pagamentos,
     pagamentosAprovados,
     vencimento,
+    acessoVencido,
     ultimoAcesso,
     statusPlano,
     online: atividade.online,
@@ -27870,16 +28203,63 @@ function renderSuperAdminMetricCard(rotulo, valor, detalhe = "", icon = "dashboa
   `;
 }
 
-function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "Mais ações") {
+function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "⋯") {
   if (!conteudo) return "";
+  const compacto = rotulo === "⋯";
   return `
-    <details class="ui-context-menu superadmin-action-menu" onclick="event.stopPropagation()">
-      <summary class="btn secondary superadmin-action-menu-trigger">
-        <span>${escaparHtml(rotulo)}</span><span aria-hidden="true">⌄</span>
+    <details class="ui-context-menu superadmin-action-menu ${compacto ? "is-compact" : ""}" onclick="event.stopPropagation()">
+      <summary class="btn secondary superadmin-action-menu-trigger" aria-label="${compacto ? "Mais ações" : escaparAttr(rotulo)}" title="${compacto ? "Mais ações" : escaparAttr(rotulo)}">
+        <span>${escaparHtml(rotulo)}</span>${compacto ? "" : `<span aria-hidden="true">⌄</span>`}
       </summary>
       <div class="ui-context-menu-panel superadmin-action-menu-panel">${conteudo}</div>
     </details>
   `;
+}
+
+function getApresentacaoPlanoEmpresaSaas(resumo = {}) {
+  const assinatura = resumo.assinatura || {};
+  const plano = resumo.plano || getPlanoSaas("free");
+  const vencimento = resumo.vencimento || "";
+  const vencimentoMs = getTimestampPlano(vencimento);
+  const agora = Date.now();
+  const data = vencimentoMs ? new Date(vencimentoMs).toLocaleDateString("pt-BR") : "";
+  const pago = ["start", "pro", "premium_trial"].includes(plano.slug);
+  const manual = assinatura.manualOverride === true || assinatura.manual_override === true;
+
+  if (!pago) {
+    return {
+      titulo: plano.name || "Free",
+      detalhe: resumo.acessoVencido ? "Plano anterior encerrado • acesso atual Free" : "Sem vencimento",
+      alerta: false
+    };
+  }
+
+  if (vencimentoMs) {
+    const dias = Math.max(0, Math.ceil((vencimentoMs - agora) / 86400000));
+    if (vencimentoMs <= agora) {
+      return { titulo: `${plano.name} encerrado`, detalhe: `Venceu em ${data} • retorna ao Free`, alerta: true };
+    }
+    return {
+      titulo: `${plano.name} até ${data}`,
+      detalhe: `${dias} ${dias === 1 ? "dia restante" : "dias restantes"} • depois volta ao Free`,
+      alerta: dias <= 3
+    };
+  }
+
+  return manual
+    ? { titulo: `${plano.name} sem data final`, detalhe: "Acesso manual • definir vencimento", alerta: true }
+    : { titulo: `${plano.name} ativo`, detalhe: "Assinatura atual • renovação mensal", alerta: false };
+}
+
+function getApresentacaoAtividadeEmpresaSaas(resumo = {}) {
+  const ultimoAcesso = resumo.ultimoAcesso || "";
+  if (resumo.online) return { titulo: "Online agora", detalhe: "Sessão ativa nos últimos 5 minutos", online: true };
+  if (!ultimoAcesso) return { titulo: "Sem acesso registrado", detalhe: "Cliente ainda não utilizou o aplicativo", online: false };
+  return {
+    titulo: formatarTempoRelativo(ultimoAcesso),
+    detalhe: new Date(ultimoAcesso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }),
+    online: false
+  };
 }
 
 function renderLinhaClienteSaas(cliente) {
@@ -27891,49 +28271,41 @@ function renderLinhaClienteSaas(cliente) {
   const selecionado = String(window.__clienteSaasSelecionadoId || "") === String(cliente.id);
   const badgeTeste = cliente.isTestUser ? `<span class="status-badge badge-teste">Teste</span>` : "";
   const statusFinanceiro = resumo.statusPlano;
-  const dataVencimento = assinatura?.currentPeriodEnd ? new Date(assinatura.currentPeriodEnd).toLocaleDateString("pt-BR") : "-";
-  const ultimoAcesso = resumo.ultimoAcesso ? new Date(resumo.ultimoAcesso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "sem acesso";
+  const apresentacaoPlano = getApresentacaoPlanoEmpresaSaas(resumo);
+  const apresentacaoAtividade = getApresentacaoAtividadeEmpresaSaas(resumo);
   const dataCadastro = cliente.createdAt ? new Date(cliente.createdAt).toLocaleDateString("pt-BR") : "-";
   return `
     <div class="client-admin-row ${selecionado ? "selected" : ""}" data-client-row="saas" data-client-id="${clienteIdAttr}" role="button" tabindex="0" aria-selected="${selecionado ? "true" : "false"}" onpointerdown="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" onpointermove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" onpointercancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchstart="prepararSelecaoClienteSaas(event, '${clienteIdAttr}')" ontouchmove="atualizarMovimentoClienteSaas(event, '${clienteIdAttr}')" ontouchcancel="cancelarSelecaoClienteSaas(event, '${clienteIdAttr}')" onclick="selecionarResultadoClienteSaas(event, '${clienteIdAttr}')" onkeydown="acionarClienteSaasPorTeclado(event, '${clienteIdAttr}')">
       <div class="client-admin-main">
         <small>Empresa</small>
-        <strong>${escaparHtml(cliente.name)}</strong>
+        <span class="client-admin-title"><strong>${escaparHtml(cliente.name)}</strong><span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>${badgeTeste}</span>
         <span class="muted">${escaparHtml(cliente.email)}${cliente.phone ? " • " + escaparHtml(cliente.phone) : ""}</span>
         <span class="muted client-admin-tech">ID ${escaparHtml(cliente.clientCode || cliente.id)} • user_id ${escaparHtml(assinatura?.userId || usuarioPrincipal?.id || "-")}</span>
       </div>
-      <div class="client-admin-plan">
-        <small>Plano</small>
-        <span class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.name)}</span>
-        <em>${escaparHtml(assinatura?.pendingPlan || cliente.pendingPlan || "sem troca pendente")}</em>
+      <div class="client-admin-access ${apresentacaoPlano.alerta ? "needs-attention" : ""}">
+        <small>Plano e acesso</small>
+        <span><i class="status-badge ${classePlanoSaasCompacto(plano.slug)}">${escaparHtml(plano.name)}</i><strong>${escaparHtml(apresentacaoPlano.titulo)}</strong></span>
+        <em>${escaparHtml(apresentacaoPlano.detalhe)}</em>
+        <small>${escaparHtml(statusFinanceiro)}${assinatura?.pendingPlan || cliente.pendingPlan ? ` • troca pendente para ${escaparHtml(assinatura?.pendingPlan || cliente.pendingPlan)}` : ""}</small>
       </div>
-      <div class="client-admin-status">
-        <small>Status</small>
-        <span class="status-badge ${classeStatusPlano(cliente.status)}">${escaparHtml(rotuloStatusCliente(cliente.status))}</span>
-        ${badgeTeste}
-      </div>
-      <div class="client-admin-billing">
-        <small>Assinatura</small>
-        <strong>${escaparHtml(statusFinanceiro)}</strong>
-        <span class="muted">vence ${escaparHtml(dataVencimento)}</span>
-      </div>
-      <div class="client-meta">
-        <small>Atividade</small>
-        <span>${escaparHtml(ultimoAcesso)}</span>
-        <span>cad. ${escaparHtml(dataCadastro)}</span>
+      <div class="client-meta client-admin-activity">
+        <small>Último acesso</small>
+        <strong class="${apresentacaoAtividade.online ? "sa-online" : ""}">${escaparHtml(apresentacaoAtividade.titulo)}</strong>
+        <span>${escaparHtml(apresentacaoAtividade.detalhe)}</span>
+        <span>Cadastro ${escaparHtml(dataCadastro)}</span>
       </div>
       <div class="row-actions">
         <button class="btn ghost" onclick="editarClienteSaas('${clienteIdAttr}')">Editar</button>
         <button class="btn ghost" onclick="alterarPlanoClienteSaas('${clienteIdAttr}')">Plano</button>
-        <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar" : "Bloquear"}</button>
         ${renderMenuAcoesSuperadmin(`
+          <button class="btn warning" onclick="alterarStatusClienteSaas('${clienteIdAttr}', '${cliente.status === "blocked" ? "active" : "blocked"}')">${cliente.status === "blocked" ? "Reativar empresa" : "Bloquear empresa"}</button>
           <button class="btn ghost" onclick="liberarDiasManualClienteSaas('${clienteIdAttr}')">Adicionar dias ao acesso</button>
           <button class="btn ghost" onclick="alternarUsuarioTesteSaas('${clienteIdAttr}')">${cliente.isTestUser ? "Desativar usuário de teste" : "Marcar como usuário de teste"}</button>
           <button class="btn ghost" onclick="exportarClienteSaas('${clienteIdAttr}')">Exportar dados da empresa</button>
           <button class="btn warning" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar empresa</button>
           <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar dados pessoais</button>
           ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
-        `, "Mais")}
+        `, "⋯")}
       </div>
     </div>
   `;
@@ -27960,9 +28332,8 @@ function renderListaClientesSaasConteudo(totalClientes) {
     <div class="client-admin-table-head" aria-hidden="true">
       <span>Empresa</span>
       <span>Plano</span>
-      <span>Status</span>
-      <span>Assinatura</span>
-      <span>Atividade</span>
+      <span>Plano e acesso</span>
+      <span>Último acesso</span>
       <span>Ações</span>
     </div>
   ` : "";
@@ -28357,11 +28728,7 @@ function renderClientesSaas() {
   const atrasados = clientesVisiveis.filter((cliente) => cliente.status === "overdue").length;
   const bloqueados = clientesVisiveis.filter((cliente) => cliente.status === "blocked").length;
   const inativos = clientesVisiveis.filter((cliente) => cliente.status === "inactive").length;
-  const pagantes = clientesVisiveis.filter((cliente) => {
-    const assinatura = getAssinaturaSaas(cliente.id);
-    const plano = normalizarSlugPlano(assinatura?.activePlan || cliente.activePlan || assinatura?.planSlug || cliente.planoAtual || "free");
-    return plano !== "free";
-  }).length;
+  const pagantes = clientesVisiveis.filter((cliente) => getResumoEmpresaSaas(cliente).plano.slug !== "free").length;
   const comTeste = clientesVisiveis.filter((cliente) => cliente.isTestUser).length;
   const filtros = window.__clientesSaasFiltros || {};
   const linhas = renderListaClientesSaasConteudo(total);
@@ -28999,6 +29366,17 @@ async function liberarDiasManualClienteSaas(id) {
       premiumUntil,
       reason: `${String(motivo).trim()} (${dias} dia(s))`
     });
+    const validadeConfirmada = getTimestampPlano(
+      licenca?.premium_until
+      || licenca?.plan_expires_at
+      || licenca?.current_period_end
+      || licenca?.expires_at
+      || 0
+    );
+    if (!validadeConfirmada || validadeConfirmada < getTimestampPlano(premiumUntil) - 60_000) {
+      throw new Error("O banco não confirmou a data final do acesso. Nenhuma liberação foi considerada concluída.");
+    }
+    await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
     registrarAuditoria("liberação manual premium", {
       email: cliente.email,
       dias,
@@ -29006,7 +29384,7 @@ async function liberarDiasManualClienteSaas(id) {
       premiumUntil,
       source: licenca?.source || "rpc"
     }, cliente.id);
-    mostrarToast("Plano atualizado com sucesso", "sucesso", 4200);
+    mostrarToast(`Premium liberado até ${new Date(validadeConfirmada).toLocaleDateString("pt-BR")}`, "sucesso", 5200);
   } catch (erro) {
     registrarDiagnostico("Superadmin", "Erro ao liberar dias manualmente", erro.message);
     mostrarToast(`Falha ao atualizar: ${erro.message}`, "erro", 6500);
@@ -32314,6 +32692,9 @@ function getSeriesMensais(campo = "clientes") {
 }
 
 function renderSuperAdminDashboard() {
+  const estadoTelemetria = getEstadoTelemetriaSuperadmin();
+  if (estadoTelemetria.sugestoes === "idle") setTimeout(() => carregarSugestoesSupabase({ renderizar: true }), 0);
+  if (estadoTelemetria.diagnosticos === "idle") setTimeout(() => carregarDiagnosticosSuperadminSupabase({ renderizar: true }), 0);
   const metricas = getSuperAdminMetricas();
   const total = Math.max(metricas.total, 1);
   const offline = Math.max(metricas.total - metricas.ativos, 0);
@@ -32338,6 +32719,14 @@ function renderSuperAdminDashboard() {
     .filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt)
     .sort((a, b) => (Date.parse(b.createdAt || b.criadoEm || 0) || 0) - (Date.parse(a.createdAt || a.criadoEm || 0) || 0))
     .slice(0, 6);
+  const acessosRecentes = saasClients
+    .filter((cliente) => normalizarEmail(cliente.email) !== SUPERADMIN_BOOTSTRAP_EMAIL && !cliente.archivedAt)
+    .map((cliente) => ({ cliente, atividade: getAtividadeEmpresaSaas(cliente) }))
+    .filter((item) => Date.parse(item.atividade.lastSeenAt || 0))
+    .sort((a, b) => (Date.parse(b.atividade.lastSeenAt || 0) || 0) - (Date.parse(a.atividade.lastSeenAt || 0) || 0))
+    .slice(0, 6);
+  const bugsCriticos = appBugClustersRemotos.filter((item) => String(item.app_version || "").trim() === APP_VERSION && ["critical", "critico", "high", "alto"].includes(String(item.severity || "").toLowerCase()) && !["fixed", "resolved", "ignored"].includes(String(item.status || "").toLowerCase()));
+  const sugestoesNovas = appSuggestionsRemotas.filter((item) => !registroTelemetriaEhTeste(item) && ["", "new", "novo", "open", "aberto"].includes(String(item.status || "").toLowerCase()));
   const planoCards = [
     { titulo: "Plano Grátis", slug: "free", valor: metricas.porPlano.free, filtro: "free" },
     { titulo: "Plano Start", slug: "start", valor: metricas.porPlano.start, filtro: "start" },
@@ -32360,6 +32749,17 @@ function renderSuperAdminDashboard() {
     { titulo: "Com atenção", valor: String(metricas.vencidos + offline), detalhe: `${metricas.vencidos} atrasados`, classe: "red", icon: "seguranca", tab: "clientesStatus", filtro: "overdue" }
   ];
   return `
+    <div class="superadmin-priority-strip">
+      <button class="superadmin-priority-card ${bugsCriticos.length ? "danger" : "success"}" type="button" onclick="trocarAbaSuperAdmin('diagnosticos')">
+        <span>${renderUiIcon("seguranca")}</span><strong>${bugsCriticos.length}</strong><small>bugs críticos da v${escaparHtml(APP_VERSION)}</small>
+      </button>
+      <button class="superadmin-priority-card" type="button" onclick="trocarAbaSuperAdmin('sugestoes')">
+        <span>${renderUiIcon("feedback")}</span><strong>${sugestoesNovas.length}</strong><small>melhorias e sugestões novas</small>
+      </button>
+      <button class="superadmin-priority-card" type="button" onclick="abrirSuperAdminFiltro('clientes', '')">
+        <span>${renderUiIcon("clientes")}</span><strong>${acessosRecentes.filter((item) => item.atividade.online).length}</strong><small>clientes online agora</small>
+      </button>
+    </div>
     <div class="superadmin-kpi-grid">
       ${kpis.map((card) => `
         <button class="superadmin-kpi-card ${card.classe}" onclick="abrirSuperAdminFiltro('${card.tab}', '${card.filtro}')">
@@ -32449,7 +32849,7 @@ function renderSuperAdminDashboard() {
       `).join("")}
     </div>
     <div class="superadmin-section-head">
-      <h3>Cadastros recentes</h3>
+      <h3>Cadastros recentes · novos clientes</h3>
       <button class="inline-link" onclick="abrirSuperAdminFiltro('clientes', '')">Ver todos</button>
     </div>
     <div class="superadmin-recent-list">
@@ -32470,6 +32870,20 @@ function renderSuperAdminDashboard() {
           </button>
         `;
       }).join("") || `<p class="empty">Nenhuma empresa recente encontrada.</p>`}
+    </div>
+    <div class="superadmin-section-head">
+      <h3>Acessos recentes</h3>
+      <button class="inline-link" onclick="abrirSuperAdminFiltro('clientesStatus', 'active')">Ver clientes</button>
+    </div>
+    <div class="superadmin-recent-list superadmin-access-list">
+      ${acessosRecentes.map(({ cliente, atividade }) => `
+        <button class="superadmin-recent-row superadmin-access-row" onclick="abrirPerfilClienteSaas('${escaparAttr(cliente.id)}')">
+          <span class="superadmin-user-avatar">${escaparHtml(getUserInitials(cliente.name || cliente.email))}</span>
+          <strong>${escaparHtml(cliente.name || cliente.email || "Empresa")}</strong>
+          <span class="${atividade.online ? "sa-online" : "sa-offline"}">${atividade.online ? "Online agora" : formatarTempoRelativo(atividade.lastSeenAt)}</span>
+          <small>${atividade.lastSeenAt ? new Date(atividade.lastSeenAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "Sem acesso registrado"}</small>
+        </button>
+      `).join("") || `<p class="empty">Nenhum acesso registrado ainda.</p>`}
     </div>
   `;
 }
@@ -33013,9 +33427,9 @@ async function atualizarNotaAdminCluster(id) {
 function filtrarRelatoriosAutomaticos(lista) {
   const filtros = getFiltrosTelemetriaSuperadmin();
   return lista.filter((item) => {
+    if (String(item.app_version || "").trim() !== APP_VERSION) return false;
     if (filtros.severity && item.severity !== filtros.severity) return false;
     if (filtros.status && item.status !== filtros.status) return false;
-    if (filtros.version && !String(item.app_version || "").toLowerCase().includes(filtros.version.toLowerCase())) return false;
     if (filtros.device && !String(item.device_model || "").toLowerCase().includes(filtros.device.toLowerCase())) return false;
     return true;
   });
@@ -33024,6 +33438,7 @@ function filtrarRelatoriosAutomaticos(lista) {
 function filtrarFeedbackReports(lista) {
   const filtros = getFiltrosTelemetriaSuperadmin();
   return lista.filter((item) => {
+    if (registroTelemetriaEhTeste(item)) return false;
     if (filtros.feedbackStatus && item.status !== filtros.feedbackStatus) return false;
     if (filtros.feedbackType && item.type !== filtros.feedbackType) return false;
     return true;
@@ -33033,10 +33448,22 @@ function filtrarFeedbackReports(lista) {
 function filtrarSugestoesApp(lista) {
   const filtros = getFiltrosTelemetriaSuperadmin();
   return lista.filter((item) => {
+    if (registroTelemetriaEhTeste(item)) return false;
     if (filtros.suggestionStatus && item.status !== filtros.suggestionStatus) return false;
     if (filtros.suggestionCategory && item.category !== filtros.suggestionCategory) return false;
     return true;
   });
+}
+
+function registroTelemetriaEhTeste(item = {}) {
+  const versao = String(item.app_version || item.appVersion || "").toLowerCase();
+  const email = String(item.user_email || item.email || "").toLowerCase();
+  const chave = String(item.error_key || item.title || item.fingerprint || "").toLowerCase();
+  const origem = String(item.metadata?.source || item.source || "").toLowerCase();
+  return versao.startsWith("telemetry-test-")
+    || email.endsWith("@example.com")
+    || chave.includes("test_error_simplifica")
+    || origem.includes("test-telemetry-rest");
 }
 
 function filtrarEventosDiagnostico(lista) {
@@ -33051,6 +33478,7 @@ function filtrarEventosDiagnostico(lista) {
 function filtrarBugClusters(lista) {
   const filtros = getFiltrosTelemetriaSuperadmin();
   return lista.filter((item) => {
+    if (String(item.app_version || "").trim() !== APP_VERSION) return false;
     if (filtros.clusterStatus && item.status !== filtros.clusterStatus) return false;
     if (filtros.severity && item.severity !== filtros.severity) return false;
     return true;
@@ -33159,7 +33587,7 @@ function renderSuperAdminRelatoriosAutomaticos() {
         <option value="">Todos</option>
         ${["new", "reviewing", "fixed", "ignored"].map((valor) => `<option value="${valor}" ${filtros.status === valor ? "selected" : ""}>${valor}</option>`).join("")}
       </select></label>
-      <label class="field"><span>Versão</span><input value="${escaparAttr(filtros.version)}" oninput="atualizarFiltroTelemetriaSuperadmin('version', this.value)" placeholder="2026..."></label>
+      <label class="field"><span>Versão atual</span><input value="${escaparAttr(APP_VERSION)}" readonly></label>
       <label class="field"><span>Dispositivo</span><input value="${escaparAttr(filtros.device)}" oninput="atualizarFiltroTelemetriaSuperadmin('device', this.value)" placeholder="Android, web..."></label>
     </div>
     <div class="actions">
@@ -33208,12 +33636,12 @@ function renderSuperAdminFeedbackReports() {
   const filtros = getFiltrosTelemetriaSuperadmin();
   const lista = filtrarFeedbackReports(appFeedbackReportsRemotos);
   const sugestoesRemotas = filtrarSugestoesApp(appSuggestionsRemotas);
-  const categorias = contarSugestoesPorCategoria(appSuggestionsRemotas);
+  const categorias = contarSugestoesPorCategoria(appSuggestionsRemotas.filter((item) => !registroTelemetriaEhTeste(item)));
   const nfeCount = Number(categorias.nfe) || 0;
   const categoriasOrdenadas = Object.entries(categorias).sort((a, b) => b[1] - a[1]).slice(0, 8);
   return `
     <div class="metrics">
-      <div class="metric"><span>Sugestões online</span><strong>${appSuggestionsRemotas.length}</strong></div>
+      <div class="metric"><span>Sugestões online</span><strong>${appSuggestionsRemotas.filter((item) => !registroTelemetriaEhTeste(item)).length}</strong></div>
       <div class="metric"><span>Pedidos NF-e</span><strong>${nfeCount}</strong></div>
       <div class="metric"><span>Feedbacks técnicos</span><strong>${appFeedbackReportsRemotos.length}</strong></div>
     </div>
@@ -33249,7 +33677,7 @@ function renderSuperAdminFeedbackReports() {
     </div>
     ${estado.feedbackMessage ? `<div class="saas-sync-state ${estado.feedback === "error" ? "warning" : "info"}">${escaparHtml(estado.feedbackMessage)}</div>` : ""}
     ${estado.sugestoesMessage ? `<div class="saas-sync-state ${estado.sugestoes === "error" ? "warning" : "info"}">${escaparHtml(estado.sugestoesMessage)}</div>` : ""}
-    <h2 class="section-title">Sugestões do app</h2>
+    <h2 class="section-title" id="superadminSuggestionsSection">Sugestões do app</h2>
     <div class="history-list">
       ${sugestoesRemotas.map((item) => `
         <div class="history-item">
@@ -33307,29 +33735,27 @@ function renderSuperAdminDiagnosticos() {
   const bugs = filtrarRelatoriosAutomaticos(appErrorLogsRemotos);
   const eventos = filtrarEventosDiagnostico(appDiagnosticEventsRemotos);
   const clusters = filtrarBugClusters(appBugClustersRemotos);
-  const bugsCriticos = appErrorLogsRemotos.filter((item) => item.severity === "critical" && item.status !== "fixed").length;
-  const usuariosAfetados = appErrorLogsRemotos.reduce((total, item) => total + (Number(item.affected_users_count || item.affected_user_count) || 0), 0);
-  const versaoMaisErros = Object.entries(appErrorLogsRemotos.reduce((acc, item) => {
-    const key = item.app_version || "-";
-    acc[key] = (acc[key] || 0) + (Number(item.occurrence_count) || 1);
-    return acc;
-  }, {})).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
-  const telaMaisErros = Object.entries(appErrorLogsRemotos.reduce((acc, item) => {
+  const bugsVersaoAtual = appErrorLogsRemotos.filter((item) => String(item.app_version || "").trim() === APP_VERSION);
+  const feedbacksValidos = appFeedbackReportsRemotos.filter((item) => !registroTelemetriaEhTeste(item));
+  const eventosVersaoAtual = appDiagnosticEventsRemotos.filter((item) => !item.app_version || String(item.app_version).trim() === APP_VERSION);
+  const bugsCriticos = bugsVersaoAtual.filter((item) => item.severity === "critical" && item.status !== "fixed").length;
+  const usuariosAfetados = bugsVersaoAtual.reduce((total, item) => total + (Number(item.affected_users_count || item.affected_user_count) || 0), 0);
+  const telaMaisErros = Object.entries(bugsVersaoAtual.reduce((acc, item) => {
     const key = item.screen || item.screen_name || "-";
     acc[key] = (acc[key] || 0) + (Number(item.occurrence_count) || 1);
     return acc;
   }, {})).sort((a, b) => b[1] - a[1])[0]?.[0] || "-";
   const eventosTipos = [...new Set(appDiagnosticEventsRemotos.map((item) => item.event_type).filter(Boolean))].sort();
   return `
-    <div class="metrics">
-      <div class="metric"><span>Bugs novos</span><strong>${appErrorLogsRemotos.filter((item) => (item.status || "new") === "new").length}</strong></div>
+    <div class="metrics" id="superadminDiagnosticsSummary">
+      <div class="metric"><span>Bugs novos · v${escaparHtml(APP_VERSION)}</span><strong>${bugsVersaoAtual.filter((item) => (item.status || "new") === "new").length}</strong></div>
       <div class="metric"><span>Bugs críticos</span><strong>${bugsCriticos}</strong></div>
-      <div class="metric"><span>Sugestões novas</span><strong>${appFeedbackReportsRemotos.filter((item) => (item.status || "new") === "new").length}</strong></div>
-      <div class="metric"><span>Usuários afetados</span><strong>${usuariosAfetados}</strong></div>
-      <div class="metric"><span>Versão com mais erros</span><strong>${escaparHtml(versaoMaisErros)}</strong></div>
+      <div class="metric"><span>Feedbacks reais novos</span><strong>${feedbacksValidos.filter((item) => (item.status || "new") === "new").length}</strong></div>
+      <div class="metric"><span>Impactos registrados</span><strong>${usuariosAfetados}</strong></div>
+      <div class="metric"><span>Versão analisada</span><strong>${escaparHtml(APP_VERSION)}</strong></div>
       <div class="metric"><span>Tela com mais erros</span><strong>${escaparHtml(telaMaisErros)}</strong></div>
-      <div class="metric"><span>Últimas 24h</span><strong>${appDiagnosticEventsRemotos.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 86400000).length}</strong></div>
-      <div class="metric"><span>Últimos 7 dias</span><strong>${appDiagnosticEventsRemotos.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 7 * 86400000).length}</strong></div>
+      <div class="metric"><span>Últimas 24h</span><strong>${eventosVersaoAtual.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 86400000).length}</strong></div>
+      <div class="metric"><span>Últimos 7 dias</span><strong>${eventosVersaoAtual.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 7 * 86400000).length}</strong></div>
     </div>
     <div class="sync-grid">
       <label class="field"><span>Severidade</span><select onchange="atualizarFiltroTelemetriaSuperadmin('severity', this.value)">
@@ -33350,7 +33776,7 @@ function renderSuperAdminDiagnosticos() {
       <button class="btn ghost" onclick="gerarRelatorioCodexDiagnostico()">Gerar relatório geral para Codex</button>
     </div>
     ${estado.diagnosticosMessage ? `<div class="saas-sync-state ${estado.diagnosticos === "error" ? "warning" : "info"}">${escaparHtml(estado.diagnosticosMessage)}</div>` : ""}
-    <h2 class="section-title">Bugs</h2>
+    <h2 class="section-title" id="superadminBugsSection">Bugs</h2>
     <div class="payment-table admin-table telemetry-table">
       <div class="payment-row table-head"><span>Erro</span><span>Tela</span><span>Ação</span><span>Severidade</span><span>Status</span><span>Ocorrências</span><span>Usuários</span><span>Versão</span><span>Plataforma</span><span>Ações</span></div>
       ${bugs.slice(0, 40).map((item) => `
@@ -33372,7 +33798,7 @@ function renderSuperAdminDiagnosticos() {
               <button class="btn warning" onclick="atualizarStatusRelatorioAutomatico('${escaparAttr(item.id)}', 'ignored')">Ignorar ocorrência</button>
               <button class="btn ghost" onclick="atualizarSeveridadeRelatorioAutomatico('${escaparAttr(item.id)}', 'critical')">Marcar como crítico</button>
               <button class="btn ghost" onclick="atualizarNotaAdminBug('${escaparAttr(item.id)}')">Adicionar nota administrativa</button>
-            `, "Ações do bug")}
+            `, "⋯")}
           </span>
         </div>
       `).join("") || `<p class="empty">Nenhum bug carregado.</p>`}
@@ -33400,13 +33826,47 @@ function renderSuperAdminDiagnosticos() {
               <button class="btn warning" onclick="atualizarStatusClusterDiagnostico('${escaparAttr(item.id)}', 'ignored')">Ignorar cluster</button>
               <button class="btn ghost" onclick="atualizarSeveridadeClusterDiagnostico('${escaparAttr(item.id)}', 'critical')">Marcar como crítico</button>
               <button class="btn ghost" onclick="atualizarNotaAdminCluster('${escaparAttr(item.id)}')">Adicionar nota administrativa</button>
-            `, "Ações do cluster")}
+            `, "⋯")}
           </div>
         </div>
       `).join("") || `<p class="empty">Nenhum cluster carregado.</p>`}
     </div>
     ${renderCodexDiagnosticsReport()}
   `;
+}
+
+function getAtividadeUsuarioSuperadmin(usuario = {}) {
+  const ids = [usuario.id, usuario.supabaseUserId].filter(Boolean).map((id) => String(id));
+  const sessoes = saasSessions
+    .filter((sessao) => ids.includes(String(sessao.userId || "")))
+    .sort((a, b) => (Date.parse(b.lastSeenAt || b.updatedAt || 0) || 0) - (Date.parse(a.lastSeenAt || a.updatedAt || 0) || 0));
+  const ultimaSessao = sessoes[0] || null;
+  const ultimoAcesso = ultimaSessao?.lastSeenAt || ultimaSessao?.updatedAt || usuario.lastLoginAt || "";
+  const online = !!ultimaSessao?.active && Date.now() - (Date.parse(ultimoAcesso || 0) || 0) <= 5 * 60 * 1000;
+  return {
+    ultimoAcesso,
+    online,
+    resumo: online ? "Online agora" : ultimoAcesso ? formatarTempoRelativo(ultimoAcesso) : "Sem acesso registrado"
+  };
+}
+
+function getClienteSaasDoUsuarioSuperadmin(usuario = {}) {
+  return getClienteSaasPorId(usuario.clientId || usuario.companyId || "")
+    || saasClients.find((cliente) => normalizarEmail(cliente.email) === normalizarEmail(usuario.email))
+    || saasClients.find((cliente) => getUsuariosDoCliente(cliente.id).some((membro) => normalizarEmail(membro.email) === normalizarEmail(usuario.email)))
+    || null;
+}
+
+function abrirAjustesUsuarioSuperadmin(id) {
+  if (!isSuperAdmin()) return;
+  const usuario = usuarios.find((item) => String(item.id) === String(id));
+  if (!usuario) return;
+  const cliente = getClienteSaasDoUsuarioSuperadmin(usuario);
+  if (!cliente) {
+    mostrarToast("Este usuário ainda não possui empresa vinculada para abrir os ajustes.", "info", 4200);
+    return;
+  }
+  abrirPerfilClienteSaas(cliente.id);
 }
 
 function renderSuperAdminConfiguracoes() {
@@ -33428,21 +33888,39 @@ function renderSuperAdminConfiguracoes() {
     </div>
     <div class="history-list users-list">
       ${lista.map((usuario) => {
-        const status = statusUsuarioPlano(usuario);
         const principal = isSuperAdminPrincipal(usuario);
+        const atividade = getAtividadeUsuarioSuperadmin(usuario);
+        const clienteUsuario = getClienteSaasDoUsuarioSuperadmin(usuario);
+        const resumoEmpresa = clienteUsuario ? getResumoEmpresaSaas(clienteUsuario) : null;
+        const planoUsuario = principal ? null : resumoEmpresa?.plano;
+        const vencimentoUsuario = resumoEmpresa?.vencimento || usuario.planExpiresAt || "";
+        const status = principal ? "superadmin" : planoUsuario?.name || statusUsuarioPlano(usuario);
+        const statusClasse = principal ? classeStatusPlano(status) : planoUsuario ? classePlanoSaasCompacto(planoUsuario.slug) : classeStatusPlano(status);
+        const detalhePlano = principal
+          ? "Acesso Superadmin • sem vencimento"
+          : vencimentoUsuario
+          ? `${planoUsuario?.name || "Pro"} até ${new Date(vencimentoUsuario).toLocaleDateString("pt-BR")} • depois volta ao Free`
+          : `${planoUsuario?.name || "Free"} • sem vencimento`;
         return `
-          <div class="user-row superadmin-row">
+          <div class="user-row superadmin-row superadmin-user-card">
             <div>
               <strong>${escaparHtml(usuario.nome)}</strong>
               <span class="muted">${escaparHtml(usuario.email)} • ${escaparHtml(usuario.papel)}${principal ? " • principal" : ""}</span>
-              <span class="muted">Vence: ${usuario.planExpiresAt ? new Date(usuario.planExpiresAt).toLocaleDateString("pt-BR") : "sem data"}</span>
+              <span class="muted">${escaparHtml(detalhePlano)}</span>
+              <span class="muted"><strong class="${atividade.online ? "sa-online" : ""}">${escaparHtml(atividade.resumo)}</strong>${atividade.ultimoAcesso ? ` • ${escaparHtml(new Date(atividade.ultimoAcesso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }))}` : ""}</span>
             </div>
-            <span class="status-badge ${classeStatusPlano(status)}">${escaparHtml(status)}</span>
-            <div class="row-actions">
-              <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 7)">Adicionar 7 dias</button>
-              <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 30)">Adicionar 30 dias</button>
-              <button class="btn warning" onclick="alternarBloqueioUsuario('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>${usuario.bloqueado ? "Desbloquear" : "Bloquear"}</button>
-              <button class="btn danger" onclick="excluirUsuarioSuperAdmin('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>Excluir</button>
+            <span class="status-badge ${statusClasse}">${escaparHtml(status)}</span>
+            <div class="row-actions superadmin-user-actions">
+              ${renderMenuAcoesSuperadmin(`
+                <span class="superadmin-action-menu-label">Acesso Pro</span>
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 7)">Adicionar 7 dias</button>
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 15)">Adicionar 15 dias</button>
+                <button class="btn ghost" onclick="ajustarDiasUsuario('${escaparAttr(usuario.id)}', 30)">Adicionar 30 dias</button>
+                <span class="superadmin-action-menu-label">Conta</span>
+                <button class="btn secondary" onclick="abrirAjustesUsuarioSuperadmin('${escaparAttr(usuario.id)}')">Abrir ajustes da conta</button>
+                <button class="btn warning" onclick="alternarBloqueioUsuario('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>${usuario.bloqueado ? "Desbloquear usuário" : "Bloquear usuário"}</button>
+                <button class="btn danger" onclick="excluirUsuarioSuperAdmin('${escaparAttr(usuario.id)}')" ${principal ? "disabled" : ""}>Excluir usuário</button>
+              `, "⋯")}
             </div>
           </div>
         `;
@@ -33473,7 +33951,7 @@ function renderSuperAdminManutencao() {
       return alvo.includes(termo);
     });
   return `
-    <div class="superadmin-maintenance-console">
+    <div class="superadmin-maintenance-console" id="superadminMaintenanceSection">
       <div class="superadmin-maintenance-hero">
         <div>
           <span class="eyebrow">Acesso tecnico</span>
@@ -33516,6 +33994,100 @@ function renderSuperAdminManutencao() {
   `;
 }
 
+function getEstadoComunicacaoSuperadmin() {
+  if (!window.__superAdminEmailBroadcast) window.__superAdminEmailBroadcast = { status: "active", plan: "all", subject: "", message: "", selected: [], history: [], loading: false };
+  return window.__superAdminEmailBroadcast;
+}
+
+async function carregarHistoricoComunicacaoSuperadmin() {
+  const state = getEstadoComunicacaoSuperadmin();
+  if (!isSuperAdmin() || state.loading) return;
+  state.loading = true;
+  renderApp();
+  try {
+    const rows = await requisicaoSupabase("/rest/v1/email_broadcasts?select=*&order=created_at.desc&limit=30", { method: "GET" });
+    state.history = Array.isArray(rows) ? rows : [];
+  } catch (erro) {
+    state.history = [];
+    registrarDiagnostico("Superadmin", "Histórico de e-mails indisponível", erro.message);
+  } finally {
+    state.loading = false;
+    renderApp();
+  }
+}
+
+function atualizarComunicacaoSuperadmin(campo, valor) {
+  const state = getEstadoComunicacaoSuperadmin();
+  if (["status", "plan", "subject", "message"].includes(campo)) state[campo] = String(valor || "");
+}
+
+function alternarClienteComunicacaoSuperadmin(id, marcado) {
+  const state = getEstadoComunicacaoSuperadmin();
+  const ids = new Set(state.selected.map(String));
+  marcado ? ids.add(String(id)) : ids.delete(String(id));
+  state.selected = Array.from(ids);
+}
+
+async function enviarComunicacaoSuperadmin() {
+  if (!SUPERADMIN_EMAIL_BROADCAST_ENABLED) return mostrarToast("A lista de transmissão por e-mail está criada, mas permanece inativa.", "info", 5000);
+  const state = getEstadoComunicacaoSuperadmin();
+  const subject = state.subject.trim();
+  const message = state.message.trim();
+  if (subject.length < 3 || message.length < 10) return mostrarToast("Informe assunto e uma mensagem com pelo menos 10 caracteres.", "aviso");
+  const publico = state.selected.length ? `${state.selected.length} cliente(s) selecionado(s)` : `clientes com status ${state.status} e plano ${state.plan}`;
+  if (!confirm(`Enviar este e-mail para ${publico}? Esta ação não pode ser desfeita.`)) return;
+  try {
+    const result = await chamarFuncaoSaas("email-broadcast-send", { subject, message, status: state.status, plan: state.plan, client_ids: state.selected });
+    state.subject = "";
+    state.message = "";
+    state.selected = [];
+    mostrarToast(`Campanha concluída: ${Number(result.sent) || 0} enviado(s), ${Number(result.failed) || 0} falha(s).`, result.failed ? "aviso" : "sucesso", 6000);
+    await carregarHistoricoComunicacaoSuperadmin();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Superadmin", action: "Enviar lista de transmissão", errorKey: "EMAIL_BROADCAST_FAILED" });
+  }
+}
+
+function renderSuperAdminComunicacao() {
+  const state = getEstadoComunicacaoSuperadmin();
+  const clientes = getEmpresasSaasOperacionais().filter((cliente) => cliente.email).slice(0, 200);
+  if (!SUPERADMIN_EMAIL_BROADCAST_ENABLED) {
+    return `
+      <div class="card superadmin-email-disabled">
+        <span>${renderUiIcon("feedback")}</span>
+        <div><h2>Lista de transmissão por e-mail</h2><p>A estrutura está preparada, mas o envio permanece inativo. Para ativar será necessário configurar o provedor de e-mail e habilitar a flag segura no backend.</p></div>
+        <span class="status-badge badge-warning">Inativo</span>
+      </div>
+    `;
+  }
+  if (!state.loading && !state.history.length && !window.__superAdminEmailHistoryRequested) {
+    window.__superAdminEmailHistoryRequested = true;
+    setTimeout(() => carregarHistoricoComunicacaoSuperadmin(), 0);
+  }
+  return `
+    <div class="superadmin-email-layout">
+      <section class="card superadmin-email-compose">
+        <div class="section-title-row"><div><h2 class="section-title">Nova transmissão</h2><p class="muted">Envio individualizado pelo backend, com histórico de sucesso e falha.</p></div><span class="status-badge">${state.selected.length ? `${state.selected.length} selecionado(s)` : "Público por filtro"}</span></div>
+        <div class="sync-grid">
+          <label class="field"><span>Status do cliente</span><select onchange="atualizarComunicacaoSuperadmin('status', this.value)">${["all", "active", "inactive", "blocked", "overdue"].map((value) => `<option value="${value}" ${state.status === value ? "selected" : ""}>${value === "all" ? "Todos" : rotuloStatusCliente(value)}</option>`).join("")}</select></label>
+          <label class="field"><span>Plano</span><select onchange="atualizarComunicacaoSuperadmin('plan', this.value)">${["all", "free", "start", "pro", "premium"].map((value) => `<option value="${value}" ${state.plan === value ? "selected" : ""}>${value === "all" ? "Todos os planos" : value.toUpperCase()}</option>`).join("")}</select></label>
+        </div>
+        <label class="field"><span>Assunto</span><input maxlength="160" value="${escaparAttr(state.subject)}" oninput="atualizarComunicacaoSuperadmin('subject', this.value)" placeholder="Ex.: Novidades do Simplifica 3D"></label>
+        <label class="field"><span>Mensagem</span><textarea rows="9" maxlength="10000" oninput="atualizarComunicacaoSuperadmin('message', this.value)" placeholder="Escreva a mensagem que será enviada aos clientes.">${escaparHtml(state.message)}</textarea></label>
+        <div class="superadmin-email-recipients">
+          <strong>Selecionar clientes específicos (opcional)</strong>
+          <div>${clientes.map((cliente) => `<label><input type="checkbox" ${state.selected.includes(String(cliente.id)) ? "checked" : ""} onchange="alternarClienteComunicacaoSuperadmin('${escaparAttr(cliente.id)}', this.checked)"><span><b>${escaparHtml(cliente.name || "Cliente")}</b><small>${escaparHtml(cliente.email)}</small></span></label>`).join("") || `<p class="empty">Nenhum cliente com e-mail carregado.</p>`}</div>
+        </div>
+        <div class="actions"><button class="btn primary" type="button" onclick="enviarComunicacaoSuperadmin()">${renderUiIcon("feedback")} Revisar e enviar</button></div>
+      </section>
+      <section class="card superadmin-email-history">
+        <div class="section-title-row"><h2 class="section-title">Histórico</h2><button class="btn ghost" type="button" onclick="carregarHistoricoComunicacaoSuperadmin()">Atualizar</button></div>
+        <div class="history-list">${state.history.map((item) => `<div class="history-item"><strong>${escaparHtml(item.subject)}</strong><span class="muted">${item.created_at ? new Date(item.created_at).toLocaleString("pt-BR") : "-"} · ${escaparHtml(item.status || "draft")}</span><span>${Number(item.sent_count) || 0} enviados · ${Number(item.failed_count) || 0} falhas · ${Number(item.recipient_count) || 0} destinatários</span></div>`).join("") || `<p class="empty">${state.loading ? "Carregando campanhas..." : "Nenhuma campanha enviada."}</p>`}</div>
+      </section>
+    </div>
+  `;
+}
+
 function renderSuperAdminConteudo(tab) {
   const aba = normalizarAbaSuperAdmin(tab);
   const mapa = {
@@ -33529,11 +34101,13 @@ function renderSuperAdminConteudo(tab) {
     anuncios: renderSuperAdminAnuncios,
     logs: renderSuperAdminLogs,
     suporte: renderSuperAdminSuporte,
+    comunicacao: renderSuperAdminComunicacao,
     manutencao: renderSuperAdminManutencao,
     relatorios: renderSuperAdminRelatoriosAutomaticos,
     diagnosticos: renderSuperAdminDiagnosticos,
     sistema: renderSuperAdminSistema,
     feedbacks: renderSuperAdminFeedbackReports,
+    sugestoes: renderSuperAdminFeedbackReports,
     configuracoes: renderSuperAdminConfiguracoes,
     clientePerfil: renderSuperAdminClientePerfil
   };
@@ -33553,17 +34127,18 @@ function normalizarAbaSuperAdmin(tab = "dashboard") {
 
 function getSuperAdminNavigationSections() {
   return [
-    { id: "dashboard", label: "Visao geral", short: "Inicio", icon: "dashboard", description: "Resumo da plataforma" },
-    { id: "clientes", label: "Empresas", short: "Empresas", icon: "clientes", description: "Empresas cadastradas no SaaS" },
-    { id: "planos", label: "Planos", short: "Planos", icon: "assinatura", description: "Regras e limites por plano" },
-    { id: "pagamentos", label: "Assinaturas", short: "Assinaturas", icon: "caixa", description: "Pagamentos e status financeiro" },
-    { id: "lojas", label: "Lojas publicas", short: "Lojas", icon: "lojaOnline", description: "Publicacao e checklist das lojas" },
-    { id: "anuncios", label: "Anuncios e limites", short: "Anuncios", icon: "tag", description: "Controles do plano gratis" },
-    { id: "configuracoes", label: "Configuracoes", short: "Config", icon: "config", description: "Parametros da plataforma" },
-    { id: "manutencao", label: "Manutencao", short: "Manut.", icon: "superadmin", description: "Acesso tecnico temporario" },
-    { id: "logs", label: "Logs e auditoria", short: "Logs", icon: "history", description: "Acoes importantes" },
-    { id: "suporte", label: "Suporte", short: "Suporte", icon: "feedback", description: "Atendimento interno" },
-    { id: "diagnosticos", label: "Sistema e status", short: "Sistema", icon: "seguranca", description: "Diagnosticos tecnicos" }
+    { id: "dashboard", group: "Visao geral", label: "Inicio", short: "Inicio", icon: "dashboard", description: "Resumo da plataforma" },
+    { id: "diagnosticos", group: "Visao geral", label: "Diagnosticos e bugs", short: "Bugs", icon: "seguranca", description: "Erros da versao atual e status" },
+    { id: "clientes", group: "Clientes e receita", label: "Empresas", short: "Empresas", icon: "clientes", description: "Cadastros, acesso e atividade" },
+    { id: "pagamentos", group: "Clientes e receita", label: "Assinaturas", short: "Assinaturas", icon: "caixa", description: "Pagamentos e status financeiro" },
+    { id: "planos", group: "Clientes e receita", label: "Planos", short: "Planos", icon: "assinatura", description: "Regras e limites por plano" },
+    { id: "comunicacao", group: "Clientes e receita", label: "Comunicacao", short: "E-mails", icon: "feedback", description: "Lista de transmissao inativa" },
+    { id: "lojas", group: "Plataforma", label: "Lojas publicas", short: "Lojas", icon: "lojaOnline", description: "Publicacao e checklist das lojas" },
+    { id: "anuncios", group: "Plataforma", label: "Anuncios e limites", short: "Anuncios", icon: "tag", description: "Controles do plano gratis" },
+    { id: "manutencao", group: "Operacao interna", label: "Manutencao", short: "Manut.", icon: "superadmin", description: "Acesso tecnico temporario" },
+    { id: "logs", group: "Operacao interna", label: "Logs e auditoria", short: "Logs", icon: "history", description: "Acoes administrativas" },
+    { id: "suporte", group: "Operacao interna", label: "Suporte", short: "Suporte", icon: "feedback", description: "Atendimento interno" },
+    { id: "configuracoes", group: "Operacao interna", label: "Configuracoes", short: "Config", icon: "config", description: "Parametros da plataforma" }
   ];
 }
 
@@ -33574,6 +34149,7 @@ function getSuperAdminSection(tab = "dashboard") {
 
 function renderSuperAdminSidebar(tab = "dashboard") {
   const aba = normalizarAbaSuperAdmin(tab);
+  let grupoAnterior = "";
   return `
     <aside class="superadmin-platform-sidebar" aria-label="Navegacao Superadmin">
       <div class="superadmin-platform-brand">
@@ -33584,13 +34160,15 @@ function renderSuperAdminSidebar(tab = "dashboard") {
         </div>
       </div>
       <nav class="superadmin-platform-nav" role="tablist" aria-label="Áreas do Superadmin">
-        ${getSuperAdminNavigationSections().map((item) => `
-          <button class="superadmin-platform-nav-item ${aba === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${aba === item.id ? "true" : "false"}" onclick="trocarAbaSuperAdmin('${item.id}')">
+        ${getSuperAdminNavigationSections().map((item) => {
+          const tituloGrupo = item.group !== grupoAnterior ? `<span class="superadmin-platform-nav-group">${escaparHtml(item.group)}</span>` : "";
+          grupoAnterior = item.group;
+          return `${tituloGrupo}<button class="superadmin-platform-nav-item ${aba === item.id ? "active" : ""}" type="button" role="tab" aria-selected="${aba === item.id ? "true" : "false"}" onclick="trocarAbaSuperAdmin('${item.id}')">
             <span>${renderUiIcon(item.icon)}</span>
             <strong>${escaparHtml(item.label)}</strong>
             <small>${escaparHtml(item.description)}</small>
-          </button>
-        `).join("")}
+          </button>`;
+        }).join("")}
       </nav>
       <div class="superadmin-sidebar-actions" aria-label="Acessos operacionais">
         <button class="superadmin-sidebar-action primary" type="button" onclick="entrarModoErpSuperadmin()">
@@ -33608,25 +34186,62 @@ function renderSuperAdminSidebar(tab = "dashboard") {
   `;
 }
 
+function abrirWidgetModuloSuperadmin(tipo = "diagnosticos") {
+  const destinos = {
+    bugs: { tab: "diagnosticos", anchor: "superadminBugsSection" },
+    melhorias: { tab: "sugestoes", anchor: "superadminSuggestionsSection" },
+    diagnosticos: { tab: "diagnosticos", anchor: "superadminDiagnosticsSummary" },
+    manutencao: { tab: "manutencao", anchor: "superadminMaintenanceSection" }
+  };
+  const destino = destinos[tipo] || destinos.diagnosticos;
+  trocarAbaSuperAdmin(destino.tab);
+  window.setTimeout(() => document.getElementById(destino.anchor)?.scrollIntoView({ block: "start", behavior: "smooth" }), 80);
+}
+
 function renderSuperAdminAtalhosSecundarios() {
-  const atalhos = [
-    { id: "pagamentos", label: "Assinaturas", desc: "Pagamentos e status", icon: "caixa" },
-    { id: "lojas", label: "Lojas publicas", desc: "Mapa de publicacao", icon: "lojaOnline" },
-    { id: "anuncios", label: "Anuncios", desc: "Limites do gratis", icon: "tag" },
-    { id: "manutencao", label: "Manutencao", desc: "Acesso temporario", icon: "superadmin" },
-    { id: "logs", label: "Logs", desc: "Auditoria local", icon: "history" },
-    { id: "suporte", label: "Suporte", desc: "Chamados e erros", icon: "feedback" }
+  const estado = getEstadoTelemetriaSuperadmin();
+  if (estado.erros === "idle") {
+    estado.erros = "loading";
+    setTimeout(() => carregarRelatoriosAutomaticosSupabase({ renderizar: true }), 0);
+  }
+  if (estado.sugestoes === "idle") {
+    estado.sugestoes = "loading";
+    setTimeout(() => carregarSugestoesSupabase({ renderizar: true }), 0);
+  }
+  if (estado.diagnosticos === "idle") {
+    estado.diagnosticos = "loading";
+    setTimeout(() => carregarDiagnosticosSuperadminSupabase({ renderizar: true }), 0);
+  }
+  const bugsAtuais = appErrorLogsRemotos.filter((item) => String(item.app_version || "").trim() === APP_VERSION && !["fixed", "ignored", "closed"].includes(String(item.status || "new").toLowerCase()));
+  const melhoriasNovas = appSuggestionsRemotas.filter((item) => !registroTelemetriaEhTeste(item) && ["", "new", "novo", "open", "aberto"].includes(String(item.status || "").toLowerCase()));
+  const eventosAtuais = appDiagnosticEventsRemotos.filter((item) => !item.app_version || String(item.app_version).trim() === APP_VERSION);
+  const eventosHoje = eventosAtuais.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 86400000).length;
+  const empresas = getEmpresasSaasOperacionais();
+  const widgets = [
+    { id: "bugs", label: "Bugs", value: bugsAtuais.length, detail: `versão ${APP_VERSION}`, icon: "alerta", tone: bugsAtuais.length ? "danger" : "success" },
+    { id: "melhorias", label: "Melhorias", value: melhoriasNovas.length, detail: "novas sugestões", icon: "feedback", tone: melhoriasNovas.length ? "warning" : "neutral" },
+    { id: "diagnosticos", label: "Diagnósticos", value: eventosHoje, detail: `${eventosAtuais.length} evento(s) da versão`, icon: "seguranca", tone: eventosHoje ? "warning" : "success" },
+    { id: "manutencao", label: "Manutenção", value: empresas.length, detail: "empresas disponíveis", icon: "superadmin", tone: "neutral" }
+  ];
+  const outros = [
+    { id: "clientes", label: "Empresas", icon: "clientes" },
+    { id: "pagamentos", label: "Assinaturas", icon: "caixa" },
+    { id: "lojas", label: "Lojas públicas", icon: "lojaOnline" },
+    { id: "logs", label: "Logs", icon: "history" },
+    { id: "suporte", label: "Suporte", icon: "feedback" },
+    { id: "comunicacao", label: "Comunicação", icon: "feedback" }
   ];
   return `
-    <div class="superadmin-secondary-shortcuts" aria-label="Atalhos Superadmin">
-      ${atalhos.map((item) => `
-        <button type="button" onclick="trocarAbaSuperAdmin('${item.id}')">
-          <span>${renderUiIcon(item.icon)}</span>
-          <strong>${escaparHtml(item.label)}</strong>
-          <small>${escaparHtml(item.desc)}</small>
-        </button>
-      `).join("")}
-    </div>
+    <section class="superadmin-module-widget-section" aria-label="Painel operacional">
+      <div class="superadmin-module-widget-head"><div><strong>Painel operacional</strong><small>Toque em um widget para abrir detalhes e funções.</small></div><span class="status-badge">Dados atuais</span></div>
+      <div class="superadmin-module-widgets">
+        ${widgets.map((item) => `<button class="superadmin-module-widget ${item.tone}" type="button" onclick="abrirWidgetModuloSuperadmin('${item.id}')"><span class="superadmin-module-widget-icon">${renderUiIcon(item.icon)}</span><span class="superadmin-module-widget-copy"><small>${escaparHtml(item.label)}</small><strong>${Number(item.value) || 0}</strong><em>${escaparHtml(item.detail)}</em></span><b aria-hidden="true">›</b></button>`).join("")}
+      </div>
+      <details class="superadmin-more-links">
+        <summary>Outras áreas <span>›</span></summary>
+        <div>${outros.map((item) => `<button type="button" onclick="trocarAbaSuperAdmin('${item.id}')"><span>${renderUiIcon(item.icon)}</span><strong>${escaparHtml(item.label)}</strong></button>`).join("")}</div>
+      </details>
+    </section>
   `;
 }
 
@@ -33634,9 +34249,9 @@ function renderSuperAdminMobileNav(tab = "dashboard") {
   const aba = normalizarAbaSuperAdmin(tab);
   const itens = [
     getSuperAdminSection("dashboard"),
+    getSuperAdminSection("diagnosticos"),
     getSuperAdminSection("clientes"),
     getSuperAdminSection("planos"),
-    getSuperAdminSection("manutencao"),
     { id: "configuracoes", short: "Mais", icon: "menu", label: "Mais" }
   ];
   return `
@@ -33869,10 +34484,28 @@ function voltarSuperAdminParaErp() {
   trocarTela("dashboard", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
 }
 
+function agendarSincronizacaoSaasSuperadmin() {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
+  const ultima = Number(window.__superAdminSaasSyncAt) || 0;
+  if (window.__superAdminSaasSyncPending || Date.now() - ultima < 30000) return;
+  window.__superAdminSaasSyncPending = true;
+  setTimeout(async () => {
+    try {
+      const resultado = await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
+      if (resultado?.ok !== false) window.__superAdminSaasSyncAt = Date.now();
+    } finally {
+      window.__superAdminSaasSyncPending = false;
+      if (telaAtual === "superadmin" && isSuperAdmin()) renderApp();
+    }
+  }, 0);
+}
+
 function renderSuperAdmin() {
   if (!isSuperAdmin()) {
     return renderBloqueioPlano("Super Admin");
   }
+
+  agendarSincronizacaoSaasSuperadmin();
 
   const tab = normalizarAbaSuperAdmin(window.__superAdminTab || "dashboard");
 
@@ -33987,17 +34620,72 @@ function salvarAcessoSuperAdmin() {
   renderApp();
 }
 
-function ajustarDiasUsuario(id, dias) {
+async function ajustarDiasUsuario(id, dias) {
   if (!isSuperAdmin()) return;
   const usuario = usuarios.find((item) => String(item.id) === String(id));
   if (!usuario) return;
-  const base = Math.max(Date.now(), Date.parse(usuario.planExpiresAt || 0) || 0);
-  usuario.planStatus = "paid";
-  usuario.planExpiresAt = new Date(base + dias * 24 * 60 * 60 * 1000).toISOString();
-  usuario.bloqueado = false;
-  salvarDados();
-  registrarHistorico("Super Admin", `+${dias} dias para ${usuario.email}`);
-  renderApp();
+  const quantidadeDias = Math.max(1, Math.floor(Number(dias) || 0));
+  const clienteId = usuario.clientId || usuario.companyId || "";
+  const targetUserId = usuario.supabaseUserId || usuario.id || usuario.email;
+  if (!clienteId || !targetUserId) {
+    mostrarToast("Este usuário não possui empresa ou identidade Supabase vinculada.", "erro", 4600);
+    return;
+  }
+
+  let licencaAtual = null;
+  try {
+    licencaAtual = await consultarLicencaSupabaseSilencioso({ targetUserId, aplicar: false });
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Licença não consultada antes de adicionar dias", erro.message || erro);
+  }
+  const validadeAtual = getTimestampPlano(
+    licencaAtual?.premium_until
+    || licencaAtual?.plan_expires_at
+    || licencaAtual?.current_period_end
+    || licencaAtual?.expires_at
+    || usuario.planExpiresAt
+    || 0
+  );
+  const premiumUntil = new Date(Math.max(Date.now(), validadeAtual || 0) + quantidadeDias * 86400000).toISOString();
+  const confirmado = await solicitarConfirmacaoAcao({
+    titulo: "Confirmar acesso Pro",
+    mensagem: `Adicionar ${quantidadeDias} dia(s) de Pro para ${usuario.nome} (${usuario.email})? O acesso volta ao Free em ${new Date(premiumUntil).toLocaleDateString("pt-BR")}.`,
+    confirmar: `Adicionar ${quantidadeDias} dias`
+  });
+  if (!confirmado) return;
+
+  const toast = mostrarToast("Aplicando acesso Pro no banco...", "loading");
+  try {
+    const licenca = await chamarSuperadminUpdateSubscription(clienteId, "ACTIVATE_PREMIUM_MANUAL", {
+      targetUserId,
+      planCode: "PREMIUM",
+      premiumUntil,
+      reason: `Cortesia manual pelo Superadmin (${quantidadeDias} dia(s))`
+    });
+    const validadeConfirmada = getTimestampPlano(
+      licenca?.premium_until
+      || licenca?.plan_expires_at
+      || licenca?.current_period_end
+      || licenca?.expires_at
+      || 0
+    );
+    if (!validadeConfirmada || validadeConfirmada < getTimestampPlano(premiumUntil) - 60000) {
+      throw new Error("O banco não confirmou a nova data de vencimento.");
+    }
+    usuario.planStatus = "paid";
+    usuario.planExpiresAt = new Date(validadeConfirmada).toISOString();
+    usuario.bloqueado = false;
+    await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
+    salvarDados();
+    registrarHistorico("Super Admin", `+${quantidadeDias} dias Pro para ${usuario.email} até ${usuario.planExpiresAt}`);
+    mostrarToast(`Pro confirmado até ${new Date(validadeConfirmada).toLocaleDateString("pt-BR")}. Depois retorna ao Free.`, "sucesso", 5200);
+  } catch (erro) {
+    registrarDiagnostico("Superadmin", "Erro ao adicionar dias ao usuário", erro.message || erro);
+    mostrarToast(`Não foi possível adicionar os dias: ${erro.message}`, "erro", 6200);
+  } finally {
+    toast?.remove?.();
+    renderApp();
+  }
 }
 
 function alternarBloqueioUsuario(id) {
@@ -39124,6 +39812,21 @@ function mesclarListaPorId(atual, novos, normalizador) {
   return Array.from(mapa.values());
 }
 
+function mesclarAssinaturasPorCliente(atual, novos) {
+  const mapa = new Map();
+  (Array.isArray(atual) ? atual : []).forEach((item) => {
+    const assinatura = normalizarAssinaturaSaas(item);
+    const chave = String(assinatura.clientId || assinatura.id || "");
+    if (chave) mapa.set(chave, assinatura);
+  });
+  (Array.isArray(novos) ? novos : []).forEach((item) => {
+    const assinatura = normalizarAssinaturaSaas(item);
+    const chave = String(assinatura.clientId || assinatura.id || "");
+    if (chave) mapa.set(chave, assinatura);
+  });
+  return Array.from(mapa.values());
+}
+
 async function carregarSaasSupabaseSilencioso(opcoes = {}) {
   const renderizar = !!opcoes.renderizar;
   const feedback = !!opcoes.feedback;
@@ -39164,7 +39867,7 @@ async function carregarSaasSupabaseSilencioso(opcoes = {}) {
       carregarPerfis(`/rest/v1/saas_sessions?select=*&order=last_seen_at.desc&limit=200`, "saas_sessions")
     ]);
     saasClients = mesclarListaPorId(saasClients, clientesOnline, normalizarClienteSaas);
-    saasSubscriptions = mesclarListaPorId(saasSubscriptions, assinaturasOnline, normalizarAssinaturaSaas);
+    saasSubscriptions = mesclarAssinaturasPorCliente(saasSubscriptions, assinaturasOnline);
     saasPayments = mesclarListaPorId(saasPayments, pagamentosOnline, normalizarPagamentoSaas);
     saasPlans = mesclarListaPorId(saasPlans, planosOnline, normalizarPlanoSaas);
     saasSessions = mesclarListaPorId(saasSessions, sessoesOnline, normalizarSessaoSaas);
@@ -39398,6 +40101,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   const licencaUserId = String(licenca.user_id || licenca.userId || "");
   const licencaEhDoUsuarioAtual = !licencaUserId || !syncConfig.supabaseUserId || licencaUserId === String(syncConfig.supabaseUserId);
   const usuarioAtualLicenca = licencaEhDoUsuarioAtual ? getUsuarioAtual() : null;
+  const deveEspelharLicencaNoCadastro = !(usuarioAtualLicenca && isSuperAdmin(usuarioAtualLicenca));
   if (usuarioAtualLicenca && licenca.client_id) {
     usuarioAtualLicenca.clientId = String(licenca.client_id);
     if (licenca.company_id) usuarioAtualLicenca.companyId = String(licenca.company_id);
@@ -39454,8 +40158,8 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     stale: billingConfig.effectiveLicenseStale === true
   });
 
-  let cliente = getClienteSaasPorId(billingConfig.clientId);
-  if (!cliente && billingConfig.clientId) {
+  let cliente = deveEspelharLicencaNoCadastro ? getClienteSaasPorId(billingConfig.clientId) : null;
+  if (!cliente && deveEspelharLicencaNoCadastro && billingConfig.clientId) {
     cliente = normalizarClienteSaas({
       id: billingConfig.clientId,
       companyId: billingConfig.companyId || licenca.company_id || "",
@@ -39493,7 +40197,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     cliente.updatedAt = new Date().toISOString();
   }
 
-  const assinatura = getAssinaturaSaas(billingConfig.clientId);
+  const assinatura = deveEspelharLicencaNoCadastro ? getAssinaturaSaas(billingConfig.clientId) : null;
   if (assinatura) {
     assinatura.status = billingConfig.licenseStatus === "active" ? "active" : billingConfig.licenseStatus;
     assinatura.statusAssinatura = String(licenca.status_assinatura || licenca.status || assinatura.statusAssinatura);
@@ -39510,7 +40214,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     assinatura.promoUsed = licenca.promo_used === true || assinatura.promoUsed === true;
     assinatura.billingVariant = normalizarBillingVariant(licenca.billing_variant || assinatura.billingVariant);
     assinatura.currentPeriodStart = licenca.current_period_start || assinatura.currentPeriodStart;
-    assinatura.currentPeriodEnd = licenca.current_period_end || licenca.expires_at || assinatura.currentPeriodEnd;
+    assinatura.currentPeriodEnd = licenca.premium_until || licenca.current_period_end || licenca.expires_at || assinatura.currentPeriodEnd;
     assinatura.expiresAt = assinatura.currentPeriodEnd || assinatura.expiresAt;
     assinatura.planExpiresAt = assinatura.currentPeriodEnd || assinatura.planExpiresAt;
     assinatura.trialStartedAt = licenca.trial_start_at || licenca.trial_started_at || assinatura.trialStartedAt;
@@ -39527,7 +40231,7 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
     assinatura.blockedReason = licenca.blocked_reason || "";
     assinatura.archivedAt = licenca.archived_at || assinatura.archivedAt || "";
     assinatura.anonymizedAt = licenca.anonymized_at || assinatura.anonymizedAt || "";
-  } else if (billingConfig.clientId) {
+  } else if (deveEspelharLicencaNoCadastro && billingConfig.clientId) {
     saasSubscriptions.push(normalizarAssinaturaSaas({
       id: billingConfig.subscriptionId || "",
       clientId: billingConfig.clientId,
@@ -39544,8 +40248,8 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
       promoUsed: licenca.promo_used === true,
       billingVariant: licenca.billing_variant || "",
       currentPeriodStart: licenca.current_period_start || "",
-      currentPeriodEnd: licenca.current_period_end || licenca.expires_at || "",
-      planExpiresAt: licenca.current_period_end || licenca.expires_at || "",
+      currentPeriodEnd: licenca.premium_until || licenca.current_period_end || licenca.expires_at || "",
+      planExpiresAt: licenca.premium_until || licenca.current_period_end || licenca.expires_at || "",
       trialStartedAt: licenca.trial_start_at || licenca.trial_started_at || "",
       trialExpiresAt: licenca.trial_end_at || licenca.trial_expires_at || "",
       trialConsumedAt: licenca.trial_consumed_at || "",
@@ -39777,6 +40481,7 @@ async function autenticarSupabase(criarConta = false) {
 async function carregarPerfilSaasSupabase(usuario) {
   if (!syncConfig.supabaseUserId || !usuario) return usuario;
   let perfil = null;
+  let identidadePerfil = null;
   try {
     const linhas = await requisicaoSupabase(`/rest/v1/erp_profiles?select=*&id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, {
       method: "GET"
@@ -39814,6 +40519,28 @@ async function carregarPerfilSaasSupabase(usuario) {
       appConfig.companySetupCompleted = true;
       registrarOnboardingConcluidoLocalmente(usuario, true);
     }
+  }
+
+  try {
+    const linhasIdentidade = await requisicaoSupabase(`/rest/v1/user_profiles?select=display_name,profile_photo,updated_at&user_id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}&limit=1`, {
+      method: "GET",
+      telemetry: false
+    });
+    identidadePerfil = Array.isArray(linhasIdentidade) ? linhasIdentidade[0] : null;
+  } catch (erro) {
+    registrarDiagnostico("Supabase", "Identidade do perfil online não carregada", erro.message);
+  }
+
+  if (identidadePerfil) {
+    usuario.nome = identidadePerfil.display_name || usuario.nome;
+    const fotoPerfil = String(identidadePerfil.profile_photo || "").trim();
+    usuario.avatarUrl = fotoPerfil;
+    usuario.avatar_url = fotoPerfil;
+    appConfig.profilePhotoDataUrl = fotoPerfil;
+    appConfig.appearanceSettings = normalizarAppearanceSettings({
+      ...(appConfig.appearanceSettings || {}),
+      profile_photo: fotoPerfil
+    });
   }
 
   if (await verificarSuperadminSupabaseSilencioso()) {
@@ -42735,9 +43462,14 @@ async function fecharPedido() {
     const total = resumoFinanceiro.total;
     const caixaRegistradoAntes = pedidoEditando ? valorRegistradoCaixaPedido(pedidoEditando) : 0;
     const pedidoIdOperacional = pedidoEditando?.id || Date.now();
+    const numeroPedidoOperacional = pedidoEditando
+      ? getNumeroSequencialPedido(pedidoEditando)
+      : getProximoNumeroSequencialPedido();
     const metodoPedido = normalizarMetodoPagamentoCaixa(document.getElementById("pedidoMetodoPagamento")?.value || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix");
     const metadadosOperacao = criarMetadadosOperacaoFinanceira(pedidoEditando ? "pedido_update" : "pedido_create", {
       id: pedidoIdOperacional,
+      numeroPedido: numeroPedidoOperacional,
+      numero_pedido: numeroPedidoOperacional,
       cliente,
       total,
       status: headerPedido.status,
@@ -42991,76 +43723,267 @@ function alternarControleLoteEstoqueCadastro() {
 
 function abrirCadastroItemEstoque() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
+  window.__stockItemWizard = {
+    step: 1,
+    nome: "",
+    tipoItem: STOCK_ITEM_TYPES[0],
+    categoria: "Geral",
+    icone: "estoque",
+    foto: "",
+    fotoInfo: "",
+    unidade: "un",
+    qtd: "0",
+    minimo: "0",
+    custo: "0",
+    fornecedor: "",
+    codigoPrevisto: getProximoCodigoMaterialEstoque(normalizarEstoque()),
+    codigoExterno: "",
+    duplicadoId: "",
+    batchControlled: false,
+    batchType: "rolo",
+    observacoes: ""
+  };
+  renderCadastroItemEstoqueWizard();
+}
+
+function getEstadoCadastroItemEstoque() {
+  if (!window.__stockItemWizard) abrirCadastroItemEstoque();
+  return window.__stockItemWizard || {};
+}
+
+function capturarEtapaCadastroItemEstoque() {
+  const estado = getEstadoCadastroItemEstoque();
+  const valor = (id, atual = "") => document.getElementById(id)?.value ?? atual;
+  estado.nome = String(valor("matNome", estado.nome) || "").trimStart();
+  estado.tipoItem = String(valor("matItemType", estado.tipoItem) || STOCK_ITEM_TYPES[0]);
+  estado.categoria = String(valor("matTipo", estado.categoria) || "Geral");
+  estado.unidade = String(valor("matUnidade", estado.unidade) || "un");
+  estado.qtd = String(valor("matQtd", estado.qtd) || "0");
+  estado.minimo = String(valor("matMinimo", estado.minimo) || "0");
+  estado.custo = String(valor("matCusto", estado.custo) || "0");
+  estado.fornecedor = String(valor("matFornecedor", estado.fornecedor) || "");
+  estado.codigoExterno = String(valor("matCodigoExterno", estado.codigoExterno) || "").trim();
+  estado.batchControlled = document.getElementById("matBatchControlled")?.checked ?? estado.batchControlled;
+  estado.batchType = String(valor("matBatchType", estado.batchType) || "rolo");
+  estado.observacoes = String(valor("matObservacoes", estado.observacoes) || "");
+  return estado;
+}
+
+function renderEtapasCadastroItemEstoque(etapaAtual = 1) {
+  return `<ol class="stock-wizard-progress" aria-label="Etapas do cadastro">
+    ${["Item", "Valores", "Revisão"].map((label, index) => {
+      const etapa = index + 1;
+      const classe = etapa === etapaAtual ? "active" : etapa < etapaAtual ? "done" : "";
+      return `<li class="${classe}" aria-current="${etapa === etapaAtual ? "step" : "false"}"><span>${etapa < etapaAtual ? "✓" : etapa}</span><strong>${label}</strong></li>`;
+    }).join("")}
+  </ol>`;
+}
+
+function renderEscolhaVisualItemEstoque(estado = {}) {
+  const foto = getFotoMaterialEstoque({ foto: estado.foto });
+  return `<section class="stock-wizard-visual">
+    <div class="stock-wizard-section-head"><div><strong>Visual do item</strong><small>Escolha um ícone ou envie uma foto compactada.</small></div></div>
+    <div class="stock-icon-options" role="radiogroup" aria-label="Ícone do item">
+      ${STOCK_ITEM_ICON_OPTIONS.map((opcao) => `<button class="stock-icon-option ${estado.icone === opcao.value && !foto ? "active" : ""}" type="button" role="radio" aria-checked="${estado.icone === opcao.value && !foto}" onclick="selecionarIconeItemEstoque('${escaparAttr(opcao.value)}')"><span>${renderUiIcon(opcao.value)}</span><small>${escaparHtml(opcao.label)}</small></button>`).join("")}
+    </div>
+    <div class="stock-photo-picker ${foto ? "has-photo" : ""}">
+      <div class="stock-photo-preview">${foto ? `<img src="${escaparAttr(foto)}" alt="Prévia da foto do item">` : renderUiIcon(estado.icone || "estoque")}</div>
+      <div><strong>${foto ? "Foto pronta" : "Foto opcional"}</strong><small>${foto ? escaparHtml(estado.fotoInfo || "Imagem compactada") : "JPG, PNG ou WebP. Ajuste automático para até 140 KB."}</small></div>
+      <label class="btn secondary stock-photo-button"><input id="matFoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="prepararFotoItemEstoque(this)"><span>${foto ? "Trocar" : "Anexar foto"}</span></label>
+      ${foto ? `<button class="btn ghost" type="button" onclick="removerFotoItemEstoque()">Remover</button>` : ""}
+    </div>
+  </section>`;
+}
+
+function renderCadastroItemEstoqueWizard() {
   const popup = document.getElementById("popup");
   if (!popup) return;
+  const estado = getEstadoCadastroItemEstoque();
+  const etapa = Math.max(1, Math.min(3, Number(estado.step) || 1));
   const podeControlarRolos = podeUsarControleRolosEstoque();
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel">
-      <form class="modal-card stock-item-modal" id="stockAddForm">
-        <div class="modal-header">
-          <h2>${renderUiIcon("plus")} Novo item</h2>
-          <button class="icon-button" type="button" data-action="stock-add-cancel" title="Fechar">✕</button>
-        </div>
-        <div class="sync-grid">
-          <label class="field">
-            <span>Nome</span>
-            <input id="matNome" placeholder="Ex.: Filamento PLA Preto 1kg" required>
-          </label>
-          <label class="field">
-            <span>Tipo do item</span>
-            <select id="matItemType">${STOCK_ITEM_TYPES.map((tipo) => `<option value="${escaparAttr(tipo)}">${escaparHtml(tipo)}</option>`).join("")}</select>
-          </label>
-          <label class="field">
-            <span>Categoria</span>
-            <input id="matTipo" value="Geral" placeholder="Ex.: Filamentos, embalagens, folhas">
-          </label>
-          <label class="field">
-            <span>Unidade de controle</span>
-            <select id="matUnidade">${STOCK_CONTROL_UNITS.map((unidade) => `<option value="${escaparAttr(unidade.value)}">${escaparHtml(unidade.label)}</option>`).join("")}</select>
-          </label>
-          <label class="field">
-            <span>Quantidade atual</span>
-            <input id="matQtd" type="number" min="0" step="0.001" value="0">
-          </label>
-          <label class="field">
-            <span>Estoque mínimo</span>
-            <input id="matMinimo" type="number" min="0" step="0.001" value="0">
-          </label>
-          <label class="field">
-            <span>Custo por unidade/medida</span>
-            <input id="matCusto" type="number" min="0" step="0.01" value="0">
-          </label>
-          <label class="field">
-            <span>Fornecedor opcional</span>
-            <input id="matFornecedor">
-          </label>
-        </div>
-        ${podeControlarRolos ? `<label class="checkbox-row stock-batch-toggle">
-          <input id="matBatchControlled" type="checkbox" onchange="alternarControleLoteEstoqueCadastro()">
-          <span><strong>Controlar por rolo ou lote</strong><small>Use para filamentos, resinas, frascos ou pacotes individuais.</small></span>
-        </label>
-        <label class="field" id="matBatchTypeField" hidden>
-          <span>Tipo de controle</span>
-          <select id="matBatchType" disabled>${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}">${escaparHtml(tipo.label)}</option>`).join("")}</select>
-        </label>` : ""}
-        <label class="field">
-          <span>Observações</span>
-          <textarea id="matObservacoes" rows="2"></textarea>
-        </label>
-        <input id="matAtivo" type="hidden" value="true">
-        <div class="actions">
-          <button class="btn ghost" type="button" data-action="stock-add-cancel">Cancelar</button>
-          <button class="btn" type="submit">${renderUiIcon("plus")} Adicionar item</button>
-        </div>
-      </form>
+  const codigoPrevisto = getProximoCodigoMaterialEstoque(normalizarEstoque());
+  estado.codigoPrevisto = codigoPrevisto;
+  const itemDuplicado = estado.duplicadoId ? getMaterialEstoque(estado.duplicadoId) : null;
+  const corpo = etapa === 1 ? `
+    <div class="stock-wizard-code-preview"><span>Código interno do novo item</span><strong>${escaparHtml(formatarCodigoMaterialEstoque(codigoPrevisto))}</strong><small>Gerado automaticamente ao salvar e mantido neste produto.</small></div>
+    ${itemDuplicado ? `<div class="stock-duplicate-warning" role="alert"><span>${renderUiIcon("alerta")}</span><div><strong>Este produto já está cadastrado</strong><small>${escaparHtml(formatarCodigoMaterialEstoque(itemDuplicado))} • ${escaparHtml(itemDuplicado.nome)} • ${formatarQuantidadeEstoque(itemDuplicado.qtd, itemDuplicado.unidade || "un")}</small></div><button class="btn secondary" type="button" onclick="abrirItemEstoqueExistente('${escaparAttr(itemDuplicado.id)}')">Abrir item</button></div>` : ""}
+    <div class="stock-wizard-grid">
+      <label class="field stock-wizard-wide"><span>Nome do item</span><input id="matNome" value="${escaparAttr(estado.nome)}" placeholder="Ex.: Filamento PLA Preto 1kg" required></label>
+      <label class="field"><span>Tipo do item</span><select id="matItemType">${STOCK_ITEM_TYPES.map((tipo) => `<option value="${escaparAttr(tipo)}" ${tipo === estado.tipoItem ? "selected" : ""}>${escaparHtml(tipo)}</option>`).join("")}</select></label>
+      <label class="field"><span>Categoria</span><input id="matTipo" value="${escaparAttr(estado.categoria)}" placeholder="Ex.: Filamentos, embalagens"></label>
     </div>
+    ${renderEscolhaVisualItemEstoque(estado)}
+  ` : etapa === 2 ? `
+    <div class="stock-wizard-grid">
+      <label class="field"><span>Unidade de controle</span><select id="matUnidade">${STOCK_CONTROL_UNITS.map((unidade) => `<option value="${escaparAttr(unidade.value)}" ${unidade.value === estado.unidade ? "selected" : ""}>${escaparHtml(unidade.label)}</option>`).join("")}</select></label>
+      <label class="field"><span>Quantidade atual</span><input id="matQtd" type="number" min="0" step="0.001" value="${escaparAttr(estado.qtd)}"></label>
+      <label class="field"><span>Estoque mínimo</span><input id="matMinimo" type="number" min="0" step="0.001" value="${escaparAttr(estado.minimo)}"></label>
+      <label class="field"><span>Valor por unidade/medida (R$)</span><input id="matCusto" type="number" min="0" step="0.01" value="${escaparAttr(estado.custo)}"></label>
+      <label class="field stock-wizard-wide"><span>Fornecedor opcional</span><input id="matFornecedor" value="${escaparAttr(estado.fornecedor)}"></label>
+      <label class="field stock-wizard-wide"><span>Código de barras ou identificador QR (opcional)</span><input id="matCodigoExterno" value="${escaparAttr(estado.codigoExterno)}" placeholder="Ex.: EAN, código do fabricante ou conteúdo do QR" autocomplete="off"><small>Já fica pesquisável e preparado para um leitor futuro.</small></label>
+    </div>
+    ${podeControlarRolos ? `<label class="checkbox-row stock-batch-toggle"><input id="matBatchControlled" type="checkbox" ${estado.batchControlled ? "checked" : ""} onchange="alternarControleLoteEstoqueCadastro()"><span><strong>Controlar por rolo ou lote</strong><small>Para filamentos, resinas, frascos ou pacotes individuais.</small></span></label><label class="field" id="matBatchTypeField" ${estado.batchControlled ? "" : "hidden"}><span>Tipo de controle</span><select id="matBatchType" ${estado.batchControlled ? "" : "disabled"}>${STOCK_BATCH_CONTROL_TYPES.map((tipo) => `<option value="${escaparAttr(tipo.value)}" ${tipo.value === estado.batchType ? "selected" : ""}>${escaparHtml(tipo.label)}</option>`).join("")}</select></label>` : ""}
+  ` : `
+    <div class="stock-wizard-review">
+      ${renderMidiaMaterialEstoque({ nome: estado.nome, icone: estado.icone, foto: estado.foto }, "stock-wizard-review-media")}
+      <div><small>Item • ${escaparHtml(formatarCodigoMaterialEstoque(codigoPrevisto))}</small><strong>${escaparHtml(estado.nome || "Novo item")}</strong><span>${escaparHtml(estado.tipoItem)} • ${escaparHtml(estado.categoria || "Geral")}</span></div>
+      <div><small>Quantidade</small><strong>${escaparHtml(estado.qtd)} ${escaparHtml(estado.unidade)}</strong><span>Mínimo: ${escaparHtml(estado.minimo)} ${escaparHtml(estado.unidade)}</span></div>
+      <div><small>Valor</small><strong>${formatarMoeda(Number(estado.custo) || 0)}</strong><span>${estado.codigoExterno ? `Barras/QR: ${escaparHtml(estado.codigoExterno)}` : `Por ${escaparHtml(estado.unidade)}`}</span></div>
+    </div>
+    <label class="field"><span>Observações opcionais</span><textarea id="matObservacoes" rows="3" placeholder="Localização, referência ou informação útil">${escaparHtml(estado.observacoes)}</textarea></label>
+    <p class="stock-wizard-safe-note">${renderUiIcon("check")} Confira os dados. O item só será salvo depois desta confirmação.</p>
   `;
-  promoverPopupParaDialogUiV3(popup, { title: "Adicionar item ao estoque" });
-  document.getElementById("stockAddForm")?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    addMaterial();
-  });
-  setTimeout(() => document.getElementById("matNome")?.focus(), 60);
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel"><form class="modal-card stock-item-modal stock-wizard-modal" id="stockAddForm" onsubmit="avancarCadastroItemEstoque(event)"><div class="modal-header"><div><small>Cadastro de estoque</small><h2>${renderUiIcon("plus")} Novo item</h2></div><button class="icon-button" type="button" data-action="stock-add-cancel" title="Fechar">✕</button></div>${renderEtapasCadastroItemEstoque(etapa)}<div class="stock-wizard-body">${corpo}</div><div class="actions stock-wizard-actions">${etapa === 1 ? `<button class="btn ghost" type="button" data-action="stock-add-cancel">Cancelar</button>` : `<button class="btn ghost" type="button" onclick="voltarCadastroItemEstoque()">Voltar</button>`}<button class="btn" type="submit">${etapa < 3 ? `Continuar ${renderUiIcon("next")}` : `${renderUiIcon("check")} Salvar item`}</button></div></form></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: `Adicionar item ao estoque • etapa ${etapa} de 3` });
+  setTimeout(() => document.getElementById(etapa === 1 ? "matNome" : etapa === 2 ? "matUnidade" : "matObservacoes")?.focus(), 60);
+}
+
+function selecionarIconeItemEstoque(icone = "estoque") {
+  const estado = capturarEtapaCadastroItemEstoque();
+  if (!STOCK_ITEM_ICON_OPTIONS.some((opcao) => opcao.value === icone)) return;
+  estado.icone = icone;
+  estado.foto = "";
+  estado.fotoInfo = "";
+  renderCadastroItemEstoqueWizard();
+}
+
+function removerFotoItemEstoque() {
+  const estado = capturarEtapaCadastroItemEstoque();
+  estado.foto = "";
+  estado.fotoInfo = "";
+  renderCadastroItemEstoqueWizard();
+}
+
+async function otimizarFotoItemEstoque(arquivo) {
+  if (!arquivo || !["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(String(arquivo.type || "").toLowerCase())) throw new Error("Escolha uma foto JPG, PNG ou WebP.");
+  const imagem = await carregarImagemArquivo(arquivo);
+  const tamanho = 420;
+  const canvas = document.createElement("canvas");
+  canvas.width = tamanho;
+  canvas.height = tamanho;
+  const contexto = canvas.getContext("2d");
+  if (!contexto) throw new Error("Não foi possível preparar a foto neste aparelho.");
+  const escala = Math.max(tamanho / imagem.naturalWidth, tamanho / imagem.naturalHeight);
+  const larguraFonte = tamanho / escala;
+  const alturaFonte = tamanho / escala;
+  const xFonte = Math.max(0, (imagem.naturalWidth - larguraFonte) / 2);
+  const yFonte = Math.max(0, (imagem.naturalHeight - alturaFonte) / 2);
+  contexto.drawImage(imagem, xFonte, yFonte, larguraFonte, alturaFonte, 0, 0, tamanho, tamanho);
+  const mime = canvasSuportaMime("image/webp") ? "image/webp" : "image/jpeg";
+  const dataUrl = gerarDataUrlOtimizado(canvas, mime, 0.76, STOCK_ITEM_PHOTO_MAX_BYTES);
+  const bytes = tamanhoDataUrlBytes(dataUrl);
+  if (!dataUrl || bytes > STOCK_ITEM_PHOTO_MAX_BYTES * 1.12) throw new Error("A foto continuou muito grande mesmo após a compactação. Escolha outra imagem.");
+  return { dataUrl, width: tamanho, height: tamanho, sizeKb: Math.max(1, Math.round(bytes / 1024)) };
+}
+
+async function prepararFotoItemEstoque(input) {
+  const arquivo = input?.files?.[0];
+  if (!arquivo) return;
+  const estado = capturarEtapaCadastroItemEstoque();
+  const toast = mostrarToast("Compactando foto...", "loading");
+  try {
+    const foto = await otimizarFotoItemEstoque(arquivo);
+    estado.foto = foto.dataUrl;
+    estado.fotoInfo = `${foto.width}×${foto.height} • ${foto.sizeKb} KB`;
+    renderCadastroItemEstoqueWizard();
+    mostrarToast(`Foto compactada para ${foto.sizeKb} KB.`, "sucesso", 2600);
+  } catch (erro) {
+    input.value = "";
+    mostrarToast(erro.message || "Não foi possível usar esta foto.", "erro", 4800);
+  } finally {
+    toast?.remove?.();
+  }
+}
+
+function voltarCadastroItemEstoque() {
+  const estado = capturarEtapaCadastroItemEstoque();
+  estado.step = Math.max(1, Number(estado.step) - 1);
+  renderCadastroItemEstoqueWizard();
+}
+
+async function avancarCadastroItemEstoque(event) {
+  event?.preventDefault?.();
+  const estado = capturarEtapaCadastroItemEstoque();
+  if (estado.step === 1 && !estado.nome.trim()) {
+    mostrarToast("Informe o nome do item.", "info", 3000);
+    document.getElementById("matNome")?.focus();
+    return;
+  }
+  if (estado.step === 1) {
+    const duplicado = encontrarItemEstoqueDuplicado({ nome: estado.nome, codigoExterno: estado.codigoExterno });
+    if (duplicado) {
+      estado.duplicadoId = String(duplicado.id);
+      renderCadastroItemEstoqueWizard();
+      mostrarToast(`Produto já cadastrado como ${formatarCodigoMaterialEstoque(duplicado)}.`, "info", 4200);
+      return;
+    }
+    estado.duplicadoId = "";
+  }
+  if (estado.step === 2) {
+    try {
+      InventoryService.parseNumberStrict(estado.qtd, "quantidade", { min: 0 });
+      InventoryService.parseNumberStrict(estado.minimo, "estoque mínimo", { min: 0 });
+      InventoryService.parseNumberStrict(estado.custo, "valor", { min: 0 });
+    } catch (erro) {
+      ErrorService.notify(erro, { area: "Estoque", action: "Validar novo item" });
+      return;
+    }
+  }
+  if (estado.step < 3) {
+    estado.step += 1;
+    renderCadastroItemEstoqueWizard();
+    return;
+  }
+  await salvarCadastroItemEstoqueWizard();
+}
+
+async function salvarCadastroItemEstoqueWizard() {
+  const estado = capturarEtapaCadastroItemEstoque();
+  if (window.__stockItemWizardSaving) return;
+  const duplicado = encontrarItemEstoqueDuplicado({ nome: estado.nome, codigoExterno: estado.codigoExterno });
+  if (duplicado) {
+    estado.step = 1;
+    estado.duplicadoId = String(duplicado.id);
+    renderCadastroItemEstoqueWizard();
+    mostrarToast(`Produto já cadastrado como ${formatarCodigoMaterialEstoque(duplicado)}. Nenhum saldo foi alterado.`, "info", 4800);
+    return;
+  }
+  window.__stockItemWizardSaving = true;
+  try {
+    if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
+    const codigoPrevisto = getProximoCodigoMaterialEstoque(normalizarEstoque());
+    const listaAtualizada = InventoryService.addMaterial({
+      nome: estado.nome.trim(),
+      categoria: estado.categoria || "Geral",
+      tipo: estado.categoria || "Geral",
+      tipoItem: estado.tipoItem || STOCK_ITEM_TYPES[0],
+      unidade: estado.unidade || "un",
+      qtd: estado.qtd,
+      estoqueMinimo: estado.minimo,
+      custoUnitario: estado.custo,
+      fornecedor: estado.fornecedor,
+      observacoes: estado.observacoes,
+      icone: estado.icone || "estoque",
+      foto: estado.foto || "",
+      codigoExterno: estado.codigoExterno || "",
+      ativo: true,
+      isBatchControlled: podeUsarControleRolosEstoque() && estado.batchControlled === true,
+      batchControlType: estado.batchType || "rolo",
+      cor: ""
+    });
+    registrarEventoUsoLocal("material_usado", { materialNome: estado.nome.trim(), materialId: estado.categoria || "Geral", cor: "" });
+    agendarSyncSilenciosoDados("estoque-adicionado");
+    window.__stockItemWizard = null;
+    fecharPopup();
+    const materialSalvo = (Array.isArray(listaAtualizada) ? listaAtualizada : normalizarEstoque()).find((material) => getCodigoNumericoMaterialEstoque(material) === codigoPrevisto)
+      || encontrarItemEstoqueDuplicado({ nome: estado.nome, codigoExterno: estado.codigoExterno });
+    mostrarToast(`Item ${formatarCodigoMaterialEstoque(materialSalvo || codigoPrevisto)} adicionado ao estoque.`, "sucesso", 3200);
+    renderizarPreservandoScroll();
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Estoque", action: "Adicionar material" });
+  } finally {
+    window.__stockItemWizardSaving = false;
+  }
 }
 
 async function addMaterial() {
@@ -46857,7 +47780,25 @@ async function sendQuoteToWhatsApp(pedido = null) {
     alert("Adicione itens válidos ao pedido antes de enviar");
     return false;
   }
-  const mensagem = montarMensagemOrcamentoWhatsapp(pedido);
+  const pedidoFonte = pedido || {
+    itens: itensPedido,
+    cliente: clientePedido,
+    down_payment: entradaPedido,
+    desconto: descontoPedido
+  };
+  const resumo = calcularResumoFinanceiroPedido(pedidoFonte);
+  const valorPix = resumo.restante > 0 ? resumo.restante : resumo.total;
+  const payloadPix = gerarPayloadPix(valorPix, clienteDoPedido(pedidoFonte) || clientePedido);
+  const mensagemBase = montarMensagemOrcamentoWhatsapp(pedido);
+  const mensagem = [
+    mensagemBase,
+    "",
+    payloadPix ? `Valor do Pix: ${formatarMoeda(valorPix)}` : "",
+    payloadPix ? "" : null,
+    payloadPix ? "────────────────────" : null,
+    payloadPix ? "PIX COPIA E COLA" : null,
+    payloadPix || null
+  ].filter((linha) => linha !== null && linha !== undefined).join("\n");
   const numero = obterTelefoneDestinoWhatsappPedido(pedido);
   const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
   window.open(destino + encodeURIComponent(mensagem), "_blank");
@@ -47268,9 +48209,20 @@ function setFontePdf(doc, tamanho, estilo = "normal") {
 function getPdfThemeConfig() {
   const id = normalizarPdfTheme();
   const base = PDF_THEME_PRESETS[id] || PDF_THEME_PRESETS.clean_white;
-  const principal = limitarCorPdf(appConfig.accentColor || base.line || "#00d8c8", base.line || "#00d8c8");
-  const secundaria = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || base.line || "#00d8c8", base.line || "#00d8c8");
-  return { id, ...base, primary: principal, secondary: secundaria };
+  return {
+    id,
+    ...base,
+    background: "#ffffff",
+    panel: "#ffffff",
+    panelAlt: "#f4f4f4",
+    tableStripe: "#f7f7f7",
+    primary: "#111111",
+    secondary: "#111111",
+    line: "#b8b8b8",
+    text: "#111111",
+    muted: "#111111",
+    headerText: "#111111"
+  };
 }
 
 function formatarTelefonePdf(valor = "") {
@@ -47368,7 +48320,7 @@ function desenharCabecalhoComercialPdf(doc, contexto) {
   } else {
     setFillPdf(doc, tema.primary, "#00d8c8");
     doc.roundedRect(margem, 12, logoSize, logoSize, 3, 3, "F");
-    setTextPdf(doc, "#ffffff", "#ffffff");
+    setTextPdf(doc, tema.headerText, "#111111");
     setFontePdf(doc, 10, "bold");
     doc.text("S3D", margem + logoSize / 2, 22, { align: "center" });
   }

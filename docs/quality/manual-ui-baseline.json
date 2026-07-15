@@ -1,0 +1,8 @@
+{
+  "manualButtons": 699,
+  "manualInputs": 347,
+  "manualCards": 463,
+  "hardcodedColors": 1482,
+  "capturedAt": "2026-07-15",
+  "note": "Baseline atualizado para a release 1.0.15. Botoes e campos novos pertencem aos widgets, menus compactos, perfil e cadastro guiado; as cores adicionais sao correcoes finais de contraste claro/escuro do Superadmin. Novos aumentos continuam bloqueados."
+}

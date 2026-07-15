@@ -7,6 +7,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const MERCADOPAGO_ACCESS_TOKEN = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || "";
 const MERCADOPAGO_WEBHOOK_URL = Deno.env.get("MERCADOPAGO_WEBHOOK_URL") || "";
 const APP_PUBLIC_URL = Deno.env.get("APP_PUBLIC_URL") || "";
+const DEFAULT_APP_PUBLIC_URL = "https://erpne3d.vercel.app";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +36,9 @@ function webhookUrl() {
 }
 
 function backUrl(req: Request) {
-  const origin = APP_PUBLIC_URL || req.headers.get("origin") || "https://simplifica3d.app";
+  void req;
+  const configuredOrigin = String(APP_PUBLIC_URL || "").trim().replace(/\/+$/, "");
+  const origin = /^https:\/\//i.test(configuredOrigin) ? configuredOrigin : DEFAULT_APP_PUBLIC_URL;
   return `${origin}/?assinatura=retorno`;
 }
 
@@ -58,9 +61,12 @@ async function getCurrentContext(req: Request, requestedClientId?: string) {
     .maybeSingle();
 
   const isSuperadmin = profile?.role === "superadmin" || erpProfile?.role === "superadmin";
-  const clientId = isSuperadmin && requestedClientId
-    ? requestedClientId
-    : (profile?.client_id || erpProfile?.client_id || requestedClientId || "");
+  const linkedClientId = String(profile?.client_id || erpProfile?.client_id || "").trim();
+  const requestedId = String(requestedClientId || "").trim();
+  if (!isSuperadmin && requestedId && requestedId !== linkedClientId) {
+    throw new Error("Cliente informado não pertence ao usuário autenticado");
+  }
+  const clientId = isSuperadmin && requestedId ? requestedId : linkedClientId;
 
   if (!clientId) throw new Error("Cliente não vinculado");
 

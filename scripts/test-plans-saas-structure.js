@@ -55,6 +55,13 @@ includesAll(app, [
   "function getAvatarPlanoClasseUsuario",
   "avatar-${classePlanoSaasCompacto",
   "sidebarPreferenceSet",
+  "function getApresentacaoPlanoEmpresaSaas",
+  "function getApresentacaoAtividadeEmpresaSaas",
+  "depois volta ao Free",
+  "Plano e acesso",
+  "Último acesso",
+  "is-compact",
+  'function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "⋯")',
 ], "checkout temporario sem upgrade fantasma");
 
 assert(!app.includes("assinatura.pendingPlan = plano.slug"), "checkout nao deve gravar pendingPlan antes do pagamento aprovado");
@@ -90,6 +97,10 @@ includesAll(css, [
   ".avatar-plan-free",
   ".avatar-plan-start",
   ".avatar-plan-pro",
+  ".client-admin-access",
+  ".client-admin-activity",
+  ".superadmin-action-menu.is-compact",
+  ".superadmin-user-actions",
 ], "CSS premium dos cards");
 
 includesAll(monetization, [

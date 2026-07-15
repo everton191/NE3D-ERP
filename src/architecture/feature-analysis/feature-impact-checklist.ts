@@ -1,0 +1,22 @@
+export const featureImpactChecklist = [
+  "A funcao e realmente necessaria?",
+  "Qual problema real ela resolve?",
+  "Ja existe algo parecido no projeto?",
+  "Qual modulo e dono?",
+  "Quais modulos serao afetados?",
+  "De onde ela nasce na interface?",
+  "Por onde ela passa no fluxo?",
+  "Quais regras de negocio usa?",
+  "Quais servicos executa?",
+  "Quais tabelas consulta ou altera?",
+  "Precisa de banco, RLS, storage ou webhook?",
+  "Precisa de permissao por plano?",
+  "Afeta Free, Start ou Pro?",
+  "Afeta loja publica?",
+  "Afeta mobile ou desktop?",
+  "Precisa de loading, empty, error, ready, saving e success?",
+  "Precisa de historico ou log?",
+  "Deve estar ativa agora ou atras de feature flag?",
+  "Existe referencia de mercado semelhante?",
+  "Deve ser feita agora, depois ou descartada por complexidade?"
+];

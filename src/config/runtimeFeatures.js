@@ -5,6 +5,9 @@
   global.__SIMPLIFICA_RUNTIME_FEATURES__ = Object.freeze({
     adsEnabled: false,
     stockRollsEnabled: true,
+    stockScannerEnabled: false,
+    stockReservationsEnabled: false,
+    stockMovementRpcEnabled: false,
     stockRollAutoConsumptionEnabled: false,
     enterpriseWarehousesEnabled: false,
     enterprisePurchasingEnabled: false,
