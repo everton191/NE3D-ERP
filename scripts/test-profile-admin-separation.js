@@ -6,6 +6,8 @@ const migration = fs.readFileSync("supabase/migrations/20260701203000_user_prefe
 
 assert.ok(app.includes("function renderAdministracaoEmpresa()"), "administração da empresa deve ser módulo próprio");
 assert.ok(app.includes("function podeAcessarAdministracaoEmpresa"), "administração deve validar cargo ou permissão");
+assert.ok(app.includes("function voltarAdministracaoEmpresa()"), "administração deve ter retorno contextual próprio");
+assert.ok(app.includes('if (isSuperAdmin(usuario)) return true;'), "Superadmin deve ignorar bloqueio comercial de funcionários");
 assert.ok(app.includes('if (tela === "administracao") return podeAcessarAdministracaoEmpresa(usuario)'), "rota administrativa deve bloquear acesso direto");
 assert.ok(app.includes("Administração da empresa"), "avatar deve oferecer administração apenas quando permitida");
 assert.ok(app.includes("Modo de uso"), "perfil deve expor modo de uso");

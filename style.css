@@ -4042,6 +4042,12 @@ body.theme-light .cash-session-panel{
   box-shadow:0 12px 26px rgba(255,171,0,.08);
 }
 
+.smart-order-more-button{
+  flex:0 0 auto;
+  position:relative;
+  z-index:2;
+}
+
 .order-card-tone-open{
   border-color:rgba(13,189,184,.24);
   background:linear-gradient(145deg, rgba(13,189,184,.15), rgba(8,16,26,.94));
@@ -19530,15 +19536,15 @@ body.theme-light :where(.badge-gratis,.badge-aberto,.badge-producao,.badge-info,
 }
 
 .app-button[data-ui-variant="primary"]{
-  color:var(--s3d-button-primary-text);
-  background:var(--s3d-button-primary-bg);
-  border-color:var(--s3d-button-primary-border);
+  color:var(--s3d-button-primary-text, var(--color-on-primary));
+  background:var(--s3d-button-primary-bg, var(--color-primary));
+  border-color:var(--s3d-button-primary-border, var(--color-primary));
 }
 
 .app-button[data-ui-variant="secondary"]{
-  color:var(--s3d-button-secondary-text);
-  background:var(--s3d-button-secondary-bg);
-  border-color:var(--s3d-button-secondary-border);
+  color:var(--s3d-button-secondary-text, var(--color-text-primary, var(--text-primary)));
+  background:var(--s3d-button-secondary-bg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface)));
+  border-color:var(--s3d-button-secondary-border, color-mix(in srgb, var(--color-primary) 38%, var(--color-border)));
 }
 
 .app-button[data-ui-variant="ghost"],
@@ -41848,6 +41854,55 @@ body.theme-light .reports-filter-button {
   gap: var(--space-lg);
 }
 
+/* Layouts registrados do Design System V3. */
+.ui3-form-grid-single {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.ui3-form-grid-single > :where(.field, .ui3-field-full) {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.ui3-action-row :where(.btn, .app-button),
+.app-button[data-ui-component="Button"] {
+  min-height: 44px !important;
+  padding: 0 var(--space-lg, 16px) !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm, 8px);
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: var(--radius-md, 10px) !important;
+  font-weight: 800;
+  line-height: 1.15;
+  text-decoration: none;
+}
+
+.ui3-action-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: var(--space-sm, 8px);
+}
+
+.ui3-action-row > :where(.btn, .app-button) {
+  width: 100%;
+  min-width: 0;
+}
+
+.ui3-action-row > :only-child {
+  grid-column: 1 / -1;
+}
+
+.stock-wizard-actions:has(> :nth-child(3)) > :last-child {
+  grid-column: 1 / -1;
+}
+
+body.mobile-mode .administration-page .administration-subpage > .ui3-action-row :where(.btn, .app-button) { width: 100%; }
+
 .administration-page > .app-header {
   min-height: auto;
   padding: 0;
@@ -46820,4 +46875,119 @@ body:not(.theme-light) :where(.superadmin-only-main,.superadmin-mobile-only) .su
     width:100%;
     justify-items:end;
   }
+}
+
+/* Design System V3 - autoridade final de botões nas telas internas. */
+body:not(.visitor-public-screen) .ui3-real-screen :where(.btn, .app-button) {
+  min-height: var(--s3d-button-height-standard, 44px) !important;
+  padding: 0 var(--space-lg, 16px) !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm, 8px);
+  border-width: 1px !important;
+  border-style: solid !important;
+  border-radius: var(--radius-md, 10px) !important;
+  font-size: var(--type-button, 14px);
+  font-weight: 800;
+  line-height: 1.15;
+  text-decoration: none;
+}
+
+body:not(.visitor-public-screen) .ui3-real-screen :where(
+  .btn.primary,
+  .app-button.primary,
+  .app-button[data-ui-variant="primary"],
+  .btn:not(.secondary):not(.ghost):not(.danger):not(.warning):not(.outline):not(.icon)
+) {
+  color: var(--s3d-button-primary-text, var(--color-on-primary)) !important;
+  background: var(--s3d-button-primary-bg, var(--color-primary)) !important;
+  border-color: var(--s3d-button-primary-border, var(--color-primary)) !important;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--color-primary) 22%, transparent) !important;
+}
+
+body:not(.visitor-public-screen) .ui3-real-screen :where(.btn.secondary, .app-button.secondary, .app-button[data-ui-variant="secondary"]) {
+  color: var(--s3d-button-secondary-text, var(--color-text-primary, var(--text-primary))) !important;
+  background: var(--s3d-button-secondary-bg, color-mix(in srgb, var(--color-primary) 10%, var(--color-surface))) !important;
+  border-color: var(--s3d-button-secondary-border, color-mix(in srgb, var(--color-primary) 38%, var(--color-border))) !important;
+  box-shadow: none !important;
+}
+
+body:not(.visitor-public-screen) .ui3-real-screen :where(.btn.ghost, .app-button.ghost, .app-button[data-ui-variant="ghost"]) {
+  color: var(--s3d-button-ghost-text, var(--color-text-secondary, var(--text-secondary))) !important;
+  background: var(--s3d-button-ghost-bg, transparent) !important;
+  border-color: var(--s3d-button-ghost-border, var(--color-border, var(--border-soft))) !important;
+  box-shadow: none !important;
+}
+
+body:not(.visitor-public-screen) .ui3-real-screen :where(.btn.danger, .app-button.danger, .app-button[data-ui-variant="danger"]) {
+  color: var(--s3d-button-danger-text, var(--color-on-danger)) !important;
+  background: var(--s3d-button-danger-bg, var(--color-danger)) !important;
+  border-color: var(--s3d-button-danger-border, var(--color-danger)) !important;
+}
+
+body:not(.visitor-public-screen) .ui3-real-screen :where(.btn, .app-button):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  outline-offset: 2px;
+}
+
+body:not(.visitor-public-screen) .ui3-real-screen :where(.btn, .app-button):disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  box-shadow: none !important;
+}
+
+/* Autoridade V3 para menus contextuais, PDF salvo e ações compactas internas. */
+body:not(.visitor-public-screen) .ui-context-menu-trigger,
+body:not(.visitor-public-screen) .smart-order-more-button {
+  width:36px !important;
+  min-width:36px !important;
+  height:36px !important;
+  min-height:36px !important;
+  padding:0 !important;
+  display:inline-grid !important;
+  place-items:center;
+  border:1px solid var(--color-border, var(--border-soft)) !important;
+  border-radius:var(--radius-md, 10px) !important;
+  background:var(--surface-secondary, var(--surface-primary)) !important;
+  color:var(--text-secondary, var(--text-primary)) !important;
+}
+
+body:not(.visitor-public-screen) :where(.ui-context-menu-trigger,.smart-order-more-button) svg { width:18px; height:18px; }
+.pdf-saved-preview-note,.pdf-settings-group { display:grid; gap:var(--space-sm, 8px); }
+.pdf-saved-preview-note { margin-bottom:var(--space-md, 12px); }
+.pdf-saved-preview-note small,.pdf-model-preview-contact { color:var(--text-muted); }
+.pdf-model-preview-contact { display:block; margin:0 0 8px; }
+.pdf-settings-group { margin-top:var(--space-lg, 18px); padding-top:var(--space-md, 12px); border-top:1px solid var(--color-border, var(--border-soft)); }
+
+.administration-module-row {
+  grid-template-columns:36px minmax(0, 1fr) minmax(0, 76px);
+  min-width:0;
+  max-width:100%;
+  overflow:hidden;
+}
+.administration-module-row > span:nth-child(2) small { overflow-wrap:anywhere; }
+.administration-module-row > .status-badge {
+  min-width:0;
+  max-width:100%;
+  justify-self:stretch;
+  overflow:hidden;
+  text-align:center;
+  text-overflow:ellipsis;
+}
+
+.stock-detail-actions { gap:6px; }
+.stock-detail-actions .btn {
+  min-height:34px !important;
+  padding:0 9px !important;
+  border-radius:9px !important;
+  font-size:11px;
+  font-weight:700;
+  box-shadow:none !important;
+}
+
+@media (max-width:600px) {
+  .stock-detail-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  .stock-detail-actions .btn:last-child { grid-column:1 / -1; }
+  .administration-subpage,.administration-module-list { min-width:0; max-width:100%; overflow-x:hidden; }
 }

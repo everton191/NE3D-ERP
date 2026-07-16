@@ -30,6 +30,8 @@ assert(app.includes('status: "checkout_opened"'), "checkout deve continuar trans
 assert(!app.includes('checkout.status = "approved"'), "URL de retorno nao pode aprovar checkout local");
 assert(!app.includes('billingConfig.activePlan = "pro"'), "retorno de checkout nao pode ativar Pro diretamente");
 assert(app.includes('returnStatus === "failed"'), "falha deve ser tratada separadamente");
+assert(app.includes('return { type: "", message: "" }'), "checkout apenas aberto ou abandonado não deve manter aviso visual");
+assert(!app.includes('message: "Pagamento não concluído.'), "abandono de checkout não deve exibir pagamento não concluído");
 assert(app.includes('reason: force ? "superseded_checkout" : "local_timeout"'), "abandono deve diferenciar timeout de substituicao");
 assert(app.includes('String(pagamento.status || "") === "pending" && temTransacaoMercadoPagoReal(pagamento)'), "pending real nao pode expirar por limpeza local");
 assert(sandbox.includes('REQUIRED_SANDBOX_TOKEN_PREFIX = "TEST-"'), "runner deve bloquear token produtivo");

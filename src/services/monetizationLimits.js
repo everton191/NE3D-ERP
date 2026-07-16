@@ -6,20 +6,13 @@
   const FREE_ACTION_DAILY_MAX = FREE_ACTION_CREDIT_LIMIT + FREE_ACTION_AD_BONUS_LIMIT;
   const FALLBACK_UNLOCK_MINUTES = 30;
   const AD_FREE_UNLOCK_DURATION_MINUTES = 10;
-  const STORAGE_KEY = "simplifica3d:monetization-limits:v2";
+  // v3 descarta contadores v2 inflados por edicoes e operacoes internas.
+  const STORAGE_KEY = "simplifica3d:monetization-limits:v3";
   const LEGACY_STORAGE_KEY = "simplifica3d:monetization-limits:v1";
-  const CREDIT_ACTIONS = new Set([
-    "criar_pedido",
-    "salvar_pedido",
-    "editar_pedido",
-    "adicionar_item",
-    "excluir_item",
-    "finalizar_pedido",
-    "gerar_orcamento",
-    "salvar_estoque",
-    "alterar_cliente",
-    "registrar_caixa"
-  ]);
+  // A cota comercial do plano Free e por pedido criado, nao por cada etapa
+  // interna do pedido. Edicao, itens, PDF e mudanca de status nao podem
+  // consumir novamente a mesma cota.
+  const CREDIT_ACTIONS = new Set(["criar_pedido"]);
 
   const config = {
     now: () => Date.now(),

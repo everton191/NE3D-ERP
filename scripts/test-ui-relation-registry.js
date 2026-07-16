@@ -3,10 +3,11 @@ const fs = require("node:fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const style = fs.readFileSync("style.css", "utf8");
-const designSystem = fs.readFileSync("themes/base/design-system-v2.css", "utf8");
+const designSystem = `${fs.readFileSync("themes/base/tokens.css", "utf8")}\n${style}`;
 
 assert.ok(app.includes("const UI_BUTTON_RELATIONS = Object.freeze"), "Registro de variantes de botão ausente.");
 assert.ok(app.includes("const UI_COMPONENT_SIZE_RELATIONS = Object.freeze"), "Registro de tamanhos de botão e card ausente.");
+assert.ok(app.includes("const UI_LAYOUT_RELATIONS = Object.freeze"), "Registro de layouts de formulário e ações ausente.");
 assert.ok(app.includes("const UI_SCREEN_RELATIONS = Object.freeze"), "Registro de telas ausente.");
 assert.ok(
   app.includes("const telas = Object.freeze(Object.fromEntries("),
@@ -58,5 +59,17 @@ screenEntries.forEach(([, screen, relation]) => {
 
 assert.ok(style.includes('.s3d-button[data-ui-size="compact"]'), "Contrato de botão compacto ausente.");
 assert.ok(style.includes('.s3d-card[data-ui-size="large"]'), "Contrato de card grande ausente.");
+assert.ok(style.includes('.ui3-form-grid-single'), "Contrato de formulário em coluna única ausente.");
+assert.ok(style.includes('.ui3-action-row'), "Contrato de linha de ações ausente.");
+assert.ok(style.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), "Linha de ações deve manter dois botões lado a lado.");
+assert.ok(app.includes('data-ui-component="Button"'), "Botão V3 deve declarar o componente no DOM.");
+assert.ok(app.includes('mode: "edit"') && app.includes('pularEtapaCadastroItemEstoque'), "Edição de estoque deve reutilizar o fluxo em etapas.");
+assert.ok(app.includes('onchange="prepararFotoItemEstoque(this)"'), "Fluxo de estoque deve permitir trocar a foto.");
+assert.equal((app.match(/title: "PDF", subtitle: "Modelo salvo/g) || []).length, 1, "PDF deve ser uma única guia consolidada.");
+assert.ok(app.includes('data-pdf-saved-preview="true"'), "PDF deve exibir a cópia da configuração salva no dispositivo.");
+assert.ok(app.includes('class="ui-context-menu stock-item-menu"'), "Menu de três pontos do estoque deve usar o contrato contextual padrão.");
+assert.ok(style.includes('.administration-module-row > .status-badge'), "Permissões devem proteger o conteúdo contra corte lateral.");
+assert.ok(app.includes('enviarWhatsCalculadora()') && app.includes('incluirPix: false'), "Calculadora deve enviar orçamento sem Pix pelo WhatsApp.");
+assert.ok(app.includes('sendQuoteToWhatsApp(null, { incluirPix: true })'), "Fluxo de pedido deve preservar o envio de Pix.");
 
 console.log("UI relation registry: telas, botões e tokens estão vinculados.");

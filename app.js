@@ -544,6 +544,12 @@ const UI_COMPONENT_SIZE_RELATIONS = Object.freeze({
   })
 });
 
+const UI_LAYOUT_RELATIONS = Object.freeze({
+  formSingleColumn: Object.freeze({ className: "ui3-form-grid ui3-form-grid-single", tokenSet: "form-single-column" }),
+  actionRow: Object.freeze({ className: "actions ui3-action-row", tokenSet: "action-row" }),
+  fullWidthField: Object.freeze({ className: "ui3-field-full", tokenSet: "field-full-width" })
+});
+
 const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   dashboard: Object.freeze({ label: "Home", lucide: "LayoutDashboard", group: "principal" }),
   pedidos: Object.freeze({ label: "Pedidos", lucide: "ClipboardList", group: "principal" }),
@@ -846,6 +852,15 @@ function getUiButtonRelation(variant = "primary") {
 function getUiComponentSizeRelation(component = "button", size = "standard") {
   const componentRelations = UI_COMPONENT_SIZE_RELATIONS[String(component || "button")] || UI_COMPONENT_SIZE_RELATIONS.button;
   return componentRelations[String(size || "standard")] || componentRelations.standard;
+}
+
+function getUiLayoutRelation(layout = "formSingleColumn") {
+  return UI_LAYOUT_RELATIONS[String(layout || "formSingleColumn")] || UI_LAYOUT_RELATIONS.formSingleColumn;
+}
+
+function renderUiLayoutAttributes(layout = "formSingleColumn") {
+  const relation = getUiLayoutRelation(layout);
+  return `data-ui-layout="${escaparAttr(layout)}" data-ui-token-set="${escaparAttr(relation.tokenSet)}"`;
 }
 
 let telaAtual = "dashboard";
@@ -6081,7 +6096,11 @@ function isDono() {
 }
 
 function isSuperAdmin(usuario = getUsuarioAtual()) {
-  return usuario?.papel === "superadmin";
+  if (usuario?.papel === "superadmin") return true;
+  if (usuario?.superadminMaintenance !== true || !usuario?.maintenanceSuperadminEmail) return false;
+  const superadminReal = getUsuarioSessaoReal();
+  return superadminReal?.papel === "superadmin"
+    && normalizarEmail(superadminReal.email) === normalizarEmail(usuario.maintenanceSuperadminEmail);
 }
 
 function getSuperAdminPrincipal() {
@@ -15638,7 +15657,7 @@ function renderPainelMobile(tela) {
   return `
     <section class="mobile-panel${classePainel}" role="dialog" aria-modal="true" aria-label="${escaparAttr(telas[tela])}">
       <div class="mobile-panel-bar app-header">
-        <button class="icon-button" onclick="voltarTela()" title="Voltar">←</button>
+        <button class="icon-button" onclick="${tela === "administracao" ? "voltarAdministracaoEmpresa()" : "voltarTela()"}" title="Voltar">←</button>
         <h2>${escaparHtml(telas[tela])}</h2>
         <div class="mobile-panel-actions">
           ${exibirMenuPainel ? `<button class="icon-button mobile-panel-menu-button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>` : ""}
@@ -16093,6 +16112,16 @@ function abrirSecaoAdministracaoEmpresa(secao = "home") {
   trocarTela("administracao");
 }
 
+function voltarAdministracaoEmpresa() {
+  if (getSecaoAdministracaoEmpresa() !== "home") {
+    window.__adminCompanySection = "home";
+    renderAppComTransicaoNavegacao("back");
+    resetarScrollTelaAtiva();
+    return;
+  }
+  voltarTela();
+}
+
 function renderPermissoesEmpresaMvp() {
   const roles = [
     { id: "owner", label: "Dono", permissions: ["Tudo da empresa", "Plano e cobrança", "Funcionários", "Permissões críticas"] },
@@ -16132,11 +16161,11 @@ function renderConfiguracoesEstoqueAdministracao() {
         <div><h3>Configurações de estoque</h3><p class="muted">Regras simples usadas pelos alertas e pela lista de compras.</p></div>
         ${renderAppButton({ label: "Abrir estoque", variant: "secondary", action: "trocarTela('estoque')" })}
       </div>
-      <div class="sync-grid">
+      <div class="sync-grid ${getUiLayoutRelation("formSingleColumn").className}" ${renderUiLayoutAttributes("formSingleColumn")}>
         <label class="field"><span>Alerta baixo (%)</span><input id="adminStockLowThreshold" type="number" min="1" max="95" value="${escaparAttr(low)}"></label>
         <label class="field"><span>Alerta crítico (%)</span><input id="adminStockCriticalThreshold" type="number" min="1" max="90" value="${escaparAttr(critical)}"></label>
       </div>
-      <div class="actions">
+      <div class="actions ui3-action-row" ${renderUiLayoutAttributes("actionRow")}>
         ${renderAppButton({ label: "Salvar regras de estoque", variant: "primary", action: "salvarConfiguracoesEstoqueAdministracao()" })}
       </div>
       <p class="muted">Rolos e baixa automática continuam preparados para fase futura; esta tela não ativa impressoras nem G-code.</p>
@@ -16180,7 +16209,7 @@ function renderConfiguracoesCaixaAdministracao() {
           </label>
         `).join("")}
       </div>
-      <div class="actions">
+      <div class="actions ui3-action-row" ${renderUiLayoutAttributes("actionRow")}>
         ${renderAppButton({ label: "Salvar formas de pagamento", variant: "primary", action: "salvarConfiguracoesCaixaAdministracao()" })}
       </div>
     </div>
@@ -16238,7 +16267,7 @@ function renderAdministracaoEmpresa() {
       <div class="administration-summary">
         <span>${renderUiIcon("empresa")}</span>
         <div><strong>${escaparHtml(appConfig.businessName || "Minha empresa")}</strong><small>${escaparHtml(getUserAccessRole(usuario))}</small></div>
-        ${secao !== "home" ? renderAppButton({ label: "Voltar", variant: "secondary", action: "abrirSecaoAdministracaoEmpresa('home')" }) : ""}
+        ${secao !== "home" && !isMobile() ? renderAppButton({ label: "Voltar", variant: "secondary", action: "voltarAdministracaoEmpresa()" }) : ""}
       </div>
       ${secao !== "home" ? renderSubsecaoAdministracaoEmpresa(secao, usuario) : `<div class="administration-module-list">
         ${modules.map((item) => `
@@ -25703,9 +25732,9 @@ function renderEstoque() {
               <strong>${podeVerCustos && preco ? formatarMoeda(preco) : `${percentual}%`}</strong>
               <span class="status-badge ${material.stock_status === "critical" ? "badge-cancelado" : material.stock_status === "low" ? "badge-alerta" : "badge-ativo"}">${escaparHtml(statusLabel)}</span>
             </div>
-            <details class="stock-item-menu">
-              <summary class="icon-action-button" title="Ações de ${escaparAttr(material.nome)}" aria-label="Ações de ${escaparAttr(material.nome)}">${renderUiIcon("more")}</summary>
-              <div class="stock-item-menu-popover">
+            <details class="ui-context-menu stock-item-menu">
+              <summary class="icon-action-button ui-context-menu-trigger" title="Ações de ${escaparAttr(material.nome)}" aria-label="Ações de ${escaparAttr(material.nome)}">${renderUiIcon("more")}</summary>
+              <div class="ui-context-menu-panel stock-item-menu-popover">
                 <button type="button" data-action="stock-view" data-index="${indice}">${renderUiIcon("search")} Ver detalhes</button>
                 <button type="button" data-action="stock-restock" data-index="${indice}">${renderUiIcon("upload")} Registrar entrada</button>
                 <button type="button" data-action="stock-output" data-index="${indice}">${renderUiIcon("download")} Registrar saída</button>
@@ -25855,6 +25884,10 @@ function renderListaPedidos() {
             </div>
             <div class="smart-order-side">
               <strong>${formatarMoeda(total)}</strong>
+              <button class="icon-button ui-context-menu-trigger smart-order-more-button" type="button"
+                aria-label="Mais ações do Pedido ${escaparAttr(String(numeroPedido))}"
+                title="Mais ações"
+                onclick="event.preventDefault(); event.stopPropagation(); abrirMaisOpcoesPedido(${id})">${renderUiIcon("more")}</button>
             </div>
           </div>
         `;
@@ -28198,7 +28231,7 @@ function renderMenuAcoesSuperadmin(conteudo = "", rotulo = "⋯") {
   const compacto = rotulo === "⋯";
   return `
     <details class="ui-context-menu superadmin-action-menu ${compacto ? "is-compact" : ""}" onclick="event.stopPropagation()">
-      <summary class="btn secondary superadmin-action-menu-trigger" aria-label="${compacto ? "Mais ações" : escaparAttr(rotulo)}" title="${compacto ? "Mais ações" : escaparAttr(rotulo)}">
+      <summary class="${compacto ? "icon-action-button ui-context-menu-trigger" : "btn secondary"} superadmin-action-menu-trigger" aria-label="${compacto ? "Mais ações" : escaparAttr(rotulo)}" title="${compacto ? "Mais ações" : escaparAttr(rotulo)}">
         <span>${escaparHtml(rotulo)}</span>${compacto ? "" : `<span aria-hidden="true">⌄</span>`}
       </summary>
       <div class="ui-context-menu-panel superadmin-action-menu-panel">${conteudo}</div>
@@ -31206,7 +31239,7 @@ function renderAppButton({ label = "", icon = "", variant = "primary", size = "s
   const sizeRelation = getUiComponentSizeRelation("button", size);
   const classes = appClasseBase(`btn app-button ${relation.className}`, extraClass);
   const onclick = action ? ` onclick="${action}"` : "";
-  return `<button class="${classes}" type="${escaparAttr(type)}" data-ui-variant="${escaparAttr(relation.className)}" data-ui-size="${escaparAttr(size)}" data-ui-token-set="${escaparAttr(relation.tokenSet)} ${escaparAttr(sizeRelation.tokenSet)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
+  return `<button class="${classes}" type="${escaparAttr(type)}" data-ui-component="Button" data-ui-variant="${escaparAttr(relation.className)}" data-ui-size="${escaparAttr(size)}" data-ui-token-set="${escaparAttr(relation.tokenSet)} ${escaparAttr(sizeRelation.tokenSet)}"${onclick} ${attrs}>${icon ? `<span aria-hidden="true">${icon}</span>` : ""}<span>${escaparHtml(label)}</span></button>`;
 }
 
 function renderThemeModeButton(extraClass = "") {
@@ -31690,7 +31723,7 @@ function renderConfig() {
       <div class="metric"><span>Status</span><strong>${escaparHtml(appConfig.updateStatus || "Aguardando")}</strong></div>
       ${appConfig.updateAvailableVersion ? `<div class="metric"><span>Nova versão</span><strong>${escaparHtml(appConfig.updateAvailableVersion)}</strong></div>` : ""}
     </div>
-    <div class="actions">
+    <div class="actions ui3-action-row" ${renderUiLayoutAttributes("actionRow")}>
       <button class="btn secondary" onclick="verificarAtualizacaoManual()">Checar atualização</button>
       ${isAndroid()
         ? `<button class="btn" onclick="baixarAtualizacaoAndroid(true)">Baixar e instalar</button>`
@@ -31871,6 +31904,7 @@ function renderAuthCriarConta() {
 }
 
 function planoAtualPermiteFuncionarios(usuario = getUsuarioAtual()) {
+  if (isSuperAdmin(usuario)) return true;
   const plano = getCurrentPlanSlug(usuario);
   return getPlanEntitlements(plano).employees === true;
 }
@@ -31891,7 +31925,7 @@ function renderGestaoFuncionariosAdmin(usuarioAtual = getUsuarioAtual()) {
   return `
     <div class="admin-employee-form">
       <h3>Adicionar funcionário</h3>
-      <div class="sync-grid">
+      <div class="sync-grid ${getUiLayoutRelation("formSingleColumn").className}" ${renderUiLayoutAttributes("formSingleColumn")}>
         <label class="field">
           <span>Nome</span>
           <input id="novoUsuarioNome" placeholder="Nome do funcionário">
@@ -31931,8 +31965,8 @@ function renderGestaoFuncionariosAdmin(usuarioAtual = getUsuarioAtual()) {
           </select>
         </label>
       </div>
-      <div class="actions">
-        <button class="btn secondary" onclick="adicionarUsuario()">${renderUiIcon("usuarios")} Adicionar funcionário</button>
+      <div class="actions ui3-action-row" ${renderUiLayoutAttributes("actionRow")}>
+        ${renderAppButton({ label: "Adicionar funcionário", icon: renderUiIcon("usuarios"), variant: "secondary", action: "adicionarUsuario()" })}
       </div>
     </div>
     ${renderUsuariosAdmin()}
@@ -34856,15 +34890,17 @@ function limitarCorPdf(valor, fallback = "#00d8c8") {
 }
 
 function renderPdfModeloPreview() {
-  const temaId = normalizarPdfTheme();
-  const tema = PDF_THEME_PRESETS[temaId] || PDF_THEME_PRESETS.clean_white;
+  const tema = getPdfThemeConfig();
   const corLinha = limitarCorPdf(appConfig.pdfSecondaryColor || tema.line, tema.line);
-  const empresa = appConfig.businessName || "Minha empresa 3D";
-  const subtitulo = appConfig.pdfHeaderText || "Impressão 3D";
+  const empresaInfo = getEmpresaPdfInfo();
+  const empresa = empresaInfo.nome || "Minha empresa 3D";
+  const subtitulo = empresaInfo.subtitulo || "Impressão 3D";
   const mensagem = appConfig.pdfDefaultMessage || "Peças produzidas com impressão 3D de alta qualidade.";
   const assinatura = appConfig.pdfSignature || appConfig.documentFooter || "Qualquer dúvida, estamos à disposição.";
+  const contatos = [empresaInfo.whatsapp, empresaInfo.email, empresaInfo.site, empresaInfo.instagram].filter(Boolean).slice(0, 2).join(" • ");
   return `
-    <div class="pdf-model-preview" style="--pdf-preview-bg:${escaparAttr(tema.background)};--pdf-preview-panel:${escaparAttr(tema.panel)};--pdf-preview-line:${escaparAttr(corLinha)};--pdf-preview-text:${escaparAttr(tema.text)};--pdf-preview-muted:${escaparAttr(tema.muted)}">
+    <div class="pdf-saved-preview-note"><strong>Modelo salvo neste dispositivo</strong><small>Esta cópia é atualizada depois de salvar qualquer alteração do PDF.</small></div>
+    <div class="pdf-model-preview" data-pdf-saved-preview="true" style="--pdf-preview-bg:${escaparAttr(tema.background)};--pdf-preview-panel:${escaparAttr(tema.panel)};--pdf-preview-line:${escaparAttr(corLinha)};--pdf-preview-text:${escaparAttr(tema.text)};--pdf-preview-muted:${escaparAttr(tema.muted)}">
       <div class="pdf-model-preview-page">
         <header>
           <span class="pdf-model-preview-logo">${appConfig.companyLogoDataUrl ? `<img src="${escaparAttr(appConfig.companyLogoDataUrl)}" alt="Logo da empresa">` : "S3D"}</span>
@@ -34872,11 +34908,14 @@ function renderPdfModeloPreview() {
             <strong>${escaparHtml(empresa)}</strong>
             <small>${escaparHtml(subtitulo)}</small>
           </div>
-          <em>ORCAMENTO</em>
+          <em>ORÇAMENTO</em>
         </header>
+        ${contatos ? `<small class="pdf-model-preview-contact">${escaparHtml(contatos)}</small>` : ""}
         <div class="pdf-model-preview-meta">
           <span>Cliente</span><b>Cliente exemplo</b>
           <span>Validade</span><b>${Number(appConfig.quoteValidityDays) || 7} dias</b>
+          <span>Pagamento</span><b>${escaparHtml(appConfig.paymentTerms || "A combinar")}</b>
+          <span>Produção</span><b>${escaparHtml(appConfig.productionDeadlineText || "A combinar")}</b>
         </div>
         <div class="pdf-model-preview-table">
           <div><b>Item</b><b>Qtd.</b><b>Total</b></div>
@@ -34892,7 +34931,7 @@ function renderPdfModeloPreview() {
 
 function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
   return `
-    <div class="actions">
+    <div class="actions ui3-action-row" ${renderUiLayoutAttributes("actionRow")}>
       <button class="btn" type="button" onclick="salvarPersonalizacao()">${escaparHtml(rotulo)}</button>
       <button class="btn ghost" type="button" onclick="voltarTela()">Voltar</button>
     </div>
@@ -34901,7 +34940,7 @@ function renderAcoesSalvarConfiguracao(rotulo = "Salvar alterações") {
 }
 
 function renderAcaoSalvarSecaoEmpresa(secao = "", rotulo = "Salvar alterações") {
-  return `<div class="actions settings-section-save">
+  return `<div class="actions ui3-action-row settings-section-save" ${renderUiLayoutAttributes("actionRow")}>
     ${renderAppButton({ label: "Editar", variant: "secondary", action: `editarSecaoEmpresa('${escaparAttr(secao)}')` })}
     ${renderAppButton({ label: rotulo, variant: "primary", action: "salvarPersonalizacao()" })}
   </div>`;
@@ -34918,11 +34957,11 @@ function editarSecaoEmpresa(secao = "") {
 
 function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
   const corSecundariaAtual = limitarCorPdf(appConfig.pdfSecondaryColor || normalizarAppearanceSettings().secondary_color || "#00d8c8");
-  const temaPdfAtual = normalizarPdfTheme();
   const pdfBgAtual = appConfig.pdfBackgroundDataUrl || "";
   return `
-    ${renderUiSection({ id: `${group}-pdf-preview`, title: "Prévia do modelo", subtitle: "Como o orçamento abre para o cliente", icon: "▣", open: true, group, content: renderPdfModeloPreview() })}
-    ${renderUiSection({ id: `${group}-pdf-tema`, title: "PDF", subtitle: "Tema e identidade do orçamento", icon: "▣", open, group, content: `
+    ${renderUiSection({ id: `${group}-pdf`, title: "PDF", subtitle: "Modelo salvo, identidade, cabeçalho, rodapé e Pix", icon: "▣", open: group === "empresa" ? false : open, group, content: `
+      ${renderPdfModeloPreview()}
+      <div class="pdf-settings-group"><strong>Identidade do documento</strong>
       <div class="sync-grid">
         <label class="field">
           <span>Tema do PDF</span>
@@ -34934,9 +34973,8 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <div class="metric"><span>Logo</span><strong>Usa Empresa</strong></div>
         <div class="metric"><span>Pix</span><strong>Usa Empresa</strong></div>
       </div>
-      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf-tema`, "Salvar PDF")}
-    ` })}
-    ${renderUiSection({ id: `${group}-pdf-cabecalho`, title: "Cabeçalho do PDF", subtitle: "Subtítulo, validade e pagamento", icon: "⌂", group, content: `
+      </div>
+      <div class="pdf-settings-group"><strong>Cabeçalho e condições</strong>
       <div class="sync-grid">
         <label class="field"><span>Subtítulo da empresa no PDF</span><input id="pdfHeaderTextConfig" maxlength="60" value="${escaparAttr(appConfig.pdfHeaderText || "")}" placeholder="Ex.: Impressão 3D sob medida"></label>
         <label class="field"><span>Validade padrão (dias)</span><input id="quoteValidityDaysConfig" type="number" min="1" max="90" step="1" value="${Number(appConfig.quoteValidityDays) || 7}"></label>
@@ -34945,9 +34983,8 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <label class="field"><span>Mensagem padrão</span><textarea id="pdfDefaultMessageConfig" rows="2" maxlength="220" placeholder="Peças produzidas com impressão 3D de alta qualidade.">${escaparHtml(appConfig.pdfDefaultMessage || "")}</textarea></label>
         <label class="field"><span>Observação padrão</span><textarea id="pdfDefaultNotesConfig" rows="3" maxlength="420" placeholder="Condições, prazos e orientações comerciais.">${escaparHtml(appConfig.pdfDefaultNotes || "")}</textarea></label>
       </div>
-      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf-cabecalho`, "Salvar cabeçalho")}
-    ` })}
-    ${renderUiSection({ id: `${group}-pdf-rodape`, title: "Rodapé e Pix do PDF", subtitle: "Assinatura, instrução Pix e marca d'água", icon: "☷", group, content: `
+      </div>
+      <div class="pdf-settings-group"><strong>Rodapé, Pix e fundo</strong>
       <div class="sync-grid">
         <label class="field"><span>Assinatura final</span><input id="pdfSignatureConfig" maxlength="160" value="${escaparAttr(appConfig.pdfSignature || appConfig.documentFooter || "")}" placeholder="Qualquer dúvida, estamos à disposição."></label>
         <label class="field"><span>Instrução Pix no PDF</span><input id="pixInstructionConfig" maxlength="120" value="${escaparAttr(appConfig.pixInstruction || "")}" placeholder="Após o pagamento, envie o comprovante pelo WhatsApp."></label>
@@ -34955,7 +34992,8 @@ function renderPdfSettingsSections({ group = "empresa", open = false } = {}) {
         <div class="metric"><span>Fundo personalizado</span><strong>${pdfBgAtual ? "Salvo" : "Padrão"}</strong></div>
       </div>
       ${appConfig.pdfBackgroundDataUrl ? `<button class="btn ghost" type="button" onclick="removerFundoPdf()">Remover fundo do PDF</button>` : ""}
-      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf-rodape`, "Salvar rodapé e Pix")}
+      </div>
+      ${renderAcaoSalvarSecaoEmpresa(`${group}-pdf`, "Salvar PDF")}
     ` })}
   `;
 }
@@ -35675,24 +35713,10 @@ function registrarEventoPlanoSeguro(eventType, metadata = {}, onceKey = "") {
 
 function getCheckoutVisualState() {
   limparCheckoutsLocaisExpirados();
-  const clientId = String(getClientIdAtual() || billingConfig.clientId || "");
-  const checkout = saasPayments.find((pagamento) => {
-    const status = String(pagamento.status || "").toLowerCase();
-    const mesmoCliente = !clientId || String(pagamento.clientId || "") === clientId;
-    const transacaoReal = Boolean(pagamento.mercadoPagoPaymentId || pagamento.mercado_pago_payment_id || pagamento.paymentId || pagamento.payment_id || pagamento.mercadoPagoSubscriptionId || pagamento.mercado_pago_subscription_id);
-    return mesmoCliente && !transacaoReal && ["checkout_opened", "expired"].includes(status);
-  });
-  if (!checkout) return { type: "", message: "" };
-  if (String(checkout.status || "").toLowerCase() === "checkout_opened") {
-    return {
-      type: "checkout-opened",
-      message: "Checkout iniciado. Seu plano atual continua normalmente até a confirmação real do pagamento."
-    };
-  }
-  return {
-    type: "checkout-abandoned",
-    message: "Pagamento não concluído. Seu plano atual continua normalmente."
-  };
+  // Abrir ou abandonar o checkout não é um estado de pagamento e não deve
+  // deixar aviso persistente na tela de planos. Pendências reais são tratadas
+  // exclusivamente por accessState.shouldShowPendingPayment.
+  return { type: "", message: "" };
 }
 
 function renderPlanPaymentNotice(accessState, checkoutState) {
@@ -35704,13 +35728,7 @@ function renderPlanPaymentNotice(accessState, checkoutState) {
       </div>
     `;
   }
-  if (!checkoutState?.message) return "";
-  return `
-    <div class="plans-state-notice ${escaparAttr(checkoutState.type)}" role="status">
-      <strong>${checkoutState.type === "checkout-abandoned" ? "Pagamento não concluído." : "Pagamento ainda não confirmado."}</strong>
-      <span>${escaparHtml(checkoutState.message)}</span>
-    </div>
-  `;
+  return "";
 }
 
 function selecionarPresetMargemCalculadora(valor) {
@@ -43753,6 +43771,8 @@ function alternarControleLoteEstoqueCadastro() {
 function abrirCadastroItemEstoque() {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   window.__stockItemWizard = {
+    mode: "create",
+    editIndex: -1,
     step: 1,
     nome: "",
     tipoItem: STOCK_ITEM_TYPES[0],
@@ -43828,13 +43848,15 @@ function renderCadastroItemEstoqueWizard() {
   const popup = document.getElementById("popup");
   if (!popup) return;
   const estado = getEstadoCadastroItemEstoque();
+  const editando = estado.mode === "edit" && Number(estado.editIndex) >= 0;
   const etapa = Math.max(1, Math.min(3, Number(estado.step) || 1));
   const podeControlarRolos = podeUsarControleRolosEstoque();
-  const codigoPrevisto = getProximoCodigoMaterialEstoque(normalizarEstoque());
+  const materialEditado = editando ? normalizarEstoque()[Number(estado.editIndex)] : null;
+  const codigoPrevisto = editando ? getCodigoNumericoMaterialEstoque(materialEditado) : getProximoCodigoMaterialEstoque(normalizarEstoque());
   estado.codigoPrevisto = codigoPrevisto;
   const itemDuplicado = estado.duplicadoId ? getMaterialEstoque(estado.duplicadoId) : null;
   const corpo = etapa === 1 ? `
-    <div class="stock-wizard-code-preview"><span>Código interno do novo item</span><strong>${escaparHtml(formatarCodigoMaterialEstoque(codigoPrevisto))}</strong><small>Gerado automaticamente ao salvar e mantido neste produto.</small></div>
+    <div class="stock-wizard-code-preview"><span>${editando ? "Código interno do item" : "Código interno do novo item"}</span><strong>${escaparHtml(formatarCodigoMaterialEstoque(codigoPrevisto))}</strong><small>${editando ? "O código original será preservado após a edição." : "Gerado automaticamente ao salvar e mantido neste produto."}</small></div>
     ${itemDuplicado ? `<div class="stock-duplicate-warning" role="alert"><span>${renderUiIcon("alerta")}</span><div><strong>Este produto já está cadastrado</strong><small>${escaparHtml(formatarCodigoMaterialEstoque(itemDuplicado))} • ${escaparHtml(itemDuplicado.nome)} • ${formatarQuantidadeEstoque(itemDuplicado.qtd, itemDuplicado.unidade || "un")}</small></div><button class="btn secondary" type="button" onclick="abrirItemEstoqueExistente('${escaparAttr(itemDuplicado.id)}')">Abrir item</button></div>` : ""}
     <div class="stock-wizard-grid">
       <label class="field stock-wizard-wide"><span>Nome do item</span><input id="matNome" value="${escaparAttr(estado.nome)}" placeholder="Ex.: Filamento PLA Preto 1kg" required></label>
@@ -43862,8 +43884,14 @@ function renderCadastroItemEstoqueWizard() {
     <label class="field"><span>Observações opcionais</span><textarea id="matObservacoes" rows="3" placeholder="Localização, referência ou informação útil">${escaparHtml(estado.observacoes)}</textarea></label>
     <p class="stock-wizard-safe-note">${renderUiIcon("check")} Confira os dados. O item só será salvo depois desta confirmação.</p>
   `;
-  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel"><form class="modal-card stock-item-modal stock-wizard-modal" id="stockAddForm" onsubmit="avancarCadastroItemEstoque(event)"><div class="modal-header"><div><small>Cadastro de estoque</small><h2>${renderUiIcon("plus")} Novo item</h2></div><button class="icon-button" type="button" data-action="stock-add-cancel" title="Fechar">✕</button></div>${renderEtapasCadastroItemEstoque(etapa)}<div class="stock-wizard-body">${corpo}</div><div class="actions stock-wizard-actions">${etapa === 1 ? `<button class="btn ghost" type="button" data-action="stock-add-cancel">Cancelar</button>` : `<button class="btn ghost" type="button" onclick="voltarCadastroItemEstoque()">Voltar</button>`}<button class="btn" type="submit">${etapa < 3 ? `Continuar ${renderUiIcon("next")}` : `${renderUiIcon("check")} Salvar item`}</button></div></form></div>`;
-  promoverPopupParaDialogUiV3(popup, { title: `Adicionar item ao estoque • etapa ${etapa} de 3` });
+  const acaoVoltar = etapa === 1
+    ? `<button class="btn ghost" type="button" data-action="stock-add-cancel">Cancelar</button>`
+    : `<button class="btn ghost" type="button" onclick="voltarCadastroItemEstoque()">Voltar</button>`;
+  const acaoPrincipal = etapa < 3
+    ? `<button class="btn" type="submit">Continuar ${renderUiIcon("next")}</button>`
+    : `<button class="btn" type="submit">${renderUiIcon("check")} Salvar item</button>`;
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel"><form class="modal-card stock-item-modal stock-wizard-modal" id="stockAddForm" onsubmit="avancarCadastroItemEstoque(event)"><div class="modal-header"><div><small>Cadastro de estoque</small><h2>${renderUiIcon(editando ? "edit" : "plus")} ${editando ? "Editar item" : "Novo item"}</h2></div><button class="icon-button" type="button" data-action="stock-add-cancel" title="Fechar">✕</button></div>${renderEtapasCadastroItemEstoque(etapa)}<div class="stock-wizard-body">${corpo}</div><div class="actions ui3-action-row stock-wizard-actions" ${renderUiLayoutAttributes("actionRow")}>${acaoVoltar}${etapa < 3 ? `<button class="btn secondary" type="button" onclick="pularEtapaCadastroItemEstoque()">Pular etapa</button>` : ""}${acaoPrincipal}</div></form></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: `${editando ? "Editar" : "Adicionar"} item do estoque • etapa ${etapa} de 3` });
   setTimeout(() => document.getElementById(etapa === 1 ? "matNome" : etapa === 2 ? "matUnidade" : "matObservacoes")?.focus(), 60);
 }
 
@@ -43930,6 +43958,17 @@ function voltarCadastroItemEstoque() {
   renderCadastroItemEstoqueWizard();
 }
 
+function pularEtapaCadastroItemEstoque() {
+  const estado = capturarEtapaCadastroItemEstoque();
+  if (Number(estado.step) === 1 && !estado.nome.trim()) {
+    mostrarToast("Informe o nome do item antes de pular esta etapa.", "info", 3000);
+    document.getElementById("matNome")?.focus();
+    return;
+  }
+  estado.step = Math.min(3, Number(estado.step) + 1);
+  renderCadastroItemEstoqueWizard();
+}
+
 async function avancarCadastroItemEstoque(event) {
   event?.preventDefault?.();
   const estado = capturarEtapaCadastroItemEstoque();
@@ -43940,7 +43979,8 @@ async function avancarCadastroItemEstoque(event) {
   }
   if (estado.step === 1) {
     const duplicado = encontrarItemEstoqueDuplicado({ nome: estado.nome, codigoExterno: estado.codigoExterno });
-    if (duplicado) {
+    const duplicadoEhOutroItem = duplicado && (estado.mode !== "edit" || String(duplicado.id) !== String(estado.originalId || ""));
+    if (duplicadoEhOutroItem) {
       estado.duplicadoId = String(duplicado.id);
       renderCadastroItemEstoqueWizard();
       mostrarToast(`Produto já cadastrado como ${formatarCodigoMaterialEstoque(duplicado)}.`, "info", 4200);
@@ -43970,7 +44010,9 @@ async function salvarCadastroItemEstoqueWizard() {
   const estado = capturarEtapaCadastroItemEstoque();
   if (window.__stockItemWizardSaving) return;
   const duplicado = encontrarItemEstoqueDuplicado({ nome: estado.nome, codigoExterno: estado.codigoExterno });
-  if (duplicado) {
+  const editando = estado.mode === "edit" && Number(estado.editIndex) >= 0;
+  const duplicadoEhOutroItem = duplicado && (!editando || String(duplicado.id) !== String(estado.originalId || ""));
+  if (duplicadoEhOutroItem) {
     estado.step = 1;
     estado.duplicadoId = String(duplicado.id);
     renderCadastroItemEstoqueWizard();
@@ -43980,8 +44022,8 @@ async function salvarCadastroItemEstoqueWizard() {
   window.__stockItemWizardSaving = true;
   try {
     if (!await consumirCreditoAcaoFree("salvar_estoque", "salvar estoque")) return;
-    const codigoPrevisto = getProximoCodigoMaterialEstoque(normalizarEstoque());
-    const listaAtualizada = InventoryService.addMaterial({
+    const codigoPrevisto = editando ? getCodigoNumericoMaterialEstoque(normalizarEstoque()[Number(estado.editIndex)]) : getProximoCodigoMaterialEstoque(normalizarEstoque());
+    const dadosMaterial = {
       nome: estado.nome.trim(),
       categoria: estado.categoria || "Geral",
       tipo: estado.categoria || "Geral",
@@ -43998,15 +44040,19 @@ async function salvarCadastroItemEstoqueWizard() {
       ativo: true,
       isBatchControlled: podeUsarControleRolosEstoque() && estado.batchControlled === true,
       batchControlType: estado.batchType || "rolo",
-      cor: ""
-    });
+      cor: "",
+      motivo: estado.motivo || "Edição do cadastro"
+    };
+    const listaAtualizada = editando
+      ? InventoryService.updateMaterial(Number(estado.editIndex), dadosMaterial)
+      : InventoryService.addMaterial(dadosMaterial);
     registrarEventoUsoLocal("material_usado", { materialNome: estado.nome.trim(), materialId: estado.categoria || "Geral", cor: "" });
     agendarSyncSilenciosoDados("estoque-adicionado");
     window.__stockItemWizard = null;
     fecharPopup();
     const materialSalvo = (Array.isArray(listaAtualizada) ? listaAtualizada : normalizarEstoque()).find((material) => getCodigoNumericoMaterialEstoque(material) === codigoPrevisto)
       || encontrarItemEstoqueDuplicado({ nome: estado.nome, codigoExterno: estado.codigoExterno });
-    mostrarToast(`Item ${formatarCodigoMaterialEstoque(materialSalvo || codigoPrevisto)} adicionado ao estoque.`, "sucesso", 3200);
+    mostrarToast(`Item ${formatarCodigoMaterialEstoque(materialSalvo || codigoPrevisto)} ${editando ? "atualizado" : "adicionado"} no estoque.`, "sucesso", 3200);
     renderizarPreservandoScroll();
   } catch (erro) {
     ErrorService.notify(erro, { area: "Estoque", action: "Adicionar material" });
@@ -44054,7 +44100,30 @@ function editarMaterial(i) {
   normalizarEstoque();
   const material = estoque[i];
   if (!material) return;
-  mostrarModalEdicaoMaterial(i, material);
+  window.__stockItemWizard = {
+    mode: "edit",
+    editIndex: Number(i),
+    originalId: material.id,
+    step: 1,
+    nome: material.nome || "",
+    tipoItem: material.tipoItem || STOCK_ITEM_TYPES[0],
+    categoria: material.categoria || material.tipo || "Geral",
+    icone: getIconeMaterialEstoque(material),
+    foto: getFotoMaterialEstoque(material),
+    fotoInfo: getFotoMaterialEstoque(material) ? "Foto atual do item" : "",
+    unidade: material.unidade || "un",
+    qtd: String(material.qtd ?? 0),
+    minimo: String(material.estoqueMinimo ?? 0),
+    custo: String(material.custoUnitario ?? 0),
+    fornecedor: material.fornecedor || "",
+    codigoPrevisto: getCodigoNumericoMaterialEstoque(material),
+    codigoExterno: material.codigoExterno || material.codigo_externo || "",
+    duplicadoId: "",
+    batchControlled: materialUsaControleLote(material),
+    batchType: material.batch_control_type || "rolo",
+    observacoes: material.observacoes || ""
+  };
+  renderCadastroItemEstoqueWizard();
 }
 
 function mostrarModalEdicaoMaterial(indice, material) {
@@ -45434,7 +45503,7 @@ function renderCalculadoraConteudo() {
     </div>
 
     <div class="calc-secondary-actions">
-      ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhats()", "ghost")}
+      ${renderAcaoPedidoCompacta("☘", "WhatsApp", "enviarWhatsCalculadora()", "ghost")}
       ${renderAcaoPedidoCompacta("▣", "PDF", "gerarPdfCalculadora()", "ghost")}
       ${renderAcaoPedidoCompacta("🗑", "Excluir", "limparCalculo()", "danger")}
     </div>
@@ -47802,7 +47871,7 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
   ].filter((linha) => linha !== null && linha !== undefined).join("\n");
 }
 
-async function sendQuoteToWhatsApp(pedido = null) {
+async function sendQuoteToWhatsApp(pedido = null, { incluirPix = true } = {}) {
   if (!permitirAcaoPlanoCompleto()) return false;
   const itens = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
   if (itens.length === 0) {
@@ -47817,7 +47886,7 @@ async function sendQuoteToWhatsApp(pedido = null) {
   };
   const resumo = calcularResumoFinanceiroPedido(pedidoFonte);
   const valorPix = resumo.restante > 0 ? resumo.restante : resumo.total;
-  const payloadPix = gerarPayloadPix(valorPix, clienteDoPedido(pedidoFonte) || clientePedido);
+  const payloadPix = incluirPix ? gerarPayloadPix(valorPix, clienteDoPedido(pedidoFonte) || clientePedido) : "";
   const mensagemBase = montarMensagemOrcamentoWhatsapp(pedido);
   const mensagem = [
     mensagemBase,
@@ -48706,7 +48775,11 @@ async function imprimirPedidoAtual() {
 }
 
 async function enviarWhats() {
-  return sendQuoteToWhatsApp();
+  return sendQuoteToWhatsApp(null, { incluirPix: true });
+}
+
+async function enviarWhatsCalculadora() {
+  return sendQuoteToWhatsApp(null, { incluirPix: false });
 }
 
 async function gerarDocumentoPedidoSalvo(id, opcoes = {}) {
@@ -49307,7 +49380,7 @@ function processarParametrosAssinaturaUrl() {
   const mensagens = {
     success: "Pagamento enviado para confirmação. Seu plano será atualizado automaticamente após a confirmação do Mercado Pago.",
     pending: "Pagamento em processamento. Seu plano atual continua disponível enquanto aguardamos a confirmação.",
-    failed: "Pagamento não concluído. Seu plano atual foi preservado.",
+    failed: "",
     returned: "Retorno do checkout recebido. Seu plano será atualizado apenas após a confirmação do pagamento."
   };
   registrarEventoPlanoSeguro(returnStatus === "failed" ? "payment_failed" : "checkout_returned_without_payment", {
@@ -49315,7 +49388,7 @@ function processarParametrosAssinaturaUrl() {
     hasLocalCheckout: Boolean(checkout)
   });
   setTimeout(() => {
-    mostrarToast(mensagens[returnStatus], returnStatus === "failed" ? "aviso" : "info", 7000);
+    if (mensagens[returnStatus]) mostrarToast(mensagens[returnStatus], "info", 7000);
     sincronizarLicencaEfetivaSePossivel("payment-return").catch((erro) => registrarDiagnostico("Mercado Pago", "Licença após retorno não sincronizada", erro.message));
   }, 400);
   return true;

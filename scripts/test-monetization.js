@@ -68,19 +68,21 @@ async function run() {
   const pro = { email: "pro@example.com", activePlan: "pro", subscriptionStatus: "active" };
   assert.equal(MonetizationLimits.canUseAction(pro), true, "PRO nao consome creditos");
   assert.equal(MonetizationLimits.getRemainingFreeActions(pro), Number.POSITIVE_INFINITY, "PRO tem acoes ilimitadas");
-  for (let i = 0; i < 40; i += 1) MonetizationLimits.registerAction(pro, "salvar_pedido");
+  for (let i = 0; i < 40; i += 1) MonetizationLimits.registerAction(pro, "criar_pedido");
   assert.equal(MonetizationLimits.canUseAction(pro), true, "PRO continua liberado apos varias acoes");
 
   configure({ premium: false });
   const free = { email: "free@example.com", activePlan: "free", subscriptionStatus: "free" };
   assert.equal(MonetizationLimits.getRemainingFreeActions(free), 5, "GRATIS comeca com 5 pedidos/acoes por dia");
   assert.equal(MonetizationLimits.shouldCountAction("abrir_dashboard"), false, "navegacao nao consome credito");
+  assert.equal(MonetizationLimits.shouldCountAction("editar_pedido"), false, "editar pedido existente nao consome nova cota");
+  assert.equal(MonetizationLimits.shouldCountAction("adicionar_item"), false, "itens do mesmo pedido nao consomem nova cota");
   MonetizationLimits.registerAction(free, "abrir_dashboard");
   assert.equal(MonetizationLimits.getRemainingFreeActions(free), 5, "acao visual nao altera contador");
 
   for (let i = 0; i < 5; i += 1) {
     assert.equal(MonetizationLimits.canUseAction(free), true, "FREE usa credito disponivel");
-    MonetizationLimits.registerAction(free, "salvar_pedido");
+    MonetizationLimits.registerAction(free, "criar_pedido");
   }
   assert.equal(MonetizationLimits.getRemainingFreeActions(free), 0, "contador chega a zero");
   assert.equal(MonetizationLimits.canUseAction(free), false, "FREE bloqueia nova acao importante quando esgota");
@@ -90,12 +92,12 @@ async function run() {
   assert.equal(interstitialShows, 1, "SDK de interstitial chamado");
   MonetizationLimits.resetActionsAfterAd(free);
   assert.equal(MonetizationLimits.getRemainingFreeActions(free), 5, "anuncio concluido libera mais 5 pedidos no dia");
-  for (let i = 0; i < 5; i += 1) MonetizationLimits.registerAction(free, "salvar_pedido");
+  for (let i = 0; i < 5; i += 1) MonetizationLimits.registerAction(free, "criar_pedido");
   assert.equal(MonetizationLimits.canUseAction(free), false, "GRATIS bloqueia ao atingir maximo de 10 pedidos/dia");
 
   configure({ premium: false });
   const fallbackUser = { email: "fallback@example.com", activePlan: "free" };
-  for (let i = 0; i < 5; i += 1) MonetizationLimits.registerAction(fallbackUser, "adicionar_item");
+  for (let i = 0; i < 5; i += 1) MonetizationLimits.registerAction(fallbackUser, "criar_pedido");
   failInterstitial = true;
   const failedAd = await AdMobService.showInterstitialNow({ user: fallbackUser, context: { screenName: "pedido", actionName: "free_action_limit" } });
   assert.equal(failedAd.shown, false, "falha de anuncio nao libera na hora");
