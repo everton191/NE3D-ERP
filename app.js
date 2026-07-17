@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.16";
-const APP_VERSION_CODE = 17;
+const APP_VERSION = "1.0.17";
+const APP_VERSION_CODE = 18;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Superadmin reorganizado com diagnósticos da versão atual, atividade de clientes e controle claro de períodos Pro.",
