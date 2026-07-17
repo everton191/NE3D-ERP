@@ -29,8 +29,14 @@ if (!app.includes("protegendoToque = !toqueNaBorda")) {
 if (!app.includes("iniciarToqueLongoPedido(event")) {
   throw new Error("Lista de pedidos deve iniciar toque longo na propria linha.");
 }
-if (!app.includes("abrirMaisOpcoesPedido(Number(id))")) {
+if (!app.includes("abrirMaisOpcoesPedido(id)")) {
   throw new Error("Toque longo deve reutilizar o menu de acoes do pedido.");
+}
+if (!app.includes("function encontrarPedidoPorId(id)") || !app.includes('String(pedido?.id ?? "") === String(id ?? "")')) {
+  throw new Error("Menu e edicao do pedido devem aceitar IDs numericos e UUIDs sincronizados.");
+}
+if (app.includes("abrirMaisOpcoesPedido(Number(id))")) {
+  throw new Error("Menu do pedido nao pode converter UUID sincronizado para NaN.");
 }
 if (!app.includes("Math.hypot(dx, dy) > 8")) {
   throw new Error("Rolagem deve cancelar o toque longo do pedido.");

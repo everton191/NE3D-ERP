@@ -20,4 +20,5 @@ Observações:
 - O email oficial de suporte é `simplifica3d.app@gmail.com`.
 - Para o remetente aparecer como `Simplifica 3D`, o Supabase precisa de SMTP customizado configurado e autorizado. O script só tenta alterar `smtp_admin_email`/`smtp_sender_name` quando `SIMPLIFICA3D_ENABLE_SMTP_FROM=1`.
 - Os botões usam `{{ .ConfirmationURL }}`, conforme os templates oficiais do Supabase.
-- A URL pública padrão é `https://erpne3d-everton191s-projects.vercel.app`.
+- A URL pública canônica é `https://erpne3d.vercel.app`.
+- O endereço Vercel antigo permanece na lista de retorno apenas para compatibilidade temporária.

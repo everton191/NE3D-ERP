@@ -11,6 +11,7 @@
 @import url("./cards.css");
 @import url("./forms.css");
 @import url("./buttons.css");
+@import url("./actions.css?v=system-actions-20260717");
 @import url("./lists.css");
 @import url("./navigation.css");
 @import url("./overlays.css");
@@ -20,14 +21,14 @@
 @import url("./components/onboarding-guide.css");
 @import url("./utilities.css");
 @import url("./screens/settings.css?v=company-actions-20260715");
-@import url("./screens/reading.css?v=dashboard-deduplicated-20260715");
+@import url("./screens/reading.css?v=landscape-layout-20260717");
 @import url("./screens/calculator.css?v=dark-contrast2-20260713");
 @import url("./screens/superadmin.css");
 @import url("./screens/operational.css?v=production-tabs-rows-20260715");
 @import url("./screens/finance.css?v=cash-actions-columns-fields-rows-20260715");
 @import url("./screens/plans.css?v=plans-v3-20260713");
 @import url("./legacy-bridge.css?v=unified-system-authority-20260713");
-@import url("./system-navigation.css?v=unified-navigation-20260713");
+@import url("./system-navigation.css?v=responsive-navigation-20260717");
 @import url("./system-controls.css?v=unified-controls-20260713");
 @import url("./system-content.css?v=unified-content-20260713");
 @import url("./system-overlays.css?v=unified-overlays-20260713");
