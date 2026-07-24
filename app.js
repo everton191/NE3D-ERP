@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.16";
-const APP_VERSION_CODE = 17;
+const APP_VERSION = "1.0.17";
+const APP_VERSION_CODE = 18;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Superadmin reorganizado com diagnósticos da versão atual, atividade de clientes e controle claro de períodos Pro.",
@@ -34,7 +34,7 @@ const INTRO_VIDEO_SRC = "/assets/intro.mp4";
 const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
-const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d-everton191s-projects.vercel.app");
+const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d.vercel.app");
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
 const GOOGLE_AUTH_ENABLED = true;
@@ -2392,9 +2392,13 @@ async function tentarLiberarCreditosAcaoPorAnuncio(actionName = "free_action_lim
       isModalOpen: false,
       forceLimitAd: true
     };
-    const resultado = await (window.AdMobService?.showInterstitialNow
+    const tentativaAnuncio = window.AdMobService?.showInterstitialNow
       ? window.AdMobService.showInterstitialNow({ user: usuario, context: contexto })
-      : window.AdMobService?.maybeShowInterstitialAfterCompletedAction?.(usuario, contexto));
+      : window.AdMobService?.maybeShowInterstitialAfterCompletedAction?.(usuario, contexto);
+    const resultado = await Promise.race([
+      Promise.resolve(tentativaAnuncio),
+      new Promise((resolve) => setTimeout(() => resolve({ shown: false, reason: "AD_TIMEOUT" }), 15000))
+    ]);
     if (resultado?.shown) {
       registrarAnuncioExibido();
       window.MonetizationLimits?.resetActionsAfterAd?.(usuario);
@@ -3162,6 +3166,13 @@ const AuthService = {
       });
 
       const usuarioAuth = obterUsuarioAuthResposta(dados);
+      const identidadesAuth = Array.isArray(usuarioAuth?.identities) ? usuarioAuth.identities : null;
+      if (usuarioAuth?.id && identidadesAuth && identidadesAuth.length === 0) {
+        throw new AppError("E-mail já cadastrado no Supabase", {
+          code: "AUTH_ALREADY_REGISTERED",
+          userMessage: "Este e-mail já possui uma conta. Entre com sua senha ou use Recuperar senha."
+        });
+      }
       if (salvarSessaoSupabase(dados, email)) {
         cadastroOnline = await registrarClienteSaasSupabase({ nome, email, negocio, telefone, planSlug: "free" });
       } else if (usuarioAuth?.id) {
@@ -3663,6 +3674,12 @@ function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
     return Promise.resolve(false);
   }
   atualizarIndicadorSincronizacao("syncing", "Salvando");
+  const avisoDemora = setTimeout(() => {
+    const indicadorAtual = document.getElementById("syncIndicator");
+    if (window.__simplificaSyncing || indicadorAtual?.classList.contains("sync-syncing")) {
+      atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    }
+  }, 12000);
   return sincronizarSupabaseSilencioso()
     .then(async (ok) => {
       await sincronizarProducaoManualSupabaseSilencioso().catch((erro) => {
@@ -3675,7 +3692,8 @@ function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
       registrarDiagnostico("sync", `Sync silencioso após ${motivo} falhou`, erro.message);
       atualizarIndicadorSincronizacao("error", "Offline");
       return false;
-    });
+    })
+    .finally(() => clearTimeout(avisoDemora));
 }
 
 function agendarSyncSilenciosoDados(motivo = "data-change", atrasoMs = 1200) {
@@ -4801,10 +4819,14 @@ function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
     const local = mapa.get(remoto.email);
     const papel = local?.papel === "superadmin" || remoto.papel === "superadmin" ? "superadmin" : remoto.papel;
     const onboardingCompleted = local?.onboardingCompleted === true || remoto.onboardingCompleted === true;
+    const senhaJaAlteradaLocalmente = !!local?.passwordUpdatedAt;
+    const deveTrocarSenha = remoto.mustChangePassword === true && !senhaJaAlteradaLocalmente;
     const usuario = normalizarUsuario({
       ...local,
       ...remoto,
       papel,
+      mustChangePassword: deveTrocarSenha,
+      senhaTemporaria: deveTrocarSenha,
       onboardingCompleted,
       onboardingStep: onboardingCompleted ? 4 : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
       senha: local?.senha || "",
@@ -6490,11 +6512,17 @@ function renderAccountDeletionBanner() {
 }
 
 function isMobile() {
-  return window.innerWidth < 768;
+  const largura = window.innerWidth || 0;
+  const altura = window.innerHeight || 0;
+  const paisagemCompacta = largura >= 600 && largura > altura && altura <= 600;
+  return largura < 768 && !paisagemCompacta;
 }
 
 function isTablet() {
-  return window.innerWidth >= 768 && window.innerWidth < 1024;
+  const largura = window.innerWidth || 0;
+  const altura = window.innerHeight || 0;
+  const paisagemCompacta = largura >= 600 && largura > altura && altura <= 600;
+  return paisagemCompacta || (largura >= 768 && largura < 1024);
 }
 
 function isDesktop() {
@@ -6503,6 +6531,8 @@ function isDesktop() {
 
 function getViewportMode() {
   const viewportWidth = window.innerWidth || 1024;
+  const viewportHeight = window.innerHeight || 0;
+  if (viewportWidth >= 600 && viewportWidth > viewportHeight && viewportHeight <= 600) return "tablet";
   if (viewportWidth < 768) return "mobile";
   if (viewportWidth < 1024) return "tablet";
   return "desktop";
@@ -10992,6 +11022,46 @@ function configurarFechamentoMenusEstoque() {
   }, { passive: true });
 }
 
+function compactarBarrasAcoesMobile() {
+  if (!document.body.classList.contains("mobile-mode")) return;
+  const seletor = [
+    ".ui3-action-row",
+    ".app-modal-actions",
+    ".modal-actions",
+    ".modal-card .actions",
+    ".stock-detail-actions",
+    ".stock-wizard-actions",
+    ".order-secondary-actions",
+    ".order-detail-actions",
+    ".production-modal-actions",
+    ".printer-wizard-actions",
+    ".cash-quick-form-actions",
+    ".security-page-actions",
+    ".settings-section-save"
+  ].join(",");
+
+  document.querySelectorAll(seletor).forEach((barra) => {
+    if (barra.dataset.mobileActionsCompacted === "true") return;
+    const botoes = Array.from(barra.children).filter((item) => item.matches("button, .btn"));
+    if (botoes.length <= 4) return;
+
+    const menu = document.createElement("details");
+    menu.className = "mobile-overflow-actions";
+    menu.innerHTML = `
+      <summary class="mobile-overflow-actions-trigger" aria-label="Mais ações" title="Mais ações">•••</summary>
+      <div class="mobile-overflow-actions-panel" role="menu"></div>
+    `;
+    const painel = menu.querySelector(".mobile-overflow-actions-panel");
+    botoes.slice(3).forEach((botao) => {
+      botao.setAttribute("role", "menuitem");
+      botao.addEventListener("click", () => menu.removeAttribute("open"));
+      painel.appendChild(botao);
+    });
+    barra.appendChild(menu);
+    barra.dataset.mobileActionsCompacted = "true";
+  });
+}
+
 function renderApp() {
   ensureAppShellLayers();
   const app = document.getElementById("app");
@@ -11032,6 +11102,7 @@ function renderApp() {
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
   app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
+  compactarBarrasAcoesMobile();
   sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
   configurarFechamentoMenusEstoque();
@@ -24890,6 +24961,10 @@ function getNumeroSequencialPedido(pedido = {}) {
   return Math.max(1, Math.floor(Number(pedido.numeroPedido || pedido.numero_pedido) || 1));
 }
 
+function encontrarPedidoPorId(id) {
+  return pedidos.find((pedido) => String(pedido?.id ?? "") === String(id ?? "")) || null;
+}
+
 function getProximoNumeroSequencialPedido() {
   garantirNumeracaoSequencialPedidos();
   return pedidos.reduce((maior, pedido) => Math.max(maior, Number(pedido.numeroPedido || pedido.numero_pedido) || 0), 0) + 1;
@@ -25022,16 +25097,7 @@ function renderPedido() {
               <small>Qtd ${Number(item.qtd) || 1} • ${renderChipsMaterialPedido(item)}</small>
             </span>
             <span class="order-item-total" data-item-total-index="${i}">${formatarMoeda(Number(item.total) || 0)}</span>
-            <details class="stock-item-menu" onclick="event.stopPropagation()">
-              <summary class="icon-action-button" title="Ações do item" aria-label="Ações do item">${renderUiIcon("more")}</summary>
-              <div class="stock-item-menu-popover">
-                <button type="button" onclick="selecionarItemPedido(${i})">${renderUiIcon("edit")} Editar item</button>
-                <button type="button" onclick="alternarSelecaoItemPedido(${i})">${renderUiIcon(isItemPedidoSelecionado(i) ? "check" : "plus")} ${isItemPedidoSelecionado(i) ? "Retirar da seleção" : "Selecionar para ação em lote"}</button>
-                ${itensSelecionadosPedido.length ? `<button type="button" onclick="definirQuantidadeItensSelecionadosPedido()">${renderUiIcon("edit")} Alterar quantidade dos selecionados</button>` : ""}
-                <button type="button" onclick="removerItem(${i})">${renderUiIcon("trash")} Excluir item</button>
-                ${itensSelecionadosPedido.length > 1 ? `<button type="button" onclick="removerItensSelecionadosPedido()">${renderUiIcon("trash")} Excluir selecionados</button>` : ""}
-              </div>
-            </details>
+            <button class="icon-action-button order-item-more-button" type="button" title="Ações do item" aria-label="Ações do item" onclick="event.preventDefault();event.stopPropagation();abrirAcoesItemPedido(${i})">${renderUiIcon("more")}</button>
           </summary>
           <div class="order-item-details">
             <div class="order-item-edit-grid">
@@ -25205,6 +25271,37 @@ function renderPedido() {
       </div>
     </section>
   `;
+}
+
+async function abrirAcoesItemPedido(index) {
+  const itemIndex = Number(index);
+  const item = itensPedido[itemIndex];
+  if (!item) return;
+  const selecionado = isItemPedidoSelecionado(itemIndex);
+  const selecionados = getItensPedidoSelecionados();
+  const escolha = await solicitarEscolhaPedido({
+    titulo: item.nome || "Item do pedido",
+    mensagem: "Escolha uma ação para este item.",
+    opcoes: [
+      { id: "editar", label: "Editar item", classe: "secondary", icone: "✎" },
+      { id: "selecionar", label: selecionado ? "Retirar da seleção" : "Selecionar item", classe: "ghost", icone: selecionado ? "check" : "plus" },
+      ...(selecionados.length ? [{ id: "quantidade", label: "Alterar quantidade", classe: "ghost", icone: "✎" }] : []),
+      { id: "excluir", label: "Excluir item", classe: "danger", icone: "🗑" },
+      ...(selecionados.length > 1 ? [{ id: "excluir_selecionados", label: "Excluir selecionados", classe: "danger", icone: "🗑" }] : [])
+    ]
+  });
+  if (escolha === "editar") {
+    selecionarItemPedido(itemIndex);
+    requestAnimationFrame(() => {
+      const card = document.querySelector(`[data-order-item-index="${itemIndex}"]`);
+      card?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+      setTimeout(() => card?.querySelector('input[type="text"]')?.focus(), 220);
+    });
+  }
+  if (escolha === "selecionar") alternarSelecaoItemPedido(itemIndex);
+  if (escolha === "quantidade") definirQuantidadeItensSelecionadosPedido();
+  if (escolha === "excluir") removerItem(itemIndex);
+  if (escolha === "excluir_selecionados") removerItensSelecionadosPedido();
 }
 
 function renderSugestoesInteligentesDashboard() {
@@ -25849,7 +25946,8 @@ function renderListaPedidos() {
   const detalhe = pedidoSelecionado ? renderDetalhePedido(pedidoSelecionado) : "";
   const linhas = lista.length
     ? listaPaginada.map((pedido) => {
-        const id = Number(pedido.id);
+        const id = String(pedido.id ?? "");
+        const idJs = escaparAttr(JSON.stringify(id));
         const numeroPedido = getNumeroSequencialPedido(pedido);
         const itens = Array.isArray(pedido.itens) ? pedido.itens.length : 1;
         const status = pedido.status || "aberto";
@@ -25862,14 +25960,14 @@ function renderListaPedidos() {
             tabindex="0"
             aria-label="Abrir Pedido ${escaparAttr(String(numeroPedido))} de ${escaparAttr(clienteDoPedido(pedido))}. Toque longo para mais ações."
             title="Toque para abrir. Toque longo para editar ou ver mais ações."
-            onpointerdown="iniciarToqueLongoPedido(event, ${id})"
-            onpointermove="atualizarToqueLongoPedido(event, ${id})"
-            onpointerup="finalizarToqueLongoPedido(event, ${id})"
-            onpointercancel="cancelarToqueLongoPedido(${id}, true)"
-            onpointerleave="cancelarToqueLongoPedido(${id}, event.pointerType !== 'mouse')"
-            oncontextmenu="abrirMenuContextualPedido(event, ${id})"
-            onclick="acionarToquePedido(event, ${id})"
-            onkeydown="acionarPedidoPorTeclado(event, ${id})">
+            onpointerdown="iniciarToqueLongoPedido(event, ${idJs})"
+            onpointermove="atualizarToqueLongoPedido(event, ${idJs})"
+            onpointerup="finalizarToqueLongoPedido(event, ${idJs})"
+            onpointercancel="cancelarToqueLongoPedido(${idJs}, true)"
+            onpointerleave="cancelarToqueLongoPedido(${idJs}, event.pointerType !== 'mouse')"
+            oncontextmenu="abrirMenuContextualPedido(event, ${idJs})"
+            onclick="acionarToquePedido(event, ${idJs})"
+            onkeydown="acionarPedidoPorTeclado(event, ${idJs})">
             <div class="smart-order-main">
               <div class="smart-order-head">
                 <span class="smart-order-number">Pedido ${escaparHtml(numeroPedido)}</span>
@@ -25887,7 +25985,7 @@ function renderListaPedidos() {
               <button class="icon-button ui-context-menu-trigger smart-order-more-button" type="button"
                 aria-label="Mais ações do Pedido ${escaparAttr(String(numeroPedido))}"
                 title="Mais ações"
-                onclick="event.preventDefault(); event.stopPropagation(); abrirMaisOpcoesPedido(${id})">${renderUiIcon("more")}</button>
+                onclick="event.preventDefault(); event.stopPropagation(); abrirMaisOpcoesPedido(${idJs})">${renderUiIcon("more")}</button>
             </div>
           </div>
         `;
@@ -25963,7 +26061,7 @@ function iniciarToqueLongoPedido(event, id) {
       toquePedidoSuprimidoId = String(id);
       toquePedidoSuprimidoAte = Date.now() + 900;
       navigator.vibrate?.(35);
-      abrirMaisOpcoesPedido(Number(id));
+      abrirMaisOpcoesPedido(id);
     }, 560)
   };
 }
@@ -26005,7 +26103,7 @@ function acionarToquePedido(event, id) {
     event.stopPropagation();
     return;
   }
-  visualizarPedido(Number(id));
+  visualizarPedido(id);
 }
 
 function abrirMenuContextualPedido(event, id) {
@@ -26014,7 +26112,7 @@ function abrirMenuContextualPedido(event, id) {
   limparToqueLongoPedido();
   toquePedidoSuprimidoId = String(id);
   toquePedidoSuprimidoAte = Date.now() + 500;
-  abrirMaisOpcoesPedido(Number(id));
+  abrirMaisOpcoesPedido(id);
 }
 
 function acionarPedidoPorTeclado(event, id) {
@@ -26025,7 +26123,7 @@ function acionarPedidoPorTeclado(event, id) {
   }
   if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
     event.preventDefault();
-    abrirMaisOpcoesPedido(Number(id));
+    abrirMaisOpcoesPedido(id);
   }
 }
 
@@ -26192,6 +26290,7 @@ function renderUiIcon(tipo = "", fallback = "") {
 
 function renderDetalhePedido(pedido) {
   const itens = normalizarItensPedido(pedido);
+  const pedidoIdJs = escaparAttr(JSON.stringify(String(pedido.id ?? "")));
   const resumoFinanceiro = calcularResumoFinanceiroPedido(pedido);
   const total = resumoFinanceiro.total;
   const data = pedido.data || dataPedidoIso(pedido) || "";
@@ -26228,12 +26327,12 @@ function renderDetalhePedido(pedido) {
       </div>
       ${renderPedidoRapidoTimeline(pedido.status || "aberto")}
       ${itens.length ? `<div class="compact-action-grid order-detail-actions">
-        ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${Number(pedido.id)})`)}
-        ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${Number(pedido.id)})`)}
-        ${resumoFinanceiro.restante > 0 && appConfig.pixKey ? renderAcaoPedidoCompacta("pix", "Copiar Pix", `copiarPixCopiaEColaPedido(${Number(pedido.id)})`) : ""}
-        ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${Number(pedido.id)})`)}
-        ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${Number(pedido.id)})`)}
-        ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${Number(pedido.id)})`)}
+        ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${pedidoIdJs})`)}
+        ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${pedidoIdJs})`)}
+        ${resumoFinanceiro.restante > 0 && appConfig.pixKey ? renderAcaoPedidoCompacta("pix", "Copiar Pix", `copiarPixCopiaEColaPedido(${pedidoIdJs})`) : ""}
+        ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${pedidoIdJs})`)}
+        ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${pedidoIdJs})`)}
+        ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${pedidoIdJs})`)}
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
       ${cancelado ? `
         <div class="order-cancel-info">
@@ -26242,10 +26341,10 @@ function renderDetalhePedido(pedido) {
         </div>
       ` : `
         <div class="order-status-action-strip">
-          <button type="button" onclick="abrirLiberacaoProducao(${Number(pedido.id)})">Liberar para produção</button>
-          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'pronto')">Pronto</button>
-          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'entregue')">Entregue</button>
-          <button type="button" onclick="alterarStatusPedido(${Number(pedido.id)}, 'pago')">Pago</button>
+          <button type="button" onclick="abrirLiberacaoProducao(${pedidoIdJs})">Liberar para produção</button>
+          <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'pronto')">Pronto</button>
+          <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'entregue')">Entregue</button>
+          <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'pago')">Pago</button>
         </div>
       `}
       <div class="history-list order-detail-items">
@@ -26260,13 +26359,13 @@ function renderDetalhePedido(pedido) {
           </div>
         `).join("")}
       </div>
-      ${cancelado ? "" : `<button class="btn danger compact-danger-action" onclick="removerPedido(${Number(pedido.id)})">${renderIconeAcaoPedido("🗑", "Cancelar")} Cancelar pedido</button>`}
+      ${cancelado ? "" : `<button class="btn danger compact-danger-action" onclick="removerPedido(${pedidoIdJs})">${renderIconeAcaoPedido("🗑", "Cancelar")} Cancelar pedido</button>`}
     </div>
   `;
 }
 
 async function abrirMaisOpcoesPedido(id) {
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
   const escolha = await solicitarEscolhaPedido({
     titulo: `Pedido #${pedido.id}`,
@@ -26295,7 +26394,7 @@ function duplicarPedidoSalvo(id) {
 }
 
 async function copiarOrcamentoPedidoSalvo(id) {
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
   const texto = montarMensagemOrcamentoWhatsapp(pedido);
   try {
@@ -27378,7 +27477,7 @@ function pedidoTemPagamentoLiberadoProducao(pedido = {}) {
 }
 
 function abrirLiberacaoProducao(id) {
-  const pedido = pedidos.find((item) => String(item.id) === String(id));
+  const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
   const faltas = validarPedidoParaProducao(pedido);
   const popup = document.getElementById("popup");
@@ -27408,7 +27507,7 @@ function abrirLiberacaoProducao(id) {
 }
 
 function enviarPedidoPendenciaProducao(orderId) {
-  const pedido = pedidos.find((item) => String(item.id) === String(orderId));
+  const pedido = encontrarPedidoPorId(orderId);
   if (!pedido) return;
   const motivo = document.getElementById("productionPendingReason")?.value || "outro";
   const agora = new Date().toISOString();
@@ -27448,7 +27547,7 @@ function enviarPedidoPendenciaProducao(orderId) {
 
 function confirmarLiberacaoProducao(event, orderId) {
   event?.preventDefault?.();
-  const pedido = pedidos.find((item) => String(item.id) === String(orderId));
+  const pedido = encontrarPedidoPorId(orderId);
   if (!pedido) return false;
   const faltas = validarPedidoParaProducao(pedido);
   const pagamento = document.getElementById("productionPaymentAuthorized")?.checked === true;
@@ -27589,7 +27688,7 @@ function atribuirImpressoraTarefa(jobId, printerId = "") {
 function atualizarPedidoQuandoProducaoPronta(orderId) {
   const jobs = productionJobs.filter((job) => String(job.orderId) === String(orderId) && job.status !== "cancelado");
   if (!jobs.length || jobs.some((job) => !["pronto_para_entrega", "entregue"].includes(job.status))) return;
-  const pedido = pedidos.find((item) => String(item.id) === String(orderId));
+  const pedido = encontrarPedidoPorId(orderId);
   if (!pedido) return;
   marcarRegistroLocalAlteradoParaSync(pedido, { status: "pronto", productionStatus: "pronto_para_entrega", production_status: "pronto_para_entrega" });
 }
@@ -40547,6 +40646,7 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.ativo = perfil.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil.status ? perfil.status !== "active" : usuario.bloqueado;
     usuario.mustChangePassword = perfil.must_change_password === true && !usuario.passwordUpdatedAt;
+    usuario.senhaTemporaria = usuario.mustChangePassword;
     usuario.clientId = perfil.client_id || usuario.clientId || billingConfig.clientId || "";
     usuario.companyId = perfil.company_id || usuario.companyId || billingConfig.companyId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
@@ -40831,7 +40931,36 @@ function montarRedirectSupabaseEmail(fluxo = "") {
 }
 
 function montarRedirectSupabaseOAuth() {
-  return location.origin + location.pathname;
+  const url = new URL(location.origin + location.pathname);
+  url.searchParams.set("auth_flow", "google");
+  return url.toString();
+}
+
+const SUPABASE_OAUTH_STATE_KEY = "simplifica3d:oauth-state";
+
+function salvarEstadoOAuthSupabase(provider, redirectTo) {
+  const estado = { provider, redirectTo, startedAt: Date.now() };
+  sessionStorage.setItem("supabaseOAuthProvider", provider);
+  sessionStorage.setItem("supabaseOAuthRedirectTo", redirectTo);
+  localStorage.setItem(SUPABASE_OAUTH_STATE_KEY, JSON.stringify(estado));
+}
+
+function obterEstadoOAuthSupabase() {
+  let persistido = null;
+  try {
+    persistido = JSON.parse(localStorage.getItem(SUPABASE_OAUTH_STATE_KEY) || "null");
+  } catch (_) {}
+  const recente = persistido && Date.now() - Number(persistido.startedAt || 0) < 10 * 60 * 1000;
+  return {
+    provider: sessionStorage.getItem("supabaseOAuthProvider") || (recente ? String(persistido.provider || "") : ""),
+    redirectTo: sessionStorage.getItem("supabaseOAuthRedirectTo") || (recente ? String(persistido.redirectTo || "") : "")
+  };
+}
+
+function limparEstadoOAuthSupabase() {
+  sessionStorage.removeItem("supabaseOAuthProvider");
+  sessionStorage.removeItem("supabaseOAuthRedirectTo");
+  localStorage.removeItem(SUPABASE_OAUTH_STATE_KEY);
 }
 
 function limparParametrosOAuthSupabase() {
@@ -40987,9 +41116,8 @@ function loginGoogleSupabase() {
     return;
   }
   const redirectTo = montarRedirectSupabaseOAuth();
-  const url = `${syncConfig.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
-  sessionStorage.setItem("supabaseOAuthProvider", "google");
-  sessionStorage.setItem("supabaseOAuthRedirectTo", redirectTo);
+  const url = `${syncConfig.supabaseUrl}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&prompt=select_account`;
+  salvarEstadoOAuthSupabase("google", redirectTo);
   registrarAuditoria("login", { provider: "google_redirect" });
   mostrarToast("Abrindo login com Google...", "info", 2500);
   window.location.assign(url);
@@ -40997,18 +41125,22 @@ function loginGoogleSupabase() {
 
 async function processarRetornoOAuthSupabase() {
   const tipoRetorno = obterTipoRetornoAuthSupabase();
-  const providerRetorno = sessionStorage.getItem("supabaseOAuthProvider") || "";
+  const providerRetorno = obterEstadoOAuthSupabase().provider;
   const erroOAuth = obterErroOAuthSupabase();
   if (erroOAuth) {
     registrarDiagnostico("Supabase", "Retorno de autenticação recusado", `${erroOAuth.erro}: ${erroOAuth.descricao}`);
-    const mensagem = erroLinkAuthExpirado(erroOAuth)
+    const textoErro = `${erroOAuth.erro} ${erroOAuth.descricao}`.toLowerCase();
+    const mensagem = textoErro.includes("access_denied") || textoErro.includes("cancel")
+      ? "Login com Google cancelado. Nenhuma informação foi compartilhada."
+      : erroLinkAuthExpirado(erroOAuth)
       ? "Este link expirou. Solicite um novo e-mail."
-      : erroOAuth.descricao.includes("Unsupported provider") || providerRetorno === "google"
+      : textoErro.includes("unsupported provider")
         ? "Login Google ainda não está ativado no Supabase."
-        : "Não foi possível concluir a autenticação.";
+        : providerRetorno === "google"
+          ? "Não foi possível concluir o login com Google. Tente novamente."
+          : "Não foi possível concluir a autenticação.";
     mostrarToast(mensagem, "erro", 7000);
-    sessionStorage.removeItem("supabaseOAuthProvider");
-    sessionStorage.removeItem("supabaseOAuthRedirectTo");
+    limparEstadoOAuthSupabase();
     limparParametrosOAuthSupabase();
     return false;
   }
@@ -41039,8 +41171,7 @@ async function processarRetornoOAuthSupabase() {
     if (!sessaoSalva) throw new Error("Sessão de autenticação inválida.");
 
     const usuario = await garantirUsuarioLocalParaAuthSupabase(user);
-    sessionStorage.removeItem("supabaseOAuthProvider");
-    sessionStorage.removeItem("supabaseOAuthRedirectTo");
+    limparEstadoOAuthSupabase();
     limparParametrosOAuthSupabase();
     if (usuario && !await preparar2FAAposPrimeiroFator(usuario)) concluirLoginUsuario(usuario);
     if (tipoRetorno === "recovery") {
@@ -41051,6 +41182,7 @@ async function processarRetornoOAuthSupabase() {
     return true;
   } catch (erro) {
     registrarDiagnostico("Supabase", "Retorno de autenticação não concluído", erro.message);
+    limparEstadoOAuthSupabase();
     limparParametrosOAuthSupabase();
     mostrarToast("Não foi possível concluir a autenticação. Tente entrar novamente.", "erro", 6500);
     return false;
@@ -43098,7 +43230,7 @@ function registrarAuditoriaPedido(acao, pedido, detalhes = {}) {
 async function requestOrderEdit(orderId) {
   try {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para editar pedidos.")) return;
-    const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
+    const pedido = encontrarPedidoPorId(orderId);
     if (!pedido) return;
     if (!await requestSensitiveActionConfirmation({ actionLabel: "editar este pedido" })) return;
     if (!await consumirCreditoAcaoFree("editar_pedido", "editar pedido")) return;
@@ -43114,7 +43246,7 @@ async function editarPedido(id) {
 
 function abrirPedidoParaEdicaoAutorizada(id) {
   try {
-    const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+    const pedido = encontrarPedidoPorId(id);
     if (!pedido) return;
     const itens = Array.isArray(pedido.itens) && pedido.itens.length
       ? pedido.itens
@@ -43277,7 +43409,7 @@ function criarLancamentoReversoCaixaPedido(pedido, movimentos, agora) {
 async function cancelOrderSafely(orderId, options = {}) {
   try {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para cancelar pedidos.")) return;
-    const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
+    const pedido = encontrarPedidoPorId(orderId);
     if (!pedido) return;
     if (pedidoJaCancelado(pedido)) {
       mostrarToast("Este pedido já está cancelado.", "info", 4200);
@@ -43304,9 +43436,9 @@ async function cancelOrderSafely(orderId, options = {}) {
       estoqueDevolvidoEm: devolverEstoque ? agora : pedido.estoqueDevolvidoEm || "",
       financial_reversed_at: reverso ? agora : pedido.financial_reversed_at || ""
     });
-    pedidos = pedidos.map((item) => Number(item.id) === Number(orderId) ? cancelado : item);
+    pedidos = pedidos.map((item) => String(item.id) === String(orderId) ? cancelado : item);
 
-    if (pedidoEditando && Number(pedidoEditando.id) === Number(orderId)) {
+    if (pedidoEditando && String(pedidoEditando.id) === String(orderId)) {
       cancelarEdicaoPedido();
     }
 
@@ -43329,7 +43461,7 @@ async function cancelOrderSafely(orderId, options = {}) {
 async function requestOrderDelete(orderId) {
   try {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para excluir pedidos.")) return;
-    const pedido = pedidos.find((item) => Number(item.id) === Number(orderId));
+    const pedido = encontrarPedidoPorId(orderId);
     if (!pedido) return;
     registrarAuditoriaPedido("pedido_cancelamento_solicitado", pedido);
 
@@ -43738,25 +43870,39 @@ function confirmarRevisaoAlteracoesPedido() {
 
 async function alterarStatusPedido(id, status) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar pedidos.")) return;
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  const indicePedido = pedidos.findIndex((item) => String(item?.id) === String(id));
+  const pedido = indicePedido >= 0 ? pedidos[indicePedido] : null;
   if (!pedido) return;
-  if (String(status || "").toLowerCase() === "cancelado") {
-    await requestOrderDelete(id);
-    return;
+  const chaveOperacao = `${String(id)}:${String(status || "aberto")}`;
+  window.__pedidosStatusEmAndamento = window.__pedidosStatusEmAndamento || new Set();
+  if (window.__pedidosStatusEmAndamento.has(chaveOperacao)) return;
+  window.__pedidosStatusEmAndamento.add(chaveOperacao);
+  const statusAnterior = pedido.status || "aberto";
+  try {
+    if (String(status || "").toLowerCase() === "cancelado") {
+      await requestOrderDelete(id);
+      return;
+    }
+    // Avançar um pedido existente é parte do fluxo operacional e não cria uma
+    // nova ação comercial. Não aguarde anúncio aqui.
+    const pedidoAtualizado = { ...pedido, status: status || "aberto" };
+    if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
+    pedidos[indicePedido] = marcarRegistroAlteradoParaSync(pedidoAtualizado);
+    salvarDados();
+    agendarSyncSilenciosoDados("status-pedido");
+    registrarAuditoriaPedido("pedido_status_alterado", pedidos[indicePedido], {
+      statusAnterior,
+      statusNovo: pedidos[indicePedido].status
+    });
+    registrarHistorico("Pedido", `Status alterado de ${labelStatusPedido(statusAnterior)} para ${labelStatusPedido(pedidos[indicePedido].status)}.`);
+    mostrarToast(`Status atualizado para ${labelStatusPedido(pedidos[indicePedido].status)}.`, "sucesso", 2200);
+    renderizarPreservandoScroll();
+  } catch (erro) {
+    registrarFluxoSalvamento("Pedidos", "Alterar status", { pedidoId: String(id), status: String(status || "") }, erro);
+    ErrorService.notify(erro, { area: "Pedidos", action: "Alterar status", errorKey: "ORDER_STATUS_CHANGE_FAILED" });
+  } finally {
+    window.__pedidosStatusEmAndamento.delete(chaveOperacao);
   }
-  if (/final|conclu|entreg|pago|produção|producao/i.test(String(status || "")) && !await consumirCreditoAcaoFree("finalizar_pedido", "finalizar pedido")) return;
-  const pedidoAtualizado = { ...pedido, status: status || "aberto" };
-  if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
-  marcarRegistroLocalAlteradoParaSync(pedido, {
-    status: pedidoAtualizado.status,
-    stock_deducted_at: pedidoAtualizado.stock_deducted_at || "",
-    estoqueBaixadoEm: pedidoAtualizado.estoqueBaixadoEm || ""
-  });
-  salvarDados();
-  agendarSyncSilenciosoDados("status-pedido");
-  registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
-  mostrarToast(`Status atualizado para ${labelStatusPedido(pedido.status)}.`, "sucesso", 2200);
-  renderizarPreservandoScroll();
 }
 
 function alternarControleLoteEstoqueCadastro() {
@@ -43830,15 +43976,26 @@ function renderEtapasCadastroItemEstoque(etapaAtual = 1) {
 
 function renderEscolhaVisualItemEstoque(estado = {}) {
   const foto = getFotoMaterialEstoque({ foto: estado.foto });
+  const iconeSelecionado = STOCK_ITEM_ICON_OPTIONS.find((opcao) => opcao.value === estado.icone) || STOCK_ITEM_ICON_OPTIONS[0];
   return `<section class="stock-wizard-visual">
     <div class="stock-wizard-section-head"><div><strong>Visual do item</strong><small>Escolha um ícone ou envie uma foto compactada.</small></div></div>
-    <div class="stock-icon-options" role="radiogroup" aria-label="Ícone do item">
-      ${STOCK_ITEM_ICON_OPTIONS.map((opcao) => `<button class="stock-icon-option ${estado.icone === opcao.value && !foto ? "active" : ""}" type="button" role="radio" aria-checked="${estado.icone === opcao.value && !foto}" onclick="selecionarIconeItemEstoque('${escaparAttr(opcao.value)}')"><span>${renderUiIcon(opcao.value)}</span><small>${escaparHtml(opcao.label)}</small></button>`).join("")}
-    </div>
+    <details class="stock-icon-picker">
+      <summary>
+        <span class="stock-icon-picker-current">${renderUiIcon(iconeSelecionado.value)}</span>
+        <span><small>Ícone do produto</small><strong>${escaparHtml(iconeSelecionado.label)}</strong></span>
+        <span class="stock-icon-picker-action">Escolher ícone</span>
+      </summary>
+      <div class="stock-icon-picker-panel">
+        <div class="stock-icon-picker-heading"><strong>Selecione um ícone</strong><small>Toque em uma opção para aplicar.</small></div>
+        <div class="stock-icon-options" role="radiogroup" aria-label="Ícone do item">
+          ${STOCK_ITEM_ICON_OPTIONS.map((opcao) => `<button class="stock-icon-option ${estado.icone === opcao.value && !foto ? "active" : ""}" type="button" role="radio" aria-checked="${estado.icone === opcao.value && !foto}" onclick="selecionarIconeItemEstoque('${escaparAttr(opcao.value)}')"><span>${renderUiIcon(opcao.value)}</span><small>${escaparHtml(opcao.label)}</small></button>`).join("")}
+        </div>
+      </div>
+    </details>
     <div class="stock-photo-picker ${foto ? "has-photo" : ""}">
       <div class="stock-photo-preview">${foto ? `<img src="${escaparAttr(foto)}" alt="Prévia da foto do item">` : renderUiIcon(estado.icone || "estoque")}</div>
-      <div><strong>${foto ? "Foto pronta" : "Foto opcional"}</strong><small>${foto ? escaparHtml(estado.fotoInfo || "Imagem compactada") : "JPG, PNG ou WebP. Ajuste automático para até 140 KB."}</small></div>
-      <label class="btn secondary stock-photo-button"><input id="matFoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="prepararFotoItemEstoque(this)"><span>${foto ? "Trocar" : "Anexar foto"}</span></label>
+      <div><strong>${foto ? "Foto pronta" : "Foto opcional"}</strong><span>${foto ? escaparHtml(estado.fotoInfo || "Imagem compactada") : "JPG, PNG ou WebP • até 140 KB"}</span></div>
+      <label class="btn secondary stock-photo-button"><input id="matFoto" type="file" accept="image/jpeg,image/png,image/webp" onchange="prepararFotoItemEstoque(this)">${renderUiIcon(foto ? "edit" : "plus")}<span>${foto ? "Trocar" : "Foto"}</span></label>
       ${foto ? `<button class="btn ghost" type="button" onclick="removerFotoItemEstoque()">Remover</button>` : ""}
     </div>
   </section>`;
@@ -43888,7 +44045,7 @@ function renderCadastroItemEstoqueWizard() {
     ? `<button class="btn ghost" type="button" data-action="stock-add-cancel">Cancelar</button>`
     : `<button class="btn ghost" type="button" onclick="voltarCadastroItemEstoque()">Voltar</button>`;
   const acaoPrincipal = etapa < 3
-    ? `<button class="btn" type="submit">Continuar ${renderUiIcon("next")}</button>`
+    ? `<button class="btn" type="submit">Continuar <span aria-hidden="true">→</span></button>`
     : `<button class="btn" type="submit">${renderUiIcon("check")} Salvar item</button>`;
   popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" data-action="stock-add-cancel"><form class="modal-card stock-item-modal stock-wizard-modal" id="stockAddForm" onsubmit="avancarCadastroItemEstoque(event)"><div class="modal-header"><div><small>Cadastro de estoque</small><h2>${renderUiIcon(editando ? "edit" : "plus")} ${editando ? "Editar item" : "Novo item"}</h2></div><button class="icon-button" type="button" data-action="stock-add-cancel" title="Fechar">✕</button></div>${renderEtapasCadastroItemEstoque(etapa)}<div class="stock-wizard-body">${corpo}</div><div class="actions ui3-action-row stock-wizard-actions" ${renderUiLayoutAttributes("actionRow")}>${acaoVoltar}${etapa < 3 ? `<button class="btn secondary" type="button" onclick="pularEtapaCadastroItemEstoque()">Pular etapa</button>` : ""}${acaoPrincipal}</div></form></div>`;
   promoverPopupParaDialogUiV3(popup, { title: `${editando ? "Editar" : "Adicionar"} item do estoque • etapa ${etapa} de 3` });
@@ -47961,7 +48118,7 @@ function gerarPayloadPix(valor, cliente = "") {
 }
 
 async function copiarPixCopiaEColaPedido(id) {
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  const pedido = encontrarPedidoPorId(id);
   if (!pedido) return mostrarToast("Pedido não encontrado.", "erro");
   const resumo = calcularResumoFinanceiroPedido(pedido);
   if (resumo.restante <= 0) return mostrarToast("Este pedido não possui saldo pendente para Pix.", "info");
@@ -48783,7 +48940,7 @@ async function enviarWhatsCalculadora() {
 }
 
 async function gerarDocumentoPedidoSalvo(id, opcoes = {}) {
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
   const estadoAnterior = {
     itensPedido,
@@ -48828,7 +48985,7 @@ async function imprimirPedidoSalvo(id) {
 }
 
 async function enviarWhatsPedidoSalvo(id) {
-  const pedido = pedidos.find((item) => Number(item.id) === Number(id));
+  const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
   return sendQuoteToWhatsApp(pedido);
 }
@@ -49491,24 +49648,48 @@ function nomeArquivoPdfPedido(pedidoId, cliente = "", data = new Date()) {
   return `pedido-${clienteSeguro}-${dataHoraArquivo(data)}-${idSeguro}.pdf`;
 }
 
-window.addEventListener("resize", () => {
+function sincronizarModoInterfaceComViewport({ forcarRender = false } = {}) {
   aplicarPersonalizacao();
   applyViewportModeClasses(document.body);
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    const novoModoMobile = isMobile();
-    const novoViewportMode = getViewportMode();
-    if (novoModoMobile !== modoMobileAtual || novoViewportMode !== viewportModeAtual) {
-      modoMobileAtual = novoModoMobile;
-      viewportModeAtual = novoViewportMode;
-      renderApp();
-      return;
-    }
+  const novoModoMobile = isMobile();
+  const novoViewportMode = getViewportMode();
+  const modoMobileRenderizado = document.body.classList.contains("mobile-mode");
+  const modoTabletRenderizado = document.body.classList.contains("tablet-mode");
+  const modoViewportDivergente = novoModoMobile !== modoMobileRenderizado
+    || (novoViewportMode === "tablet") !== modoTabletRenderizado;
+  if (forcarRender || modoViewportDivergente || novoModoMobile !== modoMobileAtual || novoViewportMode !== viewportModeAtual) {
+    modoMobileAtual = novoModoMobile;
+    viewportModeAtual = novoViewportMode;
+    renderApp();
+    return true;
+  }
+  ajustarJanelasDashboardAoWorkspace(false);
+  manterCalculadoraVisivel(false);
+  return false;
+}
 
-    ajustarJanelasDashboardAoWorkspace(false);
-    manterCalculadoraVisivel(false);
-  }, 120);
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => sincronizarModoInterfaceComViewport(), 120);
 });
+
+window.addEventListener("orientationchange", () => {
+  [120, 360, 700].forEach((atraso, index) => {
+    setTimeout(() => {
+      agendarAtualizacaoViewportOperacionalMobile();
+      sincronizarModoInterfaceComViewport({ forcarRender: index === 1 });
+    }, atraso);
+  });
+}, { passive: true });
+
+if (window.screen?.orientation?.addEventListener) {
+  window.screen.orientation.addEventListener("change", () => {
+    setTimeout(() => {
+      agendarAtualizacaoViewportOperacionalMobile();
+      sincronizarModoInterfaceComViewport({ forcarRender: true });
+    }, 220);
+  }, { passive: true });
+}
 
 window.addEventListener("pagehide", () => {
   storefrontFlushAutosaveNow();
