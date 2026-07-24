@@ -3675,7 +3675,10 @@ function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
   }
   atualizarIndicadorSincronizacao("syncing", "Salvando");
   const avisoDemora = setTimeout(() => {
-    if (window.__simplificaSyncing) atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    const indicadorAtual = document.getElementById("syncIndicator");
+    if (window.__simplificaSyncing || indicadorAtual?.classList.contains("sync-syncing")) {
+      atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    }
   }, 12000);
   return sincronizarSupabaseSilencioso()
     .then(async (ok) => {
@@ -4816,10 +4819,14 @@ function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
     const local = mapa.get(remoto.email);
     const papel = local?.papel === "superadmin" || remoto.papel === "superadmin" ? "superadmin" : remoto.papel;
     const onboardingCompleted = local?.onboardingCompleted === true || remoto.onboardingCompleted === true;
+    const senhaJaAlteradaLocalmente = !!local?.passwordUpdatedAt;
+    const deveTrocarSenha = remoto.mustChangePassword === true && !senhaJaAlteradaLocalmente;
     const usuario = normalizarUsuario({
       ...local,
       ...remoto,
       papel,
+      mustChangePassword: deveTrocarSenha,
+      senhaTemporaria: deveTrocarSenha,
       onboardingCompleted,
       onboardingStep: onboardingCompleted ? 4 : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
       senha: local?.senha || "",
@@ -40639,6 +40646,7 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.ativo = perfil.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil.status ? perfil.status !== "active" : usuario.bloqueado;
     usuario.mustChangePassword = perfil.must_change_password === true && !usuario.passwordUpdatedAt;
+    usuario.senhaTemporaria = usuario.mustChangePassword;
     usuario.clientId = perfil.client_id || usuario.clientId || billingConfig.clientId || "";
     usuario.companyId = perfil.company_id || usuario.companyId || billingConfig.companyId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
@@ -43862,25 +43870,39 @@ function confirmarRevisaoAlteracoesPedido() {
 
 async function alterarStatusPedido(id, status) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar pedidos.")) return;
-  const pedido = encontrarPedidoPorId(id);
+  const indicePedido = pedidos.findIndex((item) => String(item?.id) === String(id));
+  const pedido = indicePedido >= 0 ? pedidos[indicePedido] : null;
   if (!pedido) return;
-  if (String(status || "").toLowerCase() === "cancelado") {
-    await requestOrderDelete(id);
-    return;
+  const chaveOperacao = `${String(id)}:${String(status || "aberto")}`;
+  window.__pedidosStatusEmAndamento = window.__pedidosStatusEmAndamento || new Set();
+  if (window.__pedidosStatusEmAndamento.has(chaveOperacao)) return;
+  window.__pedidosStatusEmAndamento.add(chaveOperacao);
+  const statusAnterior = pedido.status || "aberto";
+  try {
+    if (String(status || "").toLowerCase() === "cancelado") {
+      await requestOrderDelete(id);
+      return;
+    }
+    // Avançar um pedido existente é parte do fluxo operacional e não cria uma
+    // nova ação comercial. Não aguarde anúncio aqui.
+    const pedidoAtualizado = { ...pedido, status: status || "aberto" };
+    if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
+    pedidos[indicePedido] = marcarRegistroAlteradoParaSync(pedidoAtualizado);
+    salvarDados();
+    agendarSyncSilenciosoDados("status-pedido");
+    registrarAuditoriaPedido("pedido_status_alterado", pedidos[indicePedido], {
+      statusAnterior,
+      statusNovo: pedidos[indicePedido].status
+    });
+    registrarHistorico("Pedido", `Status alterado de ${labelStatusPedido(statusAnterior)} para ${labelStatusPedido(pedidos[indicePedido].status)}.`);
+    mostrarToast(`Status atualizado para ${labelStatusPedido(pedidos[indicePedido].status)}.`, "sucesso", 2200);
+    renderizarPreservandoScroll();
+  } catch (erro) {
+    registrarFluxoSalvamento("Pedidos", "Alterar status", { pedidoId: String(id), status: String(status || "") }, erro);
+    ErrorService.notify(erro, { area: "Pedidos", action: "Alterar status", errorKey: "ORDER_STATUS_CHANGE_FAILED" });
+  } finally {
+    window.__pedidosStatusEmAndamento.delete(chaveOperacao);
   }
-  if (/final|conclu|entreg|pago|produção|producao/i.test(String(status || "")) && !await consumirCreditoAcaoFree("finalizar_pedido", "finalizar pedido")) return;
-  const pedidoAtualizado = { ...pedido, status: status || "aberto" };
-  if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
-  marcarRegistroLocalAlteradoParaSync(pedido, {
-    status: pedidoAtualizado.status,
-    stock_deducted_at: pedidoAtualizado.stock_deducted_at || "",
-    estoqueBaixadoEm: pedidoAtualizado.estoqueBaixadoEm || ""
-  });
-  salvarDados();
-  agendarSyncSilenciosoDados("status-pedido");
-  registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
-  mostrarToast(`Status atualizado para ${labelStatusPedido(pedido.status)}.`, "sucesso", 2200);
-  renderizarPreservandoScroll();
 }
 
 function alternarControleLoteEstoqueCadastro() {
