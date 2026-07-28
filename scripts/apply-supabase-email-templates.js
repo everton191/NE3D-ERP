@@ -3,7 +3,8 @@ const path = require("path");
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "qsufnnivlgdidmjuaprb";
 const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN || "";
-const PUBLIC_URL = (process.env.SIMPLIFICA3D_PUBLIC_URL || "https://erpne3d-everton191s-projects.vercel.app").replace(/\/+$/, "");
+const PUBLIC_URL = (process.env.SIMPLIFICA3D_PUBLIC_URL || "https://erpne3d.vercel.app").replace(/\/+$/, "");
+const LEGACY_PUBLIC_URL = "https://erpne3d-everton191s-projects.vercel.app";
 const SUPPORT_EMAIL = process.env.SIMPLIFICA3D_SUPPORT_EMAIL || "simplifica3d.app@gmail.com";
 const DRY_RUN = process.argv.includes("--dry-run");
 const GET_ONLY = process.argv.includes("--get");
@@ -20,6 +21,8 @@ function buildPayload() {
     uri_allow_list: [
       PUBLIC_URL,
       `${PUBLIC_URL}/**`,
+      LEGACY_PUBLIC_URL,
+      `${LEGACY_PUBLIC_URL}/**`,
       "http://127.0.0.1:*/**",
       "http://localhost:*/**"
     ].join(","),

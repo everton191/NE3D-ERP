@@ -5691,6 +5691,73 @@ body.theme-light .plan-tier-card{
   }
 }
 
+/* Telefones em paisagem: preserva a largura útil e reduz elementos fixos que
+   disputam a pouca altura disponível. */
+@media (orientation:landscape) and (max-height:600px) and (max-width:1000px){
+  body.mobile-mode{
+    --layout-bottom-nav-height:52px;
+    --mobile-bottom-nav-height:52px;
+  }
+
+  body.mobile-mode #app-content[data-ui-scroll-owner="app-content"]{
+    scroll-padding-bottom:calc(52px + env(safe-area-inset-bottom, 0px) + 12px);
+  }
+
+  body.mobile-mode .mobile-bottom-nav{
+    min-height:52px;
+    height:52px;
+    padding-block:3px;
+  }
+
+  body.mobile-mode .mobile-bottom-nav-button{
+    min-height:44px;
+    padding:3px 8px;
+  }
+
+  body.mobile-mode .mobile-bottom-nav-button span{
+    width:24px;
+    height:24px;
+  }
+
+  body.mobile-mode .mobile-bottom-nav-button small{
+    font-size:9px;
+    line-height:1;
+  }
+
+  body.mobile-mode .ui3-orders{
+    padding:10px 14px calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    gap:10px !important;
+  }
+
+  body.mobile-mode .ui3-orders .order-filter-chips{
+    padding-bottom:4px;
+  }
+
+  body.mobile-mode .ui3-orders .order-detail-panel{
+    padding:12px;
+  }
+
+  body.mobile-mode .ui3-orders .order-detail-total,
+  body.mobile-mode .ui3-orders .order-financial-summary.compact{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  body.mobile-mode .ui3-orders .order-status-action-strip{
+    grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  }
+
+  body.mobile-mode .modal-backdrop{
+    align-items:flex-start;
+    overflow-y:auto;
+    padding:8px max(12px,env(safe-area-inset-right,0px)) 64px max(12px,env(safe-area-inset-left,0px));
+  }
+
+  body.mobile-mode .modal-card{
+    max-height:none;
+    margin:auto;
+  }
+}
+
 @media(max-width:767px){
   .card.plans-screen{
     display:grid;
@@ -6458,16 +6525,49 @@ body.auth-screen-active #app{
   background:transparent;
   color:var(--muted);
   font-weight:700;
+  transition:background-color .22s ease, color .22s ease, box-shadow .22s ease, transform .22s ease;
 }
 
 .auth-tabs button.active{
   background:linear-gradient(145deg, rgba(9,100,116,.96), rgba(255,148,28,.62));
   color:#fff;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+  transform:translateY(-1px);
 }
 
 .auth-tab-panel{
   min-width:0;
+  animation:auth-tab-enter .24s ease both;
+  transform-origin:50% 0;
+}
+
+.auth-tab-panel-signup{
+  --auth-tab-enter-x:12px;
+}
+
+.auth-tab-panel-signin{
+  --auth-tab-enter-x:-12px;
+}
+
+@keyframes auth-tab-enter{
+  from{
+    opacity:0;
+    transform:translateX(var(--auth-tab-enter-x, 0)) translateY(4px);
+  }
+  to{
+    opacity:1;
+    transform:translateX(0) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .auth-tabs button{
+    transition:none;
+  }
+
+  .auth-tab-panel{
+    animation:none;
+  }
 }
 
 .auth-form,
@@ -6542,11 +6642,18 @@ body.auth-screen-active #app{
 }
 
 .auth-primary{
+  width:100%;
+  box-sizing:border-box;
   min-height:48px;
   font-size:var(--font-md);
   border-radius:16px;
   background:linear-gradient(145deg, #11a0a7, #0b4c5c 58%, #ff941c);
   box-shadow:0 18px 34px rgba(11,160,167,.20), inset 0 1px 0 rgba(255,255,255,.20);
+}
+
+.auth-google-button{
+  width:100%;
+  box-sizing:border-box;
 }
 
 .auth-link-row{
@@ -13429,26 +13536,26 @@ body.mobile-mode .btn,
 body.mobile-mode button.btn,
 body.mobile-mode .compact-action,
 body.mobile-mode .text-button{
-  min-height:38px;
-  padding:0 10px;
-  border-radius:12px;
-  font-size:13px;
+  min-height:31px;
+  padding:0 9px;
+  border-radius:10px;
+  font-size:12px;
   line-height:1.1;
 }
 
 body.mobile-mode .btn.primary,
 body.mobile-mode .primary-action{
-  min-height:42px;
-  font-size:14px;
+  min-height:34px;
+  font-size:13px;
 }
 
 body.mobile-mode .icon-button,
 body.mobile-mode button.icon-button{
-  width:38px;
-  min-width:38px;
-  height:38px;
-  min-height:38px;
-  border-radius:13px;
+  width:31px;
+  min-width:31px;
+  height:31px;
+  min-height:31px;
+  border-radius:11px;
 }
 
 body.mobile-mode .icon-button svg,
@@ -13456,6 +13563,21 @@ body.mobile-mode .btn svg,
 body.mobile-mode .compact-action svg{
   width:18px;
   height:18px;
+}
+
+/* Login mantém alvos principais mais confortáveis que as ações compactas. */
+body.mobile-mode .auth-tabs{
+  min-height:50px;
+}
+
+body.mobile-mode .auth-tabs button{
+  min-height:42px;
+}
+
+body.mobile-mode :is(.auth-primary, .auth-google-button){
+  min-height:44px;
+  border-radius:13px;
+  font-size:13px;
 }
 
 body.mobile-mode input,
@@ -13540,14 +13662,16 @@ body.mobile-mode .fullscreen-modal{
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-actions,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .quick-actions,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-actions{
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-actions,
+body.mobile-mode .ui3-dashboard .ui3-dashboard-quick-actions{
   grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:6px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-action,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .quick-action,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action{
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action,
+body.mobile-mode .ui3-dashboard .ui3-dashboard-quick-actions .quick-action{
   min-height:58px;
   align-items:center;
   justify-content:center;
@@ -13558,16 +13682,45 @@ body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action{
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-action span,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .quick-action span,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action span{
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action span,
+body.mobile-mode .ui3-dashboard .ui3-dashboard-quick-actions .quick-action span{
   width:28px;
   height:28px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-apk-simple .quick-action strong,
 body[data-ui-profile="android_apk"] .dashboard-apk-simple .quick-action strong,
-body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action strong{
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-apk-simple .quick-action strong,
+body.mobile-mode .ui3-dashboard .ui3-dashboard-quick-actions .quick-action strong{
   font-size:11px;
   line-height:1.06;
+}
+
+body.mobile-mode .ui3-dashboard .quick-suggestion-card{
+  gap:6px;
+  padding:8px 10px;
+  border-radius:14px;
+}
+
+body.mobile-mode .ui3-dashboard .quick-suggestion-card span{
+  font-size:10px;
+}
+
+body.mobile-mode .ui3-dashboard .quick-suggestion-card strong{
+  font-size:12px;
+  line-height:1.25;
+}
+
+body.mobile-mode .ui3-dashboard .quick-suggestion-actions{
+  gap:5px;
+}
+
+body.mobile-mode .ui3-dashboard .quick-suggestion-actions .btn{
+  height:32px;
+  min-height:32px !important;
+  padding:0 9px;
+  border-radius:10px;
+  font-size:11px;
 }
 
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header .dashboard-search.search-compact,
@@ -23602,6 +23755,27 @@ body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-editor > .ui-tabs .ui-tab
   line-height:1.05;
   white-space:normal;
   text-align:center;
+}
+
+body.mobile-mode .ui3-order-editor,
+body[data-ui-profile="android_apk"] .ui3-order-editor,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-editor{
+  width:100% !important;
+  max-width:100% !important;
+  padding:8px 0 24px !important;
+}
+
+body.mobile-mode .ui3-order-editor .order-step-panel,
+body[data-ui-profile="android_apk"] .ui3-order-editor .order-step-panel,
+body[data-ui-profile="web_pwa"].mobile-mode .ui3-order-editor .order-step-panel{
+  width:100%;
+  min-width:0;
+}
+
+.order-item-more-button{
+  position:relative;
+  z-index:2;
+  justify-self:end;
 }
 
 body.mobile-mode .ui3-order-final-bar,
@@ -46568,6 +46742,36 @@ body:not(.theme-light) :where(.superadmin-only-main,.superadmin-mobile-only) .su
   font-size:11px;
 }
 
+.stock-icon-picker{
+  position:relative;
+  min-width:0;
+}
+
+.stock-icon-picker > summary{
+  min-height:62px;
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:9px 10px;
+  border:1px solid var(--color-border);
+  border-radius:12px;
+  color:var(--color-text-primary);
+  background:var(--color-surface);
+  cursor:pointer;
+  list-style:none;
+}
+
+.stock-icon-picker > summary::-webkit-details-marker{display:none;}
+.stock-icon-picker > summary > span:nth-child(2){min-width:0;display:grid;gap:2px;}
+.stock-icon-picker > summary small{color:var(--color-text-muted);font-size:9px;text-transform:uppercase;letter-spacing:.05em;}
+.stock-icon-picker-current{width:42px;height:42px;display:grid;place-items:center;border-radius:11px;color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 10%,var(--color-surface));}
+.stock-icon-picker-current svg{width:22px;height:22px;}
+.stock-icon-picker-action{padding:7px 9px;border-radius:9px;color:var(--color-primary);background:color-mix(in srgb,var(--color-primary) 9%,var(--color-surface));font-size:10px;font-weight:800;white-space:nowrap;}
+.stock-icon-picker-panel{margin-top:7px;padding:9px;border:1px solid var(--color-border);border-radius:13px;background:var(--color-surface);box-shadow:0 16px 34px rgba(0,0,0,.18);}
+.stock-icon-picker-heading{display:grid;gap:2px;margin-bottom:8px;}
+.stock-icon-picker-heading small{color:var(--color-text-muted);font-size:10px;}
+
 .stock-icon-options{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
@@ -46607,22 +46811,25 @@ body:not(.theme-light) :where(.superadmin-only-main,.superadmin-mobile-only) .su
 .stock-photo-picker{
   min-width:0;
   display:grid;
-  grid-template-columns:52px minmax(0,1fr) auto;
+  grid-template-columns:42px minmax(0,1fr) auto;
   align-items:center;
-  gap:9px;
-  padding:9px;
+  gap:7px;
+  padding:7px;
   border:1px dashed var(--color-border);
   border-radius:12px;
   background:color-mix(in srgb,var(--color-surface) 94%,var(--color-primary) 6%);
 }
 
-.stock-photo-picker.has-photo{grid-template-columns:52px minmax(0,1fr) auto auto;}
+.stock-photo-picker.has-photo{grid-template-columns:42px minmax(0,1fr) auto auto;}
 .stock-photo-picker > div:nth-child(2){min-width:0;display:grid;gap:2px;}
 .stock-photo-picker small{color:var(--color-text-muted);font-size:10px;overflow-wrap:anywhere;}
-.stock-photo-preview{width:52px;height:52px;display:grid;place-items:center;overflow:hidden;border-radius:10px;color:var(--color-primary);background:var(--color-surface);}
+.stock-photo-picker > div:nth-child(2) > span{color:var(--color-text-secondary);font-size:10px;overflow-wrap:anywhere;}
+.stock-photo-preview{width:42px;height:42px;display:grid;place-items:center;overflow:hidden;border-radius:9px;color:var(--color-primary);background:var(--color-surface);}
 .stock-photo-preview img{width:100%;height:100%;object-fit:cover;}
-.stock-photo-preview svg{width:24px;height:24px;}
+.stock-photo-preview svg{width:20px;height:20px;}
 .stock-photo-button{position:relative;overflow:hidden;}
+.stock-photo-button{display:inline-flex !important;align-items:center;justify-content:center;flex-direction:row !important;gap:4px;white-space:nowrap;}
+.stock-photo-button svg{width:15px;height:15px;}
 .stock-photo-button input{position:absolute;inline-size:1px;block-size:1px;opacity:0;pointer-events:none;}
 
 .stock-wizard-review{
@@ -46669,9 +46876,11 @@ body:not(.theme-light) :where(.superadmin-only-main,.superadmin-mobile-only) .su
   .stock-icon-options{grid-template-columns:repeat(4,minmax(0,1fr));}
   .stock-icon-option{min-height:58px;padding:5px 2px;}
   .stock-photo-picker,
-  .stock-photo-picker.has-photo{grid-template-columns:48px minmax(0,1fr) auto;}
-  .stock-photo-picker > .btn.ghost{grid-column:2 / -1;width:100%;}
-  .stock-photo-preview{width:48px;height:48px;}
+  .stock-photo-picker.has-photo{grid-template-columns:40px minmax(0,1fr) auto;padding:7px;}
+  .stock-photo-picker.has-photo .stock-photo-preview{justify-self:start;}
+  .stock-photo-picker .stock-photo-button{grid-column:auto;width:auto;height:32px !important;min-height:32px !important;padding:5px 7px !important;}
+  .stock-photo-picker > .btn.ghost{grid-column:2 / -1;width:100%;min-height:30px !important;}
+  .stock-photo-preview{width:40px;height:40px;}
   .stock-duplicate-warning{grid-template-columns:24px minmax(0,1fr);}
   .stock-duplicate-warning > .btn{grid-column:2;width:100%;}
   .stock-wizard-review{grid-template-columns:56px minmax(0,1fr);align-items:start;}
@@ -46990,4 +47199,460 @@ body:not(.visitor-public-screen) :where(.ui-context-menu-trigger,.smart-order-mo
   .stock-detail-actions { grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .stock-detail-actions .btn:last-child { grid-column:1 / -1; }
   .administration-subpage,.administration-module-list { min-width:0; max-width:100%; overflow-x:hidden; }
+}
+
+/* Fallback legado; a autoridade atual fica em styles/ui-v3/actions.css. */
+@supports not (display:grid){
+/* Autoridade final mobile: ações comuns compactas; cards e login ficam fora. */
+body.mobile-mode button.btn:not(.auth-primary):not(.auth-google-button):not(.icon){
+  height:auto !important;
+  min-height:31px !important;
+  padding:4px 8px !important;
+  border-radius:10px !important;
+  font-size:12px;
+  line-height:1.1;
+}
+
+body.mobile-mode :is(button.auth-primary, button.auth-google-button){
+  min-height:44px !important;
+  padding:8px 12px !important;
+}
+
+/* Barras de ações mobile: colunas e alturas consistentes em toda a operação. */
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+){
+  --mobile-action-columns:4;
+  display:grid !important;
+  grid-template-columns:repeat(var(--mobile-action-columns), minmax(0, 1fr)) !important;
+  align-items:stretch !important;
+  gap:6px !important;
+}
+
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+):has(> :first-child:nth-last-child(1)){
+  --mobile-action-columns:1;
+}
+
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+):has(> :first-child:nth-last-child(2)){
+  --mobile-action-columns:2;
+}
+
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+):has(> :first-child:nth-last-child(3)){
+  --mobile-action-columns:3;
+}
+
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+) > :is(button,.btn){
+  width:100% !important;
+  min-width:0 !important;
+  min-height:31px !important;
+  height:31px !important;
+  margin:0 !important;
+  padding:4px 6px !important;
+  overflow:hidden;
+  border-radius:10px !important;
+  font-size:clamp(9px, 2.65vw, 11px) !important;
+  line-height:1.05 !important;
+  text-align:center;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+body.mobile-mode .mobile-overflow-actions{
+  position:relative;
+  min-width:0;
+  height:31px;
+  z-index:40;
+}
+
+body.mobile-mode .mobile-overflow-actions[open]{
+  z-index:2400;
+}
+
+body.mobile-mode .mobile-overflow-actions-trigger{
+  width:100%;
+  height:31px;
+  display:grid;
+  place-items:center;
+  padding:0 6px;
+  border:1px solid var(--color-border, var(--border-soft));
+  border-radius:10px;
+  color:var(--color-text-primary, var(--text));
+  background:var(--color-surface, var(--surface));
+  font-size:18px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:2px;
+  cursor:pointer;
+  list-style:none;
+}
+
+body.mobile-mode .mobile-overflow-actions-trigger::-webkit-details-marker{
+  display:none;
+}
+
+body.mobile-mode .mobile-overflow-actions-panel{
+  position:absolute;
+  right:0;
+  bottom:calc(100% + 6px);
+  z-index:2500;
+  width:min(220px, calc(100vw - 28px));
+  display:grid;
+  gap:5px;
+  padding:7px;
+  border:1px solid var(--color-border, var(--border-soft));
+  border-radius:12px;
+  background:var(--color-surface, var(--surface));
+  box-shadow:0 18px 42px rgba(0,0,0,.28);
+}
+
+body.mobile-mode .mobile-overflow-actions-panel > :is(button,.btn){
+  width:100% !important;
+  min-width:0 !important;
+  min-height:36px !important;
+  height:auto !important;
+  margin:0 !important;
+  padding:7px 9px !important;
+  justify-content:flex-start;
+  border-radius:9px !important;
+  font-size:11px !important;
+  line-height:1.15 !important;
+  text-align:left;
+  white-space:normal;
+}
+
+body.mobile-mode .stock-wizard-actions > :is(button,.btn){
+  grid-column:auto !important;
+}
+
+/* Quatro posições fixas: ações nunca passam de 1/4 da barra. */
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+){
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+}
+
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+):has(> :first-child:nth-last-child(2)) > :last-child,
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+):has(> :first-child:nth-last-child(3)) > :last-child{
+  grid-column:4 !important;
+}
+
+body.mobile-mode :is(
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .modal-card .actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+) > :is(button,.btn){
+  overflow:hidden !important;
+  font-size:10px !important;
+  white-space:nowrap !important;
+  text-overflow:ellipsis;
+  overflow-wrap:normal;
+}
+}
+
+body.mobile-mode .mobile-panel-bar.app-header > .icon-button[title="Voltar"]{
+  width:clamp(27px,7.2vw,31px);
+  min-width:clamp(27px,7.2vw,31px);
+  height:clamp(27px,7.2vw,31px);
+  min-height:clamp(27px,7.2vw,31px);
+  border-radius:9px;
+  font-size:14px;
+}
+
+body.mobile-mode .stock-photo-picker .stock-photo-button{
+  width:100% !important;
+  max-width:none !important;
+  height:clamp(29px,7.6vw,32px) !important;
+  min-height:clamp(29px,7.6vw,32px) !important;
+  justify-self:end;
+  padding:4px 6px !important;
+  border-radius:8px !important;
+  font-size:10px !important;
+  white-space:nowrap !important;
+}
+
+body.mobile-mode .stock-photo-picker,
+body.mobile-mode .stock-photo-picker.has-photo{
+  grid-template-columns:40px minmax(0,1fr) minmax(68px,25%) !important;
+}
+
+@supports not (display:grid){
+/* Padrão legado; mantido apenas para navegadores sem suporte à grade. */
+body :is(
+  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions),
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+){
+  --ui-action-row-height:clamp(33px,8.4vw,38px);
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  grid-auto-rows:var(--ui-action-row-height);
+  align-items:center !important;
+  gap:clamp(4px,1.4vw,7px) !important;
+}
+
+body .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):has(> :first-child:nth-last-child(2)) > :last-child,
+body .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):has(> :first-child:nth-last-child(3)) > :last-child{
+  grid-column:4 !important;
+}
+
+body :is(
+  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions),
+  .ui3-action-row,
+  .app-modal-actions,
+  .modal-actions,
+  .stock-detail-actions,
+  .stock-wizard-actions,
+  .order-secondary-actions,
+  .order-detail-actions,
+  .production-modal-actions,
+  .printer-wizard-actions,
+  .cash-quick-form-actions,
+  .security-page-actions,
+  .settings-section-save
+) > :is(button,.btn){
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
+  height:calc(var(--ui-action-row-height, 34px) - 3px) !important;
+  min-height:calc(var(--ui-action-row-height, 34px) - 3px) !important;
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:3px !important;
+  margin:0 !important;
+  padding:3px 5px !important;
+  overflow:hidden !important;
+  font-size:clamp(9px,2.55vw,11px) !important;
+  line-height:1 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  text-overflow:ellipsis;
+}
+
+/* Rótulos dos botões sempre centralizados; cards clicáveis não entram aqui. */
+body :is(button.btn,label.btn,.compact-action,.text-button,.icon-button,.icon-action-button,.mobile-overflow-actions-trigger){
+  text-align:center !important;
+}
+
+body :is(button.btn,label.btn,.compact-action,.text-button) > span{
+  min-width:0;
+  max-width:100%;
+  margin:0 !important;
+  text-align:center !important;
+  white-space:nowrap;
+}
+
+body .mobile-overflow-actions-panel > :is(button,.btn){
+  justify-content:center !important;
+  text-align:center !important;
+}
+}
+
+body .stock-photo-button{
+  position:relative;
+  justify-content:center !important;
+  text-align:center !important;
+}
+
+body .stock-photo-button > svg{
+  position:absolute !important;
+  left:6px !important;
+  top:50% !important;
+  margin:0 !important;
+  transform:translateY(-50%);
+}
+
+body .stock-photo-button > span{
+  position:absolute !important;
+  inset:0 !important;
+  width:auto !important;
+  display:grid;
+  place-items:center;
+  padding:0 !important;
+  text-align:center !important;
+}
+
+body .stock-photo-button > input{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  opacity:0 !important;
+}
+
+/* Respiro mínimo entre ícones e informações internas dos cards. */
+body :is(.card,[class$="-card"],[class*="-card "]) :is(
+  .kpi-icon,
+  .metric-card__icon,
+  .desktop-dashboard-metric-icon,
+  .dashboard-mobile-advanced-icon,
+  .cash-hero-icon,
+  .cash-recent-icon,
+  .reports-kpi-icon,
+  .superadmin-kpi-icon,
+  .superadmin-module-widget-icon,
+  .security-card-icon,
+  .security-summary-icon,
+  .printer-device-icon,
+  .printer-summary-icon,
+  .administration-module-icon,
+  .smart-top-icon,
+  .insight-icon,
+  .ui-section-icon,
+  .ui3-settings-row__icon
+),
+body .stock-summary-card > i{
+  margin-inline-end:2px !important;
+}
+
+body :is(.actions,.ui3-action-row,.modal-actions,.app-modal-actions) > button{
+  position:relative;
+}
+
+body :is(.actions,.ui3-action-row,.modal-actions,.app-modal-actions) > button > span[aria-hidden="true"]{
+  position:absolute;
+  right:5px;
+  top:50%;
+  width:auto;
+  margin:0 !important;
+  transform:translateY(-50%);
+}
+
+/* O login preserva ações principais confortáveis, fora da compactação global. */
+body .auth-card :is(button.auth-primary, button.auth-google-button){
+  width:100% !important;
+  min-height:48px !important;
+  height:48px !important;
+  padding:12px 18px !important;
+  border-radius:14px !important;
+  font-size:15px !important;
+  line-height:1.2 !important;
+  box-sizing:border-box;
 }

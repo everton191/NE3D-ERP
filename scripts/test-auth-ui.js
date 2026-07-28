@@ -47,8 +47,8 @@ for (const forbidden of [
   assert.doesNotMatch(authCode, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), `auth publico nao deve conter ${forbidden}`);
 }
 
-assert.match(authEntrar, /renderGoogleAuthButton\("Entrar com Google"\)/, "auth publico deve oferecer login Google");
-assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "login Google deve usar gate explicito");
+assert.doesNotMatch(authEntrar, /renderGoogleAuthButton/, "login Google temporariamente desativado nao deve aparecer em Entrar");
+assert.match(app, /const GOOGLE_AUTH_ENABLED = false;/, "login Google deve permanecer bloqueado ate a publicacao");
 assert.doesNotMatch(app, /GOCSPX-|external_google_secret|client_secret\s*[:=]/i, "frontend nao deve conter segredo Google");
 
 assert.match(renderApp, /MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda\(\) \? renderAssistenteVirtual\(\) : ""/, "ajuda manual deve usar o gate autenticado");
