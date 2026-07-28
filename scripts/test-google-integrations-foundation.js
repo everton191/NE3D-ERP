@@ -87,8 +87,8 @@ async function run() {
   const authCode = [authPublica, authEntrar, authCriarConta].join("\n");
   assert.match(authCode, /usuarioLoginEmail/, "login por email/senha deve permanecer");
   assert.match(authCode, /usuarioLoginSenha/, "campo senha deve permanecer");
-  assert.match(authCode, /renderGoogleAuthButton\("Entrar com Google"\)/i, "auth Supabase deve exibir botao Google");
-  assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "auth Google deve estar ativado sem habilitar integracoes Google");
+  assert.doesNotMatch(authCode, /renderGoogleAuthButton\("Entrar com Google"\)/i, "auth Google temporariamente desativado nao deve aparecer em Entrar");
+  assert.match(app, /const GOOGLE_AUTH_ENABLED = false;/, "auth Google deve permanecer bloqueado ate a publicacao");
   assert.doesNotMatch(app, /GOCSPX-|external_google_secret|client_secret\s*[:=]/i, "frontend nao deve conter segredo Google");
 
   const service = read("src/integrations/google/googleIntegrationService.js");

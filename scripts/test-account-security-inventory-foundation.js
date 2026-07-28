@@ -94,8 +94,8 @@ const authCode = [
   extractFunction(app, "renderAuthEntrar"),
   extractFunction(app, "renderAuthCriarConta")
 ].join("\n");
-assert.match(authCode, /renderGoogleAuthButton\("Entrar com Google"\)/i, "login Google ativado deve aparecer no fluxo publico");
-assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "login Google deve usar gate explicito");
+assert.doesNotMatch(authCode, /renderGoogleAuthButton\("Entrar com Google"\)/i, "login Google temporariamente desativado nao deve aparecer em Entrar");
+assert.match(app, /const GOOGLE_AUTH_ENABLED = false;/, "login Google deve permanecer bloqueado ate a publicacao");
 assert.doesNotMatch(pkg, /"googleapis"|"@google\//i, "nenhum SDK Google deve ser adicionado");
 
 console.log("Account security and inventory foundation tests OK");

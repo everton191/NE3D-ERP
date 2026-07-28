@@ -37,7 +37,8 @@ const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d.vercel.app");
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
-const GOOGLE_AUTH_ENABLED = true;
+// Reativar somente após publicar e concluir a configuração/verificação da marca OAuth.
+const GOOGLE_AUTH_ENABLED = false;
 const SUPABASE_REQUEST_TIMEOUT_MS = 25000;
 const SUPPORT_EMAIL = "simplifica3d.app@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
@@ -3675,7 +3676,10 @@ function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
   }
   atualizarIndicadorSincronizacao("syncing", "Salvando");
   const avisoDemora = setTimeout(() => {
-    if (window.__simplificaSyncing) atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    const indicadorAtual = document.getElementById("syncIndicator");
+    if (window.__simplificaSyncing || indicadorAtual?.classList.contains("sync-syncing")) {
+      atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    }
   }, 12000);
   return sincronizarSupabaseSilencioso()
     .then(async (ok) => {
@@ -4816,10 +4820,14 @@ function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
     const local = mapa.get(remoto.email);
     const papel = local?.papel === "superadmin" || remoto.papel === "superadmin" ? "superadmin" : remoto.papel;
     const onboardingCompleted = local?.onboardingCompleted === true || remoto.onboardingCompleted === true;
+    const senhaJaAlteradaLocalmente = !!local?.passwordUpdatedAt;
+    const deveTrocarSenha = remoto.mustChangePassword === true && !senhaJaAlteradaLocalmente;
     const usuario = normalizarUsuario({
       ...local,
       ...remoto,
       papel,
+      mustChangePassword: deveTrocarSenha,
+      senhaTemporaria: deveTrocarSenha,
       onboardingCompleted,
       onboardingStep: onboardingCompleted ? 4 : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
       senha: local?.senha || "",
@@ -31807,7 +31815,7 @@ function renderConfig() {
       </label>`;
   const updatesContent = `
     <label class="checkbox-row">
-      <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
+      <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""} onchange="salvarPreferenciaAtualizacaoAutomatica()">
       <span>Atualizar automaticamente quando houver versão nova</span>
     </label>
     <div class="sync-grid">
@@ -31894,7 +31902,7 @@ function renderAuthPublica() {
         </div>
 
         ${renderVerificacao2FA()}
-        <div class="auth-tab-panel">
+        <div class="auth-tab-panel auth-tab-panel-${tab}">
           ${tab === "signup" ? renderAuthCriarConta() : renderAuthEntrar()}
         </div>
       </div>
@@ -31925,7 +31933,6 @@ function renderAuthEntrar() {
       </label>
 
       <button id="loginUsuarioBtn" class="btn auth-primary primary" type="submit">Entrar</button>
-      ${renderGoogleAuthButton("Entrar com Google")}
 
       <div class="auth-link-row">
         <button class="inline-link auth-link" type="button" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
@@ -31986,6 +31993,7 @@ function renderAuthCriarConta() {
       </label>
 
       <button id="signupBtn" class="btn auth-primary primary" type="submit">Criar conta</button>
+      ${renderGoogleAuthButton("Criar conta com Google")}
 
       <p class="auth-footer-text">
         Já tem conta?
@@ -32176,7 +32184,7 @@ function renderUsuariosAdmin() {
 
 function renderGoogleAuthButton(rotulo = "Login com Google") {
   if (!GOOGLE_AUTH_ENABLED) {
-    return `<button class="btn secondary" type="button" disabled title="Ative o provedor Google no Supabase e marque a opção em Backup e sincronização">${escaparHtml(rotulo)} indisponível</button>`;
+    return "";
   }
   return `<button class="btn secondary auth-google-button" type="button" data-action="login-google">${escaparHtml(rotulo)}</button>`;
 }
@@ -32403,6 +32411,21 @@ async function removerPinAcoesSensiveis() {
 
 async function alternarBiometriaSeguranca(ativar = null) {
   const desejaAtivar = ativar === null ? !!document.getElementById("biometricEnabledConfig")?.checked : !!ativar;
+  if (!desejaAtivar && appConfig.biometricEnabled) {
+    const confirmado = await solicitarConfirmacaoAcao({
+      titulo: "Desativar proteção do aparelho?",
+      mensagem: "O Simplifica 3D deixará de pedir digital, rosto, PIN, padrão ou senha do Android ao abrir seus dados neste aparelho.",
+      confirmar: "Desativar proteção",
+      cancelar: "Manter ativada",
+      perigo: true
+    });
+    if (!confirmado) {
+      const controle = document.getElementById("biometricEnabledConfig");
+      if (controle) controle.checked = true;
+      mostrarToast("A proteção do aparelho continua ativada.", "info", 2600);
+      return;
+    }
+  }
   if (desejaAtivar) {
     const biometria = await confirmarBiometriaSeDisponivel("Confirme para ativar a entrada por digital, rosto ou padrão.");
     if (biometria.disponivel && !biometria.ok) {
@@ -32664,6 +32687,20 @@ function salvarPreferenciasSeguranca() {
   }
   salvarDados();
   mostrarToast("Preferências de segurança salvas.", "sucesso");
+}
+
+function salvarPreferenciaAtualizacaoAutomatica() {
+  const controle = document.getElementById("autoUpdateEnabled");
+  if (!controle) return;
+  appConfig.autoUpdateEnabled = !!controle.checked;
+  salvarDados();
+  mostrarToast(
+    appConfig.autoUpdateEnabled
+      ? "Atualizações automáticas ativadas."
+      : "Atualizações automáticas desativadas.",
+    "sucesso",
+    2800
+  );
 }
 
 async function verificarPermissoesDispositivo() {
@@ -40639,6 +40676,7 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.ativo = perfil.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil.status ? perfil.status !== "active" : usuario.bloqueado;
     usuario.mustChangePassword = perfil.must_change_password === true && !usuario.passwordUpdatedAt;
+    usuario.senhaTemporaria = usuario.mustChangePassword;
     usuario.clientId = perfil.client_id || usuario.clientId || billingConfig.clientId || "";
     usuario.companyId = perfil.company_id || usuario.companyId || billingConfig.companyId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
@@ -43862,25 +43900,42 @@ function confirmarRevisaoAlteracoesPedido() {
 
 async function alterarStatusPedido(id, status) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar pedidos.")) return;
-  const pedido = encontrarPedidoPorId(id);
+  const indicePedido = pedidos.findIndex((item) => String(item?.id) === String(id));
+  const pedido = indicePedido >= 0 ? pedidos[indicePedido] : null;
   if (!pedido) return;
-  if (String(status || "").toLowerCase() === "cancelado") {
-    await requestOrderDelete(id);
-    return;
+  const chaveOperacao = `${String(id)}:${String(status || "aberto")}`;
+  window.__pedidosStatusEmAndamento = window.__pedidosStatusEmAndamento || new Set();
+  if (window.__pedidosStatusEmAndamento.has(chaveOperacao)) return;
+  window.__pedidosStatusEmAndamento.add(chaveOperacao);
+  const statusAnterior = pedido.status || "aberto";
+  try {
+    if (String(status || "").toLowerCase() === "cancelado") {
+      await requestOrderDelete(id);
+      return;
+    }
+    // Avançar um pedido existente é parte do fluxo operacional e não cria uma
+    // nova ação comercial. Não aguarde anúncio aqui: a espera fazia o status
+    // parecer travado e descartava a alteração quando o anúncio falhava.
+    const pedidoAtualizado = { ...pedido, status: status || "aberto" };
+    if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
+    pedidos[indicePedido] = marcarRegistroAlteradoParaSync(pedidoAtualizado);
+    salvarDados();
+    agendarSyncSilenciosoDados("status-pedido");
+    registrarAuditoriaPedido("pedido_status_alterado", pedidos[indicePedido], { statusAnterior, statusNovo: pedidos[indicePedido].status });
+    registrarHistorico("Pedido", `Status alterado de ${labelStatusPedido(statusAnterior)} para ${labelStatusPedido(pedidos[indicePedido].status)}.`, {
+      area: "order",
+      order_id: String(id),
+      previous_status: statusAnterior,
+      new_status: pedidos[indicePedido].status
+    });
+    mostrarToast(`Status atualizado para ${labelStatusPedido(pedidos[indicePedido].status)}.`, "sucesso", 2200);
+    renderizarPreservandoScroll();
+  } catch (erro) {
+    registrarFluxoSalvamento("Pedidos", "Alterar status", { pedidoId: String(id), status: String(status || "") }, erro);
+    ErrorService.notify(erro, { area: "Pedidos", action: "Alterar status", errorKey: "ORDER_STATUS_CHANGE_FAILED" });
+  } finally {
+    window.__pedidosStatusEmAndamento.delete(chaveOperacao);
   }
-  if (/final|conclu|entreg|pago|produção|producao/i.test(String(status || "")) && !await consumirCreditoAcaoFree("finalizar_pedido", "finalizar pedido")) return;
-  const pedidoAtualizado = { ...pedido, status: status || "aberto" };
-  if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
-  marcarRegistroLocalAlteradoParaSync(pedido, {
-    status: pedidoAtualizado.status,
-    stock_deducted_at: pedidoAtualizado.stock_deducted_at || "",
-    estoqueBaixadoEm: pedidoAtualizado.estoqueBaixadoEm || ""
-  });
-  salvarDados();
-  agendarSyncSilenciosoDados("status-pedido");
-  registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
-  mostrarToast(`Status atualizado para ${labelStatusPedido(pedido.status)}.`, "sucesso", 2200);
-  renderizarPreservandoScroll();
 }
 
 function alternarControleLoteEstoqueCadastro() {
