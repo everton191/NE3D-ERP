@@ -2,13 +2,13 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.17";
-const APP_VERSION_CODE = 18;
+const APP_VERSION = "1.0.18";
+const APP_VERSION_CODE = 19;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Superadmin reorganizado com diagnósticos da versão atual, atividade de clientes e controle claro de períodos Pro.",
-  "Pedidos numerados, compartilhamento por WhatsApp com resumo e PIX, além de PDF mais limpo para baixar.",
-  "Estoque com cadastro em três etapas, código numérico, busca, bloqueio de duplicados e fotos compactadas."
+  "Alterações de status dos pedidos agora são salvas de forma consistente e sem travar no processamento.",
+  "A troca obrigatória de senha não reaparece depois que a nova senha já foi confirmada.",
+  "Configurações e tela de acesso receberam confirmações e ajustes visuais."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
