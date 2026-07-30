@@ -145,7 +145,7 @@ assert(index.indexOf("smartLoaderService.js") < index.indexOf("/app.js"), "Smart
 assert(sw.includes("./src/services/smartLoaderService.js"), "SmartLoader entra no precache PWA");
 assert(read("package.json").includes('"test:perceived-performance"'), "package.json expoe teste de desempenho percebido");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(/\/app\.js\?v=1\.0\.17-[^"]+/.test(index), "index.html usa cache-bust atual");
+assert(/\/app\.js\?v=1\.0\.18-[^"]+/.test(index), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1 && index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager carrega antes do app");
 assert(sw.includes("./src/services/safeAreaManager.js"), "safeAreaManager entra no precache PWA");
