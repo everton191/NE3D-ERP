@@ -18,11 +18,11 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.18\"",
-  "APP_VERSION_CODE = 19",
-  "versionName \"1.0.18\"",
-  "versionCode 19",
-  "\"version\": \"1.0.18\"",
+  "APP_VERSION = \"1.0.19\"",
+  "APP_VERSION_CODE = 20",
+  "versionName \"1.0.19\"",
+  "versionCode 20",
+  "\"version\": \"1.0.19\"",
   "\"versionCode\": 19"
 ];
 

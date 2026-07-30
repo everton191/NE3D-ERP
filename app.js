@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.18";
-const APP_VERSION_CODE = 19;
+const APP_VERSION = "1.0.19";
+const APP_VERSION_CODE = 20;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Promoções 3D com até 15 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
