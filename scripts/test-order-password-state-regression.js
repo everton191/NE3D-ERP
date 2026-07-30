@@ -34,6 +34,21 @@ assert.match(
   /usuario\.mustChangePassword = perfil\.must_change_password === true && !usuario\.passwordUpdatedAt;[\s\S]*?usuario\.senhaTemporaria = usuario\.mustChangePassword;/,
   "As duas flags locais de senha temporária devem permanecer consistentes."
 );
+assert.match(
+  app,
+  /async function limparTrocaSenhaObrigatoriaSupabase\(\)[\s\S]*?method: "PATCH"[\s\S]*?must_change_password: false/,
+  "A troca concluída deve limpar diretamente a exigência no perfil online existente."
+);
+assert.match(
+  app,
+  /async function alterarSenhaSupabaseSeConectado\(novaSenha\)[\s\S]*?await limparTrocaSenhaObrigatoriaSupabase\(\);/,
+  "A alteração de senha dentro do aplicativo deve limpar a exigência online."
+);
+assert.match(
+  app,
+  /async function atualizarSenhaSupabaseComSessao\(novaSenha\)[\s\S]*?await limparTrocaSenhaObrigatoriaSupabase\(\);/,
+  "A redefinição por link de recuperação também deve limpar a exigência online."
+);
 assert.doesNotMatch(
   app,
   /mostrarToast\((?:error|erro)\?\.message/,

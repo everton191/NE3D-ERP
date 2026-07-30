@@ -57,7 +57,7 @@ const audit = read("docs/quality/interface-phase-2-audit.md");
 
 const gap = read("docs/benchmark/simplifica3d-gap-report.md");
 [
-  "Baixa de estoque deve acontecer pelo pedido/producao",
+  "Baixa de estoque deve continuar acontecendo pelo pedido/produção",
   "Superadmin deve tratar clientes SaaS como empresas",
   "Monitoramento remoto de impressoras"
 ].forEach((marker) => {

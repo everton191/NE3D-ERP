@@ -30,7 +30,7 @@ export const initialFeatureGapAnalysis: FeatureGapItem[] = [
   },
   {
     module: "stock",
-    capability: "historico e movimentacoes por rolo/material",
+    capability: "reserva, consumo e devolucao por rolo/material",
     marketExpected: true,
     simplificaStatus: "partial",
     priority: "essential",
@@ -39,11 +39,11 @@ export const initialFeatureGapAnalysis: FeatureGapItem[] = [
     suggestedPhase: "now",
     affectedModules: ["stock", "orders", "production"],
     dependencies: ["pedido confirmado", "movimentacao com motivo"],
-    rationale: "Estoque deve registrar consumo real pelo pedido/producao, nao pela simulacao da calculadora."
+    rationale: "A fundacao de rolo/lote e movimentacoes existe; falta fechar reserva, consumo e devolucao pelo pedido/producao, nunca pela simulacao da calculadora."
   },
   {
     module: "production",
-    capability: "fila manual com status e responsavel",
+    capability: "capacidade, prazo e custo real na fila manual",
     marketExpected: true,
     simplificaStatus: "partial",
     priority: "essential",
@@ -51,8 +51,8 @@ export const initialFeatureGapAnalysis: FeatureGapItem[] = [
     effort: "medium",
     suggestedPhase: "next",
     affectedModules: ["production", "orders", "stock"],
-    dependencies: ["status de pedido", "estoque por rolo"],
-    rationale: "Monitoramento automatico de impressora fica futuro; fila manual resolve a operacao atual."
+    dependencies: ["status de pedido", "estoque por rolo", "eventos de producao"],
+    rationale: "A fila manual ja possui fundacao; o proximo ganho e prever capacidade e comparar custo estimado com o realizado."
   },
   {
     module: "store",

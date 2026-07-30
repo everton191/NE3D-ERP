@@ -1,6 +1,7 @@
 # Auditoria da Interface Fase 2
 
-Data: 2026-07-08
+Data inicial: 2026-07-08
+Última revisão: 2026-07-23
 
 Escopo: auditar a padronizacao criada nas fases anteriores antes de migrar telas reais.
 
@@ -55,6 +56,13 @@ Ainda esta parcial:
 ## Regra de aplicacao
 
 O Design System deve padronizar contratos, tamanhos, acessibilidade e reutilizacao sem reconstruir a estetica existente. Nenhuma tela piloto visual sera aplicada automaticamente. A migracao ocorre somente quando um componente real precisar de correcao funcional ou quando houver aprovacao especifica da tela.
+
+## Tela piloto recomendada
+
+Pedidos/Novo pedido deve ser o próximo piloto funcional. É o ponto de integração
+entre cliente, cálculo, estoque, produção, caixa e documentos. A migração deve
+separar primeiro regras de domínio e persistência; mudanças visuais continuam
+incrementais e dependem de defeito comprovado ou aprovação específica.
 
 ## Ordem de correcao sugerida
 

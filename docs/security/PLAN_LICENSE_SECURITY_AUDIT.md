@@ -35,6 +35,11 @@ Existe matriz no frontend (`FEATURE_ACCESS_MATRIX`, `PLAN_REGISTRY` e `PlanServi
 
 ### P2 / Médio - Administração de funcionários ignora o entitlement PRO
 
+Estado em 2026-07-23: **correção local preparada, ainda não aplicada remotamente** em
+`20260723123000_employee_entitlement_authority.sql`. A migração deriva usuário,
+empresa, papel, assinatura e validade no backend e substitui as políticas de
+INSERT/UPDATE/DELETE. O achado permanece aberto até homologação e aplicação remota.
+
 Um `owner/admin` autenticado da própria empresa pode chamar diretamente INSERT/UPDATE/DELETE em `company_members`. A matriz exige PRO ativo, mas as políticas verificam somente administração do tenant.
 
 Evidências:

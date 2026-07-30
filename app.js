@@ -38900,6 +38900,19 @@ function aplicarLicencaSaasOnline(licenca = {}, options = {}) {
   }
 }
 
+async function limparTrocaSenhaObrigatoriaSupabase() {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
+  await requisicaoSupabase(`/rest/v1/erp_profiles?id=eq.${encodeURIComponent(syncConfig.supabaseUserId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      must_change_password: false,
+      updated_at: new Date().toISOString()
+    })
+  });
+  return true;
+}
+
 async function alterarSenhaSupabaseSeConectado(novaSenha) {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId) return false;
   try {
@@ -38907,16 +38920,7 @@ async function alterarSenhaSupabaseSeConectado(novaSenha) {
       method: "PUT",
       body: JSON.stringify({ password: novaSenha })
     });
-    await requisicaoSupabase("/rest/v1/erp_profiles?on_conflict=id", {
-      method: "POST",
-      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify({
-        id: syncConfig.supabaseUserId,
-        email: syncConfig.supabaseEmail || getUsuarioAtual()?.email || null,
-        must_change_password: false,
-        updated_at: new Date().toISOString()
-      })
-    }).catch((erro) => registrarDiagnostico("Supabase", "Flag de troca de senha não atualizada", erro.message));
+    await limparTrocaSenhaObrigatoriaSupabase();
     return true;
   } catch (erro) {
     registrarDiagnostico("Supabase", "Senha local alterada, Supabase não atualizado", erro.message);
@@ -39511,6 +39515,7 @@ async function atualizarSenhaSupabaseComSessao(novaSenha) {
     method: "PUT",
     body: JSON.stringify({ password: novaSenha })
   });
+  await limparTrocaSenhaObrigatoriaSupabase();
   registrarSeguranca("Senha redefinida", "sucesso", "Link de recuperação Supabase", syncConfig.supabaseEmail);
   registrarAuditoria("senha_redefinida", { origem: "supabase_recovery_link" });
 }
