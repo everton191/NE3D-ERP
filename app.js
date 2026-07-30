@@ -2,11 +2,11 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.19";
-const APP_VERSION_CODE = 20;
+const APP_VERSION = "1.0.20";
+const APP_VERSION_CODE = 21;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Promoções 3D com até 15 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
+  "Promoções 3D com até 60 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
   "Monitor de produtos e buscas salvas com contador de novidades dentro do Simplifica.",
   "Cartões compactos e alinhados, com acesso direto à oferta no navegador."
 ]);
@@ -40,14 +40,18 @@ const PROMOTIONS_3D_API_URL = PROMOTIONS_3D_LOCAL_HOST ? `${APP_PUBLIC_URL}/api/
 const PROMOTIONS_3D_CACHE_KEY = "simplifica3d:promocoes-3d:v2";
 const PROMOTIONS_3D_ALERTS_KEY = "simplifica3d:promocoes-3d-alertas:v1";
 const PROMOTIONS_3D_MONITOR_KEY = "simplifica3d:promocoes-3d-monitor:v1";
-const PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000;
-const PROMOTIONS_3D_VISIBLE_LIMIT = 15;
+const PROMOTIONS_3D_REFRESH_MS = 5 * 60 * 1000;
+const PROMOTIONS_3D_VISIBLE_LIMIT = 60;
 const PROMOTIONS_3D_MAX_WATCHES = 8;
 const PROMOTIONS_3D_OFFICIAL_HOSTS = Object.freeze([
   "www.anycubicofficial.com.br",
   "anycubicofficial.com.br",
   "crealitybrasil.com.br",
-  "www.crealitybrasil.com.br"
+  "www.crealitybrasil.com.br",
+  "www.shop.eprintstore.com.br",
+  "shop.eprintstore.com.br",
+  "lojainfobr.com.br",
+  "www.lojainfobr.com.br"
 ]);
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
@@ -13481,7 +13485,7 @@ function getPromocoes3dVisiveis() {
     if (!query) return true;
     return normalizarTextoBusca(`${item.title} ${item.store} ${getNomeCategoriaPromocao3d(item.category)}`).includes(query);
   });
-  return filtered.sort((a, b) => {
+  const sorted = filtered.sort((a, b) => {
     if (promotions3dState.sort === "menor-preco") return a.currentPrice - b.currentPrice || b.discount - a.discount;
     if (promotions3dState.sort === "maior-desconto") return b.discount - a.discount || a.currentPrice - b.currentPrice;
     if (promotions3dState.sort === "melhores") {
@@ -13494,7 +13498,23 @@ function getPromocoes3dVisiveis() {
       || Number(b.discount > 0) - Number(a.discount > 0)
       || b.discount - a.discount
       || a.currentPrice - b.currentPrice;
-  }).slice(0, PROMOTIONS_3D_VISIBLE_LIMIT);
+  });
+  if (promotions3dState.store !== "todas" || promotions3dState.sort !== "recentes") {
+    return sorted.slice(0, PROMOTIONS_3D_VISIBLE_LIMIT);
+  }
+  const queues = new Map();
+  sorted.forEach((item) => {
+    const queue = queues.get(item.host) || [];
+    queue.push(item);
+    queues.set(item.host, queue);
+  });
+  const diverse = [];
+  while (diverse.length < PROMOTIONS_3D_VISIBLE_LIMIT && Array.from(queues.values()).some((queue) => queue.length)) {
+    queues.forEach((queue) => {
+      if (queue.length && diverse.length < PROMOTIONS_3D_VISIBLE_LIMIT) diverse.push(queue.shift());
+    });
+  }
+  return diverse;
 }
 
 function deveDestacarOfertasRelampago3d() {
@@ -13672,7 +13692,7 @@ function renderPromocoes3d() {
         <div>
           <span class="promotions-3d-kicker">${renderUiIcon("cupom")} Promoções relâmpago</span>
           <h1>Encontre bons preços sem procurar por horas</h1>
-          <p>Até 15 ofertas recentes de impressoras, filamentos, resinas e materiais em lojas oficiais.</p>
+          <p>Até 60 ofertas recentes de impressoras, filamentos, resinas e materiais em diversas lojas brasileiras.</p>
         </div>
         <div class="promotions-3d-hero-actions">
           <button class="btn secondary promotion-alert-button ${alertsEnabled ? "active" : ""}" type="button" aria-pressed="${alertsEnabled}" onclick="alternarAvisosPromocoes3d()">
@@ -13716,7 +13736,7 @@ function renderPromocoes3d() {
               <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
             </select>
           </label>
-          <small class="promotions-updated-label">Busca automática ativa • atualização a cada 10 minutos</small>
+          <small class="promotions-updated-label">Busca automática ativa • atualização a cada 5 minutos</small>
         </div>
       </section>
 

@@ -1,0 +1,134 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const PROMOTIONS_ENDPOINT = "https://erpne3d.vercel.app/api/promocoes-3d";
+const MINIMUM_REFRESH_MS = 4 * 60 * 1000;
+const MAX_UNCHANGED_SCANS = 9999;
+
+const headers = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Content-Type": "application/json; charset=utf-8",
+};
+
+function json(status: number, payload: Record<string, unknown>) {
+  return new Response(JSON.stringify(payload), { status, headers });
+}
+
+function asPrice(value: unknown): number {
+  const price = Number(value);
+  return Number.isFinite(price) && price > 0 ? Math.round(price * 100) / 100 : 0;
+}
+
+Deno.serve(async (request: Request) => {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (!["GET", "POST"].includes(request.method)) return json(405, { ok: false, error: "METHOD_NOT_ALLOWED" });
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json(503, { ok: false, error: "BACKEND_NOT_CONFIGURED" });
+
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+  const { data: botState } = await admin
+    .from("promotion_bot_state")
+    .select("last_started_at,last_finished_at,last_status,last_offer_count,last_changed_count")
+    .eq("singleton", true)
+    .maybeSingle();
+
+  const lastStarted = Date.parse(String(botState?.last_started_at || ""));
+  if (Number.isFinite(lastStarted) && Date.now() - lastStarted < MINIMUM_REFRESH_MS) {
+    return json(200, { ok: true, skipped: true, reason: "RECENT_REFRESH", state: botState });
+  }
+
+  const startedAt = new Date().toISOString();
+  await admin.from("promotion_bot_state").upsert({
+    singleton: true,
+    last_started_at: startedAt,
+    last_status: "running",
+    last_error: null,
+    updated_at: startedAt,
+  });
+
+  try {
+    const response = await fetch(PROMOTIONS_ENDPOINT, {
+      headers: { accept: "application/json", "user-agent": "Simplifica3D-Promotions-Worker/1.0" },
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error(`PROMOTIONS_HTTP_${response.status}`);
+    const payload = await response.json();
+    const offers = Array.isArray(payload?.offers) ? payload.offers : [];
+    if (!payload?.ok || !offers.length) throw new Error("NO_ACTIVE_OFFERS");
+
+    const ids = offers.map((offer: Record<string, unknown>) => String(offer.id || "")).filter(Boolean);
+    const { data: previousRows, error: readError } = await admin
+      .from("promotion_offer_state")
+      .select("offer_id,current_price,unchanged_scans,price_changed_at,first_seen_at")
+      .in("offer_id", ids);
+    if (readError) throw readError;
+
+    const previousById = new Map((previousRows || []).map((row) => [String(row.offer_id), row]));
+    let changedCount = 0;
+    const now = new Date().toISOString();
+    const rows = offers.flatMap((offer: Record<string, unknown>) => {
+      const offerId = String(offer.id || "");
+      const currentPrice = asPrice(offer.currentPrice);
+      if (!offerId || !currentPrice || !offer.title || !offer.url) return [];
+      const previous = previousById.get(offerId);
+      const samePrice = previous && asPrice(previous.current_price) === currentPrice;
+      const unchangedScans = samePrice
+        ? Math.min(Number(previous.unchanged_scans || 0) + 1, MAX_UNCHANGED_SCANS)
+        : 0;
+      if (!samePrice) changedCount += 1;
+      return [{
+        offer_id: offerId,
+        store: String(offer.store || "Loja"),
+        host: String(offer.host || ""),
+        title: String(offer.title),
+        category: String(offer.category || "materiais"),
+        current_price: currentPrice,
+        previous_price: previous ? asPrice(previous.current_price) : null,
+        old_price: asPrice(offer.oldPrice) || null,
+        discount: Math.max(0, Math.min(99, Math.round(Number(offer.discount) || 0))),
+        image_url: String(offer.image || "") || null,
+        offer_url: String(offer.url),
+        unchanged_scans: unchangedScans,
+        is_stable: unchangedScans >= 4,
+        first_seen_at: previous?.first_seen_at || now,
+        last_seen_at: now,
+        price_changed_at: samePrice ? (previous?.price_changed_at || now) : now,
+        source_updated_at: Number.isFinite(Date.parse(String(offer.updatedAt || ""))) ? String(offer.updatedAt) : null,
+        updated_at: now,
+      }];
+    });
+
+    const { error: writeError } = await admin.from("promotion_offer_state").upsert(rows, { onConflict: "offer_id" });
+    if (writeError) throw writeError;
+
+    await admin.from("promotion_bot_state").update({
+      last_finished_at: now,
+      last_status: "ready",
+      last_offer_count: rows.length,
+      last_changed_count: changedCount,
+      last_error: null,
+      updated_at: now,
+    }).eq("singleton", true);
+
+    return json(200, {
+      ok: true,
+      skipped: false,
+      offers: rows.length,
+      changed: changedCount,
+      stable: rows.filter((row) => row.is_stable).length,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "PROMOTIONS_REFRESH_FAILED";
+    const failedAt = new Date().toISOString();
+    await admin.from("promotion_bot_state").update({
+      last_finished_at: failedAt,
+      last_status: "error",
+      last_error: message.slice(0, 500),
+      updated_at: failedAt,
+    }).eq("singleton", true);
+    return json(502, { ok: false, error: message });
+  }
+});
