@@ -60,8 +60,8 @@ const refreshFunction = fs.readFileSync(
   ".promotions-3d-grid",
   ".promotion-3d-card",
   ".promotion-3d-card.is-flash",
-  "height:398px",
-  "height:252px",
+  "min-height:420px",
+  "min-height:266px",
   ".promotion-filter-button.active",
   "@media(max-width:640px)"
 ].forEach((marker) => assert(css.includes(marker), `Promoções 3D sem estilo: ${marker}`));
