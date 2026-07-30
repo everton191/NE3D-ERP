@@ -1,4 +1,5 @@
 const fs=require('node:fs');const assert=require('node:assert/strict');const app=fs.readFileSync('app.js','utf8');
+assert.match(app,/const attrs = `width="24" height="24" viewBox="0 0 24 24"/,'ícones SVG centrais precisam de tamanho intrínseco seguro');
 ['pedido','pedidos','clientes','producao','estoque'].forEach(screen=>assert.ok(app.includes(`data-ui3-screen="${screen}"`),`${screen} sem raiz V3`));
 assert.equal((app.match(/data-ui3-screen="pedidos"/g)||[]).length,2,'variantes mobile e PWA de Pedidos devem usar V3');
 assert.match(app,/pedidoTab === "itens" \? renderAcaoPedidoCompacta\("✚", "Manual"/,'Manual nao condicionado a Itens');assert.match(app,/pedidoTab === "itens" \? renderAcaoPedidoCompacta\("calculadora", "Calcular"/,'Calcular nao condicionado a Itens');assert.ok(app.includes('ui3-sticky-actions ui3-order-final-bar'),'Barra final nao usa StickyActionBar');

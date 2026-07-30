@@ -23934,7 +23934,7 @@ function renderIconeAcaoPedido(icone, label = "") {
     : chave.includes("ver") || icone === "👁" ? "view"
     : chave.includes("mais") || icone === "⋯" ? "more"
     : "plus";
-  const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"`;
+  const attrs = `width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"`;
   const icones = {
     whatsapp: `<svg ${attrs}><path d="M20 11.6a8 8 0 0 1-11.8 7l-3.2.9.9-3.1A8 8 0 1 1 20 11.6Z"/><path d="M9.5 8.8c.2 3 2 4.8 5 5.7l1.1-1.1c.3-.3.8-.4 1.2-.2l1.2.6"/><path d="M8.5 7.1l.9 1.7"/></svg>`,
     pdf: `<svg ${attrs}><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h5"/><path d="M8.5 16h7"/><path d="M8.5 12h7"/></svg>`,
@@ -23953,7 +23953,7 @@ function renderIconeAcaoPedido(icone, label = "") {
 function renderUiIcon(tipo = "", fallback = "") {
   const chave = getCanonicalUiIconKey(tipo, fallback);
   const fallbackKey = getCanonicalUiIconKey(fallback, "dashboard");
-  const attrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"`;
+  const attrs = `width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"`;
   const icones = {
     dashboard: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>`,
     home: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>`,
