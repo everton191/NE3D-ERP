@@ -9,7 +9,8 @@ const OFFICIAL_STORES = Object.freeze([
     name: "Creality Brasil",
     host: "crealitybrasil.com.br",
     baseUrl: "https://crealitybrasil.com.br",
-    collections: ["promocao", "oferta", "oferta-turbo"]
+    collections: ["promocao", "oferta", "oferta-turbo"],
+    pixDiscount: 10
   },
   {
     name: "Eprint Store",
@@ -21,7 +22,8 @@ const OFFICIAL_STORES = Object.freeze([
     name: "Loja Info Brasil",
     host: "lojainfobr.com.br",
     baseUrl: "https://lojainfobr.com.br",
-    pages: ["/"]
+    pages: ["/"],
+    pixDiscount: 10
   }
 ]);
 
@@ -80,6 +82,7 @@ function getProductOffer(product, store, collection) {
     title: String(product.title || "Produto 3D").trim(),
     category: classifyProduct(product),
     currentPrice,
+    pixPrice: store.pixDiscount ? Math.round(currentPrice * (1 - store.pixDiscount / 100) * 100) / 100 : 0,
     oldPrice,
     discount,
     image,
@@ -149,6 +152,7 @@ function getStructuredOffer(product, store) {
     title,
     category: classifyProduct({ title, product_type: product.category, tags: product.description }),
     currentPrice,
+    pixPrice: store.pixDiscount ? Math.round(currentPrice * (1 - store.pixDiscount / 100) * 100) / 100 : 0,
     oldPrice: 0,
     discount: 0,
     image: String(image || ""),

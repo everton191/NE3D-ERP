@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v312-filtro-desconto-20260730";
+const CACHE_NAME = "simplifica-3d-v313-preco-pix-20260730";
 const APP_FILES = [
   "./",
   "./index.html",

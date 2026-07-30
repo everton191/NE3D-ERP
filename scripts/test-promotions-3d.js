@@ -25,6 +25,7 @@ const refreshFunction = fs.readFileSync(
   "function pesquisarPromocoes3d(",
   "function filtrarPromocoes3d(",
   "function filtrarDescontoPromocoes3d(",
+  "promotion-3d-pix",
   "function alternarAvisosPromocoes3d(",
   "function deveDestacarOfertasRelampago3d()",
   "PROMOTIONS_3D_REFRESH_MS = 5 * 60 * 1000",
@@ -87,6 +88,11 @@ assert.equal(endpoint.getProductOffer({
   updated_at: "2026-07-30T10:00:00-03:00",
   variants: [{ available: true, price: "89.90", compare_at_price: "109.90" }]
 }, { name: "Loja teste", host: "loja.teste", baseUrl: "https://loja.teste" }, "promocao").updatedAt, "2026-07-30T13:00:00.000Z");
+assert.equal(endpoint.getProductOffer({
+  handle: "impressora-pix",
+  title: "Impressora 3D",
+  variants: [{ available: true, price: "1000.00" }]
+}, { name: "Loja teste", host: "loja.teste", baseUrl: "https://loja.teste", pixDiscount: 10 }, "promocao").pixPrice, 900);
 assert.equal(endpoint.getStructuredOffer({
   "@type": "Product",
   name: "Filamento PLA Premium 1 kg",

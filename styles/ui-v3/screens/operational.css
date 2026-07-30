@@ -1064,6 +1064,17 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   font-size:.69rem;
 }
 
+.promotion-3d-price .promotion-3d-pix{
+  color:var(--success);
+  font-size:.76rem;
+  font-weight:800;
+}
+
+.promotion-3d-price .promotion-3d-pix strong{
+  color:inherit;
+  font-size:inherit;
+}
+
 .promotion-3d-validity{
   display:flex;
   align-items:center;

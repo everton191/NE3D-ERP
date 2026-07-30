@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.22";
-const APP_VERSION_CODE = 23;
+const APP_VERSION = "1.0.23";
+const APP_VERSION_CODE = 24;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Mercado Livre integrado ao bot de ofertas, com atualização automática e links visíveis para todos.",
@@ -13457,6 +13457,7 @@ function normalizarPromocao3d(item = {}) {
       title: String(item.title),
       category,
       currentPrice,
+      pixPrice: Math.max(0, Number(item.pixPrice) || 0),
       oldPrice: Math.max(0, Number(item.oldPrice) || 0),
       discount: Math.max(0, Math.min(99, Math.round(Number(item.discount) || 0))),
       image,
@@ -13581,7 +13582,9 @@ function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true
         <div class="promotion-3d-price">
           ${item.oldPrice > item.currentPrice ? `<del>${formatarMoeda(item.oldPrice)}</del>` : ""}
           <strong>${formatarMoeda(item.currentPrice)}</strong>
-          <small>Confira o valor final na loja</small>
+          ${item.pixPrice > 0 && item.pixPrice < item.currentPrice
+            ? `<small class="promotion-3d-pix">No Pix: <strong>${formatarMoeda(item.pixPrice)}</strong></small>`
+            : `<small>Preço anunciado • confira o valor final na loja</small>`}
         </div>
         <span class="promotion-3d-validity ${item.expiresAt ? "has-expiration" : ""}">
           ${renderUiIcon("clock")} ${escaparHtml(formatarTempoOfertaPromocao3d(item))}

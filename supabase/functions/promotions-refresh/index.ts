@@ -167,7 +167,7 @@ Deno.serve(async (request: Request) => {
     const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     const { data, error } = await admin
       .from("promotion_offer_state")
-      .select("offer_id,store,host,title,category,current_price,old_price,discount,image_url,offer_url,source_updated_at,last_seen_at,expires_at")
+      .select("offer_id,store,host,title,category,current_price,pix_price,old_price,discount,image_url,offer_url,source_updated_at,last_seen_at,expires_at")
       .gte("last_seen_at", cutoff)
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("last_seen_at", { ascending: false })
@@ -182,6 +182,7 @@ Deno.serve(async (request: Request) => {
         title: row.title,
         category: row.category,
         currentPrice: asPrice(row.current_price),
+        pixPrice: asPrice(row.pix_price),
         oldPrice: asPrice(row.old_price),
         discount: row.discount,
         image: row.image_url || "",
@@ -254,6 +255,7 @@ Deno.serve(async (request: Request) => {
         title: String(offer.title),
         category: String(offer.category || "materiais"),
         current_price: currentPrice,
+        pix_price: asPrice(offer.pixPrice) || null,
         previous_price: previous ? asPrice(previous.current_price) : null,
         old_price: asPrice(offer.oldPrice) || null,
         discount: Math.max(0, Math.min(99, Math.round(Number(offer.discount) || 0))),
