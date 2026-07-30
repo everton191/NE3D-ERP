@@ -35,10 +35,12 @@ const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d.vercel.app");
-const PROMOTIONS_3D_API_URL = "/api/promocoes-3d";
-const PROMOTIONS_3D_CACHE_KEY = "simplifica3d:promocoes-3d:v1";
+const PROMOTIONS_3D_LOCAL_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(String(globalThis?.location?.hostname || ""));
+const PROMOTIONS_3D_API_URL = PROMOTIONS_3D_LOCAL_HOST ? `${APP_PUBLIC_URL}/api/promocoes-3d` : "/api/promocoes-3d";
+const PROMOTIONS_3D_CACHE_KEY = "simplifica3d:promocoes-3d:v2";
 const PROMOTIONS_3D_ALERTS_KEY = "simplifica3d:promocoes-3d-alertas:v1";
 const PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000;
+const PROMOTIONS_3D_VISIBLE_LIMIT = 15;
 const PROMOTIONS_3D_OFFICIAL_HOSTS = Object.freeze([
   "www.anycubicofficial.com.br",
   "anycubicofficial.com.br",
@@ -915,7 +917,7 @@ let promotions3dState = {
   updatedAt: "",
   filter: "todas",
   store: "todas",
-  sort: "melhores",
+  sort: "recentes",
   query: "",
   message: ""
 };
@@ -13245,7 +13247,9 @@ function normalizarPromocao3d(item = {}) {
       oldPrice: Math.max(0, Number(item.oldPrice) || 0),
       discount: Math.max(0, Math.min(99, Math.round(Number(item.discount) || 0))),
       image,
-      url: url.toString()
+      url: url.toString(),
+      publishedAt: Number.isFinite(Date.parse(String(item.publishedAt || ""))) ? String(item.publishedAt) : "",
+      updatedAt: Number.isFinite(Date.parse(String(item.updatedAt || ""))) ? String(item.updatedAt) : ""
     };
   } catch {
     return null;
@@ -13278,17 +13282,24 @@ function getPromocoes3dVisiveis() {
   return filtered.sort((a, b) => {
     if (promotions3dState.sort === "menor-preco") return a.currentPrice - b.currentPrice || b.discount - a.discount;
     if (promotions3dState.sort === "maior-desconto") return b.discount - a.discount || a.currentPrice - b.currentPrice;
-    return Number(b.discount > 0) - Number(a.discount > 0)
+    if (promotions3dState.sort === "melhores") {
+      return Number(b.discount > 0) - Number(a.discount > 0)
+        || b.discount - a.discount
+        || Date.parse(b.updatedAt || b.publishedAt || 0) - Date.parse(a.updatedAt || a.publishedAt || 0)
+        || a.currentPrice - b.currentPrice;
+    }
+    return Date.parse(b.updatedAt || b.publishedAt || 0) - Date.parse(a.updatedAt || a.publishedAt || 0)
+      || Number(b.discount > 0) - Number(a.discount > 0)
       || b.discount - a.discount
       || a.currentPrice - b.currentPrice;
-  });
+  }).slice(0, PROMOTIONS_3D_VISIBLE_LIMIT);
 }
 
 function deveDestacarOfertasRelampago3d() {
   return !normalizarTextoBusca(promotions3dState.query || "")
     && promotions3dState.filter === "todas"
     && promotions3dState.store === "todas"
-    && promotions3dState.sort === "melhores";
+    && promotions3dState.sort === "recentes";
 }
 
 function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true } = {}) {
@@ -13316,9 +13327,9 @@ function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true
           <strong>${formatarMoeda(item.currentPrice)}</strong>
           <small>Confira o valor final na loja</small>
         </div>
-        <button class="btn promotion-3d-open" type="button" onclick="abrirPromocao3d('${escaparAttr(item.url)}')">
-          ${renderUiIcon("lojaonline")} Ver na loja
-        </button>
+        <a class="btn promotion-3d-open" href="${escaparAttr(item.url)}" target="_blank" rel="noopener noreferrer">
+          ${renderUiIcon("lojaonline")} Ver oferta
+        </a>
       </div>
     </article>
   `;
@@ -13360,7 +13371,7 @@ function renderResultadosPromocoes3d() {
           <div>
             <span>${renderUiIcon("cupom")} Destaques de agora</span>
             <h2 id="promotions-3d-flash-title">Ofertas relâmpago</h2>
-            <p>Os melhores descontos encontrados nas lojas oficiais. Essas ofertas podem acabar rápido.</p>
+            <p>Ofertas atualizadas recentemente nas lojas oficiais. Elas podem acabar rápido.</p>
           </div>
           ${updating ? `<small>Atualizando...</small>` : `<small>${escaparHtml(formatarAtualizacaoPromocoes3d())}</small>`}
         </div>
@@ -13372,7 +13383,7 @@ function renderResultadosPromocoes3d() {
     ${regularItems.length ? `
       <section class="promotions-3d-all" aria-label="${flashItems.length ? "Mais ofertas" : "Ofertas encontradas"}">
         <div class="promotions-3d-result-head">
-          <span><strong>${items.length}</strong> oferta(s) ativa(s) ${flashItems.length ? "no total" : ""}</span>
+          <span><strong>${items.length}</strong> oferta(s) ativa(s) exibida(s)</span>
           ${flashItems.length
             ? `<small>Mais ofertas para você</small>`
             : updating
@@ -13411,7 +13422,7 @@ function renderPromocoes3d() {
         <div>
           <span class="promotions-3d-kicker">${renderUiIcon("cupom")} Promoções relâmpago</span>
           <h1>Encontre bons preços sem procurar por horas</h1>
-          <p>Impressoras, filamentos, resinas e materiais disponíveis em lojas oficiais.</p>
+          <p>Até 15 ofertas recentes de impressoras, filamentos, resinas e materiais em lojas oficiais.</p>
         </div>
         <div class="promotions-3d-hero-actions">
           <button class="btn secondary promotion-alert-button ${alertsEnabled ? "active" : ""}" type="button" aria-pressed="${alertsEnabled}" onclick="alternarAvisosPromocoes3d()">
@@ -13449,12 +13460,13 @@ function renderPromocoes3d() {
           <label>
             <span>Organizar</span>
             <select onchange="ordenarPromocoes3d(this.value)">
+              <option value="recentes" ${promotions3dState.sort === "recentes" ? "selected" : ""}>Mais recentes</option>
               <option value="melhores" ${promotions3dState.sort === "melhores" ? "selected" : ""}>Melhores ofertas</option>
               <option value="maior-desconto" ${promotions3dState.sort === "maior-desconto" ? "selected" : ""}>Maior desconto</option>
               <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
             </select>
           </label>
-          <small class="promotions-updated-label">Atualização automática a cada 10 minutos</small>
+          <small class="promotions-updated-label">Busca automática ativa • atualização a cada 10 minutos</small>
         </div>
       </section>
 
@@ -13558,8 +13570,8 @@ function filtrarLojaPromocoes3d(host = "todas") {
   atualizarResultadosPromocoes3d();
 }
 
-function ordenarPromocoes3d(sort = "melhores") {
-  promotions3dState.sort = ["melhores", "maior-desconto", "menor-preco"].includes(sort) ? sort : "melhores";
+function ordenarPromocoes3d(sort = "recentes") {
+  promotions3dState.sort = ["recentes", "melhores", "maior-desconto", "menor-preco"].includes(sort) ? sort : "recentes";
   atualizarResultadosPromocoes3d();
 }
 
@@ -13567,7 +13579,7 @@ function limparFiltrosPromocoes3d() {
   promotions3dState.query = "";
   promotions3dState.filter = "todas";
   promotions3dState.store = "todas";
-  promotions3dState.sort = "melhores";
+  promotions3dState.sort = "recentes";
   const search = document.querySelector(".promotions-3d-search input");
   if (search) search.value = "";
   const store = document.querySelector(".promotions-store-filter");
@@ -13587,20 +13599,6 @@ function alternarAvisosPromocoes3d() {
     button.innerHTML = `${renderUiIcon("bell")} ${enabled ? "Avisos ativados" : "Avisar sobre novas ofertas"}`;
   }
   mostrarToast(enabled ? "Avisos de novas ofertas ativados." : "Avisos de novas ofertas desativados.", "info", 3000);
-}
-
-function abrirPromocao3d(value = "") {
-  try {
-    const url = new URL(String(value || ""));
-    if (url.protocol !== "https:" || !PROMOTIONS_3D_OFFICIAL_HOSTS.includes(url.hostname.toLowerCase())) {
-      mostrarToast("Este link não pertence a uma loja oficial.", "aviso", 3600);
-      return;
-    }
-    const opened = window.open(url.toString(), "_blank", "noopener,noreferrer");
-    if (!opened) window.location.href = url.toString();
-  } catch {
-    mostrarToast("Não foi possível abrir esta oferta.", "aviso", 3200);
-  }
 }
 
 function renderAcoesRapidas() {

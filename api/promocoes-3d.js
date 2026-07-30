@@ -21,6 +21,11 @@ function asNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function asDate(value) {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : "";
+}
+
 function classifyProduct(product = {}) {
   const title = String(product.title || "").toLowerCase();
   const text = `${title} ${product.product_type || ""} ${product.tags || ""}`.toLowerCase();
@@ -64,7 +69,9 @@ function getProductOffer(product, store, collection) {
     discount,
     image,
     url: `${store.baseUrl}/products/${encodeURIComponent(product.handle)}`,
-    collection
+    collection,
+    publishedAt: asDate(product.published_at || product.created_at),
+    updatedAt: asDate(product.updated_at || product.published_at || product.created_at)
   };
 }
 
@@ -104,11 +111,21 @@ async function loadOffers() {
     }
   });
   return Array.from(unique.values())
-    .sort((a, b) => b.discount - a.discount || a.currentPrice - b.currentPrice || a.title.localeCompare(b.title, "pt-BR"))
+    .sort((a, b) => Date.parse(b.updatedAt || b.publishedAt || 0) - Date.parse(a.updatedAt || a.publishedAt || 0)
+      || b.discount - a.discount
+      || a.currentPrice - b.currentPrice
+      || a.title.localeCompare(b.title, "pt-BR"))
     .slice(0, 60);
 }
 
-async function handler(_request, response) {
+async function handler(request, response) {
+  response.setHeader("Access-Control-Allow-Origin", "*");
+  response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+  if (String(request?.method || "GET").toUpperCase() === "OPTIONS") {
+    response.status(204).end();
+    return;
+  }
   try {
     const offers = await loadOffers();
     response.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1800");
@@ -128,3 +145,4 @@ async function handler(_request, response) {
 module.exports = handler;
 module.exports.loadOffers = loadOffers;
 module.exports.classifyProduct = classifyProduct;
+module.exports.getProductOffer = getProductOffer;

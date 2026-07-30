@@ -634,12 +634,15 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 .promotions-3d-grid{
   display:grid;
-  grid-template-columns:repeat(4, minmax(0, 1fr));
+  grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));
   gap:16px;
   margin-top:12px;
 }
 
 .promotion-3d-card{
+  display:flex;
+  flex-direction:column;
+  height:402px;
   min-width:0;
   overflow:hidden;
   border:1px solid var(--border-primary);
@@ -669,8 +672,10 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 .promotion-3d-media{
   position:relative;
   display:grid;
+  flex:0 0 150px;
   place-items:center;
-  aspect-ratio:4 / 3;
+  height:150px;
+  aspect-ratio:auto;
   overflow:hidden;
   background:linear-gradient(145deg, color-mix(in srgb, var(--card-bg) 82%, var(--accent-primary) 18%), var(--bg-secondary));
 }
@@ -731,9 +736,10 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 .promotion-3d-card-body{
   display:flex;
+  flex:1 1 auto;
   flex-direction:column;
-  min-height:260px;
-  padding:16px;
+  min-height:0;
+  padding:14px;
 }
 
 .promotion-3d-store{
@@ -767,12 +773,12 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 .promotion-3d-card h3{
   display:-webkit-box;
   overflow:hidden;
-  min-height:3.8em;
-  margin:12px 0 8px;
-  font-size:.98rem;
+  min-height:2.55em;
+  margin:10px 0 7px;
+  font-size:.94rem;
   line-height:1.27;
   -webkit-box-orient:vertical;
-  -webkit-line-clamp:3;
+  -webkit-line-clamp:2;
 }
 
 .promotion-3d-category{
@@ -788,7 +794,7 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 .promotion-3d-price{
   display:grid;
   gap:2px;
-  margin:14px 0;
+  margin:10px 0;
 }
 
 .promotion-3d-price del{
@@ -867,7 +873,7 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 @media(max-width:1180px){
   .promotions-3d-grid{
-    grid-template-columns:repeat(3, minmax(0, 1fr));
+    grid-template-columns:repeat(auto-fill, minmax(235px, 1fr));
   }
 }
 
@@ -971,17 +977,18 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   .promotion-3d-card{
     display:grid;
     grid-template-columns:minmax(112px, 36%) minmax(0, 1fr);
+    height:238px;
     border-radius:18px;
   }
 
   .promotion-3d-media{
     height:100%;
-    min-height:230px;
+    min-height:0;
     aspect-ratio:auto;
   }
 
   .promotion-3d-card-body{
-    min-height:230px;
+    min-height:0;
     padding:13px;
   }
 
@@ -995,11 +1002,11 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
     min-height:auto;
     margin:8px 0 6px;
     font-size:.88rem;
-    -webkit-line-clamp:3;
+    -webkit-line-clamp:2;
   }
 
   .promotion-3d-price{
-    margin:10px 0;
+    margin:8px 0;
   }
 
   .promotion-3d-badges{
@@ -1016,10 +1023,6 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 @media(max-width:390px){
   .promotion-3d-card{
     grid-template-columns:104px minmax(0, 1fr);
-  }
-
-  .promotion-3d-media{
-    min-height:226px;
   }
 
   .promotion-3d-badges strong{

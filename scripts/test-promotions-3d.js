@@ -18,9 +18,13 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
   "function alternarAvisosPromocoes3d(",
   "function deveDestacarOfertasRelampago3d()",
   "PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000",
+  "PROMOTIONS_3D_VISIBLE_LIMIT = 15",
+  "PROMOTIONS_3D_LOCAL_HOST",
+  "Mais recentes",
+  "Busca automática ativa",
   'localStorage.getItem(PROMOTIONS_3D_ALERTS_KEY) === "true"',
   "Ofertas relâmpago",
-  "Essas ofertas podem acabar rápido.",
+  "Elas podem acabar rápido.",
   "Melhores ofertas",
   "Somente lojas oficiais."
 ].forEach((marker) => assert(app.includes(marker), `Promoções 3D sem marcador: ${marker}`));
@@ -32,6 +36,8 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
   ".promotions-3d-grid",
   ".promotion-3d-card",
   ".promotion-3d-card.is-flash",
+  "height:402px",
+  "height:238px",
   ".promotion-filter-button.active",
   "@media(max-width:640px)"
 ].forEach((marker) => assert(css.includes(marker), `Promoções 3D sem estilo: ${marker}`));
@@ -41,5 +47,17 @@ assert.equal(endpoint.classifyProduct({ title: "Filamento PLA 1 kg" }), "filamen
 assert.equal(endpoint.classifyProduct({ title: "Resina UV 1 kg" }), "resinas");
 assert.equal(endpoint.classifyProduct({ title: "Impressora 3D Kobra" }), "impressoras");
 assert.equal(endpoint.classifyProduct({ title: "Bico de reposição" }), "materiais");
+assert.equal(endpoint.getProductOffer({
+  handle: "filamento-indisponivel",
+  title: "Filamento PLA",
+  variants: [{ available: false, price: "99.90" }]
+}, { name: "Loja teste", host: "loja.teste", baseUrl: "https://loja.teste" }, "promocao"), null);
+assert.equal(endpoint.getProductOffer({
+  handle: "filamento-disponivel",
+  title: "Filamento PLA",
+  published_at: "2026-07-29T10:00:00-03:00",
+  updated_at: "2026-07-30T10:00:00-03:00",
+  variants: [{ available: true, price: "89.90", compare_at_price: "109.90" }]
+}, { name: "Loja teste", host: "loja.teste", baseUrl: "https://loja.teste" }, "promocao").updatedAt, "2026-07-30T13:00:00.000Z");
 
-console.log("Promoções 3D: guia, pesquisa, filtros, avisos opcionais e layout responsivo verificados.");
+console.log("Promoções 3D: busca automática, até 15 ofertas recentes, disponibilidade e cartões fixos verificados.");
