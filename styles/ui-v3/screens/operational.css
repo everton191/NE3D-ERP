@@ -850,7 +850,7 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 .promotion-3d-card{
   display:flex;
   flex-direction:column;
-  height:374px;
+  height:398px;
   min-width:0;
   overflow:hidden;
   border:1px solid var(--border-primary);
@@ -889,10 +889,12 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 }
 
 .promotion-3d-media img{
-  width:100%;
-  height:100%;
-  object-fit:contain;
-  padding:10px;
+  width:calc(100% - 24px);
+  height:calc(100% - 24px);
+  object-fit:scale-down;
+  object-position:center;
+  padding:0;
+  border-radius:12px;
   background:#fff;
 }
 
@@ -1053,6 +1055,25 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 .promotion-3d-price small{
   color:var(--text-muted);
   font-size:.69rem;
+}
+
+.promotion-3d-validity{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  margin:-3px 0 8px;
+  color:var(--text-muted);
+  font-size:.7rem;
+  font-weight:700;
+}
+
+.promotion-3d-validity.has-expiration{
+  color:#c2410c;
+}
+
+.promotion-3d-validity .ui-icon{
+  width:14px;
+  height:14px;
 }
 
 .promotion-3d-open{
@@ -1248,7 +1269,7 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   .promotion-3d-card{
     display:grid;
     grid-template-columns:minmax(112px, 36%) minmax(0, 1fr);
-    height:238px;
+    height:252px;
     border-radius:18px;
   }
 

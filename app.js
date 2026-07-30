@@ -13447,6 +13447,8 @@ function normalizarPromocao3d(item = {}) {
     if (!item.id || !item.title || currentPrice <= 0) return null;
     const imageUrl = String(item.image || "");
     const image = imageUrl.startsWith("https://") ? imageUrl : "";
+    const expiresAt = Number.isFinite(Date.parse(String(item.expiresAt || ""))) ? String(item.expiresAt) : "";
+    if (expiresAt && Date.parse(expiresAt) <= Date.now()) return null;
     return {
       id: String(item.id),
       store: String(item.store || "Loja oficial"),
@@ -13459,7 +13461,8 @@ function normalizarPromocao3d(item = {}) {
       image,
       url: url.toString(),
       publishedAt: Number.isFinite(Date.parse(String(item.publishedAt || ""))) ? String(item.publishedAt) : "",
-      updatedAt: Number.isFinite(Date.parse(String(item.updatedAt || ""))) ? String(item.updatedAt) : ""
+      updatedAt: Number.isFinite(Date.parse(String(item.updatedAt || ""))) ? String(item.updatedAt) : "",
+      expiresAt
     };
   } catch {
     return null;
@@ -13470,6 +13473,25 @@ function formatarAtualizacaoPromocoes3d(value = promotions3dState.updatedAt) {
   const date = new Date(value);
   if (!value || Number.isNaN(date.getTime())) return "Aguardando atualização";
   return `Atualizado às ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function formatarTempoOfertaPromocao3d(item = {}) {
+  const expiresAt = Date.parse(String(item.expiresAt || ""));
+  if (Number.isFinite(expiresAt) && expiresAt > Date.now()) {
+    const remainingMinutes = Math.max(1, Math.ceil((expiresAt - Date.now()) / 60000));
+    if (remainingMinutes < 60) return `Termina em ${remainingMinutes} min`;
+    const hours = Math.floor(remainingMinutes / 60);
+    const minutes = remainingMinutes % 60;
+    if (hours < 24) return `Termina em ${hours}h${minutes ? ` ${minutes}min` : ""}`;
+    const days = Math.floor(hours / 24);
+    return `Termina em ${days} ${days === 1 ? "dia" : "dias"}`;
+  }
+  const checkedAt = Date.parse(String(item.updatedAt || item.publishedAt || ""));
+  if (!Number.isFinite(checkedAt)) return "Validade não informada";
+  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - checkedAt) / 60000));
+  if (elapsedMinutes < 1) return "Verificada agora";
+  if (elapsedMinutes < 60) return `Verificada há ${elapsedMinutes} min`;
+  return `Verificada há ${Math.floor(elapsedMinutes / 60)}h`;
 }
 
 function getNomeCategoriaPromocao3d(category = "") {
@@ -13559,6 +13581,9 @@ function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true
           <strong>${formatarMoeda(item.currentPrice)}</strong>
           <small>Confira o valor final na loja</small>
         </div>
+        <span class="promotion-3d-validity ${item.expiresAt ? "has-expiration" : ""}">
+          ${renderUiIcon("clock")} ${escaparHtml(formatarTempoOfertaPromocao3d(item))}
+        </span>
         <a class="btn promotion-3d-open" href="${escaparAttr(item.url)}" target="_blank" rel="noopener noreferrer">
           ${renderUiIcon("lojaonline")} Ver oferta
         </a>

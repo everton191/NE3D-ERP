@@ -25,6 +25,11 @@ function asPrice(value: unknown): number {
   return Number.isFinite(price) && price > 0 ? Math.round(price * 100) / 100 : 0;
 }
 
+function asFutureDate(value: unknown): string | null {
+  const timestamp = Date.parse(String(value || ""));
+  return Number.isFinite(timestamp) && timestamp > Date.now() ? new Date(timestamp).toISOString() : null;
+}
+
 function classifyProduct(title: string): string {
   const value = title.toLowerCase();
   if (/\b(filamento|pla|petg|abs|asa|tpu)\b/.test(value)) return "filamentos";
@@ -108,6 +113,11 @@ async function loadMercadoLivreOffers(admin: ReturnType<typeof createClient>) {
           image: String(item.thumbnail || "").replace(/^http:/, "https:"),
           url: String(item.permalink),
           updatedAt: new Date().toISOString(),
+          expiresAt: asFutureDate(
+            item?.sale_price?.metadata?.campaign_end_date
+            || item?.sale_price?.metadata?.promotion_end_date
+            || item?.sale_price?.end_date
+          ),
         });
       }
     }
@@ -123,11 +133,12 @@ Deno.serve(async (request: Request) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   if (request.method === "GET") {
-    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
     const { data, error } = await admin
       .from("promotion_offer_state")
-      .select("offer_id,store,host,title,category,current_price,old_price,discount,image_url,offer_url,source_updated_at,last_seen_at")
+      .select("offer_id,store,host,title,category,current_price,old_price,discount,image_url,offer_url,source_updated_at,last_seen_at,expires_at")
       .gte("last_seen_at", cutoff)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("last_seen_at", { ascending: false })
       .limit(120);
     if (error) return json(500, { ok: false, error: "OFFERS_READ_FAILED" });
@@ -145,6 +156,7 @@ Deno.serve(async (request: Request) => {
         image: row.image_url || "",
         url: row.offer_url,
         updatedAt: row.source_updated_at || row.last_seen_at,
+        expiresAt: row.expires_at || "",
       })),
     });
   }
@@ -220,12 +232,14 @@ Deno.serve(async (request: Request) => {
         last_seen_at: now,
         price_changed_at: samePrice ? (previous?.price_changed_at || now) : now,
         source_updated_at: Number.isFinite(Date.parse(String(offer.updatedAt || ""))) ? String(offer.updatedAt) : null,
+        expires_at: asFutureDate(offer.expiresAt),
         updated_at: now,
       }];
     });
 
     const { error: writeError } = await admin.from("promotion_offer_state").upsert(rows, { onConflict: "offer_id" });
     if (writeError) throw writeError;
+    await admin.from("promotion_offer_state").delete().not("expires_at", "is", null).lte("expires_at", now);
 
     await admin.from("promotion_bot_state").update({
       last_finished_at: now,

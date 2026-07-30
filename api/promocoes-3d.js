@@ -155,7 +155,8 @@ function getStructuredOffer(product, store) {
     url: url.toString(),
     collection: "pagina-oficial",
     publishedAt: asDate(product.datePublished),
-    updatedAt: asDate(product.dateModified || product.datePublished)
+    updatedAt: asDate(product.dateModified || product.datePublished),
+    expiresAt: asDate(availableOffer?.validThrough || product.validThrough)
   };
 }
 
@@ -219,7 +220,8 @@ async function loadOffers() {
 }
 
 function diversifyOffers(offers, limit = 60) {
-  const sorted = [...offers]
+  const now = Date.now();
+  const sorted = offers.filter((offer) => !offer.expiresAt || Date.parse(offer.expiresAt) > now)
     .sort((a, b) => (Date.parse(b.updatedAt || b.publishedAt) || 0) - (Date.parse(a.updatedAt || a.publishedAt) || 0)
       || b.discount - a.discount
       || a.currentPrice - b.currentPrice
