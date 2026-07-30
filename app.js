@@ -13284,16 +13284,23 @@ function getPromocoes3dVisiveis() {
   });
 }
 
-function renderCardPromocao3d(item, index = 0) {
-  const highlighted = index < 3 && item.discount > 0;
+function deveDestacarOfertasRelampago3d() {
+  return !normalizarTextoBusca(promotions3dState.query || "")
+    && promotions3dState.filter === "todas"
+    && promotions3dState.store === "todas"
+    && promotions3dState.sort === "melhores";
+}
+
+function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true } = {}) {
+  const highlighted = flash || (highlight && index < 3 && item.discount > 0);
   return `
-    <article class="promotion-3d-card ${highlighted ? "is-highlighted" : ""}">
+    <article class="promotion-3d-card ${highlighted ? "is-highlighted" : ""} ${flash ? "is-flash" : ""}">
       <div class="promotion-3d-media">
         ${item.image
           ? `<img src="${escaparAttr(item.image)}" alt="${escaparAttr(item.title)}" loading="lazy" onerror="this.remove()">`
           : `<span>${renderUiIcon(item.category === "impressoras" ? "impressoras" : item.category === "filamentos" ? "filamento" : item.category === "resinas" ? "resina" : "produtos")}</span>`}
         <div class="promotion-3d-badges">
-          ${highlighted ? `<strong>Melhor oferta</strong>` : ""}
+          ${highlighted ? `<strong>${flash ? "Oferta relâmpago" : "Melhor oferta"}</strong>` : ""}
           ${item.discount > 0 ? `<em>${item.discount}% OFF</em>` : `<em>Oferta</em>`}
         </div>
       </div>
@@ -13339,14 +13346,44 @@ function renderResultadosPromocoes3d() {
       </div>
     `;
   }
+  const flashItems = deveDestacarOfertasRelampago3d()
+    ? items.filter((item) => item.discount > 0).slice(0, 3)
+    : [];
+  const flashUrls = new Set(flashItems.map((item) => item.url));
+  const regularItems = flashItems.length
+    ? items.filter((item) => !flashUrls.has(item.url))
+    : items;
   return `
-    <div class="promotions-3d-result-head">
-      <span><strong>${items.length}</strong> oferta(s) ativa(s)</span>
-      ${updating ? `<small>Atualizando...</small>` : `<small>${escaparHtml(formatarAtualizacaoPromocoes3d())}</small>`}
-    </div>
-    <div class="promotions-3d-grid">
-      ${items.map(renderCardPromocao3d).join("")}
-    </div>
+    ${flashItems.length ? `
+      <section class="promotions-3d-flash" aria-labelledby="promotions-3d-flash-title">
+        <div class="promotions-3d-section-head">
+          <div>
+            <span>${renderUiIcon("cupom")} Destaques de agora</span>
+            <h2 id="promotions-3d-flash-title">Ofertas relâmpago</h2>
+            <p>Os melhores descontos encontrados nas lojas oficiais. Essas ofertas podem acabar rápido.</p>
+          </div>
+          ${updating ? `<small>Atualizando...</small>` : `<small>${escaparHtml(formatarAtualizacaoPromocoes3d())}</small>`}
+        </div>
+        <div class="promotions-3d-flash-grid">
+          ${flashItems.map((item, index) => renderCardPromocao3d(item, index, { flash: true })).join("")}
+        </div>
+      </section>
+    ` : ""}
+    ${regularItems.length ? `
+      <section class="promotions-3d-all" aria-label="${flashItems.length ? "Mais ofertas" : "Ofertas encontradas"}">
+        <div class="promotions-3d-result-head">
+          <span><strong>${items.length}</strong> oferta(s) ativa(s) ${flashItems.length ? "no total" : ""}</span>
+          ${flashItems.length
+            ? `<small>Mais ofertas para você</small>`
+            : updating
+              ? `<small>Atualizando...</small>`
+              : `<small>${escaparHtml(formatarAtualizacaoPromocoes3d())}</small>`}
+        </div>
+        <div class="promotions-3d-grid">
+          ${regularItems.map((item, index) => renderCardPromocao3d(item, index, { highlight: !flashItems.length })).join("")}
+        </div>
+      </section>
+    ` : ""}
   `;
 }
 

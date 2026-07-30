@@ -16,16 +16,22 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
   "function pesquisarPromocoes3d(",
   "function filtrarPromocoes3d(",
   "function alternarAvisosPromocoes3d(",
+  "function deveDestacarOfertasRelampago3d()",
   "PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000",
   'localStorage.getItem(PROMOTIONS_3D_ALERTS_KEY) === "true"',
+  "Ofertas relâmpago",
+  "Essas ofertas podem acabar rápido.",
   "Melhores ofertas",
   "Somente lojas oficiais."
 ].forEach((marker) => assert(app.includes(marker), `Promoções 3D sem marcador: ${marker}`));
 
 [
   ".promotions-3d-page",
+  ".promotions-3d-flash",
+  ".promotions-3d-flash-grid",
   ".promotions-3d-grid",
   ".promotion-3d-card",
+  ".promotion-3d-card.is-flash",
   ".promotion-filter-button.active",
   "@media(max-width:640px)"
 ].forEach((marker) => assert(css.includes(marker), `Promoções 3D sem estilo: ${marker}`));
