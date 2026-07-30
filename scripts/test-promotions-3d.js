@@ -9,7 +9,7 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
 
 [
   'promocoes: Object.freeze({ label: "Promoções 3D"',
-  '{ tela: "promocoes", icone: "cupom", texto: "Promoções 3D" }',
+  '{ tela: "promocoes", icone: "cupom", texto: "Promoções 3D", badge: novidadesPromocoes }',
   'case "promocoes":',
   "function renderPromocoes3d()",
   "function carregarPromocoes3d(",
@@ -19,7 +19,18 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
   "function deveDestacarOfertasRelampago3d()",
   "PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000",
   "PROMOTIONS_3D_VISIBLE_LIMIT = 15",
+  "PROMOTIONS_3D_MAX_WATCHES = 8",
   "PROMOTIONS_3D_LOCAL_HOST",
+  "function iniciarMonitorPromocoes3d()",
+  "function processarMonitorPromocoes3d(",
+  "function salvarBuscaAtualPromocoes3d()",
+  "function alternarAcompanhamentoProdutoPromocao3d(",
+  "function marcarPromocoes3dComoVistas()",
+  "function mostrarNotificacaoExternaPromocoes3d(",
+  "data-promo-badge",
+  "Monitor automático ativo",
+  "Acompanhar esta busca",
+  "Acompanhar este produto",
   "Mais recentes",
   "Busca automática ativa",
   'localStorage.getItem(PROMOTIONS_3D_ALERTS_KEY) === "true"',
@@ -31,6 +42,10 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
 
 [
   ".promotions-3d-page",
+  ".promotions-3d-monitor",
+  ".promotions-monitor-watches",
+  ".promotion-nav-badge",
+  ".promotion-watch-product",
   ".promotions-3d-flash",
   ".promotions-3d-flash-grid",
   ".promotions-3d-grid",
@@ -43,6 +58,7 @@ const endpoint = require(path.join(root, "api/promocoes-3d.js"));
 ].forEach((marker) => assert(css.includes(marker), `Promoções 3D sem estilo: ${marker}`));
 
 assert(!app.includes('localStorage.setItem(PROMOTIONS_3D_ALERTS_KEY, "true");\n  carregarPromocoes3d'), "Avisos não podem ser ligados automaticamente.");
+assert(!app.includes('if (tela !== "promocoes" && promotions3dRefreshTimer)'), "O monitor não pode parar ao sair da guia Promoções.");
 assert.equal(endpoint.classifyProduct({ title: "Filamento PLA 1 kg" }), "filamentos");
 assert.equal(endpoint.classifyProduct({ title: "Resina UV 1 kg" }), "resinas");
 assert.equal(endpoint.classifyProduct({ title: "Impressora 3D Kobra" }), "impressoras");

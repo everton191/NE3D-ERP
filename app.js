@@ -2,13 +2,13 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.17";
-const APP_VERSION_CODE = 18;
+const APP_VERSION = "1.0.18";
+const APP_VERSION_CODE = 19;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Superadmin reorganizado com diagnósticos da versão atual, atividade de clientes e controle claro de períodos Pro.",
-  "Pedidos numerados, compartilhamento por WhatsApp com resumo e PIX, além de PDF mais limpo para baixar.",
-  "Estoque com cadastro em três etapas, código numérico, busca, bloqueio de duplicados e fotos compactadas."
+  "Promoções 3D com até 15 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
+  "Monitor de produtos e buscas salvas com contador de novidades dentro do Simplifica.",
+  "Cartões compactos e alinhados, com acesso direto à oferta no navegador."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -39,8 +39,10 @@ const PROMOTIONS_3D_LOCAL_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(S
 const PROMOTIONS_3D_API_URL = PROMOTIONS_3D_LOCAL_HOST ? `${APP_PUBLIC_URL}/api/promocoes-3d` : "/api/promocoes-3d";
 const PROMOTIONS_3D_CACHE_KEY = "simplifica3d:promocoes-3d:v2";
 const PROMOTIONS_3D_ALERTS_KEY = "simplifica3d:promocoes-3d-alertas:v1";
+const PROMOTIONS_3D_MONITOR_KEY = "simplifica3d:promocoes-3d-monitor:v1";
 const PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000;
 const PROMOTIONS_3D_VISIBLE_LIMIT = 15;
+const PROMOTIONS_3D_MAX_WATCHES = 8;
 const PROMOTIONS_3D_OFFICIAL_HOSTS = Object.freeze([
   "www.anycubicofficial.com.br",
   "anycubicofficial.com.br",
@@ -920,6 +922,13 @@ let promotions3dState = {
   sort: "recentes",
   query: "",
   message: ""
+};
+let promotions3dMonitorState = {
+  initialized: false,
+  watches: [],
+  knownIds: [],
+  unreadIds: [],
+  lastCheckedAt: ""
 };
 let promotions3dRefreshTimer = null;
 let androidMessageRelayStatus = { supported: false, permissionGranted: false, enabled: false };
@@ -10038,10 +10047,6 @@ function sairManutencaoSuperadmin() {
 
 function trocarTela(tela, opcoes = {}) {
   fecharMenusContextuaisUi();
-  if (tela !== "promocoes" && promotions3dRefreshTimer) {
-    clearTimeout(promotions3dRefreshTimer);
-    promotions3dRefreshTimer = null;
-  }
   if (!telas[tela]) {
     tela = "dashboard";
   }
@@ -12560,13 +12565,14 @@ function selecionarUsuarioPerfil(id) {
 
 function getMenuGroups() {
   const lojaOnlineItem = getUsuarioAtual() ? [{ tela: "lojaOnline", icone: "lojaonline", texto: "Loja Online" }] : [];
+  const novidadesPromocoes = getNovidadesPromocoes3dCount();
   const modo = getInterfaceMode();
   const grupos = [
     {
       titulo: "Principal",
       itens: [
         { tela: "dashboard", icone: "dashboard", texto: isSimplificaMode() ? "Início" : "Dashboard" },
-        { tela: "promocoes", icone: "cupom", texto: "Promoções 3D" },
+        { tela: "promocoes", icone: "cupom", texto: "Promoções 3D", badge: novidadesPromocoes },
         { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
         { tela: "clientes", icone: "clientes", texto: "Clientes" },
         { tela: "calculadora", icone: "calculadora", texto: "Calculadora 3D" },
@@ -12620,10 +12626,12 @@ function getMenuGroups() {
 function renderBotaoLateral(item) {
   const relacao = getUiScreenRelation(item.tela);
   const iconKey = relacao?.icon || item.icone || item.tela;
+  const badge = item.tela === "promocoes" ? getNovidadesPromocoes3dCount() : Number(item.badge) || 0;
   return `
     <button class="side-nav-button" data-tela="${item.tela}" onclick="abrirTelaMenuLateral('${item.tela}')" title="${escaparAttr(item.texto)}">
       <span>${renderUiIcon(iconKey, item.tela)}</span>
       <strong>${item.texto}</strong>
+      ${item.tela === "promocoes" ? `<em class="promotion-nav-badge" data-promo-badge ${badge ? "" : "hidden"}>${Math.min(99, badge)}</em>` : ""}
     </button>
   `;
 }
@@ -13204,6 +13212,200 @@ function lerPreferenciaAvisosPromocoes3d() {
   }
 }
 
+function carregarMonitorPromocoes3d() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(PROMOTIONS_3D_MONITOR_KEY) || "{}");
+    const watches = Array.isArray(stored.watches) ? stored.watches
+      .map((item) => ({
+        id: String(item?.id || ""),
+        type: item?.type === "product" ? "product" : "query",
+        value: String(item?.value || "").slice(0, 180),
+        label: String(item?.label || item?.value || "").slice(0, 180),
+        createdAt: String(item?.createdAt || "")
+      }))
+      .filter((item) => item.id && item.value && item.label)
+      .slice(0, PROMOTIONS_3D_MAX_WATCHES) : [];
+    promotions3dMonitorState = {
+      initialized: stored.initialized === true,
+      watches,
+      knownIds: Array.isArray(stored.knownIds) ? [...new Set(stored.knownIds.map(String).filter(Boolean))].slice(0, 120) : [],
+      unreadIds: Array.isArray(stored.unreadIds) ? [...new Set(stored.unreadIds.map(String).filter(Boolean))].slice(0, 99) : [],
+      lastCheckedAt: String(stored.lastCheckedAt || "")
+    };
+  } catch {
+    promotions3dMonitorState = { initialized: false, watches: [], knownIds: [], unreadIds: [], lastCheckedAt: "" };
+  }
+  return promotions3dMonitorState;
+}
+
+function salvarMonitorPromocoes3d() {
+  try {
+    localStorage.setItem(PROMOTIONS_3D_MONITOR_KEY, JSON.stringify(promotions3dMonitorState));
+  } catch {}
+}
+
+function getNovidadesPromocoes3dCount() {
+  return new Set(promotions3dMonitorState.unreadIds || []).size;
+}
+
+function atualizarIndicadoresMenuPromocoes3d() {
+  const count = getNovidadesPromocoes3dCount();
+  document.querySelectorAll("[data-promo-badge]").forEach((badge) => {
+    badge.textContent = String(Math.min(99, count));
+    badge.hidden = count <= 0;
+  });
+}
+
+function getTextoBuscaPromocao3d(item = {}) {
+  return normalizarTextoBusca(`${item.title || ""} ${item.store || ""} ${getNomeCategoriaPromocao3d(item.category)} ${item.id || ""}`);
+}
+
+function promocaoCorrespondeAcompanhamento3d(item, watch) {
+  if (!item || !watch) return false;
+  if (watch.type === "product") return String(item.id) === String(watch.value);
+  const query = normalizarTextoBusca(watch.value || watch.label || "");
+  return !!query && getTextoBuscaPromocao3d(item).includes(query);
+}
+
+function getAcompanhamentosPromocao3d(item = null) {
+  const watches = Array.isArray(promotions3dMonitorState.watches) ? promotions3dMonitorState.watches : [];
+  return item ? watches.filter((watch) => promocaoCorrespondeAcompanhamento3d(item, watch)) : watches;
+}
+
+function processarMonitorPromocoes3d(items = []) {
+  if (!promotions3dMonitorState.initialized && !promotions3dMonitorState.watches.length && !promotions3dMonitorState.knownIds.length) {
+    carregarMonitorPromocoes3d();
+  }
+  const validItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  const currentIds = new Set(validItems.map((item) => String(item.id)));
+  const knownIds = new Set(promotions3dMonitorState.knownIds || []);
+  const newItems = promotions3dMonitorState.initialized
+    ? validItems.filter((item) => !knownIds.has(String(item.id)))
+    : [];
+  const watchedNewItems = newItems.filter((item) => getAcompanhamentosPromocao3d(item).length);
+  const unreadIds = new Set((promotions3dMonitorState.unreadIds || []).filter((id) => currentIds.has(String(id))));
+  newItems.forEach((item) => unreadIds.add(String(item.id)));
+  promotions3dMonitorState.initialized = true;
+  promotions3dMonitorState.knownIds = Array.from(currentIds).slice(0, 120);
+  promotions3dMonitorState.unreadIds = Array.from(unreadIds).slice(0, 99);
+  promotions3dMonitorState.lastCheckedAt = new Date().toISOString();
+  salvarMonitorPromocoes3d();
+  atualizarIndicadoresMenuPromocoes3d();
+  if (!newItems.length) return;
+  const monitoredCount = watchedNewItems.length;
+  if (monitoredCount) {
+    mostrarToast(monitoredCount === 1
+      ? "O monitor encontrou uma nova oferta que você acompanha."
+      : `O monitor encontrou ${monitoredCount} novas ofertas que você acompanha.`, "sucesso", 6200);
+  }
+  if (lerPreferenciaAvisosPromocoes3d()) {
+    mostrarNotificacaoExternaPromocoes3d(watchedNewItems.length ? watchedNewItems : newItems);
+  }
+}
+
+function mostrarNotificacaoExternaPromocoes3d(items = []) {
+  if (!lerPreferenciaAvisosPromocoes3d() || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const first = items[0];
+  if (!first) return;
+  try {
+    const notification = new Notification(items.length === 1 ? "Nova oferta 3D" : `${items.length} novas ofertas 3D`, {
+      body: items.length === 1 ? `${first.title} por ${formatarMoeda(first.currentPrice)}` : "Abra o Simplifica 3D para conferir as novidades.",
+      icon: PROJECT_ICON_IMAGE,
+      tag: "simplifica-3d-promocoes",
+      renotify: true
+    });
+    notification.onclick = () => {
+      window.focus?.();
+      trocarTela("promocoes");
+      notification.close?.();
+    };
+  } catch {}
+}
+
+function marcarPromocoes3dComoVistas() {
+  promotions3dMonitorState.unreadIds = [];
+  salvarMonitorPromocoes3d();
+  atualizarIndicadoresMenuPromocoes3d();
+  atualizarPainelMonitorPromocoes3d();
+  mostrarToast("Novidades marcadas como vistas.", "info", 2400);
+}
+
+function salvarBuscaAtualPromocoes3d() {
+  const query = String(promotions3dState.query || "").trim().replace(/\s+/g, " ");
+  if (query.length < 2) {
+    mostrarToast("Digite o produto que deseja acompanhar.", "aviso", 3000);
+    return;
+  }
+  carregarMonitorPromocoes3d();
+  if (promotions3dMonitorState.watches.some((watch) => watch.type === "query" && normalizarTextoBusca(watch.value) === normalizarTextoBusca(query))) {
+    mostrarToast("Essa busca já está sendo acompanhada.", "info", 2600);
+    return;
+  }
+  if (promotions3dMonitorState.watches.length >= PROMOTIONS_3D_MAX_WATCHES) {
+    mostrarToast(`Você pode acompanhar até ${PROMOTIONS_3D_MAX_WATCHES} buscas ou produtos.`, "aviso", 3400);
+    return;
+  }
+  promotions3dMonitorState.watches.push({
+    id: `query-${Date.now()}`,
+    type: "query",
+    value: query,
+    label: query,
+    createdAt: new Date().toISOString()
+  });
+  salvarMonitorPromocoes3d();
+  atualizarPainelMonitorPromocoes3d();
+  atualizarResultadosPromocoes3d();
+  mostrarToast(`O monitor agora acompanha “${query}”.`, "sucesso", 3200);
+}
+
+function alternarAcompanhamentoProdutoPromocao3d(id = "") {
+  carregarMonitorPromocoes3d();
+  const item = promotions3dState.items.find((offer) => String(offer.id) === String(id));
+  if (!item) return mostrarToast("Esta oferta não está mais disponível.", "aviso", 3000);
+  const existingIndex = promotions3dMonitorState.watches.findIndex((watch) => watch.type === "product" && String(watch.value) === String(item.id));
+  if (existingIndex >= 0) {
+    promotions3dMonitorState.watches.splice(existingIndex, 1);
+    mostrarToast("Produto removido do monitor.", "info", 2600);
+  } else {
+    if (promotions3dMonitorState.watches.length >= PROMOTIONS_3D_MAX_WATCHES) {
+      return mostrarToast(`Você pode acompanhar até ${PROMOTIONS_3D_MAX_WATCHES} buscas ou produtos.`, "aviso", 3400);
+    }
+    promotions3dMonitorState.watches.push({
+      id: `product-${String(item.id)}`,
+      type: "product",
+      value: String(item.id),
+      label: String(item.title),
+      createdAt: new Date().toISOString()
+    });
+    mostrarToast("Produto adicionado ao monitor de ofertas.", "sucesso", 3000);
+  }
+  salvarMonitorPromocoes3d();
+  atualizarPainelMonitorPromocoes3d();
+  atualizarResultadosPromocoes3d();
+}
+
+function removerAcompanhamentoPromocao3d(id = "") {
+  carregarMonitorPromocoes3d();
+  promotions3dMonitorState.watches = promotions3dMonitorState.watches.filter((watch) => String(watch.id) !== String(id));
+  salvarMonitorPromocoes3d();
+  atualizarPainelMonitorPromocoes3d();
+  atualizarResultadosPromocoes3d();
+}
+
+function aplicarAcompanhamentoPromocao3d(id = "") {
+  const watch = promotions3dMonitorState.watches.find((item) => String(item.id) === String(id));
+  if (!watch) return;
+  const item = watch.type === "product"
+    ? promotions3dState.items.find((offer) => String(offer.id) === String(watch.value))
+    : null;
+  const query = item?.title || watch.label;
+  promotions3dState.query = String(query || "").slice(0, 80);
+  const search = document.querySelector(".promotions-3d-search input");
+  if (search) search.value = promotions3dState.query;
+  atualizarResultadosPromocoes3d();
+  atualizarPainelMonitorPromocoes3d();
+}
+
 function carregarCachePromocoes3d() {
   try {
     const cache = JSON.parse(localStorage.getItem(PROMOTIONS_3D_CACHE_KEY) || "{}");
@@ -13304,6 +13506,7 @@ function deveDestacarOfertasRelampago3d() {
 
 function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true } = {}) {
   const highlighted = flash || (highlight && index < 3 && item.discount > 0);
+  const monitored = promotions3dMonitorState.watches.some((watch) => watch.type === "product" && String(watch.value) === String(item.id));
   return `
     <article class="promotion-3d-card ${highlighted ? "is-highlighted" : ""} ${flash ? "is-flash" : ""}">
       <div class="promotion-3d-media">
@@ -13318,7 +13521,12 @@ function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true
       <div class="promotion-3d-card-body">
         <div class="promotion-3d-store">
           <span>${renderUiIcon("seguranca")} Loja oficial</span>
-          <strong>${escaparHtml(item.store)}</strong>
+          <span class="promotion-3d-store-actions">
+            <strong>${escaparHtml(item.store)}</strong>
+            <button class="promotion-watch-product ${monitored ? "active" : ""}" type="button" aria-pressed="${monitored}" onclick="alternarAcompanhamentoProdutoPromocao3d('${escaparAttr(item.id)}')" title="${monitored ? "Parar de acompanhar" : "Acompanhar este produto"}" aria-label="${monitored ? "Parar de acompanhar este produto" : "Acompanhar este produto"}">
+              ${renderUiIcon("bell")}
+            </button>
+          </span>
         </div>
         <h3>${escaparHtml(item.title)}</h3>
         <span class="promotion-3d-category">${escaparHtml(getNomeCategoriaPromocao3d(item.category))}</span>
@@ -13332,6 +13540,47 @@ function renderCardPromocao3d(item, index = 0, { flash = false, highlight = true
         </a>
       </div>
     </article>
+  `;
+}
+
+function renderPainelMonitorPromocoes3d() {
+  const watches = getAcompanhamentosPromocao3d();
+  const unread = getNovidadesPromocoes3dCount();
+  const query = String(promotions3dState.query || "").trim();
+  return `
+    <section class="promotions-3d-monitor card" aria-labelledby="promotions-monitor-title">
+      <div class="promotions-monitor-head">
+        <span class="promotions-monitor-icon">${renderUiIcon("bell")}</span>
+        <div>
+          <span class="promotions-monitor-status">Monitor automático ativo</span>
+          <h2 id="promotions-monitor-title">Acompanhe o que você quer comprar</h2>
+          <p>Pesquise um produto e salve a busca. O Simplifica continuará conferindo enquanto estiver aberto.</p>
+        </div>
+        ${unread ? `
+          <div class="promotions-monitor-news" role="status">
+            <strong>${unread}</strong>
+            <span>${unread === 1 ? "novidade" : "novidades"}</span>
+            <button type="button" onclick="marcarPromocoes3dComoVistas()">Marcar como vistas</button>
+          </div>
+        ` : `<span class="promotions-monitor-ok">${renderUiIcon("seguranca")} Tudo conferido</span>`}
+      </div>
+      <div class="promotions-monitor-action">
+        <span>${query ? `Busca atual: <strong>${escaparHtml(query)}</strong>` : "Digite acima o produto que deseja acompanhar."}</span>
+        <button class="btn secondary" id="promotionsWatchQueryButton" type="button" onclick="salvarBuscaAtualPromocoes3d()" ${query.length >= 2 ? "" : "disabled"}>
+          ${renderUiIcon("plus")} Acompanhar esta busca
+        </button>
+      </div>
+      ${watches.length ? `
+        <div class="promotions-monitor-watches" aria-label="Buscas e produtos acompanhados">
+          ${watches.map((watch) => `
+            <span class="promotions-monitor-watch">
+              <button type="button" onclick="aplicarAcompanhamentoPromocao3d('${escaparAttr(watch.id)}')" title="Mostrar ofertas relacionadas">${renderUiIcon(watch.type === "product" ? "produtos" : "search")} ${escaparHtml(watch.label)}</button>
+              <button type="button" onclick="removerAcompanhamentoPromocao3d('${escaparAttr(watch.id)}')" title="Parar de acompanhar" aria-label="Parar de acompanhar ${escaparAttr(watch.label)}">×</button>
+            </span>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
   `;
 }
 
@@ -13415,6 +13664,7 @@ function renderOpcoesLojasPromocoes3d() {
 
 function renderPromocoes3d() {
   if (promotions3dState.status === "idle" && !promotions3dState.items.length) carregarCachePromocoes3d();
+  if (!promotions3dMonitorState.initialized && !promotions3dMonitorState.watches.length) carregarMonitorPromocoes3d();
   const alertsEnabled = lerPreferenciaAvisosPromocoes3d();
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 promotions-3d-page" data-ui-version="v3" data-ui3-screen="promocoes">
@@ -13470,6 +13720,10 @@ function renderPromocoes3d() {
         </div>
       </section>
 
+      <div id="promocoes3dMonitor">
+        ${renderPainelMonitorPromocoes3d()}
+      </div>
+
       <div id="promocoes3dResultado">
         ${renderResultadosPromocoes3d()}
       </div>
@@ -13496,21 +13750,45 @@ function atualizarResultadosPromocoes3d() {
     refreshButton.disabled = promotions3dState.status === "loading";
     refreshButton.innerHTML = `${renderUiIcon("refresh")} ${promotions3dState.status === "loading" ? "Atualizando..." : "Atualizar ofertas"}`;
   }
+  atualizarIndicadoresMenuPromocoes3d();
+}
+
+function atualizarPainelMonitorPromocoes3d() {
+  const root = document.getElementById("promocoes3dMonitor");
+  if (root) root.innerHTML = renderPainelMonitorPromocoes3d();
 }
 
 function agendarAtualizacaoPromocoes3d() {
   if (promotions3dRefreshTimer) clearTimeout(promotions3dRefreshTimer);
-  if (telaAtual !== "promocoes") return;
   promotions3dRefreshTimer = setTimeout(() => {
+    if (!estaOnline()) {
+      agendarAtualizacaoPromocoes3d();
+      return;
+    }
     carregarPromocoes3d({ force: true, background: true });
   }, PROMOTIONS_3D_REFRESH_MS);
+}
+
+function iniciarMonitorPromocoes3d() {
+  carregarMonitorPromocoes3d();
+  atualizarIndicadoresMenuPromocoes3d();
+  setTimeout(() => {
+    if ((getUsuarioAtual() || adminLogado) && estaOnline()) {
+      carregarPromocoes3d({ force: true, background: true });
+      return;
+    }
+    agendarAtualizacaoPromocoes3d();
+  }, 2600);
+}
+
+function monitorPromocoes3dPrecisaAtualizar() {
+  const lastChecked = Date.parse(promotions3dMonitorState.lastCheckedAt || promotions3dState.updatedAt || "");
+  return !Number.isFinite(lastChecked) || Date.now() - lastChecked >= PROMOTIONS_3D_REFRESH_MS;
 }
 
 async function carregarPromocoes3d({ force = false, userRequested = false, background = false } = {}) {
   if (promotions3dState.status === "loading") return;
   if (!promotions3dState.items.length) carregarCachePromocoes3d();
-  const previousIds = new Set(promotions3dState.items.map((item) => item.id));
-  const hadPreviousUpdate = !!promotions3dState.updatedAt;
   promotions3dState.status = "loading";
   promotions3dState.message = "";
   atualizarResultadosPromocoes3d();
@@ -13522,18 +13800,15 @@ async function carregarPromocoes3d({ force = false, userRequested = false, backg
     const payload = await response.json();
     const items = (Array.isArray(payload?.offers) ? payload.offers : []).map(normalizarPromocao3d).filter(Boolean);
     if (!payload?.ok || !items.length) throw new Error("NO_ACTIVE_OFFERS");
-    const newOffers = hadPreviousUpdate ? items.filter((item) => !previousIds.has(item.id)) : [];
     promotions3dState.items = items;
     promotions3dState.stores = Array.isArray(payload.stores) ? payload.stores : [];
     promotions3dState.updatedAt = String(payload.updatedAt || new Date().toISOString());
     promotions3dState.status = "ready";
     salvarCachePromocoes3d();
+    processarMonitorPromocoes3d(items);
     atualizarResultadosPromocoes3d();
-    if (newOffers.length && lerPreferenciaAvisosPromocoes3d()) {
-      mostrarToast(newOffers.length === 1
-        ? "Nova oferta 3D encontrada."
-        : `${newOffers.length} novas ofertas 3D encontradas.`, "sucesso", 5200);
-    } else if (userRequested) {
+    atualizarPainelMonitorPromocoes3d();
+    if (userRequested) {
       mostrarToast("Ofertas atualizadas.", "sucesso", 2400);
     }
   } catch {
@@ -13551,6 +13826,7 @@ async function carregarPromocoes3d({ force = false, userRequested = false, backg
 function pesquisarPromocoes3d(value = "") {
   promotions3dState.query = String(value || "").slice(0, 80);
   atualizarResultadosPromocoes3d();
+  atualizarPainelMonitorPromocoes3d();
 }
 
 function filtrarPromocoes3d(category = "todas") {
@@ -13587,8 +13863,17 @@ function limparFiltrosPromocoes3d() {
   filtrarPromocoes3d("todas");
 }
 
-function alternarAvisosPromocoes3d() {
+async function alternarAvisosPromocoes3d() {
   const enabled = !lerPreferenciaAvisosPromocoes3d();
+  let externalAllowed = false;
+  if (enabled && typeof Notification !== "undefined") {
+    try {
+      const permission = Notification.permission === "default"
+        ? await Notification.requestPermission()
+        : Notification.permission;
+      externalAllowed = permission === "granted";
+    } catch {}
+  }
   try {
     localStorage.setItem(PROMOTIONS_3D_ALERTS_KEY, enabled ? "true" : "false");
   } catch {}
@@ -13598,7 +13883,13 @@ function alternarAvisosPromocoes3d() {
     button.setAttribute("aria-pressed", enabled ? "true" : "false");
     button.innerHTML = `${renderUiIcon("bell")} ${enabled ? "Avisos ativados" : "Avisar sobre novas ofertas"}`;
   }
-  mostrarToast(enabled ? "Avisos de novas ofertas ativados." : "Avisos de novas ofertas desativados.", "info", 3000);
+  if (!enabled) {
+    mostrarToast("Avisos de novas ofertas desativados.", "info", 3000);
+  } else if (externalAllowed) {
+    mostrarToast("Avisos de novas ofertas ativados neste aparelho.", "sucesso", 3400);
+  } else {
+    mostrarToast("Avisos na guia ativados. O aparelho não permitiu alertas fora do app.", "info", 4200);
+  }
 }
 
 function renderAcoesRapidas() {
@@ -13858,11 +14149,13 @@ function renderMais() {
   const plano = getPlanoAtual();
   const fotoPerfilAtual = appConfig.profilePhotoDataUrl || usuario?.avatarUrl || usuario?.avatar_url || "";
   const modo = getInterfaceMode();
+  const novidadesPromocoes = getNovidadesPromocoes3dCount();
   const grupos = [
     {
       titulo: "Principal",
       itens: [
         { tela: "dashboard", icone: "dashboard", texto: "Início" },
+        { tela: "promocoes", icone: "cupom", texto: "Promoções 3D", badge: novidadesPromocoes },
         { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
         { tela: "caixa", icone: "caixa", texto: "Caixa" },
         { tela: "estoque", icone: "estoque", texto: "Produtos" },
@@ -13930,7 +14223,9 @@ function renderMais() {
               <button class="premium-menu-row" type="button" onclick="navegarMenuPrincipal('${item.tela}')">
                 <span class="premium-menu-icon">${renderUiIcon(item.icone || item.tela)}</span>
                 <strong>${escaparHtml(item.texto)}</strong>
-                ${item.badge ? `<em>${escaparHtml(item.badge)}</em>` : ""}
+                ${item.tela === "promocoes"
+                  ? `<em class="promotion-nav-badge" data-promo-badge ${item.badge ? "" : "hidden"}>${Math.min(99, Number(item.badge) || 0)}</em>`
+                  : item.badge ? `<em>${escaparHtml(item.badge)}</em>` : ""}
                 <b>›</b>
               </button>
             `).join("")}
@@ -47960,6 +48255,7 @@ document.addEventListener("visibilitychange", () => {
     carregarNotificacoesMensagensRemotas(true).catch(() => {});
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
     sincronizarAlteracoesLocaisSilencioso("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
+    if (estaOnline() && monitorPromocoes3dPrecisaAtualizar()) carregarPromocoes3d({ force: true, background: true });
   }
 });
 
@@ -47975,6 +48271,7 @@ window.addEventListener("online", () => {
     .catch((erro) => registrarDiagnostico("Storefront", "Fila da loja não sincronizada", erro.message));
   sincronizarLicencaEfetivaSePossivel("online").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar internet falhou", erro.message));
   sincronizarAlteracoesLocaisSilencioso("online").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar internet falhou", erro.message));
+  carregarPromocoes3d({ force: true, background: true });
 });
 
 window.addEventListener("offline", () => {
@@ -48022,6 +48319,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   iniciarMonitorPlanoSaas();
   iniciarMonitorLicencaOnline();
   iniciarLembreteBackupPlanoFree();
+  iniciarMonitorPromocoes3d();
   setTimeout(verificarBancosDadosAoEntrar, 1800);
   monitorarSessao();
   document.addEventListener("pointermove", moverJanelaDashboard);

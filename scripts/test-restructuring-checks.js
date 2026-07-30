@@ -110,8 +110,8 @@ const storefrontLayoutsV3 = read("src/storefront/styles/layouts.css");
   "src/storefront/styles/layouts.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.17"/.test(app), "app.js esta na versao 1.0.17");
-assert(/const APP_VERSION_CODE = 18/.test(app), "app.js possui versionCode 18");
+assert(/const APP_VERSION = "1\.0\.18"/.test(app), "app.js esta na versao 1.0.18");
+assert(/const APP_VERSION_CODE = 19/.test(app), "app.js possui versionCode 19");
 assert(app.includes("intro-test-banner") && app.includes("Versão em testes"), "abertura identifica a versao de testes");
 assert(css.includes(".intro-test-banner"), "aviso de testes possui layout responsivo");
 assert(/\.intro-test-banner\s*\{[\s\S]*?left:50%;[\s\S]*?transform:translateX\(-50%\);/.test(css), "aviso de testes permanece centralizado na viewport");
