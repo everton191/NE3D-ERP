@@ -23,7 +23,7 @@ const requiredVersionSignals = [
   "versionName \"1.0.19\"",
   "versionCode 20",
   "\"version\": \"1.0.19\"",
-  "\"versionCode\": 19"
+  "\"versionCode\": 20"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");
