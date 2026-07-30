@@ -28,6 +28,7 @@ const OFFICIAL_STORES = Object.freeze([
 const BLOCKED_PRODUCT_WORDS = /\b(laser|scanner|gravadora|engraver|falcon|otter)\b/i;
 const ALLOWED_PRODUCT_WORDS = /\b(3d|printer|impressora|filament|filamento|resin|resina|pla|petg|abs|asa|tpu|kobra|photon|ender|creality|hotend|bico|nozzle|extrusora|placa|peça|peca|acessório|acessorio)\b/i;
 const REQUEST_GAP_MS = 350;
+const SUPABASE_PROMOTIONS_URL = "https://qsufnnivlgdidmjuaprb.supabase.co/functions/v1/promotions-refresh";
 
 function asNumber(value) {
   const number = Number.parseFloat(String(value ?? "").replace(",", "."));
@@ -214,7 +215,11 @@ async function loadOffers() {
       unique.set(offer.id, offer);
     }
   });
-  const sorted = Array.from(unique.values())
+  return diversifyOffers(Array.from(unique.values()), 60);
+}
+
+function diversifyOffers(offers, limit = 60) {
+  const sorted = [...offers]
     .sort((a, b) => (Date.parse(b.updatedAt || b.publishedAt) || 0) - (Date.parse(a.updatedAt || a.publishedAt) || 0)
       || b.discount - a.discount
       || a.currentPrice - b.currentPrice
@@ -226,12 +231,26 @@ async function loadOffers() {
     queues.set(offer.host, queue);
   });
   const diverse = [];
-  while (diverse.length < 60 && Array.from(queues.values()).some((queue) => queue.length)) {
+  while (diverse.length < limit && Array.from(queues.values()).some((queue) => queue.length)) {
     queues.forEach((queue) => {
-      if (queue.length && diverse.length < 60) diverse.push(queue.shift());
+      if (queue.length && diverse.length < limit) diverse.push(queue.shift());
     });
   }
   return diverse;
+}
+
+async function loadBotOffers() {
+  try {
+    const response = await fetch(SUPABASE_PROMOTIONS_URL, {
+      headers: { accept: "application/json", "user-agent": "Simplifica3D-Promocoes/1.0" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) return [];
+    const payload = await response.json();
+    return payload?.ok && Array.isArray(payload.offers) ? payload.offers : [];
+  } catch {
+    return [];
+  }
 }
 
 async function handler(request, response) {
@@ -243,13 +262,22 @@ async function handler(request, response) {
     return;
   }
   try {
-    const offers = await loadOffers();
+    const requestUrl = new URL(request.url || "/", "https://erpne3d.vercel.app");
+    const officialOnly = requestUrl.searchParams.get("source") === "official";
+    const officialOffers = await loadOffers();
+    const botOffers = officialOnly ? [] : await loadBotOffers();
+    const unique = new Map([...officialOffers, ...botOffers].map((offer) => [offer.id, offer]));
+    const offers = diversifyOffers(Array.from(unique.values()), 60);
+    const stores = new Map(OFFICIAL_STORES.map(({ name, host }) => [host, { name, host }]));
+    offers.forEach((offer) => {
+      if (offer?.host && offer?.store) stores.set(offer.host, { name: offer.store, host: offer.host });
+    });
     response.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
     response.setHeader("Content-Type", "application/json; charset=utf-8");
     response.status(200).json({
       ok: true,
       updatedAt: new Date().toISOString(),
-      stores: OFFICIAL_STORES.map(({ name, host }) => ({ name, host })),
+      stores: Array.from(stores.values()),
       offers
     });
   } catch {
@@ -260,6 +288,7 @@ async function handler(request, response) {
 
 module.exports = handler;
 module.exports.loadOffers = loadOffers;
+module.exports.diversifyOffers = diversifyOffers;
 module.exports.classifyProduct = classifyProduct;
 module.exports.getProductOffer = getProductOffer;
 module.exports.getStructuredOffer = getStructuredOffer;

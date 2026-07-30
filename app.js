@@ -2,10 +2,11 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.20";
-const APP_VERSION_CODE = 21;
+const APP_VERSION = "1.0.21";
+const APP_VERSION_CODE = 22;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
+  "Mercado Livre integrado ao bot de ofertas, com atualização automática e links visíveis para todos.",
   "Promoções 3D com até 60 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
   "Monitor de produtos e buscas salvas com contador de novidades dentro do Simplifica.",
   "Cartões compactos e alinhados, com acesso direto à oferta no navegador."
@@ -35,8 +36,10 @@ const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d.vercel.app");
+const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const PROMOTIONS_3D_LOCAL_HOST = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)$/i.test(String(globalThis?.location?.hostname || ""));
 const PROMOTIONS_3D_API_URL = PROMOTIONS_3D_LOCAL_HOST ? `${APP_PUBLIC_URL}/api/promocoes-3d` : "/api/promocoes-3d";
+const MERCADOLIVRE_OAUTH_URL = `${SUPABASE_DEFAULT_URL}/functions/v1/mercadolivre-oauth`;
 const PROMOTIONS_3D_CACHE_KEY = "simplifica3d:promocoes-3d:v2";
 const PROMOTIONS_3D_ALERTS_KEY = "simplifica3d:promocoes-3d-alertas:v1";
 const PROMOTIONS_3D_MONITOR_KEY = "simplifica3d:promocoes-3d-monitor:v1";
@@ -51,9 +54,10 @@ const PROMOTIONS_3D_OFFICIAL_HOSTS = Object.freeze([
   "www.shop.eprintstore.com.br",
   "shop.eprintstore.com.br",
   "lojainfobr.com.br",
-  "www.lojainfobr.com.br"
+  "www.lojainfobr.com.br",
+  "produto.mercadolivre.com.br",
+  "www.mercadolivre.com.br"
 ]);
-const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
 // Reativar somente após publicar e concluir a configuração/verificação da marca OAuth.
 const GOOGLE_AUTH_ENABLED = false;
@@ -48310,12 +48314,41 @@ window.addEventListener("offline", () => {
   mostrarToast("Sem internet. O app manterá rascunhos e alterações locais.", "aviso", 4200);
 });
 
+async function processarRetornoOAuthMercadoLivre() {
+  const callbackUrl = new URL(window.location.href);
+  const code = callbackUrl.searchParams.get("code") || "";
+  const state = callbackUrl.searchParams.get("state") || "";
+  if (!code || !state.startsWith("ml_")) return false;
+
+  try {
+    const response = await fetch(`${MERCADOLIVRE_OAUTH_URL}?action=exchange`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, state })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.ok) throw new Error(String(payload?.error || "OAUTH_EXCHANGE_FAILED"));
+    mostrarToast("Mercado Livre conectado. As ofertas entrarão nas próximas buscas.", "sucesso", 5200);
+    carregarPromocoes3d({ force: true, background: true });
+    return true;
+  } catch (erro) {
+    registrarDiagnostico("Promoções 3D", "Não foi possível concluir a conexão com o Mercado Livre", erro?.message || erro);
+    mostrarToast("Não foi possível conectar o Mercado Livre. Tente autorizar novamente.", "erro", 5600);
+    return false;
+  } finally {
+    callbackUrl.searchParams.delete("code");
+    callbackUrl.searchParams.delete("state");
+    history.replaceState({}, document.title, `${callbackUrl.pathname}${callbackUrl.search}${callbackUrl.hash}`);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   if (window.UiV3Dev?.isRoute) {
     window.UiV3Dev.mount();
     return;
   }
   configurarTelemetriaErros();
+  processarRetornoOAuthMercadoLivre();
   configurarMonetizacaoAds();
   ensureAppShellLayers();
   iniciarIntroAbertura();
