@@ -1,5 +1,11 @@
-const fs=require('node:fs');const assert=require('node:assert/strict');const app=fs.readFileSync('app.js','utf8');
+const fs=require('node:fs');const assert=require('node:assert/strict');const app=fs.readFileSync('app.js','utf8');const style=fs.readFileSync('style.css','utf8');
 assert.match(app,/const attrs = `width="24" height="24" viewBox="0 0 24 24"/,'ícones SVG centrais precisam de tamanho intrínseco seguro');
+for(const marker of ['.storefront-admin-tabs{','.auth-page{','.side-profile-card.premium-profile-trigger{','.dashboard-chart-card,','.combo-chart-svg{']){
+  assert.ok(style.includes(marker),`regra visual compartilhada ausente: ${marker}`);
+}
+for(const removedAiSelector of ['.assistant-fab{','.assistant-panel{','.assistant-backdrop{','.ai-model-card{','.ai-runtime-diagnostics{']){
+  assert.ok(!style.includes(removedAiSelector),`estilo removido de IA reapareceu: ${removedAiSelector}`);
+}
 ['pedido','pedidos','clientes','producao','estoque'].forEach(screen=>assert.ok(app.includes(`data-ui3-screen="${screen}"`),`${screen} sem raiz V3`));
 assert.equal((app.match(/data-ui3-screen="pedidos"/g)||[]).length,2,'variantes mobile e PWA de Pedidos devem usar V3');
 assert.match(app,/pedidoTab === "itens" \? renderAcaoPedidoCompacta\("✚", "Manual"/,'Manual nao condicionado a Itens');assert.match(app,/pedidoTab === "itens" \? renderAcaoPedidoCompacta\("calculadora", "Calcular"/,'Calcular nao condicionado a Itens');assert.ok(app.includes('ui3-sticky-actions ui3-order-final-bar'),'Barra final nao usa StickyActionBar');
