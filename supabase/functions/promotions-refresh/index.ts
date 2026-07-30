@@ -84,34 +84,60 @@ async function getMercadoLivreToken(admin: ReturnType<typeof createClient>): Pro
 
 async function loadMercadoLivreOffers(admin: ReturnType<typeof createClient>) {
   const token = await getMercadoLivreToken(admin);
-  if (!token) return [];
+  if (!token) return { offers: [], diagnostics: ["TOKEN_UNAVAILABLE"] };
   const queries = ["impressora 3d", "filamento 3d", "resina 3d", "peças impressora 3d"];
   const offers: Record<string, unknown>[] = [];
+  const diagnostics: string[] = [];
   for (const query of queries) {
-    const url = new URL("https://api.mercadolibre.com/sites/MLB/search");
+    const url = new URL("https://api.mercadolibre.com/products/search");
+    url.searchParams.set("site_id", "MLB");
+    url.searchParams.set("status", "active");
     url.searchParams.set("q", query);
     url.searchParams.set("limit", "15");
     const response = await fetch(url, {
       headers: { accept: "application/json", authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(15000),
     });
+    if (!response.ok) {
+      const failure = await response.clone().json().catch(() => ({}));
+      diagnostics.push(`${query}:${response.status}:${String(failure?.error || failure?.code || failure?.message || "REQUEST_FAILED").slice(0, 120)}`);
+    }
     if (response.ok) {
       const payload = await response.json().catch(() => ({}));
-      for (const item of Array.isArray(payload?.results) ? payload.results : []) {
-        const currentPrice = asPrice(item?.price);
-        const oldPrice = asPrice(item?.original_price);
-        if (!item?.id || !item?.title || !currentPrice || !isMercadoLivreUrl(item?.permalink)) continue;
+      const results = Array.isArray(payload?.results) ? payload.results : [];
+      const sample = results[0] || {};
+      diagnostics.push(`${query}:${response.status}:results=${results.length}:keys=${Object.keys(sample).slice(0, 12).join(",")}`);
+      let pricedProducts = 0;
+      for (const item of results.slice(0, 6)) {
+        const productId = String(item?.id || "");
+        if (!productId) continue;
+        const itemsUrl = new URL(`https://api.mercadolibre.com/products/${encodeURIComponent(productId)}/items`);
+        itemsUrl.searchParams.set("limit", "1");
+        const itemsResponse = await fetch(itemsUrl, {
+          headers: { accept: "application/json", authorization: `Bearer ${token}` },
+          signal: AbortSignal.timeout(10000),
+        });
+        const itemsPayload = itemsResponse.ok ? await itemsResponse.json().catch(() => ({})) : {};
+        const winner = Array.isArray(itemsPayload?.results) ? (itemsPayload.results[0] || {}) : {};
+        const itemId = String(winner?.item_id || productId);
+        const title = String(item?.name || item?.title || "");
+        const currentPrice = asPrice(winner?.price || item?.price);
+        const oldPrice = asPrice(winner?.original_price || item?.original_price);
+        const permalink = `https://www.mercadolivre.com.br/p/${encodeURIComponent(productId)}`;
+        const picture = Array.isArray(item?.pictures) ? item.pictures[0] : null;
+        if (!itemId || !title || !currentPrice || !isMercadoLivreUrl(permalink)) continue;
+        pricedProducts += 1;
         offers.push({
-          id: `mercadolivre.com.br:${item.id}`,
+          id: `mercadolivre.com.br:${itemId}`,
           store: "Mercado Livre",
-          host: new URL(item.permalink).hostname,
-          title: String(item.title),
-          category: classifyProduct(String(item.title)),
+          host: new URL(permalink).hostname,
+          title,
+          category: classifyProduct(title),
           currentPrice,
           oldPrice,
           discount: oldPrice > currentPrice ? Math.round(((oldPrice - currentPrice) / oldPrice) * 100) : 0,
-          image: String(item.thumbnail || "").replace(/^http:/, "https:"),
-          url: String(item.permalink),
+          image: String(picture?.secure_url || picture?.url || item?.thumbnail || "").replace(/^http:/, "https:"),
+          url: permalink,
           updatedAt: new Date().toISOString(),
           expiresAt: asFutureDate(
             item?.sale_price?.metadata?.campaign_end_date
@@ -119,11 +145,16 @@ async function loadMercadoLivreOffers(admin: ReturnType<typeof createClient>) {
             || item?.sale_price?.end_date
           ),
         });
+        await new Promise((resolve) => setTimeout(resolve, 200));
       }
+      diagnostics.push(`${query}:priced=${pricedProducts}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 350));
   }
-  return Array.from(new Map(offers.map((offer) => [String(offer.id), offer])).values());
+  return {
+    offers: Array.from(new Map(offers.map((offer) => [String(offer.id), offer])).values()),
+    diagnostics,
+  };
 }
 
 Deno.serve(async (request: Request) => {
@@ -189,7 +220,9 @@ Deno.serve(async (request: Request) => {
     if (!response.ok) throw new Error(`PROMOTIONS_HTTP_${response.status}`);
     const payload = await response.json();
     const officialOffers = Array.isArray(payload?.offers) ? payload.offers : [];
-    const mercadoLivreOffers = await loadMercadoLivreOffers(admin).catch(() => []);
+    const mercadoLivreResult = await loadMercadoLivreOffers(admin)
+      .catch((error) => ({ offers: [], diagnostics: [error instanceof Error ? error.message : "ML_FETCH_FAILED"] }));
+    const mercadoLivreOffers = mercadoLivreResult.offers;
     const offers = Array.from(new Map([...officialOffers, ...mercadoLivreOffers]
       .map((offer: Record<string, unknown>) => [String(offer.id || ""), offer])).values()).filter((offer) => offer.id);
     if (!payload?.ok || !offers.length) throw new Error("NO_ACTIVE_OFFERS");
@@ -256,6 +289,10 @@ Deno.serve(async (request: Request) => {
       offers: rows.length,
       changed: changedCount,
       stable: rows.filter((row) => row.is_stable).length,
+      mercadoLivre: {
+        offers: mercadoLivreOffers.length,
+        connected: !mercadoLivreResult.diagnostics.includes("TOKEN_UNAVAILABLE"),
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "PROMOTIONS_REFRESH_FAILED";
