@@ -24,18 +24,6 @@
     "priority": 75
   },
   {
-    "id": "ia_local_indisponivel",
-    "titulo": "IA local indisponível",
-    "intent": "ia_indisponivel",
-    "keywords": ["ia local", "modelo", "qwen", "baixar ia", "instalar ia", "ia indisponível"],
-    "shortAnswer": "Se a IA Local não estiver pronta, use o Assistente Inteligente. Ele responde pelo manual sem baixar modelo.",
-    "fullAnswer": "A IA Local Média é opcional e usa o modelo Qwen2.5 1.5B offline no Android. Ela só fica pronta depois de baixar, validar, carregar e passar no teste interno. Se falhar ou demorar, o app volta para o manual.",
-    "relatedScreen": "config",
-    "suggestedAction": "open_ai_settings",
-    "requiredPlan": "pro",
-    "priority": 74
-  },
-  {
     "id": "app_atualizar",
     "titulo": "Atualizar app",
     "intent": "atualizar_app",

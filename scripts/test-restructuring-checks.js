@@ -178,10 +178,9 @@ assert(storefrontLayoutsV3.includes(".sfe-shell--mobile"), "editor rebuilt possu
   "src/services/aiFeatureFlagService.js",
   "src/services/aiCostService.js",
   "scripts/test-ai-foundation.js",
-  "docs/ai-foundation.md",
-  "supabase/migrations/20260529141000_ai_foundation_disabled.sql"
-].forEach((file) => assert(exists(file), `fase 5b fundacao IA desativada presente: ${file}`));
-assert(pkg.scripts && pkg.scripts["test:ai-foundation"] === "node scripts/test-ai-foundation.js", "package.json expoe test:ai-foundation");
+  "docs/ai-foundation.md"
+].forEach((file) => assert(!exists(file), `fundacao de IA removida do produto padrao: ${file}`));
+assert(!pkg.scripts?.["test:ai-foundation"], "package.json nao expoe teste da fundacao removida");
 assert(!index.includes("aiService.js"), "services de IA nao carregam na UI");
 assert(!index.includes("ai-foundation"), "nenhuma tela de IA carregada no HTML");
 
@@ -221,7 +220,6 @@ assert(read("scripts/google-integrations-remote-controlled.js").includes("integr
   "docs/diagnostics-error-reports.md",
   "docs/superadmin-bug-reports.md",
   "docs/codex-diagnostics-report.md",
-  "docs/ai-future-foundation.md",
   "supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql",
   "supabase/migrations/20260529173500_diagnostics_validation_hardening.sql"
 ].forEach((file) => assert(exists(file), `fase 6a diagnosticos presente: ${file}`));

@@ -38,6 +38,57 @@ body.app-shell-ready :where(input,select,textarea,button,.btn,.app-button):focus
   outline-offset:2px;
 }
 
+/* Seleção: destaque suave e uniforme sem contaminar a vitrine pública. */
+body.app-shell-ready:not(.visitor-public-screen) :where(
+  button,
+  .btn,
+  .app-button,
+  .icon-button,
+  .icon-action-button,
+  .action-tile
+){
+  transition:
+    box-shadow .18s ease,
+    transform .18s ease,
+    border-color .18s ease,
+    background-color .18s ease;
+}
+
+body.app-shell-ready:not(.visitor-public-screen) :where(
+  button,
+  .btn,
+  .app-button,
+  .icon-button,
+  .icon-action-button,
+  .action-tile
+):is(
+  .active,
+  .selected,
+  [aria-selected="true"],
+  [aria-pressed="true"],
+  [aria-current="page"],
+  :focus-visible
+):not(:disabled){
+  border-color:color-mix(in srgb,var(--ui3-primary) 40%,var(--ui3-border)) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb,var(--ui3-primary) 18%,transparent),
+    0 7px 18px color-mix(in srgb,var(--ui3-primary) 14%,transparent) !important;
+  transform:translateY(-1px);
+}
+
+@media (prefers-reduced-motion:reduce){
+  body.app-shell-ready:not(.visitor-public-screen) :where(
+    button,
+    .btn,
+    .app-button,
+    .icon-button,
+    .icon-action-button,
+    .action-tile
+  ){
+    transition:none;
+  }
+}
+
 body.app-shell-ready :where(label,.field-label,.form-label){
   color:var(--ui3-text);
   font-family:var(--ui3-font-family);

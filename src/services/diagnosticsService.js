@@ -71,12 +71,7 @@
     getContext: null,
     send: null,
     throttle: new Map(),
-    flushing: false,
-    featureFlags: {
-      enableAiDiagnostics: false,
-      enableAiAssistant: false,
-      enableAiBugSummary: false
-    }
+    flushing: false
   };
 
   function getStorageSafe() {
@@ -483,10 +478,6 @@ Corrigir o problema mantendo compatibilidade, sem alterar regras fora do escopo,
     };
   }
 
-  function getAiDiagnosticsFeatureFlags() {
-    return { ...state.featureFlags };
-  }
-
   function configure(options = {}) {
     state.getContext = options.getContext || state.getContext;
     state.send = options.send || state.send;
@@ -503,7 +494,6 @@ Corrigir o problema mantendo compatibilidade, sem alterar regras fora do escopo,
     flushPendingDiagnosticsQueue,
     generateCodexTechnicalReport,
     generateDiagnosticsSummaryReport,
-    getAiDiagnosticsFeatureFlags,
     DIAGNOSTIC_EVENTS: Array.from(DIAGNOSTIC_EVENTS),
     PLAN_EVENTS: Array.from(PLAN_EVENTS),
     _normalizeFeedbackType: normalizeFeedbackType

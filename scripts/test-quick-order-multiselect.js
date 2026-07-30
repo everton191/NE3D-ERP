@@ -13,7 +13,7 @@ const requiredApp = [
   "function aplicarQuantidadeItensSelecionadosPedidoRapido()",
   "function getItensPedidoSelecionados()",
   "function alternarSelecaoItemPedido(index, checked = null)",
-  "function aplicarQuantidadeItensSelecionadosPedido()",
+  "function aplicarQuantidadeItensSelecionadosPedido(quantidadeInformada = null)",
   "function removerItensSelecionadosPedido()",
   "quick-order-bulkbar",
   "order-bulkbar",

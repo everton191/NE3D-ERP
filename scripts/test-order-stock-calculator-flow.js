@@ -47,5 +47,23 @@ assert.ok(
 );
 assert.ok(css.includes(".calc-batch-toggle"), "Check de impressão em lote deve seguir o design system.");
 assert.ok(css.includes(".order-stock-materials-title"), "Seção de materiais do pedido deve possuir contrato visual.");
+assert.ok(
+  app.includes('{ tela: "calculadora", icone: "calculadora", texto: "Calculadora 3D" }'),
+  "Menu operacional deve abrir a calculadora de uso com nome inequívoco."
+);
+assert.ok(
+  app.includes('{ tela: "preferencias", icone: "preferencias", texto: "Configurar calculadora" }'),
+  "Parâmetros da calculadora não devem usar o mesmo nome da calculadora de uso."
+);
+assert.match(
+  app,
+  /function fecharDetalhesPedido\(\) \{[\s\S]*?pedidoVisualizandoId = null;[\s\S]*?window\.__pedidoDetalheFechado = true;[\s\S]*?renderizarPreservandoScroll\(\);/,
+  "Fechar detalhes deve ocultar o painel selecionado antes de renderizar a lista."
+);
+assert.match(
+  app,
+  /const selecionado = window\.__pedidoDetalheFechado[\s\S]*?\? null[\s\S]*?: \(pedidoSelecionado \|\| listaPaginada\[0\] \|\| null\);/,
+  "A versão web não deve reabrir automaticamente o pedido logo após fechar os detalhes."
+);
 
 console.log("Calculadora, pedido e estoque: lote, minutos, materiais e baixa por status validados.");

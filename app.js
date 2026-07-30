@@ -35,9 +35,20 @@ const INTRO_VIDEO_ASPECT_RATIO = "2160 / 2264";
 const INTRO_VIDEO_FRAME_WIDTH = "min(100vw, 95.4064dvh)";
 const INTRO_VIDEO_FRAME_HEIGHT = "min(100dvh, 104.8148vw)";
 const APP_PUBLIC_URL = String(globalThis?.__APP_PUBLIC_URL__ || "https://erpne3d.vercel.app");
+const PROMOTIONS_3D_API_URL = "/api/promocoes-3d";
+const PROMOTIONS_3D_CACHE_KEY = "simplifica3d:promocoes-3d:v1";
+const PROMOTIONS_3D_ALERTS_KEY = "simplifica3d:promocoes-3d-alertas:v1";
+const PROMOTIONS_3D_REFRESH_MS = 10 * 60 * 1000;
+const PROMOTIONS_3D_OFFICIAL_HOSTS = Object.freeze([
+  "www.anycubicofficial.com.br",
+  "anycubicofficial.com.br",
+  "crealitybrasil.com.br",
+  "www.crealitybrasil.com.br"
+]);
 const SUPABASE_DEFAULT_URL = String(globalThis?.__SUPABASE_URL__ || "https://qsufnnivlgdidmjuaprb.supabase.co");
 const SUPABASE_DEFAULT_ANON_KEY = String(globalThis?.__SUPABASE_ANON_KEY__ || "sb_publishable_lyLrAr-NKPVrnrO5_J-5Ow_WJDyq8t-");
-const GOOGLE_AUTH_ENABLED = true;
+// Reativar somente após publicar e concluir a configuração/verificação da marca OAuth.
+const GOOGLE_AUTH_ENABLED = false;
 const SUPABASE_REQUEST_TIMEOUT_MS = 25000;
 const SUPPORT_EMAIL = "simplifica3d.app@gmail.com";
 const SUPERADMIN_BOOTSTRAP_EMAIL = "";
@@ -115,7 +126,6 @@ const PLAN_REGISTRY = Object.freeze({
       advancedPermissions: false,
       premiumThemes: false,
       automations: false,
-      aiFuture: false,
       googleFuture: false
     }),
     upgrades: Object.freeze(["start", "pro"])
@@ -141,7 +151,6 @@ const PLAN_REGISTRY = Object.freeze({
       advancedPermissions: false,
       premiumThemes: false,
       automations: false,
-      aiFuture: false,
       googleFuture: false
     }),
     upgrades: Object.freeze(["pro"])
@@ -167,7 +176,6 @@ const PLAN_REGISTRY = Object.freeze({
       advancedPermissions: true,
       premiumThemes: true,
       automations: true,
-      aiFuture: false,
       googleFuture: false
     }),
     upgrades: Object.freeze([])
@@ -204,9 +212,6 @@ let plansPresentationSelectedSlug = "start";
 let plansCarouselScrollTimer = null;
 let superAdminPlanCatalogRemoteState = { status: "idle", message: "", updatedAt: "", data: null };
 const planDiagnosticsSeen = new Set();
-// IA local pesada fica preservada como legado, mas desativada no app principal.
-const HEAVY_AI_FEATURE_ENABLED = false;
-const MANUAL_HELP_ASSISTANT_ENABLED = true;
 const PAID_PRICE_TIERS = [
   { limit: 100, price: 19.9 },
   { limit: 200, price: 24.9 },
@@ -231,97 +236,6 @@ const ONBOARDING_PRINT_TYPES = [
   { id: "ambos", label: "Ambos" }
 ];
 const ONBOARDING_MATERIALS = ["PLA", "ABS", "PETG", "TPU", "Resina", "Outro"];
-const ASSISTANT_MAX_MESSAGES = 8;
-const ASSISTANT_MAX_CONTEXT_RESULTS = 3;
-const AI_LOCAL_UI_VERSION = "2026-05-16-assistente-manual-ia-media";
-const AI_OFFLINE_SYSTEM_PROMPT = "Você é o assistente do app Simplifica 3D. Responda somente com base no manual fornecido e no contexto da tela. Não invente funções, telas, botões ou regras. Seja direto, natural e útil. Se a informação não estiver no manual, diga que não encontrou essa informação e sugira Ajuda e Feedback.";
-const AI_RESPONSE_MAX_CHARS = 800;
-const AI_DEFAULT_MAX_TOKENS = 256;
-const AI_TECHNICAL_MAX_TOKENS = 256;
-const AI_RUNTIME_TEST_SYSTEM_PROMPT = "";
-const AI_RUNTIME_TEST_PROMPT = "Responda OK";
-const AI_KNOWLEDGE_BASE = Object.freeze({
-  telas: ["Dashboard", "Pedidos", "Clientes", "Calculadora", "Estoque", "Produção", "Caixa", "Relatórios", "Empresa", "Aparência", "PDF", "Sistema", "Conta"],
-  fluxos: [
-    "Para adicionar material: abra Estoque, toque em Adicionar material, informe tipo, cor e quantidade.",
-    "Para calcular preço: abra Calculadora, escolha material, informe peso, tempo, margem e taxa extra. Custos fixos ficam em Calculadora > Configurações.",
-    "Para criar pedido: abra Pedidos, escolha cliente, adicione itens, revise o total e salve.",
-    "Para editar pedido: abra o pedido, edite itens em etapas e confirme na revisão final.",
-    "Para gerar PDF: abra um pedido ou orçamento e use Gerar PDF.",
-    "Para sincronizar: use Sistema para backup, sincronização, cache e atualizações.",
-    "Para segurança e sessão: use Conta para perfil, plano, senha, biometria e troca de conta."
-  ],
-  limites: "A IA local é focada no uso do Simplifica 3D e impressão 3D FDM. Ela não deve orientar ações de Super Admin nem inventar funções."
-});
-const AI_LOCAL_MEDIUM_MODEL_ID = "qwen25_15b_q8_0";
-const AI_DEFAULT_MODEL_ID = AI_LOCAL_MEDIUM_MODEL_ID;
-const AI_SMART_MODEL_ID = AI_LOCAL_MEDIUM_MODEL_ID;
-const AI_PRO_MODEL_ID = AI_LOCAL_MEDIUM_MODEL_ID;
-const AI_MODEL_PROFILES = Object.freeze({
-  [AI_LOCAL_MEDIUM_MODEL_ID]: {
-    label: "IA Local Média",
-    maxTokens: 256,
-    quickMaxTokens: 128,
-    technicalMaxTokens: 256,
-    jsonMaxTokens: 256,
-    temperature: 0.3,
-    topP: 0.9,
-    repeatPenalty: 1.1,
-    presencePenalty: 0.05,
-    frequencyPenalty: 0.2,
-    contextSize: 2048,
-    benchmarkContextSize: 512,
-    promptLimit: 1200,
-    memoryLimit: 250,
-    threads: 3,
-    maxThreads: 4,
-    gpuLayers: 0,
-    gpuLayerTests: [0, 4, 8, 12],
-    responseMode: "manual_polish",
-    allowActions: ["explain_screen", "fill_calculator", "create_order_draft", "create_client_draft", "add_inventory_draft", "search_order"]
-  }
-});
-const AI_MODELS = Object.freeze([
-  {
-    id: AI_LOCAL_MEDIUM_MODEL_ID,
-    name: "IA Local Média",
-    tier: "medium",
-    requiredPlan: "pro",
-    model: "Qwen2.5 1.5B Instruct Q8_0 GGUF",
-    sizeMb: 1650,
-    minBytes: 1200 * 1024 * 1024,
-    ramRecommended: "6 GB+",
-    recommended: "Modo avançado opcional",
-    description: "Modelo local único para melhorar a naturalidade das respostas encontradas no manual interno.",
-    fileName: "Qwen2.5-1.5B-Instruct-Q8_0.gguf",
-    officialPage: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF",
-    url: "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q8_0.gguf"
-  }
-]);
-const AI_INSTALL_STATUS = Object.freeze({
-  NOT_INSTALLED: "not_installed",
-  DOWNLOADING: "downloading",
-  DOWNLOADED: "downloaded",
-  VALIDATING: "validating",
-  LOADING: "loading",
-  INSTALLING: "installing",
-  TESTING: "testing",
-  INSTALLED_READY: "installed_ready",
-  INSTALLED_BUT_FAILED: "installed_but_failed",
-  FAILED_DOWNLOAD: "failed_download",
-  FAILED_VALIDATION: "failed_validation",
-  FAILED_RUNTIME: "failed_runtime",
-  REMOVING: "removing",
-  REMOVED: "removed"
-});
-const AI_INSTALL_STATE_ALIASES = Object.freeze({
-  installed: AI_INSTALL_STATUS.INSTALLED_READY,
-  active: AI_INSTALL_STATUS.INSTALLED_READY,
-  failed: AI_INSTALL_STATUS.FAILED_RUNTIME,
-  installing: AI_INSTALL_STATUS.INSTALLING,
-  ready: AI_INSTALL_STATUS.INSTALLED_READY
-});
-const AI_PROGRESS_RENDER_INTERVAL_MS = 420;
 const LIST_PAGE_SIZE = 50;
 const SUPERADMIN_PAGE_SIZE = 50;
 const LOCAL_SESSION_CACHE_KEY = "simplifica3dSessionCache";
@@ -408,7 +322,7 @@ const ANDROID_UPDATE_LINE_STORAGE_KEY = "simplifica3d:android-update-line";
 const ANDROID_UPDATE_LINE_ID = "package-1";
 const BROWSER_LOGIN_EMAIL_STORAGE_KEY = "simplifica3d:saved-login-email";
 const USAGE_LEARNING_KEY = "usageLearning";
-const AI_USAGE_MEMORY_PREFIX = "aiUsageMemory";
+const USAGE_MEMORY_PREFIX = "usageMemory";
 const USAGE_LEARNING_ALLOWED_EVENTS = new Set([
   "tela_aberta",
   "calculadora_aberta",
@@ -778,6 +692,7 @@ function getCanonicalUiIconKey(value = "", fallback = "dashboard") {
 
 const UI_SCREEN_RELATIONS = Object.freeze({
   dashboard: Object.freeze({ label: "Início", icon: "dashboard", tokenSet: "workspace" }),
+  promocoes: Object.freeze({ label: "Promoções 3D", icon: "cupom", tokenSet: "workspace" }),
   calculadora: Object.freeze({ label: "Calculadora 3D", icon: "calculadora", tokenSet: "operation" }),
   pedido: Object.freeze({ label: "Novo pedido", icon: "pedido", tokenSet: "operation" }),
   producao: Object.freeze({ label: "Produção", icon: "producao", tokenSet: "operation" }),
@@ -791,7 +706,7 @@ const UI_SCREEN_RELATIONS = Object.freeze({
   empresa: Object.freeze({ label: "Empresa", icon: "empresa", tokenSet: "settings" }),
   administracao: Object.freeze({ label: "Administração", icon: "empresa", tokenSet: "settings" }),
   backup: Object.freeze({ label: "Sistema", icon: "backup", tokenSet: "settings" }),
-  preferencias: Object.freeze({ label: "Calculadora", icon: "preferencias", tokenSet: "settings" }),
+  preferencias: Object.freeze({ label: "Configurar calculadora", icon: "preferencias", tokenSet: "settings" }),
   personalizacao: Object.freeze({ label: "Aparência", icon: "aparencia", tokenSet: "settings" }),
   pdf: Object.freeze({ label: "PDF", icon: "pdf", tokenSet: "settings" }),
   mais: Object.freeze({ label: "Mais", icon: "more", tokenSet: "navigation" }),
@@ -819,6 +734,7 @@ const telas = Object.freeze(Object.fromEntries(
 
 const NAVIGATION_AUDIT_REGISTRY = Object.freeze({
   dashboard: Object.freeze({ label: "Início", category: "principal", component: "renderDashboard", status: "active", permission: "basic_dashboard", desktop: true, mobile: true }),
+  promocoes: Object.freeze({ label: "Promoções 3D", category: "principal", component: "renderPromocoes3d", status: "active", permission: "public_offers", desktop: true, mobile: true }),
   pedidos: Object.freeze({ label: "Pedidos", category: "operacional", component: "renderListaPedidos", status: "active", permission: "basic_orders", desktop: true, mobile: true }),
   pedido: Object.freeze({ label: "Novo pedido", category: "operacional", component: "renderPedido", status: "active", permission: "basic_orders", desktop: true, mobile: false }),
   clientes: Object.freeze({ label: "Clientes", category: "operacional", component: "renderClientes", status: "active", permission: "basic_customers", desktop: true, mobile: false }),
@@ -954,33 +870,6 @@ let profileLongPressState = null;
 let calcWidgetAction = null;
 let sessionTimer = null;
 let sessionWarned = false;
-let assistantOpen = false;
-let assistantMinimized = false;
-let assistantMessages = [];
-let assistantGenerating = false;
-let assistantMode = "basic";
-let assistantListening = false;
-let assistantVoiceSupport = null;
-let assistantVoiceSupportLoading = false;
-let assistantRuntimeDiagnostics = null;
-let assistantRuntimeDiagnosticsLoading = false;
-let assistantRuntimeLoading = false;
-let assistantRuntimeReady = false;
-let assistantRuntimePromise = null;
-let assistantRuntimeWarmupAt = 0;
-let assistantRuntimeHibernateTimer = null;
-let assistantGenerationToken = 0;
-let assistantLocalDiagnostics = {
-  promptChars: 0,
-  responseChars: 0,
-  promptTokens: 0,
-  responseMs: 0,
-  lastError: "",
-  lastScreen: "",
-  lastUpdatedAt: ""
-};
-let aiModelInstallPromise = null;
-let aiProgressRenderTimer = null;
 let localLockModalOpen = false;
 let licenseMonitorTimer = null;
 let dataScopeChangedOnCurrentSession = false;
@@ -1019,6 +908,18 @@ let diagnostics = carregarLista("diagnostics");
 let sugestoes = carregarLista("sugestoes");
 let syncedMessageNotifications = [];
 let messageNotificationLoadState = "idle";
+let promotions3dState = {
+  status: "idle",
+  items: [],
+  stores: [],
+  updatedAt: "",
+  filter: "todas",
+  store: "todas",
+  sort: "melhores",
+  query: "",
+  message: ""
+};
+let promotions3dRefreshTimer = null;
 let androidMessageRelayStatus = { supported: false, permissionGranted: false, enabled: false };
 let appErrorLogsRemotos = [];
 let appFeedbackReportsRemotos = [];
@@ -1158,7 +1059,7 @@ let appConfig = carregarObjeto("appConfig", {
   defaultQualityPreset: "0.20mm padrão",
   calculatorDefaults: {},
   smartSuggestionsEnabled: true,
-  aiUsageMemoryEnabled: true,
+  usageMemoryEnabled: true,
   smartSuggestionsDismissedAt: "",
   screenFit: "auto",
   uiScale: 100,
@@ -1190,21 +1091,6 @@ let appConfig = carregarObjeto("appConfig", {
   adsenseWebEnabled: ADSENSE_WEB_DEFAULT_ENABLED,
   adsensePublisherId: ADSENSE_WEB_DEFAULT_PUBLISHER_ID,
   adsenseBannerSlot: ADSENSE_WEB_DEFAULT_BANNER_SLOT,
-  aiOfflineAssistant: {
-    localEnabled: false,
-    proActivationPromptedVersion: "",
-    onboardingCompleted: false,
-    activeModelId: "",
-    installedModelId: "",
-    models: {},
-    lastFailure: "",
-    lastPerformance: "",
-    lastDeviceProfile: "",
-    voiceEnabled: false,
-    ttsEnabled: false,
-    ttsRate: 1,
-    basicFallback: true
-  },
   calculatorWidget: {
     open: false,
     x: null,
@@ -1474,291 +1360,6 @@ function shouldShowMenuItem(item = {}, mode = getInterfaceMode()) {
   return true;
 }
 
-const assistantResponses = [
-  { keywords: ["criar pedido", "novo pedido", "montar pedido"], answer: "Para criar um pedido, abra Novo pedido, informe cliente e WhatsApp, adicione itens pela calculadora ou manualmente, revise o total e toque em Salvar." },
-  { keywords: ["editar pedido", "alterar pedido", "mudar pedido"], answer: "Para editar um pedido, abra Pedidos, toque no pedido, escolha Editar, ajuste os itens na lista e confirme na revisão final. A lixeira remove um item e o estoque é recalculado pela diferença." },
-  { keywords: ["fechar pedido", "finalizar pedido", "salvar pedido"], answer: "Para fechar/salvar, revise cliente, itens, entrada/sinal e total. Depois toque em Salvar ou Confirmar alterações. O caixa recebe somente o valor realmente pago." },
-  { keywords: ["excluir pedido", "remover pedido", "cancelar pedido"], answer: "Para excluir/remover um pedido, abra a lista de Pedidos e use a ação de lixeira. O app pede confirmação e pode devolver estoque quando houver material vinculado." },
-  { keywords: ["pedido", "pedidos", "venda", "vendas"], answer: "Você quer ajuda com qual parte dos pedidos: criar um novo pedido, editar itens, fechar/salvar, excluir, gerar PDF ou enviar por WhatsApp?" },
-  { keywords: ["estoque", "material", "filamento", "resina"], answer: "No Estoque você cadastra materiais por tipo e cor, como PLA Preto ou Resina Transparente. Quando um pedido usa material vinculado por ID, o sistema verifica saldo, baixa automaticamente ao salvar e devolve ao excluir/cancelar." },
-  { keywords: ["calculadora", "calcular", "preco", "preço", "orcamento", "orçamento"], answer: "Na Calculadora 3D informe material, gramas, tempo, impressora, margem e taxa extra. O resultado separa custo de material, energia, custo total e preço sugerido. Você pode adicionar como pedido, salvar orçamento ou gerar PDF se o plano permitir." },
-  { keywords: ["backup", "restaurar", "exportar", "nuvem", "drive"], answer: "Em Backup você pode sincronizar seus dados online, exportar uma cópia local ou importar um arquivo de restauração. A sincronização fica vinculada à sua conta." },
-  { keywords: ["pdf", "comprovante", "recibo"], answer: "Para gerar PDF, monte um pedido ou orçamento e clique em Gerar PDF. Planos pagos e superadmin têm acesso ao PDF. No celular, se o download direto falhar, o sistema tenta abrir o arquivo em nova aba." },
-  { keywords: ["plano", "pago", "vencido", "bloqueado", "premium"], answer: "O Grátis permite testar o ERP e preparar a loja para visualização, sem produtos ou link público. O Start libera loja pública com até 100 produtos, pedidos ilimitados e remove anúncios. O Pro libera recursos avançados, multiusuário, temas premium e suporte prioritário. Superadmin sempre tem acesso total." },
-  { keywords: ["superadmin", "super", "administrador principal"], answer: "Super Admin é exclusivo do administrador principal. Ele vê a aba Super Admin, gerencia usuários, planos, bloqueios, vencimentos e acessa todas as funções sem limite de aparelho." },
-  { keywords: ["login", "entrar", "acesso", "sessao", "sessão"], answer: "Use a área de acesso para entrar com e-mail e senha. Sua sessão permanece ativa até você sair da conta. Se aparecer Acesso negado, confirme se o seu perfil ou plano libera aquela tela." },
-  { keywords: ["senha", "recuperar", "esqueci", "trocar"], answer: "Em Segurança você pode alterar sua senha. Use uma senha forte com 8 ou mais caracteres, maiúscula, minúscula, número e símbolo. Se esquecer, use Esqueci minha senha para receber as instruções de recuperação." },
-  { keywords: ["usuario", "usuário", "usuarios", "usuários", "permissao", "permissão", "perfil"], answer: "Dono e admin gerenciam usuários. Os perfis operacionais são gerente, caixa, produção, vendas e visualizador; cada função aparece conforme plano, modo e permissão." },
-  { keywords: ["caixa", "financeiro", "relatorio", "relatório"], answer: "Em Caixa você registra entradas e saídas. Em pedidos com entrada/sinal, o app lança somente o valor recebido e mantém o restante como saldo a receber." },
-  { keywords: ["producao", "produção", "impressao", "impressão"], answer: "A tela Produção acompanha pedidos em aberto ou em andamento. Atualize o status para organizar o fluxo de impressão, entrega e finalização." }
-];
-const ASSISTANT_MANUAL_FALLBACK_MESSAGE = "Não encontrei essa informação no manual do app. Você pode enviar isso como sugestão em Ajuda e Feedback.";
-const ASSISTANT_MANUAL_ITEMS = Object.freeze([
-  {
-    id: "pedidos_criar",
-    titulo: "Criar pedido",
-    intent: "criar_pedido",
-    keywords: ["criar pedido", "novo pedido", "pedido novo", "cadastrar pedido", "abrir pedido"],
-    shortAnswer: "Abra Pedidos > Novo pedido. Preencha cliente, telefone e observação, depois adicione itens e salve.",
-    fullAnswer: "Para criar um pedido, abra Pedidos e toque em Novo pedido. Primeiro preencha o cabeçalho com cliente, WhatsApp, observação, prazo e status. Depois adicione itens calculados ou manuais, revise o total e salve.",
-    relatedScreen: "pedidos",
-    suggestedAction: "open_new_order",
-    requiredPlan: "free",
-    priority: 100
-  },
-  {
-    id: "pedidos_adicionar_item",
-    titulo: "Adicionar item ao pedido",
-    intent: "adicionar_item_pedido",
-    keywords: ["adicionar item", "item no pedido", "calcular item", "mais item", "incluir item"],
-    shortAnswer: "No pedido, toque em Adicionar item. Calcule ou preencha o item, confirme o resultado e ele entra na lista do pedido.",
-    fullAnswer: "Ao adicionar item, o app pode abrir a calculadora para calcular peso, tempo, material, quantidade e taxa extra. O item só entra no pedido depois da confirmação do usuário, e o total é atualizado na lista.",
-    relatedScreen: "pedidos",
-    suggestedAction: "open_order_calculator",
-    requiredPlan: "free",
-    priority: 98
-  },
-  {
-    id: "pedidos_item_duplicado",
-    titulo: "Evitar item duplicado",
-    intent: "evitar_item_duplicado",
-    keywords: ["duplicado", "repetido", "dois itens", "item vazio", "duplicou", "duplicar"],
-    shortAnswer: "O app verifica itens iguais antes de adicionar. Se parecer repetido, ele pergunta se deseja somar quantidade, adicionar separado ou cancelar.",
-    fullAnswer: "Itens são comparados por nome, valor unitário, peso, tempo, material, cor e impressora. Se forem equivalentes, o app não cria outra linha sem confirmação. Para item vazio, nome, quantidade e valor precisam ser válidos antes de salvar.",
-    relatedScreen: "pedidos",
-    suggestedAction: "review_order_items",
-    requiredPlan: "free",
-    priority: 96
-  },
-  {
-    id: "calculadora_usar",
-    titulo: "Usar calculadora",
-    intent: "usar_calculadora",
-    keywords: ["calculadora", "calcular", "calculo", "cálculo", "preço", "preco", "orçamento", "orcamento"],
-    shortAnswer: "Informe peso, tempo de impressão, material, quantidade e margem. Depois toque em Calcular.",
-    fullAnswer: "A calculadora usa peso, tempo, material, energia, margem, quantidade e taxa extra para sugerir preço. Peso, horas e taxa extra começam limpos em novo cálculo para evitar reaproveitar valores variáveis.",
-    relatedScreen: "calculadora",
-    suggestedAction: "open_calculator",
-    requiredPlan: "free",
-    priority: 95
-  },
-  {
-    id: "whatsapp_orcamento",
-    titulo: "Enviar orçamento pelo WhatsApp",
-    intent: "enviar_whatsapp",
-    keywords: ["whatsapp", "enviar orçamento", "enviar orcamento", "mandar cliente", "mensagem"],
-    shortAnswer: "Abra o pedido e toque em WhatsApp. O app monta a mensagem com itens, quantidades, valores, total, observação e prazo.",
-    fullAnswer: "Se o pedido tiver telefone válido, o WhatsApp abre com o número informado. Se não houver telefone, o app abre a mensagem pronta para você escolher a conversa. O orçamento não envia lucro interno ao cliente.",
-    relatedScreen: "pedidos",
-    suggestedAction: "send_quote_whatsapp",
-    requiredPlan: "free",
-    priority: 94
-  },
-  {
-    id: "pdf_gerar",
-    titulo: "Gerar PDF",
-    intent: "gerar_pdf",
-    keywords: ["pdf", "gerar pdf", "orçamento pdf", "orcamento pdf", "recibo"],
-    shortAnswer: "Abra o pedido ou orçamento e toque em PDF. Revise os dados antes de gerar.",
-    fullAnswer: "O PDF usa cliente, itens, quantidades, valores, total, observações e dados da empresa. O plano Free pode usar PDF simples; o plano Pro libera recursos completos conforme as regras do app.",
-    relatedScreen: "pedidos",
-    suggestedAction: "generate_pdf",
-    requiredPlan: "free",
-    priority: 90
-  },
-  {
-    id: "clientes_cadastrar",
-    titulo: "Cadastrar cliente",
-    intent: "cadastrar_cliente",
-    keywords: ["cliente", "cadastrar cliente", "novo cliente", "contato", "telefone cliente"],
-    shortAnswer: "Abra Clientes > Novo cliente. Preencha nome, telefone e e-mail se tiver, depois salve.",
-    fullAnswer: "Clientes cadastrados podem ser usados nos pedidos e nas sugestões do campo Cliente. Se o contato vier do telefone, ele só é usado depois que você selecionar a sugestão.",
-    relatedScreen: "clientes",
-    suggestedAction: "open_clients",
-    requiredPlan: "free",
-    priority: 88
-  },
-  {
-    id: "estoque_cadastrar_material",
-    titulo: "Cadastrar material no estoque",
-    intent: "cadastrar_material",
-    keywords: ["estoque", "material", "filamento", "cadastrar material", "cor", "kg"],
-    shortAnswer: "Abra Estoque, toque em Adicionar material e informe tipo, cor, quantidade e custo.",
-    fullAnswer: "O estoque controla materiais como PLA, PETG, TPU ou resina. Informe tipo, cor, quantidade em kg e custo para usar no cálculo e acompanhar saldo baixo.",
-    relatedScreen: "estoque",
-    suggestedAction: "open_inventory",
-    requiredPlan: "free",
-    priority: 87
-  },
-  {
-    id: "pedidos_editar",
-    titulo: "Editar pedido",
-    intent: "editar_pedido",
-    keywords: ["editar pedido", "alterar pedido", "mudar pedido", "remover item", "excluir item"],
-    shortAnswer: "Abra o pedido, toque em Editar e ajuste os itens na lista. Use a lixeira do item para remover.",
-    fullAnswer: "A edição de pedido mostra cliente, itens, subtotais e total. Antes de salvar, revise itens adicionados, removidos, alterados, total anterior e novo total.",
-    relatedScreen: "pedidos",
-    suggestedAction: "edit_order",
-    requiredPlan: "free",
-    priority: 86
-  },
-  {
-    id: "pedidos_finalizar",
-    titulo: "Finalizar pedido",
-    intent: "finalizar_pedido",
-    keywords: ["finalizar pedido", "salvar pedido", "confirmar pedido", "fechar pedido"],
-    shortAnswer: "Revise cliente, itens e total. Depois toque em Salvar ou Confirmar alterações.",
-    fullAnswer: "O pedido só deve ser salvo depois da revisão final. Ao confirmar, o app atualiza a lista, sincroniza quando possível e mantém você no fluxo de pedidos.",
-    relatedScreen: "pedidos",
-    suggestedAction: "finish_order",
-    requiredPlan: "free",
-    priority: 85
-  },
-  {
-    id: "caixa_pagamento",
-    titulo: "Registrar pagamento no caixa",
-    intent: "registrar_pagamento",
-    keywords: ["caixa", "pagamento", "entrada", "recebimento", "saldo", "financeiro"],
-    shortAnswer: "Use Caixa para registrar entradas e saídas. Pedidos salvos podem gerar entrada financeira.",
-    fullAnswer: "O Caixa mostra entradas, saídas, saldo e histórico. Registre pagamentos com descrição clara e revise valores antes de salvar.",
-    relatedScreen: "caixa",
-    suggestedAction: "open_cash",
-    requiredPlan: "free",
-    priority: 84
-  },
-  {
-    id: "pedidos_orcamento_diferenca",
-    titulo: "Diferença entre orçamento e pedido",
-    intent: "orcamento_vs_pedido",
-    keywords: ["orçamento", "orcamento", "pedido", "diferença", "diferenca"],
-    shortAnswer: "Orçamento é uma proposta para o cliente. Pedido é o registro de produção/venda que você acompanha no app.",
-    fullAnswer: "Use orçamento para enviar valores e condições ao cliente. Quando o cliente aprovar, transforme ou registre como pedido para acompanhar itens, status, caixa e entrega.",
-    relatedScreen: "pedidos",
-    suggestedAction: "explain_quote_order",
-    requiredPlan: "free",
-    priority: 80
-  },
-  {
-    id: "planos_free",
-    titulo: "Plano Free",
-    intent: "plano_free",
-    keywords: ["free", "gratis", "gratuito", "limite free", "anuncio"],
-    shortAnswer: "O Free permite usar o app com limites básicos e anúncios leves. Ele não libera IA Local.",
-    fullAnswer: "O plano Free é funcional para começar: pedidos, clientes e cálculo básico continuam disponíveis dentro dos limites definidos. Recursos avançados, IA Local, automações e experiência sem anúncios ficam no Pro.",
-    relatedScreen: "planos",
-    suggestedAction: "open_plans",
-    requiredPlan: "free",
-    priority: 78
-  },
-  {
-    id: "planos_pro",
-    titulo: "Plano Pro",
-    intent: "plano_pro",
-    keywords: ["pro", "premium", "assinar", "plano pago", "assinatura"],
-    shortAnswer: "O Pro libera pedidos e clientes ilimitados, relatórios completos, PDF completo, IA Local, backup avançado e sem anúncios.",
-    fullAnswer: "O plano Pro é voltado para produtividade: remove anúncios, amplia limites, libera relatórios e PDF completos, backup/sincronização avançados, automações e IA Local no Android.",
-    relatedScreen: "planos",
-    suggestedAction: "open_subscription",
-    requiredPlan: "free",
-    priority: 78
-  },
-  {
-    id: "backup_sincronizacao",
-    titulo: "Backup e sincronização",
-    intent: "backup_sincronizacao",
-    keywords: ["backup", "sincronização", "sincronizacao", "supabase", "restaurar dados", "offline"],
-    shortAnswer: "Use Backup/Sincronizar para salvar dados online quando houver internet. O app também mantém dados locais.",
-    fullAnswer: "A sincronização usa a conta logada e uma fila local quando estiver offline. Se a internet falhar, o app mantém o uso básico e tenta sincronizar depois.",
-    relatedScreen: "backup",
-    suggestedAction: "open_backup",
-    requiredPlan: "free",
-    priority: 76
-  },
-  {
-    id: "erros_internet",
-    titulo: "Erro de internet",
-    intent: "erro_internet",
-    keywords: ["internet", "offline", "sem conexão", "sem conexao", "erro de rede", "não salvou", "nao salvou"],
-    shortAnswer: "Verifique a conexão e tente novamente. Se estiver offline, o app mantém dados locais e sincroniza quando voltar.",
-    fullAnswer: "Quando houver erro de internet, evite fechar o app durante um salvamento importante. Revise se os campos obrigatórios foram preenchidos e tente sincronizar novamente quando a conexão estabilizar.",
-    relatedScreen: "erros",
-    suggestedAction: "show_network_help",
-    requiredPlan: "free",
-    priority: 75
-  },
-  {
-    id: "ia_local_indisponivel",
-    titulo: "IA local indisponível",
-    intent: "ia_indisponivel",
-    keywords: ["ia local", "modelo", "qwen", "baixar ia", "instalar ia", "ia indisponível", "ia indisponivel"],
-    shortAnswer: "Se a IA Local não estiver pronta, use o Assistente Inteligente. Ele responde pelo manual sem baixar modelo.",
-    fullAnswer: "A IA Local Média é opcional e usa o modelo Qwen2.5 1.5B offline no Android. Ela só fica pronta depois de baixar, validar, carregar e passar no teste interno. Se falhar ou demorar, o app volta para o manual.",
-    relatedScreen: "config",
-    suggestedAction: "open_ai_settings",
-    requiredPlan: "pro",
-    priority: 74
-  },
-  {
-    id: "feedback_enviar",
-    titulo: "Enviar feedback",
-    intent: "enviar_feedback",
-    keywords: ["feedback", "sugestão", "sugestao", "ajuda", "suporte", "reportar erro"],
-    shortAnswer: "Abra Ajuda e Feedback para enviar sugestão, erro ou dúvida sobre o app.",
-    fullAnswer: "Use Ajuda e Feedback quando faltar alguma informação no manual, quando encontrar erro ou quando quiser sugerir melhoria. A mensagem ajuda a melhorar o app sem depender da IA inventar respostas.",
-    relatedScreen: "feedback",
-    suggestedAction: "open_feedback",
-    requiredPlan: "free",
-    priority: 73
-  },
-  {
-    id: "app_atualizar",
-    titulo: "Atualizar app",
-    intent: "atualizar_app",
-    keywords: ["atualizar app", "nova versão", "nova versao", "update", "apk", "pwa"],
-    shortAnswer: "No APK, instale a atualização disponibilizada. No PWA, atualize a página ou reinstale o atalho se necessário.",
-    fullAnswer: "Antes de atualizar, mantenha backup/sincronização em dia. No PWA, o navegador pode manter cache; atualizar a página normalmente carrega a versão nova.",
-    relatedScreen: "config",
-    suggestedAction: "show_update_help",
-    requiredPlan: "free",
-    priority: 70
-  },
-  {
-    id: "pedidos_sem_item",
-    titulo: "Pedido sem item",
-    intent: "pedido_sem_item",
-    keywords: ["pedido sem item", "sem item", "item vazio", "valor zero", "0,00"],
-    shortAnswer: "Um pedido pode ser criado pelo cabeçalho, mas item vazio não deve ser salvo. Adicione um item válido antes de finalizar.",
-    fullAnswer: "Para um item ser válido, ele precisa ter nome ou descrição, quantidade maior que zero e valor maior que zero. A calculadora só adiciona o item depois da confirmação.",
-    relatedScreen: "pedidos",
-    suggestedAction: "add_valid_item",
-    requiredPlan: "free",
-    priority: 92
-  },
-  {
-    id: "clientes_nao_selecionado",
-    titulo: "Cliente não selecionado",
-    intent: "cliente_nao_selecionado",
-    keywords: ["cliente não selecionado", "cliente nao selecionado", "contato errado", "telefone errado"],
-    shortAnswer: "Se não selecionar sugestão de cliente, o app usa o nome digitado e deixa telefone/e-mail para preenchimento manual.",
-    fullAnswer: "Quando você escolhe uma sugestão, nome, telefone e e-mail são preenchidos. Se editar o nome depois, o app limpa os dados automáticos para evitar contato errado.",
-    relatedScreen: "pedidos",
-    suggestedAction: "review_customer",
-    requiredPlan: "free",
-    priority: 72
-  },
-  {
-    id: "calculadora_preco",
-    titulo: "Cálculo de preço",
-    intent: "calculo_preco",
-    keywords: ["custo por grama", "tempo de impressão", "tempo de impressao", "energia", "margem", "lucro", "taxa extra", "peso"],
-    shortAnswer: "O preço considera material, peso, tempo, energia, margem, quantidade e taxa extra.",
-    fullAnswer: "O custo por grama vem do material cadastrado. O tempo entra no custo de energia e operação. A margem define o lucro sugerido, e a taxa extra pode cobrir acabamento, urgência ou embalagem.",
-    relatedScreen: "calculadora",
-    suggestedAction: "explain_calculation",
-    requiredPlan: "free",
-    priority: 82
-  }
-]);
 let billingConfig = carregarObjeto("billingConfig", {
   clientId: "",
   companyId: "",
@@ -3675,7 +3276,10 @@ function sincronizarAlteracoesLocaisSilencioso(motivo = "data-change") {
   }
   atualizarIndicadorSincronizacao("syncing", "Salvando");
   const avisoDemora = setTimeout(() => {
-    if (window.__simplificaSyncing) atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    const indicadorAtual = document.getElementById("syncIndicator");
+    if (window.__simplificaSyncing || indicadorAtual?.classList.contains("sync-syncing")) {
+      atualizarIndicadorSincronizacao("pending", "Salvo no aparelho");
+    }
   }, 12000);
   return sincronizarSupabaseSilencioso()
     .then(async (ok) => {
@@ -3971,18 +3575,18 @@ function registrarEventoUsoLocal(tipo, dados = {}) {
       : Number(usageLearning?.shortcutUsageSinceOrder) || 0
   });
   salvarUsoInteligenteLocal();
-  if (globalThis.AiUsageMemoryManager) {
-    globalThis.AiUsageMemoryManager.collectUsageSignals(tipo, evento);
+  if (globalThis.UsageMemoryManager) {
+    globalThis.UsageMemoryManager.collectUsageSignals(tipo, evento);
   }
 }
 
-function getAiUsageMemoryUserId(usuario = getUsuarioAtual()) {
+function getUsageMemoryUserId(usuario = getUsuarioAtual()) {
   const uid = syncConfig.supabaseUserId || usuario?.id || usuario?.email || usuarioAtualEmail || "local";
   return String(uid || "local").replace(/[^\w.@-]/g, "_").slice(0, 96);
 }
 
-function getAiUsageMemoryKey(userId = getAiUsageMemoryUserId()) {
-  return `${AI_USAGE_MEMORY_PREFIX}:${userId || "local"}`;
+function getUsageMemoryKey(userId = getUsageMemoryUserId()) {
+  return `${USAGE_MEMORY_PREFIX}:${userId || "local"}`;
 }
 
 function normalizarMapaNumerico(valor = {}, limite = 40) {
@@ -4001,12 +3605,12 @@ function normalizarMediaUso(valor = {}) {
   };
 }
 
-function normalizarAiUsageMemory(origem = {}) {
+function normalizarUsageMemory(origem = {}) {
   const base = origem && typeof origem === "object" && !Array.isArray(origem) ? origem : {};
   return {
     version: 1,
     enabled: base.enabled !== false,
-    userId: String(base.userId || getAiUsageMemoryUserId()).slice(0, 96),
+    userId: String(base.userId || getUsageMemoryUserId()).slice(0, 96),
     updatedAt: String(base.updatedAt || ""),
     materialStats: normalizarMapaNumerico(base.materialStats),
     colorStats: normalizarMapaNumerico(base.colorStats),
@@ -4025,8 +3629,8 @@ function normalizarAiUsageMemory(origem = {}) {
   };
 }
 
-function aplicarDecayMemoriaIA(memoria) {
-  const proxima = normalizarAiUsageMemory(memoria);
+function aplicarDecayMemoriaUso(memoria) {
+  const proxima = normalizarUsageMemory(memoria);
   const ultimaAtualizacao = Date.parse(proxima.updatedAt || "") || 0;
   const dias = ultimaAtualizacao ? (Date.now() - ultimaAtualizacao) / 86400000 : 0;
   if (dias < 14) return proxima;
@@ -4037,7 +3641,7 @@ function aplicarDecayMemoriaIA(memoria) {
   return proxima;
 }
 
-function incrementarStatMemoriaIA(memoria, chave, valor, peso = 1) {
+function incrementarStatMemoriaUso(memoria, chave, valor, peso = 1) {
   const texto = String(valor || "").trim().slice(0, 80);
   if (!texto) return;
   memoria[chave] = normalizarMapaNumerico({
@@ -4046,7 +3650,7 @@ function incrementarStatMemoriaIA(memoria, chave, valor, peso = 1) {
   });
 }
 
-function registrarMediaMemoriaIA(memoria, chave, valor) {
+function registrarMediaMemoriaUso(memoria, chave, valor) {
   const numero = Number(valor);
   if (!Number.isFinite(numero) || numero <= 0) return;
   const atual = normalizarMediaUso(memoria.averages?.[chave]);
@@ -4055,66 +3659,66 @@ function registrarMediaMemoriaIA(memoria, chave, valor) {
   memoria.averages[chave] = { total, count };
 }
 
-function valorPreferidoMemoriaIA(stats = {}) {
+function valorPreferidoMemoriaUso(stats = {}) {
   return Object.entries(stats || {}).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
 }
 
-function mediaMemoriaIA(media = {}) {
+function mediaMemoriaUso(media = {}) {
   const count = Number(media?.count) || 0;
   return count > 0 ? Math.round((Number(media.total) || 0) / count) : 0;
 }
 
-const AiUsageMemoryManager = Object.freeze({
-  load(userId = getAiUsageMemoryUserId()) {
+const UsageMemoryManager = Object.freeze({
+  load(userId = getUsageMemoryUserId()) {
     try {
-      const bruto = JSON.parse(localStorage.getItem(getAiUsageMemoryKey(userId)) || "{}");
-      return aplicarDecayMemoriaIA({ ...bruto, userId });
+      const bruto = JSON.parse(localStorage.getItem(getUsageMemoryKey(userId)) || "{}");
+      return aplicarDecayMemoriaUso({ ...bruto, userId });
     } catch (_) {
-      return normalizarAiUsageMemory({ userId });
+      return normalizarUsageMemory({ userId });
     }
   },
   save(memory) {
-    const normalizada = normalizarAiUsageMemory({ ...memory, updatedAt: new Date().toISOString() });
-    localStorage.setItem(getAiUsageMemoryKey(normalizada.userId), JSON.stringify(normalizada));
+    const normalizada = normalizarUsageMemory({ ...memory, updatedAt: new Date().toISOString() });
+    localStorage.setItem(getUsageMemoryKey(normalizada.userId), JSON.stringify(normalizada));
     return normalizada;
   },
   collectUsageSignals(tipo, dados = {}) {
-    if (appConfig.aiUsageMemoryEnabled === false) return null;
+    if (appConfig.usageMemoryEnabled === false) return null;
     if (!sugestoesInteligentesAtivas()) return null;
     const memory = this.load();
     if (memory.enabled === false) return null;
-    incrementarStatMemoriaIA(memory, "actionStats", tipo);
-    if (dados.tela) incrementarStatMemoriaIA(memory, "screenStats", dados.tela);
-    if (dados.materialNome || dados.materialId) incrementarStatMemoriaIA(memory, "materialStats", dados.materialNome || dados.materialId);
-    if (dados.cor) incrementarStatMemoriaIA(memory, "colorStats", dados.cor);
-    if (dados.impressora) incrementarStatMemoriaIA(memory, "printerStats", dados.impressora);
-    if (dados.produto) incrementarStatMemoriaIA(memory, "productStats", dados.produto);
-    if (dados.tipoPedido) incrementarStatMemoriaIA(memory, "orderTypeStats", dados.tipoPedido);
+    incrementarStatMemoriaUso(memory, "actionStats", tipo);
+    if (dados.tela) incrementarStatMemoriaUso(memory, "screenStats", dados.tela);
+    if (dados.materialNome || dados.materialId) incrementarStatMemoriaUso(memory, "materialStats", dados.materialNome || dados.materialId);
+    if (dados.cor) incrementarStatMemoriaUso(memory, "colorStats", dados.cor);
+    if (dados.impressora) incrementarStatMemoriaUso(memory, "printerStats", dados.impressora);
+    if (dados.produto) incrementarStatMemoriaUso(memory, "productStats", dados.produto);
+    if (dados.tipoPedido) incrementarStatMemoriaUso(memory, "orderTypeStats", dados.tipoPedido);
     if (dados.margem !== undefined) {
       const margem = Math.round(Number(dados.margem) || 0);
-      if (margem > 0) incrementarStatMemoriaIA(memory, "marginStats", String(margem));
-      registrarMediaMemoriaIA(memory, "margin", margem);
+      if (margem > 0) incrementarStatMemoriaUso(memory, "marginStats", String(margem));
+      registrarMediaMemoriaUso(memory, "margin", margem);
     }
-    if (dados.peso !== undefined) registrarMediaMemoriaIA(memory, "weight", dados.peso);
-    if (dados.tempo !== undefined) registrarMediaMemoriaIA(memory, "printTime", dados.tempo);
+    if (dados.peso !== undefined) registrarMediaMemoriaUso(memory, "weight", dados.peso);
+    if (dados.tempo !== undefined) registrarMediaMemoriaUso(memory, "printTime", dados.tempo);
     ["peso", "tempo", "material", "impressora", "margem", "cliente", "produto"].forEach((campo) => {
-      if (dados[campo] !== undefined && dados[campo] !== "") incrementarStatMemoriaIA(memory, "fieldStats", campo, 0.5);
+      if (dados[campo] !== undefined && dados[campo] !== "") incrementarStatMemoriaUso(memory, "fieldStats", campo, 0.5);
     });
-    return this.updateUserAiProfile(memory);
+    return this.updateUserUsageProfile(memory);
   },
-  updateUserAiProfile(memory = this.load()) {
+  updateUserUsageProfile(memory = this.load()) {
     return this.save(memory);
   },
-  buildUserMemoryContext(userId = getAiUsageMemoryUserId(), modelProfile = getAIModelProfile()) {
-    if (appConfig.aiUsageMemoryEnabled === false) return "";
+  buildUserMemoryContext(userId = getUsageMemoryUserId(), modelProfile = {}) {
+    if (appConfig.usageMemoryEnabled === false) return "";
     const memory = this.load(userId);
     if (memory.enabled === false) return "";
-    const material = valorPreferidoMemoriaIA(memory.materialStats);
-    const cor = valorPreferidoMemoriaIA(memory.colorStats);
-    const impressora = valorPreferidoMemoriaIA(memory.printerStats);
-    const margem = valorPreferidoMemoriaIA(memory.marginStats) || mediaMemoriaIA(memory.averages.margin);
+    const material = valorPreferidoMemoriaUso(memory.materialStats);
+    const cor = valorPreferidoMemoriaUso(memory.colorStats);
+    const impressora = valorPreferidoMemoriaUso(memory.printerStats);
+    const margem = valorPreferidoMemoriaUso(memory.marginStats) || mediaMemoriaUso(memory.averages.margin);
     const produto = Object.keys(memory.productStats || {}).slice(0, 2).join(", ");
-    const tela = valorPreferidoMemoriaIA(memory.screenStats);
+    const tela = valorPreferidoMemoriaUso(memory.screenStats);
     const partes = [];
     if (material) partes.push(`material ${material}`);
     if (cor) partes.push(`cor ${cor}`);
@@ -4123,31 +3727,31 @@ const AiUsageMemoryManager = Object.freeze({
     if (produto) partes.push(`produtos ${produto}`);
     if (tela) partes.push(`tela frequente ${tela}`);
     if (!partes.length) return "";
-    const label = modelProfile?.label || "Lite";
+    const label = modelProfile?.label || "Uso local";
     if (label === "Lite") return `Preferências: ${partes.slice(0, 3).join(", ")}. Use como sugestão e confirme.`;
     if (label === "Smart") return `Preferências do usuário: ${partes.slice(0, 4).join(", ")}. Use só como sugestão, sem salvar sozinho.`;
     return `Preferências do usuário: ${partes.slice(0, 6).join(", ")}. Use isso apenas como sugestão, avise quando usar e nunca salve nada sem confirmação.`;
   },
-  resetUserAiMemory(userId = getAiUsageMemoryUserId()) {
-    localStorage.removeItem(getAiUsageMemoryKey(userId));
-    mostrarToast("Memória da IA apagada.", "sucesso", 3200);
+  resetUserUsageMemory(userId = getUsageMemoryUserId()) {
+    localStorage.removeItem(getUsageMemoryKey(userId));
+    mostrarToast("Histórico de sugestões apagado.", "sucesso", 3200);
     renderizarPreservandoScroll();
   },
-  exportUserAiMemory(userId = getAiUsageMemoryUserId()) {
+  exportUserUsageMemory(userId = getUsageMemoryUserId()) {
     return this.load(userId);
   },
-  disableUserAiMemory(userId = getAiUsageMemoryUserId()) {
+  disableUserUsageMemory(userId = getUsageMemoryUserId()) {
     const memory = this.load(userId);
     memory.enabled = false;
-    appConfig.aiUsageMemoryEnabled = false;
+    appConfig.usageMemoryEnabled = false;
     this.save(memory);
     salvarDados();
-    mostrarToast("Aprendizado da IA desativado.", "info", 3200);
+    mostrarToast("Sugestões personalizadas desativadas.", "info", 3200);
     renderizarPreservandoScroll();
   }
 });
 
-globalThis.AiUsageMemoryManager = AiUsageMemoryManager;
+globalThis.UsageMemoryManager = UsageMemoryManager;
 
 function contarEventosUso(tipo, limite = 30) {
   return normalizarUsoInteligente(usageLearning).events
@@ -4293,6 +3897,7 @@ function getUltimoDesbloqueioLocalMs() {
 
 function precisaDesbloqueioLocal() {
   if (!usuarioAtualEmail || !syncConfig.supabaseUserId) return false;
+  if (appConfig.keepSessionCache !== false) return false;
   const ultimo = getUltimoDesbloqueioLocalMs();
   return !ultimo || Date.now() - ultimo > LOCAL_UNLOCK_MAX_MS;
 }
@@ -4305,6 +3910,7 @@ function licencaLocalAindaConfiavel() {
 function ativarTravaLocal(motivo = "stale") {
   window.__simplificaLocalLockActive = true;
   window.__simplificaLocalLockReason = motivo;
+  return true;
 }
 
 function desativarTravaLocal(motivo = "unlock") {
@@ -4816,10 +4422,14 @@ function mesclarUsuariosSupabase(usuariosAtuais = [], perfis = []) {
     const local = mapa.get(remoto.email);
     const papel = local?.papel === "superadmin" || remoto.papel === "superadmin" ? "superadmin" : remoto.papel;
     const onboardingCompleted = local?.onboardingCompleted === true || remoto.onboardingCompleted === true;
+    const senhaJaAlteradaLocalmente = !!local?.passwordUpdatedAt;
+    const deveTrocarSenha = remoto.mustChangePassword === true && !senhaJaAlteradaLocalmente;
     const usuario = normalizarUsuario({
       ...local,
       ...remoto,
       papel,
+      mustChangePassword: deveTrocarSenha,
+      senhaTemporaria: deveTrocarSenha,
       onboardingCompleted,
       onboardingStep: onboardingCompleted ? 4 : Math.max(Number(local?.onboardingStep) || 0, Number(remoto.onboardingStep) || 0),
       senha: local?.senha || "",
@@ -8098,7 +7708,7 @@ const CustomerSuggestionManager = {
     return this.rankSuggestions(coletarClientesAppParaSugestao(), query);
   },
   async searchPhoneContacts(query) {
-    const plugin = getAIPlugin();
+    const plugin = getSimplificaFilesPlugin();
     if (!plugin?.searchPhoneContacts) {
       throw new Error("A agenda do telefone está disponível somente no aplicativo Android instalado.");
     }
@@ -8180,6 +7790,20 @@ const CustomerSuggestionManager = {
   }
 };
 
+function getSimplificaFilesPlugin() {
+  return window.Capacitor?.Plugins?.SimplificaFiles || null;
+}
+
+function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
+  let timer = null;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(mensagem)), Math.max(1000, Number(timeoutMs) || 1000));
+    })
+  ]).finally(() => clearTimeout(timer));
+}
+
 function labelOrigemSugestaoCliente(source = "") {
   if (source === "phone_contact") return "Contato do telefone";
   if (source === "recent") return "Sugestão recente";
@@ -8188,7 +7812,7 @@ function labelOrigemSugestaoCliente(source = "") {
 
 function renderCustomerSuggestions() {
   const query = String(customerSuggestionState.query || clientePedido || "").trim();
-  const podeAbrirAgenda = !!getAIPlugin()?.searchPhoneContacts;
+  const podeAbrirAgenda = !!getSimplificaFilesPlugin()?.searchPhoneContacts;
   const selectedBadge = selectedCustomerSuggestion ? `
     <span class="selected-customer-badge">${escaparHtml(labelOrigemSugestaoCliente(selectedCustomerSuggestion.source))}</span>
   ` : "";
@@ -8600,25 +8224,25 @@ function assinaturaItemPedido(item = {}) {
 }
 
 function itensPedidoEquivalentes(a = {}, b = {}) {
-  const ia = assinaturaItemPedido(a);
-  const ib = assinaturaItemPedido(b);
-  return ia.nome === ib.nome
-    && Math.abs(ia.valor - ib.valor) <= 0.01
-    && Math.abs(ia.peso - ib.peso) <= 0.1
-    && Math.abs(ia.tempoMin - ib.tempoMin) <= 1
-    && ia.tipo === ib.tipo
-    && ia.material === ib.material
-    && ia.cor === ib.cor
-    && ia.impressora === ib.impressora;
+  const itemA = assinaturaItemPedido(a);
+  const itemB = assinaturaItemPedido(b);
+  return itemA.nome === itemB.nome
+    && Math.abs(itemA.valor - itemB.valor) <= 0.01
+    && Math.abs(itemA.peso - itemB.peso) <= 0.1
+    && Math.abs(itemA.tempoMin - itemB.tempoMin) <= 1
+    && itemA.tipo === itemB.tipo
+    && itemA.material === itemB.material
+    && itemA.cor === itemB.cor
+    && itemA.impressora === itemB.impressora;
 }
 
 function itensPedidoSemelhantes(a = {}, b = {}) {
-  const ia = assinaturaItemPedido(a);
-  const ib = assinaturaItemPedido(b);
-  return Math.abs(ia.valor - ib.valor) <= 0.01
-    && Math.abs(ia.peso - ib.peso) <= 0.1
-    && Math.abs(ia.tempoMin - ib.tempoMin) <= 1
-    && (ia.nome !== ib.nome || ia.material !== ib.material);
+  const itemA = assinaturaItemPedido(a);
+  const itemB = assinaturaItemPedido(b);
+  return Math.abs(itemA.valor - itemB.valor) <= 0.01
+    && Math.abs(itemA.peso - itemB.peso) <= 0.1
+    && Math.abs(itemA.tempoMin - itemB.tempoMin) <= 1
+    && (itemA.nome !== itemB.nome || itemA.material !== itemB.material);
 }
 
 function encontrarItemEquivalentePedido(item = {}) {
@@ -9462,7 +9086,7 @@ function temPlanoProPagoAtivo(user = getUsuarioAtual()) {
       && licenca.isBlocked !== true;
   }
 
-  // IA offline e um beneficio pago: Superadmin, Trial e Free nao entram por atalho local.
+  // Benefícios pagos exigem licença Pro ativa; não usam atalho local.
   if (isSuperAdmin(user)) return false;
 
   const estadoPlano = resolverEstadoPlano(user, { source: "temPlanoProPagoAtivo", ignoreEffectiveLicense: true });
@@ -9798,8 +9422,6 @@ function calcularEscalaInterface() {
 
 function detectarNivelMovimento() {
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return "low";
-  const perfilIA = String(getAIAssistantSettings?.().uiPerformanceProfile || "").toLowerCase();
-  if (["low", "medium", "high"].includes(perfilIA)) return perfilIA;
   const escolhido = String(appConfig.motionLevel || "medium").toLowerCase();
   if (["low", "medium", "high"].includes(escolhido)) return escolhido;
   return isMobile() ? "medium" : "high";
@@ -10250,10 +9872,6 @@ function fecharCamadaAtualSeExistir() {
     fecharDrawerLateral();
     return true;
   }
-  if (assistantOpen && typeof fecharAssistente === "function") {
-    fecharAssistente();
-    return true;
-  }
   return false;
 }
 
@@ -10418,6 +10036,10 @@ function sairManutencaoSuperadmin() {
 
 function trocarTela(tela, opcoes = {}) {
   fecharMenusContextuaisUi();
+  if (tela !== "promocoes" && promotions3dRefreshTimer) {
+    clearTimeout(promotions3dRefreshTimer);
+    promotions3dRefreshTimer = null;
+  }
   if (!telas[tela]) {
     tela = "dashboard";
   }
@@ -10467,6 +10089,9 @@ function trocarTela(tela, opcoes = {}) {
   }
   if (mudouTela) renderAppComTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
   else renderApp();
+  if (tela === "promocoes") {
+    setTimeout(() => carregarPromocoes3d({ force: true }), 80);
+  }
   if (mudouTela) resetarScrollTelaAtiva();
 }
 
@@ -10894,7 +10519,7 @@ if (typeof window !== "undefined") {
     hideOverlay,
     ativarBuscaCompacta,
     expandirBuscaGlobal,
-    abrirBuscaAssistente,
+    abrirBuscaCompacta,
     recolherBuscaGlobal,
     alternarInterfaceMode,
     setInterfaceMode
@@ -11094,7 +10719,7 @@ function renderApp() {
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
-  app.innerHTML = (mobile ? renderMobile() : renderDesktop()) + (MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda() ? renderAssistenteVirtual() : "");
+  app.innerHTML = mobile ? renderMobile() : renderDesktop();
   compactarBarrasAcoesMobile();
   sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
@@ -11126,11 +10751,6 @@ function renderApp() {
 
 function podeMostrarControlesFlutuantes() {
   return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding" && telaAtual !== "dashboard";
-}
-
-function podeMostrarAssistenteAjuda() {
-  if (isSuperAdmin() && telaAtual === "superadmin") return false;
-  return !!getUsuarioAtual() && !window.__simplificaLocalLockActive && !isTelaPublica(telaAtual) && telaAtual !== "onboarding";
 }
 
 const STOREFRONT_BETA_ACCESS_KEY = "simplifica-storefront-beta-access-v1";
@@ -11423,7 +11043,7 @@ function renderTopbar() {
         <span class="muted">${escaparHtml(subtitulo)}</span>
       </div>
       <label class="topbar-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
       <div class="topbar-user">
@@ -11442,6 +11062,7 @@ function renderTopbar() {
 function getTituloTelaDesktop(tela = telaAtual) {
   const mapa = {
     dashboard: "Dashboard",
+    promocoes: "Promoções 3D",
     pedido: "Novo pedido",
     pedidos: "Pedidos",
     producao: "Produção",
@@ -11454,7 +11075,7 @@ function getTituloTelaDesktop(tela = telaAtual) {
     empresa: "Empresa",
     administracao: "Administração da empresa",
     personalizacao: "Aparência",
-    preferencias: "Calculadora",
+    preferencias: "Configurar calculadora",
     config: "Configurações",
     conta: "Perfil",
     seguranca: "Segurança e conta",
@@ -11469,6 +11090,7 @@ function getTituloTelaDesktop(tela = telaAtual) {
 function getSubtituloTelaDesktop(tela = telaAtual) {
   const mapa = {
     dashboard: "Resumo operacional do Simplifica 3D",
+    promocoes: "Ofertas ativas em lojas oficiais",
     pedidos: "Acompanhe, filtre e atualize pedidos",
     pedido: "Crie um pedido para revisão e orçamento",
     impressoras: "Status, custos e vínculos das impressoras 3D",
@@ -11525,30 +11147,36 @@ function abrirMenuUsuarioTopo(event) {
 }
 
 function buscarGlobal(event, valor) {
+  if (navegarAutocompletePesquisa(event)) return;
   if (event.key !== "Enter") return;
   const valorOriginal = String(valor || "").trim();
-  const termo = valorOriginal.toLowerCase();
+  const termo = normalizarTextoBusca(valorOriginal);
   if (!termo) return;
-
-  if (deveDirecionarBuscaParaAssistente(valorOriginal)) {
-    abrirAssistenteComPergunta(valorOriginal);
+  const input = event.currentTarget instanceof HTMLInputElement ? event.currentTarget : null;
+  const contexto = input?.dataset?.searchContext || "global";
+  const resultado = pesquisarAutocomplete(contexto, termo, 1)[0];
+  if (resultado) {
+    registrarSelecaoAutocomplete(resultado, contexto);
+    if (resultado.action) resultado.action();
+    else if (input) input.value = resultado.value;
+    fecharAutocompletePesquisa(input);
     return;
   }
-
-  const pedido = pedidos.find((item) => clienteDoPedido(item).toLowerCase().includes(termo) || String(item.id).includes(termo));
-  if (pedido) {
-    visualizarPedido(pedido.id);
-    return;
-  }
-
-  const material = normalizarEstoque().find((item) => item.nome.toLowerCase().includes(termo));
-  if (material) {
-    trocarTela("estoque");
-    return;
-  }
-
-  mostrarToast(`Nada encontrado para “${valorOriginal}”. Tente uma pergunta, como “como fazer um pedido”.`, "info", 4800);
+  mostrarToast(`Nada encontrado para “${valorOriginal}”. Confira a escrita ou tente outro termo.`, "info", 4200);
 }
+
+const AUTOCOMPLETE_RECENT_STORAGE_KEY = "simplifica3d:search-recent:v1";
+const AUTOCOMPLETE_SYNONYMS = Object.freeze({
+  orcamento: ["orcamento", "cotacao", "proposta"],
+  pedido: ["pedido", "encomenda", "ordem"],
+  cliente: ["cliente", "contato", "comprador"],
+  telefone: ["telefone", "celular", "whatsapp", "fone"],
+  estoque: ["estoque", "material", "insumo", "filamento"],
+  promocao: ["promocao", "oferta", "desconto", "preco"],
+  caixa: ["caixa", "financeiro", "pagamento", "recebimento"],
+  producao: ["producao", "impressao", "fila"],
+  relatorio: ["relatorio", "resumo", "resultado"]
+});
 
 function normalizarItemAutocompletePesquisa(item = {}) {
   const label = String(item.label || item.nome || item.title || "").trim();
@@ -11557,37 +11185,158 @@ function normalizarItemAutocompletePesquisa(item = {}) {
     label,
     detail: String(item.detail || item.detalhe || "").trim(),
     value: String(item.value || label).trim(),
+    keywords: String(item.keywords || "").trim(),
+    kind: String(item.kind || "").trim(),
     action: typeof item.action === "function" ? item.action : null
   };
 }
 
+function expandirTermosAutocomplete(termo = "") {
+  const tokens = normalizarTextoBusca(termo).split(/\s+/).filter(Boolean);
+  const expandidos = new Set(tokens);
+  tokens.forEach((token) => {
+    Object.entries(AUTOCOMPLETE_SYNONYMS).forEach(([chave, sinonimos]) => {
+      if (chave.startsWith(token) || sinonimos.some((sinonimo) => sinonimo.startsWith(token))) {
+        sinonimos.forEach((sinonimo) => expandidos.add(sinonimo));
+      }
+    });
+  });
+  return Array.from(expandidos);
+}
+
+function distanciaEdicaoAutocomplete(a = "", b = "", limite = 1) {
+  const origem = String(a);
+  const destino = String(b);
+  if (Math.abs(origem.length - destino.length) > limite) return limite + 1;
+  let anterior = Array.from({ length: destino.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= origem.length; i += 1) {
+    const atual = [i];
+    let menor = atual[0];
+    for (let j = 1; j <= destino.length; j += 1) {
+      atual[j] = Math.min(
+        atual[j - 1] + 1,
+        anterior[j] + 1,
+        anterior[j - 1] + (origem[i - 1] === destino[j - 1] ? 0 : 1)
+      );
+      menor = Math.min(menor, atual[j]);
+    }
+    if (menor > limite) return limite + 1;
+    anterior = atual;
+  }
+  return anterior[destino.length];
+}
+
+function getSelecoesRecentesAutocomplete() {
+  try {
+    const salvas = JSON.parse(localStorage.getItem(AUTOCOMPLETE_RECENT_STORAGE_KEY) || "[]");
+    return Array.isArray(salvas) ? salvas.slice(0, 20) : [];
+  } catch {
+    return [];
+  }
+}
+
+function registrarSelecaoAutocomplete(item = {}, contexto = "global") {
+  const chave = normalizarTextoBusca(`${item.kind}|${item.label}|${item.value}`);
+  if (!chave) return;
+  const recentes = getSelecoesRecentesAutocomplete().filter((registro) => registro.chave !== chave);
+  recentes.unshift({ chave, contexto, usadoEm: Date.now() });
+  try {
+    localStorage.setItem(AUTOCOMPLETE_RECENT_STORAGE_KEY, JSON.stringify(recentes.slice(0, 20)));
+  } catch {}
+}
+
+function pontuarAutocomplete(item = {}, termo = "", recentes = []) {
+  const busca = normalizarTextoBusca(termo);
+  const tokensBusca = expandirTermosAutocomplete(busca);
+  const label = normalizarTextoBusca(item.label);
+  const value = normalizarTextoBusca(item.value);
+  const detail = normalizarTextoBusca(item.detail);
+  const keywords = normalizarTextoBusca(item.keywords);
+  const texto = `${label} ${value} ${detail} ${keywords}`.trim();
+  const palavras = texto.split(/\s+/).filter(Boolean);
+  let pontos = 0;
+  if (label === busca || value === busca) pontos += 1200;
+  if (label.startsWith(busca) || value.startsWith(busca)) pontos += 700;
+  if (texto.includes(busca)) pontos += 420;
+  const termosOriginais = normalizarTextoBusca(busca).split(/\s+/).filter(Boolean);
+  const correspondencias = termosOriginais.filter((token) => {
+    if (texto.includes(token)) return true;
+    if (token.length < 4) return false;
+    return palavras.some((palavra) => distanciaEdicaoAutocomplete(token, palavra, 1) <= 1);
+  }).length;
+  if (termosOriginais.length && correspondencias < termosOriginais.length) {
+    const encontrouSinonimo = tokensBusca.some((token) => texto.includes(token));
+    if (!encontrouSinonimo) return -1;
+  }
+  pontos += correspondencias * 170;
+  if (tokensBusca.some((token) => label.startsWith(token) || value.startsWith(token))) pontos += 150;
+  const chave = normalizarTextoBusca(`${item.kind}|${item.label}|${item.value}`);
+  const posicaoRecente = recentes.findIndex((registro) => registro.chave === chave);
+  if (posicaoRecente >= 0) pontos += Math.max(20, 120 - posicaoRecente * 8);
+  return pontos;
+}
+
+function pesquisarAutocomplete(contexto = "global", termo = "", limite = 8) {
+  const busca = normalizarTextoBusca(termo);
+  if (!busca) return [];
+  const recentes = getSelecoesRecentesAutocomplete();
+  const unicos = new Map();
+  opcoesAutocompletePesquisa(contexto).forEach((item) => {
+    const chave = normalizarTextoBusca(`${item.kind}|${item.label}|${item.value}|${item.detail}`);
+    if (chave && !unicos.has(chave)) unicos.set(chave, item);
+  });
+  return Array.from(unicos.values())
+    .map((item) => ({ ...item, score: pontuarAutocomplete(item, busca, recentes) }))
+    .filter((item) => item.score >= 0)
+    .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label, "pt-BR"))
+    .slice(0, Math.max(1, Number(limite) || 8));
+}
+
 function opcoesAutocompletePesquisa(contexto = "global") {
+  const itensNavegacaoBusca = [
+    {
+      label: "Promoções 3D",
+      value: "Promoções 3D",
+      detail: "Ofertas em lojas oficiais",
+      keywords: "oferta desconto preço impressora filamento resina material",
+      kind: "tela",
+      action: () => trocarTela("promocoes")
+    }
+  ];
   const itensPedidoBusca = pedidos.map((pedido) => ({
     label: `${clienteDoPedido(pedido)} · Pedido #${pedido.id}`,
     value: clienteDoPedido(pedido),
     detail: formatarMoeda(totalPedido(pedido)),
+    keywords: `${pedido.id} ${pedido.status || ""} ${(pedido.itens || []).map((item) => item.nome || item.descricao || "").join(" ")}`,
+    kind: "pedido",
     action: () => visualizarPedido(pedido.id)
   }));
   const itensEstoqueBusca = normalizarEstoque().map((item) => ({
     label: item.nome || item.descricao || "Material",
     value: item.nome || item.descricao || "",
     detail: [item.codigo, item.cor, item.tipo].filter(Boolean).join(" · "),
+    keywords: [item.codigoBarras, item.sku, item.material, item.marca].filter(Boolean).join(" "),
+    kind: "estoque",
     action: () => trocarTela("estoque")
   }));
   const itensClientesBusca = coletarClientesAppParaSugestao().map((cliente) => ({
     label: cliente.name || "Cliente",
     value: cliente.name || "",
-    detail: cliente.phone || cliente.email || ""
+    detail: cliente.phone || cliente.email || "",
+    keywords: [cliente.phone, cliente.email, cliente.cpf, cliente.cnpj].filter(Boolean).join(" "),
+    kind: "cliente"
   }));
   const itensCaixaBusca = caixa.map((movimento) => ({
     label: descricaoCaixa(movimento) || getResumoMetodoMovimentoCaixa(movimento) || "Movimentação",
     value: descricaoCaixa(movimento) || clienteDoPedido(encontrarPedidoPorMovimentoCaixa(movimento) || {}) || "",
-    detail: formatarMoeda(Number(movimento.valor) || 0)
+    detail: formatarMoeda(Number(movimento.valor) || 0),
+    keywords: [movimento.tipo, movimento.metodo, movimento.status].filter(Boolean).join(" "),
+    kind: "caixa"
   }));
   const itensRelatoriosBusca = ["Vendas", "Pedidos", "Caixa", "Estoque", "Clientes", "Produção", "Financeiro"]
-    .map((label) => ({ label, value: label, detail: "Relatório" }));
+    .map((label) => ({ label, value: label, detail: "Relatório", kind: "relatorio" }));
   const mapa = {
-    global: [...itensPedidoBusca, ...itensClientesBusca, ...itensEstoqueBusca],
+    global: [...itensNavegacaoBusca, ...itensPedidoBusca, ...itensClientesBusca, ...itensEstoqueBusca],
     pedidos: itensPedidoBusca,
     estoque: itensEstoqueBusca,
     clientes: itensClientesBusca,
@@ -11596,7 +11345,9 @@ function opcoesAutocompletePesquisa(contexto = "global") {
     superadmin: (Array.isArray(saasClients) ? saasClients : []).map((cliente) => ({
       label: cliente.name || cliente.nome || cliente.businessName || cliente.email || "Empresa",
       value: cliente.name || cliente.nome || cliente.businessName || cliente.email || "",
-      detail: [cliente.email, cliente.plan || cliente.plano].filter(Boolean).join(" · ")
+      detail: [cliente.email, cliente.plan || cliente.plano].filter(Boolean).join(" · "),
+      keywords: [cliente.businessName, cliente.document, cliente.status].filter(Boolean).join(" "),
+      kind: "empresa"
     }))
   };
   return (mapa[contexto] || mapa.global).map(normalizarItemAutocompletePesquisa).filter(Boolean);
@@ -11616,15 +11367,42 @@ function agendarFechamentoAutocompletePesquisa(input) {
 function selecionarAutocompletePesquisa(input, index) {
   const contexto = input?.dataset?.searchContext || "global";
   const termo = normalizarTextoBusca(input?.value || "");
-  const opcoes = opcoesAutocompletePesquisa(contexto)
-    .filter((item) => normalizarTextoBusca(`${item.label} ${item.detail} ${item.value}`).includes(termo))
-    .slice(0, 8);
+  const opcoes = pesquisarAutocomplete(contexto, termo, 8);
   const item = opcoes[Number(index)];
   if (!item || !input) return;
   input.value = item.value;
   input.dispatchEvent(new Event("input", { bubbles: true }));
   fecharAutocompletePesquisa(input);
+  registrarSelecaoAutocomplete(item, contexto);
   if (item.action) item.action();
+}
+
+function navegarAutocompletePesquisa(event) {
+  if (!event || !["ArrowDown", "ArrowUp", "Enter", "Escape"].includes(event.key)) return false;
+  const input = event.currentTarget instanceof HTMLInputElement ? event.currentTarget : null;
+  const panel = input?.closest?.("label")?.querySelector?.(".search-autocomplete-panel");
+  if (!panel) return false;
+  if (event.key === "Escape") {
+    event.preventDefault();
+    fecharAutocompletePesquisa(input);
+    return true;
+  }
+  const opcoes = Array.from(panel.querySelectorAll("[role='option']"));
+  if (!opcoes.length) return false;
+  const atual = Math.max(-1, opcoes.findIndex((opcao) => opcao.getAttribute("aria-selected") === "true"));
+  if (event.key === "Enter" && atual >= 0) {
+    event.preventDefault();
+    opcoes[atual].dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+    return true;
+  }
+  if (event.key === "Enter") return false;
+  event.preventDefault();
+  const proximo = event.key === "ArrowDown"
+    ? (atual + 1) % opcoes.length
+    : (atual <= 0 ? opcoes.length : atual) - 1;
+  opcoes.forEach((opcao, index) => opcao.setAttribute("aria-selected", index === proximo ? "true" : "false"));
+  opcoes[proximo].scrollIntoView({ block: "nearest" });
+  return true;
 }
 
 function atualizarAutocompletePesquisa(input) {
@@ -11633,9 +11411,7 @@ function atualizarAutocompletePesquisa(input) {
   const termo = normalizarTextoBusca(input.value || "");
   if (!termo) return;
   const contexto = input.dataset.searchContext || "global";
-  const opcoes = opcoesAutocompletePesquisa(contexto)
-    .filter((item) => normalizarTextoBusca(`${item.label} ${item.detail} ${item.value}`).includes(termo))
-    .slice(0, 8);
+  const opcoes = pesquisarAutocomplete(contexto, termo, 8);
   if (!opcoes.length) return;
   const host = input.closest("label") || input.parentElement;
   if (!host) return;
@@ -11644,7 +11420,7 @@ function atualizarAutocompletePesquisa(input) {
   panel.className = "search-autocomplete-panel";
   panel.setAttribute("role", "listbox");
   panel.innerHTML = opcoes.map((item, index) => `
-    <button type="button" role="option" onpointerdown="event.preventDefault();selecionarAutocompletePesquisa(this.closest('.search-autocomplete-panel').parentElement.querySelector('input'),${index})">
+    <button type="button" role="option" aria-selected="false" onpointerdown="event.preventDefault();selecionarAutocompletePesquisa(this.closest('.search-autocomplete-panel').parentElement.querySelector('input'),${index})">
       <strong>${escaparHtml(item.label)}</strong>
       ${item.detail ? `<small>${escaparHtml(item.detail)}</small>` : ""}
     </button>
@@ -11701,7 +11477,7 @@ function encontrarBuscaCompactaPreferencial(botao) {
   return document.querySelector(".topbar-search.search-compact, .dashboard-search.search-compact");
 }
 
-function abrirBuscaAssistente(event, botao) {
+function abrirBuscaCompacta(event, botao) {
   event?.preventDefault?.();
   event?.stopPropagation?.();
   ativarBuscaCompacta(encontrarBuscaCompactaPreferencial(botao));
@@ -11742,6 +11518,7 @@ function canAccessScreen(tela, usuario = getUsuarioAtual()) {
     return tela === "superadmin" || tela === "admin" || tela === "acessoNegado" || ["privacy", "terms", "sobre"].includes(tela);
   }
   if (isTelaPublica(tela)) return true;
+  if (tela === "promocoes") return !!usuario || adminLogado;
   if (tela === "lojaOnline") return !!usuario;
   if (tela === "lojaAdmin") return canUseStorefrontLocal(usuario);
   if (tela === "administracao") return podeAcessarAdministracaoEmpresa(usuario);
@@ -12038,2412 +11815,6 @@ function renderOnboarding() {
       ${telasOnboarding[step] || telasOnboarding[0]}
     </section>
   `;
-}
-
-function abrirAssistente(modo = "auto") {
-  assistantOpen = true;
-  assistantMinimized = false;
-  const nextMode = modo === "pro" && iaLocalEstaPronta() ? "pro" : modo === "basic" ? "basic" : getAssistenteModoDisponivel();
-  if (assistantMode && assistantMode !== nextMode) {
-    assistantMessages = [];
-  }
-  assistantMode = nextMode;
-  if (!assistantMessages.length) {
-    assistantMessages.push({
-      role: "assistant",
-      text: assistantMode === "pro"
-        ? "IA local instalada. Digite sua pergunta para iniciar o modelo neste aparelho."
-        : "Olá! Sou o Assistente do Simplifica 3D. Posso ajudar com pedido, estoque, calculadora, backup, PDF, plano e login."
-    });
-  }
-  if (assistantMode === "pro") {
-    cancelarHibernacaoIALocal();
-    assistantRuntimeDiagnostics = null;
-    atualizarSuporteVozIASeNecessario();
-    aquecerIALocalEmSegundoPlano("abrir-assistente");
-  }
-  renderApp();
-}
-
-function fecharAssistente() {
-  const deveHibernarIA = assistantMode === "pro" && iaLocalEstaPronta();
-  assistantOpen = false;
-  assistantMinimized = false;
-  if (!deveHibernarIA) assistantRuntimeReady = false;
-  assistantRuntimeDiagnostics = null;
-  if (deveHibernarIA) {
-    // Mantem o modelo aquecido por alguns minutos para reabrir o chat sem novo carregamento pesado.
-    agendarHibernacaoIALocal("assistente-fechado", 300000);
-  } else {
-    cancelarHibernacaoIALocal();
-    try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
-  }
-  renderApp();
-}
-
-function minimizarAssistente() {
-  assistantMinimized = true;
-  if (assistantMode === "pro") agendarHibernacaoIALocal("assistente-minimizado", 300000);
-  renderApp();
-}
-
-function cancelarHibernacaoIALocal() {
-  if (assistantRuntimeHibernateTimer) clearTimeout(assistantRuntimeHibernateTimer);
-  assistantRuntimeHibernateTimer = null;
-}
-
-function agendarHibernacaoIALocal(motivo = "idle", atrasoMs = 300000) {
-  cancelarHibernacaoIALocal();
-  assistantRuntimeHibernateTimer = setTimeout(async () => {
-    assistantRuntimeHibernateTimer = null;
-    if (assistantOpen && !assistantMinimized) return;
-    if (assistantGenerating || assistantRuntimeLoading) return;
-    assistantRuntimeReady = false;
-    assistantRuntimeDiagnostics = null;
-    try {
-      await getAIPlugin()?.unloadAiModel?.();
-      registrarDiagnosticoIA("hibernate", { reason: motivo });
-    } catch (erro) {
-      registrarFalhaIALocal("hibernate_runtime", erro, { motivo });
-    }
-  }, Math.max(30000, Number(atrasoMs) || 300000));
-}
-
-function normalizarTextoAssistente(texto) {
-  return removerAcentos(String(texto || "").toLowerCase());
-}
-
-function getLocalAiUsageProfile() {
-  const memoriaIA = globalThis.AiUsageMemoryManager?.exportUserAiMemory?.() || null;
-  const eventos = normalizarUsoInteligente(usageLearning).events;
-  const telas = eventos.filter((evento) => evento.tipo === "tela_aberta").slice(-30);
-  const telaFrequente = (() => {
-    const mapa = new Map();
-    telas.forEach((evento) => {
-      const tela = String(evento.tela || "").trim();
-      if (!tela || ["admin", "onboarding"].includes(tela)) return;
-      mapa.set(tela, (mapa.get(tela) || 0) + 1);
-    });
-    return [...mapa.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-  })();
-  return {
-    favoriteMaterial: valorPreferidoMemoriaIA(memoriaIA?.materialStats) || valorFrequenteUso("material_usado", "materialNome", 60) || valorFrequenteUso("material_usado", "materialId", 60),
-    favoriteColor: valorPreferidoMemoriaIA(memoriaIA?.colorStats),
-    preferredPrinter: valorPreferidoMemoriaIA(memoriaIA?.printerStats) || valorFrequenteUso("impressora_usada", "impressora", 60),
-    averageMargin: valorPreferidoMemoriaIA(memoriaIA?.marginStats) || mediaMemoriaIA(memoriaIA?.averages?.margin),
-    commonProducts: Object.keys(memoriaIA?.productStats || {}).slice(0, 3),
-    mostVisitedScreen: telaFrequente,
-    commonActions: eventos.slice(-20).map((evento) => evento.tipo).filter(Boolean).slice(-5)
-  };
-}
-
-function contextoCalculadoraIA() {
-  const materialId = document.getElementById("materialSelect")?.value || appConfig.defaultMaterialId || "";
-  const material = getMaterialEstoque(materialId);
-  return {
-    peso: Number(document.getElementById("peso")?.value || 0) || undefined,
-    tempo: document.getElementById("tempo")?.value || undefined,
-    material: material?.nome || materialId || undefined,
-    margem: Number(document.getElementById("margem")?.value || appConfig.defaultMargin || 0) || undefined,
-    energia: Number(appConfig.energyCost || 0) || undefined,
-    impressora: document.getElementById("printerSelect")?.value || appConfig.defaultPrinter || undefined
-  };
-}
-
-function contextoPedidoIA() {
-  const pedidoAtual = pedidoEditando || (pedidoVisualizandoId ? pedidos.find((pedido) => String(pedido.id) === String(pedidoVisualizandoId)) : null);
-  if (!pedidoAtual && !itensPedido.length) return null;
-  const itens = normalizarItensPedido(pedidoAtual || itensPedido).slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
-  return {
-    id: pedidoAtual?.id || pedidoEditando?.id || "",
-    cliente: pedidoAtual ? clienteDoPedido(pedidoAtual) : clientePedido,
-    email: pedidoAtual ? emailDoPedido(pedidoAtual) : clienteEmailPedido,
-    status: pedidoAtual?.status || pedidoEditando?.status || "aberto",
-    total: pedidoAtual ? totalPedido(pedidoAtual) : itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0),
-    itens: itens.map((item) => ({ nome: item.nome, qtd: item.qtd, total: item.total }))
-  };
-}
-
-function buildAiContext(screen = telaAtual, userInput = "", modelProfile = getAIModelProfile()) {
-  const tela = String(screen || telaAtual || "dashboard");
-  const memoriaUsuario = AiUsageMemoryManager.buildUserMemoryContext(getAiUsageMemoryUserId(), modelProfile);
-  const contexto = {
-    tela,
-    pergunta: String(userInput || "").slice(0, 220),
-    perfilUso: getLocalAiUsageProfile(),
-    memoriaUsuario: String(memoriaUsuario || "").slice(0, Number(modelProfile.memoryLimit || 250)),
-    modelo: modelProfile.label || "Lite",
-    permissoes: Array.isArray(modelProfile.allowActions) ? modelProfile.allowActions : [],
-    camposVisiveis: []
-  };
-  if (tela === "calculadora") {
-    contexto.modulo = "calculadora";
-    contexto.instrucao = "Ajude com cálculo de impressão 3D. Não invente valores.";
-    contexto.dados = contextoCalculadoraIA();
-    contexto.camposVisiveis = ["peso", "tempo", "material", "margem", "taxaExtra"];
-  } else if (["pedido", "pedidos", "producao"].includes(tela)) {
-    contexto.modulo = "pedidos";
-    contexto.instrucao = "Ajude o usuário com pedidos e organização.";
-    contexto.dados = contextoPedidoIA();
-    contexto.camposVisiveis = ["cliente", "telefone", "itens", "quantidade", "status"];
-  } else if (tela === "estoque") {
-    contexto.modulo = "estoque";
-    contexto.instrucao = "Ajude com controle de materiais.";
-    contexto.camposVisiveis = ["material", "cor", "quantidade", "custo"];
-    contexto.dados = normalizarEstoque().slice(0, ASSISTANT_MAX_CONTEXT_RESULTS).map((material) => ({
-      nome: material.nome,
-      qtd: material.qtd,
-      cor: material.cor,
-      tipo: material.tipo
-    }));
-  } else if (tela === "clientes") {
-    contexto.modulo = "clientes";
-    contexto.instrucao = "Ajude com cadastro e organização de clientes.";
-    contexto.camposVisiveis = ["nome", "telefone", "email"];
-    contexto.dados = { totalClientes: Array.isArray(clientes) ? clientes.length : 0 };
-  } else if (tela === "caixa") {
-    contexto.modulo = "caixa";
-    contexto.instrucao = "Ajude com informações financeiras sem inventar valores.";
-    contexto.camposVisiveis = ["entradas", "saídas", "saldo"];
-    const stats = getDashboardStats();
-    const totais = calcularTotaisCaixa();
-    contexto.dados = {
-      faturamentoHoje: stats.faturamentoDia,
-      lucroEstimado: stats.lucroEstimado,
-      entradas: totais.entradas,
-      saidas: totais.saidas,
-      saldo: totais.saldo
-    };
-  } else {
-    contexto.modulo = "geral";
-    contexto.instrucao = "Oriente somente sobre funções comuns do Simplifica 3D.";
-    contexto.dados = { plano: getPlanoAtual().status, empresa: appConfig.businessName || SYSTEM_NAME };
-  }
-  contexto.mensagensRecentes = assistantMessages
-    .filter((mensagem) => mensagem?.role && mensagem?.text && !/gerando|iniciando|consultando/i.test(mensagem.text))
-    .slice(-2)
-    .map((mensagem) => ({ role: mensagem.role, text: String(mensagem.text).slice(0, 180) }));
-  return contexto;
-}
-
-function montarContextoAssistenteEnxuto(tarefa = "") {
-  const contexto = buildAiContext(telaAtual, tarefa);
-  const materiaisBaixos = normalizarEstoque()
-    .filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg)
-    .slice(0, ASSISTANT_MAX_CONTEXT_RESULTS)
-    .map((material) => ({ nome: material.nome, qtd: material.qtd, tipo: material.tipo }));
-  return {
-    ...contexto,
-    tarefa: String(tarefa || "").slice(0, 300),
-    empresa: appConfig.businessName || SYSTEM_NAME,
-    plano: getPlanoAtual().status,
-    pedidoAtual: contexto.modulo === "pedidos" ? contexto.dados : null,
-    materiaisBaixos,
-    limites: {
-      mensagens: ASSISTANT_MAX_MESSAGES,
-      resultados: ASSISTANT_MAX_CONTEXT_RESULTS
-    }
-  };
-}
-
-function estimarTokensTexto(texto = "") {
-  return Math.ceil(String(texto || "").length / 4);
-}
-
-function limitarMensagensAssistente() {
-  assistantMessages = assistantMessages.slice(-ASSISTANT_MAX_MESSAGES);
-}
-
-function limparConversaAssistente() {
-  assistantMessages = [];
-  abrirAssistente(assistantMode || "auto");
-}
-
-let assistantManualSearchIndex = null;
-
-function getAssistantManualSearchIndex() {
-  if (assistantManualSearchIndex) return assistantManualSearchIndex;
-  assistantManualSearchIndex = ASSISTANT_MANUAL_ITEMS.map((item) => ({
-    item,
-    priorityScore: Number(item.priority || 0) / 100,
-    relatedScreen: normalizarTextoAssistente(item.relatedScreen || ""),
-    titleTokens: normalizarTextoAssistente(item.titulo || "").split(/\s+/).filter((parte) => parte.length >= 3),
-    keywords: (item.keywords || []).map((keyword) => {
-      const termo = normalizarTextoAssistente(keyword);
-      return {
-        termo,
-        tokens: termo.split(/\s+/).filter((parte) => parte.length >= 3),
-        phrase: termo.includes(" ")
-      };
-    })
-  }));
-  return assistantManualSearchIndex;
-}
-
-function getPlanoAtualParaManualAssistente() {
-  try {
-    const plano = getPlanoAtual();
-    if (plano?.pro) return "pro";
-    if (plano?.trial) return "trial";
-    return "free";
-  } catch (_) {
-    return "free";
-  }
-}
-
-function pontuarItemManualAssistente(item = {}, pergunta = "", contexto = {}) {
-  const texto = normalizarTextoAssistente(pergunta);
-  if (!texto) return 0;
-  const tela = normalizarTextoAssistente(contexto?.tela || contexto?.modulo || telaAtual || "");
-  const palavras = texto.split(/\s+/).filter((palavra) => palavra.length >= 3);
-  const palavrasSet = new Set(palavras);
-  const indexado = item.item ? item : null;
-  const alvo = indexado?.item || item;
-  let score = 0;
-  const keywords = indexado?.keywords || (alvo.keywords || []).map((keyword) => {
-    const termo = normalizarTextoAssistente(keyword);
-    return { termo, tokens: termo.split(/\s+/).filter((parte) => parte.length >= 3), phrase: termo.includes(" ") };
-  });
-  keywords.forEach(({ termo, tokens, phrase }) => {
-    if (!termo) return;
-    if (texto.includes(termo)) score += phrase ? 8 : 4;
-    tokens.forEach((parte) => {
-      if (palavrasSet.has(parte)) score += 1;
-    });
-  });
-  const titleTokens = indexado?.titleTokens || normalizarTextoAssistente(alvo.titulo || "").split(/\s+/).filter((parte) => parte.length >= 3);
-  titleTokens.forEach((parte) => {
-    if (palavrasSet.has(parte)) score += 1;
-  });
-  const telaItem = indexado?.relatedScreen || normalizarTextoAssistente(alvo.relatedScreen || "");
-  if (tela && telaItem.includes(tela)) score += 2;
-  score += indexado?.priorityScore ?? Number(alvo.priority || 0) / 100;
-  return score;
-}
-
-function buscarManualAssistente(pergunta = "", contexto = {}) {
-  const ranked = getAssistantManualSearchIndex()
-    .map((entrada) => ({ item: entrada.item, score: pontuarItemManualAssistente(entrada, pergunta, contexto) }))
-    .filter((resultado) => resultado.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 5);
-  const best = ranked[0] || null;
-  const score = Number(best?.score || 0);
-  const confidence = score >= 8 ? "high" : score >= 3 ? "medium" : "low";
-  return {
-    confidence,
-    score,
-    best: best?.item || null,
-    snippets: ranked.slice(0, 3).map((resultado) => resultado.item)
-  };
-}
-
-function formatarRespostaManualAssistente(resultado = {}, pergunta = "", contexto = {}) {
-  if (!resultado.best || resultado.confidence === "low") return ASSISTANT_MANUAL_FALLBACK_MESSAGE;
-  const item = resultado.best;
-  const plano = getPlanoAtualParaManualAssistente();
-  if (String(item.requiredPlan || "free") === "pro" && plano !== "pro") {
-    return `${item.shortAnswer} Recurso completo disponível no Plano Pro.`;
-  }
-  if (resultado.confidence === "medium") {
-    const relacionados = (resultado.snippets || [])
-      .filter((relacionado) => relacionado.id !== item.id)
-      .map((relacionado) => relacionado.titulo)
-      .slice(0, 2);
-    const sufixo = relacionados.length ? ` Também posso orientar sobre: ${relacionados.join(" ou ")}.` : "";
-    return `${item.shortAnswer}${sufixo}`;
-  }
-  return item.fullAnswer || item.shortAnswer || ASSISTANT_MANUAL_FALLBACK_MESSAGE;
-}
-
-function obterRespostaAssistente(texto, contexto = montarContextoAssistenteEnxuto(texto)) {
-  try {
-    const pergunta = normalizarTextoAssistente(texto);
-    const respostaAmpla = obterRespostaOrientadaAssistente(pergunta);
-    if (respostaAmpla) {
-      registrarDiagnosticoIA("assistant_source", { assistant_source: "manual", manualConfidence: "high" });
-      return respostaAmpla;
-    }
-    const manual = buscarManualAssistente(texto, contexto);
-    if (manual.confidence !== "low") {
-      const estimadoManual = estimarTokensTexto(JSON.stringify({ id: manual.best?.id, tela: contexto?.tela || telaAtual }));
-      window.__assistantLastTokenEstimate = estimadoManual;
-      registrarDiagnosticoIA("assistant_source", {
-        assistant_source: "manual",
-        manualConfidence: manual.confidence,
-        manualIntent: manual.best?.intent || "",
-        promptChars: String(texto || "").length,
-        promptTokens: estimadoManual
-      });
-      return cleanAiResponse(formatarRespostaManualAssistente(manual, texto, contexto), { maxChars: 520 });
-    }
-    const base = Array.isArray(assistantResponses) ? assistantResponses : [];
-    const resposta = base.find((item) => (item.keywords || []).some((keyword) => pergunta.includes(normalizarTextoAssistente(keyword))));
-    const estimado = estimarTokensTexto(JSON.stringify(contexto || {}));
-    window.__assistantLastTokenEstimate = estimado;
-    const source = resposta ? "manual" : "fallback_manual";
-    registrarDiagnosticoIA("assistant_source", { assistant_source: source, manualConfidence: resposta ? "medium" : "low", promptTokens: estimado });
-    debugLog("[Assistente] Resposta básica", { tokens: estimado, tela: contexto?.tela || telaAtual, matched: !!resposta });
-    return cleanAiResponse(resposta?.answer || ASSISTANT_MANUAL_FALLBACK_MESSAGE, { maxChars: 520 });
-  } catch (erro) {
-    ErrorService.capture(erro, { area: "Assistente básico", action: "fallback", silent: true });
-    registrarDiagnosticoIA("assistant_source", { assistant_source: "error", lastError: erro?.message || String(erro) });
-    return ASSISTANT_MANUAL_FALLBACK_MESSAGE;
-  }
-}
-
-function normalizarAIAssistantSettings(config = appConfig.aiOfflineAssistant || {}) {
-  const normalizarModelId = (modelId) => AI_MODELS.some((modelo) => modelo.id === String(modelId || "")) ? String(modelId || "") : "";
-  const activeModelId = normalizarModelId(config.activeModelId);
-  const installedModelId = normalizarModelId(config.installedModelId);
-  const localEnabled = config.localEnabled === undefined
-    ? !!activeModelId
-    : config.localEnabled === true;
-  return {
-    localEnabled,
-    proActivationPromptedVersion: String(config.proActivationPromptedVersion || ""),
-    onboardingCompleted: config.onboardingCompleted === true,
-    activeModelId,
-    installedModelId,
-    recommendedModelId: normalizarModelId(config.recommendedModelId),
-    deviceProfile: String(config.deviceProfile || ""),
-    uiPerformanceProfile: String(config.uiPerformanceProfile || ""),
-    downloadState: config.downloadState && typeof config.downloadState === "object" ? config.downloadState : {},
-    models: config.models && typeof config.models === "object" ? config.models : {},
-    lastFailure: String(config.lastFailure || ""),
-    lastPerformance: String(config.lastPerformance || ""),
-    lastDeviceProfile: String(config.lastDeviceProfile || ""),
-    voiceEnabled: config.voiceEnabled === true,
-    ttsEnabled: config.ttsEnabled === true,
-    ttsRate: Math.max(0.6, Math.min(Number(config.ttsRate || 1) || 1, 1.4)),
-    basicFallback: config.basicFallback !== false
-  };
-}
-
-function getAIAssistantSettings() {
-  appConfig.aiOfflineAssistant = normalizarAIAssistantSettings(appConfig.aiOfflineAssistant);
-  return appConfig.aiOfflineAssistant;
-}
-
-function getAIModel(modelId) {
-  return AI_MODELS.find((modelo) => modelo.id === modelId) || AI_MODELS[0] || null;
-}
-
-function getAIModelProfile(modelOrId = getAIAssistantSettings().activeModelId) {
-  const modelId = typeof modelOrId === "object" ? modelOrId?.id : modelOrId;
-  return AI_MODEL_PROFILES[String(modelId || "")] || AI_MODEL_PROFILES[AI_DEFAULT_MODEL_ID];
-}
-
-function getAIModelByProfile(profile = "weak", proAtivo = podeUsarAssistenteIAOfflinePro()) {
-  return getAIModel(AI_LOCAL_MEDIUM_MODEL_ID);
-}
-
-function getSaferAIModelId(modelId = "") {
-  return "";
-}
-
-function isAIProOnlyModel(modelOrId) {
-  const modelo = typeof modelOrId === "object" ? modelOrId : getAIModel(String(modelOrId || ""));
-  return String(modelo?.requiredPlan || "") === "pro" || String(modelo?.tier || "") === "pro";
-}
-
-function obterRespostaOrientadaAssistente(pergunta = "") {
-  const contem = (termos) => termos.some((termo) => pergunta.includes(normalizarTextoAssistente(termo)));
-  const especificaPedido = contem(["criar", "novo", "editar", "alterar", "fechar", "finalizar", "salvar", "excluir", "remover", "pdf", "whatsapp", "status", "item"]);
-  if (contem(["pedido", "pedidos"]) && !especificaPedido) {
-    return "Em pedidos, você quer criar, editar itens, salvar, excluir, gerar PDF ou enviar por WhatsApp?";
-  }
-  const especificaEstoque = contem(["cadastrar", "editar", "remover", "baixar", "material", "cor", "kg", "filamento", "resina"]);
-  if (contem(["estoque"]) && !especificaEstoque) {
-    return "Posso ajudar com estoque. Você quer cadastrar material, editar quantidade/cor, remover material ou entender baixa automática por pedido?";
-  }
-  const especificaCalculadora = contem(["peso", "hora", "taxa", "margem", "energia", "material", "preço", "preco", "adicionar"]);
-  if (contem(["calculadora", "calculo", "cálculo"]) && !especificaCalculadora) {
-    return "Na calculadora, você quer ajuda para calcular preço, limpar um cálculo, escolher material/impressora ou adicionar o resultado ao pedido?";
-  }
-  return "";
-}
-
-function getAIModelLocalState(modelId) {
-  const settings = getAIAssistantSettings();
-  return settings.models?.[modelId] || {};
-}
-
-function atualizarAiDownloadState(modelId, patch = {}) {
-  const settings = getAIAssistantSettings();
-  settings.downloadState = {
-    ...(settings.downloadState || {}),
-    modelId,
-    status: String(patch.status || settings.downloadState?.status || "idle"),
-    progressPercent: Number(patch.progressPercent ?? patch.progress ?? settings.downloadState?.progressPercent ?? 0) || 0,
-    downloadedBytes: Number(patch.downloadedBytes ?? settings.downloadState?.downloadedBytes ?? 0) || 0,
-    totalBytes: Number(patch.totalBytes ?? settings.downloadState?.totalBytes ?? 0) || 0,
-    speed: Number(patch.speed ?? patch.speedBytesPerSec ?? settings.downloadState?.speed ?? 0) || 0,
-    currentTask: String(patch.currentTask || settings.downloadState?.currentTask || ""),
-    errorMessage: String(patch.errorMessage || patch.lastError || ""),
-    filePath: String(patch.filePath || patch.path || settings.downloadState?.filePath || ""),
-    hashValidated: patch.hashValidated === true || patch.ggufValid === true || settings.downloadState?.hashValidated === true,
-    lastUpdatedAt: new Date().toISOString()
-  };
-  appConfig.aiOfflineAssistant = settings;
-  salvarDados();
-  return settings.downloadState;
-}
-
-function setAIModelLocalState(modelId, patch = {}) {
-  const settings = getAIAssistantSettings();
-  const normalizedPatch = { ...patch };
-  if (normalizedPatch.status) {
-    normalizedPatch.status = AI_INSTALL_STATE_ALIASES[normalizedPatch.status] || normalizedPatch.status;
-    normalizedPatch.installState = normalizedPatch.status;
-  }
-  settings.models = {
-    ...(settings.models || {}),
-    [modelId]: {
-      ...(settings.models?.[modelId] || {}),
-      ...normalizedPatch,
-      updatedAt: new Date().toISOString()
-    }
-  };
-  appConfig.aiOfflineAssistant = settings;
-  atualizarAiDownloadState(modelId, normalizedPatch);
-  salvarDados();
-  return settings.models[modelId];
-}
-
-function agendarRenderizacaoIA(atraso = AI_PROGRESS_RENDER_INTERVAL_MS) {
-  if (aiProgressRenderTimer) return;
-  aiProgressRenderTimer = setTimeout(() => {
-    aiProgressRenderTimer = null;
-    renderizarPreservandoScroll();
-  }, Math.max(120, Number(atraso) || AI_PROGRESS_RENDER_INTERVAL_MS));
-}
-
-function atualizarElementosProgressoIA(modelId, state = getAIModelLocalState(modelId)) {
-  const progress = progressoIAInstalacao(state);
-  const safeId = String(modelId || "").replace(/["\\]/g, "");
-  document.querySelectorAll(`[data-ai-progress="${safeId}"]`).forEach((root) => {
-    root.style.setProperty("--ai-progress", `${Math.max(0, Math.min(100, progress.percent))}%`);
-    const percent = root.querySelector("[data-ai-progress-percent]");
-    if (percent) percent.textContent = `${Math.max(0, Math.min(100, progress.percent))}%`;
-    const label = root.querySelector("[data-ai-progress-label]");
-    if (label) label.textContent = progress.label || label.textContent || "";
-    const meta = root.querySelector("[data-ai-progress-meta]");
-    if (meta) meta.textContent = formatarMetaProgressoIA(state);
-  });
-}
-
-function formatarMetaProgressoIA(state = {}) {
-  const baixado = formatarMb(state.downloadedBytes);
-  const total = formatarMb(state.totalBytes);
-  const speed = Number(state.speedBytesPerSec || 0) > 0 ? `${formatarMb(state.speedBytesPerSec)}/s` : "";
-  return [baixado && total ? `${baixado} de ${total}` : baixado, speed].filter(Boolean).join(" • ");
-}
-
-function podeExibirAssistenteIAOffline() {
-  if (!HEAVY_AI_FEATURE_ENABLED) return false;
-  return !!getUsuarioAtual();
-}
-
-function podeUsarAssistenteIAOfflinePro() {
-  if (!HEAVY_AI_FEATURE_ENABLED) return false;
-  // IA Local e premium real: Free, Trial e Superadmin sem plano Pro pago visualizam, mas nao executam runtime/download.
-  return isAndroidNativeApp() && !!getUsuarioAtual() && temPlanoProPagoAtivo();
-}
-
-function mensagemUpgradeIALocalPro() {
-  return "Assine o Plano Pro para desbloquear IA Local offline diretamente no aparelho.";
-}
-
-function exigirPlanoProPagoIALocal({ navegar = false } = {}) {
-  if (podeUsarAssistenteIAOfflinePro()) return true;
-  mostrarToast(mensagemUpgradeIALocalPro(), "aviso", 5200);
-  if (navegar) trocarTela("assinatura");
-  return false;
-}
-
-function iaLocalEstaAtivada() {
-  const settings = getAIAssistantSettings();
-  return podeUsarAssistenteIAOfflinePro() && settings.localEnabled === true;
-}
-
-function iaLocalEstaPronta() {
-  return iaLocalEstaAtivada() && !!getModeloIAOfflineAtivoInstalado(false);
-}
-
-function getAssistenteModoDisponivel() {
-  return iaLocalEstaPronta() ? "pro" : "basic";
-}
-
-function getAssistenteLabelPrincipal() {
-  return "Assistente Inteligente";
-}
-
-function renderAssistantFabContent(label = "Assistente", pro = false) {
-  return `
-    <span class="assistant-fab-icon assistant-pet ${pro ? "pro" : ""}" aria-hidden="true"><img src="/assets/assistant/filament-pet.png" alt=""></span>
-    <span>${escaparHtml(label)}</span>
-  `;
-}
-
-function renderLancadorPetAssistente({ action = "abrirAssistente('basic')", title = "Abrir assistente", label = "Assistente", pro = false } = {}) {
-  return `<button class="assistant-fab assistant-fab-open ${pro ? "ai-local-fab" : ""}" type="button" onclick="${action}" title="${escaparAttr(title)}" aria-label="${escaparAttr(title)}">${renderAssistantFabContent(label, pro)}</button>`;
-}
-
-function registrarFalhaIALocal(action, erro, extra = {}) {
-  ErrorService.capture(erro, { area: "Assistente IA Local", action, silent: true, ...extra });
-}
-
-function definirIAConfig(patch = {}, persistir = true) {
-  appConfig.aiOfflineAssistant = {
-    ...getAIAssistantSettings(),
-    ...patch
-  };
-  if (persistir) salvarDados();
-  return getAIAssistantSettings();
-}
-
-function getAIModelStatus(modelId) {
-  const settings = getAIAssistantSettings();
-  const state = getAIModelLocalState(modelId);
-  const normalizedStatus = AI_INSTALL_STATE_ALIASES[state.status] || state.status;
-  if (normalizedStatus && normalizedStatus !== state.status) return normalizedStatus;
-  if (state.status === "installed") {
-    return state.runtimeValidatedAt ? AI_INSTALL_STATUS.INSTALLED_READY : AI_INSTALL_STATUS.INSTALLED_BUT_FAILED;
-  }
-  if (state.status) return state.status;
-  if ((settings.activeModelId === modelId || settings.installedModelId === modelId || state.installedAt) && state.runtimeValidatedAt) {
-    return AI_INSTALL_STATUS.INSTALLED_READY;
-  }
-  if (settings.activeModelId === modelId || settings.installedModelId === modelId || state.installedAt) {
-    return AI_INSTALL_STATUS.INSTALLED_BUT_FAILED;
-  }
-  return AI_INSTALL_STATUS.NOT_INSTALLED;
-}
-
-function labelStatusAI(status = "") {
-  const labels = {
-    [AI_INSTALL_STATUS.NOT_INSTALLED]: "Não instalado",
-    [AI_INSTALL_STATUS.DOWNLOADING]: "Baixando",
-    [AI_INSTALL_STATUS.DOWNLOADED]: "Baixado",
-    [AI_INSTALL_STATUS.VALIDATING]: "Verificando",
-    [AI_INSTALL_STATUS.LOADING]: "Carregando",
-    [AI_INSTALL_STATUS.INSTALLING]: "Instalando",
-    [AI_INSTALL_STATUS.TESTING]: "Testando",
-    [AI_INSTALL_STATUS.INSTALLED_READY]: "Pronta",
-    [AI_INSTALL_STATUS.INSTALLED_BUT_FAILED]: "Precisa testar",
-    [AI_INSTALL_STATUS.FAILED_DOWNLOAD]: "Falha no download",
-    [AI_INSTALL_STATUS.FAILED_VALIDATION]: "Falha na validação",
-    [AI_INSTALL_STATUS.FAILED_RUNTIME]: "Falha no runtime",
-    [AI_INSTALL_STATUS.REMOVING]: "Removendo",
-    [AI_INSTALL_STATUS.REMOVED]: "Removida",
-    installed: "Precisa testar",
-    error: "Erro",
-    incompatible: "Incompatível",
-    active: "Pronta"
-  };
-  return labels[status] || "Não instalado";
-}
-
-function getAIPlugin() {
-  return window.Capacitor?.Plugins?.SimplificaFiles || null;
-}
-
-function isAIModelReadyStatus(status = "") {
-  return status === AI_INSTALL_STATUS.INSTALLED_READY || status === "active";
-}
-
-function isAIModelBusyStatus(status = "") {
-  return [
-    AI_INSTALL_STATUS.DOWNLOADING,
-    AI_INSTALL_STATUS.VALIDATING,
-    AI_INSTALL_STATUS.LOADING,
-    AI_INSTALL_STATUS.INSTALLING,
-    AI_INSTALL_STATUS.TESTING,
-    AI_INSTALL_STATUS.REMOVING
-  ].includes(status);
-}
-
-function progressoIAInstalacao(state = {}) {
-  const status = state.status || AI_INSTALL_STATUS.NOT_INSTALLED;
-  const progress = Math.max(0, Math.min(100, Math.round(Number(state.progress || 0) || 0)));
-  const labels = {
-    [AI_INSTALL_STATUS.DOWNLOADING]: `Baixando modelo: ${progress}%`,
-    [AI_INSTALL_STATUS.DOWNLOADED]: "Download concluído",
-    [AI_INSTALL_STATUS.VALIDATING]: "Verificando arquivo...",
-    [AI_INSTALL_STATUS.LOADING]: "Carregando modelo...",
-    [AI_INSTALL_STATUS.INSTALLING]: "Instalando IA...",
-    [AI_INSTALL_STATUS.TESTING]: "Testando IA...",
-    [AI_INSTALL_STATUS.INSTALLED_READY]: "IA testada e pronta",
-    [AI_INSTALL_STATUS.INSTALLED_BUT_FAILED]: "Modelo baixado, mas ainda sem teste válido",
-    [AI_INSTALL_STATUS.FAILED_DOWNLOAD]: "Download não concluído",
-    [AI_INSTALL_STATUS.FAILED_VALIDATION]: "Arquivo inválido",
-    [AI_INSTALL_STATUS.FAILED_RUNTIME]: "Runtime não iniciou",
-    [AI_INSTALL_STATUS.REMOVING]: "Removendo modelo..."
-  };
-  return {
-    active: isAIModelBusyStatus(status) || progress > 0,
-    percent: status === AI_INSTALL_STATUS.DOWNLOADING ? progress
-      : status === AI_INSTALL_STATUS.VALIDATING ? Math.max(progress, 55)
-      : status === AI_INSTALL_STATUS.INSTALLING ? Math.max(progress, 70)
-      : status === AI_INSTALL_STATUS.LOADING ? Math.max(progress, 82)
-      : status === AI_INSTALL_STATUS.TESTING ? Math.max(progress, 92)
-      : isAIModelReadyStatus(status) ? 100
-      : Math.max(progress, 0),
-    label: labels[status] || ""
-  };
-}
-
-function formatarMb(bytes = 0) {
-  const valor = Number(bytes || 0);
-  if (!Number.isFinite(valor) || valor <= 0) return "";
-  return `${Math.round(valor / 1024 / 1024)} MB`;
-}
-
-function estimarMemoriaDispositivoMb() {
-  const gb = Number(navigator.deviceMemory || 0);
-  return gb > 0 ? Math.round(gb * 1024) : 0;
-}
-
-function classificarPerfilVisualPorDispositivo(deviceInfo = {}) {
-  const memoria = Math.max(Number(deviceInfo.memoryMb || 0) || 0, Number(deviceInfo.memoryClassMb || 0) || 0);
-  const cores = Number(deviceInfo.cpuCores || navigator.hardwareConcurrency || 0) || 0;
-  if ((memoria && memoria <= 4096) || (cores && cores <= 4) || String(deviceInfo.deviceProfile || "") === "weak") return "low";
-  if ((memoria && memoria >= 8192) && cores >= 6 && String(deviceInfo.deviceProfile || "") === "strong") return "high";
-  return "medium";
-}
-
-async function obterResumoCapacidadeIA(modelo = {}) {
-  const plugin = getAIPlugin();
-  if (plugin?.testAiModelPerformance) {
-    try {
-      return await plugin.testAiModelPerformance({ modelId: modelo.id || "", sizeMb: Number(modelo.sizeMb) || 0 });
-    } catch (erro) {
-      return { ok: false, risk: "unknown", message: erro.message || String(erro) };
-    }
-  }
-  const memoriaMb = estimarMemoriaDispositivoMb();
-  let storageMb = 0;
-  try {
-    if (navigator.storage?.estimate) {
-      const estimate = await navigator.storage.estimate();
-      storageMb = Math.round(Number(estimate.quota || 0) / 1024 / 1024);
-    }
-  } catch (_) {}
-  const risco = modelo.sizeMb >= 180 && memoriaMb && memoriaMb < 4096 ? "high" : modelo.sizeMb >= 90 && memoriaMb && memoriaMb < 2048 ? "medium" : "low";
-  return {
-    ok: risco !== "high",
-    risk: risco,
-    memoryMb: memoriaMb,
-    storageMb,
-    message: risco === "high"
-      ? "Este aparelho pode ficar lento com este modelo."
-      : "Teste básico concluído."
-  };
-}
-
-async function detectDeviceProfile() {
-  const base = await obterResumoCapacidadeIA({ id: "device_probe", sizeMb: 986 });
-  const memoria = Math.max(Number(base.memoryMb || 0) || 0, Number(base.memoryClassMb || 0) || 0, Number(base.largeMemoryClassMb || 0) || 0);
-  const memoriaLivre = Number(base.memoryMb || 0) || 0;
-  const storage = Number(base.storageMb || base.availableStorageMb || 0) || 0;
-  const cores = Number(base.cpuCores || navigator.hardwareConcurrency || 0) || 0;
-  const androidSdk = Number(base.androidSdk || 0) || 0;
-  const falhas = AI_MODELS.some((modelo) => /falha|erro|runtime|pesado/i.test(String(getAIModelLocalState(modelo.id).lastError || "")));
-  let deviceProfile = "medium";
-  if ((memoria && memoria <= 4096) || (memoriaLivre && memoriaLivre < 900) || (storage && storage < 1400) || (androidSdk && androidSdk < 26) || (cores && cores <= 4) || falhas) {
-    deviceProfile = "weak";
-  } else if ((memoria && memoria >= 8192) && (!storage || storage >= 3200) && (!cores || cores >= 6) && !falhas) {
-    deviceProfile = "strong";
-  }
-  return {
-    ...base,
-    memoryTotalMb: memoria,
-    memoryFreeMb: memoriaLivre,
-    storageMb: storage,
-    cpuCores: cores,
-    androidSdk,
-    deviceProfile,
-    uiPerformanceProfile: classificarPerfilVisualPorDispositivo({ ...base, deviceProfile })
-  };
-}
-
-function classificarDispositivoIA(resumo = {}) {
-  const memoria = Math.max(Number(resumo.memoryMb || 0) || 0, Number(resumo.memoryClassMb || 0) || 0);
-  const storage = Number(resumo.storageMb || 0) || 0;
-  const cores = Number(resumo.cpuCores || navigator.hardwareConcurrency || 0) || 0;
-  if (resumo.deviceProfile === "weak" || (memoria && memoria <= 4096) || (storage && storage < 1400) || (cores && cores <= 4)) {
-    return {
-      id: "weak",
-      label: "Fraco",
-      modelId: AI_LOCAL_MEDIUM_MODEL_ID,
-      description: "Use primeiro o Assistente Inteligente. A IA Local Média pode ficar lenta neste aparelho.",
-      speed: "manual imediato",
-      quality: "ajuda essencial pelo manual"
-    };
-  }
-  if (resumo.deviceProfile === "medium" || (memoria && memoria < 8192) || (storage && storage < 3200)) {
-    return {
-      id: "medium",
-      label: "Intermediário",
-      modelId: AI_LOCAL_MEDIUM_MODEL_ID,
-      description: "IA Local Média recomendada como camada opcional sobre o manual.",
-      speed: "resposta natural moderada",
-      quality: "manual com resposta mais natural"
-    };
-  }
-  return {
-    id: "strong",
-    label: "Forte",
-    modelId: AI_LOCAL_MEDIUM_MODEL_ID,
-    description: "IA Local Média pode ser testada com diagnóstico de CPU/Vulkan sem carregar outros modelos.",
-    speed: "melhor margem para streaming",
-    quality: "respostas naturais com manual curto"
-  };
-}
-
-async function analisarDispositivoParaIA() {
-  const deviceInfo = await detectDeviceProfile();
-  const perfil = classificarDispositivoIA(deviceInfo);
-  const modelo = getAIModelByProfile(perfil.id, podeUsarAssistenteIAOfflinePro()) || AI_MODELS[0];
-  const resultados = AI_MODELS.map((item) => ({ modelo: item, resumo: { ...deviceInfo, ok: !isAIProOnlyModel(item) || podeUsarAssistenteIAOfflinePro() } }));
-  definirIAConfig({
-    recommendedModelId: modelo.id,
-    deviceProfile: perfil.id,
-    uiPerformanceProfile: deviceInfo.uiPerformanceProfile,
-    lastDeviceProfile: `${perfil.label}: ${modelo.name}`
-  });
-  return {
-    perfil,
-    modelo,
-    resumo: deviceInfo,
-    resultados
-  };
-}
-
-const AIModelManager = Object.freeze({
-  detectDeviceProfile,
-  selectBestModel: (deviceInfo = {}, userPlan = getPlanoAtual()) => {
-    const proAtivo = userPlan?.pro === true || userPlan?.status === PLAN_ACCESS_STATES.ACTIVE || podeUsarAssistenteIAOfflinePro();
-    return getAIModelByProfile(deviceInfo.deviceProfile || "weak", proAtivo);
-  },
-  downloadSelectedModel: (modelId) => baixarModeloIAOffline(modelId),
-  validateModelFile: (modelId) => validarArquivoModeloIA(getAIModel(modelId), modelId),
-  loadSelectedModel: (modelId) => abrirModeloIAOffline(modelId),
-  runAiHealthCheck: (modelId) => testarModeloIAOffline(modelId),
-  applyModelParams: (modelId) => getAIModelProfile(modelId),
-  fallbackToSaferModel: async (modelId) => {
-    const safeId = getSaferAIModelId(modelId);
-    if (!safeId) return false;
-    mostrarToast("Este modelo ficou pesado para este aparelho. Vamos tentar um modelo menor.", "aviso", 5200);
-    setAIModelLocalState(modelId, { fallbackTo: safeId, fallbackAt: new Date().toISOString() });
-    return baixarModeloIAOffline(safeId);
-  },
-  removeCurrentModel: () => removerModeloIAOffline(getAIAssistantSettings().activeModelId || getAIAssistantSettings().installedModelId),
-  changeModelAdvanced: (modelId) => usarModeloIAOffline(modelId)
-});
-
-async function obterSuporteVozIA() {
-  if (!podeUsarAssistenteIAOfflinePro()) return { speechAvailable: false, ttsAvailable: false };
-  const plugin = getAIPlugin();
-  if (!plugin?.getAiVoiceSupport) return { speechAvailable: false, ttsAvailable: false };
-  if (assistantVoiceSupportLoading) return assistantVoiceSupport || { speechAvailable: false, ttsAvailable: false, loading: true };
-  assistantVoiceSupportLoading = true;
-  try {
-    assistantVoiceSupport = await plugin.getAiVoiceSupport();
-  } catch (erro) {
-    assistantVoiceSupport = { speechAvailable: false, ttsAvailable: false, error: erro?.message || String(erro) };
-    registrarFalhaIALocal("voice_support", erro);
-  } finally {
-    assistantVoiceSupportLoading = false;
-  }
-  return assistantVoiceSupport;
-}
-
-async function obterDiagnosticoRuntimeIA({ force = false } = {}) {
-  if (!podeUsarAssistenteIAOfflinePro()) return null;
-  const plugin = getAIPlugin();
-  if (!plugin?.getAiRuntimeDiagnostics) {
-    assistantRuntimeDiagnostics = { engine: "Indisponível", ok: false };
-    return assistantRuntimeDiagnostics;
-  }
-  if (assistantRuntimeDiagnosticsLoading) return assistantRuntimeDiagnostics || { loading: true };
-  if (assistantRuntimeDiagnostics && !force) return assistantRuntimeDiagnostics;
-  assistantRuntimeDiagnosticsLoading = true;
-  try {
-    assistantRuntimeDiagnostics = await plugin.getAiRuntimeDiagnostics();
-  } catch (erro) {
-    assistantRuntimeDiagnostics = { ok: false, error: erro?.message || String(erro) };
-    registrarFalhaIALocal("runtime_diagnostics", erro);
-  } finally {
-    assistantRuntimeDiagnosticsLoading = false;
-  }
-  return assistantRuntimeDiagnostics;
-}
-
-function atualizarDiagnosticoRuntimeIASeNecessario() {
-  if (!podeUsarAssistenteIAOfflinePro() || assistantRuntimeDiagnostics || assistantRuntimeDiagnosticsLoading) return;
-  obterDiagnosticoRuntimeIA().then(() => {
-    if (telaAtual === "config") renderizarPreservandoScroll();
-  });
-}
-
-async function atualizarDiagnosticoRuntimeIA(force = false) {
-  await obterDiagnosticoRuntimeIA({ force });
-  renderizarPreservandoScroll();
-}
-
-function renderDiagnosticoRuntimeIA() {
-  const diag = assistantRuntimeDiagnostics || {};
-  const carregando = assistantRuntimeDiagnosticsLoading || diag.loading;
-  const valor = (item, fallback = "—") => item === undefined || item === null || item === "" ? fallback : item;
-  return `
-    <details class="ai-runtime-diagnostics">
-      <summary>Diagnóstico técnico da IA</summary>
-      <div class="sync-grid">
-        <div class="metric"><span>Engine</span><strong>${escaparHtml(valor(diag.engine, carregando ? "Verificando" : "llama.cpp JNI"))}</strong></div>
-        <div class="metric"><span>Backend ativo</span><strong>${escaparHtml(valor(diag.backend || diag.backendActive || assistantLocalDiagnostics.ai_backend_selected, "CPU/fallback"))}</strong></div>
-        <div class="metric"><span>Vulkan</span><strong>${(diag.vulkanAvailable ?? assistantLocalDiagnostics.ai_vulkan_available) ? "Sim" : "Não/indisponível"}</strong></div>
-        <div class="metric"><span>Driver GPU</span><strong>${escaparHtml(valor(diag.gpuDriver || diag.vulkanDriver || diag.gpuName, "n/d"))}</strong></div>
-        <div class="metric"><span>Modelo carregado</span><strong>${diag.modelLoaded ? "Sim" : "Não"}</strong></div>
-        <div class="metric"><span>mmap</span><strong>${diag.mmap === false ? "Não" : "Sim"}</strong></div>
-        <div class="metric"><span>Threads</span><strong>${escaparHtml(valor(diag.threads || assistantLocalDiagnostics.threads, 2))}</strong></div>
-        <div class="metric"><span>Contexto</span><strong>${escaparHtml(valor(diag.contextTokens, 2048))}</strong></div>
-        <div class="metric"><span>GPU layers</span><strong>${escaparHtml(valor(diag.gpuLayers ?? assistantLocalDiagnostics.ai_gpu_layers, 0))}</strong></div>
-        <div class="metric"><span>RAM livre</span><strong>${escaparHtml(valor(diag.availableMemoryMb))} MB</strong></div>
-        <div class="metric"><span>Android</span><strong>${escaparHtml(valor(diag.androidSdk))}</strong></div>
-        <div class="metric"><span>Prompt</span><strong>${assistantLocalDiagnostics.promptChars || 0} chars</strong></div>
-        <div class="metric"><span>Resposta</span><strong>${assistantLocalDiagnostics.responseChars || 0} chars</strong></div>
-        <div class="metric"><span>TTFT</span><strong>${assistantLocalDiagnostics.ai_ttft_ms || assistantLocalDiagnostics.firstTokenMs || 0} ms</strong></div>
-        <div class="metric"><span>Tempo IA</span><strong>${assistantLocalDiagnostics.responseMs || 0} ms</strong></div>
-        <div class="metric"><span>Tempo total</span><strong>${assistantLocalDiagnostics.ai_total_time_ms || assistantLocalDiagnostics.responseMs || 0} ms</strong></div>
-        <div class="metric"><span>Inferência</span><strong>${assistantLocalDiagnostics.inferenceMs || 0} ms</strong></div>
-        <div class="metric"><span>Tokens/s</span><strong>${assistantLocalDiagnostics.ai_tokens_per_second || assistantLocalDiagnostics.tokensPerSecond || 0}</strong></div>
-        <div class="metric"><span>Fonte</span><strong>${escaparHtml(valor(assistantLocalDiagnostics.assistant_source, "manual"))}</strong></div>
-        <div class="metric"><span>Build</span><strong>${escaparHtml(valor(diag.buildType, "n/d"))}</strong></div>
-      </div>
-      ${diag.error || assistantLocalDiagnostics.lastError || assistantLocalDiagnostics.ai_fallback_reason ? `<p class="feedback-status error">${escaparHtml(diag.error || assistantLocalDiagnostics.lastError || assistantLocalDiagnostics.ai_fallback_reason)}</p>` : ""}
-      <div class="actions">
-        <button class="btn ghost" type="button" onclick="atualizarDiagnosticoRuntimeIA(true)">Atualizar diagnóstico</button>
-      </div>
-    </details>
-  `;
-}
-
-function podeUsarVozIAPro() {
-  return iaLocalEstaPronta()
-    && assistantMode === "pro"
-    && getAIAssistantSettings().voiceEnabled === true
-    && assistantVoiceSupport?.speechAvailable === true;
-}
-
-async function atualizarSuporteVozIASeNecessario() {
-  if (!iaLocalEstaPronta() || assistantVoiceSupport || assistantVoiceSupportLoading) return;
-  await obterSuporteVozIA();
-  renderApp();
-}
-
-function renderAssistenteInteligenteProConfig() {
-  if (!HEAVY_AI_FEATURE_ENABLED) return "";
-  if (!getUsuarioAtual()) return "";
-  const acessoProIA = podeUsarAssistenteIAOfflinePro();
-  const settings = getAIAssistantSettings();
-  const modeloLocal = getAIModel(AI_LOCAL_MEDIUM_MODEL_ID);
-  const ativo = getAIModel(settings.activeModelId || settings.installedModelId || modeloLocal?.id);
-  const localAtivo = acessoProIA && settings.localEnabled === true;
-  const pronto = localAtivo && !!getModeloIAOfflineAtivoInstalado();
-  if (acessoProIA && !assistantRuntimeDiagnostics && !assistantRuntimeDiagnosticsLoading) {
-    setTimeout(() => atualizarDiagnosticoRuntimeIASeNecessario(), 0);
-  }
-  const statusModelo = getAIModelStatus(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID);
-  const progress = progressoIAInstalacao(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID));
-  const statusTexto = acessoProIA
-    ? pronto
-      ? "Pronta"
-      : labelStatusAI(statusModelo)
-    : "Plano Pro";
-
-  return `
-    <div class="danger-zone ai-pro-manager">
-      <div class="card-header compact">
-        <h2 class="section-title">IA Local</h2>
-        <span class="status-badge">${escaparHtml(statusTexto)}</span>
-      </div>
-      ${acessoProIA ? "" : `
-        <div class="ai-upgrade-box">
-          <strong>IA disponível no plano Pro.</strong>
-          <span>Assine o Plano Pro para baixar, instalar e usar IA local offline no APK.</span>
-          <button class="btn secondary" type="button" onclick="trocarTela('assinatura')">Disponível no Plano Pro</button>
-        </div>
-      `}
-      <p class="muted">A instalação é automática e a IA só fica disponível depois que o aparelho concluir a verificação.</p>
-      <label class="toggle-row">
-        <input type="checkbox" ${localAtivo ? "checked" : ""} onchange="alternarIALocalPro(this.checked)" ${acessoProIA ? "" : "disabled"}>
-        <span>Ativar IA Local</span>
-      </label>
-      <div class="sync-grid">
-        <div class="metric"><span>Modelo</span><strong>${escaparHtml(modeloLocal?.model || "Qwen2.5 1.5B Q8_0")}</strong></div>
-        <div class="metric"><span>Status</span><strong>${escaparHtml(statusTexto)}</strong></div>
-        <div class="metric"><span>Instalação</span><strong>Automática</strong></div>
-      </div>
-      ${progress.active ? `
-        <div class="ai-install-progress" data-ai-progress="${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
-          <div class="ai-progress-circle" aria-label="Progresso da IA">
-            <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
-          </div>
-          <span data-ai-progress-label>${escaparHtml(progress.label || "Preparando IA Local...")}</span>
-          <small data-ai-progress-meta>${escaparHtml(formatarMetaProgressoIA(getAIModelLocalState(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)))}</small>
-        </div>
-      ` : ""}
-      <div class="actions">
-        <button class="btn" type="button" onclick="${acessoProIA ? (pronto ? `abrirModeloIAOffline('${escaparAttr(modeloLocal?.id || AI_LOCAL_MEDIUM_MODEL_ID)}')` : "instalarIARecomendadaAutomaticamente()") : "trocarTela('assinatura')"}">${acessoProIA ? (pronto ? "Abrir IA" : "Instalar IA automaticamente") : "Disponível no Plano Pro"}</button>
-        <button class="btn secondary" type="button" onclick="${acessoProIA ? "atualizarDiagnosticoRuntimeIA(true)" : "trocarTela('assinatura')"}" ${acessoProIA ? "" : "disabled"}>Verificar aparelho</button>
-        <button class="btn ghost" type="button" onclick="limparRuntimeIAPro()" ${acessoProIA && pronto ? "" : "disabled"}>Parar IA Local</button>
-      </div>
-      ${settings.lastFailure ? `<p class="feedback-status error">${escaparHtml(settings.lastFailure)}</p>` : ""}
-      <details class="ai-advanced-settings">
-        <summary>Configurações avançadas da IA</summary>
-        <p class="muted">Modelo único ativo: Qwen2.5 1.5B Q8_0. O app não carrega modelos 3B, IQ3_M ou outros modelos lentos neste fluxo.</p>
-        ${acessoProIA ? renderDiagnosticoRuntimeIA() : ""}
-        <div class="ai-model-list">
-          ${AI_MODELS.map((modelo) => renderAIModelCard(modelo, settings)).join("")}
-        </div>
-      </details>
-    </div>
-  `;
-}
-
-function renderAIModelCard(modelo, settings = getAIAssistantSettings()) {
-  const acessoProIA = podeUsarAssistenteIAOfflinePro();
-  const state = getAIModelLocalState(modelo.id);
-  const realStatus = getAIModelStatus(modelo.id);
-  const status = settings.activeModelId === modelo.id && isAIModelReadyStatus(realStatus) ? "active" : realStatus;
-  const ready = isAIModelReadyStatus(realStatus);
-  const hasFile = !!state.path || !!state.installedAt || [AI_INSTALL_STATUS.DOWNLOADED, AI_INSTALL_STATUS.INSTALLED_BUT_FAILED, AI_INSTALL_STATUS.FAILED_RUNTIME].includes(realStatus);
-  const busy = isAIModelBusyStatus(realStatus);
-  const urlConfigurada = !!String(modelo.url || "").trim();
-  const statusLabel = status === "active" ? "Em uso" : labelStatusAI(status);
-  const progress = progressoIAInstalacao(state);
-  const tamanho = formatarMb(state.sizeBytes) || `${Number(state.sizeMb || modelo.sizeMb) || modelo.sizeMb} MB`;
-  const acaoPrincipal = !acessoProIA ? "Disponível no Plano Pro" : ready ? "Abrir IA" : realStatus === AI_INSTALL_STATUS.FAILED_DOWNLOAD || realStatus === AI_INSTALL_STATUS.FAILED_VALIDATION || realStatus === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Tentar novamente" : "Instalar IA";
-  return `
-    <article class="ai-model-card ${settings.activeModelId === modelo.id && ready ? "active" : ""} ${acessoProIA ? "" : "locked"}">
-      <div class="row-title">
-        <div>
-          <strong>${escaparHtml(modelo.name)}</strong>
-          <span class="muted">${escaparHtml(modelo.recommended)} • ${escaparHtml(modelo.ramRecommended)} • ${escaparHtml(tamanho)}</span>
-        </div>
-        <span class="status-badge">${escaparHtml(statusLabel)}</span>
-      </div>
-      ${progress.active || state.lastError || state.runtimeValidatedAt ? `
-        <div class="ai-install-progress" data-ai-progress="${escaparAttr(modelo.id)}" style="--ai-progress:${Math.max(0, Math.min(100, progress.percent))}%">
-          <div class="ai-progress-circle" aria-label="Progresso da IA">
-            <strong data-ai-progress-percent>${Math.max(0, Math.min(100, progress.percent))}%</strong>
-          </div>
-          ${progress.label ? `<span data-ai-progress-label>${escaparHtml(progress.label)}</span>` : `<span data-ai-progress-label></span>`}
-          <small data-ai-progress-meta>${escaparHtml(formatarMetaProgressoIA(state))}</small>
-          ${state.runtimeValidatedAt ? `<small>Teste interno OK</small>` : ""}
-          ${state.lastError ? `<small class="error">${escaparHtml(state.lastError)}</small>` : ""}
-        </div>
-      ` : ""}
-      <div class="actions">
-        <button class="btn secondary" type="button" onclick="${acessoProIA ? (ready ? `abrirModeloIAOffline('${escaparAttr(modelo.id)}')` : `baixarModeloIAOffline('${escaparAttr(modelo.id)}')`) : "trocarTela('assinatura')"}" ${acessoProIA && (busy || (!ready && !urlConfigurada)) ? "disabled" : ""}>${escaparHtml(acaoPrincipal)}</button>
-        ${busy && acessoProIA ? `<button class="btn ghost" type="button" onclick="cancelarInstalacaoIAOffline('${escaparAttr(modelo.id)}')">Cancelar</button>` : ""}
-        <button class="btn ghost" type="button" onclick="testarModeloIAOffline('${escaparAttr(modelo.id)}')" ${!acessoProIA || busy || !hasFile ? "disabled" : ""}>Testar IA</button>
-        <button class="btn danger" type="button" onclick="removerModeloIAOffline('${escaparAttr(modelo.id)}')" ${!acessoProIA || busy || !hasFile ? "disabled" : ""}>Remover modelo</button>
-      </div>
-    </article>
-  `;
-}
-
-async function adicionarListenerProgressoIA(modelId) {
-  const plugin = getAIPlugin();
-  if (!plugin?.addListener) return null;
-  try {
-    const handle = await plugin.addListener("aiModelProgress", (event = {}) => {
-      if (String(event.modelId || "") !== String(modelId)) return;
-      const status = String(event.status || AI_INSTALL_STATUS.DOWNLOADING);
-      const anterior = getAIModelLocalState(modelId);
-      const agora = Date.now();
-      const bytes = Number(event.bytesRead || event.downloadedBytes || 0) || 0;
-      const deltaBytes = Math.max(0, bytes - (Number(anterior.downloadedBytes || 0) || 0));
-      const deltaMs = Math.max(250, agora - (Number(anterior.lastUpdateMs || 0) || agora));
-      setAIModelLocalState(modelId, {
-        status,
-        progress: Number(event.percent || 0) || 0,
-        downloadedBytes: bytes,
-        totalBytes: Number(event.totalBytes || 0) || 0,
-        speedBytesPerSec: Math.round((deltaBytes * 1000) / deltaMs),
-        lastUpdateMs: agora,
-        lastError: ""
-      });
-      atualizarElementosProgressoIA(modelId);
-    });
-    return handle;
-  } catch (erro) {
-    registrarFalhaIALocal("progress_listener", erro, { modelId });
-    return null;
-  }
-}
-
-async function removerListenerProgressoIA(handle) {
-  try {
-    await handle?.remove?.();
-  } catch (_) {}
-}
-
-async function validarArquivoModeloIA(modelo, modelId, path = "") {
-  const plugin = getAIPlugin();
-  setAIModelLocalState(modelId, {
-    status: AI_INSTALL_STATUS.VALIDATING,
-    progress: 100,
-    lastError: ""
-  });
-  renderizarPreservandoScroll();
-  if (!plugin?.validateAiModel) {
-    return { ok: true, skipped: true, path };
-  }
-  return await plugin.validateAiModel({
-    modelId,
-    fileName: modelo.fileName,
-    modelPath: path,
-    minBytes: modelo.minBytes || 0
-  });
-}
-
-async function verificarModeloIAInstalado(modelo, modelId) {
-  const plugin = getAIPlugin();
-  const state = getAIModelLocalState(modelId);
-  if (!plugin?.validateAiModel) return null;
-  try {
-    const validacao = await plugin.validateAiModel({
-      modelId,
-      fileName: modelo.fileName,
-      modelPath: String(state.path || "").trim(),
-      minBytes: modelo.minBytes || 0
-    });
-    if (validacao?.ok) {
-      const patch = {
-        status: state.runtimeValidatedAt ? AI_INSTALL_STATUS.INSTALLED_READY : AI_INSTALL_STATUS.INSTALLED_BUT_FAILED,
-        progress: 100,
-        path: validacao.path || state.path || "",
-        fileName: validacao.fileName || modelo.fileName,
-        sizeBytes: Number(validacao.sizeBytes || state.sizeBytes || 0) || 0,
-        sizeMb: Number(validacao.sizeMb || state.sizeMb || modelo.sizeMb) || modelo.sizeMb,
-        ggufValid: true,
-        lastError: ""
-      };
-      setAIModelLocalState(modelId, patch);
-      return { ...validacao, ...patch };
-    }
-  } catch (erro) {
-    registrarFalhaIALocal("validate_existing_model", erro, { modelId });
-  }
-  return null;
-}
-
-async function testarRuntimeModeloIA(modelo, modelId, path = "") {
-  const plugin = getAIPlugin();
-  const perfil = getAIModelProfile(modelId);
-  const backend = getAiBackendConfig(perfil);
-  const threads = calcularThreadsIA(perfil);
-  setAIModelLocalState(modelId, {
-    status: AI_INSTALL_STATUS.TESTING,
-    progress: 100,
-    lastError: ""
-  });
-  renderizarPreservandoScroll();
-  if (!plugin?.testAiModelRuntime) {
-    throw new Error("Runtime nativo da IA não disponível neste APK.");
-  }
-  const resultado = await promiseComTimeout(
-    plugin.testAiModelRuntime({
-      modelId,
-      modelPath: path,
-      systemPrompt: AI_RUNTIME_TEST_SYSTEM_PROMPT,
-      prompt: AI_RUNTIME_TEST_PROMPT,
-      maxTokens: 5,
-      contextSize: 512,
-      threads,
-      backendPreference: backend.backendPreference,
-      gpuLayers: backend.gpuLayers,
-      gpuLayerTests: backend.gpuLayerTests,
-      proAllowed: podeUsarAssistenteIAOfflinePro(),
-      timeoutMs: 240000
-    }),
-    245000,
-    "Teste da IA demorou demais."
-  );
-  registrarDiagnosticoIA("benchmark_limpo", {
-    loadModelMs: resultado?.loadModelMs || 0,
-    warmupMs: resultado?.warmupMs || 0,
-    firstTokenMs: resultado?.firstTokenMs || 0,
-    inferenceMs: resultado?.inferenceMs || resultado?.elapsedMs || 0,
-    responseMs: resultado?.totalMs || resultado?.elapsedMs || 0,
-    tokensPerSecond: resultado?.tokensPerSecond || 0,
-    threads: resultado?.threads || threads,
-    contextSize: resultado?.contextSize || 512,
-    ai_backend_selected: resultado?.backend || resultado?.backendActive || backend.backendPreference || "auto",
-    ai_gpu_layers: resultado?.gpuLayers ?? backend.gpuLayers,
-    ai_vulkan_available: resultado?.vulkanAvailable === true,
-    ai_ttft_ms: resultado?.firstTokenMs || 0,
-    ai_total_time_ms: resultado?.totalMs || resultado?.elapsedMs || 0,
-    ai_tokens_per_second: resultado?.tokensPerSecond || 0,
-    ai_model_selected: modelId
-  });
-  return resultado;
-}
-
-async function baixarModeloIAOffline(modelId) {
-  const modelo = getAIModel(modelId);
-  if (!modelo) return false;
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return false;
-  if (aiModelInstallPromise && isAIModelBusyStatus(getAIModelStatus(modelId))) {
-    mostrarToast("A instalação da IA já está em andamento.", "info", 3200);
-    return aiModelInstallPromise;
-  }
-  const existente = await verificarModeloIAInstalado(modelo, modelId);
-  if (existente?.path) {
-    try {
-      if (!getAIModelLocalState(modelId).runtimeValidatedAt) {
-        await testarModeloIAOffline(modelId);
-      }
-      if (isAIModelReadyStatus(getAIModelStatus(modelId))) {
-        definirIAConfig({ activeModelId: modelId, installedModelId: modelId, localEnabled: true, onboardingCompleted: true });
-        mostrarToast("IA já instalada neste aparelho.", "sucesso", 3200);
-        abrirAssistente("pro");
-        return true;
-      }
-      return false;
-    } catch (erro) {
-      setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_RUNTIME, lastError: erro?.message || String(erro), progress: 100 });
-      mostrarToast("Modelo encontrado, mas a IA não iniciou neste aparelho.", "erro", 5200);
-      return false;
-    }
-  }
-  if (!modelo.url) {
-    const msg = "Instalação indisponível no momento.";
-    setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_DOWNLOAD, lastError: msg });
-    appConfig.aiOfflineAssistant.lastFailure = msg;
-    salvarDados();
-    mostrarToast("Modelo ainda sem URL de download.", "aviso", 5000);
-    renderizarPreservandoScroll();
-    return false;
-  }
-  const plugin = getAIPlugin();
-  if (!plugin?.downloadAiModel) {
-    mostrarToast("Instalação indisponível neste aparelho.", "erro", 5000);
-    return false;
-  }
-  setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.DOWNLOADING, progress: 0, lastError: "", runtimeValidatedAt: "" });
-  appConfig.aiOfflineAssistant.lastFailure = "";
-  renderizarPreservandoScroll();
-  let progressHandle = null;
-  aiModelInstallPromise = (async () => {
-  try {
-    progressHandle = await adicionarListenerProgressoIA(modelId);
-    const result = await plugin.downloadAiModel({
-      modelId,
-      name: modelo.name,
-      url: modelo.url,
-      fileName: modelo.fileName,
-      sizeMb: modelo.sizeMb,
-      proAllowed: podeUsarAssistenteIAOfflinePro(),
-      minBytes: modelo.minBytes || 0
-    });
-    setAIModelLocalState(modelId, {
-      status: AI_INSTALL_STATUS.DOWNLOADED,
-      progress: 100,
-      downloadedAt: new Date().toISOString(),
-      sizeMb: Number(result?.sizeMb || modelo.sizeMb) || modelo.sizeMb,
-      sizeBytes: Number(result?.sizeBytes || 0) || 0,
-      path: result?.path || "",
-      lastError: ""
-    });
-    const validacao = await validarArquivoModeloIA(modelo, modelId, result?.path || "");
-    if (validacao?.ok === false) {
-      throw new Error(validacao?.message || "Arquivo GGUF inválido.");
-    }
-    setAIModelLocalState(modelId, {
-      status: AI_INSTALL_STATUS.INSTALLING,
-      progress: 100,
-      validationCheckedAt: new Date().toISOString(),
-      ggufValid: true,
-      path: validacao?.path || result?.path || ""
-    });
-    renderizarPreservandoScroll();
-    const runtime = await testarRuntimeModeloIA(modelo, modelId, validacao?.path || result?.path || "");
-    const runtimeText = String(runtime?.text || "").trim();
-    if (!runtime?.ok || !runtimeText) {
-      throw new Error(runtime?.message || "A IA não respondeu no teste interno.");
-    }
-    setAIModelLocalState(modelId, {
-      status: AI_INSTALL_STATUS.INSTALLED_READY,
-      installedAt: new Date().toISOString(),
-      runtimeValidatedAt: new Date().toISOString(),
-      runtimeTestResponse: runtimeText.slice(0, 80),
-      sizeMb: Number(result?.sizeMb || modelo.sizeMb) || modelo.sizeMb,
-      sizeBytes: Number(result?.sizeBytes || validacao?.sizeBytes || 0) || 0,
-      path: validacao?.path || result?.path || "",
-      progress: 100,
-      lastError: ""
-    });
-    appConfig.aiOfflineAssistant.installedModelId = modelId;
-    appConfig.aiOfflineAssistant.activeModelId = modelId;
-    appConfig.aiOfflineAssistant.localEnabled = true;
-    appConfig.aiOfflineAssistant.onboardingCompleted = true;
-    salvarDados();
-    mostrarToast(`${modelo.name} instalado.`, "sucesso", 4200);
-    return true;
-  } catch (erro) {
-    const msg = erro?.message || String(erro);
-    const estadoAtual = getAIModelStatus(modelId);
-    const statusFalha = estadoAtual === AI_INSTALL_STATUS.VALIDATING
-      ? AI_INSTALL_STATUS.FAILED_VALIDATION
-      : estadoAtual === AI_INSTALL_STATUS.TESTING || estadoAtual === AI_INSTALL_STATUS.INSTALLING || getAIModelLocalState(modelId).path
-        ? AI_INSTALL_STATUS.FAILED_RUNTIME
-        : AI_INSTALL_STATUS.FAILED_DOWNLOAD;
-    setAIModelLocalState(modelId, { status: statusFalha, lastError: msg, progress: statusFalha === AI_INSTALL_STATUS.FAILED_DOWNLOAD ? 0 : 100 });
-    appConfig.aiOfflineAssistant.lastFailure = statusFalha === AI_INSTALL_STATUS.FAILED_RUNTIME
-      ? "Modelo baixado, mas não foi possível iniciar a IA neste aparelho."
-      : "Falha ao instalar modelo: " + msg;
-    if (appConfig.aiOfflineAssistant.activeModelId === modelId) appConfig.aiOfflineAssistant.activeModelId = "";
-    appConfig.aiOfflineAssistant.localEnabled = false;
-    salvarDados();
-    mostrarToast(statusFalha === AI_INSTALL_STATUS.FAILED_RUNTIME ? "Modelo baixado, mas a IA não iniciou neste aparelho." : "Não foi possível instalar o modelo.", "erro", 6500);
-    registrarFalhaIALocal("download_model", erro, { modelId });
-    const safeId = getSaferAIModelId(modelId);
-    const cancelado = /cancelad/i.test(msg);
-    if (safeId && !cancelado && !getAIModelLocalState(modelId).fallbackAttemptedAt) {
-      setAIModelLocalState(modelId, { fallbackAttemptedAt: new Date().toISOString(), fallbackTo: safeId });
-      mostrarToast("Este modelo ficou pesado para este aparelho. Vamos tentar um modelo menor.", "aviso", 5200);
-      return baixarModeloIAOffline(safeId);
-    }
-    return false;
-  } finally {
-    await removerListenerProgressoIA(progressHandle);
-    aiModelInstallPromise = null;
-    renderizarPreservandoScroll();
-  }
-  })();
-  return aiModelInstallPromise;
-}
-
-async function cancelarInstalacaoIAOffline(modelId) {
-  const plugin = getAIPlugin();
-  try {
-    await plugin?.cancelAiModelDownload?.({ modelId });
-  } catch (erro) {
-    registrarFalhaIALocal("cancel_download", erro, { modelId });
-  }
-  setAIModelLocalState(modelId, {
-    status: AI_INSTALL_STATUS.FAILED_DOWNLOAD,
-    progress: 0,
-    lastError: "Instalação cancelada pelo usuário."
-  });
-  mostrarToast("Instalação da IA cancelada.", "info", 2600);
-  renderizarPreservandoScroll();
-}
-
-async function abrirModeloIAOffline(modelId) {
-  const modelo = getAIModel(modelId);
-  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const state = getAIModelLocalState(modelId);
-  if (!isAIModelReadyStatus(getAIModelStatus(modelId)) || !String(state.path || "").trim() || !state.runtimeValidatedAt) {
-    await baixarModeloIAOffline(modelId);
-    return;
-  }
-  definirIAConfig({ activeModelId: modelId, installedModelId: modelId, localEnabled: true, onboardingCompleted: true, lastFailure: "" });
-  assistantRuntimeReady = false;
-  assistantRuntimeDiagnostics = null;
-  abrirAssistente("pro");
-}
-
-async function usarModeloIAOffline(modelId) {
-  const modelo = getAIModel(modelId);
-  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const state = getAIModelLocalState(modelId);
-  if (!isAIModelReadyStatus(getAIModelStatus(modelId)) || !state.runtimeValidatedAt) {
-    mostrarToast("Teste a IA antes de ativar este modelo.", "aviso", 4800);
-    return;
-  }
-  const performance = await obterResumoCapacidadeIA(modelo);
-  if (["high", "medium"].includes(String(performance.risk || ""))) {
-    const seguir = confirm("Este modelo pode deixar seu aparelho lento neste aparelho. Deseja ativar mesmo assim?");
-    if (!seguir) return;
-  }
-  appConfig.aiOfflineAssistant.activeModelId = modelId;
-  appConfig.aiOfflineAssistant.installedModelId = appConfig.aiOfflineAssistant.installedModelId || modelId;
-  appConfig.aiOfflineAssistant.localEnabled = true;
-  appConfig.aiOfflineAssistant.onboardingCompleted = true;
-  appConfig.aiOfflineAssistant.lastPerformance = performance.message || "Modelo ativado";
-  assistantVoiceSupport = null;
-  assistantRuntimeDiagnostics = null;
-  salvarDados();
-  mostrarToast(`${modelo.name} ativo.`, "sucesso", 3500);
-  renderizarPreservandoScroll();
-}
-
-async function removerModeloIAOffline(modelId) {
-  const modelo = getAIModel(modelId);
-  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const confirmado = confirm("Remover esta IA do aparelho? Você poderá instalar novamente depois.");
-  if (!confirmado) return;
-  const plugin = getAIPlugin();
-  setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.REMOVING });
-  renderizarPreservandoScroll();
-  try {
-    if (plugin?.deleteAiModel) await plugin.deleteAiModel({ modelId, fileName: modelo.fileName });
-    const settings = getAIAssistantSettings();
-    settings.models = { ...(settings.models || {}) };
-    settings.models[modelId] = { status: AI_INSTALL_STATUS.REMOVED, removedAt: new Date().toISOString() };
-    if (settings.activeModelId === modelId) settings.activeModelId = "";
-    if (settings.installedModelId === modelId) settings.installedModelId = "";
-    if (!settings.activeModelId) {
-      settings.localEnabled = false;
-      settings.voiceEnabled = false;
-      assistantMode = "basic";
-    }
-    assistantVoiceSupport = null;
-    assistantRuntimeDiagnostics = null;
-    appConfig.aiOfflineAssistant = settings;
-    salvarDados();
-    mostrarToast("Modelo removido.", "sucesso", 3500);
-  } catch (erro) {
-    setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.INSTALLED_BUT_FAILED, lastError: erro?.message || String(erro) });
-    mostrarToast("Não foi possível remover o modelo.", "erro", 5000);
-  }
-  renderizarPreservandoScroll();
-}
-
-async function testarModeloIAOffline(modelId) {
-  const modelo = getAIModel(modelId);
-  if (!modelo || !exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const state = getAIModelLocalState(modelId);
-  const path = String(state.path || "").trim();
-  if (!path) {
-    mostrarToast("Baixe o modelo antes de testar.", "aviso", 4200);
-    return;
-  }
-  try {
-    const resultado = await obterResumoCapacidadeIA(modelo);
-    if (resultado.risk === "high") {
-      mostrarToast("Este modelo pode ficar lento neste aparelho.", "aviso", 5200);
-    }
-    const runtime = await testarRuntimeModeloIA(modelo, modelId, path);
-    const runtimeText = String(runtime?.text || "").trim();
-    if (!runtime?.ok || !runtimeText) throw new Error(runtime?.message || "A IA não respondeu no teste interno.");
-    setAIModelLocalState(modelId, {
-      status: AI_INSTALL_STATUS.INSTALLED_READY,
-      runtimeValidatedAt: new Date().toISOString(),
-      runtimeTestResponse: runtimeText.slice(0, 80),
-      progress: 100,
-      lastError: ""
-    });
-    definirIAConfig({ activeModelId: modelId, installedModelId: modelId, localEnabled: true, onboardingCompleted: true, lastFailure: "" });
-    appConfig.aiOfflineAssistant.lastPerformance = "Teste interno OK.";
-    salvarDados();
-    mostrarToast("IA testada e pronta.", "sucesso", 4200);
-  } catch (erro) {
-    const msg = erro?.message || String(erro);
-    setAIModelLocalState(modelId, { status: AI_INSTALL_STATUS.FAILED_RUNTIME, lastError: msg, progress: 100 });
-    appConfig.aiOfflineAssistant.lastFailure = "Modelo baixado, mas não foi possível iniciar a IA neste aparelho.";
-    if (appConfig.aiOfflineAssistant.activeModelId === modelId) appConfig.aiOfflineAssistant.activeModelId = "";
-    appConfig.aiOfflineAssistant.localEnabled = false;
-    salvarDados();
-    registrarFalhaIALocal("test_runtime", erro, { modelId });
-    mostrarToast("Modelo baixado, mas a IA não iniciou neste aparelho.", "erro", 6500);
-  } finally {
-    renderizarPreservandoScroll();
-  }
-}
-
-async function alternarIALocalPro(ativo) {
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const settings = getAIAssistantSettings();
-  if (!ativo) {
-    definirIAConfig({ localEnabled: false, voiceEnabled: false, ttsEnabled: false });
-    assistantMode = "basic";
-    assistantListening = false;
-    assistantRuntimeReady = false;
-    assistantRuntimeDiagnostics = null;
-    try {
-      await getAIPlugin()?.stopAiVoiceRecognition?.();
-      await getAIPlugin()?.stopAiSpeech?.();
-      await getAIPlugin()?.unloadAiModel?.();
-    } catch (erro) {
-      registrarFalhaIALocal("unload_toggle", erro);
-    }
-    mostrarToast("Assistente básico ativo.", "info", 3200);
-    renderizarPreservandoScroll();
-    return;
-  }
-  const modelo = getAIModel(settings.activeModelId);
-  const state = getAIModelLocalState(settings.activeModelId);
-  if (!modelo || !state.path || !isAIModelReadyStatus(getAIModelStatus(settings.activeModelId))) {
-    definirIAConfig({ localEnabled: false });
-    abrirWizardIAProLocal();
-    return;
-  }
-  definirIAConfig({ localEnabled: true, onboardingCompleted: true });
-  assistantMode = "pro";
-  assistantVoiceSupport = null;
-  assistantRuntimeDiagnostics = null;
-  mostrarToast("IA Local ativada.", "sucesso", 3200);
-  obterSuporteVozIA().finally(() => renderizarPreservandoScroll());
-}
-
-async function limparRuntimeIAPro() {
-  if (!exigirPlanoProPagoIALocal()) return;
-  try {
-    assistantListening = false;
-    await getAIPlugin()?.stopAiVoiceRecognition?.();
-    await getAIPlugin()?.stopAiSpeech?.();
-    await getAIPlugin()?.unloadAiModel?.();
-    assistantRuntimeReady = false;
-    assistantRuntimeDiagnostics = null;
-    mostrarToast("Memória da IA liberada.", "sucesso", 3000);
-  } catch (erro) {
-    registrarFalhaIALocal("unload_manual", erro);
-    mostrarToast("Não foi possível liberar a IA agora.", "aviso", 4000);
-  }
-}
-
-async function alternarVozIAPro(ativo) {
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
-  if (!ativo) {
-    assistantListening = false;
-    try {
-      await getAIPlugin()?.stopAiVoiceRecognition?.();
-    } catch (erro) {
-      registrarFalhaIALocal("voice_disable", erro);
-    }
-  }
-  if (ativo) {
-    const suporte = await obterSuporteVozIA();
-    if (suporte?.speechAvailable !== true) {
-      definirIAConfig({ voiceEnabled: false });
-      mostrarToast("Seu dispositivo não possui suporte completo ao reconhecimento de voz.", "aviso", 5000);
-      renderizarPreservandoScroll();
-      return;
-    }
-  }
-  definirIAConfig({ voiceEnabled: ativo === true });
-  renderizarPreservandoScroll();
-}
-
-function alternarLeituraVozIAPro(ativo) {
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
-  if (ativo && assistantVoiceSupport?.ttsAvailable === false) {
-    definirIAConfig({ ttsEnabled: false });
-    mostrarToast("Leitura em voz indisponível neste aparelho.", "aviso", 4200);
-    renderizarPreservandoScroll();
-    return;
-  }
-  if (!ativo) {
-    getAIPlugin()?.stopAiSpeech?.().catch((erro) => registrarFalhaIALocal("tts_disable", erro));
-  }
-  definirIAConfig({ ttsEnabled: ativo === true });
-  mostrarToast(ativo ? "Leitura em voz ativada." : "Leitura em voz desativada.", "info", 2600);
-  renderizarPreservandoScroll();
-}
-
-function ajustarVelocidadeLeituraIAPro(valor) {
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const ttsRate = Math.max(0.6, Math.min(Number(valor || 1) || 1, 1.4));
-  definirIAConfig({ ttsRate }, true);
-  renderizarPreservandoScroll();
-}
-
-async function abrirWizardIAProLocal() {
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return;
-  const popup = document.getElementById("popup");
-  if (!popup) return;
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-wizard-cancel">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>Preparando IA Local</h2>
-          <button class="icon-button" type="button" data-action="ai-wizard-cancel" title="Fechar">✕</button>
-        </div>
-        <p class="muted">Escolhendo a melhor opção para este aparelho...</p>
-        <div class="skeleton-block"></div>
-      </div>
-    </div>
-  `;
-  promoverPopupParaDialogUiV3(popup, { title: "Preparando IA Local" });
-  try {
-    const analise = await analisarDispositivoParaIA();
-    definirIAConfig({ lastDeviceProfile: analise.perfil.label }, true);
-    popup.innerHTML = `
-      <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-wizard-cancel">
-        <div class="modal-card">
-          <div class="modal-header">
-            <h2>Modo ${escaparHtml(analise.perfil.label)}</h2>
-            <button class="icon-button" type="button" data-action="ai-wizard-cancel" title="Fechar">✕</button>
-          </div>
-          <div class="sync-grid">
-            <div class="metric"><span>Escolha</span><strong>${escaparHtml(analise.modelo?.name || "IA Local")}</strong></div>
-            <div class="metric"><span>Uso</span><strong>${escaparHtml(analise.perfil.speed)}</strong></div>
-            <div class="metric"><span>Ajuda</span><strong>${escaparHtml(analise.perfil.quality)}</strong></div>
-            <div class="metric"><span>Espaço</span><strong>${Number(analise.modelo?.sizeMb || 0)} MB</strong></div>
-          </div>
-          <div class="actions">
-            <button class="btn" type="button" data-action="ai-wizard-install" data-model-id="${escaparAttr(analise.modelo?.id || AI_DEFAULT_MODEL_ID)}">Instalar IA automaticamente</button>
-            <button class="btn ghost" type="button" data-action="ai-wizard-cancel">Depois</button>
-          </div>
-        </div>
-      </div>
-    `;
-    promoverPopupParaDialogUiV3(popup, { title: `Modo ${analise.perfil.label}` });
-  } catch (erro) {
-    registrarFalhaIALocal("wizard_analyze", erro);
-    mostrarToast("Não foi possível analisar o aparelho agora.", "erro", 5000);
-    fecharPopup();
-  }
-}
-
-async function instalarIAAutomatica(modelId = AI_DEFAULT_MODEL_ID) {
-  fecharPopup();
-  const ok = await baixarModeloIAOffline(modelId);
-  if (ok) {
-    definirIAConfig({ localEnabled: true, onboardingCompleted: true });
-    assistantMode = "pro";
-    mostrarToast("IA pronta para uso.", "sucesso", 4200);
-  }
-}
-
-async function instalarIARecomendadaAutomaticamente() {
-  if (!exigirPlanoProPagoIALocal({ navegar: true })) return false;
-  const settings = getAIAssistantSettings();
-  const pronto = getModeloIAOfflineAtivoInstalado(false);
-  if (pronto) {
-    definirIAConfig({ activeModelId: pronto.modelo.id, installedModelId: pronto.modelo.id, localEnabled: true });
-    abrirAssistente("pro");
-    return true;
-  }
-  const analise = await analisarDispositivoParaIA();
-  const modelId = analise.modelo?.id || settings.recommendedModelId || AI_DEFAULT_MODEL_ID;
-  return instalarIAAutomatica(modelId);
-}
-
-function usarAssistenteBasicoAgora(origem = "assistente") {
-  fecharPopup();
-  assistantMode = "basic";
-  if (origem === "calculadora") {
-    const contexto = montarContextoIAComercial().calculoRecente || {};
-    mostrarSugestoesIACalculadora(gerarSugestoesCalculadoraBasicas(contexto), "Assistente básico com resumo seguro da calculadora.");
-    return;
-  }
-  abrirAssistente("basic");
-}
-
-function montarContextoIAComercial() {
-  const pedidosRecentes = pedidos.slice(-20);
-  const produtos = new Map();
-  pedidosRecentes.forEach((pedido) => {
-    normalizarItensPedido(pedido).forEach((item) => {
-      const nome = String(item.nome || "Item").slice(0, 50);
-      produtos.set(nome, (produtos.get(nome) || 0) + Number(item.qtd || 1));
-    });
-  });
-  const maisVendidos = [...produtos.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([nome, qtd]) => ({ nome, qtd }));
-  const materiaisUsados = normalizarEstoque().slice(0, 8).map((item) => ({ nome: item.nome, qtd: item.qtd, tipo: item.tipo }));
-  return {
-    margemMedia: appConfig.defaultMargin || 0,
-    produtosMaisVendidos: maisVendidos,
-    materiaisMaisUsados: materiaisUsados,
-    estoqueBaixo: materiaisUsados.filter((item) => Number(item.qtd) <= estoqueMinimoKg),
-    pedidosPendentes: pedidos.filter((pedido) => !["entregue", "finalizado", "cancelado"].includes(String(pedido.status || ""))).length,
-    calculoRecente: ultimoCalculo ? {
-      pesoGramas: ultimoCalculo.peso,
-      tempoHoras: ultimoCalculo.tempo,
-      material: ultimoCalculo.materialNome,
-      custoMaterial: ultimoCalculo.custoMaterial,
-      custoEnergia: ultimoCalculo.custoEnergia,
-      margem: appConfig.defaultMargin,
-      precoFinal: ultimoCalculo.precoTotal,
-      tipoPecaInformado: document.getElementById("nomeItem")?.value || "",
-      observacoes: ""
-    } : null
-  };
-}
-
-function gerarSugestoesCalculadoraBasicas(contexto = montarContextoIAComercial().calculoRecente || {}) {
-  const sugestoes = [];
-  const margem = Number(contexto.margem || appConfig.defaultMargin || 0);
-  const tempo = Number(contexto.tempoHoras || 0);
-  const preco = Number(contexto.precoFinal || 0);
-  if (margem < 80) sugestoes.push("Sua margem parece baixa. Confira se embalagem, retrabalho e tempo de atendimento entraram no preço.");
-  if (tempo > 6) sugestoes.push("Peça com prazo longo: considere cobrar urgência ou combinar entrega com folga.");
-  if (preco > 0) sugestoes.push("Ofereça embalagem simples ou kit com mais unidades para aumentar o ticket.");
-  if (/chaveiro|pingente|tag/i.test(contexto.tipoPecaInformado || "")) sugestoes.push("Para chaveiro ou pingente, inclua argola, corrente ou embalagem no orçamento.");
-  if (!contexto.material) sugestoes.push("Vincule um material do estoque para acompanhar custo e reposição com mais precisão.");
-  if (!sugestoes.length) sugestoes.push("Preço calculado. Confira acabamento, embalagem e prazo antes de enviar ao cliente.");
-  return sugestoes.slice(0, 5);
-}
-
-function getModeloIAOfflineAtivoInstalado(exigirToggle = true) {
-  if (!podeUsarAssistenteIAOfflinePro()) return null;
-  if (exigirToggle && getAIAssistantSettings().localEnabled !== true) return null;
-  const settings = getAIAssistantSettings();
-  const modelo = getAIModel(settings.activeModelId);
-  const state = getAIModelLocalState(settings.activeModelId);
-  const path = String(state.path || "").trim();
-  if (!modelo || !path || !isAIModelReadyStatus(getAIModelStatus(settings.activeModelId)) || !state.runtimeValidatedAt) return null;
-  return { modelo, state, path };
-}
-
-function buscarTrechosManualIA(texto = "") {
-  const pergunta = normalizarTextoAssistente(texto);
-  if (pergunta.includes("superadmin") || pergunta.includes("super admin")) {
-    return ["Super Admin é área restrita administrativa. A IA não deve orientar ações de Super Admin."];
-  }
-  const resultado = buscarManualAssistente(texto, buildAiContext(telaAtual, texto));
-  const trechos = (resultado.snippets || []).map((item) => `${item.titulo}: ${item.shortAnswer}`);
-  if (trechos.length) return trechos.slice(0, 3);
-  return ASSISTANT_MANUAL_ITEMS
-    .filter((item) => ["pedidos_criar", "calculadora_usar", "estoque_cadastrar_material"].includes(item.id))
-    .map((item) => `${item.titulo}: ${item.shortAnswer}`);
-}
-
-function getAiGenerationOptions(texto = "", modelId = getAIAssistantSettings().activeModelId) {
-  const tecnico = /diagn[oó]stico|erro|trav|runtime|modelo|download|instala|configura|relat[oó]rio|financeiro|detalh/i.test(texto);
-  const json = /rascunho|criar|preencher|pedido|cliente|estoque|json|a[cç][aã]o/i.test(texto);
-  const perfil = getAIModelProfile(modelId);
-  const maxTokensPerfil = json ? perfil.jsonMaxTokens : tecnico ? perfil.technicalMaxTokens : perfil.maxTokens;
-  return {
-    maxTokens: Number(maxTokensPerfil || perfil.maxTokens || AI_DEFAULT_MAX_TOKENS),
-    temperature: perfil.temperature ?? (tecnico ? 0.25 : 0.2),
-    topP: perfil.topP ?? 0.85,
-    topK: 40,
-    repeatPenalty: perfil.repeatPenalty ?? 1.18,
-    presencePenalty: perfil.presencePenalty ?? 0.05,
-    frequencyPenalty: perfil.frequencyPenalty ?? 0.25,
-    contextSize: perfil.contextSize || 2048,
-    threads: calcularThreadsIA(perfil),
-    maxChars: Math.min(AI_RESPONSE_MAX_CHARS, tecnico ? AI_RESPONSE_MAX_CHARS : 650)
-  };
-}
-
-function calcularThreadsIA(perfil = getAIModelProfile()) {
-  const cores = Number(navigator.hardwareConcurrency || 0) || 4;
-  const metade = Math.floor(cores / 2) || Number(perfil.threads || 2) || 2;
-  return Math.max(2, Math.min(Number(perfil.maxThreads || 4) || 4, metade, 4));
-}
-
-function getAiBackendConfig(perfil = getAIModelProfile()) {
-  const settings = getAIAssistantSettings();
-  const layersConfig = settings.gpuLayers ?? perfil.gpuLayers ?? 0;
-  const gpuLayers = String(layersConfig) === "auto"
-    ? "auto"
-    : Math.max(0, Math.min(12, Number(layersConfig) || 0));
-  return {
-    backendPreference: settings.backendPreference || "auto",
-    gpuLayers,
-    gpuLayerTests: Array.isArray(perfil.gpuLayerTests) ? perfil.gpuLayerTests : [0, 4, 8, 12]
-  };
-}
-
-function resumirContextoIA(contexto = {}, modelProfile = getAIModelProfile()) {
-  const seguro = {
-    tela: contexto.tela || telaAtual,
-    modulo: contexto.modulo || "geral",
-    instrucao: contexto.instrucao || "",
-    dados: contexto.dados || contexto.pedidoAtual || null,
-    perfilUso: contexto.perfilUso || getLocalAiUsageProfile(),
-    ultimas: Array.isArray(contexto.mensagensRecentes) ? contexto.mensagensRecentes.slice(-2) : []
-  };
-  const limite = Number(modelProfile.promptLimit || 900);
-  return JSON.stringify(seguro, (_, valor) => {
-    if (typeof valor === "string") return valor.slice(0, 180);
-    if (Array.isArray(valor)) return valor.slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
-    return valor;
-  }).slice(0, limite);
-}
-
-function montarPromptIAOffline(texto = "", contexto = {}, modelId = getAIAssistantSettings().activeModelId) {
-  const perfil = getAIModelProfile(modelId);
-  const manual = buscarManualAssistente(texto, contexto);
-  const trechosManual = (manual.snippets || []).slice(0, 3).map((item) => ({
-    titulo: item.titulo,
-    resposta: item.shortAnswer,
-    tela: item.relatedScreen,
-    plano: item.requiredPlan
-  }));
-  const respostaManual = manual.best
-    ? formatarRespostaManualAssistente(manual, texto, contexto)
-    : ASSISTANT_MANUAL_FALLBACK_MESSAGE;
-  const contextoSeguro = {
-    tela: contexto.tela || telaAtual,
-    plano: getPlanoAtualParaManualAssistente(),
-    permissoes: Array.isArray(perfil.allowActions) ? perfil.allowActions : [],
-    camposVisiveis: Array.isArray(contexto.camposVisiveis) ? contexto.camposVisiveis.slice(0, 8) : [],
-    dados: contexto.dados || null,
-    memoriaUsuario: contexto.memoriaUsuario || ""
-  };
-  return [
-    "Resposta do manual:",
-    respostaManual,
-    "",
-    "Trechos relevantes do manual (max 3):",
-    JSON.stringify(trechosManual).slice(0, 900),
-    "",
-    "Contexto curto:",
-    JSON.stringify(contextoSeguro, (_, valor) => {
-      if (typeof valor === "string") return valor.slice(0, 180);
-      if (Array.isArray(valor)) return valor.slice(0, ASSISTANT_MAX_CONTEXT_RESULTS);
-      return valor;
-    }).slice(0, Number(perfil.promptLimit || 1200)),
-    "",
-    "Regras:",
-    "Melhore a naturalidade sem adicionar informação fora do manual. Se o manual não responder, use exatamente a mensagem de não encontrado. Para ações, gere apenas rascunho JSON com requiresConfirmation=true.",
-    "",
-    "Pergunta:",
-    String(texto || "").slice(0, 260)
-  ].join("\n").slice(0, Number(perfil.promptLimit || 1200) + 900);
-}
-
-function cleanAiResponse(response = "", opcoes = {}) {
-  const limite = Math.max(160, Math.min(Number(opcoes.maxChars || AI_RESPONSE_MAX_CHARS) || AI_RESPONSE_MAX_CHARS, AI_RESPONSE_MAX_CHARS));
-  let texto = String(response || "")
-    .replace(/\r/g, "\n")
-    .replace(/\*\*/g, "")
-    .replace(/```[\s\S]*?```/g, (bloco) => bloco.replace(/```/g, ""))
-    .replace(/^\s*(claro!?|com certeza!?|vou te ajudar\.?|posso ajudar\.?)\s*/i, "")
-    .replace(/\b(espero ter ajudado|se precisar estou aqui|posso ajudar em mais alguma coisa\??)\b\.?/gi, "")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-  const linhas = [];
-  const vistas = new Set();
-  texto.split(/\n+/).forEach((linha) => {
-    const limpa = linha.replace(/^[-*•\d.)\s]+/, "").trim();
-    if (!limpa) return;
-    const chave = normalizarTextoAssistente(limpa).replace(/\W+/g, " ").trim();
-    if (vistas.has(chave)) return;
-    vistas.add(chave);
-    linhas.push(limpa);
-  });
-  texto = linhas.join("\n").trim();
-  const frases = texto.split(/(?<=[.!?])\s+/).filter(Boolean);
-  const frasesUnicas = [];
-  const chaves = new Set();
-  frases.forEach((frase) => {
-    const chave = normalizarTextoAssistente(frase).replace(/\W+/g, " ").slice(0, 120);
-    if (chaves.has(chave)) return;
-    chaves.add(chave);
-    frasesUnicas.push(frase.trim());
-  });
-  if (frasesUnicas.length > 3) texto = frasesUnicas.slice(0, 3).join(" ");
-  if (texto.length > limite) texto = texto.slice(0, limite).replace(/\s+\S*$/, "").trim() + ".";
-  return texto || "Não encontrei essa informação no manual do sistema.";
-}
-
-function registrarDiagnosticoIA(tipo, dados = {}) {
-  assistantLocalDiagnostics = {
-    ...assistantLocalDiagnostics,
-    ...dados,
-    lastScreen: telaAtual,
-    lastUpdatedAt: new Date().toISOString()
-  };
-  if (tipo === "erro") assistantLocalDiagnostics.lastError = String(dados.error || dados.lastError || "").slice(0, 160);
-  registrarDiagnostico("IA Local", tipo, JSON.stringify({
-    tela: assistantLocalDiagnostics.lastScreen,
-    assistant_source: assistantLocalDiagnostics.assistant_source,
-    ai_model_selected: assistantLocalDiagnostics.ai_model_selected,
-    ai_backend_selected: assistantLocalDiagnostics.ai_backend_selected,
-    ai_gpu_layers: assistantLocalDiagnostics.ai_gpu_layers,
-    ai_vulkan_available: assistantLocalDiagnostics.ai_vulkan_available,
-    ai_fallback_reason: assistantLocalDiagnostics.ai_fallback_reason,
-    ai_ttft_ms: assistantLocalDiagnostics.ai_ttft_ms,
-    ai_tokens_per_second: assistantLocalDiagnostics.ai_tokens_per_second,
-    ai_total_time_ms: assistantLocalDiagnostics.ai_total_time_ms,
-    promptChars: assistantLocalDiagnostics.promptChars,
-    responseChars: assistantLocalDiagnostics.responseChars,
-    responseMs: assistantLocalDiagnostics.responseMs
-  }), { silent: true });
-}
-
-function extrairJsonAcaoIA(texto = "") {
-  const bruto = String(texto || "").trim();
-  const inicio = bruto.indexOf("{");
-  const fim = bruto.lastIndexOf("}");
-  if (inicio < 0 || fim <= inicio) return null;
-  try {
-    const action = JSON.parse(bruto.slice(inicio, fim + 1));
-    return action?.type === "app_action" ? action : null;
-  } catch (_) {
-    return null;
-  }
-}
-
-function validateAiAction(action, modelId = getAIAssistantSettings().activeModelId) {
-  if (!action || action.type !== "app_action") return { ok: false, reason: "Ação inválida." };
-  const perfil = getAIModelProfile(modelId);
-  const intent = String(action.intent || "");
-  const permitido = Array.isArray(perfil.allowActions) && perfil.allowActions.includes(intent);
-  const perigosos = /delete|remove|save|send|payment|cash|stock_update|final/i;
-  if (!permitido || perigosos.test(intent)) return { ok: false, reason: "Ação não permitida para este modelo." };
-  if (action.requiresConfirmation !== true) return { ok: false, reason: "Ação da IA precisa exigir confirmação." };
-  const fields = action.fields && typeof action.fields === "object" ? action.fields : {};
-  Object.keys(fields).forEach((key) => {
-    if (typeof fields[key] === "string") fields[key] = fields[key].slice(0, 160);
-  });
-  return { ok: true, intent, fields, missingFields: Array.isArray(action.missingFields) ? action.missingFields.slice(0, 5) : [], userMessage: String(action.userMessage || "Rascunho criado pela IA. Confira antes de salvar.").slice(0, 180) };
-}
-
-function marcarCampoRascunhoIA(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.classList.add("ai-draft-highlight");
-  setTimeout(() => el.classList.remove("ai-draft-highlight"), 3500);
-}
-
-function preencherCampoRascunhoIA(id, valor) {
-  if (valor === undefined || valor === null || valor === "") return;
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.value = String(valor);
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-  el.dispatchEvent(new Event("change", { bubbles: true }));
-  marcarCampoRascunhoIA(id);
-}
-
-function encontrarMaterialPorTextoIA(texto = "") {
-  const alvo = normalizarTextoAssistente(texto);
-  if (!alvo) return "";
-  return normalizarEstoque().find((material) => normalizarTextoAssistente(`${material.nome} ${material.tipo} ${material.cor}`).includes(alvo))?.id || "";
-}
-
-async function executeAiDraftAction(validatedAction) {
-  if (!validatedAction?.ok) return false;
-  const fields = validatedAction.fields || {};
-  const memoriaIA = AiUsageMemoryManager.exportUserAiMemory();
-  const sugestoesMemoria = [];
-  window.__aiDraftBanner = validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.";
-  if (["fill_calculator", "fill_calculator_basic"].includes(validatedAction.intent)) {
-    if (!fields.material && !fields.materialId) {
-      const materialSugerido = valorPreferidoMemoriaIA(memoriaIA.materialStats);
-      if (materialSugerido) {
-        fields.material = materialSugerido;
-        sugestoesMemoria.push(`material ${materialSugerido}`);
-      }
-    }
-    if (!fields.margem && !fields.margin) {
-      const margemSugerida = valorPreferidoMemoriaIA(memoriaIA.marginStats) || mediaMemoriaIA(memoriaIA.averages.margin);
-      if (margemSugerida) {
-        fields.margem = margemSugerida;
-        sugestoesMemoria.push(`margem ${margemSugerida}%`);
-      }
-    }
-    trocarTela("calculadora");
-    setTimeout(() => {
-      preencherCampoRascunhoIA("peso", fields.peso || fields.pesoGramas || fields.weight);
-      preencherCampoRascunhoIA("tempo", fields.tempo || fields.tempoHoras || fields.hours);
-      preencherCampoRascunhoIA("margem", fields.margem || fields.margin);
-      preencherCampoRascunhoIA("taxaExtra", fields.taxaExtra || fields.extraFee);
-      const materialId = fields.materialId || encontrarMaterialPorTextoIA(fields.material || fields.materialNome || "");
-      if (materialId) {
-        preencherCampoRascunhoIA("materialSelect", materialId);
-        preencherCampoRascunhoIA("calcMaterial", materialId);
-      }
-      if (validatedAction.intent === "fill_calculator" && document.getElementById("peso")?.value && document.getElementById("tempo")?.value) calcular();
-    }, 120);
-  } else if (validatedAction.intent === "create_order_draft") {
-    clientePedido = String(fields.cliente || fields.nomeCliente || "");
-    clienteTelefonePedido = String(fields.telefone || fields.whatsapp || "");
-    clienteEmailPedido = String(fields.email || fields.emailCliente || "");
-    selectedCustomerSuggestion = null;
-    itensPedido = Array.isArray(fields.itens) ? fields.itens.slice(0, 5).map((item) => normalizarItemPedido({
-      nome: item.nome || item.descricao || "Item 3D",
-      qtd: Number(item.qtd || item.quantidade || 1) || 1,
-      valor: Number(item.valor || item.preco || 0) || 0,
-      total: (Number(item.valor || item.preco || 0) || 0) * (Number(item.qtd || item.quantidade || 1) || 1),
-      material: item.material || "",
-      observacao: item.observacao || ""
-    })).filter((item) => item.nome && item.total >= 0) : [];
-    trocarTela("pedido");
-  } else if (validatedAction.intent === "search_order") {
-    trocarTela("pedidos");
-    setTimeout(() => {
-      const termo = String(fields.busca || fields.cliente || fields.status || "");
-      const input = document.querySelector("input[placeholder*='Buscar'], input[type='search']");
-      if (input && termo) {
-        input.value = termo;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        marcarCampoRascunhoIA(input.id || "");
-      }
-    }, 120);
-  } else if (validatedAction.intent === "create_client_draft") {
-    trocarTela("clientes");
-    registrarSugestaoLocal("Rascunho de cliente criado pela IA. Confira antes de cadastrar.", "ia", fields);
-  } else if (validatedAction.intent === "add_inventory_draft") {
-    trocarTela("estoque");
-    window.__aiInventoryDraft = fields;
-    registrarSugestaoLocal("Rascunho de estoque criado pela IA. Confira antes de cadastrar.", "ia", fields);
-  } else {
-    return false;
-  }
-  const avisoMemoria = sugestoesMemoria.length ? ` Usei seu padrão de ${sugestoesMemoria.join(" e ")}. Confira antes de salvar.` : "";
-  mostrarToast((validatedAction.userMessage || "Rascunho criado pela IA. Confira antes de salvar.") + avisoMemoria, "info", 5600);
-  registrarDiagnosticoIA("draft_action", { intent: validatedAction.intent, responseChars: 0 });
-  return true;
-}
-
-function promiseComTimeout(promise, timeoutMs, mensagem = "Tempo esgotado.") {
-  let timer = null;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => reject(new Error(mensagem)), Math.max(1000, Number(timeoutMs) || 8000));
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
-function detectarPerguntaForaEscopoIA(texto = "") {
-  const pergunta = normalizarTextoAssistente(texto);
-  if (!pergunta || pergunta.length < 3) return null;
-  const escopo = /(simplifica|app|aplicativo|pedido|cliente|estoque|caixa|calcul|pre[cç]o|impress|3d|filamento|pla|petg|tpu|bambu|orca|material|produto|or[cç]amento|pdf|backup|sincron|relatorio|produção|producao)/i;
-  if (escopo.test(texto)) return null;
-  if (/(internet|pesquisa|pesquisar|not[ií]cia|tempo hoje|previs[aã]o|futebol|pol[ií]tica|elei[cç][aã]o|medicina|rem[eé]dio|diagn[oó]stico m[eé]dico|cinema|filme|receita de comida)/i.test(texto)) {
-    if (/(internet|pesquisa|pesquisar|not[ií]cia|tempo hoje|previs[aã]o)/i.test(texto)) {
-      return "Não consigo pesquisar na internet no modo offline. Posso ajudar com informações do app, impressão 3D, cálculo, pedidos, estoque e caixa.";
-    }
-    return "Posso ajudar com o Simplifica 3D, impressão 3D, pedidos, estoque, caixa, cálculo de preço e sugestões de produtos 3D.";
-  }
-  return null;
-}
-
-function respostaIAIncompleta(texto = "") {
-  const bruto = String(texto || "").trim();
-  if (!bruto) return true;
-  if (bruto.includes("{") && bruto.lastIndexOf("}") < bruto.lastIndexOf("{")) return true;
-  if (/[,:;(-]\s*$/.test(bruto)) return true;
-  if (/\b(e|de|para|com|por|que|se|em|no|na|do|da)\s*$/i.test(bruto)) return true;
-  return bruto.length > 80 && !/[.!?}"\]]$/.test(bruto);
-}
-
-async function gerarRespostaIAOffline(texto, contexto = montarContextoAssistenteEnxuto(texto), opcoes = {}) {
-  if (!podeUsarAssistenteIAOfflinePro()) throw new Error("Assistente offline disponível apenas no Android com plano PRO ativo.");
-  const foraEscopo = detectarPerguntaForaEscopoIA(texto);
-  if (foraEscopo) return foraEscopo;
-  cancelarHibernacaoIALocal();
-  const ativo = getModeloIAOfflineAtivoInstalado();
-  if (!ativo) throw new Error("Instale a IA local antes de usar.");
-  const plugin = getAIPlugin();
-  if (!plugin?.runAiPrompt) throw new Error("IA indisponível neste aparelho.");
-  const geracao = { ...getAiGenerationOptions(texto, ativo.modelo.id), ...opcoes };
-  const perfilAtivo = getAIModelProfile(ativo.modelo.id);
-  const backend = getAiBackendConfig(perfilAtivo);
-  const contextoFinal = buildAiContext(contexto?.tela || telaAtual, texto, getAIModelProfile(ativo.modelo.id));
-  const prompt = montarPromptIAOffline(texto, { ...contextoFinal, ...contexto }, ativo.modelo.id);
-  const inicio = performance.now();
-  registrarDiagnosticoIA("prompt", {
-    promptChars: prompt.length,
-    promptTokens: estimarTokensTexto(prompt),
-    responseChars: 0,
-    responseMs: 0
-  });
-
-  const payloadGeracao = {
-    modelId: ativo.modelo.id,
-    modelPath: ativo.path,
-    systemPrompt: AI_OFFLINE_SYSTEM_PROMPT,
-    prompt,
-    maxTokens: Math.max(5, Math.min(Number(geracao.maxTokens || AI_DEFAULT_MAX_TOKENS) || AI_DEFAULT_MAX_TOKENS, 360)),
-    contextSize: Math.max(512, Math.min(Number(geracao.contextSize || 1024) || 1024, 2048)),
-    threads: calcularThreadsIA(perfilAtivo),
-    backendPreference: backend.backendPreference,
-    gpuLayers: backend.gpuLayers,
-    temperature: geracao.temperature,
-    topP: geracao.topP,
-    topK: geracao.topK,
-    repeatPenalty: geracao.repeatPenalty,
-    presencePenalty: geracao.presencePenalty,
-    frequencyPenalty: geracao.frequencyPenalty,
-    proAllowed: podeUsarAssistenteIAOfflinePro(),
-    timeoutMs: Math.max(8000, Math.min(Number(geracao.timeoutMs || 90000) || 90000, 180000))
-  };
-  let result = await plugin.runAiPrompt(payloadGeracao);
-  if (respostaIAIncompleta(result?.text || "") && !opcoes.skipContinuation) {
-    registrarDiagnosticoIA("resposta_incompleta", { responseChars: String(result?.text || "").length });
-    result = await plugin.runAiPrompt({
-      ...payloadGeracao,
-      prompt: `${prompt}\n\nA resposta anterior ficou incompleta. Responda novamente de forma completa e curta.`,
-      maxTokens: Math.min((payloadGeracao.maxTokens || 120) + 60, 360)
-    });
-  }
-  const resposta = cleanAiResponse(result?.text || "", geracao);
-  if (!resposta) throw new Error("O modelo offline não retornou resposta.");
-  registrarDiagnosticoIA("resposta", {
-    responseChars: resposta.length,
-    responseMs: Math.round(performance.now() - inicio),
-    inferenceMs: result?.inferenceMs || result?.totalMs || Math.round(performance.now() - inicio),
-    tokensPerSecond: result?.tokensPerSecond || 0,
-    ai_ttft_ms: result?.firstTokenMs || result?.ttftMs || 0,
-    ai_total_time_ms: result?.totalMs || Math.round(performance.now() - inicio),
-    ai_tokens_per_second: result?.tokensPerSecond || 0,
-    ai_backend_selected: result?.backend || result?.backendActive || backend.backendPreference || "auto",
-    ai_gpu_layers: result?.gpuLayers ?? backend.gpuLayers,
-    ai_vulkan_available: result?.vulkanAvailable === true,
-    assistant_source: "local_ai",
-    threads: payloadGeracao.threads,
-    contextSize: payloadGeracao.contextSize,
-    lastError: ""
-  });
-  return resposta;
-}
-
-async function sugerirCalculadoraComIA() {
-  if (!ultimoCalculo) {
-    const calculou = calcular();
-    if (!calculou) return;
-  }
-  const contexto = montarContextoIAComercial().calculoRecente || {};
-  const settings = getAIAssistantSettings();
-  const modelo = getAIModel(settings.activeModelId);
-  let sugestoes = gerarSugestoesCalculadoraBasicas(contexto);
-  let detalhesMotor = "Assistente básico com resumo seguro da calculadora.";
-  if (podeUsarAssistenteIAOfflinePro() && !iaLocalEstaPronta()) {
-    abrirModalIALocalNaoConfigurada("calculadora");
-    return;
-  }
-  try {
-    if (iaLocalEstaPronta()) {
-      const resposta = await promiseComTimeout(
-        gerarRespostaIAOffline("Sugira melhorias comerciais para este cálculo sem alterar o preço oficial.", { tela: "calculadora", calculoRecente: contexto }, { maxTokens: 140, timeoutMs: 60000 }),
-        8000,
-        "IA local demorou demais para responder."
-      );
-      sugestoes = resposta.split(/\n+/).map((linha) => linha.replace(/^[-*•\d.)\s]+/, "").trim()).filter(Boolean).slice(0, 6);
-      if (!sugestoes.length) sugestoes = [resposta];
-      detalhesMotor = `Modelo ativo: ${modelo?.name || "IA offline"}. Resposta gerada localmente no Android, sem internet.`;
-    }
-  } catch (erro) {
-    detalhesMotor = "Não foi possível usar a IA agora. Mostrando sugestões básicas.";
-    registrarFalhaIALocal("calculator_suggestion", erro);
-  }
-  mostrarSugestoesIACalculadora(sugestoes, detalhesMotor);
-}
-
-function mostrarSugestoesIACalculadora(sugestoes = [], detalhesMotor = "Assistente básico com resumo seguro da calculadora.") {
-  const popup = document.getElementById("popup");
-  if (!popup) {
-    alert(sugestoes.join("\n"));
-    return;
-  }
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-suggestion-close">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>✨ Sugestões com IA</h2>
-          <button class="icon-button" type="button" data-action="ai-suggestion-close" title="Fechar">✕</button>
-        </div>
-        <p class="muted">${escaparHtml(detalhesMotor)}</p>
-        <div class="history-list">
-          ${sugestoes.map((item) => `<div class="history-item"><strong>${escaparHtml(item)}</strong></div>`).join("")}
-        </div>
-        <p class="muted">A IA não altera o preço oficial. Revise as sugestões antes de enviar ao cliente.</p>
-        <div class="actions">
-          <button class="btn" type="button" data-action="ai-suggestion-close">Entendi</button>
-          <button class="btn ghost" type="button" onclick="trocarTela('config')">Gerenciar IA</button>
-        </div>
-      </div>
-    </div>
-  `;
-  promoverPopupParaDialogUiV3(popup, { title: "Sugestões com IA" });
-}
-
-function abrirModalIALocalNaoConfigurada(origem = "assistente") {
-  const popup = document.getElementById("popup");
-  if (!popup) {
-    mostrarToast("IA local ainda não configurada.", "aviso", 5000);
-    return;
-  }
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="ai-setup-cancel">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>IA local ainda não configurada</h2>
-          <button class="icon-button" type="button" data-action="ai-setup-cancel" title="Fechar">✕</button>
-        </div>
-        <p class="muted">Para usar a IA local, instale o modelo neste aparelho. Você também pode continuar com o assistente básico agora.</p>
-        <div class="actions">
-          <button class="btn" type="button" data-action="ai-setup-install" data-origin="${escaparAttr(origem)}">Instalar IA</button>
-          <button class="btn secondary" type="button" data-action="ai-setup-basic" data-origin="${escaparAttr(origem)}">Usar assistente básico</button>
-          <button class="btn ghost" type="button" data-action="ai-setup-cancel">Cancelar</button>
-        </div>
-      </div>
-    </div>
-  `;
-  promoverPopupParaDialogUiV3(popup, { title: "IA local não configurada" });
-}
-
-function deveDirecionarBuscaParaAssistente(termo = "") {
-  if (!MANUAL_HELP_ASSISTANT_ENABLED) return false;
-  const texto = String(termo || "").trim();
-  if (!texto) return false;
-  return texto.includes("?") || /^(como|por que|porque|qual|quais|sugere|sugerir|me ajuda|ajuda|ia\b)/i.test(texto);
-}
-
-async function abrirAssistenteComPergunta(texto = "") {
-  abrirAssistente("auto");
-  await responderAssistente(texto);
-}
-
-async function responderAssistente(texto = "") {
-  const pergunta = String(texto || "").trim();
-  if (!pergunta) return;
-  const tokenGeracao = ++assistantGenerationToken;
-  if (assistantGenerating) {
-    try { await getAIPlugin()?.cancelAiGeneration?.(); } catch (_) {}
-  }
-  let contexto = {};
-  try {
-    contexto = buildAiContext(telaAtual, pergunta);
-  } catch (erro) {
-    contexto = { tela: telaAtual, tarefa: pergunta };
-    ErrorService.capture(erro, { area: "Assistente básico", action: "contexto", silent: true });
-  }
-  const manualBusca = buscarManualAssistente(pergunta, contexto);
-  const usarIAPro = assistantMode !== "basic" && iaLocalEstaPronta() && manualBusca.confidence !== "low";
-  assistantMode = usarIAPro ? "pro" : "basic";
-  const respostaManual = obterRespostaAssistente(pergunta, contexto);
-  assistantMessages.push({ role: "user", text: pergunta });
-  const respostaPendente = {
-    role: "assistant",
-    text: usarIAPro ? "Consultando manual..." : "Consultando manual..."
-  };
-  assistantMessages.push(respostaPendente);
-  limitarMensagensAssistente();
-  assistantGenerating = usarIAPro;
-  renderApp();
-  try {
-    if (usarIAPro) {
-      const carregou = await promiseComTimeout(
-        garantirRuntimeIAAtivo({ silent: true }),
-        8000,
-        "IA local demorou mais de 8s para iniciar."
-      );
-      if (!carregou) throw new Error("IA local não iniciou neste aparelho.");
-      if (tokenGeracao !== assistantGenerationToken) return;
-      respostaPendente.text = "Aprimorando resposta...";
-      renderizarMensagemAssistentePendente(respostaPendente);
-    }
-    const resposta = usarIAPro
-      ? await promiseComTimeout(
-          gerarRespostaIAOffline(pergunta, contexto, { timeoutMs: 8000, manualAnswer: respostaManual }),
-          8000,
-          "IA local demorou mais de 8s para responder."
-        )
-      : respostaManual;
-    if (tokenGeracao !== assistantGenerationToken) return;
-    const respostaIndex = assistantMessages.indexOf(respostaPendente);
-    const modeloAtivo = getAIAssistantSettings().activeModelId;
-    const acaoIA = usarIAPro ? validateAiAction(extrairJsonAcaoIA(resposta), modeloAtivo) : { ok: false };
-    if (acaoIA.ok) {
-      await executeAiDraftAction(acaoIA);
-    }
-    const respostaLimpa = acaoIA.ok
-      ? acaoIA.userMessage
-      : cleanAiResponse(resposta, getAiGenerationOptions(pergunta, modeloAtivo));
-    if (respostaIndex >= 0) {
-      assistantMessages[respostaIndex] = { role: "assistant", text: respostaLimpa };
-    } else {
-      assistantMessages.push({ role: "assistant", text: respostaLimpa });
-    }
-    if (usarIAPro && getAIAssistantSettings().ttsEnabled === true) {
-      lerRespostaIAEmVoz(respostaLimpa);
-    }
-  } catch (erro) {
-    if (tokenGeracao !== assistantGenerationToken) return;
-    registrarFalhaIALocal("chat_response", erro);
-    registrarDiagnosticoIA("erro", { error: erro?.message || String(erro) });
-    if (usarIAPro) assistantMode = "basic";
-    const respostaIndex = assistantMessages.indexOf(respostaPendente);
-    const fallback = {
-      role: "assistant",
-      text: respostaManual || getFallbackAssistentePorTela(telaAtual, erro)
-    };
-    registrarDiagnosticoIA("assistant_source", {
-      assistant_source: usarIAPro ? "fallback_manual" : "manual",
-      ai_fallback_reason: erro?.message || String(erro)
-    });
-    if (respostaIndex >= 0) {
-      assistantMessages[respostaIndex] = fallback;
-    } else {
-      assistantMessages.push(fallback);
-    }
-  } finally {
-    if (tokenGeracao === assistantGenerationToken) assistantGenerating = false;
-  }
-  limitarMensagensAssistente();
-  renderApp();
-  setTimeout(() => document.getElementById("assistantInput")?.focus(), 0);
-}
-
-function getFallbackAssistentePorTela(tela = telaAtual, erro = null) {
-  const sufixo = erro?.message ? ` (${String(erro.message).slice(0, 80)})` : "";
-  if (tela === "calculadora") return `Preencha peso, tempo, material e margem. Depois toque em Calcular.${sufixo}`;
-  if (["pedido", "pedidos"].includes(tela)) return `Abra ou crie um pedido, selecione o item e revise total antes de salvar.${sufixo}`;
-  if (tela === "estoque") return `Cadastre material com tipo, cor e quantidade em kg. Ajuste pelo ícone de editar.${sufixo}`;
-  if (tela === "caixa") return `Confira entradas, saídas e saldo. Não altere valores sem revisar a origem.${sufixo}`;
-  return `A IA local falhou agora. Use o assistente básico ou tente novamente.${sufixo}`;
-}
-
-function renderizarMensagemAssistentePendente(referencia) {
-  const index = assistantMessages.indexOf(referencia);
-  const body = document.querySelector(".assistant-body");
-  if (!body || index < 0) return;
-  const messages = body.querySelectorAll(".assistant-message");
-  const el = messages[index];
-  if (el) el.textContent = referencia.text || "";
-}
-
-async function cancelarGeracaoIAOffline() {
-  assistantGenerationToken++;
-  assistantGenerating = false;
-  try {
-    await getAIPlugin()?.cancelAiGeneration?.();
-    mostrarToast("Geração cancelada.", "info", 2500);
-  } catch (_) {}
-  renderApp();
-}
-
-async function iniciarEntradaVozIAPro() {
-  if (!podeUsarVozIAPro()) {
-    mostrarToast("Voz disponível apenas na IA local configurada.", "aviso", 4200);
-    return;
-  }
-  assistantListening = true;
-  renderApp();
-  try {
-    const result = await promiseComTimeout(
-      getAIPlugin().startAiVoiceRecognition(),
-      14000,
-      "Tempo esgotado para reconhecimento de voz."
-    );
-    const texto = String(result?.text || "").trim();
-    if (!texto) throw new Error("Não foi possível reconhecer sua fala.");
-    assistantListening = false;
-    renderApp();
-    await responderAssistente(texto);
-  } catch (erro) {
-    assistantListening = false;
-    registrarFalhaIALocal("voice_recognition", erro);
-    mostrarToast("Não foi possível reconhecer sua fala.", "aviso", 4200);
-    renderApp();
-  }
-}
-
-async function cancelarEntradaVozIAPro() {
-  assistantListening = false;
-  try {
-    await getAIPlugin()?.stopAiVoiceRecognition?.();
-  } catch (erro) {
-    registrarFalhaIALocal("voice_cancel", erro);
-  }
-  renderApp();
-}
-
-async function lerRespostaIAEmVoz(texto = "") {
-  const settings = getAIAssistantSettings();
-  if (!settings.ttsEnabled || !getAIPlugin()?.speakAiText) return;
-  try {
-    await getAIPlugin().speakAiText({ text: String(texto || "").slice(0, 700), rate: settings.ttsRate || 1 });
-  } catch (erro) {
-    registrarFalhaIALocal("tts", erro);
-  }
-}
-
-async function enviarMensagemAssistente(event) {
-  event?.preventDefault?.();
-  const input = document.getElementById("assistantInput");
-  const texto = (input?.value || "").trim();
-  if (!texto) return;
-  if (input) input.value = "";
-  await responderAssistente(texto);
-}
-
-function renderAssistenteVirtual() {
-  if (!MANUAL_HELP_ASSISTANT_ENABLED) return "";
-  if (!podeMostrarAssistenteAjuda()) return "";
-  const modoDisponivel = getAssistenteModoDisponivel();
-
-  if (!assistantOpen) {
-    if (!isAndroidNativeApp()) {
-      return renderLancadorPetAssistente();
-    }
-    if (!HEAVY_AI_FEATURE_ENABLED) {
-      return renderLancadorPetAssistente();
-    }
-    const pronto = iaLocalEstaPronta();
-    const acessoPro = podeUsarAssistenteIAOfflinePro();
-    const acao = pronto ? `abrirAssistente('pro')` : acessoPro ? "instalarIARecomendadaAutomaticamente()" : `trocarTela('assinatura')`;
-    const titulo = pronto ? "Abrir IA Local" : acessoPro ? "Instalar IA Local automaticamente" : "IA Local exclusiva do Plano Pro";
-    return renderLancadorPetAssistente({ action: acao, title: titulo, label: "IA", pro: true });
-  }
-
-  if (assistantMinimized) {
-    if (assistantMode !== "pro") return "";
-    const label = assistantMode === "pro" ? "IA" : "Assistente";
-    return `
-      ${renderLancadorPetAssistente({ action: `abrirAssistente('${escaparAttr(assistantMode || modoDisponivel)}')`, title: "Abrir assistente", label, pro: assistantMode === "pro" })}
-    `;
-  }
-
-  const settings = getAIAssistantSettings();
-  const modeloAtivo = getAIModel(settings.activeModelId);
-  const tituloAssistente = assistantMode === "pro" ? "IA Local" : "Assistente";
-  const subtituloAssistente = assistantMode === "pro" && modeloAtivo
-    ? assistantRuntimeLoading ? "Iniciando IA..." : `${modeloAtivo.name} offline`
-    : "Ajuda rápida do app";
-  const podeMostrarMicrofone = podeUsarVozIAPro();
-  const envioBloqueado = assistantGenerating || assistantListening || (assistantMode === "pro" && assistantRuntimeLoading);
-
-  const mensagens = assistantMessages.map((msg) => `
-    <div class="assistant-message ${msg.role === "user" ? "assistant-user" : "assistant-bot"}">
-      ${escaparHtml(msg.text)}
-    </div>
-  `).join("");
-
-  const painel = `
-    <section class="assistant-panel" aria-label="Assistente virtual local">
-      <div class="assistant-header">
-        <div>
-          <strong>${tituloAssistente}</strong>
-          <span>${escaparHtml(subtituloAssistente)}</span>
-        </div>
-        <div class="row-actions">
-          ${assistantGenerating ? `<button class="icon-button warning" onclick="cancelarGeracaoIAOffline()" title="Cancelar geração">⏹</button>` : ""}
-        </div>
-      </div>
-      <div class="assistant-body">${mensagens}</div>
-      ${assistantListening ? `
-        <div class="assistant-voice-status" aria-live="polite">
-          <span class="voice-wave"></span>
-          <strong>Ouvindo...</strong>
-          <span>Fale sua pergunta em português.</span>
-        </div>
-      ` : assistantRuntimeLoading ? `
-        <div class="assistant-voice-status processing" aria-live="polite">
-          <span class="voice-wave"></span>
-          <strong>Iniciando IA...</strong>
-          <span>Você já pode digitar. O envio libera quando a IA estiver pronta.</span>
-        </div>
-      ` : assistantGenerating ? `
-        <div class="assistant-voice-status processing" aria-live="polite">
-          <span class="voice-wave"></span>
-          <strong>Processando...</strong>
-          <span>Preparando resposta.</span>
-        </div>
-      ` : ""}
-      <form class="assistant-form" onsubmit="enviarMensagemAssistente(event)">
-        <input id="assistantInput" placeholder="${assistantMode === "pro" ? "Pergunte para a IA..." : "Pergunte sobre pedido, estoque, PDF..."}" autocomplete="off">
-        ${podeMostrarMicrofone ? `<button class="assistant-mic-button ${assistantListening ? "warning" : ""}" type="button" onclick="${assistantListening ? "cancelarEntradaVozIAPro()" : "iniciarEntradaVozIAPro()"}" title="${assistantListening ? "Cancelar fala" : "Falar com a IA"}">🎙</button>` : ""}
-        <button class="btn" type="submit" ${envioBloqueado ? "disabled" : ""}>Enviar</button>
-      </form>
-    </section>
-  `;
-  return `<div class="assistant-backdrop" onclick="minimizarAssistente()" aria-hidden="true"></div>${painel}`;
 }
 
 function getDashboardLayout() {
@@ -15193,9 +12564,10 @@ function getMenuGroups() {
       titulo: "Principal",
       itens: [
         { tela: "dashboard", icone: "dashboard", texto: isSimplificaMode() ? "Início" : "Dashboard" },
+        { tela: "promocoes", icone: "cupom", texto: "Promoções 3D" },
         { tela: "pedidos", icone: "pedidos", texto: "Pedidos" },
         { tela: "clientes", icone: "clientes", texto: "Clientes" },
-        { tela: "calculadora", icone: "calculadora", texto: isSimplificaMode() ? "Calculadora" : "Calculadora 3D" },
+        { tela: "calculadora", icone: "calculadora", texto: "Calculadora 3D" },
         { tela: "estoque", icone: "estoque", texto: isSimplificaMode() ? "Produtos/Estoque" : "Estoque" },
         { tela: "caixa", icone: "caixa", texto: "Caixa" },
         { tela: "relatorios", icone: "relatorios", texto: "Relatórios" },
@@ -15220,7 +12592,7 @@ function getMenuGroups() {
       titulo: "Configurações",
       itens: [
         { tela: "administracao", icone: "empresa", texto: "Administração" },
-        { tela: "preferencias", icone: "preferencias", texto: "Calculadora" },
+        { tela: "preferencias", icone: "preferencias", texto: "Configurar calculadora" },
         { tela: "config", icone: "config", texto: "Sistema" },
         { tela: "feedback", icone: "feedback", texto: "Ajuda" },
         { tela: "sobre", icone: "sobre", texto: "Sobre" }
@@ -15737,7 +13109,7 @@ function renderPainelMobile(tela) {
 function renderTelaComUiV3(tela) {
   const html = renderTela(tela);
   const rotasMigradas = new Set([
-    "mais", "conta", "administracao", "pedido", "producao", "estoque", "pedidos", "clientes", "caixa", "relatorios",
+    "mais", "conta", "administracao", "promocoes", "pedido", "producao", "estoque", "pedidos", "clientes", "caixa", "relatorios",
     "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "seguranca", "usuarios", "ajuda", "sobre", "superadmin"
   ]);
   if (!rotasMigradas.has(tela) || String(html).includes('data-ui-version="v3"')) return html;
@@ -15752,6 +13124,8 @@ function renderTela(tela) {
   switch (tela) {
     case "mais":
       return renderMais();
+    case "promocoes":
+      return renderPromocoes3d();
     case "conta":
       return renderConta();
     case "administracao":
@@ -15820,6 +13194,378 @@ function renderTela(tela) {
   }
 }
 
+function lerPreferenciaAvisosPromocoes3d() {
+  try {
+    return localStorage.getItem(PROMOTIONS_3D_ALERTS_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function carregarCachePromocoes3d() {
+  try {
+    const cache = JSON.parse(localStorage.getItem(PROMOTIONS_3D_CACHE_KEY) || "{}");
+    const items = Array.isArray(cache.items) ? cache.items.map(normalizarPromocao3d).filter(Boolean) : [];
+    const stores = Array.isArray(cache.stores) ? cache.stores.filter((store) => store?.name && store?.host) : [];
+    if (items.length) {
+      promotions3dState.items = items;
+      promotions3dState.stores = stores;
+      promotions3dState.updatedAt = String(cache.updatedAt || "");
+    }
+  } catch {}
+}
+
+function salvarCachePromocoes3d() {
+  try {
+    localStorage.setItem(PROMOTIONS_3D_CACHE_KEY, JSON.stringify({
+      items: promotions3dState.items,
+      stores: promotions3dState.stores,
+      updatedAt: promotions3dState.updatedAt
+    }));
+  } catch {}
+}
+
+function normalizarPromocao3d(item = {}) {
+  try {
+    const url = new URL(String(item.url || ""));
+    if (url.protocol !== "https:" || !PROMOTIONS_3D_OFFICIAL_HOSTS.includes(url.hostname.toLowerCase())) return null;
+    const categorias = new Set(["impressoras", "filamentos", "resinas", "materiais"]);
+    const category = categorias.has(item.category) ? item.category : "materiais";
+    const currentPrice = Number(item.currentPrice) || 0;
+    if (!item.id || !item.title || currentPrice <= 0) return null;
+    const imageUrl = String(item.image || "");
+    const image = imageUrl.startsWith("https://") ? imageUrl : "";
+    return {
+      id: String(item.id),
+      store: String(item.store || "Loja oficial"),
+      host: url.hostname.toLowerCase(),
+      title: String(item.title),
+      category,
+      currentPrice,
+      oldPrice: Math.max(0, Number(item.oldPrice) || 0),
+      discount: Math.max(0, Math.min(99, Math.round(Number(item.discount) || 0))),
+      image,
+      url: url.toString()
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatarAtualizacaoPromocoes3d(value = promotions3dState.updatedAt) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "Aguardando atualização";
+  return `Atualizado às ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+function getNomeCategoriaPromocao3d(category = "") {
+  return {
+    impressoras: "Impressoras",
+    filamentos: "Filamentos",
+    resinas: "Resinas",
+    materiais: "Materiais"
+  }[category] || "Produtos 3D";
+}
+
+function getPromocoes3dVisiveis() {
+  const query = normalizarTextoBusca(promotions3dState.query || "");
+  const filtered = promotions3dState.items.filter((item) => {
+    if (promotions3dState.filter !== "todas" && item.category !== promotions3dState.filter) return false;
+    if (promotions3dState.store !== "todas" && item.host !== promotions3dState.store) return false;
+    if (!query) return true;
+    return normalizarTextoBusca(`${item.title} ${item.store} ${getNomeCategoriaPromocao3d(item.category)}`).includes(query);
+  });
+  return filtered.sort((a, b) => {
+    if (promotions3dState.sort === "menor-preco") return a.currentPrice - b.currentPrice || b.discount - a.discount;
+    if (promotions3dState.sort === "maior-desconto") return b.discount - a.discount || a.currentPrice - b.currentPrice;
+    return Number(b.discount > 0) - Number(a.discount > 0)
+      || b.discount - a.discount
+      || a.currentPrice - b.currentPrice;
+  });
+}
+
+function renderCardPromocao3d(item, index = 0) {
+  const highlighted = index < 3 && item.discount > 0;
+  return `
+    <article class="promotion-3d-card ${highlighted ? "is-highlighted" : ""}">
+      <div class="promotion-3d-media">
+        ${item.image
+          ? `<img src="${escaparAttr(item.image)}" alt="${escaparAttr(item.title)}" loading="lazy" onerror="this.remove()">`
+          : `<span>${renderUiIcon(item.category === "impressoras" ? "impressoras" : item.category === "filamentos" ? "filamento" : item.category === "resinas" ? "resina" : "produtos")}</span>`}
+        <div class="promotion-3d-badges">
+          ${highlighted ? `<strong>Melhor oferta</strong>` : ""}
+          ${item.discount > 0 ? `<em>${item.discount}% OFF</em>` : `<em>Oferta</em>`}
+        </div>
+      </div>
+      <div class="promotion-3d-card-body">
+        <div class="promotion-3d-store">
+          <span>${renderUiIcon("seguranca")} Loja oficial</span>
+          <strong>${escaparHtml(item.store)}</strong>
+        </div>
+        <h3>${escaparHtml(item.title)}</h3>
+        <span class="promotion-3d-category">${escaparHtml(getNomeCategoriaPromocao3d(item.category))}</span>
+        <div class="promotion-3d-price">
+          ${item.oldPrice > item.currentPrice ? `<del>${formatarMoeda(item.oldPrice)}</del>` : ""}
+          <strong>${formatarMoeda(item.currentPrice)}</strong>
+          <small>Confira o valor final na loja</small>
+        </div>
+        <button class="btn promotion-3d-open" type="button" onclick="abrirPromocao3d('${escaparAttr(item.url)}')">
+          ${renderUiIcon("lojaonline")} Ver na loja
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+function renderResultadosPromocoes3d() {
+  const items = getPromocoes3dVisiveis();
+  const updating = promotions3dState.status === "loading";
+  if (!items.length && updating) {
+    return `
+      <div class="promotions-3d-empty">
+        <span class="smart-loader-spinner" aria-hidden="true"></span>
+        <strong>Buscando ofertas ativas...</strong>
+        <p>Estamos conferindo as lojas oficiais.</p>
+      </div>
+    `;
+  }
+  if (!items.length) {
+    return `
+      <div class="promotions-3d-empty">
+        ${renderUiIcon("search")}
+        <strong>Nenhuma oferta encontrada</strong>
+        <p>Tente outro nome ou escolha “Todas”.</p>
+        <button class="btn secondary" type="button" onclick="limparFiltrosPromocoes3d()">Limpar filtros</button>
+      </div>
+    `;
+  }
+  return `
+    <div class="promotions-3d-result-head">
+      <span><strong>${items.length}</strong> oferta(s) ativa(s)</span>
+      ${updating ? `<small>Atualizando...</small>` : `<small>${escaparHtml(formatarAtualizacaoPromocoes3d())}</small>`}
+    </div>
+    <div class="promotions-3d-grid">
+      ${items.map(renderCardPromocao3d).join("")}
+    </div>
+  `;
+}
+
+function renderOpcoesLojasPromocoes3d() {
+  const unique = new Map();
+  promotions3dState.stores.forEach((store) => {
+    const host = String(store?.host || "").toLowerCase();
+    if (PROMOTIONS_3D_OFFICIAL_HOSTS.includes(host)) unique.set(host, String(store.name || host));
+  });
+  promotions3dState.items.forEach((item) => {
+    if (item.host && !unique.has(item.host)) unique.set(item.host, item.store);
+  });
+  return [
+    `<option value="todas" ${promotions3dState.store === "todas" ? "selected" : ""}>Todas as lojas</option>`,
+    ...Array.from(unique.entries()).map(([host, name]) => `<option value="${escaparAttr(host)}" ${promotions3dState.store === host ? "selected" : ""}>${escaparHtml(name)}</option>`)
+  ].join("");
+}
+
+function renderPromocoes3d() {
+  if (promotions3dState.status === "idle" && !promotions3dState.items.length) carregarCachePromocoes3d();
+  const alertsEnabled = lerPreferenciaAvisosPromocoes3d();
+  return `
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 promotions-3d-page" data-ui-version="v3" data-ui3-screen="promocoes">
+      <header class="promotions-3d-hero">
+        <div>
+          <span class="promotions-3d-kicker">${renderUiIcon("cupom")} Promoções relâmpago</span>
+          <h1>Encontre bons preços sem procurar por horas</h1>
+          <p>Impressoras, filamentos, resinas e materiais disponíveis em lojas oficiais.</p>
+        </div>
+        <div class="promotions-3d-hero-actions">
+          <button class="btn secondary promotion-alert-button ${alertsEnabled ? "active" : ""}" type="button" aria-pressed="${alertsEnabled}" onclick="alternarAvisosPromocoes3d()">
+            ${renderUiIcon(alertsEnabled ? "bell" : "bell")} ${alertsEnabled ? "Avisos ativados" : "Avisar sobre novas ofertas"}
+          </button>
+          <button class="btn promotion-refresh-button" type="button" onclick="carregarPromocoes3d({ force: true, userRequested: true })">
+            ${renderUiIcon("refresh")} Atualizar ofertas
+          </button>
+        </div>
+      </header>
+
+      <section class="promotions-3d-search-card card">
+        <label class="promotions-3d-search">
+          <span>${renderUiIcon("search")}</span>
+          <input type="search" aria-label="Pesquisar promoções" value="${escaparAttr(promotions3dState.query)}" placeholder="Ex.: filamento PLA, resina ou impressora" oninput="pesquisarPromocoes3d(this.value)">
+        </label>
+        <div class="promotions-3d-filters" role="group" aria-label="Filtrar promoções">
+          ${[
+            ["todas", "Todas"],
+            ["impressoras", "Impressoras"],
+            ["filamentos", "Filamentos"],
+            ["resinas", "Resinas"],
+            ["materiais", "Materiais"]
+          ].map(([value, label]) => `
+            <button class="promotion-filter-button ${promotions3dState.filter === value ? "active" : ""}" type="button" aria-pressed="${promotions3dState.filter === value}" onclick="filtrarPromocoes3d('${value}')">${label}</button>
+          `).join("")}
+        </div>
+        <div class="promotions-3d-selects">
+          <label>
+            <span>Loja</span>
+            <select class="promotions-store-filter" onchange="filtrarLojaPromocoes3d(this.value)">
+              ${renderOpcoesLojasPromocoes3d()}
+            </select>
+          </label>
+          <label>
+            <span>Organizar</span>
+            <select onchange="ordenarPromocoes3d(this.value)">
+              <option value="melhores" ${promotions3dState.sort === "melhores" ? "selected" : ""}>Melhores ofertas</option>
+              <option value="maior-desconto" ${promotions3dState.sort === "maior-desconto" ? "selected" : ""}>Maior desconto</option>
+              <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
+            </select>
+          </label>
+          <small class="promotions-updated-label">Atualização automática a cada 10 minutos</small>
+        </div>
+      </section>
+
+      <div id="promocoes3dResultado">
+        ${renderResultadosPromocoes3d()}
+      </div>
+
+      <footer class="promotions-3d-note">
+        ${renderUiIcon("seguranca")}
+        <p><strong>Somente lojas oficiais.</strong> Preços e estoque podem mudar; confirme tudo antes de comprar.</p>
+      </footer>
+    </section>
+  `;
+}
+
+function atualizarResultadosPromocoes3d() {
+  const root = document.getElementById("promocoes3dResultado");
+  if (root) root.innerHTML = renderResultadosPromocoes3d();
+  const storeSelect = document.querySelector(".promotions-store-filter");
+  if (storeSelect) storeSelect.innerHTML = renderOpcoesLojasPromocoes3d();
+  const updatedLabel = document.querySelector(".promotions-updated-label");
+  if (updatedLabel) updatedLabel.textContent = promotions3dState.status === "loading"
+    ? "Atualizando ofertas..."
+    : `${formatarAtualizacaoPromocoes3d()} • nova busca em 10 minutos`;
+  const refreshButton = document.querySelector(".promotion-refresh-button");
+  if (refreshButton) {
+    refreshButton.disabled = promotions3dState.status === "loading";
+    refreshButton.innerHTML = `${renderUiIcon("refresh")} ${promotions3dState.status === "loading" ? "Atualizando..." : "Atualizar ofertas"}`;
+  }
+}
+
+function agendarAtualizacaoPromocoes3d() {
+  if (promotions3dRefreshTimer) clearTimeout(promotions3dRefreshTimer);
+  if (telaAtual !== "promocoes") return;
+  promotions3dRefreshTimer = setTimeout(() => {
+    carregarPromocoes3d({ force: true, background: true });
+  }, PROMOTIONS_3D_REFRESH_MS);
+}
+
+async function carregarPromocoes3d({ force = false, userRequested = false, background = false } = {}) {
+  if (promotions3dState.status === "loading") return;
+  if (!promotions3dState.items.length) carregarCachePromocoes3d();
+  const previousIds = new Set(promotions3dState.items.map((item) => item.id));
+  const hadPreviousUpdate = !!promotions3dState.updatedAt;
+  promotions3dState.status = "loading";
+  promotions3dState.message = "";
+  atualizarResultadosPromocoes3d();
+  try {
+    const separator = PROMOTIONS_3D_API_URL.includes("?") ? "&" : "?";
+    const url = force ? `${PROMOTIONS_3D_API_URL}${separator}t=${Date.now()}` : PROMOTIONS_3D_API_URL;
+    const response = await fetch(url, { headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error("OFFERS_UNAVAILABLE");
+    const payload = await response.json();
+    const items = (Array.isArray(payload?.offers) ? payload.offers : []).map(normalizarPromocao3d).filter(Boolean);
+    if (!payload?.ok || !items.length) throw new Error("NO_ACTIVE_OFFERS");
+    const newOffers = hadPreviousUpdate ? items.filter((item) => !previousIds.has(item.id)) : [];
+    promotions3dState.items = items;
+    promotions3dState.stores = Array.isArray(payload.stores) ? payload.stores : [];
+    promotions3dState.updatedAt = String(payload.updatedAt || new Date().toISOString());
+    promotions3dState.status = "ready";
+    salvarCachePromocoes3d();
+    atualizarResultadosPromocoes3d();
+    if (newOffers.length && lerPreferenciaAvisosPromocoes3d()) {
+      mostrarToast(newOffers.length === 1
+        ? "Nova oferta 3D encontrada."
+        : `${newOffers.length} novas ofertas 3D encontradas.`, "sucesso", 5200);
+    } else if (userRequested) {
+      mostrarToast("Ofertas atualizadas.", "sucesso", 2400);
+    }
+  } catch {
+    promotions3dState.status = promotions3dState.items.length ? "ready" : "error";
+    promotions3dState.message = "Não foi possível atualizar agora. Tente novamente em alguns minutos.";
+    atualizarResultadosPromocoes3d();
+    if (userRequested || (!background && !promotions3dState.items.length)) {
+      mostrarToast(promotions3dState.message, "aviso", 4200);
+    }
+  } finally {
+    agendarAtualizacaoPromocoes3d();
+  }
+}
+
+function pesquisarPromocoes3d(value = "") {
+  promotions3dState.query = String(value || "").slice(0, 80);
+  atualizarResultadosPromocoes3d();
+}
+
+function filtrarPromocoes3d(category = "todas") {
+  promotions3dState.filter = ["todas", "impressoras", "filamentos", "resinas", "materiais"].includes(category) ? category : "todas";
+  document.querySelectorAll(".promotion-filter-button").forEach((button) => {
+    const active = button.getAttribute("onclick")?.includes(`'${promotions3dState.filter}'`);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+  atualizarResultadosPromocoes3d();
+}
+
+function filtrarLojaPromocoes3d(host = "todas") {
+  promotions3dState.store = host === "todas" || PROMOTIONS_3D_OFFICIAL_HOSTS.includes(String(host).toLowerCase())
+    ? String(host).toLowerCase()
+    : "todas";
+  atualizarResultadosPromocoes3d();
+}
+
+function ordenarPromocoes3d(sort = "melhores") {
+  promotions3dState.sort = ["melhores", "maior-desconto", "menor-preco"].includes(sort) ? sort : "melhores";
+  atualizarResultadosPromocoes3d();
+}
+
+function limparFiltrosPromocoes3d() {
+  promotions3dState.query = "";
+  promotions3dState.filter = "todas";
+  promotions3dState.store = "todas";
+  promotions3dState.sort = "melhores";
+  const search = document.querySelector(".promotions-3d-search input");
+  if (search) search.value = "";
+  const store = document.querySelector(".promotions-store-filter");
+  if (store) store.value = "todas";
+  filtrarPromocoes3d("todas");
+}
+
+function alternarAvisosPromocoes3d() {
+  const enabled = !lerPreferenciaAvisosPromocoes3d();
+  try {
+    localStorage.setItem(PROMOTIONS_3D_ALERTS_KEY, enabled ? "true" : "false");
+  } catch {}
+  const button = document.querySelector(".promotion-alert-button");
+  if (button) {
+    button.classList.toggle("active", enabled);
+    button.setAttribute("aria-pressed", enabled ? "true" : "false");
+    button.innerHTML = `${renderUiIcon("bell")} ${enabled ? "Avisos ativados" : "Avisar sobre novas ofertas"}`;
+  }
+  mostrarToast(enabled ? "Avisos de novas ofertas ativados." : "Avisos de novas ofertas desativados.", "info", 3000);
+}
+
+function abrirPromocao3d(value = "") {
+  try {
+    const url = new URL(String(value || ""));
+    if (url.protocol !== "https:" || !PROMOTIONS_3D_OFFICIAL_HOSTS.includes(url.hostname.toLowerCase())) {
+      mostrarToast("Este link não pertence a uma loja oficial.", "aviso", 3600);
+      return;
+    }
+    const opened = window.open(url.toString(), "_blank", "noopener,noreferrer");
+    if (!opened) window.location.href = url.toString();
+  } catch {
+    mostrarToast("Não foi possível abrir esta oferta.", "aviso", 3200);
+  }
+}
+
 function renderAcoesRapidas() {
   const limite = isMobile() ? 4 : 5;
   const acoes = getAtalhosRapidosOrdenados(limite);
@@ -15859,7 +13605,7 @@ function renderDashboardHomeHeader() {
       <div class="dashboard-header-actions">
         ${renderDashboardInterfaceModeButton()}
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-          <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input data-search-context="global" placeholder="Buscar no app..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
@@ -19158,7 +16904,7 @@ async function salvarStorefrontAparencia(event) {
     concluirNavegacaoPendenteLoja();
   } catch (error) {
     falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
-    mostrarToast(error?.message || "Não foi possível salvar a aparência.", "erro", 4200);
+    mostrarToast("Não foi possível salvar a aparência agora.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar aparência da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar aparência", error);
   } finally {
@@ -19320,7 +17066,7 @@ async function salvarCategoriaLojaOnline(event) {
     if (shouldRestoreCatalog) restoreStorefrontGuidedCatalogState("categories");
     concluirNavegacaoPendenteLoja();
   } catch (error) {
-    mostrarToast(error?.message || "Não foi possível salvar a categoria.", "erro", 4200);
+    mostrarToast("Não foi possível salvar a categoria agora.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar categoria da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar categoria", error);
   } finally {
@@ -19655,7 +17401,7 @@ async function salvarProdutoLojaOnline(event) {
     concluirNavegacaoPendenteLoja();
   } catch (error) {
     falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
-    mostrarToast(error?.message || "Não foi possível salvar o produto.", "erro", 4200);
+    mostrarToast("Não foi possível salvar o produto agora.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar produto da loja.", { message: error?.message || String(error) });
     console.error("[Storefront admin] salvar produto", error);
   } finally {
@@ -19912,7 +17658,7 @@ async function processarImagemExemploLojaOnline(productId, input) {
       message: error?.message || "Não foi possível usar esta imagem.",
       detail: "Escolha JPG, PNG ou WebP em tamanho adequado."
     });
-    mostrarToast(error?.message || "Não foi possível trocar a foto do exemplo.", "erro", 4200);
+    mostrarToast("Não foi possível trocar a foto agora.", "erro", 4200);
   } finally {
     if (input) input.value = "";
     renderApp();
@@ -20250,7 +17996,7 @@ async function processarImagemProdutoLojaOnline(productId, input) {
         detail: "Confira sua conexão, o tamanho do arquivo e tente novamente."
       });
       registrarStorefrontDebugLeve("upload_falhou", "Falha ao processar foto de produto.", { productId, message: error?.message || String(error) });
-      mostrarToast(error?.message || "Erro ao enviar imagem. Tente novamente.", "erro", 4200);
+      mostrarToast("Não foi possível enviar a imagem. Tente novamente.", "erro", 4200);
       console.error("[Storefront admin] imagem produto", error);
     }
   }
@@ -20318,7 +18064,7 @@ async function abrirCropImagemLojaOnline(tipo, input) {
     window.__storefrontCropState = { tipo, fileName: file.name, dataUrl, input };
     atualizarPreviewCropLojaOnline();
   } catch (error) {
-    mostrarToast(error?.message || "Não foi possível abrir o editor da imagem.", "erro", 3800);
+    mostrarToast("Não foi possível abrir o editor da imagem.", "erro", 3800);
     if (input) input.value = "";
   }
 }
@@ -20466,7 +18212,7 @@ async function processarImagemLojaOnlineComArquivo(tipo, file, input) {
       detail: "Confira sua conexão, o tamanho do arquivo e tente novamente."
     });
     registrarStorefrontDebugLeve("upload_falhou", `Falha ao enviar ${tipo} da Loja Online.`, { message: error?.message || String(error) });
-    mostrarToast(error?.message || "Erro ao enviar imagem. Tente novamente.", "erro", 4200);
+    mostrarToast("Não foi possível enviar a imagem. Tente novamente.", "erro", 4200);
     console.error("[Storefront admin] imagem loja", error);
     renderApp();
   } finally {
@@ -22124,7 +19870,7 @@ async function salvarStorefrontContatos(event) {
     renderApp();
     concluirNavegacaoPendenteLoja();
   } catch (error) {
-    mostrarToast(error?.message || "Não foi possível salvar os contatos.", "erro", 4200);
+    mostrarToast("Não foi possível salvar os contatos agora.", "erro", 4200);
     registrarStorefrontDebugLeve("save_falhou", "Falha ao salvar contatos da loja.", { message: error?.message || String(error) });
   } finally {
     setBotaoLoading(botao, false);
@@ -24062,7 +21808,7 @@ function renderDashboardSearch() {
     <div class="dashboard-search-row">
       <button class="icon-button dashboard-menu-trigger" type="button" onclick="abrirMenuPopup()" title="Abrir menu" aria-label="Abrir menu">${renderMenuHandleIcon()}</button>
       <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-        <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+        <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
         <input data-search-context="global" placeholder="Buscar pedidos, clientes, materiais ou valores..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
       </label>
     </div>
@@ -24530,7 +22276,7 @@ function renderDashboardDesktopHeader(plano, analytics) {
       </div>
       <div class="desktop-dashboard-hero-actions">
         <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-          <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+          <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar no app"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
           <input data-search-context="global" placeholder="Buscar..." oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event, this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
         </label>
         ${renderDashboardCommunicationActions()}
@@ -24789,6 +22535,57 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
   `;
 }
 
+function getExcecoesOperacionaisDashboard(stats = getDashboardStats()) {
+  const agora = new Date();
+  const atrasados = pedidos.filter((pedido) => {
+    if (pedidoJaCancelado(pedido) || ["entregue", "pago", "finalizado"].includes(String(pedido.status || "").toLowerCase())) return false;
+    const prazo = getDataEventoOperacionalPedido(pedido.prazo || pedido.dataPrazo);
+    return prazo && prazo.getTime() < agora.getTime();
+  }).length;
+  const pagamentosPendentes = pedidos.filter((pedido) => {
+    if (pedidoJaCancelado(pedido)) return false;
+    return calcularResumoFinanceiroPedido(pedido).restante > 0.009;
+  }).length;
+  const producaoParada = productionJobs.filter((job) =>
+    ["pausado", "falhou", "reimpressao_necessaria", "pendente"].includes(String(job.status || ""))
+  ).length;
+  const materialInsuficiente = productionJobs.filter((job) =>
+    String(job.blockedReason || job.blocked_reason || "") === "aguardando_material"
+  ).length;
+  const alertas = [];
+  if (atrasados) alertas.push({
+    action: "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')",
+    title: `${atrasados} pedido${atrasados === 1 ? "" : "s"} fora do prazo.`,
+    detail: "Priorize ou renegocie a entrega"
+  });
+  if (materialInsuficiente) alertas.push({
+    action: "window.__productionTab='pendencias';trocarTela('producao')",
+    title: `${materialInsuficiente} tarefa${materialInsuficiente === 1 ? "" : "s"} aguardando material.`,
+    detail: "Confira estoque e reservas"
+  });
+  if (producaoParada) alertas.push({
+    action: "window.__productionTab='pendencias';trocarTela('producao')",
+    title: `${producaoParada} tarefa${producaoParada === 1 ? "" : "s"} com produção parada.`,
+    detail: "Revise falhas, pausas e pendências"
+  });
+  if (pagamentosPendentes) alertas.push({
+    action: "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')",
+    title: `${pagamentosPendentes} pedido${pagamentosPendentes === 1 ? "" : "s"} com pagamento pendente.`,
+    detail: "Confira entradas e valores restantes"
+  });
+  if (!getSessaoCaixaAtual() && caixa.length) alertas.push({
+    action: "trocarTela('caixa')",
+    title: "Caixa sem sessão aberta.",
+    detail: "Abra o caixa antes do próximo lançamento"
+  });
+  if (!alertas.length && stats.pedidosAbertos > 0) alertas.push({
+    action: "trocarTela('pedidos')",
+    title: "Você tem pedidos em andamento.",
+    detail: `${stats.pedidosAbertos} em aberto`
+  });
+  return alertas;
+}
+
 function renderDashboardSimplifica({ stats, totaisCaixa }) {
   const usuario = getUsuarioAtual();
   const nome = String(usuario?.nome || usuario?.email || appConfig.businessName || "Operação").split(/\s+/)[0] || "Operação";
@@ -24797,11 +22594,7 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
   const lojaPublicada = loja?.store?.active === true;
   const produtosVisiveis = loja ? loja.products.filter((product) => product.visible).length : 0;
   const alertas = [
-    stats.pedidosAbertos > 0 ? {
-      action: "trocarTela('pedidos')",
-      title: "Você tem pedidos pendentes.",
-      detail: `${stats.pedidosAbertos} em aberto`
-    } : null,
+    ...getExcecoesOperacionaisDashboard(stats),
     stats.estoqueBaixo > 0 ? {
       action: "trocarTela('estoque')",
       title: `${stats.estoqueBaixo} item(ns) com estoque baixo.`,
@@ -24812,7 +22605,7 @@ function renderDashboardSimplifica({ stats, totaisCaixa }) {
       title: "Sua loja ainda não foi publicada.",
       detail: `${produtosVisiveis} produto(s) visíveis`
     } : null
-  ].filter(Boolean);
+  ].filter(Boolean).slice(0, 7);
   const cards = [
     { label: "Vendas hoje", value: formatarMoeda(stats.faturamentoDia), icon: "caixa", action: "trocarTela('caixa')" },
     { label: "Pedidos pendentes", value: String(stats.pedidosAbertos || 0), icon: "pedidos", action: "window.__pedidosFiltroDashboard='abertos';trocarTela('pedidos')" },
@@ -26281,6 +24074,177 @@ function renderUiIcon(tipo = "", fallback = "") {
   return icones[chave] || icones[fallbackKey] || icones.dashboard;
 }
 
+function getDataEventoOperacionalPedido(valor) {
+  const data = valor instanceof Date ? valor : new Date(valor || 0);
+  return Number.isNaN(data.getTime()) ? null : data;
+}
+
+function formatarDataEventoOperacionalPedido(valor) {
+  const data = getDataEventoOperacionalPedido(valor);
+  if (!data) return "Data não informada";
+  return data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function getEventosOperacionaisPedido(pedido = {}) {
+  const pedidoId = String(pedido.id || "");
+  if (!pedidoId) return [];
+  const eventos = [];
+  const temAuditoriaCancelamento = (Array.isArray(auditLogs) ? auditLogs : []).some((registro) => (
+    registro?.acao === "pedido_cancelado"
+    && String(registro?.detalhes?.pedidoId || registro?.detalhes?.orderId || registro?.detalhes?.order_id || "") === pedidoId
+  ));
+  const adicionar = (evento = {}) => {
+    const data = getDataEventoOperacionalPedido(evento.data);
+    if (!data) return;
+    eventos.push({
+      id: String(evento.id || `${evento.tipo || "evento"}-${data.getTime()}-${eventos.length}`),
+      tipo: String(evento.tipo || "pedido"),
+      titulo: String(evento.titulo || "Atualização do pedido"),
+      detalhe: String(evento.detalhe || "").trim(),
+      data: data.toISOString()
+    });
+  };
+
+  adicionar({
+    id: `pedido-criado-${pedidoId}`,
+    tipo: "pedido",
+    titulo: "Pedido criado",
+    detalhe: `${clienteDoPedido(pedido)} • ${formatarMoeda(totalPedido(pedido))}`,
+    data: pedido.criadoEm || pedido.created_at || pedido.data
+  });
+
+  (Array.isArray(auditLogs) ? auditLogs : []).forEach((registro) => {
+    const detalhes = registro.detalhes || {};
+    if (String(detalhes.pedidoId || detalhes.orderId || detalhes.order_id || "") !== pedidoId) return;
+    if (["pedido_edicao_solicitada", "pedido_cancelamento_solicitado", "pedido_excluido"].includes(registro.acao)) return;
+    const rotulos = {
+      pedido_editado: "Pedido editado",
+      pedido_cancelado: "Pedido cancelado",
+      pedido_status_alterado: "Status do pedido alterado"
+    };
+    if (!rotulos[registro.acao] && !String(detalhes.descricao || "").trim()) return;
+    const titulo = rotulos[registro.acao] || "Pedido atualizado";
+    adicionar({
+      id: registro.id,
+      tipo: "pedido",
+      titulo,
+      detalhe: registro.acao === "pedido_cancelado"
+        ? String(detalhes.motivo || pedido.cancelReason || pedido.cancel_reason || "Cancelamento confirmado")
+        : !rotulos[registro.acao]
+        ? String(detalhes.descricao || "")
+        : detalhes.statusNovo
+        ? `${labelStatusPedido(detalhes.statusAnterior)} → ${labelStatusPedido(detalhes.statusNovo)}`
+        : (detalhes.status ? `Status: ${labelStatusPedido(detalhes.status)}` : ""),
+      data: registro.data
+    });
+  });
+
+  (Array.isArray(historico) ? historico : []).forEach((registro) => {
+    const metadata = registro.metadata || {};
+    if (String(metadata.order_id || metadata.orderId || metadata.pedidoId || "") !== pedidoId) return;
+    if (metadata.event_type === "order_cancelled" && temAuditoriaCancelamento) return;
+    adicionar({
+      id: registro.id,
+      tipo: metadata.area === "stock" ? "estoque" : "pedido",
+      titulo: metadata.area === "stock" ? "Movimentação de estoque" : registro.acao || "Pedido",
+      detalhe: registro.detalhes || metadata.reason || "",
+      data: registro.data
+    });
+  });
+
+  const tarefas = (Array.isArray(productionJobs) ? productionJobs : [])
+    .filter((job) => String(job.orderId || job.order_id || "") === pedidoId);
+  const idsTarefas = new Set(tarefas.map((job) => String(job.id || "")));
+  tarefas.forEach((job) => adicionar({
+    id: `producao-${job.id}`,
+    tipo: "producao",
+    titulo: `Produção: ${getProductionStatusLabel(job.status)}`,
+    detalhe: `${job.itemName || job.item_name || "Item"}${job.productionCode || job.production_code ? ` • ${job.productionCode || job.production_code}` : ""}`,
+    data: job.updated_at || job.releasedAt || job.released_at || job.created_at
+  }));
+  (Array.isArray(productionEvents) ? productionEvents : []).forEach((evento) => {
+    const jobId = String(evento.productionJobId || evento.production_job_id || "");
+    if (String(evento.orderId || evento.order_id || "") !== pedidoId && !idsTarefas.has(jobId)) return;
+    adicionar({
+      id: evento.id,
+      tipo: "producao",
+      titulo: evento.newStatus || evento.new_status
+        ? `Produção: ${getProductionStatusLabel(evento.newStatus || evento.new_status)}`
+        : "Evento de produção",
+      detalhe: evento.note || evento.eventType || evento.event_type || "",
+      data: evento.created_at
+    });
+  });
+
+  movimentosCaixaPedido(pedido).forEach((movimento) => {
+    const saida = String(movimento.tipo || "").toLowerCase() === "saida";
+    adicionar({
+      id: `caixa-${movimento.id}`,
+      tipo: "caixa",
+      titulo: saida ? "Saída vinculada" : "Recebimento registrado",
+      detalhe: `${formatarMoeda(Number(movimento.valor) || 0)} • ${descricaoCaixa(movimento)}`,
+      data: movimento.criadoEm || movimento.created_at || movimento.data
+    });
+  });
+
+  const unicos = new Map();
+  eventos.forEach((evento) => {
+    const agruparAtualizacoesRepetidas = ["Pedido atualizado", "Pedido editado"].includes(evento.titulo);
+    const chave = `${evento.tipo}|${evento.titulo}|${evento.detalhe}|${agruparAtualizacoesRepetidas ? "" : evento.data}`;
+    if (!unicos.has(chave)) unicos.set(chave, evento);
+  });
+  return [...unicos.values()]
+    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    .slice(0, 20);
+}
+
+function renderHistoricoOperacionalPedido(pedido = {}) {
+  const eventos = getEventosOperacionaisPedido(pedido);
+  const icones = { pedido: "historico", estoque: "estoqueMovimento", producao: "statusProducao", caixa: "caixa" };
+  return `
+    <section class="order-operational-history">
+      <div class="order-operational-history-head">
+        <div><span class="eyebrow">Rastreabilidade</span><h3>Histórico operacional</h3></div>
+        <small>${eventos.length} evento${eventos.length === 1 ? "" : "s"}</small>
+      </div>
+      ${eventos.length ? `<div class="order-operational-history-list">
+        ${eventos.map((evento) => `
+          <article class="order-operational-history-item order-event-${escaparAttr(evento.tipo)}">
+            <span class="order-operational-history-icon">${renderUiIcon(icones[evento.tipo] || "historico")}</span>
+            <div>
+              <strong>${escaparHtml(evento.titulo)}</strong>
+              ${evento.detalhe ? `<p>${escaparHtml(evento.detalhe)}</p>` : ""}
+              <time datetime="${escaparAttr(evento.data)}">${escaparHtml(formatarDataEventoOperacionalPedido(evento.data))}</time>
+            </div>
+          </article>
+        `).join("")}
+      </div>` : `<p class="muted">Nenhum evento operacional registrado para este pedido.</p>`}
+    </section>
+  `;
+}
+
+function renderRentabilidadeOperacionalPedido(pedido = {}) {
+  const receita = Math.max(0, totalPedido(pedido));
+  const custos = calcularCustosPedidoAnalytics(pedido);
+  const custo = Math.max(0, Number(custos?.cost) || 0);
+  const lucro = receita - custo;
+  const margem = receita > 0 ? (lucro / receita) * 100 : 0;
+  return `
+    <section class="order-profitability-summary" aria-label="Rentabilidade estimada do pedido">
+      <div><span>Receita</span><strong>${formatarMoeda(receita)}</strong></div>
+      <div><span>Custo estimado</span><strong>${formatarMoeda(custo)}</strong></div>
+      <div class="${lucro < 0 ? "is-negative" : ""}"><span>Lucro estimado</span><strong>${formatarMoeda(lucro)}</strong></div>
+      <div class="${margem < 0 ? "is-negative" : ""}"><span>Margem estimada</span><strong>${margem.toFixed(1)}%</strong></div>
+    </section>
+  `;
+}
+
 function renderDetalhePedido(pedido) {
   const itens = normalizarItensPedido(pedido);
   const pedidoIdJs = escaparAttr(JSON.stringify(String(pedido.id ?? "")));
@@ -26297,7 +24261,7 @@ function renderDetalhePedido(pedido) {
           <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
           ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
         </div>
-        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="icon-action-button order-detail-close" type="button" onclick="pedidoVisualizandoId=null;renderizarPreservandoScroll()" title="Fechar detalhes" aria-label="Fechar detalhes">${renderUiIcon("close")}</button></div>
+        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="icon-action-button order-detail-close" type="button" onclick="fecharDetalhesPedido()" title="Fechar detalhes" aria-label="Fechar detalhes">${renderUiIcon("close")}</button></div>
       </div>
       <div class="order-detail-total">
         <div>
@@ -26318,21 +24282,18 @@ function renderDetalhePedido(pedido) {
         <div><span>Status financeiro</span><strong class="order-status-badge ${classeStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)}">${escaparHtml(labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro))}</strong></div>
         ${resumoFinanceiro.entradaMaiorQueTotal ? `<p class="order-finance-warning">A entrada é maior que o total do pedido</p>` : ""}
       </div>
+      ${renderRentabilidadeOperacionalPedido(pedido)}
       ${renderPedidoRapidoTimeline(pedido.status || "aberto")}
+      ${renderHistoricoOperacionalPedido(pedido)}
       ${itens.length ? `<div class="compact-action-grid order-detail-actions">
         ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${pedidoIdJs})`)}
         ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${pedidoIdJs})`)}
-        ${resumoFinanceiro.restante > 0 && appConfig.pixKey ? renderAcaoPedidoCompacta("pix", "Copiar Pix", `copiarPixCopiaEColaPedido(${pedidoIdJs})`) : ""}
-        ${renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${pedidoIdJs})`)}
-        ${renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${pedidoIdJs})`)}
+        ${cancelado
+          ? renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${pedidoIdJs})`)
+          : renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${pedidoIdJs})`)}
         ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${pedidoIdJs})`)}
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
-      ${cancelado ? `
-        <div class="order-cancel-info">
-          <strong>Pedido cancelado</strong>
-          <span>${escaparHtml(pedido.cancelReason || pedido.cancel_reason || "Histórico preservado. Este pedido não entra nos fluxos principais.")}</span>
-        </div>
-      ` : `
+      ${cancelado ? "" : `
         <div class="order-status-action-strip">
           <button type="button" onclick="abrirLiberacaoProducao(${pedidoIdJs})">Liberar para produção</button>
           <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'pronto')">Pronto</button>
@@ -26360,30 +24321,54 @@ function renderDetalhePedido(pedido) {
 async function abrirMaisOpcoesPedido(id) {
   const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
+  const cancelado = pedidoJaCancelado(pedido);
   const escolha = await solicitarEscolhaPedido({
-    titulo: `Pedido #${pedido.id}`,
-    mensagem: "Escolha uma ação para este pedido.",
+    titulo: `Pedido ${getNumeroSequencialPedido(pedido)}`,
+    mensagem: cancelado
+      ? "Pedido cancelado. A área financeira está disponível somente para consulta."
+      : "Opções adicionais do pedido.",
     opcoes: [
-      { id: "visualizar", label: "Ver detalhes", classe: "secondary", icone: "▣" },
-      { id: "editar", label: "Editar pedido", classe: "secondary", icone: "✎" },
       { id: "copiar", label: "Copiar orçamento", classe: "ghost", icone: "▣" },
-      { id: "whatsapp", label: "Enviar WhatsApp", classe: "ghost", icone: "☘" },
-      { id: "pdf", label: "Gerar PDF", classe: "ghost", icone: "▣" },
-      { id: "imprimir", label: "Imprimir", classe: "ghost", icone: "⎙" },
-      { id: "excluir", label: "Cancelar pedido", classe: "danger", icone: "🗑" }
+      { id: "financeiro", label: cancelado ? "Resumo financeiro" : "Financeiro e cobrança", classe: "secondary", icone: "pix" },
+      ...(!cancelado ? [{ id: "excluir", label: "Cancelar pedido", classe: "danger", icone: "🗑" }] : [])
     ]
   });
-  if (escolha === "visualizar") visualizarPedido(id);
-  if (escolha === "editar") editarPedido(id);
   if (escolha === "copiar") copiarOrcamentoPedidoSalvo(id);
-  if (escolha === "whatsapp") enviarWhatsPedidoSalvo(id);
-  if (escolha === "pdf") baixarPdfPedidoSalvo(id);
-  if (escolha === "imprimir") imprimirPedidoSalvo(id);
+  if (escolha === "financeiro") abrirFinanceiroPedido(id);
   if (escolha === "excluir") removerPedido(id);
 }
 
 function duplicarPedidoSalvo(id) {
   mostrarToast("Duplicar pedido foi desativado para evitar pedidos repetidos. Use edição de quantidade nos itens.", "info", 4200);
+}
+
+async function abrirFinanceiroPedido(id) {
+  const pedido = encontrarPedidoPorId(id);
+  if (!pedido) return mostrarToast("Pedido não encontrado.", "erro");
+  const cancelado = pedidoJaCancelado(pedido);
+  const resumo = calcularResumoFinanceiroPedido(pedido);
+  if (cancelado) {
+    await solicitarEscolhaPedido({
+      titulo: `Resumo financeiro do pedido ${getNumeroSequencialPedido(pedido)}`,
+      mensagem: `Pedido cancelado • Total ${formatarMoeda(resumo.total)} • Entrada ${formatarMoeda(resumo.entrada)} • Restante ${formatarMoeda(resumo.restante)}. Novas cobranças estão desativadas.`,
+      opcoes: [{ id: "fechar", label: "Fechar resumo", classe: "secondary", icone: "close" }]
+    });
+    return;
+  }
+  const escolha = await solicitarEscolhaPedido({
+    titulo: `Financeiro do pedido #${getNumeroSequencialPedido(pedido)}`,
+    mensagem: `Total ${formatarMoeda(resumo.total)} • Entrada ${formatarMoeda(resumo.entrada)} • Restante ${formatarMoeda(resumo.restante)}`,
+    opcoes: [
+      { id: "copiar-pix", label: "Copiar cobrança Pix", classe: "secondary", icone: "pix" },
+      { id: "whatsapp-pix", label: "Enviar cobrança no WhatsApp", classe: "ghost", icone: "☘" },
+      { id: "copiar-completo", label: "Copiar pedido com cobrança", classe: "ghost", icone: "▣" },
+      { id: "editar", label: "Editar valores do pedido", classe: "ghost", icone: "✎" }
+    ]
+  });
+  if (escolha === "copiar-pix") copiarCobrancaPixPedido(id);
+  if (escolha === "whatsapp-pix") sendQuoteToWhatsApp(pedido, { incluirPix: true, tipo: "pedido" });
+  if (escolha === "copiar-completo") copiarCobrancaPixPedido(id, { mensagemCompleta: true });
+  if (escolha === "editar") editarPedido(id);
 }
 
 async function copiarOrcamentoPedidoSalvo(id) {
@@ -26438,8 +24423,19 @@ function solicitarEscolhaPedido({ titulo = "Opções", mensagem = "", opcoes = [
 }
 
 function visualizarPedido(id) {
+  window.__pedidoDetalheFechado = false;
   pedidoVisualizandoId = id;
   trocarTela("pedidos");
+  setTimeout(() => {
+    const painel = document.querySelector(".orders-pwa-detail");
+    if (painel) painel.scrollTop = 0;
+  }, 60);
+}
+
+function fecharDetalhesPedido() {
+  pedidoVisualizandoId = null;
+  window.__pedidoDetalheFechado = true;
+  renderizarPreservandoScroll();
 }
 
 function carregarMaisPedidos() {
@@ -27714,7 +25710,16 @@ function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
     job.failureReason = note;
     job.failure_reason = note;
   }
-  if (["pos_processamento", "controle_qualidade", "pronto_para_entrega"].includes(status)) job.finished_at = job.finished_at || agora;
+  if (["pos_processamento", "controle_qualidade", "pronto_para_entrega"].includes(status)) {
+    job.finished_at = job.finished_at || agora;
+    const inicio = getDataEventoOperacionalPedido(job.started_at);
+    const fim = getDataEventoOperacionalPedido(job.finished_at);
+    if (inicio && fim && fim > inicio && !Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes)) {
+      const minutosReais = Math.max(1, Math.round((fim.getTime() - inicio.getTime()) / 60000));
+      job.actualPrintTimeMinutes = minutosReais;
+      job.actual_print_time_minutes = minutosReais;
+    }
+  }
   const printer = getProductionPrinter(job.printerId);
   if (printer && status === "em_impressao") printer.status = "ocupada";
   if (printer && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "falhou", "pausado"].includes(status)) {
@@ -27850,6 +25855,9 @@ function renderTarefaProducao(job = {}) {
   const order = getProductionOrder(job);
   const priority = job.priority || "normal";
   const events = productionEvents.filter((event) => String(event.productionJobId || event.production_job_id) === String(job.id)).slice(-4).reverse();
+  const estimado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+  const real = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0;
+  const variacaoTempo = estimado > 0 && real > 0 ? Math.round(((real - estimado) / estimado) * 100) : null;
   return `
     <article class="production-job-card production-status-${escaparAttr(job.status || "novo_pedido")}">
       <div class="production-job-head">
@@ -27862,7 +25870,8 @@ function renderTarefaProducao(job = {}) {
       <div class="production-job-meta">
         <span><small>Material</small><strong>${escaparHtml(job.material || "Não informado")}${job.color ? ` · ${escaparHtml(job.color)}` : ""}</strong></span>
         <span><small>Quantidade</small><strong>${Number(job.quantity) || 1}</strong></span>
-        <span><small>Tempo</small><strong>${job.estimatedPrintTimeMinutes ? `${job.estimatedPrintTimeMinutes} min` : "Não informado"}</strong></span>
+        <span><small>Tempo estimado</small><strong>${estimado ? `${estimado} min` : "Não informado"}</strong></span>
+        ${real ? `<span><small>Tempo real</small><strong>${real} min${variacaoTempo === null ? "" : ` • ${variacaoTempo > 0 ? "+" : ""}${variacaoTempo}%`}</strong></span>` : ""}
         <span><small>Prazo</small><strong>${escaparHtml(job.dueDate || "Sem prazo")}</strong></span>
       </div>
       ${job.blockedReason ? `<p class="production-pending-note">${escaparHtml(PRODUCTION_PENDING_REASONS[job.blockedReason] || job.blockedReason)}</p>` : ""}
@@ -27878,6 +25887,36 @@ function renderTarefaProducao(job = {}) {
       </div>
       ${events.length ? `<details class="production-history"><summary>Histórico recente</summary>${events.map((event) => `<p><strong>${escaparHtml(getProductionStatusLabel(event.newStatus || event.new_status))}</strong><span>${escaparHtml(event.note || "")}</span><small>${formatarDataHora(event.created_at)}</small></p>`).join("")}</details>` : ""}
     </article>
+  `;
+}
+
+function getResumoCapacidadeProducao() {
+  const ativos = productionJobs.filter((job) => !["pronto_para_entrega", "entregue", "cancelado"].includes(job.status));
+  const minutosFila = ativos.reduce((total, job) => total + (Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0);
+  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && !["inativa", "manutencao"].includes(printer.status));
+  const diasCapacidade = impressorasAtivas.length ? minutosFila / (impressorasAtivas.length * 24 * 60) : 0;
+  const atrasados = ativos.filter((job) => {
+    const prazo = getDataEventoOperacionalPedido(job.dueDate || job.due_date);
+    return prazo && prazo.getTime() < Date.now();
+  }).length;
+  return {
+    tarefas: ativos.length,
+    horas: minutosFila / 60,
+    impressoras: impressorasAtivas.length,
+    diasCapacidade,
+    atrasados
+  };
+}
+
+function renderResumoCapacidadeProducao() {
+  const resumo = getResumoCapacidadeProducao();
+  return `
+    <section class="production-capacity-summary" aria-label="Resumo da capacidade produtiva">
+      <div><span>Fila ativa</span><strong>${resumo.tarefas}</strong><small>tarefas</small></div>
+      <div><span>Carga estimada</span><strong>${resumo.horas.toFixed(1)}h</strong><small>de impressão</small></div>
+      <div><span>Capacidade</span><strong>${resumo.impressoras ? `${resumo.diasCapacidade.toFixed(1)} dias` : "Sem máquina"}</strong><small>${resumo.impressoras} impressora(s) disponível(is)</small></div>
+      <div class="${resumo.atrasados ? "is-alert" : ""}"><span>Atrasadas</span><strong>${resumo.atrasados}</strong><small>fora do prazo</small></div>
+    </section>
   `;
 }
 
@@ -27977,6 +26016,7 @@ function renderProducao() {
         <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
       </div>
       ${renderPerfilImpressoraProducao()}
+      ${renderResumoCapacidadeProducao()}
       <div class="production-tabs" role="tablist">
         ${tabs.map(([value,label]) => {
           const quantidade = value === "impressoras"
@@ -30220,7 +28260,7 @@ function renderRelatorios() {
         </div>
         <div class="reports-header-actions">
           <label class="dashboard-search search-compact reports-search-compact" onclick="expandirBuscaGlobal(this)">
-            <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+            <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
             <input data-search-context="relatorios" placeholder="Buscar relatórios..." aria-label="Buscar relatórios" oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
           </label>
           <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Abrir sugestões" aria-label="Abrir sugestões">${renderUiIcon("bell")}${sugestoes.length ? `<span>${Math.min(99, sugestoes.length)}</span>` : ""}</button>
@@ -31807,7 +29847,7 @@ function renderConfig() {
       </label>`;
   const updatesContent = `
     <label class="checkbox-row">
-      <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""}>
+      <input id="autoUpdateEnabled" type="checkbox" ${appConfig.autoUpdateEnabled !== false ? "checked" : ""} onchange="salvarPreferenciaAtualizacaoAutomatica()">
       <span>Atualizar automaticamente quando houver versão nova</span>
     </label>
     <div class="sync-grid">
@@ -31894,7 +29934,7 @@ function renderAuthPublica() {
         </div>
 
         ${renderVerificacao2FA()}
-        <div class="auth-tab-panel">
+        <div class="auth-tab-panel auth-tab-panel-${tab}">
           ${tab === "signup" ? renderAuthCriarConta() : renderAuthEntrar()}
         </div>
       </div>
@@ -31925,7 +29965,6 @@ function renderAuthEntrar() {
       </label>
 
       <button id="loginUsuarioBtn" class="btn auth-primary primary" type="submit">Entrar</button>
-      ${renderGoogleAuthButton("Entrar com Google")}
 
       <div class="auth-link-row">
         <button class="inline-link auth-link" type="button" onclick="solicitarRecuperacaoSenha()">Esqueci minha senha</button>
@@ -31986,6 +30025,7 @@ function renderAuthCriarConta() {
       </label>
 
       <button id="signupBtn" class="btn auth-primary primary" type="submit">Criar conta</button>
+      ${renderGoogleAuthButton("Criar conta com Google")}
 
       <p class="auth-footer-text">
         Já tem conta?
@@ -32176,7 +30216,7 @@ function renderUsuariosAdmin() {
 
 function renderGoogleAuthButton(rotulo = "Login com Google") {
   if (!GOOGLE_AUTH_ENABLED) {
-    return `<button class="btn secondary" type="button" disabled title="Ative o provedor Google no Supabase e marque a opção em Backup e sincronização">${escaparHtml(rotulo)} indisponível</button>`;
+    return "";
   }
   return `<button class="btn secondary auth-google-button" type="button" data-action="login-google">${escaparHtml(rotulo)}</button>`;
 }
@@ -32403,6 +30443,21 @@ async function removerPinAcoesSensiveis() {
 
 async function alternarBiometriaSeguranca(ativar = null) {
   const desejaAtivar = ativar === null ? !!document.getElementById("biometricEnabledConfig")?.checked : !!ativar;
+  if (!desejaAtivar && appConfig.biometricEnabled) {
+    const confirmado = await solicitarConfirmacaoAcao({
+      titulo: "Desativar proteção do aparelho?",
+      mensagem: "O Simplifica 3D deixará de pedir digital, rosto, PIN, padrão ou senha do Android ao abrir seus dados neste aparelho.",
+      confirmar: "Desativar proteção",
+      cancelar: "Manter ativada",
+      perigo: true
+    });
+    if (!confirmado) {
+      const controle = document.getElementById("biometricEnabledConfig");
+      if (controle) controle.checked = true;
+      mostrarToast("A proteção do aparelho continua ativada.", "info", 2600);
+      return;
+    }
+  }
   if (desejaAtivar) {
     const biometria = await confirmarBiometriaSeDisponivel("Confirme para ativar a entrada por digital, rosto ou padrão.");
     if (biometria.disponivel && !biometria.ok) {
@@ -32580,14 +30635,18 @@ function renderSeguranca() {
       </div>
 
       <div class="ui3-stack ui3-gap-3 ui3-security-sections">
-        <details class="ui3-security-card" open>
-          <summary class="ui3-security-card-heading">
+        <section class="ui3-security-card">
+          <div class="ui3-security-card-heading">
             <span class="security-card-icon">${renderUiIcon("config")}</span>
-            <div><h3>Alterar senha</h3><small>Atualize a senha usada para entrar na conta.</small></div>
-            <span class="security-mobile-chevron">›</span>
-          </summary>
-          <div class="ui3-security-card-body">${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}</div>
-        </details>
+            <div><h3>Senha da conta</h3><small>A senha atual continua válida até você escolher alterá-la.</small></div>
+          </div>
+          <div class="ui3-security-card-body">
+            <p class="muted security-status-note">Nenhuma troca é necessária agora.</p>
+            <div class="actions security-card-actions">
+              <button class="btn secondary" type="button" onclick="abrirAlteracaoSenhaConta()">Alterar senha</button>
+            </div>
+          </div>
+        </section>
 
         <details class="ui3-security-card">
           <summary class="ui3-security-card-heading">
@@ -32606,10 +30665,11 @@ function renderSeguranca() {
           </summary>
           <div class="ui3-security-card-body">
             <label class="checkbox-row">
-              <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""} onchange="salvarPreferenciasSeguranca()">
+              <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""}>
               <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha.</small></span>
             </label>
             <div class="actions security-page-actions">
+              <button class="btn" type="button" onclick="salvarPreferenciasSeguranca()">Salvar preferência</button>
               <button class="btn warning" onclick="logoutUsuario()">Sair com segurança</button>
               <button class="btn ghost" onclick="sairSupabase()">Encerrar conexão</button>
             </div>
@@ -32664,6 +30724,37 @@ function salvarPreferenciasSeguranca() {
   }
   salvarDados();
   mostrarToast("Preferências de segurança salvas.", "sucesso");
+}
+
+function abrirAlteracaoSenhaConta() {
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card password-change-modal modal-enter" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div><h2>Alterar senha</h2><p class="muted">Preencha somente se realmente quiser trocar a senha atual.</p></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+        </div>
+        ${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}
+      </section>
+    </div>
+  `;
+  promoverPopupParaDialogUiV3(popup, { title: "Alterar senha" });
+}
+
+function salvarPreferenciaAtualizacaoAutomatica() {
+  const controle = document.getElementById("autoUpdateEnabled");
+  if (!controle) return;
+  appConfig.autoUpdateEnabled = !!controle.checked;
+  salvarDados();
+  mostrarToast(
+    appConfig.autoUpdateEnabled
+      ? "Atualizações automáticas ativadas."
+      : "Atualizações automáticas desativadas.",
+    "sucesso",
+    2800
+  );
 }
 
 async function verificarPermissoesDispositivo() {
@@ -35230,8 +33321,8 @@ function renderCalculadoraConfigPage() {
   return `
     <section class="card organized-page settings-page">
       <div class="card-header">
-        <h2>Calculadora</h2>
-        <span class="status-badge">Cálculo</span>
+        <h2>Configurar calculadora</h2>
+        <button class="btn secondary compact-action" type="button" onclick="abrirCalculadora()">${renderUiIcon("calculadora")} Abrir calculadora 3D</button>
       </div>
       <p class="muted">Parâmetros usados pela calculadora. Dados da empresa, PDF e aparência ficam fora desta tela.</p>
       <div class="settings-accordion-list">
@@ -35819,6 +33910,38 @@ function renderPlanPaymentNotice(accessState, checkoutState) {
         <span>Assim que houver confirmação, seu plano será atualizado automaticamente.</span>
       </div>
     `;
+  }
+  if (sugestoesInteligentesAtivas()) {
+    const memoria = UsageMemoryManager.exportUserUsageMemory();
+    const telaFrequente = valorPreferidoMemoriaUso(memoria.screenStats);
+    const telasPermitidas = {
+      calculadora: { label: "Calculadora", icon: "calculadora" },
+      pedidos: { label: "Pedidos", icon: "pedidos" },
+      pedido: { label: "Novo pedido", icon: "pedidos" },
+      estoque: { label: "Estoque", icon: "estoque" },
+      producao: { label: "Produção", icon: "producao" },
+      clientes: { label: "Clientes", icon: "clientes" },
+      caixa: { label: "Caixa", icon: "caixa" }
+    };
+    const sugestao = telasPermitidas[telaFrequente];
+    if (sugestao) {
+      const usuario = getUsuarioAtual();
+      const nome = String(usuario?.nome || usuario?.email || "você").split(/\s+/)[0] || "você";
+      const pendentes = getPedidosAguardandoEnvioDashboard().length;
+      const complemento = pendentes
+        ? ` Há ${pendentes} pedido${pendentes === 1 ? "" : "s"} aguardando envio.`
+        : " Posso ajudar com outra tarefa quando precisar.";
+      return `
+        <section class="dashboard-smart-insight">
+          <span class="insight-icon">${renderUiIcon(sugestao.icon)}</span>
+          <div>
+            <strong>Olá, ${escaparHtml(nome)}. Quer abrir ${escaparHtml(sugestao.label)} novamente?</strong>
+            <small>${escaparHtml(complemento.trim())}</small>
+          </div>
+          <button class="btn secondary compact-action" type="button" onclick="trocarTela('${escaparAttr(telaFrequente)}')">Abrir</button>
+        </section>
+      `;
+    }
   }
   return "";
 }
@@ -38365,7 +36488,18 @@ function concluirOperacaoUX(id, mensagem = "") {
 }
 
 function falharOperacaoUX(id, erro, mensagem = "") {
-  if (id) window.SmartLoader?.error?.(id, erro, mensagem);
+  if (!id) return;
+  const contexto = String(mensagem || "").toLowerCase();
+  const mensagemUsuario = contexto.includes("salvar")
+    ? "Não foi possível salvar"
+    : contexto.includes("enviar")
+      ? "Não foi possível enviar"
+      : contexto.includes("pdf") || contexto.includes("documento")
+        ? "Não foi possível gerar"
+        : contexto.includes("sincron")
+          ? "Sem conexão"
+          : "Tente novamente";
+  window.SmartLoader?.error?.(id, erro, mensagemUsuario);
 }
 
 function renderSmartScreenSkeleton(tela = "dashboard") {
@@ -38433,21 +36567,22 @@ function normalizarTipoToast(tipo = "info") {
 }
 
 function mensagemToastTecnica(mensagem = "") {
-  return /\b(webhook|billing|telemetry|stack|trace|rpc|rls|payload|postgres|service_role|token|jwt|subscription ativa|evento de billing|evento remoto|canal fechado|sync silencioso|supabase\/rls)\b/i.test(String(mensagem || ""));
+  return /\b(webhook|billing|telemetry|stack|trace|rpc|rls|payload|postgres|service_role|token|jwt|pgrst\d*|sqlstate|constraint|foreign key|column|relation|schema cache|typeerror|syntaxerror|referenceerror|subscription ativa|evento de billing|evento remoto|canal fechado|sync silencioso|supabase(?:\/rls)?|http\s*[45]\d\d)\b/i.test(String(mensagem || ""));
 }
 
 function mostrarToast(mensagem, tipo = "info", duracao = 4200) {
   if (typeof document === "undefined" || !document.body || !mensagem) return;
   const tipoNormalizado = normalizarTipoToast(tipo);
-  const texto = String(mensagem || "").trim();
+  let texto = String(mensagem || "").trim();
   if (!texto) return;
   if (tipoNormalizado === "silencioso") {
     registrarDiagnostico("Toast", "Mensagem silenciosa", texto);
     return null;
   }
-  if (!isSuperAdmin() && mensagemToastTecnica(texto)) {
+  if (mensagemToastTecnica(texto)) {
     registrarDiagnostico("Toast", "Mensagem técnica ocultada", texto);
-    return null;
+    if (tipoNormalizado !== "erro") return null;
+    texto = "Não foi possível concluir esta ação. Tente novamente.";
   }
 
   const agora = Date.now();
@@ -39107,7 +37242,10 @@ async function alterarSenhaAtual(obrigatoria = false, botao = null) {
     registrarSeguranca("Troca de senha", "sucesso", "", usuario.email);
     alert("Senha alterada com sucesso");
     if (obrigatoria) trocarTela("dashboard");
-    else renderApp();
+    else {
+      fecharPopup();
+      renderApp();
+    }
   } catch (erro) {
     registrarFluxoSalvamento("Segurança", "Alterar senha", { usuarioId: usuario.id || "", email: usuario.email || "" }, erro);
     ErrorService.notify(erro, { area: "Segurança", action: "Alterar senha", errorKey: "CHANGE_PASSWORD_FAILED" });
@@ -39213,7 +37351,7 @@ function lerConfigSyncCampos() {
 function lerConfigAppCampos() {
   const twoFactorEnabledEl = document.getElementById("twoFactorEnabled");
   const autoUpdateEnabledEl = document.getElementById("autoUpdateEnabled");
-  const aiUsageMemoryEnabledEl = document.getElementById("aiUsageMemoryEnabled");
+  const usageMemoryEnabledEl = document.getElementById("usageMemoryEnabled");
 
   return {
     twoFactorEnabled: whatsapp2FABackendDisponivel() && (twoFactorEnabledEl ? twoFactorEnabledEl.checked : !!appConfig.twoFactorEnabled),
@@ -39222,7 +37360,7 @@ function lerConfigAppCampos() {
     twoFactorRememberMinutes: Math.max(1, parseFloat(document.getElementById("twoFactorRememberMinutes")?.value || appConfig.twoFactorRememberMinutes || 60) || 60),
     autoUpdateEnabled: autoUpdateEnabledEl ? autoUpdateEnabledEl.checked : appConfig.autoUpdateEnabled !== false,
     updateCheckInterval: Math.max(5, parseFloat(document.getElementById("updateCheckInterval")?.value || appConfig.updateCheckInterval || 30) || 30),
-    aiUsageMemoryEnabled: aiUsageMemoryEnabledEl ? aiUsageMemoryEnabledEl.checked : appConfig.aiUsageMemoryEnabled !== false,
+    usageMemoryEnabled: usageMemoryEnabledEl ? usageMemoryEnabledEl.checked : appConfig.usageMemoryEnabled !== false,
     adsenseWebEnabled: true,
     adsensePublisherId: (document.getElementById("adsensePublisherId")?.value || appConfig.adsensePublisherId || ADSENSE_WEB_DEFAULT_PUBLISHER_ID).trim(),
     adsenseBannerSlot: (document.getElementById("adsenseBannerSlot")?.value || appConfig.adsenseBannerSlot || ADSENSE_WEB_DEFAULT_BANNER_SLOT).trim()
@@ -39245,9 +37383,9 @@ function salvarConfigSync() {
       ...lerConfigAppCampos()
     };
     appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
-    const memoriaIA = AiUsageMemoryManager.load();
-    memoriaIA.enabled = appConfig.aiUsageMemoryEnabled !== false;
-    AiUsageMemoryManager.updateUserAiProfile(memoriaIA);
+    const memoriaUso = UsageMemoryManager.load();
+    memoriaUso.enabled = appConfig.usageMemoryEnabled !== false;
+    UsageMemoryManager.updateUserUsageProfile(memoriaUso);
 
     salvarDados();
     registrarFluxoSalvamento("Configuração", "Salvar sincronização", {
@@ -40639,6 +38777,7 @@ async function carregarPerfilSaasSupabase(usuario) {
     usuario.ativo = perfil.status ? perfil.status === "active" : usuario.ativo;
     usuario.bloqueado = perfil.status ? perfil.status !== "active" : usuario.bloqueado;
     usuario.mustChangePassword = perfil.must_change_password === true && !usuario.passwordUpdatedAt;
+    usuario.senhaTemporaria = usuario.mustChangePassword;
     usuario.clientId = perfil.client_id || usuario.clientId || billingConfig.clientId || "";
     usuario.companyId = perfil.company_id || usuario.companyId || billingConfig.companyId || "";
     usuario.acceptedTermsAt = perfil.accepted_terms_at || usuario.acceptedTermsAt || "";
@@ -42244,84 +40383,6 @@ function openCalculatorForOrder() {
   mostrarToast("Calcule o item e confirme para adicionar ao pedido.", "info", 3200);
 }
 
-async function garantirRuntimeIAAtivo({ silent = false } = {}) {
-  cancelarHibernacaoIALocal();
-  if (assistantRuntimeReady) return true;
-  if (assistantRuntimePromise) return assistantRuntimePromise;
-  const ativo = getModeloIAOfflineAtivoInstalado();
-  if (!ativo) return false;
-  const perfil = getAIModelProfile(ativo.modelo.id);
-  const backend = getAiBackendConfig(perfil);
-  const threads = calcularThreadsIA(perfil);
-  assistantRuntimeLoading = true;
-  if (!silent) renderizarPreservandoScroll();
-  assistantRuntimePromise = promiseComTimeout(
-    getAIPlugin()?.loadAiModel?.({
-      modelId: ativo.modelo.id,
-      modelPath: ativo.path,
-      contextSize: Math.max(512, Math.min(Number(perfil.contextSize || 1024) || 1024, 2048)),
-      threads,
-      backendPreference: backend.backendPreference,
-      gpuLayers: backend.gpuLayers,
-      gpuLayerTests: backend.gpuLayerTests,
-      proAllowed: podeUsarAssistenteIAOfflinePro(),
-      timeoutMs: 120000
-    }),
-    125000,
-    "Carregamento da IA demorou demais."
-  )
-    .then((runtime) => {
-      if (!runtime?.ok) throw new Error(runtime?.message || "A IA não carregou neste aparelho.");
-      setAIModelLocalState(ativo.modelo.id, {
-        status: AI_INSTALL_STATUS.INSTALLED_READY,
-        runtimeLoadedAt: new Date().toISOString(),
-        progress: 100,
-        lastError: ""
-      });
-      assistantRuntimeReady = true;
-      assistantRuntimeDiagnostics = null;
-      registrarDiagnosticoIA("ai_backend_selected", {
-        ai_model_selected: ativo.modelo.id,
-        ai_backend_selected: runtime?.backend || runtime?.backendActive || backend.backendPreference || "auto",
-        ai_gpu_layers: runtime?.gpuLayers ?? backend.gpuLayers,
-        ai_vulkan_available: runtime?.vulkanAvailable === true,
-        threads,
-        contextSize: Math.max(512, Math.min(Number(perfil.contextSize || 1024) || 1024, 2048))
-      });
-      obterDiagnosticoRuntimeIA({ force: true }).catch(() => {});
-      return true;
-    })
-    .catch((erro) => {
-      assistantRuntimeReady = false;
-      registrarFalhaIALocal("runtime_warmup", erro, { modelId: ativo.modelo.id });
-      if (!silent) mostrarToast("IA instalada, mas não iniciou neste aparelho.", "erro", 5200);
-      return false;
-    })
-    .finally(() => {
-      assistantRuntimeLoading = false;
-      assistantRuntimePromise = null;
-      if (!silent || assistantOpen) renderizarPreservandoScroll();
-    });
-  return assistantRuntimePromise;
-}
-
-function aquecerIALocalEmSegundoPlano(origem = "app") {
-  // Autocomplete e navegação não devem iniciar LLM pesado; aquece somente com o assistente aberto.
-  if (!assistantOpen || assistantMode !== "pro") return false;
-  if (document.visibilityState === "hidden") return false;
-  if (!iaLocalEstaPronta() || assistantRuntimeReady || assistantRuntimeLoading || assistantRuntimePromise) return false;
-  const agora = Date.now();
-  if (agora - assistantRuntimeWarmupAt < 45000) return false;
-  assistantRuntimeWarmupAt = agora;
-  window.setTimeout(() => {
-    if (document.visibilityState === "hidden" || !iaLocalEstaPronta()) return;
-    garantirRuntimeIAAtivo({ silent: true }).then((ok) => {
-      if (ok) registrarDiagnostico("IA Local", "Runtime aquecido em segundo plano", origem, { silent: true });
-    }).catch((erro) => registrarFalhaIALocal("background_warmup", erro, { origem }));
-  }, 900);
-  return true;
-}
-
 async function removerItem(i) {
   const confirmado = await solicitarConfirmacaoAcao({
     titulo: "Remover item",
@@ -43224,6 +41285,10 @@ async function requestOrderEdit(orderId) {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para editar pedidos.")) return;
     const pedido = encontrarPedidoPorId(orderId);
     if (!pedido) return;
+    if (pedidoJaCancelado(pedido)) {
+      mostrarToast("Pedido cancelado é somente leitura e não pode ser editado.", "info", 4200);
+      return;
+    }
     if (!await requestSensitiveActionConfirmation({ actionLabel: "editar este pedido" })) return;
     if (!await consumirCreditoAcaoFree("editar_pedido", "editar pedido")) return;
     abrirPedidoParaEdicaoAutorizada(orderId);
@@ -43240,6 +41305,10 @@ function abrirPedidoParaEdicaoAutorizada(id) {
   try {
     const pedido = encontrarPedidoPorId(id);
     if (!pedido) return;
+    if (pedidoJaCancelado(pedido)) {
+      mostrarToast("Pedido cancelado é somente leitura e não pode ser editado.", "info", 4200);
+      return;
+    }
     const itens = Array.isArray(pedido.itens) && pedido.itens.length
       ? pedido.itens
       : [{
@@ -43439,10 +41508,15 @@ async function cancelOrderSafely(orderId, options = {}) {
     registrarAuditoriaPedido("pedido_cancelado", cancelado, {
       devolveuEstoque: devolverEstoque,
       movimentosCaixa: movimentos.length,
-      reversaoCaixa: !!reverso
+      reversaoCaixa: !!reverso,
+      motivo: cancelado.cancelReason || cancelado.cancel_reason || ""
     });
-    registrarAuditoriaPedido("pedido_excluido", cancelado, { modo: "cancelamento_logico" });
-    registrarHistorico("Pedido", "Pedido cancelado: " + clienteDoPedido(cancelado));
+    registrarHistorico("Pedido", "Pedido cancelado: " + clienteDoPedido(cancelado), {
+      area: "order",
+      order_id: String(cancelado.id),
+      event_type: "order_cancelled",
+      reason: cancelado.cancelReason || cancelado.cancel_reason || ""
+    });
     mostrarToast("Pedido cancelado com sucesso.", "sucesso", 4200);
     renderizarPreservandoScroll();
   } catch (erro) {
@@ -43744,7 +41818,11 @@ async function fecharPedido() {
     });
     agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
     if (pedidoEditando) registrarAuditoriaPedido("pedido_editado", pedido);
-    registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido fechado: ") + cliente);
+    registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido criado: ") + cliente, {
+      area: "order",
+      order_id: String(pedido.id),
+      event_type: pedidoEditando ? "order_updated" : "order_created"
+    });
     const mensagemCaixa = lancamentoRecebimento
       ? ` e ${lancamentoRecebimento.paymentMethod || "pagamento"} registrado no caixa`
       : "";
@@ -43862,25 +41940,46 @@ function confirmarRevisaoAlteracoesPedido() {
 
 async function alterarStatusPedido(id, status) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar pedidos.")) return;
-  const pedido = encontrarPedidoPorId(id);
+  const indicePedido = pedidos.findIndex((item) => String(item?.id) === String(id));
+  const pedido = indicePedido >= 0 ? pedidos[indicePedido] : null;
   if (!pedido) return;
-  if (String(status || "").toLowerCase() === "cancelado") {
-    await requestOrderDelete(id);
+  if (pedidoJaCancelado(pedido)) {
+    mostrarToast("Pedido cancelado é um registro final e não pode mudar de status.", "info", 4200);
     return;
   }
-  if (/final|conclu|entreg|pago|produção|producao/i.test(String(status || "")) && !await consumirCreditoAcaoFree("finalizar_pedido", "finalizar pedido")) return;
-  const pedidoAtualizado = { ...pedido, status: status || "aberto" };
-  if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
-  marcarRegistroLocalAlteradoParaSync(pedido, {
-    status: pedidoAtualizado.status,
-    stock_deducted_at: pedidoAtualizado.stock_deducted_at || "",
-    estoqueBaixadoEm: pedidoAtualizado.estoqueBaixadoEm || ""
-  });
-  salvarDados();
-  agendarSyncSilenciosoDados("status-pedido");
-  registrarHistorico("Produção", `Status do pedido ${id}: ${pedido.status}`);
-  mostrarToast(`Status atualizado para ${labelStatusPedido(pedido.status)}.`, "sucesso", 2200);
-  renderizarPreservandoScroll();
+  const chaveOperacao = `${String(id)}:${String(status || "aberto")}`;
+  window.__pedidosStatusEmAndamento = window.__pedidosStatusEmAndamento || new Set();
+  if (window.__pedidosStatusEmAndamento.has(chaveOperacao)) return;
+  window.__pedidosStatusEmAndamento.add(chaveOperacao);
+  const statusAnterior = pedido.status || "aberto";
+  try {
+    if (String(status || "").toLowerCase() === "cancelado") {
+      await requestOrderDelete(id);
+      return;
+    }
+    // Avançar um pedido existente é parte do fluxo operacional e não cria uma
+    // nova ação comercial. Não aguarde anúncio aqui: a espera fazia o status
+    // parecer travado e descartava a alteração quando o anúncio falhava.
+    const pedidoAtualizado = { ...pedido, status: status || "aberto" };
+    if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
+    pedidos[indicePedido] = marcarRegistroAlteradoParaSync(pedidoAtualizado);
+    salvarDados();
+    agendarSyncSilenciosoDados("status-pedido");
+    registrarAuditoriaPedido("pedido_status_alterado", pedidos[indicePedido], { statusAnterior, statusNovo: pedidos[indicePedido].status });
+    registrarHistorico("Pedido", `Status alterado de ${labelStatusPedido(statusAnterior)} para ${labelStatusPedido(pedidos[indicePedido].status)}.`, {
+      area: "order",
+      order_id: String(id),
+      previous_status: statusAnterior,
+      new_status: pedidos[indicePedido].status
+    });
+    mostrarToast(`Status atualizado para ${labelStatusPedido(pedidos[indicePedido].status)}.`, "sucesso", 2200);
+    renderizarPreservandoScroll();
+  } catch (erro) {
+    registrarFluxoSalvamento("Pedidos", "Alterar status", { pedidoId: String(id), status: String(status || "") }, erro);
+    ErrorService.notify(erro, { area: "Pedidos", action: "Alterar status", errorKey: "ORDER_STATUS_CHANGE_FAILED" });
+  } finally {
+    window.__pedidosStatusEmAndamento.delete(chaveOperacao);
+  }
 }
 
 function alternarControleLoteEstoqueCadastro() {
@@ -44855,10 +42954,36 @@ async function fecharSessaoCaixaBasica() {
     return;
   }
   const resumo = calcularResumoSessaoCaixa(sessao);
+  const valorInformadoTexto = prompt(
+    `Saldo esperado: ${formatarMoeda(resumo.expectedBalance)}.\nInforme o saldo contado no caixa:`,
+    Number(resumo.expectedBalance).toFixed(2).replace(".", ",")
+  );
+  if (valorInformadoTexto === null) {
+    mostrarToast("Fechamento cancelado.", "info", 2200);
+    return;
+  }
+  let saldoInformado = 0;
+  try {
+    saldoInformado = InventoryService.parseNumberStrict(valorInformadoTexto, "saldo contado", { min: 0 });
+  } catch (erro) {
+    ErrorService.notify(erro, { area: "Caixa", action: "Conferir fechamento" });
+    return;
+  }
+  const diferenca = Number((saldoInformado - resumo.expectedBalance).toFixed(2));
+  let justificativa = "";
+  if (Math.abs(diferenca) >= 0.01) {
+    justificativa = String(prompt(
+      `Diferença de ${formatarMoeda(diferenca)}. Informe a justificativa obrigatória:`
+    ) || "").trim();
+    if (!justificativa) {
+      mostrarToast("Informe a justificativa da diferença para fechar o caixa.", "aviso", 3800);
+      return;
+    }
+  }
   const confirmar = await requestSensitiveActionConfirmation({
     actionLabel: "fechar caixa",
     titulo: "Fechar caixa",
-    mensagem: `Total esperado: ${formatarMoeda(resumo.expectedBalance)}. Deseja encerrar a sessão atual?`,
+    mensagem: `Esperado: ${formatarMoeda(resumo.expectedBalance)}. Contado: ${formatarMoeda(saldoInformado)}. Diferença: ${formatarMoeda(diferenca)}.`,
     cancelar: "Cancelar",
     confirmar: "Fechar caixa",
     perigo: false,
@@ -44871,20 +42996,45 @@ async function fecharSessaoCaixaBasica() {
     status: "closed",
     closedAt: agora,
     closed_at: agora,
-    closingBalance: resumo.expectedBalance,
-    closing_balance: resumo.expectedBalance,
+    closingBalance: saldoInformado,
+    closing_balance: saldoInformado,
+    countedBalance: saldoInformado,
+    counted_balance: saldoInformado,
     expectedBalance: resumo.expectedBalance,
     expected_balance: resumo.expectedBalance,
+    closingDifference: diferenca,
+    closing_difference: diferenca,
+    differenceAmount: diferenca,
+    difference_amount: diferenca,
+    closingReason: justificativa,
+    closing_reason: justificativa,
+    notes: justificativa,
+    closedBy: getUsuarioAtual()?.email || syncConfig.supabaseUserId || "",
+    closed_by: syncConfig.supabaseUserId || null,
     paymentsSummary: resumo.porForma,
     payments_summary_json: resumo.porForma
   };
   registrarShadowFinanceiroLocal("cash_session_closed_basic", {
     session_id: sessao.id,
     total: resumo.expectedBalance,
+    saldo_informado: saldoInformado,
+    diferenca,
+    justificativa,
+    responsavel: getUsuarioAtual()?.email || "",
     entradas: resumo.entradas,
     saidas: resumo.saidas
   });
   salvarDados();
+  registrarHistorico("Caixa", `Caixa fechado. Esperado ${formatarMoeda(resumo.expectedBalance)}, contado ${formatarMoeda(saldoInformado)}, diferença ${formatarMoeda(diferenca)}.`, {
+    area: "cash",
+    event_type: "cash_session_closed",
+    session_id: sessao.id,
+    expected_balance: resumo.expectedBalance,
+    counted_balance: saldoInformado,
+    difference: diferenca,
+    reason: justificativa,
+    responsible: getUsuarioAtual()?.email || ""
+  });
   mostrarToast("Caixa fechado com sucesso.", "sucesso", 3200);
   renderizarPreservandoScroll();
 }
@@ -45308,7 +43458,9 @@ function calcularTaxaExtraAplicada(valorComercialBase = 0) {
 }
 
 function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = "", lista, listaPaginada, pedidoSelecionado, filtroAtivo = "todos", listaBaseInicial = pedidos, linhas, paginacao }) {
-  const selecionado = pedidoSelecionado || listaPaginada[0] || null;
+  const selecionado = window.__pedidoDetalheFechado
+    ? null
+    : (pedidoSelecionado || listaPaginada[0] || null);
   const detalhe = selecionado ? renderDetalhePedido(selecionado) : `
     <div class="order-empty-detail">
       <strong>Selecione um pedido</strong>
@@ -45316,7 +43468,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
     </div>
   `;
   return `
-    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders orders-pwa-page" data-ui-version="v3" data-ui3-screen="pedidos">
+    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-orders orders-pwa-page ${pedidoSelecionado ? "ui3-orders-has-detail" : ""}" data-ui-version="v3" data-ui3-screen="pedidos">
       <header class="pwa-page-header">
         <div>
           <span class="eyebrow">Pedidos</span>
@@ -45333,7 +43485,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
               <span class="muted">${lista.length} registro(s)</span>
             </div>
             <label class="dashboard-search search-compact" onclick="expandirBuscaGlobal(this)">
-              <button class="search-ai-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
+              <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar pedido"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
               <input data-search-context="pedidos" data-preserve-focus-key="pedidos-busca" value="${escaparAttr(String(window.__pedidosBusca || ""))}" placeholder="Buscar pedido, cliente ou item..." oninput="window.__pedidosBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
             </label>
           </div>
@@ -46461,22 +44613,21 @@ async function salvarPedidoRapidoOperacional(event) {
     }
     operacaoUX = iniciarOperacaoUX({
       name: "save-order",
-      title: "Salvando pedido",
-      message: "Validando itens e totais...",
+      title: "Salvando",
+      message: "Aguarde um instante.",
       context: "pedidos",
       button: event?.submitter || event?.target?.querySelector?.("button[type='submit']"),
       buttonLoadingText: "Salvando...",
       buttonSuccessText: "Pedido salvo",
       buttonErrorText: "Tentar novamente",
-      steps: ["Validando dados", "Salvando pedido", "Atualizando caixa e estoque", "Finalizando"],
       progress: 15
     });
-    atualizarOperacaoUX(operacaoUX, { stepIndex: 1, message: "Salvando pedido...", progress: 45 });
+    atualizarOperacaoUX(operacaoUX, { message: "Salvando...", progress: 45 });
     await fecharPedido();
-    atualizarOperacaoUX(operacaoUX, { stepIndex: 2, message: "Atualizando dados relacionados...", progress: 80 });
+    atualizarOperacaoUX(operacaoUX, { message: "Salvando...", progress: 80 });
     if (!pedidoEditando && !itensPedido.length && !clientePedido) fecharPopup();
     else atualizarPedidoRapidoOperacional();
-    atualizarOperacaoUX(operacaoUX, { stepIndex: 3, message: "Pedido salvo.", progress: 100 });
+    atualizarOperacaoUX(operacaoUX, { message: "Salvo.", progress: 100 });
     concluirOperacaoUX(operacaoUX, "Pedido salvo");
   } catch (error) {
     falharOperacaoUX(operacaoUX, error, "Erro ao salvar");
@@ -47691,7 +45842,7 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
-    if (["plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel", "ai-suggestion-close", "ai-setup-cancel", "ai-wizard-cancel"].includes(acao)) {
+    if (["plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -47782,25 +45933,6 @@ function configurarEventListenersArquitetura() {
     if (acao === "plan-support") {
       event.preventDefault();
       falarComSuporteAssinatura();
-      return;
-    }
-
-    if (acao === "ai-setup-install") {
-      event.preventDefault();
-      fecharPopup();
-      abrirWizardIAProLocal();
-      return;
-    }
-
-    if (acao === "ai-setup-basic") {
-      event.preventDefault();
-      usarAssistenteBasicoAgora(elemento.dataset.origin || "assistente");
-      return;
-    }
-
-    if (acao === "ai-wizard-install") {
-      event.preventDefault();
-      instalarIAAutomatica(elemento.dataset.modelId || "lite");
       return;
     }
 
@@ -47942,7 +46074,43 @@ function formatarPrazoWhatsapp(valor = "") {
   return data.toLocaleDateString("pt-BR");
 }
 
-function montarMensagemOrcamentoWhatsapp(pedido = null) {
+function documentoClientePedido(pedido = {}) {
+  return String(
+    pedido?.clienteDocumento
+    || pedido?.documentoCliente
+    || pedido?.cpfCnpj
+    || pedido?.cpf_cnpj
+    || pedido?.cpf
+    || pedido?.cnpj
+    || ""
+  ).trim();
+}
+
+function montarBlocoRecebimentoWhatsapp({ valor = 0, cliente = "", incluirPix = true } = {}) {
+  if (!incluirPix) return [];
+  const chavePix = String(appConfig.pixKey || "").trim();
+  const valorCobranca = Math.max(0, Number(valor) || 0);
+  const payloadPix = gerarPayloadPix(valorCobranca, cliente);
+  if (!chavePix && !payloadPix) return [];
+  const recebedor = String(appConfig.pixReceiverName || appConfig.businessName || appConfig.appName || SYSTEM_NAME).trim();
+  return [
+    "",
+    "━━━━━━━━━━━━━━━━━━━━",
+    "*DADOS PARA PAGAMENTO*",
+    recebedor ? `Recebedor: ${recebedor}` : "",
+    appConfig.paymentTerms ? `Forma: ${appConfig.paymentTerms}` : "Forma: PIX",
+    valorCobranca > 0 ? `*Valor: ${formatarMoeda(valorCobranca)}*` : "",
+    chavePix ? "*Chave PIX:*" : "",
+    chavePix || "",
+    payloadPix ? "" : null,
+    payloadPix ? "*PIX COPIA E COLA — copie somente a linha abaixo:*" : null,
+    payloadPix || null,
+    appConfig.pixInstruction ? "" : null,
+    appConfig.pixInstruction || null
+  ].filter((linha) => linha !== null && linha !== undefined);
+}
+
+function montarMensagemOrcamentoWhatsapp(pedido = null, { tipo = "orcamento", incluirPix = false } = {}) {
   const itensOriginais = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
   const taxaExtraCliente = pedido ? calcularResumoFinanceiroPedido(pedido).taxaExtra : 0;
   const itens = embutirTaxaExtraNosItensCliente(itensOriginais, taxaExtraCliente);
@@ -47980,9 +46148,23 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
       })
     : resumoFinanceiro;
   const linhas = itens.flatMap((item) => {
-    const linha = `- ${item.nome} | Qtd: ${item.qtd} | Unit.: ${formatarMoeda(item.valor)} | Total: ${formatarMoeda(item.total)}`;
+    const linha = `• ${item.qtd}x ${item.nome}\n  Unitário: ${formatarMoeda(item.valor)} | Subtotal: ${formatarMoeda(item.total)}`;
     return item.observacao ? [linha, `  Obs.: ${item.observacao}`] : [linha];
   });
+  const documentoCliente = documentoClientePedido(pedido || {});
+  const telefoneCliente = pedido ? telefoneDoPedido(pedido) : (document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
+  const titulo = tipo === "pedido" ? "PEDIDO" : "ORÇAMENTO";
+  const numero = pedido ? ` #${getNumeroSequencialPedido(pedido)}` : "";
+  const saudacao = dados.cliente && dados.cliente !== "Sem cliente"
+    ? `Olá, ${dados.cliente}! Tudo bem?`
+    : "Olá! Tudo bem?";
+  const apresentacao = tipo === "pedido"
+    ? "Preparamos abaixo o resumo do seu pedido para você conferir com tranquilidade."
+    : "Preparamos este orçamento com cuidado para você avaliar.";
+  const encerramento = tipo === "pedido"
+    ? "Muito obrigado por escolher o nosso trabalho e por ser nosso cliente! Se precisar ajustar algum detalhe do pedido, estamos à disposição."
+    : "Obrigado pela oportunidade de preparar este orçamento! Se quiser finalizar ou conhecer outras opções, é só responder esta mensagem. Será um prazer atender você.";
+  const valorCobranca = resumoCliente.restante > 0 ? resumoCliente.restante : resumoCliente.total;
   const extras = [];
   if (dados.prazo) extras.push("Prazo: " + formatarPrazoWhatsapp(dados.prazo));
   if (dados.observacao) extras.push("Observações: " + dados.observacao);
@@ -47995,18 +46177,30 @@ function montarMensagemOrcamentoWhatsapp(pedido = null) {
       ]
     : ["Total: " + formatarMoeda(resumoCliente.total)];
   return [
-    "Orçamento " + (appConfig.businessName || appConfig.appName || SYSTEM_NAME),
-    "Cliente: " + (dados.cliente || "Sem cliente"),
+    saudacao,
+    apresentacao,
     "",
+    `*${titulo}${numero} — ${appConfig.businessName || appConfig.appName || SYSTEM_NAME}*`,
+    "",
+    "*CLIENTE*",
+    "Nome: " + (dados.cliente || "Não informado"),
+    telefoneCliente ? "Telefone: " + telefoneCliente : "",
+    documentoCliente ? "CPF/CNPJ: " + documentoCliente : "",
+    "",
+    "*ITENS*",
     ...linhas,
     "",
+    "*RESUMO*",
     ...linhasFinanceiras,
     ...extras,
-    appConfig.documentFooter ? "\n" + appConfig.documentFooter : ""
+    ...montarBlocoRecebimentoWhatsapp({ valor: valorCobranca, cliente: dados.cliente, incluirPix }),
+    "",
+    encerramento,
+    appConfig.documentFooter ? appConfig.documentFooter : ""
   ].filter((linha) => linha !== null && linha !== undefined).join("\n");
 }
 
-async function sendQuoteToWhatsApp(pedido = null, { incluirPix = true } = {}) {
+async function sendQuoteToWhatsApp(pedido = null, { incluirPix = true, tipo = "" } = {}) {
   if (!permitirAcaoPlanoCompleto()) return false;
   const itens = normalizarItensPedido(pedido || itensPedido).filter((item) => validarItemPedidoParaSalvar(item).ok);
   if (itens.length === 0) {
@@ -48019,19 +46213,10 @@ async function sendQuoteToWhatsApp(pedido = null, { incluirPix = true } = {}) {
     down_payment: entradaPedido,
     desconto: descontoPedido
   };
-  const resumo = calcularResumoFinanceiroPedido(pedidoFonte);
-  const valorPix = resumo.restante > 0 ? resumo.restante : resumo.total;
-  const payloadPix = incluirPix ? gerarPayloadPix(valorPix, clienteDoPedido(pedidoFonte) || clientePedido) : "";
-  const mensagemBase = montarMensagemOrcamentoWhatsapp(pedido);
-  const mensagem = [
-    mensagemBase,
-    "",
-    payloadPix ? `Valor do Pix: ${formatarMoeda(valorPix)}` : "",
-    payloadPix ? "" : null,
-    payloadPix ? "────────────────────" : null,
-    payloadPix ? "PIX COPIA E COLA" : null,
-    payloadPix || null
-  ].filter((linha) => linha !== null && linha !== undefined).join("\n");
+  const mensagem = montarMensagemOrcamentoWhatsapp(pedido, {
+    tipo: tipo || (pedido ? "pedido" : "orcamento"),
+    incluirPix
+  });
   const numero = obterTelefoneDestinoWhatsappPedido(pedido);
   const destino = numero ? "https://api.whatsapp.com/send?phone=" + numero + "&text=" : "https://api.whatsapp.com/send?text=";
   window.open(destino + encodeURIComponent(mensagem), "_blank");
@@ -48093,6 +46278,25 @@ function gerarPayloadPix(valor, cliente = "") {
     campoEmv("62", adicionais)
   ].join("") + "6304";
   return base + crc16Pix(base);
+}
+
+async function copiarCobrancaPixPedido(id, { mensagemCompleta = false } = {}) {
+  const pedido = encontrarPedidoPorId(id);
+  if (!pedido) return mostrarToast("Pedido não encontrado.", "erro");
+  const resumo = calcularResumoFinanceiroPedido(pedido);
+  const valor = resumo.restante > 0 ? resumo.restante : resumo.total;
+  const linhas = montarBlocoRecebimentoWhatsapp({ valor, cliente: clienteDoPedido(pedido), incluirPix: true });
+  const texto = mensagemCompleta
+    ? montarMensagemOrcamentoWhatsapp(pedido, { tipo: "pedido", incluirPix: true })
+    : linhas.join("\n");
+  if (!texto) return mostrarToast("Configure uma chave Pix antes de gerar a cobrança.", "aviso");
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API indisponível");
+    await navigator.clipboard.writeText(texto);
+    mostrarToast(mensagemCompleta ? "Pedido com cobrança copiado." : "Cobrança Pix copiada.", "sucesso");
+  } catch (_) {
+    window.prompt("Copie a cobrança abaixo:", texto);
+  }
 }
 
 async function copiarPixCopiaEColaPedido(id) {
@@ -48910,11 +47114,43 @@ async function imprimirPedidoAtual() {
 }
 
 async function enviarWhats() {
-  return sendQuoteToWhatsApp(null, { incluirPix: true });
+  return sendQuoteToWhatsApp(null, { incluirPix: false, tipo: "orcamento" });
 }
 
 async function enviarWhatsCalculadora() {
-  return sendQuoteToWhatsApp(null, { incluirPix: false });
+  if (!permitirAcaoPlanoCompleto()) return false;
+  if (!ultimoCalculo && !calcular()) return false;
+  if (!ultimoCalculo || Number(ultimoCalculo.totalFinal ?? ultimoCalculo.precoTotal ?? ultimoCalculo.preco) <= 0) {
+    return mostrarToast("Calcule um valor válido antes de compartilhar.", "aviso");
+  }
+  const nome = document.getElementById("nomeItem")?.value.trim() || "Impressão 3D";
+  const observacao = document.getElementById("observacoesCalculo")?.value.trim() || "";
+  const quantidade = Math.max(1, Number(ultimoCalculo.qtd) || 1);
+  const valorUnitario = Math.max(0, numeroMonetarioPedido(document.getElementById("valorManualItem")?.value, ultimoCalculo.preco));
+  const total = ultimoCalculo.impressaoLote ? valorUnitario * quantidade : valorUnitario;
+  const mensagem = [
+    "Olá! Tudo bem?",
+    "Preparamos uma estimativa para o seu projeto de impressão 3D:",
+    "",
+    `*ESTIMATIVA — ${appConfig.businessName || appConfig.appName || SYSTEM_NAME}*`,
+    "",
+    "*ITEM*",
+    `• ${quantidade}x ${nome}`,
+    `  Unitário: ${formatarMoeda(valorUnitario)} | Subtotal: ${formatarMoeda(total)}`,
+    observacao ? `  Obs.: ${observacao}` : "",
+    "",
+    "*TOTAL*",
+    `*${formatarMoeda(total)}*`,
+    appConfig.quoteValidityDays ? `Validade: ${appConfig.quoteValidityDays} dias` : "",
+    "",
+    "Gostou desta opção? Se desejar finalizar, ajustar algum detalhe ou conhecer outras possibilidades, responda esta mensagem. Será um prazer encontrar a melhor solução para você!",
+    "",
+    "Obrigado pelo interesse em nosso trabalho!",
+    appConfig.documentFooter || ""
+  ].filter(Boolean).join("\n");
+  window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(mensagem), "_blank");
+  mostrarToast("WhatsApp aberto com o orçamento. Nenhum pedido foi criado.", "sucesso", 4200);
+  return true;
 }
 
 async function gerarDocumentoPedidoSalvo(id, opcoes = {}) {
@@ -48965,7 +47201,7 @@ async function imprimirPedidoSalvo(id) {
 async function enviarWhatsPedidoSalvo(id) {
   const pedido = encontrarPedidoPorId(id);
   if (!pedido) return;
-  return sendQuoteToWhatsApp(pedido);
+  return sendQuoteToWhatsApp(pedido, { incluirPix: false, tipo: "pedido" });
 }
 
 function limparPedidoAtual() {
@@ -49682,9 +47918,6 @@ document.addEventListener("visibilitychange", () => {
     salvarRascunhoPedidoRapidoLocal({ force: true });
     salvarCacheSessaoLocal();
     salvarDados();
-    cancelarHibernacaoIALocal();
-    assistantRuntimeReady = false;
-    try { getAIPlugin()?.unloadAiModel?.(); } catch (_) {}
   } else if (document.visibilityState === "visible") {
     sincronizarRelayNotificacoesAndroid().then(() => {
       if (telaAtual === "config") agendarRenderizacaoPreservandoScroll(80);
@@ -49692,7 +47925,6 @@ document.addEventListener("visibilitychange", () => {
     carregarNotificacoesMensagensRemotas(true).catch(() => {});
     sincronizarLicencaEfetivaSePossivel("visible").catch((erro) => registrarDiagnostico("Supabase", "Licença ao voltar para o app falhou", erro.message));
     sincronizarAlteracoesLocaisSilencioso("visible").catch((erro) => registrarDiagnostico("sync", "Sync ao voltar para o app falhou", erro.message));
-    aquecerIALocalEmSegundoPlano("visible");
   }
 });
 
@@ -49721,7 +47953,7 @@ window.addEventListener("offline", () => {
   mostrarToast("Sem internet. O app manterá rascunhos e alterações locais.", "aviso", 4200);
 });
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   if (window.UiV3Dev?.isRoute) {
     window.UiV3Dev.mount();
     return;
@@ -49748,7 +47980,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       renderApp();
       recuperarPedidoRapidoAposReabertura();
-      aquecerIALocalEmSegundoPlano("startup");
     }
   });
   iniciarAutoBackup();

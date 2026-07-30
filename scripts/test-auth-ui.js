@@ -22,9 +22,6 @@ function extractFunction(source, name) {
 const authPublica = extractFunction(app, "renderAuthPublica");
 const authEntrar = extractFunction(app, "renderAuthEntrar");
 const authCriarConta = extractFunction(app, "renderAuthCriarConta");
-const renderApp = extractFunction(app, "renderApp");
-const renderAssistente = extractFunction(app, "renderAssistenteVirtual");
-const podeMostrarAssistente = extractFunction(app, "podeMostrarAssistenteAjuda");
 const renderCalculadora = extractFunction(app, "renderCalculadoraFlutuante");
 const authCode = [authPublica, authEntrar, authCriarConta].join("\n");
 
@@ -47,15 +44,10 @@ for (const forbidden of [
   assert.doesNotMatch(authCode, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), `auth publico nao deve conter ${forbidden}`);
 }
 
-assert.match(authEntrar, /renderGoogleAuthButton\("Entrar com Google"\)/, "auth publico deve oferecer login Google");
-assert.match(app, /const GOOGLE_AUTH_ENABLED = true;/, "login Google deve usar gate explicito");
+assert.match(app, /const GOOGLE_AUTH_ENABLED = false;/, "login Google deve permanecer desligado até a configuração oficial");
 assert.doesNotMatch(app, /GOCSPX-|external_google_secret|client_secret\s*[:=]/i, "frontend nao deve conter segredo Google");
 
-assert.match(renderApp, /MANUAL_HELP_ASSISTANT_ENABLED && podeMostrarAssistenteAjuda\(\) \? renderAssistenteVirtual\(\) : ""/, "ajuda manual deve usar o gate autenticado");
-assert.match(renderAssistente, /if \(!MANUAL_HELP_ASSISTANT_ENABLED\) return "";/, "ajuda manual deve respeitar seu sinal dedicado");
-assert.match(renderAssistente, /if \(!podeMostrarAssistenteAjuda\(\)\) return "";/, "assistente deve ocultar sem acesso permitido");
-assert.match(podeMostrarAssistente, /!!getUsuarioAtual\(\)/, "assistente deve depender de usuario autenticado");
-assert.match(podeMostrarAssistente, /!isTelaPublica\(telaAtual\)/, "assistente deve ocultar em telas publicas");
+assert.doesNotMatch(app, /renderAssistenteVirtual|MANUAL_HELP_ASSISTANT_ENABLED|podeMostrarAssistenteAjuda/, "produto padrão não deve carregar o assistente aposentado");
 assert.match(renderCalculadora, /root\.innerHTML = "";/, "calculadora flutuante deve limpar DOM sem login");
 assert.match(css, /body\.auth-screen-active header[\s\S]*display:none;/, "header deve sumir na tela de auth");
 assert.match(css, /\.auth-card[\s\S]*width:430px;[\s\S]*max-width:100%;/, "auth deve ter card central controlado");

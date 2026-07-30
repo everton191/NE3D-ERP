@@ -200,10 +200,6 @@ async function run() {
   assert.equal(summary.paymentEvents.length, 1, "relatorio semanal deve destacar pagamentos");
   assert.equal(summary.syncEvents.length, 1, "relatorio semanal deve destacar sync");
 
-  const flags = diagnostics.getAiDiagnosticsFeatureFlags();
-  assert.equal(flags.enableAiDiagnostics, false, "IA diagnostica deve nascer desligada");
-  assert.equal(flags.enableAiAssistant, false, "assistente IA deve nascer desligado");
-  assert.equal(flags.enableAiBugSummary, false, "resumo IA de bugs deve nascer desligado");
   assert(!/\bfetch\s*\(/.test(read(serviceFile)), "DiagnosticsService nao deve chamar fetch direto");
   assert(!/sk-[A-Za-z0-9_-]{20,}/.test(read(serviceFile) + migration), "diagnosticos nao devem conter chave de API");
 

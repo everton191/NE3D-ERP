@@ -19,6 +19,9 @@ const appMarkers = [
   "function getPaymentMethodsConfig",
   "function renderImpressorasProducao",
   "function renderTarefaProducao",
+  "function getResumoCapacidadeProducao",
+  "function renderResumoCapacidadeProducao",
+  "actualPrintTimeMinutes",
   "Fila manual por item, sem automação de impressoras.",
   "As impressoras são controladas manualmente.",
   "Liberar para produção"
@@ -57,9 +60,9 @@ const cssMarkers = [
   ".production-job-card",
   ".production-printer-card",
   ".production-job-controls",
+  ".production-capacity-summary",
   ".stock-row-main-button",
-  "body.theme-light .stock-add-fab",
-  'body.mobile-mode:has([data-ui-version="v3"][data-ui3-screen="estoque"]) .assistant-fab'
+  "body.theme-light .stock-add-fab"
 ];
 const missingCss = cssMarkers.filter((marker) => !css.includes(marker));
 if (missingCss.length) {

@@ -17,10 +17,6 @@
       "status": 404
     },
     {
-      "src": "/src/services/ai(.*)",
-      "status": 404
-    },
-    {
       "handle": "filesystem"
     },
     {

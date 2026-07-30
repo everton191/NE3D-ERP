@@ -5,7 +5,7 @@
     "intent": "enviar_feedback",
     "keywords": ["feedback", "sugestão", "ajuda", "suporte", "reportar erro"],
     "shortAnswer": "Abra Ajuda e Feedback para enviar sugestão, erro ou dúvida sobre o app.",
-    "fullAnswer": "Use Ajuda e Feedback quando faltar alguma informação no manual, quando encontrar erro ou quando quiser sugerir melhoria. A mensagem ajuda a melhorar o app sem depender da IA inventar respostas.",
+    "fullAnswer": "Use Ajuda e Feedback quando faltar alguma informação no manual, quando encontrar erro ou quando quiser sugerir melhoria. A mensagem ajuda a equipe a melhorar o aplicativo com informações claras sobre o que aconteceu.",
     "relatedScreen": "feedback",
     "suggestedAction": "open_feedback",
     "requiredPlan": "free",

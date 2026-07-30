@@ -1,6 +1,6 @@
 {
   "version": "2026-05-16",
-  "description": "Manual modular do Assistente Inteligente do Simplifica 3D.",
+  "description": "Manual modular de ajuda do Simplifica 3D.",
   "modules": [
     { "id": "pedidos", "file": "manual_pedidos.json" },
     { "id": "calculadora", "file": "manual_calculadora.json" },

@@ -1,6 +1,8 @@
 const fs = require("fs");
 
 const css = fs.readFileSync("style.css", "utf8");
+const operationalCss = fs.readFileSync("styles/ui-v3/screens/operational.css", "utf8");
+const controlsCss = fs.readFileSync("styles/ui-v3/system-controls.css", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
 
 const checks = [
@@ -32,6 +34,18 @@ if (!app.includes("iniciarToqueLongoPedido(event")) {
 if (!app.includes("abrirMaisOpcoesPedido(id)")) {
   throw new Error("Toque longo deve reutilizar o menu de acoes do pedido.");
 }
+if (!operationalCss.includes("body.app-shell-ready .order-more-action .action-symbol") ||
+    !operationalCss.includes("border-radius: var(--ui3-radius-sm, 10px)") ||
+    !operationalCss.includes("background: color-mix")) {
+  throw new Error("Icones do menu Mais devem permanecer em caixas internas arredondadas.");
+}
+if (!controlsCss.includes("body.app-shell-ready:not(.visitor-public-screen)") ||
+    !controlsCss.includes('[aria-selected="true"]') ||
+    !controlsCss.includes('[aria-pressed="true"]') ||
+    !controlsCss.includes("0 7px 18px color-mix") ||
+    !controlsCss.includes("@media (prefers-reduced-motion:reduce)")) {
+  throw new Error("Botoes selecionados devem manter o destaque suave e acessivel.");
+}
 if (!app.includes("function encontrarPedidoPorId(id)") || !app.includes('String(pedido?.id ?? "") === String(id ?? "")')) {
   throw new Error("Menu e edicao do pedido devem aceitar IDs numericos e UUIDs sincronizados.");
 }
@@ -41,11 +55,8 @@ if (app.includes("abrirMaisOpcoesPedido(Number(id))")) {
 if (!app.includes("Math.hypot(dx, dy) > 8")) {
   throw new Error("Rolagem deve cancelar o toque longo do pedido.");
 }
-if (!app.includes("assistant-fab assistant-fab-open")) {
-  throw new Error("Assistente deve manter a bolinha flutuante no mobile.");
-}
-if (!/body\.mobile-mode \.assistant-fab\s*\{[\s\S]*?display:inline-flex !important;[\s\S]*?position:fixed !important;/.test(css)) {
-  throw new Error("Bolinha flutuante do assistente deve permanecer fixa e visivel no mobile.");
+if (app.includes("assistant-fab assistant-fab-open") || app.includes("function renderAssistenteVirtual")) {
+  throw new Error("O produto padrão não deve renderizar o assistente aposentado.");
 }
 if (!app.includes("const PRINTER_FEATURE_ENABLED = false")) {
   throw new Error("Impressoras devem permanecer desativadas nesta fase.");
@@ -77,7 +88,7 @@ if (app.includes('class="item-cube-icon"')) {
 if (!app.includes("<span>Sugestão</span>") || app.includes("<span>Sugestão discreta</span>")) {
   throw new Error("Card inteligente da Home deve usar apenas o rotulo Sugestão.");
 }
-if (!css.includes(".dashboard-search.search-compact .search-ai-button") ||
+if (!css.includes(".dashboard-search.search-compact .search-action-button") ||
     !css.includes("body.theme-light .cash-top-search input")) {
   throw new Error("Pesquisas devem manter um unico fundo, sem botao ou campo interno duplicado.");
 }

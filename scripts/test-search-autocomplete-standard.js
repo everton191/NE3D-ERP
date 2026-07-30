@@ -15,9 +15,16 @@ for (const context of contexts) {
 [
   "function atualizarAutocompletePesquisa(input)",
   "function selecionarAutocompletePesquisa(input, index)",
+  "function pesquisarAutocomplete(contexto",
+  "function pontuarAutocomplete(item",
+  "function distanciaEdicaoAutocomplete(",
+  "function navegarAutocompletePesquisa(event)",
+  "AUTOCOMPLETE_SYNONYMS",
+  "AUTOCOMPLETE_RECENT_STORAGE_KEY",
   "function reabrirAutocompletePesquisaAposRender(input",
   "search-autocomplete-panel",
-  "role=\"option\""
+  "role=\"option\"",
+  "aria-selected=\"false\""
 ].forEach((contract) => {
   if (!app.includes(contract)) failures.push(`Contrato ausente em app.js: ${contract}`);
 });
