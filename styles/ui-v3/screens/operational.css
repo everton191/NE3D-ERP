@@ -514,7 +514,7 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 .promotions-3d-selects{
   display:grid;
-  grid-template-columns:minmax(170px, 1fr) minmax(170px, 1fr) minmax(210px, auto);
+  grid-template-columns:repeat(3, minmax(145px, 1fr)) minmax(210px, auto);
   align-items:end;
   gap:12px;
 }

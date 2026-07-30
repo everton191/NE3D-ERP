@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.21";
-const APP_VERSION_CODE = 22;
+const APP_VERSION = "1.0.22";
+const APP_VERSION_CODE = 23;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Mercado Livre integrado ao bot de ofertas, com atualização automática e links visíveis para todos.",
@@ -927,6 +927,7 @@ let promotions3dState = {
   updatedAt: "",
   filter: "todas",
   store: "todas",
+  discountMin: 0,
   sort: "recentes",
   query: "",
   message: ""
@@ -13508,6 +13509,7 @@ function getPromocoes3dVisiveis() {
   const filtered = promotions3dState.items.filter((item) => {
     if (promotions3dState.filter !== "todas" && item.category !== promotions3dState.filter) return false;
     if (promotions3dState.store !== "todas" && item.host !== promotions3dState.store) return false;
+    if (item.discount < promotions3dState.discountMin) return false;
     if (!query) return true;
     return normalizarTextoBusca(`${item.title} ${item.store} ${getNomeCategoriaPromocao3d(item.category)}`).includes(query);
   });
@@ -13765,6 +13767,14 @@ function renderPromocoes3d() {
               <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
             </select>
           </label>
+          <label>
+            <span>Desconto mínimo</span>
+            <select class="promotions-discount-filter" onchange="filtrarDescontoPromocoes3d(this.value)">
+              ${[0, 10, 20, 30, 40, 50].map((value) => `
+                <option value="${value}" ${promotions3dState.discountMin === value ? "selected" : ""}>${value ? `${value}% ou mais` : "Todos"}</option>
+              `).join("")}
+            </select>
+          </label>
           <small class="promotions-updated-label">Busca automática ativa • atualização a cada 5 minutos</small>
         </div>
       </section>
@@ -13793,7 +13803,7 @@ function atualizarResultadosPromocoes3d() {
   const updatedLabel = document.querySelector(".promotions-updated-label");
   if (updatedLabel) updatedLabel.textContent = promotions3dState.status === "loading"
     ? "Atualizando ofertas..."
-    : `${formatarAtualizacaoPromocoes3d()} • nova busca em 10 minutos`;
+    : `${formatarAtualizacaoPromocoes3d()} • nova busca em 5 minutos`;
   const refreshButton = document.querySelector(".promotion-refresh-button");
   if (refreshButton) {
     refreshButton.disabled = promotions3dState.status === "loading";
@@ -13900,15 +13910,24 @@ function ordenarPromocoes3d(sort = "recentes") {
   atualizarResultadosPromocoes3d();
 }
 
+function filtrarDescontoPromocoes3d(value = 0) {
+  const discount = Number(value);
+  promotions3dState.discountMin = [0, 10, 20, 30, 40, 50].includes(discount) ? discount : 0;
+  atualizarResultadosPromocoes3d();
+}
+
 function limparFiltrosPromocoes3d() {
   promotions3dState.query = "";
   promotions3dState.filter = "todas";
   promotions3dState.store = "todas";
+  promotions3dState.discountMin = 0;
   promotions3dState.sort = "recentes";
   const search = document.querySelector(".promotions-3d-search input");
   if (search) search.value = "";
   const store = document.querySelector(".promotions-store-filter");
   if (store) store.value = "todas";
+  const discount = document.querySelector(".promotions-discount-filter");
+  if (discount) discount.value = "0";
   filtrarPromocoes3d("todas");
 }
 
