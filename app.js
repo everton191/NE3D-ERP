@@ -7354,6 +7354,9 @@ function finalizarIntroAbertura(overlay) {
   if (!overlay || overlay.dataset.done === "true") return;
   overlay.dataset.done = "true";
   try {
+    localStorage.setItem("simplificaIntroAberturaConcluida", APP_VERSION || "1");
+  } catch (_) {}
+  try {
     sessionStorage.setItem("simplificaIntroAberturaConcluida", APP_VERSION || "1");
   } catch (_) {}
   overlay.classList.add("is-hidden");
@@ -7386,6 +7389,9 @@ function iniciarIntroAbertura() {
   if (parseStorefrontPublicRoute(location.pathname)) return;
   if (isSuperAdminRoute(location.pathname)) return;
   if (document.getElementById("introOverlay")) return;
+  try {
+    if (localStorage.getItem("simplificaIntroAberturaConcluida")) return;
+  } catch (_) {}
   try {
     if (sessionStorage.getItem("simplificaIntroAberturaConcluida")) return;
   } catch (_) {}
@@ -46651,7 +46657,7 @@ function montarMensagemOrcamentoWhatsapp(pedido = null, { tipo = "orcamento", in
     ? "Preparamos abaixo o resumo do seu pedido para você conferir com tranquilidade."
     : "Preparamos este orçamento com cuidado para você avaliar.";
   const encerramento = tipo === "pedido"
-    ? "Muito obrigado por escolher o nosso trabalho e por ser nosso cliente! Se precisar ajustar algum detalhe do pedido, estamos à disposição."
+    ? "Muito obrigado por escolher o nosso trabalho e por ser nosso cliente!"
     : "Obrigado pela oportunidade de preparar este orçamento! Se quiser finalizar ou conhecer outras opções, é só responder esta mensagem. Será um prazer atender você.";
   const valorCobranca = resumoCliente.restante > 0 ? resumoCliente.restante : resumoCliente.total;
   const extras = [];
