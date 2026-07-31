@@ -5,7 +5,7 @@
   "description": "Simplifica 3D para gestao de pedidos, caixa e impressao 3D.",
   "scripts": {
     "build": "npm run build:web",
-    "vercel-build": "npm run build:web",
+    "vercel-build": "node -e \"console.log('Build web preparado pelo buildCommand da Vercel.')\"",
     "build:web": "node scripts/prepare-web.js",
     "lint": "node --check app.js",
     "typecheck": "tsc -p tsconfig.ui-v3.json",
