@@ -7,6 +7,11 @@ dist
 build
 coverage
 artifacts
+backups
+.codex-remote-attachments
+output
+tmp
+training
 *.apk
 !downloads/NE3D-ERP.apk
 *.aab
