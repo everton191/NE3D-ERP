@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.24";
-const APP_VERSION_CODE = 25;
+const APP_VERSION = "1.0.25";
+const APP_VERSION_CODE = 26;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Filtros e monitor de promoções reunidos em um único painel compacto no celular.",
