@@ -440,8 +440,15 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   border-radius:var(--radius-xl, 22px);
 }
 
+.promotions-3d-search-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
 .promotions-3d-search{
   display:flex;
+  flex:1 1 auto;
   align-items:center;
   gap:10px;
   min-height:50px;
@@ -474,6 +481,15 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   background:transparent !important;
   box-shadow:none !important;
   font:inherit;
+}
+
+.promotions-3d-filter-toggle{
+  display:none;
+}
+
+.promotions-3d-filter-panel{
+  display:grid;
+  gap:16px;
 }
 
 .promotions-3d-filters{
@@ -1217,9 +1233,46 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
     min-height:48px;
   }
 
+  .promotions-3d-filter-toggle{
+    display:grid;
+    flex:0 0 48px;
+    place-items:center;
+    width:48px;
+    height:48px;
+    padding:0;
+    border:1px solid var(--border-primary);
+    border-radius:14px;
+    color:var(--text-primary);
+    background:color-mix(in srgb, var(--card-bg) 90%, var(--accent-primary) 10%);
+    cursor:pointer;
+  }
+
+  .promotions-3d-filter-toggle[aria-expanded="true"]{
+    color:#fff;
+    border-color:var(--accent-primary);
+    background:var(--accent-primary);
+  }
+
+  .promotions-3d-filter-toggle .ui-icon{
+    width:21px;
+    height:21px;
+  }
+
+  .promotions-3d-filter-panel{
+    display:none;
+  }
+
+  .promotions-3d-filter-panel.is-open{
+    display:grid;
+    gap:14px;
+    padding-top:14px;
+    border-top:1px solid var(--border-primary);
+  }
+
   .promotions-3d-monitor{
     padding:14px;
     border-radius:18px;
+    box-shadow:none;
   }
 
   .promotions-monitor-head{
@@ -1279,9 +1332,26 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   }
 
   .promotions-3d-grid,
-  .promotions-3d-flash-grid{
+  .promotions-3d-grid{
     grid-template-columns:1fr;
     gap:12px;
+  }
+
+  .promotions-3d-flash-grid{
+    grid-auto-columns:minmax(280px, 88%);
+    grid-auto-flow:column;
+    grid-template-columns:none;
+    gap:12px;
+    overflow-x:auto;
+    overscroll-behavior-inline:contain;
+    padding:2px 2px 8px;
+    scroll-padding-inline:2px;
+    scroll-snap-type:inline mandatory;
+    scrollbar-width:thin;
+  }
+
+  .promotions-3d-flash-grid .promotion-3d-card{
+    scroll-snap-align:start;
   }
 
   .promotion-3d-card{

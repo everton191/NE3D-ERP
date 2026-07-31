@@ -2,14 +2,14 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.23";
-const APP_VERSION_CODE = 24;
+const APP_VERSION = "1.0.24";
+const APP_VERSION_CODE = 25;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Mercado Livre integrado ao bot de ofertas, com atualização automática e links visíveis para todos.",
-  "Promoções 3D com até 60 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
-  "Monitor de produtos e buscas salvas com contador de novidades dentro do Simplifica.",
-  "Cartões compactos e alinhados, com acesso direto à oferta no navegador."
+  "Filtros e monitor de promoções reunidos em um único painel compacto no celular.",
+  "Ofertas relâmpago organizadas em uma faixa horizontal para liberar espaço na tela.",
+  "Atualização automática das promoções sem piscar ou recarregar imagens quando os preços não mudam.",
+  "Troca de senha corrigida para não voltar a ser solicitada depois da confirmação."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -549,6 +549,7 @@ const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   feedback: Object.freeze({ label: "Ajuda e suporte", lucide: "LifeBuoy", group: "settings" }),
   conta: Object.freeze({ label: "Meu perfil", lucide: "UserRound", group: "account" }),
   search: Object.freeze({ label: "Pesquisar", lucide: "Search", group: "system" }),
+  filtro: Object.freeze({ label: "Filtros", lucide: "ListFilter", group: "system" }),
   admin: Object.freeze({ label: "Admin", lucide: "ShieldUser", group: "admin" }),
   agenda: Object.freeze({ label: "Agenda", lucide: "CalendarDays", group: "system" }),
   back: Object.freeze({ label: "Voltar", lucide: "ArrowLeft", group: "system" }),
@@ -664,6 +665,8 @@ const UI_ICON_ALIASES = Object.freeze({
   headphones: "suporte",
   info: "sobre",
   search: "search",
+  filter: "filtro",
+  listfilter: "filtro",
   editar: "edit",
   sync: "refresh",
   refreshcw: "refresh",
@@ -13739,52 +13742,58 @@ function renderPromocoes3d() {
       </header>
 
       <section class="promotions-3d-search-card card">
-        <label class="promotions-3d-search">
-          <span>${renderUiIcon("search")}</span>
-          <input type="search" aria-label="Pesquisar promoções" value="${escaparAttr(promotions3dState.query)}" placeholder="Ex.: filamento PLA, resina ou impressora" oninput="pesquisarPromocoes3d(this.value)">
-        </label>
-        <div class="promotions-3d-filters" role="group" aria-label="Filtrar promoções">
-          ${[
-            ["todas", "Todas"],
-            ["impressoras", "Impressoras"],
-            ["filamentos", "Filamentos"],
-            ["resinas", "Resinas"],
-            ["materiais", "Materiais"]
-          ].map(([value, label]) => `
-            <button class="promotion-filter-button ${promotions3dState.filter === value ? "active" : ""}" type="button" aria-pressed="${promotions3dState.filter === value}" onclick="filtrarPromocoes3d('${value}')">${label}</button>
-          `).join("")}
+        <div class="promotions-3d-search-row">
+          <label class="promotions-3d-search">
+            <span>${renderUiIcon("search")}</span>
+            <input type="search" aria-label="Pesquisar promoções" value="${escaparAttr(promotions3dState.query)}" placeholder="Ex.: filamento PLA, resina ou impressora" oninput="pesquisarPromocoes3d(this.value)">
+          </label>
+          <button class="promotions-3d-filter-toggle" type="button" aria-label="Abrir filtros e monitor" aria-expanded="false" aria-controls="promotions3dFilterPanel" onclick="alternarPainelFiltrosPromocoes3d(this)">
+            ${renderUiIcon("filtro")}
+          </button>
         </div>
-        <div class="promotions-3d-selects">
-          <label>
-            <span>Loja</span>
-            <select class="promotions-store-filter" onchange="filtrarLojaPromocoes3d(this.value)">
-              ${renderOpcoesLojasPromocoes3d()}
-            </select>
-          </label>
-          <label>
-            <span>Organizar</span>
-            <select onchange="ordenarPromocoes3d(this.value)">
-              <option value="recentes" ${promotions3dState.sort === "recentes" ? "selected" : ""}>Mais recentes</option>
-              <option value="melhores" ${promotions3dState.sort === "melhores" ? "selected" : ""}>Melhores ofertas</option>
-              <option value="maior-desconto" ${promotions3dState.sort === "maior-desconto" ? "selected" : ""}>Maior desconto</option>
-              <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
-            </select>
-          </label>
-          <label>
-            <span>Desconto mínimo</span>
-            <select class="promotions-discount-filter" onchange="filtrarDescontoPromocoes3d(this.value)">
-              ${[0, 10, 20, 30, 40, 50].map((value) => `
-                <option value="${value}" ${promotions3dState.discountMin === value ? "selected" : ""}>${value ? `${value}% ou mais` : "Todos"}</option>
-              `).join("")}
-            </select>
-          </label>
-          <small class="promotions-updated-label">Busca automática ativa • atualização a cada 5 minutos</small>
+        <div class="promotions-3d-filter-panel" id="promotions3dFilterPanel">
+          <div class="promotions-3d-filters" role="group" aria-label="Filtrar promoções">
+            ${[
+              ["todas", "Todas"],
+              ["impressoras", "Impressoras"],
+              ["filamentos", "Filamentos"],
+              ["resinas", "Resinas"],
+              ["materiais", "Materiais"]
+            ].map(([value, label]) => `
+              <button class="promotion-filter-button ${promotions3dState.filter === value ? "active" : ""}" type="button" aria-pressed="${promotions3dState.filter === value}" onclick="filtrarPromocoes3d('${value}')">${label}</button>
+            `).join("")}
+          </div>
+          <div class="promotions-3d-selects">
+            <label>
+              <span>Loja</span>
+              <select class="promotions-store-filter" onchange="filtrarLojaPromocoes3d(this.value)">
+                ${renderOpcoesLojasPromocoes3d()}
+              </select>
+            </label>
+            <label>
+              <span>Organizar</span>
+              <select onchange="ordenarPromocoes3d(this.value)">
+                <option value="recentes" ${promotions3dState.sort === "recentes" ? "selected" : ""}>Mais recentes</option>
+                <option value="melhores" ${promotions3dState.sort === "melhores" ? "selected" : ""}>Melhores ofertas</option>
+                <option value="maior-desconto" ${promotions3dState.sort === "maior-desconto" ? "selected" : ""}>Maior desconto</option>
+                <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
+              </select>
+            </label>
+            <label>
+              <span>Desconto mínimo</span>
+              <select class="promotions-discount-filter" onchange="filtrarDescontoPromocoes3d(this.value)">
+                ${[0, 10, 20, 30, 40, 50].map((value) => `
+                  <option value="${value}" ${promotions3dState.discountMin === value ? "selected" : ""}>${value ? `${value}% ou mais` : "Todos"}</option>
+                `).join("")}
+              </select>
+            </label>
+            <small class="promotions-updated-label">Busca automática ativa • atualização a cada 5 minutos</small>
+          </div>
+          <div id="promocoes3dMonitor">
+            ${renderPainelMonitorPromocoes3d()}
+          </div>
         </div>
       </section>
-
-      <div id="promocoes3dMonitor">
-        ${renderPainelMonitorPromocoes3d()}
-      </div>
 
       <div id="promocoes3dResultado">
         ${renderResultadosPromocoes3d()}
@@ -13796,6 +13805,16 @@ function renderPromocoes3d() {
       </footer>
     </section>
   `;
+}
+
+function alternarPainelFiltrosPromocoes3d(button) {
+  const panel = document.getElementById("promotions3dFilterPanel");
+  if (!panel) return;
+  const open = panel.classList.toggle("is-open");
+  if (button) {
+    button.setAttribute("aria-expanded", String(open));
+    button.setAttribute("aria-label", open ? "Fechar filtros e monitor" : "Abrir filtros e monitor");
+  }
 }
 
 function atualizarResultadosPromocoes3d() {
@@ -13848,12 +13867,40 @@ function monitorPromocoes3dPrecisaAtualizar() {
   return !Number.isFinite(lastChecked) || Date.now() - lastChecked >= PROMOTIONS_3D_REFRESH_MS;
 }
 
+function criarAssinaturaVisualPromocoes3d(items = []) {
+  return JSON.stringify(items.map((item) => [
+    item.id,
+    item.title,
+    item.currentPrice,
+    item.originalPrice,
+    item.pixPrice,
+    item.discount,
+    item.image,
+    item.url,
+    item.expiresAt
+  ]));
+}
+
 async function carregarPromocoes3d({ force = false, userRequested = false, background = false } = {}) {
   if (promotions3dState.status === "loading") return;
   if (!promotions3dState.items.length) carregarCachePromocoes3d();
+  const tinhaOfertas = promotions3dState.items.length > 0;
+  const assinaturaAnterior = criarAssinaturaVisualPromocoes3d(promotions3dState.items);
+  const assinaturaMonitorAnterior = JSON.stringify({
+    watches: promotions3dMonitorState.watches,
+    unreadIds: promotions3dMonitorState.unreadIds
+  });
   promotions3dState.status = "loading";
   promotions3dState.message = "";
-  atualizarResultadosPromocoes3d();
+  if (!tinhaOfertas) {
+    atualizarResultadosPromocoes3d();
+  } else if (!background) {
+    const refreshButton = document.querySelector(".promotion-refresh-button");
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.innerHTML = `${renderUiIcon("refresh")} Atualizando...`;
+    }
+  }
   try {
     const separator = PROMOTIONS_3D_API_URL.includes("?") ? "&" : "?";
     const url = force ? `${PROMOTIONS_3D_API_URL}${separator}t=${Date.now()}` : PROMOTIONS_3D_API_URL;
@@ -13868,15 +13915,40 @@ async function carregarPromocoes3d({ force = false, userRequested = false, backg
     promotions3dState.status = "ready";
     salvarCachePromocoes3d();
     processarMonitorPromocoes3d(items);
-    atualizarResultadosPromocoes3d();
-    atualizarPainelMonitorPromocoes3d();
+    const ofertasMudaram = assinaturaAnterior !== criarAssinaturaVisualPromocoes3d(items);
+    if (!tinhaOfertas || ofertasMudaram) {
+      atualizarResultadosPromocoes3d();
+    } else {
+      const updatedLabel = document.querySelector(".promotions-updated-label");
+      if (updatedLabel) updatedLabel.textContent = `${formatarAtualizacaoPromocoes3d()} • nova busca em 5 minutos`;
+    }
+    const monitorMudou = assinaturaMonitorAnterior !== JSON.stringify({
+      watches: promotions3dMonitorState.watches,
+      unreadIds: promotions3dMonitorState.unreadIds
+    });
+    if (!tinhaOfertas || monitorMudou) atualizarPainelMonitorPromocoes3d();
+    if (!background && !ofertasMudaram) {
+      const refreshButton = document.querySelector(".promotion-refresh-button");
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.innerHTML = `${renderUiIcon("refresh")} Atualizar ofertas`;
+      }
+    }
     if (userRequested) {
       mostrarToast("Ofertas atualizadas.", "sucesso", 2400);
     }
   } catch {
     promotions3dState.status = promotions3dState.items.length ? "ready" : "error";
     promotions3dState.message = "Não foi possível atualizar agora. Tente novamente em alguns minutos.";
-    atualizarResultadosPromocoes3d();
+    if (!tinhaOfertas) {
+      atualizarResultadosPromocoes3d();
+    } else if (!background) {
+      const refreshButton = document.querySelector(".promotion-refresh-button");
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.innerHTML = `${renderUiIcon("refresh")} Atualizar ofertas`;
+      }
+    }
     if (userRequested || (!background && !promotions3dState.items.length)) {
       mostrarToast(promotions3dState.message, "aviso", 4200);
     }
@@ -24405,6 +24477,7 @@ function renderUiIcon(tipo = "", fallback = "") {
     feedback: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M9 9h6M9 13h4"/></svg>`,
     sobre: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.1"/></svg>`,
     search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
+    filtro: `<svg ${attrs}><path d="M4 5h16"/><path d="M7 12h10"/><path d="M10 19h4"/></svg>`,
     view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
     plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
     more: `<svg ${attrs}><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg>`,
@@ -39567,6 +39640,16 @@ async function atualizarSenhaSupabaseComSessao(novaSenha) {
     body: JSON.stringify({ password: novaSenha })
   });
   await limparTrocaSenhaObrigatoriaSupabase();
+  usuarios = normalizarUsuarios(usuarios);
+  const email = normalizarEmail(syncConfig.supabaseEmail || "");
+  const usuario = usuarios.find((item) =>
+    String(item.supabaseUserId || "") === String(syncConfig.supabaseUserId)
+    || (email && item.email === email)
+  );
+  if (usuario) {
+    await definirSenhaUsuario(usuario, novaSenha, false);
+    salvarDados();
+  }
   registrarSeguranca("Senha redefinida", "sucesso", "Link de recuperação Supabase", syncConfig.supabaseEmail);
   registrarAuditoria("senha_redefinida", { origem: "supabase_recovery_link" });
 }
