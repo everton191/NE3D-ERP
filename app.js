@@ -25247,6 +25247,17 @@ function getTextoTrabalhoImpressora(impressora = {}) {
     .trim() || "Impressão atual";
 }
 
+function getConexaoAtualImpressora(impressora = {}) {
+  const conectado = impressora.connection_status === "connected";
+  const automatico = String(impressora.connector_type || "manual") !== "manual";
+  const ultimoSinal = normalizarDataLocal(impressora.last_seen_at || "", null);
+  const sinalRecente = ultimoSinal && Math.abs(Date.now() - ultimoSinal.getTime()) <= 15 * 60 * 1000;
+  return {
+    online: conectado && (!automatico || sinalRecente),
+    ultimoSinal
+  };
+}
+
 function abrirPainelImpressoraSimplifica(id) {
   const impressora = getPrinterById(id);
   const popup = document.getElementById("popup");
@@ -25260,7 +25271,7 @@ function abrirPainelImpressoraSimplifica(id) {
   const camada = Number.isFinite(camadaAtual) && camadaAtual > 0
     ? `${Math.round(camadaAtual)}${Number.isFinite(totalCamadas) && totalCamadas > 0 ? ` de ${Math.round(totalCamadas)}` : ""}`
     : "—";
-  const conectado = impressora.connection_status === "connected";
+  const conexao = getConexaoAtualImpressora(impressora);
   popup.innerHTML = `
     <div class="modal-backdrop printer-simple-monitor-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card printer-simple-monitor" onclick="event.stopPropagation()">
@@ -25279,7 +25290,7 @@ function abrirPainelImpressoraSimplifica(id) {
           <div><span>Bico</span><strong>${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong><small>${Number.isFinite(Number(latest.nozzle_target_temp)) ? `Programado: ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}` : "Temperatura atual"}</small></div>
           <div><span>Mesa</span><strong>${formatarTemperaturaImpressora(latest.bed_temp)}</strong><small>${Number.isFinite(Number(latest.bed_target_temp)) ? `Programado: ${formatarTemperaturaImpressora(latest.bed_target_temp)}` : "Temperatura atual"}</small></div>
           <div><span>Camada</span><strong>${escaparHtml(camada)}</strong><small>Andamento da peça</small></div>
-          <div><span>Conexão</span><strong>${conectado ? "Online" : "Sem sinal"}</strong><small>${impressora.last_seen_at ? escaparHtml(formatarDataHora(impressora.last_seen_at)) : "Aguardando atualização"}</small></div>
+          <div><span>Conexão</span><strong>${conexao.online ? "Online" : "Sem sinal"}</strong><small>${impressora.last_seen_at ? `Último sinal: ${escaparHtml(formatarDataHora(impressora.last_seen_at))}` : "Aguardando atualização"}</small></div>
         </div>
         <p class="printer-simple-monitor-note">${renderUiIcon("seguranca")} O Simplifica acompanha a impressão sem controlar a máquina.</p>
         <div class="actions printer-simple-monitor-actions">
