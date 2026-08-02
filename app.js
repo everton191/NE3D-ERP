@@ -25232,14 +25232,17 @@ function getPedidoVinculadoImpressora(impressora = {}) {
 function renderResumoImpressoraSimplifica(impressora = {}) {
   const latest = impressora.latest_status || {};
   const pedido = getPedidoVinculadoImpressora(impressora);
+  const conexao = getConexaoAtualImpressora(impressora);
+  const estado = String(latest.normalized_state || latest.state || "unknown").toLowerCase();
+  const situacao = estado === "printing" ? "Imprimindo" : conexao.online ? "Disponível" : "Sem sinal";
   return `
     <button type="button" class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}" onclick="abrirPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">
       <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
       <span class="printer-summary-main">
         <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
-        <small>${renderPrinterStatusBadge(impressora)}${pedido ? ` Pedido #${escaparHtml(pedido.id)}` : " Sem pedido vinculado"}</small>
+        <small><span class="printer-friendly-summary-status">${escaparHtml(situacao)}</span>${pedido ? ` · Pedido #${escaparHtml(pedido.id)}` : " · Sem pedido vinculado"}</small>
       </span>
-      ${temNumeroImpressora(latest.progress_percent) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>—</strong>`}
+      ${temNumeroImpressora(latest.progress_percent) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>›</strong>`}
     </button>
   `;
 }
@@ -25308,7 +25311,7 @@ function abrirPainelImpressoraSimplifica(id) {
         <p class="printer-simple-connection"><i class="${conexao.online ? "is-online" : ""}" aria-hidden="true"></i><span>${conexao.online ? "Conectada" : "Sem sinal"}</span><small>${impressora.last_seen_at ? `Último sinal: ${escaparHtml(formatarDataHora(impressora.last_seen_at))}` : "Aguardando atualização"}</small></p>
         <div class="actions printer-simple-monitor-actions">
           <button class="btn secondary" type="button" onclick="atualizarPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar</button>
-          ${podeGerenciarImpressoras() ? `<button class="btn ghost" type="button" onclick="fecharPopup();abrirCadastroImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("edit")} Editar impressora</button>` : ""}
+          ${podeGerenciarImpressoras() ? `<button class="btn ghost" type="button" onclick="fecharPopup();abrirCadastroImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("edit")} Editar</button>` : ""}
         </div>
       </section>
     </div>`;
@@ -25376,18 +25379,18 @@ function renderImpressoras() {
     return `<section class="card printer-screen"><div class="printer-loading">${renderUiIcon("impressoras")}<strong>Carregando impressoras...</strong></div></section>`;
   }
 
-  if (isSimplificaMode()) {
+  if (isSimplificaMode() || isMobile()) {
     return `
       <section class="card printer-screen printer-screen-simple">
         <div class="card-header">
-          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Impressoras</h2></div>
+          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Suas impressoras</h2><p class="muted">Acompanhe o estado e abra uma máquina para ver os detalhes.</p></div>
           ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
         </div>
         ${printerMonitoringState.error ? `<p class="printer-error">${escaparHtml(printerMonitoringState.error)}</p>` : ""}
         <div class="printer-summary-list">
           ${items.length ? items.map(renderResumoImpressoraSimplifica).join("") : `<p class="empty">Nenhuma impressora cadastrada.</p>`}
         </div>
-        <p class="muted">Detalhes de conexão, custos e histórico completo ficam no Modo Profissional.</p>
+        ${items.length ? `<p class="printer-simple-help">Toque em uma impressora para atualizar, vincular pedidos ou editar.</p>` : ""}
       </section>
     `;
   }
@@ -26772,7 +26775,13 @@ async function abrirImpressoraAtivaProducao(id) {
   trocarTela("impressoras");
   if (!printerMonitoringState.loaded) {
     hidratarImpressorasSeNecessario()
-      .then(() => renderizarPreservandoScroll())
+      .then(() => {
+        const atualizadas = getImpressorasAtivas();
+        const vinculada = atualizadas.find((item) => normalizarTextoBusca(item.name || "") === nome)
+          || (atualizadas.length === 1 ? atualizadas[0] : null);
+        if (vinculada) abrirPainelImpressoraSimplifica(vinculada.id);
+        else renderizarPreservandoScroll();
+      })
       .catch(() => {});
   }
 }

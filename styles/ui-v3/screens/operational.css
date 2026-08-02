@@ -522,6 +522,79 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   cursor: pointer;
 }
 
+.printer-friendly-summary-status {
+  color: var(--ui3-primary, #12b8ad);
+  font-weight: 800;
+}
+
+.printer-simple-help {
+  margin: 0;
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .78rem;
+  text-align: center;
+}
+
+body.mobile-mode .printer-screen-simple {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin: 0;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header h2,
+body.mobile-mode .printer-screen-simple > .card-header p {
+  margin: 0;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header p {
+  margin-top: 5px;
+  font-size: .78rem;
+  line-height: 1.35;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header .compact-action {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header .compact-action svg {
+  width: 21px;
+  height: 21px;
+}
+
+body.mobile-mode .printer-summary-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.mobile-mode .printer-summary-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127,127,127,.2));
+  border-radius: 16px;
+  background: var(--ui3-surface-1, rgba(255,255,255,.04));
+}
+
+body.mobile-mode .printer-summary-row .printer-summary-icon {
+  width: 48px;
+  height: 48px;
+}
+
 @media (max-width: 520px) {
   .printer-simple-monitor-backdrop {
     align-items: flex-end;
