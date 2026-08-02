@@ -372,13 +372,20 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 .printer-simple-overview > div > strong {
   color: inherit;
-  background: transparent;
+  padding: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
   font-size: .92rem;
   line-height: 1.35;
 }
 
 .printer-friendly-state {
   color: var(--ui3-primary, #12b8ad);
+  padding: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
   font-size: 1.18rem;
   font-weight: 800;
 }
