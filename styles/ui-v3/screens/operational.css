@@ -464,6 +464,49 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   transition: width 180ms ease;
 }
 
+.ui3-dialog:has(.printer-wizard) {
+  width: min(680px, 100%);
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.ui3-dialog .printer-wizard {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
+.ui3-dialog .printer-wizard :where(.printer-simple-fields, .printer-advanced-settings, .printer-advanced-content, [data-printer-step], .field, input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .ui3-dialog-portal:has(.printer-wizard) {
+    padding: max(8px, var(--ui3-safe-top)) 8px max(8px, var(--ui3-safe-bottom));
+  }
+
+  .ui3-dialog:has(.printer-wizard) {
+    width: 100%;
+    max-height: calc(100dvh - var(--ui3-safe-top) - var(--ui3-safe-bottom) - 16px);
+    padding: 14px 12px;
+    border-radius: 16px;
+  }
+
+  .ui3-dialog .printer-wizard-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: -2px;
+    padding: 10px 2px 2px;
+  }
+
+  .ui3-dialog .printer-wizard-actions > :only-child,
+  .ui3-dialog .printer-wizard-actions > [type="submit"]:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
 .printer-simple-progress i {
   position: absolute;
   inset: 0 auto 0 0;
