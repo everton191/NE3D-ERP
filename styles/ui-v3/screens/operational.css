@@ -515,6 +515,40 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   line-height: 1.4;
 }
 
+.printer-bambu-device-picker,
+.printer-bambu-device-list {
+  display: grid;
+  gap: 11px;
+}
+
+.printer-bambu-device-picker > :where(h3, p) {
+  margin: 0;
+}
+
+.printer-bambu-device {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  color: var(--ui3-text, #14212b);
+  text-align: left;
+  background: var(--ui3-surface, #fff);
+  border: 1px solid var(--ui3-border, #cfdbde);
+  border-radius: var(--ui3-radius-md, 12px);
+}
+
+.printer-bambu-device.selected,
+.printer-bambu-device:focus-visible {
+  border-color: var(--ui3-primary, #007f76);
+  outline: 2px solid color-mix(in srgb, var(--ui3-primary, #007f76) 24%, transparent);
+}
+
+.printer-bambu-device span {
+  color: var(--ui3-muted, #5d6c74);
+  font-size: .78rem;
+}
+
 .printer-bambu-login-copy p,
 .printer-login-result {
   margin: 0;

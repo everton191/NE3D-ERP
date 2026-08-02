@@ -25973,10 +25973,8 @@ function getProductionTab() {
 async function autenticarBambuDepoisCadastro(printerId, account, password) {
   mostrarToast("Conectando à conta BambuLab...", "info", 2600);
   try {
-    await printerBackendRequest("bambu_login", { printer_id: printerId, account, password, code: "" });
-    await hidratarImpressorasSeNecessario(true);
-    mostrarToast("Conta BambuLab conectada e impressora localizada.", "sucesso", 4200);
-    abrirPainelImpressoraSimplifica(printerId);
+    const data = await printerBackendRequest("bambu_login", { printer_id: printerId, account, password, code: "" });
+    await concluirSelecaoDispositivoBambu(printerId, data);
   } catch (erro) {
     const precisaCodigo = String(erro?.message || "") === "BAMBU_VERIFICATION_CODE_REQUIRED";
     abrirLoginBambu(printerId, { account, awaitingCode: precisaCodigo });
@@ -26043,9 +26041,7 @@ async function autenticarContaBambu(event) {
     });
     if (password) password.value = "";
     if (code) code.value = "";
-    await hidratarImpressorasSeNecessario(true);
-    fecharPopup();
-    mostrarToast(Array.isArray(data?.devices) && data.devices.length ? "Conta Bambu conectada e impressora localizada." : "Conta Bambu conectada.", "sucesso", 4200);
+    await concluirSelecaoDispositivoBambu(bambuLoginDraftState.printerId, data);
   } catch (erro) {
     const message = String(erro?.message || "");
     if (message === "BAMBU_VERIFICATION_CODE_REQUIRED") {
@@ -26060,6 +26056,67 @@ async function autenticarContaBambu(event) {
       result.textContent = getPrinterMonitoringService()?.errorMessage(message) || "Não foi possível conectar à BambuLab.";
     }
     if (submit) submit.disabled = false;
+  }
+}
+
+function getUltimoDispositivoBambu(devices = [], selectedId = "") {
+  const selecionado = devices.find((device) => String(device.id) === String(selectedId));
+  if (selecionado) return selecionado;
+  return [...devices].sort((a, b) => {
+    const dataA = new Date(a.last_used_at || a.last_seen_at || a.updated_at || 0).getTime() || 0;
+    const dataB = new Date(b.last_used_at || b.last_seen_at || b.updated_at || 0).getTime() || 0;
+    return dataB - dataA;
+  })[0] || null;
+}
+
+async function concluirSelecaoDispositivoBambu(printerId, data = {}) {
+  const devices = Array.isArray(data?.devices) ? data.devices : [];
+  const planoPago = isPlanAtLeast(getCurrentPlanSlug(), "start");
+  if (devices.length > 1 && planoPago) {
+    renderizarSelecaoDispositivoBambu(printerId, devices, data?.selected_device_id || "");
+    return;
+  }
+  const escolhido = getUltimoDispositivoBambu(devices, data?.selected_device_id || "");
+  if (devices.length > 1 && escolhido?.id) {
+    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: escolhido.id });
+  }
+  await hidratarImpressorasSeNecessario(true);
+  fecharPopup();
+  mostrarToast(devices.length > 1 && !planoPago
+    ? `Plano gratuito: ${escolhido?.name || "última impressora usada"} selecionada.`
+    : "Conta BambuLab conectada e impressora localizada.", "sucesso", 4400);
+  abrirPainelImpressoraSimplifica(printerId);
+}
+
+function renderizarSelecaoDispositivoBambu(printerId, devices = [], selectedId = "") {
+  const form = document.getElementById("bambuLoginForm");
+  if (!form) return;
+  form.innerHTML = `
+    <div class="printer-bambu-device-picker">
+      <span class="eyebrow">Conta conectada</span>
+      <h3>Escolha uma impressora</h3>
+      <p>Seu plano permite acompanhar todas. Selecione qual será vinculada a este cadastro.</p>
+      <div class="printer-bambu-device-list">${devices.map((device) => `
+        <button class="printer-bambu-device ${String(device.id) === String(selectedId) ? "selected" : ""}" type="button" data-bambu-device-id="${escaparAttr(device.id)}">
+          <strong>${escaparHtml(device.name || "Impressora BambuLab")}</strong>
+          <span>${escaparHtml(device.model || "Modelo não informado")} · ${device.online ? "Online" : "Offline"}</span>
+        </button>`).join("")}</div>
+      <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button></div>
+    </div>`;
+  form.querySelectorAll("[data-bambu-device-id]").forEach((button) => {
+    button.addEventListener("click", () => selecionarDispositivoBambu(printerId, button.dataset.bambuDeviceId));
+  });
+}
+
+async function selecionarDispositivoBambu(printerId, deviceId) {
+  try {
+    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: deviceId });
+    await hidratarImpressorasSeNecessario(true);
+    fecharPopup();
+    mostrarToast("Impressora BambuLab selecionada.", "sucesso", 3600);
+    abrirPainelImpressoraSimplifica(printerId);
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || "Não foi possível selecionar a impressora.", "erro", 5200);
   }
 }
 
