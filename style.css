@@ -47273,6 +47273,12 @@ body .auth-card :is(button.auth-primary, button.auth-google-button){
   box-sizing:border-box;
 }
 
+/* O WebView nativo já começa abaixo da barra do sistema; evita aplicar o recuo superior duas vezes. */
+body[data-ui-profile="android_apk"].mobile-mode{
+  --safe-area-inset-top:0px;
+  --ui3-safe-top:0px;
+}
+
 /* Piloto: contenção final de cards e ações nas telas operacionais. */
 body :where(.app-page,.printer-page,.superadmin-platform-shell) :where(.card,[class$="-card"],[class*="-card "]){
   min-width:0;
