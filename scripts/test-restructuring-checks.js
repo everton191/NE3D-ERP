@@ -4,7 +4,7 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 
 function read(file) {
-  return fs.readFileSync(path.join(root, file), "utf8");
+  return fs.readFileSync(path.join(root, file), "utf8").replace(/\r\n/g, "\n");
 }
 
 function exists(file) {
@@ -110,8 +110,8 @@ const storefrontLayoutsV3 = read("src/storefront/styles/layouts.css");
   "src/storefront/styles/layouts.css"
 ].forEach((file) => assert(exists(file), `pasta-base preparada: ${file}`));
 
-assert(/const APP_VERSION = "1\.0\.19"/.test(app), "app.js esta na versao 1.0.19");
-assert(/const APP_VERSION_CODE = 20/.test(app), "app.js possui versionCode 20");
+assert(/const APP_VERSION = "1\.0\.26"/.test(app), "app.js esta na versao 1.0.26");
+assert(/const APP_VERSION_CODE = 27/.test(app), "app.js possui versionCode 27");
 assert(app.includes("intro-test-banner") && app.includes("Versão em testes"), "abertura identifica a versao de testes");
 assert(css.includes(".intro-test-banner"), "aviso de testes possui layout responsivo");
 assert(/\.intro-test-banner\s*\{[\s\S]*?left:50%;[\s\S]*?transform:translateX\(-50%\);/.test(css), "aviso de testes permanece centralizado na viewport");
@@ -129,8 +129,8 @@ assert(app.includes("function normalizeLayerOptions"), "wrapper de modal/drawer 
 assert(app.includes("function renderOverlayScrim"), "overlay central usa scrim padronizado");
 assert(app.includes("function syncAppShellLayerState"), "estado global das camadas sincroniza lock visual");
 assert(app.includes("app-layer-open"), "body recebe classe de lock quando camada visual esta ativa");
-assert(app.includes("openModal({\n    size: \"wide\""), "modal legal migrado para modal-layer");
-assert(app.includes("openDrawer({\n    content: renderDrawerLateral"), "drawer lateral migrado para drawer-layer");
+assert(/openModal\(\{\n\s+size: "wide"/.test(app), "modal legal migrado para modal-layer");
+assert(/openDrawer\(\{\n\s+content: renderDrawerLateral/.test(app), "drawer lateral migrado para drawer-layer");
 assert(!getFunctionBody(app, "abrirDocumentoLegal").includes("popup.innerHTML"), "abrirDocumentoLegal nao escreve mais direto no popup legado");
 assert(!getFunctionBody(app, "abrirDrawerLateral").includes("popup.innerHTML"), "abrirDrawerLateral nao escreve mais direto no popup legado");
 ["--z-base", "--z-sidebar", "--z-overlay", "--z-drawer", "--z-modal", "--z-toast", "--z-critical"].forEach((token) => {
@@ -145,7 +145,7 @@ assert(index.indexOf("smartLoaderService.js") < index.indexOf("/app.js"), "Smart
 assert(sw.includes("./src/services/smartLoaderService.js"), "SmartLoader entra no precache PWA");
 assert(read("package.json").includes('"test:perceived-performance"'), "package.json expoe teste de desempenho percebido");
 assert(sw.includes("caches.keys()"), "service worker limpa caches antigos");
-assert(/\/app\.js\?v=1\.0\.19-[^"]+/.test(index), "index.html usa cache-bust atual");
+assert(/\/app\.js\?v=1\.0\.26-[^"]+/.test(index), "index.html usa cache-bust atual");
 assert(exists("src/services/safeAreaManager.js"), "safeAreaManager central existe");
 assert(index.indexOf("/src/services/safeAreaManager.js") > -1 && index.indexOf("/src/services/safeAreaManager.js") < index.indexOf("/app.js?v="), "safeAreaManager carrega antes do app");
 assert(sw.includes("./src/services/safeAreaManager.js"), "safeAreaManager entra no precache PWA");

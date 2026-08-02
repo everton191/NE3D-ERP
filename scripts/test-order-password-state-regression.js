@@ -49,6 +49,11 @@ assert.match(
   /async function atualizarSenhaSupabaseComSessao\(novaSenha\)[\s\S]*?await limparTrocaSenhaObrigatoriaSupabase\(\);/,
   "A redefinição por link de recuperação também deve limpar a exigência online."
 );
+assert.match(
+  app,
+  /async function atualizarSenhaSupabaseComSessao\(novaSenha\)[\s\S]*?await definirSenhaUsuario\(usuario, novaSenha, false\);[\s\S]*?salvarDados\(\);/,
+  "A redefinição por link deve limpar e persistir também a exigência local."
+);
 assert.doesNotMatch(
   app,
   /mostrarToast\((?:error|erro)\?\.message/,

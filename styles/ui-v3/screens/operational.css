@@ -319,9 +319,873 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   color: #dc2626;
 }
 
+.production-active-printer.is-clickable {
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.production-active-printer.is-clickable:focus-visible {
+  outline: 2px solid var(--ui3-primary, #12b8ad);
+  outline-offset: 2px;
+}
+
+.production-active-printer.is-clickable:active {
+  border-color: var(--ui3-primary, #12b8ad);
+}
+
+.printer-simple-monitor {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(86vh, 760px);
+  overflow: auto;
+  padding-bottom: calc(var(--ui3-space-4, 16px) + env(safe-area-inset-bottom));
+}
+
+.printer-simple-monitor-head h2,
+.printer-simple-monitor-head .eyebrow {
+  margin: 0;
+}
+
+.printer-simple-job {
+  display: grid;
+  gap: var(--ui3-space-3, 12px);
+  padding: 14px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, .2));
+  border-radius: var(--ui3-radius-lg, 18px);
+  background: var(--ui3-surface-1, rgba(255,255,255,.04));
+}
+
+.printer-simple-overview {
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  overflow: hidden;
+  padding: 18px;
+  color: var(--ui3-text, #14212b);
+  border-color: color-mix(in srgb, var(--ui3-primary, #12b8ad) 34%, transparent);
+  background: color-mix(in srgb, var(--ui3-primary, #12b8ad) 10%, var(--ui3-surface, #fff));
+}
+
+.printer-simple-overview > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.printer-simple-overview > div > strong {
+  color: inherit;
+  padding: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  font-size: .92rem;
+  line-height: 1.35;
+}
+
+.printer-friendly-state {
+  color: var(--ui3-primary, #12b8ad);
+  padding: 0;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  font-size: 1.18rem;
+  font-weight: 800;
+}
+
+.printer-simple-job-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.printer-simple-job-title > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.printer-simple-job-title strong {
+  overflow: hidden;
+  font-size: 1.05rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-simple-job-title small {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--ui3-text-muted, #71817e);
+}
+
+.printer-simple-progress {
+  position: relative;
+  height: 34px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui3-surface-muted, rgba(127,127,127,.12));
+}
+
+.printer-current-work {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--ui3-radius-md, 14px);
+  background: var(--ui3-surface-muted, rgba(127,127,127,.1));
+}
+
+.printer-current-work span {
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .73rem;
+}
+
+.printer-current-work strong {
+  overflow-wrap: anywhere;
+  font-size: .95rem;
+}
+
+.printer-wizard-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.printer-wizard-progress strong {
+  color: var(--ui3-text, #14212b);
+  font-size: .82rem;
+}
+
+.printer-wizard-progress > i {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui3-surface-muted, #edf3f4);
+}
+
+.printer-wizard-progress > i > span {
+  display: block;
+  width: 33.333%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui3-primary, #007f76);
+  transition: width 180ms ease;
+}
+
+.ui3-dialog:has(.printer-wizard) {
+  width: min(680px, 100%);
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.ui3-dialog .printer-wizard {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+}
+
+.printer-bambu-login {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.printer-bambu-login-copy {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  color: var(--ui3-text, #14212b);
+  background: var(--ui3-surface-muted, #edf3f4);
+  border-radius: var(--ui3-radius-md, 12px);
+}
+
+.printer-bambu-quick-login {
+  display: grid;
+  gap: 11px;
+  padding: 14px;
+  color: var(--ui3-text, #14212b);
+  background: color-mix(in srgb, var(--ui3-primary, #007f76) 8%, var(--ui3-surface, #fff));
+  border: 1px solid color-mix(in srgb, var(--ui3-primary, #007f76) 28%, transparent);
+  border-radius: var(--ui3-radius-md, 12px);
+}
+
+.printer-bambu-quick-login > div {
+  display: grid;
+  gap: 4px;
+}
+
+.printer-bambu-quick-login p {
+  margin: 0;
+  color: var(--ui3-muted, #5d6c74);
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.printer-bambu-device-picker,
+.printer-bambu-device-list {
+  display: grid;
+  gap: 11px;
+}
+
+.printer-bambu-device-picker > :where(h3, p) {
+  margin: 0;
+}
+
+.printer-bambu-device {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  color: var(--ui3-text, #14212b);
+  text-align: left;
+  background: var(--ui3-surface, #fff);
+  border: 1px solid var(--ui3-border, #cfdbde);
+  border-radius: var(--ui3-radius-md, 12px);
+}
+
+.printer-bambu-device.selected,
+.printer-bambu-device:focus-visible {
+  border-color: var(--ui3-primary, #007f76);
+  outline: 2px solid color-mix(in srgb, var(--ui3-primary, #007f76) 24%, transparent);
+}
+
+.printer-bambu-device span {
+  color: var(--ui3-muted, #5d6c74);
+  font-size: .78rem;
+}
+
+.printer-bambu-login-copy p,
+.printer-login-result {
+  margin: 0;
+}
+
+.printer-bambu-consent {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+}
+
+.printer-bambu-consent input {
+  width: 20px;
+  min-height: 20px;
+  margin: 1px 0 0;
+}
+
+.printer-data-notice {
+  margin: 0;
+  padding: 11px 12px;
+  color: var(--ui3-text, #14212b);
+  background: color-mix(in srgb, var(--ui3-primary, #007f76) 9%, var(--ui3-surface, #fff));
+  border: 1px solid color-mix(in srgb, var(--ui3-primary, #007f76) 24%, transparent);
+  border-radius: var(--ui3-radius-md, 12px);
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.ui3-dialog .printer-wizard :where(.printer-simple-fields, .printer-advanced-settings, .printer-advanced-content, [data-printer-step], .field, input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 560px) {
+  .ui3-dialog-portal:has(.printer-wizard) {
+    padding: max(8px, var(--ui3-safe-top)) 8px max(8px, var(--ui3-safe-bottom));
+  }
+
+  .ui3-dialog:has(.printer-wizard) {
+    width: 100%;
+    max-height: calc(100dvh - var(--ui3-safe-top) - var(--ui3-safe-bottom) - 16px);
+    padding: 14px 12px;
+    border-radius: 16px;
+  }
+
+  .ui3-dialog .printer-wizard-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: -2px;
+    padding: 10px 2px 2px;
+  }
+
+  .ui3-dialog .printer-wizard-actions > :only-child,
+  .ui3-dialog .printer-wizard-actions > [type="submit"]:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+.printer-simple-progress i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--progress);
+  border-radius: inherit;
+  background: var(--ui3-primary, #12b8ad);
+}
+
+.printer-simple-progress strong {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--ui3-primary-contrast, #fff);
+  font-size: .85rem;
+}
+
+.printer-simple-monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui3-space-2, 8px);
+}
+
+.printer-simple-monitor-grid > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, .2));
+  border-radius: var(--ui3-radius-md, 14px);
+  background: var(--ui3-surface-1, rgba(255,255,255,.04));
+}
+
+.printer-simple-monitor-grid span,
+.printer-simple-monitor-grid small {
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .73rem;
+}
+
+.printer-simple-monitor-grid strong {
+  font-size: 1.1rem;
+}
+
+.printer-simple-details {
+  display: grid;
+  gap: 8px;
+}
+
+.printer-simple-details h3 {
+  margin: 0;
+  font-size: .8rem;
+  color: var(--ui3-text-muted, #71817e);
+}
+
+.printer-simple-connection {
+  display: grid;
+  grid-template-columns: 10px auto 1fr;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .76rem;
+}
+
+.printer-simple-connection i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ui3-text-muted, #71817e);
+}
+
+.printer-simple-connection i.is-online {
+  background: #32d583;
+}
+
+.printer-simple-connection small {
+  justify-self: end;
+  color: inherit;
+}
+
+.printer-simple-monitor-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .78rem;
+}
+
+.printer-simple-monitor-note svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+}
+
+.printer-simple-monitor-actions {
+  justify-content: flex-end;
+}
+
+.printer-summary-row {
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.printer-friendly-summary-status {
+  color: var(--ui3-primary, #12b8ad);
+  font-weight: 800;
+}
+
+.printer-simple-help {
+  margin: 0;
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .78rem;
+  text-align: center;
+}
+
+body.mobile-mode .printer-screen-simple {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin: 0;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header h2,
+body.mobile-mode .printer-screen-simple > .card-header p {
+  margin: 0;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header p {
+  margin-top: 5px;
+  font-size: .78rem;
+  line-height: 1.35;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header .compact-action {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  padding: 0;
+  overflow: hidden;
+  font-size: 0;
+}
+
+body.mobile-mode .printer-screen-simple > .card-header .compact-action svg {
+  width: 21px;
+  height: 21px;
+}
+
+body.mobile-mode .printer-summary-list {
+  display: grid;
+  gap: 10px;
+}
+
+body.mobile-mode .printer-summary-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  padding: 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127,127,127,.2));
+  border-radius: 16px;
+  background: var(--ui3-surface-1, rgba(255,255,255,.04));
+}
+
+body.mobile-mode .printer-summary-row .printer-summary-icon {
+  width: 48px;
+  height: 48px;
+}
+
+@media (max-width: 520px) {
+  .printer-simple-monitor-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .printer-simple-monitor {
+    width: 100%;
+    max-height: calc(92dvh - env(safe-area-inset-top));
+    border-radius: 22px 22px 0 0;
+  }
+
+  .printer-simple-monitor-actions .btn {
+    width: 100%;
+  }
+}
+
+body.mobile-mode .printer-simple-monitor-backdrop {
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(4, 10, 15, .72);
+}
+
+body.mobile-mode .printer-simple-monitor {
+  width: 100%;
+  max-width: none;
+  max-height: min(76dvh, 680px);
+  margin: 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  overflow-x: hidden;
+}
+
+body.mobile-mode .printer-simple-monitor-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+body.mobile-mode .printer-simple-monitor-head h2 {
+  overflow: hidden;
+  font-size: 1.22rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-mode .printer-simple-monitor-head .icon-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+}
+
+body.mobile-mode .printer-simple-monitor-head .icon-button::before {
+  content: "×";
+  color: var(--ui3-text, #fff);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+body.mobile-mode .printer-simple-overview {
+  grid-template-columns: 46px minmax(0, 1fr);
+  min-height: 112px;
+  padding: 16px;
+}
+
+body.mobile-mode .printer-simple-overview .printer-device-icon {
+  width: 46px;
+  height: 46px;
+}
+
+body.mobile-mode .printer-friendly-state {
+  font-size: 1.08rem;
+}
+
+body.mobile-mode .printer-simple-connection {
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 4px 8px;
+  padding: 2px 3px;
+}
+
+body.mobile-mode .printer-simple-connection small {
+  grid-column: 2;
+  justify-self: start;
+}
+
+body.mobile-mode .printer-simple-monitor-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+body.mobile-mode .printer-simple-monitor-actions .btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 8px;
+  overflow: hidden;
+  font-size: .82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 360px) {
+  body.mobile-mode .printer-simple-monitor-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) {
+  max-height: 78dvh;
+  padding: 18px 16px calc(18px + var(--ui3-safe-bottom, 0px));
+  overflow-x: hidden;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) > .ui3-stack {
+  gap: 14px;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) .ui3-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) .ui3-page-header h2 {
+  overflow: hidden;
+  font-size: 1.22rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) [data-ui3-close] {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  color: transparent;
+  font-size: 0;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) [data-ui3-close]::before {
+  content: "×";
+  color: var(--ui3-text, #fff);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+body.mobile-mode .ui3-sheet .printer-simple-monitor {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.production-report {
+  display: grid;
+  gap: var(--ui3-space-3, 12px);
+}
+
+.production-report-toolbar,
+.production-history-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui3-space-3, 12px);
+}
+
+.production-report-toolbar h3,
+.production-report-toolbar p {
+  margin: 0;
+}
+
+.production-period-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, 0.2));
+  border-radius: 999px;
+  background: var(--ui3-surface-1, rgba(255, 255, 255, 0.04));
+}
+
+.production-period-switch button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ui3-text-muted, #71817e);
+  background: transparent;
+}
+
+.production-period-switch button.active {
+  color: var(--ui3-primary-contrast, #fff);
+  background: var(--ui3-primary, #166b5c);
+}
+
+.production-history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ui3-space-2, 8px);
+}
+
+.production-history-summary > div.is-loss {
+  border-color: color-mix(in srgb, #dc2626 38%, var(--ui3-border-subtle, transparent));
+  background: color-mix(in srgb, #dc2626 7%, var(--ui3-surface-1, transparent));
+}
+
+.production-history-summary > div.is-loss strong,
+.production-history-measures.is-loss span:first-child {
+  color: #dc2626;
+}
+
+.production-history-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, 0.2));
+  border-radius: var(--ui3-radius-md, 14px);
+  background: var(--ui3-surface-1, rgba(255, 255, 255, 0.04));
+}
+
+.production-history-summary span,
+.production-history-row small,
+.production-history-more small {
+  color: var(--ui3-text-muted, #71817e);
+  font-size: 0.75rem;
+}
+
+.production-history-list {
+  display: grid;
+  gap: var(--ui3-space-2, 8px);
+}
+
+.production-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(130px, .8fr) minmax(150px, 1fr) auto;
+  align-items: center;
+  gap: var(--ui3-space-3, 12px);
+  padding: 11px 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, 0.2));
+  border-radius: var(--ui3-radius-md, 14px);
+}
+
+.production-history-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.production-history-row strong,
+.production-history-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-history-measures {
+  grid-template-columns: repeat(2, auto) !important;
+  justify-content: start;
+  gap: 6px !important;
+}
+
+.production-history-measures span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--ui3-surface-muted, rgba(127, 127, 127, 0.1));
+}
+
 @media (max-width: 760px) {
   .production-capacity-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .production-report-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .production-period-switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .production-history-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .production-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .production-history-row > div:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .production-history-row .btn {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+  }
+}
+
+/* Piloto: produção/impressoras compacta, fluida e livre da navegação inferior. */
+@media (max-width: 767px) {
+  [data-ui-version="v3"].ui3-production {
+    padding-bottom: calc(var(--ui3-bottom-nav-height, 72px) + var(--ui3-safe-bottom, 0px) + var(--ui3-space-5, 20px));
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary {
+    gap: var(--ui3-space-2, 8px);
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary > div {
+    min-height: 0;
+    align-content: center;
+    padding: 8px 10px;
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary span,
+  [data-ui-version="v3"] .production-capacity-summary small {
+    font-size: 0.68rem;
+    line-height: 1.2;
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary strong {
+    font-size: 0.95rem;
+    line-height: 1.15;
+  }
+
+  [data-ui-version="v3"] .production-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    grid-auto-flow: row !important;
+    grid-auto-columns: auto !important;
+    gap: 4px !important;
+    overflow: visible !important;
+    touch-action: pan-y !important;
+  }
+
+  [data-ui-version="v3"] .production-tabs button {
+    min-width: 0 !important;
+    min-height: 34px;
+  }
+
+  [data-ui-version="v3"] .production-tabs button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  [data-ui-version="v3"] .production-printer-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--ui3-space-2, 8px);
+  }
+
+  [data-ui-version="v3"] .production-printer-toolbar .btn {
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 38px;
+    justify-self: end;
+    padding: 7px 11px !important;
+    font-size: 0.72rem !important;
+    line-height: 1.2;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 420px) {
+  [data-ui-version="v3"] .production-printer-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  [data-ui-version="v3"] .production-printer-toolbar .btn {
+    justify-self: end;
   }
 }
 /* Promoções 3D: busca simples em lojas oficiais */
@@ -440,8 +1304,15 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   border-radius:var(--radius-xl, 22px);
 }
 
+.promotions-3d-search-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
 .promotions-3d-search{
   display:flex;
+  flex:1 1 auto;
   align-items:center;
   gap:10px;
   min-height:50px;
@@ -474,6 +1345,15 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   background:transparent !important;
   box-shadow:none !important;
   font:inherit;
+}
+
+.promotions-3d-filter-toggle{
+  display:none;
+}
+
+.promotions-3d-filter-panel{
+  display:grid;
+  gap:16px;
 }
 
 .promotions-3d-filters{
@@ -1217,9 +2097,46 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
     min-height:48px;
   }
 
+  .promotions-3d-filter-toggle{
+    display:grid;
+    flex:0 0 48px;
+    place-items:center;
+    width:48px;
+    height:48px;
+    padding:0;
+    border:1px solid var(--border-primary);
+    border-radius:14px;
+    color:var(--text-primary);
+    background:color-mix(in srgb, var(--card-bg) 90%, var(--accent-primary) 10%);
+    cursor:pointer;
+  }
+
+  .promotions-3d-filter-toggle[aria-expanded="true"]{
+    color:#fff;
+    border-color:var(--accent-primary);
+    background:var(--accent-primary);
+  }
+
+  .promotions-3d-filter-toggle .ui-icon{
+    width:21px;
+    height:21px;
+  }
+
+  .promotions-3d-filter-panel{
+    display:none;
+  }
+
+  .promotions-3d-filter-panel.is-open{
+    display:grid;
+    gap:14px;
+    padding-top:14px;
+    border-top:1px solid var(--border-primary);
+  }
+
   .promotions-3d-monitor{
     padding:14px;
     border-radius:18px;
+    box-shadow:none;
   }
 
   .promotions-monitor-head{
@@ -1279,9 +2196,26 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   }
 
   .promotions-3d-grid,
-  .promotions-3d-flash-grid{
+  .promotions-3d-grid{
     grid-template-columns:1fr;
     gap:12px;
+  }
+
+  .promotions-3d-flash-grid{
+    grid-auto-columns:minmax(280px, 88%);
+    grid-auto-flow:column;
+    grid-template-columns:none;
+    gap:12px;
+    overflow-x:auto;
+    overscroll-behavior-inline:contain;
+    padding:2px 2px 8px;
+    scroll-padding-inline:2px;
+    scroll-snap-type:inline mandatory;
+    scrollbar-width:thin;
+  }
+
+  .promotions-3d-flash-grid .promotion-3d-card{
+    scroll-snap-align:start;
   }
 
   .promotion-3d-card{

@@ -2,14 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.23";
-const APP_VERSION_CODE = 24;
+const APP_VERSION = "1.0.26";
+const APP_VERSION_CODE = 27;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Mercado Livre integrado ao bot de ofertas, com atualização automática e links visíveis para todos.",
-  "Promoções 3D com até 60 ofertas recentes, atualizadas automaticamente em lojas oficiais.",
-  "Monitor de produtos e buscas salvas com contador de novidades dentro do Simplifica.",
-  "Cartões compactos e alinhados, com acesso direto à oferta no navegador."
+  "Telas mais fluidas, com atualização independente dos dados e menos piscadas.",
+  "Cards e botões ajustados para evitar cortes no celular, inclusive no Superadmin.",
+  "Sincronização das impressoras protegida contra respostas atrasadas ou sobrepostas.",
+  "Login mantido por até 7 dias, com proteção local opcional a cada 12 horas.",
+  "Catálogo do Superadmin agora permite revisar planos ativos, ocultos e inativos."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -90,7 +91,7 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
-const PRINTER_FEATURE_ENABLED = false;
+const PRINTER_FEATURE_ENABLED = true;
 const PERSONALIZATION_SCREEN_ENABLED = false;
 const ERP_THEME_PREFERENCE_STORAGE_KEY = "simplifica3d:erp-theme-preference";
 const FREE_ACTION_CREDIT_LIMIT = 5;
@@ -306,6 +307,7 @@ const BACKEND_LICENSE_CACHE_KEYS = Object.freeze([
 ]);
 const LOCAL_UNLOCK_KEY = "simplifica3dLastLocalUnlockAt";
 const LOCAL_UNLOCK_MAX_MS = 12 * 60 * 60 * 1000;
+const LOCAL_SESSION_MAX_MS = 7 * 24 * 60 * 60 * 1000;
 const OFFLINE_LICENSE_STALE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
 const LICENSE_MONITOR_INTERVAL_MS = 60 * 1000;
 const REALTIME_SYNC_HEARTBEAT_MS = 25 * 1000;
@@ -549,6 +551,7 @@ const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   feedback: Object.freeze({ label: "Ajuda e suporte", lucide: "LifeBuoy", group: "settings" }),
   conta: Object.freeze({ label: "Meu perfil", lucide: "UserRound", group: "account" }),
   search: Object.freeze({ label: "Pesquisar", lucide: "Search", group: "system" }),
+  filtro: Object.freeze({ label: "Filtros", lucide: "ListFilter", group: "system" }),
   admin: Object.freeze({ label: "Admin", lucide: "ShieldUser", group: "admin" }),
   agenda: Object.freeze({ label: "Agenda", lucide: "CalendarDays", group: "system" }),
   back: Object.freeze({ label: "Voltar", lucide: "ArrowLeft", group: "system" }),
@@ -664,6 +667,8 @@ const UI_ICON_ALIASES = Object.freeze({
   headphones: "suporte",
   info: "sobre",
   search: "search",
+  filter: "filtro",
+  listfilter: "filtro",
   editar: "edit",
   sync: "refresh",
   refreshcw: "refresh",
@@ -1104,6 +1109,7 @@ let appConfig = carregarObjeto("appConfig", {
   updateDismissedCode: 0,
   browserPasswordSaveOffer: true,
   keepSessionCache: true,
+  localLockEnabled: true,
   biometricEnabled: false,
   biometricOfferDismissed: false,
   backupReminderLastAt: "",
@@ -2887,6 +2893,8 @@ const printers = {
 
 const printerMonitoringState = {
   scope: "",
+  requestId: 0,
+  pendingForce: false,
   loaded: false,
   loading: false,
   error: "",
@@ -2897,6 +2905,11 @@ const printerMonitoringState = {
   agents: [],
   access: {},
   history: {}
+};
+
+const bambuLoginDraftState = {
+  printerId: "",
+  awaitingCode: false
 };
 
 const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
@@ -3864,6 +3877,7 @@ function sanitizarCacheSessaoLocalLegado() {
     const seguro = {
       usuarioAtualEmail: normalizarEmail(cache.usuarioAtualEmail || cache.supabase.supabaseEmail || ""),
       salvoEm: cache.salvoEm || new Date().toISOString(),
+      autenticadoEm: cache.autenticadoEm || cache.salvoEm || new Date().toISOString(),
       supabase: {
         supabaseUserId: cache.supabase.supabaseUserId || "",
         supabaseEmail: normalizarEmail(cache.supabase.supabaseEmail || ""),
@@ -3885,16 +3899,25 @@ function limparSessaoSensivelSupabase() {
   localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
 }
 
-function salvarCacheSessaoLocal() {
+function salvarCacheSessaoLocal({ novaAutenticacao = false } = {}) {
   if (appConfig.keepSessionCache === false) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
     return;
   }
 
   const usuario = normalizarEmail(usuarioAtualEmail);
+  let cacheAnterior = {};
+  try {
+    cacheAnterior = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+  } catch (_) {}
+  const mesmoUsuario = normalizarEmail(cacheAnterior.usuarioAtualEmail || cacheAnterior.supabase?.supabaseEmail || "") === usuario;
+  const autenticadoEm = novaAutenticacao || !mesmoUsuario
+    ? new Date().toISOString()
+    : (cacheAnterior.autenticadoEm || cacheAnterior.salvoEm || new Date().toISOString());
   const cache = {
     usuarioAtualEmail: usuario,
     salvoEm: new Date().toISOString(),
+    autenticadoEm,
     supabase: {
       supabaseUserId: syncConfig.supabaseUserId || "",
       supabaseEmail: normalizarEmail(syncConfig.supabaseEmail || ""),
@@ -3917,9 +3940,14 @@ function getUltimoDesbloqueioLocalMs() {
 
 function precisaDesbloqueioLocal() {
   if (!usuarioAtualEmail || !syncConfig.supabaseUserId) return false;
-  if (appConfig.keepSessionCache !== false) return false;
+  if (appConfig.localLockEnabled === false) return false;
   const ultimo = getUltimoDesbloqueioLocalMs();
   return !ultimo || Date.now() - ultimo > LOCAL_UNLOCK_MAX_MS;
+}
+
+function cacheSessaoLocalExpirou(cache = {}) {
+  const autenticadoEm = Date.parse(cache.autenticadoEm || cache.salvoEm || "") || 0;
+  return !autenticadoEm || Date.now() - autenticadoEm >= LOCAL_SESSION_MAX_MS;
 }
 
 function licencaLocalAindaConfiavel() {
@@ -4122,6 +4150,18 @@ async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
 
 async function restaurarCacheSessaoLocal() {
   if (appConfig.keepSessionCache === false) return false;
+  let cachePersistido = {};
+  try {
+    cachePersistido = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+  } catch (_) {}
+  if ((usuarioAtualEmail || cachePersistido.usuarioAtualEmail) && cacheSessaoLocalExpirou(cachePersistido)) {
+    usuarioAtualEmail = "";
+    sessionStorage.removeItem("usuarioAtualEmail");
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+    limparSessaoSensivelSupabase();
+    mostrarToast("Por segurança, confirme seu login semanal.", "info", 5200);
+    return false;
+  }
   if (usuarioAtualEmail) {
     try {
       const emailSessaoAtual = normalizarEmail(usuarioAtualEmail);
@@ -4160,7 +4200,7 @@ async function restaurarCacheSessaoLocal() {
     return false;
   }
   try {
-    const cache = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+    const cache = cachePersistido;
     const email = normalizarEmail(cache.usuarioAtualEmail || cache.supabase?.supabaseEmail || "");
     if (!email || !normalizarUsuarios(usuarios).some((usuario) => usuario.email === email && usuario.ativo)) return false;
 
@@ -4169,11 +4209,6 @@ async function restaurarCacheSessaoLocal() {
       localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
       return false;
     }
-    if (appConfig.biometricEnabled && isAndroid()) {
-      const biometria = await confirmarBiometriaSeDisponivel("Confirme sua identidade para abrir seus dados.");
-      if (biometria.disponivel && !biometria.ok) return false;
-    }
-
     if (!estaOnline()) {
       if (!licencaLocalAindaConfiavel()) {
         ativarTravaLocal("offline-stale-license");
@@ -7351,6 +7386,9 @@ function finalizarIntroAbertura(overlay) {
   if (!overlay || overlay.dataset.done === "true") return;
   overlay.dataset.done = "true";
   try {
+    localStorage.setItem("simplificaIntroAberturaConcluida", APP_VERSION || "1");
+  } catch (_) {}
+  try {
     sessionStorage.setItem("simplificaIntroAberturaConcluida", APP_VERSION || "1");
   } catch (_) {}
   overlay.classList.add("is-hidden");
@@ -7383,6 +7421,9 @@ function iniciarIntroAbertura() {
   if (parseStorefrontPublicRoute(location.pathname)) return;
   if (isSuperAdminRoute(location.pathname)) return;
   if (document.getElementById("introOverlay")) return;
+  try {
+    if (localStorage.getItem("simplificaIntroAberturaConcluida")) return;
+  } catch (_) {}
   try {
     if (sessionStorage.getItem("simplificaIntroAberturaConcluida")) return;
   } catch (_) {}
@@ -8408,6 +8449,20 @@ function formatarDataCurta(valor = "") {
   const data = normalizarDataLocal(valor, null);
   if (!data) return String(valor);
   return data.toLocaleDateString("pt-BR");
+}
+
+function formatarDataHora(valor = "") {
+  if (!valor) return "";
+  const data = normalizarDataLocal(valor, null);
+  if (!data) return String(valor);
+  return data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
 }
 
 function calcularSaldo() {
@@ -9794,14 +9849,17 @@ function iniciarTransicaoNavegacao(tipo = "forward") {
 }
 
 function renderAppComTransicaoNavegacao(tipo = "forward") {
-  document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
-  delete document.documentElement.dataset.navDirection;
+  iniciarTransicaoNavegacao(tipo);
+  document.documentElement.dataset.navDirection = tipo;
   renderApp();
+  requestAnimationFrame(() => aplicarMotionSequenciado());
 }
 
 function aplicarMotionSequenciado() {
   if (typeof document === "undefined") return;
-  if (isMobile() && document.body.dataset.motion !== "high") return;
+  const navegando = document.body.classList.contains("motion-forward")
+    || document.body.classList.contains("motion-back");
+  if (isMobile() && document.body.dataset.motion !== "high" && !navegando) return;
   const animar = document.body.classList.contains("motion-forward")
     || document.body.classList.contains("motion-back")
     || window.__simplificaMotionPrimed !== true;
@@ -10735,7 +10793,9 @@ function renderApp() {
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
-  app.innerHTML = mobile ? renderMobile() : renderDesktop();
+  atualizarArvoreInterface(app, mobile ? renderMobile() : renderDesktop(), {
+    chaveEstrutural: getChaveEstruturalInterface(mobile)
+  });
   compactarBarrasAcoesMobile();
   sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
@@ -10763,6 +10823,121 @@ function renderApp() {
   }
   aplicarMotionSequenciado();
   if (!modoSuperadminIsolado) hidratarLojaOnlineAdmin();
+}
+
+function getChaveEstruturalInterface(mobile = false) {
+  const usuario = getUsuarioAtual();
+  return [
+    telaAtual,
+    mobile ? "mobile" : "desktop",
+    getInterfaceMode(),
+    usuario?.id || usuario?.supabaseUserId || (adminLogado ? "admin" : "visitante"),
+    window.__simplificaLocalLockActive ? "bloqueado" : "liberado"
+  ].join(":");
+}
+
+function atualizarArvoreInterface(container, html = "", opcoes = {}) {
+  if (!container) return false;
+  const proximoHtml = String(html || "");
+  const chaveEstrutural = String(opcoes.chaveEstrutural || "");
+  const mudouEstrutura = container.dataset.renderKey !== chaveEstrutural;
+  if (!container.childNodes.length || mudouEstrutura) {
+    container.innerHTML = proximoHtml;
+    container.dataset.renderKey = chaveEstrutural;
+    return true;
+  }
+  if (container.innerHTML === proximoHtml) return false;
+
+  const template = document.createElement("template");
+  template.innerHTML = proximoHtml;
+  reconciliarFilhosInterface(container, template.content);
+  return true;
+}
+
+function reconciliarFilhosInterface(atual, proximo) {
+  const novos = Array.from(proximo.childNodes);
+  const atuaisPorChave = new Map();
+  Array.from(atual.childNodes).forEach((no) => {
+    const chave = obterChaveNoInterface(no);
+    if (chave && !atuaisPorChave.has(chave)) atuaisPorChave.set(chave, no);
+  });
+  novos.forEach((novo, indice) => {
+    const chave = obterChaveNoInterface(novo);
+    const posicaoAtual = atual.childNodes[indice];
+    let existente = chave ? atuaisPorChave.get(chave) : posicaoAtual;
+    if (chave && !existente) {
+      atual.insertBefore(novo.cloneNode(true), posicaoAtual || null);
+      return;
+    }
+    if (chave && existente !== posicaoAtual) {
+      atual.insertBefore(existente, posicaoAtual || null);
+    }
+    existente = atual.childNodes[indice];
+    if (!existente) {
+      atual.appendChild(novo.cloneNode(true));
+      return;
+    }
+    reconciliarNoInterface(existente, novo);
+  });
+  while (atual.childNodes.length > novos.length) {
+    atual.lastChild.remove();
+  }
+}
+
+function obterChaveNoInterface(no) {
+  if (!(no instanceof Element)) return "";
+  const chave = no.id
+    || no.dataset.liveKey
+    || no.dataset.printerId
+    || no.dataset.orderId
+    || no.dataset.customerId
+    || no.dataset.itemId;
+  return chave ? `${no.tagName}:${chave}` : "";
+}
+
+function reconciliarNoInterface(atual, proximo) {
+  if (atual.isEqualNode(proximo)) return atual;
+  if (atual.nodeType !== proximo.nodeType
+    || (atual.nodeType === Node.ELEMENT_NODE && atual.tagName !== proximo.tagName)) {
+    const substituto = proximo.cloneNode(true);
+    atual.replaceWith(substituto);
+    return substituto;
+  }
+  if (atual.nodeType === Node.TEXT_NODE || atual.nodeType === Node.COMMENT_NODE) {
+    if (atual.nodeValue !== proximo.nodeValue) atual.nodeValue = proximo.nodeValue;
+    return atual;
+  }
+
+  sincronizarAtributosInterface(atual, proximo);
+  reconciliarFilhosInterface(atual, proximo);
+  sincronizarEstadoCampoInterface(atual, proximo);
+  return atual;
+}
+
+function sincronizarAtributosInterface(atual, proximo) {
+  Array.from(atual.attributes).forEach((atributo) => {
+    if (!proximo.hasAttribute(atributo.name)) atual.removeAttribute(atributo.name);
+  });
+  Array.from(proximo.attributes).forEach((atributo) => {
+    if (atual.getAttribute(atributo.name) !== atributo.value) {
+      atual.setAttribute(atributo.name, atributo.value);
+    }
+  });
+}
+
+function sincronizarEstadoCampoInterface(atual, proximo) {
+  if (!(atual instanceof HTMLElement)) return;
+  const focado = document.activeElement === atual;
+  if (atual instanceof HTMLInputElement) {
+    if (!focado && atual.value !== proximo.value) atual.value = proximo.value;
+    atual.checked = proximo.checked;
+  } else if (atual instanceof HTMLTextAreaElement) {
+    if (!focado && atual.value !== proximo.value) atual.value = proximo.value;
+  } else if (atual instanceof HTMLSelectElement && atual.value !== proximo.value) {
+    atual.value = proximo.value;
+  } else if (atual instanceof HTMLDetailsElement) {
+    atual.open = proximo.open;
+  }
 }
 
 function podeMostrarControlesFlutuantes() {
@@ -12595,7 +12770,8 @@ function getMenuGroups() {
       titulo: "Operação",
       itens: [
         { tela: "pedido", icone: "pedido", texto: "Novo pedido" },
-        { tela: "producao", icone: "producao", texto: "Produção" }
+        { tela: "producao", icone: "producao", texto: "Produção" },
+        { tela: "impressoras", icone: "impressoras", texto: "Impressoras" }
       ]
     },
     {
@@ -13739,52 +13915,58 @@ function renderPromocoes3d() {
       </header>
 
       <section class="promotions-3d-search-card card">
-        <label class="promotions-3d-search">
-          <span>${renderUiIcon("search")}</span>
-          <input type="search" aria-label="Pesquisar promoções" value="${escaparAttr(promotions3dState.query)}" placeholder="Ex.: filamento PLA, resina ou impressora" oninput="pesquisarPromocoes3d(this.value)">
-        </label>
-        <div class="promotions-3d-filters" role="group" aria-label="Filtrar promoções">
-          ${[
-            ["todas", "Todas"],
-            ["impressoras", "Impressoras"],
-            ["filamentos", "Filamentos"],
-            ["resinas", "Resinas"],
-            ["materiais", "Materiais"]
-          ].map(([value, label]) => `
-            <button class="promotion-filter-button ${promotions3dState.filter === value ? "active" : ""}" type="button" aria-pressed="${promotions3dState.filter === value}" onclick="filtrarPromocoes3d('${value}')">${label}</button>
-          `).join("")}
+        <div class="promotions-3d-search-row">
+          <label class="promotions-3d-search">
+            <span>${renderUiIcon("search")}</span>
+            <input type="search" aria-label="Pesquisar promoções" value="${escaparAttr(promotions3dState.query)}" placeholder="Ex.: filamento PLA, resina ou impressora" oninput="pesquisarPromocoes3d(this.value)">
+          </label>
+          <button class="promotions-3d-filter-toggle" type="button" aria-label="Abrir filtros e monitor" aria-expanded="false" aria-controls="promotions3dFilterPanel" onclick="alternarPainelFiltrosPromocoes3d(this)">
+            ${renderUiIcon("filtro")}
+          </button>
         </div>
-        <div class="promotions-3d-selects">
-          <label>
-            <span>Loja</span>
-            <select class="promotions-store-filter" onchange="filtrarLojaPromocoes3d(this.value)">
-              ${renderOpcoesLojasPromocoes3d()}
-            </select>
-          </label>
-          <label>
-            <span>Organizar</span>
-            <select onchange="ordenarPromocoes3d(this.value)">
-              <option value="recentes" ${promotions3dState.sort === "recentes" ? "selected" : ""}>Mais recentes</option>
-              <option value="melhores" ${promotions3dState.sort === "melhores" ? "selected" : ""}>Melhores ofertas</option>
-              <option value="maior-desconto" ${promotions3dState.sort === "maior-desconto" ? "selected" : ""}>Maior desconto</option>
-              <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
-            </select>
-          </label>
-          <label>
-            <span>Desconto mínimo</span>
-            <select class="promotions-discount-filter" onchange="filtrarDescontoPromocoes3d(this.value)">
-              ${[0, 10, 20, 30, 40, 50].map((value) => `
-                <option value="${value}" ${promotions3dState.discountMin === value ? "selected" : ""}>${value ? `${value}% ou mais` : "Todos"}</option>
-              `).join("")}
-            </select>
-          </label>
-          <small class="promotions-updated-label">Busca automática ativa • atualização a cada 5 minutos</small>
+        <div class="promotions-3d-filter-panel" id="promotions3dFilterPanel">
+          <div class="promotions-3d-filters" role="group" aria-label="Filtrar promoções">
+            ${[
+              ["todas", "Todas"],
+              ["impressoras", "Impressoras"],
+              ["filamentos", "Filamentos"],
+              ["resinas", "Resinas"],
+              ["materiais", "Materiais"]
+            ].map(([value, label]) => `
+              <button class="promotion-filter-button ${promotions3dState.filter === value ? "active" : ""}" type="button" aria-pressed="${promotions3dState.filter === value}" onclick="filtrarPromocoes3d('${value}')">${label}</button>
+            `).join("")}
+          </div>
+          <div class="promotions-3d-selects">
+            <label>
+              <span>Loja</span>
+              <select class="promotions-store-filter" onchange="filtrarLojaPromocoes3d(this.value)">
+                ${renderOpcoesLojasPromocoes3d()}
+              </select>
+            </label>
+            <label>
+              <span>Organizar</span>
+              <select onchange="ordenarPromocoes3d(this.value)">
+                <option value="recentes" ${promotions3dState.sort === "recentes" ? "selected" : ""}>Mais recentes</option>
+                <option value="melhores" ${promotions3dState.sort === "melhores" ? "selected" : ""}>Melhores ofertas</option>
+                <option value="maior-desconto" ${promotions3dState.sort === "maior-desconto" ? "selected" : ""}>Maior desconto</option>
+                <option value="menor-preco" ${promotions3dState.sort === "menor-preco" ? "selected" : ""}>Menor preço</option>
+              </select>
+            </label>
+            <label>
+              <span>Desconto mínimo</span>
+              <select class="promotions-discount-filter" onchange="filtrarDescontoPromocoes3d(this.value)">
+                ${[0, 10, 20, 30, 40, 50].map((value) => `
+                  <option value="${value}" ${promotions3dState.discountMin === value ? "selected" : ""}>${value ? `${value}% ou mais` : "Todos"}</option>
+                `).join("")}
+              </select>
+            </label>
+            <small class="promotions-updated-label">Busca automática ativa • atualização a cada 5 minutos</small>
+          </div>
+          <div id="promocoes3dMonitor">
+            ${renderPainelMonitorPromocoes3d()}
+          </div>
         </div>
       </section>
-
-      <div id="promocoes3dMonitor">
-        ${renderPainelMonitorPromocoes3d()}
-      </div>
 
       <div id="promocoes3dResultado">
         ${renderResultadosPromocoes3d()}
@@ -13796,6 +13978,16 @@ function renderPromocoes3d() {
       </footer>
     </section>
   `;
+}
+
+function alternarPainelFiltrosPromocoes3d(button) {
+  const panel = document.getElementById("promotions3dFilterPanel");
+  if (!panel) return;
+  const open = panel.classList.toggle("is-open");
+  if (button) {
+    button.setAttribute("aria-expanded", String(open));
+    button.setAttribute("aria-label", open ? "Fechar filtros e monitor" : "Abrir filtros e monitor");
+  }
 }
 
 function atualizarResultadosPromocoes3d() {
@@ -13848,12 +14040,40 @@ function monitorPromocoes3dPrecisaAtualizar() {
   return !Number.isFinite(lastChecked) || Date.now() - lastChecked >= PROMOTIONS_3D_REFRESH_MS;
 }
 
+function criarAssinaturaVisualPromocoes3d(items = []) {
+  return JSON.stringify(items.map((item) => [
+    item.id,
+    item.title,
+    item.currentPrice,
+    item.originalPrice,
+    item.pixPrice,
+    item.discount,
+    item.image,
+    item.url,
+    item.expiresAt
+  ]));
+}
+
 async function carregarPromocoes3d({ force = false, userRequested = false, background = false } = {}) {
   if (promotions3dState.status === "loading") return;
   if (!promotions3dState.items.length) carregarCachePromocoes3d();
+  const tinhaOfertas = promotions3dState.items.length > 0;
+  const assinaturaAnterior = criarAssinaturaVisualPromocoes3d(promotions3dState.items);
+  const assinaturaMonitorAnterior = JSON.stringify({
+    watches: promotions3dMonitorState.watches,
+    unreadIds: promotions3dMonitorState.unreadIds
+  });
   promotions3dState.status = "loading";
   promotions3dState.message = "";
-  atualizarResultadosPromocoes3d();
+  if (!tinhaOfertas) {
+    atualizarResultadosPromocoes3d();
+  } else if (!background) {
+    const refreshButton = document.querySelector(".promotion-refresh-button");
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.innerHTML = `${renderUiIcon("refresh")} Atualizando...`;
+    }
+  }
   try {
     const separator = PROMOTIONS_3D_API_URL.includes("?") ? "&" : "?";
     const url = force ? `${PROMOTIONS_3D_API_URL}${separator}t=${Date.now()}` : PROMOTIONS_3D_API_URL;
@@ -13868,15 +14088,40 @@ async function carregarPromocoes3d({ force = false, userRequested = false, backg
     promotions3dState.status = "ready";
     salvarCachePromocoes3d();
     processarMonitorPromocoes3d(items);
-    atualizarResultadosPromocoes3d();
-    atualizarPainelMonitorPromocoes3d();
+    const ofertasMudaram = assinaturaAnterior !== criarAssinaturaVisualPromocoes3d(items);
+    if (!tinhaOfertas || ofertasMudaram) {
+      atualizarResultadosPromocoes3d();
+    } else {
+      const updatedLabel = document.querySelector(".promotions-updated-label");
+      if (updatedLabel) updatedLabel.textContent = `${formatarAtualizacaoPromocoes3d()} • nova busca em 5 minutos`;
+    }
+    const monitorMudou = assinaturaMonitorAnterior !== JSON.stringify({
+      watches: promotions3dMonitorState.watches,
+      unreadIds: promotions3dMonitorState.unreadIds
+    });
+    if (!tinhaOfertas || monitorMudou) atualizarPainelMonitorPromocoes3d();
+    if (!background && !ofertasMudaram) {
+      const refreshButton = document.querySelector(".promotion-refresh-button");
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.innerHTML = `${renderUiIcon("refresh")} Atualizar ofertas`;
+      }
+    }
     if (userRequested) {
       mostrarToast("Ofertas atualizadas.", "sucesso", 2400);
     }
   } catch {
     promotions3dState.status = promotions3dState.items.length ? "ready" : "error";
     promotions3dState.message = "Não foi possível atualizar agora. Tente novamente em alguns minutos.";
-    atualizarResultadosPromocoes3d();
+    if (!tinhaOfertas) {
+      atualizarResultadosPromocoes3d();
+    } else if (!background) {
+      const refreshButton = document.querySelector(".promotion-refresh-button");
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.innerHTML = `${renderUiIcon("refresh")} Atualizar ofertas`;
+      }
+    }
     if (userRequested || (!background && !promotions3dState.items.length)) {
       mostrarToast(promotions3dState.message, "aviso", 4200);
     }
@@ -24405,6 +24650,7 @@ function renderUiIcon(tipo = "", fallback = "") {
     feedback: `<svg ${attrs}><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z"/><path d="M9 9h6M9 13h4"/></svg>`,
     sobre: `<svg ${attrs}><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.1"/></svg>`,
     search: `<svg ${attrs}><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>`,
+    filtro: `<svg ${attrs}><path d="M4 5h16"/><path d="M7 12h10"/><path d="M10 19h4"/></svg>`,
     view: `<svg ${attrs}><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v5h5"/><path d="M9 13h5"/><path d="M9 17h7"/></svg>`,
     plus: `<svg ${attrs}><path d="M12 5v14"/><path d="M5 12h14"/></svg>`,
     more: `<svg ${attrs}><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg>`,
@@ -24901,7 +25147,10 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
   if (!syncConfig.supabaseAccessToken || !getUsuarioAtual()) return;
   const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
   if (printerMonitoringState.scope !== scope) {
+    printerMonitoringState.requestId += 1;
     printerMonitoringState.scope = scope;
+    printerMonitoringState.loading = false;
+    printerMonitoringState.pendingForce = false;
     printerMonitoringState.loaded = false;
     printerMonitoringState.error = "";
     printerMonitoringState.items = [];
@@ -24912,14 +25161,19 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     printerMonitoringState.access = {};
     printerMonitoringState.history = {};
   }
-  if (printerMonitoringState.loading || (printerMonitoringState.loaded && !forcar)) return;
+  if (printerMonitoringState.loading) {
+    if (forcar) printerMonitoringState.pendingForce = true;
+    return;
+  }
+  if (printerMonitoringState.loaded && !forcar) return;
+  const requestId = ++printerMonitoringState.requestId;
   printerMonitoringState.loading = true;
   printerMonitoringState.error = "";
   if (telaAtual === "impressoras") renderizarPreservandoScroll();
   try {
     const workspace = await printerBackendRequest("list");
     const currentScope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
-    if (currentScope !== scope) return;
+    if (currentScope !== scope || requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.items = Array.isArray(workspace?.printers) ? workspace.printers : [];
     printerMonitoringState.brands = Array.isArray(workspace?.brands) ? workspace.brands : [];
     printerMonitoringState.models = Array.isArray(workspace?.models) ? workspace.models : [];
@@ -24929,10 +25183,15 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     printerMonitoringState.loaded = true;
     sincronizarImpressorasComCalculadora();
   } catch (erro) {
+    if (requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.error = getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message || "Não foi possível carregar as impressoras.";
   } finally {
+    if (requestId !== printerMonitoringState.requestId) return;
+    const repetir = printerMonitoringState.pendingForce;
+    printerMonitoringState.pendingForce = false;
     printerMonitoringState.loading = false;
     if (telaAtual === "impressoras" || telaAtual === "calculadora") renderizarPreservandoScroll();
+    if (repetir) queueMicrotask(() => hidratarImpressorasSeNecessario(true));
   }
 }
 
@@ -24955,13 +25214,21 @@ function getPrinterConnectorLabel(value = "") {
 
 function renderPrinterStatusBadge(impressora = {}) {
   const state = getPrinterCurrentStatus(impressora);
+  if (state === "unknown" && impressora.connection_status === "connected") {
+    return `<span class="printer-status-badge status-success"><i aria-hidden="true"></i>Online</span>`;
+  }
   const config = getPrinterMonitoringService()?.status(state) || { label: state, tone: "muted" };
   return `<span class="printer-status-badge status-${escaparAttr(config.tone)}"><i aria-hidden="true"></i>${escaparHtml(config.label)}</span>`;
 }
 
 function formatarTemperaturaImpressora(valor) {
+  if (valor === null || valor === undefined || valor === "") return "—";
   const numero = Number(valor);
   return Number.isFinite(numero) ? `${numero.toFixed(0)} °C` : "—";
+}
+
+function temNumeroImpressora(valor) {
+  return valor !== null && valor !== undefined && valor !== "" && Number.isFinite(Number(valor));
 }
 
 function getPedidoVinculadoImpressora(impressora = {}) {
@@ -24973,16 +25240,111 @@ function getPedidoVinculadoImpressora(impressora = {}) {
 function renderResumoImpressoraSimplifica(impressora = {}) {
   const latest = impressora.latest_status || {};
   const pedido = getPedidoVinculadoImpressora(impressora);
+  const conexao = getConexaoAtualImpressora(impressora);
+  const estado = String(latest.normalized_state || latest.state || "unknown").toLowerCase();
+  const situacao = estado === "printing" ? "Imprimindo" : conexao.online ? "Online" : "Sem sinal";
   return `
-    <article class="printer-summary-row">
+    <button type="button" class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}" onclick="abrirPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">
       <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
       <span class="printer-summary-main">
         <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
-        <small>${renderPrinterStatusBadge(impressora)}${pedido ? ` Pedido #${escaparHtml(pedido.id)}` : " Sem pedido vinculado"}</small>
+        <small><span class="printer-friendly-summary-status">${escaparHtml(situacao)}</span>${pedido ? ` · Pedido #${escaparHtml(pedido.id)}` : " · Sem pedido vinculado"}</small>
       </span>
-      ${Number.isFinite(Number(latest.progress_percent)) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>—</strong>`}
-    </article>
+      ${temNumeroImpressora(latest.progress_percent) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>›</strong>`}
+    </button>
   `;
+}
+
+function getTextoTrabalhoImpressora(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const pedido = getPedidoVinculadoImpressora(impressora);
+  return String(latest.job_name || latest.current_file || latest.file_name || pedido?.descricao || pedido?.nome || "Impressão atual")
+    .replace(/\.(gcode|3mf)$/i, "")
+    .trim() || "Impressão atual";
+}
+
+function getConexaoAtualImpressora(impressora = {}) {
+  const conectado = impressora.connection_status === "connected";
+  const automatico = String(impressora.connector_type || "manual") !== "manual";
+  const ultimoSinal = normalizarDataLocal(impressora.last_seen_at || "", null);
+  const sinalRecente = ultimoSinal && Math.abs(Date.now() - ultimoSinal.getTime()) <= 15 * 60 * 1000;
+  return {
+    online: conectado && (!automatico || sinalRecente),
+    ultimoSinal
+  };
+}
+
+function isImpressoraBambu(impressora = {}) {
+  return String(impressora.connector_type || "").toLowerCase() === "bambu"
+    || normalizarTextoBusca(`${getPrinterDisplayBrand(impressora)} ${getPrinterDisplayModel(impressora)}`).includes("bambu");
+}
+
+function abrirPainelImpressoraSimplifica(id) {
+  const impressora = getPrinterById(id);
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup) return;
+  const latest = impressora.latest_status || {};
+  const temProgresso = temNumeroImpressora(latest.progress_percent);
+  const progressoNumero = temProgresso ? Number(latest.progress_percent) : 0;
+  const progresso = Math.max(0, Math.min(100, Math.round(progressoNumero)));
+  const tempo = temNumeroImpressora(latest.remaining_seconds) && Number(latest.remaining_seconds) > 0
+    ? (getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")
+    : "—";
+  const tempoDecorrido = temNumeroImpressora(latest.elapsed_seconds) && Number(latest.elapsed_seconds) > 0
+    ? (getPrinterMonitoringService()?.formatDuration(latest.elapsed_seconds) || "—")
+    : "—";
+  const camadaAtual = Number(latest.current_layer ?? latest.layer_current);
+  const totalCamadas = Number(latest.total_layers ?? latest.layer_total);
+  const camada = Number.isFinite(camadaAtual) && camadaAtual > 0
+    ? `${Math.round(camadaAtual)}${Number.isFinite(totalCamadas) && totalCamadas > 0 ? ` de ${Math.round(totalCamadas)}` : ""}`
+    : "—";
+  const conexao = getConexaoAtualImpressora(impressora);
+  const estadoAtual = String(latest.normalized_state || latest.state || "unknown").toLowerCase();
+  const imprimindo = estadoAtual === "printing" || temProgresso || !!latest.current_file || !!latest.job_name;
+  const tituloEstado = imprimindo ? "Imprimindo" : conexao.online ? "Disponível" : "Sem conexão recente";
+  const descricaoEstado = imprimindo
+    ? getTextoTrabalhoImpressora(impressora)
+    : conexao.online ? "Conectada e pronta para o próximo trabalho" : "Toque em Atualizar para tentar receber um novo sinal";
+  const detalhes = [
+    ["Modelo", getPrinterDisplayModel(impressora), getPrinterDisplayBrand(impressora)],
+    temNumeroImpressora(latest.nozzle_temp) ? ["Bico", formatarTemperaturaImpressora(latest.nozzle_temp), temNumeroImpressora(latest.nozzle_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}` : ""] : null,
+    temNumeroImpressora(latest.bed_temp) ? ["Mesa", formatarTemperaturaImpressora(latest.bed_temp), temNumeroImpressora(latest.bed_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.bed_target_temp)}` : ""] : null,
+    camada !== "—" ? ["Camada", camada, "Andamento da placa"] : null,
+    tempoDecorrido !== "—" ? ["Tempo impresso", tempoDecorrido, ""] : null,
+    tempo !== "—" ? ["Tempo restante", tempo, ""] : null
+  ].filter(Boolean);
+  const nomeTrabalho = getTextoTrabalhoImpressora(impressora);
+  const bambuSemConta = isImpressoraBambu(impressora) && !impressora.credentials_configured;
+  const temDadosImpressao = imprimindo || detalhes.length > 1;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-simple-monitor-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card printer-simple-monitor" onclick="event.stopPropagation()">
+        <div class="modal-header printer-simple-monitor-head">
+          <div><span class="eyebrow">Sua impressora</span><h2>${escaparHtml(impressora.name || "Impressora")}</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
+        </div>
+        <section class="printer-simple-job printer-simple-overview">
+          <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
+          <div><span class="printer-friendly-state">${escaparHtml(tituloEstado)}</span><strong>${escaparHtml(descricaoEstado)}</strong></div>
+        </section>
+        ${imprimindo ? `<section class="printer-current-work"><span>Placa / trabalho</span><strong>${escaparHtml(nomeTrabalho)}</strong></section>` : ""}
+        ${imprimindo && temProgresso ? `<div class="printer-simple-progress" aria-label="Progresso da impressão: ${progresso}%"><i style="--progress:${progresso}%"></i><strong>${progresso}%</strong></div>` : ""}
+        ${detalhes.length ? `<section class="printer-simple-details"><h3>Informações da impressora</h3><div class="printer-simple-monitor-grid">${detalhes.map(([rotulo, valor, complemento]) => `<div><span>${escaparHtml(rotulo)}</span><strong>${escaparHtml(valor)}</strong>${complemento ? `<small>${escaparHtml(complemento)}</small>` : ""}</div>`).join("")}</div></section>` : ""}
+        ${bambuSemConta ? `<p class="printer-data-notice">Conecte sua conta BambuLab para receber trabalho, progresso, tempo, camada e temperaturas.</p>` : !temDadosImpressao ? `<p class="printer-data-notice">A impressora está conectada. Os detalhes aparecerão quando ela enviar uma atualização completa.</p>` : ""}
+        <p class="printer-simple-connection"><i class="${conexao.online ? "is-online" : ""}" aria-hidden="true"></i><span>${conexao.online ? "Online" : "Sem sinal"}</span><small>${impressora.last_seen_at ? `Último sinal: ${escaparHtml(formatarDataHora(impressora.last_seen_at))}` : "Aguardando atualização"}</small></p>
+        <div class="actions printer-simple-monitor-actions">
+          ${bambuSemConta ? `<button class="btn" type="button" onclick="fecharPopup();setTimeout(()=>abrirLoginBambu('${escaparAttr(impressora.id)}'),80)">Conectar BambuLab</button>` : ""}
+          <button class="btn secondary" type="button" onclick="atualizarPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar</button>
+          ${podeGerenciarImpressoras() ? `<button class="btn ghost" type="button" onclick="fecharPopup();abrirCadastroImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("edit")} Editar</button>` : ""}
+        </div>
+      </section>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: impressora.name || "Impressora" });
+}
+
+async function atualizarPainelImpressoraSimplifica(id) {
+  await atualizarStatusImpressora(id);
+  abrirPainelImpressoraSimplifica(id);
 }
 
 function renderCardImpressora(impressora = {}) {
@@ -24995,7 +25357,7 @@ function renderCardImpressora(impressora = {}) {
   const progresso = Number(latest.progress_percent);
   const atualizado = latest.created_at || impressora.last_seen_at || impressora.updated_at;
   return `
-    <article class="printer-card" data-printer-id="${escaparAttr(impressora.id)}">
+    <article class="printer-card" data-live-key="printer-card:${escaparAttr(impressora.id)}" data-printer-id="${escaparAttr(impressora.id)}">
       <header class="printer-card-header">
         <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
         <div>
@@ -25012,7 +25374,7 @@ function renderCardImpressora(impressora = {}) {
         <div><span>Pedido</span><strong>${pedido ? `#${escaparHtml(pedido.id)}` : "Nenhum"}</strong></div>
       </div>
       <div class="printer-card-meta">
-        <span>${impressora.connection_status === "connected" ? "Conectada" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
+        <span>${impressora.connection_status === "connected" ? "Online" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
         <span>${atualizado ? `Atualizada ${escaparHtml(formatarDataHora(atualizado))}` : "Sem atualização automática"}</span>
         ${latest.current_file ? `<span class="printer-current-file">${escaparHtml(latest.current_file)}</span>` : ""}
       </div>
@@ -25032,7 +25394,6 @@ function renderCardImpressora(impressora = {}) {
 function renderImpressoras() {
   const items = getImpressorasAtivas();
   const podeGerenciar = podeGerenciarImpressoras();
-  const plano = normalizarSlugPlano(getCurrentPlanSlug());
   const automaticas = items.filter((item) => item.connector_type !== "manual").length;
   const imprimindo = items.filter((item) => getPrinterCurrentStatus(item) === "printing").length;
   const comErro = items.filter((item) => ["error", "offline"].includes(getPrinterCurrentStatus(item))).length;
@@ -25041,18 +25402,18 @@ function renderImpressoras() {
     return `<section class="card printer-screen"><div class="printer-loading">${renderUiIcon("impressoras")}<strong>Carregando impressoras...</strong></div></section>`;
   }
 
-  if (isSimplificaMode()) {
+  if (isSimplificaMode() || isMobile()) {
     return `
       <section class="card printer-screen printer-screen-simple">
         <div class="card-header">
-          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Impressoras</h2></div>
-          ${podeGerenciar ? renderAppButton({ label: "Adicionar", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
+          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Suas impressoras</h2><p class="muted">Acompanhe o estado e abra uma máquina para ver os detalhes.</p></div>
+          ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
         </div>
         ${printerMonitoringState.error ? `<p class="printer-error">${escaparHtml(printerMonitoringState.error)}</p>` : ""}
         <div class="printer-summary-list">
           ${items.length ? items.map(renderResumoImpressoraSimplifica).join("") : `<p class="empty">Nenhuma impressora cadastrada.</p>`}
         </div>
-        <p class="muted">Detalhes de conexão, custos e histórico completo ficam no Modo Profissional.</p>
+        ${items.length ? `<p class="printer-simple-help">Toque em uma impressora para atualizar, vincular pedidos ou editar.</p>` : ""}
       </section>
     `;
   }
@@ -25066,7 +25427,6 @@ function renderImpressoras() {
           <p>Consulte estado, progresso, temperaturas, custos e pedidos sem enviar comandos à impressora.</p>
         </div>
         <div class="actions">
-          ${plano === "pro" && podeGerenciar ? `<button class="btn ghost" type="button" onclick="abrirAgentesLocais()">Agente local</button>` : ""}
           ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", attrs: 'data-action="printer-add"' }) : ""}
         </div>
       </header>
@@ -25141,22 +25501,40 @@ function abrirCadastroImpressora(id = "") {
     return;
   }
   const impressora = id ? getPrinterById(id) : {};
-  const pro = isPlanAtLeast(getCurrentPlanSlug(), "pro");
   const brandId = impressora?.brand_id || "";
-  const automatico = String(impressora?.connector_type || "manual") !== "manual";
+  const guiado = !id;
+  const bambuConectadas = guiado
+    ? getImpressorasAtivas().filter((item) => isImpressoraBambu(item) && item.credentials_configured)
+    : [];
+  const bambuDisponiveis = isPlanAtLeast(getCurrentPlanSlug(), "start")
+    ? bambuConectadas
+    : bambuConectadas.slice(0, 1);
+  const conectorInicial = id ? String(impressora?.connector_type || "manual") : "manual";
+  const automatico = conectorInicial !== "manual";
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
     <div class="modal-backdrop printer-modal-backdrop" id="printerModalBackdrop" role="dialog" aria-modal="true">
-      <form class="modal-card printer-wizard printer-form-simple" id="printerForm">
+      <form class="modal-card printer-wizard printer-form-simple" id="printerForm" data-printer-guided="${guiado ? "true" : "false"}">
         <div class="modal-header">
           <div><span class="eyebrow">${id ? "Editar" : "Nova"} impressora</span><h2>${id ? escaparHtml(impressora.name) : "Adicionar impressora"}</h2></div>
           <button class="icon-button" id="printerCloseButton" type="button" title="Fechar">✕</button>
         </div>
         <input type="hidden" id="printerId" value="${escaparAttr(id)}">
         <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
+        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 3 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
+        <div class="printer-setup-choice ${bambuDisponiveis.length ? "has-connected-bambu" : ""}" data-printer-step="1">
+          ${bambuDisponiveis.length ? `<section class="printer-connected-account">
+            <div class="printer-connected-account-head"><span>${renderUiIcon("check")}</span><div><strong>Conta BambuLab já conectada</strong><small>Estas impressoras já estão disponíveis para esta conta.</small></div></div>
+            <div class="printer-connected-models">${bambuDisponiveis.map((item) => {
+              const conexao = getConexaoAtualImpressora(item);
+              return `<button type="button" data-existing-bambu-id="${escaparAttr(item.id)}"><span>${renderUiIcon("impressoras")}</span><strong>${escaparHtml(item.name || "Impressora BambuLab")}</strong><small>${escaparHtml(getPrinterDisplayModel(item))} · ${conexao.online ? "Online" : "Sem sinal"}</small></button>`;
+            }).join("")}</div>
+          </section>` : `<button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>`}
+          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>${bambuDisponiveis.length ? "Adicionar modelo diferente" : "Outra impressora"}</strong><small>Cadastrar para acompanhamento manual</small></button>
+        </div>` : ""}
 
-        <div class="printer-simple-fields">
+        <div class="printer-simple-fields" ${guiado ? 'data-printer-step="2"' : ""}>
           <label class="field field-wide"><span>Nome da impressora</span><input id="printerName" required maxlength="120" value="${escaparAttr(impressora?.name || "")}" placeholder="Ex.: Ender da produção" autofocus></label>
           <label class="field"><span>Modelo</span><input id="printerCustomModel" list="printerModelSuggestions" maxlength="120" value="${escaparAttr(getPrinterDisplayModel(impressora) === "Modelo não informado" ? "" : getPrinterDisplayModel(impressora))}" placeholder="Ex.: Ender 3 V2"><datalist id="printerModelSuggestions">${getPrinterModelSuggestionOptions()}</datalist></label>
           <label class="field"><span>Tipo</span><select id="printerType">${[["fdm","FDM"],["resin","Resina"],["other","Outro"]].map(([value,label]) => `<option value="${value}" ${String(impressora?.printer_type || "fdm") === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
@@ -25164,14 +25542,14 @@ function abrirCadastroImpressora(id = "") {
           <label class="field"><span>Status inicial</span><select id="printerManualStatus">${["idle","printing","paused","finished","maintenance"].map((state) => `<option value="${state}" ${String(impressora?.manual_status || "idle") === state ? "selected" : ""}>${escaparHtml(getPrinterMonitoringService()?.status(state)?.label || state)}</option>`).join("")}</select></label>
         </div>
 
-        <details class="printer-advanced-settings" ${automatico ? "open" : ""}>
+        <details class="printer-advanced-settings" ${automatico || guiado ? "open" : ""}>
           <summary>
             <span>${renderUiIcon("config")}</span>
             <strong>Configuração avançada</strong>
             <small>Marca, conexão automática e custos</small>
           </summary>
           <div class="printer-advanced-content">
-            <section>
+            <section ${guiado ? 'data-printer-step="2"' : ""}>
               <h3>Identificação</h3>
               <div class="form-grid">
                 <label class="field"><span>Marca</span><select id="printerBrand"><option value="">Outra / personalizada</option>${getPrinterBrandOptions(brandId, impressora?.custom_brand)}</select></label>
@@ -25179,34 +25557,29 @@ function abrirCadastroImpressora(id = "") {
               </div>
             </section>
 
-            <section>
-              <h3>Leitura automática</h3>
+            <section ${guiado ? 'data-printer-step="3" hidden' : ""}>
+              <h3>Conexão com a impressora</h3>
+              ${guiado ? `<p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>` : ""}
               <label class="field"><span>Conexão</span>
                 <select id="printerConnector">
-                  ${(getPrinterMonitoringService()?.CONNECTORS || []).map((connector) => `<option value="${connector.key}" ${String(impressora?.connector_type || "manual") === connector.key ? "selected" : ""} ${connector.automatic && !pro ? "disabled" : ""}>${escaparHtml(connector.name)}${connector.automatic && !pro ? " · Pro" : ""}</option>`).join("")}
+                  ${(getPrinterMonitoringService()?.CONNECTORS || []).filter((connector) => ["manual", "bambu"].includes(connector.key)).map((connector) => `<option value="${connector.key}" ${conectorInicial === connector.key ? "selected" : ""}>${escaparHtml(connector.name)}</option>`).join("")}
                 </select>
               </label>
+              ${guiado ? `<p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>` : ""}
               <div id="printerAutomaticFields">
-                <label class="field"><span>Modo de conexão</span><select id="printerConnectionMode">
-                  <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
-                  <option value="browser_local" ${impressora?.connection_mode === "browser_local" ? "selected" : ""}>Navegador na mesma rede</option>
-                  <option value="cloud_supported" ${impressora?.connection_mode === "cloud_supported" ? "selected" : ""}>Gateway HTTPS</option>
-                </select></label>
-                <label class="field" id="printerAgentField"><span>Agente responsável</span><select id="printerAgentId"><option value="">Selecione um agente</option>${(printerMonitoringState.agents || []).map((agent) => `<option value="${escaparAttr(agent.id)}" ${String(impressora?.active_agent_id || "") === String(agent.id) ? "selected" : ""}>${escaparHtml(agent.name)} · ${escaparHtml(agent.status)}</option>`).join("")}</select></label>
-                <div class="form-grid">
-                  <label class="field"><span>IP ou URL</span><input id="printerHost" value="${escaparAttr(impressora?.host || "")}" placeholder="192.168.1.50"></label>
-                  <label class="field"><span>Porta</span><input id="printerPort" type="number" min="1" max="65535" value="${escaparAttr(impressora?.port || "")}" placeholder="80"></label>
-                  <label class="field"><span>Token / API Key</span><input id="printerApiToken" type="password" autocomplete="new-password" placeholder="${impressora?.credentials_configured ? "Configurado · deixe vazio para manter" : "Opcional"}"></label>
-                  <label class="field"><span>Usuário</span><input id="printerUsername" autocomplete="off" placeholder="Quando exigido"></label>
-                  <label class="field"><span>Senha</span><input id="printerPassword" type="password" autocomplete="new-password" placeholder="Quando exigida"></label>
-                </div>
-                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} Somente leitura. Nenhum comando será enviado à impressora.</div>
-                <div class="actions">${renderAppButton({ label: "Testar conexão", variant: "secondary", attrs: 'id="printerConnectionTestButton"' })}<span class="muted" id="printerConnectionTestResult"></span></div>
+                ${guiado ? `<div class="printer-bambu-quick-login" id="printerBambuQuickFields" hidden>
+                  <div><span class="eyebrow">Acesso rápido BambuLab</span><strong>Conectar sua conta agora</strong><p>Informe os dados uma vez. A senha será usada somente na autenticação e não será salva no aplicativo.</p></div>
+                  <label class="field"><span>E-mail BambuLab</span><input id="printerBambuAccount" type="email" inputmode="email" autocomplete="username" maxlength="240"></label>
+                  <label class="field"><span>Senha BambuLab</span><input id="printerBambuPassword" type="password" autocomplete="current-password" maxlength="1000"></label>
+                  <label class="printer-bambu-consent"><input id="printerBambuConsent" type="checkbox"><span>Autorizo a autenticação temporária somente para acompanhamento.</span></label>
+                </div>` : ""}
+                <input type="hidden" id="printerConnectionMode" value="cloud_supported">
+                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} A conexão automática disponível nesta versão usa somente a conta BambuLab.</div>
               </div>
               <div id="printerManualFields" hidden></div>
             </section>
 
-            <section>
+            <section ${guiado ? 'data-printer-step="4" hidden' : ""}>
               <h3>Custos opcionais</h3>
               <div class="form-grid">
                 <label class="field"><span>Custo por hora</span><input id="printerHourlyCost" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.hourly_cost || "")}" placeholder="0,00"></label>
@@ -25223,7 +25596,9 @@ function abrirCadastroImpressora(id = "") {
 
         <div class="printer-wizard-actions">
           ${renderAppButton({ label: "Cancelar", variant: "ghost", attrs: 'id="printerCancelButton"' })}
-          ${renderAppButton({ label: id ? "Salvar alterações" : "Adicionar impressora", icon: renderUiIcon(id ? "edit" : "plus"), variant: "primary", type: "submit", attrs: 'id="printerSaveButton"' })}
+          ${guiado ? renderAppButton({ label: "Voltar", variant: "secondary", attrs: 'id="printerPreviousButton" hidden' }) : ""}
+          ${guiado ? renderAppButton({ label: "Continuar", variant: "primary", attrs: 'id="printerNextButton"' }) : ""}
+          ${renderAppButton({ label: id ? "Salvar alterações" : "Adicionar impressora", icon: renderUiIcon(id ? "edit" : "plus"), variant: "primary", type: "submit", attrs: `id="printerSaveButton"${guiado ? " hidden" : ""}` })}
         </div>
       </form>
     </div>
@@ -25233,13 +25608,92 @@ function abrirCadastroImpressora(id = "") {
   document.getElementById("printerCloseButton")?.addEventListener("click", fecharPopup);
   document.getElementById("printerCancelButton")?.addEventListener("click", fecharPopup);
   document.getElementById("printerBrand")?.addEventListener("change", atualizarMarcaCadastroImpressora);
+  document.getElementById("printerBrand")?.addEventListener("change", atualizarCompatibilidadeCadastroImpressora);
+  document.getElementById("printerCustomBrand")?.addEventListener("input", atualizarCompatibilidadeCadastroImpressora);
+  document.getElementById("printerCustomModel")?.addEventListener("input", atualizarCompatibilidadeCadastroImpressora);
   document.getElementById("printerConnector")?.addEventListener("change", atualizarCamposConectorImpressora);
   document.getElementById("printerConnectionMode")?.addEventListener("change", atualizarCamposConectorImpressora);
   document.getElementById("printerConnectionTestButton")?.addEventListener("click", testarConexaoCadastroImpressora);
+  if (guiado) configurarEtapasCadastroImpressora();
   document.getElementById("printerModalBackdrop")?.addEventListener("click", (event) => {
     if (event.target === event.currentTarget) fecharPopup();
   });
   atualizarCamposConectorImpressora();
+  atualizarCompatibilidadeCadastroImpressora();
+}
+
+function configurarEtapasCadastroImpressora() {
+  const form = document.getElementById("printerForm");
+  if (!form) return;
+  let etapa = 1;
+  let tipoEscolhido = "";
+  const rotulos = ["", "Escolha rápida", "Identificação", "Conexão", "Custos opcionais"];
+  const getFluxo = () => tipoEscolhido === "bambu" ? [1, 3, 4] : [1, 2, 4];
+  const atualizar = () => {
+    form.querySelectorAll("[data-printer-step]").forEach((bloco) => {
+      bloco.toggleAttribute("hidden", Number(bloco.dataset.printerStep) !== etapa);
+    });
+    form.querySelector(".printer-advanced-settings")?.toggleAttribute("hidden", etapa === 1);
+    const label = form.querySelector("[data-printer-step-label]");
+    const progresso = form.querySelector("[data-printer-step-progress]");
+    const fluxo = getFluxo();
+    const posicao = Math.max(0, fluxo.indexOf(etapa));
+    if (label) label.textContent = `${posicao + 1} de ${fluxo.length} · ${rotulos[etapa]}`;
+    if (progresso) progresso.style.width = `${((posicao + 1) / fluxo.length) * 100}%`;
+    const alternarBotao = (id, oculto) => {
+      const botao = document.getElementById(id);
+      if (!botao) return;
+      botao.toggleAttribute("hidden", oculto);
+      if (oculto) botao.style.setProperty("display", "none", "important");
+      else botao.style.removeProperty("display");
+    };
+    alternarBotao("printerPreviousButton", etapa === 1);
+    alternarBotao("printerNextButton", etapa === 1 || etapa === 4);
+    alternarBotao("printerSaveButton", etapa !== 4);
+  };
+  form.querySelectorAll("[data-printer-kind]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const bambu = button.dataset.printerKind === "bambu";
+      tipoEscolhido = bambu ? "bambu" : "manual";
+      const brand = document.getElementById("printerBrand");
+      const customBrand = document.getElementById("printerCustomBrand");
+      const name = document.getElementById("printerName");
+      if (brand) {
+        const option = Array.from(brand.options).find((item) => /bambu\s*lab|bambulab/i.test(item.textContent || ""));
+        brand.value = bambu && option ? option.value : "";
+      }
+      if (customBrand) customBrand.value = bambu ? "Bambu Lab" : "";
+      if (name && bambu && !name.value.trim()) name.value = "BambuLab";
+      if (name && !bambu && name.value === "BambuLab") name.value = "";
+      atualizarCompatibilidadeCadastroImpressora();
+      etapa = bambu ? 3 : 2;
+      atualizar();
+    });
+  });
+  form.querySelectorAll("[data-existing-bambu-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const printerId = button.dataset.existingBambuId || "";
+      fecharPopup();
+      if (printerId) abrirPainelImpressoraSimplifica(printerId);
+    });
+  });
+  document.getElementById("printerNextButton")?.addEventListener("click", () => {
+    const campos = Array.from(form.querySelectorAll(`[data-printer-step="${etapa}"] :is(input,select,textarea)`));
+    const invalido = campos.find((campo) => !campo.checkValidity());
+    if (invalido) {
+      invalido.reportValidity();
+      return;
+    }
+    const fluxo = getFluxo();
+    etapa = fluxo[Math.min(fluxo.length - 1, fluxo.indexOf(etapa) + 1)] || etapa;
+    atualizar();
+  });
+  document.getElementById("printerPreviousButton")?.addEventListener("click", () => {
+    const fluxo = getFluxo();
+    etapa = fluxo[Math.max(0, fluxo.indexOf(etapa) - 1)] || 1;
+    atualizar();
+  });
+  atualizar();
 }
 
 function atualizarMarcaCadastroImpressora() {
@@ -25256,6 +25710,13 @@ function atualizarCamposConectorImpressora() {
   document.getElementById("printerAutomaticFields")?.toggleAttribute("hidden", !automatic);
   document.getElementById("printerManualFields")?.toggleAttribute("hidden", automatic);
   document.getElementById("printerAgentField")?.toggleAttribute("hidden", !automatic || connectionMode !== "local_agent");
+  const bambuQuick = document.getElementById("printerBambuQuickFields");
+  const bambuAutomatico = connector === "bambu" && !!bambuQuick;
+  bambuQuick?.toggleAttribute("hidden", !bambuAutomatico);
+  ["printerBambuAccount", "printerBambuPassword", "printerBambuConsent"].forEach((id) => {
+    const field = document.getElementById(id);
+    if (field) field.required = bambuAutomatico;
+  });
   const testButton = document.getElementById("printerConnectionTestButton");
   if (testButton) {
     testButton.disabled = connectionMode === "local_agent";
@@ -25307,6 +25768,8 @@ async function salvarCadastroImpressora(event) {
   const brandOption = document.getElementById("printerBrand")?.selectedOptions?.[0];
   const modelOption = document.getElementById("printerModel")?.selectedOptions?.[0];
   const connector = document.getElementById("printerConnector")?.value || "manual";
+  const bambuAccount = String(document.getElementById("printerBambuAccount")?.value || "").trim();
+  const bambuPassword = String(document.getElementById("printerBambuPassword")?.value || "");
   const payload = {
     id: document.getElementById("printerId")?.value || "",
     name: document.getElementById("printerName")?.value || "",
@@ -25318,7 +25781,7 @@ async function salvarCadastroImpressora(event) {
     location: document.getElementById("printerLocation")?.value || "",
     notes: document.getElementById("printerNotes")?.value || "",
     connector_type: connector,
-    connection_mode: connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "local_agent",
+    connection_mode: connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "cloud_supported",
     agent_id: document.getElementById("printerAgentId")?.value || null,
     host: document.getElementById("printerHost")?.value || "",
     port: valorOpcionalNumero("printerPort"),
@@ -25343,9 +25806,15 @@ async function salvarCadastroImpressora(event) {
       printerMonitoringState.loaded = true;
       sincronizarImpressorasComCalculadora();
     }
+    const conectarBambuDepois = !payload.id && payload.connector_type === "bambu" && saved?.id;
     fecharPopup();
     await hidratarImpressorasSeNecessario(true);
     mostrarToast(payload.id ? "Impressora atualizada." : "Impressora adicionada.", "sucesso", 3400);
+    if (conectarBambuDepois && bambuAccount && bambuPassword) {
+      await autenticarBambuDepoisCadastro(saved.id, bambuAccount, bambuPassword);
+    } else if (conectarBambuDepois) {
+      abrirLoginBambu(saved.id);
+    }
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
     if (save) save.disabled = false;
@@ -25546,7 +26015,178 @@ function getProductionStatusLabel(status = "novo_pedido") {
 
 function getProductionTab() {
   const tab = String(window.__productionTab || "fila");
-  return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "impressoras"].includes(tab) ? tab : "fila";
+  return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "historico", "impressoras"].includes(tab) ? tab : "fila";
+}
+
+function atualizarCompatibilidadeCadastroImpressora() {
+  const form = document.getElementById("printerForm");
+  if (!form || form.dataset.printerGuided !== "true") return;
+  const brand = document.getElementById("printerBrand");
+  const brandName = brand?.selectedOptions?.[0]?.dataset?.brandName || brand?.selectedOptions?.[0]?.textContent || "";
+  const customBrand = document.getElementById("printerCustomBrand")?.value || "";
+  const model = document.getElementById("printerCustomModel")?.value || "";
+  const descricao = `${brandName} ${customBrand} ${model}`.toLowerCase();
+  const bambu = /bambu\s*lab|bambulab/.test(descricao);
+  const connector = document.getElementById("printerConnector");
+  const notice = document.getElementById("printerConnectionCompatibility");
+  if (connector) connector.value = bambu ? "bambu" : "manual";
+  if (notice) {
+    notice.classList.toggle("is-bambu", bambu);
+    notice.textContent = bambu
+      ? "BambuLab identificada. O acesso rápido da conta será aberto nesta etapa."
+      : "Este modelo funciona manualmente por enquanto. A integração automática disponível nesta versão é somente para BambuLab.";
+  }
+  atualizarCamposConectorImpressora();
+}
+
+async function autenticarBambuDepoisCadastro(printerId, account, password) {
+  mostrarToast("Conectando à conta BambuLab...", "info", 2600);
+  try {
+    const data = await printerBackendRequest("bambu_login", { printer_id: printerId, account, password, code: "" });
+    await concluirSelecaoDispositivoBambu(printerId, data);
+  } catch (erro) {
+    const precisaCodigo = String(erro?.message || "") === "BAMBU_VERIFICATION_CODE_REQUIRED";
+    abrirLoginBambu(printerId, { account, awaitingCode: precisaCodigo });
+    const result = document.getElementById("bambuLoginResult");
+    if (result) result.textContent = precisaCodigo
+      ? "A BambuLab enviou um código. Informe-o para concluir."
+      : (getPrinterMonitoringService()?.errorMessage(erro?.message) || "Confira os dados e tente novamente.");
+  }
+}
+
+function abrirLoginBambu(id, options = {}) {
+  const impressora = getPrinterById(id);
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup || !podeGerenciarImpressoras()) return;
+  bambuLoginDraftState.printerId = id;
+  bambuLoginDraftState.awaitingCode = options.awaitingCode === true;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card printer-bambu-login" id="bambuLoginForm" autocomplete="off">
+        <div class="modal-header"><h2>Conectar conta Bambu</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <div class="printer-bambu-login-copy">
+          <span class="eyebrow">Integração comunitária experimental</span>
+          <strong>${escaparHtml(impressora.name || "Impressora Bambu")}</strong>
+          <p>A conexão é somente para acompanhamento. A senha será enviada uma única vez para autenticação e não será armazenada pelo aplicativo.</p>
+        </div>
+        <label class="printer-bambu-consent"><input id="bambuLoginConsent" type="checkbox" required><span>Entendi e autorizo a autenticação temporária na BambuLab.</span></label>
+        <label class="field"><span>E-mail da conta BambuLab</span><input id="bambuLoginAccount" type="email" inputmode="email" autocomplete="username" required maxlength="240"></label>
+        <label class="field" id="bambuPasswordField"><span>Senha BambuLab</span><input id="bambuLoginPassword" type="password" autocomplete="current-password" required maxlength="1000"></label>
+        <label class="field" id="bambuCodeField" hidden><span>Código de verificação</span><input id="bambuLoginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="40"></label>
+        <p class="printer-login-result" id="bambuLoginResult" role="status"></p>
+        <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit" id="bambuLoginSubmit">Entrar e localizar</button></div>
+      </form>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Conectar conta Bambu" });
+  document.getElementById("bambuLoginForm")?.addEventListener("submit", autenticarContaBambu);
+  const accountField = document.getElementById("bambuLoginAccount");
+  if (accountField && options.account) accountField.value = options.account;
+  if (bambuLoginDraftState.awaitingCode) {
+    document.getElementById("bambuCodeField")?.removeAttribute("hidden");
+    document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
+    const passwordField = document.getElementById("bambuLoginPassword");
+    const codeField = document.getElementById("bambuLoginCode");
+    if (passwordField) passwordField.required = false;
+    if (codeField) codeField.required = true;
+  }
+}
+
+async function autenticarContaBambu(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form?.reportValidity?.()) return;
+  const submit = document.getElementById("bambuLoginSubmit");
+  const result = document.getElementById("bambuLoginResult");
+  const password = document.getElementById("bambuLoginPassword");
+  const code = document.getElementById("bambuLoginCode");
+  if (submit) submit.disabled = true;
+  if (result) result.textContent = "Autenticando com a BambuLab...";
+  try {
+    const data = await printerBackendRequest("bambu_login", {
+      printer_id: bambuLoginDraftState.printerId,
+      account: document.getElementById("bambuLoginAccount")?.value || "",
+      password: bambuLoginDraftState.awaitingCode ? "" : password?.value || "",
+      code: bambuLoginDraftState.awaitingCode ? code?.value || "" : ""
+    });
+    if (password) password.value = "";
+    if (code) code.value = "";
+    await concluirSelecaoDispositivoBambu(bambuLoginDraftState.printerId, data);
+  } catch (erro) {
+    const message = String(erro?.message || "");
+    if (message === "BAMBU_VERIFICATION_CODE_REQUIRED") {
+      bambuLoginDraftState.awaitingCode = true;
+      document.getElementById("bambuCodeField")?.removeAttribute("hidden");
+      document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
+      if (password) password.required = false;
+      if (code) code.required = true;
+      if (result) result.textContent = "Informe o código enviado pela BambuLab e tente novamente.";
+      code?.focus();
+    } else if (result) {
+      result.textContent = getPrinterMonitoringService()?.errorMessage(message) || "Não foi possível conectar à BambuLab.";
+    }
+    if (submit) submit.disabled = false;
+  }
+}
+
+function getUltimoDispositivoBambu(devices = [], selectedId = "") {
+  const selecionado = devices.find((device) => String(device.id) === String(selectedId));
+  if (selecionado) return selecionado;
+  return [...devices].sort((a, b) => {
+    const dataA = new Date(a.last_used_at || a.last_seen_at || a.updated_at || 0).getTime() || 0;
+    const dataB = new Date(b.last_used_at || b.last_seen_at || b.updated_at || 0).getTime() || 0;
+    return dataB - dataA;
+  })[0] || null;
+}
+
+async function concluirSelecaoDispositivoBambu(printerId, data = {}) {
+  const devices = Array.isArray(data?.devices) ? data.devices : [];
+  const planoPago = isPlanAtLeast(getCurrentPlanSlug(), "start");
+  if (devices.length > 1 && planoPago) {
+    renderizarSelecaoDispositivoBambu(printerId, devices, data?.selected_device_id || "");
+    return;
+  }
+  const escolhido = getUltimoDispositivoBambu(devices, data?.selected_device_id || "");
+  if (devices.length > 1 && escolhido?.id) {
+    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: escolhido.id });
+  }
+  await hidratarImpressorasSeNecessario(true);
+  fecharPopup();
+  mostrarToast(devices.length > 1 && !planoPago
+    ? `Plano gratuito: ${escolhido?.name || "última impressora usada"} selecionada.`
+    : "Conta BambuLab conectada e impressora localizada.", "sucesso", 4400);
+  abrirPainelImpressoraSimplifica(printerId);
+}
+
+function renderizarSelecaoDispositivoBambu(printerId, devices = [], selectedId = "") {
+  const form = document.getElementById("bambuLoginForm");
+  if (!form) return;
+  form.innerHTML = `
+    <div class="printer-bambu-device-picker">
+      <span class="eyebrow">Conta conectada</span>
+      <h3>Escolha uma impressora</h3>
+      <p>Seu plano permite acompanhar todas. Selecione qual será vinculada a este cadastro.</p>
+      <div class="printer-bambu-device-list">${devices.map((device) => `
+        <button class="printer-bambu-device ${String(device.id) === String(selectedId) ? "selected" : ""}" type="button" data-bambu-device-id="${escaparAttr(device.id)}">
+          <strong>${escaparHtml(device.name || "Impressora BambuLab")}</strong>
+          <span>${escaparHtml(device.model || "Modelo não informado")} · ${device.online ? "Online" : "Offline"}</span>
+        </button>`).join("")}</div>
+      <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button></div>
+    </div>`;
+  form.querySelectorAll("[data-bambu-device-id]").forEach((button) => {
+    button.addEventListener("click", () => selecionarDispositivoBambu(printerId, button.dataset.bambuDeviceId));
+  });
+}
+
+async function selecionarDispositivoBambu(printerId, deviceId) {
+  try {
+    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: deviceId });
+    await hidratarImpressorasSeNecessario(true);
+    fecharPopup();
+    mostrarToast("Impressora BambuLab selecionada.", "sucesso", 3600);
+    abrirPainelImpressoraSimplifica(printerId);
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || "Não foi possível selecionar a impressora.", "erro", 5200);
+  }
 }
 
 function trocarAbaProducao(tab = "fila") {
@@ -26083,6 +26723,43 @@ function atualizarPedidoQuandoProducaoPronta(orderId) {
   marcarRegistroLocalAlteradoParaSync(pedido, { status: "pronto", productionStatus: "pronto_para_entrega", production_status: "pronto_para_entrega" });
 }
 
+function getPlacasConcluidasProducao(job = {}) {
+  const salvas = Math.max(0, Number(job.completedQuantity || job.completed_quantity) || 0);
+  const eventos = productionEvents.filter((event) =>
+    String(event.productionJobId || event.production_job_id) === String(job.id)
+    && String(event.eventType || event.event_type) === "placa_concluida"
+  ).length;
+  return Math.max(salvas, eventos);
+}
+
+function registrarPlacaConcluidaProducao(jobId) {
+  const job = getProductionJob(jobId);
+  if (!job || ["cancelado", "falhou", "entregue"].includes(job.status)) return false;
+  const total = Math.max(1, Number(job.quantity) || 1);
+  const concluidas = Math.min(total, getPlacasConcluidasProducao(job));
+  if (concluidas >= total) {
+    mostrarToast("Todas as placas desta impressão já foram concluídas.", "info", 3000);
+    return false;
+  }
+  const agora = new Date().toISOString();
+  const novoTotal = concluidas + 1;
+  job.completedQuantity = job.completed_quantity = novoTotal;
+  job.remainingQuantity = job.remaining_quantity = Math.max(0, total - novoTotal);
+  job.updated_at = agora;
+  if (novoTotal >= total && ["na_fila", "proximo", "aguardando_impressora", "em_impressao", "pausado"].includes(job.status)) {
+    job.status = "pos_processamento";
+    job.finished_at = job.finished_at || agora;
+    const printer = getProductionPrinter(job.printerId);
+    if (printer) printer.status = "disponivel";
+  }
+  registrarEventoProducao(job.id, "placa_concluida", job.status, job.status, `Placa ${novoTotal} de ${total}`);
+  atualizarPedidoQuandoProducaoPronta(job.orderId);
+  salvarProducaoManual("placa-concluida");
+  renderizarPreservandoScroll();
+  mostrarToast(novoTotal >= total ? "Todas as placas concluídas. Enviado para pós-processamento." : `Placa ${novoTotal} de ${total} concluída.`, "sucesso", 3200);
+  return true;
+}
+
 function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
   const job = getProductionJob(jobId);
   if (!job || !PRODUCTION_STATUS_META[status]) return false;
@@ -26120,6 +26797,21 @@ function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
       job.actualPrintTimeMinutes = minutosReais;
       job.actual_print_time_minutes = minutosReais;
     }
+  }
+  if (["falhou", "cancelado"].includes(status)) {
+    const inicio = getDataEventoOperacionalPedido(job.started_at);
+    if (inicio && !Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes)) {
+      const minutosUsados = Math.max(1, Math.round((Date.now() - inicio.getTime()) / 60000));
+      job.actualPrintTimeMinutes = job.actual_print_time_minutes = minutosUsados;
+    }
+    const estimado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+    const planejado = getPesoPlanejadoTarefaProducao(job);
+    if (planejado > 0 && estimado > 0) {
+      const proporcao = Math.min(1, (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0) / estimado);
+      const consumido = Math.round(planejado * proporcao * 100) / 100;
+      job.filamentWeightGrams = job.filament_weight_grams = consumido;
+    }
+    job.finished_at = job.finished_at || agora;
   }
   const printer = getProductionPrinter(job.printerId);
   if (printer && status === "em_impressao") printer.status = "ocupada";
@@ -26258,7 +26950,11 @@ function renderTarefaProducao(job = {}) {
   const events = productionEvents.filter((event) => String(event.productionJobId || event.production_job_id) === String(job.id)).slice(-4).reverse();
   const estimado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
   const real = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0;
+  const peso = Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
   const variacaoTempo = estimado > 0 && real > 0 ? Math.round(((real - estimado) / estimado) * 100) : null;
+  const totalPlacas = Math.max(1, Number(job.quantity) || 1);
+  const placasConcluidas = Math.min(totalPlacas, getPlacasConcluidasProducao(job));
+  const placasRestantes = Math.max(0, totalPlacas - placasConcluidas);
   return `
     <article class="production-job-card production-status-${escaparAttr(job.status || "novo_pedido")}">
       <div class="production-job-head">
@@ -26270,7 +26966,8 @@ function renderTarefaProducao(job = {}) {
       </div>
       <div class="production-job-meta">
         <span><small>Material</small><strong>${escaparHtml(job.material || "Não informado")}${job.color ? ` · ${escaparHtml(job.color)}` : ""}</strong></span>
-        <span><small>Quantidade</small><strong>${Number(job.quantity) || 1}</strong></span>
+        <span><small>Placas</small><strong>${placasConcluidas}/${totalPlacas} concluídas${placasRestantes ? ` · faltam ${placasRestantes}` : ""}</strong></span>
+        <span><small>Peso</small><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "Não informado"}</strong></span>
         <span><small>Tempo estimado</small><strong>${estimado ? `${estimado} min` : "Não informado"}</strong></span>
         ${real ? `<span><small>Tempo real</small><strong>${real} min${variacaoTempo === null ? "" : ` • ${variacaoTempo > 0 ? "+" : ""}${variacaoTempo}%`}</strong></span>` : ""}
         <span><small>Prazo</small><strong>${escaparHtml(job.dueDate || "Sem prazo")}</strong></span>
@@ -26282,7 +26979,9 @@ function renderTarefaProducao(job = {}) {
         <label><span>Prioridade</span><select onchange="alterarPrioridadeTarefaProducao('${escaparAttr(job.id)}',this.value)">${[["normal","Normal"],["alta","Alta"],["urgente","Urgente"]].map(([value,label]) => `<option value="${value}" ${priority === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
       </div>
       <div class="production-job-actions">
-        <button class="btn secondary" type="button" onclick="visualizarPedido(${Number(job.orderId)})">Ver pedido</button>
+        <button class="btn secondary" type="button" onclick="visualizarPedido('${escaparAttr(job.orderId)}')">Ver pedido #${escaparHtml(job.orderId || "")}</button>
+        ${placasRestantes && !["cancelado", "falhou", "entregue"].includes(job.status) ? `<button class="btn" type="button" onclick="registrarPlacaConcluidaProducao('${escaparAttr(job.id)}')">Concluir 1 placa</button>` : ""}
+        <button class="btn secondary" type="button" onclick="abrirAjusteDadosImpressao('${escaparAttr(job.id)}')">Peso e tempo</button>
         ${job.status === "falhou" || job.status === "reimpressao_necessaria" ? `<button class="btn" type="button" onclick="criarReimpressaoProducao('${escaparAttr(job.id)}')">Criar reimpressão</button>` : ""}
         ${job.status === "controle_qualidade" ? `<button class="btn" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','aprovado')">Aprovar</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','ajuste')">Precisa ajuste</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','reimpressao')">Reimprimir</button>` : ""}
       </div>
@@ -26322,7 +27021,7 @@ function renderResumoCapacidadeProducao() {
 }
 
 function renderImpressorasProducao() {
-  const printers = productionPrinters.filter((printer) => printer.isActive !== false || printer.status !== "inativa");
+  const printers = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa");
   return `
     <div class="production-printer-toolbar">
       <p>As impressoras são controladas manualmente. O sistema organiza a fila e os status, mas não inicia impressões automaticamente.</p>
@@ -26358,11 +27057,35 @@ function renderPerfilImpressoraProducao() {
   const modelo = emUso.name || "Impressora 3D";
   const tipo = String(emUso.printerType || emUso.printer_type || "FDM").toUpperCase();
   const status = PRODUCTION_PRINTER_STATUS[emUso.status] || "Disponível";
-  return `<section class="calc-active-profile production-active-printer">
+  return `<section class="calc-active-profile production-active-printer is-clickable" role="button" tabindex="0" onclick="abrirImpressoraAtivaProducao('${escaparAttr(emUso.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirImpressoraAtivaProducao('${escaparAttr(emUso.id)}')}" aria-label="Abrir painel da impressora ${escaparAttr(modelo)}">
     <div class="calc-printer-art">${renderUiIcon("producao")}</div>
     <div><span>Impressora ativa</span><strong>${escaparHtml(modelo)}</strong><small>Modelo: ${escaparHtml(tipo)}${emUso.nozzleSize ? ` · Bico ${escaparHtml(emUso.nozzleSize)}` : ""}</small></div>
     <span class="status-badge production-printer-profile-status">${escaparHtml(status)}</span>
   </section>`;
+}
+
+async function abrirImpressoraAtivaProducao(id) {
+  const manual = getProductionPrinter(id);
+  const nome = normalizarTextoBusca(manual?.name || "");
+  const monitoradas = getImpressorasAtivas();
+  const monitorada = monitoradas.find((item) => normalizarTextoBusca(item.name || "") === nome)
+    || (monitoradas.length === 1 ? monitoradas[0] : null);
+  if (monitorada) {
+    abrirPainelImpressoraSimplifica(monitorada.id);
+    return;
+  }
+  trocarTela("impressoras");
+  if (!printerMonitoringState.loaded) {
+    hidratarImpressorasSeNecessario()
+      .then(() => {
+        const atualizadas = getImpressorasAtivas();
+        const vinculada = atualizadas.find((item) => normalizarTextoBusca(item.name || "") === nome)
+          || (atualizadas.length === 1 ? atualizadas[0] : null);
+        if (vinculada) abrirPainelImpressoraSimplifica(vinculada.id);
+        else renderizarPreservandoScroll();
+      })
+      .catch(() => {});
+  }
 }
 
 function getTarefasProducaoPorAba(tab = getProductionTab()) {
@@ -26405,28 +27128,35 @@ function renderProducao() {
     ["impressao", "Em impressão"],
     ["pendencias", "Pendências"],
     ["prontos", "Prontos"],
-    ["entregues", "Entregues"],
-    ["pagos", "Pagos"],
+    ["historico", "Histórico"],
     ["impressoras", "Impressoras"]
   ];
-  const jobs = tab === "impressoras" ? [] : getTarefasProducaoPorAba(tab);
+  const jobs = ["impressoras", "historico"].includes(tab) ? [] : getTarefasProducaoPorAba(tab);
+  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length;
+  const resumoCabecalho = tab === "impressoras"
+    ? `${impressorasAtivas} impressora(s)`
+    : tab === "historico"
+      ? `${getHistoricoProducaoNoPeriodo().length} concluída(s)`
+    : `${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)`;
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-production" data-ui-version="v3" data-ui3-screen="producao">
       <div class="card-header production-page-header">
-        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Fila manual por item, sem automação de impressoras.</p></div>
-        <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
+        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Impressões vinculadas aos pedidos, com controle de placas concluídas.</p></div>
+        <span class="status-badge">${resumoCabecalho}</span>
       </div>
       ${renderPerfilImpressoraProducao()}
       ${renderResumoCapacidadeProducao()}
       <div class="production-tabs" role="tablist">
         ${tabs.map(([value,label]) => {
           const quantidade = value === "impressoras"
-            ? productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length
+            ? impressorasAtivas
+            : value === "historico"
+              ? getHistoricoProducaoNoPeriodo().length
             : getTarefasProducaoPorAba(value).length;
           return `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')"><span>${escaparHtml(label)}</span><strong>${quantidade}</strong></button>`;
         }).join("")}
       </div>
-      ${tab === "impressoras" ? renderImpressorasProducao() : `
+      ${tab === "impressoras" ? renderImpressorasProducao() : tab === "historico" ? renderHistoricoProducao() : `
         <div class="production-filter-bar">
           <label class="production-search">${renderUiIcon("search")}<input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
           <select aria-label="Filtrar por impressora" onchange="window.__productionPrinterFilter=this.value;renderizarPreservandoScroll()">${renderProductionPrinterOptions(window.__productionPrinterFilter || "")}</select>
@@ -30874,6 +31604,7 @@ async function alternarBiometriaSeguranca(ativar = null) {
   }
 
   appConfig.biometricEnabled = desejaAtivar;
+  if (desejaAtivar) appConfig.localLockEnabled = true;
   appConfig.biometricOfferDismissed = true;
   salvarDados();
   mostrarToast(desejaAtivar ? "Biometria ativada para este aparelho." : "Biometria desativada neste aparelho.", "sucesso");
@@ -31067,7 +31798,11 @@ function renderSeguranca() {
           <div class="ui3-security-card-body">
             <label class="checkbox-row">
               <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""}>
-              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha.</small></span>
+              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha por até 7 dias.</small></span>
+            </label>
+            <label class="checkbox-row">
+              <input id="localLockEnabledConfig" type="checkbox" ${appConfig.localLockEnabled !== false ? "checked" : ""}>
+              <span><strong>Proteger abertura a cada 12 horas</strong><small>Usa biometria quando ativada; solicita a senha apenas como alternativa.</small></span>
             </label>
             <div class="actions security-page-actions">
               <button class="btn" type="button" onclick="salvarPreferenciasSeguranca()">Salvar preferência</button>
@@ -31118,6 +31853,7 @@ function renderSeguranca() {
 
 function salvarPreferenciasSeguranca() {
   appConfig.keepSessionCache = !!document.getElementById("keepSessionCacheConfig")?.checked;
+  appConfig.localLockEnabled = !!document.getElementById("localLockEnabledConfig")?.checked;
   if (!appConfig.keepSessionCache) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
   } else {
@@ -31631,7 +32367,7 @@ if (typeof window !== "undefined") {
 }
 
 function renderSuperAdminPlanos() {
-  const planos = getPlanPresentationData();
+  const planos = getPlanPresentationData({ incluirIndisponiveis: true });
   const clientesPorPlano = planos.reduce((acc, plano) => {
     acc[plano.slug] = saasSubscriptions.filter((assinatura) => normalizarSlugPlano(assinatura.planSlug || "free") === plano.slug && assinatura.status !== "cancelled").length;
     return acc;
@@ -31651,7 +32387,7 @@ function renderSuperAdminPlanos() {
               <strong>${escaparHtml(plano.name)}</strong>
               <small>${escaparHtml(plano.headline || plano.subtitle || "")}</small>
             </div>
-            <span class="status-badge ${plano.isActive ? "badge-ativo" : "badge-danger"}">${plano.isActive ? "ativo" : "inativo"}</span>
+            <span class="status-badge ${plano.isActive && plano.isPublic ? "badge-ativo" : "badge-danger"}">${plano.isActive ? (plano.isPublic ? "ativo" : "oculto") : "inativo"}</span>
           </div>
           <div class="superadmin-plan-price">
             <strong>${escaparHtml(plano.priceLabel || "R$ 0")}</strong>
@@ -34456,9 +35192,10 @@ function salvarPlanPresentationOverrides(overrides = {}) {
   } catch (_) {}
 }
 
-function getPlanPresentationData() {
+function getPlanPresentationData(options = {}) {
+  const incluirIndisponiveis = options.incluirIndisponiveis === true;
   const overrides = getPlanPresentationOverrides();
-  return getPlanPresentationDefaults().map((base, index) => {
+  const planos = getPlanPresentationDefaults().map((base, index) => {
     const plano = getPlanoSaas(base.slug);
     const override = overrides[base.slug] || {};
     const priceValue = Number(override.price ?? plano.price ?? 0);
@@ -34473,7 +35210,160 @@ function getPlanPresentationData() {
       isPublic: override.isPublic !== false,
       isActive: override.isActive !== false && plano.active !== false
     };
-  }).filter((plan) => plan.isPublic && plan.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  });
+  return planos
+    .filter((plan) => incluirIndisponiveis || (plan.isPublic && plan.isActive))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function abrirAjusteDadosImpressao(jobId) {
+  const job = getProductionJob(jobId);
+  const popup = document.getElementById("popup");
+  if (!job || !popup) return;
+  const peso = Number(job.filamentWeightGrams || job.filament_weight_grams) || "";
+  const tempo = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || "";
+  const pesoPlanejado = getPesoPlanejadoTarefaProducao(job);
+  const tempoPlanejado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+  const perda = ["falhou", "cancelado"].includes(job.status);
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card" onclick="event.stopPropagation()" onsubmit="salvarAjusteDadosImpressao(event,'${escaparAttr(job.id)}')">
+        <div class="modal-header"><div><span class="eyebrow">${escaparHtml(job.productionCode || "Impressão")}</span><h2>${perda ? "Registrar perda" : "Dados da impressão"}</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">Planejado: ${pesoPlanejado ? `${pesoPlanejado.toLocaleString("pt-BR")} g` : "peso não informado"} e ${tempoPlanejado ? formatarMinutosProducao(tempoPlanejado) : "tempo não informado"}. Ajuste abaixo com o consumo real.</p>
+        <div class="production-form-grid">
+          <label class="field"><span>${perda ? "Material perdido" : "Material consumido"} (g)</span><input id="productionActualWeight" type="number" min="0" step="0.01" inputmode="decimal" value="${escaparAttr(peso)}" placeholder="Ex.: 50"></label>
+          <label class="field"><span>${perda ? "Tempo perdido" : "Tempo utilizado"} (min)</span><input id="productionActualTime" type="number" min="0" step="1" inputmode="numeric" value="${escaparAttr(tempo)}" placeholder="Ex.: 150"></label>
+        </div>
+        <div class="actions production-modal-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar dados</button></div>
+      </form>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Peso e tempo da impressão" });
+}
+
+function salvarAjusteDadosImpressao(event, jobId) {
+  event?.preventDefault?.();
+  const job = getProductionJob(jobId);
+  if (!job) return false;
+  const peso = Math.max(0, Number(document.getElementById("productionActualWeight")?.value) || 0);
+  const tempo = Math.max(0, Math.round(Number(document.getElementById("productionActualTime")?.value) || 0));
+  job.filamentWeightGrams = job.filament_weight_grams = peso || null;
+  job.actualPrintTimeMinutes = job.actual_print_time_minutes = tempo || null;
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, "dados_impressao_ajustados", job.status, job.status, `${peso ? `${peso} g` : "Peso não informado"} · ${tempo ? `${tempo} min` : "Tempo não informado"}`);
+  salvarProducaoManual("dados-impressao-ajustados");
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast("Peso e tempo atualizados.", "sucesso", 2600);
+  return true;
+}
+
+const PRODUCTION_HISTORY_PAGE_SIZE = 6;
+
+function getPeriodoHistoricoProducao() {
+  const periodo = String(window.__productionHistoryPeriod || "hoje");
+  return ["hoje", "semana", "mes"].includes(periodo) ? periodo : "hoje";
+}
+
+function trocarPeriodoHistoricoProducao(periodo) {
+  window.__productionHistoryPeriod = periodo;
+  window.__productionHistoryLimit = PRODUCTION_HISTORY_PAGE_SIZE;
+  renderizarPreservandoScroll();
+}
+
+function getDataConclusaoTarefaProducao(job = {}) {
+  const eventos = productionEvents.filter((event) =>
+    String(event.productionJobId || event.production_job_id) === String(job.id)
+      && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue", "falhou", "cancelado"].includes(event.newStatus || event.new_status)
+  );
+  return getDataEventoOperacionalPedido(eventos.at(-1)?.created_at || job.finished_at || job.updated_at || job.created_at);
+}
+
+function getHistoricoProducaoNoPeriodo(periodo = getPeriodoHistoricoProducao()) {
+  const inicio = new Date();
+  inicio.setHours(0, 0, 0, 0);
+  if (periodo === "semana") inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7));
+  if (periodo === "mes") inicio.setDate(1);
+  return productionJobs.map((job) => ({ job, data: getDataConclusaoTarefaProducao(job) }))
+    .filter(({ job, data }) => data && data >= inicio && (
+      ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue"].includes(job.status)
+      || (["falhou", "cancelado"].includes(job.status) && (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) > 0 || Number(job.filamentWeightGrams || job.filament_weight_grams) > 0))
+    ))
+    .sort((a, b) => b.data.getTime() - a.data.getTime());
+}
+
+function carregarMaisHistoricoProducao() {
+  window.__productionHistoryLimit = (Number(window.__productionHistoryLimit) || PRODUCTION_HISTORY_PAGE_SIZE) + PRODUCTION_HISTORY_PAGE_SIZE;
+  renderizarPreservandoScroll();
+}
+
+function formatarMinutosProducao(minutos = 0) {
+  const total = Math.max(0, Math.round(Number(minutos) || 0));
+  const horas = Math.floor(total / 60);
+  const resto = total % 60;
+  return horas ? `${horas}h${resto ? ` ${resto}min` : ""}` : `${resto}min`;
+}
+
+function getPesoPlanejadoTarefaProducao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0];
+  return Number(getProductionItemMaterial(item || {}).grams) || Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
+}
+
+function getCustoMaterialPorGramaTarefaProducao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0] || {};
+  const vinculo = getMateriaisItem(item)[0] || {};
+  const material = getMaterialEstoque(vinculo.materialId) || {};
+  const custoKg = Number(vinculo.valorUnitario || material.custoUnitario || material.unit_cost || material.precoKg || material.custoKg) || 0;
+  return custoKg > 0 ? custoKg / 1000 : 0;
+}
+
+function renderHistoricoProducao() {
+  const periodo = getPeriodoHistoricoProducao();
+  const historico = getHistoricoProducaoNoPeriodo(periodo);
+  const limite = Math.max(PRODUCTION_HISTORY_PAGE_SIZE, Number(window.__productionHistoryLimit) || PRODUCTION_HISTORY_PAGE_SIZE);
+  const visiveis = historico.slice(0, limite);
+  const concluidas = historico.filter(({ job }) => !["falhou", "cancelado"].includes(job.status));
+  const perdas = historico.filter(({ job }) => ["falhou", "cancelado"].includes(job.status));
+  const minutos = concluidas.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0);
+  const peso = concluidas.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const minutosPerdidos = perdas.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0), 0);
+  const pesoPerdido = perdas.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const prejuizo = perdas.reduce((total, { job }) => total + ((Number(job.filamentWeightGrams || job.filament_weight_grams) || 0) * getCustoMaterialPorGramaTarefaProducao(job)), 0);
+  const pedidosUnicos = new Set(historico.map(({ job }) => String(job.orderId || job.order_id || "")).filter(Boolean)).size;
+  return `
+    <section class="production-report" aria-label="Histórico de produção">
+      <div class="production-report-toolbar">
+        <div><h3>Horas de impressão</h3><p class="muted">Produção concluída no período selecionado.</p></div>
+        <div class="production-period-switch" role="group" aria-label="Período do histórico">
+          ${[["hoje","Hoje"],["semana","Semana"],["mes","Mês"]].map(([value,label]) => `<button type="button" class="${periodo === value ? "active" : ""}" onclick="trocarPeriodoHistoricoProducao('${value}')">${label}</button>`).join("")}
+        </div>
+      </div>
+      <div class="production-history-summary">
+        <div><span>Horas produzidas</span><strong>${formatarMinutosProducao(minutos)}</strong></div>
+        <div><span>Material produzido</span><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
+        <div class="${minutosPerdidos ? "is-loss" : ""}"><span>Horas perdidas</span><strong>${formatarMinutosProducao(minutosPerdidos)}</strong></div>
+        <div class="${pesoPerdido ? "is-loss" : ""}"><span>Material perdido</span><strong>${pesoPerdido ? `${pesoPerdido.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
+        <div class="${prejuizo ? "is-loss" : ""}"><span>Prejuízo estimado</span><strong>${formatarMoeda(prejuizo)}</strong></div>
+        <div><span>Impressões / pedidos</span><strong>${historico.length} / ${pedidosUnicos}</strong></div>
+      </div>
+      <div class="production-history-list">
+        ${visiveis.length ? visiveis.map(({ job, data }) => {
+          const order = getProductionOrder(job);
+          const tempo = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+          const pesoItem = Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
+          const perda = ["falhou", "cancelado"].includes(job.status);
+          const custoPerda = perda ? pesoItem * getCustoMaterialPorGramaTarefaProducao(job) : 0;
+          return `<article class="production-history-row">
+            <div><strong>${escaparHtml(job.itemName || "Item de produção")}</strong><small>${escaparHtml(job.productionCode || `Pedido #${job.orderId}`)} · ${escaparHtml(clienteDoPedido(order || {}) || "Cliente não informado")}</small></div>
+            <div class="production-history-measures ${perda ? "is-loss" : ""}"><span>${perda ? getProductionStatusLabel(job.status) : "Concluída"}</span><span>${formatarMinutosProducao(tempo)}</span><span>${pesoItem ? `${pesoItem.toLocaleString("pt-BR")} g` : "Peso pendente"}</span>${custoPerda ? `<span>${formatarMoeda(custoPerda)}</span>` : ""}</div>
+            <div><strong>${escaparHtml(getProductionPrinterLabel(job.printerId || job.printer_id))}</strong><small>${formatarDataHora(data.toISOString())}</small></div>
+            <button class="btn secondary" type="button" onclick="abrirAjusteDadosImpressao('${escaparAttr(job.id)}')">Ajustar</button>
+          </article>`;
+        }).join("") : `<p class="empty">Nenhuma impressão concluída neste período.</p>`}
+      </div>
+      ${historico.length > visiveis.length ? `<div class="production-history-more"><button class="btn secondary" type="button" onclick="carregarMaisHistoricoProducao()">Carregar mais ${Math.min(PRODUCTION_HISTORY_PAGE_SIZE, historico.length - visiveis.length)}</button><small>${visiveis.length} de ${historico.length}</small></div>` : ""}
+    </section>`;
 }
 
 function selecionarPlanoApresentacao(slug = "start") {
@@ -34531,7 +35421,7 @@ function resetarPlanoApresentacaoInterativo(event) {
 
 function editarPlanoApresentacaoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
-  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const headline = prompt("Título comercial do card", plan.headline || "");
   if (headline === null) return;
@@ -34558,7 +35448,7 @@ function editarPlanoApresentacaoSuperadmin(slug) {
 
 function editarPrecoExibidoPlanoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
-  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const valor = prompt("Preço exibido no card. Isto não altera cobrança real.", plan.priceLabel || "");
   if (valor === null) return;
@@ -36837,6 +37727,7 @@ function restaurarPersonalizacaoPadrao() {
     updateStatus: appConfig.updateStatus || "Aguardando",
     browserPasswordSaveOffer: appConfig.browserPasswordSaveOffer !== false,
     keepSessionCache: appConfig.keepSessionCache !== false,
+    localLockEnabled: appConfig.localLockEnabled !== false,
     biometricEnabled: !!appConfig.biometricEnabled,
     biometricOfferDismissed: !!appConfig.biometricOfferDismissed,
     backupReminderLastAt: appConfig.backupReminderLastAt || "",
@@ -37228,7 +38119,7 @@ function concluirLoginUsuario(usuario) {
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   if (isSuperAdmin(usuario)) sessionStorage.setItem("simplificaSuperadminAuthenticated", "true");
   else sessionStorage.removeItem("simplificaSuperadminAuthenticated");
-  salvarCacheSessaoLocal();
+  salvarCacheSessaoLocal({ novaAutenticacao: true });
   desativarTravaLocal("login");
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
@@ -39567,6 +40458,16 @@ async function atualizarSenhaSupabaseComSessao(novaSenha) {
     body: JSON.stringify({ password: novaSenha })
   });
   await limparTrocaSenhaObrigatoriaSupabase();
+  usuarios = normalizarUsuarios(usuarios);
+  const email = normalizarEmail(syncConfig.supabaseEmail || "");
+  const usuario = usuarios.find((item) =>
+    String(item.supabaseUserId || "") === String(syncConfig.supabaseUserId)
+    || (email && item.email === email)
+  );
+  if (usuario) {
+    await definirSenhaUsuario(usuario, novaSenha, false);
+    salvarDados();
+  }
   registrarSeguranca("Senha redefinida", "sucesso", "Link de recuperação Supabase", syncConfig.supabaseEmail);
   registrarAuditoria("senha_redefinida", { origem: "supabase_recovery_link" });
 }
@@ -46248,7 +47149,7 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
-    if (["plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
+    if (["modal-close", "plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -46568,7 +47469,7 @@ function montarMensagemOrcamentoWhatsapp(pedido = null, { tipo = "orcamento", in
     ? "Preparamos abaixo o resumo do seu pedido para você conferir com tranquilidade."
     : "Preparamos este orçamento com cuidado para você avaliar.";
   const encerramento = tipo === "pedido"
-    ? "Muito obrigado por escolher o nosso trabalho e por ser nosso cliente! Se precisar ajustar algum detalhe do pedido, estamos à disposição."
+    ? "Muito obrigado por escolher o nosso trabalho e por ser nosso cliente!"
     : "Obrigado pela oportunidade de preparar este orçamento! Se quiser finalizar ou conhecer outras opções, é só responder esta mensagem. Será um prazer atender você.";
   const valorCobranca = resumoCliente.restante > 0 ? resumoCliente.restante : resumoCliente.total;
   const extras = [];
@@ -47704,6 +48605,10 @@ function isAndroidNativeApp() {
   }
 }
 
+function isPilotBuild() {
+  return /pilot/i.test(String(APP_VERSION || ""));
+}
+
 function getAndroidDownloadUrl(manifest = {}) {
   return manifest.apkUrl || manifest.downloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
 }
@@ -47739,6 +48644,10 @@ function getPluginAtualizacaoAndroid() {
 }
 
 async function abrirDownloadAtualizacaoAndroid(url) {
+  if (isPilotBuild()) {
+    mostrarToast("Atualizações automáticas ficam desativadas no Piloto.", "info", 3600);
+    return { pilotBuild: true };
+  }
   const destino = url || appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
   if (!destino) {
     alert("Link do APK não configurado.");
@@ -47884,6 +48793,7 @@ function avisarAtualizacaoAndroid(manifest, forcarAviso = false) {
 
 async function verificarAtualizacaoAndroid(forcarAviso = false) {
   if (!isAndroid()) return false;
+  if (isPilotBuild()) return false;
 
   try {
     const manifest = await buscarManifestAtualizacaoAndroid();
@@ -47921,6 +48831,10 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
 }
 
 async function baixarAtualizacaoAndroid(forcarBusca = false) {
+  if (isPilotBuild()) {
+    mostrarToast("O Piloto não instala a versão estável automaticamente.", "info", 4200);
+    return { pilotBuild: true };
+  }
   if (isAndroid() || forcarBusca) {
     try {
       const manifest = await buscarManifestAtualizacaoAndroid();

@@ -18,12 +18,12 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.19\"",
-  "APP_VERSION_CODE = 20",
-  "versionName \"1.0.19\"",
-  "versionCode 20",
-  "\"version\": \"1.0.19\"",
-  "\"versionCode\": 20"
+  "APP_VERSION = \"1.0.26\"",
+  "APP_VERSION_CODE = 27",
+  "versionName \"1.0.26\"",
+  "versionCode 27",
+  "\"version\": \"1.0.26\"",
+  "\"versionCode\": 27"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");
