@@ -25503,6 +25503,12 @@ function abrirCadastroImpressora(id = "") {
   const impressora = id ? getPrinterById(id) : {};
   const brandId = impressora?.brand_id || "";
   const guiado = !id;
+  const bambuConectadas = guiado
+    ? getImpressorasAtivas().filter((item) => isImpressoraBambu(item) && item.credentials_configured)
+    : [];
+  const bambuDisponiveis = isPlanAtLeast(getCurrentPlanSlug(), "start")
+    ? bambuConectadas
+    : bambuConectadas.slice(0, 1);
   const conectorInicial = id ? String(impressora?.connector_type || "manual") : "manual";
   const automatico = conectorInicial !== "manual";
   const popup = document.getElementById("popup");
@@ -25516,10 +25522,16 @@ function abrirCadastroImpressora(id = "") {
         </div>
         <input type="hidden" id="printerId" value="${escaparAttr(id)}">
         <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
-        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 4 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
-        <div class="printer-setup-choice" data-printer-step="1">
-          <button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>
-          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>Outra impressora</strong><small>Cadastrar para acompanhamento manual</small></button>
+        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 3 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
+        <div class="printer-setup-choice ${bambuDisponiveis.length ? "has-connected-bambu" : ""}" data-printer-step="1">
+          ${bambuDisponiveis.length ? `<section class="printer-connected-account">
+            <div class="printer-connected-account-head"><span>${renderUiIcon("check")}</span><div><strong>Conta BambuLab já conectada</strong><small>Estas impressoras já estão disponíveis para esta conta.</small></div></div>
+            <div class="printer-connected-models">${bambuDisponiveis.map((item) => {
+              const conexao = getConexaoAtualImpressora(item);
+              return `<button type="button" data-existing-bambu-id="${escaparAttr(item.id)}"><span>${renderUiIcon("impressoras")}</span><strong>${escaparHtml(item.name || "Impressora BambuLab")}</strong><small>${escaparHtml(getPrinterDisplayModel(item))} · ${conexao.online ? "Online" : "Sem sinal"}</small></button>`;
+            }).join("")}</div>
+          </section>` : `<button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>`}
+          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>${bambuDisponiveis.length ? "Adicionar modelo diferente" : "Outra impressora"}</strong><small>Cadastrar para acompanhamento manual</small></button>
         </div>` : ""}
 
         <div class="printer-simple-fields" ${guiado ? 'data-printer-step="2"' : ""}>
@@ -25621,6 +25633,7 @@ function configurarEtapasCadastroImpressora() {
     form.querySelectorAll("[data-printer-step]").forEach((bloco) => {
       bloco.toggleAttribute("hidden", Number(bloco.dataset.printerStep) !== etapa);
     });
+    form.querySelector(".printer-advanced-settings")?.toggleAttribute("hidden", etapa === 1);
     const label = form.querySelector("[data-printer-step-label]");
     const progresso = form.querySelector("[data-printer-step-progress]");
     const fluxo = getFluxo();
@@ -25655,6 +25668,13 @@ function configurarEtapasCadastroImpressora() {
       atualizarCompatibilidadeCadastroImpressora();
       etapa = bambu ? 3 : 2;
       atualizar();
+    });
+  });
+  form.querySelectorAll("[data-existing-bambu-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const printerId = button.dataset.existingBambuId || "";
+      fecharPopup();
+      if (printerId) abrirPainelImpressoraSimplifica(printerId);
     });
   });
   document.getElementById("printerNextButton")?.addEventListener("click", () => {
