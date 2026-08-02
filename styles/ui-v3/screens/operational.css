@@ -357,9 +357,11 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 .printer-simple-overview {
   grid-template-columns: 52px minmax(0, 1fr);
   align-items: center;
+  overflow: hidden;
   padding: 18px;
+  color: var(--ui3-text, #14212b);
   border-color: color-mix(in srgb, var(--ui3-primary, #12b8ad) 34%, transparent);
-  background: color-mix(in srgb, var(--ui3-primary, #12b8ad) 10%, var(--ui3-surface-1, #121a21));
+  background: color-mix(in srgb, var(--ui3-primary, #12b8ad) 10%, var(--ui3-surface, #fff));
 }
 
 .printer-simple-overview > div {
@@ -369,6 +371,8 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 }
 
 .printer-simple-overview > div > strong {
+  color: inherit;
+  background: transparent;
   font-size: .92rem;
   line-height: 1.35;
 }
