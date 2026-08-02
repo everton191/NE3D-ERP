@@ -25282,7 +25282,7 @@ function renderImpressoras() {
       <section class="card printer-screen printer-screen-simple">
         <div class="card-header">
           <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Impressoras</h2></div>
-          ${podeGerenciar ? renderAppButton({ label: "Adicionar", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
+          ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
         </div>
         ${printerMonitoringState.error ? `<p class="printer-error">${escaparHtml(printerMonitoringState.error)}</p>` : ""}
         <div class="printer-summary-list">
@@ -26558,7 +26558,7 @@ function renderResumoCapacidadeProducao() {
 }
 
 function renderImpressorasProducao() {
-  const printers = productionPrinters.filter((printer) => printer.isActive !== false || printer.status !== "inativa");
+  const printers = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa");
   return `
     <div class="production-printer-toolbar">
       <p>As impressoras são controladas manualmente. O sistema organiza a fila e os status, mas não inicia impressões automaticamente.</p>
@@ -26646,18 +26646,22 @@ function renderProducao() {
     ["impressoras", "Impressoras"]
   ];
   const jobs = tab === "impressoras" ? [] : getTarefasProducaoPorAba(tab);
+  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length;
+  const resumoCabecalho = tab === "impressoras"
+    ? `${impressorasAtivas} impressora(s)`
+    : `${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)`;
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-production" data-ui-version="v3" data-ui3-screen="producao">
       <div class="card-header production-page-header">
         <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Fila manual por item, sem automação de impressoras.</p></div>
-        <span class="status-badge">${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)</span>
+        <span class="status-badge">${resumoCabecalho}</span>
       </div>
       ${renderPerfilImpressoraProducao()}
       ${renderResumoCapacidadeProducao()}
       <div class="production-tabs" role="tablist">
         ${tabs.map(([value,label]) => {
           const quantidade = value === "impressoras"
-            ? productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length
+            ? impressorasAtivas
             : getTarefasProducaoPorAba(value).length;
           return `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')"><span>${escaparHtml(label)}</span><strong>${quantidade}</strong></button>`;
         }).join("")}

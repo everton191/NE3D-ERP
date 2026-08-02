@@ -324,6 +324,82 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Piloto: produção/impressoras compacta, fluida e livre da navegação inferior. */
+@media (max-width: 767px) {
+  [data-ui-version="v3"].ui3-production {
+    padding-bottom: calc(var(--ui3-bottom-nav-height, 72px) + var(--ui3-safe-bottom, 0px) + var(--ui3-space-5, 20px));
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary {
+    gap: var(--ui3-space-2, 8px);
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary > div {
+    min-height: 0;
+    align-content: center;
+    padding: 8px 10px;
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary span,
+  [data-ui-version="v3"] .production-capacity-summary small {
+    font-size: 0.68rem;
+    line-height: 1.2;
+  }
+
+  [data-ui-version="v3"] .production-capacity-summary strong {
+    font-size: 0.95rem;
+    line-height: 1.15;
+  }
+
+  [data-ui-version="v3"] .production-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-rows: none !important;
+    grid-auto-flow: row !important;
+    grid-auto-columns: auto !important;
+    gap: 4px !important;
+    overflow: visible !important;
+    touch-action: pan-y !important;
+  }
+
+  [data-ui-version="v3"] .production-tabs button {
+    min-width: 0 !important;
+    min-height: 34px;
+  }
+
+  [data-ui-version="v3"] .production-tabs button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  [data-ui-version="v3"] .production-printer-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--ui3-space-2, 8px);
+  }
+
+  [data-ui-version="v3"] .production-printer-toolbar .btn {
+    width: auto !important;
+    min-width: max-content !important;
+    min-height: 38px;
+    justify-self: end;
+    padding: 7px 11px !important;
+    font-size: 0.72rem !important;
+    line-height: 1.2;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 420px) {
+  [data-ui-version="v3"] .production-printer-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  [data-ui-version="v3"] .production-printer-toolbar .btn {
+    justify-self: end;
+  }
+}
 /* Promoções 3D: busca simples em lojas oficiais */
 .promotions-3d-page{
   width:min(100%, 1480px);

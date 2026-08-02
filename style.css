@@ -40700,6 +40700,21 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   padding: 4px 0 8px;
 }
 
+.printer-page-header > .actions {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.printer-screen-simple > .card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.printer-screen-simple > .card-header > .app-button {
+  justify-self: end;
+}
+
 .printer-page-header h2,
 .printer-card h3 {
   margin: 0;
@@ -40713,7 +40728,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
 
 .printer-overview {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
   gap: var(--space-3, 12px);
 }
 
@@ -41197,7 +41212,11 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
     flex-direction: column;
   }
 
-  .printer-overview,
+  .printer-page-header > .actions {
+    width: 100%;
+    align-self: stretch;
+  }
+
   .printer-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -41220,7 +41239,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
 
 @media (max-width: 560px) {
   .printer-overview {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
   }
 
   .printer-card-header {
@@ -41244,6 +41263,15 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
 
   .printer-card-actions .btn {
     flex: 1 1 150px;
+  }
+
+  .printer-screen-simple > .card-header {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-screen-simple > .card-header > .app-button {
+    width: auto;
+    justify-self: end;
   }
 }
 
