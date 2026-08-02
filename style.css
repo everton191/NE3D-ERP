@@ -7628,9 +7628,10 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   body.mobile-mode:not([data-motion="high"]).motion-forward :where(.mobile-home,.mobile-panel,.mobile-panel-content),
   body.mobile-mode:not([data-motion="high"]).motion-back :where(.mobile-home,.mobile-panel,.mobile-panel-content),
   body.mobile-mode:not([data-motion="high"]).motion-refresh :where(.mobile-home,.mobile-panel,.mobile-panel-content){
-    animation:mobileStableScreenFade 190ms ease-out both !important;
+    animation:none !important;
+    opacity:1 !important;
     filter:none !important;
-    transform:none;
+    transform:none !important;
   }
 }
 

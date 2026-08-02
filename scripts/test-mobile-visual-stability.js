@@ -58,11 +58,11 @@ if (!app.includes("Math.hypot(dx, dy) > 8")) {
 if (app.includes("assistant-fab assistant-fab-open") || app.includes("function renderAssistenteVirtual")) {
   throw new Error("O produto padrão não deve renderizar o assistente aposentado.");
 }
-if (!app.includes("const PRINTER_FEATURE_ENABLED = false")) {
-  throw new Error("Impressoras devem permanecer desativadas nesta fase.");
+if (!app.includes("const PRINTER_FEATURE_ENABLED = true")) {
+  throw new Error("Impressoras devem permanecer habilitadas no piloto.");
 }
-if (app.includes('tela: "impressoras", icone: "impressoras", texto: "Impressoras 3D"')) {
-  throw new Error("Menu Mais do mobile não deve expor impressoras enquanto o recurso estiver desativado.");
+if (!app.includes('tela: "impressoras", icone: "impressoras", texto: "Impressoras"')) {
+  throw new Error("Menu mobile deve expor a tela de impressoras habilitada.");
 }
 if (!app.includes("toquePedidoSuprimidoAte = Date.now() + 700")) {
   throw new Error("Rolagem deve suprimir o clique residual que abriria o pedido.");

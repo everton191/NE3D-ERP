@@ -91,7 +91,7 @@ const LOGIN_LOCK_MS = 5 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 5;
 // TODO: Reativar WhatsApp 2FA somente com Edge Function/backend, provedor oficial, armazenamento com expiração e validação server-side.
 const WHATSAPP_2FA_BACKEND_ENABLED = false;
-const PRINTER_FEATURE_ENABLED = false;
+const PRINTER_FEATURE_ENABLED = true;
 const PERSONALIZATION_SCREEN_ENABLED = false;
 const ERP_THEME_PREFERENCE_STORAGE_KEY = "simplifica3d:erp-theme-preference";
 const FREE_ACTION_CREDIT_LIMIT = 5;
@@ -12748,7 +12748,8 @@ function getMenuGroups() {
       titulo: "Operação",
       itens: [
         { tela: "pedido", icone: "pedido", texto: "Novo pedido" },
-        { tela: "producao", icone: "producao", texto: "Produção" }
+        { tela: "producao", icone: "producao", texto: "Produção" },
+        { tela: "impressoras", icone: "impressoras", texto: "Impressoras" }
       ]
     },
     {
@@ -26669,11 +26670,29 @@ function renderPerfilImpressoraProducao() {
   const modelo = emUso.name || "Impressora 3D";
   const tipo = String(emUso.printerType || emUso.printer_type || "FDM").toUpperCase();
   const status = PRODUCTION_PRINTER_STATUS[emUso.status] || "Disponível";
-  return `<section class="calc-active-profile production-active-printer">
+  return `<section class="calc-active-profile production-active-printer is-clickable" role="button" tabindex="0" onclick="abrirImpressoraAtivaProducao('${escaparAttr(emUso.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirImpressoraAtivaProducao('${escaparAttr(emUso.id)}')}" aria-label="Abrir painel da impressora ${escaparAttr(modelo)}">
     <div class="calc-printer-art">${renderUiIcon("producao")}</div>
     <div><span>Impressora ativa</span><strong>${escaparHtml(modelo)}</strong><small>Modelo: ${escaparHtml(tipo)}${emUso.nozzleSize ? ` · Bico ${escaparHtml(emUso.nozzleSize)}` : ""}</small></div>
     <span class="status-badge production-printer-profile-status">${escaparHtml(status)}</span>
   </section>`;
+}
+
+async function abrirImpressoraAtivaProducao(id) {
+  const manual = getProductionPrinter(id);
+  if (!printerMonitoringState.loaded) {
+    try {
+      await hidratarImpressorasSeNecessario();
+    } catch (_) {}
+  }
+  const nome = normalizarTextoBusca(manual?.name || "");
+  const monitoradas = getImpressorasAtivas();
+  const monitorada = monitoradas.find((item) => normalizarTextoBusca(item.name || "") === nome)
+    || (monitoradas.length === 1 ? monitoradas[0] : null);
+  if (monitorada) {
+    abrirPainelImpressoraSimplifica(monitorada.id);
+    return;
+  }
+  trocarTela("impressoras");
 }
 
 function getTarefasProducaoPorAba(tab = getProductionTab()) {

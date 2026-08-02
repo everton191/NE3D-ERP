@@ -319,6 +319,20 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   color: #dc2626;
 }
 
+.production-active-printer.is-clickable {
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.production-active-printer.is-clickable:focus-visible {
+  outline: 2px solid var(--ui3-primary, #12b8ad);
+  outline-offset: 2px;
+}
+
+.production-active-printer.is-clickable:active {
+  border-color: var(--ui3-primary, #12b8ad);
+}
+
 .printer-simple-monitor {
   width: min(520px, calc(100vw - 24px));
   max-height: min(86vh, 760px);

@@ -40,6 +40,9 @@ for(const marker of ['["historico", "Histórico"]','function renderHistoricoProd
 for(const marker of ['function abrirPainelImpressoraSimplifica(id)','O Simplifica acompanha a impressão sem controlar a máquina.','class="printer-simple-monitor-grid"']){
   assert.ok(app.includes(marker),`painel simples da impressora ausente: ${marker}`);
 }
+assert.ok(app.includes('const PRINTER_FEATURE_ENABLED = true'),'tela de impressoras precisa estar habilitada no piloto');
+assert.ok(app.includes('{ tela: "impressoras", icone: "impressoras", texto: "Impressoras" }'),'Impressoras precisa aparecer no menu');
+assert.ok(app.includes('function abrirImpressoraAtivaProducao(id)'),'card da impressora ativa precisa abrir o painel');
 assert.ok(app.includes('filamentWeightGrams = job.filament_weight_grams'),'ajuste de peso deve preservar os campos local e remoto');
 for(const marker of ['function getPesoPlanejadoTarefaProducao','function getCustoMaterialPorGramaTarefaProducao','Horas perdidas','Material perdido','Prejuízo estimado']){
   assert.ok(app.includes(marker),`controle de perdas da produção ausente: ${marker}`);
