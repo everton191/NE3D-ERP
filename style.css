@@ -38340,6 +38340,31 @@ body.motion-refresh :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-pan
   animation:none !important;
 }
 
+/* Entrada progressiva apenas ao trocar de tela. Atualizações ao vivo permanecem estáveis. */
+body.motion-forward :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-back :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page){
+  animation:systemScreenCrossfade 300ms var(--motion-ease-emphasis) both !important;
+  transform-origin:center top;
+  will-change:opacity, transform !important;
+}
+
+body.motion-forward .motion-stagger-item,
+body.motion-back .motion-stagger-item{
+  animation:systemStaggerIn 360ms var(--motion-ease-emphasis) both !important;
+  animation-delay:calc(55ms + min(var(--motion-index, 0), 8) * 22ms) !important;
+  will-change:opacity, transform !important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  body.motion-forward :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+  body.motion-back :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+  body.motion-forward .motion-stagger-item,
+  body.motion-back .motion-stagger-item{
+    animation:none !important;
+    transition:none !important;
+  }
+}
+
 /* Ajuste final PWA desktop: Configurações continua visualmente o menu lateral. */
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main:has(> .settings-page){
   padding:0 !important;

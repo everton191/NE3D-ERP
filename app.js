@@ -9830,14 +9830,17 @@ function iniciarTransicaoNavegacao(tipo = "forward") {
 }
 
 function renderAppComTransicaoNavegacao(tipo = "forward") {
-  document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
-  delete document.documentElement.dataset.navDirection;
+  iniciarTransicaoNavegacao(tipo);
+  document.documentElement.dataset.navDirection = tipo;
   renderApp();
+  requestAnimationFrame(() => aplicarMotionSequenciado());
 }
 
 function aplicarMotionSequenciado() {
   if (typeof document === "undefined") return;
-  if (isMobile() && document.body.dataset.motion !== "high") return;
+  const navegando = document.body.classList.contains("motion-forward")
+    || document.body.classList.contains("motion-back");
+  if (isMobile() && document.body.dataset.motion !== "high" && !navegando) return;
   const animar = document.body.classList.contains("motion-forward")
     || document.body.classList.contains("motion-back")
     || window.__simplificaMotionPrimed !== true;
@@ -26377,6 +26380,43 @@ function atualizarPedidoQuandoProducaoPronta(orderId) {
   marcarRegistroLocalAlteradoParaSync(pedido, { status: "pronto", productionStatus: "pronto_para_entrega", production_status: "pronto_para_entrega" });
 }
 
+function getPlacasConcluidasProducao(job = {}) {
+  const salvas = Math.max(0, Number(job.completedQuantity || job.completed_quantity) || 0);
+  const eventos = productionEvents.filter((event) =>
+    String(event.productionJobId || event.production_job_id) === String(job.id)
+    && String(event.eventType || event.event_type) === "placa_concluida"
+  ).length;
+  return Math.max(salvas, eventos);
+}
+
+function registrarPlacaConcluidaProducao(jobId) {
+  const job = getProductionJob(jobId);
+  if (!job || ["cancelado", "falhou", "entregue"].includes(job.status)) return false;
+  const total = Math.max(1, Number(job.quantity) || 1);
+  const concluidas = Math.min(total, getPlacasConcluidasProducao(job));
+  if (concluidas >= total) {
+    mostrarToast("Todas as placas desta impressão já foram concluídas.", "info", 3000);
+    return false;
+  }
+  const agora = new Date().toISOString();
+  const novoTotal = concluidas + 1;
+  job.completedQuantity = job.completed_quantity = novoTotal;
+  job.remainingQuantity = job.remaining_quantity = Math.max(0, total - novoTotal);
+  job.updated_at = agora;
+  if (novoTotal >= total && ["na_fila", "proximo", "aguardando_impressora", "em_impressao", "pausado"].includes(job.status)) {
+    job.status = "pos_processamento";
+    job.finished_at = job.finished_at || agora;
+    const printer = getProductionPrinter(job.printerId);
+    if (printer) printer.status = "disponivel";
+  }
+  registrarEventoProducao(job.id, "placa_concluida", job.status, job.status, `Placa ${novoTotal} de ${total}`);
+  atualizarPedidoQuandoProducaoPronta(job.orderId);
+  salvarProducaoManual("placa-concluida");
+  renderizarPreservandoScroll();
+  mostrarToast(novoTotal >= total ? "Todas as placas concluídas. Enviado para pós-processamento." : `Placa ${novoTotal} de ${total} concluída.`, "sucesso", 3200);
+  return true;
+}
+
 function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
   const job = getProductionJob(jobId);
   if (!job || !PRODUCTION_STATUS_META[status]) return false;
@@ -26569,6 +26609,9 @@ function renderTarefaProducao(job = {}) {
   const real = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0;
   const peso = Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
   const variacaoTempo = estimado > 0 && real > 0 ? Math.round(((real - estimado) / estimado) * 100) : null;
+  const totalPlacas = Math.max(1, Number(job.quantity) || 1);
+  const placasConcluidas = Math.min(totalPlacas, getPlacasConcluidasProducao(job));
+  const placasRestantes = Math.max(0, totalPlacas - placasConcluidas);
   return `
     <article class="production-job-card production-status-${escaparAttr(job.status || "novo_pedido")}">
       <div class="production-job-head">
@@ -26580,7 +26623,7 @@ function renderTarefaProducao(job = {}) {
       </div>
       <div class="production-job-meta">
         <span><small>Material</small><strong>${escaparHtml(job.material || "Não informado")}${job.color ? ` · ${escaparHtml(job.color)}` : ""}</strong></span>
-        <span><small>Quantidade</small><strong>${Number(job.quantity) || 1}</strong></span>
+        <span><small>Placas</small><strong>${placasConcluidas}/${totalPlacas} concluídas${placasRestantes ? ` · faltam ${placasRestantes}` : ""}</strong></span>
         <span><small>Peso</small><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "Não informado"}</strong></span>
         <span><small>Tempo estimado</small><strong>${estimado ? `${estimado} min` : "Não informado"}</strong></span>
         ${real ? `<span><small>Tempo real</small><strong>${real} min${variacaoTempo === null ? "" : ` • ${variacaoTempo > 0 ? "+" : ""}${variacaoTempo}%`}</strong></span>` : ""}
@@ -26593,7 +26636,8 @@ function renderTarefaProducao(job = {}) {
         <label><span>Prioridade</span><select onchange="alterarPrioridadeTarefaProducao('${escaparAttr(job.id)}',this.value)">${[["normal","Normal"],["alta","Alta"],["urgente","Urgente"]].map(([value,label]) => `<option value="${value}" ${priority === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
       </div>
       <div class="production-job-actions">
-        <button class="btn secondary" type="button" onclick="visualizarPedido(${Number(job.orderId)})">Ver pedido</button>
+        <button class="btn secondary" type="button" onclick="visualizarPedido('${escaparAttr(job.orderId)}')">Ver pedido #${escaparHtml(job.orderId || "")}</button>
+        ${placasRestantes && !["cancelado", "falhou", "entregue"].includes(job.status) ? `<button class="btn" type="button" onclick="registrarPlacaConcluidaProducao('${escaparAttr(job.id)}')">Concluir 1 placa</button>` : ""}
         <button class="btn secondary" type="button" onclick="abrirAjusteDadosImpressao('${escaparAttr(job.id)}')">Peso e tempo</button>
         ${job.status === "falhou" || job.status === "reimpressao_necessaria" ? `<button class="btn" type="button" onclick="criarReimpressaoProducao('${escaparAttr(job.id)}')">Criar reimpressão</button>` : ""}
         ${job.status === "controle_qualidade" ? `<button class="btn" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','aprovado')">Aprovar</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','ajuste')">Precisa ajuste</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','reimpressao')">Reimprimir</button>` : ""}
@@ -26679,11 +26723,6 @@ function renderPerfilImpressoraProducao() {
 
 async function abrirImpressoraAtivaProducao(id) {
   const manual = getProductionPrinter(id);
-  if (!printerMonitoringState.loaded) {
-    try {
-      await hidratarImpressorasSeNecessario();
-    } catch (_) {}
-  }
   const nome = normalizarTextoBusca(manual?.name || "");
   const monitoradas = getImpressorasAtivas();
   const monitorada = monitoradas.find((item) => normalizarTextoBusca(item.name || "") === nome)
@@ -26693,6 +26732,11 @@ async function abrirImpressoraAtivaProducao(id) {
     return;
   }
   trocarTela("impressoras");
+  if (!printerMonitoringState.loaded) {
+    hidratarImpressorasSeNecessario()
+      .then(() => renderizarPreservandoScroll())
+      .catch(() => {});
+  }
 }
 
 function getTarefasProducaoPorAba(tab = getProductionTab()) {
@@ -26735,8 +26779,6 @@ function renderProducao() {
     ["impressao", "Em impressão"],
     ["pendencias", "Pendências"],
     ["prontos", "Prontos"],
-    ["entregues", "Entregues"],
-    ["pagos", "Pagos"],
     ["historico", "Histórico"],
     ["impressoras", "Impressoras"]
   ];
@@ -26750,7 +26792,7 @@ function renderProducao() {
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-production" data-ui-version="v3" data-ui3-screen="producao">
       <div class="card-header production-page-header">
-        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Fila manual por item, sem automação de impressoras.</p></div>
+        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Impressões vinculadas aos pedidos, com controle de placas concluídas.</p></div>
         <span class="status-badge">${resumoCabecalho}</span>
       </div>
       ${renderPerfilImpressoraProducao()}
@@ -48214,6 +48256,10 @@ function isAndroidNativeApp() {
   }
 }
 
+function isPilotBuild() {
+  return /pilot/i.test(String(APP_VERSION || ""));
+}
+
 function getAndroidDownloadUrl(manifest = {}) {
   return manifest.apkUrl || manifest.downloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
 }
@@ -48249,6 +48295,10 @@ function getPluginAtualizacaoAndroid() {
 }
 
 async function abrirDownloadAtualizacaoAndroid(url) {
+  if (isPilotBuild()) {
+    mostrarToast("Atualizações automáticas ficam desativadas no Piloto.", "info", 3600);
+    return { pilotBuild: true };
+  }
   const destino = url || appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
   if (!destino) {
     alert("Link do APK não configurado.");
@@ -48394,6 +48444,7 @@ function avisarAtualizacaoAndroid(manifest, forcarAviso = false) {
 
 async function verificarAtualizacaoAndroid(forcarAviso = false) {
   if (!isAndroid()) return false;
+  if (isPilotBuild()) return false;
 
   try {
     const manifest = await buscarManifestAtualizacaoAndroid();
@@ -48431,6 +48482,10 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
 }
 
 async function baixarAtualizacaoAndroid(forcarBusca = false) {
+  if (isPilotBuild()) {
+    mostrarToast("O Piloto não instala a versão estável automaticamente.", "info", 4200);
+    return { pilotBuild: true };
+  }
   if (isAndroid() || forcarBusca) {
     try {
       const manifest = await buscarManifestAtualizacaoAndroid();
