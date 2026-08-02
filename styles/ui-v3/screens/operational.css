@@ -319,9 +319,141 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   color: #dc2626;
 }
 
+.production-report {
+  display: grid;
+  gap: var(--ui3-space-3, 12px);
+}
+
+.production-report-toolbar,
+.production-history-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui3-space-3, 12px);
+}
+
+.production-report-toolbar h3,
+.production-report-toolbar p {
+  margin: 0;
+}
+
+.production-period-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, 0.2));
+  border-radius: 999px;
+  background: var(--ui3-surface-1, rgba(255, 255, 255, 0.04));
+}
+
+.production-period-switch button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ui3-text-muted, #71817e);
+  background: transparent;
+}
+
+.production-period-switch button.active {
+  color: var(--ui3-primary-contrast, #fff);
+  background: var(--ui3-primary, #166b5c);
+}
+
+.production-history-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ui3-space-2, 8px);
+}
+
+.production-history-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, 0.2));
+  border-radius: var(--ui3-radius-md, 14px);
+  background: var(--ui3-surface-1, rgba(255, 255, 255, 0.04));
+}
+
+.production-history-summary span,
+.production-history-row small,
+.production-history-more small {
+  color: var(--ui3-text-muted, #71817e);
+  font-size: 0.75rem;
+}
+
+.production-history-list {
+  display: grid;
+  gap: var(--ui3-space-2, 8px);
+}
+
+.production-history-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(130px, .8fr) minmax(150px, 1fr) auto;
+  align-items: center;
+  gap: var(--ui3-space-3, 12px);
+  padding: 11px 12px;
+  border: 1px solid var(--ui3-border-subtle, rgba(127, 127, 127, 0.2));
+  border-radius: var(--ui3-radius-md, 14px);
+}
+
+.production-history-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.production-history-row strong,
+.production-history-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.production-history-measures {
+  grid-template-columns: repeat(2, auto) !important;
+  justify-content: start;
+  gap: 6px !important;
+}
+
+.production-history-measures span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: var(--ui3-surface-muted, rgba(127, 127, 127, 0.1));
+}
+
 @media (max-width: 760px) {
   .production-capacity-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .production-report-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .production-period-switch {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .production-history-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .production-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .production-history-row > div:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .production-history-row .btn {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
   }
 }
 
