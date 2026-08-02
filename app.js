@@ -25312,7 +25312,7 @@ function abrirPainelImpressoraSimplifica(id) {
         </div>
       </section>
     </div>`;
-  promoverPopupParaDialogUiV3(popup, { title: impressora.name || "Impressora" });
+  promoverPopupParaDialogUiV3(popup, { title: impressora.name || "Impressora", kind: "sheet" });
 }
 
 async function atualizarPainelImpressoraSimplifica(id) {

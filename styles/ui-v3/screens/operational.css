@@ -639,6 +639,59 @@ body.mobile-mode .printer-simple-monitor-actions .btn {
   }
 }
 
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) {
+  max-height: 78dvh;
+  padding: 18px 16px calc(18px + var(--ui3-safe-bottom, 0px));
+  overflow-x: hidden;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) > .ui3-stack {
+  gap: 14px;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) .ui3-page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) .ui3-page-header h2 {
+  overflow: hidden;
+  font-size: 1.22rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) [data-ui3-close] {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  color: transparent;
+  font-size: 0;
+}
+
+body.mobile-mode .ui3-sheet:has(.printer-simple-monitor) [data-ui3-close]::before {
+  content: "×";
+  color: var(--ui3-text, #fff);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+body.mobile-mode .ui3-sheet .printer-simple-monitor {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .production-report {
   display: grid;
   gap: var(--ui3-space-3, 12px);
