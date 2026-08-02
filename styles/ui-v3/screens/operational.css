@@ -438,6 +438,32 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   font-size: .95rem;
 }
 
+.printer-wizard-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.printer-wizard-progress strong {
+  color: var(--ui3-text, #14212b);
+  font-size: .82rem;
+}
+
+.printer-wizard-progress > i {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui3-surface-muted, #edf3f4);
+}
+
+.printer-wizard-progress > i > span {
+  display: block;
+  width: 33.333%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ui3-primary, #007f76);
+  transition: width 180ms ease;
+}
+
 .printer-simple-progress i {
   position: absolute;
   inset: 0 auto 0 0;
