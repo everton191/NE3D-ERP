@@ -477,6 +477,40 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   overflow: visible;
 }
 
+.printer-bambu-login {
+  width: 100%;
+  max-width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.printer-bambu-login-copy {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  color: var(--ui3-text, #14212b);
+  background: var(--ui3-surface-muted, #edf3f4);
+  border-radius: var(--ui3-radius-md, 12px);
+}
+
+.printer-bambu-login-copy p,
+.printer-login-result {
+  margin: 0;
+}
+
+.printer-bambu-consent {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+}
+
+.printer-bambu-consent input {
+  width: 20px;
+  min-height: 20px;
+  margin: 1px 0 0;
+}
+
 .ui3-dialog .printer-wizard :where(.printer-simple-fields, .printer-advanced-settings, .printer-advanced-content, [data-printer-step], .field, input, select, textarea) {
   min-width: 0;
   max-width: 100%;

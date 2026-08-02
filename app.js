@@ -2907,6 +2907,11 @@ const printerMonitoringState = {
   history: {}
 };
 
+const bambuLoginDraftState = {
+  printerId: "",
+  awaitingCode: false
+};
+
 const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
 const STOCK_ITEM_TYPES = Object.freeze([
   "Produto pronto",
@@ -25728,9 +25733,11 @@ async function salvarCadastroImpressora(event) {
       printerMonitoringState.loaded = true;
       sincronizarImpressorasComCalculadora();
     }
+    const abrirLoginBambuDepois = !payload.id && payload.connector_type === "bambu" && saved?.id;
     fecharPopup();
     await hidratarImpressorasSeNecessario(true);
     mostrarToast(payload.id ? "Impressora atualizada." : "Impressora adicionada.", "sucesso", 3400);
+    if (abrirLoginBambuDepois) abrirLoginBambu(saved.id);
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
     if (save) save.disabled = false;
@@ -25932,6 +25939,72 @@ function getProductionStatusLabel(status = "novo_pedido") {
 function getProductionTab() {
   const tab = String(window.__productionTab || "fila");
   return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "historico", "impressoras"].includes(tab) ? tab : "fila";
+}
+
+function abrirLoginBambu(id) {
+  const impressora = getPrinterById(id);
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup || !podeGerenciarImpressoras()) return;
+  bambuLoginDraftState.printerId = id;
+  bambuLoginDraftState.awaitingCode = false;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-modal-backdrop" role="dialog" aria-modal="true">
+      <form class="modal-card printer-bambu-login" id="bambuLoginForm" autocomplete="off">
+        <div class="modal-header"><h2>Conectar conta Bambu</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <div class="printer-bambu-login-copy">
+          <span class="eyebrow">Integração comunitária experimental</span>
+          <strong>${escaparHtml(impressora.name || "Impressora Bambu")}</strong>
+          <p>A conexão é somente para acompanhamento. A senha será enviada uma única vez para autenticação e não será armazenada pelo aplicativo.</p>
+        </div>
+        <label class="printer-bambu-consent"><input id="bambuLoginConsent" type="checkbox" required><span>Entendi e autorizo a autenticação temporária na BambuLab.</span></label>
+        <label class="field"><span>E-mail da conta BambuLab</span><input id="bambuLoginAccount" type="email" inputmode="email" autocomplete="username" required maxlength="240"></label>
+        <label class="field" id="bambuPasswordField"><span>Senha BambuLab</span><input id="bambuLoginPassword" type="password" autocomplete="current-password" required maxlength="1000"></label>
+        <label class="field" id="bambuCodeField" hidden><span>Código de verificação</span><input id="bambuLoginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="40"></label>
+        <p class="printer-login-result" id="bambuLoginResult" role="status"></p>
+        <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit" id="bambuLoginSubmit">Entrar e localizar</button></div>
+      </form>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Conectar conta Bambu" });
+  document.getElementById("bambuLoginForm")?.addEventListener("submit", autenticarContaBambu);
+}
+
+async function autenticarContaBambu(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form?.reportValidity?.()) return;
+  const submit = document.getElementById("bambuLoginSubmit");
+  const result = document.getElementById("bambuLoginResult");
+  const password = document.getElementById("bambuLoginPassword");
+  const code = document.getElementById("bambuLoginCode");
+  if (submit) submit.disabled = true;
+  if (result) result.textContent = "Autenticando com a BambuLab...";
+  try {
+    const data = await printerBackendRequest("bambu_login", {
+      printer_id: bambuLoginDraftState.printerId,
+      account: document.getElementById("bambuLoginAccount")?.value || "",
+      password: bambuLoginDraftState.awaitingCode ? "" : password?.value || "",
+      code: bambuLoginDraftState.awaitingCode ? code?.value || "" : ""
+    });
+    if (password) password.value = "";
+    if (code) code.value = "";
+    await hidratarImpressorasSeNecessario(true);
+    fecharPopup();
+    mostrarToast(Array.isArray(data?.devices) && data.devices.length ? "Conta Bambu conectada e impressora localizada." : "Conta Bambu conectada.", "sucesso", 4200);
+  } catch (erro) {
+    const message = String(erro?.message || "");
+    if (message === "BAMBU_VERIFICATION_CODE_REQUIRED") {
+      bambuLoginDraftState.awaitingCode = true;
+      document.getElementById("bambuCodeField")?.removeAttribute("hidden");
+      document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
+      if (password) password.required = false;
+      if (code) code.required = true;
+      if (result) result.textContent = "Informe o código enviado pela BambuLab e tente novamente.";
+      code?.focus();
+    } else if (result) {
+      result.textContent = getPrinterMonitoringService()?.errorMessage(message) || "Não foi possível conectar à BambuLab.";
+    }
+    if (submit) submit.disabled = false;
+  }
 }
 
 function trocarAbaProducao(tab = "fila") {
