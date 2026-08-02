@@ -354,6 +354,31 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   background: var(--ui3-surface-1, rgba(255,255,255,.04));
 }
 
+.printer-simple-overview {
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  padding: 18px;
+  border-color: color-mix(in srgb, var(--ui3-primary, #12b8ad) 34%, transparent);
+  background: color-mix(in srgb, var(--ui3-primary, #12b8ad) 10%, var(--ui3-surface-1, #121a21));
+}
+
+.printer-simple-overview > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.printer-simple-overview > div > strong {
+  font-size: .92rem;
+  line-height: 1.35;
+}
+
+.printer-friendly-state {
+  color: var(--ui3-primary, #12b8ad);
+  font-size: 1.18rem;
+  font-weight: 800;
+}
+
 .printer-simple-job-title {
   display: flex;
   align-items: center;
@@ -432,6 +457,43 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 .printer-simple-monitor-grid strong {
   font-size: 1.1rem;
+}
+
+.printer-simple-details {
+  display: grid;
+  gap: 8px;
+}
+
+.printer-simple-details h3 {
+  margin: 0;
+  font-size: .8rem;
+  color: var(--ui3-text-muted, #71817e);
+}
+
+.printer-simple-connection {
+  display: grid;
+  grid-template-columns: 10px auto 1fr;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .76rem;
+}
+
+.printer-simple-connection i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ui3-text-muted, #71817e);
+}
+
+.printer-simple-connection i.is-online {
+  background: #32d583;
+}
+
+.printer-simple-connection small {
+  justify-self: end;
+  color: inherit;
 }
 
 .printer-simple-monitor-note {

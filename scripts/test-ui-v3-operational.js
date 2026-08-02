@@ -37,7 +37,7 @@ assert.ok(app.includes('montarPedidoRapidoNoDrawerUiV3({ historyEntry: false })'
 for(const marker of ['["historico", "Histórico"]','function renderHistoricoProducao()','const PRODUCTION_HISTORY_PAGE_SIZE = 6','function abrirAjusteDadosImpressao(jobId)']){
   assert.ok(app.includes(marker),`histórico compacto da produção ausente: ${marker}`);
 }
-for(const marker of ['function abrirPainelImpressoraSimplifica(id)','O Simplifica acompanha a impressão sem controlar a máquina.','class="printer-simple-monitor-grid"']){
+for(const marker of ['function abrirPainelImpressoraSimplifica(id)','Conectada e pronta para o próximo trabalho','class="printer-simple-connection"']){
   assert.ok(app.includes(marker),`painel simples da impressora ausente: ${marker}`);
 }
 assert.ok(app.includes('const PRINTER_FEATURE_ENABLED = true'),'tela de impressoras precisa estar habilitada no piloto');
