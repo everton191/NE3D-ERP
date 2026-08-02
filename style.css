@@ -47530,6 +47530,19 @@ body .printer-wizard .printer-wizard-actions > button[hidden]{
   display:none !important;
 }
 
+body .printer-wizard .printer-wizard-actions{
+  display:grid !important;
+  grid-template-columns:repeat(auto-fit, minmax(min(110px, 100%), 1fr)) !important;
+  gap:8px;
+}
+
+body .printer-wizard .printer-wizard-actions > .btn{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:44px !important;
+  border-radius:13px !important;
+}
+
 body .printer-wizard :is(
   [data-printer-step][hidden],
   .printer-advanced-settings[hidden],
@@ -47710,11 +47723,15 @@ body.theme-light .printer-wizard :where(small,.muted){
   }
 
   .printer-setup-choice button{
-    min-height:112px;
+    min-height:96px;
   }
 
   .printer-setup-choice.has-connected-bambu{
     grid-template-columns:1fr;
+  }
+
+  .printer-connected-models button{
+    min-height:68px;
   }
 }
 
