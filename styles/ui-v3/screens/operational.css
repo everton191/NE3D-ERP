@@ -415,6 +415,25 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   background: var(--ui3-surface-muted, rgba(127,127,127,.12));
 }
 
+.printer-current-work {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--ui3-radius-md, 14px);
+  background: var(--ui3-surface-muted, rgba(127,127,127,.1));
+}
+
+.printer-current-work span {
+  color: var(--ui3-text-muted, #71817e);
+  font-size: .73rem;
+}
+
+.printer-current-work strong {
+  overflow-wrap: anywhere;
+  font-size: .95rem;
+}
+
 .printer-simple-progress i {
   position: absolute;
   inset: 0 auto 0 0;

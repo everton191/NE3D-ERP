@@ -25277,6 +25277,9 @@ function abrirPainelImpressoraSimplifica(id) {
   const tempo = temNumeroImpressora(latest.remaining_seconds) && Number(latest.remaining_seconds) > 0
     ? (getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")
     : "—";
+  const tempoDecorrido = temNumeroImpressora(latest.elapsed_seconds) && Number(latest.elapsed_seconds) > 0
+    ? (getPrinterMonitoringService()?.formatDuration(latest.elapsed_seconds) || "—")
+    : "—";
   const camadaAtual = Number(latest.current_layer ?? latest.layer_current);
   const totalCamadas = Number(latest.total_layers ?? latest.layer_total);
   const camada = Number.isFinite(camadaAtual) && camadaAtual > 0
@@ -25290,11 +25293,13 @@ function abrirPainelImpressoraSimplifica(id) {
     ? getTextoTrabalhoImpressora(impressora)
     : conexao.online ? "Conectada e pronta para o próximo trabalho" : "Toque em Atualizar para tentar receber um novo sinal";
   const detalhes = [
-    temNumeroImpressora(latest.nozzle_temp) ? ["Bico", formatarTemperaturaImpressora(latest.nozzle_temp)] : null,
-    temNumeroImpressora(latest.bed_temp) ? ["Mesa", formatarTemperaturaImpressora(latest.bed_temp)] : null,
-    camada !== "—" ? ["Camada", camada] : null,
-    tempo !== "—" ? ["Tempo restante", tempo] : null
+    temNumeroImpressora(latest.nozzle_temp) ? ["Bico", formatarTemperaturaImpressora(latest.nozzle_temp), temNumeroImpressora(latest.nozzle_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}` : ""] : null,
+    temNumeroImpressora(latest.bed_temp) ? ["Mesa", formatarTemperaturaImpressora(latest.bed_temp), temNumeroImpressora(latest.bed_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.bed_target_temp)}` : ""] : null,
+    camada !== "—" ? ["Camada", camada, "Andamento da placa"] : null,
+    tempoDecorrido !== "—" ? ["Tempo impresso", tempoDecorrido, ""] : null,
+    tempo !== "—" ? ["Tempo restante", tempo, ""] : null
   ].filter(Boolean);
+  const nomeTrabalho = getTextoTrabalhoImpressora(impressora);
   popup.innerHTML = `
     <div class="modal-backdrop printer-simple-monitor-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card printer-simple-monitor" onclick="event.stopPropagation()">
@@ -25306,8 +25311,9 @@ function abrirPainelImpressoraSimplifica(id) {
           <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
           <div><span class="printer-friendly-state">${escaparHtml(tituloEstado)}</span><strong>${escaparHtml(descricaoEstado)}</strong></div>
         </section>
+        ${imprimindo ? `<section class="printer-current-work"><span>Placa / trabalho</span><strong>${escaparHtml(nomeTrabalho)}</strong></section>` : ""}
         ${imprimindo && temProgresso ? `<div class="printer-simple-progress" aria-label="Progresso da impressão: ${progresso}%"><i style="--progress:${progresso}%"></i><strong>${progresso}%</strong></div>` : ""}
-        ${detalhes.length ? `<section class="printer-simple-details"><h3>Durante a impressão</h3><div class="printer-simple-monitor-grid">${detalhes.map(([rotulo, valor]) => `<div><span>${escaparHtml(rotulo)}</span><strong>${escaparHtml(valor)}</strong></div>`).join("")}</div></section>` : ""}
+        ${detalhes.length ? `<section class="printer-simple-details"><h3>Informações da impressão</h3><div class="printer-simple-monitor-grid">${detalhes.map(([rotulo, valor, complemento]) => `<div><span>${escaparHtml(rotulo)}</span><strong>${escaparHtml(valor)}</strong>${complemento ? `<small>${escaparHtml(complemento)}</small>` : ""}</div>`).join("")}</div></section>` : ""}
         <p class="printer-simple-connection"><i class="${conexao.online ? "is-online" : ""}" aria-hidden="true"></i><span>${conexao.online ? "Conectada" : "Sem sinal"}</span><small>${impressora.last_seen_at ? `Último sinal: ${escaparHtml(formatarDataHora(impressora.last_seen_at))}` : "Aguardando atualização"}</small></p>
         <div class="actions printer-simple-monitor-actions">
           <button class="btn secondary" type="button" onclick="atualizarPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar</button>
