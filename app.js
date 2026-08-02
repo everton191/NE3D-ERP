@@ -25501,25 +25501,28 @@ function abrirCadastroImpressora(id = "") {
     return;
   }
   const impressora = id ? getPrinterById(id) : {};
-  const pro = isPlanAtLeast(getCurrentPlanSlug(), "pro");
   const brandId = impressora?.brand_id || "";
   const guiado = !id;
-  const conectorInicial = id ? String(impressora?.connector_type || "manual") : (pro ? "bambu" : "manual");
+  const conectorInicial = id ? String(impressora?.connector_type || "manual") : "manual";
   const automatico = conectorInicial !== "manual";
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
     <div class="modal-backdrop printer-modal-backdrop" id="printerModalBackdrop" role="dialog" aria-modal="true">
-      <form class="modal-card printer-wizard printer-form-simple" id="printerForm">
+      <form class="modal-card printer-wizard printer-form-simple" id="printerForm" data-printer-guided="${guiado ? "true" : "false"}">
         <div class="modal-header">
           <div><span class="eyebrow">${id ? "Editar" : "Nova"} impressora</span><h2>${id ? escaparHtml(impressora.name) : "Adicionar impressora"}</h2></div>
           <button class="icon-button" id="printerCloseButton" type="button" title="Fechar">✕</button>
         </div>
         <input type="hidden" id="printerId" value="${escaparAttr(id)}">
         <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
-        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 3 · Identificação</strong><i><span data-printer-step-progress></span></i></div>` : ""}
+        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 4 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
+        <div class="printer-setup-choice" data-printer-step="1">
+          <button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>
+          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>Outra impressora</strong><small>Cadastrar para acompanhamento manual</small></button>
+        </div>` : ""}
 
-        <div class="printer-simple-fields" ${guiado ? 'data-printer-step="1"' : ""}>
+        <div class="printer-simple-fields" ${guiado ? 'data-printer-step="2"' : ""}>
           <label class="field field-wide"><span>Nome da impressora</span><input id="printerName" required maxlength="120" value="${escaparAttr(impressora?.name || "")}" placeholder="Ex.: Ender da produção" autofocus></label>
           <label class="field"><span>Modelo</span><input id="printerCustomModel" list="printerModelSuggestions" maxlength="120" value="${escaparAttr(getPrinterDisplayModel(impressora) === "Modelo não informado" ? "" : getPrinterDisplayModel(impressora))}" placeholder="Ex.: Ender 3 V2"><datalist id="printerModelSuggestions">${getPrinterModelSuggestionOptions()}</datalist></label>
           <label class="field"><span>Tipo</span><select id="printerType">${[["fdm","FDM"],["resin","Resina"],["other","Outro"]].map(([value,label]) => `<option value="${value}" ${String(impressora?.printer_type || "fdm") === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
@@ -25534,7 +25537,7 @@ function abrirCadastroImpressora(id = "") {
             <small>Marca, conexão automática e custos</small>
           </summary>
           <div class="printer-advanced-content">
-            <section ${guiado ? 'data-printer-step="1"' : ""}>
+            <section ${guiado ? 'data-printer-step="2"' : ""}>
               <h3>Identificação</h3>
               <div class="form-grid">
                 <label class="field"><span>Marca</span><select id="printerBrand"><option value="">Outra / personalizada</option>${getPrinterBrandOptions(brandId, impressora?.custom_brand)}</select></label>
@@ -25542,14 +25545,15 @@ function abrirCadastroImpressora(id = "") {
               </div>
             </section>
 
-            <section ${guiado ? 'data-printer-step="2" hidden' : ""}>
+            <section ${guiado ? 'data-printer-step="3" hidden' : ""}>
               <h3>Conexão com a impressora</h3>
               ${guiado ? `<p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>` : ""}
               <label class="field"><span>Conexão</span>
                 <select id="printerConnector">
-                  ${(getPrinterMonitoringService()?.CONNECTORS || []).filter((connector) => ["manual", "bambu"].includes(connector.key)).map((connector) => `<option value="${connector.key}" ${conectorInicial === connector.key ? "selected" : ""} ${connector.automatic && !pro ? "disabled" : ""}>${escaparHtml(connector.name)}${connector.automatic && !pro ? " · Pro" : ""}</option>`).join("")}
+                  ${(getPrinterMonitoringService()?.CONNECTORS || []).filter((connector) => ["manual", "bambu"].includes(connector.key)).map((connector) => `<option value="${connector.key}" ${conectorInicial === connector.key ? "selected" : ""}>${escaparHtml(connector.name)}</option>`).join("")}
                 </select>
               </label>
+              ${guiado ? `<p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>` : ""}
               <div id="printerAutomaticFields">
                 ${guiado ? `<div class="printer-bambu-quick-login" id="printerBambuQuickFields" hidden>
                   <div><span class="eyebrow">Acesso rápido BambuLab</span><strong>Conectar sua conta agora</strong><p>Informe os dados uma vez. A senha será usada somente na autenticação e não será salva no aplicativo.</p></div>
@@ -25563,7 +25567,7 @@ function abrirCadastroImpressora(id = "") {
               <div id="printerManualFields" hidden></div>
             </section>
 
-            <section ${guiado ? 'data-printer-step="3" hidden' : ""}>
+            <section ${guiado ? 'data-printer-step="4" hidden' : ""}>
               <h3>Custos opcionais</h3>
               <div class="form-grid">
                 <label class="field"><span>Custo por hora</span><input id="printerHourlyCost" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.hourly_cost || "")}" placeholder="0,00"></label>
@@ -25592,6 +25596,9 @@ function abrirCadastroImpressora(id = "") {
   document.getElementById("printerCloseButton")?.addEventListener("click", fecharPopup);
   document.getElementById("printerCancelButton")?.addEventListener("click", fecharPopup);
   document.getElementById("printerBrand")?.addEventListener("change", atualizarMarcaCadastroImpressora);
+  document.getElementById("printerBrand")?.addEventListener("change", atualizarCompatibilidadeCadastroImpressora);
+  document.getElementById("printerCustomBrand")?.addEventListener("input", atualizarCompatibilidadeCadastroImpressora);
+  document.getElementById("printerCustomModel")?.addEventListener("input", atualizarCompatibilidadeCadastroImpressora);
   document.getElementById("printerConnector")?.addEventListener("change", atualizarCamposConectorImpressora);
   document.getElementById("printerConnectionMode")?.addEventListener("change", atualizarCamposConectorImpressora);
   document.getElementById("printerConnectionTestButton")?.addEventListener("click", testarConexaoCadastroImpressora);
@@ -25600,21 +25607,26 @@ function abrirCadastroImpressora(id = "") {
     if (event.target === event.currentTarget) fecharPopup();
   });
   atualizarCamposConectorImpressora();
+  atualizarCompatibilidadeCadastroImpressora();
 }
 
 function configurarEtapasCadastroImpressora() {
   const form = document.getElementById("printerForm");
   if (!form) return;
   let etapa = 1;
-  const rotulos = ["", "Identificação", "Conexão automática", "Custos opcionais"];
+  let tipoEscolhido = "";
+  const rotulos = ["", "Escolha rápida", "Identificação", "Conexão", "Custos opcionais"];
+  const getFluxo = () => tipoEscolhido === "bambu" ? [1, 3, 4] : [1, 2, 4];
   const atualizar = () => {
     form.querySelectorAll("[data-printer-step]").forEach((bloco) => {
       bloco.toggleAttribute("hidden", Number(bloco.dataset.printerStep) !== etapa);
     });
     const label = form.querySelector("[data-printer-step-label]");
     const progresso = form.querySelector("[data-printer-step-progress]");
-    if (label) label.textContent = `${etapa} de 3 · ${rotulos[etapa]}`;
-    if (progresso) progresso.style.width = `${(etapa / 3) * 100}%`;
+    const fluxo = getFluxo();
+    const posicao = Math.max(0, fluxo.indexOf(etapa));
+    if (label) label.textContent = `${posicao + 1} de ${fluxo.length} · ${rotulos[etapa]}`;
+    if (progresso) progresso.style.width = `${((posicao + 1) / fluxo.length) * 100}%`;
     const alternarBotao = (id, oculto) => {
       const botao = document.getElementById(id);
       if (!botao) return;
@@ -25623,9 +25635,28 @@ function configurarEtapasCadastroImpressora() {
       else botao.style.removeProperty("display");
     };
     alternarBotao("printerPreviousButton", etapa === 1);
-    alternarBotao("printerNextButton", etapa === 3);
-    alternarBotao("printerSaveButton", etapa !== 3);
+    alternarBotao("printerNextButton", etapa === 1 || etapa === 4);
+    alternarBotao("printerSaveButton", etapa !== 4);
   };
+  form.querySelectorAll("[data-printer-kind]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const bambu = button.dataset.printerKind === "bambu";
+      tipoEscolhido = bambu ? "bambu" : "manual";
+      const brand = document.getElementById("printerBrand");
+      const customBrand = document.getElementById("printerCustomBrand");
+      const name = document.getElementById("printerName");
+      if (brand) {
+        const option = Array.from(brand.options).find((item) => /bambu\s*lab|bambulab/i.test(item.textContent || ""));
+        brand.value = bambu && option ? option.value : "";
+      }
+      if (customBrand) customBrand.value = bambu ? "Bambu Lab" : "";
+      if (name && bambu && !name.value.trim()) name.value = "BambuLab";
+      if (name && !bambu && name.value === "BambuLab") name.value = "";
+      atualizarCompatibilidadeCadastroImpressora();
+      etapa = bambu ? 3 : 2;
+      atualizar();
+    });
+  });
   document.getElementById("printerNextButton")?.addEventListener("click", () => {
     const campos = Array.from(form.querySelectorAll(`[data-printer-step="${etapa}"] :is(input,select,textarea)`));
     const invalido = campos.find((campo) => !campo.checkValidity());
@@ -25633,11 +25664,13 @@ function configurarEtapasCadastroImpressora() {
       invalido.reportValidity();
       return;
     }
-    etapa = Math.min(3, etapa + 1);
+    const fluxo = getFluxo();
+    etapa = fluxo[Math.min(fluxo.length - 1, fluxo.indexOf(etapa) + 1)] || etapa;
     atualizar();
   });
   document.getElementById("printerPreviousButton")?.addEventListener("click", () => {
-    etapa = Math.max(1, etapa - 1);
+    const fluxo = getFluxo();
+    etapa = fluxo[Math.max(0, fluxo.indexOf(etapa) - 1)] || 1;
     atualizar();
   });
   atualizar();
@@ -25963,6 +25996,27 @@ function getProductionStatusLabel(status = "novo_pedido") {
 function getProductionTab() {
   const tab = String(window.__productionTab || "fila");
   return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "historico", "impressoras"].includes(tab) ? tab : "fila";
+}
+
+function atualizarCompatibilidadeCadastroImpressora() {
+  const form = document.getElementById("printerForm");
+  if (!form || form.dataset.printerGuided !== "true") return;
+  const brand = document.getElementById("printerBrand");
+  const brandName = brand?.selectedOptions?.[0]?.dataset?.brandName || brand?.selectedOptions?.[0]?.textContent || "";
+  const customBrand = document.getElementById("printerCustomBrand")?.value || "";
+  const model = document.getElementById("printerCustomModel")?.value || "";
+  const descricao = `${brandName} ${customBrand} ${model}`.toLowerCase();
+  const bambu = /bambu\s*lab|bambulab/.test(descricao);
+  const connector = document.getElementById("printerConnector");
+  const notice = document.getElementById("printerConnectionCompatibility");
+  if (connector) connector.value = bambu ? "bambu" : "manual";
+  if (notice) {
+    notice.classList.toggle("is-bambu", bambu);
+    notice.textContent = bambu
+      ? "BambuLab identificada. O acesso rápido da conta será aberto nesta etapa."
+      : "Este modelo funciona manualmente por enquanto. A integração automática disponível nesta versão é somente para BambuLab.";
+  }
+  atualizarCamposConectorImpressora();
 }
 
 async function autenticarBambuDepoisCadastro(printerId, account, password) {
