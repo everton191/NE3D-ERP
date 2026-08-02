@@ -25271,6 +25271,11 @@ function getConexaoAtualImpressora(impressora = {}) {
   };
 }
 
+function isImpressoraBambu(impressora = {}) {
+  return String(impressora.connector_type || "").toLowerCase() === "bambu"
+    || normalizarTextoBusca(`${getPrinterDisplayBrand(impressora)} ${getPrinterDisplayModel(impressora)}`).includes("bambu");
+}
+
 function abrirPainelImpressoraSimplifica(id) {
   const impressora = getPrinterById(id);
   const popup = document.getElementById("popup");
@@ -25298,6 +25303,7 @@ function abrirPainelImpressoraSimplifica(id) {
     ? getTextoTrabalhoImpressora(impressora)
     : conexao.online ? "Conectada e pronta para o próximo trabalho" : "Toque em Atualizar para tentar receber um novo sinal";
   const detalhes = [
+    ["Modelo", getPrinterDisplayModel(impressora), getPrinterDisplayBrand(impressora)],
     temNumeroImpressora(latest.nozzle_temp) ? ["Bico", formatarTemperaturaImpressora(latest.nozzle_temp), temNumeroImpressora(latest.nozzle_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}` : ""] : null,
     temNumeroImpressora(latest.bed_temp) ? ["Mesa", formatarTemperaturaImpressora(latest.bed_temp), temNumeroImpressora(latest.bed_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.bed_target_temp)}` : ""] : null,
     camada !== "—" ? ["Camada", camada, "Andamento da placa"] : null,
@@ -25305,6 +25311,8 @@ function abrirPainelImpressoraSimplifica(id) {
     tempo !== "—" ? ["Tempo restante", tempo, ""] : null
   ].filter(Boolean);
   const nomeTrabalho = getTextoTrabalhoImpressora(impressora);
+  const bambuSemConta = isImpressoraBambu(impressora) && !impressora.credentials_configured;
+  const temDadosImpressao = imprimindo || detalhes.length > 1;
   popup.innerHTML = `
     <div class="modal-backdrop printer-simple-monitor-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <section class="modal-card printer-simple-monitor" onclick="event.stopPropagation()">
@@ -25318,9 +25326,11 @@ function abrirPainelImpressoraSimplifica(id) {
         </section>
         ${imprimindo ? `<section class="printer-current-work"><span>Placa / trabalho</span><strong>${escaparHtml(nomeTrabalho)}</strong></section>` : ""}
         ${imprimindo && temProgresso ? `<div class="printer-simple-progress" aria-label="Progresso da impressão: ${progresso}%"><i style="--progress:${progresso}%"></i><strong>${progresso}%</strong></div>` : ""}
-        ${detalhes.length ? `<section class="printer-simple-details"><h3>Informações da impressão</h3><div class="printer-simple-monitor-grid">${detalhes.map(([rotulo, valor, complemento]) => `<div><span>${escaparHtml(rotulo)}</span><strong>${escaparHtml(valor)}</strong>${complemento ? `<small>${escaparHtml(complemento)}</small>` : ""}</div>`).join("")}</div></section>` : ""}
+        ${detalhes.length ? `<section class="printer-simple-details"><h3>Informações da impressora</h3><div class="printer-simple-monitor-grid">${detalhes.map(([rotulo, valor, complemento]) => `<div><span>${escaparHtml(rotulo)}</span><strong>${escaparHtml(valor)}</strong>${complemento ? `<small>${escaparHtml(complemento)}</small>` : ""}</div>`).join("")}</div></section>` : ""}
+        ${bambuSemConta ? `<p class="printer-data-notice">Conecte sua conta BambuLab para receber trabalho, progresso, tempo, camada e temperaturas.</p>` : !temDadosImpressao ? `<p class="printer-data-notice">A impressora está conectada. Os detalhes aparecerão quando ela enviar uma atualização completa.</p>` : ""}
         <p class="printer-simple-connection"><i class="${conexao.online ? "is-online" : ""}" aria-hidden="true"></i><span>${conexao.online ? "Conectada" : "Sem sinal"}</span><small>${impressora.last_seen_at ? `Último sinal: ${escaparHtml(formatarDataHora(impressora.last_seen_at))}` : "Aguardando atualização"}</small></p>
         <div class="actions printer-simple-monitor-actions">
+          ${bambuSemConta ? `<button class="btn" type="button" onclick="fecharPopup();setTimeout(()=>abrirLoginBambu('${escaparAttr(impressora.id)}'),80)">Conectar BambuLab</button>` : ""}
           <button class="btn secondary" type="button" onclick="atualizarPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar</button>
           ${podeGerenciarImpressoras() ? `<button class="btn ghost" type="button" onclick="fecharPopup();abrirCadastroImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("edit")} Editar</button>` : ""}
         </div>

@@ -511,6 +511,17 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   margin: 1px 0 0;
 }
 
+.printer-data-notice {
+  margin: 0;
+  padding: 11px 12px;
+  color: var(--ui3-text, #14212b);
+  background: color-mix(in srgb, var(--ui3-primary, #007f76) 9%, var(--ui3-surface, #fff));
+  border: 1px solid color-mix(in srgb, var(--ui3-primary, #007f76) 24%, transparent);
+  border-radius: var(--ui3-radius-md, 12px);
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
 .ui3-dialog .printer-wizard :where(.printer-simple-fields, .printer-advanced-settings, .printer-advanced-content, [data-printer-step], .field, input, select, textarea) {
   min-width: 0;
   max-width: 100%;
