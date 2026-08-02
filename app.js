@@ -2,14 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.25";
-const APP_VERSION_CODE = 26;
+const APP_VERSION = "1.0.26";
+const APP_VERSION_CODE = 27;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Filtros e monitor de promoções reunidos em um único painel compacto no celular.",
-  "Ofertas relâmpago organizadas em uma faixa horizontal para liberar espaço na tela.",
-  "Atualização automática das promoções sem piscar ou recarregar imagens quando os preços não mudam.",
-  "Troca de senha corrigida para não voltar a ser solicitada depois da confirmação."
+  "Telas mais fluidas, com atualização independente dos dados e menos piscadas.",
+  "Cards e botões ajustados para evitar cortes no celular, inclusive no Superadmin.",
+  "Sincronização das impressoras protegida contra respostas atrasadas ou sobrepostas.",
+  "Login mantido por até 7 dias, com proteção local opcional a cada 12 horas.",
+  "Catálogo do Superadmin agora permite revisar planos ativos, ocultos e inativos."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -306,6 +307,7 @@ const BACKEND_LICENSE_CACHE_KEYS = Object.freeze([
 ]);
 const LOCAL_UNLOCK_KEY = "simplifica3dLastLocalUnlockAt";
 const LOCAL_UNLOCK_MAX_MS = 12 * 60 * 60 * 1000;
+const LOCAL_SESSION_MAX_MS = 7 * 24 * 60 * 60 * 1000;
 const OFFLINE_LICENSE_STALE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
 const LICENSE_MONITOR_INTERVAL_MS = 60 * 1000;
 const REALTIME_SYNC_HEARTBEAT_MS = 25 * 1000;
@@ -1107,6 +1109,7 @@ let appConfig = carregarObjeto("appConfig", {
   updateDismissedCode: 0,
   browserPasswordSaveOffer: true,
   keepSessionCache: true,
+  localLockEnabled: true,
   biometricEnabled: false,
   biometricOfferDismissed: false,
   backupReminderLastAt: "",
@@ -2890,6 +2893,8 @@ const printers = {
 
 const printerMonitoringState = {
   scope: "",
+  requestId: 0,
+  pendingForce: false,
   loaded: false,
   loading: false,
   error: "",
@@ -3867,6 +3872,7 @@ function sanitizarCacheSessaoLocalLegado() {
     const seguro = {
       usuarioAtualEmail: normalizarEmail(cache.usuarioAtualEmail || cache.supabase.supabaseEmail || ""),
       salvoEm: cache.salvoEm || new Date().toISOString(),
+      autenticadoEm: cache.autenticadoEm || cache.salvoEm || new Date().toISOString(),
       supabase: {
         supabaseUserId: cache.supabase.supabaseUserId || "",
         supabaseEmail: normalizarEmail(cache.supabase.supabaseEmail || ""),
@@ -3888,16 +3894,25 @@ function limparSessaoSensivelSupabase() {
   localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
 }
 
-function salvarCacheSessaoLocal() {
+function salvarCacheSessaoLocal({ novaAutenticacao = false } = {}) {
   if (appConfig.keepSessionCache === false) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
     return;
   }
 
   const usuario = normalizarEmail(usuarioAtualEmail);
+  let cacheAnterior = {};
+  try {
+    cacheAnterior = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+  } catch (_) {}
+  const mesmoUsuario = normalizarEmail(cacheAnterior.usuarioAtualEmail || cacheAnterior.supabase?.supabaseEmail || "") === usuario;
+  const autenticadoEm = novaAutenticacao || !mesmoUsuario
+    ? new Date().toISOString()
+    : (cacheAnterior.autenticadoEm || cacheAnterior.salvoEm || new Date().toISOString());
   const cache = {
     usuarioAtualEmail: usuario,
     salvoEm: new Date().toISOString(),
+    autenticadoEm,
     supabase: {
       supabaseUserId: syncConfig.supabaseUserId || "",
       supabaseEmail: normalizarEmail(syncConfig.supabaseEmail || ""),
@@ -3920,9 +3935,14 @@ function getUltimoDesbloqueioLocalMs() {
 
 function precisaDesbloqueioLocal() {
   if (!usuarioAtualEmail || !syncConfig.supabaseUserId) return false;
-  if (appConfig.keepSessionCache !== false) return false;
+  if (appConfig.localLockEnabled === false) return false;
   const ultimo = getUltimoDesbloqueioLocalMs();
   return !ultimo || Date.now() - ultimo > LOCAL_UNLOCK_MAX_MS;
+}
+
+function cacheSessaoLocalExpirou(cache = {}) {
+  const autenticadoEm = Date.parse(cache.autenticadoEm || cache.salvoEm || "") || 0;
+  return !autenticadoEm || Date.now() - autenticadoEm >= LOCAL_SESSION_MAX_MS;
 }
 
 function licencaLocalAindaConfiavel() {
@@ -4125,6 +4145,18 @@ async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
 
 async function restaurarCacheSessaoLocal() {
   if (appConfig.keepSessionCache === false) return false;
+  let cachePersistido = {};
+  try {
+    cachePersistido = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+  } catch (_) {}
+  if ((usuarioAtualEmail || cachePersistido.usuarioAtualEmail) && cacheSessaoLocalExpirou(cachePersistido)) {
+    usuarioAtualEmail = "";
+    sessionStorage.removeItem("usuarioAtualEmail");
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+    limparSessaoSensivelSupabase();
+    mostrarToast("Por segurança, confirme seu login semanal.", "info", 5200);
+    return false;
+  }
   if (usuarioAtualEmail) {
     try {
       const emailSessaoAtual = normalizarEmail(usuarioAtualEmail);
@@ -4163,7 +4195,7 @@ async function restaurarCacheSessaoLocal() {
     return false;
   }
   try {
-    const cache = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+    const cache = cachePersistido;
     const email = normalizarEmail(cache.usuarioAtualEmail || cache.supabase?.supabaseEmail || "");
     if (!email || !normalizarUsuarios(usuarios).some((usuario) => usuario.email === email && usuario.ativo)) return false;
 
@@ -4172,11 +4204,6 @@ async function restaurarCacheSessaoLocal() {
       localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
       return false;
     }
-    if (appConfig.biometricEnabled && isAndroid()) {
-      const biometria = await confirmarBiometriaSeDisponivel("Confirme sua identidade para abrir seus dados.");
-      if (biometria.disponivel && !biometria.ok) return false;
-    }
-
     if (!estaOnline()) {
       if (!licencaLocalAindaConfiavel()) {
         ativarTravaLocal("offline-stale-license");
@@ -10744,7 +10771,9 @@ function renderApp() {
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
-  app.innerHTML = mobile ? renderMobile() : renderDesktop();
+  atualizarArvoreInterface(app, mobile ? renderMobile() : renderDesktop(), {
+    chaveEstrutural: getChaveEstruturalInterface(mobile)
+  });
   compactarBarrasAcoesMobile();
   sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
@@ -10772,6 +10801,121 @@ function renderApp() {
   }
   aplicarMotionSequenciado();
   if (!modoSuperadminIsolado) hidratarLojaOnlineAdmin();
+}
+
+function getChaveEstruturalInterface(mobile = false) {
+  const usuario = getUsuarioAtual();
+  return [
+    telaAtual,
+    mobile ? "mobile" : "desktop",
+    getInterfaceMode(),
+    usuario?.id || usuario?.supabaseUserId || (adminLogado ? "admin" : "visitante"),
+    window.__simplificaLocalLockActive ? "bloqueado" : "liberado"
+  ].join(":");
+}
+
+function atualizarArvoreInterface(container, html = "", opcoes = {}) {
+  if (!container) return false;
+  const proximoHtml = String(html || "");
+  const chaveEstrutural = String(opcoes.chaveEstrutural || "");
+  const mudouEstrutura = container.dataset.renderKey !== chaveEstrutural;
+  if (!container.childNodes.length || mudouEstrutura) {
+    container.innerHTML = proximoHtml;
+    container.dataset.renderKey = chaveEstrutural;
+    return true;
+  }
+  if (container.innerHTML === proximoHtml) return false;
+
+  const template = document.createElement("template");
+  template.innerHTML = proximoHtml;
+  reconciliarFilhosInterface(container, template.content);
+  return true;
+}
+
+function reconciliarFilhosInterface(atual, proximo) {
+  const novos = Array.from(proximo.childNodes);
+  const atuaisPorChave = new Map();
+  Array.from(atual.childNodes).forEach((no) => {
+    const chave = obterChaveNoInterface(no);
+    if (chave && !atuaisPorChave.has(chave)) atuaisPorChave.set(chave, no);
+  });
+  novos.forEach((novo, indice) => {
+    const chave = obterChaveNoInterface(novo);
+    const posicaoAtual = atual.childNodes[indice];
+    let existente = chave ? atuaisPorChave.get(chave) : posicaoAtual;
+    if (chave && !existente) {
+      atual.insertBefore(novo.cloneNode(true), posicaoAtual || null);
+      return;
+    }
+    if (chave && existente !== posicaoAtual) {
+      atual.insertBefore(existente, posicaoAtual || null);
+    }
+    existente = atual.childNodes[indice];
+    if (!existente) {
+      atual.appendChild(novo.cloneNode(true));
+      return;
+    }
+    reconciliarNoInterface(existente, novo);
+  });
+  while (atual.childNodes.length > novos.length) {
+    atual.lastChild.remove();
+  }
+}
+
+function obterChaveNoInterface(no) {
+  if (!(no instanceof Element)) return "";
+  const chave = no.id
+    || no.dataset.liveKey
+    || no.dataset.printerId
+    || no.dataset.orderId
+    || no.dataset.customerId
+    || no.dataset.itemId;
+  return chave ? `${no.tagName}:${chave}` : "";
+}
+
+function reconciliarNoInterface(atual, proximo) {
+  if (atual.isEqualNode(proximo)) return atual;
+  if (atual.nodeType !== proximo.nodeType
+    || (atual.nodeType === Node.ELEMENT_NODE && atual.tagName !== proximo.tagName)) {
+    const substituto = proximo.cloneNode(true);
+    atual.replaceWith(substituto);
+    return substituto;
+  }
+  if (atual.nodeType === Node.TEXT_NODE || atual.nodeType === Node.COMMENT_NODE) {
+    if (atual.nodeValue !== proximo.nodeValue) atual.nodeValue = proximo.nodeValue;
+    return atual;
+  }
+
+  sincronizarAtributosInterface(atual, proximo);
+  reconciliarFilhosInterface(atual, proximo);
+  sincronizarEstadoCampoInterface(atual, proximo);
+  return atual;
+}
+
+function sincronizarAtributosInterface(atual, proximo) {
+  Array.from(atual.attributes).forEach((atributo) => {
+    if (!proximo.hasAttribute(atributo.name)) atual.removeAttribute(atributo.name);
+  });
+  Array.from(proximo.attributes).forEach((atributo) => {
+    if (atual.getAttribute(atributo.name) !== atributo.value) {
+      atual.setAttribute(atributo.name, atributo.value);
+    }
+  });
+}
+
+function sincronizarEstadoCampoInterface(atual, proximo) {
+  if (!(atual instanceof HTMLElement)) return;
+  const focado = document.activeElement === atual;
+  if (atual instanceof HTMLInputElement) {
+    if (!focado && atual.value !== proximo.value) atual.value = proximo.value;
+    atual.checked = proximo.checked;
+  } else if (atual instanceof HTMLTextAreaElement) {
+    if (!focado && atual.value !== proximo.value) atual.value = proximo.value;
+  } else if (atual instanceof HTMLSelectElement && atual.value !== proximo.value) {
+    atual.value = proximo.value;
+  } else if (atual instanceof HTMLDetailsElement) {
+    atual.open = proximo.open;
+  }
 }
 
 function podeMostrarControlesFlutuantes() {
@@ -24980,7 +25124,10 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
   if (!syncConfig.supabaseAccessToken || !getUsuarioAtual()) return;
   const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
   if (printerMonitoringState.scope !== scope) {
+    printerMonitoringState.requestId += 1;
     printerMonitoringState.scope = scope;
+    printerMonitoringState.loading = false;
+    printerMonitoringState.pendingForce = false;
     printerMonitoringState.loaded = false;
     printerMonitoringState.error = "";
     printerMonitoringState.items = [];
@@ -24991,14 +25138,19 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     printerMonitoringState.access = {};
     printerMonitoringState.history = {};
   }
-  if (printerMonitoringState.loading || (printerMonitoringState.loaded && !forcar)) return;
+  if (printerMonitoringState.loading) {
+    if (forcar) printerMonitoringState.pendingForce = true;
+    return;
+  }
+  if (printerMonitoringState.loaded && !forcar) return;
+  const requestId = ++printerMonitoringState.requestId;
   printerMonitoringState.loading = true;
   printerMonitoringState.error = "";
   if (telaAtual === "impressoras") renderizarPreservandoScroll();
   try {
     const workspace = await printerBackendRequest("list");
     const currentScope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
-    if (currentScope !== scope) return;
+    if (currentScope !== scope || requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.items = Array.isArray(workspace?.printers) ? workspace.printers : [];
     printerMonitoringState.brands = Array.isArray(workspace?.brands) ? workspace.brands : [];
     printerMonitoringState.models = Array.isArray(workspace?.models) ? workspace.models : [];
@@ -25008,10 +25160,15 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     printerMonitoringState.loaded = true;
     sincronizarImpressorasComCalculadora();
   } catch (erro) {
+    if (requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.error = getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message || "Não foi possível carregar as impressoras.";
   } finally {
+    if (requestId !== printerMonitoringState.requestId) return;
+    const repetir = printerMonitoringState.pendingForce;
+    printerMonitoringState.pendingForce = false;
     printerMonitoringState.loading = false;
     if (telaAtual === "impressoras" || telaAtual === "calculadora") renderizarPreservandoScroll();
+    if (repetir) queueMicrotask(() => hidratarImpressorasSeNecessario(true));
   }
 }
 
@@ -25053,7 +25210,7 @@ function renderResumoImpressoraSimplifica(impressora = {}) {
   const latest = impressora.latest_status || {};
   const pedido = getPedidoVinculadoImpressora(impressora);
   return `
-    <article class="printer-summary-row">
+    <article class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}">
       <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
       <span class="printer-summary-main">
         <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
@@ -25074,7 +25231,7 @@ function renderCardImpressora(impressora = {}) {
   const progresso = Number(latest.progress_percent);
   const atualizado = latest.created_at || impressora.last_seen_at || impressora.updated_at;
   return `
-    <article class="printer-card" data-printer-id="${escaparAttr(impressora.id)}">
+    <article class="printer-card" data-live-key="printer-card:${escaparAttr(impressora.id)}" data-printer-id="${escaparAttr(impressora.id)}">
       <header class="printer-card-header">
         <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
         <div>
@@ -30953,6 +31110,7 @@ async function alternarBiometriaSeguranca(ativar = null) {
   }
 
   appConfig.biometricEnabled = desejaAtivar;
+  if (desejaAtivar) appConfig.localLockEnabled = true;
   appConfig.biometricOfferDismissed = true;
   salvarDados();
   mostrarToast(desejaAtivar ? "Biometria ativada para este aparelho." : "Biometria desativada neste aparelho.", "sucesso");
@@ -31146,7 +31304,11 @@ function renderSeguranca() {
           <div class="ui3-security-card-body">
             <label class="checkbox-row">
               <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""}>
-              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha.</small></span>
+              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha por até 7 dias.</small></span>
+            </label>
+            <label class="checkbox-row">
+              <input id="localLockEnabledConfig" type="checkbox" ${appConfig.localLockEnabled !== false ? "checked" : ""}>
+              <span><strong>Proteger abertura a cada 12 horas</strong><small>Usa biometria quando ativada; solicita a senha apenas como alternativa.</small></span>
             </label>
             <div class="actions security-page-actions">
               <button class="btn" type="button" onclick="salvarPreferenciasSeguranca()">Salvar preferência</button>
@@ -31197,6 +31359,7 @@ function renderSeguranca() {
 
 function salvarPreferenciasSeguranca() {
   appConfig.keepSessionCache = !!document.getElementById("keepSessionCacheConfig")?.checked;
+  appConfig.localLockEnabled = !!document.getElementById("localLockEnabledConfig")?.checked;
   if (!appConfig.keepSessionCache) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
   } else {
@@ -31710,7 +31873,7 @@ if (typeof window !== "undefined") {
 }
 
 function renderSuperAdminPlanos() {
-  const planos = getPlanPresentationData();
+  const planos = getPlanPresentationData({ incluirIndisponiveis: true });
   const clientesPorPlano = planos.reduce((acc, plano) => {
     acc[plano.slug] = saasSubscriptions.filter((assinatura) => normalizarSlugPlano(assinatura.planSlug || "free") === plano.slug && assinatura.status !== "cancelled").length;
     return acc;
@@ -31730,7 +31893,7 @@ function renderSuperAdminPlanos() {
               <strong>${escaparHtml(plano.name)}</strong>
               <small>${escaparHtml(plano.headline || plano.subtitle || "")}</small>
             </div>
-            <span class="status-badge ${plano.isActive ? "badge-ativo" : "badge-danger"}">${plano.isActive ? "ativo" : "inativo"}</span>
+            <span class="status-badge ${plano.isActive && plano.isPublic ? "badge-ativo" : "badge-danger"}">${plano.isActive ? (plano.isPublic ? "ativo" : "oculto") : "inativo"}</span>
           </div>
           <div class="superadmin-plan-price">
             <strong>${escaparHtml(plano.priceLabel || "R$ 0")}</strong>
@@ -34535,9 +34698,10 @@ function salvarPlanPresentationOverrides(overrides = {}) {
   } catch (_) {}
 }
 
-function getPlanPresentationData() {
+function getPlanPresentationData(options = {}) {
+  const incluirIndisponiveis = options.incluirIndisponiveis === true;
   const overrides = getPlanPresentationOverrides();
-  return getPlanPresentationDefaults().map((base, index) => {
+  const planos = getPlanPresentationDefaults().map((base, index) => {
     const plano = getPlanoSaas(base.slug);
     const override = overrides[base.slug] || {};
     const priceValue = Number(override.price ?? plano.price ?? 0);
@@ -34552,7 +34716,10 @@ function getPlanPresentationData() {
       isPublic: override.isPublic !== false,
       isActive: override.isActive !== false && plano.active !== false
     };
-  }).filter((plan) => plan.isPublic && plan.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  });
+  return planos
+    .filter((plan) => incluirIndisponiveis || (plan.isPublic && plan.isActive))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 function selecionarPlanoApresentacao(slug = "start") {
@@ -34610,7 +34777,7 @@ function resetarPlanoApresentacaoInterativo(event) {
 
 function editarPlanoApresentacaoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
-  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const headline = prompt("Título comercial do card", plan.headline || "");
   if (headline === null) return;
@@ -34637,7 +34804,7 @@ function editarPlanoApresentacaoSuperadmin(slug) {
 
 function editarPrecoExibidoPlanoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
-  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const valor = prompt("Preço exibido no card. Isto não altera cobrança real.", plan.priceLabel || "");
   if (valor === null) return;
@@ -36916,6 +37083,7 @@ function restaurarPersonalizacaoPadrao() {
     updateStatus: appConfig.updateStatus || "Aguardando",
     browserPasswordSaveOffer: appConfig.browserPasswordSaveOffer !== false,
     keepSessionCache: appConfig.keepSessionCache !== false,
+    localLockEnabled: appConfig.localLockEnabled !== false,
     biometricEnabled: !!appConfig.biometricEnabled,
     biometricOfferDismissed: !!appConfig.biometricOfferDismissed,
     backupReminderLastAt: appConfig.backupReminderLastAt || "",
@@ -37307,7 +37475,7 @@ function concluirLoginUsuario(usuario) {
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   if (isSuperAdmin(usuario)) sessionStorage.setItem("simplificaSuperadminAuthenticated", "true");
   else sessionStorage.removeItem("simplificaSuperadminAuthenticated");
-  salvarCacheSessaoLocal();
+  salvarCacheSessaoLocal({ novaAutenticacao: true });
   desativarTravaLocal("login");
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
@@ -46337,7 +46505,7 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
-    if (["plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
+    if (["modal-close", "plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();

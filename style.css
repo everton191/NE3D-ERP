@@ -27831,7 +27831,7 @@ body.storefront-public-navigating .store-public-shell{
     flex-direction:column;
   }
 
-  .store-context-access-actions{
+.store-context-access-actions{
     display:grid;
     grid-template-columns:1fr;
   }
@@ -38324,6 +38324,21 @@ body.motion-refresh :where(.desktop-main,.mobile-panel,.mobile-home,.desktop-foc
   }
 }
 
+/* Telas estáveis: atualizações de dados não devem piscar ou reanimar a estrutura. */
+body :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-forward :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-back :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-refresh :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+.motion-stagger-item{
+  animation:none !important;
+  will-change:auto !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root){
+  animation:none !important;
+}
+
 /* Ajuste final PWA desktop: Configurações continua visualmente o menu lateral. */
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main:has(> .settings-page){
   padding:0 !important;
@@ -47202,4 +47217,98 @@ body .auth-card :is(button.auth-primary, button.auth-google-button){
   font-size:15px !important;
   line-height:1.2 !important;
   box-sizing:border-box;
+}
+
+/* Piloto: contenção final de cards e ações nas telas operacionais. */
+body :where(.app-page,.printer-page,.superadmin-platform-shell) :where(.card,[class$="-card"],[class*="-card "]){
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+
+body :where(.app-page,.printer-page,.superadmin-platform-shell) :where(h1,h2,h3,h4,p,strong,small,span,label){
+  overflow-wrap:anywhere;
+}
+
+body :where(.printer-page,.superadmin-platform-shell) :where(button,.btn,[role="button"]){
+  min-width:0;
+  max-width:100%;
+  min-height:44px;
+  white-space:normal;
+  text-wrap:balance;
+}
+
+body :where(.printer-card-actions,.printer-wizard-actions,.superadmin-company-actions,.superadmin-platform-actions){
+  max-width:100%;
+  flex-wrap:wrap;
+}
+
+@media (hover:none){
+  .printer-card:hover{
+    transform:none;
+    border-color:var(--border);
+    box-shadow:var(--shadow-sm);
+  }
+}
+
+@media (max-width:560px){
+  .printer-card-actions{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+
+  .printer-card-actions .btn,
+  .printer-wizard-actions .btn{
+    width:100%;
+  }
+
+  .superadmin-platform-shell :where(.actions,.superadmin-company-actions){
+    display:grid;
+    grid-template-columns:1fr;
+  }
+}
+
+/* Piloto Superadmin: indicadores completos, sem cartões parcialmente cortados. */
+@media (max-width:760px){
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid{
+    display:grid !important;
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+    overflow:visible !important;
+    gap:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-kpi-grid > *,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid > *,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-kpi-grid > *{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    flex:none !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-priority-strip,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-priority-strip,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-priority-strip{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    overflow:visible !important;
+    gap:8px !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-priority-strip > *,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-priority-strip > *,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-priority-strip > *{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
+    flex:none !important;
+  }
+
+  body.mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em,
+  body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-platform-page-title em{
+    color:var(--sa-primary, var(--color-primary)) !important;
+  }
 }
