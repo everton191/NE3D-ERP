@@ -16001,7 +16001,16 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
 }
 
 .superadmin-company-actions{
-  justify-content:flex-start;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  justify-content:stretch;
+  width:100%;
+}
+
+.superadmin-company-actions .btn{
+  min-width:0;
+  width:100%;
+  white-space:normal;
 }
 
 .superadmin-platform-shell .client-admin-table-head,
@@ -16316,7 +16325,27 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   margin:0;
 }
 
-@media(max-width:1080px){
+@media(min-width:1181px) and (max-width:1360px){
+  .superadmin-platform-shell{
+    grid-template-columns:244px minmax(0, 1fr);
+  }
+
+  .superadmin-platform-sidebar{
+    padding-inline:12px;
+  }
+
+  .superadmin-platform-topbar{
+    grid-template-columns:minmax(190px, .8fr) minmax(180px, 1fr) auto auto;
+    gap:10px;
+    padding-inline:14px;
+  }
+
+  .superadmin-platform-content{
+    padding:14px;
+  }
+}
+
+@media(max-width:1180px){
   .superadmin-platform-shell{
     grid-template-columns:1fr;
     border-radius:0;
@@ -16388,6 +16417,23 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   .superadmin-system-row strong{
     overflow-wrap:anywhere;
     text-overflow:clip;
+    white-space:normal;
+  }
+
+  .superadmin-platform-content .actions:not(.row-actions):not(.superadmin-platform-actions){
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+    width:100%;
+  }
+
+  .superadmin-platform-content .actions:not(.row-actions):not(.superadmin-platform-actions) .btn{
+    min-width:0;
+    width:100%;
+    white-space:normal;
+  }
+
+  .superadmin-plan-card :where(p, .muted){
+    overflow-wrap:anywhere;
     white-space:normal;
   }
 
