@@ -25214,6 +25214,9 @@ function getPrinterConnectorLabel(value = "") {
 
 function renderPrinterStatusBadge(impressora = {}) {
   const state = getPrinterCurrentStatus(impressora);
+  if (state === "unknown" && impressora.connection_status === "connected") {
+    return `<span class="printer-status-badge status-success"><i aria-hidden="true"></i>Online</span>`;
+  }
   const config = getPrinterMonitoringService()?.status(state) || { label: state, tone: "muted" };
   return `<span class="printer-status-badge status-${escaparAttr(config.tone)}"><i aria-hidden="true"></i>${escaparHtml(config.label)}</span>`;
 }
@@ -25371,7 +25374,7 @@ function renderCardImpressora(impressora = {}) {
         <div><span>Pedido</span><strong>${pedido ? `#${escaparHtml(pedido.id)}` : "Nenhum"}</strong></div>
       </div>
       <div class="printer-card-meta">
-        <span>${impressora.connection_status === "connected" ? "Conectada" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
+        <span>${impressora.connection_status === "connected" ? "Online" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
         <span>${atualizado ? `Atualizada ${escaparHtml(formatarDataHora(atualizado))}` : "Sem atualização automática"}</span>
         ${latest.current_file ? `<span class="printer-current-file">${escaparHtml(latest.current_file)}</span>` : ""}
       </div>
