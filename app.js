@@ -25394,7 +25394,6 @@ function renderCardImpressora(impressora = {}) {
 function renderImpressoras() {
   const items = getImpressorasAtivas();
   const podeGerenciar = podeGerenciarImpressoras();
-  const plano = normalizarSlugPlano(getCurrentPlanSlug());
   const automaticas = items.filter((item) => item.connector_type !== "manual").length;
   const imprimindo = items.filter((item) => getPrinterCurrentStatus(item) === "printing").length;
   const comErro = items.filter((item) => ["error", "offline"].includes(getPrinterCurrentStatus(item))).length;
@@ -25428,7 +25427,6 @@ function renderImpressoras() {
           <p>Consulte estado, progresso, temperaturas, custos e pedidos sem enviar comandos à impressora.</p>
         </div>
         <div class="actions">
-          ${plano === "pro" && podeGerenciar ? `<button class="btn ghost" type="button" onclick="abrirAgentesLocais()">Agente local</button>` : ""}
           ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", attrs: 'data-action="printer-add"' }) : ""}
         </div>
       </header>
@@ -25546,10 +25544,10 @@ function abrirCadastroImpressora(id = "") {
 
             <section ${guiado ? 'data-printer-step="2" hidden' : ""}>
               <h3>Conexão com a impressora</h3>
-              ${guiado ? `<p class="muted">A leitura automática é recomendada. Se precisar, o modo manual continua disponível nesta lista.</p>` : ""}
+              ${guiado ? `<p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>` : ""}
               <label class="field"><span>Conexão</span>
                 <select id="printerConnector">
-                  ${(getPrinterMonitoringService()?.CONNECTORS || []).map((connector) => `<option value="${connector.key}" ${conectorInicial === connector.key ? "selected" : ""} ${connector.automatic && !pro ? "disabled" : ""}>${escaparHtml(connector.name)}${connector.automatic && !pro ? " · Pro" : ""}</option>`).join("")}
+                  ${(getPrinterMonitoringService()?.CONNECTORS || []).filter((connector) => ["manual", "bambu"].includes(connector.key)).map((connector) => `<option value="${connector.key}" ${conectorInicial === connector.key ? "selected" : ""} ${connector.automatic && !pro ? "disabled" : ""}>${escaparHtml(connector.name)}${connector.automatic && !pro ? " · Pro" : ""}</option>`).join("")}
                 </select>
               </label>
               <div id="printerAutomaticFields">
@@ -25559,21 +25557,8 @@ function abrirCadastroImpressora(id = "") {
                   <label class="field"><span>Senha BambuLab</span><input id="printerBambuPassword" type="password" autocomplete="current-password" maxlength="1000"></label>
                   <label class="printer-bambu-consent"><input id="printerBambuConsent" type="checkbox"><span>Autorizo a autenticação temporária somente para acompanhamento.</span></label>
                 </div>` : ""}
-                <label class="field"><span>Modo de conexão</span><select id="printerConnectionMode">
-                  <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
-                  <option value="browser_local" ${impressora?.connection_mode === "browser_local" ? "selected" : ""}>Navegador na mesma rede</option>
-                  <option value="cloud_supported" ${impressora?.connection_mode === "cloud_supported" ? "selected" : ""}>Gateway HTTPS</option>
-                </select></label>
-                <label class="field" id="printerAgentField"><span>Agente responsável</span><select id="printerAgentId"><option value="">Selecione um agente</option>${(printerMonitoringState.agents || []).map((agent) => `<option value="${escaparAttr(agent.id)}" ${String(impressora?.active_agent_id || "") === String(agent.id) ? "selected" : ""}>${escaparHtml(agent.name)} · ${escaparHtml(agent.status)}</option>`).join("")}</select></label>
-                <div class="form-grid">
-                  <label class="field"><span>IP ou URL</span><input id="printerHost" value="${escaparAttr(impressora?.host || "")}" placeholder="192.168.1.50"></label>
-                  <label class="field"><span>Porta</span><input id="printerPort" type="number" min="1" max="65535" value="${escaparAttr(impressora?.port || "")}" placeholder="80"></label>
-                  <label class="field"><span>Token / API Key</span><input id="printerApiToken" type="password" autocomplete="new-password" placeholder="${impressora?.credentials_configured ? "Configurado · deixe vazio para manter" : "Opcional"}"></label>
-                  <label class="field"><span>Usuário</span><input id="printerUsername" autocomplete="off" placeholder="Quando exigido"></label>
-                  <label class="field"><span>Senha</span><input id="printerPassword" type="password" autocomplete="new-password" placeholder="Quando exigida"></label>
-                </div>
-                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} Somente leitura. Nenhum comando será enviado à impressora.</div>
-                <div class="actions">${renderAppButton({ label: "Testar conexão", variant: "secondary", attrs: 'id="printerConnectionTestButton"' })}<span class="muted" id="printerConnectionTestResult"></span></div>
+                <input type="hidden" id="printerConnectionMode" value="cloud_supported">
+                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} A conexão automática disponível nesta versão usa somente a conta BambuLab.</div>
               </div>
               <div id="printerManualFields" hidden></div>
             </section>
@@ -25630,9 +25615,16 @@ function configurarEtapasCadastroImpressora() {
     const progresso = form.querySelector("[data-printer-step-progress]");
     if (label) label.textContent = `${etapa} de 3 · ${rotulos[etapa]}`;
     if (progresso) progresso.style.width = `${(etapa / 3) * 100}%`;
-    document.getElementById("printerPreviousButton")?.toggleAttribute("hidden", etapa === 1);
-    document.getElementById("printerNextButton")?.toggleAttribute("hidden", etapa === 3);
-    document.getElementById("printerSaveButton")?.toggleAttribute("hidden", etapa !== 3);
+    const alternarBotao = (id, oculto) => {
+      const botao = document.getElementById(id);
+      if (!botao) return;
+      botao.toggleAttribute("hidden", oculto);
+      if (oculto) botao.style.setProperty("display", "none", "important");
+      else botao.style.removeProperty("display");
+    };
+    alternarBotao("printerPreviousButton", etapa === 1);
+    alternarBotao("printerNextButton", etapa === 3);
+    alternarBotao("printerSaveButton", etapa !== 3);
   };
   document.getElementById("printerNextButton")?.addEventListener("click", () => {
     const campos = Array.from(form.querySelectorAll(`[data-printer-step="${etapa}"] :is(input,select,textarea)`));
@@ -25736,7 +25728,7 @@ async function salvarCadastroImpressora(event) {
     location: document.getElementById("printerLocation")?.value || "",
     notes: document.getElementById("printerNotes")?.value || "",
     connector_type: connector,
-    connection_mode: connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "local_agent",
+    connection_mode: connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "cloud_supported",
     agent_id: document.getElementById("printerAgentId")?.value || null,
     host: document.getElementById("printerHost")?.value || "",
     port: valorOpcionalNumero("printerPort"),

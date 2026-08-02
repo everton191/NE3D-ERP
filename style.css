@@ -47442,16 +47442,24 @@ body :where(.printer-card-actions,.printer-wizard-actions,.superadmin-company-ac
   min-width:max-content;
   min-height:42px !important;
   padding-inline:16px;
+  border-radius:14px !important;
   overflow:visible;
   white-space:nowrap;
 }
 
+body .desktop-page-impressoras .printer-page-header > .actions .app-button{
+  border-radius:16px !important;
+}
+
 .desktop-page-impressoras .printer-card{
   padding:18px;
-  border-radius:16px;
+  border-radius:22px !important;
+  overflow:hidden;
 }
 
 .desktop-page-impressoras .printer-card-header{
+  border-radius:14px;
+  overflow:hidden;
   text-align:left;
 }
 
@@ -47472,7 +47480,20 @@ body :where(.printer-card-actions,.printer-wizard-actions,.superadmin-company-ac
   min-width:max-content;
   min-height:40px !important;
   padding-inline:14px;
+  border-radius:13px !important;
   white-space:nowrap;
+}
+
+.desktop-page-impressoras .printer-card-actions .icon-button{
+  border-radius:13px !important;
+}
+
+.desktop-page-impressoras .printer-overview .metric{
+  border-radius:14px;
+}
+
+body .printer-wizard .printer-wizard-actions > button[hidden]{
+  display:none !important;
 }
 
 @media(max-width:980px){
@@ -47503,6 +47524,7 @@ body :where(.printer-card-actions,.printer-wizard-actions,.superadmin-company-ac
     width:100% !important;
     min-width:0;
   }
+
 }
 
 @media (hover:none){
