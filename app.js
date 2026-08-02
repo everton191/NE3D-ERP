@@ -8446,6 +8446,20 @@ function formatarDataCurta(valor = "") {
   return data.toLocaleDateString("pt-BR");
 }
 
+function formatarDataHora(valor = "") {
+  if (!valor) return "";
+  const data = normalizarDataLocal(valor, null);
+  if (!data) return String(valor);
+  return data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+}
+
 function calcularSaldo() {
   return caixa.reduce((saldo, movimento) => {
     if (movimentoCaixaCancelado(movimento)) return saldo;
