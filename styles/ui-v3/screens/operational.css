@@ -539,6 +539,106 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
   }
 }
 
+body.mobile-mode .printer-simple-monitor-backdrop {
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+  background: rgba(4, 10, 15, .72);
+}
+
+body.mobile-mode .printer-simple-monitor {
+  width: 100%;
+  max-width: none;
+  max-height: min(76dvh, 680px);
+  margin: 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 24px 24px 0 0;
+  overflow-x: hidden;
+}
+
+body.mobile-mode .printer-simple-monitor-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+body.mobile-mode .printer-simple-monitor-head h2 {
+  overflow: hidden;
+  font-size: 1.22rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.mobile-mode .printer-simple-monitor-head .icon-button {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+}
+
+body.mobile-mode .printer-simple-monitor-head .icon-button::before {
+  content: "×";
+  color: var(--ui3-text, #fff);
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+body.mobile-mode .printer-simple-overview {
+  grid-template-columns: 46px minmax(0, 1fr);
+  min-height: 112px;
+  padding: 16px;
+}
+
+body.mobile-mode .printer-simple-overview .printer-device-icon {
+  width: 46px;
+  height: 46px;
+}
+
+body.mobile-mode .printer-friendly-state {
+  font-size: 1.08rem;
+}
+
+body.mobile-mode .printer-simple-connection {
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 4px 8px;
+  padding: 2px 3px;
+}
+
+body.mobile-mode .printer-simple-connection small {
+  grid-column: 2;
+  justify-self: start;
+}
+
+body.mobile-mode .printer-simple-monitor-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+body.mobile-mode .printer-simple-monitor-actions .btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 10px 8px;
+  overflow: hidden;
+  font-size: .82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 360px) {
+  body.mobile-mode .printer-simple-monitor-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 .production-report {
   display: grid;
   gap: var(--ui3-space-3, 12px);
