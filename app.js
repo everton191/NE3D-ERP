@@ -25550,6 +25550,12 @@ function abrirCadastroImpressora(id = "") {
                 </select>
               </label>
               <div id="printerAutomaticFields">
+                ${guiado ? `<div class="printer-bambu-quick-login" id="printerBambuQuickFields" hidden>
+                  <div><span class="eyebrow">Acesso rápido BambuLab</span><strong>Conectar sua conta agora</strong><p>Informe os dados uma vez. A senha será usada somente na autenticação e não será salva no aplicativo.</p></div>
+                  <label class="field"><span>E-mail BambuLab</span><input id="printerBambuAccount" type="email" inputmode="email" autocomplete="username" maxlength="240"></label>
+                  <label class="field"><span>Senha BambuLab</span><input id="printerBambuPassword" type="password" autocomplete="current-password" maxlength="1000"></label>
+                  <label class="printer-bambu-consent"><input id="printerBambuConsent" type="checkbox"><span>Autorizo a autenticação temporária somente para acompanhamento.</span></label>
+                </div>` : ""}
                 <label class="field"><span>Modo de conexão</span><select id="printerConnectionMode">
                   <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
                   <option value="browser_local" ${impressora?.connection_mode === "browser_local" ? "selected" : ""}>Navegador na mesma rede</option>
@@ -25656,6 +25662,13 @@ function atualizarCamposConectorImpressora() {
   document.getElementById("printerAutomaticFields")?.toggleAttribute("hidden", !automatic);
   document.getElementById("printerManualFields")?.toggleAttribute("hidden", automatic);
   document.getElementById("printerAgentField")?.toggleAttribute("hidden", !automatic || connectionMode !== "local_agent");
+  const bambuQuick = document.getElementById("printerBambuQuickFields");
+  const bambuAutomatico = connector === "bambu" && !!bambuQuick;
+  bambuQuick?.toggleAttribute("hidden", !bambuAutomatico);
+  ["printerBambuAccount", "printerBambuPassword", "printerBambuConsent"].forEach((id) => {
+    const field = document.getElementById(id);
+    if (field) field.required = bambuAutomatico;
+  });
   const testButton = document.getElementById("printerConnectionTestButton");
   if (testButton) {
     testButton.disabled = connectionMode === "local_agent";
@@ -25707,6 +25720,8 @@ async function salvarCadastroImpressora(event) {
   const brandOption = document.getElementById("printerBrand")?.selectedOptions?.[0];
   const modelOption = document.getElementById("printerModel")?.selectedOptions?.[0];
   const connector = document.getElementById("printerConnector")?.value || "manual";
+  const bambuAccount = String(document.getElementById("printerBambuAccount")?.value || "").trim();
+  const bambuPassword = String(document.getElementById("printerBambuPassword")?.value || "");
   const payload = {
     id: document.getElementById("printerId")?.value || "",
     name: document.getElementById("printerName")?.value || "",
@@ -25743,11 +25758,15 @@ async function salvarCadastroImpressora(event) {
       printerMonitoringState.loaded = true;
       sincronizarImpressorasComCalculadora();
     }
-    const abrirLoginBambuDepois = !payload.id && payload.connector_type === "bambu" && saved?.id;
+    const conectarBambuDepois = !payload.id && payload.connector_type === "bambu" && saved?.id;
     fecharPopup();
     await hidratarImpressorasSeNecessario(true);
     mostrarToast(payload.id ? "Impressora atualizada." : "Impressora adicionada.", "sucesso", 3400);
-    if (abrirLoginBambuDepois) abrirLoginBambu(saved.id);
+    if (conectarBambuDepois && bambuAccount && bambuPassword) {
+      await autenticarBambuDepoisCadastro(saved.id, bambuAccount, bambuPassword);
+    } else if (conectarBambuDepois) {
+      abrirLoginBambu(saved.id);
+    }
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
     if (save) save.disabled = false;
@@ -25951,12 +25970,29 @@ function getProductionTab() {
   return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "historico", "impressoras"].includes(tab) ? tab : "fila";
 }
 
-function abrirLoginBambu(id) {
+async function autenticarBambuDepoisCadastro(printerId, account, password) {
+  mostrarToast("Conectando à conta BambuLab...", "info", 2600);
+  try {
+    await printerBackendRequest("bambu_login", { printer_id: printerId, account, password, code: "" });
+    await hidratarImpressorasSeNecessario(true);
+    mostrarToast("Conta BambuLab conectada e impressora localizada.", "sucesso", 4200);
+    abrirPainelImpressoraSimplifica(printerId);
+  } catch (erro) {
+    const precisaCodigo = String(erro?.message || "") === "BAMBU_VERIFICATION_CODE_REQUIRED";
+    abrirLoginBambu(printerId, { account, awaitingCode: precisaCodigo });
+    const result = document.getElementById("bambuLoginResult");
+    if (result) result.textContent = precisaCodigo
+      ? "A BambuLab enviou um código. Informe-o para concluir."
+      : (getPrinterMonitoringService()?.errorMessage(erro?.message) || "Confira os dados e tente novamente.");
+  }
+}
+
+function abrirLoginBambu(id, options = {}) {
   const impressora = getPrinterById(id);
   const popup = document.getElementById("popup");
   if (!impressora || !popup || !podeGerenciarImpressoras()) return;
   bambuLoginDraftState.printerId = id;
-  bambuLoginDraftState.awaitingCode = false;
+  bambuLoginDraftState.awaitingCode = options.awaitingCode === true;
   popup.innerHTML = `
     <div class="modal-backdrop printer-modal-backdrop" role="dialog" aria-modal="true">
       <form class="modal-card printer-bambu-login" id="bambuLoginForm" autocomplete="off">
@@ -25976,6 +26012,16 @@ function abrirLoginBambu(id) {
     </div>`;
   promoverPopupParaDialogUiV3(popup, { title: "Conectar conta Bambu" });
   document.getElementById("bambuLoginForm")?.addEventListener("submit", autenticarContaBambu);
+  const accountField = document.getElementById("bambuLoginAccount");
+  if (accountField && options.account) accountField.value = options.account;
+  if (bambuLoginDraftState.awaitingCode) {
+    document.getElementById("bambuCodeField")?.removeAttribute("hidden");
+    document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
+    const passwordField = document.getElementById("bambuLoginPassword");
+    const codeField = document.getElementById("bambuLoginCode");
+    if (passwordField) passwordField.required = false;
+    if (codeField) codeField.required = true;
+  }
 }
 
 async function autenticarContaBambu(event) {
