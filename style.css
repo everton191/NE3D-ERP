@@ -16321,6 +16321,7 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
     grid-template-columns:1fr;
     border-radius:0;
     border-inline:0;
+    padding-bottom:72px;
   }
 
   .superadmin-platform-sidebar{
@@ -16328,12 +16329,66 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   }
 
   .superadmin-platform-topbar{
-    grid-template-columns:1fr auto;
+    grid-template-columns:minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "title erp actions"
+      "search search search";
   }
 
+  .superadmin-platform-page-title{grid-area:title}
+  .superadmin-platform-search{grid-area:search}
+  .superadmin-platform-erp{grid-area:erp}
+  .superadmin-platform-actions{grid-area:actions}
+
   .superadmin-platform-search{
-    grid-column:1 / -1;
-    order:3;
+    grid-column:auto;
+    order:initial;
+  }
+
+  .superadmin-platform-content{
+    padding-bottom:92px;
+    scroll-padding-bottom:92px;
+  }
+
+  .superadmin-platform-mobile-nav{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:70;
+    min-height:64px;
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0, 1fr));
+    gap:4px;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--surface) 94%, transparent);
+    border-top:1px solid var(--line);
+    box-shadow:0 -12px 30px rgba(15,23,42,.12);
+  }
+
+  .superadmin-platform-mobile-nav button{
+    min-width:0;
+    min-height:50px;
+    display:grid;
+    place-items:center;
+    gap:2px;
+    border:0;
+    border-radius:14px;
+    color:var(--sa-muted);
+    background:transparent;
+  }
+
+  .superadmin-platform-mobile-nav button.active{
+    color:var(--sa-primary);
+    background:color-mix(in srgb, var(--primary) 16%, var(--surface));
+  }
+
+  .superadmin-platform-mobile-nav strong{font-size:10px}
+
+  .superadmin-system-row strong{
+    overflow-wrap:anywhere;
+    text-overflow:clip;
+    white-space:normal;
   }
 
   .superadmin-company-metrics,
