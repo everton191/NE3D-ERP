@@ -26414,6 +26414,21 @@ function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
       job.actual_print_time_minutes = minutosReais;
     }
   }
+  if (["falhou", "cancelado"].includes(status)) {
+    const inicio = getDataEventoOperacionalPedido(job.started_at);
+    if (inicio && !Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes)) {
+      const minutosUsados = Math.max(1, Math.round((Date.now() - inicio.getTime()) / 60000));
+      job.actualPrintTimeMinutes = job.actual_print_time_minutes = minutosUsados;
+    }
+    const estimado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+    const planejado = getPesoPlanejadoTarefaProducao(job);
+    if (planejado > 0 && estimado > 0) {
+      const proporcao = Math.min(1, (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0) / estimado);
+      const consumido = Math.round(planejado * proporcao * 100) / 100;
+      job.filamentWeightGrams = job.filament_weight_grams = consumido;
+    }
+    job.finished_at = job.finished_at || agora;
+  }
   const printer = getProductionPrinter(job.printerId);
   if (printer && status === "em_impressao") printer.status = "ocupada";
   if (printer && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "falhou", "pausado"].includes(status)) {
@@ -34797,14 +34812,17 @@ function abrirAjusteDadosImpressao(jobId) {
   if (!job || !popup) return;
   const peso = Number(job.filamentWeightGrams || job.filament_weight_grams) || "";
   const tempo = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || "";
+  const pesoPlanejado = getPesoPlanejadoTarefaProducao(job);
+  const tempoPlanejado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+  const perda = ["falhou", "cancelado"].includes(job.status);
   popup.innerHTML = `
     <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
       <form class="modal-card" onclick="event.stopPropagation()" onsubmit="salvarAjusteDadosImpressao(event,'${escaparAttr(job.id)}')">
-        <div class="modal-header"><div><span class="eyebrow">${escaparHtml(job.productionCode || "Impressão")}</span><h2>Peso e tempo da impressão</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
-        <p class="muted">Informe os valores reais ao concluir. Se ficarem vazios, o sistema mantém os dados já calculados.</p>
+        <div class="modal-header"><div><span class="eyebrow">${escaparHtml(job.productionCode || "Impressão")}</span><h2>${perda ? "Registrar perda" : "Dados da impressão"}</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">Planejado: ${pesoPlanejado ? `${pesoPlanejado.toLocaleString("pt-BR")} g` : "peso não informado"} e ${tempoPlanejado ? formatarMinutosProducao(tempoPlanejado) : "tempo não informado"}. Ajuste abaixo com o consumo real.</p>
         <div class="production-form-grid">
-          <label class="field"><span>Peso usado (g)</span><input id="productionActualWeight" type="number" min="0" step="0.01" inputmode="decimal" value="${escaparAttr(peso)}" placeholder="Ex.: 125"></label>
-          <label class="field"><span>Tempo real (min)</span><input id="productionActualTime" type="number" min="0" step="1" inputmode="numeric" value="${escaparAttr(tempo)}" placeholder="Ex.: 180"></label>
+          <label class="field"><span>${perda ? "Material perdido" : "Material consumido"} (g)</span><input id="productionActualWeight" type="number" min="0" step="0.01" inputmode="decimal" value="${escaparAttr(peso)}" placeholder="Ex.: 50"></label>
+          <label class="field"><span>${perda ? "Tempo perdido" : "Tempo utilizado"} (min)</span><input id="productionActualTime" type="number" min="0" step="1" inputmode="numeric" value="${escaparAttr(tempo)}" placeholder="Ex.: 150"></label>
         </div>
         <div class="actions production-modal-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar dados</button></div>
       </form>
@@ -34845,7 +34863,7 @@ function trocarPeriodoHistoricoProducao(periodo) {
 function getDataConclusaoTarefaProducao(job = {}) {
   const eventos = productionEvents.filter((event) =>
     String(event.productionJobId || event.production_job_id) === String(job.id)
-      && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue"].includes(event.newStatus || event.new_status)
+      && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue", "falhou", "cancelado"].includes(event.newStatus || event.new_status)
   );
   return getDataEventoOperacionalPedido(eventos.at(-1)?.created_at || job.finished_at || job.updated_at || job.created_at);
 }
@@ -34856,7 +34874,10 @@ function getHistoricoProducaoNoPeriodo(periodo = getPeriodoHistoricoProducao()) 
   if (periodo === "semana") inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7));
   if (periodo === "mes") inicio.setDate(1);
   return productionJobs.map((job) => ({ job, data: getDataConclusaoTarefaProducao(job) }))
-    .filter(({ job, data }) => data && data >= inicio && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue"].includes(job.status))
+    .filter(({ job, data }) => data && data >= inicio && (
+      ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue"].includes(job.status)
+      || (["falhou", "cancelado"].includes(job.status) && (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) > 0 || Number(job.filamentWeightGrams || job.filament_weight_grams) > 0))
+    ))
     .sort((a, b) => b.data.getTime() - a.data.getTime());
 }
 
@@ -34872,13 +34893,33 @@ function formatarMinutosProducao(minutos = 0) {
   return horas ? `${horas}h${resto ? ` ${resto}min` : ""}` : `${resto}min`;
 }
 
+function getPesoPlanejadoTarefaProducao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0];
+  return Number(getProductionItemMaterial(item || {}).grams) || Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
+}
+
+function getCustoMaterialPorGramaTarefaProducao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0] || {};
+  const vinculo = getMateriaisItem(item)[0] || {};
+  const material = getMaterialEstoque(vinculo.materialId) || {};
+  const custoKg = Number(vinculo.valorUnitario || material.custoUnitario || material.unit_cost || material.precoKg || material.custoKg) || 0;
+  return custoKg > 0 ? custoKg / 1000 : 0;
+}
+
 function renderHistoricoProducao() {
   const periodo = getPeriodoHistoricoProducao();
   const historico = getHistoricoProducaoNoPeriodo(periodo);
   const limite = Math.max(PRODUCTION_HISTORY_PAGE_SIZE, Number(window.__productionHistoryLimit) || PRODUCTION_HISTORY_PAGE_SIZE);
   const visiveis = historico.slice(0, limite);
-  const minutos = historico.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0);
-  const peso = historico.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const concluidas = historico.filter(({ job }) => !["falhou", "cancelado"].includes(job.status));
+  const perdas = historico.filter(({ job }) => ["falhou", "cancelado"].includes(job.status));
+  const minutos = concluidas.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0);
+  const peso = concluidas.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const minutosPerdidos = perdas.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0), 0);
+  const pesoPerdido = perdas.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const prejuizo = perdas.reduce((total, { job }) => total + ((Number(job.filamentWeightGrams || job.filament_weight_grams) || 0) * getCustoMaterialPorGramaTarefaProducao(job)), 0);
   const pedidosUnicos = new Set(historico.map(({ job }) => String(job.orderId || job.order_id || "")).filter(Boolean)).size;
   return `
     <section class="production-report" aria-label="Histórico de produção">
@@ -34889,19 +34930,23 @@ function renderHistoricoProducao() {
         </div>
       </div>
       <div class="production-history-summary">
-        <div><span>Horas</span><strong>${formatarMinutosProducao(minutos)}</strong></div>
-        <div><span>Peso usado</span><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
-        <div><span>Impressões</span><strong>${historico.length}</strong></div>
-        <div><span>Pedidos</span><strong>${pedidosUnicos}</strong></div>
+        <div><span>Horas produzidas</span><strong>${formatarMinutosProducao(minutos)}</strong></div>
+        <div><span>Material produzido</span><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
+        <div class="${minutosPerdidos ? "is-loss" : ""}"><span>Horas perdidas</span><strong>${formatarMinutosProducao(minutosPerdidos)}</strong></div>
+        <div class="${pesoPerdido ? "is-loss" : ""}"><span>Material perdido</span><strong>${pesoPerdido ? `${pesoPerdido.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
+        <div class="${prejuizo ? "is-loss" : ""}"><span>Prejuízo estimado</span><strong>${formatarMoeda(prejuizo)}</strong></div>
+        <div><span>Impressões / pedidos</span><strong>${historico.length} / ${pedidosUnicos}</strong></div>
       </div>
       <div class="production-history-list">
         ${visiveis.length ? visiveis.map(({ job, data }) => {
           const order = getProductionOrder(job);
           const tempo = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
           const pesoItem = Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
+          const perda = ["falhou", "cancelado"].includes(job.status);
+          const custoPerda = perda ? pesoItem * getCustoMaterialPorGramaTarefaProducao(job) : 0;
           return `<article class="production-history-row">
             <div><strong>${escaparHtml(job.itemName || "Item de produção")}</strong><small>${escaparHtml(job.productionCode || `Pedido #${job.orderId}`)} · ${escaparHtml(clienteDoPedido(order || {}) || "Cliente não informado")}</small></div>
-            <div class="production-history-measures"><span>${formatarMinutosProducao(tempo)}</span><span>${pesoItem ? `${pesoItem.toLocaleString("pt-BR")} g` : "Peso pendente"}</span></div>
+            <div class="production-history-measures ${perda ? "is-loss" : ""}"><span>${perda ? getProductionStatusLabel(job.status) : "Concluída"}</span><span>${formatarMinutosProducao(tempo)}</span><span>${pesoItem ? `${pesoItem.toLocaleString("pt-BR")} g` : "Peso pendente"}</span>${custoPerda ? `<span>${formatarMoeda(custoPerda)}</span>` : ""}</div>
             <div><strong>${escaparHtml(getProductionPrinterLabel(job.printerId || job.printer_id))}</strong><small>${formatarDataHora(data.toISOString())}</small></div>
             <button class="btn secondary" type="button" onclick="abrirAjusteDadosImpressao('${escaparAttr(job.id)}')">Ajustar</button>
           </article>`;

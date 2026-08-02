@@ -506,8 +506,18 @@ body.app-shell-ready .order-more-action.danger .action-symbol {
 
 .production-history-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--ui3-space-2, 8px);
+}
+
+.production-history-summary > div.is-loss {
+  border-color: color-mix(in srgb, #dc2626 38%, var(--ui3-border-subtle, transparent));
+  background: color-mix(in srgb, #dc2626 7%, var(--ui3-surface-1, transparent));
+}
+
+.production-history-summary > div.is-loss strong,
+.production-history-measures.is-loss span:first-child {
+  color: #dc2626;
 }
 
 .production-history-summary > div {

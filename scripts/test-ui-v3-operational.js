@@ -41,4 +41,7 @@ for(const marker of ['function abrirPainelImpressoraSimplifica(id)','O Simplific
   assert.ok(app.includes(marker),`painel simples da impressora ausente: ${marker}`);
 }
 assert.ok(app.includes('filamentWeightGrams = job.filament_weight_grams'),'ajuste de peso deve preservar os campos local e remoto');
+for(const marker of ['function getPesoPlanejadoTarefaProducao','function getCustoMaterialPorGramaTarefaProducao','Horas perdidas','Material perdido','Prejuízo estimado']){
+  assert.ok(app.includes(marker),`controle de perdas da produção ausente: ${marker}`);
+}
 console.log('UI V3 operational: Pedido, Clientes, Producao e Estoque validados.');
