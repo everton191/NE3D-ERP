@@ -37,5 +37,8 @@ assert.ok(app.includes('montarPedidoRapidoNoDrawerUiV3({ historyEntry: false })'
 for(const marker of ['["historico", "Histórico"]','function renderHistoricoProducao()','const PRODUCTION_HISTORY_PAGE_SIZE = 6','function abrirAjusteDadosImpressao(jobId)']){
   assert.ok(app.includes(marker),`histórico compacto da produção ausente: ${marker}`);
 }
+for(const marker of ['function abrirPainelImpressoraSimplifica(id)','O Simplifica acompanha a impressão sem controlar a máquina.','class="printer-simple-monitor-grid"']){
+  assert.ok(app.includes(marker),`painel simples da impressora ausente: ${marker}`);
+}
 assert.ok(app.includes('filamentWeightGrams = job.filament_weight_grams'),'ajuste de peso deve preservar os campos local e remoto');
 console.log('UI V3 operational: Pedido, Clientes, Producao e Estoque validados.');

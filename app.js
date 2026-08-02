@@ -25210,15 +25210,72 @@ function renderResumoImpressoraSimplifica(impressora = {}) {
   const latest = impressora.latest_status || {};
   const pedido = getPedidoVinculadoImpressora(impressora);
   return `
-    <article class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}">
+    <button type="button" class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}" onclick="abrirPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">
       <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
       <span class="printer-summary-main">
         <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
         <small>${renderPrinterStatusBadge(impressora)}${pedido ? ` Pedido #${escaparHtml(pedido.id)}` : " Sem pedido vinculado"}</small>
       </span>
       ${Number.isFinite(Number(latest.progress_percent)) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>—</strong>`}
-    </article>
+    </button>
   `;
+}
+
+function getTextoTrabalhoImpressora(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const pedido = getPedidoVinculadoImpressora(impressora);
+  return String(latest.job_name || latest.current_file || latest.file_name || pedido?.descricao || pedido?.nome || "Impressão atual")
+    .replace(/\.(gcode|3mf)$/i, "")
+    .trim() || "Impressão atual";
+}
+
+function abrirPainelImpressoraSimplifica(id) {
+  const impressora = getPrinterById(id);
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup) return;
+  const latest = impressora.latest_status || {};
+  const progressoNumero = Number(latest.progress_percent);
+  const progresso = Number.isFinite(progressoNumero) ? Math.max(0, Math.min(100, Math.round(progressoNumero))) : 0;
+  const tempo = getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—";
+  const camadaAtual = Number(latest.current_layer ?? latest.layer_current);
+  const totalCamadas = Number(latest.total_layers ?? latest.layer_total);
+  const camada = Number.isFinite(camadaAtual) && camadaAtual > 0
+    ? `${Math.round(camadaAtual)}${Number.isFinite(totalCamadas) && totalCamadas > 0 ? ` de ${Math.round(totalCamadas)}` : ""}`
+    : "—";
+  const conectado = impressora.connection_status === "connected";
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-simple-monitor-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card printer-simple-monitor" onclick="event.stopPropagation()">
+        <div class="modal-header printer-simple-monitor-head">
+          <div><span class="eyebrow">Sua impressora</span><h2>${escaparHtml(impressora.name || "Impressora")}</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
+        </div>
+        <section class="printer-simple-job">
+          <div class="printer-simple-job-title">
+            <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
+            <div><strong>${escaparHtml(getTextoTrabalhoImpressora(impressora))}</strong><small>${renderPrinterStatusBadge(impressora)}${tempo !== "—" ? ` · ${escaparHtml(tempo)} restantes` : ""}</small></div>
+          </div>
+          <div class="printer-simple-progress" aria-label="Progresso da impressão: ${progresso}%"><i style="--progress:${progresso}%"></i><strong>${progresso}%</strong></div>
+        </section>
+        <div class="printer-simple-monitor-grid">
+          <div><span>Bico</span><strong>${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong><small>${Number.isFinite(Number(latest.nozzle_target_temp)) ? `Programado: ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}` : "Temperatura atual"}</small></div>
+          <div><span>Mesa</span><strong>${formatarTemperaturaImpressora(latest.bed_temp)}</strong><small>${Number.isFinite(Number(latest.bed_target_temp)) ? `Programado: ${formatarTemperaturaImpressora(latest.bed_target_temp)}` : "Temperatura atual"}</small></div>
+          <div><span>Camada</span><strong>${escaparHtml(camada)}</strong><small>Andamento da peça</small></div>
+          <div><span>Conexão</span><strong>${conectado ? "Online" : "Sem sinal"}</strong><small>${impressora.last_seen_at ? escaparHtml(formatarDataHora(impressora.last_seen_at)) : "Aguardando atualização"}</small></div>
+        </div>
+        <p class="printer-simple-monitor-note">${renderUiIcon("seguranca")} O Simplifica acompanha a impressão sem controlar a máquina.</p>
+        <div class="actions printer-simple-monitor-actions">
+          <button class="btn secondary" type="button" onclick="atualizarPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar</button>
+          ${podeGerenciarImpressoras() ? `<button class="btn ghost" type="button" onclick="fecharPopup();abrirCadastroImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("edit")} Editar impressora</button>` : ""}
+        </div>
+      </section>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: impressora.name || "Impressora" });
+}
+
+async function atualizarPainelImpressoraSimplifica(id) {
+  await atualizarStatusImpressora(id);
+  abrirPainelImpressoraSimplifica(id);
 }
 
 function renderCardImpressora(impressora = {}) {
