@@ -3,7 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
+const read = (file) => fs.readFileSync(path.join(root, file), "utf8").replace(/\r\n/g, "\n");
 
 const app = read("app.js");
 const style = read("style.css");
@@ -146,7 +146,8 @@ assert.ok(app.includes("getPrinterModelSuggestionOptions"), "modelo deve oferece
 assert.ok(app.includes('id="printerSaveButton"'), "ação de salvar deve estar sempre visível");
 assert.ok(app.includes("const saved = await printerBackendRequest"), "cadastro deve usar resposta confirmada do backend");
 assert.ok(app.includes("printerMonitoringState.items.unshift(saved)"), "cadastro confirmado deve atualizar a lista imediatamente");
-assert.doesNotMatch(app, /data-printer-step=|moverEtapaCadastroImpressora|printerWizardNext/, "cadastro não deve exigir assistente de quatro etapas");
+assert.doesNotMatch(app, /data-printer-step="4"|moverEtapaCadastroImpressora|printerWizardNext/, "cadastro não deve exigir assistente de quatro etapas");
+assert.ok(app.includes('data-printer-cadastro-step="1"') && app.includes('data-printer-cadastro-step="3"'), "cadastro deve manter somente o fluxo guiado de três etapas");
 const refreshStatusSource = app.match(/async function atualizarStatusImpressora\(id\)[\s\S]*?\n}\n/)?.[0] || "";
 assert.ok(refreshStatusSource.includes("hidratarImpressorasSeNecessario(true, false)"), "atualização não deve reconstruir a tela da impressora");
 assert.ok(refreshStatusSource.includes("atualizarElementosStatusBambu(impressoraAtualizada)"), "atualização deve preservar o painel e alterar apenas os dados visíveis");

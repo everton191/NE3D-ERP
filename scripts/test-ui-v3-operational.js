@@ -34,7 +34,7 @@ assert.ok(app.includes('kind: "drawer"'),'acoes rapidas devem usar Drawer V3 exp
 const quickOrderDrawer=app.slice(app.indexOf('function montarPedidoRapidoNoDrawerUiV3'),app.indexOf('function abrirPedidoRapidoOperacional'));
 assert.ok(quickOrderDrawer.includes('kind: "drawer"'),'Pedido rapido deve usar Drawer V3');
 assert.ok(app.includes('montarPedidoRapidoNoDrawerUiV3({ historyEntry: false })'),'atualizacao do Pedido rapido nao deve empilhar historico');
-for(const marker of ['["historico", "Histórico"]','function renderHistoricoProducao()','const PRODUCTION_HISTORY_PAGE_SIZE = 6','function abrirAjusteDadosImpressao(jobId)']){
+for(const marker of ['tab === "historico" ? renderHistoricoProducao()','function renderHistoricoProducao()','const PRODUCTION_HISTORY_PAGE_SIZE = 6','function abrirAjusteDadosImpressao(jobId)']){
   assert.ok(app.includes(marker),`histórico compacto da produção ausente: ${marker}`);
 }
 for(const marker of ['function abrirPainelImpressoraSimplifica(id)','Conectada e pronta para o próximo trabalho','class="printer-simple-connection"']){

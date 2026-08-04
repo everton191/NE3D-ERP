@@ -26367,25 +26367,13 @@ function abrirCadastroImpressora(id = "", initial = {}) {
   if (!popup) return;
   popup.innerHTML = `
     <div class="modal-backdrop printer-modal-backdrop" id="printerModalBackdrop" role="dialog" aria-modal="true">
-      <form class="modal-card printer-wizard printer-form-simple" id="printerForm" data-printer-guided="${guiado ? "true" : "false"}">
+      <form class="modal-card printer-wizard printer-form-simple" id="printerForm">
         <div class="modal-header">
           <div><span class="eyebrow">${id ? "Editar" : "Nova"} impressora</span><h2>${id ? escaparHtml(impressora.name) : "Adicionar impressora"}</h2></div>
           <button class="icon-button" id="printerCloseButton" type="button" title="Fechar">✕</button>
         </div>
         <input type="hidden" id="printerId" value="${escaparAttr(id)}">
         <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
-        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 3 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
-        <div class="printer-setup-choice ${bambuDisponiveis.length ? "has-connected-bambu" : ""}" data-printer-step="1">
-          ${bambuDisponiveis.length ? `<section class="printer-connected-account">
-            <div class="printer-connected-account-head"><span>${renderUiIcon("check")}</span><div><strong>Conta BambuLab já conectada</strong><small>Estas impressoras já estão disponíveis para esta conta.</small></div></div>
-            <div class="printer-connected-models">${bambuDisponiveis.map((item) => {
-              const conexao = getConexaoAtualImpressora(item);
-              return `<button type="button" data-existing-bambu-id="${escaparAttr(item.id)}"><span>${renderUiIcon("impressoras")}</span><strong>${escaparHtml(item.name || "Impressora BambuLab")}</strong><small>${escaparHtml(getPrinterDisplayModel(item))} · ${conexao.online ? "Online" : "Sem sinal"}</small></button>`;
-            }).join("")}</div>
-          </section>` : `<button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>`}
-          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>${bambuDisponiveis.length ? "Adicionar modelo diferente" : "Outra impressora"}</strong><small>Cadastrar para acompanhamento manual</small></button>
-        </div>` : ""}
-
         <div class="ui-tabs printer-cadastro-tabs" aria-label="Etapas do cadastro">
           ${[[1, "Conexão"], [2, "Impressora"], [3, "Revisar"]].map(([etapa, rotulo]) => `<button class="ui-tab" type="button" data-printer-step-tab="${etapa}" onclick="atualizarEtapaCadastroImpressora(${etapa})"><span>${etapa}</span>${rotulo}</button>`).join("")}
         </div>
@@ -26441,15 +26429,15 @@ function abrirCadastroImpressora(id = "", initial = {}) {
               </div>
             </section>
 
-            <section ${guiado ? 'data-printer-step="3" hidden' : ""}>
+            <section>
               <h3>Conexão com a impressora</h3>
-              ${guiado ? `<p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>` : ""}
+              <p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>
               <label class="field"><span>Conexão</span>
                 <select id="printerConnector">
                   ${(getPrinterMonitoringService()?.CONNECTORS || []).map((connector) => `<option value="${connector.key}" ${String(impressora?.connector_type || "manual") === connector.key ? "selected" : ""}>${escaparHtml(connector.name)}${connector.automatic ? " · automática" : ""}</option>`).join("")}
                 </select>
               </label>
-              ${guiado ? `<p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>` : ""}
+              <p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>
               <div id="printerAutomaticFields">
                 <label class="field printer-connection-mode-field"><span>Modo de conexão</span><select id="printerConnectionMode">
                   <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
