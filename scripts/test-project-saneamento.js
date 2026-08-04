@@ -18,12 +18,13 @@ if (missingIgnores.length) {
 }
 
 const requiredVersionSignals = [
-  "APP_VERSION = \"1.0.25\"",
+  "APP_VERSION = \"1.0.27\"",
   "APP_VERSION_CODE = 26",
-  "versionName \"1.0.25\"",
-  "versionCode 26",
-  "\"version\": \"1.0.25\"",
-  "\"versionCode\": 26"
+  "versionName simplificaPilotBuild ? \"0.9.0-pilot\" : \"1.0.27\"",
+  "versionCode simplificaPilotBuild ? 10 : 26",
+  "applicationId simplificaPilotBuild ? \"br.com.ne3d.erp.pilot\" : \"br.com.ne3d.erp\"",
+  "\"version\": \"1.0.27\"",
+  "\"versionCode\": 28"
 ];
 
 const sources = [app, sw, gradle, update].join("\n");

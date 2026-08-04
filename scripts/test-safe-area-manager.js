@@ -24,6 +24,8 @@ const prepareWeb = read("scripts/prepare-web.js");
   "visualViewport",
   "orientationchange",
   "simplifica-native-insets-change",
+  "CONTENT_TOP_INSET_RATIO = 0.25",
+  "rawTopInset * CONTENT_TOP_INSET_RATIO",
   "--viewport-height",
   "--app-safe-bottom",
   "--safe-area-inset-bottom",

@@ -1,14 +1,5 @@
 {
   "endpoint": "https://qsufnnivlgdidmjuaprb.supabase.co/functions/v1/printer-monitor",
   "agentToken": "COLE_AQUI_O_TOKEN_GERADO_NO_ERP",
-  "printers": [
-    {
-      "id": "UUID_DA_IMPRESSORA_CADASTRADA",
-      "name": "Ender 3 S1",
-      "connector": "octoprint",
-      "host": "http://192.168.1.50",
-      "port": 80,
-      "apiToken": "TOKEN_LOCAL_DO_OCTOPRINT"
-    }
-  ]
+  "printers": []
 }

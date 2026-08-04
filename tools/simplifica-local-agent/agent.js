@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { readBambuCloudStatus, startBambuMqttMonitor, unprotectToken } = require("./bambu-cloud");
 
 const configPath = path.resolve(process.argv[2] || process.env.SIMPLIFICA_AGENT_CONFIG || "config.json");
 
@@ -47,6 +48,9 @@ async function readJson(url, headers = {}) {
 
 async function readPrinter(printer) {
   const connector = String(printer.connector || "").toLowerCase();
+  if (connector === "bambu") {
+    return readBambuCloudStatus(printer, unprotectToken(printer.bambuProtectedToken));
+  }
   const root = baseUrl(printer);
   if (connector === "octoprint") {
     const headers = printer.apiToken ? { "X-Api-Key": printer.apiToken } : {};
@@ -104,19 +108,6 @@ async function readPrinter(printer) {
       error_message: status?.error || null,
     };
   }
-  if (connector === "bambu") {
-    if (!root.startsWith("https://")) throw new Error("Bambu requer gateway HTTPS autorizado");
-    const data = await readJson(`${root}/status`, printer.apiToken ? { Authorization: `Bearer ${printer.apiToken}` } : {});
-    return {
-      state: normalizedState(data?.state || data?.status || data?.print_status),
-      progress_percent: data?.progress_percent ?? data?.progress,
-      nozzle_temp: data?.nozzle_temp ?? data?.temperature?.nozzle,
-      bed_temp: data?.bed_temp ?? data?.temperature?.bed,
-      current_file: data?.current_file ?? data?.file,
-      remaining_seconds: data?.remaining_seconds ?? data?.remaining_time,
-      error_message: data?.error_message ?? data?.error ?? null,
-    };
-  }
   throw new Error(`Conector nao suportado: ${connector}`);
 }
 
@@ -158,10 +149,49 @@ async function pollPrinter(config, printer) {
   setTimeout(() => pollPrinter(config, printer), nextDelay(state));
 }
 
+function startBambuPrinter(config, printer) {
+  const accessToken = unprotectToken(printer.bambuProtectedToken);
+  let lastSentAt = 0;
+  let pendingSnapshot = null;
+  let sendTimer = null;
+  const flush = async () => {
+    sendTimer = null;
+    if (!pendingSnapshot) return;
+    const snapshot = pendingSnapshot;
+    pendingSnapshot = null;
+    try {
+      await sendSnapshot(config, printer, snapshot);
+      lastSentAt = Date.now();
+      console.log(`[${new Date().toISOString()}] ${printer.name || printer.id}: ${snapshot.state} (Bambu MQTT)`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] ${printer.name || printer.id}: envio MQTT: ${error.message}`);
+    }
+  };
+  const queueSnapshot = (snapshot) => {
+    pendingSnapshot = snapshot;
+    const delay = Math.max(0, 15000 - (Date.now() - lastSentAt));
+    if (!sendTimer) sendTimer = setTimeout(flush, delay);
+  };
+  startBambuMqttMonitor({
+    printer,
+    accessToken,
+    mqttUsername: printer.bambuMqttUsername,
+    onSnapshot: queueSnapshot,
+    onError: (error) => console.error(`[${new Date().toISOString()}] ${printer.name || printer.id}: Bambu MQTT: ${error.message}`),
+  });
+  setTimeout(() => pollPrinter(config, printer), 1000);
+}
+
 async function main() {
   const config = readConfig();
   console.log(`Simplifica Local Agent iniciado com ${config.printers.length} impressora(s). Somente leitura.`);
-  config.printers.forEach((printer, index) => setTimeout(() => pollPrinter(config, printer), index * 1000));
+  config.printers.forEach((printer, index) => {
+    if (String(printer.connector || "").toLowerCase() === "bambu") {
+      setTimeout(() => startBambuPrinter(config, printer), index * 1000);
+      return;
+    }
+    setTimeout(() => pollPrinter(config, printer), index * 1000);
+  });
 }
 
 main().catch((error) => {

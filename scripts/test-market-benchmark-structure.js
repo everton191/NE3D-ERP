@@ -59,7 +59,7 @@ const gap = read("docs/benchmark/simplifica3d-gap-report.md");
 [
   "Baixa de estoque deve continuar acontecendo pelo pedido/produção",
   "Superadmin deve tratar clientes SaaS como empresas",
-  "Monitoramento remoto de impressoras"
+  "conector experimental Bambu prontos"
 ].forEach((marker) => {
   assert(gap.includes(marker), `Relatorio de lacunas sem item esperado: ${marker}`);
 });

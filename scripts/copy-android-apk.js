@@ -74,7 +74,7 @@ if (signatureCheck.status !== 0 || signerSha256 !== expectedSignerSha256) {
 const appJsContent = fs.existsSync(appJs) ? fs.readFileSync(appJs, "utf8") : "";
 const buildGradleContent = fs.existsSync(buildGradle) ? fs.readFileSync(buildGradle, "utf8") : "";
 const version = appJsContent.match(/const APP_VERSION = "([^"]+)"/)?.[1] || "0.0.0";
-const versionCode = Number(buildGradleContent.match(/versionCode\s+(\d+)/)?.[1] || 0) || 0;
+const versionCode = Number(buildGradleContent.match(/versionCode\s+(?:simplificaPilotBuild\s*\?\s*\d+\s*:\s*)?(\d+)/)?.[1] || 0) || 0;
 
 fs.mkdirSync(downloadsDir, { recursive: true });
 fs.copyFileSync(sourceApk, simpleApk);

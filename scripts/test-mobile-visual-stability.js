@@ -58,11 +58,14 @@ if (!app.includes("Math.hypot(dx, dy) > 8")) {
 if (app.includes("assistant-fab assistant-fab-open") || app.includes("function renderAssistenteVirtual")) {
   throw new Error("O produto padrão não deve renderizar o assistente aposentado.");
 }
-if (!app.includes("const PRINTER_FEATURE_ENABLED = false")) {
-  throw new Error("Impressoras devem permanecer desativadas nesta fase.");
+if (!app.includes("const PRINTER_FEATURE_ENABLED = true")) {
+  throw new Error("A guia Impressoras deve permanecer habilitada para o piloto controlado.");
 }
-if (app.includes('tela: "impressoras", icone: "impressoras", texto: "Impressoras 3D"')) {
-  throw new Error("Menu Mais do mobile não deve expor impressoras enquanto o recurso estiver desativado.");
+if (!app.includes('if (item.tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false')) {
+  throw new Error("A guia Impressoras deve conservar a chave de desativação para rollback.");
+}
+if (!app.includes('{ tela: "impressoras", icone: "impressoras", texto: "Impressoras" }')) {
+  throw new Error("O menu Mais deve expor a guia Impressoras durante o piloto.");
 }
 if (!app.includes("toquePedidoSuprimidoAte = Date.now() + 700")) {
   throw new Error("Rolagem deve suprimir o clique residual que abriria o pedido.");
@@ -111,6 +114,28 @@ if (!app.includes(`{ action: "trocarTela('lojaOnline')", icon: "lojaOnline", tit
     !app.includes(`{ action: "trocarTela('config')", icon: "backup", title: "Backup da empresa"`) ||
     !app.includes(`{ action: "trocarTela('relatorios')", icon: "relatorios", title: "Logs e relatórios"`)) {
   throw new Error("Administracao deve abrir diretamente os modulos funcionais existentes.");
+}
+if (!css.includes(".printer-page-header > div:first-child") || !css.includes("word-break: normal")) {
+  throw new Error("Cabecalho de impressoras nao pode comprimir a descricao letra por letra no mobile.");
+}
+if (!css.includes("grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.25fr) minmax(0, 0.72fr)") ||
+    !css.includes(".printer-card-actions .printer-more-button span")) {
+  throw new Error("Acoes da impressora devem permanecer divididas em uma unica linha no mobile.");
+}
+if (!css.includes("body.mobile-mode .printer-page-header .actions .compact-action") ||
+    !css.includes("justify-self: center !important")) {
+  throw new Error("Botao Adicionar da guia de impressoras deve permanecer centralizado.");
+}
+if (!app.includes("function marcarAtualizacaoVisualEmSegundoPlano")) {
+  throw new Error("Sincronizacao remota nao deve remontar automaticamente toda a tela ativa.");
+}
+if (!app.includes('if (node.textContent !== next) node.textContent = next') ||
+    !app.includes('if (node.innerHTML !== next) node.innerHTML = next')) {
+  throw new Error("Monitoramento deve alterar o DOM somente quando o valor visivel mudar.");
+}
+if (!css.includes("body.mobile-mode .printer-card .printer-device-icon") ||
+    !css.includes("body.mobile-mode .printer-card .printer-card-actions .btn")) {
+  throw new Error("Cards de impressora devem manter densidade do padrao operacional mobile.");
 }
 
 console.log("Mobile visual stability: viewport, safe-area, touch e menu mobile verificados.");

@@ -2,6 +2,9 @@
   "use strict";
 
   const KEYBOARD_THRESHOLD = 120;
+  // O app é desenhado sob a barra de status no Android. Reservamos apenas
+  // apenas uma fração do inset no conteúdo para manter o cabeçalho próximo da tela.
+  const CONTENT_TOP_INSET_RATIO = 0.25;
   const DEFAULT_SAFE_AREA = Object.freeze({
     top: 0,
     right: 0,
@@ -71,7 +74,8 @@
   }
 
   function computeSafeArea() {
-    const envTop = Math.max(readProbeInset("top"), readNativeInset("top"));
+    const rawTopInset = Math.max(readProbeInset("top"), readNativeInset("top"));
+    const envTop = Math.round(rawTopInset * CONTENT_TOP_INSET_RATIO);
     const envRight = Math.max(readProbeInset("right"), readNativeInset("right"));
     const envBottom = Math.max(readProbeInset("bottom"), readNativeInset("bottom"));
     const envLeft = Math.max(readProbeInset("left"), readNativeInset("left"));
