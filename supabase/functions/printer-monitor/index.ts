@@ -457,6 +457,7 @@ async function connectBambuAccount(context: Awaited<ReturnType<typeof getContext
   assertManagementAccess(context);
   const printer = await getPrinter(context, printerId, true);
   const firstConnection = !String(printer.credential_ciphertext || "");
+  if (!firstConnection) throw new Error("BAMBU_ACCOUNT_ALREADY_CONNECTED");
   if (!["manual", "bambu"].includes(String(printer.connector_type || ""))) throw new Error("BAMBU_PRINTER_REQUIRED");
   if (printer.connector_type === "manual") {
     const { count } = await supabase

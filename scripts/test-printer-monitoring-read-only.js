@@ -58,6 +58,8 @@ assert.ok(app.includes("function abrirPainelImpressora"), "cartão deve abrir pa
 const printerPanelSource = app.match(/function abrirPainelImpressora\([\s\S]*?function getPrinterConnectorLabel/)?.[0] || "";
 assert.doesNotMatch(printerPanelSource, /printer-camera-preview|Conectar pela rede local|abrirConfiguracaoBambuLan/, "painel cloud não deve oferecer câmera ou conexão LAN");
 assert.ok(app.includes("function getRegisteredPrinterForProductionJob"), "fila de produção deve localizar a impressora monitorada");
+assert.ok(app.includes("function sincronizarImpressorasMonitoradasComProducao"), "impressoras monitoradas devem aparecer automaticamente na Produção em outros dispositivos");
+assert.ok(app.includes("const requestId = ++printerMonitoringState.requestId"), "hidratação deve preservar o identificador da requisição entre dispositivos");
 assert.ok(app.includes("printer-order-printer-link"), "impressora vinculada na produção deve abrir seu painel");
 assert.ok(app.includes("function abrirImpressoraDaProducao"), "produção deve abrir painel ou encaminhar ao cadastro da impressora");
 assert.ok(app.includes('productionPrinterName || "Adicionar impressora"'), "produção sem máquina deve exibir ação para adicionar impressora");
@@ -85,6 +87,8 @@ assert.ok(app.includes("Etapa 1 de 5") && app.includes("Etapa 4 de 5"), "fluxo B
 assert.ok(app.includes("function renderizarConclusaoBambu"), "fluxo Bambu deve terminar com confirmação e acesso ao painel");
 assert.ok(style.includes(".printer-bambu-steps"), "etapas Bambu devem possuir indicador visual responsivo");
 assert.ok(app.includes("bambuLoginDraftState"), "login Bambu deve manter rascunho somente em memória durante a troca de aplicativo");
+assert.ok(app.includes("A conta Bambu já está conectada. Use Desconectar Bambu antes de entrar novamente."), "conta Bambu ativa não deve permitir logins repetidos");
+assert.ok(edge.includes('if (!firstConnection) throw new Error("BAMBU_ACCOUNT_ALREADY_CONNECTED")'), "backend deve rejeitar novo login enquanto a conta Bambu estiver conectada");
 const bambuDraftSource = app.match(/const bambuLoginDraftState = \{[\s\S]*?\n};/)?.[0] || "";
 assert.doesNotMatch(bambuDraftSource, /localStorage|sessionStorage|salvar|supabase/i, "rascunho sensível Bambu não pode ser persistido");
 assert.ok(app.includes('password: code?.value ? "" : password?.value || ""'), "código de verificação não pode ser enviado junto com a senha");
