@@ -22,7 +22,7 @@ const appMarkers = [
   "function getResumoCapacidadeProducao",
   "function renderResumoCapacidadeProducao",
   "actualPrintTimeMinutes",
-  "Fila manual por item, sem automação de impressoras.",
+  "Acompanhe somente Em fila, Imprimindo e Pronto.",
   "As impressoras são controladas manualmente.",
   "Liberar para produção"
 ];

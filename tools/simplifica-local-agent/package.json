@@ -1,0 +1,10 @@
+{
+  "name": "simplifica-local-agent",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Agente local somente leitura do Simplifica 3D",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "mqtt": "5.14.1"
+  }
+}

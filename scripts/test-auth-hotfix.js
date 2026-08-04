@@ -95,6 +95,12 @@ assert.match(extractAuthMethod("signupSaas"), /criarClienteSaasLocal/, "signup s
 assert.match(source, /function prepararRegistroOnline[\s\S]*sync_status/, "dados operacionais novos devem carregar sync_status");
 assert.match(source, /upsert_erp_record_if_newer/, "fila offline deve usar RPC de upsert autoritativo por timestamp");
 assert.match(bodyOf("lerConfigAppCampos"), /twoFactorEnabled:\s*whatsapp2FABackendDisponivel\(\) &&/, "config publica nao deve reativar 2FA sem backend");
+assert.doesNotMatch(bodyOf("precisaDesbloqueioLocal"), /keepSessionCache/, "manter login nao deve ignorar a revalidacao local de 12 horas");
+assert.match(bodyOf("precisaDesbloqueioLocal"), /Date\.now\(\) - ultimo > LOCAL_UNLOCK_MAX_MS/, "a revalidacao local deve respeitar a janela de 12 horas");
+assert.doesNotMatch(bodyOf("restaurarCacheSessaoLocal"), /Confirme sua identidade para abrir seus dados\./, "restauracao de sessao nao pode pedir biometria em toda abertura");
+assert.match(bodyOf("restaurarCacheSessaoLocal"), /await exigirDesbloqueioLocalSeNecessario\("restore"/, "restauracao deve usar a trava local com janela de 12 horas");
+assert.match(bodyOf("concluirLoginUsuario"), /desativarTravaLocal\("login"\)/, "login valido deve renovar a janela local de 12 horas");
+assert.match(source, /async function requestSensitiveActionConfirmation\([\s\S]*?confirmarBiometriaSeDisponivel/, "acoes criticas devem continuar exigindo confirmacao do aparelho");
 assert.doesNotMatch(bodyOf("prepararSelecaoClienteSaas"), /selecionarClienteSaasResultado/, "touchstart/pointerdown nao deve abrir edicao durante rolagem");
 assert.match(bodyOf("selecionarResultadoClienteSaas"), /selecaoClienteSaasFoiArrasto/, "click da linha deve ignorar gesto de rolagem");
 assert.match(source, /onpointermove="atualizarMovimentoClienteSaas/, "linha de cliente deve rastrear movimento pointer");

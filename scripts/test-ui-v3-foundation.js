@@ -13,7 +13,7 @@ assert(build.includes('"styles/ui-v3", "src/ui-v3"'),'build nao copia a fundacao
 assert(dev.includes("link.disabled=true"),'rota tecnica nao isola CSS legado');
 assert(dev.includes("root.className='ui3-app-root'"),'laboratorio deve declarar raiz de shell completo');
 assert(read('styles/ui-v3/viewport.css').includes('[data-ui-version="v3"].ui3-real-screen'),'viewport deve distinguir tela embutida do shell completo');
-assert(read('styles/ui-v3/tokens.css').includes('--android-system-top-inset'),'safe area V3 nao considera o inset nativo Android');
+assert(read('styles/ui-v3/tokens.css').includes('--safe-area-inset-top'),'safe area V3 nao consome o inset global Android');
 assert(read('styles/ui-v3/tokens.css').includes('body[data-theme="dark"]') && read('styles/ui-v3/tokens.css').includes('--ui3-surface:var(--surface)'),'tema escuro V3 nao reutiliza a paleta oficial existente');
 assert(read('styles/ui-v3/layout.css').includes('var(--ui3-safe-top)'),'PageContainer nao reserva a barra de status');
 assert(read('styles/ui-v3/screens/superadmin.css').includes('calc(var(--ui3-space-3) + var(--ui3-safe-top))'),'Superadmin nao reserva a barra de status no mobile');

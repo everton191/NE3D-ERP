@@ -41,8 +41,8 @@ Objetivo: listar as telas conhecidas e indicar o estado de padronizacao antes de
 
 | Tela/Função | Estado | Regra |
 | --- | --- | --- |
-| Impressoras | futura/desativada para uso | nao exibir como fluxo ativo ate existir Agente Local Simplifica |
-| Monitoramento remoto | futuro | manter atras de feature flag e contrato de seguranca |
+| Impressoras | piloto controlado/ativa | exibir cadastro e guia Bambu; manter chave de rollback e modo somente leitura |
+| Monitoramento remoto | piloto tecnico, validacao fisica pendente | nao declarar operacional antes do teste com conta e impressora real |
 | IA pesada/local | desativada | nao adicionar menu/tela visivel nesta fase |
 | Integrações Google alem do login | fundacao desativada | nao ativar sem backend e permissao |
 

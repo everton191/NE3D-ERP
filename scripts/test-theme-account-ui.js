@@ -7,8 +7,8 @@ const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const style = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const lightTokens = fs.readFileSync(path.join(root, "themes", "light", "tokens.css"), "utf8");
 
-assert.ok(app.includes("const PRINTER_FEATURE_ENABLED = false"), "impressoras devem permanecer desativadas nesta fase");
-assert.ok(app.includes('if (tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false'), "acesso direto a impressoras deve estar bloqueado");
+assert.ok(app.includes("const PRINTER_FEATURE_ENABLED = true"), "impressoras devem permanecer habilitadas para o piloto controlado");
+assert.ok(app.includes('if (tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false'), "acesso direto deve conservar a chave de rollback");
 assert.ok(app.includes("function renderThemeModeButton"), "controle único de tema deve existir");
 assert.ok(app.includes('data-theme-mode-toggle'), "controle de tema deve ter contrato estável");
 assert.ok(app.includes('data-ui-token-set="${escaparAttr(relation.tokenSet)}"'), "controle de tema deve usar tokens do registro");

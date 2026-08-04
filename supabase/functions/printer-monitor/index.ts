@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const CREDENTIALS_SECRET = Deno.env.get("PRINTER_CREDENTIALS_SECRET") || "";
+const BAMBU_API_ROOT = "https://api.bambulab.com";
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
 const corsHeaders = {
@@ -21,7 +22,7 @@ const viewRoles = new Set(["owner", "admin", "manager", "production", "sales", "
 function response(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
 
@@ -243,7 +244,7 @@ async function listPrinterWorkspace(context: Awaited<ReturnType<typeof getContex
     supabase.from("printer_brands").select("id,name,slug").eq("is_active", true).order("name"),
     supabase.from("printer_models").select("id,brand_id,name,slug,printer_type").eq("is_active", true).order("name"),
     supabase.from("printer_connector_types").select("key,name,description,supports_monitoring,supports_remote_control").eq("is_active", true).order("name"),
-    managementRoles.has(context.role) && context.plan === "pro"
+    managementRoles.has(context.role)
       ? supabase.from("local_agents").select("id,name,status,last_seen_at,created_at").eq("company_id", context.companyId).order("created_at")
       : Promise.resolve({ data: [] }),
   ]);
@@ -268,9 +269,8 @@ async function getPrinter(context: Awaited<ReturnType<typeof getContext>>, print
   return includeSecret ? data : sanitizePrinter(data);
 }
 
-function connectorLimit(plan: string) {
+function automaticConnectorLimit(plan: string) {
   if (plan === "free") return 1;
-  if (plan === "start") return 3;
   return Number.POSITIVE_INFINITY;
 }
 
@@ -281,7 +281,8 @@ async function savePrinter(context: Awaited<ReturnType<typeof getContext>>, inpu
   const connectionMode = cleanText(input.connection_mode || (connectorType === "manual" ? "manual" : "local_agent"), 30).toLowerCase();
   if (!["manual", "octoprint", "moonraker", "prusalink", "bambu", "none"].includes(connectorType)) throw new Error("INVALID_CONNECTOR");
   if (!["manual", "browser_local", "local_agent", "cloud_supported"].includes(connectionMode)) throw new Error("INVALID_CONNECTION_MODE");
-  if (automaticConnectors.has(connectorType) && context.plan !== "pro") throw new Error("AUTOMATIC_CONNECTOR_REQUIRES_PRO");
+  const existing = id ? await getPrinter(context, id, true) : null;
+  const becomesAutomatic = automaticConnectors.has(connectorType) && !automaticConnectors.has(String(existing?.connector_type || ""));
   const agentId = cleanText(input.agent_id, 60);
   let selectedAgent: Record<string, unknown> | null = null;
   if (connectionMode === "local_agent" && agentId) {
@@ -296,16 +297,16 @@ async function savePrinter(context: Awaited<ReturnType<typeof getContext>>, inpu
     selectedAgent = agent;
   }
 
-  if (!id) {
+  if (becomesAutomatic) {
     const { count } = await supabase
       .from("printers")
       .select("id", { count: "exact", head: true })
       .eq("company_id", context.companyId)
-      .eq("active", true);
-    if ((count || 0) >= connectorLimit(context.plan)) throw new Error("PRINTER_LIMIT_REACHED");
+      .eq("active", true)
+      .in("connector_type", Array.from(automaticConnectors));
+    if ((count || 0) >= automaticConnectorLimit(context.plan)) throw new Error("AUTOMATIC_PRINTER_LIMIT_REACHED");
   }
 
-  const existing = id ? await getPrinter(context, id, true) : null;
   const credentials = {
     apiToken: cleanText(input.api_token, 1000),
     username: cleanText(input.username, 240),
@@ -414,6 +415,200 @@ async function readJson(url: string, headers: Record<string, string> = {}) {
   }
 }
 
+async function bambuCloudRequest(pathname: string, options: { method?: string; accessToken?: string; body?: Record<string, unknown> } = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const result = await fetch(`${BAMBU_API_ROOT}${pathname}`, {
+      method: options.method || "GET",
+      headers: {
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
+    });
+    const data = await result.json().catch(() => ({}));
+    if (result.status === 401 || result.status === 403) throw new Error("BAMBU_LOGIN_REJECTED");
+    if (!result.ok) throw new Error("BAMBU_SERVICE_UNAVAILABLE");
+    return data;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw new Error("BAMBU_LOGIN_TIMEOUT");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function sanitizeBambuDevices(data: Record<string, unknown>) {
+  return (Array.isArray(data?.devices) ? data.devices : []).map((raw) => {
+    const device = raw as Record<string, unknown>;
+    return {
+      id: cleanText(device.dev_id, 160),
+      name: cleanText(device.name || device.dev_name || device.dev_product_name || "Impressora Bambu", 120),
+      model: cleanText(device.dev_product_name || device.dev_model_name || "Bambu Lab", 120),
+      online: device.online === true,
+    };
+  }).filter((device) => device.id);
+}
+
+async function connectBambuAccount(context: Awaited<ReturnType<typeof getContext>>, printerId: string, input: Record<string, unknown>) {
+  assertManagementAccess(context);
+  const printer = await getPrinter(context, printerId, true);
+  const firstConnection = !String(printer.credential_ciphertext || "");
+  if (!["manual", "bambu"].includes(String(printer.connector_type || ""))) throw new Error("BAMBU_PRINTER_REQUIRED");
+  if (printer.connector_type === "manual") {
+    const { count } = await supabase
+      .from("printers")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", context.companyId)
+      .eq("active", true)
+      .in("connector_type", Array.from(automaticConnectors));
+    if ((count || 0) >= automaticConnectorLimit(context.plan)) throw new Error("AUTOMATIC_PRINTER_LIMIT_REACHED");
+  }
+  const account = cleanText(input.account, 240);
+  const password = String(input.password || "").slice(0, 1000);
+  const code = cleanText(input.code, 40);
+  if (!account || (!password && !code)) throw new Error("BAMBU_LOGIN_FIELDS_REQUIRED");
+  const loginBody: Record<string, unknown> = { account };
+  if (code) loginBody.code = code;
+  else loginBody.password = password;
+  const login = await bambuCloudRequest("/v1/user-service/user/login", { method: "POST", body: loginBody });
+  const accessToken = String(login?.accessToken || "");
+  if (!accessToken) {
+    const loginDetails = JSON.stringify(login || {}).toLowerCase();
+    if (/verify|verification|code|email|2fa|two.factor/.test(loginDetails)) throw new Error("BAMBU_VERIFICATION_CODE_REQUIRED");
+    throw new Error("BAMBU_LOGIN_REJECTED");
+  }
+  const [accountData, devicesData] = await Promise.all([
+    bambuCloudRequest("/v1/design-user-service/my/preference", { accessToken }),
+    bambuCloudRequest("/v1/iot-service/api/user/bind", { accessToken }),
+  ]);
+  const devices = sanitizeBambuDevices(devicesData);
+  if (!devices.length) throw new Error("BAMBU_NO_PRINTERS_FOUND");
+  const selected = context.plan === "free"
+    ? devices[devices.length - 1]
+    : (devices.find((device) => device.id === cleanText(input.device_id, 160)) || devices[0]);
+  const credentials = {
+    apiToken: accessToken,
+    bambuDeviceId: selected.id,
+    bambuUid: cleanText(accountData?.uid, 120),
+  };
+  const credentialCiphertext = await encryptCredentials(credentials);
+  const { error } = await supabase.from("printers").update({
+    connector_type: "bambu",
+    connection_mode: "cloud_supported",
+    host: BAMBU_API_ROOT,
+    credential_ciphertext: credentialCiphertext,
+    credential_hint: "Conta Bambu conectada",
+    name: selected.name,
+    custom_brand: "Bambu Lab",
+    custom_model: selected.model,
+    connection_status: selected.online ? "connected" : "offline",
+    last_error: null,
+    updated_by: context.userId,
+  }).eq("id", printer.id).eq("company_id", context.companyId);
+  if (error) throw error;
+  const importedPrinterIds: string[] = [printer.id];
+  if (firstConnection && context.plan !== "free" && devices.length > 1) {
+    const extraDevices = devices.filter((device) => device.id !== selected.id);
+    const rows = await Promise.all(extraDevices.map(async (device) => ({
+      company_id: context.companyId,
+      created_by: context.userId,
+      updated_by: context.userId,
+      name: device.name,
+      custom_brand: "Bambu Lab",
+      custom_model: device.model,
+      printer_type: "fdm",
+      connector_type: "bambu",
+      connection_mode: "cloud_supported",
+      host: BAMBU_API_ROOT,
+      credential_ciphertext: await encryptCredentials({ apiToken: accessToken, bambuDeviceId: device.id, bambuUid: cleanText(accountData?.uid, 120) }),
+      credential_hint: "Conta Bambu conectada",
+      connection_status: device.online ? "connected" : "offline",
+      active: true,
+    })));
+    if (rows.length) {
+      const { data: imported, error: importError } = await supabase.from("printers").insert(rows).select("id");
+      if (importError) throw importError;
+      importedPrinterIds.push(...(imported || []).map((item) => String(item.id)));
+    }
+  }
+  await supabase.from("printer_events").insert({
+    company_id: context.companyId,
+    printer_id: printer.id,
+    event_type: "bambu_account_connected",
+    message: "Conta Bambu conectada em modo somente leitura.",
+    created_by: context.userId,
+    metadata: { device_id_suffix: selected.id.slice(-4), read_only: true },
+  });
+  return { connected: true, devices, selected_device_id: selected.id, imported_printer_ids: importedPrinterIds, requires_device_selection: false, free_plan_last_printer_only: context.plan === "free" && devices.length > 1 };
+}
+
+async function selectBambuDevice(context: Awaited<ReturnType<typeof getContext>>, printerId: string, deviceId: unknown) {
+  assertManagementAccess(context);
+  const printer = await getPrinter(context, printerId, true);
+  if (printer.connector_type !== "bambu") throw new Error("BAMBU_PRINTER_REQUIRED");
+  const credentials = await decryptCredentials(String(printer.credential_ciphertext || ""));
+  const accessToken = String(credentials.apiToken || "");
+  if (!accessToken) throw new Error("BAMBU_ACCOUNT_NOT_CONNECTED");
+  const devicesData = await bambuCloudRequest("/v1/iot-service/api/user/bind", { accessToken });
+  const devices = sanitizeBambuDevices(devicesData);
+  const selected = devices.find((device) => device.id === cleanText(deviceId, 160));
+  if (!selected) throw new Error("BAMBU_DEVICE_NOT_FOUND");
+  const credentialCiphertext = await encryptCredentials({ ...credentials, bambuDeviceId: selected.id });
+  const { error } = await supabase.from("printers").update({
+    credential_ciphertext: credentialCiphertext,
+    custom_model: selected.model,
+    connection_status: selected.online ? "connected" : "offline",
+    updated_by: context.userId,
+  }).eq("id", printer.id).eq("company_id", context.companyId);
+  if (error) throw error;
+  return { selected: true, selected_device_id: selected.id };
+}
+
+async function getBambuMqttCredentials(context: Awaited<ReturnType<typeof getContext>>, printerId: string) {
+  assertManagementAccess(context);
+  const printer = await getPrinter(context, printerId, true);
+  if (printer.connector_type !== "bambu") throw new Error("BAMBU_PRINTER_REQUIRED");
+  const credentials = await decryptCredentials(String(printer.credential_ciphertext || ""));
+  const token = String(credentials.apiToken || "");
+  const serial = cleanText(credentials.bambuDeviceId, 160);
+  const uid = cleanText(credentials.bambuUid, 120);
+  if (!token || !serial || !uid) throw new Error("BAMBU_ACCOUNT_NOT_CONNECTED");
+  return {
+    host: "us.mqtt.bambulab.com",
+    username: `u_${uid}`,
+    token,
+    serial,
+    expires_with_account_session: true,
+  };
+}
+
+async function disconnectBambuAccount(context: Awaited<ReturnType<typeof getContext>>, printerId: string) {
+  assertManagementAccess(context);
+  const printer = await getPrinter(context, printerId, true);
+  if (printer.connector_type !== "bambu") throw new Error("BAMBU_PRINTER_REQUIRED");
+  const { error } = await supabase.from("printers").update({
+    credential_ciphertext: null,
+    credential_hint: null,
+    connection_status: "not_configured",
+    last_error: null,
+    updated_by: context.userId,
+  }).eq("id", printer.id).eq("company_id", context.companyId);
+  if (error) throw error;
+  await supabase.from("printer_events").insert({
+    company_id: context.companyId,
+    printer_id: printer.id,
+    event_type: "bambu_account_disconnected",
+    message: "Token Bambu removido.",
+    created_by: context.userId,
+    metadata: { read_only: true },
+  });
+  return { disconnected: true };
+}
+
 function statusShape(input: Record<string, unknown>) {
   return {
     state: normalizeState(input.state),
@@ -432,6 +627,42 @@ function statusShape(input: Record<string, unknown>) {
 async function fetchConnectorStatus(printer: Record<string, unknown>) {
   const connector = String(printer.connector_type || "");
   const credentials = await decryptCredentials(String(printer.credential_ciphertext || ""));
+  if (connector === "bambu") {
+    const accessToken = String(credentials.apiToken || "");
+    const deviceId = String(credentials.bambuDeviceId || "");
+    if (!accessToken || !deviceId) throw new Error("BAMBU_ACCOUNT_NOT_CONNECTED");
+    const data = await bambuCloudRequest("/v1/iot-service/api/user/print?force=true", { accessToken });
+    const device = (Array.isArray(data?.devices) ? data.devices : []).find((item) => String(item?.dev_id || "") === deviceId) || {};
+    if (!Object.keys(device).length) throw new Error("BAMBU_DEVICE_NOT_FOUND");
+    const remainingMinutes = Number(device.mc_remaining_time);
+    const cloudState = device.gcode_state || device.print_status || device.task_status || device.state
+      || (device.dev_online === true ? "unknown" : "offline");
+    return {
+      ...statusShape({
+        state: cloudState,
+        progress_percent: device.mc_percent ?? device.print_percent ?? device.progress,
+        nozzle_temp: device.nozzle_temper ?? device.nozzle_temp,
+        nozzle_target_temp: device.nozzle_target_temper ?? device.nozzle_target_temp,
+        bed_temp: device.bed_temper ?? device.bed_temp,
+        bed_target_temp: device.bed_target_temper ?? device.bed_target_temp,
+        current_file: device.subtask_name || device.gcode_file || device.task_name,
+        remaining_seconds: Number.isFinite(remainingMinutes) ? Math.max(0, Math.round(remainingMinutes * 60)) : null,
+        error_message: String(device.mc_print_error_code || device.print_error || "0") !== "0" ? "Erro informado pela impressora Bambu" : null,
+      }),
+      raw_payload: {
+        online: device.dev_online === true,
+        model: cleanText(device.dev_product_name || device.dev_model_name, 120) || null,
+        task_status: cleanText(device.task_status, 80) || null,
+        task_name: cleanText(device.task_name, 500) || null,
+        cloud_progress: cleanNumber(device.progress, 0, 100),
+        layer_num: device.layer_num ?? null,
+        total_layer_num: device.total_layer_num ?? null,
+        chamber_temper: device.chamber_temper ?? null,
+        ams: device.ams ?? null,
+      },
+    };
+  }
+
   const root = baseUrl(printer);
 
   if (connector === "octoprint") {
@@ -505,27 +736,6 @@ async function fetchConnectorStatus(printer: Record<string, unknown>) {
     };
   }
 
-  if (connector === "bambu") {
-    if (printer.connection_mode !== "cloud_supported" || !root.startsWith("https://")) throw new Error("BAMBU_AUTHORIZED_GATEWAY_REQUIRED");
-    const headers = credentials.apiToken ? { Authorization: `Bearer ${credentials.apiToken}` } : {};
-    const data = await readJson(`${root}/status`, headers);
-    return {
-      ...statusShape({
-        state: data?.state || data?.status || data?.print_status,
-        progress_percent: data?.progress_percent ?? data?.progress,
-        nozzle_temp: data?.nozzle_temp ?? data?.temperature?.nozzle,
-        nozzle_target_temp: data?.nozzle_target_temp,
-        bed_temp: data?.bed_temp ?? data?.temperature?.bed,
-        bed_target_temp: data?.bed_target_temp,
-        current_file: data?.current_file ?? data?.file,
-        elapsed_seconds: data?.elapsed_seconds,
-        remaining_seconds: data?.remaining_seconds ?? data?.remaining_time,
-        error_message: data?.error_message ?? data?.error,
-      }),
-      raw_payload: data,
-    };
-  }
-
   throw new Error("CONNECTOR_NOT_AUTOMATIC");
 }
 
@@ -579,7 +789,6 @@ async function saveSnapshot(context: Awaited<ReturnType<typeof getContext>>, pri
 
 async function readStatus(context: Awaited<ReturnType<typeof getContext>>, printerId: string, testOnly = false) {
   assertViewAccess(context);
-  if (context.plan !== "pro") throw new Error("AUTOMATIC_CONNECTOR_REQUIRES_PRO");
   const printer = await getPrinter(context, printerId, true);
   if (!automaticConnectors.has(printer.connector_type)) throw new Error("MANUAL_PRINTER_HAS_NO_AUTOMATIC_STATUS");
   if (printer.connection_mode === "local_agent") throw new Error("STATUS_IS_RECEIVED_FROM_LOCAL_AGENT");
@@ -689,7 +898,6 @@ async function disablePrinter(context: Awaited<ReturnType<typeof getContext>>, p
 
 async function createAgent(context: Awaited<ReturnType<typeof getContext>>, name: unknown) {
   assertManagementAccess(context);
-  if (context.plan !== "pro") throw new Error("LOCAL_AGENT_REQUIRES_PRO");
   const token = `${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "")}`;
   const pairingCode = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, "0");
   const { data, error } = await supabase.from("local_agents").insert({
@@ -747,6 +955,10 @@ serve(async (request) => {
     else if (action === "history") data = await history(context, cleanText(body.printer_id, 60));
     else if (action === "disable") data = await disablePrinter(context, cleanText(body.printer_id, 60));
     else if (action === "create_agent") data = await createAgent(context, body.name);
+    else if (action === "bambu_login") data = await connectBambuAccount(context, cleanText(body.printer_id, 60), body);
+    else if (action === "bambu_select_device") data = await selectBambuDevice(context, cleanText(body.printer_id, 60), body.device_id);
+    else if (action === "bambu_mqtt_credentials") data = await getBambuMqttCredentials(context, cleanText(body.printer_id, 60));
+    else if (action === "bambu_disconnect") data = await disconnectBambuAccount(context, cleanText(body.printer_id, 60));
     else throw new Error("ACTION_NOT_ALLOWED");
     return response({ ok: true, data, read_only: true });
   } catch (error) {

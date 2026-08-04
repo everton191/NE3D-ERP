@@ -48,15 +48,18 @@
   }
 
   function shouldAnimateScreen() {
-    if (prefersReducedMotion()) return false;
-    const pwa = doc.body?.dataset?.uiProfile === "web_pwa";
-    if (pwa && doc.body?.dataset?.motion === "low") return false;
-    const mobile = doc.body?.classList?.contains("mobile-mode") || global.matchMedia?.("(max-width: 900px)")?.matches;
-    return !mobile || doc.body?.dataset?.motion === "high";
+    // The application refreshes live data without changing routes. Replaying a
+    // full-screen entrance on those renders made the page and navigation blink.
+    // Component feedback remains enabled; screen containers stay stable.
+    return false;
   }
 
   function addRipple(target, event) {
     if (prefersReducedMotion() || !target || target.disabled) return;
+    const mobile = doc.body?.classList?.contains("mobile-mode") || global.matchMedia?.("(max-width: 900px)")?.matches;
+    // Native touch already gives feedback. The expanding ripple competed with
+    // it and looked like bubbles exploding on Android.
+    if (mobile) return;
     const pwa = doc.body?.dataset?.uiProfile === "web_pwa";
     if (pwa && doc.body?.dataset?.motion !== "high") return;
     const rect = target.getBoundingClientRect();

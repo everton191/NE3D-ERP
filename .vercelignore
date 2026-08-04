@@ -12,6 +12,12 @@ backups
 output
 tmp
 training
+docs
+supabase
+tools/simplifica-local-agent
+scripts/copy-android-pilot-apk.js
+scripts/prepare-android-pilot-assets.js
+document.documentElement.clientWidth
 *.apk
 !downloads/NE3D-ERP.apk
 *.aab

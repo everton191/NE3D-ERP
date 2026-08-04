@@ -12,9 +12,10 @@ Esta relação separa recursos ainda não implementados de recursos existentes q
 - Pagamentos Start e Pro no sandbox: aprovado, recusado, pendente, abandono e cancelamento.
 - Aplicação da migração `20260701203000_user_preferences_interface_mode.sql` no Supabase para sincronizar o Modo de uso entre dispositivos. Até lá, a troca instantânea continua funcionando pelo armazenamento local.
 
-## Existe, mas permanece desativado nesta fase
+## Existe, mas permanece limitado nesta fase
 
-- Cadastro, monitoramento e controle remoto de impressoras. A estrutura foi preservada, mas a tela e os acessos ficaram desativados para retomada futura.
+- A guia Impressoras, o cadastro e o conector Bambu no Agente Local estão habilitados para um piloto controlado. O teste com conta e impressora física permanece pendente; comandos remotos continuam desativados. Consulte `docs/bambu-printer-pilot.md`.
+- Política local preparada: impressoras manuais ilimitadas; automáticas limitadas por empresa a 1 no Free, 3 no Start e sem limite no Pro. A Edge Function precisa ser publicada antes de essa regra valer no ambiente remoto.
 - IA pesada/local. O assistente manual permanece ativo, mas o runtime pesado está desativado.
 - Sincronização realtime. O sistema continua usando sincronização controlada e filas locais.
 - 2FA por WhatsApp. O 2FA ativo usa e-mail; WhatsApp exige provedor oficial e backend dedicado.
@@ -22,8 +23,8 @@ Esta relação separa recursos ainda não implementados de recursos existentes q
 
 ## Ainda precisa ser adicionado
 
-- Quando a fase de impressoras for retomada: instalador e atualização próprios do Agente Local Simplifica para Windows.
-- Quando a fase de impressoras for retomada: diagnóstico guiado, teste autenticado e vínculo sem campos técnicos.
+- Para concluir o piloto de impressoras: instalador e atualização próprios do Agente Local Simplifica para Windows.
+- Para concluir o piloto de impressoras: teste Bambu autenticado, revogação guiada do token e validação em impressão real no desktop e no APK piloto.
 - Migração assistida para usuários antigos sem `clientId` ou `companyId`.
 - Auditoria gradual dos botões legados para migração ao `renderAppButton` e ao registro `UI_BUTTON_RELATIONS`.
 - Extração progressiva de `app.js` e `style.css` em módulos menores, sem reescrita global.

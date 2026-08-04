@@ -2,9 +2,9 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
-const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
-const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
-const motion = fs.readFileSync(path.join(root, "src/styles/google-expressive-motion.css"), "utf8");
+const css = fs.readFileSync(path.join(root, "style.css"), "utf8").replace(/\r\n/g, "\n");
+const app = fs.readFileSync(path.join(root, "app.js"), "utf8").replace(/\r\n/g, "\n");
+const motion = fs.readFileSync(path.join(root, "src/styles/google-expressive-motion.css"), "utf8").replace(/\r\n/g, "\n");
 
 const required = [
   "@media (max-width: 820px)",
@@ -18,6 +18,17 @@ const required = [
 const missing = required.filter((snippet) => !css.includes(snippet));
 if (missing.length) {
   console.error("UI responsive balance incompleto:", missing);
+  process.exit(1);
+}
+
+const requiredTabletOrientation = [
+  'return getViewportMode() === "mobile";',
+  'const tabletPorDimensao = Math.min(viewportWidth, viewportHeight) >= 600',
+  'if (tabletPorDimensao) return viewportWidth > viewportHeight ? "desktop" : "mobile";',
+  'if (viewportWidth < 1024) return viewportWidth > viewportHeight ? "desktop" : "mobile";'
+];
+if (requiredTabletOrientation.some((snippet) => !app.includes(snippet))) {
+  console.error("Orientação do tablet não está alternando entre mobile e desktop.");
   process.exit(1);
 }
 

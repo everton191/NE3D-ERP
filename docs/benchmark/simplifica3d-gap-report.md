@@ -62,8 +62,8 @@ em sessão autenticada ou em produção.
 
 ## Futuro ou desativado
 
-- [ ] Monitoramento remoto de impressoras.
-- [ ] Agente Local Simplifica.
+- [~] Guia, cadastro e conector experimental Bambu prontos; falta validar com conta e impressora física.
+- [~] Agente Local Simplifica executável por Node.js; ainda falta instalador e atualização automática.
 - [ ] Checkout completo da loja.
 - [ ] Integracao fiscal.
 - [ ] Marketplace.

@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.27";
-const APP_VERSION_CODE = 28;
+const APP_VERSION = "1.0.28";
+const APP_VERSION_CODE = 29;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "Cadastro de impressoras BambuLab mais rápido, começando pela escolha da marca.",
@@ -439,7 +439,7 @@ const FEATURE_ACCESS_REGISTRY = Object.freeze({
   advanced_production: { label: "Produção avançada", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "production"], screens: ["producao"] },
   machines_assets: { label: "Máquinas e ativos", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "production"] },
   printer_registry: { label: "Cadastro de impressoras", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"], screens: ["impressoras"], requiresActivePlan: false },
-  printer_monitoring: { label: "Monitoramento de impressoras", requiredPlan: "pro", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"] },
+  printer_monitoring: { label: "Monitoramento de impressoras", requiredPlan: "free", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "production", "sales", "viewer"] },
   printer_remote_control: { label: "Controle remoto de impressoras", requiredPlan: "pro", modes: ["profissional"], roles: ["owner", "admin"], strongConfirmation: true, future: true },
   simple_reports: { label: "Relatórios simples", requiredPlan: "start", modes: ["simplifica", "profissional"], roles: ["owner", "admin", "manager", "cashier", "production", "sales", "viewer"], screens: ["relatorios"] },
   advanced_reports: { label: "Relatórios avançados", requiredPlan: "pro", partialPlan: "start", modes: ["profissional"], roles: ["owner", "admin", "manager", "cashier", "production", "sales", "viewer"], screens: ["relatorios"] },
@@ -484,6 +484,8 @@ const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   pedido: Object.freeze({ label: "Novo pedido", lucide: "FileText", group: "principal" }),
   producao: Object.freeze({ label: "Produção", lucide: "PrinterCheck", group: "principal" }),
   impressoras: Object.freeze({ label: "Impressoras", lucide: "PrinterCog", group: "operation" }),
+  camera: Object.freeze({ label: "Câmera", lucide: "Camera", group: "operation" }),
+  rede: Object.freeze({ label: "Rede", lucide: "Wifi", group: "operation" }),
   caixa: Object.freeze({ label: "Caixa", lucide: "WalletCards", group: "principal" }),
   clientes: Object.freeze({ label: "Clientes", lucide: "UsersRound", group: "principal" }),
   estoque: Object.freeze({ label: "Estoque", lucide: "PackageOpen", group: "principal" }),
@@ -672,6 +674,9 @@ const UI_ICON_ALIASES = Object.freeze({
   editar: "edit",
   sync: "refresh",
   refreshcw: "refresh",
+  camera: "camera",
+  wifi: "rede",
+  rede: "rede",
   calendar: "agenda",
   calendardays: "agenda",
   arrowleft: "back",
@@ -754,6 +759,7 @@ const NAVIGATION_AUDIT_REGISTRY = Object.freeze({
   promocoes: Object.freeze({ label: "Promoções 3D", category: "principal", component: "renderPromocoes3d", status: "active", permission: "public_offers", desktop: true, mobile: true }),
   pedidos: Object.freeze({ label: "Pedidos", category: "operacional", component: "renderListaPedidos", status: "active", permission: "basic_orders", desktop: true, mobile: true }),
   pedido: Object.freeze({ label: "Novo pedido", category: "operacional", component: "renderPedido", status: "active", permission: "basic_orders", desktop: true, mobile: false }),
+  impressoras: Object.freeze({ label: "Impressoras", category: "operacional", component: "renderImpressoras", status: "pilot", permission: "printer_registry", desktop: true, mobile: true }),
   clientes: Object.freeze({ label: "Clientes", category: "operacional", component: "renderClientes", status: "active", permission: "basic_customers", desktop: true, mobile: false }),
   calculadora: Object.freeze({ label: "Calculadora", category: "operacional", component: "renderCalculadoraTela", status: "active", permission: "basic_calculator", desktop: true, mobile: true }),
   estoque: Object.freeze({ label: "Estoque", category: "estoque", component: "renderEstoque", status: "active", permission: "basic_stock", desktop: true, mobile: false }),
@@ -2305,7 +2311,12 @@ const InventoryService = {
     orderItemId = "",
     spoolId = "",
     reversalOfMovementId = "",
-    idempotencyKey = ""
+    idempotencyKey = "",
+    printerId = "",
+    productionId = "",
+    wasteGrams = 0,
+    wasteMinutes = 0,
+    wasteCost = 0
   } = {}) {
     return {
       area: "stock",
@@ -2321,6 +2332,11 @@ const InventoryService = {
       order_id: orderId ? String(orderId) : "",
       order_item_id: orderItemId ? String(orderItemId) : "",
       spool_id: spoolId ? String(spoolId) : "",
+      printer_id: printerId ? String(printerId) : "",
+      production_id: productionId ? String(productionId) : "",
+      waste_grams: Math.max(0, Number(wasteGrams) || 0),
+      waste_minutes: Math.max(0, Number(wasteMinutes) || 0),
+      waste_cost: Math.max(0, Number(wasteCost) || 0),
       reversal_of_movement_id: reversalOfMovementId ? String(reversalOfMovementId) : "",
       idempotency_key: String(idempotencyKey || ""),
       reason: String(reason || "").trim(),
@@ -2908,9 +2924,44 @@ const printerMonitoringState = {
 };
 
 const bambuLoginDraftState = {
+  active: false,
   printerId: "",
+  account: "",
+  password: "",
+  code: "",
+  consent: false,
+  step: 1,
   awaitingCode: false
 };
+
+const bambuLanState = {
+  configured: false,
+  cloudConfigured: false,
+  connected: false,
+  connectionMode: "none",
+  connectionState: "disconnected",
+  ip: "",
+  serial: "",
+  printerId: "",
+  listenerReady: false,
+  loading: false,
+  cloudConnecting: false,
+  cloudAttempted: false,
+  lastPayloadAt: "",
+  visualRenderTimer: null,
+  previousStates: {}
+};
+
+const BAMBU_PILOT_PROGRESS_STORAGE_PREFIX = "bambuCloudPilotProgress";
+const BAMBU_PILOT_PROGRESS_DEFAULTS = Object.freeze({
+  understoodUnofficial: false,
+  understoodNoPasswordStorage: false,
+  understoodRevocable: false,
+  acceptedReadOnlyPilot: false,
+  agentInstalled: false,
+  printerValidated: false,
+  updatedAt: ""
+});
 
 const tiposMaterial = ["PLA", "PETG", "TPU", "RESINA"];
 const STOCK_ITEM_TYPES = Object.freeze([
@@ -3940,7 +3991,6 @@ function getUltimoDesbloqueioLocalMs() {
 
 function precisaDesbloqueioLocal() {
   if (!usuarioAtualEmail || !syncConfig.supabaseUserId) return false;
-  if (appConfig.localLockEnabled === false) return false;
   const ultimo = getUltimoDesbloqueioLocalMs();
   return !ultimo || Date.now() - ultimo > LOCAL_UNLOCK_MAX_MS;
 }
@@ -6170,29 +6220,27 @@ function renderAccountDeletionBanner() {
 }
 
 function isMobile() {
-  const largura = window.innerWidth || 0;
-  const altura = window.innerHeight || 0;
-  const paisagemCompacta = largura >= 600 && largura > altura && altura <= 600;
-  return largura < 768 && !paisagemCompacta;
+  return getViewportMode() === "mobile";
 }
 
 function isTablet() {
   const largura = window.innerWidth || 0;
   const altura = window.innerHeight || 0;
-  const paisagemCompacta = largura >= 600 && largura > altura && altura <= 600;
-  return paisagemCompacta || (largura >= 768 && largura < 1024);
+  return Math.min(largura, altura) >= 600 && Math.max(largura, altura) <= 1366;
 }
 
 function isDesktop() {
-  return window.innerWidth >= 1024;
+  return getViewportMode() === "desktop";
 }
 
 function getViewportMode() {
   const viewportWidth = window.innerWidth || 1024;
   const viewportHeight = window.innerHeight || 0;
-  if (viewportWidth >= 600 && viewportWidth > viewportHeight && viewportHeight <= 600) return "tablet";
+  const tabletPorDimensao = Math.min(viewportWidth, viewportHeight) >= 600
+    && Math.max(viewportWidth, viewportHeight) <= 1366;
+  if (tabletPorDimensao) return viewportWidth > viewportHeight ? "desktop" : "mobile";
   if (viewportWidth < 768) return "mobile";
-  if (viewportWidth < 1024) return "tablet";
+  if (viewportWidth < 1024) return viewportWidth > viewportHeight ? "desktop" : "mobile";
   return "desktop";
 }
 
@@ -7054,7 +7102,12 @@ function avisarRealtimeDadosAtualizados() {
   const agora = Date.now();
   if (agora - Number(realtimeSyncState.lastToastAt || 0) < 3500) return;
   realtimeSyncState.lastToastAt = agora;
-  if (typeof mostrarToast === "function") mostrarToast("Atualizado", "info", 2200);
+  marcarAtualizacaoVisualEmSegundoPlano();
+}
+
+function marcarAtualizacaoVisualEmSegundoPlano() {
+  realtimeSyncState.pendingVisualRefresh = true;
+  document.documentElement.dataset.backgroundDataUpdated = "true";
 }
 
 function avisarRealtimePlanoAtualizado() {
@@ -7115,7 +7168,7 @@ async function processarMudancaRealtimeSupabase(evento) {
       syncConfig.autoBackupStatus = "Atualizado";
       salvarCacheDadosUsuario();
       salvarDados();
-      if (document.visibilityState !== "hidden") agendarRenderizacaoPreservandoScroll(120);
+      marcarAtualizacaoVisualEmSegundoPlano();
       avisarRealtimeDadosAtualizados();
     }
     return alterou;
@@ -7139,7 +7192,7 @@ async function baixarAtualizacoesSupabaseSilencioso(motivo = "polling") {
       syncConfig.autoBackupStatus = "Atualizado";
       salvarCacheDadosUsuario();
       salvarDados();
-      if (document.visibilityState !== "hidden") agendarRenderizacaoPreservandoScroll(120);
+      marcarAtualizacaoVisualEmSegundoPlano();
       avisarRealtimeDadosAtualizados();
     }
     return alterou;
@@ -9840,26 +9893,80 @@ function agendarRenderizacaoPreservandoScroll(atraso = 120) {
 
 function iniciarTransicaoNavegacao(tipo = "forward") {
   if (typeof document === "undefined") return;
+  // Live status refreshes reuse the same render path as navigation. Keeping
+  // screen containers opaque prevents the whole interface from flashing.
   clearTimeout(window.__simplificaMotionTimer);
-  document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
-  document.body.classList.add(`motion-${tipo}`);
-  window.__simplificaMotionTimer = setTimeout(() => {
-    document.body.classList.remove("motion-forward", "motion-back", "motion-refresh");
-  }, 520);
+  document.body.classList.remove("motion-forward", "motion-back", "motion-up", "motion-down", "motion-refresh");
+  delete document.documentElement.dataset.navDirection;
 }
 
 function renderAppComTransicaoNavegacao(tipo = "forward") {
   iniciarTransicaoNavegacao(tipo);
-  document.documentElement.dataset.navDirection = tipo;
   renderApp();
   requestAnimationFrame(() => aplicarMotionSequenciado());
 }
 
 function aplicarMotionSequenciado() {
   if (typeof document === "undefined") return;
-  const navegando = document.body.classList.contains("motion-forward")
-    || document.body.classList.contains("motion-back");
-  if (isMobile() && document.body.dataset.motion !== "high" && !navegando) return;
+  document.querySelectorAll(".motion-stagger-item, .superadmin-cascade-item").forEach((elemento) => {
+    elemento.getAnimations?.().forEach((animacao) => animacao.cancel());
+    elemento.classList.remove("motion-stagger-item", "superadmin-cascade-item");
+    elemento.style.removeProperty("opacity");
+    elemento.style.removeProperty("transform");
+    elemento.style.removeProperty("will-change");
+  });
+  window.__simplificaMotionPrimed = true;
+  return;
+  const superadminEmTransicao = document.body.matches(".motion-forward, .motion-back, .motion-up, .motion-down")
+    && !!document.querySelector(".superadmin-platform-shell");
+  if (superadminEmTransicao) {
+    const alvosSuperadmin = [
+      ".superadmin-priority-card",
+      ".superadmin-kpi-card",
+      ".superadmin-overview-card",
+      ".superadmin-plan-card",
+      ".superadmin-recent-row",
+      ".clients-saas-panel > :not(.users-list)",
+      ".clients-saas-panel .client-admin-row",
+      ".superadmin-profile-screen > *"
+    ].join(",");
+    const direcao = document.documentElement.dataset.navDirection || "forward";
+    const larguraTela = window.innerWidth || document.documentElement.clientWidth || 0;
+    document.querySelectorAll(alvosSuperadmin).forEach((elemento, index) => {
+      if (index > 9) return;
+      const retangulo = elemento.getBoundingClientRect();
+      const estaNaEsquerda = retangulo.left + retangulo.width / 2 <= larguraTela / 2;
+      const deslocamento = direcao === "down"
+        ? "translate3d(0, -22px, 0)"
+        : direcao === "up"
+          ? "translate3d(0, 22px, 0)"
+          : estaNaEsquerda
+            ? "translate3d(-28px, 0, 0)"
+            : "translate3d(28px, 0, 0)";
+      elemento.getAnimations?.().forEach((animacao) => animacao.cancel());
+      elemento.classList.remove("motion-stagger-item", "superadmin-cascade-item");
+      elemento.style.opacity = "0";
+      elemento.style.transform = deslocamento;
+      elemento.style.willChange = "opacity, transform";
+      requestAnimationFrame(() => {
+        const animacao = elemento.animate([
+          { opacity: 0, transform: deslocamento },
+          { opacity: 1, transform: "translate3d(0, 0, 0)" }
+        ], {
+          duration: 1300,
+          delay: 200 + index * 410,
+          easing: "cubic-bezier(.22,.8,.24,1)",
+          fill: "both"
+        });
+        animacao.onfinish = () => {
+          elemento.style.removeProperty("opacity");
+          elemento.style.removeProperty("transform");
+          elemento.style.removeProperty("will-change");
+        };
+      });
+    });
+  }
+  if (isMobile() && document.body.dataset.motion !== "high") return;
   const animar = document.body.classList.contains("motion-forward")
     || document.body.classList.contains("motion-back")
     || window.__simplificaMotionPrimed !== true;
@@ -10161,7 +10268,7 @@ function trocarTela(tela, opcoes = {}) {
       atualizarHistoricoBrowserApp(!!opcoes.replaceHistory);
     }
   }
-  if (mudouTela) renderAppComTransicaoNavegacao(tela === "dashboard" ? "back" : "forward");
+  if (mudouTela) renderAppComTransicaoNavegacao(opcoes.motionDirection || (tela === "dashboard" ? "back" : "forward"));
   else renderApp();
   if (tela === "promocoes") {
     setTimeout(() => carregarPromocoes3d({ force: true }), 80);
@@ -10758,6 +10865,8 @@ function renderApp() {
   ensureAppShellLayers();
   const app = document.getElementById("app");
   if (!app) return;
+  realtimeSyncState.pendingVisualRefresh = false;
+  delete document.documentElement.dataset.backgroundDataUpdated;
   garantirSubmenusMobileComoTelas();
   applyViewportModeClasses(document.body);
   if (window.__simplificaLocalLockActive && getUsuarioAtual()) {
@@ -10814,8 +10923,11 @@ function renderApp() {
       atualizarVisualTaxaExtraCalculadora();
       atualizarResumoLoteCalculadora();
     }
-    if (["impressoras", "calculadora", "producao"].includes(telaAtual)) {
+    if (getUsuarioAtual() && syncConfig.supabaseAccessToken && !printerMonitoringState.loaded) {
       setTimeout(() => hidratarImpressorasSeNecessario(false), 0);
+    }
+    if (getUsuarioAtual() && getBambuLanPlugin() && !bambuLanState.listenerReady) {
+      setTimeout(() => hidratarBambuLanState(), 0);
     }
     if (getUsuarioAtual() && syncConfig.supabaseAccessToken && interfaceModePreferenceState.loadedUserId !== syncConfig.supabaseUserId) {
       setTimeout(() => sincronizarPreferenciaModoInterface(), 0);
@@ -20348,6 +20460,19 @@ if (typeof window !== "undefined") {
   Object.assign(window, {
     alternarMenuContextualUi,
     abrirCadastroImpressora,
+    abrirPainelImpressora,
+    abrirCameraImpressora,
+    abrirImpressoraDaProducao,
+    abrirPainelImpressoraProducao,
+    abrirMenuAcoesImpressora,
+    abrirConfiguracaoBambuLan,
+    conectarBambuLan,
+    desconectarBambuLan,
+    atualizarFrameCameraBambuLan,
+    abrirLoginBambu,
+    setEtapaLoginBambu,
+    selecionarDispositivoBambu,
+    desconectarContaBambu,
     atualizarMarcaCadastroImpressora,
     atualizarCamposConectorImpressora,
     testarConexaoCadastroImpressora,
@@ -24676,6 +24801,7 @@ function renderUiIcon(tipo = "", fallback = "") {
     decoracao: `<svg ${attrs}><path d="M8 3h8l-1 5a5 5 0 0 1 3 5v8H6v-8a5 5 0 0 1 3-5Z"/><path d="M7 14h10"/></svg>`,
     lampada: `<svg ${attrs}><path d="M9 18h6M10 22h4"/><path d="M8 14a7 7 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4Z"/></svg>`,
     camera: `<svg ${attrs}><path d="M4 7h4l2-3h4l2 3h4v13H4Z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    rede: `<svg ${attrs}><path d="M4 9.5a12 12 0 0 1 16 0"/><path d="M7 13a7.5 7.5 0 0 1 10 0"/><path d="M10 16.5a3 3 0 0 1 4 0"/><circle cx="12" cy="20" r=".8" fill="currentColor"/></svg>`,
     cargo: `<svg ${attrs}><circle cx="9" cy="8" r="4"/><path d="M3 21a6 6 0 0 1 12 0"/><path d="m16 11 2 2 4-5"/></svg>`,
     gruposAcesso: `<svg ${attrs}><path d="M16 21v-2a4 4 0 0 0-8 0v2"/><circle cx="12" cy="8" r="4"/><circle cx="18" cy="8" r="2"/><path d="M20 14h2M21 13v2"/></svg>`,
     departamentos: `<svg ${attrs}><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><path d="M8 6h8"/><path d="M6 8v8"/><path d="M18 8v4"/><path d="M18 12h-5"/></svg>`,
@@ -25143,7 +25269,7 @@ function sincronizarImpressorasComCalculadora() {
   });
 }
 
-async function hidratarImpressorasSeNecessario(forcar = false) {
+async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal = true) {
   if (!syncConfig.supabaseAccessToken || !getUsuarioAtual()) return;
   const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
   if (printerMonitoringState.scope !== scope) {
@@ -25161,15 +25287,11 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     printerMonitoringState.access = {};
     printerMonitoringState.history = {};
   }
-  if (printerMonitoringState.loading) {
-    if (forcar) printerMonitoringState.pendingForce = true;
-    return;
-  }
-  if (printerMonitoringState.loaded && !forcar) return;
-  const requestId = ++printerMonitoringState.requestId;
+  if (printerMonitoringState.loading || (printerMonitoringState.loaded && !forcar)) return;
+  const carregamentoInicial = !printerMonitoringState.loaded;
   printerMonitoringState.loading = true;
   printerMonitoringState.error = "";
-  if (telaAtual === "impressoras") renderizarPreservandoScroll();
+  if (telaAtual === "impressoras" && !printerMonitoringState.loaded) renderizarPreservandoScroll();
   try {
     const workspace = await printerBackendRequest("list");
     const currentScope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
@@ -25182,6 +25304,7 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     printerMonitoringState.access = workspace?.access || {};
     printerMonitoringState.loaded = true;
     sincronizarImpressorasComCalculadora();
+    setTimeout(() => conectarBambuMqttCloudAutomatico(), 0);
   } catch (erro) {
     if (requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.error = getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message || "Não foi possível carregar as impressoras.";
@@ -25190,8 +25313,7 @@ async function hidratarImpressorasSeNecessario(forcar = false) {
     const repetir = printerMonitoringState.pendingForce;
     printerMonitoringState.pendingForce = false;
     printerMonitoringState.loading = false;
-    if (telaAtual === "impressoras" || telaAtual === "calculadora") renderizarPreservandoScroll();
-    if (repetir) queueMicrotask(() => hidratarImpressorasSeNecessario(true));
+    if (renderizarAoFinal && (telaAtual === "impressoras" || telaAtual === "calculadora" || (telaAtual === "producao" && carregamentoInicial))) renderizarPreservandoScroll();
   }
 }
 
@@ -25208,14 +25330,478 @@ function getPrinterDisplayModel(impressora = {}) {
   return impressora.printer_models?.name || impressora.custom_model || "Modelo não informado";
 }
 
+function isBambuPrinterCandidate(impressora = {}) {
+  if (impressora.connector_type === "bambu") return true;
+  if (impressora.connector_type !== "manual") return false;
+  return /bambu/i.test(`${getPrinterDisplayBrand(impressora)} ${getPrinterDisplayModel(impressora)} ${impressora.name || ""}`);
+}
+
+function getBambuAmsSlots(rawPayload = {}) {
+  const slots = [];
+  const visited = new Set();
+  const walk = (value) => {
+    if (!value || typeof value !== "object" || visited.has(value) || slots.length >= 16) return;
+    visited.add(value);
+    if (!Array.isArray(value) && (value.tray_type || value.tray_color || value.filament_type)) {
+      const colorRaw = String(value.tray_color || value.color || "").replace(/^#/, "").slice(0, 8);
+      slots.push({
+        id: String(value.id ?? value.tray_id ?? slots.length + 1),
+        type: String(value.tray_type || value.filament_type || "Filamento"),
+        color: /^[0-9a-f]{6,8}$/i.test(colorRaw) ? `#${colorRaw.slice(0, 6)}` : "#68707c",
+        remain: Number(value.remain ?? value.remain_percent)
+      });
+    }
+    Object.values(value).forEach(walk);
+  };
+  walk(rawPayload?.ams || rawPayload);
+  return slots;
+}
+
+function getPrinterProgressValue(value) {
+  if (value === null || value === undefined || value === "") return Number.NaN;
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : Number.NaN;
+}
+
+function getPrinterCameraStreamUrl(impressora = {}) {
+  const raw = impressora.latest_status?.raw_payload || {};
+  const candidate = String(raw.camera_url || raw.mjpeg_url || raw.stream_url || "").trim();
+  if (!candidate) return "";
+  try {
+    const parsed = new URL(candidate);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.toString() : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function getBambuLanPlugin() {
+  return window.Capacitor?.Plugins?.SimplificaBambuLan || null;
+}
+
+async function hidratarBambuLanState() {
+  const plugin = getBambuLanPlugin();
+  if (!plugin || bambuLanState.loading) return bambuLanState;
+  bambuLanState.loading = true;
+  try {
+    const config = await plugin.getConfiguration();
+    Object.assign(bambuLanState, {
+      configured: config?.configured === true,
+      cloudConfigured: config?.cloudConfigured === true,
+      connected: config?.connectionState === "connected",
+      connectionMode: String(config?.connectionMode || "none"),
+      connectionState: String(config?.connectionState || "disconnected"),
+      ip: String(config?.ip || ""),
+      serial: String(config?.serial || "")
+    });
+    if (!bambuLanState.listenerReady && typeof plugin.addListener === "function") {
+      await plugin.addListener("bambuStatus", (status) => aplicarStatusBambuLan(status));
+      bambuLanState.listenerReady = true;
+    }
+  } catch (_) {
+    bambuLanState.configured = false;
+  } finally {
+    bambuLanState.loading = false;
+  }
+  if (printerMonitoringState.loaded) setTimeout(() => conectarBambuMqttCloudAutomatico(), 0);
+  return bambuLanState;
+}
+
+async function conectarBambuMqttCloudAutomatico(forcar = false) {
+  const plugin = getBambuLanPlugin();
+  if (!plugin || bambuLanState.cloudConnecting || bambuLanState.connected) return false;
+  if (bambuLanState.cloudAttempted && !forcar) return false;
+  const impressora = getImpressorasAtivas().find((printer) => printer.connector_type === "bambu" && printer.credentials_configured);
+  if (!impressora || !podeGerenciarImpressoras()) return false;
+  bambuLanState.cloudAttempted = true;
+  bambuLanState.cloudConnecting = true;
+  bambuLanState.printerId = impressora.id;
+  try {
+    let credentials = {};
+    if (!bambuLanState.cloudConfigured || forcar) {
+      credentials = await printerBackendRequest("bambu_mqtt_credentials", { printer_id: impressora.id });
+    }
+    const result = await plugin.connectCloud(credentials.token ? {
+      host: credentials.host || "us.mqtt.bambulab.com",
+      username: credentials.username,
+      token: credentials.token,
+      serial: credentials.serial
+    } : {});
+    Object.assign(bambuLanState, {
+      cloudConfigured: true,
+      connected: result?.connected === true,
+      connectionMode: "cloud",
+      connectionState: String(result?.connectionState || "connected"),
+      serial: String(credentials.serial || bambuLanState.serial || "")
+    });
+    aplicarStatusBambuLan(result, impressora.id);
+    setTimeout(async () => {
+      try {
+        aplicarStatusBambuLan(await plugin.getStatus(), impressora.id);
+      } catch (_) {}
+    }, 1800);
+    return true;
+  } catch (erro) {
+    bambuLanState.connectionState = "error";
+    if (forcar) mostrarToast(erro?.message || "Não foi possível iniciar o MQTT Bambu.", "erro", 6000);
+    return false;
+  } finally {
+    bambuLanState.cloudConnecting = false;
+  }
+}
+
+function getBambuLanPrinter(printerId = "") {
+  return getPrinterById(printerId || bambuLanState.printerId)
+    || getImpressorasAtivas().find((printer) => printer.connector_type === "bambu")
+    || null;
+}
+
+function normalizarEstadoBambuLan(value = "") {
+  const raw = String(value || "").toLowerCase();
+  if (["running", "printing", "prepare", "slicing"].includes(raw)) return "printing";
+  if (["pause", "paused"].includes(raw)) return "paused";
+  if (["finish", "finished", "complete", "success"].includes(raw)) return "finished";
+  if (["failed", "error", "cancelled", "canceled", "cancel", "aborted", "abort"].includes(raw)) return "error";
+  if (["idle", "ready"].includes(raw)) return "idle";
+  return "unknown";
+}
+
+function getBambuVisualFingerprint(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const raw = latest.raw_payload || {};
+  return JSON.stringify({
+    connection: impressora.connection_status || "",
+    state: latest.normalized_state || "",
+    progress: latest.progress_percent ?? null,
+    nozzle: latest.nozzle_temp ?? null,
+    nozzleTarget: latest.nozzle_target_temp ?? null,
+    bed: latest.bed_temp ?? null,
+    bedTarget: latest.bed_target_temp ?? null,
+    file: latest.current_file || "",
+    remaining: latest.remaining_seconds ?? null,
+    layer: raw.layer_num ?? null,
+    layers: raw.total_layer_num ?? null,
+    speed: raw.spd_lvl ?? raw.speed_level ?? null,
+    light: raw.lights_report ?? raw.chamber_light ?? null,
+    ams: raw.ams ?? null
+  });
+}
+
+function atualizarElementosStatusBambu(impressora) {
+  const latest = impressora.latest_status || {};
+  const raw = latest.raw_payload || {};
+  const progresso = getPrinterProgressValue(latest.progress_percent);
+  const setText = (selector, value) => document.querySelectorAll(selector).forEach((node) => {
+    const next = String(value ?? "");
+    if (node.textContent !== next) node.textContent = next;
+  });
+  const setHtml = (selector, value) => document.querySelectorAll(selector).forEach((node) => {
+    const next = String(value ?? "");
+    if (node.innerHTML !== next) node.innerHTML = next;
+  });
+  const scope = `[data-printer-live-id="${CSS.escape(String(impressora.id))}"]`;
+  setHtml(`${scope} [data-printer-live="status"]`, renderPrinterStatusBadge(impressora));
+  setText(`${scope} [data-printer-live="progress-text"]`, Number.isFinite(progresso) ? `${Math.round(progresso)}%` : "—");
+  document.querySelectorAll(`${scope} [data-printer-live="progress"]`).forEach((node) => {
+    node.hidden = !Number.isFinite(progresso);
+    const progressValue = `${Math.max(0, Math.min(100, progresso || 0))}%`;
+    const bar = node.querySelector("i");
+    if (bar?.style.getPropertyValue("--progress") !== progressValue) bar?.style.setProperty("--progress", progressValue);
+  });
+  setText(`${scope} [data-printer-live="nozzle"]`, formatarTemperaturaImpressora(latest.nozzle_temp));
+  setText(`${scope} [data-printer-live="bed"]`, formatarTemperaturaImpressora(latest.bed_temp));
+  setText(`${scope} [data-printer-live="remaining"]`, getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—");
+  setText(`${scope} [data-printer-live="file"]`, latest.current_file || "");
+  document.querySelectorAll(`${scope} [data-printer-live="file"]`).forEach((node) => { node.hidden = !latest.current_file; });
+  setText(`${scope} [data-printer-live="updated"]`, `Atualizada ${formatarDataHora(latest.created_at || impressora.last_seen_at || new Date().toISOString())}`);
+  setText(`${scope} [data-printer-live="layer"]`, Number.isFinite(Number(raw.layer_num)) && Number.isFinite(Number(raw.total_layer_num)) ? `Camada ${raw.layer_num}/${raw.total_layer_num}` : "");
+  const productionTask = latest.current_file || "Impressão em andamento";
+  setText(`${scope} [data-printer-live="production-status"]`, getPrinterCurrentStatus(impressora) === "printing" ? "Imprimindo" : getPrinterCurrentStatus(impressora) === "paused" ? "Pausada" : "Disponível");
+  setText(`${scope} [data-printer-live="production-task"]`, getPrinterCurrentStatus(impressora) === "printing" ? productionTask : "Nenhuma tarefa");
+}
+
+function agendarRenderStatusBambu(impressora) {
+  if (bambuLanState.visualRenderTimer) clearTimeout(bambuLanState.visualRenderTimer);
+  bambuLanState.visualRenderTimer = setTimeout(() => {
+    bambuLanState.visualRenderTimer = null;
+    atualizarElementosStatusBambu(impressora);
+  }, 120);
+}
+
+function aplicarStatusBambuLan(status = {}, printerId = "") {
+  let payload = {};
+  try {
+    payload = typeof status.payload === "string" ? JSON.parse(status.payload || "{}") : status.payload || {};
+  } catch (_) {}
+  const impressora = getBambuLanPrinter(printerId);
+  Object.assign(bambuLanState, {
+    connected: status.connected === true,
+    connectionMode: String(status.connectionMode || bambuLanState.connectionMode || "none"),
+    connectionState: String(status.connectionState || "disconnected"),
+    ip: String(status.ip || bambuLanState.ip || ""),
+    serial: String(status.serial || bambuLanState.serial || ""),
+    printerId: impressora?.id || printerId || bambuLanState.printerId,
+    lastPayloadAt: String(status.lastMessageAt || bambuLanState.lastPayloadAt || "")
+  });
+  if (!impressora || !Object.keys(payload).length) return;
+  const estadoAnterior = bambuLanState.previousStates[impressora.id] || getPrinterCurrentStatus(impressora);
+  const visualAnterior = getBambuVisualFingerprint(impressora);
+  const progress = getPrinterProgressValue(payload.mc_percent);
+  const remainingMinutes = Number(payload.mc_remaining_time);
+  impressora.connection_status = "connected";
+  impressora.last_seen_at = new Date().toISOString();
+  impressora.latest_status = {
+    ...(impressora.latest_status || {}),
+    normalized_state: normalizarEstadoBambuLan(payload.gcode_state),
+    progress_percent: Number.isFinite(progress) ? progress : null,
+    nozzle_temp: Number(payload.nozzle_temper),
+    nozzle_target_temp: Number(payload.nozzle_target_temper),
+    bed_temp: Number(payload.bed_temper),
+    bed_target_temp: Number(payload.bed_target_temper),
+    current_file: String(payload.subtask_name || payload.gcode_file || payload.file || "") || null,
+    remaining_seconds: Number.isFinite(remainingMinutes) ? Math.max(0, remainingMinutes * 60) : null,
+    created_at: new Date().toISOString(),
+    raw_payload: { ...(impressora.latest_status?.raw_payload || {}), ...payload, source: "android_lan_mqtt" }
+  };
+  const estadoAtual = getPrinterCurrentStatus(impressora);
+  bambuLanState.previousStates[impressora.id] = estadoAtual;
+  if (["printing", "paused"].includes(estadoAnterior) && estadoAtual === "finished") {
+    setTimeout(() => abrirConfirmacaoConclusaoImpressaoBambu(impressora.id), 120);
+  }
+  if (["printing", "paused"].includes(estadoAnterior) && estadoAtual === "error") {
+    setTimeout(() => registrarFalhaImpressaoBambu(impressora.id), 120);
+  }
+  if (visualAnterior !== getBambuVisualFingerprint(impressora)) agendarRenderStatusBambu(impressora);
+}
+
+async function abrirConfiguracaoBambuLan(printerId = "") {
+  const plugin = getBambuLanPlugin();
+  const impressora = getPrinterById(printerId);
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  if (!plugin) {
+    mostrarToast("A conexão LAN direta está disponível somente no APK piloto Android.", "info", 4800);
+    return;
+  }
+  await hidratarBambuLanState();
+  bambuLanState.printerId = printerId || bambuLanState.printerId;
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()"><form class="modal-card printer-lan-modal" id="bambuLanForm" onclick="event.stopPropagation()"><div class="modal-header"><div><span class="eyebrow">Conexão direta no celular</span><h2>Conectar ${escaparHtml(impressora?.name || "Bambu")} pela rede local</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div><p class="muted">O celular e a impressora precisam estar no mesmo Wi-Fi. O código LAN fica protegido pelo Android e não é enviado ao Simplifica.</p><div class="form-grid"><label class="field"><span>IP da impressora</span><input id="bambuLanIp" inputmode="decimal" autocomplete="off" required value="${escaparAttr(bambuLanState.ip)}" placeholder="Ex.: 192.168.1.120"></label><label class="field"><span>Número de série</span><input id="bambuLanSerial" autocomplete="off" required value="${escaparAttr(bambuLanState.serial)}" placeholder="Ex.: 01S00A..."></label><label class="field field-wide"><span>Código de acesso LAN</span><input id="bambuLanAccessCode" type="password" autocomplete="off" ${bambuLanState.configured ? "" : "required"} placeholder="${bambuLanState.configured ? "Mantido com segurança; deixe vazio para reutilizar" : "Código exibido em Configurações > WLAN"}"></label></div><div class="printer-lan-note">${renderUiIcon("seguranca")} <span>Conexão MQTT/TLS direta nas portas locais da Bambu. Nenhuma senha da conta Bambu é utilizada.</span></div><div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button>${bambuLanState.connected ? `<button class="btn secondary" type="button" onclick="desconectarBambuLan()">Desconectar</button>` : ""}<button class="btn" id="bambuLanConnectButton" type="submit">Conectar e testar</button></div></form></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Conexão local Bambu" });
+  document.getElementById("bambuLanForm")?.addEventListener("submit", (event) => conectarBambuLan(event, printerId));
+}
+
+async function conectarBambuLan(event, printerId = "") {
+  event?.preventDefault?.();
+  const plugin = getBambuLanPlugin();
+  if (!plugin) return;
+  const button = document.getElementById("bambuLanConnectButton");
+  const ip = String(document.getElementById("bambuLanIp")?.value || "").trim();
+  const serial = String(document.getElementById("bambuLanSerial")?.value || "").trim();
+  const accessCode = String(document.getElementById("bambuLanAccessCode")?.value || "").trim();
+  try {
+    setBotaoLoading(button, true, "Conectando...");
+    bambuLanState.printerId = printerId || bambuLanState.printerId;
+    await hidratarBambuLanState();
+    const result = await plugin.connect({ ip, serial, accessCode });
+    Object.assign(bambuLanState, { configured: true, connected: true, connectionMode: "lan", connectionState: "connected", ip, serial, printerId });
+    aplicarStatusBambuLan(result, printerId);
+    mostrarToast("Bambu conectada diretamente ao celular. Aguardando telemetria...", "sucesso", 4200);
+    fecharPopup();
+    setTimeout(async () => {
+      try {
+        const status = await plugin.getStatus();
+        aplicarStatusBambuLan(status, printerId);
+        abrirPainelImpressora(printerId);
+      } catch (_) {}
+    }, 1800);
+  } catch (erro) {
+    mostrarToast(erro?.message || "Não foi possível conectar. Confira IP, serial, código LAN e Wi-Fi.", "erro", 6000);
+  } finally {
+    setBotaoLoading(button, false);
+  }
+}
+
+async function desconectarBambuLan() {
+  try {
+    await getBambuLanPlugin()?.disconnect?.();
+  } catch (_) {}
+  Object.assign(bambuLanState, { connected: false, connectionMode: "none", connectionState: "disconnected" });
+  fecharPopup();
+  mostrarToast("Conexão LAN encerrada.", "info");
+}
+
+async function atualizarFrameCameraBambuLan(printerId = "") {
+  const image = document.getElementById("bambuLanCameraImage");
+  const status = document.getElementById("bambuLanCameraStatus");
+  const plugin = getBambuLanPlugin();
+  if (!image || !plugin) return;
+  try {
+    if (status) status.textContent = "Carregando imagem...";
+    const frame = await plugin.getCameraFrame({});
+    if (frame?.dataUrl) image.src = frame.dataUrl;
+    if (status) status.textContent = "Imagem recebida diretamente da impressora";
+  } catch (erro) {
+    if (status) status.textContent = erro?.message || "Câmera indisponível.";
+  }
+}
+
+function abrirCameraImpressora(id) {
+  const impressora = getPrinterById(id);
+  const streamUrl = getPrinterCameraStreamUrl(impressora);
+  const cameraLan = Boolean(getBambuLanPlugin() && bambuLanState.configured);
+  if (!impressora || (!streamUrl && !cameraLan)) {
+    if (impressora && isBambuPrinterCandidate(impressora) && getBambuLanPlugin()) {
+      mostrarToast("Para abrir a câmera, configure IP e código LAN desta impressora.", "info", 4800);
+      setTimeout(() => abrirConfiguracaoBambuLan(impressora.id), 100);
+      return;
+    }
+    mostrarToast("Streaming da câmera ainda não está disponível para esta conexão.", "info", 4200);
+    return;
+  }
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `<div class="modal-backdrop printer-camera-modal-backdrop" role="dialog" aria-modal="true" onclick="abrirPainelImpressora('${escaparAttr(id)}')"><section class="modal-card printer-camera-modal" onclick="event.stopPropagation()"><header><div><span class="eyebrow">Câmera ao vivo</span><h2>${escaparHtml(impressora.name || "Impressora")}</h2></div><button class="icon-button" type="button" onclick="abrirPainelImpressora('${escaparAttr(id)}')" title="Voltar">✕</button></header><div class="printer-camera-stream"><img id="bambuLanCameraImage" ${streamUrl ? `src="${escaparAttr(streamUrl)}"` : ""} alt="Transmissão da câmera de ${escaparAttr(impressora.name || "impressora")}"></div><div class="printer-camera-footer"><p class="muted" id="bambuLanCameraStatus">${streamUrl ? "Transmissão somente leitura." : "Preparando conexão direta com a câmera..."}</p>${cameraLan && !streamUrl ? `<button class="btn secondary" type="button" onclick="atualizarFrameCameraBambuLan('${escaparAttr(id)}')">Atualizar imagem</button>` : ""}</div></section></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: `Câmera de ${impressora.name || "impressora"}` });
+  if (cameraLan && !streamUrl) setTimeout(() => atualizarFrameCameraBambuLan(id), 60);
+}
+
+function abrirPainelImpressora(id, context = {}) {
+  const impressora = getPrinterById(id);
+  if (!impressora) return;
+  const latest = impressora.latest_status || {};
+  const pedidoVinculado = getPedidoVinculadoImpressora(impressora);
+  const productionJob = context.productionJob
+    || getTarefaVinculadaImpressoraBambu(id)
+    || productionJobs.find((job) => pedidoVinculado && String(job.orderId || job.order_id || "") === String(pedidoVinculado.id)
+      && !["pronto_para_entrega", "entregue", "cancelado"].includes(String(job.status || "")))
+    || null;
+  const raw = latest.raw_payload || {};
+  const slots = getBambuAmsSlots(raw);
+  const progresso = getPrinterProgressValue(latest.progress_percent);
+  const camadaAtual = Number(raw.layer_num);
+  const camadasTotal = Number(raw.total_layer_num);
+  const abertoPelaProducao = context.source === "production" || Boolean(context.productionPrinter || context.productionJob);
+  const somenteDadosBasicos = impressora.connector_type === "bambu"
+    && impressora.connection_status === "connected"
+    && !latest.current_file
+    && !Number.isFinite(progresso)
+    && !Number.isFinite(Number(latest.nozzle_temp))
+    && !Number.isFinite(Number(latest.bed_temp));
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-device-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card printer-device-panel ${abertoPelaProducao ? "is-production-context" : "is-printer-context"}" data-printer-live-id="${escaparAttr(impressora.id)}" onclick="event.stopPropagation()">
+        <header class="printer-device-panel-header">
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Voltar">←</button>
+          <div><h2>${escaparHtml(impressora.name || "Impressora")}</h2><span><span data-printer-live="status">${renderPrinterStatusBadge(impressora)}</span> ${escaparHtml(getPrinterDisplayModel(impressora))}</span></div>
+          ${abertoPelaProducao ? `<span class="printer-panel-readonly-mark" title="Acompanhamento somente leitura">${renderUiIcon("seguranca")}</span>` : `<button class="icon-button" type="button" onclick="fecharPopup();setTimeout(()=>abrirCadastroImpressora('${escaparAttr(impressora.id)}'),80)" title="Editar">${renderUiIcon("edit")}</button>`}
+        </header>
+        <section class="printer-device-hero" aria-label="Resumo da impressora">
+          <div class="printer-device-hero-temperature"><span>Bico</span><strong data-printer-live="nozzle">${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong></div>
+          <div class="printer-device-hero-art">${renderUiIcon("impressoras")}<span>${escaparHtml(getPrinterDisplayModel(impressora))}</span></div>
+          <div class="printer-device-hero-temperature"><span>Mesa</span><strong data-printer-live="bed">${formatarTemperaturaImpressora(latest.bed_temp)}</strong></div>
+        </section>
+        <div class="printer-device-overview-grid monitoring-only">
+        <section class="printer-device-job">
+          <div class="printer-device-job-copy"><span class="printer-device-file-icon">${renderUiIcon("producao")}</span><div><strong data-printer-live="file">${escaparHtml(latest.current_file || productionJob?.itemName || (somenteDadosBasicos ? "Impressão não informada pela nuvem" : "Nenhuma impressão em andamento"))}</strong><span><b data-printer-live="progress-text">${Number.isFinite(progresso) ? `${Math.round(progresso)}%` : "—"}</b> · <b data-printer-live="remaining">${escaparHtml(getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "Tempo não informado")}</b></span><small data-printer-live="layer">${Number.isFinite(camadaAtual) && Number.isFinite(camadasTotal) ? `Camada ${camadaAtual}/${camadasTotal}` : productionJob ? `Pedido #${escaparHtml(productionJob.orderId || productionJob.order_id || "-")}` : ""}</small></div></div>
+          <div class="printer-progress" data-printer-live="progress" ${Number.isFinite(progresso) ? "" : "hidden"}><i style="--progress:${Math.max(0, Math.min(100, progresso || 0))}%"></i><span data-printer-live="progress-text">${Number.isFinite(progresso) ? Math.round(progresso) : "—"}%</span></div>
+          <p class="printer-read-only-notice">${renderUiIcon("seguranca")} Acompanhamento somente leitura.</p>
+          <div class="printer-device-order-link">
+            ${productionJob
+              ? `<button class="btn secondary" type="button" onclick="abrirVinculoImpressaoBambuPedido('${escaparAttr(impressora.id)}','${escaparAttr(productionJob.id)}')">Editar vínculo com pedido</button>`
+              : `<button class="btn secondary" type="button" onclick="abrirVinculoPedidoImpressora('${escaparAttr(impressora.id)}')">${pedidoVinculado ? `Pedido #${escaparHtml(pedidoVinculado.id)}` : "Vincular pedido"}</button>`}
+          </div>
+        </section>
+        </div>
+        ${productionJob ? renderResumoPlacasImpressora(productionJob, latest) : ""}
+        <section class="printer-device-controls">
+          <div class="printer-device-section-title"><div><span class="eyebrow">Dispositivo</span><h3>Estado da máquina</h3></div><button class="btn ghost" id="printerPanelRefresh" type="button" onclick="atualizarStatusImpressora('${escaparAttr(impressora.id)}')">Atualizar</button></div>
+          <div class="printer-device-metric-grid">
+            <article><i>${renderUiIcon("time")}</i><div><span>Bico</span><strong data-printer-live="nozzle">${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong><small>Alvo ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}</small></div></article>
+            <article><i>${renderUiIcon("impressoras")}</i><div><span>Mesa</span><strong data-printer-live="bed">${formatarTemperaturaImpressora(latest.bed_temp)}</strong><small>Alvo ${formatarTemperaturaImpressora(latest.bed_target_temp)}</small></div></article>
+            <article><i>${renderUiIcon("camera")}</i><div><span>Câmara</span><strong>${formatarTemperaturaImpressora(raw.chamber_temper)}</strong><small>Leitura recebida</small></div></article>
+            <article><i>${renderUiIcon("rede")}</i><div><span>Conexão</span><strong>${escaparHtml(somenteDadosBasicos ? "Conta conectada" : impressora.connection_status === "connected" ? "Online" : impressora.connection_status || "Aguardando")}</strong><small>${somenteDadosBasicos ? "Dados básicos; telemetria local ausente" : impressora.last_seen_at ? escaparHtml(formatarDataHora(impressora.last_seen_at)) : "Sem sincronização"}</small></div></article>
+          </div>
+        </section>
+        <section class="printer-device-ams">
+          <div class="printer-device-section-title"><div><span class="eyebrow">Filamentos</span><h3>AMS</h3></div><span class="status-badge">${slots.length} slot(s)</span></div>
+          ${slots.length ? `<div class="printer-ams-grid">${slots.map((slot) => `<article><i style="--filament-color:${escaparAttr(slot.color)}"></i><strong>${escaparHtml(slot.type)}</strong><span>Slot ${escaparHtml(slot.id)}</span>${Number.isFinite(slot.remain) ? `<small>${Math.round(slot.remain)}% restante</small>` : ""}</article>`).join("")}</div>` : `<p class="empty">Os dados do AMS aparecerão aqui quando forem recebidos da impressora.</p>`}
+        </section>
+        <section class="printer-machine-history" aria-labelledby="printerMachineHistoryTitle">
+          <div class="printer-device-section-title"><div><span class="eyebrow">Produção registrada</span><h3 id="printerMachineHistoryTitle">Histórico de impressão</h3></div>${abertoPelaProducao ? "" : `<button class="btn ghost" type="button" onclick="abrirHistoricoImpressora('${escaparAttr(impressora.id)}')">Ver completo</button>`}</div>
+          <div class="printer-machine-history-list" id="printerMachineHistoryList"><p class="empty">Carregando histórico da máquina...</p></div>
+        </section>
+        <footer class="printer-device-panel-actions">
+          ${abertoPelaProducao ? "" : `
+            <button class="btn secondary" type="button" onclick="abrirVinculoPedidoImpressora('${escaparAttr(impressora.id)}')">${pedidoVinculado ? `Pedido #${escaparHtml(pedidoVinculado.id)}` : "Vincular pedido"}</button>
+            <button class="btn secondary" type="button" onclick="abrirHistoricoImpressora('${escaparAttr(impressora.id)}')">Histórico</button>
+            ${isBambuPrinterCandidate(impressora) && !impressora.credentials_configured ? `<button class="btn" type="button" onclick="abrirLoginBambu('${escaparAttr(impressora.id)}')">Conectar Bambu</button>` : ""}
+            ${renderPrinterMoreActions(impressora)}
+          `}
+        </footer>
+      </section>
+    </div>`;
+  const printerOverlay = promoverPopupParaDialogUiV3(popup, { title: `Painel de ${impressora.name || "impressora"}`, wide: true, fullscreen: isMobile() });
+  requestAnimationFrame(() => printerOverlay?.querySelector?.(".ui3-dialog")?.scrollTo?.({ top: 0, behavior: "auto" }));
+  configurarAcoesCadastroImpressora();
+  setTimeout(() => carregarHistoricoCompactoImpressora(impressora.id, productionJob), 0);
+}
+
+function renderResumoPlacasImpressora(job = {}, latest = {}) {
+  const totalPlacas = Math.max(1, Number(job.printPlatesTotal || job.print_plates_total) || 1);
+  const placasConcluidas = Math.max(0, Number(job.printPlatesCompleted || job.print_plates_completed) || 0);
+  const pesoTotal = Math.max(0, Number(job.filamentWeightGrams || job.filament_weight_grams) || 0);
+  const tempoEstimadoTotal = Math.max(0, Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0);
+  const tempoRealTotal = Math.max(0, Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0);
+  const pesoPlaca = pesoTotal > 0 ? pesoTotal / totalPlacas : 0;
+  const tempoEstimadoPlaca = tempoEstimadoTotal > 0 ? tempoEstimadoTotal / totalPlacas : 0;
+  const tempoRealPlaca = tempoRealTotal > 0 ? tempoRealTotal / Math.max(1, placasConcluidas) : 0;
+  const placaAtual = Math.min(totalPlacas, placasConcluidas + 1);
+  const formatMinutes = (minutes) => minutes > 0
+    ? (getPrinterMonitoringService()?.formatDuration(Math.round(minutes * 60)) || `${Math.round(minutes)} min`)
+    : "Não informado";
+  return `<section class="printer-plate-summary">
+    <div class="printer-device-section-title"><div><span class="eyebrow">Pedido #${escaparHtml(job.orderId || job.order_id || "-")}</span><h3>Placa ${placaAtual} de ${totalPlacas}</h3></div><span class="status-badge">${placasConcluidas}/${totalPlacas} concluída(s)</span></div>
+    <div class="printer-plate-metrics">
+      <article><span>Peso desta placa</span><strong>${pesoPlaca > 0 ? `${pesoPlaca.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} g` : "Não informado"}</strong><small>Total ${pesoTotal > 0 ? `${pesoTotal.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} g` : "—"}</small></article>
+      <article><span>Tempo estimado</span><strong>${formatMinutes(tempoEstimadoPlaca)}</strong><small>por placa</small></article>
+      <article><span>Tempo real médio</span><strong>${formatMinutes(tempoRealPlaca)}</strong><small>${placasConcluidas ? `${placasConcluidas} placa(s) medida(s)` : "Aguardando conclusão"}</small></article>
+      <article><span>Tempo restante</span><strong>${getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "Não informado"}</strong><small>leitura da máquina</small></article>
+    </div>
+  </section>`;
+}
+
+async function carregarHistoricoCompactoImpressora(printerId, job = null) {
+  const target = document.getElementById("printerMachineHistoryList");
+  if (!target) return;
+  try {
+    const data = await printerBackendRequest("history", { printer_id: printerId });
+    if (!document.getElementById("printerMachineHistoryList")) return;
+    const events = Array.isArray(data?.events) ? data.events.slice(0, 4) : [];
+    const snapshots = Array.isArray(data?.snapshots) ? data.snapshots.slice(0, 4) : [];
+    const localEvents = job ? productionEvents.filter((item) => String(item.productionJobId || item.production_job_id || "") === String(job.id)).slice(-4).reverse() : [];
+    const rows = [
+      ...localEvents.map((item) => ({ title: item.note || getProductionStatusLabel(item.newStatus || item.new_status), meta: formatarDataHora(item.created_at), tone: item.eventType || item.event_type || "produção" })),
+      ...events.map((item) => ({ title: item.message || item.event_type || "Evento da impressora", meta: formatarDataHora(item.created_at), tone: item.event_type || "máquina" })),
+      ...snapshots.map((item) => ({ title: `${getPrinterMonitoringService()?.status(item.normalized_state)?.label || item.normalized_state || "Estado registrado"}${item.current_file ? ` · ${item.current_file}` : ""}`, meta: `${formatarDataHora(item.created_at)}${Number.isFinite(getPrinterProgressValue(item.progress_percent)) ? ` · ${Math.round(getPrinterProgressValue(item.progress_percent))}%` : ""}`, tone: "snapshot" }))
+    ].slice(0, 6);
+    target.innerHTML = `${renderResumoDesperdicioImpressora(printerId)}${rows.length ? rows.map((row) => `<article><i aria-hidden="true"></i><div><strong>${escaparHtml(row.title)}</strong><span>${escaparHtml(row.meta)}</span></div><small>${escaparHtml(row.tone)}</small></article>`).join("") : `<p class="empty">Nenhuma impressão registrada para esta máquina.</p>`}`;
+  } catch (erro) {
+    target.innerHTML = `<p class="empty">Histórico indisponível agora. Use “Ver completo” para tentar novamente.</p>`;
+  }
+}
+
 function getPrinterConnectorLabel(value = "") {
   return getPrinterMonitoringService()?.connector(value)?.name || String(value || "Manual");
 }
 
 function renderPrinterStatusBadge(impressora = {}) {
   const state = getPrinterCurrentStatus(impressora);
-  if (state === "unknown" && impressora.connection_status === "connected") {
-    return `<span class="printer-status-badge status-success"><i aria-hidden="true"></i>Online</span>`;
+  const latest = impressora.latest_status || {};
+  if (impressora.connector_type === "bambu" && impressora.connection_status === "connected" && latest.raw_payload?.online === true
+    && !latest.current_file && !Number.isFinite(getPrinterProgressValue(latest.progress_percent))) {
+    return `<span class="printer-status-badge status-muted"><i aria-hidden="true"></i>Conectada · dados básicos</span>`;
   }
   const config = getPrinterMonitoringService()?.status(state) || { label: state, tone: "muted" };
   return `<span class="printer-status-badge status-${escaparAttr(config.tone)}"><i aria-hidden="true"></i>${escaparHtml(config.label)}</span>`;
@@ -25227,8 +25813,40 @@ function formatarTemperaturaImpressora(valor) {
   return Number.isFinite(numero) ? `${numero.toFixed(0)} °C` : "—";
 }
 
-function temNumeroImpressora(valor) {
-  return valor !== null && valor !== undefined && valor !== "" && Number.isFinite(Number(valor));
+function renderPrinterMoreActions(impressora = {}) {
+  const automatico = String(impressora.connector_type || "manual") !== "manual";
+  const podeGerenciar = podeGerenciarImpressoras();
+  const podeOperar = podeOperarImpressoras();
+  const actions = [
+    isBambuPrinterCandidate(impressora) && podeGerenciar ? `<button type="button" onclick="abrirLoginBambu('${escaparAttr(impressora.id)}')">${impressora.credentials_configured ? "Reconectar Bambu" : "Conectar Bambu"}</button>` : "",
+    impressora.connector_type === "bambu" && impressora.credentials_configured && podeGerenciar ? `<button type="button" onclick="desconectarContaBambu('${escaparAttr(impressora.id)}')">Desconectar Bambu</button>` : "",
+    !automatico && podeOperar ? `<button type="button" onclick="abrirStatusManualImpressora('${escaparAttr(impressora.id)}')">Atualizar status manual</button>` : "",
+    podeOperar ? `<button type="button" onclick="abrirVinculoPedidoImpressora('${escaparAttr(impressora.id)}')">Vincular pedido</button>` : "",
+    `<button type="button" onclick="abrirHistoricoImpressora('${escaparAttr(impressora.id)}')">Histórico</button>`,
+    podeGerenciar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirCadastroImpressora('${escaparAttr(impressora.id)}'),80)">Editar cadastro</button>` : "",
+    podeGerenciar ? `<button class="danger" type="button" onclick="desativarImpressora('${escaparAttr(impressora.id)}')">Remover impressora</button>` : ""
+  ].filter(Boolean);
+  return actions.length ? `<button class="btn ghost printer-more-button" type="button" onclick="abrirMenuAcoesImpressora('${escaparAttr(impressora.id)}')">Mais <span aria-hidden="true">⋮</span></button>` : "";
+}
+
+function abrirMenuAcoesImpressora(id) {
+  const impressora = getPrinterById(id);
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup) return;
+  const automatico = String(impressora.connector_type || "manual") !== "manual";
+  const podeGerenciar = podeGerenciarImpressoras();
+  const podeOperar = podeOperarImpressoras();
+  const actions = [
+    isBambuPrinterCandidate(impressora) && podeGerenciar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirLoginBambu('${escaparAttr(id)}'),80)">${impressora.credentials_configured ? "Reconectar conta Bambu" : "Conectar conta Bambu"}</button>` : "",
+    impressora.connector_type === "bambu" && impressora.credentials_configured && podeGerenciar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>desconectarContaBambu('${escaparAttr(id)}'),80)">Desconectar conta Bambu</button>` : "",
+    !automatico && podeOperar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirStatusManualImpressora('${escaparAttr(id)}'),80)">Atualizar status manual</button>` : "",
+    podeOperar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirVinculoPedidoImpressora('${escaparAttr(id)}'),80)">Vincular pedido</button>` : "",
+    `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirHistoricoImpressora('${escaparAttr(id)}'),80)">Histórico</button>`,
+    podeGerenciar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirCadastroImpressora('${escaparAttr(id)}'),80)">Editar cadastro</button>` : "",
+    podeGerenciar ? `<button class="danger" type="button" onclick="fecharPopup();setTimeout(()=>desativarImpressora('${escaparAttr(id)}'),80)">Remover impressora</button>` : ""
+  ].filter(Boolean);
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()"><section class="modal-card printer-actions-sheet" onclick="event.stopPropagation()"><div class="modal-header"><h2>${escaparHtml(impressora.name || "Impressora")}</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div><div class="printer-actions-sheet-list">${actions.join("")}</div></section></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: impressora.name || "Ações da impressora", kind: "sheet" });
 }
 
 function getPedidoVinculadoImpressora(impressora = {}) {
@@ -25239,10 +25857,9 @@ function getPedidoVinculadoImpressora(impressora = {}) {
 
 function renderResumoImpressoraSimplifica(impressora = {}) {
   const latest = impressora.latest_status || {};
+  const progresso = getPrinterProgressValue(latest.progress_percent);
   const pedido = getPedidoVinculadoImpressora(impressora);
-  const conexao = getConexaoAtualImpressora(impressora);
-  const estado = String(latest.normalized_state || latest.state || "unknown").toLowerCase();
-  const situacao = estado === "printing" ? "Imprimindo" : conexao.online ? "Online" : "Sem sinal";
+  const podeGerenciar = podeGerenciarImpressoras();
   return `
     <button type="button" class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}" onclick="abrirPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">
       <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
@@ -25250,8 +25867,9 @@ function renderResumoImpressoraSimplifica(impressora = {}) {
         <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
         <small><span class="printer-friendly-summary-status">${escaparHtml(situacao)}</span>${pedido ? ` · Pedido #${escaparHtml(pedido.id)}` : " · Sem pedido vinculado"}</small>
       </span>
-      ${temNumeroImpressora(latest.progress_percent) ? `<strong>${Math.round(Number(latest.progress_percent))}%</strong>` : `<strong>›</strong>`}
-    </button>
+      <span class="printer-summary-progress">${Number.isFinite(progresso) ? `<strong>${Math.round(progresso)}%</strong>` : `<strong>—</strong>`}</span>
+      <span class="printer-summary-actions"><button class="btn" type="button" onclick="abrirPainelImpressora('${escaparAttr(impressora.id)}')">Abrir painel</button>${podeGerenciar ? renderPrinterMoreActions(impressora) : ""}</span>
+    </article>
   `;
 }
 
@@ -25354,49 +25972,222 @@ function renderCardImpressora(impressora = {}) {
   const podeGerenciar = podeGerenciarImpressoras();
   const podeOperar = podeOperarImpressoras();
   const podeMonitorar = canAccessFeature({ feature: "printer_monitoring" }).allowed;
-  const progresso = Number(latest.progress_percent);
+  const progresso = getPrinterProgressValue(latest.progress_percent);
   const atualizado = latest.created_at || impressora.last_seen_at || impressora.updated_at;
   return `
-    <article class="printer-card" data-live-key="printer-card:${escaparAttr(impressora.id)}" data-printer-id="${escaparAttr(impressora.id)}">
+    <article class="printer-card" data-printer-id="${escaparAttr(impressora.id)}" data-printer-live-id="${escaparAttr(impressora.id)}" tabindex="0" role="button" aria-label="Abrir painel de ${escaparAttr(impressora.name || "impressora")}" onclick="if(!event.target.closest('button,select,a,input,textarea,details,summary')) abrirPainelImpressora('${escaparAttr(impressora.id)}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button,select,a,input,textarea,details,summary')){event.preventDefault();abrirPainelImpressora('${escaparAttr(impressora.id)}')}">
       <header class="printer-card-header">
         <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
         <div>
           <h3>${escaparHtml(impressora.name || "Impressora")}</h3>
           <p>${escaparHtml(getPrinterDisplayBrand(impressora))} · ${escaparHtml(getPrinterDisplayModel(impressora))} · ${escaparHtml(getPrinterConnectorLabel(impressora.connector_type))}</p>
         </div>
-        ${renderPrinterStatusBadge(impressora)}
+        <span data-printer-live="status">${renderPrinterStatusBadge(impressora)}</span>
       </header>
-      ${Number.isFinite(progresso) ? `<div class="printer-progress"><i style="--progress:${Math.max(0, Math.min(100, progresso))}%"></i><span>${Math.round(progresso)}%</span></div>` : ""}
+      <div class="printer-progress" data-printer-live="progress" ${Number.isFinite(progresso) ? "" : "hidden"}><i style="--progress:${Math.max(0, Math.min(100, progresso || 0))}%"></i><span data-printer-live="progress-text">${Number.isFinite(progresso) ? Math.round(progresso) : "—"}%</span></div>
       <div class="printer-metrics">
-        <div><span>Bico</span><strong>${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong></div>
-        <div><span>Mesa</span><strong>${formatarTemperaturaImpressora(latest.bed_temp)}</strong></div>
-        <div><span>Tempo restante</span><strong>${escaparHtml(getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")}</strong></div>
+        <div><span>Bico</span><strong data-printer-live="nozzle">${formatarTemperaturaImpressora(latest.nozzle_temp)}</strong></div>
+        <div><span>Mesa</span><strong data-printer-live="bed">${formatarTemperaturaImpressora(latest.bed_temp)}</strong></div>
+        <div><span>Tempo restante</span><strong data-printer-live="remaining">${escaparHtml(getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")}</strong></div>
         <div><span>Pedido</span><strong>${pedido ? `#${escaparHtml(pedido.id)}` : "Nenhum"}</strong></div>
       </div>
       <div class="printer-card-meta">
-        <span>${impressora.connection_status === "connected" ? "Online" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
-        <span>${atualizado ? `Atualizada ${escaparHtml(formatarDataHora(atualizado))}` : "Sem atualização automática"}</span>
-        ${latest.current_file ? `<span class="printer-current-file">${escaparHtml(latest.current_file)}</span>` : ""}
+        <span>${impressora.connection_status === "connected" ? "Conectada" : impressora.connection_status === "not_configured" ? "Manual" : escaparHtml(impressora.connection_status || "Sem conexão")}</span>
+        <span data-printer-live="updated">${atualizado ? `Atualizada ${escaparHtml(formatarDataHora(atualizado))}` : "Sem atualização automática"}</span>
+        <span class="printer-current-file" data-printer-live="file" ${latest.current_file ? "" : "hidden"}>${escaparHtml(latest.current_file || "")}</span>
       </div>
-      ${automatico && !podeMonitorar ? `<p class="printer-plan-note">A leitura automática está disponível no plano Pro.</p>` : ""}
+      ${automatico && !podeMonitorar ? `<p class="printer-plan-note">A leitura automática não está disponível para este perfil.</p>` : ""}
       <div class="printer-card-actions">
+        <button class="btn" type="button" onclick="abrirPainelImpressora('${escaparAttr(impressora.id)}')">Abrir painel</button>
         ${automatico && podeMonitorar ? `<button class="btn secondary" type="button" onclick="atualizarStatusImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar status</button>` : ""}
-        ${!automatico && podeOperar ? `<button class="btn secondary" type="button" onclick="abrirStatusManualImpressora('${escaparAttr(impressora.id)}')">Atualizar status</button>` : ""}
-        ${podeOperar ? `<button class="btn ghost" type="button" onclick="abrirVinculoPedidoImpressora('${escaparAttr(impressora.id)}')">Vincular pedido</button>` : ""}
-        <button class="icon-button" type="button" onclick="abrirHistoricoImpressora('${escaparAttr(impressora.id)}')" title="Histórico">${renderUiIcon("agenda")}</button>
-        ${podeGerenciar ? `<button class="icon-button" type="button" data-action="printer-edit" data-printer-id="${escaparAttr(impressora.id)}" title="Editar">${renderUiIcon("edit")}</button>` : ""}
-        ${podeGerenciar ? `<button class="icon-button danger" type="button" onclick="desativarImpressora('${escaparAttr(impressora.id)}')" title="Desativar">${renderUiIcon("trash")}</button>` : ""}
+        ${renderPrinterMoreActions(impressora)}
       </div>
     </article>
   `;
 }
 
+function getBambuPilotProgressKey() {
+  return `${BAMBU_PILOT_PROGRESS_STORAGE_PREFIX}:${getEscopoDadosAtual() || "local"}`;
+}
+
+function getBambuPilotProgress() {
+  return carregarObjeto(getBambuPilotProgressKey(), BAMBU_PILOT_PROGRESS_DEFAULTS);
+}
+
+function getBambuPilotProgressPercent(progress = getBambuPilotProgress()) {
+  const steps = [
+    "understoodUnofficial",
+    "understoodNoPasswordStorage",
+    "understoodRevocable",
+    "acceptedReadOnlyPilot",
+    "agentInstalled",
+    "printerValidated"
+  ];
+  return Math.round((steps.filter((key) => progress[key] === true).length / steps.length) * 100);
+}
+
+function renderBambuPilotGuideCard() {
+  const progress = getBambuPilotProgress();
+  const percent = getBambuPilotProgressPercent(progress);
+  return `
+    <section class="printer-pilot-card" aria-labelledby="bambuPilotTitle">
+      <div class="printer-pilot-card-copy">
+        <span class="app-badge warning">Piloto experimental</span>
+        <h3 id="bambuPilotTitle">Acompanhar impressora Bambu</h3>
+        <p>Prepare a conexão somente leitura pela conta Bambu ou pela rede local. Nenhuma senha é salva pelo Simplifica.</p>
+        <small>A integração comunitária pode mudar, expirar ou ser revogada pela Bambu Lab sem aviso.</small>
+      </div>
+      <div class="printer-pilot-progress" aria-label="Progresso local do piloto: ${percent}%">
+        <div><i style="--progress:${percent}%"></i></div>
+        <strong>${percent}% preparado</strong>
+        <button class="btn secondary" type="button" data-action="bambu-pilot-guide">Ver resumo e preparar</button>
+      </div>
+    </section>
+  `;
+}
+
+function getPrinterQueueStage(job = {}) {
+  const status = String(job.status || "novo_pedido");
+  if (["em_impressao", "pausado", "pos_processamento", "controle_qualidade"].includes(status)) return "impressao";
+  if (status === "pronto_para_entrega") return "prontos";
+  if (["entregue", "cancelado"].includes(status)) return "arquivado";
+  return "fila";
+}
+
+function getPrinterQueueStageLabel(stage = "fila") {
+  return ({ fila: "Em fila", impressao: "Imprimindo", prontos: "Pronto" })[stage] || "Em fila";
+}
+
+function getRegisteredPrinterForProductionJob(job = {}) {
+  const direct = getPrinterById(job.printerId || job.printer_id || "");
+  if (direct) return direct;
+  const productionPrinter = getProductionPrinter(job.printerId || job.printer_id || "");
+  return getRegisteredPrinterForProductionPrinter(productionPrinter);
+}
+
+function getRegisteredPrinterForProductionPrinter(productionPrinter = {}) {
+  if (!productionPrinter) return null;
+  const monitored = getImpressorasAtivas();
+  const targetName = String(productionPrinter.name || "").trim().toLowerCase();
+  const targetModel = String(productionPrinter.model || productionPrinter.printerModel || productionPrinter.name || "").trim().toLowerCase();
+  return monitored.find((printer) => {
+    const name = String(printer.name || "").trim().toLowerCase();
+    const model = String(getPrinterDisplayModel(printer) || "").trim().toLowerCase();
+    return (targetName && name === targetName) || (targetModel && model === targetModel);
+  }) || (monitored.length === 1 ? monitored[0] : null);
+}
+
+function getProductionPrinterLiveInfo(productionPrinter = {}) {
+  const monitored = getRegisteredPrinterForProductionPrinter(productionPrinter);
+  const state = monitored ? getPrinterCurrentStatus(monitored) : "";
+  const printing = state === "printing";
+  const paused = state === "paused";
+  return {
+    monitored,
+    printing,
+    statusLabel: printing ? "Imprimindo" : paused ? "Pausada" : PRODUCTION_PRINTER_STATUS[productionPrinter.status] || "Disponível",
+    taskName: printing ? String(monitored?.latest_status?.current_file || "Impressão em andamento") : ""
+  };
+}
+
+async function garantirImpressorasMonitoradasCarregadas() {
+  if (!printerMonitoringState.loaded && !printerMonitoringState.loading) {
+    await hidratarImpressorasSeNecessario(false);
+  }
+  for (let attempt = 0; printerMonitoringState.loading && attempt < 50; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+  }
+  return printerMonitoringState.loaded;
+}
+
+async function abrirPainelImpressoraProducao(productionPrinterId) {
+  const productionPrinter = getProductionPrinter(productionPrinterId);
+  await garantirImpressorasMonitoradasCarregadas();
+  const monitoredPrinter = getRegisteredPrinterForProductionPrinter(productionPrinter);
+  if (monitoredPrinter) {
+    const productionJob = productionJobs.find((job) => String(job.printerId || job.printer_id || "") === String(productionPrinterId)
+      && ["em_impressao", "pausado", "pos_processamento", "controle_qualidade"].includes(String(job.status || ""))) || null;
+    abrirPainelImpressora(monitoredPrinter.id, { source: "production", productionPrinter, productionJob });
+    return;
+  }
+  trocarTela("impressoras");
+  setTimeout(() => abrirCadastroImpressora("", {
+    name: productionPrinter?.name || "",
+    custom_model: productionPrinter?.model || productionPrinter?.printerModel || productionPrinter?.name || "",
+    printer_type: String(productionPrinter?.type || productionPrinter?.printer_type || "fdm").toLowerCase().includes("res") ? "resin" : "fdm",
+    location: productionPrinter?.location || "",
+    preset: "manual"
+  }), 80);
+}
+
+async function abrirImpressoraDaProducao(jobId) {
+  const job = getProductionJob(jobId);
+  if (!job) return mostrarToast("Tarefa de produção não encontrada.", "erro");
+  await garantirImpressorasMonitoradasCarregadas();
+  const registeredPrinter = getRegisteredPrinterForProductionJob(job);
+  if (registeredPrinter) {
+    abrirPainelImpressora(registeredPrinter.id);
+    return;
+  }
+  const productionPrinter = getProductionPrinter(job.printerId || job.printer_id || "");
+  trocarTela("impressoras");
+  setTimeout(() => {
+    abrirCadastroImpressora("", {
+      name: productionPrinter?.name || "",
+      custom_model: productionPrinter?.model || productionPrinter?.printerModel || "",
+      printer_type: String(productionPrinter?.type || productionPrinter?.printer_type || "fdm").toLowerCase().includes("res") ? "resin" : "fdm",
+      location: productionPrinter?.location || "",
+      preset: "manual"
+    });
+    mostrarToast("Adicione esta impressora ao monitoramento para abrir o painel pela Produção.", "info", 4800);
+  }, 80);
+}
+
+function renderPrinterOrderQueue() {
+  const selected = ["fila", "impressao", "prontos"].includes(String(window.__printerQueueStage || ""))
+    ? String(window.__printerQueueStage)
+    : "fila";
+  const activeJobs = productionJobs.filter((job) => getPrinterQueueStage(job) !== "arquivado");
+  const jobs = activeJobs.filter((job) => getPrinterQueueStage(job) === selected).sort(compararTarefasProducao);
+  const stages = [["fila", "Em fila"], ["impressao", "Imprimindo"], ["prontos", "Pronto"]];
+  return `
+    <section class="printer-order-queue" aria-labelledby="printerOrderQueueTitle">
+      <div class="printer-order-queue-header">
+        <div><span class="eyebrow">Pedidos para impressão</span><h3 id="printerOrderQueueTitle">Fila da produção</h3><p>Gerencie aqui somente a impressão. Pagamento e entrega continuam em Pedidos.</p></div>
+        <button class="btn ghost" type="button" onclick="trocarTela('pedidos')">Abrir Pedidos</button>
+      </div>
+      <div class="printer-order-stages" role="tablist" aria-label="Etapas da impressão">
+        ${stages.map(([value, label]) => {
+          const count = activeJobs.filter((job) => getPrinterQueueStage(job) === value).length;
+          return `<button type="button" role="tab" class="${selected === value ? "active" : ""}" aria-selected="${selected === value}" onclick="window.__printerQueueStage='${value}';renderizarPreservandoScroll()"><span>${label}</span><strong>${count}</strong></button>`;
+        }).join("")}
+      </div>
+      <div class="printer-order-list">
+        ${jobs.length ? jobs.map((job) => {
+          const order = getProductionOrder(job) || {};
+          const stage = getPrinterQueueStage(job);
+          const nextStatus = stage === "fila" ? "em_impressao" : stage === "impressao" ? "pronto_para_entrega" : "";
+          const nextLabel = stage === "fila" ? "Iniciar impressão" : stage === "impressao" ? "Marcar como pronto" : "";
+          const registeredPrinter = getRegisteredPrinterForProductionJob(job);
+          const assignedProductionPrinter = getProductionPrinter(job.printerId || job.printer_id || "");
+          const productionPrinterName = registeredPrinter?.name || assignedProductionPrinter?.name || "";
+          return `<article class="printer-order-row">
+            <div class="printer-order-row-main"><strong>${escaparHtml(job.itemName || `Pedido #${job.orderId}`)}</strong><span>Pedido #${escaparHtml(job.orderId || "-")} · ${escaparHtml(job.customer || clienteDoPedido(order) || "Cliente não informado")}</span><button class="printer-order-printer-link ${registeredPrinter ? "" : "needs-setup"}" type="button" onclick="abrirImpressoraDaProducao('${escaparAttr(job.id)}')">${renderUiIcon(registeredPrinter ? "impressoras" : "plus")} <span>${escaparHtml(productionPrinterName || "Adicionar impressora")}</span><small>${registeredPrinter ? "Abrir painel" : productionPrinterName ? "Adicionar ao monitoramento" : "Nenhuma vinculada"}</small></button>${job.blockedReason ? `<small>${escaparHtml(PRODUCTION_PENDING_REASONS[job.blockedReason] || job.blockedReason)}</small>` : ""}</div>
+            <span class="status-badge">${escaparHtml(getPrinterQueueStageLabel(stage))}</span>
+            <div class="printer-order-row-actions">
+              ${stage === "fila" ? `<select aria-label="Impressora do pedido" onchange="atribuirImpressoraTarefa('${escaparAttr(job.id)}',this.value)">${renderProductionPrinterOptions(job.printerId)}</select>` : ""}
+              ${nextStatus ? `<button class="btn" type="button" onclick="atualizarStatusTarefaProducao('${escaparAttr(job.id)}','${nextStatus}')">${nextLabel}</button>` : `<button class="btn secondary" type="button" onclick="trocarTela('pedidos')">Ver em Pedidos</button>`}
+            </div>
+          </article>`;
+        }).join("") : `<p class="empty">Nenhum pedido nesta etapa.</p>`}
+      </div>
+    </section>`;
+}
+
 function renderImpressoras() {
   const items = getImpressorasAtivas();
   const podeGerenciar = podeGerenciarImpressoras();
-  const automaticas = items.filter((item) => item.connector_type !== "manual").length;
-  const imprimindo = items.filter((item) => getPrinterCurrentStatus(item) === "printing").length;
-  const comErro = items.filter((item) => ["error", "offline"].includes(getPrinterCurrentStatus(item))).length;
+  const plano = normalizarSlugPlano(getCurrentPlanSlug());
 
   if (printerMonitoringState.loading && !printerMonitoringState.loaded) {
     return `<section class="card printer-screen"><div class="printer-loading">${renderUiIcon("impressoras")}<strong>Carregando impressoras...</strong></div></section>`;
@@ -25406,9 +26197,9 @@ function renderImpressoras() {
     return `
       <section class="card printer-screen printer-screen-simple">
         <div class="card-header">
-          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Suas impressoras</h2><p class="muted">Acompanhe o estado e abra uma máquina para ver os detalhes.</p></div>
-          ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' }) : ""}
+          <div><span class="eyebrow">Produção</span><h2>${renderUiIcon("impressoras")} Impressoras</h2></div>
         </div>
+        ${podeGerenciar ? `<div class="printer-add-centered">${renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' })}</div>` : ""}
         ${printerMonitoringState.error ? `<p class="printer-error">${escaparHtml(printerMonitoringState.error)}</p>` : ""}
         <div class="printer-summary-list">
           ${items.length ? items.map(renderResumoImpressoraSimplifica).join("") : `<p class="empty">Nenhuma impressora cadastrada.</p>`}
@@ -25422,31 +26213,27 @@ function renderImpressoras() {
     <section class="printer-screen">
       <header class="printer-page-header">
         <div>
-          <span class="eyebrow">Máquinas e impressoras</span>
-          <h2>Monitoramento somente leitura</h2>
-          <p>Consulte estado, progresso, temperaturas, custos e pedidos sem enviar comandos à impressora.</p>
-        </div>
-        <div class="actions">
-          ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", attrs: 'data-action="printer-add"' }) : ""}
+          <span class="eyebrow">Produção</span>
+          <h2>Impressoras</h2>
+          <p>Acompanhe suas máquinas e a impressão atual.</p>
         </div>
       </header>
+      ${podeGerenciar ? `<div class="printer-add-centered">${renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "compact-action", attrs: 'data-action="printer-add"' })}</div>` : ""}
       ${printerMonitoringState.error ? `<div class="printer-error"><span>${escaparHtml(printerMonitoringState.error)}</span><button class="btn ghost" onclick="hidratarImpressorasSeNecessario(true)">Tentar novamente</button></div>` : ""}
-      <div class="printer-overview">
-        <div class="metric"><span>Cadastradas</span><strong>${items.length}</strong></div>
-        <div class="metric"><span>Imprimindo</span><strong>${imprimindo}</strong></div>
-        <div class="metric"><span>Automáticas</span><strong>${automaticas}</strong></div>
-        <div class="metric ${comErro ? "metric-warning" : ""}"><span>Alertas</span><strong>${comErro}</strong></div>
-      </div>
-      <div class="printer-grid">
+      <div class="printer-grid ${items.length ? "" : "is-empty"}">
         ${items.length ? items.map(renderCardImpressora).join("") : `
-          <div class="printer-empty">
+          <div class="printer-empty printer-empty-onboarding">
             ${renderUiIcon("impressoras")}
-            <strong>Cadastre sua primeira impressora</strong>
-            <p>Free permite 1 manual, Start até 3 manuais e Pro libera conectores automáticos.</p>
-            ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", attrs: 'data-action="printer-add"' }) : ""}
+            <div class="printer-empty-copy">
+              <strong>Adicione sua primeira impressora</strong>
+              <p>Configure em poucos passos para acompanhar o status e a produção no Simplifica.</p>
+            </div>
+            ${podeGerenciar ? renderAppButton({ label: "Adicionar impressora", icon: renderUiIcon("plus"), variant: "primary", extraClass: "printer-empty-action", attrs: 'data-action="printer-add"' }) : ""}
+            <small>Cadastro manual ilimitado. Automáticas: 1 no Free, até 3 no Start e sem limite no Pro.</small>
           </div>
         `}
       </div>
+      ${renderPrinterOrderQueue()}
     </section>
   `;
 }
@@ -25463,6 +26250,78 @@ function configurarAcoesCadastroImpressora() {
       abrirCadastroImpressora(button.dataset.action === "printer-edit" ? button.dataset.printerId || "" : "");
     });
   });
+  document.querySelectorAll('[data-action="bambu-pilot-guide"]').forEach((button) => {
+    button.addEventListener("click", abrirGuiaPilotoBambu);
+  });
+}
+
+function abrirGuiaPilotoBambu() {
+  const progress = getBambuPilotProgress();
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  const items = [
+    ["understoodUnofficial", "Entendi que esta é uma integração comunitária e experimental."],
+    ["understoodNoPasswordStorage", "Entendi que o Simplifica não salva minha senha Bambu."],
+    ["understoodRevocable", "Entendi que a Bambu pode alterar, limitar ou revogar esse acesso."],
+    ["acceptedReadOnlyPilot", "Aceito iniciar o piloto somente para acompanhamento, sem comandos remotos."],
+    ["agentInstalled", "O Agente Local Simplifica está instalado no computador que fará a conexão."],
+    ["printerValidated", "A impressora já foi validada em uma impressão real de teste."]
+  ];
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-modal-backdrop" id="bambuPilotBackdrop" role="dialog" aria-modal="true" aria-labelledby="bambuPilotDialogTitle">
+      <form class="modal-card printer-pilot-modal" id="bambuPilotForm">
+        <div class="modal-header">
+          <div><span class="eyebrow">Impressoras · piloto</span><h2 id="bambuPilotDialogTitle">Conectar uma conta Bambu com transparência</h2></div>
+          <button class="icon-button" id="bambuPilotClose" type="button" title="Fechar">✕</button>
+        </div>
+        <div class="printer-pilot-summary">
+          <strong>Antes de continuar</strong>
+          <p>O piloto usa uma integração comunitária não oficial. Quando o login estiver habilitado, a senha será usada apenas durante a autenticação no agente local e descartada em seguida. Ela não será gravada no navegador, no Supabase nem nos servidores do Simplifica.</p>
+          <p>Um token temporário poderá permanecer protegido no computador do usuário para acompanhar a impressora. Esse token pode expirar ou ser revogado pela Bambu Lab, exigindo uma nova autorização.</p>
+          <p>Nesta fase o Simplifica receberá apenas estado, progresso, camadas, temperaturas, tempo restante e dados do AMS. Iniciar, pausar, cancelar, movimentar e alterar temperaturas continuarão desativados.</p>
+        </div>
+        <fieldset class="printer-pilot-checklist">
+          <legend>Progresso salvo somente neste dispositivo</legend>
+          ${items.map(([key, label]) => `<label><input type="checkbox" data-bambu-pilot-step="${key}" ${progress[key] ? "checked" : ""}><span>${escaparHtml(label)}</span></label>`).join("")}
+        </fieldset>
+        <div class="printer-pilot-data-note">
+          ${renderUiIcon("seguranca")}
+          <div><strong>O que fica salvo agora</strong><span>Somente estes marcadores de preparação e a data da última atualização. Nenhum e-mail, senha, token, serial ou código de acesso é solicitado nesta etapa.</span></div>
+        </div>
+        <div class="printer-wizard-actions">
+          <button class="btn ghost" id="bambuPilotCancel" type="button">Cancelar</button>
+          <button class="btn" id="bambuPilotSave" type="submit">Salvar progresso local</button>
+        </div>
+      </form>
+    </div>
+  `;
+  promoverPopupParaDialogUiV3(popup, { title: "Piloto de impressoras Bambu" });
+  document.getElementById("bambuPilotClose")?.addEventListener("click", fecharPopup);
+  document.getElementById("bambuPilotCancel")?.addEventListener("click", fecharPopup);
+  document.getElementById("bambuPilotBackdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) fecharPopup();
+  });
+  document.getElementById("bambuPilotForm")?.addEventListener("submit", salvarProgressoPilotoBambu);
+}
+
+function salvarProgressoPilotoBambu(event) {
+  event.preventDefault();
+  const progress = { ...BAMBU_PILOT_PROGRESS_DEFAULTS };
+  document.querySelectorAll("[data-bambu-pilot-step]").forEach((input) => {
+    const key = input.dataset.bambuPilotStep;
+    if (Object.prototype.hasOwnProperty.call(progress, key)) progress[key] = input.checked === true;
+  });
+  progress.updatedAt = new Date().toISOString();
+  if (!salvarJsonLocalSeMudou(getBambuPilotProgressKey(), progress)) {
+    const previous = getBambuPilotProgress();
+    if (JSON.stringify(previous) !== JSON.stringify(progress)) {
+      mostrarToast("Não foi possível salvar o progresso neste dispositivo.", "erro", 4200);
+      return;
+    }
+  }
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast("Preparação do piloto salva somente neste dispositivo.", "sucesso", 3400);
 }
 
 function getPrinterBrandOptions(selectedId = "", customBrand = "") {
@@ -25495,61 +26354,74 @@ function getPrinterModelSuggestionOptions() {
     .join("");
 }
 
-function abrirCadastroImpressora(id = "") {
+function abrirCadastroImpressora(id = "", initial = {}) {
   if (!podeGerenciarImpressoras()) {
     mostrarToast("Seu perfil não pode configurar impressoras.", "aviso");
     return;
   }
-  const impressora = id ? getPrinterById(id) : {};
+  const impressora = id ? getPrinterById(id) : { ...initial };
   const brandId = impressora?.brand_id || "";
-  const guiado = !id;
-  const bambuConectadas = guiado
-    ? getImpressorasAtivas().filter((item) => isImpressoraBambu(item) && item.credentials_configured)
-    : [];
-  const bambuDisponiveis = isPlanAtLeast(getCurrentPlanSlug(), "start")
-    ? bambuConectadas
-    : bambuConectadas.slice(0, 1);
-  const conectorInicial = id ? String(impressora?.connector_type || "manual") : "manual";
-  const automatico = conectorInicial !== "manual";
+  const automatico = String(impressora?.connector_type || "manual") !== "manual";
+  const etapaInicial = id ? 2 : 1;
   const popup = document.getElementById("popup");
   if (!popup) return;
   popup.innerHTML = `
     <div class="modal-backdrop printer-modal-backdrop" id="printerModalBackdrop" role="dialog" aria-modal="true">
-      <form class="modal-card printer-wizard printer-form-simple" id="printerForm" data-printer-guided="${guiado ? "true" : "false"}">
+      <form class="modal-card printer-wizard printer-form-simple" id="printerForm">
         <div class="modal-header">
           <div><span class="eyebrow">${id ? "Editar" : "Nova"} impressora</span><h2>${id ? escaparHtml(impressora.name) : "Adicionar impressora"}</h2></div>
           <button class="icon-button" id="printerCloseButton" type="button" title="Fechar">✕</button>
         </div>
         <input type="hidden" id="printerId" value="${escaparAttr(id)}">
         <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
-        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 3 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
-        <div class="printer-setup-choice ${bambuDisponiveis.length ? "has-connected-bambu" : ""}" data-printer-step="1">
-          ${bambuDisponiveis.length ? `<section class="printer-connected-account">
-            <div class="printer-connected-account-head"><span>${renderUiIcon("check")}</span><div><strong>Conta BambuLab já conectada</strong><small>Estas impressoras já estão disponíveis para esta conta.</small></div></div>
-            <div class="printer-connected-models">${bambuDisponiveis.map((item) => {
-              const conexao = getConexaoAtualImpressora(item);
-              return `<button type="button" data-existing-bambu-id="${escaparAttr(item.id)}"><span>${renderUiIcon("impressoras")}</span><strong>${escaparHtml(item.name || "Impressora BambuLab")}</strong><small>${escaparHtml(getPrinterDisplayModel(item))} · ${conexao.online ? "Online" : "Sem sinal"}</small></button>`;
-            }).join("")}</div>
-          </section>` : `<button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>`}
-          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>${bambuDisponiveis.length ? "Adicionar modelo diferente" : "Outra impressora"}</strong><small>Cadastrar para acompanhamento manual</small></button>
-        </div>` : ""}
-
-        <div class="printer-simple-fields" ${guiado ? 'data-printer-step="2"' : ""}>
-          <label class="field field-wide"><span>Nome da impressora</span><input id="printerName" required maxlength="120" value="${escaparAttr(impressora?.name || "")}" placeholder="Ex.: Ender da produção" autofocus></label>
-          <label class="field"><span>Modelo</span><input id="printerCustomModel" list="printerModelSuggestions" maxlength="120" value="${escaparAttr(getPrinterDisplayModel(impressora) === "Modelo não informado" ? "" : getPrinterDisplayModel(impressora))}" placeholder="Ex.: Ender 3 V2"><datalist id="printerModelSuggestions">${getPrinterModelSuggestionOptions()}</datalist></label>
-          <label class="field"><span>Tipo</span><select id="printerType">${[["fdm","FDM"],["resin","Resina"],["other","Outro"]].map(([value,label]) => `<option value="${value}" ${String(impressora?.printer_type || "fdm") === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
-          <label class="field"><span>Localização</span><input id="printerLocation" maxlength="160" value="${escaparAttr(impressora?.location || "")}" placeholder="Ex.: Bancada 2"></label>
-          <label class="field"><span>Status inicial</span><select id="printerManualStatus">${["idle","printing","paused","finished","maintenance"].map((state) => `<option value="${state}" ${String(impressora?.manual_status || "idle") === state ? "selected" : ""}>${escaparHtml(getPrinterMonitoringService()?.status(state)?.label || state)}</option>`).join("")}</select></label>
+        <div class="ui-tabs printer-cadastro-tabs" aria-label="Etapas do cadastro">
+          ${[[1, "Conexão"], [2, "Impressora"], [3, "Revisar"]].map(([etapa, rotulo]) => `<button class="ui-tab" type="button" data-printer-step-tab="${etapa}" onclick="atualizarEtapaCadastroImpressora(${etapa})"><span>${etapa}</span>${rotulo}</button>`).join("")}
         </div>
 
-        <details class="printer-advanced-settings" ${automatico || guiado ? "open" : ""}>
+        ${id ? "" : `<section class="printer-cadastro-step printer-setup-choice" data-printer-cadastro-step="1" aria-labelledby="printerSetupChoiceTitle">
+          <div><span class="eyebrow">Primeiro passo</span><h3 id="printerSetupChoiceTitle">Qual impressora você quer adicionar?</h3><p>Escolha como você prefere acompanhar a máquina.</p></div>
+          <div class="printer-setup-summary"><strong>Como funciona</strong><span>1. Escolha Bambu ou rede local</span><span>2. Informe somente os dados necessários</span><span>3. Revise e conecte a impressora</span></div>
+          <div class="printer-setup-choice-grid">
+            <button class="printer-setup-option recommended" type="button" data-printer-setup="bambu">
+              <span>${renderUiIcon("impressoras")}</span><strong>Minha Bambu Lab</strong><small>Entre com sua conta Bambu para acompanhar a impressora</small><b>Mais rápido</b>
+            </button>
+            <button class="printer-setup-option" type="button" data-printer-setup="lan">
+              <span>${renderUiIcon("rede")}</span><strong>Rede local (LAN)</strong><small>Cadastre qualquer impressora pela sua rede, sem conta nem limite</small>
+            </button>
+          </div>
+        </section>`}
+
+        <section class="printer-cadastro-step" data-printer-cadastro-step="2">
+        <div class="printer-simple-fields">
+          <label class="field field-wide"><span>Nome da impressora</span><input id="printerName" required maxlength="120" value="${escaparAttr(impressora?.name || "")}" placeholder="Ex.: Ender da produção" autofocus></label>
+          <div class="printer-lan-fields field-wide" id="printerLanFields" hidden>
+            <label class="field"><span>Marca da impressora</span><select id="printerLanBrand" onchange="atualizarOrientacaoLanCadastro()"><option value="creality">Creality / Ender</option><option value="anycubic">Anycubic</option><option value="elegoo">Elegoo</option><option value="prusa">Prusa</option><option value="klipper">Klipper</option><option value="outra">Outra marca</option></select></label>
+            <label class="field"><span>Endereço da impressora na rede</span><input id="printerLanAddress" inputmode="url" maxlength="240" placeholder="Ex.: 192.168.1.50"></label>
+            <div class="printer-lan-guide" id="printerLanGuide"></div>
+          </div>
+          <div class="printer-bambu-account-fields field-wide" id="printerBambuAccountFields" hidden>
+            <label class="field"><span>E-mail da conta Bambu</span><input id="printerBambuAccount" type="email" inputmode="email" autocomplete="username" maxlength="240" placeholder="seuemail@exemplo.com"></label>
+            <label class="field"><span>Senha da conta Bambu</span><input id="printerBambuPassword" type="password" autocomplete="current-password" maxlength="1000" placeholder="Digite sua senha"></label>
+            <small>A senha é usada somente para conectar sua conta e não fica salva no Simplifica.</small>
+          </div>
+          <label class="field"><span>Modelo</span><input id="printerCustomModel" list="printerModelSuggestions" maxlength="120" value="${escaparAttr(getPrinterDisplayModel(impressora) === "Modelo não informado" ? "" : getPrinterDisplayModel(impressora))}" placeholder="Ex.: Ender 3 V2"><datalist id="printerModelSuggestions">${getPrinterModelSuggestionOptions()}</datalist></label>
+          <label class="field printer-technical-field"><span>Tipo</span><select id="printerType">${[["fdm","FDM"],["resin","Resina"],["other","Outro"]].map(([value,label]) => `<option value="${value}" ${String(impressora?.printer_type || "fdm") === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+          <label class="field"><span>Localização</span><input id="printerLocation" maxlength="160" value="${escaparAttr(impressora?.location || "")}" placeholder="Ex.: Bancada 2"></label>
+          <label class="field printer-technical-field"><span>Status inicial</span><select id="printerManualStatus">${["idle","printing","paused","finished","maintenance"].map((state) => `<option value="${state}" ${String(impressora?.manual_status || "idle") === state ? "selected" : ""}>${escaparHtml(getPrinterMonitoringService()?.status(state)?.label || state)}</option>`).join("")}</select></label>
+        </div>
+        </section>
+
+        <section class="printer-cadastro-step" data-printer-cadastro-step="3">
+        <div class="printer-bambu-review" id="printerBambuReview" hidden><span>${renderUiIcon("impressoras")}</span><div><strong>Pronto para conectar sua Bambu Lab</strong><small>Ao confirmar, você escolherá a impressora da sua conta.</small></div></div>
+        <div class="printer-bambu-review" id="printerLanReview" hidden><span>${renderUiIcon("rede")}</span><div><strong>Impressora pela rede local</strong><small>Você poderá usar várias impressoras assim, em qualquer plano.</small></div></div>
+        <details class="printer-advanced-settings" ${automatico ? "open" : ""}>
           <summary>
             <span>${renderUiIcon("config")}</span>
             <strong>Configuração avançada</strong>
             <small>Marca, conexão automática e custos</small>
           </summary>
           <div class="printer-advanced-content">
-            <section ${guiado ? 'data-printer-step="2"' : ""}>
+            <section class="printer-identification-section">
               <h3>Identificação</h3>
               <div class="form-grid">
                 <label class="field"><span>Marca</span><select id="printerBrand"><option value="">Outra / personalizada</option>${getPrinterBrandOptions(brandId, impressora?.custom_brand)}</select></label>
@@ -25557,29 +26429,37 @@ function abrirCadastroImpressora(id = "") {
               </div>
             </section>
 
-            <section ${guiado ? 'data-printer-step="3" hidden' : ""}>
+            <section>
               <h3>Conexão com a impressora</h3>
-              ${guiado ? `<p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>` : ""}
+              <p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>
               <label class="field"><span>Conexão</span>
                 <select id="printerConnector">
-                  ${(getPrinterMonitoringService()?.CONNECTORS || []).filter((connector) => ["manual", "bambu"].includes(connector.key)).map((connector) => `<option value="${connector.key}" ${conectorInicial === connector.key ? "selected" : ""}>${escaparHtml(connector.name)}</option>`).join("")}
+                  ${(getPrinterMonitoringService()?.CONNECTORS || []).map((connector) => `<option value="${connector.key}" ${String(impressora?.connector_type || "manual") === connector.key ? "selected" : ""}>${escaparHtml(connector.name)}${connector.automatic ? " · automática" : ""}</option>`).join("")}
                 </select>
               </label>
-              ${guiado ? `<p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>` : ""}
+              <p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>
               <div id="printerAutomaticFields">
-                ${guiado ? `<div class="printer-bambu-quick-login" id="printerBambuQuickFields" hidden>
-                  <div><span class="eyebrow">Acesso rápido BambuLab</span><strong>Conectar sua conta agora</strong><p>Informe os dados uma vez. A senha será usada somente na autenticação e não será salva no aplicativo.</p></div>
-                  <label class="field"><span>E-mail BambuLab</span><input id="printerBambuAccount" type="email" inputmode="email" autocomplete="username" maxlength="240"></label>
-                  <label class="field"><span>Senha BambuLab</span><input id="printerBambuPassword" type="password" autocomplete="current-password" maxlength="1000"></label>
-                  <label class="printer-bambu-consent"><input id="printerBambuConsent" type="checkbox"><span>Autorizo a autenticação temporária somente para acompanhamento.</span></label>
-                </div>` : ""}
-                <input type="hidden" id="printerConnectionMode" value="cloud_supported">
-                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} A conexão automática disponível nesta versão usa somente a conta BambuLab.</div>
+                <label class="field printer-connection-mode-field"><span>Modo de conexão</span><select id="printerConnectionMode">
+                  <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
+                  <option value="browser_local" ${impressora?.connection_mode === "browser_local" ? "selected" : ""}>Navegador na mesma rede</option>
+                  <option value="cloud_supported" ${impressora?.connection_mode === "cloud_supported" ? "selected" : ""}>Gateway HTTPS</option>
+                </select></label>
+                <label class="field" id="printerAgentField"><span>Agente responsável</span><select id="printerAgentId"><option value="">Selecione um agente</option>${(printerMonitoringState.agents || []).map((agent) => `<option value="${escaparAttr(agent.id)}" ${String(impressora?.active_agent_id || "") === String(agent.id) ? "selected" : ""}>${escaparHtml(agent.name)} · ${escaparHtml(agent.status)}</option>`).join("")}</select></label>
+                <div class="form-grid" id="printerDirectCredentialFields">
+                  <label class="field"><span>IP ou URL</span><input id="printerHost" value="${escaparAttr(impressora?.host || "")}" placeholder="192.168.1.50"></label>
+                  <label class="field"><span>Porta</span><input id="printerPort" type="number" min="1" max="65535" value="${escaparAttr(impressora?.port || "")}" placeholder="80"></label>
+                  <label class="field"><span>Token / API Key</span><input id="printerApiToken" type="password" autocomplete="new-password" placeholder="${impressora?.credentials_configured ? "Configurado · deixe vazio para manter" : "Opcional"}"></label>
+                  <label class="field"><span>Usuário</span><input id="printerUsername" autocomplete="off" placeholder="Quando exigido"></label>
+                  <label class="field"><span>Senha</span><input id="printerPassword" type="password" autocomplete="new-password" placeholder="Quando exigida"></label>
+                </div>
+                <div class="printer-bambu-agent-note" id="printerBambuAgentNote" hidden>${renderUiIcon("seguranca")}<div><strong>Sua conta fica protegida</strong><span>Usamos seus dados somente para conectar a Bambu. A senha não é salva.</span></div></div>
+                <div class="printer-read-only-notice">${renderUiIcon("seguranca")} O Simplifica apenas acompanha a impressora. Nenhum comando será enviado.</div>
+                <div class="actions">${renderAppButton({ label: "Testar conexão", variant: "secondary", attrs: 'id="printerConnectionTestButton"' })}<span class="muted" id="printerConnectionTestResult"></span></div>
               </div>
               <div id="printerManualFields" hidden></div>
             </section>
 
-            <section ${guiado ? 'data-printer-step="4" hidden' : ""}>
+            <section class="printer-costs-section">
               <h3>Custos opcionais</h3>
               <div class="form-grid">
                 <label class="field"><span>Custo por hora</span><input id="printerHourlyCost" type="number" min="0" step="0.01" value="${escaparAttr(impressora?.hourly_cost || "")}" placeholder="0,00"></label>
@@ -25593,107 +26473,148 @@ function abrirCadastroImpressora(id = "") {
             </section>
           </div>
         </details>
+        </section>
 
         <div class="printer-wizard-actions">
-          ${renderAppButton({ label: "Cancelar", variant: "ghost", attrs: 'id="printerCancelButton"' })}
-          ${guiado ? renderAppButton({ label: "Voltar", variant: "secondary", attrs: 'id="printerPreviousButton" hidden' }) : ""}
-          ${guiado ? renderAppButton({ label: "Continuar", variant: "primary", attrs: 'id="printerNextButton"' }) : ""}
-          ${renderAppButton({ label: id ? "Salvar alterações" : "Adicionar impressora", icon: renderUiIcon(id ? "edit" : "plus"), variant: "primary", type: "submit", attrs: `id="printerSaveButton"${guiado ? " hidden" : ""}` })}
+          <button class="btn ghost" id="printerCancelButton" type="button">Cancelar</button>
+          <button class="btn ghost" id="printerPreviousButton" type="button" hidden>← Voltar</button>
+          <button class="btn" id="printerNextButton" type="button">Próximo →</button>
+          <button class="btn" id="printerSaveButton" type="submit" hidden>${id ? "Salvar alterações" : "Adicionar impressora"}</button>
         </div>
       </form>
     </div>
   `;
-  promoverPopupParaDialogUiV3(popup, { title: "Cadastrar impressora" });
+  promoverPopupParaDialogUiV3(popup, { title: "Cadastrar impressora", wide: true });
   document.getElementById("printerForm")?.addEventListener("submit", salvarCadastroImpressora);
   document.getElementById("printerCloseButton")?.addEventListener("click", fecharPopup);
   document.getElementById("printerCancelButton")?.addEventListener("click", fecharPopup);
-  document.getElementById("printerBrand")?.addEventListener("change", atualizarMarcaCadastroImpressora);
-  document.getElementById("printerBrand")?.addEventListener("change", atualizarCompatibilidadeCadastroImpressora);
-  document.getElementById("printerCustomBrand")?.addEventListener("input", atualizarCompatibilidadeCadastroImpressora);
-  document.getElementById("printerCustomModel")?.addEventListener("input", atualizarCompatibilidadeCadastroImpressora);
+  document.getElementById("printerPreviousButton")?.addEventListener("click", () => navegarEtapaCadastroImpressora(-1));
+  document.getElementById("printerNextButton")?.addEventListener("click", () => navegarEtapaCadastroImpressora(1));
+  document.getElementById("printerBrand")?.addEventListener("change", () => {
+    atualizarMarcaCadastroImpressora();
+    sincronizarConectorBambuPorIdentificacao();
+  });
+  document.getElementById("printerCustomBrand")?.addEventListener("input", sincronizarConectorBambuPorIdentificacao);
+  document.getElementById("printerCustomModel")?.addEventListener("input", sincronizarConectorBambuPorIdentificacao);
   document.getElementById("printerConnector")?.addEventListener("change", atualizarCamposConectorImpressora);
   document.getElementById("printerConnectionMode")?.addEventListener("change", atualizarCamposConectorImpressora);
   document.getElementById("printerConnectionTestButton")?.addEventListener("click", testarConexaoCadastroImpressora);
-  if (guiado) configurarEtapasCadastroImpressora();
+  document.querySelectorAll("[data-printer-setup]").forEach((button) => {
+    button.addEventListener("click", () => {
+      aplicarPresetCadastroImpressora(button.dataset.printerSetup || "lan");
+      atualizarEtapaCadastroImpressora(2);
+    });
+  });
   document.getElementById("printerModalBackdrop")?.addEventListener("click", (event) => {
     if (event.target === event.currentTarget) fecharPopup();
   });
-  atualizarCamposConectorImpressora();
-  atualizarCompatibilidadeCadastroImpressora();
+  if (id) atualizarCamposConectorImpressora();
+  else aplicarPresetCadastroImpressora(initial?.preset === "manual" ? "lan" : "bambu");
+  atualizarOrientacaoLanCadastro();
+  atualizarEtapaCadastroImpressora(etapaInicial);
 }
 
-function configurarEtapasCadastroImpressora() {
-  const form = document.getElementById("printerForm");
-  if (!form) return;
-  let etapa = 1;
-  let tipoEscolhido = "";
-  const rotulos = ["", "Escolha rápida", "Identificação", "Conexão", "Custos opcionais"];
-  const getFluxo = () => tipoEscolhido === "bambu" ? [1, 3, 4] : [1, 2, 4];
-  const atualizar = () => {
-    form.querySelectorAll("[data-printer-step]").forEach((bloco) => {
-      bloco.toggleAttribute("hidden", Number(bloco.dataset.printerStep) !== etapa);
-    });
-    form.querySelector(".printer-advanced-settings")?.toggleAttribute("hidden", etapa === 1);
-    const label = form.querySelector("[data-printer-step-label]");
-    const progresso = form.querySelector("[data-printer-step-progress]");
-    const fluxo = getFluxo();
-    const posicao = Math.max(0, fluxo.indexOf(etapa));
-    if (label) label.textContent = `${posicao + 1} de ${fluxo.length} · ${rotulos[etapa]}`;
-    if (progresso) progresso.style.width = `${((posicao + 1) / fluxo.length) * 100}%`;
-    const alternarBotao = (id, oculto) => {
-      const botao = document.getElementById(id);
-      if (!botao) return;
-      botao.toggleAttribute("hidden", oculto);
-      if (oculto) botao.style.setProperty("display", "none", "important");
-      else botao.style.removeProperty("display");
-    };
-    alternarBotao("printerPreviousButton", etapa === 1);
-    alternarBotao("printerNextButton", etapa === 1 || etapa === 4);
-    alternarBotao("printerSaveButton", etapa !== 4);
+function atualizarOrientacaoLanCadastro() {
+  const guide = document.getElementById("printerLanGuide");
+  if (!guide) return;
+  const marca = document.getElementById("printerLanBrand")?.value || "outra";
+  const dicas = {
+    creality: "Na tela da Creality/Ender, abra Rede ou Wi-Fi e anote o endereço IP mostrado. Se não aparecer, veja a lista de aparelhos do roteador.",
+    anycubic: "Na tela da Anycubic, abra Wi-Fi ou Rede e anote o IP. Se preferir, consulte a lista de aparelhos conectados no roteador.",
+    elegoo: "Na tela da Elegoo, abra Rede ou Wi-Fi e anote o IP. O mesmo endereço costuma aparecer no roteador da empresa.",
+    prusa: "Na tela da Prusa, abra Configurações de rede e anote o endereço IP. Também é possível encontrá-lo no roteador.",
+    klipper: "Use o endereço IP do computador ou placa que roda o Klipper. Ele pode ser visto no roteador ou na tela de rede do equipamento.",
+    outra: "Procure por Rede, Wi-Fi ou Ethernet no painel da impressora. Anote o endereço IP exibido ou consulte o roteador."
   };
-  form.querySelectorAll("[data-printer-kind]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const bambu = button.dataset.printerKind === "bambu";
-      tipoEscolhido = bambu ? "bambu" : "manual";
-      const brand = document.getElementById("printerBrand");
-      const customBrand = document.getElementById("printerCustomBrand");
-      const name = document.getElementById("printerName");
-      if (brand) {
-        const option = Array.from(brand.options).find((item) => /bambu\s*lab|bambulab/i.test(item.textContent || ""));
-        brand.value = bambu && option ? option.value : "";
-      }
-      if (customBrand) customBrand.value = bambu ? "Bambu Lab" : "";
-      if (name && bambu && !name.value.trim()) name.value = "BambuLab";
-      if (name && !bambu && name.value === "BambuLab") name.value = "";
-      atualizarCompatibilidadeCadastroImpressora();
-      etapa = bambu ? 3 : 2;
-      atualizar();
-    });
+  guide.textContent = dicas[marca] || dicas.outra;
+}
+
+function atualizarEtapaCadastroImpressora(etapa = 1) {
+  const atual = Math.max(1, Math.min(3, Number(etapa) || 1));
+  window.__printerCadastroStep = atual;
+  document.querySelectorAll("[data-printer-cadastro-step]").forEach((section) => {
+    const visivel = Number(section.dataset.printerCadastroStep) === atual;
+    section.hidden = !visivel;
+    if (visivel) section.style.removeProperty("display");
+    else section.style.setProperty("display", "none", "important");
   });
-  form.querySelectorAll("[data-existing-bambu-id]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const printerId = button.dataset.existingBambuId || "";
-      fecharPopup();
-      if (printerId) abrirPainelImpressoraSimplifica(printerId);
-    });
+  document.querySelectorAll("[data-printer-step-tab]").forEach((item) => {
+    const passo = Number(item.dataset.printerStepTab);
+    item.classList.toggle("active", passo === atual);
+    item.classList.toggle("done", passo < atual);
   });
-  document.getElementById("printerNextButton")?.addEventListener("click", () => {
-    const campos = Array.from(form.querySelectorAll(`[data-printer-step="${etapa}"] :is(input,select,textarea)`));
-    const invalido = campos.find((campo) => !campo.checkValidity());
-    if (invalido) {
-      invalido.reportValidity();
+  const mostrarBotao = (id, visivel) => {
+    const botao = document.getElementById(id);
+    if (!botao) return;
+    botao.hidden = !visivel;
+    botao.style.setProperty("display", visivel ? "" : "none", "important");
+  };
+  mostrarBotao("printerPreviousButton", atual > 1);
+  mostrarBotao("printerNextButton", atual < 3);
+  mostrarBotao("printerSaveButton", atual === 3);
+  document.querySelector(".printer-wizard")?.scrollTo?.({ top: 0, behavior: "smooth" });
+}
+
+function navegarEtapaCadastroImpressora(direcao = 1) {
+  const atual = Number(window.__printerCadastroStep) || 1;
+  if (direcao > 0 && atual === 2) {
+    const nome = document.getElementById("printerName");
+    if (!nome?.reportValidity?.()) return;
+    if (document.getElementById("printerConnector")?.value === "bambu") {
+      const conta = document.getElementById("printerBambuAccount");
+      const senha = document.getElementById("printerBambuPassword");
+      if (!conta?.reportValidity?.() || !senha?.reportValidity?.()) return;
+    }
+  }
+  atualizarEtapaCadastroImpressora(atual + direcao);
+}
+
+function aplicarPresetCadastroImpressora(mode = "manual") {
+  const connector = document.getElementById("printerConnector");
+  const connectionMode = document.getElementById("printerConnectionMode");
+  const type = document.getElementById("printerType");
+  const customBrand = document.getElementById("printerCustomBrand");
+  const name = document.getElementById("printerName");
+  const advanced = document.querySelector(".printer-advanced-settings");
+  const form = document.getElementById("printerForm");
+  if (mode === "bambu") {
+    const bambuOption = Array.from(connector?.options || []).find((option) => option.value === "bambu");
+    if (!bambuOption) {
+      mostrarToast("O conector Bambu não está disponível nesta instalação.", "aviso", 4200);
       return;
     }
-    const fluxo = getFluxo();
-    etapa = fluxo[Math.min(fluxo.length - 1, fluxo.indexOf(etapa) + 1)] || etapa;
-    atualizar();
-  });
-  document.getElementById("printerPreviousButton")?.addEventListener("click", () => {
-    const fluxo = getFluxo();
-    etapa = fluxo[Math.max(0, fluxo.indexOf(etapa) - 1)] || 1;
-    atualizar();
-  });
-  atualizar();
+    connector.value = "bambu";
+    if (connectionMode) connectionMode.value = "cloud_supported";
+    if (type) type.value = "fdm";
+    if (customBrand) customBrand.value = "Bambu Lab";
+    if (name && !name.value.trim()) name.value = "Bambu da produção";
+    if (advanced) advanced.open = true;
+  } else {
+    if (connector) connector.value = "manual";
+    if (connectionMode) connectionMode.value = "local_agent";
+    if (advanced) advanced.open = false;
+    if (mode === "lan" && name && !name.value.trim()) name.value = "Impressora da rede";
+  }
+  form?.classList.toggle("is-bambu-quick", mode === "bambu");
+  if (form) form.dataset.printerSetup = mode;
+  const save = document.getElementById("printerSaveButton");
+  if (save && !document.getElementById("printerId")?.value) save.textContent = "Confirmar cadastro";
+  document.querySelectorAll("[data-printer-setup]").forEach((button) => button.classList.toggle("selected", button.dataset.printerSetup === mode));
+  atualizarCamposConectorImpressora();
+  name?.focus({ preventScroll: true });
+}
+
+function sincronizarConectorBambuPorIdentificacao() {
+  if (document.getElementById("printerId")?.value) return;
+  const connector = document.getElementById("printerConnector");
+  if (!connector || connector.value !== "manual") return;
+  const identificacao = [
+    document.getElementById("printerBrand")?.selectedOptions?.[0]?.dataset?.brandName,
+    document.getElementById("printerCustomBrand")?.value,
+    document.getElementById("printerCustomModel")?.value
+  ].join(" ");
+  if (!/bambu/i.test(identificacao)) return;
+  aplicarPresetCadastroImpressora("bambu");
 }
 
 function atualizarMarcaCadastroImpressora() {
@@ -25707,16 +26628,21 @@ function atualizarCamposConectorImpressora() {
   const connector = document.getElementById("printerConnector")?.value || "manual";
   const automatic = connector !== "manual";
   const connectionMode = document.getElementById("printerConnectionMode")?.value || "local_agent";
+  const bambuManaged = connector === "bambu";
+  const lanManual = document.getElementById("printerForm")?.dataset?.printerSetup === "lan";
   document.getElementById("printerAutomaticFields")?.toggleAttribute("hidden", !automatic);
   document.getElementById("printerManualFields")?.toggleAttribute("hidden", automatic);
   document.getElementById("printerAgentField")?.toggleAttribute("hidden", !automatic || connectionMode !== "local_agent");
-  const bambuQuick = document.getElementById("printerBambuQuickFields");
-  const bambuAutomatico = connector === "bambu" && !!bambuQuick;
-  bambuQuick?.toggleAttribute("hidden", !bambuAutomatico);
-  ["printerBambuAccount", "printerBambuPassword", "printerBambuConsent"].forEach((id) => {
-    const field = document.getElementById(id);
-    if (field) field.required = bambuAutomatico;
-  });
+  document.getElementById("printerDirectCredentialFields")?.toggleAttribute("hidden", bambuManaged);
+  document.getElementById("printerBambuAgentNote")?.toggleAttribute("hidden", !bambuManaged);
+  document.getElementById("printerBambuAccountFields")?.toggleAttribute("hidden", !bambuManaged);
+  document.getElementById("printerBambuReview")?.toggleAttribute("hidden", !bambuManaged);
+  document.getElementById("printerLanFields")?.toggleAttribute("hidden", !lanManual);
+  document.getElementById("printerLanReview")?.toggleAttribute("hidden", !lanManual);
+  document.querySelector(".printer-advanced-settings")?.toggleAttribute("hidden", bambuManaged || lanManual);
+  document.getElementById("printerBambuAccount")?.toggleAttribute("required", bambuManaged);
+  document.getElementById("printerBambuPassword")?.toggleAttribute("required", bambuManaged);
+  if (lanManual) atualizarOrientacaoLanCadastro();
   const testButton = document.getElementById("printerConnectionTestButton");
   if (testButton) {
     testButton.disabled = connectionMode === "local_agent";
@@ -25768,26 +26694,29 @@ async function salvarCadastroImpressora(event) {
   const brandOption = document.getElementById("printerBrand")?.selectedOptions?.[0];
   const modelOption = document.getElementById("printerModel")?.selectedOptions?.[0];
   const connector = document.getElementById("printerConnector")?.value || "manual";
-  const bambuAccount = String(document.getElementById("printerBambuAccount")?.value || "").trim();
-  const bambuPassword = String(document.getElementById("printerBambuPassword")?.value || "");
+  const lanManual = document.getElementById("printerForm")?.dataset?.printerSetup === "lan";
+  const connectionMode = connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "local_agent";
+  const bambuManaged = connector === "bambu";
+  const bambuAccount = bambuManaged ? String(document.getElementById("printerBambuAccount")?.value || "").trim() : "";
+  const bambuPassword = bambuManaged ? String(document.getElementById("printerBambuPassword")?.value || "") : "";
   const payload = {
     id: document.getElementById("printerId")?.value || "",
     name: document.getElementById("printerName")?.value || "",
     brand_id: brandOption?.dataset?.brandId || null,
     model_id: document.getElementById("printerModel")?.value || null,
-    custom_brand: document.getElementById("printerCustomBrand")?.value || brandOption?.dataset?.brandName || "",
+    custom_brand: lanManual ? document.getElementById("printerLanBrand")?.selectedOptions?.[0]?.textContent || "" : document.getElementById("printerCustomBrand")?.value || brandOption?.dataset?.brandName || "",
     custom_model: document.getElementById("printerCustomModel")?.value || modelOption?.dataset?.modelName || "",
     printer_type: document.getElementById("printerType")?.value || "fdm",
     location: document.getElementById("printerLocation")?.value || "",
     notes: document.getElementById("printerNotes")?.value || "",
     connector_type: connector,
-    connection_mode: connector === "manual" ? "manual" : document.getElementById("printerConnectionMode")?.value || "cloud_supported",
+    connection_mode: connectionMode,
     agent_id: document.getElementById("printerAgentId")?.value || null,
-    host: document.getElementById("printerHost")?.value || "",
-    port: valorOpcionalNumero("printerPort"),
-    api_token: document.getElementById("printerApiToken")?.value || "",
-    username: document.getElementById("printerUsername")?.value || "",
-    password: document.getElementById("printerPassword")?.value || "",
+    host: bambuManaged ? "https://api.bambulab.com" : lanManual ? document.getElementById("printerLanAddress")?.value || "" : document.getElementById("printerHost")?.value || "",
+    port: bambuManaged ? null : valorOpcionalNumero("printerPort"),
+    api_token: bambuManaged ? "" : document.getElementById("printerApiToken")?.value || "",
+    username: bambuManaged ? "" : document.getElementById("printerUsername")?.value || "",
+    password: bambuManaged ? "" : document.getElementById("printerPassword")?.value || "",
     manual_status: document.getElementById("printerManualStatus")?.value || "idle",
     hourly_cost: valorOpcionalNumero("printerHourlyCost"),
     power_watts: valorOpcionalNumero("printerPowerWatts"),
@@ -25806,14 +26735,14 @@ async function salvarCadastroImpressora(event) {
       printerMonitoringState.loaded = true;
       sincronizarImpressorasComCalculadora();
     }
-    const conectarBambuDepois = !payload.id && payload.connector_type === "bambu" && saved?.id;
+    const abrirLoginDepois = !payload.id && payload.connector_type === "bambu";
     fecharPopup();
     await hidratarImpressorasSeNecessario(true);
     mostrarToast(payload.id ? "Impressora atualizada." : "Impressora adicionada.", "sucesso", 3400);
-    if (conectarBambuDepois && bambuAccount && bambuPassword) {
-      await autenticarBambuDepoisCadastro(saved.id, bambuAccount, bambuPassword);
-    } else if (conectarBambuDepois) {
+    if (abrirLoginDepois && saved?.id) {
+      Object.assign(bambuLoginDraftState, { active: true, printerId: saved.id, account: bambuAccount, password: bambuPassword, code: "", consent: true, step: 3, awaitingCode: false });
       abrirLoginBambu(saved.id);
+      setTimeout(() => document.getElementById("bambuLoginSubmit")?.click(), 80);
     }
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
@@ -25821,14 +26750,235 @@ async function salvarCadastroImpressora(event) {
   }
 }
 
-async function atualizarStatusImpressora(id) {
+function abrirLoginBambu(id) {
+  const impressora = getPrinterById(id);
+  if (!impressora || !isBambuPrinterCandidate(impressora) || !podeGerenciarImpressoras()) return;
+  if (!bambuLoginDraftState.active || String(bambuLoginDraftState.printerId) !== String(id)) {
+    Object.assign(bambuLoginDraftState, { active: true, printerId: id, account: "", password: "", code: "", consent: false, step: 1, awaitingCode: false });
+  }
+  const popup = document.getElementById("popup");
+  if (!popup) return;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-modal-backdrop" id="bambuLoginBackdrop" role="dialog" aria-modal="true" aria-labelledby="bambuLoginTitle">
+      <form class="modal-card printer-bambu-login" id="bambuLoginForm" autocomplete="off">
+        <div class="modal-header"><div><span class="eyebrow">Integração comunitária</span><h2 id="bambuLoginTitle">Conectar conta Bambu</h2></div><button class="icon-button" type="button" id="bambuLoginClose" title="Fechar">✕</button></div>
+        ${renderEtapasLoginBambu(1)}
+        <section class="printer-bambu-step" data-bambu-login-step="1">
+          <span class="eyebrow">Etapa 1 de 5</span><h3>Confirmar impressora</h3>
+          <div class="printer-bambu-printer-review"><span class="printer-device-icon">${renderUiIcon("impressoras")}</span><div><strong>${escaparHtml(impressora.name || "Impressora")}</strong><small>${escaparHtml(getPrinterDisplayBrand(impressora))} · ${escaparHtml(getPrinterDisplayModel(impressora))}</small></div>${renderPrinterStatusBadge(impressora)}</div>
+          <p class="muted">Vamos usar este mesmo cadastro. Nome, histórico e pedidos vinculados serão preservados.</p>
+          <div class="printer-wizard-actions"><button class="btn ghost" type="button" id="bambuLoginCancel">Cancelar</button><button class="btn" type="button" onclick="setEtapaLoginBambu(2)">Continuar</button></div>
+        </section>
+        <section class="printer-bambu-step" data-bambu-login-step="2" hidden>
+          <span class="eyebrow">Etapa 2 de 5</span><h3>Autorizar integração experimental</h3>
+          <div class="printer-pilot-summary"><strong>Login comunitário, não oficial</strong><p>A senha ou o código será transmitido à função segura do Simplifica apenas para autenticar na Bambu e será descartado depois da chamada. Somente o token retornado será armazenado cifrado.</p>${impressora.connector_type === "manual" ? "<p>Após o login bem-sucedido, o cadastro manual será convertido para acompanhamento automático.</p>" : ""}<p>A Bambu pode alterar, limitar ou revogar o acesso sem aviso. O piloto permanece somente leitura.</p></div>
+          <label class="printer-bambu-consent"><input id="bambuLoginConsent" type="checkbox"><span>Li e autorizo a transmissão temporária da credencial para autenticação.</span></label>
+          <p class="printer-login-result" id="bambuConsentResult" role="status"></p>
+          <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="setEtapaLoginBambu(1)">Voltar</button><button class="btn" type="button" onclick="setEtapaLoginBambu(3)">Concordar e continuar</button></div>
+        </section>
+        <section class="printer-bambu-step" data-bambu-login-step="3" hidden>
+          <span class="eyebrow">Etapa 3 de 5</span><h3>Entrar na conta Bambu</h3><p class="muted">Digite os dados somente nesta tela. O Simplifica não salva sua senha.</p>
+          <label class="field"><span>E-mail da conta Bambu</span><input id="bambuLoginAccount" type="email" inputmode="email" autocomplete="username" required maxlength="240" placeholder="seuemail@exemplo.com"></label>
+          <label class="field" id="bambuPasswordField"><span>Senha Bambu</span><input id="bambuLoginPassword" type="password" autocomplete="current-password" maxlength="1000" placeholder="Usada uma única vez"></label>
+          <label class="field" id="bambuCodeField" hidden><span>Código de confirmação</span><input id="bambuLoginCode" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Código de 6 dígitos recebido no e-mail"></label>
+          <p class="printer-login-result" id="bambuLoginResult" role="status"></p>
+          <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="setEtapaLoginBambu(2)">Voltar</button><button class="btn" type="submit" id="bambuLoginSubmit">Entrar e localizar</button></div>
+        </section>
+      </form>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Conectar conta Bambu" });
+  document.getElementById("bambuLoginClose")?.addEventListener("click", fecharLoginBambu);
+  document.getElementById("bambuLoginCancel")?.addEventListener("click", fecharLoginBambu);
+  document.getElementById("bambuLoginBackdrop")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) fecharLoginBambu();
+  });
+  document.getElementById("bambuLoginForm")?.addEventListener("submit", (event) => autenticarContaBambu(event, id));
+  ["bambuLoginAccount", "bambuLoginPassword", "bambuLoginCode"].forEach((fieldId) => document.getElementById(fieldId)?.addEventListener("input", capturarRascunhoLoginBambu));
+  document.getElementById("bambuLoginConsent")?.addEventListener("change", capturarRascunhoLoginBambu);
+  restaurarRascunhoLoginBambu();
+}
+
+function capturarRascunhoLoginBambu() {
+  if (!bambuLoginDraftState.active) return;
+  const account = document.getElementById("bambuLoginAccount");
+  const password = document.getElementById("bambuLoginPassword");
+  const code = document.getElementById("bambuLoginCode");
+  const consent = document.getElementById("bambuLoginConsent");
+  if (account) bambuLoginDraftState.account = account.value || "";
+  if (password) bambuLoginDraftState.password = password.value || "";
+  if (code) bambuLoginDraftState.code = code.value || "";
+  if (consent) bambuLoginDraftState.consent = consent.checked === true;
+}
+
+function restaurarRascunhoLoginBambu() {
+  const account = document.getElementById("bambuLoginAccount");
+  const password = document.getElementById("bambuLoginPassword");
+  const code = document.getElementById("bambuLoginCode");
+  const consent = document.getElementById("bambuLoginConsent");
+  if (account) account.value = bambuLoginDraftState.account || "";
+  if (password) password.value = bambuLoginDraftState.password || "";
+  if (code) code.value = bambuLoginDraftState.code || "";
+  if (consent) consent.checked = bambuLoginDraftState.consent === true;
+  if (bambuLoginDraftState.awaitingCode) {
+    document.getElementById("bambuCodeField")?.removeAttribute("hidden");
+    document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
+    if (code) code.required = true;
+  }
+  setEtapaLoginBambu(bambuLoginDraftState.step || 1);
+}
+
+function limparRascunhoLoginBambu() {
+  Object.assign(bambuLoginDraftState, { active: false, printerId: "", account: "", password: "", code: "", consent: false, step: 1, awaitingCode: false });
+}
+
+function fecharLoginBambu() {
+  limparRascunhoLoginBambu();
+  fecharPopup();
+}
+
+function renderEtapasLoginBambu(current = 1) {
+  const labels = ["Impressora", "Aviso", "Login", "Dispositivo", "Pronto"];
+  return `<ol class="printer-bambu-steps" aria-label="Etapas da conexão">${labels.map((label, index) => `<li class="${index + 1 < current ? "done" : index + 1 === current ? "active" : ""}"><i>${index + 1 < current ? "✓" : index + 1}</i><span>${label}</span></li>`).join("")}</ol>`;
+}
+
+function setEtapaLoginBambu(step) {
+  capturarRascunhoLoginBambu();
+  const target = Math.max(1, Math.min(3, Number(step) || 1));
+  if (target === 3 && !document.getElementById("bambuLoginConsent")?.checked) {
+    const result = document.getElementById("bambuConsentResult");
+    if (result) result.textContent = "Marque a autorização para continuar.";
+    return;
+  }
+  bambuLoginDraftState.step = target;
+  document.querySelectorAll("[data-bambu-login-step]").forEach((section) => section.toggleAttribute("hidden", Number(section.dataset.bambuLoginStep) !== target));
+  const progress = document.querySelector(".printer-bambu-steps");
+  if (progress) progress.outerHTML = renderEtapasLoginBambu(target);
+  if (target === 3) setTimeout(() => document.getElementById("bambuLoginAccount")?.focus({ preventScroll: true }), 30);
+}
+
+async function autenticarContaBambu(event, printerId) {
+  event.preventDefault();
+  capturarRascunhoLoginBambu();
+  const form = event.currentTarget;
+  if (!form?.reportValidity?.()) return;
+  const submit = document.getElementById("bambuLoginSubmit");
+  const result = document.getElementById("bambuLoginResult");
+  const password = document.getElementById("bambuLoginPassword");
+  const code = document.getElementById("bambuLoginCode");
+  if (!String(password?.value || "") && !String(code?.value || "")) {
+    if (result) result.textContent = "Informe a senha ou o código de verificação.";
+    return;
+  }
+  if (submit) submit.disabled = true;
+  if (result) result.textContent = "Autenticando com a Bambu...";
   try {
+    const data = await printerBackendRequest("bambu_login", {
+      printer_id: printerId,
+      account: document.getElementById("bambuLoginAccount")?.value || "",
+      password: code?.value ? "" : password?.value || "",
+      code: code?.value || ""
+    });
+    limparRascunhoLoginBambu();
+    if (password) password.value = "";
+    if (code) code.value = "";
+    await hidratarImpressorasSeNecessario(true);
+    const servidorAindaNaoAtualizado = !Array.isArray(data?.imported_printer_ids);
+    if ((data?.requires_device_selection === true || servidorAindaNaoAtualizado) && Array.isArray(data?.devices) && data.devices.length > 1) {
+      renderizarSelecaoDispositivoBambu(printerId, data.devices, data.selected_device_id);
+      return;
+    }
+    renderizarConclusaoBambu(printerId, data?.devices?.find((device) => String(device.id) === String(data?.selected_device_id)), data);
+  } catch (erro) {
+    const message = String(erro?.message || "");
+    if (message === "BAMBU_VERIFICATION_CODE_REQUIRED" || (message === "BAMBU_LOGIN_REJECTED" && !bambuLoginDraftState.awaitingCode)) {
+      bambuLoginDraftState.awaitingCode = true;
+      bambuLoginDraftState.step = 3;
+      document.getElementById("bambuCodeField")?.removeAttribute("hidden");
+      document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
+      if (code) code.required = true;
+      if (result) result.textContent = "Confira seu e-mail da Bambu e informe o código de 6 dígitos para concluir.";
+      code?.focus();
+    } else if (result) {
+      capturarRascunhoLoginBambu();
+      result.textContent = getPrinterMonitoringService()?.errorMessage(message) || "Não foi possível conectar à Bambu.";
+    }
+    if (submit) submit.disabled = false;
+  }
+}
+
+function renderizarSelecaoDispositivoBambu(printerId, devices = [], selectedId = "") {
+  const form = document.getElementById("bambuLoginForm");
+  if (!form) return;
+  form.innerHTML = `
+    <div class="modal-header"><div><span class="eyebrow">Conta conectada</span><h2>Escolha a impressora</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+    ${renderEtapasLoginBambu(4)}
+    <span class="eyebrow">Etapa 4 de 5</span>
+    <p class="muted">Encontramos ${devices.length} impressoras nesta conta. Selecione qual será acompanhada neste cadastro.</p>
+    <div class="printer-bambu-device-list">${devices.map((device) => `<button class="printer-bambu-device ${String(device.id) === String(selectedId) ? "selected" : ""}" type="button" onclick="selecionarDispositivoBambu('${escaparAttr(printerId)}','${escaparAttr(device.id)}')"><strong>${escaparHtml(device.name || "Impressora Bambu")}</strong><span>${escaparHtml(device.model || "Bambu Lab")} · ${device.online ? "Online" : "Offline"}</span></button>`).join("")}</div>`;
+}
+
+async function selecionarDispositivoBambu(printerId, deviceId) {
+  try {
+    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: deviceId });
+    await hidratarImpressorasSeNecessario(true);
+    renderizarConclusaoBambu(printerId);
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+  }
+}
+
+function renderizarConclusaoBambu(printerId, device = null, connection = {}) {
+  const form = document.getElementById("bambuLoginForm");
+  const impressora = getPrinterById(printerId);
+  if (!form) return;
+  const planoGratisComMaisDeUma = connection?.free_plan_last_printer_only === true;
+  form.innerHTML = `<div class="modal-header"><div><span class="eyebrow">Conta conectada</span><h2>Impressora pronta</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>${renderEtapasLoginBambu(5)}<section class="printer-bambu-success"><i>✓</i><h3>${escaparHtml(device?.name || impressora?.name || "Impressora Bambu")}</h3><p>${planoGratisComMaisDeUma ? "Sua conta tem mais de uma impressora. No plano Grátis, mostramos somente a última impressora da conta." : "Sua conta foi conectada e as impressoras disponíveis foram adicionadas para acompanhamento."}</p><ul><li>Pedidos e histórico continuam no mesmo lugar</li><li>Sua senha não é salva</li><li>O Simplifica só acompanha, sem enviar comandos</li></ul></section><div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Fechar</button><button class="btn" type="button" onclick="fecharPopup();trocarTela('calculadora')">Abrir calculadora</button></div>`;
+  mostrarToast("Conta Bambu conectada com sucesso.", "sucesso", 3600);
+}
+
+if (!window.__bambuLoginDraftResumeBound) {
+  window.__bambuLoginDraftResumeBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden || !bambuLoginDraftState.active || document.getElementById("bambuLoginForm")) return;
+    const printerId = bambuLoginDraftState.printerId;
+    setTimeout(() => {
+      if (!document.hidden && bambuLoginDraftState.active && !document.getElementById("bambuLoginForm")) abrirLoginBambu(printerId);
+    }, 120);
+  });
+}
+
+async function desconectarContaBambu(printerId) {
+  const impressora = getPrinterById(printerId);
+  if (!impressora || !confirm(`Desconectar a conta Bambu de ${impressora.name}? O token cifrado será apagado.`)) return;
+  try {
+    await printerBackendRequest("bambu_disconnect", { printer_id: printerId });
+    await hidratarImpressorasSeNecessario(true);
+    mostrarToast("Conta Bambu desconectada e token apagado.", "sucesso", 3400);
+  } catch (erro) {
+    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+  }
+}
+
+async function atualizarStatusImpressora(id) {
+  const refreshButton = document.getElementById("printerPanelRefresh");
+  try {
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.textContent = "Atualizando...";
+    }
     mostrarToast("Consultando status da impressora...", "info", 2200);
     await printerBackendRequest("fetch_status", { printer_id: id });
-    await hidratarImpressorasSeNecessario(true);
+    await hidratarImpressorasSeNecessario(true, false);
+    const impressoraAtualizada = getPrinterById(id);
+    if (impressoraAtualizada) atualizarElementosStatusBambu(impressoraAtualizada);
     mostrarToast("Status atualizado.", "sucesso", 3000);
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
+  } finally {
+    if (refreshButton?.isConnected) {
+      refreshButton.disabled = false;
+      refreshButton.textContent = "Atualizar";
+    }
   }
 }
 
@@ -25870,7 +27020,10 @@ function abrirVinculoPedidoImpressora(id) {
       <form class="modal-card" id="printerOrderLinkForm" onclick="event.stopPropagation()">
         <div class="modal-header"><h2>Vincular pedido</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
         <p class="muted">${escaparHtml(impressora.name)} · ${escaparHtml(getPrinterMonitoringService()?.status(getPrinterCurrentStatus(impressora))?.label || "")}</p>
-        <label class="field"><span>Pedido</span><select id="printerOrderId"><option value="">Sem pedido vinculado</option>${ativos.map((pedido) => `<option value="${escaparAttr(pedido.id)}" ${String(atual) === String(pedido.id) ? "selected" : ""}>#${escaparHtml(pedido.id)} · ${escaparHtml(clienteDoPedido(pedido))}</option>`).join("")}</select></label>
+        <fieldset class="printer-order-picker"><legend>Escolha um pedido em aberto</legend>
+          ${ativos.length ? ativos.map((pedido) => `<label class="printer-order-choice ${String(atual) === String(pedido.id) ? "selected" : ""}"><input type="radio" name="printerOrderId" value="${escaparAttr(pedido.id)}" ${String(atual) === String(pedido.id) ? "checked" : ""}><span><strong>Pedido #${escaparHtml(pedido.id)}</strong><small>${escaparHtml(clienteDoPedido(pedido))} · ${escaparHtml(String(pedido.status || "Em aberto").replace(/_/g, " "))}</small></span></label>`).join("") : `<p class="empty">Não há pedidos em aberto para vincular.</p>`}
+          <label class="printer-order-choice printer-order-choice-clear"><input type="radio" name="printerOrderId" value="" ${atual ? "" : "checked"}><span><strong>Sem pedido vinculado</strong><small>Deixar esta impressora livre</small></span></label>
+        </fieldset>
         <label class="field"><span>Observações</span><textarea id="printerOrderNotes" maxlength="1000"></textarea></label>
         <div class="actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar vínculo</button></div>
       </form>
@@ -25881,7 +27034,7 @@ function abrirVinculoPedidoImpressora(id) {
     try {
       await printerBackendRequest("link_order", {
         printer_id: id,
-        order_id: document.getElementById("printerOrderId")?.value || "",
+        order_id: document.querySelector('input[name="printerOrderId"]:checked')?.value || "",
         notes: document.getElementById("printerOrderNotes")?.value || ""
       });
       fecharPopup();
@@ -25907,8 +27060,9 @@ async function abrirHistoricoImpressora(id) {
     if (!modal) return;
     modal.innerHTML = `
       <div class="modal-header"><h2>Histórico de ${escaparHtml(impressora.name)}</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+      ${renderResumoDesperdicioImpressora(id)}
       <div class="printer-history-grid">
-        <section><h3>Snapshots</h3>${snapshots.length ? snapshots.map((item) => `<div class="history-item"><strong>${escaparHtml(getPrinterMonitoringService()?.status(item.normalized_state)?.label || item.normalized_state)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}${Number.isFinite(Number(item.progress_percent)) ? ` · ${Math.round(Number(item.progress_percent))}%` : ""}</span></div>`).join("") : `<p class="empty">Sem snapshots.</p>`}</section>
+        <section><h3>Snapshots</h3>${snapshots.length ? snapshots.map((item) => { const progress = getPrinterProgressValue(item.progress_percent); return `<div class="history-item"><strong>${escaparHtml(getPrinterMonitoringService()?.status(item.normalized_state)?.label || item.normalized_state)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}${Number.isFinite(progress) ? ` · ${Math.round(progress)}%` : ""}</span></div>`; }).join("") : `<p class="empty">Sem snapshots.</p>`}</section>
         <section><h3>Eventos</h3>${events.length ? events.map((item) => `<div class="history-item"><strong>${escaparHtml(item.message || item.event_type)}</strong><span>${escaparHtml(formatarDataHora(item.created_at))}</span></div>`).join("") : `<p class="empty">Sem eventos.</p>`}</section>
       </div>`;
   } catch (erro) {
@@ -25920,11 +27074,11 @@ async function abrirHistoricoImpressora(id) {
 async function desativarImpressora(id) {
   const impressora = getPrinterById(id);
   if (!impressora || !podeGerenciarImpressoras()) return;
-  if (!confirm(`Desativar ${impressora.name}? As credenciais de conexão serão removidas.`)) return;
+  if (!confirm(`Remover ${impressora.name} da lista? As credenciais de conexão serão apagadas. O histórico operacional será preservado.`)) return;
   try {
     await printerBackendRequest("disable", { printer_id: id });
     await hidratarImpressorasSeNecessario(true);
-    mostrarToast("Impressora desativada.", "sucesso");
+    mostrarToast("Impressora removida da lista e credenciais apagadas.", "sucesso");
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
   }
@@ -26015,178 +27169,7 @@ function getProductionStatusLabel(status = "novo_pedido") {
 
 function getProductionTab() {
   const tab = String(window.__productionTab || "fila");
-  return ["fila", "impressao", "pendencias", "prontos", "entregues", "pagos", "historico", "impressoras"].includes(tab) ? tab : "fila";
-}
-
-function atualizarCompatibilidadeCadastroImpressora() {
-  const form = document.getElementById("printerForm");
-  if (!form || form.dataset.printerGuided !== "true") return;
-  const brand = document.getElementById("printerBrand");
-  const brandName = brand?.selectedOptions?.[0]?.dataset?.brandName || brand?.selectedOptions?.[0]?.textContent || "";
-  const customBrand = document.getElementById("printerCustomBrand")?.value || "";
-  const model = document.getElementById("printerCustomModel")?.value || "";
-  const descricao = `${brandName} ${customBrand} ${model}`.toLowerCase();
-  const bambu = /bambu\s*lab|bambulab/.test(descricao);
-  const connector = document.getElementById("printerConnector");
-  const notice = document.getElementById("printerConnectionCompatibility");
-  if (connector) connector.value = bambu ? "bambu" : "manual";
-  if (notice) {
-    notice.classList.toggle("is-bambu", bambu);
-    notice.textContent = bambu
-      ? "BambuLab identificada. O acesso rápido da conta será aberto nesta etapa."
-      : "Este modelo funciona manualmente por enquanto. A integração automática disponível nesta versão é somente para BambuLab.";
-  }
-  atualizarCamposConectorImpressora();
-}
-
-async function autenticarBambuDepoisCadastro(printerId, account, password) {
-  mostrarToast("Conectando à conta BambuLab...", "info", 2600);
-  try {
-    const data = await printerBackendRequest("bambu_login", { printer_id: printerId, account, password, code: "" });
-    await concluirSelecaoDispositivoBambu(printerId, data);
-  } catch (erro) {
-    const precisaCodigo = String(erro?.message || "") === "BAMBU_VERIFICATION_CODE_REQUIRED";
-    abrirLoginBambu(printerId, { account, awaitingCode: precisaCodigo });
-    const result = document.getElementById("bambuLoginResult");
-    if (result) result.textContent = precisaCodigo
-      ? "A BambuLab enviou um código. Informe-o para concluir."
-      : (getPrinterMonitoringService()?.errorMessage(erro?.message) || "Confira os dados e tente novamente.");
-  }
-}
-
-function abrirLoginBambu(id, options = {}) {
-  const impressora = getPrinterById(id);
-  const popup = document.getElementById("popup");
-  if (!impressora || !popup || !podeGerenciarImpressoras()) return;
-  bambuLoginDraftState.printerId = id;
-  bambuLoginDraftState.awaitingCode = options.awaitingCode === true;
-  popup.innerHTML = `
-    <div class="modal-backdrop printer-modal-backdrop" role="dialog" aria-modal="true">
-      <form class="modal-card printer-bambu-login" id="bambuLoginForm" autocomplete="off">
-        <div class="modal-header"><h2>Conectar conta Bambu</h2><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
-        <div class="printer-bambu-login-copy">
-          <span class="eyebrow">Integração comunitária experimental</span>
-          <strong>${escaparHtml(impressora.name || "Impressora Bambu")}</strong>
-          <p>A conexão é somente para acompanhamento. A senha será enviada uma única vez para autenticação e não será armazenada pelo aplicativo.</p>
-        </div>
-        <label class="printer-bambu-consent"><input id="bambuLoginConsent" type="checkbox" required><span>Entendi e autorizo a autenticação temporária na BambuLab.</span></label>
-        <label class="field"><span>E-mail da conta BambuLab</span><input id="bambuLoginAccount" type="email" inputmode="email" autocomplete="username" required maxlength="240"></label>
-        <label class="field" id="bambuPasswordField"><span>Senha BambuLab</span><input id="bambuLoginPassword" type="password" autocomplete="current-password" required maxlength="1000"></label>
-        <label class="field" id="bambuCodeField" hidden><span>Código de verificação</span><input id="bambuLoginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="40"></label>
-        <p class="printer-login-result" id="bambuLoginResult" role="status"></p>
-        <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit" id="bambuLoginSubmit">Entrar e localizar</button></div>
-      </form>
-    </div>`;
-  promoverPopupParaDialogUiV3(popup, { title: "Conectar conta Bambu" });
-  document.getElementById("bambuLoginForm")?.addEventListener("submit", autenticarContaBambu);
-  const accountField = document.getElementById("bambuLoginAccount");
-  if (accountField && options.account) accountField.value = options.account;
-  if (bambuLoginDraftState.awaitingCode) {
-    document.getElementById("bambuCodeField")?.removeAttribute("hidden");
-    document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
-    const passwordField = document.getElementById("bambuLoginPassword");
-    const codeField = document.getElementById("bambuLoginCode");
-    if (passwordField) passwordField.required = false;
-    if (codeField) codeField.required = true;
-  }
-}
-
-async function autenticarContaBambu(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  if (!form?.reportValidity?.()) return;
-  const submit = document.getElementById("bambuLoginSubmit");
-  const result = document.getElementById("bambuLoginResult");
-  const password = document.getElementById("bambuLoginPassword");
-  const code = document.getElementById("bambuLoginCode");
-  if (submit) submit.disabled = true;
-  if (result) result.textContent = "Autenticando com a BambuLab...";
-  try {
-    const data = await printerBackendRequest("bambu_login", {
-      printer_id: bambuLoginDraftState.printerId,
-      account: document.getElementById("bambuLoginAccount")?.value || "",
-      password: bambuLoginDraftState.awaitingCode ? "" : password?.value || "",
-      code: bambuLoginDraftState.awaitingCode ? code?.value || "" : ""
-    });
-    if (password) password.value = "";
-    if (code) code.value = "";
-    await concluirSelecaoDispositivoBambu(bambuLoginDraftState.printerId, data);
-  } catch (erro) {
-    const message = String(erro?.message || "");
-    if (message === "BAMBU_VERIFICATION_CODE_REQUIRED") {
-      bambuLoginDraftState.awaitingCode = true;
-      document.getElementById("bambuCodeField")?.removeAttribute("hidden");
-      document.getElementById("bambuPasswordField")?.setAttribute("hidden", "");
-      if (password) password.required = false;
-      if (code) code.required = true;
-      if (result) result.textContent = "Informe o código enviado pela BambuLab e tente novamente.";
-      code?.focus();
-    } else if (result) {
-      result.textContent = getPrinterMonitoringService()?.errorMessage(message) || "Não foi possível conectar à BambuLab.";
-    }
-    if (submit) submit.disabled = false;
-  }
-}
-
-function getUltimoDispositivoBambu(devices = [], selectedId = "") {
-  const selecionado = devices.find((device) => String(device.id) === String(selectedId));
-  if (selecionado) return selecionado;
-  return [...devices].sort((a, b) => {
-    const dataA = new Date(a.last_used_at || a.last_seen_at || a.updated_at || 0).getTime() || 0;
-    const dataB = new Date(b.last_used_at || b.last_seen_at || b.updated_at || 0).getTime() || 0;
-    return dataB - dataA;
-  })[0] || null;
-}
-
-async function concluirSelecaoDispositivoBambu(printerId, data = {}) {
-  const devices = Array.isArray(data?.devices) ? data.devices : [];
-  const planoPago = isPlanAtLeast(getCurrentPlanSlug(), "start");
-  if (devices.length > 1 && planoPago) {
-    renderizarSelecaoDispositivoBambu(printerId, devices, data?.selected_device_id || "");
-    return;
-  }
-  const escolhido = getUltimoDispositivoBambu(devices, data?.selected_device_id || "");
-  if (devices.length > 1 && escolhido?.id) {
-    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: escolhido.id });
-  }
-  await hidratarImpressorasSeNecessario(true);
-  fecharPopup();
-  mostrarToast(devices.length > 1 && !planoPago
-    ? `Plano gratuito: ${escolhido?.name || "última impressora usada"} selecionada.`
-    : "Conta BambuLab conectada e impressora localizada.", "sucesso", 4400);
-  abrirPainelImpressoraSimplifica(printerId);
-}
-
-function renderizarSelecaoDispositivoBambu(printerId, devices = [], selectedId = "") {
-  const form = document.getElementById("bambuLoginForm");
-  if (!form) return;
-  form.innerHTML = `
-    <div class="printer-bambu-device-picker">
-      <span class="eyebrow">Conta conectada</span>
-      <h3>Escolha uma impressora</h3>
-      <p>Seu plano permite acompanhar todas. Selecione qual será vinculada a este cadastro.</p>
-      <div class="printer-bambu-device-list">${devices.map((device) => `
-        <button class="printer-bambu-device ${String(device.id) === String(selectedId) ? "selected" : ""}" type="button" data-bambu-device-id="${escaparAttr(device.id)}">
-          <strong>${escaparHtml(device.name || "Impressora BambuLab")}</strong>
-          <span>${escaparHtml(device.model || "Modelo não informado")} · ${device.online ? "Online" : "Offline"}</span>
-        </button>`).join("")}</div>
-      <div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button></div>
-    </div>`;
-  form.querySelectorAll("[data-bambu-device-id]").forEach((button) => {
-    button.addEventListener("click", () => selecionarDispositivoBambu(printerId, button.dataset.bambuDeviceId));
-  });
-}
-
-async function selecionarDispositivoBambu(printerId, deviceId) {
-  try {
-    await printerBackendRequest("bambu_select_device", { printer_id: printerId, device_id: deviceId });
-    await hidratarImpressorasSeNecessario(true);
-    fecharPopup();
-    mostrarToast("Impressora BambuLab selecionada.", "sucesso", 3600);
-    abrirPainelImpressoraSimplifica(printerId);
-  } catch (erro) {
-    mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || "Não foi possível selecionar a impressora.", "erro", 5200);
-  }
+  return ["fila", "impressao", "prontos", "impressoras"].includes(tab) ? tab : "fila";
 }
 
 function trocarAbaProducao(tab = "fila") {
@@ -26307,6 +27290,10 @@ function payloadTarefaProducao(job, companyId) {
     filament_weight_grams: Number(job.filamentWeightGrams ?? job.filament_weight_grams) || null,
     estimated_print_time_minutes: Number(job.estimatedPrintTimeMinutes ?? job.estimated_print_time_minutes) || null,
     actual_print_time_minutes: Number(job.actualPrintTimeMinutes ?? job.actual_print_time_minutes) || null,
+    waste_grams: Number(job.wasteGrams ?? job.waste_grams) || 0,
+    waste_time_minutes: Number(job.wasteTimeMinutes ?? job.waste_time_minutes) || 0,
+    waste_cost: Number(job.wasteCost ?? job.waste_cost) || 0,
+    waste_records: Array.isArray(job.wasteRecords) ? job.wasteRecords : [],
     priority: job.priority || "normal",
     priority_reason: String(job.priorityReason || job.priority_reason || "").trim() || null,
     blocked_reason: String(job.blockedReason || job.blocked_reason || "").trim() || null,
@@ -26399,6 +27386,10 @@ function mapearTarefaProducaoRemota(job = {}) {
     filamentWeightGrams: job.filament_weight_grams,
     estimatedPrintTimeMinutes: job.estimated_print_time_minutes,
     actualPrintTimeMinutes: job.actual_print_time_minutes,
+    wasteGrams: job.waste_grams,
+    wasteTimeMinutes: job.waste_time_minutes,
+    wasteCost: job.waste_cost,
+    wasteRecords: Array.isArray(job.waste_records) ? job.waste_records : [],
     priorityReason: job.priority_reason,
     blockedReason: job.blocked_reason,
     queuePosition: job.queue_position,
@@ -26479,9 +27470,12 @@ function getProductionItemMaterial(item = {}) {
   const materialLink = getMateriaisItem(item)[0] || {};
   const material = getMaterialEstoque(materialLink.materialId) || {};
   return {
+    id: materialLink.materialId || material.id || "",
     name: materialLink.nome || material.nome || "",
     color: materialLink.cor || material.cor || item.cor || "",
-    grams: Number(materialLink.gramas || materialLink.quantidade || item.pesoGramas || item.gramas || 0) || 0
+    grams: Number(materialLink.gramas || materialLink.quantidade || item.pesoGramas || item.gramas || 0) || 0,
+    unit: material.unidade || material.unit || "kg",
+    unitCost: Math.max(0, Number(material.custoUnitario || material.unit_cost) || 0)
   };
 }
 
@@ -26609,6 +27603,8 @@ function confirmarLiberacaoProducao(event, orderId) {
       quantity: Math.max(1, Number(item.qtd) || 1),
       customer: clienteDoPedido(pedido),
       material: material.name,
+      materialId: material.id,
+      material_id: material.id,
       color: material.color,
       filamentWeightGrams: material.grams,
       filament_weight_grams: material.grams,
@@ -26971,17 +27967,17 @@ function renderTarefaProducao(job = {}) {
         <span><small>Tempo estimado</small><strong>${estimado ? `${estimado} min` : "Não informado"}</strong></span>
         ${real ? `<span><small>Tempo real</small><strong>${real} min${variacaoTempo === null ? "" : ` • ${variacaoTempo > 0 ? "+" : ""}${variacaoTempo}%`}</strong></span>` : ""}
         <span><small>Prazo</small><strong>${escaparHtml(job.dueDate || "Sem prazo")}</strong></span>
+        ${job.bambuPrinterId || job.bambu_printer_id ? `<span><small>Mesas concluídas</small><strong>${Number(job.printPlatesCompleted || job.print_plates_completed) || 0}/${Math.max(1, Number(job.printPlatesTotal || job.print_plates_total) || 1)}</strong></span><span><small>Falhas</small><strong>${Number(job.printFailedAttempts || job.print_failed_attempts) || 0}</strong></span>` : ""}
       </div>
       ${job.blockedReason ? `<p class="production-pending-note">${escaparHtml(PRODUCTION_PENDING_REASONS[job.blockedReason] || job.blockedReason)}</p>` : ""}
       <div class="production-job-controls">
-        <label><span>Status</span><select onchange="atualizarStatusTarefaProducao('${escaparAttr(job.id)}',this.value)">${Object.entries(PRODUCTION_STATUS_META).map(([value,meta]) => `<option value="${value}" ${job.status === value ? "selected" : ""}>${escaparHtml(meta.label)}</option>`).join("")}</select></label>
+        <label><span>Etapa da impressão</span><select onchange="atualizarStatusTarefaProducao('${escaparAttr(job.id)}',this.value)">${[["na_fila","Em fila"],["em_impressao","Imprimindo"],["pronto_para_entrega","Pronto"]].map(([value,label]) => `<option value="${value}" ${getPrinterQueueStage(job) === getPrinterQueueStage({ status: value }) ? "selected" : ""}>${label}</option>`).join("")}</select></label>
         <label><span>Impressora</span><select onchange="atribuirImpressoraTarefa('${escaparAttr(job.id)}',this.value)">${renderProductionPrinterOptions(job.printerId)}</select></label>
         <label><span>Prioridade</span><select onchange="alterarPrioridadeTarefaProducao('${escaparAttr(job.id)}',this.value)">${[["normal","Normal"],["alta","Alta"],["urgente","Urgente"]].map(([value,label]) => `<option value="${value}" ${priority === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
       </div>
       <div class="production-job-actions">
-        <button class="btn secondary" type="button" onclick="visualizarPedido('${escaparAttr(job.orderId)}')">Ver pedido #${escaparHtml(job.orderId || "")}</button>
-        ${placasRestantes && !["cancelado", "falhou", "entregue"].includes(job.status) ? `<button class="btn" type="button" onclick="registrarPlacaConcluidaProducao('${escaparAttr(job.id)}')">Concluir 1 placa</button>` : ""}
-        <button class="btn secondary" type="button" onclick="abrirAjusteDadosImpressao('${escaparAttr(job.id)}')">Peso e tempo</button>
+        <button class="btn secondary" type="button" onclick="visualizarPedido(${Number(job.orderId)})">Ver pedido</button>
+        ${job.bambuPrinterId || job.bambu_printer_id ? `<button class="btn secondary" type="button" onclick="abrirVinculoImpressaoBambuPedido('${escaparAttr(job.bambuPrinterId || job.bambu_printer_id)}','${escaparAttr(job.id)}')">Editar vínculo</button>` : ""}
         ${job.status === "falhou" || job.status === "reimpressao_necessaria" ? `<button class="btn" type="button" onclick="criarReimpressaoProducao('${escaparAttr(job.id)}')">Criar reimpressão</button>` : ""}
         ${job.status === "controle_qualidade" ? `<button class="btn" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','aprovado')">Aprovar</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','ajuste')">Precisa ajuste</button><button class="btn secondary" type="button" onclick="avaliarQualidadeProducao('${escaparAttr(job.id)}','reimpressao')">Reimprimir</button>` : ""}
       </div>
@@ -26992,7 +27988,9 @@ function renderTarefaProducao(job = {}) {
 
 function getResumoCapacidadeProducao() {
   const ativos = productionJobs.filter((job) => !["pronto_para_entrega", "entregue", "cancelado"].includes(job.status));
-  const minutosFila = ativos.reduce((total, job) => total + (Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0);
+  const externos = getImpressoesExternasMonitoradas();
+  const minutosFila = ativos.reduce((total, job) => total + (Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0)
+    + externos.reduce((total, item) => total + Math.max(0, Number(item.latest_status?.remaining_seconds) || 0) / 60, 0);
   const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && !["inativa", "manutencao"].includes(printer.status));
   const diasCapacidade = impressorasAtivas.length ? minutosFila / (impressorasAtivas.length * 24 * 60) : 0;
   const atrasados = ativos.filter((job) => {
@@ -27000,7 +27998,7 @@ function getResumoCapacidadeProducao() {
     return prazo && prazo.getTime() < Date.now();
   }).length;
   return {
-    tarefas: ativos.length,
+    tarefas: ativos.length + externos.length,
     horas: minutosFila / 60,
     impressoras: impressorasAtivas.length,
     diasCapacidade,
@@ -27008,14 +28006,210 @@ function getResumoCapacidadeProducao() {
   };
 }
 
+function getImpressoesExternasMonitoradas() {
+  return getImpressorasAtivas().filter((printer) => {
+    if (getPrinterCurrentStatus(printer) !== "printing") return false;
+    return !productionJobs.some((job) => {
+      if (!["em_impressao", "pausado"].includes(job.status)) return false;
+      return String(getRegisteredPrinterForProductionJob(job)?.id || "") === String(printer.id);
+    });
+  });
+}
+
+function renderImpressaoExternaMonitorada(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const progresso = getPrinterProgressValue(latest.progress_percent);
+  return `<article class="production-job-card production-status-em_impressao" data-printer-live-id="${escaparAttr(impressora.id)}">
+    <div class="production-job-head"><div><span class="eyebrow">Impressão detectada</span><h3 data-printer-live="production-task">${escaparHtml(latest.current_file || "Impressão em andamento")}</h3></div><span class="status-badge">Imprimindo</span></div>
+    <div class="production-job-meta"><span><small>Impressora</small><strong>${escaparHtml(impressora.name || "Bambu")}</strong></span><span><small>Progresso</small><strong data-printer-live="progress-text">${Number.isFinite(progresso) ? `${Math.round(progresso)}%` : "—"}</strong></span><span><small>Tempo restante</small><strong data-printer-live="remaining">${escaparHtml(getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")}</strong></span></div>
+    <p class="muted">Impressão iniciada fora do Simplifica · nenhum pedido vinculado.</p>
+    <div class="production-job-actions"><button class="btn" type="button" onclick="abrirVinculoImpressaoBambuPedido('${escaparAttr(impressora.id)}')">Vincular ao pedido</button><button class="btn secondary" type="button" onclick="abrirPainelImpressora('${escaparAttr(impressora.id)}')">Abrir monitoramento</button></div>
+  </article>`;
+}
+
+function getTarefaVinculadaImpressoraBambu(printerId = "") {
+  return productionJobs.find((job) => String(job.bambuPrinterId || job.bambu_printer_id || "") === String(printerId)
+    && !["pronto_para_entrega", "entregue", "cancelado"].includes(job.status)) || null;
+}
+
+function abrirVinculoImpressaoBambuPedido(printerId = "", jobId = "") {
+  const impressora = getPrinterById(printerId);
+  const vinculoAtual = getProductionJob(jobId);
+  const candidatas = productionJobs.filter((job) => !["pronto_para_entrega", "entregue", "cancelado"].includes(job.status));
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup) return;
+  if (!candidatas.length) return mostrarToast("Não há pedidos ativos na fila para vincular.", "info", 3600);
+  const arquivo = impressora.latest_status?.current_file || "Impressão em andamento";
+  const totalAtual = Math.max(1, Number(vinculoAtual?.printPlatesTotal || vinculoAtual?.print_plates_total) || 1);
+  const variasMesas = totalAtual > 1;
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()"><form class="modal-card printer-link-print-modal" id="bambuOrderLinkForm" onclick="event.stopPropagation()"><div class="modal-header"><div><span class="eyebrow">${vinculoAtual ? "Editar vínculo" : "Vincular impressão"}</span><h2>${escaparHtml(arquivo)}</h2></div><button class="icon-button" type="button" onclick="fecharPopup()">✕</button></div><label class="field"><span>Pedido da fila</span><select id="bambuOrderJob" required ${vinculoAtual ? "disabled" : ""}><option value="">Selecione</option>${candidatas.map((job) => `<option value="${escaparAttr(job.id)}" ${String(job.id) === String(vinculoAtual?.id || "") ? "selected" : ""}>Pedido #${escaparHtml(job.orderId || "-")} · ${escaparHtml(job.itemName || "Item")}</option>`).join("")}</select></label><label class="printer-bambu-consent"><input id="bambuOrderMultiPlate" type="checkbox" ${variasMesas ? "checked" : ""} onchange="document.getElementById('bambuOrderPlatesField')?.toggleAttribute('hidden',!this.checked)"><span>Este pedido usa várias mesas/placas</span></label><label class="field" id="bambuOrderPlatesField" ${variasMesas ? "" : "hidden"}><span>Quantidade de mesas/placas</span><input id="bambuOrderPlates" type="number" min="2" max="999" value="${variasMesas ? totalAtual : 2}"></label><p class="muted">Com uma placa, a conclusão da máquina marca o pedido como impresso. Com várias, cada placa precisa ser confirmada até atingir a quantidade definida.</p><div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">${vinculoAtual ? "Salvar vínculo" : "Vincular e acompanhar"}</button></div></form></div>`;
+  document.getElementById("bambuOrderLinkForm")?.addEventListener("submit", (event) => vincularImpressaoBambuPedido(event, printerId, jobId));
+}
+
+function vincularImpressaoBambuPedido(event, printerId = "", jobId = "") {
+  event.preventDefault();
+  const job = getProductionJob(jobId || document.getElementById("bambuOrderJob")?.value || "");
+  const impressora = getPrinterById(printerId);
+  if (!job || !impressora) return;
+  const productionPrinter = productionPrinters.find((printer) => String(getRegisteredPrinterForProductionPrinter(printer)?.id || "") === String(printerId));
+  job.printerId = job.printer_id = productionPrinter?.id || job.printerId || "";
+  job.bambuPrinterId = job.bambu_printer_id = printerId;
+  job.bambuCurrentFile = job.bambu_current_file = impressora.latest_status?.current_file || "";
+  const variasMesas = document.getElementById("bambuOrderMultiPlate")?.checked === true;
+  job.printPlatesTotal = job.print_plates_total = variasMesas ? Math.max(2, Number(document.getElementById("bambuOrderPlates")?.value) || 2) : 1;
+  job.printPlatesCompleted = job.print_plates_completed = Number(job.printPlatesCompleted || job.print_plates_completed) || 0;
+  const old = job.status;
+  job.status = "em_impressao";
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, jobId ? "bambu_vinculo_editado" : "bambu_vinculada", old, job.status, `${job.printPlatesTotal} placa(s) · Arquivo: ${job.bambuCurrentFile || "não informado"}`);
+  salvarProducaoManual("bambu-vinculada-pedido");
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast(jobId ? "Vínculo de impressão atualizado." : "Impressão vinculada ao pedido.", "sucesso");
+}
+
+function abrirConfirmacaoConclusaoImpressaoBambu(printerId = "") {
+  const job = getTarefaVinculadaImpressoraBambu(printerId);
+  const popup = document.getElementById("popup");
+  if (!job || !popup) return;
+  const concluidas = (Number(job.printPlatesCompleted || job.print_plates_completed) || 0) + 1;
+  const total = Math.max(1, Number(job.printPlatesTotal || job.print_plates_total) || 1);
+  if (total === 1) return confirmarConclusaoImpressaoBambu(job.id);
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true"><section class="modal-card printer-print-finish-modal"><div class="modal-header"><div><span class="eyebrow">Impressão finalizada</span><h2>${escaparHtml(job.itemName || "Pedido")}</h2></div></div><p>A Bambu terminou a placa ${Math.min(concluidas, total)} de ${total}. Confirme esta conclusão para atualizar a produção.</p><div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup();renderizarPreservandoScroll()">Ainda não</button><button class="btn" type="button" onclick="confirmarConclusaoImpressaoBambu('${escaparAttr(job.id)}')">Confirmar placa concluída</button></div></section></div>`;
+}
+
+function getResumoDesperdicioImpressora(printerId = "") {
+  const jobs = productionJobs.filter((job) => String(job.bambuPrinterId || job.bambu_printer_id || "") === String(printerId));
+  return jobs.reduce((total, job) => ({
+    grams: total.grams + Math.max(0, Number(job.wasteGrams || job.waste_grams) || 0),
+    minutes: total.minutes + Math.max(0, Number(job.wasteTimeMinutes || job.waste_time_minutes) || 0),
+    cost: total.cost + Math.max(0, Number(job.wasteCost || job.waste_cost) || 0),
+    attempts: total.attempts + (Array.isArray(job.wasteRecords) ? job.wasteRecords.length : 0)
+  }), { grams: 0, minutes: 0, cost: 0, attempts: 0 });
+}
+
+function renderResumoDesperdicioImpressora(printerId = "") {
+  const resumo = getResumoDesperdicioImpressora(printerId);
+  if (!resumo.attempts) return "";
+  const tempo = resumo.minutes > 0 ? (getPrinterMonitoringService()?.formatDuration(Math.round(resumo.minutes * 60)) || `${Math.round(resumo.minutes)} min`) : "—";
+  return `<section class="printer-waste-summary"><div><span class="eyebrow">Resumo de perdas</span><strong>${resumo.attempts} ocorrência(s) registrada(s)</strong></div><div><span>Material</span><strong>${resumo.grams.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} g</strong></div><div><span>Tempo</span><strong>${tempo}</strong></div><div><span>Custo estimado</span><strong>${formatarMoeda(resumo.cost)}</strong></div></section>`;
+}
+
+function getMaterialPerdidoImpressao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0] || {};
+  const base = getProductionItemMaterial(item);
+  const material = getMaterialEstoque(job.materialId || job.material_id || base.id) || normalizarEstoque().find((entry) => String(entry.nome || "").toLowerCase() === String(job.material || base.name || "").toLowerCase()) || {};
+  return {
+    ...material,
+    id: material.id || job.materialId || job.material_id || base.id || "",
+    nome: material.nome || job.material || base.name || "Material da impressão",
+    unidade: material.unidade || material.unit || base.unit || "kg",
+    custoUnitario: Math.max(0, Number(material.custoUnitario || material.unit_cost || base.unitCost) || 0),
+    estimatedGrams: Math.max(0, Number(job.filamentWeightGrams || job.filament_weight_grams || base.grams) || 0)
+  };
+}
+
+function calcularCustoDesperdicioImpressao(material = {}, grams = 0, minutes = 0, printerId = "") {
+  const unit = String(material.unidade || material.unit || "kg").toLowerCase();
+  const materialQuantity = unit === "kg" ? grams / 1000 : unit === "g" ? grams : 0;
+  const materialCost = materialQuantity * Math.max(0, Number(material.custoUnitario || material.unit_cost) || 0);
+  const printer = getPrinterById(printerId) || getBambuLanPrinter(printerId) || {};
+  const machineCost = (Math.max(0, Number(printer.hourly_cost) || 0) / 60) * Math.max(0, minutes);
+  return materialCost + machineCost;
+}
+
+function abrirRegistroDesperdicioImpressao(printerId = "", jobId = "") {
+  const job = getProductionJob(jobId) || getTarefaVinculadaImpressoraBambu(printerId);
+  const popup = document.getElementById("popup");
+  if (!job || !popup) return;
+  const material = getMaterialPerdidoImpressao(job);
+  const placas = Math.max(1, Number(job.printPlatesTotal || job.print_plates_total) || 1);
+  const grams = Math.max(0, material.estimatedGrams / placas);
+  const minutes = Math.max(0, (Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0) / placas);
+  popup.innerHTML = `<div class="modal-backdrop" role="dialog" aria-modal="true"><form class="modal-card printer-print-finish-modal printer-waste-modal" id="printerWasteForm"><div class="modal-header"><div><span class="eyebrow">Impressão interrompida</span><h2>Registrar perda desta tentativa</h2></div></div><p>Confirme a estimativa para manter o histórico e o estoque coerentes. O material já foi baixado ao liberar o pedido; este registro o classifica como desperdício, sem uma segunda baixa.</p><div class="printer-waste-inputs"><label class="field"><span>Material perdido (g)</span><input id="printerWasteGrams" type="number" min="0" step="0.1" value="${escaparAttr(grams.toFixed(1))}"></label><label class="field"><span>Tempo perdido (min)</span><input id="printerWasteMinutes" type="number" min="0" step="1" value="${escaparAttr(Math.round(minutes))}"></label></div><p class="printer-waste-estimate" id="printerWasteEstimate">Material: ${escaparHtml(material.nome)} · custo estimado será calculado ao registrar.</p><label class="field"><span>Observação</span><input id="printerWasteReason" maxlength="280" placeholder="Ex.: descolou da mesa"></label><div class="printer-wizard-actions"><button class="btn ghost" type="button" onclick="fecharPopup();renderizarPreservandoScroll()">Ignorar por agora</button><button class="btn" type="submit">Registrar desperdício</button></div></form></div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Registrar desperdício" });
+  document.getElementById("printerWasteForm")?.addEventListener("submit", (event) => confirmarDesperdicioImpressao(event, printerId, job.id));
+}
+
+function confirmarDesperdicioImpressao(event, printerId = "", jobId = "") {
+  event.preventDefault();
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  const grams = Math.max(0, Number(document.getElementById("printerWasteGrams")?.value) || 0);
+  const minutes = Math.max(0, Number(document.getElementById("printerWasteMinutes")?.value) || 0);
+  const material = getMaterialPerdidoImpressao(job);
+  const reason = String(document.getElementById("printerWasteReason")?.value || "Falha ou cancelamento da impressão").trim();
+  const cost = calcularCustoDesperdicioImpressao(material, grams, minutes, printerId);
+  const key = `printer_waste:${job.id}:${Number(job.printFailedAttempts || job.print_failed_attempts) || 1}`;
+  if (Array.isArray(job.wasteRecords) && job.wasteRecords.some((item) => item.idempotencyKey === key)) return;
+  const now = new Date().toISOString();
+  const record = { idempotencyKey: key, grams, minutes, cost, reason, created_at: now, printerId };
+  job.wasteRecords = [...(Array.isArray(job.wasteRecords) ? job.wasteRecords : []), record];
+  job.wasteGrams = job.waste_grams = (Number(job.wasteGrams || job.waste_grams) || 0) + grams;
+  job.wasteTimeMinutes = job.waste_time_minutes = (Number(job.wasteTimeMinutes || job.waste_time_minutes) || 0) + minutes;
+  job.wasteCost = job.waste_cost = (Number(job.wasteCost || job.waste_cost) || 0) + cost;
+  job.updated_at = now;
+  InventoryService.recordMovement(`Desperdício de impressão: ${material.nome} (${grams.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} g)`, InventoryService.createMovementMetadata({ movementType: "desperdicio_impressao", material, quantity: 0, before: Number(material.qtd) || 0, after: Number(material.qtd) || 0, reason, orderId: job.orderId || job.order_id || "", orderItemId: job.itemIndex ?? job.item_index ?? "", printerId, productionId: job.id, wasteGrams: grams, wasteMinutes: minutes, wasteCost: cost, idempotencyKey: key }));
+  registrarEventoProducao(job.id, "desperdicio_impressao_registrado", "reimpressao_necessaria", "reimpressao_necessaria", `${grams.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} g · ${Math.round(minutes)} min · ${formatarMoeda(cost)} · ${reason}`);
+  salvarProducaoManual("desperdicio-impressao-registrado");
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast("Desperdício registrado no histórico e no estoque.", "sucesso", 4200);
+}
+
+function registrarFalhaImpressaoBambu(printerId = "") {
+  const job = getTarefaVinculadaImpressoraBambu(printerId);
+  const popup = document.getElementById("popup");
+  if (!job) return;
+  const old = job.status;
+  job.printFailedAttempts = job.print_failed_attempts = (Number(job.printFailedAttempts || job.print_failed_attempts) || 0) + 1;
+  job.status = "reimpressao_necessaria";
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, "falha_bambu_detectada", old, job.status, "Impressão cancelada ou com erro; nenhuma mesa foi contabilizada");
+  salvarProducaoManual("bambu-falha-detectada");
+  if (!popup) return;
+  abrirRegistroDesperdicioImpressao(printerId, job.id);
+}
+
+function prepararReimpressaoBambu(jobId = "") {
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  const old = job.status;
+  job.status = "na_fila";
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, "reimpressao_bambu_solicitada", old, job.status, "Mesma mesa aguardando nova tentativa");
+  salvarProducaoManual("bambu-reimpressao-fila");
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast("Mesa devolvida para a fila sem alterar as concluídas.", "sucesso");
+}
+
+function confirmarConclusaoImpressaoBambu(jobId = "") {
+  const job = getProductionJob(jobId);
+  if (!job) return;
+  const old = job.status;
+  const total = Math.max(1, Number(job.printPlatesTotal || job.print_plates_total) || 1);
+  const completed = Math.min(total, (Number(job.printPlatesCompleted || job.print_plates_completed) || 0) + 1);
+  job.printPlatesCompleted = job.print_plates_completed = completed;
+  const concluido = completed >= total;
+  job.status = concluido ? "pronto_para_entrega" : "na_fila";
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, "mesa_bambu_finalizada", old, job.status, concluido ? `${completed}/${total} placa(s) confirmadas · Pedido marcado como impresso` : `${completed}/${total} placa(s) confirmadas · Aguardando as demais`);
+  salvarProducaoManual("bambu-conclusao-confirmada");
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast(concluido ? "Pedido movido para Pronto." : `Placa ${completed} de ${total} confirmada.`, "sucesso");
+}
+
 function renderResumoCapacidadeProducao() {
   const resumo = getResumoCapacidadeProducao();
   return `
     <section class="production-capacity-summary" aria-label="Resumo da capacidade produtiva">
-      <div><span>Fila ativa</span><strong>${resumo.tarefas}</strong><small>tarefas</small></div>
-      <div><span>Carga estimada</span><strong>${resumo.horas.toFixed(1)}h</strong><small>de impressão</small></div>
-      <div><span>Capacidade</span><strong>${resumo.impressoras ? `${resumo.diasCapacidade.toFixed(1)} dias` : "Sem máquina"}</strong><small>${resumo.impressoras} impressora(s) disponível(is)</small></div>
-      <div class="${resumo.atrasados ? "is-alert" : ""}"><span>Atrasadas</span><strong>${resumo.atrasados}</strong><small>fora do prazo</small></div>
+      <div><i>${renderUiIcon("pedidos")}</i><span>Fila ativa</span><strong>${resumo.tarefas}</strong><small>tarefas</small></div>
+      <div><i>${renderUiIcon("historico")}</i><span>Carga estimada</span><strong>${resumo.horas.toFixed(1)}h</strong><small>de impressão</small></div>
+      <div><i>${renderUiIcon("calendar")}</i><span>Capacidade</span><strong>${resumo.impressoras ? `${resumo.diasCapacidade.toFixed(1)} dias` : "Sem máquina"}</strong><small>${resumo.impressoras} impressora(s) disponível(is)</small></div>
+      <div class="${resumo.atrasados ? "is-alert" : ""}"><i>${renderUiIcon("alerta")}</i><span>Atrasadas</span><strong>${resumo.atrasados}</strong><small>fora do prazo</small></div>
     </section>
   `;
 }
@@ -27031,9 +28225,10 @@ function renderImpressorasProducao() {
       ${printers.length ? printers.map((printer) => {
         const current = productionJobs.find((job) => String(job.printerId) === String(printer.id) && job.status === "em_impressao");
         const next = reordenarFilaProducao().find((job) => !job.printerId || String(job.printerId) === String(printer.id));
-        return `<article class="production-printer-card">
-          <div class="production-printer-head"><span>${renderUiIcon("impressoras")}</span><div><strong>${escaparHtml(printer.name)}</strong><small>${escaparHtml(printer.printerType || "FDM")} · ${escaparHtml(PRODUCTION_PRINTER_STATUS[printer.status] || "Disponível")}</small></div></div>
-          <div class="production-printer-current"><span><small>Em execução</small><strong>${escaparHtml(current?.itemName || "Nenhuma tarefa")}</strong></span><span><small>Próxima sugerida</small><strong>${escaparHtml(next?.itemName || "Sem sugestão")}</strong></span></div>
+        const live = getProductionPrinterLiveInfo(printer);
+        return `<article class="production-printer-card is-clickable" data-printer-live-id="${escaparAttr(live.monitored?.id || "")}" role="button" tabindex="0" onclick="if(!event.target.closest('button,select')) abrirPainelImpressoraProducao('${escaparAttr(printer.id)}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button,select')){event.preventDefault();abrirPainelImpressoraProducao('${escaparAttr(printer.id)}')}">
+          <div class="production-printer-head"><span>${renderUiIcon("impressoras")}</span><div><strong>${escaparHtml(printer.name)}</strong><small>${escaparHtml(printer.printerType || "FDM")} · <b data-printer-live="production-status">${escaparHtml(live.statusLabel)}</b></small></div></div>
+          <div class="production-printer-current"><span><small>Em execução</small><strong data-printer-live="production-task">${escaparHtml(current?.itemName || live.taskName || "Nenhuma tarefa")}</strong></span><span><small>Próxima sugerida</small><strong>${escaparHtml(next?.itemName || "Sem sugestão")}</strong></span></div>
           <div class="production-printer-actions">
             <select onchange="alterarStatusImpressoraProducao('${escaparAttr(printer.id)}',this.value)">${Object.entries(PRODUCTION_PRINTER_STATUS).map(([value,label]) => `<option value="${value}" ${printer.status === value ? "selected" : ""}>${label}</option>`).join("")}</select>
             <button class="icon-action-button" type="button" onclick="abrirCadastroImpressoraProducao('${escaparAttr(printer.id)}')" title="Editar">${renderUiIcon("edit")}</button>
@@ -27046,7 +28241,9 @@ function renderImpressorasProducao() {
 
 function renderPerfilImpressoraProducao() {
   const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa");
-  const emUso = impressorasAtivas.find((printer) => printer.status === "ocupada") || impressorasAtivas[0];
+  const emUso = impressorasAtivas.find((printer) => getProductionPrinterLiveInfo(printer).printing)
+    || impressorasAtivas.find((printer) => printer.status === "ocupada")
+    || impressorasAtivas[0];
   if (!emUso) {
     return `<section class="calc-active-profile production-active-printer">
       <div class="calc-printer-art">${renderUiIcon("producao")}</div>
@@ -27056,11 +28253,12 @@ function renderPerfilImpressoraProducao() {
   }
   const modelo = emUso.name || "Impressora 3D";
   const tipo = String(emUso.printerType || emUso.printer_type || "FDM").toUpperCase();
-  const status = PRODUCTION_PRINTER_STATUS[emUso.status] || "Disponível";
-  return `<section class="calc-active-profile production-active-printer is-clickable" role="button" tabindex="0" onclick="abrirImpressoraAtivaProducao('${escaparAttr(emUso.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirImpressoraAtivaProducao('${escaparAttr(emUso.id)}')}" aria-label="Abrir painel da impressora ${escaparAttr(modelo)}">
+  const live = getProductionPrinterLiveInfo(emUso);
+  const status = live.statusLabel;
+  return `<section class="calc-active-profile production-active-printer is-clickable" data-printer-live-id="${escaparAttr(live.monitored?.id || "")}" role="button" tabindex="0" onclick="abrirPainelImpressoraProducao('${escaparAttr(emUso.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrirPainelImpressoraProducao('${escaparAttr(emUso.id)}')}" aria-label="Abrir painel da impressora ${escaparAttr(modelo)}">
     <div class="calc-printer-art">${renderUiIcon("producao")}</div>
     <div><span>Impressora ativa</span><strong>${escaparHtml(modelo)}</strong><small>Modelo: ${escaparHtml(tipo)}${emUso.nozzleSize ? ` · Bico ${escaparHtml(emUso.nozzleSize)}` : ""}</small></div>
-    <span class="status-badge production-printer-profile-status">${escaparHtml(status)}</span>
+    <span class="status-badge production-printer-profile-status"><span data-printer-live="production-status">${escaparHtml(status)}</span> ›</span>
   </section>`;
 }
 
@@ -27109,12 +28307,9 @@ function getTarefasProducaoPorAba(tab = getProductionTab()) {
     const data = new Date(valorData);
     return Number.isNaN(data.getTime()) || data >= inicioPeriodo;
   });
-  if (tab === "fila") jobs = jobs.filter((job) => ["liberado_para_producao", "na_fila", "proximo", "aguardando_impressora"].includes(job.status));
+  if (tab === "fila") jobs = jobs.filter((job) => getPrinterQueueStage(job) === "fila");
   if (tab === "impressao") jobs = jobs.filter((job) => ["em_impressao", "pausado", "pos_processamento", "controle_qualidade"].includes(job.status));
-  if (tab === "pendencias") jobs = jobs.filter((job) => ["pendente", "falhou", "reimpressao_necessaria"].includes(job.status));
   if (tab === "prontos") jobs = jobs.filter((job) => job.status === "pronto_para_entrega");
-  if (tab === "entregues") jobs = jobs.filter((job) => job.status === "entregue");
-  if (tab === "pagos") jobs = jobs.filter((job) => calcularResumoFinanceiroPedido(getProductionOrder(job) || {}).statusFinanceiro === "pago_total");
   if (printerFilter) jobs = jobs.filter((job) => String(job.printerId || "") === printerFilter);
   if (busca) jobs = jobs.filter((job) => normalizarTextoBusca(`${job.productionCode} ${job.orderId} ${job.customer} ${job.itemName} ${job.material} ${job.color}`).includes(busca));
   return jobs.sort(compararTarefasProducao);
@@ -27124,41 +28319,33 @@ function renderProducao() {
   if (!temAcessoCompleto()) return renderBloqueioPlano("Produção");
   const tab = getProductionTab();
   const tabs = [
-    ["fila", "Fila"],
-    ["impressao", "Em impressão"],
-    ["pendencias", "Pendências"],
-    ["prontos", "Prontos"],
-    ["historico", "Histórico"],
-    ["impressoras", "Impressoras"]
+    ["fila", "Fila", "pedidos"],
+    ["impressao", "Em impressão", "producao"],
+    ["prontos", "Prontos", "check"],
+    ["impressoras", "Impressoras", "impressoras"]
   ];
-  const jobs = ["impressoras", "historico"].includes(tab) ? [] : getTarefasProducaoPorAba(tab);
-  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length;
-  const resumoCabecalho = tab === "impressoras"
-    ? `${impressorasAtivas} impressora(s)`
-    : tab === "historico"
-      ? `${getHistoricoProducaoNoPeriodo().length} concluída(s)`
-    : `${productionJobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).length} ativa(s)`;
+  const jobs = tab === "impressoras" ? [] : getTarefasProducaoPorAba(tab);
+  const impressoesExternas = tab === "impressao" ? getImpressoesExternasMonitoradas() : [];
+  const totalAtivas = productionJobs.filter((job) => ["em_impressao", "pausado"].includes(job.status)).length + getImpressoesExternasMonitoradas().length;
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-production" data-ui-version="v3" data-ui3-screen="producao">
       <div class="card-header production-page-header">
-        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Impressões vinculadas aos pedidos, com controle de placas concluídas.</p></div>
-        <span class="status-badge">${resumoCabecalho}</span>
+        <div><h2>${renderUiIcon("producao")} Produção</h2><p class="muted">Visão geral da produção da sua empresa</p></div>
+        <span class="status-badge">${totalAtivas} ativa(s)</span>
       </div>
+      <label class="production-search production-search-primary">${renderUiIcon("search")}<input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
       ${renderPerfilImpressoraProducao()}
       ${renderResumoCapacidadeProducao()}
       <div class="production-tabs" role="tablist">
-        ${tabs.map(([value,label]) => {
+        ${tabs.map(([value,label,icon]) => {
           const quantidade = value === "impressoras"
-            ? impressorasAtivas
-            : value === "historico"
-              ? getHistoricoProducaoNoPeriodo().length
-            : getTarefasProducaoPorAba(value).length;
-          return `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')"><span>${escaparHtml(label)}</span><strong>${quantidade}</strong></button>`;
+            ? productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa").length
+            : getTarefasProducaoPorAba(value).length + (value === "impressao" ? getImpressoesExternasMonitoradas().length : 0);
+          return `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')"><i aria-hidden="true">${renderUiIcon(icon)}</i><span>${escaparHtml(label)}</span><strong>${quantidade}</strong></button>`;
         }).join("")}
       </div>
       ${tab === "impressoras" ? renderImpressorasProducao() : tab === "historico" ? renderHistoricoProducao() : `
         <div class="production-filter-bar">
-          <label class="production-search">${renderUiIcon("search")}<input value="${escaparAttr(window.__productionSearch || "")}" placeholder="Pedido, cliente, item ou material" oninput="window.__productionSearch=this.value;agendarRenderizacaoPreservandoScroll(180)"></label>
           <select aria-label="Filtrar por impressora" onchange="window.__productionPrinterFilter=this.value;renderizarPreservandoScroll()">${renderProductionPrinterOptions(window.__productionPrinterFilter || "")}</select>
           <select aria-label="Filtrar período da produção" onchange="window.__productionPeriod=this.value;renderizarPreservandoScroll()">
             <option value="semana" ${(window.__productionPeriod || "semana") === "semana" ? "selected" : ""}>Esta semana</option>
@@ -27167,7 +28354,7 @@ function renderProducao() {
             <option value="todos" ${window.__productionPeriod === "todos" ? "selected" : ""}>Todo o período</option>
           </select>
         </div>
-        <div class="production-job-list">${jobs.length ? jobs.map(renderTarefaProducao).join("") : `<p class="empty">Nenhuma tarefa nesta etapa.</p>`}</div>
+        <div class="production-job-list">${jobs.length || impressoesExternas.length ? `${impressoesExternas.map(renderImpressaoExternaMonitorada).join("")}${jobs.map(renderTarefaProducao).join("")}` : `<div class="production-empty-state"><i>${renderUiIcon("pedidos")}</i><div><strong>Nenhuma tarefa nesta etapa.</strong><span>Adicione ou filtre para visualizar tarefas aqui.</span></div></div>`}</div>
       `}
     </section>
   `;
@@ -28174,13 +29361,13 @@ function abrirPerfilClienteSaas(id) {
   window.__clienteSaasSelecionadoId = String(id);
   window.__clienteSaasPerfilId = String(id);
   window.__superAdminTab = "clientePerfil";
-  renderApp();
+  renderAppComTransicaoNavegacao("forward");
 }
 
 function voltarClientesSaas() {
   window.__superAdminTab = "clientes";
   window.__clienteSaasPerfilId = "";
-  renderApp();
+  renderAppComTransicaoNavegacao("back");
 }
 
 function getClienteSaasPorId(id) {
@@ -32037,8 +33224,7 @@ function getSeriesMensais(campo = "clientes") {
 
 function renderSuperAdminDashboard() {
   const estadoTelemetria = getEstadoTelemetriaSuperadmin();
-  if (estadoTelemetria.sugestoes === "idle") setTimeout(() => carregarSugestoesSupabase({ renderizar: true }), 0);
-  if (estadoTelemetria.diagnosticos === "idle") setTimeout(() => carregarDiagnosticosSuperadminSupabase({ renderizar: true }), 0);
+  if (estadoTelemetria.sugestoes === "idle" || estadoTelemetria.diagnosticos === "idle") carregarDadosSecundariosSuperadmin();
   const metricas = getSuperAdminMetricas();
   const total = Math.max(metricas.total, 1);
   const offline = Math.max(metricas.total - metricas.ativos, 0);
@@ -33828,20 +35014,40 @@ function voltarSuperAdminParaErp() {
   trocarTela("dashboard", { resetStack: true, skipStack: true, menuRoot: true, replaceHistory: true });
 }
 
+const SUPERADMIN_SECONDARY_LOAD_DELAYS = Object.freeze({
+  suggestions: 160,
+  diagnostics: 360
+});
+
+function esperarCarregamentoSuperadmin(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function agendarSincronizacaoSaasSuperadmin() {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUrl) return;
   const ultima = Number(window.__superAdminSaasSyncAt) || 0;
   if (window.__superAdminSaasSyncPending || Date.now() - ultima < 30000) return;
   window.__superAdminSaasSyncPending = true;
-  setTimeout(async () => {
+  window.__superAdminSaasSyncPromise = (async () => {
     try {
-      const resultado = await carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false });
-      if (resultado?.ok !== false) window.__superAdminSaasSyncAt = Date.now();
+      const resultados = await Promise.allSettled([
+        carregarSaasSupabaseSilencioso({ renderizar: false, feedback: false }),
+        esperarCarregamentoSuperadmin(SUPERADMIN_SECONDARY_LOAD_DELAYS.suggestions)
+          .then(() => carregarSugestoesSupabase({ renderizar: false })),
+        esperarCarregamentoSuperadmin(SUPERADMIN_SECONDARY_LOAD_DELAYS.diagnostics)
+          .then(() => carregarDiagnosticosSuperadminSupabase({ renderizar: false }))
+      ]);
+      if (resultados[0]?.value?.ok !== false) window.__superAdminSaasSyncAt = Date.now();
     } finally {
       window.__superAdminSaasSyncPending = false;
+      window.__superAdminSaasSyncPromise = null;
       if (telaAtual === "superadmin" && isSuperAdmin()) renderApp();
     }
-  }, 0);
+  })();
+}
+
+function carregarDadosSecundariosSuperadmin() {
+  if (!window.__superAdminSaasSyncPending) agendarSincronizacaoSaasSuperadmin();
 }
 
 function renderSuperAdmin() {
@@ -39372,6 +40578,19 @@ function mesclarListaPorId(atual, novos, normalizador) {
     mapa.set(String(normalizado.id), existente ? { ...existente, ...normalizado } : normalizado);
   });
   return Array.from(mapa.values());
+}
+
+function formatarDataHora(valor) {
+  if (!valor) return "—";
+  const data = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(data.getTime())) return String(valor);
+  return data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function mesclarAssinaturasPorCliente(atual, novos) {
@@ -46950,7 +48169,7 @@ function promoverPopupParaDialogUiV3(popup, options = {}) {
   content.classList.remove("modal-card");
   content.classList.add("ui3-stack");
   const component = options.kind === "drawer" ? window.UiV3.Drawer : options.kind === "sheet" ? window.UiV3.BottomSheet : window.UiV3.Dialog;
-  const overlay = component({ title, content: content.outerHTML, onClose: options.onClose, historyEntry: options.historyEntry !== false });
+  const overlay = component({ title, content: content.outerHTML, wide: options.wide === true, fullscreen: options.fullscreen === true, onClose: options.onClose, historyEntry: options.historyEntry !== false });
   if (overlay) popup.innerHTML = "";
   return overlay || popup;
 }
@@ -48757,6 +49976,7 @@ function getManifestAndroidVersionName(manifest = {}) {
 }
 
 function existeAtualizacaoAndroid(manifest) {
+  if (APP_VERSION.includes("-pilot")) return false;
   if (garantirLinhaAtualizacaoAndroidAtual()) return false;
   const versionCodeRemoto = getManifestAndroidVersionCode(manifest);
   const versionNameRemoto = getManifestAndroidVersionName(manifest);
