@@ -7630,9 +7630,10 @@ body[data-ui-profile="web_pwa"] .ui-section[data-ui-section="seguranca-conta"][o
   body.mobile-mode:not([data-motion="high"]).motion-down :where(.mobile-home,.mobile-panel,.mobile-panel-content),
   body.mobile-mode:not([data-motion="high"]).motion-up :where(.mobile-home,.mobile-panel,.mobile-panel-content),
   body.mobile-mode:not([data-motion="high"]).motion-refresh :where(.mobile-home,.mobile-panel,.mobile-panel-content){
-    animation:mobileStableScreenFade 190ms ease-out both !important;
+    animation:none !important;
+    opacity:1 !important;
     filter:none !important;
-    transform:none;
+    transform:none !important;
   }
 }
 
@@ -16002,7 +16003,16 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
 }
 
 .superadmin-company-actions{
-  justify-content:flex-start;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  justify-content:stretch;
+  width:100%;
+}
+
+.superadmin-company-actions .btn{
+  min-width:0;
+  width:100%;
+  white-space:normal;
 }
 
 .superadmin-platform-shell .client-admin-table-head,
@@ -16317,11 +16327,32 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   margin:0;
 }
 
-@media(max-width:1080px){
+@media(min-width:1181px) and (max-width:1360px){
+  .superadmin-platform-shell{
+    grid-template-columns:244px minmax(0, 1fr);
+  }
+
+  .superadmin-platform-sidebar{
+    padding-inline:12px;
+  }
+
+  .superadmin-platform-topbar{
+    grid-template-columns:minmax(190px, .8fr) minmax(180px, 1fr) auto auto;
+    gap:10px;
+    padding-inline:14px;
+  }
+
+  .superadmin-platform-content{
+    padding:14px;
+  }
+}
+
+@media(max-width:1180px){
   .superadmin-platform-shell{
     grid-template-columns:1fr;
     border-radius:0;
     border-inline:0;
+    padding-bottom:72px;
   }
 
   .superadmin-platform-sidebar{
@@ -16329,12 +16360,83 @@ body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superad
   }
 
   .superadmin-platform-topbar{
-    grid-template-columns:1fr auto;
+    grid-template-columns:minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "title erp actions"
+      "search search search";
   }
 
+  .superadmin-platform-page-title{grid-area:title}
+  .superadmin-platform-search{grid-area:search}
+  .superadmin-platform-erp{grid-area:erp}
+  .superadmin-platform-actions{grid-area:actions}
+
   .superadmin-platform-search{
-    grid-column:1 / -1;
-    order:3;
+    grid-column:auto;
+    order:initial;
+  }
+
+  .superadmin-platform-content{
+    padding-bottom:92px;
+    scroll-padding-bottom:92px;
+  }
+
+  .superadmin-platform-mobile-nav{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:70;
+    min-height:64px;
+    display:grid;
+    grid-template-columns:repeat(5, minmax(0, 1fr));
+    gap:4px;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--surface) 94%, transparent);
+    border-top:1px solid var(--line);
+    box-shadow:0 -12px 30px rgba(15,23,42,.12);
+  }
+
+  .superadmin-platform-mobile-nav button{
+    min-width:0;
+    min-height:50px;
+    display:grid;
+    place-items:center;
+    gap:2px;
+    border:0;
+    border-radius:14px;
+    color:var(--sa-muted);
+    background:transparent;
+  }
+
+  .superadmin-platform-mobile-nav button.active{
+    color:var(--sa-primary);
+    background:color-mix(in srgb, var(--primary) 16%, var(--surface));
+  }
+
+  .superadmin-platform-mobile-nav strong{font-size:10px}
+
+  .superadmin-system-row strong{
+    overflow-wrap:anywhere;
+    text-overflow:clip;
+    white-space:normal;
+  }
+
+  .superadmin-platform-content .actions:not(.row-actions):not(.superadmin-platform-actions){
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+    width:100%;
+  }
+
+  .superadmin-platform-content .actions:not(.row-actions):not(.superadmin-platform-actions) .btn{
+    min-width:0;
+    width:100%;
+    white-space:normal;
+  }
+
+  .superadmin-plan-card :where(p, .muted){
+    overflow-wrap:anywhere;
+    white-space:normal;
   }
 
   .superadmin-company-metrics,
@@ -27869,7 +27971,7 @@ body.storefront-public-navigating .store-public-shell{
     flex-direction:column;
   }
 
-  .store-context-access-actions{
+.store-context-access-actions{
     display:grid;
     grid-template-columns:1fr;
   }
@@ -38391,6 +38493,46 @@ body.motion-refresh :where(.desktop-main,.mobile-panel,.mobile-home,.desktop-foc
   }
 }
 
+/* Telas estáveis: atualizações de dados não devem piscar ou reanimar a estrutura. */
+body :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-forward :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-back :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-refresh :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+.motion-stagger-item{
+  animation:none !important;
+  will-change:auto !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root){
+  animation:none !important;
+}
+
+/* Entrada progressiva apenas ao trocar de tela. Atualizações ao vivo permanecem estáveis. */
+body.motion-forward :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+body.motion-back :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page){
+  animation:systemScreenCrossfade 300ms var(--motion-ease-emphasis) both !important;
+  transform-origin:center top;
+  will-change:opacity, transform !important;
+}
+
+body.motion-forward .motion-stagger-item,
+body.motion-back .motion-stagger-item{
+  animation:systemStaggerIn 360ms var(--motion-ease-emphasis) both !important;
+  animation-delay:calc(55ms + min(var(--motion-index, 0), 8) * 22ms) !important;
+  will-change:opacity, transform !important;
+}
+
+@media(prefers-reduced-motion:reduce){
+  body.motion-forward :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+  body.motion-back :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel,.app-page),
+  body.motion-forward .motion-stagger-item,
+  body.motion-back .motion-stagger-item{
+    animation:none !important;
+    transition:none !important;
+  }
+}
+
 /* Ajuste final PWA desktop: Configurações continua visualmente o menu lateral. */
 body[data-ui-profile="web_pwa"]:not(.mobile-mode) .desktop-main:has(> .settings-page){
   padding:0 !important;
@@ -41210,6 +41352,21 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   padding: 4px 0 8px;
 }
 
+.printer-page-header > .actions {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+
+.printer-screen-simple > .card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.printer-screen-simple > .card-header > .app-button {
+  justify-self: end;
+}
+
 .printer-page-header h2,
 .printer-card h3 {
   margin: 0;
@@ -41223,7 +41380,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
 
 .printer-overview {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
   gap: var(--space-3, 12px);
 }
 
@@ -42464,7 +42621,7 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   }
 
   .printer-overview {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 132px), 1fr));
   }
 
   .printer-card-header {
@@ -42628,6 +42785,15 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
   .printer-order-row > .status-badge,
   .printer-order-row-actions {
     grid-column: auto;
+  }
+
+  .printer-screen-simple > .card-header {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-screen-simple > .card-header > .app-button {
+    width: auto;
+    justify-self: end;
   }
 }
 

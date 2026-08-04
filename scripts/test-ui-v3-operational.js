@@ -34,4 +34,17 @@ assert.ok(app.includes('kind: "drawer"'),'acoes rapidas devem usar Drawer V3 exp
 const quickOrderDrawer=app.slice(app.indexOf('function montarPedidoRapidoNoDrawerUiV3'),app.indexOf('function abrirPedidoRapidoOperacional'));
 assert.ok(quickOrderDrawer.includes('kind: "drawer"'),'Pedido rapido deve usar Drawer V3');
 assert.ok(app.includes('montarPedidoRapidoNoDrawerUiV3({ historyEntry: false })'),'atualizacao do Pedido rapido nao deve empilhar historico');
+for(const marker of ['["historico", "Histórico"]','function renderHistoricoProducao()','const PRODUCTION_HISTORY_PAGE_SIZE = 6','function abrirAjusteDadosImpressao(jobId)']){
+  assert.ok(app.includes(marker),`histórico compacto da produção ausente: ${marker}`);
+}
+for(const marker of ['function abrirPainelImpressoraSimplifica(id)','Conectada e pronta para o próximo trabalho','class="printer-simple-connection"']){
+  assert.ok(app.includes(marker),`painel simples da impressora ausente: ${marker}`);
+}
+assert.ok(app.includes('const PRINTER_FEATURE_ENABLED = true'),'tela de impressoras precisa estar habilitada no piloto');
+assert.ok(app.includes('{ tela: "impressoras", icone: "impressoras", texto: "Impressoras" }'),'Impressoras precisa aparecer no menu');
+assert.ok(app.includes('function abrirImpressoraAtivaProducao(id)'),'card da impressora ativa precisa abrir o painel');
+assert.ok(app.includes('filamentWeightGrams = job.filament_weight_grams'),'ajuste de peso deve preservar os campos local e remoto');
+for(const marker of ['function getPesoPlanejadoTarefaProducao','function getCustoMaterialPorGramaTarefaProducao','Horas perdidas','Material perdido','Prejuízo estimado']){
+  assert.ok(app.includes(marker),`controle de perdas da produção ausente: ${marker}`);
+}
 console.log('UI V3 operational: Pedido, Clientes, Producao e Estoque validados.');

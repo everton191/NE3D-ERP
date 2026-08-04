@@ -6,10 +6,11 @@ const APP_VERSION = "1.0.28";
 const APP_VERSION_CODE = 29;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Filtros e monitor de promoções reunidos em um único painel compacto no celular.",
-  "Ofertas relâmpago organizadas em uma faixa horizontal para liberar espaço na tela.",
-  "Atualização automática das promoções sem piscar ou recarregar imagens quando os preços não mudam.",
-  "Troca de senha corrigida para não voltar a ser solicitada depois da confirmação."
+  "Cadastro de impressoras BambuLab mais rápido, começando pela escolha da marca.",
+  "Impressoras disponíveis na conta Bambu conectada aparecem automaticamente.",
+  "Telas de impressoras e Superadmin ajustadas para celular, tablet e computador.",
+  "Cards, botões e tema claro receberam correções de tamanho, cantos e contraste.",
+  "Painel da impressora mantém as informações de produção mais claras e organizadas."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -306,6 +307,7 @@ const BACKEND_LICENSE_CACHE_KEYS = Object.freeze([
 ]);
 const LOCAL_UNLOCK_KEY = "simplifica3dLastLocalUnlockAt";
 const LOCAL_UNLOCK_MAX_MS = 12 * 60 * 60 * 1000;
+const LOCAL_SESSION_MAX_MS = 7 * 24 * 60 * 60 * 1000;
 const OFFLINE_LICENSE_STALE_MAX_MS = 3 * 24 * 60 * 60 * 1000;
 const LICENSE_MONITOR_INTERVAL_MS = 60 * 1000;
 const REALTIME_SYNC_HEARTBEAT_MS = 25 * 1000;
@@ -1113,6 +1115,7 @@ let appConfig = carregarObjeto("appConfig", {
   updateDismissedCode: 0,
   browserPasswordSaveOffer: true,
   keepSessionCache: true,
+  localLockEnabled: true,
   biometricEnabled: false,
   biometricOfferDismissed: false,
   backupReminderLastAt: "",
@@ -2906,6 +2909,8 @@ const printers = {
 
 const printerMonitoringState = {
   scope: "",
+  requestId: 0,
+  pendingForce: false,
   loaded: false,
   loading: false,
   error: "",
@@ -3923,6 +3928,7 @@ function sanitizarCacheSessaoLocalLegado() {
     const seguro = {
       usuarioAtualEmail: normalizarEmail(cache.usuarioAtualEmail || cache.supabase.supabaseEmail || ""),
       salvoEm: cache.salvoEm || new Date().toISOString(),
+      autenticadoEm: cache.autenticadoEm || cache.salvoEm || new Date().toISOString(),
       supabase: {
         supabaseUserId: cache.supabase.supabaseUserId || "",
         supabaseEmail: normalizarEmail(cache.supabase.supabaseEmail || ""),
@@ -3944,16 +3950,25 @@ function limparSessaoSensivelSupabase() {
   localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
 }
 
-function salvarCacheSessaoLocal() {
+function salvarCacheSessaoLocal({ novaAutenticacao = false } = {}) {
   if (appConfig.keepSessionCache === false) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
     return;
   }
 
   const usuario = normalizarEmail(usuarioAtualEmail);
+  let cacheAnterior = {};
+  try {
+    cacheAnterior = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+  } catch (_) {}
+  const mesmoUsuario = normalizarEmail(cacheAnterior.usuarioAtualEmail || cacheAnterior.supabase?.supabaseEmail || "") === usuario;
+  const autenticadoEm = novaAutenticacao || !mesmoUsuario
+    ? new Date().toISOString()
+    : (cacheAnterior.autenticadoEm || cacheAnterior.salvoEm || new Date().toISOString());
   const cache = {
     usuarioAtualEmail: usuario,
     salvoEm: new Date().toISOString(),
+    autenticadoEm,
     supabase: {
       supabaseUserId: syncConfig.supabaseUserId || "",
       supabaseEmail: normalizarEmail(syncConfig.supabaseEmail || ""),
@@ -3978,6 +3993,11 @@ function precisaDesbloqueioLocal() {
   if (!usuarioAtualEmail || !syncConfig.supabaseUserId) return false;
   const ultimo = getUltimoDesbloqueioLocalMs();
   return !ultimo || Date.now() - ultimo > LOCAL_UNLOCK_MAX_MS;
+}
+
+function cacheSessaoLocalExpirou(cache = {}) {
+  const autenticadoEm = Date.parse(cache.autenticadoEm || cache.salvoEm || "") || 0;
+  return !autenticadoEm || Date.now() - autenticadoEm >= LOCAL_SESSION_MAX_MS;
 }
 
 function licencaLocalAindaConfiavel() {
@@ -4180,6 +4200,18 @@ async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
 
 async function restaurarCacheSessaoLocal() {
   if (appConfig.keepSessionCache === false) return false;
+  let cachePersistido = {};
+  try {
+    cachePersistido = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+  } catch (_) {}
+  if ((usuarioAtualEmail || cachePersistido.usuarioAtualEmail) && cacheSessaoLocalExpirou(cachePersistido)) {
+    usuarioAtualEmail = "";
+    sessionStorage.removeItem("usuarioAtualEmail");
+    localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
+    limparSessaoSensivelSupabase();
+    mostrarToast("Por segurança, confirme seu login semanal.", "info", 5200);
+    return false;
+  }
   if (usuarioAtualEmail) {
     try {
       const emailSessaoAtual = normalizarEmail(usuarioAtualEmail);
@@ -4218,7 +4250,7 @@ async function restaurarCacheSessaoLocal() {
     return false;
   }
   try {
-    const cache = JSON.parse(localStorage.getItem(LOCAL_SESSION_CACHE_KEY) || "{}");
+    const cache = cachePersistido;
     const email = normalizarEmail(cache.usuarioAtualEmail || cache.supabase?.supabaseEmail || "");
     if (!email || !normalizarUsuarios(usuarios).some((usuario) => usuario.email === email && usuario.ativo)) return false;
 
@@ -8472,6 +8504,20 @@ function formatarDataCurta(valor = "") {
   return data.toLocaleDateString("pt-BR");
 }
 
+function formatarDataHora(valor = "") {
+  if (!valor) return "";
+  const data = normalizarDataLocal(valor, null);
+  if (!data) return String(valor);
+  return data.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+}
+
 function calcularSaldo() {
   return caixa.reduce((saldo, movimento) => {
     if (movimentoCaixaCancelado(movimento)) return saldo;
@@ -9857,6 +9903,7 @@ function iniciarTransicaoNavegacao(tipo = "forward") {
 function renderAppComTransicaoNavegacao(tipo = "forward") {
   iniciarTransicaoNavegacao(tipo);
   renderApp();
+  requestAnimationFrame(() => aplicarMotionSequenciado());
 }
 
 function aplicarMotionSequenciado() {
@@ -10855,7 +10902,9 @@ function renderApp() {
   document.body.classList.toggle("auth-screen-active", !getUsuarioAtual() && telaAtual === "admin");
   document.body.classList.toggle("visitor-public-screen", !getUsuarioAtual() && isTelaPublica(telaAtual));
   const modoSuperadminIsolado = isSuperAdmin() && telaAtual === "superadmin";
-  app.innerHTML = mobile ? renderMobile() : renderDesktop();
+  atualizarArvoreInterface(app, mobile ? renderMobile() : renderDesktop(), {
+    chaveEstrutural: getChaveEstruturalInterface(mobile)
+  });
   compactarBarrasAcoesMobile();
   sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
@@ -10886,6 +10935,121 @@ function renderApp() {
   }
   aplicarMotionSequenciado();
   if (!modoSuperadminIsolado) hidratarLojaOnlineAdmin();
+}
+
+function getChaveEstruturalInterface(mobile = false) {
+  const usuario = getUsuarioAtual();
+  return [
+    telaAtual,
+    mobile ? "mobile" : "desktop",
+    getInterfaceMode(),
+    usuario?.id || usuario?.supabaseUserId || (adminLogado ? "admin" : "visitante"),
+    window.__simplificaLocalLockActive ? "bloqueado" : "liberado"
+  ].join(":");
+}
+
+function atualizarArvoreInterface(container, html = "", opcoes = {}) {
+  if (!container) return false;
+  const proximoHtml = String(html || "");
+  const chaveEstrutural = String(opcoes.chaveEstrutural || "");
+  const mudouEstrutura = container.dataset.renderKey !== chaveEstrutural;
+  if (!container.childNodes.length || mudouEstrutura) {
+    container.innerHTML = proximoHtml;
+    container.dataset.renderKey = chaveEstrutural;
+    return true;
+  }
+  if (container.innerHTML === proximoHtml) return false;
+
+  const template = document.createElement("template");
+  template.innerHTML = proximoHtml;
+  reconciliarFilhosInterface(container, template.content);
+  return true;
+}
+
+function reconciliarFilhosInterface(atual, proximo) {
+  const novos = Array.from(proximo.childNodes);
+  const atuaisPorChave = new Map();
+  Array.from(atual.childNodes).forEach((no) => {
+    const chave = obterChaveNoInterface(no);
+    if (chave && !atuaisPorChave.has(chave)) atuaisPorChave.set(chave, no);
+  });
+  novos.forEach((novo, indice) => {
+    const chave = obterChaveNoInterface(novo);
+    const posicaoAtual = atual.childNodes[indice];
+    let existente = chave ? atuaisPorChave.get(chave) : posicaoAtual;
+    if (chave && !existente) {
+      atual.insertBefore(novo.cloneNode(true), posicaoAtual || null);
+      return;
+    }
+    if (chave && existente !== posicaoAtual) {
+      atual.insertBefore(existente, posicaoAtual || null);
+    }
+    existente = atual.childNodes[indice];
+    if (!existente) {
+      atual.appendChild(novo.cloneNode(true));
+      return;
+    }
+    reconciliarNoInterface(existente, novo);
+  });
+  while (atual.childNodes.length > novos.length) {
+    atual.lastChild.remove();
+  }
+}
+
+function obterChaveNoInterface(no) {
+  if (!(no instanceof Element)) return "";
+  const chave = no.id
+    || no.dataset.liveKey
+    || no.dataset.printerId
+    || no.dataset.orderId
+    || no.dataset.customerId
+    || no.dataset.itemId;
+  return chave ? `${no.tagName}:${chave}` : "";
+}
+
+function reconciliarNoInterface(atual, proximo) {
+  if (atual.isEqualNode(proximo)) return atual;
+  if (atual.nodeType !== proximo.nodeType
+    || (atual.nodeType === Node.ELEMENT_NODE && atual.tagName !== proximo.tagName)) {
+    const substituto = proximo.cloneNode(true);
+    atual.replaceWith(substituto);
+    return substituto;
+  }
+  if (atual.nodeType === Node.TEXT_NODE || atual.nodeType === Node.COMMENT_NODE) {
+    if (atual.nodeValue !== proximo.nodeValue) atual.nodeValue = proximo.nodeValue;
+    return atual;
+  }
+
+  sincronizarAtributosInterface(atual, proximo);
+  reconciliarFilhosInterface(atual, proximo);
+  sincronizarEstadoCampoInterface(atual, proximo);
+  return atual;
+}
+
+function sincronizarAtributosInterface(atual, proximo) {
+  Array.from(atual.attributes).forEach((atributo) => {
+    if (!proximo.hasAttribute(atributo.name)) atual.removeAttribute(atributo.name);
+  });
+  Array.from(proximo.attributes).forEach((atributo) => {
+    if (atual.getAttribute(atributo.name) !== atributo.value) {
+      atual.setAttribute(atributo.name, atributo.value);
+    }
+  });
+}
+
+function sincronizarEstadoCampoInterface(atual, proximo) {
+  if (!(atual instanceof HTMLElement)) return;
+  const focado = document.activeElement === atual;
+  if (atual instanceof HTMLInputElement) {
+    if (!focado && atual.value !== proximo.value) atual.value = proximo.value;
+    atual.checked = proximo.checked;
+  } else if (atual instanceof HTMLTextAreaElement) {
+    if (!focado && atual.value !== proximo.value) atual.value = proximo.value;
+  } else if (atual instanceof HTMLSelectElement && atual.value !== proximo.value) {
+    atual.value = proximo.value;
+  } else if (atual instanceof HTMLDetailsElement) {
+    atual.open = proximo.open;
+  }
 }
 
 function podeMostrarControlesFlutuantes() {
@@ -25109,7 +25273,10 @@ async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal
   if (!syncConfig.supabaseAccessToken || !getUsuarioAtual()) return;
   const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
   if (printerMonitoringState.scope !== scope) {
+    printerMonitoringState.requestId += 1;
     printerMonitoringState.scope = scope;
+    printerMonitoringState.loading = false;
+    printerMonitoringState.pendingForce = false;
     printerMonitoringState.loaded = false;
     printerMonitoringState.error = "";
     printerMonitoringState.items = [];
@@ -25128,7 +25295,7 @@ async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal
   try {
     const workspace = await printerBackendRequest("list");
     const currentScope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
-    if (currentScope !== scope) return;
+    if (currentScope !== scope || requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.items = Array.isArray(workspace?.printers) ? workspace.printers : [];
     printerMonitoringState.brands = Array.isArray(workspace?.brands) ? workspace.brands : [];
     printerMonitoringState.models = Array.isArray(workspace?.models) ? workspace.models : [];
@@ -25139,8 +25306,12 @@ async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal
     sincronizarImpressorasComCalculadora();
     setTimeout(() => conectarBambuMqttCloudAutomatico(), 0);
   } catch (erro) {
+    if (requestId !== printerMonitoringState.requestId) return;
     printerMonitoringState.error = getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message || "Não foi possível carregar as impressoras.";
   } finally {
+    if (requestId !== printerMonitoringState.requestId) return;
+    const repetir = printerMonitoringState.pendingForce;
+    printerMonitoringState.pendingForce = false;
     printerMonitoringState.loading = false;
     if (renderizarAoFinal && (telaAtual === "impressoras" || telaAtual === "calculadora" || (telaAtual === "producao" && carregamentoInicial))) renderizarPreservandoScroll();
   }
@@ -25637,6 +25808,7 @@ function renderPrinterStatusBadge(impressora = {}) {
 }
 
 function formatarTemperaturaImpressora(valor) {
+  if (valor === null || valor === undefined || valor === "") return "—";
   const numero = Number(valor);
   return Number.isFinite(numero) ? `${numero.toFixed(0)} °C` : "—";
 }
@@ -25689,16 +25861,108 @@ function renderResumoImpressoraSimplifica(impressora = {}) {
   const pedido = getPedidoVinculadoImpressora(impressora);
   const podeGerenciar = podeGerenciarImpressoras();
   return `
-    <article class="printer-summary-row">
+    <button type="button" class="printer-summary-row" data-live-key="printer-summary:${escaparAttr(impressora.id)}" onclick="abrirPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">
       <span class="printer-summary-icon">${renderUiIcon("impressoras")}</span>
       <span class="printer-summary-main">
         <strong>${escaparHtml(impressora.name || "Impressora")}</strong>
-        <small>${renderPrinterStatusBadge(impressora)}${pedido ? ` Pedido #${escaparHtml(pedido.id)}` : " Sem pedido vinculado"}</small>
+        <small><span class="printer-friendly-summary-status">${escaparHtml(situacao)}</span>${pedido ? ` · Pedido #${escaparHtml(pedido.id)}` : " · Sem pedido vinculado"}</small>
       </span>
       <span class="printer-summary-progress">${Number.isFinite(progresso) ? `<strong>${Math.round(progresso)}%</strong>` : `<strong>—</strong>`}</span>
       <span class="printer-summary-actions"><button class="btn" type="button" onclick="abrirPainelImpressora('${escaparAttr(impressora.id)}')">Abrir painel</button>${podeGerenciar ? renderPrinterMoreActions(impressora) : ""}</span>
     </article>
   `;
+}
+
+function getTextoTrabalhoImpressora(impressora = {}) {
+  const latest = impressora.latest_status || {};
+  const pedido = getPedidoVinculadoImpressora(impressora);
+  return String(latest.job_name || latest.current_file || latest.file_name || pedido?.descricao || pedido?.nome || "Impressão atual")
+    .replace(/\.(gcode|3mf)$/i, "")
+    .trim() || "Impressão atual";
+}
+
+function getConexaoAtualImpressora(impressora = {}) {
+  const conectado = impressora.connection_status === "connected";
+  const automatico = String(impressora.connector_type || "manual") !== "manual";
+  const ultimoSinal = normalizarDataLocal(impressora.last_seen_at || "", null);
+  const sinalRecente = ultimoSinal && Math.abs(Date.now() - ultimoSinal.getTime()) <= 15 * 60 * 1000;
+  return {
+    online: conectado && (!automatico || sinalRecente),
+    ultimoSinal
+  };
+}
+
+function isImpressoraBambu(impressora = {}) {
+  return String(impressora.connector_type || "").toLowerCase() === "bambu"
+    || normalizarTextoBusca(`${getPrinterDisplayBrand(impressora)} ${getPrinterDisplayModel(impressora)}`).includes("bambu");
+}
+
+function abrirPainelImpressoraSimplifica(id) {
+  const impressora = getPrinterById(id);
+  const popup = document.getElementById("popup");
+  if (!impressora || !popup) return;
+  const latest = impressora.latest_status || {};
+  const temProgresso = temNumeroImpressora(latest.progress_percent);
+  const progressoNumero = temProgresso ? Number(latest.progress_percent) : 0;
+  const progresso = Math.max(0, Math.min(100, Math.round(progressoNumero)));
+  const tempo = temNumeroImpressora(latest.remaining_seconds) && Number(latest.remaining_seconds) > 0
+    ? (getPrinterMonitoringService()?.formatDuration(latest.remaining_seconds) || "—")
+    : "—";
+  const tempoDecorrido = temNumeroImpressora(latest.elapsed_seconds) && Number(latest.elapsed_seconds) > 0
+    ? (getPrinterMonitoringService()?.formatDuration(latest.elapsed_seconds) || "—")
+    : "—";
+  const camadaAtual = Number(latest.current_layer ?? latest.layer_current);
+  const totalCamadas = Number(latest.total_layers ?? latest.layer_total);
+  const camada = Number.isFinite(camadaAtual) && camadaAtual > 0
+    ? `${Math.round(camadaAtual)}${Number.isFinite(totalCamadas) && totalCamadas > 0 ? ` de ${Math.round(totalCamadas)}` : ""}`
+    : "—";
+  const conexao = getConexaoAtualImpressora(impressora);
+  const estadoAtual = String(latest.normalized_state || latest.state || "unknown").toLowerCase();
+  const imprimindo = estadoAtual === "printing" || temProgresso || !!latest.current_file || !!latest.job_name;
+  const tituloEstado = imprimindo ? "Imprimindo" : conexao.online ? "Disponível" : "Sem conexão recente";
+  const descricaoEstado = imprimindo
+    ? getTextoTrabalhoImpressora(impressora)
+    : conexao.online ? "Conectada e pronta para o próximo trabalho" : "Toque em Atualizar para tentar receber um novo sinal";
+  const detalhes = [
+    ["Modelo", getPrinterDisplayModel(impressora), getPrinterDisplayBrand(impressora)],
+    temNumeroImpressora(latest.nozzle_temp) ? ["Bico", formatarTemperaturaImpressora(latest.nozzle_temp), temNumeroImpressora(latest.nozzle_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.nozzle_target_temp)}` : ""] : null,
+    temNumeroImpressora(latest.bed_temp) ? ["Mesa", formatarTemperaturaImpressora(latest.bed_temp), temNumeroImpressora(latest.bed_target_temp) ? `Alvo ${formatarTemperaturaImpressora(latest.bed_target_temp)}` : ""] : null,
+    camada !== "—" ? ["Camada", camada, "Andamento da placa"] : null,
+    tempoDecorrido !== "—" ? ["Tempo impresso", tempoDecorrido, ""] : null,
+    tempo !== "—" ? ["Tempo restante", tempo, ""] : null
+  ].filter(Boolean);
+  const nomeTrabalho = getTextoTrabalhoImpressora(impressora);
+  const bambuSemConta = isImpressoraBambu(impressora) && !impressora.credentials_configured;
+  const temDadosImpressao = imprimindo || detalhes.length > 1;
+  popup.innerHTML = `
+    <div class="modal-backdrop printer-simple-monitor-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <section class="modal-card printer-simple-monitor" onclick="event.stopPropagation()">
+        <div class="modal-header printer-simple-monitor-head">
+          <div><span class="eyebrow">Sua impressora</span><h2>${escaparHtml(impressora.name || "Impressora")}</h2></div>
+          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar" aria-label="Fechar">✕</button>
+        </div>
+        <section class="printer-simple-job printer-simple-overview">
+          <span class="printer-device-icon">${renderUiIcon("impressoras")}</span>
+          <div><span class="printer-friendly-state">${escaparHtml(tituloEstado)}</span><strong>${escaparHtml(descricaoEstado)}</strong></div>
+        </section>
+        ${imprimindo ? `<section class="printer-current-work"><span>Placa / trabalho</span><strong>${escaparHtml(nomeTrabalho)}</strong></section>` : ""}
+        ${imprimindo && temProgresso ? `<div class="printer-simple-progress" aria-label="Progresso da impressão: ${progresso}%"><i style="--progress:${progresso}%"></i><strong>${progresso}%</strong></div>` : ""}
+        ${detalhes.length ? `<section class="printer-simple-details"><h3>Informações da impressora</h3><div class="printer-simple-monitor-grid">${detalhes.map(([rotulo, valor, complemento]) => `<div><span>${escaparHtml(rotulo)}</span><strong>${escaparHtml(valor)}</strong>${complemento ? `<small>${escaparHtml(complemento)}</small>` : ""}</div>`).join("")}</div></section>` : ""}
+        ${bambuSemConta ? `<p class="printer-data-notice">Conecte sua conta BambuLab para receber trabalho, progresso, tempo, camada e temperaturas.</p>` : !temDadosImpressao ? `<p class="printer-data-notice">A impressora está conectada. Os detalhes aparecerão quando ela enviar uma atualização completa.</p>` : ""}
+        <p class="printer-simple-connection"><i class="${conexao.online ? "is-online" : ""}" aria-hidden="true"></i><span>${conexao.online ? "Online" : "Sem sinal"}</span><small>${impressora.last_seen_at ? `Último sinal: ${escaparHtml(formatarDataHora(impressora.last_seen_at))}` : "Aguardando atualização"}</small></p>
+        <div class="actions printer-simple-monitor-actions">
+          ${bambuSemConta ? `<button class="btn" type="button" onclick="fecharPopup();setTimeout(()=>abrirLoginBambu('${escaparAttr(impressora.id)}'),80)">Conectar BambuLab</button>` : ""}
+          <button class="btn secondary" type="button" onclick="atualizarPainelImpressoraSimplifica('${escaparAttr(impressora.id)}')">${renderUiIcon("refresh")} Atualizar</button>
+          ${podeGerenciarImpressoras() ? `<button class="btn ghost" type="button" onclick="fecharPopup();abrirCadastroImpressora('${escaparAttr(impressora.id)}')">${renderUiIcon("edit")} Editar</button>` : ""}
+        </div>
+      </section>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: impressora.name || "Impressora" });
+}
+
+async function atualizarPainelImpressoraSimplifica(id) {
+  await atualizarStatusImpressora(id);
+  abrirPainelImpressoraSimplifica(id);
 }
 
 function renderCardImpressora(impressora = {}) {
@@ -25929,7 +26193,7 @@ function renderImpressoras() {
     return `<section class="card printer-screen"><div class="printer-loading">${renderUiIcon("impressoras")}<strong>Carregando impressoras...</strong></div></section>`;
   }
 
-  if (isSimplificaMode()) {
+  if (isSimplificaMode() || isMobile()) {
     return `
       <section class="card printer-screen printer-screen-simple">
         <div class="card-header">
@@ -25940,7 +26204,7 @@ function renderImpressoras() {
         <div class="printer-summary-list">
           ${items.length ? items.map(renderResumoImpressoraSimplifica).join("") : `<p class="empty">Nenhuma impressora cadastrada.</p>`}
         </div>
-        <p class="muted">Detalhes de conexão, custos e histórico completo ficam no Modo Profissional.</p>
+        ${items.length ? `<p class="printer-simple-help">Toque em uma impressora para atualizar, vincular pedidos ou editar.</p>` : ""}
       </section>
     `;
   }
@@ -26103,13 +26367,24 @@ function abrirCadastroImpressora(id = "", initial = {}) {
   if (!popup) return;
   popup.innerHTML = `
     <div class="modal-backdrop printer-modal-backdrop" id="printerModalBackdrop" role="dialog" aria-modal="true">
-      <form class="modal-card printer-wizard printer-form-simple" id="printerForm">
+      <form class="modal-card printer-wizard printer-form-simple" id="printerForm" data-printer-guided="${guiado ? "true" : "false"}">
         <div class="modal-header">
           <div><span class="eyebrow">${id ? "Editar" : "Nova"} impressora</span><h2>${id ? escaparHtml(impressora.name) : "Adicionar impressora"}</h2></div>
           <button class="icon-button" id="printerCloseButton" type="button" title="Fechar">✕</button>
         </div>
         <input type="hidden" id="printerId" value="${escaparAttr(id)}">
         <input type="hidden" id="printerModel" value="${escaparAttr(impressora?.model_id || "")}">
+        ${guiado ? `<div class="printer-wizard-progress" aria-label="Etapas do cadastro"><strong data-printer-step-label>1 de 3 · Escolha rápida</strong><i><span data-printer-step-progress></span></i></div>
+        <div class="printer-setup-choice ${bambuDisponiveis.length ? "has-connected-bambu" : ""}" data-printer-step="1">
+          ${bambuDisponiveis.length ? `<section class="printer-connected-account">
+            <div class="printer-connected-account-head"><span>${renderUiIcon("check")}</span><div><strong>Conta BambuLab já conectada</strong><small>Estas impressoras já estão disponíveis para esta conta.</small></div></div>
+            <div class="printer-connected-models">${bambuDisponiveis.map((item) => {
+              const conexao = getConexaoAtualImpressora(item);
+              return `<button type="button" data-existing-bambu-id="${escaparAttr(item.id)}"><span>${renderUiIcon("impressoras")}</span><strong>${escaparHtml(item.name || "Impressora BambuLab")}</strong><small>${escaparHtml(getPrinterDisplayModel(item))} · ${conexao.online ? "Online" : "Sem sinal"}</small></button>`;
+            }).join("")}</div>
+          </section>` : `<button type="button" data-printer-kind="bambu"><span>${renderUiIcon("impressoras")}</span><strong>BambuLab</strong><small>Entrar na conta e localizar automaticamente</small></button>`}
+          <button type="button" data-printer-kind="manual"><span>${renderUiIcon("config")}</span><strong>${bambuDisponiveis.length ? "Adicionar modelo diferente" : "Outra impressora"}</strong><small>Cadastrar para acompanhamento manual</small></button>
+        </div>` : ""}
 
         <div class="ui-tabs printer-cadastro-tabs" aria-label="Etapas do cadastro">
           ${[[1, "Conexão"], [2, "Impressora"], [3, "Revisar"]].map(([etapa, rotulo]) => `<button class="ui-tab" type="button" data-printer-step-tab="${etapa}" onclick="atualizarEtapaCadastroImpressora(${etapa})"><span>${etapa}</span>${rotulo}</button>`).join("")}
@@ -26166,13 +26441,15 @@ function abrirCadastroImpressora(id = "", initial = {}) {
               </div>
             </section>
 
-            <section>
-              <h3>Leitura automática</h3>
+            <section ${guiado ? 'data-printer-step="3" hidden' : ""}>
+              <h3>Conexão com a impressora</h3>
+              ${guiado ? `<p class="muted">Use o acesso automático da BambuLab ou mantenha o acompanhamento manual.</p>` : ""}
               <label class="field"><span>Conexão</span>
                 <select id="printerConnector">
                   ${(getPrinterMonitoringService()?.CONNECTORS || []).map((connector) => `<option value="${connector.key}" ${String(impressora?.connector_type || "manual") === connector.key ? "selected" : ""}>${escaparHtml(connector.name)}${connector.automatic ? " · automática" : ""}</option>`).join("")}
                 </select>
               </label>
+              ${guiado ? `<p class="printer-connection-compatibility" id="printerConnectionCompatibility">Escolha a marca ou informe o modelo. Outras impressoras funcionam manualmente por enquanto.</p>` : ""}
               <div id="printerAutomaticFields">
                 <label class="field printer-connection-mode-field"><span>Modo de conexão</span><select id="printerConnectionMode">
                   <option value="local_agent" ${impressora?.connection_mode === "local_agent" ? "selected" : ""}>Agente Local Simplifica</option>
@@ -27454,6 +27731,43 @@ function atualizarPedidoQuandoProducaoPronta(orderId) {
   marcarRegistroLocalAlteradoParaSync(pedido, { status: "pronto", productionStatus: "pronto_para_entrega", production_status: "pronto_para_entrega" });
 }
 
+function getPlacasConcluidasProducao(job = {}) {
+  const salvas = Math.max(0, Number(job.completedQuantity || job.completed_quantity) || 0);
+  const eventos = productionEvents.filter((event) =>
+    String(event.productionJobId || event.production_job_id) === String(job.id)
+    && String(event.eventType || event.event_type) === "placa_concluida"
+  ).length;
+  return Math.max(salvas, eventos);
+}
+
+function registrarPlacaConcluidaProducao(jobId) {
+  const job = getProductionJob(jobId);
+  if (!job || ["cancelado", "falhou", "entregue"].includes(job.status)) return false;
+  const total = Math.max(1, Number(job.quantity) || 1);
+  const concluidas = Math.min(total, getPlacasConcluidasProducao(job));
+  if (concluidas >= total) {
+    mostrarToast("Todas as placas desta impressão já foram concluídas.", "info", 3000);
+    return false;
+  }
+  const agora = new Date().toISOString();
+  const novoTotal = concluidas + 1;
+  job.completedQuantity = job.completed_quantity = novoTotal;
+  job.remainingQuantity = job.remaining_quantity = Math.max(0, total - novoTotal);
+  job.updated_at = agora;
+  if (novoTotal >= total && ["na_fila", "proximo", "aguardando_impressora", "em_impressao", "pausado"].includes(job.status)) {
+    job.status = "pos_processamento";
+    job.finished_at = job.finished_at || agora;
+    const printer = getProductionPrinter(job.printerId);
+    if (printer) printer.status = "disponivel";
+  }
+  registrarEventoProducao(job.id, "placa_concluida", job.status, job.status, `Placa ${novoTotal} de ${total}`);
+  atualizarPedidoQuandoProducaoPronta(job.orderId);
+  salvarProducaoManual("placa-concluida");
+  renderizarPreservandoScroll();
+  mostrarToast(novoTotal >= total ? "Todas as placas concluídas. Enviado para pós-processamento." : `Placa ${novoTotal} de ${total} concluída.`, "sucesso", 3200);
+  return true;
+}
+
 function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
   const job = getProductionJob(jobId);
   if (!job || !PRODUCTION_STATUS_META[status]) return false;
@@ -27491,6 +27805,21 @@ function atualizarStatusTarefaProducao(jobId, status = "na_fila") {
       job.actualPrintTimeMinutes = minutosReais;
       job.actual_print_time_minutes = minutosReais;
     }
+  }
+  if (["falhou", "cancelado"].includes(status)) {
+    const inicio = getDataEventoOperacionalPedido(job.started_at);
+    if (inicio && !Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes)) {
+      const minutosUsados = Math.max(1, Math.round((Date.now() - inicio.getTime()) / 60000));
+      job.actualPrintTimeMinutes = job.actual_print_time_minutes = minutosUsados;
+    }
+    const estimado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+    const planejado = getPesoPlanejadoTarefaProducao(job);
+    if (planejado > 0 && estimado > 0) {
+      const proporcao = Math.min(1, (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0) / estimado);
+      const consumido = Math.round(planejado * proporcao * 100) / 100;
+      job.filamentWeightGrams = job.filament_weight_grams = consumido;
+    }
+    job.finished_at = job.finished_at || agora;
   }
   const printer = getProductionPrinter(job.printerId);
   if (printer && status === "em_impressao") printer.status = "ocupada";
@@ -27629,7 +27958,11 @@ function renderTarefaProducao(job = {}) {
   const events = productionEvents.filter((event) => String(event.productionJobId || event.production_job_id) === String(job.id)).slice(-4).reverse();
   const estimado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
   const real = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0;
+  const peso = Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
   const variacaoTempo = estimado > 0 && real > 0 ? Math.round(((real - estimado) / estimado) * 100) : null;
+  const totalPlacas = Math.max(1, Number(job.quantity) || 1);
+  const placasConcluidas = Math.min(totalPlacas, getPlacasConcluidasProducao(job));
+  const placasRestantes = Math.max(0, totalPlacas - placasConcluidas);
   return `
     <article class="production-job-card production-status-${escaparAttr(job.status || "novo_pedido")}">
       <div class="production-job-head">
@@ -27641,7 +27974,8 @@ function renderTarefaProducao(job = {}) {
       </div>
       <div class="production-job-meta">
         <span><small>Material</small><strong>${escaparHtml(job.material || "Não informado")}${job.color ? ` · ${escaparHtml(job.color)}` : ""}</strong></span>
-        <span><small>Quantidade</small><strong>${Number(job.quantity) || 1}</strong></span>
+        <span><small>Placas</small><strong>${placasConcluidas}/${totalPlacas} concluídas${placasRestantes ? ` · faltam ${placasRestantes}` : ""}</strong></span>
+        <span><small>Peso</small><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "Não informado"}</strong></span>
         <span><small>Tempo estimado</small><strong>${estimado ? `${estimado} min` : "Não informado"}</strong></span>
         ${real ? `<span><small>Tempo real</small><strong>${real} min${variacaoTempo === null ? "" : ` • ${variacaoTempo > 0 ? "+" : ""}${variacaoTempo}%`}</strong></span>` : ""}
         <span><small>Prazo</small><strong>${escaparHtml(job.dueDate || "Sem prazo")}</strong></span>
@@ -27893,7 +28227,7 @@ function renderResumoCapacidadeProducao() {
 }
 
 function renderImpressorasProducao() {
-  const printers = productionPrinters.filter((printer) => printer.isActive !== false || printer.status !== "inativa");
+  const printers = productionPrinters.filter((printer) => printer.isActive !== false && printer.status !== "inativa");
   return `
     <div class="production-printer-toolbar">
       <p>As impressoras são controladas manualmente. O sistema organiza a fila e os status, mas não inicia impressões automaticamente.</p>
@@ -27938,6 +28272,30 @@ function renderPerfilImpressoraProducao() {
     <div><span>Impressora ativa</span><strong>${escaparHtml(modelo)}</strong><small>Modelo: ${escaparHtml(tipo)}${emUso.nozzleSize ? ` · Bico ${escaparHtml(emUso.nozzleSize)}` : ""}</small></div>
     <span class="status-badge production-printer-profile-status"><span data-printer-live="production-status">${escaparHtml(status)}</span> ›</span>
   </section>`;
+}
+
+async function abrirImpressoraAtivaProducao(id) {
+  const manual = getProductionPrinter(id);
+  const nome = normalizarTextoBusca(manual?.name || "");
+  const monitoradas = getImpressorasAtivas();
+  const monitorada = monitoradas.find((item) => normalizarTextoBusca(item.name || "") === nome)
+    || (monitoradas.length === 1 ? monitoradas[0] : null);
+  if (monitorada) {
+    abrirPainelImpressoraSimplifica(monitorada.id);
+    return;
+  }
+  trocarTela("impressoras");
+  if (!printerMonitoringState.loaded) {
+    hidratarImpressorasSeNecessario()
+      .then(() => {
+        const atualizadas = getImpressorasAtivas();
+        const vinculada = atualizadas.find((item) => normalizarTextoBusca(item.name || "") === nome)
+          || (atualizadas.length === 1 ? atualizadas[0] : null);
+        if (vinculada) abrirPainelImpressoraSimplifica(vinculada.id);
+        else renderizarPreservandoScroll();
+      })
+      .catch(() => {});
+  }
 }
 
 function getTarefasProducaoPorAba(tab = getProductionTab()) {
@@ -27998,7 +28356,7 @@ function renderProducao() {
           return `<button type="button" role="tab" class="${tab === value ? "active" : ""}" aria-selected="${tab === value}" onclick="trocarAbaProducao('${value}')"><i aria-hidden="true">${renderUiIcon(icon)}</i><span>${escaparHtml(label)}</span><strong>${quantidade}</strong></button>`;
         }).join("")}
       </div>
-      ${tab === "impressoras" ? renderImpressorasProducao() : `
+      ${tab === "impressoras" ? renderImpressorasProducao() : tab === "historico" ? renderHistoricoProducao() : `
         <div class="production-filter-bar">
           <select aria-label="Filtrar por impressora" onchange="window.__productionPrinterFilter=this.value;renderizarPreservandoScroll()">${renderProductionPrinterOptions(window.__productionPrinterFilter || "")}</select>
           <select aria-label="Filtrar período da produção" onchange="window.__productionPeriod=this.value;renderizarPreservandoScroll()">
@@ -32445,6 +32803,7 @@ async function alternarBiometriaSeguranca(ativar = null) {
   }
 
   appConfig.biometricEnabled = desejaAtivar;
+  if (desejaAtivar) appConfig.localLockEnabled = true;
   appConfig.biometricOfferDismissed = true;
   salvarDados();
   mostrarToast(desejaAtivar ? "Biometria ativada para este aparelho." : "Biometria desativada neste aparelho.", "sucesso");
@@ -32638,7 +32997,11 @@ function renderSeguranca() {
           <div class="ui3-security-card-body">
             <label class="checkbox-row">
               <input id="keepSessionCacheConfig" type="checkbox" ${appConfig.keepSessionCache !== false ? "checked" : ""}>
-              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha.</small></span>
+              <span><strong>Manter login neste aparelho</strong><small>Preserva a sessão sem salvar sua senha por até 7 dias.</small></span>
+            </label>
+            <label class="checkbox-row">
+              <input id="localLockEnabledConfig" type="checkbox" ${appConfig.localLockEnabled !== false ? "checked" : ""}>
+              <span><strong>Proteger abertura a cada 12 horas</strong><small>Usa biometria quando ativada; solicita a senha apenas como alternativa.</small></span>
             </label>
             <div class="actions security-page-actions">
               <button class="btn" type="button" onclick="salvarPreferenciasSeguranca()">Salvar preferência</button>
@@ -32689,6 +33052,7 @@ function renderSeguranca() {
 
 function salvarPreferenciasSeguranca() {
   appConfig.keepSessionCache = !!document.getElementById("keepSessionCacheConfig")?.checked;
+  appConfig.localLockEnabled = !!document.getElementById("localLockEnabledConfig")?.checked;
   if (!appConfig.keepSessionCache) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
   } else {
@@ -33201,7 +33565,7 @@ if (typeof window !== "undefined") {
 }
 
 function renderSuperAdminPlanos() {
-  const planos = getPlanPresentationData();
+  const planos = getPlanPresentationData({ incluirIndisponiveis: true });
   const clientesPorPlano = planos.reduce((acc, plano) => {
     acc[plano.slug] = saasSubscriptions.filter((assinatura) => normalizarSlugPlano(assinatura.planSlug || "free") === plano.slug && assinatura.status !== "cancelled").length;
     return acc;
@@ -33221,7 +33585,7 @@ function renderSuperAdminPlanos() {
               <strong>${escaparHtml(plano.name)}</strong>
               <small>${escaparHtml(plano.headline || plano.subtitle || "")}</small>
             </div>
-            <span class="status-badge ${plano.isActive ? "badge-ativo" : "badge-danger"}">${plano.isActive ? "ativo" : "inativo"}</span>
+            <span class="status-badge ${plano.isActive && plano.isPublic ? "badge-ativo" : "badge-danger"}">${plano.isActive ? (plano.isPublic ? "ativo" : "oculto") : "inativo"}</span>
           </div>
           <div class="superadmin-plan-price">
             <strong>${escaparHtml(plano.priceLabel || "R$ 0")}</strong>
@@ -36046,9 +36410,10 @@ function salvarPlanPresentationOverrides(overrides = {}) {
   } catch (_) {}
 }
 
-function getPlanPresentationData() {
+function getPlanPresentationData(options = {}) {
+  const incluirIndisponiveis = options.incluirIndisponiveis === true;
   const overrides = getPlanPresentationOverrides();
-  return getPlanPresentationDefaults().map((base, index) => {
+  const planos = getPlanPresentationDefaults().map((base, index) => {
     const plano = getPlanoSaas(base.slug);
     const override = overrides[base.slug] || {};
     const priceValue = Number(override.price ?? plano.price ?? 0);
@@ -36063,7 +36428,160 @@ function getPlanPresentationData() {
       isPublic: override.isPublic !== false,
       isActive: override.isActive !== false && plano.active !== false
     };
-  }).filter((plan) => plan.isPublic && plan.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  });
+  return planos
+    .filter((plan) => incluirIndisponiveis || (plan.isPublic && plan.isActive))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+function abrirAjusteDadosImpressao(jobId) {
+  const job = getProductionJob(jobId);
+  const popup = document.getElementById("popup");
+  if (!job || !popup) return;
+  const peso = Number(job.filamentWeightGrams || job.filament_weight_grams) || "";
+  const tempo = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || "";
+  const pesoPlanejado = getPesoPlanejadoTarefaProducao(job);
+  const tempoPlanejado = Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+  const perda = ["falhou", "cancelado"].includes(job.status);
+  popup.innerHTML = `
+    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
+      <form class="modal-card" onclick="event.stopPropagation()" onsubmit="salvarAjusteDadosImpressao(event,'${escaparAttr(job.id)}')">
+        <div class="modal-header"><div><span class="eyebrow">${escaparHtml(job.productionCode || "Impressão")}</span><h2>${perda ? "Registrar perda" : "Dados da impressão"}</h2></div><button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button></div>
+        <p class="muted">Planejado: ${pesoPlanejado ? `${pesoPlanejado.toLocaleString("pt-BR")} g` : "peso não informado"} e ${tempoPlanejado ? formatarMinutosProducao(tempoPlanejado) : "tempo não informado"}. Ajuste abaixo com o consumo real.</p>
+        <div class="production-form-grid">
+          <label class="field"><span>${perda ? "Material perdido" : "Material consumido"} (g)</span><input id="productionActualWeight" type="number" min="0" step="0.01" inputmode="decimal" value="${escaparAttr(peso)}" placeholder="Ex.: 50"></label>
+          <label class="field"><span>${perda ? "Tempo perdido" : "Tempo utilizado"} (min)</span><input id="productionActualTime" type="number" min="0" step="1" inputmode="numeric" value="${escaparAttr(tempo)}" placeholder="Ex.: 150"></label>
+        </div>
+        <div class="actions production-modal-actions"><button class="btn ghost" type="button" onclick="fecharPopup()">Cancelar</button><button class="btn" type="submit">Salvar dados</button></div>
+      </form>
+    </div>`;
+  promoverPopupParaDialogUiV3(popup, { title: "Peso e tempo da impressão" });
+}
+
+function salvarAjusteDadosImpressao(event, jobId) {
+  event?.preventDefault?.();
+  const job = getProductionJob(jobId);
+  if (!job) return false;
+  const peso = Math.max(0, Number(document.getElementById("productionActualWeight")?.value) || 0);
+  const tempo = Math.max(0, Math.round(Number(document.getElementById("productionActualTime")?.value) || 0));
+  job.filamentWeightGrams = job.filament_weight_grams = peso || null;
+  job.actualPrintTimeMinutes = job.actual_print_time_minutes = tempo || null;
+  job.updated_at = new Date().toISOString();
+  registrarEventoProducao(job.id, "dados_impressao_ajustados", job.status, job.status, `${peso ? `${peso} g` : "Peso não informado"} · ${tempo ? `${tempo} min` : "Tempo não informado"}`);
+  salvarProducaoManual("dados-impressao-ajustados");
+  fecharPopup();
+  renderizarPreservandoScroll();
+  mostrarToast("Peso e tempo atualizados.", "sucesso", 2600);
+  return true;
+}
+
+const PRODUCTION_HISTORY_PAGE_SIZE = 6;
+
+function getPeriodoHistoricoProducao() {
+  const periodo = String(window.__productionHistoryPeriod || "hoje");
+  return ["hoje", "semana", "mes"].includes(periodo) ? periodo : "hoje";
+}
+
+function trocarPeriodoHistoricoProducao(periodo) {
+  window.__productionHistoryPeriod = periodo;
+  window.__productionHistoryLimit = PRODUCTION_HISTORY_PAGE_SIZE;
+  renderizarPreservandoScroll();
+}
+
+function getDataConclusaoTarefaProducao(job = {}) {
+  const eventos = productionEvents.filter((event) =>
+    String(event.productionJobId || event.production_job_id) === String(job.id)
+      && ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue", "falhou", "cancelado"].includes(event.newStatus || event.new_status)
+  );
+  return getDataEventoOperacionalPedido(eventos.at(-1)?.created_at || job.finished_at || job.updated_at || job.created_at);
+}
+
+function getHistoricoProducaoNoPeriodo(periodo = getPeriodoHistoricoProducao()) {
+  const inicio = new Date();
+  inicio.setHours(0, 0, 0, 0);
+  if (periodo === "semana") inicio.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7));
+  if (periodo === "mes") inicio.setDate(1);
+  return productionJobs.map((job) => ({ job, data: getDataConclusaoTarefaProducao(job) }))
+    .filter(({ job, data }) => data && data >= inicio && (
+      ["pos_processamento", "controle_qualidade", "pronto_para_entrega", "entregue"].includes(job.status)
+      || (["falhou", "cancelado"].includes(job.status) && (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) > 0 || Number(job.filamentWeightGrams || job.filament_weight_grams) > 0))
+    ))
+    .sort((a, b) => b.data.getTime() - a.data.getTime());
+}
+
+function carregarMaisHistoricoProducao() {
+  window.__productionHistoryLimit = (Number(window.__productionHistoryLimit) || PRODUCTION_HISTORY_PAGE_SIZE) + PRODUCTION_HISTORY_PAGE_SIZE;
+  renderizarPreservandoScroll();
+}
+
+function formatarMinutosProducao(minutos = 0) {
+  const total = Math.max(0, Math.round(Number(minutos) || 0));
+  const horas = Math.floor(total / 60);
+  const resto = total % 60;
+  return horas ? `${horas}h${resto ? ` ${resto}min` : ""}` : `${resto}min`;
+}
+
+function getPesoPlanejadoTarefaProducao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0];
+  return Number(getProductionItemMaterial(item || {}).grams) || Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
+}
+
+function getCustoMaterialPorGramaTarefaProducao(job = {}) {
+  const pedido = getProductionOrder(job);
+  const item = normalizarItensPedido(pedido || {})[Number(job.itemIndex ?? job.item_index) || 0] || {};
+  const vinculo = getMateriaisItem(item)[0] || {};
+  const material = getMaterialEstoque(vinculo.materialId) || {};
+  const custoKg = Number(vinculo.valorUnitario || material.custoUnitario || material.unit_cost || material.precoKg || material.custoKg) || 0;
+  return custoKg > 0 ? custoKg / 1000 : 0;
+}
+
+function renderHistoricoProducao() {
+  const periodo = getPeriodoHistoricoProducao();
+  const historico = getHistoricoProducaoNoPeriodo(periodo);
+  const limite = Math.max(PRODUCTION_HISTORY_PAGE_SIZE, Number(window.__productionHistoryLimit) || PRODUCTION_HISTORY_PAGE_SIZE);
+  const visiveis = historico.slice(0, limite);
+  const concluidas = historico.filter(({ job }) => !["falhou", "cancelado"].includes(job.status));
+  const perdas = historico.filter(({ job }) => ["falhou", "cancelado"].includes(job.status));
+  const minutos = concluidas.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0);
+  const peso = concluidas.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const minutosPerdidos = perdas.reduce((total, { job }) => total + (Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes) || 0), 0);
+  const pesoPerdido = perdas.reduce((total, { job }) => total + (Number(job.filamentWeightGrams || job.filament_weight_grams) || 0), 0);
+  const prejuizo = perdas.reduce((total, { job }) => total + ((Number(job.filamentWeightGrams || job.filament_weight_grams) || 0) * getCustoMaterialPorGramaTarefaProducao(job)), 0);
+  const pedidosUnicos = new Set(historico.map(({ job }) => String(job.orderId || job.order_id || "")).filter(Boolean)).size;
+  return `
+    <section class="production-report" aria-label="Histórico de produção">
+      <div class="production-report-toolbar">
+        <div><h3>Horas de impressão</h3><p class="muted">Produção concluída no período selecionado.</p></div>
+        <div class="production-period-switch" role="group" aria-label="Período do histórico">
+          ${[["hoje","Hoje"],["semana","Semana"],["mes","Mês"]].map(([value,label]) => `<button type="button" class="${periodo === value ? "active" : ""}" onclick="trocarPeriodoHistoricoProducao('${value}')">${label}</button>`).join("")}
+        </div>
+      </div>
+      <div class="production-history-summary">
+        <div><span>Horas produzidas</span><strong>${formatarMinutosProducao(minutos)}</strong></div>
+        <div><span>Material produzido</span><strong>${peso ? `${peso.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
+        <div class="${minutosPerdidos ? "is-loss" : ""}"><span>Horas perdidas</span><strong>${formatarMinutosProducao(minutosPerdidos)}</strong></div>
+        <div class="${pesoPerdido ? "is-loss" : ""}"><span>Material perdido</span><strong>${pesoPerdido ? `${pesoPerdido.toLocaleString("pt-BR")} g` : "0 g"}</strong></div>
+        <div class="${prejuizo ? "is-loss" : ""}"><span>Prejuízo estimado</span><strong>${formatarMoeda(prejuizo)}</strong></div>
+        <div><span>Impressões / pedidos</span><strong>${historico.length} / ${pedidosUnicos}</strong></div>
+      </div>
+      <div class="production-history-list">
+        ${visiveis.length ? visiveis.map(({ job, data }) => {
+          const order = getProductionOrder(job);
+          const tempo = Number(job.actualPrintTimeMinutes || job.actual_print_time_minutes || job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0;
+          const pesoItem = Number(job.filamentWeightGrams || job.filament_weight_grams) || 0;
+          const perda = ["falhou", "cancelado"].includes(job.status);
+          const custoPerda = perda ? pesoItem * getCustoMaterialPorGramaTarefaProducao(job) : 0;
+          return `<article class="production-history-row">
+            <div><strong>${escaparHtml(job.itemName || "Item de produção")}</strong><small>${escaparHtml(job.productionCode || `Pedido #${job.orderId}`)} · ${escaparHtml(clienteDoPedido(order || {}) || "Cliente não informado")}</small></div>
+            <div class="production-history-measures ${perda ? "is-loss" : ""}"><span>${perda ? getProductionStatusLabel(job.status) : "Concluída"}</span><span>${formatarMinutosProducao(tempo)}</span><span>${pesoItem ? `${pesoItem.toLocaleString("pt-BR")} g` : "Peso pendente"}</span>${custoPerda ? `<span>${formatarMoeda(custoPerda)}</span>` : ""}</div>
+            <div><strong>${escaparHtml(getProductionPrinterLabel(job.printerId || job.printer_id))}</strong><small>${formatarDataHora(data.toISOString())}</small></div>
+            <button class="btn secondary" type="button" onclick="abrirAjusteDadosImpressao('${escaparAttr(job.id)}')">Ajustar</button>
+          </article>`;
+        }).join("") : `<p class="empty">Nenhuma impressão concluída neste período.</p>`}
+      </div>
+      ${historico.length > visiveis.length ? `<div class="production-history-more"><button class="btn secondary" type="button" onclick="carregarMaisHistoricoProducao()">Carregar mais ${Math.min(PRODUCTION_HISTORY_PAGE_SIZE, historico.length - visiveis.length)}</button><small>${visiveis.length} de ${historico.length}</small></div>` : ""}
+    </section>`;
 }
 
 function selecionarPlanoApresentacao(slug = "start") {
@@ -36121,7 +36639,7 @@ function resetarPlanoApresentacaoInterativo(event) {
 
 function editarPlanoApresentacaoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
-  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const headline = prompt("Título comercial do card", plan.headline || "");
   if (headline === null) return;
@@ -36148,7 +36666,7 @@ function editarPlanoApresentacaoSuperadmin(slug) {
 
 function editarPrecoExibidoPlanoSuperadmin(slug) {
   if (!isSuperAdmin()) return;
-  const plan = getPlanPresentationData().find((item) => item.slug === slug);
+  const plan = getPlanPresentationData({ incluirIndisponiveis: true }).find((item) => item.slug === slug);
   if (!plan) return;
   const valor = prompt("Preço exibido no card. Isto não altera cobrança real.", plan.priceLabel || "");
   if (valor === null) return;
@@ -38427,6 +38945,7 @@ function restaurarPersonalizacaoPadrao() {
     updateStatus: appConfig.updateStatus || "Aguardando",
     browserPasswordSaveOffer: appConfig.browserPasswordSaveOffer !== false,
     keepSessionCache: appConfig.keepSessionCache !== false,
+    localLockEnabled: appConfig.localLockEnabled !== false,
     biometricEnabled: !!appConfig.biometricEnabled,
     biometricOfferDismissed: !!appConfig.biometricOfferDismissed,
     backupReminderLastAt: appConfig.backupReminderLastAt || "",
@@ -38818,7 +39337,7 @@ function concluirLoginUsuario(usuario) {
   sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
   if (isSuperAdmin(usuario)) sessionStorage.setItem("simplificaSuperadminAuthenticated", "true");
   else sessionStorage.removeItem("simplificaSuperadminAuthenticated");
-  salvarCacheSessaoLocal();
+  salvarCacheSessaoLocal({ novaAutenticacao: true });
   desativarTravaLocal("login");
   adminLogado = false;
   sessionStorage.removeItem("adminLogado");
@@ -47861,7 +48380,7 @@ function configurarEventListenersArquitetura() {
       return;
     }
 
-    if (["plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
+    if (["modal-close", "plan-modal-close", "stock-add-cancel", "stock-edit-cancel", "stock-restock-cancel", "stock-batch-cancel", "calc-material-cancel"].includes(acao)) {
       if (elemento.classList.contains("modal-backdrop") && event.target !== elemento) return;
       event.preventDefault();
       fecharPopup();
@@ -49317,6 +49836,10 @@ function isAndroidNativeApp() {
   }
 }
 
+function isPilotBuild() {
+  return /pilot/i.test(String(APP_VERSION || ""));
+}
+
 function getAndroidDownloadUrl(manifest = {}) {
   return manifest.apkUrl || manifest.downloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
 }
@@ -49352,6 +49875,10 @@ function getPluginAtualizacaoAndroid() {
 }
 
 async function abrirDownloadAtualizacaoAndroid(url) {
+  if (isPilotBuild()) {
+    mostrarToast("Atualizações automáticas ficam desativadas no Piloto.", "info", 3600);
+    return { pilotBuild: true };
+  }
   const destino = url || appConfig.updateDownloadUrl || billingConfig.androidDownloadUrl || ANDROID_RELEASES_URL;
   if (!destino) {
     alert("Link do APK não configurado.");
@@ -49498,6 +50025,7 @@ function avisarAtualizacaoAndroid(manifest, forcarAviso = false) {
 
 async function verificarAtualizacaoAndroid(forcarAviso = false) {
   if (!isAndroid()) return false;
+  if (isPilotBuild()) return false;
 
   try {
     const manifest = await buscarManifestAtualizacaoAndroid();
@@ -49535,6 +50063,10 @@ async function verificarAtualizacaoAndroid(forcarAviso = false) {
 }
 
 async function baixarAtualizacaoAndroid(forcarBusca = false) {
+  if (isPilotBuild()) {
+    mostrarToast("O Piloto não instala a versão estável automaticamente.", "info", 4200);
+    return { pilotBuild: true };
+  }
   if (isAndroid() || forcarBusca) {
     try {
       const manifest = await buscarManifestAtualizacaoAndroid();
