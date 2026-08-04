@@ -88,6 +88,7 @@
       BAMBU_LOGIN_FIELDS_REQUIRED: "Informe o e-mail e a senha da conta Bambu.",
       BAMBU_LOGIN_REJECTED: "A Bambu recusou o login. Confira os dados ou use o código de verificação.",
       BAMBU_LOGIN_TIMEOUT: "A Bambu demorou demais para responder. Tente novamente.",
+      BAMBU_ACCOUNT_ALREADY_CONNECTED: "A conta Bambu já está conectada. Desconecte-a antes de entrar novamente.",
       BAMBU_SERVICE_UNAVAILABLE: "O serviço comunitário de conexão Bambu está indisponível no momento.",
       BAMBU_VERIFICATION_CODE_REQUIRED: "A Bambu solicitou um código de verificação. Informe o código recebido e continue.",
       BAMBU_NO_PRINTERS_FOUND: "A conta foi conectada, mas nenhuma impressora vinculada foi encontrada.",

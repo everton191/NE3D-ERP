@@ -2,7 +2,7 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.28";
+const APP_VERSION = "1.0.29";
 const APP_VERSION_CODE = 29;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
@@ -25269,6 +25269,58 @@ function sincronizarImpressorasComCalculadora() {
   });
 }
 
+function sincronizarImpressorasMonitoradasComProducao() {
+  let alterou = false;
+  const companyId = getProductionCompanyId();
+  const agora = new Date().toISOString();
+  getImpressorasAtivas().forEach((item) => {
+    const nome = String(item.name || item.custom_model || "").trim();
+    if (!nome) return;
+    const modelo = String(item.printer_models?.name || item.custom_model || nome).trim();
+    const chaveNome = nome.toLocaleLowerCase("pt-BR");
+    const chaveModelo = modelo.toLocaleLowerCase("pt-BR");
+    let productionPrinter = productionPrinters.find((printer) =>
+      String(printer.registeredPrinterId || printer.registered_printer_id || printer.id || "") === String(item.id || "")
+    );
+    if (!productionPrinter) {
+      productionPrinter = productionPrinters.find((printer) => {
+        const nomeProducao = String(printer.name || "").trim().toLocaleLowerCase("pt-BR");
+        const modeloProducao = String(printer.model || printer.printerModel || "").trim().toLocaleLowerCase("pt-BR");
+        return Boolean(nomeProducao && nomeProducao === chaveNome) || Boolean(modeloProducao && modeloProducao === chaveModelo);
+      });
+    }
+    if (productionPrinter) {
+      if (String(productionPrinter.registeredPrinterId || "") !== String(item.id || "")) {
+        productionPrinter.registeredPrinterId = item.id;
+        productionPrinter.updated_at = agora;
+        alterou = true;
+      }
+      return;
+    }
+    const monitorStatus = getPrinterCurrentStatus(item);
+    const status = monitorStatus === "printing" ? "ocupada" : monitorStatus === "paused" ? "pausada" : "disponivel";
+    productionPrinters.push({
+      id: pareceUuid(item.id) ? item.id : gerarUuidProducao(),
+      companyId,
+      company_id: companyId,
+      name: nome,
+      model: modelo,
+      printerModel: modelo,
+      printerType: String(item.printer_type || "fdm").toLowerCase() === "resin" ? "resina" : "fdm",
+      printer_type: String(item.printer_type || "fdm").toLowerCase() === "resin" ? "resina" : "fdm",
+      status,
+      isActive: item.active !== false,
+      is_active: item.active !== false,
+      registeredPrinterId: item.id,
+      created_at: agora,
+      updated_at: agora
+    });
+    alterou = true;
+  });
+  if (alterou) salvarProducaoManual("impressoras-monitoradas-na-producao");
+  return alterou;
+}
+
 async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal = true) {
   if (!syncConfig.supabaseAccessToken || !getUsuarioAtual()) return;
   const scope = `${getUsuarioAtual()?.companyId || billingConfig.companyId || ""}:${getUsuarioAtual()?.supabaseUserId || syncConfig.supabaseUserId || ""}`;
@@ -25288,6 +25340,7 @@ async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal
     printerMonitoringState.history = {};
   }
   if (printerMonitoringState.loading || (printerMonitoringState.loaded && !forcar)) return;
+  const requestId = ++printerMonitoringState.requestId;
   const carregamentoInicial = !printerMonitoringState.loaded;
   printerMonitoringState.loading = true;
   printerMonitoringState.error = "";
@@ -25304,6 +25357,7 @@ async function hidratarImpressorasSeNecessario(forcar = false, renderizarAoFinal
     printerMonitoringState.access = workspace?.access || {};
     printerMonitoringState.loaded = true;
     sincronizarImpressorasComCalculadora();
+    sincronizarImpressorasMonitoradasComProducao();
     setTimeout(() => conectarBambuMqttCloudAutomatico(), 0);
   } catch (erro) {
     if (requestId !== printerMonitoringState.requestId) return;
@@ -25818,7 +25872,7 @@ function renderPrinterMoreActions(impressora = {}) {
   const podeGerenciar = podeGerenciarImpressoras();
   const podeOperar = podeOperarImpressoras();
   const actions = [
-    isBambuPrinterCandidate(impressora) && podeGerenciar ? `<button type="button" onclick="abrirLoginBambu('${escaparAttr(impressora.id)}')">${impressora.credentials_configured ? "Reconectar Bambu" : "Conectar Bambu"}</button>` : "",
+    isBambuPrinterCandidate(impressora) && podeGerenciar && !impressora.credentials_configured ? `<button type="button" onclick="abrirLoginBambu('${escaparAttr(impressora.id)}')">Conectar Bambu</button>` : "",
     impressora.connector_type === "bambu" && impressora.credentials_configured && podeGerenciar ? `<button type="button" onclick="desconectarContaBambu('${escaparAttr(impressora.id)}')">Desconectar Bambu</button>` : "",
     !automatico && podeOperar ? `<button type="button" onclick="abrirStatusManualImpressora('${escaparAttr(impressora.id)}')">Atualizar status manual</button>` : "",
     podeOperar ? `<button type="button" onclick="abrirVinculoPedidoImpressora('${escaparAttr(impressora.id)}')">Vincular pedido</button>` : "",
@@ -25837,7 +25891,7 @@ function abrirMenuAcoesImpressora(id) {
   const podeGerenciar = podeGerenciarImpressoras();
   const podeOperar = podeOperarImpressoras();
   const actions = [
-    isBambuPrinterCandidate(impressora) && podeGerenciar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirLoginBambu('${escaparAttr(id)}'),80)">${impressora.credentials_configured ? "Reconectar conta Bambu" : "Conectar conta Bambu"}</button>` : "",
+    isBambuPrinterCandidate(impressora) && podeGerenciar && !impressora.credentials_configured ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirLoginBambu('${escaparAttr(id)}'),80)">Conectar conta Bambu</button>` : "",
     impressora.connector_type === "bambu" && impressora.credentials_configured && podeGerenciar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>desconectarContaBambu('${escaparAttr(id)}'),80)">Desconectar conta Bambu</button>` : "",
     !automatico && podeOperar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirStatusManualImpressora('${escaparAttr(id)}'),80)">Atualizar status manual</button>` : "",
     podeOperar ? `<button type="button" onclick="fecharPopup();setTimeout(()=>abrirVinculoPedidoImpressora('${escaparAttr(id)}'),80)">Vincular pedido</button>` : "",
@@ -26753,6 +26807,10 @@ async function salvarCadastroImpressora(event) {
 function abrirLoginBambu(id) {
   const impressora = getPrinterById(id);
   if (!impressora || !isBambuPrinterCandidate(impressora) || !podeGerenciarImpressoras()) return;
+  if (impressora.credentials_configured) {
+    mostrarToast("A conta Bambu já está conectada. Use Desconectar Bambu antes de entrar novamente.", "info", 4800);
+    return;
+  }
   if (!bambuLoginDraftState.active || String(bambuLoginDraftState.printerId) !== String(id)) {
     Object.assign(bambuLoginDraftState, { active: true, printerId: id, account: "", password: "", code: "", consent: false, step: 1, awaitingCode: false });
   }
@@ -27424,6 +27482,7 @@ async function carregarProducaoManualSupabaseSilencioso() {
   productionPrinters = mesclarListas(productionPrinters, (printers || []).map(mapearImpressoraProducaoRemota)).slice(-100);
   productionJobs = mesclarListas(productionJobs, (jobs || []).map(mapearTarefaProducaoRemota)).slice(-1000);
   productionEvents = mesclarListas(productionEvents, (events || []).map(mapearEventoProducaoRemoto)).slice(-800);
+  sincronizarImpressorasMonitoradasComProducao();
   salvarDados();
   return true;
 }
