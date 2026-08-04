@@ -115,7 +115,10 @@ assert.ok(app.includes("function getImpressoesExternasMonitoradas"), "produção
 assert.ok(app.includes("Impressão iniciada fora do Simplifica · nenhum pedido vinculado."), "impressão externa não pode criar pedido falso");
 assert.ok(app.includes("function abrirVinculoImpressaoBambuPedido"), "impressão externa deve poder ser vinculada a uma tarefa da fila");
 assert.ok(app.includes("function abrirConfirmacaoConclusaoImpressaoBambu"), "término MQTT deve pedir confirmação antes de concluir pedido");
-assert.ok(app.includes("Ainda há mesas/material"), "pedido grande deve poder retornar à fila após uma mesa");
+assert.ok(app.includes("Confirmar placa concluída"), "pedido com várias placas deve confirmar cada placa antes de avançar");
+assert.ok(app.includes("const concluido = completed >= total"), "pedido só pode ficar pronto após confirmar a quantidade total de placas");
+assert.ok(app.includes("if (total === 1) return confirmarConclusaoImpressaoBambu(job.id)"), "pedido de uma placa deve concluir somente após o término confirmado pela máquina");
+assert.ok(app.includes("bambu_vinculo_editado"), "vínculo de impressão deve permitir edição");
 assert.ok(app.includes("function registrarFalhaImpressaoBambu"), "falha ou cancelamento MQTT não pode contabilizar mesa concluída");
 assert.ok(app.includes("nenhuma mesa foi contabilizada"), "histórico deve diferenciar tentativa com erro de conclusão");
 assert.ok(app.includes("Minha Bambu Lab"), "cadastro deve destacar o caminho Bambu com linguagem simples");

@@ -491,14 +491,19 @@ body[data-ui-profile="web_pwa"].gxm-motion-ready:not([data-motion="high"]) :wher
     box-shadow:none;
   }
 
+  /* Touch feedback must not alter the whole component or create a bubble. */
+  body.gxm-motion-ready .gxm-ripple{display:none!important;animation:none!important;}
+
   body.gxm-motion-ready :where(.btn,.icon-button,.header-menu-button,.side-nav-button,.mobile-bottom-nav-button,.menu-button,.ui-tab,.store-ui-button,.store-ui-icon-button,button):active{
-    transform:scale(.98);
+    transform:none;
   }
 
   body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor,.app-content-shell).gxm-enter,
   body.gxm-motion-ready :where(.desktop-main,.desktop-focus,.mobile-home,.mobile-panel-content,.storefront-editor):not(.gxm-seen),
   body.gxm-motion-ready .gxm-screen-swap{
-    animation:gxm-screen-in-mobile 280ms var(--gxm-ease-emphasis) both !important;
+    animation:none!important;
+    opacity:1!important;
+    transform:none!important;
   }
 
   body.gxm-motion-ready :where(.sfv3-product-card,.sfv3-category-card,.sfv3-sponsored-card,.sfe-list-card,.sfe-overview .store-ui-card){

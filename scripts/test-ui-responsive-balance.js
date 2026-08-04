@@ -21,6 +21,17 @@ if (missing.length) {
   process.exit(1);
 }
 
+const requiredTabletOrientation = [
+  'return getViewportMode() === "mobile";',
+  'const tabletPorDimensao = Math.min(viewportWidth, viewportHeight) >= 600',
+  'if (tabletPorDimensao) return viewportWidth > viewportHeight ? "desktop" : "mobile";',
+  'if (viewportWidth < 1024) return viewportWidth > viewportHeight ? "desktop" : "mobile";'
+];
+if (requiredTabletOrientation.some((snippet) => !app.includes(snippet))) {
+  console.error("Orientação do tablet não está alternando entre mobile e desktop.");
+  process.exit(1);
+}
+
 const requiredSuperadmin = [
   "function renderMenuAcoesSuperadmin",
   "Adicionar dias ao acesso",
