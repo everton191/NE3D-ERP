@@ -66,6 +66,7 @@ Regras:
 - Nao usar icone maior que `22px` dentro de botao.
 - Botao deve ter `min-width:0` quando estiver dentro de grid/flex.
 - Se o texto nao couber, quebrar linha ou truncar de forma intencional, nunca estourar o container.
+- Em PWA/tablet, botões de ação usam altura padrão de `40px` e raio de `10px`; não usar cantos quadrados em painéis operacionais.
 
 ## Cards
 

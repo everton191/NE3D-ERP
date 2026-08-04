@@ -48812,6 +48812,96 @@ body.theme-light:not(.visitor-public-screen) .printer-card :is(.printer-metrics 
 body.theme-light:not(.visitor-public-screen) .printer-card .printer-card-meta{color:#596a73 !important}
 body.theme-light:not(.visitor-public-screen) .printer-order-queue{color:#14212b !important;background:#fff !important;border-color:#d8e2e5 !important}
 
+/* PWA/tablet: painel de impressoras segue a densidade e os raios do sistema web. */
+@media (min-width:768px){
+  body[data-ui-profile="web_pwa"] .printer-screen{
+    width:min(100%,1280px);
+    margin-inline:auto;
+    gap:18px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-page-header{
+    padding:4px 2px 10px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-page-header .btn,
+  body[data-ui-profile="web_pwa"] .printer-card-actions .btn,
+  body[data-ui-profile="web_pwa"] .printer-summary-actions .btn,
+  body[data-ui-profile="web_pwa"] .printer-device-panel-actions .btn{
+    min-height:40px;
+    border-radius:10px;
+    padding-inline:14px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-grid{
+    grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:18px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-card,
+  body[data-ui-profile="web_pwa"] .printer-empty,
+  body[data-ui-profile="web_pwa"] .printer-order-queue{
+    border-radius:16px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-card{
+    min-height:292px;
+    padding:18px;
+    gap:14px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-card-header,
+  body[data-ui-profile="web_pwa"] .printer-card-actions{
+    gap:10px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-device-icon{
+    width:46px;
+    height:46px;
+    flex-basis:46px;
+    border-radius:12px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-metrics > div{
+    padding:10px;
+    border-radius:10px;
+  }
+
+  /* Contrato único da guia Impressoras no PWA/tablet. */
+  body[data-ui-profile="web_pwa"] :where(.printer-screen,.printer-wizard,.printer-device-panel,.printer-order-queue) :is(.btn,.app-button,.compact-action,.ui-tab){
+    min-height:40px;
+    border-radius:10px;
+    padding-inline:14px;
+  }
+  body[data-ui-profile="web_pwa"] :where(.printer-screen,.printer-wizard,.printer-device-panel) :is(
+    .printer-setup-choice,.printer-lan-fields,.printer-bambu-account-fields,.printer-bambu-printer-review,
+    .printer-device-job,.printer-device-controls,.printer-device-ams,.printer-plate-summary,.printer-machine-history,
+    .printer-order-queue,.printer-order-row,.printer-summary-row,.printer-read-only-notice,.printer-plan-note
+  ){
+    border-radius:14px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-screen :is(.printer-setup-choice,.printer-order-queue,.printer-card),
+  body[data-ui-profile="web_pwa"] .printer-wizard :is(.printer-lan-fields,.printer-bambu-account-fields,.printer-bambu-printer-review),
+  body[data-ui-profile="web_pwa"] .printer-device-panel :is(.printer-device-job,.printer-device-controls,.printer-device-ams,.printer-plate-summary,.printer-machine-history){
+    box-shadow:0 8px 22px rgba(20,33,43,.08);
+  }
+  body[data-ui-profile="web_pwa"] .printer-wizard,
+  body[data-ui-profile="web_pwa"] .printer-device-panel{
+    width:min(100%,920px);
+    margin-inline:auto;
+  }
+  body[data-ui-profile="web_pwa"] .printer-wizard-actions,
+  body[data-ui-profile="web_pwa"] .printer-device-panel-actions,
+  body[data-ui-profile="web_pwa"] .printer-card-actions{
+    gap:10px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-cadastro-progress,
+  body[data-ui-profile="web_pwa"] .printer-bambu-steps{
+    gap:10px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-cadastro-progress li > span{
+    width:30px;
+    height:30px;
+    flex-basis:30px;
+  }
+  body[data-ui-profile="web_pwa"] .printer-plate-metrics article,
+  body[data-ui-profile="web_pwa"] .printer-machine-history-list article{
+    border-radius:10px;
+  }
+}
+
 @media(max-width:767px){
   body.mobile-mode .printer-screen{
     display:flex !important;
