@@ -7,19 +7,19 @@
   --store-surface:#ffffff;
   --store-surface-soft:#eef5f4;
   --store-surface-muted:#e7f0ef;
-  --store-border:#d8e4e3;
-  --store-border-strong:#bdd2d0;
+  --store-border:#c8d7d5;
+  --store-border-strong:#9fb8b5;
   --store-text:#152728;
-  --store-text-muted:#607476;
-  --store-primary:#208279;
-  --store-primary-hover:#196f69;
+  --store-text-muted:#455b5c;
+  --store-primary:#176f68;
+  --store-primary-hover:#105e59;
   --store-primary-soft:#e7f5f3;
   --store-accent:#59a9ad;
   --store-icon:#3d9d97;
   --store-icon-strong:#287f79;
   --store-icon-soft:#e8f5f3;
   --store-danger:#c74a4a;
-  --store-success:#21885f;
+  --store-success:#176f4e;
   --store-warning:#c77a13;
   --store-radius-sm:10px;
   --store-radius-md:14px;
@@ -55,4 +55,13 @@
   --store-content-max:1440px;
   --store-editor-max:560px;
   --store-transition:160ms ease;
+  /* Impede que os tokens claros/escuros do ERP vazem para a loja e o editor. */
+  --text:var(--store-text);
+  --text-primary:var(--store-text);
+  --text-secondary:var(--store-text-muted);
+  --text-muted:var(--store-text-muted);
+  --color-text-primary:var(--store-text);
+  --color-text-secondary:var(--store-text-muted);
+  --color-text-muted:var(--store-text-muted);
+  --muted:var(--store-text-muted);
 }

@@ -44,6 +44,13 @@ const sampleVm = {
 };
 const desktopMarkup = editor.sidebar(sampleVm, { mobile: false, uiMode: "product" });
 const mobileMarkup = editor.sidebar(sampleVm, { mobile: true, uiMode: "product" });
+const desktopActionsMarkup = desktopMarkup.match(/<nav class="sfe-sidebar-actions"[^>]*>([\s\S]*?)<\/nav>/)?.[1] || "";
+const actionsBeforeMore = desktopActionsMarkup.split('<details class="sfe-sidebar-more">')[0];
+assert((actionsBeforeMore.match(/<button\b/g) || []).length === 3, "Menu inferior deve manter tres botoes diretos antes de Mais");
+assert(desktopActionsMarkup.includes('<span>Visualizar</span>'), "Acao direta de visualizacao ausente");
+assert(desktopActionsMarkup.includes('<span>Mais</span>'), "Menu Mais ausente nas quatro acoes principais");
+assert(desktopActionsMarkup.includes('<span>Revisar publicação</span>'), "Revisao deve permanecer dentro do menu Mais");
+assert(desktopActionsMarkup.includes("sfe-sidebar-publish"), "Publicacao deve permanecer dentro do menu Mais");
 [desktopMarkup, mobileMarkup].forEach((markup, index) => {
   assert(markup.includes('id="storefrontProductPhotoMain-produto-1"'), `troca da foto principal ausente no shell ${index ? "mobile" : "desktop"}`);
   assert(markup.includes('id="storefrontProductPhotoGallery-produto-1"'), `inclusao de galeria ausente no shell ${index ? "mobile" : "desktop"}`);

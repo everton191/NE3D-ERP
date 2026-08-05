@@ -56,6 +56,16 @@ assert.match(
 );
 assert.doesNotMatch(
   app,
+  /getUsuarioAtual\(\)\?\.mustChangePassword[\s\S]{0,160}renderTrocaSenhaObrigatoria\(\)/,
+  "A sinalização remota de senha temporária não deve bloquear a navegação nem tornar a troca obrigatória."
+);
+assert.match(
+  app,
+  /function renderSeguranca\(\)[\s\S]*?abrirAlteracaoSenhaConta\(\)[\s\S]*?function abrirAlteracaoSenhaConta\(\)/,
+  "A troca voluntária de senha deve continuar disponível no menu Segurança."
+);
+assert.doesNotMatch(
+  app,
   /mostrarToast\((?:error|erro)\?\.message/,
   "Mensagens técnicas brutas não devem ser exibidas diretamente ao usuário."
 );
