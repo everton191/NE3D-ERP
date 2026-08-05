@@ -11315,10 +11315,6 @@ function renderDesktopConteudo() {
     return `<div class="desktop-focus app-page">${renderAcessoNegado()}</div>`;
   }
 
-  if (getUsuarioAtual()?.mustChangePassword && telaAtual !== "seguranca") {
-    return `<div class="desktop-focus app-page">${renderTrocaSenhaObrigatoria()}</div>`;
-  }
-
   const configuracoes = ["config", "backup", "personalizacao", "empresa", "administracao", "preferencias", "pdf", "mais", "conta", "assinatura", "minhaAssinatura", "planos", "admin", "usuarios", "seguranca", "lojaOnline", "lojaAdmin", "superadmin", "privacy", "terms", "acessoNegado"];
   const atualizacaoAndroid = renderAtualizacaoAndroidDownload();
 
@@ -13293,14 +13289,6 @@ function renderMobile() {
     return `<main class="superadmin-mobile-only app-page">${renderTela("superadmin")}</main>`;
   }
 
-  if (getUsuarioAtual()?.mustChangePassword) {
-    return `
-      <div class="mobile-home app-page password-required-mobile">
-        ${renderTrocaSenhaObrigatoria()}
-      </div>
-    `;
-  }
-
   const painelAberto = telaAtual !== "dashboard";
   const telaSubstituiNavMobile = telaAtual === "superadmin" || (!getUsuarioAtual() && isTelaPublica(telaAtual));
   const home = canAccessScreen("dashboard") ? renderDashboard(true) : renderAcessoNegado();
@@ -13425,9 +13413,6 @@ function renderTelaComUiV3(tela) {
 
 function renderTela(tela) {
   if (!canAccessScreen(tela)) return renderAcessoNegado();
-  if (getUsuarioAtual()?.mustChangePassword && tela !== "seguranca" && tela !== "admin") {
-    return renderTrocaSenhaObrigatoria();
-  }
   switch (tela) {
     case "mais":
       return renderMais();
@@ -16607,19 +16592,21 @@ function isStorefrontDemoPreviewAllowed() {
 }
 
 const STOREFRONT_V3_EXAMPLE_ASSETS = Object.freeze({
-  hero: "assets/storefront-v3/examples/hero-3d-products.jpg?v=20260611",
-  categoryDecor: "assets/storefront-v3/examples/category-decoracao.jpg?v=20260611",
-  categoryCollectibles: "assets/storefront-v3/examples/category-colecionaveis.jpg?v=20260611",
-  categoryAccessories: "assets/storefront-v3/examples/category-acessorios.jpg?v=20260611",
-  categoryUtilities: "assets/storefront-v3/examples/category-utilidades.jpg?v=20260611",
-  categoryKeychains: "assets/storefront-v3/examples/category-chaveiros.jpg?v=20260611",
-  categoryTechnical: "assets/storefront-v3/examples/category-pecas-tecnicas.jpg?v=20260611",
-  productDino: "assets/storefront-v3/examples/product-dino.jpg?v=20260611",
-  productEiffel: "assets/storefront-v3/examples/product-eiffel.jpg?v=20260611",
-  productSupport: "assets/storefront-v3/examples/product-support.jpg?v=20260611",
-  productVase: "assets/storefront-v3/examples/product-vase.jpg?v=20260611",
-  productKeychain: "assets/storefront-v3/examples/product-keychain.jpg?v=20260611",
-  productDragon: "assets/storefront-v3/examples/product-dragon.jpg?v=20260611"
+  hero: "/assets/storefront-v3/examples/hero-3d-products.jpg?v=20260805",
+  categoryDecor: "/assets/storefront-v3/examples/category-decoracao.jpg?v=20260805",
+  categoryCollectibles: "/assets/storefront-v3/examples/category-colecionaveis.jpg?v=20260805",
+  categoryAccessories: "/assets/storefront-v3/examples/category-acessorios.jpg?v=20260805",
+  categoryUtilities: "/assets/storefront-v3/examples/category-utilidades.jpg?v=20260805",
+  categoryKeychains: "/assets/storefront-v3/examples/category-chaveiros.jpg?v=20260805",
+  categoryTechnical: "/assets/storefront-v3/examples/category-pecas-tecnicas.jpg?v=20260805",
+  productDino: "/assets/storefront-v3/examples/product-dino.jpg?v=20260805",
+  productEiffel: "/assets/storefront-v3/examples/product-eiffel.jpg?v=20260805",
+  productSupport: "/assets/storefront-v3/examples/product-support.jpg?v=20260805",
+  productVase: "/assets/storefront-v3/examples/product-vase.jpg?v=20260805",
+  productKeychain: "/assets/storefront-v3/examples/product-keychain.jpg?v=20260805",
+  productDragon: "/assets/storefront-v3/examples/product-dragon.jpg?v=20260805",
+  productOrganizer: "/assets/storefront-v3/examples/category-utilidades.jpg?v=20260805",
+  productTechnical: "/assets/storefront-v3/examples/category-pecas-tecnicas.jpg?v=20260805"
 });
 
 function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
@@ -16641,16 +16628,20 @@ function getStorefrontDemoProductImage(visual = "produto", title = "Produto") {
     dragon: STOREFRONT_V3_EXAMPLE_ASSETS.productDragon,
     dragao: STOREFRONT_V3_EXAMPLE_ASSETS.productDragon,
     vase: STOREFRONT_V3_EXAMPLE_ASSETS.productVase,
-    vaso: STOREFRONT_V3_EXAMPLE_ASSETS.productVase
+    vaso: STOREFRONT_V3_EXAMPLE_ASSETS.productVase,
+    organizer: STOREFRONT_V3_EXAMPLE_ASSETS.productOrganizer,
+    organizador: STOREFRONT_V3_EXAMPLE_ASSETS.productOrganizer,
+    technical: STOREFRONT_V3_EXAMPLE_ASSETS.productTechnical,
+    tecnico: STOREFRONT_V3_EXAMPLE_ASSETS.productTechnical
   };
   if (v3Assets[visual]) return v3Assets[visual];
   const commons = {
-    stamp: "assets/storefront-demo/stamp.jpg?v=20260601",
-    keychain: "assets/storefront-demo/custom-part.jpg?v=20260601",
-    topper: "assets/storefront-demo/figure.jpg?v=20260601",
-    cutter: "assets/storefront-demo/organizer.jpg?v=20260601",
-    keepsake: "assets/storefront-demo/miniature.jpg?v=20260601",
-    vase: "assets/storefront-demo/vase.jpg?v=20260601"
+    stamp: "/assets/storefront-demo/stamp.jpg?v=20260601",
+    keychain: "/assets/storefront-demo/custom-part.jpg?v=20260601",
+    topper: "/assets/storefront-demo/figure.jpg?v=20260601",
+    cutter: "/assets/storefront-demo/organizer.jpg?v=20260601",
+    keepsake: "/assets/storefront-demo/miniature.jpg?v=20260601",
+    vase: "/assets/storefront-demo/vase.jpg?v=20260601"
   };
   if (commons[visual]) return commons[visual];
   const palette = {
@@ -16724,10 +16715,12 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
   const demoProducts = [
     ["Dinossauro Flex", "colecionaveis", 49.9, true, "2 a 5 dias úteis", "dino", "Dinossauro articulado impresso em 3D para coleção, decoração ou presente."],
     ["Luminária Eiffel", "decoracao", 79.9, true, "3 a 7 dias úteis", "eiffel", "Peça decorativa inspirada na Torre Eiffel para ambientes criativos."],
-    ["Suporte de Celular", "acessorios", 29.9, false, "Prazo sob consulta", "support", "Suporte impresso em 3D para mesa, bancada ou vitrine."],
-    ["Vaso Geométrico", "decoracao", 34.9, false, "2 a 4 dias úteis", "vase", "Vaso geométrico impresso em 3D para plantas pequenas e decoração."],
+    ["Suporte de Celular", "acessorios", 29.9, true, "1 a 3 dias úteis", "support", "Suporte de mesa estável, com inclinação confortável para chamadas e vídeos."],
+    ["Vaso Geométrico", "decoracao", 34.9, true, "2 a 4 dias úteis", "vase", "Cachepô geométrico leve para plantas pequenas e decoração de ambientes."],
     ["Chaveiro Personalizado", "chaveiros", 19.9, false, "Prazo sob consulta", "keychain", "Chaveiro personalizado para lembranças, brindes e presentes."],
-    ["Dragão Articulado", "colecionaveis", 59.9, false, "3 a 7 dias úteis", "dragon", "Dragão articulado impresso em 3D com visual decorativo e divertido."]
+    ["Dragão Articulado", "colecionaveis", 59.9, false, "3 a 7 dias úteis", "dragon", "Dragão articulado impresso em 3D com visual decorativo e divertido."],
+    ["Organizador Modular", "utilidades", 44.9, false, "2 a 4 dias úteis", "organizer", "Organizador modular para mesa, gaveta ou bancada, produzido sob medida."],
+    ["Presilha Técnica Sob Medida", "pecas-tecnicas", 24.9, false, "Prazo sob consulta", "technical", "Peça técnica de reposição feita conforme medidas e necessidade do cliente."]
   ].map(([title, categorySlug, price, featured, time, visual, description]) => ({
     id: `demo-prod-${storefrontAdminSlugify(title)}`,
     store_id: store.id,
@@ -16752,6 +16745,9 @@ function getStorefrontDemoPreviewData(store = getStorefrontAdminStoreLocal()) {
     image_url: getStorefrontDemoProductImage(visual, title),
     __demo: true
   }));
+  demoCategories.forEach((category) => {
+    category.product_count = demoProducts.filter((product) => String(product.category_id) === String(category.id)).length;
+  });
   const demoLead = {
     id: "demo-lead-storefront-preview",
     store_id: store.id,
@@ -25497,7 +25493,8 @@ async function conectarBambuMqttCloudAutomatico(forcar = false) {
     return true;
   } catch (erro) {
     bambuLanState.connectionState = "error";
-    if (forcar) mostrarToast(erro?.message || "Não foi possível iniciar o MQTT Bambu.", "erro", 6000);
+    registrarDiagnostico("Impressoras", "Falha ao conectar Bambu pela nuvem", erro?.message || String(erro), { silent: true });
+    if (forcar) mostrarToast("Não foi possível conectar à Bambu pela nuvem agora. Confira a internet e tente novamente.", "erro", 6000);
     return false;
   } finally {
     bambuLanState.cloudConnecting = false;
@@ -25669,7 +25666,8 @@ async function conectarBambuLan(event, printerId = "") {
       } catch (_) {}
     }, 1800);
   } catch (erro) {
-    mostrarToast(erro?.message || "Não foi possível conectar. Confira IP, serial, código LAN e Wi-Fi.", "erro", 6000);
+    registrarDiagnostico("Impressoras", "Falha ao conectar Bambu pela rede local", erro?.message || String(erro), { silent: true });
+    mostrarToast("Não foi possível conectar à impressora. Confira o IP, o número de série, o código LAN e se os aparelhos estão no mesmo Wi-Fi.", "erro", 6000);
   } finally {
     setBotaoLoading(button, false);
   }
@@ -32529,17 +32527,6 @@ function renderAdmin() {
           <button class="icon-button" onclick="voltarTela()" title="Voltar">↩</button>
         </div>
         <div class="admin-settings-content">
-          <section class="admin-settings-section">
-            <div class="admin-settings-heading">
-              <span>${renderUiIcon("seguranca")}</span>
-              <div>
-                <h3>Trocar senha</h3>
-                <p class="muted">Altere a senha usada pela sua própria conta.</p>
-              </div>
-            </div>
-            ${renderFormularioAlterarSenha(false, { mostrarCancelar: false })}
-          </section>
-
           <section class="admin-settings-section">
             <div class="admin-settings-heading">
               <span>${renderUiIcon("usuarios")}</span>
@@ -49332,28 +49319,28 @@ function textoLimitadoPdf(doc, texto, x, y, largura, maxLinhas, lineHeight = 4.4
 
 function desenharCabecalhoComercialPdf(doc, contexto) {
   const { largura, margem, tema, empresa, data, numeroDoc, tipoDoc, marcaPdf } = contexto;
-  const logoSize = 17;
+  const logoSize = 14;
   if (marcaPdf) {
     try {
-      doc.addImage(marcaPdf, tipoImagemDataUrl(marcaPdf), margem, 12, logoSize, logoSize);
+      doc.addImage(marcaPdf, tipoImagemDataUrl(marcaPdf), margem, 10, logoSize, logoSize);
     } catch (erro) {
       registrarDiagnostico("pdf", "Logo não aplicada no orçamento", erro.message);
     }
   } else {
     setFillPdf(doc, tema.primary, "#00d8c8");
-    doc.roundedRect(margem, 12, logoSize, logoSize, 3, 3, "F");
+    doc.roundedRect(margem, 10, logoSize, logoSize, 3, 3, "F");
     setTextPdf(doc, tema.headerText, "#111111");
     setFontePdf(doc, 10, "bold");
-    doc.text("S3D", margem + logoSize / 2, 22, { align: "center" });
+    doc.text("S3D", margem + logoSize / 2, 19, { align: "center" });
   }
 
   const tx = margem + logoSize + 4;
   setTextPdf(doc, tema.headerText, "#ffffff");
-  setFontePdf(doc, 19, "bold");
-  doc.text(empresa.nome, tx, 19);
+  setFontePdf(doc, 16, "bold");
+  doc.text(empresa.nome, tx, 16);
   setTextPdf(doc, tema.secondary, "#00d8c8");
   setFontePdf(doc, 10, "bold");
-  doc.text(empresa.subtitulo || "Impressão 3D", tx, 27);
+  doc.text(empresa.subtitulo || "Impressão 3D", tx, 22);
 
   setTextPdf(doc, tema.muted, "#b8c6d4");
   setFontePdf(doc, 8);
@@ -49365,17 +49352,17 @@ function desenharCabecalhoComercialPdf(doc, contexto) {
     empresa.instagram ? `Instagram: ${empresa.instagram}` : "",
     empresa.endereco ? `${empresa.endereco}${empresa.cidadeEstado ? " - " + empresa.cidadeEstado : ""}` : empresa.cidadeEstado,
     empresa.cnpj ? `CNPJ: ${empresa.cnpj}` : ""
-  ].filter(Boolean).slice(0, 6);
-  contatos.forEach((linha, i) => doc.text(linha, margem + 2, 40 + i * 5));
+  ].filter(Boolean).slice(0, 4);
+  contatos.forEach((linha, i) => doc.text(linha, margem + 1, 31 + i * 4));
 
   setTextPdf(doc, tema.headerText, "#ffffff");
-  setFontePdf(doc, 24, "bold");
-  doc.text(tipoDoc, largura - margem, 18, { align: "right" });
+  setFontePdf(doc, 20, "bold");
+  doc.text(tipoDoc, largura - margem, 16, { align: "right" });
   setDrawPdf(doc, tema.muted, "#b8c6d4");
-  doc.roundedRect(largura - margem - 60, 24, 60, 9, 1.5, 1.5, "S");
+  doc.roundedRect(largura - margem - 52, 20, 52, 8, 1.5, 1.5, "S");
   setTextPdf(doc, tema.secondary, "#00d8c8");
   setFontePdf(doc, 10, "bold");
-  doc.text(`Nº ${numeroDoc}`, largura - margem - 30, 30.2, { align: "center" });
+  doc.text(`Nº ${numeroDoc}`, largura - margem - 26, 25.5, { align: "center" });
 
   setTextPdf(doc, tema.text, "#f5fbff");
   setFontePdf(doc, 8);
@@ -49388,13 +49375,13 @@ function desenharCabecalhoComercialPdf(doc, contexto) {
     ["Forma de pagamento", appConfig.paymentTerms || "A combinar"]
   ];
   info.forEach(([label, value], i) => {
-    const y = 44 + i * 11;
+    const y = 32 + i * 8;
     setTextPdf(doc, tema.secondary, "#00d8c8");
     setFontePdf(doc, 8, "bold");
-    doc.text(label + ":", largura - margem - 58, y);
+    doc.text(label + ":", largura - margem - 52, y);
     setTextPdf(doc, tema.text, "#f5fbff");
     setFontePdf(doc, 8);
-    doc.text(String(value), largura - margem - 58, y + 4.5);
+    doc.text(String(value), largura - margem - 52, y + 3.8);
   });
 }
 
@@ -49489,32 +49476,32 @@ async function gerarPDF(opcoes = {}) {
     desenharFundoComercialPdf(doc, largura, altura, tema);
     desenharCabecalhoComercialPdf(doc, contextoCabecalho);
 
-    let y = 84;
-    desenharCartaoPdf(doc, margem, y, largura - margem * 2, 34, tema);
+    let y = 66;
+    desenharCartaoPdf(doc, margem, y, largura - margem * 2, 25, tema);
     setTextPdf(doc, tema.secondary, "#00d8c8");
     setFontePdf(doc, 9, "bold");
-    doc.text("DADOS DO CLIENTE", margem + 6, y + 9);
+    doc.text("DADOS DO CLIENTE", margem + 6, y + 7);
     setTextPdf(doc, tema.text, "#f5fbff");
     setFontePdf(doc, 8);
-    doc.text("Nome:", margem + 6, y + 18);
-    setFontePdf(doc, 11, "bold");
-    doc.text(cliente || "Cliente não informado", margem + 6, y + 25);
-    setFontePdf(doc, 8);
-    doc.text("WhatsApp:", margem + 96, y + 18);
+    doc.text("Nome:", margem + 6, y + 13);
     setFontePdf(doc, 10, "bold");
-    doc.text(telefoneCliente || "Não informado", margem + 96, y + 25);
+    doc.text(cliente || "Cliente não informado", margem + 6, y + 19);
     setFontePdf(doc, 8);
-    doc.text("E-mail:", margem + 6, y + 30);
-    doc.text(emailCliente || "Não informado", margem + 22, y + 30);
-    doc.text("Endereço:", margem + 96, y + 30);
-    doc.text(dados.endereco || pedidoEditando?.enderecoCliente || "Não informado", margem + 116, y + 30);
+    doc.text("WhatsApp:", margem + 96, y + 13);
+    setFontePdf(doc, 9, "bold");
+    doc.text(telefoneCliente || "Não informado", margem + 96, y + 19);
+    setFontePdf(doc, 8);
+    doc.text("E-mail:", margem + 6, y + 23);
+    doc.text(emailCliente || "Não informado", margem + 22, y + 23);
+    doc.text("Endereço:", margem + 96, y + 23);
+    doc.text(dados.endereco || pedidoEditando?.enderecoCliente || "Não informado", margem + 116, y + 23);
 
-    y += 42;
-    desenharCartaoPdf(doc, margem, y, largura - margem * 2, 10, tema, tema.panelAlt);
+    y += 30;
+    desenharCartaoPdf(doc, margem, y, largura - margem * 2, 8, tema, tema.panelAlt);
     setTextPdf(doc, tema.secondary, "#00d8c8");
     setFontePdf(doc, 9, "bold");
-    doc.text("ITENS DO ORÇAMENTO", margem + 6, y + 6.7);
-    y += 15;
+    doc.text("ITENS DO ORÇAMENTO", margem + 6, y + 5.5);
+    y += 12;
 
     const desenharTabelaCabecalho = () => {
       setTextPdf(doc, tema.secondary, "#00d8c8");
@@ -49527,7 +49514,7 @@ async function gerarPDF(opcoes = {}) {
       doc.text("SUBTOTAL", largura - margem - 4, y, { align: "right" });
       setDrawPdf(doc, tema.line, "#0bb8b1");
       doc.line(margem + 3, y + 4, largura - margem - 3, y + 4);
-      y += 10;
+      y += 8;
     };
 
     const novaPagina = () => {
@@ -49547,7 +49534,7 @@ async function gerarPDF(opcoes = {}) {
       const nomeLinhas = doc.splitTextToSize(String(item.nome || "Item"), 54).slice(0, 2);
       const obs = String(item.observacao || item.descricao || "").trim();
       const materialLinhas = doc.splitTextToSize(textoMaterialPdf(item), 28).slice(0, 2);
-      const alturaLinha = Math.max(14, nomeLinhas.length * 4.4 + (obs ? 4.2 : 0) + 5, materialLinhas.length * 4.4 + 5);
+      const alturaLinha = Math.max(11, nomeLinhas.length * 4 + (obs ? 3.6 : 0) + 4, materialLinhas.length * 4 + 4);
       if (y + alturaLinha > altura - 34) novaPagina();
       if (indice % 2 === 1) {
         setFillPdf(doc, tema.tableStripe, "#0c2838");
@@ -49560,7 +49547,7 @@ async function gerarPDF(opcoes = {}) {
       if (obs) {
         setTextPdf(doc, tema.muted, "#b8c6d4");
         setFontePdf(doc, 7.5);
-        doc.text(doc.splitTextToSize(obs, 54).slice(0, 1), margem + 28, y + 8.8);
+        doc.text(doc.splitTextToSize(obs, 54).slice(0, 1), margem + 28, y + 7.5);
       }
       setTextPdf(doc, tema.muted, "#b8c6d4");
       setFontePdf(doc, 8);
@@ -49576,11 +49563,11 @@ async function gerarPDF(opcoes = {}) {
       y += alturaLinha;
     });
 
-    if (y > 206) novaPagina();
-    y += 5;
+    if (y > 218) novaPagina();
+    y += 3;
     const larguraObs = 98;
     const larguraResumo = largura - margem * 2 - larguraObs - 4;
-    const resumoAltura = resumoFinanceiroPdf.entrada > 0 ? 76 : 44;
+    const resumoAltura = resumoFinanceiroPdf.entrada > 0 ? 60 : 36;
     desenharCartaoPdf(doc, margem, y, larguraObs, resumoAltura, tema);
     setTextPdf(doc, tema.secondary, "#00d8c8");
     setFontePdf(doc, 9, "bold");
@@ -49628,37 +49615,37 @@ async function gerarPDF(opcoes = {}) {
       doc.text(labelStatusFinanceiroPedido(resumoFinanceiroPdf.statusFinanceiro), resumoX + larguraResumo - 6, linhaSeparador + 34, { align: "right" });
     }
 
-    y += resumoAltura + 8;
+    y += resumoAltura + 5;
     const valorPix = resumoFinanceiroPdf.entrada > 0 ? resumoFinanceiroPdf.restante : totalComercial;
     const payloadPix = valorPix > 0 ? gerarPayloadPix(valorPix, cliente) : "";
     if (payloadPix) {
-      if (y > altura - 58) {
+      if (y > altura - 61) {
         doc.addPage();
         desenharFundoComercialPdf(doc, largura, altura, tema);
         y = 18;
       }
       const qrData = gerarQrPixDataUrl(payloadPix);
-      desenharCartaoPdf(doc, margem, y, largura - margem * 2, 44, tema);
+      desenharCartaoPdf(doc, margem, y, largura - margem * 2, 37, tema);
       setTextPdf(doc, tema.secondary, "#00d8c8");
       setFontePdf(doc, 9, "bold");
-      doc.text("PAGUE COM PIX", margem + 16, y + 12);
+      doc.text("PAGUE COM PIX", margem + 16, y + 10);
       setTextPdf(doc, tema.muted, "#b8c6d4");
       setFontePdf(doc, 8);
-      doc.text("Escaneie o QR Code ou copie a chave Pix:", margem + 16, y + 20);
+      doc.text("Escaneie o QR Code ou copie a chave Pix:", margem + 16, y + 17);
       setTextPdf(doc, tema.secondary, "#00d8c8");
       setFontePdf(doc, 9, "bold");
-      doc.text(empresa.pixKey || appConfig.pixKey || "", margem + 16, y + 29);
-      if (qrData) doc.addImage(qrData, "PNG", largura / 2 - 16, y + 6, 32, 32);
+      doc.text(empresa.pixKey || appConfig.pixKey || "", margem + 16, y + 25);
+      if (qrData) doc.addImage(qrData, "PNG", largura / 2 - 13, y + 5, 26, 26);
       setTextPdf(doc, tema.text, "#f5fbff");
       setFontePdf(doc, 9, "bold");
-      doc.text("Pagamento via PIX", largura - margem - 56, y + 16);
+      doc.text("Pagamento via PIX", largura - margem - 56, y + 13);
       setTextPdf(doc, tema.muted, "#b8c6d4");
       setFontePdf(doc, 8);
       const pixTexto = [
         empresa.pixReceiverName ? `Recebedor: ${empresa.pixReceiverName}` : "",
         appConfig.pixInstruction || "Após o pagamento, envie o comprovante pelo WhatsApp."
       ].filter(Boolean).join("\n");
-      textoLimitadoPdf(doc, pixTexto, largura - margem - 56, y + 25, 50, 3, 4.2);
+      textoLimitadoPdf(doc, pixTexto, largura - margem - 56, y + 21, 50, 3, 4);
     }
 
     const totalPaginas = doc.getNumberOfPages();

@@ -43,6 +43,9 @@ function assert(condition, message) {
   "calc(8px + var(--app-safe-bottom,0px))",
   ".sfv3-bottom-nav{position:fixed;right:0;bottom:0;left:0;",
   "calc(5px + var(--app-safe-bottom,0px))",
+  ".sfv3{padding-bottom:calc(var(--store-bottom-bar-height)",
+  ".sfv3-search{width:100%;max-width:none;grid-column:1/-1;grid-row:2}",
+  "grid-template-columns:repeat(2,minmax(0,1fr));",
   'html[data-store-editor-keyboard-open="true"] .sfe-actions',
   "@media(max-width:560px)",
 ].forEach((marker) => assert(layouts.includes(marker), `Layout mobile V3 ausente: ${marker}`));

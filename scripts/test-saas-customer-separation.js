@@ -78,10 +78,11 @@ assert(
   "As ações administrativas precisam operar somente em usuários da empresa atual."
 );
 assert(
-  /function renderAdmin\(\)[\s\S]*?Trocar senha[\s\S]*?Funcionários do ERP/.test(app)
+  /function renderAdmin\(\)[\s\S]*?Funcionários do ERP/.test(app)
+    && !/function renderAdmin\(\)[\s\S]*?<h3>Trocar senha<\/h3>/.test(app)
     && !/function renderAdmin\(\)[\s\S]*?Limpar pedido/.test(app)
     && !/function renderAdmin\(\)[\s\S]*?<h2 class="section-title">Comercial<\/h2>/.test(app),
-  "A tela Admin deve conter apenas segurança da conta e funcionários do ERP."
+  "A tela Admin deve conter apenas os funcionários; a própria senha fica somente no menu Segurança."
 );
 assert(
   /function adicionarUsuario\(\)[\s\S]*?!planoAtualPermiteFuncionarios\(\)/.test(app)

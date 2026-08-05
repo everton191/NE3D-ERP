@@ -34,8 +34,14 @@ assert.ok(
   "Rodapé do PDF deve evitar mensagem duplicada."
 );
 assert.ok(
-  app.includes('if (y > altura - 58)') && app.includes('doc.addPage();'),
+  app.includes('if (y > altura - 61)') && app.includes('doc.addPage();'),
   "Bloco Pix deve ganhar nova página quando não couber."
+);
+assert.ok(
+  app.includes('let y = 66;')
+    && app.includes('const resumoAltura = resumoFinanceiroPdf.entrada > 0 ? 60 : 36;')
+    && app.includes('doc.addImage(qrData, "PNG", largura / 2 - 13, y + 5, 26, 26);'),
+  "PDF deve usar o layout compacto para evitar uma segunda página sem necessidade."
 );
 
 console.log("Edição de pedido, valores decimais, desconto e PDF validados.");

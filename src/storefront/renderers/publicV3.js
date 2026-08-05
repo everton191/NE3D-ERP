@@ -107,7 +107,8 @@
     const mode = modeOf(vm);
     const src = call("getStorefrontCategoryVisualImage", category);
     const click = mode.admin ? edit("category", category.id, "category", "categoryName", "category-card") : "return navegarLojaPublicaLink(event,this,{scrollTop:true})";
-    return `<a class="store-ui-card sfv3-category-card" data-store-category-id="${attr(category.id || "")}" href="${categoryUrl(vm, category)}" onclick="${click}">${src ? image(src, { alt: category.name || "Categoria", kind: "category" }) : categoryIcon(category)}<span><strong>${esc(category.name || "Categoria")}</strong><small>${Number(category.product_count || 0)} produtos</small></span></a>`;
+    const productCount = Number(category.product_count || 0);
+    return `<a class="store-ui-card sfv3-category-card" data-store-category-id="${attr(category.id || "")}" href="${categoryUrl(vm, category)}" onclick="${click}">${src ? image(src, { alt: category.name || "Categoria", kind: "category" }) : categoryIcon(category)}<span><strong>${esc(category.name || "Categoria")}</strong><small>${productCount} ${productCount === 1 ? "produto" : "produtos"}</small></span></a>`;
   };
 
   api.categories = function categories(vm) {

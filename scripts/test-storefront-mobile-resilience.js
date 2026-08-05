@@ -5,10 +5,14 @@ const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "
 const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
 
 const requiredCss = [
-  "@media(max-width:900px)",
+  "body.mobile-mode .sfv3",
+  "body.mobile-mode .sfe-workspace--desktop",
   "@media(max-width:560px)",
   "100dvh",
   "var(--app-safe-bottom",
+  "body:has(.sfv3-host) #app-content",
+  "overflow-y:auto!important",
+  "scrollbar-gutter:stable",
   ".sfv3-bottom-nav",
   ".sfe-shell--mobile",
   ".sfe-actions"
