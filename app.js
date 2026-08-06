@@ -3,7 +3,7 @@
 // ==========================================================
 
 const APP_VERSION = "1.0.30";
-const APP_VERSION_CODE = 31;
+const APP_VERSION_CODE = 58;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "PDF reorganizado para evitar páginas extras sem necessidade.",
