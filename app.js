@@ -2,15 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.29";
-const APP_VERSION_CODE = 29;
+const APP_VERSION = "1.0.30";
+const APP_VERSION_CODE = 58;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Cadastro de impressoras BambuLab mais rápido, começando pela escolha da marca.",
-  "Impressoras disponíveis na conta Bambu conectada aparecem automaticamente.",
-  "Telas de impressoras e Superadmin ajustadas para celular, tablet e computador.",
-  "Cards, botões e tema claro receberam correções de tamanho, cantos e contraste.",
-  "Painel da impressora mantém as informações de produção mais claras e organizadas."
+  "PDF reorganizado para evitar páginas extras sem necessidade.",
+  "Troca obrigatória de senha removida do login e mantida no menu Segurança.",
+  "Loja Online ajustada no celular, tablet e computador.",
+  "Tema claro, contraste, rolagem e menu inferior da loja foram corrigidos.",
+  "Textos da interface receberam correções de escrita e clareza."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
