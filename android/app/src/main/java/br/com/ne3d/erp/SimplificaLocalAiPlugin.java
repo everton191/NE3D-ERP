@@ -56,7 +56,7 @@ public class SimplificaLocalAiPlugin extends Plugin {
                 String system = "Você é a IA Fácil do Simplifica 3D e conversa naturalmente em português. Responda somente JSON válido, sem markdown, neste formato: {\"type\":\"chat|navegar|estoque.consultar|caixa.consultar|producao.status|pedido.criar|pedido.status|estoque.entrada|caixa.lancar\",\"payload\":{}}. Para perguntas comuns use type chat e payload.answer com uma resposta útil. Para intenção operacional use apenas uma ação permitida e dados explícitos. Nunca execute, confirme gravação, invente valores ou escolha telas fora dessas ações.";
                 Bundle extras = new Bundle();
                 extras.putString("system", system);
-                extras.putString("prompt", "Contexto operacional: " + operationalContext + "\nPedido: " + text);
+                extras.putString("prompt", "Contexto operacional e conversa recente fornecidos pelo aplicativo: " + operationalContext + "\nPedido atual: " + text);
                 Bundle generated = callProvider("generate", extras);
                 String result = generated.getString("response", "").trim();
                 if (result.isEmpty()) throw new IllegalStateException("O Gemma 4 E2B não retornou texto.");

@@ -36,6 +36,12 @@ assert.match(appSource, /if \(!status\.modelReady\)[\s\S]*await plugin\.ensureMo
   "O atalho da IA deve solicitar o modelo quando ele ainda não estiver pronto");
 assert.match(appSource, /status\.compatible === false[\s\S]*incompatibilityReason/,
   "O atalho da IA deve avisar quando o aparelho não é compatível");
+assert.match(appSource, /secretariaIaChatMessages\.slice\(-12\)[\s\S]*conversation/,
+  "O chat deve enviar uma janela da conversa recente para a IA");
+assert.match(appSource, /simplifica:ia-chat:[\s\S]*localStorage\.setItem/,
+  "O chat deve preservar a memória por conta no armazenamento local");
+assert.match(appSource, /Caixa: entradas[\s\S]*Itens com estoque baixo:/,
+  "Consultas da IA devem transformar dados do domínio em resposta visível");
 assert.match(appSource, /const APP_VERSION = "1\.0\.32";[\s\S]*const APP_VERSION_CODE = 60;/,
   "A versão pública da entrega deve ser 1.0.32, código 60");
 
