@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.30";
-const APP_VERSION_CODE = 58;
+const APP_VERSION = "1.0.32";
+const APP_VERSION_CODE = 60;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "PDF reorganizado para evitar páginas extras sem necessidade.",
@@ -349,10 +349,11 @@ const USAGE_LEARNING_ALLOWED_EVENTS = new Set([
 ]);
 
 const QUICK_ACTION_REORDER_MIN_USES = 5;
-const QUICK_ACTIONS_DEFAULT_ORDER = Object.freeze(["novo_pedido", "calculadora", "clientes", "estoque", "relatorios"]);
+const QUICK_ACTIONS_DEFAULT_ORDER = Object.freeze(["novo_pedido", "secretaria_ia", "calculadora", "clientes", "estoque", "relatorios"]);
 const QUICK_ACTIONS_DANGEROUS = new Set(["excluir", "limpar", "cancelar"]);
 const QUICK_ACTIONS_CATALOG = Object.freeze([
   { id: "novo_pedido", label: "Novo pedido", tela: "pedido", iconKey: "pedido", default: true, primary: true },
+  { id: "secretaria_ia", label: "Secretária IA", iconKey: "feedback", default: true, customAction: "secretaria_ia" },
   { id: "calculadora", label: "Calculadora", tela: "calculadora", iconKey: "calculadora", default: true },
   { id: "clientes", label: "Clientes", tela: "clientes", iconKey: "clientes", default: true },
   { id: "estoque", label: "Estoque", tela: "estoque", iconKey: "estoque", default: true },
@@ -10811,6 +10812,29 @@ function renderizarFabEstoqueGlobal() {
   window.requestAnimationFrame(() => aplicarPosicaoFabEstoque(fabLayer.querySelector(".stock-add-fab")));
 }
 
+function renderizarAtalhoSecretariaIaGlobal() {
+  const layer = document.getElementById(APP_LAYER_IDS.overlay);
+  if (!layer) return;
+  layer.querySelector("[data-ai-assistant-shortcut]")?.remove();
+
+  const podeMostrar = !!getUsuarioAtual()
+    && !isModoManutencaoSuperadminAtivo()
+    && !isModoErpSuperadminAtivo()
+    && telaAtual !== "admin";
+  if (!podeMostrar) return;
+
+  const shortcut = document.createElement("div");
+  shortcut.className = "ai-assistant-shortcut-layer";
+  shortcut.dataset.aiAssistantShortcut = "true";
+  shortcut.innerHTML = `
+    <button class="ai-assistant-shortcut" type="button" onclick="abrirSecretariaIaLocal3d()" title="Conversar com a IA Fácil" aria-label="Conversar com a IA Fácil">
+      <span aria-hidden="true">${renderUiIcon("feedback")}</span>
+      <strong>IA Fácil</strong>
+    </button>
+  `;
+  layer.appendChild(shortcut);
+}
+
 function configurarFechamentoMenusEstoque() {
   if (window.__stockOutsideMenuHandlerReady) return;
   window.__stockOutsideMenuHandlerReady = true;
@@ -10908,6 +10932,7 @@ function renderApp() {
   compactarBarrasAcoesMobile();
   sincronizarShellUiV3();
   renderizarFabEstoqueGlobal();
+  renderizarAtalhoSecretariaIaGlobal();
   configurarFechamentoMenusEstoque();
   configurarAcoesCadastroImpressora();
   configurarAcoesPerfil();
@@ -20487,6 +20512,37 @@ if (typeof window !== "undefined") {
     navigateToStorefrontCompletionItem,
     fecharPainelEdicaoGuiadaLoja,
     editarProdutoPublicadoLojaOnline
+  });
+
+  window.Simplifica3dErpBridge = Object.freeze({
+    getContext() {
+      const totals = calcularTotaisCaixa();
+      return Object.freeze({
+        screen: telaAtual,
+        pedidosRecentes: pedidos.slice(-8).map((pedido) => ({ id: pedido.id, cliente: clienteDoPedido(pedido), status: pedido.status, total: totalPedido(pedido) })),
+        estoqueBaixo: normalizarEstoque().filter((item) => Number(item.qtd || 0) <= Number(item.estoqueMinimo || estoqueMinimoKg)).slice(0, 12).map((item) => ({ id: item.id, nome: item.nome, quantidade: item.qtd, unidade: item.unidade })),
+        caixa: { entradas: totals.entradas, saidas: totals.saidas, saldo: totals.saldo }
+      });
+    },
+    async execute(command) {
+      if (!command || !window.Simplifica3dAiActions?.normalize) throw new Error("Comando de IA inválido.");
+      const safe = window.Simplifica3dAiActions.normalize(command);
+      if (safe.type === "chat") return { ok: true, summary: safe.payload.answer };
+      if (safe.type === "navegar") { trocarTela(safe.payload.tela); return { ok: true, summary: "Tela aberta." }; }
+      if (safe.type === "caixa.consultar") {
+        const { caixa } = this.getContext();
+        return { ok: true, summary: `Caixa: entradas ${formatarMoeda(caixa.entradas)}, saídas ${formatarMoeda(caixa.saidas)} e saldo ${formatarMoeda(caixa.saldo)}.` };
+      }
+      if (safe.type === "estoque.consultar") {
+        const { estoqueBaixo } = this.getContext();
+        return { ok: true, summary: estoqueBaixo.length ? `Itens com estoque baixo: ${estoqueBaixo.map((item) => `${item.nome}: ${item.quantidade} ${item.unidade || ""}`.trim()).join("; ")}.` : "Não há item abaixo do estoque mínimo no contexto atual." };
+      }
+      if (safe.type === "producao.status") {
+        const { pedidosRecentes } = this.getContext();
+        return { ok: true, summary: pedidosRecentes.length ? `Pedidos recentes: ${pedidosRecentes.map((pedido) => `${pedido.cliente}: ${pedido.status}`).join("; ")}.` : "Não há pedidos recentes no contexto atual." };
+      }
+      throw new Error("Executor de alteração ainda precisa ser conectado ao serviço de domínio correspondente.");
+    }
   });
 }
 
@@ -46493,6 +46549,10 @@ function acionarAtalhoRapido(id) {
     source: "dashboard"
   });
   if (acao.customAction) {
+    if (acao.customAction === "secretaria_ia") {
+      abrirSecretariaIaLocal3d();
+      return;
+    }
     acaoAtalhoPedidoRecente(acao.customAction);
     return;
   }
@@ -46501,6 +46561,104 @@ function acionarAtalhoRapido(id) {
     return;
   }
   trocarTela(acao.tela || "dashboard");
+}
+
+let secretariaIaChatMessages = [];
+let secretariaIaChatLoadedKey = "";
+
+function getSecretariaIaChatKey() {
+  const scope = getEscopoDadosAtual?.() || normalizarEmail(usuarioAtualEmail || syncConfig.supabaseEmail || getUsuarioAtual()?.email || "local") || "local";
+  return `simplifica:ia-chat:${scope}`;
+}
+
+function loadSecretariaIaChatMessages() {
+  const key = getSecretariaIaChatKey();
+  if (secretariaIaChatLoadedKey === key) return;
+  secretariaIaChatLoadedKey = key;
+  try {
+    const stored = JSON.parse(localStorage.getItem(key) || "[]");
+    secretariaIaChatMessages = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && String(item.text || "").trim()).slice(-40) : [];
+  } catch (_) {
+    secretariaIaChatMessages = [];
+  }
+}
+
+function saveSecretariaIaChatMessages() {
+  try {
+    localStorage.setItem(getSecretariaIaChatKey(), JSON.stringify(secretariaIaChatMessages.slice(-40).map(({ role, text }) => ({ role, text: String(text || "").slice(0, 1200) }))));
+  } catch (_) { }
+}
+
+async function abrirSecretariaIaLocal3d() {
+  const plugin = window.Capacitor?.Plugins?.SimplificaLocalAi;
+  if (!plugin?.status || !plugin?.ensureModel) {
+    mostrarToast("A IA local está disponível somente no aplicativo Android atualizado.", "aviso", 4200);
+    return;
+  }
+  try {
+    loadSecretariaIaChatMessages();
+    const status = await plugin.status();
+    if (status.compatible === false) {
+      mostrarToast(status.incompatibilityReason || "Este aparelho não é compatível com a IA local. As outras funções continuam disponíveis.", "aviso", 7200);
+      return;
+    }
+    if (!status.modelReady) {
+      const preparation = await plugin.ensureModel();
+      if (preparation.compatible === false) {
+        mostrarToast(preparation.incompatibilityReason || "Este aparelho não é compatível com a IA local. As outras funções continuam disponíveis.", "aviso", 7200);
+        return;
+      }
+      mostrarToast("Estou preparando a IA pelo Wi-Fi. Assim que terminar, o chat abrirá normalmente.", "info", 5200);
+      return;
+    }
+    renderChatSecretariaIa();
+  } catch (error) {
+    registrarErroAplicacaoSilencioso("simplifica_ai_open", error, "abrirSecretariaIa");
+    mostrarToast("Não foi possível abrir a IA local agora. Confira se o Simplifica IA está instalado e tente novamente.", "erro", 5200);
+  }
+}
+
+function renderChatSecretariaIa() {
+  const messages = secretariaIaChatMessages.length
+    ? secretariaIaChatMessages.map(({ role, text }) => `<article class="ai-chat-message ai-chat-message-${role}"><strong>${role === "user" ? "Você" : "IA Fácil"}</strong><p>${escaparHtml(text)}</p></article>`).join("")
+    : `<article class="ai-chat-empty"><strong>Olá! Eu sou a IA Fácil.</strong><p>Pode perguntar qualquer coisa ou me dizer o que você precisa fazer no Simplifica 3D. Se alguma ação puder alterar seus dados, mostrarei tudo para você confirmar antes.</p></article>`;
+  openModal(`
+    <section class="ai-chat-dialog">
+      <header><div><h2>IA Fácil</h2><p>Converse, tire dúvidas e peça ajuda com segurança.</p></div><button class="icon-button" type="button" onclick="closeModal()" aria-label="Fechar conversa">✕</button></header>
+      <div class="ai-chat-messages" id="aiChatMessages">${messages}</div>
+      <form class="ai-chat-form" onsubmit="enviarMensagemSecretariaIa(event)">
+        <input id="aiChatInput" autocomplete="off" placeholder="Escreva sua pergunta ou pedido..." aria-label="Mensagem para a IA Fácil">
+        <button class="btn" type="submit">Enviar</button>
+      </form>
+    </section>
+  `, { label: "Chat IA Fácil", size: "medium" });
+  requestAnimationFrame(() => document.getElementById("aiChatMessages")?.scrollTo({ top: 999999, behavior: "smooth" }));
+}
+
+async function enviarMensagemSecretariaIa(event) {
+  event?.preventDefault?.();
+  const input = document.getElementById("aiChatInput");
+  const text = String(input?.value || "").trim();
+  if (!text) return;
+  const conversation = secretariaIaChatMessages.slice(-12).map(({ role, text: message }) => ({ role, text: String(message || "").slice(0, 700) }));
+  secretariaIaChatMessages.push({ role: "user", text });
+  secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
+  renderChatSecretariaIa();
+  try {
+    const domainContext = window.Simplifica3dErpBridge?.getContext?.() || {};
+    const preview = await window.Simplifica3dAiRuntime.interpret(text, { ...domainContext, conversation });
+    if (preview.requiresConfirmation && !window.confirm(`${preview.summary}\n\nConfirmar esta ação?`)) {
+      secretariaIaChatMessages.push({ role: "assistant", text: "Tudo bem. Nenhuma alteração foi feita." });
+    } else {
+      const result = await window.Simplifica3dAiRuntime.execute(preview, true);
+      secretariaIaChatMessages.push({ role: "assistant", text: result?.summary || preview.summary });
+    }
+  } catch (error) {
+    secretariaIaChatMessages.push({ role: "assistant", text: error?.message || "Não consegui responder agora." });
+  }
+  secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
+  saveSecretariaIaChatMessages();
+  renderChatSecretariaIa();
 }
 
 function pedidoRapidoTemRascunho() {

@@ -56,6 +56,8 @@ const publicSrcFiles = [
   "src/services/adSenseService.js",
   "src/services/monetizationLimits.js",
   "src/services/calculatorDomain.js",
+  "src/services/simplifica3dAiActions.js",
+  "src/services/simplifica3dAiRuntime.js",
   "src/styles/google-expressive-motion.css",
   "src/storefront/styles/tokens.css",
   "src/storefront/styles/components.css",
