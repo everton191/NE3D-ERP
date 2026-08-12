@@ -169,6 +169,7 @@
     "test:feature-access-matrix": "node scripts/test-feature-access-matrix.js",
     "test:saas-customer-separation": "node scripts/test-saas-customer-separation.js",
     "test:printer-monitoring": "node scripts/test-printer-monitoring-read-only.js",
+    "test:simplifica3d-ai": "node scripts/test-simplifica3d-ai-contract.js",
     "test:bambu-agent": "node tools/simplifica-local-agent/test-bambu-cloud.js",
     "test:ui-responsive-balance": "node scripts/test-ui-responsive-balance.js",
     "test:ui-v3-foundation": "node scripts/test-ui-v3-foundation.js",
