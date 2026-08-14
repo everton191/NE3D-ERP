@@ -50,12 +50,12 @@ Legenda: `[x]` concluída e validada; `[~]` em implementação; `[ ]` não inici
 - [x] ETAPA 41 — Comportamento por capabilities. Texto, visão, áudio e tools vêm do provider/runtime e do descriptor, sem inferência pelo nome. Câmera/galeria só abrem com `supportsVision`; a ausência de visão foi simulada na WebView real e mostrou orientação sem abrir o menu. O E2B real informou texto, visão e tools ativos no Zenfone.
 - [x] ETAPA 42 — Privacidade. Política local por padrão foi formalizada; Android e PWA local passam pela política e `RemoteModelProvider` bloqueia envio. Não existe fallback remoto, envio silencioso de imagem/contexto ou pesquisa web nesta fase.
 - [~] ETAPA 43 — Testes automatizados. Core, contexto, lifecycle, UX, componentes visuais, política de modelo/privacidade, segurança, paridade/transação de pedido, RLM e storage/provider PWA têm regressões automatizadas. O teste de UI cobre os sete componentes, quatro packs, isolamento de escopo, escaping e integração real; o teste PWA cobre isolamento por app, capacidade, interrupção, cancelamento, retomada, servidor sem Range, checksum, artifact grande, remoção, provider Web e fallback entre modelos já instalados. Falhas físicas e browsers reais ainda pendem.
-- [~] ETAPA 44 — Aparelho físico. APK atualizado, download próprio integral, SHA-256, retomada/cancelamento, preservação em atualização, reabertura, inferência textual GPU, visão local com imagem real, orçamento → calculadora, cards persistentes, launcher arrastável e matriz de navegação das áreas principais foram comprovados no Zenfone. Remoção e os seletores manuais de câmera/galeria permanecem para o aceite final.
-- [~] ETAPA 45 — Teste PWA. Build servido em origem local nova abriu a tela de acesso sem erros de console e sem bloquear o aplicativo. Cenários autenticados com/sem WebGPU, artifact real, reload, offline e remoção em browsers reais ainda pendentes.
+- [~] ETAPA 44 — Aparelho físico. APK 1.0.34/62 atualizado, download próprio integral, SHA-256, retomada/cancelamento, preservação em atualização, reabertura, inferência textual GPU, visão local com imagem real, orçamento → calculadora, cards persistentes, launcher arrastável e matriz de navegação das áreas principais foram comprovados no Zenfone. Remoção e os seletores manuais de câmera/galeria permanecem para o aceite final.
+- [~] ETAPA 45 — Teste PWA. Build servido em origem local nova abriu a tela de acesso sem erros de console e sem bloquear o aplicativo. A PWA pública foi verificada servindo 1.0.34/62 e o novo service worker. Cenários autenticados com/sem WebGPU, artifact real, reload, offline e remoção em browsers reais ainda pendentes porque não há runtime/artifact WebGPU publicado.
 - [~] ETAPA 46 — Performance. Benchmark local registrou GPU, 9.560 ms de inicialização, 753 ms de geração e 2,32 tokens/s; ação determinística de estoque respondeu em cerca de 111 ms. Matriz comparativa entre aparelhos/PWA ainda pendente.
 - [x] ETAPA 47 — Limites registrados e preservados: sem web real, voz contínua, WRITE automático, vetores globais ou download silencioso.
 - [x] ETAPA 48 — Documentação. Os doze documentos obrigatórios de arquitetura, manifest, contexto/memória, tools, navegação, modelos, downloads Android/Web, UI, segurança, novo adapter e matriz de testes foram criados, além deste marcador de progresso.
-- [ ] ETAPA 49 — Relatório final.
+- [x] ETAPA 49 — Relatório final criado em `FINAL_REPORT_1.0.34.md`, com builds, testes, ADB, causa, arquitetura, modelos, Android, PWA, limitações e publicação verificada.
 
 ## Checkpoints de validação
 
@@ -98,6 +98,12 @@ Nenhuma etapa parcial pode ser tratada como concluída apenas porque um arquivo 
 - A inferência local pós-refactor respondeu `Sim, estou funcionando corretamente.` e confirmou backend `GPU`, sem fallback ativo.
 - Com `supportsVision=false` simulado na WebView, o botão mostrou `Imagem requer modelo compatível`, não abriu o menu e exibiu a explicação amigável.
 - `test:assistant-model-policy` comprovou política local, bloqueio remoto, fallback Android sem chamada de instalação e consumo de capabilities; `test:assistant-pwa-model-storage` comprovou Avançada falhando e Equilibrada já instalada assumindo sem novo download.
+
+## Evidência da publicação 1.0.34
+
+- `origin/main` da aplicação recebeu `599d1b0`; a PWA pública respondeu `APP_VERSION="1.0.34"`, `APP_VERSION_CODE=62` e service worker `simplifica-3d-v1034-assistant-core-20260814`.
+- O repositório público do APK recebeu `0e7a671`; `update.json` remoto respondeu versão `1.0.34`, código `62` e URL versionada.
+- O APK remoto tem SHA-256 `DA64FF9C83422A9680F67EFFA6128925B10E86E4E9EA0A8D5E0B11D06D376897`, idêntico ao local, e `aapt2` confirmou pacote `br.com.ne3d.erp`, versão `1.0.34`, código `62`.
 
 ## Evidência do storage/provider PWA
 
