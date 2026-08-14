@@ -2,15 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.32";
-const APP_VERSION_CODE = 60;
+const APP_VERSION = "1.0.34";
+const APP_VERSION_CODE = 62;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "PDF reorganizado para evitar páginas extras sem necessidade.",
-  "Troca obrigatória de senha removida do login e mantida no menu Segurança.",
-  "Loja Online ajustada no celular, tablet e computador.",
-  "Tema claro, contraste, rolagem e menu inferior da loja foram corrigidos.",
-  "Textos da interface receberam correções de escrita e clareza."
+  "Assistente IA direciona corretamente Home, Pedidos, Estoque, Calculadora e Caixa.",
+  "Orçamentos abrem a calculadora real já preenchida, sem pedir o preço do filamento.",
+  "O botão da IA pode ser arrastado e mantém sua posição.",
+  "Modelo local, capacidades e privacidade agora têm validações mais seguras.",
+  "PWA e Android compartilham o novo núcleo e os componentes reutilizáveis da Assistente."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -233,6 +233,7 @@ const PAID_PRICE_TIERS = [
 const AD_MIN_INTERVAL_MS = 45 * 60 * 1000;
 const RUNTIME_FEATURES = Object.freeze(globalThis?.__SIMPLIFICA_RUNTIME_FEATURES__ || {});
 const ADS_ENABLED = RUNTIME_FEATURES.adsEnabled === true;
+const AI_CONTEXT_V2_ENABLED = RUNTIME_FEATURES.aiContextV2Enabled !== false;
 const ADSENSE_WEB_DEFAULT_ENABLED = ADS_ENABLED;
 const ADSENSE_WEB_DEFAULT_PUBLISHER_ID = String(globalThis?.__ADSENSE_PUBLISHER_ID__ || "ca-pub-1056970757696623");
 const ADSENSE_WEB_DEFAULT_BANNER_SLOT = String(globalThis?.__ADSENSE_BANNER_SLOT__ || "3186212257");
@@ -353,7 +354,7 @@ const QUICK_ACTIONS_DEFAULT_ORDER = Object.freeze(["novo_pedido", "secretaria_ia
 const QUICK_ACTIONS_DANGEROUS = new Set(["excluir", "limpar", "cancelar"]);
 const QUICK_ACTIONS_CATALOG = Object.freeze([
   { id: "novo_pedido", label: "Novo pedido", tela: "pedido", iconKey: "pedido", default: true, primary: true },
-  { id: "secretaria_ia", label: "Secretária IA", iconKey: "feedback", default: true, customAction: "secretaria_ia" },
+  { id: "secretaria_ia", label: "Assistente IA", iconKey: "assistente", default: true, customAction: "secretaria_ia" },
   { id: "calculadora", label: "Calculadora", tela: "calculadora", iconKey: "calculadora", default: true },
   { id: "clientes", label: "Clientes", tela: "clientes", iconKey: "clientes", default: true },
   { id: "estoque", label: "Estoque", tela: "estoque", iconKey: "estoque", default: true },
@@ -552,6 +553,9 @@ const UI_ICON_TOKEN_REGISTRY = Object.freeze({
   statusSistema: Object.freeze({ label: "Status do sistema", lucide: "Server", group: "settings" }),
   ajuda: Object.freeze({ label: "Central de ajuda", lucide: "CircleHelp", group: "settings" }),
   feedback: Object.freeze({ label: "Ajuda e suporte", lucide: "LifeBuoy", group: "settings" }),
+  assistente: Object.freeze({ label: "IA Fácil", lucide: "MessagesSquare", group: "principal" }),
+  microfone: Object.freeze({ label: "Falar", lucide: "Mic", group: "system" }),
+  volume: Object.freeze({ label: "Ouvir resposta", lucide: "Volume2", group: "system" }),
   conta: Object.freeze({ label: "Meu perfil", lucide: "UserRound", group: "account" }),
   search: Object.freeze({ label: "Pesquisar", lucide: "Search", group: "system" }),
   filtro: Object.freeze({ label: "Filtros", lucide: "ListFilter", group: "system" }),
@@ -2290,6 +2294,14 @@ const InventoryService = {
   },
   getMateriais() {
     return normalizarEstoque();
+  },
+  searchMaterialsReadOnly(query = "") {
+    const termo = normalizarSugestaoClienteTexto(query);
+    if (!termo) return [];
+    return (Array.isArray(estoque) ? estoque : [])
+      .map((material) => normalizarMaterialEstoque(material))
+      .filter((material) => normalizarSugestaoClienteTexto(`${material.nome} ${material.tipo} ${material.cor} ${material.codigoExterno}`).includes(termo))
+      .slice(0, 12);
   },
   getMovementHistory() {
     return (Array.isArray(historico) ? historico : [])
@@ -6670,6 +6682,7 @@ async function enviarRegistroSyncSupabase(item) {
 }
 
 async function sincronizarFilaOfflinePendente(motivo = "manual") {
+  if (window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1") return { ok: false, sandbox: true, pending: pendingSync.length };
   if (!estaOnline()) {
     recomporFilaSyncPendente();
     syncConfig.autoBackupStatus = "Offline - fila pendente";
@@ -7134,6 +7147,7 @@ async function processarMudancaBillingRealtimeSupabase(evento) {
 }
 
 async function processarMudancaRealtimeSupabase(evento) {
+  if (window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1") return false;
   if (realtimeSyncState.applying || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
   realtimeSyncState.applying = true;
   try {
@@ -7179,6 +7193,7 @@ async function processarMudancaRealtimeSupabase(evento) {
 }
 
 async function baixarAtualizacoesSupabaseSilencioso(motivo = "polling") {
+  if (window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1") return false;
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
   if (realtimeSyncState.applying) return false;
   realtimeSyncState.applying = true;
@@ -7206,6 +7221,7 @@ async function baixarAtualizacoesSupabaseSilencioso(motivo = "polling") {
 }
 
 async function executarPollingSyncTempoReal(motivo = "polling") {
+  if (window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1") return false;
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
   const agora = Date.now();
   const intervaloMinimo = document.visibilityState === "hidden" ? REALTIME_FALLBACK_BACKGROUND_MS : REALTIME_FALLBACK_FOREGROUND_MS;
@@ -9561,6 +9577,11 @@ function aplicarPersonalizacao() {
   const temaPreferido = normalizarPreferenciaTemaInterface(appConfig.theme);
   const temaResolvido = window.SimplificaThemeAuthorityV3?.applyErpTheme?.(temaPreferido)?.resolved || getEffectiveThemeMode(temaPreferido);
   const usarClaro = temaResolvido === "light";
+  const systemUiTheme = usarClaro ? "light" : "dark";
+  if (window.__simplificaSystemUiTheme !== systemUiTheme) {
+    window.__simplificaSystemUiTheme = systemUiTheme;
+    window.Capacitor?.Plugins?.SimplificaSystemUi?.setAppearance?.({ theme: systemUiTheme }).catch?.(() => {});
+  }
   appConfig.theme = temaPreferido;
   const cor = normalizarCorTemaControlado(appConfig.accentColor || "#72E6E8", temaPreferido, "primary");
   const paletaTema = getCurrentControlledPalette(temaPreferido, cor);
@@ -10252,6 +10273,7 @@ function trocarTela(tela, opcoes = {}) {
   }
 
   telaAtual = tela;
+  atualizarContextoAssistantCore3d();
   registrarEventoUsoLocal("tela_aberta", { tela });
   if (tela === "calculadora" && appConfig.calculatorWidget?.open) {
     appConfig.calculatorWidget.open = false;
@@ -10273,6 +10295,9 @@ function trocarTela(tela, opcoes = {}) {
   else renderApp();
   if (tela === "promocoes") {
     setTimeout(() => carregarPromocoes3d({ force: true }), 80);
+  }
+  if (tela === "config") {
+    setTimeout(() => carregarConfiguracaoAssistenteIa({ render: true }), 80);
   }
   if (mudouTela) resetarScrollTelaAtiva();
 }
@@ -10530,6 +10555,36 @@ if (typeof window !== "undefined") {
   window.isDashboardRoute = isDashboardRoute;
 }
 
+function handleSimplificaLauncherResume() {
+  const usuario = getUsuarioAtual();
+  if (!usuario || ["privacy", "terms", "lojaPublica", "sobre"].includes(telaAtual) || deveMostrarOnboarding(usuario) || pedidoSalvando) return false;
+  salvarRascunhoPedidoRapidoLocal({ force: true });
+  closeModal();
+  closeDrawer();
+  navigationStack = [];
+  telaAnterior = "dashboard";
+  if (isSuperAdmin(usuario)) setModoErpSuperadmin(true);
+  telaAtual = "dashboard";
+  atualizarHistoricoBrowserApp(true);
+  renderApp();
+  return true;
+}
+
+function normalizarTelaInicialAndroid() {
+  const usuario = getUsuarioAtual();
+  const android = window.Capacitor?.getPlatform?.() === "android";
+  const rotaPublica = ["privacy", "terms", "lojaPublica", "sobre"].includes(telaAtual) || parseStorefrontPublicRoute(location.pathname) || parseStorefrontAdminRoute(location.pathname);
+  const retornoExterno = new URLSearchParams(location.search || "");
+  if (!android || !usuario || rotaPublica || retornoExterno.has("code") || retornoExterno.has("pagamento") || retornoExterno.has("assinatura") || deveMostrarOnboarding(usuario) || pedidoSalvando) return false;
+  if (isSuperAdmin(usuario)) setModoErpSuperadmin(true);
+  navigationStack = [];
+  telaAnterior = "dashboard";
+  telaAtual = "dashboard";
+  return true;
+}
+
+if (typeof window !== "undefined") window.handleSimplificaLauncherResume = handleSimplificaLauncherResume;
+
 function ensureAppShellLayers() {
   if (typeof document === "undefined") return null;
   const app = document.getElementById("app");
@@ -10652,6 +10707,10 @@ function openModal(input = "", options = {}) {
 }
 
 function closeModal() {
+  if (document.querySelector(".ai-chat-dialog")) {
+    window.Capacitor?.Plugins?.SimplificaVoice?.stop?.().catch?.(() => {});
+    assistenteIaOuvindo = false;
+  }
   setAppLayerContent("modal", "");
   hideOverlay();
 }
@@ -10812,27 +10871,133 @@ function renderizarFabEstoqueGlobal() {
   window.requestAnimationFrame(() => aplicarPosicaoFabEstoque(fabLayer.querySelector(".stock-add-fab")));
 }
 
-function renderizarAtalhoSecretariaIaGlobal() {
-  const layer = document.getElementById(APP_LAYER_IDS.overlay);
-  if (!layer) return;
-  layer.querySelector("[data-ai-assistant-shortcut]")?.remove();
+function getChavePosicaoAtalhoAssistenteIa() {
+  return getAssistenteIaPreferenceKey("launcher-position-v1");
+}
 
-  const podeMostrar = !!getUsuarioAtual()
-    && !isModoManutencaoSuperadminAtivo()
-    && !isModoErpSuperadminAtivo()
-    && telaAtual !== "admin";
+function carregarPosicaoAtalhoAssistenteIa() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(getChavePosicaoAtalhoAssistenteIa()) || "null");
+    return Number.isFinite(Number(salvo?.x)) && Number.isFinite(Number(salvo?.y))
+      ? { x: Number(salvo.x), y: Number(salvo.y) }
+      : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function limitarPosicaoAtalhoAssistenteIa(x = 0, y = 0, botao = null) {
+  const rootStyles = getComputedStyle(document.documentElement);
+  const largura = Math.max(44, Number(botao?.offsetWidth) || 44);
+  const altura = Math.max(44, Number(botao?.offsetHeight) || 44);
+  const margem = 10;
+  const safeTop = Math.max(0, parseFloat(rootStyles.getPropertyValue("--safe-area-inset-top")) || 0);
+  const safeRight = Math.max(0, parseFloat(rootStyles.getPropertyValue("--safe-area-inset-right")) || 0);
+  const safeBottom = Math.max(0, parseFloat(rootStyles.getPropertyValue("--app-safe-bottom")) || 0);
+  const safeLeft = Math.max(0, parseFloat(rootStyles.getPropertyValue("--safe-area-inset-left")) || 0);
+  const mobileNav = document.body.classList.contains("mobile-mode")
+    ? Math.max(0, parseFloat(rootStyles.getPropertyValue("--layout-bottom-nav-height")) || 64)
+    : 0;
+  const minX = margem + safeLeft;
+  const maxX = Math.max(minX, window.innerWidth - largura - margem - safeRight);
+  const minY = margem + safeTop;
+  const maxY = Math.max(minY, window.innerHeight - altura - margem - safeBottom - mobileNav);
+  return { x: Math.max(minX, Math.min(maxX, Number(x) || minX)), y: Math.max(minY, Math.min(maxY, Number(y) || minY)) };
+}
+
+function aplicarPosicaoAtalhoAssistenteIa(botao, posicao = carregarPosicaoAtalhoAssistenteIa()) {
+  const layer = botao?.closest?.("[data-ai-assistant-shortcut]");
+  if (!botao || !layer || !posicao) return;
+  const limitada = limitarPosicaoAtalhoAssistenteIa(posicao.x, posicao.y, botao);
+  layer.classList.add("is-positioned");
+  layer.style.setProperty("left", `${limitada.x}px`, "important");
+  layer.style.setProperty("top", `${limitada.y}px`, "important");
+  layer.style.setProperty("right", "auto", "important");
+  layer.style.setProperty("bottom", "auto", "important");
+}
+
+function salvarPosicaoAtalhoAssistenteIa(posicao) {
+  try { localStorage.setItem(getChavePosicaoAtalhoAssistenteIa(), JSON.stringify(posicao)); }
+  catch (_) { }
+}
+
+function iniciarArrastoAtalhoAssistenteIa(event) {
+  const botao = event?.currentTarget;
+  if (!botao || (event.pointerType === "mouse" && event.button !== 0)) return;
+  const inicio = botao.getBoundingClientRect();
+  const origem = { x: event.clientX, y: event.clientY, left: inicio.left, top: inicio.top };
+  let moveu = false;
+  try { botao.setPointerCapture?.(event.pointerId); }
+  catch (_) { /* O arrasto continua pelos listeners globais em WebViews sem captura. */ }
+  botao.classList.add("is-dragging");
+
+  const mover = (movimento) => {
+    const deltaX = movimento.clientX - origem.x;
+    const deltaY = movimento.clientY - origem.y;
+    if (!moveu && Math.hypot(deltaX, deltaY) < 7) return;
+    moveu = true;
+    movimento.preventDefault();
+    aplicarPosicaoAtalhoAssistenteIa(botao, { x: origem.left + deltaX, y: origem.top + deltaY });
+  };
+  const finalizar = () => {
+    window.removeEventListener("pointermove", mover);
+    window.removeEventListener("pointerup", finalizar);
+    window.removeEventListener("pointercancel", finalizar);
+    botao.classList.remove("is-dragging");
+    if (!moveu) return;
+    const retangulo = botao.getBoundingClientRect();
+    const posicao = limitarPosicaoAtalhoAssistenteIa(retangulo.left, retangulo.top, botao);
+    salvarPosicaoAtalhoAssistenteIa(posicao);
+    botao.dataset.dragged = "true";
+    window.setTimeout(() => delete botao.dataset.dragged, 350);
+  };
+  window.addEventListener("pointermove", mover, { passive: false });
+  window.addEventListener("pointerup", finalizar, { once: true });
+  window.addEventListener("pointercancel", finalizar, { once: true });
+}
+
+function acionarAtalhoAssistenteIa(event) {
+  const botao = event?.currentTarget;
+  if (botao?.dataset.dragged === "true") {
+    event.preventDefault();
+    event.stopPropagation();
+    delete botao.dataset.dragged;
+    return;
+  }
+  abrirSecretariaIaLocal3d();
+}
+
+function configurarReposicionamentoAtalhoAssistenteIa() {
+  if (window.__aiAssistantShortcutResizeReady) return;
+  window.__aiAssistantShortcutResizeReady = true;
+  window.addEventListener("resize", () => {
+    const botao = document.querySelector("[data-ai-assistant-shortcut] .ai-assistant-status");
+    if (botao) aplicarPosicaoAtalhoAssistenteIa(botao);
+  }, { passive: true });
+}
+
+function renderizarAtalhoSecretariaIaGlobal() {
+  const layer = document.getElementById(APP_LAYER_IDS.shell) || document.body;
+  if (!layer) return;
+  document.querySelector("[data-ai-assistant-shortcut]")?.remove();
+
+  const telasSemAssistente = new Set(["admin", "superadmin", "privacy", "terms", "lojaPublica", "onboarding", "acessoNegado"]);
+  const podeMostrar = !!getUsuarioAtual() && !telasSemAssistente.has(telaAtual);
   if (!podeMostrar) return;
 
   const shortcut = document.createElement("div");
   shortcut.className = "ai-assistant-shortcut-layer";
   shortcut.dataset.aiAssistantShortcut = "true";
-  shortcut.innerHTML = `
-    <button class="ai-assistant-shortcut" type="button" onclick="abrirSecretariaIaLocal3d()" title="Conversar com a IA Fácil" aria-label="Conversar com a IA Fácil">
-      <span aria-hidden="true">${renderUiIcon("feedback")}</span>
-      <strong>IA Fácil</strong>
-    </button>
-  `;
+  shortcut.innerHTML = getAssistantUiComponents3d()?.launcher({
+    state: getEstadoVisualSecretariaIa(),
+    description: `${getDescricaoEstadoSecretariaIa()} Toque para abrir ou arraste para mover.`,
+    iconHtml: renderUiIcon("assistente"),
+    onActivate: "acionarAtalhoAssistenteIa",
+    onDrag: "iniciarArrastoAtalhoAssistenteIa"
+  }) || "";
   layer.appendChild(shortcut);
+  configurarReposicionamentoAtalhoAssistenteIa();
+  window.requestAnimationFrame(() => aplicarPosicaoAtalhoAssistenteIa(shortcut.querySelector(".ai-assistant-status")));
 }
 
 function configurarFechamentoMenusEstoque() {
@@ -12020,16 +12185,20 @@ function abrirPrimeiroPedidoOnboarding() {
 }
 
 function getModulosGuiadosOnboarding() {
-  const permitidos = ["pedido", "calculadora", "estoque", "caixa"];
+  const permitidos = ["pedido", "calculadora", "estoque", "caixa", "secretaria_ia"];
   const itens = Array.isArray(appConfig.onboardingGuidedModules) ? appConfig.onboardingGuidedModules : [];
   return itens.map(String).filter((item, index) => permitidos.includes(item) && itens.indexOf(item) === index);
 }
 
 function abrirModuloGuiadoOnboarding(tela) {
-  const permitidos = ["pedido", "calculadora", "estoque", "caixa"];
+  const permitidos = ["pedido", "calculadora", "estoque", "caixa", "secretaria_ia"];
   if (!permitidos.includes(String(tela))) return;
   appConfig.onboardingGuidedModules = [...getModulosGuiadosOnboarding(), tela].filter((item, index, lista) => lista.indexOf(item) === index);
   salvarOnboardingLocal(3, false);
+  if (tela === "secretaria_ia") {
+    abrirSecretariaIaLocal3d({ mostrarTutorial: true });
+    return;
+  }
   trocarTela(tela);
 }
 
@@ -12111,7 +12280,8 @@ function renderOnboarding() {
           { id: "pedido", icon: "pedido", title: "Pedido", text: "Crie orçamento, itens e acompanhe o status." },
           { id: "calculadora", icon: "calculadora", title: "Calculadora", text: "Use peso e tempo para formar o preço." },
           { id: "estoque", icon: "estoque", title: "Estoque", text: "Cadastre materiais e veja o saldo disponível." },
-          { id: "caixa", icon: "caixa", title: "Caixa", text: "Registre entradas e saídas do dia." }
+          { id: "caixa", icon: "caixa", title: "Caixa", text: "Registre entradas e saídas do dia." },
+          { id: "secretaria_ia", icon: "assistente", title: "IA Fácil", text: "Converse por texto ou voz e peça consultas com segurança." }
         ].map((modulo) => `<button class="${modulosGuiados.includes(modulo.id) ? "seen" : ""}" type="button" onclick="abrirModuloGuiadoOnboarding('${modulo.id}')"><span>${renderUiIcon(modulo.icon)}</span><strong>${escaparHtml(modulo.title)}</strong><small>${escaparHtml(modulo.text)}</small>${modulosGuiados.includes(modulo.id) ? `<em>Visto</em>` : ""}</button>`).join("")}
       </div>
       <div class="actions">
@@ -20541,9 +20711,158 @@ if (typeof window !== "undefined") {
         const { pedidosRecentes } = this.getContext();
         return { ok: true, summary: pedidosRecentes.length ? `Pedidos recentes: ${pedidosRecentes.map((pedido) => `${pedido.cliente}: ${pedido.status}`).join("; ")}.` : "Não há pedidos recentes no contexto atual." };
       }
-      throw new Error("Executor de alteração ainda precisa ser conectado ao serviço de domínio correspondente.");
+      throw new Error("Essa ação ainda não está disponível por aqui. Use a tela correspondente do sistema.");
     }
   });
+
+  window.Simplifica3dAiReadFacade = Object.freeze({
+    getAppContext() {
+      const usuario = getUsuarioAtual?.() || {};
+      return {
+        screen: telaAtual || "",
+        route: location?.hash || "",
+        userId: String(usuario.id || usuario.email || ""),
+        companyId: String(getClientIdAtual?.() || ""),
+        plan: String(getCurrentPlanSlug?.(usuario) || "free"),
+        permissions: []
+      };
+    },
+    canRead(capability = "") {
+      const featureByCapability = {
+        "CUSTOMER.SEARCH": "basic_orders",
+        "ORDER.HISTORY": "basic_orders",
+        "ORDER.SEARCH": "basic_orders",
+        "PRICE.CALCULATE": "basic_calculator",
+        "STOCK.SEARCH": "basic_stock",
+        "STOCK.SUMMARY": "basic_stock",
+        "CASH.SUMMARY": "simple_cashier",
+        "HOME.SUMMARY": "basic_dashboard"
+      };
+      const feature = featureByCapability[capability];
+      return !feature || canAccessFeature({ feature }).allowed === true;
+    },
+    canPrepareOrderDryRun() {
+      const access = canAccessFeature({ feature: "basic_orders" });
+      return { allowed: access.allowed === true, reason: access.reason || "", plan: access.plan || "" };
+    },
+    searchCustomers(query = "") {
+      const termo = normalizarSugestaoClienteTexto(query);
+      const telefone = normalizarTelefoneBusca(query);
+      return CustomerSuggestionManager.searchAppClients(query)
+        .filter((item) => {
+          const nome = normalizarSugestaoClienteTexto(item.name);
+          const telefoneItem = normalizarTelefoneBusca(item.phone || item.phones?.[0] || "");
+          return (termo && (nome === termo || nome.startsWith(termo) || nome.split(/\s+/).some((parte) => parte.startsWith(termo)) || nome.includes(termo)))
+            || (telefone.length >= 2 && telefoneItem.includes(telefone));
+        })
+        .slice(0, 8)
+        .map((item) => ({ id: item.id, name: item.name, phone: item.phone, email: item.email, exact: normalizarSugestaoClienteTexto(item.name) === termo }));
+    },
+    orderHistory({ customerId = "", customerName = "", limit = 5 } = {}) {
+      const nome = normalizarSugestaoClienteTexto(customerName);
+      return [...pedidos]
+        .filter((pedido) => !pedido?.deleted_at && String(pedido.status || "").toLowerCase() !== "cancelado")
+        .filter((pedido) => (customerId && [pedido.customerId, pedido.customer_id, pedido.clienteId].some((value) => String(value || "") === String(customerId))) || (nome && normalizarSugestaoClienteTexto(clienteDoPedido(pedido)) === nome))
+        .sort((a, b) => (Date.parse(b.updatedAt || b.criadoEm || b.createdAt || b.data || "") || Number(b.id) || 0) - (Date.parse(a.updatedAt || a.criadoEm || a.createdAt || a.data || "") || Number(a.id) || 0))
+        .slice(0, Math.max(1, Math.min(20, Number(limit) || 5)))
+        .map((pedido) => ({ id: pedido.id, customerName: clienteDoPedido(pedido), status: pedido.status, total: totalPedido(pedido), items: (pedido.itens || []).map((item) => String(item.nome || item.name || "Item")).filter(Boolean), date: pedido.updatedAt || pedido.criadoEm || pedido.createdAt || pedido.data || "" }));
+    },
+    calculatePrice({ weightGrams = 0, quantity = 1, timeMinutes = 0 } = {}) {
+      const defaults = appConfig.calculatorDefaults && typeof appConfig.calculatorDefaults === "object" ? appConfig.calculatorDefaults : {};
+      const printerName = defaults.printerModel || appConfig.defaultPrinterModel || "Ender 3";
+      const printer = printers[printerName] || printers["Ender 3"] || {};
+      const config = {
+        filamento: defaults.filamento ?? appConfig.defaultFilamentCost ?? 150,
+        energia: defaults.energia ?? appConfig.defaultEnergy ?? 0.85,
+        consumo: defaults.consumo ?? printer.consumo ?? 0,
+        custoHora: defaults.custoHora ?? printer.custo ?? 0,
+        margem: defaults.margem ?? appConfig.defaultMargin ?? 100
+      };
+      const result = CalculatorDomain.calculate({
+        weightGrams, timeMinutes, batchActive: Number(quantity) > 1, quantity,
+        batchMode: "per_piece", materialPricePerKg: config.filamento,
+        energyPricePerKwh: config.energia, powerWatts: config.consumo,
+        machineCostPerHour: config.custoHora,
+        minimumChargedHours: Number(appConfig.minimumChargedHours) || 0,
+        markupPercent: config.margem,
+        extraFeeEnabled: false,
+        roundingStep: Number(appConfig.priceRounding) || 0
+      });
+      return { ...result, warnings: Number(timeMinutes) > 0 ? [] : ["Tempo de impressão não informado; custos de energia e máquina podem ficar incompletos."] };
+    },
+    searchStock(query = "") {
+      return InventoryService.searchMaterialsReadOnly(query).map((material) => ({ id: material.id, name: material.nome, quantity: material.qtd, unit: material.unidade, stockStatus: material.stock_status, minimum: material.estoqueMinimo }));
+    },
+    searchOrdersReadOnly(query = "", limit = 20) {
+      const termo = normalizarSugestaoClienteTexto(query);
+      return pedidos.filter((pedido) => !pedidoJaCancelado(pedido))
+        .filter((pedido) => !termo || normalizarSugestaoClienteTexto(`${clienteDoPedido(pedido)} ${(pedido.itens || []).map((item) => item.nome).join(" ")} ${pedido.status}`).includes(termo))
+        .slice(0, Math.max(1, Math.min(20, Number(limit) || 20)))
+        .map((pedido) => ({ id: pedido.id, customerName: clienteDoPedido(pedido), status: pedido.status, total: totalPedido(pedido), dueDate: pedido.prazo || pedido.dataPrazo || "", items: (pedido.itens || []).map((item) => ({ description: item.nome, quantity: item.qtd })) }));
+    },
+    stockSummaryReadOnly() {
+      const items = (Array.isArray(estoque) ? estoque : [])
+        .map((material) => normalizarMaterialEstoque(material))
+        .map((material) => ({ id: material.id, name: material.nome, quantity: Number(material.qtd) || 0, unit: material.unidade || "", minimum: Number(material.estoqueMinimo ?? estoqueMinimoKg) || 0 }));
+      const lowStock = items.filter((item) => item.quantity <= item.minimum);
+      return { totalItems: items.length, lowStockCount: lowStock.length, items: items.slice(0, 12), lowStock: lowStock.slice(0, 12) };
+    },
+    cashSummaryReadOnly(period = "all") {
+      if (period === "today") {
+        const intervalo = criarIntervaloPeriodoLocal("hoje");
+        return { period, ...calcularTotaisCaixaPeriodo(intervalo.start, intervalo.end) };
+      }
+      return { period: "all", ...calcularTotaisCaixa() };
+    },
+    homeSummaryReadOnly() {
+      const stats = getDashboardStats();
+      const intervalo = criarIntervaloPeriodoLocal("hoje");
+      const cashToday = calcularTotaisCaixaPeriodo(intervalo.start, intervalo.end);
+      return {
+        ordersToday: Number(stats.pedidosHoje) || 0,
+        openOrders: Number(stats.pedidosAbertos) || 0,
+        activeProduction: Number(stats.producoesAtivas) || 0,
+        lowStockCount: Number(stats.estoqueBaixo) || 0,
+        revenueToday: Number(stats.faturamentoDia) || 0,
+        cashBalanceToday: Number(cashToday.saldo) || 0
+      };
+    },
+    productionSummaryReadOnly() {
+      return { active: productionJobs.filter((job) => !/conclu|cancel/i.test(String(job.status || ""))).length, total: productionJobs.length };
+    },
+    salesSummaryReadOnly() {
+      const summary = getResumoFinanceiroPedidos(pedidos);
+      return { totalOrders: summary.totalPedidos, received: summary.valorRecebido, receivable: summary.valorAReceber };
+    }
+  });
+}
+
+async function reservarCreditoPedidoFree(actionType, label = "ação") {
+  if (!ADS_ENABLED) return { allowed: true, receipt: null, user: null, actionType };
+  const monetizacao = window.MonetizationLimits;
+  const usuario = getUsuarioMonetizacao();
+  if (!monetizacao || getPlanPolicy().isPro || !monetizacao.shouldCountAction?.(actionType)) {
+    return { allowed: true, receipt: null, user: usuario, actionType };
+  }
+  if (!monetizacao.canUseAction(usuario)) {
+    const liberado = await tentarLiberarCreditosAcaoPorAnuncio(actionType);
+    if (!liberado || !monetizacao.canUseAction(usuario)) {
+      const minutos = minutosRestantesFallbackAcoes(usuario) || FREE_ACTION_FALLBACK_UNLOCK_MINUTES;
+      mostrarToast(`Limite de ações do Free atingido. Como o anúncio não abriu, a liberação automática acontece em até ${minutos} minuto(s).`, "aviso", 6500);
+      registrarAuditoria("limite ações free", { actionType, label, fallbackMinutes: minutos });
+      return { allowed: false, receipt: null, user: usuario, actionType };
+    }
+  }
+  const receipt = monetizacao.registerAction(usuario, actionType);
+  const restantes = Math.max(0, Number(receipt?.limit || FREE_ACTION_CREDIT_LIMIT) - Number(receipt?.count || 0));
+  if (restantes <= 3) mostrarToast(`${restantes} ação(ões) restantes no Free antes do próximo anúncio.`, restantes ? "info" : "aviso", 3600);
+  return { allowed: true, receipt: { count: Number(receipt?.count), updatedAt: Number(receipt?.updatedAt) }, user: usuario, actionType };
+}
+
+function compensarCreditoPedidoFree(reservation) {
+  if (!reservation?.receipt) return { refunded: false, reason: "NOT_RESERVED" };
+  return window.MonetizationLimits?.refundRegisteredAction?.(reservation.user, reservation.actionType, reservation.receipt)
+    || { refunded: false, reason: "REFUND_UNAVAILABLE" };
 }
 
 function isStorefrontGuidedTarget(section = "", field = "") {
@@ -24779,6 +25098,9 @@ function renderUiIcon(tipo = "", fallback = "") {
   const attrs = `width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"`;
   const icones = {
     dashboard: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>`,
+    assistente: `<svg ${attrs}><path d="M7 17.5 3.5 20l.8-4.2A8 8 0 1 1 7 17.5Z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>`,
+    microfone: `<svg ${attrs}><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>`,
+    volume: `<svg ${attrs}><path d="M11 5 6.5 9H3v6h3.5l4.5 4Z"/><path d="M15 9a4 4 0 0 1 0 6M17.5 6.5a8 8 0 0 1 0 11"/></svg>`,
     home: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1.4"/><rect x="14" y="4" width="6" height="6" rx="1.4"/><rect x="4" y="14" width="6" height="6" rx="1.4"/><rect x="14" y="14" width="6" height="6" rx="1.4"/></svg>`,
     categoria: `<svg ${attrs}><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>`,
     calculadora: `<svg ${attrs}><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8"/><path d="M8 11h.1M12 11h.1M16 11h.1M8 15h.1M12 15h.1M16 15h.1"/></svg>`,
@@ -32318,6 +32640,7 @@ function renderConfig() {
       </div>
       <p class="muted">Informações do aplicativo, sincronização, atualizações e documentos.</p>
       <div class="settings-accordion-list">
+        ${renderUiSection({ id: "assistente-ia", title: "Inteligência Artificial", subtitle: "Ativação, modelo e armazenamento", icon: "assistente", content: `<div id="assistantAiSettingsContent">${renderConfiguracaoAssistenteIa()}</div>`, open: false, group: "config" })}
         ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta e cópias de segurança", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
         ${telaAtual === "config" ? `
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão e atualização automática", icon: "↻", content: updatesContent, group: "config" })}
@@ -42045,6 +42368,7 @@ async function aplicarBackupRemotoAntesDeUploadSeNecessario(motivo = "sync") {
 }
 
 async function salvarBackupSupabase(opcoes = {}) {
+  if (window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1") return false;
   const contexto = opcoes.contexto || "supabase-upload";
   const avisarLimite = opcoes.avisarLimite !== false;
   const payload = criarSnapshotBackupUsuarioAtual();
@@ -44268,6 +44592,82 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
   });
 }
 
+let orderCreatePreparationUseCase3d = null;
+let orderCreateTransactionExecutor3d = null;
+function getOrderCreatePreparationUseCase3d() {
+  if (orderCreatePreparationUseCase3d) return orderCreatePreparationUseCase3d;
+  const Preparation = window.Simplifica3dOrderCreatePreparation;
+  if (!Preparation?.OrderCreatePreparationUseCase) throw new Error("ORDER_CREATE_PREPARATION_UNAVAILABLE");
+  orderCreatePreparationUseCase3d = new Preparation.OrderCreatePreparationUseCase({
+    sanitizeItems: sanitizeItensPedidoParaSalvar,
+    normalizeItems: normalizarItensPedido,
+    calculateFinancialSummary: calcularResumoFinanceiroPedido,
+    normalizePaymentMethod: normalizarMetodoPagamentoCaixa,
+    createOperationMetadata: criarMetadadosOperacaoFinanceira,
+    prepareOnlineRecord: prepararRegistroOnline
+  });
+  return orderCreatePreparationUseCase3d;
+}
+
+function cloneOrderTransactionState(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function getOrderCreateTransactionExecutor3d() {
+  if (orderCreateTransactionExecutor3d) return orderCreateTransactionExecutor3d;
+  const Executor = window.Simplifica3dOrderCreateExecutor;
+  if (!Executor?.OrderCreateTransactionExecutor) throw new Error("ORDER_CREATE_EXECUTOR_UNAVAILABLE");
+  orderCreateTransactionExecutor3d = new Executor.OrderCreateTransactionExecutor({
+    captureState: () => ({
+      pedidos: cloneOrderTransactionState(pedidos),
+      caixa: cloneOrderTransactionState(caixa),
+      estoque: cloneOrderTransactionState(estoque),
+      historico: cloneOrderTransactionState(historico)
+    }),
+    restoreState: (snapshot) => {
+      pedidos = snapshot.pedidos;
+      caixa = snapshot.caixa;
+      estoque = snapshot.estoque;
+      historico = snapshot.historico;
+    },
+    applyStock: (order, previousOrder) => aplicarEstoquePedido(order, previousOrder),
+    commitOrder: (order, previousOrder) => {
+      if (previousOrder) pedidos = pedidos.filter((item) => Number(item.id) !== Number(previousOrder.id));
+      pedidos.push(order);
+    },
+    createCashReceipt: (order, command) => {
+      const received = valorRecebidoPedido(order);
+      const pending = Math.max(0, received - Math.max(0, Number(command.cashRegisteredBefore) || 0));
+      const kind = command.financialSummary?.statusFinanceiro === "pago_total" ? "quitacao" : "entrada";
+      return criarLancamentoRecebimentoPedido(order, pending, kind, command.operationMetadata);
+    },
+    commitCashReceipt: (receipt) => caixa.push(receipt),
+    persist: (order) => salvarPedidoComVerificacaoLocal(order),
+    persistRollback: () => salvarDados(),
+    isCommitted: (transactionKey) => pedidos.some((item) => String(item.client_request_id || item.clientRequestId || "") === String(transactionKey))
+  });
+  return orderCreateTransactionExecutor3d;
+}
+
+function getPedidosPersistidosNoEscopoAtual() {
+  const escopo = getEscopoDadosAtual();
+  if (escopo) return lerCacheDadosUsuario(escopo)?.data?.pedidos || [];
+  const raw = localStorage.getItem("pedidos");
+  const parsed = JSON.parse(raw || "[]");
+  return Array.isArray(parsed) ? parsed : [];
+}
+
+function salvarPedidoComVerificacaoLocal(order) {
+  if (window.__simplificaOrderFaultInjection === "BEFORE_LOCAL_PERSIST") throw new Error("FAULT_BEFORE_LOCAL_PERSIST");
+  salvarDados();
+  if (window.__simplificaOrderFaultInjection === "AFTER_LOCAL_PERSIST") throw new Error("FAULT_AFTER_LOCAL_PERSIST");
+  const transactionKey = String(order?.client_request_id || order?.clientRequestId || "");
+  const persisted = getPedidosPersistidosNoEscopoAtual();
+  const found = persisted.some((item) => String(item.client_request_id || item.clientRequestId || "") === transactionKey);
+  if (!transactionKey || !found) throw new Error("ORDER_LOCAL_PERSISTENCE_NOT_VERIFIED");
+  return true;
+}
+
 async function fecharPedido() {
   try {
     if (pedidoSalvando) {
@@ -44304,84 +44704,50 @@ async function fecharPedido() {
       return;
     }
 
-    const itensValidados = sanitizeItensPedidoParaSalvar(itensPedido);
-
-    if (itensValidados.invalidos.length) {
-      pedidoSalvando = false;
-      renderizarPreservandoScroll();
-      alert("Revise os itens: todos precisam ter descrição, quantidade e valor maior que zero.");
-      return;
-    }
-
-    itensPedido = itensValidados.validos;
-
-    if (itensPedido.length === 0) {
-      pedidoSalvando = false;
-      renderizarPreservandoScroll();
-      alert("Nenhum item no pedido");
-      return;
-    }
-
-    const subtotal = itensPedido.reduce((soma, item) => soma + (Number(item.total) || 0), 0);
-    const resumoFinanceiro = calcularResumoFinanceiroPedido({
-      itens: itensPedido,
-      subtotalItens: subtotal,
-      desconto: descontoPedido,
-      descontoTipo: descontoTipoPedido,
-      descontoPercentual: descontoPercentualPedido,
-      down_payment: headerPedido.down_payment
-    });
-    const total = resumoFinanceiro.total;
     const caixaRegistradoAntes = pedidoEditando ? valorRegistradoCaixaPedido(pedidoEditando) : 0;
     const pedidoIdOperacional = pedidoEditando?.id || Date.now();
     const numeroPedidoOperacional = pedidoEditando
       ? getNumeroSequencialPedido(pedidoEditando)
       : getProximoNumeroSequencialPedido();
-    const metodoPedido = normalizarMetodoPagamentoCaixa(document.getElementById("pedidoMetodoPagamento")?.value || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix");
-    const metadadosOperacao = criarMetadadosOperacaoFinanceira(pedidoEditando ? "pedido_update" : "pedido_create", {
-      id: pedidoIdOperacional,
-      numeroPedido: numeroPedidoOperacional,
-      numero_pedido: numeroPedidoOperacional,
-      cliente,
-      total,
-      status: headerPedido.status,
-      itens: itensPedido,
-      atualizadoEm: new Date().toISOString()
-    });
-    const pedido = prepararRegistroOnline({
-      id: pedidoIdOperacional,
-      cliente,
-      clienteTelefone: telefoneCliente,
-      clienteEmail: emailCliente,
-      emailCliente,
-      itens: JSON.parse(JSON.stringify(normalizarItensPedido(itensPedido))),
-      subtotalItens: subtotal,
-      subtotal_itens: subtotal,
-      desconto: resumoFinanceiro.desconto,
-      total,
-      down_payment: resumoFinanceiro.entrada,
-      valor_entrada: resumoFinanceiro.entrada,
-      valorRestante: resumoFinanceiro.restante,
-      valor_restante: resumoFinanceiro.restante,
-      financial_status: resumoFinanceiro.statusFinanceiro,
-      status_financeiro: resumoFinanceiro.statusFinanceiro,
-      status: headerPedido.status,
-      observacao: headerPedido.observacao,
-      observacoes: headerPedido.observacao,
-      prazo: headerPedido.prazo,
-      dataPrazo: headerPedido.prazo,
-      payment_method_id: metodoPedido.id,
-      paymentMethodId: metodoPedido.id,
-      paymentMethod: metodoPedido.name,
-      payment_method_type: metodoPedido.type,
-      clienteSuggestionSource: selectedCustomerSuggestion?.source || "",
-      clienteSuggestionName: selectedCustomerSuggestion?.name || "",
-      clienteSuggestionPhone: selectedCustomerSuggestion?.phone || "",
-      ...metadadosOperacao,
-      data: pedidoEditando?.data || new Date().toLocaleDateString("pt-BR"),
-      criadoEm: pedidoEditando?.criadoEm || new Date().toISOString(),
-      atualizadoEm: new Date().toISOString()
-    });
+    const agoraPedido = new Date();
+    const preparationUseCase = getOrderCreatePreparationUseCase3d();
+    let preparacaoPedido;
+    try {
+      preparacaoPedido = preparationUseCase.prepare({
+        customer: { name: cliente, phone: telefoneCliente, email: emailCliente },
+        customerSuggestion: selectedCustomerSuggestion,
+        items: itensPedido,
+        discount: { value: descontoPedido, type: descontoTipoPedido, percentage: descontoPercentualPedido },
+        downPayment: headerPedido.down_payment,
+        paymentMethodId: document.getElementById("pedidoMetodoPagamento")?.value || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix",
+        status: headerPedido.status,
+        notes: headerPedido.observacao,
+        dueDate: headerPedido.prazo,
+        operation: {
+          kind: pedidoEditando ? "pedido_update" : "pedido_create",
+          orderId: pedidoIdOperacional,
+          sequenceNumber: numeroPedidoOperacional,
+          originalDate: pedidoEditando?.data,
+          displayDate: agoraPedido.toLocaleDateString("pt-BR"),
+          createdAt: pedidoEditando?.criadoEm || agoraPedido.toISOString(),
+          updatedAt: agoraPedido.toISOString()
+        }
+      });
+    } catch (erroPreparacao) {
+      if (erroPreparacao?.name === "OrderPreparationError") {
+        pedidoSalvando = false;
+        renderizarPreservandoScroll();
+        alert(erroPreparacao.message);
+        return;
+      }
+      throw erroPreparacao;
+    }
+    itensPedido = preparacaoPedido.items;
+    const subtotal = preparacaoPedido.subtotal;
+    const resumoFinanceiro = preparacaoPedido.financial;
+    const total = resumoFinanceiro.total;
+    const metadadosOperacao = preparacaoPedido.operationMetadata;
+    const pedido = preparacaoPedido.record;
 
     if (pedidoEditando && !window.__pedidoReviewConfirmed) {
       pedidoSalvando = false;
@@ -44390,26 +44756,41 @@ async function fecharPedido() {
       return;
     }
 
-    if (!await consumirCreditoAcaoFree(pedidoEditando ? "salvar_pedido" : "criar_pedido", pedidoEditando ? "salvar alteração do pedido" : "criar pedido")) {
+    const disposableValidation = window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1";
+    const creditReservation = disposableValidation
+      ? { allowed: true, receipt: null, user: null, actionType: "sandbox" }
+      : await reservarCreditoPedidoFree(pedidoEditando ? "salvar_pedido" : "criar_pedido", pedidoEditando ? "salvar alteração do pedido" : "criar pedido");
+    if (!creditReservation.allowed) {
       pedidoSalvando = false;
       window.__pedidoReviewConfirmed = false;
       renderizarPreservandoScroll();
       return;
     }
 
-    if (!aplicarEstoquePedido(pedido, pedidoEditando)) {
+    let executionResult;
+    try {
+      executionResult = await getOrderCreateTransactionExecutor3d().execute({
+        transactionKey: pedido.client_request_id || pedido.clientRequestId,
+        order: pedido,
+        previousOrder: pedidoEditando,
+        cashRegisteredBefore: caixaRegistradoAntes,
+        financialSummary: resumoFinanceiro,
+        operationMetadata: metadadosOperacao
+      });
+    } catch (executionError) {
+      compensarCreditoPedidoFree(creditReservation);
+      throw executionError;
+    }
+    if (executionResult.status === "ALREADY_COMMITTED") compensarCreditoPedidoFree(creditReservation);
+    if (executionResult.status !== "COMMITTED" && executionResult.status !== "ALREADY_COMMITTED") {
+      compensarCreditoPedidoFree(creditReservation);
       pedidoSalvando = false;
       window.__pedidoReviewConfirmed = false;
       renderizarPreservandoScroll();
+      if (executionResult.reason !== "STOCK_REJECTED") throw executionResult.error || new Error(executionResult.reason || "ORDER_CREATE_EXECUTION_FAILED");
       return;
     }
-
-    if (pedidoEditando) {
-      const idAntigo = Number(pedidoEditando.id);
-      pedidos = pedidos.filter((item) => Number(item.id) !== idAntigo);
-    }
-
-    pedidos.push(pedido);
+    const lancamentoRecebimento = executionResult.cashReceipt;
     CustomerSuggestionManager.recordRecentSuggestion({
       source: selectedCustomerSuggestion?.source || "recent",
       name: cliente,
@@ -44424,10 +44805,6 @@ async function fecharPedido() {
       tempo: pedido.itens?.[0]?.tempoHoras || 0
     });
     const valorRecebido = valorRecebidoPedido(pedido);
-    const valorPendenteCaixa = Math.max(0, valorRecebido - Math.max(0, caixaRegistradoAntes));
-    const tipoRecebimento = resumoFinanceiro.statusFinanceiro === "pago_total" && caixaRegistradoAntes > 0 ? "quitacao" : resumoFinanceiro.statusFinanceiro === "pago_total" ? "quitacao" : "entrada";
-    const lancamentoRecebimento = criarLancamentoRecebimentoPedido(pedido, valorPendenteCaixa, tipoRecebimento, metadadosOperacao);
-    if (lancamentoRecebimento) caixa.push(lancamentoRecebimento);
     registrarShadowFinanceiroLocal("pedido_salvo_shadow", {
       pedidoId: pedido.id,
       operation_uuid: pedido.operation_uuid,
@@ -44437,14 +44814,13 @@ async function fecharPedido() {
       lancamentoCaixa: !!lancamentoRecebimento
     });
 
-    salvarDados();
     registrarFluxoSalvamento("Pedidos", pedidoEditando ? "Atualizar pedido" : "Salvar pedido", {
       id: pedido.id,
       cliente,
       itens: pedido.itens?.length || 0,
       total
     });
-    agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
+    if (!disposableValidation) agendarSyncSilenciosoDados(pedidoEditando ? "pedido-atualizado" : "pedido-fechado");
     if (pedidoEditando) registrarAuditoriaPedido("pedido_editado", pedido);
     registrarHistorico("Pedido", (pedidoEditando ? "Pedido atualizado: " : "Pedido criado: ") + cliente, {
       area: "order",
@@ -46564,11 +46940,863 @@ function acionarAtalhoRapido(id) {
 }
 
 let secretariaIaChatMessages = [];
+let secretariaIaChatBusy = false;
 let secretariaIaChatLoadedKey = "";
+let assistenteIaOuvindo = false;
+let assistenteIaTutorialForcado = false;
+let assistenteIaAquecimento = { status: "idle", message: "Aguardando" };
+let assistenteIaConfigState = { loaded: false, available: false, enabled: false, state: "NOT_INSTALLED", models: [], selection: "automatic", downloadedBytes: 0, totalBytes: 0 };
+let assistenteIaConfigPollTimer = null;
+let simplifica3dAiOrchestratorV2 = null;
+let assistantCoreUniversal3d = null;
+let assistantUiComponents3d = null;
+let assistantAttachmentStore3d = null;
+let assistenteIaAnexoAtual = null;
+let assistenteIaMenuAnexoAberto = false;
+let assistenteIaBenchmarkBusy = false;
+const assistenteIaAttachmentPreviewUrls = new Map();
+
+function getCapacidadesModeloAssistenteIa() {
+  const state = assistenteIaConfigState || {};
+  const current = (Array.isArray(state.models) ? state.models : []).find((model) => model.id === state.modelId) || null;
+  const capability = (statusKey, modelKey) => typeof state[statusKey] === "boolean" ? state[statusKey] : current?.[modelKey] === true;
+  return Object.freeze({
+    supportsText: capability("supportsText", "text"),
+    supportsVision: capability("supportsVision", "vision"),
+    supportsAudio: capability("supportsAudio", "audio"),
+    supportsTools: capability("supportsTools", "tools")
+  });
+}
+
+function informarImagemNaoSuportadaAssistenteIa() {
+  mostrarToast("A análise local de imagens requer um modelo e runtime compatíveis, como a IA Equilibrada ou Avançada.", "info", 4800);
+}
+
+function getAssistantUiComponents3d() {
+  if (assistantUiComponents3d) return assistantUiComponents3d;
+  const Components = window.UniversalAssistantUi?.AssistantUiComponents;
+  const pack = window.SimplificaAssistantPack;
+  assistantUiComponents3d = Components ? new Components({
+    appId: pack?.manifest?.appId || "simplifica-3d",
+    appName: pack?.manifest?.appName || "Simplifica 3D",
+    assistantName: "Simplifica IA",
+    brand: { primary: "var(--primary)", icon: "assistente" },
+    escapeHtml: escaparHtml,
+    escapeAttr: escaparAttr
+  }) : null;
+  return assistantUiComponents3d;
+}
+
+function getAssistantAttachmentStore3d() {
+  if (assistantAttachmentStore3d) return assistantAttachmentStore3d;
+  const Store = window.UniversalAssistantAttachments?.ImageAttachmentStore;
+  assistantAttachmentStore3d = Store ? new Store({ dbName: "simplifica-3d-assistant-attachments-v1" }) : null;
+  return assistantAttachmentStore3d;
+}
+
+function metadadosPersistiveisAnexoAssistenteIa(attachment = {}) {
+  return {
+    id: String(attachment.id || ""), type: "image", uri: String(attachment.uri || ""),
+    mimeType: String(attachment.mimeType || ""), width: Number(attachment.width) || 0,
+    height: Number(attachment.height) || 0, thumbnailUri: String(attachment.thumbnailUri || "")
+  };
+}
+
+function metadadosPersistiveisMensagemAssistenteIa(metadata = {}) {
+  const card = metadata?.resultCard;
+  if (!card || typeof card !== "object") return {};
+  const action = card.action && typeof card.action === "object" ? card.action : null;
+  const calculatorInputs = action?.calculatorInputs && typeof action.calculatorInputs === "object" ? {
+    weightGrams: Math.max(0, Number(action.calculatorInputs.weightGrams) || 0),
+    timeMinutes: Math.max(0, Math.round(Number(action.calculatorInputs.timeMinutes) || 0)),
+    quantity: Math.max(1, Math.round(Number(action.calculatorInputs.quantity) || 1))
+  } : null;
+  return {
+    resultCard: {
+      kind: String(card.kind || "result").slice(0, 40),
+      title: String(card.title || "Resultado").slice(0, 120),
+      subtitle: String(card.subtitle || "").slice(0, 600),
+      status: String(card.status || "").slice(0, 80),
+      lines: Array.isArray(card.lines) ? card.lines.slice(0, 6).map((line) => String(line || "").slice(0, 180)) : [],
+      action: action ? {
+        label: String(action.label || "Abrir").slice(0, 40), routeId: String(action.routeId || "").slice(0, 60),
+        entityId: String(action.entityId || "").slice(0, 100), entityType: String(action.entityType || "").slice(0, 60),
+        calculatorInputs
+      } : null
+    }
+  };
+}
+
+function criarMensagemAssistenteIa(role, text, { attachments = [], metadata = {}, id = "", timestamp = "" } = {}) {
+  return {
+    id: String(id || `message-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`),
+    role: role === "user" ? "user" : "assistant",
+    text: String(text || "").slice(0, 1200),
+    attachments: Array.isArray(attachments) ? attachments.slice(0, 1).map(metadadosPersistiveisAnexoAssistenteIa) : [],
+    timestamp: String(timestamp || new Date().toISOString()),
+    metadata: metadadosPersistiveisMensagemAssistenteIa(metadata)
+  };
+}
+
+function criarCardResultadoAssistenteIa(result = {}, answer = "", { hasImage = false } = {}) {
+  const tool = result?.toolResult;
+  if (hasImage) return {
+    kind: "image-analysis", title: "Análise da imagem", subtitle: answer,
+    status: "Concluída", lines: []
+  };
+  if (result?.navigationTarget?.routeId) return {
+    kind: "navigation", title: result.navigationTarget.label || "Tela aberta", subtitle: answer,
+    status: "Atalho", lines: [], action: { label: "Abrir novamente", routeId: result.navigationTarget.routeId }
+  };
+  if (tool?.status === "AMBIGUOUS" && Array.isArray(tool.matches)) return {
+    kind: "search", title: "Escolha um resultado", subtitle: answer,
+    status: `${tool.matches.length} opções`, lines: tool.matches.slice(0, 6).map((item) => item.name || item.id)
+  };
+  if (tool?.status === "NOT_FOUND") {
+    const emptyCard = ["stock_search", "stock_summary"].includes(tool.tool)
+      ? { title: "Nenhum material encontrado", routeId: "inventory.list", label: "Abrir estoque" }
+      : tool.tool === "customer_search"
+        ? { title: "Nenhum cliente encontrado", routeId: "customers.list", label: "Abrir clientes" }
+        : { title: "Nenhum pedido encontrado", routeId: "orders.list", label: "Abrir pedidos" };
+    return {
+      kind: "empty-result", title: emptyCard.title, subtitle: answer,
+      status: "Sem resultados", lines: [], action: { label: emptyCard.label, routeId: emptyCard.routeId }
+    };
+  }
+  if (tool?.status === "SUCCESS" && tool.tool === "price_calculate") {
+    const inputs = tool.inputs || {};
+    const hours = Math.floor((Number(inputs.timeMinutes) || 0) / 60);
+    const minutes = Math.max(0, Math.round(Number(inputs.timeMinutes) || 0)) % 60;
+    const duration = [hours ? `${hours} h` : "", minutes ? `${minutes} min` : ""].filter(Boolean).join(" ");
+    return {
+      kind: "calculation", title: "Orçamento calculado", subtitle: "Valores calculados pela calculadora do sistema.",
+      status: tool.formattedPrice || formatarMoeda(Number(tool.calculatedPrice) || 0),
+      lines: [`Peso: ${Number(inputs.weightGrams) || 0} g`, duration ? `Tempo: ${duration}` : "Tempo: não informado", `Quantidade: ${Number(inputs.quantity) || 1}`],
+      action: { label: "Abrir calculadora", routeId: "calculator", calculatorInputs: inputs }
+    };
+  }
+  if (tool?.status === "SUCCESS" && tool.tool === "customer_search" && tool.customer) return {
+    kind: "customer", title: tool.customer.name || "Cliente encontrado", subtitle: answer,
+    status: "Cliente", lines: [tool.customer.phone, tool.customer.email].filter(Boolean),
+    action: { label: "Abrir clientes", routeId: "customers.list", entityId: tool.customer.id, entityType: "customer" }
+  };
+  if (tool?.status === "SUCCESS" && tool.tool === "order_search") return {
+    kind: "orders", title: "Pedidos encontrados", subtitle: answer, status: `${tool.orders?.length || 0} pedido(s)`,
+    lines: (tool.orders || []).slice(0, 6).map((order) => `#${order.id} · ${order.customerName || "Cliente"} · ${formatarMoeda(order.total || 0)}`),
+    action: { label: "Abrir pedidos", routeId: "orders.list" }
+  };
+  if (tool?.status === "SUCCESS" && tool.tool === "stock_search") return {
+    kind: "inventory", title: "Resultado do estoque", subtitle: answer,
+    status: `${tool.matches?.length || 0} encontrado(s)`,
+    lines: (tool.matches || []).slice(0, 6).map((item) => `${item.name}: ${item.quantity} ${item.unit || ""}`.trim()),
+    action: { label: "Abrir estoque", routeId: "inventory.list" }
+  };
+  if (tool?.status === "SUCCESS" && tool.tool === "stock_summary") return {
+    kind: "inventory", title: "Resumo do estoque", subtitle: answer,
+    status: `${tool.lowStockCount || 0} alerta(s)`,
+    lines: (tool.lowStock?.length ? tool.lowStock : tool.items || []).slice(0, 6).map((item) => `${item.name}: ${item.quantity} ${item.unit || ""}`.trim()),
+    action: { label: "Abrir estoque", routeId: "inventory.list" }
+  };
+  if (tool?.status === "SUCCESS" && tool.tool === "cash_summary") return {
+    kind: "cash", title: tool.period === "today" ? "Caixa de hoje" : "Resumo do caixa", subtitle: answer,
+    status: tool.formattedBalance, lines: [`Entradas: ${tool.formattedEntries}`, `Saídas: ${tool.formattedExits}`],
+    action: { label: "Abrir caixa", routeId: "cash.home" }
+  };
+  if (tool?.status === "SUCCESS" && tool.tool === "home_summary") return {
+    kind: "home", title: "Resumo de hoje", subtitle: answer, status: tool.formattedRevenue,
+    lines: [`Pedidos hoje: ${tool.ordersToday}`, `Pedidos em aberto: ${tool.openOrders}`, `Produções ativas: ${tool.activeProduction}`, `Alertas de estoque: ${tool.lowStockCount}`, `Saldo do caixa hoje: ${tool.formattedCashBalance}`],
+    action: { label: "Abrir início", routeId: "dashboard" }
+  };
+  if (tool?.status === "SUCCESS" && tool.tool === "order_history") return {
+    kind: "order-history", title: `Pedidos de ${tool.customerName || "cliente"}`, subtitle: answer,
+    status: `${tool.orders?.length || 0} pedido(s)`, lines: (tool.orders || []).slice(0, 6).map((order) => `Pedido #${order.id}: ${(order.items || []).join(", ") || "sem itens"}`),
+    action: { label: "Abrir pedidos", routeId: "orders.list" }
+  };
+  if (result?.prepared?.status === "SUCCESS") {
+    const payload = result.prepared.operation?.payload || {};
+    return {
+      kind: "confirmation", title: "Pedido pronto para conferir", subtitle: "Nada será salvo sem sua confirmação.",
+      status: payload.total != null ? formatarMoeda(payload.total) : "Aguardando confirmação",
+      lines: [payload.customerName && `Cliente: ${payload.customerName}`, payload.items?.[0] && `${payload.items[0].quantity} × ${payload.items[0].description}`].filter(Boolean),
+      action: { label: "Abrir pedidos", routeId: "orders.list" }
+    };
+  }
+  if (result?.confirmed?.status === "SUCCESS") return {
+    kind: "order", title: "Pedido confirmado", subtitle: answer, status: "Salvo",
+    lines: [], action: { label: "Abrir pedidos", routeId: "orders.list" }
+  };
+  return null;
+}
+
+async function hidratarMiniaturasAssistenteIa() {
+  const store = getAssistantAttachmentStore3d();
+  if (!store) return;
+  const ids = secretariaIaChatMessages.flatMap((message) => message.attachments || []).map((item) => item.id).filter((id) => id && !assistenteIaAttachmentPreviewUrls.has(id));
+  let changed = false;
+  for (const id of [...new Set(ids)]) {
+    try { const url = await store.objectUrl(id, "thumbnail"); if (url) { assistenteIaAttachmentPreviewUrls.set(id, url); changed = true; } }
+    catch (_) { }
+  }
+  if (changed && document.querySelector(".ai-chat-dialog")) renderChatSecretariaIa();
+}
+
+function canvasParaBlobAssistenteIa(canvas, mimeType, quality) {
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Não foi possível preparar a imagem.")), mimeType, quality));
+}
+
+async function processarImagemAssistenteIa(input) {
+  if (!getCapacidadesModeloAssistenteIa().supportsVision) {
+    if (input) input.value = "";
+    informarImagemNaoSuportadaAssistenteIa();
+    return;
+  }
+  const file = input?.files?.[0];
+  if (input) input.value = "";
+  if (!file) return;
+  const mime = String(file.type || "").toLowerCase();
+  if (!["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(mime)) { mostrarToast("Escolha uma imagem JPG, PNG ou WebP.", "aviso", 4200); return; }
+  if (file.size > 18 * 1024 * 1024) { mostrarToast("A imagem é muito grande. Escolha uma com até 18 MB.", "aviso", 4200); return; }
+  try {
+    const loaded = await carregarImagemStorefrontArquivo(file);
+    try {
+      const scale = Math.min(1, 1280 / Math.max(loaded.width, loaded.height));
+      const width = Math.max(1, Math.round(loaded.width * scale));
+      const height = Math.max(1, Math.round(loaded.height * scale));
+      const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+      const context = canvas.getContext("2d"); if (!context) throw new Error("Não foi possível preparar a imagem neste aparelho.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(loaded.source, 0, 0, width, height);
+      const outputMime = "image/jpeg";
+      const blob = await canvasParaBlobAssistenteIa(canvas, outputMime, 0.82);
+      if (blob.size > 2 * 1024 * 1024) throw new Error("A imagem continuou grande após a preparação. Escolha outra imagem.");
+      const thumbScale = Math.min(1, 240 / Math.max(width, height));
+      const thumbnail = document.createElement("canvas"); thumbnail.width = Math.max(1, Math.round(width * thumbScale)); thumbnail.height = Math.max(1, Math.round(height * thumbScale));
+      thumbnail.getContext("2d")?.drawImage(canvas, 0, 0, thumbnail.width, thumbnail.height);
+      const thumbnailBlob = await canvasParaBlobAssistenteIa(thumbnail, outputMime, 0.72);
+      const id = `image-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      const conversationId = getAssistantCoreUniversal3d()?.memory?.conversationId || "unassigned";
+      await getAssistantAttachmentStore3d()?.put({ id, conversationId, blob, thumbnailBlob, mimeType: outputMime, width, height });
+      if (assistenteIaAnexoAtual?.id) await getAssistantAttachmentStore3d()?.deleteMany([assistenteIaAnexoAtual.id]);
+      const previewUrl = URL.createObjectURL(thumbnailBlob);
+      assistenteIaAttachmentPreviewUrls.set(id, previewUrl);
+      assistenteIaAnexoAtual = { id, type: "image", uri: `assistant-attachment://${id}`, mimeType: outputMime, width, height, thumbnailUri: `assistant-attachment://${id}/thumbnail` };
+      assistenteIaMenuAnexoAberto = false;
+      renderChatSecretariaIa();
+    } finally { loaded.close?.(); }
+  } catch (error) { mostrarToast(error?.message || "Não foi possível preparar a imagem.", "erro", 4800); }
+}
+
+function alternarMenuAnexoAssistenteIa() {
+  if (!getCapacidadesModeloAssistenteIa().supportsVision) { informarImagemNaoSuportadaAssistenteIa(); return; }
+  assistenteIaMenuAnexoAberto = !assistenteIaMenuAnexoAberto;
+  renderChatSecretariaIa();
+}
+function escolherImagemAssistenteIa(source = "gallery") {
+  if (!getCapacidadesModeloAssistenteIa().supportsVision) { informarImagemNaoSuportadaAssistenteIa(); return; }
+  assistenteIaMenuAnexoAberto = false;
+  document.getElementById(source === "camera" ? "aiChatCameraInput" : "aiChatGalleryInput")?.click();
+}
+async function removerImagemAssistenteIa() {
+  const id = assistenteIaAnexoAtual?.id;
+  assistenteIaAnexoAtual = null;
+  assistenteIaMenuAnexoAberto = false;
+  if (id) { await getAssistantAttachmentStore3d()?.deleteMany([id]); assistenteIaAttachmentPreviewUrls.delete(id); }
+  renderChatSecretariaIa();
+}
+
+function blobParaBase64AssistenteIa(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || "").split(",")[1] || "");
+    reader.onerror = () => reject(reader.error || new Error("Não foi possível ler a imagem."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function prepararAnexoInferenciaAssistenteIa(attachment) {
+  if (!attachment?.id) return null;
+  const stored = await getAssistantAttachmentStore3d()?.get(attachment.id);
+  if (!stored?.blob) throw new Error("A imagem anexada não está mais disponível neste aparelho.");
+  return { ...metadadosPersistiveisAnexoAssistenteIa(attachment), imageBase64: await blobParaBase64AssistenteIa(stored.blob) };
+}
+
+function getAssistantCoreUniversal3d() {
+  if (assistantCoreUniversal3d) return assistantCoreUniversal3d;
+  const Core = window.UniversalAssistantCore?.AssistantCore;
+  const pack = window.SimplificaAssistantPack;
+  if (!Core || !pack?.manifest) return null;
+  assistantCoreUniversal3d = new Core({
+    manifest: pack.manifest,
+    storage: localStorage,
+    attachmentStore: getAssistantAttachmentStore3d(),
+    permissionGuard: (tool) => tool?.access !== "WRITE" || window.Simplifica3dAiReadFacade?.canPrepareOrderDryRun?.().allowed === true,
+    writePipeline: {
+      prepare({ type }) {
+        if (type !== "prepare_create") return { status: "BLOCKED", reason: "WRITE_CAPABILITY_NOT_AVAILABLE" };
+        return criarSimplifica3dAiOrchestratorV2().operationSafety.prepareOrder(window.Simplifica3dAiReadFacade.getAppContext());
+      }
+    },
+    navigate: (target) => trocarTela(target.path),
+    back: () => voltarTela()
+  });
+  registrarToolsAssistantCore3d(assistantCoreUniversal3d);
+  atualizarContextoAssistantCore3d();
+  return assistantCoreUniversal3d;
+}
+
+function registrarToolsAssistantCore3d(core) {
+  if (!core || core.__simplificaToolsReady) return core;
+  const access = window.UniversalAssistantContracts?.ACCESS;
+  const facade = () => window.Simplifica3dAiReadFacade;
+  const searchByDomain = ({ domain = "orders", query = "", limit = 10 } = {}) => {
+    if (domain === "customers") return facade().searchCustomers(query).slice(0, limit);
+    if (domain === "inventory") return facade().searchStock(query).slice(0, limit);
+    if (domain === "orders") return facade().searchOrdersReadOnly(query, limit);
+    return [];
+  };
+  core.tools.register({ name: "search_entities", access: access.READ, execute: searchByDomain });
+  core.tools.register({ name: "list_entities", access: access.READ, execute: (args) => searchByDomain({ ...args, query: args?.query || "" }) });
+  core.tools.register({ name: "get_entity", access: access.READ, execute: ({ type, id }) => {
+    const domain = type === "customer" ? "customers" : type === "inventoryItem" ? "inventory" : "orders";
+    return searchByDomain({ domain, query: String(id || ""), limit: 20 }).find((item) => String(item.id) === String(id)) || null;
+  }});
+  core.tools.register({ name: "get_related_entities", access: access.READ, execute: ({ type, id }) => type === "order" ? { order: facade().searchOrdersReadOnly("", 20).find((item) => String(item.id) === String(id)) || null } : {} });
+  core.tools.register({ name: "calculate", access: access.CALCULATE, execute: (args) => facade().calculatePrice(args) });
+  core.tools.register({ name: "search_app_knowledge", access: access.READ, execute: ({ query }) => core.context.selectManifest(query) });
+  core.tools.register({ name: "navigate", access: access.NAVIGATION, execute: ({ routeId, params }) => core.navigation.navigate(routeId, params, core.context.snapshot()) });
+  core.tools.register({ name: "open_entity", access: access.NAVIGATION, execute: ({ routeId, entityId, entityType = "" }) => { const result = core.navigation.navigate(routeId, { id: entityId }, core.context.snapshot()); if (result.status === "SUCCESS" && entityType && entityId) core.context.addEntityRef({ type: entityType, id: entityId }); return result; } });
+  core.tools.register({ name: "back", access: access.NAVIGATION, execute: () => core.navigation.back() });
+  core.tools.register({ name: "apply_filter", access: access.NAVIGATION, execute: ({ routeId, filter = {} }) => core.navigation.navigate(routeId, filter, core.context.snapshot()) });
+  core.tools.register({ name: "prepare_create", access: access.WRITE, execute: () => ({}) });
+  core.tools.register({ name: "prepare_update", access: access.WRITE, execute: () => ({}) });
+  core.tools.register({ name: "prepare_delete", access: access.WRITE, execute: () => ({}) });
+  core.__simplificaToolsReady = true;
+  return core;
+}
+
+function atualizarContextoAssistantCore3d() {
+  const core = assistantCoreUniversal3d;
+  if (!core) return null;
+  const selectedOrderId = String(pedidoEditando?.id || "");
+  const entityRefs = selectedOrderId ? [{ type: "order", id: selectedOrderId }] : [];
+  return core.context.register({
+    screen: telaAtual || "dashboard",
+    routeId: [...core.navigation.routes.values()].find((route) => route.path === telaAtual)?.id || "dashboard",
+    route: telaAtual || "dashboard",
+    entityRefs
+  });
+}
+
+function getRotuloContextoAssistantCore3d() {
+  const context = getAssistantCoreUniversal3d()?.context.snapshot();
+  const labels = { dashboard: "Início", pedido: "Novo pedido", pedidos: "Pedidos", clientes: "Clientes", estoque: "Estoque", caixa: "Caixa", producao: "Produção", calculadora: "Calculadora", relatorios: "Relatórios", config: "Configurações", lojaAdmin: "Editor da Loja" };
+  const order = context?.entityRefs?.find((ref) => ref.type === "order");
+  return order ? `Pedido #${order.id}` : (labels[context?.screen] || "Aplicativo");
+}
+
+function getContextoEspecificoAssistantCore3d() {
+  return getAssistantCoreUniversal3d()?.context.snapshot()?.entityRefs?.[0] || null;
+}
+
+function removerContextoEspecificoAssistenteIa(type, id) {
+  getAssistantCoreUniversal3d()?.context.removeEntityRef(type, id);
+  renderChatSecretariaIa();
+}
+
+function iniciarNovaConversaAssistantCore3d() {
+  getAssistantCoreUniversal3d()?.newConversation();
+  simplifica3dAiOrchestratorV2?.manager?.cancel?.();
+  localStorage.removeItem(getSecretariaIaOperationalKey());
+  secretariaIaChatMessages = [];
+  secretariaIaChatLoadedKey = getSecretariaIaChatKey();
+  localStorage.removeItem(getSecretariaIaChatKey());
+  simplifica3dAiOrchestratorV2 = null;
+  renderChatSecretariaIa();
+  mostrarToast("Nova conversa iniciada. Seus dados do aplicativo não foram apagados.", "sucesso", 3200);
+}
+
+function registrarRespostaAssistantCore3d(text) {
+  const core = getAssistantCoreUniversal3d();
+  if (!core || !String(text || "").trim()) return;
+  core.memory.addMessage("assistant", String(text));
+  core.save();
+}
 
 function getSecretariaIaChatKey() {
   const scope = getEscopoDadosAtual?.() || normalizarEmail(usuarioAtualEmail || syncConfig.supabaseEmail || getUsuarioAtual()?.email || "local") || "local";
   return `simplifica:ia-chat:${scope}`;
+}
+
+function getAssistenteIaPreferenceKey(suffix) {
+  return `${getSecretariaIaChatKey()}:${suffix}`;
+}
+
+function getEstadoVisualSecretariaIa() {
+  if (secretariaIaChatBusy || assistenteIaOuvindo || assistenteIaAquecimento.status === "preparing") return "active";
+  if (assistenteIaAquecimento.status === "ready") return "idle";
+  return "unavailable";
+}
+
+function getDescricaoEstadoSecretariaIa() {
+  const state = getEstadoVisualSecretariaIa();
+  if (state === "active") return assistenteIaOuvindo ? "Assistente ouvindo" : "Assistente trabalhando";
+  if (state === "idle") return "Assistente ativa e aguardando";
+  return "Assistente indisponível no momento";
+}
+
+function atualizarIndicadorSecretariaIa() {
+  const button = document.querySelector(".ai-assistant-status");
+  if (!button) return;
+  button.className = `ai-assistant-status ai-assistant-status-${getEstadoVisualSecretariaIa()}`;
+  button.title = getDescricaoEstadoSecretariaIa();
+  button.setAttribute("aria-label", getDescricaoEstadoSecretariaIa());
+}
+
+async function preaquecerAssistenteIa3d({ renderChat = false } = {}) {
+  const provider = window.Simplifica3dAiRuntime?.provider;
+  if (!provider?.status) {
+    assistenteIaAquecimento = { status: "unavailable", message: "IA local indisponível" };
+    atualizarIndicadorSecretariaIa();
+    return assistenteIaAquecimento;
+  }
+  assistenteIaAquecimento = { status: "preparing", message: "Preparando a assistente..." };
+  atualizarIndicadorSecretariaIa();
+  if (renderChat && document.querySelector(".ai-chat-dialog")) renderChatSecretariaIa();
+  try {
+    const result = await provider.prewarm();
+    assistenteIaConfigState = { ...assistenteIaConfigState, ...result, loaded: true };
+    assistenteIaAquecimento = result?.compatible === false
+      ? { status: "unavailable", message: result.incompatibilityReason || "Indisponível neste aparelho" }
+      : !result?.enabled
+        ? { status: "unavailable", message: "Assistente desativada" }
+        : result?.modelReady
+          ? { status: "ready", message: "Pronta para conversar" }
+          : { status: result?.downloading ? "preparing" : "unavailable", message: result?.downloading ? "Baixando o modelo..." : "Modelo ainda não instalado" };
+  } catch (error) {
+    registrarErroAplicacaoSilencioso("simplifica_ai_warmup", error, "preaquecerAssistenteIa3d");
+    assistenteIaAquecimento = { status: "unavailable", message: "Indisponível no momento" };
+  }
+  atualizarIndicadorSecretariaIa();
+  if (renderChat && document.querySelector(".ai-chat-dialog")) renderChatSecretariaIa();
+  return assistenteIaAquecimento;
+}
+
+function getSecretariaIaOperationalKey() {
+  const scope = getEscopoDadosAtual?.() || normalizarEmail(usuarioAtualEmail || syncConfig.supabaseEmail || getUsuarioAtual()?.email || "local") || "local";
+  return `simplifica:ai-operational:v2:${scope}`;
+}
+
+function registrarTelemetriaAiContextV2(event = {}) {
+  const allowedStages = new Set(["T_CONTEXT", "T_PROVIDER", "T_PARSE", "T_TOOL", "T_RESPONSE", "T_RLM"]);
+  if (!allowedStages.has(event.stage)) return;
+  const key = `${getSecretariaIaOperationalKey()}:timings`;
+  const safe = {
+    at: new Date().toISOString(),
+    requestId: `ai-${Date.now().toString(36)}`,
+    conversationId: String(event.conversationId || "").slice(0, 80),
+    taskId: String(event.taskId || "").slice(0, 80),
+    subtaskId: String(event.subtaskId || "").slice(0, 80),
+    stage: event.stage,
+    duration: Math.max(0, Number(event.duration) || 0),
+    intentType: String(event.intentType || "").slice(0, 40),
+    capability: String(event.capability || "").slice(0, 60),
+    tool: String(event.tool || "").slice(0, 60),
+    result: String(event.result || "").slice(0, 40),
+    error: String(event.error || "").slice(0, 60)
+  };
+  try {
+    const previous = JSON.parse(localStorage.getItem(key) || "[]");
+    localStorage.setItem(key, JSON.stringify([...(Array.isArray(previous) ? previous : []), safe].slice(-80)));
+  } catch (_) { }
+}
+
+function getSimplifica3dAiTimings() {
+  try { return JSON.parse(localStorage.getItem(`${getSecretariaIaOperationalKey()}:timings`) || "[]"); }
+  catch (_) { return []; }
+}
+if (typeof window !== "undefined") window.getSimplifica3dAiTimings = getSimplifica3dAiTimings;
+
+function formatarBytesAssistenteIa(bytes = 0) {
+  const value = Math.max(0, Number(bytes) || 0);
+  if (value >= 1024 ** 3) return `${(value / 1024 ** 3).toFixed(1).replace(".", ",")} GB`;
+  if (value >= 1024 ** 2) return `${Math.round(value / 1024 ** 2)} MB`;
+  return `${Math.round(value / 1024)} KB`;
+}
+
+async function carregarConfiguracaoAssistenteIa({ render = true } = {}) {
+  const provider = window.Simplifica3dAiRuntime?.provider;
+  if (!provider?.status) {
+    assistenteIaConfigState = { ...assistenteIaConfigState, loaded: true, available: false, state: "UNAVAILABLE", reason: "Provider local indisponível." };
+  } else {
+    try {
+      const [status, catalog, deviceProfile] = await Promise.all([
+        provider.status(),
+        provider.listModels(),
+        provider.profileDevice ? provider.profileDevice() : Promise.resolve(null)
+      ]);
+      assistenteIaConfigState = { ...assistenteIaConfigState, ...status, ...catalog, deviceProfile, loaded: true };
+    } catch (error) {
+      registrarErroAplicacaoSilencioso("simplifica_ai_settings", error, "carregarConfiguracaoAssistenteIa");
+      assistenteIaConfigState = { ...assistenteIaConfigState, loaded: true, available: false, state: "FAILED" };
+    }
+  }
+  if (render) {
+    const target = document.getElementById("assistantAiSettingsContent");
+    if (target) {
+      const deviceDetailsOpen = target.querySelector(".ai-device-details")?.open === true;
+      target.innerHTML = renderConfiguracaoAssistenteIa();
+      if (deviceDetailsOpen) target.querySelector(".ai-device-details")?.setAttribute("open", "");
+    }
+  }
+  const downloading = ["DOWNLOADING", "VERIFYING", "INSTALLING"].includes(assistenteIaConfigState.state);
+  clearTimeout(assistenteIaConfigPollTimer);
+  if (downloading) assistenteIaConfigPollTimer = setTimeout(() => carregarConfiguracaoAssistenteIa({ render: true }), 1000);
+  return assistenteIaConfigState;
+}
+
+function renderConfiguracaoAssistenteIa() {
+  const state = assistenteIaConfigState;
+  if (!state.loaded) return `<p class="muted">Verificando recursos deste aparelho...</p>`;
+  if (!state.available) return `<div class="app-error-state"><strong>IA local não disponível neste navegador</strong><span>${escaparHtml(state.reason || "O Simplifica continua funcionando normalmente sem ela.")}</span></div>`;
+  const models = Array.isArray(state.models) ? state.models : [];
+  const current = models.find((model) => model.id === state.modelId) || models.find((model) => model.profile === "BALANCED") || {};
+  const total = Number(state.totalBytes || current.downloadBytes || 0);
+  const downloaded = Number(state.downloadedBytes || 0);
+  const percent = total > 0 ? Math.min(100, Math.round(downloaded * 100 / total)) : 0;
+  const processing = ["DOWNLOADING", "VERIFYING", "INSTALLING"].includes(state.state);
+  const statusLabel = ({ READY: "Instalado e pronto", DOWNLOADING: "Baixando", VERIFYING: "Verificando integridade", INSTALLING: "Instalando", FAILED: "Falha no download", INCOMPATIBLE: "Incompatível", EXPERIMENTAL: "Em validação", NOT_INSTALLED: "Não instalado" })[state.state] || "Aguardando";
+  const device = state.deviceProfile || {};
+  const health = state.modelHealth || device.modelHealth || {};
+  const healthLabel = ({ NOT_TESTED: "Ainda não testado", READY: "Pronto", SLOW: "Funcionamento lento", UNSTABLE: "Instável", FAILED: "Falhou" })[health.health] || "Ainda não testado";
+  const profileCopy = {
+    LIGHT: ["Mais rápida e ocupa menos espaço.", "Texto, consultas e navegação. Não inclui análise local de imagens."],
+    BALANCED: ["Recomendada", "Boa combinação entre velocidade e inteligência. Inclui recursos multimodais compatíveis."],
+    ADVANCED: ["Maior capacidade", "Exige mais memória, armazenamento e processamento."]
+  };
+  const modelCards = models.map((model) => {
+    const copy = profileCopy[model.profile] || ["Modelo local", "Recursos definidos pelo catálogo deste aplicativo."];
+    const size = Number(model.downloadBytes) > 0 ? formatarBytesAssistenteIa(model.downloadBytes) : "Tamanho ainda não validado";
+    const badge = model.installed ? "✓ Instalado" : model.available && model.compatible !== false ? size : "Em validação";
+    return `<article class="ai-model-profile ${model.id === current.id ? "selected" : ""} ${model.available ? "" : "experimental"}"><div><strong>${escaparHtml(model.displayName)}</strong><span>${escaparHtml(copy[0])}</span></div><p>${escaparHtml(copy[1])}</p><small>${escaparHtml(badge)}</small></article>`;
+  }).join("");
+  return `
+    <div class="settings-group">
+      <label class="checkbox-row"><input type="checkbox" ${state.enabled ? "checked" : ""} onchange="alternarAssistenteIaLocal(this.checked)"><span><strong>Assistente local</strong><small>Executa a IA no próprio aparelho. O Simplifica funciona normalmente desligado.</small></span></label>
+    </div>
+    <label class="field"><span>Seleção do modelo</span><select onchange="selecionarModeloAssistenteIa(this.value)" ${processing ? "disabled" : ""}><option value="automatic" ${state.selection === "automatic" ? "selected" : ""}>Automático</option>${models.map((model) => `<option value="${escaparAttr(model.id)}" ${state.selection === model.id ? "selected" : ""} ${model.available ? "" : "disabled"}>${escaparHtml(model.displayName)}${model.available ? "" : " — em validação"}</option>`).join("")}</select></label>
+    <div class="ai-model-profile-list">${modelCards}</div>
+    <div class="sync-grid"><div class="metric"><span>Modelo recomendado</span><strong>${escaparHtml(current.displayName || state.modelName || "IA Equilibrada")}</strong><small>${total ? formatarBytesAssistenteIa(total) : "Tamanho ainda não validado"}</small></div><div class="metric"><span>Status</span><strong>${escaparHtml(statusLabel)}</strong>${state.incompatibilityReason ? `<small>${escaparHtml(state.incompatibilityReason)}</small>` : ""}</div></div>
+    <details class="ai-device-details"><summary>Compatibilidade do aparelho</summary><div><span>Memória: <strong>${device.totalMemoryBytes ? formatarBytesAssistenteIa(device.totalMemoryBytes) : device.deviceMemoryGb ? `${Number(device.deviceMemoryGb).toLocaleString("pt-BR")} GB aproximados` : "não informada"}</strong></span><span>Espaço livre: <strong>${device.freeStorageBytes ? formatarBytesAssistenteIa(device.freeStorageBytes) : "não informado"}</strong></span><span>Plataforma: <strong>${escaparHtml(Array.isArray(device.abis) && device.abis.length ? device.abis.join(", ") : device.webGpu ? "Navegador com WebGPU" : "não informada")}</strong></span><span>Execução: <strong>${escaparHtml(device.activeBackend || device.backendPolicy || (device.adapterAvailable ? "Aceleração disponível" : "será verificada ao iniciar"))}</strong></span>${device.storageBackend ? `<span>Armazenamento do modelo: <strong>${escaparHtml(device.storageBackend)}${device.persistentStorage ? " persistente" : " sujeito à limpeza do navegador"}</strong></span>` : ""}<span>Saúde do modelo: <strong>${escaparHtml(healthLabel)}</strong></span></div></details>
+    ${processing ? `<div class="ai-model-progress"><progress max="100" value="${percent}"></progress><span>${formatarBytesAssistenteIa(downloaded)} de ${formatarBytesAssistenteIa(total)} · ${percent}%</span></div>` : ""}
+    <div class="actions ui3-action-row">
+      ${state.state === "READY" ? `<button class="btn secondary" type="button" onclick="testarDesempenhoAssistenteIa()" ${assistenteIaBenchmarkBusy ? "disabled" : ""}>${assistenteIaBenchmarkBusy ? "Testando..." : "Testar desempenho"}</button>` : ""}
+      ${state.state === "READY" ? `<button class="btn danger" type="button" onclick="removerModeloAssistenteIa()">Remover e liberar ${formatarBytesAssistenteIa(total)}</button>` : current.available && !processing ? `<button class="btn" type="button" onclick="baixarModeloAssistenteIa('${escaparAttr(current.id)}')">Baixar modelo</button>` : ""}
+      ${processing ? `<button class="btn secondary" type="button" onclick="cancelarDownloadAssistenteIa()">Cancelar download</button>` : ""}
+    </div>`;
+}
+
+async function alternarAssistenteIaLocal(enabled) {
+  try { assistenteIaConfigState = { ...assistenteIaConfigState, ...(await window.Simplifica3dAiRuntime.provider.setEnabled(enabled)) }; await carregarConfiguracaoAssistenteIa(); }
+  catch (error) { mostrarToast(error?.message || "Não foi possível alterar a IA.", "erro", 4200); }
+}
+
+async function selecionarModeloAssistenteIa(modelId) {
+  try { await window.Simplifica3dAiRuntime.provider.selectModel(modelId); await carregarConfiguracaoAssistenteIa(); }
+  catch (error) { mostrarToast(error?.message || "Modelo indisponível.", "erro", 4200); }
+}
+
+async function testarDesempenhoAssistenteIa() {
+  if (assistenteIaBenchmarkBusy) return;
+  assistenteIaBenchmarkBusy = true;
+  const target = document.getElementById("assistantAiSettingsContent");
+  if (target) target.innerHTML = renderConfiguracaoAssistenteIa();
+  try {
+    const modelHealth = await window.Simplifica3dAiRuntime.provider.benchmarkModel();
+    assistenteIaConfigState = { ...assistenteIaConfigState, modelHealth };
+    const label = ({ READY: "Modelo pronto para uso.", SLOW: "O modelo funciona, mas pode responder devagar.", UNSTABLE: "O modelo ficou instável neste aparelho.", FAILED: "O teste do modelo falhou." })[modelHealth?.health] || "Teste concluído.";
+    mostrarToast(label, modelHealth?.health === "READY" ? "sucesso" : "aviso", 4800);
+  } catch (error) {
+    mostrarToast(error?.message || "Não foi possível testar o modelo.", "erro", 4800);
+  } finally {
+    assistenteIaBenchmarkBusy = false;
+    await carregarConfiguracaoAssistenteIa({ render: true });
+  }
+}
+
+async function baixarModeloAssistenteIa(modelId) {
+  const model = assistenteIaConfigState.models.find((item) => item.id === modelId);
+  const confirmed = await solicitarConfirmacaoAcao({ titulo: "Baixar modelo de IA?", mensagem: `${model?.displayName || "IA Equilibrada"} ocupará aproximadamente ${formatarBytesAssistenteIa(model?.downloadBytes || 0)} neste aparelho.`, confirmar: "Baixar", cancelar: "Agora não" });
+  if (!confirmed) return;
+  assistenteIaConfigState = { ...assistenteIaConfigState, enabled: true, state: "DOWNLOADING", downloading: true, modelId, selection: modelId, totalBytes: Number(model?.downloadBytes || 0) };
+  const target = document.getElementById("assistantAiSettingsContent");
+  if (target) target.innerHTML = renderConfiguracaoAssistenteIa();
+  clearTimeout(assistenteIaConfigPollTimer);
+  assistenteIaConfigPollTimer = setTimeout(() => carregarConfiguracaoAssistenteIa({ render: true }), 500);
+  try { assistenteIaConfigState = { ...assistenteIaConfigState, ...(await window.Simplifica3dAiRuntime.provider.installModel(modelId)) }; mostrarToast("Download iniciado. Você pode continuar usando o aplicativo.", "sucesso", 3200); await carregarConfiguracaoAssistenteIa(); }
+  catch (error) { mostrarToast(error?.message || "Não foi possível iniciar o download.", "erro", 5200); await carregarConfiguracaoAssistenteIa(); }
+}
+
+async function cancelarDownloadAssistenteIa() {
+  assistenteIaConfigState = { ...assistenteIaConfigState, state: "NOT_INSTALLED", downloading: false };
+  const target = document.getElementById("assistantAiSettingsContent");
+  if (target) target.innerHTML = renderConfiguracaoAssistenteIa();
+  try { await window.Simplifica3dAiRuntime.provider.cancelDownload(); }
+  catch (error) { mostrarToast(error?.message || "Não foi possível cancelar o download.", "erro", 4200); }
+  await carregarConfiguracaoAssistenteIa();
+}
+
+async function removerModeloAssistenteIa() {
+  const confirmed = await solicitarConfirmacaoAcao({ titulo: "Remover modelo?", mensagem: "A conversa e os dados do Simplifica serão preservados. Apenas o modelo local será apagado.", confirmar: "Remover", cancelar: "Cancelar", perigo: true });
+  if (!confirmed) return;
+  await window.Simplifica3dAiRuntime.provider.deleteModel(assistenteIaConfigState.modelId);
+  await carregarConfiguracaoAssistenteIa();
+}
+
+function abrirConfiguracaoIaDoChat() {
+  closeModal();
+  trocarTela("config");
+  setTimeout(async () => {
+    await carregarConfiguracaoAssistenteIa({ render: true });
+    const section = document.querySelector('[data-ui-section="assistente-ia"]');
+    if (!section) return;
+    if (isMobile()) {
+      abrirSubmenuConfiguracao(null, section);
+      return;
+    }
+    section.setAttribute("open", "");
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 100);
+}
+
+function criarExecutorPedidoConfirmadoPelaIa3d() {
+  return Object.freeze({
+    async execute(operation) {
+      if (!operation || operation.capability !== "ORDER.CREATE") throw new Error("Pedido não disponível para confirmação.");
+      const payload = operation.payload || {};
+      const access = window.Simplifica3dAiReadFacade.canPrepareOrderDryRun();
+      if (!access.allowed) throw new Error("Seu acesso atual não permite salvar este pedido.");
+      if (!(await verificarLimitePedidosAntesCriar())) throw new Error("O limite atual não permite criar outro pedido.");
+      if (!verificarLimiteClientesAntesPedido(payload.customerName)) throw new Error("Revise o cliente antes de salvar o pedido.");
+
+      const disposableValidation = window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1";
+      const creditReservation = disposableValidation
+        ? { allowed: true, receipt: null, user: null, actionType: "sandbox" }
+        : await reservarCreditoPedidoFree("criar_pedido", "criar pedido pela assistente");
+      if (!creditReservation.allowed) throw new Error("O pedido não foi salvo porque o limite do plano não foi liberado.");
+      const canonicalApi = window.Simplifica3dCanonicalOrder;
+      const createdAt = operation.createdAt || new Date().toISOString();
+      const operationHash = gerarHashOperacional(operation.operationId || createdAt);
+      const orderId = Math.max(1, Date.parse(createdAt) || Date.now()) + parseInt(operationHash.slice(0, 3), 16);
+      const canonical = canonicalApi.createCanonicalOrder({
+        customerId: payload.customerId,
+        customerSnapshot: { name: payload.customerName, phone: payload.customerPhone, email: payload.customerEmail },
+        items: (payload.items || []).map((item, index) => ({
+          ...item,
+          materials: index === 0 ? payload.materials || [] : item.materials || [],
+          weightGrams: item.weightGrams || (index === 0 ? payload.weightGrams : 0)
+        })),
+        downPayment: payload.downPayment || 0,
+        status: payload.status || "aberto",
+        notes: payload.metadata?.notes || "",
+        metadata: { ...(payload.metadata || {}), confirmedByUser: true }
+      });
+      const mapped = new canonicalApi.OrderCreateAdapter().map(canonical);
+      const now = new Date();
+      const preparation = getOrderCreatePreparationUseCase3d().prepare({
+        customer: { name: mapped.cliente, phone: normalizarTelefoneWhatsapp(mapped.clienteTelefone), email: String(mapped.clienteEmail || "").trim() },
+        items: mapped.itens,
+        discount: { value: mapped.desconto },
+        downPayment: mapped.down_payment,
+        paymentMethodId: mapped.payment_method_id,
+        status: mapped.status,
+        notes: mapped.observacao,
+        dueDate: mapped.prazo,
+        operation: {
+          kind: "pedido_create",
+          orderId,
+          sequenceNumber: getProximoNumeroSequencialPedido(),
+          displayDate: now.toLocaleDateString("pt-BR"),
+          createdAt,
+          updatedAt: now.toISOString(),
+          metadataOptions: {
+            operation_uuid: operation.operationId,
+            client_request_id: `ai_order_create:${getEscopoDadosAtual() || "local"}:${operation.operationId}`,
+            operation_source: "ai_confirmed"
+          }
+        }
+      });
+      let execution;
+      try {
+        execution = await getOrderCreateTransactionExecutor3d().execute({
+          transactionKey: preparation.record.client_request_id,
+          order: preparation.record,
+          previousOrder: null,
+          cashRegisteredBefore: 0,
+          financialSummary: preparation.financial,
+          operationMetadata: preparation.operationMetadata
+        });
+      } catch (error) {
+        compensarCreditoPedidoFree(creditReservation);
+        throw error;
+      }
+      if (execution.status === "ALREADY_COMMITTED") compensarCreditoPedidoFree(creditReservation);
+      if (!["COMMITTED", "ALREADY_COMMITTED"].includes(execution.status)) {
+        compensarCreditoPedidoFree(creditReservation);
+        throw execution.error || new Error("Não foi possível salvar o pedido. Revise os dados e tente novamente.");
+      }
+      const order = execution.order;
+      CustomerSuggestionManager.recordRecentSuggestion({ source: "assistant", name: mapped.cliente, phone: mapped.clienteTelefone, email: mapped.clienteEmail });
+      registrarEventoUsoLocal("pedido_criado", { tipoPedido: order.status, produto: order.itens?.[0]?.nome || "", peso: order.itens?.[0]?.materialGramsTotal || 0 });
+      registrarShadowFinanceiroLocal("pedido_salvo_shadow", { pedidoId: order.id, operation_uuid: order.operation_uuid, client_request_id: order.client_request_id, total: order.total, valorRecebido: valorRecebidoPedido(order), lancamentoCaixa: !!execution.cashReceipt });
+      registrarFluxoSalvamento("Pedidos", "Salvar pedido confirmado pela assistente", { id: order.id, cliente: order.cliente, itens: order.itens?.length || 0, total: order.total });
+      agendarSyncSilenciosoDados("pedido-fechado-por-assistente");
+      registrarHistorico("Pedido", `Pedido criado após confirmação: ${order.cliente}`, { area: "order", order_id: String(order.id), event_type: "order_created", source: "assistant_confirmed" });
+      registrarAcaoCompletaMonetizacao("order_created");
+      mostrarToast(`Pedido ${getNumeroSequencialPedido(order)} salvo após sua confirmação.`, "sucesso", 4200);
+      renderizarPreservandoScroll();
+      return { status: "COMMITTED", operationId: operation.operationId, orderId: order.id, orderNumber: getNumeroSequencialPedido(order), sideEffects: execution.sideEffects, message: `Pedido ${getNumeroSequencialPedido(order)} criado com sucesso após sua confirmação.` };
+    }
+  });
+}
+
+function criarSimplifica3dAiOrchestratorV2() {
+  if (simplifica3dAiOrchestratorV2?.manager?.storageKey === getSecretariaIaOperationalKey()) return simplifica3dAiOrchestratorV2;
+  const C = window.Simplifica3dAiCore;
+  const O = window.Simplifica3dAiOrchestrator;
+  const facade = window.Simplifica3dAiReadFacade;
+  if (!C || !O || !facade) throw new Error("A fundação da IA ainda não está disponível.");
+  const capabilities = new C.CapabilityRegistry();
+  const schemas = {
+    "CUSTOMER.SEARCH": { query: "string" }, "ORDER.HISTORY": { customerId: "string", limit: "number" }, "ORDER.SEARCH": { query: "string", limit: "number" },
+    "PRICE.CALCULATE": { weightGrams: "number", quantity: "number", timeMinutes: "number" }, "STOCK.SEARCH": { query: "string" },
+    "STOCK.SUMMARY": {}, "CASH.SUMMARY": { period: "string" }, "HOME.SUMMARY": {}
+  };
+  const adapters = {
+    "CUSTOMER.SEARCH": ({ query }) => facade.searchCustomers(query),
+    "ORDER.HISTORY": (args) => facade.orderHistory(args),
+    "ORDER.SEARCH": (args) => facade.searchOrdersReadOnly(args.query, args.limit),
+    "PRICE.CALCULATE": (args) => facade.calculatePrice(args),
+    "STOCK.SEARCH": ({ query }) => facade.searchStock(query),
+    "STOCK.SUMMARY": () => facade.stockSummaryReadOnly(),
+    "CASH.SUMMARY": ({ period }) => facade.cashSummaryReadOnly(period),
+    "HOME.SUMMARY": () => facade.homeSummaryReadOnly()
+  };
+  [
+    ["CUSTOMER.SEARCH", "customer_search", C.OPERATION_TYPE.READ],
+    ["ORDER.HISTORY", "order_history", C.OPERATION_TYPE.READ],
+    ["ORDER.SEARCH", "order_search", C.OPERATION_TYPE.READ],
+    ["PRICE.CALCULATE", "price_calculate", C.OPERATION_TYPE.SIMULATION],
+    ["STOCK.SEARCH", "stock_search", C.OPERATION_TYPE.READ],
+    ["STOCK.SUMMARY", "stock_summary", C.OPERATION_TYPE.READ],
+    ["CASH.SUMMARY", "cash_summary", C.OPERATION_TYPE.READ],
+    ["HOME.SUMMARY", "home_summary", C.OPERATION_TYPE.READ]
+  ].forEach(([name, tool, operationType]) => capabilities.register({ name, tool, operationType, schema: schemas[name], adapter: adapters[name], tested: true }));
+  ["ORDER.CREATE", "ORDER.UPDATE", "ORDER.CANCEL", "CUSTOMER.CREATE", "CUSTOMER.UPDATE", "STOCK.ADD", "STOCK.REMOVE", "CASH.WRITE", "FINANCE.WRITE"]
+    .forEach((name) => capabilities.register({ name, tool: null, operationType: C.OPERATION_TYPE.WRITE, schema: {}, adapter: null, tested: false }));
+  const tools = new C.ToolRegistry({ capabilities, permissionGuard: (capability) => facade.canRead(capability.name) });
+  tools.register({ name: "customer_search", description: "Busca clientes acessíveis pelo usuário", domain: "CUSTOMER", argumentsSchema: schemas["CUSTOMER.SEARCH"], capability: "CUSTOMER.SEARCH", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async ({ query }) => {
+    if (!String(query || "").trim()) return { status: C.TOOL_STATUS.VALIDATION_ERROR };
+    const matches = adapters["CUSTOMER.SEARCH"]({ query });
+    const exact = matches.filter((item) => item.exact);
+    if (exact.length === 1) return { status: C.TOOL_STATUS.SUCCESS, customer: exact[0] };
+    if (exact.length > 1 || matches.length > 1) return { status: C.TOOL_STATUS.AMBIGUOUS, matches };
+    if (matches.length === 1) return { status: C.TOOL_STATUS.SUCCESS, customer: matches[0] };
+    return { status: C.TOOL_STATUS.NOT_FOUND, matches: [] };
+  }});
+  tools.register({ name: "order_history", description: "Consulta histórico de pedidos de um cliente", domain: "ORDER", argumentsSchema: schemas["ORDER.HISTORY"], capability: "ORDER.HISTORY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async (args) => {
+    const orders = adapters["ORDER.HISTORY"](args);
+    const counts = new Map();
+    orders.flatMap((order) => order.items || []).forEach((item) => counts.set(item, (counts.get(item) || 0) + 1));
+    const suggestedProduct = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+    return { status: orders.length ? C.TOOL_STATUS.SUCCESS : C.TOOL_STATUS.NOT_FOUND, orders, customerName: args.customerName || "", suggestedProduct };
+  }});
+  tools.register({ name: "order_search", description: "Lista pedidos acessíveis sem alterar dados", domain: "ORDER", argumentsSchema: schemas["ORDER.SEARCH"], capability: "ORDER.SEARCH", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async (args) => {
+    const orders = adapters["ORDER.SEARCH"](args);
+    return { status: orders.length ? C.TOOL_STATUS.SUCCESS : C.TOOL_STATUS.NOT_FOUND, orders };
+  }});
+  tools.register({ name: "price_calculate", description: "Simula preço com CalculatorDomain", domain: "PRICE", argumentsSchema: schemas["PRICE.CALCULATE"], capability: "PRICE.CALCULATE", riskType: C.OPERATION_TYPE.SIMULATION, operationType: C.OPERATION_TYPE.SIMULATION, executor: async (args) => {
+    if (!(Number(args.weightGrams) > 0)) return { status: C.TOOL_STATUS.NEEDS_INFORMATION, missing: ["weightGrams"] };
+    const calculation = adapters["PRICE.CALCULATE"](args);
+    return { status: C.TOOL_STATUS.SUCCESS, calculatedPrice: calculation.unitPrice, totalPrice: calculation.totalPrice, inputs: { weightGrams: args.weightGrams, quantity: args.quantity || 1, timeMinutes: args.timeMinutes || 0 }, warnings: calculation.warnings || [], breakdown: { materialCost: calculation.materialCost, energyCost: calculation.energyCost, machineCost: calculation.machineCost, profitAmount: calculation.profitAmount }, formattedPrice: formatarMoeda(calculation.unitPrice) };
+  }});
+  tools.register({ name: "stock_search", description: "Consulta itens do estoque sem alterar saldo", domain: "STOCK", argumentsSchema: schemas["STOCK.SEARCH"], capability: "STOCK.SEARCH", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async ({ query }) => {
+    if (!String(query || "").trim()) return { status: C.TOOL_STATUS.VALIDATION_ERROR };
+    const matches = adapters["STOCK.SEARCH"]({ query });
+    return { status: matches.length ? C.TOOL_STATUS.SUCCESS : C.TOOL_STATUS.NOT_FOUND, matches };
+  }});
+  tools.register({ name: "stock_summary", description: "Resume o estoque sem alterar saldos", domain: "STOCK", argumentsSchema: schemas["STOCK.SUMMARY"], capability: "STOCK.SUMMARY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async () => {
+    const summary = adapters["STOCK.SUMMARY"]();
+    return { status: summary.items.length ? C.TOOL_STATUS.SUCCESS : C.TOOL_STATUS.NOT_FOUND, ...summary };
+  }});
+  tools.register({ name: "cash_summary", description: "Consulta entradas, saídas e saldo", domain: "CASH", argumentsSchema: schemas["CASH.SUMMARY"], capability: "CASH.SUMMARY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async (args) => {
+    const summary = adapters["CASH.SUMMARY"](args);
+    return { status: C.TOOL_STATUS.SUCCESS, ...summary, formattedEntries: formatarMoeda(summary.entradas), formattedExits: formatarMoeda(summary.saidas), formattedBalance: formatarMoeda(summary.saldo) };
+  }});
+  tools.register({ name: "home_summary", description: "Resume os indicadores principais da Home", domain: "HOME", argumentsSchema: schemas["HOME.SUMMARY"], capability: "HOME.SUMMARY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async () => {
+    const summary = adapters["HOME.SUMMARY"]();
+    return { status: C.TOOL_STATUS.SUCCESS, ...summary, formattedRevenue: formatarMoeda(summary.revenueToday), formattedCashBalance: formatarMoeda(summary.cashBalanceToday) };
+  }});
+  const readiness = capabilities.selfTest();
+  if (!readiness.ok) registrarDiagnostico("IA", "CapabilityRegistry inválido", readiness.failures.join(", "), { silent: true });
+  const manager = new C.ConversationTaskManager({ storage: localStorage, storageKey: getSecretariaIaOperationalKey() });
+  const S = window.Simplifica3dOperationSafety;
+  if (!S) throw new Error("A camada de preparação segura da IA não está disponível.");
+  const ALLOW_LIVE_AI_ORDER_CREATE = RUNTIME_FEATURES.aiOrderCreateEnabled === true;
+  const gate = new S.WriteCapabilityGate({ mode: ALLOW_LIVE_AI_ORDER_CREATE ? S.WRITE_MODE.LIVE : S.WRITE_MODE.DRY_RUN, allowedCapabilities: ["ORDER.CREATE"] });
+  if (manager.session.pendingAction?.operation?.writeMode !== gate.mode) {
+    manager.session.pendingAction = null;
+    manager.session.conversationState = manager.session.activeDraft ? "COLLECTING_INFORMATION" : "IDLE";
+    manager.save();
+  }
+  const idempotency = new S.IdempotencyManager({ storage: localStorage, storageKey: `${getSecretariaIaOperationalKey()}:idempotency` });
+  const dryRunExecutor = new S.DryRunExecutor();
+  const permissionCheck = () => facade.canPrepareOrderDryRun().allowed === true;
+  const executionGuard = new S.ExecutionGuard({
+    gate,
+    capabilityReady: (capability) => capability === "ORDER.CREATE",
+    permissionGuard: permissionCheck,
+    planGuard: permissionCheck
+  });
+  const confirmedExecutor = ALLOW_LIVE_AI_ORDER_CREATE ? criarExecutorPedidoConfirmadoPelaIa3d() : dryRunExecutor;
+  const confirmationManager = new S.ConfirmationManager({ idempotency, executionGuard, executor: confirmedExecutor });
+  const operationSafety = new S.SafeOperationPipeline({
+    manager, gate, preparer: new S.PrepareOperation(), confirmationManager,
+    permissionGuard: () => facade.canPrepareOrderDryRun(),
+    planGuard: () => facade.canPrepareOrderDryRun()
+  });
+  const R = window.Simplifica3dRlm;
+  const rlmRegistry = new R.RlmToolRegistry();
+  const registerRlmRead = (name, capability, execute) => rlmRegistry.register({ name, capability, description: name, inputSchema: {}, outputSchema: {}, access: "READ", requiresConfirmation: false, riskLevel: "READ", execute });
+  registerRlmRead("orders_search", "ORDER.HISTORY", ({ query, limit }) => ({ status: "SUCCESS", orders: facade.searchOrdersReadOnly(query, limit) }));
+  registerRlmRead("orders_get", "ORDER.HISTORY", ({ id }) => ({ status: "SUCCESS", order: facade.searchOrdersReadOnly("", 20).find((item) => String(item.id) === String(id)) || null }));
+  registerRlmRead("customers_search", "CUSTOMER.SEARCH", ({ query }) => ({ status: "SUCCESS", customers: facade.searchCustomers(query) }));
+  registerRlmRead("customers_get", "CUSTOMER.SEARCH", ({ id }) => ({ status: "SUCCESS", customer: facade.searchCustomers("").find((item) => String(item.id) === String(id)) || null }));
+  registerRlmRead("inventory_search", "STOCK.SEARCH", ({ query }) => { const items = facade.searchStock(query); return { status: items.length ? "SUCCESS" : "NOT_FOUND", items }; });
+  registerRlmRead("inventory_get", "STOCK.SEARCH", ({ id }) => ({ status: "SUCCESS", item: facade.searchStock(String(id))[0] || null }));
+  registerRlmRead("production_summary", "PRODUCTION.SEARCH", () => ({ status: "SUCCESS", summary: facade.productionSummaryReadOnly() }));
+  registerRlmRead("sales_summary", "ORDER.HISTORY", () => ({ status: "SUCCESS", summary: facade.salesSummaryReadOnly() }));
+  registerRlmRead("pricing_calculate", "PRICE.CALCULATE", (args) => ({ status: "SUCCESS", calculation: Number(args.weightGrams) > 0 ? facade.calculatePrice(args) : null }));
+  rlmRegistry.register({ name: "draft_order_create", capability: "ORDER.DRAFT", description: "Cria somente ActiveDraft", inputSchema: {}, outputSchema: {}, access: "DRAFT", requiresConfirmation: false, riskLevel: "DRAFT", execute: async (input) => { manager.startOrder({ customer: input.customer, product: input.product, quantity: input.quantity }); return { status: "SUCCESS", draftVersion: manager.session.activeDraft.draftVersion }; } });
+  const rlm = new R.RlmOrchestrator({ registry: rlmRegistry, manager, telemetry: (event) => registrarTelemetriaAiContextV2({ ...event, stage: "T_RLM" }) });
+  simplifica3dAiOrchestratorV2 = new O.AiOrchestrator3D({
+    manager, continuationResolver: new C.ContinuationResolver(), contextBuilder: new C.ContextBuilder(), tools,
+    provider: window.Simplifica3dAiRuntime.provider, operationSafety, rlm,
+    telemetry: registrarTelemetriaAiContextV2
+  });
+  simplifica3dAiOrchestratorV2.capabilities = capabilities;
+  simplifica3dAiOrchestratorV2.toolRegistry = tools;
+  simplifica3dAiOrchestratorV2.operationSafety = operationSafety;
+  simplifica3dAiOrchestratorV2.orderPreparationUseCase = getOrderCreatePreparationUseCase3d();
+  simplifica3dAiOrchestratorV2.orderCreateShadow = new window.Simplifica3dOrderCreatePreparation.OrderCreateShadowPipeline({
+    canonicalApi: window.Simplifica3dCanonicalOrder,
+    preparationUseCase: simplifica3dAiOrchestratorV2.orderPreparationUseCase,
+    shadowPersistence: new window.Simplifica3dCanonicalOrder.ShadowPersistence()
+  });
+  simplifica3dAiOrchestratorV2.dryRunExecutor = dryRunExecutor;
+  simplifica3dAiOrchestratorV2.orderCreateExecutor = ALLOW_LIVE_AI_ORDER_CREATE ? confirmedExecutor : null;
+  simplifica3dAiOrchestratorV2.rlm = rlm;
+  return simplifica3dAiOrchestratorV2;
 }
 
 function loadSecretariaIaChatMessages() {
@@ -46577,7 +47805,19 @@ function loadSecretariaIaChatMessages() {
   secretariaIaChatLoadedKey = key;
   try {
     const stored = JSON.parse(localStorage.getItem(key) || "[]");
-    secretariaIaChatMessages = Array.isArray(stored) ? stored.filter((item) => item && ["user", "assistant"].includes(item.role) && String(item.text || "").trim()).slice(-40) : [];
+    const unsafeTechnicalMessage = /executor de altera[cç][aã]o|nullpointerexception|json parse error|syntaxerror|sql(?:exception|state)/i;
+    const legacyTestMessage = /modo de teste|valida[cç][aã]o conclu[ií]da.*nenhum dado|confirmar a valida[cç][aã]o|pr[eé]via ficou desatualizada|prepare uma nova pr[eé]via|^\s*\{\s*"type"\s*:/i;
+    const hasLegacyTest = Array.isArray(stored) && stored.some((item) => legacyTestMessage.test(String(item?.text || "")));
+    const storedMessages = Array.isArray(stored) ? stored : [];
+    const needsMigration = storedMessages.some((item) => !item?.id || !item?.timestamp || !item?.metadata);
+    secretariaIaChatMessages = storedMessages
+      .filter((item) => item && ["user", "assistant"].includes(item.role) && String(item.text || "").trim())
+      .filter((item) => item.role !== "assistant" || !unsafeTechnicalMessage.test(String(item.text || "")))
+      .filter((item) => !legacyTestMessage.test(String(item.text || "")))
+      .filter((item) => !hasLegacyTest || item.role !== "user" || !/^(sim|confirmo|preparar)[.!]*$/i.test(String(item.text || "").trim()))
+      .map((item) => criarMensagemAssistenteIa(item.role, item.text, { attachments: item.attachments, metadata: item.metadata, id: item.id, timestamp: item.timestamp }))
+      .slice(-40);
+    if (hasLegacyTest || needsMigration || secretariaIaChatMessages.length !== storedMessages.length) saveSecretariaIaChatMessages();
   } catch (_) {
     secretariaIaChatMessages = [];
   }
@@ -46585,80 +47825,374 @@ function loadSecretariaIaChatMessages() {
 
 function saveSecretariaIaChatMessages() {
   try {
-    localStorage.setItem(getSecretariaIaChatKey(), JSON.stringify(secretariaIaChatMessages.slice(-40).map(({ role, text }) => ({ role, text: String(text || "").slice(0, 1200) }))));
+    const persisted = secretariaIaChatMessages.slice(-40).map(({ id, role, text, attachments, timestamp, metadata }) =>
+      criarMensagemAssistenteIa(role, text, { id, attachments, timestamp, metadata }));
+    localStorage.setItem(getSecretariaIaChatKey(), JSON.stringify(persisted));
   } catch (_) { }
 }
 
-async function abrirSecretariaIaLocal3d() {
-  const plugin = window.Capacitor?.Plugins?.SimplificaLocalAi;
-  if (!plugin?.status || !plugin?.ensureModel) {
-    mostrarToast("A IA local está disponível somente no aplicativo Android atualizado.", "aviso", 4200);
+function assistenteIaTutorialConcluido() {
+  return localStorage.getItem(getAssistenteIaPreferenceKey("tutorial-seen")) === "true";
+}
+
+function concluirTutorialAssistenteIa() {
+  localStorage.setItem(getAssistenteIaPreferenceKey("tutorial-seen"), "true");
+  assistenteIaTutorialForcado = false;
+  renderChatSecretariaIa();
+}
+
+function assistenteIaAudioAtivo() {
+  return localStorage.getItem(getAssistenteIaPreferenceKey("audio-replies")) === "true";
+}
+
+function alternarAudioAssistenteIa() {
+  localStorage.setItem(getAssistenteIaPreferenceKey("audio-replies"), assistenteIaAudioAtivo() ? "false" : "true");
+  window.Capacitor?.Plugins?.SimplificaVoice?.stop?.().catch?.(() => {});
+  renderChatSecretariaIa();
+}
+
+async function falarRespostaAssistenteIa(text) {
+  if (!assistenteIaAudioAtivo() || !String(text || "").trim()) return;
+  try {
+    await window.Capacitor?.Plugins?.SimplificaVoice?.speak?.({ text: String(text).slice(0, 1600) });
+  } catch (error) {
+    registrarErroAplicacaoSilencioso("simplifica_ai_voice_output", error, "falarRespostaAssistenteIa");
+  }
+}
+
+async function ouvirMensagemAssistenteIa() {
+  const plugin = window.Capacitor?.Plugins?.SimplificaVoice;
+  if (!plugin?.listen || secretariaIaChatBusy || assistenteIaOuvindo) {
+    if (!plugin?.listen) mostrarToast("A conversa por voz está disponível no aplicativo Android atualizado.", "info", 4200);
     return;
   }
+  assistenteIaOuvindo = true;
+  atualizarIndicadorSecretariaIa();
+  renderChatSecretariaIa();
   try {
-    loadSecretariaIaChatMessages();
-    const status = await plugin.status();
-    if (status.compatible === false) {
-      mostrarToast(status.incompatibilityReason || "Este aparelho não é compatível com a IA local. As outras funções continuam disponíveis.", "aviso", 7200);
-      return;
-    }
-    if (!status.modelReady) {
-      const preparation = await plugin.ensureModel();
-      if (preparation.compatible === false) {
-        mostrarToast(preparation.incompatibilityReason || "Este aparelho não é compatível com a IA local. As outras funções continuam disponíveis.", "aviso", 7200);
-        return;
-      }
-      mostrarToast("Estou preparando a IA pelo Wi-Fi. Assim que terminar, o chat abrirá normalmente.", "info", 5200);
-      return;
-    }
-    renderChatSecretariaIa();
+    const result = await plugin.listen();
+    assistenteIaOuvindo = false;
+    atualizarIndicadorSecretariaIa();
+    if (String(result?.text || "").trim()) await enviarMensagemSecretariaIa(null, result.text);
+    else renderChatSecretariaIa();
   } catch (error) {
-    registrarErroAplicacaoSilencioso("simplifica_ai_open", error, "abrirSecretariaIa");
-    mostrarToast("Não foi possível abrir a IA local agora. Confira se o Simplifica IA está instalado e tente novamente.", "erro", 5200);
+    assistenteIaOuvindo = false;
+    atualizarIndicadorSecretariaIa();
+    renderChatSecretariaIa();
+    mostrarToast(error?.message || "Não consegui ouvir. Tente novamente.", "aviso", 4200);
   }
+}
+
+function usarExemploAssistenteIa(text) {
+  concluirTutorialAssistenteIa();
+  enviarMensagemSecretariaIa(null, text);
+}
+
+function ajustarPedidoAssistenteIa() {
+  document.getElementById("aiChatInput")?.focus();
+  mostrarToast("Diga o que deseja alterar. A confirmação anterior será substituída.", "info", 3200);
+}
+
+function confirmarPedidoAssistenteIa() {
+  enviarMensagemSecretariaIa(null, "confirmo");
+}
+
+function abrirCalculadoraPelaAssistenteIa(inputs = {}) {
+  const weightGrams = Math.max(0, Number(inputs.weightGrams) || 0);
+  const timeMinutes = Math.max(0, Math.round(Number(inputs.timeMinutes) || 0));
+  const quantity = Math.max(1, Math.round(Number(inputs.quantity) || 1));
+  if (!(weightGrams > 0)) return;
+  calculatorDraftState = {
+    ...calculatorDraftState,
+    peso: String(weightGrams),
+    tempo: String(Math.floor(timeMinutes / 60)),
+    tempoMinutos: String(timeMinutes % 60),
+    batchActive: quantity > 1,
+    quantity: quantity > 1 ? quantity : 2,
+    batchMode: "per_piece"
+  };
+  const core = getAssistantCoreUniversal3d();
+  const origin = core?.context?.snapshot?.() || null;
+  closeModal();
+  setTimeout(() => {
+    const navigation = core?.navigation?.navigate?.("calculator", {}, origin);
+    if (navigation?.status !== "SUCCESS") {
+      mostrarToast("Não foi possível abrir a calculadora agora.", "erro", 3800);
+      return;
+    }
+    setTimeout(() => {
+      atualizarResumoLoteCalculadora();
+      agendarCalculoTempoReal();
+    }, 120);
+    mostrarToast("Calculadora preenchida com os dados informados.", "sucesso", 3200);
+  }, 180);
+}
+
+function abrirRotaPelaAssistenteIa(target = {}) {
+  const routeId = String(target.routeId || "");
+  if (!routeId) return;
+  const core = getAssistantCoreUniversal3d();
+  const origin = core?.context?.snapshot?.() || null;
+  closeModal();
+  setTimeout(() => {
+    const navigation = core?.navigation?.navigate?.(routeId, {}, origin);
+    if (navigation?.status !== "SUCCESS") {
+      mostrarToast("Não foi possível abrir essa área agora.", "erro", 3800);
+      return;
+    }
+    mostrarToast(`${target.label || "Área"} aberta.`, "sucesso", 2400);
+  }, 180);
+}
+
+function abrirResultadoAssistenteIa(messageId) {
+  const message = secretariaIaChatMessages.find((item) => item.id === String(messageId || ""));
+  const action = message?.metadata?.resultCard?.action;
+  if (!action?.routeId) return;
+  if (action.routeId === "calculator" && action.calculatorInputs?.weightGrams > 0) {
+    abrirCalculadoraPelaAssistenteIa(action.calculatorInputs);
+    return;
+  }
+  const core = getAssistantCoreUniversal3d();
+  const origin = core?.context?.snapshot?.() || null;
+  closeModal();
+  setTimeout(() => {
+    const navigation = core?.navigation?.navigate?.(action.routeId, action.entityId ? { id: action.entityId } : {}, origin);
+    if (navigation?.status !== "SUCCESS") {
+      mostrarToast("Não foi possível abrir esse resultado agora.", "erro", 3800);
+      return;
+    }
+    if (action.entityId && action.entityType) core?.context?.addEntityRef?.({ type: action.entityType, id: action.entityId });
+  }, 180);
+}
+
+function renderCardResultadoAssistenteIa(card, messageId) {
+  if (!card) return "";
+  return getAssistantUiComponents3d()?.resultCard(card, { messageId, onOpen: "abrirResultadoAssistenteIa" }) || "";
+}
+
+function getAcoesContextuaisAssistenteIa() {
+  const screen = String(telaAtual || "dashboard");
+  const activeItem = simplifica3dAiOrchestratorV2?.manager?.session?.activeDraft?.items?.[0];
+  const product = String(activeItem?.nome?.value || quickOrderItemDraft?.nome || "").trim();
+  const weight = Number(activeItem?.pesoGramas?.value || quickOrderItemDraft?.pesoGramas) || 0;
+  const timeMinutes = Math.max(0, Math.round((Number(quickOrderItemDraft?.tempoHoras) || 0) * 60));
+  if (screen === "pedido") return [
+    { id: "order-summary", label: "Resumir pedido", direct: "summary" },
+    product ? { id: "order-stock", label: "Verificar estoque", stockQuery: product } : null,
+    weight > 0 ? { id: "order-price", label: "Calcular preço", prompt: `Faça um orçamento de ${weight} gramas${timeMinutes ? ` e ${timeMinutes} minutos` : ""}` } : null
+  ].filter(Boolean);
+  if (screen === "pedidos") return [
+    { id: "orders-list", label: "Listar pedidos", prompt: "Liste os pedidos" },
+    { id: "orders-new", label: "Novo pedido", prompt: "Abrir novo pedido" }
+  ];
+  if (screen === "estoque") return [
+    { id: "stock-summary", label: "Resumo do estoque", prompt: "Como está o estoque?" },
+    { id: "stock-low", label: "Itens acabando", prompt: "Quais materiais estão acabando?" }
+  ];
+  if (screen === "caixa") return [
+    { id: "cash-summary", label: "Resumo de hoje", prompt: "Quanto vendi hoje?" },
+    { id: "cash-entries", label: "Ver entradas", prompt: "Quais foram as entradas de hoje?" },
+    { id: "cash-exits", label: "Ver saídas", prompt: "Quais foram as saídas de hoje?" }
+  ];
+  if (screen === "producao") return [
+    { id: "production-summary", label: "Resumir produção", prompt: "Qual é o resumo da produção?" },
+    { id: "production-risk", label: "Ver atrasos", prompt: "Existe risco de atraso na produção?" }
+  ];
+  if (screen === "dashboard") return [
+    { id: "home-summary", label: "Resumo de hoje", prompt: "Mostre o resumo da Home hoje" },
+    { id: "home-orders", label: "Abrir pedidos", prompt: "Abrir pedidos" },
+    { id: "home-calculator", label: "Abrir calculadora", prompt: "Abrir calculadora" }
+  ];
+  if (screen === "calculadora") return [
+    { id: "calculator-home", label: "Voltar ao início", prompt: "Voltar para a Home" },
+    { id: "calculator-orders", label: "Abrir pedidos", prompt: "Abrir pedidos" }
+  ];
+  return [];
+}
+
+function executarAcaoContextualAssistenteIa(actionId) {
+  const action = getAcoesContextuaisAssistenteIa().find((item) => item.id === String(actionId || ""));
+  if (!action || secretariaIaChatBusy) return;
+  if (action.direct === "summary") {
+    const answer = criarSimplifica3dAiOrchestratorV2().summarizeDraft();
+    secretariaIaChatMessages.push(criarMensagemAssistenteIa("user", action.label));
+    secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer));
+    secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
+    saveSecretariaIaChatMessages();
+    registrarRespostaAssistantCore3d(answer);
+    renderChatSecretariaIa();
+    return;
+  }
+  if (Object.prototype.hasOwnProperty.call(action, "stockQuery")) {
+    const matches = window.Simplifica3dAiReadFacade.searchStock(action.stockQuery).slice(0, 12);
+    const toolResult = { tool: "stock_search", status: matches.length ? "SUCCESS" : "NOT_FOUND", matches };
+    const answer = window.Simplifica3dAiOrchestrator.composeTool(toolResult);
+    const resultCard = criarCardResultadoAssistenteIa({ toolResult }, answer);
+    secretariaIaChatMessages.push(criarMensagemAssistenteIa("user", action.label));
+    secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer, { metadata: resultCard ? { resultCard } : {} }));
+    secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
+    saveSecretariaIaChatMessages();
+    registrarRespostaAssistantCore3d(answer);
+    renderChatSecretariaIa();
+    return;
+  }
+  enviarMensagemSecretariaIa(null, action.prompt);
+}
+
+function comporRespostaNaturalAssistenteIa(value) {
+  const text = String(value || "").trim();
+  if (!text) return "Não consegui responder agora.";
+  if (/^\s*[\[{]/.test(text)) {
+    try {
+      const structured = JSON.parse(text);
+      const type = String(structured?.type || structured?.intent || "").toLowerCase();
+      if (type.includes("pedido") || type.includes("order")) return "Certo. Vou continuar montando o pedido com você. Diga o que deseja incluir ou alterar.";
+      if (type.includes("estoque") || type.includes("stock")) return "Entendi. Vou consultar o estoque para você.";
+      if (type.includes("cliente") || type.includes("customer")) return "Entendi. Vou procurar esse cliente para você.";
+      return "Entendi. Vou continuar por aqui com você.";
+    } catch (_) {
+      return "Não consegui interpretar essa resposta. Pode dizer de outra forma?";
+    }
+  }
+  if (/nullpointerexception|sql(?:exception|state)|json parse|executor n[aã]o conectado/i.test(text)) return "Não consegui concluir isso agora. Seu rascunho continua guardado.";
+  return text;
+}
+
+async function abrirSecretariaIaLocal3d(options = {}) {
+  loadSecretariaIaChatMessages();
+  getAssistantCoreUniversal3d();
+  atualizarContextoAssistantCore3d();
+  assistenteIaTutorialForcado = options?.mostrarTutorial === true;
+  renderChatSecretariaIa();
+  hidratarMiniaturasAssistenteIa();
+  await preaquecerAssistenteIa3d({ renderChat: true });
 }
 
 function renderChatSecretariaIa() {
-  const messages = secretariaIaChatMessages.length
-    ? secretariaIaChatMessages.map(({ role, text }) => `<article class="ai-chat-message ai-chat-message-${role}"><strong>${role === "user" ? "Você" : "IA Fácil"}</strong><p>${escaparHtml(text)}</p></article>`).join("")
-    : `<article class="ai-chat-empty"><strong>Olá! Eu sou a IA Fácil.</strong><p>Pode perguntar qualquer coisa ou me dizer o que você precisa fazer no Simplifica 3D. Se alguma ação puder alterar seus dados, mostrarei tudo para você confirmar antes.</p></article>`;
-  openModal(`
-    <section class="ai-chat-dialog">
-      <header><div><h2>IA Fácil</h2><p>Converse, tire dúvidas e peça ajuda com segurança.</p></div><button class="icon-button" type="button" onclick="closeModal()" aria-label="Fechar conversa">✕</button></header>
-      <div class="ai-chat-messages" id="aiChatMessages">${messages}</div>
-      <form class="ai-chat-form" onsubmit="enviarMensagemSecretariaIa(event)">
-        <input id="aiChatInput" autocomplete="off" placeholder="Escreva sua pergunta ou pedido..." aria-label="Mensagem para a IA Fácil">
-        <button class="btn" type="submit">Enviar</button>
-      </form>
-    </section>
-  `, { label: "Chat IA Fácil", size: "medium" });
+  const ui = getAssistantUiComponents3d();
+  const mostrarTutorial = assistenteIaTutorialForcado || (!assistenteIaTutorialConcluido() && !secretariaIaChatMessages.length);
+  const tutorial = mostrarTutorial ? `
+    <article class="ai-chat-welcome">
+      <span class="ai-chat-avatar">${renderUiIcon("assistente")}</span>
+      <h3>Olá! Eu sou sua Assistente IA.</h3>
+      <p>Posso conversar, consultar clientes, pedidos e estoque, calcular preços e montar pedidos. Antes de salvar qualquer pedido, mostro o resumo e espero sua confirmação.</p>
+      <div class="ai-chat-tutorial-grid">
+        <button type="button" onclick="usarExemploAssistenteIa('Veja se tem filamento preto no estoque')"><strong>Consultar</strong><small>Estoque, clientes e histórico</small></button>
+        <button type="button" onclick="usarExemploAssistenteIa('Quanto ficaria uma peça de 10 gramas?')"><strong>Calcular</strong><small>Use a calculadora do sistema</small></button>
+        <button type="button" onclick="usarExemploAssistenteIa('Monte um pedido para José')"><strong>Montar pedido</strong><small>Você confirma antes de salvar</small></button>
+      </div>
+      <button class="btn secondary" type="button" onclick="concluirTutorialAssistenteIa()">Entendi, começar conversa</button>
+    </article>` : "";
+  const messages = secretariaIaChatMessages.map(({ id, role, text, attachments = [], metadata = {} }) => {
+    const attachment = attachments[0];
+    const preview = attachment ? assistenteIaAttachmentPreviewUrls.get(attachment.id) : "";
+    const resultCard = role === "assistant" ? metadata?.resultCard : null;
+    const content = resultCard ? renderCardResultadoAssistenteIa(resultCard, id) : `<p>${escaparHtml(text)}</p>`;
+    return `<article class="ai-chat-message ai-chat-message-${role}${resultCard ? " ai-chat-message-with-card" : ""}">${attachment ? `<div class="ai-chat-message-image">${preview ? `<img src="${escaparAttr(preview)}" alt="Imagem enviada na conversa">` : `<span>${renderUiIcon("imagem")} Imagem anexada</span>`}</div>` : ""}<strong>${role === "user" ? "Você" : "Assistente"}</strong>${content}</article>`;
+  }).join("");
+  const pendingConfirmation = simplifica3dAiOrchestratorV2?.manager?.session?.pendingAction?.status === "CONFIRMATION_PENDING";
+  const confirmationActions = pendingConfirmation ? ui?.confirmation({ title: "Somente você pode autorizar", message: "Confira o resumo acima antes de salvar.", confirmLabel: "Confirmar pedido", cancelLabel: "Quero alterar", onConfirm: "confirmarPedidoAssistenteIa", onCancel: "ajustarPedidoAssistenteIa" }) || "" : "";
+  const ready = assistenteIaAquecimento.status === "ready";
+  const modelCapabilities = getCapacidadesModeloAssistenteIa();
+  const setup = !ready ? `<div class="ai-chat-setup"><strong>${assistenteIaConfigState.enabled ? "Instale o modelo para conversar" : "Ative a Assistente IA"}</strong><p>O download só começa quando você autorizar. O restante do aplicativo continua funcionando normalmente.</p><button class="btn" type="button" onclick="abrirConfiguracaoIaDoChat()">Abrir configurações de IA</button></div>` : "";
+  const analisandoImagem = secretariaIaChatBusy && Boolean(secretariaIaChatMessages[secretariaIaChatMessages.length - 1]?.attachments?.length);
+  const statusText = assistenteIaOuvindo ? "Ouvindo você..." : analisandoImagem ? "Analisando imagem..." : secretariaIaChatBusy ? "Pensando e consultando..." : assistenteIaAquecimento.message;
+  const attachmentPreview = assistenteIaAnexoAtual ? assistenteIaAttachmentPreviewUrls.get(assistenteIaAnexoAtual.id) : "";
+  const specificContext = getContextoEspecificoAssistantCore3d();
+  const contextualActions = ui?.contextActionButtons(getAcoesContextuaisAssistenteIa(), { disabled: secretariaIaChatBusy || !ready, onAction: "executarAcaoContextualAssistenteIa" }) || "";
+  const contextChip = specificContext ? ui?.contextChip({ ...specificContext, label: `${specificContext.type} #${specificContext.id}` }, { onRemove: "removerContextoEspecificoAssistenteIa" }) || "" : "";
+  const headerHtml = `<header class="ai-chat-header">
+        <div class="ai-chat-identity"><span class="ai-chat-avatar">${renderUiIcon("assistente")}</span><div><h2>Simplifica IA</h2><p><i class="ai-chat-status-dot"></i>${escaparHtml(statusText)}</p><small>Contexto: ${escaparHtml(getRotuloContextoAssistantCore3d())}</small>${contextChip}</div></div>
+        <div class="ai-chat-header-actions"><button class="icon-button" type="button" onclick="iniciarNovaConversaAssistantCore3d()" aria-label="Iniciar nova conversa" title="Nova conversa">＋</button><button class="icon-button ${assistenteIaAudioAtivo() ? "active" : ""}" type="button" onclick="alternarAudioAssistenteIa()" aria-label="${assistenteIaAudioAtivo() ? "Desativar" : "Ativar"} leitura das respostas" title="${assistenteIaAudioAtivo() ? "Respostas em voz alta ativadas" : "Ouvir respostas"}">${renderUiIcon("volume")}</button><button class="icon-button" type="button" onclick="closeModal()" aria-label="Fechar conversa">✕</button></div>
+      </header>`;
+  const contextActionsHtml = contextualActions ? `<nav class="ai-chat-context-actions" aria-label="Ações rápidas deste contexto">${contextualActions}</nav>` : "";
+  const attachmentMenu = assistenteIaMenuAnexoAberto && modelCapabilities.supportsVision ? `<div class="ai-chat-attachment-menu"><button type="button" onclick="escolherImagemAssistenteIa('camera')">${renderUiIcon("camera")} Tirar foto</button><button type="button" onclick="escolherImagemAssistenteIa('gallery')">${renderUiIcon("imagem")} Escolher da galeria</button></div>` : "";
+  const attachmentControl = assistenteIaAnexoAtual ? ui?.attachment({ previewUrl: attachmentPreview, label: "Imagem pronta", details: `${assistenteIaAnexoAtual.width} × ${assistenteIaAnexoAtual.height}`, onRemove: "removerImagemAssistenteIa" }) || "" : "";
+  const composerLeadingHtml = `
+        <input id="aiChatCameraInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden onchange="processarImagemAssistenteIa(this)">
+        <input id="aiChatGalleryInput" type="file" accept="image/jpeg,image/png,image/webp" hidden onchange="processarImagemAssistenteIa(this)">
+        <button class="ai-chat-add ${modelCapabilities.supportsVision ? "" : "not-supported"}" type="button" onclick="alternarMenuAnexoAssistenteIa()" ${secretariaIaChatBusy || !ready ? "disabled" : ""} aria-label="${modelCapabilities.supportsVision ? "Adicionar imagem" : "Análise de imagem não disponível neste modelo"}" title="${modelCapabilities.supportsVision ? "Adicionar imagem" : "Imagem requer modelo compatível"}">＋</button>
+        <button class="ai-chat-mic ${assistenteIaOuvindo ? "listening" : ""}" type="button" onclick="ouvirMensagemAssistenteIa()" ${secretariaIaChatBusy || !ready ? "disabled" : ""} aria-label="Falar com a assistente" title="Falar">${renderUiIcon("microfone")}</button>`;
+  const composerHtml = ui?.composer({ inputId: "aiChatInput", placeholder: "Escreva ou toque no microfone...", disabled: secretariaIaChatBusy || !ready, busy: secretariaIaChatBusy, onSubmit: "enviarMensagemSecretariaIa", leadingHtml: composerLeadingHtml }) || "";
+  const bodyHtml = `<div class="ai-chat-messages" id="aiChatMessages">${tutorial}${messages}${secretariaIaChatBusy ? `<article class="ai-chat-message ai-chat-message-assistant ai-chat-thinking" role="status" aria-live="polite"><strong>Assistente</strong><p>Estou analisando e consultando o que for necessário...</p></article>` : ""}${confirmationActions}${setup}</div>${attachmentMenu}${attachmentControl}`;
+  const panelHtml = ui?.panel({ state: getEstadoVisualSecretariaIa(), headerHtml, contextActionsHtml, bodyHtml, footerHtml: composerHtml }) || "";
+  openModal(panelHtml, { label: "Conversa com a Assistente IA", size: "wide" });
   requestAnimationFrame(() => document.getElementById("aiChatMessages")?.scrollTo({ top: 999999, behavior: "smooth" }));
 }
 
-async function enviarMensagemSecretariaIa(event) {
+async function enviarMensagemSecretariaIa(event, forcedText = "") {
   event?.preventDefault?.();
   const input = document.getElementById("aiChatInput");
-  const text = String(input?.value || "").trim();
-  if (!text) return;
-  const conversation = secretariaIaChatMessages.slice(-12).map(({ role, text: message }) => ({ role, text: String(message || "").slice(0, 700) }));
-  secretariaIaChatMessages.push({ role: "user", text });
+  const attachment = assistenteIaAnexoAtual ? metadadosPersistiveisAnexoAssistenteIa(assistenteIaAnexoAtual) : null;
+  if (attachment && !getCapacidadesModeloAssistenteIa().supportsVision) { informarImagemNaoSuportadaAssistenteIa(); return; }
+  const text = String(forcedText || input?.value || (attachment ? "Analise esta imagem." : "")).trim();
+  if (!text && !attachment) return;
+  const attachments = attachment ? [attachment] : [];
+  let inferenceAttachments = attachments;
+  try { if (attachment) inferenceAttachments = [await prepararAnexoInferenciaAssistenteIa(attachment)]; }
+  catch (error) { mostrarToast(error?.message || "Não foi possível ler a imagem.", "erro", 4600); return; }
+  getAssistantCoreUniversal3d()?.buildRequest(text, attachments);
+  const conversation = secretariaIaChatMessages.slice(-12).map(({ role, text: message, attachments: messageAttachments = [] }) => ({ role, text: String(message || "").slice(0, 700), attachments: messageAttachments.slice(0, 1) }));
+  secretariaIaChatMessages.push(criarMensagemAssistenteIa("user", text, { attachments }));
+  assistenteIaAnexoAtual = null;
+  assistenteIaMenuAnexoAberto = false;
   secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
+  saveSecretariaIaChatMessages();
+  secretariaIaChatBusy = true;
+  atualizarIndicadorSecretariaIa();
   renderChatSecretariaIa();
   try {
+    if (AI_CONTEXT_V2_ENABLED) {
+      const orchestrator = criarSimplifica3dAiOrchestratorV2();
+      const normalized = normalizarSugestaoClienteTexto(text);
+      const result = /^(o que ficou|resume|resuma|como ficou)( no pedido| esse pedido)?[?.!]*$/.test(normalized)
+        ? { summary: orchestrator.summarizeDraft() }
+        : await orchestrator.handle(text, { messages: conversation, attachments: inferenceAttachments, appContext: window.Simplifica3dAiReadFacade.getAppContext() });
+      const answer = comporRespostaNaturalAssistenteIa(result.summary);
+      const resultCard = criarCardResultadoAssistenteIa(result, answer, { hasImage: attachments.length > 0 });
+      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer, { metadata: resultCard ? { resultCard } : {} }));
+      registrarRespostaAssistantCore3d(answer);
+      secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
+      saveSecretariaIaChatMessages();
+      secretariaIaChatBusy = false;
+      atualizarIndicadorSecretariaIa();
+      renderChatSecretariaIa();
+      falarRespostaAssistenteIa(answer);
+      if (result?.classification?.intent === "PRICE.CALCULATE" && result?.toolResult?.status === "SUCCESS") {
+        setTimeout(() => abrirCalculadoraPelaAssistenteIa(result.toolResult.inputs), 260);
+      } else if (result?.navigationTarget?.routeId) {
+        setTimeout(() => abrirRotaPelaAssistenteIa(result.navigationTarget), 260);
+      }
+      return;
+    }
     const domainContext = window.Simplifica3dErpBridge?.getContext?.() || {};
     const preview = await window.Simplifica3dAiRuntime.interpret(text, { ...domainContext, conversation });
     if (preview.requiresConfirmation && !window.confirm(`${preview.summary}\n\nConfirmar esta ação?`)) {
-      secretariaIaChatMessages.push({ role: "assistant", text: "Tudo bem. Nenhuma alteração foi feita." });
+      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", "Tudo bem. Nenhuma alteração foi feita."));
+      registrarRespostaAssistantCore3d("Tudo bem. Nenhuma alteração foi feita.");
     } else {
       const result = await window.Simplifica3dAiRuntime.execute(preview, true);
-      secretariaIaChatMessages.push({ role: "assistant", text: result?.summary || preview.summary });
+      const answer = comporRespostaNaturalAssistenteIa(result?.summary || preview.summary);
+      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer));
+      registrarRespostaAssistantCore3d(answer);
     }
   } catch (error) {
-    secretariaIaChatMessages.push({ role: "assistant", text: error?.message || "Não consegui responder agora." });
+    if (AI_CONTEXT_V2_ENABLED) {
+      registrarErroAplicacaoSilencioso("ai_context_v2_message", error, "enviarMensagemSecretariaIa", { conversationId: simplifica3dAiOrchestratorV2?.manager?.session?.conversationId || "" });
+      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", "Não consegui concluir essa resposta agora. Seu rascunho continua guardado e nenhum dado foi alterado."));
+      registrarRespostaAssistantCore3d("Não consegui concluir essa resposta agora. Seu rascunho continua guardado e nenhum dado foi alterado.");
+    } else {
+      const answer = error?.message || "Não consegui responder agora.";
+      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer));
+      registrarRespostaAssistantCore3d(answer);
+    }
   }
   secretariaIaChatMessages = secretariaIaChatMessages.slice(-40);
   saveSecretariaIaChatMessages();
+  secretariaIaChatBusy = false;
+  atualizarIndicadorSecretariaIa();
   renderChatSecretariaIa();
+  falarRespostaAssistenteIa(secretariaIaChatMessages[secretariaIaChatMessages.length - 1]?.text || "");
 }
 
 function pedidoRapidoTemRascunho() {
@@ -48397,7 +49931,8 @@ function solicitarConfirmacaoAcao({
   perigo = false
 } = {}) {
   return new Promise((resolve) => {
-    if (window.UiV3?.Dialog && document.querySelector('[data-ui-version="v3"].ui3-real-screen')) {
+    const dentroDeSubpaginaConfiguracao = Boolean(document.querySelector(".ui-section.ui-subscreen-active"));
+    if (window.UiV3?.Dialog && document.querySelector('[data-ui-version="v3"].ui3-real-screen') && !dentroDeSubpaginaConfiguracao) {
       let settled = false;
       const finalizar = (valor) => {
         if (settled) return;
@@ -50737,6 +52272,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarMonetizacaoAds();
   ensureAppShellLayers();
   iniciarIntroAbertura();
+  setTimeout(() => preaquecerAssistenteIa3d(), 450);
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();
   configurarMenusContextuaisProdutosLoja();
@@ -50750,6 +52286,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!processou) {
       await restaurarCacheSessaoLocal();
       processarRotaSuperadminInicial();
+      normalizarTelaInicialAndroid();
       if (!getUsuarioAtual() && !adminLogado && telaAtual === "dashboard") {
         telaAtual = "admin";
       }

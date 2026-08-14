@@ -1,6 +1,7 @@
 package br.com.ne3d.erp;
 
 import android.graphics.Color;
+import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
@@ -19,6 +20,7 @@ public class MainActivity extends BridgeActivity {
     private int lastNavigationInsetRight = 0;
     private int lastNavigationInsetBottom = 0;
     private int lastNavigationInsetLeft = 0;
+    private boolean lightSystemBars = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,6 +30,8 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaUpdatePlugin.class);
         registerPlugin(SimplificaBambuLanPlugin.class);
         registerPlugin(SimplificaLocalAiPlugin.class);
+        registerPlugin(SimplificaVoicePlugin.class);
+        registerPlugin(SimplificaSystemUiPlugin.class);
         super.onCreate(savedInstanceState);
         applySimplificaSystemBars();
         setupSimplificaSystemInsets();
@@ -39,6 +43,25 @@ public class MainActivity extends BridgeActivity {
         super.onResume();
         applySimplificaSystemBars();
         syncSystemInsetsToWebView();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (Intent.ACTION_MAIN.equals(intent != null ? intent.getAction() : null)
+            && intent.hasCategory(Intent.CATEGORY_LAUNCHER)) {
+            dispatchLauncherHome();
+        }
+    }
+
+    private void dispatchLauncherHome() {
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        webView.post(() -> webView.evaluateJavascript(
+            "window.handleSimplificaLauncherResume ? window.handleSimplificaLauncherResume() : false;",
+            null
+        ));
     }
 
     private void setupAndroidBackDispatch() {
@@ -61,15 +84,17 @@ public class MainActivity extends BridgeActivity {
 
     private void applySimplificaSystemBars() {
         Window window = getWindow();
-        WindowCompat.setDecorFitsSystemWindows(window, true);
-        window.setStatusBarColor(Color.parseColor("#FFFFFF"));
-        window.setNavigationBarColor(Color.parseColor("#FFFFFF"));
-        window.getDecorView().setBackgroundColor(Color.parseColor("#FFFFFF"));
+        WindowCompat.setDecorFitsSystemWindows(window, false);
+        window.setStatusBarColor(Color.TRANSPARENT);
+        window.setNavigationBarColor(Color.TRANSPARENT);
+        window.getDecorView().setBackgroundColor(Color.parseColor("#071019"));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             int flags = window.getDecorView().getSystemUiVisibility();
-            flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (lightSystemBars) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            else flags &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                if (lightSystemBars) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+                else flags &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
             }
             window.getDecorView().setSystemUiVisibility(flags);
         }
@@ -77,13 +102,19 @@ public class MainActivity extends BridgeActivity {
             WindowInsetsController controller = window.getInsetsController();
             if (controller != null) {
                 controller.setSystemBarsAppearance(
-                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    lightSystemBars
+                        ? WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                        : 0,
                     WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
                         | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
                 );
             }
         }
+    }
+
+    public void setSimplificaLightSystemBars(boolean light) {
+        lightSystemBars = light;
+        runOnUiThread(this::applySimplificaSystemBars);
     }
 
     private void setupSimplificaSystemInsets() {

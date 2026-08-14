@@ -1,0 +1,26 @@
+{
+  "manifestVersion": 1,
+  "publishedAt": "2026-08-13T00:00:00Z",
+  "artifacts": [
+    {
+      "modelId": "qwen2.5-1.5b-instruct", "displayName": "IA Leve", "version": "planned", "platform": "android-arm64",
+      "provider": "android-local", "runtime": "litert-lm", "artifactUrl": "", "downloadBytes": 0, "sha256": "",
+      "minAppVersion": "1.0.33", "recommendedContext": 8192,
+      "capabilities": { "text": true, "vision": false, "audio": false, "tools": true }, "status": "experimental"
+    },
+    {
+      "modelId": "gemma-4-e2b-it", "displayName": "IA Equilibrada", "version": "2026-05-05", "platform": "android-arm64",
+      "provider": "android-local", "runtime": "litert-lm-0.15.0",
+      "artifactUrl": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6b78abd019e61a1ca4cbe3b212d2c9ce8ff38a94/gemma-4-E2B-it.litertlm?download=true",
+      "downloadBytes": 2588147712, "sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "minAppVersion": "1.0.33", "recommendedContext": 8192,
+      "capabilities": { "text": true, "vision": true, "audio": false, "tools": true }, "status": "available"
+    },
+    {
+      "modelId": "gemma-4-e4b-it", "displayName": "IA Avançada", "version": "planned", "platform": "android-arm64",
+      "provider": "android-local", "runtime": "litert-lm", "artifactUrl": "", "downloadBytes": 0, "sha256": "",
+      "minAppVersion": "1.0.33", "recommendedContext": 8192,
+      "capabilities": { "text": true, "vision": true, "audio": false, "tools": true }, "status": "experimental"
+    }
+  ]
+}

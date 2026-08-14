@@ -43,6 +43,10 @@ if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
 }
 
+if (fs.existsSync(path.join(root, "models"))) {
+  fs.cpSync(path.join(root, "models"), path.join(dist, "models"), { recursive: true });
+}
+
 const publicSrcFiles = [
   "src/config/runtimeFeatures.js",
   "src/services/errorTelemetry.js",
@@ -58,6 +62,13 @@ const publicSrcFiles = [
   "src/services/calculatorDomain.js",
   "src/services/simplifica3dAiActions.js",
   "src/services/simplifica3dAiRuntime.js",
+  "src/ai-3d/core.js",
+  "src/ai-3d/operation-safety.js",
+  "src/ai-3d/canonical-order.js",
+  "src/ai-3d/order-create-preparation.js",
+  "src/ai-3d/order-create-executor.js",
+  "src/ai-3d/rlm/rlm-core.js",
+  "src/ai-3d/orchestrator.js",
   "src/styles/google-expressive-motion.css",
   "src/storefront/styles/tokens.css",
   "src/storefront/styles/components.css",
@@ -83,7 +94,12 @@ publicThemeFiles.forEach((relativePath) => {
 
 const publicModuleDirs = [
   "modules/store-preview",
-  "modules/storefront"
+  "modules/storefront",
+  "src/assistant-core",
+  "apps/simplifica/assistant-pack",
+  "apps/rural/assistant-pack",
+  "apps/tec/assistant-pack",
+  "apps/store-editor/assistant-pack"
 ];
 
 // UI V3 ships as an isolated foundation. Its technical route only mounts on localhost.

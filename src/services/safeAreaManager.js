@@ -2,9 +2,8 @@
   "use strict";
 
   const KEYBOARD_THRESHOLD = 120;
-  // O app é desenhado sob a barra de status no Android. Reservamos apenas
-  // apenas uma fração do inset no conteúdo para manter o cabeçalho próximo da tela.
-  const CONTENT_TOP_INSET_RATIO = 0.25;
+  // Controles nunca podem ficar sob recortes, barra de status ou navegação.
+  const CONTENT_TOP_INSET_RATIO = 1;
   const DEFAULT_SAFE_AREA = Object.freeze({
     top: 0,
     right: 0,

@@ -20,8 +20,12 @@ const sources = [sw, manifest, gradle, app, packageJson, adSense, css].join("\n"
 const missing = required.filter((item) => !sources.includes(item));
 const appVersion = app.match(/const APP_VERSION = "([^"]+)"/)?.[1];
 const appVersionCode = Number(app.match(/const APP_VERSION_CODE = (\d+)/)?.[1]);
-const gradleVersion = gradle.match(/versionName "([^"]+)"/)?.[1];
-const gradleVersionCode = Number(gradle.match(/versionCode (\d+)/)?.[1]);
+const gradleVersion = gradle.match(/versionName\s+simplificaPilotBuild\s*\?\s*"[^"]+"\s*:\s*"([^"]+)"/)?.[1]
+  || gradle.match(/versionName\s+"([^"]+)"/)?.[1];
+const gradleVersionCode = Number(
+  gradle.match(/versionCode\s+simplificaPilotBuild\s*\?\s*\d+\s*:\s*(\d+)/)?.[1]
+  || gradle.match(/versionCode\s+(\d+)/)?.[1]
+);
 if (!/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw)) missing.push("cache PWA versionado");
 if (!appVersion || appVersion !== gradleVersion) missing.push("versionName alinhado");
 if (!appVersionCode || appVersionCode !== gradleVersionCode) missing.push("versionCode alinhado");

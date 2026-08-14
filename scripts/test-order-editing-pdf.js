@@ -2,6 +2,7 @@ const fs = require("fs");
 const assert = require("assert");
 
 const app = fs.readFileSync("app.js", "utf8");
+const orderPreparation = fs.readFileSync("src/ai-3d/order-create-preparation.js", "utf8");
 
 [
   'id="pedidoDesconto"',
@@ -21,11 +22,16 @@ const app = fs.readFileSync("app.js", "utf8");
   'function garantirNumeracaoSequencialPedidos',
   'function getNumeroSequencialPedido',
   'function getProximoNumeroSequencialPedido',
-  'numeroPedido: numeroPedidoOperacional',
   'class="smart-order-number">Pedido',
   'class="smart-order-contact-name"',
   '<h2>Pedido ${escaparHtml(getNumeroSequencialPedido(pedido))}</h2>'
 ].forEach((marker) => assert.ok(app.includes(marker), `Correção de pedido/PDF ausente: ${marker}`));
+
+assert.ok(
+  app.includes("sequenceNumber: numeroPedidoOperacional")
+    && orderPreparation.includes("numeroPedido: sequenceNumber"),
+  "Preparação compartilhada deve preservar o número operacional do pedido."
+);
 
 assert.ok(!app.includes('id="manualItemTempo"'), "Item manual não deve solicitar tempo de impressão.");
 assert.ok(!app.includes('id="manualItemObs"'), "Item manual não deve solicitar observação adicional.");

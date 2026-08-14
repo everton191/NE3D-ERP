@@ -154,6 +154,23 @@
     return state.actionUsage[key];
   }
 
+  function refundRegisteredAction(user = {}, actionType = "acao_importante", receipt = {}) {
+    if (isPremium(user) || !shouldCountAction(actionType)) return { refunded: false, reason: "NOT_COUNTED" };
+    const state = getState();
+    const key = actionKey(user);
+    const current = sanitizeActionUsage(state.actionUsage?.[key]);
+    const expectedCount = Number(receipt.count);
+    const expectedUpdatedAt = Number(receipt.updatedAt);
+    if (!Number.isFinite(expectedCount) || !Number.isFinite(expectedUpdatedAt)) return { refunded: false, reason: "INVALID_RECEIPT" };
+    if (current.count !== expectedCount || current.updatedAt !== expectedUpdatedAt) return { refunded: false, reason: "RECEIPT_STALE" };
+    state.actionUsage = {
+      ...(state.actionUsage || {}),
+      [key]: { ...current, count: Math.max(0, current.count - 1), updatedAt: config.now() }
+    };
+    saveState(state);
+    return { refunded: true, usage: state.actionUsage[key] };
+  }
+
   function resetActionsAfterAd(user = {}) {
     const state = getState();
     const key = actionKey(user);
@@ -317,6 +334,7 @@
     configure,
     canUseAction,
     registerAction,
+    refundRegisteredAction,
     resetActionsAfterAd,
     scheduleFallbackUnlock,
     getFallbackUnlock,

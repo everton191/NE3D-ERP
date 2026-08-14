@@ -1,0 +1,10 @@
+"use strict";
+const assert = require("assert");
+const fs = require("fs");
+const O = require("../src/ai-3d/canonical-order.js");
+const state = { orders: [{ id: 1 }], cash: [{ id: 1 }], stock: [{ id: 1, quantity: 10 }], financial: [] };
+const before = JSON.stringify(state); const canonical = O.createCanonicalOrder({ customerName: "José", items: [{ description: "Chaveiro", quantity: 120, unitPrice: 7 }] });
+const mapped = new O.OrderCreateAdapter().map(canonical); const shadow = new O.ShadowPersistence(); const result = shadow.persist(mapped, { payload: canonical });
+assert.strictEqual(result.status, "SHADOW_VALIDATED"); assert.strictEqual(result.sideEffects, 0); assert.strictEqual(JSON.stringify(state), before); assert.strictEqual(shadow.records.length, 1);
+assert.doesNotMatch(fs.readFileSync(require.resolve("../src/ai-3d/canonical-order.js"), "utf8"), /fecharPedido\(|salvarDados\(|requisicaoSupabase\(/);
+console.log("ORDER.CREATE shadow: mapping real preparado com zero WRITE e zero side effects.");
