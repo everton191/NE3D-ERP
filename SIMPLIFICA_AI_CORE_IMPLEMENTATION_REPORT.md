@@ -50,7 +50,7 @@ Passaram:
 ## Publicação e evidências
 
 - PWA produção: `https://erpne3d.vercel.app`
-- Deployment Vercel final criado pelo push no Git: `dpl_5kuLsFUkeQmMJD1U9AAPtQ7tsEB2`, estado `READY` e alias `erpne3d.vercel.app`.
+- Deployment funcional verificado após o push no Git: `dpl_5kuLsFUkeQmMJD1U9AAPtQ7tsEB2`, estado `READY`; o alias `erpne3d.vercel.app` acompanha automaticamente o `main`.
 - Commit funcional publicado no `main`: `688b27a68205d91023cb77584e18c27328fc8d21`.
 - APK: `br.com.ne3d.erp`, `versionName 1.0.36`, `versionCode 64`.
 - APK instalado via ADB no ASUS `RBAISCBR000F2X2` com sucesso.
