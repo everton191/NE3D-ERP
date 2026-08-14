@@ -71,4 +71,22 @@ assert.deepStrictEqual(reconciliation.missingFinancialOperation, []);
 assert.strictEqual(reconciliation.wrongAmount.length, 0);
 assert(reconciliation.orphanMovement.includes("m3"));
 
-console.log("Financial Core: centavos, criação/cancelamento idempotentes, projeção R$ 10/80/150 e reconciliação validados.");
+const mergedMovements = F.mergeCashMovements({
+  legacyMovements: [
+    { id: "legacy-sale", tipo: "entrada", valor: 50, pedidoId: "p10", data: "2026-08-14T09:00:00-03:00" },
+    { id: "legacy-manual", tipo: "entrada", valor: 20, data: "2026-08-14T10:00:00-03:00" },
+    { id: "legacy-exit", tipo: "saida", valor: 10, data: "2026-08-14T11:00:00-03:00" }
+  ],
+  canonicalMovements: [
+    { id: "remote-duplicate", type: "sale", amount: 50, reference_collection: "pedidos", reference_id: "p10", created_at: "2026-08-14T09:00:00-03:00" },
+    { id: "remote-sale", type: "sale", amount: 80, reference_collection: "pedidos", reference_id: "p11", created_at: "2026-08-14T12:00:00-03:00" },
+    { id: "remote-refund", type: "estorno", amount: 20, reference_collection: "pedidos", reference_id: "p12", created_at: "2026-08-14T13:00:00-03:00" }
+  ]
+});
+assert.strictEqual(mergedMovements.length, 5, "o movimento canônico equivalente ao legado não pode ser duplicado");
+const mixedProjection = F.projectFinancialState({ movements: mergedMovements });
+assert.strictEqual(mixedProjection.entries, 150);
+assert.strictEqual(mixedProjection.exits, 30);
+assert.strictEqual(mixedProjection.cashBalance, 120);
+
+console.log("Financial Core: centavos, criação/cancelamento idempotentes, histórico legado+canônico sem duplicidade e reconciliação validados.");

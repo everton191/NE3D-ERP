@@ -11,8 +11,8 @@ android {
         applicationId simplificaPilotBuild ? "br.com.ne3d.erp.pilot" : "br.com.ne3d.erp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode simplificaPilotBuild ? 10 : 64
-        versionName simplificaPilotBuild ? "0.9.0-pilot" : "1.0.36"
+        versionCode simplificaPilotBuild ? 10 : 65
+        versionName simplificaPilotBuild ? "0.9.0-pilot" : "1.0.37"
         resValue "string", "app_name", simplificaPilotBuild ? "Simplifica 3D Piloto" : "Simplifica 3D"
         resValue "string", "title_activity_main", simplificaPilotBuild ? "Simplifica 3D Piloto" : "Simplifica 3D"
         manifestPlaceholders = [admobAppId: "ca-app-pub-1056970757696623~2135021978"]

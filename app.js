@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.36";
-const APP_VERSION_CODE = 64;
+const APP_VERSION = "1.0.37";
+const APP_VERSION_CODE = 65;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "A Assistente direciona Home, Pedidos, Estoque, Calculadora e Caixa pelas funções reais do Simplifica 3D.",
@@ -2689,6 +2689,7 @@ const AuthService = {
       }
       debugInfo("[Auth][login]", { email, auth_uid: syncConfig.supabaseUserId, source: "supabase" });
       const hidratado = await this.hydrateAuthenticatedUser(usuario, { source: "supabase" });
+      await hidratarHistoricoContaSupabase("login").catch((erro) => registrarDiagnostico("sync", "Histórico da conta pós-login não carregado", erro.message));
       await sincronizarFilaOfflinePendente("login").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-login falhou", erro.message));
       return { usuario: hidratado || usuario, source: "supabase" };
     } catch (erro) {
@@ -6514,7 +6515,8 @@ function getEmpresaIdFinanceiroAtual() {
 
 function getChaveEstadoFinanceiroCanonico() {
   const escopo = getEscopoDadosAtual?.() || getDataOwnerId() || "local";
-  return `simplifica:financial-canonical:v1:${escopo}`;
+  const empresa = getEmpresaIdFinanceiroAtual() || "sem-empresa";
+  return `simplifica:financial-canonical:v2:${escopo}:${empresa}`;
 }
 
 function criarEstadoFinanceiroCanonicoVazio() {
@@ -6575,6 +6577,32 @@ function movimentoRemotoDeEventoFinanceiro(evento = {}) {
   };
 }
 
+function adaptarMovimentoFinanceiroCanonicoParaCaixa(movimento = {}, paymentMethods = []) {
+  if (movimento.valor !== undefined && movimento.tipo && movimento.amount === undefined) return movimento;
+  const tipoCanonico = String(movimento.type || movimento.tipo || "").toLowerCase();
+  const saida = ["saida", "sangria", "retirada", "estorno", "closing"].includes(tipoCanonico);
+  const metodoRemoto = paymentMethods.find((metodo) => String(metodo?.id || "") === String(movimento.payment_method_id || movimento.paymentMethodId || ""));
+  const referenciaPedido = String(movimento.reference_collection || movimento.referenceCollection || "") === "pedidos"
+    ? String(movimento.reference_id || movimento.referenceId || "")
+    : "";
+  return {
+    ...movimento,
+    id: movimento.id ? `canonical:${movimento.id}` : `canonical:${movimento.operation_uuid || movimento.client_request_id || Date.now()}`,
+    canonical_movement_id: movimento.id || "",
+    tipo: saida ? "saida" : "entrada",
+    valor: Math.max(0, Number(movimento.amount ?? movimento.valor) || 0),
+    descricao: movimento.description || movimento.descricao || (referenciaPedido ? `${saida ? "Estorno" : "Recebimento"} pedido #${referenciaPedido}` : "Movimento sincronizado"),
+    pedidoId: referenciaPedido,
+    payment_method_type: metodoRemoto?.type || movimento.payment_method_type || movimento.metadata_json?.payment_method_type || "other",
+    paymentMethod: metodoRemoto?.name || movimento.paymentMethod || "Sincronizado",
+    data: movimento.created_at || movimento.createdAt || movimento.data || "",
+    criadoEm: movimento.created_at || movimento.createdAt || movimento.criadoEm || "",
+    cancelado: !!movimento.cancelled_at,
+    source: movimento.source || "financial_canonical",
+    canonical_readonly: true
+  };
+}
+
 function operacaoFinanceiraLegadaDoPedido(pedido = {}) {
   const F = window.Simplifica3dFinancialCore;
   if (!F || !pedido?.id) return null;
@@ -6603,14 +6631,14 @@ function operacaoFinanceiraLegadaDoPedido(pedido = {}) {
 function getDadosFinanceirosCanonicosComFallback() {
   const estado = carregarEstadoFinanceiroCanonico();
   const operations = [...estado.operations];
-  const movements = [...estado.movements];
+  const canonicalMovements = [...estado.movements];
   const operationKeys = new Set(operations.map((operation) => String(operation.operation_uuid || "")).filter(Boolean));
   const saleIds = new Set(operations.map((operation) => String(operation.sale_id || "")).filter(Boolean));
   estado.events.forEach((evento) => {
     if (!operationKeys.has(String(evento.operationUuid || ""))) operations.push(operacaoRemotaDeEventoFinanceiro(evento));
     if (evento.syncStatus !== "synced") {
       const movement = movimentoRemotoDeEventoFinanceiro(evento);
-      if (movement) movements.push(movement);
+      if (movement) canonicalMovements.push(movement);
     }
     saleIds.add(String(evento.orderId || ""));
   });
@@ -6619,7 +6647,16 @@ function getDadosFinanceirosCanonicosComFallback() {
     const legacy = operacaoFinanceiraLegadaDoPedido(pedido);
     if (legacy) operations.push(legacy);
   });
+  const F = window.Simplifica3dFinancialCore;
+  const movements = F?.mergeCashMovements
+    ? F.mergeCashMovements({ legacyMovements: caixa, canonicalMovements })
+    : (caixa.length ? [...caixa] : canonicalMovements);
   return { estado, operations, movements };
+}
+
+function getMovimentosCaixaDaConta() {
+  const dados = getDadosFinanceirosCanonicosComFallback();
+  return dados.movements.map((movimento) => adaptarMovimentoFinanceiroCanonicoParaCaixa(movimento, dados.estado.paymentMethods));
 }
 
 function getProjecaoFinanceiraCanonica(periodo = "mes", opcoes = {}) {
@@ -6682,12 +6719,19 @@ async function atualizarCacheFinanceiroCanonicoRemoto(companyId = getEmpresaIdFi
   const F = window.Simplifica3dFinancialCore;
   if (!F?.isUuid(companyId) || !syncConfig.supabaseAccessToken || !estaOnline()) return { status: "SKIPPED" };
   const filtro = `empresa_id=eq.${encodeURIComponent(companyId)}`;
-  const [operations, movements] = await Promise.all([
+  const [operations, movements, paymentMethods] = await Promise.all([
     requisicaoSupabase(`/rest/v1/erp_financial_operations?${filtro}&select=id,operation_uuid,client_request_id,operation_type,status,sale_id,payload_json,result_json,created_at,updated_at&order=created_at.desc&limit=600`),
-    requisicaoSupabase(`/rest/v1/cash_movements?${filtro}&select=id,session_id,type,amount,payment_method_id,description,reference_collection,reference_id,operation_uuid,client_request_id,metadata_json,created_at&order=created_at.desc&limit=800`)
+    requisicaoSupabase(`/rest/v1/cash_movements?${filtro}&select=id,session_id,type,amount,payment_method_id,description,reference_collection,reference_id,operation_uuid,client_request_id,metadata_json,cancelled_at,created_at&order=created_at.desc&limit=800`),
+    requisicaoSupabase(`/rest/v1/payment_methods?${filtro}&select=id,name,type,active&order=name.asc`)
   ]);
   const estado = carregarEstadoFinanceiroCanonico();
-  salvarEstadoFinanceiroCanonico({ ...estado, operations: Array.isArray(operations) ? operations : [], movements: Array.isArray(movements) ? movements : [], lastError: "" });
+  salvarEstadoFinanceiroCanonico({
+    ...estado,
+    operations: Array.isArray(operations) ? operations : [],
+    movements: Array.isArray(movements) ? movements : [],
+    paymentMethods: Array.isArray(paymentMethods) ? paymentMethods : [],
+    lastError: ""
+  });
   return { status: "SUCCESS", operations: operations?.length || 0, movements: movements?.length || 0 };
 }
 
@@ -8743,7 +8787,7 @@ function normalizarMetodoPagamentoCaixa(valor = "") {
 }
 
 function getMetodoPagamentoMovimento(movimento = {}) {
-  return normalizarMetodoPagamentoCaixa(movimento.payment_method_id || movimento.paymentMethodId || movimento.paymentMethod || movimento.metodoPagamento || movimento.formaPagamento || "dinheiro");
+  return normalizarMetodoPagamentoCaixa(movimento.payment_method_type || movimento.paymentMethodType || movimento.paymentMethod || movimento.metodoPagamento || movimento.formaPagamento || movimento.payment_method_id || movimento.paymentMethodId || "dinheiro");
 }
 
 function caixaModoSimplesAtivo() {
@@ -8829,16 +8873,16 @@ function formatarDataHora(valor = "") {
   });
 }
 
-function calcularSaldo() {
-  return caixa.reduce((saldo, movimento) => {
+function calcularSaldo(movimentos = getMovimentosCaixaDaConta()) {
+  return movimentos.reduce((saldo, movimento) => {
     if (movimentoCaixaCancelado(movimento)) return saldo;
     const valor = Number(movimento.valor) || 0;
     return movimento.tipo === "saida" ? saldo - valor : saldo + valor;
   }, 0);
 }
 
-function calcularTotaisCaixa() {
-  return caixa.reduce((totais, movimento) => {
+function calcularTotaisCaixa(movimentos = getMovimentosCaixaDaConta()) {
+  return movimentos.reduce((totais, movimento) => {
     if (movimentoCaixaCancelado(movimento)) {
       totais.cancelados += 1;
       return totais;
@@ -22915,7 +22959,7 @@ function estaNoIntervalo(data, inicio, fim) {
   return dataDentroIntervalo(data, inicio, fim);
 }
 
-function calcularTotaisCaixaPeriodo(inicio, fim, movimentos = caixa) {
+function calcularTotaisCaixaPeriodo(inicio, fim, movimentos = getMovimentosCaixaDaConta()) {
   return movimentos.reduce((totais, movimento) => {
     const data = obterDataMovimentoCaixa(movimento);
     if (!dataDentroIntervalo(data, inicio, fim)) return totais;
@@ -32005,7 +32049,7 @@ function encontrarPedidoPorMovimentoCaixa(movimento = {}) {
 }
 
 function getMovimentosExtratoFinanceiro() {
-  const ordenados = caixa
+  const ordenados = getMovimentosCaixaDaConta()
     .map((movimento, indice) => {
       const data = obterDataMovimentoCaixa(movimento) || new Date(0);
       const pedido = encontrarPedidoPorMovimentoCaixa(movimento);
@@ -32329,13 +32373,14 @@ function renderCaixa() {
   const caixaView = getCaixaViewAtiva();
   const periodoCaixa = getCaixaPeriodoAtivo();
   const infoPeriodoCaixa = getInfoPeriodoCaixa(periodoCaixa);
-  const movimentosPeriodo = filtrarMovimentosCaixaPorPeriodo(caixa, infoPeriodoCaixa);
-  const totais = calcularTotaisCaixaPeriodo(infoPeriodoCaixa.start, infoPeriodoCaixa.end);
+  const movimentosConta = getMovimentosCaixaDaConta();
+  const movimentosPeriodo = filtrarMovimentosCaixaPorPeriodo(movimentosConta, infoPeriodoCaixa);
+  const totais = calcularTotaisCaixaPeriodo(infoPeriodoCaixa.start, infoPeriodoCaixa.end, movimentosConta);
   const filtroCaixa = getCaixaFiltroAtivo();
   const movimentosFiltrados = filtrarMovimentosCaixaPorBusca(filtrarMovimentosCaixa(movimentosPeriodo, filtroCaixa));
   const linhas = movimentosFiltrados.length
     ? [...movimentosFiltrados].reverse().map((movimento) => {
-        const indice = caixa.indexOf(movimento);
+        const indice = caixa.findIndex((item) => item === movimento || String(item.id || "") === String(movimento.id || ""));
         const saida = movimento.tipo === "saida";
         const cancelado = movimentoCaixaCancelado(movimento);
         return `
@@ -32349,7 +32394,7 @@ function renderCaixa() {
               ${movimento.data ? `<small class="cash-row-date">${formatarDataCurta(movimento.data)}</small>` : ""}
               ${cancelado ? `<small class="cash-row-date">Cancelado: ${escaparHtml(movimento.motivoCancelamento || movimento.cancelReason || "sem motivo informado")}</small>` : ""}
             </div>
-            ${podeOperar && !cancelado ? `<div class="row-actions cash-row-actions" aria-label="Ações do movimento">
+            ${podeOperar && !cancelado && indice >= 0 && !movimento.canonical_readonly ? `<div class="row-actions cash-row-actions" aria-label="Ações do movimento">
               <button class="icon-action-button" type="button" onclick="editarMovimentoCaixa(${indice})" title="Editar movimento">${renderIconeAcaoPedido("✎", "Editar")}</button>
               <button class="icon-action-button danger" type="button" onclick="removerMovimentoCaixa(${indice})" title="Cancelar movimento">${renderIconeAcaoPedido("🗑", "Cancelar")}</button>
             </div>` : ""}
@@ -42632,10 +42677,17 @@ async function obterBackupSupabase() {
 
 async function obterRegistrosErpSupabase() {
   const userId = encodeURIComponent(syncConfig.supabaseUserId);
-  const linhas = await requisicaoSupabase(`/rest/v1/erp_records?select=collection,record_id,user_id,owner_id,data,created_at,updated_at,deleted_at&user_id=eq.${userId}&deleted_at=is.null&limit=1000`, {
-    method: "GET"
-  });
-  return Array.isArray(linhas) ? linhas : [];
+  const pageSize = 1000;
+  const resultado = [];
+  for (let offset = 0; offset < 10000; offset += pageSize) {
+    const linhas = await requisicaoSupabase(`/rest/v1/erp_records?select=collection,record_id,user_id,owner_id,data,created_at,updated_at,deleted_at&user_id=eq.${userId}&deleted_at=is.null&order=updated_at.asc&limit=${pageSize}&offset=${offset}`, {
+      method: "GET"
+    });
+    const pagina = Array.isArray(linhas) ? linhas : [];
+    resultado.push(...pagina);
+    if (pagina.length < pageSize) break;
+  }
+  return resultado;
 }
 
 function aplicarRegistrosErpSupabase(registros = []) {
@@ -42649,6 +42701,25 @@ function aplicarRegistrosErpSupabase(registros = []) {
     salvarDados();
   }
   return alterou;
+}
+
+async function hidratarHistoricoContaSupabase(motivo = "login") {
+  if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return { status: "SKIPPED" };
+  const [registros, backup] = await Promise.all([
+    obterRegistrosErpSupabase(),
+    obterBackupSupabase()
+  ]);
+  let alterou = aplicarRegistrosErpSupabase(registros);
+  if (backup) alterou = aplicarBackup(backup, "mesclar") || alterou;
+  const financeiro = await atualizarCacheFinanceiroCanonicoRemoto().catch((erro) => {
+    registrarDiagnostico("financeiro", `Histórico financeiro remoto após ${motivo} falhou`, erro.message);
+    return { status: "ERROR", error: erro.message };
+  });
+  marcarSincronizacaoVisual(`account-history:${motivo}`);
+  syncConfig.autoBackupStatus = "Histórico da conta atualizado";
+  salvarCacheDadosUsuario();
+  salvarDados();
+  return { status: "SUCCESS", records: registros.length, backup: !!backup, financial: financeiro, changed: alterou };
 }
 
 async function aplicarBackupRemotoAntesDeUploadSeNecessario(motivo = "sync") {

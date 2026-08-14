@@ -3,8 +3,8 @@
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const SALE_EXCLUDED_STATUSES = new Set(["cancelado", "cancelled", "orcamento", "orçamento", "rascunho", "draft"]);
-  const CASH_ENTRY_TYPES = new Set(["sale", "suprimento", "adjustment", "opening"]);
-  const CASH_EXIT_TYPES = new Set(["sangria", "retirada", "estorno", "closing"]);
+  const CASH_ENTRY_TYPES = new Set(["sale", "entrada", "suprimento", "adjustment", "opening"]);
+  const CASH_EXIT_TYPES = new Set(["saida", "sangria", "retirada", "estorno", "closing"]);
 
   const clone = (value) => value == null ? value : JSON.parse(JSON.stringify(value));
   const normalizeText = (value) => String(value == null ? "" : value).trim();
@@ -199,6 +199,66 @@
     });
   }
 
+  function getCashMovementDirection(movement = {}) {
+    const type = normalizeStatus(movement.type || movement.tipo || "");
+    if (CASH_ENTRY_TYPES.has(type)) return "entry";
+    if (CASH_EXIT_TYPES.has(type)) return "exit";
+    return "";
+  }
+
+  function getCashMovementReference(movement = {}) {
+    return normalizeText(
+      movement.reference_id
+      || movement.referenceId
+      || movement.pedidoId
+      || movement.pedido_id
+      || movement.orderId
+      || movement.order_id
+      || ""
+    );
+  }
+
+  function getCashMovementBusinessSignature(movement = {}) {
+    const reference = getCashMovementReference(movement);
+    const direction = getCashMovementDirection(movement);
+    const amount = Math.max(0, moneyToCents(movement.amount ?? movement.valor));
+    return reference && direction && amount > 0 ? `${reference}|${direction}|${amount}` : "";
+  }
+
+  function mergeCashMovements({ legacyMovements = [], canonicalMovements = [] } = {}) {
+    const merged = [...(Array.isArray(legacyMovements) ? legacyMovements : [])];
+    const identifierKeys = new Set();
+    const businessCounts = new Map();
+
+    merged.forEach((movement) => {
+      const operationUuid = normalizeText(movement.operation_uuid || movement.operationUuid);
+      const clientRequestId = normalizeText(movement.client_request_id || movement.clientRequestId);
+      if (operationUuid) identifierKeys.add(`operation:${operationUuid}`);
+      if (clientRequestId) identifierKeys.add(`request:${clientRequestId}`);
+      const signature = getCashMovementBusinessSignature(movement);
+      if (signature) businessCounts.set(signature, (businessCounts.get(signature) || 0) + 1);
+    });
+
+    (Array.isArray(canonicalMovements) ? canonicalMovements : []).forEach((movement) => {
+      const operationUuid = normalizeText(movement.operation_uuid || movement.operationUuid);
+      const clientRequestId = normalizeText(movement.client_request_id || movement.clientRequestId);
+      if ((operationUuid && identifierKeys.has(`operation:${operationUuid}`)) || (clientRequestId && identifierKeys.has(`request:${clientRequestId}`))) return;
+
+      const signature = getCashMovementBusinessSignature(movement);
+      const matchingLegacy = signature ? Number(businessCounts.get(signature) || 0) : 0;
+      if (matchingLegacy > 0) {
+        businessCounts.set(signature, matchingLegacy - 1);
+        return;
+      }
+
+      merged.push(movement);
+      if (operationUuid) identifierKeys.add(`operation:${operationUuid}`);
+      if (clientRequestId) identifierKeys.add(`request:${clientRequestId}`);
+    });
+
+    return merged;
+  }
+
   function reconcileFinancialState({ orders = [], operations = [], movements = [] } = {}) {
     const latest = getLatestSaleOperations(operations);
     const orderById = new Map((Array.isArray(orders) ? orders : []).map((order) => [normalizeText(order.id), order]));
@@ -245,7 +305,7 @@
 
   const api = Object.freeze({
     moneyToCents, centsToMoney, stableHash, uuidFrom, isUuid, normalizeStatus, isOrderSaleEligible,
-    buildOrderFinancialEvent, getLatestSaleOperations, projectFinancialState, reconcileFinancialState
+    buildOrderFinancialEvent, getLatestSaleOperations, projectFinancialState, mergeCashMovements, reconcileFinancialState
   });
   global.Simplifica3dFinancialCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

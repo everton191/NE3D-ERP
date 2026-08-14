@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1036-ai-financial-core-20260814";
+const CACHE_NAME = "simplifica-3d-v1037-account-history-20260814";
 const APP_FILES = [
   "./",
   "./index.html",

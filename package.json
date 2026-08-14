@@ -221,6 +221,7 @@
     "test:storefront-production-controlled": "node scripts/test-storefront-production-controlled.js",
     "test:erp-cash-fiscal-foundation": "node scripts/test-erp-cash-fiscal-foundation.js",
     "test:simplifica3d-financial-core": "node scripts/test-simplifica3d-financial-core.js",
+    "test:account-cash-history": "node scripts/test-account-cash-history.js",
     "test:monetization": "node scripts/test-monetization.js",
     "test:plan-capabilities": "node scripts/test-plan-capability-contract.js",
     "test:plan-persistence": "node scripts/test-plan-persistence-schema.js",
