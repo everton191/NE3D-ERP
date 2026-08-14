@@ -15,18 +15,11 @@ Nenhum modelo Android `.litertlm` é oferecido como modelo web. Um artifact só 
 
 Enquanto o projeto não publicar esse conjunto, a interface informa que a IA local não está disponível no navegador. Isso é intencional e evita download inútil de gigabytes.
 
-## Isolamento por aplicativo
+## Isolamento do Simplifica 3D
 
-Cada `assistant-pack` declara um `modelScope` exclusivo:
+Este checkout publica somente o `assistant-pack` do Simplifica 3D, com `appId` e `modelScope` fixos em `simplifica-3d`. Rural e Tec mantêm IA, runtime, memória, catálogo e artefatos nos respectivos projetos; seus packs não entram no HTML, service worker, build web ou APK deste produto.
 
-| Aplicativo | modelScope |
-| --- | --- |
-| Simplifica 3D | `simplifica-3d` |
-| Rural | `simplifica-rural` |
-| Tec | `simplifica-tec` |
-| Editor da Loja | `simplifica-store-editor` |
-
-Metadados e bytes do artifact usam uma chave formada por `modelScope:modelId`. Remover ou atualizar o modelo de um aplicativo não remove o modelo de outro.
+O Editor da Loja é um domínio interno do Simplifica 3D e usa a mesma IA privada do ERP. Ele não cria outro runtime nem outro modelo dentro do aplicativo.
 
 ## Armazenamento
 

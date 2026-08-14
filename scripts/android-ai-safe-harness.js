@@ -75,11 +75,11 @@ async function cdp(socketUrl, expression, timeoutMs = 5000) {
 
   const expected = await cdp(target.webSocketDebuggerUrl, `(() => ({
     packageOk: !!window.Capacitor && window.Capacitor.getPlatform?.() === "android",
-    coreOk: !!window.Simplifica3dAiCore && !!window.Simplifica3dOperationSafety && !!window.Simplifica3dCanonicalOrder && !!window.Simplifica3dOrderCreatePreparation && !!window.Simplifica3dOrderCreateExecutor && !!window.Simplifica3dRlm && !!window.Simplifica3dAiOrchestrator && !!window.UniversalAssistantAppRuntime && window.SimplificaAssistantPack?.modelScope === "simplifica-3d",
+    coreOk: !!window.Simplifica3dAiCore && !!window.Simplifica3dOperationSafety && !!window.Simplifica3dCanonicalOrder && !!window.Simplifica3dOrderCreatePreparation && !!window.Simplifica3dOrderCreateExecutor && !!window.Simplifica3dRlm && !!window.Simplifica3dAiOrchestrator && window.SimplificaAssistantPack?.modelScope === "simplifica-3d" && !window.RuralAssistantPack && !window.TecAssistantPack && !window.StoreEditorAssistantPack,
     chatOk: !!document.querySelector(".ai-chat-dialog") && !!document.getElementById("aiChatInput") && !!document.querySelector(".ai-chat-form button[type=submit]"),
     visible: document.visibilityState === "visible"
   }))()`);
-  if (!expected?.packageOk || !expected?.coreOk || !expected?.visible) abort("a página ativa não é o Simplifica 3D esperado");
+  if (!expected?.packageOk || !expected?.coreOk || !expected?.visible) abort(`a página ativa não é o Simplifica 3D esperado (${JSON.stringify(expected)})`);
   if ((REQUIRE_CHAT || TEST_MESSAGE) && !expected.chatOk) abort("o modal esperado do chat não está ativo");
 
   let interaction = null;

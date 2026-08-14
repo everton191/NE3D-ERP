@@ -15,14 +15,16 @@
     if (result.tool === "price_calculate") return `O cálculo ficou em ${result.formattedPrice || `R$ ${Number(result.calculatedPrice || 0).toFixed(2).replace(".", ",")}`}.`;
     if (result.tool === "stock_search") return result.matches?.length ? result.matches.map((item) => `${item.name}: ${item.quantity} ${item.unit || ""}`.trim()).join("; ") + "." : "Não encontrei esse item no estoque.";
     if (result.tool === "stock_summary") return result.items?.length ? `O estoque tem ${result.totalItems} material(is); ${result.lowStockCount} em nível baixo.` : "Não há materiais cadastrados no estoque.";
-    if (result.tool === "cash_summary") return `Caixa: entradas ${result.formattedEntries}, saídas ${result.formattedExits} e saldo ${result.formattedBalance}.`;
+    if (result.tool === "cash_summary") return result.metric === "sales"
+      ? `Vendas: ${result.formattedSales} em ${result.orders || 0} pedido(s). O saldo do caixa no mesmo período é ${result.formattedBalance}.`
+      : `Caixa: entradas ${result.formattedEntries}, saídas ${result.formattedExits} e saldo ${result.formattedBalance}. Vendas no período: ${result.formattedSales}.`;
     if (result.tool === "home_summary") return `Hoje: ${result.ordersToday} pedido(s), ${result.formattedRevenue} em pedidos e ${result.lowStockCount} alerta(s) de estoque.`;
     return "Consulta concluída.";
   }
 
   class AiOrchestrator3D {
-    constructor({ manager, continuationResolver, contextBuilder, tools, provider, operationSafety = null, rlm = null, telemetry = () => {} }) {
-      this.manager = manager; this.resolver = continuationResolver; this.contextBuilder = contextBuilder; this.tools = tools; this.provider = provider; this.operationSafety = operationSafety; this.rlm = rlm; this.telemetry = telemetry;
+    constructor({ manager, continuationResolver, contextBuilder, tools, provider, operationSafety = null, rlm = null, requirementEngine = null, loopGuard = null, telemetry = () => {} }) {
+      this.manager = manager; this.resolver = continuationResolver; this.contextBuilder = contextBuilder; this.tools = tools; this.provider = provider; this.operationSafety = operationSafety; this.rlm = rlm; this.requirements = requirementEngine || new C.RequirementEngine(); this.loopGuard = loopGuard || new C.LoopGuard(); this.telemetry = telemetry;
     }
     recordTiming(stage, started, details = {}) {
       const event = {
@@ -94,9 +96,10 @@
           const missing = prepared.missing?.length ? ` Ainda faltam: ${prepared.missing.join(", ")}.` : "";
           return finish({ classification, prepared, summary: `Não foi possível preparar o pedido.${missing} Nenhum dado foi alterado.`, session: this.manager.session.snapshot() }, "BLOCKED");
         }
-        const payload = prepared.operation.payload; const item = payload.items[0];
+        const payload = prepared.operation.payload;
         const live = this.operationSafety.gate?.mode === "LIVE";
-        return finish({ classification, prepared, summary: `${live ? "Pedido pronto para sua confirmação" : "Prévia do pedido"}\nCliente: ${payload.customerName}\nItem: ${item.quantity} × ${item.description}\nPreço unitário: R$ ${item.unitPrice.toFixed(2).replace(".", ",")}\nTotal: R$ ${payload.total.toFixed(2).replace(".", ",")}\n\n${live ? "Está tudo certo para salvar?" : "Esta é apenas uma simulação; nenhum dado será salvo."}`, session: this.manager.session.snapshot() });
+        const itemLines = payload.items.map((item) => `${item.quantity} × ${item.description} — R$ ${item.unitPrice.toFixed(2).replace(".", ",")} cada${item.weightState === C.SLOT_STATE.NOT_APPLICABLE ? " — sem peso" : ""}`).join("\n");
+        return finish({ classification, prepared, summary: `${live ? "Pedido pronto para sua confirmação" : "Prévia do pedido"}\nCliente: ${payload.customerName}\nItens:\n${itemLines}\nTotal: R$ ${payload.total.toFixed(2).replace(".", ",")}\n\n${live ? "Está tudo certo para salvar?" : "Esta é apenas uma simulação; nenhum dado será salvo."}`, session: this.manager.session.snapshot() });
       }
       if (classification.action === "CONFIRM_PENDING") {
         if (!this.operationSafety) return finish({ classification, summary: "A confirmação segura não está disponível. Nenhum dado foi alterado.", session: this.manager.session.snapshot() }, "BLOCKED");
@@ -104,7 +107,10 @@
         if (confirmed.status === "SUCCESS") {
           const summary = confirmed.result.message;
           if (["COMMITTED", "ALREADY_COMMITTED"].includes(confirmed.result?.status)) this.manager.complete(confirmed.result);
-          return finish({ classification, confirmed, summary, session: this.manager.session.snapshot() });
+          const navigationTarget = ["COMMITTED", "ALREADY_COMMITTED"].includes(confirmed.result?.status) && confirmed.result?.orderId
+            ? { routeId: "orders.list", label: "Pedido criado", entityId: confirmed.result.orderId, entityType: "order" }
+            : null;
+          return finish({ classification, confirmed, summary, navigationTarget, session: this.manager.session.snapshot() });
         }
         if (confirmed.status === "DUPLICATE") return finish({ classification, confirmed, summary: confirmed.result?.message || "Este pedido já foi processado; não criei outro.", session: this.manager.session.snapshot() });
         if (confirmed.status === "STALE") return finish({ classification, confirmed, summary: "O pedido mudou depois do último resumo. Peça para conferir novamente antes de salvar.", session: this.manager.session.snapshot() }, "BLOCKED");
@@ -112,7 +118,7 @@
         return finish({ classification, confirmed, summary: "A validação foi bloqueada por segurança. Prepare novamente o pedido; nenhum dado foi alterado.", session: this.manager.session.snapshot() }, "BLOCKED");
       }
       if (classification.type === C.INTENT_TYPE.TASK_UPDATE && classification.updates) {
-        Object.entries(classification.updates).forEach(([name, value]) => this.manager.updateSlot(name, value));
+        Object.entries(classification.updates).forEach(([name, value]) => this.manager.updateSlot(name, value, classification.updateState || C.SLOT_STATE.PROVIDED, "message", { allItems: classification.allItems === true, itemIndex: classification.itemIndex }));
         this.manager.setLastQuestion(null);
         return finish({ classification, summary: this.nextQuestion(), session: this.manager.session.snapshot() });
       }
@@ -147,17 +153,26 @@
       }
     }
     nextQuestion() {
-      const missing = this.manager.session.missingSlots || [];
-      if (missing.includes("product")) return "Qual é o item do pedido?";
-      if (missing.includes("weightGrams")) return "Qual é o peso em gramas?";
-      if (missing.includes("unitPrice")) return "Quer informar o preço ou prefere que eu calcule?";
-      return "O pedido está completo. Quer que eu mostre o resumo para sua confirmação?";
+      const evaluation = this.requirements.evaluate(this.manager.session.activeDraft);
+      const missing = evaluation.missing;
+      let question = missing.some((name) => name.endsWith("product")) ? "Qual é o item do pedido?"
+        : missing.some((name) => name.endsWith("weightGrams")) ? "Qual é o peso em gramas? Se não se aplicar, diga “Sem peso”."
+          : missing.some((name) => name.endsWith("unitPrice")) ? "Quer informar o preço ou prefere que eu abra a calculadora?"
+            : "O pedido está completo. Quer que eu mostre o resumo para sua confirmação?";
+      const loop = this.loopGuard.check({ session: this.manager.session, question });
+      if (loop.prevented) {
+        this.telemetry({ event: "AI_LOOP_PREVENTED", stage: "T_RESPONSE", duration: 0, conversationId: this.manager.session.conversationId, taskId: this.manager.session.activeTask?.taskId || "", result: "LOOP_PREVENTED" });
+        question = missing.some((name) => name.endsWith("weightGrams"))
+          ? "Para continuar, informe o peso ou responda apenas “Sem peso”. Também posso cancelar este rascunho."
+          : "Ainda falta uma informação para continuar. Você pode respondê-la ou cancelar este rascunho.";
+      }
+      return question;
     }
     summarizeDraft() {
       const draft = this.manager.session.activeDraft; if (!draft) return "Não há pedido em rascunho agora.";
-      const item = draft.items?.[0] || {};
       const show = (entry, suffix = "") => entry?.value != null && entry.value !== "" ? `${entry.value}${suffix}` : "não informado";
-      return `Rascunho: cliente ${show(draft.customer)}, item ${show(item.nome)}, peso ${show(item.pesoGramas, " g")}, quantidade ${show(item.quantidade)} e preço ${item.valor?.value ? `R$ ${Number(item.valor.value).toFixed(2).replace(".", ",")}` : "não informado"}. Nada foi salvo.`;
+      const items = (draft.items || []).map((item) => `${show(item.quantidade)} × ${show(item.nome)}, peso ${item.pesoGramas?.state === C.SLOT_STATE.NOT_APPLICABLE ? "não se aplica" : show(item.pesoGramas, " g")}, preço ${item.valor?.value ? `R$ ${Number(item.valor.value).toFixed(2).replace(".", ",")}` : "não informado"}`).join("; ");
+      return `Rascunho: cliente ${show(draft.customer)}; ${items || "nenhum item"}. Nada foi salvo.`;
     }
   }
 

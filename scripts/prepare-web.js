@@ -62,6 +62,7 @@ const publicSrcFiles = [
   "src/services/calculatorDomain.js",
   "src/services/simplifica3dAiActions.js",
   "src/services/simplifica3dAiRuntime.js",
+  "src/services/simplifica3dFinancialCore.js",
   "src/ai-3d/core.js",
   "src/ai-3d/operation-safety.js",
   "src/ai-3d/canonical-order.js",
@@ -96,10 +97,7 @@ const publicModuleDirs = [
   "modules/store-preview",
   "modules/storefront",
   "src/assistant-core",
-  "apps/simplifica/assistant-pack",
-  "apps/rural/assistant-pack",
-  "apps/tec/assistant-pack",
-  "apps/store-editor/assistant-pack"
+  "apps/simplifica/assistant-pack"
 ];
 
 // UI V3 ships as an isolated foundation. Its technical route only mounts on localhost.

@@ -84,8 +84,9 @@ assert(!/const\s+custo\s*=\s*custoBase\s*\+\s*taxaExtra[\s\S]{0,180}precoSemTaxa
 assert(/const\s+baseProduto\s*=/.test(appSource) && /const\s+valorProduto\s*=/.test(appSource), "codigo explicita base e valor do produto");
 assert(/function\s+aplicarPercentualAcrescimo/.test(appSource), "app possui helper central de acrescimo percentual");
 assert(/function\s+aplicarPercentualDesconto/.test(appSource), "app possui helper central de desconto percentual");
-assert(/const\s+valorProduto\s*=\s*aplicarPercentualAcrescimo\(baseProduto,\s*margem\)/.test(appSource), "margem usa helper percentual central");
-assert(/const\s+taxaInfo\s*=\s*calcularTaxaExtraAplicada\(valorProduto\)/.test(appSource), "taxa percentual usa preco comercial depois da margem");
+assert(/const\s+dominio\s*=\s*CalculatorDomain\.calculate\(/.test(appSource), "calculadora usa o dominio central para margem e taxa");
+assert(/const\s+valorProduto\s*=\s*dominio\.subtotalBase/.test(appSource), "preco comercial vem do dominio depois da margem");
+assert(/const\s+taxaExtra\s*=\s*dominio\.extraFeeAmount/.test(appSource), "taxa percentual vem do dominio sobre o preco comercial");
 assert(!/const\s+taxaInfo\s*=\s*calcularTaxaExtraAplicada\(baseProduto\)/.test(appSource), "taxa percentual nao usa mais custo interno antes da margem");
 assert(/function\s+embutirTaxaExtraNosItensCliente/.test(appSource), "documentos de cliente embutem taxa no valor final");
 assert(!/\[\s*"Taxa extra"\s*,\s*taxaExtraComercial\s*\]/.test(appSource), "PDF nao discrimina taxa extra para cliente");

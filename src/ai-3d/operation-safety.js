@@ -5,6 +5,12 @@
   const RESULT_STATUS = Object.freeze({ SUCCESS: "SUCCESS", BLOCKED: "BLOCKED", STALE: "STALE", EXPIRED: "EXPIRED", DUPLICATE: "DUPLICATE", VALIDATION_ERROR: "VALIDATION_ERROR" });
   const clone = (value) => value == null ? value : JSON.parse(JSON.stringify(value));
   const id = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  const operationId = () => {
+    try { if (global.crypto?.randomUUID) return global.crypto.randomUUID(); } catch (_) {}
+    const hex = `${Date.now().toString(16).padStart(12, "0")}${Math.random().toString(16).slice(2).padEnd(20, "0")}`.slice(0, 32).split("");
+    hex[12] = "4"; hex[16] = ((parseInt(hex[16], 16) & 3) | 8).toString(16);
+    return `${hex.slice(0, 8).join("")}-${hex.slice(8, 12).join("")}-${hex.slice(12, 16).join("")}-${hex.slice(16, 20).join("")}-${hex.slice(20).join("")}`;
+  };
   function stableStringify(value) {
     if (value === null || typeof value !== "object") return JSON.stringify(value);
     if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -28,15 +34,28 @@
   class PrepareOperation {
     constructor({ ttlMs = 10 * 60 * 1000, clock = () => Date.now() } = {}) { this.ttlMs = ttlMs; this.clock = clock; }
     orderCreate(session, actor = {}, permissionSnapshot = {}) {
-      const draft = session?.activeDraft; const item = draft?.items?.[0] || {}; const missing = [];
-      if (!draft?.customer?.value) missing.push("customer"); if (!item.nome?.value) missing.push("product");
-      if (!(Number(item.quantidade?.value) > 0)) missing.push("quantity"); if (!(Number(item.valor?.value) > 0)) missing.push("unitPrice");
+      const draft = session?.activeDraft; const draftItems = Array.isArray(draft?.items) ? draft.items : []; const missing = [];
+      if (!draft?.customer?.value) missing.push("customer");
+      if (!draftItems.length) missing.push("items");
+      draftItems.forEach((item, index) => {
+        const prefix = draftItems.length > 1 ? `items[${index}].` : "";
+        if (!item.nome?.value) missing.push(`${prefix}product`);
+        if (!(Number(item.quantidade?.value) > 0)) missing.push(`${prefix}quantity`);
+        if (!(Number(item.valor?.value) > 0)) missing.push(`${prefix}unitPrice`);
+        if (!["PROVIDED", "RESOLVED", "NOT_APPLICABLE"].includes(item.pesoGramas?.state)) missing.push(`${prefix}weightGrams`);
+      });
       if (missing.length) return { status: RESULT_STATUS.VALIDATION_ERROR, missing };
-      const quantity = Number(item.quantidade.value); const unitPrice = Number(item.valor.value);
+      const items = draftItems.map((item) => ({
+        productId: String(item.productId?.value || ""), description: String(item.nome.value),
+        quantity: Number(item.quantidade.value), unitPrice: Number(item.valor.value),
+        weightGrams: item.pesoGramas?.state === "NOT_APPLICABLE" ? 0 : Number(item.pesoGramas?.value) || 0,
+        weightState: item.pesoGramas?.state || "MISSING", materials: clone(item.materials || [])
+      }));
       const customer = session?.resolvedEntities?.customer || {};
-      const payload = { customerId: String(draft.customerId?.value || ""), customerName: String(draft.customer.value), customerPhone: String(customer.phone || ""), customerEmail: String(customer.email || ""), items: [{ productId: String(item.productId?.value || ""), description: String(item.nome.value), quantity, unitPrice, weightGrams: Number(item.pesoGramas?.value) || 0 }], weightGrams: Number(item.pesoGramas?.value) || 0, materials: clone(draft.materials || []), subtotal: Number((quantity * unitPrice).toFixed(2)), discount: 0, downPayment: Math.max(0, Number(draft.downPayment) || 0), status: String(draft.status || "aberto"), total: Number((quantity * unitPrice).toFixed(2)), metadata: { source: "AI_3D_CONFIRMED", notes: String(draft.notes || "") } };
+      const subtotal = Number(items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0).toFixed(2));
+      const payload = { customerId: String(draft.customerId?.value || ""), customerName: String(draft.customer.value), customerPhone: String(customer.phone || ""), customerEmail: String(customer.email || ""), items, weightGrams: items.reduce((sum, item) => sum + item.weightGrams * item.quantity, 0), materials: clone(draft.materials || []), subtotal, discount: 0, downPayment: Math.max(0, Number(draft.downPayment) || 0), status: String(draft.status || "aberto"), total: subtotal, metadata: { source: "AI_3D_CONFIRMED", notes: String(draft.notes || ""), quotedTotal: Number(draft.quotedTotal) || subtotal, weightState: items.every((item) => item.weightState === "NOT_APPLICABLE") ? "NOT_APPLICABLE" : "PROVIDED" } };
       const now = this.clock();
-      return { status: RESULT_STATUS.SUCCESS, operation: { operationId: id("operation"), capability: "ORDER.CREATE", accountId: String(actor.accountId || actor.userId || ""), companyId: String(actor.companyId || ""), taskId: String(session.activeTask?.taskId || ""), draftVersion: Number(draft.draftVersion) || 1, payload, payloadHash: payloadHash(payload), riskLevel: "MEDIUM_WRITE", permissionSnapshot: clone(permissionSnapshot), createdAt: new Date(now).toISOString(), expiresAt: new Date(now + this.ttlMs).toISOString(), status: OPERATION_STATUS.PREPARED } };
+      return { status: RESULT_STATUS.SUCCESS, operation: { operationId: operationId(), capability: "ORDER.CREATE", accountId: String(actor.accountId || actor.userId || ""), companyId: String(actor.companyId || ""), taskId: String(session.activeTask?.taskId || ""), draftVersion: Number(draft.draftVersion) || 1, payload, payloadHash: payloadHash(payload), riskLevel: "MEDIUM_WRITE", permissionSnapshot: clone(permissionSnapshot), createdAt: new Date(now).toISOString(), expiresAt: new Date(now + this.ttlMs).toISOString(), status: OPERATION_STATUS.PREPARED } };
     }
   }
   class IdempotencyManager {

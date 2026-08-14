@@ -1,4 +1,4 @@
-# Andamento — Assistente Core Universal e IA Local Multimodelo
+# Andamento — IA própria do Simplifica 3D
 
 Atualizado em: 2026-08-14
 
@@ -7,8 +7,8 @@ Legenda: `[x]` concluída e validada; `[~]` em implementação; `[ ]` não inici
 ## Etapas
 
 - [x] ETAPA 0 — Auditoria antes de alterar. Causa do aparelho novo confirmada por código e ADB em `AI_ARCHITECTURE_AUDIT.md`.
-- [x] ETAPA 1 — Núcleo reutilizável. `AppAssistantRuntime` instancia Core, UI, privacidade, provider web, tool contracts e namespaces por app; Simplifica, Rural, Tec e Editor foram criados simultaneamente e passaram no teste de isolamento.
-- [x] ETAPA 2 — App Manifest. Os quatro packs possuem appId/modelScope exclusivos e manifestos próprios com domínios, rotas, entidades, capabilities e contratos de adapters validados.
+- [x] ETAPA 1 — Núcleo privado. O Simplifica 3D carrega somente seu Core, UI, privacidade, provider, ferramentas e pack. O bootstrap multiapp e os packs de Rural/Tec foram removidos deste checkout.
+- [x] ETAPA 2 — App Manifest. O único pack distribuído possui `appId=modelScope=simplifica-3d`; Loja permanece domínio interno do ERP.
 - [~] ETAPA 3 — Contexto global da tela. Provider criado; registro em todas as rotas pendente.
 - [x] ETAPA 4 — Conversa única global. Memória persistente ligada ao chat atual; nova conversa limpa mensagens e estado operacional sem apagar dados do ERP. Fluxo validado no aparelho.
 - [~] ETAPA 5 — Contexto fixo 8192. Valor de referência aplicado no core; orçamento completo pendente.
@@ -40,8 +40,8 @@ Legenda: `[x]` concluída e validada; `[~]` em implementação; `[ ]` não inici
 - [~] ETAPA 31 — PWA. Provider Web agora implementa catálogo, seleção, ativação, download, cancelamento, remoção, prewarm, unload, benchmark opcional e envio pelo mesmo contrato do Android. A PWA degrada com mensagem honesta; runtime e artifact web reais ainda não foram publicados.
 - [~] ETAPA 32 — Storage PWA. OPFS preferencial e IndexedDB em blocos, namespace por aplicativo, quota/persistência, progresso, cancelamento, Range/resume, reinício seguro, tamanho exato, SHA-256, remoção e eviction foram implementados e testados por contrato. Teste com artifact grande em navegador real permanece na Etapa 45.
 - [x] ETAPA 33 — Service Worker separado do modelo. Core/app shell entram no cache; manifest usa rede e nenhum modelo é baixado/cacheado pelo SW.
-- [~] ETAPA 34 — Editor da Loja. Pack e runtime isolados somente leitura foram validados, sem capability/tool WRITE; a conexão aos serviços reais do projeto Editor da Loja permanece pendente no projeto correspondente.
-- [x] ETAPA 35 — Componentes reutilizáveis. `AssistantLauncher`, `AssistantPanel`, `AssistantComposer`, `AssistantContextChip`, `AssistantResultCard`, `AssistantConfirmation` e `AssistantAttachment` foram extraídos para o pacote visual compartilhado, recebem identidade/escopo do app e estão integrados ao Simplifica. Os quatro packs foram instanciados isoladamente em teste automatizado.
+- [x] ETAPA 34 — Editor da Loja. É domínio interno do Simplifica 3D e usa sua IA privada; não possui pack, runtime, memória ou modelo separados.
+- [x] ETAPA 35 — Componentes do Simplifica. `AssistantLauncher`, `AssistantPanel`, `AssistantComposer`, `AssistantContextChip`, `AssistantResultCard`, `AssistantConfirmation` e `AssistantAttachment` recebem exclusivamente a identidade `simplifica-3d`.
 - [x] ETAPA 36 — Ações contextuais. Home, Pedidos, Pedido, Estoque, Caixa, Calculadora e Produção exibem atalhos do contexto. Resumos de Home/Estoque/Caixa, listagem de pedidos, navegação e cálculo evitam LLM quando não necessário. A tela Estoque foi validada no Zenfone com resposta direta em cerca de 111 ms.
 - [~] ETAPA 37 — Cards de resultado. Cálculo, cliente, estoque, histórico de pedido, busca vazia/ambígua, confirmação e análise de imagem têm cards persistentes e ações via NavigationRegistry. Card específico de produção ainda pendente.
 - [~] ETAPA 38 — Estados de processamento. Pensando, consultando e analisando imagem refletem operações reais; granularidade específica para cada tool ainda será ampliada.
@@ -49,9 +49,9 @@ Legenda: `[x]` concluída e validada; `[~]` em implementação; `[ ]` não inici
 - [~] ETAPA 40 — Fallback de modelo. Android e PWA agora tentam outro modelo compatível somente no modo Automático e somente quando ele já está instalado/verificado; nunca iniciam download. O fallback Web Avançada → Equilibrada e a retenção do fallback passaram em teste. O Android compilou e a inferência E2B normal passou no Zenfone, mas o fallback físico E4B → E2B depende da disponibilidade futura do artifact E4B.
 - [x] ETAPA 41 — Comportamento por capabilities. Texto, visão, áudio e tools vêm do provider/runtime e do descriptor, sem inferência pelo nome. Câmera/galeria só abrem com `supportsVision`; a ausência de visão foi simulada na WebView real e mostrou orientação sem abrir o menu. O E2B real informou texto, visão e tools ativos no Zenfone.
 - [x] ETAPA 42 — Privacidade. Política local por padrão foi formalizada; Android e PWA local passam pela política e `RemoteModelProvider` bloqueia envio. Não existe fallback remoto, envio silencioso de imagem/contexto ou pesquisa web nesta fase.
-- [~] ETAPA 43 — Testes automatizados. Core, contexto, lifecycle, UX, componentes visuais, política de modelo/privacidade, segurança, paridade/transação de pedido, RLM e storage/provider PWA têm regressões automatizadas. `test:assistant-multi-app-runtime` cobre simultaneamente os quatro packs e prova isolamento de conversa, cache, configuração/modelScope, UI, privacidade, tools e rotas; o teste PWA cobre capacidade, interrupção, cancelamento, retomada, servidor sem Range, checksum, artifact grande, remoção, provider Web e fallback entre modelos já instalados. Falhas físicas e browsers reais ainda pendem.
-- [~] ETAPA 44 — Aparelho físico. APK 1.0.35/63 instalado com `adb install -r`; o modelo de 2.588.147.712 bytes foi preservado e o harness confirmou WebView, chat, core operacional e bootstrap universal carregados. Download próprio integral, SHA-256, retomada/cancelamento, inferência textual GPU, visão local com imagem real, orçamento → calculadora, cards persistentes, launcher arrastável e matriz das áreas principais já foram comprovados no mesmo Zenfone. Remoção e os seletores manuais de câmera/galeria permanecem para o aceite final.
-- [~] ETAPA 45 — Teste PWA. A PWA pública foi verificada servindo 1.0.35/63, cache `simplifica-3d-v1035-multi-app-runtime-20260814`, bootstrap universal e pack Rural atualizado. Cenários autenticados com/sem WebGPU, artifact real, reload, offline e remoção em browsers reais ainda pendentes porque não há runtime/artifact WebGPU publicado.
+- [~] ETAPA 43 — Testes automatizados. Core, contexto, lifecycle, UX, componentes visuais, política de modelo/privacidade, segurança, paridade/transação de pedido, RLM, financeiro canônico e storage/provider PWA têm regressões automatizadas. `test:assistant-app-isolation` impede packs estrangeiros, runtime multiapp e perda das identidades privadas Android/Web. Falhas físicas e browsers reais ainda pendem.
+- [~] ETAPA 44 — Aparelho físico. APK 1.0.36/64 gerado e instalado via ADB no ASUS; a WebView confirmou pacote, Core e chat corretos. O aparelho permaneceu bloqueado pelo Keyguard e deixou o documento invisível, então arrasto/toque e conversa visual ainda exigem conferência manual com a tela desbloqueada.
+- [~] ETAPA 45 — Teste PWA. A PWA 1.0.36 foi publicada em produção com cache `simplifica-3d-v1036-ai-financial-core-20260814`; versão, manifesto Android e ponte financeira foram confirmados no artefato remoto. Aceite autenticado, WebGPU/artifact real, reload e offline em browsers reais continuam pendentes.
 - [~] ETAPA 46 — Performance. Benchmark local registrou GPU, 9.560 ms de inicialização, 753 ms de geração e 2,32 tokens/s; ação determinística de estoque respondeu em cerca de 111 ms. Matriz comparativa entre aparelhos/PWA ainda pendente.
 - [x] ETAPA 47 — Limites registrados e preservados: sem web real, voz contínua, WRITE automático, vetores globais ou download silencioso.
 - [x] ETAPA 48 — Documentação. Os doze documentos obrigatórios de arquitetura, manifest, contexto/memória, tools, navegação, modelos, downloads Android/Web, UI, segurança, novo adapter e matriz de testes foram criados, além deste marcador de progresso.
@@ -59,7 +59,7 @@ Legenda: `[x]` concluída e validada; `[~]` em implementação; `[ ]` não inici
 
 ## Checkpoints de validação
 
-1. Fundação universal: contratos, manifests, memória, busca, navegação e tool registry.
+1. Fundação privada do Simplifica 3D: contratos, manifesto, memória, busca, navegação e tool registry.
 2. Integração Simplifica: rotas, contexto, sessão global, buscas e cards.
 3. Modelos Android: provider próprio, download opt-in, checksum, instalação, remoção e atualização.
 4. PWA: provider WebGPU, storage grande separado e degradação segura.

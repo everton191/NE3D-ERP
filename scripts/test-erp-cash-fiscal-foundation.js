@@ -38,6 +38,12 @@ const workerOrchestrationMigrationPath = path.join(
   "migrations",
   "20260525170000_erp_financial_worker_orchestration.sql"
 );
+const cancellationMigrationPath = path.join(
+  rootDir,
+  "supabase",
+  "migrations",
+  "20260814230410_order_financial_cancellation_atomic.sql"
+);
 const appJsPath = path.join(rootDir, "app.js");
 
 function fail(message) {
@@ -73,6 +79,9 @@ const reconciliationSql = fs.existsSync(reconciliationMigrationPath)
   : "";
 const workerOrchestrationSql = fs.existsSync(workerOrchestrationMigrationPath)
   ? fs.readFileSync(workerOrchestrationMigrationPath, "utf8").replace(/\s+/g, " ").trim()
+  : "";
+const cancellationSql = fs.existsSync(cancellationMigrationPath)
+  ? fs.readFileSync(cancellationMigrationPath, "utf8").replace(/\s+/g, " ").trim()
   : "";
 const appJs = fs.existsSync(appJsPath)
   ? fs.readFileSync(appJsPath, "utf8")
@@ -326,9 +335,16 @@ if (!shadowSql) {
 
 assertRegex(
   appJs,
-  /const metadadosOperacao = criarMetadadosOperacaoFinanceira\(pedidoEditando \? "pedido_update" : "pedido_create"/,
-  "Orders must generate financial shadow metadata."
+  /afterCommit:\s*\(\{ order, cashReceipt, command \}\)\s*=>\s*registrarEventoFinanceiroPedidoLocal/,
+  "Orders must enqueue the canonical financial event after the shared transaction commits."
 );
+assertIncludes(appJs, "/rest/v1/rpc/register_sale_financial_operation", "Orders must call the atomic financial RPC.");
+assertIncludes(appJs, "/rest/v1/rpc/register_order_financial_cancellation", "Order cancellation must call the atomic refund RPC.");
+assertIncludes(appJs, "getProjecaoFinanceiraCanonica", "Home and charts must have a canonical financial projection.");
+assertIncludes(cancellationSql, "v_refund_remaining", "Refund must be limited to registered sale movements.");
+assertIncludes(cancellationSql, "v_original_movement.payment_method_id", "Refund must preserve each original payment method.");
+assertIncludes(cancellationSql, "foreach v_session in array v_session_ids", "Refund must recalculate every affected cash session.");
+assertIncludes(cancellationSql, "revoke execute on function public.register_sale_financial_operation", "Financial RPCs must not remain executable by anonymous roles.");
 assertRegex(
   appJs,
   /criarMetadadosOperacaoFinanceira\("caixa_manual"/,

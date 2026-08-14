@@ -14,11 +14,9 @@ require("../src/assistant-core/models/web-local-model-provider.js");
 require("../src/assistant-core/models/device-capability-profiler.js");
 require("../src/assistant-core/engine/assistant-core.js");
 const pack = require("../apps/simplifica/assistant-pack/index.js");
-const ruralPack = require("../apps/rural/assistant-pack/index.js");
-const tecPack = require("../apps/tec/assistant-pack/index.js");
-const storeEditorPack = require("../apps/store-editor/assistant-pack/index.js");
-
-assert.deepStrictEqual(new Set([pack.modelScope, ruralPack.modelScope, tecPack.modelScope, storeEditorPack.modelScope]).size, 4, "cada aplicativo deve isolar seu armazenamento de modelo");
+assert.equal(pack.manifest.appId, "simplifica-3d");
+assert.equal(pack.modelScope, "simplifica-3d", "o catálogo e o armazenamento do modelo devem pertencer somente ao Simplifica 3D");
+assert.equal(typeof pack.createRuntime, "undefined", "o pack do Simplifica 3D não pode expor fábrica de runtime multiapp");
 
 const memoryStorage = (() => { const data = new Map(); return { getItem: (key) => data.get(key) || null, setItem: (key, value) => data.set(key, value) }; })();
 const core = new globalThis.UniversalAssistantCore.AssistantCore({ manifest: pack.manifest, storage: memoryStorage });
@@ -62,5 +60,5 @@ assert.equal(models.chooseAutomatic({ installedIds: ["leve"], platform: "android
   assert.equal(webStatus.available, false);
   assert.match(webStatus.reason, /WebGPU/);
   assert.equal(typeof globalThis.UniversalAssistantAttachments.ImageAttachmentStore, "function");
-  console.log("Fundação do Assistant Core universal validada.");
+  console.log("Fundação privada da IA do Simplifica 3D validada.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

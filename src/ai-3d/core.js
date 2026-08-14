@@ -1,7 +1,7 @@
 (function attachSimplifica3dAiCore(global) {
   "use strict";
 
-  const SLOT_STATE = Object.freeze({ MISSING: "MISSING", PROVIDED: "PROVIDED", RESOLVED: "RESOLVED", AMBIGUOUS: "AMBIGUOUS", INVALID: "INVALID" });
+  const SLOT_STATE = Object.freeze({ MISSING: "MISSING", PROVIDED: "PROVIDED", RESOLVED: "RESOLVED", NOT_APPLICABLE: "NOT_APPLICABLE", AMBIGUOUS: "AMBIGUOUS", INVALID: "INVALID" });
   const INTENT_TYPE = Object.freeze({ CONVERSATIONAL: "CONVERSATIONAL", TASK_UPDATE: "TASK_UPDATE", SUBTASK: "SUBTASK", NEW_TASK: "NEW_TASK", NAVIGATION: "NAVIGATION" });
   const TOOL_STATUS = Object.freeze({ SUCCESS: "SUCCESS", NEEDS_INFORMATION: "NEEDS_INFORMATION", AMBIGUOUS: "AMBIGUOUS", NOT_FOUND: "NOT_FOUND", PERMISSION_DENIED: "PERMISSION_DENIED", VALIDATION_ERROR: "VALIDATION_ERROR", UNAVAILABLE: "UNAVAILABLE", FAILURE: "FAILURE" });
   const OPERATION_TYPE = Object.freeze({ READ: "READ", SIMULATION: "SIMULATION", WRITE: "WRITE" });
@@ -13,18 +13,28 @@
   const normalizeSearch = (value) => normalizeText(value).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const slot = (value = null, state = SLOT_STATE.MISSING, source = "") => ({ value, state, source });
 
+  function createOrderDraftItem(seed = {}, unitPrice = 0) {
+    return {
+      productId: seed.productId ? slot(seed.productId, SLOT_STATE.RESOLVED, "tool") : slot(),
+      nome: seed.product ? slot(seed.product, SLOT_STATE.PROVIDED, "message") : slot(),
+      pesoGramas: seed.weightNotApplicable ? slot(null, SLOT_STATE.NOT_APPLICABLE, "message") : Number(seed.weightGrams) > 0 ? slot(Number(seed.weightGrams), SLOT_STATE.PROVIDED, "message") : slot(),
+      quantidade: Number(seed.quantity) > 0 ? slot(Number(seed.quantity), SLOT_STATE.PROVIDED, "message") : slot(1, SLOT_STATE.PROVIDED, "default"),
+      valor: Number(seed.unitPrice ?? unitPrice) > 0 ? slot(Number(seed.unitPrice ?? unitPrice), SLOT_STATE.PROVIDED, "message") : slot(),
+      materials: Array.isArray(seed.materials) ? clone(seed.materials) : []
+    };
+  }
+
   function createOrderDraft(seed = {}) {
+    const seeds = Array.isArray(seed.items) && seed.items.length ? seed.items : [{ product: seed.product, productId: seed.productId, weightGrams: seed.weightGrams, weightNotApplicable: seed.weightNotApplicable, quantity: seed.quantity, unitPrice: seed.unitPrice, materials: seed.materials }];
+    const quantityTotal = seeds.reduce((sum, item) => sum + Math.max(1, Number(item.quantity) || 1), 0);
+    const distributedUnitPrice = Number(seed.totalPrice) > 0 && quantityTotal > 0 ? Number(seed.totalPrice) / quantityTotal : 0;
     return {
       kind: "ORDER",
       draftVersion: 1,
       customer: seed.customer ? slot(seed.customer, SLOT_STATE.PROVIDED, "message") : slot(),
       customerId: seed.customerId ? slot(seed.customerId, SLOT_STATE.RESOLVED, "tool") : slot(),
-      items: [{
-        nome: seed.product ? slot(seed.product, SLOT_STATE.PROVIDED, "message") : slot(),
-        pesoGramas: Number(seed.weightGrams) > 0 ? slot(Number(seed.weightGrams), SLOT_STATE.PROVIDED, "message") : slot(),
-        quantidade: Number(seed.quantity) > 0 ? slot(Number(seed.quantity), SLOT_STATE.PROVIDED, "message") : slot(1, SLOT_STATE.PROVIDED, "default"),
-        valor: Number(seed.unitPrice) > 0 ? slot(Number(seed.unitPrice), SLOT_STATE.PROVIDED, "message") : slot()
-      }],
+      items: seeds.map((item) => createOrderDraftItem(item, distributedUnitPrice)),
+      quotedTotal: Number(seed.totalPrice) > 0 ? Number(seed.totalPrice) : 0,
       materials: Array.isArray(seed.materials) ? clone(seed.materials) : [],
       downPayment: Number(seed.downPayment) > 0 ? Number(seed.downPayment) : 0,
       status: String(seed.status || "aberto"),
@@ -34,10 +44,16 @@
 
   function missingSlots(draft) {
     if (!draft) return [];
-    const item = draft.items?.[0] || {};
-    return [
-      ["customer", draft.customer], ["product", item.nome], ["weightGrams", item.pesoGramas], ["unitPrice", item.valor]
-    ].filter(([, entry]) => !entry || [SLOT_STATE.MISSING, SLOT_STATE.AMBIGUOUS, SLOT_STATE.INVALID].includes(entry.state)).map(([name]) => name);
+    const missingStates = new Set([SLOT_STATE.MISSING, SLOT_STATE.AMBIGUOUS, SLOT_STATE.INVALID]);
+    const missing = missingStates.has(draft.customer?.state) ? ["customer"] : [];
+    const items = Array.isArray(draft.items) ? draft.items : [];
+    items.forEach((item, index) => {
+      const prefix = items.length > 1 ? `items[${index}].` : "";
+      if (!item?.nome || missingStates.has(item.nome.state)) missing.push(`${prefix}product`);
+      if (!item?.pesoGramas || missingStates.has(item.pesoGramas.state)) missing.push(`${prefix}weightGrams`);
+      if (!item?.valor || missingStates.has(item.valor.state)) missing.push(`${prefix}unitPrice`);
+    });
+    return missing;
   }
 
   class ConversationSession {
@@ -101,16 +117,20 @@
       this.session.pendingAction = null;
       return this.save();
     }
-    updateSlot(name, value, state = SLOT_STATE.PROVIDED, source = "message") {
+    updateSlot(name, value, state = SLOT_STATE.PROVIDED, source = "message", options = {}) {
       const draft = this.session.activeDraft;
       if (!draft) return this.session;
-      const item = draft.items?.[0];
+      const itemIndex = Math.max(0, Math.min((draft.items?.length || 1) - 1, Number(options.itemIndex) || 0));
+      const item = draft.items?.[itemIndex];
       if (name === "customer") draft.customer = slot(value, state, source);
       if (name === "customerId") draft.customerId = slot(value, state, source);
-      if (name === "product") item.nome = slot(value, state, source);
-      if (name === "weightGrams") item.pesoGramas = slot(Number(value), state, source);
-      if (name === "quantity") item.quantidade = slot(Number(value), state, source);
-      if (name === "unitPrice") item.valor = slot(Number(value), state, source);
+      const targets = options.allItems ? draft.items : [item];
+      targets.filter(Boolean).forEach((target) => {
+        if (name === "product") target.nome = slot(value, state, source);
+        if (name === "weightGrams") target.pesoGramas = state === SLOT_STATE.NOT_APPLICABLE ? slot(null, state, source) : slot(Number(value), state, source);
+        if (name === "quantity") target.quantidade = slot(Number(value), state, source);
+        if (name === "unitPrice") target.valor = slot(Number(value), state, source);
+      });
       draft.draftVersion = (Number(draft.draftVersion) || 1) + 1;
       if (this.session.pendingAction?.status === "CONFIRMATION_PENDING") this.session.pendingAction.status = "STALE";
       if (this.session.pendingAction) this.session.conversationState = "COLLECTING_INFORMATION";
@@ -137,8 +157,26 @@
     const source = normalizeText(text);
     const weight = source.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gramas?)\b/i);
     const quantity = source.match(/(?:quantidade|qtd)\s*(?:de|:)?\s*(\d+)/i);
-    const customer = source.match(/\bpara\s+(?:o\s+|a\s+)?([A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ][\p{L}'-]*(?:\s+[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇ][\p{L}'-]*){0,2})(?=[,.!?]|$)/u);
-    return { customer: customer?.[1] || "", weightGrams: weight ? Number(weight[1].replace(",", ".")) : 0, quantity: quantity ? Number(quantity[1]) : 0 };
+    const total = source.match(/\bpor\s+r?\$\s*(\d+(?:[.,]\d+)?)/i);
+    const beforePrice = total ? source.slice(0, total.index) : source;
+    const customerMarker = beforePrice.toLowerCase().lastIndexOf(" para ");
+    const customer = customerMarker >= 0 ? beforePrice.slice(customerMarker + 6).trim().replace(/[,.!?]+$/, "") : "";
+    const orderPrefix = source.match(/\bpedido\s+(?:de|com)\s+/i);
+    const orderStart = orderPrefix ? Number(orderPrefix.index) + orderPrefix[0].length : -1;
+    const itemsEnd = customerMarker >= 0 ? customerMarker : beforePrice.length;
+    const itemsSource = orderStart >= 0 ? source.slice(orderStart, itemsEnd).trim() : "";
+    const items = itemsSource.split(/\s+e\s+(?=\d+\b)/i).map((part) => {
+      const match = part.trim().match(/^(\d+)\s+(.+?)\s*$/u);
+      const product = match?.[2]?.trim() || "";
+      return match && !/^(?:g|gramas?)$/i.test(product) ? { quantity: Number(match[1]), product, weightGrams: weight ? Number(weight[1].replace(",", ".")) : 0 } : null;
+    }).filter(Boolean);
+    return {
+      customer,
+      weightGrams: weight ? Number(weight[1].replace(",", ".")) : 0,
+      quantity: quantity ? Number(quantity[1]) : (items[0]?.quantity || 0),
+      items,
+      totalPrice: total ? Number(total[1].replace(",", ".")) : 0
+    };
   }
 
   function extractPricingArguments(text) {
@@ -160,8 +198,10 @@
 
   function extractNavigationTarget(text) {
     const value = normalizeSearch(text).replace(/[?.!]+$/g, "");
+    const directQuoteRequest = /^(?:quero\s+)?(?:fazer|montar|criar)?\s*(?:um\s+)?orcamento(?:\s+na\s+calculadora)?$/.test(value);
     const explicit = /\b(abrir|abre|abra|ir|va|vai|leva|leve|acesse|acessar|entrar|entre|voltar|volta)\b/.test(value)
-      || /\b(?:mostrar|mostre)\s+(?:a\s+)?tela\b/.test(value);
+      || /\b(?:mostrar|mostre)\s+(?:a\s+)?tela\b/.test(value)
+      || directQuoteRequest;
     if (!explicit) return null;
     if (/\b(novo pedido|novo orcamento|criar pedido)\b/.test(value)) return { routeId: "orders.new", label: "Novo pedido" };
     if (/\b(home|inicio|pagina inicial|tela inicial)\b/.test(value)) return { routeId: "dashboard", label: "Início" };
@@ -174,6 +214,7 @@
 
   function extractStockQuery(text) {
     return normalizeText(text)
+      .replace(/^quanto\s+(?:eu\s+)?tenho\s+de\s+/i, "")
       .replace(/^(?:veja|verifica|verifique|procura|procure|consulta|consulte)\s+(?:se\s+)?(?:tem\s+)?/i, "")
       .replace(/^(?:tem|estoque de)\s+/i, "")
       .replace(/\s+(?:no|em)\s+estoque[?.!]*$/i, "")
@@ -191,12 +232,16 @@
       const pricingRequest = /\b(orcamento|quanto(?:\s+vai)?\s+(?:dar|custar|ficar)|quanto custa|preco|valor|calcula|calcular|custo)\b/i.test(value)
         || (pricing.weightGrams > 0 && pricing.timeMinutes > 0);
       if (pricingRequest && (pricing.weightGrams > 0 || pricing.timeMinutes > 0)) return { type: INTENT_TYPE.SUBTASK, intent: "PRICE.CALCULATE", arguments: pricing };
+      if (session?.activeTask && session.pendingAction && /^(sim|confirmo|confirma|pode confirmar|pode salvar|pode criar|salva|cria|criar esse pedido|crie esse pedido|salvar esse pedido)[.!]?$/i.test(value)) {
+        return { type: INTENT_TYPE.TASK_UPDATE, action: "CONFIRM_PENDING", fastPath: true };
+      }
       if (/\b(cria|criar|monte|montar|novo)\b.*\bpedido\b/.test(value)) return { type: INTENT_TYPE.NEW_TASK, intent: "ORDER.CREATE", seed: extractOrderSeed(raw) };
-      if (/\b(veja|verifica|verifique|procura|procure|consulta|consulte|tem|estoque)\b.*\b(pingente|sacola|embalagem|argola|pla|petg|abs|resina|filamento|material)\w*\b/i.test(value)) {
+      if (/\b(veja|verifica|verifique|procura|procure|consulta|consulte|tem|estoque)\b.*\b(pingente|sacola|embalagem|argola|pla|petg|abs|resina|filamento|material)\w*\b/i.test(value)
+        || /\bquanto\s+(?:eu\s+)?tenho\s+de\s+.+\b(?:no\s+)?estoque\b/i.test(value)) {
         return { type: INTENT_TYPE.SUBTASK, intent: "STOCK.SEARCH", arguments: { query: extractStockQuery(raw) } };
       }
       if (/\b(quanto|qual|quais|resumo|mostre|mostrar|consulte|consultar)\b.*\b(saldo|entradas|saidas|caixa|financeiro|vendi|vendas|faturei|faturamento)\b|\b(saldo|resumo)\s+(?:do\s+)?caixa\b/i.test(value)) {
-        return { type: INTENT_TYPE.SUBTASK, intent: "CASH.SUMMARY", arguments: { period: /\bhoje\b/.test(value) ? "today" : "all" } };
+        return { type: INTENT_TYPE.SUBTASK, intent: "CASH.SUMMARY", arguments: { period: /\bhoje\b/.test(value) ? "today" : "all", metric: /\b(vendi|vendas|faturei|faturamento)\b/.test(value) ? "sales" : "cash" } };
       }
       if (/\b(quais|quantos|liste|listar|mostre|mostrar|consulte|consultar)\b.*\bpedidos\b|\bresumo\s+(?:dos\s+)?pedidos\b/i.test(value)) {
         return { type: INTENT_TYPE.SUBTASK, intent: "ORDER.SEARCH", arguments: { query: "", limit: 10 } };
@@ -209,8 +254,9 @@
       }
       if (!session?.activeTask) return pricingRequest ? { type: INTENT_TYPE.NAVIGATION, intent: "APP.NAVIGATE", routeId: "calculator", label: "Calculadora" } : { type: INTENT_TYPE.CONVERSATIONAL };
       if (/^(cancela|cancelar|deixa isso|esquece)(\s+(esse|este|o)\s+pedido)?[.!]?$/i.test(value)) return { type: INTENT_TYPE.TASK_UPDATE, action: "CANCEL_TASK" };
-      if (/^(sim|confirmo|confirma|pode confirmar|pode salvar|pode criar|salva|cria)[.!]?$/i.test(value) && session.pendingAction) return { type: INTENT_TYPE.TASK_UPDATE, action: "CONFIRM_PENDING", fastPath: true };
+      if (/^(sim|confirmo|confirma|pode confirmar|pode salvar|pode criar|salva|cria|criar esse pedido|crie esse pedido|salvar esse pedido)[.!]?$/i.test(value) && session.pendingAction) return { type: INTENT_TYPE.TASK_UPDATE, action: "CONFIRM_PENDING", fastPath: true };
       if (/^(prepara|preparar|prepare|revisa|revisar|validar|pode preparar|pode criar|crie|salve|pode salvar)(\s+(esse|este|o)\s+pedido)?[.!]?$/i.test(value)) return { type: INTENT_TYPE.TASK_UPDATE, action: "PREPARE_OPERATION", fastPath: true };
+      if (/^(sem peso|peso n[aã]o se aplica|n[aã]o tem peso|n[aã]o precisa de peso)[.!]?$/i.test(value)) return { type: INTENT_TYPE.TASK_UPDATE, updates: { weightGrams: null }, updateState: SLOT_STATE.NOT_APPLICABLE, allItems: true, fastPath: true };
       if (/^(calcula|calcule|pode calcular|prefiro que calcule)[.!]?$/i.test(value)) return { type: INTENT_TYPE.SUBTASK, intent: "PRICE.CALCULATE", arguments: {} };
       const explicitPrice = raw.match(/(?:ent[aã]o\s+)?(?:coloca|coloque|define|p[oõ]e|use)\s+(?:por\s+)?r?\$?\s*(\d+(?:[.,]\d+)?)/i);
       if (explicitPrice) return { type: INTENT_TYPE.TASK_UPDATE, updates: { unitPrice: Number(explicitPrice[1].replace(",", ".")) } };
@@ -223,6 +269,53 @@
       if (item?.nome?.state === SLOT_STATE.MISSING && /^[\p{L}\d][\p{L}\d -]{1,60}[.!]?$/u.test(raw)) return { type: INTENT_TYPE.TASK_UPDATE, updates: { product: raw.replace(/[.!]$/, "") } };
       return { type: INTENT_TYPE.CONVERSATIONAL };
     }
+  }
+
+  class TaskResolver extends ContinuationResolver {
+    resolve(text, session) { return this.classify(text, session); }
+  }
+
+  class RequirementEngine {
+    evaluate(draft) {
+      const missing = missingSlots(draft);
+      return { status: missing.length ? "NEEDS_INFORMATION" : "READY", missing };
+    }
+    isReady(draft) { return this.evaluate(draft).status === "READY"; }
+  }
+
+  class DraftEngine {
+    constructor(manager) { this.manager = manager; }
+    update(name, value, options = {}) {
+      return this.manager.updateSlot(name, value, options.state || SLOT_STATE.PROVIDED, options.source || "message", options);
+    }
+    markNotApplicable(name, options = {}) {
+      return this.manager.updateSlot(name, null, SLOT_STATE.NOT_APPLICABLE, options.source || "message", options);
+    }
+    snapshot() { return clone(this.manager.session.activeDraft); }
+  }
+
+  class EntityResolver {
+    resolve(query, candidates = [], getLabel = (candidate) => candidate?.name || candidate?.label || "") {
+      const normalized = normalizeSearch(query);
+      const safe = (Array.isArray(candidates) ? candidates : []).filter(Boolean);
+      const exact = safe.filter((candidate) => normalizeSearch(getLabel(candidate)) === normalized);
+      if (exact.length === 1) return { status: TOOL_STATUS.SUCCESS, entity: exact[0], matches: exact };
+      if (exact.length > 1) return { status: TOOL_STATUS.AMBIGUOUS, matches: exact };
+      if (safe.length === 1) return { status: TOOL_STATUS.SUCCESS, entity: safe[0], matches: safe };
+      if (safe.length > 1) return { status: TOOL_STATUS.AMBIGUOUS, matches: safe };
+      return { status: TOOL_STATUS.NOT_FOUND, matches: [] };
+    }
+  }
+
+  class LoopGuard {
+    constructor({ maxRepeats = 2 } = {}) { this.maxRepeats = Math.max(1, Number(maxRepeats) || 2); this.lastSignature = ""; this.repeats = 0; }
+    check({ session, question = "" } = {}) {
+      const signature = JSON.stringify({ taskId: session?.activeTask?.taskId || "", draftVersion: session?.activeDraft?.draftVersion || 0, missing: session?.missingSlots || [], question });
+      this.repeats = signature === this.lastSignature ? this.repeats + 1 : 1;
+      this.lastSignature = signature;
+      return { allowed: this.repeats <= this.maxRepeats, prevented: this.repeats > this.maxRepeats, repeats: this.repeats, signature };
+    }
+    reset() { this.lastSignature = ""; this.repeats = 0; }
   }
 
   class ContextBuilder {
@@ -269,7 +362,7 @@
     }
   }
 
-  const api = Object.freeze({ SLOT_STATE, INTENT_TYPE, TOOL_STATUS, OPERATION_TYPE, CAPABILITY_STATE, ConversationSession, ConversationTaskManager, ContinuationResolver, TaskStack, ContextBuilder, CapabilityRegistry, ToolRegistry, createOrderDraft, missingSlots, extractOrderSeed, extractPricingArguments, extractNavigationTarget, extractStockQuery, normalizeSearch });
+  const api = Object.freeze({ SLOT_STATE, INTENT_TYPE, TOOL_STATUS, OPERATION_TYPE, CAPABILITY_STATE, ConversationSession, ConversationTaskManager, ContinuationResolver, TaskResolver, RequirementEngine, DraftEngine, EntityResolver, LoopGuard, TaskStack, ContextBuilder, CapabilityRegistry, ToolRegistry, createOrderDraft, missingSlots, extractOrderSeed, extractPricingArguments, extractNavigationTarget, extractStockQuery, normalizeSearch });
   global.Simplifica3dAiCore = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

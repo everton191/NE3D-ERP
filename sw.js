@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1035-multi-app-runtime-20260814";
+const CACHE_NAME = "simplifica-3d-v1036-ai-financial-core-20260814";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -23,6 +23,7 @@ const APP_FILES = [
   "./src/services/calculatorDomain.js",
   "./src/services/simplifica3dAiActions.js",
   "./src/services/simplifica3dAiRuntime.js",
+  "./src/services/simplifica3dFinancialCore.js",
   "./src/assistant-core/schemas/contracts.js",
   "./src/assistant-core/context/context-manager.js",
   "./src/assistant-core/memory/conversation-memory.js",
@@ -39,11 +40,7 @@ const APP_FILES = [
   "./src/assistant-core/models/web-local-model-provider.js",
   "./src/assistant-core/models/device-capability-profiler.js",
   "./src/assistant-core/engine/assistant-core.js",
-  "./src/assistant-core/engine/app-assistant-runtime.js",
   "./apps/simplifica/assistant-pack/index.js",
-  "./apps/rural/assistant-pack/index.js",
-  "./apps/tec/assistant-pack/index.js",
-  "./apps/store-editor/assistant-pack/index.js",
   "./src/ai-3d/core.js",
   "./src/ai-3d/operation-safety.js",
   "./src/ai-3d/canonical-order.js",

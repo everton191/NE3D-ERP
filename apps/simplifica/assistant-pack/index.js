@@ -43,10 +43,7 @@
     modelScope: "simplifica-3d",
     status: "ACTIVE",
     manifest,
-    tools,
-    createRuntime(options = {}) {
-      return new global.UniversalAssistantAppRuntime.AppAssistantRuntime({ ...options, pack: api });
-    }
+    tools
   };
   Object.freeze(api);
   global.SimplificaAssistantPack = api;

@@ -2,15 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.35";
-const APP_VERSION_CODE = 63;
+const APP_VERSION = "1.0.36";
+const APP_VERSION_CODE = 64;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "A Assistente continua direcionando corretamente Home, Pedidos, Estoque, Calculadora e Caixa.",
-  "Orçamentos abrem a calculadora real já preenchida, sem pedir o preço do filamento.",
-  "O botão da IA continua arrastável e mantém sua posição.",
-  "Cada aplicativo agora possui conversa, cache, ferramentas e configuração de modelo separados.",
-  "Rural, Tec e Editor da Loja receberam estruturas próprias, sem misturar dados com o Simplifica 3D."
+  "A Assistente direciona Home, Pedidos, Estoque, Calculadora e Caixa pelas funções reais do Simplifica 3D.",
+  "Orçamentos abrem a calculadora mesmo sem peso e usam o preço de filamento já configurado.",
+  "Pedidos com vários itens aceitam ‘Sem peso’, pedem uma confirmação e abrem o pedido criado.",
+  "Vendas, Caixa, Home e gráficos usam a mesma projeção financeira, com sincronização idempotente.",
+  "O botão da IA é arrastável, respeita os limites da tela e mantém sua posição."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";
@@ -6387,7 +6387,8 @@ function gerarUuidOperacional() {
   try {
     if (crypto?.randomUUID) return crypto.randomUUID();
   } catch (_) {}
-  return "op-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+  return window.Simplifica3dFinancialCore?.uuidFrom?.(`operation:${Date.now()}:${Math.random()}`)
+    || "00000000-0000-4000-8000-000000000000";
 }
 
 function gerarHashOperacional(valor = "") {
@@ -6505,6 +6506,291 @@ function registrarShadowFinanceiroLocal(tipo, detalhes = {}) {
       device_id: deviceId
     }).slice(0, 900), { silent: true });
   } catch (_) {}
+}
+
+function getEmpresaIdFinanceiroAtual() {
+  return String(billingConfig.companyId || getUsuarioAtual()?.companyId || getUsuarioAtual()?.company_id || "").trim();
+}
+
+function getChaveEstadoFinanceiroCanonico() {
+  const escopo = getEscopoDadosAtual?.() || getDataOwnerId() || "local";
+  return `simplifica:financial-canonical:v1:${escopo}`;
+}
+
+function criarEstadoFinanceiroCanonicoVazio() {
+  return { version: 1, events: [], operations: [], movements: [], paymentMethods: [], updatedAt: "", lastError: "" };
+}
+
+function carregarEstadoFinanceiroCanonico() {
+  try {
+    const salvo = JSON.parse(localStorage.getItem(getChaveEstadoFinanceiroCanonico()) || "null");
+    if (!salvo || typeof salvo !== "object") return criarEstadoFinanceiroCanonicoVazio();
+    return {
+      ...criarEstadoFinanceiroCanonicoVazio(),
+      ...salvo,
+      events: Array.isArray(salvo.events) ? salvo.events.slice(-300) : [],
+      operations: Array.isArray(salvo.operations) ? salvo.operations.slice(0, 600) : [],
+      movements: Array.isArray(salvo.movements) ? salvo.movements.slice(0, 800) : [],
+      paymentMethods: Array.isArray(salvo.paymentMethods) ? salvo.paymentMethods : []
+    };
+  } catch (_) {
+    return criarEstadoFinanceiroCanonicoVazio();
+  }
+}
+
+function salvarEstadoFinanceiroCanonico(estado) {
+  const seguro = { ...criarEstadoFinanceiroCanonicoVazio(), ...(estado || {}), updatedAt: new Date().toISOString() };
+  try { localStorage.setItem(getChaveEstadoFinanceiroCanonico(), JSON.stringify(seguro)); }
+  catch (_) {}
+  return seguro;
+}
+
+function operacaoRemotaDeEventoFinanceiro(evento = {}) {
+  return {
+    id: `local:${evento.operationUuid}`,
+    operation_uuid: evento.operationUuid,
+    client_request_id: evento.clientRequestId,
+    sale_id: evento.orderId,
+    operation_type: evento.eventType === "cancel" ? "refund" : "sale",
+    status: "completed",
+    payload_json: { sale_id: evento.orderId, total_amount: evento.totalAmount, metadata: evento.metadata },
+    created_at: evento.createdAt || evento.orderCreatedAt || new Date().toISOString(),
+    updated_at: evento.updatedAt || evento.createdAt || new Date().toISOString(),
+    source: "local_financial_event"
+  };
+}
+
+function movimentoRemotoDeEventoFinanceiro(evento = {}) {
+  const amount = evento.eventType === "cancel" ? Number(evento.refundAmount) || 0 : Number(evento.receivedAmount) || 0;
+  if (!(amount > 0)) return null;
+  return {
+    id: `local-movement:${evento.operationUuid}`,
+    operation_uuid: evento.operationUuid,
+    type: evento.eventType === "cancel" ? "estorno" : "sale",
+    amount,
+    reference_collection: "pedidos",
+    reference_id: evento.orderId,
+    created_at: evento.createdAt || new Date().toISOString(),
+    source: "local_financial_event"
+  };
+}
+
+function operacaoFinanceiraLegadaDoPedido(pedido = {}) {
+  const F = window.Simplifica3dFinancialCore;
+  if (!F || !pedido?.id) return null;
+  const elegivel = F.isOrderSaleEligible(pedido);
+  return {
+    id: `legacy-order:${pedido.id}`,
+    sale_id: String(pedido.id),
+    operation_type: elegivel ? "sale" : "refund",
+    status: "completed",
+    payload_json: {
+      sale_id: String(pedido.id),
+      total_amount: elegivel ? totalPedido(pedido) : 0,
+      metadata: {
+        event_type: elegivel ? "legacy_projection" : "cancel",
+        order_status: pedido.status || "aberto",
+        order_created_at: pedido.criadoEm || pedido.createdAt || pedido.created_at || pedido.data || "",
+        source: "legacy_order_projection"
+      }
+    },
+    created_at: pedido.criadoEm || pedido.createdAt || pedido.created_at || pedido.data || new Date(0).toISOString(),
+    updated_at: pedido.updatedAt || pedido.updated_at || pedido.atualizadoEm || pedido.criadoEm || pedido.createdAt || new Date(0).toISOString(),
+    source: "legacy_order_projection"
+  };
+}
+
+function getDadosFinanceirosCanonicosComFallback() {
+  const estado = carregarEstadoFinanceiroCanonico();
+  const operations = [...estado.operations];
+  const movements = [...estado.movements];
+  const operationKeys = new Set(operations.map((operation) => String(operation.operation_uuid || "")).filter(Boolean));
+  const saleIds = new Set(operations.map((operation) => String(operation.sale_id || "")).filter(Boolean));
+  estado.events.forEach((evento) => {
+    if (!operationKeys.has(String(evento.operationUuid || ""))) operations.push(operacaoRemotaDeEventoFinanceiro(evento));
+    if (evento.syncStatus !== "synced") {
+      const movement = movimentoRemotoDeEventoFinanceiro(evento);
+      if (movement) movements.push(movement);
+    }
+    saleIds.add(String(evento.orderId || ""));
+  });
+  pedidos.forEach((pedido) => {
+    if (saleIds.has(String(pedido.id))) return;
+    const legacy = operacaoFinanceiraLegadaDoPedido(pedido);
+    if (legacy) operations.push(legacy);
+  });
+  return { estado, operations, movements };
+}
+
+function getProjecaoFinanceiraCanonica(periodo = "mes", opcoes = {}) {
+  const F = window.Simplifica3dFinancialCore;
+  if (!F) return null;
+  const dados = getDadosFinanceirosCanonicosComFallback();
+  if (String(periodo || "").toLowerCase() === "all") {
+    return F.projectFinancialState({ operations: dados.operations, movements: dados.movements });
+  }
+  const intervalo = criarIntervaloPeriodoLocal(periodo, opcoes);
+  return F.projectFinancialState({ operations: dados.operations, movements: dados.movements, from: intervalo.start, to: intervalo.end });
+}
+
+function atualizarMarcadorFinanceiroPedido(order, patch = {}) {
+  if (!order) return;
+  Object.assign(order, patch);
+  const index = pedidos.findIndex((item) => String(item.id) === String(order.id));
+  if (index >= 0) pedidos[index] = { ...pedidos[index], ...patch };
+}
+
+let sincronizacaoFinanceiraCanonicaEmAndamento = null;
+let atualizacaoFinanceiraCanonicaTimer = null;
+
+function registrarEventoFinanceiroPedidoLocal(order, cashReceipt = null, eventType = "create") {
+  const F = window.Simplifica3dFinancialCore;
+  if (!F || !order) return { status: "BLOCKED", reason: "FINANCIAL_CORE_UNAVAILABLE" };
+  const companyId = getEmpresaIdFinanceiroAtual();
+  if (!F.isUuid(companyId)) {
+    atualizarMarcadorFinanceiroPedido(order, { financial_operation_status: "pending_company", financial_sync_error: "COMPANY_UUID_REQUIRED" });
+    salvarDados();
+    return { status: "PENDING", reason: "COMPANY_UUID_REQUIRED" };
+  }
+  const eventoBase = F.buildOrderFinancialEvent({ order, cashReceipt, companyId, eventType });
+  const agora = new Date().toISOString();
+  const evento = { ...eventoBase, createdAt: agora, updatedAt: agora, syncStatus: "pending_sync", syncAttempts: 0, lastError: "" };
+  const estado = carregarEstadoFinanceiroCanonico();
+  const events = estado.events.filter((item) => String(item.operationUuid) !== String(evento.operationUuid));
+  salvarEstadoFinanceiroCanonico({ ...estado, events: [...events, evento].slice(-300), lastError: "" });
+  atualizarMarcadorFinanceiroPedido(order, {
+    financial_operation_uuid: evento.operationUuid,
+    financial_operation_status: "pending_sync",
+    financial_event_type: evento.eventType,
+    financial_sync_error: ""
+  });
+  salvarDados();
+  agendarSincronizacaoFinanceiraCanonica(80);
+  return { status: "QUEUED", event: evento };
+}
+
+async function garantirMetodosPagamentoFinanceiros(companyId) {
+  const estado = carregarEstadoFinanceiroCanonico();
+  if (estado.paymentMethods.some((method) => method?.id && method?.type)) return estado.paymentMethods;
+  await requisicaoSupabase("/rest/v1/rpc/ensure_default_payment_methods", { method: "POST", body: JSON.stringify({ p_empresa_id: companyId }) });
+  const methods = await requisicaoSupabase(`/rest/v1/payment_methods?empresa_id=eq.${encodeURIComponent(companyId)}&active=is.true&select=id,name,type&order=name.asc`);
+  salvarEstadoFinanceiroCanonico({ ...estado, paymentMethods: Array.isArray(methods) ? methods : [] });
+  return Array.isArray(methods) ? methods : [];
+}
+
+async function atualizarCacheFinanceiroCanonicoRemoto(companyId = getEmpresaIdFinanceiroAtual()) {
+  const F = window.Simplifica3dFinancialCore;
+  if (!F?.isUuid(companyId) || !syncConfig.supabaseAccessToken || !estaOnline()) return { status: "SKIPPED" };
+  const filtro = `empresa_id=eq.${encodeURIComponent(companyId)}`;
+  const [operations, movements] = await Promise.all([
+    requisicaoSupabase(`/rest/v1/erp_financial_operations?${filtro}&select=id,operation_uuid,client_request_id,operation_type,status,sale_id,payload_json,result_json,created_at,updated_at&order=created_at.desc&limit=600`),
+    requisicaoSupabase(`/rest/v1/cash_movements?${filtro}&select=id,session_id,type,amount,payment_method_id,description,reference_collection,reference_id,operation_uuid,client_request_id,metadata_json,created_at&order=created_at.desc&limit=800`)
+  ]);
+  const estado = carregarEstadoFinanceiroCanonico();
+  salvarEstadoFinanceiroCanonico({ ...estado, operations: Array.isArray(operations) ? operations : [], movements: Array.isArray(movements) ? movements : [], lastError: "" });
+  return { status: "SUCCESS", operations: operations?.length || 0, movements: movements?.length || 0 };
+}
+
+async function sincronizarEventosFinanceirosPendentes() {
+  if (sincronizacaoFinanceiraCanonicaEmAndamento) return sincronizacaoFinanceiraCanonicaEmAndamento;
+  sincronizacaoFinanceiraCanonicaEmAndamento = (async () => {
+    const F = window.Simplifica3dFinancialCore;
+    const companyId = getEmpresaIdFinanceiroAtual();
+    if (!F?.isUuid(companyId) || !syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return { status: "SKIPPED" };
+    let estado = carregarEstadoFinanceiroCanonico();
+    const pendentes = estado.events.filter((evento) => evento.syncStatus !== "synced").slice(0, 30);
+    let synced = 0;
+    for (const evento of pendentes) {
+      try {
+        let paymentMethodId = null;
+        if (evento.eventType !== "cancel" && Number(evento.receivedCents) > 0) {
+          const methods = await garantirMetodosPagamentoFinanceiros(companyId);
+          paymentMethodId = methods.find((method) => String(method.type || "").toLowerCase() === String(evento.paymentType || "").toLowerCase())?.id || null;
+        }
+        const payments = evento.eventType !== "cancel" && Number(evento.receivedCents) > 0 ? [{
+          payment_method_id: paymentMethodId,
+          amount: evento.receivedAmount,
+          payment_status: "approved",
+          external_reference: evento.clientRequestId,
+          metadata: { source: "simplifica-3d", order_id: evento.orderId, event_type: evento.eventType }
+        }] : [];
+        const result = evento.eventType === "cancel"
+          ? await requisicaoSupabase("/rest/v1/rpc/register_order_financial_cancellation", {
+              method: "POST",
+              body: JSON.stringify({
+                p_empresa_id: companyId,
+                p_sale_id: evento.orderId,
+                p_refund_amount: evento.refundAmount,
+                p_operation_uuid: evento.operationUuid,
+                p_client_request_id: evento.clientRequestId,
+                p_request_hash: evento.requestHash,
+                p_created_from_device: evento.createdFromDevice || deviceId,
+                p_metadata_json: evento.metadata
+              })
+            })
+          : await requisicaoSupabase("/rest/v1/rpc/register_sale_financial_operation", {
+              method: "POST",
+              body: JSON.stringify({
+                p_empresa_id: companyId,
+                p_sale_id: evento.orderId,
+                p_total_amount: evento.totalAmount,
+                p_payments_json: payments,
+                p_operation_uuid: evento.operationUuid,
+                p_client_request_id: evento.clientRequestId,
+                p_request_hash: evento.requestHash,
+                p_created_from_device: evento.createdFromDevice || deviceId,
+                p_session_id: null,
+                p_metadata_json: evento.metadata
+              })
+            });
+        estado = carregarEstadoFinanceiroCanonico();
+        estado.events = estado.events.map((item) => String(item.operationUuid) === String(evento.operationUuid)
+          ? { ...item, syncStatus: "synced", syncedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), remoteResult: result, lastError: "" }
+          : item);
+        salvarEstadoFinanceiroCanonico({ ...estado, lastError: "" });
+        const pedido = pedidos.find((item) => String(item.id) === String(evento.orderId));
+        if (pedido) atualizarMarcadorFinanceiroPedido(pedido, { financial_operation_status: "synced", financial_synced_at: new Date().toISOString(), financial_sync_error: "" });
+        synced += 1;
+      } catch (error) {
+        estado = carregarEstadoFinanceiroCanonico();
+        estado.events = estado.events.map((item) => String(item.operationUuid) === String(evento.operationUuid)
+          ? { ...item, syncStatus: "error", syncAttempts: (Number(item.syncAttempts) || 0) + 1, updatedAt: new Date().toISOString(), lastError: String(error?.code || error?.message || "SYNC_FAILED").slice(0, 180) }
+          : item);
+        salvarEstadoFinanceiroCanonico({ ...estado, lastError: String(error?.message || error).slice(0, 180) });
+        const pedido = pedidos.find((item) => String(item.id) === String(evento.orderId));
+        if (pedido) atualizarMarcadorFinanceiroPedido(pedido, { financial_operation_status: "error", financial_sync_error: String(error?.code || "SYNC_FAILED") });
+        registrarErroAplicacaoSilencioso("financial_operation_sync", error, "Sincronizar operação financeira", { orderId: evento.orderId, operationUuid: evento.operationUuid });
+      }
+    }
+    if (synced) {
+      salvarDados();
+      await atualizarCacheFinanceiroCanonicoRemoto(companyId);
+      renderizarPreservandoScroll();
+    }
+    return { status: "SUCCESS", synced, pending: Math.max(0, pendentes.length - synced) };
+  })();
+  try { return await sincronizacaoFinanceiraCanonicaEmAndamento; }
+  finally { sincronizacaoFinanceiraCanonicaEmAndamento = null; }
+}
+
+function agendarSincronizacaoFinanceiraCanonica(delay = 900) {
+  clearTimeout(atualizacaoFinanceiraCanonicaTimer);
+  atualizacaoFinanceiraCanonicaTimer = setTimeout(() => {
+    sincronizarEventosFinanceirosPendentes().catch((error) => registrarErroAplicacaoSilencioso("financial_sync_schedule", error, "Agendar sincronização financeira"));
+  }, Math.max(50, Number(delay) || 900));
+}
+
+function getDiagnosticoReconciliacaoFinanceira() {
+  const F = window.Simplifica3dFinancialCore;
+  if (!F) return null;
+  const dados = getDadosFinanceirosCanonicosComFallback();
+  return F.reconcileFinancialState({ orders: pedidos, operations: dados.operations, movements: dados.movements });
+}
+
+if (typeof window !== "undefined") {
+  window.getProjecaoFinanceiraCanonica = getProjecaoFinanceiraCanonica;
+  window.getDiagnosticoReconciliacaoFinanceira = getDiagnosticoReconciliacaoFinanceira;
+  window.sincronizarEventosFinanceirosPendentes = sincronizarEventosFinanceirosPendentes;
 }
 
 function getRegistroSyncId(colecao, registro = {}) {
@@ -6695,7 +6981,14 @@ async function sincronizarFilaOfflinePendente(motivo = "manual") {
   }
 
   recomporFilaSyncPendente();
-  if (!pendingSync.length) return { ok: true, sent: 0, pending: 0 };
+  const sincronizarFinanceiro = async () => {
+    await sincronizarEventosFinanceirosPendentes();
+    await atualizarCacheFinanceiroCanonicoRemoto();
+  };
+  if (!pendingSync.length) {
+    await sincronizarFinanceiro().catch((erro) => registrarDiagnostico("financeiro", `Sync financeiro após ${motivo} falhou`, erro.message));
+    return { ok: true, sent: 0, pending: 0 };
+  }
 
   let enviados = 0;
   const restantes = [];
@@ -6732,6 +7025,7 @@ async function sincronizarFilaOfflinePendente(motivo = "manual") {
   pendingSync = restantes.concat(pendingSync.slice(enviados + restantes.length).filter((item) => item.status !== "synced"));
   syncConfig.autoBackupStatus = restantes.length ? "Fila com erro" : "Fila sincronizada";
   syncConfig.ultimaSync = new Date().toISOString();
+  await sincronizarFinanceiro().catch((erro) => registrarDiagnostico("financeiro", `Sync financeiro após ${motivo} falhou`, erro.message));
   salvarDados();
   return { ok: restantes.length === 0, sent: enviados, pending: pendingSync.length };
 }
@@ -20808,23 +21102,33 @@ if (typeof window !== "undefined") {
       return { totalItems: items.length, lowStockCount: lowStock.length, items: items.slice(0, 12), lowStock: lowStock.slice(0, 12) };
     },
     cashSummaryReadOnly(period = "all") {
+      const canonicalPeriod = period === "today" ? "hoje" : "all";
+      const projection = getProjecaoFinanceiraCanonica(canonicalPeriod);
+      const canonicalData = getDadosFinanceirosCanonicosComFallback();
       if (period === "today") {
         const intervalo = criarIntervaloPeriodoLocal("hoje");
-        return { period, ...calcularTotaisCaixaPeriodo(intervalo.start, intervalo.end) };
+        const local = calcularTotaisCaixaPeriodo(intervalo.start, intervalo.end);
+        const cash = canonicalData.movements.length ? { entradas: projection?.entries || 0, saidas: projection?.exits || 0, saldo: projection?.cashBalance || 0 } : local;
+        return { period, sales: projection?.totalSales || 0, orders: projection?.totalOrders || 0, ...cash };
       }
-      return { period: "all", ...calcularTotaisCaixa() };
+      const local = calcularTotaisCaixa();
+      const cash = canonicalData.movements.length ? { entradas: projection?.entries || 0, saidas: projection?.exits || 0, saldo: projection?.cashBalance || 0 } : local;
+      return { period: "all", sales: projection?.totalSales || 0, orders: projection?.totalOrders || 0, ...cash };
     },
     homeSummaryReadOnly() {
       const stats = getDashboardStats();
       const intervalo = criarIntervaloPeriodoLocal("hoje");
-      const cashToday = calcularTotaisCaixaPeriodo(intervalo.start, intervalo.end);
+      const localCashToday = calcularTotaisCaixaPeriodo(intervalo.start, intervalo.end);
+      const canonicalData = getDadosFinanceirosCanonicosComFallback();
+      const canonicalToday = getProjecaoFinanceiraCanonica("hoje");
+      const cashBalanceToday = canonicalData.movements.length ? Number(canonicalToday?.cashBalance) || 0 : Number(localCashToday.saldo) || 0;
       return {
         ordersToday: Number(stats.pedidosHoje) || 0,
         openOrders: Number(stats.pedidosAbertos) || 0,
         activeProduction: Number(stats.producoesAtivas) || 0,
         lowStockCount: Number(stats.estoqueBaixo) || 0,
         revenueToday: Number(stats.faturamentoDia) || 0,
-        cashBalanceToday: Number(cashToday.saldo) || 0
+        cashBalanceToday
       };
     },
     productionSummaryReadOnly() {
@@ -22501,10 +22805,12 @@ function calcularFluxoAtivoDashboard(stats, totaisCaixa) {
 
 function getDashboardStats() {
   const hoje = criarIntervaloPeriodoLocal("hoje");
-  const pedidosHoje = pedidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), hoje.start, hoje.end));
-  const faturamentoDia = pedidosHoje.reduce((total, pedido) => total + totalPedido(pedido), 0);
-  const pedidosAbertos = pedidos.filter((pedido) => !["entregue", "cancelado", "finalizado"].includes(String(pedido.status || "aberto"))).length;
-  const producoesAtivas = pedidos.filter((pedido) => String(pedido.status || "") === "producao").length;
+  const pedidosValidos = pedidos.filter((pedido) => pedidoContaParaAnalytics(pedido));
+  const pedidosHoje = pedidosValidos.filter((pedido) => dataDentroIntervalo(getDataPedidoLocal(pedido), hoje.start, hoje.end));
+  const projecaoHoje = getProjecaoFinanceiraCanonica("hoje");
+  const faturamentoDia = projecaoHoje?.totalSales ?? pedidosHoje.reduce((total, pedido) => total + totalPedido(pedido), 0);
+  const pedidosAbertos = pedidosValidos.filter((pedido) => !["entregue", "finalizado"].includes(String(pedido.status || "aberto"))).length;
+  const producoesAtivas = pedidosValidos.filter((pedido) => String(pedido.status || "") === "producao").length;
   const materiaisEstoque = normalizarEstoque();
   const estoqueBaixo = materiaisEstoque.filter((material) => (Number(material.qtd) || 0) <= estoqueMinimoKg).length;
   const pedidosConcluidos = pedidosHoje.filter((pedido) => ["entregue", "finalizado"].includes(String(pedido.status || ""))).length;
@@ -22518,7 +22824,7 @@ function getDashboardStats() {
     const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
     return total + Math.max(0, totalPedido(pedido) - custo);
   }, 0);
-  const lucroEstimado = pedidos.reduce((total, pedido) => {
+  const lucroEstimado = pedidosValidos.reduce((total, pedido) => {
     const itens = normalizarItensPedido(pedido);
     const custo = itens.reduce((soma, item) => soma + (Number(item.custoTotal) || 0), 0);
     return total + Math.max(0, totalPedido(pedido) - custo);
@@ -22526,7 +22832,7 @@ function getDashboardStats() {
   const financeiroPedidos = getResumoFinanceiroPedidos(pedidos);
   return {
     faturamentoDia,
-    pedidosHoje: pedidosHoje.length,
+    pedidosHoje: projecaoHoje?.totalOrders ?? pedidosHoje.length,
     pedidosAbertos,
     producoesAtivas,
     estoqueBaixo,
@@ -22629,9 +22935,9 @@ function calcularTotaisCaixaPeriodo(inicio, fim, movimentos = caixa) {
 }
 
 function pedidoContaParaAnalytics(pedido = {}) {
-  const status = String(pedido.status || "").toLowerCase();
-  if (pedido.deleted_at || pedido.deletedAt) return false;
-  return status !== "cancelado";
+  return window.Simplifica3dFinancialCore?.isOrderSaleEligible
+    ? window.Simplifica3dFinancialCore.isOrderSaleEligible(pedido)
+    : !pedido.deleted_at && !pedido.deletedAt && !["cancelado", "orcamento", "orçamento", "rascunho"].includes(String(pedido.status || "").toLowerCase());
 }
 
 function calcularCustosPedidoAnalytics(pedido = {}) {
@@ -22648,26 +22954,31 @@ function calcularCustosPedidoAnalytics(pedido = {}) {
 
 function calcularAgregadoAnalytics(inicio, fim) {
   const pedidosPeriodo = pedidos.filter((pedido) => pedidoContaParaAnalytics(pedido) && estaNoIntervalo(getDataPedidoLocal(pedido), inicio, fim));
-  const totaisCaixa = calcularTotaisCaixaPeriodo(inicio, fim);
-  return pedidosPeriodo.reduce((total, pedido) => {
+  const dadosFinanceiros = getDadosFinanceirosCanonicosComFallback();
+  const projecao = window.Simplifica3dFinancialCore?.projectFinancialState({ operations: dadosFinanceiros.operations, movements: dadosFinanceiros.movements, from: inicio, to: fim });
+  const totaisCaixaLocal = calcularTotaisCaixaPeriodo(inicio, fim);
+  const custos = pedidosPeriodo.reduce((total, pedido) => {
     const custos = calcularCustosPedidoAnalytics(pedido);
-    const venda = totalPedido(pedido);
-    total.total_sales += venda;
-    total.total_profit += Math.max(0, venda - custos.cost);
-    total.total_orders += 1;
     total.material_cost += custos.material;
     total.energy_cost += custos.energy;
     total.printer_hours += custos.hours;
     return total;
   }, {
-    total_sales: 0,
-    total_profit: 0,
-    total_orders: 0,
     material_cost: 0,
     energy_cost: 0,
-    printer_hours: 0,
-    cash_balance: totaisCaixa.saldo
+    printer_hours: 0
   });
+  const totalSales = projecao?.totalSales ?? pedidosPeriodo.reduce((sum, pedido) => sum + totalPedido(pedido), 0);
+  const cashBalance = dadosFinanceiros.movements.length ? Number(projecao?.cashBalance || 0) : totaisCaixaLocal.saldo;
+  return {
+    total_sales: totalSales,
+    total_profit: Math.max(0, totalSales - custos.material_cost - custos.energy_cost),
+    total_orders: projecao?.totalOrders ?? pedidosPeriodo.length,
+    material_cost: custos.material_cost,
+    energy_cost: custos.energy_cost,
+    printer_hours: custos.printer_hours,
+    cash_balance: cashBalance
+  };
 }
 
 function criarBucketsAnalytics(info) {
@@ -44450,6 +44761,7 @@ async function cancelOrderSafely(orderId, options = {}) {
       financial_reversed_at: reverso ? agora : pedido.financial_reversed_at || ""
     });
     pedidos = pedidos.map((item) => String(item.id) === String(orderId) ? cancelado : item);
+    registrarEventoFinanceiroPedidoLocal(cancelado, reverso, "cancel");
 
     if (pedidoEditando && String(pedidoEditando.id) === String(orderId)) {
       cancelarEdicaoPedido();
@@ -44644,7 +44956,8 @@ function getOrderCreateTransactionExecutor3d() {
     commitCashReceipt: (receipt) => caixa.push(receipt),
     persist: (order) => salvarPedidoComVerificacaoLocal(order),
     persistRollback: () => salvarDados(),
-    isCommitted: (transactionKey) => pedidos.some((item) => String(item.client_request_id || item.clientRequestId || "") === String(transactionKey))
+    isCommitted: (transactionKey) => pedidos.some((item) => String(item.client_request_id || item.clientRequestId || "") === String(transactionKey)),
+    afterCommit: ({ order, cashReceipt, command }) => registrarEventoFinanceiroPedidoLocal(order, cashReceipt, command.previousOrder ? "update" : "create")
   });
   return orderCreateTransactionExecutor3d;
 }
@@ -47046,7 +47359,7 @@ function criarCardResultadoAssistenteIa(result = {}, answer = "", { hasImage = f
   };
   if (result?.navigationTarget?.routeId) return {
     kind: "navigation", title: result.navigationTarget.label || "Tela aberta", subtitle: answer,
-    status: "Atalho", lines: [], action: { label: "Abrir novamente", routeId: result.navigationTarget.routeId }
+    status: "Atalho", lines: [], action: { label: "Abrir novamente", routeId: result.navigationTarget.routeId, entityId: result.navigationTarget.entityId, entityType: result.navigationTarget.entityType }
   };
   if (tool?.status === "AMBIGUOUS" && Array.isArray(tool.matches)) return {
     kind: "search", title: "Escolha um resultado", subtitle: answer,
@@ -47698,11 +48011,10 @@ function criarSimplifica3dAiOrchestratorV2() {
   tools.register({ name: "customer_search", description: "Busca clientes acessíveis pelo usuário", domain: "CUSTOMER", argumentsSchema: schemas["CUSTOMER.SEARCH"], capability: "CUSTOMER.SEARCH", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async ({ query }) => {
     if (!String(query || "").trim()) return { status: C.TOOL_STATUS.VALIDATION_ERROR };
     const matches = adapters["CUSTOMER.SEARCH"]({ query });
-    const exact = matches.filter((item) => item.exact);
-    if (exact.length === 1) return { status: C.TOOL_STATUS.SUCCESS, customer: exact[0] };
-    if (exact.length > 1 || matches.length > 1) return { status: C.TOOL_STATUS.AMBIGUOUS, matches };
-    if (matches.length === 1) return { status: C.TOOL_STATUS.SUCCESS, customer: matches[0] };
-    return { status: C.TOOL_STATUS.NOT_FOUND, matches: [] };
+    const resolved = new C.EntityResolver().resolve(query, matches, (item) => item.name);
+    return resolved.status === C.TOOL_STATUS.SUCCESS
+      ? { status: resolved.status, customer: resolved.entity }
+      : { status: resolved.status, matches: resolved.matches };
   }});
   tools.register({ name: "order_history", description: "Consulta histórico de pedidos de um cliente", domain: "ORDER", argumentsSchema: schemas["ORDER.HISTORY"], capability: "ORDER.HISTORY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async (args) => {
     const orders = adapters["ORDER.HISTORY"](args);
@@ -47731,7 +48043,7 @@ function criarSimplifica3dAiOrchestratorV2() {
   }});
   tools.register({ name: "cash_summary", description: "Consulta entradas, saídas e saldo", domain: "CASH", argumentsSchema: schemas["CASH.SUMMARY"], capability: "CASH.SUMMARY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async (args) => {
     const summary = adapters["CASH.SUMMARY"](args);
-    return { status: C.TOOL_STATUS.SUCCESS, ...summary, formattedEntries: formatarMoeda(summary.entradas), formattedExits: formatarMoeda(summary.saidas), formattedBalance: formatarMoeda(summary.saldo) };
+    return { status: C.TOOL_STATUS.SUCCESS, ...summary, metric: args.metric || "cash", formattedSales: formatarMoeda(summary.sales), formattedEntries: formatarMoeda(summary.entradas), formattedExits: formatarMoeda(summary.saidas), formattedBalance: formatarMoeda(summary.saldo) };
   }});
   tools.register({ name: "home_summary", description: "Resume os indicadores principais da Home", domain: "HOME", argumentsSchema: schemas["HOME.SUMMARY"], capability: "HOME.SUMMARY", riskType: C.OPERATION_TYPE.READ, operationType: C.OPERATION_TYPE.READ, executor: async () => {
     const summary = adapters["HOME.SUMMARY"]();
@@ -47780,7 +48092,7 @@ function criarSimplifica3dAiOrchestratorV2() {
   rlmRegistry.register({ name: "draft_order_create", capability: "ORDER.DRAFT", description: "Cria somente ActiveDraft", inputSchema: {}, outputSchema: {}, access: "DRAFT", requiresConfirmation: false, riskLevel: "DRAFT", execute: async (input) => { manager.startOrder({ customer: input.customer, product: input.product, quantity: input.quantity }); return { status: "SUCCESS", draftVersion: manager.session.activeDraft.draftVersion }; } });
   const rlm = new R.RlmOrchestrator({ registry: rlmRegistry, manager, telemetry: (event) => registrarTelemetriaAiContextV2({ ...event, stage: "T_RLM" }) });
   simplifica3dAiOrchestratorV2 = new O.AiOrchestrator3D({
-    manager, continuationResolver: new C.ContinuationResolver(), contextBuilder: new C.ContextBuilder(), tools,
+    manager, continuationResolver: new C.TaskResolver(), contextBuilder: new C.ContextBuilder(), tools,
     provider: window.Simplifica3dAiRuntime.provider, operationSafety, rlm,
     telemetry: registrarTelemetriaAiContextV2
   });
@@ -47901,16 +48213,17 @@ function abrirCalculadoraPelaAssistenteIa(inputs = {}) {
   const weightGrams = Math.max(0, Number(inputs.weightGrams) || 0);
   const timeMinutes = Math.max(0, Math.round(Number(inputs.timeMinutes) || 0));
   const quantity = Math.max(1, Math.round(Number(inputs.quantity) || 1));
-  if (!(weightGrams > 0)) return;
-  calculatorDraftState = {
-    ...calculatorDraftState,
-    peso: String(weightGrams),
-    tempo: String(Math.floor(timeMinutes / 60)),
-    tempoMinutos: String(timeMinutes % 60),
-    batchActive: quantity > 1,
-    quantity: quantity > 1 ? quantity : 2,
-    batchMode: "per_piece"
-  };
+  if (weightGrams > 0 || timeMinutes > 0 || quantity > 1) {
+    calculatorDraftState = {
+      ...calculatorDraftState,
+      peso: weightGrams > 0 ? String(weightGrams) : calculatorDraftState.peso,
+      tempo: timeMinutes > 0 ? String(Math.floor(timeMinutes / 60)) : calculatorDraftState.tempo,
+      tempoMinutos: timeMinutes > 0 ? String(timeMinutes % 60) : calculatorDraftState.tempoMinutos,
+      batchActive: quantity > 1,
+      quantity: quantity > 1 ? quantity : 2,
+      batchMode: "per_piece"
+    };
+  }
   const core = getAssistantCoreUniversal3d();
   const origin = core?.context?.snapshot?.() || null;
   closeModal();
@@ -47924,7 +48237,7 @@ function abrirCalculadoraPelaAssistenteIa(inputs = {}) {
       atualizarResumoLoteCalculadora();
       agendarCalculoTempoReal();
     }, 120);
-    mostrarToast("Calculadora preenchida com os dados informados.", "sucesso", 3200);
+    mostrarToast(weightGrams > 0 || timeMinutes > 0 || quantity > 1 ? "Calculadora preenchida com os dados informados." : "Calculadora aberta para montar o orçamento.", "sucesso", 3200);
   }, 180);
 }
 
@@ -47935,6 +48248,11 @@ function abrirRotaPelaAssistenteIa(target = {}) {
   const origin = core?.context?.snapshot?.() || null;
   closeModal();
   setTimeout(() => {
+    if (routeId === "orders.list" && target.entityId != null) {
+      visualizarPedido(target.entityId);
+      mostrarToast(`${target.label || "Pedido"} aberto.`, "sucesso", 2400);
+      return;
+    }
     const navigation = core?.navigation?.navigate?.(routeId, {}, origin);
     if (navigation?.status !== "SUCCESS") {
       mostrarToast("Não foi possível abrir essa área agora.", "erro", 3800);
@@ -47956,6 +48274,10 @@ function abrirResultadoAssistenteIa(messageId) {
   const origin = core?.context?.snapshot?.() || null;
   closeModal();
   setTimeout(() => {
+    if (action.routeId === "orders.list" && action.entityId != null) {
+      visualizarPedido(action.entityId);
+      return;
+    }
     const navigation = core?.navigation?.navigate?.(action.routeId, action.entityId ? { id: action.entityId } : {}, origin);
     if (navigation?.status !== "SUCCESS") {
       mostrarToast("Não foi possível abrir esse resultado agora.", "erro", 3800);

@@ -4,27 +4,19 @@ const assert = require("assert");
 const fs = require("fs");
 require("../src/assistant-core/schemas/contracts.js");
 const { COMPONENTS, AssistantUiComponents } = require("../src/assistant-core/ui-contracts/components.js");
-const packs = [
-  require("../apps/simplifica/assistant-pack/index.js"),
-  require("../apps/rural/assistant-pack/index.js"),
-  require("../apps/tec/assistant-pack/index.js"),
-  require("../apps/store-editor/assistant-pack/index.js")
-];
+const pack = require("../apps/simplifica/assistant-pack/index.js");
 
 assert.deepStrictEqual(COMPONENTS, [
   "AssistantLauncher", "AssistantPanel", "AssistantComposer", "AssistantContextChip",
   "AssistantResultCard", "AssistantConfirmation", "AssistantAttachment"
 ]);
-assert.strictEqual(new Set(packs.map((pack) => pack.modelScope)).size, packs.length);
-
-for (const pack of packs) {
-  const ui = new AssistantUiComponents({ appId: pack.manifest.appId, appName: pack.manifest.appName, assistantName: pack.manifest.appName });
-  const launcher = ui.launcher({ state: "idle", description: `Abrir ${pack.manifest.appName}`, iconHtml: "<svg></svg>", onActivate: "openAssistant", onDrag: "dragAssistant" });
-  assert.match(launcher, new RegExp(`data-assistant-app="${pack.manifest.appId}"`));
-  assert.match(launcher, /onclick="openAssistant\(event\)"/);
-  assert.match(launcher, /onpointerdown="dragAssistant\(event\)"/);
-  assert.match(ui.panel({ state: "active", headerHtml: "<header></header>", bodyHtml: "<main></main>" }), /AssistantPanel/);
-}
+assert.equal(pack.modelScope, "simplifica-3d");
+const simplificaUi = new AssistantUiComponents({ appId: pack.manifest.appId, appName: pack.manifest.appName, assistantName: pack.manifest.appName });
+const launcher = simplificaUi.launcher({ state: "idle", description: `Abrir ${pack.manifest.appName}`, iconHtml: "<svg></svg>", onActivate: "openAssistant", onDrag: "dragAssistant" });
+assert.match(launcher, /data-assistant-app="simplifica-3d"/);
+assert.match(launcher, /onclick="openAssistant\(event\)"/);
+assert.match(launcher, /onpointerdown="dragAssistant\(event\)"/);
+assert.match(simplificaUi.panel({ state: "active", headerHtml: "<header></header>", bodyHtml: "<main></main>" }), /AssistantPanel/);
 
 const ui = new AssistantUiComponents({ appId: "security-test", assistantName: "Assistente <local>" });
 assert.doesNotMatch(ui.launcher({ onActivate: "alert(1)", description: "<script>" }), /onclick=/);
@@ -61,4 +53,4 @@ assert.match(app, /ui\?\.attachment/);
 assert.match(app, /ui\?\.composer/);
 assert.match(app, /ui\?\.panel/);
 
-console.log("Assistant UI: sete componentes reutilizáveis, isolamento por pack, escaping e integração no Simplifica validados.");
+console.log("Assistant UI: sete componentes privados, escaping e integração no Simplifica 3D validados.");

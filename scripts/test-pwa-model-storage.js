@@ -130,12 +130,8 @@ function createStore({ scope, metadata, adapter, fetchRef, navigatorRef = naviga
   await store.install(model);
   assert.strictEqual(primaryFetches, 1, "artifact READY não deve ser baixado novamente");
 
-  const ruralStore = createStore({ scope: "simplifica-rural", metadata, adapter, fetchRef: async () => new Response(bytes) });
-  assert.strictEqual((await ruralStore.status(model)).state, StoreApi.STORE_STATE.NOT_INSTALLED, "cada aplicativo deve ter seu próprio namespace de modelo");
-  await ruralStore.install(model);
   await store.remove(model.id);
   assert.strictEqual((await store.status(model)).state, StoreApi.STORE_STATE.NOT_INSTALLED);
-  assert.strictEqual((await ruralStore.status(model)).state, StoreApi.STORE_STATE.READY, "remover no 3D não pode apagar o modelo do Rural");
 
   const interruptedMetadata = new MemoryMetadataStore();
   const interruptedAdapter = new MemoryArtifactAdapter();
