@@ -75,7 +75,7 @@ async function cdp(socketUrl, expression, timeoutMs = 5000) {
 
   const expected = await cdp(target.webSocketDebuggerUrl, `(() => ({
     packageOk: !!window.Capacitor && window.Capacitor.getPlatform?.() === "android",
-    coreOk: !!window.Simplifica3dAiCore && !!window.Simplifica3dOperationSafety && !!window.Simplifica3dCanonicalOrder && !!window.Simplifica3dOrderCreatePreparation && !!window.Simplifica3dOrderCreateExecutor && !!window.Simplifica3dRlm && !!window.Simplifica3dAiOrchestrator,
+    coreOk: !!window.Simplifica3dAiCore && !!window.Simplifica3dOperationSafety && !!window.Simplifica3dCanonicalOrder && !!window.Simplifica3dOrderCreatePreparation && !!window.Simplifica3dOrderCreateExecutor && !!window.Simplifica3dRlm && !!window.Simplifica3dAiOrchestrator && !!window.UniversalAssistantAppRuntime && window.SimplificaAssistantPack?.modelScope === "simplifica-3d",
     chatOk: !!document.querySelector(".ai-chat-dialog") && !!document.getElementById("aiChatInput") && !!document.querySelector(".ai-chat-form button[type=submit]"),
     visible: document.visibilityState === "visible"
   }))()`);

@@ -2,15 +2,15 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.34";
-const APP_VERSION_CODE = 62;
+const APP_VERSION = "1.0.35";
+const APP_VERSION_CODE = 63;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
-  "Assistente IA direciona corretamente Home, Pedidos, Estoque, Calculadora e Caixa.",
+  "A Assistente continua direcionando corretamente Home, Pedidos, Estoque, Calculadora e Caixa.",
   "Orçamentos abrem a calculadora real já preenchida, sem pedir o preço do filamento.",
-  "O botão da IA pode ser arrastado e mantém sua posição.",
-  "Modelo local, capacidades e privacidade agora têm validações mais seguras.",
-  "PWA e Android compartilham o novo núcleo e os componentes reutilizáveis da Assistente."
+  "O botão da IA continua arrastável e mantém sua posição.",
+  "Cada aplicativo agora possui conversa, cache, ferramentas e configuração de modelo separados.",
+  "Rural, Tec e Editor da Loja receberam estruturas próprias, sem misturar dados com o Simplifica 3D."
 ]);
 const APP_RELEASE_NOTES_STORAGE_KEY = "simplifica3d:release-notes-seen";
 const APP_SHELL_VERSION = "2v";

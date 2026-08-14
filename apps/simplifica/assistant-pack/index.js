@@ -29,7 +29,26 @@
       { id: "orders.prepareCreate", domain: "orders", access: C.ACCESS.WRITE, gate: "WriteCapabilityGate" }
     ]
   });
-  const api = Object.freeze({ id: "simplifica", modelScope: "simplifica-3d", status: "ACTIVE_FOUNDATION", manifest });
+  const tools = Object.freeze([
+    { name: "orders.search", access: C.ACCESS.READ, adapter: "searchOrders" },
+    { name: "orders.get", access: C.ACCESS.READ, adapter: "getOrder" },
+    { name: "inventory.search", access: C.ACCESS.READ, adapter: "searchInventory" },
+    { name: "cash.summary", access: C.ACCESS.READ, adapter: "readCashSummary" },
+    { name: "production.status", access: C.ACCESS.READ, adapter: "readProductionStatus" },
+    { name: "app.navigate", access: C.ACCESS.NAVIGATION, adapter: "navigate" },
+    { name: "orders.prepareCreate", access: C.ACCESS.WRITE, adapter: "prepareOrder" }
+  ]);
+  const api = {
+    id: "simplifica",
+    modelScope: "simplifica-3d",
+    status: "ACTIVE",
+    manifest,
+    tools,
+    createRuntime(options = {}) {
+      return new global.UniversalAssistantAppRuntime.AppAssistantRuntime({ ...options, pack: api });
+    }
+  };
+  Object.freeze(api);
   global.SimplificaAssistantPack = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

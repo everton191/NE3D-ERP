@@ -9,21 +9,34 @@ Crie `apps/<app>/assistant-pack/index.js` com:
 - `manifest.appId` exclusivo;
 - domínios, rotas, entidades e capabilities reais desse aplicativo;
 - `modelScope` exclusivo e estável;
-- status `CONTRACT_ONLY` enquanto as funções reais ainda não estiverem conectadas.
+- lista `tools` ligando cada capability ao nome do adapter esperado;
+- `createRuntime(options)` usando `AppAssistantRuntime`;
+- status `READY_FOR_APP_ADAPTER` enquanto as funções reais ainda não estiverem conectadas.
 
 Não coloque no core nomes específicos como pedido, filamento, animal ou ordem de serviço.
 
 ## 2. Criar adapters reais
 
-O aplicativo injeta:
+O aplicativo cria o runtime e injeta seus adapters reais:
 
-```text
-brand
-appName
-contextProvider
-toolRegistry
-modelProvider
+```js
+const runtime = assistantPack.createRuntime({
+  storage,
+  navigate,
+  back,
+  permissionGuard,
+  writePipeline,
+  modelRuntime,
+  modelArtifacts
+});
+
+const readiness = runtime.bindAdapters({
+  searchOrders: (input) => orderService.search(input),
+  navigate: (input) => appNavigation.open(input)
+});
 ```
+
+Somente mude o status do pack para `ACTIVE` quando `readiness.ready` for verdadeiro e os adapters tiverem sido testados no aplicativo correspondente.
 
 Cada tool READ consulta os serviços atuais do próprio aplicativo. NAVIGATION aceita apenas rotas do manifest. WRITE deve reutilizar o pipeline de segurança do aplicativo e permanecer indisponível quando algum guard não existir.
 
@@ -82,4 +95,4 @@ Não anuncie visão, áudio ou tools apenas pelo nome do modelo. Faça a interse
 - navegador sem WebGPU continua usando o aplicativo normalmente;
 - build do aplicativo e teste no aparelho/navegador alvo passam.
 
-Rural, Tec e Editor da Loja permanecem apenas com contrato neste repositório. Seus adapters de domínio e runtimes devem ser implementados e validados nos respectivos projetos antes de mudar o status para ativo.
+Rural, Tec e Editor da Loja possuem manifestos e runtimes isolados prontos para receber adapters. Os serviços reais e a integração visual ainda devem ser implementados e validados nos respectivos projetos antes de mudar o status para ativo.

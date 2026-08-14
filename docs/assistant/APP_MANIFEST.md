@@ -20,9 +20,11 @@ Packs atuais:
 
 | Produto | appId / modelScope | Situação |
 |---|---|---|
-| Simplifica 3D | `simplifica-3d` | integração ativa |
-| Simplifica Rural | `simplifica-rural` | pack isolado |
-| Simplifica Tec | `simplifica-tec` | pack isolado |
-| Editor da Loja | `simplifica-store-editor` | pack somente leitura preparado |
+| Simplifica 3D | `simplifica-3d` | integração ativa e runtime universal disponível |
+| Simplifica Rural | `simplifica-rural` | runtime isolado pronto para adapters do app |
+| Simplifica Tec | `simplifica-tec` | runtime isolado pronto para adapters do app |
+| Editor da Loja | `simplifica-store-editor` | runtime isolado somente leitura pronto para adapters |
 
 Para incluir outra aplicação, não copie o pack do ERP inteiro. Crie manifest mínimo, namespace exclusivo e adapters do domínio conforme `ADD_NEW_APP_ADAPTER.md`.
+
+O bootstrap exige `modelScope === manifest.appId`. Assim, conversa, cache, configuração do modelo, artifacts e identidade da UI permanecem separados mesmo quando vários assistentes são carregados no mesmo dispositivo.

@@ -68,7 +68,7 @@ assert.match(appSource, /function ouvirMensagemAssistenteIa\(\)[\s\S]*plugin\.li
   "O chat deve oferecer entrada por voz");
 assert.match(appSource, /Somente você pode autorizar[\s\S]*Confirmar pedido[\s\S]*Quero alterar/,
   "O usuário deve confirmar explicitamente antes de salvar um pedido");
-assert.match(appSource, /const APP_VERSION = "1\.0\.34";[\s\S]*const APP_VERSION_CODE = 62;/,
-  "A versão pública da entrega deve ser 1.0.34, código 62");
+assert.match(appSource, /const APP_VERSION = "1\.0\.35";[\s\S]*const APP_VERSION_CODE = 63;/,
+  "A versão pública da entrega deve ser 1.0.35, código 63");
 
 console.log("Contrato da IA do Simplifica 3D validado.");

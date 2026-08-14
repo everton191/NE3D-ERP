@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1034-assistant-core-20260814";
+const CACHE_NAME = "simplifica-3d-v1035-multi-app-runtime-20260814";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -39,6 +39,7 @@ const APP_FILES = [
   "./src/assistant-core/models/web-local-model-provider.js",
   "./src/assistant-core/models/device-capability-profiler.js",
   "./src/assistant-core/engine/assistant-core.js",
+  "./src/assistant-core/engine/app-assistant-runtime.js",
   "./apps/simplifica/assistant-pack/index.js",
   "./apps/rural/assistant-pack/index.js",
   "./apps/tec/assistant-pack/index.js",

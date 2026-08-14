@@ -171,6 +171,7 @@
     "test:printer-monitoring": "node scripts/test-printer-monitoring-read-only.js",
     "test:simplifica3d-ai": "node scripts/test-simplifica3d-ai-contract.js",
     "test:assistant-core-foundation": "node scripts/test-assistant-core-foundation.js",
+    "test:assistant-multi-app-runtime": "node scripts/test-multi-app-assistant-runtime.js",
     "test:assistant-model-lifecycle": "node scripts/test-ai-model-lifecycle-contract.js",
     "test:assistant-model-policy": "node scripts/test-assistant-model-policy.js",
     "test:assistant-pwa-model-storage": "node scripts/test-pwa-model-storage.js",
