@@ -2,7 +2,8 @@
   "use strict";
 
   const QUEUE_KEY = "simplifica3d:errorTelemetryQueue";
-  const THROTTLE_MS = 30 * 1000;
+  const DEFAULT_THROTTLE_MS = 30 * 1000;
+  const NETWORK_THROTTLE_MS = 5 * 60 * 1000;
   const MAX_QUEUE = 100;
   const MAX_METADATA_KEYS = 40;
   const SENSITIVE_KEY_PATTERN = /senha|password|token|access[_-]?token|refresh[_-]?token|authorization|apikey|api[_-]?key|secret|card|cartao|cartão|key/i;
@@ -136,32 +137,41 @@
   }
 
   function throttleKey(payload) {
+    const isConnectivityFailure = /^(LOAD_SUBSCRIPTION_FAILED|SUPABASE_SYNC_FAILED|SUPABASE_TIMEOUT|NETWORK_ERROR)$/i.test(payload.p_error_key || "");
     return [
       payload.p_user_email || "anonymous",
       payload.p_error_key,
       payload.p_screen_name,
-      payload.p_action_name,
+      isConnectivityFailure ? "network" : payload.p_action_name,
       payload.p_app_version
     ].join("|");
+  }
+
+  function throttleWindowMs(payload) {
+    return /^(LOAD_SUBSCRIPTION_FAILED|SUPABASE_SYNC_FAILED|SUPABASE_TIMEOUT|NETWORK_ERROR)$/i.test(payload.p_error_key || "")
+      ? NETWORK_THROTTLE_MS
+      : DEFAULT_THROTTLE_MS;
   }
 
   function shouldThrottle(payload) {
     const key = throttleKey(payload);
     const now = Date.now();
     const last = Number(state.throttle.get(key)) || 0;
-    if (now - last < THROTTLE_MS) return true;
+    if (now - last < throttleWindowMs(payload)) return true;
     state.throttle.set(key, now);
     return false;
   }
 
   function enqueue(payload) {
     const queue = getQueue();
-    queue.push({
+    const key = throttleKey(payload);
+    const semDuplicado = queue.filter((item) => throttleKey(item?.payload || {}) !== key);
+    semDuplicado.push({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2),
       payload,
       createdAt: new Date().toISOString()
     });
-    setQueue(queue);
+    setQueue(semDuplicado);
   }
 
   async function sendPayload(payload) {

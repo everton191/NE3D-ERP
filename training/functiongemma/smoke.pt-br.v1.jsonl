@@ -1,0 +1,18 @@
+{"id":"smoke-01","input":"abre os pedidos","screen":"dashboard","expectedAction":"navigation.open","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-02","input":"vai para o estoque","screen":"dashboard","expectedAction":"navigation.open","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-03","input":"busca o pedido do João","screen":"orders.list","expectedAction":"orders.search","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-04","input":"me mostra pedidos atrasados","screen":"orders.list","expectedAction":"orders.search","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-05","input":"qnt tem de PLA preto","screen":"inventory.list","expectedAction":"inventory.search","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-06","input":"procura rolo azul","screen":"inventory.list","expectedAction":"inventory.search","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-07","input":"quanto entrou hoje","screen":"cash.home","expectedAction":"cash.get_summary","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-08","input":"qual o saldo do caixa","screen":"cash.home","expectedAction":"cash.get_summary","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-09","input":"abre lá","screen":"dashboard","expectedAction":null,"expectedArguments":{},"expectedDisposition":"ASK_CLARIFICATION","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-10","input":"faz um orçamento","screen":"calculator","expectedAction":null,"expectedArguments":{},"expectedDisposition":"ASK_CLARIFICATION","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-11","input":"se eu cancelar esse pedido o que acontece?","screen":"orders.details","expectedAction":null,"expectedArguments":{},"expectedDisposition":"ANSWER_ONLY","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-12","input":"quanto você acha que eu devo tirar do caixa?","screen":"cash.home","expectedAction":null,"expectedArguments":{},"expectedDisposition":"ANSWER_ONLY","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-13","input":"cancela o pedido 42","screen":"orders.details","expectedAction":null,"expectedArguments":{},"expectedDisposition":"NO_CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-14","input":"dá baixa em 200 gramas","screen":"inventory.list","expectedAction":null,"expectedArguments":{},"expectedDisposition":"ASK_CLARIFICATION","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-15","input":"fecha o cx","screen":"cash.home","expectedAction":null,"expectedArguments":{},"expectedDisposition":"NO_CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-16","input":"qual a previsão do tempo amanhã","screen":"dashboard","expectedAction":null,"expectedArguments":{},"expectedDisposition":"OUT_OF_DOMAIN","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-17","input":"me mostra o pedido do João","screen":"orders.list","expectedAction":"orders.search","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}
+{"id":"smoke-18","input":"abre o ped do joao","screen":"orders.list","expectedAction":"orders.search","expectedArguments":{},"expectedDisposition":"CALL","writeAllowed":false,"topKOnly":true}

@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1037-account-history-20260814";
+const CACHE_NAME = "simplifica-3d-v1038-functiongemma-fixes-20260824";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -41,11 +41,23 @@ const APP_FILES = [
   "./src/assistant-core/models/device-capability-profiler.js",
   "./src/assistant-core/engine/assistant-core.js",
   "./apps/simplifica/assistant-pack/index.js",
+  "./models/functiongemma/web-artifacts.js",
+  "./src/ai/action-registry.js",
+  "./src/ai/action-search.js",
+  "./src/ai/result-envelope.js",
+  "./src/ai/tool-calling-model.js",
+  "./src/ai/functiongemma-adapter.js",
+  "./src/ai/functiongemma-native-runtime.js",
+  "./src/ai/functiongemma-web-runtime.js",
+  "./assets/vendor/wllama/index.min.js",
+  "./assets/vendor/wllama/wllama.wasm",
+  "./assets/vendor/wllama/LICENCE",
   "./src/ai-3d/core.js",
   "./src/ai-3d/operation-safety.js",
   "./src/ai-3d/canonical-order.js",
   "./src/ai-3d/order-create-preparation.js",
   "./src/ai-3d/order-create-executor.js",
+  "./src/ai-3d/order-shared-usecases.js",
   "./src/ai-3d/rlm/rlm-core.js",
   "./src/ai-3d/orchestrator.js",
   "./src/styles/google-expressive-motion.css",
@@ -101,6 +113,12 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
+  if (/^\/models\/functiongemma\/.*\.gguf$/i.test(url.pathname)) {
+    // O GGUF já possui armazenamento próprio, checksum e retomada. Nunca duplique
+    // centenas de MB no Cache Storage do service worker.
+    event.respondWith(fetch(event.request));
+    return;
+  }
   const deveIgnorarCache = [
     "/",
     "/index.html",

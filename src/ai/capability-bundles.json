@@ -1,0 +1,10 @@
+{
+  "dashboard": ["navigation.open", "orders.search", "cash.get_summary", "inventory.search"],
+  "orders.list": ["orders.search", "orders.get", "orders.prepare_create", "customers.search"],
+  "orders.details": ["orders.get", "orders.prepare_update", "orders.prepare_cancel", "inventory.search"],
+  "inventory.list": ["inventory.search", "inventory.get_roll", "inventory.history", "inventory.prepare_reservation"],
+  "inventory.roll_details": ["inventory.get_roll", "inventory.history", "inventory.prepare_reservation", "inventory.prepare_release", "inventory.prepare_consume"],
+  "cash.home": ["cash.get_summary", "cash.prepare_withdrawal", "cash.prepare_deposit", "cash.prepare_close_session"],
+  "calculator": ["calculator.quote", "calculator.batch"],
+  "production.queue": ["production.list_queue", "production.prepare_job", "production.prepare_change_status"]
+}

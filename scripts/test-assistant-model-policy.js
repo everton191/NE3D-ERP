@@ -27,20 +27,19 @@ const { RemoteModelProvider } = require("../src/assistant-core/models/model-prov
   assert.strictEqual((await remote.status()).enabled, false);
 
   const root = path.join(__dirname, "..");
-  const manager = fs.readFileSync(path.join(root, "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "ModelArtifactManager.kt"), "utf8");
-  const engine = fs.readFileSync(path.join(root, "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "LocalInferenceEngine.kt"), "utf8");
+  const installer = fs.readFileSync(path.join(root, "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "FunctionGemmaModelInstaller.kt"), "utf8");
+  const toolRuntime = fs.readFileSync(path.join(root, "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "FunctionGemmaToolRuntime.kt"), "utf8");
   const plugin = fs.readFileSync(path.join(root, "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "SimplificaLocalAiPlugin.kt"), "utf8");
   const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
   const runtime = fs.readFileSync(path.join(root, "src", "services", "simplifica3dAiRuntime.js"), "utf8");
 
-  assert.match(manager, /fun automaticFallback[\s\S]*isAutomatic\(context\)[\s\S]*LocalModelCatalog\.balanced[\s\S]*isReady\(context, it\)/);
-  assert.doesNotMatch(manager.match(/fun automaticFallback[\s\S]*?\n    }/)?.[0] || "", /install\(/,
-    "fallback não pode iniciar download");
-  assert.match(engine, /automaticFallback\(context, descriptor, needsVision\)[\s\S]*fallbackModelId = fallback\.id/);
-  assert.match(plugin, /supportsVision", status\.state\.name == "READY" && status\.descriptor\.capabilities\.vision/);
-  assert.match(app, /function getCapacidadesModeloAssistenteIa[\s\S]*supportsVision/);
+  assert.match(installer, /EXPECTED_SHA256[\s\S]*EXPECTED_BYTES[\s\S]*noBackupFilesDir/);
+  assert.match(toolRuntime, /operationType in setOf\("READ", "PREPARE"\)[\s\S]*FUNCTIONGEMMA_WRITE_TOOL_BLOCKED/);
+  assert.match(plugin, /FunctionGemma 270M Q8_0[\s\S]*put\("vision", false\)[\s\S]*writeExposed", 0/);
+  assert.match(app, /function getCapacidadesModeloAssistenteIa[\s\S]*supportsVision: false/);
   assert.match(app, /function alternarMenuAnexoAssistenteIa[\s\S]*informarImagemNaoSuportadaAssistenteIa/);
-  assert.match(runtime, /privacyPolicy\?\.assert[\s\S]*LOCAL_ANDROID[\s\S]*LOCAL_WEB/);
+  assert.match(runtime, /class FunctionGemmaOnlyProvider[\s\S]*supportsVision: false[\s\S]*FUNCTIONGEMMA_WRITE_BLOCKED/);
+  assert.doesNotMatch(runtime, /RemoteModelProvider|Gemma E2B|automaticFallback/);
 
-  console.log("Política da IA: fallback sem download, capacidades reais e privacidade local por padrão validados.");
+  console.log("Política da IA: FunctionGemma local único, sem visão/remoto e WRITE bloqueado validados.");
 })().catch((error) => { console.error(error); process.exitCode = 1; });

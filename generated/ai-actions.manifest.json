@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "domains": {
+    "navigation": {
+      "actions": [
+        "navigation.open"
+      ]
+    },
+    "orders": {
+      "actions": [
+        "orders.search",
+        "orders.get",
+        "orders.prepare_create",
+        "orders.prepare_update",
+        "orders.prepare_cancel"
+      ]
+    },
+    "customers": {
+      "actions": [
+        "customers.search"
+      ]
+    },
+    "inventory": {
+      "actions": [
+        "inventory.search"
+      ]
+    },
+    "cash": {
+      "actions": [
+        "cash.get_summary"
+      ]
+    },
+    "calculator": {
+      "actions": [
+        "calculator.quote"
+      ]
+    }
+  }
+}

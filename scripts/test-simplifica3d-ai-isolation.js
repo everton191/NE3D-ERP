@@ -34,12 +34,13 @@ for (const file of ["index.html", "sw.js"]) {
   assert(source.includes("apps/simplifica/assistant-pack/index.js"), `${file} deve carregar somente o pack do Simplifica 3D`);
 }
 
-const androidCatalog = read("android/app/src/main/java/br/com/ne3d/erp/ai/LocalModelCatalog.kt");
-const artifactManager = read("android/app/src/main/java/br/com/ne3d/erp/ai/ModelArtifactManager.kt");
+const modelInstaller = read("android/app/src/main/java/br/com/ne3d/erp/ai/FunctionGemmaModelInstaller.kt");
+const plugin = read("android/app/src/main/java/br/com/ne3d/erp/SimplificaLocalAiPlugin.kt");
 const androidBuild = read("android/app/build.gradle");
 assert(androidBuild.includes('applicationId simplificaPilotBuild ? "br.com.ne3d.erp.pilot" : "br.com.ne3d.erp"'), "o APK deve manter pacote próprio");
-assert(androidCatalog.includes('context.filesDir, "models"'), "o modelo deve permanecer no filesDir privado do APK");
-assert(artifactManager.includes('PREFS = "simplifica_local_ai_v1"'), "as preferências do modelo devem ser próprias do Simplifica 3D");
-assert(artifactManager.includes('WORK_NAME = "simplifica-3d-local-model-v1"'), "o trabalho de download deve ter identidade própria");
+assert(modelInstaller.includes('context.noBackupFilesDir, "models/functiongemma/0.2.0-q8_0"'), "o modelo deve permanecer no noBackupFilesDir privado do APK");
+assert(modelInstaller.includes('EXPECTED_SHA256 = "595b727d73a8e78cc8da03f12a947137818c6d3544be903eef8494824b2d5b47"'), "o artefato deve ser identificado pelo hash oficial validado");
+assert(plugin.includes('const val MODEL_ID = "functiongemma-270m-it-q8_0"'), "o plugin deve expor somente o FunctionGemma operacional");
+assert(!plugin.includes("LocalModelCatalog"), "o catálogo multi-modelo antigo não pode retornar ao APK");
 
-console.log("Isolamento validado: Simplifica 3D carrega somente sua própria IA, memória, catálogo e modelo privado do APK.");
+console.log("Isolamento validado: Simplifica 3D carrega somente o FunctionGemma verificado no armazenamento privado do APK.");

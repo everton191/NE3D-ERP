@@ -91,7 +91,7 @@ async function main() {
     p_device_model: "node-test",
     p_os_version: process.platform,
     p_platform: "script",
-    p_metadata: { source: "scripts/test-telemetry-rest.js" }
+    p_metadata: { source: "scripts/test-telemetry-rest.js", test: true }
   };
 
   const first = await registerError(config, { ...basePayload, p_user_email: firstUserEmail });
@@ -105,14 +105,14 @@ async function main() {
     type: "sugestao",
     title: `Teste feedback ${timestamp}`,
     description: "Validacao automatica da tabela app_feedback_reports.",
-    status: "new",
+    status: "ignored",
     priority: "normal",
     app_version: appVersion,
     device_model: "node-test",
     os_version: process.platform,
     platform: "script",
     screen_name: "telemetry_test",
-    metadata: { source: "scripts/test-telemetry-rest.js" }
+    metadata: { source: "scripts/test-telemetry-rest.js", test: true }
   });
 
   const anonRead = await queryAnonLogs(config, errorKey);

@@ -1,88 +1,153 @@
 (function attachSimplifica3dAiRuntime(global) {
   "use strict";
-  class AndroidLocalModelProvider {
-    constructor({ webProvider = null, privacyPolicy = null } = {}) {
-      this.warmupPromise = null;
-      this.webProvider = webProvider;
-      const Policy = global.UniversalAssistantPrivacy?.AssistantPrivacyPolicy;
-      this.privacyPolicy = privacyPolicy || (Policy ? new Policy({ appId: global.SimplificaAssistantPack?.manifest?.appId || "simplifica-3d" }) : null);
-    }
-    get plugin() { return global.Capacitor?.Plugins?.SimplificaLocalAi; }
-    async status() {
-      if (!this.plugin?.status) return this.webProvider?.status ? this.webProvider.status() : { available: false, modelReady: false, state: "UNAVAILABLE" };
-      return { available: true, ...(await this.plugin.status()) };
-    }
-    async ensureReady() {
-      if (this.plugin?.ensureModel) return this.plugin.ensureModel();
-      if (this.webProvider?.prewarm) return this.webProvider.prewarm();
-      throw new Error("A IA local ainda não está disponível neste aparelho.");
-    }
-    async listModels() { return this.plugin?.listModels ? this.plugin.listModels() : (this.webProvider?.listModels ? this.webProvider.listModels() : { models: [], enabled: false, selection: "automatic" }); }
-    async profileDevice() { return this.plugin?.profileDevice ? this.plugin.profileDevice() : (this.webProvider?.profile ? this.webProvider.profile() : { conclusive: false }); }
-    async benchmarkModel() { if (this.plugin?.benchmarkModel) return this.plugin.benchmarkModel(); if (this.webProvider?.benchmarkModel) return this.webProvider.benchmarkModel(); throw new Error("Benchmark indisponível neste navegador."); }
-    async setEnabled(enabled) { if (this.plugin?.setEnabled) return this.plugin.setEnabled({ enabled: enabled === true }); if (this.webProvider?.setEnabled) return this.webProvider.setEnabled(enabled); throw new Error("Configuração de IA local indisponível."); }
-    async selectModel(modelId) { if (this.plugin?.selectModel) return this.plugin.selectModel({ modelId }); if (this.webProvider?.selectModel) return this.webProvider.selectModel(modelId); throw new Error("Modelo indisponível."); }
-    async installModel(modelId) { if (this.plugin?.installModel) return this.plugin.installModel({ modelId }); if (this.webProvider?.installModel) return this.webProvider.installModel(modelId); throw new Error("Download de modelo indisponível."); }
-    async cancelDownload() { return this.plugin?.cancelDownload ? this.plugin.cancelDownload() : this.webProvider?.cancelDownload?.(); }
-    async deleteModel(modelId) { if (this.plugin?.deleteModel) return this.plugin.deleteModel({ modelId }); if (this.webProvider?.deleteModel) return this.webProvider.deleteModel(modelId); throw new Error("Remoção de modelo indisponível."); }
-    async unload() { return this.plugin?.unload ? this.plugin.unload() : this.webProvider?.unload?.(); }
-    async prewarm() {
-      if (!this.plugin?.status && this.webProvider?.prewarm) return this.webProvider.prewarm();
-      if (this.warmupPromise) return this.warmupPromise;
-      this.warmupPromise = (async () => {
-        const status = await this.status();
-        return status;
-      })().finally(() => { this.warmupPromise = null; });
-      return this.warmupPromise;
-    }
-    async converse(text, context, attachments = []) {
-      const privacy = global.UniversalAssistantPrivacy;
-      this.privacyPolicy?.assert?.({
-        mode: this.plugin?.interpret ? privacy?.PROCESSING_MODE?.LOCAL_ANDROID : privacy?.PROCESSING_MODE?.LOCAL_WEB,
-        dataTypes: attachments.length ? [privacy?.DATA_TYPE?.MESSAGE, privacy?.DATA_TYPE?.ERP_CONTEXT, privacy?.DATA_TYPE?.IMAGE] : [privacy?.DATA_TYPE?.MESSAGE, privacy?.DATA_TYPE?.ERP_CONTEXT]
-      });
-      if (!this.plugin?.interpret && this.webProvider?.send) {
-        const result = await this.webProvider.send({ text: String(text || ""), context: context || {}, attachments });
-        const answer = typeof result === "string" ? result : String(result?.text || result?.answer || "");
-        if (!answer.trim()) throw new Error("A IA não retornou uma resposta agora.");
-        return answer.trim();
-      }
-      if (!this.plugin?.interpret) throw new Error("A IA local ainda não está disponível neste aparelho.");
-      const image = attachments.find((item) => item?.type === "image" && item?.imageBase64);
-      const result = await this.plugin.interpret({ text: String(text || ""), context: JSON.stringify(context || {}), imageBase64: image?.imageBase64 || "", imageMimeType: image?.mimeType || "" });
-      const raw = String(result?.text || "").trim();
-      if (!raw) throw new Error("A IA não retornou uma resposta agora.");
-      const json = raw.match(/\{[\s\S]*\}/)?.[0];
-      if (json) {
-        try {
-          const parsed = JSON.parse(json);
-          if (parsed?.type === "chat" && parsed?.payload?.answer) return String(parsed.payload.answer);
-          if (parsed?.type) return "Continuo com o mesmo rascunho. Diga o que gostaria de analisar ou alterar; nada foi salvo.";
-        } catch (_) { }
-      }
-      return raw;
-    }
+
+  const MODEL_ID = "functiongemma-270m-it-q8_0";
+  const WEB_MODEL_ID = "functiongemma-270m-it-q8_0-web";
+  let adapter = null;
+  let adapterRuntime = null;
+  let preparationPromise = null;
+
+  function nonExecutableReason(text) {
+    const normalized = String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+    if (/^nao\b/.test(normalized)) return "NEGATED_COMMAND";
+    if (/^se eu\b.*\bo que acontece\??$/.test(normalized)) return "HYPOTHETICAL_REQUEST";
+    return null;
   }
+
+  function nativePlugin() { return global.Capacitor?.Plugins?.SimplificaLocalAi || null; }
+  function runtimeForPlatform() {
+    return nativePlugin()?.predictFunctionGemma
+      ? global.SimplificaFunctionGemmaNativeRuntime?.runtime
+      : global.SimplificaFunctionGemmaWebRuntime?.runtime;
+  }
+
   const webProvider = global.UniversalAssistantWebProvider?.WebLocalModelProvider ? new global.UniversalAssistantWebProvider.WebLocalModelProvider({
     appId: global.SimplificaAssistantPack?.modelScope || "simplifica-3d",
-    runtime: global.SimplificaWebAiRuntime || global.__SIMPLIFICA_WEB_AI_RUNTIME__ || null,
+    runtime: global.SimplificaFunctionGemmaWebRuntime?.runtime || null,
     artifacts: global.SimplificaWebAiArtifacts || global.__SIMPLIFICA_WEB_AI_ARTIFACTS__ || []
   }) : null;
-  const provider = new AndroidLocalModelProvider({ webProvider });
-  async function interpret(text, context) {
-    const plugin = provider.plugin;
-    if (!plugin?.interpret) throw new Error("A IA local ainda não está disponível neste aparelho.");
-    const result = await plugin.interpret({ text: String(text || ""), context: JSON.stringify(context || {}) });
-    const raw = String(result?.text || "").trim();
-    const json = raw.match(/\{[\s\S]*\}/)?.[0];
-    const action = json ? (() => {
-      try { return JSON.parse(json); } catch (_) { return { type: "chat", payload: { answer: raw } }; }
-    })() : { type: "chat", payload: { answer: raw } };
+
+  async function prepareWebRuntime() {
+    if (!webProvider) throw new Error("FUNCTIONGEMMA_WEB_UNAVAILABLE");
+    let status = await webProvider.status();
+    if (!status.enabled) status = await webProvider.setEnabled(true);
+    if (!status.modelReady) {
+      const catalog = await webProvider.listModels();
+      const descriptor = catalog.models.find((item) => item.id === WEB_MODEL_ID) || catalog.models[0];
+      if (!descriptor?.available) throw new Error(status.reason || "FUNCTIONGEMMA_WEB_ARTIFACT_UNAVAILABLE");
+      status = await webProvider.installModel(descriptor.id);
+    } else {
+      status = await webProvider.prewarm();
+    }
+    if (!status.runtimeReady) throw new Error(status.reason || "FUNCTIONGEMMA_WEB_NOT_READY");
+    return status;
+  }
+
+  async function prepareFunctionGemma() {
+    if (preparationPromise) return preparationPromise;
+    preparationPromise = (async () => {
+      const runtime = runtimeForPlatform();
+      const Adapter = global.SimplificaFunctionGemmaAdapter?.FunctionGemmaAdapter;
+      if (!runtime || !Adapter) throw new Error("FUNCTIONGEMMA_RUNTIME_UNAVAILABLE");
+      if (!nativePlugin()?.predictFunctionGemma) await prepareWebRuntime();
+      if (!adapter || adapterRuntime !== runtime) {
+        adapter = new Adapter({ runtime, mode: "functiongemma", shadow: false });
+        adapterRuntime = runtime;
+      }
+      if (!adapter.getMetrics().loaded) {
+        await adapter.load();
+        await adapter.warmup();
+      }
+      return adapter.getMetrics();
+    })().catch((error) => {
+      adapter = null;
+      adapterRuntime = null;
+      throw error;
+    }).finally(() => { preparationPromise = null; });
+    return preparationPromise;
+  }
+
+  async function predictTool(text, context = {}, { shadow = false } = {}) {
+    const blocked = nonExecutableReason(text);
+    if (blocked) return Object.freeze({ kind: "NO_TOOL", reason: blocked, diagnostics: null, shadow });
+    const actionSearch = global.SimplificaActionSearch;
+    if (!actionSearch?.search) return Object.freeze({ kind: "NO_TOOL", reason: "ACTION_SEARCH_UNAVAILABLE", shadow });
+    await prepareFunctionGemma();
+    const ranked = actionSearch.search(String(text || ""), context || {}, 5).filter((item) => Number(item.lexicalScore) > 0);
+    const candidates = (ranked.length > 1 && ranked[0].score - ranked[1].score >= 2 ? ranked.slice(0, 1) : ranked.slice(0, 3)).map((item) => item.action);
+    if (!candidates.length) return Object.freeze({ kind: "NO_TOOL", reason: "NO_ACTION_SEARCH_MATCH", shadow });
+    const result = await adapter.generateToolCall({ command: text, tools: candidates, context });
+    return Object.freeze({ ...result, shadow });
+  }
+
+  async function predictToolShadow(text, context = {}) { return predictTool(text, context, { shadow: true }); }
+  function scheduleToolShadow(text, context = {}) { global.setTimeout(() => predictToolShadow(text, context).catch(() => {}), 0); }
+
+  class FunctionGemmaOnlyProvider {
+    get plugin() { return nativePlugin(); }
+    async status() {
+      if (this.plugin?.functionGemmaStatus) {
+        const value = await this.plugin.functionGemmaStatus();
+        const installed = value?.installed === true;
+        return {
+          ...value, available: installed, compatible: true, enabled: true,
+          modelId: MODEL_ID, modelName: "FunctionGemma 270M Q8_0",
+          modelReady: installed, runtimeReady: value?.loaded === true && value?.warmed === true,
+          supportsText: true, supportsVision: false, supportsAudio: false, supportsTools: true, writeExposed: 0
+        };
+      }
+      if (!webProvider) return { available: false, compatible: false, enabled: true, modelReady: false, state: "UNAVAILABLE", reason: "FUNCTIONGEMMA_WEB_UNAVAILABLE", writeExposed: 0 };
+      const value = await webProvider.status();
+      return { ...value, enabled: true, supportsVision: false, supportsAudio: false, supportsTools: true, writeExposed: 0 };
+    }
+    async listModels() {
+      const status = await this.status();
+      return { enabled: true, selection: status.modelId || MODEL_ID, models: [{
+        id: status.modelId || MODEL_ID, displayName: "FunctionGemma 270M Q8_0", profile: "OPERATIONAL",
+        version: "39eccb091651513a5dfb56892d3714c1b5b8276c", downloadBytes: 291557856,
+        installed: status.modelReady === true, available: status.available === true,
+        compatible: status.compatible !== false, text: true, vision: false, audio: false, tools: true
+      }] };
+    }
+    async profileDevice() { return { runtime: this.plugin ? "llama.cpp-arm64-cpu" : "wllama-wasm-cpu", backendPolicy: "CPU_ONLY", modelHealth: { health: "NOT_TESTED" } }; }
+    async ensureReady() { return this.prewarm(); }
+    async prewarm() {
+      await prepareFunctionGemma();
+      return { ...(await this.status()), available: true, enabled: true, modelReady: true, runtimeReady: true, state: "READY", writeExposed: 0 };
+    }
+    async converse(text, context) {
+      const prediction = await predictTool(text, context, { shadow: false });
+      if (prediction.kind === "TOOL_CALL") return "Entendi o comando. Vou usar a função segura do Simplifica e manter qualquer alteração para sua revisão.";
+      if (["HYPOTHETICAL_REQUEST", "NEGATED_COMMAND"].includes(prediction.reason)) return "Nenhuma ação foi executada. Posso explicar ou preparar um rascunho quando você pedir diretamente.";
+      return "Não identifiquei uma função segura para esse pedido. Tente dizer a tela, consulta ou rascunho que deseja abrir.";
+    }
+    async unload() {
+      await adapter?.unload?.();
+      adapter = null;
+      adapterRuntime = null;
+      return { unloaded: true };
+    }
+  }
+
+  const provider = new FunctionGemmaOnlyProvider();
+  async function interpret(text, context = {}) {
+    const prediction = await predictTool(text, context, { shadow: false });
+    const action = prediction.kind === "TOOL_CALL"
+      ? { type: prediction.tool, payload: prediction.arguments || {} }
+      : { type: "chat", payload: { answer: await provider.converse(text, context) } };
     return global.Simplifica3dAiActions.preview(action);
   }
   async function execute(preview, confirmed) {
-    if (preview?.requiresConfirmation && confirmed !== true) throw new Error("Confirmação obrigatória antes de alterar dados.");
+    if (preview?.requiresConfirmation || confirmed === true) throw new Error("FUNCTIONGEMMA_WRITE_BLOCKED");
     return global.Simplifica3dErpBridge.execute(preview);
   }
-  global.Simplifica3dAiRuntime = Object.freeze({ interpret, execute, provider, webProvider, AndroidLocalModelProvider, LegacyCapacitorAiProvider: AndroidLocalModelProvider });
+  async function cancel() {
+    await runtimeForPlatform()?.cancel?.();
+    return { cancelled: true, writeExposed: 0 };
+  }
+
+  global.Simplifica3dAiRuntime = Object.freeze({
+    interpret, execute, cancel, predictTool, predictToolShadow, scheduleToolShadow,
+    nonExecutableReason, prepareFunctionGemma, provider, webProvider, FunctionGemmaOnlyProvider
+  });
 })(window);

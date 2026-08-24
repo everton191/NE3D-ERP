@@ -49779,10 +49779,10 @@ body.mobile-mode:has(.printer-device-panel) .printer-device-panel{
 .ai-chat-welcome{display:grid;justify-items:start;gap:12px;padding:18px;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-sm)}
 .ai-chat-welcome > p{color:var(--muted);line-height:1.55}.ai-chat-tutorial-grid{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .ai-chat-tutorial-grid button{min-width:0;display:grid;gap:4px;padding:11px;color:var(--text);background:color-mix(in srgb,var(--primary) 6%,var(--surface));border:1px solid var(--line);border-radius:12px;text-align:left}.ai-chat-tutorial-grid button:hover{border-color:var(--primary)}.ai-chat-tutorial-grid small{color:var(--muted);line-height:1.35}
-.ai-chat-form{display:grid;grid-template-columns:42px 42px minmax(0,1fr) auto;gap:8px;padding:12px;background:var(--surface);border-top:1px solid var(--line)}
-.ai-chat-form input{min-width:0;width:100%;color:var(--text);background:var(--input-bg,var(--surface));border-color:var(--line)}
+.ai-chat-form{display:grid;grid-template-columns:42px minmax(0,1fr) auto;gap:8px;padding:12px;background:var(--surface);border-top:1px solid var(--line)}
+.ai-chat-form input{min-width:0;width:100%;height:42px;color:var(--text);background:var(--input-bg,var(--surface));border-color:var(--line)}
 .ai-chat-mic,.ai-chat-add{width:42px;min-width:42px;height:42px;display:grid;place-items:center;padding:0;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--primary) 28%,var(--line));border-radius:50%}.ai-chat-mic svg{width:20px;height:20px}.ai-chat-mic.listening{color:#fff;background:#2f8cff;border-color:#2f8cff;animation:ai-status-pulse 1.1s ease-in-out infinite}
-.ai-chat-send{min-width:82px}
+.ai-chat-send{width:auto;min-width:78px;padding-inline:14px}
 .ai-chat-attachment-menu{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px 12px;background:var(--surface);border-top:1px solid var(--line)}
 .ai-chat-attachment-menu button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:42px;color:var(--text);background:var(--input-bg,var(--surface));border:1px solid var(--line);border-radius:12px}.ai-chat-attachment-menu svg{width:18px;height:18px}
 .ai-chat-attachment-preview{display:grid;grid-template-columns:56px minmax(0,1fr) 36px;align-items:center;gap:10px;padding:9px 12px;background:var(--surface);border-top:1px solid var(--line)}
@@ -49807,7 +49807,7 @@ body[data-ui-profile="android_apk"] .mobile-bottom-nav{
   body.app-modal-open .app-modal-stage{width:100%;max-height:100%;height:100%}
   .ai-chat-dialog{width:100%;height:100%;max-height:100%;border-radius:16px}
   .ai-chat-header{padding:10px 11px}.ai-chat-messages{padding:11px}.ai-chat-form{padding:9px}.ai-chat-message{max-width:90%}
-  .ai-chat-tutorial-grid{grid-template-columns:1fr}.ai-chat-welcome{padding:14px}.ai-chat-send{min-width:62px;padding-inline:8px}.ai-chat-form{grid-template-columns:38px 38px minmax(0,1fr) auto;gap:6px}.ai-chat-mic,.ai-chat-add{width:38px;min-width:38px;height:38px}
+  .ai-chat-tutorial-grid{grid-template-columns:1fr}.ai-chat-welcome{padding:14px}.ai-chat-send{min-width:68px;padding-inline:10px}.ai-chat-form{grid-template-columns:38px minmax(0,1fr) auto;gap:6px}.ai-chat-form input{height:38px}.ai-chat-mic,.ai-chat-add{width:38px;min-width:38px;height:38px}
 }
 .ai-model-progress {
   display: grid;
@@ -49862,3 +49862,45 @@ body[data-ui-profile="android_apk"] .mobile-bottom-nav{
 }
 
 .ai-chat-setup p { margin: 0; color: var(--text-muted, #9fb0ba); }
+
+.app-boot-status{
+  min-height:100dvh;
+  display:grid;
+  place-content:center;
+  justify-items:center;
+  gap:10px;
+  padding:24px;
+  text-align:center;
+  color:#e9f7f7;
+  background:#07131d;
+}
+
+.app-boot-status small{color:#a9bcc6;}
+
+.app-boot-spinner{
+  width:34px;
+  height:34px;
+  border:3px solid rgba(50,225,211,.22);
+  border-top-color:#20d7c9;
+  border-radius:50%;
+  animation:app-boot-spin .8s linear infinite;
+}
+
+@keyframes app-boot-spin{to{transform:rotate(360deg);}}
+
+@media (prefers-reduced-motion:reduce){.app-boot-spinner{animation:none;border-top-color:#20d7c9;}}
+
+/* Home compacta: a coluna de ações deve ocupar a largura real dos botões.
+   Uma largura fixa de 88 px fazia busca, sino e avatar invadirem a saudação. */
+body[data-ui-profile="android_apk"] .dashboard-home-header,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-home-header,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header{
+  grid-template-columns:40px minmax(0,1fr) auto;
+}
+
+body[data-ui-profile="android_apk"] .dashboard-header-actions,
+body[data-ui-profile="android_apk"].mobile-mode .dashboard-header-actions,
+body[data-ui-profile="web_pwa"].mobile-mode .dashboard-header-actions{
+  width:max-content;
+  max-width:100%;
+}

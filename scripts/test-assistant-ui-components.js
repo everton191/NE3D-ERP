@@ -49,7 +49,8 @@ assert.match(app, /const ui = getAssistantUiComponents3d\(\)/);
 assert.match(app, /ui\?\.contextActionButtons/);
 assert.match(app, /ui\?\.contextChip/);
 assert.match(app, /ui\?\.confirmation/);
-assert.match(app, /ui\?\.attachment/);
+assert.doesNotMatch(app, /ui\?\.attachment/,
+  "a interface simplificada não deve renderizar anexo para um modelo somente texto/voz");
 assert.match(app, /ui\?\.composer/);
 assert.match(app, /ui\?\.panel/);
 

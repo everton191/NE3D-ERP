@@ -5,9 +5,10 @@ const app = fs.readFileSync("app.js", "utf8");
 
 assert.match(
   app,
-  /async function alterarStatusPedido[\s\S]*?pedidos\[indicePedido\] = marcarRegistroAlteradoParaSync\(pedidoAtualizado\);[\s\S]*?salvarDados\(\);/,
-  "A troca de status deve substituir atomicamente o pedido e persistir antes da sincronização."
+  /async function alterarStatusPedido[\s\S]*?getEditOrderUseCase3d\(\)\.prepare\([\s\S]*?getEditOrderUseCase3d\(\)\.commit\(/,
+  "A troca de status deve delegar preparação e commit ao UseCase compartilhado."
 );
+assert.match(app, /commitEdit:[\s\S]*?getOrderCreateTransactionExecutor3d\(\)\.execute\(/, "O UseCase de edição deve persistir pelo executor transacional oficial.");
 assert.match(
   app,
   /window\.__pedidosStatusEmAndamento\.add\(chaveOperacao\);[\s\S]*?finally \{[\s\S]*?window\.__pedidosStatusEmAndamento\.delete\(chaveOperacao\);/,

@@ -5,6 +5,13 @@
   const StoreApi = global.UniversalAssistantPwaModelStore;
   const PROCESSING_STATES = new Set(["CHECKING", "DOWNLOADING", "VERIFYING", "INSTALLING"]);
 
+  function validArtifactUrl(value) {
+    try {
+      const url = new URL(String(value || ""), global.location?.href || "https://localhost/");
+      return url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname));
+    } catch (_) { return false; }
+  }
+
   function normalizeWebArtifact(item = {}) {
     const platforms = Array.isArray(item.supportedPlatforms)
       ? item.supportedPlatforms
@@ -13,7 +20,7 @@
     const url = String(item.url || item.artifactUrl || "").trim();
     const status = String(item.status || "available").toLowerCase();
     const available = item.available !== false && status !== "experimental" && status !== "planned"
-      && id && Number(item.downloadBytes) > 0 && /^https:\/\//.test(url) && /^[a-f0-9]{64}$/i.test(String(item.sha256 || ""));
+      && id && Number(item.downloadBytes) > 0 && validArtifactUrl(url) && /^[a-f0-9]{64}$/i.test(String(item.sha256 || ""));
     return Object.freeze({
       ...item,
       id,
@@ -21,7 +28,7 @@
       version: String(item.version || ""),
       url,
       supportedPlatforms: platforms,
-      available: Boolean(available && platforms.some((platform) => /^(web|pwa|webgpu)/i.test(platform))),
+      available: Boolean(available && platforms.some((platform) => /^(web|pwa|webgpu|wasm)/i.test(platform))),
       capabilities: { text: true, vision: false, audio: false, tools: true, ...(item.capabilities || {}) }
     });
   }
@@ -106,11 +113,15 @@
       const runtime = await Promise.resolve(this.runtimeCapabilities());
       const model = descriptor?.capabilities || { text: true, vision: false, audio: false, tools: true };
       const accelerated = currentProfile.adapterAvailable === true;
+      const canRun = accelerated || runtime.wasmCpu === true || runtime.webGpuRequired === false;
       return {
-        supportsText: accelerated && runtime.text === true && model.text !== false,
-        supportsVision: accelerated && runtime.vision === true && model.vision === true,
-        supportsAudio: accelerated && runtime.audio === true && model.audio === true,
-        supportsTools: accelerated && runtime.tools === true && model.tools !== false
+        supportsText: canRun && runtime.text === true && model.text !== false,
+        supportsVision: canRun && runtime.vision === true && model.vision === true,
+        supportsAudio: canRun && runtime.audio === true && model.audio === true,
+        supportsTools: canRun && runtime.tools === true && model.tools !== false,
+        runtimeAvailable: runtime.runtimeAvailable !== false,
+        runtimeReason: String(runtime.reason || ""),
+        runtimeBackend: String(runtime.backend || runtime.runtime || "")
       };
     }
     compatibleArtifacts() {
@@ -154,9 +165,11 @@
       return { models, enabled: settings.enabled, selection: settings.selection };
     }
     unavailableReason(profile, capabilities = {}) {
-      if (!profile.webGpu) return "IA local não disponível neste navegador porque o WebGPU não está ativo.";
-      if (!profile.adapterAvailable) return "Este navegador não forneceu aceleração compatível para a IA local.";
       if (!this.runtime) return "O runtime de IA local para navegador ainda não está configurado.";
+      if (capabilities.runtimeAvailable === false) return capabilities.runtimeReason || "O runtime de IA local para navegador não está acessível.";
+      const runtime = this.runtimeCapabilities();
+      if (!(runtime instanceof Promise) && runtime.webGpuRequired !== false && runtime.wasmCpu !== true && !profile.webGpu) return "IA local não disponível neste navegador porque o WebGPU não está ativo.";
+      if (!(runtime instanceof Promise) && runtime.webGpuRequired !== false && runtime.wasmCpu !== true && !profile.adapterAvailable) return "Este navegador não forneceu aceleração compatível para a IA local.";
       if (capabilities.supportsText !== true) return "O runtime web atual não oferece geração local de texto neste navegador.";
       if (!this.compatibleArtifacts().length) return "Nenhum modelo local compatível com navegador foi publicado para este aplicativo.";
       if (!this.artifactStore) return "O armazenamento de modelos não está disponível neste navegador.";

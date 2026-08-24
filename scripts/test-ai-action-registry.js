@@ -1,0 +1,17 @@
+"use strict";
+const assert = require("assert");
+const registry = require("../src/ai/action-registry.js");
+const search = require("../src/ai/action-search.js");
+const result = require("../src/ai/result-envelope.js");
+
+assert.strictEqual(registry.validateRegistry().ok, true, "registry must not contain broken contracts");
+assert.strictEqual(registry.get("inventory.consume").operationType, "WRITE");
+assert.strictEqual(registry.health(registry.get("inventory.consume")).exposed, false, "unvalidated WRITE must stay hidden");
+assert.strictEqual(registry.actions.filter((action) => action.operationType === "WRITE").every((action) => registry.health(action).exposed === false), true, "every WRITE must stay hidden from the model");
+assert.strictEqual(registry.health(registry.get("inventory.search")).state, "READY");
+assert.strictEqual(search.search("quanto tem de PLA preto", { screen: "inventory" }, 3)[0].action, "inventory.search");
+assert.strictEqual(search.search("saldo do caixa", { capabilityBundle: ["cash.get_summary"] }, 3)[0].action, "cash.get_summary");
+assert.deepStrictEqual(result.failure("inventory.consume", { code: "INSUFFICIENT_STOCK", message: "Saldo insuficiente." }).success, false);
+assert.strictEqual(Object.keys(registry.compactManifest().domains).includes("inventory"), true);
+assert.strictEqual(Object.values(registry.compactManifest().domains).flatMap((domain) => domain.actions).some((id) => registry.get(id).operationType === "WRITE"), false);
+console.log("AI Action Registry contract tests passed.");

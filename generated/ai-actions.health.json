@@ -1,0 +1,368 @@
+{
+  "generatedFrom": "src/ai/action-registry.js",
+  "actions": [
+    {
+      "id": "navigation.open",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "navigation",
+      "version": 1
+    },
+    {
+      "id": "orders.search",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.get",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.prepare_create",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "PREPARE",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.prepare_update",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "PREPARE",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.prepare_cancel",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "PREPARE",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.commit_create",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.update",
+      "state": "READY",
+      "exposed": false,
+      "errors": [],
+      "operationType": "WRITE",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "orders.cancel",
+      "state": "READY",
+      "exposed": false,
+      "errors": [],
+      "operationType": "WRITE",
+      "domain": "orders",
+      "version": 1
+    },
+    {
+      "id": "customers.search",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "customers",
+      "version": 1
+    },
+    {
+      "id": "customers.get",
+      "state": "DISABLED",
+      "exposed": false,
+      "errors": [
+        "MISSING_HANDLER",
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "READ",
+      "domain": "customers",
+      "version": 1
+    },
+    {
+      "id": "inventory.search",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.get_roll",
+      "state": "DISABLED",
+      "exposed": false,
+      "errors": [
+        "MISSING_HANDLER",
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "READ",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.history",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "READ",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.prepare_reservation",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.prepare_release",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.prepare_consume",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.reserve",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.release",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "inventory.consume",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "inventory",
+      "version": 1
+    },
+    {
+      "id": "cash.get_summary",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.prepare_withdrawal",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.commit_withdrawal",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.prepare_deposit",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.commit_deposit",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.open_session",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.prepare_close_session",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "cash.close_session",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "cash",
+      "version": 1
+    },
+    {
+      "id": "calculator.quote",
+      "state": "READY",
+      "exposed": true,
+      "errors": [],
+      "operationType": "READ",
+      "domain": "calculator",
+      "version": 1
+    },
+    {
+      "id": "calculator.batch",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "READ",
+      "domain": "calculator",
+      "version": 1
+    },
+    {
+      "id": "production.list_queue",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "READ",
+      "domain": "production",
+      "version": 1
+    },
+    {
+      "id": "production.prepare_job",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "production",
+      "version": 1
+    },
+    {
+      "id": "production.commit_job",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "production",
+      "version": 1
+    },
+    {
+      "id": "production.prepare_change_status",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "PREPARE",
+      "domain": "production",
+      "version": 1
+    },
+    {
+      "id": "production.change_status",
+      "state": "DEGRADED",
+      "exposed": false,
+      "errors": [
+        "MISSING_CONTRACT_TEST"
+      ],
+      "operationType": "WRITE",
+      "domain": "production",
+      "version": 1
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FunctionGemma Web Smoke</title></head>
+<body style="font:16px system-ui;background:#08131d;color:#eef7f7;padding:24px">
+  <h1>FunctionGemma Q8 — smoke web local</h1>
+  <p id="progress">Preparando...</p>
+  <pre id="result" style="white-space:pre-wrap"></pre>
+  <script src="/src/assistant-core/models/model-provider.js"></script>
+  <script src="/src/assistant-core/models/pwa-model-artifact-store.js?v=assistant-core-functiongemma-web-v3"></script>
+  <script src="/src/assistant-core/models/web-local-model-provider.js?v=assistant-core-functiongemma-web-v3"></script>
+  <script src="/src/ai/action-registry.js"></script>
+  <script src="/src/ai/action-search.js"></script>
+  <script src="/src/ai/tool-calling-model.js"></script>
+  <script src="/src/ai/functiongemma-adapter.js"></script>
+  <script src="/src/ai/functiongemma-native-runtime.js"></script>
+  <script src="/models/functiongemma/web-artifacts.js"></script>
+  <script src="/src/ai/functiongemma-web-runtime.js?v=functiongemma-web-q8-v4"></script>
+  <script type="module">
+    const progress = document.getElementById("progress");
+    const output = document.getElementById("result");
+    const started = performance.now();
+    let progressTimer = null;
+    try {
+      const provider = new UniversalAssistantWebProvider.WebLocalModelProvider({
+        appId: "simplifica-3d",
+        runtime: SimplificaFunctionGemmaWebRuntime.runtime,
+        artifacts: SimplificaWebAiArtifacts
+      });
+      const descriptor = SimplificaWebAiArtifacts[0];
+      if (!descriptor) throw new Error("FUNCTIONGEMMA_WEB_ARTIFACT_NOT_BUILT");
+      progressTimer = setInterval(async () => {
+        try {
+          const state = await provider.status();
+          const percent = state.totalBytes ? Math.round((state.downloadedBytes / state.totalBytes) * 100) : 0;
+          progress.textContent = `${state.state || "PREPARING"} · ${percent}%`;
+        } catch (_) { }
+      }, 1000);
+      await provider.setEnabled(true);
+      const before = await provider.status();
+      progress.textContent = before.modelReady ? "Modelo verificado; carregando..." : "Baixando e verificando o GGUF local...";
+      const ready = before.modelReady ? await provider.prewarm() : await provider.installModel(descriptor.id);
+      progress.textContent = "Executando três comandos em shadow mode...";
+      const adapter = new SimplificaFunctionGemmaAdapter.FunctionGemmaAdapter({ runtime: SimplificaFunctionGemmaWebRuntime.runtime, mode: "functiongemma", shadow: true });
+      await adapter.load();
+      await adapter.warmup();
+      const cases = [
+        { command: "abre os pedidos", tools: ["navigation.open"] },
+        { command: "quanto tenho de PLA preto?", tools: ["inventory.search"] },
+        { command: "se eu cancelar esse pedido o que acontece?", tools: ["orders.get", "orders.search"] }
+      ];
+      const predictions = [];
+      for (const item of cases) predictions.push({ ...item, prediction: await adapter.generateToolCall(item) });
+      const report = {
+        ok: true,
+        writeExposed: 0,
+        source: descriptor.source,
+        sha256: descriptor.sha256,
+        bytes: descriptor.downloadBytes,
+        provider: await provider.status(),
+        runtime: SimplificaFunctionGemmaWebRuntime.runtime.getMetrics(),
+        predictions,
+        elapsedMs: Math.round(performance.now() - started)
+      };
+      output.textContent = JSON.stringify(report, null, 2);
+      progress.textContent = "PASS — runtime e GGUF reais executados no navegador.";
+      document.documentElement.dataset.smoke = "pass";
+      clearInterval(progressTimer);
+    } catch (error) {
+      clearInterval(progressTimer);
+      output.textContent = JSON.stringify({ ok: false, writeExposed: 0, error: String(error?.message || error), stack: String(error?.stack || "") }, null, 2);
+      progress.textContent = "FAIL — consulte o erro abaixo.";
+      document.documentElement.dataset.smoke = "fail";
+    }
+  </script>
+</body>
+</html>

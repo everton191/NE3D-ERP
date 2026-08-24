@@ -193,7 +193,8 @@ const orchestrator = new AiOrchestrator3D({ manager, continuationResolver: resol
   assert.match(appSource, /T_CONTEXT.*T_PROVIDER.*T_PARSE.*T_TOOL.*T_RESPONSE/);
   assert.match(appSource, /unsafeTechnicalMessage/);
   assert.match(styleSource, /grid-template-rows:auto minmax\(0, 1fr\) auto/);
-  assert.match(runtimeSource, /Continuo com o mesmo rascunho/);
+  assert.match(runtimeSource, /FunctionGemmaOnlyProvider/);
+  assert.match(runtimeSource, /FUNCTIONGEMMA_WRITE_BLOCKED/);
   assert.doesNotMatch(runtimeSource.match(/async converse[\s\S]*?\n    }\n  }/)?.[0] || "", /Simplifica3dErpBridge\.execute/, "Provider conversacional não pode executar Action legada");
   assert.match(appSource, /searchMaterialsReadOnly/);
   assert.match(appSource, /nome\.startsWith\(termo\)/, "Busca de cliente deve exigir correspondência textual real");

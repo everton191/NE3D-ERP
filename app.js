@@ -2,8 +2,8 @@
 // Simplifica 3D - layout mobile/desktop corrigido
 // ==========================================================
 
-const APP_VERSION = "1.0.37";
-const APP_VERSION_CODE = 65;
+const APP_VERSION = "1.0.38";
+const APP_VERSION_CODE = 66;
 const SUPERADMIN_EMAIL_BROADCAST_ENABLED = false;
 const APP_RELEASE_NOTES = Object.freeze([
   "A Assistente direciona Home, Pedidos, Estoque, Calculadora e Caixa pelas funções reais do Simplifica 3D.",
@@ -1859,8 +1859,25 @@ function configurarTelemetriaErros() {
   } catch (_) {}
 }
 
+const TELEMETRY_INFORMATIONAL_KEYS = new Set([
+  "ADMOB_INITIALIZED",
+  "ADMOB_BANNER_SHOWN",
+  "AUTH_EMAIL_CONFIRMATION_REQUIRED"
+]);
+
+function erroTelemetriaEhInformativo(errorKey = "") {
+  return TELEMETRY_INFORMATIONAL_KEYS.has(String(errorKey || "").trim().toUpperCase());
+}
+
 function registrarErroAplicacaoSilencioso(errorKey, erro, actionName = "", metadata = {}, screenName = telaAtual) {
   try {
+    if (erroTelemetriaEhInformativo(errorKey)) {
+      registrarDiagnostico("Telemetria", String(errorKey || "Evento informativo"), actionName || "", { silent: true });
+      return false;
+    }
+    if (!estaOnline() && ["LOAD_SUBSCRIPTION_FAILED", "SUPABASE_SYNC_FAILED", "SUPABASE_TIMEOUT"].includes(String(errorKey || "").toUpperCase())) {
+      return false;
+    }
     if (!window.ErrorTelemetry?.logAppError) return false;
     window.ErrorTelemetry.logAppError({
       errorKey,
@@ -2679,7 +2696,7 @@ const AuthService = {
       }
 
       StateStore.set("usuarios", normalizarUsuarios(usuarios));
-      const usuario = await this.loginWithSupabase(email, senha);
+      const usuario = await this.loginWithSupabase(email, senha, { deferPostLogin: true });
       if (!usuario || !syncConfig.supabaseUserId) {
         registrarFalhaLogin(email, "Sessão Supabase sem auth.uid");
         throw new AppError("Sessão Supabase inválida", {
@@ -2688,18 +2705,20 @@ const AuthService = {
         });
       }
       debugInfo("[Auth][login]", { email, auth_uid: syncConfig.supabaseUserId, source: "supabase" });
-      const hidratado = await this.hydrateAuthenticatedUser(usuario, { source: "supabase" });
-      await hidratarHistoricoContaSupabase("login").catch((erro) => registrarDiagnostico("sync", "Histórico da conta pós-login não carregado", erro.message));
-      await sincronizarFilaOfflinePendente("login").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-login falhou", erro.message));
-      return { usuario: hidratado || usuario, source: "supabase" };
+      Promise.resolve()
+        .then(() => this.hydrateAuthenticatedUser(usuario, { source: "supabase" }))
+        .then(() => hidratarHistoricoContaSupabase("login"))
+        .then(() => sincronizarFilaOfflinePendente("login"))
+        .catch((erro) => registrarDiagnostico("sync", "Preparação assíncrona pós-login falhou", erro.message || erro));
+      return { usuario, source: "supabase" };
     } catch (erro) {
       registrarFalhaLogin(email, erro?.message || "Falha online");
       throw ErrorService.capture(erro, { area: "Autenticação", action: "Login", errorKey: "LOGIN_FAILED" });
     }
   },
-  async loginWithSupabase(email, senha) {
+  async loginWithSupabase(email, senha, options = {}) {
     try {
-      const usuario = await loginUsuarioSupabase(email, senha);
+      const usuario = await loginUsuarioSupabase(email, senha, options);
       if (!usuario) {
         throw new AppError("Sessão Supabase não retornou usuário", {
           code: "AUTH_EMPTY_SUPABASE_USER",
@@ -2797,6 +2816,7 @@ const AuthService = {
     }
 
     let cadastroOnline = null;
+    let cadastroAguardandoConfirmacao = false;
     const emailNormalizado = normalizarEmail(email);
     limparResiduosCadastroLocal(emailNormalizado, { onlyPending: true });
 
@@ -2839,13 +2859,11 @@ const AuthService = {
         syncConfig.supabaseTokenExpiresAt = 0;
         syncConfig.supabaseEmail = email;
         salvarDados();
-        throw new AppError("Conta criada no Supabase aguardando confirmação de e-mail", {
-          code: "AUTH_EMAIL_CONFIRMATION_REQUIRED",
-          userMessage: "Conta criada. Confirme o e-mail antes de entrar."
-        });
+        cadastroAguardandoConfirmacao = true;
+        registrarDiagnostico("Supabase", "Cadastro aguardando confirmação de e-mail", emailNormalizado, { silent: true });
       }
 
-      if (!cadastroOnline?.client_id) {
+      if (!cadastroAguardandoConfirmacao && !cadastroOnline?.client_id) {
         throw new AppError("Cadastro SaaS remoto não retornou cliente", {
           code: "AUTH_REMOTE_PROFILE_FAILED",
           userMessage: "Não foi possível concluir o cadastro online. Tente novamente."
@@ -2879,18 +2897,21 @@ const AuthService = {
       local.assinatura.id = String(cadastroOnline.subscription_id);
       billingConfig.subscriptionId = local.assinatura.id;
     }
-    local.usuario.supabasePending = !cadastroOnline?.client_id;
+    local.usuario.supabasePending = cadastroAguardandoConfirmacao || !cadastroOnline?.client_id;
     local.usuario.supabaseUserId = syncConfig.supabaseUserId || local.usuario.supabaseUserId || "";
     local.usuario.supabaseLastSyncAt = cadastroOnline?.client_id ? new Date().toISOString() : "";
-    local.cliente.sync_status = "synced";
-    local.assinatura.sync_status = "synced";
-    local.usuario.sync_status = "synced";
+    const syncStatusCadastro = cadastroAguardandoConfirmacao ? "pending_confirmation" : "synced";
+    local.cliente.sync_status = syncStatusCadastro;
+    local.assinatura.sync_status = syncStatusCadastro;
+    local.usuario.sync_status = syncStatusCadastro;
     await definirSenhaUsuario(local.usuario, senha, false);
-    await consultarLicencaSupabaseSilencioso().catch((erro) => registrarDiagnostico("Supabase", "Licença pós-cadastro não carregada", erro.message));
-    await sincronizarFilaOfflinePendente("signup").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-cadastro falhou", erro.message));
+    if (!cadastroAguardandoConfirmacao) {
+      await consultarLicencaSupabaseSilencioso().catch((erro) => registrarDiagnostico("Supabase", "Licença pós-cadastro não carregada", erro.message));
+      await sincronizarFilaOfflinePendente("signup").catch((erro) => registrarDiagnostico("sync", "Fila offline pós-cadastro falhou", erro.message));
+    }
     salvarDados();
-    debugInfo("[Auth][signup]", { email, auth_uid: syncConfig.supabaseUserId, client_id: cadastroOnline?.client_id || "", sync_status: "synced" });
-    return { ...local, cadastroOnline, cadastroAguardandoConfirmacao: false };
+    debugInfo("[Auth][signup]", { email, auth_uid: syncConfig.supabaseUserId, client_id: cadastroOnline?.client_id || "", sync_status: syncStatusCadastro });
+    return { ...local, cadastroOnline, cadastroAguardandoConfirmacao };
   }
 };
 
@@ -4212,6 +4233,20 @@ async function exigirDesbloqueioLocalSeNecessario(motivo = "restore") {
   return false;
 }
 
+function agendarSincronizacaoPosRestauracaoSessao(motivo = "restoreSession") {
+  // A tela inicial depende apenas da sessão local válida e da trava de 12 h.
+  // Licença e fila continuam sendo validadas logo depois, sem segurar a Home.
+  setTimeout(async () => {
+    try {
+      await sincronizarLicencaEfetivaSePossivel(motivo);
+      await sincronizarFilaOfflinePendente(motivo);
+      renderizarPreservandoScroll();
+    } catch (erro) {
+      registrarDiagnostico("sync", "Sincronização pós-login não concluída", erro?.message || String(erro), { silent: true });
+    }
+  }, 0);
+}
+
 async function restaurarCacheSessaoLocal() {
   if (appConfig.keepSessionCache === false) return false;
   let cachePersistido = {};
@@ -4254,10 +4289,9 @@ async function restaurarCacheSessaoLocal() {
           return false;
         }
       }
-      await sincronizarLicencaEfetivaSePossivel("restoreSession-active");
-      await sincronizarFilaOfflinePendente("restoreSession-active").catch((erro) => registrarDiagnostico("sync", "Fila offline ao restaurar sessão ativa falhou", erro.message));
       await exigirDesbloqueioLocalSeNecessario("restore-active");
       registrarAtividadeSessao();
+      agendarSincronizacaoPosRestauracaoSessao("restoreSession-active");
     } catch (erro) {
       registrarDiagnostico("Supabase", "Licença da sessão ativa não sincronizada", erro.message);
     }
@@ -4302,9 +4336,8 @@ async function restaurarCacheSessaoLocal() {
     usuarioAtualEmail = email;
     sessionStorage.setItem("usuarioAtualEmail", usuarioAtualEmail);
     registrarAtividadeSessao();
-    await sincronizarLicencaEfetivaSePossivel("restoreSession");
-    await sincronizarFilaOfflinePendente("restoreSession").catch((erro) => registrarDiagnostico("sync", "Fila offline ao restaurar sessão falhou", erro.message));
     await exigirDesbloqueioLocalSeNecessario("restore");
+    agendarSincronizacaoPosRestauracaoSessao("restoreSession");
     return true;
   } catch (_) {
     localStorage.removeItem(LOCAL_SESSION_CACHE_KEY);
@@ -7826,6 +7859,10 @@ function tentarReproduzirIntro(video, overlay) {
 
 function iniciarIntroAbertura() {
   if (!INTRO_VIDEO_SRC || !document.body) return;
+  // No APK, o vídeo cobria a primeira renderização com uma tela escura por até
+  // 14 segundos. A abertura nativa deve priorizar login/home; a apresentação
+  // continua disponível somente na versão Web.
+  if (isAndroid()) return;
   if (parseStorefrontPublicRoute(location.pathname)) return;
   if (isSuperAdminRoute(location.pathname)) return;
   if (document.getElementById("introOverlay")) return;
@@ -11151,13 +11188,25 @@ function salvarPosicaoFabEstoque(posicao) {
   }
 }
 
+function capturarPonteiroSemFalhar(elemento, event) {
+  const pointerId = Number(event?.pointerId);
+  if (!elemento?.setPointerCapture || !Number.isFinite(pointerId)) return false;
+  try {
+    if (typeof elemento.hasPointerCapture === "function" && elemento.hasPointerCapture(pointerId)) return true;
+    elemento.setPointerCapture(pointerId);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function iniciarArrastoFabEstoque(event) {
   const botao = event?.currentTarget;
   if (!botao || (event.pointerType === "mouse" && event.button !== 0)) return;
   const inicio = botao.getBoundingClientRect();
   const origem = { x: event.clientX, y: event.clientY, left: inicio.left, top: inicio.top };
   let moveu = false;
-  botao.setPointerCapture?.(event.pointerId);
+  capturarPonteiroSemFalhar(botao, event);
   botao.classList.add("is-dragging");
 
   const mover = (movimento) => {
@@ -11265,8 +11314,7 @@ function iniciarArrastoAtalhoAssistenteIa(event) {
   const inicio = botao.getBoundingClientRect();
   const origem = { x: event.clientX, y: event.clientY, left: inicio.left, top: inicio.top };
   let moveu = false;
-  try { botao.setPointerCapture?.(event.pointerId); }
-  catch (_) { /* O arrasto continua pelos listeners globais em WebViews sem captura. */ }
+  capturarPonteiroSemFalhar(botao, event);
   botao.classList.add("is-dragging");
 
   const mover = (movimento) => {
@@ -12892,7 +12940,7 @@ function iniciarMoverJanelaDashboard(event, id) {
     workspaceRect: workspace.getBoundingClientRect()
   };
 
-  janelaEl.setPointerCapture?.(event.pointerId);
+  capturarPonteiroSemFalhar(janelaEl, event);
   janelaEl.classList.add("is-moving");
   event.preventDefault();
 }
@@ -12919,7 +12967,7 @@ function iniciarRedimensionarJanelaDashboard(event, id) {
     workspaceRect: workspace.getBoundingClientRect()
   };
 
-  janelaEl.setPointerCapture?.(event.pointerId);
+  capturarPonteiroSemFalhar(janelaEl, event);
   janelaEl.classList.add("is-resizing");
   event.preventDefault();
 }
@@ -13627,11 +13675,7 @@ function moverGestoDrawerLateral(event) {
     if (!aberturaValida || Math.abs(dx) < 18 || Math.abs(dx) < Math.abs(dy) * 1.45) return;
     sideDrawerGesture.active = true;
     atualizarSombraGestoDrawer(0.08, true);
-    try {
-      event.target?.setPointerCapture?.(event.pointerId);
-    } catch (erro) {
-      // Alguns WebViews não permitem captura aqui; o gesto continua funcionando sem ela.
-    }
+    capturarPonteiroSemFalhar(event.target, event);
   }
   event.preventDefault?.();
   const base = sideDrawerGesture.mode === "close" ? 1 : 0;
@@ -29568,7 +29612,7 @@ function renderLinhaClienteSaas(cliente) {
           <button class="btn warning" onclick="arquivarClienteSaas('${clienteIdAttr}')">Arquivar empresa</button>
           <button class="btn danger" onclick="anonimizarClienteSaas('${clienteIdAttr}')">Anonimizar dados pessoais</button>
           ${cliente.isTestUser ? `<button class="btn danger" onclick="excluirUsuarioTesteSaas('${clienteIdAttr}')">Excluir usuário de teste</button>` : ""}
-        `, "⋯")}
+        `, "Mais")}
       </div>
     </div>
   `;
@@ -32996,7 +33040,6 @@ function renderConfig() {
       </div>
       <p class="muted">Informações do aplicativo, sincronização, atualizações e documentos.</p>
       <div class="settings-accordion-list">
-        ${renderUiSection({ id: "assistente-ia", title: "Inteligência Artificial", subtitle: "Ativação, modelo e armazenamento", icon: "assistente", content: `<div id="assistantAiSettingsContent">${renderConfiguracaoAssistenteIa()}</div>`, open: false, group: "config" })}
         ${renderUiSection({ id: "backup", title: "Dados e backup", subtitle: "Conta e cópias de segurança", icon: "☁", content: backupContent, open: !isMobile(), group: "config" })}
         ${telaAtual === "config" ? `
           ${renderUiSection({ id: "atualizacoes", title: "Atualizações", subtitle: "Versão e atualização automática", icon: "↻", content: updatesContent, group: "config" })}
@@ -33491,7 +33534,7 @@ async function salvarPinAcoesSensiveis() {
         return;
       }
     } catch (erro) {
-      mostrarToast(erro.message || "Não foi possível validar o PIN atual.", "erro", 4200);
+      mostrarToast("Não foi possível validar o PIN atual.", "erro", 4200);
       return;
     }
     if (await verificarHashSenha(pin, getPinAcoesSensiveisConfig().hash)) {
@@ -34738,7 +34781,7 @@ async function atualizarNotaAdminCluster(id) {
 function filtrarRelatoriosAutomaticos(lista) {
   const filtros = getFiltrosTelemetriaSuperadmin();
   return lista.filter((item) => {
-    if (String(item.app_version || "").trim() !== APP_VERSION) return false;
+    if (!registroPertenceVersaoAtual(item) || registroTelemetriaEhTeste(item) || registroTelemetriaEhInformativo(item)) return false;
     if (filtros.severity && item.severity !== filtros.severity) return false;
     if (filtros.status && item.status !== filtros.status) return false;
     if (filtros.device && !String(item.device_model || "").toLowerCase().includes(filtros.device.toLowerCase())) return false;
@@ -34770,11 +34813,34 @@ function registroTelemetriaEhTeste(item = {}) {
   const versao = String(item.app_version || item.appVersion || "").toLowerCase();
   const email = String(item.user_email || item.email || "").toLowerCase();
   const chave = String(item.error_key || item.title || item.fingerprint || "").toLowerCase();
-  const origem = String(item.metadata?.source || item.source || "").toLowerCase();
+  const metadata = item.metadata || item.metadata_json || {};
+  const origem = String(metadata.source || item.source || "").toLowerCase();
+  const tela = String(item.screen || item.screen_name || "").toLowerCase();
+  const plataforma = String(item.platform || "").toLowerCase();
+  const mensagem = String(item.error_message || item.summary || item.description || item.message || "").toLowerCase();
   return versao.startsWith("telemetry-test-")
     || email.endsWith("@example.com")
     || chave.includes("test_error_simplifica")
-    || origem.includes("test-telemetry-rest");
+    || origem.includes("test-telemetry-rest")
+    || metadata.test === true
+    || tela === "telemetry_test"
+    || plataforma === "script"
+    || mensagem === "fault_before_local_persist";
+}
+
+function registroTelemetriaEhInformativo(item = {}) {
+  return erroTelemetriaEhInformativo(item.error_key || item.title || item.fingerprint || "");
+}
+
+function registroPertenceVersaoAtual(item = {}) {
+  const versaoDireta = String(item.app_version || item.appVersion || "").trim();
+  if (versaoDireta) return versaoDireta === APP_VERSION;
+  const versoesAfetadas = Array.isArray(item.affected_versions)
+    ? item.affected_versions
+    : Array.isArray(item.metadata?.affected_versions)
+      ? item.metadata.affected_versions
+      : [];
+  return versoesAfetadas.map((versao) => String(versao || "").trim()).includes(APP_VERSION);
 }
 
 function filtrarEventosDiagnostico(lista) {
@@ -34789,7 +34855,7 @@ function filtrarEventosDiagnostico(lista) {
 function filtrarBugClusters(lista) {
   const filtros = getFiltrosTelemetriaSuperadmin();
   return lista.filter((item) => {
-    if (String(item.app_version || "").trim() !== APP_VERSION) return false;
+    if (!registroPertenceVersaoAtual(item) || registroTelemetriaEhTeste(item) || registroTelemetriaEhInformativo(item)) return false;
     if (filtros.clusterStatus && item.status !== filtros.clusterStatus) return false;
     if (filtros.severity && item.severity !== filtros.severity) return false;
     return true;
@@ -34806,9 +34872,12 @@ function contarSugestoesPorCategoria(lista = []) {
 
 async function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
   if (!isSuperAdmin()) return;
+  const bugsValidos = filtrarRelatoriosAutomaticos(appErrorLogsRemotos);
+  const clustersValidos = filtrarBugClusters(appBugClustersRemotos);
+  const feedbacksValidos = filtrarFeedbackReports(appFeedbackReportsRemotos);
   const bug = tipo === "cluster"
-    ? appBugClustersRemotos.find((item) => String(item.id) === String(id)) || appBugClustersRemotos[0]
-    : appErrorLogsRemotos.find((item) => String(item.id) === String(id)) || appErrorLogsRemotos[0] || appBugClustersRemotos[0];
+    ? clustersValidos.find((item) => String(item.id) === String(id)) || clustersValidos[0]
+    : bugsValidos.find((item) => String(item.id) === String(id)) || bugsValidos[0] || clustersValidos[0];
   if (!bug) {
     mostrarToast("Nenhum diagnóstico disponível para gerar relatório.", "info");
     return;
@@ -34817,7 +34886,7 @@ async function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
     ? window.DiagnosticsService.generateCodexTechnicalReport({
       bug,
       events: appDiagnosticEventsRemotos.filter((event) => event.fingerprint && event.fingerprint === bug.fingerprint).slice(0, 8),
-      feedbacks: appFeedbackReportsRemotos.slice(0, 5)
+      feedbacks: feedbacksValidos.slice(0, 5)
     })
     : `# Relatório técnico para correção\n\n## Resumo\n${bug.error_message || bug.summary || bug.fingerprint || "Diagnóstico coletado."}`;
   window.__codexDiagnosticsReport = report;
@@ -34836,7 +34905,7 @@ async function gerarRelatorioCodexDiagnostico(id = "", tipo = "bug") {
     summary: String(bug.summary || bug.error_message || bug.error_key || bug.fingerprint || "Diagnóstico").slice(0, 900),
     technical_report: report,
     related_error_ids: tipo === "bug" && bug.id ? [bug.id] : [],
-    related_feedback_ids: appFeedbackReportsRemotos.slice(0, 5).map((item) => item.id).filter(Boolean),
+    related_feedback_ids: feedbacksValidos.slice(0, 5).map((item) => item.id).filter(Boolean),
     related_cluster_ids: tipo === "cluster" && bug.id ? [bug.id] : [],
     status: "generated"
   };
@@ -34954,7 +35023,7 @@ function renderSuperAdminFeedbackReports() {
     <div class="metrics">
       <div class="metric"><span>Sugestões online</span><strong>${appSuggestionsRemotas.filter((item) => !registroTelemetriaEhTeste(item)).length}</strong></div>
       <div class="metric"><span>Pedidos NF-e</span><strong>${nfeCount}</strong></div>
-      <div class="metric"><span>Feedbacks técnicos</span><strong>${appFeedbackReportsRemotos.length}</strong></div>
+      <div class="metric"><span>Feedbacks reais</span><strong>${lista.length}</strong></div>
     </div>
     <div class="history-list">
       ${categoriasOrdenadas.map(([categoria, total]) => `
@@ -35046,12 +35115,13 @@ function renderSuperAdminDiagnosticos() {
   const bugs = filtrarRelatoriosAutomaticos(appErrorLogsRemotos);
   const eventos = filtrarEventosDiagnostico(appDiagnosticEventsRemotos);
   const clusters = filtrarBugClusters(appBugClustersRemotos);
-  const bugsVersaoAtual = appErrorLogsRemotos.filter((item) => String(item.app_version || "").trim() === APP_VERSION);
+  const bugsVersaoAtual = appErrorLogsRemotos.filter((item) => registroPertenceVersaoAtual(item) && !registroTelemetriaEhTeste(item) && !registroTelemetriaEhInformativo(item));
+  const bugsAbertosVersaoAtual = bugsVersaoAtual.filter((item) => !["fixed", "ignored", "closed", "done"].includes(String(item.status || "new").toLowerCase()));
   const feedbacksValidos = appFeedbackReportsRemotos.filter((item) => !registroTelemetriaEhTeste(item));
   const eventosVersaoAtual = appDiagnosticEventsRemotos.filter((item) => !item.app_version || String(item.app_version).trim() === APP_VERSION);
-  const bugsCriticos = bugsVersaoAtual.filter((item) => item.severity === "critical" && item.status !== "fixed").length;
-  const usuariosAfetados = bugsVersaoAtual.reduce((total, item) => total + (Number(item.affected_users_count || item.affected_user_count) || 0), 0);
-  const telaMaisErros = Object.entries(bugsVersaoAtual.reduce((acc, item) => {
+  const bugsCriticos = bugsAbertosVersaoAtual.filter((item) => item.severity === "critical").length;
+  const usuariosAfetados = bugsAbertosVersaoAtual.reduce((total, item) => total + (Number(item.affected_users_count || item.affected_user_count) || 0), 0);
+  const telaMaisErros = Object.entries(bugsAbertosVersaoAtual.reduce((acc, item) => {
     const key = item.screen || item.screen_name || "-";
     acc[key] = (acc[key] || 0) + (Number(item.occurrence_count) || 1);
     return acc;
@@ -35523,7 +35593,7 @@ function renderSuperAdminAtalhosSecundarios() {
     estado.diagnosticos = "loading";
     setTimeout(() => carregarDiagnosticosSuperadminSupabase({ renderizar: true }), 0);
   }
-  const bugsAtuais = appErrorLogsRemotos.filter((item) => String(item.app_version || "").trim() === APP_VERSION && !["fixed", "ignored", "closed"].includes(String(item.status || "new").toLowerCase()));
+  const bugsAtuais = appErrorLogsRemotos.filter((item) => registroPertenceVersaoAtual(item) && !registroTelemetriaEhTeste(item) && !registroTelemetriaEhInformativo(item) && !["fixed", "ignored", "closed"].includes(String(item.status || "new").toLowerCase()));
   const melhoriasNovas = appSuggestionsRemotas.filter((item) => !registroTelemetriaEhTeste(item) && ["", "new", "novo", "open", "aberto"].includes(String(item.status || "").toLowerCase()));
   const eventosAtuais = appDiagnosticEventsRemotos.filter((item) => !item.app_version || String(item.app_version).trim() === APP_VERSION);
   const eventosHoje = eventosAtuais.filter((item) => Date.parse(item.created_at || 0) > Date.now() - 86400000).length;
@@ -38278,7 +38348,7 @@ async function registrarSugestaoNfe() {
     });
     mostrarToast("Obrigado! Sua sugestão foi registrada.", "sucesso", 4200);
   } catch (erro) {
-    mostrarToast(erro.message || "Não foi possível registrar a sugestão.", "erro", 5000);
+    mostrarToast("Não foi possível registrar a sugestão.", "erro", 5000);
   }
   renderApp();
 }
@@ -40139,7 +40209,10 @@ function concluirLoginUsuario(usuario) {
   } else if (deveMostrarOnboarding(usuario)) {
     telaAnterior = "dashboard";
     telaAtual = "onboarding";
-  } else if (["onboarding", "superadmin", "acessoNegado", "admin"].includes(telaAtual)) {
+  } else {
+    // A senha já foi validada; exiba o ambiente imediatamente e deixe sincronizações lentas em segundo plano.
+    telaAnterior = "dashboard";
+    // Gestão de usuários é uma guia opcional: nunca é o destino automático do login.
     telaAtual = "dashboard";
   }
   renderApp();
@@ -42208,7 +42281,7 @@ async function verificarSuperadminSupabaseSilencioso() {
   return false;
 }
 
-async function loginUsuarioSupabase(email, senha) {
+async function loginUsuarioSupabase(email, senha, { deferPostLogin = false } = {}) {
   syncConfig.supabaseUrl = normalizarUrlSupabase(syncConfig.supabaseUrl || SUPABASE_DEFAULT_URL);
   syncConfig.supabaseAnonKey = syncConfig.supabaseAnonKey || SUPABASE_DEFAULT_ANON_KEY;
   const dados = await requisicaoSupabase("/auth/v1/token?grant_type=password", {
@@ -42218,14 +42291,10 @@ async function loginUsuarioSupabase(email, senha) {
   });
   if (!salvarSessaoSupabase(dados, email)) return null;
 
-  try {
-    await sincronizarUsuarioSaasAposLoginSupabase({
-      nome: email.split("@")[0],
-      email
-    });
-  } catch (erro) {
-    logFalhaSyncSaas("loginUsuarioSupabase", erro);
-  }
+  const sincronizarUsuario = () => sincronizarUsuarioSaasAposLoginSupabase({ nome: email.split("@")[0], email })
+    .catch((erro) => logFalhaSyncSaas("loginUsuarioSupabase", erro));
+  if (deferPostLogin) Promise.resolve().then(sincronizarUsuario);
+  else await sincronizarUsuario();
 
   let perfil = null;
   try {
@@ -42265,8 +42334,10 @@ async function loginUsuarioSupabase(email, senha) {
     usuario.acceptedTermsAt = perfil?.accepted_terms_at || usuario.acceptedTermsAt || "";
   }
 
-  await carregarPerfilSaasSupabase(usuario);
-  marcarUsuarioSupabaseSincronizado(usuario);
+  if (!deferPostLogin) {
+    await carregarPerfilSaasSupabase(usuario);
+    marcarUsuarioSupabaseSincronizado(usuario);
+  }
   await definirSenhaUsuario(usuario, senha, !!usuario.mustChangePassword);
   salvarDados();
   return usuario;
@@ -44804,46 +44875,28 @@ function criarLancamentoReversoCaixaPedido(pedido, movimentos, agora) {
 async function cancelOrderSafely(orderId, options = {}) {
   try {
     if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para cancelar pedidos.")) return;
-    const pedido = encontrarPedidoPorId(orderId);
-    if (!pedido) return;
-    if (pedidoJaCancelado(pedido)) {
-      mostrarToast("Este pedido já está cancelado.", "info", 4200);
-      return;
+    const operationId = String(options.operationId || `order_cancel:${orderId}:${Date.now()}`);
+    const prepared = getCancelOrderUseCase3d().prepare({ orderId, operationId, returnStock: options.returnStock === true, reason: options.reason }, { authorized: true });
+    if (!prepared.success) {
+      const error = prepared.errors[0] || {};
+      mostrarToast(error.code === "ORDER_ALREADY_CANCELLED" ? "Este pedido já está cancelado." : "Não foi possível preparar o cancelamento.", error.code === "ORDER_ALREADY_CANCELLED" ? "info" : "erro", 4200);
+      return prepared;
     }
-
-    const agora = new Date().toISOString();
-    const movimentos = movimentosCaixaPedido(pedido);
-    const devolverEstoque = options.returnStock === true && !pedido.stock_returned_at && !pedido.estoqueDevolvidoEm;
-    if (devolverEstoque) devolverEstoquePedido(pedido, "cancelamento seguro");
-
-    const reverso = criarLancamentoReversoCaixaPedido(pedido, movimentos, agora);
-    if (reverso) caixa.push(reverso);
-
-    const cancelado = marcarRegistroAlteradoParaSync(pedido, {
-      status: "cancelado",
-      deleted_at: agora,
-      deletedAt: agora,
-      cancelled_by: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "",
-      cancelledBy: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "",
-      cancel_reason: options.reason || "Cancelamento manual",
-      cancelReason: options.reason || "Cancelamento manual",
-      stock_returned_at: devolverEstoque ? agora : pedido.stock_returned_at || "",
-      estoqueDevolvidoEm: devolverEstoque ? agora : pedido.estoqueDevolvidoEm || "",
-      financial_reversed_at: reverso ? agora : pedido.financial_reversed_at || ""
-    });
-    pedidos = pedidos.map((item) => String(item.id) === String(orderId) ? cancelado : item);
-    registrarEventoFinanceiroPedidoLocal(cancelado, reverso, "cancel");
+    const result = await getCancelOrderUseCase3d().commit(prepared, { authorized: true });
+    if (!result.success) {
+      const error = result.errors[0] || {};
+      throw Object.assign(new Error(error.message || "Não foi possível cancelar o pedido."), { code: error.code || "CANCEL_ORDER_FAILED" });
+    }
+    const cancelado = result.data.order;
+    const effects = result.data.effects || {};
 
     if (pedidoEditando && String(pedidoEditando.id) === String(orderId)) {
       cancelarEdicaoPedido();
     }
-
-    salvarDados();
-    agendarSyncSilenciosoDados("pedido-cancelado");
     registrarAuditoriaPedido("pedido_cancelado", cancelado, {
-      devolveuEstoque: devolverEstoque,
-      movimentosCaixa: movimentos.length,
-      reversaoCaixa: !!reverso,
+      devolveuEstoque: effects.inventoryChanged === true,
+      movimentosCaixa: Number(effects.cashMovements) || 0,
+      reversaoCaixa: effects.cashChanged === true,
       motivo: cancelado.cancelReason || cancelado.cancel_reason || ""
     });
     registrarHistorico("Pedido", "Pedido cancelado: " + clienteDoPedido(cancelado), {
@@ -44854,8 +44907,10 @@ async function cancelOrderSafely(orderId, options = {}) {
     });
     mostrarToast("Pedido cancelado com sucesso.", "sucesso", 4200);
     renderizarPreservandoScroll();
+    return result;
   } catch (erro) {
     ErrorService.notify(erro, { area: "Pedidos", action: "Cancelar pedido com segurança", errorKey: "CANCEL_ORDER_FAILED" });
+    return null;
   }
 }
 
@@ -44977,6 +45032,8 @@ function devolverEstoquePedido(pedido, motivo = "cancelamento") {
 
 let orderCreatePreparationUseCase3d = null;
 let orderCreateTransactionExecutor3d = null;
+let editOrderUseCase3d = null;
+let cancelOrderUseCase3d = null;
 function getOrderCreatePreparationUseCase3d() {
   if (orderCreatePreparationUseCase3d) return orderCreatePreparationUseCase3d;
   const Preparation = window.Simplifica3dOrderCreatePreparation;
@@ -44994,6 +45051,109 @@ function getOrderCreatePreparationUseCase3d() {
 
 function cloneOrderTransactionState(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function getOrderUseCaseContextPermission(context = {}) {
+  return context.authorized === true;
+}
+
+function getOrderVersionForConflict(order = {}) {
+  return String(order.atualizadoEm || order.updated_at || order.updatedAt || order.client_request_id || order.clientRequestId || "");
+}
+
+function determineEditOrderEffects(proposed, current) {
+  const inventory = diffConsumoPedido(proposed, current).map((item) => ({ type: item.quantidade >= 0 ? "consume" : "restoreConsumption", ...item }));
+  const cashBefore = valorRegistradoCaixaPedido(current);
+  const cashAfter = valorRecebidoPedido(proposed);
+  const cash = Math.abs(cashAfter - cashBefore) > 0.009 ? [{ type: cashAfter > cashBefore ? "receive" : "review_reversal", amount: Math.abs(cashAfter - cashBefore) }] : [];
+  const production = productionJobs.some((job) => String(job.orderId || job.order_id) === String(current.id) && job.status !== "cancelado")
+    ? [{ type: "review_jobs", orderId: String(current.id) }] : [];
+  return { inventory, cash, production };
+}
+
+function determineCancelOrderEffects(order, input = {}) {
+  const jobs = productionJobs.filter((job) => String(job.orderId || job.order_id) === String(order.id) && job.status !== "cancelado");
+  const partiallyProduced = jobs.some((job) => Math.max(0, Number(job.completedQuantity || job.completed_quantity) || 0) > 0 || ["pos_processamento", "pronto_para_entrega", "entregue"].includes(job.status));
+  const canRestore = input.returnStock === true && pedidoEstoqueFoiBaixado(order) && !order.stock_returned_at && !order.estoqueDevolvidoEm && !partiallyProduced;
+  const movements = movimentosCaixaPedido(order).filter((movement) => !movimentoCaixaCancelado(movement));
+  return {
+    inventory: { releaseReservations: [], restoreConsumption: canRestore ? diffConsumoPedido({ itens: [] }, order) : [] },
+    financial: { reverseOperations: movements.map((movement) => ({ movementId: movement.id, amount: Number(movement.valor) || 0 })) },
+    production: { cancelJobs: jobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).map((job) => ({ jobId: job.id, previousStatus: job.status })) },
+    warnings: partiallyProduced && input.returnStock === true ? [{ code: "PARTIAL_PRODUCTION_STOCK_REVIEW", message: "Há produção iniciada; o consumo não será restaurado automaticamente." }] : []
+  };
+}
+
+function getEditOrderUseCase3d() {
+  if (editOrderUseCase3d) return editOrderUseCase3d;
+  const UseCases = window.Simplifica3dOrderSharedUseCases;
+  if (!UseCases?.EditOrderUseCase) throw new Error("EDIT_ORDER_USECASE_UNAVAILABLE");
+  editOrderUseCase3d = new UseCases.EditOrderUseCase({
+    loadOrder: encontrarPedidoPorId,
+    hasPermission: getOrderUseCaseContextPermission,
+    isCancelled: pedidoJaCancelado,
+    versionOf: getOrderVersionForConflict,
+    validateProposed: (proposed) => proposed && String(clienteDoPedido(proposed)).trim() && normalizarItensPedido(proposed).length ? { ok: true } : { ok: false, code: "INVALID_INPUT", message: "Pedido precisa de cliente e itens válidos." },
+    describeChanges: descreverAlteracoesPedido,
+    determineEditEffects: determineEditOrderEffects,
+    commitEdit: async (plan) => {
+      const proposed = plan.proposed;
+      const current = encontrarPedidoPorId(plan.orderId);
+      const execution = await getOrderCreateTransactionExecutor3d().execute({
+        transactionKey: plan.operationId,
+        order: proposed,
+        previousOrder: current,
+        cashRegisteredBefore: valorRegistradoCaixaPedido(current),
+        financialSummary: calcularResumoFinanceiroPedido(proposed),
+        operationMetadata: criarMetadadosOperacaoFinanceira("pedido_update", proposed)
+      });
+      if (!["COMMITTED", "ALREADY_COMMITTED"].includes(execution.status)) return { success: false, code: execution.reason || "EXECUTION_FAILED", message: execution.error?.message || "Falha ao atualizar pedido." };
+      agendarSyncSilenciosoDados("pedido-atualizado");
+      return { success: true, order: execution.order || proposed, effects: { ...plan.effects, inventoryChanged: plan.effects.inventory.length > 0, cashChanged: !!execution.cashReceipt, productionChanged: plan.effects.production.length > 0, cashReceipt: execution.cashReceipt || null }, invalidated: ["orders", `order:${plan.orderId}`, "dashboard", "cash-summary", "inventory"] , warnings: execution.warnings || [] };
+    }
+  });
+  return editOrderUseCase3d;
+}
+
+function getCancelOrderUseCase3d() {
+  if (cancelOrderUseCase3d) return cancelOrderUseCase3d;
+  const UseCases = window.Simplifica3dOrderSharedUseCases;
+  if (!UseCases?.CancelOrderUseCase) throw new Error("CANCEL_ORDER_USECASE_UNAVAILABLE");
+  cancelOrderUseCase3d = new UseCases.CancelOrderUseCase({
+    loadOrder: encontrarPedidoPorId,
+    hasPermission: getOrderUseCaseContextPermission,
+    isCancelled: pedidoJaCancelado,
+    canCancel: () => ({ allowed: true }),
+    determineCancelEffects: determineCancelOrderEffects,
+    commitCancellation: async (plan) => {
+      const snapshot = { pedidos: cloneOrderTransactionState(pedidos), caixa: cloneOrderTransactionState(caixa), estoque: cloneOrderTransactionState(estoque), historico: cloneOrderTransactionState(historico), productionJobs: cloneOrderTransactionState(productionJobs), productionEvents: cloneOrderTransactionState(productionEvents) };
+      try {
+        const order = encontrarPedidoPorId(plan.orderId);
+        const agora = new Date().toISOString();
+        let inventoryChanged = false;
+        if (plan.inventory.restoreConsumption.length) {
+          inventoryChanged = aplicarDiffEstoqueComControle(plan.inventory.restoreConsumption.map((item) => ({ ...item, orderItemId: item.materialId })), "cancelamento seguro", { orderId: order.id, idempotencyPrefix: `order_material_return:${order.id}` });
+          if (!inventoryChanged) throw Object.assign(new Error("Não foi possível restaurar o estoque."), { code: "INVENTORY_RESTORE_ERROR" });
+        }
+        const movements = movimentosCaixaPedido(order);
+        const reverse = criarLancamentoReversoCaixaPedido(order, movements, agora);
+        if (reverse) caixa.push(reverse);
+        const cancelJobIds = new Set(plan.production.cancelJobs.map((item) => String(item.jobId)));
+        productionJobs.forEach((job) => { if (cancelJobIds.has(String(job.id))) { const old = job.status; job.status = "cancelado"; job.updated_at = agora; registrarEventoProducao(job.id, "pedido_cancelado", old, "cancelado", plan.reason); } });
+        const cancelled = marcarRegistroAlteradoParaSync(order, { status: "cancelado", deleted_at: agora, deletedAt: agora, cancelled_by: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "", cancelledBy: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "", cancel_reason: plan.reason, cancelReason: plan.reason, stock_returned_at: inventoryChanged ? agora : order.stock_returned_at || "", estoqueDevolvidoEm: inventoryChanged ? agora : order.estoqueDevolvidoEm || "", financial_reversed_at: reverse ? agora : order.financial_reversed_at || "" });
+        pedidos = pedidos.map((item) => String(item.id) === String(plan.orderId) ? cancelled : item);
+        registrarEventoFinanceiroPedidoLocal(cancelled, reverse, "cancel");
+        salvarDados();
+        agendarSyncSilenciosoDados("pedido-cancelado");
+        return { success: true, order: cancelled, effects: { inventoryChanged, cashChanged: !!reverse, cashMovements: movements.length, productionChanged: cancelJobIds.size > 0 }, invalidated: ["orders", `order:${plan.orderId}`, "dashboard", "cash-summary", "inventory", "production"] };
+      } catch (error) {
+        pedidos = snapshot.pedidos; caixa = snapshot.caixa; estoque = snapshot.estoque; historico = snapshot.historico; productionJobs = snapshot.productionJobs; productionEvents = snapshot.productionEvents;
+        salvarDados();
+        throw error;
+      }
+    }
+  });
+  return cancelOrderUseCase3d;
 }
 
 function getOrderCreateTransactionExecutor3d() {
@@ -45140,6 +45300,21 @@ async function fecharPedido() {
       return;
     }
 
+    let editPreparation = null;
+    if (pedidoEditando) {
+      editPreparation = getEditOrderUseCase3d().prepare({
+        orderId: pedidoEditando.id,
+        operationId: pedido.client_request_id || pedido.clientRequestId,
+        proposed: pedido
+      }, { authorized: true });
+      if (!editPreparation.success) {
+        const editError = editPreparation.errors[0] || {};
+        pedidoSalvando = false;
+        renderizarPreservandoScroll();
+        throw Object.assign(new Error(editError.message || "Não foi possível preparar a edição."), { code: editError.code || "ORDER_EDIT_PREPARATION_FAILED" });
+      }
+    }
+
     const disposableValidation = window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1";
     const creditReservation = disposableValidation
       ? { allowed: true, receipt: null, user: null, actionType: "sandbox" }
@@ -45153,14 +45328,24 @@ async function fecharPedido() {
 
     let executionResult;
     try {
-      executionResult = await getOrderCreateTransactionExecutor3d().execute({
-        transactionKey: pedido.client_request_id || pedido.clientRequestId,
-        order: pedido,
-        previousOrder: pedidoEditando,
-        cashRegisteredBefore: caixaRegistradoAntes,
-        financialSummary: resumoFinanceiro,
-        operationMetadata: metadadosOperacao
-      });
+      if (pedidoEditando) {
+        const editResult = await getEditOrderUseCase3d().commit(editPreparation, { authorized: true });
+        if (!editResult.success) {
+          const editError = editResult.errors[0] || {};
+          executionResult = { status: "ROLLED_BACK", reason: editError.code || "ORDER_EDIT_EXECUTION_FAILED", error: Object.assign(new Error(editError.message || "Falha ao atualizar pedido."), { code: editError.code }) };
+        } else {
+          executionResult = { status: "COMMITTED", order: editResult.data.order, cashReceipt: editResult.data.effects?.cashReceipt || null, warnings: editResult.warnings || [] };
+        }
+      } else {
+        executionResult = await getOrderCreateTransactionExecutor3d().execute({
+          transactionKey: pedido.client_request_id || pedido.clientRequestId,
+          order: pedido,
+          previousOrder: null,
+          cashRegisteredBefore: caixaRegistradoAntes,
+          financialSummary: resumoFinanceiro,
+          operationMetadata: metadadosOperacao
+        });
+      }
     } catch (executionError) {
       compensarCreditoPedidoFree(creditReservation);
       throw executionError;
@@ -45348,19 +45533,22 @@ async function alterarStatusPedido(id, status) {
     // Avançar um pedido existente é parte do fluxo operacional e não cria uma
     // nova ação comercial. Não aguarde anúncio aqui: a espera fazia o status
     // parecer travado e descartava a alteração quando o anúncio falhava.
-    const pedidoAtualizado = { ...pedido, status: status || "aberto" };
-    if (!aplicarEstoquePedido(pedidoAtualizado, pedido)) return;
-    pedidos[indicePedido] = marcarRegistroAlteradoParaSync(pedidoAtualizado);
-    salvarDados();
-    agendarSyncSilenciosoDados("status-pedido");
-    registrarAuditoriaPedido("pedido_status_alterado", pedidos[indicePedido], { statusAnterior, statusNovo: pedidos[indicePedido].status });
-    registrarHistorico("Pedido", `Status alterado de ${labelStatusPedido(statusAnterior)} para ${labelStatusPedido(pedidos[indicePedido].status)}.`, {
+    const agora = new Date().toISOString();
+    const operationId = `order_status:${id}:${String(status || "aberto")}:${agora}`;
+    const pedidoAtualizado = marcarRegistroAlteradoParaSync({ ...pedido, status: status || "aberto", client_request_id: operationId, clientRequestId: operationId, atualizadoEm: agora });
+    const prepared = getEditOrderUseCase3d().prepare({ orderId: id, operationId, proposed: pedidoAtualizado }, { authorized: true });
+    if (!prepared.success) throw Object.assign(new Error(prepared.errors[0]?.message || "Não foi possível preparar a alteração de status."), { code: prepared.errors[0]?.code });
+    const result = await getEditOrderUseCase3d().commit(prepared, { authorized: true });
+    if (!result.success) throw Object.assign(new Error(result.errors[0]?.message || "Não foi possível alterar o status."), { code: result.errors[0]?.code });
+    const pedidoSalvo = result.data.order;
+    registrarAuditoriaPedido("pedido_status_alterado", pedidoSalvo, { statusAnterior, statusNovo: pedidoSalvo.status });
+    registrarHistorico("Pedido", `Status alterado de ${labelStatusPedido(statusAnterior)} para ${labelStatusPedido(pedidoSalvo.status)}.`, {
       area: "order",
       order_id: String(id),
       previous_status: statusAnterior,
-      new_status: pedidos[indicePedido].status
+      new_status: pedidoSalvo.status
     });
-    mostrarToast(`Status atualizado para ${labelStatusPedido(pedidos[indicePedido].status)}.`, "sucesso", 2200);
+    mostrarToast(`Status atualizado para ${labelStatusPedido(pedidoSalvo.status)}.`, "sucesso", 2200);
     renderizarPreservandoScroll();
   } catch (erro) {
     registrarFluxoSalvamento("Pedidos", "Alterar status", { pedidoId: String(id), status: String(status || "") }, erro);
@@ -45568,7 +45756,7 @@ async function prepararFotoItemEstoque(input) {
     mostrarToast(`Foto compactada para ${foto.sizeKb} KB.`, "sucesso", 2600);
   } catch (erro) {
     input.value = "";
-    mostrarToast(erro.message || "Não foi possível usar esta foto.", "erro", 4800);
+    mostrarToast("Não foi possível usar esta foto.", "erro", 4800);
   } finally {
     toast?.remove?.();
   }
@@ -47328,8 +47516,8 @@ let secretariaIaChatBusy = false;
 let secretariaIaChatLoadedKey = "";
 let assistenteIaOuvindo = false;
 let assistenteIaTutorialForcado = false;
-let assistenteIaAquecimento = { status: "idle", message: "Aguardando" };
-let assistenteIaConfigState = { loaded: false, available: false, enabled: false, state: "NOT_INSTALLED", models: [], selection: "automatic", downloadedBytes: 0, totalBytes: 0 };
+let assistenteIaAquecimento = { status: "idle", message: "FunctionGemma disponível" };
+let assistenteIaConfigState = { loaded: false, available: false, enabled: true, state: "AVAILABLE", modelId: "functiongemma-270m-it-q8_0", models: [], selection: "functiongemma-270m-it-q8_0", downloadedBytes: 0, totalBytes: 291557856 };
 let assistenteIaConfigPollTimer = null;
 let simplifica3dAiOrchestratorV2 = null;
 let assistantCoreUniversal3d = null;
@@ -47341,19 +47529,16 @@ let assistenteIaBenchmarkBusy = false;
 const assistenteIaAttachmentPreviewUrls = new Map();
 
 function getCapacidadesModeloAssistenteIa() {
-  const state = assistenteIaConfigState || {};
-  const current = (Array.isArray(state.models) ? state.models : []).find((model) => model.id === state.modelId) || null;
-  const capability = (statusKey, modelKey) => typeof state[statusKey] === "boolean" ? state[statusKey] : current?.[modelKey] === true;
   return Object.freeze({
-    supportsText: capability("supportsText", "text"),
-    supportsVision: capability("supportsVision", "vision"),
-    supportsAudio: capability("supportsAudio", "audio"),
-    supportsTools: capability("supportsTools", "tools")
+    supportsText: true,
+    supportsVision: false,
+    supportsAudio: false,
+    supportsTools: true
   });
 }
 
 function informarImagemNaoSuportadaAssistenteIa() {
-  mostrarToast("A análise local de imagens requer um modelo e runtime compatíveis, como a IA Equilibrada ou Avançada.", "info", 4800);
+  mostrarToast("O FunctionGemma trabalha com comandos de texto e voz. Imagens não são enviadas para a IA.", "info", 4200);
 }
 
 function getAssistantUiComponents3d() {
@@ -47568,7 +47753,7 @@ async function processarImagemAssistenteIa(input) {
       assistenteIaMenuAnexoAberto = false;
       renderChatSecretariaIa();
     } finally { loaded.close?.(); }
-  } catch (error) { mostrarToast(error?.message || "Não foi possível preparar a imagem.", "erro", 4800); }
+  } catch (error) { mostrarToast("Não foi possível preparar a imagem.", "erro", 4800); }
 }
 
 function alternarMenuAnexoAssistenteIa() {
@@ -47724,7 +47909,11 @@ function getEstadoVisualSecretariaIa() {
 
 function getDescricaoEstadoSecretariaIa() {
   const state = getEstadoVisualSecretariaIa();
-  if (state === "active") return assistenteIaOuvindo ? "Assistente ouvindo" : "Assistente trabalhando";
+  if (state === "active") {
+    if (assistenteIaOuvindo) return "Assistente ouvindo";
+    if (!secretariaIaChatBusy && assistenteIaAquecimento.status === "preparing") return assistenteIaAquecimento.message || "Preparando a assistente";
+    return "Assistente trabalhando";
+  }
   if (state === "idle") return "Assistente ativa e aguardando";
   return "Assistente indisponível no momento";
 }
@@ -47752,11 +47941,9 @@ async function preaquecerAssistenteIa3d({ renderChat = false } = {}) {
     assistenteIaConfigState = { ...assistenteIaConfigState, ...result, loaded: true };
     assistenteIaAquecimento = result?.compatible === false
       ? { status: "unavailable", message: result.incompatibilityReason || "Indisponível neste aparelho" }
-      : !result?.enabled
-        ? { status: "unavailable", message: "Assistente desativada" }
-        : result?.modelReady
-          ? { status: "ready", message: "Pronta para conversar" }
-          : { status: result?.downloading ? "preparing" : "unavailable", message: result?.downloading ? "Baixando o modelo..." : "Modelo ainda não instalado" };
+      : result?.modelReady || result?.runtimeReady
+        ? { status: "ready", message: "FunctionGemma pronto" }
+        : { status: result?.downloading ? "preparing" : "unavailable", message: result?.downloading ? "Preparando FunctionGemma..." : "FunctionGemma indisponível" };
   } catch (error) {
     registrarErroAplicacaoSilencioso("simplifica_ai_warmup", error, "preaquecerAssistenteIa3d");
     assistenteIaAquecimento = { status: "unavailable", message: "Indisponível no momento" };
@@ -47854,9 +48041,7 @@ function renderConfiguracaoAssistenteIa() {
   const health = state.modelHealth || device.modelHealth || {};
   const healthLabel = ({ NOT_TESTED: "Ainda não testado", READY: "Pronto", SLOW: "Funcionamento lento", UNSTABLE: "Instável", FAILED: "Falhou" })[health.health] || "Ainda não testado";
   const profileCopy = {
-    LIGHT: ["Mais rápida e ocupa menos espaço.", "Texto, consultas e navegação. Não inclui análise local de imagens."],
-    BALANCED: ["Recomendada", "Boa combinação entre velocidade e inteligência. Inclui recursos multimodais compatíveis."],
-    ADVANCED: ["Maior capacidade", "Exige mais memória, armazenamento e processamento."]
+    OPERATIONAL: ["Modelo único do Simplifica", "Comandos, buscas, navegação e preenchimento de rascunhos. O usuário sempre revisa e salva."]
   };
   const modelCards = models.map((model) => {
     const copy = profileCopy[model.profile] || ["Modelo local", "Recursos definidos pelo catálogo deste aplicativo."];
@@ -47866,28 +48051,23 @@ function renderConfiguracaoAssistenteIa() {
   }).join("");
   return `
     <div class="settings-group">
-      <label class="checkbox-row"><input type="checkbox" ${state.enabled ? "checked" : ""} onchange="alternarAssistenteIaLocal(this.checked)"><span><strong>Assistente local</strong><small>Executa a IA no próprio aparelho. O Simplifica funciona normalmente desligado.</small></span></label>
+      <div class="checkbox-row"><span><strong>FunctionGemma 270M Q8_0</strong><small>Modelo fixo local. Não há seleção de outro modelo.</small></span></div>
     </div>
-    <label class="field"><span>Seleção do modelo</span><select onchange="selecionarModeloAssistenteIa(this.value)" ${processing ? "disabled" : ""}><option value="automatic" ${state.selection === "automatic" ? "selected" : ""}>Automático</option>${models.map((model) => `<option value="${escaparAttr(model.id)}" ${state.selection === model.id ? "selected" : ""} ${model.available ? "" : "disabled"}>${escaparHtml(model.displayName)}${model.available ? "" : " — em validação"}</option>`).join("")}</select></label>
     <div class="ai-model-profile-list">${modelCards}</div>
-    <div class="sync-grid"><div class="metric"><span>Modelo recomendado</span><strong>${escaparHtml(current.displayName || state.modelName || "IA Equilibrada")}</strong><small>${total ? formatarBytesAssistenteIa(total) : "Tamanho ainda não validado"}</small></div><div class="metric"><span>Status</span><strong>${escaparHtml(statusLabel)}</strong>${state.incompatibilityReason ? `<small>${escaparHtml(state.incompatibilityReason)}</small>` : ""}</div></div>
+    <div class="sync-grid"><div class="metric"><span>Modelo</span><strong>${escaparHtml(current.displayName || state.modelName || "FunctionGemma 270M Q8_0")}</strong><small>${total ? formatarBytesAssistenteIa(total) : "Tamanho ainda não validado"}</small></div><div class="metric"><span>Status</span><strong>${escaparHtml(statusLabel)}</strong>${state.incompatibilityReason ? `<small>${escaparHtml(state.incompatibilityReason)}</small>` : ""}</div></div>
     <details class="ai-device-details"><summary>Compatibilidade do aparelho</summary><div><span>Memória: <strong>${device.totalMemoryBytes ? formatarBytesAssistenteIa(device.totalMemoryBytes) : device.deviceMemoryGb ? `${Number(device.deviceMemoryGb).toLocaleString("pt-BR")} GB aproximados` : "não informada"}</strong></span><span>Espaço livre: <strong>${device.freeStorageBytes ? formatarBytesAssistenteIa(device.freeStorageBytes) : "não informado"}</strong></span><span>Plataforma: <strong>${escaparHtml(Array.isArray(device.abis) && device.abis.length ? device.abis.join(", ") : device.webGpu ? "Navegador com WebGPU" : "não informada")}</strong></span><span>Execução: <strong>${escaparHtml(device.activeBackend || device.backendPolicy || (device.adapterAvailable ? "Aceleração disponível" : "será verificada ao iniciar"))}</strong></span>${device.storageBackend ? `<span>Armazenamento do modelo: <strong>${escaparHtml(device.storageBackend)}${device.persistentStorage ? " persistente" : " sujeito à limpeza do navegador"}</strong></span>` : ""}<span>Saúde do modelo: <strong>${escaparHtml(healthLabel)}</strong></span></div></details>
     ${processing ? `<div class="ai-model-progress"><progress max="100" value="${percent}"></progress><span>${formatarBytesAssistenteIa(downloaded)} de ${formatarBytesAssistenteIa(total)} · ${percent}%</span></div>` : ""}
-    <div class="actions ui3-action-row">
-      ${state.state === "READY" ? `<button class="btn secondary" type="button" onclick="testarDesempenhoAssistenteIa()" ${assistenteIaBenchmarkBusy ? "disabled" : ""}>${assistenteIaBenchmarkBusy ? "Testando..." : "Testar desempenho"}</button>` : ""}
-      ${state.state === "READY" ? `<button class="btn danger" type="button" onclick="removerModeloAssistenteIa()">Remover e liberar ${formatarBytesAssistenteIa(total)}</button>` : current.available && !processing ? `<button class="btn" type="button" onclick="baixarModeloAssistenteIa('${escaparAttr(current.id)}')">Baixar modelo</button>` : ""}
-      ${processing ? `<button class="btn secondary" type="button" onclick="cancelarDownloadAssistenteIa()">Cancelar download</button>` : ""}
-    </div>`;
+    <p class="muted">O FunctionGemma é gerenciado automaticamente pelo Simplifica. O ERP manual continua disponível se o runtime falhar.</p>`;
 }
 
 async function alternarAssistenteIaLocal(enabled) {
   try { assistenteIaConfigState = { ...assistenteIaConfigState, ...(await window.Simplifica3dAiRuntime.provider.setEnabled(enabled)) }; await carregarConfiguracaoAssistenteIa(); }
-  catch (error) { mostrarToast(error?.message || "Não foi possível alterar a IA.", "erro", 4200); }
+  catch (error) { mostrarToast("Não foi possível alterar a IA.", "erro", 4200); }
 }
 
 async function selecionarModeloAssistenteIa(modelId) {
   try { await window.Simplifica3dAiRuntime.provider.selectModel(modelId); await carregarConfiguracaoAssistenteIa(); }
-  catch (error) { mostrarToast(error?.message || "Modelo indisponível.", "erro", 4200); }
+  catch (error) { mostrarToast("Modelo indisponível.", "erro", 4200); }
 }
 
 async function testarDesempenhoAssistenteIa() {
@@ -47901,7 +48081,7 @@ async function testarDesempenhoAssistenteIa() {
     const label = ({ READY: "Modelo pronto para uso.", SLOW: "O modelo funciona, mas pode responder devagar.", UNSTABLE: "O modelo ficou instável neste aparelho.", FAILED: "O teste do modelo falhou." })[modelHealth?.health] || "Teste concluído.";
     mostrarToast(label, modelHealth?.health === "READY" ? "sucesso" : "aviso", 4800);
   } catch (error) {
-    mostrarToast(error?.message || "Não foi possível testar o modelo.", "erro", 4800);
+    mostrarToast("Não foi possível testar o modelo.", "erro", 4800);
   } finally {
     assistenteIaBenchmarkBusy = false;
     await carregarConfiguracaoAssistenteIa({ render: true });
@@ -47910,15 +48090,20 @@ async function testarDesempenhoAssistenteIa() {
 
 async function baixarModeloAssistenteIa(modelId) {
   const model = assistenteIaConfigState.models.find((item) => item.id === modelId);
-  const confirmed = await solicitarConfirmacaoAcao({ titulo: "Baixar modelo de IA?", mensagem: `${model?.displayName || "IA Equilibrada"} ocupará aproximadamente ${formatarBytesAssistenteIa(model?.downloadBytes || 0)} neste aparelho.`, confirmar: "Baixar", cancelar: "Agora não" });
+  const confirmed = await solicitarConfirmacaoAcao({ titulo: "Preparar FunctionGemma?", mensagem: `O FunctionGemma ocupará aproximadamente ${formatarBytesAssistenteIa(model?.downloadBytes || 0)} neste aparelho.`, confirmar: "Preparar", cancelar: "Agora não" });
   if (!confirmed) return;
   assistenteIaConfigState = { ...assistenteIaConfigState, enabled: true, state: "DOWNLOADING", downloading: true, modelId, selection: modelId, totalBytes: Number(model?.downloadBytes || 0) };
   const target = document.getElementById("assistantAiSettingsContent");
   if (target) target.innerHTML = renderConfiguracaoAssistenteIa();
   clearTimeout(assistenteIaConfigPollTimer);
   assistenteIaConfigPollTimer = setTimeout(() => carregarConfiguracaoAssistenteIa({ render: true }), 500);
-  try { assistenteIaConfigState = { ...assistenteIaConfigState, ...(await window.Simplifica3dAiRuntime.provider.installModel(modelId)) }; mostrarToast("Download iniciado. Você pode continuar usando o aplicativo.", "sucesso", 3200); await carregarConfiguracaoAssistenteIa(); }
-  catch (error) { mostrarToast(error?.message || "Não foi possível iniciar o download.", "erro", 5200); await carregarConfiguracaoAssistenteIa(); }
+  try {
+    const installed = await window.Simplifica3dAiRuntime.provider.installModel(modelId);
+    assistenteIaConfigState = { ...assistenteIaConfigState, ...installed };
+    mostrarToast(installed?.modelReady || installed?.runtimeReady ? "Modelo instalado e pronto para uso." : "Download iniciado. Você pode continuar usando o aplicativo.", "sucesso", 3200);
+    await carregarConfiguracaoAssistenteIa();
+  }
+  catch (error) { mostrarToast("Não foi possível iniciar o download.", "erro", 5200); await carregarConfiguracaoAssistenteIa(); }
 }
 
 async function cancelarDownloadAssistenteIa() {
@@ -47926,7 +48111,7 @@ async function cancelarDownloadAssistenteIa() {
   const target = document.getElementById("assistantAiSettingsContent");
   if (target) target.innerHTML = renderConfiguracaoAssistenteIa();
   try { await window.Simplifica3dAiRuntime.provider.cancelDownload(); }
-  catch (error) { mostrarToast(error?.message || "Não foi possível cancelar o download.", "erro", 4200); }
+  catch (error) { mostrarToast("Não foi possível cancelar o download.", "erro", 4200); }
   await carregarConfiguracaoAssistenteIa();
 }
 
@@ -48262,7 +48447,7 @@ async function ouvirMensagemAssistenteIa() {
     assistenteIaOuvindo = false;
     atualizarIndicadorSecretariaIa();
     renderChatSecretariaIa();
-    mostrarToast(error?.message || "Não consegui ouvir. Tente novamente.", "aviso", 4200);
+    mostrarToast("Não consegui ouvir. Tente novamente.", "aviso", 4200);
   }
 }
 
@@ -48315,6 +48500,22 @@ function abrirCalculadoraPelaAssistenteIa(inputs = {}) {
 function abrirRotaPelaAssistenteIa(target = {}) {
   const routeId = String(target.routeId || "");
   if (!routeId) return;
+  if (routeId === "inventory.draft") {
+    closeModal();
+    setTimeout(() => {
+      abrirEstoqueRapidoOperacional(target.draft || {});
+      mostrarToast("Rascunho de estoque preenchido. Revise e confirme no formulário.", "sucesso", 4200);
+    }, 180);
+    return;
+  }
+  if (routeId === "cash.draft") {
+    closeModal();
+    setTimeout(() => {
+      abrirCaixaRapidoOperacional(target.draft?.type || "entrada", target.draft || {});
+      mostrarToast("Rascunho de caixa preenchido. Revise e confirme no formulário.", "sucesso", 4200);
+    }, 180);
+    return;
+  }
   const core = getAssistantCoreUniversal3d();
   const origin = core?.context?.snapshot?.() || null;
   closeModal();
@@ -48331,6 +48532,45 @@ function abrirRotaPelaAssistenteIa(target = {}) {
     }
     mostrarToast(`${target.label || "Área"} aberta.`, "sucesso", 2400);
   }, 180);
+}
+
+function abrirRascunhoPedidoPadraoAssistenteIa(session = {}) {
+  const draft = session?.activeDraft;
+  if (!draft || !Array.isArray(draft.items) || !draft.items.length) return false;
+  const itens = draft.items.map((item, index) => {
+    const quantidade = Math.max(1, Number(item?.quantidade?.value) || 1);
+    const valor = Math.max(0, Number(item?.valor?.value) || 0);
+    const peso = item?.pesoGramas?.state === "NOT_APPLICABLE" ? 0 : Math.max(0, Number(item?.pesoGramas?.value) || 0);
+    return normalizarItemPedido({
+      id: `ai-draft-${Date.now().toString(36)}-${index}`,
+      nome: String(item?.nome?.value || "").trim(), qtd: quantidade, valor,
+      total: quantidade * valor, tempoHoras: 0, materialGramsTotal: peso,
+      materiais: Array.isArray(item?.materials) ? item.materials : []
+    });
+  }).filter((item) => String(item.nome || "").trim());
+  if (!itens.length) return false;
+
+  pedidoEditando = null;
+  pedidoEditandoOriginal = null;
+  clientePedido = String(draft.customer?.value || "").trim();
+  clienteTelefonePedido = String(session?.resolvedEntities?.customer?.phone || "").trim();
+  clienteEmailPedido = String(session?.resolvedEntities?.customer?.email || "").trim();
+  selectedCustomerSuggestion = session?.resolvedEntities?.customer || null;
+  itensPedido = itens;
+  observacaoPedido = String(draft.notes || "").trim();
+  entradaPedido = Math.max(0, Number(draft.downPayment) || 0);
+  statusPedido = String(draft.status || "aberto");
+  quickOrderStatusDraft = statusPedido;
+  quickOrderItemDraft = { nome: "", qtd: "1", valor: "", tempoHoras: "", pesoGramas: "" };
+  window.__pedidoItemSelecionado = 0;
+  window.__pedidoRapidoItensSelecionados = [];
+  salvarRascunhoPedidoRapidoLocal({ force: true });
+  closeModal();
+  setTimeout(() => {
+    abrirPedidoRapidoOperacional({ reset: false });
+    mostrarToast("Rascunho preenchido pela assistente. Revise e toque em Salvar pedido quando estiver correto.", "sucesso", 5200);
+  }, 180);
+  return true;
 }
 
 function abrirResultadoAssistenteIa(messageId) {
@@ -48457,7 +48697,6 @@ async function abrirSecretariaIaLocal3d(options = {}) {
   atualizarContextoAssistantCore3d();
   assistenteIaTutorialForcado = options?.mostrarTutorial === true;
   renderChatSecretariaIa();
-  hidratarMiniaturasAssistenteIa();
   await preaquecerAssistenteIa3d({ renderChat: true });
 }
 
@@ -48486,11 +48725,8 @@ function renderChatSecretariaIa() {
   const pendingConfirmation = simplifica3dAiOrchestratorV2?.manager?.session?.pendingAction?.status === "CONFIRMATION_PENDING";
   const confirmationActions = pendingConfirmation ? ui?.confirmation({ title: "Somente você pode autorizar", message: "Confira o resumo acima antes de salvar.", confirmLabel: "Confirmar pedido", cancelLabel: "Quero alterar", onConfirm: "confirmarPedidoAssistenteIa", onCancel: "ajustarPedidoAssistenteIa" }) || "" : "";
   const ready = assistenteIaAquecimento.status === "ready";
-  const modelCapabilities = getCapacidadesModeloAssistenteIa();
-  const setup = !ready ? `<div class="ai-chat-setup"><strong>${assistenteIaConfigState.enabled ? "Instale o modelo para conversar" : "Ative a Assistente IA"}</strong><p>O download só começa quando você autorizar. O restante do aplicativo continua funcionando normalmente.</p><button class="btn" type="button" onclick="abrirConfiguracaoIaDoChat()">Abrir configurações de IA</button></div>` : "";
-  const analisandoImagem = secretariaIaChatBusy && Boolean(secretariaIaChatMessages[secretariaIaChatMessages.length - 1]?.attachments?.length);
-  const statusText = assistenteIaOuvindo ? "Ouvindo você..." : analisandoImagem ? "Analisando imagem..." : secretariaIaChatBusy ? "Pensando e consultando..." : assistenteIaAquecimento.message;
-  const attachmentPreview = assistenteIaAnexoAtual ? assistenteIaAttachmentPreviewUrls.get(assistenteIaAnexoAtual.id) : "";
+  const setup = !ready ? `<div class="ai-chat-setup"><strong>FunctionGemma indisponível</strong><p>A assistente foi desativada com segurança. O ERP manual continua funcionando normalmente.</p><button class="btn secondary" type="button" onclick="preaquecerAssistenteIa3d({ renderChat: true })">Tentar novamente</button></div>` : "";
+  const statusText = assistenteIaOuvindo ? "Ouvindo você..." : secretariaIaChatBusy ? "Consultando..." : assistenteIaAquecimento.message;
   const specificContext = getContextoEspecificoAssistantCore3d();
   const contextualActions = ui?.contextActionButtons(getAcoesContextuaisAssistenteIa(), { disabled: secretariaIaChatBusy || !ready, onAction: "executarAcaoContextualAssistenteIa" }) || "";
   const contextChip = specificContext ? ui?.contextChip({ ...specificContext, label: `${specificContext.type} #${specificContext.id}` }, { onRemove: "removerContextoEspecificoAssistenteIa" }) || "" : "";
@@ -48499,15 +48735,10 @@ function renderChatSecretariaIa() {
         <div class="ai-chat-header-actions"><button class="icon-button" type="button" onclick="iniciarNovaConversaAssistantCore3d()" aria-label="Iniciar nova conversa" title="Nova conversa">＋</button><button class="icon-button ${assistenteIaAudioAtivo() ? "active" : ""}" type="button" onclick="alternarAudioAssistenteIa()" aria-label="${assistenteIaAudioAtivo() ? "Desativar" : "Ativar"} leitura das respostas" title="${assistenteIaAudioAtivo() ? "Respostas em voz alta ativadas" : "Ouvir respostas"}">${renderUiIcon("volume")}</button><button class="icon-button" type="button" onclick="closeModal()" aria-label="Fechar conversa">✕</button></div>
       </header>`;
   const contextActionsHtml = contextualActions ? `<nav class="ai-chat-context-actions" aria-label="Ações rápidas deste contexto">${contextualActions}</nav>` : "";
-  const attachmentMenu = assistenteIaMenuAnexoAberto && modelCapabilities.supportsVision ? `<div class="ai-chat-attachment-menu"><button type="button" onclick="escolherImagemAssistenteIa('camera')">${renderUiIcon("camera")} Tirar foto</button><button type="button" onclick="escolherImagemAssistenteIa('gallery')">${renderUiIcon("imagem")} Escolher da galeria</button></div>` : "";
-  const attachmentControl = assistenteIaAnexoAtual ? ui?.attachment({ previewUrl: attachmentPreview, label: "Imagem pronta", details: `${assistenteIaAnexoAtual.width} × ${assistenteIaAnexoAtual.height}`, onRemove: "removerImagemAssistenteIa" }) || "" : "";
   const composerLeadingHtml = `
-        <input id="aiChatCameraInput" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden onchange="processarImagemAssistenteIa(this)">
-        <input id="aiChatGalleryInput" type="file" accept="image/jpeg,image/png,image/webp" hidden onchange="processarImagemAssistenteIa(this)">
-        <button class="ai-chat-add ${modelCapabilities.supportsVision ? "" : "not-supported"}" type="button" onclick="alternarMenuAnexoAssistenteIa()" ${secretariaIaChatBusy || !ready ? "disabled" : ""} aria-label="${modelCapabilities.supportsVision ? "Adicionar imagem" : "Análise de imagem não disponível neste modelo"}" title="${modelCapabilities.supportsVision ? "Adicionar imagem" : "Imagem requer modelo compatível"}">＋</button>
         <button class="ai-chat-mic ${assistenteIaOuvindo ? "listening" : ""}" type="button" onclick="ouvirMensagemAssistenteIa()" ${secretariaIaChatBusy || !ready ? "disabled" : ""} aria-label="Falar com a assistente" title="Falar">${renderUiIcon("microfone")}</button>`;
   const composerHtml = ui?.composer({ inputId: "aiChatInput", placeholder: "Escreva ou toque no microfone...", disabled: secretariaIaChatBusy || !ready, busy: secretariaIaChatBusy, onSubmit: "enviarMensagemSecretariaIa", leadingHtml: composerLeadingHtml }) || "";
-  const bodyHtml = `<div class="ai-chat-messages" id="aiChatMessages">${tutorial}${messages}${secretariaIaChatBusy ? `<article class="ai-chat-message ai-chat-message-assistant ai-chat-thinking" role="status" aria-live="polite"><strong>Assistente</strong><p>Estou analisando e consultando o que for necessário...</p></article>` : ""}${confirmationActions}${setup}</div>${attachmentMenu}${attachmentControl}`;
+  const bodyHtml = `<div class="ai-chat-messages" id="aiChatMessages">${tutorial}${messages}${secretariaIaChatBusy ? `<article class="ai-chat-message ai-chat-message-assistant ai-chat-thinking" role="status" aria-live="polite"><strong>Assistente</strong><p>Consultando com o FunctionGemma...</p></article>` : ""}${confirmationActions}${setup}</div>`;
   const panelHtml = ui?.panel({ state: getEstadoVisualSecretariaIa(), headerHtml, contextActionsHtml, bodyHtml, footerHtml: composerHtml }) || "";
   openModal(panelHtml, { label: "Conversa com a Assistente IA", size: "wide" });
   requestAnimationFrame(() => document.getElementById("aiChatMessages")?.scrollTo({ top: 999999, behavior: "smooth" }));
@@ -48517,13 +48748,13 @@ async function enviarMensagemSecretariaIa(event, forcedText = "") {
   event?.preventDefault?.();
   const input = document.getElementById("aiChatInput");
   const attachment = assistenteIaAnexoAtual ? metadadosPersistiveisAnexoAssistenteIa(assistenteIaAnexoAtual) : null;
-  if (attachment && !getCapacidadesModeloAssistenteIa().supportsVision) { informarImagemNaoSuportadaAssistenteIa(); return; }
+  if (attachment) { informarImagemNaoSuportadaAssistenteIa(); removerImagemAssistenteIa(); return; }
   const text = String(forcedText || input?.value || (attachment ? "Analise esta imagem." : "")).trim();
   if (!text && !attachment) return;
   const attachments = attachment ? [attachment] : [];
   let inferenceAttachments = attachments;
   try { if (attachment) inferenceAttachments = [await prepararAnexoInferenciaAssistenteIa(attachment)]; }
-  catch (error) { mostrarToast(error?.message || "Não foi possível ler a imagem.", "erro", 4600); return; }
+  catch (error) { mostrarToast("Não foi possível ler a imagem.", "erro", 4600); return; }
   getAssistantCoreUniversal3d()?.buildRequest(text, attachments);
   const conversation = secretariaIaChatMessages.slice(-12).map(({ role, text: message, attachments: messageAttachments = [] }) => ({ role, text: String(message || "").slice(0, 700), attachments: messageAttachments.slice(0, 1) }));
   secretariaIaChatMessages.push(criarMensagemAssistenteIa("user", text, { attachments }));
@@ -48538,9 +48769,16 @@ async function enviarMensagemSecretariaIa(event, forcedText = "") {
     if (AI_CONTEXT_V2_ENABLED) {
       const orchestrator = criarSimplifica3dAiOrchestratorV2();
       const normalized = normalizarSugestaoClienteTexto(text);
-      const result = /^(o que ficou|resume|resuma|como ficou)( no pedido| esse pedido)?[?.!]*$/.test(normalized)
+      const appContext = window.Simplifica3dAiReadFacade.getAppContext();
+      const resultPromise = /^(o que ficou|resume|resuma|como ficou)( no pedido| esse pedido)?[?.!]*$/.test(normalized)
         ? { summary: orchestrator.summarizeDraft() }
-        : await orchestrator.handle(text, { messages: conversation, attachments: inferenceAttachments, appContext: window.Simplifica3dAiReadFacade.getAppContext() });
+        : orchestrator.handle(text, { messages: conversation, attachments: inferenceAttachments, appContext });
+      const result = resultPromise?.then
+        ? await Promise.race([
+          resultPromise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error("FUNCTIONGEMMA_UI_TIMEOUT")), 11000))
+        ])
+        : resultPromise;
       const answer = comporRespostaNaturalAssistenteIa(result.summary);
       const resultCard = criarCardResultadoAssistenteIa(result, answer, { hasImage: attachments.length > 0 });
       secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer, { metadata: resultCard ? { resultCard } : {} }));
@@ -48551,7 +48789,9 @@ async function enviarMensagemSecretariaIa(event, forcedText = "") {
       atualizarIndicadorSecretariaIa();
       renderChatSecretariaIa();
       falarRespostaAssistenteIa(answer);
-      if (result?.classification?.intent === "PRICE.CALCULATE" && result?.toolResult?.status === "SUCCESS") {
+      if (result?.draftReady) {
+        setTimeout(() => abrirRascunhoPedidoPadraoAssistenteIa(result.session), 260);
+      } else if (result?.classification?.intent === "PRICE.CALCULATE" && result?.toolResult?.status === "SUCCESS") {
         setTimeout(() => abrirCalculadoraPelaAssistenteIa(result.toolResult.inputs), 260);
       } else if (result?.navigationTarget?.routeId) {
         setTimeout(() => abrirRotaPelaAssistenteIa(result.navigationTarget), 260);
@@ -48570,10 +48810,16 @@ async function enviarMensagemSecretariaIa(event, forcedText = "") {
       registrarRespostaAssistantCore3d(answer);
     }
   } catch (error) {
+    if (error?.message === "FUNCTIONGEMMA_UI_TIMEOUT") {
+      window.Simplifica3dAiRuntime?.cancel?.().catch?.(() => {});
+    }
     if (AI_CONTEXT_V2_ENABLED) {
       registrarErroAplicacaoSilencioso("ai_context_v2_message", error, "enviarMensagemSecretariaIa", { conversationId: simplifica3dAiOrchestratorV2?.manager?.session?.conversationId || "" });
-      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", "Não consegui concluir essa resposta agora. Seu rascunho continua guardado e nenhum dado foi alterado."));
-      registrarRespostaAssistantCore3d("Não consegui concluir essa resposta agora. Seu rascunho continua guardado e nenhum dado foi alterado.");
+      const safeMessage = error?.message === "FUNCTIONGEMMA_UI_TIMEOUT"
+        ? "A consulta demorou mais que o esperado e foi interrompida. Seu rascunho continua guardado e nenhum dado foi alterado."
+        : "Não consegui concluir essa resposta agora. Seu rascunho continua guardado e nenhum dado foi alterado.";
+      secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", safeMessage));
+      registrarRespostaAssistantCore3d(safeMessage);
     } else {
       const answer = error?.message || "Não consegui responder agora.";
       secretariaIaChatMessages.push(criarMensagemAssistenteIa("assistant", answer));
@@ -49319,11 +49565,14 @@ function abrirCalculadoraPedidoRapido() {
   openCalculatorForOrder();
 }
 
-function abrirCaixaRapidoOperacional(tipoInicial = "entrada") {
+function abrirCaixaRapidoOperacional(tipoInicial = "entrada", draft = {}) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para lançar no caixa.")) return;
   const popup = document.getElementById("popup");
   if (!popup) return;
-  const tipo = String(tipoInicial || "entrada").toLowerCase() === "saida" ? "saida" : "entrada";
+  const tipo = String(draft.type || tipoInicial || "entrada").toLowerCase() === "saida" ? "saida" : "entrada";
+  const valorDraft = Math.max(0, Number(draft.amount) || 0);
+  const descricaoDraft = String(draft.description || "").trim();
+  const metodoDraft = String(draft.method || (tipo === "saida" ? "dinheiro" : "pix"));
   popup.innerHTML = `
     <div class="modal-backdrop operational-drawer-backdrop" role="dialog" aria-modal="true">
       <form class="modal-card operational-drawer quick-cash-drawer" id="quickCashForm" onsubmit="salvarCaixaRapidoOperacional(event)">
@@ -49344,17 +49593,17 @@ function abrirCaixaRapidoOperacional(tipoInicial = "entrada") {
           </label>
           <label class="field">
             <span>Valor</span>
-            <input id="caixaValor" type="number" min="0" step="0.01" placeholder="0,00" required>
+            <input id="caixaValor" type="number" min="0" step="0.01" value="${escaparAttr(valorDraft || "")}" placeholder="0,00" required>
           </label>
           <label class="field">
             <span>Forma</span>
             <select id="caixaMetodoPagamento">
-              ${renderOpcoesMetodoPagamentoCaixa(tipo === "saida" ? "dinheiro" : "pix")}
+              ${renderOpcoesMetodoPagamentoCaixa(metodoDraft)}
             </select>
           </label>
           <label class="field wide-field">
             <span>Descrição</span>
-            <input id="caixaDescricao" placeholder="Ex.: pagamento, material, ferramenta">
+            <input id="caixaDescricao" value="${escaparAttr(descricaoDraft)}" placeholder="Ex.: pagamento, material, ferramenta">
           </label>
         </div>
         <div class="quick-operation-summary">
@@ -49424,7 +49673,7 @@ async function salvarCaixaRapidoOperacional(event) {
   }
 }
 
-function abrirEstoqueRapidoOperacional() {
+function abrirEstoqueRapidoOperacional(draft = {}) {
   if (!permitirAcaoBasicaFree("Seu acesso está bloqueado. Regularize o plano para alterar estoque.")) return;
   const popup = document.getElementById("popup");
   if (!popup) return;
@@ -49442,17 +49691,17 @@ function abrirEstoqueRapidoOperacional() {
           <label class="field">
             <span>Tipo de material</span>
             <select id="matTipo">
-              ${tiposMaterial.map((tipo) => `<option value="${tipo}">${tipo}</option>`).join("")}
+              ${tiposMaterial.map((tipo) => `<option value="${tipo}" ${normalizarSugestaoClienteTexto(tipo) === normalizarSugestaoClienteTexto(draft.material) ? "selected" : ""}>${tipo}</option>`).join("")}
             </select>
           </label>
           <label class="field">
             <span>Cor</span>
-            <input id="matCor" placeholder="Escolha na paleta" readonly>
+            <input id="matCor" value="${escaparAttr(draft.color || "")}" placeholder="Escolha na paleta" readonly>
             ${renderPaletaCoresMaterial("matCor")}
           </label>
           <label class="field">
             <span>Quantidade em kg</span>
-            <input id="matQtd" type="number" min="0" step="0.01" placeholder="Ex.: 1.5" required>
+            <input id="matQtd" type="number" min="0" step="0.01" value="${escaparAttr(Number(draft.quantityKg) > 0 ? Number(draft.quantityKg) : "")}" placeholder="Ex.: 1.5" required>
           </label>
         </div>
         <div class="quick-operation-summary">
@@ -49865,7 +50114,7 @@ function iniciarMoverCalculadora(event) {
     original: normalizarCalculadoraWidget(appConfig.calculatorWidget || {})
   };
 
-  janela.setPointerCapture?.(event.pointerId);
+  capturarPonteiroSemFalhar(janela, event);
   janela.classList.add("is-moving");
   event.preventDefault();
 }
@@ -49881,7 +50130,7 @@ function iniciarRedimensionarCalculadora(event) {
     original: normalizarCalculadoraWidget(appConfig.calculatorWidget || {})
   };
 
-  janela.setPointerCapture?.(event.pointerId);
+  capturarPonteiroSemFalhar(janela, event);
   janela.classList.add("is-resizing");
   event.preventDefault();
 }
@@ -52665,7 +52914,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   configurarMonetizacaoAds();
   ensureAppShellLayers();
   iniciarIntroAbertura();
-  setTimeout(() => preaquecerAssistenteIa3d(), 450);
   configurarEventListenersArquitetura();
   configurarGestosDrawerLateral();
   configurarMenusContextuaisProdutosLoja();

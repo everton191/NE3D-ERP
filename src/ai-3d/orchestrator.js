@@ -65,7 +65,10 @@
         return finish({ classification, summary: answer, session: this.manager.session.snapshot() });
       }
       if (classification.type === C.INTENT_TYPE.NAVIGATION && classification.routeId) {
-        return finish({ classification, navigationTarget: { routeId: classification.routeId, label: classification.label || "tela" }, summary: `Certo. Vou abrir ${classification.label || "essa tela"}.`, session: this.manager.session.snapshot() });
+        const navigationSummary = classification.draft
+          ? `Certo. Vou abrir ${classification.label || "essa tela"} com os dados preenchidos para você revisar.`
+          : `Certo. Vou abrir ${classification.label || "essa tela"}.`;
+        return finish({ classification, navigationTarget: { routeId: classification.routeId, label: classification.label || "tela", draft: classification.draft || null }, summary: navigationSummary, session: this.manager.session.snapshot() });
       }
       if (classification.type === C.INTENT_TYPE.NEW_TASK && classification.intent === "ORDER.CREATE") {
         this.manager.startOrder(classification.seed);
@@ -78,14 +81,16 @@
             this.manager.updateSlot("customerId", found.customer.id, C.SLOT_STATE.RESOLVED, "customer_search");
             this.manager.session.resolvedEntities.customer = found.customer; this.manager.save();
             const history = await this.runTool("ORDER.HISTORY", { customerId: found.customer.id, customerName: found.customer.name, limit: 5 }, appContext);
-            if (history.status === C.TOOL_STATUS.SUCCESS && history.suggestedProduct) {
+            const productMissing = this.manager.session.activeDraft?.items?.some((item) => item?.nome?.state === C.SLOT_STATE.MISSING);
+            if (productMissing && history.status === C.TOOL_STATUS.SUCCESS && history.suggestedProduct) {
               this.manager.setLastQuestion({ kind: "PRODUCT_SUGGESTION", acceptUpdate: { product: history.suggestedProduct } });
               return finish({ classification, summary: `Encontrei ${found.customer.name}. Os pedidos recentes incluem principalmente ${history.suggestedProduct}. É ${history.suggestedProduct} novamente?`, session: this.manager.session.snapshot() });
             }
             prefix = `Encontrei ${found.customer.name}.`;
           }
         }
-        return finish({ classification, summary: `${prefix} ${this.nextQuestion()}`.trim(), session: this.manager.session.snapshot() });
+        const ready = this.requirements.isReady(this.manager.session.activeDraft);
+        return finish({ classification, draftReady: ready, summary: ready ? `${prefix} O rascunho está completo. Vou abrir o pedido preenchido para você revisar e salvar.` : `${prefix} ${this.nextQuestion()}`.trim(), session: this.manager.session.snapshot() });
       }
       if (classification.action === "CANCEL_TASK") { this.manager.cancel(); return finish({ classification, summary: "Tudo bem. Descartei somente este rascunho; nenhum dado do ERP foi alterado.", session: this.manager.session.snapshot() }); }
       if (classification.action === "REJECT_SUGGESTION") { this.manager.setLastQuestion(null); return finish({ classification, summary: this.nextQuestion(), session: this.manager.session.snapshot() }); }
@@ -120,7 +125,8 @@
       if (classification.type === C.INTENT_TYPE.TASK_UPDATE && classification.updates) {
         Object.entries(classification.updates).forEach(([name, value]) => this.manager.updateSlot(name, value, classification.updateState || C.SLOT_STATE.PROVIDED, "message", { allItems: classification.allItems === true, itemIndex: classification.itemIndex }));
         this.manager.setLastQuestion(null);
-        return finish({ classification, summary: this.nextQuestion(), session: this.manager.session.snapshot() });
+        const ready = this.requirements.isReady(this.manager.session.activeDraft);
+        return finish({ classification, draftReady: ready, summary: ready ? "O rascunho está completo. Vou abrir o pedido preenchido para você revisar e salvar." : this.nextQuestion(), session: this.manager.session.snapshot() });
       }
       if (classification.type === C.INTENT_TYPE.SUBTASK) {
         const args = { ...classification.arguments };

@@ -23,5 +23,9 @@ assert(!motion.includes('classList?.add("gxm-force-motion")'), "Movimento forcad
 assert(motion.includes("options.initial"), "Primeira abertura deve marcar telas sem animar");
 assert(!/:not\(\.gxm-seen\)\s*\{/.test(motionCss), "Primeira abertura nao pode depender de animacao por :not(.gxm-seen)");
 assert(motionCss.includes("animation:none!important"), "PWA deve manter os containers opacos sem piscar");
+assert(css.includes("grid-template-columns:40px minmax(0,1fr) auto"), "Cabecalho da Home mobile pode sobrepor saudacao e acoes");
+assert(css.includes("width:max-content"), "Acoes do cabecalho mobile devem usar apenas a largura necessaria");
+assert(app.includes("if (isAndroid()) return;"), "APK nao deve bloquear a abertura com o video introdutorio");
+assert(css.includes(".app-boot-status"), "Abertura do app nao pode ficar visualmente vazia");
 
 console.log("Mobile render stability tests passed.");

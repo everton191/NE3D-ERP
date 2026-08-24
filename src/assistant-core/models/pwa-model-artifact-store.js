@@ -175,7 +175,7 @@
   }
 
   class OpfsArtifactAdapter {
-    constructor({ navigatorRef = global.navigator } = {}) { this.navigator = navigatorRef; }
+    constructor({ navigatorRef = global.navigator } = {}) { this.navigator = navigatorRef; this.writers = new Map(); }
     async directory() {
       const root = await this.navigator?.storage?.getDirectory?.();
       if (!root) throw new PwaModelStorageError("STORAGE_UNAVAILABLE");
@@ -187,10 +187,27 @@
       try { return (await (await this.handle(id, false)).getFile()).size; }
       catch (_) { return 0; }
     }
+    async beginAppend(id, offset = 0) {
+      await this.endAppend(id);
+      const writable = await (await this.handle(id, true)).createWritable({ keepExistingData: true });
+      await writable.seek(offset);
+      this.writers.set(id, writable);
+    }
     async append(id, bytes, offset) {
+      const active = this.writers.get(id);
+      if (active) {
+        await active.write(bytes);
+        return;
+      }
       const writable = await (await this.handle(id, true)).createWritable({ keepExistingData: true });
       try { await writable.seek(offset); await writable.write(bytes); }
       finally { await writable.close(); }
+    }
+    async endAppend(id) {
+      const writable = this.writers.get(id);
+      if (!writable) return;
+      this.writers.delete(id);
+      await writable.close();
     }
     async truncate(id, length = 0) {
       try {
@@ -202,6 +219,7 @@
     async readAll(id) { return (await (await this.handle(id, false)).getFile()).arrayBuffer(); }
     async open(id) { return (await this.handle(id, false)).getFile(); }
     async remove(id) {
+      await this.endAppend(id).catch(() => {});
       try { await (await this.directory()).removeEntry(this.name(id)); }
       catch (_) { }
     }
@@ -210,9 +228,15 @@
   function toHex(buffer) {
     return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
   }
+  function validArtifactUrl(value) {
+    try {
+      const url = new URL(String(value || ""), global.location?.href || "https://localhost/");
+      return url.protocol === "https:" || (url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname));
+    } catch (_) { return false; }
+  }
   function validDescriptor(item) {
     return item && String(item.id || "") && String(item.version || "") && Number(item.downloadBytes) > 0
-      && /^[a-f0-9]{64}$/i.test(String(item.sha256 || "")) && /^https:\/\//.test(String(item.url || ""));
+      && /^[a-f0-9]{64}$/i.test(String(item.sha256 || "")) && validArtifactUrl(item.url);
   }
   function contentRangeStart(response) {
     const value = response?.headers?.get?.("content-range") || "";
@@ -346,20 +370,25 @@
           if (!response?.ok || !response.body?.getReader) throw new Error("download");
           const reader = response.body.getReader();
           let lastSaved = offset;
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            if (!value?.byteLength) continue;
-            if (offset + value.byteLength > descriptor.downloadBytes) {
-              throw new PwaModelStorageError("DOWNLOAD_FAILED", { reason: "SIZE_MISMATCH" });
+          await this.adapter.beginAppend?.(key, offset);
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (!value?.byteLength) continue;
+              if (offset + value.byteLength > descriptor.downloadBytes) {
+                throw new PwaModelStorageError("DOWNLOAD_FAILED", { reason: "SIZE_MISMATCH" });
+              }
+              await this.adapter.append(key, value, offset);
+              offset += value.byteLength;
+              onProgress({ downloadedBytes: offset, totalBytes: descriptor.downloadBytes });
+              if (offset - lastSaved >= 16 * 1024 * 1024) {
+                await save(STORE_STATE.DOWNLOADING);
+                lastSaved = offset;
+              }
             }
-            await this.adapter.append(key, value, offset);
-            offset += value.byteLength;
-            onProgress({ downloadedBytes: offset, totalBytes: descriptor.downloadBytes });
-            if (offset - lastSaved >= 16 * 1024 * 1024) {
-              await save(STORE_STATE.DOWNLOADING);
-              lastSaved = offset;
-            }
+          } finally {
+            await this.adapter.endAppend?.(key);
           }
         } catch (error) {
           if (error instanceof PwaModelStorageError && error.details?.reason === "SIZE_MISMATCH") {

@@ -1,145 +1,189 @@
 package br.com.ne3d.erp
 
-import br.com.ne3d.erp.ai.LocalInferenceEngine
-import br.com.ne3d.erp.ai.LocalModelCatalog
-import br.com.ne3d.erp.ai.DeviceCapabilityProfiler
-import br.com.ne3d.erp.ai.ModelArtifactManager
-import br.com.ne3d.erp.ai.ModelArtifactStatus
-import br.com.ne3d.erp.ai.ModelHealthBenchmark
-import br.com.ne3d.erp.ai.ModelHealthResult
+import android.app.ActivityManager
+import android.net.Uri
+import android.os.Build
+import br.com.ne3d.erp.ai.FunctionGemmaModelInstaller
+import br.com.ne3d.erp.ai.FunctionGemmaToolPolicy
+import br.com.ne3d.erp.ai.FunctionGemmaToolRuntime
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
-import android.util.Base64
 import java.io.File
 import java.util.concurrent.Executors
+import org.json.JSONArray
+import org.json.JSONObject
 
+/** Ponte Android exclusiva do FunctionGemma. Não oferece chat nem execução de WRITE. */
 @CapacitorPlugin(name = "SimplificaLocalAi")
 class SimplificaLocalAiPlugin : Plugin() {
     private val executor = Executors.newSingleThreadExecutor()
+    @Volatile private var functionGemmaRuntime: FunctionGemmaToolRuntime? = null
+
+    override fun load() {
+        super.load()
+        executor.execute { removeLegacyModelArtifacts() }
+    }
+
+    private fun functionRuntime(): FunctionGemmaToolRuntime = synchronized(this) {
+        functionGemmaRuntime ?: FunctionGemmaToolRuntime(context).also { functionGemmaRuntime = it }
+    }
 
     @PluginMethod
-    fun status(call: PluginCall) = executor.execute { resolveStatus(call) }
+    fun status(call: PluginCall) = functionGemmaStatus(call)
 
     @PluginMethod
-    fun listModels(call: PluginCall) {
-        val items = JSArray()
-        LocalModelCatalog.artifacts.forEach { descriptor ->
-            val item = JSObject()
-            val compatibility = LocalModelCatalog.compatibility(context, descriptor)
-            item.put("id", descriptor.id); item.put("displayName", descriptor.displayName); item.put("profile", descriptor.profile.name)
-            item.put("version", descriptor.version); item.put("downloadBytes", descriptor.downloadBytes); item.put("available", descriptor.available); item.put("experimental", descriptor.experimental)
-            item.put("installed", ModelArtifactManager.isReady(context, descriptor)); item.put("compatible", compatibility.compatible); item.put("reason", compatibility.reason ?: "")
-            item.put("text", descriptor.capabilities.text); item.put("vision", descriptor.capabilities.vision); item.put("audio", descriptor.capabilities.audio); item.put("tools", descriptor.capabilities.tools)
-            items.put(item)
+    fun listModels(call: PluginCall) = executor.execute {
+        val status = functionRuntime().status()
+        val item = JSObject().apply {
+            put("id", MODEL_ID); put("displayName", "FunctionGemma 270M Q8_0"); put("profile", "OPERATIONAL")
+            put("version", SOURCE_REVISION); put("downloadBytes", FunctionGemmaModelInstaller.EXPECTED_BYTES)
+            put("installed", status.optBoolean("installed", false)); put("available", status.optBoolean("installed", false))
+            put("compatible", Build.SUPPORTED_ABIS.any { it.equals("arm64-v8a", ignoreCase = true) })
+            put("text", true); put("vision", false); put("audio", false); put("tools", true)
         }
-        call.resolve(JSObject().put("models", items).put("selection", ModelArtifactManager.selection(context)).put("enabled", ModelArtifactManager.isEnabled(context)))
+        call.resolve(JSObject().put("models", JSArray().put(item)).put("selection", MODEL_ID).put("enabled", true).put("writeExposed", 0))
     }
 
     @PluginMethod
     fun profileDevice(call: PluginCall) = executor.execute {
+        val memoryInfo = ActivityManager.MemoryInfo()
+        (context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memoryInfo)
+        call.resolve(JSObject().apply {
+            put("totalMemoryBytes", memoryInfo.totalMem); put("availableMemoryBytes", memoryInfo.availMem)
+            put("abis", JSArray(Build.SUPPORTED_ABIS.toList())); put("runtime", "llama.cpp-arm64-cpu")
+            put("backendPolicy", "CPU_ONLY"); put("activeBackend", "llama.cpp")
+        })
+    }
+
+    @PluginMethod
+    fun ensureModel(call: PluginCall) = functionGemmaStatus(call)
+
+    /** Importa o GGUF para storage privado somente após tamanho e SHA-256 completos. */
+    @PluginMethod
+    fun importFunctionGemma(call: PluginCall) = executor.execute {
+        val source = call.getString("uri", "")?.trim().orEmpty()
+        if (source.isEmpty()) { call.reject("Informe o arquivo FunctionGemma.", "FUNCTIONGEMMA_URI_REQUIRED"); return@execute }
         try {
-            val profile = DeviceCapabilityProfiler.profile(context)
-            val result = JSObject()
-            result.put("totalMemoryBytes", profile.totalMemoryBytes); result.put("availableMemoryBytes", profile.availableMemoryBytes)
-            result.put("memoryClassMb", profile.memoryClassMb); result.put("largeMemoryClassMb", profile.largeMemoryClassMb)
-            result.put("freeStorageBytes", profile.freeStorageBytes); result.put("abis", JSArray(profile.abis))
-            result.put("runtime", profile.runtime); result.put("backendPolicy", profile.backendPolicy); result.put("activeBackend", profile.activeBackend ?: "")
-            result.put("modelInitialization", profile.modelInitialization); result.put("conclusive", profile.conclusive); result.put("conservative", profile.conservative)
-            result.put("modelHealth", healthResult(ModelHealthBenchmark.read(context)))
-            call.resolve(result)
-        } catch (error: Exception) { call.reject("Não foi possível analisar este aparelho.", "SIMPLIFICA_AI_PROFILE_FAILED", error) }
-    }
-
-    @PluginMethod
-    fun benchmarkModel(call: PluginCall) = executor.execute {
-        try { call.resolve(healthResult(ModelHealthBenchmark.run(context))) }
-        catch (error: Exception) { call.reject("Não foi possível testar o modelo.", "SIMPLIFICA_AI_BENCHMARK_FAILED", error) }
-    }
-
-    @PluginMethod
-    fun setEnabled(call: PluginCall) { ModelArtifactManager.setEnabled(context, call.getBoolean("enabled", false) == true); call.resolve(statusResult(ModelArtifactManager.status(context))) }
-
-    @PluginMethod
-    fun selectModel(call: PluginCall) {
-        try { ModelArtifactManager.setSelection(context, call.getString("modelId", "automatic") ?: "automatic"); call.resolve(statusResult(ModelArtifactManager.status(context))) }
-        catch (error: Exception) { call.reject("Modelo inválido.", "SIMPLIFICA_AI_INVALID_MODEL", error) }
-    }
-
-    @PluginMethod
-    fun installModel(call: PluginCall) = executor.execute {
-        try { call.resolve(statusResult(ModelArtifactManager.install(context, call.getString("modelId", LocalModelCatalog.balanced.id) ?: LocalModelCatalog.balanced.id))) }
-        catch (error: Exception) { call.reject(error.message ?: "Não foi possível iniciar o download.", "SIMPLIFICA_AI_INSTALL_FAILED", error) }
-    }
-
-    @PluginMethod
-    fun ensureModel(call: PluginCall) = executor.execute { resolveStatus(call) }
-
-    @PluginMethod
-    fun cancelDownload(call: PluginCall) { ModelArtifactManager.cancel(context); call.resolve(JSObject().put("cancelled", true)) }
-
-    @PluginMethod
-    fun deleteModel(call: PluginCall) = executor.execute {
-        try { ModelArtifactManager.delete(context, call.getString("modelId", ModelArtifactManager.selected(context).id) ?: ModelArtifactManager.selected(context).id); call.resolve(statusResult(ModelArtifactManager.status(context))) }
-        catch (error: Exception) { call.reject("Não foi possível remover o modelo.", "SIMPLIFICA_AI_DELETE_FAILED", error) }
-    }
-
-    @PluginMethod
-    fun unload(call: PluginCall) { LocalInferenceEngine.unload(); call.resolve(JSObject().put("unloaded", true)) }
-
-    @PluginMethod
-    fun interpret(call: PluginCall) {
-        val text = (call.getString("text", "") ?: "").trim()
-        val operationalContext = (call.getString("context", "{}") ?: "{}").trim()
-        val imageBase64 = (call.getString("imageBase64", "") ?: "").trim()
-        val imageMimeType = (call.getString("imageMimeType", "") ?: "").lowercase()
-        if (text.isEmpty()) { call.reject("Informe uma mensagem.", "SIMPLIFICA_AI_EMPTY_TEXT"); return }
-        if (imageBase64.length > 3_000_000) { call.reject("A imagem preparada ficou grande demais.", "SIMPLIFICA_AI_IMAGE_TOO_LARGE"); return }
-        if (imageBase64.isNotEmpty() && imageMimeType !in setOf("image/jpeg", "image/png")) { call.reject("Formato de imagem inválido.", "SIMPLIFICA_AI_IMAGE_INVALID"); return }
-        executor.execute {
-            var temporaryImage: File? = null
-            try {
-                if (imageBase64.isNotEmpty()) {
-                    val bytes = Base64.decode(imageBase64, Base64.DEFAULT)
-                    if (bytes.size > 2 * 1024 * 1024) throw IllegalArgumentException("A imagem preparada ficou grande demais.")
-                    val directory = File(context.cacheDir, "assistant-images").apply { mkdirs() }
-                    val extension = if (imageMimeType == "image/png") ".png" else ".jpg"
-                    temporaryImage = File.createTempFile("assistant-", extension, directory).apply { writeBytes(bytes) }
-                }
-                val system = "Você é a Assistente do Simplifica 3D e conversa em português simples. Responda somente um JSON válido, sem markdown. Para conversa ou análise de imagem use exatamente {\"type\":\"chat\",\"payload\":{\"answer\":\"resposta útil em português\"}} e nunca deixe answer vazio. Outros tipos permitidos são navegar, estoque.consultar, caixa.consultar, producao.status, pedido.criar e pedido.status, sempre com payload preenchido. Nunca grave dados, invente valores ou produza URLs. Operações de alteração serão apenas preparadas e validadas pelo aplicativo."
-                val result = LocalInferenceEngine.generate(context, system, "Contexto e conversa: $operationalContext\nMensagem: $text", temporaryImage?.absolutePath)
-                call.resolve(JSObject().put("text", result).put("backend", LocalInferenceEngine.backendName() ?: "desconhecido"))
-            } catch (error: Exception) { call.reject(error.message ?: "A IA local não conseguiu responder.", "SIMPLIFICA_AI_FAILED", error) }
-            finally { temporaryImage?.delete() }
+            val uri = Uri.parse(source)
+            val input = when (uri.scheme) {
+                "content" -> context.contentResolver.openInputStream(uri)
+                "file" -> uri.path?.let(::File)?.inputStream()
+                else -> null
+            } ?: throw IllegalArgumentException("FUNCTIONGEMMA_SOURCE_UNREADABLE")
+            val installed = FunctionGemmaModelInstaller.install(context, input)
+            call.resolve(JSObject().put("installed", true).put("path", installed.file.absolutePath).put("bytes", installed.bytes).put("sha256", installed.sha256).put("writeExposed", 0))
+        } catch (error: Exception) {
+            call.reject("Não foi possível verificar o arquivo FunctionGemma.", "FUNCTIONGEMMA_IMPORT_FAILED", error)
         }
     }
 
-    private fun resolveStatus(call: PluginCall) {
-        try { call.resolve(statusResult(ModelArtifactManager.status(context))) }
-        catch (error: Exception) { call.reject("Não foi possível consultar a IA local.", "SIMPLIFICA_AI_STATUS_FAILED", error) }
+    @PluginMethod
+    fun functionGemmaStatus(call: PluginCall) = executor.execute {
+        try { call.resolve(JSObject.fromJSONObject(functionRuntime().status())) }
+        catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
     }
 
-    private fun statusResult(status: ModelArtifactStatus): JSObject = JSObject().apply {
-        put("enabled", status.enabled); put("state", status.state.name); put("modelReady", status.state.name == "READY")
-        put("compatible", status.state.name != "INCOMPATIBLE"); put("incompatibilityReason", status.reason ?: "")
-        put("modelId", status.descriptor.id); put("modelName", status.descriptor.displayName); put("modelVersion", status.descriptor.version)
-        put("modelBytes", if (status.state.name == "READY") status.descriptor.downloadBytes else 0L); put("minimumBytes", status.descriptor.downloadBytes)
-        put("downloading", status.state.name in setOf("DOWNLOADING", "VERIFYING", "INSTALLING")); put("downloadedBytes", status.downloadedBytes); put("totalBytes", status.totalBytes)
-        put("backend", status.backend ?: ""); put("backendPolicy", "GPU_FIRST_CPU_FALLBACK")
-        put("supportsText", status.state.name == "READY" && status.descriptor.capabilities.text)
-        put("supportsVision", status.state.name == "READY" && status.descriptor.capabilities.vision)
-        put("supportsTools", status.state.name == "READY" && status.descriptor.capabilities.tools)
-        put("fallbackFromModelId", LocalInferenceEngine.activeFallbackFrom() ?: "")
-        put("fallbackModelId", LocalInferenceEngine.activeFallbackModel() ?: "")
-        put("fallbackReason", LocalInferenceEngine.activeFallbackReason() ?: "")
-        put("modelHealth", healthResult(ModelHealthBenchmark.read(context, status.descriptor)))
+    @PluginMethod
+    fun loadFunctionGemma(call: PluginCall) = executor.execute {
+        try { call.resolve(JSObject().put("ok", true).put("metrics", functionRuntime().load()).put("mode", "tool_call").put("writeExposed", 0)) }
+        catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
     }
 
-    private fun healthResult(result: ModelHealthResult): JSObject = JSObject().apply {
-        put("health", result.health.name); put("initializationMs", result.initializationMs); put("generationMs", result.generationMs)
-        put("estimatedTokensPerSecond", result.estimatedTokensPerSecond); put("backend", result.backend ?: ""); put("reason", result.reason ?: "")
+    @PluginMethod
+    fun warmupFunctionGemma(call: PluginCall) = executor.execute {
+        try { call.resolve(JSObject().put("ok", true).put("metrics", functionRuntime().warmup()).put("mode", "tool_call").put("writeExposed", 0)) }
+        catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
+    }
+
+    /** Retorna apenas uma previsão validada; nunca executa uma ação do ERP. */
+    @PluginMethod
+    fun predictFunctionGemma(call: PluginCall) = executor.execute {
+        try {
+            val command = call.getString("command", "")?.trim().orEmpty()
+            val tools = parseFunctionGemmaTools(call.getArray("tools", JSArray()) ?: JSArray())
+            val blockedAliases = stringList(call.getArray("blockedWriteAliases", JSArray()) ?: JSArray(), 100)
+            val prediction = functionRuntime().predict(command, tools, blockedAliases)
+            val decision = prediction.decision
+            call.resolve(JSObject().apply {
+                put("ok", true); put("kind", decision.kind); put("tool", decision.canonicalId ?: "")
+                put("wireTool", decision.wireName ?: ""); put("rawTool", decision.rawTool ?: "")
+                put("arguments", JSONObject(decision.arguments)); put("reason", decision.reason)
+                put("shadow", false); put("writeExposed", 0); put("metrics", prediction.metrics); put("envelope", prediction.envelope)
+            })
+        } catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
+    }
+
+    @PluginMethod
+    fun cancelFunctionGemma(call: PluginCall) {
+        functionGemmaRuntime?.cancel()
+        call.resolve(JSObject().put("ok", true).put("cancelled", true).put("writeExposed", 0))
+    }
+
+    @PluginMethod
+    fun unloadFunctionGemma(call: PluginCall) = executor.execute {
+        synchronized(this) { functionGemmaRuntime?.close(); functionGemmaRuntime = null }
+        call.resolve(JSObject().put("ok", true).put("unloaded", true).put("writeExposed", 0))
+    }
+
+    @PluginMethod
+    fun unload(call: PluginCall) = unloadFunctionGemma(call)
+
+    private fun parseFunctionGemmaTools(items: JSArray): List<FunctionGemmaToolRuntime.Tool> {
+        require(items.length() in 1..5) { "FUNCTIONGEMMA_TOP_K_INVALID" }
+        return (0 until items.length()).map { index ->
+            val item = items.getJSONObject(index)
+            val propertiesArray = item.optJSONArray("properties") ?: JSONArray()
+            val properties = (0 until propertiesArray.length()).map { propertyIndex ->
+                val property = propertiesArray.getJSONObject(propertyIndex)
+                FunctionGemmaToolRuntime.Property(property.getString("name"), property.optString("type", "STRING").uppercase(), property.optString("description", ""))
+            }
+            val fixed = linkedMapOf<String, Any>()
+            item.optJSONObject("fixedArguments")?.let { value -> value.keys().forEach { key -> value.opt(key)?.takeIf { it != JSONObject.NULL }?.let { fixed[key] = it } } }
+            val requiredAll = stringSet(item.optJSONArray("requiredAll") ?: JSONArray(), 20)
+            val requiredAny = stringSet(item.optJSONArray("requiredAny") ?: JSONArray(), 20)
+            val allowed = properties.map { it.name }.toSet() + fixed.keys + requiredAll + requiredAny
+            FunctionGemmaToolRuntime.Tool(
+                FunctionGemmaToolPolicy.Contract(
+                    canonicalId = item.getString("id"), wireName = item.getString("wireName"),
+                    operationType = item.optString("operationType", "READ").uppercase(), allowedArguments = allowed,
+                    requiredAll = requiredAll, requiredAny = requiredAny, fixedArguments = fixed,
+                    semanticAnchors = stringSet(item.optJSONArray("anchors") ?: JSONArray(), 30)
+                ),
+                description = item.getString("description"), properties = properties
+            )
+        }
+    }
+
+    private fun stringSet(items: JSONArray, limit: Int): Set<String> = stringList(items, limit).toSet()
+    private fun stringList(items: JSONArray, limit: Int): List<String> {
+        require(items.length() <= limit) { "FUNCTIONGEMMA_LIST_TOO_LARGE" }
+        return (0 until items.length()).map { items.getString(it).trim() }.filter { it.isNotBlank() }
+    }
+
+    private fun functionGemmaFailure(error: Exception): JSObject = JSObject().apply {
+        put("ok", false); put("kind", "NO_TOOL"); put("state", "DEGRADED")
+        put("reason", error.message ?: "FUNCTIONGEMMA_FAILED"); put("shadow", false); put("writeExposed", 0)
+    }
+
+    private fun removeLegacyModelArtifacts() {
+        val legacyRoot = File(File(context.filesDir, "models"), "gemma-4-e2b-it")
+        if (legacyRoot.exists()) runCatching { legacyRoot.deleteRecursively() }
+        context.getSharedPreferences("simplifica_local_ai_v1", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+    }
+
+    override fun handleOnDestroy() {
+        val runtime = synchronized(this) { val active = functionGemmaRuntime; functionGemmaRuntime = null; active }
+        runCatching { executor.execute { runtime?.close() } }
+        executor.shutdown()
+        super.handleOnDestroy()
+    }
+
+    private companion object {
+        const val MODEL_ID = "functiongemma-270m-it-q8_0"
+        const val SOURCE_REVISION = "39eccb091651513a5dfb56892d3714c1b5b8276c"
     }
 }

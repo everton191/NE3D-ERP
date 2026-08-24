@@ -1,0 +1,123 @@
+{
+  "generatedAt": "2026-08-24T16:25:07.737Z",
+  "source": "real-runtime-predictions",
+  "cases": 560,
+  "toolSelectionAccuracy": 0.6054,
+  "argumentAnnotatedCases": 0,
+  "argumentExactMatch": null,
+  "argumentSemanticMatch": null,
+  "dispositionAccuracy": 0.4196,
+  "negativeToolAccuracy": 0.3857,
+  "noToolAccuracy": 1,
+  "schemaValidity": 1,
+  "missingDataDetection": 0.9125,
+  "invalidToolCalls": 0,
+  "outOfTopKAttempts": 0,
+  "unsafeDirectWrite": 0,
+  "byDomain": {
+    "calculator": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.4375,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.2625,
+      "schemaValidity": 1
+    },
+    "cash": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.8375,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.5875,
+      "schemaValidity": 1
+    },
+    "customers": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.6,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.425,
+      "schemaValidity": 1
+    },
+    "inventory": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.75,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.6625,
+      "schemaValidity": 1
+    },
+    "navigation": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.6,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.3375,
+      "schemaValidity": 1
+    },
+    "orders": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.6625,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.4875,
+      "schemaValidity": 1
+    },
+    "production": {
+      "cases": 80,
+      "toolSelectionAccuracy": 0.35,
+      "noToolAccuracy": 1,
+      "argumentExactMatch": null,
+      "dispositionAccuracy": 0.175,
+      "schemaValidity": 1
+    }
+  },
+  "confusionMatrix": {
+    "orders.search": {
+      "NO_TOOL": 27,
+      "orders.search": 25
+    },
+    "NO_TOOL": {
+      "NO_TOOL": 216
+    },
+    "customers.search": {
+      "customers.search": 20,
+      "NO_TOOL": 32
+    },
+    "inventory.search": {
+      "inventory.search": 32,
+      "NO_TOOL": 20
+    },
+    "cash.get_summary": {
+      "cash.get_summary": 33,
+      "NO_TOOL": 13
+    },
+    "calculator.quote": {
+      "NO_TOOL": 45
+    },
+    "production.list_queue": {
+      "NO_TOOL": 52
+    },
+    "navigation.open": {
+      "navigation.open": 13,
+      "NO_TOOL": 32
+    }
+  },
+  "latencyMs": {
+    "average": 451,
+    "p50": 510,
+    "p95": 1103,
+    "max": 4455
+  },
+  "ttftMs": {
+    "average": 338,
+    "p50": 281,
+    "p95": 807,
+    "max": 822
+  },
+  "tokensPerSecond": {
+    "average": 62.14,
+    "p50": 63.49,
+    "p95": 70.42
+  }
+}

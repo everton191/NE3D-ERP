@@ -157,13 +157,16 @@
     const source = normalizeText(text);
     const weight = source.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gramas?)\b/i);
     const quantity = source.match(/(?:quantidade|qtd)\s*(?:de|:)?\s*(\d+)/i);
-    const total = source.match(/\bpor\s+r?\$\s*(\d+(?:[.,]\d+)?)/i);
-    const beforePrice = total ? source.slice(0, total.index) : source;
-    const customerMarker = beforePrice.toLowerCase().lastIndexOf(" para ");
-    const customer = customerMarker >= 0 ? beforePrice.slice(customerMarker + 6).trim().replace(/[,.!?]+$/, "") : "";
+    // Aceita "R$ 25", "por 25 reais" e a forma curta "100 g R$25".
+    // O valor pertence ao rascunho e nunca é persistido aqui.
+    const total = source.match(/(?:\bpor\s+|\bvalor\s+(?:de\s+)?|\bpre[cç]o\s+(?:de\s+)?)?r?\$\s*(\d+(?:[.,]\d+)?)|(?:\bpor\s+|\bvalor\s+(?:de\s+)?|\bpre[cç]o\s+(?:de\s+)?)(\d+(?:[.,]\d+)?)\s*(?:reais?)?\b|\b(\d+(?:[.,]\d+)?)\s*reais?\b/i);
+    const totalAmount = total ? (total[1] || total[2] || total[3] || "") : "";
+    const customerMarker = source.toLowerCase().lastIndexOf(" para ");
+    const customerEnd = customerMarker >= 0 && total && Number(total.index) > customerMarker ? Number(total.index) : source.length;
+    const customer = customerMarker >= 0 ? source.slice(customerMarker + 6, customerEnd).trim().replace(/\bpor\s*$/i, "").trim().replace(/[,.!?]+$/, "") : "";
     const orderPrefix = source.match(/\bpedido\s+(?:de|com)\s+/i);
     const orderStart = orderPrefix ? Number(orderPrefix.index) + orderPrefix[0].length : -1;
-    const itemsEnd = customerMarker >= 0 ? customerMarker : beforePrice.length;
+    const itemsEnd = customerMarker >= 0 ? customerMarker : (total ? Number(total.index) : source.length);
     const itemsSource = orderStart >= 0 ? source.slice(orderStart, itemsEnd).trim() : "";
     const items = itemsSource.split(/\s+e\s+(?=\d+\b)/i).map((part) => {
       const match = part.trim().match(/^(\d+)\s+(.+?)\s*$/u);
@@ -175,7 +178,7 @@
       weightGrams: weight ? Number(weight[1].replace(",", ".")) : 0,
       quantity: quantity ? Number(quantity[1]) : (items[0]?.quantity || 0),
       items,
-      totalPrice: total ? Number(total[1].replace(",", ".")) : 0
+      totalPrice: totalAmount ? Number(totalAmount.replace(",", ".")) : 0
     };
   }
 
@@ -222,12 +225,38 @@
       .trim();
   }
 
+  function extractStockDraft(text) {
+    const source = normalizeText(text);
+    const quantity = source.match(/(\d+(?:[.,]\d+)?)\s*(kg|quilos?|g|gramas?)\b/i);
+    const raw = quantity ? Number(quantity[1].replace(",", ".")) : 0;
+    const quantityKg = quantity && /^(g|gramas?)$/i.test(quantity[2]) ? raw / 1000 : raw;
+    const material = source.match(/\b(PLA|PETG|ABS|ASA|TPU|RESINA)\b/i)?.[1]?.toUpperCase() || "";
+    const color = source.match(/\b(preto|branco|azul|vermelho|verde|amarelo|cinza|laranja|rosa|roxo|marrom|transparente)\b/i)?.[1] || "";
+    return { material, color, quantityKg };
+  }
+
+  function extractCashDraft(text) {
+    const source = normalizeText(text);
+    const amount = source.match(/r?\$\s*(\d+(?:[.,]\d+)?)/i);
+    const normalized = normalizeSearch(source);
+    const type = /\b(saida|sangria|retirada|despesa|paguei|pagamento)\b/.test(normalized) ? "saida" : "entrada";
+    const method = /\bpix\b/.test(normalized) ? "pix" : /\bcart[aã]o\b|\bcredito\b|\bdebito\b/.test(normalized) ? "cartao" : /\bdinheiro\b/.test(normalized) ? "dinheiro" : "";
+    const description = source.match(/(?:para|de|referente a)\s+(.+?)(?:\s+r?\$|$)/i)?.[1]?.trim() || "";
+    return { type, amount: amount ? Number(amount[1].replace(",", ".")) : 0, method, description };
+  }
+
   class ContinuationResolver {
     classify(text, session) {
       const raw = normalizeText(text);
       const value = normalizeSearch(raw);
       const navigation = extractNavigationTarget(raw);
       if (navigation) return { type: INTENT_TYPE.NAVIGATION, intent: "APP.NAVIGATE", ...navigation };
+      if (/\b(adiciona|adicionar|coloca|colocar|entrada|repor|reposi[cç][aã]o|cadastre|cadastrar)\b.*\b(estoque|pla|petg|abs|asa|tpu|resina|filamento|material)\b/i.test(value)) {
+        return { type: INTENT_TYPE.NAVIGATION, intent: "INVENTORY.DRAFT", routeId: "inventory.draft", label: "rascunho do estoque", draft: extractStockDraft(raw) };
+      }
+      if (/\b(lan[cç]a|lan[cç]ar|registra|registrar|entrada|sa[ií]da|sangria|retirada|despesa)\b.*\b(caixa|r\$|reais?|pix|dinheiro)\b/i.test(value)) {
+        return { type: INTENT_TYPE.NAVIGATION, intent: "CASH.DRAFT", routeId: "cash.draft", label: "rascunho do caixa", draft: extractCashDraft(raw) };
+      }
       const pricing = extractPricingArguments(raw);
       const pricingRequest = /\b(orcamento|quanto(?:\s+vai)?\s+(?:dar|custar|ficar)|quanto custa|preco|valor|calcula|calcular|custo)\b/i.test(value)
         || (pricing.weightGrams > 0 && pricing.timeMinutes > 0);
@@ -266,6 +295,15 @@
       if (/^(sim|isso|isso mesmo|confirmo)[.!]?$/i.test(value) && session.lastQuestion?.acceptUpdate) return { type: INTENT_TYPE.TASK_UPDATE, updates: session.lastQuestion.acceptUpdate, fastPath: true };
       if (/^(nao|não)[.!]?$/i.test(value) && session.lastQuestion) return { type: INTENT_TYPE.TASK_UPDATE, action: "REJECT_SUGGESTION", fastPath: true };
       const item = session.activeDraft?.items?.[0];
+      const missing = missingSlots(session.activeDraft);
+      const standalonePrice = raw.match(/^\s*(?:r?\$\s*)?(\d+(?:[.,]\d+)?)\s*(?:reais?)?[.!]?\s*$/i);
+      if (missing.some((name) => name.endsWith("unitPrice")) && standalonePrice) {
+        return { type: INTENT_TYPE.TASK_UPDATE, updates: { unitPrice: Number(standalonePrice[1].replace(",", ".")) } };
+      }
+      const standaloneWeight = raw.match(/^\s*(\d+(?:[.,]\d+)?)\s*(?:g|gramas?)[.!]?\s*$/i);
+      if (missing.some((name) => name.endsWith("weightGrams")) && standaloneWeight) {
+        return { type: INTENT_TYPE.TASK_UPDATE, updates: { weightGrams: Number(standaloneWeight[1].replace(",", ".")) } };
+      }
       if (item?.nome?.state === SLOT_STATE.MISSING && /^[\p{L}\d][\p{L}\d -]{1,60}[.!]?$/u.test(raw)) return { type: INTENT_TYPE.TASK_UPDATE, updates: { product: raw.replace(/[.!]$/, "") } };
       return { type: INTENT_TYPE.CONVERSATIONAL };
     }

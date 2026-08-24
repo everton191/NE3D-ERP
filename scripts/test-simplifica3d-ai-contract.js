@@ -28,30 +28,39 @@ const pluginSource = fs.readFileSync(
   path.join(__dirname, "..", "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "SimplificaLocalAiPlugin.kt"),
   "utf8"
 );
-const artifactManagerSource = fs.readFileSync(
-  path.join(__dirname, "..", "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "ModelArtifactManager.kt"),
+const modelInstallerSource = fs.readFileSync(
+  path.join(__dirname, "..", "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "FunctionGemmaModelInstaller.kt"),
+  "utf8"
+);
+const toolRuntimeSource = fs.readFileSync(
+  path.join(__dirname, "..", "android", "app", "src", "main", "java", "br", "com", "ne3d", "erp", "ai", "FunctionGemmaToolRuntime.kt"),
   "utf8"
 );
 const appSource = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const updateManifest = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "downloads", "update.json"), "utf8"));
 const uiComponentsSource = fs.readFileSync(
   path.join(__dirname, "..", "src", "assistant-core", "ui-contracts", "components.js"),
   "utf8"
 );
 
-assert.doesNotMatch(pluginSource, /override fun load|callProvider|br\.com\.simplifica\.ai\.provider/,
-  "O plugin próprio não pode depender de provider externo nem iniciar download ao carregar");
-assert.match(pluginSource, /fun installModel\([\s\S]*ModelArtifactManager\.install/,
-  "O download deve existir apenas como ação explícita do usuário");
-assert.match(artifactManagerSource, /setEnabled\(context, true\)[\s\S]*enqueueUniqueWork/,
-  "A instalação autorizada deve ativar e enfileirar o download próprio");
+assert.doesNotMatch(pluginSource, /callProvider|br\.com\.simplifica\.ai\.provider|fun interpret\(/,
+  "O plugin próprio não pode depender de provider externo nem oferecer chat genérico");
+assert.match(pluginSource, /fun importFunctionGemma\([\s\S]*FunctionGemmaModelInstaller\.install/,
+  "A importação do GGUF deve existir apenas como ação explícita do aplicativo");
+assert.match(modelInstallerSource, /EXPECTED_SHA256[\s\S]*EXPECTED_BYTES = 291_557_856L[\s\S]*\.part[\s\S]*renameTo\(target\)/,
+  "A instalação deve validar tamanho e SHA-256 antes do rename atômico");
+assert.match(toolRuntimeSource, /operationType in setOf\("READ", "PREPARE"\)[\s\S]*FUNCTIONGEMMA_WRITE_TOOL_BLOCKED/,
+  "O runtime deve bloquear ferramentas WRITE antes da inferência");
+assert.match(pluginSource, /writeExposed", 0/,
+  "A ponte Android deve manter WRITE_EXPOSED em zero");
 assert.match(appSource, /preaquecerAssistenteIa3d[\s\S]*provider\.prewarm\(\)/,
   "A assistente deve aquecer o provider pela abstração AiProvider");
-assert.match(appSource, /setTimeout\(\(\) => preaquecerAssistenteIa3d\(\), 450\)/,
-  "O aquecimento deve começar em segundo plano na abertura do sistema");
+assert.match(appSource, /async function abrirSecretariaIaLocal3d[\s\S]*await preaquecerAssistenteIa3d\(\{ renderChat: true \}\)/,
+  "O aquecimento deve ocorrer fora da abertura do ERP, ao abrir a assistente");
 assert.match(appSource, /result\?\.compatible === false[\s\S]*incompatibilityReason/,
   "O atalho da IA deve avisar quando o aparelho não é compatível");
-assert.match(appSource, /Baixar modelo de IA\?[\s\S]*Agora não[\s\S]*provider\.installModel/,
-  "O download deve mostrar tamanho e pedir confirmação explícita");
+assert.doesNotMatch(appSource, /renderUiSection\(\{ id: "assistente-ia"/,
+  "A configuração não deve exibir seletor ou menu de outros modelos");
 assert.match(appSource, /secretariaIaChatMessages\.slice\(-12\)[\s\S]*conversation/,
   "O chat deve enviar uma janela da conversa recente para a IA");
 assert.match(appSource, /simplifica:ia-chat:[\s\S]*localStorage\.setItem/,
@@ -68,7 +77,7 @@ assert.match(appSource, /function ouvirMensagemAssistenteIa\(\)[\s\S]*plugin\.li
   "O chat deve oferecer entrada por voz");
 assert.match(appSource, /Somente você pode autorizar[\s\S]*Confirmar pedido[\s\S]*Quero alterar/,
   "O usuário deve confirmar explicitamente antes de salvar um pedido");
-assert.match(appSource, /const APP_VERSION = "1\.0\.35";[\s\S]*const APP_VERSION_CODE = 63;/,
-  "A versão pública da entrega deve ser 1.0.35, código 63");
+assert.match(appSource, new RegExp(`const APP_VERSION = "${updateManifest.version.replace(/\./g, "\\.")}";[\\s\\S]*const APP_VERSION_CODE = ${updateManifest.versionCode};`),
+  "A versão pública da IA deve acompanhar downloads/update.json");
 
 console.log("Contrato da IA do Simplifica 3D validado.");

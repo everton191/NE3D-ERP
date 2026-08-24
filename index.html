@@ -98,7 +98,13 @@
   <aside id="app-sidebar" class="app-shell-slot app-sidebar-slot" aria-hidden="true"></aside>
   <header id="app-topbar" class="app-shell-slot app-topbar-slot" aria-hidden="true"></header>
   <main id="app-content" class="app-content-shell" data-ui-scroll-owner="app-content" tabindex="0" onkeydown="gerenciarScrollContainerTeclado(event)">
-    <div id="app"></div>
+    <div id="app">
+      <section class="app-boot-status" role="status" aria-live="polite" aria-label="Abrindo Simplifica 3D">
+        <span class="app-boot-spinner" aria-hidden="true"></span>
+        <strong>Abrindo o Simplifica 3D...</strong>
+        <small>Preparando seu ambiente com segurança.</small>
+      </section>
+    </div>
   </main>
   <div id="overlay-layer" class="app-layer app-overlay-layer" aria-live="off"></div>
   <div id="drawer-layer" class="app-layer app-drawer-layer" aria-live="off"></div>
@@ -136,25 +142,40 @@
 <script src="/src/assistant-core/security/privacy-policy.js?v=assistant-core-v1"></script>
 <script src="/src/assistant-core/models/model-registry.js?v=assistant-core-v1"></script>
 <script src="/src/assistant-core/models/model-provider.js?v=assistant-core-v1"></script>
-<script src="/src/assistant-core/models/pwa-model-artifact-store.js?v=assistant-core-v1"></script>
-<script src="/src/assistant-core/models/web-local-model-provider.js?v=assistant-core-v1"></script>
+<script src="/src/assistant-core/models/pwa-model-artifact-store.js?v=assistant-core-functiongemma-web-v3"></script>
+<script src="/src/assistant-core/models/web-local-model-provider.js?v=assistant-core-functiongemma-web-v3"></script>
 <script src="/src/assistant-core/models/device-capability-profiler.js?v=assistant-core-v1"></script>
 <script src="/src/assistant-core/engine/assistant-core.js?v=assistant-core-v1"></script>
 <script src="/apps/simplifica/assistant-pack/index.js?v=assistant-core-v1"></script>
-<script src="/src/services/simplifica3dAiActions.js?v=1.0.37-account-history"></script>
-<script src="/src/services/simplifica3dAiRuntime.js?v=1.0.37-account-history"></script>
-<script src="/src/services/simplifica3dFinancialCore.js?v=1.0.37-account-history"></script>
-<script src="/src/ai-3d/core.js?v=1.0.37-account-history"></script>
-<script src="/src/ai-3d/operation-safety.js?v=1.0.37-account-history"></script>
+<script src="/src/services/simplifica3dAiActions.js?v=1.0.38-functiongemma-fixes"></script>
+<script src="/src/services/simplifica3dFinancialCore.js?v=1.0.38-functiongemma-fixes"></script>
+<script src="/src/ai/action-registry.js?v=functiongemma-contracts-v1"></script>
+<script src="/src/ai/action-search.js?v=functiongemma-contracts-v1"></script>
+<script src="/src/ai/result-envelope.js?v=functiongemma-contracts-v1"></script>
+<script src="/src/ai/tool-calling-model.js?v=functiongemma-shadow-v1"></script>
+<script src="/src/ai/functiongemma-adapter.js?v=functiongemma-shadow-v1"></script>
+<script src="/src/ai/functiongemma-native-runtime.js?v=functiongemma-android-dotprod-v1"></script>
+<script src="/models/functiongemma/web-artifacts.js?v=functiongemma-web-q8-v1"></script>
+<script src="/src/ai/functiongemma-web-runtime.js?v=functiongemma-web-q8-v4"></script>
+<script src="/src/services/simplifica3dAiRuntime.js?v=functiongemma-web-q8-v1"></script>
+<script src="/src/ai-3d/core.js?v=1.0.38-functiongemma-fixes"></script>
+<script src="/src/ai-3d/operation-safety.js?v=1.0.38-functiongemma-fixes"></script>
 <script src="/src/ai-3d/canonical-order.js?v=ai-order-canonical-v1"></script>
 <script src="/src/ai-3d/order-create-preparation.js?v=ai-order-preparation-v1"></script>
 <script src="/src/ai-3d/order-create-executor.js?v=ai-order-executor-v1"></script>
+<script src="/src/ai-3d/order-shared-usecases.js?v=phase-b-orders-v1"></script>
+<script src="/src/ai-3d/operational-usecases.js?v=phase-b-operational-v1"></script>
 <script src="/src/ai-3d/rlm/rlm-core.js?v=ai-rlm-v1"></script>
-<script src="/src/ai-3d/orchestrator.js?v=1.0.37-account-history"></script>
-    <script src="/app.js?v=1.0.37-account-history-20260814"></script>
+<script src="/src/ai-3d/orchestrator.js?v=1.0.38-functiongemma-fixes"></script>
+    <script src="/app.js?v=1.0.38-functiongemma-fixes-20260824"></script>
 <script>
-  if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.37-account-history-20260814", { updateViaCache: "none" }).catch(() => {});
+  const isNativeApp = window.Capacitor?.isNativePlatform?.() === true;
+  if (isNativeApp && "serviceWorker" in navigator) {
+    // O WebView já serve os arquivos privados do APK. Um service worker aqui
+    // duplicava o carregamento do shell e atrasava a primeira tela.
+    navigator.serviceWorker.getRegistrations().then((items) => items.forEach((item) => item.unregister())).catch(() => {});
+  } else if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    navigator.serviceWorker.register("/sw.js?v=1.0.38-functiongemma-fixes-20260824", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>

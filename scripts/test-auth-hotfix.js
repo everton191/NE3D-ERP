@@ -87,7 +87,8 @@ assert.match(bodyOf("verificarSuperadminSupabaseSilencioso"), /\/rest\/v1\/profi
 assert.doesNotMatch(bodyOf("loginUsuarioSupabase"), /perfil\?\.role \|\| "operador"/, "login Supabase nao deve criar usuario como operador/admin por fallback");
 assert.doesNotMatch(bodyOf("processarRetornoOAuthSupabase"), /papel:\s*"admin"/, "OAuth nao deve criar admin por fallback");
 assert.match(bodyOf("concluirLoginUsuario"), /telaAtual = "superadmin"/, "superadmin deve ir para painel superadmin");
-assert.match(bodyOf("concluirLoginUsuario"), /"admin"/, "login comum/admin deve sair da tela de login");
+assert.match(bodyOf("concluirLoginUsuario"), /telaAtual = "dashboard"/, "login comum deve seguir diretamente para a Home");
+assert.doesNotMatch(bodyOf("concluirLoginUsuario"), /telaAtual = "usuarios"/, "gestao de usuarios deve abrir somente por acao do usuario");
 assert.doesNotMatch(extractAuthMethod("login"), /verificarSenhaUsuario/, "login comum nao deve validar senha local como fonte de verdade");
 assert.doesNotMatch(extractAuthMethod("login"), /recoverOnlineAccount/, "login comum nao deve recriar conta online a partir de bypass local");
 assert.match(extractAuthMethod("signupSaas"), /Conexão necessária para criar sua conta/, "signup offline deve ser bloqueado antes de criar conta local");

@@ -1,0 +1,20 @@
+{
+  "modelId": "simplifica-functiongemma-v1",
+  "version": "1.0.0-q8_0",
+  "format": "gguf",
+  "sha256": "595b727d73a8e78cc8da03f12a947137818c6d3544be903eef8494824b2d5b47",
+  "bytes": 291557856,
+  "runtime": {
+    "library": "llama.cpp",
+    "version": "0.2.0-dev",
+    "backendPolicy": "CPU_DEFAULT_GPU_OPTIONAL"
+  },
+  "source": {
+    "url": "https://huggingface.co/google/functiongemma-270m-it",
+    "revision": "39eccb091651513a5dfb56892d3714c1b5b8276c",
+    "licenseAccepted": true
+  },
+  "registryVersion": 1,
+  "writeExposed": 0,
+  "generatedAt": "2026-08-23T23:35:26.040Z"
+}

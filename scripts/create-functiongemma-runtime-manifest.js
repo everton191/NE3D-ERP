@@ -1,0 +1,17 @@
+"use strict";
+const crypto = require("crypto");
+const fs = require("fs");
+const path = require("path");
+const args = process.argv.slice(2);
+const valueOf = (flag) => { const index = args.indexOf(flag); return index >= 0 ? args[index + 1] : ""; };
+const modelPath = valueOf("--model"); const version = valueOf("--version"); const source = valueOf("--source"); const revision = valueOf("--revision");
+const format = valueOf("--format") || "litertlm";
+const runtimeLibrary = valueOf("--runtime") || "LiteRT-LM";
+const runtimeVersion = valueOf("--runtime-version") || "0.15.0";
+if (!modelPath || !version || !source || !revision) throw new Error("Use --model <artefato> --version <versão> --source <origem-oficial> --revision <commit/revisão> [--format litertlm|gguf] [--runtime <runtime>] [--runtime-version <versão>].");
+if (!["litertlm", "gguf"].includes(format)) throw new Error("Formato não suportado; use litertlm ou gguf.");
+const resolved = path.resolve(modelPath); if (!fs.existsSync(resolved)) throw new Error("Artefato de runtime não encontrado.");
+const sha256 = crypto.createHash("sha256").update(fs.readFileSync(resolved)).digest("hex");
+const backendPolicy = runtimeLibrary === "llama.cpp" ? "CPU_DEFAULT_GPU_OPTIONAL" : "GPU_FIRST_CPU_FALLBACK";
+const manifest = { modelId: "simplifica-functiongemma-v1", version, format, sha256, bytes: fs.statSync(resolved).size, runtime: { library: runtimeLibrary, version: runtimeVersion, backendPolicy }, source: { url: source, revision, licenseAccepted: true }, registryVersion: 1, writeExposed: 0, generatedAt: new Date().toISOString() };
+const target = path.resolve(__dirname, "..", "generated", "ai-runtime-manifest.json"); fs.mkdirSync(path.dirname(target), { recursive: true }); fs.writeFileSync(target, `${JSON.stringify(manifest, null, 2)}\n`); console.log(target);
