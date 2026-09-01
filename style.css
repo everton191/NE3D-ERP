@@ -37624,6 +37624,17 @@ body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .pagination-action
     align-items:stretch;
   }
 
+  body.web-pwa-ui:not(.mobile-mode) .orders-pwa-list .order-filter-chips{
+    flex-wrap:wrap;
+    overflow-x:visible;
+    align-content:flex-start;
+  }
+
+  body.web-pwa-ui:not(.mobile-mode) .orders-pwa-list .order-filter-chip{
+    flex:1 0 auto;
+    justify-content:center;
+  }
+
   body.web-pwa-ui:not(.mobile-mode) :where(.orders-pwa-list,.orders-pwa-detail){
     height:100%;
     min-height:0;
@@ -48311,12 +48322,25 @@ body:not(.theme-light) :where(.superadmin-only-main,.superadmin-mobile-only) .su
   body.mobile-mode .ui3-orders .smart-order-row,
   body[data-ui-profile="android_apk"] .ui3-orders .smart-order-row,
   body[data-ui-profile="web_pwa"].mobile-mode .ui3-orders .smart-order-row{
-    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-columns:minmax(0,1fr) auto !important;
+    align-items:center;
   }
 
   .ui3-orders .smart-order-side{
-    width:100%;
+    width:auto;
+    min-width:max-content;
     justify-items:end;
+  }
+
+  .ui3-orders .smart-order-main,
+  .ui3-orders .smart-order-head,
+  .ui3-orders .smart-order-meta{
+    min-width:0;
+  }
+
+  .ui3-orders .smart-order-contact-name,
+  .ui3-orders .smart-order-meta span{
+    overflow-wrap:anywhere;
   }
 }
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1039-security-plans-p0-20260831";
+const CACHE_NAME = "simplifica-3d-v1039-orders-responsive-hotfix-20260901";
 const APP_FILES = [
   "./",
   "./index.html",
