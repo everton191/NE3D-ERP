@@ -37625,10 +37625,17 @@ body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .pagination-action
   }
 
   body.web-pwa-ui:not(.mobile-mode) .orders-pwa-list .order-filter-chips{
-    flex-wrap:wrap;
-    overflow-x:visible;
-    align-content:flex-start;
+    flex-wrap:nowrap;
+    overflow-x:auto;
     justify-content:flex-start;
+    cursor:grab;
+    touch-action:pan-x;
+    overscroll-behavior-x:contain;
+  }
+
+  body.web-pwa-ui:not(.mobile-mode) .orders-pwa-list .order-filter-chips.is-dragging{
+    cursor:grabbing;
+    user-select:none;
   }
 
   body.web-pwa-ui:not(.mobile-mode) .orders-pwa-list .order-filter-chip{

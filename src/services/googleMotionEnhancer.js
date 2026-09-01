@@ -125,7 +125,7 @@
   let carouselDrag = null;
 
   function getDraggableCarousel(target) {
-    const carousel = target?.closest?.(".sfv3-category-grid");
+    const carousel = target?.closest?.(".sfv3-category-grid, .order-filter-chips");
     if (!carousel || carousel.scrollWidth <= carousel.clientWidth) return null;
     return carousel;
   }
@@ -175,7 +175,7 @@
   doc.addEventListener("pointercancel", finishCarouselDrag, { passive: true });
 
   doc.addEventListener("click", (event) => {
-    const carousel = event.target?.closest?.(".sfv3-category-grid");
+    const carousel = event.target?.closest?.(".sfv3-category-grid, .order-filter-chips");
     if (!carousel || carousel.dataset.dragged !== "true") return;
     event.preventDefault();
     event.stopPropagation();
