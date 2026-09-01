@@ -10,7 +10,18 @@
     "caixa.lancar": Object.freeze({ requiresConfirmation: true, fields: ["tipo", "valor", "descricao"] }),
     "caixa.consultar": Object.freeze({ requiresConfirmation: false, fields: [] }),
     "producao.status": Object.freeze({ requiresConfirmation: false, fields: ["consulta"] }),
-    "navegar": Object.freeze({ requiresConfirmation: false, fields: ["tela"] })
+    "navegar": Object.freeze({ requiresConfirmation: false, fields: ["tela"] }),
+    "navigation.open": Object.freeze({ requiresConfirmation: false, fields: ["tela"] }),
+    "orders.search": Object.freeze({ requiresConfirmation: false, fields: ["query", "status", "customer"] }),
+    "orders.get": Object.freeze({ requiresConfirmation: false, fields: ["order_id"] }),
+    "customers.search": Object.freeze({ requiresConfirmation: false, fields: ["query"] }),
+    "inventory.search": Object.freeze({ requiresConfirmation: false, fields: ["query", "status"] }),
+    "cash.get_summary": Object.freeze({ requiresConfirmation: false, fields: ["period"] }),
+    "production.list_queue": Object.freeze({ requiresConfirmation: false, fields: ["status"] }),
+    "calculator.quote": Object.freeze({ requiresConfirmation: false, fields: ["weight_grams", "time_minutes", "quantity"] }),
+    "products.search": Object.freeze({ requiresConfirmation: false, fields: ["query"] }),
+    "printers.search": Object.freeze({ requiresConfirmation: false, fields: ["query", "status"] }),
+    "reports.open": Object.freeze({ requiresConfirmation: false, fields: [] })
   });
 
   function text(value) { return String(value == null ? "" : value).trim(); }
@@ -53,6 +64,17 @@
       case "caixa.consultar": summary = "Consultar resumo do caixa"; break;
       case "producao.status": summary = `Consultar produção: ${text(command.payload.consulta) || "geral"}`; break;
       case "navegar": summary = `Abrir ${text(command.payload.tela)}`; break;
+      case "navigation.open": summary = `Abrir ${text(command.payload.tela)}`; break;
+      case "orders.search": summary = "Consultar pedidos"; break;
+      case "orders.get": summary = `Consultar pedido ${text(command.payload.order_id)}`; break;
+      case "customers.search": summary = "Consultar clientes"; break;
+      case "inventory.search": summary = "Consultar estoque"; break;
+      case "cash.get_summary": summary = "Consultar resumo do caixa"; break;
+      case "production.list_queue": summary = "Consultar fila de produção"; break;
+      case "calculator.quote": summary = "Calcular orçamento"; break;
+      case "products.search": summary = "Consultar produtos"; break;
+      case "printers.search": summary = "Consultar impressoras"; break;
+      case "reports.open": summary = "Abrir relatórios"; break;
       default: throw new Error("Ação de IA não autorizada.");
     }
     return Object.freeze({ ...command, summary });

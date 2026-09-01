@@ -78,10 +78,10 @@ Branch: `fix/stability-auth-superadmin-onboarding`
    - Ha uso de `must_change_password` e condicoes locais.
    - Risco: pedir troca de senha repetidamente se a flag nao for limpa no banco.
 
-8. Avisos antigos no lint remoto.
-   - `register_saas_client` ainda tem variavel/parametro de trial nao usados.
-   - `redeem_promotional_token` ainda tem parametro `p_codigo` nao usado.
-   - Risco: baixo para execucao atual, mas indica codigo legado que deve ser limpo com cuidado em rodada propria.
+8. Avisos antigos no lint remoto. Resolvido em 31/08/2026.
+   - Os contratos legados foram endurecidos e os parametros mantidos apenas como compatibilidade de transporte.
+   - O lint remoto atual retorna `No schema errors found`.
+   - Novos cadastros persistem Free sem trial; aliases antigos convergem para Pro quando representam acesso pago existente.
 
 9. Tela de Planos ainda mostra campos manuais de conta/licenca.
    - Smoke test web mostrou `E-mail da conta/licença` e `Senha da conta` na tela `Planos`.

@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1038-functiongemma-fixes-20260824";
+const CACHE_NAME = "simplifica-3d-v1039-security-plans-p0-20260831";
 const APP_FILES = [
   "./",
   "./index.html",
@@ -44,6 +44,8 @@ const APP_FILES = [
   "./models/functiongemma/web-artifacts.js",
   "./src/ai/action-registry.js",
   "./src/ai/action-search.js",
+  "./src/ai/deterministic-router.js",
+  "./src/ai/ai-telemetry.js",
   "./src/ai/result-envelope.js",
   "./src/ai/tool-calling-model.js",
   "./src/ai/functiongemma-adapter.js",
@@ -152,13 +154,13 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     fetch(event.request, deveIgnorarCache ? { cache: "no-store" } : undefined).then((response) => {
+      if (!response.ok || deveIgnorarCache) return response;
       const copy = response.clone();
       caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
       return response;
     }).catch(() => {
       return caches.match(event.request).then((cached) => {
-        if (cached) return cached;
-        return caches.match("./index.html");
+        return cached || Response.error();
       });
     })
   );

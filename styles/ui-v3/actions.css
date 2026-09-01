@@ -7,7 +7,7 @@ body.app-shell-ready{
 }
 
 body.app-shell-ready :is(
-  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions),
+  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),
   .ui3-action-row,.app-modal-actions,.modal-actions,.stock-detail-actions,.stock-wizard-actions,
   .order-secondary-actions,.order-detail-actions,.production-modal-actions,.printer-wizard-actions,
   .cash-quick-form-actions,.security-page-actions,.settings-section-save
@@ -19,13 +19,13 @@ body.app-shell-ready :is(
   gap:var(--ui3-action-gap) !important;
 }
 
-body.app-shell-ready .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):has(> :first-child:nth-last-child(2)) > :last-child,
-body.app-shell-ready .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):has(> :first-child:nth-last-child(3)) > :last-child{
+body.app-shell-ready .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions):has(> :first-child:nth-last-child(2)) > :last-child,
+body.app-shell-ready .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions):has(> :first-child:nth-last-child(3)) > :last-child{
   grid-column:4 !important;
 }
 
 body.app-shell-ready :is(
-  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions),
+  .actions:not(.quick-actions):not(.pagination-actions):not(.compact-actions):not(.stacked-actions):not(.legal-actions):not(.superadmin-company-actions),
   .ui3-action-row,.app-modal-actions,.modal-actions,.stock-detail-actions,.stock-wizard-actions,
   .order-secondary-actions,.order-detail-actions,.production-modal-actions,.printer-wizard-actions,
   .cash-quick-form-actions,.security-page-actions,.settings-section-save

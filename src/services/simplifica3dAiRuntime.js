@@ -7,6 +7,11 @@
   let adapterRuntime = null;
   let preparationPromise = null;
 
+  function deterministicNavigation(text) {
+    const decision = global.SimplificaDeterministicRouter?.resolve?.(text, {});
+    return decision?.tool === "navigation.open" ? decision : null;
+  }
+
   function nonExecutableReason(text) {
     const normalized = String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
     if (/^nao\b/.test(normalized)) return "NEGATED_COMMAND";
@@ -68,16 +73,28 @@
   }
 
   async function predictTool(text, context = {}, { shadow = false } = {}) {
+    const started = global.performance?.now?.() || Date.now();
+    const finish = (result, routeType) => {
+      const latency = (global.performance?.now?.() || Date.now()) - started;
+      global.SimplificaAiTelemetry?.record?.({
+        intent: result.intent || result.tool || result.reason || "unknown", route_type: routeType,
+        function_id: result.tool || "", latency_ms: latency, success: result.kind === "TOOL_CALL",
+        fallback: result.kind !== "TOOL_CALL", error_type: result.kind === "TOOL_CALL" ? "" : result.reason || "NO_TOOL"
+      });
+      return Object.freeze({ ...result, shadow });
+    };
     const blocked = nonExecutableReason(text);
-    if (blocked) return Object.freeze({ kind: "NO_TOOL", reason: blocked, diagnostics: null, shadow });
+    if (blocked) return finish({ kind: "NO_TOOL", reason: blocked, diagnostics: null }, "deterministic");
+    const deterministic = global.SimplificaDeterministicRouter?.resolve?.(text, context);
+    if (deterministic) return finish(deterministic, "deterministic");
     const actionSearch = global.SimplificaActionSearch;
-    if (!actionSearch?.search) return Object.freeze({ kind: "NO_TOOL", reason: "ACTION_SEARCH_UNAVAILABLE", shadow });
+    if (!actionSearch?.search) return finish({ kind: "NO_TOOL", reason: "ACTION_SEARCH_UNAVAILABLE" }, "functiongemma");
     await prepareFunctionGemma();
     const ranked = actionSearch.search(String(text || ""), context || {}, 5).filter((item) => Number(item.lexicalScore) > 0);
     const candidates = (ranked.length > 1 && ranked[0].score - ranked[1].score >= 2 ? ranked.slice(0, 1) : ranked.slice(0, 3)).map((item) => item.action);
-    if (!candidates.length) return Object.freeze({ kind: "NO_TOOL", reason: "NO_ACTION_SEARCH_MATCH", shadow });
+    if (!candidates.length) return finish({ kind: "NO_TOOL", reason: "NO_ACTION_SEARCH_MATCH" }, "functiongemma");
     const result = await adapter.generateToolCall({ command: text, tools: candidates, context });
-    return Object.freeze({ ...result, shadow });
+    return finish({ ...result, intent: result.tool || "functiongemma" }, "functiongemma");
   }
 
   async function predictToolShadow(text, context = {}) { return predictTool(text, context, { shadow: true }); }
@@ -117,6 +134,7 @@
     }
     async converse(text, context) {
       const prediction = await predictTool(text, context, { shadow: false });
+      if (prediction.kind === "TOOL_CALL" && prediction.missing?.length) return `Entendi a função, mas ainda preciso de: ${prediction.missing.join(", ")}.`;
       if (prediction.kind === "TOOL_CALL") return "Entendi o comando. Vou usar a função segura do Simplifica e manter qualquer alteração para sua revisão.";
       if (["HYPOTHETICAL_REQUEST", "NEGATED_COMMAND"].includes(prediction.reason)) return "Nenhuma ação foi executada. Posso explicar ou preparar um rascunho quando você pedir diretamente.";
       return "Não identifiquei uma função segura para esse pedido. Tente dizer a tela, consulta ou rascunho que deseja abrir.";
@@ -132,9 +150,14 @@
   const provider = new FunctionGemmaOnlyProvider();
   async function interpret(text, context = {}) {
     const prediction = await predictTool(text, context, { shadow: false });
+    if (prediction.kind === "TOOL_CALL" && prediction.missing?.length) {
+      return global.Simplifica3dAiActions.preview({ type: "chat", payload: { answer: `Para continuar, informe: ${prediction.missing.join(", ")}.` } });
+    }
     const action = prediction.kind === "TOOL_CALL"
       ? { type: prediction.tool, payload: prediction.arguments || {} }
-      : { type: "chat", payload: { answer: await provider.converse(text, context) } };
+      : { type: "chat", payload: { answer: ["HYPOTHETICAL_REQUEST", "NEGATED_COMMAND"].includes(prediction.reason)
+        ? "Nenhuma ação foi executada. Posso explicar ou preparar um rascunho quando você pedir diretamente."
+        : "Não identifiquei uma função segura para esse pedido. Tente dizer a tela, consulta ou rascunho que deseja abrir." } };
     return global.Simplifica3dAiActions.preview(action);
   }
   async function execute(preview, confirmed) {
@@ -148,6 +171,6 @@
 
   global.Simplifica3dAiRuntime = Object.freeze({
     interpret, execute, cancel, predictTool, predictToolShadow, scheduleToolShadow,
-    nonExecutableReason, prepareFunctionGemma, provider, webProvider, FunctionGemmaOnlyProvider
+    nonExecutableReason, deterministicNavigation, prepareFunctionGemma, provider, webProvider, FunctionGemmaOnlyProvider
   });
 })(window);

@@ -39566,7 +39566,17 @@ body:not(.theme-light) .plans-pricing-screen .plans-pricing-grid .plan-tier-pro{
 
   body.mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn,
   body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn,
-  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn,
+  body[data-ui-profile="android_apk"].mobile-mode .superadmin-mobile-only .superadmin-company-actions .btn{
+    min-height:42px !important;
+    height:auto !important;
+    padding:6px 8px !important;
+    font-size:10px !important;
+    line-height:1.15 !important;
+    overflow:visible !important;
+    white-space:normal !important;
+    text-overflow:clip !important;
+  }
+
   body.mobile-mode .superadmin-mobile-only .client-admin-row .row-actions .btn,
   body.mobile-mode .superadmin-mobile-only .client-admin-row .superadmin-action-menu-trigger,
   body[data-ui-profile="web_pwa"].mobile-mode .superadmin-mobile-only .client-admin-row .row-actions .btn,

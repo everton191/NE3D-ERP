@@ -12,7 +12,9 @@
     "orders.prepare_cancel": Object.freeze({ requiredAll: Object.freeze(["order_id", "reason", "return_stock", "idempotency_key"]) }),
     "customers.search": Object.freeze({ requiredAll: Object.freeze(["query"]) }),
     "inventory.search": Object.freeze({ requiredAny: Object.freeze(["query", "status"]) }),
-    "calculator.quote": Object.freeze({ requiredAll: Object.freeze(["weight_grams", "time_minutes", "quantity"]) })
+    "calculator.quote": Object.freeze({ requiredAll: Object.freeze(["weight_grams", "time_minutes", "quantity"]) }),
+    "products.search": Object.freeze({ requiredAll: Object.freeze(["query"]) }),
+    "printers.search": Object.freeze({ requiredAny: Object.freeze(["query", "status"]) })
   });
 
   const definitions = [
@@ -46,15 +48,18 @@
     ["cash.close_session", "cash", "WRITE", "Fecha uma sessão de caixa.", "CashCloseSessionUseCase.commit", "simple_cashier", true, false, ["prepared_operation_id", "confirmation_token", "idempotency_key"], ["fechar caixa"]],
     ["calculator.quote", "calculator", "READ", "Calcula preço por código determinístico.", "CalculatorDomain.calculate", "basic_calculator", false, true, ["weight_grams", "time_minutes", "quantity"], ["calcular preço", "fazer orçamento", "quanto custa"]],
     ["calculator.batch", "calculator", "READ", "Calcula vários orçamentos sem persistir.", "CalculatorDomain.calculate", "basic_calculator", false, false, ["items"], ["calcular em lote", "vários orçamentos"]],
-    ["production.list_queue", "production", "READ", "Lista a fila de produção.", "productionSummaryReadOnly", "basic_production", false, false, ["status"], ["fila de produção", "o que imprimir"]],
+    ["production.list_queue", "production", "READ", "Consulta a fila e o estado atual das impressões sem alterar dados.", "productionSummaryReadOnly", "basic_production", false, true, ["status"], ["fila de produção", "o que tem na produção", "impressão pendente", "qual impressão está rodando"]],
     ["production.prepare_job", "production", "PREPARE", "Prepara trabalho de produção sem mudar status.", "ProductionPrepareUseCase.prepare", "basic_production", false, false, ["order_id", "printer_id", "idempotency_key"], ["preparar impressão", "colocar na fila"]],
     ["production.commit_job", "production", "WRITE", "Cria trabalho de produção previamente preparado.", "ProductionPrepareUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token"], ["confirmar trabalho", "colocar na fila"]],
     ["production.prepare_change_status", "production", "PREPARE", "Valida mudança de status sem persistir.", "ProductionChangeStatusUseCase.prepare", "basic_production", false, false, ["job_id", "status", "idempotency_key"], ["preparar mudança de status", "revisar status"]],
-    ["production.change_status", "production", "WRITE", "Altera status de produção após confirmação.", "ProductionChangeStatusUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token", "idempotency_key"], ["iniciar impressão", "marcar como pronto"]]
+    ["production.change_status", "production", "WRITE", "Altera status de produção após confirmação.", "ProductionChangeStatusUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token", "idempotency_key"], ["iniciar impressão", "marcar como pronto"]],
+    ["products.search", "products", "READ", "Busca produtos cadastrados sem alterar catálogo ou estoque.", "searchProductsReadOnly", "basic_products", false, true, ["query"], ["buscar produto", "procurar produto", "mostrar produto"]],
+    ["printers.search", "printers", "READ", "Consulta impressoras cadastradas e o estado de impressão.", "searchPrintersReadOnly", "printer_registry", false, true, ["query", "status"], ["buscar impressora", "qual impressora", "impressora imprimindo", "status da impressora"]],
+    ["reports.open", "reports", "READ", "Abre a tela de relatórios sem alterar dados.", "navigation.open", "simple_reports", false, true, [], ["abrir relatórios", "ver relatórios", "mostrar relatórios"]]
   ];
 
   const actions = definitions.map(([id, domain, operationType, description, handler, permission, requiresConfirmation, tested, fields, aliases]) => Object.freeze({
-    id, version: 1, domain, operationType, description, handler, permission, requiresConfirmation,
+    id, version: 1, domain, category: domain, operationType, readWrite: operationType === OPERATION.WRITE ? "write" : "read", description, handler, executor: handler, permission, requiresConfirmation,
     idempotent: operationType !== OPERATION.WRITE || fields.includes("idempotency_key") || fields.includes("prepared_operation_id"),
     inputSchema: Object.freeze({
       type: "object",

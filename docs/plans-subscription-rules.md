@@ -2,13 +2,13 @@
 
 ## Fase 5A
 
-Esta fase corrige a regra de negocio dos planos antes de qualquer redesenho premium da tela. O objetivo e impedir downgrade indevido, estado pendente fantasma e acoes incompatíveis com o plano atual.
+Esta fase corrige a regra de negocio dos planos antes de qualquer redesenho da tela. O objetivo e impedir downgrade indevido, estado pendente fantasma e acoes incompatíveis com o plano atual.
 
 ## Plano, assinatura e pagamento
 
 `plan` e o plano de acesso efetivo do usuario. Ele define recursos liberados no ERP e na loja.
 
-`subscriptionStatus` e o estado da assinatura. Ele pode indicar `active`, `canceling`, `expired`, `cancelled`, `past_due`, `trialing` ou `free`.
+`subscriptionStatus` e o estado da assinatura. Ele pode indicar `active`, `canceling`, `expired`, `cancelled`, `past_due` ou `free`. Valores historicos `trial`/`trialing` sao normalizados para `active` no plano Pro e nao criam uma nova modalidade comercial.
 
 `paymentStatus` e o estado do pagamento. Ele nao deve ser confundido com checkout aberto.
 
@@ -117,7 +117,7 @@ Ainda nao foi alterado:
 - webhook real do Mercado Pago;
 - checkout;
 - aprovacao/cancelamento real de pagamento;
-- tela premium de planos.
+- tela de planos.
 
 ## Fase 5A.1 - Webhook unico e ativacao segura
 
@@ -134,15 +134,15 @@ A autoridade remota historica ainda aceita `premium` como alias interno do Pro. 
 
 Detalhes operacionais: `docs/billing-mercado-pago.md`.
 
-## Fase 5B - Tela premium e estados corretos
+## Fase 5B - Tela de planos e estados corretos
 
-A tela premium usa `getPlanAccessState()` como contrato central. Free, Start e Pro ficam ativos; Start e Pro usam o webhook central e so liberam acesso depois da confirmacao remota.
+A tela de planos usa `getPlanAccessState()` como contrato central. Free, Start e Pro ficam ativos; Start e Pro usam o webhook central e so liberam acesso depois da confirmacao remota.
 
 O resumo do Free direciona para `Assinar Pro`. Pagamento pendente visual exige transacao real. Checkout aberto ou abandonado nao altera o plano efetivo e nao bloqueia a interface.
 
 Cancelamento mostra a data final do acesso pago. Reativacao aparece somente quando `canReactivateRenewal = true`.
 
-Detalhes visuais: `docs/plans-premium-ui.md`.
+Detalhes visuais: `docs/plans-premium-ui.md` (nome historico do documento).
 
 ## Fase 5C - Retorno de checkout e sandbox controlado
 
@@ -158,7 +158,7 @@ O Start possui autoridade propria no backend e fica ativo com `START_PLAN_ENABLE
 
 - Slugs comerciais canonicos: `free`, `start`, `pro`.
 - Start: R$ 29,90/mes, ate 300 produtos, publicacao da loja e link compartilhavel.
-- Pro: R$ 59,90/mes, premium preservado, com compatibilidade backend para o slug legado `premium`.
+- Pro: R$ 59,90/mes, com compatibilidade backend apenas para interpretar os aliases legados `premium` e `premium_trial` como `pro`.
 - O frontend abre o checkout Start, mas nao grava pending real nem ativa acesso antes do webhook.
 - `MERCADO_PAGO_START_PLAN_ID` deve existir apenas no backend.
 - O webhook central resolve Start somente por allowlist de `preapproval_plan_id` e assinatura valida.

@@ -89,7 +89,8 @@ function chunkExpression(chunk) {
   const socket = await openCdp();
   const predictions = [];
   try {
-    for (let offset = 0, requestId = 1; offset < rows.length; offset += chunkSize, requestId += 1) {
+    await evaluate(socket, "window.__simplificaAiBenchmark=true", 1);
+    for (let offset = 0, requestId = 2; offset < rows.length; offset += chunkSize, requestId += 1) {
       const chunk = rows.slice(offset, offset + chunkSize);
       const result = await evaluate(socket, chunkExpression(chunk), requestId);
       if (!Array.isArray(result) || result.length !== chunk.length) throw new Error(`Lote incompleto em ${offset}: ${result?.length}`);
@@ -97,6 +98,7 @@ function chunkExpression(chunk) {
       process.stdout.write(`FunctionGemma Android baseline: ${predictions.length}/${rows.length}\n`);
     }
   } finally {
+    try { await evaluate(socket, "window.__simplificaAiBenchmark=false", 1000000); } catch (_) {}
     socket.close();
   }
   fs.writeFileSync(outputPath, `${predictions.map((row) => JSON.stringify(row)).join("\n")}\n`);

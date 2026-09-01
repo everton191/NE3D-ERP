@@ -4,7 +4,7 @@
   // Ponto unico para ativar recursos operacionais preservados para uso futuro.
   global.__SIMPLIFICA_RUNTIME_FEATURES__ = Object.freeze({
     adsEnabled: false,
-    aiOrderCreateEnabled: true,
+    aiOrderCreateEnabled: false,
     stockRollsEnabled: true,
     stockScannerEnabled: false,
     stockReservationsEnabled: false,

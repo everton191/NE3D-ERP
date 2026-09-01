@@ -55,7 +55,7 @@ assert(app.includes("assinatura.premiumUntil || assinatura.premium_until || assi
 assert(app.includes("const planoComVencimento") && app.includes("const vencimentoRegistrado = planoComVencimento"), "card pago deve consolidar a validade sem reaproveitar data antiga no Free");
 assert(app.includes('const plano = acessoVencido ? getPlanoSaas("free") : planoRegistrado'), "plano vencido deve voltar ao Free na apresentacao atual");
 assert(app.includes("O banco não confirmou a data final do acesso"), "liberacao manual deve exigir confirmacao remota do vencimento");
-assert(app.includes("Premium liberado até"), "sucesso deve informar a validade confirmada pelo banco");
+assert(app.includes("Pro liberado até"), "sucesso deve informar a validade confirmada pelo banco");
 assert(app.includes("deveEspelharLicencaNoCadastro"), "acesso irrestrito do superadmin nao pode alterar o plano comercial exibido da empresa");
 assert(app.includes("function mesclarAssinaturasPorCliente"), "assinatura remota deve substituir cache antigo pelo cliente");
 assert(app.includes("saasSubscriptions = mesclarAssinaturasPorCliente"), "sincronizacao deve evitar assinatura duplicada por empresa");

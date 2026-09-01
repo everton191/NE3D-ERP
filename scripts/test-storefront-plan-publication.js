@@ -31,7 +31,7 @@ includes(app, "shareEnabled: entitlements.shareLink === true && publicationAcces
 includes(app, "Loja temporariamente indisponível", "Loja publica bloqueada precisa ter mensagem segura.");
 includes(app, "status === STOREFRONT_PUBLICATION_STATUS.PUBLISHED", "Acesso publico remoto deve exigir status published.");
 
-const publicationAccessBlock = app.match(/function getStorefrontPublicationAccess[\s\S]*?\n}\n\nfunction getStorefrontPublicationStatus/);
+const publicationAccessBlock = app.match(/function getStorefrontPublicationAccess[\s\S]*?\r?\n}\r?\n\r?\nfunction getStorefrontPublicationStatus/);
 assert(publicationAccessBlock, "Bloco getStorefrontPublicationAccess nao encontrado.");
 const accessSource = publicationAccessBlock[0];
 includes(accessSource, "accessState.isActive === true", "Cancelado dentro do periodo deve seguir a regra de acesso ativo.");

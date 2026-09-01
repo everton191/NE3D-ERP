@@ -119,6 +119,8 @@ const publicSrcFiles = [
   "src/services/simplifica3dFinancialCore.js",
   "src/ai/action-registry.js",
   "src/ai/action-search.js",
+  "src/ai/deterministic-router.js",
+  "src/ai/ai-telemetry.js",
   "src/ai/result-envelope.js",
   "src/ai/tool-calling-model.js",
   "src/ai/functiongemma-adapter.js",

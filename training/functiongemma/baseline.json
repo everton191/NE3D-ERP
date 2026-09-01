@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-08-24T16:25:07.737Z",
+  "generatedAt": "2026-08-31T15:32:03.228Z",
   "source": "real-runtime-predictions",
   "cases": 560,
-  "toolSelectionAccuracy": 0.6054,
+  "toolSelectionAccuracy": 0.8732,
   "argumentAnnotatedCases": 0,
   "argumentExactMatch": null,
   "argumentSemanticMatch": null,
-  "dispositionAccuracy": 0.4196,
+  "dispositionAccuracy": 0.6964,
   "negativeToolAccuracy": 0.3857,
   "noToolAccuracy": 1,
   "schemaValidity": 1,
@@ -17,10 +17,10 @@
   "byDomain": {
     "calculator": {
       "cases": 80,
-      "toolSelectionAccuracy": 0.4375,
+      "toolSelectionAccuracy": 1,
       "noToolAccuracy": 1,
       "argumentExactMatch": null,
-      "dispositionAccuracy": 0.2625,
+      "dispositionAccuracy": 0.825,
       "schemaValidity": 1
     },
     "cash": {
@@ -41,41 +41,42 @@
     },
     "inventory": {
       "cases": 80,
-      "toolSelectionAccuracy": 0.75,
+      "toolSelectionAccuracy": 0.9125,
       "noToolAccuracy": 1,
       "argumentExactMatch": null,
-      "dispositionAccuracy": 0.6625,
+      "dispositionAccuracy": 0.825,
       "schemaValidity": 1
     },
     "navigation": {
       "cases": 80,
-      "toolSelectionAccuracy": 0.6,
+      "toolSelectionAccuracy": 1,
       "noToolAccuracy": 1,
       "argumentExactMatch": null,
-      "dispositionAccuracy": 0.3375,
+      "dispositionAccuracy": 0.7375,
       "schemaValidity": 1
     },
     "orders": {
       "cases": 80,
-      "toolSelectionAccuracy": 0.6625,
+      "toolSelectionAccuracy": 0.7625,
       "noToolAccuracy": 1,
       "argumentExactMatch": null,
-      "dispositionAccuracy": 0.4875,
+      "dispositionAccuracy": 0.7375,
       "schemaValidity": 1
     },
     "production": {
       "cases": 80,
-      "toolSelectionAccuracy": 0.35,
+      "toolSelectionAccuracy": 1,
       "noToolAccuracy": 1,
       "argumentExactMatch": null,
-      "dispositionAccuracy": 0.175,
+      "dispositionAccuracy": 0.7375,
       "schemaValidity": 1
     }
   },
   "confusionMatrix": {
     "orders.search": {
-      "NO_TOOL": 27,
-      "orders.search": 25
+      "orders.search": 33,
+      "NO_TOOL": 7,
+      "orders.get": 12
     },
     "NO_TOOL": {
       "NO_TOOL": 216
@@ -85,39 +86,38 @@
       "NO_TOOL": 32
     },
     "inventory.search": {
-      "inventory.search": 32,
-      "NO_TOOL": 20
+      "inventory.search": 45,
+      "NO_TOOL": 7
     },
     "cash.get_summary": {
       "cash.get_summary": 33,
       "NO_TOOL": 13
     },
     "calculator.quote": {
-      "NO_TOOL": 45
+      "calculator.quote": 45
     },
     "production.list_queue": {
-      "NO_TOOL": 52
+      "production.list_queue": 52
     },
     "navigation.open": {
-      "navigation.open": 13,
-      "NO_TOOL": 32
+      "navigation.open": 45
     }
   },
   "latencyMs": {
-    "average": 451,
-    "p50": 510,
-    "p95": 1103,
-    "max": 4455
+    "average": 153,
+    "p50": 0,
+    "p95": 1033,
+    "max": 1269
   },
   "ttftMs": {
-    "average": 338,
-    "p50": 281,
-    "p95": 807,
-    "max": 822
+    "average": 415,
+    "p50": 271,
+    "p95": 805,
+    "max": 876
   },
   "tokensPerSecond": {
-    "average": 62.14,
-    "p50": 63.49,
-    "p95": 70.42
+    "average": 64.67,
+    "p50": 65.33,
+    "p95": 72.99
   }
 }

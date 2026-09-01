@@ -3,25 +3,56 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" }
+      ]
+    }
+  ],
   "routes": [
     {
       "src": "/loja/(.*)",
-      "dest": "/"
+      "dest": "/api/storefront-page?path=$1"
     },
     {
       "src": "/store-admin/(.*)",
-      "dest": "/"
+      "dest": "/index.html"
     },
     {
       "src": "/src/integrations/(.*)",
       "status": 404
     },
     {
+      "src": "/robots.txt",
+      "dest": "/api/robots"
+    },
+    {
+      "src": "/sitemap.xml",
+      "dest": "/api/sitemap"
+    },
+    {
       "handle": "filesystem"
     },
     {
+      "src": "/(privacy|privacidade|terms|termos|superadmin|store-admin)",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/([^/]+)",
+      "dest": "/api/storefront-page?legacy=$1"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
       "src": "/(.*)",
-      "dest": "/"
+      "dest": "/api/not-found"
     }
   ]
 }

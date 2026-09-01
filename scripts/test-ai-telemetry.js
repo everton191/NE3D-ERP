@@ -1,0 +1,12 @@
+"use strict";
+const assert = require("node:assert/strict");
+const values = new Map();
+global.localStorage = { getItem: (key) => values.get(key) || null, setItem: (key, value) => values.set(key, value) };
+const telemetry = require("../src/ai/ai-telemetry.js");
+telemetry.record({ platform: "android", intent: "navigation.open", route_type: "deterministic", function_id: "navigation.open", latency_ms: 4, success: true });
+telemetry.record({ platform: "android", intent: "orders.search", route_type: "functiongemma", function_id: "", latency_ms: 800, success: false, fallback: true, error_type: "MODEL_NO_TOOL", text: "não persistir" });
+const events = telemetry.load();
+assert.equal(events.length, 2);
+assert.equal("text" in events[1], false, "texto integral não pode ser persistido");
+assert.deepEqual(telemetry.summary(), { total: 2, deterministic: 1, functiongemma: 1, successRate: .5, fallbackRate: .5, p50: 4, p95: 800 });
+console.log("AI telemetry: eventos mínimos, agregação e privacidade validados.");

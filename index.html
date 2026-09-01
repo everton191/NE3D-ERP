@@ -7,6 +7,8 @@
 <title>Simplifica 3D</title>
 
 <meta name="theme-color" content="#ffffff">
+<!-- A base do ERP nunca e indexavel; a Function de loja substitui este bloco somente para paginas publicas validas. -->
+<meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="description" content="Loja online e ERP Simplifica 3D para produtos personalizados, impressão 3D e pequenos negócios.">
 <meta name="application-name" content="Simplifica 3D">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -40,12 +42,12 @@
   })();
 </script>
 
-  <link rel="stylesheet" href="/style.css?v=stable-layout-v11-20260803">
+  <link rel="stylesheet" href="/style.css?v=hybrid-router-ui-v3-20260831">
   <link rel="stylesheet" href="/src/storefront/styles/tokens.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/components.css?v=1.0.57-rc-plans-release-20260628">
   <link rel="stylesheet" href="/src/storefront/styles/layouts.css?v=storefront-responsive-polish-20260805">
   <link rel="stylesheet" href="/src/styles/google-expressive-motion.css?v=stable-no-flicker-20260803">
-  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=release-v1.0.32-20260812">
+  <link rel="stylesheet" href="/styles/ui-v3/index.css?v=hybrid-router-ui-v2-20260831">
   <script src="/src/ui-v3/components/foundation.js"></script>
   <script src="/src/ui-v3/layout/components.js"></script>
   <script src="/src/ui-v3/components/components.js"></script>
@@ -147,27 +149,29 @@
 <script src="/src/assistant-core/models/device-capability-profiler.js?v=assistant-core-v1"></script>
 <script src="/src/assistant-core/engine/assistant-core.js?v=assistant-core-v1"></script>
 <script src="/apps/simplifica/assistant-pack/index.js?v=assistant-core-v1"></script>
-<script src="/src/services/simplifica3dAiActions.js?v=1.0.38-functiongemma-fixes"></script>
-<script src="/src/services/simplifica3dFinancialCore.js?v=1.0.38-functiongemma-fixes"></script>
+<script src="/src/services/simplifica3dAiActions.js?v=1.0.39-security-plans-p0"></script>
+<script src="/src/services/simplifica3dFinancialCore.js?v=1.0.39-security-plans-p0"></script>
 <script src="/src/ai/action-registry.js?v=functiongemma-contracts-v1"></script>
 <script src="/src/ai/action-search.js?v=functiongemma-contracts-v1"></script>
+<script src="/src/ai/deterministic-router.js?v=hybrid-router-v1"></script>
+<script src="/src/ai/ai-telemetry.js?v=hybrid-router-v1"></script>
 <script src="/src/ai/result-envelope.js?v=functiongemma-contracts-v1"></script>
 <script src="/src/ai/tool-calling-model.js?v=functiongemma-shadow-v1"></script>
 <script src="/src/ai/functiongemma-adapter.js?v=functiongemma-shadow-v1"></script>
 <script src="/src/ai/functiongemma-native-runtime.js?v=functiongemma-android-dotprod-v1"></script>
 <script src="/models/functiongemma/web-artifacts.js?v=functiongemma-web-q8-v1"></script>
 <script src="/src/ai/functiongemma-web-runtime.js?v=functiongemma-web-q8-v4"></script>
-<script src="/src/services/simplifica3dAiRuntime.js?v=functiongemma-web-q8-v1"></script>
-<script src="/src/ai-3d/core.js?v=1.0.38-functiongemma-fixes"></script>
-<script src="/src/ai-3d/operation-safety.js?v=1.0.38-functiongemma-fixes"></script>
+<script src="/src/services/simplifica3dAiRuntime.js?v=hybrid-router-v1-20260830"></script>
+<script src="/src/ai-3d/core.js?v=1.0.39-security-plans-p0"></script>
+<script src="/src/ai-3d/operation-safety.js?v=1.0.39-security-plans-p0"></script>
 <script src="/src/ai-3d/canonical-order.js?v=ai-order-canonical-v1"></script>
 <script src="/src/ai-3d/order-create-preparation.js?v=ai-order-preparation-v1"></script>
 <script src="/src/ai-3d/order-create-executor.js?v=ai-order-executor-v1"></script>
 <script src="/src/ai-3d/order-shared-usecases.js?v=phase-b-orders-v1"></script>
 <script src="/src/ai-3d/operational-usecases.js?v=phase-b-operational-v1"></script>
 <script src="/src/ai-3d/rlm/rlm-core.js?v=ai-rlm-v1"></script>
-<script src="/src/ai-3d/orchestrator.js?v=1.0.38-functiongemma-fixes"></script>
-    <script src="/app.js?v=1.0.38-functiongemma-fixes-20260824"></script>
+<script src="/src/ai-3d/orchestrator.js?v=1.0.39-security-plans-p0"></script>
+    <script src="/app.js?v=1.0.39-security-plans-p0"></script>
 <script>
   const isNativeApp = window.Capacitor?.isNativePlatform?.() === true;
   if (isNativeApp && "serviceWorker" in navigator) {
@@ -175,7 +179,7 @@
     // duplicava o carregamento do shell e atrasava a primeira tela.
     navigator.serviceWorker.getRegistrations().then((items) => items.forEach((item) => item.unregister())).catch(() => {});
   } else if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("/sw.js?v=1.0.38-functiongemma-fixes-20260824", { updateViaCache: "none" }).catch(() => {});
+    navigator.serviceWorker.register("/sw.js?v=1.0.39-security-plans-p0", { updateViaCache: "none" }).catch(() => {});
   }
 </script>
 </body>
