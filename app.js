@@ -24424,6 +24424,20 @@ function renderPedidoStatusChips(lista = pedidos, ativo = "todos") {
   `;
 }
 
+function renderPedidoStatusSelect(lista = pedidos, ativo = "todos") {
+  const contadores = contarPedidosPorFiltro(lista);
+  return `
+    <label class="order-filter-compact">
+      <span>Status</span>
+      <select aria-label="Filtrar pedidos por status" onchange="trocarFiltroPedidos(this.value)">
+        ${getPedidoFilterDefs().map((item) => `
+          <option value="${escaparAttr(item.id)}" ${ativo === item.id ? "selected" : ""}>${escaparHtml(item.label)} (${Number(contadores[item.id] || 0)})</option>
+        `).join("")}
+      </select>
+    </label>
+  `;
+}
+
 function resumoMaterialItemPedido(item = {}) {
   const materiais = getMateriaisItem(item);
   if (!materiais.length) return [];
@@ -47008,7 +47022,7 @@ function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = ""
           </div>
         ${(filtroDashboard || filtroCliente) ? `<div class="filter-chip-row"><span class="status-badge">Filtro: ${filtroCliente ? escaparHtml(filtroCliente) : filtroDashboard === "hoje" ? "pedidos de hoje" : "pedidos em aberto"}</span><button class="btn ghost" onclick="window.__pedidosFiltroDashboard=''; window.__pedidosFiltroCliente=''; renderApp()">Ver todos</button></div>` : ""}
           ${podeOperar ? "" : `<p class="muted">Seu plano está inativo. Você pode visualizar seus dados e regularizar o pagamento para continuar.</p>`}
-          ${isContextAdvancedVisible("pedidos") ? renderPedidoStatusChips(listaBaseInicial, filtroAtivo) : ""}
+          ${isContextAdvancedVisible("pedidos") ? renderPedidoStatusSelect(listaBaseInicial, filtroAtivo) : ""}
           <div class="orders-pwa-list-scroll">${linhas}</div>
           ${paginacao}
         </section>

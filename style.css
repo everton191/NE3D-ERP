@@ -17268,6 +17268,27 @@ body[data-ui-profile="android_apk"].mobile-mode .profile-usage-tile{
   scrollbar-width:none;
 }
 .order-filter-chips::-webkit-scrollbar{ display:none; }
+.order-filter-compact{
+  display:grid;
+  grid-template-columns:auto minmax(180px, 260px);
+  align-items:center;
+  justify-content:start;
+  gap:10px;
+  padding:8px 0 10px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:800;
+}
+.order-filter-compact select{
+  width:100%;
+  min-height:38px;
+  padding:0 36px 0 12px;
+  border:1px solid var(--color-border, rgba(148,163,184,.22));
+  border-radius:12px;
+  background:var(--color-surface, rgba(15,23,42,.7));
+  color:var(--color-text-primary, var(--text));
+  font:inherit;
+}
 .order-filter-chip{
   flex:0 0 auto;
   min-height:36px;
