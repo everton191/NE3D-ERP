@@ -15,6 +15,15 @@ assert.ok(app.includes('data-ui-token-set="${escaparAttr(relation.tokenSet)}"'),
 assert.ok(app.includes('const ordem = ["light", "dark", "system"]'), "tema deve alternar entre claro, escuro e automático");
 assert.ok(app.includes('ERP_THEME_PREFERENCE_STORAGE_KEY = "simplifica3d:erp-theme-preference"'), "preferência de tema deve ter armazenamento próprio");
 assert.ok(app.includes("localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, tema)"), "troca de tema deve persistir no aparelho");
+assert.ok(app.includes('agendarSincronizacaoPersonalizacaoRapida("Tema")'), "troca rápida de tema deve sincronizar com a conta");
+assert.ok(app.includes("async function salvarPreferenciasBasicasFree"), "preferências visuais do Free devem aguardar persistência remota");
+assert.ok(app.includes('registrarFluxoSalvamento("Aparência", "Salvar preferências básicas", { remotoOk })'), "preferências do Free devem registrar o resultado remoto");
+for (const campo of ["motion_level", "compact_mode", "show_brand_in_header", "interface_density", "screen_fit", "ui_scale", "desktop_card_min_width", "desktop_max_width"]) {
+  assert.ok(app.includes(`${campo}:`), `${campo} deve fazer parte da personalização sincronizada`);
+}
+assert.ok(app.includes('registrarFluxoSalvamento("Aparência", "Remover logo do PDF", { remotoOk })'), "remoção de logo deve sincronizar com a conta");
+assert.ok(app.includes('registrarFluxoSalvamento("Aparência", "Remover fundo do PDF", { remotoOk })'), "remoção de fundo deve sincronizar com a conta");
+assert.ok(app.includes('registrarFluxoSalvamento("Aparência", "Restaurar personalização padrão", { remotoOk })'), "restauração padrão deve sincronizar com a conta");
 assert.ok(app.includes("salvarDados();"), "troca de tema deve ser persistida");
 assert.ok(style.includes(".theme-mode-disc"), "ícone circular de duas cores deve existir");
 assert.ok(app.includes("function abrirSeletorTemaRapido"), "pressionar o tema deve abrir seletor direto");

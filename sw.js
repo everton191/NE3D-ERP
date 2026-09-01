@@ -1,4 +1,4 @@
-const CACHE_NAME = "simplifica-3d-v1039-orders-filter-menu-20260901";
+const CACHE_NAME = "simplifica-3d-v1039-settings-persistence-20260901";
 const APP_FILES = [
   "./",
   "./index.html",

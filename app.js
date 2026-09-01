@@ -36169,36 +36169,53 @@ function desbloquearRelatoriosComAnuncio() {
 
 function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {}) {
   const themeMode = normalizarPreferenciaTemaInterface(origem.theme_mode || appConfig.theme || "light");
+  const limitarNumero = (valor, fallback, minimo, maximo) => Math.max(minimo, Math.min(maximo, Number(valor) || fallback));
+  const textoOuFallback = (campo, fallback = "") => Object.prototype.hasOwnProperty.call(origem, campo)
+    ? String(origem[campo] ?? "")
+    : String(fallback || "");
+  const motionLevel = ["low", "medium", "high"].includes(origem.motion_level) ? origem.motion_level : (appConfig.motionLevel || "medium");
+  const interfaceDensity = ["compact", "comfortable"].includes(origem.interface_density)
+    ? origem.interface_density
+    : (["compact", "comfortable"].includes(appConfig.interfaceDensity) ? appConfig.interfaceDensity : "default");
+  const screenFit = origem.screen_fit === "manual" || (!Object.prototype.hasOwnProperty.call(origem, "screen_fit") && appConfig.screenFit === "manual") ? "manual" : "auto";
   return {
     primary_color: normalizarCorTemaControlado(origem.primary_color || appConfig.accentColor || "#72E6E8", themeMode, "primary"),
     secondary_color: normalizarCorTemaControlado(origem.secondary_color || appConfig.pdfSecondaryColor || "#00d8c8", themeMode, "secondary"),
-    pdf_background: origem.pdf_background || appConfig.pdfBackgroundDataUrl || "",
-    logo_url: origem.logo_url || appConfig.brandLogoDataUrl || "",
-    profile_photo: origem.profile_photo || appConfig.profilePhotoDataUrl || "",
-    company_logo: origem.company_logo || appConfig.companyLogoDataUrl || "",
-    login_background: origem.login_background || appConfig.loginBackgroundDataUrl || "",
+    pdf_background: textoOuFallback("pdf_background", appConfig.pdfBackgroundDataUrl),
+    logo_url: textoOuFallback("logo_url", appConfig.brandLogoDataUrl),
+    profile_photo: textoOuFallback("profile_photo", appConfig.profilePhotoDataUrl),
+    company_logo: textoOuFallback("company_logo", appConfig.companyLogoDataUrl),
+    login_background: textoOuFallback("login_background", appConfig.loginBackgroundDataUrl),
     theme_mode: themeMode,
+    motion_level: motionLevel,
+    compact_mode: typeof origem.compact_mode === "boolean" ? origem.compact_mode : !!appConfig.compactMode,
+    show_brand_in_header: typeof origem.show_brand_in_header === "boolean" ? origem.show_brand_in_header : appConfig.showBrandInHeader !== false,
+    interface_density: interfaceDensity,
+    screen_fit: screenFit,
+    ui_scale: limitarNumero(origem.ui_scale, Number(appConfig.uiScale) || 100, 70, 140),
+    desktop_card_min_width: limitarNumero(origem.desktop_card_min_width, Number(appConfig.desktopCardMinWidth) || 320, 220, 560),
+    desktop_max_width: limitarNumero(origem.desktop_max_width, Number(appConfig.desktopMaxWidth) || 1480, 900, 3200),
     glass_effect: origem.glass_effect !== false,
     custom_pdf_enabled: origem.custom_pdf_enabled !== false,
     pdf_theme: origem.pdf_theme || appConfig.pdfTheme || appConfig.pdfStyle || "modern_dark",
-    company_phone: origem.company_phone || appConfig.companyPhone || "",
-    company_email: origem.company_email || appConfig.companyEmail || "",
-    company_instagram: origem.company_instagram || appConfig.companyInstagram || "",
-    company_cnpj: origem.company_cnpj || appConfig.companyCnpj || "",
-    company_address: origem.company_address || appConfig.companyAddress || "",
-    company_city_state: origem.company_city_state || appConfig.companyCityState || "",
-    company_website: origem.company_website || appConfig.companyWebsite || "",
+    company_phone: textoOuFallback("company_phone", appConfig.companyPhone),
+    company_email: textoOuFallback("company_email", appConfig.companyEmail),
+    company_instagram: textoOuFallback("company_instagram", appConfig.companyInstagram),
+    company_cnpj: textoOuFallback("company_cnpj", appConfig.companyCnpj),
+    company_address: textoOuFallback("company_address", appConfig.companyAddress),
+    company_city_state: textoOuFallback("company_city_state", appConfig.companyCityState),
+    company_website: textoOuFallback("company_website", appConfig.companyWebsite),
     quote_validity_days: origem.quote_validity_days || appConfig.quoteValidityDays || 7,
-    payment_terms: origem.payment_terms || appConfig.paymentTerms || "",
-    production_deadline: origem.production_deadline || appConfig.productionDeadlineText || "",
-    pdf_default_message: origem.pdf_default_message || appConfig.pdfDefaultMessage || "",
-    pdf_default_notes: origem.pdf_default_notes || appConfig.pdfDefaultNotes || "",
-    pdf_signature: origem.pdf_signature || appConfig.pdfSignature || appConfig.documentFooter || "",
-    pix_key: origem.pix_key || appConfig.pixKey || "",
-    pix_receiver_name: origem.pix_receiver_name || appConfig.pixReceiverName || "",
-    pix_city: origem.pix_city || appConfig.pixCity || "",
-    pix_description: origem.pix_description || appConfig.pixDescription || "Pedido Simplifica 3D",
-    pix_instruction: origem.pix_instruction || appConfig.pixInstruction || ""
+    payment_terms: textoOuFallback("payment_terms", appConfig.paymentTerms),
+    production_deadline: textoOuFallback("production_deadline", appConfig.productionDeadlineText),
+    pdf_default_message: textoOuFallback("pdf_default_message", appConfig.pdfDefaultMessage),
+    pdf_default_notes: textoOuFallback("pdf_default_notes", appConfig.pdfDefaultNotes),
+    pdf_signature: textoOuFallback("pdf_signature", appConfig.pdfSignature || appConfig.documentFooter),
+    pix_key: textoOuFallback("pix_key", appConfig.pixKey),
+    pix_receiver_name: textoOuFallback("pix_receiver_name", appConfig.pixReceiverName),
+    pix_city: textoOuFallback("pix_city", appConfig.pixCity),
+    pix_description: textoOuFallback("pix_description", appConfig.pixDescription || "Pedido Simplifica 3D"),
+    pix_instruction: textoOuFallback("pix_instruction", appConfig.pixInstruction)
   };
 }
 
@@ -38933,10 +38950,15 @@ function selecionarPaletaStorefront(id) {
 function alterarTemaInterfaceRapido(value = "system") {
   const tema = normalizarPreferenciaTemaInterface(value);
   appConfig.theme = tema;
+  appConfig.appearanceSettings = normalizarAppearanceSettings({
+    ...(appConfig.appearanceSettings || {}),
+    theme_mode: tema
+  });
   localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, tema);
   window.SimplificaThemeAuthorityV3?.applyErpTheme?.(tema);
   aplicarPersonalizacao();
   salvarDados();
+  agendarSincronizacaoPersonalizacaoRapida("Tema");
   const corAtual = normalizarCorTemaControlado(appConfig.accentColor || "#72E6E8", tema, "primary");
   const input = document.getElementById("accentColorConfig");
   if (input) input.value = corAtual;
@@ -39122,6 +39144,16 @@ function lerPersonalizacaoCampos() {
       company_logo: appConfig.companyLogoDataUrl || "",
       login_background: appConfig.loginBackgroundDataUrl || "",
       theme_mode: theme,
+      motion_level: texto("motionLevelConfig", appConfig.motionLevel || "medium") || "medium",
+      compact_mode: marcado("compactModeConfig", !!appConfig.compactMode),
+      show_brand_in_header: marcado("showBrandInHeaderConfig", appConfig.showBrandInHeader !== false),
+      interface_density: ["compact", "comfortable"].includes(texto("interfaceDensityConfig", appConfig.interfaceDensity || "default"))
+        ? texto("interfaceDensityConfig", appConfig.interfaceDensity || "default")
+        : "default",
+      screen_fit: texto("screenFitConfig", appConfig.screenFit || "auto") === "manual" ? "manual" : "auto",
+      ui_scale: numero("uiScaleConfig", appConfig.uiScale || 100, { min: 70, max: 140 }),
+      desktop_card_min_width: numero("desktopCardMinWidthConfig", appConfig.desktopCardMinWidth || 320, { min: 220, max: 560 }),
+      desktop_max_width: numero("desktopMaxWidthConfig", appConfig.desktopMaxWidth || 1480, { min: 900, max: 3200 }),
       custom_pdf_enabled: acessoMarca
     }),
     compactMode: marcado("compactModeConfig", !!appConfig.compactMode),
@@ -39460,43 +39492,71 @@ async function salvarPersonalizacaoRemotaSilencioso() {
   }
 }
 
+let personalizacaoRapidaSyncTimer = null;
+
+function agendarSincronizacaoPersonalizacaoRapida(contexto = "Preferência visual") {
+  appConfig.customizationSyncPending = true;
+  salvarDados();
+  clearTimeout(personalizacaoRapidaSyncTimer);
+  personalizacaoRapidaSyncTimer = setTimeout(async () => {
+    const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+    appConfig.customizationSyncPending = !remotoOk;
+    salvarDados();
+    registrarFluxoSalvamento("Aparência", `Sincronizar ${contexto}`, { remotoOk });
+  }, 450);
+}
+
 function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   if (!linha || typeof linha !== "object") return false;
   const settings = linha.settings && typeof linha.settings === "object" ? linha.settings : {};
   const usarTexto = (valor) => (typeof valor === "string" && valor.trim() ? valor.trim() : "");
+  const valorSettings = (campo, fallback = "") => Object.prototype.hasOwnProperty.call(settings, campo)
+    ? String(settings[campo] ?? "")
+    : fallback;
+  const valorLinhaOuSettings = (campoLinha, campoSettings, fallback = "") => Object.prototype.hasOwnProperty.call(settings, campoSettings)
+    ? String(settings[campoSettings] ?? "")
+    : (typeof linha[campoLinha] === "string" ? linha[campoLinha] : fallback);
   const themeModeRemoto = usarTexto(localStorage.getItem(ERP_THEME_PREFERENCE_STORAGE_KEY)) || usarTexto(settings.theme_mode);
   const proximo = {
     theme: ["dark", "light", "auto", "system"].includes(themeModeRemoto) ? normalizarPreferenciaTemaInterface(themeModeRemoto) : appConfig.theme,
     accentColor: usarTexto(linha.theme_color) || usarTexto(settings.primary_color) || appConfig.accentColor,
-    pdfBackgroundDataUrl: usarTexto(linha.background_image) || usarTexto(settings.pdf_background) || appConfig.pdfBackgroundDataUrl,
-    loginBackgroundDataUrl: usarTexto(linha.login_background) || usarTexto(settings.login_background) || appConfig.loginBackgroundDataUrl,
-    brandLogoDataUrl: usarTexto(linha.pdf_watermark) || usarTexto(settings.logo_url) || appConfig.brandLogoDataUrl,
-    companyLogoDataUrl: usarTexto(linha.company_logo) || usarTexto(settings.company_logo) || appConfig.companyLogoDataUrl,
-    profilePhotoDataUrl: usarTexto(linha.profile_photo) || usarTexto(settings.profile_photo) || appConfig.profilePhotoDataUrl,
+    pdfBackgroundDataUrl: valorLinhaOuSettings("background_image", "pdf_background", appConfig.pdfBackgroundDataUrl),
+    loginBackgroundDataUrl: valorLinhaOuSettings("login_background", "login_background", appConfig.loginBackgroundDataUrl),
+    brandLogoDataUrl: valorLinhaOuSettings("pdf_watermark", "logo_url", appConfig.brandLogoDataUrl),
+    companyLogoDataUrl: valorLinhaOuSettings("company_logo", "company_logo", appConfig.companyLogoDataUrl),
+    profilePhotoDataUrl: valorLinhaOuSettings("profile_photo", "profile_photo", appConfig.profilePhotoDataUrl),
     customLoginMessage: usarTexto(linha.custom_message) || appConfig.customLoginMessage,
     pdfTheme: normalizarPdfTheme(usarTexto(settings.pdf_theme) || appConfig.pdfTheme || appConfig.pdfStyle),
     pdfStyle: normalizarPdfTheme(usarTexto(settings.pdf_theme) || appConfig.pdfTheme || appConfig.pdfStyle),
     pdfSecondaryColor: limitarCorPdf(usarTexto(linha.secondary_color) || usarTexto(settings.secondary_color) || appConfig.pdfSecondaryColor || "#00d8c8"),
-    companyPhone: usarTexto(settings.company_phone) || appConfig.companyPhone,
-    companyEmail: usarTexto(settings.company_email) || appConfig.companyEmail,
-    companyInstagram: usarTexto(settings.company_instagram) || appConfig.companyInstagram,
-    companyCnpj: usarTexto(settings.company_cnpj) || appConfig.companyCnpj,
-    companyAddress: usarTexto(settings.company_address) || appConfig.companyAddress,
-    companyCityState: usarTexto(settings.company_city_state) || appConfig.companyCityState,
-    companyWebsite: usarTexto(settings.company_website) || appConfig.companyWebsite,
+    companyPhone: valorSettings("company_phone", appConfig.companyPhone),
+    companyEmail: valorSettings("company_email", appConfig.companyEmail),
+    companyInstagram: valorSettings("company_instagram", appConfig.companyInstagram),
+    companyCnpj: valorSettings("company_cnpj", appConfig.companyCnpj),
+    companyAddress: valorSettings("company_address", appConfig.companyAddress),
+    companyCityState: valorSettings("company_city_state", appConfig.companyCityState),
+    companyWebsite: valorSettings("company_website", appConfig.companyWebsite),
     quoteValidityDays: Number(settings.quote_validity_days) || appConfig.quoteValidityDays || 7,
-    paymentTerms: usarTexto(settings.payment_terms) || appConfig.paymentTerms,
-    productionDeadlineText: usarTexto(settings.production_deadline) || appConfig.productionDeadlineText,
-    pdfDefaultMessage: usarTexto(settings.pdf_default_message) || appConfig.pdfDefaultMessage,
-    pdfDefaultNotes: usarTexto(settings.pdf_default_notes) || appConfig.pdfDefaultNotes,
-    pdfSignature: usarTexto(settings.pdf_signature) || appConfig.pdfSignature || appConfig.documentFooter,
-    documentFooter: usarTexto(settings.pdf_signature) || appConfig.documentFooter,
-    pixKey: usarTexto(linha.pix_key) || usarTexto(settings.pix_key) || appConfig.pixKey,
-    pixReceiverName: usarTexto(linha.pix_receiver_name) || usarTexto(settings.pix_receiver_name) || appConfig.pixReceiverName,
-    pixCity: usarTexto(linha.pix_city) || usarTexto(settings.pix_city) || appConfig.pixCity,
-    pixDescription: usarTexto(linha.pix_description) || usarTexto(settings.pix_description) || appConfig.pixDescription,
-    pixInstruction: usarTexto(settings.pix_instruction) || appConfig.pixInstruction
+    paymentTerms: valorSettings("payment_terms", appConfig.paymentTerms),
+    productionDeadlineText: valorSettings("production_deadline", appConfig.productionDeadlineText),
+    pdfDefaultMessage: valorSettings("pdf_default_message", appConfig.pdfDefaultMessage),
+    pdfDefaultNotes: valorSettings("pdf_default_notes", appConfig.pdfDefaultNotes),
+    pdfSignature: valorSettings("pdf_signature", appConfig.pdfSignature || appConfig.documentFooter),
+    documentFooter: valorSettings("pdf_signature", appConfig.documentFooter),
+    pixKey: valorLinhaOuSettings("pix_key", "pix_key", appConfig.pixKey),
+    pixReceiverName: valorLinhaOuSettings("pix_receiver_name", "pix_receiver_name", appConfig.pixReceiverName),
+    pixCity: valorLinhaOuSettings("pix_city", "pix_city", appConfig.pixCity),
+    pixDescription: valorLinhaOuSettings("pix_description", "pix_description", appConfig.pixDescription),
+    pixInstruction: valorSettings("pix_instruction", appConfig.pixInstruction)
   };
+  proximo.motionLevel = ["low", "medium", "high"].includes(settings.motion_level) ? settings.motion_level : appConfig.motionLevel;
+  proximo.compactMode = typeof settings.compact_mode === "boolean" ? settings.compact_mode : !!appConfig.compactMode;
+  proximo.showBrandInHeader = typeof settings.show_brand_in_header === "boolean" ? settings.show_brand_in_header : appConfig.showBrandInHeader !== false;
+  proximo.interfaceDensity = ["compact", "comfortable"].includes(settings.interface_density) ? settings.interface_density : appConfig.interfaceDensity;
+  proximo.screenFit = Object.prototype.hasOwnProperty.call(settings, "screen_fit") ? (settings.screen_fit === "manual" ? "manual" : "auto") : appConfig.screenFit;
+  proximo.uiScale = Math.max(70, Math.min(140, Number(settings.ui_scale) || Number(appConfig.uiScale) || 100));
+  proximo.desktopCardMinWidth = Math.max(220, Math.min(560, Number(settings.desktop_card_min_width) || Number(appConfig.desktopCardMinWidth) || 320));
+  proximo.desktopMaxWidth = Math.max(900, Math.min(3200, Number(settings.desktop_max_width) || Number(appConfig.desktopMaxWidth) || 1480));
   const appearanceSettings = normalizarAppearanceSettings({
     ...(appConfig.appearanceSettings || {}),
     ...settings,
@@ -39552,8 +39612,8 @@ async function sincronizarPersonalizacaoInicialSilencioso() {
   return carregarPersonalizacaoRemotaSilencioso();
 }
 
-function salvarPreferenciasBasicasFree() {
-  appConfig.theme = document.getElementById("themeConfig")?.value || appConfig.theme || "light";
+async function salvarPreferenciasBasicasFree() {
+  appConfig.theme = normalizarPreferenciaTemaInterface(document.getElementById("themeConfig")?.value || appConfig.theme || "light");
   appConfig.motionLevel = document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium";
   appConfig.compactMode = !!document.getElementById("compactModeConfig")?.checked;
   appConfig.showBrandInHeader = !!document.getElementById("showBrandInHeaderConfig")?.checked;
@@ -39562,9 +39622,27 @@ function salvarPreferenciasBasicasFree() {
   appConfig.uiScale = Math.max(70, Math.min(140, Number(document.getElementById("uiScaleConfig")?.value || appConfig.uiScale || 100)));
   appConfig.desktopCardMinWidth = Math.max(220, Math.min(560, Number(document.getElementById("desktopCardMinWidthConfig")?.value || appConfig.desktopCardMinWidth || 320)));
   appConfig.desktopMaxWidth = Math.max(900, Math.min(3200, Number(document.getElementById("desktopMaxWidthConfig")?.value || appConfig.desktopMaxWidth || 1480)));
+  appConfig.appearanceSettings = normalizarAppearanceSettings({
+    ...(appConfig.appearanceSettings || {}),
+    theme_mode: appConfig.theme,
+    motion_level: appConfig.motionLevel,
+    compact_mode: appConfig.compactMode,
+    show_brand_in_header: appConfig.showBrandInHeader,
+    interface_density: appConfig.interfaceDensity,
+    screen_fit: appConfig.screenFit,
+    ui_scale: appConfig.uiScale,
+    desktop_card_min_width: appConfig.desktopCardMinWidth,
+    desktop_max_width: appConfig.desktopMaxWidth
+  });
+  localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, appConfig.theme);
   salvarDados();
   aplicarPersonalizacao();
+  const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+  appConfig.customizationSyncPending = !remotoOk;
+  salvarDados();
   registrarHistorico("Aparência", "Preferências básicas do Free atualizadas");
+  registrarFluxoSalvamento("Aparência", "Salvar preferências básicas", { remotoOk });
+  return remotoOk;
 }
 
 async function salvarPersonalizacao() {
@@ -39572,8 +39650,10 @@ async function salvarPersonalizacao() {
   setBotaoLoading(botao, true, "Salvando...");
   try {
     if (!PlanService.podeUsarRecurso("personalizacao")) {
-      salvarPreferenciasBasicasFree();
-      mostrarToast("Ajustes básicos salvos. Logo, cores personalizadas, temas avançados e identidade visual são recursos PRO.", "info", 5600);
+      const remotoOk = await salvarPreferenciasBasicasFree();
+      mostrarToast(remotoOk
+        ? "Ajustes básicos salvos na sua conta. Logo, cores personalizadas, temas avançados e identidade visual são recursos PRO."
+        : "Ajustes salvos neste aparelho. A conta será sincronizada quando possível.", remotoOk ? "sucesso" : "warning", 5600);
       renderizarPreservandoScroll();
       return;
     }
@@ -39635,15 +39715,23 @@ async function salvarPersonalizacao() {
   }
 }
 
-function removerLogoMarca() {
+async function removerLogoMarca() {
   if (!confirm("Remover a logo salva do PDF?")) return;
   appConfig.brandLogoDataUrl = "";
+  appConfig.appearanceSettings = normalizarAppearanceSettings({
+    ...(appConfig.appearanceSettings || {}),
+    logo_url: ""
+  });
+  salvarDados();
+  const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+  appConfig.customizationSyncPending = !remotoOk;
   salvarDados();
   registrarHistorico("Personalização", "Logo removida do PDF");
+  registrarFluxoSalvamento("Aparência", "Remover logo do PDF", { remotoOk });
   renderizarPreservandoScroll();
 }
 
-function removerFundoPdf() {
+async function removerFundoPdf() {
   if (!confirm("Remover o fundo salvo do PDF?")) return;
   appConfig.pdfBackgroundDataUrl = "";
   appConfig.appearanceSettings = normalizarAppearanceSettings({
@@ -39651,11 +39739,15 @@ function removerFundoPdf() {
     pdf_background: ""
   });
   salvarDados();
+  const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+  appConfig.customizationSyncPending = !remotoOk;
+  salvarDados();
   registrarHistorico("Personalização", "Fundo do PDF removido");
+  registrarFluxoSalvamento("Aparência", "Remover fundo do PDF", { remotoOk });
   renderizarPreservandoScroll();
 }
 
-function restaurarPersonalizacaoPadrao() {
+async function restaurarPersonalizacaoPadrao() {
   if (!confirm("Restaurar a personalização padrão do app?")) return;
   const interfaceModeAtual = resolverInterfaceModePreferida(appConfig.interfaceMode);
   appConfig = {
@@ -39703,6 +39795,14 @@ function restaurarPersonalizacaoPadrao() {
       company_logo: "",
       login_background: "",
       theme_mode: "light",
+      motion_level: "medium",
+      compact_mode: false,
+      show_brand_in_header: true,
+      interface_density: "default",
+      screen_fit: "auto",
+      ui_scale: 100,
+      desktop_card_min_width: 320,
+      desktop_max_width: 1480,
       glass_effect: true,
       custom_pdf_enabled: false
     }),
@@ -39761,9 +39861,13 @@ function restaurarPersonalizacaoPadrao() {
   };
   appConfig.interfaceMode = interfaceModeAtual;
   localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
-  localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
+  localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, appConfig.theme);
+  salvarDados();
+  const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
+  appConfig.customizationSyncPending = !remotoOk;
   salvarDados();
   registrarHistorico("Personalização", "Preferências restauradas");
+  registrarFluxoSalvamento("Aparência", "Restaurar personalização padrão", { remotoOk });
   renderizarPreservandoScroll();
 }
 
