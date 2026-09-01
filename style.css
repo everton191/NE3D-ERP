@@ -37628,10 +37628,11 @@ body.mobile-mode :where(.orders-screen-card,.orders-pwa-page) .pagination-action
     flex-wrap:wrap;
     overflow-x:visible;
     align-content:flex-start;
+    justify-content:flex-start;
   }
 
   body.web-pwa-ui:not(.mobile-mode) .orders-pwa-list .order-filter-chip{
-    flex:1 0 auto;
+    flex:0 0 auto;
     justify-content:center;
   }
 
