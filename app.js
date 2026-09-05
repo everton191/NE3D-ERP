@@ -36174,7 +36174,7 @@ function normalizarAppearanceSettings(origem = appConfig.appearanceSettings || {
     ? String(origem[campo] ?? "")
     : String(fallback || "");
   const motionLevel = ["low", "medium", "high"].includes(origem.motion_level) ? origem.motion_level : (appConfig.motionLevel || "medium");
-  const interfaceDensity = ["compact", "comfortable"].includes(origem.interface_density)
+  const interfaceDensity = ["default", "compact", "comfortable"].includes(origem.interface_density)
     ? origem.interface_density
     : (["compact", "comfortable"].includes(appConfig.interfaceDensity) ? appConfig.interfaceDensity : "default");
   const screenFit = origem.screen_fit === "manual" || (!Object.prototype.hasOwnProperty.call(origem, "screen_fit") && appConfig.screenFit === "manual") ? "manual" : "auto";
@@ -39508,6 +39508,8 @@ function agendarSincronizacaoPersonalizacaoRapida(contexto = "Preferência visua
 
 function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   if (!linha || typeof linha !== "object") return false;
+  // Uma resposta de leitura atrasada não pode apagar uma edição local pendente.
+  if (appConfig.customizationSyncPending) return false;
   const settings = linha.settings && typeof linha.settings === "object" ? linha.settings : {};
   const usarTexto = (valor) => (typeof valor === "string" && valor.trim() ? valor.trim() : "");
   const valorSettings = (campo, fallback = "") => Object.prototype.hasOwnProperty.call(settings, campo)
@@ -39516,7 +39518,7 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   const valorLinhaOuSettings = (campoLinha, campoSettings, fallback = "") => Object.prototype.hasOwnProperty.call(settings, campoSettings)
     ? String(settings[campoSettings] ?? "")
     : (typeof linha[campoLinha] === "string" ? linha[campoLinha] : fallback);
-  const themeModeRemoto = usarTexto(localStorage.getItem(ERP_THEME_PREFERENCE_STORAGE_KEY)) || usarTexto(settings.theme_mode);
+  const themeModeRemoto = usarTexto(settings.theme_mode) || appConfig.theme;
   const proximo = {
     theme: ["dark", "light", "auto", "system"].includes(themeModeRemoto) ? normalizarPreferenciaTemaInterface(themeModeRemoto) : appConfig.theme,
     accentColor: usarTexto(linha.theme_color) || usarTexto(settings.primary_color) || appConfig.accentColor,
@@ -39552,7 +39554,7 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   proximo.motionLevel = ["low", "medium", "high"].includes(settings.motion_level) ? settings.motion_level : appConfig.motionLevel;
   proximo.compactMode = typeof settings.compact_mode === "boolean" ? settings.compact_mode : !!appConfig.compactMode;
   proximo.showBrandInHeader = typeof settings.show_brand_in_header === "boolean" ? settings.show_brand_in_header : appConfig.showBrandInHeader !== false;
-  proximo.interfaceDensity = ["compact", "comfortable"].includes(settings.interface_density) ? settings.interface_density : appConfig.interfaceDensity;
+  proximo.interfaceDensity = ["default", "compact", "comfortable"].includes(settings.interface_density) ? settings.interface_density : appConfig.interfaceDensity;
   proximo.screenFit = Object.prototype.hasOwnProperty.call(settings, "screen_fit") ? (settings.screen_fit === "manual" ? "manual" : "auto") : appConfig.screenFit;
   proximo.uiScale = Math.max(70, Math.min(140, Number(settings.ui_scale) || Number(appConfig.uiScale) || 100));
   proximo.desktopCardMinWidth = Math.max(220, Math.min(560, Number(settings.desktop_card_min_width) || Number(appConfig.desktopCardMinWidth) || 320));
@@ -39571,6 +39573,7 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
   });
   const mudou = Object.entries(proximo).some(([chave, valor]) => String(appConfig[chave] || "") !== String(valor || ""))
     || JSON.stringify(appConfig.appearanceSettings || {}) !== JSON.stringify(appearanceSettings || {});
+  localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, proximo.theme);
   if (!mudou) return false;
   appConfig = {
     ...appConfig,
@@ -39587,11 +39590,13 @@ function aplicarLinhaPersonalizacaoRemota(linha = {}) {
 async function carregarPersonalizacaoRemotaSilencioso() {
   if (!syncConfig.supabaseAccessToken || !syncConfig.supabaseUserId || !estaOnline()) return false;
   try {
+    const usuarioSolicitante = syncConfig.supabaseUserId;
     const userId = encodeURIComponent(syncConfig.supabaseUserId);
     const linhas = await requisicaoSupabase(`/rest/v1/app_customizations?select=*&user_id=eq.${userId}&order=updated_at.desc&limit=1`, {
       method: "GET",
       telemetry: false
     });
+    if (syncConfig.supabaseUserId !== usuarioSolicitante) return false;
     const linha = Array.isArray(linhas) ? linhas[0] : null;
     return aplicarLinhaPersonalizacaoRemota(linha);
   } catch (erro) {
@@ -39615,8 +39620,8 @@ async function sincronizarPersonalizacaoInicialSilencioso() {
 async function salvarPreferenciasBasicasFree() {
   appConfig.theme = normalizarPreferenciaTemaInterface(document.getElementById("themeConfig")?.value || appConfig.theme || "light");
   appConfig.motionLevel = document.getElementById("motionLevelConfig")?.value || appConfig.motionLevel || "medium";
-  appConfig.compactMode = !!document.getElementById("compactModeConfig")?.checked;
-  appConfig.showBrandInHeader = !!document.getElementById("showBrandInHeaderConfig")?.checked;
+  appConfig.compactMode = document.getElementById("compactModeConfig")?.checked ?? !!appConfig.compactMode;
+  appConfig.showBrandInHeader = document.getElementById("showBrandInHeaderConfig")?.checked ?? (appConfig.showBrandInHeader !== false);
   appConfig.interfaceDensity = document.getElementById("interfaceDensityConfig")?.value || appConfig.interfaceDensity || "default";
   appConfig.screenFit = document.getElementById("screenFitConfig")?.value || appConfig.screenFit || "auto";
   appConfig.uiScale = Math.max(70, Math.min(140, Number(document.getElementById("uiScaleConfig")?.value || appConfig.uiScale || 100)));
@@ -39635,6 +39640,7 @@ async function salvarPreferenciasBasicasFree() {
     desktop_max_width: appConfig.desktopMaxWidth
   });
   localStorage.setItem(ERP_THEME_PREFERENCE_STORAGE_KEY, appConfig.theme);
+  appConfig.customizationSyncPending = true;
   salvarDados();
   aplicarPersonalizacao();
   const remotoOk = await salvarPersonalizacaoRemotaSilencioso();
