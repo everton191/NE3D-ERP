@@ -10613,6 +10613,10 @@ function trocarTela(tela, opcoes = {}) {
   }
 
   const mudouTela = telaAtual !== tela;
+  if (tela === "pedidos" && !opcoes.preservarDetalhePedido) {
+    pedidoVisualizandoId = null;
+    window.__pedidoDetalheFechado = true;
+  }
   if (opcoes.resetStack) {
     navigationStack = [];
   }
@@ -10660,6 +10664,10 @@ function trocarTela(tela, opcoes = {}) {
 
 function voltarTela() {
   if (fecharCamadaAtualSeExistir()) return;
+  if (telaAtual === "pedidos" && pedidoVisualizandoId != null) {
+    fecharDetalhesPedido();
+    return;
+  }
   const destinoStack = navigationStack.pop();
   const destino = telas[destinoStack] ? destinoStack : (telas[telaAnterior] ? telaAnterior : getParentScreenForBack(telaAtual));
   const atual = telaAtual;
@@ -25918,7 +25926,7 @@ function renderDetalhePedido(pedido) {
           <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
           ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
         </div>
-        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="icon-action-button order-detail-close" type="button" onclick="fecharDetalhesPedido()" title="Fechar detalhes" aria-label="Fechar detalhes">${renderUiIcon("close")}</button></div>
+        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="btn secondary" type="button" onclick="fecharDetalhesPedido()">Voltar à lista</button></div>
       </div>
       <div class="order-detail-total">
         <div>
@@ -26101,7 +26109,7 @@ function solicitarEscolhaPedido({ titulo = "Opções", mensagem = "", opcoes = [
 function visualizarPedido(id) {
   window.__pedidoDetalheFechado = false;
   pedidoVisualizandoId = id;
-  trocarTela("pedidos");
+  trocarTela("pedidos", { preservarDetalhePedido: true });
   setTimeout(() => {
     const painel = document.querySelector(".orders-pwa-detail");
     if (painel) painel.scrollTop = 0;
@@ -47155,7 +47163,7 @@ function calcularTaxaExtraAplicada(valorComercialBase = 0) {
 function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = "", lista, listaPaginada, pedidoSelecionado, filtroAtivo = "todos", listaBaseInicial = pedidos, linhas, paginacao }) {
   const selecionado = window.__pedidoDetalheFechado
     ? null
-    : (pedidoSelecionado || listaPaginada[0] || null);
+    : (pedidoSelecionado || null);
   const detalhe = selecionado ? renderDetalhePedido(selecionado) : `
     <div class="order-empty-detail">
       <strong>Selecione um pedido</strong>
