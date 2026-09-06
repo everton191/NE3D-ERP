@@ -77,6 +77,24 @@ Validação de 2026-09-05: 6 testes comportamentais passaram, além de lint, typ
 
 ## Limites de publicação
 
+## Fases 6 e 7 — validação parcial no Zenfone 8 (2026-09-06)
+
+- Aparelho ASUS_I005DA conectado por ADB. APK debug 1.0.39 (67) atualizado com install -r, sem limpar dados. Versão mantida porque este não é um release; artefato local final SHA-256: `339D48E75BFE175E51C4F45F7835109342B724907BC2831B189D1EAEFA12495F`.
+- Fase 6: capacidade exclui tempos negativos/não finitos, respeita zero explícito e aliases de atividade/manutenção. A interface informa “Capacidade teórica”, 24h/dia sem paradas; não representa promessa de prazo nem disponibilidade real por máquina.
+- Fase 7: tela inicial autenticada, detalhe do pedido, caixa vinculado, menu Atualizar etapa e produção abertos no aparelho. Monitoramento existente mostrou uma impressão ativa; nenhum comando foi enviado à impressora. Nenhum pedido/recebimento real foi alterado nos testes de menu.
+- Medições em larguras emuladas 360/390/412 px no WebView: largura do documento igual à viewport e componentes observados sem extravasamento horizontal. Não equivale a três aparelhos ou certificação desktop.
+- Bug visual confirmado por captura nativa: container legado do menu promovido ao Dialog v3 mantinha overflow hidden e raio de 18px, recortando a primeira letra. CSS restrito corrigiu para overflow visible e raio zero no conteúdo interno. Rebuild, reinstalação e captura nativa final confirmaram texto íntegro. Capturas CDP deformaram texto e não foram usadas isoladamente para concluir.
+- IA: módulos corretos carregados, sem packs Rural/Tec. Primeiro prompt conversacional retornou fallback seguro em cerca de 1,47s; “Abrir pedidos” retornou a navegação e tela Pedidos foi observada. Isso não certifica qualidade geral/inferência de todas as ações. Indicador indisponível durante inicialização foi observado; reabertura do chat passou. WRITE não foi ampliado.
+- Passaram: testes comportamentais das fases 1–6, contratos IA/isolation/model-policy/UI, lint, typecheck, build web/Android, Android testDebugUnitTest e diff --check. Teste P0 estático passou, sem comprovar HTTP live.
+- Falha preservada: `node scripts/test-manual-production-ui.js` exige a frase “Acompanhe somente Em fila, Imprimindo e Pronto.” ausente também no baseline 73b2e5e. Não foi alterado para mascarar a divergência; revisar contrato de produção no próximo lote.
+- Achado financeiro: pedido com status operacional Pago exibe entrada zero/pendente e nenhum movimento explicitamente vinculado. Não inferir quitação nem criar lançamentos automaticamente. Separar estado operacional e recebimento e testar conciliação antes de publicar.
+- Scripts de inspeção somente leitura: `scripts/device-ui-readonly-probe.js` e `scripts/device-ai-readonly-probe.js`, enviados via stdin ao agent-browser conectado por CDP ao WebView. Não contêm credenciais nem fixtures de clientes.
+- Evidências nativas locais (não versionadas, contêm dados do usuário): `%LOCALAPPDATA%/Temp/simplifica-phase7-menu.png`, `simplifica-phase7-production.png`, `simplifica-phase7-menu-fixed.png`.
+- Não executados integralmente: troca de tema/reload entre dois aparelhos, offline/sincronização, dois usuários/lojas, 2FA real, restauração de backup, todas as RPCs, secrets scan completo, HTTP/SEO/cache/consentimento live, desempenho prolongado/temperatura, aprovação por link e reserva de material.
+- `SAFE_TO_PUBLISH=FALSE`. Fases 6 e 7 parciais. Sem push GitHub, deploy Vercel ou migrações remotas. APK instalado é apenas candidato local de teste.
+
+## Bloqueios mantidos
+
 As etapas 2 a 7 não estão concluídas. Este documento não é certificação de publicação.
 O teste local com dependências simuladas não substitui dois navegadores autenticados, teste offline real ou isolamento RLS.
 Próximo trabalho de persistência: serializar gravações rápidas em voo e proteger conclusão assíncrona após troca de conta; revisar todos os chamadores do salvamento remoto.

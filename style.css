@@ -4149,6 +4149,12 @@ body.theme-light .cash-session-panel{
   max-width:420px;
 }
 
+/* The v3 dialog owns clipping; its inner legacy content must not clip the first line. */
+[data-ui-version="v3"] .ui3-dialog .order-more-options.ui3-stack{
+  border-radius:0 !important;
+  overflow:visible !important;
+}
+
 .order-more-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));

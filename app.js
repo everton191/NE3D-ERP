@@ -28951,11 +28951,12 @@ function renderTarefaProducao(job = {}) {
 }
 
 function getResumoCapacidadeProducao() {
+  const minutosValidos = (valor) => Number.isFinite(Number(valor)) ? Math.max(0, Number(valor)) : 0;
   const ativos = productionJobs.filter((job) => !["pronto_para_entrega", "entregue", "cancelado"].includes(job.status));
   const externos = getImpressoesExternasMonitoradas();
-  const minutosFila = ativos.reduce((total, job) => total + (Number(job.estimatedPrintTimeMinutes || job.estimated_print_time_minutes) || 0), 0)
-    + externos.reduce((total, item) => total + Math.max(0, Number(item.latest_status?.remaining_seconds) || 0) / 60, 0);
-  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && !["inativa", "manutencao"].includes(printer.status));
+  const minutosFila = ativos.reduce((total, job) => total + minutosValidos(job.estimatedPrintTimeMinutes ?? job.estimated_print_time_minutes), 0)
+    + externos.reduce((total, item) => total + minutosValidos(item.latest_status?.remaining_seconds) / 60, 0);
+  const impressorasAtivas = productionPrinters.filter((printer) => printer.isActive !== false && printer.is_active !== false && !["inativa", "manutencao", "manutenção"].includes(String(printer.status || "").toLowerCase()));
   const diasCapacidade = impressorasAtivas.length ? minutosFila / (impressorasAtivas.length * 24 * 60) : 0;
   const atrasados = ativos.filter((job) => {
     const prazo = getDataEventoOperacionalPedido(job.dueDate || job.due_date);
@@ -29172,7 +29173,7 @@ function renderResumoCapacidadeProducao() {
     <section class="production-capacity-summary" aria-label="Resumo da capacidade produtiva">
       <div><i>${renderUiIcon("pedidos")}</i><span>Fila ativa</span><strong>${resumo.tarefas}</strong><small>tarefas</small></div>
       <div><i>${renderUiIcon("historico")}</i><span>Carga estimada</span><strong>${resumo.horas.toFixed(1)}h</strong><small>de impressão</small></div>
-      <div><i>${renderUiIcon("calendar")}</i><span>Capacidade</span><strong>${resumo.impressoras ? `${resumo.diasCapacidade.toFixed(1)} dias` : "Sem máquina"}</strong><small>${resumo.impressoras} impressora(s) disponível(is)</small></div>
+      <div><i>${renderUiIcon("calendar")}</i><span>Capacidade teórica</span><strong>${resumo.impressoras ? `${resumo.diasCapacidade.toFixed(1)} dias` : "Sem máquina"}</strong><small>${resumo.impressoras} impressora(s) · 24h/dia, sem paradas</small></div>
       <div class="${resumo.atrasados ? "is-alert" : ""}"><i>${renderUiIcon("alerta")}</i><span>Atrasadas</span><strong>${resumo.atrasados}</strong><small>fora do prazo</small></div>
     </section>
   `;
