@@ -62,7 +62,7 @@ assert.match(
 );
 assert.match(
   app,
-  /const selecionado = window\.__pedidoDetalheFechado[\s\S]*?\? null[\s\S]*?: \(pedidoSelecionado \|\| listaPaginada\[0\] \|\| null\);/,
+  /const selecionado = window\.__pedidoDetalheFechado[\s\S]*?\? null[\s\S]*?: \(pedidoSelecionado \|\| null\);/,
   "A versão web não deve reabrir automaticamente o pedido logo após fechar os detalhes."
 );
 

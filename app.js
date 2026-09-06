@@ -25926,7 +25926,7 @@ function renderDetalhePedido(pedido) {
           <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
           ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
         </div>
-        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="btn secondary" type="button" onclick="fecharDetalhesPedido()">Voltar à lista</button></div>
+        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="btn secondary" type="button" onclick="event.preventDefault(); event.stopPropagation(); fecharDetalhesPedido()">Voltar à lista</button></div>
       </div>
       <div class="order-detail-total">
         <div>
