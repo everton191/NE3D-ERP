@@ -24324,6 +24324,10 @@ function normalizarStatusPedidoFiltro(pedido = {}) {
 
 function garantirNumeracaoSequencialPedidos(lista = pedidos) {
   const registros = (Array.isArray(lista) ? lista : []).filter(Boolean);
+  // Existing numbers need no allocation or chronological sorting on each card render.
+  if (registros.every((pedido) => Math.floor(Number(pedido.numeroPedido || pedido.numero_pedido) || 0) > 0)) {
+    return registros;
+  }
   const usados = new Set(registros
     .map((pedido) => Math.floor(Number(pedido.numeroPedido || pedido.numero_pedido) || 0))
     .filter((numero) => numero > 0));

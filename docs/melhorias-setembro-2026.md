@@ -44,6 +44,17 @@ Validação de 2026-09-05: 6 testes comportamentais passaram, além de lint, typ
 
 ## Limites gerais
 
+## Fase 3 — primeiro lote de desempenho (2026-09-06)
+
+- `garantirNumeracaoSequencialPedidos` evita construir conjunto e ordenar cronologicamente a lista inteira quando todos os pedidos já têm números válidos. Essa rotina é chamada ao obter a numeração de cada card. Não utiliza cache por referência, preservando a detecção de alterações e inclusões na mesma lista.
+- Teste reproduzível: `node scripts/test-phase3-order-performance.js`; comparação com a implementação do commit `6269281`. Oito cenários de equivalência e testes de inclusão/edição em memória passaram.
+- Baseline local em Node: 5.000 pedidos previamente numerados, 30 chamadas por amostra, mediana de cinco amostras após aquecimento: 346,28 ms antes e 76,15 ms depois (4,55x no helper). Não é medição de FPS, startup, dispositivo mobile ou tela completa; tempos variam por máquina.
+- Lint, typecheck e build:web passaram. Não foram alterados layout, dependências, backend ou política de gravação síncrona.
+- Salvamento examinado: o snapshot por usuário ainda serializa todos os dados e inclui savedAt em cada gravação. Otimização desse caminho fica pendente de testes de durabilidade, troca de conta e múltiplas abas; não introduzir debounce que possa perder dados.
+- Restam na fase 3: baseline real no navegador/mobile, carregamento por módulo e otimização segura do salvamento. Este lote não encerra a fase nem remove os bloqueios da fase 2. Publicação continua suspensa para o pacote conjunto.
+
+## Pendências gerais de certificação
+
 As etapas 2 a 7 não estão concluídas. Este documento não é certificação de publicação.
 O teste local com dependências simuladas não substitui dois navegadores autenticados, teste offline real ou isolamento RLS.
 Próximo trabalho de persistência: serializar gravações rápidas em voo e proteger conclusão assíncrona após troca de conta; revisar todos os chamadores do salvamento remoto.
