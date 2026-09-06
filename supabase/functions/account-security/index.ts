@@ -8,7 +8,7 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSess
 const corsHeaders = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 
 const clean = (value: unknown, max = 300) => String(value ?? "").trim().slice(0, max);
-const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map((b) => b.toString(16).padStart(2, "0")).join("");
 const jwtPayload = (token: string) => {
   try {
@@ -54,6 +54,19 @@ async function sendAuthOtp(email: string) {
     body: JSON.stringify({ email, create_user: false })
   });
   if (!result.ok) throw new Error("EMAIL_DELIVERY_FAILED");
+}
+
+async function ensureVerifiedExport(ctx: Awaited<ReturnType<typeof context>>) {
+  const { data: settings, error: settingsError } = await admin.from("account_security_settings")
+    .select("two_factor_enabled").eq("owner_id", ctx.user.id).maybeSingle();
+  if (settingsError) throw new Error("SECURITY_CHECK_UNAVAILABLE");
+  if (!settings?.two_factor_enabled) return;
+  if (!ctx.sessionId) throw new Error("MFA_REQUIRED");
+  const { data: verified, error: sessionError } = await admin.from("user_2fa_sessions")
+    .select("id").eq("user_id", ctx.user.id).eq("auth_session_id", ctx.sessionId)
+    .is("revoked_at", null).gt("expires_at", new Date().toISOString()).maybeSingle();
+  if (sessionError) throw new Error("SECURITY_CHECK_UNAVAILABLE");
+  if (!verified) throw new Error("MFA_REQUIRED");
 }
 
 async function requestChallenge(ctx: Awaited<ReturnType<typeof context>>, request: Request, purpose: string) {
@@ -176,12 +189,13 @@ serve(async (request) => {
     else if (action === "history") { ensureAllowed(ctx, "view_security"); data = (await admin.from("security_events").select("event_type,status,message,created_at").eq("user_id", ctx.user.id).order("created_at", { ascending: false }).limit(100)).data || []; }
     else if (action === "export_account_data") {
       ensureAllowed(ctx, "export_account_data");
+      await ensureVerifiedExport(ctx);
       const [company, members, profiles, subscriptions, events] = await Promise.all([
         admin.from("companies").select("*").eq("id", ctx.companyId).maybeSingle(),
         admin.from("company_members").select("user_id,role,status,created_at").eq("company_id", ctx.companyId),
         admin.from("profiles").select("user_id,name,email,role,status,created_at").eq("company_id", ctx.companyId),
         admin.from("subscriptions").select("*").eq("company_id", ctx.companyId),
-        admin.from("security_events").select("event_type,status,message,created_at").eq("company_id", ctx.companyId)
+        admin.from("security_events").select("event_type,status,message,created_at").eq("company_id", ctx.companyId).eq("user_id", ctx.user.id)
       ]);
       data = { exported_at: new Date().toISOString(), company: company.data, members: members.data || [], profiles: profiles.data || [], subscriptions: subscriptions.data || [], security_events: events.data || [] };
       await audit(ctx, "account_data_exported", "success", request, "Dados da conta exportados.");
@@ -189,7 +203,7 @@ serve(async (request) => {
     return response({ ok: true, data });
   } catch (error) {
     const message = clean(error instanceof Error ? error.message : error, 300) || "ACCOUNT_SECURITY_FAILED";
-    const statusCode = message === "UNAUTHENTICATED" ? 401 : ["OWNER_REQUIRED", "PENDING_DELETION"].includes(message) ? 403 : message.endsWith("_NOT_FOUND") ? 404 : 400;
+    const statusCode = message === "SECURITY_CHECK_UNAVAILABLE" ? 503 : message === "UNAUTHENTICATED" ? 401 : ["OWNER_REQUIRED", "PENDING_DELETION", "MFA_REQUIRED"].includes(message) ? 403 : message.endsWith("_NOT_FOUND") ? 404 : 400;
     return response({ ok: false, error: message }, statusCode);
   }
 });

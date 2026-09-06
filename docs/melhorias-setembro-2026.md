@@ -31,6 +31,19 @@ Validação de 2026-09-05: 6 testes comportamentais passaram, além de lint, typ
 
 ## Pendências e limites
 
+## Fase 2 — lote local de 2026-09-06 (parcial)
+
+- Exportação em `account-security`: exige sessão de segundo fator válida quando habilitado; falhas de consulta bloqueiam a operação; eventos exportados limitados ao usuário e à empresa; respostas com `Cache-Control: no-store`.
+- Seis testes comportamentais da função passaram, incluindo falta de autenticação, segundo fator ausente/válido/desabilitado e falhas nas consultas de segurança. Dependências simuladas, sem conexão de produção.
+- Restrição de autoridade dos perfis preparada SOMENTE como rascunho em `docs/security/drafts/20260906151531_phase2_profile_authority_guard.sql`, fora das migrações automáticas. Teste SQL em PostgreSQL local em memória confirmou 12 escritas proibidas, edição pessoal permitida, isolamento de dois usuários, service_role preservado e reaplicação.
+- Bloqueio de compatibilidade identificado: `atualizarStatusPerfisClienteSupabase`, `atualizarFlagTesteClienteSaasSupabase` e `atualizarAnonimizacaoClienteSaasSupabase` ainda fazem PATCH direto de campos protegidos. Migrar esses fluxos para operações autorizadas no servidor e testar antes de promover o rascunho para migração. Não ampliar permissões para contornar a proteção.
+- Validações: account-security-activation, employee-entitlement-authority, phase3-rpc-hardening, lint, typecheck, build:web e diff --check passaram. A checagem TypeScript do frontend não certifica os tipos da Edge Function.
+- Testes reproduzíveis: `node scripts/test-phase2-security-behavior.js`; `node scripts/test-phase2-profile-sql.js <diretorio-externo-com-pglite-0.5.8>`. Nenhuma dependência adicionada ao produto. A fixture SQL é reduzida, não uma restauração completa do Supabase.
+- Auditoria parcial: scan `85fac0f4-6c18-444b-bd2b-67a532f6ef78`, snapshot `150cf2c1b443dc13105e14e46676229c48507a2c`. Dois achados: autoridade de perfis e autorização da exportação. Não equivale a auditoria completa das RPCs.
+- Próximo lote: compatibilidade administrativa da restrição de perfis, revisão das demais RPCs e cobertura MFA, restauração de backup e E2E real com dois usuários/lojas. Nenhuma alteração publicada ou aplicada no backend; não recalcular SAFE_TO_PUBLISH como aprovado.
+
+## Limites gerais
+
 As etapas 2 a 7 não estão concluídas. Este documento não é certificação de publicação.
 O teste local com dependências simuladas não substitui dois navegadores autenticados, teste offline real ou isolamento RLS.
 Próximo trabalho de persistência: serializar gravações rápidas em voo e proteger conclusão assíncrona após troca de conta; revisar todos os chamadores do salvamento remoto.
