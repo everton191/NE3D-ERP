@@ -66,6 +66,17 @@ Validação de 2026-09-05: 6 testes comportamentais passaram, além de lint, typ
 
 ## Certificação ainda pendente
 
+## Fase 5 — primeiro lote de diferenciais (2026-09-06)
+
+- Detalhe do pedido agora apresenta entradas, saídas, saldo de caixa e quantidade de lançamentos vinculados, além da rentabilidade estimada existente. Reutiliza os estilos existentes e a classificação de cancelamento do caixa.
+- Associação estrita por pedidoId/pedido_id/orderId (IDs numéricos ou texto). Não associa por descrição, cliente ou coincidência de valor. Lançamentos cancelados/excluídos, tipos desconhecidos e valores inválidos são descartados; somas em centavos.
+- Texto explícito distingue saldo de caixa de lucro realizado. Ausência de vínculo não comprova ausência de pagamento. A visão depende dos registros locais carregados; não certifica conciliação bancária nem integralidade dos custos.
+- Nenhuma cobrança, baixa/reserva de estoque, escrita no backend ou modificação dos lançamentos. Migração automática de vínculos antigos não foi feita.
+- `node scripts/test-phase5-order-cash.js`, lint, typecheck, build:web e diff --check passaram. Cobertos aliases de ID, cancelamentos, outro pedido, valores inválidos, precisão decimal, saldo negativo e ausência de mutação.
+- Pendentes: conferência visual desktop/mobile, comparação com caixa de pedidos reais de teste, apuração completa de custos realizados, aprovação por link com autorização e reserva de material com liberação/idempotência. Fase 5 parcial, sem publicação.
+
+## Limites de publicação
+
 As etapas 2 a 7 não estão concluídas. Este documento não é certificação de publicação.
 O teste local com dependências simuladas não substitui dois navegadores autenticados, teste offline real ou isolamento RLS.
 Próximo trabalho de persistência: serializar gravações rápidas em voo e proteger conclusão assíncrona após troca de conta; revisar todos os chamadores do salvamento remoto.

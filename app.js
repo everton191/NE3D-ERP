@@ -25856,12 +25856,35 @@ function renderHistoricoOperacionalPedido(pedido = {}) {
   `;
 }
 
+function calcularCaixaVinculadoPedido(pedido = {}, movimentos = caixa) {
+  const id = String(pedido.id ?? "").trim();
+  const resumo = { entradas: 0, saidas: 0, saldo: 0, quantidade: 0 };
+  if (!id) return resumo;
+  for (const movimento of Array.isArray(movimentos) ? movimentos : []) {
+    if (!movimento || movimentoCaixaCancelado(movimento) || movimento.deleted_at || movimento.deletedAt) continue;
+    const vinculo = String(movimento.pedidoId ?? movimento.pedido_id ?? movimento.orderId ?? "").trim();
+    // Descriptions and matching amounts are not proof that a movement belongs to this order.
+    if (vinculo !== id) continue;
+    const tipo = String(movimento.tipo || "").toLowerCase();
+    const valor = Number(movimento.valor);
+    if (!["entrada", "saida"].includes(tipo) || !Number.isFinite(valor) || valor < 0) continue;
+    const centavos = Math.round(valor * 100);
+    resumo[tipo === "entrada" ? "entradas" : "saidas"] += centavos;
+    resumo.quantidade += 1;
+  }
+  resumo.saldo = (resumo.entradas - resumo.saidas) / 100;
+  resumo.entradas /= 100;
+  resumo.saidas /= 100;
+  return resumo;
+}
+
 function renderRentabilidadeOperacionalPedido(pedido = {}) {
   const receita = Math.max(0, totalPedido(pedido));
   const custos = calcularCustosPedidoAnalytics(pedido);
   const custo = Math.max(0, Number(custos?.cost) || 0);
   const lucro = receita - custo;
   const margem = receita > 0 ? (lucro / receita) * 100 : 0;
+  const realizado = calcularCaixaVinculadoPedido(pedido);
   return `
     <section class="order-profitability-summary" aria-label="Rentabilidade estimada do pedido">
       <div><span>Receita</span><strong>${formatarMoeda(receita)}</strong></div>
@@ -25869,6 +25892,13 @@ function renderRentabilidadeOperacionalPedido(pedido = {}) {
       <div class="${lucro < 0 ? "is-negative" : ""}"><span>Lucro estimado</span><strong>${formatarMoeda(lucro)}</strong></div>
       <div class="${margem < 0 ? "is-negative" : ""}"><span>Margem estimada</span><strong>${margem.toFixed(1)}%</strong></div>
     </section>
+    <section class="order-profitability-summary" aria-label="Caixa vinculado ao pedido">
+      <div><span>Entradas vinculadas</span><strong>${formatarMoeda(realizado.entradas)}</strong></div>
+      <div><span>Saídas vinculadas</span><strong>${formatarMoeda(realizado.saidas)}</strong></div>
+      <div class="${realizado.saldo < 0 ? "is-negative" : ""}"><span>Saldo de caixa vinculado</span><strong>${formatarMoeda(realizado.saldo)}</strong></div>
+      <div><span>Lançamentos válidos</span><strong>${realizado.quantidade}</strong></div>
+    </section>
+    <p class="muted">${realizado.quantidade ? "Somente lançamentos com vínculo explícito a este pedido." : "Nenhum lançamento com vínculo explícito a este pedido. Isso não comprova ausência de pagamento."} Saldo de caixa não é lucro realizado; custos não lançados e movimentos sem vínculo não estão incluídos.</p>
   `;
 }
 
