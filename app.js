@@ -25922,10 +25922,7 @@ function renderDetalhePedido(pedido) {
       </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
       ${cancelado ? "" : `
         <div class="order-status-action-strip">
-          <button type="button" onclick="abrirLiberacaoProducao(${pedidoIdJs})">Liberar para produção</button>
-          <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'pronto')">Pronto</button>
-          <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'entregue')">Entregue</button>
-          <button type="button" onclick="alterarStatusPedido(${pedidoIdJs}, 'pago')">Pago</button>
+          <button type="button" onclick="abrirEtapasPedido(${pedidoIdJs})" aria-haspopup="dialog">Atualizar etapa</button>
         </div>
       `}
       <div class="history-list order-detail-items">
@@ -25943,6 +25940,28 @@ function renderDetalhePedido(pedido) {
       ${cancelado ? "" : `<button class="btn danger compact-danger-action" onclick="removerPedido(${pedidoIdJs})">${renderIconeAcaoPedido("🗑", "Cancelar")} Cancelar pedido</button>`}
     </div>
   `;
+}
+
+async function abrirEtapasPedido(id) {
+  const pedido = encontrarPedidoPorId(id);
+  if (!pedido || pedidoJaCancelado(pedido)) return;
+  const escolha = await solicitarEscolhaPedido({
+    titulo: `Etapas do pedido ${getNumeroSequencialPedido(pedido)}`,
+    mensagem: `Etapa atual: ${labelStatusPedido(pedido.status || "aberto")}. Escolha a atualização desejada. Valores e cobranças ficam em Financeiro.`,
+    opcoes: [
+      { id: "producao", label: "Liberar para produção", classe: "secondary" },
+      { id: "pronto", label: "Marcar como pronto", classe: "ghost" },
+      { id: "entregue", label: "Marcar como entregue", classe: "ghost" },
+      { id: "pago", label: "Marcar status como pago", classe: "ghost" },
+      { id: "financeiro", label: "Financeiro e cobrança", classe: "ghost" }
+    ]
+  });
+  // Re-read after the dialog: the order may have been cancelled or removed meanwhile.
+  const atual = encontrarPedidoPorId(id);
+  if (!atual || pedidoJaCancelado(atual)) return;
+  if (escolha === "producao") return abrirLiberacaoProducao(id);
+  if (escolha === "financeiro") return abrirFinanceiroPedido(id);
+  if (["pronto", "entregue", "pago"].includes(escolha)) return alterarStatusPedido(id, escolha);
 }
 
 async function abrirMaisOpcoesPedido(id) {

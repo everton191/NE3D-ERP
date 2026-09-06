@@ -55,6 +55,17 @@ Validação de 2026-09-05: 6 testes comportamentais passaram, além de lint, typ
 
 ## Pendências gerais de certificação
 
+## Fase 4 — primeiro lote de usabilidade (2026-09-06)
+
+- Detalhe do pedido: os quatro botões simultâneos de status foram reunidos em “Atualizar etapa”, reutilizando o diálogo compacto existente. O menu informa o status atual e permite abrir Financeiro e cobrança.
+- Mantidas as ações atuais de liberação de produção e atualização de status. Não foram criadas transições automáticas, aprovação remota ou regras financeiras; “Marcar status como pago” não é uma nova integração de recebimentos.
+- O pedido é consultado novamente após fechar o diálogo para impedir ação sobre registro removido ou cancelado nesse intervalo. Permissões e validações continuam nos handlers existentes.
+- CSS restrito ao botão único da faixa de ações, ocupando as colunas disponíveis sem alterar outros conjuntos de botões.
+- `node scripts/test-phase4-order-workflow.js`: 11 verificações passaram; lint, typecheck, build:web e diff --check passaram.
+- Validação visual não realizada neste lote. Testar detalhe e menu em desktop e mobile 360/390/412 px, teclado/foco/fechamento e executar o fluxo com pedido de teste. Faltam a consolidação completa de orçamento/aprovação e a separação entre etapas operacionais e recebimento. Fase 4 parcial; alterações somente locais.
+
+## Certificação ainda pendente
+
 As etapas 2 a 7 não estão concluídas. Este documento não é certificação de publicação.
 O teste local com dependências simuladas não substitui dois navegadores autenticados, teste offline real ou isolamento RLS.
 Próximo trabalho de persistência: serializar gravações rápidas em voo e proteger conclusão assíncrona após troca de conta; revisar todos os chamadores do salvamento remoto.

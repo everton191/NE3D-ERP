@@ -17338,6 +17338,11 @@ body[data-ui-profile="android_apk"].mobile-mode .profile-usage-tile{
   font-size:12px;
   font-weight:750;
 }
+.order-status-action-strip > button:only-child{
+  grid-column:1 / -1;
+  min-width:0;
+  white-space:normal;
+}
 .order-cancel-info{
   margin:10px 0;
   padding:12px;
