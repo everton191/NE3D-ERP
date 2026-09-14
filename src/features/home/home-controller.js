@@ -1,0 +1,1 @@
+(function attachHomeController(global) { "use strict"; global.SimplificaHomeController = Object.freeze({ toCarouselCards: (items = []) => items.map((item) => global.SimplificaHomeData.toCarouselCard(item)) }); })(typeof window !== "undefined" ? window : globalThis);

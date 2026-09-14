@@ -122,7 +122,9 @@
 <script src="/src/services/diagnosticsService.js?v=fase-7b-ui-ux-20260530"></script>
 <script src="/src/services/smartLoaderService.js?v=1.0.57-rc-plans-release-20260628"></script>
 <script src="/src/services/safeAreaManager.js?v=1.0.57-rc-plans-release-20260628"></script>
-<script src="/src/services/themeAuthorityV3.js?v=theme-key-unified-20260715"></script>
+  <script src="/src/services/themeAuthorityV3.js?v=theme-key-unified-20260715"></script>
+<script src="/src/navigation/screen-registry.js?v=structure-phase2"></script>
+<script src="/src/services/ai-runtime-loader.js?v=structure-phase2"></script>
 <script src="/src/services/googleMotionEnhancer.js?v=orders-filter-carousel-20260901"></script>
 <script src="/src/services/printerMonitoringService.js?v=printer-monitor-simple-20260701"></script>
 <script src="/src/storefront/renderers/publicV3.js?v=storefront-responsive-polish-20260805"></script>
@@ -132,7 +134,8 @@
 <script src="/src/services/adSenseService.js?v=1.0.17-mobile-fixes-ads-space-20260615"></script>
 <script src="/src/services/monetizationLimits.js?v=1.0.16-estavel-plan-profile-rings"></script>
 <script src="/src/services/calculatorDomain.js?v=calculator-domain-20260711"></script>
-<script src="/src/assistant-core/schemas/contracts.js?v=assistant-core-v1"></script>
+<!-- IA opcional: carregada por ensureAiRuntimeLoaded ao abrir o assistente. -->
+<!--
 <script src="/src/assistant-core/context/context-manager.js?v=assistant-core-v1"></script>
 <script src="/src/assistant-core/memory/conversation-memory.js?v=assistant-core-v1"></script>
 <script src="/src/assistant-core/cache/cache-manager.js?v=assistant-core-v1"></script>
@@ -173,6 +176,10 @@
 <script src="/src/ai-3d/operational-usecases.js?v=phase-b-operational-v1"></script>
 <script src="/src/ai-3d/rlm/rlm-core.js?v=ai-rlm-v1"></script>
 <script src="/src/ai-3d/orchestrator.js?v=1.0.39-security-plans-p0"></script>
+-->
+<script src="/src/features/home/carousel3d/carousel-contract.js?v=structure-phase2"></script>
+<script src="/src/features/home/home-data.js?v=structure-phase2"></script>
+<script src="/src/features/home/home-controller.js?v=structure-phase2"></script>
   <script src="/app.js?v=1.0.39-settings-persistence"></script>
 <script>
   const isNativeApp = window.Capacitor?.isNativePlatform?.() === true;

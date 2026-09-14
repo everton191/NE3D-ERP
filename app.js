@@ -10599,6 +10599,9 @@ function sairManutencaoSuperadmin() {
 
 function trocarTela(tela, opcoes = {}) {
   fecharMenusContextuaisUi();
+  const screenRegistry = window.SimplificaScreenRegistry?.registry;
+  const canonicalScreen = screenRegistry?.resolve?.(tela);
+  if (canonicalScreen) tela = canonicalScreen.id;
   if (!telas[tela]) {
     tela = "dashboard";
   }
@@ -49003,6 +49006,12 @@ function comporRespostaNaturalAssistenteIa(value) {
 }
 
 async function abrirSecretariaIaLocal3d(options = {}) {
+  try {
+    await window.SimplificaAiRuntimeLoader?.ensureAiRuntimeLoaded?.();
+  } catch (_) {
+    mostrarToast("Não foi possível carregar a Assistente IA agora. O ERP manual continua disponível.", "erro", 4200);
+    return;
+  }
   loadSecretariaIaChatMessages();
   getAssistantCoreUniversal3d();
   atualizarContextoAssistantCore3d();

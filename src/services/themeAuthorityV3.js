@@ -7,6 +7,7 @@
   const LEGACY_STORE_THEME_KEY = "simplifica3d_store_theme";
   const ALLOWED_THEME_PREFERENCES = Object.freeze(["light", "system", "dark"]);
   const THEME_COLORS = Object.freeze({ light: "#ffffff", dark: "#08131d" });
+  const THEME_CONTRACT = Object.freeze({ allowed: ALLOWED_THEME_PREFERENCES, storageKey: ERP_THEME_KEY, legacyKeys: Object.freeze([LEGACY_ERP_THEME_KEY]), domAttributes: Object.freeze(["data-erp-theme", "data-erp-theme-preference"]), themeColors: THEME_COLORS });
 
   function normalizePreference(value, fallback = "light") {
     const normalized = String(value || "").trim().toLowerCase();
@@ -120,6 +121,7 @@
     STORE_THEME_KEY,
     LEGACY_STORE_THEME_KEY,
     ALLOWED_THEME_PREFERENCES,
+    THEME_CONTRACT,
     normalizePreference,
     resolveTheme,
     getSavedErpThemePreference,
