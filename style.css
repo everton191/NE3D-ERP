@@ -13834,6 +13834,36 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .inline-res
   display:none;
 }
 
+.calc-keyboard-result-bar{display:none}
+
+body.mobile-mode .calc-keyboard-result-bar,
+body[data-ui-profile="android_apk"].mobile-mode .calc-keyboard-result-bar,
+body[data-ui-profile="web_pwa"].mobile-mode .calc-keyboard-result-bar{
+  position:fixed;
+  z-index:120;
+  left:12px;
+  right:12px;
+  bottom:calc(var(--calc-keyboard-inset, 0px) + env(safe-area-inset-bottom, 0px) + 10px);
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  gap:3px 10px;
+  padding:10px 12px;
+  border:1px solid color-mix(in srgb, var(--primary) 55%, var(--border-primary));
+  border-radius:15px;
+  color:var(--text-primary);
+  background:color-mix(in srgb, var(--surface-primary) 95%, var(--primary));
+  box-shadow:0 10px 32px rgba(0,0,0,.28);
+}
+
+body.mobile-mode .calc-keyboard-result-bar[hidden],
+body[data-ui-profile="android_apk"].mobile-mode .calc-keyboard-result-bar[hidden],
+body[data-ui-profile="web_pwa"].mobile-mode .calc-keyboard-result-bar[hidden]{display:none}
+
+.calc-keyboard-result-bar span{font-size:11px;color:var(--text-muted);font-weight:700}
+.calc-keyboard-result-bar strong{font-size:19px;color:var(--primary)}
+.calc-keyboard-result-bar button{grid-row:1 / span 2;grid-column:2;min-height:38px;padding:0 10px;font-size:12px}
+
 body.mobile-mode .mobile-panel-calculator .calc-final-row span,
 body[data-ui-profile="android_apk"].mobile-mode .mobile-panel-calculator .calc-final-row span,
 body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator .calc-final-row span{
@@ -47069,6 +47099,7 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
   font-size:12px;
 }
 
+.calc-option-block,.calc-option-fields,.calc-stepper-row,.calc-segmented,.calc-batch-summary{min-width:0;max-width:100%;box-sizing:border-box}
 .calc-option-fields{
   display:grid;
   gap:10px;
@@ -47090,7 +47121,7 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
 .calc-fee-stepper{
   min-width:0;
   display:grid;
-  grid-template-columns:42px minmax(70px, 1fr) auto 42px;
+  grid-template-columns:42px minmax(0, 1fr) auto 42px;
   align-items:center;
   gap:5px;
 }
@@ -47151,7 +47182,7 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
 .calc-fee-stepper input{width:100%;height:42px;padding:5px 10px 5px 32px;text-align:center;font-weight:800}
 .calc-fee-stepper i{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--text-muted)}
 
-@media(max-width:360px){
+@media(max-width:600px){
   .calc-stepper-row{align-items:stretch;flex-direction:column}
   .calc-stepper-row > div{width:100%}
   .calc-segmented span{font-size:11px}
@@ -49972,6 +50003,23 @@ body[data-ui-profile="web_pwa"].mobile-mode .dashboard-home-header{
   grid-template-columns:40px minmax(0,1fr) auto;
 }
 
+.dashboard-action-carousel{min-width:0;max-width:100%;overflow:hidden;isolation:isolate;background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0!important}
+.dashboard-carousel-stage{height:330px;position:relative;perspective:850px;touch-action:pan-y;user-select:none;cursor:grab;overflow:hidden}
+.dashboard-carousel-stage:active{cursor:grabbing}
+body .dashboard-action-carousel .dashboard-carousel-card.card{left:calc(50% - 80px);margin:0!important;min-height:0!important;height:284px!important;max-height:284px!important;transform:translateZ(calc(-1 * var(--carousel-radius))) rotateY(var(--angle)) translateZ(var(--carousel-radius));border-radius:10px;box-shadow:0 6px 12px #0002}
+.dashboard-carousel-card.card{position:absolute;left:50%;top:28px;width:160px;height:224px;margin-left:-80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:18px 12px;box-sizing:border-box;border-radius:22px;border:1px solid var(--border-primary);background:var(--surface-primary);color:var(--text-primary);backface-visibility:hidden;transform:translateZ(-175px) rotateY(var(--angle)) translateZ(175px);box-shadow:0 14px 28px #0003;white-space:normal}
+body .dashboard-action-carousel .dashboard-carousel-card.card{justify-content:flex-start;padding:20px 14px;gap:16px;border-radius:14px;background:linear-gradient(155deg,color-mix(in srgb,var(--primary) 7%,var(--surface-primary)),var(--surface-primary) 60%);box-shadow:0 8px 16px #0002}
+body .dashboard-action-carousel .dashboard-mobile-advanced-icon{display:grid;place-items:center;flex:none;width:30px!important;height:30px!important;min-height:0!important;padding:6px;box-sizing:border-box;border-radius:9px;color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,transparent)}
+body .dashboard-action-carousel .dashboard-mobile-advanced-icon svg{width:18px!important;height:18px!important}
+.dashboard-carousel-card .dashboard-mobile-advanced-copy{display:grid;gap:12px;text-align:center;min-width:0;width:100%}
+body .dashboard-action-carousel .dashboard-mobile-advanced-copy > strong{font-size:17px;line-height:1.2;letter-spacing:-.3px;overflow-wrap:anywhere}
+body .dashboard-action-carousel .dashboard-mobile-advanced-copy > small{font-size:12px;line-height:1.4;color:var(--text-muted)}
+.dashboard-carousel-card .dashboard-carousel-values{display:grid;gap:8px;font-size:11px;color:var(--text-primary);width:100%}
+.dashboard-carousel-card .dashboard-carousel-values em{font-style:normal;white-space:normal;overflow-wrap:anywhere;border-top:1px solid var(--border-primary);padding-top:7px}
+.dashboard-carousel-stage.is-settling .dashboard-carousel-card{transition:transform 650ms cubic-bezier(.22,.68,.18,1),scale 450ms cubic-bezier(.22,.68,.18,1)}
+.dashboard-action-carousel .dashboard-carousel-card{transition:scale 450ms cubic-bezier(.22,.68,.18,1)}
+.dashboard-action-carousel .dashboard-carousel-card.is-previewing{scale:1.045;z-index:2}
+@media(prefers-reduced-motion:reduce){.dashboard-action-carousel .dashboard-carousel-card{transition:none!important;scale:1!important}}
 body[data-ui-profile="android_apk"] .dashboard-header-actions,
 body[data-ui-profile="android_apk"].mobile-mode .dashboard-header-actions,
 body[data-ui-profile="web_pwa"].mobile-mode .dashboard-header-actions{

@@ -827,10 +827,10 @@ let clienteTelefonePedido = "";
 let clienteEmailPedido = "";
 let calculatorDraftState = {
   peso: "",
-  tempo: "0",
-  tempoMinutos: "0",
+  tempo: "",
+  tempoMinutos: "",
   batchActive: false,
-  quantity: 2,
+  quantity: "",
   batchMode: "per_piece",
   extraFeeActive: false
 };
@@ -13815,6 +13815,7 @@ function atualizarViewportOperacionalMobile() {
   if (alturaViewport) document.documentElement.style.setProperty("--app-viewport-height", `${Math.round(alturaViewport)}px`);
   if (larguraViewport) document.documentElement.style.setProperty("--app-viewport-width", `${Math.round(larguraViewport)}px`);
   document.documentElement.style.setProperty("--keyboard-inset", `${Math.round(teclado)}px`);
+  document.documentElement.style.setProperty("--calc-keyboard-inset", `${Math.round(teclado)}px`);
   document.documentElement.style.setProperty("--store-editor-v3-keyboard-inset", `${Math.round(teclado)}px`);
   document.documentElement.setAttribute("data-store-editor-keyboard-open", teclado > 120 ? "true" : "false");
 }
@@ -24120,24 +24121,21 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
     { tela: "caixa", icon: "caixa", label: "Caixa", detail: formatarMoeda(totaisCaixa.saldo), live: [`Entradas ${formatarMoeda(totaisCaixa.entradas)}`, `Saídas ${formatarMoeda(totaisCaixa.saidas)}`, `Lucro ${formatarMoeda(stats.lucroDiaEstimado || 0)}`] },
     { tela: "relatorios", icon: "relatorios", label: "Relatórios", detail: formatarMoeda(stats.faturamentoDia || 0), live: [`Lucro ${formatarMoeda(stats.lucroEstimado || 0)}`, `Ticket ${formatarMoeda(stats.pedidosHoje ? (stats.faturamentoDia || 0) / stats.pedidosHoje : 0)}`] },
     { tela: "estoque", icon: "estoque", label: "Estoque", detail: stats.estoqueBaixo ? `${stats.estoqueBaixo} alerta(s)` : "OK", live: [`Materiais ${stats.totalMateriais || 0}`, `Consumo ${(Number(stats.consumoHojeKg) || 0).toFixed(3)} kg`] },
-    { tela: "administracao", icon: "empresa", label: "Administração", detail: "Empresa", live: [`Clientes ${stats.clientesAtivos || 0}`, `Pedidos ${stats.totalPedidosFinanceiro || pedidos.length || 0}`] }
+    { tela: "administracao", icon: "empresa", label: "Administração", detail: "Empresa", live: [`Clientes com pedidos ${stats.clientesAtivos || 0}`, `Pedidos ${pedidos.length}`] }
   ].filter((item) => canAccessScreen(item.tela));
   if (!itens.length) return "";
+  setTimeout(configurarAnimacaoCarrosselHome, 0);
   return `
-    <section class="card dashboard-mobile-advanced-panel">
-      <div class="card-header">
-        <h2>Operação avançada</h2>
-        <span class="status-badge">Avançado</span>
-      </div>
-      <div class="dashboard-mobile-advanced-grid">
-        ${itens.map((item) => `
-          <button class="dashboard-mobile-advanced-card card" type="button" onclick="trocarTela('${escaparAttr(item.tela)}')" data-ui-token-set="dashboard-advanced">
+    <section class="dashboard-action-carousel" aria-label="Carrossel de ações">
+      <div class="dashboard-carousel-stage" style="--carousel-radius:${itens.length >= 3 ? (164 / (2 * Math.tan(Math.PI / itens.length))).toFixed(2) : 0}px" onpointerdown="iniciarCarrosselHome(event, this)" onkeydown="tecladoCarrosselHome(event, this)">
+        ${itens.map((item, index) => `
+          <button class="dashboard-carousel-card card" tabindex="${index === 0 ? 0 : -1}" style="--angle:${index * 360 / itens.length}deg" type="button" onclick="abrirAcaoCarrosselHome(event, '${escaparAttr(item.tela)}')" data-ui-token-set="dashboard-advanced">
             <span class="dashboard-mobile-advanced-icon">${renderUiIcon(item.icon)}</span>
             <span class="dashboard-mobile-advanced-copy">
               <strong>${escaparHtml(item.label)}</strong>
               <small>${escaparHtml(item.detail)}</small>
-              <span class="dashboard-live-values" aria-hidden="true">
-                ${[item.detail, ...(item.live || [])].slice(0, 3).map((value) => `<em>${escaparHtml(value)}</em>`).join("")}
+              <span class="dashboard-carousel-values">
+                ${(item.live || []).map((value) => `<em>${escaparHtml(value)}</em>`).join("")}
               </span>
             </span>
           </button>
@@ -24145,6 +24143,116 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
       </div>
     </section>
   `;
+}
+
+function configurarAnimacaoCarrosselHome() {
+  const stage = document.querySelector(".dashboard-carousel-stage");
+  if (!stage || stage.dataset.autoReady) return;
+  stage.dataset.autoReady = "true";
+  const controller = new AbortController();
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let idleSince = Date.now();
+  let expandedAt = 0;
+  let returningAt = 0;
+  const collapse = () => {
+    stage.querySelectorAll(".is-previewing").forEach((card) => card.classList.remove("is-previewing"));
+    expandedAt = 0;
+  };
+  const interrupt = () => { idleSince = Date.now(); returningAt = 0; collapse(); };
+  ["pointerdown", "pointermove", "keydown", "wheel", "scroll"].forEach((type) => {
+    document.addEventListener(type, interrupt, { capture: true, passive: true, signal: controller.signal });
+  });
+  document.addEventListener("visibilitychange", interrupt, { signal: controller.signal });
+  const timer = setInterval(() => {
+    if (!stage.isConnected) { clearInterval(timer); controller.abort(); return; }
+    const rect = stage.getBoundingClientRect();
+    const covered = document.querySelector('[data-ui3-screen="calculadora"]');
+    if (document.hidden || reduced.matches || covered || rect.bottom <= 0 || rect.top >= innerHeight || !stage.getClientRects().length) {
+      interrupt();
+      return;
+    }
+    if (Date.now() - idleSince < 5000) return;
+    if (returningAt) {
+      if (Date.now() - returningAt < 500) return;
+      returningAt = 0;
+      posicionarCarrosselHome(stage, (Number(stage.dataset.angle) || 0) - 360 / stage.children.length, true);
+      idleSince = Date.now();
+      return;
+    }
+    if (!expandedAt) {
+      const angle = Number(stage.dataset.angle) || 0;
+      const count = stage.children.length;
+      const index = ((Math.round(-angle / (360 / count)) % count) + count) % count;
+      stage.children[index]?.classList.add("is-previewing");
+      expandedAt = Date.now();
+    } else if (Date.now() - expandedAt >= 2400) {
+      collapse();
+      returningAt = Date.now();
+    }
+  }, 250);
+}
+
+function posicionarCarrosselHome(stage, angle, animate = false) {
+  stage.dataset.angle = String(angle);
+  stage.classList.toggle("is-settling", animate && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  [...stage.children].forEach((card, index) => {
+    const degrees = angle + index * 360 / stage.children.length;
+    card.style.setProperty("--angle", `${degrees}deg`);
+    const front = Math.cos(degrees * Math.PI / 180) > 0.4;
+    card.tabIndex = front ? 0 : -1;
+    card.style.pointerEvents = front ? "auto" : "none";
+  });
+}
+
+function iniciarCarrosselHome(event, stage) {
+  if (!event.isPrimary || event.button !== 0) return;
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const startAngle = Number(stage.dataset.angle) || 0;
+  let moved = false;
+  let angle = startAngle;
+  let frame = 0;
+  stage.classList.remove("is-settling");
+  const move = (e) => {
+    if (e.pointerId !== event.pointerId) return;
+    const dx = e.clientX - startX;
+    if (!moved && (Math.abs(dx) < 8 || Math.abs(dx) < Math.abs(e.clientY - startY))) return;
+    moved = true;
+    stage.setPointerCapture(e.pointerId);
+    angle = startAngle + dx * 0.45;
+    if (!frame) frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (stage.isConnected) posicionarCarrosselHome(stage, angle);
+    });
+  };
+  const end = (e) => {
+    if (e.pointerId !== event.pointerId) return;
+    cancelAnimationFrame(frame);
+    stage.removeEventListener("pointermove", move);
+    stage.removeEventListener("pointerup", end);
+    stage.removeEventListener("pointercancel", end);
+    if (stage.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+    if (moved) {
+      stage.dataset.ignoreClickUntil = String(Date.now() + 400);
+      const step = 360 / stage.children.length;
+      posicionarCarrosselHome(stage, Math.round(angle / step) * step, true);
+    }
+  };
+  stage.addEventListener("pointermove", move);
+  stage.addEventListener("pointerup", end);
+  stage.addEventListener("pointercancel", end);
+}
+
+function tecladoCarrosselHome(event, stage) {
+  if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+  event.preventDefault();
+  posicionarCarrosselHome(stage, (Number(stage.dataset.angle) || 0) + (event.key === "ArrowLeft" ? 1 : -1) * 360 / stage.children.length, true);
+}
+
+function abrirAcaoCarrosselHome(event, tela) {
+  const stage = event.currentTarget.closest(".dashboard-carousel-stage");
+  if (Date.now() < Number(stage.dataset.ignoreClickUntil || 0)) return;
+  trocarTela(tela);
 }
 
 function getExcecoesOperacionaisDashboard(stats = getDashboardStats()) {
@@ -41216,7 +41324,18 @@ function normalizarBackup(dados) {
   };
 }
 
-function aplicarBackup(dados, modo = "substituir") {
+function mesclarConfiguracaoBackup(atual, recebida, preservarVisual = false) {
+  const proxima = { ...atual, ...recebida };
+  if (preservarVisual) {
+    for (const chave of ["theme", "accentColor", "appearanceSettings", "motionLevel", "compactMode", "showBrandInHeader", "interfaceDensity", "screenFit", "uiScale", "desktopCardMinWidth", "desktopMaxWidth", "customizationSyncPending"]) {
+      if (Object.prototype.hasOwnProperty.call(atual, chave)) proxima[chave] = atual[chave];
+      else delete proxima[chave];
+    }
+  }
+  return proxima;
+}
+
+function aplicarBackup(dados, modo = "substituir", opcoes = {}) {
   const licencaBackendAntesBackup = capturarLicencaBackendFresca();
   const companySetupCompletedAntesBackup = appConfig.companySetupCompleted === true;
   const backup = normalizarBackup(dados);
@@ -41285,10 +41404,8 @@ function aplicarBackup(dados, modo = "substituir") {
     usuarios = backup.usuarios.length ? normalizarUsuarios(backup.usuarios) : normalizarUsuarios(usuarios);
   }
 
-  appConfig = {
-    ...appConfig,
-    ...backup.appConfig
-  };
+  // Operational sync must not replay stale appearance over the personalization channel.
+  appConfig = mesclarConfiguracaoBackup(appConfig, backup.appConfig, modo === "mesclar" || opcoes.preservarVisual === true);
   appConfig.interfaceMode = resolverInterfaceModePreferida(appConfig.interfaceMode);
   localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode));
   appConfig.companySetupCompleted = companySetupCompletedAntesBackup || appConfig.companySetupCompleted === true;
@@ -42933,7 +43050,7 @@ async function aplicarBackupRemotoAntesDeUploadSeNecessario(motivo = "sync") {
 
   const remoto = await obterBackupSupabase();
   if (backupTemDadosOperacionais(remoto)) {
-    aplicarBackup(remoto, "substituir");
+    aplicarBackup(remoto, "substituir", { preservarVisual: true });
     registrarDiagnostico("Supabase", "Backup remoto aplicado antes do upload", motivo);
     return { remoto, aplicado: true };
   }
@@ -47306,16 +47423,74 @@ function sincronizarTempoSeparadoCalculadora() {
   const campoHoras = document.getElementById("tempo");
   const campoMinutos = document.getElementById("tempoMinutos");
   const campoFormato = document.getElementById("tempoFormato");
-  const totalMinutos = CalculatorDomain.toMinutes(campoHoras?.value, campoMinutos?.value);
-  const normalizado = CalculatorDomain.formatMinutes(totalMinutos);
-  const horas = normalizado.hours;
-  const minutos = normalizado.minutes;
-  if (campoHoras && String(campoHoras.value) !== String(horas)) campoHoras.value = String(horas);
-  if (campoMinutos && String(campoMinutos.value) !== String(minutos)) campoMinutos.value = String(minutos);
+  const horas = String(campoHoras?.value ?? "");
+  const minutos = String(campoMinutos?.value ?? "");
   if (campoFormato) campoFormato.value = formatarTempoCalculadora(horas, minutos);
-  calculatorDraftState.tempo = String(horas);
-  calculatorDraftState.tempoMinutos = String(minutos);
+  calculatorDraftState.tempo = horas;
+  calculatorDraftState.tempoMinutos = minutos;
   agendarCalculoTempoReal();
+}
+
+function normalizarTempoSeparadoCalculadora() {
+  const campoHoras = document.getElementById("tempo");
+  const campoMinutos = document.getElementById("tempoMinutos");
+  if (!campoHoras || !campoMinutos) return;
+  const possuiValor = String(campoHoras.value || "").trim() || String(campoMinutos.value || "").trim();
+  if (!possuiValor) return sincronizarTempoSeparadoCalculadora();
+  const normalizado = CalculatorDomain.formatMinutes(CalculatorDomain.toMinutes(campoHoras.value, campoMinutos.value));
+  campoHoras.value = normalizado.hours ? String(normalizado.hours) : "";
+  campoMinutos.value = normalizado.minutes ? String(normalizado.minutes) : "";
+  sincronizarTempoSeparadoCalculadora();
+}
+
+function concluirTempoCalculadora(event = null) {
+  if (event?.key && event.key !== "Enter") return;
+  if (event?.key === "Enter") event.preventDefault();
+  normalizarTempoSeparadoCalculadora();
+  ocultarTecladoCalculadora();
+}
+
+function ocultarTecladoCalculadora() {
+  const ativo = document.activeElement;
+  if (ativo instanceof HTMLElement && ativo.closest?.("[data-ui3-screen=\"calculadora\"]")) ativo.blur();
+  atualizarBarraTecladoCalculadora(false);
+}
+
+function atualizarBarraTecladoCalculadora(visivel = null) {
+  const barra = document.getElementById("calcKeyboardResultBar");
+  if (!barra) return;
+  const foco = document.activeElement;
+  const deveExibir = visivel === null
+    ? !!(foco instanceof HTMLElement && foco.matches("input, textarea, select") && foco.closest?.("[data-ui3-screen=\"calculadora\"]"))
+    : visivel === true;
+  barra.hidden = !deveExibir;
+  const valor = barra.querySelector("[data-calc-keyboard-total]");
+  if (valor) valor.textContent = ultimoCalculo ? formatarMoeda(ultimoCalculo.totalFinal ?? ultimoCalculo.precoTotal ?? ultimoCalculo.preco) : "Preencha peso e tempo";
+}
+
+function prepararEdicaoCalculadora(campo) {
+  if (!campo) return;
+  setTimeout(() => {
+    campo.scrollIntoView?.({ block: "center", inline: "nearest", behavior: "smooth" });
+    atualizarBarraTecladoCalculadora(true);
+  }, 180);
+}
+
+function configurarInteracaoCalculadoraMobile() {
+  if (window.__calcKeyboardInteractionReady) return;
+  window.__calcKeyboardInteractionReady = true;
+  document.addEventListener("focusin", (event) => {
+    const campo = event.target;
+    if (!(campo instanceof HTMLElement) || !campo.matches("input, textarea, select") || !campo.closest?.("[data-ui3-screen=\"calculadora\"]")) return;
+    prepararEdicaoCalculadora(campo);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    const ativo = document.activeElement;
+    if (!(ativo instanceof HTMLElement) || !ativo.closest?.("[data-ui3-screen=\"calculadora\"]")) return;
+    const alvo = event.target;
+    if (!(alvo instanceof Element) || alvo.closest("input, textarea, select, label, .calc-keyboard-result-bar")) return;
+    ocultarTecladoCalculadora();
+  }, { capture: true });
 }
 
 function getModoLoteCalculadora() {
@@ -47337,7 +47512,12 @@ function atualizarResumoLoteCalculadora() {
   const alvo = document.getElementById("calcBatchSummary");
   if (!alvo) return;
   const ativo = document.getElementById("impressaoLote")?.checked === true;
-  const quantidade = ativo ? Math.max(2, Math.min(999, Math.floor(Number(document.getElementById("quantidade")?.value) || 2))) : 1;
+  const quantidadeInformada = Math.floor(Number(document.getElementById("quantidade")?.value));
+  const quantidade = ativo && quantidadeInformada >= 2 && quantidadeInformada <= 999 ? quantidadeInformada : 1;
+  if (ativo && quantidade === 1) {
+    alvo.innerHTML = "<strong>Resumo do lote</strong><span>Informe a quantidade de peças.</span>";
+    return;
+  }
   const modo = getModoLoteCalculadora();
   const peso = Math.max(0, numeroCalculadora(document.getElementById("peso")?.value, 0, 0));
   const tempoMinutos = CalculatorDomain.toMinutes(document.getElementById("tempo")?.value, document.getElementById("tempoMinutos")?.value);
@@ -47433,15 +47613,15 @@ function renderCalculadoraConteudo() {
       <div class="calc-modern-grid">
         <label class="field calc-field-card wide calc-weight-card">
           <span>Peso da peça (g)</span>
-          <input id="peso" type="number" min="0" step="0.01" placeholder="Ex.: 120" value="${escaparAttr(config.peso)}" oninput="calculatorDraftState.peso=this.value;agendarCalculoTempoReal()">
+          <input id="peso" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ex.: 120" value="${escaparAttr(config.peso)}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.peso=this.value;agendarCalculoTempoReal()">
           <i>g</i>
         </label>
         <div class="field calc-field-card wide calc-time-card">
           <span>Tempo de impressão</span>
           <div class="calc-time-split" role="group" aria-label="Tempo de impressão em horas e minutos">
-            <label><input id="tempo" type="number" inputmode="numeric" min="0" step="1" value="${escaparAttr(config.tempo || "0")}" oninput="sincronizarTempoSeparadoCalculadora()"><small>horas</small></label>
+            <label><input id="tempo" type="number" inputmode="numeric" min="0" step="1" placeholder="Ex.: 2" value="${escaparAttr(Number(config.tempo) > 0 ? config.tempo : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="sincronizarTempoSeparadoCalculadora()" onblur="normalizarTempoSeparadoCalculadora()"><small>horas</small></label>
             <b aria-hidden="true">:</b>
-            <label><input id="tempoMinutos" type="number" inputmode="numeric" min="0" max="59" step="1" value="${escaparAttr(config.tempoMinutos || "0")}" oninput="sincronizarTempoSeparadoCalculadora()"><small>min</small></label>
+            <label><input id="tempoMinutos" type="number" inputmode="numeric" enterkeyhint="done" min="0" max="59" step="1" placeholder="Ex.: 30" value="${escaparAttr(Number(config.tempoMinutos) > 0 ? config.tempoMinutos : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="sincronizarTempoSeparadoCalculadora()" onblur="concluirTempoCalculadora()" onkeydown="concluirTempoCalculadora(event)"><small>min</small></label>
           </div>
           <input id="tempoFormato" type="hidden" value="${escaparAttr(formatarTempoCalculadora(config.tempo, config.tempoMinutos))}">
         </div>
@@ -47451,7 +47631,7 @@ function renderCalculadoraConteudo() {
             <span><strong>Calcular várias peças</strong><small>Define quantidade e consumo total do lote.</small></span>
           </label>
           <div class="calc-option-fields" id="calcBatchFields" ${calculatorDraftState.batchActive ? "" : "hidden"}>
-            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" min="2" max="999" step="1" value="${Math.max(2, Number(calculatorDraftState.quantity) || 2)}" oninput="calculatorDraftState.quantity=Math.max(2,Math.min(999,Math.floor(Number(this.value)||2)));atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
+            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" inputmode="numeric" min="2" max="999" step="1" placeholder="Ex.: 5" value="${escaparAttr(Number(calculatorDraftState.quantity) >= 2 ? calculatorDraftState.quantity : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.quantity=this.value;atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
             <div class="calc-segmented" role="radiogroup" aria-label="Interpretação dos dados do lote">
               <label><input type="radio" name="calcBatchMode" value="per_piece" ${calculatorDraftState.batchMode !== "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='per_piece';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Dados por peça</span></label>
               <label><input type="radio" name="calcBatchMode" value="whole_batch" ${calculatorDraftState.batchMode === "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='whole_batch';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Lote inteiro</span></label>
@@ -47469,21 +47649,25 @@ function renderCalculadoraConteudo() {
               <label><input type="radio" name="calcExtraFeeType" value="percent" ${taxaEstado.modo === "percent" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('percent')"><span>Percentual (%)</span></label>
               <label><input type="radio" name="calcExtraFeeType" value="fixed" ${taxaEstado.modo === "manual" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('fixed')"><span>Valor fixo (R$)</span></label>
             </div>
-            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" value="${escaparAttr(String(valorExibidoTaxaExtraCalculadora(taxaEstado) || 0).replace('.', ','))}" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) + 1)" aria-label="Aumentar taxa">+</button></div>
+            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" placeholder="Ex.: 10" value="${escaparAttr(String(valorExibidoTaxaExtraCalculadora(taxaEstado) || "").replace('.', ','))}" onfocus="prepararEdicaoCalculadora(this)" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) + 1)" aria-label="Aumentar taxa">+</button></div>
           </div>
         </section>
       </div>
       <label class="field">
         <span>Nome do item</span>
-        <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" oninput="salvarConfiguracaoCalculadora(false)">
+        <input id="nomeItem" placeholder="Ex.: suporte personalizado" value="${escaparAttr(config.nomeItem)}" onfocus="prepararEdicaoCalculadora(this)" oninput="salvarConfiguracaoCalculadora(false)">
       </label>
       <label class="field">
         <span>Observações do cálculo</span>
-        <textarea id="observacoesCalculo" rows="2" placeholder="Detalhes opcionais para enviar ao pedido"></textarea>
+        <textarea id="observacoesCalculo" rows="2" placeholder="Detalhes opcionais para enviar ao pedido" onfocus="prepararEdicaoCalculadora(this)"></textarea>
       </label>
     </section>
 
     <div id="res" class="result-box calc-result-modern">${renderResumoCalculo()}</div>
+    <div id="calcKeyboardResultBar" class="calc-keyboard-result-bar" hidden aria-live="polite">
+      <span>Preço estimado</span><strong data-calc-keyboard-total>Preencha peso e tempo</strong>
+      <button class="btn ghost" type="button" onclick="ocultarTecladoCalculadora()">Ocultar teclado</button>
+    </div>
 
     <div class="calc-primary-actions">
       <button class="btn calc-main-action" id="confirmCalculatorItemButton" onclick="adicionarItem()" ${itemAdicionandoPedido ? "disabled" : ""}>
@@ -50196,6 +50380,7 @@ function duplicarCalculoAtual() {
 }
 
 function renderCalculadoraTela() {
+  configurarInteracaoCalculadoraMobile();
   return `
     <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-calculator calc-main-card calc-modern-screen" data-ui-version="v3" data-ui3-screen="calculadora">
       ${renderCalculadoraConteudo()}
@@ -50459,9 +50644,9 @@ function alternarImpressaoLote(ativo = false) {
   const campos = document.getElementById("calcBatchFields");
   const quantidade = document.getElementById("quantidade");
   if (campos) campos.hidden = !ativo;
-  if (quantidade) quantidade.value = ativo ? String(Math.max(2, Number(quantidade.value) || 2)) : "1";
+  if (quantidade && !ativo) quantidade.value = "";
   calculatorDraftState.batchActive = ativo === true;
-  calculatorDraftState.quantity = ativo ? Math.max(2, Number(quantidade?.value) || 2) : 2;
+  calculatorDraftState.quantity = ativo ? String(quantidade?.value || "") : "";
   ultimoCalculo = null;
   atualizarResumoLoteCalculadora();
   agendarCalculoTempoReal();
@@ -50600,6 +50785,7 @@ function calcular(opcoes = {}) {
 
   const resultado = document.getElementById("res");
   if (resultado) resultado.innerHTML = renderResumoCalculo(ultimoCalculo);
+  atualizarBarraTecladoCalculadora();
   if (!skipUsage) {
     if (window.MonetizationLimits?.registerCalculation) window.MonetizationLimits.registerCalculation(usuarioMonetizacao);
     else incrementarUsoMensal("calculadora");
@@ -50609,7 +50795,7 @@ function calcular(opcoes = {}) {
 
 function limparCalculo() {
   ultimoCalculo = null;
-  calculatorDraftState = { peso: "", tempo: "0", tempoMinutos: "0", batchActive: false, quantity: 2, batchMode: "per_piece", extraFeeActive: false };
+  calculatorDraftState = { peso: "", tempo: "", tempoMinutos: "", batchActive: false, quantity: "", batchMode: "per_piece", extraFeeActive: false };
   ["peso", "tempo", "tempoMinutos", "tempoFormato", "taxaExtra", "nomeItem", "observacoesCalculo"].forEach((id) => {
     const campo = document.getElementById(id);
     if (campo) campo.value = "";
@@ -50618,7 +50804,7 @@ function limparCalculo() {
   appConfig.calcExtraFeePercent = 0;
   appConfig.calcExtraFeeValue = 0;
   const quantidade = document.getElementById("quantidade");
-  if (quantidade) quantidade.value = "1";
+  if (quantidade) quantidade.value = "";
   const impressaoLote = document.getElementById("impressaoLote");
   if (impressaoLote) impressaoLote.checked = false;
   const camposLote = document.getElementById("calcBatchFields");
