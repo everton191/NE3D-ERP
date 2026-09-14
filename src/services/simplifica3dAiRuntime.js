@@ -2,11 +2,13 @@
   "use strict";
 
   const FUNCTIONGEMMA_MODEL_ID = "functiongemma-270m-it-q8_0";
+  const LFM_Q4_MODEL_ID = "lfm2.5-1.2b-q4_0";
   const LFM_MODEL_ID = "lfm2.5-1.2b-q6_k";
   // The candidate has no verified GGUF metadata yet. It is deliberately selectable
   // for integration tests, but cannot load or silently replace the fallback.
   const MODEL_CATALOG = Object.freeze({
     [FUNCTIONGEMMA_MODEL_ID]: Object.freeze({ id: FUNCTIONGEMMA_MODEL_ID, available: true, fallback: true }),
+    [LFM_Q4_MODEL_ID]: Object.freeze({ id: LFM_Q4_MODEL_ID, available: false, experimental: true, reason: "LFM_ARTIFACT_UNVERIFIED" }),
     [LFM_MODEL_ID]: Object.freeze({ id: LFM_MODEL_ID, available: false, experimental: true, reason: "LFM_ARTIFACT_UNVERIFIED" }),
     disabled: Object.freeze({ id: "disabled", available: false })
   });

@@ -2,7 +2,7 @@
   "use strict";
   const modelApi = global.SimplificaToolCallingModel || (typeof require === "function" ? require("./tool-calling-model.js") : null);
   const registry = global.SimplificaActionRegistry || (typeof require === "function" ? require("./action-registry.js") : null);
-  const ALLOWED_MODELS = Object.freeze(["functiongemma-270m-it-q8_0", "lfm2.5-1.2b-q6_k", "disabled"]);
+  const ALLOWED_MODELS = Object.freeze(["functiongemma-270m-it-q8_0", "lfm2.5-1.2b-q4_0", "lfm2.5-1.2b-q6_k", "disabled"]);
   class LocalToolModelAdapter extends modelApi.ToolCallingModel {
     constructor({ runtime, modelId = "disabled", shadow = false, clock = () => Date.now() } = {}) { super(); if (!ALLOWED_MODELS.includes(modelId)) throw new Error("INVALID_AI_TOOL_MODEL"); this.runtime = runtime; this.modelId = modelId; this.shadow = shadow === true; this.clock = clock; this.loaded = false; this.confidence = 0; this.metrics = { loadMs: 0, warmupMs: 0, calls: 0, failures: 0, lastLatencyMs: 0 }; }
     async load() { if (this.modelId === "disabled") return false; if (typeof this.runtime?.load !== "function") throw new Error("LOCAL_TOOL_MODEL_RUNTIME_UNAVAILABLE"); const started = this.clock(); await this.runtime.load(); this.metrics.loadMs = this.clock() - started; this.loaded = true; return true; }
