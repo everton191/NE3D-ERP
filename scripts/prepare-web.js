@@ -143,6 +143,8 @@ const publicSrcFiles = [
   "src/features/home/home-data.js",
   "src/features/home/home-controller.js",
   "src/features/reports/reports-controller.js",
+  "src/features/reports/reports-data.js",
+  "src/features/reports/reports-renderer.js",
   "src/features/reports/reports-view-model.js",
   "src/styles/google-expressive-motion.css",
   "src/storefront/styles/tokens.css",

@@ -30,6 +30,8 @@ const APP_FILES = [
   "./src/features/home/home-data.js",
   "./src/features/home/home-controller.js",
   "./src/features/reports/reports-controller.js",
+  "./src/features/reports/reports-data.js",
+  "./src/features/reports/reports-renderer.js",
   "./src/features/reports/reports-view-model.js",
   "./src/services/simplifica3dAiActions.js",
   "./src/services/simplifica3dAiRuntime.js",

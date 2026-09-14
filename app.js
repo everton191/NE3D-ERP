@@ -31605,156 +31605,24 @@ function exportarResumoRelatorios() {
   mostrarToast("Resumo exportado.", "sucesso", 2600);
 }
 
-// Legacy rendering bridge: Phase 3 moves lifecycle ownership to the feature.
-function renderRelatoriosLegacy() {
-  if (telaComCarregamentoUX("relatorios")) return renderSmartScreenSkeleton("relatorios");
-  if (!planoPermiteRecurso("reports")) {
-    return `
-      <section class="card">
-        <div class="card-header">
-          <h2>${renderUiIcon("relatorios")} Relatórios avançados</h2>
-          <span class="status-badge">PRO</span>
-        </div>
-        <p class="muted">O Free mantém dashboard e dados básicos. Relatórios completos, comparativos e exportações ficam disponíveis no PRO.</p>
-        <div class="actions">
-          <button class="btn" type="button" data-action="open-payment" data-slug="pro">Assinar Pro</button>
-          <button class="btn ghost" type="button" onclick="trocarTela('dashboard')">Voltar ao dashboard</button>
-        </div>
-      </section>
-    `;
-  }
-  const podeOperar = temAcessoCompleto();
-  const periodoAtivo = getPeriodoRelatoriosAtivo();
-  const info = getInfoPeriodoRelatorios(periodoAtivo);
-  const periodoCustomizado = getPeriodoCustomizadoRelatorios();
-  const agregado = calcularAgregadoRelatorios(info);
-  const series = gerarSerieRelatorios(info);
-  const categorias = calcularCategoriasRelatorios(info);
-  const ticketMedio = agregado.atual.total_orders ? agregado.atual.total_sales / agregado.atual.total_orders : 0;
-  const seriesFaturamento = series.map((item) => Number(item.sales) || 0);
-  const seriesPedidos = series.map((item) => Number(item.orders) || 0);
-  const seriesLucro = series.map((item) => Number(item.profit) || 0);
-  const advancedReportsContext = isContextAdvancedVisible("relatorios");
-  const periodos = [
-    { id: "hoje", label: "Hoje" },
-    { id: "semana", label: "Semana" },
-    { id: "mes", label: "Este mês" },
-    { id: "mes-passado", label: "Mês passado" },
-    { id: "personalizado", label: "Personalizado", icon: "agenda" }
-  ].filter((periodo) => advancedReportsContext || ["hoje", "semana", "mes"].includes(periodo.id));
-  return `
-    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-5 ui3-reports" data-ui-version="v3" data-ui3-screen="relatorios">
-      <header class="ui3-page-header ui3-reports-header">
-        <div class="reports-title-row">
-          <button class="icon-action-button" type="button" onclick="abrirMenuLateral()" title="Menu">${renderUiIcon("menu")}</button>
-          <div>
-            <h2>Relatórios</h2>
-            <p>Acompanhe o desempenho do seu negócio</p>
-          </div>
-        </div>
-        <div class="reports-header-actions">
-          <label class="dashboard-search search-compact reports-search-compact" onclick="expandirBuscaGlobal(this)">
-            <button class="search-action-button" type="button" onclick="event.preventDefault();event.stopPropagation();expandirBuscaGlobal(this)" title="Buscar nos relatórios"><span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span></button>
-            <input data-search-context="relatorios" placeholder="Buscar relatórios..." aria-label="Buscar relatórios" oninput="atualizarAutocompletePesquisa(this)" onkeydown="buscarGlobal(event,this.value)" onblur="recolherBuscaGlobal(this); agendarFechamentoAutocompletePesquisa(this)">
-          </label>
-          <button class="icon-action-button reports-bell" type="button" onclick="trocarTela('feedback')" title="Abrir sugestões" aria-label="Abrir sugestões">${renderUiIcon("bell")}${sugestoes.length ? `<span>${Math.min(99, sugestoes.length)}</span>` : ""}</button>
-        </div>
-      </header>
-
-      <div class="ui3-grid ui3-reports-grid" aria-label="Telas dos relatórios">
-        <section class="reports-panel reports-overview-panel">
-          <div class="reports-period-tabs" role="tablist" aria-label="Período dos relatórios">
-            ${periodos.map((periodo) => `
-              <button class="reports-period-chip ${periodoAtivo === periodo.id ? "active" : ""}" type="button" role="tab" aria-selected="${periodoAtivo === periodo.id}" onclick="selecionarPeriodoRelatorios('${escaparAttr(periodo.id)}')">
-                ${periodo.icon ? renderUiIcon(periodo.icon) : ""}
-                <span>${escaparHtml(periodo.label)}</span>
-              </button>
-            `).join("")}
-          </div>
-          ${periodoAtivo === "personalizado" ? `
-            <div class="period-custom-bar reports-custom-period">
-              <label class="field">
-                <span>Data inicial</span>
-                <input id="relatoriosDataInicio" type="date" value="${escaparAttr(periodoCustomizado.inicio)}">
-              </label>
-              <label class="field">
-                <span>Data final</span>
-                <input id="relatoriosDataFim" type="date" value="${escaparAttr(periodoCustomizado.fim)}">
-              </label>
-              <button class="btn secondary" type="button" onclick="aplicarPeriodoPersonalizadoRelatorios()">Aplicar período</button>
-            </div>
-          ` : ""}
-        </section>
-
-        <section class="reports-panel reports-kpi-slide">
-          ${renderRelatorioKpiCard({ titulo: "Faturamento", valor: formatarMoeda(agregado.atual.total_sales), delta: agregado.comparacoes.faturamento, icon: "caixa", estado: "teal", series: seriesFaturamento })}
-        </section>
-
-        <section class="reports-panel reports-kpi-slide">
-          ${renderRelatorioKpiCard({ titulo: "Pedidos", valor: String(agregado.atual.total_orders || 0), delta: agregado.comparacoes.pedidos, icon: "pedidos", estado: "blue", series: seriesPedidos })}
-        </section>
-
-        <section class="reports-panel reports-kpi-slide">
-          ${renderRelatorioKpiCard({ titulo: "Ticket médio", valor: formatarMoeda(ticketMedio), delta: agregado.comparacoes.ticket, icon: "assinatura", estado: "purple", series: seriesFaturamento })}
-        </section>
-
-        <section class="reports-panel reports-kpi-slide">
-          ${renderRelatorioKpiCard({ titulo: "Lucro líquido", valor: formatarMoeda(agregado.atual.total_profit), delta: agregado.comparacoes.lucro, icon: "relatorios", estado: "orange", series: seriesLucro })}
-        </section>
-
-        <section class="ui3-card ui3-chart-container reports-chart-panel">
-          <div class="reports-panel-header">
-            <div>
-              <h3>Faturamento ao longo do tempo</h3>
-              <strong>${formatarMoeda(agregado.atual.total_sales)}</strong>
-              ${renderDeltaRelatorios(agregado.comparacoes.faturamento)}
-            </div>
-            <button class="btn ghost" type="button" onclick="abrirFiltrosRelatorios()">Gráfico de linha ▾</button>
-          </div>
-          ${renderRelatorioLineChart(series)}
-        </section>
-
-        <section class="ui3-card ui3-chart-container reports-category-panel">
-          <div class="reports-panel-header">
-            <h3>Faturamento por categoria</h3>
-          </div>
-          ${renderRelatorioDonut(categorias)}
-        </section>
-        <section class="reports-panel reports-quick-panel">
-          <div class="reports-panel-header">
-            <h3>Relatórios rápidos</h3>
-            <button class="text-link" type="button" onclick="mostrarToast('Todos os relatórios rápidos ficam nesta área.', 'info')">Ver todos ›</button>
-          </div>
-          <div class="reports-quick-grid">
-            ${renderRelatorioQuickTile({ titulo: "Pedidos", subtitulo: "Pedidos e orçamentos", icon: "pedidos", tela: "pedidos", estado: "teal", action: "abrirRelatorioVendas()" })}
-            ${renderRelatorioQuickTile({ titulo: "Caixa", subtitulo: "Faturamento, entradas e saídas", icon: "caixa", tela: "caixa", estado: "blue" })}
-            ${renderRelatorioQuickTile({ titulo: "Clientes", subtitulo: "Novos clientes e recorrência", icon: "clientes", tela: "clientes", estado: "purple" })}
-            ${renderRelatorioQuickTile({ titulo: "Produtos", subtitulo: "Mais vendidos e estoque", icon: "estoque", tela: "estoque", estado: "orange" })}
-            ${renderRelatorioQuickTile({ titulo: "Desempenho", subtitulo: "Análise geral do negócio", icon: "relatorios", tela: "relatorios", estado: "green" })}
-          </div>
-        </section>
-
-        <section class="reports-panel reports-summary-panel">
-          <div class="reports-panel-header">
-            <h3>Resumo por períodos</h3>
-            <button class="btn ghost" type="button" onclick="exportarResumoRelatorios()">${renderUiIcon("backup")} Exportar</button>
-          </div>
-          <div class="ui3-table-scroll reports-period-table">
-            ${getResumoPeriodosRelatorios().map((linha) => renderResumoPeriodoRelatorios(linha.label, linha.sublabel, linha.info)).join("")}
-          </div>
-        </section>
-      </div>
-
-      ${podeOperar ? "" : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Regularizar plano</button></div>`}
-    </section>
-  `;
+function getReportsFeatureDeps() {
+  return {
+    telaComCarregamentoUX, renderSmartScreenSkeleton, planoPermiteRecurso, temAcessoCompleto,
+    getPeriodoRelatoriosAtivo, getInfoPeriodoRelatorios, getPeriodoCustomizadoRelatorios,
+    calcularAgregadoRelatorios, gerarSerieRelatorios, calcularCategoriasRelatorios,
+    isContextAdvancedVisible, renderUiIcon, escaparAttr, escaparHtml, formatarMoeda,
+    renderRelatorioKpiCard, renderDeltaRelatorios, renderRelatorioLineChart, renderRelatorioDonut,
+    renderRelatorioQuickTile, getResumoPeriodosRelatorios, renderResumoPeriodoRelatorios,
+    suggestions: sugestoes
+  };
 }
 
 function renderRelatorios() {
   const controller = window.SimplificaReportsFeature?.controller;
-  const context = { renderLegacy: renderRelatoriosLegacy };
-  return controller?.mounted ? controller.update(context) : controller?.mount(context) || renderRelatoriosLegacy();
+  const context = { deps: getReportsFeatureDeps() };
+  return controller?.mounted ? controller.update(context) : controller?.mount(context) || renderSmartScreenSkeleton("relatorios");
 }
+
 
 function getCaixaFiltroAtivo() {
   const salvo = getUiTab("caixaStatus", "todos");
