@@ -1,0 +1,18 @@
+"use strict";
+const assert = require("node:assert/strict");
+require("../src/ai/action-registry.js");
+const search = require("../src/ai/action-search.js");
+global.SimplificaActionSearch = search;
+const { WorkflowToolGraph, MAX_TOP_K, operationalContext } = require("../src/ai/workflow-tool-graph.js");
+const graph = new WorkflowToolGraph({ permissionGuard: (permission, context) => !(context.deniedPermissions || []).includes(permission) });
+const initial = graph.select("muda esse pedido", { screen: "orders.details", domain: "orders", selectedEntityRefs: { order_id: "42" } });
+assert(initial.candidates.length <= MAX_TOP_K, "Top-K must stay bounded");
+assert(initial.actions.every((action) => action.operationType !== "WRITE"), "WRITE must never be masked to model");
+assert(initial.actions.some((action) => action.id === "orders.prepare_update"), "known order enables prepare");
+const noOrder = graph.mask({ screen: "orders.details", domain: "orders" });
+assert(!noOrder.actions.some((action) => action.id === "orders.prepare_update"), "requires blocks invalid workflow step");
+const advanced = graph.advance({ domain: "orders", selectedEntityRefs: { order_id: "42" } }, "orders.search", { order_refs: ["42"] });
+assert.equal(advanced.workflowState.lastActionId, "orders.search");
+assert(advanced.workflowState.known.includes("order_refs"), "produces flows into compact context");
+assert.equal(operationalContext({ route: "orders", recentResults: { secret: "x".repeat(500) } }).recentResults.secret.length, 160, "context remains compact");
+console.log("Workflow DAG, requires/produces, masking and Top-K contract passed.");

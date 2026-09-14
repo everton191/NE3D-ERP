@@ -20,6 +20,17 @@
       "capabilities": { "text": true, "vision": false, "audio": false, "tools": true },
       "status": "available",
       "writeExposed": 0
+    },
+    {
+      "modelId": "lfm2.5-1.2b-q6_k",
+      "displayName": "LFM2.5 1.2B Q6_K",
+      "platform": "android-arm64+web-wasm",
+      "provider": "local-llama-cpp",
+      "runtime": "llama.cpp-cpu",
+      "status": "experimental-unavailable",
+      "artifactStatus": "UNVERIFIED_SOURCE_REQUIRED",
+      "capabilities": { "text": true, "vision": false, "audio": false, "tools": true },
+      "writeExposed": 0
     }
   ]
 }

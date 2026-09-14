@@ -1,8 +1,11 @@
-const CACHE_NAME = "simplifica-3d-v1039-settings-persistence-20260901";
+const CACHE_NAME = "simplifica-3d-v1040-workflow-ui3-core-20260914";
 const APP_FILES = [
   "./",
   "./index.html",
   "./style.css",
+  "./styles/ui-v3/index.css",
+  "./styles/ui-v3/system-tokens.css", "./styles/ui-v3/tokens.css", "./styles/ui-v3/reset.css", "./styles/ui-v3/viewport.css", "./styles/ui-v3/app-shell.css", "./styles/ui-v3/layout.css", "./styles/ui-v3/grid.css", "./styles/ui-v3/spacing.css", "./styles/ui-v3/typography.css", "./styles/ui-v3/surfaces.css", "./styles/ui-v3/cards.css", "./styles/ui-v3/forms.css", "./styles/ui-v3/buttons.css", "./styles/ui-v3/actions.css", "./styles/ui-v3/lists.css", "./styles/ui-v3/navigation.css", "./styles/ui-v3/overlays.css", "./styles/ui-v3/keyboard.css", "./styles/ui-v3/tables.css", "./styles/ui-v3/feedback.css", "./styles/ui-v3/components/onboarding-guide.css", "./styles/ui-v3/utilities.css", "./styles/ui-v3/legacy-bridge.css", "./styles/ui-v3/system-navigation.css", "./styles/ui-v3/system-controls.css", "./styles/ui-v3/system-content.css", "./styles/ui-v3/system-overlays.css", "./styles/ui-v3/system-screens.css",
+  "./styles/ui-v3/screens/settings.css", "./styles/ui-v3/screens/reading.css", "./styles/ui-v3/screens/calculator.css", "./styles/ui-v3/screens/superadmin.css", "./styles/ui-v3/screens/operational.css", "./styles/ui-v3/screens/finance.css", "./styles/ui-v3/screens/plans.css",
   "./src/storefront/styles/tokens.css",
   "./src/storefront/styles/components.css",
   "./src/storefront/styles/layouts.css",
@@ -44,10 +47,12 @@ const APP_FILES = [
   "./models/functiongemma/web-artifacts.js",
   "./src/ai/action-registry.js",
   "./src/ai/action-search.js",
+  "./src/ai/workflow-tool-graph.js",
   "./src/ai/deterministic-router.js",
   "./src/ai/ai-telemetry.js",
   "./src/ai/result-envelope.js",
   "./src/ai/tool-calling-model.js",
+  "./src/ai/local-tool-model-adapter.js",
   "./src/ai/functiongemma-adapter.js",
   "./src/ai/functiongemma-native-runtime.js",
   "./src/ai/functiongemma-web-runtime.js",

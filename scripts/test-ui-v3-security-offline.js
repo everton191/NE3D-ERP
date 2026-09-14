@@ -1,0 +1,11 @@
+"use strict";
+const assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm");
+const context = { window: {} }; context.window.window = context.window; vm.runInNewContext(fs.readFileSync("src/ui-v3/components/foundation.js", "utf8"), context); vm.runInNewContext(fs.readFileSync("src/ui-v3/components/components.js", "utf8"), context);
+const malicious = "<script>alert(1)</script>";
+const card = context.window.UiV3.Card({ title: malicious, content: malicious });
+assert(!card.includes("<script>alert(1)</script>")); assert(card.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
+const sw = fs.readFileSync("sw.js", "utf8"), css = fs.readFileSync("styles/ui-v3/index.css", "utf8");
+assert(sw.includes('"./styles/ui-v3/index.css"'), "UI V3 index must be precached");
+for (const entry of [...css.matchAll(/\.\/([^?"')]+)/g)].map((match) => match[1])) assert(sw.includes(`./styles/ui-v3/${entry}`), `missing structural UI V3 cache entry: ${entry}`);
+assert(!sw.includes(".gguf\",\n"), "GGUF must not enter core precache");
+console.log("UI V3 untrusted text escaping and offline structural CSS contract passed.");

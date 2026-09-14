@@ -8,7 +8,8 @@
   function search(input, context = {}, topK = 5) {
     const queryTokens = tokens(input);
     const screen = normalize(context.screen || "");
-    return registry.actions.filter((action) => registry.health(action).exposed).map((action) => {
+    const candidateIds = new Set(Array.isArray(context.candidateToolIds) ? context.candidateToolIds : []);
+    return registry.actions.filter((action) => registry.health(action).exposed && (!candidateIds.size || candidateIds.has(action.id))).map((action) => {
       const haystack = tokens([action.id, action.domain, action.description, ...action.aliases, ...action.examples].join(" "));
       const lexicalScore = [...queryTokens].reduce((sum, token) => sum + (haystack.has(token) ? 1 : 0), 0);
       const aliasBonus = action.aliases.reduce((best, alias) => {

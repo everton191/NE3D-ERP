@@ -1,0 +1,12 @@
+"use strict";
+const assert = require("node:assert/strict");
+global.window = global;
+require("../src/ai/action-registry.js"); require("../src/ai/action-search.js"); require("../src/ai/deterministic-router.js"); require("../src/ai/workflow-tool-graph.js");
+require("../src/services/simplifica3dAiRuntime.js");
+global.__SIMPLIFICA_AI_TOOL_MODEL__ = "lfm2.5-1.2b-q6_k";
+assert.equal(global.Simplifica3dAiRuntime.modelSelection().available, false);
+assert.equal(global.Simplifica3dAiRuntime.modelSelection().reason, "LFM_ARTIFACT_UNVERIFIED");
+global.__SIMPLIFICA_AI_TOOL_MODEL__ = "functiongemma-270m-it-q8_0";
+assert.equal(global.Simplifica3dAiRuntime.modelSelection().fallback, true);
+assert.equal(global.Simplifica3dAiRuntime.modelSelection().writeExposed, 0);
+console.log("Generic model selection keeps FunctionGemma fallback and LFM fail-closed.");

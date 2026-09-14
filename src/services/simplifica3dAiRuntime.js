@@ -1,7 +1,15 @@
 (function attachSimplifica3dAiRuntime(global) {
   "use strict";
 
-  const MODEL_ID = "functiongemma-270m-it-q8_0";
+  const FUNCTIONGEMMA_MODEL_ID = "functiongemma-270m-it-q8_0";
+  const LFM_MODEL_ID = "lfm2.5-1.2b-q6_k";
+  // The candidate has no verified GGUF metadata yet. It is deliberately selectable
+  // for integration tests, but cannot load or silently replace the fallback.
+  const MODEL_CATALOG = Object.freeze({
+    [FUNCTIONGEMMA_MODEL_ID]: Object.freeze({ id: FUNCTIONGEMMA_MODEL_ID, available: true, fallback: true }),
+    [LFM_MODEL_ID]: Object.freeze({ id: LFM_MODEL_ID, available: false, experimental: true, reason: "LFM_ARTIFACT_UNVERIFIED" }),
+    disabled: Object.freeze({ id: "disabled", available: false })
+  });
   const WEB_MODEL_ID = "functiongemma-270m-it-q8_0-web";
   let adapter = null;
   let adapterRuntime = null;
@@ -20,11 +28,16 @@
   }
 
   function nativePlugin() { return global.Capacitor?.Plugins?.SimplificaLocalAi || null; }
-  function runtimeForPlatform() {
+  function functionGemmaRuntimeForPlatform() {
     return nativePlugin()?.predictFunctionGemma
       ? global.SimplificaFunctionGemmaNativeRuntime?.runtime
       : global.SimplificaFunctionGemmaWebRuntime?.runtime;
   }
+  function selectedModelId() {
+    const requested = String(global.SIMPLIFICA_AI_TOOL_MODEL || global.__SIMPLIFICA_AI_TOOL_MODEL__ || "").trim();
+    return MODEL_CATALOG[requested] ? requested : FUNCTIONGEMMA_MODEL_ID;
+  }
+  function modelSelection() { const id = selectedModelId(); return Object.freeze({ ...MODEL_CATALOG[id], selected: id, writeExposed: 0 }); }
 
   const webProvider = global.UniversalAssistantWebProvider?.WebLocalModelProvider ? new global.UniversalAssistantWebProvider.WebLocalModelProvider({
     appId: global.SimplificaAssistantPack?.modelScope || "simplifica-3d",
@@ -51,7 +64,7 @@
   async function prepareFunctionGemma() {
     if (preparationPromise) return preparationPromise;
     preparationPromise = (async () => {
-      const runtime = runtimeForPlatform();
+      const runtime = functionGemmaRuntimeForPlatform();
       const Adapter = global.SimplificaFunctionGemmaAdapter?.FunctionGemmaAdapter;
       if (!runtime || !Adapter) throw new Error("FUNCTIONGEMMA_RUNTIME_UNAVAILABLE");
       if (!nativePlugin()?.predictFunctionGemma) await prepareWebRuntime();
@@ -71,6 +84,12 @@
     }).finally(() => { preparationPromise = null; });
     return preparationPromise;
   }
+  async function prepareSelectedModel() {
+    const selection = modelSelection();
+    if (selection.selected === "disabled") throw new Error("AI_TOOL_MODEL_DISABLED");
+    if (!selection.available) throw new Error(selection.reason || "AI_TOOL_MODEL_UNAVAILABLE");
+    return prepareFunctionGemma(); // compatibility adapter until a verified LFM runtime is installed
+  }
 
   async function predictTool(text, context = {}, { shadow = false } = {}) {
     const started = global.performance?.now?.() || Date.now();
@@ -89,18 +108,21 @@
     if (deterministic) return finish(deterministic, "deterministic");
     const actionSearch = global.SimplificaActionSearch;
     if (!actionSearch?.search) return finish({ kind: "NO_TOOL", reason: "ACTION_SEARCH_UNAVAILABLE" }, "functiongemma");
-    await prepareFunctionGemma();
-    const ranked = actionSearch.search(String(text || ""), context || {}, 5).filter((item) => Number(item.lexicalScore) > 0);
-    const candidates = (ranked.length > 1 && ranked[0].score - ranked[1].score >= 2 ? ranked.slice(0, 1) : ranked.slice(0, 3)).map((item) => item.action);
+    const graphApi = global.SimplificaWorkflowToolGraph || (typeof require === "function" ? require("../ai/workflow-tool-graph.js") : null);
+    if (!graphApi?.WorkflowToolGraph) return finish({ kind: "NO_TOOL", reason: "WORKFLOW_GRAPH_UNAVAILABLE" }, "local-tool-model");
+    const graph = new graphApi.WorkflowToolGraph();
+    const selection = graph.select(String(text || ""), context || {});
+    const candidates = selection.candidates;
     if (!candidates.length) return finish({ kind: "NO_TOOL", reason: "NO_ACTION_SEARCH_MATCH" }, "functiongemma");
-    const result = await adapter.generateToolCall({ command: text, tools: candidates, context });
-    return finish({ ...result, intent: result.tool || "functiongemma" }, "functiongemma");
+    await prepareSelectedModel();
+    const result = await adapter.generateToolCall({ command: text, tools: candidates, context: selection.context });
+    return finish({ ...result, intent: result.tool || "local-tool-model", workflow: { candidates, maxTopK: selection.maxTopK } }, "local-tool-model");
   }
 
   async function predictToolShadow(text, context = {}) { return predictTool(text, context, { shadow: true }); }
   function scheduleToolShadow(text, context = {}) { global.setTimeout(() => predictToolShadow(text, context).catch(() => {}), 0); }
 
-  class FunctionGemmaOnlyProvider {
+  class LocalToolModelProvider {
     get plugin() { return nativePlugin(); }
     async status() {
       if (this.plugin?.functionGemmaStatus) {
@@ -108,7 +130,7 @@
         const installed = value?.installed === true;
         return {
           ...value, available: installed, compatible: true, enabled: true,
-          modelId: MODEL_ID, modelName: "FunctionGemma 270M Q8_0",
+          modelId: FUNCTIONGEMMA_MODEL_ID, modelName: "FunctionGemma 270M Q8_0",
           modelReady: installed, runtimeReady: value?.loaded === true && value?.warmed === true,
           supportsText: true, supportsVision: false, supportsAudio: false, supportsTools: true, writeExposed: 0
         };
@@ -119,12 +141,12 @@
     }
     async listModels() {
       const status = await this.status();
-      return { enabled: true, selection: status.modelId || MODEL_ID, models: [{
-        id: status.modelId || MODEL_ID, displayName: "FunctionGemma 270M Q8_0", profile: "OPERATIONAL",
+      return { enabled: true, selection: selectedModelId(), models: [{
+        id: status.modelId || FUNCTIONGEMMA_MODEL_ID, displayName: "FunctionGemma 270M Q8_0", profile: "OPERATIONAL",
         version: "39eccb091651513a5dfb56892d3714c1b5b8276c", downloadBytes: 291557856,
         installed: status.modelReady === true, available: status.available === true,
         compatible: status.compatible !== false, text: true, vision: false, audio: false, tools: true
-      }] };
+      }, { id: LFM_MODEL_ID, displayName: "LFM2.5 1.2B Q6_K", profile: "EXPERIMENTAL", installed: false, available: false, compatible: false, reason: "LFM_ARTIFACT_UNVERIFIED", text: true, vision: false, audio: false, tools: true }] };
     }
     async profileDevice() { return { runtime: this.plugin ? "llama.cpp-arm64-cpu" : "wllama-wasm-cpu", backendPolicy: "CPU_ONLY", modelHealth: { health: "NOT_TESTED" } }; }
     async ensureReady() { return this.prewarm(); }
@@ -147,7 +169,9 @@
     }
   }
 
-  const provider = new FunctionGemmaOnlyProvider();
+  // Legacy name stays exported for callers while the runtime is model-neutral.
+  class FunctionGemmaOnlyProvider extends LocalToolModelProvider {}
+  const provider = new LocalToolModelProvider();
   async function interpret(text, context = {}) {
     const prediction = await predictTool(text, context, { shadow: false });
     if (prediction.kind === "TOOL_CALL" && prediction.missing?.length) {
@@ -165,12 +189,12 @@
     return global.Simplifica3dErpBridge.execute(preview);
   }
   async function cancel() {
-    await runtimeForPlatform()?.cancel?.();
+    await functionGemmaRuntimeForPlatform()?.cancel?.();
     return { cancelled: true, writeExposed: 0 };
   }
 
   global.Simplifica3dAiRuntime = Object.freeze({
     interpret, execute, cancel, predictTool, predictToolShadow, scheduleToolShadow,
-    nonExecutableReason, deterministicNavigation, prepareFunctionGemma, provider, webProvider, FunctionGemmaOnlyProvider
+    nonExecutableReason, deterministicNavigation, prepareFunctionGemma, prepareSelectedModel, selectedModelId, modelSelection, MODEL_CATALOG, provider, webProvider, LocalToolModelProvider, FunctionGemmaOnlyProvider
   });
 })(window);

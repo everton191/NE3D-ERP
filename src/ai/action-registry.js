@@ -16,6 +16,24 @@
     "products.search": Object.freeze({ requiredAll: Object.freeze(["query"]) }),
     "printers.search": Object.freeze({ requiredAny: Object.freeze(["query", "status"]) })
   });
+  // Workflow metadata is declarative rather than an alternate business layer.
+  // It only constrains what a model may see; domain executors remain canonical.
+  const WORKFLOW = Object.freeze({
+    "orders.search": { produces: ["order_refs"], allowedNext: ["orders.get", "orders.prepare_update", "orders.prepare_cancel"] },
+    "orders.get": { requires: ["order_id"], produces: ["order"], allowedNext: ["orders.prepare_update", "orders.prepare_cancel"] },
+    "orders.prepare_create": { requires: ["customer_id"], produces: ["prepared_operation"], allowedNext: ["orders.commit_create"] },
+    "orders.prepare_update": { requires: ["order_id"], produces: ["prepared_operation"], allowedNext: ["orders.update"] },
+    "orders.prepare_cancel": { requires: ["order_id"], produces: ["prepared_operation"], allowedNext: ["orders.cancel"] },
+    "customers.search": { produces: ["customer_refs"], allowedNext: ["customers.get", "orders.prepare_create"] },
+    "inventory.search": { produces: ["material_refs", "roll_refs"], allowedNext: ["inventory.get_roll", "inventory.history", "inventory.prepare_reservation", "inventory.prepare_consume"] },
+    "inventory.get_roll": { requires: ["roll_id"], produces: ["roll"], allowedNext: ["inventory.history", "inventory.prepare_consume"] },
+    "cash.prepare_withdrawal": { produces: ["prepared_operation"], allowedNext: ["cash.commit_withdrawal"] },
+    "cash.prepare_deposit": { produces: ["prepared_operation"], allowedNext: ["cash.commit_deposit"] },
+    "cash.prepare_close_session": { requires: ["session_id"], produces: ["prepared_operation"], allowedNext: ["cash.close_session"] },
+    "production.list_queue": { produces: ["job_refs"], allowedNext: ["production.prepare_change_status"] },
+    "production.prepare_job": { requires: ["order_id"], produces: ["prepared_operation"], allowedNext: ["production.commit_job"] },
+    "production.prepare_change_status": { requires: ["job_id"], produces: ["prepared_operation"], allowedNext: ["production.change_status"] }
+  });
 
   const definitions = [
     ["navigation.open", "navigation", "READ", "Abre uma tela conhecida do Simplifica 3D.", "navigation.open", "authenticated", false, true, ["tela"], ["abrir", "abre", "ir para", "vai", "mostrar tela"]],
@@ -67,6 +85,8 @@
       requiredAll: INPUT_REQUIREMENTS[id]?.requiredAll || Object.freeze([]),
       requiredAny: INPUT_REQUIREMENTS[id]?.requiredAny || Object.freeze([])
     }), validator: fields.length ? "strict-object-validator" : "empty-object-validator",
+    requires: Object.freeze(WORKFLOW[id]?.requires || []), produces: Object.freeze(WORKFLOW[id]?.produces || []),
+    allowedNext: Object.freeze(WORKFLOW[id]?.allowedNext || []), terminal: !(WORKFLOW[id]?.allowedNext?.length),
     aliases: Object.freeze(aliases), examples: Object.freeze(aliases.slice(0, 2)), tested,
     enabled: Boolean(handler) && tested, exposedToModel: operationType !== OPERATION.WRITE
   }));
