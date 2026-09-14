@@ -142,6 +142,8 @@ const publicSrcFiles = [
   "src/features/home/carousel3d/carousel-contract.js",
   "src/features/home/home-data.js",
   "src/features/home/home-controller.js",
+  "src/features/reports/reports-controller.js",
+  "src/features/reports/reports-view-model.js",
   "src/styles/google-expressive-motion.css",
   "src/storefront/styles/tokens.css",
   "src/storefront/styles/components.css",

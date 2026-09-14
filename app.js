@@ -10616,6 +10616,7 @@ function trocarTela(tela, opcoes = {}) {
   }
 
   const mudouTela = telaAtual !== tela;
+  if (mudouTela && telaAtual === "relatorios") window.SimplificaReportsFeature?.controller?.unmount?.();
   if (tela === "pedidos" && !opcoes.preservarDetalhePedido) {
     pedidoVisualizandoId = null;
     window.__pedidoDetalheFechado = true;
@@ -10636,6 +10637,7 @@ function trocarTela(tela, opcoes = {}) {
   }
 
   telaAtual = tela;
+    if (tela === "relatorios") window.SimplificaAiRuntimeLoader?.ensureFeatureLoaded?.("reports").then(() => { if (telaAtual === "relatorios") renderApp(); }).catch(() => {});
   atualizarContextoAssistantCore3d();
   registrarEventoUsoLocal("tela_aberta", { tela });
   if (tela === "calculadora" && appConfig.calculatorWidget?.open) {
@@ -31603,7 +31605,8 @@ function exportarResumoRelatorios() {
   mostrarToast("Resumo exportado.", "sucesso", 2600);
 }
 
-function renderRelatorios() {
+// Legacy rendering bridge: Phase 3 moves lifecycle ownership to the feature.
+function renderRelatoriosLegacy() {
   if (telaComCarregamentoUX("relatorios")) return renderSmartScreenSkeleton("relatorios");
   if (!planoPermiteRecurso("reports")) {
     return `
@@ -31745,6 +31748,12 @@ function renderRelatorios() {
       ${podeOperar ? "" : `<div class="actions"><button class="btn" type="button" data-action="open-payment">Regularizar plano</button></div>`}
     </section>
   `;
+}
+
+function renderRelatorios() {
+  const controller = window.SimplificaReportsFeature?.controller;
+  const context = { renderLegacy: renderRelatoriosLegacy };
+  return controller?.mounted ? controller.update(context) : controller?.mount(context) || renderRelatoriosLegacy();
 }
 
 function getCaixaFiltroAtivo() {

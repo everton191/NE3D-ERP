@@ -9,7 +9,7 @@
     ["clientes", "Clientes", "clientes", "renderClientes", "basic_customers", ["customers"], true, false],
     ["calculadora", "Calculadora", "calculadora", "renderCalculadoraTela", "basic_calculator", ["calculator"], true, true],
     ["impressoras", "Impressoras", "impressoras", "renderImpressoras", "printer_registry", ["printers"], true, false],
-    ["relatorios", "Relatórios", "relatorios", "renderRelatorios", "simple_reports", ["reports"], true, false],
+    ["relatorios", "Relatórios", "relatorios", "SimplificaReportsFeature.controller", "simple_reports", ["reports"], true, false],
     ["config", "Sistema", "config", "renderConfig", "settingsBasic", ["settings", "configuracoes"], true, false]
   ].map(([id,title,icon,renderer,permission,aliases,desktopNav,bottomNav]) => Object.freeze({ id, path: id, title, icon, renderer, permission, aliases: Object.freeze(aliases), aiNavigationId: id, desktopNav, mobileNav: desktopNav, bottomNav, layout: "app" })));
   class ScreenRegistry {

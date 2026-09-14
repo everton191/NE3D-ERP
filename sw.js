@@ -29,6 +29,8 @@ const APP_FILES = [
   "./src/features/home/carousel3d/carousel-contract.js",
   "./src/features/home/home-data.js",
   "./src/features/home/home-controller.js",
+  "./src/features/reports/reports-controller.js",
+  "./src/features/reports/reports-view-model.js",
   "./src/services/simplifica3dAiActions.js",
   "./src/services/simplifica3dAiRuntime.js",
   "./src/services/simplifica3dFinancialCore.js",

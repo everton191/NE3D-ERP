@@ -12,6 +12,8 @@
     "typecheck": "tsc -p tsconfig.ui-v3.json",
     "check:release-consistency": "node scripts/check-release-consistency.js",
     "test:structure-phase2": "node scripts/test-structure-phase2.js",
+    "test:reports-feature-lifecycle": "node scripts/test-reports-feature-lifecycle.js",
+    "test:home-frozen-phase3": "node scripts/test-home-frozen-phase3.js",
     "test:promotions-3d": "node scripts/test-promotions-3d.js",
     "test:promotions-3d-live": "node scripts/test-promotions-3d-live.js",
     "test:prepublication-p0": "node scripts/test-prepublication-p0.js",
