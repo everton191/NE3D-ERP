@@ -35,3 +35,4 @@ supabase/.env.*
 .env*
 .models/
 .projeto-ai/logs/*.raw.log
+models/local/
