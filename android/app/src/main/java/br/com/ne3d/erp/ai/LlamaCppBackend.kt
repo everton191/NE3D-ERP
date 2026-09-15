@@ -8,47 +8,55 @@ import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
-/** CPU-only FunctionGemma lifecycle. It is deliberately not a general chat API. */
+/** Single-owner CPU llama.cpp runtime shared by local model adapters. */
 class LlamaCppBackend(private val context: Context) : AutoCloseable {
+    data class ModelConfig(val modelId: String, val modelFile: File, val sha256: String = "", val contextSize: Int = 1024, val threads: Int = 0, val batchSize: Int = 0)
+    data class GenerateRequest(val prompt: String, val maxTokens: Int = 96, val temperature: Float = 0f, val topP: Float = .9f, val grammar: String? = null, val timeoutMs: Long = 20_000)
+    enum class State { UNLOADED, LOADING, LOADED, WARMING, READY, GENERATING, CANCELLING, FAILED }
     private val worker = Executors.newSingleThreadExecutor { Thread(it, "functiongemma-cpu").apply { priority = Thread.NORM_PRIORITY - 1 } }
     @Volatile private var closed = false
     @Volatile private var generating = false
-    fun load(file: File, expectedSha256: String) = worker.submit {
-        check(!closed); check(file.isFile()) { "FUNCTIONGEMMA_FILE_MISSING" }
+    @Volatile private var state = State.UNLOADED
+    @Volatile private var activeModelId = ""
+    fun loadModel(config: ModelConfig) = worker.submit {
+        check(!closed); check(!generating) { "LOCAL_LLAMA_BUSY" }; check(config.modelFile.isFile() && config.modelFile.length() > 0) { "LOCAL_LLAMA_MODEL_MISSING" }
+        state = State.LOADING
         val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
+        config.modelFile.inputStream().use { input ->
             val buffer = ByteArray(1024 * 1024)
             while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
         }
         val actual = digest.digest().joinToString("") { "%02x".format(it) }
-        check(actual.equals(expectedSha256, true)) { "FUNCTIONGEMMA_SHA_MISMATCH" }
+        check(config.sha256.isBlank() || actual.equals(config.sha256, true)) { "LOCAL_LLAMA_SHA_MISMATCH" }
         // Native libs remain mmap-able directly from the APK (extractNativeLibs=false).
         // JNI selects dotprod only when the device advertises ASIMDDP.
         checkNative(nativeInit(context.applicationInfo.sourceDir))
-        checkNative(nativeLoadModel(file.absolutePath))
+        checkNative(nativeLoadModel(config.modelFile.absolutePath)); activeModelId = config.modelId; state = State.LOADED
     }
-    fun warmup() = worker.submit { checkNative(nativeWarmup()) }
+    fun load(file: File, expectedSha256: String) = loadModel(ModelConfig("functiongemma-270m-it-q8_0", file, expectedSha256))
+    fun warmup() = worker.submit { check(state == State.LOADED || state == State.READY) { "LOCAL_LLAMA_NOT_LOADED" }; state = State.WARMING; checkNative(nativeWarmup()); state = State.READY }
 
     /** Runs only on the dedicated worker. Timeout requests cancellation, never concurrent unload. */
-    fun generate(prompt: String, maxTokens: Int = 96, temperature: Float = 0f, topP: Float = 0.9f, timeoutMs: Long = 20_000): String {
-        check(!closed) { "FUNCTIONGEMMA_CLOSED" }
+    fun generate(request: GenerateRequest): String {
+        check(!closed) { "LOCAL_LLAMA_CLOSED" }
         val task: Future<String> = worker.submit<String> {
-            check(!closed) { "FUNCTIONGEMMA_CLOSED" }
-            check(!generating) { "FUNCTIONGEMMA_BUSY" }
-            generating = true
-            try { nativeGenerate(prompt, maxTokens, temperature, topP) }
-            finally { generating = false }
+            check(!closed && state == State.READY) { "LOCAL_LLAMA_NOT_READY" }; check(!generating) { "LOCAL_LLAMA_BUSY" }
+            generating = true; state = State.GENERATING
+            try { nativeGenerate(request.prompt, request.maxTokens, request.temperature, request.topP) }
+            finally { generating = false; if (!closed) state = State.READY }
         }
         return try {
-            task.get(timeoutMs, TimeUnit.MILLISECONDS)
+            task.get(request.timeoutMs, TimeUnit.MILLISECONDS)
         } catch (timeout: TimeoutException) {
-            nativeCancel()
+            state = State.CANCELLING; nativeCancel()
             task.get()
             "{\"ok\":false,\"text\":\"\",\"tokensGenerated\":0,\"ttftMs\":0,\"totalMs\":0,\"cancelled\":true,\"error\":\"TIMEOUT\"}"
         }
     }
+    fun generate(prompt: String, maxTokens: Int = 96, temperature: Float = 0f, topP: Float = 0.9f, timeoutMs: Long = 20_000) = generate(GenerateRequest(prompt, maxTokens, temperature, topP, timeoutMs = timeoutMs))
     fun cancel() { nativeCancel() }
-    override fun close() { if (!closed) { closed = true; nativeCancel(); worker.submit { nativeUnload() }.get(); worker.shutdown() } }
+    fun status(): String = "{\"modelId\":\"$activeModelId\",\"state\":\"$state\",\"metrics\":${nativeGetMetrics()}}"
+    override fun close() { if (!closed) { closed = true; state = State.CANCELLING; nativeCancel(); worker.submit { nativeUnload(); state = State.UNLOADED }.get(); worker.shutdown() } }
     private fun checkNative(envelope: String): String {
         check(envelope.contains("\"ok\":true")) { envelope }
         return envelope
