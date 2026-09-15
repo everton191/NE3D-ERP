@@ -13,7 +13,7 @@ class LlamaCppBackend(private val context: Context) : AutoCloseable {
     data class ModelConfig(val modelId: String, val modelFile: File, val sha256: String = "", val contextSize: Int = 1024, val threads: Int = 0, val batchSize: Int = 0)
     data class GenerateRequest(val prompt: String, val maxTokens: Int = 96, val temperature: Float = 0f, val topP: Float = .9f, val grammar: String? = null, val timeoutMs: Long = 20_000)
     enum class State { UNLOADED, LOADING, LOADED, WARMING, READY, GENERATING, CANCELLING, FAILED }
-    private val worker = Executors.newSingleThreadExecutor { Thread(it, "functiongemma-cpu").apply { priority = Thread.NORM_PRIORITY - 1 } }
+    private val worker = Executors.newSingleThreadExecutor { Thread(it, "local-llama-cpu").apply { priority = Thread.NORM_PRIORITY - 1 } }
     @Volatile private var closed = false
     @Volatile private var generating = false
     @Volatile private var state = State.UNLOADED
@@ -31,9 +31,13 @@ class LlamaCppBackend(private val context: Context) : AutoCloseable {
         // Native libs remain mmap-able directly from the APK (extractNativeLibs=false).
         // JNI selects dotprod only when the device advertises ASIMDDP.
         checkNative(nativeInit(context.applicationInfo.sourceDir))
-        checkNative(nativeLoadModel(config.modelFile.absolutePath)); activeModelId = config.modelId; state = State.LOADED
+        check(config.contextSize in 256..16_384) { "LOCAL_LLAMA_CONTEXT_INVALID" }
+        check(config.batchSize in 0..1_024) { "LOCAL_LLAMA_BATCH_INVALID" }
+        check(config.threads in 0..8) { "LOCAL_LLAMA_THREADS_INVALID" }
+        checkNative(nativeLoadModel(config.modelFile.absolutePath, config.contextSize, config.batchSize, config.threads)); activeModelId = config.modelId; state = State.LOADED
     }
-    fun load(file: File, expectedSha256: String) = loadModel(ModelConfig("functiongemma-270m-it-q8_0", file, expectedSha256))
+    /** Compatibility bridge for the archived FunctionGemma runtime; no active plugin calls it. */
+    fun load(file: File, expectedSha256: String) = loadModel(ModelConfig("archived-functiongemma", file, expectedSha256, 512, 2, 64))
     fun warmup() = worker.submit { check(state == State.LOADED || state == State.READY) { "LOCAL_LLAMA_NOT_LOADED" }; state = State.WARMING; checkNative(nativeWarmup()); state = State.READY }
 
     /** Runs only on the dedicated worker. Timeout requests cancellation, never concurrent unload. */
@@ -62,11 +66,11 @@ class LlamaCppBackend(private val context: Context) : AutoCloseable {
         return envelope
     }
     private external fun nativeInit(nativeLibraryDir: String): String
-    private external fun nativeLoadModel(path: String): String
+    private external fun nativeLoadModel(path: String, contextSize: Int, batchSize: Int, threads: Int): String
     private external fun nativeWarmup(): String
     private external fun nativeGenerate(prompt: String, maxTokens: Int, temperature: Float, topP: Float): String
     private external fun nativeCancel()
     private external fun nativeUnload()
     external fun nativeGetMetrics(): String
-    companion object { init { System.loadLibrary("functiongemma_jni") } }
+    companion object { init { System.loadLibrary("local_llama_jni") } }
 }

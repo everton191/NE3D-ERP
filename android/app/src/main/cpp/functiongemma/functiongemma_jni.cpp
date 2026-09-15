@@ -22,14 +22,14 @@ long long loadMs = 0, warmupMs = 0, lastTtftMs = 0, lastTotalMs = 0;
 long long lastPrefillMs = 0;
 int lastTokens = 0, lastPromptTokens = 0;
 std::string selectedBackend = "none";
-constexpr int32_t kContextSize = 512;
+int32_t contextSize = 1024;
 // Tool prompts are intentionally compact. 64 cuts the CPU work buffer roughly
 // in half while keeping the common 59-token navigation prompt in one prefill.
-constexpr int32_t kBatchSize = 64;
+int32_t batchSize = 64;
 // Keep two cores free for WebView/render/input work. On the Zenfone 8 the
 // dot-product backend remains comfortably sub-second for warm tool calls with
 // two inference threads, while sustained calls contend less with the UI.
-constexpr int32_t kThreadCount = 2;
+int32_t threadCount = 2;
 
 jstring result(JNIEnv * env, const std::string & value) { return env->NewStringUTF(value.c_str()); }
 std::string errorResult(const char * code, bool wasCancelled = false) {
@@ -52,8 +52,8 @@ void llamaLogCallback(enum ggml_log_level level, const char * text, void *) {
 }
 bool decodeTokens(const std::vector<llama_token> & tokens) {
     __android_log_print(ANDROID_LOG_INFO, "FunctionGemma", "decoding prompt tokens=%zu", tokens.size());
-    for (size_t offset = 0; offset < tokens.size(); offset += kBatchSize) {
-        const int32_t count = static_cast<int32_t>(std::min<size_t>(kBatchSize, tokens.size() - offset));
+    for (size_t offset = 0; offset < tokens.size(); offset += batchSize) {
+        const int32_t count = static_cast<int32_t>(std::min<size_t>(batchSize, tokens.size() - offset));
         llama_batch batch = llama_batch_init(count, 0, 1);
         batch.n_tokens = count;
         for (int32_t i = 0; i < count; ++i) { batch.token[i] = tokens[offset + i]; batch.pos[i] = static_cast<llama_pos>(offset + i); batch.n_seq_id[i] = 1; batch.seq_id[i][0] = 0; batch.logits[i] = offset + i + 1 == tokens.size(); }
@@ -93,10 +93,14 @@ extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nat
     llama_backend_init(); backendInitialized = true;
     return result(env, "{\"ok\":true,\"backend\":\"" + selectedBackend + "\"}");
 }
-extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeLoadModel(JNIEnv * env, jobject, jstring pathValue) {
+extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeLoadModel(JNIEnv * env, jobject, jstring pathValue, jint requestedContextSize, jint requestedBatchSize, jint requestedThreads) {
     std::lock_guard<std::mutex> lock(gate); if (!backendInitialized.load()) return result(env, errorResult("BACKEND_NOT_INITIALIZED"));
     const char * path = env->GetStringUTFChars(pathValue, nullptr); if (!path) return result(env, errorResult("MODEL_PATH_INVALID"));
-    __android_log_print(ANDROID_LOG_INFO, "FunctionGemma", "loading GGUF from %s", path);
+    if (requestedContextSize < 256 || requestedContextSize > 16384 || requestedBatchSize < 0 || requestedBatchSize > 1024 || requestedThreads < 0 || requestedThreads > 8) return result(env, errorResult("MODEL_CONFIG_INVALID"));
+    contextSize = requestedContextSize;
+    batchSize = requestedBatchSize > 0 ? requestedBatchSize : 64;
+    threadCount = requestedThreads > 0 ? requestedThreads : 2;
+    __android_log_print(ANDROID_LOG_INFO, "LocalLlama", "loading GGUF from %s context=%d batch=%d threads=%d", path, contextSize, batchSize, threadCount);
     freeContextLocked(); freeModelLocked(); cancelled = false; const auto started = std::chrono::steady_clock::now(); model = llama_model_load_from_file(path, llama_model_default_params()); env->ReleaseStringUTFChars(pathValue, path);
     loadMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
     return result(env, model ? "{\"ok\":true,\"loadMs\":" + std::to_string(loadMs) + "}" : errorResult("MODEL_LOAD_FAILED"));
@@ -104,11 +108,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nat
 extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeWarmup(JNIEnv * env, jobject) {
     std::lock_guard<std::mutex> lock(gate); if (!model) return result(env, errorResult("MODEL_NOT_LOADED")); freeContextLocked();
     auto params = llama_context_default_params();
-    params.n_ctx = kContextSize;
-    params.n_batch = kBatchSize;
-    params.n_ubatch = kBatchSize;
-    params.n_threads = kThreadCount;
-    params.n_threads_batch = kThreadCount;
+    params.n_ctx = contextSize;
+    params.n_batch = batchSize;
+    params.n_ubatch = batchSize;
+    params.n_threads = threadCount;
+    params.n_threads_batch = threadCount;
     context = llama_init_from_model(model, params); if (context) llama_set_abort_callback(context, abortCallback, nullptr);
     if (!context) return result(env, errorResult("CONTEXT_INIT_FAILED"));
     const llama_vocab * vocab = llama_model_get_vocab(model);
@@ -123,7 +127,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nat
     warmupMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
     if (decoded != 0 || cancelled.load()) return result(env, errorResult(cancelled.load() ? "CANCELLED" : "WARMUP_FAILED", cancelled.load()));
     __android_log_print(ANDROID_LOG_INFO, "FunctionGemma", "warmup complete ms=%lld", warmupMs);
-    return result(env, "{\"ok\":true,\"contextTokens\":" + std::to_string(kContextSize) + ",\"batchTokens\":" + std::to_string(kBatchSize) + ",\"threads\":" + std::to_string(kThreadCount) + ",\"warmupMs\":" + std::to_string(warmupMs) + "}");
+    return result(env, "{\"ok\":true,\"contextTokens\":" + std::to_string(contextSize) + ",\"batchTokens\":" + std::to_string(batchSize) + ",\"threads\":" + std::to_string(threadCount) + ",\"warmupMs\":" + std::to_string(warmupMs) + "}");
 }
 extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeGenerate(JNIEnv * env, jobject, jstring promptValue, jint maxTokens, jfloat temperature, jfloat topP) {
     std::lock_guard<std::mutex> lock(gate);
@@ -176,4 +180,4 @@ extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nat
 }
 extern "C" JNIEXPORT void JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeCancel(JNIEnv *, jobject) { cancelled = true; }
 extern "C" JNIEXPORT void JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeUnload(JNIEnv *, jobject) { std::lock_guard<std::mutex> lock(gate); cancelled = true; freeContextLocked(); freeModelLocked(); cancelled = false; }
-extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeGetMetrics(JNIEnv * env, jobject) { std::lock_guard<std::mutex> lock(gate); return result(env, "{\"backend\":\"" + selectedBackend + "\",\"loadMs\":" + std::to_string(loadMs) + ",\"warmupMs\":" + std::to_string(warmupMs) + ",\"promptTokens\":" + std::to_string(lastPromptTokens) + ",\"prefillMs\":" + std::to_string(lastPrefillMs) + ",\"ttftMs\":" + std::to_string(lastTtftMs) + ",\"totalMs\":" + std::to_string(lastTotalMs) + ",\"tokensGenerated\":" + std::to_string(lastTokens) + ",\"contextTokens\":" + std::to_string(kContextSize) + ",\"batchTokens\":" + std::to_string(kBatchSize) + ",\"threads\":" + std::to_string(kThreadCount) + ",\"loaded\":" + (model ? "true" : "false") + "}"); }
+extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeGetMetrics(JNIEnv * env, jobject) { std::lock_guard<std::mutex> lock(gate); return result(env, "{\"backend\":\"" + selectedBackend + "\",\"loadMs\":" + std::to_string(loadMs) + ",\"warmupMs\":" + std::to_string(warmupMs) + ",\"promptTokens\":" + std::to_string(lastPromptTokens) + ",\"prefillMs\":" + std::to_string(lastPrefillMs) + ",\"ttftMs\":" + std::to_string(lastTtftMs) + ",\"totalMs\":" + std::to_string(lastTotalMs) + ",\"tokensGenerated\":" + std::to_string(lastTokens) + ",\"contextTokens\":" + std::to_string(contextSize) + ",\"batchTokens\":" + std::to_string(batchSize) + ",\"threads\":" + std::to_string(threadCount) + ",\"loaded\":" + (model ? "true" : "false") + "}"); }

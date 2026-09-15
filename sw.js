@@ -53,7 +53,6 @@ const APP_FILES = [
   "./src/assistant-core/models/device-capability-profiler.js",
   "./src/assistant-core/engine/assistant-core.js",
   "./apps/simplifica/assistant-pack/index.js",
-  "./models/functiongemma/web-artifacts.js",
   "./src/ai/action-registry.js",
   "./src/ai/action-search.js",
   "./src/ai/workflow-tool-graph.js",
@@ -62,12 +61,6 @@ const APP_FILES = [
   "./src/ai/result-envelope.js",
   "./src/ai/tool-calling-model.js",
   "./src/ai/local-tool-model-adapter.js",
-  "./src/ai/functiongemma-adapter.js",
-  "./src/ai/functiongemma-native-runtime.js",
-  "./src/ai/functiongemma-web-runtime.js",
-  "./assets/vendor/wllama/index.min.js",
-  "./assets/vendor/wllama/wllama.wasm",
-  "./assets/vendor/wllama/LICENCE",
   "./src/ai-3d/core.js",
   "./src/ai-3d/operation-safety.js",
   "./src/ai-3d/canonical-order.js",
@@ -129,7 +122,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
-  if (/^\/models\/functiongemma\/.*\.gguf$/i.test(url.pathname)) {
+  if (/\.gguf$/i.test(url.pathname)) {
     // O GGUF já possui armazenamento próprio, checksum e retomada. Nunca duplique
     // centenas de MB no Cache Storage do service worker.
     event.respondWith(fetch(event.request));

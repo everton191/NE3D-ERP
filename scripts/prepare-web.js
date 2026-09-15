@@ -4,26 +4,6 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist");
 const includeReleaseDownloads = !process.argv.includes("--without-downloads");
-const includeWebAiSmoke = process.argv.includes("--with-web-ai-smoke");
-const functionGemmaFileName = "functiongemma-270m-it-39eccb091651513a5dfb56892d3714c1b5b8276c-Q8_0.gguf";
-const functionGemmaSource = process.env.SIMPLIFICA_FUNCTIONGEMMA_GGUF
-  || path.join("D:\\AI-Models", "FunctionGemma", "artifacts", functionGemmaFileName);
-const functionGemmaDescriptor = Object.freeze({
-  id: "functiongemma-270m-it-q8_0-web",
-  modelId: "functiongemma-270m-it-q8_0-web",
-  displayName: "FunctionGemma Q8 — Web",
-  version: "0.2.0-q8_0+39eccb091651513a5dfb56892d3714c1b5b8276c",
-  runtime: "wllama-3.6.0-llama.cpp-wasm",
-  downloadBytes: 291557856,
-  sha256: "595b727d73a8e78cc8da03f12a947137818c6d3544be903eef8494824b2d5b47",
-  recommendedContext: 512,
-  supportedPlatforms: ["web", "pwa", "wasm"],
-  profile: "OPERATIONAL",
-  capabilities: { text: true, vision: false, audio: false, tools: true },
-  source: { repo: "google/functiongemma-270m-it", revision: "39eccb091651513a5dfb56892d3714c1b5b8276c", quantization: "Q8_0" },
-  status: "available",
-  rank: 100
-});
 const files = [
   "index.html",
   "style.css",
@@ -63,43 +43,12 @@ if (fs.existsSync(path.join(root, "assets"))) {
   fs.cpSync(path.join(root, "assets"), path.join(dist, "assets"), { recursive: true });
 }
 
-if (includeReleaseDownloads) {
-  const wllamaPackageDir = path.join(root, "node_modules", "@wllama", "wllama");
-  const wllamaTargetDir = path.join(dist, "assets", "vendor", "wllama");
-  const wllamaFiles = [
-    [path.join(wllamaPackageDir, "esm", "index.min.js"), "index.min.js"],
-    [path.join(wllamaPackageDir, "esm", "wasm", "wllama.wasm"), "wllama.wasm"],
-    [path.join(wllamaPackageDir, "LICENCE"), "LICENCE"]
-  ];
-  for (const [source, targetName] of wllamaFiles) {
-    if (!fs.existsSync(source)) throw new Error(`Runtime Web oficial ausente: ${source}`);
-    fs.mkdirSync(wllamaTargetDir, { recursive: true });
-    fs.copyFileSync(source, path.join(wllamaTargetDir, targetName));
-  }
-}
-
-if (fs.existsSync(path.join(root, "models"))) {
-  fs.cpSync(path.join(root, "models"), path.join(dist, "models"), { recursive: true });
-}
-
-const functionGemmaTargetDir = path.join(dist, "models", "functiongemma");
-fs.mkdirSync(functionGemmaTargetDir, { recursive: true });
-const includeFunctionGemmaWeb = includeReleaseDownloads && fs.existsSync(functionGemmaSource)
-  && fs.statSync(functionGemmaSource).size === functionGemmaDescriptor.downloadBytes;
-if (includeFunctionGemmaWeb) {
-  fs.copyFileSync(functionGemmaSource, path.join(functionGemmaTargetDir, functionGemmaFileName));
-}
-const webArtifacts = includeFunctionGemmaWeb
-  ? [{ ...functionGemmaDescriptor, url: `/models/functiongemma/${functionGemmaFileName}` }]
-  : [];
-fs.writeFileSync(
-  path.join(functionGemmaTargetDir, "web-artifacts.js"),
-  `(function(g){g.SimplificaWebAiArtifacts=Object.freeze(${JSON.stringify(webArtifacts)});})(window);\n`,
-  "utf8"
-);
-if (includeWebAiSmoke && includeFunctionGemmaWeb) {
-  fs.copyFileSync(path.join(root, "scripts", "fixtures", "functiongemma-web-smoke.html"), path.join(dist, "__functiongemma-web-smoke.html"));
-}
+// GGUF artifacts are development/device inputs, never Web, PWA, or APK assets.
+// Keep this as an allowlist: adding a file to models/ does not publish it implicitly.
+const publicModelFiles = ["models/models-manifest.v1.json"];
+publicModelFiles.forEach((relativePath) => {
+  if (fs.existsSync(path.join(root, relativePath))) copyFile(relativePath);
+});
 
 const publicSrcFiles = [
   "src/config/runtimeFeatures.js",
@@ -127,9 +76,6 @@ const publicSrcFiles = [
   "src/ai/result-envelope.js",
   "src/ai/tool-calling-model.js",
   "src/ai/local-tool-model-adapter.js",
-  "src/ai/functiongemma-adapter.js",
-  "src/ai/functiongemma-native-runtime.js",
-  "src/ai/functiongemma-web-runtime.js",
   "src/ai-3d/core.js",
   "src/ai-3d/operation-safety.js",
   "src/ai-3d/canonical-order.js",
@@ -192,4 +138,17 @@ publicModuleDirs.forEach((relativePath) => {
   }
 });
 
-console.log("Arquivos web preparados em dist/");
+function assertNoLocalModelArtifactsInWebBuild() {
+  const forbidden = [];
+  const walk = (directory) => fs.readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
+    const child = path.join(directory, entry.name);
+    if (entry.isDirectory()) return walk(child);
+    if (entry.name.toLowerCase().endsWith(".gguf")) forbidden.push(path.relative(dist, child));
+  });
+  walk(dist);
+  if (fs.existsSync(path.join(dist, "models", "local"))) forbidden.push("models/local");
+  if (forbidden.length) throw new Error(`Artefatos locais de modelo proibidos no build Web: ${forbidden.join(", ")}`);
+}
+
+assertNoLocalModelArtifactsInWebBuild();
+console.log("Arquivos web preparados em dist/ sem GGUFs locais.");

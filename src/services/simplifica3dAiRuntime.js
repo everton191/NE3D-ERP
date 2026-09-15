@@ -1,15 +1,13 @@
 (function attachSimplifica3dAiRuntime(global) {
   "use strict";
 
-  const FUNCTIONGEMMA_MODEL_ID = "functiongemma-270m-it-q8_0";
   const LFM_Q4_MODEL_ID = "lfm2.5-1.2b-q4_0";
   const LFM_MODEL_ID = "lfm2.5-1.2b-q6_k";
   // The candidate has no verified GGUF metadata yet. It is deliberately selectable
   // for integration tests, but cannot load or silently replace the fallback.
   const MODEL_CATALOG = Object.freeze({
-    [FUNCTIONGEMMA_MODEL_ID]: Object.freeze({ id: FUNCTIONGEMMA_MODEL_ID, available: true, fallback: true }),
-    [LFM_Q4_MODEL_ID]: Object.freeze({ id: LFM_Q4_MODEL_ID, available: false, experimental: true, reason: "LFM_ARTIFACT_UNVERIFIED" }),
-    [LFM_MODEL_ID]: Object.freeze({ id: LFM_MODEL_ID, available: false, experimental: true, reason: "LFM_ARTIFACT_UNVERIFIED" }),
+    [LFM_Q4_MODEL_ID]: Object.freeze({ id: LFM_Q4_MODEL_ID, available: true, fallback: true }),
+    [LFM_MODEL_ID]: Object.freeze({ id: LFM_MODEL_ID, available: true, experimental: true }),
     disabled: Object.freeze({ id: "disabled", available: false })
   });
   const WEB_MODEL_ID = "functiongemma-270m-it-q8_0-web";
@@ -37,7 +35,7 @@
   }
   function selectedModelId() {
     const requested = String(global.SIMPLIFICA_AI_TOOL_MODEL || global.__SIMPLIFICA_AI_TOOL_MODEL__ || "").trim();
-    return MODEL_CATALOG[requested] ? requested : FUNCTIONGEMMA_MODEL_ID;
+    return MODEL_CATALOG[requested] ? requested : LFM_Q4_MODEL_ID;
   }
   function modelSelection() { const id = selectedModelId(); return Object.freeze({ ...MODEL_CATALOG[id], selected: id, writeExposed: 0 }); }
 
@@ -90,7 +88,10 @@
     const selection = modelSelection();
     if (selection.selected === "disabled") throw new Error("AI_TOOL_MODEL_DISABLED");
     if (!selection.available) throw new Error(selection.reason || "AI_TOOL_MODEL_UNAVAILABLE");
-    return prepareFunctionGemma(); // compatibility adapter until a verified LFM runtime is installed
+    const plugin = nativePlugin();
+    if (!plugin?.loadLocalModel || !plugin?.warmupLocalModel) throw new Error("LOCAL_LLM_PLUGIN_UNAVAILABLE");
+    await plugin.loadLocalModel({ modelId: selection.selected });
+    return plugin.warmupLocalModel();
   }
 
   async function predictTool(text, context = {}, { shadow = false } = {}) {
@@ -117,8 +118,9 @@
     const candidates = selection.candidates;
     if (!candidates.length) return finish({ kind: "NO_TOOL", reason: "NO_ACTION_SEARCH_MATCH" }, "functiongemma");
     await prepareSelectedModel();
-    const result = await adapter.generateToolCall({ command: text, tools: candidates, context: selection.context });
-    return finish({ ...result, intent: result.tool || "local-tool-model", workflow: { candidates, maxTopK: selection.maxTopK } }, "local-tool-model");
+    // The generic LFM bridge intentionally does not turn generated text into ERP calls.
+    // Tool execution remains fail-closed until a schema-constrained adapter is validated.
+    return finish({ kind: "NO_TOOL", reason: "LOCAL_LLM_TOOL_ADAPTER_NOT_VALIDATED", workflow: { candidates, maxTopK: selection.maxTopK } }, "local-tool-model");
   }
 
   async function predictToolShadow(text, context = {}) { return predictTool(text, context, { shadow: true }); }

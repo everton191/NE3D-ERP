@@ -1,11 +1,8 @@
 package br.com.ne3d.erp
 
-import android.app.ActivityManager
 import android.net.Uri
 import android.os.Build
-import br.com.ne3d.erp.ai.FunctionGemmaModelInstaller
-import br.com.ne3d.erp.ai.FunctionGemmaToolPolicy
-import br.com.ne3d.erp.ai.FunctionGemmaToolRuntime
+import br.com.ne3d.erp.ai.LlamaCppBackend
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -13,177 +10,52 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.Executors
-import org.json.JSONArray
-import org.json.JSONObject
 
-/** Ponte Android exclusiva do FunctionGemma. Não oferece chat nem execução de WRITE. */
+/** Generic CPU-only bridge for verified local GGUF artifacts; it never executes ERP actions. */
 @CapacitorPlugin(name = "SimplificaLocalAi")
 class SimplificaLocalAiPlugin : Plugin() {
-    private val executor = Executors.newSingleThreadExecutor()
-    @Volatile private var functionGemmaRuntime: FunctionGemmaToolRuntime? = null
+    private data class Model(val id: String, val name: String, val fileName: String, val sha: String, val bytes: Long)
+    private val catalog = listOf(
+        Model("lfm2.5-1.2b-q4_0", "LFM2.5 1.2B Instruct Q4_0", "LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf", "bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1", 695755488),
+        Model("lfm2.5-1.2b-q6_k", "LFM2.5 1.2B Instruct Q6_K", "LFM2.5-1.2B-Instruct-Q6_K.gguf", "c5e895c191a066f6b26a8f09f10e94cdb799e579216f87df61a7e27beacd9a2b", 962843456)
+    )
+    private val worker = Executors.newSingleThreadExecutor()
+    @Volatile private var runtime: LlamaCppBackend? = null
+    @Volatile private var active: Model? = null
+    private fun model(id: String) = catalog.firstOrNull { it.id == id } ?: error("LOCAL_MODEL_UNSUPPORTED")
+    private fun location(item: Model) = File(File(context.filesDir, "models/lfm2"), item.fileName)
+    private fun engine() = synchronized(this) { runtime ?: LlamaCppBackend(context).also { runtime = it } }
 
-    override fun load() {
-        super.load()
-        executor.execute { removeLegacyModelArtifacts() }
+    @PluginMethod fun status(call: PluginCall) = localLlmStatus(call)
+    @PluginMethod fun ensureModel(call: PluginCall) = localLlmStatus(call)
+    @PluginMethod fun listModels(call: PluginCall) = worker.execute {
+        val models = JSArray(); catalog.forEach { item -> models.put(JSObject().apply { put("id", item.id); put("displayName", item.name); put("downloadBytes", item.bytes); put("sha256", item.sha); put("installed", verified(item, location(item))); put("available", verified(item, location(item))); put("compatible", Build.SUPPORTED_ABIS.any { it.equals("arm64-v8a", true) }); put("text", true); put("vision", false); put("audio", false); put("tools", false) }) }
+        call.resolve(JSObject().put("models", models).put("selection", active?.id ?: catalog.first().id).put("writeExposed", 0))
     }
-
-    private fun functionRuntime(): FunctionGemmaToolRuntime = synchronized(this) {
-        functionGemmaRuntime ?: FunctionGemmaToolRuntime(context).also { functionGemmaRuntime = it }
-    }
-
-    @PluginMethod
-    fun status(call: PluginCall) = functionGemmaStatus(call)
-
-    @PluginMethod
-    fun listModels(call: PluginCall) = executor.execute {
-        val status = functionRuntime().status()
-        val item = JSObject().apply {
-            put("id", MODEL_ID); put("displayName", "FunctionGemma 270M Q8_0"); put("profile", "OPERATIONAL")
-            put("version", SOURCE_REVISION); put("downloadBytes", FunctionGemmaModelInstaller.EXPECTED_BYTES)
-            put("installed", status.optBoolean("installed", false)); put("available", status.optBoolean("installed", false))
-            put("compatible", Build.SUPPORTED_ABIS.any { it.equals("arm64-v8a", ignoreCase = true) })
-            put("text", true); put("vision", false); put("audio", false); put("tools", true)
-        }
-        call.resolve(JSObject().put("models", JSArray().put(item)).put("selection", MODEL_ID).put("enabled", true).put("writeExposed", 0))
-    }
-
-    @PluginMethod
-    fun profileDevice(call: PluginCall) = executor.execute {
-        val memoryInfo = ActivityManager.MemoryInfo()
-        (context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(memoryInfo)
-        call.resolve(JSObject().apply {
-            put("totalMemoryBytes", memoryInfo.totalMem); put("availableMemoryBytes", memoryInfo.availMem)
-            put("abis", JSArray(Build.SUPPORTED_ABIS.toList())); put("runtime", "llama.cpp-arm64-cpu")
-            put("backendPolicy", "CPU_ONLY"); put("activeBackend", "llama.cpp")
-        })
-    }
-
-    @PluginMethod
-    fun ensureModel(call: PluginCall) = functionGemmaStatus(call)
-
-    /** Importa o GGUF para storage privado somente após tamanho e SHA-256 completos. */
-    @PluginMethod
-    fun importFunctionGemma(call: PluginCall) = executor.execute {
-        val source = call.getString("uri", "")?.trim().orEmpty()
-        if (source.isEmpty()) { call.reject("Informe o arquivo FunctionGemma.", "FUNCTIONGEMMA_URI_REQUIRED"); return@execute }
+    @PluginMethod fun importModel(call: PluginCall) = worker.execute {
         try {
-            val uri = Uri.parse(source)
-            val input = when (uri.scheme) {
-                "content" -> context.contentResolver.openInputStream(uri)
-                "file" -> uri.path?.let(::File)?.inputStream()
-                else -> null
-            } ?: throw IllegalArgumentException("FUNCTIONGEMMA_SOURCE_UNREADABLE")
-            val installed = FunctionGemmaModelInstaller.install(context, input)
-            call.resolve(JSObject().put("installed", true).put("path", installed.file.absolutePath).put("bytes", installed.bytes).put("sha256", installed.sha256).put("writeExposed", 0))
-        } catch (error: Exception) {
-            call.reject("Não foi possível verificar o arquivo FunctionGemma.", "FUNCTIONGEMMA_IMPORT_FAILED", error)
-        }
+            val item = model(call.getString("modelId", "") ?: ""); val raw = call.getString("uri", "")?.trim().orEmpty(); require(raw.isNotEmpty()) { "LOCAL_MODEL_URI_REQUIRED" }
+            val uri = Uri.parse(raw); val input = when (uri.scheme) { "content" -> context.contentResolver.openInputStream(uri); "file" -> uri.path?.let(::File)?.inputStream(); else -> null } ?: error("LOCAL_MODEL_SOURCE_UNREADABLE")
+            val target = location(item); target.parentFile?.mkdirs(); val pending = File(target.parentFile, target.name + ".part"); input.use { source -> pending.outputStream().use { source.copyTo(it) } }
+            check(verified(item, pending)) { "LOCAL_MODEL_INTEGRITY_FAILED" }; if (target.exists()) target.delete(); check(pending.renameTo(target)) { "LOCAL_MODEL_INSTALL_FAILED" }
+            call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("path", target.absolutePath).put("bytes", target.length()).put("sha256", item.sha).put("writeExposed", 0))
+        } catch (error: Exception) { call.reject("Não foi possível verificar o modelo local.", error.message ?: "LOCAL_MODEL_IMPORT_FAILED", error) }
     }
-
-    @PluginMethod
-    fun functionGemmaStatus(call: PluginCall) = executor.execute {
-        try { call.resolve(JSObject.fromJSONObject(functionRuntime().status())) }
-        catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
+    @PluginMethod fun localLlmStatus(call: PluginCall) = worker.execute { val item = active ?: catalog.first(); call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("installed", verified(item, location(item))).put("loaded", runtime != null).put("writeExposed", 0)) }
+    @PluginMethod fun loadLocalModel(call: PluginCall) = worker.execute {
+        try { val item = model(call.getString("modelId", catalog.first().id) ?: catalog.first().id); val file = location(item); check(verified(item, file)) { "LOCAL_MODEL_NOT_VERIFIED" }; engine().loadModel(LlamaCppBackend.ModelConfig(item.id, file, item.sha, 1024, 2, 64)).get(); active = item; call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("writeExposed", 0)) }
+        catch (error: Exception) { call.reject("Não foi possível carregar o modelo local.", error.message ?: "LOCAL_MODEL_LOAD_FAILED", error) }
     }
-
-    @PluginMethod
-    fun loadFunctionGemma(call: PluginCall) = executor.execute {
-        try { call.resolve(JSObject().put("ok", true).put("metrics", functionRuntime().load()).put("mode", "tool_call").put("writeExposed", 0)) }
-        catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
+    @PluginMethod fun warmupLocalModel(call: PluginCall) = worker.execute { try { engine().warmup().get(); call.resolve(JSObject().put("ok", true).put("metrics", engine().status()).put("writeExposed", 0)) } catch (error: Exception) { call.reject("Não foi possível aquecer o modelo local.", error.message ?: "LOCAL_MODEL_WARMUP_FAILED", error) } }
+    @PluginMethod fun generateLocal(call: PluginCall) = worker.execute {
+        try { val prompt = call.getString("prompt", "")?.trim().orEmpty(); require(prompt.isNotEmpty()) { "LOCAL_PROMPT_REQUIRED" }; val result = engine().generate(LlamaCppBackend.GenerateRequest(prompt, (call.getInt("maxTokens", 96) ?: 96).coerceIn(1, 128), call.getFloat("temperature", 0f) ?: 0f, call.getFloat("topP", .9f) ?: .9f, timeoutMs = (call.getLong("timeoutMs", 30000) ?: 30000).coerceIn(1000, 60000))); call.resolve(JSObject().put("ok", true).put("result", result).put("writeExposed", 0)) }
+        catch (error: Exception) { call.reject("Não foi possível gerar texto localmente.", error.message ?: "LOCAL_GENERATION_FAILED", error) }
     }
-
-    @PluginMethod
-    fun warmupFunctionGemma(call: PluginCall) = executor.execute {
-        try { call.resolve(JSObject().put("ok", true).put("metrics", functionRuntime().warmup()).put("mode", "tool_call").put("writeExposed", 0)) }
-        catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
-    }
-
-    /** Retorna apenas uma previsão validada; nunca executa uma ação do ERP. */
-    @PluginMethod
-    fun predictFunctionGemma(call: PluginCall) = executor.execute {
-        try {
-            val command = call.getString("command", "")?.trim().orEmpty()
-            val tools = parseFunctionGemmaTools(call.getArray("tools", JSArray()) ?: JSArray())
-            val blockedAliases = stringList(call.getArray("blockedWriteAliases", JSArray()) ?: JSArray(), 100)
-            val prediction = functionRuntime().predict(command, tools, blockedAliases)
-            val decision = prediction.decision
-            call.resolve(JSObject().apply {
-                put("ok", true); put("kind", decision.kind); put("tool", decision.canonicalId ?: "")
-                put("wireTool", decision.wireName ?: ""); put("rawTool", decision.rawTool ?: "")
-                put("arguments", JSONObject(decision.arguments)); put("reason", decision.reason)
-                put("shadow", false); put("writeExposed", 0); put("metrics", prediction.metrics); put("envelope", prediction.envelope)
-            })
-        } catch (error: Exception) { call.resolve(functionGemmaFailure(error)) }
-    }
-
-    @PluginMethod
-    fun cancelFunctionGemma(call: PluginCall) {
-        functionGemmaRuntime?.cancel()
-        call.resolve(JSObject().put("ok", true).put("cancelled", true).put("writeExposed", 0))
-    }
-
-    @PluginMethod
-    fun unloadFunctionGemma(call: PluginCall) = executor.execute {
-        synchronized(this) { functionGemmaRuntime?.close(); functionGemmaRuntime = null }
-        call.resolve(JSObject().put("ok", true).put("unloaded", true).put("writeExposed", 0))
-    }
-
-    @PluginMethod
-    fun unload(call: PluginCall) = unloadFunctionGemma(call)
-
-    private fun parseFunctionGemmaTools(items: JSArray): List<FunctionGemmaToolRuntime.Tool> {
-        require(items.length() in 1..5) { "FUNCTIONGEMMA_TOP_K_INVALID" }
-        return (0 until items.length()).map { index ->
-            val item = items.getJSONObject(index)
-            val propertiesArray = item.optJSONArray("properties") ?: JSONArray()
-            val properties = (0 until propertiesArray.length()).map { propertyIndex ->
-                val property = propertiesArray.getJSONObject(propertyIndex)
-                FunctionGemmaToolRuntime.Property(property.getString("name"), property.optString("type", "STRING").uppercase(), property.optString("description", ""))
-            }
-            val fixed = linkedMapOf<String, Any>()
-            item.optJSONObject("fixedArguments")?.let { value -> value.keys().forEach { key -> value.opt(key)?.takeIf { it != JSONObject.NULL }?.let { fixed[key] = it } } }
-            val requiredAll = stringSet(item.optJSONArray("requiredAll") ?: JSONArray(), 20)
-            val requiredAny = stringSet(item.optJSONArray("requiredAny") ?: JSONArray(), 20)
-            val allowed = properties.map { it.name }.toSet() + fixed.keys + requiredAll + requiredAny
-            FunctionGemmaToolRuntime.Tool(
-                FunctionGemmaToolPolicy.Contract(
-                    canonicalId = item.getString("id"), wireName = item.getString("wireName"),
-                    operationType = item.optString("operationType", "READ").uppercase(), allowedArguments = allowed,
-                    requiredAll = requiredAll, requiredAny = requiredAny, fixedArguments = fixed,
-                    semanticAnchors = stringSet(item.optJSONArray("anchors") ?: JSONArray(), 30)
-                ),
-                description = item.getString("description"), properties = properties
-            )
-        }
-    }
-
-    private fun stringSet(items: JSONArray, limit: Int): Set<String> = stringList(items, limit).toSet()
-    private fun stringList(items: JSONArray, limit: Int): List<String> {
-        require(items.length() <= limit) { "FUNCTIONGEMMA_LIST_TOO_LARGE" }
-        return (0 until items.length()).map { items.getString(it).trim() }.filter { it.isNotBlank() }
-    }
-
-    private fun functionGemmaFailure(error: Exception): JSObject = JSObject().apply {
-        put("ok", false); put("kind", "NO_TOOL"); put("state", "DEGRADED")
-        put("reason", error.message ?: "FUNCTIONGEMMA_FAILED"); put("shadow", false); put("writeExposed", 0)
-    }
-
-    private fun removeLegacyModelArtifacts() {
-        val legacyRoot = File(File(context.filesDir, "models"), "gemma-4-e2b-it")
-        if (legacyRoot.exists()) runCatching { legacyRoot.deleteRecursively() }
-        context.getSharedPreferences("simplifica_local_ai_v1", android.content.Context.MODE_PRIVATE).edit().clear().apply()
-    }
-
-    override fun handleOnDestroy() {
-        val runtime = synchronized(this) { val active = functionGemmaRuntime; functionGemmaRuntime = null; active }
-        runCatching { executor.execute { runtime?.close() } }
-        executor.shutdown()
-        super.handleOnDestroy()
-    }
-
-    private companion object {
-        const val MODEL_ID = "functiongemma-270m-it-q8_0"
-        const val SOURCE_REVISION = "39eccb091651513a5dfb56892d3714c1b5b8276c"
-    }
+    @PluginMethod fun cancelLocalModel(call: PluginCall) { runtime?.cancel(); call.resolve(JSObject().put("ok", true).put("cancelled", true).put("writeExposed", 0)) }
+    @PluginMethod fun unloadLocalModel(call: PluginCall) = worker.execute { synchronized(this) { runtime?.close(); runtime = null; active = null }; call.resolve(JSObject().put("ok", true).put("unloaded", true).put("writeExposed", 0)) }
+    @PluginMethod fun unload(call: PluginCall) = unloadLocalModel(call)
+    private fun verified(item: Model, file: File): Boolean { if (!file.isFile || file.length() != item.bytes) return false; val digest = MessageDigest.getInstance("SHA-256"); file.inputStream().use { input -> val buffer = ByteArray(1024 * 1024); while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) } }; return digest.digest().joinToString("") { "%02x".format(it) }.equals(item.sha, true) }
+    override fun handleOnDestroy() { val value = synchronized(this) { val current = runtime; runtime = null; active = null; current }; runCatching { worker.execute { value?.close() } }; worker.shutdown(); super.handleOnDestroy() }
 }

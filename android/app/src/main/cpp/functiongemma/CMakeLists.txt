@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(functiongemma_jni)
+project(local_llama_jni)
 # The app's Debug variant is installed on the physical Zenfone, but inference
 # must not run at compiler O0: it turns a small CPU model into a false timeout.
 set(CMAKE_C_FLAGS_DEBUG "-O3 -g" CACHE STRING "" FORCE)
@@ -18,6 +18,6 @@ set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "" FORCE)
 add_subdirectory(${LLAMA_SRC} ${CMAKE_BINARY_DIR}/llama)
-add_library(functiongemma_jni SHARED functiongemma_jni.cpp)
-target_include_directories(functiongemma_jni PRIVATE ${LLAMA_SRC}/include ${LLAMA_SRC}/ggml/include)
-target_link_libraries(functiongemma_jni llama ggml android log)
+add_library(local_llama_jni SHARED functiongemma_jni.cpp)
+target_include_directories(local_llama_jni PRIVATE ${LLAMA_SRC}/include ${LLAMA_SRC}/ggml/include)
+target_link_libraries(local_llama_jni llama ggml android log)

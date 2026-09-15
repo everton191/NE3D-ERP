@@ -7,6 +7,7 @@
     "build": "npm run build:web",
     "vercel-build": "node -e \"console.log('Build web preparado pelo buildCommand da Vercel.')\"",
     "build:web": "node scripts/prepare-web.js",
+    "test:web-build-model-boundary": "node scripts/test-web-build-no-local-model-artifacts.js",
     "build:web:ai-smoke": "node scripts/prepare-web.js --with-web-ai-smoke",
     "lint": "node --check app.js",
     "typecheck": "tsc -p tsconfig.ui-v3.json",
