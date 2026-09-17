@@ -1,0 +1,35 @@
+{
+  "version": "v2-draft",
+  "sources": [
+    "src/ai/action-registry.js",
+    "src/ai/capability-bundles.json",
+    "docs/quality/screen-inventory.md",
+    "docs/ai/FUNCTION_AUDIT.md"
+  ],
+  "dimensions": [
+    "direct",
+    "arguments",
+    "paraphrase",
+    "typo",
+    "unit_normalization",
+    "screen_context",
+    "entity_context",
+    "missing_data",
+    "ambiguity",
+    "negation",
+    "hypothetical",
+    "invalid_value",
+    "nearby_action_confusion",
+    "permission_risk",
+    "confirmation",
+    "short_multi_turn"
+  ],
+  "priorityDomains": ["orders", "inventory", "cash", "calculator", "production"],
+  "dispositions": ["CALL", "ASK_CLARIFICATION", "ANSWER_ONLY", "NO_CALL", "OUT_OF_DOMAIN", "CONFIRM", "REJECT"],
+  "rules": {
+    "preserveV1": true,
+    "noFreeWrite": true,
+    "noInventedIds": true,
+    "coverageGateNotRowCount": true
+  }
+}
