@@ -1,0 +1,18 @@
+{
+  "source": "C:\\Users\\PAESS\\OneDrive\\Documentos\\erpNE3d\\.projeto-ai\\logs\\smoke.raw.log",
+  "lines": 6,
+  "important": [
+    "warning: exemplo de aviso resumível",
+    "src/example.js:42 error: exemplo de falha principal",
+    "BUILD FAILED"
+  ],
+  "tail": [
+    "npm run build",
+    "warning: exemplo de aviso resumível",
+    "src/example.js:42 error: exemplo de falha principal",
+    "BUILD FAILED",
+    "última mensagem importante",
+    ""
+  ],
+  "generatedAt": "2026-08-16T15:13:26.826Z"
+}

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "litert": {
+      "implemented": true,
+      "deviceProofRequired": true
+    },
+    "llamaCpp": {
+      "implemented": false,
+      "reason": "Sem biblioteca nativa e catálogo GGUF validados neste checkout."
+    }
+  },
+  "capabilities": {
+    "orders.search": {
+      "enabled": true,
+      "mode": "deterministic",
+      "permission": "orders.read"
+    },
+    "orders.create": {
+      "enabled": true,
+      "mode": "confirmed-write",
+      "permission": "orders.write",
+      "confirmation": true
+    },
+    "stock.search": {
+      "enabled": true,
+      "mode": "deterministic",
+      "permission": "stock.read"
+    },
+    "cash.read": {
+      "enabled": true,
+      "mode": "deterministic",
+      "permission": "cash.read"
+    },
+    "navigation": {
+      "enabled": true,
+      "mode": "allowlisted",
+      "permission": "navigation.use"
+    },
+    "image.input": {
+      "enabled": "model-dependent",
+      "mode": "capability-gated"
+    }
+  },
+  "writePipeline": [
+    "intent",
+    "action-registry",
+    "schema",
+    "permission",
+    "plan-feature",
+    "confirmation",
+    "deterministic-service",
+    "result"
+  ],
+  "discoveredActionFiles": [
+    "docs/AI_PHASE_2C_ORDER_TRANSACTION_EXECUTOR.md",
+    "docs/AI_TOOL_CATALOG.md",
+    "docs/assistant/TOOL_REGISTRY.md",
+    "docs/releases/2026-05-31-store-editor-toolbar-release.md",
+    "docs/storefront-mobile-actions-bottom-sheet.md",
+    "docs/storefront-professional-actions-ui.md",
+    "src/assistant-core/tools/tool-registry.js",
+    "styles/ui-v3/actions.css",
+    "tools/simplifica-local-agent/README.md",
+    "tools/simplifica-local-agent/agent.js",
+    "tools/simplifica-local-agent/bambu-cloud.js",
+    "tools/simplifica-local-agent/bambu-setup.js",
+    "tools/simplifica-local-agent/config.example.json",
+    "tools/simplifica-local-agent/package-lock.json",
+    "tools/simplifica-local-agent/package.json",
+    "training/simplifica-lora/tool-catalog.json"
+  ],
+  "discoveryUpdatedAt": "2026-08-16T15:13:27.668Z"
+}

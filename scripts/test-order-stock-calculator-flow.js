@@ -41,10 +41,8 @@ assert.ok(
   app.includes('renderMaterialOptions(materialSelecionado, { emptyLabel: "Material não selecionado", includeAdd: false })'),
   "Calculadora não deve oferecer cadastro de material do estoque."
 );
-assert.ok(
-  app.includes("const novo = statusPedidoConsomeEstoque(pedidoNovo?.status) ? calcularConsumoMateriais"),
-  "Rascunho não deve baixar estoque."
-);
+assert.match(app, /function statusPedidoConsomeEstoque[\s\S]{0,140}SimplificaOrdersCommandService\.statusConsumesStock/, "Status de consumo deve delegar ao comando canônico.");
+assert.match(app, /function diffConsumoPedido[\s\S]{0,260}SimplificaOrdersCommandService\.diffStockConsumption/, "Diferença de consumo deve delegar ao comando canônico.");
 assert.ok(css.includes(".calc-batch-toggle"), "Check de impressão em lote deve seguir o design system.");
 assert.ok(css.includes(".order-stock-materials-title"), "Seção de materiais do pedido deve possuir contrato visual.");
 assert.ok(

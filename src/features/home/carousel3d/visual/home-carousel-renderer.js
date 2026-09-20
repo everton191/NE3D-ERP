@@ -1,0 +1,10 @@
+(function attachHomeCarouselRenderer(global) {
+  "use strict";
+  function createRenderer(canvas, engine, cards) {
+    if (!canvas || !canvas.getContext) throw new Error("HOME_CAROUSEL_CANVAS_REQUIRED"); const ctx = canvas.getContext("2d"); let disposed = false;
+    function render() { if (disposed) return; const width = canvas.width = canvas.clientWidth * (global.devicePixelRatio || 1); const height = canvas.height = canvas.clientHeight * (global.devicePixelRatio || 1); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, width, height); const list = cards(); const centerX = width / 2, centerY = height / 2, cardW = width * .52, cardH = height * .66; list.map(function (card, index) { return { card, t: engine.transform(index) }; }).sort(function (a, b) { return a.t.depth - b.t.depth; }).forEach(function (item) { const t = item.t, x = centerX + t.x * width * .32, y = centerY - t.depth * height * .045, w = cardW * t.scale, h = cardH * t.scale; ctx.save(); ctx.globalAlpha = t.alpha; ctx.translate(x, y); ctx.transform(1, 0, t.rotationY / 180, 1, 0, 0); const gradient = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2); gradient.addColorStop(0, "#0b3d42"); gradient.addColorStop(1, "#07151b"); ctx.fillStyle = gradient; ctx.shadowColor = "#00d4d4"; ctx.shadowBlur = 18 * t.scale; ctx.beginPath(); ctx.roundRect(-w / 2, -h / 2, w, h, Math.min(28, w * .08)); ctx.fill(); ctx.shadowBlur = 0; ctx.strokeStyle = "#3cffff"; ctx.lineWidth = 2; ctx.stroke(); ctx.fillStyle = "#eaffff"; ctx.font = "700 " + Math.round(Math.max(16, w * .09)) + "px system-ui"; ctx.fillText(item.card.title, -w * .36, -h * .23); ctx.fillStyle = "#71dad7"; ctx.font = "500 " + Math.round(Math.max(12, w * .05)) + "px system-ui"; ctx.fillText("Simplifica 3D", -w * .36, h * .25); ctx.restore(); }); engine.consumeRender(); }
+    return Object.freeze({ render, dispose: function () { disposed = true; } });
+  }
+  global.SimplificaHomeCarouselRenderer = Object.freeze({ createRenderer });
+  if (typeof module !== "undefined" && module.exports) module.exports = global.SimplificaHomeCarouselRenderer;
+})(typeof window !== "undefined" ? window : globalThis);

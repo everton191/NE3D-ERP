@@ -1,0 +1,1086 @@
+{
+  "generatedAt": "2026-09-18T21:41:13.128Z",
+  "source": "src/ai/action-registry.js",
+  "version": 1,
+  "totalActions": 52,
+  "implementedActions": 36,
+  "plannedActions": 16,
+  "domains": {
+    "navigation": [
+      "navigation.open"
+    ],
+    "orders": [
+      "orders.search",
+      "orders.get",
+      "orders.prepare_create",
+      "orders.prepare_update",
+      "orders.prepare_cancel",
+      "orders.commit_create",
+      "orders.update",
+      "orders.cancel"
+    ],
+    "customers": [
+      "customers.search",
+      "customers.get"
+    ],
+    "inventory": [
+      "inventory.search",
+      "inventory.get_roll",
+      "inventory.history",
+      "inventory.prepare_reservation",
+      "inventory.prepare_release",
+      "inventory.prepare_consume",
+      "inventory.reserve",
+      "inventory.release",
+      "inventory.consume"
+    ],
+    "cash": [
+      "cash.get_summary",
+      "cash.prepare_withdrawal",
+      "cash.commit_withdrawal",
+      "cash.prepare_deposit",
+      "cash.commit_deposit",
+      "cash.open_session",
+      "cash.prepare_close_session",
+      "cash.close_session"
+    ],
+    "calculator": [
+      "calculator.quote",
+      "calculator.batch"
+    ],
+    "production": [
+      "production.list_queue",
+      "production.prepare_job",
+      "production.commit_job",
+      "production.prepare_change_status",
+      "production.change_status"
+    ],
+    "products": [
+      "products.search"
+    ],
+    "printers": [
+      "printers.search"
+    ],
+    "reports": [
+      "reports.open"
+    ],
+    "fiscal": [
+      "fiscal.invoice.search",
+      "fiscal.invoice.details",
+      "fiscal.invoice.prepare_issue",
+      "fiscal.invoice.prepare_cancel",
+      "fiscal.invoice.prepare_correction",
+      "fiscal.settings",
+      "fiscal.certificate"
+    ],
+    "finance": [
+      "finance.accounts_payable",
+      "finance.accounts_receivable"
+    ],
+    "purchases": [
+      "purchases.search"
+    ],
+    "shipping": [
+      "shipping.status"
+    ],
+    "crm": [
+      "crm.search"
+    ],
+    "maintenance": [
+      "maintenance.list"
+    ],
+    "quality": [
+      "quality.search"
+    ]
+  },
+  "plannedActionIds": [
+    "customers.get",
+    "inventory.get_roll",
+    "fiscal.invoice.search",
+    "fiscal.invoice.details",
+    "fiscal.invoice.prepare_issue",
+    "fiscal.invoice.prepare_cancel",
+    "fiscal.invoice.prepare_correction",
+    "fiscal.settings",
+    "fiscal.certificate",
+    "finance.accounts_payable",
+    "finance.accounts_receivable",
+    "purchases.search",
+    "shipping.status",
+    "crm.search",
+    "maintenance.list",
+    "quality.search"
+  ],
+  "actions": [
+    {
+      "actionId": "navigation.open",
+      "domain": "navigation",
+      "status": "IMPLEMENTED",
+      "permission": "authenticated",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "orders.search",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "order_refs"
+      ],
+      "allowedNext": [
+        "orders.get",
+        "orders.prepare_update",
+        "orders.prepare_cancel"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "orders.get",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [
+        "order_id"
+      ],
+      "produces": [
+        "order"
+      ],
+      "allowedNext": [
+        "orders.prepare_update",
+        "orders.prepare_cancel"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "orders.prepare_create",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [
+        "customer_id"
+      ],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "orders.commit_create"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "orders.prepare_update",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [
+        "order_id"
+      ],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "orders.update"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "orders.prepare_cancel",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [
+        "order_id"
+      ],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "orders.cancel"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "orders.commit_create",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "orders.update",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "orders.cancel",
+      "domain": "orders",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "customers.search",
+      "domain": "customers",
+      "status": "IMPLEMENTED",
+      "permission": "basic_orders",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "customer_refs"
+      ],
+      "allowedNext": [
+        "customers.get",
+        "orders.prepare_create"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "customers.get",
+      "domain": "customers",
+      "status": "PLANNED",
+      "permission": "basic_orders",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.search",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "material_refs",
+        "roll_refs"
+      ],
+      "allowedNext": [
+        "inventory.get_roll",
+        "inventory.history",
+        "inventory.prepare_reservation",
+        "inventory.prepare_consume"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.get_roll",
+      "domain": "inventory",
+      "status": "PLANNED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [
+        "roll_id"
+      ],
+      "produces": [
+        "roll"
+      ],
+      "allowedNext": [
+        "inventory.history",
+        "inventory.prepare_consume"
+      ],
+      "terminal": false,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.history",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.prepare_reservation",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.prepare_release",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.prepare_consume",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "inventory.reserve",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "inventory.release",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "inventory.consume",
+      "domain": "inventory",
+      "status": "IMPLEMENTED",
+      "permission": "basic_stock",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "cash.get_summary",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "cash.prepare_withdrawal",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "cash.commit_withdrawal"
+      ],
+      "terminal": false,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "cash.commit_withdrawal",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "cash.prepare_deposit",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "cash.commit_deposit"
+      ],
+      "terminal": false,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "cash.commit_deposit",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "cash.open_session",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "cash.prepare_close_session",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [
+        "session_id"
+      ],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "cash.close_session"
+      ],
+      "terminal": false,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "cash.close_session",
+      "domain": "cash",
+      "status": "IMPLEMENTED",
+      "permission": "simple_cashier",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "calculator.quote",
+      "domain": "calculator",
+      "status": "IMPLEMENTED",
+      "permission": "basic_calculator",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "weight_grams",
+        "time_minutes"
+      ],
+      "allowedNext": [
+        "orders.prepare_create"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "calculator.batch",
+      "domain": "calculator",
+      "status": "IMPLEMENTED",
+      "permission": "basic_calculator",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "production.list_queue",
+      "domain": "production",
+      "status": "IMPLEMENTED",
+      "permission": "basic_production",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [
+        "job_refs"
+      ],
+      "allowedNext": [
+        "production.prepare_change_status"
+      ],
+      "terminal": false,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "production.prepare_job",
+      "domain": "production",
+      "status": "IMPLEMENTED",
+      "permission": "basic_production",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [
+        "order_id"
+      ],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "production.commit_job"
+      ],
+      "terminal": false,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "production.commit_job",
+      "domain": "production",
+      "status": "IMPLEMENTED",
+      "permission": "basic_production",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "production.prepare_change_status",
+      "domain": "production",
+      "status": "IMPLEMENTED",
+      "permission": "basic_production",
+      "enabled": false,
+      "modelExposed": true,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [
+        "job_id"
+      ],
+      "produces": [
+        "prepared_operation"
+      ],
+      "allowedNext": [
+        "production.change_status"
+      ],
+      "terminal": false,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "production.change_status",
+      "domain": "production",
+      "status": "IMPLEMENTED",
+      "permission": "basic_production",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "WRITE",
+      "requiresConfirmation": true,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "write"
+    },
+    {
+      "actionId": "products.search",
+      "domain": "products",
+      "status": "IMPLEMENTED",
+      "permission": "basic_products",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "printers.search",
+      "domain": "printers",
+      "status": "IMPLEMENTED",
+      "permission": "printer_registry",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "reports.open",
+      "domain": "reports",
+      "status": "IMPLEMENTED",
+      "permission": "simple_reports",
+      "enabled": true,
+      "modelExposed": true,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": true,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.invoice.search",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.invoice.details",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.invoice.prepare_issue",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.invoice.prepare_cancel",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.invoice.prepare_correction",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "PREPARE",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.settings",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "fiscal.certificate",
+      "domain": "fiscal",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "finance.accounts_payable",
+      "domain": "finance",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "finance.accounts_receivable",
+      "domain": "finance",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "purchases.search",
+      "domain": "purchases",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "shipping.status",
+      "domain": "shipping",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "crm.search",
+      "domain": "crm",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "maintenance.list",
+      "domain": "maintenance",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    },
+    {
+      "actionId": "quality.search",
+      "domain": "quality",
+      "status": "PLANNED",
+      "permission": "",
+      "enabled": false,
+      "modelExposed": false,
+      "operationType": "READ",
+      "requiresConfirmation": false,
+      "requires": [],
+      "produces": [],
+      "allowedNext": [],
+      "terminal": true,
+      "tested": false,
+      "version": 1,
+      "readWrite": "read"
+    }
+  ]
+}

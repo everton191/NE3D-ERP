@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "scope": "pedidos_estoque_producao_calculadora_graficos",
+  "forbiddenAreas": [
+    "conta",
+    "seguranca",
+    "administracao",
+    "empresa",
+    "config",
+    "preferencias",
+    "personalizacao",
+    "sincronizacao",
+    "backup"
+  ],
+  "tools": [
+    {
+      "name": "navigate_screen",
+      "required": ["tela"],
+      "allowedValues": {
+        "tela": ["dashboard", "pedidos", "pedido", "clientes", "estoque", "producao", "calculadora", "relatorios"]
+      }
+    },
+    {
+      "name": "search_order",
+      "required": ["busca"]
+    },
+    {
+      "name": "search_customer",
+      "required": ["busca"]
+    },
+    {
+      "name": "search_inventory",
+      "required": ["busca"],
+      "purpose": "Consultar material, cor, unidade, quantidade disponível e alternativas para um pedido.",
+      "rules": [
+        "Informar se o saldo atende ao pedido.",
+        "Quando faltar material ou cor, oferecer rascunho ou alternativas existentes.",
+        "Nunca escolher uma substituição sem confirmação do usuário."
+      ],
+      "neverExecutes": ["cadastrar", "excluir", "movimentar", "dar_baixa", "reservar"]
+    },
+    {
+      "name": "create_order_draft",
+      "required": ["cliente", "itens"],
+      "neverExecutes": ["salvar", "finalizar", "enviar", "baixar_estoque"]
+    },
+    {
+      "name": "fill_calculator",
+      "required": ["peso", "tempo"],
+      "rule": "Copiar valores informados. Calcular somente quando o usuario pedir ou quando um campo derivado do rascunho exigir."
+    },
+    {
+      "name": "add_inventory_draft",
+      "required": ["nome", "quantidade", "unidade"],
+      "purpose": "Preparar somente um rascunho solicitado pelo usuário para material faltante.",
+      "neverExecutes": ["cadastrar", "salvar", "excluir", "movimentar", "dar_baixa"]
+    },
+    {
+      "name": "clarify",
+      "required": ["missingFields"]
+    },
+    {
+      "name": "reject",
+      "required": ["userMessage"]
+    }
+  ]
+}

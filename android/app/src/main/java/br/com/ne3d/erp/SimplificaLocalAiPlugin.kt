@@ -45,7 +45,7 @@ class SimplificaLocalAiPlugin : Plugin() {
     }
     @PluginMethod fun localLlmStatus(call: PluginCall) = worker.execute { val item = active ?: catalog.first(); call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("installed", verified(item, location(item))).put("loaded", runtime != null).put("writeExposed", 0)) }
     @PluginMethod fun loadLocalModel(call: PluginCall) = worker.execute {
-        try { val item = model(call.getString("modelId", catalog.first().id) ?: catalog.first().id); val file = location(item); check(verified(item, file)) { "LOCAL_MODEL_NOT_VERIFIED" }; engine().loadModel(LlamaCppBackend.ModelConfig(item.id, file, item.sha, 1024, 2, 64)).get(); active = item; call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("writeExposed", 0)) }
+        try { val item = model(call.getString("modelId", catalog.first().id) ?: catalog.first().id); val file = location(item); check(verified(item, file)) { "LOCAL_MODEL_NOT_VERIFIED" }; engine().loadModel(LlamaCppBackend.ModelConfig(item.id, file, item.sha, 2048, 4, 64)).get(); active = item; call.resolve(JSObject().put("ok", true).put("modelId", item.id).put("writeExposed", 0)) }
         catch (error: Exception) { call.reject("Não foi possível carregar o modelo local.", error.message ?: "LOCAL_MODEL_LOAD_FAILED", error) }
     }
     @PluginMethod fun warmupLocalModel(call: PluginCall) = worker.execute { try { engine().warmup().get(); call.resolve(JSObject().put("ok", true).put("metrics", engine().status()).put("writeExposed", 0)) } catch (error: Exception) { call.reject("Não foi possível aquecer o modelo local.", error.message ?: "LOCAL_MODEL_WARMUP_FAILED", error) } }

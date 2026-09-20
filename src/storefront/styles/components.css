@@ -135,7 +135,9 @@
   cursor:pointer;
 }
 .store-ui-upload input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.store-ui-upload button{
+.store-ui-upload input[hidden]{display:block}
+.store-ui-upload button,
+.store-ui-upload__action{
   appearance:none;
   padding:0;
   color:inherit;
@@ -145,5 +147,7 @@
   font-weight:800;
   cursor:pointer;
 }
-.store-ui-upload button::after{content:"";position:absolute;inset:0}
-.store-ui-upload button:focus-visible{outline:2px solid currentColor;outline-offset:4px}
+.store-ui-upload button::after,
+.store-ui-upload__action::after{content:"";position:absolute;inset:0}
+.store-ui-upload button:focus-visible,
+.store-ui-upload__action:focus-visible{outline:2px solid currentColor;outline-offset:4px}

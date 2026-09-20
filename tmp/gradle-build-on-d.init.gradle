@@ -1,0 +1,4 @@
+gradle.beforeProject { project ->
+    def safeName = project.path.replace(':', '_').replaceAll('[^A-Za-z0-9_.-]', '_')
+    project.layout.buildDirectory.set(new File("D:/GradleBuild/erpNE3d/${safeName}"))
+}

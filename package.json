@@ -282,7 +282,9 @@
     "android:open": "npm run android:sync && cap open android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat :app:clean assembleDebug && cd .. && npm run android:apk:copy",
     "android:apk:copy": "node scripts/copy-android-apk.js",
-    "android:pilot": "npm run android:sync && node scripts/prepare-android-pilot-assets.js && cd android && gradlew.bat :app:clean assembleDebug -PsimplificaPilot=true && cd .. && node scripts/copy-android-pilot-apk.js"
+    "android:pilot": "npm run android:sync && node scripts/prepare-android-pilot-assets.js && cd android && gradlew.bat :app:clean assembleDebug -PsimplificaPilot=true && cd .. && node scripts/copy-android-pilot-apk.js",
+    "test:storefront-product-auto-draft": "node scripts/test-storefront-product-auto-draft.js",
+    "test:storefront-category-auto-draft": "node scripts/test-storefront-category-auto-draft.js"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",

@@ -23,8 +23,8 @@
   }
 
   class AiOrchestrator3D {
-    constructor({ manager, continuationResolver, contextBuilder, tools, provider, operationSafety = null, rlm = null, requirementEngine = null, loopGuard = null, telemetry = () => {} }) {
-      this.manager = manager; this.resolver = continuationResolver; this.contextBuilder = contextBuilder; this.tools = tools; this.provider = provider; this.operationSafety = operationSafety; this.rlm = rlm; this.requirements = requirementEngine || new C.RequirementEngine(); this.loopGuard = loopGuard || new C.LoopGuard(); this.telemetry = telemetry;
+    constructor({ manager, continuationResolver, contextBuilder, tools, provider, operationSafety = null, rlm = null, canonicalBindings = null, entityResolution = global.Simplifica3dEntityResolution || null, requirementEngine = null, loopGuard = null, telemetry = () => {} }) {
+      this.manager = manager; this.resolver = continuationResolver; this.contextBuilder = contextBuilder; this.tools = tools; this.provider = provider; this.operationSafety = operationSafety; this.rlm = rlm; this.canonicalBindings = canonicalBindings; this.entityResolution = entityResolution; this.requirements = requirementEngine || new C.RequirementEngine(); this.loopGuard = loopGuard || new C.LoopGuard(); this.telemetry = telemetry;
     }
     recordTiming(stage, started, details = {}) {
       const event = {
@@ -38,10 +38,25 @@
       this.telemetry(event);
       return event.duration;
     }
+    executeCanonical(actionId, args = {}, appContext = {}) {
+      if (!this.canonicalBindings?.execute) return { status: "GAP_BLOCKED", reason: "CANONICAL_BINDINGS_UNAVAILABLE" };
+      return this.canonicalBindings.execute(actionId, args, appContext);
+    }
     async runTool(intent, args, appContext) {
       const map = { "CUSTOMER.SEARCH": "customer_search", "ORDER.HISTORY": "order_history", "ORDER.SEARCH": "order_search", "PRICE.CALCULATE": "price_calculate", "STOCK.SEARCH": "stock_search", "STOCK.SUMMARY": "stock_summary", "CASH.SUMMARY": "cash_summary", "HOME.SUMMARY": "home_summary" };
       const stack = new C.TaskStack(this.manager.session); const subtask = stack.push(intent);
-      const started = Date.now(); const result = await this.tools.execute(map[intent], args, { session: this.manager.session, appContext });
+      const canonical = { "CUSTOMER.SEARCH": "customers.search", "ORDER.SEARCH": "orders.search", "STOCK.SEARCH": "inventory.search" }[intent];
+      const started = Date.now(); let result;
+      if (canonical && this.canonicalBindings?.execute) {
+        const payload = intent === "CUSTOMER.SEARCH" ? { query: args.query } : intent === "ORDER.SEARCH" ? { query: args.query, customer: args.customer, status: args.status } : { query: args.query };
+        const bound = this.executeCanonical(canonical, payload, appContext);
+        if (intent === "CUSTOMER.SEARCH" && bound.status === "SUCCESS") {
+          const resolved = this.entityResolution?.resolveEntity?.({ entityType: "customer", query: args.query, candidates: bound.items || [] });
+          result = resolved?.status === "RESOLVED" ? { status: C.TOOL_STATUS.SUCCESS, customer: { id: resolved.id, name: resolved.entity.label || resolved.entity.name || "" } } : { status: resolved?.status || C.TOOL_STATUS.NOT_FOUND, matches: resolved?.matches || bound.items || [] };
+        } else if (intent === "ORDER.SEARCH") result = { status: bound.status, orders: bound.items || [] };
+        else if (intent === "STOCK.SEARCH") result = { status: bound.status, matches: bound.items || [] };
+        else result = { status: bound.status || C.TOOL_STATUS.UNAVAILABLE };
+      } else result = await this.tools.execute(map[intent], args, { session: this.manager.session, appContext });
       stack.pop(result); this.manager.save();
       this.recordTiming("T_TOOL", started, { taskId: subtask.taskId, subtaskId: subtask.taskId, domain: intent.split(".")[0], intentType: C.INTENT_TYPE.SUBTASK, capability: intent, tool: map[intent], result: result.status });
       return result;
@@ -55,6 +70,17 @@
         this.recordTiming("T_RESPONSE", responseStarted, { result, intentType: classification.type });
         return response;
       };
+      if (this.manager.session.pendingResolution && classification.action !== "CANCEL_TASK") {
+        const resumed = this.entityResolution?.resumePendingResolution?.(this.manager.session.pendingResolution, text);
+        if (resumed?.status === "RESOLVED" && resumed.entityType === "customer") {
+          this.manager.updateSlot("customer", resumed.entity.label, C.SLOT_STATE.RESOLVED, "entity_resolution");
+          this.manager.updateSlot("customerId", resumed.id, C.SLOT_STATE.RESOLVED, "entity_resolution");
+          this.manager.session.resolvedEntities.customer = { id: resumed.id, name: resumed.entity.label };
+          this.manager.setPendingResolution(null);
+          return finish({ classification, entityResolution: resumed, summary: `Cliente selecionado: ${resumed.entity.label}. ${this.nextQuestion()}`, session: this.manager.session.snapshot() });
+        }
+        if (resumed?.status === "NOT_FOUND") return finish({ classification, entityResolution: resumed, summary: "Escolha um dos clientes apresentados ou informe uma nova referência.", session: this.manager.session.snapshot() }, "BLOCKED");
+      }
       if (attachments.length) {
         const contextStarted = Date.now();
         const context = this.contextBuilder.build({ session: this.manager.session, app: appContext, messages, attachments });
@@ -87,6 +113,13 @@
               return finish({ classification, summary: `Encontrei ${found.customer.name}. Os pedidos recentes incluem principalmente ${history.suggestedProduct}. É ${history.suggestedProduct} novamente?`, session: this.manager.session.snapshot() });
             }
             prefix = `Encontrei ${found.customer.name}.`;
+          } else if (found.status === C.TOOL_STATUS.AMBIGUOUS && this.entityResolution?.resolveEntity) {
+            const resolved = this.entityResolution.resolveEntity({ entityType: "customer", query: customer, candidates: found.matches || [] });
+            const pending = this.entityResolution.createPendingResolution?.({ entityType: "customer", result: resolved, workflowGoal: "ORDER.CREATE", currentStep: "CUSTOMER" });
+            if (pending) {
+              this.manager.setPendingResolution(pending);
+              return finish({ classification, entityResolution: resolved, pendingResolution: pending, summary: `Encontrei mais de um cliente: ${pending.candidates.map((item) => `${item.label} (${item.id})`).join(", ")}. Qual deles?`, session: this.manager.session.snapshot() }, "BLOCKED");
+            }
           }
         }
         const ready = this.requirements.isReady(this.manager.session.activeDraft);

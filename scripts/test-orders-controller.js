@@ -1,0 +1,30 @@
+"use strict";
+const assert = require("node:assert/strict");
+const controller = require("../src/features/orders/orders-controller.js");
+let state = { clienteTelefonePedido: "", clienteEmailPedido: "", observacaoPedido: "", prazoPedido: "", statusPedido: "aberto", entradaPedido: 0, descontoPedido: 0, descontoTipoPedido: "fixo", descontoPercentualPedido: 0 };
+let refreshes = 0;
+const deps = { getState: () => ({ ...state }), setState: (next) => { state = next; }, parseNumber: (value, fallback) => Number(String(value).replace(",", ".")) || fallback, totalItems: () => 200, refreshSummary: () => { refreshes += 1; } };
+assert.equal(controller.setDraftField("clienteEmailPedido", "a@b.com", deps), "a@b.com");
+assert.equal(controller.setDraftField("entradaPedido", "12,5", deps), 12.5);
+assert.equal(refreshes, 1);
+assert.equal(controller.setDiscount("10", deps), 10);
+state.descontoTipoPedido = "porcentagem";
+assert.equal(controller.setDiscount("15", deps), 30);
+assert.equal(state.descontoPercentualPedido, 15);
+assert.equal(controller.setDiscountType("fixo", deps), "fixo");
+assert.equal(state.descontoPercentualPedido, 0);
+assert.equal(controller.setDiscountType("porcentagem", deps), "porcentagem");
+assert.equal(state.descontoPercentualPedido, 15);
+assert.equal(controller.setFinalValue("150", deps), 50);
+assert.equal(state.descontoTipoPedido, "fixo");
+assert.equal(state.descontoPercentualPedido, 0);
+const items = [{ valor: 12 }, { valor: 8 }];
+assert.deepEqual(controller.normalizeSelectedItems([1, "0", 1, -1, 8], items), [0, 1]);
+assert.deepEqual(controller.toggleSelectedItem([0], 1, null, items), [0, 1]);
+assert.deepEqual(controller.toggleSelectedItem([0, 1], 0, false, items), [1]);
+assert.deepEqual(controller.applyBulkQuantity(items, [0, 1], "3"), { selected: [0, 1], quantity: 3 });
+assert.deepEqual(items.map((item) => item.total), [36, 24]);
+assert.deepEqual(controller.buildOrderHeader({ customer: "  Ana ", phone: " 1199 ", email: " a@b.com ", notes: " x ", dueDate: " 2026-10-01 ", downPayment: "10,5", paymentMethodId: "card", status: "confirmado" }, {
+  normalizePhone: (value) => String(value).trim(), parseNumber: (value) => Number(String(value).replace(",", ".")), normalizePaymentMethod: (id) => ({ id, name: "Cartão", type: "card" })
+}), { cliente: "Ana", telefone: "1199", email: "a@b.com", observacao: "x", prazo: "2026-10-01", entrada: 10.5, down_payment: 10.5, valor_entrada: 10.5, paymentMethodId: "card", payment_method_id: "card", paymentMethod: "Cartão", payment_method_type: "card", status: "confirmado" });
+console.log("Orders controller: campos, entrada e desconto preservados.");

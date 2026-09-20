@@ -14,7 +14,7 @@
     "/src/services/simplifica3dAiRuntime.js", "/src/ai-3d/core.js", "/src/ai-3d/operation-safety.js", "/src/ai-3d/canonical-order.js",
     "/src/ai-3d/order-create-preparation.js", "/src/ai-3d/order-shared-usecases.js", "/src/ai-3d/operational-usecases.js", "/src/ai-3d/rlm/rlm-core.js", "/src/ai-3d/orchestrator.js"
   ]);
-  const FEATURE_SCRIPTS = Object.freeze({ reports: Object.freeze(["/src/features/reports/reports-data.js", "/src/features/reports/reports-renderer.js", "/src/features/reports/reports-controller.js", "/src/features/reports/reports-view-model.js"]) });
+  const FEATURE_SCRIPTS = Object.freeze({ reports: Object.freeze(["/src/features/reports/reports-formatters.js", "/src/features/reports/reports-data.js", "/src/features/reports/reports-renderer.js", "/src/features/reports/reports-controller.js", "/src/features/reports/reports-view-model.js"]) });
   let promise = null; let lastError = null;
   const load = (src) => new Promise((resolve, reject) => { if (document.querySelector(`script[data-simplifica-ai-src="${src}"]`)) return resolve(); const script = document.createElement("script"); script.src = src; script.async = false; script.dataset.simplificaAiSrc = src; script.onload = resolve; script.onerror = () => reject(new Error(`AI_SCRIPT_LOAD_FAILED:${src}`)); document.head.appendChild(script); });
   function ensureAiRuntimeLoaded() { if (global.Simplifica3dAiRuntime) return Promise.resolve({ loaded: true, cached: true }); if (promise) return promise; lastError = null; promise = AI_SCRIPTS.reduce((chain, src) => chain.then(() => load(src)), Promise.resolve()).then(() => ({ loaded: true, cached: false })).catch((error) => { lastError = error; promise = null; throw error; }); return promise; }

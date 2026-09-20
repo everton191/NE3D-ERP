@@ -126,20 +126,28 @@ extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nat
     llama_memory_clear(llama_get_memory(context), true);
     warmupMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();
     if (decoded != 0 || cancelled.load()) return result(env, errorResult(cancelled.load() ? "CANCELLED" : "WARMUP_FAILED", cancelled.load()));
-    __android_log_print(ANDROID_LOG_INFO, "FunctionGemma", "warmup complete ms=%lld", warmupMs);
+    __android_log_print(ANDROID_LOG_INFO, "LocalLlama", "warmup complete ms=%lld", warmupMs);
     return result(env, "{\"ok\":true,\"contextTokens\":" + std::to_string(contextSize) + ",\"batchTokens\":" + std::to_string(batchSize) + ",\"threads\":" + std::to_string(threadCount) + ",\"warmupMs\":" + std::to_string(warmupMs) + "}");
 }
 extern "C" JNIEXPORT jstring JNICALL Java_br_com_ne3d_erp_ai_LlamaCppBackend_nativeGenerate(JNIEnv * env, jobject, jstring promptValue, jint maxTokens, jfloat temperature, jfloat topP) {
     std::lock_guard<std::mutex> lock(gate);
     if (!model || !context) return result(env, errorResult("MODEL_NOT_READY"));
     if (maxTokens < 1 || maxTokens > 128 || temperature < 0.0f || temperature > 2.0f || topP <= 0.0f || topP > 1.0f) return result(env, errorResult("INVALID_GENERATION_PARAMS"));
-    const char * chars = env->GetStringUTFChars(promptValue, nullptr); if (!chars) return result(env, errorResult("PROMPT_INVALID")); const std::string prompt(chars); env->ReleaseStringUTFChars(promptValue, chars); if (prompt.empty()) return result(env, errorResult("PROMPT_EMPTY"));
+    const char * chars = env->GetStringUTFChars(promptValue, nullptr); if (!chars) return result(env, errorResult("PROMPT_INVALID")); const std::string userPrompt(chars); env->ReleaseStringUTFChars(promptValue, chars); if (userPrompt.empty()) return result(env, errorResult("PROMPT_EMPTY"));
     try {
-        const llama_vocab * vocab = llama_model_get_vocab(model); const int32_t required = llama_tokenize(vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()), nullptr, 0, true, true);
+        const char * templateName = llama_model_chat_template(model, nullptr);
+        if (!templateName) return result(env, errorResult("CHAT_TEMPLATE_MISSING"));
+        const llama_chat_message message { "user", userPrompt.c_str() };
+        const int32_t formattedLength = llama_chat_apply_template(templateName, &message, 1, true, nullptr, 0);
+        if (formattedLength <= 0) return result(env, errorResult("CHAT_TEMPLATE_FAILED"));
+        std::vector<char> formatted(static_cast<size_t>(formattedLength) + 1, '\0');
+        if (llama_chat_apply_template(templateName, &message, 1, true, formatted.data(), static_cast<int32_t>(formatted.size())) != formattedLength) return result(env, errorResult("CHAT_TEMPLATE_FAILED"));
+        const std::string prompt(formatted.data(), static_cast<size_t>(formattedLength));
+        const llama_vocab * vocab = llama_model_get_vocab(model); const int32_t required = llama_tokenize(vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()), nullptr, 0, false, true);
         if (required >= 0 || required == INT32_MIN) return result(env, errorResult("TOKENIZE_FAILED")); const int32_t count = -required;
         if (count + maxTokens >= static_cast<int32_t>(llama_n_ctx(context))) return result(env, errorResult("PROMPT_TOO_LONG"));
-        std::vector<llama_token> tokens(count); if (llama_tokenize(vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()), tokens.data(), count, true, true) != count) return result(env, errorResult("TOKENIZE_FAILED"));
-        __android_log_print(ANDROID_LOG_INFO, "FunctionGemma", "generation requested chars=%zu tokens=%d maxTokens=%d", prompt.size(), count, maxTokens);
+        std::vector<llama_token> tokens(count); if (llama_tokenize(vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()), tokens.data(), count, false, true) != count) return result(env, errorResult("TOKENIZE_FAILED"));
+        __android_log_print(ANDROID_LOG_INFO, "LocalLlama", "template=%s generation chars=%zu tokens=%d maxTokens=%d", templateName, prompt.size(), count, maxTokens);
         cancelled = false; lastTtftMs = 0; lastTotalMs = 0; lastPrefillMs = 0; lastTokens = 0; lastPromptTokens = count; llama_memory_clear(llama_get_memory(context), false); const auto started = std::chrono::steady_clock::now();
         if (!decodeTokens(tokens)) return result(env, errorResult(cancelled.load() ? "CANCELLED" : "PROMPT_DECODE_FAILED", cancelled.load()));
         lastPrefillMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started).count();

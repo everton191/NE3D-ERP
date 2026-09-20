@@ -1,0 +1,11 @@
+"use strict";
+const assert = require("node:assert/strict");
+const plan = require("../src/features/account/plan-normalizers.js");
+assert.equal(plan.normalizarSlugPlano("premium-monthly"), "pro");
+assert.equal(plan.normalizarSlugPlano("starter"), "start");
+assert.equal(plan.normalizarBooleanoPlano("sim"), true);
+assert.equal(plan.normalizarStatusPlano("bloqueado"), "past_due");
+assert.equal(plan.normalizarStatusPagamento("recusado"), "rejected");
+assert.equal(plan.normalizarStatusAssinaturaDefinitivo("pendente"), "free");
+assert.equal(plan.normalizarBillingVariant("premium_monthly"), "pro_monthly");
+console.log("Plan normalizers: aliases, estados e variantes preservados.");

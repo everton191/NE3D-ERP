@@ -1,0 +1,9 @@
+.carousel-editor-sandbox { background: #082329; color: #e9ffff; border: 1px solid #1d8e98; border-radius: 16px; max-width: 640px; padding: 20px; }
+.carousel-editor-sandbox h2, .carousel-editor-sandbox h3 { color: #7cf4f4; }
+.carousel-editor-sandbox ul, .carousel-editor-sandbox ol { display: grid; gap: 10px; padding-left: 22px; }
+.carousel-editor-card, .carousel-editor-sandbox li { background: #103840; border-radius: 10px; padding: 10px; }
+.carousel-editor-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.carousel-editor-sandbox button { border: 1px solid #42cfd1; border-radius: 8px; background: #124e57; color: #e9ffff; cursor: pointer; padding: 8px 10px; }
+.carousel-editor-sandbox button:disabled { cursor: not-allowed; opacity: .45; }
+.carousel-editor-sandbox fieldset { border: 1px solid #287681; border-radius: 10px; display: grid; gap: 10px; margin: 16px 0; }
+.carousel-editor-sandbox input { accent-color: #42cfd1; }

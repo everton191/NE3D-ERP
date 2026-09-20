@@ -1,0 +1,233 @@
+
+> simplifica-3d@0.1.0 android:pilot
+> npm run android:sync && node scripts/prepare-android-pilot-assets.js && cd android && gradlew.bat :app:clean assembleDebug -PsimplificaPilot=true && cd .. && node scripts/copy-android-pilot-apk.js
+
+
+> simplifica-3d@0.1.0 android:sync
+> node scripts/prepare-web.js --without-downloads && cap sync android
+
+Arquivos web preparados em dist/
+√ Copying web assets from dist to android\app\src\main\assets\public in 112.85ms
+√ Creating capacitor.config.json in android\app\src\main\assets in 1.73ms
+√ copy android in 131.00ms
+√ Updating Android plugins in 2.42ms
+[info] Found 2 Capacitor plugins for android:
+       @capacitor-community/admob@8.0.0
+       @capacitor/app@8.0.0
+√ update android in 152.18ms
+[info] Sync finished in 0.305s
+Assets Android identificados como piloto 0.9.0-pilot (10).
+
+> Configure project :app
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-cordova-android-plugins
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Task :app:clean
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :capacitor-android:preBuild UP-TO-DATE
+> Task :capacitor-android:preDebugBuild UP-TO-DATE
+> Task :app:javaPreCompileDebug
+> Task :capacitor-android:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-app:preBuild UP-TO-DATE
+> Task :capacitor-app:preDebugBuild UP-TO-DATE
+> Task :capacitor-app:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-community-admob:preBuild UP-TO-DATE
+> Task :capacitor-community-admob:preDebugBuild UP-TO-DATE
+> Task :capacitor-community-admob:writeDebugAarMetadata UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preDebugBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:writeDebugAarMetadata
+> Task :capacitor-android:processDebugNavigationResources UP-TO-DATE
+> Task :capacitor-app:processDebugNavigationResources UP-TO-DATE
+> Task :capacitor-community-admob:processDebugNavigationResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:processDebugNavigationResources
+> Task :app:checkDebugAarMetadata
+> Task :app:processDebugNavigationResources
+> Task :app:compileDebugNavigationResources
+> Task :app:generateDebugResValues
+> Task :capacitor-android:generateDebugResValues UP-TO-DATE
+> Task :capacitor-android:generateDebugResources UP-TO-DATE
+> Task :capacitor-android:packageDebugResources UP-TO-DATE
+> Task :capacitor-app:generateDebugResValues UP-TO-DATE
+> Task :capacitor-app:generateDebugResources UP-TO-DATE
+> Task :capacitor-app:packageDebugResources UP-TO-DATE
+> Task :capacitor-community-admob:generateDebugResValues UP-TO-DATE
+> Task :capacitor-community-admob:generateDebugResources UP-TO-DATE
+> Task :capacitor-community-admob:packageDebugResources UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateDebugResValues
+> Task :capacitor-cordova-android-plugins:generateDebugResources
+> Task :capacitor-cordova-android-plugins:packageDebugResources
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources
+> Task :app:packageDebugResources
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug
+> Task :capacitor-android:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-android:processDebugManifest UP-TO-DATE
+> Task :capacitor-app:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-app:processDebugManifest UP-TO-DATE
+> Task :capacitor-community-admob:extractDeepLinksDebug UP-TO-DATE
+> Task :capacitor-community-admob:processDebugManifest UP-TO-DATE
+> Task :app:parseDebugLocalResources
+> Task :capacitor-cordova-android-plugins:extractDeepLinksDebug
+> Task :capacitor-android:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-android:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-android:generateDebugRFile UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:processDebugManifest
+> Task :capacitor-app:compileDebugLibraryResources UP-TO-DATE
+> Task :app:mergeDebugResources
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :capacitor-app:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-app:generateDebugRFile UP-TO-DATE
+> Task :capacitor-community-admob:compileDebugLibraryResources UP-TO-DATE
+> Task :capacitor-community-admob:parseDebugLocalResources UP-TO-DATE
+> Task :capacitor-community-admob:generateDebugRFile UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:compileDebugLibraryResources
+> Task :capacitor-android:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:parseDebugLocalResources
+> Task :capacitor-android:compileDebugJavaWithJavac UP-TO-DATE
+> Task :capacitor-android:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-app:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:generateDebugRFile
+> Task :capacitor-app:compileDebugJavaWithJavac UP-TO-DATE
+> Task :capacitor-app:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-community-admob:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :capacitor-community-admob:compileDebugKotlin UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :capacitor-community-admob:javaPreCompileDebug UP-TO-DATE
+> Task :capacitor-community-admob:compileDebugJavaWithJavac UP-TO-DATE
+> Task :capacitor-community-admob:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:javaPreCompileDebug
+> Task :app:mergeDebugShaders
+> Task :capacitor-cordova-android-plugins:compileDebugJavaWithJavac NO-SOURCE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :capacitor-android:mergeDebugShaders UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:bundleLibCompileToJarDebug
+> Task :capacitor-android:compileDebugShaders NO-SOURCE
+> Task :capacitor-android:generateDebugAssets UP-TO-DATE
+> Task :capacitor-android:mergeDebugAssets UP-TO-DATE
+> Task :capacitor-app:mergeDebugShaders UP-TO-DATE
+> Task :capacitor-app:compileDebugShaders NO-SOURCE
+> Task :capacitor-app:generateDebugAssets UP-TO-DATE
+> Task :capacitor-app:mergeDebugAssets UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugShaders UP-TO-DATE
+> Task :capacitor-community-admob:compileDebugShaders NO-SOURCE
+> Task :capacitor-community-admob:generateDebugAssets UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugAssets UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:mergeDebugShaders
+> Task :capacitor-cordova-android-plugins:compileDebugShaders NO-SOURCE
+> Task :capacitor-cordova-android-plugins:generateDebugAssets UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:mergeDebugAssets
+> Task :app:mergeDebugAssets
+> Task :capacitor-community-admob:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :capacitor-app:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :capacitor-android:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:bundleLibRuntimeToJarDebug
+> Task :app:desugarDebugFileDependencies
+> Task :app:processDebugJavaRes NO-SOURCE
+> Task :capacitor-android:processDebugJavaRes NO-SOURCE
+> Task :capacitor-app:processDebugJavaRes NO-SOURCE
+> Task :capacitor-community-admob:processDebugJavaRes UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:processDebugJavaRes NO-SOURCE
+> Task :capacitor-community-admob:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:compressDebugAssets
+> Task :capacitor-app:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :capacitor-android:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:bundleLibRuntimeToDirDebug
+> Task :app:mergeDebugJniLibFolders
+> Task :capacitor-android:mergeDebugJniLibFolders UP-TO-DATE
+> Task :capacitor-android:mergeDebugNativeLibs NO-SOURCE
+> Task :capacitor-android:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses
+> Task :capacitor-app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :capacitor-app:mergeDebugNativeLibs NO-SOURCE
+> Task :capacitor-app:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugJniLibFolders UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugNativeLibs NO-SOURCE
+> Task :capacitor-community-admob:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:mergeDebugJniLibFolders
+> Task :capacitor-cordova-android-plugins:mergeDebugNativeLibs NO-SOURCE
+> Task :capacitor-cordova-android-plugins:copyDebugJniLibsProjectOnly
+> Task :app:validateSigningDebug
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :capacitor-android:checkDebugAarMetadata UP-TO-DATE
+> Task :capacitor-android:stripDebugDebugSymbols NO-SOURCE
+> Task :capacitor-android:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :capacitor-android:extractDebugAnnotations UP-TO-DATE
+> Task :capacitor-android:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :capacitor-android:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :capacitor-android:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :capacitor-android:prepareDebugArtProfile UP-TO-DATE
+> Task :capacitor-android:prepareLintJarForPublish UP-TO-DATE
+> Task :capacitor-android:mergeDebugJavaResource UP-TO-DATE
+> Task :capacitor-android:syncDebugLibJars UP-TO-DATE
+> Task :capacitor-android:bundleDebugAar UP-TO-DATE
+> Task :capacitor-android:assembleDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug
+> Task :capacitor-app:checkDebugAarMetadata UP-TO-DATE
+> Task :capacitor-app:stripDebugDebugSymbols NO-SOURCE
+> Task :capacitor-app:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :capacitor-app:extractDebugAnnotations UP-TO-DATE
+> Task :capacitor-app:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :capacitor-app:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :capacitor-app:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :capacitor-app:prepareDebugArtProfile UP-TO-DATE
+> Task :capacitor-app:prepareLintJarForPublish UP-TO-DATE
+> Task :capacitor-app:mergeDebugJavaResource UP-TO-DATE
+> Task :capacitor-app:syncDebugLibJars UP-TO-DATE
+> Task :capacitor-app:bundleDebugAar UP-TO-DATE
+> Task :capacitor-app:assembleDebug UP-TO-DATE
+> Task :capacitor-community-admob:checkDebugAarMetadata UP-TO-DATE
+> Task :capacitor-community-admob:stripDebugDebugSymbols NO-SOURCE
+> Task :capacitor-community-admob:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :capacitor-community-admob:extractDebugAnnotations UP-TO-DATE
+> Task :capacitor-community-admob:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :capacitor-community-admob:prepareDebugArtProfile UP-TO-DATE
+> Task :capacitor-community-admob:prepareLintJarForPublish UP-TO-DATE
+> Task :capacitor-community-admob:mergeDebugJavaResource UP-TO-DATE
+> Task :capacitor-community-admob:syncDebugLibJars UP-TO-DATE
+> Task :capacitor-community-admob:bundleDebugAar UP-TO-DATE
+> Task :capacitor-community-admob:assembleDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:stripDebugDebugSymbols NO-SOURCE
+> Task :capacitor-cordova-android-plugins:checkDebugAarMetadata
+> Task :capacitor-cordova-android-plugins:copyDebugJniLibsProjectAndLocalJars
+> Task :capacitor-cordova-android-plugins:extractDebugAnnotations
+> Task :capacitor-cordova-android-plugins:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:prepareDebugArtProfile UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:prepareLintJarForPublish UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:mergeDebugJavaResource
+> Task :capacitor-cordova-android-plugins:syncDebugLibJars
+> Task :capacitor-cordova-android-plugins:bundleDebugAar
+> Task :capacitor-cordova-android-plugins:assembleDebug
+> Task :app:processDebugResources
+> Task :app:mergeDebugJavaResource
+
+> Task :app:compileDebugJavaWithJavac
+
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeExtDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+
+[Incubating] Problems report is available at: file:///C:/Users/PAESS/OneDrive/Documentos/erpNE3d/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 10s
+156 actionable tasks: 59 executed, 97 up-to-date
+APK piloto isolado criado: C:\Users\PAESS\OneDrive\Documentos\erpNE3d\output\bambu-pilot\Simplifica3D-Bambu-Pilot-0.9.0.apk
+Pacote: br.com.ne3d.erp.pilot | versao: 0.9.0-pilot (10)

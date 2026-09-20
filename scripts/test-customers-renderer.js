@@ -1,0 +1,14 @@
+"use strict";
+const assert = require("node:assert/strict");
+const renderer = require("../src/features/customers/customers-renderer.js");
+const context = { telaComCarregamentoUX: () => false, renderSmartScreenSkeleton: () => "", pedidos: [{ cliente: "Ana", total: 20, status: "aberto", telefoneCliente: "85" }], clienteDoPedido: (item) => item.cliente, totalPedido: (item) => item.total, telefoneDoPedido: (item) => item.telefoneCliente, pedidoJaCancelado: () => false, normalizarSugestaoClienteTexto: (value) => String(value).toLowerCase(), escaparAttr: (value) => String(value), escaparHtml: (value) => String(value), getUserInitials: (value) => value.slice(0, 1), formatarMoeda: (value) => `R$ ${value}`, renderUiIcon: () => "" };
+assert.match(renderer.renderClientes(context), /Ana/);
+assert.match(renderer.renderClientes(context), /1 em aberto/);
+const normalizers = require("../src/features/customers/customer-normalizers.js");
+assert.equal(normalizers.rotuloStatusCliente("overdue"), "atrasado");
+const merged = normalizers.mergeSuggestions([[{ name: "Ana", phone: "85", usageCount: 1, source: "recent" }], [{ name: "Ana", phone: "85", usageCount: 3, source: "app_client" }]], { normalizeText: (value) => String(value).toLowerCase() });
+assert.equal(merged.length, 1);
+assert.equal(merged[0].usageCount, 3);
+assert.equal(merged[0].source, "app_client");
+assert.equal(normalizers.rankSuggestions([{ name: "Ana", phone: "85", source: "app_client" }], "ana", { normalizeText: (value) => String(value).toLowerCase(), normalizePhone: (value) => String(value).replace(/\D/g, "") })[0]._score, 138);
+console.log("Customers renderer: lista, métricas e estado operacional preservados.");

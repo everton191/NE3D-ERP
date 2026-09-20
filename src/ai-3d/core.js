@@ -64,6 +64,7 @@
       this.activeDraft = data.activeDraft || null;
       if (this.activeDraft && !(Number(this.activeDraft.draftVersion) > 0)) this.activeDraft.draftVersion = 1;
       this.pendingAction = data.pendingAction || null;
+      this.pendingResolution = data.pendingResolution || null;
       this.conversationState = data.conversationState || "IDLE";
       this.resolvedEntities = data.resolvedEntities || {};
       this.missingSlots = Array.isArray(data.missingSlots) ? data.missingSlots : [];
@@ -137,9 +138,11 @@
       return this.save();
     }
     setLastQuestion(question) { this.session.lastQuestion = question; return this.save(); }
+    setPendingResolution(pendingResolution = null) { this.session.pendingResolution = pendingResolution || null; return this.save(); }
     cancel() {
       this.session.activeTask = null; this.session.taskStack = []; this.session.activeDraft = null;
       this.session.pendingAction = null; this.session.missingSlots = []; this.session.currentTopic = "";
+      this.session.pendingResolution = null;
       this.session.lastQuestion = null; this.session.conversationState = "CANCELLED";
       return this.save();
     }
@@ -148,6 +151,7 @@
       this.session.recentToolResults = this.session.recentToolResults.slice(-8);
       this.session.activeTask = null; this.session.taskStack = []; this.session.activeDraft = null;
       this.session.pendingAction = null; this.session.missingSlots = []; this.session.currentTopic = "";
+      this.session.pendingResolution = null;
       this.session.lastQuestion = null; this.session.conversationState = "COMPLETED";
       return this.save();
     }
@@ -260,11 +264,11 @@
       const pricing = extractPricingArguments(raw);
       const pricingRequest = /\b(orcamento|quanto(?:\s+vai)?\s+(?:dar|custar|ficar)|quanto custa|preco|valor|calcula|calcular|custo)\b/i.test(value)
         || (pricing.weightGrams > 0 && pricing.timeMinutes > 0);
-      if (pricingRequest && (pricing.weightGrams > 0 || pricing.timeMinutes > 0)) return { type: INTENT_TYPE.SUBTASK, intent: "PRICE.CALCULATE", arguments: pricing };
+      if (/\b(cria|criar|crie|monte|montar|novo)\b.*\bpedido\b/.test(value)) return { type: INTENT_TYPE.NEW_TASK, intent: "ORDER.CREATE", seed: extractOrderSeed(raw) };
       if (session?.activeTask && session.pendingAction && /^(sim|confirmo|confirma|pode confirmar|pode salvar|pode criar|salva|cria|criar esse pedido|crie esse pedido|salvar esse pedido)[.!]?$/i.test(value)) {
         return { type: INTENT_TYPE.TASK_UPDATE, action: "CONFIRM_PENDING", fastPath: true };
       }
-      if (/\b(cria|criar|monte|montar|novo)\b.*\bpedido\b/.test(value)) return { type: INTENT_TYPE.NEW_TASK, intent: "ORDER.CREATE", seed: extractOrderSeed(raw) };
+      if (pricingRequest && (pricing.weightGrams > 0 || pricing.timeMinutes > 0)) return { type: INTENT_TYPE.SUBTASK, intent: "PRICE.CALCULATE", arguments: pricing };
       if (/\b(veja|verifica|verifique|procura|procure|consulta|consulte|tem|estoque)\b.*\b(pingente|sacola|embalagem|argola|pla|petg|abs|resina|filamento|material)\w*\b/i.test(value)
         || /\bquanto\s+(?:eu\s+)?tenho\s+de\s+.+\b(?:no\s+)?estoque\b/i.test(value)) {
         return { type: INTENT_TYPE.SUBTASK, intent: "STOCK.SEARCH", arguments: { query: extractStockQuery(raw) } };

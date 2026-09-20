@@ -27,7 +27,20 @@ close(fixedFee.extraFeeAmount, 7.5, "taxa fixa");
 close(fixedFee.totalPrice, 107.5, "total fixo");
 
 assert.deepEqual(domain.formatMinutes(domain.toMinutes(0, 90)), { hours: 1, minutes: 30, label: "1h 30min" });
+assert.equal(domain.formatTimeInput(-2, 76), "0:59");
+assert.equal(domain.formatTimeInput(3.9, 7.9), "3:07");
 assert.equal(domain.calculate({ ...base, batchActive: true, quantity: 1 }).quantity, 2);
 assert.equal(domain.calculate({ ...base, batchActive: false, quantity: 99 }).quantity, 1);
+assert.equal(domain.normalizePrinterType("resina"), "RESINA");
+assert.equal(domain.normalizePrinterType("other"), "FDM");
+assert.equal(domain.normalizeNumber("12,5", 0, 3), 12.5);
+assert.equal(domain.normalizeNumber("", 7, 0), 7);
+assert.deepEqual(domain.normalizeWidget({}, { width: 390, height: 844, mobile: true }), { open: false, x: 8, y: 132, w: 374, h: 620 });
+assert.deepEqual(domain.calculateExtraFee({ base: 100, mode: "percent", percent: 6 }), { value: 6, label: "6%", mode: "percent" });
+assert.deepEqual(domain.calculateExtraFee({ base: 100, mode: "manual", value: 7.5 }), { value: 7.5, label: "R$", mode: "manual" });
+assert.equal(domain.getDisplayedExtraFee({ mode: "manual", value: 7.5, percent: 6 }), 7.5);
+assert.deepEqual(domain.calculateBatchPreview({ active: true, quantity: 3, mode: "per_piece", weightGrams: 10, timeMinutes: 20 }), { active: true, quantity: 3, mode: "per_piece", weightGrams: 10, timeMinutes: 20, totalWeightGrams: 30, totalTimeMinutes: 60 });
+assert.deepEqual(domain.parseFormattedTime(" 3h 07 "), { hours: 3, minutes: 7 });
+assert.equal(domain.parseFormattedTime("3:60"), null);
 
 console.log("CalculatorDomain: material, energia, hora, markup, lote, taxas e normalização validados.");

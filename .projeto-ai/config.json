@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "Simplifica 3D",
+  "root": "C:\\Users\\PAESS\\OneDrive\\Documentos\\erpNE3d",
+  "aiReady": true,
+  "framework": "Vanilla JS + Capacitor Android + Kotlin",
+  "embeddingProvider": "local-sparse",
+  "context": { "simple": 16384, "expert": 32768 },
+  "router": "saas-ai:auto",
+  "existingAiRoots": ["src/assistant-core", "src/ai-3d", "apps/simplifica/assistant-pack", "android/app/src/main/java/br/com/ne3d/erp/ai"],
+  "doNotCreateParallelAiRoot": true
+}

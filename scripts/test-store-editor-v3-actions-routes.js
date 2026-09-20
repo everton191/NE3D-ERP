@@ -59,6 +59,7 @@ assert(desktopActionsMarkup.includes("sfe-sidebar-publish"), "Publicacao deve pe
   assert(markup.includes('data-storefront-product-photo="produto-1"'), `marcador de foto ausente no shell ${index ? "mobile" : "desktop"}`);
   assert(markup.includes('data-replace-image="true"'), `troca de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
   assert(markup.includes('data-replace-image="false"'), `adicao sem substituir imagem ausente no shell ${index ? "mobile" : "desktop"}`);
-  assert(markup.includes("abrirSeletorImagemStorefront"), `botao de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('class="store-ui-upload__action"'), `label nativo de imagem ausente no shell ${index ? "mobile" : "desktop"}`);
+  assert(markup.includes('for="storefrontProductPhotoMain-produto-1"'), `label da foto principal sem associacao for/id no shell ${index ? "mobile" : "desktop"}`);
 });
 console.log("Store editor V3 actions and routes: fluxos administrativos validados.");

@@ -1,0 +1,10 @@
+"use strict";
+const assert = require("node:assert/strict");
+const promotions = require("../src/features/storefront/promotions-formatters.js");
+const now = Date.parse("2026-09-20T10:00:00Z");
+assert.equal(promotions.getCategoryLabel("resinas"), "Resinas");
+assert.equal(promotions.getCategoryLabel("other"), "Produtos 3D");
+assert.equal(promotions.normalizarTemaLojaOnline("dark"), "light");
+assert.equal(promotions.formatOfferTime({ expiresAt: "2026-09-20T10:30:00Z" }, now), "Termina em 30 min");
+assert.equal(promotions.formatOfferTime({ updatedAt: "2026-09-20T08:00:00Z" }, now), "Verificada há 2h");
+console.log("Storefront promotion formatters: categorias e prazo preservados.");

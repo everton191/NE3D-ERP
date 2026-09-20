@@ -70,6 +70,6 @@ assert.ok(app.includes('data-pdf-saved-preview="true"'), "PDF deve exibir a cóp
 assert.ok(app.includes('class="ui-context-menu stock-item-menu"'), "Menu de três pontos do estoque deve usar o contrato contextual padrão.");
 assert.ok(style.includes('.administration-module-row > .status-badge'), "Permissões devem proteger o conteúdo contra corte lateral.");
 assert.ok(app.includes('enviarWhatsCalculadora()') && app.includes('incluirPix: false'), "Calculadora deve enviar orçamento sem Pix pelo WhatsApp.");
-assert.ok(app.includes('sendQuoteToWhatsApp(null, { incluirPix: true })'), "Fluxo de pedido deve preservar o envio de Pix.");
+assert.ok(app.includes('sendQuoteToWhatsApp(pedido, { incluirPix: true, tipo: "pedido" })'), "Fluxo de pedido deve preservar o envio de Pix.");
 
 console.log("UI relation registry: telas, botões e tokens estão vinculados.");

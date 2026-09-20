@@ -22,8 +22,7 @@ const APP_LAYER_IDS = Object.freeze({
   overlay: "overlay-layer",
   drawer: "drawer-layer",
   modal: "modal-layer",
-  toast: "toast-layer",
-  legacyPopup: "popup"
+  toast: "toast-layer"
 });
 const FINANCIAL_FLOW_VERSION = "shadow-v1";
 const FINANCIAL_SYNC_VERSION = 1;
@@ -745,6 +744,7 @@ const UI_SCREEN_RELATIONS = Object.freeze({
   admin: Object.freeze({ label: "Admin", icon: "admin", tokenSet: "security" }),
   lojaOnline: Object.freeze({ label: "Loja Online", icon: "lojaonline", tokenSet: "storefront" }),
   lojaAdmin: Object.freeze({ label: "Admin da Loja", icon: "catalogo", tokenSet: "storefront" }),
+  lojaPublica: Object.freeze({ label: "Loja pública", icon: "lojaonline", tokenSet: "storefront" }),
   superadmin: Object.freeze({ label: "Super Admin", icon: "superadmin", tokenSet: "platform" }),
   onboarding: Object.freeze({ label: "Introdução", icon: "home", tokenSet: "public" }),
   feedback: Object.freeze({ label: "Sugestões de melhorias", icon: "feedback", tokenSet: "support" }),
@@ -763,6 +763,7 @@ const NAVIGATION_AUDIT_REGISTRY = Object.freeze({
   promocoes: Object.freeze({ label: "Promoções 3D", category: "principal", component: "renderPromocoes3d", status: "active", permission: "public_offers", desktop: true, mobile: true }),
   pedidos: Object.freeze({ label: "Pedidos", category: "operacional", component: "renderListaPedidos", status: "active", permission: "basic_orders", desktop: true, mobile: true }),
   pedido: Object.freeze({ label: "Novo pedido", category: "operacional", component: "renderPedido", status: "active", permission: "basic_orders", desktop: true, mobile: false }),
+  producao: Object.freeze({ label: "Produção", category: "operacional", component: "renderProducao", status: "active", permission: "simple_production", desktop: true, mobile: true }),
   impressoras: Object.freeze({ label: "Impressoras", category: "operacional", component: "renderImpressoras", status: "pilot", permission: "printer_registry", desktop: true, mobile: true }),
   clientes: Object.freeze({ label: "Clientes", category: "operacional", component: "renderClientes", status: "active", permission: "basic_customers", desktop: true, mobile: false }),
   calculadora: Object.freeze({ label: "Calculadora", category: "operacional", component: "renderCalculadoraTela", status: "active", permission: "basic_calculator", desktop: true, mobile: true }),
@@ -775,8 +776,17 @@ const NAVIGATION_AUDIT_REGISTRY = Object.freeze({
   administracao: Object.freeze({ label: "Administração da empresa", category: "administracao", component: "renderAdministracaoEmpresa", status: "active", permission: "company_admin", desktop: true, mobile: false }),
   usuarios: Object.freeze({ label: "Funcionários e permissões", category: "administracao", component: "renderAdmin", status: "active", permission: "employees_management", desktop: false, mobile: false }),
   config: Object.freeze({ label: "Sistema", category: "sistema", component: "renderConfig", status: "active", permission: "settingsBasic", desktop: true, mobile: false }),
+  backup: Object.freeze({ label: "Sistema (backup)", category: "sistema", component: "renderConfig", status: "active", permission: "settingsBasic", desktop: true, mobile: false }),
+  empresa: Object.freeze({ label: "Empresa", category: "administracao", component: "renderEmpresaConfig", status: "active", permission: "company_admin", desktop: true, mobile: false }),
   feedback: Object.freeze({ label: "Ajuda e suporte", category: "sistema", component: "renderFeedback", status: "active", permission: "support", desktop: true, mobile: true }),
   sobre: Object.freeze({ label: "Sobre", category: "sistema", component: "renderSobre", status: "active", permission: "public", desktop: true, mobile: false }),
+  mais: Object.freeze({ label: "Mais", category: "navegacao", component: "renderMais", status: "active", permission: "basic_dashboard", desktop: true, mobile: true }),
+  assinatura: Object.freeze({ label: "Plano e assinatura", category: "perfil", component: "renderAssinatura", status: "active", permission: "basic_account_security", desktop: true, mobile: false }),
+  minhaAssinatura: Object.freeze({ label: "Minha assinatura", category: "perfil", component: "renderMinhaAssinatura", status: "active", permission: "basic_account_security", desktop: true, mobile: false }),
+  lojaAdmin: Object.freeze({ label: "Admin da Loja", category: "loja", component: "renderStorefrontAdminPanel", status: "active", permission: "basic_store", desktop: true, mobile: false }),
+  lojaPublica: Object.freeze({ label: "Loja pública", category: "loja", component: "renderLojaOnlinePublica", status: "active", permission: "public", desktop: true, mobile: true }),
+  privacy: Object.freeze({ label: "Política de Privacidade", category: "publico", component: "renderDocumentoLegalPage", status: "active", permission: "public", desktop: true, mobile: true }),
+  terms: Object.freeze({ label: "Termos de Uso", category: "publico", component: "renderDocumentoLegalPage", status: "active", permission: "public", desktop: true, mobile: true }),
   superadmin: Object.freeze({ label: "Superadmin", category: "superadmin", component: "renderSuperAdmin", status: "restricted", permission: "superadmin", desktop: true, mobile: false })
 });
 
@@ -4606,12 +4616,7 @@ function criarIdLocal(prefixo = "id") {
 }
 
 function normalizarSlugPlano(slug = "free") {
-  const valor = String(slug || "free").toLowerCase().trim().replace(/-/g, "_");
-  if (["basic", "basico", "básico", "gratis", "grátis", "free"].includes(valor)) return "free";
-  if (["trial", "premium_trial"].includes(valor)) return "pro";
-  if (["start", "starter", "premium_first_month", "start_monthly"].includes(valor)) return "start";
-  if (["pro", "premium", "premium_normal", "premium_monthly", "pro_monthly"].includes(valor)) return "pro";
-  return "free";
+  return window.SimplificaPlanNormalizers.normalizarSlugPlano(slug);
 }
 
 function mascararEmailAcesso(email) {
@@ -4773,87 +4778,23 @@ function isPlanoPagoSlug(slug = "free") {
 }
 
 function normalizarBooleanoPlano(valor) {
-  if (valor === true || valor === 1) return true;
-  if (valor === false || valor === 0 || valor === null || valor === undefined) return false;
-  return ["true", "1", "sim", "yes", "y"].includes(String(valor).toLowerCase().trim());
+  return window.SimplificaPlanNormalizers.normalizarBooleanoPlano(valor);
 }
 
 function normalizarStatusPlano(status = "pending") {
-  const valor = String(status || "pending").toLowerCase().trim();
-  const mapa = {
-    ativo: "active",
-    ativa: "active",
-    pago: "active",
-    paid: "active",
-    trial: "active",
-    trialing: "active",
-    pendente: "pending",
-    atrasado: "past_due",
-    overdue: "past_due",
-    blocked: "past_due",
-    bloqueado: "past_due",
-    cancelando: "canceling",
-    cancelamento_agendado: "canceling",
-    cancel_at_period_end: "canceling",
-    cancelado: "cancelled",
-    canceled: "cancelled",
-    vencido: "expired",
-    expirado: "expired"
-  };
-  const normalizado = mapa[valor] || valor;
-  return ["active", "pending", "canceling", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "pending";
+  return window.SimplificaPlanNormalizers.normalizarStatusPlano(status);
 }
 
 function normalizarStatusPagamento(status = "none") {
-  const valor = String(status || "none").toLowerCase().trim();
-  const mapa = {
-    pago: "approved",
-    aprovado: "approved",
-    approved: "approved",
-    pendente: "pending",
-    pending: "pending",
-    recusado: "rejected",
-    rejected: "rejected",
-    cancelado: "cancelled",
-    cancelled: "cancelled",
-    canceled: "cancelled"
-  };
-  const normalizado = mapa[valor] || valor;
-  return ["none", "pending", "approved", "rejected", "cancelled", "refunded", "charged_back"].includes(normalizado) ? normalizado : "none";
+  return window.SimplificaPlanNormalizers.normalizarStatusPagamento(status);
 }
 
 function normalizarStatusAssinaturaDefinitivo(status = "free") {
-  const valor = String(status || "free").toLowerCase().trim();
-  const mapa = {
-    ativo: "active",
-    ativa: "active",
-    pago: "active",
-    paid: "active",
-    trial: "active",
-    trialing: "active",
-    pendente: "free",
-    pending: "free",
-    gratis: "free",
-    grátis: "free",
-    free: "free",
-    cancelando: "canceling",
-    cancelamento_agendado: "canceling",
-    cancel_at_period_end: "canceling",
-    atrasado: "past_due",
-    vencido: "expired",
-    expirado: "expired",
-    cancelado: "cancelled",
-    canceled: "cancelled"
-  };
-  const normalizado = mapa[valor] || valor;
-  return ["free", "active", "canceling", "past_due", "cancelled", "expired"].includes(normalizado) ? normalizado : "free";
+  return window.SimplificaPlanNormalizers.normalizarStatusAssinaturaDefinitivo(status);
 }
 
 function normalizarBillingVariant(valor = "") {
-  const variant = String(valor || "").toLowerCase().trim().replace(/-/g, "_");
-  if (["start_monthly", "premium_first_month"].includes(variant)) return "start_monthly";
-  if (["pro_monthly", "premium_monthly"].includes(variant)) return "pro_monthly";
-  return "start_monthly";
+  return window.SimplificaPlanNormalizers.normalizarBillingVariant(valor);
 }
 
 function getBillingVariantAssinatura(assinatura = getAssinaturaSaas()) {
@@ -8077,34 +8018,19 @@ function emailDoPedido(pedido) {
 }
 
 function normalizePhoneBR(phone = "") {
-  let digits = String(phone || "").replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.startsWith("00")) digits = digits.slice(2);
-  if (digits.startsWith("0") && (digits.length === 11 || digits.length === 12)) {
-    digits = digits.slice(1);
-  }
-  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith("55")) {
-    digits = "55" + digits;
-  }
-  if (!digits.startsWith("55") || (digits.length !== 12 && digits.length !== 13)) {
-    return "";
-  }
-  return "+" + digits;
+  return window.SimplificaCustomerNormalizers.normalizePhoneBR(phone);
 }
 
 function normalizarTelefoneWhatsapp(numero = "") {
-  return normalizePhoneBR(numero).replace(/^\+/, "");
+  return window.SimplificaCustomerNormalizers.normalizarTelefoneWhatsapp(numero);
 }
 
 function normalizarTelefoneBusca(numero = "") {
-  return String(numero || "").replace(/\D/g, "");
+  return window.SimplificaCustomerNormalizers.normalizarTelefoneBusca(numero);
 }
 
 function normalizarSugestaoClienteTexto(valor = "") {
-  return removerAcentos(String(valor || "").toLowerCase())
-    .replace(/[^a-z0-9\s@.+-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return window.SimplificaCustomerNormalizers.normalizarSugestaoClienteTexto(valor, { removerAcentos });
 }
 
 function getCustomerSuggestionUserKey() {
@@ -8117,52 +8043,7 @@ function getCustomerSuggestionStorageKey() {
 }
 
 function normalizarSugestaoCliente(item = {}) {
-  const name = String(item.name || item.nome || item.displayName || "").trim();
-  const phones = Array.isArray(item.phones) ? item.phones : [item.phone || item.telefone || item.number || ""];
-  const emails = Array.isArray(item.emails) ? item.emails : [item.email || item.mail || ""];
-  const phone = normalizarTelefoneWhatsapp(phones.find(Boolean) || "");
-  const email = String(emails.find(Boolean) || "").trim();
-  if (!name && !phone && !email) return null;
-  return {
-    id: String(item.id || item.contactId || `${item.source || "app"}-${name}-${phone}-${email}`).slice(0, 140),
-    source: item.source || "app_client",
-    name,
-    phone,
-    email,
-    phones: phones.map((valor) => normalizarTelefoneWhatsapp(valor)).filter(Boolean),
-    emails: emails.map((valor) => String(valor || "").trim()).filter(Boolean),
-    usageCount: Number(item.usageCount || item.pedidos || 0) || 0,
-    lastUsedAt: item.lastUsedAt || item.updated_at || item.atualizadoEm || item.createdAt || ""
-  };
-}
-
-function pontuarSugestaoCliente(sugestao = {}, query = "") {
-  const termo = normalizarSugestaoClienteTexto(query);
-  const termoTel = normalizarTelefoneBusca(query);
-  const nome = normalizarSugestaoClienteTexto(sugestao.name);
-  const telefone = normalizarTelefoneBusca(sugestao.phone || sugestao.phones?.[0] || "");
-  if (!termo && !termoTel) return 0;
-  let score = Number(sugestao.usageCount || 0) * 2;
-  if (termoTel.length >= 2 && telefone.includes(termoTel)) score += telefone.startsWith(termoTel) ? 95 : 70;
-  if (termo) {
-    if (nome === termo) score += 120;
-    else if (nome.startsWith(termo)) score += 95;
-    else if (nome.split(/\s+/).some((parte) => parte.startsWith(termo))) score += 82;
-    else if (nome.includes(termo)) score += 64;
-    else {
-      let pos = 0;
-      for (const letra of termo) {
-        pos = nome.indexOf(letra, pos);
-        if (pos < 0) return score;
-        pos += 1;
-      }
-      score += 35;
-    }
-  }
-  if (sugestao.source === "app_client") score += 18;
-  if (sugestao.source === "phone_contact") score += 8;
-  if (sugestao.source === "recent") score += 12;
-  return score;
+  return window.SimplificaCustomerNormalizers.normalizarSugestaoCliente(item);
 }
 
 function coletarClientesAppParaSugestao() {
@@ -8236,26 +8117,10 @@ const CustomerSuggestionManager = {
       .filter(Boolean), query);
   },
   mergeSuggestions(...listas) {
-    const mapa = new Map();
-    listas.flat().filter(Boolean).forEach((item) => {
-      const chave = normalizarSugestaoClienteTexto(`${item.name}|${item.phone || ""}|${item.email || ""}`);
-      if (!chave) return;
-      const atual = mapa.get(chave);
-      mapa.set(chave, atual ? {
-        ...atual,
-        ...item,
-        usageCount: Math.max(atual.usageCount || 0, item.usageCount || 0),
-        source: atual.source === "app_client" ? atual.source : item.source
-      } : item);
-    });
-    return Array.from(mapa.values());
+    return window.SimplificaCustomerNormalizers.mergeSuggestions(listas, { normalizeText: normalizarSugestaoClienteTexto });
   },
   rankSuggestions(suggestions, query) {
-    return (Array.isArray(suggestions) ? suggestions : [])
-      .map((item) => ({ ...item, _score: pontuarSugestaoCliente(item, query) }))
-      .filter((item) => item._score > 0)
-      .sort((a, b) => b._score - a._score || normalizarSugestaoClienteTexto(a.name).localeCompare(normalizarSugestaoClienteTexto(b.name)))
-      .slice(0, 8);
+    return window.SimplificaCustomerNormalizers.rankSuggestions(suggestions, query, { normalizeText: normalizarSugestaoClienteTexto, normalizePhone: normalizarTelefoneBusca });
   },
   clearSelectedSuggestionIfUserChangesText(text) {
     if (!selectedCustomerSuggestion) return false;
@@ -8391,30 +8256,15 @@ function inferirTipoMaterial(nome = "") {
 }
 
 function calcularPercentualEstoque(atual = 0, base = 0) {
-  const saldo = Math.max(0, Number(atual) || 0);
-  const referencia = Math.max(0, Number(base) || 0);
-  if (!referencia) return saldo > 0 ? 100 : 0;
-  return Math.max(0, Math.min(100, Math.round((saldo / referencia) * 100)));
+  return window.SimplificaInventoryNormalizers.calcularPercentualEstoque(atual, base);
 }
 
 function resolverStatusEstoque(percentual = 0, material = {}) {
-  const saldo = Math.max(0, Number(material.current_quantity ?? material.qtd) || 0);
-  const minimo = Math.max(0, Number(material.estoqueMinimo ?? material.min_stock ?? material.minStock) || 0);
-  if (minimo > 0) {
-    if (saldo <= 0) return "critical";
-    if (saldo <= minimo) return "low";
-    return "normal";
-  }
-  const critical = Number(material.critical_stock_threshold ?? material.criticalStockThreshold ?? 10) || 10;
-  const low = Number(material.low_stock_threshold ?? material.lowStockThreshold ?? 30) || 30;
-  if (percentual <= critical) return "critical";
-  if (percentual <= low) return "low";
-  return "normal";
+  return window.SimplificaInventoryNormalizers.resolverStatusEstoque(percentual, material);
 }
 
 function labelStatusEstoque(status = "normal") {
-  const mapa = { normal: "Normal", low: "Baixo", critical: "Crítico" };
-  return mapa[String(status || "normal")] || "Normal";
+  return window.SimplificaInventoryPresentation.labelStatusEstoque(status);
 }
 
 function getThemePreferenceLabel(theme = appConfig.theme) {
@@ -8429,51 +8279,15 @@ function usuarioPodeVerCustosEstoque(usuario = getUsuarioAtual()) {
 }
 
 function calcularCustoKgMaterialEstoque(material = {}) {
-  const custoKg = Number(material.precoKg || material.preco_por_kg || material.pricePerKg || material.custoKg || material.costPerKg) || 0;
-  if (custoKg > 0) return custoKg;
-  const valorTotal = Number(material.valorTotal || material.valor_total || material.custoTotal || material.costTotal || material.precoPago || material.preco_pago) || 0;
-  const base = Math.max(0, Number(material.quantity_base ?? material.initial_quantity ?? material.qtd) || 0);
-  return valorTotal > 0 && base > 0 ? valorTotal / base : 0;
+  return window.SimplificaInventoryNormalizers.calcularCustoKgMaterialEstoque(material);
 }
 
 function normalizarLoteEstoque(lote = {}, material = {}) {
-  const unidade = lote.unit || lote.unidade || material.unidade || material.unit || "g";
-  const initial = Math.max(0, Number(lote.initial_quantity ?? lote.initialQuantity ?? lote.quantidadeInicial ?? lote.qtdInicial ?? lote.current_quantity ?? lote.currentQuantity ?? lote.qtd) || 0);
-  const current = Math.max(0, Number(lote.current_quantity ?? lote.currentQuantity ?? lote.saldoAtual ?? lote.qtdAtual ?? lote.qtd ?? initial) || 0);
-  const tipo = String(lote.batch_type || lote.batchType || lote.tipo || material.batch_control_type || "rolo").trim() || "rolo";
-  const statusRaw = String(lote.status || (current <= 0 ? "esgotado" : "fechado")).trim().toLowerCase();
-  const status = ["fechado", "em_uso", "esgotado", "inativo"].includes(statusRaw) ? statusRaw : "fechado";
-  return {
-    ...lote,
-    id: lote.id || "batch-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
-    inventory_item_id: lote.inventory_item_id || lote.inventoryItemId || material.id || "",
-    batch_code: String(lote.batch_code || lote.batchCode || lote.codigo || lote.code || "").trim(),
-    manufacturer_lot: String(lote.manufacturer_lot || lote.manufacturerLot || lote.loteFabricante || "").trim(),
-    location_id: String(lote.location_id || lote.locationId || lote.localizacao || "").trim(),
-    qr_code: String(lote.qr_code || lote.qrCode || "").trim(),
-    batch_type: tipo,
-    initial_quantity: initial,
-    current_quantity: current,
-    unit: unidade,
-    cost_total: Math.max(0, Number(lote.cost_total ?? lote.costTotal ?? lote.custoTotal) || 0),
-    cost_per_unit: Math.max(0, Number(lote.cost_per_unit ?? lote.costPerUnit ?? lote.custoUnitario) || 0),
-    spool_tare_weight_g: Math.max(0, Number(lote.spool_tare_weight_g ?? lote.spoolTareWeightG ?? lote.taraCarretel) || 0),
-    purchase_date: lote.purchase_date || lote.purchaseDate || "",
-    opened_at: lote.opened_at || lote.openedAt || "",
-    last_weighed_at: lote.last_weighed_at || lote.lastWeighedAt || "",
-    status,
-    notes: String(lote.notes || lote.observacoes || "").trim(),
-    created_at: lote.created_at || lote.createdAt || new Date().toISOString(),
-    updated_at: lote.updated_at || lote.updatedAt || new Date().toISOString()
-  };
+  return window.SimplificaInventoryNormalizers.normalizarLoteEstoque(lote, material);
 }
 
 function normalizarLotesEstoque(material = {}) {
-  const lotes = Array.isArray(material.inventory_batches) ? material.inventory_batches
-    : Array.isArray(material.batches) ? material.batches
-      : Array.isArray(material.rolos) ? material.rolos
-        : [];
-  return lotes.map((lote) => normalizarLoteEstoque(lote, material));
+  return window.SimplificaInventoryNormalizers.normalizarLotesEstoque(material);
 }
 
 function materialUsaControleLote(material = {}) {
@@ -8481,26 +8295,19 @@ function materialUsaControleLote(material = {}) {
 }
 
 function calcularSaldoLotesEstoque(lotes = [], unidade = "un") {
-  return lotes
-    .filter((lote) => !["inativo", "esgotado"].includes(String(lote.status || "").toLowerCase()))
-    .filter((lote) => !lote.unit || !unidade || String(lote.unit) === String(unidade))
-    .reduce((soma, lote) => soma + (Number(lote.current_quantity) || 0), 0);
+  return window.SimplificaInventoryNormalizers.calcularSaldoLotesEstoque(lotes, unidade);
 }
 
 function getCodigoNumericoMaterialEstoque(material = {}) {
-  const codigo = Number(material.codigoEstoque ?? material.stock_code ?? material.codigo ?? 0);
-  return Number.isInteger(codigo) && codigo > 0 ? codigo : 0;
+  return window.SimplificaInventoryIdentifiers.getCodigoNumericoMaterialEstoque(material);
 }
 
 function formatarCodigoMaterialEstoque(materialOuCodigo = 0) {
-  const codigo = typeof materialOuCodigo === "object"
-    ? getCodigoNumericoMaterialEstoque(materialOuCodigo)
-    : Math.floor(Number(materialOuCodigo) || 0);
-  return codigo > 0 ? `#${String(codigo).padStart(4, "0")}` : "#----";
+  return window.SimplificaInventoryIdentifiers.formatarCodigoMaterialEstoque(materialOuCodigo);
 }
 
 function getProximoCodigoMaterialEstoque(lista = estoque) {
-  return (Array.isArray(lista) ? lista : []).reduce((maior, material) => Math.max(maior, getCodigoNumericoMaterialEstoque(material)), 0) + 1;
+  return window.SimplificaInventoryIdentifiers.getProximoCodigoMaterialEstoque(lista);
 }
 
 function garantirCodigosNumericosEstoque(lista = []) {
@@ -8523,65 +8330,11 @@ function garantirCodigosNumericosEstoque(lista = []) {
 }
 
 function getCodigoExternoMaterialEstoque(material = {}) {
-  return String(material.codigoExterno || material.external_code || material.barcode || material.qr_code || "").trim();
+  return window.SimplificaInventoryIdentifiers.getCodigoExternoMaterialEstoque(material);
 }
 
 function normalizarMaterialEstoque(material = {}) {
-  const tipo = material.tipo || inferirTipoMaterial(material.nome);
-  const cor = String(material.cor || "").trim();
-  const nomeBase = String(material.nome || [tipo, cor].filter(Boolean).join(" ") || tipo).trim();
-  const unidade = material.unit || material.unidade || "kg";
-  const inventoryBatches = normalizarLotesEstoque({ ...material, nome: nomeBase, tipo, unidade });
-  const isBatchControlled = materialUsaControleLote(material);
-  const saldoLotes = isBatchControlled ? calcularSaldoLotesEstoque(inventoryBatches, unidade) : 0;
-  const saldoAtual = isBatchControlled && inventoryBatches.length
-    ? saldoLotes
-    : Math.max(0, Number(material.current_quantity ?? material.currentQuantity ?? material.qtd) || 0);
-  const baseInformada = Number(material.quantity_base ?? material.quantityBase ?? material.initial_quantity ?? material.initialQuantity) || 0;
-  const basePadrao = String(unidade).toLowerCase() === "kg" ? Math.max(1, saldoAtual) : Math.max(1, saldoAtual);
-  const base = Math.max(saldoAtual, baseInformada || basePadrao);
-  const percentual = calcularPercentualEstoque(saldoAtual, base);
-  const status = resolverStatusEstoque(percentual, material);
-  return {
-    ...material,
-    id: material.id || "mat-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
-    codigoEstoque: getCodigoNumericoMaterialEstoque(material),
-    stock_code: getCodigoNumericoMaterialEstoque(material),
-    codigoExterno: getCodigoExternoMaterialEstoque(material),
-    external_code: getCodigoExternoMaterialEstoque(material),
-    nome: nomeBase,
-    tipo,
-    cor,
-    qtd: saldoAtual,
-    unidade,
-    unit: unidade,
-    categoria: String(material.categoria || material.category || tipo || "Geral").trim(),
-    tipoItem: String(material.tipoItem || material.item_type || material.itemType || (["PLA", "PETG", "TPU", "RESINA"].includes(String(tipo).toUpperCase()) ? "Item de produção 3D" : "Matéria-prima")).trim(),
-    item_type: String(material.tipoItem || material.item_type || material.itemType || (["PLA", "PETG", "TPU", "RESINA"].includes(String(tipo).toUpperCase()) ? "Item de produção 3D" : "Matéria-prima")).trim(),
-    estoqueMinimo: Math.max(0, Number(material.estoqueMinimo ?? material.min_stock ?? material.minStock) || 0),
-    min_stock: Math.max(0, Number(material.estoqueMinimo ?? material.min_stock ?? material.minStock) || 0),
-    custoUnitario: Math.max(0, Number(material.custoUnitario ?? material.unit_cost ?? material.unitCost ?? material.precoKg ?? material.custoKg) || 0),
-    unit_cost: Math.max(0, Number(material.custoUnitario ?? material.unit_cost ?? material.unitCost ?? material.precoKg ?? material.custoKg) || 0),
-    fornecedor: String(material.fornecedor || material.supplier || "").trim(),
-    observacoes: String(material.observacoes || material.observacao || material.notes || "").trim(),
-    icone: String(material.icone || material.icon || "").trim(),
-    foto: String(material.foto || material.imageDataUrl || material.image_url || "").trim(),
-    ativo: material.ativo !== false && material.active !== false,
-    is_batch_controlled: isBatchControlled,
-    batch_control_type: String(material.batch_control_type || material.batchControlType || material.tipoControleLote || (isBatchControlled ? "rolo" : "")).trim(),
-    inventory_batches: inventoryBatches,
-    batches: inventoryBatches,
-    initial_quantity: Math.max(0, Number(material.initial_quantity ?? material.initialQuantity ?? base) || 0),
-    current_quantity: saldoAtual,
-    quantity_base: base,
-    remaining_percent: percentual,
-    stock_status: status,
-    low_stock_threshold: Number(material.low_stock_threshold ?? material.lowStockThreshold ?? 30) || 30,
-    critical_stock_threshold: Number(material.critical_stock_threshold ?? material.criticalStockThreshold ?? 10) || 10,
-    notified_low_stock: !!(material.notified_low_stock || material.notifiedLowStock),
-    notified_critical_stock: !!(material.notified_critical_stock || material.notifiedCriticalStock),
-    last_restock_at: material.last_restock_at || material.lastRestockAt || ""
-  };
+  return window.SimplificaInventoryNormalizers.normalizarMaterialEstoque(material, { inferirTipoMaterial, normalizarLotesEstoque, materialUsaControleLote, calcularSaldoLotesEstoque, calcularPercentualEstoque, getCodigoNumericoMaterialEstoque, getCodigoExternoMaterialEstoque });
 }
 
 function normalizarEstoque() {
@@ -8616,96 +8369,27 @@ function getMaterialEstoque(materialId) {
 }
 
 function getMateriaisItem(item = {}) {
-  if (Array.isArray(item.materiais) && item.materiais.length) {
-    return item.materiais
-      .map((material) => {
-        const materialId = material.materialId || material.id || "";
-        const estoqueItem = getMaterialEstoque(materialId);
-        const unidade = String(material.unidade || material.unit || estoqueItem?.unidade || "kg");
-        const gramasLegado = Math.max(0, Number(material.gramas) || 0);
-        const quantidadeInformada = Math.max(0, Number(material.quantidade ?? material.quantity) || 0);
-        const quantidade = quantidadeInformada || (unidade === "kg" ? gramasLegado / 1000 : unidade === "g" ? gramasLegado : gramasLegado);
-        return {
-          materialId,
-          nome: material.nome || estoqueItem?.nome || "",
-          quantidade,
-          unidade,
-          valorUnitario: Math.max(0, numeroMonetarioPedido(material.valorUnitario ?? material.unitValue, 0)),
-          gramas: gramasLegado || (unidade === "kg" ? quantidade * 1000 : unidade === "g" ? quantidade : 0)
-        };
-      })
-      .filter((material) => material.materialId && material.quantidade > 0);
-  }
-
-  const materialId = item.materialId || "";
-  const gramas = Math.max(0, Number(item.materialGramsTotal ?? item.materialGrams) || 0);
-  const estoqueItem = getMaterialEstoque(materialId);
-  const unidade = String(estoqueItem?.unidade || "kg");
-  const quantidade = unidade === "kg" ? gramas / 1000 : unidade === "g" ? gramas : gramas;
-  return materialId && quantidade > 0 ? [{ materialId, nome: estoqueItem?.nome || "", quantidade, unidade, gramas }] : [];
+  return window.SimplificaOrderNormalizers.getMateriaisItem(item, { getMaterialEstoque, numeroMonetarioPedido });
 }
 
 function normalizarItemPedido(item = {}) {
-  const qtd = Math.max(1, Number(item.qtd) || 1);
-  const valor = Math.max(0, Number(item.valor ?? item.precoVenda) || 0);
-  const materiais = getMateriaisItem(item);
-  return {
-    ...item,
-    id: item.id || "item-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
-    nome: String(item.nome || "Produto 3D").trim(),
-    tipoImpressao: item.tipoImpressao === "RESINA" ? "RESINA" : "FDM",
-    material: item.material || "",
-    materiais,
-    qtd,
-    tempoHoras: Math.max(0, Number(item.tempoHoras ?? item.tempo) || 0),
-    valor,
-    total: Math.max(0, Number(item.total) || valor * qtd),
-    custoMaterial: Math.max(0, Number(item.custoMaterial) || 0),
-    custoEnergia: Math.max(0, Number(item.custoEnergia) || 0),
-    custoTotal: Math.max(0, Number(item.custoTotal ?? item.custo) || 0),
-    baseProduto: Math.max(0, Number(item.baseProduto ?? item.productBase) || 0),
-    lucroProduto: Math.max(0, Number(item.lucroProduto ?? item.productProfit) || 0),
-    valorProduto: Math.max(0, Number(item.valorProduto ?? item.productValue) || 0),
-    taxaExtra: Math.max(0, Number(item.taxaExtra ?? item.extraFee) || 0)
-  };
+  return window.SimplificaOrderNormalizers.normalizarItemPedido(item, { getMateriaisItem });
 }
 
 function normalizarItensPedido(pedidoOuItens = itensPedido) {
-  const itens = Array.isArray(pedidoOuItens) ? pedidoOuItens : Array.isArray(pedidoOuItens?.itens) ? pedidoOuItens.itens : [];
-  return itens.map(normalizarItemPedido);
+  return window.SimplificaOrderNormalizers.normalizarItensPedido(pedidoOuItens, { getMateriaisItem });
 }
 
 function itemEhPlaceholderPedido(item = {}) {
-  const nome = normalizarTextoBusca(item.nome || "");
-  const semValor = Number(item.valor) <= 0 && Number(item.total) <= 0;
-  const nomesPlaceholder = ["", "produto 3d", "novo item", "item calculado", "item do pedido"];
-  return semValor && nomesPlaceholder.includes(nome);
+  return window.SimplificaOrderNormalizers.itemEhPlaceholderPedido(item, { normalizarTextoBusca });
 }
 
 function validarItemPedidoParaSalvar(item = {}) {
-  const normalizado = normalizarItemPedido(item);
-  const nome = String(normalizado.nome || "").trim();
-  const nomeOriginal = String(item.nome || "").trim();
-  const nomeBusca = normalizarTextoBusca(nome);
-  const nomesPlaceholder = ["", "produto 3d", "novo item", "item calculado", "item do pedido"];
-  if (!nomeOriginal || nomesPlaceholder.includes(nomeBusca) || itemEhPlaceholderPedido(normalizado)) {
-    return { ok: false, reason: "Informe a descrição do item.", item: normalizado };
-  }
-  if ((Number(normalizado.qtd) || 0) <= 0) return { ok: false, reason: "A quantidade precisa ser maior que zero.", item: normalizado };
-  if ((Number(normalizado.valor) || 0) <= 0 || (Number(normalizado.total) || 0) <= 0) return { ok: false, reason: "O valor do item precisa ser maior que zero.", item: normalizado };
-  return { ok: true, item: normalizado };
+  return window.SimplificaOrderNormalizers.validarItemPedidoParaSalvar(item, { normalizarItemPedido, normalizarTextoBusca, itemEhPlaceholderPedido });
 }
 
 function sanitizeItensPedidoParaSalvar(itens = itensPedido) {
-  const normalizados = normalizarItensPedido(itens);
-  const validos = [];
-  const invalidos = [];
-  normalizados.forEach((item) => {
-    const validacao = validarItemPedidoParaSalvar(item);
-    if (validacao.ok) validos.push(validacao.item);
-    else invalidos.push({ item, reason: validacao.reason });
-  });
-  return { validos, invalidos };
+  return window.SimplificaOrderNormalizers.sanitizeItensPedidoParaSalvar(itens, { normalizarItensPedido, validarItemPedidoParaSalvar });
 }
 
 function assinaturaItemPedido(item = {}) {
@@ -8815,13 +8499,11 @@ function getMetodosPagamentoCaixa() {
 }
 
 function normalizarMetodoPagamentoCaixa(valor = "") {
-  const id = String(valor || "").trim().toLowerCase();
-  const metodos = getMetodosPagamentoCaixa();
-  return metodos.find((metodo) => metodo.id === id || metodo.type === id) || metodos[0] || { id: "dinheiro", name: "Dinheiro", type: "cash" };
+  return window.SimplificaCashPaymentMethods.normalizarMetodoPagamentoCaixa(valor, { getMetodosPagamentoCaixa });
 }
 
 function getMetodoPagamentoMovimento(movimento = {}) {
-  return normalizarMetodoPagamentoCaixa(movimento.payment_method_type || movimento.paymentMethodType || movimento.paymentMethod || movimento.metodoPagamento || movimento.formaPagamento || movimento.payment_method_id || movimento.paymentMethodId || "dinheiro");
+  return window.SimplificaCashPaymentMethods.getMetodoPagamentoMovimento(movimento, { normalizarMetodoPagamentoCaixa });
 }
 
 function caixaModoSimplesAtivo() {
@@ -8865,71 +8547,23 @@ function getIdSessaoMovimentoCaixa(movimento = {}) {
 function calcularResumoSessaoCaixa(sessao = getSessaoCaixaAtual()) {
   const sessionId = sessao?.id || "";
   const movimentos = sessionId ? caixa.filter((movimento) => String(getIdSessaoMovimentoCaixa(movimento)) === String(sessionId)) : [];
-  const resumo = movimentos.reduce((totais, movimento) => {
-    if (movimentoCaixaCancelado(movimento)) {
-      totais.cancelados += 1;
-      return totais;
-    }
-    const valor = Number(movimento.valor) || 0;
-    const saida = String(movimento.tipo || "").toLowerCase() === "saida";
-    const metodo = getMetodoPagamentoMovimento(movimento);
-    if (saida) totais.saidas += valor;
-    else {
-      totais.entradas += valor;
-      totais.porForma[metodo.id] = (totais.porForma[metodo.id] || 0) + valor;
-    }
-    totais.saldo = totais.entradas - totais.saidas;
-    totais.ultimaMovimentacao = obterDataMovimentoCaixa(movimento) || totais.ultimaMovimentacao;
-    return totais;
-  }, { entradas: 0, saidas: 0, saldo: 0, cancelados: 0, porForma: {}, ultimaMovimentacao: null });
-  resumo.expectedBalance = (Number(sessao?.openingBalance ?? sessao?.opening_balance) || 0) + resumo.saldo;
-  return resumo;
+  return window.SimplificaCashPaymentMethods.calcularResumoSessaoCaixa(sessao, movimentos, { isCancelled: movimentoCaixaCancelado, getPaymentMethod: getMetodoPagamentoMovimento, getMovementDate: obterDataMovimentoCaixa });
 }
 
 function formatarDataCurta(valor = "") {
-  if (!valor) return "";
-  const data = normalizarDataLocal(valor, null);
-  if (!data) return String(valor);
-  return data.toLocaleDateString("pt-BR");
+  return window.SimplificaDateFormatters.formatShort(valor, { normalize: normalizarDataLocal });
 }
 
 function formatarDataHora(valor = "") {
-  if (!valor) return "";
-  const data = normalizarDataLocal(valor, null);
-  if (!data) return String(valor);
-  return data.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  });
+  return window.SimplificaDateFormatters.formatDateTime(valor);
 }
 
 function calcularSaldo(movimentos = getMovimentosCaixaDaConta()) {
-  return movimentos.reduce((saldo, movimento) => {
-    if (movimentoCaixaCancelado(movimento)) return saldo;
-    const valor = Number(movimento.valor) || 0;
-    return movimento.tipo === "saida" ? saldo - valor : saldo + valor;
-  }, 0);
+  return window.SimplificaCashPaymentMethods.calcularSaldo(movimentos, { isCancelled: movimentoCaixaCancelado });
 }
 
 function calcularTotaisCaixa(movimentos = getMovimentosCaixaDaConta()) {
-  return movimentos.reduce((totais, movimento) => {
-    if (movimentoCaixaCancelado(movimento)) {
-      totais.cancelados += 1;
-      return totais;
-    }
-    const valor = Number(movimento.valor) || 0;
-    if (movimento.tipo === "saida") {
-      totais.saidas += valor;
-    } else {
-      totais.entradas += valor;
-    }
-    totais.saldo = totais.entradas - totais.saidas;
-    return totais;
-  }, { entradas: 0, saidas: 0, saldo: 0, cancelados: 0 });
+  return window.SimplificaCashPaymentMethods.calcularTotaisCaixa(movimentos, { isCancelled: movimentoCaixaCancelado });
 }
 
 // Regra central de planos/permissões: somente active_plan libera acesso; pending nunca ativa plano.
@@ -9633,28 +9267,18 @@ function mostrarBloqueioPlano(resultado) {
 }
 
 function mostrarModalLimitePlano(mensagem = "Você atingiu o limite do seu plano. Faça upgrade para continuar.") {
-  const popup = document.getElementById("popup");
-  if (!popup) {
-    alert(mensagem);
-    return;
-  }
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" data-action="plan-modal-close">
-      <div class="modal-card limit-modal">
-        <div class="modal-header">
-          <h2>Você atingiu o limite do seu plano</h2>
-          <button class="icon-button" type="button" data-action="plan-modal-close" title="Fechar">✕</button>
-        </div>
-        <p class="muted">${escaparHtml(mensagem)}</p>
-        <div class="actions">
-          <button class="btn secondary" type="button" data-action="plan-upgrade">Ver planos</button>
-          <button class="btn" type="button" data-action="plan-upgrade">Fazer upgrade</button>
-        </div>
-      </div>
-    </div>
-  `;
-  promoverPopupParaDialogUiV3(popup, { title: "Limite do plano" });
   registrarAuditoria("tentativa", { motivo: "limite_plano", mensagem });
+  window.UiV3?.Dialog?.({
+    title: "Limite do plano",
+    content: `
+      <p class="muted">${escaparHtml(mensagem)}</p>
+      <div class="ui3-sticky-actions">
+        <button class="ui3-button" data-variant="secondary" type="button" data-plan-modal-close>Fechar</button>
+        <button class="ui3-button" data-variant="primary" type="button" data-plan-upgrade>Ver planos</button>
+      </div>
+    `,
+    onClose: () => {},
+  });
 }
 
 function getDocumentoLegal(tipo = "termos") {
@@ -14317,37 +13941,15 @@ function normalizarPromocao3d(item = {}) {
 }
 
 function formatarAtualizacaoPromocoes3d(value = promotions3dState.updatedAt) {
-  const date = new Date(value);
-  if (!value || Number.isNaN(date.getTime())) return "Aguardando atualização";
-  return `Atualizado às ${date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  return window.SimplificaDateFormatters.formatUpdatedAt(value);
 }
 
 function formatarTempoOfertaPromocao3d(item = {}) {
-  const expiresAt = Date.parse(String(item.expiresAt || ""));
-  if (Number.isFinite(expiresAt) && expiresAt > Date.now()) {
-    const remainingMinutes = Math.max(1, Math.ceil((expiresAt - Date.now()) / 60000));
-    if (remainingMinutes < 60) return `Termina em ${remainingMinutes} min`;
-    const hours = Math.floor(remainingMinutes / 60);
-    const minutes = remainingMinutes % 60;
-    if (hours < 24) return `Termina em ${hours}h${minutes ? ` ${minutes}min` : ""}`;
-    const days = Math.floor(hours / 24);
-    return `Termina em ${days} ${days === 1 ? "dia" : "dias"}`;
-  }
-  const checkedAt = Date.parse(String(item.updatedAt || item.publishedAt || ""));
-  if (!Number.isFinite(checkedAt)) return "Validade não informada";
-  const elapsedMinutes = Math.max(0, Math.floor((Date.now() - checkedAt) / 60000));
-  if (elapsedMinutes < 1) return "Verificada agora";
-  if (elapsedMinutes < 60) return `Verificada há ${elapsedMinutes} min`;
-  return `Verificada há ${Math.floor(elapsedMinutes / 60)}h`;
+  return window.SimplificaStorefrontPromotionFormatters.formatOfferTime(item);
 }
 
 function getNomeCategoriaPromocao3d(category = "") {
-  return {
-    impressoras: "Impressoras",
-    filamentos: "Filamentos",
-    resinas: "Resinas",
-    materiais: "Materiais"
-  }[category] || "Produtos 3D";
+  return window.SimplificaStorefrontPromotionFormatters.getCategoryLabel(category);
 }
 
 function getPromocoes3dVisiveis() {
@@ -16016,7 +15618,7 @@ let storefrontPublicCheckoutInFlight = false;
 const STOREFRONT_PUBLIC_ORDER_DRAFTS_KEY = "simplifica-storefront-public-order-drafts-v1";
 
 function normalizarTemaLojaOnline(theme = "") {
-  return "light";
+  return window.SimplificaStorefrontPromotionFormatters.normalizarTemaLojaOnline(theme);
 }
 
 function getStoreThemeSaved() {
@@ -16373,6 +15975,310 @@ function preservarRascunhoProdutoGuiadoAtual() {
   storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, draft);
   storefrontScheduleAutosave("product", serializeStorefrontForm(document.getElementById("storefrontProductForm")));
   return draft;
+}
+
+const storefrontProductDraftEnsureState = { status: "idle", message: "", productId: "" };
+let storefrontProductDraftEnsurePromise = null;
+
+function getStorefrontProductDraftState() {
+  return { ...storefrontProductDraftEnsureState };
+}
+
+function redefinirEstadoRascunhoProdutoLojaOnline() {
+  storefrontProductDraftEnsureState.status = "idle";
+  storefrontProductDraftEnsureState.message = "";
+  storefrontProductDraftEnsureState.productId = "";
+  storefrontProductDraftEnsurePromise = null;
+}
+
+function gerarChaveRascunhoLojaOnline() {
+  try {
+    if (window.crypto?.getRandomValues) {
+      const bytes = new Uint32Array(1);
+      window.crypto.getRandomValues(bytes);
+      return `draft-${bytes[0].toString(36)}`;
+    }
+  } catch (_) {}
+  return `draft-${Date.now().toString(36)}-${Math.floor(Math.random() * 1296).toString(36)}`;
+}
+
+function gerarChaveRascunhoProdutoLojaOnline() {
+  return gerarChaveRascunhoLojaOnline();
+}
+
+function isProdutoNovoSemIdLojaOnline() {
+  const selection = getStorefrontGuidedSelection();
+  if (selection.type !== "product") return false;
+  const seed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null) || {};
+  const form = typeof document !== "undefined" ? document.getElementById("storefrontProductForm") : null;
+  const formId = String(getRascunhoProdutoGuiadoDoFormulario(form)?.id || seed.id || selection.id || "");
+  if (!formId || storefrontAdminIsLocalId(formId, "prod-")) return true;
+  const found = getStorefrontAdminProductsLocal().find((item) => String(item.id) === formId);
+  if (!found || found.__demo || found.__template) return true;
+  return false;
+}
+
+async function garantirRascunhoProdutoLojaOnline(manual = false) {
+  const selection = getStorefrontGuidedSelection();
+  if (selection.type !== "product") return null;
+  const seed = storefrontAdminRead(STOREFRONT_ADMIN_KEYS.editingProductSeed, null) || {};
+  const form = typeof document !== "undefined" ? document.getElementById("storefrontProductForm") : null;
+  const formDraft = getRascunhoProdutoGuiadoDoFormulario(form) || {};
+  if (formDraft && (formDraft.__demo || formDraft.__template)) return null;
+  const candidateId = String(formDraft.id || seed.id || selection.id || "");
+  if (candidateId && !storefrontAdminIsLocalId(candidateId, "prod-")) {
+    const existing = getStorefrontAdminProductsLocal().find((item) => String(item.id) === String(candidateId));
+    if (existing && !existing.__demo && !existing.__template) {
+      storefrontProductDraftEnsureState.status = "ready";
+      storefrontProductDraftEnsureState.message = "";
+      storefrontProductDraftEnsureState.productId = String(existing.id);
+      return existing;
+    }
+  }
+  if (seed.__demo || seed.__template) return null;
+  if (storefrontProductDraftEnsurePromise) return storefrontProductDraftEnsurePromise;
+  const ensureTask = (async () => {
+    storefrontProductDraftEnsureState.status = "creating";
+    storefrontProductDraftEnsureState.message = "";
+    renderizarPreservandoScroll();
+    try {
+      if (!storefrontBeginOperation("storefront-product-draft")) return null;
+      try {
+        const products = getStorefrontAdminProductsLocal();
+        const localExisting = candidateId && storefrontAdminIsLocalId(candidateId, "prod-")
+          ? products.find((item) => String(item.id) === String(candidateId))
+          : null;
+        const draftKey = String(seed.__draftKey || formDraft.__draftKey || localExisting?.__draftKey || gerarChaveRascunhoProdutoLojaOnline());
+        const title = String(formDraft.title || seed.title || localExisting?.title || "").trim() || "Novo produto";
+        const slugBase = storefrontAdminSlugify(localExisting?.slug || seed.slug || title) || "novo-produto";
+        const slug = String(localExisting?.slug || seed.slug || `${slugBase}-${draftKey.replace(/[^a-z0-9]+/gi, "").slice(-6) || "novo"}`).toLowerCase();
+        const store = getStorefrontAdminStoreLocal();
+        const limits = getStorefrontLimitsLocal(getPlanoAtual()?.slug);
+        if (!candidateId && Number.isFinite(limits.productLimit) && products.filter((item) => !storefrontIsDemoProduct(item)).length >= limits.productLimit) {
+          throw new Error(`Limite de ${limits.productLimit} produto(s) para este plano.`);
+        }
+        storefrontAdminRequireRemoteStore();
+        if (!storefrontAdminRemoteReady()) throw new Error("Sem conexão no momento. Verifique a internet e tente novamente.");
+        const payload = {
+          id: "",
+          store_id: store.id,
+          owner_id: store.owner_id || storefrontAdminCurrentOwnerId(),
+          erp_product_id: formDraft.erp_product_id || seed.erp_product_id || null,
+          title,
+          short_description: formDraft.short_description ?? seed.short_description ?? "",
+          slug,
+          description: formDraft.description ?? seed.description ?? "",
+          price: Number(formDraft.price ?? seed.price ?? 0) || 0,
+          compare_price: formDraft.compare_price ?? seed.compare_price ?? null,
+          price_mode: formDraft.price_mode || seed.price_mode || "fixed",
+          show_price: formDraft.show_price ?? seed.show_price ?? true,
+          category_id: formDraft.category_id ?? seed.category_id ?? null,
+          visible: false,
+          featured: false,
+          is_customizable: formDraft.is_customizable ?? seed.is_customizable ?? true,
+          estimated_production_time: formDraft.estimated_production_time ?? seed.estimated_production_time ?? "",
+          public_observations: formDraft.public_observations ?? seed.public_observations ?? "",
+          stock_mode: formDraft.stock_mode || seed.stock_mode || "unlimited",
+          stock_quantity: formDraft.stock_quantity ?? seed.stock_quantity ?? null
+        };
+        const created = await storefrontAdminUpsertProduct(payload);
+        if (!created?.id || storefrontAdminIsLocalId(created.id, "prod-")) {
+          throw new Error("O servidor não retornou um identificador válido para o rascunho.");
+        }
+        const nextProducts = getStorefrontAdminProductsLocal();
+        const merged = { ...payload, ...created, visible: false, featured: false };
+        const withoutLocalDuplicate = localExisting
+          ? nextProducts.filter((item) => String(item.id) !== String(localExisting.id))
+          : nextProducts;
+        const already = withoutLocalDuplicate.some((item) => String(item.id) === String(created.id));
+        storefrontAdminWrite(
+          STOREFRONT_ADMIN_KEYS.products,
+          already
+            ? withoutLocalDuplicate.map((item) => String(item.id) === String(created.id) ? { ...item, ...merged } : item)
+            : [...withoutLocalDuplicate, merged]
+        );
+        const nextSeed = {
+          ...(formDraft && typeof formDraft === "object" ? formDraft : {}),
+          ...(seed && typeof seed === "object" ? seed : {}),
+          ...merged,
+          __draftKey: draftKey,
+          __demo: false,
+          __template: false
+        };
+        storefrontAdminWrite(STOREFRONT_ADMIN_KEYS.editingProductSeed, nextSeed);
+        storefrontScheduleAutosave("product", nextSeed);
+        storefrontGuidedSelection = { ...getStorefrontGuidedSelection(), type: "product", id: String(created.id), mode: "edit" };
+        storefrontProductDraftEnsureState.status = "ready";
+        storefrontProductDraftEnsureState.message = "";
+        storefrontProductDraftEnsureState.productId = String(created.id);
+        registrarStorefrontActivity("Rascunho de produto criado", title);
+        mostrarToast("Rascunho criado. Agora você pode adicionar fotos.", "sucesso", 2800);
+        renderizarPreservandoScroll();
+        return merged;
+      } finally {
+        storefrontEndOperation("storefront-product-draft");
+      }
+    } catch (error) {
+      storefrontProductDraftEnsureState.status = "error";
+      storefrontProductDraftEnsureState.message = error?.message || "Não foi possível criar o rascunho agora.";
+      registrarStorefrontDebugLeve("draft_falhou", "Falha ao criar rascunho automático de produto.", { message: error?.message || String(error) });
+      mostrarToast("Não foi possível criar o rascunho. Seus dados foram mantidos — tente novamente.", "erro", 4200);
+      renderizarPreservandoScroll();
+      return null;
+    }
+  })();
+  storefrontProductDraftEnsurePromise = ensureTask;
+  try {
+    return await ensureTask;
+  } finally {
+    storefrontProductDraftEnsurePromise = null;
+  }
+}
+
+const storefrontCategoryDraftEnsureState = { status: "idle", message: "", categoryId: "" };
+let storefrontCategoryDraftEnsurePromise = null;
+
+function getStorefrontCategoryDraftState() {
+  return { ...storefrontCategoryDraftEnsureState };
+}
+
+function redefinirEstadoRascunhoCategoriaLojaOnline() {
+  storefrontCategoryDraftEnsureState.status = "idle";
+  storefrontCategoryDraftEnsureState.message = "";
+  storefrontCategoryDraftEnsureState.categoryId = "";
+  storefrontCategoryDraftEnsurePromise = null;
+}
+
+function getCampoCategoriaGuiadaDoFormulario(form, name) {
+  if (!form) return null;
+  return form?.elements?.namedItem?.(name) || form?.[name] || form?.querySelector?.(`[name="${name}"]`) || null;
+}
+
+function getRascunhoCategoriaGuiadaDoFormulario(form = typeof document !== "undefined" ? document.querySelector(".sfe-form") : null) {
+  if (!form) return null;
+  const valueOf = (name) => getCampoCategoriaGuiadaDoFormulario(form, name)?.value ?? "";
+  const checkedOf = (name) => !!getCampoCategoriaGuiadaDoFormulario(form, name)?.checked;
+  return {
+    id: String(valueOf("categoryId") || ""),
+    name: String(valueOf("categoryName") || "").trim(),
+    slug: String(valueOf("categorySlug") || ""),
+    icon: String(valueOf("categoryIcon") || valueOf("categoryIconChoice") || ""),
+    order_index: valueOf("categoryOrder") === "" ? null : Number(valueOf("categoryOrder")),
+    visible: checkedOf("categoryVisible"),
+    imageUrl: String(valueOf("categoryImageUrl") || "")
+  };
+}
+
+function isCategoriaNovaSemIdLojaOnline() {
+  const selection = getStorefrontGuidedSelection();
+  if (selection.type !== "category") return false;
+  const form = typeof document !== "undefined" ? document.querySelector(".sfe-form") : null;
+  const formId = String(getRascunhoCategoriaGuiadaDoFormulario(form)?.id || selection.id || "");
+  if (!formId || storefrontAdminIsLocalId(formId, "cat-")) return true;
+  const found = getStorefrontAdminCategoriesLocal().find((item) => String(item.id) === formId);
+  if (!found || found.__demo || found.__template) return true;
+  return false;
+}
+
+async function garantirRascunhoCategoriaLojaOnline(manual = false) {
+  const selection = getStorefrontGuidedSelection();
+  if (selection.type !== "category") return null;
+  const form = typeof document !== "undefined" ? document.querySelector(".sfe-form") : null;
+  const formDraft = getRascunhoCategoriaGuiadaDoFormulario(form) || {};
+  if (formDraft.__demo || formDraft.__template) return null;
+  const candidateId = String(formDraft.id || selection.id || "");
+  if (candidateId && !storefrontAdminIsLocalId(candidateId, "cat-")) {
+    const existing = getStorefrontAdminCategoriesLocal().find((item) => String(item.id) === String(candidateId));
+    if (existing && !existing.__demo && !existing.__template) {
+      storefrontCategoryDraftEnsureState.status = "ready";
+      storefrontCategoryDraftEnsureState.message = "";
+      storefrontCategoryDraftEnsureState.categoryId = String(existing.id);
+      return existing;
+    }
+  }
+  if (storefrontCategoryDraftEnsurePromise) return storefrontCategoryDraftEnsurePromise;
+  const ensureTask = (async () => {
+    storefrontCategoryDraftEnsureState.status = "creating";
+    storefrontCategoryDraftEnsureState.message = "";
+    renderizarPreservandoScroll();
+    try {
+      if (!storefrontBeginOperation("storefront-category-draft")) return null;
+      try {
+        const name = String(formDraft.name || "").trim();
+        if (!name) {
+          const nameField = getCampoCategoriaGuiadaDoFormulario(form, "categoryName");
+          if (nameField) mostrarErroCampoProdutoLojaOnline(nameField, "Informe o nome da categoria para liberar a foto.");
+          else mostrarToast("Informe o nome da categoria para liberar a foto.", "erro", 3600);
+          storefrontCategoryDraftEnsureState.status = "idle";
+          storefrontCategoryDraftEnsureState.message = "";
+          renderizarPreservandoScroll();
+          return null;
+        }
+        const categories = getStorefrontAdminCategoriesLocal();
+        const localExisting = candidateId && storefrontAdminIsLocalId(candidateId, "cat-")
+          ? categories.find((item) => String(item.id) === String(candidateId))
+          : null;
+        const draftKey = String(formDraft.__draftKey || localExisting?.__draftKey || gerarChaveRascunhoLojaOnline());
+        const slugBase = storefrontAdminSlugify(localExisting?.slug || formDraft.slug || name) || "nova-categoria";
+        const slug = String(localExisting?.slug || formDraft.slug || `${slugBase}-${draftKey.replace(/[^a-z0-9]+/gi, "").slice(-6) || "nova"}`).toLowerCase();
+        if (categories.some((cat) => !cat.__demo && !cat.__template && cat.slug === slug && cat.id !== candidateId && (!localExisting || cat.id !== localExisting.id))) {
+          throw new Error("Já existe categoria com este nome.");
+        }
+        const store = getStorefrontAdminStoreLocal();
+        storefrontAdminRequireRemoteStore();
+        if (!storefrontAdminRemoteReady()) throw new Error("Sem conexão no momento. Verifique a internet e tente novamente.");
+        const payload = {
+          id: "",
+          store_id: store.id,
+          owner_id: store.owner_id || storefrontAdminCurrentOwnerId(),
+          name,
+          slug,
+          icon: formDraft.icon || localExisting?.icon || "categoria",
+          order_index: Number.isFinite(Number(formDraft.order_index)) ? Number(formDraft.order_index) : Number(localExisting?.order_index) || categories.length + 1,
+          visible: false
+        };
+        const created = await storefrontAdminUpsertCategory(payload);
+        if (!created?.id || storefrontAdminIsLocalId(created.id, "cat-")) {
+          throw new Error("O servidor não retornou um identificador válido para o rascunho.");
+        }
+        const nextCategories = getStorefrontAdminCategoriesLocal();
+        const merged = { ...payload, ...created, __draftKey: draftKey, __demo: false, __template: false, visible: false };
+        const withoutLocalDuplicate = localExisting
+          ? nextCategories.filter((item) => String(item.id) !== String(localExisting.id))
+          : nextCategories;
+        const already = withoutLocalDuplicate.some((item) => String(item.id) === String(created.id));
+        storefrontAdminWrite(
+          STOREFRONT_ADMIN_KEYS.categories,
+          already
+            ? withoutLocalDuplicate.map((item) => String(item.id) === String(created.id) ? { ...item, ...merged } : item)
+            : [...withoutLocalDuplicate, merged]
+        );
+        storefrontGuidedSelection = { ...getStorefrontGuidedSelection(), type: "category", id: String(created.id), mode: "edit" };
+        storefrontCategoryDraftEnsureState.status = "ready";
+        storefrontCategoryDraftEnsureState.message = "";
+        storefrontCategoryDraftEnsureState.categoryId = String(created.id);
+        registrarStorefrontActivity("Rascunho de categoria criado", name);
+        mostrarToast("Rascunho criado. Agora você pode adicionar a foto.", "sucesso", 2800);
+        renderizarPreservandoScroll();
+        return merged;
+      } finally {
+        storefrontEndOperation("storefront-category-draft");
+      }
+    } catch (error) {
+      storefrontCategoryDraftEnsureState.status = "error";
+      storefrontCategoryDraftEnsureState.message = error?.message || "Não foi possível criar o rascunho agora.";
+      registrarStorefrontDebugLeve("draft_falhou", "Falha ao criar rascunho automático de categoria.", { message: error?.message || String(error) });
+      mostrarToast("Não foi possível criar o rascunho. Seus dados foram mantidos — tente novamente.", "erro", 4200);
+      renderizarPreservandoScroll();
+      return null;
+    }
+  })();
+  storefrontCategoryDraftEnsurePromise = ensureTask;
+  try {
+    return await ensureTask;
+  } finally {
+    storefrontCategoryDraftEnsurePromise = null;
+  }
 }
 
 function getStorefrontGuidedProductDraft(product = {}) {
@@ -18925,6 +18831,14 @@ function abrirSeletorImagemStorefront(input) {
     mostrarToast("Não foi possível abrir a seleção de imagem.", "erro", 3200);
     return false;
   }
+  if (input.hasAttribute && input.hasAttribute("hidden")) input.removeAttribute("hidden");
+  if (input.style) {
+    if (input.style.display === "none") input.style.display = "";
+  }
+  if (input.disabled) {
+    mostrarToast("Não foi possível abrir a seleção de imagem.", "erro", 3200);
+    return false;
+  }
   input.value = "";
   input.click();
   return true;
@@ -20644,6 +20558,7 @@ function openStorefrontGuidedCatalogItem(kind = "products", id = "", options = {
 
 function abrirNovoProdutoGuiadoLoja() {
   captureStorefrontGuidedCatalogState("products");
+  redefinirEstadoRascunhoProdutoLojaOnline();
   selecionarItemLojaVisual("product", "", {
     entityType: "product",
     mode: "create",
@@ -20655,6 +20570,7 @@ function abrirNovoProdutoGuiadoLoja() {
 
 function abrirNovaCategoriaGuiadaLoja() {
   captureStorefrontGuidedCatalogState("categories");
+  redefinirEstadoRascunhoCategoriaLojaOnline();
   selecionarItemLojaVisual("category", "", {
     entityType: "category",
     mode: "create",
@@ -20957,6 +20873,8 @@ function setStorefrontGuidedProductStep(step = 1) {
   const nextStep = Math.max(1, Math.min(4, Number(step) || 1));
   const targetSection = STOREFRONT_V3_PRODUCT_STEPS.find((item) => item.step === nextStep)?.key || "basic";
   if (current.type === "product") preservarRascunhoProdutoGuiadoAtual();
+  const needsProductDraft = nextStep === 3 && isProdutoNovoSemIdLojaOnline();
+  if (needsProductDraft && !validarEtapaProdutoLojaOnline(1)) return;
   setStorefrontContextualEditorState({
     selection: {
       ...current,
@@ -20973,6 +20891,7 @@ function setStorefrontGuidedProductStep(step = 1) {
     requestAnimationFrame(alinharSelecaoLojaVisual);
     requestAnimationFrame(destacarAlvoEdicaoGuiadaLoja);
   });
+  if (needsProductDraft) garantirRascunhoProdutoLojaOnline().catch(() => {});
 }
 
 function manterCampoEditorGuiadoVisivel(event) {
@@ -22339,35 +22258,27 @@ function getStorefrontShareContext(url = getStorefrontPublicUrl()) {
 
 function abrirPreviewCompartilhamentoLoja(url = getStorefrontPublicUrl()) {
   const context = getStorefrontShareContext(url);
-  const popup = document.getElementById("popup");
-  if (!popup) return prompt("Copie o link:", url);
-  popup.innerHTML = `
-    <div class="modal-backdrop store-share-preview-backdrop store-editor-v3-portal" data-store-editor-theme="light" role="dialog" aria-modal="true">
-      <section class="modal-card store-share-preview-modal">
-        <div class="modal-header">
-          <div>
-            <span class="status-badge">Compartilhamento</span>
-            <h2>Link pronto para enviar</h2>
-            <p class="muted">Use o compartilhamento nativo do celular, copie o link ou envie direto pelo WhatsApp.</p>
-          </div>
-          <button class="icon-button" type="button" onclick="fecharPopup()" title="Fechar">✕</button>
+  const imageHtml = context.image ? `<img src="${escaparAttr(context.image)}" loading="lazy" decoding="async" alt="${escaparAttr(context.title)}">` : "";
+  window.UiV3?.Dialog?.({
+    title: "Link pronto para enviar",
+    content: `
+      <p class="muted">Use o compartilhamento nativo do celular, copie o link ou envie direto pelo WhatsApp.</p>
+      <article class="store-share-preview-card">
+        ${imageHtml}
+        <div>
+          <strong>${escaparHtml(context.title)}</strong>
+          <span>${escaparHtml(context.text)}</span>
+          <small>${escaparHtml(context.url)}</small>
         </div>
-        <article class="store-share-preview-card">
-          ${context.image ? `<img src="${escaparAttr(context.image)}" loading="lazy" decoding="async" alt="${escaparAttr(context.title)}">` : ""}
-          <div>
-            <strong>${escaparHtml(context.title)}</strong>
-            <span>${escaparHtml(context.text)}</span>
-            <small>${escaparHtml(context.url)}</small>
-          </div>
-        </article>
-        <div class="store-share-preview-actions">
-          <button class="btn" type="button" onclick="compartilharLojaPublica('${escaparAttr(url)}', { forceNative: true })">Compartilhar no celular</button>
-          <button class="btn secondary" type="button" onclick="abrirWhatsappCompartilhamentoLoja('${escaparAttr(url)}')">Enviar WhatsApp</button>
-          <button class="btn ghost" type="button" onclick="copiarLinkLojaPublica('${escaparAttr(url)}')">Copiar link</button>
-        </div>
-      </section>
-    </div>
-  `;
+      </article>
+      <div class="ui3-sticky-actions">
+        <button class="ui3-button" data-variant="primary" type="button" data-share-native>Compartilhar no celular</button>
+        <button class="ui3-button" data-variant="secondary" type="button" data-share-whatsapp>Enviar WhatsApp</button>
+        <button class="ui3-button" data-variant="ghost" type="button" data-share-copy>Copiar link</button>
+      </div>
+    `,
+    onClose: () => {},
+  });
 }
 
 function copiarLinkLojaPublica(url = getStorefrontPublicUrl()) {
@@ -22909,15 +22820,7 @@ function getUltimaAtividadeAplicativo() {
 }
 
 function formatarTempoRelativo(timestamp) {
-  const valor = typeof timestamp === "number" ? timestamp : (Date.parse(timestamp || 0) || 0);
-  if (!valor) return "Não registrado";
-  const diff = Math.max(0, Date.now() - valor);
-  if (diff < 60 * 1000) return "Atualizado agora";
-  const minutos = Math.floor(diff / (60 * 1000));
-  if (minutos < 60) return `Atualizado há ${minutos} min`;
-  const horas = Math.floor(minutos / 60);
-  if (horas < 24) return `Atualizado há ${horas} h`;
-  return new Date(valor).toLocaleString("pt-BR");
+  return window.SimplificaDateFormatters.formatRelative(timestamp);
 }
 
 function formatarUltimoAcessoConta() {
@@ -23838,16 +23741,7 @@ function calcularResumoPedidosDashboardPeriodo(periodo = "hoje") {
 }
 
 function formatarVariacaoDashboard(atual = 0, anterior = 0, label = "vs anterior") {
-  const valorAtual = Number(atual) || 0;
-  const valorAnterior = Number(anterior) || 0;
-  if (!valorAtual && !valorAnterior) return { texto: `0% ${label}`, estado: "neutral" };
-  if (!valorAnterior) return { texto: `+100% ${label}`, estado: "positive" };
-  const variacao = ((valorAtual - valorAnterior) / Math.max(1, Math.abs(valorAnterior))) * 100;
-  const prefixo = variacao > 0 ? "+" : "";
-  return {
-    texto: `${prefixo}${variacao.toFixed(0)}% ${label}`,
-    estado: variacao < 0 ? "negative" : variacao > 0 ? "positive" : "neutral"
-  };
+  return window.SimplificaHomeData.formatDashboardVariation(atual, anterior, label);
 }
 
 function renderDashboardDesktopMetricCard({ titulo, valor, detalhe = "", trend = "", trendState = "neutral", iconKey = "dashboard", tela = "dashboard", filtro = "", state = "teal" } = {}) {
@@ -24958,42 +24852,17 @@ function renderMidiaMaterialEstoque(material = {}, classe = "stock-type-icon") {
 }
 
 function formatarQuantidadeEstoque(valor = 0, unidade = "un") {
-  return `${(Number(valor) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} ${unidade || "un"}`;
+  return window.SimplificaInventoryPresentation.formatarQuantidadeEstoque(valor, unidade);
 }
 
 function calcularPreviaConsumoPorRolo(material = {}, quantidadeNecessaria = 0, unidade = "") {
-  const necessario = Math.max(0, Number(quantidadeNecessaria) || 0);
-  const unidadeControle = unidade || material.unidade || material.unit || "un";
-  const lotes = normalizarLotesEstoque(material)
-    .filter((lote) => String(lote.unit || unidadeControle) === String(unidadeControle))
-    .filter((lote) => !["inativo", "esgotado"].includes(String(lote.status || "").toLowerCase()))
-    .sort((a, b) => {
-      const saldoA = Math.max(0, Number(a.current_quantity) || 0);
-      const saldoB = Math.max(0, Number(b.current_quantity) || 0);
-      return saldoA - saldoB || String(a.purchase_date || a.created_at || "").localeCompare(String(b.purchase_date || b.created_at || ""));
-    });
-  let restante = necessario;
-  const sugestoes = lotes.map((lote) => {
-    const saldo = Math.max(0, Number(lote.current_quantity) || 0);
-    const consumir = Math.min(saldo, restante);
-    restante = Math.max(0, restante - consumir);
-    return {
-      lote,
-      quantidade: consumir,
-      saldoAtual: saldo,
-      saldoSimulado: Math.max(0, saldo - consumir)
-    };
-  }).filter((item) => item.quantidade > 0);
-  const disponivel = lotes.reduce((soma, lote) => soma + (Number(lote.current_quantity) || 0), 0);
-  return {
-    enabled: STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED && podeUsarControleRolosEstoque() && materialUsaControleLote(material),
-    automaticoAtivo: STOCK_ROLL_AUTO_CONSUMPTION_ENABLED,
-    necessario,
-    disponivel,
-    unidade: unidadeControle,
-    sugestoes,
-    falta: Math.max(0, necessario - disponivel)
-  };
+  return window.SimplificaInventoryRollConsumption.calcularPreviaConsumoPorRolo(material, quantidadeNecessaria, unidade, {
+    normalizarLotesEstoque,
+    materialUsaControleLote,
+    podeUsarControleRolosEstoque,
+    previewEnabled: STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED,
+    autoConsumptionEnabled: STOCK_ROLL_AUTO_CONSUMPTION_ENABLED
+  });
 }
 
 function renderPreviaConsumoPorRoloPedido(estoqueItem = {}, quantidade = 0, unidade = "") {
@@ -25061,9 +24930,7 @@ function trocarFiltroEstoque(filtro = "todos") {
 }
 
 function classeStatusEstoque(status = "normal") {
-  if (status === "critical") return "stock-status-critical";
-  if (status === "low") return "stock-status-low";
-  return "stock-status-normal";
+  return window.SimplificaInventoryNormalizers.classeStatusEstoque(status);
 }
 
 function renderEstoqueStatusChips(materiais = estoque, ativo = "todos") {
@@ -25092,20 +24959,7 @@ function renderEstoqueStatusChips(materiais = estoque, ativo = "todos") {
 }
 
 function filtrarMateriaisEstoque(materiais = estoque, filtro = "todos", busca = "") {
-  const termo = normalizarSugestaoClienteTexto(busca || "");
-  const buscaSemPrefixo = String(busca || "").trim().replace(/^#/, "");
-  const codigoBusca = /^\d+$/.test(buscaSemPrefixo) ? Number(buscaSemPrefixo) : 0;
-  return materiais.filter((material) => {
-    const normalizado = normalizarMaterialEstoque(material);
-    const codigo = getCodigoNumericoMaterialEstoque(normalizado);
-    const codigoExterno = getCodigoExternoMaterialEstoque(normalizado);
-    const texto = normalizarSugestaoClienteTexto(`${formatarCodigoMaterialEstoque(codigo)} ${codigo} ${codigoExterno} ${normalizado.nome} ${normalizado.tipo} ${normalizado.tipoItem} ${normalizado.categoria} ${normalizado.cor} ${normalizado.id}`);
-    const passaBusca = !termo || texto.includes(termo) || (codigoBusca > 0 && codigo === codigoBusca);
-    const passaFiltro = filtro === "todos"
-      || (filtro === "low" && normalizado.stock_status === "low")
-      || (filtro === "sem_estoque" && (Number(normalizado.qtd) || 0) <= 0);
-    return passaBusca && passaFiltro;
-  });
+  return window.SimplificaInventoryNormalizers.filtrarMateriaisEstoque(materiais, filtro, busca, { normalizarTexto: normalizarSugestaoClienteTexto, normalizarMaterial: normalizarMaterialEstoque, getCodigo: getCodigoNumericoMaterialEstoque, getCodigoExterno: getCodigoExternoMaterialEstoque, formatarCodigo: formatarCodigoMaterialEstoque });
 }
 
 function getOrdenacaoEstoqueAtiva() {
@@ -25119,16 +24973,11 @@ function trocarOrdenacaoEstoque(ordenacao = "codigo") {
 }
 
 function ordenarMateriaisEstoque(materiais = [], ordenacao = getOrdenacaoEstoqueAtiva()) {
-  const lista = [...(Array.isArray(materiais) ? materiais : [])];
-  const porCodigo = (a, b) => getCodigoNumericoMaterialEstoque(a) - getCodigoNumericoMaterialEstoque(b);
-  if (ordenacao === "nome") return lista.sort((a, b) => String(a.nome || "").localeCompare(String(b.nome || ""), "pt-BR") || porCodigo(a, b));
-  if (ordenacao === "baixo") return lista.sort((a, b) => (Number(a.qtd) || 0) - (Number(b.qtd) || 0) || porCodigo(a, b));
-  if (ordenacao === "recente") return lista.sort((a, b) => String(b.atualizadoEm || b.updated_at || b.last_restock_at || "").localeCompare(String(a.atualizadoEm || a.updated_at || a.last_restock_at || "")) || porCodigo(a, b));
-  return lista.sort(porCodigo);
+  return window.SimplificaInventoryNormalizers.ordenarMateriaisEstoque(materiais, ordenacao, getCodigoNumericoMaterialEstoque);
 }
 
 function normalizarChaveProdutoEstoque(valor = "") {
-  return normalizarSugestaoClienteTexto(valor).replace(/\s+/g, " ").trim();
+  return window.SimplificaInventoryPresentation.normalizarChaveProdutoEstoque(valor, { normalizarSugestaoClienteTexto });
 }
 
 function encontrarItemEstoqueDuplicado({ nome = "", codigoExterno = "", ignorarId = "" } = {}) {
@@ -25435,7 +25284,7 @@ function renderEstoque() {
   `;
 }
 
-function renderListaPedidos() {
+function renderListaPedidosLegacy() {
   if (telaComCarregamentoUX("pedidos")) return renderSmartScreenSkeleton("pedidos");
   const podeOperar = permitirVisualizacaoOperacionalBasica();
   const filtroDashboard = String(window.__pedidosFiltroDashboard || "");
@@ -25564,6 +25413,19 @@ function renderListaPedidos() {
       ${paginacao}
     </section>
   `;
+}
+
+function renderListaPedidos() {
+  return window.SimplificaOrdersRenderer.renderListaPedidos({
+    telaComCarregamentoUX, renderSmartScreenSkeleton, permitirVisualizacaoOperacionalBasica,
+    normalizarSugestaoClienteTexto, criarIntervaloPeriodoLocal, pedidos, pedidoJaCancelado,
+    dataDentroIntervalo, getDataPedidoLocal, getPedidoFiltroAtivo, pedidoEhHoje,
+    pedidoEstaAtrasado, normalizarStatusPedidoFiltro, normalizarItensPedido, clienteDoPedido,
+    telefoneDoPedido, LIST_PAGE_SIZE, pedidoVisualizandoId, renderDetalhePedido, escaparAttr,
+    getNumeroSequencialPedido, totalPedido, classeStatusPedido, labelStatusPedido, escaparHtml,
+    formatarMoeda, renderUiIcon, isWebPwaProfile, isMobile, renderListaPedidosPwa,
+    isSimplificaMode, renderContextualAdvancedToggle, isContextAdvancedVisible, renderPedidoStatusChips
+  });
 }
 
 let toqueLongoPedidoEstado = null;
@@ -26024,73 +25886,14 @@ function renderRentabilidadeOperacionalPedido(pedido = {}) {
 }
 
 function renderDetalhePedido(pedido) {
-  const itens = normalizarItensPedido(pedido);
-  const pedidoIdJs = escaparAttr(JSON.stringify(String(pedido.id ?? "")));
-  const resumoFinanceiro = calcularResumoFinanceiroPedido(pedido);
-  const total = resumoFinanceiro.total;
-  const data = pedido.data || dataPedidoIso(pedido) || "";
-  const cancelado = normalizarStatusPedidoFiltro(pedido) === "cancelados";
-  return `
-    <div class="detail-panel order-detail-panel">
-      <div class="order-detail-hero">
-        <div>
-          <span class="eyebrow">Pedido</span>
-          <h2>Pedido ${escaparHtml(getNumeroSequencialPedido(pedido))}</h2>
-          <p class="muted order-detail-meta-line">${renderUiIcon("conta")} ${escaparHtml(clienteDoPedido(pedido))}${telefoneDoPedido(pedido) ? " • " + escaparHtml(telefoneDoPedido(pedido)) : ""}</p>
-          ${data ? `<p class="muted order-detail-meta-line">${renderUiIcon("agenda")} ${escaparHtml(data)}</p>` : ""}
-        </div>
-        <div class="order-detail-hero-actions"><span class="order-status-badge ${classeStatusPedido(pedido.status || "aberto")}">${escaparHtml(labelStatusPedido(pedido.status || "aberto"))}</span><button class="btn secondary" type="button" onclick="event.preventDefault(); event.stopPropagation(); fecharDetalhesPedido()">Voltar à lista</button></div>
-      </div>
-      <div class="order-detail-total">
-        <div>
-          <span>Resumo do pedido</span>
-          <strong>${itens.length} item(ns)</strong>
-        </div>
-        <div>
-          <span>Total</span>
-          <strong>${formatarMoeda(total)}</strong>
-        </div>
-      </div>
-      <div class="order-financial-summary compact">
-        <div><span>Subtotal dos itens</span><strong>${formatarMoeda(resumoFinanceiro.subtotal)}</strong></div>
-        ${resumoFinanceiro.desconto > 0 ? `<div><span>Desconto</span><strong>${formatarMoeda(resumoFinanceiro.desconto)}</strong></div>` : ""}
-        <div><span>Total do pedido</span><strong>${formatarMoeda(resumoFinanceiro.total)}</strong></div>
-        <div><span>Entrada paga</span><strong>${formatarMoeda(resumoFinanceiro.entrada)}</strong></div>
-        <div><span>Valor restante</span><strong>${formatarMoeda(resumoFinanceiro.restante)}</strong></div>
-        <div><span>Status financeiro</span><strong class="order-status-badge ${classeStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro)}">${escaparHtml(labelStatusFinanceiroPedido(resumoFinanceiro.statusFinanceiro))}</strong></div>
-        ${resumoFinanceiro.entradaMaiorQueTotal ? `<p class="order-finance-warning">A entrada é maior que o total do pedido</p>` : ""}
-      </div>
-      ${renderRentabilidadeOperacionalPedido(pedido)}
-      ${renderPedidoRapidoTimeline(pedido.status || "aberto")}
-      ${renderHistoricoOperacionalPedido(pedido)}
-      ${itens.length ? `<div class="compact-action-grid order-detail-actions">
-        ${renderAcaoPedidoCompacta("☘", "WhatsApp", `enviarWhatsPedidoSalvo(${pedidoIdJs})`)}
-        ${renderAcaoPedidoCompacta("▣", "PDF", `baixarPdfPedidoSalvo(${pedidoIdJs})`)}
-        ${cancelado
-          ? renderAcaoPedidoCompacta("⎙", "Imprimir", `imprimirPedidoSalvo(${pedidoIdJs})`)
-          : renderAcaoPedidoCompacta("✎", "Editar", `editarPedido(${pedidoIdJs})`)}
-        ${renderAcaoPedidoCompacta("⋯", "Mais", `abrirMaisOpcoesPedido(${pedidoIdJs})`)}
-      </div>` : `<p class="muted">Adicione pelo menos 1 item para liberar PDF e WhatsApp.</p>`}
-      ${cancelado ? "" : `
-        <div class="order-status-action-strip">
-          <button type="button" onclick="abrirEtapasPedido(${pedidoIdJs})" aria-haspopup="dialog">Atualizar etapa</button>
-        </div>
-      `}
-      <div class="history-list order-detail-items">
-        ${itens.map((item) => `
-          <div class="history-item premium-order-item">
-            <div>
-              <strong>${escaparHtml(item.nome)}</strong>
-              <span class="muted">Qtd ${item.qtd} • ${escaparHtml(item.tipoImpressao)} • ${Number(item.tempoHoras || 0).toFixed(2)}h</span>
-              <div class="material-chip-row">${getMateriaisItem(item).map((material) => `<span class="order-chip">${escaparHtml(material.nome || getMaterialEstoque(material.materialId)?.nome || "Material")} • ${Number(material.gramas).toFixed(0)}g</span>`).join("") || `<span class="order-chip muted-chip">Sem material</span>`}</div>
-            </div>
-            <strong class="item-price">${formatarMoeda(item.total)}</strong>
-          </div>
-        `).join("")}
-      </div>
-      ${cancelado ? "" : `<button class="btn danger compact-danger-action" onclick="removerPedido(${pedidoIdJs})">${renderIconeAcaoPedido("🗑", "Cancelar")} Cancelar pedido</button>`}
-    </div>
-  `;
+  return window.SimplificaOrdersRenderer.renderDetalhePedido(pedido, {
+    normalizarItensPedido, escaparAttr, calcularResumoFinanceiroPedido, dataPedidoIso,
+    normalizarStatusPedidoFiltro, escaparHtml, getNumeroSequencialPedido, renderUiIcon,
+    clienteDoPedido, telefoneDoPedido, classeStatusPedido, labelStatusPedido, formatarMoeda,
+    classeStatusFinanceiroPedido, labelStatusFinanceiroPedido, renderRentabilidadeOperacionalPedido,
+    renderPedidoRapidoTimeline, renderHistoricoOperacionalPedido, renderAcaoPedidoCompacta,
+    getMateriaisItem, getMaterialEstoque, renderIconeAcaoPedido
+  });
 }
 
 async function abrirEtapasPedido(id) {
@@ -26888,9 +26691,7 @@ function renderPrinterStatusBadge(impressora = {}) {
 }
 
 function formatarTemperaturaImpressora(valor) {
-  if (valor === null || valor === undefined || valor === "") return "—";
-  const numero = Number(valor);
-  return Number.isFinite(numero) ? `${numero.toFixed(0)} °C` : "—";
+  return window.SimplificaPrinterPresentation.formatarTemperaturaImpressora(valor);
 }
 
 function renderPrinterMoreActions(impressora = {}) {
@@ -27127,15 +26928,11 @@ function renderBambuPilotGuideCard() {
 }
 
 function getPrinterQueueStage(job = {}) {
-  const status = String(job.status || "novo_pedido");
-  if (["em_impressao", "pausado", "pos_processamento", "controle_qualidade"].includes(status)) return "impressao";
-  if (status === "pronto_para_entrega") return "prontos";
-  if (["entregue", "cancelado"].includes(status)) return "arquivado";
-  return "fila";
+  return window.SimplificaPrinterPresentation.getPrinterQueueStage(job);
 }
 
 function getPrinterQueueStageLabel(stage = "fila") {
-  return ({ fila: "Em fila", impressao: "Imprimindo", prontos: "Pronto" })[stage] || "Em fila";
+  return window.SimplificaPrinterPresentation.getPrinterQueueStageLabel(stage);
 }
 
 function getRegisteredPrinterForProductionJob(job = {}) {
@@ -28170,58 +27967,44 @@ async function desativarImpressora(id) {
 
 function abrirAgentesLocais() {
   if (!podeGerenciarImpressoras()) return;
-  const popup = document.getElementById("popup");
   const agents = printerMonitoringState.agents || [];
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
-      <section class="modal-card" onclick="event.stopPropagation()">
-        <div class="modal-header"><h2>Simplifica Local Agent</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div>
-        <p class="muted">O agente consulta impressoras na rede local e envia somente snapshots. Ele não recebe comandos.</p>
-        <div class="history-list">${agents.length ? agents.map((agent) => `<div class="history-item"><strong>${escaparHtml(agent.name)}</strong><span>${escaparHtml(agent.status)}${agent.last_seen_at ? ` · ${escaparHtml(formatarDataHora(agent.last_seen_at))}` : ""}</span></div>`).join("") : `<p class="empty">Nenhum agente criado.</p>`}</div>
-        <div class="actions"><button class="btn" type="button" onclick="criarAgenteLocal()">Criar agente</button></div>
-      </section>
-    </div>`;
-  promoverPopupParaDialogUiV3(popup, { title: "Simplifica Local Agent" });
+  const listHtml = agents.length
+    ? `<div class="history-list">${agents.map((agent) => `<div class="history-item"><strong>${escaparHtml(agent.name)}</strong><span>${escaparHtml(agent.status)}${agent.last_seen_at ? ` · ${escaparHtml(formatarDataHora(agent.last_seen_at))}` : ""}</span></div>`).join("")}</div>`
+    : `<p class="empty">Nenhum agente criado.</p>`;
+  window.UiV3?.Dialog?.({
+    title: "Simplifica Local Agent",
+    content: `
+      <p class="muted">O agente consulta impressoras na rede local e envia somente snapshots. Ele não recebe comandos.</p>
+      ${listHtml}
+      <div class="ui3-sticky-actions">
+        <button class="ui3-button" data-variant="primary" type="button" data-create-agent>Criar agente</button>
+      </div>
+    `,
+    onClose: () => {},
+  });
 }
 
 async function criarAgenteLocal() {
   try {
     const data = await printerBackendRequest("create_agent", { name: "Simplifica Local Agent" });
-    const popup = document.getElementById("popup");
-    popup.innerHTML = `
-      <div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharPopup()">
-        <section class="modal-card" onclick="event.stopPropagation()">
-          <div class="modal-header"><h2>Credenciais do agente</h2><button class="icon-button" onclick="fecharPopup()" title="Fechar">✕</button></div>
-          <p class="printer-read-only-notice">Estas credenciais aparecem uma única vez. Guarde-as no computador que executará o agente.</p>
-          <div class="metric"><span>Código de pareamento</span><strong>${escaparHtml(data.pairing_code)}</strong></div>
-          <label class="field"><span>Token do agente</span><textarea readonly>${escaparHtml(data.agent_token)}</textarea></label>
-          <div class="actions"><button class="btn" onclick="fecharPopup();hidratarImpressorasSeNecessario(true)">Concluir</button></div>
-        </section>
-      </div>`;
-    promoverPopupParaDialogUiV3(popup, { title: "Credenciais do agente" });
+    window.UiV3?.Dialog?.({
+      title: "Credenciais do agente",
+      content: `
+        <p class="printer-read-only-notice">Estas credenciais aparecem uma única vez. Guarde-as no computador que executará o agente.</p>
+        <div class="metric"><span>Código de pareamento</span><strong>${escaparHtml(data.pairing_code)}</strong></div>
+        <label class="field"><span>Token do agente</span><textarea readonly>${escaparHtml(data.agent_token)}</textarea></label>
+        <div class="ui3-sticky-actions">
+          <button class="ui3-button" data-variant="primary" type="button" data-agent-concluir>Concluir</button>
+        </div>
+      `,
+      onClose: () => hidratarImpressorasSeNecessario(true),
+    });
   } catch (erro) {
     mostrarToast(getPrinterMonitoringService()?.errorMessage(erro?.message) || erro?.message, "erro", 5200);
   }
 }
 
-const PRODUCTION_STATUS_META = Object.freeze({
-  novo_pedido: { label: "Novo pedido", group: "preparacao" },
-  em_analise: { label: "Em análise", group: "preparacao" },
-  pendente: { label: "Pendente", group: "pendencias" },
-  liberado_para_producao: { label: "Liberado", group: "fila" },
-  na_fila: { label: "Na fila", group: "fila" },
-  proximo: { label: "Próximo", group: "fila" },
-  aguardando_impressora: { label: "Aguardando impressora", group: "fila" },
-  em_impressao: { label: "Em impressão", group: "impressao" },
-  pausado: { label: "Pausado", group: "impressao" },
-  falhou: { label: "Falhou", group: "pendencias" },
-  reimpressao_necessaria: { label: "Reimpressão necessária", group: "pendencias" },
-  pos_processamento: { label: "Pós-processamento", group: "finalizacao" },
-  controle_qualidade: { label: "Controle de qualidade", group: "finalizacao" },
-  pronto_para_entrega: { label: "Pronto para entrega", group: "prontos" },
-  entregue: { label: "Entregue", group: "prontos" },
-  cancelado: { label: "Cancelado", group: "prontos" }
-});
+const PRODUCTION_STATUS_META = window.SimplificaProductionStatus.meta;
 
 const PRODUCTION_PENDING_REASONS = Object.freeze({
   aguardando_pagamento: "Aguardando pagamento",
@@ -28248,7 +28031,7 @@ function getProductionCompanyId() {
 }
 
 function getProductionStatusLabel(status = "novo_pedido") {
-  return PRODUCTION_STATUS_META[status]?.label || "Em análise";
+  return window.SimplificaProductionStatus.getLabel(status);
 }
 
 function getProductionTab() {
@@ -29197,12 +28980,8 @@ function getMaterialPerdidoImpressao(job = {}) {
 }
 
 function calcularCustoDesperdicioImpressao(material = {}, grams = 0, minutes = 0, printerId = "") {
-  const unit = String(material.unidade || material.unit || "kg").toLowerCase();
-  const materialQuantity = unit === "kg" ? grams / 1000 : unit === "g" ? grams : 0;
-  const materialCost = materialQuantity * Math.max(0, Number(material.custoUnitario || material.unit_cost) || 0);
   const printer = getPrinterById(printerId) || getBambuLanPrinter(printerId) || {};
-  const machineCost = (Math.max(0, Number(printer.hourly_cost) || 0) / 60) * Math.max(0, minutes);
-  return materialCost + machineCost;
+  return window.SimplificaPrinterPresentation.calcularCustoDesperdicioImpressao(material, grams, minutes, printer);
 }
 
 function abrirRegistroDesperdicioImpressao(printerId = "", jobId = "") {
@@ -29446,80 +29225,20 @@ function renderProducao() {
   `;
 }
 
+function getClientesRendererContext() {
+  return { telaComCarregamentoUX, renderSmartScreenSkeleton, pedidos, clienteDoPedido, totalPedido, telefoneDoPedido, pedidoJaCancelado, normalizarSugestaoClienteTexto, escaparAttr, escaparHtml, getUserInitials, formatarMoeda, renderUiIcon };
+}
+
 function renderClientes() {
-  if (telaComCarregamentoUX("clientes")) return renderSmartScreenSkeleton("clientes");
-  return renderClientesOperacionais();
+  return window.SimplificaCustomersRenderer.renderClientes(getClientesRendererContext());
 }
 
 function renderClientesOperacionais() {
-  const mapa = new Map();
-  pedidos.forEach((pedido) => {
-    const nome = clienteDoPedido(pedido);
-    const atual = mapa.get(nome) || { nome, pedidos: 0, total: 0, telefone: "", ultimoPedido: "", abertos: 0 };
-    atual.pedidos += 1;
-    atual.total += totalPedido(pedido);
-    atual.telefone = atual.telefone || telefoneDoPedido(pedido) || "";
-    atual.ultimoPedido = pedido.data || pedido.createdAt || pedido.criadoEm || atual.ultimoPedido || "";
-    if (!pedidoJaCancelado(pedido) && !["entregue", "pago", "finalizado"].includes(String(pedido.status || "").toLowerCase())) atual.abertos += 1;
-    mapa.set(nome, atual);
-  });
-  const busca = String(window.__clientesBusca || "");
-  const termo = normalizarSugestaoClienteTexto(busca);
-  const clientes = Array.from(mapa.values())
-    .filter((cliente) => {
-      if (!termo) return true;
-      return normalizarSugestaoClienteTexto(`${cliente.nome} ${cliente.telefone}`).includes(termo);
-    })
-    .sort((a, b) => b.total - a.total);
-  const totalClientes = mapa.size;
-  const linhas = clientes.length ? clientes.map((cliente) => `
-    <button class="client-compact-row" type="button" onclick="window.__pedidosFiltroCliente='${escaparAttr(cliente.nome)}'; trocarTela('pedidos')">
-      <span class="client-compact-avatar">${escaparHtml(getUserInitials(cliente.nome))}</span>
-      <span class="client-compact-main">
-        <strong>${escaparHtml(cliente.nome)}</strong>
-        <small>${cliente.telefone ? escaparHtml(cliente.telefone) : "Sem WhatsApp"} • ${cliente.pedidos} pedido(s)</small>
-      </span>
-      <span class="client-compact-status">
-        <strong>${formatarMoeda(cliente.total)}</strong>
-        <small class="${cliente.abertos ? "client-status-online" : ""}">${cliente.abertos ? `${cliente.abertos} em aberto` : "em dia"}</small>
-      </span>
-      <b>›</b>
-    </button>
-  `).join("") : `<p class="empty">${termo ? "Nenhum cliente encontrado." : "Clientes aparecem automaticamente a partir dos pedidos."}</p>`;
-
-  return `
-    <section class="ui3-real-screen ui3-page ui3-stack ui3-gap-4 ui3-clients" data-ui-version="v3" data-ui3-screen="clientes">
-      <div class="card-header">
-        <h2>${renderUiIcon("clientes")} Clientes</h2>
-        <span class="status-badge">${totalClientes}</span>
-      </div>
-      <label class="dashboard-search stock-search-field" onclick="this.querySelector('input')?.focus()">
-        <span class="search-lens-icon" aria-hidden="true">${renderUiIcon("search")}</span>
-        <input data-search-context="clientes" data-preserve-focus-key="clientes-busca" value="${escaparAttr(busca)}" placeholder="Buscar cliente ou WhatsApp..." oninput="window.__clientesBusca=this.value; agendarRenderizacaoPreservandoScroll(180); reabrirAutocompletePesquisaAposRender(this)" onblur="agendarFechamentoAutocompletePesquisa(this)" autocomplete="off">
-      </label>
-      <div class="clients-compact-metrics">
-        <div class="metric"><span>Clientes</span><strong>${totalClientes}</strong></div>
-        <div class="metric"><span>Pedidos</span><strong>${pedidos.length}</strong></div>
-        <div class="metric"><span>Em aberto</span><strong>${Array.from(mapa.values()).reduce((soma, item) => soma + item.abertos, 0)}</strong></div>
-      </div>
-      ${linhas}
-      <div class="actions">
-        <button class="btn compact-action" type="button" onclick="trocarTela('pedido')">${renderUiIcon("plus")} Novo cliente/pedido</button>
-      </div>
-    </section>
-  `;
+  return window.SimplificaCustomersRenderer.renderClientesOperacionais(getClientesRendererContext());
 }
 
 function rotuloStatusCliente(status) {
-  const mapa = {
-    active: "ativo",
-    overdue: "atrasado",
-    blocked: "bloqueado",
-    inactive: "inativo",
-    cancelled: "cancelado",
-    anonymized: "anonimizado"
-  };
-  return mapa[status] || status || "ativo";
+  return SimplificaCustomerNormalizers.rotuloStatusCliente(status);
 }
 
 function getClientesSaasFiltrados() {
@@ -31322,9 +31041,7 @@ function calcularAgregadoRelatorios(info) {
 }
 
 function formatarDeltaRelatorios(valor = 0) {
-  const numero = Number(valor) || 0;
-  const seta = numero < 0 ? "↓" : "↑";
-  return `${seta} ${Math.abs(numero).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+  return window.SimplificaReportsFormatters.formatDelta(valor);
 }
 
 function renderDeltaRelatorios(valor = 0) {
@@ -31333,7 +31050,7 @@ function renderDeltaRelatorios(valor = 0) {
 }
 
 function formatarPeriodoCurtoRelatorios(data = new Date()) {
-  return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return window.SimplificaReportsFormatters.formatShortPeriod(data);
 }
 
 function criarBucketsRelatorios(info) {
@@ -37449,10 +37166,7 @@ function carregarMaisHistoricoProducao() {
 }
 
 function formatarMinutosProducao(minutos = 0) {
-  const total = Math.max(0, Math.round(Number(minutos) || 0));
-  const horas = Math.floor(total / 60);
-  const resto = total % 60;
-  return horas ? `${horas}h${resto ? ` ${resto}min` : ""}` : `${resto}min`;
+  return window.SimplificaProductionStatus.formatMinutes(minutos);
 }
 
 function getPesoPlanejadoTarefaProducao(job = {}) {
@@ -40369,25 +40083,18 @@ function marcarResumoAtualizacaoVisto() {
 function mostrarResumoAtualizacaoUmaVez() {
   if (!getUsuarioAtual() || !Array.isArray(APP_RELEASE_NOTES) || !APP_RELEASE_NOTES.length) return false;
   if (getVersaoResumoAtualizacaoVista() === APP_VERSION) return false;
-  const popup = document.getElementById("popup");
-  if (!popup || popup.innerHTML.trim()) return false;
-  popup.innerHTML = `
-    <div class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="releaseNotesTitle">
-      <section class="modal-card release-notes-modal" data-ui-component="Card">
-        <div class="modal-header">
-          <div><span class="eyebrow">Versão ${escaparHtml(APP_VERSION)}</span><h2 id="releaseNotesTitle">O que mudou</h2></div>
-          <button class="icon-button" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()" title="Fechar">✕</button>
-        </div>
-        <ul class="release-notes-list">
-          ${APP_RELEASE_NOTES.map((nota) => `<li><span>${renderUiIcon("check")}</span><p>${escaparHtml(nota)}</p></li>`).join("")}
-        </ul>
-        <div class="actions">
-          <button class="btn" data-ui-component="Button" type="button" onclick="marcarResumoAtualizacaoVisto()">Entendi</button>
-        </div>
-      </section>
+  const content = `
+    <div class="release-notes-list">
+      ${APP_RELEASE_NOTES.map((nota) => `<div class="history-item"><span>${renderUiIcon("check")}</span><p>${escaparHtml(nota)}</p></div>`).join("")}
+    </div>
+    <div class="ui3-sticky-actions">
+      <button class="btn" data-ui-component="Button" type="button" data-release-notes-ok>Entendi</button>
     </div>
   `;
-  promoverPopupParaDialogUiV3(popup, { title: "O que mudou" });
+  const overlay = window.UiV3?.Dialog?.({ title: `Versão ${escaparHtml(APP_VERSION)} — O que mudou`, content, onClose: () => marcarResumoAtualizacaoVisto() });
+  if (overlay) {
+    overlay.querySelector("[data-release-notes-ok]")?.addEventListener("click", () => marcarResumoAtualizacaoVisto(), { once: true });
+  }
   return true;
 }
 
@@ -41557,19 +41264,6 @@ function mesclarListaPorId(atual, novos, normalizador) {
     mapa.set(String(normalizado.id), existente ? { ...existente, ...normalizado } : normalizado);
   });
   return Array.from(mapa.values());
-}
-
-function formatarDataHora(valor) {
-  if (!valor) return "—";
-  const data = valor instanceof Date ? valor : new Date(valor);
-  if (Number.isNaN(data.getTime())) return String(valor);
-  return data.toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
 }
 
 function mesclarAssinaturasPorCliente(atual, novos) {
@@ -43658,61 +43352,52 @@ function atualizarClientePedido(valor) {
 }
 
 function atualizarTelefoneClientePedido(valor) {
-  clienteTelefonePedido = valor;
+  return SimplificaOrdersController.setDraftField("clienteTelefonePedido", valor, getOrdersDraftControllerDeps());
 }
 
 function atualizarEmailClientePedido(valor) {
-  clienteEmailPedido = valor;
+  return SimplificaOrdersController.setDraftField("clienteEmailPedido", valor, getOrdersDraftControllerDeps());
 }
 
 function atualizarObservacaoPedido(valor) {
-  observacaoPedido = String(valor || "");
+  return SimplificaOrdersController.setDraftField("observacaoPedido", valor, getOrdersDraftControllerDeps());
 }
 
 function atualizarPrazoPedido(valor) {
-  prazoPedido = String(valor || "");
+  return SimplificaOrdersController.setDraftField("prazoPedido", valor, getOrdersDraftControllerDeps());
 }
 
 function atualizarStatusPedido(valor) {
-  statusPedido = String(valor || "aberto");
+  return SimplificaOrdersController.setDraftField("statusPedido", valor || "aberto", getOrdersDraftControllerDeps());
 }
 
 function atualizarEntradaPedido(valor) {
-  entradaPedido = Math.max(0, numeroMonetarioPedido(valor, 0));
-  atualizarResumoPedidoSemRender();
+  return SimplificaOrdersController.setDraftField("entradaPedido", valor, getOrdersDraftControllerDeps());
 }
 
 function atualizarDescontoPedido(valor) {
-  const informado = Math.max(0, numeroMonetarioPedido(valor, 0));
-  if (descontoTipoPedido === "porcentagem") {
-    descontoPercentualPedido = Math.min(100, informado);
-    descontoPedido = totalItensPedidoAtual() * descontoPercentualPedido / 100;
-  } else {
-    descontoPercentualPedido = 0;
-    descontoPedido = informado;
-  }
-  atualizarResumoPedidoSemRender();
+  return SimplificaOrdersController.setDiscount(valor, getOrdersDraftControllerDeps());
+}
+
+function getOrdersDraftControllerDeps() {
+  return {
+    getState: () => ({ clienteTelefonePedido, clienteEmailPedido, observacaoPedido, prazoPedido, statusPedido, entradaPedido, descontoPedido, descontoTipoPedido, descontoPercentualPedido }),
+    setState: (state) => { clienteTelefonePedido = state.clienteTelefonePedido; clienteEmailPedido = state.clienteEmailPedido; observacaoPedido = state.observacaoPedido; prazoPedido = state.prazoPedido; statusPedido = state.statusPedido; entradaPedido = state.entradaPedido; descontoPedido = state.descontoPedido; descontoTipoPedido = state.descontoTipoPedido; descontoPercentualPedido = state.descontoPercentualPedido; },
+    parseNumber: numeroMonetarioPedido, totalItems: totalItensPedidoAtual, refreshSummary: atualizarResumoPedidoSemRender
+  };
 }
 
 function atualizarTipoDescontoPedido(tipo = "fixo") {
-  descontoTipoPedido = tipo === "porcentagem" ? "porcentagem" : "fixo";
-  descontoPercentualPedido = descontoTipoPedido === "porcentagem" && totalItensPedidoAtual() > 0
-    ? Math.min(100, descontoPedido / totalItensPedidoAtual() * 100)
-    : 0;
+  SimplificaOrdersController.setDiscountType(tipo, getOrdersDraftControllerDeps());
   renderizarPreservandoScroll();
 }
 
 function atualizarValorFinalPedido(valor) {
-  const subtotal = totalItensPedidoAtual();
-  const valorFinal = Math.max(0, numeroMonetarioPedido(valor, subtotal));
-  descontoPedido = Math.max(0, subtotal - Math.min(subtotal, valorFinal));
-  descontoTipoPedido = "fixo";
-  descontoPercentualPedido = 0;
+  SimplificaOrdersController.setFinalValue(valor, getOrdersDraftControllerDeps());
   const tipoInput = document.getElementById("pedidoDescontoTipo");
   if (tipoInput) tipoInput.value = "fixo";
   const descontoInput = document.getElementById("pedidoDesconto");
   if (descontoInput) descontoInput.value = descontoPedido > 0 ? descontoPedido.toFixed(2).replace(".", ",") : "";
-  atualizarResumoPedidoSemRender();
 }
 
 async function executarBuscaSugestoesCliente(query, { incluirContatos = false, token = ++customerSuggestionState.searchToken } = {}) {
@@ -43948,11 +43633,7 @@ function selecionarItemPedido(i) {
 }
 
 function getItensPedidoSelecionados() {
-  const selecionados = Array.isArray(window.__pedidoItensSelecionados) ? window.__pedidoItensSelecionados : [];
-  const indices = selecionados
-    .map((index) => Number(index))
-    .filter((index) => Number.isInteger(index) && index >= 0 && index < itensPedido.length);
-  const unicos = [...new Set(indices)].sort((a, b) => a - b);
+  const unicos = SimplificaOrdersController.normalizeSelectedItems(window.__pedidoItensSelecionados, itensPedido);
   window.__pedidoItensSelecionados = unicos;
   return unicos;
 }
@@ -43964,11 +43645,7 @@ function isItemPedidoSelecionado(index) {
 function alternarSelecaoItemPedido(index, checked = null) {
   const indice = Number(index);
   if (!Number.isInteger(indice) || !itensPedido[indice]) return;
-  const selecionados = new Set(getItensPedidoSelecionados());
-  const deveSelecionar = checked === null ? !selecionados.has(indice) : checked === true;
-  if (deveSelecionar) selecionados.add(indice);
-  else selecionados.delete(indice);
-  window.__pedidoItensSelecionados = [...selecionados].sort((a, b) => a - b);
+  window.__pedidoItensSelecionados = SimplificaOrdersController.toggleSelectedItem(getItensPedidoSelecionados(), indice, checked, itensPedido);
   selecionarItemPedido(indice);
   renderizarPreservandoScroll();
 }
@@ -43985,14 +43662,8 @@ function limparSelecaoItensPedido() {
 
 function aplicarQuantidadeItensSelecionadosPedido(quantidadeInformada = null) {
   const selecionados = getItensPedidoSelecionados();
-  const quantidade = Math.max(1, Number(quantidadeInformada ?? document.getElementById("orderBulkQty")?.value) || 1);
   if (!selecionados.length) return;
-  selecionados.forEach((index) => {
-    const item = itensPedido[index];
-    if (!item) return;
-    item.qtd = quantidade;
-    item.total = (Number(item.valor) || 0) * quantidade;
-  });
+  const { quantity: quantidade } = SimplificaOrdersController.applyBulkQuantity(itensPedido, selecionados, quantidadeInformada ?? document.getElementById("orderBulkQty")?.value);
   mostrarToast(`Quantidade ${quantidade} aplicada a ${selecionados.length} item${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
   renderizarPreservandoScroll();
 }
@@ -44037,35 +43708,24 @@ async function removerItemSelecionadoPedido() {
 
 function createOrderHeader() {
   validarSugestaoClienteAntesSalvar();
-  const cliente = String(document.getElementById("clienteNome")?.value || clientePedido || "").trim();
-  const telefone = normalizarTelefoneWhatsapp(document.getElementById("clienteTelefone")?.value || clienteTelefonePedido);
-  const email = String(document.getElementById("clienteEmail")?.value || clienteEmailPedido || "").trim();
-  const observacao = String(document.getElementById("pedidoObservacao")?.value || observacaoPedido || "").trim();
-  const prazo = String(document.getElementById("pedidoPrazo")?.value || prazoPedido || "").trim();
-  const entrada = Math.max(0, numeroMonetarioPedido(document.getElementById("pedidoEntrada")?.value ?? entradaPedido, 0));
-  const metodoPagamento = normalizarMetodoPagamentoCaixa(document.getElementById("pedidoMetodoPagamento")?.value || quickOrderPaymentMethodDraft || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix");
-  clientePedido = cliente;
-  clienteTelefonePedido = telefone;
-  clienteEmailPedido = email;
-  observacaoPedido = observacao;
-  prazoPedido = prazo;
-  entradaPedido = entrada;
-  quickOrderPaymentMethodDraft = metodoPagamento.id;
-  return {
-    cliente,
-    telefone,
-    email,
-    observacao,
-    prazo,
-    entrada,
-    down_payment: entrada,
-    valor_entrada: entrada,
-    paymentMethodId: metodoPagamento.id,
-    payment_method_id: metodoPagamento.id,
-    paymentMethod: metodoPagamento.name,
-    payment_method_type: metodoPagamento.type,
+  const header = SimplificaOrdersController.buildOrderHeader({
+    customer: document.getElementById("clienteNome")?.value || clientePedido,
+    phone: document.getElementById("clienteTelefone")?.value || clienteTelefonePedido,
+    email: document.getElementById("clienteEmail")?.value || clienteEmailPedido,
+    notes: document.getElementById("pedidoObservacao")?.value || observacaoPedido,
+    dueDate: document.getElementById("pedidoPrazo")?.value || prazoPedido,
+    downPayment: document.getElementById("pedidoEntrada")?.value ?? entradaPedido,
+    paymentMethodId: document.getElementById("pedidoMetodoPagamento")?.value || quickOrderPaymentMethodDraft || pedidoEditando?.paymentMethodId || pedidoEditando?.payment_method_id || "pix",
     status: document.getElementById("pedidoStatus")?.value || statusPedido || pedidoEditando?.status || "aberto"
-  };
+  }, { normalizePhone: normalizarTelefoneWhatsapp, parseNumber: numeroMonetarioPedido, normalizePaymentMethod: normalizarMetodoPagamentoCaixa });
+  clientePedido = header.cliente;
+  clienteTelefonePedido = header.telefone;
+  clienteEmailPedido = header.email;
+  observacaoPedido = header.observacao;
+  prazoPedido = header.prazo;
+  entradaPedido = header.entrada;
+  quickOrderPaymentMethodDraft = header.paymentMethodId;
+  return header;
 }
 
 function solicitarDecisaoItemDuplicado(item, existente) {
@@ -44900,7 +44560,7 @@ function pedidoPossuiConsumoEstoque(pedido) {
 }
 
 function statusPedidoConsomeEstoque(status = "") {
-  return /confirm|aprov|produ[cç][aã]o|em_producao|final|conclu|entreg|pago/i.test(String(status || ""));
+  return SimplificaOrdersCommandService.statusConsumesStock(status);
 }
 
 function pedidoEstoqueFoiBaixado(pedido = {}) {
@@ -44936,35 +44596,7 @@ function valorRegistradoCaixaPedido(pedido) {
 }
 
 function criarLancamentoRecebimentoPedido(pedido, valor, tipoRecebimento = "entrada", metadadosOperacao = null) {
-  const valorSeguro = Math.max(0, Number(valor) || 0);
-  if (valorSeguro <= 0.009) return null;
-  const agora = new Date().toISOString();
-  const sessao = abrirSessaoCaixaAutomatica("pedido");
-  const metodo = normalizarMetodoPagamentoCaixa(pedido?.paymentMethod || pedido?.payment_method || pedido?.formaPagamento || "pix");
-  const metadados = metadadosOperacao || criarMetadadosOperacaoFinanceira("pedido_recebimento", {
-    id: pedido?.id,
-    total: valorSeguro,
-    status: pedido?.status,
-    cliente: clienteDoPedido(pedido)
-  }, { createdAt: agora });
-  return prepararRegistroOnline({
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    tipo: "entrada",
-    valor: valorSeguro,
-    descricao: `${tipoRecebimento === "quitacao" ? "Quitação" : "Entrada"} pedido #${pedido.id} - ${clienteDoPedido(pedido)}`,
-    pedidoId: pedido.id,
-    orderPaymentKind: tipoRecebimento,
-    cash_session_id: sessao?.id || "",
-    cashSessionId: sessao?.id || "",
-    payment_method_id: metodo.id,
-    paymentMethodId: metodo.id,
-    paymentMethod: metodo.name,
-    payment_method_type: metodo.type,
-    ...metadados,
-    data: agora,
-    criadoEm: agora,
-    atualizadoEm: agora
-  });
+  return SimplificaOrdersCommandService.createCashReceipt(pedido, valor, tipoRecebimento, metadadosOperacao, getOrdersCommandDeps());
 }
 
 function pedidoJaCancelado(pedido) {
@@ -44972,28 +44604,7 @@ function pedidoJaCancelado(pedido) {
 }
 
 function criarLancamentoReversoCaixaPedido(pedido, movimentos, agora) {
-  if (!movimentos.length) return null;
-  const jaTemReversao = caixa.some((movimento) => String(movimento.cancelamentoPedidoId || movimento.estornoPedidoId || "") === String(pedido.id));
-  if (jaTemReversao) return null;
-
-  const saldo = movimentos.reduce((soma, movimento) => {
-    const valor = Number(movimento.valor) || 0;
-    return soma + (String(movimento.tipo || "").toLowerCase() === "saida" ? -valor : valor);
-  }, 0);
-  if (Math.abs(saldo) < 0.01) return null;
-
-  return prepararRegistroOnline({
-    id: Date.now() + Math.floor(Math.random() * 1000),
-    tipo: saldo > 0 ? "saida" : "entrada",
-    valor: Math.abs(saldo),
-    descricao: "Estorno pedido #" + pedido.id + " - " + clienteDoPedido(pedido),
-    pedidoId: pedido.id,
-    cancelamentoPedidoId: pedido.id,
-    categoria: "estorno",
-    data: agora,
-    criadoEm: agora,
-    atualizadoEm: agora
-  });
+  return SimplificaOrdersCommandService.createCashReversal(pedido, movimentos, agora, getOrdersCommandDeps());
 }
 
 async function cancelOrderSafely(orderId, options = {}) {
@@ -45082,14 +44693,10 @@ function removerPedido(id) {
 
 // Baixa de estoque por diferença: evita descontar duas vezes ao editar e devolve no cancelamento.
 function diffConsumoPedido(pedidoNovo, pedidoAntigo = null) {
-  const novo = statusPedidoConsomeEstoque(pedidoNovo?.status) ? calcularConsumoMateriais(pedidoNovo?.itens || []) : new Map();
-  const antigo = pedidoAntigo && pedidoEstoqueFoiBaixado(pedidoAntigo) ? calcularConsumoMateriais(pedidoAntigo?.itens || []) : new Map();
-  const ids = new Set([...novo.keys(), ...antigo.keys()]);
-  return Array.from(ids).map((materialId) => ({
-    materialId,
-    quantidade: (novo.get(materialId) || 0) - (antigo.get(materialId) || 0)
-  })).filter((item) => Math.abs(item.quantidade) > 0.000001);
+  return SimplificaOrdersCommandService.diffStockConsumption(pedidoNovo, pedidoAntigo, { calculateConsumption: calcularConsumoMateriais, wasDeducted: pedidoEstoqueFoiBaixado });
 }
+
+function getOrdersCommandDeps() { return { now: () => new Date().toISOString(), openCashSession: abrirSessaoCaixaAutomatica, normalizePaymentMethod: normalizarMetodoPagamentoCaixa, createOperationMetadata: criarMetadadosOperacaoFinanceira, customerName: clienteDoPedido, prepareOnlineRecord: prepararRegistroOnline, createId: () => Date.now() + Math.floor(Math.random() * 1000) }; }
 
 function validarSaldoEstoque(diff) {
   try {
@@ -45186,27 +44793,14 @@ function getOrderVersionForConflict(order = {}) {
 }
 
 function determineEditOrderEffects(proposed, current) {
-  const inventory = diffConsumoPedido(proposed, current).map((item) => ({ type: item.quantidade >= 0 ? "consume" : "restoreConsumption", ...item }));
-  const cashBefore = valorRegistradoCaixaPedido(current);
-  const cashAfter = valorRecebidoPedido(proposed);
-  const cash = Math.abs(cashAfter - cashBefore) > 0.009 ? [{ type: cashAfter > cashBefore ? "receive" : "review_reversal", amount: Math.abs(cashAfter - cashBefore) }] : [];
-  const production = productionJobs.some((job) => String(job.orderId || job.order_id) === String(current.id) && job.status !== "cancelado")
-    ? [{ type: "review_jobs", orderId: String(current.id) }] : [];
-  return { inventory, cash, production };
+  return SimplificaOrdersCommandService.determineEditEffects(proposed, current, getOrdersEffectsDeps());
 }
 
 function determineCancelOrderEffects(order, input = {}) {
-  const jobs = productionJobs.filter((job) => String(job.orderId || job.order_id) === String(order.id) && job.status !== "cancelado");
-  const partiallyProduced = jobs.some((job) => Math.max(0, Number(job.completedQuantity || job.completed_quantity) || 0) > 0 || ["pos_processamento", "pronto_para_entrega", "entregue"].includes(job.status));
-  const canRestore = input.returnStock === true && pedidoEstoqueFoiBaixado(order) && !order.stock_returned_at && !order.estoqueDevolvidoEm && !partiallyProduced;
-  const movements = movimentosCaixaPedido(order).filter((movement) => !movimentoCaixaCancelado(movement));
-  return {
-    inventory: { releaseReservations: [], restoreConsumption: canRestore ? diffConsumoPedido({ itens: [] }, order) : [] },
-    financial: { reverseOperations: movements.map((movement) => ({ movementId: movement.id, amount: Number(movement.valor) || 0 })) },
-    production: { cancelJobs: jobs.filter((job) => !["entregue", "cancelado"].includes(job.status)).map((job) => ({ jobId: job.id, previousStatus: job.status })) },
-    warnings: partiallyProduced && input.returnStock === true ? [{ code: "PARTIAL_PRODUCTION_STOCK_REVIEW", message: "Há produção iniciada; o consumo não será restaurado automaticamente." }] : []
-  };
+  return SimplificaOrdersCommandService.determineCancelEffects(order, input, getOrdersEffectsDeps());
 }
+
+function getOrdersEffectsDeps() { return { calculateConsumption: calcularConsumoMateriais, wasDeducted: pedidoEstoqueFoiBaixado, registeredCash: valorRegistradoCaixaPedido, receivedCash: valorRecebidoPedido, productionJobs: () => productionJobs, orderMovements: movimentosCaixaPedido, cashMovementCancelled: movimentoCaixaCancelado }; }
 
 function getEditOrderUseCase3d() {
   if (editOrderUseCase3d) return editOrderUseCase3d;
@@ -45220,24 +44814,12 @@ function getEditOrderUseCase3d() {
     validateProposed: (proposed) => proposed && String(clienteDoPedido(proposed)).trim() && normalizarItensPedido(proposed).length ? { ok: true } : { ok: false, code: "INVALID_INPUT", message: "Pedido precisa de cliente e itens válidos." },
     describeChanges: descreverAlteracoesPedido,
     determineEditEffects: determineEditOrderEffects,
-    commitEdit: async (plan) => {
-      const proposed = plan.proposed;
-      const current = encontrarPedidoPorId(plan.orderId);
-      const execution = await getOrderCreateTransactionExecutor3d().execute({
-        transactionKey: plan.operationId,
-        order: proposed,
-        previousOrder: current,
-        cashRegisteredBefore: valorRegistradoCaixaPedido(current),
-        financialSummary: calcularResumoFinanceiroPedido(proposed),
-        operationMetadata: criarMetadadosOperacaoFinanceira("pedido_update", proposed)
-      });
-      if (!["COMMITTED", "ALREADY_COMMITTED"].includes(execution.status)) return { success: false, code: execution.reason || "EXECUTION_FAILED", message: execution.error?.message || "Falha ao atualizar pedido." };
-      agendarSyncSilenciosoDados("pedido-atualizado");
-      return { success: true, order: execution.order || proposed, effects: { ...plan.effects, inventoryChanged: plan.effects.inventory.length > 0, cashChanged: !!execution.cashReceipt, productionChanged: plan.effects.production.length > 0, cashReceipt: execution.cashReceipt || null }, invalidated: ["orders", `order:${plan.orderId}`, "dashboard", "cash-summary", "inventory"] , warnings: execution.warnings || [] };
-    }
+    commitEdit: (plan) => SimplificaOrdersCommandService.executeEditPlan(plan, getOrdersEditCommandDeps())
   });
   return editOrderUseCase3d;
 }
+
+function getOrdersEditCommandDeps() { return { loadOrder: encontrarPedidoPorId, transactionExecutor: getOrderCreateTransactionExecutor3d, registeredCash: valorRegistradoCaixaPedido, financialSummary: calcularResumoFinanceiroPedido, operationMetadata: (order) => criarMetadadosOperacaoFinanceira("pedido_update", order), scheduleSync: agendarSyncSilenciosoDados }; }
 
 function getCancelOrderUseCase3d() {
   if (cancelOrderUseCase3d) return cancelOrderUseCase3d;
@@ -45249,42 +44831,23 @@ function getCancelOrderUseCase3d() {
     isCancelled: pedidoJaCancelado,
     canCancel: () => ({ allowed: true }),
     determineCancelEffects: determineCancelOrderEffects,
-    commitCancellation: async (plan) => {
-      const snapshot = { pedidos: cloneOrderTransactionState(pedidos), caixa: cloneOrderTransactionState(caixa), estoque: cloneOrderTransactionState(estoque), historico: cloneOrderTransactionState(historico), productionJobs: cloneOrderTransactionState(productionJobs), productionEvents: cloneOrderTransactionState(productionEvents) };
-      try {
-        const order = encontrarPedidoPorId(plan.orderId);
-        const agora = new Date().toISOString();
-        let inventoryChanged = false;
-        if (plan.inventory.restoreConsumption.length) {
-          inventoryChanged = aplicarDiffEstoqueComControle(plan.inventory.restoreConsumption.map((item) => ({ ...item, orderItemId: item.materialId })), "cancelamento seguro", { orderId: order.id, idempotencyPrefix: `order_material_return:${order.id}` });
-          if (!inventoryChanged) throw Object.assign(new Error("Não foi possível restaurar o estoque."), { code: "INVENTORY_RESTORE_ERROR" });
-        }
-        const movements = movimentosCaixaPedido(order);
-        const reverse = criarLancamentoReversoCaixaPedido(order, movements, agora);
-        if (reverse) caixa.push(reverse);
-        const cancelJobIds = new Set(plan.production.cancelJobs.map((item) => String(item.jobId)));
-        productionJobs.forEach((job) => { if (cancelJobIds.has(String(job.id))) { const old = job.status; job.status = "cancelado"; job.updated_at = agora; registrarEventoProducao(job.id, "pedido_cancelado", old, "cancelado", plan.reason); } });
-        const cancelled = marcarRegistroAlteradoParaSync(order, { status: "cancelado", deleted_at: agora, deletedAt: agora, cancelled_by: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "", cancelledBy: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "", cancel_reason: plan.reason, cancelReason: plan.reason, stock_returned_at: inventoryChanged ? agora : order.stock_returned_at || "", estoqueDevolvidoEm: inventoryChanged ? agora : order.estoqueDevolvidoEm || "", financial_reversed_at: reverse ? agora : order.financial_reversed_at || "" });
-        pedidos = pedidos.map((item) => String(item.id) === String(plan.orderId) ? cancelled : item);
-        registrarEventoFinanceiroPedidoLocal(cancelled, reverse, "cancel");
-        salvarDados();
-        agendarSyncSilenciosoDados("pedido-cancelado");
-        return { success: true, order: cancelled, effects: { inventoryChanged, cashChanged: !!reverse, cashMovements: movements.length, productionChanged: cancelJobIds.size > 0 }, invalidated: ["orders", `order:${plan.orderId}`, "dashboard", "cash-summary", "inventory", "production"] };
-      } catch (error) {
-        pedidos = snapshot.pedidos; caixa = snapshot.caixa; estoque = snapshot.estoque; historico = snapshot.historico; productionJobs = snapshot.productionJobs; productionEvents = snapshot.productionEvents;
-        salvarDados();
-        throw error;
-      }
-    }
+    commitCancellation: (plan) => SimplificaOrdersCommandService.executeCancelPlan(plan, getOrdersCancelCommandDeps())
   });
   return cancelOrderUseCase3d;
+}
+
+function getOrdersCancelCommandDeps() {
+  return {
+    captureState: () => ({ pedidos: cloneOrderTransactionState(pedidos), caixa: cloneOrderTransactionState(caixa), estoque: cloneOrderTransactionState(estoque), historico: cloneOrderTransactionState(historico), productionJobs: cloneOrderTransactionState(productionJobs), productionEvents: cloneOrderTransactionState(productionEvents) }),
+    restoreState: (snapshot) => { pedidos = snapshot.pedidos; caixa = snapshot.caixa; estoque = snapshot.estoque; historico = snapshot.historico; productionJobs = snapshot.productionJobs; productionEvents = snapshot.productionEvents; }, loadOrder: encontrarPedidoPorId, now: () => new Date().toISOString(), restoreStock: (diff, order) => aplicarDiffEstoqueComControle(diff, "cancelamento seguro", { orderId: order.id, idempotencyPrefix: `order_material_return:${order.id}` }), orderMovements: movimentosCaixaPedido, createCashReversal: criarLancamentoReversoCaixaPedido, commitCashReversal: (record) => caixa.push(record), cancelProductionJobs: (ids, now, reason) => productionJobs.forEach((job) => { if (ids.has(String(job.id))) { const old = job.status; job.status = "cancelado"; job.updated_at = now; registrarEventoProducao(job.id, "pedido_cancelado", old, "cancelado", reason); } }), markCancelled: (order, { now, inventoryChanged, reversal, reason }) => marcarRegistroAlteradoParaSync(order, { status: "cancelado", deleted_at: now, deletedAt: now, cancelled_by: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "", cancelledBy: syncConfig.supabaseUserId || getUsuarioAtual()?.id || "", cancel_reason: reason, cancelReason: reason, stock_returned_at: inventoryChanged ? now : order.stock_returned_at || "", estoqueDevolvidoEm: inventoryChanged ? now : order.estoqueDevolvidoEm || "", financial_reversed_at: reversal ? now : order.financial_reversed_at || "" }), commitCancelledOrder: (cancelled, id) => { pedidos = pedidos.map((item) => String(item.id) === String(id) ? cancelled : item); }, afterCancel: (order, reversal) => registrarEventoFinanceiroPedidoLocal(order, reversal, "cancel"), persist: salvarDados, scheduleSync: agendarSyncSilenciosoDados
+  };
 }
 
 function getOrderCreateTransactionExecutor3d() {
   if (orderCreateTransactionExecutor3d) return orderCreateTransactionExecutor3d;
   const Executor = window.Simplifica3dOrderCreateExecutor;
-  if (!Executor?.OrderCreateTransactionExecutor) throw new Error("ORDER_CREATE_EXECUTOR_UNAVAILABLE");
-  orderCreateTransactionExecutor3d = new Executor.OrderCreateTransactionExecutor({
+  orderCreateTransactionExecutor3d = SimplificaOrdersCommandService.createTransactionExecutor({
+    Executor,
     captureState: () => ({
       pedidos: cloneOrderTransactionState(pedidos),
       caixa: cloneOrderTransactionState(caixa),
@@ -45318,22 +44881,11 @@ function getOrderCreateTransactionExecutor3d() {
 }
 
 function getPedidosPersistidosNoEscopoAtual() {
-  const escopo = getEscopoDadosAtual();
-  if (escopo) return lerCacheDadosUsuario(escopo)?.data?.pedidos || [];
-  const raw = localStorage.getItem("pedidos");
-  const parsed = JSON.parse(raw || "[]");
-  return Array.isArray(parsed) ? parsed : [];
+  return window.SimplificaOrdersRepository.getPedidosPersistidosNoEscopoAtual({ getEscopoDadosAtual, lerCacheDadosUsuario, storage: localStorage });
 }
 
 function salvarPedidoComVerificacaoLocal(order) {
-  if (window.__simplificaOrderFaultInjection === "BEFORE_LOCAL_PERSIST") throw new Error("FAULT_BEFORE_LOCAL_PERSIST");
-  salvarDados();
-  if (window.__simplificaOrderFaultInjection === "AFTER_LOCAL_PERSIST") throw new Error("FAULT_AFTER_LOCAL_PERSIST");
-  const transactionKey = String(order?.client_request_id || order?.clientRequestId || "");
-  const persisted = getPedidosPersistidosNoEscopoAtual();
-  const found = persisted.some((item) => String(item.client_request_id || item.clientRequestId || "") === transactionKey);
-  if (!transactionKey || !found) throw new Error("ORDER_LOCAL_PERSISTENCE_NOT_VERIFIED");
-  return true;
+  return window.SimplificaOrdersRepository.salvarPedidoComVerificacaoLocal(order, { getEscopoDadosAtual, lerCacheDadosUsuario, storage: localStorage, salvarDados, getFault: () => window.__simplificaOrderFaultInjection });
 }
 
 async function fecharPedido() {
@@ -46896,32 +46448,7 @@ async function removerMovimentoCaixa(i) {
 }
 
 function normalizarCalculadoraWidget(widget = {}) {
-  const larguraTela = window.innerWidth || 1024;
-  const alturaTela = window.innerHeight || 768;
-  const margem = isMobile() ? 8 : 16;
-  const recuoInferior = isMobile() ? 92 : 18;
-  const larguraMaxima = Math.max(280, larguraTela - margem * 2);
-  const alturaMaxima = Math.max(320, alturaTela - margem * 2);
-  const larguraMinima = Math.min(320, larguraMaxima);
-  const alturaMinima = Math.min(360, alturaMaxima);
-  const larguraPadrao = isMobile() ? Math.min(420, larguraMaxima) : 430;
-  const alturaPadrao = isMobile() ? Math.min(620, alturaMaxima) : 620;
-  const w = Math.min(larguraMaxima, Math.max(larguraMinima, Number(widget.w) || larguraPadrao));
-  const h = Math.min(alturaMaxima, Math.max(alturaMinima, Number(widget.h) || alturaPadrao));
-  const temX = widget.x !== undefined && widget.x !== null && widget.x !== "";
-  const temY = widget.y !== undefined && widget.y !== null && widget.y !== "";
-  const xBase = temX ? Number(widget.x) || 0 : larguraTela - w - margem;
-  const yBase = temY ? Number(widget.y) || 0 : alturaTela - h - recuoInferior;
-  const xMaximo = Math.max(margem, larguraTela - w - margem);
-  const yMaximo = Math.max(margem, alturaTela - h - margem);
-
-  return {
-    open: widget.open === true,
-    x: Math.min(xMaximo, Math.max(margem, xBase)),
-    y: Math.min(yMaximo, Math.max(margem, yBase)),
-    w,
-    h
-  };
+  return CalculatorDomain.normalizeWidget(widget, { width: window.innerWidth, height: window.innerHeight, mobile: isMobile() });
 }
 
 function salvarCalculadoraWidget(valores = {}, salvar = false) {
@@ -46942,13 +46469,11 @@ function salvarCalculadoraWidget(valores = {}, salvar = false) {
 }
 
 function normalizarTipoImpressoraCalculadora(tipo = "FDM") {
-  return String(tipo || "FDM").trim().toUpperCase() === "RESINA" ? "RESINA" : "FDM";
+  return CalculatorDomain.normalizePrinterType(tipo);
 }
 
 function numeroCalculadora(valor, fallback = 0, minimo = 0) {
-  if (valor === "" || valor === null || valor === undefined) return fallback;
-  const numero = numeroMonetarioPedido(valor, NaN);
-  return Number.isFinite(numero) ? Math.max(minimo, numero) : fallback;
+  return CalculatorDomain.normalizeNumber(valor, fallback, minimo, numeroMonetarioPedido);
 }
 
 function valorCampoCalculadora(id, fallback = "") {
@@ -47081,7 +46606,7 @@ function getEstadoTaxaExtraCalculadora() {
 }
 
 function valorExibidoTaxaExtraCalculadora(estado = getEstadoTaxaExtraCalculadora()) {
-  return estado.modo === "manual" ? estado.value : estado.percent;
+  return CalculatorDomain.getDisplayedExtraFee({ mode: estado.modo, percent: estado.percent, value: estado.value });
 }
 
 function atualizarVisualTaxaExtraCalculadora(opcoes = {}) {
@@ -47146,15 +46671,8 @@ function atualizarTaxaExtraManual() {
 
 function calcularTaxaExtraAplicada(valorComercialBase = 0) {
   const estado = getEstadoTaxaExtraCalculadora();
-  const base = Math.max(0, Number(valorComercialBase) || 0);
-  if (estado.modo === "manual") {
-    return { valor: estado.value, rotulo: "R$", modo: "manual" };
-  }
-  return {
-    valor: calcularValorPercentual(base, estado.percent),
-    rotulo: `${Number(estado.percent || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`,
-    modo: "percent"
-  };
+  const fee = CalculatorDomain.calculateExtraFee({ base: valorComercialBase, mode: estado.modo, percent: estado.percent, value: estado.value });
+  return { valor: fee.value, rotulo: fee.label, modo: fee.mode };
 }
 
 function renderListaPedidosPwa({ podeOperar, filtroDashboard, filtroCliente = "", lista, listaPaginada, pedidoSelecionado, filtroAtivo = "todos", listaBaseInicial = pedidos, linhas, paginacao }) {
@@ -47263,21 +46781,16 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
 }
 
 function formatarTempoCalculadora(horas = 0, minutos = 0) {
-  const h = Math.max(0, Math.floor(Number(horas) || 0));
-  const m = Math.max(0, Math.min(59, Math.floor(Number(minutos) || 0)));
-  return `${h}:${String(m).padStart(2, "0")}`;
+  return window.CalculatorDomain.formatTimeInput(horas, minutos);
 }
 
 function sincronizarTempoFormatadoCalculadora(valor = "") {
-  const texto = String(valor || "").trim().replace(/[hH]/g, ":").replace(/\s+/g, "");
-  const partes = texto.split(":");
-  const horas = Math.max(0, Number.parseInt(partes[0] || "0", 10) || 0);
-  const minutos = partes.length > 1 ? Number.parseInt(partes[1] || "0", 10) : 0;
-  if (!Number.isFinite(minutos) || minutos < 0 || minutos > 59) return false;
+  const tempo = CalculatorDomain.parseFormattedTime(valor);
+  if (!tempo) return false;
   const campoHoras = document.getElementById("tempo");
   const campoMinutos = document.getElementById("tempoMinutos");
-  if (campoHoras) campoHoras.value = String(horas);
-  if (campoMinutos) campoMinutos.value = String(minutos);
+  if (campoHoras) campoHoras.value = String(tempo.hours);
+  if (campoMinutos) campoMinutos.value = String(tempo.minutes);
   agendarCalculoTempoReal();
   return true;
 }
@@ -47392,19 +46905,12 @@ function atualizarResumoLoteCalculadora() {
   const alvo = document.getElementById("calcBatchSummary");
   if (!alvo) return;
   const ativo = document.getElementById("impressaoLote")?.checked === true;
-  const quantidadeInformada = Math.floor(Number(document.getElementById("quantidade")?.value));
-  const quantidade = ativo && quantidadeInformada >= 2 && quantidadeInformada <= 999 ? quantidadeInformada : 1;
-  if (ativo && quantidade === 1) {
+  const resumo = CalculatorDomain.calculateBatchPreview({ active: ativo, quantity: document.getElementById("quantidade")?.value, mode: getModoLoteCalculadora(), weightGrams: numeroCalculadora(document.getElementById("peso")?.value, 0, 0), timeMinutes: CalculatorDomain.toMinutes(document.getElementById("tempo")?.value, document.getElementById("tempoMinutos")?.value) });
+  if (resumo.active && resumo.quantity === 1) {
     alvo.innerHTML = "<strong>Resumo do lote</strong><span>Informe a quantidade de peças.</span>";
     return;
   }
-  const modo = getModoLoteCalculadora();
-  const peso = Math.max(0, numeroCalculadora(document.getElementById("peso")?.value, 0, 0));
-  const tempoMinutos = CalculatorDomain.toMinutes(document.getElementById("tempo")?.value, document.getElementById("tempoMinutos")?.value);
-  const multiplicador = ativo && modo === "per_piece" ? quantidade : 1;
-  const pesoTotal = peso * multiplicador;
-  const tempoTotal = tempoMinutos * multiplicador;
-  alvo.innerHTML = `<strong>Resumo do lote</strong><span>${quantidade} unidades · ${modo === "per_piece" ? "Dados por peça" : "Dados do lote inteiro"}</span><small>${peso > 0 ? `${pesoTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g` : "Aguardando peso"} · ${tempoMinutos > 0 ? CalculatorDomain.formatMinutes(tempoTotal).label : "Aguardando tempo"}</small>`;
+  alvo.innerHTML = `<strong>Resumo do lote</strong><span>${resumo.quantity} unidades · ${resumo.mode === "per_piece" ? "Dados por peça" : "Dados do lote inteiro"}</span><small>${resumo.weightGrams > 0 ? `${resumo.totalWeightGrams.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g` : "Aguardando peso"} · ${resumo.timeMinutes > 0 ? CalculatorDomain.formatMinutes(resumo.totalTimeMinutes).label : "Aguardando tempo"}</small>`;
 }
 
 function alternarTaxaExtraAtiva(ativa = false) {
@@ -47707,8 +47213,8 @@ let secretariaIaChatBusy = false;
 let secretariaIaChatLoadedKey = "";
 let assistenteIaOuvindo = false;
 let assistenteIaTutorialForcado = false;
-let assistenteIaAquecimento = { status: "idle", message: "FunctionGemma disponível" };
-let assistenteIaConfigState = { loaded: false, available: false, enabled: true, state: "AVAILABLE", modelId: "functiongemma-270m-it-q8_0", models: [], selection: "functiongemma-270m-it-q8_0", downloadedBytes: 0, totalBytes: 291557856 };
+let assistenteIaAquecimento = { status: "idle", message: "IA local disponível" };
+let assistenteIaConfigState = { loaded: false, available: false, enabled: true, state: "AVAILABLE", modelId: "lfm2.5-1.2b-q4_0", models: [], selection: "lfm2.5-1.2b-q4_0", downloadedBytes: 0, totalBytes: 695755488 };
 let assistenteIaConfigPollTimer = null;
 let simplifica3dAiOrchestratorV2 = null;
 let assistantCoreUniversal3d = null;
@@ -48133,8 +47639,8 @@ async function preaquecerAssistenteIa3d({ renderChat = false } = {}) {
     assistenteIaAquecimento = result?.compatible === false
       ? { status: "unavailable", message: result.incompatibilityReason || "Indisponível neste aparelho" }
       : result?.modelReady || result?.runtimeReady
-        ? { status: "ready", message: "FunctionGemma pronto" }
-        : { status: result?.downloading ? "preparing" : "unavailable", message: result?.downloading ? "Preparando FunctionGemma..." : "FunctionGemma indisponível" };
+        ? { status: "ready", message: "IA local pronta" }
+        : { status: result?.downloading ? "preparing" : "unavailable", message: result?.downloading ? "Preparando IA local..." : "Modelo de IA local indisponível" };
   } catch (error) {
     registrarErroAplicacaoSilencioso("simplifica_ai_warmup", error, "preaquecerAssistenteIa3d");
     assistenteIaAquecimento = { status: "unavailable", message: "Indisponível no momento" };
@@ -48425,7 +47931,9 @@ function criarSimplifica3dAiOrchestratorV2() {
   const C = window.Simplifica3dAiCore;
   const O = window.Simplifica3dAiOrchestrator;
   const facade = window.Simplifica3dAiReadFacade;
-  if (!C || !O || !facade) throw new Error("A fundação da IA ainda não está disponível.");
+  const BindingFactory = window.SimplificaCanonicalRuntimeBindings;
+  if (!C || !O || !facade || !BindingFactory) throw new Error("A fundação da IA ainda não está disponível.");
+  const canonicalBindings = BindingFactory.create({ readFacade: facade });
   const capabilities = new C.CapabilityRegistry();
   const schemas = {
     "CUSTOMER.SEARCH": { query: "string" }, "ORDER.HISTORY": { customerId: "string", limit: "number" }, "ORDER.SEARCH": { query: "string", limit: "number" },
@@ -48540,7 +48048,7 @@ function criarSimplifica3dAiOrchestratorV2() {
   const rlm = new R.RlmOrchestrator({ registry: rlmRegistry, manager, telemetry: (event) => registrarTelemetriaAiContextV2({ ...event, stage: "T_RLM" }) });
   simplifica3dAiOrchestratorV2 = new O.AiOrchestrator3D({
     manager, continuationResolver: new C.TaskResolver(), contextBuilder: new C.ContextBuilder(), tools,
-    provider: window.Simplifica3dAiRuntime.provider, operationSafety, rlm,
+    provider: window.Simplifica3dAiRuntime.provider, operationSafety, rlm, canonicalBindings,
     telemetry: registrarTelemetriaAiContextV2
   });
   simplifica3dAiOrchestratorV2.capabilities = capabilities;
@@ -48922,7 +48430,7 @@ function renderChatSecretariaIa() {
   const pendingConfirmation = simplifica3dAiOrchestratorV2?.manager?.session?.pendingAction?.status === "CONFIRMATION_PENDING";
   const confirmationActions = pendingConfirmation ? ui?.confirmation({ title: "Somente você pode autorizar", message: "Confira o resumo acima antes de salvar.", confirmLabel: "Confirmar pedido", cancelLabel: "Quero alterar", onConfirm: "confirmarPedidoAssistenteIa", onCancel: "ajustarPedidoAssistenteIa" }) || "" : "";
   const ready = assistenteIaAquecimento.status === "ready";
-  const setup = !ready ? `<div class="ai-chat-setup"><strong>FunctionGemma indisponível</strong><p>A assistente foi desativada com segurança. O ERP manual continua funcionando normalmente.</p><button class="btn secondary" type="button" onclick="preaquecerAssistenteIa3d({ renderChat: true })">Tentar novamente</button></div>` : "";
+  const setup = !ready ? `<div class="ai-chat-setup"><strong>IA local indisponível</strong><p>A assistente foi desativada com segurança. O ERP manual continua funcionando normalmente.</p><button class="btn secondary" type="button" onclick="preaquecerAssistenteIa3d({ renderChat: true })">Tentar novamente</button></div>` : "";
   const statusText = assistenteIaOuvindo ? "Ouvindo você..." : secretariaIaChatBusy ? "Consultando..." : assistenteIaAquecimento.message;
   const specificContext = getContextoEspecificoAssistantCore3d();
   const contextualActions = ui?.contextActionButtons(getAcoesContextuaisAssistenteIa(), { disabled: secretariaIaChatBusy || !ready, onAction: "executarAcaoContextualAssistenteIa" }) || "";
@@ -49613,11 +49121,7 @@ async function adicionarItemRapidoOperacional(event = null, { silent = false } =
 }
 
 function getItensPedidoRapidoSelecionados() {
-  const selecionados = Array.isArray(window.__pedidoRapidoItensSelecionados) ? window.__pedidoRapidoItensSelecionados : [];
-  const indices = selecionados
-    .map((index) => Number(index))
-    .filter((index) => Number.isInteger(index) && index >= 0 && index < itensPedido.length);
-  const unicos = [...new Set(indices)].sort((a, b) => a - b);
+  const unicos = SimplificaOrdersController.normalizeSelectedItems(window.__pedidoRapidoItensSelecionados, itensPedido);
   window.__pedidoRapidoItensSelecionados = unicos;
   return unicos;
 }
@@ -49629,11 +49133,7 @@ function isItemPedidoRapidoSelecionado(index) {
 function alternarSelecaoItemPedidoRapido(index, checked = null) {
   const indice = Number(index);
   if (!Number.isInteger(indice) || !itensPedido[indice]) return;
-  const selecionados = new Set(getItensPedidoRapidoSelecionados());
-  const deveSelecionar = checked === null ? !selecionados.has(indice) : checked === true;
-  if (deveSelecionar) selecionados.add(indice);
-  else selecionados.delete(indice);
-  window.__pedidoRapidoItensSelecionados = [...selecionados].sort((a, b) => a - b);
+  window.__pedidoRapidoItensSelecionados = SimplificaOrdersController.toggleSelectedItem(getItensPedidoRapidoSelecionados(), indice, checked, itensPedido);
   window.__pedidoItemSelecionado = indice;
   atualizarPedidoRapidoOperacional({ syncItemDraft: false });
 }
@@ -49673,14 +49173,8 @@ function removerItensSelecionadosPedidoRapido() {
 
 function aplicarQuantidadeItensSelecionadosPedidoRapido() {
   const selecionados = getItensPedidoRapidoSelecionados();
-  const quantidade = Math.max(1, Number(document.getElementById("quickOrderBulkQty")?.value) || 1);
   if (!selecionados.length) return;
-  selecionados.forEach((index) => {
-    const item = itensPedido[index];
-    if (!item) return;
-    item.qtd = quantidade;
-    item.total = (Number(item.valor) || 0) * quantidade;
-  });
+  const { quantity: quantidade } = SimplificaOrdersController.applyBulkQuantity(itensPedido, selecionados, document.getElementById("quickOrderBulkQty")?.value);
   mostrarToast(`Quantidade ${quantidade} aplicada a ${selecionados.length} item${selecionados.length > 1 ? "s" : ""}.`, "sucesso", 2200);
   atualizarPedidoRapidoOperacional({ syncItemDraft: false });
 }
@@ -51174,10 +50668,7 @@ function obterTelefoneDestinoWhatsappPedido(pedido = null) {
 }
 
 function formatarPrazoWhatsapp(valor = "") {
-  if (!valor) return "";
-  const data = new Date(`${valor}T12:00:00`);
-  if (Number.isNaN(data.getTime())) return String(valor);
-  return data.toLocaleDateString("pt-BR");
+  return window.SimplificaDateFormatters.formatDeadline(valor);
 }
 
 function documentoClientePedido(pedido = {}) {
@@ -51769,13 +51260,7 @@ function getPdfThemeConfig() {
 }
 
 function formatarTelefonePdf(valor = "") {
-  const normalizado = normalizePhoneBR(valor);
-  const digitos = normalizado.replace(/\D/g, "");
-  if (!digitos) return String(valor || "").trim();
-  const semPais = digitos.startsWith("55") ? digitos.slice(2) : digitos;
-  if (semPais.length === 11) return `(${semPais.slice(0, 2)}) ${semPais.slice(2, 7)}-${semPais.slice(7)}`;
-  if (semPais.length === 10) return `(${semPais.slice(0, 2)}) ${semPais.slice(2, 6)}-${semPais.slice(6)}`;
-  return normalizado;
+  return window.SimplificaCustomerNormalizers.formatPhoneForPdf(valor);
 }
 
 function getEmpresaPdfInfo() {
@@ -51797,9 +51282,7 @@ function getEmpresaPdfInfo() {
 }
 
 function numeroDocumentoPdf(pedidoId, data = new Date()) {
-  const ano = data.getFullYear();
-  const numero = String(pedidoId || Date.now()).replace(/\D/g, "").slice(-6).padStart(6, "0");
-  return `${ano}-${numero}`;
+  return window.SimplificaDateFormatters.formatDocumentNumber(pedidoId, data);
 }
 
 function getTipoDocumentoPedidoPdf(pedido = pedidoEditando) {

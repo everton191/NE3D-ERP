@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "process": ["identify-module", "read-project-map", "query-index", "find-similar", "find-equivalent", "apply-placement-rule"],
+  "forbiddenSuffixes": ["-new", "-final", "-fixed", "2", "-v2"],
+  "rules": {
+    "screen": "Reutilizar o shell/tela existente em app.js e componentes UI atuais; extrair somente quando houver padrão equivalente no módulo.",
+    "component": "Reutilizar componente existente do domínio; UI compartilhada do assistente fica em src/assistant-core/ui-contracts.",
+    "service": "Reutilizar serviço/use case determinístico existente; IA de domínio 3D fica em src/ai-3d.",
+    "repository": "Seguir o acesso a dados existente; não criar repository paralelo sem implementação equivalente no projeto.",
+    "test": "scripts/test-<dominio>-<comportamento>.js",
+    "assistantCore": "src/assistant-core/<responsabilidade existente>",
+    "simplifica3dDomainAi": "src/ai-3d/<use-case existente>",
+    "assistantPack": "apps/simplifica/assistant-pack",
+    "androidLocalAi": "android/app/src/main/java/br/com/ne3d/erp/ai",
+    "androidPlugin": "android/app/src/main/java/br/com/ne3d/erp",
+    "storefront": "modules/storefront",
+    "storeEditor": "modules/store-editor",
+    "test": "scripts/test-<dominio>-<comportamento>.js",
+    "documentation": "docs/assistant ou docs/AI_*.md conforme o assunto"
+  },
+  "never": ["src/ai paralelo", "packs Rural ou Tec", "escrita direta do LLM no banco", "pesos de modelo no Git"]
+}

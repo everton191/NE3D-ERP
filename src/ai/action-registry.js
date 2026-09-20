@@ -32,7 +32,8 @@
     "cash.prepare_close_session": { requires: ["session_id"], produces: ["prepared_operation"], allowedNext: ["cash.close_session"] },
     "production.list_queue": { produces: ["job_refs"], allowedNext: ["production.prepare_change_status"] },
     "production.prepare_job": { requires: ["order_id"], produces: ["prepared_operation"], allowedNext: ["production.commit_job"] },
-    "production.prepare_change_status": { requires: ["job_id"], produces: ["prepared_operation"], allowedNext: ["production.change_status"] }
+    "production.prepare_change_status": { requires: ["job_id"], produces: ["prepared_operation"], allowedNext: ["production.change_status"] },
+    "calculator.quote": { produces: ["weight_grams", "time_minutes"], allowedNext: ["orders.prepare_create"] }
   });
 
   const definitions = [
@@ -67,13 +68,28 @@
     ["calculator.quote", "calculator", "READ", "Calcula preço por código determinístico.", "CalculatorDomain.calculate", "basic_calculator", false, true, ["weight_grams", "time_minutes", "quantity"], ["calcular preço", "fazer orçamento", "quanto custa"]],
     ["calculator.batch", "calculator", "READ", "Calcula vários orçamentos sem persistir.", "CalculatorDomain.calculate", "basic_calculator", false, false, ["items"], ["calcular em lote", "vários orçamentos"]],
     ["production.list_queue", "production", "READ", "Consulta a fila e o estado atual das impressões sem alterar dados.", "productionSummaryReadOnly", "basic_production", false, true, ["status"], ["fila de produção", "o que tem na produção", "impressão pendente", "qual impressão está rodando"]],
-    ["production.prepare_job", "production", "PREPARE", "Prepara trabalho de produção sem mudar status.", "ProductionPrepareUseCase.prepare", "basic_production", false, false, ["order_id", "printer_id", "idempotency_key"], ["preparar impressão", "colocar na fila"]],
-    ["production.commit_job", "production", "WRITE", "Cria trabalho de produção previamente preparado.", "ProductionPrepareUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token"], ["confirmar trabalho", "colocar na fila"]],
-    ["production.prepare_change_status", "production", "PREPARE", "Valida mudança de status sem persistir.", "ProductionChangeStatusUseCase.prepare", "basic_production", false, false, ["job_id", "status", "idempotency_key"], ["preparar mudança de status", "revisar status"]],
-    ["production.change_status", "production", "WRITE", "Altera status de produção após confirmação.", "ProductionChangeStatusUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token", "idempotency_key"], ["iniciar impressão", "marcar como pronto"]],
-    ["products.search", "products", "READ", "Busca produtos cadastrados sem alterar catálogo ou estoque.", "searchProductsReadOnly", "basic_products", false, true, ["query"], ["buscar produto", "procurar produto", "mostrar produto"]],
-    ["printers.search", "printers", "READ", "Consulta impressoras cadastradas e o estado de impressão.", "searchPrintersReadOnly", "printer_registry", false, true, ["query", "status"], ["buscar impressora", "qual impressora", "impressora imprimindo", "status da impressora"]],
-    ["reports.open", "reports", "READ", "Abre a tela de relatórios sem alterar dados.", "navigation.open", "simple_reports", false, true, [], ["abrir relatórios", "ver relatórios", "mostrar relatórios"]]
+    ["production.prepare_job", "production", "PREPARE", "Prepara trabalho de produção sem mudar status.", "ProductionPrepareUseCase.prepare", "basic_production", false, false, ["order_id", "printer_id", "idempotency_key"], ["preparar impressão", "colocar na fila", "enviar para produção"]],
+        ["production.commit_job", "production", "WRITE", "Cria trabalho de produção previamente preparado.", "ProductionPrepareUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token"], ["confirmar trabalho", "enviar para produção"]],
+        ["production.prepare_change_status", "production", "PREPARE", "Valida mudança de status sem persistir.", "ProductionChangeStatusUseCase.prepare", "basic_production", false, false, ["job_id", "status", "idempotency_key"], ["preparar mudança de status", "revisar status"]],
+        ["production.change_status", "production", "WRITE", "Altera status de produção após confirmação.", "ProductionChangeStatusUseCase.commit", "basic_production", true, false, ["prepared_operation_id", "confirmation_token", "idempotency_key"], ["iniciar impressão", "marcar como pronto"]],
+        ["products.search", "products", "READ", "Busca produtos cadastrados sem alterar catálogo ou estoque.", "searchProductsReadOnly", "basic_products", false, true, ["query"], ["buscar produto", "procurar produto", "mostrar produto"]],
+        ["printers.search", "printers", "READ", "Consulta impressoras cadastradas e o estado de impressão.", "searchPrintersReadOnly", "printer_registry", false, true, ["query", "status"], ["buscar impressora", "qual impressora", "impressora imprimindo", "status da impressora"]],
+        ["reports.open", "reports", "READ", "Abre a tela de relatórios sem alterar dados.", "navigation.open", "simple_reports", false, true, [], ["abrir relatórios", "ver relatórios", "mostrar relatórios"]],
+        // === NÓS FUTUROS - PLANNED/DISABLED (sem handler, sem rota, sem rota, sem handler) ===
+        ["fiscal.invoice.search", "fiscal", "READ", "Busca notas fiscais emitidas sem alterar dados. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []],
+        ["fiscal.invoice.details", "fiscal", "READ", "Obtém detalhes de nota fiscal por ID. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["invoice_id"], []],
+        ["fiscal.invoice.prepare_issue", "fiscal", "PREPARE", "Prepara emissão de nota fiscal sem persistir. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["order_id", "invoice_type", "idempotency_key"], []],
+        ["fiscal.invoice.prepare_cancel", "fiscal", "PREPARE", "Prepara cancelamento de NF sem persistir. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["invoice_id", "reason", "idempotency_key"], []],
+        ["fiscal.invoice.prepare_correction", "fiscal", "PREPARE", "Prepara correção de NF sem persistir. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["invoice_id", "correction_data", "idempotency_key"], []],
+        ["fiscal.settings", "fiscal", "READ", "Abre configurações fiscais. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, [], []],
+        ["fiscal.certificate", "fiscal", "READ", "Consulta certificados fiscais. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["certificate_id"], []],
+        ["finance.accounts_payable", "finance", "READ", "Consulta contas a pagar. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []],
+        ["finance.accounts_receivable", "finance", "READ", "Consulta contas a receber. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []],
+        ["purchases.search", "purchases", "READ", "Busca compras registradas. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []],
+        ["shipping.status", "shipping", "READ", "Consulta status de frete/entrega. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["tracking_number"], []],
+        ["crm.search", "crm", "READ", "Consulta dados do CRM. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []],
+        ["maintenance.list", "maintenance", "READ", "Consulta agenda de manutenção. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []],
+        ["quality.search", "quality", "READ", "Consulta registros de qualidade. NÓ FUTURO - NÃO IMPLEMENTADO.", "", "", false, false, ["query"], []]
   ];
 
   const actions = definitions.map(([id, domain, operationType, description, handler, permission, requiresConfirmation, tested, fields, aliases]) => Object.freeze({
@@ -88,20 +104,20 @@
     requires: Object.freeze(WORKFLOW[id]?.requires || []), produces: Object.freeze(WORKFLOW[id]?.produces || []),
     allowedNext: Object.freeze(WORKFLOW[id]?.allowedNext || []), terminal: !(WORKFLOW[id]?.allowedNext?.length),
     aliases: Object.freeze(aliases), examples: Object.freeze(aliases.slice(0, 2)), tested,
-    enabled: Boolean(handler) && tested, exposedToModel: operationType !== OPERATION.WRITE
+    enabled: Boolean(handler) && tested, exposedToModel: Boolean(handler) && operationType !== OPERATION.WRITE
   }));
 
   const byId = new Map(actions.map((action) => [action.id, action]));
   function health(action) {
     const errors = [];
-    if (!/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(action.id)) errors.push("INVALID_ID");
+    if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/.test(action.id)) errors.push("INVALID_ID");
     if (!action.inputSchema) errors.push("MISSING_SCHEMA");
     if (!action.validator) errors.push("MISSING_VALIDATOR");
-    if (!action.permission) errors.push("MISSING_PERMISSION");
+    if (action.handler && !action.permission) errors.push("MISSING_PERMISSION");
     if (!action.handler) errors.push("MISSING_HANDLER");
     if (!action.tested) errors.push("MISSING_CONTRACT_TEST");
     if (action.operationType === OPERATION.WRITE && (!action.requiresConfirmation || !action.idempotent)) errors.push("UNSAFE_WRITE_POLICY");
-    const state = errors.some((error) => error === "INVALID_ID" || error === "MISSING_SCHEMA" || error === "MISSING_VALIDATOR" || error === "MISSING_PERMISSION" || error === "UNSAFE_WRITE_POLICY")
+    const state = errors.some((error) => error === "INVALID_ID" || error === "MISSING_SCHEMA" || error === "MISSING_VALIDATOR" || error === "UNSAFE_WRITE_POLICY")
       ? HEALTH.BROKEN : action.enabled && errors.length === 0 ? HEALTH.READY : action.handler ? HEALTH.DEGRADED : HEALTH.DISABLED;
     return Object.freeze({ id: action.id, state, exposed: state === HEALTH.READY && action.exposedToModel === true, errors: Object.freeze(errors) });
   }

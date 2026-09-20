@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
+const customerNormalizers = require("../src/features/customers/customer-normalizers.js");
 
 const appPath = path.join(__dirname, "..", "app.js");
 const source = fs.readFileSync(appPath, "utf8");
@@ -52,17 +53,7 @@ function extractAuthMethod(name) {
   throw new Error(`Nao foi possivel extrair AuthService.${name}`);
 }
 
-const sandbox = {};
-vm.runInNewContext(
-  [
-    extractFunction("normalizePhoneBR"),
-    extractFunction("normalizarTelefoneWhatsapp"),
-    "result = { normalizePhoneBR, normalizarTelefoneWhatsapp };"
-  ].join("\n"),
-  sandbox
-);
-
-const { normalizePhoneBR, normalizarTelefoneWhatsapp } = sandbox.result;
+const { normalizePhoneBR, normalizarTelefoneWhatsapp } = customerNormalizers;
 const cases = [
   ["85999999999", "+5585999999999"],
   ["5585999999999", "+5585999999999"],

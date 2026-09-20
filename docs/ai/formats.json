@@ -1,0 +1,606 @@
+{
+  "navigation.open": {
+    "fields": [
+      "tela"
+    ],
+    "allowedFields": [
+      "tela"
+    ],
+    "requiredFields": [
+      "tela"
+    ]
+  },
+  "orders.search": {
+    "fields": [
+      "query",
+      "status",
+      "customer"
+    ],
+    "allowedFields": [
+      "query",
+      "status",
+      "customer"
+    ],
+    "requiredFields": [
+      "query",
+      "status",
+      "customer"
+    ]
+  },
+  "orders.get": {
+    "fields": [
+      "order_id"
+    ],
+    "allowedFields": [
+      "order_id"
+    ],
+    "requiredFields": [
+      "order_id"
+    ]
+  },
+  "orders.prepare_create": {
+    "fields": [
+      "customer_id",
+      "items"
+    ],
+    "allowedFields": [
+      "customer_id",
+      "items"
+    ],
+    "requiredFields": [
+      "customer_id",
+      "items"
+    ]
+  },
+  "orders.prepare_update": {
+    "fields": [
+      "order_id",
+      "proposed",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "order_id",
+      "proposed",
+      "idempotency_key"
+    ],
+    "requiredFields": [
+      "order_id",
+      "proposed",
+      "idempotency_key"
+    ]
+  },
+  "orders.prepare_cancel": {
+    "fields": [
+      "order_id",
+      "reason",
+      "return_stock",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "order_id",
+      "reason",
+      "return_stock",
+      "idempotency_key"
+    ],
+    "requiredFields": [
+      "order_id",
+      "reason",
+      "return_stock",
+      "idempotency_key"
+    ]
+  },
+  "orders.commit_create": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "requiredFields": []
+  },
+  "orders.update": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "orders.cancel": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "customers.search": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": [
+      "query"
+    ]
+  },
+  "customers.get": {
+    "fields": [
+      "customer_id"
+    ],
+    "allowedFields": [
+      "customer_id"
+    ],
+    "requiredFields": []
+  },
+  "inventory.search": {
+    "fields": [
+      "query",
+      "status"
+    ],
+    "allowedFields": [
+      "query",
+      "status"
+    ],
+    "requiredFields": [
+      "query",
+      "status"
+    ]
+  },
+  "inventory.get_roll": {
+    "fields": [
+      "roll_id"
+    ],
+    "allowedFields": [
+      "roll_id"
+    ],
+    "requiredFields": []
+  },
+  "inventory.history": {
+    "fields": [
+      "material_id",
+      "roll_id"
+    ],
+    "allowedFields": [
+      "material_id",
+      "roll_id"
+    ],
+    "requiredFields": []
+  },
+  "inventory.prepare_reservation": {
+    "fields": [
+      "material_id",
+      "amount",
+      "order_id",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "material_id",
+      "amount",
+      "order_id",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "inventory.prepare_release": {
+    "fields": [
+      "reservation_id",
+      "amount",
+      "reason",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "reservation_id",
+      "amount",
+      "reason",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "inventory.prepare_consume": {
+    "fields": [
+      "roll_id",
+      "amount",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "roll_id",
+      "amount",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "inventory.reserve": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "requiredFields": []
+  },
+  "inventory.release": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "inventory.consume": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "cash.get_summary": {
+    "fields": [
+      "period"
+    ],
+    "allowedFields": [
+      "period"
+    ],
+    "requiredFields": []
+  },
+  "cash.prepare_withdrawal": {
+    "fields": [
+      "amount",
+      "description",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "amount",
+      "description",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "cash.commit_withdrawal": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "requiredFields": []
+  },
+  "cash.prepare_deposit": {
+    "fields": [
+      "amount",
+      "description",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "amount",
+      "description",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "cash.commit_deposit": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "requiredFields": []
+  },
+  "cash.open_session": {
+    "fields": [
+      "opening_amount",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "opening_amount",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "cash.prepare_close_session": {
+    "fields": [
+      "session_id",
+      "counted_amount",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "session_id",
+      "counted_amount",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "cash.close_session": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "calculator.quote": {
+    "fields": [
+      "weight_grams",
+      "time_minutes",
+      "quantity"
+    ],
+    "allowedFields": [
+      "weight_grams",
+      "time_minutes",
+      "quantity"
+    ],
+    "requiredFields": [
+      "weight_grams",
+      "time_minutes",
+      "quantity"
+    ]
+  },
+  "calculator.batch": {
+    "fields": [
+      "items"
+    ],
+    "allowedFields": [
+      "items"
+    ],
+    "requiredFields": []
+  },
+  "production.list_queue": {
+    "fields": [
+      "status"
+    ],
+    "allowedFields": [
+      "status"
+    ],
+    "requiredFields": []
+  },
+  "production.prepare_job": {
+    "fields": [
+      "order_id",
+      "printer_id",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "order_id",
+      "printer_id",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "production.commit_job": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token"
+    ],
+    "requiredFields": []
+  },
+  "production.prepare_change_status": {
+    "fields": [
+      "job_id",
+      "status",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "job_id",
+      "status",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "production.change_status": {
+    "fields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "prepared_operation_id",
+      "confirmation_token",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "products.search": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": [
+      "query"
+    ]
+  },
+  "printers.search": {
+    "fields": [
+      "query",
+      "status"
+    ],
+    "allowedFields": [
+      "query",
+      "status"
+    ],
+    "requiredFields": [
+      "query",
+      "status"
+    ]
+  },
+  "reports.open": {
+    "fields": [],
+    "allowedFields": [],
+    "requiredFields": []
+  },
+  "fiscal.invoice.search": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  },
+  "fiscal.invoice.details": {
+    "fields": [
+      "invoice_id"
+    ],
+    "allowedFields": [
+      "invoice_id"
+    ],
+    "requiredFields": []
+  },
+  "fiscal.invoice.prepare_issue": {
+    "fields": [
+      "order_id",
+      "invoice_type",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "order_id",
+      "invoice_type",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "fiscal.invoice.prepare_cancel": {
+    "fields": [
+      "invoice_id",
+      "reason",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "invoice_id",
+      "reason",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "fiscal.invoice.prepare_correction": {
+    "fields": [
+      "invoice_id",
+      "correction_data",
+      "idempotency_key"
+    ],
+    "allowedFields": [
+      "invoice_id",
+      "correction_data",
+      "idempotency_key"
+    ],
+    "requiredFields": []
+  },
+  "fiscal.settings": {
+    "fields": [],
+    "allowedFields": [],
+    "requiredFields": []
+  },
+  "fiscal.certificate": {
+    "fields": [
+      "certificate_id"
+    ],
+    "allowedFields": [
+      "certificate_id"
+    ],
+    "requiredFields": []
+  },
+  "finance.accounts_payable": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  },
+  "finance.accounts_receivable": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  },
+  "purchases.search": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  },
+  "shipping.status": {
+    "fields": [
+      "tracking_number"
+    ],
+    "allowedFields": [
+      "tracking_number"
+    ],
+    "requiredFields": []
+  },
+  "crm.search": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  },
+  "maintenance.list": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  },
+  "quality.search": {
+    "fields": [
+      "query"
+    ],
+    "allowedFields": [
+      "query"
+    ],
+    "requiredFields": []
+  }
+}

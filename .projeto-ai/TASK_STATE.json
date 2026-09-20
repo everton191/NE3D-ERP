@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "objective": "Consolidar infraestrutura mestre de desenvolvimento orientada por IA sem mover projetos existentes.",
+  "status": "validated_with_external_model_blocker",
+  "relevantFiles": [".projeto-ai/", "src/assistant-core/", "src/ai-3d/", "android/app/src/main/java/br/com/ne3d/erp/ai/"],
+  "findings": ["Arquitetura de IA existente deve ser reutilizada.", "LiteRT existe; llama.cpp não está integrado."],
+  "changes": ["Memória arquitetural criada.", "Índice incremental global preparado.", "Launchers dev-ai e novo-projeto-ai instalados.", "Template AI-ready validado sem modelo.", "Contrato de versão do teste da IA alinhado ao manifesto público."],
+  "tests": ["Indexação inicial e segunda passagem incremental.", "Seleção de contexto com 8 arquivos e cerca de 4K tokens.", "Projeto novo, tela, serviço, action registry e MockRuntime.", "Testes do assistant-core, isolamento, política, lifecycle, UI e contrato 3D.", "TypeScript, build web, Capacitor, Gradle, ADB e abertura física."],
+  "errors": ["Qwen3.8-27B Q4_K_M foi baixado e teve SHA-256 validado, mas Ollama 0.32.13 travou ao analisar o GGUF e não criou o tag."],
+  "decisions": ["Não migrar projetos existentes.", "Não criar src/ai paralelo no ERP."],
+  "nextStep": "Importar e validar qwen3.8:27b-q4_K_M quando o Ollama publicar suporte compatível; só então substituir o 3.6 no roteador."
+}

@@ -1,0 +1,17 @@
+"use strict";
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const inventory = require("../src/features/inventory/inventory-normalizers.js");
+const production = require("../src/features/production/production-status.js");
+assert(inventory.resolverStatusEstoque(0, { qtd: 0, estoqueMinimo: 5 }) === "critical", "minimum stock: zero is critical");
+assert(inventory.resolverStatusEstoque(80, { qtd: 5, estoqueMinimo: 5 }) === "low", "minimum stock: exact minimum is low");
+assert(inventory.resolverStatusEstoque(10, {}) === "critical", "threshold: critical boundary");
+assert(inventory.resolverStatusEstoque(30, {}) === "low", "threshold: low boundary");
+assert(inventory.resolverStatusEstoque(31, {}) === "normal", "threshold: normal above low");
+const helpers = { inferirTipoMaterial: () => "PLA", normalizarLotesEstoque: () => [], materialUsaControleLote: () => false, calcularSaldoLotesEstoque: () => 0, calcularPercentualEstoque: (current, base) => Math.round(current / base * 100), getCodigoNumericoMaterialEstoque: () => 7, getCodigoExternoMaterialEstoque: () => "EXT" };
+const material = inventory.normalizarMaterialEstoque({ id: "m1", nome: "PLA Azul", qtd: 5, estoqueMinimo: 5 }, helpers);
+assert(material.id === "m1" && material.stock_status === "low" && material.current_quantity === 5 && material.stock_code === 7, "material normalization preserves inventory contract");
+assert(production.meta.em_impressao.group === "impressao", "production group preserved");
+assert(production.getLabel("pronto_para_entrega") === "Pronto para entrega", "production label preserved");
+assert(production.getLabel("unknown") === "Em análise", "production fallback preserved");
+assert(production.formatMinutes(61) === "1h 1min", "production duration formatter preserved");
+console.log("Batch 1 modularization: inventory and production parity passed.");

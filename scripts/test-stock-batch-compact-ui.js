@@ -5,6 +5,7 @@ const assert = require("assert");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const rollConsumption = fs.readFileSync(path.join(root, "src", "features", "inventory", "inventory-roll-consumption.js"), "utf8");
 
 [
   "function abrirCadastroItemEstoque()",
@@ -20,13 +21,18 @@ const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
   "function salvarLoteEstoque",
   "updateBatches(indice, batches = []",
   "function calcularPreviaConsumoPorRolo",
-  "saldoA - saldoB",
   "STOCK_ROLL_CONSUMPTION_PREVIEW_ENABLED = RUNTIME_FEATURES.stockRollsEnabled !== false",
   "STOCK_ROLL_AUTO_CONSUMPTION_ENABLED = RUNTIME_FEATURES.stockRollAutoConsumptionEnabled === true",
   "INVENTORY_BATCH_AUTO_CONSUMPTION_DISABLED",
   "A baixa por rolo de",
   'isBatchControlled: podeUsarControleRolosEstoque() && document.getElementById("matBatchControlled")?.checked === true'
 ].forEach((marker) => assert.ok(app.includes(marker), `Contrato de estoque ausente: ${marker}`));
+
+[
+  "function calcularPreviaConsumoPorRolo",
+  "saldoA - saldoB"
+].forEach((marker) => assert.ok(rollConsumption.includes(marker), `Regra canônica de consumo por rolo ausente: ${marker}`));
+assert.ok(app.includes("SimplificaInventoryRollConsumption.calcularPreviaConsumoPorRolo"), "Bridge de consumo por rolo ausente.");
 
 [
   ".stock-summary-grid",

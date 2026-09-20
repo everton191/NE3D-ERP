@@ -1,0 +1,11 @@
+"use strict";
+const assert = require("node:assert/strict");
+const repository = require("../src/features/orders/orders-repository.js");
+const order = { client_request_id: "tx-1" };
+let saves = 0;
+const deps = { getEscopoDadosAtual: () => "scope", lerCacheDadosUsuario: () => ({ data: { pedidos: [order] } }), salvarDados: () => { saves += 1; }, getFault: () => "" };
+assert.deepEqual(repository.getPedidosPersistidosNoEscopoAtual(deps), [order]);
+assert.equal(repository.salvarPedidoComVerificacaoLocal(order, deps), true);
+assert.equal(saves, 1);
+assert.throws(() => repository.salvarPedidoComVerificacaoLocal(order, { ...deps, getFault: () => "BEFORE_LOCAL_PERSIST" }), /FAULT_BEFORE_LOCAL_PERSIST/);
+console.log("Orders repository: escopo, persistência e verificação local preservados.");
