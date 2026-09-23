@@ -124,6 +124,10 @@
 <script src="/src/services/safeAreaManager.js?v=1.0.57-rc-plans-release-20260628"></script>
   <script src="/src/services/themeAuthorityV3.js?v=theme-key-unified-20260715"></script>
 <script src="/src/navigation/screen-registry.js?v=structure-phase2"></script>
+<script src="/src/navigation/screen-v3-wrapper.js?v=app-js-finalization-routing-v3"></script>
+<script src="/src/navigation/screen-dispatcher.js?v=app-js-finalization-routing-dispatcher"></script>
+<script src="/src/navigation/app-domain-events.js?v=app-js-finalization-domain-events"></script>
+<script src="/src/app/bootstrap.js?v=app-js-finalization-bootstrap"></script>
 <script src="/src/services/ai-runtime-loader.js?v=structure-phase2"></script>
 <script src="/src/services/googleMotionEnhancer.js?v=orders-filter-carousel-20260901"></script>
 <script src="/src/services/printerMonitoringService.js?v=printer-monitor-simple-20260701"></script>
@@ -183,22 +187,87 @@
 <script src="/src/features/home/carousel3d/core/home-carousel-engine.js?v=phase-1"></script>
 <script src="/src/features/home/carousel3d/visual/home-carousel-renderer.js?v=phase-1"></script>
 <script src="/src/features/home/carousel3d/core/home-carousel-scene.js?v=phase-1"></script>
+<script src="/src/features/app-ui/app-ui-renderers.js?v=app-js-finalization-owner-6"></script>
 <script src="/src/features/customers/customer-normalizers.js?v=phase-1-5-batch-3"></script>
 <script src="/src/features/customers/customers-renderer.js?v=app-js-finalization-stage2-1"></script>
+<script src="/src/features/customers/customers-saas-query.js?v=app-js-finalization-final-pass"></script>
 <script src="/src/features/orders/order-normalizers.js?v=app-js-finalization-v1"></script>
+<script src="/src/features/orders/orders-financial.js?v=app-js-finalization-final-pass"></script>
+<script src="/src/features/orders/orders-operational-history.js?v=app-js-finalization-final-pass"></script>
 <script src="/src/features/orders/orders-renderer.js?v=app-js-finalization-stage2"></script>
 <script src="/src/features/orders/orders-repository.js?v=app-js-finalization-stage2"></script>
 <script src="/src/features/orders/orders-controller.js?v=app-js-finalization-stage24"></script>
 <script src="/src/features/orders/orders-command-service.js?v=app-js-finalization-stage3"></script>
+<script src="/src/features/orders/orders-handlers.js?v=app-js-finalization-final-pass"></script>
 <script src="/src/features/cash/cash-payment-methods.js?v=app-js-finalization-v1"></script>
-<script src="/src/features/account/plan-normalizers.js?v=app-js-finalization-v1"></script>
-<script src="/src/features/storefront/promotions-formatters.js?v=app-js-finalization-v1"></script>
+  <script src="/src/features/cash/cash-repository.js?v=app-js-finalization-final-pass"></script>
+  <script src="/src/features/cash/cash-sync-service.js?v=app-js-finalization-final-pass"></script>
+  <script src="/src/features/cash/cash-commands.js?v=app-js-finalization-cash-commands"></script>
+  <script src="/src/features/cash/cash-renderer.js?v=app-js-finalization-cash-renderer"></script>
+  <script src="/src/features/account/plan-normalizers.js?v=app-js-finalization-v1"></script>
+  <script src="/src/features/account/account-security.js?v=app-js-finalization-acc1-security"></script>
+  <script src="/src/features/account/auth-commands.js?v=app-js-finalization-auth-commands"></script>
+  <script src="/src/features/account/auth-remote-commands.js?v=app-js-finalization-auth-remote"></script>
+  <script src="/src/features/account/auth-session-commands.js?v=app-js-finalization-auth-session"></script>
+<script src="/src/features/account/billing-commands.js?v=app-js-finalization-billing-commands"></script>
+<script src="/src/features/diagnostics/diagnostics-admin.js?v=app-js-finalization-diagnostics-admin"></script>
+  <script src="/src/features/sync/sync-remote-commands.js?v=app-js-finalization-sync-remote"></script>
+  <script src="/src/features/sync/remote-data-commands.js?v=app-js-finalization-remote-data"></script>
+<script src="/src/features/saas/saas-admin-commands.js?v=app-js-finalization-saas-admin"></script>
+<script src="/src/features/security/security-audit-commands.js?v=app-js-finalization-security-audit"></script>
+  <script src="/src/features/company/company-administration.js?v=app-js-finalization-company-admin"></script>
+  <script src="/src/features/company/company-pdf-info.js?v=app-js-finalization-company-pdf-info"></script>
+<script src="/src/features/company/company-pdf-preview.js?v=app-js-finalization-company-pdf-preview"></script>
+<script src="/src/features/company/pdf-document-delivery.js?v=app-js-finalization-pdf-delivery"></script>
+<script src="/src/features/company/pdf-order-composer.js?v=app-js-finalization-pdf-composer"></script>
+<script src="/src/features/company/company-settings-actions.js?v=app-js-finalization-company-settings-actions"></script>
+  <script src="/src/features/company/pdf-settings-renderer.js?v=app-js-finalization-pdf-settings"></script>
+  <script src="/src/features/company/company-renderer.js?v=app-js-finalization-company-renderer"></script>
+  <script src="/src/features/users/users-administration-renderer.js?v=app-js-finalization-users-renderer"></script>
+  <script src="/src/features/users/users-administration-commands.js?v=app-js-finalization-users-commands"></script>
+  <script src="/src/features/config/config-appearance.js?v=app-js-finalization-cfg1-appearance"></script>
+  <script src="/src/features/config/config-interface-mode.js?v=app-js-finalization-cfg2-interface"></script>
+  <script src="/src/features/storefront/promotions-formatters.js?v=app-js-finalization-v1"></script>
+  <script src="/src/features/storefront/storefront-access.js?v=app-js-finalization-storefront-access"></script>
+  <script src="/src/features/storefront/storefront-admin-storage.js?v=app-js-finalization-sf2-admin-storage"></script>
+  <script src="/src/features/storefront/storefront-editor.js?v=app-js-finalization-sf4-editor"></script>
+  <script src="/src/features/storefront/storefront-publication.js?v=app-js-finalization-sf6-publication"></script>
+  <script src="/src/features/storefront/storefront-v3.js?v=app-js-finalization-sf7-theme"></script>
+  <script src="/src/features/storefront/storefront-product-editor.js?v=app-js-finalization-sf8-product-drafts"></script>
+  <script src="/src/features/storefront/storefront-guided.js?v=app-js-finalization-sf9-category-drafts"></script>
+  <script src="/src/features/storefront/storefront-admin-store.js?v=app-js-finalization-sf11-admin-store"></script>
+  <script src="/src/features/storefront/storefront-admin-remote.js?v=app-js-finalization-sf12-remote-ops"></script>
+  <script src="/src/features/storefront/storefront-images.js?v=app-js-finalization-sf13-images"></script>
+  <script src="/src/features/storefront/storefront-public.js?v=app-js-finalization-sf14-public"></script>
+  <script src="/src/features/storefront/storefront-admin-render.js?v=app-js-finalization-sf17-admin-render"></script>
+  <script src="/src/features/storefront/storefront-publication.js?v=app-js-finalization-sf6-publication"></script>
+  <script src="/src/features/storefront/storefront-v3.js?v=app-js-finalization-sf7-theme"></script>
+  <script src="/src/features/storefront/storefront-product-editor.js?v=app-js-finalization-sf8-product-drafts"></script>
+  <script src="/src/features/storefront/storefront-guided.js?v=app-js-finalization-sf9-category-drafts"></script>
+  <script src="/src/features/storefront/storefront-admin-store.js?v=app-js-finalization-sf11-admin-store"></script>
+  <script src="/src/features/storefront/storefront-admin-remote.js?v=app-js-finalization-sf12-remote-ops"></script>
+  <script src="/src/features/storefront/storefront-images.js?v=app-js-finalization-sf13-images"></script>
+  <script src="/src/features/storefront/storefront-public.js?v=app-js-finalization-sf14-public"></script>
+  <script src="/src/features/storefront/storefront-admin-render.js?v=app-js-finalization-sf17-admin-render"></script>
+
 <script src="/src/features/inventory/inventory-identifiers.js?v=phase-1-5-batch-2"></script>
 <script src="/src/features/inventory/inventory-normalizers.js?v=phase-1-5"></script>
 <script src="/src/features/inventory/inventory-presentation.js?v=phase-1-5-batch-3"></script>
 <script src="/src/features/inventory/inventory-roll-consumption.js?v=app-js-finalization-v1"></script>
+<script src="/src/features/inventory/inventory-handlers.js?v=app-js-finalization-final-pass"></script>
+<script src="/src/features/inventory/inventory-batch-commands.js?v=app-js-finalization-inventory-batch"></script>
+<script src="/src/features/inventory/inventory-modals.js?v=app-js-finalization-inv-modals"></script>
+<script src="/src/features/inventory/inventory-screen-renderer.js?v=app-js-finalization-inv-screen"></script>
+<script src="/src/features/calculator/calculator-commands.js?v=app-js-finalization-calculator-commands"></script>
+<script src="/src/features/calculator/calculator-settings.js?v=app-js-finalization-calculator-settings"></script>
+<script src="/src/features/account/account-profile-modals.js?v=app-js-finalization-account-profile-modals"></script>
 <script src="/src/features/production/production-status.js?v=phase-1-5"></script>
-<script src="/src/features/printers/printer-presentation.js?v=phase-1-5-batch-3"></script>
+  <script src="/src/features/production/production-repository.js?v=app-js-finalization-production-repository"></script>
+  <script src="/src/features/production/production-commands.js?v=app-js-finalization-production-commands"></script>
+  <script src="/src/features/production/production-bambu-commands.js?v=app-js-finalization-production-bambu-commands"></script>
+  <script src="/src/features/production/production-renderer.js?v=app-js-finalization-production-renderer"></script>
+  <script src="/src/features/printers/printer-presentation.js?v=phase-1-5-batch-3"></script>
+  <script src="/src/features/printers/printers-operations.js?v=app-js-finalization-printers-operations"></script>
 <script src="/src/features/home/home-data.js?v=structure-phase2"></script>
 <script src="/src/features/home/home-controller.js?v=structure-phase2"></script>
   <script src="/app.js?v=1.0.39-settings-persistence"></script>
