@@ -4,26 +4,40 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const billingCommands = fs.readFileSync(path.join(root, "src", "features", "account", "billing-commands.js"), "utf8");
+const haystack = app + "\n" + billingCommands;
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const docs = fs.readFileSync(path.join(root, "docs", "plans-premium-ui.md"), "utf8");
 
 function bodyOfFunction(source, name) {
   const start = source.indexOf(`function ${name}`);
   assert(start >= 0, `funcao ausente: ${name}`);
-  const brace = source.indexOf("{", start);
-  let depth = 0;
-  for (let i = brace; i < source.length; i += 1) {
-    if (source[i] === "{") depth += 1;
-    if (source[i] === "}") depth -= 1;
-    if (depth === 0) return source.slice(start, i + 1);
+  const paren = source.indexOf("(", start);
+  let depth = 0, open = -1;
+  for (let i = paren; i < source.length; i++) {
+    if (source[i] === "(") depth++;
+    else if (source[i] === ")") { depth--; if (depth === 0) { open = source.indexOf("{", i); break; } }
+  }
+  assert(open >= 0, `corpo ausente: ${name}`);
+  let braceDepth = 0;
+  for (let i = open; i < source.length; i += 1) {
+    if (source[i] === "{") braceDepth += 1;
+    if (source[i] === "}") braceDepth -= 1;
+    if (braceDepth === 0) return source.slice(start, i + 1);
   }
   throw new Error(`nao foi possivel ler funcao: ${name}`);
+}
+
+function bodyOf(name) {
+  const idx = billingCommands.indexOf(`function ${name}`);
+  if (idx !== -1) return bodyOfFunction(billingCommands, name);
+  return bodyOfFunction(app, name);
 }
 
 const render = bodyOfFunction(app, "renderAssinatura");
 const modernOption = bodyOfFunction(app, "renderModernPlanOption");
 const checkout = bodyOfFunction(app, "abrirLinkMercadoPago");
-const cancel = bodyOfFunction(app, "cancelarAssinaturaCliente");
+const cancel = bodyOf("cancelarAssinaturaCliente");
 const reactivate = bodyOfFunction(app, "reativarRenovacaoAssinaturaCliente");
 const access = bodyOfFunction(app, "getPlanAccessState");
 
@@ -55,7 +69,7 @@ assert(reactivate.includes("Deseja reativar a renovação automática do seu pla
   "subscription_cancel_requested",
   "subscription_cancel_at_period_end",
   "subscription_reactivated"
-].forEach((eventType) => assert(app.includes(eventType), `diagnostico de planos ausente: ${eventType}`));
+].forEach((eventType) => assert(haystack.includes(eventType), `diagnostico de planos ausente: ${eventType}`));
 
 assert(css.includes(".plans-modern-screen.plans-pricing-screen"), "workspace de planos deve possuir container dedicado");
 assert(css.includes("width:min(100%, 1280px)"), "workspace deve limitar largura ultrawide");

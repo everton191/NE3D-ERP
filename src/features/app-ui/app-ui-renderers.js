@@ -26,6 +26,20 @@
     deps.ensureAppShellLayers();
     const app = deps.document.getElementById("app");
     if (!app) return;
+    const stage = deps.window.SimplificaAuthCommands.getLoginStage();
+    const preparing = stage === "SESSION_PREPARING" || stage === "PROFILE_READY";
+    if ((!deps.getUsuarioAtual() && !deps.getAdminLogado() && !deps.isTelaPublica(deps.getTelaAtual())) || preparing) {
+      deps.setTelaAtual("admin");
+      deps.aplicarPersonalizacao();
+      deps.applyViewportModeClasses(deps.document.body);
+      deps.document.body.classList.add("auth-screen-active");
+      deps.document.querySelector("[data-ai-assistant-shortcut]")?.remove();
+      if (!app.querySelector(".auth-page") || !preparing) {
+        deps.atualizarArvoreInterface(app, deps.renderAuthPublica(), { chaveEstrutural: "pre-auth" });
+      }
+      if (!preparing) deps.window.SimplificaAuthCommands.traceLogin("LOGIN_FORM_VISIBLE");
+      return;
+    }
     deps.realtimeSyncState.pendingVisualRefresh = false;
     delete deps.document.documentElement.dataset.backgroundDataUpdated;
     deps.garantirSubmenusMobileComoTelas();
@@ -59,6 +73,8 @@
     deps.document.body.classList.toggle("auth-screen-active", !deps.getUsuarioAtual() && telaAtual === "admin");
     deps.document.body.classList.toggle("visitor-public-screen", !deps.getUsuarioAtual() && deps.isTelaPublica(telaAtual));
     const modoSuperadminIsolado = deps.isSuperAdmin() && telaAtual === "superadmin";
+    const homeDestination = telaAtual === "dashboard" || telaAtual === "superadmin";
+    if (homeDestination) deps.window.SimplificaAuthCommands.traceLogin(telaAtual === "dashboard" ? "NAV_HOME" : "NAV_SUPERADMIN");
     deps.atualizarArvoreInterface(app, mobile ? deps.renderMobile() : deps.renderDesktop(), { chaveEstrutural: deps.getChaveEstruturalInterface(mobile) });
     deps.compactarBarrasAcoesMobile(); deps.sincronizarShellUiV3(); deps.renderizarFabEstoqueGlobal(); deps.renderizarAtalhoSecretariaIaGlobal(); deps.configurarFechamentoMenusEstoque(); deps.configurarAcoesCadastroImpressora(); deps.configurarAcoesPerfil(); deps.atualizarMenu();
     if (!modoSuperadminIsolado) {
@@ -70,6 +86,7 @@
     }
     deps.aplicarMotionSequenciado();
     if (!modoSuperadminIsolado) deps.hidratarLojaOnlineAdmin();
+    if (homeDestination) deps.window.SimplificaAuthCommands.traceLogin(telaAtual === "dashboard" ? "HOME_RENDERED" : "SUPERADMIN_RENDERED");
   }
 
   function applyCustomersSaasFilter(deps) {

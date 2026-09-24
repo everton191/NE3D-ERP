@@ -15,7 +15,15 @@
       "inventory.search": (args) => { const items = compactItems(readFacade.searchStock?.(args.query || args.status || "")); return result(items.length ? "SUCCESS" : "NOT_FOUND", { items }); },
       "cash.get_summary": (args) => { const value = readFacade.cashSummaryReadOnly?.(args.period || "all"); return value ? result("SUCCESS", { summary: { period: String(value.period || args.period || "all"), sales: Number(value.sales) || 0, orders: Number(value.orders) || 0, entries: Number(value.entradas) || 0, exits: Number(value.saidas) || 0, balance: Number(value.saldo) || 0 } }) : result("GAP_BLOCKED"); },
       "calculator.quote": (args) => { const value = readFacade.calculatePrice?.({ weightGrams: args.weight_grams, timeMinutes: args.time_minutes, quantity: args.quantity }); return value ? result("SUCCESS", { quote: { unitPrice: Number(value.unitPrice ?? value.precoFinal) || 0, totalPrice: Number(value.totalPrice ?? value.valorFinal) || 0, warnings: Array.isArray(value.warnings) ? value.warnings.slice(0, 3) : [] } }) : result("GAP_BLOCKED"); },
-      "production.list_queue": () => { const value = readFacade.productionSummaryReadOnly?.(); return value ? result("SUCCESS", { summary: { active: Number(value.active) || 0, total: Number(value.total) || 0 } }) : result("GAP_BLOCKED"); },
+      "production.list_queue": (args) => {
+        if (typeof readFacade.searchProductionJobsReadOnly !== "function") return result("GAP_BLOCKED", {}, { reason: "PRODUCTION_QUEUE_READ_UNAVAILABLE" });
+        const rows = readFacade.searchProductionJobsReadOnly(args.status || "all");
+        if (!Array.isArray(rows)) return result("DEPENDENCY_ERROR", {}, { reason: "PRODUCTION_QUEUE_READ_INVALID" });
+        const items = compactItems(rows);
+        const value = readFacade.productionSummaryReadOnly?.();
+        const summary = value ? { active: Number(value.active) || 0, total: Number(value.total) || 0 } : null;
+        return result(items.length ? "SUCCESS" : "NOT_FOUND", { items, summary });
+      },
       "products.search": (args) => { const items = compactItems(readFacade.searchProductsReadOnly?.(args.query || "")); return result(items.length ? "SUCCESS" : "NOT_FOUND", { items }); },
       "printers.search": (args) => { const items = compactItems(readFacade.searchPrintersReadOnly?.(args.query || "", args.status || "")); return result(items.length ? "SUCCESS" : "NOT_FOUND", { items }); },
       "orders.prepare_create": (args, context) => typeof prepareOrder === "function" ? prepareOrder(args, context) : result("GAP_BLOCKED", {}, { reason: "ORDER_PREPARE_BRIDGE_UNAVAILABLE" })

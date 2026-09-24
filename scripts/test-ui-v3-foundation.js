@@ -1,11 +1,11 @@
 const fs=require('fs');const assert=require('assert');
 const read=(file)=>fs.readFileSync(file,'utf8');
-const index=read('index.html'),app=read('app.js'),build=read('scripts/prepare-web.js'),dev=read('src/ui-v3/dev-route.js');
+const index=read('index.html'),app=read('app.js'),build=read('scripts/prepare-web.js'),dev=read('src/ui-v3/dev-route.js'),bootstrap=read('src/app/bootstrap.js');
 const cssFiles=['tokens','reset','viewport','app-shell','layout','grid','spacing','typography','surfaces','cards','forms','buttons','lists','navigation','overlays','keyboard','tables','feedback','utilities'];
 cssFiles.forEach(name=>assert(fs.existsSync(`styles/ui-v3/${name}.css`),`CSS V3 ausente: ${name}`));
 assert(index.includes('/styles/ui-v3/index.css'),'loader V3 ausente');
 assert(index.includes('["localhost", "127.0.0.1", "[::1]"]'),'rota V3 nao esta bloqueada por host local');
-assert(app.includes('window.UiV3Dev?.isRoute'),'bootstrap ERP nao desvia a rota tecnica');
+assert(app.includes('window.UiV3Dev?.isRoute')||bootstrap.includes('UiV3Dev?.isRoute'),'bootstrap ERP nao desvia a rota tecnica');
 assert(app.includes('function sincronizarShellUiV3'),'rotas reais nao promovem o shell ao contrato V3');
 assert(app.includes('content?.classList.toggle("ui3-content-scroller", active)'),'#app-content nao e o scroller oficial das rotas V3');
 assert(read('styles/ui-v3/app-shell.css').includes('body.mobile-mode.app-shell-ready .mobile-panel>.mobile-panel-content'),'painel mobile ainda pode disputar a rolagem V3');
@@ -22,7 +22,7 @@ assert(read('styles/ui-v3/screens/superadmin.css').includes('body[data-theme="da
 assert(read('styles/ui-v3/screens/reading.css').includes('.dashboard-sparkline{display:none}'),'KPIs mobile de Relatorios ainda estouram as quatro colunas');
 assert(read('styles/ui-v3/screens/reading.css').includes('.ui3-reports-header .reports-title-row{display:none}') && read('styles/ui-v3/screens/reading.css').includes('.reports-period-tabs{display:flex'),'Relatorios mobile ainda duplica cabecalho ou empilha periodos');
 assert(read('style.css').includes('grid-column:auto !important;'),'acoes rapidas do Caixa continuam ocupando linhas inteiras');
-assert(read('styles/ui-v3/screens/finance.css').includes('>.cash-screen-header{display:none}') && app.includes('renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas, controlesCaixa)'),'Caixa mobile ainda duplica resumo ou mostra filtros antes do saldo');
+assert(read('styles/ui-v3/screens/finance.css').includes('>.cash-screen-header{display:none}') && (app.includes('renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas, controlesCaixa)') || read('src/features/cash/cash-renderer.js').includes('renderCaixaOverview(totais, movimentosFiltrados, podeOperar, linhas, controlesCaixa, context)')),'Caixa mobile ainda duplica resumo ou mostra filtros antes do saldo');
 assert(read('styles/ui-v3/screens/finance.css').includes('.ui3-cash-screen{padding-top:var(--ui3-space-3)}'),'Caixa mobile ainda deixa espaco excessivo antes da saudacao');
 assert(read('style.css').includes('padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top, 0px)) + 18px'),'regra final do Superadmin ignora a barra de status');
 assert(read('style.css').includes('padding:calc(var(--ui3-safe-top, var(--safe-area-inset-top'),'Calculadora nao usa a safe area V3 no mobile');

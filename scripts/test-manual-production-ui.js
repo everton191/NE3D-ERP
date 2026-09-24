@@ -1,6 +1,12 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const cashRenderer = fs.readFileSync("src/features/cash/cash-renderer.js", "utf8");
+const productionRepository = fs.readFileSync("src/features/production/production-repository.js", "utf8");
+const productionCommands = fs.readFileSync("src/features/production/production-commands.js", "utf8");
+const productionBambuCommands = fs.readFileSync("src/features/production/production-bambu-commands.js", "utf8");
+const productionRenderer = fs.readFileSync("src/features/production/production-renderer.js", "utf8");
+const syncHaystack = app + productionRepository + productionCommands + productionBambuCommands + productionRenderer;
 const css = ["style.css", "styles/ui-v3/screens/operational.css"]
   .map((file) => fs.readFileSync(file, "utf8"))
   .join("\n");
@@ -23,7 +29,6 @@ const appMarkers = [
   "function renderResumoCapacidadeProducao",
   "actualPrintTimeMinutes",
   "Acompanhe somente Em fila, Imprimindo e Pronto.",
-  "As impressoras são controladas manualmente.",
   "Liberar para produção"
 ];
 
@@ -31,27 +36,31 @@ const missingApp = appMarkers.filter((marker) => !app.includes(marker));
 if (missingApp.length) {
   throw new Error(`Produção manual incompleta: ${missingApp.join(", ")}`);
 }
+if (!syncHaystack.includes("As impressoras são controladas manualmente.")) {
+  throw new Error("Produção manual incompleta: As impressoras são controladas manualmente.");
+}
 
-if (!app.includes("status === \"em_impressao\" && !job.printerId")) {
+if (!syncHaystack.includes("status === \"em_impressao\" && !job.printerId")) {
   throw new Error("Uma tarefa não pode iniciar impressão sem impressora manual.");
 }
-if (!app.includes("A prioridade só pode ser alterada com justificativa.")) {
+if (!syncHaystack.includes("A prioridade só pode ser alterada com justificativa.")) {
   throw new Error("Prioridade manual precisa exigir justificativa.");
 }
 if (!app.includes("productionJobs = atribuirDonoRemotoLista") ||
     !app.includes("productionPrinters = atribuirDonoRemotoLista")) {
   throw new Error("Produção manual precisa permanecer isolada pelo escopo da empresa.");
 }
-if (!app.includes("/rest/v1/production_printers?on_conflict=id") ||
-    !app.includes("/rest/v1/production_jobs?on_conflict=id") ||
-    !app.includes("/rest/v1/production_events?on_conflict=id")) {
+if (!syncHaystack.includes("/rest/v1/production_printers?on_conflict=id") ||
+    !syncHaystack.includes("/rest/v1/production_jobs?on_conflict=id") ||
+    !syncHaystack.includes("/rest/v1/production_events?on_conflict=id")) {
   throw new Error("Produção manual precisa sincronizar diretamente com as tabelas protegidas por RLS.");
 }
 if (app.includes("Personalização do caixa será ajustada nas preferências.") ||
     app.includes("Notificações do caixa em breve.")) {
   throw new Error("Caixa não deve exibir ações sem função.");
 }
-if (!app.includes("abrirCardCaixaRapido('historico');setTimeout")) {
+if (!(app.includes("abrirCardCaixaRapido('historico');setTimeout") ||
+      cashRenderer.includes("abrirCardCaixaRapido('historico');setTimeout"))) {
   throw new Error("Pesquisa do Caixa deve abrir o histórico e focar o campo real.");
 }
 

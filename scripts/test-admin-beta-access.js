@@ -4,6 +4,9 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const storefrontAccessPath = path.join(root, "src", "features", "storefront", "storefront-access.js");
+const storefrontAccess = fs.existsSync(storefrontAccessPath) ? fs.readFileSync(storefrontAccessPath, "utf8") : "";
+const haystack = `${app}\n${storefrontAccess}`;
 
 const requiredApp = [
   "Fase atual: editor liberado para qualquer usuário autenticado.",
@@ -21,7 +24,7 @@ const requiredCss = [
 ];
 
 const missing = [
-  ...requiredApp.filter((snippet) => !app.includes(snippet)),
+  ...requiredApp.filter((snippet) => !haystack.includes(snippet)),
   ...requiredCss.filter((snippet) => !css.includes(snippet))
 ];
 

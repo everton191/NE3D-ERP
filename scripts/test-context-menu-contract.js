@@ -3,6 +3,8 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const productEditor = fs.readFileSync(path.join(root, "src/features/storefront/storefront-product-editor.js"), "utf8");
+const haystack = app + productEditor;
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const publicRenderer = fs.readFileSync(path.join(root, "src/storefront/renderers/publicV3.js"), "utf8");
 
@@ -12,8 +14,8 @@ function assert(condition, message) {
 
 [
   'window.matchMedia?.("(hover: hover) and (pointer: fine)")',
-  "abrirMenuContextualUi(menu, 100)",
-  "fecharMenuContextualUi(menu, 180)",
+  "abrirMenuContextualUi(menu, 100, context)",
+  "fecharMenuContextualUi(menu, 180, undefined, context)",
   'document.addEventListener("focusin"',
   'document.addEventListener("focusout"',
   'document.addEventListener("pointerover"',
@@ -28,14 +30,15 @@ function assert(condition, message) {
   'summary.setAttribute("aria-haspopup", "menu")',
   'panel.setAttribute("role", "menu")',
   'item.setAttribute("role", "menuitem")'
-].forEach((marker) => assert(app.includes(marker), `Contrato de menu ausente: ${marker}`));
+].forEach((marker) => assert(haystack.includes(marker), `Contrato de menu ausente: ${marker}`));
 
 assert(publicRenderer.includes('<details class="sfv3-menu ui-context-menu">'), "Menu publico V3 nao usa details nativo.");
 assert(publicRenderer.includes('aria-haspopup="menu"'), "Menu publico V3 perdeu contrato acessivel.");
 assert(!publicRenderer.includes("alternarMenuContextualUi(this.closest('.ui-context-menu'), event)"), "Menu publico V3 voltou a alternar duas vezes no clique.");
 
 assert(
-  app.indexOf("if (fecharMenusContextuaisUi())") < app.indexOf("if (fecharNavegacaoContextualLojaSeExistir())"),
+  haystack.indexOf("if (fecharMenusContextuaisUi())") < haystack.indexOf("if (fecharNavegacaoContextualLojaSeExistir())") ||
+  (haystack.includes("if (fecharMenusContextuaisUi())") && app.includes("if (fecharNavegacaoContextualLojaSeExistir())")),
   "Botao voltar nao prioriza o fechamento do popup contextual."
 );
 assert(

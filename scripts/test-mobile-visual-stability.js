@@ -4,6 +4,12 @@ const css = fs.readFileSync("style.css", "utf8");
 const operationalCss = fs.readFileSync("styles/ui-v3/screens/operational.css", "utf8");
 const controlsCss = fs.readFileSync("styles/ui-v3/system-controls.css", "utf8");
 const app = fs.readFileSync("app.js", "utf8");
+const ordersRenderer = fs.readFileSync("src/features/orders/orders-renderer.js", "utf8");
+const productionRenderer = fs.readFileSync("src/features/production/production-renderer.js", "utf8");
+const printersOperations = fs.readFileSync("src/features/printers/printers-operations.js", "utf8");
+const companyAdministration = fs.readFileSync("src/features/company/company-administration.js", "utf8");
+const appDomainEvents = fs.readFileSync("src/navigation/app-domain-events.js", "utf8");
+const appHaystack = app + printersOperations + appDomainEvents;
 
 const checks = [
   "100dvh",
@@ -22,10 +28,10 @@ if (missing.length) {
   throw new Error(`Estabilidade visual mobile incompleta: ${missing.join(", ")}`);
 }
 
-if (/protegendoToque\s*=\s*toqueNaBorda/.test(app) || /protegendoToque\s*=.*isAndroidNativeApp/.test(app)) {
+if (/protegendoToque\s*=\s*toqueNaBorda/.test(appHaystack) || /protegendoToque\s*=.*isAndroidNativeApp/.test(appHaystack)) {
   throw new Error("Protecao de gestos nao pode bloquear o gesto de voltar nas bordas do Android.");
 }
-if (!app.includes("protegendoToque = !toqueNaBorda")) {
+if (!appHaystack.includes("protegendoToque = !toqueNaBorda")) {
   throw new Error("Gesto lateral Android deve permanecer livre nas bordas.");
 }
 if (!app.includes("iniciarToqueLongoPedido(event")) {
@@ -61,7 +67,9 @@ if (app.includes("assistant-fab assistant-fab-open") || app.includes("function r
 if (!app.includes("const PRINTER_FEATURE_ENABLED = true")) {
   throw new Error("A guia Impressoras deve permanecer habilitada para o piloto controlado.");
 }
-if (!app.includes('if (item.tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false')) {
+const interfaceMode = fs.readFileSync("src/features/config/config-interface-mode.js", "utf8");
+if (!app.includes('if (item.tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false') &&
+    !interfaceMode.includes('if (item.tela === "impressoras" && !PRINTER_FEATURE_ENABLED) return false')) {
   throw new Error("A guia Impressoras deve conservar a chave de desativação para rollback.");
 }
 if (!app.includes('{ tela: "impressoras", icone: "impressoras", texto: "Impressoras" }')) {
@@ -76,9 +84,7 @@ if (app.includes('class="icon-action-button smart-order-open"')) {
 if (app.includes('class="smart-order-icon"')) {
   throw new Error("Lista de pedidos nao deve reservar bloco visual para foto ou icone.");
 }
-const inicioPedidosRecentes = app.indexOf("function renderPedidosRecentesDashboard");
-const fimPedidosRecentes = app.indexOf("function renderMiniSparklineDashboard", inicioPedidosRecentes);
-const pedidosRecentes = app.slice(inicioPedidosRecentes, fimPedidosRecentes);
+const pedidosRecentes = ordersRenderer;
 if (pedidosRecentes.includes("dashboard-order-avatar") || pedidosRecentes.includes("dashboard-order-arrow")) {
   throw new Error("Pedidos recentes nao devem exibir avatar ou seta decorativa.");
 }
@@ -107,12 +113,13 @@ const fimProducao = app.indexOf("function renderClientes()", inicioProducao);
 const producao = app.slice(inicioProducao, fimProducao);
 if (producao.includes("trocarTela('impressoras')") ||
     producao.includes("getImpressorasAtivas()") ||
-    !app.includes("As impressoras são controladas manualmente.")) {
+    !(app.includes("As impressoras são controladas manualmente.") ||
+      productionRenderer.includes("As impressoras são controladas manualmente."))) {
   throw new Error("Producao deve permitir apenas impressoras manuais, sem reativar monitoramento automatico.");
 }
-if (!app.includes(`{ action: "trocarTela('lojaOnline')", icon: "lojaOnline", title: "Loja online"`) ||
-    !app.includes(`{ action: "trocarTela('config')", icon: "backup", title: "Backup da empresa"`) ||
-    !app.includes(`{ action: "trocarTela('relatorios')", icon: "relatorios", title: "Logs e relatórios"`)) {
+if (!companyAdministration.includes(`{ action: "trocarTela('lojaOnline')", icon: "lojaOnline", title: "Loja online"`) ||
+    !companyAdministration.includes(`{ action: "trocarTela('config')", icon: "backup", title: "Backup da empresa"`) ||
+    !companyAdministration.includes(`{ action: "trocarTela('relatorios')", icon: "relatorios", title: "Logs e relatórios"`)) {
   throw new Error("Administracao deve abrir diretamente os modulos funcionais existentes.");
 }
 if (!css.includes(".printer-page-header > div:first-child") || !css.includes("word-break: normal")) {
@@ -129,8 +136,8 @@ if (!css.includes("body.mobile-mode .printer-page-header .actions .compact-actio
 if (!app.includes("function marcarAtualizacaoVisualEmSegundoPlano")) {
   throw new Error("Sincronizacao remota nao deve remontar automaticamente toda a tela ativa.");
 }
-if (!app.includes('if (node.textContent !== next) node.textContent = next') ||
-    !app.includes('if (node.innerHTML !== next) node.innerHTML = next')) {
+if (!appHaystack.includes('if (node.textContent !== next) node.textContent = next') ||
+    !appHaystack.includes('if (node.innerHTML !== next) node.innerHTML = next')) {
   throw new Error("Monitoramento deve alterar o DOM somente quando o valor visivel mudar.");
 }
 if (!css.includes("body.mobile-mode .printer-card .printer-device-icon") ||

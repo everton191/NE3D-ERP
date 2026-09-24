@@ -3,6 +3,7 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const ordersRenderer = fs.readFileSync(path.join(root, "src", "features", "orders", "orders-renderer.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 
 const requiredApp = [
@@ -69,7 +70,7 @@ const forbiddenApp = [
 ];
 
 const missing = [
-  ...requiredApp.filter((snippet) => !app.includes(snippet)),
+  ...requiredApp.filter((snippet) => !(app + ordersRenderer).includes(snippet)),
   ...requiredCss.filter((snippet) => !css.includes(snippet)),
   ...forbiddenApp.filter((snippet) => app.includes(snippet)).map((snippet) => `duplicação ainda exposta: ${snippet}`)
 ];

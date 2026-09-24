@@ -4,6 +4,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const companyAdministration = fs.readFileSync(path.join(root, "src", "features", "company", "company-administration.js"), "utf8");
 const doc = fs.readFileSync(path.join(root, "docs", "navigation-audit-stage-1-2026-07-01.md"), "utf8");
 
 function sectionBetween(startMarker, endMarker) {
@@ -17,7 +18,7 @@ function sectionBetween(startMarker, endMarker) {
 const menuGroups = sectionBetween("function getMenuGroups()", "function alternarMenuLateral");
 const renderConta = sectionBetween("function renderConta()", "function abrirDadosPessoaisUsuario");
 const renderConfig = sectionBetween("function renderConfig()", "function getAuthTabAtual");
-const renderAdministracao = sectionBetween("function renderAdministracaoEmpresa()", "function renderConta()");
+const renderAdministracao = companyAdministration;
 const renderMais = sectionBetween("function renderMais()", "function renderCaixa");
 
 assert.ok(app.includes("const NAVIGATION_AUDIT_REGISTRY = Object.freeze({"), "registro de auditoria de navegação deve existir");
@@ -40,6 +41,7 @@ assert.ok(renderAdministracao.includes("Permissões"), "administração deve inc
 assert.ok(renderAdministracao.includes("Configurações do caixa"), "administração deve incluir caixa");
 assert.ok(renderAdministracao.includes("Configurações de estoque"), "administração deve incluir estoque");
 assert.ok(app.includes("function renderPermissoesEmpresaMvp"), "permissões importantes devem ter MVP funcional");
+assert.ok(app.includes("SimplificaCompanyAdministration.renderAdministration"), "administração deve delegar para o módulo canônico");
 assert.ok(app.includes("function renderConfiguracoesEstoqueAdministracao"), "estoque deve ter MVP funcional em administração");
 assert.ok(app.includes("function renderConfiguracoesCaixaAdministracao"), "caixa deve ter MVP funcional em administração");
 assert.doesNotMatch(renderAdministracao, /trocarTela\('feedback'\)/, "administração não deve usar sugestão genérica para função importante");

@@ -3,6 +3,7 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const ordersRenderer = fs.readFileSync(path.join(root, "src", "features", "orders", "orders-renderer.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const uiV3Scroll = fs.readFileSync(path.join(root, "styles", "ui-v3", "app-shell.css"), "utf8");
 const uiV3LegacyBridge = fs.readFileSync(path.join(root, "styles", "ui-v3", "legacy-bridge.css"), "utf8");
@@ -12,7 +13,7 @@ const requiredApp = [
   "function renderComandosPedidoRapidoPwa()",
   "function gerenciarDirecionaisPwa(event, { editavel = false } = {})",
   "function navegarPwaPorDirecional(delta = 1)",
-  'if (!isWebPwaProfile() || isMobile()) return "";',
+  'if (!context.isWebPwaProfile() || context.isMobile()) return "";',
   "quick-order-command-panel",
   'class="mobile-panel-content app-content" tabindex="0"',
   "function gerenciarScrollContainerTeclado(event)",
@@ -62,7 +63,7 @@ const forbidden = [
 ];
 
 const missing = [
-  ...requiredApp.filter((snippet) => !app.includes(snippet)),
+  ...requiredApp.filter((snippet) => !(app + ordersRenderer).includes(snippet)),
   ...requiredCss.filter((snippet) => !(css + uiV3Scroll).includes(snippet)),
   ...forbidden.filter((snippet) => app.includes(snippet) || css.includes(snippet)).map((snippet) => `conteúdo antigo ainda presente: ${snippet}`)
 ];

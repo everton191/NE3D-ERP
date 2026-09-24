@@ -112,8 +112,34 @@ node scripts/test-home-carousel-presenters.js
 
 Resultado: 161 PASS / 0 FAIL (A-P: 16 categorias)
 
-## Arquivos
+## Contexto do app.js — como usar este documento
 
-- `src/features/home/carousel3d/presenters/widget-presenters.js`
-- `scripts/test-home-carousel-presenters.js`
-- `docs/home-carousel/widget-data-sources.md` (data layer)
+> **Tratamento contextual:** app.js é o consumidor deste documento — trata-se de "quasi-3rd party" na leitura deste documento. Este documento descreve o que os presenters esperam de app.js, não como app.js é implementado.
+
+### O que app.js faz com este documento
+
+| Responsabilidade | O que app.js faz | O que os presenters esperam |
+|---|---|---|
+| **Fornecer os snapshots** | App.js chama os data sources para obter snapshots, e depois passa cada snapshot para o presenter correspondente | Cada `presentXxx(snapshot)` recebe um snapshot pronto e retorna um ViewModel |
+| **Gerenciar o fluxo de dados** | App.js é o orchestrator: dados brutos → data source → snapshot → presenter → ViewModel | Os presenters são stateless — cada chamada é independente e retorna um ViewModel novo |
+| **Passar null para estados de loading** | Quando os dados ainda não estão prontos, app.js pode passar `null` para os presenters (o presenter trata como loading) | `presentXxx(null)` retorna um ViewModel de loading para todos os widgets |
+| **Lidar com erros de fonte** | Se uma fonte de dados falhou, app.js pode passar um snapshot com `status: "error"` para o presenter | O presenter retorna um ViewModel de error quando `snapshot.status === "error"` |
+
+### O que NÃO é responsabilidade de app.js neste documento
+
+| O que os presenters fazem sozinhos | Detalhe |
+|---|---|
+| Transformar snapshot em ViewModel | Cada `presentXxx()` mapeia os dados do snapshot para o formato do ViewModel |
+| Formatar valores | `formatCurrency()`, `formatInteger()` são usados pelos presenters para formatar valores |
+| Definir visualState | Cada presenter define `visualState` baseado no estado e dados do snapshot |
+| Limit aridade de itens | `orders_recent`, `stock` e `alerts` limitam a 3 itens no ViewModel |
+| Preservar targetScreen | O `targetScreen` vem do snapshot (exceto alerts, que é null) |
+
+### Como usar este documento
+
+1. **Para integrar os presenters no carrossel** — use este documento para entender cada presenter e seu ViewModel resultante
+2. **Para testar os presenters** — cada presenter pode ser testado passando snapshots mockados (ready, empty, error, loading) e verificando o ViewModel resultante
+3. **Para estender os presenters** — siga o padrão: funções puras, sem DOM, sem Canvas, sem WebGL, sem mutação do snapshot
+4. **Para revisar** — confirme que um novo presenter não introduz efeitos colaterais, acesso a DOM, ou dependência de app.js
+
+> **Nota:** app.js é tratado como "quasi-3rd party" — ou seja, este documento descreve o contrato que app.js consome, sem depender de como app.js é implementado internamente.

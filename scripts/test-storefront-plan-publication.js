@@ -3,6 +3,8 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const publication = fs.readFileSync(path.join(root, "src", "features", "storefront", "storefront-publication.js"), "utf8");
+const hay = `${app}\n${publication}`;
 const migration = fs.readFileSync(path.join(root, "supabase/migrations/20260702103000_storefront_plan_publication_guard.sql"), "utf8");
 
 function assert(condition, message) {
@@ -22,14 +24,14 @@ function includes(source, fragment, message = `Trecho obrigatorio ausente: ${fra
   "aplicarRegraPublicacaoLojaLocal",
   "storefrontIsPublicationSchemaMissing",
   "storefrontWithoutPublicationColumns",
-].forEach((fragment) => includes(app, fragment));
+].forEach((fragment) => includes(hay, fragment));
 
-includes(app, "canEdit: !!usuario", "Free/autenticado deve manter edicao interna da loja.");
-includes(app, "const paidPlan = [\"start\", \"pro\"].includes(effectivePlan);", "Publicacao deve ficar limitada a Start/Pro.");
-includes(app, "publishEnabled: entitlements.publicStore === true && publicationAccess.canPublish === true", "Botao de publicar precisa depender do plano ativo.");
-includes(app, "shareEnabled: entitlements.shareLink === true && publicationAccess.canShare === true", "Compartilhamento precisa depender da publicacao liberada.");
-includes(app, "Loja temporariamente indisponível", "Loja publica bloqueada precisa ter mensagem segura.");
-includes(app, "status === STOREFRONT_PUBLICATION_STATUS.PUBLISHED", "Acesso publico remoto deve exigir status published.");
+includes(hay, "canEdit: !!usuario", "Free/autenticado deve manter edicao interna da loja.");
+includes(hay, "const paidPlan = [\"start\", \"pro\"].includes(effectivePlan);", "Publicacao deve ficar limitada a Start/Pro.");
+includes(hay, "publishEnabled: entitlements.publicStore === true && publicationAccess.canPublish === true", "Botao de publicar precisa depender do plano ativo.");
+includes(hay, "shareEnabled: entitlements.shareLink === true && publicationAccess.canShare === true", "Compartilhamento precisa depender da publicacao liberada.");
+includes(hay, "Loja temporariamente indisponível", "Loja publica bloqueada precisa ter mensagem segura.");
+includes(hay, "status === STOREFRONT_PUBLICATION_STATUS.PUBLISHED", "Acesso publico remoto deve exigir status published.");
 
 const publicationAccessBlock = app.match(/function getStorefrontPublicationAccess[\s\S]*?\r?\n}\r?\n\r?\nfunction getStorefrontPublicationStatus/);
 assert(publicationAccessBlock, "Bloco getStorefrontPublicationAccess nao encontrado.");

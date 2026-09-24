@@ -49148,7 +49148,7 @@ body.theme-light:not(.visitor-public-screen) .printer-device-icon {
     overflow:visible !important;
   }
   [data-ui-version="v3"] .ui3-dialog.ui3-fullscreen .printer-device-panel-header{
-    background:var(--app-bg,#fff)!important;
+    background:var(--card-bg)!important;
     box-shadow:none!important;
   }
   .printer-device-panel-header{
@@ -49186,7 +49186,7 @@ body.theme-light:not(.visitor-public-screen) .printer-device-hero-temperature sp
 
 /* Painel da máquina: estrutura visual do monitor de produção. */
 .printer-device-panel{--accent:#008f84;max-width:860px;padding:18px;gap:16px;background:var(--app-bg,var(--card-bg))}
-.printer-device-panel :is(.printer-device-job,.printer-device-controls,.printer-device-ams,.printer-machine-history,.printer-plate-summary){border:1px solid #e1eaeb;background:var(--card-bg,#fff)}
+.printer-device-panel :is(.printer-device-job,.printer-device-controls,.printer-device-ams,.printer-machine-history,.printer-plate-summary){border:1px solid var(--border);background:var(--card-bg)}
 .printer-device-panel :is(.btn,.icon-button){min-height:44px;border-radius:12px}
 .printer-device-order-link{display:flex;margin-top:10px}
 .printer-device-order-link .btn{width:100%;min-height:44px}
@@ -49198,10 +49198,10 @@ body.theme-light:not(.visitor-public-screen) .printer-device-hero-temperature sp
 .printer-order-choice span{display:grid;gap:2px;min-width:0}.printer-order-choice small{text-transform:capitalize;color:var(--text-muted)}
 .printer-order-choice-clear{margin-top:2px}
 .printer-device-panel :is(.printer-device-file-icon,.printer-device-metric-grid article > i,.printer-device-section-title .eyebrow){color:#008f84 !important}
-.printer-device-panel :is(.printer-device-file-icon,.printer-device-metric-grid article > i){background:#e8f6f4 !important}
-.printer-device-panel .printer-progress{background:#e2f2f0 !important}
+.printer-device-panel :is(.printer-device-file-icon,.printer-device-metric-grid article > i){background:color-mix(in srgb,var(--accent) 12%,var(--card-bg)) !important}
+.printer-device-panel .printer-progress{background:color-mix(in srgb,var(--accent) 14%,var(--card-bg)) !important}
 .printer-device-panel .printer-progress i{background:#008f84 !important}
-.printer-device-panel .printer-read-only-notice{color:#173331 !important;background:#e9f6f4 !important;border-color:#c5e7e2 !important}
+.printer-device-panel .printer-read-only-notice{color:var(--text) !important;background:color-mix(in srgb,var(--accent) 10%,var(--card-bg)) !important;border-color:var(--border) !important}
 .printer-device-panel-header{padding:0 2px 8px;border:0;background:transparent}
 .printer-device-panel-header .icon-button{width:48px;height:48px;border-radius:14px;border:1px solid var(--border);background:var(--card-bg);box-shadow:0 3px 10px rgba(15,35,45,.06)}
 .printer-device-hero{min-height:190px;border-radius:17px}
@@ -49239,7 +49239,7 @@ body.theme-light:not(.visitor-public-screen) .printer-device-hero-temperature sp
     align-items:center !important;
     min-height:72px !important;
     padding:4px 0 8px !important;
-    background:var(--surface-base,#fff) !important;
+    background:var(--card-bg) !important;
   }
   [data-ui-version="v3"] .ui3-dialog .printer-device-panel-header > div{min-width:0 !important}
   [data-ui-version="v3"] .ui3-dialog .printer-device-panel-header h2{

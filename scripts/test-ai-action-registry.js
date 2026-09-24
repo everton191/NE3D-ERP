@@ -10,7 +10,7 @@ assert.strictEqual(registry.health(registry.get("inventory.consume")).exposed, f
 assert.strictEqual(registry.actions.filter((action) => action.operationType === "WRITE").every((action) => registry.health(action).exposed === false), true, "every WRITE must stay hidden from the model");
 assert.strictEqual(registry.health(registry.get("inventory.search")).state, "READY");
 assert.strictEqual(registry.health(registry.get("production.list_queue")).state, "READY");
-assert.strictEqual(registry.get("production.list_queue").executor, "productionSummaryReadOnly");
+assert.strictEqual(registry.get("production.list_queue").executor, "searchProductionJobsReadOnly");
 assert.strictEqual(registry.get("products.search").category, "products");
 assert.strictEqual(registry.get("printers.search").readWrite, "read");
 assert.strictEqual(search.search("quanto tem de PLA preto", { screen: "inventory" }, 3)[0].action, "inventory.search");

@@ -10,7 +10,13 @@ const ambiguous = resolver.resolveEntity({ entityType: "customer", query: "Ana",
 assert.equal(ambiguous.status, "AMBIGUOUS");
 assert.equal(resolver.resolveEntity({ entityType: "customer", selectedId: "missing", candidates: customers }).status, "NOT_FOUND");
 assert.equal(resolver.resolveEntity({ entityType: "customer", query: "Ana" }).status, "NOT_FOUND");
-assert.equal(resolver.resolveEntity({ entityType: "roll", selectedId: "r-1" }).status, "GAP_BLOCKED");
+const inventory = [{ id: "m-1", name: "PLA preto" }];
+const rolls = [{ id: "r-1", label: "Rolo PLA preto" }];
+const jobs = [{ id: "job-a2", itemName: "Suporte" }];
+assert.equal(resolver.resolveEntity({ entityType: "material", selectedId: "m-1", candidates: inventory }).status, "RESOLVED");
+assert.equal(resolver.resolveEntity({ entityType: "roll", selectedId: "r-1", candidates: rolls }).status, "RESOLVED");
+assert.equal(resolver.resolveEntity({ entityType: "job", selectedId: "job-a2", candidates: jobs }).status, "RESOLVED");
+assert.equal(resolver.resolveEntity({ entityType: "roll", selectedId: "invented", candidates: rolls }).status, "NOT_FOUND");
 
 const pending = resolver.createPendingResolution({ entityType: "customer", result: ambiguous, workflowGoal: "ORDER.CREATE", currentStep: "CUSTOMER" });
 assert.deepEqual(pending.candidates.map((item) => item.id), ["c-1", "c-2"]);

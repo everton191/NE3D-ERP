@@ -86,6 +86,22 @@ const cancellationSql = fs.existsSync(cancellationMigrationPath)
 const appJs = fs.existsSync(appJsPath)
   ? fs.readFileSync(appJsPath, "utf8")
   : "";
+const cashSyncServicePath = path.join(rootDir, "src", "features", "cash", "cash-sync-service.js");
+const cashSyncService = fs.existsSync(cashSyncServicePath)
+  ? fs.readFileSync(cashSyncServicePath, "utf8")
+  : "";
+const cashCommandsPath = path.join(rootDir, "src", "features", "cash", "cash-commands.js");
+const cashCommands = fs.existsSync(cashCommandsPath)
+  ? fs.readFileSync(cashCommandsPath, "utf8")
+  : "";
+const ordersRendererPath = path.join(rootDir, "src", "features", "orders", "orders-renderer.js");
+const ordersRenderer = fs.existsSync(ordersRendererPath)
+  ? fs.readFileSync(ordersRendererPath, "utf8")
+  : "";
+const cashRendererPath = path.join(rootDir, "src", "features", "cash", "cash-renderer.js");
+const cashRenderer = fs.existsSync(cashRendererPath)
+  ? fs.readFileSync(cashRendererPath, "utf8")
+  : "";
 
 [
   "create table if not exists public.payment_methods",
@@ -338,17 +354,24 @@ assertRegex(
   /afterCommit:\s*\(\{ order, cashReceipt, command \}\)\s*=>\s*registrarEventoFinanceiroPedidoLocal/,
   "Orders must enqueue the canonical financial event after the shared transaction commits."
 );
-assertIncludes(appJs, "/rest/v1/rpc/register_sale_financial_operation", "Orders must call the atomic financial RPC.");
-assertIncludes(appJs, "/rest/v1/rpc/register_order_financial_cancellation", "Order cancellation must call the atomic refund RPC.");
+assertIncludes(appJs + cashSyncService, "/rest/v1/rpc/register_sale_financial_operation", "Orders must call the atomic financial RPC.");
+assertIncludes(appJs + cashSyncService, "/rest/v1/rpc/register_order_financial_cancellation", "Order cancellation must call the atomic refund RPC.");
+assertIncludes(cashSyncService, "register_sale_financial_operation", "CashSyncService must own the atomic financial RPC call.");
+assertIncludes(cashSyncService, "register_order_financial_cancellation", "CashSyncService must own the atomic refund RPC call.");
 assertIncludes(appJs, "getProjecaoFinanceiraCanonica", "Home and charts must have a canonical financial projection.");
 assertIncludes(cancellationSql, "v_refund_remaining", "Refund must be limited to registered sale movements.");
 assertIncludes(cancellationSql, "v_original_movement.payment_method_id", "Refund must preserve each original payment method.");
 assertIncludes(cancellationSql, "foreach v_session in array v_session_ids", "Refund must recalculate every affected cash session.");
 assertIncludes(cancellationSql, "revoke execute on function public.register_sale_financial_operation", "Financial RPCs must not remain executable by anonymous roles.");
 assertRegex(
-  appJs,
+  appJs + cashCommands,
   /criarMetadadosOperacaoFinanceira\("caixa_manual"/,
   "Manual cash movements must generate financial shadow metadata."
+);
+assertIncludes(
+  cashCommands,
+  "criarMetadadosOperacaoFinanceira(\"caixa_manual\"",
+  "CashCommands must own the manual cash shadow metadata call."
 );
 
 if (!process.exitCode) {
@@ -478,6 +501,11 @@ if (!process.exitCode) {
   console.log("ERP financial worker orchestration layer looks consistent.");
 }
 
+const storefrontPublicationPath = path.join(rootDir, "src", "features", "storefront", "storefront-publication.js");
+const storefrontPublication = fs.existsSync(storefrontPublicationPath)
+  ? fs.readFileSync(storefrontPublicationPath, "utf8")
+  : "";
+
 [
   "cashSimpleModeEnabled: true",
   "function abrirSessaoCaixaAutomatica",
@@ -494,7 +522,7 @@ if (!process.exitCode) {
   "function getStorefrontPublicationChecklist",
   "Checklist obrigatório",
   "Finalize sua loja antes de",
-].forEach((needle) => assertIncludes(appJs, needle, `Simple cash activation missing: ${needle}`));
+].forEach((needle) => assertIncludes(appJs + cashCommands + ordersRenderer + cashRenderer + storefrontPublication, needle, `Simple cash activation missing: ${needle}`));
 
 if (!process.exitCode) {
   console.log("ERP simple cash activation layer looks consistent.");

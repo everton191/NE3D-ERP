@@ -11,7 +11,14 @@
     return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   }
 
-  const api = Object.freeze({ formatDelta, formatShortPeriod });
+  function calculatePercentageDelta(current = 0, previous = 0) {
+    const currentValue = Number(current) || 0;
+    const previousValue = Number(previous) || 0;
+    if (!previousValue) return currentValue > 0 ? 100 : 0;
+    return Number((((currentValue - previousValue) / Math.abs(previousValue)) * 100).toFixed(1));
+  }
+
+  const api = Object.freeze({ formatDelta, formatShortPeriod, calculatePercentageDelta });
   global.SimplificaReportsFormatters = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

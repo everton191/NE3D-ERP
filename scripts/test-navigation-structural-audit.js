@@ -33,13 +33,23 @@ function extractScreenIds(registryBlock) {
   return matches.map((m) => m[1]);
 }
 
+function extractRenderTelaBlock(appSource) {
+  const start = appSource.indexOf("function renderTela(tela) {");
+  assert.notEqual(start, -1, "renderTela deve existir");
+  const end = appSource.indexOf("\nfunction ", start + 1);
+  return appSource.slice(start, end === -1 ? start + 8000 : end);
+}
+
+function extractRenderersMap(appSource) {
+  const block = extractRenderTelaBlock(appSource);
+  assert.match(block, /SimplificaScreenDispatcher\.render/, "renderTela deve delegar ao dispatcher canônico");
+  const match = block.match(/renderers:\s*\{([^}]+)\}/);
+  assert.ok(match, "renderTela deve expor mapa de renderers");
+  return [...match[1].matchAll(/([A-Za-z][A-Za-z0-9]*)\s*:\s*([A-Za-z][A-Za-z0-9]*)/g)].map(([, key, fn]) => ({ key, fn }));
+}
+
 function extractRenderTelaCases(appSource) {
-  const switchStart = appSource.indexOf("function renderTela(tela) {");
-  assert.notEqual(switchStart, -1, "renderTela deve existir");
-  const switchEnd = appSource.indexOf("}", appSource.indexOf("default:", switchStart));
-  const switchBlock = appSource.slice(switchStart, switchEnd + 1);
-  const cases = [...switchBlock.matchAll(/case\s+"([^"]+)"/g)];
-  return cases.map((m) => m[1]);
+  return extractRenderersMap(appSource).map(({ key }) => key);
 }
 
 function extractQuickActionTargets(appSource) {
@@ -173,12 +183,8 @@ test("F1: todos os itens da bottom nav apontam para telas válidas", () => {
 // ============================================================
 test("G1: todas as telas em renderTela têm função de render chamada", () => {
   const renderFuncs = extractRenderFunctions(app);
-  const switchStart = app.indexOf("function renderTela(tela) {");
-  const switchEnd = app.indexOf("}", app.indexOf("default:", switchStart));
-  const switchBlock = app.slice(switchStart, switchEnd + 1);
-  const calls = [...switchBlock.matchAll(/return\s+(render\w+)\(\)/g)];
-  calls.forEach(([, fn]) => {
-    assert.ok(renderFuncs.has(fn), `função ${fn} chamada em renderTela mas não definida no arquivo`);
+  extractRenderersMap(app).forEach(({ key, fn }) => {
+    assert.ok(renderFuncs.has(fn), `função ${fn} do renderer "${key}" mas não definida no arquivo`);
   });
 });
 
@@ -255,7 +261,13 @@ test("L1: FEATURE_ACCESS_REGISTRY referencia telas que existem em UI_SCREEN_RELA
 // M) canAccessScreen é chamado antes de renderTela
 // ============================================================
 test("M1: renderTela verifica permissão via canAccessScreen", () => {
-  assert.ok(app.includes('if (!canAccessScreen(tela)) return renderAcessoNegado()'), "renderTela deve verificar permissão");
+  assert.ok(
+    app.includes("SimplificaScreenDispatcher.render(tela, { canAccessScreen, renderAcessoNegado"),
+    "renderTela deve passar canAccessScreen ao dispatcher"
+  );
+  const dispatcher = fs.readFileSync(path.join(root, "src", "navigation", "screen-dispatcher.js"), "utf8");
+  assert.match(dispatcher, /context\.canAccessScreen/, "dispatcher deve verificar permissão");
+  assert.match(dispatcher, /context\.renderAcessoNegado/, "dispatcher deve renderizar acesso negado");
 });
 
 // ============================================================
@@ -300,26 +312,30 @@ test("Q1: producao está registrado em NAVIGATION_AUDIT_REGISTRY", () => {
 // R) Aliases: todo alias aponta para screenId existente
 // ============================================================
 test("R1: aliases em renderTela apontam para screenIds com case válido", () => {
-  const switchStart = app.indexOf("function renderTela(tela) {");
-  const switchEnd = app.indexOf("}", app.indexOf("default:", switchStart));
-  const switchBlock = app.slice(switchStart, switchEnd + 1);
-  const multiCaseBlocks = [...switchBlock.matchAll(/case\s+"([^"]+)":\s*\n\s*case\s+"([^"]+)":/g)];
+  const byFn = new Map();
+  for (const { key, fn } of extractRenderersMap(app)) {
+    if (!byFn.has(fn)) byFn.set(fn, []);
+    byFn.get(fn).push(key);
+  }
   const screenBlock = sectionBetween(app, "const UI_SCREEN_RELATIONS = Object.freeze({", "const telas = Object.freeze");
   const registeredIds = extractScreenIds(screenBlock);
-  multiCaseBlocks.forEach(([, alias, target]) => {
-    assert.ok(registeredIds.includes(alias), `alias "${alias}" não existe em UI_SCREEN_RELATIONS`);
-    assert.ok(registeredIds.includes(target), `target "${target}" do alias "${alias}" não existe em UI_SCREEN_RELATIONS`);
-  });
+  for (const keys of byFn.values()) {
+    if (keys.length < 2) continue;
+    keys.forEach((alias) => {
+      assert.ok(registeredIds.includes(alias), `alias "${alias}" não existe em UI_SCREEN_RELATIONS`);
+    });
+  }
 });
 
 test("R2: não há aliases que formam loops", () => {
-  const switchStart = app.indexOf("function renderTela(tela) {");
-  const switchEnd = app.indexOf("}", app.indexOf("default:", switchStart));
-  const switchBlock = app.slice(switchStart, switchEnd + 1);
-  const multiCaseBlocks = [...switchBlock.matchAll(/case\s+"([^"]+)":\s*\n\s*case\s+"([^"]+)":/g)];
-  multiCaseBlocks.forEach(([, alias, target]) => {
-    assert.notEqual(alias, target, `alias "${alias}" aponta para si mesmo`);
-  });
+  const byFn = new Map();
+  for (const { key, fn } of extractRenderersMap(app)) {
+    if (!byFn.has(fn)) byFn.set(fn, []);
+    byFn.get(fn).push(key);
+  }
+  for (const keys of byFn.values()) {
+    assert.equal(new Set(keys).size, keys.length, `aliases duplicados para o mesmo renderer: ${keys.join(", ")}`);
+  }
 });
 
 test("R3: todas as telas em NAVIGATION_AUDIT_REGISTRY têm componentes que existem", () => {

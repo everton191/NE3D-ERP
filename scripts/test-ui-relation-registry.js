@@ -2,6 +2,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const inventoryHaystack = `${app}\n${fs.readFileSync("src/features/inventory/inventory-screen-renderer.js", "utf8")}\n${fs.readFileSync("src/features/inventory/inventory-modals.js", "utf8")}`;
+const pdfSettingsRenderer = fs.readFileSync("src/features/company/pdf-settings-renderer.js", "utf8");
+const companyPdfPreview = fs.readFileSync("src/features/company/company-pdf-preview.js", "utf8");
 const style = fs.readFileSync("style.css", "utf8");
 const designSystem = `${fs.readFileSync("themes/base/tokens.css", "utf8")}\n${style}`;
 
@@ -63,11 +66,11 @@ assert.ok(style.includes('.ui3-form-grid-single'), "Contrato de formulário em c
 assert.ok(style.includes('.ui3-action-row'), "Contrato de linha de ações ausente.");
 assert.ok(style.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'), "Linha de ações deve manter dois botões lado a lado.");
 assert.ok(app.includes('data-ui-component="Button"'), "Botão V3 deve declarar o componente no DOM.");
-assert.ok(app.includes('mode: "edit"') && app.includes('pularEtapaCadastroItemEstoque'), "Edição de estoque deve reutilizar o fluxo em etapas.");
-assert.ok(app.includes('onchange="prepararFotoItemEstoque(this)"'), "Fluxo de estoque deve permitir trocar a foto.");
-assert.equal((app.match(/title: "PDF", subtitle: "Modelo salvo/g) || []).length, 1, "PDF deve ser uma única guia consolidada.");
-assert.ok(app.includes('data-pdf-saved-preview="true"'), "PDF deve exibir a cópia da configuração salva no dispositivo.");
-assert.ok(app.includes('class="ui-context-menu stock-item-menu"'), "Menu de três pontos do estoque deve usar o contrato contextual padrão.");
+assert.ok(app.includes('mode: "edit"') && inventoryHaystack.includes('pularEtapaCadastroItemEstoque'), "Edição de estoque deve reutilizar o fluxo em etapas.");
+assert.ok(inventoryHaystack.includes('onchange="prepararFotoItemEstoque(this)"'), "Fluxo de estoque deve permitir trocar a foto.");
+assert.equal((pdfSettingsRenderer.match(/title: "PDF", subtitle: "Modelo salvo/g) || []).length, 1, "PDF deve ser uma única guia consolidada.");
+assert.ok(companyPdfPreview.includes('data-pdf-saved-preview="true"'), "PDF deve exibir a cópia da configuração salva no dispositivo.");
+assert.ok(inventoryHaystack.includes('class="ui-context-menu stock-item-menu"'), "Menu de três pontos do estoque deve usar o contrato contextual padrão.");
 assert.ok(style.includes('.administration-module-row > .status-badge'), "Permissões devem proteger o conteúdo contra corte lateral.");
 assert.ok(app.includes('enviarWhatsCalculadora()') && app.includes('incluirPix: false'), "Calculadora deve enviar orçamento sem Pix pelo WhatsApp.");
 assert.ok(app.includes('sendQuoteToWhatsApp(pedido, { incluirPix: true, tipo: "pedido" })'), "Fluxo de pedido deve preservar o envio de Pix.");

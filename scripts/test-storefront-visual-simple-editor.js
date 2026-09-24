@@ -4,7 +4,13 @@ const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
 const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
-const storefrontSources = `${app}\n${publicRenderer}\n${editorRenderer}`;
+const guidedModule = fs.readFileSync("src/features/storefront/storefront-guided.js", "utf8");
+const publicModule = fs.readFileSync("src/features/storefront/storefront-public.js", "utf8");
+const productEditorModule = fs.readFileSync("src/features/storefront/storefront-product-editor.js", "utf8");
+const editorModule = fs.readFileSync("src/features/storefront/storefront-editor.js", "utf8");
+const publicationModule = fs.readFileSync("src/features/storefront/storefront-publication.js", "utf8");
+const adminRenderModule = fs.readFileSync("src/features/storefront/storefront-admin-render.js", "utf8");
+const storefrontSources = `${app}\n${publicRenderer}\n${editorRenderer}\n${guidedModule}\n${publicModule}\n${productEditorModule}\n${editorModule}\n${publicationModule}\n${adminRenderModule}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -19,8 +25,8 @@ function assert(condition, message) {
   "function alinharSelecaoLojaVisual",
   '"#app-content"',
   "renderizarPreservandoScroll();",
-  "requestAnimationFrame(() => requestAnimationFrame(alinharSelecaoLojaVisual))",
-  "window.setTimeout(alinharSelecaoLojaVisual, 180)",
+  "requestAnimationFrame(() => requestAnimationFrame((...__args) => alinharSelecaoLojaVisual(context)))",
+  "window.setTimeout((...__args) => alinharSelecaoLojaVisual(context), 180)",
   "focus?.({ preventScroll: true })",
   "function setStorefrontContextualEditorState",
   "if (changed && options.flushAutosave !== false) storefrontFlushAutosaveNow();",
@@ -51,8 +57,8 @@ function assert(condition, message) {
 assert(!app.includes(">Copiar link da loja</button>"), "Toolbar visual nao deve duplicar compartilhamento com copiar link");
 assert(!app.includes(">Copiar link público</button>"), "Resumo da loja nao deve duplicar compartilhar e copiar link");
 assert(!app.includes(">Abrir configurações detalhadas</button>"), "Editor simples nao deve empurrar usuario para formulario antigo");
-assert(app.includes("if (!options.ignoreDirty && getStorefrontPublicMode().admin && getStorefrontDirtyState().dirty)"), "Navegacao interna deve proteger alteracoes nao salvas");
-assert(app.includes("category_id: templateSourceId ? null"), "Produto criado a partir de exemplo nao pode persistir categoria demonstrativa");
-assert(app.includes("!storefrontIsDemoProduct(product) && product.slug === slug"), "Produto de exemplo nao pode causar falso conflito na criacao real");
+assert(storefrontSources.includes("if (!options.ignoreDirty && getStorefrontPublicMode().admin && getStorefrontDirtyState().dirty)"), "Navegacao interna deve proteger alteracoes nao salvas");
+assert(storefrontSources.includes("category_id: templateSourceId ? null"), "Produto criado a partir de exemplo nao pode persistir categoria demonstrativa");
+assert(storefrontSources.includes("!storefrontIsDemoProduct(product) && product.slug === slug"), "Produto de exemplo nao pode causar falso conflito na criacao real");
 
 console.log("Storefront visual simple editor: menu real, edicao guiada, exemplos, navegacao segura e mobile validados.");

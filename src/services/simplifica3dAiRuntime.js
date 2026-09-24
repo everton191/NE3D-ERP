@@ -5,8 +5,8 @@
   const MODEL_CATALOG = Object.freeze({ [QAD]: Object.freeze({ id: QAD, available: true, fallback: true }), [Q6]: Object.freeze({ id: Q6, available: true, experimental: true }), disabled: Object.freeze({ id: "disabled", available: false }) });
   let preparation = null;
   const plugin = () => global.Capacitor?.Plugins?.SimplificaLocalAi || null;
-  function selectedModelId() { const requested = String(global.SIMPLIFICA_AI_TOOL_MODEL || global.__SIMPLIFICA_AI_TOOL_MODEL__ || "").trim(); return MODEL_CATALOG[requested] ? requested : QAD; }
-  function modelSelection() { const selected = selectedModelId(); return Object.freeze({ ...MODEL_CATALOG[selected], selected, writeExposed: 0 }); }
+  function selectedModelId() { const requested = String(global.SIMPLIFICA_AI_TOOL_MODEL || global.__SIMPLIFICA_AI_TOOL_MODEL__ || "").trim(); return requested || QAD; }
+  function modelSelection() { const selected = selectedModelId(); return Object.freeze({ ...(MODEL_CATALOG[selected] || { available: false, reason: "INVALID_AI_TOOL_MODEL" }), selected, writeExposed: 0 }); }
   async function prepareSelectedModel() {
     if (preparation) return preparation;
     preparation = (async () => { const selected = modelSelection(); if (!selected.available) throw new Error("AI_TOOL_MODEL_UNAVAILABLE"); const local = plugin(); if (!local?.loadLocalModel || !local?.warmupLocalModel) throw new Error("LOCAL_LLM_PLUGIN_UNAVAILABLE"); await local.loadLocalModel({ modelId: selected.selected }); return local.warmupLocalModel(); })();

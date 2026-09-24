@@ -238,6 +238,9 @@ assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService 
   "sanitizeDiagnosticPayload",
   "flushPendingDiagnosticsQueue"
 ].forEach((marker) => assert(read("src/services/diagnosticsService.js").includes(marker), `fase 6a service marker presente: ${marker}`));
+const diagnosticsAdminSource = exists("src/features/diagnostics/diagnostics-admin.js")
+  ? read("src/features/diagnostics/diagnostics-admin.js")
+  : "";
 [
   "window.DiagnosticsService.configure",
   "app_bug_reports_exports?select=*",
@@ -250,7 +253,7 @@ assert(sw.includes("./src/services/diagnosticsService.js"), "DiagnosticsService 
   "renderSuperAdminDiagnosticos",
   "gerarRelatorioCodexDiagnostico",
   "Relatórios para Codex"
-].forEach((marker) => assert(app.includes(marker), `fase 6a marker presente: ${marker}`));
+].forEach((marker) => assert(app.includes(marker) || diagnosticsAdminSource.includes(marker), `fase 6a marker presente: ${marker}`));
 assert(read("supabase/migrations/20260529173500_diagnostics_validation_hardening.sql").includes("refresh_app_bug_cluster_from_error"), "fase 6b clusters recebem trigger de atualizacao");
 assert(read("supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql").includes("add column if not exists message text"), "fase 6c migration de feedback e idempotente para coluna message");
 assert(read("scripts/diagnostics-remote-controlled.js").includes("diagnostics_remote_validation_ok"), "fase 6c validacao remota tem marcador de sucesso");

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const vm = require('node:vm');
+const cash = require('../src/features/cash/cash-payment-methods.js');
 const source = fs.readFileSync('app.js', 'utf8');
 function block(start, end) {
   const pos = source.indexOf(start);
@@ -9,13 +9,8 @@ function block(start, end) {
   assert(finish > pos);
   return source.slice(pos, finish);
 }
-const context = { caixa: [] };
-vm.createContext(context);
-const cancelStart = source.indexOf('function movimentoCaixaCancelado(');
-assert(cancelStart >= 0);
-vm.runInContext(source.slice(cancelStart, source.indexOf('\n}', cancelStart) + 2), context);
-vm.runInContext(block('function calcularCaixaVinculadoPedido(', '\nfunction renderRentabilidadeOperacionalPedido('), context);
-const calc = (p, m) => JSON.parse(JSON.stringify(context.calcularCaixaVinculadoPedido(p, m)));
+assert.match(source, /function\s+calcularCaixaVinculadoPedido[\s\S]{0,260}SimplificaCashPaymentMethods\.calcularResumoCaixaVinculadoAoPedido/, 'Resumo vinculado deve ser bridge de Caixa.');
+const calc = (p, m) => JSON.parse(JSON.stringify(cash.calcularResumoCaixaVinculadoAoPedido(p, m, { isCancelled: (movement) => Boolean(movement.cancelado || movement.cancelled || movement.canceladoEm || movement.cancelled_at || movement.status === 'cancelado') })));
 const m = (extra = {}) => ({pedidoId: 'uuid-a', tipo: 'entrada', valor: 100, ...extra});
 assert.deepEqual(calc({id: 'uuid-a'}, [m(), m({tipo:'saida',valor:25})]), {entradas:100,saidas:25,saldo:75,quantidade:2});
 assert.equal(calc({id:'uuid-a'}, [m({pedidoId:'uuid-b'}), m({pedidoId:undefined,descricao:'Pedido #uuid-a'})]).quantidade, 0);

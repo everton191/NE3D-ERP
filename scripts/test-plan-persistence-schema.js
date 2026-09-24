@@ -8,6 +8,7 @@ const migration = fs.readFileSync(migrationPath, "utf8");
 const rpcMigration = fs.readFileSync(path.join(root, "supabase", "migrations", "20260628113000_superadmin_plan_catalog_rpc.sql"), "utf8");
 const remoteControl = fs.readFileSync(path.join(root, "scripts", "plan-persistence-remote-controlled.js"), "utf8");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const saasAdmin = fs.readFileSync(path.join(root, "src", "features", "saas", "saas-admin-commands.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const progress = fs.readFileSync(path.join(root, "docs", "superadmin-planos-progresso-2026-06-28.md"), "utf8");
@@ -101,10 +102,13 @@ includesAll(rpcMigration, [
 includesAll(app, [
   "superAdminPlanCatalogRemoteState",
   "function carregarCatalogoPlanosSuperadminRemoto",
-  "/rest/v1/rpc/get_superadmin_plan_catalog",
   "function renderSuperAdminPlanCatalogRemote",
   "Catálogo de planos",
 ], "painel Superadmin de catalogo remoto");
+includesAll(saasAdmin, [
+  "/rest/v1/rpc/get_superadmin_plan_catalog",
+  "carregarCatalogoPlanosSuperadminRemoto",
+], "modulo saas-admin-commands do catalogo");
 includesAll(css, [
   ".superadmin-plan-grid,",
   ".superadmin-plan-remote-list",

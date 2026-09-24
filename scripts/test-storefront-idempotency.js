@@ -2,12 +2,24 @@ const fs = require("fs");
 const assert = require("assert");
 
 const app = fs.readFileSync("app.js", "utf8");
+const fsMod = (name) => fs.readFileSync(`src/features/storefront/${name}`, "utf8");
+const hay = [
+  "storefront-admin-remote.js",
+  "storefront-admin-store.js",
+  "storefront-admin-storage.js",
+  "storefront-publication.js",
+  "storefront-product-editor.js",
+  "storefront-guided.js",
+  "storefront-editor.js",
+  "storefront-v3.js",
+  "storefront-images.js"
+].map(fsMod).join("\n") + "\n" + app;
 
 function section(start, end) {
-  const from = app.indexOf(start);
-  const to = app.indexOf(end, from + start.length);
+  const from = hay.indexOf(start);
+  const to = hay.indexOf(end, from + start.length);
   assert(from >= 0 && to > from, `Secao ausente: ${start}`);
-  return app.slice(from, to);
+  return hay.slice(from, to);
 }
 
 const storePersist = section(
@@ -32,14 +44,14 @@ const appearanceSave = section(
 );
 
 assert(!mutableStorePayload.includes("slug:"), "UPDATE comum da loja nao pode enviar slug.");
-assert(storePersist.includes("const existingStore = await storefrontAdminFindRemoteStore(store)"), "Loja deve ser localizada antes da criacao.");
+assert(storePersist.includes("const existingStore = await storefrontAdminFindRemoteStore(store"), "Loja deve ser localizada antes da criacao.");
 assert(storePersist.indexOf("const existingStore") < storePersist.indexOf('method: "POST"'), "Consulta da loja deve ocorrer antes do INSERT.");
 assert(storePersist.includes("const createPayload"), "Payload de criacao inicial ausente.");
 assert(storePersist.includes("slug: attempt < 0 ? initialSlug"), "Slug deve existir apenas no payload inicial.");
 assert(appearanceSave.includes("const slug = store.slug || getStorefrontDefaultSlugLocal()"), "Edicao comum deve preservar slug.");
 assert(!appearanceSave.includes("form.storeSlug"), "Edicao comum nao pode ler slug editavel.");
-assert(!app.includes("if (form.storeSlug) baseStore.slug"), "Preview nao pode regenerar slug.");
-assert(app.includes("slug: store.slug || getStorefrontDefaultSlugLocal()"), "Recuperacao de rascunho deve preservar slug.");
+assert(!hay.includes("if (form.storeSlug) baseStore.slug"), "Preview nao pode regenerar slug.");
+assert(hay.includes("slug: store.slug || getStorefrontDefaultSlugLocal()"), "Recuperacao de rascunho deve preservar slug.");
 
 for (const [name, content, table] of [
   ["categoria", categoryPersist, "store_categories"],
@@ -60,13 +72,13 @@ for (const key of [
   "storefront-product-image:",
   "storefront-store-image:"
 ]) {
-  assert(app.includes(key), `Protecao contra operacao repetida ausente: ${key}`);
+  assert(hay.includes(key), `Protecao contra operacao repetida ausente: ${key}`);
 }
 
-assert(app.includes("assetKey ? \"true\" : \"false\""), "Upload recuperado deve usar caminho idempotente.");
-assert(app.includes("storefrontQueuePendingAction(\"store-upsert\", next)"), "Contatos/loja offline devem entrar na fila.");
-assert(app.includes("allowPublicStore: false"), "Regra Free de publicacao foi alterada.");
-assert((app.match(/allowPublicStore: true/g) || []).length >= 2, "Start e Pro devem continuar podendo publicar.");
+assert(hay.includes("assetKey ? \"true\" : \"false\""), "Upload recuperado deve usar caminho idempotente.");
+assert(hay.includes("storefrontQueuePendingAction(\"store-upsert\", next)"), "Contatos/loja offline devem entrar na fila.");
+assert(hay.includes("allowPublicStore: false"), "Regra Free de publicacao foi alterada.");
+assert((hay.match(/allowPublicStore: true/g) || []).length >= 2, "Start e Pro devem continuar podendo publicar.");
 
 const remote = { store: null, inserts: 0, updates: 0 };
 function persistStoreSimulation(input) {

@@ -6,49 +6,68 @@ const customerNormalizers = require("../src/features/customers/customer-normaliz
 
 const appPath = path.join(__dirname, "..", "app.js");
 const source = fs.readFileSync(appPath, "utf8");
+const authCommands = fs.readFileSync(path.join(__dirname, "..", "src", "features", "account", "auth-commands.js"), "utf8");
+const authSession = fs.readFileSync(path.join(__dirname, "..", "src", "features", "account", "auth-session-commands.js"), "utf8");
+const syncRemote = fs.readFileSync(path.join(__dirname, "..", "src", "features", "sync", "sync-remote-commands.js"), "utf8");
+const haystack = source + "\n" + authCommands + "\n" + authSession + "\n" + syncRemote;
 const stylePath = path.join(__dirname, "..", "style.css");
 const styleSource = fs.readFileSync(stylePath, "utf8");
 
-function extractFunction(name) {
-  const start = source.indexOf(`function ${name}`);
+function extractFunction(name, from = haystack) {
+  const start = from.indexOf(`function ${name}`);
   assert.notEqual(start, -1, `${name} deve existir`);
-  const open = source.indexOf("{", start);
+  const paren = from.indexOf("(", start);
+  let parenDepth = 0;
+  let open = -1;
+  for (let i = paren; i < from.length; i += 1) {
+    const char = from[i];
+    if (char === "(") parenDepth += 1;
+    if (char === ")") parenDepth -= 1;
+    if (parenDepth === 0) {
+      open = from.indexOf("{", i);
+      break;
+    }
+  }
+  assert.notEqual(open, -1, `${name} deve ter corpo`);
   let depth = 0;
-  for (let i = open; i < source.length; i += 1) {
-    const char = source[i];
+  for (let i = open; i < from.length; i += 1) {
+    const char = from[i];
     if (char === "{") depth += 1;
     if (char === "}") depth -= 1;
-    if (depth === 0) return source.slice(start, i + 1);
+    if (depth === 0) return from.slice(start, i + 1);
   }
   throw new Error(`Nao foi possivel extrair ${name}`);
 }
 
 function bodyOf(name) {
-  return extractFunction(name);
+  const authIdx = authCommands.indexOf(`function ${name}`);
+  if (authIdx !== -1) return extractFunction(name, authCommands);
+  return extractFunction(name, source);
 }
 
 function extractAuthMethod(name) {
-  const start = source.indexOf(`  async ${name}(`);
+  const from = authSession.includes(`async function ${name}(`) ? authSession : source;
+  const start = from.indexOf(`async ${name}(`) !== -1 ? from.indexOf(`async ${name}(`) : from.indexOf(`async function ${name}(`);
   assert.notEqual(start, -1, `AuthService.${name} deve existir`);
-  const paren = source.indexOf("(", start);
+  const paren = from.indexOf("(", start);
   let parenDepth = 0;
   let open = -1;
-  for (let i = paren; i < source.length; i += 1) {
-    const char = source[i];
+  for (let i = paren; i < from.length; i += 1) {
+    const char = from[i];
     if (char === "(") parenDepth += 1;
     if (char === ")") parenDepth -= 1;
     if (parenDepth === 0) {
-      open = source.indexOf("{", i);
+      open = from.indexOf("{", i);
       break;
     }
   }
   assert.notEqual(open, -1, `AuthService.${name} deve ter corpo`);
   let depth = 0;
-  for (let i = open; i < source.length; i += 1) {
-    const char = source[i];
+  for (let i = open; i < from.length; i += 1) {
+    const char = from[i];
     if (char === "{") depth += 1;
     if (char === "}") depth -= 1;
-    if (depth === 0) return source.slice(start, i + 1);
+    if (depth === 0) return from.slice(start, i + 1);
   }
   throw new Error(`Nao foi possivel extrair AuthService.${name}`);
 }
@@ -70,22 +89,22 @@ assert.equal(normalizarTelefoneWhatsapp("(85) 99999-9999"), "5585999999999", "wa
 
 assert.match(source, /const WHATSAPP_2FA_BACKEND_ENABLED = false;/, "2FA WhatsApp deve ficar desligado sem backend real");
 assert.match(bodyOf("precisa2FA"), /!whatsapp2FABackendDisponivel\(\)[\s\S]*return false;/, "2FA nao pode bloquear login sem backend");
-assert.match(bodyOf("iniciarVerificacao2FA"), /!whatsapp2FABackendDisponivel\(\)[\s\S]*return false;/, "fluxo 2FA sem backend deve encerrar sem pendencia");
+assert.match(bodyOf("iniciarVerificacao2FA"), /!(?:deps\.)?whatsapp2FABackendDisponivel\(\)[\s\S]*return false;/, "fluxo 2FA sem backend deve encerrar sem pendencia");
 assert.match(bodyOf("abrirWhats2FA"), /!whatsapp2FABackendDisponivel\(\)[\s\S]*return;/, "wa.me nao pode abrir 2FA sem backend");
 
 assert.match(bodyOf("verificarSuperadminSupabaseSilencioso"), /\/rest\/v1\/rpc\/erp_is_superadmin/, "Superadmin deve validar RPC do banco");
 assert.match(bodyOf("verificarSuperadminSupabaseSilencioso"), /\/rest\/v1\/profiles\?select=role,status&user_id=eq\./, "Superadmin deve aceitar perfil do proprio user_id");
 assert.doesNotMatch(bodyOf("loginUsuarioSupabase"), /perfil\?\.role \|\| "operador"/, "login Supabase nao deve criar usuario como operador/admin por fallback");
 assert.doesNotMatch(bodyOf("processarRetornoOAuthSupabase"), /papel:\s*"admin"/, "OAuth nao deve criar admin por fallback");
-assert.match(bodyOf("concluirLoginUsuario"), /telaAtual = "superadmin"/, "superadmin deve ir para painel superadmin");
-assert.match(bodyOf("concluirLoginUsuario"), /telaAtual = "dashboard"/, "login comum deve seguir diretamente para a Home");
-assert.doesNotMatch(bodyOf("concluirLoginUsuario"), /telaAtual = "usuarios"/, "gestao de usuarios deve abrir somente por acao do usuario");
+assert.match(bodyOf("concluirLoginUsuario"), /setTelaAtual\("superadmin"\)/, "superadmin deve ir para painel superadmin");
+assert.match(bodyOf("concluirLoginUsuario"), /setTelaAtual\("dashboard"\)/, "login comum deve seguir diretamente para a Home");
+assert.doesNotMatch(bodyOf("concluirLoginUsuario"), /setTelaAtual\("usuarios"\)|telaAtual = "usuarios"/, "gestao de usuarios deve abrir somente por acao do usuario");
 assert.doesNotMatch(extractAuthMethod("login"), /verificarSenhaUsuario/, "login comum nao deve validar senha local como fonte de verdade");
 assert.doesNotMatch(extractAuthMethod("login"), /recoverOnlineAccount/, "login comum nao deve recriar conta online a partir de bypass local");
 assert.match(extractAuthMethod("signupSaas"), /Conexão necessária para criar sua conta/, "signup offline deve ser bloqueado antes de criar conta local");
 assert.match(extractAuthMethod("signupSaas"), /criarClienteSaasLocal/, "signup so cria estrutura local depois do fluxo Supabase");
 assert.match(source, /function prepararRegistroOnline[\s\S]*sync_status/, "dados operacionais novos devem carregar sync_status");
-assert.match(source, /upsert_erp_record_if_newer/, "fila offline deve usar RPC de upsert autoritativo por timestamp");
+assert.match(haystack, /upsert_erp_record_if_newer/, "fila offline deve usar RPC de upsert autoritativo por timestamp");
 assert.match(bodyOf("lerConfigAppCampos"), /twoFactorEnabled:\s*whatsapp2FABackendDisponivel\(\) &&/, "config publica nao deve reativar 2FA sem backend");
 assert.doesNotMatch(bodyOf("precisaDesbloqueioLocal"), /keepSessionCache/, "manter login nao deve ignorar a revalidacao local de 12 horas");
 assert.match(bodyOf("precisaDesbloqueioLocal"), /Date\.now\(\) - ultimo > LOCAL_UNLOCK_MAX_MS/, "a revalidacao local deve respeitar a janela de 12 horas");

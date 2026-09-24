@@ -19,9 +19,31 @@ const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "
 const extractFn = (source, name, isAsync = false) => {
   const kind = isAsync ? "async function" : "function";
   const re = new RegExp(`^${kind} ${name}\\([\\s\\S]*?^\\}`, "m");
-  const match = source.match(re);
-  assert(match, `Funcao ${name} nao encontrada em app.js`);
-  return match[0];
+  const moduleSources = [
+    "src/features/storefront/storefront-guided.js",
+    "src/features/storefront/storefront-product-editor.js",
+    "src/features/storefront/storefront-admin-remote.js",
+    "src/features/storefront/storefront-admin-storage.js"
+  ].map((file) => fs.readFileSync(file, "utf8"));
+  let body = null;
+  for (const src of [source, ...moduleSources]) {
+    const match = src.match(re);
+    if (!match) continue;
+    if (!body) body = match[0];
+    if (!/window\.Simplifica/.test(match[0])) {
+      body = match[0];
+      break;
+    }
+  }
+  assert(body, `Funcao ${name} nao encontrada em app.js`);
+  return body;
+};
+
+const withContext = (body, name, deps) => {
+  const sig = body.match(new RegExp(`(async function|function) ${name}\\(([^)]*)\\)`));
+  if (!sig || !sig[2].includes("context")) return body;
+  const renamed = body.replace(`${sig[1]} ${name}(`, `${sig[1]} ${name}__impl(`);
+  return `${renamed}\n${sig[1]} ${name}(...args) { return ${name}__impl(...args, { ${deps.join(", ")} }); }`;
 };
 
 function buildHarness(scenario = {}) {
@@ -104,11 +126,16 @@ function buildHarness(scenario = {}) {
     "let storefrontCategoryDraftEnsurePromise = null;",
     extractFn(app, "storefrontAdminSlugify"),
     extractFn(app, "storefrontAdminIsLocalId"),
-    extractFn(app, "storefrontAdminUpsertCategory", true),
-    extractFn(app, "getStorefrontCategoryDraftState"),
+    withContext(extractFn(app, "storefrontAdminUpsertCategory", true), "storefrontAdminUpsertCategory", ["storefrontAdminRequest"]),
+    withContext(extractFn(app, "getStorefrontCategoryDraftState"), "getStorefrontCategoryDraftState", ["storefrontCategoryDraftEnsureState"]),
     extractFn(app, "redefinirEstadoRascunhoCategoriaLojaOnline"),
     extractFn(app, "gerarChaveRascunhoLojaOnline"),
-    extractFn(app, "isCategoriaNovaSemIdLojaOnline"),
+    withContext(extractFn(app, "isCategoriaNovaSemIdLojaOnline"), "isCategoriaNovaSemIdLojaOnline", [
+      "document",
+      "getStorefrontAdminCategoriesLocal",
+      "getStorefrontGuidedSelection",
+      "storefrontAdminIsLocalId"
+    ]),
     extractFn(app, "garantirRascunhoCategoriaLojaOnline", true)
   ].join("\n\n");
   vm.createContext(sandbox);

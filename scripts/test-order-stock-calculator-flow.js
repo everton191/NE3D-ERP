@@ -3,6 +3,9 @@ const assert = require("assert");
 
 const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
+const ordersRenderer = fs.readFileSync("src/features/orders/orders-renderer.js", "utf8");
+const ordersHandlers = fs.readFileSync("src/features/orders/orders-handlers.js", "utf8");
+const orderFlowSources = app + ordersRenderer + ordersHandlers;
 
 [
   'id="impressaoLote"',
@@ -29,13 +32,13 @@ const css = fs.readFileSync("style.css", "utf8");
   "function adicionarMaterialProduto",
   "getMateriaisItem(item).forEach((material)",
   "consumo.set(material.materialId, (consumo.get(material.materialId) || 0) + quantidade)",
-  "const diff = diffConsumoPedido(pedidoNovo, pedidoAntigo)",
+  "SimplificaOrdersCommandService.applyOrderStock",
   "STOCK_ITEM_TYPES",
   "STOCK_CONTROL_UNITS",
   "function statusPedidoConsomeEstoque",
   "pedidoEstoqueFoiBaixado",
   "Estoque insuficiente para"
-].forEach((marker) => assert.ok(app.includes(marker), `Fluxo calculadora/pedido/estoque ausente: ${marker}`));
+].forEach((marker) => assert.ok(orderFlowSources.includes(marker), `Fluxo calculadora/pedido/estoque ausente: ${marker}`));
 
 assert.ok(
   app.includes('renderMaterialOptions(materialSelecionado, { emptyLabel: "Material não selecionado", includeAdd: false })'),
@@ -59,8 +62,8 @@ assert.match(
   "Fechar detalhes deve ocultar o painel selecionado antes de renderizar a lista."
 );
 assert.match(
-  app,
-  /const selecionado = window\.__pedidoDetalheFechado[\s\S]*?\? null[\s\S]*?: \(pedidoSelecionado \|\| null\);/,
+  ordersRenderer,
+  /const selecionado = context\.isDetailClosed\(\) \? null : \(pedidoSelecionado \|\| null\);/,
   "A versão web não deve reabrir automaticamente o pedido logo após fechar os detalhes."
 );
 

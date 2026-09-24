@@ -1,6 +1,18 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const fsMod = (name) => fs.readFileSync(`src/features/storefront/${name}`, "utf8");
+const hay = [
+  "storefront-admin-remote.js",
+  "storefront-admin-storage.js",
+  "storefront-editor.js",
+  "storefront-admin-store.js",
+  "storefront-publication.js",
+  "storefront-product-editor.js",
+  "storefront-guided.js",
+  "storefront-v3.js",
+  "storefront-images.js"
+].map(fsMod).join("\n") + "\n" + app;
 
 const required = [
   "function getStorefrontPendingQueue()",
@@ -34,7 +46,7 @@ const required = [
   "storefrontFlushPendingQueue({ notify: true })"
 ];
 
-const missing = required.filter((marker) => !app.includes(marker));
+const missing = required.filter((marker) => !hay.includes(marker));
 if (missing.length) {
   console.error("Persistencia/sincronizacao da loja incompleta:", missing.join(", "));
   process.exit(1);
@@ -47,7 +59,7 @@ const forbidden = [
   "Contatos salvos neste aparelho. Sincronização pendente."
 ];
 
-const foundForbidden = forbidden.filter((marker) => app.includes(marker));
+const foundForbidden = forbidden.filter((marker) => hay.includes(marker));
 if (foundForbidden.length) {
   console.error("Fallback de exemplos ainda substitui lista vazia:", foundForbidden.join(", "));
   process.exit(1);

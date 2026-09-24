@@ -2,6 +2,19 @@
   "use strict";
   const getCategoryLabel = (category = "") => ({ impressoras: "Impressoras", filamentos: "Filamentos", resinas: "Resinas", materiais: "Materiais" })[category] || "Produtos 3D";
   const normalizarTemaLojaOnline = () => "light";
+  const getStorefrontProductTypeLabel = (product = {}) => {
+    if (String(product.stock_mode || "") === "unavailable") return "Indisponível";
+    if (product.is_customizable) return "Personalizável";
+    if (String(product.stock_mode || "") === "manual" && Number(product.stock_quantity || 0) > 0) return "Entrega imediata";
+    return "Sob encomenda";
+  };
+  const getStorefrontStockLabel = (product = {}) => {
+    const mode = String(product.stock_mode || "unlimited");
+    if (mode === "manual") return product.stock_quantity === null || product.stock_quantity === undefined ? "Estoque manual" : `${Number(product.stock_quantity || 0)} un.`;
+    if (mode === "erp_linked") return "Vinculado ao estoque";
+    if (mode === "unavailable") return "Indisponível";
+    return "Sob encomenda";
+  };
   const formatOfferTime = (item = {}, now = Date.now()) => {
     const expiresAt = Date.parse(String(item.expiresAt || ""));
     if (Number.isFinite(expiresAt) && expiresAt > now) {
@@ -20,7 +33,7 @@
     if (elapsedMinutes < 60) return `Verificada há ${elapsedMinutes} min`;
     return `Verificada há ${Math.floor(elapsedMinutes / 60)}h`;
   };
-  const api = Object.freeze({ getCategoryLabel, normalizarTemaLojaOnline, formatOfferTime });
+  const api = Object.freeze({ getCategoryLabel, normalizarTemaLojaOnline, getStorefrontProductTypeLabel, getStorefrontStockLabel, formatOfferTime });
   global.SimplificaStorefrontPromotionFormatters = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

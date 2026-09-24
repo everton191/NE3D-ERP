@@ -1,6 +1,8 @@
 const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const publication = fs.readFileSync("src/features/storefront/storefront-publication.js", "utf8");
+const hay = `${app}\n${publication}`;
 
 const required = [
   "getStorefrontCompletion",
@@ -25,7 +27,7 @@ const required = [
   "renderStorefrontPublicationChecklistModal"
 ];
 
-const missing = required.filter((item) => !app.includes(item));
+const missing = required.filter((item) => !hay.includes(item));
 
 if (missing.length) {
   console.error("Validacao de publicacao incompleta:", missing.join(", "));

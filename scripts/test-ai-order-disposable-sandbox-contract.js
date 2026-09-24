@@ -6,24 +6,31 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const remoteData = fs.readFileSync(path.join(root, "src/features/sync/remote-data-commands.js"), "utf8");
+const ordersRepository = fs.readFileSync(path.join(root, "src/features/orders/orders-repository.js"), "utf8");
 const harness = fs.readFileSync(path.join(root, "scripts/android-ai-order-disposable-harness.js"), "utf8");
 
 const sandboxGuard = 'window.__simplificaOrderValidationSandbox === true || localStorage.getItem("simplifica_order_validation_sandbox") === "1"';
-assert.ok((app.match(new RegExp(sandboxGuard.replaceAll(".", "\\."), "g")) || []).length >= 6,
+const moduleSandboxGuard = 'deps.window.__simplificaOrderValidationSandbox === true || deps.localStorage.getItem("simplifica_order_validation_sandbox") === "1"';
+assert.ok(((app + "\n" + remoteData).match(new RegExp(sandboxGuard.replaceAll(".", "\\."), "g")) || []).length >= 6,
   "o sandbox deve bloquear pedido e todos os caminhos de sincronização remota");
 for (const operation of [
   "sincronizarFilaOfflinePendente",
   "processarMudancaRealtimeSupabase",
   "baixarAtualizacoesSupabaseSilencioso",
-  "executarPollingSyncTempoReal",
-  "salvarBackupSupabase"
+  "executarPollingSyncTempoReal"
 ]) {
   const start = app.indexOf(`function ${operation}`);
   assert.ok(start >= 0, `${operation} deve existir`);
   assert.ok(app.slice(start, start + 700).includes(sandboxGuard), `${operation} deve abortar no sandbox`);
 }
-assert.ok(app.includes('window.__simplificaOrderFaultInjection === "BEFORE_LOCAL_PERSIST"'));
-assert.ok(app.includes('window.__simplificaOrderFaultInjection === "AFTER_LOCAL_PERSIST"'));
+{
+  const start = remoteData.indexOf("function salvarBackupSupabase");
+  assert.ok(start >= 0, "salvarBackupSupabase deve existir");
+  assert.ok(remoteData.slice(start, start + 700).includes(moduleSandboxGuard), "salvarBackupSupabase deve abortar no sandbox");
+}
+assert.ok(app.includes('window.__simplificaOrderFaultInjection') || ordersRepository.includes('BEFORE_LOCAL_PERSIST'));
+assert.ok(ordersRepository.includes('"BEFORE_LOCAL_PERSIST"') && ordersRepository.includes('"AFTER_LOCAL_PERSIST"'));
 assert.ok(harness.includes('validateForeground()'), "o harness deve validar o pacote em foreground");
 assert.ok(harness.includes('WebView não corresponde ao Simplifica 3D esperado'), "o harness deve validar a WebView correta");
 assert.ok(!/adb\([^\n]*(?:input|tap|swipe|text)/i.test(harness), "o harness não pode usar injeção genérica ADB de entrada");

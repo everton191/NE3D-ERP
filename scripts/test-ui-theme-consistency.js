@@ -2,6 +2,8 @@ const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
+const configAppearance = fs.readFileSync("src/features/config/config-appearance.js", "utf8");
+const body = `${app}\n${configAppearance}`;
 
 const required = [
   "body.theme-light",
@@ -33,7 +35,7 @@ if (!css.includes("body.theme-light .superadmin-panel :where(") || !css.includes
   throw new Error("Super Admin claro deve manter superfícies legíveis e ações responsivas.");
 }
 
-if ((app.match(/timeoutMs: 12000/g) || []).length < 3) {
+if ((body.match(/timeoutMs: 12000/g) || []).length < 3) {
   throw new Error("Salvamento remoto de personalização deve possuir timeout de segurança.");
 }
 

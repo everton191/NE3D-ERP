@@ -3,6 +3,8 @@ const path = require("path");
 
 const rootDir = path.resolve(__dirname, "..");
 const appSource = fs.readFileSync(path.join(rootDir, "app.js"), "utf8");
+const calculatorCommands = fs.readFileSync(path.join(rootDir, "src", "features", "calculator", "calculator-commands.js"), "utf8");
+const implementationSource = appSource + "\n" + calculatorCommands;
 
 function assert(condition, message) {
   if (!condition) {
@@ -80,14 +82,14 @@ assert(taxaPercentualDepoisDaMargem.valorProduto === 30, "preco comercial consid
 assert(taxaPercentualDepoisDaMargem.taxaExtra === 3, "taxa de 10% usa preco comercial de 30");
 assert(taxaPercentualDepoisDaMargem.totalFinal === 33, "cenario real corrigido: 30 + 10% = 33");
 
-assert(!/const\s+custo\s*=\s*custoBase\s*\+\s*taxaExtra[\s\S]{0,180}precoSemTaxa\s*=\s*custo\s*\*/.test(appSource), "codigo nao soma taxa antes da margem");
+assert(!/const\s+custo\s*=\s*custoBase\s*\+\s*taxaExtra[\s\S]{0,180}precoSemTaxa\s*=\s*custo\s*\*/.test(implementationSource), "codigo nao soma taxa antes da margem");
 assert(/const\s+baseProduto\s*=/.test(appSource) && /const\s+valorProduto\s*=/.test(appSource), "codigo explicita base e valor do produto");
 assert(/function\s+aplicarPercentualAcrescimo/.test(appSource), "app possui helper central de acrescimo percentual");
 assert(/function\s+aplicarPercentualDesconto/.test(appSource), "app possui helper central de desconto percentual");
-assert(/const\s+dominio\s*=\s*CalculatorDomain\.calculate\(/.test(appSource), "calculadora usa o dominio central para margem e taxa");
-assert(/const\s+valorProduto\s*=\s*dominio\.subtotalBase/.test(appSource), "preco comercial vem do dominio depois da margem");
-assert(/const\s+taxaExtra\s*=\s*dominio\.extraFeeAmount/.test(appSource), "taxa percentual vem do dominio sobre o preco comercial");
-assert(!/const\s+taxaInfo\s*=\s*calcularTaxaExtraAplicada\(baseProduto\)/.test(appSource), "taxa percentual nao usa mais custo interno antes da margem");
+assert(/const\s+dominio\s*=\s*CalculatorDomain\.calculate\(/.test(implementationSource), "calculadora usa o dominio central para margem e taxa");
+assert(/const\s+valorProduto\s*=\s*dominio\.subtotalBase/.test(implementationSource), "preco comercial vem do dominio depois da margem");
+assert(/const\s+taxaExtra\s*=\s*dominio\.extraFeeAmount/.test(implementationSource), "taxa percentual vem do dominio sobre o preco comercial");
+assert(!/const\s+taxaInfo\s*=\s*calcularTaxaExtraAplicada\(baseProduto\)/.test(implementationSource), "taxa percentual nao usa mais custo interno antes da margem");
 assert(/function\s+embutirTaxaExtraNosItensCliente/.test(appSource), "documentos de cliente embutem taxa no valor final");
 assert(!/\[\s*"Taxa extra"\s*,\s*taxaExtraComercial\s*\]/.test(appSource), "PDF nao discrimina taxa extra para cliente");
 

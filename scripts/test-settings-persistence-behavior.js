@@ -4,12 +4,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const configAppearance = fs.readFileSync(path.join(__dirname, '..', 'src', 'features', 'config', 'config-appearance.js'), 'utf8');
 
-function section(start, end) {
-  const from = source.indexOf(start);
-  const to = source.indexOf(end, from);
+function section(text, start, end) {
+  const from = text.indexOf(start);
+  const to = text.indexOf(end, from);
   assert.ok(from >= 0 && to > from);
-  return source.slice(from, to);
+  return text.slice(from, to);
 }
 
 function harness() {
@@ -29,11 +30,22 @@ function harness() {
     estaOnline: () => true,
     salvarPersonalizacaoRemotaSilencioso: async () => false
   });
+  const appearanceFns = [
+    section(configAppearance, 'async function carregarPersonalizacaoRemotaSilencioso(', 'async function salvarPreferenciasBasicasFree('),
+    section(configAppearance, 'async function salvarPreferenciasBasicasFree(', 'async function removerLogoMarca(')
+  ].join('\n');
   vm.runInContext([
-    section('function normalizarAppearanceSettings(', 'const PDF_THEME_PRESETS'),
-    section('function aplicarLinhaPersonalizacaoRemota(', 'async function sincronizarPersonalizacaoInicialSilencioso'),
-    section('async function salvarPreferenciasBasicasFree(', 'async function salvarPersonalizacao()')
+    section(source, 'function normalizarAppearanceSettings(', 'const PDF_THEME_PRESETS'),
+    section(source, 'function aplicarLinhaPersonalizacaoRemota(', 'async function carregarPersonalizacaoRemotaSilencioso('),
+    appearanceFns
   ].join('\n'), ctx);
+  const wrap = (name) => {
+    const fn = ctx[name];
+    if (typeof fn !== 'function') return;
+    ctx[name] = (...args) => fn(...args, ctx);
+  };
+  wrap('carregarPersonalizacaoRemotaSilencioso');
+  wrap('salvarPreferenciasBasicasFree');
   return { ctx, storage };
 }
 

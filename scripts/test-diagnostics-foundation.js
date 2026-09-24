@@ -13,6 +13,8 @@ async function run() {
   const migrationFile = "supabase/migrations/20260529162000_diagnostics_bugs_feedback_codex.sql";
   const hardeningMigrationFile = "supabase/migrations/20260529173500_diagnostics_validation_hardening.sql";
   const app = read("app.js");
+  const diagnosticsAdmin = read("src/features/diagnostics/diagnostics-admin.js");
+  const appHaystack = app + "\n" + diagnosticsAdmin;
   const service = read(serviceFile);
   const index = read("index.html");
   const sw = read("sw.js");
@@ -223,7 +225,7 @@ async function run() {
     "renderSuperAdminDiagnosticos",
     "gerarRelatorioCodexDiagnostico",
     "Diagnosticos e bugs"
-  ].forEach((marker) => assert(app.includes(marker), `app deve integrar ${marker}`));
+  ].forEach((marker) => assert(appHaystack.includes(marker), `app+módulo deve integrar ${marker}`));
 
   assert(app.includes("Obrigado! Seu relato foi enviado e será analisado."), "feedback deve mostrar mensagem final amigavel");
 

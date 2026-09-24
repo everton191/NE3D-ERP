@@ -85,15 +85,20 @@ for (const m of labelMatches) {
 }
 
 // Executa a funcao real de fallback (compat mobile/Capacitor) contra o stub
-const fnMatch = app.match(/function abrirSeletorImagemStorefront\(input\) \{[\s\S]*?\n\}/);
-assert(fnMatch, "funcao abrirSeletorImagemStorefront ausente em app.js");
+const productEditor = fs.readFileSync("src/features/storefront/storefront-product-editor.js", "utf8");
+const fnMatch = productEditor.match(/function abrirSeletorImagemStorefront\(input, context = \{\}\) \{[\s\S]*?\n\}/) ||
+  productEditor.match(/function abrirSeletorImagemStorefront\(input[^)]*\) \{[\s\S]*?\n\}/);
+assert(fnMatch, "funcao abrirSeletorImagemStorefront ausente em storefront-product-editor.js");
+const fnBody = fnMatch[0]
+  .replace(/function abrirSeletorImagemStorefront\(input[^)]*\)/, "function abrirSeletorImagemStorefront(input)")
+  .replace(/^\s*const \{[^}]*\} = context;\s*$/m, "");
 const sandbox = {
   mostrarToast: () => {},
   document: fakeDocument,
   inputClicado: null
 };
 vm.createContext(sandbox);
-vm.runInContext(`${fnMatch[0]}\ninputClicado = abrirSeletorImagemStorefront(document.getElementById("storefrontProductPhotoMain-produto-1"));`, sandbox);
+vm.runInContext(`${fnBody}\ninputClicado = abrirSeletorImagemStorefront(document.getElementById("storefrontProductPhotoMain-produto-1"));`, sandbox);
 const mainStub = fakeInputs.get("storefrontProductPhotoMain-produto-1");
 assert(mainStub.clicked === true, "fallback JS nao acionou input.click() (seletor nao abriria)");
 assert(mainStub.value === "", "fallback JS deveria limpar input.value antes de abrir");

@@ -2,16 +2,19 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const normalizers = fs.readFileSync("src/features/inventory/inventory-normalizers.js", "utf8");
+const batchCommands = fs.readFileSync("src/features/inventory/inventory-batch-commands.js", "utf8");
+const haystack = [app, normalizers, batchCommands].join("\n");
 const migration = fs.readFileSync("supabase/migrations/20260710163343_stock_roll_core_foundation.sql", "utf8");
 const runtimeFeatures = fs.readFileSync("src/config/runtimeFeatures.js", "utf8");
 
-assert.match(app, /spool_stock:\s*\{[^}]*requiredPlan:\s*"start"/, "Rolos devem ser liberados a partir do Start.");
-assert.match(app, /function podeUsarControleRolosEstoque/, "Acesso aos rolos deve usar capacidade central.");
-assert.match(app, /function exigirControleRolosEstoque/, "Acoes de rolo devem validar a capacidade.");
-assert.match(app, /manufacturer_lot/, "Rolo local deve preservar lote do fabricante.");
-assert.match(app, /spool_tare_weight_g/, "Rolo local deve preservar tara do carretel.");
-assert.match(app, /INVENTORY_BATCH_CODE_DUPLICATE/, "Codigo local do rolo deve ser unico.");
-assert.match(app, /INVENTORY_BATCH_INITIAL_WEIGHT_INVALID/, "Peso inicial deve ser positivo.");
+assert.match(haystack, /spool_stock:\s*\{[^}]*requiredPlan:\s*"start"/, "Rolos devem ser liberados a partir do Start.");
+assert.match(haystack, /function podeUsarControleRolosEstoque/, "Acesso aos rolos deve usar capacidade central.");
+assert.match(haystack, /function exigirControleRolosEstoque/, "Acoes de rolo devem validar a capacidade.");
+assert.match(haystack, /manufacturer_lot/, "Rolo local deve preservar lote do fabricante.");
+assert.match(haystack, /spool_tare_weight_g/, "Rolo local deve preservar tara do carretel.");
+assert.match(haystack, /INVENTORY_BATCH_CODE_DUPLICATE/, "Codigo local do rolo deve ser unico.");
+assert.match(haystack, /INVENTORY_BATCH_INITIAL_WEIGHT_INVALID/, "Peso inicial deve ser positivo.");
 
 [
   "create table if not exists public.filament_products",

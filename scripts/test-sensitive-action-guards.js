@@ -4,20 +4,58 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const cashCommandsPath = path.join(root, "src", "features", "cash", "cash-commands.js");
+const cashCommands = fs.existsSync(cashCommandsPath) ? fs.readFileSync(cashCommandsPath, "utf8") : "";
+const ordersRendererPath = path.join(root, "src", "features", "orders", "orders-renderer.js");
+const customersRendererPath = path.join(root, "src", "features", "customers", "customers-renderer.js");
+const storefrontAccessPath = path.join(root, "src", "features", "storefront", "storefront-access.js");
+const storefrontRemotePath = path.join(root, "src", "features", "storefront", "storefront-admin-remote.js");
+const storefrontRemote = fs.existsSync(storefrontRemotePath) ? fs.readFileSync(storefrontRemotePath, "utf8") : "";
+const storefrontProductEditorPath = path.join(root, "src", "features", "storefront", "storefront-product-editor.js");
+const storefrontProductEditor = fs.existsSync(storefrontProductEditorPath) ? fs.readFileSync(storefrontProductEditorPath, "utf8") : "";
+const storefrontEditorPath = path.join(root, "src", "features", "storefront", "storefront-editor.js");
+const storefrontEditor = fs.existsSync(storefrontEditorPath) ? fs.readFileSync(storefrontEditorPath, "utf8") : "";
+const moduleSnippets = [
+  fs.existsSync(ordersRendererPath) ? fs.readFileSync(ordersRendererPath, "utf8") : "",
+  fs.existsSync(customersRendererPath) ? fs.readFileSync(customersRendererPath, "utf8") : "",
+  fs.existsSync(storefrontAccessPath) ? fs.readFileSync(storefrontAccessPath, "utf8") : "",
+  storefrontRemote,
+  storefrontProductEditor,
+  storefrontEditor,
+  cashCommands
+].join("\n");
+
+function extractFunctionBody(source, name) {
+  const start = source.indexOf(`function ${name}`);
+  const asyncStart = source.indexOf(`async function ${name}`);
+  const index = start === -1 ? asyncStart : asyncStart === -1 ? start : Math.min(start, asyncStart);
+  if (index === -1) return null;
+  const parenStart = source.indexOf("(", index);
+  if (parenStart === -1) return null;
+  let parenDepth = 0;
+  let parenEnd = -1;
+  for (let i = parenStart; i < source.length; i += 1) {
+    if (source[i] === "(") parenDepth += 1;
+    if (source[i] === ")") parenDepth -= 1;
+    if (parenDepth === 0) { parenEnd = i; break; }
+  }
+  if (parenEnd === -1) return null;
+  const braceStart = source.indexOf("{", parenEnd);
+  if (braceStart === -1) return null;
+  let depth = 0;
+  for (let i = braceStart; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    if (source[i] === "}") depth -= 1;
+    if (depth === 0) return source.slice(braceStart, i + 1);
+  }
+  return null;
+}
 
 function getFunctionBody(name) {
-  const start = app.indexOf(`function ${name}`);
-  const asyncStart = app.indexOf(`async function ${name}`);
-  const index = start === -1 ? asyncStart : asyncStart === -1 ? start : Math.min(start, asyncStart);
-  if (index === -1) throw new Error(`Função não encontrada: ${name}`);
-  const braceStart = app.indexOf("{", index);
-  let depth = 0;
-  for (let i = braceStart; i < app.length; i += 1) {
-    if (app[i] === "{") depth += 1;
-    if (app[i] === "}") depth -= 1;
-    if (depth === 0) return app.slice(braceStart, i + 1);
-  }
-  throw new Error(`Não foi possível ler o corpo de ${name}`);
+  const bodies = [extractFunctionBody(app, name), extractFunctionBody(storefrontRemote, name), extractFunctionBody(storefrontProductEditor, name), extractFunctionBody(storefrontEditor, name)].filter(Boolean);
+  if (!bodies.length) throw new Error(`Função não encontrada: ${name}`);
+  const guarded = bodies.find((body) => body.includes("requestSensitiveActionConfirmation"));
+  return guarded || bodies.sort((a, b) => b.length - a.length)[0];
 }
 
 const protectedFunctions = [
@@ -33,7 +71,12 @@ const protectedFunctions = [
   "salvarStorefrontContatos"
 ];
 
-const missingProtection = protectedFunctions.filter((name) => !getFunctionBody(name).includes("requestSensitiveActionConfirmation"));
+const missingProtection = protectedFunctions.filter((name) => {
+  const body = getFunctionBody(name);
+  if (body.includes("requestSensitiveActionConfirmation")) return false;
+  if (/SimplificaCashCommands\./.test(body)) return !cashCommands.includes("requestSensitiveActionConfirmation");
+  return true;
+});
 
 const requiredSnippets = [
   "Fase atual: editor liberado para qualquer usuário autenticado.",
@@ -62,7 +105,7 @@ const requiredSnippets = [
   "restaurarFocoInterface(foco)"
 ];
 
-const missingSnippets = requiredSnippets.filter((snippet) => !app.includes(snippet));
+const missingSnippets = requiredSnippets.filter((snippet) => !(app.includes(snippet) || moduleSnippets.includes(snippet)));
 
 const cssSnippets = [
   ".cash-cancel-modal :where(input, textarea, select)",

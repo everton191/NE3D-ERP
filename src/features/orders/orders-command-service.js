@@ -86,7 +86,74 @@
     deps.scheduleSync("pedido-atualizado");
     return { success: true, order: execution.order || proposed, effects: { ...plan.effects, inventoryChanged: plan.effects.inventory.length > 0, cashChanged: !!execution.cashReceipt, productionChanged: plan.effects.production.length > 0, cashReceipt: execution.cashReceipt || null }, invalidated: ["orders", `order:${plan.orderId}`, "dashboard", "cash-summary", "inventory"], warnings: execution.warnings || [] };
   }
-  const api = Object.freeze({ statusConsumesStock, diffStockConsumption, createCashReceipt, createCashReversal, determineEditEffects, determineCancelEffects, createTransactionExecutor, executeCancelPlan, executeEditPlan });
+  async function finalizeOrder(input = {}, deps = {}) {
+    let preparation = input.preparation || null;
+    if (!preparation) {
+      try {
+        preparation = deps.preparationUseCase().prepare(input.preparationInput);
+      } catch (error) {
+        if (error?.name === "OrderPreparationError") return { status: "PREPARATION_FAILED", error };
+        throw error;
+      }
+    }
+    const order = preparation.record;
+    if (input.editingOrder && !input.reviewConfirmed) return { status: "REVIEW_REQUIRED", preparation, order };
+    let editPreparation = null;
+    if (input.editingOrder) {
+      editPreparation = deps.editUseCase().prepare({ orderId: input.editingOrder.id, operationId: order.client_request_id || order.clientRequestId, proposed: order }, { authorized: true });
+      if (!editPreparation.success) {
+        const editError = editPreparation.errors[0] || {};
+        return { status: "EDIT_PREPARATION_FAILED", preparation, order, error: Object.assign(new Error(editError.message || "Não foi possível preparar a edição."), { code: editError.code || "ORDER_EDIT_PREPARATION_FAILED" }) };
+      }
+    }
+    const creditReservation = input.disposableValidation ? { allowed: true, receipt: null, user: null, actionType: "sandbox" } : await deps.reserveCredit(input.editingOrder ? "salvar_pedido" : "criar_pedido", input.editingOrder ? "salvar alteração do pedido" : "criar pedido");
+    if (!creditReservation.allowed) return { status: "CREDIT_REJECTED", preparation, order, creditReservation };
+    let execution;
+    try {
+      execution = input.editingOrder
+        ? await deps.editUseCase().commit(editPreparation, { authorized: true })
+        : await deps.transactionExecutor().execute({ transactionKey: order.client_request_id || order.clientRequestId, order, previousOrder: null, cashRegisteredBefore: input.cashRegisteredBefore, financialSummary: preparation.financial, operationMetadata: preparation.operationMetadata });
+    } catch (error) {
+      deps.compensateCredit(creditReservation);
+      throw error;
+    }
+    const normalized = input.editingOrder
+      ? (execution.success ? { status: "COMMITTED", order: execution.data.order, cashReceipt: execution.data.effects?.cashReceipt || null, warnings: execution.warnings || [] } : { status: "ROLLED_BACK", reason: execution.errors?.[0]?.code || "ORDER_EDIT_EXECUTION_FAILED", error: Object.assign(new Error(execution.errors?.[0]?.message || "Falha ao atualizar pedido."), { code: execution.errors?.[0]?.code }) })
+      : execution;
+    if (normalized.status === "ALREADY_COMMITTED" || !["COMMITTED", "ALREADY_COMMITTED"].includes(normalized.status)) deps.compensateCredit(creditReservation);
+    return { ...normalized, preparation, order, creditReservation };
+  }
+  function applyOrderStock(nextOrder, previousOrder = null, deps = {}) {
+    const diff = deps.diff(nextOrder, previousOrder).map((item) => ({ ...item, orderItemId: item.materialId }));
+    const shortages = deps.validate(diff);
+    if (shortages.length) { deps.onShortage(shortages); return false; }
+    const applied = deps.apply(diff, previousOrder ? "edição de pedido" : "pedido", previousOrder ? { orderId: nextOrder?.id || "" } : { orderId: nextOrder?.id || "", idempotencyPrefix: `order_material_deduction:${nextOrder?.id || "novo"}` });
+    if (applied) {
+      if (statusConsumesStock(nextOrder?.status) && deps.hasConsumption(nextOrder)) {
+        nextOrder.stock_deducted_at = nextOrder.stock_deducted_at || deps.now();
+        nextOrder.estoqueBaixadoEm = nextOrder.estoqueBaixadoEm || nextOrder.stock_deducted_at;
+      } else { nextOrder.stock_deducted_at = ""; nextOrder.estoqueBaixadoEm = ""; }
+    }
+    return applied;
+  }
+  function restoreOrderStock(order, reason = "cancelamento", deps = {}) {
+    if (order?.stock_returned_at || order?.estoqueDevolvidoEm) return false;
+    const diff = deps.diff({ itens: [] }, order).map((item) => ({ ...item, orderItemId: item.materialId }));
+    return deps.apply(diff, reason, { orderId: order?.id || "", idempotencyPrefix: `order_material_return:${order?.id || "sem-id"}` });
+  }
+  function orderCashMovements(order, movements = [], deps = {}) { return movements.filter((movement) => deps.belongsToOrder(movement, order)); }
+  function registeredOrderCash(order, movements = [], deps = {}) {
+    return orderCashMovements(order, movements, deps).reduce((balance, movement) => {
+      if (deps.isCancelled(movement)) return balance;
+      const value = Math.max(0, Number(movement.valor) || 0);
+      return balance + (String(movement.tipo || "").toLowerCase() === "saida" ? -value : value);
+    }, 0);
+  }
+  function hasOrderStockConsumption(order = {}, deps = {}) { return deps.calculateConsumption(order.itens || []).size > 0; }
+  function wasOrderStockDeducted(order = {}) { return !!(order.stock_deducted_at || order.estoqueBaixadoEm || statusConsumesStock(order.status)); }
+  function receivedOrderValue(order = {}, deps = {}) { const summary = deps.financialSummary(order); return Math.min(summary.total, Math.max(0, summary.entrada)); }
+  function isOrderCancelled(order = {}) { return !!(order.deleted_at || order.deletedAt || String(order.status || "").toLowerCase() === "cancelado"); }
+  const api = Object.freeze({ statusConsumesStock, diffStockConsumption, createCashReceipt, createCashReversal, determineEditEffects, determineCancelEffects, createTransactionExecutor, executeCancelPlan, executeEditPlan, finalizeOrder, applyOrderStock, restoreOrderStock, orderCashMovements, registeredOrderCash, hasOrderStockConsumption, wasOrderStockDeducted, receivedOrderValue, isOrderCancelled });
   global.SimplificaOrdersCommandService = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

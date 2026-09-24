@@ -2,6 +2,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 
 const app = fs.readFileSync("app.js", "utf8");
+const authCommands = fs.readFileSync("src/features/account/auth-commands.js", "utf8");
+const remoteData = fs.readFileSync("src/features/sync/remote-data-commands.js", "utf8");
+const haystack = app + "\n" + authCommands + "\n" + remoteData;
 
 assert.match(
   app,
@@ -36,13 +39,13 @@ assert.match(
   "As duas flags locais de senha temporária devem permanecer consistentes."
 );
 assert.match(
-  app,
-  /async function limparTrocaSenhaObrigatoriaSupabase\(\)[\s\S]*?method: "PATCH"[\s\S]*?must_change_password: false/,
+  haystack,
+  /async function limparTrocaSenhaObrigatoriaSupabase[\s\S]*?method: "PATCH"[\s\S]*?must_change_password: false/,
   "A troca concluída deve limpar diretamente a exigência no perfil online existente."
 );
 assert.match(
-  app,
-  /async function alterarSenhaSupabaseSeConectado\(novaSenha\)[\s\S]*?await limparTrocaSenhaObrigatoriaSupabase\(\);/,
+  haystack,
+  /async function alterarSenhaSupabaseSeConectado\(novaSenha[\s\S]*?await limparTrocaSenhaObrigatoriaSupabase\(\);/,
   "A alteração de senha dentro do aplicativo deve limpar a exigência online."
 );
 assert.match(

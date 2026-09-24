@@ -5,6 +5,7 @@ const vm = require("node:vm");
 
 const root = path.join(__dirname, "..");
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const authSessionSource = fs.readFileSync(path.join(root, "src", "features", "account", "auth-session-commands.js"), "utf8");
 const telemetrySource = fs.readFileSync(path.join(root, "src", "services", "errorTelemetry.js"), "utf8");
 const restTestSource = fs.readFileSync(path.join(root, "scripts", "test-telemetry-rest.js"), "utf8");
 
@@ -57,9 +58,9 @@ assert.equal(helpers.capturarPonteiroSemFalhar({ setPointerCapture() { throw new
 assert.equal(helpers.capturarPonteiroSemFalhar({ setPointerCapture() {}, hasPointerCapture() { return false; } }, { pointerId: 7 }), true, "captura válida deve continuar funcionando");
 assert.doesNotMatch(appSource, /\.setPointerCapture\?\.\(/, "capturas diretas inseguras devem usar o helper");
 
-const signupStart = appSource.indexOf("  async signupSaas(");
-const signupEnd = appSource.indexOf("\n  }\n};", signupStart);
-const signupSource = appSource.slice(signupStart, signupEnd);
+const signupStart = authSessionSource.indexOf("async function signupSaas(");
+const signupEnd = authSessionSource.indexOf("\n  }\n", signupStart + 200);
+const signupSource = authSessionSource.slice(signupStart, signupEnd === -1 ? undefined : signupEnd);
 assert.match(signupSource, /cadastroAguardandoConfirmacao = true;/, "confirmação de e-mail deve ser estado esperado");
 assert.match(signupSource, /syncStatusCadastro = cadastroAguardandoConfirmacao \? "pending_confirmation" : "synced"/, "cadastro pendente deve ser persistido corretamente");
 assert.doesNotMatch(signupSource, /throw new AppError\("Conta criada no Supabase aguardando confirmação/, "confirmação não deve ser registrada como falha");

@@ -80,8 +80,22 @@
       return { ...item, _score: score };
     }).filter(Boolean).filter((item) => item._score > 0).sort((a, b) => b._score - a._score || normalizeText(a.name).localeCompare(normalizeText(b.name))).slice(0, 8);
   }
+  function collectOperationalSuggestions(deps = {}) {
+    const map = new Map();
+    const add = (item = {}, source = "app_client") => {
+      const suggestion = deps.normalizeSuggestion({ ...item, source, name: item.name || item.nome || item.cliente, phone: item.phone || item.telefone || item.clienteTelefone, email: item.email || item.clienteEmail });
+      if (!suggestion?.name) return;
+      const key = deps.normalizeText(suggestion.name + "|" + (suggestion.phone || "") + "|" + (suggestion.email || ""));
+      const current = map.get(key);
+      map.set(key, current ? { ...current, usageCount: Math.max(current.usageCount || 0, suggestion.usageCount || 0) } : suggestion);
+    };
+    try { deps.operationalClients().forEach((client) => add({ ...client, email: client.email || client.clienteEmail, usageCount: client.pedidos }, "app_client")); } catch (_) {}
+    deps.orders().forEach((order) => add({ id: order.id, name: deps.customerName(order), phone: deps.customerPhone(order), email: deps.customerEmail(order), usageCount: 1, lastUsedAt: order.updated_at || order.updatedAt || order.criadoEm }, "app_client"));
+    if (deps.isSuperAdmin()) deps.saasClients().forEach((client) => add({ id: client.id, name: client.name || client.nome || client.businessName, phone: client.phone || client.telefone, email: client.email }, "app_client"));
+    return Array.from(map.values());
+  }
 
-  const api = Object.freeze({ normalizePhoneBR, normalizarTelefoneWhatsapp, normalizarTelefoneBusca, formatPhoneForPdf, normalizarSugestaoClienteTexto, normalizarSugestaoCliente, rotuloStatusCliente, mergeSuggestions, rankSuggestions });
+  const api = Object.freeze({ normalizePhoneBR, normalizarTelefoneWhatsapp, normalizarTelefoneBusca, formatPhoneForPdf, normalizarSugestaoClienteTexto, normalizarSugestaoCliente, rotuloStatusCliente, mergeSuggestions, rankSuggestions, collectOperationalSuggestions });
   global.SimplificaCustomerNormalizers = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

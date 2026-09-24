@@ -1,9 +1,16 @@
 const fs = require("fs");
+const path = require("path");
 
-const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
-const storefrontLayouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
-const storefrontPublicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const root = path.resolve(__dirname, "..");
+const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
+const storefrontLayouts = fs.readFileSync(path.join(root, "src", "storefront", "styles", "layouts.css"), "utf8");
+const storefrontPublicRenderer = fs.readFileSync(path.join(root, "src", "storefront", "renderers", "publicV3.js"), "utf8");
+const publication = fs.readFileSync(path.join(root, "src", "features", "storefront", "storefront-publication.js"), "utf8");
+const editorModule = fs.readFileSync(path.join(root, "src", "features", "storefront", "storefront-editor.js"), "utf8");
+const productEditor = fs.readFileSync(path.join(root, "src", "features", "storefront", "storefront-product-editor.js"), "utf8");
+const publicModule = fs.readFileSync(path.join(root, "src", "features", "storefront", "storefront-public.js"), "utf8");
+const hay = [app, publication, editorModule, productEditor, publicModule].join("\n");
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -18,7 +25,7 @@ function assert(condition, message) {
   'sfe-workspace__preview" data-storefront-theme="light"',
   'store-editor-v3-portal',
   'data-storefront-theme="light"'
-].forEach((marker) => assert(app.includes(marker), `Contrato seguro V3 ausente em app.js: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker), `Contrato seguro V3 ausente em app.js: ${marker}`));
 
 const navStart = storefrontPublicRenderer.indexOf("api.bottomNav = function bottomNav");
 const navEnd = storefrontPublicRenderer.indexOf("api.root = function root", navStart);

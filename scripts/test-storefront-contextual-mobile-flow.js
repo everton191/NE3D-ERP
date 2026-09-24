@@ -4,23 +4,37 @@ const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
 const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
+const guidedModule = fs.readFileSync("src/features/storefront/storefront-guided.js", "utf8");
+const publicModule = fs.readFileSync("src/features/storefront/storefront-public.js", "utf8");
+const hay = `${app}\n${guidedModule}\n${publicModule}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 function extractFunction(name) {
-  const start = app.indexOf(`function ${name}`);
-  assert(start >= 0, `Funcao ausente: ${name}`);
-  const signatureEnd = app.indexOf(") {", start);
-  const braceStart = signatureEnd >= 0 ? signatureEnd + 2 : app.indexOf("{", start);
-  let depth = 0;
-  for (let index = braceStart; index < app.length; index += 1) {
-    if (app[index] === "{") depth += 1;
-    if (app[index] === "}") depth -= 1;
-    if (depth === 0) return app.slice(start, index + 1);
+  let best = "";
+  let searchFrom = 0;
+  while (true) {
+    const start = hay.indexOf(`function ${name}`, searchFrom);
+    if (start < 0) break;
+    const signatureEnd = hay.indexOf(") {", start);
+    const braceStart = signatureEnd >= 0 ? signatureEnd + 2 : hay.indexOf("{", start);
+    let depth = 0;
+    let body = "";
+    for (let index = braceStart; index < hay.length; index += 1) {
+      if (hay[index] === "{") depth += 1;
+      if (hay[index] === "}") depth -= 1;
+      if (depth === 0) {
+        body = hay.slice(start, index + 1);
+        break;
+      }
+    }
+    if (body.length > best.length) best = body;
+    searchFrom = start + 1;
   }
-  throw new Error(`Funcao incompleta: ${name}`);
+  assert(best, `Funcao ausente: ${name}`);
+  return best;
 }
 
 [
@@ -37,7 +51,7 @@ function extractFunction(name) {
   "function renderStoreVisualMobileActions",
   "function renderStoreGuidedChecklistPanel",
   "function navigateToStorefrontCompletionItem"
-].forEach((marker) => assert(app.includes(marker), `Contrato contextual ausente: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker), `Contrato contextual ausente: ${marker}`));
 
 const openAdmin = extractFunction("abrirLojaPublicaAdminContextual");
 assert(openAdmin.includes("const abrirGuiaPwa = isWebPwaProfile() && !isMobile()"), "Abrir /admin=1 deve abrir guia automaticamente apenas no PWA desktop");
@@ -72,9 +86,9 @@ assert(closePanel.includes("syncHistory: options.syncHistory !== false"), "Fecha
 assert(!closePanel.includes('trocarTela("lojaOnline"'), "Fechar painel nao deve voltar para resumo da loja");
 
 const backPanel = extractFunction("voltarPainelLojaVisual");
-assert(backPanel.includes("isStorefrontContextualEditorRoute() && storefrontGuidedPanelOpen"), "Voltar deve fechar primeiro o painel contextual aberto");
+assert(backPanel.includes("isStorefrontContextualEditorRoute(context) && storefrontGuidedPanelOpen"), "Voltar deve fechar primeiro o painel contextual aberto");
 assert(backPanel.includes("event?.stopPropagation?.()"), "Voltar deve bloquear propagacao para a vitrine clicavel");
-assert(backPanel.includes("fecharPainelEdicaoGuiadaLoja();"), "Voltar interno deve reaproveitar fechamento seguro do painel");
+assert(backPanel.includes("fecharPainelEdicaoGuiadaLoja(undefined, context);"), "Voltar interno deve reaproveitar fechamento seguro do painel");
 assert(backPanel.includes('trocarTela("lojaOnline")'), "Voltar sem contexto ainda pode retornar ao resumo da loja");
 
 [

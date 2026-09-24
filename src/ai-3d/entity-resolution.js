@@ -100,7 +100,7 @@ function resolveEntity(params = {}) {
     case "job":
       return resolveJob({ refs, selectedId, candidates });
     case "material":
-      return resolveMaterial({ candidates });
+      return resolveMaterial({ refs, selectedId, candidates });
     case "roll":
       return resolveRoll({ refs, selectedId, candidates });
     default:
@@ -306,14 +306,8 @@ function resolveJob({ refs = null, selectedId = null, candidates = null }) {
  * Material resolution.
  * GAP_BLOCKED: inventory.search não implementado.
  */
-function resolveMaterial({ candidates = null }) {
-  return new EntityResolutionResult(
-    RESOLUTION_STATUS.GAP_BLOCKED,
-    null,
-    null,
-    [],
-    "GAP_BLOCKED: inventory.search não implementado - sem estrutura de material para resolver material_id"
-  );
+function resolveMaterial({ refs = null, selectedId = null, candidates = null }) {
+  return resolveCandidateEntity("material", { refs, selectedId, candidates, source: "inventory.search" });
 }
 
 /**
@@ -321,6 +315,8 @@ function resolveMaterial({ candidates = null }) {
  * Não implementa inventory.get_roll (PLANNED), apenas resolve quando roll_refs é ID válido.
  */
 function resolveRoll({ refs = null, selectedId = null, candidates = null }) {
+  return resolveCandidateEntity("roll", { refs, selectedId, candidates, source: "inventory.search" });
+  /* legacy implementation retained below for historical provenance */
   if (selectedId && String(selectedId).trim()) {
     if (candidates && Array.isArray(candidates) && candidates.length > 0) {
       const found = candidates.find(r => {
@@ -365,6 +361,18 @@ function resolveRoll({ refs = null, selectedId = null, candidates = null }) {
   }
 
   return new EntityResolutionResult(RESOLUTION_STATUS.MISSING_INPUT, null, null, [], "roll: refs ou selectedId necessário");
+}
+
+function resolveCandidateEntity(entityType, { refs = null, selectedId = null, candidates = null, source = "READ" } = {}) {
+  if (!Array.isArray(candidates)) return new EntityResolutionResult(RESOLUTION_STATUS.GAP_BLOCKED, null, null, [], `GAP_BLOCKED: ${source} não executado`);
+  const values = selectedId ? [selectedId] : Array.isArray(refs) ? refs : [];
+  if (!values.length) return new EntityResolutionResult(RESOLUTION_STATUS.MISSING_INPUT, null, null, [], `${entityType}: refs ou selectedId necessário`);
+  const ref = String(values[0] || "").trim();
+  if (!ref) return new EntityResolutionResult(RESOLUTION_STATUS.MISSING_INPUT, null, null, [], "ref vazio");
+  const exact = candidates.filter((item) => String(item?.id || item?.[`${entityType}Id`] || "") === ref);
+  if (exact.length === 1) return new EntityResolutionResult(RESOLUTION_STATUS.RESOLVED, exact[0], String(exact[0].id || exact[0][`${entityType}Id`]), exact, `${entityType} resolvido por ID retornado pelo READ`);
+  if (exact.length > 1) return new EntityResolutionResult(RESOLUTION_STATUS.AMBIGUOUS, null, null, exact, `${entityType} ambíguo`);
+  return new EntityResolutionResult(RESOLUTION_STATUS.NOT_FOUND, null, null, [], `${entityType} não encontrado no resultado de ${source}`);
 }
 
 // Export

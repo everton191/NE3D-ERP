@@ -1,103 +1,121 @@
-# Widget Data Sources — Contratos Finais
+# Esboço — Widget Data Sources (8 Widgets)
 
-Data: 2026-09-18 (fechamento)
-Branch: `codex/melhorias-setembro-2026`
-HEAD: `7e73f06ff4af8dabf593c691da1b1de2f624ac47`
-
-## Visão Geral
-
-8 widgets do carrossel 3D da Home. Cada widget consolida dados reais existentes
-em funções puras de normalização. Nenhuma regra de negócio foi duplicada.
-
-Arquivo de dados: `src/features/home/carousel3d/data/widget-data-sources.js`
-Testes: `scripts/test-home-carousel-data.js` (146 PASS / 0 FAIL)
-
-### Contrato de Snapshot
-
-```js
-{
-  status: "ready" | "empty" | "error",
-  updatedAt: "2026-09-18T...",  // ISO string
-  data: { ... }                 // campos do widget
-}
-```
-
-| Status | Significado |
-|--------|-------------|
-| `ready` | Dados válidos disponíveis (array não vazio) |
-| `empty` | Fonte existe mas retornou vazio (array vazio, null, undefined) |
-| `error` | Fonte temporariamente indisponível ou dados corrompidos |
+> Esboço técnico baseado no código real de `widget-data-sources.js`.
+> Não é implementação. Atualizado em 2026-09-21.
 
 ---
 
-## 1. PRODUCTION
+## 1. Production — DataSource
 
-```js
+```javascript
+function normalizeProductionSnapshot(productionJobs, options) {
+  // productionJobs: array de jobs de produção (raw do sistema)
+  // options: { error?, excludeFinalized?, externalPrints? }
+  // → retorna snapshot para o widget "production"
+}
+```
+
+### Entrada
+- `productionJobs` — array de jobs com campos: `status`, `blockedReason`/`blocked_reason`
+- `options.error` — se true, retorna snapshot de erro
+- `options.excludeFinalized` — se true (default), exclui jobs finalizados do total
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
-    inProgress: number,      // active + queue + externalPrints
-    active: number,          // em_impressao + pausado + pos_processamento + controle_qualidade
-    inQueue: number,         // liberado_para_producao + na_fila + proximo + aguardando_impressora
-    pending: number,         // pendente + falhou + reimpressao_necessaria
-    ready: number,           // pronto_para_entrega
-    total: number,           // inProgress (se excludeFinalized) ou total
-    blockedByMaterial: number // blockedReason === "aguardando_material"
+    inProgress: number,    // active + queue + externalPrints.length
+    active: number,        // em_impressao + pausado + pos_processamento + controle_qualidade
+    inQueue: number,       // liberado_para_producao + na_fila + proximo + aguardando_impressora
+    pending: number,       // pendente + falhou + reimpressao_necessaria
+    ready: number,         // pronto_para_entrega
+    total: number,         // inProgress (se excludeFinalized) ou jobs.length
+    blockedByMaterial: number // jobs com blockedReason === "aguardando_material"
   }
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `productionJobs` (app.js:941) |
-| Normalizador | `normalizeProductionSnapshot(jobs, options)` |
-| Rota destino | `producao` |
-| EMPTY | array vazio → `{ inProgress: 0, ... }` |
-| ERROR | `{ error: true }` → `{ inProgress: 0, ... }` |
+### Status dos jobs
+
+| Status | Categoria |
+|---|---|
+| `em_impressao`, `pausado`, `pos_processamento`, `controle_qualidade` | active |
+| `liberado_para_producao`, `na_fila`, `proximo`, `aguardando_impressora` | queue |
+| `pendente`, `falhou`, `reimpressao_necessaria` | pending |
+| `pronto_para_entrega` | ready |
+
+### Lógica
+- Se `options?.error` → snapshot de erro com todos os campos em 0
+- Se `productionJobs.length === 0` → snapshot de empty
+- Filtra jobs por status para cada categoria
+- `blockedByMaterial` conta jobs onde `safeString(blockedReason || blocked_reason) === "aguardando_material"`
+- `total` é `inProgress` se `excludeFinalized !== false`, senão `jobs.length`
 
 ---
 
-## 2. ORDERS_RECENT
+## 2. Orders Recent — DataSource
 
-```js
+```javascript
+function normalizeOrdersRecentSnapshot(pedidos, options) {
+  // pedidos: array de pedidos (raw do sistema)
+  // options: { error?, limit? }
+  // → retorna snapshot para o widget "orders_recent"
+}
+```
+
+### Entrada
+- `pedidos` — array de pedidos com campos: `id`, `cliente`/`nome`, `numeroPedido`/`numero_pedido`,
+  `itens`, `prazo`/`dataPrazo`/`data`, `total`/`valor`/`totalPedido`, `status`
+- `options.limit` — max itens a retornar (default: 4)
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
-    orders: Array<{
-      id: string,
-      client: string,        // "Cliente" se vazio
-      orderNumber: string,
-      itemCount: number,
-      deadline: string,      // raw, sem formatação
-      total: number,
-      status: string
-    }>,
+    orders: [
+      {
+        id: string,
+        client: string,        // "Cliente" se vazio
+        orderNumber: string,
+        itemCount: number,     // itens.length
+        deadline: string,      // raw, sem formatação
+        total: number,
+        status: string
+      }
+    ],
     total: number            // total de pedidos (não apenas os retornados)
   }
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `pedidos` (app.js:938) |
-| Normalizador | `normalizeOrdersRecentSnapshot(pedidos, options)` |
-| Ordenação | `updatedAt` → `criadoEm` → `createdAt` → `data` → `Number(id)`, descendente |
-| Limite | `options.limit` (default: 4) |
-| Paridade Home | **PASS** — usa `clienteDoPedido()`, `totalPedido()`, `labelStatusPedido()` |
-| Rota destino | `pedidos` |
-| EMPTY | `{ orders: [], total: 0 }` |
-| ERROR | `{ orders: [], total: 0 }` |
+### Lógica
+- Ordenação por data (updatedAt → criadoEm → createdAt → data → Number(id)), descendente
+- `limit` itens mais recentes
+- `total` = `pedidos.length` (todos os pedidos, não apenas os recentes)
+- `client` = `pedido.cliente || pedido.nome || "Cliente"`
+- `deadline` = `pedido.prazo || pedido.dataPrazo || pedido.data || ""`
 
 ---
 
-## 3. DAY_SUMMARY
+## 3. Day Summary — DataSource
 
-```js
+```javascript
+function normalizeDaySummarySnapshot(pedidos, options) {
+  // pedidos: array de pedidos (raw)
+  // options: { error? }
+  // → retorna snapshot para o widget "day_summary"
+}
+```
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
     faturamentoDia: number,    // R$ arredondado 2 casas
     lucroDiaEstimado: number,  // R$ arredondado 2 casas
@@ -106,144 +124,143 @@ Testes: `scripts/test-home-carousel-data.js` (146 PASS / 0 FAIL)
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `pedidos` (filtrados por `pedidoContaParaAnalytics()`) |
-| Normalizador | `normalizeDaySummarySnapshot(pedidos, options)` |
-| Paridade Home | **PASS** — exclusão idêntica: cancelado/orçamento/rascunho/deletados |
-| Range | Meia-noite hoje → meia-noite amanhã (local) |
-| Lucro | `max(0, total - soma(custoTotal dos itens))` — estimado |
-| Rota destino | `caixa` (faturamento/lucro) ou `pedidos` (contagem) |
-| EMPTY | `{ faturamentoDia: 0, lucroDiaEstimado: 0, pedidosHoje: 0 }` |
-| ERROR | `{ faturamentoDia: 0, lucroDiaEstimado: 0, pedidosHoje: 0 }` |
+### Lógica
+- Filtra pedidos pelo período de hoje (meia-noite até meia-noite amanhã, local)
+- Exclui: cancelados, orçamentos, rascunhos, deletados
+- `faturamentoDia` = soma dos totais dos pedidos de hoje
+- `lucroDiaEstimado` = soma de `max(0, total - soma(custoTotal dos itens))` para cada pedido
+- `pedidosHoje` = count de pedidos de hoje
 
 ---
 
-## 4. CASH_TODAY
+## 4. Cash Today — DataSource
 
-```js
+```javascript
+function normalizeCashTodaySnapshot(caixaMovimentos, options) {
+  // caixaMovimentos: array de movimentos de caixa
+  // options: { error?, session? }
+  // → retorna snapshot para o widget "cash_today"
+}
+```
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
     entradas: number,       // R$ arredondado 2 casas
     saidas: number,         // R$ arredondado 2 casas
     saldo: number,          // entradas - saidas
-    cancelados: number,     // contagem de movimentos cancelados
-    sessaoAberta: boolean
+    cancelados: number,     // count de movimentos cancelados
+    sessaoAberta: boolean   // options.session?.status === "open"
   }
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `caixa` (app.js:937) via `getMovimentosCaixaDaConta()` |
-| Normalizador | `normalizeCashTodaySnapshot(caixaMovimentos, options)` |
-| Filtro | Movimentos do dia corrente (meia-noite → meia-noite) |
-| Sessão | `options.session` → `session.status === "open"` |
-
-### Contrato semântico (decisão desta fase)
-
-`calcularTotaisCaixa()` (app.js:8928) retorna **lifetime total** — sem filtro de período.
-`calcularTotaisCaixaPeriodo(start, end)` (app.js:23392) filtra por período.
-
-O card se chama **"Caixa hoje"**. Portanto o normalizador filtra por hoje.
-**Isto NÃO é paridade com a Home** — é comportamento específico do card.
-
-| Diferença | Home atual | Card carrossel |
-|-----------|-----------|----------------|
-| `calcularTotaisCaixa()` | Lifetime (sem filtro) | — |
-| `normalizeCashTodaySnapshot()` | — | Filtra por hoje |
-
-| Rota destino | `caixa` |
-| EMPTY | `{ entradas: 0, saidas: 0, saldo: 0, cancelados: 0, sessaoAberta: false }` |
-| ERROR | `{ entradas: 0, saidas: 0, saldo: 0, cancelados: 0, sessaoAberta: false }` |
+### Lógica
+- Filtra movimentos pelo período de hoje
+- `sessaoAberta` = `options.session?.status === "open"`
+- Ignora movimentos cancelados no cálculo de entradas/saidas (mas conta em `cancelados`)
+- Arredonda valores para 2 casas decimais
 
 ---
 
-## 5. STOCK
+## 5. Stock — DataSource
 
-```js
+```javascript
+function normalizeStockSnapshot(materiais, options) {
+  // materiais: array de materiais de estoque
+  // options: { error?, resolveStatus? }
+  // → retorna snapshot para o widget "stock"
+}
+```
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
     total: number,
     critical: number,
     low: number,
     normal: number,
     alertCount: number,      // critical + low
-    alertItems: Array<{
-      id: string,
-      name: string,
-      quantity: number,
-      unit: string,
-      status: "critical" | "low"
-    }>
+    alertItems: [
+      {
+        id: string,
+        name: string,
+        quantity: number,
+        unit: string,
+        status: "critical" | "low"
+      }
+    ]
   }
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `estoque` (app.js:936) via `normalizarMaterialEstoque()` |
-| Normalizador | `normalizeStockSnapshot(materiais, options)` |
-| Regra | Usa `stock_status` já computado por `resolverStatusEstoque()` |
-| Threshold | Absoluto: `estoqueMinimo` / Percentual: 30% (low), 10% (critical) |
-| Rota destino | `estoque` |
-| EMPTY | `{ total: 0, critical: 0, low: 0, normal: 0, alertCount: 0, alertItems: [] }` |
-| ERROR | `{ total: 0, critical: 0, low: 0, normal: 0, alertCount: 0, alertItems: [] }` |
+### Lógica
+- Usa `options.resolveStatus(m)` se disponível, senão `m.stock_status || "normal"`
+- Thresholds:
+  - `critical`: `estoqueMinimo` alcançado ou < 10% do original
+  - `low`: < 30% do original
+  - `normal`: acima dos thresholds
+- `alertItems` = materiais com status critical ou low, ordenados (critical primeiro)
 
 ---
 
-## 6. CUSTOMERS
+## 6. Customers — DataSource
 
-```js
+```javascript
+function normalizeCustomersSnapshot(pedidos, options) {
+  // pedidos: array de pedidos (raw)
+  // options: { error? }
+  // → retorna snapshot para o widget "customers"
+}
+```
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
-    uniqueCustomers: number,
-    totalOrders: number,
-    openOrders: number
+    uniqueCustomers: number,  // count de nomes únicos
+    totalOrders: number,       // total de pedidos (todos)
+    openOrders: number         // pedidos não terminal dos clientes únicos
   }
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `pedidos` (derivado, não armazenado separadamente) |
-| Normalizador | `normalizeCustomersSnapshot(pedidos, options)` |
-| Chave unicidade | Nome do cliente (`pedido.cliente \|\| pedido.nome`), com `.trim()` |
+### Lógica
+- Chave de unicidade: `pedido.cliente || pedido.nome`, com `.trim()`
+- Agrupa por nome: conta pedidos, soma total, conta abertos
+- `uniqueCustomers` = tamanho do mapa
+- `openOrders` = soma de `abertos` de cada cliente (pedidos não terminal: não "entregue", "pago", "finalizado", "cancelado")
 
-### LIMITAÇÃO DOCUMENTADA
-
-A chave de unicidade é o **nome do cliente** (string raw com `.trim()`).
-Não existe `customer_id` no fluxo operacional. Dois clientes com o mesmo
-nome são contados como um só. Esta limitação é herdada do sistema atual
-(`renderClientesOperacionais` linha 29766, `getDashboardStats` linha 23291).
-
-Métricas que NÃO existem (não inventar):
-- Aniversário / data de nascimento
-- Fidelidade / pontos
-- Taxa de retorno
-- Novo vs recorrente
-- Data de cadastro (operacional)
-- Segmentação RFM
-- Lifetime value
-
-| Rota destino | `clientes` |
-| EMPTY | `{ uniqueCustomers: 0, totalOrders: 0, openOrders: 0 }` |
-| ERROR | `{ uniqueCustomers: 0, totalOrders: 0, openOrders: 0 }` |
+### Limitação documentada
+> A chave de unicidade é o **nome do cliente** (string raw com `.trim()`).
+> Não existe `customer_id` no fluxo operacional. Dois clientes com o mesmo nome são
+> contados como um só. Esta limitação é herdada do sistema atual.
 
 ---
 
-## 7. STOREFRONT
+## 7. Storefront — DataSource
 
-```js
+```javascript
+function normalizeStorefrontSnapshot(storefrontData, options) {
+  // storefrontData: objeto do storefront admin (raw)
+  // options: {}
+  // → retorna snapshot para o widget "storefront"
+}
+```
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
     active: boolean,
     publishedProducts: number,
@@ -256,93 +273,89 @@ Métricas que NÃO existem (não inventar):
 }
 ```
 
-| Propriedade | Valor |
-|-------------|-------|
-| Fonte | `getStorefrontAdminViewModel()` (app.js:18255) |
-| Normalizador | `normalizeStorefrontSnapshot(storefrontData, options)` |
-| targetScreen | `"lojaOnline"` |
-
-### Decisão: targetScreen = "lojaOnline"
-
-| screenId | Componente | Mobile | Propósito |
-|----------|-----------|--------|-----------|
-| `lojaOnline` | `renderLojaOnlineHub` | **Sim** | Admin hub/dashboard — overview, stats, QR code |
-| `lojaAdmin` | `renderStorefrontAdminPanel` | Não | Editor de produtos/publicação (desktop) |
-| `lojaPublica` | `renderLojaOnlinePublica` | Sim | Loja pública (clientes, sem auth) |
-
-`lojaOnline` é o destino correto porque:
-1. É o hub admin que mostra métricas (visitas, leads, produtos)
-2. Funciona em mobile (obrigatório para o carrossel)
-3. É o que o próprio dashboard usa (`trocarTela('lojaOnline')`)
-
-| EMPTY | `{ active: false, publishedProducts: 0, ..., targetScreen: "lojaOnline" }` |
-| ERROR | `{ active: false, publishedProducts: 0, ..., targetScreen: "lojaOnline" }` |
+### Lógica
+- `targetScreen` é sempre `"lojaOnline"` (hub admin mobile-enabled)
+- `active` vem do dado cru
+- Todos os demais campos são derivados do `storefrontData`
 
 ---
 
-## 8. ALERTS
+## 8. Alerts — DataSource
 
-```js
+```javascript
+function normalizeAlertsSnapshot(options) {
+  // options: { error? }
+  // → retorna snapshot para o widget "alerts"
+}
+```
+
+### Saída (Snapshot)
+```javascript
 {
   status: "ready" | "empty",
-  updatedAt: "...",
+  updatedAt: new Date().toISOString(),
   data: {
-    alerts: Array<{
-      type: string,
-      severity: "warning" | "danger" | "info",
-      title: string,
-      summary: string,
-      targetScreen: string | null,
-      entityId: string       // opcional
-    }>,
+    alerts: [
+      {
+        type: "order_overdue" | "production_stopped" | "production_material" | "stock_critical" | "cash_no_session",
+        severity: "warning" | "danger" | "info",
+        title: string,
+        summary: string,
+        targetScreen: "pedidos" | "producao" | "estoque" | "caixa" | null,
+        entityId: string | null
+      }
+    ],
     count: number
   }
 }
 ```
 
-### Tipos de alerta e targetScreen
+### Tipos de alerta
 
 | # | type | severity | Condição | targetScreen |
-|---|------|----------|----------|--------------|
+|---|---|---|---|---|
 | 1 | `order_overdue` | warning | `pedido.prazo < now` e não terminal | `"pedidos"` |
 | 2 | `production_stopped` | warning | status em [pausado, falhou, reimpressao_necessaria, pendente] | `"producao"` |
 | 3 | `production_material` | warning | `blockedReason === "aguardando_material"` | `"estoque"` |
 | 4 | `stock_critical` | danger | `stock_status === "critical"` | `"estoque"` |
 | 5 | `cash_no_session` | warning | `!session && caixa.length > 0` | `"caixa"` |
 
-Todos os targetScreen são screenIds reais verificados em `UI_SCREEN_RELATIONS` e `NAVIGATION_AUDIT_REGISTRY`.
-
-| EMPTY |nenhum alerta ativo → `{ alerts: [], count: 0 }` com `status: "empty"` |
-| ERROR | `{ alerts: [], count: 0 }` com `status: "error"` |
-
----
-
-## Dados Que Não Existem Ainda
-
-Fiscal, contas a pagar/receber, compras, frete, CRM, qualidade, manutenção.
+### Lógica
+- Se nenhum alerta ativo → `status: "empty"`, `alerts: []`, `count: 0`
+- Se erro → `status: "error"`, `alerts: []`, `count: 0`
 
 ---
 
-## Arquivos
+---
 
-| Arquivo | Propósito |
-|---------|-----------|
-| `src/features/home/carousel3d/data/widget-data-sources.js` | Normalizadores puros (8 widgets) |
-| `scripts/test-home-carousel-data.js` | 146 testes de validação |
-| `docs/home-carousel/widget-data-sources.md` | Este documento |
+## Contexto do app.js — como usar este documento
 
-## Arquivos Alterados
+> **Tratamento contextual:** app.js é o consumidor deste esboço — trata-se de "quasi-3rd party" na leitura deste documento. Este documento descreve o que os data sources esperam de app.js, não como app.js é implementado.
 
-Nenhum. Apenas leitura de `app.js` para auditoria.
+### O que app.js faz com este documento
 
-## Arquivos do Hermes alterados
+| Responsabilidade | O que app.js faz | O que os data sources esperam |
+|---|---|---|
+| **Fornecer dados brutos de cada widget** | App.js busca os dados do sistema (productionJobs, pedidos, caixa, materiais, storefront, etc.) e os passa para os normalizadores | Cada `normalizeXxxSnapshot(data, options)` recebe um array ou objeto raw e retorna um snapshot puro |
+| **Passar options relevantes** | App.js decide quais options passar para cada normalizador (ex: `session` para cash_today, `error` para todos, `resolveStatus` para stock) | Os normalizadores usam as options para decidir o comportamento (status de erro, sessão aberta, resolver status de material) |
+| **Tratar erros de fonte** | Se uma fonte de dados está indisponível, app.js pode passar `options.error = true` para que o snapshot retorne erro | O normalizador retorna um snapshot com `status: "error"` e dados zerados quando `options.error` é true |
+| **Atualizar dados periodicamente** | App.js chama os normalizadores com dados frescos quando o carrossel é atualizado (refresh) | Os normalizadores são stateless — cada chamada é independente e retorna um snapshot novo |
 
-0
+### O que NÃO é responsabilidade de app.js neste documento
 
-## Home alterada
+| O que os data sources fazem sozinhos | Detalhe |
+|---|---|
+| Normalizar dados para o formato do snapshot | Cada função filtra, ordena, agrupa e formata os dados brutos |
+| Calcular métricas derivadas | `faturamentoDia`, `lucroDiaEstimado`, `entradas`, `saidas`, `alertCount` são calculados pelos normalizadores |
+| Definir status de cada widget | `ready`/`empty`/`error` é decidido pelo normalizador com base nos dados e options |
+| Filtrar por período (hoje) | `daySummary` e `cashToday` filtram pelo período de hoje (meia-noite → meia-noite) |
+| Grupar clientes por nome | `customers` agrupa pedidos por nome de cliente e conta pedidos abertos |
 
-NÃO
+### Como usar este documento
 
-## Regras de negócio duplicadas
+1. **Para integrar os data sources no carrossel** — use este documento para entender cada normalizador e seus parâmetros
+2. **Para testar os data sources** — cada normalizador pode ser testado passando dados mockados e verificando o snapshot resultante
+3. **Para estender os data sources** — siga o padrão: funções puras, sem DOM, sem acesso a app.js ou Supabase
+4. **Para revisar** — confirme que um novo widget não introduz efeitos colaterais, acesso a storage, ou dependência de app.js
 
-0
+> **Nota:** app.js é tratado como "quasi-3rd party" — ou seja, este documento descreve o contrato que app.js consome, sem depender de como app.js é implementado internamente.

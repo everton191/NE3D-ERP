@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const customer = require("../src/features/customers/customer-normalizers.js");
 const inventory = require("../src/features/inventory/inventory-presentation.js");
 const printer = require("../src/features/printers/printer-presentation.js");
+const storefront = require("../src/features/storefront/promotions-formatters.js");
 
 assert.equal(customer.normalizePhoneBR("(85) 99999-9999"), "+5585999999999");
 assert.equal(customer.normalizePhoneBR(null), "");
@@ -24,5 +25,11 @@ assert.equal(printer.getPrinterQueueStage({ status: "em_impressao" }), "impressa
 assert.equal(printer.getPrinterQueueStage({ status: "cancelado" }), "arquivado");
 assert.equal(printer.getPrinterQueueStageLabel("prontos"), "Pronto");
 assert.equal(printer.calcularCustoDesperdicioImpressao({ unidade: "kg", custoUnitario: 100 }, 50, 30, { hourly_cost: 12 }), 11);
+assert.equal(storefront.getStorefrontProductTypeLabel({ stock_mode: "unavailable", is_customizable: true }), "Indisponível");
+assert.equal(storefront.getStorefrontProductTypeLabel({ is_customizable: true }), "Personalizável");
+assert.equal(storefront.getStorefrontProductTypeLabel({ stock_mode: "manual", stock_quantity: 2 }), "Entrega imediata");
+assert.equal(storefront.getStorefrontStockLabel({ stock_mode: "manual", stock_quantity: null }), "Estoque manual");
+assert.equal(storefront.getStorefrontStockLabel({ stock_mode: "manual", stock_quantity: 2.5 }), "2.5 un.");
+assert.equal(storefront.getStorefrontStockLabel({ stock_mode: "erp_linked" }), "Vinculado ao estoque");
 
 console.log("Batch 3 modularization: customer, inventory presentation, and printer presentation parity passed.");

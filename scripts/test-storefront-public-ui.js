@@ -4,18 +4,21 @@ const renderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8")
 const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
 const index = fs.readFileSync("index.html", "utf8");
 const sw = fs.readFileSync("sw.js", "utf8");
+const editorModule = fs.readFileSync("src/features/storefront/storefront-editor.js", "utf8");
+const publicModule = fs.readFileSync("src/features/storefront/storefront-public.js", "utf8");
+const hay = `${app}\n${editorModule}\n${publicModule}`;
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 
 ["api.headerMenu", "api.bottomNav", "api.hero", "api.categories", "api.productCard", "api.productPage", "api.contact"].forEach((marker) => assert(renderer.includes(marker), `UI publica ausente: ${marker}`));
 ["sfv3-menu", "aria-haspopup=\"menu\"", "sfv3-search", "sfv3-hero", "sfv3-product-grid", "sfv3-bottom-nav"].forEach((marker) => assert(renderer.includes(marker) || layouts.includes(marker), `Contrato publico ausente: ${marker}`));
 assert(renderer.includes("navegarLojaPublicaLink"), "Rotas publicas nao usam navegacao central");
 assert(renderer.includes("event.stopPropagation();abrirCarrinhoLojaPublica()"), "CTA de orcamento deve abrir carrinho sem depender de link externo ou acionar editor do banner");
-assert(app.includes("function renderPrecoProdutoLojaOnline"), "Carrinho deve possuir formatador de preco");
-assert(app.includes("function validarWhatsappLojaPublica"), "Envio de orcamento deve validar contato antes de registrar pedido");
-assert(!app.includes("normalizarWhatsappLojaPublica"), "Loja ainda referencia normalizador de WhatsApp removido");
-assert(app.includes("normalizarTelefoneWhatsapp(form.whatsapp?.value || \"\")"), "Contatos da loja devem reutilizar o normalizador compartilhado");
+assert(hay.includes("function renderPrecoProdutoLojaOnline"), "Carrinho deve possuir formatador de preco");
+assert(hay.includes("function validarWhatsappLojaPublica"), "Envio de orcamento deve validar contato antes de registrar pedido");
+assert(!hay.includes("normalizarWhatsappLojaPublica"), "Loja ainda referencia normalizador de WhatsApp removido");
+assert(hay.includes("normalizarTelefoneWhatsapp(form.whatsapp?.value || \"\")"), "Contatos da loja devem reutilizar o normalizador compartilhado");
 assert(renderer.includes('["tiktok", "TikTok", contact.tiktok]'), "TikTok preenchido deve aparecer entre os contatos publicos");
-assert(app.includes("function configurarNavegacaoLojaPublica"), "Navegacao publica central ausente");
+assert(hay.includes("function configurarNavegacaoLojaPublica"), "Navegacao publica central ausente");
 assert(!renderer.includes("store-public-"), "Renderer publico ainda usa classes V2");
 assert(/\/app\.js\?v=[^"]+/.test(index), "Cache-bust web ausente");
 assert(/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw), "Cache PWA ausente");

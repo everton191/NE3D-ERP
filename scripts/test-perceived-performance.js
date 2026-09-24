@@ -19,6 +19,9 @@ function assert(condition, message) {
 const servicePath = "src/services/smartLoaderService.js";
 const serviceSource = read(servicePath);
 const app = read("app.js");
+const storefrontRemote = read("src/features/storefront/storefront-admin-remote.js");
+const pdfComposer = read("src/features/company/pdf-order-composer.js");
+const uxHaystack = app + "\n" + storefrontRemote + "\n" + pdfComposer;
 const index = read("index.html");
 const sw = read("sw.js");
 const prepareWeb = read("scripts/prepare-web.js");
@@ -64,11 +67,20 @@ assert(/const CACHE_NAME = "simplifica-3d-v\d+-[^"]+";/.test(sw), "cache PWA pos
   "cadastrarClienteSaas",
   "loginUsuario"
 ].forEach((functionName) => {
-  const start = app.indexOf(`function ${functionName}`);
-  const asyncStart = app.indexOf(`async function ${functionName}`);
-  const position = start >= 0 ? start : asyncStart;
-  const block = position >= 0 ? app.slice(position, position + 9000) : "";
-  assert(position >= 0 && /iniciarOperacaoUX|atualizarOperacaoUX|atualizarUploadOperacaoUX/.test(block), `${functionName} usa feedback de desempenho`);
+  let found = false;
+  for (const source of [storefrontRemote, pdfComposer, app]) {
+    for (const prefix of ["async function ", "function "]) {
+      const position = source.indexOf(prefix + functionName);
+      if (position < 0) continue;
+      const block = source.slice(position, position + 9000);
+      if (/iniciarOperacaoUX|atualizarOperacaoUX|atualizarUploadOperacaoUX/.test(block)) {
+        found = true;
+        break;
+      }
+    }
+    if (found) break;
+  }
+  assert(found, `${functionName} usa feedback de desempenho`);
 });
 
 assert(css.includes(".smart-loader-panel"), "painel contextual possui estilo global");

@@ -2,6 +2,8 @@ const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const html = fs.readFileSync("index.html", "utf8");
+const publicModule = fs.readFileSync("src/features/storefront/storefront-public.js", "utf8");
+const hay = `${app}\n${html}\n${publicModule}`;
 
 const required = [
   "og:title",
@@ -14,7 +16,7 @@ const required = [
   "apple-touch-icon"
 ];
 
-const missing = required.filter((item) => !app.includes(item) && !html.includes(item));
+const missing = required.filter((item) => !hay.includes(item));
 const hasAppVersion = /app\.js\?v=[^"]+/.test(html);
 
 if (missing.length || !hasAppVersion) {

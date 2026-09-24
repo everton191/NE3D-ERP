@@ -126,9 +126,35 @@ node scripts/test-home-carousel-editor-core.js
 
 Resultado: 79 PASS / 0 FAIL (A-T: 20 categorias)
 
-## Pendencias
+## Contexto do app.js — como usar este documento
 
-- Integracao widget-model -> renderer
-- UI visual do Editor
-- Persistencia real (localStorage/appConfig)
-- Integracao com Home
+> **Tratamento contextual:** app.js é o consumidor deste documento — trata-se de "quasi-3rd party" na leitura deste documento. Este documento descreve o que o editor core espera de app.js, não como app.js é implementado.
+
+### O que app.js faz com este documento
+
+| Responsabilidade | O que app.js faz | O que o editor core espera |
+|---|---|---|
+| **Fornecer o registry** | Passa o registry atualizado (com os cards ativos e futuros) para o editor core | `createEditor(initialState, registry)` recebe o registry completo |
+| **Gerenciar estado do editor** | Quando o usuário edita o carrossel (adiciona/removes/move cards, altera autoplay), app.js lê o estado e o persiste | `editor.getState()` retorna o estado atual para app.js salvar |
+| **Persistir configurações** | Salva as alterações do editor (visível cards, order, autoplay, interval) no storage apropriado | app.js é o owner da persistence — o editor core não acessa storage |
+| **Validar operações** | Antes de chamar as operações do editor, app.js pode validar se o usuário tem permissão | O editor core valida regras técnicas (future=true, available=false, duplicação) mas não permissões de usuário |
+| **Inicializar o editor** | Cria o editor com o estado inicial (pode ser vazio ou carregado do storage) | `createEditor(initialState, registry)` cria o editor com ou sem estado inicial |
+
+### O que NÃO é responsabilidade de app.js neste documento
+
+| O que o editor core faz sozinho | Detalhe |
+|---|---|
+| Validar se um card pode ser adicionado | `canAdd(id)` verifica: future=false, available=true, não duplicado |
+| Validar se um ID existe no registry | `addCard/removeCard/moveCard` verificam se o ID é válido no registry fornecido |
+| Gerenciar intervalo de autoplay | `setAutoplayInterval(ms)` clampa entre MIN_INTERVAL (3000) e MAX_INTERVAL (60000) |
+| Restaurar defaults | `restoreDefaults()` restaura a configuração padrão do registry |
+| Exportar constantes de intervalo | `E.MIN_INTERVAL`, `E.MAX_INTERVAL`, `E.DEFAULT_INTERVAL` |
+
+### Como usar este documento
+
+1. **Para integrar o editor na Home** — use este documento para entender as operações disponíveis e o contrato `createEditor()` / `getState()`
+2. **Para testar o editor core** — os testes podem criar um registry mockado e verificar cada operação isoladamente
+3. **Para estender o editor** — siga o padrão: funções puras, sem DOM, sem acesso a Supabase ou app.js
+4. **Para revisar** — confirme que uma nova operação não introduz efeitos colaterais, acesso a storage, ou dependência de app.js
+
+> **Nota:** app.js é tratado como "quasi-3rd party" — ou seja, este documento descreve o contrato que app.js consome, sem depender de como app.js é implementado internamente.

@@ -5,6 +5,11 @@ const editor = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
 const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
 const layouts = fs.readFileSync("src/storefront/styles/layouts.css", "utf8");
 const migration = fs.readFileSync("supabase/migrations/20260620120000_storefront_product_short_description.sql", "utf8");
+const adminRemote = fs.readFileSync("src/features/storefront/storefront-admin-remote.js", "utf8");
+const adminStorage = fs.readFileSync("src/features/storefront/storefront-admin-storage.js", "utf8");
+const productEditor = fs.readFileSync("src/features/storefront/storefront-product-editor.js", "utf8");
+const guided = fs.readFileSync("src/features/storefront/storefront-guided.js", "utf8");
+const hay = [app, adminRemote, adminStorage, productEditor, guided].join("\n");
 
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -19,7 +24,7 @@ const assert = (condition, message) => {
   "stock_quantity: stockMode === \"manual\"",
   "function selecionarImagemProdutoLojaPublica",
   "function confirmarStorefrontSalvamentoLocal"
-].forEach((marker) => assert(app.includes(marker), `Contrato de produto ausente em app.js: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker), `Contrato de produto ausente em app.js: ${marker}`));
 
 [
   "Adicionar mais fotos",
@@ -44,7 +49,7 @@ const assert = (condition, message) => {
 });
 
 assert(/alter table public\.store_products[\s\S]*add column if not exists short_description text/i.test(migration), "Migration idempotente de descrição curta ausente");
-assert(!app.includes("Produto salvo neste aparelho. Sincronização pendente."), "Produto ainda mostra falso erro de sincronização");
-assert(!app.includes("Contatos salvos neste aparelho. Sincronização pendente."), "Contatos ainda mostram falso erro de sincronização");
+assert(!hay.includes("Produto salvo neste aparelho. Sincronização pendente."), "Produto ainda mostra falso erro de sincronização");
+assert(!hay.includes("Contatos salvos neste aparelho. Sincronização pendente."), "Contatos ainda mostram falso erro de sincronização");
 
 console.log("Storefront product data: descrições, preços, estoque, galeria e mensagens validados.");

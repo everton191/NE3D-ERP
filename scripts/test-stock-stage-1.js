@@ -6,9 +6,14 @@ const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const audit = fs.readFileSync(path.join(root, "docs", "stock-audit-stage-1-2026-07-01.md"), "utf8");
+const ordersCommands = fs.readFileSync(path.join(root, "src", "features", "orders", "orders-command-service.js"), "utf8");
+const inventoryBatch = fs.readFileSync(path.join(root, "src", "features", "inventory", "inventory-batch-commands.js"), "utf8");
+const inventoryModals = fs.readFileSync(path.join(root, "src", "features", "inventory", "inventory-modals.js"), "utf8");
+const inventoryScreen = fs.readFileSync(path.join(root, "src", "features", "inventory", "inventory-screen-renderer.js"), "utf8");
+const haystack = [app, ordersCommands, inventoryBatch, inventoryModals, inventoryScreen].join("\n");
 
 function includes(needle, message) {
-  assert.ok(app.includes(needle), message || `Missing marker: ${needle}`);
+  assert.ok(haystack.includes(needle), message || `Missing marker: ${needle}`);
 }
 
 includes("function registrarHistorico(acao, detalhes = \"\", metadata = {})", "Historico deve aceitar metadata estruturada.");

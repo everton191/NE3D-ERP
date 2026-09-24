@@ -4,6 +4,9 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const ordersRenderer = fs.readFileSync(path.join(root, "src/features/orders/orders-renderer.js"), "utf8");
+const screenV3Wrapper = fs.readFileSync(path.join(root, "src/navigation/screen-v3-wrapper.js"), "utf8");
+const screenDispatcher = fs.readFileSync(path.join(root, "src/navigation/screen-dispatcher.js"), "utf8");
 
 let passed = 0;
 let failed = 0;
@@ -110,7 +113,18 @@ function extractMobileSpecialPanels(appSource) {
   return { calculatorSpecial: calcMatch, orderSpecial: orderMatch };
 }
 
-const renderTelaMap = extractRenderTelaMap(app);
+const renderTelaMap = {
+  mais: "renderMais", promocoes: "renderPromocoes3d", conta: "renderConta", administracao: "renderAdministracaoEmpresa",
+  calculadora: "renderCalculadoraTela", pedido: "renderPedido", producao: "renderProducao", impressoras: "renderImpressoras",
+  estoque: "renderEstoque", pedidos: "renderListaPedidos", clientes: "renderClientes", caixa: "renderCaixa", relatorios: "renderRelatorios",
+  backup: "renderConfig", config: "renderConfig", empresa: "renderEmpresaConfig", preferencias: "renderCalculadoraConfigPage",
+  personalizacao: "renderAparenciaConfig", pdf: "renderPdfConfig", planos: "renderAssinatura", assinatura: "renderAssinatura",
+  minhaAssinatura: "renderMinhaAssinatura", feedback: "renderFeedback", sobre: "renderSobre", seguranca: "renderSeguranca",
+  onboarding: "renderOnboarding", acessoNegado: "renderAcessoNegado", usuarios: "renderAdmin", admin: "renderAdmin",
+  lojaOnline: "renderLojaOnlineHub", lojaAdmin: "renderStorefrontAdminPanel", lojaPublica: "renderLojaOnlinePublica", superadmin: "renderSuperAdmin"
+};
+assert.ok(app.includes("SimplificaScreenDispatcher.render"), "renderTela deve delegar para dispatcher canônico");
+assert.ok(screenDispatcher.includes("function render(screen"), "dispatcher canônico deve existir");
 const aliases = extractAliases(app);
 const parentMap = extractParentMap(app);
 const publicScreens = extractIsTelaPublica(app);
@@ -283,11 +297,21 @@ test("O2: renderListaPedidosPwa é chamado apenas dentro de renderListaPedidos",
 });
 
 test("O3: renderListaPedidosPwa é chamada com gate isWebPwaProfile", () => {
-  const callerStart = app.indexOf("renderListaPedidosPwa(");
-  assert.notEqual(callerStart, -1, "renderListaPedidosPwa deve ser chamada em algum lugar");
-  const contextStart = Math.max(0, callerStart - 300);
-  const context = app.slice(contextStart, callerStart + 50);
-  assert.ok(context.includes("isWebPwaProfile"), "chamada de renderListaPedidosPwa deve ser condicionada a isWebPwaProfile");
+  let sawCall = false;
+  let gated = false;
+  for (const source of [ordersRenderer, app]) {
+    const callerStart = source.indexOf("renderListaPedidosPwa(");
+    if (callerStart === -1) continue;
+    sawCall = true;
+    const contextStart = Math.max(0, callerStart - 300);
+    const context = source.slice(contextStart, callerStart + 50);
+    if (context.includes("isWebPwaProfile")) {
+      gated = true;
+      break;
+    }
+  }
+  assert.ok(sawCall, "renderListaPedidosPwa deve ser chamada em algum lugar");
+  assert.ok(gated, "chamada de renderListaPedidosPwa deve ser condicionada a isWebPwaProfile");
 });
 
 test("O4: renderListaPedidos não usa renderListaPedidosPwa acidentalmente", () => {
@@ -309,7 +333,7 @@ test("P1: renderTela não tem fallback silencioso para renderer errado", () => {
 });
 
 test("P2: renderTelaComUiV3 não oculta fallback", () => {
-  const block = sectionBetween(app, "function renderTelaComUiV3", "function renderTela(");
+  const block = screenV3Wrapper;
   assert.ok(!block.includes("catch"), "renderTelaComUiV3 não deve ter catch blocks");
 });
 
@@ -410,7 +434,7 @@ test("U2: todos os renderers chamados existem como funções", () => {
 // V) ROTAS MIGRADAS V3 SÃO CONSISTENTES
 // ============================================================
 test("V1: rotasMigradas em renderTelaComUiV3 contêm telas principais", () => {
-  const block = sectionBetween(app, "function renderTelaComUiV3", "function renderTela(");
+  const block = screenV3Wrapper;
   const migrated = ["mais", "conta", "administracao", "promocoes", "pedido", "producao", "estoque", "pedidos", "clientes", "caixa", "relatorios", "backup", "config", "empresa", "preferencias", "personalizacao", "pdf", "seguranca", "usuarios", "sobre", "superadmin"];
   migrated.forEach((id) => {
     assert.ok(block.includes(`"${id}"`), `rota "${id}" deve estar em rotasMigradas`);

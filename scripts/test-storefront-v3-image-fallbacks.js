@@ -4,6 +4,8 @@ const app = fs.readFileSync("app.js", "utf8");
 const css = fs.readFileSync("style.css", "utf8");
 const publicRenderer = fs.readFileSync("src/storefront/renderers/publicV3.js", "utf8");
 const editorRenderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const publicModule = fs.readFileSync("src/features/storefront/storefront-public.js", "utf8");
+const hay = `${app}\n${publicModule}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -14,7 +16,7 @@ function assert(condition, message) {
   "function renderStorefrontResponsiveImage",
   "function handleStorefrontImageError",
   'data-store-image-fallback'
-].forEach((marker) => assert(app.includes(marker), `Fallback de imagem ausente em app.js: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker), `Fallback de imagem ausente em app.js: ${marker}`));
 
 [publicRenderer, editorRenderer].forEach((renderer, index) => {
   assert(renderer.includes('call("renderStorefrontResponsiveImage"'), `Renderer V3 ${index + 1} nao reutiliza o helper de imagem`);

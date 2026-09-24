@@ -27,4 +27,32 @@ assert.deepEqual(items.map((item) => item.total), [36, 24]);
 assert.deepEqual(controller.buildOrderHeader({ customer: "  Ana ", phone: " 1199 ", email: " a@b.com ", notes: " x ", dueDate: " 2026-10-01 ", downPayment: "10,5", paymentMethodId: "card", status: "confirmado" }, {
   normalizePhone: (value) => String(value).trim(), parseNumber: (value) => Number(String(value).replace(",", ".")), normalizePaymentMethod: (id) => ({ id, name: "Cartão", type: "card" })
 }), { cliente: "Ana", telefone: "1199", email: "a@b.com", observacao: "x", prazo: "2026-10-01", entrada: 10.5, down_payment: 10.5, valor_entrada: 10.5, paymentMethodId: "card", payment_method_id: "card", paymentMethod: "Cartão", payment_method_type: "card", status: "confirmado" });
+let editorState = null;
+controller.openAuthorizedEdit(4, {
+  loadOrder: () => ({ id: 4, cliente: "Ana", itens: [{ nome: "Peça", qtd: 2 }], descontoTipo: "porcentagem", descontoPercentual: "5", paymentMethodId: "pix" }),
+  isCancelled: () => false, toast: () => {}, orderTotal: () => 30, clone: (value) => JSON.parse(JSON.stringify(value)),
+  customerName: (order) => order.cliente, customerPhone: () => "85", customerEmail: () => "a@b.com",
+  downPayment: () => 4, discount: () => 2, parseNumber: Number,
+  normalizePaymentMethod: (id) => ({ id }), setEditorState: (next) => { editorState = next; },
+  setCustomerSuggestionState: () => {}, audit: () => {}, navigate: () => {}, notify: () => {}
+});
+assert.equal(editorState.customer, "Ana");
+assert.equal(editorState.discountPercentage, 5);
+assert.equal(editorState.paymentMethodId, "pix");
+let resetState = null;
+controller.resetAfterSave({
+  setEditorState: (next) => { resetState = next; },
+  setQuickItemDraft: () => {}, setQuickStatusDraft: () => {}, setSelectedItems: () => {}, setQuickSelectedItems: () => {},
+  setCustomerSuggestionState: () => {}, clearReview: () => {}, clearQuickDraft: () => {}
+});
+assert.equal(resetState.paymentMethodId, "pix");
+assert.deepEqual(resetState.items, []);
+assert.deepEqual(controller.describeOrderChanges({ itens: [{ nome: "Novo", qtd: 1 }] }, { itens: [{ nome: "Antigo", qtd: 1 }] }, { normalizarItensPedido: (order) => order.itens || [], getMateriaisItem: () => [] }), { adicionados: [], removidos: [], alterados: ["Novo"] });
+const draftStorage = new Map();
+const draftState = { customer: "Ana", items: [{ nome: "Peça" }], itemDraft: {}, open: false };
+assert.equal(controller.hasQuickOrderDraft(draftState), true);
+assert.equal(controller.saveQuickOrderDraft({}, draftState, { key: "draft", version: 1, now: () => "2026-09-20T12:00:00.000Z", normalizarItensPedido: (items) => items, storage: { setItem: (key, value) => draftStorage.set(key, value), removeItem: (key) => draftStorage.delete(key) }, diagnose: () => {} }), true);
+assert.equal(controller.loadQuickOrderDraft({ key: "draft", version: 1, ttl: 1000, nowMillis: () => new Date("2026-09-20T12:00:00.000Z").getTime(), storage: { getItem: (key) => draftStorage.get(key), removeItem: (key) => draftStorage.delete(key) }, diagnose: () => {} }).cliente, "Ana");
+assert.equal(controller.restoreQuickOrderDraft({ cliente: "Ana", telefone: "85", itens: [{ nome: "Peça" }], itemDraft: {} }, { findOrder: () => null, normalizePhone: String, normalizePaymentMethod: () => ({ id: "pix" }), normalizarItensPedido: (items) => items, currentLastItem: () => null, clone: (value) => value }).items.length, 1);
+assert.equal(controller.createEmptyQuickOrderDraftState().paymentMethod, "pix");
 console.log("Orders controller: campos, entrada e desconto preservados.");

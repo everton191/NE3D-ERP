@@ -9,17 +9,43 @@ const assert = (condition, message) => {
 };
 
 function extractFunction(name) {
-  const start = app.indexOf(`function ${name}`);
-  assert(start >= 0, `Funcao ausente: ${name}`);
-  const signatureEnd = app.indexOf(") {", start);
-  const braceStart = signatureEnd >= 0 ? signatureEnd + 2 : app.indexOf("{", start);
-  let depth = 0;
-  for (let index = braceStart; index < app.length; index += 1) {
-    if (app[index] === "{") depth += 1;
-    if (app[index] === "}") depth -= 1;
-    if (depth === 0) return app.slice(start, index + 1);
+  const sources = [
+    app,
+    fs.readFileSync("src/features/storefront/storefront-guided.js", "utf8"),
+    fs.readFileSync("src/features/storefront/storefront-product-editor.js", "utf8"),
+    fs.readFileSync("src/features/storefront/storefront-editor.js", "utf8"),
+    fs.readFileSync("src/features/storefront/storefront-admin-store.js", "utf8")
+  ];
+  let body = null;
+  for (const src of sources) {
+    const start = src.indexOf(`function ${name}`);
+    if (start < 0) continue;
+    const signatureEnd = src.indexOf(") {", start);
+    const braceStart = signatureEnd >= 0 ? signatureEnd + 2 : src.indexOf("{", start);
+    let depth = 0;
+    let candidate = null;
+    for (let index = braceStart; index < src.length; index += 1) {
+      if (src[index] === "{") depth += 1;
+      if (src[index] === "}") depth -= 1;
+      if (depth === 0) {
+        candidate = src.slice(start, index + 1);
+        break;
+      }
+    }
+    if (!candidate) continue;
+    if (!body) body = candidate;
+    if (!/window\.Simplifica/.test(candidate)) {
+      body = candidate;
+      break;
+    }
   }
-  throw new Error(`Funcao incompleta: ${name}`);
+  if (!body) throw new Error(`Funcao ausente: ${name}`);
+  const sig = body.match(new RegExp(`function ${name}\\(([^)]*)\\)`));
+  if (sig && sig[1].includes("context")) {
+    const renamed = body.replace(`function ${name}(`, `function ${name}__impl(`);
+    body = `${renamed}\nfunction ${name}(form) { return ${name}__impl(form, { document, getStorefrontProductFormField, salvarProdutoLojaOnline }); }`;
+  }
+  return body;
 }
 
 [

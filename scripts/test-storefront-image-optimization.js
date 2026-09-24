@@ -2,6 +2,10 @@ const fs = require("fs");
 
 const app = fs.readFileSync("app.js", "utf8");
 const renderer = fs.readFileSync("src/storefront/renderers/editorV3.js", "utf8");
+const adminRemote = fs.readFileSync("src/features/storefront/storefront-admin-remote.js", "utf8");
+const imagesModule = fs.readFileSync("src/features/storefront/storefront-images.js", "utf8");
+const productEditor = fs.readFileSync("src/features/storefront/storefront-product-editor.js", "utf8");
+const hay = `${app}\n${adminRemote}\n${imagesModule}\n${productEditor}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -18,7 +22,7 @@ function assert(condition, message) {
   "Math.min(1, preset.maxSide / Math.max(loaded.width, loaded.height))",
   "optimized.__storefrontImageMeta",
   "if (file?.__storefrontImageMeta) return Promise.resolve(file);"
-].forEach((marker) => assert(app.includes(marker), `Pipeline de imagem da loja incompleto: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker), `Pipeline de imagem da loja incompleto: ${marker}`));
 
 [
   "logo: { maxSide: 1200",
@@ -27,7 +31,7 @@ function assert(condition, message) {
   "categoria: { maxSide: 1600",
   "maxBytes: 1536 * 1024",
   "preserveAlpha: true"
-].forEach((marker) => assert(app.includes(marker), `Preset de imagem ausente: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker), `Preset de imagem ausente: ${marker}`));
 
 [
   "const preparedFile = await otimizarArquivoStorefrontImagem(file, \"produto\")",
@@ -36,9 +40,9 @@ function assert(condition, message) {
   "lerArquivoComoDataUrl(preparedFile)",
   "Imagem ajustada",
   "accept=\"image/jpeg,image/png,image/webp\""
-].forEach((marker) => assert(app.includes(marker) || renderer.includes(marker), `Uso do arquivo otimizado ausente: ${marker}`));
+].forEach((marker) => assert(hay.includes(marker) || renderer.includes(marker), `Uso do arquivo otimizado ausente: ${marker}`));
 
-assert(!app.includes("Imagem muito grande. Use até 3 MB."), "Upload da loja nao deve falhar apenas pelo limite antigo de 3 MB antes de otimizar");
-assert(!app.includes("Imagem muito grande. Use logo até 1 MB."), "Logo nao deve falhar pelo limite antigo de 1 MB antes de otimizar");
+assert(!hay.includes("Imagem muito grande. Use até 3 MB."), "Upload da loja nao deve falhar apenas pelo limite antigo de 3 MB antes de otimizar");
+assert(!hay.includes("Imagem muito grande. Use logo até 1 MB."), "Logo nao deve falhar pelo limite antigo de 1 MB antes de otimizar");
 
 console.log("Storefront image optimization: validação, redimensionamento, compressão e fallback local cobertos por contrato.");

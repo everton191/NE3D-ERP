@@ -4,6 +4,10 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
+const cashRenderer = fs.readFileSync(path.join(root, "src", "features", "cash", "cash-renderer.js"), "utf8");
+const usersAdminRenderer = fs.readFileSync(path.join(root, "src", "features", "users", "users-administration-renderer.js"), "utf8");
+const storefrontPublication = fs.readFileSync(path.join(root, "src", "features", "storefront", "storefront-publication.js"), "utf8");
+const haystack = app + "\n" + cashRenderer + "\n" + usersAdminRenderer + "\n" + storefrontPublication;
 const css = fs.readFileSync(path.join(root, "style.css"), "utf8");
 const monetization = fs.readFileSync(path.join(root, "src/services/monetizationLimits.js"), "utf8");
 const adMob = fs.readFileSync(path.join(root, "src/services/adMobService.js"), "utf8");
@@ -15,7 +19,7 @@ function includesAll(source, items, label) {
   }
 }
 
-includesAll(app, [
+includesAll(haystack, [
   "FREE_PRODUCT_LIMIT = 25",
   "START_PRODUCT_LIMIT = 300",
   "FREE_STORE_PRODUCT_LIMIT = 0",
@@ -68,7 +72,7 @@ assert(!app.includes("assinatura.pendingPlan = plano.slug"), "checkout nao deve 
 assert(!app.includes("billingConfig.pendingPlan = plano.slug"), "checkout nao deve gravar pendingPlan global antes do pagamento aprovado");
 assert(!app.includes("billingConfig.monthlyPrice = planPrice"), "checkout nao deve alterar preco mensal antes do pagamento aprovado");
 
-includesAll(app, [
+includesAll(haystack, [
   "O link público e o compartilhamento da loja ficam disponíveis nos planos Start e Pro ativos.",
   "Sua loja está salva, mas a publicação pública está disponível apenas nos planos Start e Pro.",
 ], "bloqueio de publicacao gratis");

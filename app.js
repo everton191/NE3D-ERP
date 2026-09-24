@@ -1165,7 +1165,7 @@ appConfig.theme = normalizarPreferenciaTemaInterface(localStorage.getItem(ERP_TH
 function getConfigInterfaceModeDeps() {
   return {
     appConfig,
-    billingConfig,
+    get billingConfig() { return billingConfig; },
     estaOnline,
     FEATURE_MATRIX,
     getAssinaturaSaas,
@@ -1178,7 +1178,7 @@ function getConfigInterfaceModeDeps() {
     INTERFACE_MODE_UPDATED_AT_STORAGE_KEY,
     INTERFACE_MODE_VALUES,
     INTERFACE_MODES,
-    interfaceModePreferenceState,
+    get interfaceModePreferenceState() { return interfaceModePreferenceState; },
     isModoManutencaoSuperadminAtivo,
     isSuperAdmin,
     localStorage,
@@ -5792,7 +5792,7 @@ function getDadosFinanceirosCanonicosComFallback() {
 }
 function getMovimentosCaixaDaConta() {
   const dados = getDadosFinanceirosCanonicosComFallback();
-  return dados.movements.map((movimento) => adaptarMovimentoFinanceiroCanonicoParaCaixa(movimento, dados.estado.paymentMethods));
+  return dados.movements.map((movimento) => adaptarMovimentoFinanceiroCanonicoParaCaixa(movimento, dados.state.paymentMethods));
 }
 
 function getProjecaoFinanceiraCanonica(periodo = "mes", opcoes = {}) {
@@ -9073,7 +9073,7 @@ function getAppDomainEventsDeps() {
     document,
     location,
     DRAWER_EDGE_SWIPE_ENABLED,
-    setTimeoutRef,
+    setTimeoutRef: window.setTimeout.bind(window),
     isMobile,
     isAndroidNativeApp,
     getPlatformAdapter,
@@ -9557,15 +9557,15 @@ function getAppUiRenderersDeps() {
   return {
     window, document, appLayerIds: APP_LAYER_IDS, realtimeSyncState, printerMonitoringState, bambuLanState, interfaceModePreferenceState, pedidos,
     getTelaAtual: () => telaAtual, setTelaAtual: (value) => (telaAtual = value), setTelaAnterior: (value) => (telaAnterior = value), getAdminLogado: () => adminLogado,
-    getUsuarioAtual, getAssistantUiComponents3d, getEstadoVisualSecretariaIa, getDescricaoEstadoSecretariaIa, renderUiIcon, configurarReposicionamentoAtalhoAssistenteIa, aplicarPosicaoAtalhoAssistenteIa,
+    getUsuarioAtual, getAssistantUiComponents3d, getEstadoVisualSecretariaIa, getDescricaoEstadoSecretariaIa, renderUiIcon, renderAuthPublica, configurarReposicionamentoAtalhoAssistenteIa, aplicarPosicaoAtalhoAssistenteIa,
     ensureAppShellLayers, garantirSubmenusMobileComoTelas, applyViewportModeClasses, aplicarPersonalizacao, renderTravaLocal, renderCalculadoraFlutuante, sincronizarBannersSeNecessario, focarCampoSenha,
     isTelaPublica, isSuperAdmin, isModoErpSuperadminAtivo, normalizarAbaSuperAdmin, deveMostrarOnboarding, getInterfaceMode, atualizarArvoreInterface, renderMobile, renderDesktop, getChaveEstruturalInterface,
-    compactarBarrasAcoesMobile, sincronizarShellUiV3, renderizarFabEstoqueGlobal, configurarFechamentoMenusEstoque, configurarAcoesCadastroImpressora, configurarAcoesPerfil, atualizarMenu,
+    compactarBarrasAcoesMobile, sincronizarShellUiV3, renderizarFabEstoqueGlobal, renderizarAtalhoSecretariaIaGlobal, configurarFechamentoMenusEstoque, configurarAcoesCadastroImpressora, configurarAcoesPerfil, atualizarMenu,
     ajustarJanelasDashboardAoWorkspace, hidratarLojaPublicaSeNecessario, preencherImpressoras, preencherMateriaisCalculadora, atualizarVisualTaxaExtraCalculadora, atualizarResumoLoteCalculadora,
     getSyncConfig: () => syncConfig, hidratarImpressorasSeNecessario, getBambuLanPlugin, hidratarBambuLanState, sincronizarPreferenciaModoInterface, aplicarMotionSequenciado, hidratarLojaOnlineAdmin,
     normalizarEmail, superadminBootstrapEmail: SUPERADMIN_BOOTSTRAP_EMAIL, saasClients, renderListaClientesSaasConteudo, getClienteSaasPorId, clientePassaFiltrosSaas,
     normalizarTipoToast, mensagemToastTecnica, registrarDiagnostico, toastDebounceMs: TOAST_DEBOUNCE_MS, getAppLayer, escaparHtml, trocarTela, renderAdminSobDemanda, promoverPopupParaDialogUiV3,
-    isProfissionalMode, formatarMoeda, canAccessScreen, escaparAttr, configurarAnimacaoCarrosselHome, setTimeout
+    isProfissionalMode, formatarMoeda, canAccessScreen, escaparAttr, configurarAnimacaoCarrosselHome, setTimeout: window.setTimeout.bind(window)
   };
 }
 
@@ -9849,7 +9849,7 @@ function getStorefrontEditorDeps() {
     storefrontAdminWrite,
     storefrontBeginOperation,
     storefrontEndOperation,
-    storefrontGuidedPanelOpen,
+    get storefrontGuidedPanelOpen() { return storefrontGuidedPanelOpen; },
     storefrontPublicInternalHistory,
     storefrontQueuePendingAction,
     storefrontScheduleAutosave,
@@ -10044,7 +10044,7 @@ function getStorefrontPublicDeps() {
     navigator,
     normalizarSlugPlano,
     normalizarTelefoneWhatsapp,
-    normalizarUrlInstagramLoja,
+    normalizarUrlInstagramLoja: (...args) => window.SimplificaStorefrontPublic.normalizarUrlInstagramLoja(...args),
     parseStorefrontPublicRoute,
     prompt,
     registrarAuditoria,
@@ -10081,7 +10081,7 @@ function getStorefrontPublicDeps() {
     STOREFRONT_PUBLIC_EVENTS_KEY,
     STOREFRONT_PUBLIC_LEADS_KEY,
     STOREFRONT_PUBLIC_ORDER_DRAFTS_KEY,
-    STOREFRONT_V3_LIGHT_THEME,
+    get STOREFRONT_V3_LIGHT_THEME() { return STOREFRONT_V3_LIGHT_THEME; },
     storefrontAdminCurrentOwnerId,
     storefrontAdminIsLocalId,
     storefrontAdminRead,
@@ -10089,7 +10089,7 @@ function getStorefrontPublicDeps() {
     storefrontAdminRequest,
     storefrontAdminSlugify,
     storefrontAdminWrite,
-    storefrontGuidedPanelOpen,
+    get storefrontGuidedPanelOpen() { return storefrontGuidedPanelOpen; },
     storefrontIsDemoProduct,
     storefrontPublicCategoryName,
     storefrontPublicRouteState,
@@ -10153,7 +10153,7 @@ function getStorefrontGuidedDeps() {
     storefrontAdminWrite,
     storefrontCategoryDraftEnsureState,
     storefrontGuidedCatalogState,
-    storefrontGuidedPanelOpen,
+    get storefrontGuidedPanelOpen() { return storefrontGuidedPanelOpen; },
     storefrontGuidedSelection,
     storefrontScheduleAutosave,
     telaAtual,
@@ -16232,8 +16232,9 @@ if (typeof window !== "undefined") {
         return { ok: true, data: value, summary: `Saldo do caixa: ${formatarMoeda(value.saldo)}.` };
       }
       if (safe.type === "production.list_queue") {
+        const items = window.Simplifica3dAiReadFacade.searchProductionJobsReadOnly(safe.payload.status || "all");
         const value = window.Simplifica3dAiReadFacade.productionSummaryReadOnly();
-        return { ok: true, data: value, summary: `${value.active} trabalho(s) ativo(s) de ${value.total}.` };
+        return { ok: true, data: { items, summary: value }, summary: items.length ? `${items.length} trabalho(s) encontrado(s).` : "Nenhum trabalho encontrado." };
       }
       if (safe.type === "calculator.quote") {
         const value = window.Simplifica3dAiReadFacade.calculatePrice({ weightGrams: safe.payload.weight_grams, timeMinutes: safe.payload.time_minutes, quantity: safe.payload.quantity });
@@ -16269,6 +16270,10 @@ if (typeof window !== "undefined") {
     },
     productionSummaryReadOnly() {
       return { active: productionJobs.filter((job) => !/conclu|cancel/i.test(String(job.status || ""))).length, total: productionJobs.length };
+    },
+    searchProductionJobsReadOnly(status = "all") {
+      const expectedStatus = normalizarTextoBusca(status);
+      return productionJobs.filter((job) => !expectedStatus || expectedStatus === "all" || normalizarTextoBusca(String(job.status || "")).includes(expectedStatus)).slice(0, 20).map((job) => ({ id: String(job.id || ""), title: job.title || job.name || job.productionCode || job.orderId || "Trabalho de produção", status: String(job.status || "unknown"), printerId: String(job.printerId || job.printer_id || ""), orderId: String(job.orderId || job.order_id || "") }));
     },
     searchProductsReadOnly(query = "") {
       const term = normalizarTextoBusca(query);
@@ -18192,6 +18197,22 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         ${renderDashboardDesktopContinuityPanel()}
       </div>
       ${renderDashboardOnboardingCard()}
+    <!-- Home Carousel 3D Init -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const canvas = document.getElementById("home-carousel-3d-canvas");
+        if (canvas && window.SimplificaHomeCarouselEngine && window.SimplificaHomeCarouselRenderer && window.SimplificaHomeCarouselConfig) {
+          const cards = window.SimplificaHomeCarouselConfig.active.map(id => {
+            const item = window.SimplificaHomeCarouselConfig.get(id);
+            return { title: item.title, targetScreen: item.targetScreen };
+          });
+          const registry = window.SimplificaHomeCarouselRegistry.createRegistry(cards.map(c => c.targetScreen));
+          const engine = window.SimplificaHomeCarouselEngine.createEngine(cards, { registry });
+          const renderer = window.SimplificaHomeCarouselRenderer.createRenderer(canvas, engine, cards);
+          renderer.render();
+        }
+      });
+    </script>
     </section>
   `;
 }
@@ -18203,11 +18224,33 @@ function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
       ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
       ${renderDashboardMobileAdvancedPanel(stats, totaisCaixa)}
-      ${renderPedidosRecentesDashboard()}
+
+            <!-- Home Carousel 3D Canvas -->
+            <section class="home-carousel-3d-screen" id="home-carousel-3d-screen">
+              <canvas id="home-carousel-3d-canvas" style="display:block"></canvas>
+            </section>
+
+            ${renderPedidosRecentesDashboard()}
       ${renderResumoDiaDashboard(stats, totaisCaixa, analytics)}
       ${renderInsightSmartDashboard(stats)}
       ${renderContinuarDeOndeParouDashboard()}
       ${renderDashboardOnboardingCard()}
+    <!-- Home Carousel 3D Init -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function() {
+        const canvas = document.getElementById("home-carousel-3d-canvas");
+        if (canvas && window.SimplificaHomeCarouselEngine && window.SimplificaHomeCarouselRenderer && window.SimplificaHomeCarouselConfig) {
+          const cards = window.SimplificaHomeCarouselConfig.active.map(id => {
+            const item = window.SimplificaHomeCarouselConfig.get(id);
+            return { title: item.title, targetScreen: item.targetScreen };
+          });
+          const registry = window.SimplificaHomeCarouselRegistry.createRegistry(cards.map(c => c.targetScreen));
+          const engine = window.SimplificaHomeCarouselEngine.createEngine(cards, { registry });
+          const renderer = window.SimplificaHomeCarouselRenderer.createRenderer(canvas, engine, cards);
+          renderer.render();
+        }
+      });
+    </script>
     </section>
   `;
 }
@@ -19513,7 +19556,7 @@ function getPrintersOperationsDeps() {
     BAMBU_PILOT_PROGRESS_STORAGE_PREFIX,
     bambuLanState,
     bambuLoginDraftState,
-    billingConfig,
+    get billingConfig() { return billingConfig; },
     canAccessFeature,
     carregarObjeto,
     clienteDoPedido,
@@ -25829,7 +25872,7 @@ function getConfigAppearanceDeps() {
     aplicarLinhaPersonalizacaoRemota,
     aplicarPersonalizacao,
     appConfig,
-    billingConfig,
+    get billingConfig() { return billingConfig; },
     canvasSuportaMime,
     carregarImagemArquivo,
     confirm,
@@ -25842,7 +25885,7 @@ function getConfigAppearanceDeps() {
     getInterfaceMode,
     getUsuarioAtual,
     Image,
-    IMAGE_PERSONALIZATION_PRESETS,
+    get IMAGE_PERSONALIZATION_PRESETS() { return IMAGE_PERSONALIZATION_PRESETS; },
     limitarCorPdf,
     localStorage,
     mostrarToast,
@@ -25851,7 +25894,7 @@ function getConfigAppearanceDeps() {
     normalizarPdfTheme,
     normalizarPreferenciaTemaInterface,
     normalizePhoneBR,
-    PlanService,
+    get PlanService() { return PlanService; },
     registrarDiagnostico,
     registrarFluxoSalvamento,
     registrarHistorico,
@@ -25859,13 +25902,13 @@ function getConfigAppearanceDeps() {
     requisicaoSupabase,
     salvarDados,
     salvarPersonalizacaoRemotaSilencioso,
-    STOREFRONT_V3_LIGHT_THEME,
+    get STOREFRONT_V3_LIGHT_THEME() { return STOREFRONT_V3_LIGHT_THEME; },
     syncConfig,
-    SYSTEM_NAME,
+    get SYSTEM_NAME() { return SYSTEM_NAME; },
     tamanhoDataUrlBytes,
     temAcessoCompleto,
-    THEME_DARK_PALETTES,
-    THEME_LIGHT_PALETTES,
+    get THEME_DARK_PALETTES() { return THEME_DARK_PALETTES; },
+    get THEME_LIGHT_PALETTES() { return THEME_LIGHT_PALETTES; },
     window
   };
 }
@@ -36678,7 +36721,6 @@ function getBillingCommandsDeps() {
     atualizarOperacaoUX,
     concluirOperacaoUX,
     falharOperacaoUX,
-    EMAIL_SUPABASE,
     PLAN_REGISTRY,
     DEFAULT_SAAS_PLANS,
     PLAN_ACCESS_STATES,

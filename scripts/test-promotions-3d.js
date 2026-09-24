@@ -19,7 +19,7 @@ const refreshFunction = fs.readFileSync(
 [
   'promocoes: Object.freeze({ label: "Promoções 3D"',
   '{ tela: "promocoes", icone: "cupom", texto: "Promoções 3D", badge: novidadesPromocoes }',
-  'case "promocoes":',
+  "promocoes: renderPromocoes3d",
   "function renderPromocoes3d()",
   "function carregarPromocoes3d(",
   "function pesquisarPromocoes3d(",

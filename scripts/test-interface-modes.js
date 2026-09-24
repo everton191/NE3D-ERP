@@ -1,7 +1,9 @@
 const fs = require("fs");
 
-const app = fs.readFileSync("app.js", "utf8");
-const css = fs.readFileSync("style.css", "utf8");
+const app = fs.readFileSync("app.js", "utf8").replace(/\r\n/g, "\n");
+const css = fs.readFileSync("style.css", "utf8").replace(/\r\n/g, "\n");
+const interfaceMode = fs.readFileSync("src/features/config/config-interface-mode.js", "utf8").replace(/\r\n/g, "\n");
+const body = `${app}\n${interfaceMode}`;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -38,21 +40,23 @@ assert(app.includes('{ acao: "abrirMenuPopup()", iconKey: "plus", icone: "+", te
 assert(!app.includes('{ tela: "lojaOnline", icone: "🛍️", texto: "Loja" }'), "Bottom nav simples nao deve fixar Loja");
 assert(app.includes("function abrirSeletorModoInterface()"), "Perfil deve abrir seletor de modo");
 assert(app.includes('function renderDashboardInterfaceModeButton() {\n  if (!isSimplificaMode()) return "";'), "Engrenagem rápida deve aparecer somente na Home simples");
-assert(app.includes("selecionarModoInterface('simple')"), "Seletor deve expor Modo simples");
-assert(app.includes("selecionarModoInterface('advanced')"), "Seletor deve expor Modo avancado");
+assert(body.includes("selecionarModoInterface('simple')"), "Seletor deve expor Modo simples");
+assert(body.includes("selecionarModoInterface('advanced')"), "Seletor deve expor Modo avancado");
 assert(app.includes('class="ui3-settings-row" type="button" onclick="abrirSeletorModoInterface()"'), "Perfil deve usar SettingsRow V3 para o modo");
 assert(app.includes("Preferências da interface"), "Perfil deve agrupar tema e modo em preferências da interface");
 assert(!app.includes("settings-mode-trigger"), "Configuracoes nao devem duplicar o modo de uso");
 assert(app.includes('const INTERFACE_MODE_STORAGE_KEY = "simplifica_interface_mode"'), "Modo deve usar a chave local solicitada");
 assert(app.includes('const INTERFACE_MODE_UPDATED_AT_STORAGE_KEY = "simplifica_interface_mode_updated_at"'), "Modo deve registrar quando a preferencia local foi alterada");
-assert(app.includes("if (localTime > remoteTime)"), "Preferencia remota antiga nao deve sobrescrever escolha local recente");
+assert(body.includes("if (localTime > remoteTime)"), "Preferencia remota antiga nao deve sobrescrever escolha local recente");
 assert(app.includes("localStorage.setItem(INTERFACE_MODE_STORAGE_KEY, serializeInterfaceMode(appConfig.interfaceMode))"), "Restauracao/importacao deve persistir simple/advanced");
 assert(app.includes("function sincronizarPreferenciaModoInterface()"), "Modo deve sincronizar com preferencia remota");
-assert(app.includes('/rest/v1/user_preferences?on_conflict=user_id'), "Modo deve salvar em user_preferences");
+assert(body.includes('/rest/v1/user_preferences?on_conflict=user_id'), "Modo deve salvar em user_preferences");
 assert(app.includes("function renderDashboardSimplifica"), "Modo Simplifica deve ter dashboard simples dedicado");
 assert(app.includes("if (isSimplificaMode()) return renderDashboardSimplifica(payload);"), "Dashboard deve escolher a versao Simplifica");
 assert(app.includes('if (!isContextAdvancedVisible("caixa")) return "movimentos";'), "Caixa simplificado deve evitar extrato avancado");
-assert(app.includes('class="stock-item-menu"') && app.includes('data-action="stock-edit"'), "Acoes avancadas do estoque devem ficar no menu contextual de tres pontos");
+const inventoryScreen = fs.readFileSync("src/features/inventory/inventory-screen-renderer.js", "utf8").replace(/\r\n/g, "\n");
+const stockHaystack = `${app}\n${inventoryScreen}`;
+assert(stockHaystack.includes('class="ui-context-menu stock-item-menu"') && stockHaystack.includes('data-action="stock-edit"'), "Acoes avancadas do estoque devem ficar no menu contextual de tres pontos");
 assert(app.includes("function renderContextualAdvancedToggle"), "Telas principais devem permitir mostrar mais opcoes sem trocar o modo global");
 assert(app.includes("function selecionarPresetMargemCalculadora"), "Calculadora deve ter presets de margem no front-end");
 assert(app.includes("[30, 50, 100].map"), "Presets de margem 30/50/100 devem existir");
@@ -66,7 +70,7 @@ assert(css.includes(".stock-roll-preview"), "CSS deve contemplar previa de rolos
 assert(css.includes(".account-security-roadmap"), "CSS deve contemplar seguranca futura");
 assert(css.includes("body.theme-light :where(.calc-modern-screen,.calc-input-panel"), "Tema claro deve reforcar superficies solidas nos pontos desfocados");
 assert(css.includes("backdrop-filter:none !important"), "Tema claro deve remover blur residual de componentes operacionais");
-assert(app.includes("window.UiV3.Dialog({ title: \"Escolher versão da interface\""), "Seletor de versão deve usar Dialog V3 centralizado");
+assert(body.includes("window.UiV3.Dialog({ title: \"Escolher versão da interface\""), "Seletor de versão deve usar Dialog V3 centralizado");
 assert(!app.includes("interface-mode-backdrop"), "Seletor de modo nao deve manter backdrop legado");
 assert(!app.includes("Ativar modo avançado"), "Home nao deve exibir troca global de modo");
 assert(!app.includes("Você está usando o Modo Simples"), "Home nao deve exibir aviso de modo simples");
