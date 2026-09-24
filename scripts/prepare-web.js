@@ -99,6 +99,7 @@ const publicSrcFiles = [
   "src/features/home/carousel3d/core/home-carousel-engine.js",
   "src/features/home/carousel3d/visual/home-carousel-renderer.js",
   "src/features/home/carousel3d/core/home-carousel-scene.js",
+  "src/features/home/carousel3d/home-carousel-mount.js",
   "src/features/app-ui/app-ui-renderers.js",
   "src/features/customers/customer-normalizers.js",
   "src/features/customers/customers-renderer.js",

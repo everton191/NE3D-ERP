@@ -9565,7 +9565,7 @@ function getAppUiRenderersDeps() {
     getSyncConfig: () => syncConfig, hidratarImpressorasSeNecessario, getBambuLanPlugin, hidratarBambuLanState, sincronizarPreferenciaModoInterface, aplicarMotionSequenciado, hidratarLojaOnlineAdmin,
     normalizarEmail, superadminBootstrapEmail: SUPERADMIN_BOOTSTRAP_EMAIL, saasClients, renderListaClientesSaasConteudo, getClienteSaasPorId, clientePassaFiltrosSaas,
     normalizarTipoToast, mensagemToastTecnica, registrarDiagnostico, toastDebounceMs: TOAST_DEBOUNCE_MS, getAppLayer, escaparHtml, trocarTela, renderAdminSobDemanda, promoverPopupParaDialogUiV3,
-    isProfissionalMode, formatarMoeda, canAccessScreen, escaparAttr, configurarAnimacaoCarrosselHome, setTimeout: window.setTimeout.bind(window)
+    isProfissionalMode, formatarMoeda, canAccessScreen, escaparAttr, mountHomeCarousel, unmountHomeCarousel, setTimeout: window.setTimeout.bind(window)
   };
 }
 
@@ -18180,6 +18180,7 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         ${renderDashboardDesktopMetricRow(stats, totaisCaixa)}
       </div>
       ${renderDashboardQuickActionsPanel()}
+      ${renderDashboardMobileAdvancedPanel(stats, totaisCaixa)}
       <div class="ui3-grid ui3-dashboard-main-grid">
         <div class="recent-orders-card">${renderPedidosRecentesDashboard()}</div>
         <div class="revenue-card">${renderDashboardComboChart(analytics)}</div>
@@ -18197,22 +18198,6 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
         ${renderDashboardDesktopContinuityPanel()}
       </div>
       ${renderDashboardOnboardingCard()}
-    <!-- Home Carousel 3D Init -->
-    <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        const canvas = document.getElementById("home-carousel-3d-canvas");
-        if (canvas && window.SimplificaHomeCarouselEngine && window.SimplificaHomeCarouselRenderer && window.SimplificaHomeCarouselConfig) {
-          const cards = window.SimplificaHomeCarouselConfig.active.map(id => {
-            const item = window.SimplificaHomeCarouselConfig.get(id);
-            return { title: item.title, targetScreen: item.targetScreen };
-          });
-          const registry = window.SimplificaHomeCarouselRegistry.createRegistry(cards.map(c => c.targetScreen));
-          const engine = window.SimplificaHomeCarouselEngine.createEngine(cards, { registry });
-          const renderer = window.SimplificaHomeCarouselRenderer.createRenderer(canvas, engine, cards);
-          renderer.render();
-        }
-      });
-    </script>
     </section>
   `;
 }
@@ -18224,39 +18209,25 @@ function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
       ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
       ${renderDashboardMobileAdvancedPanel(stats, totaisCaixa)}
-
-            <!-- Home Carousel 3D Canvas -->
-            <section class="home-carousel-3d-screen" id="home-carousel-3d-screen">
-              <canvas id="home-carousel-3d-canvas" style="display:block"></canvas>
-            </section>
-
             ${renderPedidosRecentesDashboard()}
       ${renderResumoDiaDashboard(stats, totaisCaixa, analytics)}
       ${renderInsightSmartDashboard(stats)}
       ${renderContinuarDeOndeParouDashboard()}
       ${renderDashboardOnboardingCard()}
-    <!-- Home Carousel 3D Init -->
-    <script>
-      document.addEventListener("DOMContentLoaded", function() {
-        const canvas = document.getElementById("home-carousel-3d-canvas");
-        if (canvas && window.SimplificaHomeCarouselEngine && window.SimplificaHomeCarouselRenderer && window.SimplificaHomeCarouselConfig) {
-          const cards = window.SimplificaHomeCarouselConfig.active.map(id => {
-            const item = window.SimplificaHomeCarouselConfig.get(id);
-            return { title: item.title, targetScreen: item.targetScreen };
-          });
-          const registry = window.SimplificaHomeCarouselRegistry.createRegistry(cards.map(c => c.targetScreen));
-          const engine = window.SimplificaHomeCarouselEngine.createEngine(cards, { registry });
-          const renderer = window.SimplificaHomeCarouselRenderer.createRenderer(canvas, engine, cards);
-          renderer.render();
-        }
-      });
-    </script>
     </section>
   `;
 }
 
 function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisCaixa = calcularTotaisCaixa()) {
   return window.SimplificaAppUiRenderers.renderDashboardMobileAdvancedPanel(stats, totaisCaixa, getAppUiRenderersDeps());
+}
+
+function mountHomeCarousel(container) {
+  return window.SimplificaHomeCarouselMount.mount(container, { canAccessScreen, onNavigate: trocarTela });
+}
+
+function unmountHomeCarousel() {
+  return window.SimplificaHomeCarouselMount.unmount();
 }
 
 function configurarAnimacaoCarrosselHome() {

@@ -75,7 +75,9 @@
     const modoSuperadminIsolado = deps.isSuperAdmin() && telaAtual === "superadmin";
     const homeDestination = telaAtual === "dashboard" || telaAtual === "superadmin";
     if (homeDestination) deps.window.SimplificaAuthCommands.traceLogin(telaAtual === "dashboard" ? "NAV_HOME" : "NAV_SUPERADMIN");
+    deps.unmountHomeCarousel();
     deps.atualizarArvoreInterface(app, mobile ? deps.renderMobile() : deps.renderDesktop(), { chaveEstrutural: deps.getChaveEstruturalInterface(mobile) });
+    if (telaAtual === "dashboard") deps.mountHomeCarousel(app.querySelector("[data-home-carousel-host]"));
     deps.compactarBarrasAcoesMobile(); deps.sincronizarShellUiV3(); deps.renderizarFabEstoqueGlobal(); deps.renderizarAtalhoSecretariaIaGlobal(); deps.configurarFechamentoMenusEstoque(); deps.configurarAcoesCadastroImpressora(); deps.configurarAcoesPerfil(); deps.atualizarMenu();
     if (!modoSuperadminIsolado) {
       deps.ajustarJanelasDashboardAoWorkspace(false); deps.renderCalculadoraFlutuante(); deps.sincronizarBannersSeNecessario(); deps.hidratarLojaPublicaSeNecessario(); deps.preencherImpressoras(); deps.preencherMateriaisCalculadora();
@@ -120,8 +122,8 @@
   function renderDashboardMobileAdvancedPanel(stats, totaisCaixa, deps) {
     if (!deps.isProfissionalMode()) return "";
     const itens = [{ tela: "producao", icon: "producao", label: "Produção", detail: `${stats.producoesAtivas || 0} em produção`, live: [`Abertos ${stats.pedidosAbertos || 0}`, `Prontos ${stats.pedidosConcluidos || 0}`] }, { tela: "caixa", icon: "caixa", label: "Caixa", detail: deps.formatarMoeda(totaisCaixa.saldo), live: [`Entradas ${deps.formatarMoeda(totaisCaixa.entradas)}`, `Saídas ${deps.formatarMoeda(totaisCaixa.saidas)}`, `Lucro ${deps.formatarMoeda(stats.lucroDiaEstimado || 0)}`] }, { tela: "relatorios", icon: "relatorios", label: "Relatórios", detail: deps.formatarMoeda(stats.faturamentoDia || 0), live: [`Lucro ${deps.formatarMoeda(stats.lucroEstimado || 0)}`, `Ticket ${deps.formatarMoeda(stats.pedidosHoje ? (stats.faturamentoDia || 0) / stats.pedidosHoje : 0)}`] }, { tela: "estoque", icon: "estoque", label: "Estoque", detail: stats.estoqueBaixo ? `${stats.estoqueBaixo} alerta(s)` : "OK", live: [`Materiais ${stats.totalMateriais || 0}`, `Consumo ${(Number(stats.consumoHojeKg) || 0).toFixed(3)} kg`] }, { tela: "administracao", icon: "empresa", label: "Administração", detail: "Empresa", live: [`Clientes com pedidos ${stats.clientesAtivos || 0}`, `Pedidos ${deps.pedidos.length}`] }].filter((item) => deps.canAccessScreen(item.tela));
-    if (!itens.length) return ""; deps.setTimeout(deps.configurarAnimacaoCarrosselHome, 0);
-    return `<section class="dashboard-action-carousel" aria-label="Carrossel de ações"><div class="dashboard-carousel-stage" style="--carousel-radius:${itens.length >= 3 ? (164 / (2 * Math.tan(Math.PI / itens.length))).toFixed(2) : 0}px" onpointerdown="iniciarCarrosselHome(event, this)" onkeydown="tecladoCarrosselHome(event, this)">${itens.map((item, index) => `<button class="dashboard-carousel-card card" tabindex="${index === 0 ? 0 : -1}" style="--angle:${index * 360 / itens.length}deg" type="button" onclick="abrirAcaoCarrosselHome(event, '${deps.escaparAttr(item.tela)}')" data-ui-token-set="dashboard-advanced"><span class="dashboard-mobile-advanced-icon">${deps.renderUiIcon(item.icon)}</span><span class="dashboard-mobile-advanced-copy"><strong>${deps.escaparHtml(item.label)}</strong><small>${deps.escaparHtml(item.detail)}</small><span class="dashboard-carousel-values">${(item.live || []).map((value) => `<em>${deps.escaparHtml(value)}</em>`).join("")}</span></span></button>`).join("")}</div></section>`;
+    if (!itens.length) return "";
+    return `<section class="home-carousel-3d-screen" aria-label="Carrossel de ações"><div class="home-carousel-3d-host" data-home-carousel-host></div></section>`;
   }
 
   global.SimplificaAppUiRenderers = { renderAiShortcut, renderApp, applyCustomersSaasFilter, showToast, showAdminOnDemand, renderDashboardMobileAdvancedPanel };
