@@ -2,7 +2,7 @@
   "use strict";
   const active = [
     ["production", "Produção", "producao"], ["orders_recent", "Pedidos recentes", "pedidos"],
-    ["day_summary", "Resumo do dia", "relatorios"], ["cash_today", "Caixa hoje", "caixa"],
+    ["cash_today", "Caixa hoje", "caixa"],
     ["stock", "Estoque", "estoque"], ["customers", "Clientes", "clientes"],
     ["storefront", "Loja Online", "lojaOnline"], ["alerts", "Alertas", null, "dynamic"]
   ].map(function (item, index) { return Object.freeze({ id: item[0], title: item[1], source: item[0], targetScreen: item[2], targetMode: item[3] || "screen", available: true, enabled: true, defaultVisible: true, removable: true, reorderable: true, configurable: true, future: false, priority: index + 1, layout: "card", animation: "depth" }); });

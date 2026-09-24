@@ -8,8 +8,8 @@ const engineApi = require("../src/features/home/carousel3d/core/home-carousel-en
 const rendererApi = require("../src/features/home/carousel3d/visual/home-carousel-renderer.js");
 const sceneApi = require("../src/features/home/carousel3d/core/home-carousel-scene.js");
 const registry = registryApi.createRegistry(screens), state = stateApi.createState(registry), engine = engineApi.createEngine(() => state.visible(), { autoplayIntervalMs: 5 });
-assert(registry.active.length === 8 && registry.future.length === 8, "registry requires 8 active and 8 future cards");
-assert(new Set(registry.all.map(x => x.id)).size === 16, "ids must be unique");
+assert(registry.active.length === 7 && registry.future.length === 8, "registry requires 7 active cards and 8 future cards");
+assert(new Set(registry.all.map(x => x.id)).size === 15, "ids must be unique");
 assert(registry.future.every(x => !x.available && !x.enabled && x.future), "future cards must remain disabled");
 assert(registry.get("alerts").targetScreen === null && registry.get("alerts").targetMode === "dynamic", "alerts may not invent a route");
 assert(registry.active.filter(x => x.targetMode !== "dynamic").every(x => screens.includes(x.targetScreen)), "active screens must exist");

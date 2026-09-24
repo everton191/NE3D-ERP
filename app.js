@@ -18182,7 +18182,6 @@ function renderDashboardPwaTechnical({ stats, totaisCaixa, plano, analytics, car
       ${renderDashboardQuickActionsPanel()}
       ${renderDashboardMobileAdvancedPanel(stats, totaisCaixa)}
       <div class="ui3-grid ui3-dashboard-main-grid">
-        <div class="recent-orders-card">${renderPedidosRecentesDashboard()}</div>
         <div class="revenue-card">${renderDashboardComboChart(analytics)}</div>
         <div class="insights-card">${renderDashboardInsights(analytics)}</div>
       </div>
@@ -18209,8 +18208,6 @@ function renderDashboardApkSimple({ stats, totaisCaixa, analytics }) {
       ${renderDashboardMainSummaryCard()}
       ${renderAcoesRapidas()}
       ${renderDashboardMobileAdvancedPanel(stats, totaisCaixa)}
-            ${renderPedidosRecentesDashboard()}
-      ${renderResumoDiaDashboard(stats, totaisCaixa, analytics)}
       ${renderInsightSmartDashboard(stats)}
       ${renderContinuarDeOndeParouDashboard()}
       ${renderDashboardOnboardingCard()}

@@ -20,14 +20,11 @@
       return null;
     }
 
-    const canvas = global.document.createElement("canvas");
-    canvas.className = "home-carousel-3d-canvas";
-    canvas.setAttribute("aria-label", "Carrossel de atalhos da Home");
-    canvas.tabIndex = 0;
-    container.replaceChildren(canvas);
+    container.setAttribute("aria-label", "Carrossel de atalhos da Home");
+    container.tabIndex = 0;
 
     const engine = global.SimplificaHomeCarouselEngine.createEngine(() => cards);
-    const renderer = global.SimplificaHomeCarouselRenderer.createRenderer(canvas, engine, () => cards);
+    const renderer = global.SimplificaHomeCarouselCss3dRenderer.createRenderer(container, engine, () => cards);
     const controller = new AbortController();
     let frameId = 0;
     let lastFrameAt = 0;
@@ -45,31 +42,33 @@
     function finishGesture(event) {
       if (!gesture || event.pointerId !== gesture.pointerId) return;
       const elapsed = Math.max(1, event.timeStamp - gesture.startedAt);
-      const distance = event.clientX - gesture.startX;
+      const distance = event.clientX - gesture.originX;
       const moved = Math.abs(distance) > 8;
       engine.dragEnd((distance / elapsed) * 1000);
       engine.snap();
       if (!moved) {
+        const faceIndex = renderer.faceAt(event.target);
+        if (faceIndex >= 0 && faceIndex !== engine.selectedIndex) { engine.dragStart(); engine.dragBy((engine.selectedIndex - faceIndex) * 125); engine.dragEnd(0); engine.snap(); gesture = null; return; }
         const card = engine.selectedCard;
         if (card?.targetMode === "screen" && card.targetScreen) options.onNavigate?.(card.targetScreen);
       }
       gesture = null;
     }
 
-    canvas.addEventListener("pointerdown", (event) => {
+    container.addEventListener("pointerdown", (event) => {
       if (!event.isPrimary) return;
-      gesture = { pointerId: event.pointerId, startX: event.clientX, startedAt: event.timeStamp };
-      canvas.setPointerCapture?.(event.pointerId);
+      gesture = { pointerId: event.pointerId, originX: event.clientX, startX: event.clientX, startedAt: event.timeStamp };
+      container.setPointerCapture?.(event.pointerId);
       engine.dragStart();
     }, { signal: controller.signal });
-    canvas.addEventListener("pointermove", (event) => {
+    container.addEventListener("pointermove", (event) => {
       if (!gesture || event.pointerId !== gesture.pointerId) return;
       engine.dragBy(event.clientX - gesture.startX);
       gesture.startX = event.clientX;
     }, { signal: controller.signal });
-    canvas.addEventListener("pointerup", finishGesture, { signal: controller.signal });
-    canvas.addEventListener("pointercancel", finishGesture, { signal: controller.signal });
-    canvas.addEventListener("keydown", (event) => {
+    container.addEventListener("pointerup", finishGesture, { signal: controller.signal });
+    container.addEventListener("pointercancel", finishGesture, { signal: controller.signal });
+    container.addEventListener("keydown", (event) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
       engine.dragStart();
