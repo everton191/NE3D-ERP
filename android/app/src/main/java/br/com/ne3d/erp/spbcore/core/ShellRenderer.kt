@@ -47,7 +47,8 @@ class ShellRenderer(
     private val effectInput = EffectInput()
     private var entryFrameDrawn = false
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        GLES30.glClearColor(.008f,.012f,.016f,1f)
+        // Fundo igual ao do tema escuro da Home (#0c1118) para o painel não ler como um buraco preto.
+        GLES30.glClearColor(.047f,.067f,.094f,1f)
         GLES30.glEnable(GLES30.GL_DEPTH_TEST); GLES30.glEnable(GLES30.GL_BLEND)
         GLES30.glBlendFunc(GLES30.GL_SRC_ALPHA,GLES30.GL_ONE_MINUS_SRC_ALPHA)
         textures.resetForContext()

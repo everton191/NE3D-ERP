@@ -6,8 +6,10 @@ data class CarouselMotionSpec(
     // tangent cards close into one cylinder without gaps.
     // Vertically oriented 9:16 cards: the geometric half-height is 16/9 of the half-width.
     val radius: Float = 2.35f, val panelFaceWidth: Float = 2f, val panelAspectRatio: Float = 16f / 9f, val panelAngle: Float = 72f, val panelGap: Float = .11f,
-    val cameraFov: Float = 58f, val cameraZ: Float = 7.2f, val cameraY: Float = 2.2f, val lookAtY: Float = 0f,
-    val entryCameraFov: Float = 54f, val entryCameraZ: Float = 6.7f, val entryCameraY: Float = 1.75f,
+    // Enquadramento da Home: aproxima a câmera (zoom leve do anel) e aponta um pouco
+    // mais para baixo, liberando área inferior para o reflexo do espelho.
+    val cameraFov: Float = 58f, val cameraZ: Float = 6.9f, val cameraY: Float = 2.2f, val lookAtY: Float = -.5f,
+    val entryCameraFov: Float = 54f, val entryCameraZ: Float = 6.42f, val entryCameraY: Float = 1.75f,
     val centerScale: Float = .88f, val sideScale: Float = .88f, val sideAlpha: Float = .72f,
     val depthLift: Float = 0f, val sideFacingFactor: Float = 1f,
     val verticalDragToCameraY: Float = .008f, val minimumCameraY: Float = .6f, val maximumCameraY: Float = 4.2f,

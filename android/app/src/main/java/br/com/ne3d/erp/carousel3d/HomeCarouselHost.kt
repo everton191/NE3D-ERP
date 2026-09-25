@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference
  */
 object HomeCarouselHost {
     private const val CORNER_DP = 14f
-    private const val BACKGROUND = 0xFF0A141A.toInt()
+    private const val BACKGROUND = 0xFF0C1118.toInt()
     private const val METRICS_INTERVAL_MS = 15_000L
 
     private val mainHandler = Handler(Looper.getMainLooper())
