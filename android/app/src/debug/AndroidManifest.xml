@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Fase B - host de debug nativo isolado.
+
+  Este activity so existe no source set "debug": o APK de release nao o contem.
+  Ele nao integra com a Home, com o WebView, com navegacao ERP nem com dados
+  reais; serve apenas para validar o nucleo 3D dentro do APK do Simplifica.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity
+            android:name="br.com.ne3d.erp.spbdebug.SpbDebugActivity"
+            android:label="SPB Debug"
+            android:exported="true"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density" />
+    </application>
+
+</manifest>
