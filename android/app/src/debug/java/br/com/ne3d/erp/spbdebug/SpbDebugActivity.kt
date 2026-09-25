@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import br.com.ne3d.erp.spbcore.core.ShellRenderer
+import br.com.ne3d.erp.spbcore.host.CarouselSurfaceView
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -43,7 +44,7 @@ import kotlinx.coroutines.delay
  */
 class SpbDebugActivity : ComponentActivity() {
 
-    private var debugView: SpbDebugView? = null
+    private var debugView: CarouselSurfaceView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,8 +76,8 @@ class SpbDebugActivity : ComponentActivity() {
 
 @Composable
 private fun SpbDebugScreen(
-    onAttach: (SpbDebugView) -> Unit,
-    onDetach: (SpbDebugView) -> Unit,
+    onAttach: (CarouselSurfaceView) -> Unit,
+    onDetach: (CarouselSurfaceView) -> Unit,
 ) {
     var generation by remember { mutableIntStateOf(0) }
     var exitInfo by remember { mutableStateOf("") }
@@ -84,7 +85,7 @@ private fun SpbDebugScreen(
     var panelLabel by remember { mutableStateOf("-") }
     var motion by remember { mutableStateOf("-") }
     val frames = remember { AtomicInteger() }
-    val host = remember { AtomicReference<SpbDebugView?>(null) }
+    val host = remember { AtomicReference<CarouselSurfaceView?>(null) }
 
     LaunchedEffect(generation) {
         frames.set(0)
@@ -125,7 +126,7 @@ private fun SpbDebugScreen(
                             AtomicReference(SpbMockModules.tile(module)),
                         )
                     }.toTypedArray()
-                    SpbDebugView(
+                    CarouselSurfaceView(
                         context = context,
                         pendingTextures = textures,
                         panels = SpbMockModules.panels(),

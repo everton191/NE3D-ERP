@@ -32,6 +32,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SimplificaLocalAiPlugin.class);
         registerPlugin(SimplificaVoicePlugin.class);
         registerPlugin(SimplificaSystemUiPlugin.class);
+        registerPlugin(SimplificaCarousel3DPlugin.class);
         super.onCreate(savedInstanceState);
         applySimplificaSystemBars();
         setupSimplificaSystemInsets();

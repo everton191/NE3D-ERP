@@ -18,20 +18,112 @@
       .map((card) => Object.freeze({ ...card, presentation: presentations[card.id] || null }));
   }
 
-  function mount(container, options = {}) {
-    if (!container || !container.isConnected) return null;
-    if (activeMount?.container === container) return activeMount.api;
-    activeMount?.unmount();
+  function resolveNativeBridge() {
+    try {
+      const capacitor = global.Capacitor;
+      if (!capacitor || !capacitor.Plugins) return null;
+      const isNative = typeof capacitor.isNativePlatform === "function"
+        ? capacitor.isNativePlatform()
+        : capacitor.getPlatform?.() === "android";
+      if (!isNative) return null;
+      const bridge = capacitor.Plugins.SimplificaCarousel3D;
+      if (!bridge || typeof bridge.show !== "function") return null;
+      return bridge;
+    } catch (_) { return null; }
+  }
 
-    const cards = buildCards(options, readCardPresentations(container));
-    if (!cards.length) {
-      container.textContent = "Nenhum atalho disponível no momento.";
-      return null;
+  function buildNativeItems(cards) {
+    return cards.map((card) => {
+      const presentation = card.presentation || {};
+      const live = Array.isArray(presentation.live) ? presentation.live : [];
+      return {
+        id: String(card.id || ""),
+        title: String(card.title || ""),
+        targetScreen: card.targetMode === "screen" ? String(card.targetScreen || "") : "",
+        detail: String(presentation.detail || ""),
+        live: live.slice(0, 4).map((line) => String(line))
+      };
+    });
+  }
+
+  function readNativeRect(container) {
+    const rect = container.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      viewWidth: global.innerWidth || rect.width,
+      viewHeight: global.innerHeight || rect.height
+    };
+  }
+
+  function notifySelect(options, cards, payload) {
+    const id = String(payload?.id || "");
+    const reported = String(payload?.targetScreen || "");
+    const card = cards.find((entry) => entry.id === id) || null;
+    const targetScreen = card?.targetMode === "screen" ? (card.targetScreen || reported) : "";
+    if (targetScreen) options.onNavigate?.(targetScreen);
+  }
+
+  function mountNative(bridge, container, options, cards) {
+    const controller = new AbortController();
+    const items = buildNativeItems(cards);
+    let disposed = false;
+    let listenerHandle = null;
+    let fallback = null;
+
+    if (typeof bridge.addListener === "function") {
+      Promise.resolve(bridge.addListener("select", (payload) => {
+        if (disposed) return;
+        notifySelect(options, cards, payload);
+      })).then((handle) => { if (disposed) handle?.remove?.(); else listenerHandle = handle; }).catch(() => {});
     }
 
-    container.setAttribute("aria-label", "Carrossel de atalhos da Home");
-    container.tabIndex = 0;
+    function pushRect() {
+      if (disposed || fallback) return;
+      Promise.resolve(bridge.setRect(readNativeRect(container))).catch(() => {});
+    }
 
+    function pushAll() {
+      if (disposed || fallback) return;
+      const payload = { ...readNativeRect(container), modules: items };
+      try {
+        Promise.resolve(bridge.show(payload)).catch((error) => {
+          if (disposed) return;
+          global.console?.warn?.("[home-carousel] carrossel nativo indisponível, usando CSS 3D", error);
+          fallback = createCss3dMount(container, options, cards);
+        });
+      } catch (error) {
+        global.console?.warn?.("[home-carousel] carrossel nativo indisponível, usando CSS 3D", error);
+        fallback = createCss3dMount(container, options, cards);
+      }
+    }
+
+    container.addEventListener("resize", pushRect, { signal: controller.signal });
+    if (typeof global.addEventListener === "function") {
+      global.addEventListener("resize", pushRect, { signal: controller.signal, passive: true });
+      global.addEventListener("scroll", pushRect, { signal: controller.signal, passive: true, capture: true });
+    }
+    pushAll();
+
+    const api = Object.freeze({
+      container,
+      refresh() { fallback ? fallback.refresh() : pushRect(); },
+      unmount() {
+        if (disposed) return;
+        disposed = true;
+        controller.abort();
+        try { listenerHandle?.remove?.(); } catch (_) { /* já removido */ }
+        if (fallback) fallback.unmount();
+        else Promise.resolve(bridge.hide?.()).catch(() => {});
+      },
+      getCards: () => cards.slice()
+    });
+    return api;
+  }
+
+  function createCss3dMount(container, options, cards) {
     const engine = global.SimplificaHomeCarouselEngine.createEngine(() => cards, { autoplayIntervalMs: 10500 });
     const renderer = global.SimplificaHomeCarouselCss3dRenderer.createRenderer(container, engine, () => cards);
     const controller = new AbortController();
@@ -143,7 +235,7 @@
     renderer.render();
     frameId = global.requestAnimationFrame(renderFrame);
 
-    const api = Object.freeze({
+    return Object.freeze({
       container,
       refresh() { renderer.render(); },
       unmount() {
@@ -153,12 +245,44 @@
         if (frameId) global.cancelAnimationFrame(frameId);
         engine.stopAutoplay();
         renderer.dispose();
-        if (activeMount?.api === api) activeMount = null;
       },
       getCards: () => cards.slice()
     });
-    activeMount = { container, api, unmount: api.unmount };
+  }
+
+  function register(container, api) {
+    activeMount = {
+      container,
+      api,
+      unmount() {
+        api.unmount();
+        if (activeMount?.api === api) activeMount = null;
+      }
+    };
     return api;
+  }
+
+  function mount(container, options = {}) {
+    if (!container || !container.isConnected) return null;
+    if (activeMount?.container === container) return activeMount.api;
+    activeMount?.unmount();
+
+    const cards = buildCards(options, readCardPresentations(container));
+    if (!cards.length) {
+      container.textContent = "Nenhum atalho disponível no momento.";
+      return null;
+    }
+
+    container.setAttribute("aria-label", "Carrossel de atalhos da Home");
+    container.tabIndex = 0;
+
+    const nativeBridge = resolveNativeBridge();
+    if (nativeBridge) {
+      const rect = readNativeRect(container);
+      if (rect.width > 0 && rect.height > 0) return register(container, mountNative(nativeBridge, container, options, cards));
+    }
+
+    return register(container, createCss3dMount(container, options, cards));
   }
 
   global.SimplificaHomeCarouselMount = Object.freeze({ mount, unmount() { activeMount?.unmount(); } });

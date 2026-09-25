@@ -1,4 +1,4 @@
-package br.com.ne3d.erp.spbdebug
+package br.com.ne3d.erp.spbcore.host
 
 import android.content.Context
 import android.opengl.GLSurfaceView
@@ -13,21 +13,19 @@ import br.com.ne3d.erp.spbcore.scene.Panel3D
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Host de debug da Fase B.
+ * Superfície GLES compartilhada pelo núcleo SPB.
  *
- * Prova que o nucleo SPB real (ShellEngine + ShellRenderer + fisica + camera +
- * espelho + efeitos + FrameScheduler) roda dentro do APK do Simplifica.
- *
- * Este arquivo NAO e arquitetura de producao: vive apenas no source set `debug`
- * e sera substituido pelo host com bridge na Fase C.
+ * É a peça que liga ShellEngine + ShellRenderer + FrameScheduler + gestos a uma View
+ * Android real. Usada pelo host de debug da Fase B e pelo carrossel nativo da Home
+ * (Fase C) — não conhece a aplicação, só painéis, texturas pendentes e callbacks.
  */
-class SpbDebugView(
+class CarouselSurfaceView(
     context: Context,
     private val pendingTextures: Array<ShellRenderer.PendingTexture>,
     panels: List<Panel3D>,
     private val onExit: (Int) -> Unit,
     private val onSurfaceReady: () -> Unit = {},
-    onFrame: () -> Unit,
+    onFrame: () -> Unit = {},
 ) : GLSurfaceView(context) {
 
     val engine = ShellEngine(panels = panels)
