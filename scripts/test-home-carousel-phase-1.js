@@ -1,7 +1,7 @@
 "use strict";
 
 const assert = (value, message) => { if (!value) throw new Error(message); };
-const screens = ["producao", "pedidos", "relatorios", "caixa", "estoque", "clientes", "lojaOnline", "administracao"];
+const screens = ["producao", "pedidos", "relatorios", "caixa", "estoque", "clientes", "lojaOnline", "administracao", "impressoras", "calculadora"];
 require("../src/features/home/carousel3d/config/home-carousel-config.js");
 const registryApi = require("../src/features/home/carousel3d/widgets/home-carousel-widget-registry.js");
 const stateApi = require("../src/features/home/carousel3d/widgets/home-carousel-widget-state.js");
@@ -10,8 +10,8 @@ const rendererApi = require("../src/features/home/carousel3d/visual/home-carouse
 const sceneApi = require("../src/features/home/carousel3d/core/home-carousel-scene.js");
 
 const registry = registryApi.createRegistry(screens), state = stateApi.createState(registry), engine = engineApi.createEngine(() => state.visible(), { autoplayIntervalMs: 5 });
-assert(registry.active.length === 5 && registry.future.length === 8, "registry requires 5 active cards and 8 future cards");
-assert(new Set(registry.all.map(x => x.id)).size === 13, "ids must be unique");
+assert(registry.active.length === 10 && registry.future.length === 0, "registry requires the fixed 10 card catalog and no future cards");
+assert(new Set(registry.all.map(x => x.id)).size === 10, "ids must be unique");
 assert(registry.future.every(x => !x.available && !x.enabled && x.future), "future cards must remain disabled");
 assert(!registry.get("orders_recent") && !registry.get("day_summary"), "obsolete Home cards must be absent");
 assert(registry.active.every(x => screens.includes(x.targetScreen)), "active screens must exist");
@@ -41,7 +41,7 @@ for (const count of [5, 8, 13]) {
   expanded.startAutoplay(0); expanded.tick(1001, .016);
   assert(expanded.selectedIndex === 1, `${count} cards must autoplay across the wrap`);
 }
-const routesBefore = registry.active.map(x => x.targetScreen).join(","); state.hide("cash_today"); assert(!state.visible().some(x => x.id === "cash_today"), "state hides a card"); assert(registry.active.map(x => x.targetScreen).join(",") === routesBefore, "hiding does not alter routes");
+const routesBefore = registry.active.map(x => x.targetScreen).join(","); state.hide("calculator"); assert(!state.visible().some(x => x.id === "calculator"), "state hides a card"); assert(registry.active.map(x => x.targetScreen).join(",") === routesBefore, "hiding does not alter routes");
 const source = require("fs").readFileSync(require("path").join(__dirname, "..", "src", "features", "home", "carousel3d", "data", "widget-data-sources.js"), "utf8"); assert(source.includes("normalizeStockSnapshot"), "data layer preserved");
 const newApi = [registryApi, stateApi, engineApi]; assert(!JSON.stringify(newApi).match(/SPB|Shell|Launcher/i), "new public API must not expose launcher identity");
 console.log("Home carousel phase 1: engine, registry, state, physics, autoplay and isolation passed.");

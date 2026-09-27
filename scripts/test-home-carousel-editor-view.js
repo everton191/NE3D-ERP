@@ -27,7 +27,7 @@ var registrySrc = readFileSync(path.join(__dirname, "..", "src", "features", "ho
 var sharedGlobal = {};
 var config = loadModule(configSrc, "SimplificaHomeCarouselConfig", sharedGlobal);
 var registryFactory = loadModule(registrySrc, "SimplificaHomeCarouselRegistry", sharedGlobal);
-var registry = registryFactory.createRegistry(["producao","pedidos","relatorios","caixa","estoque","clientes","lojaOnline"]);
+var registry = registryFactory.createRegistry(["producao","pedidos","relatorios","caixa","estoque","clientes","lojaOnline","impressoras","calculadora"]);
 var E = loadModule(editorSrc, "SimplificaCarouselEditor");
 var V = loadModule(viewSrc, "SimplificaCarouselEditorView");
 
@@ -72,7 +72,8 @@ FakeElement.prototype.querySelector = function(sel) {
   return null;
 };
 
-FakeElement.prototype._find = function(cls) {
+FakeElement.prototype._find = function(sel) {
+  var cls = String(sel).charAt(0) === "." ? String(sel).slice(1) : String(sel);
   if (this.className === cls) return this;
   for (var i = 0; i < this._children.length; i++) {
     var found = this._children[i]._find ? this._children[i]._find(cls) : null;
@@ -120,7 +121,7 @@ console.log("=== CAROUSEL EDITOR VIEW TESTS ===\n");
 
 // A) renderiza cards ativos
 console.log("[A] renderiza cards ativos");
-var ed1 = E.createEditor(null, registry);
+var ed1 = E.createEditor(E.buildDefaultState(registry), registry);
 var container1 = new FakeElement("div");
 var view1 = V2.createView(container1, ed1, registry);
 view1.render();
@@ -132,13 +133,28 @@ function collectText(node) {
 }
 collectText(container1);
 assert(allText1.indexOf("production") !== -1, "production card rendered");
-assert(allText1.indexOf("orders_recent") !== -1, "orders_recent card rendered");
+assert(allText1.indexOf("orders") !== -1, "orders card rendered");
 assert(allText1.indexOf("Editar Carrossel") !== -1, "title rendered");
 
-// B) renderiza disponiveis
-console.log("\n[B] renderiza disponiveis");
-assert(allText1.indexOf("Cards disponiveis") !== -1, "available section rendered");
-assert(allText1.indexOf("Em breve") !== -1, "future section rendered");
+// B) renderiza o piso
+console.log("\n[B] renderiza o piso");
+assert(allText1.indexOf("Piso (") !== -1, "floor section rendered");
+assert(allText1.indexOf("Carrossel (") !== -1, "active zone rendered");
+assert(allText1.indexOf("Em breve") === -1, "no unavailable cards are rendered");
+
+// B2) estrutura do PanelOrganizer (sem lista com setas)
+console.log("\n[B2] estrutura do PanelOrganizer");
+assert(viewSrc.indexOf("editor-btn-move-up") === -1, "no move-up arrow button in the organizer");
+assert(viewSrc.indexOf("editor-btn-move-down") === -1, "no move-down arrow button in the organizer");
+assert(viewSrc.indexOf("Salvar altera\u00e7\u00f5es") === -1, "no explicit save button, changes persist immediately");
+assert(allText1.indexOf("organizer-row-active") !== -1, "active row rendered");
+assert(allText1.indexOf("organizer-row-floor") !== -1, "floor row rendered");
+assert(container1._find(".organizer-ghost") !== null, "drag ghost rendered");
+var cards1 = container1._find(".editor-card editor-card-active");
+assert(cards1 !== null, "active cards rendered");
+assert(cards1._attrs["data-organizer-card"] !== undefined, "card exposes the organizer id hook");
+assert(cards1.getAttribute("data-card-zone") === "active", "active card exposes its zone");
+assert(container1._find(".editor-card editor-card-floor") !== null, "floor cards rendered");
 
 // C) add chama EditorCore
 console.log("\n[C] add chama EditorCore");
@@ -151,26 +167,26 @@ var addBtns = container2._find(".editor-container");
 if (addBtns) {
   var availCards = addBtns._children.filter(function(c) { return c.className && c.className.indexOf("editor-available-section") !== -1; });
 }
-assert(ed2.canAdd("stock"), "stock canAdd before render");
-ed2.addCard("stock");
+assert(ed2.canAdd("inventory"), "inventory canAdd before render");
+ed2.addCard("inventory");
 assert(ed2.getState().visibleCardIds.length > before2, "addCard increased visible count");
 
 // D) remove chama EditorCore
 console.log("\n[D] remove chama EditorCore");
-var ed3 = E.createEditor({ visibleCardIds: ["production", "orders_recent"], cardOrder: ["production", "orders_recent"], autoplay: true, autoplayInterval: 15000 }, registry);
+var ed3 = E.createEditor({ visibleCardIds: ["production", "orders", "inventory", "cash", "sales", "printers"], cardOrder: ["production", "orders", "inventory", "cash", "sales", "printers"], autoplay: true, autoplayInterval: 15000 }, registry);
 var before3 = ed3.getState().visibleCardIds.length;
-ed3.removeCard("orders_recent");
+ed3.removeCard("orders");
 assert(ed3.getState().visibleCardIds.length < before3, "removeCard decreased visible count");
-assert(ed3.getState().visibleCardIds.indexOf("orders_recent") === -1, "orders_recent removed");
+assert(ed3.getState().visibleCardIds.indexOf("orders") === -1, "orders removed");
 
 // E) reorder chama EditorCore
 console.log("\n[E] reorder chama EditorCore");
-var ed4 = E.createEditor({ visibleCardIds: ["production", "orders_recent", "stock"], cardOrder: ["production", "orders_recent", "stock"], autoplay: true, autoplayInterval: 15000 }, registry);
+var ed4 = E.createEditor({ visibleCardIds: ["production", "orders", "inventory"], cardOrder: ["production", "orders", "inventory"], autoplay: true, autoplayInterval: 15000 }, registry);
 var before4 = ed4.getState().visibleCardIds.slice();
-ed4.moveCard("stock", -1);
+ed4.moveCard("inventory", -1);
 var after4 = ed4.getState().visibleCardIds;
-assert(after4[1] === "stock", "stock moved up");
-assert(after4[2] === "orders_recent", "orders moved down");
+assert(after4[1] === "inventory", "inventory moved up");
+assert(after4[2] === "orders", "orders moved down");
 
 // F) restore chama EditorCore
 console.log("\n[F] restore chama EditorCore");

@@ -26,7 +26,7 @@ var registrySrc = readFileSync(path.join(__dirname, "..", "src", "features", "ho
 var sharedGlobal = {};
 var config = loadModule(configSrc, "SimplificaHomeCarouselConfig", sharedGlobal);
 var registryFactory = loadModule(registrySrc, "SimplificaHomeCarouselRegistry", sharedGlobal);
-var registry = registryFactory.createRegistry(["producao","pedidos","relatorios","caixa","estoque","clientes","lojaOnline"]);
+var registry = registryFactory.createRegistry(["producao","pedidos","relatorios","caixa","estoque","clientes","lojaOnline","impressoras","calculadora"]);
 
 var E = loadModule(editorSrc, "SimplificaCarouselEditor");
 
@@ -41,14 +41,14 @@ assert(ed1.getState().visibleCardIds.indexOf("production") !== -1, "production i
 
 // B) remove card
 console.log("\n[B] remove card");
-var ed2 = E.createEditor({ visibleCardIds: ["production","orders_recent"], cardOrder: ["production","orders_recent"], autoplay: true, autoplayInterval: 15000 }, registry);
+var ed2 = E.createEditor({ visibleCardIds: ["production","orders","inventory","cash","sales","printers"], cardOrder: ["production","orders","inventory","cash","sales","printers"], autoplay: true, autoplayInterval: 15000 }, registry);
 assert(ed2.removeCard("production") === true, "production removed");
 assert(ed2.getState().visibleCardIds.indexOf("production") === -1, "production not in visible");
-assert(ed2.getState().visibleCardIds.indexOf("orders_recent") !== -1, "orders_recent still there");
+assert(ed2.getState().visibleCardIds.indexOf("orders") !== -1, "orders still there");
 
 // C) remove card does NOT remove feature/route
 console.log("\n[C] remove card does NOT remove feature/route");
-var ed3 = E.createEditor({ visibleCardIds: ["production"], cardOrder: ["production"], autoplay: true, autoplayInterval: 15000 }, registry);
+var ed3 = E.createEditor({ visibleCardIds: ["production","orders","inventory","cash","sales","printers"], cardOrder: ["production","orders","inventory","cash","sales","printers"], autoplay: true, autoplayInterval: 15000 }, registry);
 ed3.removeCard("production");
 assert(registry.get("production") !== null, "production still in registry");
 assert(config.active.find(function(c){ return c.id === "production"; }) !== undefined, "production still in config.active");
@@ -165,15 +165,15 @@ assert(loaded.autoplay === false, "saved autoplay persisted");
 pers.clear();
 assert(pers.load() === null, "cleared persistence returns null");
 
-// S) all 8 active cards can be added
-console.log("\n[S] all 8 active cards can be added");
+// S) all catalog cards can be added
+console.log("\n[S] all catalog cards can be added");
 var ed14 = E.createEditor(null, registry);
 config.active.forEach(function(card) {
   assert(ed14.canAdd(card.id), card.id + " canAdd from config.active");
   assert(ed14.addCard(card.id) === true, card.id + " added successfully");
 });
-assert(ed14.getState().visibleCardIds.length === 8, "all 8 visible");
-assert(ed14.getState().cardOrder.length === 8, "all 8 cardOrder entries preserved");
+assert(ed14.getState().visibleCardIds.length === 10, "all 10 visible");
+assert(ed14.getState().cardOrder.length === 10, "all 10 cardOrder entries preserved");
 
 // T) future cards cannot be added
 console.log("\n[T] future cards cannot be added");
@@ -191,8 +191,15 @@ assert(ed15.getState().cardOrder[0] === "stock", "cardOrder follows indexed move
 assert(originalState.visibleCardIds[0] === "production", "initial visible state is not mutated");
 assert(ed15.moveCardToIndex("stock", 99) === false, "out-of-range index rejected");
 
-// V) named preference adapter contract
-console.log("\n[V] named preference adapter contract");
+// V) saved preference normalization
+console.log("\n[V] saved preference normalization");
+var ed16 = E.createEditor({ visibleCardIds: ["production", "orders", "production"], cardOrder: ["orders", "orders", "unknown"] }, registry);
+var s16 = ed16.getState();
+assert(JSON.stringify(s16.visibleCardIds) === JSON.stringify(["production", "orders"]), "saved visible cards are deduplicated");
+assert(JSON.stringify(s16.cardOrder) === JSON.stringify(["orders", "production"]), "saved order is deduplicated and completed");
+
+// W) named preference adapter contract
+console.log("\n[W] named preference adapter contract");
 var namedPersistence = E.createMemoryPersistence(null);
 namedPersistence.savePreferences({ visibleCardIds: ["stock"] });
 assert(namedPersistence.loadPreferences().visibleCardIds[0] === "stock", "named load/save preference adapter works");

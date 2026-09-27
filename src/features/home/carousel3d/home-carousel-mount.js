@@ -2,6 +2,21 @@
 
 (function attachHomeCarouselMount(global) {
   let activeMount = null;
+  let pendingNativeHide = 0;
+
+  function cancelDeferredNativeHide() {
+    if (!pendingNativeHide) return;
+    global.clearTimeout?.(pendingNativeHide);
+    pendingNativeHide = 0;
+  }
+
+  function deferNativeHide(bridge) {
+    cancelDeferredNativeHide();
+    pendingNativeHide = global.setTimeout(() => {
+      pendingNativeHide = 0;
+      Promise.resolve(bridge.hide?.()).catch(() => {});
+    }, 260);
+  }
 
   function readCardPresentations(container) {
     try {
@@ -13,8 +28,17 @@
   function buildCards(options, presentations) {
     const config = global.SimplificaHomeCarouselConfig;
     const canAccessScreen = typeof options.canAccessScreen === "function" ? options.canAccessScreen : () => true;
+    const saved = options.getPreferences?.() || null;
+    const defaultIds = config.active.filter((card) => card.defaultVisible).map((card) => card.id);
+    const selected = Array.isArray(saved?.visibleCardIds) && saved.visibleCardIds.length >= 5
+      ? saved.visibleCardIds : defaultIds;
+    const allowed = new Set(selected);
+    const order = Array.isArray(saved?.cardOrder) ? saved.cardOrder : selected;
+    const rank = new Map(order.map((id, index) => [id, index]));
     return config.active
+      .filter((card) => allowed.has(card.id))
       .filter((card) => card.targetMode === "dynamic" || canAccessScreen(card.targetScreen))
+      .sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
       .map((card) => Object.freeze({ ...card, presentation: presentations[card.id] || null }));
   }
 
@@ -46,16 +70,73 @@
     });
   }
 
+  function probeClear(container, doc, x, y) {
+    const hit = doc.elementFromPoint(x, y);
+    if (!hit) return false;
+    if (hit === container) return true;
+    return typeof container.contains === "function" && container.contains(hit);
+  }
+
+  function readTheme(doc) {
+    const classes = String(doc?.body?.className || "").split(/\s+/);
+    return classes.indexOf("theme-light") >= 0 ? "light" : "dark";
+  }
+
   function readNativeRect(container) {
-    const rect = container.getBoundingClientRect();
-    return {
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-      viewWidth: global.innerWidth || rect.width,
-      viewHeight: global.innerHeight || rect.height
-    };
+    try {
+      if (!container.isConnected) return null;
+      const rect = container.getBoundingClientRect();
+      const viewWidth = global.innerWidth || 0;
+      const viewHeight = global.innerHeight || 0;
+      if (!viewWidth || !viewHeight) return null;
+      const left = Math.max(rect.left, 0);
+      const right = Math.min(rect.right ?? rect.left + rect.width, viewWidth);
+      const top = Math.max(rect.top, 0);
+      const bottom = Math.min(rect.bottom ?? rect.top + rect.height, viewHeight);
+      if (right - left < 8 || bottom - top < 8) return null;
+      const doc = container.ownerDocument;
+      const canProbe = !!doc && typeof doc.elementFromPoint === "function";
+      const xs = canProbe ? [left + (right - left) * 0.3, (left + right) / 2, left + (right - left) * 0.7] : [];
+      const clearAt = (y) => !canProbe || xs.every((x) => probeClear(container, doc, x, y));
+      const samples = 14;
+      const step = (bottom - top) / (samples - 1);
+      const flags = [];
+      for (let index = 0; index < samples; index += 1) flags.push(clearAt(top + step * index));
+      let start = -1;
+      let end = -1;
+      let cursor = -1;
+      for (let index = 0; index <= samples; index += 1) {
+        const on = index < samples && flags[index];
+        if (on && cursor < 0) cursor = index;
+        if (!on && cursor >= 0) {
+          if (end < 0 || index - cursor > end - start) { start = cursor; end = index - 1; }
+          cursor = -1;
+        }
+      }
+      if (start < 0) return null;
+      let bandTop = top + step * start;
+      let bandBottom = top + step * end;
+      if (start > 0) {
+        let lo = top + step * (start - 1);
+        let hi = bandTop;
+        for (let k = 0; k < 8; k += 1) {
+          const mid = (lo + hi) / 2;
+          if (clearAt(mid)) hi = mid; else lo = mid;
+        }
+        bandTop = hi;
+      }
+      if (end < samples - 1) {
+        let lo = bandBottom;
+        let hi = top + step * (end + 1);
+        for (let k = 0; k < 8; k += 1) {
+          const mid = (lo + hi) / 2;
+          if (clearAt(mid)) lo = mid; else hi = mid;
+        }
+        bandBottom = lo;
+      }
+      if (bandBottom - bandTop < 40) return null;
+      return { left, top: bandTop, width: right - left, height: bandBottom - bandTop, viewWidth, viewHeight, theme: readTheme(doc) };
+    } catch (_) { return null; }
   }
 
   function notifySelect(options, cards, payload) {
@@ -67,56 +148,117 @@
   }
 
   function mountNative(bridge, container, options, cards) {
+    cancelDeferredNativeHide();
     const controller = new AbortController();
     const items = buildNativeItems(cards);
     let disposed = false;
-    let listenerHandle = null;
     let fallback = null;
+    let listenerHandles = [];
+    let hidden = true;
+    let editorOpen = typeof options.isEditorOpen === "function" ? !!options.isEditorOpen() : false;
+    let frameQueued = false;
+    let lastRectKey = "";
+
+    function rectKey(rect) {
+      return [rect.left, rect.top, rect.width, rect.height, rect.viewWidth, rect.viewHeight, rect.theme].join("|");
+    }
+
+    function storeListener(handle) {
+      if (disposed) { try { handle?.remove?.(); } catch (_) { /* já removido */ } return; }
+      listenerHandles.push(handle);
+    }
 
     if (typeof bridge.addListener === "function") {
       Promise.resolve(bridge.addListener("select", (payload) => {
         if (disposed) return;
         notifySelect(options, cards, payload);
-      })).then((handle) => { if (disposed) handle?.remove?.(); else listenerHandle = handle; }).catch(() => {});
+      })).then(storeListener).catch(() => {});
+      Promise.resolve(bridge.addListener("editor", () => {
+        if (disposed) return;
+        editorOpen = true;
+        Promise.resolve(bridge.hide?.()).catch(() => {});
+        options.onEdit?.();
+      })).then(storeListener).catch(() => {});
     }
 
-    function pushRect() {
-      if (disposed || fallback) return;
-      Promise.resolve(bridge.setRect(readNativeRect(container))).catch(() => {});
+    function useFallback(error) {
+      if (disposed || fallback || editorOpen) return;
+      global.console?.warn?.("[home-carousel] carrossel nativo indisponível, usando CSS 3D", error);
+      fallback = createCss3dMount(container, options, cards);
     }
 
-    function pushAll() {
-      if (disposed || fallback) return;
-      const payload = { ...readNativeRect(container), modules: items };
-      try {
-        Promise.resolve(bridge.show(payload)).catch((error) => {
-          if (disposed) return;
-          global.console?.warn?.("[home-carousel] carrossel nativo indisponível, usando CSS 3D", error);
-          fallback = createCss3dMount(container, options, cards);
-        });
-      } catch (error) {
-        global.console?.warn?.("[home-carousel] carrossel nativo indisponível, usando CSS 3D", error);
-        fallback = createCss3dMount(container, options, cards);
+    function sync() {
+      if (disposed || fallback || editorOpen) return;
+      const rect = readNativeRect(container);
+      if (!rect) {
+        if (!hidden) {
+          hidden = true;
+          lastRectKey = "";
+          Promise.resolve(bridge.hide?.()).catch(() => {});
+        }
+        return;
       }
+      const nextRectKey = rectKey(rect);
+      if (hidden) {
+        hidden = false;
+        lastRectKey = nextRectKey;
+        try {
+          Promise.resolve(bridge.show({ ...rect, modules: items })).catch(useFallback);
+        } catch (error) { useFallback(error); }
+        return;
+      }
+      if (nextRectKey === lastRectKey) return;
+      lastRectKey = nextRectKey;
+      Promise.resolve(bridge.setRect(rect)).catch(() => {});
     }
 
-    container.addEventListener("resize", pushRect, { signal: controller.signal });
-    if (typeof global.addEventListener === "function") {
-      global.addEventListener("resize", pushRect, { signal: controller.signal, passive: true });
-      global.addEventListener("scroll", pushRect, { signal: controller.signal, passive: true, capture: true });
+    function scheduleSync() {
+      if (disposed || frameQueued) return;
+      frameQueued = true;
+      const raf = (callback) => (typeof global.requestAnimationFrame === "function"
+        ? global.requestAnimationFrame(callback)
+        : global.setTimeout(callback, 32));
+      raf(() => { frameQueued = false; sync(); });
     }
-    pushAll();
+
+    const doc = container.ownerDocument;
+    const observer = typeof global.MutationObserver === "function"
+      ? new global.MutationObserver(scheduleSync)
+      : null;
+    if (observer) {
+      observer.observe(doc.body || doc.documentElement, { subtree: true, childList: true, attributes: true });
+    }
+
+    if (typeof global.addEventListener === "function") {
+      global.addEventListener("resize", scheduleSync, { signal: controller.signal, passive: true });
+      global.addEventListener("scroll", scheduleSync, { signal: controller.signal, passive: true, capture: true });
+    }
+    container.addEventListener("scroll", scheduleSync, { signal: controller.signal, passive: true, capture: true });
+    const overlayTimer = global.setInterval ? global.setInterval(sync, 160) : 0;
+    sync();
 
     const api = Object.freeze({
       container,
-      refresh() { fallback ? fallback.refresh() : pushRect(); },
+      refresh() { fallback ? fallback.refresh() : scheduleSync(); },
+      resume() {
+        if (disposed || fallback) return;
+        editorOpen = false;
+        hidden = true;
+        scheduleSync();
+      },
       unmount() {
         if (disposed) return;
         disposed = true;
         controller.abort();
-        try { listenerHandle?.remove?.(); } catch (_) { /* já removido */ }
+        if (overlayTimer) global.clearInterval?.(overlayTimer);
+        try { observer?.disconnect(); } catch (_) { /* já desconectado */ }
+        listenerHandles.forEach((handle) => { try { handle?.remove?.(); } catch (_) { /* já removido */ } });
+        listenerHandles = [];
         if (fallback) fallback.unmount();
-        else Promise.resolve(bridge.hide?.()).catch(() => {});
+        // A Home recria o nó do carrossel em renderizações sequenciais durante
+        // o bootstrap. Reter somente o overlay por uma janela curta evita três
+        // animações de entrada; listeners e timers já foram limpos acima.
+        else deferNativeHide(bridge);
       },
       getCards: () => cards.slice()
     });
@@ -250,10 +392,11 @@
     });
   }
 
-  function register(container, api) {
+  function register(container, api, options) {
     activeMount = {
       container,
       api,
+      options,
       unmount() {
         api.unmount();
         if (activeMount?.api === api) activeMount = null;
@@ -279,12 +422,27 @@
     const nativeBridge = resolveNativeBridge();
     if (nativeBridge) {
       const rect = readNativeRect(container);
-      if (rect.width > 0 && rect.height > 0) return register(container, mountNative(nativeBridge, container, options, cards));
+      if (rect && rect.width > 0 && rect.height > 0) {
+        return register(container, mountNative(nativeBridge, container, options, cards), options);
+      }
     }
 
-    return register(container, createCss3dMount(container, options, cards));
+    return register(container, createCss3dMount(container, options, cards), options);
   }
 
-  global.SimplificaHomeCarouselMount = Object.freeze({ mount, unmount() { activeMount?.unmount(); } });
+  function remount() {
+    const current = activeMount;
+    if (!current?.container?.isConnected) return null;
+    const { container, options } = current;
+    current.unmount();
+    return mount(container, options);
+  }
+
+  global.SimplificaHomeCarouselMount = Object.freeze({
+    mount,
+    remount,
+    unmount() { activeMount?.unmount(); },
+    resume() { activeMount?.api?.resume?.(); }
+  });
   if (typeof module !== "undefined" && module.exports) module.exports = global.SimplificaHomeCarouselMount;
 })(typeof window !== "undefined" ? window : globalThis);

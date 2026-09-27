@@ -36,6 +36,8 @@
 var MIN_INTERVAL = 3000;
 var MAX_INTERVAL = 60000;
 var DEFAULT_INTERVAL = 15000;
+var MIN_CARDS = 5;
+var MAX_CARDS = 10;
 
 /* ================================================================
    DEFAULT STATE BUILDER
@@ -80,14 +82,26 @@ function clampInterval(ms) {
   return Math.round(n);
 }
 
+function uniqueIds(ids) {
+  return Array.isArray(ids) ? ids.filter(function(id, index, list) {
+    return typeof id === "string" && list.indexOf(id) === index;
+  }) : [];
+}
+
 /* ================================================================
    EDITOR FACTORY
    ================================================================ */
 
 function createEditor(initialState, registry) {
+  var visibleCardIds = uniqueIds(initialState && initialState.visibleCardIds);
+  var cardOrder = uniqueIds(initialState && initialState.cardOrder)
+    .filter(function(id) { return visibleCardIds.indexOf(id) !== -1; });
+  visibleCardIds.forEach(function(id) {
+    if (cardOrder.indexOf(id) === -1) cardOrder.push(id);
+  });
   var state = {
-    visibleCardIds: Array.isArray(initialState && initialState.visibleCardIds) ? initialState.visibleCardIds.slice() : [],
-    cardOrder: Array.isArray(initialState && initialState.cardOrder) ? initialState.cardOrder.slice() : [],
+    visibleCardIds: visibleCardIds,
+    cardOrder: cardOrder,
     autoplay: initialState ? !!initialState.autoplay : true,
     autoplayInterval: clampInterval(initialState && initialState.autoplayInterval),
   };
@@ -102,6 +116,7 @@ function createEditor(initialState, registry) {
   }
 
   function canAdd(id) {
+    if (state.visibleCardIds.length >= MAX_CARDS) return false;
     if (!isValidId(registry, id)) return false;
     if (!isAvailable(registry, id)) return false;
     if (state.visibleCardIds.indexOf(id) !== -1) return false;
@@ -116,6 +131,7 @@ function createEditor(initialState, registry) {
   }
 
   function removeCard(id) {
+    if (state.visibleCardIds.length <= MIN_CARDS) return false;
     var idx = state.visibleCardIds.indexOf(id);
     if (idx === -1) return false;
     state.visibleCardIds.splice(idx, 1);
@@ -210,6 +226,8 @@ global.SimplificaCarouselEditor = Object.freeze({
   MIN_INTERVAL: MIN_INTERVAL,
   MAX_INTERVAL: MAX_INTERVAL,
   DEFAULT_INTERVAL: DEFAULT_INTERVAL,
+  MIN_CARDS: MIN_CARDS,
+  MAX_CARDS: MAX_CARDS,
 });
 
 if (typeof module !== "undefined" && module.exports) {

@@ -18219,8 +18219,56 @@ function renderDashboardMobileAdvancedPanel(stats = getDashboardStats(), totaisC
   return window.SimplificaAppUiRenderers.renderDashboardMobileAdvancedPanel(stats, totaisCaixa, getAppUiRenderersDeps());
 }
 
+let editorCarrosselHomeAberto = false;
+let editorCarrosselHomeAlterado = false;
+
 function mountHomeCarousel(container) {
-  return window.SimplificaHomeCarouselMount.mount(container, { canAccessScreen, onNavigate: trocarTela });
+  return window.SimplificaHomeCarouselMount.mount(container, { canAccessScreen, onNavigate: trocarTela, onEdit: abrirEditorCarrosselHome, isEditorOpen: () => editorCarrosselHomeAberto, getPreferences: () => appConfig.homeCarouselPreferences });
+}
+
+function lerPreviewsCarrosselHome() {
+  try {
+    const host = document.querySelector("[data-home-carousel-host]");
+    const previews = JSON.parse(host?.dataset.homeCarouselPresentations || "{}");
+    return previews && typeof previews === "object" && !Array.isArray(previews) ? previews : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function persistirEditorCarrosselHome(estado) {
+  appConfig.homeCarouselPreferences = estado;
+  editorCarrosselHomeAlterado = true;
+  salvarDados();
+  window.SimplificaHomeCarouselMount?.remount?.();
+}
+
+function abrirEditorCarrosselHome() {
+  const popup = document.getElementById("popup");
+  const editorApi = window.SimplificaCarouselEditor;
+  const viewApi = window.SimplificaCarouselEditorView;
+  const registryApi = window.SimplificaHomeCarouselRegistry;
+  if (!popup || !editorApi || !viewApi || !registryApi) return;
+  const screens = ["pedidos", "estoque", "producao", "caixa", "relatorios", "impressoras", "clientes", "lojaOnline", "calculadora"];
+  const registry = registryApi.createRegistry(screens);
+  const defaults = editorApi.buildDefaultState(registry);
+  const saved = appConfig.homeCarouselPreferences;
+  const state = saved && Array.isArray(saved.visibleCardIds) && saved.visibleCardIds.length >= editorApi.MIN_CARDS ? saved : defaults;
+  const editor = editorApi.createEditor(state, registry);
+  editorCarrosselHomeAberto = true;
+  editorCarrosselHomeAlterado = false;
+  popup.innerHTML = '<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharEditorCarrosselHome()"><section class="modal-card carousel-editor-sandbox carousel-organizer-modal" onclick="event.stopPropagation()"><div class="card-header"><h2>Editar carrossel</h2><button class="icon-button" type="button" aria-label="Fechar editor do carrossel" onclick="fecharEditorCarrosselHome()">✕</button></div><div id="homeCarouselEditorRoot"></div></section></div>';
+  const root = document.getElementById("homeCarouselEditorRoot");
+  viewApi.createView(root, editor, registry, persistirEditorCarrosselHome, lerPreviewsCarrosselHome()).render();
+}
+
+function fecharEditorCarrosselHome() {
+  const alterado = editorCarrosselHomeAlterado;
+  editorCarrosselHomeAberto = false;
+  editorCarrosselHomeAlterado = false;
+  fecharPopup();
+  window.SimplificaHomeCarouselMount?.resume?.();
+  if (alterado) mostrarToast("Alterações do carrossel salvas.", "success");
 }
 
 function unmountHomeCarousel() {
