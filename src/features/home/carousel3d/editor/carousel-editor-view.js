@@ -74,7 +74,7 @@ function text(value) {
    CARD RENDERER
    ================================================================ */
 
-function renderCard(item, zone, previews) {
+function renderCard(item, zone, previews, extraClass, style) {
   var preview = (previews && previews[item.id]) || {};
   var icon = typeof preview.icon === "string" && preview.icon ? preview.icon : item.title.charAt(0);
   var detail = typeof preview.detail === "string" ? preview.detail : "";
@@ -87,10 +87,11 @@ function renderCard(item, zone, previews) {
   if (detail) frameChildren.push(el("small", { class: "editor-card-detail" }, [text(detail)]));
 
   return el("div", {
-    class: "editor-card editor-card-" + zone,
+    class: "editor-card editor-card-" + zone + (extraClass ? " " + extraClass : ""),
     "data-card-id": item.id,
     "data-organizer-card": item.id,
     "data-card-zone": zone,
+    style: style || "",
     title: zone === "floor" ? LABELS.add + " " + item.title : LABELS.remove + " " + item.title,
   }, [
     el("div", { class: "editor-card-frame" }, frameChildren),
@@ -132,6 +133,14 @@ function buildRow(zone, cards, previews, emptyLabel) {
   }, children);
 }
 
+function buildOrganizerCarousel(cards, previews, emptyLabel) {
+  if (!cards.length) return el("p", { class: "editor-empty" }, [text(emptyLabel)]);
+  var count = cards.length;
+  return el("div", { class: "organizer-carousel-stage", "data-organizer-carousel": "true" }, cards.map(function(card, index) {
+    return renderCard(card, "active", previews, "organizer-carousel-panel", "--organizer-angle:" + (index * 360 / count) + "deg;");
+  }));
+}
+
 function buildViewStructure(editor, registry, previews) {
   var state = editor.getState();
   var activeCards = buildActiveCards(editor, registry);
@@ -146,7 +155,7 @@ function buildViewStructure(editor, registry, previews) {
         el("h3", {}, [text(LABELS.activeCards + " (" + activeCards.length + ")")]),
         el("span", { class: "organizer-zone-hint" }, [text(LABELS.orderHint)]),
       ]),
-      buildRow("active", activeCards, previews, LABELS.noActive),
+      buildOrganizerCarousel(activeCards, previews, LABELS.noActive),
     ]),
     el("p", { class: "organizer-caption", "data-organizer-caption": "true" }, [text(LABELS.floorHint)]),
     el("section", { class: "organizer-zone organizer-zone-floor", "data-organizer-zone": "floor" }, [
@@ -414,9 +423,9 @@ function attachListeners(root, editor, registry, rerender, onChange) {
   }
 
   function insertionIndex(x) {
-    var row = rowNode("active");
-    if (!row) return 0;
-    var cards = row.querySelectorAll("[data-organizer-card]");
+    var active = zoneNode("active");
+    if (!active) return 0;
+    var cards = active.querySelectorAll("[data-organizer-card]");
     for (var i = 0; i < cards.length; i += 1) {
       var rect = cards[i].getBoundingClientRect();
       if (x < rect.left + rect.width / 2) return i;

@@ -186,8 +186,8 @@ assert(/\.home-carousel-3d-screen\s*\{[^}]*position:\s*relative/.test(cssSource)
 assert(/carousel-organizer-modal/.test(appSource) && /createView\(root, editor, registry, persistirEditorCarrosselHome/.test(appSource), "editor usa a view do PanelOrganizer");
 assert(!/mover para cima|mover para baixo|arrow-up|arrow-down/i.test(viewCode), "sem lista com setas cima/baixo");
 assert(!/Salvar alterações|salvar alteracoes/i.test(viewCode), "sem botao de salvar (salvamento imediato)");
-assert(/carousel-editor-view\.js\?v=home-carousel-editor-organizer-3/.test(indexSource), "cache-bust da view");
-assert(/\?v=home-carousel-editor-organizer-2"/.test(indexSource) && /carousel-editor-styles\.css\?v=home-carousel-editor-organizer-2/.test(indexSource), "cache-bust dos estilos");
+assert(/carousel-editor-view\.js\?v=home-carousel-editor-organizer-4/.test(indexSource), "cache-bust da view");
+assert(/\?v=home-carousel-editor-organizer-4"/.test(indexSource) && /carousel-editor-styles\.css\?v=home-carousel-editor-organizer-4/.test(indexSource), "cache-bust dos estilos");
 assert(/\?v=home-integration-8-editor-open/.test(indexSource), "cache-bust do mount");
 assert(/\?v=app-js-finalization-owner-7/.test(indexSource), "cache-bust dos renderers");
 assert(/style\.css\?v=home-carousel-editor-organizer-3/.test(indexSource), "cache-bust do style.css");

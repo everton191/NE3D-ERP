@@ -16,6 +16,14 @@
 .organizer-zone-hint{color:#a9c6c8;font-size:.78rem}
 .organizer-caption{margin:0;padding:0 4px;color:#a9c6c8;font-size:.8rem;text-align:center}
 
+/* A área superior reproduz o carrossel ativo do PanelOrganizer. */
+.organizer-carousel-stage{position:relative;display:grid;place-items:center;min-height:230px;overflow:hidden;perspective:720px;perspective-origin:50% 44%;isolation:isolate}
+.organizer-carousel-stage::after{content:"";position:absolute;z-index:-1;width:74%;height:34px;bottom:16px;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.56),transparent 72%);filter:blur(7px)}
+.organizer-carousel-panel{position:absolute;left:50%;top:50%;margin:-74px 0 0 -52px;transform:rotateY(var(--organizer-angle)) translateZ(142px);transform-style:preserve-3d;transition:transform 180ms ease,opacity 160ms ease}
+.organizer-carousel-panel:nth-child(n+6){opacity:.72}
+.organizer-carousel-panel .editor-card-frame{background:linear-gradient(150deg,rgba(92,228,238,.24),rgba(12,49,59,.78) 46%,rgba(7,18,28,.9));border-color:rgba(182,251,255,.56);box-shadow:inset 0 1px rgba(255,255,255,.28),0 12px 28px rgba(0,0,0,.4);backdrop-filter:blur(10px)}
+.organizer-carousel-panel:first-child{z-index:4;transform:rotateY(var(--organizer-angle)) translateZ(142px) scale(1.06)}
+
 .organizer-row{display:flex;gap:12px;align-items:flex-start;min-height:196px;padding:4px 2px 8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#4b827a transparent}
 .organizer-row::-webkit-scrollbar{height:6px}
 .organizer-row::-webkit-scrollbar-thumb{background:#4b827a;border-radius:6px}
@@ -48,4 +56,7 @@
   .carousel-editor-sandbox{padding:14px}
   .carousel-organizer-modal{max-height:calc(100dvh - 24px)}
   .organizer-row{min-height:186px}
+  .organizer-carousel-stage{min-height:206px;perspective:620px}
+  .organizer-carousel-panel{transform:rotateY(var(--organizer-angle)) translateZ(122px)}
+  .organizer-carousel-panel:first-child{transform:rotateY(var(--organizer-angle)) translateZ(122px) scale(1.04)}
 }
