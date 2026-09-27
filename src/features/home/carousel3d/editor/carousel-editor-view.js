@@ -136,7 +136,11 @@ function buildRow(zone, cards, previews, emptyLabel) {
 function buildOrganizerCarousel(cards, previews, emptyLabel) {
   if (!cards.length) return el("p", { class: "editor-empty" }, [text(emptyLabel)]);
   var count = cards.length;
-  return el("div", { class: "organizer-carousel-stage", "data-organizer-carousel": "true" }, cards.map(function(card, index) {
+  return el("div", {
+    class: "organizer-carousel-stage",
+    "data-organizer-carousel": "true",
+    "aria-label": "Carrossel ativo. Arraste para girar; segure um card para reorganizar.",
+  }, cards.map(function(card, index) {
     return renderCard(card, "active", previews, "organizer-carousel-panel", "--organizer-angle:" + (index * 360 / count) + "deg;");
   }));
 }
@@ -285,9 +289,12 @@ function attachListeners(root, editor, registry, rerender, onChange) {
   var suppressClickUntil = 0;
   var windowBound = false;
   var touchGuardBound = false;
+  var carouselTurn = 0;
+  var carouselSpin = null;
 
   function zoneNode(zone) { return root.querySelector('[data-organizer-zone="' + zone + '"]'); }
   function rowNode(zone) { return root.querySelector('[data-organizer-row="' + zone + '"]'); }
+  function carouselNode() { return root.querySelector("[data-organizer-carousel]"); }
   function ghostNode() { return root.querySelector("[data-organizer-ghost]"); }
   function captionNode() { return root.querySelector("[data-organizer-caption]"); }
 
@@ -383,10 +390,26 @@ function attachListeners(root, editor, registry, rerender, onChange) {
     if (drag && event.cancelable) event.preventDefault();
   }
 
+  function setCarouselTurn(value) {
+    carouselTurn = value;
+    var carousel = carouselNode();
+    if (carousel) carousel.style.setProperty("--organizer-turn", carouselTurn + "deg");
+  }
+
+  function isInsideCarousel(node) {
+    var carousel = carouselNode();
+    while (node && node !== root) {
+      if (node === carousel) return true;
+      node = node.parentNode;
+    }
+    return false;
+  }
+
   function cancelGesture() {
     clearLongPress();
     stopAutoScroll();
     pending = null;
+    carouselSpin = null;
     if (dragCard) dragCard.classList.remove("is-dragging");
     dragCard = null;
     drag = null;
@@ -465,12 +488,14 @@ function attachListeners(root, editor, registry, rerender, onChange) {
   function onPointerDown(event) {
     if (event.button != null && event.button !== 0) return;
     var card = findCard(event.target, root);
-    if (!card || findAction(event.target, root)) return;
+    if (!card && !isInsideCarousel(event.target)) return;
+    if (findAction(event.target, root)) return;
     if (pending || drag) cancelGesture();
     pending = {
-      id: card.getAttribute("data-organizer-card"),
-      zone: card.getAttribute("data-card-zone") || "active",
+      id: card && card.getAttribute("data-organizer-card"),
+      zone: card && card.getAttribute("data-card-zone") || "active",
       card: card,
+      carousel: isInsideCarousel(event.target),
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
@@ -479,7 +504,7 @@ function attachListeners(root, editor, registry, rerender, onChange) {
     };
     bindWindow();
     clearLongPress();
-    longPressTimer = setTimeout(function() { longPressTimer = 0; beginDrag(); }, LONG_PRESS_MS);
+    if (card) longPressTimer = setTimeout(function() { longPressTimer = 0; beginDrag(); }, LONG_PRESS_MS);
   }
 
   function onPointerMove(event) {
@@ -487,8 +512,24 @@ function attachListeners(root, editor, registry, rerender, onChange) {
     if (pending) {
       if (event.pointerId != null && pending.pointerId != null && event.pointerId !== pending.pointerId) return;
       var moved = Math.abs(event.clientX - pending.startX) + Math.abs(event.clientY - pending.startY);
-      if (moved > MOVE_TOLERANCE) cancelGesture();
+      if (moved > MOVE_TOLERANCE && pending.carousel && Math.abs(event.clientX - pending.startX) > Math.abs(event.clientY - pending.startY)) {
+        carouselSpin = {
+          pointerId: pending.pointerId,
+          startX: pending.startX,
+          startTurn: carouselTurn,
+        };
+        clearLongPress();
+        pending = null;
+        if (event.cancelable) event.preventDefault();
+        setCarouselTurn(carouselSpin.startTurn + (event.clientX - carouselSpin.startX) * 0.55);
+      } else if (moved > MOVE_TOLERANCE) cancelGesture();
       else { pending.x = event.clientX; pending.y = event.clientY; }
+      return;
+    }
+    if (carouselSpin) {
+      if (event.pointerId != null && carouselSpin.pointerId != null && event.pointerId !== carouselSpin.pointerId) return;
+      if (event.cancelable) event.preventDefault();
+      setCarouselTurn(carouselSpin.startTurn + (event.clientX - carouselSpin.startX) * 0.55);
       return;
     }
     if (!drag) return;
@@ -502,6 +543,7 @@ function attachListeners(root, editor, registry, rerender, onChange) {
 
   function onPointerEnd() {
     if (!root.isConnected) { cancelGesture(); return; }
+    if (carouselSpin) { carouselSpin = null; unbindWindow(); return; }
     if (!drag) { cancelGesture(); return; }
     commitDrop();
   }

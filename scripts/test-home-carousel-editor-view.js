@@ -151,6 +151,8 @@ assert(viewSrc.indexOf("editor-autoplay-toggle") === -1, "organizer has no paral
 assert(viewSrc.indexOf("editor-interval-input") === -1, "organizer has no parallel interval flow");
 assert(allText1.indexOf("organizer-carousel-stage") !== -1, "active carousel stage rendered");
 assert(allText1.indexOf("organizer-row-floor") !== -1, "floor row rendered");
+assert(viewSrc.indexOf("setCarouselTurn") !== -1, "active carousel responds to horizontal drag");
+assert(viewSrc.indexOf("Arraste para girar") !== -1, "active carousel exposes its gesture hint");
 assert(container1._find(".organizer-ghost") !== null, "drag ghost rendered");
 var cards1 = container1._find(".editor-card editor-card-active organizer-carousel-panel");
 assert(cards1 !== null, "active cards rendered");
