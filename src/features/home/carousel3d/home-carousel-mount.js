@@ -179,6 +179,12 @@
         Promise.resolve(bridge.hide?.()).catch(() => {});
         options.onEdit?.();
       })).then(storeListener).catch(() => {});
+      Promise.resolve(bridge.addListener("editorChange", (payload) => {
+        if (!disposed) options.onEditorChange?.(payload);
+      })).then(storeListener).catch(() => {});
+      Promise.resolve(bridge.addListener("editorClose", () => {
+        if (!disposed) options.onEditorClose?.();
+      })).then(storeListener).catch(() => {});
     }
 
     function useFallback(error) {

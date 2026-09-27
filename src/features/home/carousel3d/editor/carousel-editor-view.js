@@ -76,15 +76,22 @@ function text(value) {
 
 function renderCard(item, zone, previews, extraClass, style) {
   var preview = (previews && previews[item.id]) || {};
-  var icon = typeof preview.icon === "string" && preview.icon ? preview.icon : item.title.charAt(0);
   var detail = typeof preview.detail === "string" ? preview.detail : "";
+  var live = Array.isArray(preview.live) ? preview.live.slice(0, 3) : [];
+
+  var bodyChildren = [];
+  if (detail) bodyChildren.push(el("small", { class: "editor-card-detail" }, [text(detail)]));
+  live.forEach(function(value, index) {
+    bodyChildren.push(el("span", { class: "editor-card-metric editor-card-metric-" + index }, [text(value)]));
+  });
+  if (!bodyChildren.length) bodyChildren.push(el("span", { class: "editor-card-id" }, [text(item.id)]));
 
   var frameChildren = [
-    el("span", { class: "editor-card-icon" }, [text(icon)]),
-    el("strong", { class: "editor-card-title" }, [text(item.title)]),
-    el("span", { class: "editor-card-id" }, [text(item.id)]),
+    el("span", { class: "editor-card-photo editor-card-photo-" + item.id, "aria-hidden": "true" }, []),
+    el("span", { class: "editor-card-title-band" }, [el("strong", { class: "editor-card-title" }, [text(item.title)])]),
+    el("span", { class: "editor-card-body" }, bodyChildren),
+    el("small", { class: "editor-card-brand" }, [text("Simplifica 3D")]),
   ];
-  if (detail) frameChildren.push(el("small", { class: "editor-card-detail" }, [text(detail)]));
 
   return el("div", {
     class: "editor-card editor-card-" + zone + (extraClass ? " " + extraClass : ""),

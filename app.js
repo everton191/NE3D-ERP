@@ -18223,7 +18223,7 @@ let editorCarrosselHomeAberto = false;
 let editorCarrosselHomeAlterado = false;
 
 function mountHomeCarousel(container) {
-  return window.SimplificaHomeCarouselMount.mount(container, { canAccessScreen, onNavigate: trocarTela, onEdit: abrirEditorCarrosselHome, isEditorOpen: () => editorCarrosselHomeAberto, getPreferences: () => appConfig.homeCarouselPreferences });
+  return window.SimplificaHomeCarouselMount.mount(container, { canAccessScreen, onNavigate: trocarTela, onEdit: abrirEditorCarrosselHome, onEditorChange: aplicarEdicaoNativaCarrosselHome, onEditorClose: () => fecharEditorCarrosselHome(true), isEditorOpen: () => editorCarrosselHomeAberto, getPreferences: () => appConfig.homeCarouselPreferences });
 }
 
 function lerPreviewsCarrosselHome() {
@@ -18257,18 +18257,42 @@ function abrirEditorCarrosselHome() {
   const editor = editorApi.createEditor(state, registry);
   editorCarrosselHomeAberto = true;
   editorCarrosselHomeAlterado = false;
+  const nativeBridge = getBridgeEditorCarrosselHome();
+  if (typeof nativeBridge?.openEditor === "function") {
+    const previews = lerPreviewsCarrosselHome();
+    const catalog = registry.all.filter((item) => !item.future && item.available !== false).map((item) => ({
+      id: item.id, title: item.title, targetScreen: item.targetScreen || "", detail: previews[item.id]?.detail || "Abrir recurso", live: Array.isArray(previews[item.id]?.live) ? previews[item.id].live : []
+    }));
+    nativeBridge.openEditor({ catalog, visibleCardIds: editor.getState().visibleCardIds, theme: document.body.classList.contains("theme-light") ? "light" : "dark" }).catch(() => {
+      editorCarrosselHomeAberto = false;
+      abrirEditorCarrosselHome();
+    });
+    return;
+  }
   popup.innerHTML = '<div class="modal-backdrop" role="dialog" aria-modal="true" onclick="fecharEditorCarrosselHome()"><section class="modal-card carousel-editor-sandbox carousel-organizer-modal" onclick="event.stopPropagation()"><div class="card-header"><h2>Editar carrossel</h2><button class="icon-button" type="button" aria-label="Fechar editor do carrossel" onclick="fecharEditorCarrosselHome()">✕</button></div><div id="homeCarouselEditorRoot"></div></section></div>';
   const root = document.getElementById("homeCarouselEditorRoot");
   viewApi.createView(root, editor, registry, persistirEditorCarrosselHome, lerPreviewsCarrosselHome()).render();
 }
 
-function fecharEditorCarrosselHome() {
+function fecharEditorCarrosselHome(fromNative = false) {
   const alterado = editorCarrosselHomeAlterado;
   editorCarrosselHomeAberto = false;
   editorCarrosselHomeAlterado = false;
+  if (!fromNative) getBridgeEditorCarrosselHome()?.closeEditor?.();
   fecharPopup();
   window.SimplificaHomeCarouselMount?.resume?.();
   if (alterado) mostrarToast("Alterações do carrossel salvas.", "success");
+}
+
+function aplicarEdicaoNativaCarrosselHome(payload) {
+  const ids = Array.isArray(payload?.visibleCardIds) ? payload.visibleCardIds : [];
+  if (ids.length < 5 || ids.length > 10) return;
+  const anterior = appConfig.homeCarouselPreferences || {};
+  persistirEditorCarrosselHome({ ...anterior, visibleCardIds: ids, cardOrder: ids });
+}
+
+function getBridgeEditorCarrosselHome() {
+  try { return window.Capacitor?.Plugins?.SimplificaCarousel3D || null; } catch (_) { return null; }
 }
 
 function unmountHomeCarousel() {

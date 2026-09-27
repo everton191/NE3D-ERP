@@ -1,6 +1,7 @@
 package br.com.ne3d.erp.carousel3d
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Outline
 import android.os.Handler
 import android.os.Looper
@@ -56,6 +57,7 @@ object HomeCarouselHost {
     private var panelBackground: Int = BACKGROUND_DARK
     private var lightTheme = false
     private var pendingTextures: Array<ShellRenderer.PendingTexture> = emptyArray()
+    private var assetContext: Context? = null
 
     private val metricsTick: Runnable = Runnable {
         val active = surface ?: return@Runnable
@@ -75,6 +77,7 @@ object HomeCarouselHost {
         onEditor: () -> Unit,
     ) {
         if (activity.isFinishing || activity.isDestroyed) return
+        assetContext = activity.applicationContext
         this.onSelect = onSelect
         this.onEditor = onEditor
         val structureChanged = this.modules.map { it.id } != modules.map { it.id }
@@ -114,7 +117,8 @@ object HomeCarouselHost {
         if (pendingTextures.isEmpty() || modules.isEmpty()) return
         modules.forEachIndexed { index, module ->
             val pending = pendingTextures.getOrNull(index) ?: return@forEachIndexed
-            pending.bitmap.set(CarouselTileBitmap.render(module, lightTheme))
+            val context = assetContext ?: return
+            pending.bitmap.set(CarouselTileBitmap.render(context, module, lightTheme))
         }
     }
 
@@ -177,6 +181,7 @@ object HomeCarouselHost {
         surface?.stopRenderer()
         surface = null
         pendingTextures = emptyArray()
+        assetContext = null
         val view = composeView ?: return
         composeView = null
         (view.parent as? ViewGroup)?.removeView(view)
@@ -265,7 +270,7 @@ object HomeCarouselHost {
                         val textures = modules.map { module ->
                             ShellRenderer.PendingTexture(
                                 module.id,
-                                AtomicReference(CarouselTileBitmap.render(module, lightTheme)),
+                                AtomicReference(CarouselTileBitmap.render(context, module, lightTheme)),
                             )
                         }.toTypedArray()
                         pendingTextures = textures

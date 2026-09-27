@@ -4,6 +4,7 @@ import br.com.ne3d.erp.carousel3d.CarouselModule
 import br.com.ne3d.erp.carousel3d.CarouselModuleMapper
 import br.com.ne3d.erp.carousel3d.CarouselRect
 import br.com.ne3d.erp.carousel3d.HomeCarouselHost
+import br.com.ne3d.erp.carousel3d.NativeCarouselEditorDialog
 import br.com.ne3d.erp.carousel3d.RawCarouselModule
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -22,6 +23,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
  */
 @CapacitorPlugin(name = "SimplificaCarousel3D")
 class SimplificaCarousel3DPlugin : Plugin() {
+    private var editorDialog: NativeCarouselEditorDialog? = null
 
     @PluginMethod
     fun show(call: PluginCall) {
@@ -80,6 +82,31 @@ class SimplificaCarousel3DPlugin : Plugin() {
         call.resolve()
     }
 
+    @PluginMethod
+    fun openEditor(call: PluginCall) {
+        val hostActivity = activity ?: run { call.reject("Activity indisponível."); return }
+        val catalog = readModules(call, "catalog")
+        val visible = call.getArray("visibleCardIds")?.let { ids ->
+            (0 until ids.length()).mapNotNull { ids.optString(it).takeIf(String::isNotEmpty) }
+        }.orEmpty()
+        if (catalog.isEmpty() || visible.size < 5) { call.reject("Catálogo do carrossel inválido."); return }
+        val light = (call.getString("theme") ?: "dark") == "light"
+        hostActivity.runOnUiThread {
+            editorDialog?.dismiss()
+            editorDialog = NativeCarouselEditorDialog(hostActivity, catalog, visible, light,
+                onChange = { ids -> notifyEditorChange(ids) },
+                onClose = { editorDialog = null; notifyEditorClose() })
+            editorDialog?.show()
+        }
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun closeEditor(call: PluginCall) {
+        activity?.runOnUiThread { editorDialog?.dismiss() }
+        call.resolve()
+    }
+
     override fun handleOnPause() {
         HomeCarouselHost.onPause()
         super.handleOnPause()
@@ -91,6 +118,7 @@ class SimplificaCarousel3DPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        editorDialog?.dismiss()
         HomeCarouselHost.hide()
         super.handleOnDestroy()
     }
@@ -105,6 +133,8 @@ class SimplificaCarousel3DPlugin : Plugin() {
     }
 
     private fun notifyEditor() = notifyListeners(EVENT_EDITOR, JSObject(), false)
+    private fun notifyEditorChange(ids: List<String>) = notifyListeners(EVENT_EDITOR_CHANGE, JSObject().apply { put("visibleCardIds", ids) }, false)
+    private fun notifyEditorClose() = notifyListeners(EVENT_EDITOR_CLOSE, JSObject(), false)
 
     private fun readBackground(call: PluginCall): Int {
         val theme = call.getString("theme") ?: "dark"
@@ -120,8 +150,8 @@ class SimplificaCarousel3DPlugin : Plugin() {
         return CarouselRect(left, top, width, height)
     }
 
-    private fun readModules(call: PluginCall): List<CarouselModule> {
-        val array = call.getArray("modules") ?: return emptyList()
+    private fun readModules(call: PluginCall, key: String = "modules"): List<CarouselModule> {
+        val array = call.getArray(key) ?: return emptyList()
         val raw = ArrayList<RawCarouselModule>(array.length())
         for (index in 0 until array.length()) {
             val entry = array.optJSONObject(index) ?: continue
@@ -143,5 +173,7 @@ class SimplificaCarousel3DPlugin : Plugin() {
     companion object {
         const val EVENT_SELECT = "select"
         const val EVENT_EDITOR = "editor"
+        const val EVENT_EDITOR_CHANGE = "editorChange"
+        const val EVENT_EDITOR_CLOSE = "editorClose"
     }
 }
