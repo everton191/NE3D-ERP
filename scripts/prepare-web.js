@@ -1,9 +1,14 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const root = path.resolve(__dirname, "..");
 const dist = path.join(root, "dist");
 const includeReleaseDownloads = !process.argv.includes("--without-downloads");
+const buildInputs = ["index.html", "sw.js", "app.js", "style.css", "src/services/ai-runtime-loader.js", "src/ai/action-registry.js", "src/ai/intent-registry.js", "src/ai/action-plan.js", "src/ai/context-snapshot.js", "src/ai/draft-manager.js", "src/ai/tool-registry.js", "src/ai/tool-candidate-retriever.js", "src/ai/needle-shadow-provider.js", "src/ai/lfm-intent-provider.js", "src/ai/ptbr-routing-normalizer.js", "src/ai/deterministic-value-extractor.js", "src/ai/dynamic-tool-schema.js", "src/ai/ptbr-evaluation-corpus.js", "src/ai/needle-persisted-evaluation.js"];
+const buildDigest = crypto.createHash("sha256");
+buildInputs.forEach((relativePath) => { const absolutePath = path.join(root, relativePath); buildDigest.update(relativePath); if (fs.existsSync(absolutePath)) buildDigest.update(fs.readFileSync(absolutePath)); });
+const buildId = `0.1.0-${buildDigest.digest("hex").slice(0, 16)}`;
 const files = [
   "index.html",
   "style.css",
@@ -21,10 +26,19 @@ function copyFile(relativePath) {
   fs.copyFileSync(source, target);
 }
 
+function copyTemplate(relativePath) {
+  const source = path.join(root, relativePath);
+  const target = path.join(dist, relativePath);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, fs.readFileSync(source, "utf8").replaceAll("__SIMPLIFICA_BUILD_ID__", buildId));
+}
+
 fs.rmSync(dist, { recursive: true, force: true });
 fs.mkdirSync(dist, { recursive: true });
 
-files.forEach(copyFile);
+files.forEach((relativePath) => ["index.html", "sw.js"].includes(relativePath) ? copyTemplate(relativePath) : copyFile(relativePath));
+fs.writeFileSync(path.join(dist, "build-info.json"), `${JSON.stringify({ buildId, generatedAt: "deterministic", inputs: buildInputs }, null, 2)}\n`);
+if (fs.existsSync(path.join(root, "config", "ai", "model-manifest.json"))) copyFile("config/ai/model-manifest.json");
 
 const publicDownloadFiles = [
   "downloads/update.json",
@@ -74,6 +88,20 @@ const publicSrcFiles = [
   "src/services/simplifica3dAiRuntime.js",
   "src/services/simplifica3dFinancialCore.js",
   "src/ai/action-registry.js",
+  "src/ai/intent-registry.js",
+  "src/ai/action-plan.js",
+  "src/ai/context-snapshot.js",
+  "src/ai/tool-registry.js",
+  "src/ai/ptbr-routing-normalizer.js",
+  "src/ai/deterministic-value-extractor.js",
+  "src/ai/dynamic-tool-schema.js",
+  "src/ai/ptbr-evaluation-corpus.js",
+  "src/ai/needle-persisted-evaluation.js",
+  "src/ai/tool-candidate-retriever.js",
+  "src/ai/needle-provider-contract.js",
+  "src/ai/model-manifest.js",
+  "src/ai/needle-shadow-provider.js",
+  "src/ai/lfm-intent-provider.js",
   "src/ai/action-search.js",
   "src/ai/workflow-tool-graph.js",
   "src/ai/deterministic-router.js",
@@ -84,6 +112,8 @@ const publicSrcFiles = [
   "src/ai/canonical-runtime-bindings.js",
   "src/ai-3d/core.js",
   "src/ai-3d/entity-resolution.js",
+  "src/ai/draft-manager.js",
+  "src/ai/runtime-contract-diagnostics.js",
   "src/ai-3d/operation-safety.js",
   "src/ai-3d/canonical-order.js",
   "src/ai-3d/order-create-preparation.js",
@@ -251,4 +281,4 @@ function assertNoLocalModelArtifactsInWebBuild() {
 }
 
 assertNoLocalModelArtifactsInWebBuild();
-console.log("Arquivos web preparados em dist/ sem GGUFs locais.");
+console.log(`Arquivos web preparados em dist/ sem GGUFs locais. buildId=${buildId}`);

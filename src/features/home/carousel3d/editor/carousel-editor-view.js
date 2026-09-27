@@ -128,6 +128,7 @@ function buildRow(zone, cards, previews, emptyLabel) {
   return el("div", {
     class: "organizer-row organizer-row-" + zone,
     "data-organizer-row": zone,
+    "data-allow-horizontal-scroll": "",
   }, children);
 }
 
@@ -159,32 +160,11 @@ function buildViewStructure(editor, registry, previews) {
   var count = state.visibleCardIds.length;
   var limit = count <= MIN_CARDS ? LABELS.minimumHint : (count >= MAX_CARDS ? LABELS.maximumHint : "");
 
-  var controls = [
-    el("label", { class: "editor-toggle" }, [
-      el("input", { type: "checkbox", class: "editor-autoplay-toggle", checked: state.autoplay }, []),
-      text(" " + LABELS.autoplay),
-    ]),
-    el("div", { class: "editor-interval" }, [
-      el("label", { for: "editor-interval-input" }, [text(LABELS.interval + ": ")]),
-      el("input", {
-        type: "number",
-        id: "editor-interval-input",
-        class: "editor-interval-input",
-        min: "3000",
-        max: "60000",
-        step: "1000",
-        value: String(state.autoplayInterval),
-      }, []),
-    ]),
-    el("button", {
-      class: "editor-btn editor-btn-restore",
-      "data-action": "restore",
-      "data-card-id": "restore",
-      type: "button",
-    }, [text(LABELS.restore)]),
-  ];
-  if (limit) controls.push(el("span", { class: "editor-limit" }, [text(limit)]));
-  children.push(el("div", { class: "editor-controls" }, controls));
+  // O organizador do Launcher não possui botões paralelos: piso e carrossel
+  // são as únicas ações. Isso evita criar um segundo fluxo além do arraste.
+  children.push(el("p", { class: "editor-limit", "data-organizer-count": String(count) }, [
+    text(limit || (count + " de " + MAX_CARDS + " cards no carrossel.")),
+  ]));
 
   children.push(el("div", {
     class: "organizer-ghost",
@@ -536,19 +516,6 @@ function attachListeners(root, editor, registry, rerender, onChange) {
       }
       target = target.parentNode;
     }
-  });
-
-  root.addEventListener("change", function(e) {
-    var changed = e.target;
-    if (changed && changed.className === "editor-autoplay-toggle") {
-      editor.setAutoplay(changed.checked);
-    } else if (changed && changed.className === "editor-interval-input") {
-      var val = parseInt(changed.value, 10);
-      if (!isNaN(val)) editor.setAutoplayInterval(val);
-    } else {
-      return;
-    }
-    onChange && onChange(editor.getState());
   });
 
   return function dispose() { cancelGesture(); };

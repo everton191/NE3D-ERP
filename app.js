@@ -29617,6 +29617,9 @@ function mesclarConfiguracaoBackup(atual, recebida, preservarVisual = false) {
       if (Object.prototype.hasOwnProperty.call(atual, chave)) proxima[chave] = atual[chave];
       else delete proxima[chave];
     }
+    if (Object.prototype.hasOwnProperty.call(atual, "homeCarouselPreferences")) {
+      proxima.homeCarouselPreferences = atual.homeCarouselPreferences;
+    }
   }
   return proxima;
 }
@@ -33448,9 +33451,9 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
     <div class="calc-summary-card">
       <div class="calc-summary-head">
         <strong>${renderUiIcon("calculadora")} Resumo do cálculo</strong>
-        <button class="icon-button expand-toggle-button" type="button" onclick="alternarResumoCalculadora(this)" title="Recolher ou expandir" aria-expanded="true" aria-controls="calcSummaryLines"><span class="expand-toggle-indicator" aria-hidden="true"></span></button>
+        <button class="calc-summary-toggle" type="button" onclick="alternarResumoCalculadora(this)" title="Ver detalhes do cálculo" aria-expanded="false" aria-controls="calcSummaryLines">Toque para ver detalhes <span class="expand-toggle-indicator" aria-hidden="true"></span></button>
       </div>
-      <div class="calc-summary-lines" id="calcSummaryLines">
+      <div class="calc-summary-lines is-collapsed" id="calcSummaryLines">
         <span>Peso total</span><strong>${Number((calculo.pesoTotal ?? calculo.peso) || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 })} g</strong>
         <span>Tempo de máquina</span><strong>${CalculatorDomain.formatMinutes(calculo.tempoTotalMinutos ?? Math.round((Number(calculo.tempo) || 0) * 60)).label}</strong>
         ${calculo.impressaoLote ? `<span>Quantidade</span><strong>${quantidadeLote} un.</strong><span>Modo do lote</span><strong>${calculo.modoLote === "whole_batch" ? "Lote inteiro" : "Dados por peça"}</strong>` : ""}
@@ -33468,7 +33471,7 @@ function renderResumoCalculo(calculo = ultimoCalculo) {
         <input id="valorManualItem" type="text" inputmode="decimal" value="${escaparAttr((Number(calculo.preco) || 0).toFixed(2).replace('.', ','))}" placeholder="0,00">
       </label>
       <div class="calc-final-row">
-        <span>${calculo.impressaoLote ? "Valor total do lote" : "Total final"}</span>
+        <span>${calculo.impressaoLote ? "Valor total do lote" : "Valor estimado"}</span>
         <strong>${formatarMoeda(totalFinal)}</strong>
       </div>
       <small class="calc-margin-status">${escaparHtml(status)}</small>
@@ -33597,6 +33600,7 @@ function alternarTaxaExtraAtiva(ativa = false) {
     appConfig.calcExtraFeeValue = 0;
   }
   atualizarVisualTaxaExtraCalculadora();
+  estabilizarViewportCalculadora();
   agendarCalculoTempoReal();
 }
 
@@ -33604,7 +33608,20 @@ function selecionarTipoTaxaExtraCalculadora(tipo = "percent") {
   appConfig.calcExtraFeeMode = tipo === "fixed" ? "manual" : "percent";
   salvarDados();
   atualizarVisualTaxaExtraCalculadora();
+  estabilizarViewportCalculadora();
   agendarCalculoTempoReal();
+}
+
+function estabilizarViewportCalculadora() {
+  const panel = document.querySelector(".mobile-panel-calculator");
+  const content = panel?.querySelector(".calculator-panel-content");
+  const resetar = () => {
+    [document.documentElement, document.body, panel, content].filter(Boolean).forEach((elemento) => {
+      if (elemento.scrollLeft) elemento.scrollLeft = 0;
+    });
+  };
+  resetar();
+  requestAnimationFrame(resetar);
 }
 
 function atualizarTaxaExtraControle(valor = 0) {
@@ -33638,8 +33655,7 @@ function renderCalculadoraConteudo() {
   const perfil = obterPerfilAtivoCalculadora(config);
   const taxaEstado = getEstadoTaxaExtraCalculadora();
   const emPedido = calculadoraModoPedido === true;
-  const acaoPrincipal = emPedido ? "Adicionar ao pedido" : "Gerar pedido com este cálculo";
-  const subtituloAcao = emPedido ? "e continuar" : "abrir pedido";
+  const acaoPrincipal = emPedido ? "Adicionar ao pedido" : "Criar pedido";
   return `
     <div class="calc-toolbar">
       <button class="icon-button" type="button" onclick="voltarTela()" title="Voltar">‹</button>
@@ -33672,27 +33688,21 @@ function renderCalculadoraConteudo() {
       <input id="margem" type="hidden" value="${escaparAttr(config.margem)}">
 
       <div class="calc-modern-grid">
-        <label class="field calc-field-card wide calc-weight-card">
-          <span>Peso da peça (g)</span>
-          <input id="peso" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Ex.: 120" value="${escaparAttr(config.peso)}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.peso=this.value;agendarCalculoTempoReal()">
+        <label class="field calc-field-card calc-weight-card">
+          <span>Peso</span>
+          <input id="peso" type="number" inputmode="decimal" min="0" step="0.01" placeholder="120" value="${escaparAttr(config.peso)}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.peso=this.value;agendarCalculoTempoReal()">
           <i>g</i>
         </label>
-        <div class="field calc-field-card wide calc-time-card">
-          <span>Tempo de impressão</span>
-          <div class="calc-time-split" role="group" aria-label="Tempo de impressão em horas e minutos">
-            <label><input id="tempo" type="number" inputmode="numeric" min="0" step="1" placeholder="Ex.: 2" value="${escaparAttr(Number(config.tempo) > 0 ? config.tempo : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="sincronizarTempoSeparadoCalculadora()" onblur="normalizarTempoSeparadoCalculadora()"><small>horas</small></label>
-            <b aria-hidden="true">:</b>
-            <label><input id="tempoMinutos" type="number" inputmode="numeric" enterkeyhint="done" min="0" max="59" step="1" placeholder="Ex.: 30" value="${escaparAttr(Number(config.tempoMinutos) > 0 ? config.tempoMinutos : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="sincronizarTempoSeparadoCalculadora()" onblur="concluirTempoCalculadora()" onkeydown="concluirTempoCalculadora(event)"><small>min</small></label>
-          </div>
-          <input id="tempoFormato" type="hidden" value="${escaparAttr(formatarTempoCalculadora(config.tempo, config.tempoMinutos))}">
-        </div>
+        <label class="field calc-field-card calc-time-card"><span>Horas</span><input id="tempo" type="number" inputmode="numeric" min="0" step="1" placeholder="2" value="${escaparAttr(Number(config.tempo) > 0 ? config.tempo : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="sincronizarTempoSeparadoCalculadora()" onblur="normalizarTempoSeparadoCalculadora()"><i>h</i></label>
+        <label class="field calc-field-card calc-minutes-card"><span>Minutos</span><input id="tempoMinutos" type="number" inputmode="numeric" enterkeyhint="done" min="0" max="59" step="1" placeholder="30" value="${escaparAttr(Number(config.tempoMinutos) > 0 ? config.tempoMinutos : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="sincronizarTempoSeparadoCalculadora()" onblur="concluirTempoCalculadora()" onkeydown="concluirTempoCalculadora(event)"><i>min</i></label>
+        <input id="tempoFormato" type="hidden" value="${escaparAttr(formatarTempoCalculadora(config.tempo, config.tempoMinutos))}">
         <section class="calc-option-block wide" data-calc-option="batch">
           <label class="calc-option-header">
             <input id="impressaoLote" type="checkbox" ${calculatorDraftState.batchActive ? "checked" : ""} onchange="alternarImpressaoLote(this.checked)">
             <span><strong>Calcular várias peças</strong><small>Define quantidade e consumo total do lote.</small></span>
           </label>
           <div class="calc-option-fields" id="calcBatchFields" ${calculatorDraftState.batchActive ? "" : "hidden"}>
-            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" inputmode="numeric" min="2" max="999" step="1" placeholder="Ex.: 5" value="${escaparAttr(Number(calculatorDraftState.quantity) >= 2 ? calculatorDraftState.quantity : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.quantity=this.value;atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
+            <div class="calc-stepper-row"><span>Quantidade</span><div><button type="button" onclick="ajustarQuantidadeLoteCalculadora(-1)" aria-label="Diminuir quantidade">−</button><input id="quantidade" type="number" inputmode="numeric" min="2" max="999" step="1" placeholder="5" value="${escaparAttr(Number(calculatorDraftState.quantity) >= 2 ? calculatorDraftState.quantity : "")}" onfocus="prepararEdicaoCalculadora(this)" oninput="calculatorDraftState.quantity=this.value;atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><small>unidades</small><button type="button" onclick="ajustarQuantidadeLoteCalculadora(1)" aria-label="Aumentar quantidade">+</button></div></div>
             <div class="calc-segmented" role="radiogroup" aria-label="Interpretação dos dados do lote">
               <label><input type="radio" name="calcBatchMode" value="per_piece" ${calculatorDraftState.batchMode !== "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='per_piece';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Dados por peça</span></label>
               <label><input type="radio" name="calcBatchMode" value="whole_batch" ${calculatorDraftState.batchMode === "whole_batch" ? "checked" : ""} onchange="calculatorDraftState.batchMode='whole_batch';atualizarResumoLoteCalculadora();agendarCalculoTempoReal()"><span>Lote inteiro</span></label>
@@ -33710,7 +33720,7 @@ function renderCalculadoraConteudo() {
               <label><input type="radio" name="calcExtraFeeType" value="percent" ${taxaEstado.modo === "percent" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('percent')"><span>Percentual (%)</span></label>
               <label><input type="radio" name="calcExtraFeeType" value="fixed" ${taxaEstado.modo === "manual" ? "checked" : ""} onchange="selecionarTipoTaxaExtraCalculadora('fixed')"><span>Valor fixo (R$)</span></label>
             </div>
-            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" placeholder="Ex.: 10" value="${escaparAttr(String(valorExibidoTaxaExtraCalculadora(taxaEstado) || "").replace('.', ','))}" onfocus="prepararEdicaoCalculadora(this)" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) + 1)" aria-label="Aumentar taxa">+</button></div>
+            <div class="calc-fee-stepper"><button type="button" onclick="atualizarTaxaExtraControle(Math.max(0, numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) - 1))" aria-label="Diminuir taxa">−</button><label><i id="taxaExtraUnit">${taxaEstado.modo === "manual" ? "R$" : "%"}</i><input id="taxaExtra" type="text" inputmode="decimal" placeholder="10" value="${escaparAttr(String(valorExibidoTaxaExtraCalculadora(taxaEstado) || "").replace('.', ','))}" onfocus="prepararEdicaoCalculadora(this)" oninput="atualizarTaxaExtraControle(this.value)"></label><button type="button" onclick="atualizarTaxaExtraControle(numeroMonetarioPedido(document.getElementById('taxaExtra').value, 0) + 1)" aria-label="Aumentar taxa">+</button></div>
           </div>
         </section>
       </div>
@@ -33732,7 +33742,7 @@ function renderCalculadoraConteudo() {
 
     <div class="calc-primary-actions">
       <button class="btn calc-main-action" id="confirmCalculatorItemButton" onclick="adicionarItem()" ${itemAdicionandoPedido ? "disabled" : ""}>
-        ${renderUiIcon("pedido")} <span>${itemAdicionandoPedido ? "Adicionando item..." : acaoPrincipal}<small>${subtituloAcao}</small></span>
+        ${renderUiIcon("pedido")} <span>${itemAdicionandoPedido ? "Adicionando item..." : acaoPrincipal}</span>
       </button>
       <button class="btn ghost calc-save-action" onclick="salvarOrcamento()">${renderIconeAcaoPedido("▣", "Salvar")} Salvar item</button>
     </div>

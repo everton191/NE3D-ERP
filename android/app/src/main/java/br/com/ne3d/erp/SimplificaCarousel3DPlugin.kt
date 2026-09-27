@@ -17,7 +17,8 @@ import com.getcapacitor.annotation.CapacitorPlugin
  * O web envia o retângulo do card em CSS px + o tamanho do viewport (assim a
  * conversão para pixels é uma regra de três, sem depender da densidade) e a lista
  * real de módulos. Em contrapartida o nativo notifica `select` quando um painel
- * termina a animação de saída, para o web navegar ao módulo.
+ * termina a animação de saída, para o web navegar ao módulo, e `editor` quando
+ * a engrenagem do piso é acionada, para o web abrir o editor do carrossel.
  */
 @CapacitorPlugin(name = "SimplificaCarousel3D")
 class SimplificaCarousel3DPlugin : Plugin() {
@@ -42,10 +43,13 @@ class SimplificaCarousel3DPlugin : Plugin() {
             call.resolve()
             return
         }
+        val background = readBackground(call)
         hostActivity.runOnUiThread {
-            HomeCarouselHost.show(hostActivity, rect, viewWidth, viewHeight, modules) { module ->
-                notifySelect(module)
-            }
+            HomeCarouselHost.show(
+                hostActivity, rect, viewWidth, viewHeight, background, modules,
+                onSelect = { module -> notifySelect(module) },
+                onEditor = { notifyEditor() },
+            )
         }
         call.resolve()
     }
@@ -64,7 +68,8 @@ class SimplificaCarousel3DPlugin : Plugin() {
             call.reject("Retângulo do carrossel ausente.")
             return
         }
-        hostActivity.runOnUiThread { HomeCarouselHost.updateRect(rect, viewWidth, viewHeight) }
+        val background = readBackground(call)
+        hostActivity.runOnUiThread { HomeCarouselHost.updateRect(rect, viewWidth, viewHeight, background) }
         call.resolve()
     }
 
@@ -99,6 +104,13 @@ class SimplificaCarousel3DPlugin : Plugin() {
         notifyListeners(EVENT_SELECT, payload, false)
     }
 
+    private fun notifyEditor() = notifyListeners(EVENT_EDITOR, JSObject(), false)
+
+    private fun readBackground(call: PluginCall): Int {
+        val theme = call.getString("theme") ?: "dark"
+        return if (theme == "light") HomeCarouselHost.BACKGROUND_LIGHT else HomeCarouselHost.BACKGROUND_DARK
+    }
+
     private fun readRect(call: PluginCall): CarouselRect? {
         val left = call.getDouble("left")?.toFloat() ?: return null
         val top = call.getDouble("top")?.toFloat() ?: return null
@@ -130,5 +142,6 @@ class SimplificaCarousel3DPlugin : Plugin() {
 
     companion object {
         const val EVENT_SELECT = "select"
+        const val EVENT_EDITOR = "editor"
     }
 }

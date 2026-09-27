@@ -63,11 +63,12 @@ async function runNativeScenario() {
   const container = createContainer();
   let navigated = null;
   let preferences = null;
-  const api = mountModule.mount(container, {
+  const options = {
     canAccessScreen: () => true,
     onNavigate: (screen) => { navigated = screen; },
     getPreferences: () => preferences
-  });
+  };
+  const api = mountModule.mount(container, options);
 
   assert.ok(api, "the native mount must expose an api");
   assert.equal(calls.show.length, 1, "mount must push the modules and the card rect once");
@@ -121,8 +122,9 @@ async function runNativeScenario() {
   assert.equal(calls.hide, 1, "unmount must hide the native host");
   assert.equal(calls.listeners.size, 0, "unmount must remove every native listener");
 
-  const remounted = mountModule.mount(container, { canAccessScreen: () => true });
+  const remounted = mountModule.mount(container, options);
   assert.notEqual(remounted, api, "a destroyed mount must not be reused");
+  assert.deepEqual(calls.show[2].modules.map((item) => item.id), preferences.cardOrder, "closing and reopening keeps the saved carousel order");
   remounted.unmount();
   await new Promise((resolve) => setTimeout(resolve, 300));
   assert.equal(calls.hide, 2, "the remounted instance must hide the native host as well");

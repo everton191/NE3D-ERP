@@ -147,6 +147,8 @@ console.log("\n[B2] estrutura do PanelOrganizer");
 assert(viewSrc.indexOf("editor-btn-move-up") === -1, "no move-up arrow button in the organizer");
 assert(viewSrc.indexOf("editor-btn-move-down") === -1, "no move-down arrow button in the organizer");
 assert(viewSrc.indexOf("Salvar altera\u00e7\u00f5es") === -1, "no explicit save button, changes persist immediately");
+assert(viewSrc.indexOf("editor-autoplay-toggle") === -1, "organizer has no parallel autoplay flow");
+assert(viewSrc.indexOf("editor-interval-input") === -1, "organizer has no parallel interval flow");
 assert(allText1.indexOf("organizer-row-active") !== -1, "active row rendered");
 assert(allText1.indexOf("organizer-row-floor") !== -1, "floor row rendered");
 assert(container1._find(".organizer-ghost") !== null, "drag ghost rendered");
