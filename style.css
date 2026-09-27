@@ -47159,8 +47159,11 @@ body[data-ui-profile="web_pwa"].mobile-mode .mobile-panel-calculator:focus-withi
   background:var(--surface-primary);
 }
 
-.calc-segmented label{min-width:0;cursor:pointer}
-.calc-segmented input{position:absolute;opacity:0;pointer-events:none}
+/* O radio precisa do próprio label como containing block: sem position:relative o
+   width:100% global resolveria contra o painel (position:fixed) e cada opção do lote
+   / da taxa extra passaria a largura da tela, criando scroll horizontal no painel. */
+.calc-segmented label{position:relative;min-width:0;cursor:pointer}
+.calc-segmented input{position:absolute;top:0;left:0;width:100%;max-width:100%;margin:0;opacity:0;pointer-events:none}
 .calc-segmented span{min-height:40px;display:grid;place-items:center;padding:6px;text-align:center;border-radius:9px;font-size:12px;font-weight:700}
 .calc-segmented input:checked + span{color:#fff;background:var(--primary)}
 
